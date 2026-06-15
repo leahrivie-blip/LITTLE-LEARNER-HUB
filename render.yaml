@@ -3,14 +3,12 @@ services:
     name: little-learner-hub
     env: node
     plan: starter
-    buildCommand: ""
+    buildCommand: "npm install"
     startCommand: "node server/index.js"
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 10000
       - key: SITE_URL
         sync: false
       - key: STRIPE_PUBLISHABLE_KEY
