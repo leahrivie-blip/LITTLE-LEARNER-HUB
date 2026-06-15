@@ -13,8 +13,20 @@ npm run start
 Then open:
 
 ```text
-http://localhost:4173
+http://localhost:4242
 ```
+
+## Deploy On Render
+
+Use the included `render.yaml` blueprint, or create a Node web service with:
+
+```text
+Build command: npm install
+Start command: node server/index.js
+Health check path: /api/health
+```
+
+Set `SITE_URL` to the HTTPS URL Render gives you after the first deploy. Add the Stripe, OpenAI, admin, and database environment values in Render's dashboard rather than committing `.env`.
 
 ## Ad-Ready Routes
 
