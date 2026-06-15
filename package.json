@@ -3,10 +3,14 @@
   "version": "1.0.0",
   "private": true,
   "description": "Little Learner Hub static website and childcare provider app.",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node server/index.js",
     "serve": "python3 -m http.server 4173",
     "server": "node server/index.js",
+    "check": "node --check server/index.js && node --check app.js && node --check server/launch-check.js",
     "stripe:check": "node server/stripe-check.js",
     "launch:check": "node server/launch-check.js"
   }
