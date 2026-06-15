@@ -1,0 +1,13 @@
+{
+  "name": "little-learner-hub",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Little Learner Hub static website and childcare provider app.",
+  "scripts": {
+    "start": "node server/index.js",
+    "serve": "python3 -m http.server 4173",
+    "server": "node server/index.js",
+    "stripe:check": "node server/stripe-check.js",
+    "launch:check": "node server/launch-check.js"
+  }
+}

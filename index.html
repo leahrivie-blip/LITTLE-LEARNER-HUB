@@ -1,0 +1,1040 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Little Learner Hub is an all-in-one childcare provider platform with lesson plans, observations, forms, printables, AI tools, billing, support tickets, and child management."
+    />
+    <meta name="theme-color" content="#386062" />
+    <title>Little Learner Hub</title>
+    <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="10" fill="%23386062"/><text x="32" y="39" text-anchor="middle" font-family="Arial" font-size="22" font-weight="700" fill="white">LL</text></svg>' />
+    <link rel="manifest" href="site.webmanifest" />
+    <link rel="stylesheet" href="styles.css?v=20260614-website" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Main navigation">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">
+            <span>LL</span>
+          </div>
+          <div>
+            <h1>Little Learner Hub</h1>
+            <p>Daycare resource library</p>
+          </div>
+        </div>
+
+        <nav class="nav-list">
+          <button class="nav-link active" data-view="home">
+            <span class="icon">LH</span>
+            Home
+          </button>
+          <button class="nav-link" data-view="planner">
+            <span class="icon">WK</span>
+            Weekly Planner
+          </button>
+          <button class="nav-link" data-view="observations">
+            <span class="icon">OB</span>
+            Observation Hub
+          </button>
+          <button class="nav-link" data-view="lessons">
+            <span class="icon">LP</span>
+            Lesson Plan Library
+          </button>
+          <button class="nav-link" data-view="forms">
+            <span class="icon">FM</span>
+            Forms Library
+          </button>
+          <button class="nav-link" data-view="activities">
+            <span class="icon">AC</span>
+            Activity Center
+          </button>
+          <button class="nav-link" data-view="menus">
+            <span class="icon">MN</span>
+            Menu Center
+          </button>
+          <button class="nav-link" data-view="printables">
+            <span class="icon">PR</span>
+            Printables
+          </button>
+          <button class="nav-link" data-view="ai">
+            <span class="icon">AI</span>
+            AI Tools
+          </button>
+          <button class="nav-link" data-view="tools">
+            <span class="icon">PT</span>
+            Provider Tools
+          </button>
+          <button class="nav-link" data-view="children">
+            <span class="icon">CM</span>
+            Child Management
+          </button>
+          <button class="nav-link" data-view="admin">
+            <span class="icon">AD</span>
+            Admin Dashboard
+          </button>
+          <button class="nav-link" data-view="plans">
+            <span class="icon">$</span>
+            Membership
+          </button>
+          <button class="nav-link" data-view="billing">
+            <span class="icon">BI</span>
+            Billing
+          </button>
+          <button class="nav-link" data-view="faq">
+            <span class="icon">?</span>
+            FAQ
+          </button>
+          <button class="nav-link" data-view="contact">
+            <span class="icon">@</span>
+            Contact
+          </button>
+          <button class="nav-link" data-view="account">
+            <span class="icon">ME</span>
+            Account
+          </button>
+        </nav>
+
+        <div class="plan-card">
+          <p class="eyebrow">Current Plan</p>
+          <strong id="currentPlanLabel">Free</strong>
+          <span id="planAccessSummary">Free includes limited samples and 10 AI generations monthly.</span>
+          <button class="small-button" data-view="plans">View Plans</button>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div class="mobile-brand">
+            <div class="brand-mark small" aria-hidden="true"><span>LL</span></div>
+            <strong>Little Learner Hub</strong>
+          </div>
+          <label class="search-wrap">
+            <span>Search</span>
+            <input id="searchInput" type="search" placeholder="What do you need today?" />
+          </label>
+          <div class="account-actions">
+            <button class="ghost-button" id="signinButton">Log in</button>
+            <button class="primary-button" id="signupButton">Sign up</button>
+          </div>
+        </header>
+
+        <section id="view-home" class="view active-view">
+          <div class="hero">
+            <div>
+              <p class="eyebrow">Ready-made childcare resource platform</p>
+              <h2>Everything a home daycare provider needs, ready when they need it.</h2>
+              <p>
+                Browse a polished library of lesson plans, observations, forms, menus, activities,
+                and printables, then use Ask Leah AI when you want something customized.
+              </p>
+              <div class="hero-actions">
+                <button class="primary-button" data-view="plans">Start Free</button>
+                <button class="ghost-button" data-scroll-target="homepagePreviews">View Samples</button>
+                <button class="primary-button" data-view="lessons">Browse Library</button>
+                <button class="ghost-button" data-view="ai">Open AI Tools</button>
+              </div>
+            </div>
+            <div class="hero-panel" aria-label="Resource preview">
+              <div class="mini-window">
+                <div class="window-dots"><span></span><span></span><span></span></div>
+                <div class="mini-row strong"></div>
+                <div class="mini-grid">
+                  <span></span><span></span><span></span><span></span>
+                </div>
+                <div class="mini-card"></div>
+                <div class="mini-lines"><span></span><span></span><span></span></div>
+              </div>
+            </div>
+          </div>
+
+          <section class="section-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Start Here</p>
+                <h3>Daycare resource library</h3>
+              </div>
+            </div>
+            <div class="home-stats" id="homeStats"></div>
+            <div class="category-grid" id="categoryGrid"></div>
+          </section>
+
+          <section id="homeFoundingOffer" class="section-block"></section>
+
+          <section class="section-block trust-section">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Built For Providers</p>
+                <h3>Ready for home daycare work</h3>
+              </div>
+            </div>
+            <div class="trust-grid">
+              <div><strong>Made for home daycare providers</strong><span>Resources and tools are written for real childcare routines.</span></div>
+              <div><strong>Secure payments through Stripe</strong><span>Checkout and billing are prepared for Stripe subscription handling.</span></div>
+              <div><strong>Cancel anytime</strong><span>Users can manage or cancel subscription access from their account.</span></div>
+              <div><strong>Free plan available</strong><span>Providers can explore samples before upgrading.</span></div>
+              <div><strong>Support is visible</strong><span>little.learners.hub.customer@gmail.com</span></div>
+            </div>
+          </section>
+
+          <section class="section-block provider-love-section">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Why Providers Love Little Learner Hub</p>
+                <h3>Less searching. Less paperwork. More ready-to-use support.</h3>
+              </div>
+              <button class="primary-button" data-view="plans">Start Free</button>
+            </div>
+            <div class="provider-love-grid">
+              <article>
+                <strong>Everything You Need in One Place</strong>
+                <span>Stop searching multiple websites for forms, lesson plans, observations, and daycare resources.</span>
+              </article>
+              <article>
+                <strong>Save Hours Every Week</strong>
+                <span>Ready-to-use resources help reduce planning and paperwork time.</span>
+              </article>
+              <article>
+                <strong>Professional Documentation Made Easy</strong>
+                <span>Create high-quality observations, reports, and lesson plans with confidence.</span>
+              </article>
+              <article>
+                <strong>Built for Home Daycare Providers</strong>
+                <span>Designed specifically for family childcare and home daycare businesses.</span>
+              </article>
+              <article>
+                <strong>Editable & Customizable</strong>
+                <span>Resources can be adapted to fit your program and state requirements.</span>
+              </article>
+              <article>
+                <strong>Growing Resource Library</strong>
+                <span>New lesson plans, activities, forms, printables, and tools can be added regularly.</span>
+              </article>
+              <article>
+                <strong>AI-Powered Tools</strong>
+                <span>Generate observations, lesson plans, newsletters, and more in minutes.</span>
+              </article>
+            </div>
+            <div class="love-stats">
+              <div><strong>1,500+</strong><span>Observation Examples</span></div>
+              <div><strong>200+</strong><span>Lesson Plans</span></div>
+              <div><strong>75+</strong><span>Daycare Forms</span></div>
+              <div><strong>500+</strong><span>Activities & Printables</span></div>
+              <div><strong>AI</strong><span>Documentation Tools</span></div>
+            </div>
+          </section>
+
+          <section id="homepagePreviews" class="section-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Preview Library</p>
+                <h3>See real samples before you sign up.</h3>
+              </div>
+              <button class="primary-button" data-view="plans">Upgrade to Pro</button>
+            </div>
+            <div id="previewLibraryApp"></div>
+          </section>
+
+          <section class="section-block whats-inside-pro">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">What's Inside Pro</p>
+                <h3>Unlock the full childcare business toolkit.</h3>
+              </div>
+              <button class="primary-button" data-view="plans">Compare Plans</button>
+            </div>
+            <div class="provider-love-grid">
+              <article><strong>Unlimited Resources</strong><span>Lesson plans, observations, forms, menus, activities, and printables without Free Plan limits.</span></article>
+              <article><strong>AI Documentation Tools</strong><span>Generate observations, lesson plans, reports, newsletters, handbook sections, and contracts.</span></article>
+              <article><strong>Child Management</strong><span>Profiles, portfolios, goal tracking, support plans, attendance, meals, and parent communication tools.</span></article>
+              <article><strong>Provider Planning Tools</strong><span>Curriculum builder, daily schedule builder, meal planner, and licensing checklist support.</span></article>
+              <article><strong>Billing Control</strong><span>Stripe-ready checkout flow, billing history, cancellation path, and subscription status pages.</span></article>
+              <article><strong>Support Access</strong><span>Contact forms, bug reports, feature requests, and support ticket tracking in one place.</span></article>
+            </div>
+          </section>
+
+          <section class="section-block success-stories-section" hidden>
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Success Stories</p>
+                <h3>Provider reviews will appear here.</h3>
+              </div>
+            </div>
+            <div class="success-story-grid" id="successStoryGrid"></div>
+          </section>
+
+          <section class="section-block lead-capture-section">
+            <div>
+              <p class="eyebrow">Free Daycare Starter Pack</p>
+              <h3>Get free daycare resources before you join.</h3>
+              <p>Includes a daycare form sample, observation wording pack, menu sample, and printable.</p>
+            </div>
+            <form id="leadCaptureForm" class="lead-form">
+              <label>
+                Email
+                <input name="email" type="email" required placeholder="you@example.com" />
+              </label>
+              <button class="primary-button" type="submit">Send Starter Pack</button>
+            </form>
+          </section>
+
+          <section class="two-column">
+            <div class="section-block">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Fresh Content</p>
+                  <h3>New this month</h3>
+                </div>
+              </div>
+              <div class="resource-list compact" id="newThisMonth"></div>
+            </div>
+            <div class="section-block">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Saved</p>
+                  <h3>Saved favorites</h3>
+                </div>
+              </div>
+              <div class="resource-list compact" id="favoritesList"></div>
+            </div>
+          </section>
+        </section>
+
+        <section id="view-planner" class="view">
+          <div class="page-title">
+            <p class="eyebrow">Weekly Planner</p>
+            <h2>Plan the week in one calm workspace.</h2>
+            <p>Build a Monday-Friday daycare plan with themes, activities, meals, rest notes, child supports, and library resource suggestions.</p>
+          </div>
+          <div id="weeklyPlannerApp"></div>
+        </section>
+
+        <section id="view-lessons" class="view"></section>
+        <section id="view-observations" class="view"></section>
+        <section id="view-forms" class="view"></section>
+        <section id="view-activities" class="view"></section>
+        <section id="view-menus" class="view"></section>
+        <section id="view-printables" class="view"></section>
+
+        <section id="view-ai" class="view">
+          <div class="page-title">
+            <p class="eyebrow">Ask Leah AI</p>
+            <h2>Your AI-powered childcare assistant</h2>
+            <p>
+              Generate lesson plans, observations, newsletters, parent notes, reports, handbook sections,
+              activities, menus, and printable ideas for home daycare and preschool settings.
+            </p>
+          </div>
+
+          <div class="ai-layout">
+            <section class="ai-chat-panel">
+              <div class="ai-chat-header">
+                <div class="brand-mark small" aria-hidden="true"><span>AI</span></div>
+                <div>
+                  <h3>Ask Leah AI</h3>
+                  <p>Childcare content assistant</p>
+                </div>
+              </div>
+              <div class="quick-prompts" id="quickPrompts"></div>
+              <div class="chat-window" id="chatWindow" aria-live="polite"></div>
+              <form id="aiChatForm" class="chat-form">
+                <label>
+                  <span>Ask Leah AI</span>
+                  <textarea id="aiPrompt" rows="3" placeholder="Create a week of toddler farm lesson plans."></textarea>
+                </label>
+                <button class="primary-button" type="submit">Generate</button>
+              </form>
+            </section>
+
+            <aside class="preference-panel">
+              <p class="eyebrow">Personalization</p>
+              <h3>Provider preferences</h3>
+              <form id="preferencesForm" class="mini-form">
+                <label>
+                  Program type
+                  <select name="programType">
+                    <option>Home daycare</option>
+                    <option>Family childcare</option>
+                    <option>Preschool classroom</option>
+                    <option>Childcare center</option>
+                  </select>
+                </label>
+                <label>
+                  Ages served
+                  <input name="agesServed" placeholder="Infant, toddler, preschool" />
+                </label>
+                <label>
+                  State standards
+                  <input name="standards" placeholder="Oklahoma ELG, state standards, etc." />
+                </label>
+                <label>
+                  Lesson style
+                  <select name="lessonStyle">
+                    <option>Simple and low-prep</option>
+                    <option>Detailed weekly plans</option>
+                    <option>Play-based</option>
+                    <option>Theme-based</option>
+                  </select>
+                </label>
+                <label>
+                  Observation format
+                  <select name="observationFormat">
+                    <option>Professional paragraph</option>
+                    <option>Bullet points</option>
+                    <option>Documentation note</option>
+                  </select>
+                </label>
+                <button class="ghost-button" type="submit">Save Preferences</button>
+              </form>
+              <div class="saved-preferences" id="savedPreferences"></div>
+            </aside>
+          </div>
+
+          <section class="section-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">AI Tools</p>
+                <h3>Childcare generators</h3>
+              </div>
+            </div>
+            <div id="aiUsagePanel"></div>
+            <div class="ai-tool-grid" id="aiToolGrid"></div>
+          </section>
+        </section>
+
+        <section id="view-admin" class="view">
+          <div class="page-title">
+            <p class="eyebrow">Step 2</p>
+            <h2>Admin Upload Dashboard</h2>
+            <p>Upload, edit, delete, search, filter, and organize your daycare resources from one dashboard.</p>
+          </div>
+          <section id="adminLockPanel" class="section-block admin-lock-panel"></section>
+          <div id="adminProtectedContent">
+          <div class="admin-layout">
+            <form id="uploadForm" class="panel-form">
+              <input name="id" type="hidden" />
+              <label>
+                Title
+                <input name="title" required placeholder="Toddler Farm Lesson Plan" />
+              </label>
+              <div class="form-grid-two">
+                <label>
+                  Age Group
+                  <select name="age">
+                    <option>Infant</option>
+                    <option>Toddler</option>
+                    <option>Preschool</option>
+                    <option>All Ages</option>
+                  </select>
+                </label>
+                <label>
+                  Category
+                  <select name="category">
+                    <option>Lesson Plans</option>
+                    <option>Observation Hub</option>
+                    <option>Forms Library</option>
+                    <option>Activity Center</option>
+                    <option>Menu Center</option>
+                    <option>Printables</option>
+                  </select>
+                </label>
+              </div>
+              <div class="form-grid-two">
+                <label>
+                  Free or Pro
+                  <select name="plan">
+                    <option>Free</option>
+                    <option>Pro</option>
+                  </select>
+                </label>
+                <label>
+                  Tags
+                  <input name="tags" placeholder="Farm, fine motor, March" />
+                </label>
+              </div>
+              <label>
+                Description
+                <textarea name="description" rows="4" placeholder="What is included?"></textarea>
+              </label>
+              <div class="form-grid-two">
+                <label>
+                  Download file
+                  <input name="file" type="file" />
+                </label>
+                <label>
+                  Preview image
+                  <input name="preview" type="file" accept="image/*" />
+                </label>
+              </div>
+              <div class="form-actions">
+                <button class="primary-button" type="submit" id="adminSubmitButton">Add Content</button>
+                <button class="ghost-button" type="button" id="adminAddDemo">Add Demo Resource</button>
+                <button class="ghost-button" type="button" id="adminCancelEdit">Cancel Edit</button>
+              </div>
+            </form>
+
+            <div class="admin-manager">
+              <div class="admin-controls">
+                <label class="search-wrap admin-search">
+                  <span>Search admin content</span>
+                  <input id="adminSearchInput" type="search" placeholder="Search title, tag, or description" />
+                </label>
+                <label>
+                  Filter
+                  <select id="adminCategoryFilter">
+                    <option>All Categories</option>
+                    <option>Lesson Plans</option>
+                    <option>Observation Hub</option>
+                    <option>Forms Library</option>
+                    <option>Activity Center</option>
+                    <option>Menu Center</option>
+                    <option>Printables</option>
+                  </select>
+                </label>
+              </div>
+              <div class="admin-summary" id="adminSummary"></div>
+              <div class="admin-table-wrap">
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Resource</th>
+                      <th>Category</th>
+                      <th>Age</th>
+                      <th>Access</th>
+                      <th>Files</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="adminContentTable"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <section class="section-block admin-owner-panel">
+            <div id="adminOwnerOverview"></div>
+          </section>
+          <section class="section-block admin-analytics-panel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Private Analytics</p>
+                <h3>Ad, signup, checkout, and lead tracking</h3>
+              </div>
+              <button class="ghost-button" type="button" id="clearAnalyticsButton">Clear Analytics</button>
+            </div>
+            <div id="adminAnalyticsApp"></div>
+          </section>
+          <section class="section-block launch-readiness-panel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Launch Readiness</p>
+                <h3>Private website launch checklist</h3>
+              </div>
+            </div>
+            <div id="launchReadinessApp"></div>
+          </section>
+          <section class="section-block admin-ticket-panel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Support Tickets</p>
+                <h3>View, reply, complete, and track ticket status</h3>
+              </div>
+              <label class="ticket-filter-label">
+                Status
+                <select id="ticketStatusFilter">
+                  <option>All Statuses</option>
+                  <option>New</option>
+                  <option>In Progress</option>
+                  <option>Complete</option>
+                </select>
+              </label>
+            </div>
+            <div class="ticket-list" id="adminTicketList"></div>
+          </section>
+          </div>
+        </section>
+
+        <section id="view-plans" class="view">
+          <div class="page-title">
+            <p class="eyebrow">Membership</p>
+            <h2>Choose your Little Learner Hub plan</h2>
+            <p>Start Free, claim a Founding Member spot while available, or choose regular Pro billing.</p>
+          </div>
+          <div id="pricingApp"></div>
+        </section>
+
+        <section id="view-legal" class="view">
+          <div class="page-title">
+            <p class="eyebrow">Legal Center</p>
+            <h2>Privacy, terms, refunds, and child data.</h2>
+            <p>Clear policies help providers understand how Little Learner Hub handles accounts, billing, support, and child-related information.</p>
+          </div>
+          <div class="legal-grid">
+            <article class="section-block legal-card">
+              <p class="eyebrow">Privacy Policy</p>
+              <h3>How information is handled</h3>
+              <p>Little Learner Hub may collect account details, support messages, billing status, saved resources, child profile details, observations, AI prompts, AI-generated content, and generated documents needed to operate the platform.</p>
+              <p>Information should be used only for providing childcare resource tools, account access, support, billing, and product improvement. Payment details should be processed through Stripe and not stored directly inside Little Learner Hub.</p>
+            </article>
+            <article class="section-block legal-card">
+              <p class="eyebrow">Terms of Use</p>
+              <h3>Provider responsibility</h3>
+              <p>Resources, AI outputs, forms, and policy drafts are templates for childcare providers to review and adapt. Providers are responsible for checking state licensing rules, program policies, family agreements, and professional requirements before use.</p>
+              <p>AI-generated content may be incomplete, inaccurate, or not specific to a provider's state or program. Providers must review, edit, and approve all AI-generated content before sharing it with families or using it for business records.</p>
+              <p>Users should not upload sensitive information unless it is necessary for their own childcare recordkeeping and they have permission to manage that information.</p>
+            </article>
+            <article class="section-block legal-card">
+              <p class="eyebrow">Refund and Cancellation Policy</p>
+              <h3>Cancel anytime</h3>
+              <p>Users may cancel a subscription from the billing area. Cancellation returns the account to Free limits after the active subscription period or immediately in the local demo flow.</p>
+              <p>Refund requests can be submitted through support at little.learners.hub.customer@gmail.com and should include the account email and billing concern.</p>
+            </article>
+            <article class="section-block legal-card">
+              <p class="eyebrow">Child Data and Privacy Note</p>
+              <h3>Use minimum necessary information</h3>
+              <p>Child profiles, observations, support plans, attendance, meals, and portfolios may include sensitive child information. Providers should enter only what is needed, follow family consent requirements, and protect exported records.</p>
+              <p>For production launch, child data should be stored with secure backend protections, access controls, and clear retention practices.</p>
+            </article>
+          </div>
+        </section>
+
+        <section id="view-upgrade" class="view">
+          <div class="page-title">
+            <p class="eyebrow">Upgrade to Pro</p>
+            <h2>Unlock the complete Little Learner Hub platform.</h2>
+            <p>Choose a Stripe checkout option. Founding Member pricing is automatically applied while spots remain.</p>
+          </div>
+          <div id="upgradeApp"></div>
+        </section>
+
+        <section id="view-billing" class="view">
+          <div class="page-title">
+            <p class="eyebrow">Billing Management</p>
+            <h2>Manage subscription, payment method, and invoices.</h2>
+            <p>Review current billing status, update payment details, cancel, or return to checkout.</p>
+          </div>
+          <div id="billingApp"></div>
+        </section>
+
+        <section id="view-subscription" class="view">
+          <div class="page-title">
+            <p class="eyebrow">Subscription Status</p>
+            <h2>Current membership status.</h2>
+            <p>Permissions update immediately when the subscription state changes.</p>
+          </div>
+          <div id="subscriptionApp"></div>
+        </section>
+
+        <section id="view-billing-history" class="view">
+          <div class="page-title">
+            <p class="eyebrow">Billing History</p>
+            <h2>Invoices and subscription events.</h2>
+            <p>View successful payments, failed payments, cancellations, and checkout attempts.</p>
+          </div>
+          <div id="billingHistoryApp"></div>
+        </section>
+
+        <section id="view-payment-success" class="view">
+          <div class="page-title">
+            <p class="eyebrow">Payment Success</p>
+            <h2>Your membership is active.</h2>
+            <p>Pro permissions are unlocked on this account.</p>
+          </div>
+          <div id="paymentSuccessApp"></div>
+        </section>
+
+        <section id="view-payment-failed" class="view">
+          <div class="page-title">
+            <p class="eyebrow">Payment Failed</p>
+            <h2>We could not complete the payment.</h2>
+            <p>Your account remains on its previous plan until payment succeeds.</p>
+          </div>
+          <div id="paymentFailedApp"></div>
+        </section>
+
+        <section id="view-cancel-subscription" class="view">
+          <div class="page-title">
+            <p class="eyebrow">Cancel Subscription</p>
+            <h2>Cancel Pro access.</h2>
+            <p>Cancellation returns the account to Free permissions. Founding Member status stays recorded permanently.</p>
+          </div>
+          <div id="cancelSubscriptionApp"></div>
+        </section>
+
+        <section id="view-generators" class="view">
+          <div class="page-title">
+            <p class="eyebrow">Premium AI Tools</p>
+            <h2>Childcare generators</h2>
+            <p>Choose a tool, fill in the details, and create ready-to-edit childcare content.</p>
+          </div>
+          <div class="generator-workspace" id="generatorWorkspace"></div>
+          <section class="section-block generated-history-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Saved AI Work</p>
+                <h3>Generated content history</h3>
+              </div>
+            </div>
+            <div class="resource-list compact" id="generatedHistory"></div>
+          </section>
+        </section>
+
+        <section id="view-tools" class="view">
+          <div class="page-title">
+            <p class="eyebrow">Step 6</p>
+            <h2>Provider business tools</h2>
+            <p>Simple working tools for planning, tracking, and organizing home daycare operations.</p>
+          </div>
+          <div class="future-tool-grid" id="futureToolGrid"></div>
+          <div class="future-workspace" id="futureToolWorkspace"></div>
+        </section>
+
+        <section id="view-children" class="view">
+          <div class="page-title">
+            <p class="eyebrow">Step 7</p>
+            <h2>Child management system</h2>
+            <p>Create simple child profiles, track observations, goals, support plans, attendance, meals, reports, parent communication, and portfolios.</p>
+          </div>
+          <div id="childManagementApp"></div>
+        </section>
+
+        <section id="view-account" class="view">
+          <div class="page-title">
+            <p class="eyebrow">Step 4</p>
+            <h2>User Account</h2>
+            <p>Manage account access, email verification, password recovery, billing status, saved favorites, and saved downloads.</p>
+          </div>
+          <div class="account-layout">
+            <section class="account-panel">
+              <p class="eyebrow">Profile</p>
+              <h3 id="accountEmailLabel">Guest</h3>
+              <p id="accountPlanLabel">Free account</p>
+              <p id="accountVerificationLabel" class="account-security-note">Email verification is available after Firebase Auth is connected.</p>
+              <div class="account-actions-row">
+                <button class="ghost-button" id="demoAccountButton" type="button">Use Demo Account</button>
+                <button class="primary-button" id="accountUpgradeButton" type="button">Upgrade to Pro</button>
+                <button class="ghost-button" id="resendVerificationButton" type="button">Resend Verification Email</button>
+                <button class="ghost-button" id="accountCancelButton" type="button">Cancel Pro</button>
+                <button class="ghost-button" id="signOutButton" type="button">Sign Out</button>
+              </div>
+            </section>
+            <section class="account-panel">
+              <p class="eyebrow">Subscription</p>
+              <h3 id="subscriptionStatusLabel">Free Plan</h3>
+              <p id="subscriptionDetailLabel">Create an account to save favorites and downloads.</p>
+            </section>
+          </div>
+          <section class="section-block account-security-panel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Account Security</p>
+                <h3>Recovery and login settings</h3>
+              </div>
+            </div>
+            <div class="security-grid">
+              <form id="profileSettingsForm" class="panel-form">
+                <p class="form-note">Phone number is optional and used only as account contact information. SMS verification is not enabled so costs stay as close to $0 as possible.</p>
+                <label>
+                  Phone Number
+                  <input type="tel" name="phone" id="accountPhoneInput" placeholder="(555) 123-4567" autocomplete="tel" />
+                </label>
+                <button class="primary-button" type="submit">Save Profile</button>
+                <span class="form-message" id="profileSettingsMessage"></span>
+              </form>
+              <form id="changePasswordForm" class="panel-form">
+                <p class="form-note">Change your password from Account Settings. With Firebase Auth connected, this updates the real login password securely.</p>
+                <label>
+                  Current Password
+                  <input type="password" name="currentPassword" autocomplete="current-password" placeholder="Current password" />
+                </label>
+                <label>
+                  New Password
+                  <input type="password" name="newPassword" autocomplete="new-password" minlength="8" placeholder="At least 8 characters" />
+                </label>
+                <button class="primary-button" type="submit">Change Password</button>
+                <span class="form-message" id="changePasswordMessage"></span>
+              </form>
+            </div>
+          </section>
+          <section class="section-block onboarding-panel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Getting Started</p>
+                <h3>Provider onboarding checklist</h3>
+              </div>
+            </div>
+            <div id="onboardingChecklist"></div>
+          </section>
+          <section class="two-column account-lists">
+            <div class="section-block">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Saved</p>
+                  <h3>Favorites</h3>
+                </div>
+              </div>
+              <div class="resource-list compact" id="accountFavoritesList"></div>
+            </div>
+            <div class="section-block">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Saved</p>
+                  <h3>Downloads</h3>
+                </div>
+              </div>
+              <div class="resource-list compact" id="accountDownloadsList"></div>
+            </div>
+          </section>
+        </section>
+
+        <section id="view-reset-password" class="view">
+          <div class="page-title">
+            <p class="eyebrow">Account Recovery</p>
+            <h2>Reset your password</h2>
+            <p>Use the secure reset link from your email to choose a new password.</p>
+          </div>
+          <section class="section-block">
+            <form id="resetPasswordForm" class="panel-form recovery-form">
+              <label>
+                New Password
+                <input type="password" name="newPassword" minlength="8" required autocomplete="new-password" placeholder="At least 8 characters" />
+              </label>
+              <button class="primary-button" type="submit">Save New Password</button>
+              <span class="form-message" id="resetPasswordMessage"></span>
+            </form>
+          </section>
+        </section>
+
+        <section id="view-faq" class="view">
+          <div class="page-title">
+            <p class="eyebrow">Help Center</p>
+            <h2>Little Learner Hub FAQ</h2>
+            <p>Quick answers for home daycare and childcare providers using the platform.</p>
+          </div>
+          <section class="section-block faq-list">
+            <article class="faq-item">
+              <h3>What is Little Learner Hub?</h3>
+              <p>Little Learner Hub is an all-in-one platform designed for home daycare and childcare providers. It includes lesson plans, observations, forms, activities, printables, AI tools, child management features, and more.</p>
+            </article>
+            <article class="faq-item">
+              <h3>Is there a free plan?</h3>
+              <p>Yes. Little Learner Hub offers a Free Plan that allows providers to explore the platform and access a limited amount of content before upgrading.</p>
+            </article>
+            <article class="faq-item">
+              <h3>What is included in the Free Plan?</h3>
+              <ul>
+                <li>3 Lesson Plans</li>
+                <li>15 Observations</li>
+                <li>3 Forms</li>
+                <li>5 Activities</li>
+                <li>5 Printables</li>
+                <li>10 AI Generations Per Month</li>
+                <li>Up to 3 Child Profiles</li>
+                <li>Weekly Observation Tracker</li>
+              </ul>
+            </article>
+            <article class="faq-item">
+              <h3>What is included in the Pro Plan?</h3>
+              <p>The Pro Plan includes unlimited access to resources, downloads, child management features, future premium features, and 250 AI generations per month.</p>
+            </article>
+            <article class="faq-item">
+              <h3>Can I cancel my subscription?</h3>
+              <p>Yes. You may cancel your subscription at any time through your account settings.</p>
+            </article>
+            <article class="faq-item">
+              <h3>Do I need to enter payment information for the Free Plan?</h3>
+              <p>No. The Free Plan is available without a paid subscription.</p>
+            </article>
+            <article class="faq-item">
+              <h3>Can I upgrade later?</h3>
+              <p>Yes. You can upgrade to Pro at any time.</p>
+            </article>
+            <article class="faq-item">
+              <h3>Are the lesson plans editable?</h3>
+              <p>Many resources are editable and downloadable. Resource details will indicate whether a file is editable.</p>
+            </article>
+            <article class="faq-item">
+              <h3>What ages are supported?</h3>
+              <ul>
+                <li>Infants</li>
+                <li>Toddlers</li>
+                <li>Preschoolers</li>
+              </ul>
+            </article>
+            <article class="faq-item">
+              <h3>Can I track observations for children?</h3>
+              <p>Yes. The Observation Hub and Weekly Observation Tracker help providers document and organize observations.</p>
+            </article>
+            <article class="faq-item">
+              <h3>Can I create portfolios for children?</h3>
+              <p>Yes. Pro users can create and manage child portfolios.</p>
+            </article>
+            <article class="faq-item">
+              <h3>What AI tools are included?</h3>
+              <ul>
+                <li>Observation Generator</li>
+                <li>Lesson Plan Generator</li>
+                <li>Daily Report Generator</li>
+                <li>Parent Newsletter Generator</li>
+                <li>Parent Handbook Generator</li>
+                <li>Contract Generator</li>
+              </ul>
+            </article>
+            <article class="faq-item">
+              <h3>Can I download resources?</h3>
+              <p>Yes. Downloads are available based on your membership plan.</p>
+            </article>
+            <article class="faq-item">
+              <h3>Can I reset my password?</h3>
+              <p>Yes. Little Learner Hub is prepared for Firebase Authentication password reset emails, email verification, resend verification, and password changes. These built-in email/password features are expected to stay $0 at launch on Firebase's free tier.</p>
+            </article>
+            <article class="faq-item">
+              <h3>Do you use phone verification?</h3>
+              <p>No. Phone number is optional account contact information only. SMS verification is not enabled because it can add extra cost.</p>
+            </article>
+            <article class="faq-item">
+              <h3>Is my information secure?</h3>
+              <p>Yes. We take privacy and security seriously and use secure systems to protect account information. Real production account recovery requires Firebase Authentication to be connected before launch.</p>
+            </article>
+            <article class="faq-item">
+              <h3>How do I contact support?</h3>
+              <p>Visit the Contact Us page or submit a support request through the Help Center.</p>
+            </article>
+          </section>
+        </section>
+
+        <section id="view-contact" class="view">
+          <div class="page-title">
+            <p class="eyebrow">Contact Us</p>
+            <h2>Need help? We’re here for you.</h2>
+            <p>If you have questions about your account, resources, subscriptions, AI tools, or any feature inside Little Learner Hub, please contact our support team.</p>
+          </div>
+          <section class="section-block contact-intro">
+            <div>
+              <p class="eyebrow">Support Email</p>
+              <h3>little.learners.hub.customer@gmail.com</h3>
+              <p>Email: little.learners.hub.customer@gmail.com</p>
+              <p>We aim to respond to all support requests as quickly as possible.</p>
+            </div>
+            <div class="support-topic-list">
+              <span>Account Issues</span>
+              <span>Billing Questions</span>
+              <span>Subscription Help</span>
+              <span>Technical Problems</span>
+              <span>Bug Reports</span>
+              <span>Feature Requests</span>
+              <span>Resource Requests</span>
+              <span>General Questions</span>
+            </div>
+          </section>
+          <div class="support-grid">
+            <form id="contactSupportForm" class="panel-form support-form" data-ticket-kind="Support Request">
+              <p class="eyebrow">Contact Form</p>
+              <h3>Submit Support Request</h3>
+              <label>Name<input name="name" required placeholder="Your name" /></label>
+              <label>Email<input name="email" type="email" required placeholder="you@example.com" /></label>
+              <label>Topic
+                <select name="topic">
+                  <option>Account Issues</option>
+                  <option>Billing Questions</option>
+                  <option>Subscription Help</option>
+                  <option>Technical Problems</option>
+                  <option>Resource Requests</option>
+                  <option>General Questions</option>
+                </select>
+              </label>
+              <label>Message<textarea name="message" rows="5" required placeholder="Tell us what you need help with."></textarea></label>
+              <button class="primary-button" type="submit">Submit Support Request</button>
+            </form>
+            <form id="featureRequestForm" class="panel-form support-form" data-ticket-kind="Feature Request">
+              <p class="eyebrow">Feature Request Form</p>
+              <h3>Request a Feature</h3>
+              <label>Name<input name="name" required placeholder="Your name" /></label>
+              <label>Email<input name="email" type="email" required placeholder="you@example.com" /></label>
+              <label>Feature Area
+                <select name="topic">
+                  <option>AI Tools</option>
+                  <option>Child Management</option>
+                  <option>Billing</option>
+                  <option>Resource Library</option>
+                  <option>Provider Tools</option>
+                  <option>Other</option>
+                </select>
+              </label>
+              <label>Feature Details<textarea name="message" rows="5" required placeholder="Describe the feature you would like to see."></textarea></label>
+              <button class="primary-button" type="submit">Submit Feature Request</button>
+            </form>
+            <form id="bugReportForm" class="panel-form support-form" data-ticket-kind="Bug Report">
+              <p class="eyebrow">Bug Report Form</p>
+              <h3>Report a Bug</h3>
+              <label>Name<input name="name" required placeholder="Your name" /></label>
+              <label>Email<input name="email" type="email" required placeholder="you@example.com" /></label>
+              <label>Problem Area
+                <select name="topic">
+                  <option>Technical Problems</option>
+                  <option>AI Tools</option>
+                  <option>Downloads</option>
+                  <option>Login or Account</option>
+                  <option>Billing or Subscription</option>
+                  <option>Other</option>
+                </select>
+              </label>
+              <label>Bug Details<textarea name="message" rows="5" required placeholder="What happened? What were you trying to do?"></textarea></label>
+              <button class="primary-button" type="submit">Submit Bug Report</button>
+            </form>
+          </div>
+          <section class="section-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Your Tickets</p>
+                <h3>Submitted support requests</h3>
+              </div>
+            </div>
+            <div class="ticket-list" id="userTicketList"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal" id="authModal" aria-hidden="true">
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+        <button class="close-button" id="closeModal" aria-label="Close">×</button>
+        <p class="eyebrow">Welcome</p>
+        <h2 id="authTitle">Log in to Little Learner Hub</h2>
+        <form id="authForm" class="panel-form">
+          <label>
+            Email
+            <input type="email" id="emailInput" required placeholder="you@example.com" />
+          </label>
+          <label id="authPhoneField" class="hidden-field">
+            Phone Number
+            <input type="tel" id="phoneInput" placeholder="(555) 123-4567" autocomplete="tel" />
+          </label>
+          <label>
+            Password
+            <input id="passwordInput" type="password" required minlength="8" autocomplete="current-password" placeholder="Password" />
+          </label>
+          <button class="primary-button" id="authSubmitButton" type="submit">Continue</button>
+          <div class="auth-secondary-actions">
+            <button class="link-button" id="forgotPasswordButton" type="button">Forgot password?</button>
+            <button class="link-button" id="switchAuthModeButton" type="button">Create account</button>
+          </div>
+          <span class="form-message" id="authMessage"></span>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal" id="proModal" aria-hidden="true">
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="proModalTitle">
+        <button class="close-button" id="closeProModal" aria-label="Close">×</button>
+        <p class="eyebrow">Membership</p>
+        <h2 id="proModalTitle">🔒 Pro Feature</h2>
+        <div class="pro-modal-body" id="proModalBody"></div>
+        <button class="primary-button" id="proModalUpgrade" type="button">Upgrade to Pro</button>
+      </div>
+    </div>
+
+    <script src="app.js?v=20260614-launch"></script>
+  </body>
+</html>
