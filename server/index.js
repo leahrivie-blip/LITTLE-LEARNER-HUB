@@ -21,10 +21,16 @@ const ADMIN_NAME = process.env.ADMIN_NAME || "Owner";
 const DATABASE_PROVIDER = process.env.DATABASE_PROVIDER || "local-json";
 const PRODUCTION_DATABASE_URL = process.env.PRODUCTION_DATABASE_URL || "";
 const PRODUCTION_DATABASE_SERVICE_KEY = process.env.PRODUCTION_DATABASE_SERVICE_KEY || "";
+const DATABASE_SSL = process.env.DATABASE_SSL || "";
 
 const publicDir = path.join(__dirname, "..");
 const dataDir = path.join(__dirname, "data");
 const storePath = path.join(dataDir, "launch-store.json");
+const storeRecordId = "launch-store";
+let storeCache = null;
+let databaseReady = false;
+let postgresPool = null;
+let postgresWriteChain = Promise.resolve();
 
 const planConfig = {
   founding: {
@@ -124,14 +130,20 @@ function siteConfigStatus() {
 }
 
 function databaseConfigStatus() {
-  const external = DATABASE_PROVIDER !== "local-json";
-  const credentialsReady = isConfiguredValue(PRODUCTION_DATABASE_URL) && isConfiguredValue(PRODUCTION_DATABASE_SERVICE_KEY);
+  const provider = DATABASE_PROVIDER.toLowerCase();
+  const postgres = provider === "postgres" || provider === "postgresql";
+  const external = provider !== "local-json";
+  const credentialsReady = postgres
+    ? isConfiguredValue(PRODUCTION_DATABASE_URL)
+    : isConfiguredValue(PRODUCTION_DATABASE_URL) && isConfiguredValue(PRODUCTION_DATABASE_SERVICE_KEY);
   return {
-    ready: external && credentialsReady,
+    ready: external && credentialsReady && (postgres ? databaseReady : true),
     provider: DATABASE_PROVIDER,
     localJsonPath: storePath,
-    note: external && credentialsReady
-      ? "External database credentials are configured. Connect this provider before accepting serious traffic."
+    note: postgres && databaseReady
+      ? "Postgres storage is connected for launch data."
+      : external && credentialsReady
+        ? "External database credentials are configured. Connect this provider before accepting serious traffic."
       : "Local JSON storage is only for testing. Use a protected hosted database before serious traffic.",
   };
 }
@@ -167,28 +179,94 @@ function loadEnvFile(filePath) {
   }
 }
 
+function defaultStore() {
+  return {
+    users: {},
+    foundingMembers: [],
+    adminSessions: {},
+    aiUsage: {},
+    aiOutputs: [],
+    supportTickets: [],
+    analyticsEvents: [],
+    leads: [],
+  };
+}
+
+function usePostgresStore() {
+  const provider = DATABASE_PROVIDER.toLowerCase();
+  return (provider === "postgres" || provider === "postgresql") && isConfiguredValue(PRODUCTION_DATABASE_URL);
+}
+
+function postgresSslConfig() {
+  if (DATABASE_SSL === "true") return { rejectUnauthorized: false };
+  if (DATABASE_SSL === "false") return false;
+  return undefined;
+}
+
+async function initializePostgresStore() {
+  const { Pool } = require("pg");
+  postgresPool = new Pool({
+    connectionString: PRODUCTION_DATABASE_URL,
+    ssl: postgresSslConfig(),
+  });
+  await postgresPool.query(`
+    CREATE TABLE IF NOT EXISTS llh_store (
+      id TEXT PRIMARY KEY,
+      data JSONB NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  const result = await postgresPool.query("SELECT data FROM llh_store WHERE id = $1", [storeRecordId]);
+  if (result.rows.length) {
+    storeCache = result.rows[0].data || defaultStore();
+  } else {
+    storeCache = defaultStore();
+    await postgresPool.query(
+      "INSERT INTO llh_store (id, data, updated_at) VALUES ($1, $2::jsonb, NOW())",
+      [storeRecordId, JSON.stringify(storeCache)],
+    );
+  }
+  databaseReady = true;
+}
+
+async function initializeStorage() {
+  if (usePostgresStore()) {
+    await initializePostgresStore();
+    return;
+  }
+  ensureStore();
+  storeCache = JSON.parse(fs.readFileSync(storePath, "utf8"));
+  databaseReady = false;
+}
+
 function ensureStore() {
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
   if (!fs.existsSync(storePath)) {
-    fs.writeFileSync(storePath, JSON.stringify({
-      users: {},
-      foundingMembers: [],
-      adminSessions: {},
-      aiUsage: {},
-      aiOutputs: [],
-      supportTickets: [],
-      analyticsEvents: [],
-      leads: [],
-    }, null, 2));
+    fs.writeFileSync(storePath, JSON.stringify(defaultStore(), null, 2));
   }
 }
 
 function readStore() {
+  if (usePostgresStore()) return structuredClone(storeCache || defaultStore());
   ensureStore();
   return JSON.parse(fs.readFileSync(storePath, "utf8"));
 }
 
 function writeStore(store) {
+  storeCache = store;
+  if (usePostgresStore()) {
+    const payload = JSON.stringify(store);
+    postgresWriteChain = postgresWriteChain
+      .then(() => postgresPool.query(
+        "INSERT INTO llh_store (id, data, updated_at) VALUES ($1, $2::jsonb, NOW()) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()",
+        [storeRecordId, payload],
+      ))
+      .catch((error) => {
+        databaseReady = false;
+        console.error("Could not persist launch store to Postgres:", error.message);
+      });
+    return;
+  }
   ensureStore();
   fs.writeFileSync(storePath, JSON.stringify(store, null, 2));
 }
@@ -743,7 +821,14 @@ const server = http.createServer(async (request, response) => {
   }
 });
 
-server.listen(PORT, () => {
-  ensureStore();
-  console.log(`Little Learner Hub launch server running on http://localhost:${PORT}`);
-});
+initializeStorage()
+  .then(() => {
+    server.listen(PORT, () => {
+      console.log(`Little Learner Hub launch server running on http://localhost:${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error("Could not initialize Little Learner Hub storage.");
+    console.error(error.message);
+    process.exit(1);
+  });
