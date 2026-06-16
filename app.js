@@ -1779,6 +1779,162 @@ function resourceFileText(resource) {
   ].join("\n");
 }
 
+function resourcePrintableWorksheet(resource) {
+  if (resource.category === "Lesson Plans") {
+    return `Printable Planning Notes
+Child/Group: ______________________________________  Week Of: __________________
+
+Daily Notes
+Monday: ________________________________________________________________
+Tuesday: _______________________________________________________________
+Wednesday: _____________________________________________________________
+Thursday: ______________________________________________________________
+Friday: _________________________________________________________________
+
+Provider Reflection
+What worked well? ______________________________________________________
+What should be repeated or extended? ___________________________________
+Child support notes: ___________________________________________________`;
+  }
+  if (resource.category === "Observation Hub") {
+    return `Printable Observation Record
+Child Name: _______________________________________  Date: ______________
+Setting/Activity: ______________________________________________________
+
+What I observed:
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________
+
+Next step planned:
+________________________________________________________________________
+
+Provider Signature: _______________________________  Date: ______________`;
+  }
+  if (resource.category === "Forms Library") {
+    return `Additional Write-In Space
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________
+
+Checklist
+[ ] Parent/guardian reviewed
+[ ] Provider reviewed
+[ ] Copy placed in child file
+[ ] Follow-up needed
+
+Parent/Guardian Signature: ________________________ Date: ______________
+Provider Signature: _______________________________ Date: ______________`;
+  }
+  if (resource.category === "Menu Center") {
+    return `Menu Notes
+Allergies/Substitutions: _______________________________________________
+________________________________________________________________________
+
+Infant/Toddler Texture Changes: ________________________________________
+________________________________________________________________________
+
+Shopping Notes
+[ ] Milk / dairy
+[ ] Fruit
+[ ] Vegetables
+[ ] Protein
+[ ] Whole grains
+[ ] Allergy-safe substitutions`;
+  }
+  if (resource.category === "Activity Center") {
+    return `Activity Prep Sheet
+Group/Child: ______________________________________  Date: ______________
+Materials gathered: ____________________________________________________
+________________________________________________________________________
+
+Observation notes:
+________________________________________________________________________
+________________________________________________________________________
+
+Extension tried:
+________________________________________________________________________`;
+  }
+  return `Printable Worksheet Page
+Child Name: _______________________________________  Date: ______________
+
+Try It
+1. ______________________________________________________________________
+2. ______________________________________________________________________
+3. ______________________________________________________________________
+
+Draw, trace, match, color, or write here:
+
+‚îå‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îê
+‚îÇ                                                                      ‚îÇ
+‚îÇ                                                                      ‚îÇ
+‚îÇ                                                                      ‚îÇ
+‚îÇ                                                                      ‚îÇ
+‚îÇ                                                                      ‚îÇ
+‚îî‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îò
+
+Reflection / Teacher Note:
+________________________________________________________________________
+________________________________________________________________________`;
+}
+
+function resourcePrintableText(resource) {
+  return `${resourceFileText(resource)}\n\n${resourcePrintableWorksheet(resource)}`;
+}
+
+function printableLineHtml(line) {
+  if (/^(-|\*)\s+/.test(line)) return `<li>${escapeHtml(line.replace(/^(-|\*)\s+/, ""))}</li>`;
+  const checkboxLine = line.match(/^\[\s?\]\s+(.*)$/);
+  if (checkboxLine) return `<li class="printable-checkbox"><span></span>${escapeHtml(checkboxLine[1])}</li>`;
+  if (/^[_]{8,}$/.test(line.trim())) return `<div class="printable-writing-line"></div>`;
+  if (/^‚îå|^‚îÇ|^‚îî/.test(line)) return `<div class="printable-drawing-box-line">${escapeHtml(line)}</div>`;
+  if (line.includes("_____")) return `<p class="printable-field-row">${escapeHtml(line)}</p>`;
+  return `<p>${escapeHtml(line)}</p>`;
+}
+
+function printableLinesHtml(lines) {
+  const html = [];
+  let listOpen = false;
+  const closeList = () => {
+    if (!listOpen) return;
+    html.push("</ul>");
+    listOpen = false;
+  };
+  lines.forEach((line) => {
+    if (/^(-|\*)\s+/.test(line) || /^\[\s?\]\s+/.test(line)) {
+      if (!listOpen) {
+        html.push('<ul class="printable-list">');
+        listOpen = true;
+      }
+      html.push(printableLineHtml(line));
+      return;
+    }
+    closeList();
+    html.push(printableLineHtml(line));
+  });
+  closeList();
+  return html.join("");
+}
+
+function resourcePrintableHtml(resource) {
+  const text = resourcePrintableText(resource);
+  const headingPattern = /^(Short Description|What Is Included|Who It Is For|How To Use It|Materials \/ Information Needed|ELG \/ Early Learning Standard Connections|Full Resource Content|Weekly Lesson Plan|Weekly Overview|Learning Objectives|Materials|Vocabulary|Related Activities|Child Support Connection|Provider Reflection|Observation Resource|Professional Observation Wording|What to Look For|Learning Standard Category|Evidence To Add|Next Steps|Editable Note|Follow-Up Planning|Purpose|Provider Instructions|Details \/ Notes|Weekly Daycare Menu|Shopping List|Provider Reminder|Setup|Steps|Learning Objective|Extension|Teacher Directions|Child Directions|Activity Ideas|Learning Goal|Provider Note|Printable Planning Notes|Daily Notes|Printable Observation Record|Additional Write-In Space|Checklist|Menu Notes|Shopping Notes|Activity Prep Sheet|Printable Worksheet Page|Try It|Reflection \/ Teacher Note)$/;
+  const blocks = text.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
+  const content = blocks.map((block, index) => {
+    const lines = block.split("\n").map((line) => line.trimEnd()).filter((line) => line.length);
+    const first = lines[0] || "";
+    if (index === 0 || first === "Little Learner Hub") {
+      return `<section class="print-section print-cover">${printableLinesHtml(lines)}</section>`;
+    }
+    if (headingPattern.test(first) && lines.length > 1) {
+      return `<section class="print-section"><h3>${escapeHtml(first)}</h3>${printableLinesHtml(lines.slice(1))}</section>`;
+    }
+    return `<section class="print-section">${printableLinesHtml(lines)}</section>`;
+  }).join("");
+  return `<article class="printable-resource-page">${content}</article>`;
+}
+
 function makeDownload(resource) {
   if (resource.fileData) return resource.fileData;
   const fileText = resourceFileText(resource);
@@ -2011,11 +2167,15 @@ function ensureResourceViewer() {
         <p class="eyebrow" id="resourceViewerCategory">Resource</p>
         <h2 id="resourceViewerTitle">Resource</h2>
         <div class="tag-row" id="resourceViewerTags"></div>
+        <div class="resource-viewer-toolbar">
+          <button class="primary-button" id="printResourceButton" type="button">Print / Save PDF</button>
+        </div>
         <div class="resource-viewer-body" id="resourceViewerBody"></div>
       </div>
     </div>
   `);
   document.querySelector("#closeResourceViewer")?.addEventListener("click", closeResourceViewer);
+  document.querySelector("#printResourceButton")?.addEventListener("click", printResourceViewer);
   document.querySelector("#resourceViewerModal")?.addEventListener("click", (event) => {
     if (event.target.id === "resourceViewerModal") closeResourceViewer();
   });
@@ -2026,6 +2186,20 @@ function closeResourceViewer() {
   if (!viewer) return;
   viewer.classList.remove("open");
   viewer.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("printing-resource");
+}
+
+function printResourceViewer() {
+  const viewer = document.querySelector("#resourceViewerModal");
+  if (!viewer?.classList.contains("open")) return;
+  document.body.classList.add("printing-resource");
+  const cleanup = () => {
+    document.body.classList.remove("printing-resource");
+    window.removeEventListener("afterprint", cleanup);
+  };
+  window.addEventListener("afterprint", cleanup);
+  window.print();
+  setTimeout(cleanup, 1600);
 }
 
 function openResourceViewer(resourceId) {
@@ -2046,9 +2220,17 @@ function openResourceViewer(resourceId) {
   ].map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
   const body = document.querySelector("#resourceViewerBody");
   if (resource.fileData && resource.fileData.startsWith("data:image")) {
-    body.innerHTML = `<img class="resource-viewer-image" src="${resource.fileData}" alt="${escapeHtml(resource.title)}" />`;
+    body.innerHTML = `
+      <article class="printable-resource-page">
+        <section class="print-section print-cover">
+          <h3>${escapeHtml(resource.title)}</h3>
+          <p>${escapeHtml(resource.description || "Printable uploaded resource.")}</p>
+        </section>
+        <img class="resource-viewer-image" src="${resource.fileData}" alt="${escapeHtml(resource.title)}" />
+      </article>
+    `;
   } else {
-    body.innerHTML = `<pre class="resource-viewer-text">${escapeHtml(resourceFileText(resource))}</pre>`;
+    body.innerHTML = resourcePrintableHtml(resource);
   }
   if (!savedDownloads.includes(resource.id)) {
     savedDownloads = [...savedDownloads, resource.id];
