@@ -830,6 +830,9 @@ function friendlyAuthError(error) {
   if (code.includes("requires-recent-login")) return "For security, please log out and log back in before changing your password.";
   if (code.includes("expired-action-code")) return "This reset link has expired. Please request a new password reset email.";
   if (code.includes("invalid-action-code")) return "This reset link is invalid or has already been used.";
+  if (code.includes("unauthorized-domain")) return "Password reset is not enabled for this website domain yet. Add little-learner-hub.onrender.com as an authorized domain in Firebase Authentication settings.";
+  if (code.includes("operation-not-allowed")) return "Email/password login needs to be enabled in Firebase Authentication.";
+  if (code.includes("too-many-requests")) return "Too many attempts. Please wait a few minutes and try again.";
   if (!firebaseAuthEnabled && code === "auth/not-configured") return "Real email recovery is ready to use after Firebase Auth config is added.";
   return error?.message || "Something went wrong. Please try again.";
 }
@@ -1397,6 +1400,7 @@ async function sendPasswordReset(email) {
       : window.location.href.split("?")[0];
     await client.sendPasswordResetEmail(client.auth, cleanEmail, {
       url: resetUrl,
+      handleCodeInApp: false,
     });
     return "Password reset email sent. Please check your inbox.";
   }
@@ -3208,8 +3212,20 @@ function ticketStatusClass(status) {
   return `ticket-status-${String(status || "New").toLowerCase().replace(/\s+/g, "-")}`;
 }
 
+function supportFormMessage(form) {
+  let message = form.querySelector(".form-message");
+  if (!message) {
+    message = document.createElement("span");
+    message.className = "form-message";
+    form.appendChild(message);
+  }
+  return message;
+}
+
 async function submitSupportTicket(form) {
   const data = collectFormData(form);
+  const messageTarget = supportFormMessage(form);
+  setFormMessage(messageTarget, "Submitting...", true);
   let ticket = {
     id: `ticket-${Date.now()}`,
     kind: form.dataset.ticketKind || "Support Request",
@@ -3223,6 +3239,7 @@ async function submitSupportTicket(form) {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+  let submitMessage = "Submitted and saved.";
   if (canUseLaunchBackend()) {
     try {
       const response = await fetch("/api/support-ticket", {
@@ -3237,12 +3254,23 @@ async function submitSupportTicket(form) {
       const result = await response.json();
       if (!response.ok) throw new Error(result?.error || "Could not submit support ticket.");
       ticket = result.ticket || ticket;
+      if (result.emailNotification?.sent) {
+        submitMessage = "Submitted. An email notification was sent to support.";
+      } else if (result.emailNotification?.configured) {
+        submitMessage = "Submitted and saved in Admin. The email notification did not send, so support should check Admin tickets.";
+      } else {
+        submitMessage = "Submitted and saved in Admin. Email notifications still need an email provider key.";
+      }
     } catch (error) {
       console.warn("Support ticket backend submit failed", error);
+      submitMessage = "Saved in this browser. If this is urgent, please also email support.";
     }
+  } else {
+    submitMessage = "Saved in this browser. Connect the backend to save tickets in Admin.";
   }
   saveSupportTickets([ticket, ...supportTickets()]);
   form.reset();
+  setFormMessage(messageTarget, submitMessage, true);
   renderContactPage();
   renderAdminTickets();
 }
