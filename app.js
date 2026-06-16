@@ -2282,13 +2282,34 @@ function resourcePrintableHtml(resource) {
   return `<article class="printable-resource-page">${content}</article>`;
 }
 
-function makeDownload(resource) {
-  if (resource.fileData) return resource.fileData;
-  const fileText = resourceFileText(resource);
-  return `data:text/plain;charset=utf-8,${encodeURIComponent(fileText)}`;
+function decodedTextFileData(resource) {
+  if (!resource.fileData || !resource.fileData.startsWith("data:text")) return "";
+  const encoded = resource.fileData.split(",")[1] || "";
+  try {
+    return decodeURIComponent(encoded);
+  } catch (error) {
+    return "";
+  }
 }
 
 function resourceDownloadBody(resource) {
+  const savedContent = resource.customContent || decodedTextFileData(resource);
+  if (savedContent) {
+    return `Saved In-App Resource
+${resource.title}
+
+Resource Type
+${resource.category}
+
+Age Group
+${resource.age}
+
+Full Resource Content
+${savedContent}
+
+Provider Note
+Review and personalize this in-app resource for your program before printing or sharing with families.`;
+  }
   if (resource.category === "Lesson Plans") {
     const theme = resource.theme || resourceTheme(resource);
     const area = resourceFocus(resource);
@@ -2817,7 +2838,7 @@ function renderWeeklyPlanner() {
           <div class="form-actions">
             <button class="primary-button" type="submit">Save Week</button>
             <button class="ghost-button" type="button" id="copyPlannerButton">Copy Plan</button>
-            <button class="ghost-button" type="button" id="downloadPlannerButton">Download</button>
+            <button class="ghost-button" type="button" id="downloadPlannerButton">Print / Save PDF</button>
             <button class="danger-button" type="button" id="clearPlannerButton">Clear</button>
           </div>
         </section>
@@ -3017,7 +3038,7 @@ function renderGeneratorWorkspace(toolId) {
             <button class="ghost-button" id="saveOutputLibraryButton" type="button">Save to Library</button>
             <button class="ghost-button" id="regenerateOutputButton" type="button">Regenerate</button>
             <button class="ghost-button" id="printOutputButton" type="button">Print</button>
-            <button class="ghost-button" id="downloadOutputButton" type="button">Download</button>
+            <button class="ghost-button" id="downloadOutputButton" type="button">Print / Save PDF</button>
           </div>
         </div>
         <pre id="generatorOutput" contenteditable="true" spellcheck="true">Fill out the form and generate a childcare-ready result.</pre>
@@ -3085,7 +3106,7 @@ function renderFutureTools(activeToolId = futureTools[0].id) {
           </div>
           <div class="output-actions">
             <button class="ghost-button" id="copyFutureOutputButton" type="button">Copy</button>
-            <button class="ghost-button" id="downloadFutureOutputButton" type="button">Download</button>
+            <button class="ghost-button" id="downloadFutureOutputButton" type="button">Print / Save PDF</button>
           </div>
         </div>
         <pre id="futureOutput">Fill out the form to create a ready-to-edit provider tool.</pre>
@@ -3542,7 +3563,7 @@ function exportChildPortfolio(childId) {
     "Parent Communication",
     ...records.communications.filter((item) => item.childId === childId).map((item) => `- ${item.date} ¬∑ ${item.type}: ${item.message}`),
   ];
-  downloadTextFile(`${child.name} Portfolio`, lines.join("\n"));
+  printTextDocument(`${child.name} Portfolio`, lines.join("\n"));
 }
 
 function preferences() {
@@ -3629,10 +3650,9 @@ function saveGeneratedResultToLibrary(result) {
     plan: "Pro",
     month: "AI Saved",
     tags: ["AI Generated", result.title, toolId].filter(Boolean),
-    format: "Editable Text",
+    format: "In-App Preview",
     description: result.text.slice(0, 180),
-    fileName: `${slug(result.title || "ai-generated-resource")}.txt`,
-    fileData: `data:text/plain;charset=utf-8,${encodeURIComponent(result.text)}`,
+    customContent: result.text,
   };
   saveUploadedResources([resource, ...uploadedResources()]);
   resources = loadResources();
@@ -3640,7 +3660,7 @@ function saveGeneratedResultToLibrary(result) {
   return resource;
 }
 
-function printGeneratedResult(result) {
+function printTextDocument(title, text) {
   const printWindow = window.open("", "_blank");
   if (!printWindow) {
     window.print();
@@ -3649,18 +3669,29 @@ function printGeneratedResult(result) {
   printWindow.document.write(`
     <html>
       <head>
-        <title>${escapeHtml(result.title)}</title>
-        <style>body{font-family:Arial,sans-serif;line-height:1.5;padding:32px;color:#222;} pre{white-space:pre-wrap;font-family:inherit;}</style>
+        <title>${escapeHtml(title)}</title>
+        <style>
+          @page { margin: 0.55in; }
+          body { font-family: Arial, sans-serif; line-height: 1.5; padding: 32px; color: #2f2a25; }
+          .brand { color: #386062; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
+          h1 { color: #386062; margin: 6px 0 18px; font-size: 28px; }
+          pre { white-space: pre-wrap; font-family: inherit; font-size: 14px; }
+        </style>
       </head>
       <body>
-        <h1>${escapeHtml(result.title)}</h1>
-        <pre>${escapeHtml(result.text)}</pre>
+        <div class="brand">Little Learner Hub</div>
+        <h1>${escapeHtml(title)}</h1>
+        <pre>${escapeHtml(text)}</pre>
       </body>
     </html>
   `);
   printWindow.document.close();
   printWindow.focus();
   printWindow.print();
+}
+
+function printGeneratedResult(result) {
+  printTextDocument(result.title, result.text);
 }
 
 function renderGeneratedHistory() {
@@ -3678,17 +3709,6 @@ function renderGeneratedHistory() {
       </div>
     `).join("")
     : `<div class="empty-state">Generated AI results you save will show up here for quick reuse.</div>`;
-}
-
-function downloadTextFile(title, text) {
-  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "little-learner-ai-output"}.txt`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(link.href);
 }
 
 function uploadedResources() {
@@ -4353,9 +4373,8 @@ function addDemoAdminResource() {
     plan: "Free",
     month: "June",
     tags: ["Uploaded", "Farm", "Toddler", "Demo"],
-    format: "Demo File",
-    fileName: "demo-toddler-farm-lesson.txt",
-    fileData: `data:text/plain;charset=utf-8,${encodeURIComponent("Demo Toddler Farm Lesson Plan\\n\\nThis is a sample uploaded resource from the admin dashboard.")}`,
+    format: "In-App Preview",
+    customContent: "Demo Toddler Farm Lesson Plan\n\nThis is a sample in-app resource from the admin dashboard. It opens in Little Learner Hub and can be printed or saved as a PDF from the preview screen.",
     previewName: "demo-preview.svg",
     previewData: `data:image/svg+xml;charset=utf-8,${previewSvg}`,
     description: "Sample uploaded resource used to test the admin dashboard workflow.",
@@ -6419,7 +6438,7 @@ document.addEventListener("click", (event) => {
     const form = document.querySelector("#weeklyPlannerForm");
     const planner = form ? collectPlannerData(form) : weeklyPlanner();
     saveWeeklyPlanner(planner);
-    downloadTextFile(`${planner.theme || "Weekly"} Plan`, plannerExportText(planner));
+    printTextDocument(`${planner.theme || "Weekly"} Plan`, plannerExportText(planner));
   }
 
   const clearPlannerButton = event.target.closest("#clearPlannerButton");
@@ -6501,12 +6520,12 @@ document.addEventListener("click", (event) => {
   const downloadOutputButton = event.target.closest("#downloadOutputButton");
   if (downloadOutputButton) {
     if (!isProUser()) {
-      showProFeatureModal("Downloading generated AI content is a Pro feature.");
+      showProFeatureModal("Saving generated AI content as a printable PDF is a Pro feature.");
       return;
     }
     const result = currentGeneratedResult();
     if (!result) return;
-    downloadTextFile(result.title, result.text);
+    printTextDocument(result.title, result.text);
   }
 
   const loadOutputButton = event.target.closest("[data-load-output]");
@@ -6533,7 +6552,7 @@ document.addEventListener("click", (event) => {
     const title = document.querySelector("#futureOutputTitle")?.textContent.trim() || "Provider Tool";
     const text = document.querySelector("#futureOutput")?.textContent.trim() || "";
     if (!text || text === "Fill out the form to create a ready-to-edit provider tool.") return;
-    downloadTextFile(title, text);
+    printTextDocument(title, text);
   }
 
   const completeGoalButton = event.target.closest("[data-complete-goal]");
