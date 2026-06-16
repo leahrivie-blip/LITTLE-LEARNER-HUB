@@ -388,6 +388,16 @@ function statusForPlan(planKey, stripeSubscriptionId, status) {
   };
 }
 
+function planKeyFromStripe(subscription, user = {}) {
+  const metadataPlan = String(subscription?.metadata?.plan || "").trim().toLowerCase();
+  if (planConfig[metadataPlan]) return metadataPlan;
+  const pendingPlan = String(user.pendingPlan || "").trim().toLowerCase();
+  if (planConfig[pendingPlan]) return pendingPlan;
+  if (user.foundingMember || user.plan === "Founding") return "founding";
+  if (user.subscriptionCadence === "annual") return "annual";
+  return "monthly";
+}
+
 function upsertUser(email, updates) {
   const store = readStore();
   store.users = store.users || {};
@@ -616,8 +626,10 @@ async function handleCheckoutStatus(request, response, url) {
   }
   try {
     const session = await stripeGet(`checkout/sessions/${encodeURIComponent(sessionId)}`);
-    const email = normalizeEmail(session.customer_details?.email || session.customer_email || session.metadata?.email);
-    const planKey = session.metadata?.plan || "monthly";
+    const store = readStore();
+    const userEntry = Object.entries(store.users || {}).find(([, user]) => user.stripeCustomerId === session.customer);
+    const email = normalizeEmail(session.customer_details?.email || session.customer_email || session.metadata?.email || userEntry?.[0]);
+    const planKey = session.metadata?.plan || userEntry?.[1]?.pendingPlan || "monthly";
     const paid = session.payment_status === "paid" || session.status === "complete";
     if (paid && email) {
       const founding = planKey === "founding" ? claimFoundingSpot(email) : { foundingMember: false, foundingMemberNumber: null };
@@ -628,6 +640,7 @@ async function handleCheckoutStatus(request, response, url) {
         foundingMemberNumber: founding.foundingMemberNumber,
         subscriptionStartedAt: new Date().toISOString(),
         paymentMethod: "Managed in Stripe",
+        pendingPlan: "",
       });
     }
     jsonResponse(response, 200, {
@@ -681,8 +694,10 @@ async function handleStripeWebhook(request, response) {
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
-    const email = normalizeEmail(session.customer_email || session.metadata?.email);
-    const planKey = session.metadata?.plan || "monthly";
+    const store = readStore();
+    const userEntry = Object.entries(store.users || {}).find(([, user]) => user.stripeCustomerId === session.customer);
+    const email = normalizeEmail(session.customer_details?.email || session.customer_email || session.metadata?.email || userEntry?.[0]);
+    const planKey = session.metadata?.plan || userEntry?.[1]?.pendingPlan || "monthly";
     if (email) {
       const founding = planKey === "founding" ? claimFoundingSpot(email) : { foundingMember: false, foundingMemberNumber: null };
       upsertUser(email, {
@@ -692,6 +707,7 @@ async function handleStripeWebhook(request, response) {
         foundingMemberNumber: founding.foundingMemberNumber,
         subscriptionStartedAt: new Date().toISOString(),
         paymentMethod: "Managed in Stripe",
+        pendingPlan: "",
       });
     }
   }
@@ -703,17 +719,25 @@ async function handleStripeWebhook(request, response) {
     if (userEntry) {
       const [email, user] = userEntry;
       const canceled = event.type === "customer.subscription.deleted" || subscription.status === "canceled";
+      const planKey = planKeyFromStripe(subscription, user);
+      const founding = planKey === "founding"
+        ? claimFoundingSpot(email)
+        : { foundingMember: Boolean(user.foundingMember), foundingMemberNumber: user.foundingMemberNumber || null };
       upsertUser(email, canceled ? {
         plan: "Free",
         subscriptionCadence: "",
         subscriptionStatus: "Canceled - Free Plan Active",
         monthlyPrice: "$0",
         stripeSubscriptionId: subscription.id,
-        foundingMember: Boolean(user.foundingMember),
-        foundingMemberNumber: user.foundingMemberNumber || null,
-        priceLock: user.foundingMember ? "Lifetime" : "",
+        foundingMember: founding.foundingMember,
+        foundingMemberNumber: founding.foundingMemberNumber,
+        priceLock: founding.foundingMember ? "Lifetime" : "",
       } : {
-        subscriptionStatus: `Stripe Subscription ${subscription.status}`,
+        ...statusForPlan(planKey, subscription.id, subscription.status === "active" ? "Active" : subscription.status),
+        foundingMember: founding.foundingMember,
+        foundingMemberNumber: founding.foundingMemberNumber,
+        paymentMethod: "Managed in Stripe",
+        pendingPlan: "",
         stripeSubscriptionId: subscription.id,
       });
     }
@@ -817,16 +841,17 @@ function handleClientConfig(request, response) {
 }
 
 function clientRuntimeConfig() {
+  const clientValue = (value) => (isConfiguredValue(value) ? value : "");
   return {
     adminEmail: ADMIN_EMAIL || "little.learners.hub.customer@gmail.com",
     firebase: {
-      apiKey: FIREBASE_API_KEY,
-      authDomain: FIREBASE_AUTH_DOMAIN,
-      projectId: FIREBASE_PROJECT_ID,
-      appId: FIREBASE_APP_ID,
-      storageBucket: FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: FIREBASE_MESSAGING_SENDER_ID,
-      measurementId: FIREBASE_MEASUREMENT_ID,
+      apiKey: clientValue(FIREBASE_API_KEY),
+      authDomain: clientValue(FIREBASE_AUTH_DOMAIN),
+      projectId: clientValue(FIREBASE_PROJECT_ID),
+      appId: clientValue(FIREBASE_APP_ID),
+      storageBucket: clientValue(FIREBASE_STORAGE_BUCKET),
+      messagingSenderId: clientValue(FIREBASE_MESSAGING_SENDER_ID),
+      measurementId: clientValue(FIREBASE_MEASUREMENT_ID),
     },
   };
 }
