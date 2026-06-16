@@ -737,6 +737,10 @@ const stripeCheckoutConfig = {
 const aiGenerationConfig = {
   endpoint: "/api/ai-generate",
 };
+const analyticsConfig = {
+  eventEndpoint: "/api/analytics/event",
+  adminEndpoint: "/api/admin/analytics",
+};
 const firebaseAuthConfig = {
   apiKey: "",
   authDomain: "",
@@ -888,6 +892,53 @@ function analyticsEvents() {
   return readSavedJson("llhAnalyticsEvents", []);
 }
 
+function saveAnalyticsEvents(events) {
+  localStorage.setItem("llhAnalyticsEvents", JSON.stringify(events));
+}
+
+function analyticsId(key, prefix) {
+  let id = localStorage.getItem(key);
+  if (!id) {
+    const random = window.crypto?.randomUUID ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    id = `${prefix}_${random}`;
+    localStorage.setItem(key, id);
+  }
+  return id;
+}
+
+function visitorId() {
+  return analyticsId("llhVisitorId", "visitor");
+}
+
+function analyticsSessionId() {
+  try {
+    let id = sessionStorage.getItem("llhSessionId");
+    if (!id) {
+      const random = window.crypto?.randomUUID ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      id = `session_${random}`;
+      sessionStorage.setItem("llhSessionId", id);
+    }
+    return id;
+  } catch (error) {
+    return analyticsId("llhSessionFallbackId", "session");
+  }
+}
+
+function trafficSource() {
+  const params = new URLSearchParams(window.location.search);
+  const utm = params.get("utm_source") || params.get("source");
+  if (utm) return utm;
+  if (params.get("fbclid")) return "Facebook";
+  if (params.get("ttclid")) return "TikTok";
+  if (params.get("gclid")) return "Google";
+  const referrer = document.referrer || "";
+  if (/facebook|instagram/i.test(referrer)) return "Facebook";
+  if (/tiktok/i.test(referrer)) return "TikTok";
+  if (/google/i.test(referrer)) return "Google";
+  if (/bing|yahoo|duckduckgo/i.test(referrer)) return "Search";
+  return referrer ? "Referral" : "Direct";
+}
+
 function currentAttribution() {
   return readSavedJson("llhAttribution", {});
 }
@@ -896,24 +947,53 @@ function saveAttribution(detail = {}) {
   const attribution = {
     route: detail.route || window.location.pathname || window.location.hash || "home",
     view: detail.view || "home",
+    source: detail.source || trafficSource(),
     firstSeenAt: new Date().toISOString(),
   };
   localStorage.setItem("llhAttribution", JSON.stringify(attribution));
   return attribution;
 }
 
+function sendAnalyticsEvent(event) {
+  if (!analyticsConfig.eventEndpoint || !canUseLaunchBackend()) return;
+  const payload = JSON.stringify({ event });
+  try {
+    if (navigator.sendBeacon) {
+      const sent = navigator.sendBeacon(analyticsConfig.eventEndpoint, new Blob([payload], { type: "application/json" }));
+      if (sent) return;
+    }
+  } catch (error) {
+    // Fall back to fetch below.
+  }
+  fetch(analyticsConfig.eventEndpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: payload,
+    keepalive: true,
+  }).catch(() => {});
+}
+
 function trackEvent(name, detail = {}) {
+  const attribution = currentAttribution();
   const event = {
     id: `event-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     name,
     detail,
+    visitorId: visitorId(),
+    sessionId: analyticsSessionId(),
     path: window.location.pathname,
     hash: window.location.hash,
+    url: window.location.href,
+    pageTitle: document.title,
+    referrer: document.referrer || "",
+    source: detail.source || attribution.source || trafficSource(),
     user: currentUser || "",
-    attribution: currentAttribution(),
+    plan: currentPlan,
+    attribution,
     createdAt: new Date().toISOString(),
   };
-  localStorage.setItem("llhAnalyticsEvents", JSON.stringify([event, ...analyticsEvents()].slice(0, 300)));
+  saveAnalyticsEvents([event, ...analyticsEvents()]);
+  sendAnalyticsEvent(event);
 }
 
 function leads() {
@@ -1246,6 +1326,8 @@ let currentPlan = localStorage.getItem("llhPlan") || "Free";
 let currentUser = localStorage.getItem("llhUser") || "";
 let activeFilter = "All";
 let currentAuthMode = "login";
+let adminAnalyticsCache = null;
+let adminAnalyticsLoading = false;
 
 const searchInput = document.querySelector("#searchInput");
 const currentPlanLabel = document.querySelector("#currentPlanLabel");
@@ -1388,6 +1470,16 @@ function loadAccountState(email) {
   localStorage.setItem("llhDownloads", JSON.stringify(savedDownloads));
   updateAuthButtons();
   updatePlanLabel();
+}
+
+function markAccountLogin(email) {
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  if (!cleanEmail) return;
+  updateAccount(cleanEmail, {
+    lastLoginAt: new Date().toISOString(),
+    lastSeenAt: new Date().toISOString(),
+    lastPlanSeen: currentPlan,
+  });
 }
 
 function saveCurrentAccountState() {
@@ -2673,6 +2765,10 @@ function closeResourceViewer() {
 function printResourceViewer() {
   const viewer = document.querySelector("#resourceViewerModal");
   if (!viewer?.classList.contains("open")) return;
+  trackEvent("resource_print", {
+    title: document.querySelector("#resourceViewerTitle")?.textContent || "Resource",
+    category: document.querySelector("#resourceViewerCategory")?.textContent || "Resource",
+  });
   document.body.classList.add("printing-resource");
   const cleanup = () => {
     document.body.classList.remove("printing-resource");
@@ -2721,7 +2817,7 @@ function openResourceViewer(resourceId) {
   const viewer = document.querySelector("#resourceViewerModal");
   viewer.classList.add("open");
   viewer.setAttribute("aria-hidden", "false");
-  trackEvent("resource_view", { resourceId, category: resource.category, plan: currentPlan });
+  trackEvent("resource_view", { resourceId, title: resource.title, category: resource.category, age: resource.age, access: resource.plan, plan: currentPlan });
 }
 
 function renderCategoryPage(view) {
@@ -4246,6 +4342,26 @@ function eventCount(name) {
   return analyticsEvents().filter((event) => event.name === name).length;
 }
 
+function dateKey(value) {
+  const date = new Date(value || Date.now());
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  return date.toISOString().slice(0, 10);
+}
+
+function monthKey(value) {
+  const key = dateKey(value);
+  return key === "Unknown" ? key : key.slice(0, 7);
+}
+
+function weekKey(value) {
+  const date = new Date(value || Date.now());
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  const first = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const dayNumber = Math.floor((date - first) / 86400000) + 1;
+  const week = Math.ceil((dayNumber + first.getUTCDay()) / 7);
+  return `${date.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+
 function groupCounts(items, getter) {
   return items.reduce((counts, item) => {
     const key = getter(item) || "Unknown";
@@ -4265,56 +4381,278 @@ function countListHtml(counts, emptyText = "No data yet.") {
   `).join("");
 }
 
+function topEntries(counts, limit = 8) {
+  return Object.entries(counts || {}).sort((a, b) => b[1] - a[1]).slice(0, limit);
+}
+
+function percentage(part, whole) {
+  return whole ? `${Math.round((part / whole) * 100)}%` : "0%";
+}
+
+function moneyValue(value) {
+  const amount = Number(String(value || "").replace(/[^0-9.]/g, ""));
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function groupMoney(events, keyGetter) {
+  return events.reduce((totals, event) => {
+    const key = keyGetter(event);
+    totals[key] = (totals[key] || 0) + moneyValue(event.detail?.monthlyPrice || event.detail?.amount || event.amount);
+    return totals;
+  }, {});
+}
+
+function lineChartHtml(points = [], emptyText = "No trend data yet.") {
+  const entries = Array.isArray(points) ? points : Object.entries(points).map(([label, value]) => ({ label, value }));
+  const trimmed = entries.slice(-14);
+  if (!trimmed.length) return `<div class="empty-state">${emptyText}</div>`;
+  const max = Math.max(...trimmed.map((point) => Number(point.value || 0)), 1);
+  return `
+    <div class="analytics-chart">
+      ${trimmed.map((point) => {
+        const height = Math.max(8, Math.round((Number(point.value || 0) / max) * 100));
+        return `
+          <div class="analytics-bar" title="${escapeHtml(point.label)}: ${escapeHtml(point.value)}">
+            <span style="height:${height}%"></span>
+            <small>${escapeHtml(String(point.label).replace(/^2026-/, ""))}</small>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function mapCountsToPoints(counts = {}) {
+  return Object.entries(counts)
+    .sort(([a], [b]) => String(a).localeCompare(String(b)))
+    .map(([label, value]) => ({ label, value }));
+}
+
+function localAnalyticsSummary() {
+  const events = analyticsEvents();
+  const accountRows = allAccountsList();
+  const leadRows = leads();
+  const pageViews = events.filter((event) => event.name === "page_view");
+  const visits = events.filter((event) => event.name === "website_visit" || event.name === "page_view");
+  const signups = events.filter((event) => event.name === "account_signup_complete");
+  const paidEvents = events.filter((event) => event.name === "checkout_success");
+  const paidUsers = accountRows.filter((account) => ["Pro", "Founding"].includes(account.plan));
+  const visitorIds = new Set(visits.map((event) => event.visitorId || event.user || event.sessionId).filter(Boolean));
+  const visitorDays = {};
+  visits.forEach((event) => {
+    const id = event.visitorId || event.user || event.sessionId || "unknown";
+    visitorDays[id] = visitorDays[id] || new Set();
+    visitorDays[id].add(dateKey(event.createdAt));
+  });
+  const returningVisitors = Object.values(visitorDays).filter((days) => days.size > 1).length;
+  const revenueEvents = paidEvents;
+  const featureEvents = events.filter((event) => ["button_click", "ai_generation_success", "resource_view", "resource_print", "generated_pdf", "generated_print", "provider_tool_pdf", "checkout_start", "checkout_success"].includes(event.name));
+  return {
+    mode: "Local browser history",
+    updatedAt: new Date().toISOString(),
+    totals: {
+      visitors: visits.length,
+      uniqueVisitors: visitorIds.size,
+      signups: Math.max(signups.length, accountRows.length),
+      totalRegisteredUsers: accountRows.length,
+      freeUsers: accountRows.filter((account) => !["Pro", "Founding"].includes(account.plan)).length,
+      proUsers: accountRows.filter((account) => account.plan === "Pro").length,
+      foundingMembers: accountRows.filter((account) => account.plan === "Founding" || account.foundingMember).length,
+      paidUsers: paidUsers.length,
+      activeSubscriptions: paidUsers.filter((account) => !String(account.subscriptionStatus || "").toLowerCase().includes("cancel")).length,
+      canceledSubscriptions: accountRows.filter((account) => String(account.subscriptionStatus || "").toLowerCase().includes("cancel")).length,
+      returningVisitors,
+      visitorToSignupRate: percentage(Math.max(signups.length, accountRows.length), Math.max(visitorIds.size, visits.length)),
+      signupToPaidRate: percentage(paidUsers.length, Math.max(signups.length, accountRows.length)),
+      visitorToPaidRate: percentage(paidUsers.length, Math.max(visitorIds.size, visits.length)),
+      totalRevenue: revenueEvents.reduce((total, event) => total + moneyValue(event.detail?.monthlyPrice || event.detail?.amount), 0),
+    },
+    periods: {
+      dailyVisitors: groupCounts(visits, (event) => dateKey(event.createdAt)),
+      weeklyVisitors: groupCounts(visits, (event) => weekKey(event.createdAt)),
+      monthlyVisitors: groupCounts(visits, (event) => monthKey(event.createdAt)),
+      dailyRevenue: groupMoney(revenueEvents, (event) => dateKey(event.createdAt)),
+      weeklyRevenue: groupMoney(revenueEvents, (event) => weekKey(event.createdAt)),
+      monthlyRevenue: groupMoney(revenueEvents, (event) => monthKey(event.createdAt)),
+      yearlyRevenue: groupMoney(revenueEvents, (event) => String(new Date(event.createdAt).getFullYear())),
+    },
+    counts: {
+      pageViews: groupCounts(pageViews, (event) => event.detail?.view || event.path || event.hash || "Home"),
+      sources: groupCounts(visits, (event) => event.source || event.attribution?.source || "Direct"),
+      buttonClicks: groupCounts(events.filter((event) => event.name === "button_click"), (event) => event.detail?.label || event.detail?.action || "Button"),
+      aiUsage: groupCounts(events.filter((event) => event.name === "ai_generation_success"), (event) => event.detail?.tool || "AI Generator"),
+      resourceViews: groupCounts(events.filter((event) => event.name === "resource_view"), (event) => event.detail?.category || "Resource"),
+      resourcePrints: groupCounts(events.filter((event) => ["resource_print", "generated_pdf", "generated_print", "provider_tool_pdf"].includes(event.name)), (event) => event.detail?.category || event.detail?.tool || "Printable/PDF"),
+      featureUsage: groupCounts(featureEvents, (event) => event.name),
+    },
+    users: accountRows.map((account) => {
+      const userEvents = events.filter((event) => event.user === account.email);
+      const lastEvent = userEvents.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+      return {
+        email: account.email,
+        plan: account.plan || "Free",
+        subscriptionStatus: account.subscriptionStatus || "Free Plan",
+        signupAt: account.createdAt || "",
+        lastLoginAt: account.lastLoginAt || "",
+        lastSeenAt: lastEvent?.createdAt || account.updatedAt || "",
+        featureUseCount: userEvents.length,
+        topFeatures: topEntries(groupCounts(userEvents, (event) => event.name), 3),
+      };
+    }),
+    recentEvents: events.slice(0, 12),
+    leads: leadRows,
+  };
+}
+
+async function loadAdminAnalyticsFromBackend() {
+  const token = adminSession()?.token;
+  if (!analyticsConfig.adminEndpoint || !canUseLaunchBackend() || !token || adminAnalyticsLoading) return;
+  adminAnalyticsLoading = true;
+  try {
+    const response = await fetch(`${analyticsConfig.adminEndpoint}?adminToken=${encodeURIComponent(token)}&t=${Date.now()}`, { cache: "no-store" });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error || "Could not load admin analytics.");
+    adminAnalyticsCache = data.analytics || data;
+    renderAdminAnalytics();
+    renderAdminOwnerOverview();
+  } catch (error) {
+    console.warn("Admin analytics backend load failed", error);
+  } finally {
+    adminAnalyticsLoading = false;
+  }
+}
+
+function analyticsRowsHtml(rows = [], emptyText = "No data yet.") {
+  if (!rows.length) return `<div class="empty-state">${emptyText}</div>`;
+  return rows.map(([label, value]) => `
+    <div class="analytics-row">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </div>
+  `).join("");
+}
+
+function userAnalyticsTable(users = []) {
+  if (!users.length) return `<div class="empty-state">Users will appear here after signups or subscription syncs.</div>`;
+  return `
+    <div class="admin-table-wrap analytics-user-table-wrap">
+      <table class="admin-table analytics-user-table">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Plan</th>
+            <th>Last Login</th>
+            <th>Last Seen</th>
+            <th>Feature Use</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${users.slice(0, 25).map((user) => `
+            <tr>
+              <td><strong>${escapeHtml(user.email || "Unknown")}</strong><br><small>Signup: ${escapeHtml(user.signupAt ? new Date(user.signupAt).toLocaleDateString() : "unknown")}</small></td>
+              <td>${escapeHtml(user.plan || "Free")}<br><small>${escapeHtml(user.subscriptionStatus || "")}</small></td>
+              <td>${escapeHtml(user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : "Not tracked yet")}</td>
+              <td>${escapeHtml(user.lastSeenAt ? new Date(user.lastSeenAt).toLocaleString() : "Not tracked yet")}</td>
+              <td>${escapeHtml(user.featureUseCount || 0)}<br><small>${(user.topFeatures || []).map(([label, count]) => `${escapeHtml(label)} (${count})`).join(", ")}</small></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 function renderAdminAnalytics() {
   const target = document.querySelector("#adminAnalyticsApp");
   if (!target || !isAdminUnlocked()) return;
-  const events = analyticsEvents();
-  const leadRows = leads();
-  const checkoutSuccesses = events.filter((event) => event.name === "checkout_success");
-  const pageViews = events.filter((event) => event.name === "page_view");
-  const adVisits = events.filter((event) => event.name === "ad_route_visit");
-  const signupClicks = eventCount("signup_click");
-  const checkoutStarts = eventCount("checkout_start");
-  const paidConversions = checkoutSuccesses.length;
-  const conversionRate = checkoutStarts ? Math.round((paidConversions / checkoutStarts) * 100) : 0;
-  const pageCounts = groupCounts(pageViews, (event) => event.detail?.view || event.path || event.hash);
-  const adCounts = groupCounts(adVisits, (event) => event.detail?.route || event.attribution?.route || "Direct / Home");
-  const leadCounts = groupCounts(leadRows, (lead) => lead.source || lead.attribution?.route || "Free Daycare Starter Pack");
+  const summary = adminAnalyticsCache || localAnalyticsSummary();
+  const totals = summary.totals || {};
+  const periods = summary.periods || {};
+  const counts = summary.counts || {};
   target.innerHTML = `
+    <div class="admin-analytics-status">
+      <span>${escapeHtml(summary.mode || "Analytics")}</span>
+      <small>Historical events are retained. Existing visits from before this update cannot be backfilled.</small>
+      <button class="ghost-button" type="button" data-refresh-analytics>Refresh Analytics</button>
+    </div>
     <div class="analytics-summary-grid">
-      <div><strong>${pageViews.length}</strong><span>page views tracked</span></div>
-      <div><strong>${signupClicks}</strong><span>signup clicks</span></div>
-      <div><strong>${checkoutStarts}</strong><span>checkout starts</span></div>
-      <div><strong>${paidConversions}</strong><span>paid conversions</span></div>
-      <div><strong>${conversionRate}%</strong><span>checkout conversion</span></div>
-      <div><strong>${leadRows.length}</strong><span>lead magnet signups</span></div>
+      ${adminMetric("total visitors", totals.visitors || 0)}
+      ${adminMetric("unique visitors", totals.uniqueVisitors || 0)}
+      ${adminMetric("registered users", totals.totalRegisteredUsers || 0)}
+      ${adminMetric("free users", totals.freeUsers || 0)}
+      ${adminMetric("pro users", totals.proUsers || 0)}
+      ${adminMetric("founding members", totals.foundingMembers || 0)}
+      ${adminMetric("active subscriptions", totals.activeSubscriptions || 0)}
+      ${adminMetric("canceled subscriptions", totals.canceledSubscriptions || 0)}
+      ${adminMetric("visitor to signup", totals.visitorToSignupRate || "0%")}
+      ${adminMetric("signup to paid", totals.signupToPaidRate || "0%")}
+      ${adminMetric("visitor to paid", totals.visitorToPaidRate || "0%")}
+      ${adminMetric("tracked revenue", `$${Number(totals.totalRevenue || 0).toFixed(2)}`)}
+      ${adminMetric("returning visitors", totals.returningVisitors || 0)}
     </div>
     <div class="analytics-grid">
       <article class="analytics-card">
-        <h4>Top Pages</h4>
-        ${countListHtml(pageCounts, "No page views tracked yet.")}
+        <h4>Daily Visitors</h4>
+        ${lineChartHtml(mapCountsToPoints(periods.dailyVisitors), "No daily visitor history yet.")}
       </article>
       <article class="analytics-card">
-        <h4>Ad Routes</h4>
-        ${countListHtml(adCounts, "No ad route visits tracked yet.")}
+        <h4>Monthly Visitors</h4>
+        ${lineChartHtml(mapCountsToPoints(periods.monthlyVisitors), "No monthly visitor history yet.")}
       </article>
       <article class="analytics-card">
-        <h4>Lead Sources</h4>
-        ${countListHtml(leadCounts, "No leads captured yet.")}
+        <h4>Revenue by Month</h4>
+        ${lineChartHtml(mapCountsToPoints(periods.monthlyRevenue), "Revenue appears after successful checkout events.")}
       </article>
       <article class="analytics-card">
-        <h4>Buyer Attribution</h4>
-        ${checkoutSuccesses.length ? checkoutSuccesses.slice(0, 8).map((event) => `
+        <h4>Revenue by Year</h4>
+        ${analyticsRowsHtml(topEntries(periods.yearlyRevenue, 8), "No yearly revenue tracked yet.")}
+      </article>
+      <article class="analytics-card">
+        <h4>Most Visited Pages</h4>
+        ${countListHtml(counts.pageViews, "No page views tracked yet.")}
+      </article>
+      <article class="analytics-card">
+        <h4>Traffic Sources</h4>
+        ${countListHtml(counts.sources, "Traffic sources will appear after visits.")}
+      </article>
+      <article class="analytics-card">
+        <h4>Button Clicks</h4>
+        ${countListHtml(counts.buttonClicks, "Button clicks will appear here.")}
+      </article>
+      <article class="analytics-card">
+        <h4>AI Generator Usage</h4>
+        ${countListHtml(counts.aiUsage, "AI usage will appear after generations.")}
+      </article>
+      <article class="analytics-card">
+        <h4>Resource Views</h4>
+        ${countListHtml(counts.resourceViews, "Resource views will appear here.")}
+      </article>
+      <article class="analytics-card">
+        <h4>Print / PDF Actions</h4>
+        ${countListHtml(counts.resourcePrints, "Print or PDF actions will appear here.")}
+      </article>
+      <article class="analytics-card">
+        <h4>Feature Usage</h4>
+        ${countListHtml(counts.featureUsage, "Feature usage will appear here.")}
+      </article>
+      <article class="analytics-card">
+        <h4>Recent Events</h4>
+        ${(summary.recentEvents || []).length ? summary.recentEvents.slice(0, 10).map((event) => `
           <div class="analytics-row stacked">
-            <span>${escapeHtml(event.user || "Guest checkout")}</span>
-            <strong>${escapeHtml(event.detail?.plan || "Pro")}</strong>
-            <small>${escapeHtml(event.detail?.attribution?.route || event.attribution?.route || "Direct / Home")} ¬∑ ${new Date(event.createdAt).toLocaleDateString()}</small>
+            <span>${escapeHtml(event.name)}</span>
+            <strong>${escapeHtml(event.user || event.detail?.label || event.detail?.view || event.source || "visitor")}</strong>
+            <small>${escapeHtml(event.createdAt ? new Date(event.createdAt).toLocaleString() : "")}</small>
           </div>
-        `).join("") : `<div class="empty-state">Paid conversions will appear here after checkout success.</div>`}
+        `).join("") : `<div class="empty-state">Recent events will appear here.</div>`}
       </article>
     </div>
-    <p class="muted-copy">Private analytics are stored locally in this website demo. Production launch should move this data to a secure backend with owner-only access.</p>
+    <article class="analytics-card analytics-user-card">
+      <h4>User-Level Tracking</h4>
+      ${userAnalyticsTable(summary.users || [])}
+    </article>
+    <p class="muted-copy">Server analytics are stored historically in the launch store and are only visible with Admin access. If the backend is unavailable, this dashboard shows local browser history until the server responds.</p>
   `;
+  if (!adminAnalyticsCache && !adminAnalyticsLoading) loadAdminAnalyticsFromBackend();
 }
 
 function readinessItem(label, status, detail) {
@@ -6158,6 +6496,7 @@ function cancelSubscription() {
     priceLock: account?.foundingMember ? "Lifetime" : "",
   });
   addBillingHistory("Subscription Canceled", "Pro permissions removed and Free limits restored.", "$0");
+  trackEvent("subscription_canceled", { email: currentUser, previousPlan: account?.plan || "Pro", previousPrice: account?.monthlyPrice || "" });
   saveCurrentAccountState();
   updateAuthButtons();
   updatePlanLabel();
@@ -6253,6 +6592,16 @@ function showSearchResults() {
 }
 
 document.addEventListener("click", (event) => {
+  const clickedButton = event.target.closest("button");
+  if (clickedButton && !clickedButton.closest("#adminProtectedContent")) {
+    trackEvent("button_click", {
+      label: (clickedButton.textContent || clickedButton.getAttribute("aria-label") || "Button").replace(/\s+/g, " ").trim(),
+      view: clickedButton.dataset.view || "",
+      checkoutPlan: clickedButton.dataset.checkoutPlan || "",
+      action: clickedButton.id || clickedButton.dataset.view || clickedButton.dataset.checkoutPlan || clickedButton.dataset.proFeature || "button",
+    });
+  }
+
   const adminPreviewButton = event.target.closest("[data-admin-preview]");
   if (adminPreviewButton) {
     event.preventDefault();
@@ -6621,6 +6970,7 @@ document.addEventListener("click", (event) => {
     }
     const result = currentGeneratedResult();
     if (!result) return;
+    trackEvent("generated_print", { title: result.title, tool: result.toolId || "generator" });
     printGeneratedResult(result);
   }
 
@@ -6632,6 +6982,7 @@ document.addEventListener("click", (event) => {
     }
     const result = currentGeneratedResult();
     if (!result) return;
+    trackEvent("generated_pdf", { title: result.title, tool: result.toolId || "generator" });
     printTextDocument(result.title, result.text);
   }
 
@@ -6659,6 +7010,7 @@ document.addEventListener("click", (event) => {
     const title = document.querySelector("#futureOutputTitle")?.textContent.trim() || "Provider Tool";
     const text = document.querySelector("#futureOutput")?.textContent.trim() || "";
     if (!text || text === "Fill out the form to create a ready-to-edit provider tool.") return;
+    trackEvent("provider_tool_pdf", { title });
     printTextDocument(title, text);
   }
 
@@ -6704,10 +7056,10 @@ document.addEventListener("click", (event) => {
     return;
   }
 
-  const clearAnalyticsButton = event.target.closest("#clearAnalyticsButton");
-  if (clearAnalyticsButton) {
-    localStorage.removeItem("llhAnalyticsEvents");
-    localStorage.removeItem("llhAttribution");
+  const refreshAnalyticsButton = event.target.closest("#refreshAnalyticsButton, [data-refresh-analytics]");
+  if (refreshAnalyticsButton) {
+    adminAnalyticsCache = null;
+    loadAdminAnalyticsFromBackend();
     renderAdminAnalytics();
     return;
   }
@@ -6827,14 +7179,20 @@ document.querySelector("#authForm").addEventListener("submit", async (event) => 
     if (currentAuthMode === "signup") {
       const result = await signUpWithProvider(email, password, phone);
       loadAccountState(result.email);
+      updateAccount(result.email, {
+        signupAt: new Date().toISOString(),
+        lastLoginAt: new Date().toISOString(),
+        selectedPlanAtSignup: currentPlan,
+      });
       await syncSubscriptionFromBackend(result.email);
-      trackEvent("account_signup_complete");
+      trackEvent("account_signup_complete", { email: result.email, plan: currentPlan, source: trafficSource() });
       setFormMessage("#authMessage", result.message || "Account created.", true);
     } else {
       const result = await loginWithProvider(email, password);
       loadAccountState(result.email);
+      markAccountLogin(result.email);
       await syncSubscriptionFromBackend(result.email);
-      trackEvent("account_login_complete");
+      trackEvent("account_login_complete", { email: result.email, plan: currentPlan });
     }
     closeAuthModal();
     setView("account");
@@ -7030,6 +7388,7 @@ document.querySelector("#aiChatForm").addEventListener("submit", (event) => {
   addAiMessage("user", prompt);
   addAiMessage("assistant", generateFromPrompt(prompt));
   recordAiUse();
+  trackEvent("ai_generation_success", { tool: "chat", promptLength: prompt.length, plan: currentPlan, backendUsed: false });
   promptBox.value = "";
 });
 
@@ -7057,6 +7416,7 @@ document.addEventListener("submit", async (event) => {
     const result = await generateToolOutputWithBackend(toolId, data);
     document.querySelector("#generatorOutput").textContent = result.output;
     recordAiUse();
+    trackEvent("ai_generation_success", { tool: toolId, plan: currentPlan, backendUsed: Boolean(result.backendUsed), used: result.used, limit: result.limit });
   } catch (error) {
     document.querySelector("#outputTitle").textContent = "AI Generation Error";
     document.querySelector("#generatorOutput").textContent = error.message || "AI generation could not be completed.";
@@ -7238,6 +7598,11 @@ async function initializeAppView() {
   }
   await syncFoundingStatus({ render: true });
   const initialView = initialViewFromLocation();
+  if (!currentAttribution()?.firstSeenAt) {
+    saveAttribution({ route: window.location.pathname || window.location.hash || "home", view: initialView, source: trafficSource() });
+  }
+  trackEvent("website_visit", { view: initialView, source: trafficSource() });
+  if (initialView === "home") trackEvent("page_view", { view: "home" });
   if (initialView !== "home") {
     const route = window.location.pathname || window.location.hash;
     saveAttribution({ route, view: initialView });
