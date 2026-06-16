@@ -1012,6 +1012,67 @@ function updateCurrentAccountBilling(updates) {
   return allAccounts[currentUser];
 }
 
+function isStripeStatusActive(subscription) {
+  const status = String(subscription?.subscriptionStatus || "").toLowerCase();
+  if (status.includes("cancel") || status.includes("free plan") || status.includes("failed")) return false;
+  return status.includes("active")
+    || status.includes("trial")
+    || status.includes("paid");
+}
+
+function subscriptionToAccountUpdates(subscription) {
+  if (!subscription || !isStripeStatusActive(subscription)) return null;
+  const pendingPlan = String(subscription.pendingPlan || "").toLowerCase();
+  const serverPlan = String(subscription.plan || "").toLowerCase();
+  const isFounding = Boolean(subscription.foundingMember)
+    || serverPlan === "founding"
+    || pendingPlan === "founding"
+    || String(subscription.priceLock || "").toLowerCase() === "lifetime"
+    || String(subscription.monthlyPrice || "").includes("9.99");
+  const plan = isFounding ? "Founding" : "Pro";
+  return {
+    plan,
+    subscriptionCadence: subscription.subscriptionCadence || (plan === "Founding" ? "monthly" : ""),
+    subscriptionStatus: subscription.subscriptionStatus || `${billingPlanLabel(plan)} Subscription Active`,
+    subscriptionStartedAt: subscription.subscriptionStartedAt || new Date().toISOString(),
+    foundingMember: isFounding,
+    foundingMemberNumber: subscription.foundingMemberNumber || null,
+    priceLock: isFounding ? "Lifetime" : subscription.priceLock || "",
+    monthlyPrice: isFounding ? "$9.99/month" : subscription.monthlyPrice || "$19.99/month",
+    stripeCustomerId: subscription.stripeCustomerId || "",
+    stripeSubscriptionId: subscription.stripeSubscriptionId || "",
+    paymentMethod: subscription.paymentMethod || "Managed in Stripe",
+  };
+}
+
+async function syncSubscriptionFromBackend(email, options = {}) {
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  if (!cleanEmail || !stripeCheckoutConfig.subscriptionStatusEndpoint || !canUseStripeBackend()) return null;
+  try {
+    const response = await fetch(`${stripeCheckoutConfig.subscriptionStatusEndpoint}?email=${encodeURIComponent(cleanEmail)}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error || "Could not sync subscription.");
+    const updates = subscriptionToAccountUpdates(data?.subscription);
+    if (!updates) return data;
+    updateAccount(cleanEmail, updates);
+    if (cleanEmail === currentUser) {
+      currentPlan = updates.plan;
+      localStorage.setItem("llhPlan", currentPlan);
+      updateAuthButtons();
+      updatePlanLabel();
+      if (options.renderAccount) renderAccountPage();
+      if (options.renderBilling) {
+        renderBillingPage();
+        renderSubscriptionPage();
+      }
+    }
+    return data;
+  } catch (error) {
+    console.warn("Subscription sync did not complete", error);
+    return null;
+  }
+}
+
 function claimFoundingMembership(email) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail) return { claimed: false, memberNumber: null };
@@ -1904,7 +1965,7 @@ function renderWeeklyPlanner() {
             <div class="compact-item">
               <div>
                 <strong>${resource.title}</strong>
-                <span>${resource.category} · ${resource.age} · ${resource.plan}</span>
+                <span>${resource.category} ¬∑ ${resource.age} ¬∑ ${resource.plan}</span>
               </div>
               <button class="ghost-button" data-planner-resource="${resource.id}" type="button">Use</button>
             </div>
@@ -1981,7 +2042,7 @@ function renderAiUsagePanel() {
       <div>
         <p class="eyebrow">AI Usage</p>
         <h4>${used} of ${limit} generations used</h4>
-        <span>${remaining} remaining · Resets ${escapeHtml(aiResetLabel())}</span>
+        <span>${remaining} remaining ¬∑ Resets ${escapeHtml(aiResetLabel())}</span>
       </div>
       <div class="usage-bar" aria-label="${used} of ${limit} AI generations used">
         <span style="width: ${Math.min((used / limit) * 100, 100)}%"></span>
@@ -2327,7 +2388,7 @@ function renderChildProfile(child, records, filteredObservations) {
       <div>
         <p class="eyebrow">Child Profile</p>
         <h3>${child.name}</h3>
-        <p>${child.ageGroup} · Last observation: ${lastObservationDate(child.id, records.observations)}</p>
+        <p>${child.ageGroup} ¬∑ Last observation: ${lastObservationDate(child.id, records.observations)}</p>
         <p>${child.allergies ? `Allergies: ${child.allergies}` : "No allergies listed."}</p>
       </div>
       <button class="ghost-button" ${isProUser() ? `data-export-portfolio="${child.id}"` : `data-pro-feature="child-portfolios"`} type="button">Export Portfolio</button>
@@ -2490,7 +2551,7 @@ function observationItem(item) {
   return `
     <div class="compact-item">
       <div>
-        <strong>${item.area} · ${item.date}</strong>
+        <strong>${item.area} ¬∑ ${item.date}</strong>
         <span>${item.text}</span>
         ${item.nextSteps ? `<span>Next: ${item.nextSteps}</span>` : ""}
       </div>
@@ -2515,8 +2576,8 @@ function goalItem(item) {
   return `
     <div class="compact-item">
       <div>
-        <strong>${item.area} · ${item.progress}</strong>
-        <span>${item.goal}${item.targetDate ? ` · Target: ${item.targetDate}` : ""}</span>
+        <strong>${item.area} ¬∑ ${item.progress}</strong>
+        <span>${item.goal}${item.targetDate ? ` ¬∑ Target: ${item.targetDate}` : ""}</span>
       </div>
       ${item.progress !== "Complete" ? `<button class="ghost-button" data-complete-goal="${item.id}" type="button">Mark Complete</button>` : `<span class="tag">Complete</span>`}
     </div>
@@ -2552,7 +2613,7 @@ ${observation ? `${observation.text}\nDevelopmental Area: ${observation.area}\nN
 
 Provider Note
 ${child.name} participated in daily routines and learning experiences. Please let me know if there is anything you would like me to watch for tomorrow.`;
-  appendChildRecord("Reports", { childId, title: `Daily Report · ${today}`, date: today, summary: report });
+  appendChildRecord("Reports", { childId, title: `Daily Report ¬∑ ${today}`, date: today, summary: report });
 }
 
 function exportChildPortfolio(childId) {
@@ -2572,13 +2633,13 @@ function exportChildPortfolio(childId) {
     `Additional Notes: ${child.notes || ""}`,
     "",
     "Observations",
-    ...records.observations.filter((item) => item.childId === childId).map((item) => `- ${item.date} · ${item.area}: ${item.text} Next: ${item.nextSteps || ""}`),
+    ...records.observations.filter((item) => item.childId === childId).map((item) => `- ${item.date} ¬∑ ${item.area}: ${item.text} Next: ${item.nextSteps || ""}`),
     "",
     "Goals",
-    ...records.goals.filter((item) => item.childId === childId).map((item) => `- ${item.area}: ${item.goal} · ${item.progress} · Target: ${item.targetDate || ""}`),
+    ...records.goals.filter((item) => item.childId === childId).map((item) => `- ${item.area}: ${item.goal} ¬∑ ${item.progress} ¬∑ Target: ${item.targetDate || ""}`),
     "",
     "Support Plans",
-    ...records.supportPlans.filter((item) => item.childId === childId).map((item) => `- ${item.area}: ${item.goal} · ${item.activity} · ${item.status}`),
+    ...records.supportPlans.filter((item) => item.childId === childId).map((item) => `- ${item.area}: ${item.goal} ¬∑ ${item.activity} ¬∑ ${item.status}`),
     "",
     "Lesson Plan Differentiation",
     ...records.differentiations.filter((item) => item.childId === childId).map((item) => `- Whole Group: ${item.wholeGroup}. Individual Support: ${item.support}`),
@@ -2593,7 +2654,7 @@ function exportChildPortfolio(childId) {
     ...records.reports.filter((item) => item.childId === childId).map((item) => `- ${item.title}: ${item.summary}`),
     "",
     "Parent Communication",
-    ...records.communications.filter((item) => item.childId === childId).map((item) => `- ${item.date} · ${item.type}: ${item.message}`),
+    ...records.communications.filter((item) => item.childId === childId).map((item) => `- ${item.date} ¬∑ ${item.type}: ${item.message}`),
   ];
   downloadTextFile(`${child.name} Portfolio`, lines.join("\n"));
 }
@@ -2725,7 +2786,7 @@ function renderGeneratedHistory() {
       <div class="compact-item generated-item">
         <div>
           <strong>${item.title}</strong>
-          <span>${item.date} · ${item.text.slice(0, 92)}${item.text.length > 92 ? "..." : ""}</span>
+          <span>${item.date} ¬∑ ${item.text.slice(0, 92)}${item.text.length > 92 ? "..." : ""}</span>
         </div>
         <button class="ghost-button" data-load-output="${item.id}" type="button">Open</button>
       </div>
@@ -2803,7 +2864,7 @@ function ticketCard(ticket, admin = false) {
         <div>
           <p class="eyebrow">${escapeHtml(ticket.kind)}</p>
           <h3>${escapeHtml(ticket.topic)}</h3>
-          <p>${escapeHtml(ticket.name)} · ${escapeHtml(ticket.email || "No email")}</p>
+          <p>${escapeHtml(ticket.name)} ¬∑ ${escapeHtml(ticket.email || "No email")}</p>
         </div>
         <span class="ticket-status ${ticketStatusClass(ticket.status)}">${escapeHtml(ticket.status)}</span>
       </div>
@@ -2877,6 +2938,12 @@ function setAdminSession(sessionDetail) {
 function clearAdminSession() {
   localStorage.removeItem("llhAdminSession");
   localStorage.removeItem("llhAdminUnlocked");
+}
+
+function canUseSignedInOwnerAdmin() {
+  const host = window.location.hostname;
+  const localHost = host === "localhost" || host === "127.0.0.1" || host === "::1";
+  return localHost && currentUser && currentUser.toLowerCase() === adminOwnerAccount.email.toLowerCase();
 }
 
 async function adminLogin(email, password, code) {
@@ -2962,7 +3029,7 @@ function renderAdminOwnerOverview() {
           <div class="analytics-row stacked">
             <span>${escapeHtml(account.email)}</span>
             <strong>${escapeHtml(account.plan || "Free")}</strong>
-            <small>${escapeHtml(account.subscriptionStatus || "Free Plan")} · ${escapeHtml(account.monthlyPrice || "$0")}</small>
+            <small>${escapeHtml(account.subscriptionStatus || "Free Plan")} ¬∑ ${escapeHtml(account.monthlyPrice || "$0")}</small>
           </div>
         `).join("") : `<div class="empty-state">No accounts yet.</div>`}
       </article>
@@ -3011,6 +3078,12 @@ function renderAdminAccessShell() {
           <p class="form-note">Admin credentials are checked by the backend server. Localhost preview allows testing only on this computer.</p>
           <span id="adminUnlockMessage" class="form-message"></span>
         </form>
+        ${canUseSignedInOwnerAdmin() ? `
+          <div class="admin-local-owner">
+            <p class="form-note">You are signed in as the owner on localhost.</p>
+            <button class="ghost-button" type="button" id="localOwnerAdminUnlock">Unlock with signed-in owner account</button>
+          </div>
+        ` : ""}
       </div>
     `;
     return false;
@@ -3096,7 +3169,7 @@ function renderAdminAnalytics() {
           <div class="analytics-row stacked">
             <span>${escapeHtml(event.user || "Guest checkout")}</span>
             <strong>${escapeHtml(event.detail?.plan || "Pro")}</strong>
-            <small>${escapeHtml(event.detail?.attribution?.route || event.attribution?.route || "Direct / Home")} · ${new Date(event.createdAt).toLocaleDateString()}</small>
+            <small>${escapeHtml(event.detail?.attribution?.route || event.attribution?.route || "Direct / Home")} ¬∑ ${new Date(event.createdAt).toLocaleDateString()}</small>
           </div>
         `).join("") : `<div class="empty-state">Paid conversions will appear here after checkout success.</div>`}
       </article>
@@ -3632,7 +3705,7 @@ function generatePortfolio(data) {
   return `Child Portfolio Entry
 
 Child
-${data.child || "Child"} · ${data.age || "Age not listed"}
+${data.child || "Child"} ¬∑ ${data.age || "Age not listed"}
 
 Learning Snapshot
 ${data.observations || "Add observations, learning moments, photos notes, or milestones here."}
@@ -4287,7 +4360,7 @@ function compactItem(resource) {
     <div class="compact-item">
       <div>
         <strong>${resource.title}</strong>
-        <span>${resource.category} · ${resource.age} · ${resource.plan}</span>
+        <span>${resource.category} ¬∑ ${resource.age} ¬∑ ${resource.plan}</span>
       </div>
       <button class="favorite-button ${!isProUser() ? "disabled-control" : ""}" ${favoriteAttribute} type="button">${favoriteText}</button>
     </div>
@@ -4705,7 +4778,7 @@ function accountListItem(resource) {
     <div class="compact-item">
       <div>
         <strong>${resource.title}</strong>
-        <span>${resource.category} · ${resource.age}</span>
+        <span>${resource.category} ¬∑ ${resource.age}</span>
       </div>
       <button class="ghost-button" data-view="${resourceViewForCategory(resource.category)}">Open</button>
     </div>
@@ -4895,6 +4968,7 @@ async function completeCheckoutFromStripeSession(session) {
     stripeSubscriptionId: session.subscriptionId || currentAccount()?.stripeSubscriptionId,
     paymentMethod: "Managed in Stripe",
   });
+  await syncSubscriptionFromBackend(currentUser || session.email);
   saveCurrentAccountState();
   renderPaymentSuccessPage();
 }
@@ -5045,6 +5119,21 @@ function showSearchResults() {
 }
 
 document.addEventListener("click", (event) => {
+  const localOwnerUnlockButton = event.target.closest("#localOwnerAdminUnlock");
+  if (localOwnerUnlockButton) {
+    event.preventDefault();
+    if (!canUseSignedInOwnerAdmin()) return;
+    setAdminSession({
+      email: currentUser,
+      name: adminOwnerAccount.name,
+      token: "local-owner-account",
+      mode: "local-owner-account",
+    });
+    trackEvent("admin_unlocked", { email: currentUser, mode: "local-owner-account" });
+    renderAdminDashboard();
+    return;
+  }
+
   const proFeatureButton = event.target.closest("[data-pro-feature]");
   if (proFeatureButton) {
     event.preventDefault();
@@ -5572,11 +5661,13 @@ document.querySelector("#authForm").addEventListener("submit", async (event) => 
     if (currentAuthMode === "signup") {
       const result = await signUpWithProvider(email, password, phone);
       loadAccountState(result.email);
+      await syncSubscriptionFromBackend(result.email);
       trackEvent("account_signup_complete");
       setFormMessage("#authMessage", result.message || "Account created.", true);
     } else {
       const result = await loginWithProvider(email, password);
       loadAccountState(result.email);
+      await syncSubscriptionFromBackend(result.email);
       trackEvent("account_login_complete");
     }
     closeAuthModal();
@@ -5897,7 +5988,7 @@ document.addEventListener("submit", (event) => {
     return;
   }
   const data = collectFormData(event.target);
-  appendChildRecord("SupportPlans", { ...data, title: `${data.area} Support Plan`, summary: `${data.goal} · ${data.status}` });
+  appendChildRecord("SupportPlans", { ...data, title: `${data.area} Support Plan`, summary: `${data.goal} ¬∑ ${data.status}` });
 });
 
 document.addEventListener("submit", (event) => {
@@ -5930,7 +6021,7 @@ document.addEventListener("submit", (event) => {
     return;
   }
   const data = collectFormData(event.target);
-  appendChildRecord("Attendance", { ...data, title: `${data.date} · ${data.status}`, summary: `Drop-off: ${data.dropoff || "not entered"} · Pick-up: ${data.pickup || "not entered"}` });
+  appendChildRecord("Attendance", { ...data, title: `${data.date} ¬∑ ${data.status}`, summary: `Drop-off: ${data.dropoff || "not entered"} ¬∑ Pick-up: ${data.pickup || "not entered"}` });
 });
 
 document.addEventListener("submit", (event) => {
@@ -5941,7 +6032,7 @@ document.addEventListener("submit", (event) => {
     return;
   }
   const data = collectFormData(event.target);
-  appendChildRecord("Meals", { ...data, title: `Meals · ${data.date}`, summary: `Breakfast: ${data.breakfast || ""} · Lunch: ${data.lunch || ""} · Snack: ${data.snack || ""}` });
+  appendChildRecord("Meals", { ...data, title: `Meals ¬∑ ${data.date}`, summary: `Breakfast: ${data.breakfast || ""} ¬∑ Lunch: ${data.lunch || ""} ¬∑ Snack: ${data.snack || ""}` });
 });
 
 document.addEventListener("submit", (event) => {
@@ -5952,7 +6043,7 @@ document.addEventListener("submit", (event) => {
     return;
   }
   const data = collectFormData(event.target);
-  appendChildRecord("Communications", { ...data, title: `${data.type} · ${data.date}`, summary: data.message });
+  appendChildRecord("Communications", { ...data, title: `${data.type} ¬∑ ${data.date}`, summary: data.message });
 });
 
 if (currentUser) {
@@ -5974,6 +6065,9 @@ function initialViewFromLocation() {
 async function initializeAppView() {
   const handledCheckoutReturn = await verifyStripeReturnIfNeeded();
   if (handledCheckoutReturn) return;
+  if (currentUser) {
+    await syncSubscriptionFromBackend(currentUser);
+  }
   const initialView = initialViewFromLocation();
   if (initialView !== "home") {
     const route = window.location.pathname || window.location.hash;
