@@ -1571,9 +1571,24 @@ function updateAuthButtons() {
     signUp.textContent = "Sign up";
     delete signUp.dataset.view;
   }
+  updateAdminNavVisibility();
+}
+
+function updateAdminNavVisibility() {
+  document.querySelectorAll("[data-admin-nav]").forEach((button) => {
+    button.hidden = !canSeeAdminNav();
+  });
+}
+
+function canSeeAdminNav() {
+  return isAdminUnlocked() || currentUser?.toLowerCase() === adminOwnerAccount.email.toLowerCase();
 }
 
 function setView(view) {
+  if (view === "admin" && !canSeeAdminNav()) {
+    setView("home");
+    return;
+  }
   if (view === "tools" && !isProUser()) {
     showProFeatureModal("Provider business tools are Pro features.");
     return;
@@ -4043,6 +4058,7 @@ function setAdminSession(sessionDetail) {
   };
   localStorage.setItem("llhAdminSession", JSON.stringify(session));
   localStorage.setItem("llhAdminUnlocked", "true");
+  updateAdminNavVisibility();
   return session;
 }
 
@@ -4050,6 +4066,7 @@ function clearAdminSession() {
   localStorage.removeItem("llhAdminSession");
   localStorage.removeItem("llhAdminUnlocked");
   localStorage.removeItem("llhAdminPreviewMode");
+  updateAdminNavVisibility();
 }
 
 function canUseSignedInOwnerAdmin() {
