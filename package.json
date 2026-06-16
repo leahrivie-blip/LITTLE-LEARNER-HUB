@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "Little Learner Hub static website and childcare provider app.",
+  "dependencies": {
+    "pg": "^8.16.3"
+  },
   "engines": {
     "node": ">=20"
   },
