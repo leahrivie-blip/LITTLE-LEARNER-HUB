@@ -621,9 +621,9 @@ function buildFormsLibrary() {
     age: "All Ages",
     plan: index === 0 && group !== "Business Forms" ? "Free" : "Pro",
     month: "All Year",
-    tags: [group, "PDF", "Editable", "Downloadable"],
+    tags: [group, "PDF", "Editable", "In-App"],
     format: "PDF + Editable",
-    description: `${group} download with a printable PDF and editable version for childcare providers to customize for their program.`,
+    description: `${group} resource with printable and editable sections for childcare providers to customize for their program.`,
   })));
 }
 
@@ -675,9 +675,9 @@ function buildPrintableLibrary() {
     age: index % 3 === 0 ? "Toddler" : "Preschool",
     plan: index % 9 === 0 ? "Free" : "Pro",
     month: holidays.includes(theme) ? "Holiday" : months[index % months.length],
-    tags: [type, theme, holidays.includes(theme) ? "Holiday" : "Seasonal", "Downloadable"],
+    tags: [type, theme, holidays.includes(theme) ? "Holiday" : "Seasonal", "Printable"],
     format: "PDF",
-    description: `Downloadable ${type.toLowerCase()} for ${theme.toLowerCase()} practice, designed for quick daycare use.`,
+    description: `Printable ${type.toLowerCase()} for ${theme.toLowerCase()} practice, designed for quick daycare use.`,
   })));
 }
 
@@ -709,14 +709,14 @@ const billingPlans = {
     price: "$19.99",
     interval: "/month",
     stripePriceKey: "STRIPE_PRICE_PRO_MONTHLY",
-    features: ["Unlimited library", "Unlimited downloads", "250 AI generations per month", "All child management and provider tools"],
+    features: ["Full in-app library", "All Pro resources", "250 AI generations per month", "All child management and provider tools"],
   },
   ProAnnual: {
     name: "Pro Annual",
     price: "$199",
     interval: "/year",
     stripePriceKey: "STRIPE_PRICE_PRO_ANNUAL",
-    features: ["Best regular value", "Unlimited library", "Unlimited downloads", "250 AI generations per month"],
+    features: ["Best regular value", "Full in-app library", "All Pro resources", "250 AI generations per month"],
   },
 };
 const stripeCheckoutConfig = {
@@ -784,7 +784,7 @@ const adRouteMap = {
 };
 const onboardingSteps = [
   { id: "child-profile", label: "Create first child profile", view: "children" },
-  { id: "download-form", label: "Download a form", view: "forms" },
+  { id: "download-form", label: "View a form", view: "forms" },
   { id: "generate-observation", label: "Generate an observation", view: "ai" },
   { id: "weekly-planner", label: "Try weekly planner", view: "planner" },
   { id: "save-resource", label: "Save a resource", view: "lessons" },
@@ -1133,6 +1133,47 @@ let currentAuthMode = "login";
 const searchInput = document.querySelector("#searchInput");
 const currentPlanLabel = document.querySelector("#currentPlanLabel");
 const homeViewTemplate = document.querySelector("#view-home").innerHTML;
+const mobileNavMaxWidth = 820;
+
+function isMobileLayout() {
+  return window.matchMedia(`(max-width: ${mobileNavMaxWidth}px)`).matches;
+}
+
+function setMobileNavOpen(open) {
+  const shouldOpen = Boolean(open) && isMobileLayout();
+  document.body.classList.toggle("mobile-nav-open", shouldOpen);
+  const toggle = document.querySelector("#mobileMenuToggle");
+  if (toggle) {
+    toggle.setAttribute("aria-expanded", String(shouldOpen));
+    toggle.setAttribute("aria-label", shouldOpen ? "Close menu" : "Open menu");
+  }
+}
+
+function installMobileNavigation() {
+  const sidebar = document.querySelector(".sidebar");
+  const mobileBrand = document.querySelector(".mobile-brand");
+  if (!sidebar || !mobileBrand || document.querySelector("#mobileMenuToggle")) return;
+  sidebar.id = sidebar.id || "mobileNavigation";
+  const toggle = document.createElement("button");
+  toggle.className = "mobile-menu-toggle";
+  toggle.id = "mobileMenuToggle";
+  toggle.type = "button";
+  toggle.setAttribute("aria-label", "Open menu");
+  toggle.setAttribute("aria-controls", sidebar.id);
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.innerHTML = "<span></span><span></span><span></span>";
+  mobileBrand.prepend(toggle);
+  const backdrop = document.createElement("button");
+  backdrop.className = "mobile-nav-backdrop";
+  backdrop.type = "button";
+  backdrop.setAttribute("aria-label", "Close menu");
+  document.body.appendChild(backdrop);
+  toggle.addEventListener("click", () => setMobileNavOpen(!document.body.classList.contains("mobile-nav-open")));
+  backdrop.addEventListener("click", () => setMobileNavOpen(false));
+  window.addEventListener("resize", () => {
+    if (!isMobileLayout()) setMobileNavOpen(false);
+  });
+}
 
 function loadResources() {
   const saved = readSavedJson("llhUploadedResources", []);
@@ -1446,7 +1487,7 @@ function setView(view) {
   if (view === "children") renderChildManagement();
   if (view === "planner") renderWeeklyPlanner();
   trackEvent("page_view", { view });
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  if (!isMobileLayout()) window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function canAccess(resource) {
@@ -1535,6 +1576,7 @@ function saveDownloads() {
 function categoryResources(category) {
   const query = searchInput.value.trim().toLowerCase();
   return resources.filter((resource) => {
+    if (!isProUser() && !canAccess(resource)) return false;
     const matchesCategory = resource.category === category;
     const matchesFilter = activeFilter === "All" || resource.age === activeFilter || resource.tags.includes(activeFilter);
     const haystack = [
@@ -1553,6 +1595,7 @@ function searchedResources() {
   const query = searchInput.value.trim().toLowerCase();
   if (!query) return [];
   return resources.filter((resource) => {
+    if (!isProUser() && !canAccess(resource)) return false;
     const haystack = [
       resource.title,
       resource.category,
@@ -1568,8 +1611,7 @@ function searchedResources() {
 function resourceCard(resource) {
   const locked = !canAccess(resource);
   const favorite = favorites.includes(resource.id);
-  const downloaded = savedDownloads.includes(resource.id);
-  const downloadText = locked ? "Upgrade to Pro" : downloaded ? "Downloaded" : "Download";
+  const viewText = locked ? "Upgrade to Pro" : "View";
   const favoriteText = !isProUser() ? "Pro Save" : favorite ? "Saved" : "Save";
   const accessText = locked ? "Pro" : isProUser() ? "Included" : "Free Sample";
   return `
@@ -1593,40 +1635,145 @@ function resourceCard(resource) {
         ${resource.category === "Observation Hub" && !locked ? `<button class="ghost-button" data-edit-observation="${resource.id}" type="button">Edit</button>` : ""}
         ${resource.category === "Observation Hub" && !locked ? `<button class="ghost-button" data-add-observation-child="${resource.id}" type="button">Add to Child</button>` : ""}
         ${locked
-          ? `<button class="download-button" data-pro-feature="resource-limit" type="button">${downloadText}</button>`
-          : `<a class="download-button" data-download="${resource.id}" href="${makeDownload(resource)}" download="${resource.title}.txt">${downloadText}</a>`
+          ? `<button class="download-button" data-pro-feature="resource-limit" type="button">${viewText}</button>`
+          : `<button class="download-button" data-view-resource="${resource.id}" type="button">${viewText}</button>`
         }
       </div>
     </article>
   `;
 }
 
-function makeDownload(resource) {
-  if (resource.fileData) return resource.fileData;
-  const fileText = [
+function resourceTheme(resource) {
+  const ignoreTags = new Set(["PDF", "Editable", "In-App", "Printable", "Materials", "Instructions", "Learning Objective", "Shopping List"]);
+  return resource.theme
+    || resource.tags.find((tag) => !ignoreTags.has(tag) && !learningAreas.includes(tag))
+    || resource.month
+    || resource.title;
+}
+
+function resourceFocus(resource) {
+  return resource.developmentalArea
+    || resource.tags.find((tag) => learningAreas.includes(tag))
+    || resource.tags[0]
+    || "whole child development";
+}
+
+function resourceAudience(resource) {
+  const age = resource.age === "All Ages" ? "mixed-age childcare groups" : `${resource.age.toLowerCase()} learners`;
+  const audience = {
+    "Lesson Plans": `Early childhood providers planning weekly experiences for ${age}.`,
+    "Observation Hub": `Providers documenting learning, development, and next steps for ${age}.`,
+    "Forms Library": "Home daycare providers, family child care homes, centers, and preschool programs that need organized family paperwork.",
+    "Menu Center": `Providers planning meals and snacks for ${age}.`,
+    "Activity Center": `Teachers and providers leading small-group, whole-group, or play-based activities for ${age}.`,
+    "Printables": `Teachers and providers who want quick table activities, small-group practice, or take-home practice for ${age}.`,
+  };
+  return audience[resource.category] || "Early childhood professionals using Little Learner Hub.";
+}
+
+function resourceIncluded(resource) {
+  const included = {
+    "Lesson Plans": "Weekly overview, objectives, materials, vocabulary, daily activities, differentiation, family connection, and assessment notes.",
+    "Observation Hub": "Professional observation wording, what to look for, ELG connection, next steps, and an editable documentation note.",
+    "Forms Library": "A ready-to-customize childcare form with fields, provider instructions, notes, and signature areas.",
+    "Menu Center": "A weekly meal plan, snack ideas, shopping list, substitutions, and provider reminders.",
+    "Activity Center": "Materials, setup, step-by-step directions, learning objective, ELG connection, and extension ideas.",
+    "Printables": "Printable activity concept, teacher directions, child directions, learning goal, and extension ideas.",
+  };
+  return included[resource.category] || "A complete in-app resource designed for childcare providers.";
+}
+
+function resourceHowToUse(resource) {
+  const use = {
+    "Lesson Plans": "Read the weekly overview, gather materials, choose the daily activities that fit your group, and adjust language or supports for individual children.",
+    "Observation Hub": "Copy the wording into a child record, replace general wording with the child's name and exact details, then use the next steps to plan follow-up support.",
+    "Forms Library": "Add your program name and policy details, complete the family or child fields, review with the parent/guardian, and keep a signed copy in the child's file.",
+    "Menu Center": "Use the menu as a planning guide, check allergies and state/CACFP rules, then adjust foods for age, texture, culture, and family needs.",
+    "Activity Center": "Prepare the materials, introduce the theme, guide children through the steps, and repeat with an added challenge when children are ready.",
+    "Printables": "Use the printable for a short table activity, small group, portfolio sample, or take-home practice. Model one example before children begin.",
+  };
+  return use[resource.category] || "Review the resource, personalize it for your program, and use it inside your daily workflow.";
+}
+
+function resourceStandardConnections(resource) {
+  if (!["Lesson Plans", "Activity Center", "Observation Hub"].includes(resource.category)) return "";
+  const area = resourceFocus(resource);
+  return [
+    `${area}: supports growth through play, routines, exploration, and responsive adult guidance.`,
+    "Language and communication: builds vocabulary, listening, conversation, and expressive language.",
+    "Approaches to learning: encourages curiosity, persistence, problem solving, and participation.",
+    "Social-emotional development: supports confidence, connection, turn-taking, self-regulation, and belonging.",
+  ].join("\n");
+}
+
+function resourceMaterialsSummary(resource) {
+  if (resource.category === "Lesson Plans") {
+    return resource.materials || "Books, songs, art supplies, sensory materials, manipulatives, simple printable pages, and theme-related props.";
+  }
+  if (resource.category === "Activity Center") {
+    return "Child-safe manipulatives, paper, crayons or markers, sensory tray materials, books, music, and simple theme-related props.";
+  }
+  if (resource.category === "Printables") {
+    return "Printed page or screen display, crayons, markers, pencils, scissors if appropriate, and close supervision.";
+  }
+  if (resource.category === "Menu Center") {
+    return "Weekly menu plan, allergy list, grocery list, CACFP/state guidance, and family food notes.";
+  }
+  if (resource.category === "Forms Library") {
+    return "Program information, child/family details, policy wording, dates, signatures, and a secure place to store completed forms.";
+  }
+  return "Observation notes, date, child name, context, and provider reflection.";
+}
+
+function resourceFileText(resource) {
+  const standards = resourceStandardConnections(resource);
+  return [
     "Little Learner Hub",
     resource.title,
     "",
     `Category: ${resource.category}`,
     `Age Group: ${resource.age}`,
     `Access: ${resource.plan}`,
-    `Format: ${resource.format || "Digital download"}`,
+    `Format: ${resource.format || "In-app resource"}`,
     `Tags: ${resource.tags.join(", ")}`,
     "",
-    resource.description,
+    "Short Description",
+    resource.description || `${resource.title} is a ready-to-use ${resource.category.toLowerCase()} resource for early childhood providers.`,
     "",
+    "What Is Included",
+    resourceIncluded(resource),
+    "",
+    "Who It Is For",
+    resourceAudience(resource),
+    "",
+    "How To Use It",
+    resourceHowToUse(resource),
+    "",
+    "Materials / Information Needed",
+    resourceMaterialsSummary(resource),
+    "",
+    ...(standards ? ["ELG / Early Learning Standard Connections", standards, ""] : []),
+    "Full Resource Content",
     resourceDownloadBody(resource),
   ].join("\n");
+}
+
+function makeDownload(resource) {
+  if (resource.fileData) return resource.fileData;
+  const fileText = resourceFileText(resource);
   return `data:text/plain;charset=utf-8,${encodeURIComponent(fileText)}`;
 }
 
 function resourceDownloadBody(resource) {
   if (resource.category === "Lesson Plans") {
+    const theme = resource.theme || resourceTheme(resource);
+    const area = resourceFocus(resource);
     return `Weekly Lesson Plan
+Title: ${resource.title}
 Theme: ${resource.theme || resource.tags[0]}
 Month: ${resource.month}
 Age Group: ${resource.age}
-Developmental Area: ${resource.developmentalArea || resource.tags.find((tag) => learningAreas.includes(tag)) || "Developmental area"}
+Developmental Area: ${area}
 Holiday: ${resource.holiday || "Non-Holiday"}
 
 Weekly Overview
@@ -1642,70 +1789,255 @@ ${(resource.learningObjectives || [
 Materials
 ${resource.materials || "Books, songs, art supplies, sensory materials, manipulatives, and simple printable pages."}
 
-Monday-Friday Plan
-- Circle Time: Introduce theme vocabulary, songs, movement, and questions.
-- Art: Offer an open-ended art invitation connected to the theme.
-- Sensory: Add a supervised sensory tray, texture exploration, or hands-on discovery.
-- Fine Motor: Practice grasping, sorting, building, tracing, squeezing, or placing materials.
-- Gross Motor: Add movement, balance, outdoor play, obstacle course, dancing, or action songs.
-- Books/Songs: Use repeated songs, fingerplays, picture books, and name games.
+Vocabulary
+${theme}, explore, look, listen, gentle, same, different, more, all done
+
+Monday - Introduce the Theme
+Circle Time: Show a picture, book, or object connected to ${theme}. Invite children to name, point, touch, or describe what they notice.
+Small Group: Sort two simple materials by color, size, texture, or type.
+Art/Sensory: Offer crayons, collage pieces, sensory tray items, or stamping connected to the theme.
+Teacher Language: "I see you looking closely. What do you notice?"
+
+Tuesday - Build Language
+Circle Time: Sing a repeated song or fingerplay using ${theme} vocabulary.
+Small Group: Match picture cards, objects, or simple props.
+Fine Motor: Tear paper, squeeze play dough, place stickers, use tongs, or trace lines connected to the theme.
+Teacher Language: "You found one that is the same. Let's say the word together."
+
+Wednesday - Hands-On Exploration
+Circle Time: Ask a simple question and let children respond with words, gestures, pointing, or movement.
+Sensory/Science: Explore safe textures, sounds, colors, or movement connected to ${theme}.
+Gross Motor: Add a movement game, obstacle path, animal walk, or action song.
+Teacher Language: "You tried again. That is problem solving."
+
+Thursday - Creative Expression
+Circle Time: Revisit the theme book or song and invite children to fill in a word or motion.
+Art: Create an open-ended project using theme colors, shapes, or materials.
+Pretend Play: Add props for dramatic play, conversation, and turn-taking.
+Teacher Language: "Tell me about your work."
+
+Friday - Review and Document
+Circle Time: Review favorite words, songs, pictures, or materials from the week.
+Small Group: Repeat the easiest activity and add one small challenge.
+Observation Note: Document one example of each child's ${area.toLowerCase()} growth.
+Family Connection: Send home one simple idea families can try over the weekend.
 
 Related Activities
 ${(resource.relatedActivities || ["Circle time", "Small group", "Printable extension"]).map((item) => `- ${item}`).join("\n")}
 
 Child Support Connection
-Use the Add Support button to document individualized accommodations, modifications, and support activities inside a child profile.`;
+Use the Add Support button to document individualized accommodations, modifications, and support activities inside a child profile.
+
+Provider Reflection
+What worked well?
+Which child showed new language, confidence, persistence, or social participation?
+What will you repeat or extend next week?`;
   }
   if (resource.category === "Observation Hub") {
-    return `Observation Wording
+    const area = resource.tags.find((tag) => learningAreas.includes(tag)) || "Developmental area";
+    return `Observation Resource
+Title: ${resource.title}
+Age Group: ${resource.age}
+Developmental Area: ${area}
+
+Professional Observation Wording
 ${resource.observationText || resource.description}
 
 What to Look For
 ${resource.lookFor || "Watch for the child repeating the skill independently, applying it in new settings, or showing increased confidence."}
 
-Developmental Area
-${resource.tags.find((tag) => learningAreas.includes(tag)) || "Developmental area"}
-
 Learning Standard Category
-${resource.standard || "Early learning guideline category connected to the selected developmental area."}
+${resource.standard || `Early learning guideline category connected to ${area}.`}
+
+Evidence To Add
+- Date and setting
+- Materials or activity used
+- Exact child language, gestures, choices, or actions
+- Level of support needed
+- Peer or adult interaction observed
 
 Next Steps
 ${resource.nextSteps || "Offer similar materials with one small added challenge and document what the child tries next."}
 
 Editable Note
-Copy and personalize this wording with the child's name, date, and specific details from your observation.`;
+Copy and personalize this wording with the child's name, date, and specific details from your observation.
+
+Follow-Up Planning
+Offer the child another chance to practice this skill during play, routine care, small group, or outdoor time. Add one new material, prompt, peer partner, or challenge when the child is ready.`;
   }
   if (resource.category === "Forms Library") {
-    return `Form Download Includes:
-- Printable PDF version
-- Editable provider version
-- Fill-in sections for daycare name, child information, parent information, dates, signatures, and policies as needed`;
+    return `${resource.title}
+
+Program Name: ______________________________
+Child Name: ________________________________
+Parent/Guardian: ___________________________
+Date: ______________________________________
+
+Purpose
+Use this form to document ${resource.title.toLowerCase()} for your childcare program. Review and adjust wording to match your state licensing rules and your own policies.
+
+Provider Instructions
+1. Add your program name, contact information, and policy details.
+2. Complete all child and family information.
+3. Review the form with the parent or guardian.
+4. Keep a signed copy in the child's file.
+
+Details / Notes
+__________________________________________________________________
+__________________________________________________________________
+__________________________________________________________________
+
+Parent/Guardian Signature: ________________________ Date: ________
+Provider Signature: _______________________________ Date: ________`;
   }
   if (resource.category === "Menu Center") {
-    return `Menu Download Includes:
-- Breakfast ideas
-- Lunch ideas
-- Snack ideas
-- Weekly layout
-- Shopping list
-- CACFP-style meal inspiration with allergy and state-rule reminder`;
+    const age = resource.age === "All Ages" ? "Mixed Ages" : resource.age;
+    return `Weekly Daycare Menu
+
+Age Group: ${age}
+Week/Theme: ${resource.title}
+
+Monday
+Breakfast: Oatmeal, banana slices, milk
+Lunch: Turkey sandwich, peas, applesauce, milk
+Snack: Cheese cubes and whole grain crackers
+
+Tuesday
+Breakfast: Scrambled eggs, toast, peaches, milk
+Lunch: Chicken rice bowl, green beans, pears, milk
+Snack: Yogurt and fruit
+
+Wednesday
+Breakfast: Whole grain cereal, berries, milk
+Lunch: Bean quesadilla, corn, oranges, milk
+Snack: Hummus and pita strips
+
+Thursday
+Breakfast: Pancakes, pears, milk
+Lunch: Pasta with meat sauce, broccoli, peaches, milk
+Snack: Cottage cheese and fruit
+
+Friday
+Breakfast: Yogurt, granola, apples, milk
+Lunch: Tuna pita, carrots, mixed fruit, milk
+Snack: Graham crackers and apples
+
+Shopping List
+Milk, yogurt, cheese, whole grain bread, crackers, cereal, eggs, turkey, chicken, beans, pasta, fruits, vegetables, and allergy-safe substitutions.
+
+Provider Reminder
+Check current CACFP/state rules, allergy plans, serving sizes, and infant/toddler texture safety before serving.`;
   }
   if (resource.category === "Activity Center") {
-    return `Activity Resource Includes:
-- Activity title
-- Age group
-- Materials
-- Instructions
-- Learning objective
-- Developmental area
-- Extension ideas`;
+    const focus = resource.tags[0] || "Hands-on learning";
+    const theme = resource.tags[1] || resource.theme || "daily routines";
+    return `${resource.title}
+
+Age Group: ${resource.age}
+Theme: ${theme}
+Learning Focus: ${focus}
+
+Materials
+Child-safe manipulatives, paper, crayons or markers, sensory tray materials, books, music, and simple theme-related props.
+
+Setup
+Prepare a small group space. Place materials where children can see and reach them safely. Introduce the theme with a short question, picture, song, or object.
+
+Steps
+1. Invite children to explore the materials.
+2. Model simple language connected to the theme.
+3. Encourage children to sort, count, name, build, move, trace, or pretend based on the activity.
+4. Offer help with gentle prompts and choices.
+5. Close by asking children what they noticed or liked.
+
+Learning Objective
+Children will practice ${focus.toLowerCase()} while building language, confidence, social interaction, and problem-solving through play.
+
+Extension
+Repeat the activity with one added challenge, a new material, or a partner turn-taking step.`;
   }
-  return `Printable Download Includes:
-- Ready-to-print page concept
-- Age group and theme
-- Teacher note
-- Simple learning goal
-- Downloadable worksheet or activity page placeholder`;
+  return `Printable Includes:
+${resource.title}
+
+Age Group: ${resource.age}
+Theme/Skill: ${resource.tags.slice(0, 2).join(" / ") || "Early learning practice"}
+
+Teacher Directions
+Print or display this activity for a short small-group or table activity. Read the directions aloud, model one example, then let children try with support.
+
+Child Directions
+Look carefully, trace or color the page, and talk about what you notice.
+
+Activity Ideas
+- Name the pictures, letters, numbers, shapes, or theme words.
+- Trace with a finger first, then use a crayon or marker.
+- Count, match, color, cut, or sort as appropriate for the printable.
+- Ask one open-ended question about the theme.
+
+Learning Goal
+Children will practice early literacy, fine motor control, visual discrimination, vocabulary, and confidence with a simple printable activity.
+
+Provider Note
+Use close supervision with scissors, small pieces, or art materials. Adjust expectations for each child's age and development.`;
+}
+
+function ensureResourceViewer() {
+  if (document.querySelector("#resourceViewerModal")) return;
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="modal resource-viewer-modal" id="resourceViewerModal" aria-hidden="true">
+      <div class="modal-card resource-viewer-card" role="dialog" aria-modal="true" aria-labelledby="resourceViewerTitle">
+        <button class="close-button" id="closeResourceViewer" aria-label="Close">&times;</button>
+        <p class="eyebrow" id="resourceViewerCategory">Resource</p>
+        <h2 id="resourceViewerTitle">Resource</h2>
+        <div class="tag-row" id="resourceViewerTags"></div>
+        <div class="resource-viewer-body" id="resourceViewerBody"></div>
+      </div>
+    </div>
+  `);
+  document.querySelector("#closeResourceViewer")?.addEventListener("click", closeResourceViewer);
+  document.querySelector("#resourceViewerModal")?.addEventListener("click", (event) => {
+    if (event.target.id === "resourceViewerModal") closeResourceViewer();
+  });
+}
+
+function closeResourceViewer() {
+  const viewer = document.querySelector("#resourceViewerModal");
+  if (!viewer) return;
+  viewer.classList.remove("open");
+  viewer.setAttribute("aria-hidden", "true");
+}
+
+function openResourceViewer(resourceId) {
+  const resource = resources.find((item) => item.id === resourceId);
+  if (!resource) return;
+  if (!canAccess(resource)) {
+    showProFeatureModal(freeResourceLimitMessage);
+    return;
+  }
+  ensureResourceViewer();
+  document.querySelector("#resourceViewerCategory").textContent = resource.category;
+  document.querySelector("#resourceViewerTitle").textContent = resource.title;
+  document.querySelector("#resourceViewerTags").innerHTML = [
+    resource.age,
+    resource.plan,
+    resource.format || "In-app resource",
+    ...resource.tags.slice(0, 4),
+  ].map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
+  const body = document.querySelector("#resourceViewerBody");
+  if (resource.fileData && resource.fileData.startsWith("data:image")) {
+    body.innerHTML = `<img class="resource-viewer-image" src="${resource.fileData}" alt="${escapeHtml(resource.title)}" />`;
+  } else {
+    body.innerHTML = `<pre class="resource-viewer-text">${escapeHtml(resourceFileText(resource))}</pre>`;
+  }
+  if (!savedDownloads.includes(resource.id)) {
+    savedDownloads = [...savedDownloads, resource.id];
+    saveDownloads();
+    updatePlanLabel();
+  }
+  const viewer = document.querySelector("#resourceViewerModal");
+  viewer.classList.add("open");
+  viewer.setAttribute("aria-hidden", "false");
+  trackEvent("resource_view", { resourceId, category: resource.category, plan: currentPlan });
 }
 
 function renderCategoryPage(view) {
@@ -1729,7 +2061,7 @@ function renderCategoryPage(view) {
     </div>
     <div class="access-notice ${isProUser() ? "pro" : ""}">
       ${isProUser()
-        ? `Pro is active: full library, unlimited downloads, saved favorites/downloads, and ${Math.max(paidAiMonthlyLimit - aiUsageCount(), 0)} AI generations left this month.`
+        ? `Pro is active: full in-app library access, saved favorites, viewed resources, and ${Math.max(paidAiMonthlyLimit - aiUsageCount(), 0)} AI generations left this month.`
         : `Free plan: ${accessCounts.freeLimit} ${displayTitle.toLowerCase()} resources are unlocked here. Upgrade to Pro for all ${accessCounts.total}.`}
     </div>
     <div class="filter-row">
@@ -1789,10 +2121,10 @@ function categoryIntro(category) {
   const copy = {
     "Lesson Plans": "Choose infant, toddler, preschool, holiday, and seasonal lesson plans with materials, activities, books, goals, and printable options.",
     "Observation Hub": "Search infant, toddler, and preschool observation wording by developmental area, what to look for, standards, and next steps.",
-    "Forms Library": "Download editable childcare paperwork like parent handbooks, enrollment forms, emergency contacts, reports, trackers, and receipts.",
+    "Forms Library": "View editable childcare paperwork like parent handbooks, enrollment forms, emergency contacts, reports, trackers, and receipts inside Little Learner Hub.",
     "Activity Center": "Find a large bank of activities by age, theme, skill, and materials with quick steps and learning goals.",
     "Menu Center": "Browse 52 weeks of daycare menus, infant/toddler/preschool meal ideas, shopping lists, and CACFP-style inspiration.",
-    "Printables": "Find downloadable tracing pages, coloring pages, alphabet, numbers, shapes, cutting, matching, seasonal, and holiday worksheets.",
+    "Printables": "View tracing pages, coloring pages, alphabet, numbers, shapes, cutting, matching, seasonal, and holiday worksheet concepts inside Little Learner Hub.",
   };
   return copy[category];
 }
@@ -1813,7 +2145,7 @@ function renderHome() {
       <div><strong>${stats.total}</strong><span>ready-made resources</span></div>
       <div><strong>${stats.lessons}</strong><span>lesson plans</span></div>
       <div><strong>${stats.observations}</strong><span>observations</span></div>
-      <div><strong>${stats.downloads}</strong><span>downloadable files</span></div>
+      <div><strong>${stats.downloads}</strong><span>in-app resources</span></div>
     `;
   }
   document.querySelector("#categoryGrid").innerHTML = categories.map((category) => `
@@ -3018,7 +3350,7 @@ function renderAdminOwnerOverview() {
       ${adminMetric("founding members", foundingAccounts.length, `${foundingSpotsRemaining()} spots left`)}
       ${adminMetric("open support tickets", openTickets.length)}
       ${adminMetric("lead signups", leadRows.length)}
-      ${adminMetric("saved downloads", downloads.length)}
+      ${adminMetric("viewed resources", downloads.length)}
       ${adminMetric("AI generations tracked", aiUseTotal)}
       ${adminMetric("billing events", billingEvents.length)}
     </div>
@@ -3198,7 +3530,7 @@ function renderLaunchReadiness() {
   const hasStripePortal = Boolean(stripeCheckoutConfig.customerPortalEndpoint);
   const checklist = [
     ["Public homepage", "Ready", "Sales homepage, founding offer, samples, lead magnet, trust copy, and Pro preview are in place."],
-    ["Resource library", "Local Ready", `${resources.length} local resources are available with Free/Pro locking and downloads.`],
+    ["Resource library", "Local Ready", `${resources.length} local resources are available with Free/Pro locking and in-app viewing.`],
     ["AI generator suite", "Local Ready", `${aiTools.length} AI generators are available with edit, copy, save, download, print, regenerate, and save-to-library actions.`],
     ["Free vs Pro permissions", "Local Ready", "Limits, locked content, Pro prompts, and AI generation limits are enforced locally."],
     ["Private Admin", "Local Ready", "Admin, support tickets, content uploads, analytics, and launch checklist are protected by owner email, password, and access code on this device."],
@@ -4733,7 +5065,7 @@ function renderAccountPage() {
     if (cancelButton) cancelButton.style.display = "none";
     if (signOutButton) signOutButton.style.display = "none";
     favoritesTarget.innerHTML = `<div class="empty-state">Log in to save favorites.</div>`;
-    downloadsTarget.innerHTML = `<div class="empty-state">Log in to save downloads.</div>`;
+    downloadsTarget.innerHTML = `<div class="empty-state">Log in to save viewed resources.</div>`;
     renderOnboardingChecklist();
     return;
   }
@@ -4750,7 +5082,7 @@ function renderAccountPage() {
   if (phoneInput) phoneInput.value = account?.phone || "";
   statusLabel.textContent = account?.subscriptionStatus || (isProUser() ? `${billingPlanLabel()} Subscription Active` : "Free Plan");
   detailLabel.innerHTML = isProUser()
-    ? `Current Plan: ${escapeHtml(billingPlanLabel())}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${account?.foundingMember ? "Lifetime" : "Regular Pro pricing"}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>AI Usage: ${aiUsageCount()} of ${paidAiMonthlyLimit} used this billing month. Resets ${escapeHtml(aiResetLabel())}.<br>Your account has unlimited resources, menus, downloads, child profiles, portfolios, tracking tools, provider tools, future premium features, and ${paidAiMonthlyLimit} AI generations per month.`
+    ? `Current Plan: ${escapeHtml(billingPlanLabel())}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${account?.foundingMember ? "Lifetime" : "Regular Pro pricing"}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>AI Usage: ${aiUsageCount()} of ${paidAiMonthlyLimit} used this billing month. Resets ${escapeHtml(aiResetLabel())}.<br>Your account has full in-app resources, menus, child profiles, portfolios, tracking tools, provider tools, future premium features, and ${paidAiMonthlyLimit} AI generations per month.`
     : `Your Free account includes 3 lesson plans, 15 observations, 3 forms, 5 activities, 5 printables, ${freeAiMonthlyLimit} AI generations per month, up to 3 child profiles, and the weekly observation tracker. Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}. AI Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`;
   if (demoButton) demoButton.style.display = "none";
   if (upgradeButton) {
@@ -4769,7 +5101,7 @@ function renderAccountPage() {
     : `<div class="empty-state">${isProUser() ? "No saved favorites yet." : "Saved favorites are included with Pro."}</div>`;
   downloadsTarget.innerHTML = downloadedResources.length
     ? downloadedResources.slice(0, 10).map(accountListItem).join("")
-    : `<div class="empty-state">${isProUser() ? "No saved downloads yet." : "Saved downloads are included with Pro."}</div>`;
+    : `<div class="empty-state">${isProUser() ? "No viewed resources yet." : "Viewed resources are included with your account."}</div>`;
   renderOnboardingChecklist();
 }
 
@@ -4802,7 +5134,7 @@ function updatePlanLabel() {
   const summary = document.querySelector("#planAccessSummary");
   if (!summary) return;
   summary.textContent = isProUser()
-    ? `${billingPlanLabel()} active: ${billingPriceLabel()} with full library, unlimited downloads, saved favorites/downloads, and ${Math.max(paidAiMonthlyLimit - aiUsageCount(), 0)} AI generations left this month. Saved downloads: ${savedDownloads.length}.`
+    ? `${billingPlanLabel()} active: ${billingPriceLabel()} with full in-app library access, saved favorites, viewed resources, and ${Math.max(paidAiMonthlyLimit - aiUsageCount(), 0)} AI generations left this month. Viewed resources: ${savedDownloads.length}.`
     : `Free: 3 lesson plans, 15 observations, 3 forms, 5 activities, 5 printables, up to 3 child profiles, and ${Math.max(freeAiMonthlyLimit - aiUsageCount(), 0)} AI generations left this month.`;
 }
 
@@ -5209,7 +5541,15 @@ document.addEventListener("click", (event) => {
     if (viewButton.dataset.view === "plans" || viewButton.dataset.view === "upgrade") {
       trackEvent("upgrade_click", { targetView: viewButton.dataset.view });
     }
+    setMobileNavOpen(false);
     setView(viewButton.dataset.view);
+    return;
+  }
+
+  const viewResourceButton = event.target.closest("[data-view-resource]");
+  if (viewResourceButton) {
+    event.preventDefault();
+    openResourceViewer(viewResourceButton.dataset.viewResource);
     return;
   }
 
@@ -5260,13 +5600,15 @@ document.addEventListener("click", (event) => {
 
   const downloadButton = event.target.closest("[data-download]");
   if (downloadButton && isProUser()) {
+    event.preventDefault();
+    openResourceViewer(downloadButton.dataset.download);
     const id = downloadButton.dataset.download;
     if (!savedDownloads.includes(id)) {
       savedDownloads = [...savedDownloads, id];
       saveDownloads();
       updatePlanLabel();
     }
-    downloadButton.textContent = "Downloaded";
+    downloadButton.textContent = "View";
   }
 
   const filterButton = event.target.closest("[data-filter]");
@@ -5564,6 +5906,13 @@ document.addEventListener("click", (event) => {
   if (completeTicketButton) {
     updateTicket(completeTicketButton.dataset.completeTicket, { status: "Complete" });
   }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  setMobileNavOpen(false);
+  closeResourceViewer();
+  closeProFeatureModal();
 });
 
 searchInput.addEventListener("keydown", (event) => {
@@ -6045,6 +6394,8 @@ document.addEventListener("submit", (event) => {
   const data = collectFormData(event.target);
   appendChildRecord("Communications", { ...data, title: `${data.type} ¬∑ ${data.date}`, summary: data.message });
 });
+
+installMobileNavigation();
 
 if (currentUser) {
   loadAccountState(currentUser);
