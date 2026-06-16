@@ -1430,6 +1430,74 @@ button {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.admin-analytics-status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--cream);
+}
+
+.admin-analytics-status span {
+  font-weight: 700;
+  color: #386062;
+}
+
+.admin-analytics-status small {
+  color: var(--muted);
+}
+
+.analytics-chart {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(26px, 1fr));
+  gap: 8px;
+  align-items: end;
+  min-height: 150px;
+  padding-top: 10px;
+}
+
+.analytics-bar {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 6px;
+  min-height: 140px;
+}
+
+.analytics-bar span {
+  align-self: end;
+  display: block;
+  min-height: 8px;
+  border-radius: 5px 5px 0 0;
+  background: linear-gradient(180deg, #6c9d8a, #386062);
+}
+
+.analytics-bar small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analytics-user-card {
+  margin-top: 12px;
+}
+
+.analytics-user-table-wrap {
+  max-height: 520px;
+  overflow: auto;
+}
+
+.analytics-user-table td {
+  vertical-align: top;
+}
+
 .analytics-card h4 {
   margin: 0 0 12px;
 }
