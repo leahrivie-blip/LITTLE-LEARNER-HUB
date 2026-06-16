@@ -1747,7 +1747,20 @@ function resourceMaterialsSummary(resource) {
 }
 
 function printableType(resource) {
-  return printableTypes.find((type) => resource.tags.includes(type) || resource.title.includes(type)) || "Printable Activity";
+  const exactType = printableTypes.find((type) => resource.tags.includes(type) || resource.title.includes(type));
+  if (exactType) return exactType;
+  const label = `${resource.title} ${resource.tags.join(" ")}`.toLowerCase();
+  if (label.includes("letter") || label.includes("alphabet")) return "Alphabet Practice";
+  if (label.includes("number")) return "Number Practice";
+  if (label.includes("shape")) return "Shape Practice";
+  if (label.includes("name")) return "Name Writing";
+  if (label.includes("cut")) return "Cutting Practice";
+  if (label.includes("match")) return "Matching Activities";
+  if (label.includes("holiday")) return "Holiday Worksheets";
+  if (label.includes("season")) return "Seasonal Worksheets";
+  if (label.includes("color")) return "Coloring Pages";
+  if (label.includes("trace") || label.includes("tracing") || label.includes("worksheet")) return "Tracing Worksheets";
+  return "Printable Activity";
 }
 
 function printableTheme(resource) {
