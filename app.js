@@ -786,10 +786,12 @@ const adRouteMap = {
   "/daycare-lesson-plans": "lessons",
   "/observation-generator": "ai",
   "/home-daycare-provider-tools": "home",
+  "/admin": "admin",
   "#/free-daycare-forms": "forms",
   "#/daycare-lesson-plans": "lessons",
   "#/observation-generator": "ai",
   "#/home-daycare-provider-tools": "home",
+  "#/admin": "admin",
 };
 const onboardingSteps = [
   { id: "child-profile", label: "Create first child profile", view: "children" },
