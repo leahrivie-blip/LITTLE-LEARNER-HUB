@@ -951,6 +951,28 @@ button {
   box-shadow: var(--shadow);
 }
 
+.admin-preview-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  margin: 16px 0;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(219, 233, 220, 0.72), rgba(220, 238, 245, 0.55));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.admin-preview-panel p,
+.admin-preview-panel span {
+  margin: 0;
+}
+
+.admin-preview-panel strong {
+  display: block;
+  margin: 4px 0;
+}
+
 .account-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -2609,6 +2631,10 @@ button {
     display: grid;
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .admin-preview-panel {
+    grid-template-columns: 1fr;
   }
 
   .resource-actions button,
