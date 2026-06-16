@@ -388,9 +388,27 @@ function statusForPlan(planKey, stripeSubscriptionId, status) {
   };
 }
 
+function planKeyFromPriceId(priceId) {
+  const cleanPriceId = String(priceId || "").trim();
+  if (!cleanPriceId) return "";
+  const match = Object.entries(planConfig).find(([planKey]) => getPriceId(planKey) === cleanPriceId);
+  return match?.[0] || "";
+}
+
+function planKeyFromSubscriptionPrice(subscription) {
+  const items = subscription?.items?.data || [];
+  for (const item of items) {
+    const planKey = planKeyFromPriceId(item?.price?.id || item?.plan?.id);
+    if (planKey) return planKey;
+  }
+  return "";
+}
+
 function planKeyFromStripe(subscription, user = {}) {
   const metadataPlan = String(subscription?.metadata?.plan || "").trim().toLowerCase();
   if (planConfig[metadataPlan]) return metadataPlan;
+  const pricePlan = planKeyFromSubscriptionPrice(subscription);
+  if (planConfig[pricePlan]) return pricePlan;
   const pendingPlan = String(user.pendingPlan || "").trim().toLowerCase();
   if (planConfig[pendingPlan]) return pendingPlan;
   if (user.foundingMember || user.plan === "Founding") return "founding";
@@ -617,6 +635,49 @@ async function stripeGet(pathname) {
   return data;
 }
 
+function paidStripeSubscription(subscription) {
+  return ["active", "trialing"].includes(String(subscription?.status || "").toLowerCase());
+}
+
+function storedSubscriptionActive(subscription) {
+  const status = String(subscription?.subscriptionStatus || "").toLowerCase();
+  if (!subscription || status.includes("cancel") || status.includes("free plan") || status.includes("failed")) return false;
+  return ["Pro", "Founding"].includes(subscription.plan) && (
+    status.includes("active") || status.includes("trial") || status.includes("paid")
+  );
+}
+
+function upsertStripeSubscription(email, customerId, subscription) {
+  const cleanEmail = normalizeEmail(email);
+  const store = readStore();
+  const user = store.users?.[cleanEmail] || {};
+  const planKey = planKeyFromStripe(subscription, user);
+  const founding = planKey === "founding"
+    ? claimFoundingSpot(cleanEmail)
+    : { foundingMember: Boolean(user.foundingMember), foundingMemberNumber: user.foundingMemberNumber || null };
+  return upsertUser(cleanEmail, {
+    ...statusForPlan(planKey, subscription.id, subscription.status === "active" ? "Active" : subscription.status),
+    stripeCustomerId: customerId || subscription.customer || user.stripeCustomerId || "",
+    foundingMember: founding.foundingMember,
+    foundingMemberNumber: founding.foundingMemberNumber,
+    subscriptionStartedAt: user.subscriptionStartedAt || new Date().toISOString(),
+    paymentMethod: "Managed in Stripe",
+    pendingPlan: "",
+    stripeSubscriptionId: subscription.id,
+  });
+}
+
+async function findStripeSubscriptionByEmail(email) {
+  if (!isConfiguredValue(STRIPE_SECRET_KEY) || !email) return null;
+  const customers = await stripeGet(`customers?email=${encodeURIComponent(email)}&limit=10`);
+  for (const customer of customers.data || []) {
+    const subscriptions = await stripeGet(`subscriptions?customer=${encodeURIComponent(customer.id)}&status=all&limit=10`);
+    const subscription = (subscriptions.data || []).find(paidStripeSubscription);
+    if (subscription) return { customerId: customer.id, subscription };
+  }
+  return null;
+}
+
 async function handleCheckoutStatus(request, response, url) {
   if (!requireStripe(response)) return;
   const sessionId = url.searchParams.get("session_id");
@@ -771,13 +832,27 @@ async function handleAiGenerate(request, response) {
   }
 }
 
-function handleSubscriptionStatus(request, response, url) {
+async function handleSubscriptionStatus(request, response, url) {
   const email = normalizeEmail(url.searchParams.get("email"));
   const store = readStore();
+  let subscription = store.users?.[email] || null;
+  let recoveredFromStripe = false;
+  if (email && !storedSubscriptionActive(subscription)) {
+    try {
+      const stripeMatch = await findStripeSubscriptionByEmail(email);
+      if (stripeMatch?.subscription) {
+        subscription = upsertStripeSubscription(email, stripeMatch.customerId, stripeMatch.subscription);
+        recoveredFromStripe = true;
+      }
+    } catch (error) {
+      console.warn(`Could not recover Stripe subscription for ${email}:`, error.message);
+    }
+  }
   jsonResponse(response, 200, {
     email,
-    subscription: store.users?.[email] || null,
-    aiUsage: email ? canUseServerAi(email, store.users?.[email]?.plan || "Free") : null,
+    subscription,
+    recoveredFromStripe,
+    aiUsage: email ? canUseServerAi(email, subscription?.plan || "Free") : null,
     founding: {
       limit: FOUNDING_LIMIT,
       claimed: foundingClaimedCount(store),
@@ -914,7 +989,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && (url.pathname === "/api/webhooks/stripe" || url.pathname === "/api/stripe/webhook")) return await handleStripeWebhook(request, response);
     if (request.method === "POST" && url.pathname === "/api/ai-generate") return await handleAiGenerate(request, response);
     if (request.method === "GET" && url.pathname === "/api/checkout-status") return await handleCheckoutStatus(request, response, url);
-    if (request.method === "GET" && url.pathname === "/api/subscription-status") return handleSubscriptionStatus(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/subscription-status") return await handleSubscriptionStatus(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/stripe-readiness") return handleStripeReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/launch-readiness") return handleLaunchReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/health") return handleHealth(request, response);
