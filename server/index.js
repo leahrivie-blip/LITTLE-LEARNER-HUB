@@ -251,6 +251,7 @@ function defaultStore() {
     aiOutputs: [],
     supportTickets: [],
     analyticsEvents: [],
+    billingEvents: [],
     leads: [],
   };
 }
@@ -396,6 +397,20 @@ function foundingClaimedCount(store) {
 
 function foundingSpotsRemaining(store) {
   return Math.max(FOUNDING_LIMIT - foundingClaimedCount(store), 0);
+}
+
+function foundingStatusPayload(store = readStore()) {
+  const claimed = foundingClaimedCount(store);
+  const remaining = foundingSpotsRemaining(store);
+  return {
+    limit: FOUNDING_LIMIT,
+    claimed,
+    remaining,
+    soldOut: remaining <= 0,
+    foundingPrice: "$9.99/month",
+    regularMonthlyPrice: "$19.99/month",
+    regularAnnualPrice: "$199/year",
+  };
 }
 
 function claimFoundingSpot(email) {
@@ -654,7 +669,7 @@ async function handleCheckout(request, response) {
       pendingPlan: planKey,
       subscriptionStatus: "Checkout Started",
     });
-    jsonResponse(response, 200, { url: session.url, id: session.id, plan: planKey });
+    jsonResponse(response, 200, { url: session.url, id: session.id, plan: planKey, founding: foundingStatusPayload(store) });
   } catch (error) {
     jsonResponse(response, 500, { error: error.message || "Could not create Stripe Checkout Session." });
   }
@@ -740,6 +755,7 @@ async function handleCheckoutStatus(request, response, url) {
         paymentMethod: "Managed in Stripe",
         pendingPlan: "",
       });
+      appendBillingEvent(email, "checkout_success", planKey, planConfig[planKey]?.amount || "");
     }
     jsonResponse(response, 200, {
       paid,
@@ -807,6 +823,7 @@ async function handleStripeWebhook(request, response) {
         paymentMethod: "Managed in Stripe",
         pendingPlan: "",
       });
+      appendBillingEvent(email, "checkout_success", planKey, planConfig[planKey]?.amount || "");
     }
   }
 
@@ -838,6 +855,7 @@ async function handleStripeWebhook(request, response) {
         pendingPlan: "",
         stripeSubscriptionId: subscription.id,
       });
+      if (canceled) appendBillingEvent(email, "subscription_canceled", planKey, "$0");
     }
   }
 
@@ -890,11 +908,7 @@ async function handleSubscriptionStatus(request, response, url) {
     subscription,
     recoveredFromStripe,
     aiUsage: email ? canUseServerAi(email, subscription?.plan || "Free") : null,
-    founding: {
-      limit: FOUNDING_LIMIT,
-      claimed: foundingClaimedCount(store),
-      remaining: foundingSpotsRemaining(store),
-    },
+    founding: foundingStatusPayload(store),
   });
 }
 
@@ -917,6 +931,265 @@ function publicTicket(ticket) {
 function validAdminToken(token) {
   const store = readStore();
   return Boolean(token && store.adminSessions?.[token]);
+}
+
+function analyticsDateKey(value) {
+  const date = new Date(value || Date.now());
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  return date.toISOString().slice(0, 10);
+}
+
+function analyticsMonthKey(value) {
+  const key = analyticsDateKey(value);
+  return key === "Unknown" ? key : key.slice(0, 7);
+}
+
+function analyticsWeekKey(value) {
+  const date = new Date(value || Date.now());
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  const first = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const dayNumber = Math.floor((date - first) / 86400000) + 1;
+  const week = Math.ceil((dayNumber + first.getUTCDay()) / 7);
+  return `${date.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+
+function countBy(items, getter) {
+  return items.reduce((counts, item) => {
+    const key = getter(item) || "Unknown";
+    counts[key] = (counts[key] || 0) + 1;
+    return counts;
+  }, {});
+}
+
+function moneyNumber(value) {
+  const amount = Number(String(value || "").replace(/[^0-9.]/g, ""));
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function moneyBy(items, getter) {
+  return items.reduce((totals, item) => {
+    const key = getter(item);
+    totals[key] = Number(((totals[key] || 0) + moneyNumber(item.amount || item.detail?.monthlyPrice || item.detail?.amount)).toFixed(2));
+    return totals;
+  }, {});
+}
+
+function rate(part, whole) {
+  return whole ? `${Math.round((part / whole) * 100)}%` : "0%";
+}
+
+function detectEventSource(event) {
+  const explicit = String(event.source || event.detail?.source || event.attribution?.source || "").trim();
+  if (explicit) return explicit;
+  const url = `${event.url || ""} ${event.referrer || ""}`.toLowerCase();
+  if (url.includes("fbclid") || url.includes("facebook") || url.includes("instagram")) return "Facebook";
+  if (url.includes("ttclid") || url.includes("tiktok")) return "TikTok";
+  if (url.includes("gclid") || url.includes("google")) return "Google";
+  if (url.includes("utm_source")) return "Campaign";
+  return event.referrer ? "Referral" : "Direct";
+}
+
+function topFeaturePairs(events) {
+  return Object.entries(countBy(events, (event) => event.name))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+}
+
+function sanitizeAnalyticsEvent(input, request) {
+  const raw = input?.event || input || {};
+  const createdAt = raw.createdAt && !Number.isNaN(new Date(raw.createdAt).getTime())
+    ? new Date(raw.createdAt).toISOString()
+    : new Date().toISOString();
+  return {
+    id: String(raw.id || `evt_${Date.now()}_${crypto.randomBytes(5).toString("hex")}`).slice(0, 120),
+    name: String(raw.name || "event").slice(0, 80),
+    detail: typeof raw.detail === "object" && raw.detail ? raw.detail : {},
+    visitorId: String(raw.visitorId || "").slice(0, 120),
+    sessionId: String(raw.sessionId || "").slice(0, 120),
+    user: normalizeEmail(raw.user || raw.email || raw.detail?.email || ""),
+    plan: String(raw.plan || raw.detail?.plan || "").slice(0, 40),
+    path: String(raw.path || "").slice(0, 240),
+    hash: String(raw.hash || "").slice(0, 120),
+    url: String(raw.url || "").slice(0, 500),
+    pageTitle: String(raw.pageTitle || "").slice(0, 160),
+    referrer: String(raw.referrer || request.headers.referer || "").slice(0, 500),
+    source: String(raw.source || "").slice(0, 120),
+    attribution: typeof raw.attribution === "object" && raw.attribution ? raw.attribution : {},
+    userAgent: String(request.headers["user-agent"] || "").slice(0, 300),
+    ipHash: crypto.createHash("sha256").update(String(request.headers["x-forwarded-for"] || request.socket.remoteAddress || "")).digest("hex").slice(0, 20),
+    createdAt,
+  };
+}
+
+function updateAnalyticsUser(store, event) {
+  if (!event.user || event.user === "guest") return;
+  store.users = store.users || {};
+  const existing = store.users[event.user] || { email: event.user };
+  const featureUsage = existing.featureUsage || {};
+  featureUsage[event.name] = (featureUsage[event.name] || 0) + 1;
+  const updates = {
+    ...existing,
+    email: event.user,
+    plan: event.plan || existing.plan || "Free",
+    lastSeenAt: event.createdAt,
+    featureUsage,
+    updatedAt: new Date().toISOString(),
+  };
+  if (event.name === "account_signup_complete" && !updates.signupAt) {
+    updates.signupAt = event.createdAt;
+    updates.createdAt = existing.createdAt || event.createdAt;
+  }
+  if (event.name === "account_login_complete") updates.lastLoginAt = event.createdAt;
+  if (event.name === "checkout_success") {
+    updates.plan = event.detail?.plan || event.plan || updates.plan;
+    updates.subscriptionStatus = `${updates.plan || "Pro"} Subscription Active`;
+    updates.monthlyPrice = event.detail?.monthlyPrice || updates.monthlyPrice || "";
+  }
+  if (event.name === "subscription_canceled") {
+    updates.plan = "Free";
+    updates.subscriptionStatus = "Canceled - Free Plan Active";
+  }
+  store.users[event.user] = updates;
+}
+
+function recordBillingEvent(store, event) {
+  store.billingEvents = store.billingEvents || [];
+  store.billingEvents.push({
+    id: `bill_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
+    email: event.user || event.email || "",
+    type: event.type || event.name || "Billing Event",
+    plan: event.plan || event.detail?.plan || "",
+    amount: event.amount || event.detail?.monthlyPrice || event.detail?.amount || "",
+    createdAt: event.createdAt || new Date().toISOString(),
+  });
+}
+
+function appendBillingEvent(email, type, planKey, amount) {
+  const store = readStore();
+  const cleanEmail = normalizeEmail(email);
+  const now = Date.now();
+  const duplicate = (store.billingEvents || []).some((event) => {
+    const eventTime = new Date(event.createdAt || 0).getTime();
+    return event.email === cleanEmail
+      && event.type === type
+      && event.plan === (planConfig[planKey]?.label || planKey || "")
+      && Math.abs(now - eventTime) < 5 * 60 * 1000;
+  });
+  if (duplicate) return;
+  recordBillingEvent(store, {
+    user: cleanEmail,
+    name: type,
+    type,
+    plan: planConfig[planKey]?.label || planKey || "",
+    amount,
+    createdAt: new Date().toISOString(),
+  });
+  writeStore(store);
+}
+
+async function handleAnalyticsEvent(request, response) {
+  const body = await readJson(request);
+  const event = sanitizeAnalyticsEvent(body, request);
+  const store = readStore();
+  store.analyticsEvents = store.analyticsEvents || [];
+  if (!store.analyticsEvents.some((item) => item.id === event.id)) {
+    store.analyticsEvents.push(event);
+  }
+  updateAnalyticsUser(store, event);
+  if (["checkout_success", "subscription_canceled"].includes(event.name)) recordBillingEvent(store, event);
+  writeStore(store);
+  jsonResponse(response, 200, { ok: true });
+}
+
+function analyticsSummary(store) {
+  const events = (store.analyticsEvents || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const chronological = events.slice().reverse();
+  const users = Object.values(store.users || {});
+  const visits = events.filter((event) => event.name === "website_visit" || event.name === "page_view");
+  const pageViews = events.filter((event) => event.name === "page_view");
+  const signups = events.filter((event) => event.name === "account_signup_complete");
+  const paidEvents = events.filter((event) => event.name === "checkout_success");
+  const billingEvents = store.billingEvents || [];
+  const uniqueVisitors = new Set(visits.map((event) => event.visitorId || event.user || event.sessionId || event.ipHash).filter(Boolean));
+  const visitorDays = {};
+  visits.forEach((event) => {
+    const id = event.visitorId || event.user || event.sessionId || event.ipHash || "unknown";
+    visitorDays[id] = visitorDays[id] || new Set();
+    visitorDays[id].add(analyticsDateKey(event.createdAt));
+  });
+  const returningVisitors = Object.values(visitorDays).filter((days) => days.size > 1).length;
+  const paidUsers = users.filter((user) => ["Pro", "Founding"].includes(user.plan));
+  const canceledUsers = users.filter((user) => String(user.subscriptionStatus || "").toLowerCase().includes("cancel"));
+  const revenueItems = [
+    ...paidEvents,
+    ...billingEvents.filter((event) => !String(event.type || "").toLowerCase().includes("cancel")),
+  ];
+  const userRows = users
+    .map((user) => {
+      const userEvents = events.filter((event) => event.user === user.email);
+      return {
+        email: user.email,
+        plan: user.plan || "Free",
+        subscriptionStatus: user.subscriptionStatus || "Free Plan",
+        signupAt: user.signupAt || user.createdAt || "",
+        lastLoginAt: user.lastLoginAt || "",
+        lastSeenAt: user.lastSeenAt || user.updatedAt || "",
+        featureUseCount: userEvents.length || Object.values(user.featureUsage || {}).reduce((total, value) => total + Number(value || 0), 0),
+        topFeatures: topFeaturePairs(userEvents),
+      };
+    })
+    .sort((a, b) => new Date(b.lastSeenAt || b.signupAt || 0) - new Date(a.lastSeenAt || a.signupAt || 0));
+  return {
+    mode: "Server historical analytics",
+    updatedAt: new Date().toISOString(),
+    totals: {
+      visitors: visits.length,
+      uniqueVisitors: uniqueVisitors.size,
+      signups: Math.max(signups.length, users.length),
+      totalRegisteredUsers: users.length,
+      freeUsers: users.filter((user) => !["Pro", "Founding"].includes(user.plan)).length,
+      proUsers: users.filter((user) => user.plan === "Pro").length,
+      foundingMembers: users.filter((user) => user.plan === "Founding" || user.foundingMember).length,
+      paidUsers: paidUsers.length,
+      activeSubscriptions: paidUsers.filter((user) => !String(user.subscriptionStatus || "").toLowerCase().includes("cancel")).length,
+      canceledSubscriptions: canceledUsers.length,
+      returningVisitors,
+      visitorToSignupRate: rate(Math.max(signups.length, users.length), Math.max(uniqueVisitors.size, visits.length)),
+      signupToPaidRate: rate(paidUsers.length, Math.max(signups.length, users.length)),
+      visitorToPaidRate: rate(paidUsers.length, Math.max(uniqueVisitors.size, visits.length)),
+      totalRevenue: Number(revenueItems.reduce((total, event) => total + moneyNumber(event.amount || event.detail?.monthlyPrice || event.detail?.amount), 0).toFixed(2)),
+    },
+    periods: {
+      dailyVisitors: countBy(visits, (event) => analyticsDateKey(event.createdAt)),
+      weeklyVisitors: countBy(visits, (event) => analyticsWeekKey(event.createdAt)),
+      monthlyVisitors: countBy(visits, (event) => analyticsMonthKey(event.createdAt)),
+      dailyRevenue: moneyBy(revenueItems, (event) => analyticsDateKey(event.createdAt)),
+      weeklyRevenue: moneyBy(revenueItems, (event) => analyticsWeekKey(event.createdAt)),
+      monthlyRevenue: moneyBy(revenueItems, (event) => analyticsMonthKey(event.createdAt)),
+      yearlyRevenue: moneyBy(revenueItems, (event) => String(new Date(event.createdAt || Date.now()).getUTCFullYear())),
+    },
+    counts: {
+      pageViews: countBy(pageViews, (event) => event.detail?.view || event.path || event.hash || "Home"),
+      sources: countBy(visits, detectEventSource),
+      buttonClicks: countBy(events.filter((event) => event.name === "button_click"), (event) => event.detail?.label || event.detail?.action || "Button"),
+      aiUsage: countBy(events.filter((event) => event.name === "ai_generation_success"), (event) => event.detail?.tool || "AI Generator"),
+      resourceViews: countBy(events.filter((event) => event.name === "resource_view"), (event) => event.detail?.category || "Resource"),
+      resourcePrints: countBy(events.filter((event) => ["resource_print", "generated_pdf", "generated_print", "provider_tool_pdf"].includes(event.name)), (event) => event.detail?.category || event.detail?.tool || "Printable/PDF"),
+      featureUsage: countBy(events.filter((event) => ["button_click", "ai_generation_success", "resource_view", "resource_print", "generated_pdf", "generated_print", "provider_tool_pdf", "checkout_start", "checkout_success"].includes(event.name)), (event) => event.name),
+    },
+    users: userRows,
+    recentEvents: events.slice(0, 25),
+    rawEventCount: chronological.length,
+  };
+}
+
+function handleAdminAnalytics(request, response, url) {
+  const token = url.searchParams.get("adminToken");
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  jsonResponse(response, 200, { analytics: analyticsSummary(readStore()) });
 }
 
 function htmlEscape(value) {
@@ -1124,11 +1397,7 @@ function handleStripeReadiness(request, response) {
   const store = readStore();
   jsonResponse(response, 200, {
     stripe: status,
-    founding: {
-      limit: FOUNDING_LIMIT,
-      claimed: foundingClaimedCount(store),
-      remaining: foundingSpotsRemaining(store),
-    },
+    founding: foundingStatusPayload(store),
     nextSteps: status.ready
       ? ["Stripe is launch-ready. Complete a checkout test, then verify the webhook event updates the account."]
       : status.checkoutReady
@@ -1142,6 +1411,7 @@ function handleLaunchReadiness(request, response) {
 }
 
 function handleHealth(request, response) {
+  const store = readStore();
   jsonResponse(response, 200, {
     ok: true,
     service: "Little Learner Hub",
@@ -1149,7 +1419,12 @@ function handleHealth(request, response) {
     stripeCheckoutReady: stripeConfigStatus().checkoutReady,
     launchReady: launchReadinessStatus().ready,
     supportEmailReady: supportEmailConfigStatus().ready,
+    founding: foundingStatusPayload(store),
   });
+}
+
+function handleFoundingStatus(request, response) {
+  jsonResponse(response, 200, { founding: foundingStatusPayload(readStore()) });
 }
 
 function handleClientConfig(request, response) {
@@ -1247,11 +1522,14 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/create-customer-portal-session") return await handlePortal(request, response);
     if (request.method === "POST" && (url.pathname === "/api/webhooks/stripe" || url.pathname === "/api/stripe/webhook")) return await handleStripeWebhook(request, response);
     if (request.method === "POST" && url.pathname === "/api/ai-generate") return await handleAiGenerate(request, response);
+    if (request.method === "POST" && url.pathname === "/api/analytics/event") return await handleAnalyticsEvent(request, response);
     if (request.method === "POST" && url.pathname === "/api/support-ticket") return await handleSupportTicketCreate(request, response);
     if (request.method === "POST" && url.pathname === "/api/support-ticket-update") return await handleSupportTicketUpdate(request, response);
     if (request.method === "GET" && url.pathname === "/api/checkout-status") return await handleCheckoutStatus(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/subscription-status") return await handleSubscriptionStatus(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/support-tickets") return handleSupportTicketsList(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/analytics") return handleAdminAnalytics(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/founding-status") return handleFoundingStatus(request, response);
     if (request.method === "GET" && url.pathname === "/api/stripe-readiness") return handleStripeReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/launch-readiness") return handleLaunchReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/health") return handleHealth(request, response);
