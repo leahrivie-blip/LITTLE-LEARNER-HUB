@@ -1021,7 +1021,21 @@ function isStripeStatusActive(subscription) {
 }
 
 function subscriptionToAccountUpdates(subscription) {
-  if (!subscription || !isStripeStatusActive(subscription)) return null;
+  if (!subscription) return null;
+  if (!isStripeStatusActive(subscription)) {
+    return {
+      plan: "Free",
+      subscriptionCadence: "",
+      subscriptionStatus: subscription.subscriptionStatus || "Free Plan",
+      foundingMember: Boolean(subscription.foundingMember),
+      foundingMemberNumber: subscription.foundingMemberNumber || null,
+      priceLock: subscription.foundingMember ? "Lifetime" : "",
+      monthlyPrice: "$0",
+      stripeCustomerId: subscription.stripeCustomerId || "",
+      stripeSubscriptionId: subscription.stripeSubscriptionId || "",
+      paymentMethod: subscription.paymentMethod || "Managed in Stripe",
+    };
+  }
   const pendingPlan = String(subscription.pendingPlan || "").toLowerCase();
   const serverPlan = String(subscription.plan || "").toLowerCase();
   const isFounding = Boolean(subscription.foundingMember)
@@ -1491,12 +1505,13 @@ function setView(view) {
 }
 
 function canAccess(resource) {
-  if (accessRank[currentPlan] >= accessRank.Pro) return true;
+  if (hasAdminFullAccess()) return true;
+  if (accessRank[effectiveAccessPlan()] >= accessRank.Pro) return true;
   return freeResourceIds(resource.category).has(resource.id);
 }
 
 function isProUser() {
-  return accessRank[currentPlan] >= accessRank.Pro;
+  return hasAdminFullAccess() || accessRank[effectiveAccessPlan()] >= accessRank.Pro;
 }
 
 function freeResourceIds(category) {
@@ -3154,13 +3169,46 @@ function saveSupportTickets(items) {
   localStorage.setItem("llhSupportTickets", JSON.stringify(items));
 }
 
+function mergeSupportTickets(remoteTickets = []) {
+  const merged = [...remoteTickets, ...supportTickets()];
+  const seen = new Set();
+  const unique = merged.filter((ticket) => {
+    if (!ticket?.id || seen.has(ticket.id)) return false;
+    seen.add(ticket.id);
+    return true;
+  });
+  saveSupportTickets(unique.slice(0, 100));
+  return unique;
+}
+
+async function loadSupportTicketsFromBackend({ admin = false } = {}) {
+  if (!canUseLaunchBackend()) return supportTickets();
+  const params = new URLSearchParams();
+  if (admin && adminSession()?.token) {
+    params.set("adminToken", adminSession().token);
+  } else if (currentUser) {
+    params.set("email", currentUser);
+  } else {
+    return supportTickets();
+  }
+  try {
+    const response = await fetch(`/api/support-tickets?${params.toString()}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error || "Could not load support tickets.");
+    return mergeSupportTickets(data.tickets || []);
+  } catch (error) {
+    console.warn("Support ticket sync failed", error);
+    return supportTickets();
+  }
+}
+
 function ticketStatusClass(status) {
   return `ticket-status-${String(status || "New").toLowerCase().replace(/\s+/g, "-")}`;
 }
 
-function submitSupportTicket(form) {
+async function submitSupportTicket(form) {
   const data = collectFormData(form);
-  const ticket = {
+  let ticket = {
     id: `ticket-${Date.now()}`,
     kind: form.dataset.ticketKind || "Support Request",
     name: data.name || "Provider",
@@ -3173,15 +3221,34 @@ function submitSupportTicket(form) {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+  if (canUseLaunchBackend()) {
+    try {
+      const response = await fetch("/api/support-ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...ticket,
+          sourceUrl: window.location.href,
+          userAgent: navigator.userAgent,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result?.error || "Could not submit support ticket.");
+      ticket = result.ticket || ticket;
+    } catch (error) {
+      console.warn("Support ticket backend submit failed", error);
+    }
+  }
   saveSupportTickets([ticket, ...supportTickets()]);
   form.reset();
   renderContactPage();
   renderAdminTickets();
 }
 
-function renderContactPage() {
+async function renderContactPage() {
   const target = document.querySelector("#userTicketList");
   if (!target) return;
+  await loadSupportTicketsFromBackend();
   const currentEmail = currentUser || "";
   const tickets = supportTickets()
     .filter((ticket) => !currentEmail || ticket.email === currentEmail || ticket.createdBy === currentEmail)
@@ -3227,15 +3294,32 @@ function adminTicketActions(ticket) {
   `;
 }
 
-function renderAdminTickets() {
+async function renderAdminTickets() {
   const target = document.querySelector("#adminTicketList");
   if (!target) return;
+  await loadSupportTicketsFromBackend({ admin: isAdminUnlocked() });
   const filter = document.querySelector("#ticketStatusFilter")?.value || "All Statuses";
   const tickets = supportTickets().filter((ticket) => filter === "All Statuses" || ticket.status === filter);
   target.innerHTML = tickets.length ? tickets.map((ticket) => ticketCard(ticket, true)).join("") : `<div class="empty-state">No support tickets match this status.</div>`;
 }
 
-function updateTicket(id, updates) {
+async function updateTicket(id, updates) {
+  if (canUseLaunchBackend() && isAdminUnlocked() && adminSession()?.token) {
+    try {
+      const response = await fetch("/api/support-ticket-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, adminToken: adminSession().token, ...updates }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result?.error || "Could not update support ticket.");
+      if (result.ticket) {
+        mergeSupportTickets([result.ticket]);
+      }
+    } catch (error) {
+      console.warn("Support ticket backend update failed", error);
+    }
+  }
   const updated = supportTickets().map((ticket) => ticket.id === id ? { ...ticket, ...updates, updatedAt: new Date().toISOString() } : ticket);
   saveSupportTickets(updated);
   renderContactPage();
@@ -3244,6 +3328,22 @@ function updateTicket(id, updates) {
 
 function isAdminUnlocked() {
   return localStorage.getItem("llhAdminUnlocked") === "true";
+}
+
+function adminPreviewMode() {
+  if (!isAdminUnlocked()) return "";
+  return localStorage.getItem("llhAdminPreviewMode") || "Admin";
+}
+
+function hasAdminFullAccess() {
+  return isAdminUnlocked() && adminPreviewMode() === "Admin";
+}
+
+function effectiveAccessPlan() {
+  const preview = adminPreviewMode();
+  if (["Free", "Pro", "Founding"].includes(preview)) return preview;
+  if (hasAdminFullAccess()) return "Founding";
+  return currentPlan;
 }
 
 function adminSession() {
@@ -3270,6 +3370,7 @@ function setAdminSession(sessionDetail) {
 function clearAdminSession() {
   localStorage.removeItem("llhAdminSession");
   localStorage.removeItem("llhAdminUnlocked");
+  localStorage.removeItem("llhAdminPreviewMode");
 }
 
 function canUseSignedInOwnerAdmin() {
@@ -3340,9 +3441,21 @@ function renderAdminOwnerOverview() {
       <div>
         <p class="eyebrow">Owner Login</p>
         <h3>${escapeHtml(adminSession()?.name || adminOwnerAccount.name)}'s private command center</h3>
-        <p>Signed in as ${escapeHtml(adminSession()?.email || adminOwnerAccount.email)}. This view tracks app activity on this device while the production database is being connected.</p>
+        <p>Signed in as ${escapeHtml(adminSession()?.email || adminOwnerAccount.email)}. Admin access unlocks every resource and tool unless Preview Mode is selected.</p>
       </div>
       <button class="ghost-button" type="button" id="adminLockButton">Lock Admin</button>
+    </div>
+    <div class="admin-preview-panel">
+      <div>
+        <p class="eyebrow">Preview Mode</p>
+        <strong>Currently viewing as ${escapeHtml(adminPreviewMode())}</strong>
+        <span>Use this to test Free, Pro, and Founding access while keeping Admin controls available.</span>
+      </div>
+      <div class="account-actions-row">
+        ${["Admin", "Free", "Pro", "Founding"].map((mode) => `
+          <button class="${adminPreviewMode() === mode ? "primary-button" : "ghost-button"}" data-admin-preview="${mode}" type="button">${mode}</button>
+        `).join("")}
+      </div>
     </div>
     <div class="admin-owner-grid">
       ${adminMetric("total accounts", accountRows.length)}
@@ -5451,6 +5564,21 @@ function showSearchResults() {
 }
 
 document.addEventListener("click", (event) => {
+  const adminPreviewButton = event.target.closest("[data-admin-preview]");
+  if (adminPreviewButton) {
+    event.preventDefault();
+    if (!isAdminUnlocked()) return;
+    localStorage.setItem("llhAdminPreviewMode", adminPreviewButton.dataset.adminPreview);
+    updateAuthButtons();
+    updatePlanLabel();
+    renderAdminDashboard();
+    const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
+    if (viewMap[activeView]) renderCategoryPage(activeView);
+    if (activeView === "ai") renderAiPage();
+    if (activeView === "children") renderChildManagement();
+    return;
+  }
+
   const localOwnerUnlockButton = event.target.closest("#localOwnerAdminUnlock");
   if (localOwnerUnlockButton) {
     event.preventDefault();
