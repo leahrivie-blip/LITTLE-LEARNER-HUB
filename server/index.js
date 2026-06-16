@@ -861,6 +861,94 @@ async function handleSubscriptionStatus(request, response, url) {
   });
 }
 
+function publicTicket(ticket) {
+  return {
+    id: ticket.id,
+    kind: ticket.kind,
+    name: ticket.name,
+    email: ticket.email,
+    createdBy: ticket.createdBy,
+    topic: ticket.topic,
+    message: ticket.message,
+    status: ticket.status,
+    reply: ticket.reply || "",
+    createdAt: ticket.createdAt,
+    updatedAt: ticket.updatedAt,
+  };
+}
+
+function validAdminToken(token) {
+  const store = readStore();
+  return Boolean(token && store.adminSessions?.[token]);
+}
+
+async function handleSupportTicketCreate(request, response) {
+  const body = await readJson(request);
+  const email = normalizeEmail(body.email);
+  const message = String(body.message || "").trim();
+  if (!email || !message) {
+    jsonResponse(response, 400, { error: "Email and message are required." });
+    return;
+  }
+  const store = readStore();
+  store.supportTickets = store.supportTickets || [];
+  const ticket = {
+    id: `ticket-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`,
+    kind: String(body.kind || "Support Request").slice(0, 80),
+    name: String(body.name || "Provider").slice(0, 120),
+    email,
+    createdBy: normalizeEmail(body.createdBy || email),
+    topic: String(body.topic || "General Questions").slice(0, 120),
+    message: message.slice(0, 5000),
+    status: "New",
+    reply: "",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    sourceUrl: String(body.sourceUrl || "").slice(0, 500),
+    userAgent: String(body.userAgent || "").slice(0, 300),
+  };
+  store.supportTickets.unshift(ticket);
+  store.supportTickets = store.supportTickets.slice(0, 1000);
+  writeStore(store);
+  jsonResponse(response, 200, { ticket: publicTicket(ticket), supportEmail: ADMIN_EMAIL || "little.learners.hub.customer@gmail.com" });
+}
+
+async function handleSupportTicketUpdate(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to update support tickets." });
+    return;
+  }
+  const id = String(body.id || "");
+  const store = readStore();
+  const tickets = store.supportTickets || [];
+  const index = tickets.findIndex((ticket) => ticket.id === id);
+  if (index < 0) {
+    jsonResponse(response, 404, { error: "Support ticket was not found." });
+    return;
+  }
+  tickets[index] = {
+    ...tickets[index],
+    status: body.status ? String(body.status).slice(0, 40) : tickets[index].status,
+    reply: body.reply !== undefined ? String(body.reply).slice(0, 5000) : tickets[index].reply,
+    updatedAt: new Date().toISOString(),
+  };
+  store.supportTickets = tickets;
+  writeStore(store);
+  jsonResponse(response, 200, { ticket: publicTicket(tickets[index]) });
+}
+
+function handleSupportTicketsList(request, response, url) {
+  const email = normalizeEmail(url.searchParams.get("email"));
+  const adminToken = url.searchParams.get("adminToken") || "";
+  const store = readStore();
+  const allTickets = store.supportTickets || [];
+  const tickets = validAdminToken(adminToken)
+    ? allTickets
+    : allTickets.filter((ticket) => email && (ticket.email === email || ticket.createdBy === email));
+  jsonResponse(response, 200, { tickets: tickets.slice(0, 100).map(publicTicket) });
+}
+
 function handleStripeReadiness(request, response) {
   const status = stripeConfigStatus();
   const store = readStore();
@@ -988,8 +1076,11 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/create-customer-portal-session") return await handlePortal(request, response);
     if (request.method === "POST" && (url.pathname === "/api/webhooks/stripe" || url.pathname === "/api/stripe/webhook")) return await handleStripeWebhook(request, response);
     if (request.method === "POST" && url.pathname === "/api/ai-generate") return await handleAiGenerate(request, response);
+    if (request.method === "POST" && url.pathname === "/api/support-ticket") return await handleSupportTicketCreate(request, response);
+    if (request.method === "POST" && url.pathname === "/api/support-ticket-update") return await handleSupportTicketUpdate(request, response);
     if (request.method === "GET" && url.pathname === "/api/checkout-status") return await handleCheckoutStatus(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/subscription-status") return await handleSubscriptionStatus(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/support-tickets") return handleSupportTicketsList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/stripe-readiness") return handleStripeReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/launch-readiness") return handleLaunchReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/health") return handleHealth(request, response);
