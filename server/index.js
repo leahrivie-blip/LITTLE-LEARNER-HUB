@@ -101,6 +101,7 @@ function stripeConfigStatus() {
     checkoutEndpoint: "/api/create-checkout-session",
     customerPortalEndpoint: "/api/create-customer-portal-session",
     webhookEndpoint: "/api/webhooks/stripe",
+    webhookEndpointAliases: ["/api/stripe/webhook"],
   };
 }
 
@@ -805,7 +806,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/login") return await handleAdminLogin(request, response);
     if (request.method === "POST" && url.pathname === "/api/create-checkout-session") return await handleCheckout(request, response);
     if (request.method === "POST" && url.pathname === "/api/create-customer-portal-session") return await handlePortal(request, response);
-    if (request.method === "POST" && url.pathname === "/api/webhooks/stripe") return await handleStripeWebhook(request, response);
+    if (request.method === "POST" && (url.pathname === "/api/webhooks/stripe" || url.pathname === "/api/stripe/webhook")) return await handleStripeWebhook(request, response);
     if (request.method === "POST" && url.pathname === "/api/ai-generate") return await handleAiGenerate(request, response);
     if (request.method === "GET" && url.pathname === "/api/checkout-status") return await handleCheckoutStatus(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/subscription-status") return handleSubscriptionStatus(request, response, url);
