@@ -1699,7 +1699,7 @@ function resourceIncluded(resource) {
     "Forms Library": "A ready-to-customize childcare form with fields, provider instructions, notes, and signature areas.",
     "Menu Center": "A weekly meal plan, snack ideas, shopping list, substitutions, and provider reminders.",
     "Activity Center": "Materials, setup, step-by-step directions, learning objective, ELG connection, and extension ideas.",
-    "Printables": "Printable activity concept, teacher directions, child directions, learning goal, and extension ideas.",
+    "Printables": "A ready-to-print worksheet page with type-specific directions, child work spaces, writing lines, checkboxes, learning goal, and provider notes.",
   };
   return included[resource.category] || "A complete in-app resource designed for childcare providers.";
 }
@@ -1744,6 +1744,355 @@ function resourceMaterialsSummary(resource) {
     return "Program information, child/family details, policy wording, dates, signatures, and a secure place to store completed forms.";
   }
   return "Observation notes, date, child name, context, and provider reflection.";
+}
+
+function printableType(resource) {
+  return printableTypes.find((type) => resource.tags.includes(type) || resource.title.includes(type)) || "Printable Activity";
+}
+
+function printableTheme(resource) {
+  return resource.tags.find((tag) => !printableTypes.includes(tag) && !["Printable", "Seasonal", "Holiday"].includes(tag)) || resourceTheme(resource);
+}
+
+function printableThemeWords(theme) {
+  const words = String(theme || "learning").split(/\s+/).map((word) => word.replace(/[^a-z0-9]/gi, "")).filter(Boolean);
+  return words.length ? words.slice(0, 4) : ["learning"];
+}
+
+function printableLetter(theme) {
+  const clean = String(theme || "learning").replace(/[^a-z]/gi, "").toUpperCase();
+  return clean[0] || "L";
+}
+
+function printableNumber(theme) {
+  return (String(theme || "learning").replace(/\s+/g, "").length % 9) + 1;
+}
+
+function printableWorksheetContent(resource) {
+  const type = printableType(resource);
+  const theme = printableTheme(resource);
+  const words = printableThemeWords(theme);
+  const letter = printableLetter(theme);
+  const number = printableNumber(theme);
+  const themeLine = words.map((word) => word.toLowerCase()).join(", ");
+
+  if (type === "Tracing Worksheets") {
+    return `Tracing Practice
+Theme: ${theme}
+Focus: pre-writing control, left-to-right movement, and theme vocabulary.
+
+Name: ____________________________________________  Date: ______________
+
+Warm-Up Paths
+Trace each path with your finger first. Then trace with a crayon or marker.
+1. Straight path:  ____________  ____________  ____________
+2. Bumpy path:     mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+3. Zigzag path:    /\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\
+4. Circle path:    O O O O O O O O O O O O O O O O
+
+Letter And Word Tracing
+Trace the beginning letter for ${theme}.
+${letter}    ${letter}    ${letter}    ${letter}    ${letter}
+________________________________________________________________________
+
+Trace the theme word.
+${theme}
+________________________________________________________________________
+________________________________________________________________________
+
+Child Work Space
+Draw one ${theme.toLowerCase()} picture or trace around a theme card here.
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________`;
+  }
+
+  if (type === "Coloring Pages") {
+    return `Coloring Page
+Theme: ${theme}
+Focus: color recognition, vocabulary, fine motor control, and creative expression.
+
+Name: ____________________________________________  Date: ______________
+
+Coloring Prompt
+Color a ${theme.toLowerCase()} scene. Add details that match the theme.
+
+Picture Checklist
+[ ] Main ${theme.toLowerCase()} picture
+[ ] Background detail
+[ ] One small item to count
+[ ] Favorite color added
+
+Color Key
+[ ] Red   [ ] Blue   [ ] Yellow   [ ] Green   [ ] Orange   [ ] Purple
+
+Drawing And Coloring Space
+Use the space below to draw and color the picture.
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________
+
+Talk About It
+My favorite part of my picture is: ______________________________________`;
+  }
+
+  if (type === "Alphabet Practice") {
+    return `Alphabet Practice Page
+Theme: ${theme}
+Letter Focus: ${letter}
+Focus: letter recognition, beginning sounds, and early writing.
+
+Name: ____________________________________________  Date: ______________
+
+Find The Letter
+Circle or color every ${letter}.
+${letter}   A   ${letter.toLowerCase()}   B   ${letter}   C   ${letter.toLowerCase()}   D   ${letter}
+
+Trace The Letter
+Uppercase: ${letter}    ${letter}    ${letter}    ${letter}    ${letter}
+________________________________________________________________________
+
+Lowercase: ${letter.toLowerCase()}    ${letter.toLowerCase()}    ${letter.toLowerCase()}    ${letter.toLowerCase()}    ${letter.toLowerCase()}
+________________________________________________________________________
+
+Beginning Sound Words
+Say each word. Circle the words that begin like ${theme}.
+- ${theme}
+- ${words[0] || "learning"}
+- friend
+- family
+- fun
+
+Write Or Draw
+Draw one thing that starts with ${letter}, then try writing the letter.
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________`;
+  }
+
+  if (type === "Number Practice") {
+    return `Number Practice Page
+Theme: ${theme}
+Number Focus: ${number}
+Focus: counting, one-to-one correspondence, and numeral formation.
+
+Name: ____________________________________________  Date: ______________
+
+Trace The Number
+${number}    ${number}    ${number}    ${number}    ${number}    ${number}
+________________________________________________________________________
+
+Count And Mark
+Count ${number} ${theme.toLowerCase()} items. Put an X in one box for each item counted.
+[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]
+
+Draw And Count
+Draw ${number} small ${theme.toLowerCase()} pictures.
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________
+
+Compare
+[ ] I counted all ${number}.
+[ ] I wrote the number.
+[ ] I checked my work with my teacher.`;
+  }
+
+  if (type === "Shape Practice") {
+    return `Shape Practice Page
+Theme: ${theme}
+Focus: shape recognition, tracing, sorting, and visual discrimination.
+
+Name: ____________________________________________  Date: ______________
+
+Trace The Shapes
+Circle:   O   O   O   O   O
+Square:   [ ]   [ ]   [ ]   [ ]
+Triangle: /\\   /\\   /\\   /\\
+Rectangle: [____]   [____]   [____]
+
+Shape Hunt
+Find or draw shapes that could belong in a ${theme.toLowerCase()} picture.
+[ ] Circle
+[ ] Square
+[ ] Triangle
+[ ] Rectangle
+
+Make A Theme Picture With Shapes
+Use circles, squares, triangles, and rectangles.
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________
+
+Teacher Check
+Shape named: __________________________  Support needed: _______________`;
+  }
+
+  if (type === "Name Writing") {
+    return `Name Writing Page
+Theme: ${theme}
+Focus: name recognition, pencil control, and meaningful early writing.
+
+Name: ____________________________________________  Date: ______________
+
+My Name
+Teacher writes child's name here:
+________________________________________________________________________
+
+Trace My Name
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________
+
+Try My Name
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________
+
+Name Hunt
+[ ] I found the first letter in my name.
+[ ] I pointed to my name.
+[ ] I tried writing my name.
+[ ] I added a ${theme.toLowerCase()} drawing.`;
+  }
+
+  if (type === "Cutting Practice") {
+    return `Cutting Practice Page
+Theme: ${theme}
+Focus: scissor safety, hand strength, coordination, and fine motor control.
+
+Name: ____________________________________________  Date: ______________
+
+Provider Safety Check
+[ ] Child-safe scissors
+[ ] Seated at table
+[ ] Close adult supervision
+[ ] Small pieces removed after activity
+
+Cutting Lines
+Cut slowly on each line.
+Straight line:  - - - - - - - - - - - - - - - - - - -
+Short lines:    | | | | | | | | | | | | | | | | |
+Zigzag line:    /\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\
+Curved line:    C C C C C C C C C C C C C C C C
+
+Cut And Sort
+Cut out small ${theme.toLowerCase()} pieces, then sort them here.
+Group 1: __________________________________
+Group 2: __________________________________
+
+Teacher Note
+Grip: ____________________  Control: ____________________`;
+  }
+
+  if (type === "Matching Activities") {
+    return `Matching Activity Page
+Theme: ${theme}
+Focus: visual matching, vocabulary, problem solving, and pencil control.
+
+Name: ____________________________________________  Date: ______________
+
+Draw Lines To Match
+Match each item on the left with the best item on the right.
+1. ${words[0] || theme} picture                         A. Same picture
+2. Big ${theme.toLowerCase()} item                      B. Small ${theme.toLowerCase()} item
+3. First sound in ${theme}                              C. ${letter}
+4. Favorite color                                       D. Color box
+
+Match Here
+1 -> ______
+2 -> ______
+3 -> ______
+4 -> ______
+
+Make Your Own Match
+Draw one ${theme.toLowerCase()} item and one matching item.
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________`;
+  }
+
+  if (type === "Seasonal Worksheets") {
+    return `Seasonal Worksheet Page
+Theme: ${theme}
+Focus: seasonal vocabulary, observation, counting, and drawing.
+
+Name: ____________________________________________  Date: ______________
+
+Weather Check
+[ ] Sunny   [ ] Cloudy   [ ] Rainy   [ ] Snowy   [ ] Windy
+
+Seasonal Words
+Read or repeat these words: ${themeLine}
+
+I Notice
+One thing I notice about ${theme.toLowerCase()} is:
+________________________________________________________________________
+
+Count And Color
+Color ${number} seasonal items.
+[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]
+
+Draw A Seasonal Picture
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________
+
+Teacher Note
+Vocabulary used: ________________________  Next step: _________________`;
+  }
+
+  if (type === "Holiday Worksheets") {
+    return `Holiday Worksheet Page
+Theme: ${theme}
+Focus: holiday vocabulary, counting, fine motor practice, and conversation.
+
+Name: ____________________________________________  Date: ______________
+
+Holiday Vocabulary
+Say, point to, or act out words connected to ${theme.toLowerCase()}.
+- ${theme}
+- family
+- celebration
+- kindness
+- tradition
+
+Trace And Write
+${theme}
+________________________________________________________________________
+________________________________________________________________________
+
+Count The Holiday Items
+Count ${number} items and color them.
+[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]
+
+Draw Or Color
+Draw something you know about ${theme.toLowerCase()}.
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________
+
+Talk About It
+Something I can share or do kindly is: _________________________________`;
+  }
+
+  return `Printable Activity Page
+Theme: ${theme}
+Focus: early learning practice, fine motor control, and vocabulary.
+
+Name: ____________________________________________  Date: ______________
+
+Try It
+1. Look at the page with your teacher.
+2. Trace, color, count, match, cut, or write based on the directions.
+3. Talk about what you made or noticed.
+
+Child Work Space
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________`;
 }
 
 function resourceFileText(resource) {
@@ -1856,27 +2205,12 @@ ________________________________________________________________________
 Extension tried:
 ________________________________________________________________________`;
   }
-  return `Printable Worksheet Page
-Child Name: _______________________________________  Date: ______________
+  return `${printableWorksheetContent(resource)}
 
-Try It
-1. ______________________________________________________________________
-2. ______________________________________________________________________
-3. ______________________________________________________________________
-
-Draw, trace, match, color, or write here:
-
-‚îå‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îê
-‚îÇ                                                                      ‚îÇ
-‚îÇ                                                                      ‚îÇ
-‚îÇ                                                                      ‚îÇ
-‚îÇ                                                                      ‚îÇ
-‚îÇ                                                                      ‚îÇ
-‚îî‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îÄ‚îò
-
-Reflection / Teacher Note:
-________________________________________________________________________
-________________________________________________________________________`;
+Teacher Notes
+Skill practiced: _______________________________________________________
+Support needed: ________________________________________________________
+Send home? [ ] Yes  [ ] No`;
 }
 
 function resourcePrintableText(resource) {
@@ -1919,7 +2253,7 @@ function printableLinesHtml(lines) {
 
 function resourcePrintableHtml(resource) {
   const text = resourcePrintableText(resource);
-  const headingPattern = /^(Short Description|What Is Included|Who It Is For|How To Use It|Materials \/ Information Needed|ELG \/ Early Learning Standard Connections|Full Resource Content|Weekly Lesson Plan|Weekly Overview|Learning Objectives|Materials|Vocabulary|Related Activities|Child Support Connection|Provider Reflection|Observation Resource|Professional Observation Wording|What to Look For|Learning Standard Category|Evidence To Add|Next Steps|Editable Note|Follow-Up Planning|Purpose|Provider Instructions|Details \/ Notes|Weekly Daycare Menu|Shopping List|Provider Reminder|Setup|Steps|Learning Objective|Extension|Teacher Directions|Child Directions|Activity Ideas|Learning Goal|Provider Note|Printable Planning Notes|Daily Notes|Printable Observation Record|Additional Write-In Space|Checklist|Menu Notes|Shopping Notes|Activity Prep Sheet|Printable Worksheet Page|Try It|Reflection \/ Teacher Note)$/;
+  const headingPattern = /^(Short Description|What Is Included|Who It Is For|How To Use It|Materials \/ Information Needed|ELG \/ Early Learning Standard Connections|Full Resource Content|Weekly Lesson Plan|Weekly Overview|Learning Objectives|Materials|Vocabulary|Related Activities|Child Support Connection|Provider Reflection|Observation Resource|Professional Observation Wording|What to Look For|Learning Standard Category|Evidence To Add|Next Steps|Editable Note|Follow-Up Planning|Purpose|Provider Instructions|Details \/ Notes|Weekly Daycare Menu|Shopping List|Provider Reminder|Setup|Steps|Learning Objective|Extension|Teacher Directions|Child Directions|Activity Ideas|Learning Goal|Provider Note|Printable Planning Notes|Daily Notes|Printable Observation Record|Additional Write-In Space|Checklist|Menu Notes|Shopping Notes|Activity Prep Sheet|Printable Resource|Printable Type|Theme \/ Skill|Printable Page|Tracing Practice|Warm-Up Paths|Letter And Word Tracing|Child Work Space|Coloring Page|Picture Checklist|Color Key|Drawing And Coloring Space|Talk About It|Alphabet Practice Page|Find The Letter|Trace The Letter|Beginning Sound Words|Write Or Draw|Number Practice Page|Trace The Number|Count And Mark|Draw And Count|Compare|Shape Practice Page|Trace The Shapes|Shape Hunt|Make A Theme Picture With Shapes|Teacher Check|Name Writing Page|My Name|Trace My Name|Try My Name|Name Hunt|Cutting Practice Page|Provider Safety Check|Cutting Lines|Cut And Sort|Teacher Note|Matching Activity Page|Draw Lines To Match|Match Here|Make Your Own Match|Seasonal Worksheet Page|Weather Check|Seasonal Words|I Notice|Count And Color|Draw A Seasonal Picture|Holiday Worksheet Page|Holiday Vocabulary|Trace And Write|Count The Holiday Items|Draw Or Color|Teacher Notes|Printable Worksheet Page|Try It|Reflection \/ Teacher Note)$/;
   const blocks = text.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
   const content = blocks.map((block, index) => {
     const lines = block.split("\n").map((line) => line.trimEnd()).filter((line) => line.length);
@@ -2133,29 +2467,33 @@ Children will practice ${focus.toLowerCase()} while building language, confidenc
 Extension
 Repeat the activity with one added challenge, a new material, or a partner turn-taking step.`;
   }
-  return `Printable Includes:
+  const type = printableType(resource);
+  const theme = printableTheme(resource);
+  return `Printable Resource
 ${resource.title}
 
+Printable Type
+${type}
+
+Theme / Skill
+${theme}
+
 Age Group: ${resource.age}
-Theme/Skill: ${resource.tags.slice(0, 2).join(" / ") || "Early learning practice"}
 
 Teacher Directions
-Print or display this activity for a short small-group or table activity. Read the directions aloud, model one example, then let children try with support.
+Print or display this activity for a short small-group, table-time, portfolio, or take-home activity. Read the directions aloud, model one example, then let children complete the page with support.
 
 Child Directions
-Look carefully, trace or color the page, and talk about what you notice.
+Listen to the teacher directions. Try the activity carefully. Tell your teacher what you notice, count, color, trace, cut, match, draw, or write.
 
-Activity Ideas
-- Name the pictures, letters, numbers, shapes, or theme words.
-- Trace with a finger first, then use a crayon or marker.
-- Count, match, color, cut, or sort as appropriate for the printable.
-- Ask one open-ended question about the theme.
+Printable Page
+${printableWorksheetContent(resource)}
 
 Learning Goal
-Children will practice early literacy, fine motor control, visual discrimination, vocabulary, and confidence with a simple printable activity.
+Children will practice early literacy, math, fine motor control, vocabulary, visual discrimination, independence, and confidence with a ready-to-use printable activity.
 
 Provider Note
-Use close supervision with scissors, small pieces, or art materials. Adjust expectations for each child's age and development.`;
+Use close supervision with scissors, small pieces, or art materials. Adjust expectations for each child's age, development, and individual support needs.`;
 }
 
 function ensureResourceViewer() {
