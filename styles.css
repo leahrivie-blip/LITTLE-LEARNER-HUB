@@ -1567,6 +1567,7 @@ button {
   min-height: 128px;
   display: grid;
   place-items: center;
+  gap: 6px;
   padding: 16px;
   text-align: center;
   background: var(--white);
@@ -1583,6 +1584,33 @@ button {
 .spots-meter span,
 .spots-meter small {
   color: var(--muted);
+}
+
+.spots-progress {
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  background: #efe7dc;
+  border-radius: 999px;
+}
+
+.spots-progress span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #b76561, #386062);
+  border-radius: inherit;
+}
+
+.spots-meter em {
+  color: var(--ink);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.35;
+}
+
+.spots-meter.sold-out strong {
+  color: #b76561;
+  font-size: 34px;
 }
 
 .feature-list {
