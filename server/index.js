@@ -18,6 +18,13 @@ const ADMIN_EMAIL = normalizeEmail(process.env.ADMIN_EMAIL || "");
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 const ADMIN_ACCESS_CODE = process.env.ADMIN_ACCESS_CODE || "";
 const ADMIN_NAME = process.env.ADMIN_NAME || "Owner";
+const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY || "";
+const FIREBASE_AUTH_DOMAIN = process.env.FIREBASE_AUTH_DOMAIN || "";
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "";
+const FIREBASE_APP_ID = process.env.FIREBASE_APP_ID || "";
+const FIREBASE_STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || "";
+const FIREBASE_MESSAGING_SENDER_ID = process.env.FIREBASE_MESSAGING_SENDER_ID || "";
+const FIREBASE_MEASUREMENT_ID = process.env.FIREBASE_MEASUREMENT_ID || "";
 const DATABASE_PROVIDER = process.env.DATABASE_PROVIDER || "local-json";
 const PRODUCTION_DATABASE_URL = process.env.PRODUCTION_DATABASE_URL || "";
 const PRODUCTION_DATABASE_SERVICE_KEY = process.env.PRODUCTION_DATABASE_SERVICE_KEY || "";
@@ -118,6 +125,24 @@ function aiConfigStatus() {
     ready,
     model: OPENAI_MODEL,
     mode: ready ? "configured" : "not configured",
+  };
+}
+
+function firebaseConfigStatus() {
+  const required = {
+    FIREBASE_API_KEY,
+    FIREBASE_AUTH_DOMAIN,
+    FIREBASE_PROJECT_ID,
+    FIREBASE_APP_ID,
+  };
+  const missing = Object.entries(required)
+    .filter(([, value]) => !isConfiguredValue(value))
+    .map(([key]) => key);
+  return {
+    ready: missing.length === 0,
+    missing,
+    projectId: isConfiguredValue(FIREBASE_PROJECT_ID) ? FIREBASE_PROJECT_ID : "",
+    mode: missing.length === 0 ? "configured" : "not configured",
   };
 }
 
@@ -769,6 +794,57 @@ function handleHealth(request, response) {
   });
 }
 
+function handleClientConfig(request, response) {
+  const firebase = {
+    apiKey: FIREBASE_API_KEY,
+    authDomain: FIREBASE_AUTH_DOMAIN,
+    projectId: FIREBASE_PROJECT_ID,
+    appId: FIREBASE_APP_ID,
+    storageBucket: FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: FIREBASE_MESSAGING_SENDER_ID,
+    measurementId: FIREBASE_MEASUREMENT_ID,
+  };
+  const config = {
+    adminEmail: ADMIN_EMAIL,
+    firebase,
+    firebaseStatus: firebaseConfigStatus(),
+  };
+  response.writeHead(200, {
+    "Content-Type": "text/javascript; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+  response.end(`window.LLH_CONFIG = ${JSON.stringify(config)};`);
+}
+
+function clientRuntimeConfig() {
+  return {
+    adminEmail: ADMIN_EMAIL || "little.learners.hub.customer@gmail.com",
+    firebase: {
+      apiKey: FIREBASE_API_KEY,
+      authDomain: FIREBASE_AUTH_DOMAIN,
+      projectId: FIREBASE_PROJECT_ID,
+      appId: FIREBASE_APP_ID,
+      storageBucket: FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: FIREBASE_MESSAGING_SENDER_ID,
+      measurementId: FIREBASE_MEASUREMENT_ID,
+    },
+  };
+}
+
+function clientAppScript(filePath) {
+  let source = fs.readFileSync(filePath, "utf8");
+  const config = clientRuntimeConfig();
+  source = source.replace(
+    /const adminOwnerAccount = \{\n  email: ".*?",/,
+    `const adminOwnerAccount = {\n  email: ${JSON.stringify(config.adminEmail)},`,
+  );
+  source = source.replace(
+    /const firebaseAuthConfig = \{\n  apiKey: ".*?",\n  authDomain: ".*?",\n  projectId: ".*?",\n  appId: ".*?",\n\};/,
+    `const firebaseAuthConfig = ${JSON.stringify(config.firebase, null, 2)};`,
+  );
+  return source;
+}
+
 function serveStatic(request, response, url) {
   const safePath = decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname).replace(/\.\.+/g, "");
   const filePath = path.join(publicDir, safePath);
@@ -797,6 +873,10 @@ function serveStatic(request, response, url) {
     response.end();
     return;
   }
+  if (safePath === "/app.js") {
+    response.end(clientAppScript(filePath));
+    return;
+  }
   fs.createReadStream(filePath).pipe(response);
 }
 
@@ -813,6 +893,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/stripe-readiness") return handleStripeReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/launch-readiness") return handleLaunchReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/health") return handleHealth(request, response);
+    if (request.method === "GET" && url.pathname === "/api/client-config.js") return handleClientConfig(request, response);
     if (request.method === "HEAD" && url.pathname === "/api/health") return headResponse(response, 200, "application/json; charset=utf-8");
     if (request.method === "GET" || request.method === "HEAD") return serveStatic(request, response, url);
     jsonResponse(response, 405, { error: "Method not allowed." });
