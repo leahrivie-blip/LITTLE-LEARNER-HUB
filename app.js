@@ -859,11 +859,13 @@ async function localPasswordHash(password) {
 
 function openAuthModal(mode = "login") {
   setAuthMode(mode);
+  document.body.classList.add("auth-modal-open");
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
 }
 
 function closeAuthModal() {
+  document.body.classList.remove("auth-modal-open");
   modal.classList.remove("open");
   modal.setAttribute("aria-hidden", "true");
 }
