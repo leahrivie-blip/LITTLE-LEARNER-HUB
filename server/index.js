@@ -25,6 +25,12 @@ const FIREBASE_APP_ID = process.env.FIREBASE_APP_ID || "";
 const FIREBASE_STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || "";
 const FIREBASE_MESSAGING_SENDER_ID = process.env.FIREBASE_MESSAGING_SENDER_ID || "";
 const FIREBASE_MEASUREMENT_ID = process.env.FIREBASE_MEASUREMENT_ID || "";
+const SUPPORT_EMAIL_TO = normalizeEmail(process.env.SUPPORT_EMAIL_TO || ADMIN_EMAIL || "little.learners.hub.customer@gmail.com");
+const SUPPORT_EMAIL_FROM = process.env.SUPPORT_EMAIL_FROM || process.env.RESEND_FROM || process.env.SENDGRID_FROM || process.env.POSTMARK_FROM || "";
+const SUPPORT_EMAIL_PROVIDER = String(process.env.SUPPORT_EMAIL_PROVIDER || "").trim().toLowerCase();
+const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
+const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || "";
+const POSTMARK_SERVER_TOKEN = process.env.POSTMARK_SERVER_TOKEN || "";
 const DATABASE_PROVIDER = process.env.DATABASE_PROVIDER || "local-json";
 const PRODUCTION_DATABASE_URL = process.env.PRODUCTION_DATABASE_URL || "";
 const PRODUCTION_DATABASE_SERVICE_KEY = process.env.PRODUCTION_DATABASE_SERVICE_KEY || "";
@@ -146,6 +152,35 @@ function firebaseConfigStatus() {
   };
 }
 
+function detectedEmailProvider() {
+  if (SUPPORT_EMAIL_PROVIDER) return SUPPORT_EMAIL_PROVIDER;
+  if (isConfiguredValue(RESEND_API_KEY)) return "resend";
+  if (isConfiguredValue(SENDGRID_API_KEY)) return "sendgrid";
+  if (isConfiguredValue(POSTMARK_SERVER_TOKEN)) return "postmark";
+  return "";
+}
+
+function supportEmailConfigStatus() {
+  const provider = detectedEmailProvider();
+  const keyReady = provider === "resend"
+    ? isConfiguredValue(RESEND_API_KEY)
+    : provider === "sendgrid"
+      ? isConfiguredValue(SENDGRID_API_KEY)
+      : provider === "postmark"
+        ? isConfiguredValue(POSTMARK_SERVER_TOKEN)
+        : false;
+  const ready = Boolean(provider && keyReady && isConfiguredValue(SUPPORT_EMAIL_FROM) && isConfiguredValue(SUPPORT_EMAIL_TO));
+  return {
+    ready,
+    provider: provider || "not configured",
+    to: SUPPORT_EMAIL_TO,
+    fromConfigured: isConfiguredValue(SUPPORT_EMAIL_FROM),
+    note: ready
+      ? "Support and bug report email notifications are configured."
+      : "Support tickets are saved in Admin. Add RESEND_API_KEY, SENDGRID_API_KEY, or POSTMARK_SERVER_TOKEN plus SUPPORT_EMAIL_FROM to send automatic email notifications.",
+  };
+}
+
 function siteConfigStatus() {
   const httpsReady = SITE_URL.startsWith("https://") && !/your-domain|localhost|127\.0\.0\.1/i.test(SITE_URL);
   return {
@@ -180,6 +215,7 @@ function launchReadinessStatus() {
   const ai = aiConfigStatus();
   const site = siteConfigStatus();
   const database = databaseConfigStatus();
+  const supportEmail = supportEmailConfigStatus();
   const required = { stripe, admin, ai, site, database };
   const blockers = Object.entries(required)
     .filter(([, value]) => !value.ready)
@@ -188,6 +224,7 @@ function launchReadinessStatus() {
     ready: blockers.length === 0,
     blockers,
     required,
+    optional: { supportEmail },
     message: blockers.length
       ? `Not launch-ready yet. Fix: ${blockers.join(", ")}.`
       : "Website launch requirements are configured.",
@@ -882,6 +919,123 @@ function validAdminToken(token) {
   return Boolean(token && store.adminSessions?.[token]);
 }
 
+function htmlEscape(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function parseEmailAddress(value) {
+  const text = String(value || "").trim();
+  const match = text.match(/^(.*?)\s*<([^>]+)>$/);
+  if (match) {
+    return {
+      name: match[1].trim().replace(/^["']|["']$/g, ""),
+      email: match[2].trim(),
+    };
+  }
+  return { email: text };
+}
+
+async function postJson(url, headers, payload) {
+  if (typeof fetch !== "function") throw new Error("Email sending requires Node fetch support.");
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...headers,
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(text.slice(0, 300) || `Email provider returned ${response.status}.`);
+  }
+}
+
+function supportTicketEmailPayload(ticket) {
+  const subject = `[Little Learner Hub] ${ticket.kind}: ${ticket.topic}`;
+  const text = [
+    "New Little Learner Hub support ticket",
+    "",
+    `Type: ${ticket.kind}`,
+    `Topic: ${ticket.topic}`,
+    `Name: ${ticket.name}`,
+    `Email: ${ticket.email}`,
+    `Created: ${ticket.createdAt}`,
+    ticket.sourceUrl ? `Page: ${ticket.sourceUrl}` : "",
+    "",
+    "Message:",
+    ticket.message,
+  ].filter(Boolean).join("\n");
+  const html = `
+    <h2>New Little Learner Hub support ticket</h2>
+    <p><strong>Type:</strong> ${htmlEscape(ticket.kind)}</p>
+    <p><strong>Topic:</strong> ${htmlEscape(ticket.topic)}</p>
+    <p><strong>Name:</strong> ${htmlEscape(ticket.name)}</p>
+    <p><strong>Email:</strong> ${htmlEscape(ticket.email)}</p>
+    <p><strong>Created:</strong> ${htmlEscape(ticket.createdAt)}</p>
+    ${ticket.sourceUrl ? `<p><strong>Page:</strong> ${htmlEscape(ticket.sourceUrl)}</p>` : ""}
+    <hr>
+    <p>${htmlEscape(ticket.message).replace(/\n/g, "<br>")}</p>
+  `;
+  return { subject, text, html };
+}
+
+async function notifySupportTicket(ticket) {
+  const status = supportEmailConfigStatus();
+  if (!status.ready) return { sent: false, configured: false, provider: status.provider };
+
+  const provider = detectedEmailProvider();
+  const email = supportTicketEmailPayload(ticket);
+  if (provider === "resend") {
+    await postJson("https://api.resend.com/emails", {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+    }, {
+      from: SUPPORT_EMAIL_FROM,
+      to: [SUPPORT_EMAIL_TO],
+      reply_to: ticket.email,
+      subject: email.subject,
+      text: email.text,
+      html: email.html,
+    });
+    return { sent: true, configured: true, provider };
+  }
+  if (provider === "sendgrid") {
+    const from = parseEmailAddress(SUPPORT_EMAIL_FROM);
+    await postJson("https://api.sendgrid.com/v3/mail/send", {
+      Authorization: `Bearer ${SENDGRID_API_KEY}`,
+    }, {
+      personalizations: [{ to: [{ email: SUPPORT_EMAIL_TO }], subject: email.subject }],
+      from,
+      reply_to: { email: ticket.email },
+      content: [
+        { type: "text/plain", value: email.text },
+        { type: "text/html", value: email.html },
+      ],
+    });
+    return { sent: true, configured: true, provider };
+  }
+  if (provider === "postmark") {
+    await postJson("https://api.postmarkapp.com/email", {
+      "X-Postmark-Server-Token": POSTMARK_SERVER_TOKEN,
+    }, {
+      From: SUPPORT_EMAIL_FROM,
+      To: SUPPORT_EMAIL_TO,
+      ReplyTo: ticket.email,
+      Subject: email.subject,
+      TextBody: email.text,
+      HtmlBody: email.html,
+      MessageStream: "outbound",
+    });
+    return { sent: true, configured: true, provider };
+  }
+  return { sent: false, configured: false, provider: provider || "not configured" };
+}
+
 async function handleSupportTicketCreate(request, response) {
   const body = await readJson(request);
   const email = normalizeEmail(body.email);
@@ -910,7 +1064,23 @@ async function handleSupportTicketCreate(request, response) {
   store.supportTickets.unshift(ticket);
   store.supportTickets = store.supportTickets.slice(0, 1000);
   writeStore(store);
-  jsonResponse(response, 200, { ticket: publicTicket(ticket), supportEmail: ADMIN_EMAIL || "little.learners.hub.customer@gmail.com" });
+  let emailNotification = { sent: false, configured: false, provider: "not configured" };
+  try {
+    emailNotification = await notifySupportTicket(ticket);
+  } catch (error) {
+    console.error("Support ticket email notification failed:", error.message);
+    emailNotification = {
+      sent: false,
+      configured: supportEmailConfigStatus().ready,
+      provider: detectedEmailProvider() || "not configured",
+      error: "Ticket was saved, but the email notification did not send.",
+    };
+  }
+  jsonResponse(response, 200, {
+    ticket: publicTicket(ticket),
+    supportEmail: SUPPORT_EMAIL_TO,
+    emailNotification,
+  });
 }
 
 async function handleSupportTicketUpdate(request, response) {
@@ -978,6 +1148,7 @@ function handleHealth(request, response) {
     time: new Date().toISOString(),
     stripeCheckoutReady: stripeConfigStatus().checkoutReady,
     launchReady: launchReadinessStatus().ready,
+    supportEmailReady: supportEmailConfigStatus().ready,
   });
 }
 
