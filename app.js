@@ -414,6 +414,18 @@ const starterResources = [
     description: "Track tuition payments and create parent-friendly yearly tax receipt records.",
   },
   {
+    id: "form-home-daycare-mega-bundle",
+    category: "Forms Library",
+    title: "Home Daycare Forms Mega Bundle",
+    age: "All Ages",
+    plan: "Pro",
+    month: "All Year",
+    tags: ["Home Daycare", "Enrollment Forms", "Medical Forms", "Daily Forms", "Business Forms", "Parent Communication", "Safety Forms", "Editable", "PDF", "In-App"],
+    format: "In-App Printable + PDF",
+    description: "A complete home daycare forms packet with enrollment, tuition, parent agreements, emergency, medical, daily report, communication, and business forms.",
+    customContent: homeDaycareFormsMegaBundleContent(),
+  },
+  {
     id: "activity-ocean-fine-motor",
     category: "Activity Center",
     title: "Preschool Ocean Fine Motor Tray",
@@ -625,6 +637,777 @@ function buildFormsLibrary() {
     format: "PDF + Editable",
     description: `${group} resource with printable and editable sections for childcare providers to customize for their program.`,
   })));
+}
+
+function homeDaycareFormsMegaBundleContent() {
+  return [
+`HOME DAYCARE FORMS MEGA BUNDLE
+Editable and printable childcare forms for home daycare providers, family child care homes, and small childcare programs.
+
+What's included:
+- Enrollment packet
+- Child information and development forms
+- Parent and guardian information forms
+- Emergency contact and authorized pick-up forms
+- Medical, allergy, immunization, and emergency medical authorization forms
+- Tuition and financial agreements
+- Parent handbook and policy acknowledgments
+- Incident, accident, medication, attendance, and daily report forms
+- Meal, diaper, potty, health, communication, and parent conference forms
+- Photo, field trip, transportation, sunscreen, water play, supply, and business forms
+
+Who it's for:
+Home daycare providers, family child care homes, childcare centers, preschool teachers, and program owners who need organized family paperwork that can be viewed, printed, saved as PDF, and customized for their own program.
+
+How to use it:
+1. Add your program name, provider name, phone, email, address, rates, hours, and policy details.
+2. Print the forms you need or save selected pages as a PDF.
+3. Review all family-facing forms with the parent or guardian before signatures.
+4. Keep signed forms in the child's file.
+5. Confirm all language with your state licensing rules and your own parent handbook before use.
+
+Printing tips:
+- Print enrollment packets single-sided for signatures and scanning.
+- Print daily reports, logs, and trackers in multiples and keep them on a clipboard or in a binder.
+- Print emergency cards on cardstock and keep copies near exits, travel bags, and emergency binders.
+- Use Print / Save PDF in Little Learner Hub to create a polished copy.`,
+
+`ENROLLMENT PACKET
+Use this packet before the child's first day of care.
+
+Enrollment checklist:
+[ ] Welcome letter reviewed
+[ ] Child information form completed
+[ ] Child development information completed
+[ ] Parent/guardian information completed
+[ ] Emergency contact form completed
+[ ] Authorized pick-up form completed
+[ ] Medical information form completed
+[ ] Allergy information form completed
+[ ] Immunization verification completed
+[ ] Emergency medical authorization signed
+[ ] Tuition agreement signed
+[ ] Parent handbook receipt signed
+[ ] Permission forms completed
+
+Parent/Guardian Signature: ______________________________ Date: ______________
+Provider Signature: _____________________________________ Date: ______________`,
+
+`WELCOME LETTER
+Dear Families,
+
+Thank you for choosing our childcare program. We are honored that you have entrusted us with the care and education of your child. Our goal is to provide a safe, nurturing, and developmentally appropriate environment where children can learn, grow, play, and feel loved.
+
+Please complete all enrollment forms and return them before your child's first day of care. If any information changes during the year, please let the provider know right away so records stay current.
+
+Provider Name: __________________________________________
+Program Name: ___________________________________________
+Phone: ___________________________________________________
+Email: ___________________________________________________
+Date: ____________________________________________________`,
+
+`CHILD INFORMATION FORM
+Child Full Name: _________________________________________
+Preferred Name: __________________________________________
+Date of Birth: ___________________________________________
+Age: _____________________________________________________
+Primary Language: ________________________________________
+Home Address: ____________________________________________
+
+Favorite foods: __________________________________________
+Favorite toys/activities: ________________________________
+Comfort items: ___________________________________________
+Foods disliked: __________________________________________
+Known allergies: _________________________________________
+Medical notes: ___________________________________________
+
+Other important child information:
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________`,
+
+`CHILD DEVELOPMENT AND ROUTINES QUESTIONNAIRE
+Has your child previously attended childcare? [ ] Yes  [ ] No
+Does your child receive special services? [ ] Yes  [ ] No
+
+Communication style:
+________________________________________________________________________
+
+Social development:
+________________________________________________________________________
+
+Toileting status:
+________________________________________________________________________
+
+Usual nap time and average nap length:
+________________________________________________________________________
+
+Parent goals for child:
+________________________________________________________________________
+________________________________________________________________________
+
+What would you like us to know about your child?
+________________________________________________________________________
+________________________________________________________________________`,
+
+`PARENT / GUARDIAN INFORMATION
+Parent / Guardian #1
+Name: ____________________________________________________
+Relationship: ____________________________________________
+Phone: ___________________________________________________
+Email: ___________________________________________________
+Employer: ________________________________________________
+Work Phone: ______________________________________________
+
+Parent / Guardian #2
+Name: ____________________________________________________
+Relationship: ____________________________________________
+Phone: ___________________________________________________
+Email: ___________________________________________________
+Employer: ________________________________________________
+Work Phone: ______________________________________________`,
+
+`EMERGENCY CONTACT FORM
+Emergency Contact #1
+Name: ____________________________________________________
+Relationship: ____________________________________________
+Phone: ___________________________________________________
+Authorized Pick-Up? [ ] Yes  [ ] No
+
+Emergency Contact #2
+Name: ____________________________________________________
+Relationship: ____________________________________________
+Phone: ___________________________________________________
+Authorized Pick-Up? [ ] Yes  [ ] No
+
+Emergency Contact #3
+Name: ____________________________________________________
+Relationship: ____________________________________________
+Phone: ___________________________________________________
+Authorized Pick-Up? [ ] Yes  [ ] No`,
+
+`AUTHORIZED PICK-UP FORM
+Authorized Person #1
+Name: ____________________________________________________
+Relationship: ____________________________________________
+Phone: ___________________________________________________
+ID Checked By: ___________________________________________
+
+Authorized Person #2
+Name: ____________________________________________________
+Relationship: ____________________________________________
+Phone: ___________________________________________________
+ID Checked By: ___________________________________________
+
+Authorized Person #3
+Name: ____________________________________________________
+Relationship: ____________________________________________
+Phone: ___________________________________________________
+ID Checked By: ___________________________________________
+
+Restricted individuals:
+________________________________________________________________________
+________________________________________________________________________
+
+Parent/Guardian Signature: ______________________________ Date: ______________
+Provider Signature: _____________________________________ Date: ______________`,
+
+`MEDICAL INFORMATION FORM
+Child Full Name: _________________________________________
+Date of Birth: ___________________________________________
+Primary Physician: _______________________________________
+Physician Phone Number: _________________________________
+Physician Address: _______________________________________
+Preferred Hospital: ______________________________________
+Insurance Provider: ______________________________________
+Policy Number: ___________________________________________
+Medical Conditions: ______________________________________
+Daily Medication: ________________________________________
+Special Care Instructions:
+________________________________________________________________________
+________________________________________________________________________`,
+
+`ALLERGY INFORMATION FORM
+Child Full Name: _________________________________________
+Date of Birth: ___________________________________________
+
+Food allergies:
+________________________________________________________________________
+
+Medication allergies:
+________________________________________________________________________
+
+Environmental allergies:
+________________________________________________________________________
+
+Insect allergies:
+________________________________________________________________________
+
+Symptoms / reactions:
+________________________________________________________________________
+
+Emergency medication needed:
+________________________________________________________________________
+
+Emergency response plan:
+________________________________________________________________________
+________________________________________________________________________
+
+Parent/Guardian Signature: ______________________________ Date: ______________
+Provider Signature: _____________________________________ Date: ______________`,
+
+`IMMUNIZATION RECORD VERIFICATION FORM
+Child Full Name: _________________________________________
+Date of Birth: ___________________________________________
+
+[ ] Up-to-date on required immunizations
+[ ] Approved immunization schedule
+[ ] Medical exemption
+[ ] Religious exemption
+
+Physician Name: __________________________________________
+Clinic Name: _____________________________________________
+
+Parent/Guardian Signature: ______________________________ Date: ______________
+Provider Signature: _____________________________________ Date: ______________`,
+
+`EMERGENCY MEDICAL AUTHORIZATION
+In the event of an emergency, I authorize the childcare provider to seek emergency medical care for my child if I cannot be reached immediately.
+
+Child Name: ______________________________________________
+Parent/Guardian Name: ____________________________________
+Preferred Hospital: ______________________________________
+Insurance Provider: ______________________________________
+Policy Number: ___________________________________________
+Emergency Contact Phone: _________________________________
+
+Parent/Guardian Signature: ______________________________ Date: ______________
+Provider Signature: _____________________________________ Date: ______________`,
+
+`TUITION AND FINANCIAL AGREEMENT PACKET
+Use this packet to document payment expectations and prevent confusion.
+
+Tuition agreement:
+Child Full Name: _________________________________________
+Enrollment Date: _________________________________________
+Weekly Tuition Rate: $____________________________________
+Monthly Tuition Rate: $___________________________________
+Registration Fee: $_______________________________________
+Supply Fee: $_____________________________________________
+Other Fees: $_____________________________________________
+
+Payment schedule:
+[ ] Weekly
+[ ] Bi-weekly
+[ ] Monthly
+Payment Due Date: ________________________________________
+Accepted Payment Methods: [ ] Cash  [ ] Check  [ ] Money Order  [ ] Electronic Payment  [ ] Child Care Subsidy
+
+Parent/Guardian Signature: ______________________________ Date: ______________
+Provider Signature: _____________________________________ Date: ______________`,
+
+`LATE PAYMENT, RETURNED PAYMENT, AND VACATION POLICIES
+Late payment policy:
+A late fee may be assessed for payments received after the due date.
+Late Fee Amount: $________________________________________
+Grace Period: ____________________________________________
+Repeated late payments may result in:
+[ ] Written warning
+[ ] Suspension of services
+[ ] Termination of services
+
+Returned payment policy:
+Returned checks or failed electronic payments may be subject to additional fees.
+Returned Payment Fee: $___________________________________
+Number of Returned Payments Allowed: _____________________
+
+Vacation / absence policy:
+I understand that tuition reserves my child's enrollment space. Tuition remains due during:
+[ ] Child illness
+[ ] Family vacations
+[ ] Temporary absences
+[ ] Provider holidays
+[ ] Weather closures
+[ ] Emergency closures
+
+Parent/Guardian Signature: ______________________________ Date: ______________
+Provider Signature: _____________________________________ Date: ______________`,
+
+`WITHDRAWAL NOTICE FORM
+Parent/Guardian Name: ____________________________________
+Child Name: ______________________________________________
+Last Day of Care Requested: ______________________________
+
+Reason for withdrawal:
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________
+
+Balance Due / Credit: ____________________________________
+Items to Return: [ ] Extra clothing  [ ] Bottles/cups  [ ] Medication  [ ] Other: __________
+
+Parent/Guardian Signature: ______________________________ Date: ______________
+Provider Signature: _____________________________________ Date: ______________`,
+
+`FINANCIAL RESPONSIBILITY AGREEMENT
+I understand that I am financially responsible for:
+[ ] Tuition
+[ ] Registration fees
+[ ] Supply fees
+[ ] Late fees
+[ ] Returned payment fees
+[ ] Outstanding balances
+
+I acknowledge that I have read, understand, and agree to the tuition and financial policies outlined by the childcare program.
+
+Parent/Guardian Signature: ______________________________ Date: ______________
+Provider Signature: _____________________________________ Date: ______________`,
+
+`PARENT AGREEMENTS PACKET
+Parent handbook receipt:
+I acknowledge that I have received a copy of the Parent Handbook.
+Parent Name: _____________________________________________
+Child Name: ______________________________________________
+
+Family communication agreement:
+I agree to maintain open and respectful communication with the provider.
+
+Behavior guidance acknowledgment:
+I understand the program uses positive guidance techniques and does not use prohibited discipline methods.
+
+Illness policy agreement:
+I understand the illness exclusion policies and agree to keep my child home when required.
+
+Attendance agreement:
+I agree to notify the provider regarding absences, schedule changes, and late arrivals.
+
+Confidentiality agreement:
+I understand that family and child information is kept confidential.
+
+Parent responsibilities:
+I agree to provide updated contact information, emergency contacts, and required paperwork.
+
+Final parent acknowledgment:
+I have read, understand, and agree to comply with all program policies.
+
+Parent/Guardian Signature: ______________________________ Date: ______________
+Provider Signature: _____________________________________ Date: ______________`,
+
+`INCIDENT REPORT FORM
+Date: ____________________________________________________
+Child Name: ______________________________________________
+Time of Incident: ________________________________________
+
+Description of incident:
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________
+
+Action taken:
+________________________________________________________________________
+________________________________________________________________________
+
+Parent notified: [ ] Yes  [ ] No
+Follow-up needed: [ ] Yes  [ ] No
+
+Parent/Guardian Signature: ______________________________ Date: ______________
+Provider Signature: _____________________________________ Date: ______________`,
+
+`ACCIDENT REPORT FORM
+Date: ____________________________________________________
+Child Name: ______________________________________________
+Time of Accident: ________________________________________
+Injury Location: _________________________________________
+
+What happened?
+________________________________________________________________________
+________________________________________________________________________
+
+First aid provided:
+________________________________________________________________________
+________________________________________________________________________
+
+Parent notified: [ ] Yes  [ ] No
+Further medical care recommended: [ ] Yes  [ ] No
+
+Parent/Guardian Signature: ______________________________ Date: ______________
+Provider Signature: _____________________________________ Date: ______________`,
+
+`MEDICATION AUTHORIZATION FORM
+Child Name: ______________________________________________
+Medication: ______________________________________________
+Dosage: __________________________________________________
+Administration Time: _____________________________________
+Start Date: ______________________________________________
+End Date: ________________________________________________
+
+Special instructions:
+________________________________________________________________________
+________________________________________________________________________
+
+Parent/Guardian Signature: ______________________________ Date: ______________
+Provider Signature: _____________________________________ Date: ______________`,
+
+`EMERGENCY CONTACT CARD
+Child Name: ______________________________________________
+Parent/Guardian Name: ____________________________________
+Parent Phone: ____________________________________________
+Emergency Contact: _______________________________________
+Emergency Phone: _________________________________________
+Preferred Hospital: ______________________________________
+Allergies / Medical Notes:
+________________________________________________________________________`,
+
+`ATTENDANCE SIGN IN / OUT SHEET
+Date: ____________________________________________________
+
+Child Name: ___________________ Time In: ______ Time Out: ______ Signature: ___________________
+Child Name: ___________________ Time In: ______ Time Out: ______ Signature: ___________________
+Child Name: ___________________ Time In: ______ Time Out: ______ Signature: ___________________
+Child Name: ___________________ Time In: ______ Time Out: ______ Signature: ___________________
+Child Name: ___________________ Time In: ______ Time Out: ______ Signature: ___________________
+Child Name: ___________________ Time In: ______ Time Out: ______ Signature: ___________________
+Child Name: ___________________ Time In: ______ Time Out: ______ Signature: ___________________`,
+
+`INFANT DAILY REPORT
+Child Name: ______________________________________________
+Date: ____________________________________________________
+Arrival Time: __________________ Departure Time: __________
+
+Mood Today: [ ] Happy  [ ] Calm  [ ] Sleepy  [ ] Fussy  [ ] Playful
+
+Bottle feedings:
+Time / Amount: ___________________________________________
+Time / Amount: ___________________________________________
+Time / Amount: ___________________________________________
+
+Solid foods:
+Breakfast: _______________________________________________
+Lunch: ___________________________________________________
+Snack: ___________________________________________________
+
+Diapering:
+[ ] Wet  [ ] BM  Time: __________
+[ ] Wet  [ ] BM  Time: __________
+[ ] Wet  [ ] BM  Time: __________
+
+Naps:
+Start / End: _____________________________________________
+Start / End: _____________________________________________
+
+Learning and activities:
+________________________________________________________________________
+________________________________________________________________________
+
+Notes for family:
+________________________________________________________________________
+________________________________________________________________________
+
+Provider Signature: _____________________________________`,
+
+`TODDLER DAILY REPORT
+Child Name: ______________________________________________
+Date: ____________________________________________________
+Arrival Time: __________________ Departure Time: __________
+
+Mood Today: [ ] Happy  [ ] Calm  [ ] Sleepy  [ ] Fussy  [ ] Playful
+Breakfast: _______________________________________________
+Lunch: ___________________________________________________
+Snack: ___________________________________________________
+Nap / Rest Time: _________________________________________
+Bathroom / Potty Notes: _________________________________
+
+Learning and activities:
+________________________________________________________________________
+________________________________________________________________________
+
+Notes for family:
+________________________________________________________________________
+________________________________________________________________________
+
+Provider Signature: _____________________________________`,
+
+`PRESCHOOL DAILY REPORT
+Child Name: ______________________________________________
+Date: ____________________________________________________
+Arrival Time: __________________ Departure Time: __________
+
+Mood Today: [ ] Happy  [ ] Calm  [ ] Sleepy  [ ] Fussy  [ ] Playful
+Breakfast: _______________________________________________
+Lunch: ___________________________________________________
+Snack: ___________________________________________________
+Nap / Rest Time: _________________________________________
+Bathroom / Potty Notes: _________________________________
+
+Learning and activities:
+________________________________________________________________________
+________________________________________________________________________
+
+Notes for family:
+________________________________________________________________________
+________________________________________________________________________
+
+Provider Signature: _____________________________________`,
+
+`MEAL, DIAPER, AND POTTY TRACKING FORMS
+Meal tracking:
+Child Name: ______________________________________________
+Date: ____________________________________________________
+Breakfast: _______________________________________________
+AM Snack: ________________________________________________
+Lunch: ___________________________________________________
+PM Snack: ________________________________________________
+Notes: ___________________________________________________
+
+Diaper log:
+Time: __________ [ ] Wet [ ] BM Notes: ________________________________
+Time: __________ [ ] Wet [ ] BM Notes: ________________________________
+Time: __________ [ ] Wet [ ] BM Notes: ________________________________
+Time: __________ [ ] Wet [ ] BM Notes: ________________________________
+Time: __________ [ ] Wet [ ] BM Notes: ________________________________
+
+Potty training log:
+Time: __________ [ ] Tried [ ] Potty [ ] Accident Notes: ______________
+Time: __________ [ ] Tried [ ] Potty [ ] Accident Notes: ______________
+Time: __________ [ ] Tried [ ] Potty [ ] Accident Notes: ______________
+Time: __________ [ ] Tried [ ] Potty [ ] Accident Notes: ______________
+Time: __________ [ ] Tried [ ] Potty [ ] Accident Notes: ______________`,
+
+`HEALTH AND MEDICAL FORMS
+Health medical information:
+Child Name: ______________________________________________
+Date of Birth: ___________________________________________
+Primary Physician: _______________________________________
+Medical Conditions: ______________________________________
+Preferred Hospital: ______________________________________
+
+Allergy alert:
+Child Name: ______________________________________________
+Allergy Type: ____________________________________________
+Symptoms: ________________________________________________
+Emergency Medication: ____________________________________
+Emergency Response Plan:
+________________________________________________________________________
+________________________________________________________________________
+
+Health packet medication authorization:
+Child Name: ______________________________________________
+Medication Name: _________________________________________
+Dosage: __________________________________________________
+Administration Time: _____________________________________
+Special Instructions:
+________________________________________________________________________
+________________________________________________________________________
+
+Parent/Guardian Signature: ______________________________ Date: ______________
+Provider Signature: _____________________________________ Date: ______________`,
+
+`PARENT COMMUNICATION FORMS
+Behavior communication form:
+Child Name: ______________________________________________
+Date: ____________________________________________________
+Behavior Observed:
+________________________________________________________________________
+What Happened Before?
+________________________________________________________________________
+Teacher Response:
+________________________________________________________________________
+Parent Comments:
+________________________________________________________________________
+
+Daily communication form:
+Child Name: ______________________________________________
+Date: ____________________________________________________
+Today we worked on:
+________________________________________________________________________
+Something great from today:
+________________________________________________________________________
+Reminders / Supplies Needed:
+________________________________________________________________________
+
+Parent conference notes:
+Child Name: ______________________________________________
+Date: ____________________________________________________
+Parent/Guardian: _________________________________________
+Provider: ________________________________________________
+Strengths:
+________________________________________________________________________
+Goals / Next Steps:
+________________________________________________________________________
+Family Notes:
+________________________________________________________________________
+
+Parent/Guardian Signature: ______________________________ Date: ______________
+Provider Signature: _____________________________________ Date: ______________`,
+
+`PARENT CONCERN / FEEDBACK FORM
+Parent/Guardian Name: ____________________________________
+Child Name: ______________________________________________
+Date: ____________________________________________________
+
+Concern / feedback:
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________
+
+Provider response / follow up:
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________
+
+Parent/Guardian Signature: ______________________________ Date: ______________
+Provider Signature: _____________________________________ Date: ______________`,
+
+`BONUS PERMISSION AND SUPPLY FORMS
+Supply checklist:
+[ ] Extra clothing
+[ ] Diapers / Pull-Ups
+[ ] Wipes
+[ ] Blanket
+[ ] Bottle / Sippy Cup
+[ ] Formula / Breast Milk
+[ ] Weather-appropriate clothing
+[ ] Sunscreen
+[ ] Medication forms
+[ ] Comfort item
+Additional supplies needed:
+________________________________________________________________________
+
+Photo release:
+I give permission for my child to be photographed during childcare activities.
+[ ] Classroom display
+[ ] Private parent communication
+[ ] Program social media
+[ ] Printed materials
+[ ] I do not give permission
+
+Field trip permission:
+Child Name: ______________________________________________
+Field Trip Location: _____________________________________
+Date: ____________________________________________________
+Departure Time: ______________ Return Time: ______________
+I give permission for my child to attend the field trip listed above.
+
+Transportation permission:
+I give permission for my child to be transported by the childcare provider for approved childcare activities or emergencies.
+Approved Transportation Reasons:
+________________________________________________________________________
+
+Sunscreen authorization:
+I authorize the provider to apply sunscreen to my child as needed for outdoor play.
+Sunscreen Brand / Type: __________________________________
+Known Skin Sensitivities: ________________________________
+
+Water play permission:
+I give permission for my child to participate in supervised water play activities.
+[ ] Sprinklers
+[ ] Water tables
+[ ] Splash play
+[ ] Other approved water activities
+
+Parent/Guardian Signature: ______________________________ Date: ______________
+Provider Signature: _____________________________________ Date: ______________`,
+
+`BONUS BUSINESS AND PROVIDER FORMS
+Trial period agreement:
+Child Name: ______________________________________________
+Trial Start Date: ________________________________________
+Trial End Date: __________________________________________
+Regular Schedule: ________________________________________
+Provider Notes:
+________________________________________________________________________
+During the trial period, either the provider or parent/guardian may decide the arrangement is not the best fit. Any tuition, notice, or refund terms should follow the provider's written policy.
+
+Rate change notice:
+Family / Child Name: _____________________________________
+Current Rate: ____________________________________________
+New Rate: ________________________________________________
+Effective Date: __________________________________________
+Reason / Notes:
+________________________________________________________________________
+
+Schedule change request:
+Child Name: ______________________________________________
+Current Schedule: ________________________________________
+Requested Schedule: ______________________________________
+Requested Start Date: ____________________________________
+Reason for Request: ______________________________________
+Provider Approval / Notes:
+________________________________________________________________________
+
+Absence / vacation request:
+Child Name: ______________________________________________
+Date(s) Absent: __________________________________________
+Reason: __________________________________________________
+Will tuition still be due? [ ] Yes  [ ] No  [ ] See policy
+Provider Notes:
+________________________________________________________________________`,
+
+`PROVIDER BUSINESS TRACKING FORMS
+Payment receipt:
+Family / Child Name: _____________________________________
+Payment Date: ____________________________________________
+Amount Paid: $____________________________________________
+Payment Method: [ ] Cash  [ ] Check  [ ] Card  [ ] Online  [ ] Other: __________
+Payment Period: __________________________________________
+Received By: _____________________________________________
+
+Year-end payment summary:
+Family / Child Name: _____________________________________
+Tax Year: ________________________________________________
+Provider / Business Name: ________________________________
+Provider Tax ID / EIN: ___________________________________
+Total Paid for Childcare: $_______________________________
+Provider Signature: ______________________________________
+Date: ____________________________________________________
+
+Emergency drill log:
+Date: __________ Drill Type: [ ] Fire [ ] Tornado [ ] Lockdown [ ] Other  Time Started: ______ Time Completed: ______ Notes: ______________
+Date: __________ Drill Type: [ ] Fire [ ] Tornado [ ] Lockdown [ ] Other  Time Started: ______ Time Completed: ______ Notes: ______________
+Date: __________ Drill Type: [ ] Fire [ ] Tornado [ ] Lockdown [ ] Other  Time Started: ______ Time Completed: ______ Notes: ______________
+
+Cleaning and sanitizing checklist:
+Tables and eating surfaces: [ ] Daily [ ] Weekly Notes: __________________
+High chairs / booster seats: [ ] Daily [ ] Weekly Notes: __________________
+Toys and manipulatives: [ ] Daily [ ] Weekly Notes: __________________
+Nap mats / bedding: [ ] Daily [ ] Weekly Notes: __________________
+Bathroom / potty chairs: [ ] Daily [ ] Weekly Notes: __________________
+Entryway / cubbies: [ ] Daily [ ] Weekly Notes: __________________
+Outdoor play items: [ ] Daily [ ] Weekly Notes: __________________`,
+
+`SUBSTITUTE CARE AUTHORIZATION
+Child Name: ______________________________________________
+Approved Substitute Name: ________________________________
+Substitute Phone: ________________________________________
+Date(s) of Substitute Care: ______________________________
+Parent / Guardian Authorization:
+________________________________________________________________________
+Provider Notes:
+________________________________________________________________________
+
+Parent/Guardian Signature: ______________________________ Date: ______________
+Provider Signature: _____________________________________ Date: ______________`,
+
+`CHILD FILE ANNUAL UPDATE
+Use this page once per year to confirm each child's file is current.
+
+[ ] Parent / guardian contact information reviewed
+[ ] Emergency contacts reviewed
+[ ] Authorized pickup list reviewed
+[ ] Medical information reviewed
+[ ] Allergies and food restrictions reviewed
+[ ] Immunization documentation reviewed
+[ ] Current schedule and tuition agreement reviewed
+[ ] Photo, field trip, transportation, sunscreen, and water play permissions reviewed
+
+Child Name: ______________________________________________
+Review Date: _____________________________________________
+Parent / Guardian Signature: _____________________________
+Provider Initials: _______________________________________
+
+Provider note:
+This bundle is a template and does not replace legal, tax, medical, or licensing advice. Review and customize all forms for your state, licensing agency, and individual business policies before using with families.`
+  ].join("\n\n");
 }
 
 function buildMenuLibrary() {
@@ -2472,10 +3255,11 @@ function resourcePrintableHtml(resource) {
   const content = blocks.map((block, index) => {
     const lines = block.split("\n").map((line) => line.trimEnd()).filter((line) => line.length);
     const first = lines[0] || "";
+    const allCapsHeading = first.length >= 8 && first === first.toUpperCase() && /^[A-Z0-9][A-Z0-9 &'./():-]+$/.test(first) && !first.includes("___");
     if (index === 0 || first === "Little Learner Hub") {
       return `<section class="print-section print-cover">${printableLinesHtml(lines)}</section>`;
     }
-    if (headingPattern.test(first) && lines.length > 1) {
+    if ((headingPattern.test(first) || allCapsHeading) && lines.length > 1) {
       return `<section class="print-section"><h3>${escapeHtml(first)}</h3>${printableLinesHtml(lines.slice(1))}</section>`;
     }
     return `<section class="print-section">${printableLinesHtml(lines)}</section>`;
@@ -2496,20 +3280,7 @@ function decodedTextFileData(resource) {
 function resourceDownloadBody(resource) {
   const savedContent = resource.customContent || decodedTextFileData(resource);
   if (savedContent) {
-    return `Saved In-App Resource
-${resource.title}
-
-Resource Type
-${resource.category}
-
-Age Group
-${resource.age}
-
-Full Resource Content
-${savedContent}
-
-Provider Note
-Review and personalize this in-app resource for your program before printing or sharing with families.`;
+    return savedContent;
   }
   if (resource.category === "Lesson Plans") {
     const theme = resource.theme || resourceTheme(resource);
