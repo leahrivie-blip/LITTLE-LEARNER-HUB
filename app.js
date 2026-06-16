@@ -1581,14 +1581,10 @@ function updateAdminNavVisibility() {
 }
 
 function canSeeAdminNav() {
-  return isAdminUnlocked() || currentUser?.toLowerCase() === adminOwnerAccount.email.toLowerCase();
+  return isAdminUnlocked();
 }
 
 function setView(view) {
-  if (view === "admin" && !canSeeAdminNav()) {
-    setView("home");
-    return;
-  }
   if (view === "tools" && !isProUser()) {
     showProFeatureModal("Provider business tools are Pro features.");
     return;
