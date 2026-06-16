@@ -228,7 +228,14 @@ button {
 }
 
 .resource-viewer-card {
-  width: min(760px, 100%);
+  width: min(860px, 100%);
+}
+
+.resource-viewer-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
 }
 
 .resource-viewer-body {
@@ -247,6 +254,81 @@ button {
   line-height: 1.55;
   color: var(--ink);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.printable-resource-page {
+  color: var(--ink);
+  background: var(--white);
+  border-radius: var(--radius);
+  overflow-wrap: anywhere;
+}
+
+.print-section {
+  margin: 0 0 18px;
+  padding: 16px;
+  background: #fffdf9;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.print-section h3 {
+  margin: 0 0 10px;
+  color: #386062;
+  font-size: 18px;
+}
+
+.print-section p {
+  margin: 6px 0;
+  line-height: 1.55;
+}
+
+.print-cover {
+  background: linear-gradient(135deg, rgba(219, 233, 220, 0.72), rgba(220, 238, 245, 0.55));
+}
+
+.printable-list {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+.printable-list li {
+  margin: 6px 0;
+  line-height: 1.45;
+}
+
+.printable-checkbox {
+  list-style: none;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.printable-checkbox span {
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  border: 1.5px solid #302a26;
+  background: #fff;
+}
+
+.printable-field-row,
+.printable-writing-line {
+  min-height: 24px;
+  overflow-wrap: anywhere;
+}
+
+.printable-writing-line {
+  border-bottom: 1px solid #302a26;
+}
+
+.printable-drawing-box-line {
+  margin: 0;
+  font-family: "Courier New", monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
 }
 
 .resource-viewer-image {
@@ -2670,6 +2752,14 @@ button {
     padding: 14px;
   }
 
+  .resource-viewer-toolbar {
+    display: grid;
+  }
+
+  .resource-viewer-toolbar button {
+    width: 100%;
+  }
+
   .section-block {
     padding: 18px;
   }
@@ -2718,5 +2808,137 @@ button {
 
   .mini-window {
     width: 92%;
+  }
+}
+
+@page {
+  margin: 0.5in;
+}
+
+@media print {
+  html,
+  body {
+    width: auto !important;
+    min-height: auto !important;
+    color: #111 !important;
+    background: #fff !important;
+  }
+
+  body.printing-resource .app-shell,
+  body.printing-resource .mobile-nav-backdrop,
+  body.printing-resource .modal:not(#resourceViewerModal) {
+    display: none !important;
+  }
+
+  body.printing-resource #resourceViewerModal {
+    position: static !important;
+    inset: auto !important;
+    z-index: auto !important;
+    display: block !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  body.printing-resource #resourceViewerModal .modal-card {
+    width: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    color: #111 !important;
+    background: #fff !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  body.printing-resource .close-button,
+  body.printing-resource .resource-viewer-toolbar {
+    display: none !important;
+  }
+
+  body.printing-resource #resourceViewerCategory {
+    margin: 0 0 4px !important;
+    color: #555 !important;
+  }
+
+  body.printing-resource #resourceViewerTitle {
+    margin: 0 0 10px !important;
+    color: #111 !important;
+    font-size: 24pt !important;
+    line-height: 1.15 !important;
+  }
+
+  body.printing-resource #resourceViewerTags {
+    margin-bottom: 14px !important;
+  }
+
+  body.printing-resource .tag {
+    color: #111 !important;
+    background: #fff !important;
+    border: 1px solid #999 !important;
+    box-shadow: none !important;
+  }
+
+  body.printing-resource .resource-viewer-body {
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    color: #111 !important;
+    background: #fff !important;
+    border: 0 !important;
+  }
+
+  body.printing-resource .printable-resource-page {
+    color: #111 !important;
+    background: #fff !important;
+  }
+
+  body.printing-resource .print-section {
+    margin: 0 0 12pt !important;
+    padding: 0 0 10pt !important;
+    color: #111 !important;
+    background: #fff !important;
+    border: 0 !important;
+    border-bottom: 1px solid #ddd !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  body.printing-resource .print-section h3 {
+    margin: 0 0 6pt !important;
+    color: #111 !important;
+    font-size: 14pt !important;
+  }
+
+  body.printing-resource .print-section p,
+  body.printing-resource .printable-list li {
+    color: #111 !important;
+    font-size: 10.5pt !important;
+    line-height: 1.35 !important;
+  }
+
+  body.printing-resource .printable-writing-line,
+  body.printing-resource .printable-field-row {
+    min-height: 20pt !important;
+  }
+
+  body.printing-resource .printable-writing-line {
+    border-bottom: 1px solid #111 !important;
+  }
+
+  body.printing-resource .printable-checkbox span {
+    border-color: #111 !important;
+  }
+
+  body.printing-resource .resource-viewer-image {
+    max-width: 100% !important;
+    max-height: 9in !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 }
