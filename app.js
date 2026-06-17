@@ -472,8 +472,11 @@ const starterResources = [
     age: "Preschool",
     plan: "Pro",
     month: "June",
-    tags: ["Letters", "Tracing", "Worksheets"],
+    tags: ["Letters", "Tracing", "Worksheets", "PDF Ready"],
+    format: "Worksheet PDF",
     description: "Printable letter practice pages for early writing and fine motor skills.",
+    pdfReady: true,
+    pdfFileName: "preschool-letter-tracing-pack.pdf",
   },
   {
     id: "printable-shapes",
@@ -482,8 +485,11 @@ const starterResources = [
     age: "Toddler",
     plan: "Free",
     month: "June",
-    tags: ["Shapes", "Coloring", "Printables"],
+    tags: ["Shapes", "Coloring", "Printables", "PDF Ready"],
+    format: "Worksheet PDF",
     description: "Simple shape coloring pages for toddlers and young preschoolers.",
+    pdfReady: true,
+    pdfFileName: "toddler-shapes-coloring-pages.pdf",
   },
 ];
 
