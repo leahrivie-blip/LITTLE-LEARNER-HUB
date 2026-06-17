@@ -296,6 +296,45 @@ button {
   background: linear-gradient(135deg, rgba(219, 233, 220, 0.72), rgba(220, 238, 245, 0.55));
 }
 
+.printable-cartoon-section {
+  background: #fffdf9;
+}
+
+.worksheet-cartoon-scene {
+  overflow: hidden;
+  background: #fffdf9;
+  border: 1px solid rgba(48, 42, 38, 0.18);
+  border-radius: 14px;
+}
+
+.worksheet-cartoon-scene svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.worksheet-cartoon-scene .cartoon-line {
+  stroke: #302a26;
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.worksheet-cartoon-scene .cartoon-line path,
+.worksheet-cartoon-scene .cartoon-line circle,
+.worksheet-cartoon-scene .cartoon-line ellipse,
+.worksheet-cartoon-scene .cartoon-line rect,
+.worksheet-cartoon-scene .cartoon-line polygon {
+  vector-effect: non-scaling-stroke;
+}
+
+.worksheet-cartoon-scene .worksheet-caption {
+  fill: #386062;
+  font-size: 24px;
+  font-weight: 800;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
 .printable-list {
   margin: 8px 0 0;
   padding-left: 20px;
@@ -974,6 +1013,17 @@ button {
   color: #386062;
   background: var(--sage);
   border-color: rgba(97, 127, 104, 0.28);
+}
+
+.printable-refresh-notice {
+  color: #386062;
+  background: linear-gradient(135deg, rgba(220, 238, 245, 0.72), rgba(219, 233, 220, 0.58));
+  border-color: rgba(56, 96, 98, 0.22);
+}
+
+.printable-refresh-notice strong {
+  display: block;
+  margin-bottom: 3px;
 }
 
 .resource-list.compact {
@@ -3037,6 +3087,21 @@ button {
 
   body.printing-resource .printable-checkbox span {
     border-color: #111 !important;
+  }
+
+  body.printing-resource .worksheet-cartoon-scene {
+    background: #fff !important;
+    border-color: #111 !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  body.printing-resource .worksheet-cartoon-scene .cartoon-line {
+    stroke: #111 !important;
+  }
+
+  body.printing-resource .worksheet-cartoon-scene .worksheet-caption {
+    fill: #111 !important;
   }
 
   body.printing-resource .resource-viewer-image {
