@@ -2799,6 +2799,12 @@ function themeVocabulary(theme) {
     Letters: ["A", "B", "C", "D"],
     "Healthy Habits": ["wash", "brush", "sleep", "move"],
     Camping: ["tent", "fire", "map", "trail"],
+    Apples: ["apple", "tree", "seed", "basket"],
+    Pumpkins: ["pumpkin", "vine", "seed", "patch"],
+    Winter: ["snow", "mitten", "ice", "coat"],
+    Spring: ["flower", "rain", "seed", "bug"],
+    Summer: ["sun", "wave", "ice cream", "ball"],
+    Fall: ["leaf", "pumpkin", "apple", "wind"],
     Christmas: ["tree", "star", "gift", "bell"],
     Thanksgiving: ["thankful", "corn", "pie", "family"],
     Easter: ["egg", "bunny", "basket", "spring"],
@@ -3100,23 +3106,28 @@ ________________________________________________________________________`;
   if (type === "Seasonal Worksheets") {
     return `Seasonal Worksheet Page
 Theme: ${theme}
-Focus: seasonal vocabulary, observation, counting, and drawing.
+Focus: seasonal vocabulary, observation, counting, tracing, and drawing.
 
 Name: ____________________________________________  Date: ______________
 
-Weather Check
-[ ] Sunny   [ ] Cloudy   [ ] Rainy   [ ] Snowy   [ ] Windy
+Season Hunt
+Look at the seasonal picture. Color what you see.
+[ ] Sun or sky
+[ ] Plant, leaf, snow, or weather detail
+[ ] Something to count
+[ ] Something that shows ${theme.toLowerCase()}
+
+Color And Count
+Color the ${theme.toLowerCase()} scene. Count each item with your teacher.
+${words.slice(0, 4).map((word, index) => `${index + 1}. ${word}: ______`).join("\n")}
 
 Seasonal Words
-Read or repeat these words: ${themeLine}
+Trace or copy these words.
+${words.slice(0, 4).map((word) => `${word}: ____________________________________________________`).join("\n")}
 
 I Notice
 One thing I notice about ${theme.toLowerCase()} is:
 ________________________________________________________________________
-
-Count And Color
-Color ${number} seasonal items.
-[ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]
 
 Draw A Seasonal Picture
 ________________________________________________________________________
@@ -3134,13 +3145,13 @@ Focus: holiday vocabulary, counting, fine motor practice, and conversation.
 
 Name: ____________________________________________  Date: ______________
 
+Holiday Picture Hunt
+Color the picture. Find and count the holiday items.
+${words.slice(0, 4).map((word, index) => `${index + 1}. ${word}: ______`).join("\n")}
+
 Holiday Vocabulary
 Say, point to, or act out words connected to ${theme.toLowerCase()}.
-- ${theme}
-- family
-- celebration
-- kindness
-- tradition
+${words.slice(0, 4).map((word) => `- ${word}`).join("\n")}
 
 Trace And Write
 ${theme}
@@ -3349,7 +3360,7 @@ Tuition Rate: ____________________________________________
 ${formSignatureBlock()}`;
   }
 
-  if (label.includes("child information") || label.includes("family information") || label.includes("getting to know") || label.includes("development")) {
+  if (label.includes("child information") || label.includes("family information") || label.includes("getting to know")) {
     return `${header}
 
 Child Profile
@@ -3376,7 +3387,7 @@ ________________________________________________________________________
 ${formSignatureBlock()}`;
   }
 
-  if (label.includes("emergency") || label.includes("pickup") || label.includes("pick-up") || label.includes("password")) {
+  if (label.includes("emergency") || label.includes("authorized pickup") || label.includes("authorized pick-up") || label.includes("pick-up password")) {
     return `${header}
 
 Emergency / Authorized Contact Details
@@ -3430,7 +3441,210 @@ Parent Notified? [ ] Yes  [ ] No
 ${formSignatureBlock()}`;
   }
 
-  if (label.includes("incident") || label.includes("injury") || label.includes("accident") || label.includes("behavior")) {
+  if (label.includes("potty training")) {
+    return `${header}
+
+Potty Training Plan
+Stage: [ ] Not started   [ ] Sitting practice   [ ] Some success   [ ] Mostly independent
+Bathroom words/signs used at home: _______________________
+Child's usual potty schedule: ____________________________
+Extra clothes available? [ ] Yes  [ ] No
+Pull-ups/underwear preference: ___________________________
+
+Potty Attempts
+Time: ______  [ ] Tried  [ ] Pee  [ ] BM  [ ] Accident  Notes: __________________
+Time: ______  [ ] Tried  [ ] Pee  [ ] BM  [ ] Accident  Notes: __________________
+Time: ______  [ ] Tried  [ ] Pee  [ ] BM  [ ] Accident  Notes: __________________
+Time: ______  [ ] Tried  [ ] Pee  [ ] BM  [ ] Accident  Notes: __________________
+Time: ______  [ ] Tried  [ ] Pee  [ ] BM  [ ] Accident  Notes: __________________
+
+Encouragement Used
+[ ] Reminder given   [ ] Child asked to go   [ ] Sat calmly
+[ ] Washed hands     [ ] Celebrated effort
+
+Family Notes
+What worked today? ______________________________________
+Supplies needed: ________________________________________
+Home follow-up: _________________________________________
+
+Provider Initials: ___________________ Parent Initials: ___________________`;
+  }
+
+  if (label.includes("diaper change")) {
+    return `${header}
+
+Diaper Change Log
+Use this page to record diaper changes, skin checks, and supplies needed.
+
+Time: ______  [ ] Wet  [ ] BM  [ ] Dry  Cream used? [ ] Yes [ ] No  Notes: ________
+Time: ______  [ ] Wet  [ ] BM  [ ] Dry  Cream used? [ ] Yes [ ] No  Notes: ________
+Time: ______  [ ] Wet  [ ] BM  [ ] Dry  Cream used? [ ] Yes [ ] No  Notes: ________
+Time: ______  [ ] Wet  [ ] BM  [ ] Dry  Cream used? [ ] Yes [ ] No  Notes: ________
+Time: ______  [ ] Wet  [ ] BM  [ ] Dry  Cream used? [ ] Yes [ ] No  Notes: ________
+Time: ______  [ ] Wet  [ ] BM  [ ] Dry  Cream used? [ ] Yes [ ] No  Notes: ________
+
+Skin Check
+[ ] No concerns
+[ ] Redness noted
+[ ] Rash noted
+[ ] Parent notified
+Details: __________________________________________________
+
+Supplies Needed
+[ ] Diapers
+[ ] Wipes
+[ ] Cream
+[ ] Extra clothes
+
+Provider Initials: ___________________`;
+  }
+
+  if (label.includes("nap log")) {
+    return `${header}
+
+Nap / Rest Log
+Rest area used: __________________________________________
+Comfort item: ____________________________________________
+
+Rest Records
+Start: ______  Asleep: ______  Wake: ______  Mood waking: ________________________
+Start: ______  Asleep: ______  Wake: ______  Mood waking: ________________________
+Start: ______  Asleep: ______  Wake: ______  Mood waking: ________________________
+
+Rest Notes
+[ ] Fell asleep easily
+[ ] Needed comfort
+[ ] Quiet rest only
+[ ] Woke early
+[ ] Slept well
+
+Provider Notes
+________________________________________________________________________
+________________________________________________________________________
+
+Provider Initials: ___________________`;
+  }
+
+  if (label.includes("meal tracking")) {
+    return `${header}
+
+Meal Tracking Sheet
+Allergies / food restrictions: ___________________________
+Texture or serving notes: ________________________________
+
+Meals And Snacks
+Breakfast offered: _______________________________________
+Amount eaten: [ ] Most  [ ] Some  [ ] Little  [ ] None
+
+Lunch offered: ___________________________________________
+Amount eaten: [ ] Most  [ ] Some  [ ] Little  [ ] None
+
+Snack offered: ___________________________________________
+Amount eaten: [ ] Most  [ ] Some  [ ] Little  [ ] None
+
+Fluids
+Water: ________  Milk: ________  Other: ___________________
+
+Notes For Family
+________________________________________________________________________
+________________________________________________________________________
+
+Provider Initials: ___________________`;
+  }
+
+  if (label.includes("mood and behavior tracker")) {
+    return `${header}
+
+Mood And Behavior Tracker
+Primary mood today:
+[ ] Happy   [ ] Calm   [ ] Tired   [ ] Frustrated   [ ] Sad   [ ] Energetic
+
+What was happening before?
+________________________________________________________________________
+
+Behavior / Feeling Observed
+________________________________________________________________________
+
+Support Given
+[ ] Offered choices
+[ ] Used calm space
+[ ] Helped name feelings
+[ ] Gave transition warning
+[ ] Modeled words
+[ ] Contacted family
+
+What helped?
+________________________________________________________________________
+
+Pattern / Follow-Up Notes
+________________________________________________________________________
+________________________________________________________________________
+
+Provider Initials: ___________________`;
+  }
+
+  if (label.includes("daily cleaning")) {
+    return `${header}
+
+Daily Cleaning Checklist
+Opening Check
+[ ] Tables and eating surfaces clean
+[ ] Bathroom stocked
+[ ] Floors checked
+[ ] Toys/materials safe for use
+[ ] Handwashing supplies ready
+
+Midday Check
+[ ] Meal areas cleaned
+[ ] Diapering/toileting area cleaned
+[ ] High-touch surfaces wiped
+[ ] Trash checked
+[ ] Nap/rest items separated
+
+Closing Check
+[ ] Toys sanitized or set aside
+[ ] Floors swept/vacuumed
+[ ] Bathroom cleaned
+[ ] Dishes/food areas cleaned
+[ ] Trash removed
+
+Follow-Up Needed
+________________________________________________________________________
+
+Provider Initials: ___________________`;
+  }
+
+  if (label.includes("behavior report")) {
+    return `${header}
+
+Behavior Documentation
+Time / Location: _________________________________________
+Staff Present: ___________________________________________
+
+What happened before the behavior?
+________________________________________________________________________
+________________________________________________________________________
+
+Behavior observed:
+________________________________________________________________________
+________________________________________________________________________
+
+Support provided:
+[ ] Calm voice
+[ ] Choices offered
+[ ] Space or break offered
+[ ] Feelings named
+[ ] Safety support
+[ ] Parent notified
+
+Child response / next step:
+________________________________________________________________________
+________________________________________________________________________
+
+${formSignatureBlock()}`;
+  }
+
+  if (label.includes("incident") || label.includes("injury") || label.includes("accident")) {
     return `${header}
 
 Report Details
@@ -3484,7 +3698,83 @@ ________________________________________________________________________
 Provider Initials: ___________________`;
   }
 
-  if (label.includes("tuition") || label.includes("payment") || label.includes("tax") || label.includes("late") || label.includes("withdrawal") || label.includes("contract") || label.includes("rate") || label.includes("invoice") || label.includes("deposit") || label.includes("vacation") || label.includes("holiday") || label.includes("termination") || label.includes("fee")) {
+  if (label.includes("late pick-up")) {
+    return `${header}
+
+Late Pick-Up Notice
+Scheduled pick-up time: _________________________________
+Actual pick-up time: ____________________________________
+Late minutes: ____________________________________________
+Late fee, if applicable: $_______________________________
+
+Notice To Parent/Guardian
+Your child was picked up after the scheduled pick-up time listed in your childcare agreement. Please review your program policy and contact the provider if a schedule change is needed.
+
+Reason / Family Note
+________________________________________________________________________
+________________________________________________________________________
+
+Provider Follow-Up
+[ ] Reminder only
+[ ] Late fee added
+[ ] Schedule conversation needed
+[ ] Repeated late pick-up concern
+
+${formSignatureBlock()}`;
+  }
+
+  if (label.includes("positive behavior note")) {
+    return `${header}
+
+Positive Behavior Note
+Today your child showed:
+[ ] Kindness
+[ ] Helping
+[ ] Sharing
+[ ] Trying hard
+[ ] Problem solving
+[ ] Gentle hands
+[ ] Leadership
+
+What I noticed:
+________________________________________________________________________
+________________________________________________________________________
+
+Provider message to family:
+________________________________________________________________________
+________________________________________________________________________
+
+Celebrate At Home
+One thing you can ask your child: _________________________
+
+Provider Initials: ___________________`;
+  }
+
+  if (label.includes("development update")) {
+    return `${header}
+
+Development Update
+Development area:
+[ ] Language   [ ] Social Emotional   [ ] Motor   [ ] Cognitive   [ ] Self-help
+
+Strengths observed:
+________________________________________________________________________
+________________________________________________________________________
+
+New skills or progress:
+________________________________________________________________________
+________________________________________________________________________
+
+Provider support / next step:
+________________________________________________________________________
+
+Family connection:
+________________________________________________________________________
+
+Provider Initials: ___________________ Parent Initials: ___________________`;
+  }
+
+  if (label.includes("tuition") || label.includes("payment") || label.includes("tax") || label.includes("late payment") || label.includes("withdrawal") || label.includes("contract") || label.includes("rate") || label.includes("invoice") || label.includes("deposit") || label.includes("vacation") || label.includes("holiday") || label.includes("termination") || label.includes("fee")) {
     return `${header}
 
 Financial / Business Details
@@ -3645,6 +3935,26 @@ function lessonPlanPrintableText(resource) {
   return `${resourceDownloadBody(resource)}\n\n${resourcePrintableWorksheet(resource)}`;
 }
 
+function formPrintableText(resource) {
+  return formResourceContent(resource);
+}
+
+function printableResourceText(resource) {
+  return `${printableWorksheetContent(resource)}
+
+Teacher Notes
+Skill practiced: _______________________________________________________
+Support needed: ________________________________________________________
+Send home? [ ] Yes  [ ] No`;
+}
+
+function resourceDocumentText(resource) {
+  if (resource.category === "Lesson Plans") return lessonPlanPrintableText(resource);
+  if (resource.category === "Forms Library") return formPrintableText(resource);
+  if (resource.category === "Printables") return printableResourceText(resource);
+  return resourcePrintableText(resource);
+}
+
 function printableLineHtml(line) {
   if (/^(-|\*)\s+/.test(line)) return `<li>${escapeHtml(line.replace(/^(-|\*)\s+/, ""))}</li>`;
   const checkboxLine = line.match(/^\[\s?\]\s+(.*)$/);
@@ -3679,8 +3989,144 @@ function printableLinesHtml(lines) {
   return html.join("");
 }
 
+function printableCartoonPreviewHtml(resource) {
+  if (resource.category !== "Printables") return "";
+  const theme = printableTheme(resource);
+  const type = printableType(resource);
+  const lowerTheme = theme.toLowerCase();
+  const title = escapeHtml(`${theme} ${type}`);
+  const label = escapeHtml(theme);
+  const shell = (scene) => `
+    <section class="print-section printable-cartoon-section">
+      <h3>Printable Picture</h3>
+      <div class="worksheet-cartoon-scene" role="img" aria-label="${title}">
+        <svg viewBox="0 0 620 360" xmlns="http://www.w3.org/2000/svg" focusable="false">
+          <rect x="10" y="10" width="600" height="340" rx="20" fill="#fffdf9" stroke="#302a26" stroke-width="4"/>
+          ${scene}
+          <text x="32" y="328" class="worksheet-caption">${label}</text>
+        </svg>
+      </div>
+    </section>
+  `;
+
+  if (lowerTheme.includes("summer")) {
+    return shell(`
+      <g class="cartoon-line">
+        <circle cx="490" cy="82" r="42" fill="#ffe58a"/>
+        <path d="M490 18v-32M490 182v-32M424 82h-32M588 82h-32M443 35l-22-22M559 151l-22-22M443 129l-22 22M559 13l-22 22"/>
+        <circle cx="476" cy="74" r="4" fill="#302a26"/>
+        <circle cx="504" cy="74" r="4" fill="#302a26"/>
+        <path d="M472 94c12 16 28 16 40 0"/>
+
+        <path d="M42 260c42-22 82-22 124 0s82 22 124 0 82-22 124 0 82 22 164 0" fill="none"/>
+        <path d="M42 292c42-22 82-22 124 0s82 22 124 0 82-22 124 0 82 22 164 0" fill="none"/>
+
+        <circle cx="180" cy="198" r="48" fill="#fff"/>
+        <path d="M146 164l68 68M214 164l-68 68M180 150c14 26 14 70 0 96M132 198c26-14 70-14 96 0"/>
+        <circle cx="166" cy="190" r="4" fill="#302a26"/>
+        <circle cx="194" cy="190" r="4" fill="#302a26"/>
+        <path d="M166 210c12 12 28 12 40 0"/>
+
+        <path d="M330 250l32-112 32 112z" fill="#fff4d2"/>
+        <ellipse cx="362" cy="132" rx="44" ry="18" fill="#fff"/>
+        <circle cx="342" cy="112" r="18" fill="#fff"/>
+        <circle cx="370" cy="108" r="20" fill="#fff"/>
+        <circle cx="356" cy="126" r="3" fill="#302a26"/>
+        <circle cx="370" cy="126" r="3" fill="#302a26"/>
+        <path d="M354 140c8 8 18 8 26 0"/>
+
+        <path d="M84 118c38-62 112-62 150 0z" fill="#f7c8bf"/>
+        <path d="M159 118v130M126 118c10-22 22-38 33-48M192 118c-10-22-22-38-33-48"/>
+        <path d="M78 248h162"/>
+      </g>
+    `);
+  }
+
+  if (lowerTheme.includes("christmas")) {
+    return shell(`
+      <g class="cartoon-line">
+        <path d="M310 46l-72 88h38l-62 74h52l-78 52h244l-78-52h52l-62-74h38z" fill="#e3f0df"/>
+        <rect x="286" y="260" width="48" height="42" fill="#d8b181"/>
+        <polygon points="310,24 324,52 356,56 332,76 338,108 310,92 282,108 288,76 264,56 296,52" fill="#fff0a6"/>
+        <circle cx="296" cy="154" r="5" fill="#302a26"/>
+        <circle cx="324" cy="154" r="5" fill="#302a26"/>
+        <path d="M294 176c12 14 32 14 44 0"/>
+        <circle cx="252" cy="180" r="13" fill="#fff"/>
+        <circle cx="370" cy="202" r="13" fill="#fff"/>
+        <circle cx="314" cy="220" r="13" fill="#fff"/>
+        <circle cx="282" cy="112" r="11" fill="#fff"/>
+        <circle cx="346" cy="126" r="11" fill="#fff"/>
+        <rect x="82" y="248" width="74" height="54" fill="#fff"/>
+        <path d="M119 248v54M82 275h74"/>
+        <rect x="466" y="250" width="72" height="52" fill="#fff"/>
+        <path d="M502 250v52M466 276h72"/>
+      </g>
+    `);
+  }
+
+  if (lowerTheme.includes("dinosaur")) {
+    return shell(`
+      <g class="cartoon-line">
+        <ellipse cx="285" cy="196" rx="112" ry="58" fill="#e3f0df"/>
+        <circle cx="402" cy="166" r="42" fill="#e3f0df"/>
+        <path d="M184 190l-82-52 42 76zM234 244l-20 56M330 244l28 56"/>
+        <circle cx="416" cy="158" r="5" fill="#302a26"/>
+        <path d="M398 184c16 16 36 14 48 0"/>
+        <path d="M204 138l22-34 22 34M252 126l22-34 22 34M304 126l22-34 22 34"/>
+        <ellipse cx="484" cy="276" rx="30" ry="40" fill="#fff"/>
+        <ellipse cx="536" cy="282" rx="20" ry="28" fill="#fff"/>
+      </g>
+    `);
+  }
+
+  if (lowerTheme.includes("ocean")) {
+    return shell(`
+      <g class="cartoon-line">
+        <path d="M54 258c42-24 78-24 120 0s78 24 120 0 78-24 120 0 78 24 152 0" fill="none"/>
+        <path d="M54 298c42-24 78-24 120 0s78 24 120 0 78-24 120 0 78 24 152 0" fill="none"/>
+        <ellipse cx="246" cy="156" rx="90" ry="44" fill="#dceef5"/>
+        <path d="M334 156l86-54v108z" fill="#dceef5"/>
+        <circle cx="216" cy="146" r="6" fill="#302a26"/>
+        <path d="M214 172c18 14 48 14 66 0"/>
+        <circle cx="104" cy="110" r="14" fill="#fff"/>
+        <circle cx="510" cy="120" r="10" fill="#fff"/>
+        <circle cx="472" cy="178" r="16" fill="#fff"/>
+      </g>
+    `);
+  }
+
+  if (lowerTheme.includes("farm")) {
+    return shell(`
+      <g class="cartoon-line">
+        <rect x="80" y="150" width="180" height="112" fill="#fff"/>
+        <path d="M58 150l112-84 112 84z" fill="#f7c8bf"/>
+        <rect x="148" y="202" width="52" height="60" fill="#fff"/>
+        <path d="M148 202l52 60M200 202l-52 60"/>
+        <ellipse cx="430" cy="214" rx="70" ry="42" fill="#fff"/>
+        <circle cx="508" cy="196" r="34" fill="#fff"/>
+        <circle cx="496" cy="190" r="5" fill="#302a26"/>
+        <circle cx="520" cy="190" r="5" fill="#302a26"/>
+        <path d="M496 208c10 10 24 10 34 0"/>
+        <path d="M392 252l-10 44M462 252l14 44"/>
+      </g>
+    `);
+  }
+
+  return shell(`
+    <g class="cartoon-line">
+      <circle cx="150" cy="126" r="56" fill="#fff0a6"/>
+      <rect x="264" y="94" width="120" height="120" rx="16" fill="#dceef5"/>
+      <polygon points="476,84 554,214 398,214" fill="#e3f0df"/>
+      <polygon points="160,226 180,268 226,276 192,308 200,352 160,330 120,352 128,308 94,276 140,268" fill="#fff"/>
+      <circle cx="138" cy="116" r="5" fill="#302a26"/>
+      <circle cx="162" cy="116" r="5" fill="#302a26"/>
+      <path d="M136 136c10 12 28 12 38 0"/>
+    </g>
+  `);
+}
+
 function resourcePrintableHtml(resource) {
-  const text = resource.category === "Lesson Plans" ? lessonPlanPrintableText(resource) : resourcePrintableText(resource);
+  const text = resourceDocumentText(resource);
   const headingPattern = /^(Short Description|What Is Included|Who It Is For|How To Use It|Materials \/ Information Needed|ELG \/ Early Learning Standard Connections|Full Resource Content|Weekly Lesson Plan|Weekly Overview|Age Group Teaching Approach|Learning Objectives|Materials|Vocabulary|Monday - Introduce the Theme|Tuesday - Build Vocabulary and Concepts|Wednesday - Hands-On .+ Practice|Thursday - Creative Expression and Child Choice|Friday - Review, Document, and Connect Home|Related Activities|Differentiation and Supports|Child Support Connection|Provider Reflection|Observation Resource|Professional Observation Wording|What to Look For|Learning Standard Category|Evidence To Add|Next Steps|Editable Note|Follow-Up Planning|Purpose|Provider Instructions|Details \/ Notes|Weekly Daycare Menu|Shopping List|Provider Reminder|Setup|Steps|Learning Objective|Extension|Teacher Directions|Child Directions|Activity Ideas|Learning Goal|Provider Note|Printable Planning Notes|Daily Notes|Printable Observation Record|Additional Write-In Space|Checklist|Menu Notes|Shopping Notes|Activity Prep Sheet|Printable Resource|Printable Type|Theme \/ Skill|Printable Page|Tracing Practice|Warm-Up Paths|Letter And Word Tracing|Child Work Space|Coloring Page|Picture Checklist|Color Key|Drawing And Coloring Space|Talk About It|Alphabet Practice Page|Find The Letter|Trace The Letter|Beginning Sound Words|Write Or Draw|Number Practice Page|Trace The Number|Count And Mark|Draw And Count|Compare|Shape Practice Page|Trace The Shapes|Shape Hunt|Make A Theme Picture With Shapes|Teacher Check|Name Writing Page|My Name|Trace My Name|Try My Name|Name Hunt|Cutting Practice Page|Provider Safety Check|Cutting Lines|Cut And Sort|Teacher Note|Matching Activity Page|Draw Lines To Match|Match Here|Make Your Own Match|Seasonal Worksheet Page|Weather Check|Seasonal Words|I Notice|Count And Color|Draw A Seasonal Picture|Holiday Worksheet Page|Holiday Vocabulary|Trace And Write|Count The Holiday Items|Draw Or Color|Teacher Notes|Printable Worksheet Page|Try It|Reflection \/ Teacher Note)$/;
   const blocks = text.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
   const content = blocks.map((block, index) => {
@@ -3695,7 +4141,7 @@ function resourcePrintableHtml(resource) {
     }
     return `<section class="print-section">${printableLinesHtml(lines)}</section>`;
   }).join("");
-  return `<article class="printable-resource-page">${content}</article>`;
+  return `<article class="printable-resource-page">${printableCartoonPreviewHtml(resource)}${content}</article>`;
 }
 
 function decodedTextFileData(resource) {
@@ -4162,8 +4608,7 @@ function createPdfDocumentBlob(pageStreams) {
 }
 
 function resourcePdfText(resource) {
-  if (resource.category === "Lesson Plans") return lessonPlanPrintableText(resource);
-  return resourcePrintableText(resource);
+  return resourceDocumentText(resource);
 }
 
 function isPdfHeading(line) {
@@ -4178,6 +4623,7 @@ function isPdfHeading(line) {
 
 function buildTextResourcePdfBlob(resource) {
   const lines = resourcePdfText(resource).split("\n");
+  const isFormResource = resource.category === "Forms Library";
   const pages = [];
   let page = [];
   let y = 708;
@@ -4210,8 +4656,8 @@ function buildTextResourcePdfBlob(resource) {
   lines.forEach((rawLine) => {
     const original = pdfSafeText(rawLine).trimEnd();
     if (!original.trim()) {
-      y -= 8;
-      ensureSpace(16);
+      y -= isFormResource ? 12 : 8;
+      ensureSpace(isFormResource ? 20 : 16);
       return;
     }
     const heading = isPdfHeading(original);
@@ -4220,19 +4666,19 @@ function buildTextResourcePdfBlob(resource) {
     const bullet = /^(-|\*)\s+/.test(original);
     const wrapped = wrapPdfText(original.replace(/^(-|\*)\s+/, "- "), heading ? 58 : 92);
     if (heading) {
-      ensureSpace(26);
-      y -= 4;
-      add(original, 50, 12, "F2", "0.20 0.38 0.38");
+      ensureSpace(isFormResource ? 32 : 26);
+      y -= isFormResource ? 6 : 4;
+      add(original, 50, isFormResource ? 13 : 12, "F2", "0.20 0.38 0.38");
       addLine(50, y - 5, 544, y - 5, 1, "0.76 0.84 0.82");
-      y -= 21;
+      y -= isFormResource ? 25 : 21;
       return;
     }
     wrapped.forEach((lineText, index) => {
-      ensureSpace(16);
+      ensureSpace(isFormResource ? 19 : 16);
       const x = bullet || checkbox ? 66 : 58;
-      add(lineText, x, 9.5, "F1");
+      add(lineText, x, isFormResource ? 10 : 9.5, "F1");
       if (writingLine && index === wrapped.length - 1) addLine(58, y - 5, 544, y - 5, 1, "0.62 0.62 0.62");
-      y -= 14;
+      y -= isFormResource ? 17 : 14;
     });
   });
   finishPage();
@@ -4282,6 +4728,351 @@ function buildPrintablePdfBlob(resource) {
     text(label, 50, y + height + 10, 12, "F2");
     rect(50, y, 494, height, "0.45 0.45 0.45");
   };
+  const circle = (cx, cy, r, color = "0.25 0.25 0.25", width = 1.4) => {
+    const k = 0.5522847498;
+    content.push(`${color} RG ${width} w ${cx + r} ${cy} m ${cx + r} ${cy + (k * r)} ${cx + (k * r)} ${cy + r} ${cx} ${cy + r} c ${cx - (k * r)} ${cy + r} ${cx - r} ${cy + (k * r)} ${cx - r} ${cy} c ${cx - r} ${cy - (k * r)} ${cx - (k * r)} ${cy - r} ${cx} ${cy - r} c ${cx + (k * r)} ${cy - r} ${cx + r} ${cy - (k * r)} ${cx + r} ${cy} c S`);
+  };
+  const ellipse = (cx, cy, rx, ry, color = "0.25 0.25 0.25", width = 1.4) => {
+    const k = 0.5522847498;
+    content.push(`${color} RG ${width} w ${cx + rx} ${cy} m ${cx + rx} ${cy + (k * ry)} ${cx + (k * rx)} ${cy + ry} ${cx} ${cy + ry} c ${cx - (k * rx)} ${cy + ry} ${cx - rx} ${cy + (k * ry)} ${cx - rx} ${cy} c ${cx - rx} ${cy - (k * ry)} ${cx - (k * rx)} ${cy - ry} ${cx} ${cy - ry} c ${cx + (k * rx)} ${cy - ry} ${cx + rx} ${cy - (k * ry)} ${cx + rx} ${cy} c S`);
+  };
+  const polyline = (points, close = false, color = "0.25 0.25 0.25", width = 1.4) => {
+    if (!points.length) return;
+    const [first, ...rest] = points;
+    content.push(`${color} RG ${width} w ${first[0]} ${first[1]} m ${rest.map(([x, y]) => `${x} ${y} l`).join(" ")} ${close ? "h" : ""} S`);
+  };
+  const star = (cx, cy, size) => {
+    const points = Array.from({ length: 10 }, (_, index) => {
+      const angle = (-Math.PI / 2) + (index * Math.PI / 5);
+      const r = index % 2 === 0 ? size : size * 0.42;
+      return [cx + (Math.cos(angle) * r), cy + (Math.sin(angle) * r)];
+    });
+    polyline(points, true);
+  };
+  const cartoonFace = (cx, cy, scale = 1, color = "0.25 0.25 0.25") => {
+    circle(cx - (7 * scale), cy + (5 * scale), 1.8 * scale, color, 1);
+    circle(cx + (7 * scale), cy + (5 * scale), 1.8 * scale, color, 1);
+    content.push(`${color} RG ${1.2 * scale} w ${cx - (10 * scale)} ${cy - (4 * scale)} m ${cx - (4 * scale)} ${cy - (12 * scale)} ${cx + (4 * scale)} ${cy - (12 * scale)} ${cx + (10 * scale)} ${cy - (4 * scale)} c S`);
+  };
+  const drawTopicMark = (x, y, topic = theme, label = "") => {
+    const lowerTheme = String(topic || theme).toLowerCase();
+    if (lowerTheme.includes("dinosaur")) {
+      ellipse(x + 13, y + 12, 15, 9);
+      circle(x + 30, y + 17, 7);
+      polyline([[0 + x, y + 14], [x - 12, y + 22], [x + 2, y + 18]]);
+      line(x + 7, y + 3, x + 5, y - 6, 1.2, "0.25 0.25 0.25");
+      line(x + 20, y + 3, x + 23, y - 6, 1.2, "0.25 0.25 0.25");
+    } else if (lowerTheme.includes("ocean")) {
+      ellipse(x + 14, y + 12, 16, 9);
+      polyline([[x + 29, y + 12], [x + 43, y + 22], [x + 43, y + 2]], true);
+      circle(x + 8, y + 14, 1.6);
+    } else if (lowerTheme.includes("transportation")) {
+      rect(x - 2, y + 5, 44, 22);
+      circle(x + 8, y + 4, 4);
+      circle(x + 32, y + 4, 4);
+      line(x + 6, y + 20, x + 36, y + 20, 1.1, "0.25 0.25 0.25");
+    } else if (lowerTheme.includes("space")) {
+      polyline([[x + 14, y], [x + 26, y + 34], [x + 38, y], [x + 26, y + 8]], true);
+      circle(x + 26, y + 20, 4);
+      star(x + 3, y + 28, 5);
+    } else if (lowerTheme.includes("bug") || lowerTheme.includes("insect")) {
+      ellipse(x + 18, y + 14, 10, 14);
+      ellipse(x + 33, y + 14, 10, 14);
+      circle(x + 26, y + 12, 5);
+      line(x + 26, y + 18, x + 20, y + 28, 1.1, "0.25 0.25 0.25");
+      line(x + 26, y + 18, x + 34, y + 28, 1.1, "0.25 0.25 0.25");
+    } else if (lowerTheme.includes("weather")) {
+      circle(x + 12, y + 22, 10);
+      ellipse(x + 32, y + 10, 17, 8);
+      line(x + 28, y - 4, x + 24, y - 13, 1.1, "0.25 0.25 0.25");
+      line(x + 38, y - 4, x + 34, y - 13, 1.1, "0.25 0.25 0.25");
+    } else if (lowerTheme.includes("sun")) {
+      circle(x + 20, y + 20, 10);
+      Array.from({ length: 8 }).forEach((_, index) => {
+        const angle = index * Math.PI / 4;
+        line(x + 20 + (Math.cos(angle) * 14), y + 20 + (Math.sin(angle) * 14), x + 20 + (Math.cos(angle) * 22), y + 20 + (Math.sin(angle) * 22), 1, "0.25 0.25 0.25");
+      });
+    } else if (lowerTheme.includes("wave")) {
+      polyline([[x + 0, y + 10], [x + 12, y + 22], [x + 24, y + 10], [x + 36, y + 22], [x + 48, y + 10]]);
+      polyline([[x + 0, y + 0], [x + 12, y + 12], [x + 24, y + 0], [x + 36, y + 12], [x + 48, y + 0]]);
+    } else if (lowerTheme.includes("ice cream")) {
+      polyline([[x + 12, y - 4], [x + 24, y + 30], [x + 36, y - 4]], true);
+      ellipse(x + 24, y + 33, 20, 8);
+      circle(x + 18, y + 43, 7);
+      circle(x + 29, y + 45, 7);
+    } else if (lowerTheme.includes("ball")) {
+      circle(x + 24, y + 18, 16);
+      line(x + 13, y + 29, x + 35, y + 7, 1, "0.25 0.25 0.25");
+      line(x + 13, y + 7, x + 35, y + 29, 1, "0.25 0.25 0.25");
+    } else if (lowerTheme.includes("summer")) {
+      circle(x + 15, y + 24, 12);
+      Array.from({ length: 8 }).forEach((_, index) => {
+        const angle = index * Math.PI / 4;
+        line(x + 15 + (Math.cos(angle) * 17), y + 24 + (Math.sin(angle) * 17), x + 15 + (Math.cos(angle) * 25), y + 24 + (Math.sin(angle) * 25), 1, "0.25 0.25 0.25");
+      });
+      circle(x + 39, y + 9, 10);
+      line(x + 31, y + 15, x + 47, y + 3, 1, "0.25 0.25 0.25");
+    } else if (lowerTheme.includes("spring")) {
+      circle(x + 22, y + 21, 5);
+      [0, 1, 2, 3, 4, 5].forEach((index) => {
+        const angle = index * Math.PI / 3;
+        circle(x + 22 + (Math.cos(angle) * 11), y + 21 + (Math.sin(angle) * 11), 5);
+      });
+      line(x + 22, y + 15, x + 22, y - 8, 1, "0.25 0.25 0.25");
+      polyline([[x + 22, y + 5], [x + 9, y + 12], [x + 22, y + 10]]);
+    } else if (lowerTheme.includes("fall")) {
+      polyline([[x + 22, y + 34], [x + 10, y + 22], [x + 18, y + 20], [x + 8, y + 11], [x + 20, y + 13], [x + 22, y + 0], [x + 26, y + 13], [x + 38, y + 11], [x + 28, y + 20], [x + 36, y + 22]], true);
+      line(x + 22, y + 2, x + 22, y + 31, 1, "0.25 0.25 0.25");
+    } else if (lowerTheme.includes("winter")) {
+      circle(x + 22, y + 7, 9);
+      circle(x + 22, y + 22, 7);
+      circle(x + 22, y + 34, 5);
+      line(x + 8, y + 22, x + 1, y + 28, 1, "0.25 0.25 0.25");
+      line(x + 36, y + 22, x + 43, y + 28, 1, "0.25 0.25 0.25");
+    } else if (lowerTheme.includes("apple")) {
+      circle(x + 18, y + 16, 11);
+      circle(x + 28, y + 16, 11);
+      line(x + 23, y + 28, x + 24, y + 39, 1.2, "0.25 0.25 0.25");
+      polyline([[x + 25, y + 33], [x + 39, y + 39], [x + 31, y + 29]], true);
+    } else if (lowerTheme.includes("pumpkin")) {
+      ellipse(x + 23, y + 18, 18, 14);
+      ellipse(x + 23, y + 18, 8, 14);
+      line(x + 23, y + 31, x + 26, y + 40, 1.2, "0.25 0.25 0.25");
+    } else if (lowerTheme.includes("christmas")) {
+      polyline([[x + 24, y + 42], [x + 8, y + 20], [x + 17, y + 20], [x + 5, y + 4], [x + 43, y + 4], [x + 31, y + 20], [x + 40, y + 20]], true);
+      rect(x + 19, y - 6, 10, 10);
+      star(x + 24, y + 45, 5);
+    } else if (lowerTheme.includes("valentine") || lowerTheme.includes("feeling") || lowerTheme.includes("friend")) {
+      content.push(`0.25 0.25 0.25 RG 1.4 w ${x + 22} ${y + 8} m ${x + 0} ${y + 25} ${x + 8} ${y + 42} ${x + 22} ${y + 30} c ${x + 36} ${y + 42} ${x + 44} ${y + 25} ${x + 22} ${y + 8} c S`);
+    } else if (lowerTheme.includes("st. patrick")) {
+      circle(x + 16, y + 25, 8);
+      circle(x + 30, y + 25, 8);
+      circle(x + 23, y + 13, 8);
+      line(x + 23, y + 6, x + 14, y - 8, 1.2, "0.25 0.25 0.25");
+    } else if (lowerTheme.includes("4th") || lowerTheme.includes("july")) {
+      line(x + 8, y - 4, x + 8, y + 38, 1.2, "0.25 0.25 0.25");
+      rect(x + 8, y + 20, 34, 18);
+      line(x + 8, y + 26, x + 42, y + 26, 1, "0.25 0.25 0.25");
+      line(x + 8, y + 32, x + 42, y + 32, 1, "0.25 0.25 0.25");
+      star(x + 17, y + 32, 4);
+    } else if (lowerTheme.includes("farm")) {
+      rect(x + 3, y + 2, 34, 24);
+      polyline([[x + 1, y + 26], [x + 20, y + 40], [x + 39, y + 26]], true);
+      rect(x + 14, y + 2, 12, 15);
+    } else if (lowerTheme.includes("shape")) {
+      circle(x + 8, y + 15, 8);
+      rect(x + 24, y + 7, 16, 16);
+      polyline([[x + 54, y + 8], [x + 44, y + 26], [x + 64, y + 26]], true);
+    } else {
+      rect(x, y + 2, 42, 26);
+      circle(x + 12, y + 15, 7);
+      star(x + 30, y + 16, 8);
+    }
+    if (label) text(label, x - 2, y - 16, 7.5, "F1", "0.25 0.25 0.25");
+  };
+  const drawMiniThemeMark = (x, y, label = "") => drawTopicMark(x, y, theme, label);
+  const drawThemeColoringScene = (x, y, width, height) => {
+    rect(x, y, width, height, "0.35 0.35 0.35");
+    const lowerTheme = theme.toLowerCase();
+    text(`Color the ${theme.toLowerCase()} picture.`, x + 14, y + height - 24, 12, "F2");
+    if (lowerTheme.includes("dinosaur")) {
+      ellipse(x + 235, y + 155, 95, 46);
+      circle(x + 335, y + 183, 34);
+      circle(x + 346, y + 192, 3);
+      polyline([[x + 145, y + 162], [x + 72, y + 205], [x + 154, y + 188]], true);
+      [[180, 202], [215, 213], [250, 212], [285, 204]].forEach(([px, py]) => polyline([[x + px, y + py], [x + px + 18, y + py + 30], [x + px + 36, y + py]], true));
+      line(x + 192, y + 110, x + 176, y + 56, 2, "0.25 0.25 0.25");
+      line(x + 268, y + 110, x + 290, y + 56, 2, "0.25 0.25 0.25");
+      circle(x + 392, y + 70, 18);
+      circle(x + 430, y + 62, 12);
+      text("egg", x + 384, y + 34, 9);
+    } else if (lowerTheme.includes("farm")) {
+      rect(x + 65, y + 92, 140, 105);
+      polyline([[x + 48, y + 197], [x + 135, y + 260], [x + 224, y + 197]], true);
+      rect(x + 118, y + 92, 36, 62);
+      line(x + 118, y + 123, x + 154, y + 154, 1.2, "0.25 0.25 0.25");
+      line(x + 154, y + 123, x + 118, y + 154, 1.2, "0.25 0.25 0.25");
+      ellipse(x + 335, y + 120, 62, 34);
+      circle(x + 400, y + 135, 25);
+      circle(x + 392, y + 144, 2);
+      circle(x + 408, y + 144, 2);
+      line(x + 294, y + 88, x + 286, y + 54, 1.5, "0.25 0.25 0.25");
+      line(x + 360, y + 88, x + 370, y + 54, 1.5, "0.25 0.25 0.25");
+    } else if (lowerTheme.includes("ocean")) {
+      [[180, 170], [285, 120], [380, 185]].forEach(([px, py]) => drawMiniThemeMark(x + px, y + py, ""));
+      for (let i = 0; i < 5; i += 1) {
+        polyline([[x + 60 + (i * 78), y + 64], [x + 92 + (i * 78), y + 78], [x + 124 + (i * 78), y + 64]]);
+      }
+      circle(x + 90, y + 210, 7);
+      circle(x + 112, y + 236, 4);
+      circle(x + 430, y + 240, 6);
+    } else if (lowerTheme.includes("transportation")) {
+      rect(x + 118, y + 120, 250, 90);
+      rect(x + 138, y + 170, 45, 28);
+      rect(x + 198, y + 170, 45, 28);
+      rect(x + 258, y + 170, 45, 28);
+      circle(x + 170, y + 112, 20);
+      circle(x + 318, y + 112, 20);
+      line(x + 60, y + 84, x + 442, y + 84, 2, "0.25 0.25 0.25");
+    } else if (lowerTheme.includes("space")) {
+      polyline([[x + 244, y + 74], [x + 286, y + 245], [x + 328, y + 74], [x + 286, y + 110]], true);
+      circle(x + 286, y + 180, 22);
+      polyline([[x + 244, y + 100], [x + 206, y + 62], [x + 258, y + 78]], true);
+      polyline([[x + 328, y + 100], [x + 366, y + 62], [x + 314, y + 78]], true);
+      [[90, 230], [146, 116], [412, 226], [430, 108], [170, 250]].forEach(([px, py]) => star(x + px, y + py, 11));
+      ellipse(x + 112, y + 70, 44, 17);
+    } else if (lowerTheme.includes("bug") || lowerTheme.includes("insect")) {
+      ellipse(x + 220, y + 150, 70, 85);
+      ellipse(x + 350, y + 150, 70, 85);
+      circle(x + 286, y + 140, 34);
+      line(x + 286, y + 172, x + 244, y + 240, 1.5, "0.25 0.25 0.25");
+      line(x + 286, y + 172, x + 332, y + 240, 1.5, "0.25 0.25 0.25");
+      circle(x + 276, y + 150, 3);
+      circle(x + 296, y + 150, 3);
+      rect(x + 80, y + 44, 360, 10);
+      [[120, 54], [170, 54], [415, 54]].forEach(([px, py]) => {
+        line(x + px, y + py, x + px, y + py + 50, 1.2, "0.25 0.25 0.25");
+        circle(x + px, y + py + 64, 14);
+      });
+    } else if (lowerTheme.includes("weather")) {
+      circle(x + 132, y + 214, 44);
+      Array.from({ length: 8 }).forEach((_, index) => {
+        const angle = index * Math.PI / 4;
+        line(x + 132 + (Math.cos(angle) * 58), y + 214 + (Math.sin(angle) * 58), x + 132 + (Math.cos(angle) * 78), y + 214 + (Math.sin(angle) * 78), 1.5, "0.25 0.25 0.25");
+      });
+      ellipse(x + 306, y + 180, 72, 30);
+      ellipse(x + 256, y + 182, 42, 24);
+      ellipse(x + 360, y + 184, 42, 24);
+      [[270, 132], [314, 126], [360, 132]].forEach(([px, py]) => line(x + px, y + py, x + px - 12, y + py - 34, 1.4, "0.25 0.25 0.25"));
+    } else if (lowerTheme.includes("summer")) {
+      circle(x + 388, y + 252, 36, "0.20 0.20 0.20", 2);
+      Array.from({ length: 10 }).forEach((_, index) => {
+        const angle = index * Math.PI / 5;
+        line(x + 388 + (Math.cos(angle) * 48), y + 252 + (Math.sin(angle) * 48), x + 388 + (Math.cos(angle) * 66), y + 252 + (Math.sin(angle) * 66), 1.8, "0.20 0.20 0.20");
+      });
+      cartoonFace(x + 388, y + 250, 1.1, "0.20 0.20 0.20");
+      ellipse(x + 104, y + 270, 46, 17, "0.20 0.20 0.20", 1.7);
+      ellipse(x + 146, y + 270, 38, 14, "0.20 0.20 0.20", 1.7);
+      for (let i = 0; i < 4; i += 1) {
+        polyline([[x + 54 + (i * 94), y + 70], [x + 88 + (i * 94), y + 90], [x + 122 + (i * 94), y + 70]], false, "0.20 0.20 0.20", 2);
+        polyline([[x + 54 + (i * 94), y + 50], [x + 88 + (i * 94), y + 70], [x + 122 + (i * 94), y + 50]], false, "0.20 0.20 0.20", 1.6);
+      }
+      polyline([[x + 74, y + 200], [x + 130, y + 258], [x + 186, y + 200]], false, "0.20 0.20 0.20", 2);
+      line(x + 130, y + 200, x + 130, y + 105, 1.8, "0.20 0.20 0.20");
+      line(x + 100, y + 200, x + 160, y + 200, 1.5, "0.20 0.20 0.20");
+      line(x + 112, y + 213, x + 148, y + 213, 1.2, "0.20 0.20 0.20");
+      circle(x + 150, y + 160, 38, "0.20 0.20 0.20", 2);
+      line(x + 123, y + 187, x + 177, y + 133, 1.5, "0.20 0.20 0.20");
+      line(x + 123, y + 133, x + 177, y + 187, 1.5, "0.20 0.20 0.20");
+      cartoonFace(x + 150, y + 156, 0.9, "0.20 0.20 0.20");
+      polyline([[x + 256, y + 92], [x + 286, y + 176], [x + 316, y + 92]], true, "0.20 0.20 0.20", 2);
+      ellipse(x + 286, y + 185, 33, 13, "0.20 0.20 0.20", 2);
+      circle(x + 274, y + 202, 12, "0.20 0.20 0.20", 2);
+      circle(x + 298, y + 204, 12, "0.20 0.20 0.20", 2);
+      cartoonFace(x + 286, y + 184, 0.75, "0.20 0.20 0.20");
+      polyline([[x + 372, y + 92], [x + 422, y + 92], [x + 412, y + 42], [x + 382, y + 42]], true, "0.20 0.20 0.20", 2);
+      ellipse(x + 397, y + 92, 26, 12, "0.20 0.20 0.20", 1.5);
+      line(x + 397, y + 104, x + 397, y + 128, 1.5, "0.20 0.20 0.20");
+      polyline([[x + 383, y + 128], [x + 411, y + 128], [x + 397, y + 148]], true, "0.20 0.20 0.20", 1.5);
+      [[72, 116], [238, 56], [460, 138]].forEach(([px, py]) => {
+        circle(x + px, y + py, 7, "0.20 0.20 0.20", 1.3);
+        line(x + px - 10, y + py - 4, x + px + 10, y + py - 4, 1, "0.20 0.20 0.20");
+      });
+    } else if (lowerTheme.includes("spring")) {
+      ellipse(x + 104, y + 236, 70, 26);
+      ellipse(x + 165, y + 236, 58, 22);
+      [[106, 174], [195, 142], [302, 174], [390, 136]].forEach(([px, py]) => {
+        circle(x + px, y + py, 9);
+        [0, 1, 2, 3, 4, 5].forEach((index) => {
+          const angle = index * Math.PI / 3;
+          circle(x + px + (Math.cos(angle) * 18), y + py + (Math.sin(angle) * 18), 9);
+        });
+        line(x + px, y + py - 12, x + px, y + 60, 1.2, "0.25 0.25 0.25");
+      });
+      [[248, 212], [292, 206], [336, 210]].forEach(([px, py]) => line(x + px, y + py, x + px - 10, y + py - 34, 1.3, "0.25 0.25 0.25"));
+    } else if (lowerTheme.includes("fall")) {
+      rect(x + 70, y + 54, 360, 12);
+      [[115, 210], [205, 155], [300, 216], [390, 148]].forEach(([px, py]) => drawMiniThemeMark(x + px, y + py, ""));
+      ellipse(x + 250, y + 86, 46, 34);
+      ellipse(x + 250, y + 86, 18, 34);
+      line(x + 250, y + 120, x + 258, y + 146, 1.5, "0.25 0.25 0.25");
+      text("fall leaves", x + 206, y + 34, 10);
+    } else if (lowerTheme.includes("winter")) {
+      circle(x + 250, y + 88, 44);
+      circle(x + 250, y + 155, 34);
+      circle(x + 250, y + 210, 24);
+      line(x + 208, y + 156, x + 160, y + 190, 1.4, "0.25 0.25 0.25");
+      line(x + 292, y + 156, x + 340, y + 190, 1.4, "0.25 0.25 0.25");
+      [[102, 232], [390, 232], [118, 112], [410, 116]].forEach(([px, py]) => {
+        line(x + px - 12, y + py, x + px + 12, y + py, 1.2, "0.25 0.25 0.25");
+        line(x + px, y + py - 12, x + px, y + py + 12, 1.2, "0.25 0.25 0.25");
+        line(x + px - 8, y + py - 8, x + px + 8, y + py + 8, 1.2, "0.25 0.25 0.25");
+        line(x + px - 8, y + py + 8, x + px + 8, y + py - 8, 1.2, "0.25 0.25 0.25");
+      });
+    } else if (lowerTheme.includes("season")) {
+      [["spring", 82, 162], ["summer", 202, 162], ["fall", 322, 162], ["winter", 82, 58]].forEach(([label, px, py]) => {
+        rect(x + px, y + py, 82, 72);
+        text(label, x + px + 12, y + py + 12, 10, "F2");
+        drawMiniThemeMark(x + px + 24, y + py + 32, "");
+      });
+    } else if (lowerTheme.includes("apple")) {
+      rect(x + 92, y + 58, 300, 22);
+      [[150, 145], [230, 198], [312, 142], [370, 210], [280, 96]].forEach(([px, py]) => drawMiniThemeMark(x + px, y + py, ""));
+      polyline([[x + 110, y + 80], [x + 250, y + 265], [x + 390, y + 80]], false);
+    } else if (lowerTheme.includes("pumpkin")) {
+      [[130, 118], [235, 156], [352, 112]].forEach(([px, py]) => drawMiniThemeMark(x + px, y + py, ""));
+      rect(x + 86, y + 54, 330, 18);
+      text("pumpkin patch", x + 198, y + 32, 11, "F2");
+    } else if (lowerTheme.includes("christmas")) {
+      polyline([[x + 250, y + 236], [x + 172, y + 142], [x + 210, y + 142], [x + 152, y + 72], [x + 206, y + 72], [x + 134, y + 28], [x + 366, y + 28], [x + 294, y + 72], [x + 348, y + 72], [x + 290, y + 142], [x + 328, y + 142]], true, "0.20 0.20 0.20", 2.2);
+      rect(x + 228, y + 0, 44, 28, "0.20 0.20 0.20");
+      star(x + 250, y + 248, 17);
+      cartoonFace(x + 250, y + 248, 0.55, "0.20 0.20 0.20");
+      cartoonFace(x + 250, y + 116, 1, "0.20 0.20 0.20");
+      [[196, 110], [250, 154], [310, 92], [236, 70], [284, 128], [215, 42], [328, 48]].forEach(([px, py]) => circle(x + px, y + py, 9, "0.20 0.20 0.20", 1.8));
+      rect(x + 95, y + 32, 44, 34, "0.20 0.20 0.20");
+      rect(x + 380, y + 34, 44, 34, "0.20 0.20 0.20");
+      line(x + 117, y + 32, x + 117, y + 66, 1.2, "0.20 0.20 0.20");
+      line(x + 95, y + 50, x + 139, y + 50, 1.2, "0.20 0.20 0.20");
+      line(x + 402, y + 34, x + 402, y + 68, 1.2, "0.20 0.20 0.20");
+      line(x + 380, y + 52, x + 424, y + 52, 1.2, "0.20 0.20 0.20");
+    } else if (lowerTheme.includes("easter")) {
+      [[150, 106], [230, 142], [324, 112]].forEach(([px, py]) => {
+        ellipse(x + px, y + py, 32, 45);
+        polyline([[x + px - 22, y + py], [x + px - 8, y + py + 12], [x + px + 8, y + py - 8], [x + px + 22, y + py + 8]]);
+      });
+      circle(x + 402, y + 188, 28);
+      ellipse(x + 388, y + 226, 10, 30);
+      ellipse(x + 416, y + 226, 10, 30);
+    } else if (lowerTheme.includes("valentine")) {
+      [[142, 132], [254, 188], [366, 122]].forEach(([px, py]) => {
+        content.push(`0.25 0.25 0.25 RG 1.6 w ${x + px} ${y + py - 28} m ${x + px - 42} ${y + py + 8} ${x + px - 18} ${y + py + 58} ${x + px} ${y + py + 28} c ${x + px + 18} ${y + py + 58} ${x + px + 42} ${y + py + 8} ${x + px} ${y + py - 28} c S`);
+      });
+    } else if (lowerTheme.includes("st. patrick")) {
+      [[170, 150], [285, 196], [380, 120]].forEach(([px, py]) => drawMiniThemeMark(x + px, y + py, ""));
+      polyline([[x + 90, y + 68], [x + 420, y + 92]], false);
+      text("rainbow path", x + 198, y + 40, 10);
+    } else if (lowerTheme.includes("4th") || lowerTheme.includes("july")) {
+      rect(x + 110, y + 118, 260, 130);
+      Array.from({ length: 5 }).forEach((_, index) => line(x + 110, y + 140 + (index * 20), x + 370, y + 140 + (index * 20), 1.2, "0.25 0.25 0.25"));
+      rect(x + 110, y + 188, 88, 60);
+      [[132, 225], [170, 225], [132, 202], [170, 202]].forEach(([px, py]) => star(x + px, y + py, 7));
+      [[90, 80], [420, 84], [330, 260]].forEach(([px, py]) => star(x + px, y + py, 16));
+    } else if (lowerTheme.includes("shape") || lowerTheme.includes("color") || lowerTheme.includes("number") || lowerTheme.includes("letter")) {
+      circle(x + 132, y + 184, 50);
+      rect(x + 250, y + 138, 94, 94);
+      polyline([[x + 420, y + 132], [x + 365, y + 224], [x + 475, y + 224]], true);
+      star(x + 205, y + 86, 34);
+      text(letter, x + 284, y + 70, 42, "F2", "0.25 0.25 0.25");
+    } else {
+      drawMiniThemeMark(x + 210, y + 160, "");
+      drawMiniThemeMark(x + 310, y + 110, "");
+      star(x + 118, y + 238, 18);
+      rect(x + 78, y + 66, 120, 72);
+      circle(x + 430, y + 214, 34);
+      words.slice(0, 3).forEach((word, index) => text(word, x + 235 + (index * 58), y + 66, 13, "F2", "0.25 0.25 0.25"));
+    }
+  };
   const drawHeader = (directions) => {
     fillRect(36, 724, 540, 32, "0.20 0.38 0.38");
     text("Little Learner Hub", 50, 736, 12, "F2", "1 1 1");
@@ -4325,9 +5116,7 @@ function buildPrintablePdfBlob(resource) {
       rect(58 + (index * 96), 562, 18, 18, "0.25 0.25 0.25");
       text(color, 82 + (index * 96), 567, 10);
     });
-    drawWorkBox(`Color or draw a ${theme.toLowerCase()} picture here.`, 190, 330);
-    text(theme, 192, 360, 48, "F2", "0.72 0.72 0.72");
-    text(words.join("   "), 192, 320, 20, "F2", "0.72 0.72 0.72");
+    drawThemeColoringScene(50, 190, 494, 330);
     checkbox(58, 158, "I used careful coloring.");
     checkbox(288, 158, "I talked about my picture.");
   } else if (type === "Alphabet Practice") {
@@ -4348,7 +5137,7 @@ function buildPrintablePdfBlob(resource) {
     Array.from({ length: number }).forEach((_, index) => {
       const x = 68 + ((index % 9) * 52);
       const y = 450 - (Math.floor(index / 9) * 48);
-      rect(x, y, 30, 30, "0.35 0.35 0.35");
+      drawMiniThemeMark(x, y, "");
     });
     drawWorkBox(`Draw ${number} more or color the boxes.`, 80, 230);
   } else if (type === "Shape Practice") {
@@ -4388,37 +5177,36 @@ function buildPrintablePdfBlob(resource) {
     drawWorkBox("Paste or place cut pieces here.", 80, 145);
   } else if (type === "Matching Activities") {
     text("Draw Lines To Match", 50, 590, 14, "F2");
-    words.slice(0, 4).forEach((word, index) => {
+    const matchWords = words.slice(0, 4);
+    const answerWords = [...matchWords].reverse();
+    matchWords.forEach((word, index) => {
       const y = 542 - (index * 72);
       rect(58, y - 16, 150, 44, "0.35 0.35 0.35");
       text(word, 76, y, 14, "F2");
       rect(390, y - 16, 150, 44, "0.35 0.35 0.35");
-      text(`${theme} ${index + 1}`, 410, y, 12);
+      text(answerWords[index], 410, y, 12, "F2");
+      drawMiniThemeMark(335, y - 14, "");
     });
     text("Make Your Own Match", 50, 250, 14, "F2");
     writeLine("Word:", 220);
     writeLine("Picture:", 180);
     drawWorkBox("Draw the matching picture.", 80, 75);
   } else if (type === "Seasonal Worksheets") {
-    text("Weather Check", 50, 590, 14, "F2");
-    ["sunny", "cloudy", "rainy", "windy"].forEach((label, index) => checkbox(58 + (index * 122), 562, label));
-    text("Seasonal Words", 50, 520, 14, "F2");
-    words.forEach((word, index) => writeLine(`${word}:`, 488 - (index * 34)));
-    text("I Notice", 50, 340, 14, "F2");
-    line(58, 308, 544, 308, 1, "0.55 0.55 0.55");
-    line(58, 278, 544, 278, 1, "0.55 0.55 0.55");
-    drawWorkBox(`Draw a ${theme.toLowerCase()} seasonal picture.`, 80, 160);
+    text(`${theme} Picture`, 50, 590, 14, "F2");
+    drawThemeColoringScene(50, 170, 494, 390);
+    text("Color the picture. Add one detail of your own.", 58, 142, 12, "F2");
+    text("My favorite part:", 58, 108, 11, "F2");
+    line(178, 108, 544, 108, 1, "0.55 0.55 0.55");
+    text("I can tell about my picture.", 58, 78, 10);
+    checkbox(430, 78, "done");
   } else if (type === "Holiday Worksheets") {
-    text("Holiday Vocabulary", 50, 590, 14, "F2");
-    words.forEach((word, index) => writeLine(`${word}:`, 558 - (index * 34)));
-    text("Trace And Write", 50, 405, 14, "F2");
-    text(theme, 58, 370, 20, "F2", "0.68 0.68 0.68");
-    line(58, 354, 544, 354, 1, "0.68 0.68 0.68");
-    text("Count The Holiday Items", 50, 315, 14, "F2");
-    Array.from({ length: Math.min(number + 2, 10) }).forEach((_, index) => {
-      rect(70 + (index * 46), 270, 26, 26, "0.35 0.35 0.35");
-    });
-    drawWorkBox(`Draw or color something for ${theme.toLowerCase()}.`, 80, 150);
+    text(`${theme} Picture`, 50, 590, 14, "F2");
+    drawThemeColoringScene(50, 170, 494, 390);
+    text("Color the picture. Talk about what you see.", 58, 142, 12, "F2");
+    text("I see:", 58, 108, 11, "F2");
+    line(106, 108, 544, 108, 1, "0.55 0.55 0.55");
+    text("I can share or help.", 58, 78, 10);
+    checkbox(430, 78, "done");
   } else {
     text("Try It", 50, 590, 14, "F2");
     words.forEach((word, index) => writeLine(`${word}:`, 555 - (index * 38)));
@@ -4542,12 +5330,22 @@ function renderCategoryPage(view) {
         ? `Pro is active: full in-app library access, saved favorites, viewed resources, and ${Math.max(paidAiMonthlyLimit - aiUsageCount(), 0)} AI generations left this month.`
         : `Free plan: ${accessCounts.freeLimit} ${displayTitle.toLowerCase()} resources are unlocked here. Upgrade to Pro for all ${accessCounts.total}.`}
     </div>
+    ${category === "Printables" ? renderPrintablesRefreshNotice() : ""}
     <div class="filter-row">
       ${filters.map((filter) => `<button class="${activeFilter === filter ? "active-filter" : ""}" data-filter="${filter}">${filter}</button>`).join("")}
     </div>
     ${category === "Observation Hub" ? renderObservationEditor() : ""}
     <div class="resource-grid">
       ${items.length ? items.map(resourceCard).join("") : `<div class="empty-state">No resources found. Try another search or filter.</div>`}
+    </div>
+  `;
+}
+
+function renderPrintablesRefreshNotice() {
+  return `
+    <div class="access-notice printable-refresh-notice">
+      <strong>Updated printables coming soon.</strong>
+      We are refreshing the printable library with new worksheet designs and polished PDFs. Current printable access remains available while the new set is being added.
     </div>
   `;
 }
