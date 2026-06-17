@@ -3296,6 +3296,347 @@ Support needed: ________________________________________________________
 Send home? [ ] Yes  [ ] No`;
 }
 
+function formLine(label) {
+  return `${label}: ________________________________________________________________`;
+}
+
+function formSignatureBlock() {
+  return `Parent/Guardian Signature: ______________________________ Date: ______________
+Provider Signature: _____________________________________ Date: ______________`;
+}
+
+function formCheckboxes(items) {
+  return items.map((item) => `[ ] ${item}`).join("\n");
+}
+
+function formResourceContent(resource) {
+  const title = resource.title;
+  const label = title.toLowerCase();
+  const header = `${title}
+
+Program Name: ____________________________________________
+Child Name: ______________________________________________
+Date: ____________________________________________________`;
+  const notes = `Notes / Details:
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________`;
+
+  if (label.includes("enrollment packet")) {
+    return `${header}
+
+Purpose
+Use this packet to collect the required information before a child begins care.
+
+Enrollment Checklist
+${formCheckboxes([
+  "Child information form completed",
+  "Parent/guardian information completed",
+  "Emergency contacts completed",
+  "Authorized pick-up list completed",
+  "Medical and allergy information completed",
+  "Immunization documentation reviewed",
+  "Tuition agreement signed",
+  "Parent handbook receipt signed",
+  "Permission forms completed",
+])}
+
+Provider Review
+Start Date: ______________________________________________
+Schedule: ________________________________________________
+Tuition Rate: ____________________________________________
+
+${formSignatureBlock()}`;
+  }
+
+  if (label.includes("child information") || label.includes("family information") || label.includes("getting to know") || label.includes("development")) {
+    return `${header}
+
+Child Profile
+${formLine("Date of Birth")}
+${formLine("Preferred Name")}
+${formLine("Primary Language")}
+${formLine("Home Address")}
+${formLine("Favorite Foods")}
+${formLine("Foods Disliked")}
+${formLine("Comfort Items")}
+${formLine("Favorite Activities")}
+
+Development / Routine Notes
+Previous childcare experience: [ ] Yes  [ ] No
+Special services or supports: [ ] Yes  [ ] No
+Nap routine: _____________________________________________
+Toileting status: ________________________________________
+Communication style: _____________________________________
+
+What should we know about this child?
+________________________________________________________________________
+________________________________________________________________________
+
+${formSignatureBlock()}`;
+  }
+
+  if (label.includes("emergency") || label.includes("pickup") || label.includes("pick-up") || label.includes("password")) {
+    return `${header}
+
+Emergency / Authorized Contact Details
+Contact #1 Name: _________________________________________
+Relationship: ____________________________________________
+Phone: ___________________________________________________
+Authorized Pick-Up? [ ] Yes  [ ] No
+
+Contact #2 Name: _________________________________________
+Relationship: ____________________________________________
+Phone: ___________________________________________________
+Authorized Pick-Up? [ ] Yes  [ ] No
+
+Pick-Up Password: ________________________________________
+Restricted Individuals:
+________________________________________________________________________
+
+Preferred Hospital: ______________________________________
+Physician: __________________________ Phone: ______________
+
+${formSignatureBlock()}`;
+  }
+
+  if (label.includes("medication") || label.includes("allergy") || label.includes("health") || label.includes("immunization") || label.includes("illness") || label.includes("fever") || label.includes("food substitution") || label.includes("ointment")) {
+    return `${header}
+
+Health / Medical Details
+${formLine("Physician")}
+${formLine("Physician Phone")}
+${formLine("Medical Conditions")}
+${formLine("Allergies")}
+${formLine("Medication Name")}
+${formLine("Dosage")}
+${formLine("Administration Time")}
+${formLine("Start Date")}
+${formLine("End Date")}
+
+Symptoms / Reactions / Instructions
+________________________________________________________________________
+________________________________________________________________________
+
+Emergency Plan
+________________________________________________________________________
+________________________________________________________________________
+
+Provider Documentation
+Date / Time Given or Observed: ____________________________
+Action Taken: ____________________________________________
+Parent Notified? [ ] Yes  [ ] No
+
+${formSignatureBlock()}`;
+  }
+
+  if (label.includes("incident") || label.includes("injury") || label.includes("accident") || label.includes("behavior")) {
+    return `${header}
+
+Report Details
+Date of Event: ___________________________________________
+Time of Event: ___________________________________________
+Location: ________________________________________________
+Staff Present: ___________________________________________
+
+What happened?
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________
+
+Action Taken / Support Provided
+________________________________________________________________________
+________________________________________________________________________
+
+Parent Notification
+Parent notified? [ ] Yes  [ ] No
+Method: [ ] Phone  [ ] Message  [ ] Pick-up discussion  [ ] Written note
+Follow-up needed? [ ] Yes  [ ] No
+
+${formSignatureBlock()}`;
+  }
+
+  if (label.includes("daily") || label.includes("infant") || label.includes("toddler") || label.includes("preschool") || label.includes("nap") || label.includes("diaper") || label.includes("potty") || label.includes("meal") || label.includes("mood") || label.includes("attendance")) {
+    return `${header}
+
+Daily Care Record
+Arrival Time: ___________________ Departure Time: ___________________
+Mood: [ ] Happy  [ ] Calm  [ ] Sleepy  [ ] Fussy  [ ] Playful
+
+Meals
+Breakfast: _______________________________________________
+Lunch: ___________________________________________________
+Snack: ___________________________________________________
+
+Rest / Diaper / Bathroom
+Nap Start/End: ___________________________________________
+Diaper/Potty Notes: ______________________________________
+Bathroom Attempts: _______________________________________
+
+Learning and Activities
+________________________________________________________________________
+________________________________________________________________________
+
+Supplies Needed / Family Notes
+________________________________________________________________________
+________________________________________________________________________
+
+Provider Initials: ___________________`;
+  }
+
+  if (label.includes("tuition") || label.includes("payment") || label.includes("tax") || label.includes("late") || label.includes("withdrawal") || label.includes("contract") || label.includes("rate") || label.includes("invoice") || label.includes("deposit") || label.includes("vacation") || label.includes("holiday") || label.includes("termination") || label.includes("fee")) {
+    return `${header}
+
+Financial / Business Details
+Family Name: _____________________________________________
+Payment Period: __________________________________________
+Weekly Rate: $____________________________________________
+Monthly Rate: $___________________________________________
+Registration/Supply Fee: $________________________________
+Amount Paid or Due: $_____________________________________
+Due Date: ________________________________________________
+Payment Method: [ ] Cash  [ ] Check  [ ] Card  [ ] Online  [ ] Subsidy
+
+Policy / Agreement Notes
+________________________________________________________________________
+________________________________________________________________________
+
+Provider Follow-Up
+Balance Due: $____________________________________________
+Receipt Number: __________________________________________
+Effective Date: __________________________________________
+
+${formSignatureBlock()}`;
+  }
+
+  if (label.includes("handbook") || label.includes("communication") || label.includes("newsletter") || label.includes("conference") || label.includes("supply") || label.includes("policy") || label.includes("welcome") || label.includes("transition") || label.includes("positive") || label.includes("permission") || label.includes("field trip") || label.includes("photo") || label.includes("transportation") || label.includes("water play") || label.includes("sunscreen")) {
+    return `${header}
+
+Family Communication / Permission Details
+Parent/Guardian Name: ____________________________________
+Topic / Permission Type: _________________________________
+Effective Date(s): _______________________________________
+
+Message / Policy / Permission Wording
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________
+
+Family Response / Notes
+________________________________________________________________________
+________________________________________________________________________
+
+Permission Choices
+${formCheckboxes([
+  "I give permission",
+  "I do not give permission",
+  "I have received and reviewed this information",
+  "I need the provider to contact me",
+])}
+
+${formSignatureBlock()}`;
+  }
+
+  if (label.includes("drill") || label.includes("safety") || label.includes("visitor") || label.includes("checklist") || label.includes("inventory")) {
+    return `${header}
+
+Safety / Checklist Record
+Date Completed: __________________________________________
+Completed By: ____________________________________________
+Area / Location: _________________________________________
+
+Checklist
+${formCheckboxes([
+  "Area checked before use",
+  "Hazards removed or documented",
+  "Supplies stocked",
+  "Emergency information accessible",
+  "Follow-up needed",
+])}
+
+Log / Notes
+Item / Drill: __________________ Time Started: ______ Time Completed: ______
+Item / Drill: __________________ Time Started: ______ Time Completed: ______
+Item / Drill: __________________ Time Started: ______ Time Completed: ______
+
+${notes}
+
+Provider Signature: _____________________________________ Date: ______________`;
+  }
+
+  if (label.includes("planning") || label.includes("theme") || label.includes("activity") || label.includes("observation") || label.includes("goal") || label.includes("portfolio") || label.includes("monthly") || label.includes("weekly")) {
+    return `${header}
+
+Planning Details
+Week / Month: ____________________________________________
+Theme: ___________________________________________________
+Age Group: _______________________________________________
+Learning Focus: __________________________________________
+
+Planned Activities
+Monday: __________________________________________________
+Tuesday: _________________________________________________
+Wednesday: _______________________________________________
+Thursday: ________________________________________________
+Friday: __________________________________________________
+
+Materials Needed
+________________________________________________________________________
+________________________________________________________________________
+
+Observation / Goal Notes
+________________________________________________________________________
+________________________________________________________________________
+
+Provider Reflection
+________________________________________________________________________`;
+  }
+
+  if (label.includes("staff") || label.includes("substitute") || label.includes("training") || label.includes("volunteer") || label.includes("confidentiality") || label.includes("schedule")) {
+    return `${title}
+
+Program Name: ____________________________________________
+Staff / Substitute Name: _________________________________
+Date: ____________________________________________________
+
+Role / Schedule
+Position: ________________________________________________
+Phone: ___________________________________________________
+Approved Dates/Times: ____________________________________
+
+Checklist
+${formCheckboxes([
+  "Emergency procedures reviewed",
+  "Child allergy/medical notes reviewed",
+  "Attendance and sign-out procedure reviewed",
+  "Confidentiality expectations reviewed",
+  "Provider contact information shared",
+])}
+
+Training / Notes
+________________________________________________________________________
+________________________________________________________________________
+
+Staff/Substitute Signature: ______________________________ Date: ______________
+Provider Signature: _____________________________________ Date: ______________`;
+  }
+
+  return `${header}
+
+Purpose
+Use this form to document ${title.toLowerCase()} for your childcare program. Customize wording to match your handbook, licensing rules, and family policies.
+
+Provider Instructions
+1. Add your program name and contact information.
+2. Complete the family, child, policy, or record fields.
+3. Review the form with the parent, guardian, staff member, or provider.
+4. Keep a signed copy in the child's file or business binder.
+
+${notes}
+
+${formSignatureBlock()}`;
+}
+
 function resourcePrintableText(resource) {
   return `${resourceFileText(resource)}\n\n${resourcePrintableWorksheet(resource)}`;
 }
@@ -3469,29 +3810,7 @@ Follow-Up Planning
 Offer the child another chance to practice this skill during play, routine care, small group, or outdoor time. Add one new material, prompt, peer partner, or challenge when the child is ready.`;
   }
   if (resource.category === "Forms Library") {
-    return `${resource.title}
-
-Program Name: ______________________________
-Child Name: ________________________________
-Parent/Guardian: ___________________________
-Date: ______________________________________
-
-Purpose
-Use this form to document ${resource.title.toLowerCase()} for your childcare program. Review and adjust wording to match your state licensing rules and your own policies.
-
-Provider Instructions
-1. Add your program name, contact information, and policy details.
-2. Complete all child and family information.
-3. Review the form with the parent or guardian.
-4. Keep a signed copy in the child's file.
-
-Details / Notes
-__________________________________________________________________
-__________________________________________________________________
-__________________________________________________________________
-
-Parent/Guardian Signature: ________________________ Date: ________
-Provider Signature: _______________________________ Date: ________`;
+    return formResourceContent(resource);
   }
   if (resource.category === "Menu Center") {
     const age = resource.age === "All Ages" ? "Mixed Ages" : resource.age;
@@ -3639,7 +3958,7 @@ function printResourceViewer() {
 }
 
 function hasResourcePdf(resource) {
-  return resource?.category === "Printables" && Boolean(resource.pdfReady);
+  return Boolean(resource && viewMap[resourceViewForCategory(resource.category)]);
 }
 
 function pdfEscapeText(value) {
@@ -3701,6 +4020,115 @@ function createPdfBlob(content) {
   });
   pdf += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
   return new Blob([pdf], { type: "application/pdf" });
+}
+
+function createPdfDocumentBlob(pageStreams) {
+  const safeStreams = pageStreams.length ? pageStreams : [["BT /F1 12 Tf 50 720 Td (Little Learner Hub) Tj ET"].join("\n")];
+  const pageRefs = safeStreams.map((_, index) => 5 + (index * 2));
+  const contentRefs = safeStreams.map((_, index) => 6 + (index * 2));
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    `<< /Type /Pages /Kids [${pageRefs.map((ref) => `${ref} 0 R`).join(" ")}] /Count ${safeStreams.length} >>`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
+  ];
+  safeStreams.forEach((lines, index) => {
+    const stream = Array.isArray(lines) ? lines.join("\n") : String(lines || "");
+    const pageRef = pageRefs[index];
+    const contentRef = contentRefs[index];
+    objects[pageRef - 1] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${contentRef} 0 R >>`;
+    objects[contentRef - 1] = `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
+  });
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets.push(pdf.length);
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xrefOffset = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach((offset) => {
+    pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  });
+  pdf += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  return new Blob([pdf], { type: "application/pdf" });
+}
+
+function resourcePdfText(resource) {
+  return resourcePrintableText(resource);
+}
+
+function isPdfHeading(line) {
+  const text = String(line || "").trim();
+  if (!text || text.includes("___")) return false;
+  if (/^(Little Learner Hub|Category:|Age Group:|Access:|Format:|Tags:)/.test(text)) return false;
+  if (text.length > 60) return false;
+  return /^[A-Z0-9][A-Za-z0-9 &'./():-]+$/.test(text)
+    && !/[.!?]$/.test(text)
+    && (text === text.toUpperCase() || !text.includes(":"));
+}
+
+function buildTextResourcePdfBlob(resource) {
+  const lines = resourcePdfText(resource).split("\n");
+  const pages = [];
+  let page = [];
+  let y = 708;
+  const add = (value, x, size = 10, font = "F1", color = "0 0 0") => {
+    page.push(`${color} rg BT /${font} ${size} Tf ${x} ${y} Td (${pdfEscapeText(value)}) Tj ET`);
+  };
+  const addLine = (x1, y1, x2, y2, width = 1, color = "0.72 0.72 0.72") => {
+    page.push(`${color} RG ${width} w ${x1} ${y1} m ${x2} ${y2} l S`);
+  };
+  const startPage = () => {
+    page = [];
+    y = 708;
+    page.push("0.20 0.38 0.38 rg 36 724 540 32 re f");
+    page.push(`1 1 1 rg BT /F2 12 Tf 50 736 Td (${pdfEscapeText("Little Learner Hub")}) Tj ET`);
+    page.push(`0 0 0 rg BT /F2 16 Tf 50 704 Td (${pdfEscapeText(resource.title)}) Tj ET`);
+    page.push(`0.25 0.25 0.25 rg BT /F1 9 Tf 50 688 Td (${pdfEscapeText(`${resource.category} | ${resource.age} | ${resource.plan}`)}) Tj ET`);
+    page.push("0.82 0.82 0.82 RG 1 w 50 676 m 544 676 l S");
+    y = 654;
+  };
+  const finishPage = () => {
+    page.push(`0.35 0.35 0.35 rg BT /F1 8 Tf 50 38 Td (${pdfEscapeText("Generated by Little Learner Hub. Review and customize for your program before use.")}) Tj ET`);
+    pages.push(page);
+  };
+  const ensureSpace = (needed = 18) => {
+    if (y - needed >= 70) return;
+    finishPage();
+    startPage();
+  };
+  startPage();
+  lines.forEach((rawLine) => {
+    const original = pdfSafeText(rawLine).trimEnd();
+    if (!original.trim()) {
+      y -= 8;
+      ensureSpace(16);
+      return;
+    }
+    const heading = isPdfHeading(original);
+    const checkbox = /^\[\s?\]\s+/.test(original);
+    const writingLine = original.includes("____");
+    const bullet = /^(-|\*)\s+/.test(original);
+    const wrapped = wrapPdfText(original.replace(/^(-|\*)\s+/, "‚Ä¢ "), heading ? 58 : 92);
+    if (heading) {
+      ensureSpace(26);
+      y -= 4;
+      add(original, 50, 12, "F2", "0.20 0.38 0.38");
+      addLine(50, y - 5, 544, y - 5, 1, "0.76 0.84 0.82");
+      y -= 21;
+      return;
+    }
+    wrapped.forEach((lineText, index) => {
+      ensureSpace(16);
+      const x = bullet || checkbox ? 66 : 58;
+      add(lineText, x, 9.5, "F1");
+      if (writingLine && index === wrapped.length - 1) addLine(58, y - 5, 544, y - 5, 1, "0.62 0.62 0.62");
+      y -= 14;
+    });
+  });
+  finishPage();
+  return createPdfDocumentBlob(pages);
 }
 
 function buildPrintablePdfBlob(resource) {
@@ -3905,10 +4333,19 @@ function downloadBlob(blob, fileName) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function resourcePdfFileName(resource) {
+  return resource.pdfFileName || `${slug(resource.title)}-${slug(resource.category || "resource")}.pdf`;
+}
+
+function buildResourcePdfBlob(resource) {
+  if (resource.category === "Printables" && resource.pdfReady) return buildPrintablePdfBlob(resource);
+  return buildTextResourcePdfBlob(resource);
+}
+
 function downloadResourcePdf(id) {
   const resource = resources.find((item) => item.id === id);
   if (!hasResourcePdf(resource) || !canAccess(resource)) return;
-  downloadBlob(buildPrintablePdfBlob(resource), resource.pdfFileName || `${slug(resource.title)}.pdf`);
+  downloadBlob(buildResourcePdfBlob(resource), resourcePdfFileName(resource));
   if (!savedDownloads.includes(resource.id)) {
     savedDownloads = [...savedDownloads, resource.id];
     saveDownloads();
