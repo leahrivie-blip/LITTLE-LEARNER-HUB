@@ -540,6 +540,7 @@ const formGroups = {
 };
 const activityTypes = ["Fine Motor", "Gross Motor", "Sensory", "Art", "Science", "STEM", "Literacy", "Math", "Outdoor Play", "Circle Time"];
 const printableTypes = ["Tracing Worksheets", "Coloring Pages", "Alphabet Practice", "Number Practice", "Shape Practice", "Name Writing", "Cutting Practice", "Matching Activities", "Seasonal Worksheets", "Holiday Worksheets"];
+const printablePdfLimit = Number.POSITIVE_INFINITY;
 
 const libraryResources = buildResourceLibrary();
 
@@ -1451,17 +1452,24 @@ function buildActivityLibrary() {
 }
 
 function buildPrintableLibrary() {
-  return printableTypes.flatMap((type) => lessonThemes.map((theme, index) => ({
-    id: `printable-${slug(type)}-${slug(theme)}`,
-    category: "Printables",
-    title: `${theme} ${type}`,
-    age: index % 3 === 0 ? "Toddler" : "Preschool",
-    plan: index % 9 === 0 ? "Free" : "Pro",
-    month: holidays.includes(theme) ? "Holiday" : months[index % months.length],
-    tags: [type, theme, holidays.includes(theme) ? "Holiday" : "Seasonal", "Printable"],
-    format: "PDF",
-    description: `Printable ${type.toLowerCase()} for ${theme.toLowerCase()} practice, designed for quick daycare use.`,
-  })));
+  return printableTypes.flatMap((type, typeIndex) => lessonThemes.map((theme, index) => {
+    const printableNumber = (typeIndex * lessonThemes.length) + index + 1;
+    const pdfReady = printableNumber <= printablePdfLimit;
+    return {
+      id: `printable-${slug(type)}-${slug(theme)}`,
+      category: "Printables",
+      title: `${theme} ${type}`,
+      age: index % 3 === 0 ? "Toddler" : "Preschool",
+      plan: index % 9 === 0 ? "Free" : "Pro",
+      month: holidays.includes(theme) ? "Holiday" : months[index % months.length],
+      tags: [type, theme, holidays.includes(theme) ? "Holiday" : "Seasonal", "Printable", ...(pdfReady ? ["PDF Ready"] : [])],
+      format: pdfReady ? "Worksheet PDF" : "PDF",
+      description: `Printable ${type.toLowerCase()} for ${theme.toLowerCase()} practice, designed for quick daycare use.`,
+      printableNumber,
+      pdfReady,
+      pdfFileName: `${slug(theme)}-${slug(type)}.pdf`,
+    };
+  }));
 }
 
 const accessRank = { Free: 0, Founding: 1, Pro: 1, Premium: 2 };
@@ -2639,6 +2647,7 @@ function resourceCard(resource) {
         ${resource.category === "Lesson Plans" && !locked ? `<button class="ghost-button" data-add-lesson-support="${resource.id}" type="button">Add Support</button>` : ""}
         ${resource.category === "Observation Hub" && !locked ? `<button class="ghost-button" data-edit-observation="${resource.id}" type="button">Edit</button>` : ""}
         ${resource.category === "Observation Hub" && !locked ? `<button class="ghost-button" data-add-observation-child="${resource.id}" type="button">Add to Child</button>` : ""}
+        ${hasResourcePdf(resource) && !locked ? `<button class="ghost-button" data-download-pdf="${resource.id}" type="button">Download PDF</button>` : ""}
         ${locked
           ? `<button class="download-button" data-pro-feature="resource-limit" type="button">${viewText}</button>`
           : `<button class="download-button" data-view-resource="${resource.id}" type="button">${viewText}</button>`
@@ -2765,6 +2774,104 @@ function printableNumber(theme) {
   return (String(theme || "learning").replace(/\s+/g, "").length % 9) + 1;
 }
 
+function themeVocabulary(theme) {
+  const map = {
+    "Farm Animals": ["cow", "pig", "hen", "barn"],
+    Ocean: ["fish", "wave", "shell", "boat"],
+    Dinosaurs: ["dino", "egg", "bone", "roar"],
+    Transportation: ["car", "bus", "train", "plane"],
+    "Community Helpers": ["help", "doctor", "mail", "truck"],
+    Weather: ["sun", "rain", "cloud", "wind"],
+    Seasons: ["spring", "summer", "fall", "winter"],
+    Space: ["star", "moon", "rocket", "planet"],
+    "Bugs & Insects": ["bug", "bee", "ant", "butterfly"],
+    "Zoo Animals": ["zebra", "lion", "bear", "monkey"],
+    Pets: ["cat", "dog", "fish", "bird"],
+    Colors: ["red", "blue", "green", "yellow"],
+    Shapes: ["circle", "square", "star", "heart"],
+    Numbers: ["one", "two", "three", "four"],
+    Letters: ["A", "B", "C", "D"],
+    "Healthy Habits": ["wash", "brush", "sleep", "move"],
+    Camping: ["tent", "fire", "map", "trail"],
+    Christmas: ["tree", "star", "gift", "bell"],
+    Thanksgiving: ["thankful", "corn", "pie", "family"],
+    Easter: ["egg", "bunny", "basket", "spring"],
+    "Valentine's Day": ["heart", "love", "kind", "card"],
+    "St. Patrick's Day": ["clover", "green", "gold", "rainbow"],
+    "4th of July": ["flag", "star", "red", "blue"],
+    "All About Me": ["me", "name", "family", "home"],
+    Feelings: ["happy", "sad", "calm", "mad"],
+  };
+  return map[theme] || printableThemeWords(theme).slice(0, 4);
+}
+
+function tracingWorksheetContent(resource) {
+  const theme = printableTheme(resource);
+  const words = themeVocabulary(theme);
+  const letter = printableLetter(theme);
+  const toddler = resource.age === "Toddler";
+  const wordLines = toddler
+    ? `${letter}    ${letter}    ${letter}    ${letter}
+${words.slice(0, 2).map((word) => `${word}    ${word}    ${word}`).join("\n")}`
+    : `${letter}    ${letter}    ${letter}    ${letter}    ${letter}
+${theme}
+${words.slice(0, 4).map((word) => `${word}    ${word}`).join("\n")}`;
+  const directions = toddler
+    ? "Trace each path with a finger first, then use a thick crayon. Keep the activity short and celebrate effort."
+    : "Trace the paths and theme words. Then try writing one word on your own and draw a matching picture.";
+  return `Tracing Worksheet
+Title: ${resource.title}
+Age Group: ${resource.age}
+Theme: ${theme}
+
+Teacher Directions
+${directions}
+
+Name: ____________________________________________  Date: ______________
+
+Warm-Up Tracing Paths
+Trace each path from left to right.
+1. Straight path:  ____________  ____________  ____________
+2. Bumpy path:     mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+3. Zigzag path:    /\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\
+4. Circle path:    O O O O O O O O O O O O O O O O
+
+Letter And Word Tracing
+Trace the beginning letter and theme words.
+${wordLines}
+
+Try It
+${toddler ? `Point to or color one ${theme.toLowerCase()} picture. Say one theme word with your teacher.` : `Write one theme word on your own: _________________________________`}
+
+Drawing Space
+Draw or color something about ${theme.toLowerCase()}.
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________
+
+Provider Note
+This page supports fine motor control, pre-writing practice, vocabulary, left-to-right movement, and confidence with early writing.`;
+}
+
+function printablePdfDirections(resource, type, theme) {
+  const toddler = resource.age === "Toddler";
+  const directions = {
+    "Tracing Worksheets": toddler
+      ? "Teacher: Let the child trace with a finger first, then a thick crayon. Focus on left-to-right movement and effort."
+      : "Teacher: Invite the child to trace each path and theme word, then write one word independently and draw a matching picture.",
+    "Coloring Pages": "Teacher: Talk about the theme first. Let the child color, draw, and name details from the page.",
+    "Alphabet Practice": `Teacher: Say the ${theme} beginning sound, trace the letter, and connect the sound to theme words.`,
+    "Number Practice": "Teacher: Count aloud together, touch each item once, then trace and draw the number amount.",
+    "Shape Practice": "Teacher: Name each shape, trace it in the air, then find or draw shapes inside a theme picture.",
+    "Name Writing": "Teacher: Model the child's name first. Let the child trace, copy, and find familiar letters.",
+    "Cutting Practice": "Teacher: Use child-safe scissors with close supervision. Start with short snips before longer cutting lines.",
+    "Matching Activities": "Teacher: Name each item, draw matching lines together, then invite the child to make one new match.",
+    "Seasonal Worksheets": "Teacher: Talk about the season, weather, and theme words. Encourage noticing, drawing, and simple dictation.",
+    "Holiday Worksheets": "Teacher: Introduce holiday vocabulary, trace the theme word, count items, and draw or color a related picture.",
+  };
+  return directions[type] || "Teacher: Read the directions aloud, model one example, and let the child complete the worksheet with support.";
+}
+
 function printableWorksheetContent(resource) {
   const type = printableType(resource);
   const theme = printableTheme(resource);
@@ -2774,34 +2881,7 @@ function printableWorksheetContent(resource) {
   const themeLine = words.map((word) => word.toLowerCase()).join(", ");
 
   if (type === "Tracing Worksheets") {
-    return `Tracing Practice
-Theme: ${theme}
-Focus: pre-writing control, left-to-right movement, and theme vocabulary.
-
-Name: ____________________________________________  Date: ______________
-
-Warm-Up Paths
-Trace each path with your finger first. Then trace with a crayon or marker.
-1. Straight path:  ____________  ____________  ____________
-2. Bumpy path:     mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
-3. Zigzag path:    /\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\
-4. Circle path:    O O O O O O O O O O O O O O O O
-
-Letter And Word Tracing
-Trace the beginning letter for ${theme}.
-${letter}    ${letter}    ${letter}    ${letter}    ${letter}
-________________________________________________________________________
-
-Trace the theme word.
-${theme}
-________________________________________________________________________
-________________________________________________________________________
-
-Child Work Space
-Draw one ${theme.toLowerCase()} picture or trace around a theme card here.
-________________________________________________________________________
-________________________________________________________________________
-________________________________________________________________________`;
+    return tracingWorksheetContent(resource);
   }
 
   if (type === "Coloring Pages") {
@@ -3512,6 +3592,7 @@ function ensureResourceViewer() {
         <h2 id="resourceViewerTitle">Resource</h2>
         <div class="tag-row" id="resourceViewerTags"></div>
         <div class="resource-viewer-toolbar">
+          <button class="primary-button" id="downloadPdfButton" type="button" hidden>Download PDF</button>
           <button class="primary-button" id="printResourceButton" type="button">Print / Save PDF</button>
         </div>
         <div class="resource-viewer-body" id="resourceViewerBody"></div>
@@ -3519,6 +3600,7 @@ function ensureResourceViewer() {
     </div>
   `);
   document.querySelector("#closeResourceViewer")?.addEventListener("click", closeResourceViewer);
+  document.querySelector("#downloadPdfButton")?.addEventListener("click", downloadActiveResourcePdf);
   document.querySelector("#printResourceButton")?.addEventListener("click", printResourceViewer);
   document.querySelector("#resourceViewerModal")?.addEventListener("click", (event) => {
     if (event.target.id === "resourceViewerModal") closeResourceViewer();
@@ -3550,6 +3632,295 @@ function printResourceViewer() {
   setTimeout(cleanup, 1600);
 }
 
+function hasResourcePdf(resource) {
+  return resource?.category === "Printables" && Boolean(resource.pdfReady);
+}
+
+function pdfEscapeText(value) {
+  return String(value || "")
+    .replace(/[‚Äú‚Äù]/g, '"')
+    .replace(/[‚Äò‚Äô]/g, "'")
+    .replace(/[‚Äì‚Äî]/g, "-")
+    .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, "")
+    .replace(/\\/g, "\\\\")
+    .replace(/\(/g, "\\(")
+    .replace(/\)/g, "\\)");
+}
+
+function pdfSafeText(value) {
+  return String(value || "")
+    .replace(/[‚Äú‚Äù]/g, '"')
+    .replace(/[‚Äò‚Äô]/g, "'")
+    .replace(/[‚Äì‚Äî]/g, "-")
+    .replace(/[^\x20-\x7E]/g, "");
+}
+
+function wrapPdfText(text, maxChars) {
+  const words = pdfSafeText(text).split(/\s+/).filter(Boolean);
+  const lines = [];
+  let current = "";
+  words.forEach((word) => {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length > maxChars && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = next;
+    }
+  });
+  if (current) lines.push(current);
+  return lines;
+}
+
+function createPdfBlob(content) {
+  const stream = content.join("\n");
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets.push(pdf.length);
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xrefOffset = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach((offset) => {
+    pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  });
+  pdf += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  return new Blob([pdf], { type: "application/pdf" });
+}
+
+function buildPrintablePdfBlob(resource) {
+  const theme = printableTheme(resource);
+  const type = printableType(resource);
+  const words = themeVocabulary(theme);
+  const toddler = resource.age === "Toddler";
+  const letter = printableLetter(theme);
+  const number = printableNumber(theme);
+  const content = [];
+  const text = (value, x, y, size = 11, font = "F1", color = "0 0 0") => {
+    content.push(`${color} rg BT /${font} ${size} Tf ${x} ${y} Td (${pdfEscapeText(value)}) Tj ET`);
+  };
+  const line = (x1, y1, x2, y2, width = 1, color = "0 0 0") => {
+    content.push(`${color} RG ${width} w ${x1} ${y1} m ${x2} ${y2} l S`);
+  };
+  const rect = (x, y, width, height, color = "0 0 0") => {
+    content.push(`${color} RG 1 w ${x} ${y} ${width} ${height} re S`);
+  };
+  const fillRect = (x, y, width, height, color) => {
+    content.push(`${color} rg ${x} ${y} ${width} ${height} re f`);
+  };
+  const dashedLine = (x1, y1, x2, y2) => {
+    content.push("[6 5] 0 d");
+    line(x1, y1, x2, y2, 1, "0.65 0.65 0.65");
+    content.push("[] 0 d");
+  };
+  const wrapped = (value, x, y, maxChars, size = 10) => {
+    wrapPdfText(value, maxChars).forEach((lineText, index) => text(lineText, x, y - (index * (size + 4)), size));
+  };
+  const checkbox = (x, y, label) => {
+    rect(x, y - 2, 10, 10, "0.25 0.25 0.25");
+    text(label, x + 16, y, 10);
+  };
+  const writeLine = (label, y) => {
+    text(label, 58, y + 4, 10, "F2");
+    line(190, y, 544, y, 1, "0.55 0.55 0.55");
+  };
+  const drawFooter = () => {
+    text("Provider note: printable supports early learning, fine motor practice, vocabulary, and confidence.", 50, 54, 9, "F1", "0.25 0.25 0.25");
+  };
+  const drawWorkBox = (label, y, height) => {
+    text(label, 50, y + height + 10, 12, "F2");
+    rect(50, y, 494, height, "0.45 0.45 0.45");
+  };
+  const drawHeader = (directions) => {
+    fillRect(36, 724, 540, 32, "0.20 0.38 0.38");
+    text("Little Learner Hub", 50, 736, 12, "F2", "1 1 1");
+    text(resource.title, 50, 704, 22, "F2");
+    text(`${resource.age} ${type} | ${theme}`, 50, 686, 11);
+    text("Name: ______________________________", 50, 660, 11);
+    text("Date: __________________", 372, 660, 11);
+    fillRect(48, 613, 516, 34, "0.93 0.97 0.96");
+    rect(48, 613, 516, 34, "0.55 0.70 0.68");
+    wrapped(directions, 60, 632, 84, 9);
+  };
+  const drawingPrompt = `Draw or color something about ${theme.toLowerCase()}.`;
+
+  drawHeader(printablePdfDirections(resource, type, theme));
+
+  if (type === "Tracing Worksheets") {
+    text("Warm-Up Tracing Paths", 50, 590, 14, "F2");
+    [["Straight path", 565], ["Bumpy path", 538], ["Zigzag path", 511], ["Circle path", 484]].forEach(([label, y]) => {
+      text(label, 58, y + 2, 10, "F2");
+      dashedLine(165, y, 544, y);
+    });
+    text("mmmmmmmmmmmmmmmmmmmmmm", 178, 533, 16, "F1", "0.58 0.58 0.58");
+    text("/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\", 178, 506, 16, "F1", "0.58 0.58 0.58");
+    text("O   O   O   O   O   O   O   O", 178, 479, 16, "F1", "0.58 0.58 0.58");
+    text("Letter And Word Tracing", 50, 446, 14, "F2");
+    text(`${letter}    ${letter}    ${letter}    ${letter}    ${letter}`, 58, 418, toddler ? 28 : 24, "F2", "0.68 0.68 0.68");
+    line(58, 407, 544, 407, 1, "0.68 0.68 0.68");
+    let wordY = 372;
+    (toddler ? words.slice(0, 2) : [theme, ...words.slice(0, 3)]).forEach((word) => {
+      text(word, 58, wordY, toddler ? 22 : 18, "F2", "0.68 0.68 0.68");
+      line(58, wordY - 10, 544, wordY - 10, 1, "0.68 0.68 0.68");
+      wordY -= toddler ? 42 : 34;
+    });
+    const promptY = toddler ? 270 : 240;
+    text(toddler ? "Point, trace, and say one theme word." : "Write one theme word on your own:", 50, promptY, 12, "F2");
+    line(260, promptY - 4, 544, promptY - 4, 1, "0.35 0.35 0.35");
+    drawWorkBox(drawingPrompt, 80, promptY - 138);
+  } else if (type === "Coloring Pages") {
+    text("Color Key", 50, 590, 14, "F2");
+    ["red", "blue", "green", "yellow", "brown"].forEach((color, index) => {
+      rect(58 + (index * 96), 562, 18, 18, "0.25 0.25 0.25");
+      text(color, 82 + (index * 96), 567, 10);
+    });
+    drawWorkBox(`Color or draw a ${theme.toLowerCase()} picture here.`, 190, 330);
+    text(theme, 192, 360, 48, "F2", "0.72 0.72 0.72");
+    text(words.join("   "), 192, 320, 20, "F2", "0.72 0.72 0.72");
+    checkbox(58, 158, "I used careful coloring.");
+    checkbox(288, 158, "I talked about my picture.");
+  } else if (type === "Alphabet Practice") {
+    text("Find The Letter", 50, 590, 14, "F2");
+    text(`${letter}   ${letter.toLowerCase()}   ${letter}   ${letter.toLowerCase()}   ${letter}`, 78, 550, 34, "F2", "0.65 0.65 0.65");
+    text("Circle the letters that match the theme beginning sound.", 58, 525, 10);
+    text("Trace The Letter", 50, 490, 14, "F2");
+    text(`${letter}    ${letter}    ${letter}    ${letter}    ${letter}`, 58, 455, 32, "F2", "0.68 0.68 0.68");
+    line(58, 438, 544, 438, 1, "0.68 0.68 0.68");
+    text("Beginning Sound Words", 50, 404, 14, "F2");
+    words.forEach((word, index) => writeLine(`${word}:`, 370 - (index * 34)));
+    drawWorkBox("Write or draw one beginning sound picture.", 80, 145);
+  } else if (type === "Number Practice") {
+    text("Trace The Number", 50, 590, 14, "F2");
+    text(`${number}    ${number}    ${number}    ${number}    ${number}`, 70, 548, 36, "F2", "0.68 0.68 0.68");
+    line(70, 532, 544, 532, 1, "0.68 0.68 0.68");
+    text(`Count ${number} ${theme.toLowerCase()} items.`, 50, 495, 14, "F2");
+    Array.from({ length: number }).forEach((_, index) => {
+      const x = 68 + ((index % 9) * 52);
+      const y = 450 - (Math.floor(index / 9) * 48);
+      rect(x, y, 30, 30, "0.35 0.35 0.35");
+    });
+    drawWorkBox(`Draw ${number} more or color the boxes.`, 80, 230);
+  } else if (type === "Shape Practice") {
+    text("Trace The Shapes", 50, 590, 14, "F2");
+    text("O     []     /\\     <>     *", 82, 545, 34, "F2", "0.65 0.65 0.65");
+    line(58, 525, 544, 525, 1, "0.68 0.68 0.68");
+    text("Shape Hunt", 50, 490, 14, "F2");
+    ["circle", "square", "triangle", "diamond", "star"].forEach((shape, index) => checkbox(62 + ((index % 2) * 240), 455 - (Math.floor(index / 2) * 34), shape));
+    drawWorkBox(`Make a ${theme.toLowerCase()} picture with shapes.`, 80, 250);
+  } else if (type === "Name Writing") {
+    text("My Name", 50, 590, 14, "F2");
+    writeLine("My name is:", 562);
+    text("Trace My Name", 50, 520, 14, "F2");
+    line(58, 485, 544, 485, 1, "0.55 0.55 0.55");
+    line(58, 445, 544, 445, 1, "0.55 0.55 0.55");
+    line(58, 405, 544, 405, 1, "0.55 0.55 0.55");
+    text("Name Hunt", 50, 365, 14, "F2");
+    checkbox(58, 335, "I found the first letter in my name.");
+    checkbox(58, 305, `I found a ${theme.toLowerCase()} word.`);
+    checkbox(58, 275, "I tried writing my name.");
+    drawWorkBox(drawingPrompt, 80, 155);
+  } else if (type === "Cutting Practice") {
+    text("Provider Safety Check", 50, 590, 14, "F2");
+    checkbox(58, 562, "Child-safe scissors");
+    checkbox(258, 562, "Close adult supervision");
+    text("Cutting Lines", 50, 524, 14, "F2");
+    [["Straight", 492], ["Short snips", 452], ["Zigzag", 412], ["Curve", 372]].forEach(([label, y]) => {
+      text(label, 58, y + 4, 10, "F2");
+      dashedLine(160, y, 544, y);
+    });
+    text("/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\", 178, 407, 16, "F1", "0.58 0.58 0.58");
+    text("Cut And Sort", 50, 335, 14, "F2");
+    words.slice(0, 4).forEach((word, index) => {
+      rect(60 + (index * 120), 270, 92, 44, "0.35 0.35 0.35");
+      text(word, 75 + (index * 120), 287, 13, "F2");
+    });
+    drawWorkBox("Paste or place cut pieces here.", 80, 145);
+  } else if (type === "Matching Activities") {
+    text("Draw Lines To Match", 50, 590, 14, "F2");
+    words.slice(0, 4).forEach((word, index) => {
+      const y = 542 - (index * 72);
+      rect(58, y - 16, 150, 44, "0.35 0.35 0.35");
+      text(word, 76, y, 14, "F2");
+      rect(390, y - 16, 150, 44, "0.35 0.35 0.35");
+      text(`${theme} ${index + 1}`, 410, y, 12);
+    });
+    text("Make Your Own Match", 50, 250, 14, "F2");
+    writeLine("Word:", 220);
+    writeLine("Picture:", 180);
+    drawWorkBox("Draw the matching picture.", 80, 75);
+  } else if (type === "Seasonal Worksheets") {
+    text("Weather Check", 50, 590, 14, "F2");
+    ["sunny", "cloudy", "rainy", "windy"].forEach((label, index) => checkbox(58 + (index * 122), 562, label));
+    text("Seasonal Words", 50, 520, 14, "F2");
+    words.forEach((word, index) => writeLine(`${word}:`, 488 - (index * 34)));
+    text("I Notice", 50, 340, 14, "F2");
+    line(58, 308, 544, 308, 1, "0.55 0.55 0.55");
+    line(58, 278, 544, 278, 1, "0.55 0.55 0.55");
+    drawWorkBox(`Draw a ${theme.toLowerCase()} seasonal picture.`, 80, 160);
+  } else if (type === "Holiday Worksheets") {
+    text("Holiday Vocabulary", 50, 590, 14, "F2");
+    words.forEach((word, index) => writeLine(`${word}:`, 558 - (index * 34)));
+    text("Trace And Write", 50, 405, 14, "F2");
+    text(theme, 58, 370, 20, "F2", "0.68 0.68 0.68");
+    line(58, 354, 544, 354, 1, "0.68 0.68 0.68");
+    text("Count The Holiday Items", 50, 315, 14, "F2");
+    Array.from({ length: Math.min(number + 2, 10) }).forEach((_, index) => {
+      rect(70 + (index * 46), 270, 26, 26, "0.35 0.35 0.35");
+    });
+    drawWorkBox(`Draw or color something for ${theme.toLowerCase()}.`, 80, 150);
+  } else {
+    text("Try It", 50, 590, 14, "F2");
+    words.forEach((word, index) => writeLine(`${word}:`, 555 - (index * 38)));
+    drawWorkBox(drawingPrompt, 80, 285);
+  }
+
+  drawFooter();
+
+  return createPdfBlob(content);
+}
+
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function downloadResourcePdf(id) {
+  const resource = resources.find((item) => item.id === id);
+  if (!hasResourcePdf(resource) || !canAccess(resource)) return;
+  downloadBlob(buildPrintablePdfBlob(resource), resource.pdfFileName || `${slug(resource.title)}.pdf`);
+  if (!savedDownloads.includes(resource.id)) {
+    savedDownloads = [...savedDownloads, resource.id];
+    saveDownloads();
+    updatePlanLabel();
+  }
+  trackEvent("resource_pdf_download", {
+    resourceId: resource.id,
+    title: resource.title,
+    category: resource.category,
+    age: resource.age,
+    access: resource.plan,
+  });
+}
+
+function downloadActiveResourcePdf() {
+  downloadResourcePdf(document.querySelector("#downloadPdfButton")?.dataset.pdfResource);
+}
+
 function openResourceViewer(resourceId) {
   const resource = resources.find((item) => item.id === resourceId);
   if (!resource) return;
@@ -3560,6 +3931,11 @@ function openResourceViewer(resourceId) {
   ensureResourceViewer();
   document.querySelector("#resourceViewerCategory").textContent = resource.category;
   document.querySelector("#resourceViewerTitle").textContent = resource.title;
+  const pdfButton = document.querySelector("#downloadPdfButton");
+  if (pdfButton) {
+    pdfButton.hidden = !hasResourcePdf(resource);
+    pdfButton.dataset.pdfResource = hasResourcePdf(resource) ? resource.id : "";
+  }
   document.querySelector("#resourceViewerTags").innerHTML = [
     resource.age,
     resource.plan,
@@ -7480,6 +7856,13 @@ document.addEventListener("click", (event) => {
     }
     setMobileNavOpen(false);
     setView(viewButton.dataset.view);
+    return;
+  }
+
+  const pdfDownloadButton = event.target.closest("[data-download-pdf]");
+  if (pdfDownloadButton) {
+    event.preventDefault();
+    downloadResourcePdf(pdfDownloadButton.dataset.downloadPdf);
     return;
   }
 
