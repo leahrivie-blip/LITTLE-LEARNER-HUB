@@ -3641,6 +3641,10 @@ function resourcePrintableText(resource) {
   return `${resourceFileText(resource)}\n\n${resourcePrintableWorksheet(resource)}`;
 }
 
+function lessonPlanPrintableText(resource) {
+  return `${resourceDownloadBody(resource)}\n\n${resourcePrintableWorksheet(resource)}`;
+}
+
 function printableLineHtml(line) {
   if (/^(-|\*)\s+/.test(line)) return `<li>${escapeHtml(line.replace(/^(-|\*)\s+/, ""))}</li>`;
   const checkboxLine = line.match(/^\[\s?\]\s+(.*)$/);
@@ -3676,8 +3680,8 @@ function printableLinesHtml(lines) {
 }
 
 function resourcePrintableHtml(resource) {
-  const text = resourcePrintableText(resource);
-  const headingPattern = /^(Short Description|What Is Included|Who It Is For|How To Use It|Materials \/ Information Needed|ELG \/ Early Learning Standard Connections|Full Resource Content|Weekly Lesson Plan|Weekly Overview|Learning Objectives|Materials|Vocabulary|Related Activities|Child Support Connection|Provider Reflection|Observation Resource|Professional Observation Wording|What to Look For|Learning Standard Category|Evidence To Add|Next Steps|Editable Note|Follow-Up Planning|Purpose|Provider Instructions|Details \/ Notes|Weekly Daycare Menu|Shopping List|Provider Reminder|Setup|Steps|Learning Objective|Extension|Teacher Directions|Child Directions|Activity Ideas|Learning Goal|Provider Note|Printable Planning Notes|Daily Notes|Printable Observation Record|Additional Write-In Space|Checklist|Menu Notes|Shopping Notes|Activity Prep Sheet|Printable Resource|Printable Type|Theme \/ Skill|Printable Page|Tracing Practice|Warm-Up Paths|Letter And Word Tracing|Child Work Space|Coloring Page|Picture Checklist|Color Key|Drawing And Coloring Space|Talk About It|Alphabet Practice Page|Find The Letter|Trace The Letter|Beginning Sound Words|Write Or Draw|Number Practice Page|Trace The Number|Count And Mark|Draw And Count|Compare|Shape Practice Page|Trace The Shapes|Shape Hunt|Make A Theme Picture With Shapes|Teacher Check|Name Writing Page|My Name|Trace My Name|Try My Name|Name Hunt|Cutting Practice Page|Provider Safety Check|Cutting Lines|Cut And Sort|Teacher Note|Matching Activity Page|Draw Lines To Match|Match Here|Make Your Own Match|Seasonal Worksheet Page|Weather Check|Seasonal Words|I Notice|Count And Color|Draw A Seasonal Picture|Holiday Worksheet Page|Holiday Vocabulary|Trace And Write|Count The Holiday Items|Draw Or Color|Teacher Notes|Printable Worksheet Page|Try It|Reflection \/ Teacher Note)$/;
+  const text = resource.category === "Lesson Plans" ? lessonPlanPrintableText(resource) : resourcePrintableText(resource);
+  const headingPattern = /^(Short Description|What Is Included|Who It Is For|How To Use It|Materials \/ Information Needed|ELG \/ Early Learning Standard Connections|Full Resource Content|Weekly Lesson Plan|Weekly Overview|Age Group Teaching Approach|Learning Objectives|Materials|Vocabulary|Monday - Introduce the Theme|Tuesday - Build Vocabulary and Concepts|Wednesday - Hands-On .+ Practice|Thursday - Creative Expression and Child Choice|Friday - Review, Document, and Connect Home|Related Activities|Differentiation and Supports|Child Support Connection|Provider Reflection|Observation Resource|Professional Observation Wording|What to Look For|Learning Standard Category|Evidence To Add|Next Steps|Editable Note|Follow-Up Planning|Purpose|Provider Instructions|Details \/ Notes|Weekly Daycare Menu|Shopping List|Provider Reminder|Setup|Steps|Learning Objective|Extension|Teacher Directions|Child Directions|Activity Ideas|Learning Goal|Provider Note|Printable Planning Notes|Daily Notes|Printable Observation Record|Additional Write-In Space|Checklist|Menu Notes|Shopping Notes|Activity Prep Sheet|Printable Resource|Printable Type|Theme \/ Skill|Printable Page|Tracing Practice|Warm-Up Paths|Letter And Word Tracing|Child Work Space|Coloring Page|Picture Checklist|Color Key|Drawing And Coloring Space|Talk About It|Alphabet Practice Page|Find The Letter|Trace The Letter|Beginning Sound Words|Write Or Draw|Number Practice Page|Trace The Number|Count And Mark|Draw And Count|Compare|Shape Practice Page|Trace The Shapes|Shape Hunt|Make A Theme Picture With Shapes|Teacher Check|Name Writing Page|My Name|Trace My Name|Try My Name|Name Hunt|Cutting Practice Page|Provider Safety Check|Cutting Lines|Cut And Sort|Teacher Note|Matching Activity Page|Draw Lines To Match|Match Here|Make Your Own Match|Seasonal Worksheet Page|Weather Check|Seasonal Words|I Notice|Count And Color|Draw A Seasonal Picture|Holiday Worksheet Page|Holiday Vocabulary|Trace And Write|Count The Holiday Items|Draw Or Color|Teacher Notes|Printable Worksheet Page|Try It|Reflection \/ Teacher Note)$/;
   const blocks = text.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
   const content = blocks.map((block, index) => {
     const lines = block.split("\n").map((line) => line.trimEnd()).filter((line) => line.length);
@@ -3704,6 +3708,128 @@ function decodedTextFileData(resource) {
   }
 }
 
+function lessonAgeApproach(age) {
+  const approaches = {
+    Infant: "Use short one-to-one or very small group moments, responsive language, safe floor play, repeated songs, picture cards, and sensory-safe materials. Keep activities brief and follow each baby's cues.",
+    Toddler: "Use short active lessons with choices, movement, repetition, naming, simple turn-taking, sensory exploration, and hands-on practice. Expect children to move in and out of the activity.",
+    Preschool: "Use small group discussion, hands-on investigation, early writing/drawing, counting, comparison, prediction, collaboration, and child-led extensions. Invite children to explain their thinking.",
+  };
+  return approaches[age] || approaches.Preschool;
+}
+
+function lessonAreaPractice(area, theme, age) {
+  const ageWord = String(age || "children").toLowerCase();
+  const themeWord = String(theme || "the theme").toLowerCase();
+  const practices = {
+    Cognitive: `${ageWord} learners sort, match, compare, remember routines, and solve simple problems using ${themeWord} pictures, props, and materials.`,
+    Language: `${ageWord} learners hear, repeat, point to, name, and use ${themeWord} words during songs, books, play, and teacher-child conversation.`,
+    Literacy: `${ageWord} learners explore books, pictures, print, storytelling, beginning sounds, mark making, and retelling connected to ${themeWord}.`,
+    "Social Emotional": `${ageWord} learners practice connection, confidence, feelings language, turn-taking, gentle touch, waiting, helping, and belonging through ${themeWord} routines.`,
+    "Fine Motor": `${ageWord} learners grasp, squeeze, place, stack, tear, trace, draw, turn pages, or use safe tools with ${themeWord} materials.`,
+    "Gross Motor": `${ageWord} learners crawl, walk, balance, reach, jump, stretch, dance, carry, or move like ${themeWord} items while practicing body control.`,
+    Science: `${ageWord} learners observe, ask questions, explore textures, notice changes, compare, and investigate safe ${themeWord} materials.`,
+    Math: `${ageWord} learners count, match, sort, compare size, notice patterns, use position words, and group ${themeWord} materials.`,
+    "Creative Arts": `${ageWord} learners create, move, sing, pretend, build, paint, collage, and use open-ended materials inspired by ${themeWord}.`,
+    "Self Help": `${ageWord} learners practice simple routines, clean-up, choices, independence, handwashing, dressing, transitions, and asking for help with ${themeWord} supports.`,
+  };
+  return practices[area] || practices.Cognitive;
+}
+
+function lessonThemeMaterials(theme) {
+  const words = themeVocabulary(theme).slice(0, 4);
+  return `${theme} picture cards or photos, ${words.join(", ")} props or labels, books, music, art paper, crayons, glue sticks, sensory-safe bin materials, blocks, manipulatives, dramatic play items, and one printable extension page.`;
+}
+
+function lessonVocabulary(theme, area) {
+  const words = themeVocabulary(theme).slice(0, 5);
+  const areaWords = {
+    Cognitive: ["same", "different", "match", "sort", "remember"],
+    Language: ["say", "listen", "name", "tell", "question"],
+    Literacy: ["book", "story", "letter", "picture", "print"],
+    "Social Emotional": ["feel", "help", "gentle", "turn", "friend"],
+    "Fine Motor": ["pinch", "trace", "place", "squeeze", "draw"],
+    "Gross Motor": ["move", "jump", "crawl", "balance", "stretch"],
+    Science: ["observe", "change", "texture", "compare", "wonder"],
+    Math: ["count", "more", "less", "shape", "pattern"],
+    "Creative Arts": ["create", "color", "music", "pretend", "design"],
+    "Self Help": ["try", "clean", "choose", "help", "independent"],
+  };
+  return [...new Set([theme, ...words, ...(areaWords[area] || areaWords.Cognitive)])].join(", ");
+}
+
+function lessonObjectives(resource, theme, area) {
+  const base = resource.learningObjectives || [
+    "Support developmental growth through play-based learning.",
+    "Build language, confidence, social connection, and participation.",
+    "Provide hands-on activities with simple materials.",
+  ];
+  return [
+    ...base,
+    lessonAreaPractice(area, theme, resource.age),
+    `Connect ${theme.toLowerCase()} learning to books, songs, sensory play, movement, art, and child-led exploration.`,
+  ];
+}
+
+function lessonDailyPlans(resource, theme, area) {
+  const age = resource.age || "Preschool";
+  const focus = resource.activityFocus || resource.tags.find((tag) => activityTypes.includes(tag)) || "Hands-on";
+  const ageSupport = {
+    Infant: {
+      intro: `Show one ${theme.toLowerCase()} photo or prop during floor play. Name it slowly and repeat the word while the child looks, reaches, babbles, or turns away.`,
+      small: `Offer two safe ${theme.toLowerCase()} objects or picture cards. Let the child touch, look, mouth safely if appropriate, or choose one item.`,
+      active: `Add a simple lap bounce, tummy-time reach, scarf movement, or gentle action song connected to ${theme.toLowerCase()}.`,
+      support: "Respond to eye gaze, gestures, sounds, smiles, reaching, or turning away. Stop and adjust when the child needs a break.",
+    },
+    Toddler: {
+      intro: `Introduce ${theme.toLowerCase()} with a short book, song, or real-life photo. Ask children to point, name, copy a sound, or choose a favorite item.`,
+      small: `Invite children to sort, carry, match, stack, scoop, draw, or place ${theme.toLowerCase()} materials with simple teacher support.`,
+      active: `Play a movement game where children move, freeze, crawl, jump, or pretend using ${theme.toLowerCase()} vocabulary.`,
+      support: "Offer two choices, model the first step, use repeated words, and allow movement breaks.",
+    },
+    Preschool: {
+      intro: `Begin with a ${theme.toLowerCase()} question, book, photo, or object. Invite children to predict, describe, compare, and share what they already know.`,
+      small: `Guide a small group task where children sort, count, draw, write, build, investigate, or explain an idea connected to ${theme.toLowerCase()}.`,
+      active: `Add a partner activity, dramatic play invitation, movement challenge, or open-ended art/science extension.`,
+      support: "Ask open-ended questions, document child language, and offer an added challenge for children who are ready.",
+    },
+  };
+  const support = ageSupport[age] || ageSupport.Preschool;
+  return `Monday - Introduce the Theme
+Circle Time: ${support.intro}
+Main Activity: Create a shared ${theme.toLowerCase()} anchor chart or display. Add child words, drawings, photos, or teacher notes as children participate.
+${area} Focus: ${lessonAreaPractice(area, theme, age)}
+Teacher Language: "I see you noticing ${theme.toLowerCase()}. What can we try next?"
+Observation Look-For: Watch for interest, participation, attention, gestures, words, choices, or attempts to use the material.
+
+Tuesday - Build Vocabulary and Concepts
+Circle Time: Sing a repeated song or fingerplay using ${theme.toLowerCase()} vocabulary. Pause so children can fill in a sound, motion, word, or gesture.
+Small Group: ${support.small}
+Printable or Table Activity: Use a simple ${theme.toLowerCase()} tracing, matching, counting, coloring, or drawing page. Keep support age-appropriate.
+Teacher Language: "You found one that is the same. Let's say the word together."
+Observation Look-For: Notice new words, pointing, matching, repeating, eye contact, turn-taking, or problem solving.
+
+Wednesday - Hands-On ${area} Practice
+Circle Time: Review two favorite words from the week and invite children to show, say, move, or draw an example.
+Small Group: ${lessonAreaPractice(area, theme, age)}
+${focus} Extension: Add blocks, art, sensory materials, dramatic play props, outdoor movement, or science tools so children can explore the idea in a new way.
+Teacher Language: "You tried another way. That is careful thinking."
+Observation Look-For: Document one clear example of ${area.toLowerCase()} development during play.
+
+Thursday - Creative Expression and Child Choice
+Circle Time: Revisit the theme book, song, photo, or prop. Invite children to choose what they want to explore again.
+Art / Sensory / Pretend Play: ${support.active}
+Choice Time: Let children repeat a favorite activity, use the materials in a new way, or work with a peer.
+Teacher Language: "Tell me about your work. I want to hear your idea."
+Observation Look-For: Watch for confidence, persistence, peer interaction, independent choices, and expressive language.
+
+Friday - Review, Document, and Connect Home
+Circle Time: Review the week with photos, child work, props, or a simple question: "What did we learn about ${theme.toLowerCase()}?"
+Small Group: Repeat the most successful activity and add one small challenge for children who are ready.
+Assessment Note: Record each child's participation, new vocabulary, developmental skill, support needed, and next step.
+Family Connection: Send home one ${theme.toLowerCase()} word, song, question, or simple activity families can try over the weekend.
+Teacher Reflection: ${support.support}`;
+}
+
 function resourceDownloadBody(resource) {
   const savedContent = resource.customContent || decodedTextFileData(resource);
   if (savedContent) {
@@ -3712,6 +3838,8 @@ function resourceDownloadBody(resource) {
   if (resource.category === "Lesson Plans") {
     const theme = resource.theme || resourceTheme(resource);
     const area = resourceFocus(resource);
+    const standards = resourceStandardConnections(resource);
+    const objectives = lessonObjectives(resource, theme, area);
     return `Weekly Lesson Plan
 Title: ${resource.title}
 Theme: ${resource.theme || resource.tags[0]}
@@ -3723,51 +3851,30 @@ Holiday: ${resource.holiday || "Non-Holiday"}
 Weekly Overview
 ${resource.weeklyOverview || resource.description}
 
+Age Group Teaching Approach
+${lessonAgeApproach(resource.age)}
+
 Learning Objectives
-${(resource.learningObjectives || [
-  "Support developmental growth through play-based learning.",
-  "Build language, confidence, social connection, and participation.",
-  "Provide hands-on activities with simple materials.",
-]).map((item) => `- ${item}`).join("\n")}
+${objectives.map((item) => `- ${item}`).join("\n")}
+
+ELG / Early Learning Standard Connections
+${standards}
 
 Materials
-${resource.materials || "Books, songs, art supplies, sensory materials, manipulatives, and simple printable pages."}
+${resource.materials || lessonThemeMaterials(theme)}
 
 Vocabulary
-${theme}, explore, look, listen, gentle, same, different, more, all done
+${lessonVocabulary(theme, area)}
 
-Monday - Introduce the Theme
-Circle Time: Show a picture, book, or object connected to ${theme}. Invite children to name, point, touch, or describe what they notice.
-Small Group: Sort two simple materials by color, size, texture, or type.
-Art/Sensory: Offer crayons, collage pieces, sensory tray items, or stamping connected to the theme.
-Teacher Language: "I see you looking closely. What do you notice?"
-
-Tuesday - Build Language
-Circle Time: Sing a repeated song or fingerplay using ${theme} vocabulary.
-Small Group: Match picture cards, objects, or simple props.
-Fine Motor: Tear paper, squeeze play dough, place stickers, use tongs, or trace lines connected to the theme.
-Teacher Language: "You found one that is the same. Let's say the word together."
-
-Wednesday - Hands-On Exploration
-Circle Time: Ask a simple question and let children respond with words, gestures, pointing, or movement.
-Sensory/Science: Explore safe textures, sounds, colors, or movement connected to ${theme}.
-Gross Motor: Add a movement game, obstacle path, animal walk, or action song.
-Teacher Language: "You tried again. That is problem solving."
-
-Thursday - Creative Expression
-Circle Time: Revisit the theme book or song and invite children to fill in a word or motion.
-Art: Create an open-ended project using theme colors, shapes, or materials.
-Pretend Play: Add props for dramatic play, conversation, and turn-taking.
-Teacher Language: "Tell me about your work."
-
-Friday - Review and Document
-Circle Time: Review favorite words, songs, pictures, or materials from the week.
-Small Group: Repeat the easiest activity and add one small challenge.
-Observation Note: Document one example of each child's ${area.toLowerCase()} growth.
-Family Connection: Send home one simple idea families can try over the weekend.
+${lessonDailyPlans(resource, theme, area)}
 
 Related Activities
 ${(resource.relatedActivities || ["Circle time", "Small group", "Printable extension"]).map((item) => `- ${item}`).join("\n")}
+
+Differentiation and Supports
+- Offer fewer materials, more modeling, shorter wait time, or one-to-one support for children who need extra help.
+- Add vocabulary, sorting, drawing, counting, writing, leadership, or peer-helper roles for children who are ready for more.
+- Adapt materials for allergies, sensory needs, motor access, communication supports, and family culture.
 
 Child Support Connection
 Use the Add Support button to document individualized accommodations, modifications, and support activities inside a child profile.
@@ -4055,6 +4162,7 @@ function createPdfDocumentBlob(pageStreams) {
 }
 
 function resourcePdfText(resource) {
+  if (resource.category === "Lesson Plans") return lessonPlanPrintableText(resource);
   return resourcePrintableText(resource);
 }
 
@@ -4110,7 +4218,7 @@ function buildTextResourcePdfBlob(resource) {
     const checkbox = /^\[\s?\]\s+/.test(original);
     const writingLine = original.includes("____");
     const bullet = /^(-|\*)\s+/.test(original);
-    const wrapped = wrapPdfText(original.replace(/^(-|\*)\s+/, "‚Ä¢ "), heading ? 58 : 92);
+    const wrapped = wrapPdfText(original.replace(/^(-|\*)\s+/, "- "), heading ? 58 : 92);
     if (heading) {
       ensureSpace(26);
       y -= 4;
