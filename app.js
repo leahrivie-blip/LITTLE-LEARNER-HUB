@@ -6362,6 +6362,7 @@ function resourceRecommendationScore(resource, areas) {
     resource.title,
     resource.category,
     resource.age,
+    resource.ageGroup,
     resource.description,
     resource.theme,
     resource.activityFocus,
@@ -6376,13 +6377,128 @@ function resourceRecommendationScore(resource, areas) {
   }, 0);
 }
 
-function portfolioResourcesFor(category, areas, limit = 4) {
+function normalizeAgeGroup(value) {
+  const text = String(value || "").toLowerCase();
+  if (text.includes("infant")) return "Infant";
+  if (text.includes("toddler")) return "Toddler";
+  if (text.includes("preschool")) return "Preschool";
+  if (text.includes("mixed")) return "Mixed Ages";
+  if (text.includes("all")) return "All Ages";
+  return "";
+}
+
+function resourceAgeGroup(resource) {
+  return normalizeAgeGroup(resource.age || resource.ageGroup || resource.group || resource.ages || "");
+}
+
+function resourceAgeTier(resource, childAgeGroup) {
+  const childAge = normalizeAgeGroup(childAgeGroup);
+  const resourceAge = resourceAgeGroup(resource);
+  if (!childAge) return resourceAge === "All Ages" ? 2 : 1;
+  if (resourceAge === childAge) return 1;
+  if (resourceAge === "All Ages" || resourceAge === "Mixed Ages") return 2;
+  return 3;
+}
+
+function resourceAreaMatchLevel(resource, areas) {
+  for (const area of areas) {
+    const areaText = String(area || "").toLowerCase();
+    if (!areaText) continue;
+    const primaryFields = [
+      resource.developmentalArea,
+      resource.title,
+    ].join(" ").toLowerCase();
+    if (primaryFields.includes(areaText)) return 4;
+  }
+  const haystack = [
+    resource.title,
+    resource.category,
+    resource.age,
+    resource.ageGroup,
+    resource.description,
+    resource.theme,
+    resource.activityFocus,
+    resource.developmentalArea,
+    ...(resource.tags || []),
+  ].join(" ").toLowerCase();
+  for (const area of areas) {
+    const areaText = String(area || "").toLowerCase();
+    if (areaText && haystack.includes(areaText)) return 3;
+  }
+  for (const area of areas) {
+    if (recommendationKeywordsForArea(area).some((keyword) => haystack.includes(keyword))) return 2;
+  }
+  return 0;
+}
+
+function ageAwareResourceMatches(category, areas, childAgeGroup) {
   return resources
     .filter((resource) => resource.category === category && resourceRecommendationScore(resource, areas) > 0)
-    .map((resource) => ({ resource, score: resourceRecommendationScore(resource, areas) }))
-    .sort((a, b) => b.score - a.score || a.resource.title.localeCompare(b.resource.title))
-    .slice(0, limit)
-    .map((item) => item.resource);
+    .map((resource) => ({
+      resource,
+      ageTier: resourceAgeTier(resource, childAgeGroup),
+      matchLevel: resourceAreaMatchLevel(resource, areas),
+      score: resourceRecommendationScore(resource, areas),
+    }))
+    .sort((a, b) => (
+      a.ageTier - b.ageTier
+      || b.matchLevel - a.matchLevel
+      || b.score - a.score
+      || a.resource.title.localeCompare(b.resource.title)
+  ));
+}
+
+function recommendationResourceLabel(category) {
+  const labels = {
+    "Activity Center": "activities",
+    "Lesson Plans": "lesson plans",
+    "Observation Hub": "observations",
+    Printables: "printables",
+    "Forms Library": "forms",
+    "Menu Center": "menus",
+  };
+  return labels[category] || "resources";
+}
+
+function portfolioResourcesFor(category, areas, childAgeGroup, limit = 4) {
+  const matches = ageAwareResourceMatches(category, areas, childAgeGroup);
+  const exactAgeExactArea = matches.filter((item) => item.ageTier === 1 && item.matchLevel >= 3);
+  const exactAgeRelatedArea = matches.filter((item) => item.ageTier === 1 && item.matchLevel > 0 && item.matchLevel < 3);
+  const exactAgeAnyArea = resources
+    .filter((resource) => resource.category === category && resourceAgeTier(resource, childAgeGroup) === 1)
+    .map((resource) => ({
+      resource,
+      ageTier: 1,
+      matchLevel: resourceAreaMatchLevel(resource, areas),
+      score: resourceRecommendationScore(resource, areas),
+    }))
+    .sort((a, b) => b.matchLevel - a.matchLevel || b.score - a.score || a.resource.title.localeCompare(b.resource.title));
+  const fallback = matches.filter((item) => item.ageTier > 1);
+  const selected = [
+    ...exactAgeExactArea,
+    ...exactAgeRelatedArea,
+    ...(!exactAgeExactArea.length && !exactAgeRelatedArea.length ? exactAgeAnyArea : []),
+    ...fallback,
+  ];
+  const seen = new Set();
+  const items = selected.filter((item) => {
+    if (seen.has(item.resource.id)) return false;
+    seen.add(item.resource.id);
+    return true;
+  });
+  const childAge = normalizeAgeGroup(childAgeGroup);
+  const primaryArea = areas[0] || "developmental";
+  const itemLabel = recommendationResourceLabel(category);
+  const exactAgeCount = exactAgeExactArea.length + exactAgeRelatedArea.length;
+  let note = "";
+  if (!exactAgeExactArea.length && exactAgeRelatedArea.length) {
+    note = `No ${childAge || "matching age"} ${primaryArea} ${itemLabel} found. Showing related ${childAge || "same-age"} ${itemLabel}.`;
+  } else if (!exactAgeCount && exactAgeAnyArea.length) {
+    note = `No ${childAge || "matching age"} ${primaryArea} ${itemLabel} found. Showing related ${childAge || "same-age"} ${itemLabel}.`;
+  } else if (!exactAgeCount && !exactAgeAnyArea.length && fallback.length) {
+    note = `No ${childAge || "matching age"} ${primaryArea} ${itemLabel} found. Showing age-neutral or fallback ${itemLabel}.`;
+  }
+  return { items: items.slice(0, limit).map((item) => item.resource), note };
 }
 
 function renderPortfolioResourceCard(resource) {
@@ -6397,10 +6513,13 @@ function renderPortfolioResourceCard(resource) {
   `;
 }
 
-function renderPortfolioRecommendationSection(title, items, fallbackItems = []) {
+function renderPortfolioRecommendationSection(title, result, fallbackItems = []) {
+  const items = Array.isArray(result) ? result : result.items || [];
+  const note = Array.isArray(result) ? "" : result.note || "";
   return `
     <div class="portfolio-recommendation-section">
       <h4>${escapeHtml(title)}</h4>
+      ${note ? `<p class="muted-copy">${escapeHtml(note)}</p>` : ""}
       ${items.length
         ? `<div class="portfolio-resource-grid">${items.map(renderPortfolioResourceCard).join("")}</div>`
         : `<p class="muted-copy">No exact library match yet. Suggested ideas:</p>${renderChipList(fallbackItems)}`
@@ -6413,14 +6532,21 @@ function renderRecommendedForChild(child, records, portfolio) {
   const areas = childRecommendationAreas(child, portfolio.goals, portfolio.observations);
   const primaryArea = areas[0] || "Whole Child Development";
   const displayArea = primaryArea.replace("Language & Literacy", "Speech and Language");
-  const activities = portfolioResourcesFor("Activity Center", areas);
-  const lessonPlans = portfolioResourcesFor("Lesson Plans", areas);
-  const observations = portfolioResourcesFor("Observation Hub", areas);
-  const printables = portfolioResourcesFor("Printables", areas);
-  const extraResources = resources
+  const childAge = normalizeAgeGroup(child.ageGroup) || child.ageGroup || "Age Group";
+  const activities = portfolioResourcesFor("Activity Center", areas, child.ageGroup);
+  const lessonPlans = portfolioResourcesFor("Lesson Plans", areas, child.ageGroup);
+  const observations = portfolioResourcesFor("Observation Hub", areas, child.ageGroup);
+  const printables = portfolioResourcesFor("Printables", areas, child.ageGroup);
+  const extraResources = {
+    items: resources
     .filter((resource) => !["Activity Center", "Lesson Plans", "Observation Hub", "Printables"].includes(resource.category))
     .filter((resource) => resourceRecommendationScore(resource, areas) > 0)
-    .slice(0, 4);
+      .map((resource) => ({ resource, ageTier: resourceAgeTier(resource, child.ageGroup), score: resourceRecommendationScore(resource, areas) }))
+      .sort((a, b) => a.ageTier - b.ageTier || b.score - a.score || a.resource.title.localeCompare(b.resource.title))
+      .slice(0, 4)
+      .map((item) => item.resource),
+    note: "",
+  };
   return `
     <section class="section-block portfolio-recommendations">
       <div class="section-heading">
@@ -6428,9 +6554,9 @@ function renderRecommendedForChild(child, records, portfolio) {
           <p class="eyebrow">Smart Goal Connections</p>
           <h3>Recommended For ${escapeHtml(child.name)}</h3>
         </div>
-        <span class="tag">${escapeHtml(displayArea)}</span>
+        <span class="tag">${escapeHtml(childAge)} | ${escapeHtml(displayArea)}</span>
       </div>
-      <p class="muted-copy">These matches update automatically from the child's active goals, recent observations, and developmental areas.</p>
+      <p class="muted-copy">These matches update automatically from the child's assigned age group, active goals, recent observations, and developmental areas.</p>
       ${renderPortfolioRecommendationSection(`Recommended ${displayArea} Activities`, activities, areas.flatMap(suggestedActivitiesForArea).slice(0, 6))}
       ${renderPortfolioRecommendationSection(`Recommended ${displayArea} Lesson Plans`, lessonPlans, areas.flatMap(suggestedLessonPlansForArea).slice(0, 6))}
       ${renderPortfolioRecommendationSection(`Recommended ${displayArea} Observations`, observations, areas.map((area) => `${area} observation wording`))}
