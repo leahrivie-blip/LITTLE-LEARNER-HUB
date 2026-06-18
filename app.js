@@ -270,6 +270,7 @@ const observationCategories = [
 ];
 const developmentalAreas = observationCategories;
 const weeklyObservationsPerChild = 3;
+const childDataKeys = ["Profiles", "Observations", "SupportPlans", "Goals", "Differentiations", "Attendance", "Meals", "Reports", "Communications"];
 const plannerDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 let selectedChildId = localStorage.getItem("llhSelectedChild") || "";
 let childObservationSearch = "";
@@ -280,6 +281,8 @@ let childPortfolioSearch = "";
 let childPortfolioAreaFilter = "All";
 let childPortfolioDateFilter = "";
 let activeObservationEditId = "";
+let childCloudSaveTimer = null;
+let childCloudSyncing = false;
 
 const futureTools = [
   {
@@ -5879,13 +5882,108 @@ function generateFutureToolOutput(toolId, data) {
   return generators[toolId](data);
 }
 
+function childStoreKey(key) {
+  return currentUser ? `llhChild:${currentUser}:${key}` : `llhChild${key}`;
+}
+
+function childCloudUpdatedKey() {
+  return currentUser ? `llhChild:${currentUser}:cloudUpdatedAt` : "llhChildCloudUpdatedAt";
+}
+
 function childStore(key, fallback = []) {
-  return readSavedJson(`llhChild${key}`, fallback);
+  const scopedKey = childStoreKey(key);
+  const scopedValue = localStorage.getItem(scopedKey);
+  if (scopedValue !== null) return readSavedJson(scopedKey, fallback);
+  if (currentUser) {
+    const legacyValue = localStorage.getItem(`llhChild${key}`);
+    if (legacyValue !== null) return readSavedJson(`llhChild${key}`, fallback);
+  }
+  return fallback;
+}
+
+function saveChildStoreLocalOnly(key, value) {
+  localStorage.setItem(childStoreKey(key), JSON.stringify(value));
+  localStorage.setItem(childCloudUpdatedKey(), new Date().toISOString());
+}
+
+function childDataSnapshot() {
+  return childDataKeys.reduce((snapshot, key) => {
+    snapshot[key] = childStore(key);
+    return snapshot;
+  }, {});
+}
+
+function childDataHasRecords(snapshot = childDataSnapshot()) {
+  return childDataKeys.some((key) => Array.isArray(snapshot[key]) && snapshot[key].length);
+}
+
+function applyChildDataSnapshot(snapshot = {}, updatedAt = "") {
+  childDataKeys.forEach((key) => {
+    saveChildStoreLocalOnly(key, Array.isArray(snapshot[key]) ? snapshot[key] : []);
+  });
+  if (updatedAt) localStorage.setItem(childCloudUpdatedKey(), updatedAt);
+  const records = childRecords();
+  if (!selectedChildId || !records.children.some((child) => child.id === selectedChildId)) {
+    selectedChildId = records.children[0]?.id || "";
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+  }
+}
+
+async function firebaseAuthHeaders() {
+  if (!firebaseAuthEnabled || !currentUser) return null;
+  const client = await getFirebaseAuthClient();
+  const token = await client.auth.currentUser?.getIdToken();
+  return token ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } : null;
+}
+
+async function saveChildDataToBackend() {
+  if (!currentUser || childCloudSyncing) return;
+  const headers = await firebaseAuthHeaders();
+  if (!headers) return;
+  await fetch("/api/child-data", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ data: childDataSnapshot() }),
+  });
+}
+
+function queueChildDataCloudSave() {
+  if (!currentUser || !firebaseAuthEnabled) return;
+  clearTimeout(childCloudSaveTimer);
+  childCloudSaveTimer = setTimeout(() => {
+    saveChildDataToBackend().catch((error) => console.warn("Child data cloud save did not complete", error));
+  }, 700);
+}
+
+async function syncChildDataFromBackend(options = {}) {
+  if (!currentUser || !firebaseAuthEnabled || childCloudSyncing) return;
+  const headers = await firebaseAuthHeaders();
+  if (!headers) return;
+  childCloudSyncing = true;
+  try {
+    const response = await fetch("/api/child-data", { headers });
+    if (!response.ok) return;
+    const remote = await response.json();
+    const localUpdatedAt = localStorage.getItem(childCloudUpdatedKey()) || "";
+    if (remote?.data && (!localUpdatedAt || String(remote.updatedAt || "") > localUpdatedAt || !childDataHasRecords())) {
+      applyChildDataSnapshot(remote.data, remote.updatedAt);
+    } else if (!remote?.data && childDataHasRecords()) {
+      await saveChildDataToBackend();
+    }
+    if (options.render && document.querySelector("#view-children")?.classList.contains("active-view")) {
+      renderChildManagement();
+    }
+  } catch (error) {
+    console.warn("Child data cloud sync did not complete", error);
+  } finally {
+    childCloudSyncing = false;
+  }
 }
 
 function saveChildStore(key, value) {
-  localStorage.setItem(`llhChild${key}`, JSON.stringify(value));
+  saveChildStoreLocalOnly(key, value);
   updateSidebarDashboard();
+  queueChildDataCloudSave();
 }
 
 function childRecords() {
@@ -10561,6 +10659,7 @@ document.querySelector("#authForm").addEventListener("submit", async (event) => 
         selectedPlanAtSignup: currentPlan,
       });
       await syncSubscriptionFromBackend(result.email);
+      await syncChildDataFromBackend();
       trackEvent("account_signup_complete", { email: result.email, plan: currentPlan, source: trafficSource() });
       setFormMessage("#authMessage", result.message || "Account created.", true);
     } else {
@@ -10568,6 +10667,7 @@ document.querySelector("#authForm").addEventListener("submit", async (event) => 
       loadAccountState(result.email);
       markAccountLogin(result.email);
       await syncSubscriptionFromBackend(result.email);
+      await syncChildDataFromBackend();
       trackEvent("account_login_complete", { email: result.email, plan: currentPlan });
     }
     closeAuthModal();
@@ -10975,6 +11075,7 @@ async function initializeAppView() {
   if (handledCheckoutReturn) return;
   if (currentUser) {
     await syncSubscriptionFromBackend(currentUser, { renderFounding: true });
+    await syncChildDataFromBackend({ render: true });
   }
   await syncFoundingStatus({ render: true });
   const initialView = initialViewFromLocation();
