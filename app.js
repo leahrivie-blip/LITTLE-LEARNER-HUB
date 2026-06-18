@@ -258,7 +258,18 @@ const quickPrompts = [
   "Create an incident report form.",
 ];
 
-const developmentalAreas = ["Cognitive", "Language", "Literacy", "Social Emotional", "Fine Motor", "Gross Motor", "Science", "Math", "Creative Arts", "Self Help"];
+const observationCategories = [
+  "Social Emotional",
+  "Language & Literacy",
+  "Cognitive Development",
+  "Fine Motor",
+  "Gross Motor",
+  "Physical Development",
+  "Creative Arts",
+  "Approaches to Learning",
+];
+const developmentalAreas = observationCategories;
+const weeklyObservationsPerChild = 3;
 const plannerDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 let selectedChildId = localStorage.getItem("llhSelectedChild") || "";
 let childObservationSearch = "";
@@ -1480,7 +1491,7 @@ function buildPrintableLibrary() {
 
 const accessRank = { Free: 0, Founding: 1, Pro: 1, Premium: 2 };
 const foundingMemberLimit = 50;
-const foundingPublicClaimedBase = 15;
+const foundingPublicClaimedBase = 4;
 let foundingStatusCache = {
   limit: foundingMemberLimit,
   claimed: foundingPublicClaimedBase,
@@ -1529,7 +1540,7 @@ const stripeCheckoutConfig = {
   customerPortalEndpoint: "/api/create-customer-portal-session",
   subscriptionStatusEndpoint: "/api/subscription-status",
   checkoutStatusEndpoint: "/api/checkout-status",
-  foundingStatusEndpoint: "/api/stripe-readiness",
+  foundingStatusEndpoint: "/api/founding-status",
 };
 const aiGenerationConfig = {
   endpoint: "/api/ai-generate",
@@ -2130,6 +2141,19 @@ const searchInput = document.querySelector("#searchInput");
 const currentPlanLabel = document.querySelector("#currentPlanLabel");
 const homeViewTemplate = document.querySelector("#view-home").innerHTML;
 const mobileNavMaxWidth = 820;
+const sidebarViewAliases = {
+  goals: "children",
+  portfolio: "tools",
+  reports: "children",
+  favorites: "account",
+  membership: "billing",
+  settings: "account",
+  help: "contact",
+};
+
+function resolveSidebarView(view) {
+  return sidebarViewAliases[view] || view;
+}
 
 function isMobileLayout() {
   return window.matchMedia(`(max-width: ${mobileNavMaxWidth}px)`).matches;
@@ -2476,35 +2500,38 @@ function canSeeAdminNav() {
 }
 
 function setView(view) {
-  if (view === "tools" && !isProUser()) {
+  const requestedView = view;
+  const resolvedView = resolveSidebarView(view);
+  if (resolvedView === "tools" && !isProUser()) {
     showProFeatureModal("Provider business tools are Pro features.");
     return;
   }
   document.querySelectorAll(".view").forEach((section) => section.classList.remove("active-view"));
-  document.querySelector(`#view-${view}`)?.classList.add("active-view");
+  document.querySelector(`#view-${resolvedView}`)?.classList.add("active-view");
   document.querySelectorAll(".nav-link").forEach((button) => {
-    button.classList.toggle("active", button.dataset.view === view);
+    button.classList.toggle("active", button.dataset.view === requestedView);
   });
-  if (viewMap[view]) renderCategoryPage(view);
-  if (view === "home") renderHome();
-  if (view === "admin") renderAdminDashboard();
-  if (view === "account") renderAccountPage();
-  if (view === "plans") renderPricingPage();
-  if (view === "upgrade") renderUpgradePage();
-  if (view === "billing") renderBillingPage();
-  if (view === "subscription") renderSubscriptionPage();
-  if (view === "billing-history") renderBillingHistoryPage();
-  if (view === "payment-success") renderPaymentSuccessPage();
-  if (view === "payment-failed") renderPaymentFailedPage();
-  if (view === "cancel-subscription") renderCancelSubscriptionPage();
-  if (view === "reset-password") renderResetPasswordPage();
-  if (view === "contact") renderContactPage();
-  if (view === "ai") renderAiPage();
-  if (view === "generators") renderGeneratorWorkspace("lesson");
-  if (view === "tools") renderFutureTools();
-  if (view === "children") renderChildManagement();
-  if (view === "planner") renderWeeklyPlanner();
-  trackEvent("page_view", { view });
+  if (viewMap[resolvedView]) renderCategoryPage(resolvedView);
+  if (resolvedView === "home") renderHome();
+  if (resolvedView === "admin") renderAdminDashboard();
+  if (resolvedView === "account") renderAccountPage();
+  if (resolvedView === "plans") renderPricingPage();
+  if (resolvedView === "upgrade") renderUpgradePage();
+  if (resolvedView === "billing") renderBillingPage();
+  if (resolvedView === "subscription") renderSubscriptionPage();
+  if (resolvedView === "billing-history") renderBillingHistoryPage();
+  if (resolvedView === "payment-success") renderPaymentSuccessPage();
+  if (resolvedView === "payment-failed") renderPaymentFailedPage();
+  if (resolvedView === "cancel-subscription") renderCancelSubscriptionPage();
+  if (resolvedView === "reset-password") renderResetPasswordPage();
+  if (resolvedView === "contact") renderContactPage();
+  if (resolvedView === "ai") renderAiPage();
+  if (resolvedView === "generators") renderGeneratorWorkspace("lesson");
+  if (resolvedView === "tools") renderFutureTools();
+  if (resolvedView === "children") renderChildManagement();
+  if (resolvedView === "planner") renderWeeklyPlanner();
+  trackEvent("page_view", { view: resolvedView, nav: requestedView });
+  updateSidebarDashboard();
   if (!isMobileLayout()) window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -5406,7 +5433,7 @@ function categoryIntro(category) {
 }
 
 function renderHome() {
-  if (!document.querySelector("#categoryGrid")) {
+  if (!document.querySelector("#homeFoundingOffer")) {
     document.querySelector("#view-home").innerHTML = homeViewTemplate;
   }
   const stats = {
@@ -5424,16 +5451,20 @@ function renderHome() {
       <div><strong>${stats.downloads}</strong><span>in-app resources</span></div>
     `;
   }
-  document.querySelector("#categoryGrid").innerHTML = categories.map((category) => `
-    <button class="category-button" data-view="${category.view}">
-      <span class="icon">${category.icon}</span>
-      <strong>${category.title}</strong>
-      <span>${category.detail}</span>
-    </button>
-  `).join("");
+  const categoryGrid = document.querySelector("#categoryGrid");
+  if (categoryGrid) {
+    categoryGrid.innerHTML = categories.map((category) => `
+      <button class="category-button" data-view="${category.view}">
+        <span class="icon">${category.icon}</span>
+        <strong>${category.title}</strong>
+        <span>${category.detail}</span>
+      </button>
+    `).join("");
+  }
 
   const newItems = resources.filter((resource) => resource.month === "June").slice(0, 4);
-  document.querySelector("#newThisMonth").innerHTML = newItems.map(compactItem).join("");
+  const newThisMonth = document.querySelector("#newThisMonth");
+  if (newThisMonth) newThisMonth.innerHTML = newItems.map(compactItem).join("");
   renderHomeFoundingOffer();
   renderPreviewLibrary();
   renderFavorites();
@@ -5471,6 +5502,7 @@ function weeklyPlanner() {
 
 function saveWeeklyPlanner(planner) {
   localStorage.setItem("llhWeeklyPlanner", JSON.stringify(planner));
+  updateSidebarDashboard();
 }
 
 function plannerSuggestions(planner) {
@@ -5834,6 +5866,7 @@ function childStore(key, fallback = []) {
 
 function saveChildStore(key, value) {
   localStorage.setItem(`llhChild${key}`, JSON.stringify(value));
+  updateSidebarDashboard();
 }
 
 function childRecords() {
@@ -5874,6 +5907,238 @@ function isThisWeek(dateText) {
   return date >= start && date < end;
 }
 
+function calculateAgeFromDob(dob) {
+  if (!dob) return "";
+  const birthDate = new Date(`${dob}T12:00:00`);
+  if (Number.isNaN(birthDate.getTime())) return "";
+  const today = new Date();
+  let years = today.getFullYear() - birthDate.getFullYear();
+  let months = today.getMonth() - birthDate.getMonth();
+  if (today.getDate() < birthDate.getDate()) months -= 1;
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+  if (years <= 0) return `${Math.max(months, 0)} months`;
+  return months ? `${years} yr ${months} mo` : `${years} yr`;
+}
+
+function childAgeLabel(child) {
+  return child.age || calculateAgeFromDob(child.dob) || "Age not entered";
+}
+
+function categoryKeywords() {
+  return {
+    "Social Emotional": ["friend", "share", "turn", "feeling", "emotion", "calm", "comfort", "self-regulation", "cooperate", "help", "peer", "independent"],
+    "Language & Literacy": ["word", "talk", "said", "sentence", "book", "story", "letter", "sound", "name", "sing", "rhyme", "vocabulary", "listen"],
+    "Cognitive Development": ["count", "number", "sort", "match", "pattern", "problem", "solve", "shape", "color", "compare", "classify", "remember"],
+    "Fine Motor": ["scissor", "cut", "trace", "draw", "write", "grasp", "pinch", "bead", "stack", "puzzle", "tool", "crayon", "tweezer"],
+    "Gross Motor": ["run", "jump", "hop", "climb", "balance", "throw", "catch", "crawl", "dance", "march", "kick"],
+    "Physical Development": ["body", "health", "wash", "toilet", "potty", "feed", "dress", "sleep", "safety", "nutrition", "self-help"],
+    "Creative Arts": ["paint", "color", "music", "song", "dance", "pretend", "dramatic", "art", "create", "instrument", "collage"],
+    "Approaches to Learning": ["try", "persist", "focus", "curious", "explore", "choice", "attention", "plan", "ask", "experiment", "engage"],
+  };
+}
+
+function normalizeObservationArea(area) {
+  const text = String(area || "").toLowerCase();
+  if (text.includes("language") || text.includes("literacy")) return "Language & Literacy";
+  if (text.includes("cognitive") || text.includes("math") || text.includes("science")) return "Cognitive Development";
+  if (text.includes("social")) return "Social Emotional";
+  if (text.includes("fine")) return "Fine Motor";
+  if (text.includes("gross")) return "Gross Motor";
+  if (text.includes("physical") || text.includes("self")) return "Physical Development";
+  if (text.includes("creative") || text.includes("art")) return "Creative Arts";
+  if (text.includes("approach")) return "Approaches to Learning";
+  return "";
+}
+
+function categorizeObservation(text = "", selectedArea = "") {
+  const lower = `${text} ${selectedArea}`.toLowerCase();
+  const selected = normalizeObservationArea(selectedArea);
+  const matches = observationCategories.filter((category) => {
+    if (category === selected) return true;
+    return (categoryKeywords()[category] || []).some((keyword) => lower.includes(keyword));
+  });
+  return matches.length ? Array.from(new Set(matches)) : [selected || "Approaches to Learning"];
+}
+
+function elgConnection(area) {
+  const map = {
+    "Social Emotional": ["Social & Emotional Development", "Relationships, feelings, self-regulation, and cooperative play"],
+    "Language & Literacy": ["Communication, Language & Literacy", "Listening, speaking, vocabulary, books, early writing, and print awareness"],
+    "Cognitive Development": ["Cognitive Development", "Problem solving, memory, math thinking, science inquiry, and early reasoning"],
+    "Fine Motor": ["Physical Development", "Hand strength, grasp, coordination, tool use, and early writing control"],
+    "Gross Motor": ["Physical Development", "Balance, coordination, movement, strength, and spatial awareness"],
+    "Physical Development": ["Physical Development & Health", "Healthy routines, safety, self-help skills, and body awareness"],
+    "Creative Arts": ["Creative Arts", "Music, movement, pretend play, visual art, and creative expression"],
+    "Approaches to Learning": ["Approaches to Learning", "Curiosity, persistence, attention, flexibility, and problem solving"],
+  };
+  const [domain, skill] = map[area] || map["Approaches to Learning"];
+  return { domain, skill };
+}
+
+function strengthForArea(area, childName = "The child") {
+  const map = {
+    "Social Emotional": `${childName} is building confidence, connection, and self-regulation through daily interactions.`,
+    "Language & Literacy": `${childName} is strengthening communication, vocabulary, listening, and early literacy skills.`,
+    "Cognitive Development": `${childName} is showing growing thinking skills, problem solving, matching, sorting, or number understanding.`,
+    "Fine Motor": `${childName} is developing hand strength, coordination, grasp, and control with materials.`,
+    "Gross Motor": `${childName} is practicing balance, coordination, strength, and whole-body movement.`,
+    "Physical Development": `${childName} is building independence, healthy routines, safety awareness, and body control.`,
+    "Creative Arts": `${childName} is exploring ideas through art, music, movement, pretend play, and creative choices.`,
+    "Approaches to Learning": `${childName} is showing curiosity, persistence, focus, and willingness to try new things.`,
+  };
+  return map[area] || map["Approaches to Learning"];
+}
+
+function nextStepForArea(area) {
+  const map = {
+    "Social Emotional": "Offer small-group turn-taking games, feeling words, and gentle coaching during peer play.",
+    "Language & Literacy": "Add repeated books, picture cards, songs, and open-ended questions to extend language.",
+    "Cognitive Development": "Introduce a slightly harder counting, sorting, matching, or problem-solving activity.",
+    "Fine Motor": "Provide playdough, tongs, tracing, stickers, beading, or safe cutting practice.",
+    "Gross Motor": "Plan movement games with balance, jumping, climbing, crawling, or obstacle-course practice.",
+    "Physical Development": "Practice daily routines with visual steps, modeling, and simple independence goals.",
+    "Creative Arts": "Offer open-ended art, music, movement, pretend play, and child-led creative choices.",
+    "Approaches to Learning": "Repeat the activity with one new challenge and praise persistence, focus, and problem solving.",
+  };
+  return map[area] || map["Approaches to Learning"];
+}
+
+function suggestedActivitiesForArea(area) {
+  const map = {
+    "Social Emotional": ["Feelings faces", "Partner turn-taking game", "Friendship helper chart", "Calm-down basket"],
+    "Language & Literacy": ["Picture card naming", "Story retell basket", "Rhyming songs", "Name and letter hunt"],
+    "Cognitive Development": ["Number matching", "Counting bears", "Sorting games", "Pattern blocks"],
+    "Fine Motor": ["Playdough", "Bead stringing", "Scissor practice", "Tracing sheets"],
+    "Gross Motor": ["Obstacle course", "Animal walks", "Beanbag toss", "Balance line"],
+    "Physical Development": ["Handwashing sequence", "Dressing practice", "Healthy food sort", "Safety picture cards"],
+    "Creative Arts": ["Process art tray", "Music and movement", "Pretend play props", "Collage station"],
+    "Approaches to Learning": ["Mystery box exploration", "Build-and-try challenge", "Choice board", "Problem-solving puzzle"],
+  };
+  return map[area] || map["Approaches to Learning"];
+}
+
+function suggestedLessonPlansForArea(area) {
+  const map = {
+    "Social Emotional": ["Friendship and Feelings Week", "Turn-Taking Practice Activities", "Calm Bodies and Kind Words"],
+    "Language & Literacy": ["Storytelling and Vocabulary Week", "Letter and Sound Awareness", "Book Basket Conversation Plans"],
+    "Cognitive Development": ["Math Skills Week 1", "Number Recognition Activities", "Sorting and Matching Week"],
+    "Fine Motor": ["Fine Motor Development", "Cutting Practice Activities", "Hand Strength Activities"],
+    "Gross Motor": ["Movement and Balance Week", "Outdoor Gross Motor Games", "Body Control Activities"],
+    "Physical Development": ["Healthy Routines Week", "Self-Help Skills Practice", "Safety and Body Awareness"],
+    "Creative Arts": ["Creative Expression Week", "Music and Movement Activities", "Process Art Exploration"],
+    "Approaches to Learning": ["Curiosity and Problem Solving", "Persistence Practice Activities", "Explore, Try, Reflect Week"],
+  };
+  return map[area] || map["Approaches to Learning"];
+}
+
+function observationAnalysis(record, child = {}) {
+  const categories = categorizeObservation(record.text, record.area);
+  const primaryArea = categories[0] || "Approaches to Learning";
+  const childName = child.name || "The child";
+  const elg = elgConnection(primaryArea);
+  return {
+    categories,
+    primaryArea,
+    developmentArea: primaryArea,
+    strengths: record.strengths || strengthForArea(primaryArea, childName),
+    nextSteps: record.nextSteps || nextStepForArea(primaryArea),
+    suggestedActivities: record.suggestedActivities || suggestedActivitiesForArea(primaryArea),
+    suggestedLessonPlans: record.suggestedLessonPlans || suggestedLessonPlansForArea(primaryArea),
+    elgDomain: record.elgDomain || elg.domain,
+    elgSkill: record.elgSkill || elg.skill,
+  };
+}
+
+function enrichObservationRecord(record, child = {}) {
+  const analysis = observationAnalysis(record, child);
+  return {
+    ...record,
+    area: analysis.primaryArea,
+    categories: analysis.categories,
+    developmentArea: analysis.developmentArea,
+    strengths: analysis.strengths,
+    nextSteps: analysis.nextSteps,
+    suggestedActivities: analysis.suggestedActivities,
+    suggestedLessonPlans: analysis.suggestedLessonPlans,
+    elgDomain: analysis.elgDomain,
+    elgSkill: analysis.elgSkill,
+  };
+}
+
+function weeklyObservationStats(records = childRecords()) {
+  const thisWeekObservations = records.observations.filter((item) => isThisWeek(item.date));
+  const byChild = new Map(records.children.map((child) => [child.id, 0]));
+  thisWeekObservations.forEach((item) => byChild.set(item.childId, (byChild.get(item.childId) || 0) + 1));
+  const totalNeeded = records.children.length * weeklyObservationsPerChild;
+  const completed = Math.min(thisWeekObservations.length, totalNeeded);
+  const percent = totalNeeded ? Math.min(100, Math.round((completed / totalNeeded) * 100)) : 0;
+  const missingChildren = records.children.filter((child) => (byChild.get(child.id) || 0) < weeklyObservationsPerChild);
+  const completedChildren = records.children.filter((child) => (byChild.get(child.id) || 0) >= weeklyObservationsPerChild);
+  return { thisWeekObservations, byChild, totalNeeded, completed, percent, missingChildren, completedChildren };
+}
+
+function goalProgressPercent(progress) {
+  const text = String(progress || "").toLowerCase();
+  const number = Number(text.match(/\d+/)?.[0] || "");
+  if (!Number.isNaN(number) && number >= 0) return Math.min(100, number);
+  if (text.includes("complete")) return 100;
+  if (text.includes("improving")) return 75;
+  if (text.includes("progress")) return 50;
+  if (text.includes("started")) return 25;
+  return 0;
+}
+
+function childSupportAreas(childId, records = childRecords()) {
+  const observations = records.observations.filter((item) => item.childId === childId).slice(-6);
+  const goals = records.goals.filter((item) => item.childId === childId && goalProgressPercent(item.progress) < 100);
+  const areas = [...goals.map((goal) => normalizeObservationArea(goal.area) || goal.area), ...observations.map((item) => item.developmentArea || item.area)];
+  return Array.from(new Set(areas.filter(Boolean))).slice(0, 4);
+}
+
+function connectedObservationsForGoal(goal, records = childRecords()) {
+  const goalArea = normalizeObservationArea(goal.area) || goal.area;
+  return records.observations.filter((item) => item.childId === goal.childId && (item.categories || [item.area]).includes(goalArea));
+}
+
+function renderChipList(items = []) {
+  return `<div class="chip-list">${items.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>`;
+}
+
+function renderWeeklyPlanningDashboard(records, stats) {
+  const activeGoals = records.goals.filter((goal) => goalProgressPercent(goal.progress) < 100);
+  const supportChildren = records.children.filter((child) => stats.missingChildren.some((item) => item.id === child.id) || activeGoals.some((goal) => goal.childId === child.id));
+  const activeAreas = Array.from(new Set([
+    ...activeGoals.map((goal) => normalizeObservationArea(goal.area) || goal.area),
+    ...stats.thisWeekObservations.map((item) => item.developmentArea || item.area),
+  ].filter(Boolean))).slice(0, 3);
+  const lessonPlans = (activeAreas.length ? activeAreas : ["Fine Motor"]).flatMap(suggestedLessonPlansForArea).slice(0, 5);
+  const activities = (activeAreas.length ? activeAreas : ["Fine Motor"]).flatMap(suggestedActivitiesForArea).slice(0, 6);
+  return `
+    <section class="section-block weekly-planning-dashboard">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">This Week</p>
+          <h3>Weekly Planning Dashboard</h3>
+        </div>
+        <span class="tag">${stats.percent}% complete</span>
+      </div>
+      <div class="planning-dashboard-grid">
+        <article><strong>${Math.max(stats.totalNeeded - stats.completed, 0)}</strong><span>observations due</span></article>
+        <article><strong>${supportChildren.length}</strong><span>children needing support</span></article>
+        <article><strong>${activeGoals.length}</strong><span>active goals</span></article>
+        <article><strong>${stats.completed}/${stats.totalNeeded}</strong><span>observation completion rate</span></article>
+      </div>
+      <div class="recommendation-grid">
+        <div><strong>Recommended Lesson Plans</strong>${renderChipList(lessonPlans)}</div>
+        <div><strong>Recommended Activities</strong>${renderChipList(activities)}</div>
+      </div>
+    </section>
+  `;
+}
+
 function lastObservationDate(childId, observations = childRecords().observations) {
   const dates = observations.filter((item) => item.childId === childId).map((item) => item.date).filter(Boolean).sort();
   return dates.length ? dates[dates.length - 1] : "None yet";
@@ -5905,14 +6170,11 @@ function renderChildManagement() {
   const records = childRecords();
   if (!selectedChildId && records.children[0]) selectedChildId = records.children[0].id;
   const child = selectedChild(records);
-  const weeklyCompletedIds = new Set(records.observations.filter((item) => isThisWeek(item.date)).map((item) => item.childId));
-  const completedChildren = records.children.filter((item) => weeklyCompletedIds.has(item.id));
-  const stillNeedChildren = records.children.filter((item) => !weeklyCompletedIds.has(item.id));
-  const weeklyPercent = records.children.length ? Math.round((completedChildren.length / records.children.length) * 100) : 0;
+  const weeklyStats = weeklyObservationStats(records);
   const childObservations = child ? records.observations.filter((item) => item.childId === child.id) : [];
   const filteredObservations = childObservations.filter((item) => {
-    const matchesSearch = [item.text, item.area, item.nextSteps].join(" ").toLowerCase().includes(childObservationSearch.toLowerCase());
-    const matchesArea = childObservationAreaFilter === "All" || item.area === childObservationAreaFilter;
+    const matchesSearch = [item.text, item.area, item.nextSteps, item.strengths, ...(item.categories || [])].join(" ").toLowerCase().includes(childObservationSearch.toLowerCase());
+    const matchesArea = childObservationAreaFilter === "All" || item.area === childObservationAreaFilter || (item.categories || []).includes(childObservationAreaFilter);
     const matchesDate = !childObservationDateFilter || item.date === childObservationDateFilter;
     return matchesSearch && matchesArea && matchesDate;
   });
@@ -5921,23 +6183,24 @@ function renderChildManagement() {
     <section class="child-dashboard">
       <div class="home-stats">
         <div><strong>${records.children.length}</strong><span>children enrolled</span></div>
-        <div><strong>${completedChildren.length}</strong><span>observations this week</span></div>
-        <div><strong>${stillNeedChildren.length}</strong><span>still need observations</span></div>
-        <div><strong>${weeklyPercent}%</strong><span>weekly progress</span></div>
+        <div><strong>${weeklyStats.completed}</strong><span>observations completed this week</span></div>
+        <div><strong>${weeklyStats.totalNeeded}</strong><span>observations needed</span></div>
+        <div><strong>${weeklyStats.percent}%</strong><span>weekly progress</span></div>
       </div>
       <div class="section-block">
         <div class="section-heading">
           <div>
             <p class="eyebrow">Weekly Observation Progress</p>
-            <h3>${completedChildren.length} of ${records.children.length} children completed</h3>
+            <h3>Observations Completed: ${weeklyStats.completed}/${weeklyStats.totalNeeded}</h3>
           </div>
         </div>
-        <div class="progress-bar"><span style="width:${weeklyPercent}%"></span></div>
+        <div class="progress-bar"><span style="width:${weeklyStats.percent}%"></span></div>
         <div class="weekly-lists">
-          <div><strong>Completed</strong><p>${completedChildren.length ? completedChildren.map((item) => item.name).join(", ") : "None yet"}</p></div>
-          <div><strong>Still Need</strong><p>${stillNeedChildren.length ? stillNeedChildren.map((item) => item.name).join(", ") : "All children have an observation this week."}</p></div>
+          <div><strong>Completed</strong><p>${weeklyStats.completedChildren.length ? weeklyStats.completedChildren.map((item) => `${item.name} (${weeklyStats.byChild.get(item.id) || 0}/${weeklyObservationsPerChild})`).join(", ") : "No child has reached the weekly target yet."}</p></div>
+          <div><strong>Children Needing Observations</strong><p>${weeklyStats.missingChildren.length ? weeklyStats.missingChildren.map((item) => `${item.name} (${weeklyStats.byChild.get(item.id) || 0}/${weeklyObservationsPerChild})`).join(", ") : "All children have enough observations this week."}</p></div>
         </div>
       </div>
+      ${renderWeeklyPlanningDashboard(records, weeklyStats)}
     </section>
 
     <section class="child-layout">
@@ -5951,14 +6214,17 @@ function renderChildManagement() {
         <form id="childProfileForm" class="mini-form">
           <input name="id" type="hidden" />
           <label>Child Name<input name="name" required placeholder="Emma" /></label>
-          <label>Age Group<select name="ageGroup"><option>Infant</option><option>Toddler</option><option>Preschool</option></select></label>
           <label>Date of Birth<input name="dob" type="date" /></label>
+          <label>Age<input name="age" placeholder="2 years 4 months" /></label>
           <label>Enrollment Date<input name="enrollmentDate" type="date" /></label>
+          <label>Classroom/Age Group<select name="ageGroup"><option>Infant</option><option>Toddler</option><option>Preschool</option><option>Mixed Ages</option><option>School Age</option></select></label>
+          <label>Classroom / Group Name<input name="classroom" placeholder="Toddler Room or Home Daycare" /></label>
           <label>Parent/Guardian Information<textarea name="parentInfo" rows="2" placeholder="Name, phone, email"></textarea></label>
           <label>Emergency Contacts<textarea name="emergency" rows="2" placeholder="Emergency contacts"></textarea></label>
           <label>Allergies<textarea name="allergies" rows="2" placeholder="Allergies"></textarea></label>
           <label>Medical Notes<textarea name="medical" rows="2" placeholder="Medical notes"></textarea></label>
           <label>Child Photo<input name="photo" type="file" accept="image/*" /></label>
+          <label>Active Goals<textarea name="activeGoals" rows="2" placeholder="Expressive language, fine motor, social emotional support"></textarea></label>
           <label>Additional Notes<textarea name="notes" rows="2" placeholder="Anything helpful"></textarea></label>
           <button class="primary-button" type="submit">Save Child</button>
           ${!isProUser() ? `<p class="form-note">Free plan includes up to ${freeChildProfileLimit} child profiles.</p>` : ""}
@@ -5996,11 +6262,15 @@ function renderChildProfile(child, records, filteredObservations) {
       <div>
         <p class="eyebrow">Child Profile</p>
         <h3>${child.name}</h3>
-        <p>${child.ageGroup} ¬∑ Last observation: ${lastObservationDate(child.id, records.observations)}</p>
+        <p>${child.ageGroup || "Age group not entered"} ¬∑ ${childAgeLabel(child)} ¬∑ Last observation: ${lastObservationDate(child.id, records.observations)}</p>
+        <p>${child.classroom ? `Classroom/Group: ${child.classroom}` : "Classroom/group not entered."}</p>
+        <p>${child.activeGoals ? `Active Goals: ${child.activeGoals}` : "No active goals listed yet."}</p>
         <p>${child.allergies ? `Allergies: ${child.allergies}` : "No allergies listed."}</p>
       </div>
       <button class="ghost-button" ${isProUser() ? `data-export-portfolio="${child.id}"` : `data-pro-feature="child-portfolios"`} type="button">Export Portfolio</button>
     </div>
+
+    ${renderChildPlanningConnections(child, records, observations, goals)}
 
     <div class="child-profile-grid">
       <section class="section-block">
@@ -6014,9 +6284,10 @@ function renderChildProfile(child, records, filteredObservations) {
         <form id="childObservationForm" class="mini-form">
           <input name="childId" type="hidden" value="${child.id}" />
           <label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
-          <label>Developmental Area<select name="area">${areaOptions()}</select></label>
-          <label>Observation<textarea name="text" rows="3" placeholder="Child stacked 6 blocks and named colors."></textarea></label>
-          <label>Next Steps<textarea name="nextSteps" rows="2" placeholder="Offer more color sorting and counting practice."></textarea></label>
+          <label>Main Category<select name="area">${areaOptions()}</select></label>
+          <label>Observation<textarea name="text" rows="3" placeholder="Child counted to 5 independently during block play."></textarea></label>
+          <label>Optional Next Steps<textarea name="nextSteps" rows="2" placeholder="Leave blank to auto-generate next steps, activities, and lesson plan topics."></textarea></label>
+          <p class="form-note">Categories, ELG connections, strengths, activities, and lesson plan recommendations are created automatically.</p>
           <button class="primary-button" type="submit">Add Observation</button>
         </form>
         <div class="resource-list compact">${filteredObservations.length ? filteredObservations.map(observationItem).join("") : `<div class="empty-state">No observations match yet.</div>`}</div>
@@ -6074,6 +6345,64 @@ function renderChildProfile(child, records, filteredObservations) {
   `;
 }
 
+function renderChildPlanningConnections(child, records, observations, goals) {
+  const activeGoals = goals.filter((goal) => goalProgressPercent(goal.progress) < 100);
+  const areas = childSupportAreas(child.id, records);
+  const primaryAreas = areas.length ? areas : ["Approaches to Learning"];
+  const activities = primaryAreas.flatMap(suggestedActivitiesForArea).slice(0, 8);
+  const lessonPlans = primaryAreas.flatMap(suggestedLessonPlansForArea).slice(0, 6);
+  const latestObservation = observations.slice(-1)[0];
+  const latestAnalysis = latestObservation ? observationAnalysis(latestObservation, child) : observationAnalysis({ text: child.activeGoals || "", area: primaryAreas[0] }, child);
+  const averageGoalProgress = activeGoals.length
+    ? Math.round(activeGoals.reduce((sum, goal) => sum + goalProgressPercent(goal.progress), 0) / activeGoals.length)
+    : goals.length ? 100 : 0;
+  const elgItems = primaryAreas.map((area) => ({ area, ...elgConnection(area) })).slice(0, 4);
+  return `
+    <section class="section-block child-intelligence-panel">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">AI Development Assistant</p>
+          <h3>Planning connections for ${escapeHtml(child.name)}</h3>
+        </div>
+        <span class="tag">${observations.length} observations</span>
+      </div>
+      <div class="planning-dashboard-grid">
+        <article><strong>${activeGoals.length}</strong><span>active goals</span></article>
+        <article><strong>${averageGoalProgress}%</strong><span>goal progress</span></article>
+        <article><strong>${primaryAreas[0]}</strong><span>primary support area</span></article>
+        <article><strong>${lastObservationDate(child.id, records.observations)}</strong><span>last observation</span></article>
+      </div>
+      <div class="recommendation-grid">
+        <div>
+          <strong>Strengths Observed</strong>
+          <p>${escapeHtml(latestAnalysis.strengths)}</p>
+        </div>
+        <div>
+          <strong>Suggested Next Steps</strong>
+          <p>${escapeHtml(latestAnalysis.nextSteps)}</p>
+        </div>
+        <div>
+          <strong>Suggested Lesson Plan Topics</strong>
+          ${renderChipList(lessonPlans)}
+        </div>
+        <div>
+          <strong>Recommended Activities</strong>
+          ${renderChipList(activities)}
+        </div>
+      </div>
+      <div class="elg-connection-grid">
+        ${elgItems.map((item) => `
+          <article>
+            <strong>${escapeHtml(item.area)}</strong>
+            <span>ELG Domain: ${escapeHtml(item.domain)}</span>
+            <span>Skill Area: ${escapeHtml(item.skill)}</span>
+          </article>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
 function supportForm(childId) {
   return `
     <form id="supportPlanForm" class="mini-form">
@@ -6096,8 +6425,9 @@ function goalForm(childId) {
       <label>Developmental Area<select name="area">${areaOptions()}</select></label>
       <label>Goal<input name="goal" placeholder="Use 3-word phrases during play" /></label>
       <label>Target Date<input name="targetDate" type="date" /></label>
-      <label>Progress<select name="progress"><option>Not Started</option><option>In Progress</option><option>Improving</option><option>Complete</option></select></label>
+      <label>Progress<select name="progress"><option>0%</option><option>25%</option><option>50%</option><option>75%</option><option>100%</option></select></label>
       <label>Notes<textarea name="notes" rows="2" placeholder="Progress notes"></textarea></label>
+      <p class="form-note">Related observations, activities, and lesson plan topics will connect automatically by developmental area.</p>
       <button class="primary-button" type="submit">Add Goal</button>
     </form>
   `;
@@ -6156,12 +6486,19 @@ function communicationForm(childId) {
 }
 
 function observationItem(item) {
+  const analysis = observationAnalysis(item, { name: childName(item.childId) });
+  const categories = item.categories || analysis.categories;
   return `
     <div class="compact-item">
       <div>
-        <strong>${item.area} ¬∑ ${item.date}</strong>
-        <span>${item.text}</span>
-        ${item.nextSteps ? `<span>Next: ${item.nextSteps}</span>` : ""}
+        <strong>${escapeHtml(analysis.developmentArea)} ¬∑ ${escapeHtml(item.date || "")}</strong>
+        ${renderChipList(categories)}
+        <span>${escapeHtml(item.text)}</span>
+        <span><b>Strength:</b> ${escapeHtml(analysis.strengths)}</span>
+        <span><b>Next Step:</b> ${escapeHtml(analysis.nextSteps)}</span>
+        <span><b>Suggested Activities:</b> ${escapeHtml((analysis.suggestedActivities || []).join(", "))}</span>
+        <span><b>Suggested Lesson Plans:</b> ${escapeHtml((analysis.suggestedLessonPlans || []).join(", "))}</span>
+        <span><b>ELG:</b> ${escapeHtml(analysis.elgDomain)} ¬∑ ${escapeHtml(analysis.elgSkill)}</span>
       </div>
     </div>
   `;
@@ -6181,13 +6518,23 @@ function simpleRecordItem(item) {
 }
 
 function goalItem(item) {
+  const progress = goalProgressPercent(item.progress);
+  const area = normalizeObservationArea(item.area) || item.area || "Approaches to Learning";
+  const connectedObservations = connectedObservationsForGoal(item);
+  const activities = suggestedActivitiesForArea(area).slice(0, 4);
+  const lessonPlans = suggestedLessonPlansForArea(area).slice(0, 3);
   return `
     <div class="compact-item">
       <div>
-        <strong>${item.area} ¬∑ ${item.progress}</strong>
-        <span>${item.goal}${item.targetDate ? ` ¬∑ Target: ${item.targetDate}` : ""}</span>
+        <strong>${escapeHtml(area)} ¬∑ ${progress}% progress</strong>
+        <div class="mini-progress"><span style="width:${progress}%"></span></div>
+        <span>${escapeHtml(item.goal)}${item.targetDate ? ` ¬∑ Target: ${escapeHtml(item.targetDate)}` : ""}</span>
+        <span><b>Connected Observations:</b> ${connectedObservations.length}</span>
+        <span><b>Suggested Activities:</b> ${escapeHtml(activities.join(", "))}</span>
+        <span><b>Lesson Plan Topics:</b> ${escapeHtml(lessonPlans.join(", "))}</span>
+        ${item.notes ? `<span><b>Progress Notes:</b> ${escapeHtml(item.notes)}</span>` : ""}
       </div>
-      ${item.progress !== "Complete" ? `<button class="ghost-button" data-complete-goal="${item.id}" type="button">Mark Complete</button>` : `<span class="tag">Complete</span>`}
+      ${progress < 100 ? `<button class="ghost-button" data-complete-goal="${item.id}" type="button">Mark 100%</button>` : `<span class="tag">Complete</span>`}
     </div>
   `;
 }
@@ -6232,24 +6579,47 @@ function exportChildPortfolio(childId) {
     `Child Portfolio: ${child.name}`,
     "",
     `Age Group: ${child.ageGroup}`,
+    `Age: ${childAgeLabel(child)}`,
     `Date of Birth: ${child.dob || ""}`,
     `Enrollment Date: ${child.enrollmentDate || ""}`,
+    `Classroom/Group: ${child.classroom || ""}`,
     `Parent/Guardian: ${child.parentInfo || ""}`,
     `Emergency Contacts: ${child.emergency || ""}`,
     `Allergies: ${child.allergies || ""}`,
     `Medical Notes: ${child.medical || ""}`,
+    `Active Goals: ${child.activeGoals || ""}`,
     `Additional Notes: ${child.notes || ""}`,
     "",
+    "Development Summary",
+    `${child.name} has ${records.observations.filter((item) => item.childId === childId).length} saved observations, ${records.goals.filter((item) => item.childId === childId && goalProgressPercent(item.progress) < 100).length} active goals, and ${records.differentiations.filter((item) => item.childId === childId).length} connected activity supports. Use this portfolio as a printable progress record for planning, family conferences, and documentation review.`,
+    "",
     "Observations",
-    ...records.observations.filter((item) => item.childId === childId).map((item) => `- ${item.date} ¬∑ ${item.area}: ${item.text} Next: ${item.nextSteps || ""}`),
+    ...records.observations.filter((item) => item.childId === childId).map((item) => {
+      const analysis = observationAnalysis(item, child);
+      return `- ${item.date} ¬∑ ${analysis.developmentArea}: ${item.text}
+  Categories: ${(analysis.categories || []).join(", ")}
+  Strengths: ${analysis.strengths}
+  Next Steps: ${analysis.nextSteps}
+  Suggested Activities: ${(analysis.suggestedActivities || []).join(", ")}
+  Suggested Lesson Plans: ${(analysis.suggestedLessonPlans || []).join(", ")}
+  ELG Domain: ${analysis.elgDomain}
+  ELG Skill Area: ${analysis.elgSkill}`;
+    }),
     "",
     "Goals",
-    ...records.goals.filter((item) => item.childId === childId).map((item) => `- ${item.area}: ${item.goal} ¬∑ ${item.progress} ¬∑ Target: ${item.targetDate || ""}`),
+    ...records.goals.filter((item) => item.childId === childId).map((item) => {
+      const area = normalizeObservationArea(item.area) || item.area;
+      return `- ${area}: ${item.goal} ¬∑ Progress: ${goalProgressPercent(item.progress)}% ¬∑ Target: ${item.targetDate || ""}
+  Connected Observations: ${connectedObservationsForGoal(item, records).length}
+  Suggested Activities: ${suggestedActivitiesForArea(area).join(", ")}
+  Suggested Lesson Plans: ${suggestedLessonPlansForArea(area).join(", ")}
+  Progress Notes: ${item.notes || ""}`;
+    }),
     "",
     "Support Plans",
     ...records.supportPlans.filter((item) => item.childId === childId).map((item) => `- ${item.area}: ${item.goal} ¬∑ ${item.activity} ¬∑ ${item.status}`),
     "",
-    "Lesson Plan Differentiation",
+    "Activities Completed / Lesson Plan Connections",
     ...records.differentiations.filter((item) => item.childId === childId).map((item) => `- Whole Group: ${item.wholeGroup}. Individual Support: ${item.support}`),
     "",
     "Attendance",
@@ -8340,12 +8710,14 @@ function compactItem(resource) {
 }
 
 function renderFavorites() {
+  const target = document.querySelector("#favoritesList");
+  if (!target) return;
   if (!isProUser()) {
-    document.querySelector("#favoritesList").innerHTML = `<div class="empty-state">Saved favorites are included with Pro.</div>`;
+    target.innerHTML = `<div class="empty-state">Saved favorites are included with Pro.</div>`;
     return;
   }
   const saved = resources.filter((resource) => favorites.includes(resource.id));
-  document.querySelector("#favoritesList").innerHTML = saved.length
+  target.innerHTML = saved.length
     ? saved.slice(0, 5).map(compactItem).join("")
     : `<div class="empty-state">Save resources you want to come back to later.</div>`;
 }
@@ -8446,16 +8818,26 @@ function renderHomeFoundingOffer() {
   if (!target) return;
   const remaining = foundingSpotsRemaining();
   const claimed = foundingSpotsClaimed();
+  const limit = Number(foundingStatusCache.limit || foundingMemberLimit);
   const soldOut = remaining <= 0;
   target.innerHTML = `
-    <div class="founding-banner home-founding-banner ${soldOut ? "founding-sold-out" : ""}">
-      <div>
-        <p class="eyebrow">${soldOut ? "Regular Pro Pricing" : "Founding Member Special"}</p>
-        <h3>${soldOut ? "Founding Member spots are filled" : "$9.99/month for life for the first 50 members"}</h3>
-        <p>${soldOut ? "The founding launch offer has ended. New members can join the full Pro platform for $19.99/month." : `${claimed} spots are already filled. Claim one of the ${remaining} remaining lifetime price-lock spots before regular Pro pricing begins.`}</p>
+    <div class="founding-hero-card ${soldOut ? "founding-sold-out" : ""}">
+      <span class="founding-star" aria-hidden="true">‚òÖ</span>
+      <span class="confetti confetti-one" aria-hidden="true"></span>
+      <span class="confetti confetti-two" aria-hidden="true"></span>
+      <span class="confetti confetti-three" aria-hidden="true"></span>
+      <h2>${soldOut ? "Founding Member spots are filled" : "Founding Member Special"}</h2>
+      <div class="founding-price-row">
+        <span>Get Pro for</span>
+        <strong>${soldOut ? "$19.99" : "$9.99"}</strong>
+        <em>/month<br>${soldOut ? "regular price" : "for life!"}</em>
       </div>
-      ${foundingMeterHtml()}
-      <button class="primary-button" data-view="${soldOut ? "upgrade" : "plans"}" type="button">${soldOut ? "Choose Pro Monthly" : "Claim Founding Spot"}</button>
+      <p class="founding-remaining">${soldOut ? "Founding pricing is closed" : `Only <strong>${remaining}</strong> spots remaining`}</p>
+      <div class="founding-live-meter" aria-label="${claimed} of ${limit} founding spots claimed">
+        <span><i style="width: ${foundingProgressPercent()}%"></i></span>
+        <small>${soldOut ? "All founding spots are claimed" : `${claimed} of ${limit} founding spots claimed`}</small>
+      </div>
+      <button class="primary-button founding-cta-button" data-checkout-plan="${soldOut ? "monthly" : "founding"}" type="button">${soldOut ? "Choose Pro Monthly" : "Claim Founding Member Pricing"}</button>
     </div>
   `;
 }
@@ -8767,10 +9149,32 @@ function resourceViewForCategory(category) {
 function updatePlanLabel() {
   currentPlanLabel.textContent = billingPlanLabel();
   const summary = document.querySelector("#planAccessSummary");
-  if (!summary) return;
-  summary.textContent = isProUser()
-    ? `${billingPlanLabel()} active: ${billingPriceLabel()} with full in-app library access, saved favorites, viewed resources, and ${Math.max(paidAiMonthlyLimit - aiUsageCount(), 0)} AI generations left this month. Viewed resources: ${savedDownloads.length}.`
-    : `Free: 3 lesson plans, 15 observations, 3 forms, 5 activities, 5 printables, up to 3 child profiles, and ${Math.max(freeAiMonthlyLimit - aiUsageCount(), 0)} AI generations left this month.`;
+  if (summary) {
+    summary.textContent = isProUser()
+      ? `${billingPlanLabel()} active: ${billingPriceLabel()} with full library access and ${Math.max(paidAiMonthlyLimit - aiUsageCount(), 0)} AI generations left this month.`
+      : `Free plan: limited library access, up to 3 child profiles, and ${Math.max(freeAiMonthlyLimit - aiUsageCount(), 0)} AI generations left this month.`;
+  }
+  updateSidebarDashboard();
+}
+
+function updateSidebarDashboard() {
+  const nameTarget = document.querySelector("#sidebarUserName");
+  const dueTarget = document.querySelector("#sidebarObservationsDue");
+  const goalsTarget = document.querySelector("#sidebarActiveGoals");
+  const plansTarget = document.querySelector("#sidebarWeekPlans");
+  if (!dueTarget || !goalsTarget || !plansTarget) return;
+  if (nameTarget) {
+    const accountName = currentAccount()?.name || currentUser?.split("@")[0] || "Provider";
+    nameTarget.textContent = `Hi, ${accountName}!`;
+  }
+  const records = childRecords();
+  const stats = weeklyObservationStats(records);
+  const activeGoals = records.goals.filter((goal) => goalProgressPercent(goal.progress) < 100).length;
+  const planner = weeklyPlanner();
+  const plannedDays = plannerDays.filter((day) => Object.values(planner.days?.[day] || {}).some(Boolean)).length;
+  dueTarget.textContent = String(Math.max(stats.totalNeeded - stats.completed, 0));
+  goalsTarget.textContent = String(activeGoals);
+  plansTarget.textContent = String(plannedDays);
 }
 
 function setFreePlan() {
@@ -8915,6 +9319,7 @@ async function completeCheckoutFromStripeSession(session) {
     setView("payment-failed");
     return;
   }
+  if (session?.founding) applyFoundingStatus(session.founding);
   const pending = readSavedJson("llhPendingCheckout", null);
   const type = session.plan || pending?.type || "monthly";
   if (session.email && session.email !== currentUser) {
@@ -8936,7 +9341,8 @@ async function completeCheckoutFromStripeSession(session) {
     stripeSubscriptionId: session.subscriptionId || currentAccount()?.stripeSubscriptionId,
     paymentMethod: "Managed in Stripe",
   });
-  await syncSubscriptionFromBackend(currentUser || session.email);
+  await syncSubscriptionFromBackend(currentUser || session.email, { renderFounding: true });
+  await syncFoundingStatus({ render: true });
   saveCurrentAccountState();
   renderPaymentSuccessPage();
 }
@@ -9308,15 +9714,15 @@ document.addEventListener("click", (event) => {
       setView("children");
       return;
     }
-    const area = resource.tags.find((tag) => learningAreas.includes(tag)) || "Cognitive";
-    appendChildRecord("Observations", {
+    const area = normalizeObservationArea(resource.tags.find((tag) => learningAreas.includes(tag)) || resource.tags[0]) || "Cognitive Development";
+    appendChildRecord("Observations", enrichObservationRecord({
       childId: child.id,
       date: new Date().toISOString().slice(0, 10),
       area,
       text: resource.observationText || resource.description,
       nextSteps: resource.nextSteps || "Continue observing and offer a similar activity with one small added challenge.",
       sourceResourceId: resource.id,
-    });
+    }, child));
     setView("children");
   }
 
@@ -9523,7 +9929,7 @@ document.addEventListener("click", (event) => {
       showProFeatureModal("Development goal tracking is a Pro feature.");
       return;
     }
-    const goals = childStore("Goals").map((goal) => goal.id === completeGoalButton.dataset.completeGoal ? { ...goal, progress: "Complete" } : goal);
+    const goals = childStore("Goals").map((goal) => goal.id === completeGoalButton.dataset.completeGoal ? { ...goal, progress: "100%" } : goal);
     saveChildStore("Goals", goals);
     renderChildManagement();
   }
@@ -9698,7 +10104,7 @@ document.querySelector("#authForm").addEventListener("submit", async (event) => 
       trackEvent("account_login_complete", { email: result.email, plan: currentPlan });
     }
     closeAuthModal();
-    setView("account");
+    setView("children");
   } catch (error) {
     setFormMessage("#authMessage", friendlyAuthError(error));
   } finally {
@@ -9984,13 +10390,16 @@ document.addEventListener("submit", async (event) => {
     id: `child-${Date.now()}`,
     name: data.name,
     ageGroup: data.ageGroup,
+    age: data.age,
     dob: data.dob,
     enrollmentDate: data.enrollmentDate,
+    classroom: data.classroom,
     parentInfo: data.parentInfo,
     emergency: data.emergency,
     allergies: data.allergies,
     medical: data.medical,
     photo,
+    activeGoals: data.activeGoals,
     notes: data.notes,
     createdAt: new Date().toISOString(),
   };
@@ -10006,7 +10415,8 @@ document.addEventListener("submit", (event) => {
   if (!event.target.matches("#childObservationForm")) return;
   event.preventDefault();
   const data = collectFormData(event.target);
-  appendChildRecord("Observations", data);
+  const child = childRecords().children.find((item) => item.id === data.childId);
+  appendChildRecord("Observations", enrichObservationRecord(data, child));
 });
 
 document.addEventListener("submit", (event) => {
@@ -10028,7 +10438,7 @@ document.addEventListener("submit", (event) => {
     return;
   }
   const data = collectFormData(event.target);
-  appendChildRecord("Goals", data);
+  appendChildRecord("Goals", { ...data, title: `${data.area} Goal`, summary: `${data.goal} ¬∑ ${data.progress}` });
 });
 
 document.addEventListener("submit", (event) => {
@@ -10115,3 +10525,9 @@ async function initializeAppView() {
 }
 
 initializeAppView();
+
+if (canUseLaunchBackend()) {
+  setInterval(() => {
+    syncFoundingStatus({ render: true });
+  }, 60000);
+}
