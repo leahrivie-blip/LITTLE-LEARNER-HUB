@@ -27,6 +27,7 @@ const FIREBASE_APP_ID = process.env.FIREBASE_APP_ID || "";
 const FIREBASE_STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || "";
 const FIREBASE_MESSAGING_SENDER_ID = process.env.FIREBASE_MESSAGING_SENDER_ID || "";
 const FIREBASE_MEASUREMENT_ID = process.env.FIREBASE_MEASUREMENT_ID || "";
+const FIREBASE_CERT_URL = "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com";
 const SUPPORT_EMAIL_TO = normalizeEmail(process.env.SUPPORT_EMAIL_TO || ADMIN_EMAIL || "little.learners.hub.customer@gmail.com");
 const SUPPORT_EMAIL_FROM = process.env.SUPPORT_EMAIL_FROM || process.env.RESEND_FROM || process.env.SENDGRID_FROM || process.env.POSTMARK_FROM || "";
 const SUPPORT_EMAIL_PROVIDER = String(process.env.SUPPORT_EMAIL_PROVIDER || "").trim().toLowerCase();
@@ -46,6 +47,7 @@ let storeCache = null;
 let databaseReady = false;
 let postgresPool = null;
 let postgresWriteChain = Promise.resolve();
+let firebaseCertCache = { expiresAt: 0, certs: {} };
 
 const planConfig = {
   founding: {
@@ -398,6 +400,64 @@ function timingSafeEqualText(left, right) {
   const rightBuffer = Buffer.from(String(right || ""));
   if (!leftBuffer.length || leftBuffer.length !== rightBuffer.length) return false;
   return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function base64UrlJson(value) {
+  const normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+  return JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
+}
+
+function base64UrlBuffer(value) {
+  const normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+  return Buffer.from(padded, "base64");
+}
+
+async function firebaseCertificates() {
+  if (firebaseCertCache.expiresAt > Date.now() && Object.keys(firebaseCertCache.certs).length) {
+    return firebaseCertCache.certs;
+  }
+  const response = await fetch(FIREBASE_CERT_URL);
+  if (!response.ok) throw new Error("Could not load Firebase verification certificates.");
+  const cacheControl = response.headers.get("cache-control") || "";
+  const maxAge = Number(cacheControl.match(/max-age=(\d+)/)?.[1] || 3600);
+  firebaseCertCache = {
+    certs: await response.json(),
+    expiresAt: Date.now() + (maxAge * 1000),
+  };
+  return firebaseCertCache.certs;
+}
+
+async function verifyFirebaseUser(request) {
+  if (!firebaseConfigStatus().ready) throw new Error("Firebase Auth is not configured on the server.");
+  const authHeader = String(request.headers.authorization || "");
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  if (!token) throw new Error("Please log in before saving child data.");
+  const parts = token.split(".");
+  if (parts.length !== 3) throw new Error("Invalid login token.");
+  const [encodedHeader, encodedPayload, encodedSignature] = parts;
+  const header = base64UrlJson(encodedHeader);
+  const payload = base64UrlJson(encodedPayload);
+  if (header.alg !== "RS256" || !header.kid) throw new Error("Invalid login token.");
+  const cert = (await firebaseCertificates())[header.kid];
+  if (!cert) throw new Error("Firebase login token could not be verified.");
+  const verifier = crypto.createVerify("RSA-SHA256");
+  verifier.update(`${encodedHeader}.${encodedPayload}`);
+  verifier.end();
+  if (!verifier.verify(cert, base64UrlBuffer(encodedSignature))) {
+    throw new Error("Firebase login token signature did not match.");
+  }
+  const now = Math.floor(Date.now() / 1000);
+  if (payload.aud !== FIREBASE_PROJECT_ID) throw new Error("Firebase login token is for the wrong project.");
+  if (payload.iss !== `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`) throw new Error("Firebase login token issuer did not match.");
+  if (Number(payload.exp || 0) <= now) throw new Error("Please log in again before saving child data.");
+  if (Number(payload.iat || 0) > now + 300) throw new Error("Firebase login token time was invalid.");
+  if (!payload.sub) throw new Error("Firebase login token is missing a user id.");
+  return {
+    uid: String(payload.sub),
+    email: normalizeEmail(payload.email || ""),
+  };
 }
 
 function createAdminToken(email) {
@@ -1126,6 +1186,79 @@ function appendBillingEvent(email, type, planKey, amount) {
   writeStore(store);
 }
 
+const childDataKeys = [
+  "Profiles",
+  "Observations",
+  "SupportPlans",
+  "Goals",
+  "Differentiations",
+  "Attendance",
+  "Meals",
+  "Reports",
+  "Communications",
+];
+
+function sanitizeChildDataPayload(data = {}) {
+  return childDataKeys.reduce((payload, key) => {
+    const items = Array.isArray(data[key]) ? data[key] : [];
+    payload[key] = items.slice(0, 1000).map((item) => (
+      item && typeof item === "object"
+        ? JSON.parse(JSON.stringify(item))
+        : {}
+    ));
+    return payload;
+  }, {});
+}
+
+async function handleChildData(request, response) {
+  let firebaseUser;
+  try {
+    firebaseUser = await verifyFirebaseUser(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before saving child data." });
+    return;
+  }
+  const store = readStore();
+  store.childData = store.childData || {};
+  if (request.method === "GET") {
+    const saved = store.childData[firebaseUser.uid] || null;
+    jsonResponse(response, 200, {
+      email: firebaseUser.email,
+      uid: firebaseUser.uid,
+      data: saved?.data || null,
+      updatedAt: saved?.updatedAt || "",
+    });
+    return;
+  }
+  try {
+    const body = await readJson(request);
+    const data = sanitizeChildDataPayload(body.data || {});
+    const updatedAt = new Date().toISOString();
+    store.childData[firebaseUser.uid] = {
+      uid: firebaseUser.uid,
+      email: firebaseUser.email,
+      data,
+      updatedAt,
+    };
+    if (firebaseUser.email) {
+      store.users = store.users || {};
+      store.users[firebaseUser.email] = {
+        ...(store.users[firebaseUser.email] || { email: firebaseUser.email }),
+        email: firebaseUser.email,
+        childProfiles: data.Profiles.length,
+        childObservations: data.Observations.length,
+        childGoals: data.Goals.length,
+        childDataUpdatedAt: updatedAt,
+        updatedAt,
+      };
+    }
+    writeStore(store);
+    jsonResponse(response, 200, { ok: true, updatedAt });
+  } catch (error) {
+    jsonResponse(response, 400, { error: error.message || "Could not save child data." });
+  }
+}
+
 async function handleAnalyticsEvent(request, response) {
   const body = await readJson(request);
   const event = sanitizeAnalyticsEvent(body, request);
@@ -1564,6 +1697,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/analytics/event") return await handleAnalyticsEvent(request, response);
     if (request.method === "POST" && url.pathname === "/api/support-ticket") return await handleSupportTicketCreate(request, response);
     if (request.method === "POST" && url.pathname === "/api/support-ticket-update") return await handleSupportTicketUpdate(request, response);
+    if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/child-data") return await handleChildData(request, response);
     if (request.method === "GET" && url.pathname === "/api/checkout-status") return await handleCheckoutStatus(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/subscription-status") return await handleSubscriptionStatus(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/support-tickets") return handleSupportTicketsList(request, response, url);
