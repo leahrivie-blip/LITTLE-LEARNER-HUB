@@ -860,11 +860,17 @@ button {
   display: grid;
   place-items: center;
   transform: translateX(-50%);
-  color: #fff;
   background: #f6b544;
   border-radius: 14px;
-  font-size: 34px;
   box-shadow: 0 10px 18px rgba(246, 181, 68, 0.26);
+}
+
+.founding-star::before {
+  content: "";
+  width: 34px;
+  height: 34px;
+  background: #fff;
+  clip-path: polygon(50% 0, 61% 34%, 97% 34%, 68% 55%, 79% 90%, 50% 69%, 21% 90%, 32% 55%, 3% 34%, 39% 34%);
 }
 
 .confetti {
