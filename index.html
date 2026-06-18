@@ -11,7 +11,7 @@
     <title>Little Learner Hub</title>
     <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="10" fill="%23386062"/><text x="32" y="39" text-anchor="middle" font-family="Arial" font-size="22" font-weight="700" fill="white">LL</text></svg>' />
     <link rel="manifest" href="site.webmanifest" />
-    <link rel="stylesheet" href="styles.css?v=20260616-printables-forms-ready" />
+    <link rel="stylesheet" href="styles.css?v=20260617-sidebar-platform" />
   </head>
   <body>
     <div class="app-shell">
@@ -22,86 +22,126 @@
           </div>
           <div>
             <h1>Little Learner Hub</h1>
-            <p>Daycare resource library</p>
+            <p>Daycare Resource Library</p>
           </div>
         </div>
 
         <nav class="nav-list">
-          <button class="nav-link active" data-view="home">
-            <span class="icon">LH</span>
-            Home
-          </button>
-          <button class="nav-link" data-view="planner">
-            <span class="icon">WK</span>
-            Weekly Planner
-          </button>
-          <button class="nav-link" data-view="observations">
-            <span class="icon">OB</span>
-            Observation Hub
-          </button>
-          <button class="nav-link" data-view="lessons">
-            <span class="icon">LP</span>
-            Lesson Plan Library
-          </button>
-          <button class="nav-link" data-view="forms">
-            <span class="icon">FM</span>
-            Forms Library
-          </button>
-          <button class="nav-link" data-view="activities">
-            <span class="icon">AC</span>
-            Activity Center
-          </button>
-          <button class="nav-link" data-view="menus">
-            <span class="icon">MN</span>
-            Menu Center
-          </button>
-          <button class="nav-link" data-view="printables">
-            <span class="icon">PR</span>
-            Printables
-          </button>
-          <button class="nav-link" data-view="ai">
-            <span class="icon">AI</span>
-            AI Tools
-          </button>
-          <button class="nav-link" data-view="tools">
-            <span class="icon">PT</span>
-            Provider Tools
-          </button>
-          <button class="nav-link" data-view="children">
-            <span class="icon">CM</span>
-            Child Management
-          </button>
-          <button class="nav-link" data-view="admin" data-admin-nav hidden>
-            <span class="icon">AD</span>
-            Admin Dashboard
-          </button>
-          <button class="nav-link" data-view="plans">
-            <span class="icon">$</span>
-            Membership
-          </button>
-          <button class="nav-link" data-view="billing">
-            <span class="icon">BI</span>
-            Billing
-          </button>
-          <button class="nav-link" data-view="faq">
-            <span class="icon">?</span>
-            FAQ
-          </button>
-          <button class="nav-link" data-view="contact">
-            <span class="icon">@</span>
-            Contact
-          </button>
-          <button class="nav-link" data-view="account">
-            <span class="icon">ME</span>
-            Account
-          </button>
+          <div class="nav-section">
+            <p>Home</p>
+            <button class="nav-link active" data-view="home">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-5v-6h-5v6h-5A1.5 1.5 0 0 1 3 19.5z"/></svg></span>
+              Home
+            </button>
+          </div>
+
+          <div class="nav-section">
+            <p>Plan &amp; Track</p>
+            <button class="nav-link" data-view="planner">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M8 14h3M13 14h3M8 17h3"/></svg></span>
+              Weekly Planner
+            </button>
+            <button class="nav-link" data-view="children">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7 0"/></svg></span>
+              Child Profiles
+              <span class="nav-pill">New</span>
+            </button>
+            <button class="nav-link" data-view="observations">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4M11 8v3l2 2"/></svg></span>
+              Observation Hub
+            </button>
+            <button class="nav-link" data-view="goals">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 12 19 5"/></svg></span>
+              Goals &amp; Progress
+            </button>
+            <button class="nav-link" data-view="lessons">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 0 4 22z"/><path d="M4 5.5V22M8 7h8M8 11h7"/></svg></span>
+              Lesson Plan Library
+            </button>
+          </div>
+
+          <div class="nav-section">
+            <p>Resources</p>
+            <button class="nav-link" data-view="forms">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg></span>
+              Forms Library
+            </button>
+            <button class="nav-link" data-view="activities">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6v5h5v6h-5v7H9v-7H4V8h5z"/></svg></span>
+              Activity Center
+            </button>
+            <button class="nav-link" data-view="menus">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3v18M10 3v18M6 10h4M16 3v8a3 3 0 0 0 3 3v7"/></svg></span>
+              Menu Center
+            </button>
+            <button class="nav-link" data-view="printables">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-4a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v4a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></svg></span>
+              Printables
+            </button>
+          </div>
+
+          <div class="nav-section">
+            <p>AI Tools</p>
+            <button class="nav-link" data-view="ai">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 1.6 4.7L18 9l-4.4 1.3L12 15l-1.6-4.7L6 9l4.4-1.3zM19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8zM5 14l.8 2.2L8 17l-2.2.8L5 20l-.8-2.2L2 17l2.2-.8z"/></svg></span>
+              AI Tools
+              <span class="nav-pill">New</span>
+            </button>
+          </div>
+
+          <div class="nav-section">
+            <p>Business Tools</p>
+            <button class="nav-link" data-view="portfolio">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7h7l2 2h9v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 7V5a2 2 0 0 1 2-2h5l2 2h4"/></svg></span>
+              Portfolio Builder
+            </button>
+            <button class="nav-link" data-view="reports">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16M7 17V9M12 17V5M17 17v-6"/></svg></span>
+              Reports &amp; Analytics
+            </button>
+            <button class="nav-link" data-view="favorites">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 2.7 5.5 6 .9-4.4 4.2 1 6-5.3-2.8-5.3 2.8 1-6-4.4-4.2 6-.9z"/></svg></span>
+              Favorites
+            </button>
+          </div>
+
+          <div class="nav-section">
+            <p>Account</p>
+            <button class="nav-link" data-view="membership">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg></span>
+              Membership/Billing
+            </button>
+            <button class="nav-link" data-view="settings">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5l-.3 3.1a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.3 3.1h5l.3-3.1a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5a7 7 0 0 0 .1-1z"/></svg></span>
+              Settings
+            </button>
+            <button class="nav-link" data-view="help">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.7 2.7 0 0 1 5.1 1.3c0 2-2.6 2.1-2.6 4M12 18h.1"/></svg></span>
+              Help Center
+            </button>
+            <button class="nav-link" data-view="admin" data-admin-nav hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.3 8 8 9 4.7-1 8-4 8-9V6z"/><path d="M9 12l2 2 4-5"/></svg></span>
+              Admin Dashboard
+            </button>
+          </div>
         </nav>
 
-        <div class="plan-card">
-          <p class="eyebrow">Current Plan</p>
-          <strong id="currentPlanLabel">Free</strong>
-          <span id="planAccessSummary">Free includes limited samples and 10 AI generations monthly.</span>
-          <button class="small-button" data-view="plans">View Plans</button>
+        <div class="sidebar-dashboard-card">
+          <div class="sidebar-user-row">
+            <div class="sidebar-avatar" aria-hidden="true">LL</div>
+            <div>
+              <strong id="sidebarUserName">Hi, Provider!</strong>
+              <span id="currentPlanLabel">Free</span>
+            </div>
+          </div>
+          <p id="planAccessSummary">Free includes limited samples and 10 AI generations monthly.</p>
+          <div class="sidebar-glance">
+            <h3>At a Glance</h3>
+            <div><span>Observations Due</span><strong id="sidebarObservationsDue">0</strong></div>
+            <div><span>Active Goals</span><strong id="sidebarActiveGoals">0</strong></div>
+            <div><span>This Week&rsquo;s Plans</span><strong id="sidebarWeekPlans">0</strong></div>
+          </div>
+          <button class="small-button" data-view="children">View Dashboard</button>
         </div>
       </aside>
 
@@ -121,202 +161,121 @@
           </div>
         </header>
 
-        <section id="view-home" class="view active-view">
-          <div class="hero">
+        <section id="view-home" class="view active-view landing-home">
+          <section id="homeFoundingOffer" class="landing-founding-slot"></section>
+
+          <section class="landing-value-strip" aria-label="Little Learner Hub features">
+            <h2>Everything you need. All in one place.</h2>
+            <div class="landing-stat-grid">
+              <article><span class="stat-icon stat-green">OB</span><strong>1,500+</strong><p>Observation Examples</p></article>
+              <article><span class="stat-icon stat-orange">LP</span><strong>100+</strong><p>Lesson Plans</p></article>
+              <article><span class="stat-icon stat-purple">FM</span><strong>75+</strong><p>Forms</p></article>
+              <article><span class="stat-icon stat-coral">PR</span><strong>150+</strong><p>Printables</p></article>
+              <article><span class="stat-icon stat-teal">AI</span><strong>AI-Powered</strong><p>Generators</p></article>
+              <article><span class="stat-icon stat-sage">WK</span><strong>Weekly</strong><p>Planning Tools</p></article>
+            </div>
+          </section>
+
+          <section class="landing-story-card">
+            <div class="provider-desk-visual" aria-hidden="true">
+              <div class="binder binder-one"></div>
+              <div class="binder binder-two"></div>
+              <div class="mug">Daycare<br />Provider</div>
+            </div>
             <div>
-              <p class="eyebrow">Ready-made childcare resource platform</p>
-              <h2>The All-in-One Platform for Early Childhood Providers</h2>
-              <p>
-                Create lesson plans, observations, parent communication, forms, menus, activities,
-                printables, and more with AI-powered tools designed specifically for early childhood
-                professionals.
-              </p>
-              <div class="hero-actions">
-                <button class="primary-button" data-view="plans">Start Free</button>
-                <button class="ghost-button" data-scroll-target="homepagePreviews">View Samples</button>
-                <button class="primary-button" data-view="lessons">Browse Library</button>
-                <button class="ghost-button" data-view="ai">Open AI Tools</button>
-              </div>
-            </div>
-            <div class="hero-panel" aria-label="Resource preview">
-              <div class="mini-window">
-                <div class="window-dots"><span></span><span></span><span></span></div>
-                <div class="mini-row strong"></div>
-                <div class="mini-grid">
-                  <span></span><span></span><span></span><span></span>
-                </div>
-                <div class="mini-card"></div>
-                <div class="mini-lines"><span></span><span></span><span></span></div>
-              </div>
-            </div>
-          </div>
-
-          <section class="section-block trust-section">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Who It's For</p>
-                <h3>Built for the people leading early learning every day.</h3>
-              </div>
-            </div>
-            <div class="trust-grid">
-              <div><strong>&#10004; Home Daycare Providers</strong></div>
-              <div><strong>&#10004; Family Child Care Homes</strong></div>
-              <div><strong>&#10004; Childcare Centers</strong></div>
-              <div><strong>&#10004; Preschool Teachers</strong></div>
-              <div><strong>&#10004; Early Childhood Educators</strong></div>
-              <div><strong>&#10004; Program Directors</strong></div>
+              <h2>Why I Built This</h2>
+              <p>I was tired of searching through folders, binders, Facebook groups, and multiple apps just to run my daycare. I created Little Learner Hub to keep everything in one place.</p>
+              <strong>Save time. Stay organized. Focus on what matters most - the children in your care.</strong>
             </div>
           </section>
 
-          <section class="section-block">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Start Here</p>
-                <h3>Daycare resource library</h3>
+          <section class="tracker-showcase">
+            <div class="tracker-copy">
+              <p class="eyebrow">Observation Tracker</p>
+              <h2>Powerful Observation Tracker</h2>
+              <ul class="landing-check-list">
+                <li>Track observations by child</li>
+                <li>See who still needs observations</li>
+                <li>Generate observations with AI</li>
+                <li>Connect observations to lesson planning</li>
+              </ul>
+              <button class="ghost-button" data-view="children" type="button">Open Observation Tracker</button>
+            </div>
+            <div class="tracker-mockup" aria-label="Observation tracker mockup">
+              <div class="mockup-toolbar"><span>Children</span><button type="button">+ Add Observation</button></div>
+              <div class="mockup-body">
+                <aside>
+                  <span class="active-child">Emma</span>
+                  <span>Liam</span>
+                  <span>Noah</span>
+                  <span>Ava</span>
+                  <span>Sophia</span>
+                </aside>
+                <main>
+                  <h3>Observations Overview</h3>
+                  <div class="mockup-metrics">
+                    <div><strong>32</strong><small>This Week</small></div>
+                    <div><strong>18</strong><small>Completed</small></div>
+                    <div><strong>14</strong><small>Need Observations</small></div>
+                  </div>
+                  <div class="mockup-note">
+                    <strong>Emma</strong>
+                    <p>Demonstrated problem-solving skills during block play.</p>
+                    <span>Social/Emotional</span>
+                  </div>
+                </main>
               </div>
-            </div>
-            <div class="home-stats" id="homeStats"></div>
-            <div class="category-grid" id="categoryGrid"></div>
-          </section>
-
-          <section id="homeFoundingOffer" class="section-block"></section>
-
-          <section class="section-block trust-section">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Built For Providers</p>
-                <h3>Ready for home daycare work</h3>
-              </div>
-            </div>
-            <div class="trust-grid">
-              <div><strong>Made for home daycare providers</strong><span>Resources and tools are written for real childcare routines.</span></div>
-              <div><strong>Secure payments through Stripe</strong><span>Checkout and billing are prepared for Stripe subscription handling.</span></div>
-              <div><strong>Cancel anytime</strong><span>Users can manage or cancel subscription access from their account.</span></div>
-              <div><strong>Free plan available</strong><span>Providers can explore samples before upgrading.</span></div>
-              <div><strong>Support is visible</strong><span>little.learners.hub.customer@gmail.com</span></div>
-            </div>
-          </section>
-
-          <section class="section-block provider-love-section">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Why Providers Love Little Learner Hub</p>
-                <h3>Less searching. Less paperwork. More ready-to-use support.</h3>
-              </div>
-              <button class="primary-button" data-view="plans">Start Free</button>
-            </div>
-            <div class="provider-love-grid">
-              <article>
-                <strong>Everything You Need in One Place</strong>
-                <span>Stop searching multiple websites for forms, lesson plans, observations, and daycare resources.</span>
-              </article>
-              <article>
-                <strong>Save Hours Every Week</strong>
-                <span>Ready-to-use resources help reduce planning and paperwork time.</span>
-              </article>
-              <article>
-                <strong>Professional Documentation Made Easy</strong>
-                <span>Create high-quality observations, reports, and lesson plans with confidence.</span>
-              </article>
-              <article>
-                <strong>Built for Home Daycare Providers</strong>
-                <span>Designed specifically for family childcare and home daycare businesses.</span>
-              </article>
-              <article>
-                <strong>Editable & Customizable</strong>
-                <span>Resources can be adapted to fit your program and state requirements.</span>
-              </article>
-              <article>
-                <strong>Growing Resource Library</strong>
-                <span>New lesson plans, activities, forms, printables, and tools can be added regularly.</span>
-              </article>
-              <article>
-                <strong>AI-Powered Tools</strong>
-                <span>Generate observations, lesson plans, newsletters, and more in minutes.</span>
-              </article>
-            </div>
-            <div class="love-stats">
-              <div><strong>1,500+</strong><span>Observation Examples</span></div>
-              <div><strong>200+</strong><span>Lesson Plans</span></div>
-              <div><strong>75+</strong><span>Daycare Forms</span></div>
-              <div><strong>500+</strong><span>Activities & Printables</span></div>
-              <div><strong>AI</strong><span>Documentation Tools</span></div>
             </div>
           </section>
 
-          <section id="homepagePreviews" class="section-block">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Preview Library</p>
-                <h3>See real samples before you sign up.</h3>
-              </div>
-              <button class="primary-button" data-view="plans">Upgrade to Pro</button>
-            </div>
-            <div id="previewLibraryApp"></div>
-          </section>
-
-          <section class="section-block whats-inside-pro">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">What's Inside Pro</p>
-                <h3>Unlock the full childcare business toolkit.</h3>
-              </div>
-              <button class="primary-button" data-view="plans">Compare Plans</button>
-            </div>
-            <div class="provider-love-grid">
-              <article><strong>Unlimited Resources</strong><span>Lesson plans, observations, forms, menus, activities, and printables without Free Plan limits.</span></article>
-              <article><strong>AI Documentation Tools</strong><span>Generate observations, lesson plans, reports, newsletters, handbook sections, and contracts.</span></article>
-              <article><strong>Child Management</strong><span>Profiles, portfolios, goal tracking, support plans, attendance, meals, and parent communication tools.</span></article>
-              <article><strong>Provider Planning Tools</strong><span>Curriculum builder, daily schedule builder, meal planner, and licensing checklist support.</span></article>
-              <article><strong>Billing Control</strong><span>Stripe-ready checkout flow, billing history, cancellation path, and subscription status pages.</span></article>
-              <article><strong>Support Access</strong><span>Contact forms, bug reports, feature requests, and support ticket tracking in one place.</span></article>
+          <section class="landing-testimonials">
+            <h2>What Providers Are Saying</h2>
+            <div class="testimonial-grid">
+              <article><span>"</span><p>This saved me hours every week. I don't know how I ran my daycare without it!</p><strong>- Jessica, Home Daycare</strong></article>
+              <article><span>"</span><p>I love having my lesson plans and observations together. Everything is so easy to find.</p><strong>- Ashley, Home Daycare</strong></article>
+              <article><span>"</span><p>The AI tools help me draft observations faster, then I can review and adjust them.</p><strong>- Sarah, Home Daycare</strong></article>
             </div>
           </section>
 
-          <section class="section-block success-stories-section" hidden>
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Success Stories</p>
-                <h3>Provider reviews will appear here.</h3>
-              </div>
+          <section class="comparison-section">
+            <h2>Free vs Pro</h2>
+            <div class="comparison-table-wrap">
+              <table class="comparison-table">
+                <thead>
+                  <tr><th>Feature</th><th>Free</th><th>Pro</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>Lesson Plans</td><td>Limited</td><td>Full Access</td></tr>
+                  <tr><td>Observations</td><td>Limited</td><td>Full Access</td></tr>
+                  <tr><td>Forms</td><td>Limited</td><td>Full Access</td></tr>
+                  <tr><td>Printables</td><td>Limited</td><td>Full Access</td></tr>
+                  <tr><td>AI Tools</td><td>10 generations / month</td><td>250 generations / month</td></tr>
+                  <tr><td>Observation Tracker</td><td>Basic</td><td>Full Access</td></tr>
+                  <tr><td>Weekly Planner</td><td>Basic</td><td>Advanced</td></tr>
+                  <tr><td>Priority Support</td><td>No</td><td>Yes</td></tr>
+                </tbody>
+              </table>
             </div>
-            <div class="success-story-grid" id="successStoryGrid"></div>
           </section>
 
-          <section class="section-block lead-capture-section">
+          <section class="provider-needs-section">
+            <h2>Everything a Home Daycare Provider Needs</h2>
+            <div class="provider-needs-grid">
+              <article><span class="stat-icon stat-green">FM</span><strong>Forms</strong><p>Contracts, checklists, reports, and records.</p></article>
+              <article><span class="stat-icon stat-orange">OB</span><strong>Observations</strong><p>Track, organize, and see who still needs notes.</p></article>
+              <article><span class="stat-icon stat-purple">LP</span><strong>Lesson Plans</strong><p>Ready-to-use plans by age and theme.</p></article>
+              <article><span class="stat-icon stat-coral">PR</span><strong>Printables</strong><p>Activities, worksheets, and classroom resources.</p></article>
+              <article><span class="stat-icon stat-teal">AI</span><strong>AI Tools</strong><p>Generate observations, plans, and messages.</p></article>
+              <article><span class="stat-icon stat-sage">WK</span><strong>Weekly Planner</strong><p>Plan your week with less stress.</p></article>
+            </div>
+          </section>
+
+          <section class="landing-final-cta">
             <div>
-              <p class="eyebrow">Free Daycare Starter Pack</p>
-              <h3>Get free daycare resources before you join.</h3>
-              <p>Includes a daycare form sample, observation wording pack, menu sample, and printable.</p>
+              <h2>Join other providers saving time and staying organized.</h2>
+              <p>Claim your Founding Member pricing today before spots run out.</p>
             </div>
-            <form id="leadCaptureForm" class="lead-form">
-              <label>
-                Email
-                <input name="email" type="email" required placeholder="you@example.com" />
-              </label>
-              <button class="primary-button" type="submit">Send Starter Pack</button>
-            </form>
-          </section>
-
-          <section class="two-column">
-            <div class="section-block">
-              <div class="section-heading">
-                <div>
-                  <p class="eyebrow">Fresh Content</p>
-                  <h3>New this month</h3>
-                </div>
-              </div>
-              <div class="resource-list compact" id="newThisMonth"></div>
-            </div>
-            <div class="section-block">
-              <div class="section-heading">
-                <div>
-                  <p class="eyebrow">Saved</p>
-                  <h3>Saved favorites</h3>
-                </div>
-              </div>
-              <div class="resource-list compact" id="favoritesList"></div>
-            </div>
+            <button class="primary-button founding-cta-button" data-checkout-plan="founding" type="button">Claim My $9.99/Month For Life</button>
           </section>
         </section>
 
@@ -932,8 +891,7 @@
             <div>
               <p class="eyebrow">Support Email</p>
               <h3>little.learners.hub.customer@gmail.com</h3>
-              <p>Email: little.learners.hub.customer@gmail.com</p>
-              <p>We aim to respond to all support requests as quickly as possible.</p>
+              <p>Use the forms below for support, bug reports, and feature requests. We aim to respond as quickly as possible.</p>
             </div>
             <div class="support-topic-list">
               <span>Account Issues</span>
@@ -1053,6 +1011,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=20260616-forms-printables-refresh"></script>
+    <script src="app.js?v=20260617-sidebar-platform"></script>
   </body>
 </html>
