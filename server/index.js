@@ -714,6 +714,31 @@ async function handleAdminLogin(request, response) {
   });
 }
 
+async function handlePromoValidation(request, response, url) {
+  const body = request.method === "POST" ? await readJson(request) : {};
+  const enteredCode = normalizePromoCode(body.code || url.searchParams.get("code"));
+  const promo = checkoutPromoForCode(enteredCode);
+  if (!enteredCode) {
+    jsonResponse(response, 400, { valid: false, error: "Enter a promo code before checkout." });
+    return;
+  }
+  if (!promo.valid) {
+    jsonResponse(response, 400, {
+      valid: false,
+      code: enteredCode,
+      error: "That promo code is not active. Check the code and try again.",
+    });
+    return;
+  }
+  jsonResponse(response, 200, {
+    valid: true,
+    code: promo.code,
+    trialDays: promo.trialDays,
+    label: promo.label,
+    message: `${promo.code} accepted: ${promo.trialDays} days free will be applied before Stripe checkout.`,
+  });
+}
+
 async function handleCheckout(request, response) {
   if (!requireStripe(response)) return;
   const body = await readJson(request);
@@ -723,6 +748,10 @@ async function handleCheckout(request, response) {
   const planKey = requestedPlan === "founding" && foundingSpotsRemaining(store) <= 0 ? "monthly" : requestedPlan;
   const price = getPriceId(planKey);
   const promo = checkoutPromoForCode(body.promoCode);
+  if (normalizePromoCode(body.promoCode) && !promo.valid) {
+    jsonResponse(response, 400, { error: "That promo code is not active. Check the code and try again." });
+    return;
+  }
   if (!email) {
     jsonResponse(response, 400, { error: "Email is required before checkout." });
     return;
@@ -738,7 +767,6 @@ async function handleCheckout(request, response) {
       customer,
       "line_items[0][price]": price,
       "line_items[0][quantity]": "1",
-      allow_promotion_codes: "true",
       "metadata[email]": email,
       "metadata[plan]": planKey,
       "subscription_data[metadata][email]": email,
@@ -1690,6 +1718,7 @@ const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, SITE_URL);
   try {
     if (request.method === "POST" && url.pathname === "/api/admin/login") return await handleAdminLogin(request, response);
+    if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/validate-promo-code") return await handlePromoValidation(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/create-checkout-session") return await handleCheckout(request, response);
     if (request.method === "POST" && url.pathname === "/api/create-customer-portal-session") return await handlePortal(request, response);
     if (request.method === "POST" && (url.pathname === "/api/webhooks/stripe" || url.pathname === "/api/stripe/webhook")) return await handleStripeWebhook(request, response);
