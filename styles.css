@@ -2478,6 +2478,17 @@ button {
   font-weight: 700;
 }
 
+.promo-code-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.promo-code-entry label {
+  min-width: 0;
+}
+
 .promo-code-panel input {
   width: 100%;
   min-width: 0;
@@ -2488,6 +2499,15 @@ button {
   border-radius: var(--radius);
   font: inherit;
   text-transform: uppercase;
+}
+
+.promo-code-entry .ghost-button {
+  min-height: 46px;
+  white-space: nowrap;
+}
+
+.promo-code-message {
+  grid-column: 1 / -1;
 }
 
 .spots-meter {
@@ -3761,6 +3781,7 @@ button {
   .portfolio-detail-grid,
   .portfolio-two-column,
   .promo-code-panel,
+  .promo-code-entry,
 	  .onboarding-list {
 	    grid-template-columns: 1fr;
 	  }
