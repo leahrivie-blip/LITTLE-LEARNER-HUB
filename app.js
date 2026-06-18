@@ -281,6 +281,13 @@ let childPortfolioSearch = "";
 let childPortfolioAreaFilter = "All";
 let childPortfolioDateFilter = "";
 let activeObservationEditId = "";
+let childManagementMode = "list";
+let childProfileTab = "overview";
+let childToolsTab = "attendance";
+let activeChildObservationEditId = "";
+let pendingObservationArea = "";
+let activeObservationChildLock = "";
+let pendingGoalArea = "";
 let childCloudSaveTimer = null;
 let childCloudSyncing = false;
 
@@ -2227,6 +2234,11 @@ const homeViewTemplate = document.querySelector("#view-home").innerHTML;
 const mobileNavMaxWidth = 820;
 const sidebarViewAliases = {
   goals: "children",
+  "child-tools": "children",
+  "child-tools-attendance": "children",
+  "child-tools-meals": "children",
+  "child-tools-reports": "children",
+  "child-tools-communication": "children",
   portfolio: "tools",
   reports: "children",
   favorites: "account",
@@ -2237,6 +2249,27 @@ const sidebarViewAliases = {
 
 function resolveSidebarView(view) {
   return sidebarViewAliases[view] || view;
+}
+
+function childToolTabFromView(view) {
+  const map = {
+    "child-tools": "attendance",
+    "child-tools-attendance": "attendance",
+    "child-tools-meals": "meals",
+    "child-tools-reports": "reports",
+    "child-tools-communication": "communication",
+  };
+  return map[view] || "";
+}
+
+function childToolViewForTab(tab) {
+  const map = {
+    attendance: "child-tools-attendance",
+    meals: "child-tools-meals",
+    reports: "child-tools-reports",
+    communication: "child-tools-communication",
+  };
+  return map[tab] || "child-tools-attendance";
 }
 
 function isMobileLayout() {
@@ -2585,6 +2618,14 @@ function canSeeAdminNav() {
 
 function setView(view) {
   const requestedView = view;
+  const requestedChildToolTab = childToolTabFromView(view);
+  if (requestedChildToolTab) {
+    childManagementMode = "tools";
+    childToolsTab = requestedChildToolTab;
+    activeChildObservationEditId = "";
+    activeObservationChildLock = "";
+    activePortfolioChildId = "";
+  }
   const resolvedView = resolveSidebarView(view);
   if (resolvedView === "tools" && !isProUser()) {
     showProFeatureModal("Provider business tools are Pro features.");
@@ -4071,7 +4112,7 @@ function printableLineHtml(line) {
   const checkboxLine = line.match(/^\[\s?\]\s+(.*)$/);
   if (checkboxLine) return `<li class="printable-checkbox"><span></span>${escapeHtml(checkboxLine[1])}</li>`;
   if (/^[_]{8,}$/.test(line.trim())) return `<div class="printable-writing-line"></div>`;
-  if (/^‚îå|^‚îÇ|^‚îî/.test(line)) return `<div class="printable-drawing-box-line">${escapeHtml(line)}</div>`;
+  if (/^┌|^│|^└/.test(line)) return `<div class="printable-drawing-box-line">${escapeHtml(line)}</div>`;
   if (line.includes("_____")) return `<p class="printable-field-row">${escapeHtml(line)}</p>`;
   return `<p>${escapeHtml(line)}</p>`;
 }
@@ -4627,9 +4668,9 @@ function hasResourcePdf(resource) {
 
 function pdfEscapeText(value) {
   return String(value || "")
-    .replace(/[‚Äú‚Äù]/g, '"')
-    .replace(/[‚Äò‚Äô]/g, "'")
-    .replace(/[‚Äì‚Äî]/g, "-")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[–—]/g, "-")
     .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, "")
     .replace(/\\/g, "\\\\")
     .replace(/\(/g, "\\(")
@@ -4638,9 +4679,9 @@ function pdfEscapeText(value) {
 
 function pdfSafeText(value) {
   return String(value || "")
-    .replace(/[‚Äú‚Äù]/g, '"')
-    .replace(/[‚Äò‚Äô]/g, "'")
-    .replace(/[‚Äì‚Äî]/g, "-")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[–—]/g, "-")
     .replace(/[^\x20-\x7E]/g, "");
 }
 
@@ -5689,7 +5730,7 @@ function renderWeeklyPlanner() {
             <div class="compact-item">
               <div>
                 <strong>${resource.title}</strong>
-                <span>${resource.category} ¬∑ ${resource.age} ¬∑ ${resource.plan}</span>
+                <span>${resource.category} · ${resource.age} · ${resource.plan}</span>
               </div>
               <button class="ghost-button" data-planner-resource="${resource.id}" type="button">Use</button>
             </div>
@@ -5766,7 +5807,7 @@ function renderAiUsagePanel() {
       <div>
         <p class="eyebrow">AI Usage</p>
         <h4>${used} of ${limit} generations used</h4>
-        <span>${remaining} remaining ¬∑ Resets ${escapeHtml(aiResetLabel())}</span>
+        <span>${remaining} remaining · Resets ${escapeHtml(aiResetLabel())}</span>
       </div>
       <div class="usage-bar" aria-label="${used} of ${limit} AI generations used">
         <span style="width: ${Math.min((used / limit) * 100, 100)}%"></span>
@@ -6232,7 +6273,10 @@ function suggestedLessonPlansForArea(area) {
 }
 
 function observationAnalysis(record, child = {}) {
-  const categories = categorizeObservation(record.text, record.area);
+  const selectedCategories = Array.isArray(record.categories)
+    ? record.categories.map((area) => normalizeObservationArea(area) || area).filter(Boolean)
+    : [];
+  const categories = selectedCategories.length ? Array.from(new Set(selectedCategories)) : categorizeObservation(record.text, record.area);
   const primaryArea = categories[0] || "Approaches to Learning";
   const childName = child.name || "The child";
   const elg = elgConnection(primaryArea);
@@ -6702,23 +6746,6 @@ function renderChildPortfolioPage(childId) {
         </div>
       </section>
 
-      <section class="section-block portfolio-dashboard-block">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Portfolio Dashboard</p>
-            <h3>Progress snapshot</h3>
-          </div>
-        </div>
-        <div class="portfolio-metric-grid">
-          <article><strong>${summary.observationsCompleted}</strong><span>Observations Completed</span></article>
-          <article><strong>${summary.observationsNeeded}</strong><span>Observations Needed This Week</span></article>
-          <article><strong>${summary.activeGoals}</strong><span>Active Goals</span></article>
-          <article><strong>${summary.activitiesCompleted}</strong><span>Activities Completed</span></article>
-          <article><strong>${escapeHtml(summary.lastObservation)}</strong><span>Last Observation Date</span></article>
-          <article><strong>${summary.progressPercent}%</strong><span>Progress Percentage</span></article>
-        </div>
-      </section>
-
       <section class="section-block portfolio-overview">
         <div class="section-heading">
           <div>
@@ -6824,7 +6851,6 @@ function renderChildPortfolioPage(childId) {
         <div class="resource-list compact">${portfolio.reports.length ? portfolio.reports.map(simpleRecordItem).join("") : `<div class="empty-state">No progress reports yet.</div>`}</div>
       </section>
 
-      ${renderRecommendedForChild(child, records, portfolio)}
     </section>
   `;
 }
@@ -6849,189 +6875,677 @@ function lockedFeatureCard(title, detail = "Upgrade to Pro to unlock this child 
   `;
 }
 
+function currentMonthKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function isObservationInCurrentMonth(dateText) {
+  if (!dateText) return false;
+  const date = new Date(`${dateText}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return false;
+  return currentMonthKey(date) === currentMonthKey();
+}
+
+function monthlyObservationGoal(child = {}) {
+  const goal = Number(child.monthlyObservationGoal || child.observationsRequiredPerMonth || child.monthlyGoal || "");
+  return Number.isFinite(goal) && goal > 0 ? Math.min(Math.round(goal), 31) : 4;
+}
+
+function monthlyObservationSummary(child, observations = childRecords().observations) {
+  const goal = monthlyObservationGoal(child);
+  const completed = observations.filter((item) => item.childId === child.id && isObservationInCurrentMonth(item.date)).length;
+  const safeCompleted = Math.min(completed, goal);
+  const remaining = Math.max(goal - completed, 0);
+  const percent = goal ? Math.min(100, Math.round((safeCompleted / goal) * 100)) : 0;
+  return { goal, completed, remaining, percent };
+}
+
+function childActiveGoals(child, records = childRecords()) {
+  const savedGoals = records.goals
+    .filter((goal) => goal.childId === child.id && goalProgressPercent(goal.progress) < 100)
+    .map((goal) => ({ ...goal, source: goal.source || "saved" }));
+  const typedGoals = child.activeGoals
+    ? child.activeGoals.split(/,|\n/).map((goal) => goal.trim()).filter(Boolean).map((goal, index) => ({
+      id: `${child.id}-typed-goal-${index}`,
+      source: "typed",
+      area: inferAreasFromGoalText(goal)[0] || "Approaches to Learning",
+      goal,
+      progress: "0%",
+      notes: "",
+    }))
+    : [];
+  return [...savedGoals, ...typedGoals];
+}
+
+function childPrimaryGoalLabel(child, records = childRecords()) {
+  const activeGoals = childActiveGoals(child, records);
+  if (!activeGoals.length) return "";
+  return activeGoals
+    .slice(0, 2)
+    .map((goal) => normalizeObservationArea(goal.area) || inferAreasFromGoalText(goal.goal)[0] || goal.goal)
+    .join(", ");
+}
+
+function childrenNeedingMonthlyObservations(records = childRecords()) {
+  return records.children.map((child) => ({ child, summary: monthlyObservationSummary(child, records.observations) }));
+}
+
+function childInitials(name = "Child") {
+  return String(name || "Child").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "C";
+}
+
+function renderChildAvatar(child, size = "normal") {
+  const className = size === "small" ? "simple-child-avatar small" : "simple-child-avatar";
+  return child.photo
+    ? `<img class="${className}" src="${child.photo}" alt="${escapeHtml(child.name)}" />`
+    : `<div class="${className}" aria-hidden="true">${escapeHtml(childInitials(child.name))}</div>`;
+}
+
+function renderMonthlyProgress(summary) {
+  const statusText = summary.remaining > 0 ? `${summary.remaining} still needed` : "Complete";
+  return `
+    <div class="monthly-progress">
+      <div><span>${summary.completed}/${summary.goal} completed</span><strong>${escapeHtml(statusText)}</strong></div>
+      <div class="progress-bar"><span style="width:${summary.percent}%"></span></div>
+    </div>
+  `;
+}
+
+function renderChildrenNeedList(records) {
+  const summaries = childrenNeedingMonthlyObservations(records);
+  const needing = summaries.filter((item) => item.summary.remaining > 0);
+  if (!records.children.length) return "";
+  return `
+    <section class="child-need-banner">
+      <div class="need-icon" aria-hidden="true">OB</div>
+      <div>
+        <strong>${needing.length ? `${needing.length} child${needing.length === 1 ? "" : "ren"} need observations this month` : "All children are complete this month"}</strong>
+        <p>${needing.length ? "Make sure to complete them before the end of the month." : "Nice work. Every child has met their monthly observation goal."}</p>
+      </div>
+      <div class="need-list">
+        ${summaries.map(({ child, summary }) => `<span>${escapeHtml(child.name)} - ${summary.remaining > 0 ? `needs ${summary.remaining} more` : "complete"}</span>`).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderChildProfileCard(child, records) {
+  const summary = monthlyObservationSummary(child, records.observations);
+  const goalLabel = childPrimaryGoalLabel(child, records);
+  const activeGoalCount = childActiveGoals(child, records).length;
+  const attention = summary.remaining > 0
+    ? `${summary.remaining} observation${summary.remaining === 1 ? "" : "s"} needed`
+    : activeGoalCount ? "Active goal support" : "On track";
+  return `
+    <article class="simple-child-card">
+      <div class="simple-child-card-head">
+        ${renderChildAvatar(child, "small")}
+        <div>
+          <h3>${escapeHtml(child.name)}</h3>
+          <p>${escapeHtml(childAgeLabel(child))} - ${escapeHtml(child.classroom || child.ageGroup || "Age group not entered")}</p>
+        </div>
+        <span class="attention-tag">${escapeHtml(attention)}</span>
+      </div>
+      <div class="child-card-section">
+        <span>Monthly observations</span>
+        ${renderMonthlyProgress(summary)}
+      </div>
+      <div class="child-card-section">
+        <span>Active goals</span>
+        ${goalLabel ? `<p><mark>${escapeHtml(goalLabel)}</mark></p>` : `<p>-</p>`}
+      </div>
+      <div class="child-card-actions">
+        <button class="ghost-button" data-view-child-profile="${child.id}" type="button">View Profile</button>
+        <button class="primary-button" data-quick-add-observation="${child.id}" type="button">Quick Add Observation</button>
+      </div>
+    </article>
+  `;
+}
+
+function goalStarterAreas() {
+  return [
+    ["Fine Motor", "Fine motor", "Cutting, tracing, grasp, hand strength"],
+    ["Language & Literacy", "Speech & language", "Words, sentences, books, communication"],
+    ["Social Emotional", "Social emotional", "Sharing, feelings, confidence, peer play"],
+    ["Cognitive Development", "Thinking skills", "Counting, sorting, matching, problem solving"],
+    ["Gross Motor", "Big body movement", "Balance, jumping, climbing, coordination"],
+    ["Physical Development", "Self-help routines", "Handwashing, dressing, toileting, safety"],
+  ];
+}
+
+function goalExampleForArea(area) {
+  const map = {
+    "Fine Motor": "Improve scissor skills during cutting practice",
+    "Language & Literacy": "Use longer sentences during play and routines",
+    "Social Emotional": "Practice turn-taking and sharing with peers",
+    "Cognitive Development": "Match, sort, and count objects during small-group play",
+    "Gross Motor": "Build balance and coordination through movement games",
+    "Physical Development": "Complete one self-help routine with less support",
+    "Creative Arts": "Try new art materials and describe creative choices",
+    "Approaches to Learning": "Stay with a chosen activity and try again when challenged",
+  };
+  return map[area] || map["Approaches to Learning"];
+}
+
+function renderGoalNeedPicker(records) {
+  const child = selectedChild(records);
+  if (!records.children.length) {
+    return `
+      <section class="section-block goal-need-picker">
+        <p class="eyebrow">Start Here</p>
+        <h3>Pick what the child needs help with</h3>
+        <p class="muted-copy">Add a child first, then choose the skill area you want to support.</p>
+        <button class="primary-button" data-child-view="add" type="button">Add Child</button>
+      </section>
+    `;
+  }
+  return `
+    <section class="section-block goal-need-picker">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Start Here</p>
+          <h3>Pick what the child needs help with</h3>
+          <p class="muted-copy">Choose a child, choose the area, then add one simple goal.</p>
+        </div>
+      </div>
+      <div class="goal-child-picker" aria-label="Choose child for goal">
+        ${records.children.map((item) => `
+          <button class="${item.id === child?.id ? "active" : ""}" data-goal-picker-child="${item.id}" type="button">
+            ${escapeHtml(item.name)}
+          </button>
+        `).join("")}
+      </div>
+      <div class="goal-area-picker">
+        ${goalStarterAreas().map(([area, label, detail]) => `
+          <button data-start-goal-area="${escapeHtml(area)}" data-child-id="${escapeHtml(child?.id || "")}" type="button">
+            <strong>${escapeHtml(label)}</strong>
+            <span>${escapeHtml(detail)}</span>
+          </button>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderSimpleGoalsProgressPage(records) {
+  const goalRows = records.children.flatMap((child) => {
+    const goals = childActiveGoals(child, records);
+    return goals.map((goal) => ({ child, goal }));
+  });
+  return `
+    <section class="simple-child-page goals-simple-page">
+      <div class="child-page-header">
+        <div>
+          <h2>Goals & Progress</h2>
+          <p>Focus on the child, the goal, the activity to try next, and the progress.</p>
+        </div>
+        <button class="primary-button" data-child-view="list" type="button">Children</button>
+      </div>
+      ${renderGoalNeedPicker(records)}
+      <div class="simple-goals-list one-column">
+        ${goalRows.length ? goalRows.map(({ child, goal }) => renderSimpleGoalCard(child, goal, records)).join("") : `
+          <section class="section-block empty-state">
+            <h3>No goals yet.</h3>
+            <p>Pick what the child needs help with above, then add one goal.</p>
+            <button class="primary-button" data-child-view="list" type="button">Children</button>
+          </section>
+        `}
+      </div>
+    </section>
+  `;
+}
+
+function renderSimpleGoalCard(child, goal, records) {
+  const area = normalizeObservationArea(goal?.area || inferAreasFromGoalText(goal?.goal || child.activeGoals || "")[0]) || "Approaches to Learning";
+  const progress = goal ? goalProgressPercent(goal.progress) : 0;
+  const activities = suggestedActivitiesForArea(area).slice(0, 3);
+  const isSavedGoal = Boolean(goal?.id && goal.source !== "typed" && records.goals.some((savedGoal) => savedGoal.id === goal.id));
+  return `
+    <article class="simple-goal-card">
+      <div class="simple-goal-head">
+        ${renderChildAvatar(child, "small")}
+        <div>
+          <h3>${escapeHtml(child.name)}</h3>
+          <p>${escapeHtml(area)} Goal</p>
+        </div>
+      </div>
+      <div class="simple-goal-body">
+        <h4>${escapeHtml(goal?.goal || child.activeGoals || "Add a goal for this child")}</h4>
+        <div class="goal-progress-line">
+          <strong>Progress: ${progress}%</strong>
+          <div class="mini-progress"><span style="width:${progress}%"></span></div>
+        </div>
+        <strong>Suggested Activities</strong>
+        <ul class="activity-suggestion-list">
+          ${activities.map((activity) => `<li>${escapeHtml(activity)}</li>`).join("")}
+        </ul>
+      </div>
+      <div class="child-card-actions">
+        <button class="ghost-button" data-quick-add-observation="${child.id}" data-goal-area="${escapeHtml(area)}" type="button">Add Observation</button>
+        ${isSavedGoal ? `<button class="primary-button" data-update-goal-progress="${goal.id}" type="button">Update Progress</button>` : `<button class="primary-button" data-view-child-profile="${child.id}" data-open-child-tab="goals" type="button">Update Progress</button>`}
+      </div>
+    </article>
+  `;
+}
+
 function renderChildManagement() {
   const app = document.querySelector("#childManagementApp");
   if (!app) return;
   activePortfolioChildId = "";
   const records = childRecords();
   if (!selectedChildId && records.children[0]) selectedChildId = records.children[0].id;
-  const child = selectedChild(records);
-  const weeklyStats = weeklyObservationStats(records);
-  const childObservations = child ? records.observations.filter((item) => item.childId === child.id) : [];
-  const filteredObservations = childObservations.filter((item) => {
-    const matchesSearch = [item.text, item.area, item.nextSteps, item.strengths, ...(item.categories || [])].join(" ").toLowerCase().includes(childObservationSearch.toLowerCase());
-    const matchesArea = childObservationAreaFilter === "All" || item.area === childObservationAreaFilter || (item.categories || []).includes(childObservationAreaFilter);
-    const matchesDate = !childObservationDateFilter || item.date === childObservationDateFilter;
-    return matchesSearch && matchesArea && matchesDate;
-  });
+  const child = records.children.find((item) => item.id === selectedChildId) || records.children[0] || null;
+  if (child && child.id !== selectedChildId) {
+    selectedChildId = child.id;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+  }
+
+  if (childManagementMode === "add") {
+    app.innerHTML = renderAddChildScreen();
+    updateChildAgePreview();
+    return;
+  }
+
+  if (childManagementMode === "observe") {
+    app.innerHTML = renderObservationScreen(records);
+    return;
+  }
+
+  if (childManagementMode === "goals") {
+    app.innerHTML = renderSimpleGoalsProgressPage(records);
+    return;
+  }
+
+  if (childManagementMode === "tools") {
+    app.innerHTML = renderChildToolsPage(records);
+    return;
+  }
+
+  if (childManagementMode === "profile" && child) {
+    app.innerHTML = renderSimpleChildProfile(child, records);
+    return;
+  }
 
   app.innerHTML = `
-    <section class="child-dashboard">
-      <div class="home-stats">
-        <div><strong>${records.children.length}</strong><span>children enrolled</span></div>
-        <div><strong>${weeklyStats.completed}</strong><span>observations completed this week</span></div>
-        <div><strong>${weeklyStats.totalNeeded}</strong><span>observations needed</span></div>
-        <div><strong>${weeklyStats.percent}%</strong><span>weekly progress</span></div>
-      </div>
-      <div class="section-block">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Weekly Observation Progress</p>
-            <h3>Observations Completed: ${weeklyStats.completed}/${weeklyStats.totalNeeded}</h3>
-          </div>
+    <section class="simple-child-page">
+      <div class="child-page-header">
+        <div>
+          <h2>Child Profiles</h2>
+          <p>Add children, track observations, goals, support plans, and lesson plan ideas for each child.</p>
         </div>
-        <div class="progress-bar"><span style="width:${weeklyStats.percent}%"></span></div>
-        <div class="weekly-lists">
-          <div><strong>Completed</strong><p>${weeklyStats.completedChildren.length ? weeklyStats.completedChildren.map((item) => `${item.name} (${weeklyStats.byChild.get(item.id) || 0}/${weeklyObservationsPerChild})`).join(", ") : "No child has reached the weekly target yet."}</p></div>
-          <div><strong>Children Needing Observations</strong><p>${weeklyStats.missingChildren.length ? weeklyStats.missingChildren.map((item) => `${item.name} (${weeklyStats.byChild.get(item.id) || 0}/${weeklyObservationsPerChild})`).join(", ") : "All children have enough observations this week."}</p></div>
+        <div class="child-header-actions">
+          <button class="ghost-button" data-child-view="observe" type="button">Add Observation</button>
+          <button class="primary-button" data-child-view="add" type="button">+ Add Child</button>
         </div>
       </div>
-      ${renderWeeklyPlanningDashboard(records, weeklyStats)}
+      ${renderChildrenNeedList(records)}
+      <div class="simple-child-grid">
+        ${records.children.length ? records.children.map((item) => renderChildProfileCard(item, records)).join("") : `
+          <section class="section-block empty-state">
+            <h3>No child profiles yet.</h3>
+            <p>Add your first child profile to track monthly observations, goals, and lesson plan ideas.</p>
+            <button class="primary-button" data-child-view="add" type="button">Add Child</button>
+          </section>
+        `}
+      </div>
     </section>
+  `;
+}
 
-    <section class="child-layout">
-      <aside class="child-sidebar section-block">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Child Profiles</p>
-            <h3>Add child</h3>
-          </div>
+function renderAddChildScreen() {
+  return `
+    <section class="simple-child-page">
+      <button class="ghost-button back-button" data-child-view="list" type="button">Back to Children</button>
+      <div class="child-page-header compact">
+        <div>
+          <h2>Add Child</h2>
+          <p>Only the basics are required. Age calculates automatically from the date of birth.</p>
         </div>
-        <form id="childProfileForm" class="mini-form">
-          <input name="id" type="hidden" />
-          <label>Child Name<input name="name" required placeholder="Emma" /></label>
-          <label>Date of Birth<input name="dob" type="date" /></label>
-          <label>Age<input name="age" placeholder="2 years 4 months" /></label>
-          <label>Enrollment Date<input name="enrollmentDate" type="date" /></label>
-          <label>Classroom/Age Group<select name="ageGroup"><option>Infant</option><option>Toddler</option><option>Preschool</option><option>Mixed Ages</option><option>School Age</option></select></label>
-          <label>Classroom / Group Name<input name="classroom" placeholder="Toddler Room or Home Daycare" /></label>
-          <label>Parent/Guardian Information<textarea name="parentInfo" rows="2" placeholder="Name, phone, email"></textarea></label>
-          <label>Emergency Contacts<textarea name="emergency" rows="2" placeholder="Emergency contacts"></textarea></label>
-          <label>Allergies<textarea name="allergies" rows="2" placeholder="Allergies"></textarea></label>
-          <label>Medical Notes<textarea name="medical" rows="2" placeholder="Medical notes"></textarea></label>
-          <label>Child Photo<input name="photo" type="file" accept="image/*" /></label>
-          <label>Active Goals<textarea name="activeGoals" rows="2" placeholder="Expressive language, fine motor, social emotional support"></textarea></label>
-          <label>Additional Notes<textarea name="notes" rows="2" placeholder="Anything helpful"></textarea></label>
+      </div>
+      <section class="section-block simple-form-card">
+        <form id="childProfileForm" class="mini-form simple-child-form">
+          <label>Child Name<input name="name" required placeholder="Enter child's name" /></label>
+          <label>Date of Birth<input id="childDobInput" name="dob" type="date" required /></label>
+          <label>Age<input id="childAgePreview" name="age" readonly placeholder="Age will calculate automatically" /></label>
+          <label>Classroom / Age Group
+            <select name="ageGroup" required>
+              <option value="">Select classroom</option>
+              <option>Infant</option>
+              <option>Toddler</option>
+              <option>Preschool</option>
+              <option>Mixed Ages</option>
+              <option>School Age</option>
+            </select>
+          </label>
+          <label>Observations Required Per Month
+            <select id="monthlyObservationGoalSelect" name="monthlyObservationGoal">
+              <option value="1">1 per month</option>
+              <option value="2">2 per month</option>
+              <option value="4" selected>4 per month</option>
+              <option value="custom">Custom number</option>
+            </select>
+          </label>
+          <label class="hidden-field" id="customMonthlyObservationGoalWrap">Custom Number<input name="customMonthlyObservationGoal" type="number" min="1" max="31" placeholder="Example: 6" /></label>
           <button class="primary-button" type="submit">Save Child</button>
           ${!isProUser() ? `<p class="form-note">Free plan includes up to ${freeChildProfileLimit} child profiles.</p>` : ""}
         </form>
-        <div class="child-list">
-          ${records.children.length ? records.children.map((item) => `
-            <button class="child-list-item ${child?.id === item.id ? "active-child" : ""}" data-select-child="${item.id}">
-              ${item.photo ? `<img src="${item.photo}" alt="${item.name}" />` : `<span>${item.name.slice(0, 1).toUpperCase()}</span>`}
-              <strong>${item.name}</strong>
-              <small>${item.ageGroup}</small>
-            </button>
-          `).join("") : `<div class="empty-state">Add a child name and age group to begin.</div>`}
-        </div>
-      </aside>
-
-      <section class="child-profile-area">
-        ${child ? renderChildProfile(child, records, filteredObservations) : `<div class="section-block empty-state">Child management is optional. Add a child when you are ready to track observations, goals, support plans, attendance, meals, reports, and portfolios.</div>`}
       </section>
     </section>
   `;
 }
 
-function renderChildProfile(child, records, filteredObservations) {
+function updateChildAgePreview() {
+  const dobInput = document.querySelector("#childDobInput");
+  const ageInput = document.querySelector("#childAgePreview");
+  if (dobInput && ageInput) ageInput.value = calculateAgeFromDob(dobInput.value);
+}
+
+function renderSimpleChildProfile(child, records) {
   const observations = records.observations.filter((item) => item.childId === child.id);
   const supportPlans = records.supportPlans.filter((item) => item.childId === child.id);
   const goals = records.goals.filter((item) => item.childId === child.id);
+  const differentiations = records.differentiations.filter((item) => item.childId === child.id);
+  const summary = monthlyObservationSummary(child, records.observations);
+  return `
+    <section class="simple-child-page">
+      <button class="ghost-button back-button" data-child-view="list" type="button">Back to Children</button>
+      <section class="section-block simple-profile-hero">
+        ${renderChildAvatar(child)}
+        <div>
+          <p class="eyebrow">Child Profile</p>
+          <h2>${escapeHtml(child.name)}</h2>
+          <p>${escapeHtml(childAgeLabel(child))} - ${escapeHtml(child.classroom || child.ageGroup || "Age group not entered")}</p>
+        </div>
+        <button class="ghost-button" data-child-view="add" type="button">Add Child</button>
+      </section>
+
+      <section class="section-block monthly-goal-card">
+        <div>
+          <strong>Monthly Observation Goal</strong>
+          <p>${summary.goal} per month</p>
+        </div>
+        <div>
+          <strong>This Month</strong>
+          ${renderMonthlyProgress(summary)}
+        </div>
+      </section>
+
+      ${renderChildProfileTabs()}
+      ${renderChildProfileTabContent(child, records)}
+    </section>
+  `;
+}
+
+function renderChildProfileTabs() {
+  const tabs = [
+    ["overview", "Overview"],
+    ["observations", "Observations"],
+    ["goals", "Goals"],
+    ["lessons", "Lesson Plans"],
+    ["portfolio", "Portfolio"],
+    ["attendance", "Attendance"],
+    ["meals", "Meals"],
+    ["reports", "Daily Reports"],
+    ["communication", "Parent Communication"],
+  ];
+  return `
+    <div class="simple-profile-tabs" aria-label="Child profile sections">
+      ${tabs.map(([id, label]) => `<button class="${childProfileTab === id ? "active" : ""}" data-child-tab="${id}" type="button">${label}</button>`).join("")}
+    </div>
+  `;
+}
+
+function renderChildProfileTabContent(child, records) {
+  const observations = records.observations.filter((item) => item.childId === child.id);
+  const supportPlans = records.supportPlans.filter((item) => item.childId === child.id);
+  const goals = records.goals.filter((item) => item.childId === child.id);
+  const activeGoals = childActiveGoals(child, records);
+  const differentiations = records.differentiations.filter((item) => item.childId === child.id);
+  const summary = monthlyObservationSummary(child, records.observations);
+  if (childProfileTab === "observations") return renderChildObservationsTab(child, observations, summary);
+  if (childProfileTab === "goals") return renderChildGoalsTab(child, goals, activeGoals, observations, records);
+  if (childProfileTab === "lessons") return renderChildLessonsTab(child, records, observations, goals, differentiations);
+  if (childProfileTab === "portfolio") return renderChildPortfolioTab(child, observations, goals, supportPlans, differentiations);
+  if (childProfileTab === "attendance") {
+    const attendance = records.attendance.filter((item) => item.childId === child.id);
+    return renderChildSimpleRecordTab("Attendance", "Attendance information for this child only.", isProUser() ? attendanceForm(child.id) : lockedFeatureCard("Attendance Tracking"), attendance);
+  }
+  if (childProfileTab === "meals") {
+    const meals = records.meals.filter((item) => item.childId === child.id);
+    return renderChildSimpleRecordTab("Meals", "Meal tracking for this child only.", isProUser() ? mealTrackingForm(child.id) : lockedFeatureCard("Meal Tracking"), meals);
+  }
+  if (childProfileTab === "reports") {
+    const reports = records.reports.filter((item) => item.childId === child.id);
+    return renderChildSimpleRecordTab("Daily Reports", "Parent-ready daily reports for this child only.", isProUser() ? `<button class="primary-button" data-build-daily-report="${child.id}" type="button">Generate Daily Report</button>` : lockedFeatureCard("Daily Reports"), reports);
+  }
+  if (childProfileTab === "communication") {
+    const comms = records.communications.filter((item) => item.childId === child.id);
+    return renderChildSimpleRecordTab("Parent Communication", "Parent notes and communication records for this child only.", isProUser() ? communicationForm(child.id) : lockedFeatureCard("Parent Communication Tools"), comms);
+  }
+  return renderChildOverviewTab(child, summary, records);
+}
+
+function renderChildOverviewTab(child, summary, records = childRecords()) {
+  const activeGoals = childActiveGoals(child, records);
+  const primaryGoal = activeGoals[0];
+  const goalArea = normalizeObservationArea(primaryGoal?.area || inferAreasFromGoalText(primaryGoal?.goal || child.activeGoals || "")[0]) || "";
+  const nextActivity = suggestedActivitiesForArea(goalArea || "Approaches to Learning")[0];
+  return `
+    <section class="section-block profile-overview-card">
+      <h3>Needs Attention</h3>
+      <div class="attention-list">
+        <div>
+          <span>Observations</span>
+          <strong>${summary.remaining > 0 ? `${summary.remaining} needed this month` : "Monthly goal complete"}</strong>
+        </div>
+        <div>
+          <span>Active Goals</span>
+          <strong>${activeGoals.length ? `${activeGoals.length} active` : "No active goals"}</strong>
+        </div>
+        <div>
+          <span>Next Activity</span>
+          <strong>${escapeHtml(primaryGoal ? nextActivity : "Add a goal to suggest an activity")}</strong>
+        </div>
+      </div>
+      <div class="profile-info-list">
+        <div><span>Classroom / Age Group</span><strong>${escapeHtml(child.classroom || child.ageGroup || "Not entered")}</strong></div>
+        <div><span>Date of Birth</span><strong>${escapeHtml(formatDateLabel(child.dob))}</strong></div>
+        <div><span>Age</span><strong>${escapeHtml(childAgeLabel(child))}</strong></div>
+        <div><span>Monthly Observation Goal</span><strong>${summary.goal} per month</strong></div>
+      </div>
+      <div class="quick-action-list">
+        <button class="ghost-button" data-quick-add-observation="${child.id}" type="button">Add Observation</button>
+        <button class="ghost-button" data-child-tab="goals" type="button">Add Goal</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderChildObservationsTab(child, observations, summary) {
+  const filteredObservations = observations.filter((item) => {
+    const matchesSearch = [item.text, item.area, item.nextSteps, item.strengths, ...(item.categories || [])].join(" ").toLowerCase().includes(childObservationSearch.toLowerCase());
+    const matchesArea = childObservationAreaFilter === "All" || item.area === childObservationAreaFilter || (item.categories || []).includes(childObservationAreaFilter);
+    const matchesDate = !childObservationDateFilter || item.date === childObservationDateFilter;
+    return matchesSearch && matchesArea && matchesDate;
+  }).slice().sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+  return `
+    <section class="section-block">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Observations</p>
+          <h3>Observation History</h3>
+          <p class="muted-copy">${summary.completed}/${summary.goal} completed this month. ${summary.remaining > 0 ? `${summary.remaining} still needed before the end of the month.` : "Monthly goal complete."}</p>
+        </div>
+        <button class="primary-button" data-quick-add-observation="${child.id}" type="button">+ Add Observation</button>
+      </div>
+      <div class="child-filter-row">
+        <input id="childObservationSearch" value="${childObservationSearch}" placeholder="Search observations" />
+        <input id="childObservationDate" type="date" value="${childObservationDateFilter}" />
+        <select id="childObservationArea"><option>All</option>${areaOptions(childObservationAreaFilter)}</select>
+      </div>
+      <div class="simple-observation-list">${filteredObservations.length ? filteredObservations.map((item) => renderChildObservationCard(item, child)).join("") : `<div class="empty-state">No observations saved for ${escapeHtml(child.name)} yet.</div>`}</div>
+    </section>
+  `;
+}
+
+function renderChildGoalsTab(child, goals, activeGoals, observations, records) {
+  return `
+    <section class="section-block" id="childGoalsSection">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Goals</p>
+          <h3>Goals for ${escapeHtml(child.name)}</h3>
+        </div>
+      </div>
+      <div class="simple-goals-list one-column">${activeGoals.length ? activeGoals.map((goal) => renderSimpleGoalCard(child, goal, records)).join("") : `<div class="empty-state">No active goals yet.</div>`}</div>
+      <div class="simple-add-record">
+        <h4>Add Goal</h4>
+        ${isProUser() ? goalForm(child.id) : lockedFeatureCard("Development Goal Tracking")}
+      </div>
+    </section>
+  `;
+}
+
+function renderChildLessonsTab(child, records, observations, goals, differentiations) {
+  const areas = childSupportAreas(child.id, records);
+  const primaryAreas = areas.length ? areas : childRecommendationAreas(child, goals, observations);
+  const lessonPlans = primaryAreas.flatMap(suggestedLessonPlansForArea).slice(0, 5);
+  const activities = primaryAreas.flatMap(suggestedActivitiesForArea).slice(0, 5);
+  return `
+    <section class="section-block">
+      <p class="eyebrow">Lesson Plans</p>
+      <h3>Next ideas for ${escapeHtml(child.name)}</h3>
+      <div class="focused-suggestion-list">
+        <div>
+          <strong>Lesson Plan Ideas</strong>
+          ${renderChipList(lessonPlans)}
+        </div>
+        <div>
+          <strong>Activities To Try</strong>
+          ${renderChipList(activities)}
+        </div>
+      </div>
+      <div class="resource-list compact">${differentiations.length ? differentiations.map(simpleRecordItem).join("") : `<div class="empty-state">No lesson plan supports saved yet.</div>`}</div>
+    </section>
+  `;
+}
+
+function renderChildPortfolioTab(child, observations, goals, supportPlans, differentiations) {
+  return `
+    <section class="section-block">
+      <p class="eyebrow">Portfolio</p>
+      <h3>Progress record</h3>
+      <p class="muted-copy">Portfolio includes past observations, goals, progress notes, and activities or lesson plans used.</p>
+      <div class="quick-action-list">
+        <button class="ghost-button" ${isProUser() ? `data-open-portfolio="${child.id}"` : `data-pro-feature="child-portfolios"`} type="button">Expand Portfolio</button>
+        <button class="ghost-button" ${isProUser() ? `data-export-portfolio="${child.id}"` : `data-pro-feature="child-portfolios"`} type="button">Export Portfolio PDF</button>
+      </div>
+      <div class="portfolio-mini-list">
+        <span>${observations.length} observations</span>
+        <span>${goals.length} goals</span>
+        <span>${supportPlans.length} support plans</span>
+        <span>${differentiations.length} lesson supports</span>
+      </div>
+    </section>
+  `;
+}
+
+function renderChildSimpleRecordTab(title, detail, formHtml, records) {
+  return `
+    <section class="section-block">
+      <p class="eyebrow">${escapeHtml(title)}</p>
+      <h3>${escapeHtml(title)}</h3>
+      <p class="muted-copy">${escapeHtml(detail)}</p>
+      ${formHtml}
+      <div class="resource-list compact">${records.length ? records.slice(-8).reverse().map(simpleRecordItem).join("") : `<div class="empty-state">No ${escapeHtml(title.toLowerCase())} records yet.</div>`}</div>
+    </section>
+  `;
+}
+
+function childToolTabs() {
+  return [
+    ["attendance", "Attendance", "Daily check-in, absent/present, drop-off, and pick-up."],
+    ["meals", "Meals", "Breakfast, lunch, snack, food notes, and allergy notes."],
+    ["reports", "Daily Reports", "Generate parent-ready daily summaries for one child."],
+    ["communication", "Parent Communication", "Save parent notes, updates, and communication records."],
+  ];
+}
+
+function renderChildToolsPage(records) {
+  const child = selectedChild(records);
+  const activeTool = childToolTabs().find(([id]) => id === childToolsTab) || childToolTabs()[0];
+  if (!child) {
+    return `
+      <section class="simple-child-page">
+        <div class="child-page-header">
+          <div>
+            <h2>${escapeHtml(activeTool[1])}</h2>
+            <p>Add a child first, then manage ${escapeHtml(activeTool[1].toLowerCase())} from this side tool.</p>
+          </div>
+          <button class="primary-button" data-child-view="add" type="button">+ Add Child</button>
+        </div>
+        <section class="section-block empty-state">
+          <h3>Add a child first.</h3>
+          <p>Child tools need a child profile so records can save to the right child.</p>
+        </section>
+      </section>
+    `;
+  }
+  return `
+    <section class="simple-child-page child-tools-page">
+      <div class="child-page-header">
+        <div>
+          <h2>${escapeHtml(activeTool[1])}</h2>
+          <p>Select a child, then manage only ${escapeHtml(activeTool[1].toLowerCase())}.</p>
+        </div>
+        <button class="ghost-button" data-view-child-profile="${child.id}" type="button">Back to ${escapeHtml(child.name)}</button>
+      </div>
+      <div class="child-tools-layout">
+        <aside class="section-block child-tools-side">
+          <div class="child-tools-selected">
+            ${renderChildAvatar(child, "small")}
+            <div>
+              <strong>${escapeHtml(child.name)}</strong>
+              <span>${escapeHtml(childAgeLabel(child))} - ${escapeHtml(child.classroom || child.ageGroup || "Age group not entered")}</span>
+            </div>
+          </div>
+          <label class="child-tools-select">Child
+            <select id="childToolsChildSelect">
+              ${records.children.map((item) => `<option value="${item.id}" ${item.id === child.id ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}
+            </select>
+          </label>
+          <div class="child-tools-nav" aria-label="Child tools">
+            ${childToolTabs().map(([id, label, detail]) => `
+              <button class="${childToolsTab === id ? "active" : ""}" data-child-tool-tab="${id}" type="button">
+                <strong>${escapeHtml(label)}</strong>
+                <span>${escapeHtml(detail)}</span>
+              </button>
+            `).join("")}
+          </div>
+        </aside>
+        <div class="child-tools-content">
+          ${renderChildToolsContent(child, records)}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderChildToolsContent(child, records) {
   const attendance = records.attendance.filter((item) => item.childId === child.id);
   const meals = records.meals.filter((item) => item.childId === child.id);
   const reports = records.reports.filter((item) => item.childId === child.id);
   const comms = records.communications.filter((item) => item.childId === child.id);
-  const differentiations = records.differentiations.filter((item) => item.childId === child.id);
-  return `
-    <div class="section-block child-profile-header">
-      ${child.photo ? `<img src="${child.photo}" alt="${child.name}" />` : `<div class="child-avatar">${child.name.slice(0, 1).toUpperCase()}</div>`}
-      <div>
-        <p class="eyebrow">Child Profile</p>
-        <h3>${child.name}</h3>
-        <p>${child.ageGroup || "Age group not entered"} | ${childAgeLabel(child)} | Last observation: ${lastObservationDate(child.id, records.observations)}</p>
-        <p>${child.classroom ? `Classroom/Group: ${child.classroom}` : "Classroom/group not entered."}</p>
-        <p>${child.activeGoals ? `Active Goals: ${child.activeGoals}` : "No active goals listed yet."}</p>
-        <p>${child.allergies ? `Allergies: ${child.allergies}` : "No allergies listed."}</p>
-      </div>
-      <div class="child-profile-actions">
-        <button class="primary-button" ${isProUser() ? `data-open-portfolio="${child.id}"` : `data-pro-feature="child-portfolios"`} type="button">Expand Portfolio</button>
-        <button class="ghost-button" ${isProUser() ? `data-export-portfolio="${child.id}"` : `data-pro-feature="child-portfolios"`} type="button">Export Portfolio</button>
-      </div>
-    </div>
-
-    ${renderChildPlanningConnections(child, records, observations, goals)}
-
-    <div class="child-profile-grid">
-      <section class="section-block">
-        <p class="eyebrow">Observations</p>
-        <h3>${observations.length} total observations</h3>
-        <div class="child-filter-row">
-          <input id="childObservationSearch" value="${childObservationSearch}" placeholder="Search observations" />
-          <input id="childObservationDate" type="date" value="${childObservationDateFilter}" />
-          <select id="childObservationArea"><option>All</option>${areaOptions(childObservationAreaFilter)}</select>
-        </div>
-        <form id="childObservationForm" class="mini-form">
-          <input name="childId" type="hidden" value="${child.id}" />
-          <label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
-          <label>Main Category<select name="area">${areaOptions()}</select></label>
-          <label>Observation<textarea name="text" rows="3" placeholder="Child counted to 5 independently during block play."></textarea></label>
-          <label>Optional Next Steps<textarea name="nextSteps" rows="2" placeholder="Leave blank to auto-generate next steps, activities, and lesson plan topics."></textarea></label>
-          <p class="form-note">Categories, ELG connections, strengths, activities, and lesson plan recommendations are created automatically.</p>
-          <button class="primary-button" type="submit">Add Observation</button>
-        </form>
-        <div class="resource-list compact">${filteredObservations.length ? filteredObservations.map(observationItem).join("") : `<div class="empty-state">No observations match yet.</div>`}</div>
-      </section>
-
-      <section class="section-block">
-        <p class="eyebrow">Support Plans</p>
-        <h3>Individual child support</h3>
-        ${isProUser() ? supportForm(child.id) : lockedFeatureCard("Individual Child Support Plans")}
-        <div class="resource-list compact">${supportPlans.length ? supportPlans.map(simpleRecordItem).join("") : `<div class="empty-state">No support plans yet.</div>`}</div>
-      </section>
-
-      <section class="section-block">
-        <p class="eyebrow">Development Goals</p>
-        <h3>Goal tracking</h3>
-        ${isProUser() ? goalForm(child.id) : lockedFeatureCard("Development Goal Tracking")}
-        <div class="resource-list compact">${goals.length ? goals.map(goalItem).join("") : `<div class="empty-state">No goals yet.</div>`}</div>
-      </section>
-
-      <section class="section-block">
-        <p class="eyebrow">Lesson Plan Differentiation</p>
-        <h3>Individualized activities</h3>
-        ${isProUser() ? differentiationForm(child.id) : lockedFeatureCard("Lesson Plan Differentiation")}
-        <div class="resource-list compact">${differentiations.length ? differentiations.map(simpleRecordItem).join("") : `<div class="empty-state">No lesson plan supports yet.</div>`}</div>
-      </section>
-
-      <section class="section-block">
-        <p class="eyebrow">Attendance</p>
-        <h3>Daily attendance</h3>
-        ${isProUser() ? attendanceForm(child.id) : lockedFeatureCard("Attendance Tracking")}
-        <div class="resource-list compact">${attendance.length ? attendance.slice(-5).reverse().map(simpleRecordItem).join("") : `<div class="empty-state">No attendance records yet.</div>`}</div>
-      </section>
-
-      <section class="section-block">
-        <p class="eyebrow">Meals</p>
-        <h3>Meal tracking</h3>
-        ${isProUser() ? mealTrackingForm(child.id) : lockedFeatureCard("Meal Tracking")}
-        <div class="resource-list compact">${meals.length ? meals.slice(-5).reverse().map(simpleRecordItem).join("") : `<div class="empty-state">No meal records yet.</div>`}</div>
-      </section>
-
-      <section class="section-block">
-        <p class="eyebrow">Daily Reports</p>
-        <h3>Report builder</h3>
-        ${isProUser() ? `<button class="primary-button" data-build-daily-report="${child.id}" type="button">Generate From Today</button>` : lockedFeatureCard("Daily Reports")}
-        <div class="resource-list compact">${reports.length ? reports.slice(-5).reverse().map(simpleRecordItem).join("") : `<div class="empty-state">No daily reports yet.</div>`}</div>
-      </section>
-
-      <section class="section-block">
-        <p class="eyebrow">Parent Communication</p>
-        <h3>Notes and updates</h3>
-        ${isProUser() ? communicationForm(child.id) : lockedFeatureCard("Parent Communication Tools")}
-        <div class="resource-list compact">${comms.length ? comms.slice(-5).reverse().map(simpleRecordItem).join("") : `<div class="empty-state">No parent communication yet.</div>`}</div>
-      </section>
-    </div>
-  `;
+  if (childToolsTab === "meals") {
+    return renderChildSimpleRecordTab("Meals", "Track only meal notes for this child.", isProUser() ? mealTrackingForm(child.id) : lockedFeatureCard("Meal Tracking"), meals);
+  }
+  if (childToolsTab === "reports") {
+    return renderChildSimpleRecordTab("Daily Reports", "Create simple parent-ready daily reports for this child.", isProUser() ? `<button class="primary-button" data-build-daily-report="${child.id}" type="button">Generate Daily Report</button>` : lockedFeatureCard("Daily Reports"), reports);
+  }
+  if (childToolsTab === "communication") {
+    return renderChildSimpleRecordTab("Parent Communication", "Keep parent notes and communication records for this child.", isProUser() ? communicationForm(child.id) : lockedFeatureCard("Parent Communication Tools"), comms);
+  }
+  return renderChildSimpleRecordTab("Attendance", "Track only attendance information for this child.", isProUser() ? attendanceForm(child.id) : lockedFeatureCard("Attendance Tracking"), attendance);
 }
 
 function renderChildPlanningConnections(child, records, observations, goals) {
@@ -7047,48 +7561,152 @@ function renderChildPlanningConnections(child, records, observations, goals) {
     : goals.length ? 100 : 0;
   const elgItems = primaryAreas.map((area) => ({ area, ...elgConnection(area) })).slice(0, 4);
   return `
-    <section class="section-block child-intelligence-panel">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">AI Development Assistant</p>
-          <h3>Planning connections for ${escapeHtml(child.name)}</h3>
+    <div class="child-idea-grid">
+      <article>
+        <strong>What to support next</strong>
+        <p>${escapeHtml(latestAnalysis.nextSteps)}</p>
+      </article>
+      <article>
+        <strong>Suggested activities</strong>
+        ${renderChipList(activities)}
+      </article>
+      <article>
+        <strong>Lesson plan topics</strong>
+        ${renderChipList(lessonPlans)}
+      </article>
+      <article>
+        <strong>ELG connections</strong>
+        ${elgItems.map((item) => `<span>${escapeHtml(item.area)}: ${escapeHtml(item.skill)}</span>`).join("")}
+      </article>
+      <article>
+        <strong>At a glance</strong>
+        <span>${activeGoals.length} active goals</span>
+        <span>${averageGoalProgress}% average goal progress</span>
+        <span>Last observation: ${escapeHtml(lastObservationDate(child.id, records.observations))}</span>
+      </article>
+    </div>
+  `;
+}
+
+function renderGoalSupportIdeas(child, activeGoals, observations) {
+  const areas = childRecommendationAreas(child, activeGoals, observations);
+  const primaryArea = areas[0] || "Approaches to Learning";
+  return `
+    <div class="goal-support-box">
+      <strong>Suggested activities based on ${escapeHtml(child.name)}'s goals</strong>
+      <p>${escapeHtml(primaryArea)} support ideas are matched to ${escapeHtml(child.ageGroup || "this child's age group")}.</p>
+      ${renderChipList(areas.flatMap(suggestedActivitiesForArea).slice(0, 8))}
+    </div>
+  `;
+}
+
+function renderDevelopmentAreaChecks(selectedAreas = []) {
+  const normalized = selectedAreas.map(normalizeObservationArea).filter(Boolean);
+  const shortAreas = [
+    ["Fine Motor", "Fine motor"],
+    ["Gross Motor", "Gross motor"],
+    ["Language & Literacy", "Language"],
+    ["Social Emotional", "Social emotional"],
+    ["Cognitive Development", "Cognitive"],
+    ["Physical Development", "Self-help"],
+  ];
+  return shortAreas.map(([value, label]) => `
+    <label class="area-check">
+      <input type="checkbox" name="areas" value="${escapeHtml(value)}" ${normalized.includes(value) ? "checked" : ""} />
+      <span>${escapeHtml(label)}</span>
+    </label>
+  `).join("");
+}
+
+function renderObservationScreen(records) {
+  const editing = activeChildObservationEditId ? records.observations.find((item) => item.id === activeChildObservationEditId) : null;
+  const lockedChildId = activeObservationChildLock || editing?.childId || "";
+  const lockedChild = lockedChildId ? records.children.find((item) => item.id === lockedChildId) : null;
+  const child = lockedChild || records.children.find((item) => item.id === (editing?.childId || selectedChildId)) || records.children[0] || null;
+  const selectedAreas = editing?.categories || [editing?.area || pendingObservationArea || childSupportAreas(child?.id, records)[0] || "Fine Motor"];
+  return `
+    <section class="simple-child-page observation-entry-page">
+      <button class="ghost-button back-button" ${lockedChild ? `data-view-child-profile="${lockedChild.id}"` : `data-child-view="list"`} type="button">${lockedChild ? `Back to ${escapeHtml(lockedChild.name)}` : "Back to Children"}</button>
+      <section class="section-block add-observation-panel">
+        <div class="section-heading">
+          <div>
+            <h2>${editing ? "Edit Observation" : "Add Observation"}</h2>
+            <p class="muted-copy">Every observation is saved under a child profile.</p>
+          </div>
         </div>
-        <span class="tag">${observations.length} observations</span>
-      </div>
-      <div class="planning-dashboard-grid">
-        <article><strong>${activeGoals.length}</strong><span>active goals</span></article>
-        <article><strong>${averageGoalProgress}%</strong><span>goal progress</span></article>
-        <article><strong>${primaryAreas[0]}</strong><span>primary support area</span></article>
-        <article><strong>${lastObservationDate(child.id, records.observations)}</strong><span>last observation</span></article>
-      </div>
-      <div class="recommendation-grid">
-        <div>
-          <strong>Strengths Observed</strong>
-          <p>${escapeHtml(latestAnalysis.strengths)}</p>
-        </div>
-        <div>
-          <strong>Suggested Next Steps</strong>
-          <p>${escapeHtml(latestAnalysis.nextSteps)}</p>
-        </div>
-        <div>
-          <strong>Suggested Lesson Plan Topics</strong>
-          ${renderChipList(lessonPlans)}
-        </div>
-        <div>
-          <strong>Recommended Activities</strong>
-          ${renderChipList(activities)}
-        </div>
-      </div>
-      <div class="elg-connection-grid">
-        ${elgItems.map((item) => `
-          <article>
-            <strong>${escapeHtml(item.area)}</strong>
-            <span>ELG Domain: ${escapeHtml(item.domain)}</span>
-            <span>Skill Area: ${escapeHtml(item.skill)}</span>
-          </article>
-        `).join("")}
-      </div>
+        ${records.children.length ? `
+          <form id="childObservationForm" class="simple-observation-form">
+            <input name="observationId" type="hidden" value="${escapeHtml(editing?.id || "")}" />
+            ${lockedChild ? `
+              <input name="childId" type="hidden" value="${escapeHtml(lockedChild.id)}" />
+              <div class="locked-child-field">
+                <span>Selected Child</span>
+                <strong>${escapeHtml(lockedChild.name)}</strong>
+              </div>
+            ` : `
+              <label>Selected Child
+                <select name="childId" required>
+                  <option value="">Choose child</option>
+                  ${records.children.map((item) => `<option value="${item.id}">${escapeHtml(item.name)}</option>`).join("")}
+                </select>
+              </label>
+            `}
+            <label>Date<input name="date" type="date" value="${escapeHtml(editing?.date || new Date().toISOString().slice(0, 10))}" /></label>
+            <div class="wide observation-writing-card">
+              <div class="observation-writing-head">
+                <div>
+                  <strong>Observation Notes</strong>
+                  <p>Write what you saw in simple provider language.</p>
+                </div>
+                <span>${lockedChild ? `Saved to ${escapeHtml(lockedChild.name)}` : "Choose child first"}</span>
+              </div>
+              <textarea class="observation-note-textarea" name="text" rows="8" maxlength="1000" placeholder="Example: ${escapeHtml(child?.name || "The child")} used both hands to stack blocks, smiled when the tower stayed up, and tried again when it fell.">${escapeHtml(editing?.text || "")}</textarea>
+            </div>
+            <div class="wide">
+              <strong>Developmental Area <small>(select all that apply)</small></strong>
+              <div class="area-check-grid">${renderDevelopmentAreaChecks(selectedAreas)}</div>
+            </div>
+            <label class="wide observation-next-step-field">
+              <span>Suggested Next Steps</span>
+              <textarea name="nextSteps" rows="3" placeholder="Leave blank and Little Learner Hub will suggest next steps.">${escapeHtml(editing?.nextSteps || "")}</textarea>
+            </label>
+            <div class="wide observation-help-box">
+              <strong>Need help?</strong>
+              <p>Choose an area and Little Learner Hub can suggest observation ideas.</p>
+              <button class="ghost-button" data-generate-observation-ideas type="button">Generate Observation Ideas</button>
+              <div id="observationIdeasOutput" class="observation-ideas-output"></div>
+            </div>
+            <button class="primary-button wide" type="submit">${editing ? "Save Observation Changes" : "Save Observation"}</button>
+          </form>
+        ` : `
+          <div class="empty-state">
+            <h3>Add a child first.</h3>
+            <p>Observation records need a child profile so progress can update correctly.</p>
+            <button class="primary-button" data-child-view="add" type="button">Add Child</button>
+          </div>
+        `}
+      </section>
     </section>
+  `;
+}
+
+function renderChildObservationCard(item, child) {
+  const analysis = observationAnalysis(item, child);
+  return `
+    <article class="simple-observation-card">
+      <div>
+        <strong>${escapeHtml(item.childName || child.name)} | ${escapeHtml(formatDateLabel(item.date))}</strong>
+        <span class="tag">${escapeHtml(analysis.developmentArea)}</span>
+      </div>
+      <p>${escapeHtml(item.text || "Observation note")}</p>
+      <p><b>Next step:</b> ${escapeHtml(analysis.nextSteps)}</p>
+      ${renderChipList(analysis.categories || [])}
+      <div class="observation-card-actions">
+        <button class="ghost-button" data-edit-child-observation="${item.id}" type="button">Edit</button>
+        <button class="ghost-button" data-duplicate-child-observation="${item.id}" type="button">Duplicate</button>
+        <button class="ghost-button danger-link" data-delete-child-observation="${item.id}" type="button">Delete</button>
+      </div>
+    </article>
   `;
 }
 
@@ -7108,11 +7726,13 @@ function supportForm(childId) {
 }
 
 function goalForm(childId) {
+  const selectedArea = normalizeObservationArea(pendingGoalArea) || pendingGoalArea || "";
+  const placeholder = goalExampleForArea(selectedArea || "Approaches to Learning");
   return `
     <form id="childGoalForm" class="mini-form">
       <input name="childId" type="hidden" value="${childId}" />
-      <label>Developmental Area<select name="area">${areaOptions()}</select></label>
-      <label>Goal<input name="goal" placeholder="Use 3-word phrases during play" /></label>
+      <label>What needs help?<select name="area">${areaOptions(selectedArea)}</select></label>
+      <label>Goal<input name="goal" placeholder="${escapeHtml(placeholder)}" /></label>
       <label>Target Date<input name="targetDate" type="date" /></label>
       <label>Progress<select name="progress"><option>0%</option><option>25%</option><option>50%</option><option>75%</option><option>100%</option></select></label>
       <label>Notes<textarea name="notes" rows="2" placeholder="Progress notes"></textarea></label>
@@ -7467,7 +8087,7 @@ function renderGeneratedHistory() {
       <div class="compact-item generated-item">
         <div>
           <strong>${item.title}</strong>
-          <span>${item.date} ¬∑ ${item.text.slice(0, 92)}${item.text.length > 92 ? "..." : ""}</span>
+          <span>${item.date} · ${item.text.slice(0, 92)}${item.text.length > 92 ? "..." : ""}</span>
         </div>
         <button class="ghost-button" data-load-output="${item.id}" type="button">Open</button>
       </div>
@@ -7610,7 +8230,7 @@ function ticketCard(ticket, admin = false) {
         <div>
           <p class="eyebrow">${escapeHtml(ticket.kind)}</p>
           <h3>${escapeHtml(ticket.topic)}</h3>
-          <p>${escapeHtml(ticket.name)} ¬∑ ${escapeHtml(ticket.email || "No email")}</p>
+          <p>${escapeHtml(ticket.name)} · ${escapeHtml(ticket.email || "No email")}</p>
         </div>
         <span class="ticket-status ${ticketStatusClass(ticket.status)}">${escapeHtml(ticket.status)}</span>
       </div>
@@ -7823,7 +8443,7 @@ function renderAdminOwnerOverview() {
           <div class="analytics-row stacked">
             <span>${escapeHtml(account.email)}</span>
             <strong>${escapeHtml(account.plan || "Free")}</strong>
-            <small>${escapeHtml(account.subscriptionStatus || "Free Plan")} ¬∑ ${escapeHtml(account.monthlyPrice || "$0")}</small>
+            <small>${escapeHtml(account.subscriptionStatus || "Free Plan")} · ${escapeHtml(account.monthlyPrice || "$0")}</small>
           </div>
         `).join("") : `<div class="empty-state">No accounts yet.</div>`}
       </article>
@@ -8740,7 +9360,7 @@ function generatePortfolio(data) {
   return `Child Portfolio Entry
 
 Child
-${data.child || "Child"} ¬∑ ${data.age || "Age not listed"}
+${data.child || "Child"} · ${data.age || "Age not listed"}
 
 Learning Snapshot
 ${data.observations || "Add observations, learning moments, photos notes, or milestones here."}
@@ -9395,7 +10015,7 @@ function compactItem(resource) {
     <div class="compact-item">
       <div>
         <strong>${resource.title}</strong>
-        <span>${resource.category} ¬∑ ${resource.age} ¬∑ ${resource.plan}</span>
+        <span>${resource.category} · ${resource.age} · ${resource.plan}</span>
       </div>
       <button class="favorite-button ${!isProUser() ? "disabled-control" : ""}" ${favoriteAttribute} type="button">${favoriteText}</button>
     </div>
@@ -9842,7 +10462,7 @@ function accountListItem(resource) {
     <div class="compact-item">
       <div>
         <strong>${resource.title}</strong>
-        <span>${resource.category} ¬∑ ${resource.age}</span>
+        <span>${resource.category} · ${resource.age}</span>
       </div>
       <button class="ghost-button" data-view="${resourceViewForCategory(resource.category)}">Open</button>
     </div>
@@ -10361,6 +10981,28 @@ document.addEventListener("click", (event) => {
     if (viewButton.dataset.view === "plans" || viewButton.dataset.view === "upgrade") {
       trackEvent("upgrade_click", { targetView: viewButton.dataset.view });
     }
+    if (viewButton.dataset.view === "children") {
+      childManagementMode = "list";
+      childProfileTab = "overview";
+      activeChildObservationEditId = "";
+      activeObservationChildLock = "";
+      activePortfolioChildId = "";
+    }
+    if (viewButton.dataset.view === "goals") {
+      childManagementMode = "goals";
+      childProfileTab = "goals";
+      activeChildObservationEditId = "";
+      activeObservationChildLock = "";
+      activePortfolioChildId = "";
+    }
+    const requestedChildToolTab = childToolTabFromView(viewButton.dataset.view);
+    if (requestedChildToolTab) {
+      childManagementMode = "tools";
+      childToolsTab = requestedChildToolTab;
+      activeChildObservationEditId = "";
+      activeObservationChildLock = "";
+      activePortfolioChildId = "";
+    }
     setMobileNavOpen(false);
     setView(viewButton.dataset.view);
     return;
@@ -10405,7 +11047,183 @@ document.addEventListener("click", (event) => {
   if (selectChildButton) {
     selectedChildId = selectChildButton.dataset.selectChild;
     localStorage.setItem("llhSelectedChild", selectedChildId);
+    childManagementMode = "profile";
     renderChildManagement();
+    return;
+  }
+
+  const childViewButton = event.target.closest("[data-child-view]");
+  if (childViewButton) {
+    event.preventDefault();
+    childManagementMode = childViewButton.dataset.childView || "list";
+    activeChildObservationEditId = "";
+    activeObservationChildLock = "";
+    if (childManagementMode === "list") childProfileTab = "overview";
+    if (childManagementMode !== "observe") pendingObservationArea = "";
+    renderChildManagement();
+    return;
+  }
+
+  const viewChildProfileButton = event.target.closest("[data-view-child-profile]");
+  if (viewChildProfileButton) {
+    event.preventDefault();
+    const childId = viewChildProfileButton.dataset.viewChildProfile;
+    if (childId) {
+      selectedChildId = childId;
+      localStorage.setItem("llhSelectedChild", selectedChildId);
+      childManagementMode = "profile";
+      childProfileTab = viewChildProfileButton.dataset.openChildTab || "overview";
+    } else {
+      childManagementMode = "list";
+      childProfileTab = "overview";
+    }
+    activeChildObservationEditId = "";
+    activeObservationChildLock = "";
+    renderChildManagement();
+    return;
+  }
+
+  const childTabButton = event.target.closest("[data-child-tab]");
+  if (childTabButton) {
+    event.preventDefault();
+    childProfileTab = childTabButton.dataset.childTab || "overview";
+    childManagementMode = "profile";
+    renderChildManagement();
+    return;
+  }
+
+  const openChildToolsButton = event.target.closest("[data-open-child-tools]");
+  if (openChildToolsButton) {
+    event.preventDefault();
+    selectedChildId = openChildToolsButton.dataset.openChildTools;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+    childManagementMode = "tools";
+    childToolsTab = "attendance";
+    activeObservationChildLock = "";
+    setView(childToolViewForTab(childToolsTab));
+    return;
+  }
+
+  const childToolTabButton = event.target.closest("[data-child-tool-tab]");
+  if (childToolTabButton) {
+    event.preventDefault();
+    childToolsTab = childToolTabButton.dataset.childToolTab || "attendance";
+    childManagementMode = "tools";
+    activeObservationChildLock = "";
+    setView(childToolViewForTab(childToolsTab));
+    return;
+  }
+
+  const quickObservationButton = event.target.closest("[data-quick-add-observation]");
+  if (quickObservationButton) {
+    event.preventDefault();
+    selectedChildId = quickObservationButton.dataset.quickAddObservation;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+    childManagementMode = "observe";
+    activeChildObservationEditId = "";
+    activeObservationChildLock = selectedChildId;
+    pendingObservationArea = quickObservationButton.dataset.goalArea || "";
+    renderChildManagement();
+    return;
+  }
+
+  const editChildObservationButton = event.target.closest("[data-edit-child-observation]");
+  if (editChildObservationButton) {
+    event.preventDefault();
+    const observation = childRecords().observations.find((item) => item.id === editChildObservationButton.dataset.editChildObservation);
+    if (!observation) return;
+    selectedChildId = observation.childId;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+    activeChildObservationEditId = observation.id;
+    childManagementMode = "observe";
+    activeObservationChildLock = observation.childId;
+    pendingObservationArea = "";
+    renderChildManagement();
+    return;
+  }
+
+  const duplicateChildObservationButton = event.target.closest("[data-duplicate-child-observation]");
+  if (duplicateChildObservationButton) {
+    event.preventDefault();
+    const observations = childStore("Observations");
+    const observation = observations.find((item) => item.id === duplicateChildObservationButton.dataset.duplicateChildObservation);
+    if (!observation) return;
+    const copy = {
+      ...observation,
+      id: `Observations-${Date.now()}`,
+      date: new Date().toISOString().slice(0, 10),
+      createdAt: new Date().toISOString(),
+      text: `${observation.text || ""}`,
+    };
+    saveChildStore("Observations", [...observations, copy]);
+    renderChildManagement();
+    return;
+  }
+
+  const deleteChildObservationButton = event.target.closest("[data-delete-child-observation]");
+  if (deleteChildObservationButton) {
+    event.preventDefault();
+    if (!window.confirm("Delete this observation?")) return;
+    saveChildStore("Observations", childStore("Observations").filter((item) => item.id !== deleteChildObservationButton.dataset.deleteChildObservation));
+    renderChildManagement();
+    return;
+  }
+
+  const generateObservationIdeasButton = event.target.closest("[data-generate-observation-ideas]");
+  if (generateObservationIdeasButton) {
+    event.preventDefault();
+    const form = generateObservationIdeasButton.closest("form");
+    const formData = new FormData(form);
+    const child = childRecords().children.find((item) => item.id === formData.get("childId"));
+    const selectedAreas = formData.getAll("areas").map((area) => normalizeObservationArea(area) || area).filter(Boolean);
+    const area = selectedAreas[0] || "Approaches to Learning";
+    const ideas = suggestedActivitiesForArea(area).slice(0, 4);
+    const nextStep = nextStepForArea(area);
+    const output = form.querySelector("#observationIdeasOutput");
+    if (output) {
+      output.innerHTML = `
+        <strong>${escapeHtml(area)} ideas for ${escapeHtml(child?.name || "this child")}</strong>
+        <p>Look for: ${escapeHtml(strengthForArea(area, child?.name || "The child"))}</p>
+        <p>Next step: ${escapeHtml(nextStep)}</p>
+        ${renderChipList(ideas)}
+      `;
+    }
+    const note = form.querySelector('textarea[name="text"]');
+    if (note && !note.value.trim()) {
+      note.value = `${child?.name || "The child"} practiced ${area.toLowerCase()} skills during play. I noticed engagement, effort, and growing confidence while using the materials.`;
+    }
+    const nextSteps = form.querySelector('textarea[name="nextSteps"]');
+    if (nextSteps && !nextSteps.value.trim()) nextSteps.value = nextStep;
+    return;
+  }
+
+  const scrollChildGoalsButton = event.target.closest("[data-scroll-child-goals]");
+  if (scrollChildGoalsButton) {
+    event.preventDefault();
+    document.querySelector("#childGoalsSection")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  const goalPickerChildButton = event.target.closest("[data-goal-picker-child]");
+  if (goalPickerChildButton) {
+    event.preventDefault();
+    selectedChildId = goalPickerChildButton.dataset.goalPickerChild;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+    childManagementMode = "goals";
+    renderChildManagement();
+    return;
+  }
+
+  const startGoalAreaButton = event.target.closest("[data-start-goal-area]");
+  if (startGoalAreaButton) {
+    event.preventDefault();
+    selectedChildId = startGoalAreaButton.dataset.childId || selectedChildId;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+    pendingGoalArea = startGoalAreaButton.dataset.startGoalArea || "";
+    childManagementMode = "profile";
+    childProfileTab = "goals";
+    renderChildManagement();
+    return;
   }
 
   const promptButton = event.target.closest("[data-prompt]");
@@ -10686,6 +11504,23 @@ document.addEventListener("click", (event) => {
     renderChildManagement();
   }
 
+  const updateGoalProgressButton = event.target.closest("[data-update-goal-progress]");
+  if (updateGoalProgressButton) {
+    event.preventDefault();
+    if (!isProUser()) {
+      showProFeatureModal("Development goal tracking is a Pro feature.");
+      return;
+    }
+    const goals = childStore("Goals").map((goal) => {
+      if (goal.id !== updateGoalProgressButton.dataset.updateGoalProgress) return goal;
+      const nextProgress = Math.min(100, goalProgressPercent(goal.progress) + 25);
+      return { ...goal, progress: `${nextProgress}%`, updatedAt: new Date().toISOString() };
+    });
+    saveChildStore("Goals", goals);
+    renderChildManagement();
+    return;
+  }
+
   const buildDailyReportButton = event.target.closest("[data-build-daily-report]");
   if (buildDailyReportButton) {
     if (!isProUser()) {
@@ -10770,6 +11605,9 @@ searchInput.addEventListener("input", () => {
 });
 
 document.addEventListener("input", (event) => {
+  if (event.target.matches("#childDobInput")) {
+    updateChildAgePreview();
+  }
   if (event.target.matches("#childObservationSearch")) {
     childObservationSearch = event.target.value;
     renderChildManagement();
@@ -10796,8 +11634,21 @@ document.addEventListener("input", (event) => {
 });
 
 document.addEventListener("change", (event) => {
+  if (event.target.matches("#childDobInput")) {
+    updateChildAgePreview();
+  }
+  if (event.target.matches("#monthlyObservationGoalSelect")) {
+    const customWrap = document.querySelector("#customMonthlyObservationGoalWrap");
+    customWrap?.classList.toggle("hidden-field", event.target.value !== "custom");
+  }
   if (event.target.matches("#childObservationArea")) {
     childObservationAreaFilter = event.target.value;
+    renderChildManagement();
+  }
+  if (event.target.matches("#childToolsChildSelect")) {
+    selectedChildId = event.target.value;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+    childManagementMode = "tools";
     renderChildManagement();
   }
   if (event.target.matches("#portfolioObservationArea")) {
@@ -11174,14 +12025,18 @@ document.addEventListener("submit", async (event) => {
   const data = collectFormData(form);
   const photoFile = new FormData(form).get("photo");
   const photo = photoFile?.name ? await fileToDataUrl(photoFile) : "";
+  const monthlyGoal = data.monthlyObservationGoal === "custom" ? data.customMonthlyObservationGoal : data.monthlyObservationGoal;
+  const age = calculateAgeFromDob(data.dob) || data.age;
   const child = {
     id: `child-${Date.now()}`,
     name: data.name,
     ageGroup: data.ageGroup,
-    age: data.age,
+    age,
     dob: data.dob,
     enrollmentDate: data.enrollmentDate,
     classroom: data.classroom,
+    monthlyObservationGoal: monthlyGoal || "4",
+    observationsRequiredPerMonth: monthlyGoal || "4",
     parentInfo: data.parentInfo,
     emergency: data.emergency,
     allergies: data.allergies,
@@ -11195,6 +12050,7 @@ document.addEventListener("submit", async (event) => {
   saveChildStore("Profiles", [...children, child]);
   selectedChildId = child.id;
   localStorage.setItem("llhSelectedChild", selectedChildId);
+  childManagementMode = "profile";
   form.reset();
   renderChildManagement();
 });
@@ -11202,9 +12058,47 @@ document.addEventListener("submit", async (event) => {
 document.addEventListener("submit", (event) => {
   if (!event.target.matches("#childObservationForm")) return;
   event.preventDefault();
-  const data = collectFormData(event.target);
+  const form = event.target;
+  const data = collectFormData(form);
+  const formData = new FormData(form);
+  const selectedAreas = formData.getAll("areas").map((area) => normalizeObservationArea(area) || area).filter(Boolean);
   const child = childRecords().children.find((item) => item.id === data.childId);
-  appendChildRecord("Observations", enrichObservationRecord(data, child));
+  if (!child) {
+    childManagementMode = "list";
+    renderChildManagement();
+    return;
+  }
+  const record = enrichObservationRecord({
+    ...data,
+    childId: child.id,
+    childName: child.name,
+    area: selectedAreas[0] || data.area || "Approaches to Learning",
+    categories: selectedAreas.length ? Array.from(new Set(selectedAreas)) : undefined,
+  }, child);
+  const observations = childStore("Observations");
+  if (data.observationId || activeChildObservationEditId) {
+    const editId = data.observationId || activeChildObservationEditId;
+    saveChildStore("Observations", observations.map((item) => item.id === editId ? {
+      ...item,
+      ...record,
+      id: editId,
+      updatedAt: new Date().toISOString(),
+    } : item));
+  } else {
+    saveChildStore("Observations", [...observations, {
+      id: `Observations-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      ...record,
+    }]);
+  }
+  selectedChildId = child.id;
+  localStorage.setItem("llhSelectedChild", selectedChildId);
+  activeChildObservationEditId = "";
+  activeObservationChildLock = "";
+  pendingObservationArea = "";
+  childProfileTab = "observations";
+  childManagementMode = "profile";
+  renderChildManagement();
 });
 
 document.addEventListener("submit", (event) => {
@@ -11226,6 +12120,8 @@ document.addEventListener("submit", (event) => {
     return;
   }
   const data = collectFormData(event.target);
+  childProfileTab = "goals";
+  pendingGoalArea = "";
   appendChildRecord("Goals", { ...data, title: `${data.area} Goal`, summary: `${data.goal} | ${data.progress}` });
 });
 

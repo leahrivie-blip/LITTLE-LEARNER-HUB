@@ -11,7 +11,7 @@
     <title>Little Learner Hub</title>
     <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="10" fill="%23386062"/><text x="32" y="39" text-anchor="middle" font-family="Arial" font-size="22" font-weight="700" fill="white">LL</text></svg>' />
     <link rel="manifest" href="site.webmanifest" />
-    <link rel="stylesheet" href="styles.css?v=20260618-promo-validation" />
+    <link rel="stylesheet" href="styles.css?v=20260618-goal-help-picker" />
   </head>
   <body>
     <div class="app-shell">
@@ -57,6 +57,26 @@
             <button class="nav-link" data-view="lessons">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 0 4 22z"/><path d="M4 5.5V22M8 7h8M8 11h7"/></svg></span>
               Lesson Plan Library
+            </button>
+          </div>
+
+          <div class="nav-section">
+            <p>Child Tools</p>
+            <button class="nav-link" data-view="child-tools-attendance">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 2v4M16 2v4M4 9h16M8 13h3M8 16h6"/></svg></span>
+              Attendance
+            </button>
+            <button class="nav-link" data-view="child-tools-meals">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3v18M10 3v18M6 10h4M16 3v8a3 3 0 0 0 3 3v7"/></svg></span>
+              Meals
+            </button>
+            <button class="nav-link" data-view="child-tools-reports">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg></span>
+              Daily Reports
+            </button>
+            <button class="nav-link" data-view="child-tools-communication">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v10H7l-3 3z"/><path d="M8 9h8M8 12h5"/></svg></span>
+              Parent Communication
             </button>
           </div>
 
@@ -669,11 +689,6 @@
         </section>
 
         <section id="view-children" class="view">
-          <div class="page-title">
-            <p class="eyebrow">Step 7</p>
-            <h2>Child management system</h2>
-            <p>Create simple child profiles, track observations, goals, support plans, attendance, meals, reports, parent communication, and portfolios.</p>
-          </div>
           <div id="childManagementApp"></div>
         </section>
 
@@ -1012,6 +1027,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=20260618-promo-validation"></script>
+    <script src="app.js?v=20260618-goal-help-picker"></script>
   </body>
 </html>
