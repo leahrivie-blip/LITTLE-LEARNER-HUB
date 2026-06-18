@@ -419,6 +419,154 @@ button {
   background: linear-gradient(135deg, rgba(219, 233, 220, 0.72), rgba(220, 238, 245, 0.55));
 }
 
+.printable-professional-section {
+  background: #ffffff;
+}
+
+.worksheet-preview-page {
+  padding: 18px;
+  background: #fff;
+  border: 1px solid rgba(48, 42, 38, 0.28);
+  border-radius: 8px;
+  box-shadow: 0 12px 24px rgba(39, 31, 24, 0.08);
+}
+
+.worksheet-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #386062;
+  color: #386062;
+  font-weight: 800;
+}
+
+.worksheet-preview-header span {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 12px;
+}
+
+.worksheet-preview-title h3 {
+  margin: 14px 0 4px;
+  color: #2f2a25;
+  font-size: 24px;
+}
+
+.worksheet-preview-title p {
+  color: #403935;
+  font-size: 13px;
+}
+
+.worksheet-preview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(180px, 0.8fr);
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.worksheet-preview-panel {
+  padding: 12px;
+  border: 1px solid rgba(48, 42, 38, 0.18);
+  border-radius: 8px;
+  background: #fffdf9;
+}
+
+.worksheet-preview-panel span,
+.worksheet-preview-practice span {
+  display: block;
+  margin-bottom: 8px;
+  color: #386062;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.worksheet-preview-panel p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.worksheet-preview-panel ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.worksheet-preview-practice {
+  padding: 12px;
+  border: 1px solid rgba(48, 42, 38, 0.18);
+  border-radius: 8px;
+}
+
+.worksheet-dotted-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.worksheet-dotted-row i {
+  display: grid;
+  place-items: center;
+  min-height: 42px;
+  color: #8a817b;
+  border: 1px dashed rgba(48, 42, 38, 0.42);
+  border-radius: 6px;
+  font-size: 26px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.worksheet-line-row {
+  height: 28px;
+  border-bottom: 1px solid rgba(48, 42, 38, 0.65);
+}
+
+.worksheet-cut-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.worksheet-cut-row b {
+  display: block;
+  height: 24px;
+  border-top: 2px dashed rgba(48, 42, 38, 0.65);
+}
+
+.worksheet-preview-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.worksheet-preview-footer span {
+  padding: 5px 8px;
+  color: #2f2a25;
+  background: #f6f1e9;
+  border: 1px solid rgba(48, 42, 38, 0.14);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.printable-quality-check {
+  background: #f7fbf9;
+  border-color: rgba(56, 96, 98, 0.22);
+}
+
+.printable-quality-check.needs-review {
+  background: #fff8ef;
+  border-color: rgba(198, 111, 42, 0.28);
+}
+
 .printable-cartoon-section {
   background: #fffdf9;
 }
@@ -5248,6 +5396,7 @@ button {
   .goal-observation-strip,
   .goal-card-actions,
   .goal-ai-output-inner,
+  .worksheet-preview-grid,
   .profile-info-list div {
     grid-template-columns: 1fr;
   }
@@ -5447,6 +5596,37 @@ button {
 
   body.printing-resource .printable-checkbox span {
     border-color: #111 !important;
+  }
+
+  body.printing-resource .worksheet-preview-page {
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  body.printing-resource .worksheet-preview-header {
+    color: #111 !important;
+    border-bottom-color: #111 !important;
+  }
+
+  body.printing-resource .worksheet-preview-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  body.printing-resource .worksheet-preview-panel,
+  body.printing-resource .worksheet-preview-practice {
+    background: #fff !important;
+    border-color: #111 !important;
+  }
+
+  body.printing-resource .worksheet-dotted-row i,
+  body.printing-resource .worksheet-line-row,
+  body.printing-resource .worksheet-cut-row b,
+  body.printing-resource .worksheet-preview-footer span {
+    color: #111 !important;
+    border-color: #111 !important;
+    background: #fff !important;
   }
 
   body.printing-resource .worksheet-cartoon-scene {

@@ -571,6 +571,8 @@ const formGroups = {
 };
 const activityTypes = ["Fine Motor", "Gross Motor", "Sensory", "Art", "Science", "STEM", "Literacy", "Math", "Outdoor Play", "Circle Time"];
 const printableTypes = ["Tracing Worksheets", "Coloring Pages", "Alphabet Practice", "Number Practice", "Shape Practice", "Name Writing", "Cutting Practice", "Matching Activities", "Seasonal Worksheets", "Holiday Worksheets"];
+const professionalPrintableTypes = ["Tracing Worksheets", "Coloring Pages", "Alphabet Practice", "Number Practice", "Shape Practice", "Name Writing", "Cutting Practice", "Matching Activities", "Assessment Forms", "Seasonal Worksheets", "Holiday Worksheets"];
+const printableQualityBlockedTerms = ["placeholder", "draw here", "blank box", "coming soon", "lorem ipsum", "unfinished", "ai draft", "ai-generated"];
 const printablePdfLimit = Number.POSITIVE_INFINITY;
 
 const libraryResources = buildResourceLibrary();
@@ -2220,6 +2222,7 @@ function requireBillingAccount() {
 let resources = loadResources();
 let favorites = readSavedJson("llhFavorites", []);
 let savedDownloads = readSavedJson("llhDownloads", []);
+let activeGeneratedPdfResource = null;
 let currentPlan = localStorage.getItem("llhPlan") || "Free";
 let currentUser = localStorage.getItem("llhUser") || "";
 let activeFilter = "All";
@@ -2932,6 +2935,74 @@ function printableNumber(theme) {
   return (String(theme || "learning").replace(/\s+/g, "").length % 9) + 1;
 }
 
+function printableTypeForArea(area = "", goalText = "") {
+  const text = `${area} ${goalText}`.toLowerCase();
+  if (text.includes("scissor") || text.includes("cut")) return "Cutting Practice";
+  if (text.includes("fine motor") || text.includes("trace") || text.includes("write") || text.includes("pencil")) return "Tracing Worksheets";
+  if (text.includes("language") || text.includes("literacy") || text.includes("speech") || text.includes("letter")) return "Alphabet Practice";
+  if (text.includes("math") || text.includes("count") || text.includes("number")) return "Number Practice";
+  if (text.includes("cognitive") || text.includes("match") || text.includes("sort")) return "Matching Activities";
+  if (text.includes("shape")) return "Shape Practice";
+  if (text.includes("name")) return "Name Writing";
+  return "Tracing Worksheets";
+}
+
+function printableProfessionalFeatures(type) {
+  const features = {
+    "Tracing Worksheets": ["Dotted tracing paths", "Letter and word formation practice", "Left-to-right movement", "Teacher observation note"],
+    "Coloring Pages": ["Full-page outlined scene", "Vocabulary prompts", "Color key", "Conversation extension"],
+    "Alphabet Practice": ["Letter recognition", "Uppercase and lowercase tracing", "Beginning sound practice", "Independent attempt space"],
+    "Number Practice": ["Numeral tracing", "One-to-one counting", "Count-and-mark boxes", "Teacher check"],
+    "Shape Practice": ["Shape tracing", "Visual discrimination", "Shape hunt", "Teacher check"],
+    "Name Writing": ["Teacher model line", "Trace lines", "Copy lines", "Name recognition checklist"],
+    "Cutting Practice": ["Scissor safety checklist", "Straight snip strips", "Zigzag and curved cutting lines", "Cut-and-sort extension"],
+    "Matching Activities": ["Visual matching pairs", "Vocabulary prompts", "Fine motor pencil control", "Make-your-own match"],
+    "Assessment Forms": ["Child information fields", "Skill checklist", "Observation evidence", "Provider next steps"],
+  };
+  return features[type] || ["Clear directions", "Age-appropriate practice", "Teacher observation note", "Portfolio-ready work sample"];
+}
+
+function printableQualityIssues(resource = {}, text = "") {
+  if (resource.category !== "Printables") return [];
+  const body = String(text || "");
+  const lower = [
+    resource.title,
+    resource.description,
+    resource.customContent,
+    body,
+    ...(resource.tags || []),
+  ].join(" ").toLowerCase();
+  const issues = [];
+  const blocked = printableQualityBlockedTerms.filter((term) => lower.includes(term));
+  if (blocked.length) issues.push("Remove placeholder or unfinished wording before publishing.");
+  if (!resource.pdfReady && !resource.pdfFileName && !body.includes("Teacher Directions")) issues.push("Add print-ready PDF structure and teacher directions.");
+  if (!/Name:\s*_{6,}/i.test(body) && !/Child Name:\s*_{6,}/i.test(body)) issues.push("Add child name and date fields.");
+  if (!/(Trace|Cut|Match|Count|Color|Checklist|Observation|Teacher Note|Provider Note)/i.test(body)) issues.push("Add a real worksheet task, assessment section, or documentation section.");
+  return Array.from(new Set(issues));
+}
+
+function printableQualityCheckHtml(resource, text) {
+  if (resource.category !== "Printables") return "";
+  const issues = printableQualityIssues(resource, text);
+  const type = printableType(resource);
+  const checks = issues.length
+    ? issues
+    : [
+      "PDF-ready classroom layout with name/date fields.",
+      "No placeholder text, blank-only sections, or unfinished directions.",
+      `${type} includes ${printableProfessionalFeatures(type).slice(0, 3).join(", ").toLowerCase()}.`,
+      "Black-and-white printer friendly with clean spacing.",
+    ];
+  return `
+    <section class="print-section printable-quality-check ${issues.length ? "needs-review" : ""}">
+      <h3>${issues.length ? "Needs Review Before Publishing" : "Print-Ready Quality Check"}</h3>
+      <ul class="printable-list">
+        ${checks.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+      </ul>
+    </section>
+  `;
+}
+
 function themeVocabulary(theme) {
   const map = {
     "Farm Animals": ["cow", "pig", "hen", "barn"],
@@ -3007,8 +3078,8 @@ ${wordLines}
 Try It
 ${toddler ? `Point to or color one ${theme.toLowerCase()} picture. Say one theme word with your teacher.` : `Write one theme word on your own: _________________________________`}
 
-Drawing Space
-Draw or color something about ${theme.toLowerCase()}.
+Portfolio Work Sample
+Use this space for the child's traced mark, copied word, or dictated idea about ${theme.toLowerCase()}.
 ________________________________________________________________________
 ________________________________________________________________________
 ________________________________________________________________________
@@ -3056,19 +3127,19 @@ Focus: color recognition, vocabulary, fine motor control, and creative expressio
 Name: ____________________________________________  Date: ______________
 
 Coloring Prompt
-Color a ${theme.toLowerCase()} scene. Add details that match the theme.
+Color the full-page ${theme.toLowerCase()} scene. Talk about the vocabulary, details, colors, and countable items as the child works.
 
 Picture Checklist
-[ ] Main ${theme.toLowerCase()} picture
-[ ] Background detail
-[ ] One small item to count
-[ ] Favorite color added
+[ ] Main ${theme.toLowerCase()} artwork completed
+[ ] Background detail added or discussed
+[ ] One small item counted
+[ ] Favorite color named
 
 Color Key
 [ ] Red   [ ] Blue   [ ] Yellow   [ ] Green   [ ] Orange   [ ] Purple
 
-Drawing And Coloring Space
-Use the space below to draw and color the picture.
+Printable Picture Space
+Use the page image, tracing marks, or added details as the child's work sample.
 ________________________________________________________________________
 ________________________________________________________________________
 ________________________________________________________________________
@@ -3106,8 +3177,8 @@ Say each word. Circle the words that begin like ${theme}.
 - family
 - fun
 
-Write Or Draw
-Draw one thing that starts with ${letter}, then try writing the letter.
+Independent Practice
+Say one word that starts with ${letter}, then try writing the letter or dictating the word.
 ________________________________________________________________________
 ________________________________________________________________________
 ________________________________________________________________________`;
@@ -3129,8 +3200,8 @@ Count And Mark
 Count ${number} ${theme.toLowerCase()} items. Put an X in one box for each item counted.
 [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]
 
-Draw And Count
-Draw ${number} small ${theme.toLowerCase()} pictures.
+Count And Show
+Mark, color, or place ${number} small ${theme.toLowerCase()} items.
 ________________________________________________________________________
 ________________________________________________________________________
 ________________________________________________________________________
@@ -3161,8 +3232,8 @@ Find or draw shapes that could belong in a ${theme.toLowerCase()} picture.
 [ ] Triangle
 [ ] Rectangle
 
-Make A Theme Picture With Shapes
-Use circles, squares, triangles, and rectangles.
+Shape Builder
+Use circles, squares, triangles, and rectangles to make a ${theme.toLowerCase()} design.
 ________________________________________________________________________
 ________________________________________________________________________
 ________________________________________________________________________
@@ -3281,7 +3352,8 @@ I Notice
 One thing I notice about ${theme.toLowerCase()} is:
 ________________________________________________________________________
 
-Draw A Seasonal Picture
+Seasonal Work Sample
+Add one seasonal detail, copied word, tracing mark, or dictated idea.
 ________________________________________________________________________
 ________________________________________________________________________
 ________________________________________________________________________
@@ -3298,7 +3370,7 @@ Focus: holiday vocabulary, counting, fine motor practice, and conversation.
 Name: ____________________________________________  Date: ______________
 
 Holiday Picture Hunt
-Color the picture. Find and count the holiday items.
+Color the full-page picture. Find and count the holiday items.
 ${words.slice(0, 4).map((word, index) => `${index + 1}. ${word}: ______`).join("\n")}
 
 Holiday Vocabulary
@@ -3314,8 +3386,8 @@ Count The Holiday Items
 Count ${number} items and color them.
 [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ] [ ]
 
-Draw Or Color
-Draw something you know about ${theme.toLowerCase()}.
+Portfolio Work Sample
+Add one detail, tracing mark, copied word, or dictated idea about ${theme.toLowerCase()}.
 ________________________________________________________________________
 ________________________________________________________________________
 ________________________________________________________________________
@@ -4141,8 +4213,54 @@ function printableLinesHtml(lines) {
   return html.join("");
 }
 
+function printableProfessionalPreviewHtml(resource) {
+  if (resource.category !== "Printables") return "";
+  const theme = printableTheme(resource);
+  const type = printableType(resource);
+  const features = printableProfessionalFeatures(type);
+  const vocabulary = themeVocabulary(theme).slice(0, 4);
+  const letter = printableLetter(theme);
+  const number = printableNumber(theme);
+  return `
+    <section class="print-section printable-professional-section">
+      <div class="worksheet-preview-page" role="img" aria-label="${escapeHtml(`${theme} ${type} professional worksheet preview`)}">
+        <div class="worksheet-preview-header">
+          <span>Little Learner Hub</span>
+          <strong>${escapeHtml(type)}</strong>
+        </div>
+        <div class="worksheet-preview-title">
+          <h3>${escapeHtml(theme)} Practice Page</h3>
+          <p>Name: ____________________________ Date: ______________</p>
+        </div>
+        <div class="worksheet-preview-grid">
+          <div class="worksheet-preview-panel">
+            <span>Teacher Directions</span>
+            <p>${escapeHtml(printablePdfDirections(resource, type, theme))}</p>
+          </div>
+          <div class="worksheet-preview-panel compact">
+            <span>Skill Focus</span>
+            <ul>
+              ${features.slice(0, 4).map((feature) => `<li>${escapeHtml(feature)}</li>`).join("")}
+            </ul>
+          </div>
+        </div>
+        <div class="worksheet-preview-practice">
+          <span>${type === "Number Practice" ? `Trace ${number}` : `Trace ${letter}`}</span>
+          <div class="worksheet-dotted-row">${Array.from({ length: 7 }, (_, index) => `<i>${escapeHtml(type === "Number Practice" ? String(number) : letter)}</i>`).join("")}</div>
+          <div class="worksheet-line-row"></div>
+          <div class="worksheet-cut-row"><b></b><b></b><b></b><b></b><b></b></div>
+        </div>
+        <div class="worksheet-preview-footer">
+          ${vocabulary.map((word) => `<span>${escapeHtml(word)}</span>`).join("")}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
 function printableCartoonPreviewHtml(resource) {
   if (resource.category !== "Printables") return "";
+  return printableProfessionalPreviewHtml(resource);
   const theme = printableTheme(resource);
   const type = printableType(resource);
   const lowerTheme = theme.toLowerCase();
@@ -4279,7 +4397,7 @@ function printableCartoonPreviewHtml(resource) {
 
 function resourcePrintableHtml(resource) {
   const text = resourceDocumentText(resource);
-  const headingPattern = /^(Short Description|What Is Included|Who It Is For|How To Use It|Materials \/ Information Needed|ELG \/ Early Learning Standard Connections|Full Resource Content|Weekly Lesson Plan|Weekly Overview|Age Group Teaching Approach|Learning Objectives|Materials|Vocabulary|Monday - Introduce the Theme|Tuesday - Build Vocabulary and Concepts|Wednesday - Hands-On .+ Practice|Thursday - Creative Expression and Child Choice|Friday - Review, Document, and Connect Home|Related Activities|Differentiation and Supports|Child Support Connection|Provider Reflection|Observation Resource|Professional Observation Wording|What to Look For|Learning Standard Category|Evidence To Add|Next Steps|Editable Note|Follow-Up Planning|Purpose|Provider Instructions|Details \/ Notes|Weekly Daycare Menu|Shopping List|Provider Reminder|Setup|Steps|Learning Objective|Extension|Teacher Directions|Child Directions|Activity Ideas|Learning Goal|Provider Note|Printable Planning Notes|Daily Notes|Printable Observation Record|Additional Write-In Space|Checklist|Menu Notes|Shopping Notes|Activity Prep Sheet|Printable Resource|Printable Type|Theme \/ Skill|Printable Page|Tracing Practice|Warm-Up Paths|Letter And Word Tracing|Child Work Space|Coloring Page|Picture Checklist|Color Key|Drawing And Coloring Space|Talk About It|Alphabet Practice Page|Find The Letter|Trace The Letter|Beginning Sound Words|Write Or Draw|Number Practice Page|Trace The Number|Count And Mark|Draw And Count|Compare|Shape Practice Page|Trace The Shapes|Shape Hunt|Make A Theme Picture With Shapes|Teacher Check|Name Writing Page|My Name|Trace My Name|Try My Name|Name Hunt|Cutting Practice Page|Provider Safety Check|Cutting Lines|Cut And Sort|Teacher Note|Matching Activity Page|Draw Lines To Match|Match Here|Make Your Own Match|Seasonal Worksheet Page|Weather Check|Seasonal Words|I Notice|Count And Color|Draw A Seasonal Picture|Holiday Worksheet Page|Holiday Vocabulary|Trace And Write|Count The Holiday Items|Draw Or Color|Teacher Notes|Printable Worksheet Page|Try It|Reflection \/ Teacher Note)$/;
+  const headingPattern = /^(Short Description|What Is Included|Who It Is For|How To Use It|Materials \/ Information Needed|ELG \/ Early Learning Standard Connections|Full Resource Content|Weekly Lesson Plan|Weekly Overview|Age Group Teaching Approach|Learning Objectives|Materials|Vocabulary|Monday - Introduce the Theme|Tuesday - Build Vocabulary and Concepts|Wednesday - Hands-On .+ Practice|Thursday - Creative Expression and Child Choice|Friday - Review, Document, and Connect Home|Related Activities|Differentiation and Supports|Child Support Connection|Provider Reflection|Observation Resource|Professional Observation Wording|What to Look For|Learning Standard Category|Evidence To Add|Next Steps|Editable Note|Follow-Up Planning|Purpose|Provider Instructions|Details \/ Notes|Weekly Daycare Menu|Shopping List|Provider Reminder|Setup|Steps|Learning Objective|Extension|Teacher Directions|Child Directions|Activity Ideas|Learning Goal|Provider Note|Printable Planning Notes|Daily Notes|Printable Observation Record|Additional Write-In Space|Checklist|Menu Notes|Shopping Notes|Activity Prep Sheet|Printable Resource|Printable Type|Theme \/ Skill|Printable Page|Tracing Practice|Warm-Up Paths|Letter And Word Tracing|Portfolio Work Sample|Printable Picture Space|Independent Practice|Count And Show|Shape Builder|Child Work Space|Coloring Page|Picture Checklist|Color Key|Talk About It|Alphabet Practice Page|Find The Letter|Trace The Letter|Beginning Sound Words|Number Practice Page|Trace The Number|Count And Mark|Compare|Shape Practice Page|Trace The Shapes|Shape Hunt|Teacher Check|Name Writing Page|My Name|Trace My Name|Try My Name|Name Hunt|Cutting Practice Page|Provider Safety Check|Cutting Lines|Cut And Sort|Teacher Note|Matching Activity Page|Draw Lines To Match|Match Here|Make Your Own Match|Seasonal Worksheet Page|Weather Check|Seasonal Words|I Notice|Count And Color|Seasonal Work Sample|Holiday Worksheet Page|Holiday Vocabulary|Trace And Write|Count The Holiday Items|Teacher Notes|Printable Worksheet Page|Try It|Reflection \/ Teacher Note)$/;
   const blocks = text.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
   const content = blocks.map((block, index) => {
     const lines = block.split("\n").map((line) => line.trimEnd()).filter((line) => line.length);
@@ -4293,7 +4411,7 @@ function resourcePrintableHtml(resource) {
     }
     return `<section class="print-section">${printableLinesHtml(lines)}</section>`;
   }).join("");
-  return `<article class="printable-resource-page">${printableCartoonPreviewHtml(resource)}${content}</article>`;
+  return `<article class="printable-resource-page">${printableCartoonPreviewHtml(resource)}${content}${printableQualityCheckHtml(resource, text)}</article>`;
 }
 
 function decodedTextFileData(resource) {
@@ -4643,6 +4761,7 @@ function closeResourceViewer() {
   viewer.classList.remove("open");
   viewer.setAttribute("aria-hidden", "true");
   document.body.classList.remove("printing-resource");
+  activeGeneratedPdfResource = null;
 }
 
 function printResourceViewer() {
@@ -5236,7 +5355,7 @@ function buildPrintablePdfBlob(resource) {
     rect(48, 613, 516, 34, "0.55 0.70 0.68");
     wrapped(directions, 60, 632, 84, 9);
   };
-  const drawingPrompt = `Draw or color something about ${theme.toLowerCase()}.`;
+  const drawingPrompt = `Portfolio work sample connected to ${theme.toLowerCase()}.`;
 
   drawHeader(printablePdfDirections(resource, type, theme));
 
@@ -5409,7 +5528,48 @@ function downloadResourcePdf(id) {
 }
 
 function downloadActiveResourcePdf() {
+  if (activeGeneratedPdfResource) {
+    downloadBlob(buildResourcePdfBlob(activeGeneratedPdfResource), resourcePdfFileName(activeGeneratedPdfResource));
+    trackEvent("resource_pdf_download", {
+      resourceId: activeGeneratedPdfResource.id,
+      title: activeGeneratedPdfResource.title,
+      category: activeGeneratedPdfResource.category,
+      age: activeGeneratedPdfResource.age,
+      access: activeGeneratedPdfResource.plan,
+    });
+    return;
+  }
   downloadResourcePdf(document.querySelector("#downloadPdfButton")?.dataset.pdfResource);
+}
+
+function openGeneratedPrintableResource(resource) {
+  ensureResourceViewer();
+  activeGeneratedPdfResource = resource;
+  document.querySelector("#resourceViewerCategory").textContent = resource.category;
+  document.querySelector("#resourceViewerTitle").textContent = resource.title;
+  const pdfButton = document.querySelector("#downloadPdfButton");
+  if (pdfButton) {
+    pdfButton.hidden = !hasResourcePdf(resource);
+    pdfButton.dataset.pdfResource = "";
+  }
+  document.querySelector("#resourceViewerTags").innerHTML = [
+    resource.age,
+    resource.plan,
+    resource.format || "Print-ready PDF",
+    ...resource.tags.slice(0, 4),
+  ].map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
+  const body = document.querySelector("#resourceViewerBody");
+  if (body) body.innerHTML = resourcePrintableHtml(resource);
+  const viewer = document.querySelector("#resourceViewerModal");
+  viewer.classList.add("open");
+  viewer.setAttribute("aria-hidden", "false");
+  trackEvent("generated_goal_printable_view", {
+    resourceId: resource.id,
+    title: resource.title,
+    category: resource.category,
+    age: resource.age,
+    plan: currentPlan,
+  });
 }
 
 function openResourceViewer(resourceId) {
@@ -5420,6 +5580,7 @@ function openResourceViewer(resourceId) {
     return;
   }
   ensureResourceViewer();
+  activeGeneratedPdfResource = null;
   document.querySelector("#resourceViewerCategory").textContent = resource.category;
   document.querySelector("#resourceViewerTitle").textContent = resource.title;
   const pdfButton = document.querySelector("#downloadPdfButton");
@@ -5496,8 +5657,8 @@ function renderCategoryPage(view) {
 function renderPrintablesRefreshNotice() {
   return `
     <div class="access-notice printable-refresh-notice">
-      <strong>Updated printables coming soon.</strong>
-      We are refreshing the printable library with new worksheet designs and polished PDFs. Current printable access remains available while the new set is being added.
+      <strong>Professional print-ready resources.</strong>
+      Worksheets use structured classroom layouts, PDF-ready pages, dotted tracing or cutting practice when appropriate, and quality checks for placeholder or unfinished content before printing.
     </div>
   `;
 }
@@ -6608,6 +6769,95 @@ function portfolioResourcesFor(category, areas, childAgeGroup, limit = 4) {
   return { items: items.slice(0, limit).map((item) => item.resource), note };
 }
 
+function professionalResourceQualityScore(resource, areas = [], childAgeGroup = "", goalText = "") {
+  const type = printableType(resource);
+  const haystack = [
+    resource.title,
+    resource.description,
+    resource.customContent,
+    resource.theme,
+    resource.activityFocus,
+    resource.developmentalArea,
+    goalText,
+    ...(resource.tags || []),
+  ].join(" ").toLowerCase();
+  let score = 0;
+  if (resource.category === "Printables") score += 25;
+  if (resource.pdfReady || resource.pdfFileName) score += 35;
+  if (professionalPrintableTypes.includes(type)) score += 15;
+  if ((resource.tags || []).includes("PDF Ready")) score += 12;
+  if ((resource.format || "").toLowerCase().includes("pdf")) score += 10;
+  const ageTier = resourceAgeTier(resource, childAgeGroup);
+  if (ageTier === 1) score += 18;
+  if (ageTier === 2) score += 7;
+  score += resourceAreaMatchLevel(resource, areas) * 9;
+  score += Math.min(resourceRecommendationScore(resource, areas), 10);
+  if (/(trace|dotted|cut|scissor|match|count|assessment|checklist|worksheet|portfolio|observation)/i.test(haystack)) score += 8;
+  if (printableQualityBlockedTerms.some((term) => haystack.includes(term))) score -= 60;
+  return score;
+}
+
+function prioritizeProfessionalResources(items = [], areas = [], childAgeGroup = "", goalText = "") {
+  return items.slice().sort((a, b) => (
+    professionalResourceQualityScore(b, areas, childAgeGroup, goalText)
+    - professionalResourceQualityScore(a, areas, childAgeGroup, goalText)
+    || a.title.localeCompare(b.title)
+  ));
+}
+
+function professionalGoalPrintableResource(child = {}, goal = {}, area = "Developmental Goal") {
+  const childAge = normalizeAgeGroup(child.ageGroup) || child.ageGroup || "All Ages";
+  const type = printableTypeForArea(area, goal.goal || child.activeGoals || "");
+  const theme = area.replace("Language & Literacy", "Speech and Language");
+  return {
+    id: `generated-printable-${child.id || "child"}-${domSafeId(goal.id || goal.goal || area)}`,
+    title: `${childAge} ${theme} Goal Support Printable`,
+    category: "Printables",
+    age: childAge,
+    plan: "Generated",
+    format: "Print-ready PDF",
+    pdfReady: true,
+    pdfFileName: `${slug(child.name || "child")}-${slug(theme)}-goal-support-printable.pdf`,
+    theme,
+    tags: ["Printable", "PDF Ready", type, theme, childAge, area],
+    description: `Professional ${type.toLowerCase()} matched to ${child.name || "the child"}'s goal, age group, and developmental area.`,
+    customContent: professionalGoalPrintableText(child, goal, area, type),
+  };
+}
+
+function professionalGoalPrintableText(child = {}, goal = {}, area = "Developmental Goal", type = "Tracing Worksheets") {
+  const childAge = normalizeAgeGroup(child.ageGroup) || child.ageGroup || "All Ages";
+  const features = printableProfessionalFeatures(type);
+  return `Professional Goal Support Printable
+Child: ${child.name || "Child"}
+Age Group: ${childAge}
+Developmental Area: ${area}
+Goal: ${goal.goal || child.activeGoals || goalExampleForArea(area)}
+Printable Type: ${type}
+
+Teacher Directions
+Use this as a short small-group, one-to-one, portfolio, or take-home page. Model the first step, offer only the support the child needs, and document what the child does independently.
+
+Included On This Page
+${features.map((item) => `- ${item}`).join("\n")}
+
+Name: ____________________________________________  Date: ______________
+
+Practice Section
+Trace, cut, match, count, color, or mark the skill practice connected to this goal.
+________________________________________________________________________
+________________________________________________________________________
+________________________________________________________________________
+
+Observation Note
+What the child did:
+________________________________________________________________________
+________________________________________________________________________
+
+Next Step
+Offer the same skill again with one small added challenge, less adult support, or a new material.`;
+}
+
 function renderPortfolioResourceCard(resource) {
   const locked = !canAccess(resource);
   return `
@@ -6644,6 +6894,7 @@ function renderRecommendedForChild(child, records, portfolio) {
   const lessonPlans = portfolioResourcesFor("Lesson Plans", areas, child.ageGroup);
   const observations = portfolioResourcesFor("Observation Hub", areas, child.ageGroup);
   const printables = portfolioResourcesFor("Printables", areas, child.ageGroup);
+  printables.items = prioritizeProfessionalResources(printables.items, areas, child.ageGroup, primaryArea);
   const extraResources = {
     items: resources
     .filter((resource) => !["Activity Center", "Lesson Plans", "Observation Hub", "Printables"].includes(resource.category))
@@ -7098,6 +7349,10 @@ function goalRecommendations(child, goal, records) {
   const lessonResources = portfolioResourcesFor("Lesson Plans", areas, child.ageGroup, 4);
   const printableResources = portfolioResourcesFor("Printables", areas, child.ageGroup, 4);
   const observationResources = portfolioResourcesFor("Observation Hub", areas, child.ageGroup, 3);
+  activityResources.items = prioritizeProfessionalResources(activityResources.items, areas, child.ageGroup, goal?.goal);
+  lessonResources.items = prioritizeProfessionalResources(lessonResources.items, areas, child.ageGroup, goal?.goal);
+  printableResources.items = prioritizeProfessionalResources(printableResources.items, areas, child.ageGroup, goal?.goal);
+  observationResources.items = prioritizeProfessionalResources(observationResources.items, areas, child.ageGroup, goal?.goal);
   const extraResources = resources
     .filter((resource) => !["Activity Center", "Lesson Plans", "Printables", "Observation Hub"].includes(resource.category))
     .filter((resource) => resourceRecommendationScore(resource, areas) > 0)
@@ -7109,7 +7364,19 @@ function goalRecommendations(child, goal, records) {
     .sort((a, b) => a.ageTier - b.ageTier || b.score - a.score || a.resource.title.localeCompare(b.resource.title))
     .slice(0, 2)
     .map((item) => item.resource);
-  return { areas, area, activityResources, lessonResources, printableResources, observationResources, extraResources };
+  const professionalPrintableFallback = printableResources.items.length
+    ? null
+    : professionalGoalPrintableResource(child, goal, area);
+  return {
+    areas,
+    area,
+    activityResources,
+    lessonResources,
+    printableResources,
+    observationResources,
+    extraResources: prioritizeProfessionalResources(extraResources, areas, child.ageGroup, goal?.goal),
+    professionalPrintableFallback,
+  };
 }
 
 function renderGoalDashboardStats(records, goalRows) {
@@ -7168,6 +7435,7 @@ function domSafeId(value = "") {
 function renderGoalResourceList(title, resourcesList, fallbackItems = [], options = {}) {
   const items = resourcesList || [];
   const fallback = fallbackItems.filter(Boolean).slice(0, 3);
+  const emptyMessage = options.emptyMessage || "No matching resources yet.";
   return `
     <section class="goal-match-panel">
       <h4>${escapeHtml(title)}</h4>
@@ -7177,8 +7445,9 @@ function renderGoalResourceList(title, resourcesList, fallbackItems = [], option
         </ul>
         ${items.length > 3 ? `<button class="link-button" data-view-resource="${items[0].id}" type="button">View Matches</button>` : ""}
       ` : `
-        <p class="goal-empty-match">No matching resources yet — use AI to create activities for this goal.</p>
+        <p class="goal-empty-match">${escapeHtml(emptyMessage)}</p>
         ${fallback.length ? `<ul>${fallback.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
+        ${options.generatePrintable ? `<button class="link-button" data-generate-goal-printable="${escapeHtml(options.goalId || "")}" data-child-id="${escapeHtml(options.childId || "")}" type="button">Generate Professional Printable</button>` : ""}
       `}
       ${options.note ? `<p class="goal-match-note">${escapeHtml(options.note)}</p>` : ""}
     </section>
@@ -7262,7 +7531,12 @@ function renderSimpleGoalCard(child, goal, records) {
     ? recommendations.activityResources.items.slice(0, 3).map((item) => item.title)
     : suggestedActivitiesForArea(area).slice(0, 3);
   const lessonFallbacks = suggestedLessonPlansForArea(area).slice(0, 3);
-  const printFallbacks = suggestedActivitiesForArea(area).slice(0, 3).map((item) => `${item} printable`);
+  const printResourceMatches = recommendations.printableResources.items.length
+    ? [...recommendations.printableResources.items, ...recommendations.extraResources]
+    : [];
+  const printFallbacks = recommendations.professionalPrintableFallback
+    ? [recommendations.professionalPrintableFallback.title, ...printableProfessionalFeatures(printableType(recommendations.professionalPrintableFallback)).slice(0, 2)]
+    : suggestedActivitiesForArea(area).slice(0, 3).map((item) => `${item} printable`);
   const lastObservation = goalLastObservation(child, normalizedGoal, records);
   const connectedObservations = connectedObservationsForGoal(normalizedGoal, records);
   const childSummary = childProgressSummary(child.id, records);
@@ -7298,7 +7572,13 @@ function renderSimpleGoalCard(child, goal, records) {
         </section>
         ${renderGoalResourceList("Suggested Activities", activities.map((title) => ({ title })), suggestedActivitiesForArea(area))}
         ${renderGoalResourceList("Matching Lesson Plans", recommendations.lessonResources.items, lessonFallbacks, { note: recommendations.lessonResources.note })}
-        ${renderGoalResourceList("Printables & Resources", [...recommendations.printableResources.items, ...recommendations.extraResources], printFallbacks, { note: recommendations.printableResources.note })}
+        ${renderGoalResourceList("Printables & Resources", printResourceMatches, printFallbacks, {
+          note: recommendations.printableResources.note,
+          emptyMessage: "No matching professional printable yet - generate a print-ready resource for this goal.",
+          generatePrintable: Boolean(recommendations.professionalPrintableFallback),
+          childId: child.id,
+          goalId: goal?.id || "",
+        })}
       </div>
 
       <div class="goal-observation-strip">
@@ -11722,6 +12002,24 @@ document.addEventListener("click", (event) => {
     generateGoalSupportButton.textContent = "Ideas Generated";
     setTimeout(() => {
       generateGoalSupportButton.textContent = "Generate Support Ideas";
+    }, 1400);
+    return;
+  }
+
+  const generateGoalPrintableButton = event.target.closest("[data-generate-goal-printable]");
+  if (generateGoalPrintableButton) {
+    event.preventDefault();
+    const records = childRecords();
+    const child = records.children.find((item) => item.id === generateGoalPrintableButton.dataset.childId);
+    if (!child) return;
+    const goal = childActiveGoals(child, records).find((item) => item.id === generateGoalPrintableButton.dataset.generateGoalPrintable);
+    if (!goal) return;
+    const recommendations = goalRecommendations(child, { ...goal, childId: child.id }, records);
+    const resource = recommendations.professionalPrintableFallback || professionalGoalPrintableResource(child, goal, recommendations.area);
+    openGeneratedPrintableResource(resource);
+    generateGoalPrintableButton.textContent = "Printable Ready";
+    setTimeout(() => {
+      generateGoalPrintableButton.textContent = "Generate Professional Printable";
     }, 1400);
     return;
   }
