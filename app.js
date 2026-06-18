@@ -1548,6 +1548,9 @@ const stripeCheckoutConfig = {
   subscriptionStatusEndpoint: "/api/subscription-status",
   checkoutStatusEndpoint: "/api/checkout-status",
   foundingStatusEndpoint: "/api/founding-status",
+  promoValidationEndpoint: "/api/validate-promo-code",
+  defaultPromoCode: "TRYPRO3",
+  defaultTrialDays: 90,
 };
 const aiGenerationConfig = {
   endpoint: "/api/ai-generate",
@@ -2124,12 +2127,71 @@ function normalizedCheckoutPromoCode() {
 
 function checkoutPromoSummary() {
   const code = normalizedCheckoutPromoCode();
-  return code ? `Promo code ${code} will be checked at checkout for 3 months of free Pro access.` : "Enter a provider promo code before checkout.";
+  return code
+    ? `Promo code ${code} will be checked here before Stripe opens.`
+    : "Enter your provider promo code here before checkout. It is applied automatically before Stripe opens.";
 }
 
 function saveCheckoutPromoCode(value) {
   checkoutPromoCode = String(value || "").trim();
   localStorage.setItem("llhCheckoutPromoCode", checkoutPromoCode);
+}
+
+function promoStatusElement(panel = document) {
+  return panel?.querySelector?.("#checkoutPromoCodeMessage") || document.querySelector("#checkoutPromoCodeMessage");
+}
+
+function setPromoCodeMessage(message, success = false, panel = document) {
+  const target = promoStatusElement(panel);
+  if (!target) return;
+  target.textContent = message || "";
+  target.classList.toggle("success", Boolean(success));
+}
+
+async function validateCheckoutPromoCode(options = {}) {
+  const { quiet = false } = options;
+  const code = normalizedCheckoutPromoCode();
+  const panel = document.querySelector(".promo-code-panel");
+  if (!code) {
+    if (!quiet) setPromoCodeMessage("Enter a promo code before checkout.", false, panel);
+    return { valid: false, empty: true };
+  }
+  if (isProUser()) {
+    const message = "This promo is for new Pro checkouts. This account already has an active membership.";
+    if (!quiet) setPromoCodeMessage(message, false, panel);
+    return { valid: false, error: message, alreadyActive: true };
+  }
+  if (!canUseStripeBackend() || !stripeCheckoutConfig.promoValidationEndpoint) {
+    const valid = code === String(stripeCheckoutConfig.defaultPromoCode || "TRYPRO3").toUpperCase();
+    const result = valid
+      ? { valid: true, code, trialDays: stripeCheckoutConfig.defaultTrialDays || 90, label: `${stripeCheckoutConfig.defaultTrialDays || 90} day free Pro trial` }
+      : { valid: false, code, error: "That promo code is not active. Check the code and try again." };
+    if (!quiet) {
+      setPromoCodeMessage(
+        valid ? `${code} accepted: ${result.trialDays} days free will be applied before checkout.` : result.error,
+        valid,
+        panel,
+      );
+    }
+    return result;
+  }
+  try {
+    const response = await fetch(stripeCheckoutConfig.promoValidationEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data?.valid) {
+      throw new Error(data?.error || "That promo code is not active. Check the code and try again.");
+    }
+    if (!quiet) setPromoCodeMessage(data.message || `${data.code || code} accepted.`, true, panel);
+    return data;
+  } catch (error) {
+    const message = error.message || "That promo code could not be checked. Please try again.";
+    if (!quiet) setPromoCodeMessage(message, false, panel);
+    return { valid: false, code, error: message };
+  }
 }
 
 function canUseStripeBackend() {
@@ -9496,10 +9558,14 @@ function promoCodePanel() {
         <h3>Have a free trial code?</h3>
         <p class="muted-copy">${escapeHtml(checkoutPromoSummary())}</p>
       </div>
-      <label>
-        <span>Promo code</span>
-        <input id="checkoutPromoCodeInput" value="${escapeHtml(checkoutPromoCode)}" placeholder="TRYPRO3" autocomplete="off" />
-      </label>
+      <div class="promo-code-entry">
+        <label>
+          <span>Promo code</span>
+          <input id="checkoutPromoCodeInput" value="${escapeHtml(checkoutPromoCode)}" placeholder="${escapeHtml(stripeCheckoutConfig.defaultPromoCode || "TRYPRO3")}" autocomplete="off" />
+        </label>
+        <button class="ghost-button" data-apply-promo-code type="button">Apply Code</button>
+        <span class="form-message promo-code-message" id="checkoutPromoCodeMessage" aria-live="polite"></span>
+      </div>
     </section>
   `;
 }
@@ -9854,6 +9920,20 @@ async function startCheckout(type) {
   const checkoutButton = document.querySelector(`[data-checkout-plan="${type}"]`);
   if (checkoutButton) {
     checkoutButton.disabled = true;
+    checkoutButton.textContent = promoCode ? "Checking code..." : "Opening Stripe...";
+  }
+  let promoValidation = null;
+  if (promoCode) {
+    promoValidation = await validateCheckoutPromoCode();
+    if (!promoValidation?.valid) {
+      if (checkoutButton) {
+        checkoutButton.disabled = false;
+        checkoutButton.textContent = checkoutType === "founding" ? "Claim Founding Spot" : checkoutType === "annual" ? "Choose Pro Annual" : "Choose Pro Monthly";
+      }
+      return;
+    }
+  }
+  if (checkoutButton) {
     checkoutButton.textContent = "Opening Stripe...";
   }
   const pending = {
@@ -9863,7 +9943,8 @@ async function startCheckout(type) {
     startedAt: new Date().toISOString(),
     foundingEligible: checkoutType === "founding",
     promoCode,
-    trialDays: promoCode ? 90 : 0,
+    trialDays: promoValidation?.trialDays || 0,
+    promoLabel: promoValidation?.label || "",
   };
   localStorage.setItem("llhPendingCheckout", JSON.stringify(pending));
   trackEvent("checkout_start", { type: checkoutType, amount, promoCode: promoCode ? "entered" : "" });
@@ -9885,6 +9966,7 @@ async function startCheckout(type) {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "Stripe checkout could not start.");
+      if (promoCode && !data?.promo) throw new Error("The promo code was not accepted. Please apply the code again before checkout.");
       if (data?.url) {
         window.location.href = data.url;
         return;
@@ -10210,6 +10292,18 @@ document.addEventListener("click", (event) => {
       return;
     }
     setFreePlan();
+    return;
+  }
+
+  const applyPromoButton = event.target.closest("[data-apply-promo-code]");
+  if (applyPromoButton) {
+    event.preventDefault();
+    applyPromoButton.disabled = true;
+    applyPromoButton.textContent = "Checking...";
+    validateCheckoutPromoCode().finally(() => {
+      applyPromoButton.disabled = false;
+      applyPromoButton.textContent = "Apply Code";
+    });
     return;
   }
 
@@ -10697,6 +10791,7 @@ document.addEventListener("input", (event) => {
     const panel = event.target.closest(".promo-code-panel");
     const summary = panel?.querySelector(".muted-copy");
     if (summary) summary.textContent = checkoutPromoSummary();
+    setPromoCodeMessage("", false, panel);
   }
 });
 
