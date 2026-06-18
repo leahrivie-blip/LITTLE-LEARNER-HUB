@@ -13,7 +13,7 @@ const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const FOUNDING_LIMIT = Number(process.env.FOUNDING_MEMBER_LIMIT || 50);
-const PUBLIC_FOUNDING_CLAIMED_BASE = Number(process.env.PUBLIC_FOUNDING_CLAIMED_BASE || 15);
+const PUBLIC_FOUNDING_CLAIMED_BASE = Number(process.env.PUBLIC_FOUNDING_CLAIMED_BASE || 4);
 const ADMIN_EMAIL = normalizeEmail(process.env.ADMIN_EMAIL || "");
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 const ADMIN_ACCESS_CODE = process.env.ADMIN_ACCESS_CODE || "";
@@ -765,6 +765,7 @@ async function handleCheckoutStatus(request, response, url) {
       plan: planKey,
       subscriptionId: session.subscription,
       customerId: session.customer,
+      founding: foundingStatusPayload(readStore()),
     });
   } catch (error) {
     jsonResponse(response, 500, { error: error.message || "Could not verify Stripe Checkout status." });
@@ -908,7 +909,7 @@ async function handleSubscriptionStatus(request, response, url) {
     subscription,
     recoveredFromStripe,
     aiUsage: email ? canUseServerAi(email, subscription?.plan || "Free") : null,
-    founding: foundingStatusPayload(store),
+    founding: foundingStatusPayload(readStore()),
   });
 }
 
