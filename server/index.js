@@ -10,6 +10,8 @@ const PORT = Number(process.env.PORT || 4242);
 const SITE_URL = process.env.SITE_URL || `http://localhost:${PORT}`;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "";
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
+const PROMO_FREE_TRIAL_CODE = String(process.env.PROMO_FREE_TRIAL_CODE || "TRYPRO3").trim();
+const PROMO_FREE_TRIAL_DAYS = Number(process.env.PROMO_FREE_TRIAL_DAYS || 90);
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const FOUNDING_LIMIT = Number(process.env.FOUNDING_MEMBER_LIMIT || 50);
@@ -93,6 +95,25 @@ function maskedValue(value) {
   if (!isConfiguredValue(text)) return "";
   if (text.length <= 12) return `${text.slice(0, 4)}...`;
   return `${text.slice(0, 8)}...${text.slice(-4)}`;
+}
+
+function normalizePromoCode(value) {
+  return String(value || "").trim().replace(/\s+/g, "").toUpperCase();
+}
+
+function checkoutPromoForCode(value) {
+  const configuredCode = normalizePromoCode(PROMO_FREE_TRIAL_CODE);
+  const enteredCode = normalizePromoCode(value);
+  const trialDays = Number.isFinite(PROMO_FREE_TRIAL_DAYS) ? Math.max(0, Math.min(PROMO_FREE_TRIAL_DAYS, 365)) : 0;
+  if (!configuredCode || !enteredCode || enteredCode !== configuredCode || trialDays <= 0) {
+    return { valid: false, code: enteredCode };
+  }
+  return {
+    valid: true,
+    code: configuredCode,
+    trialDays,
+    label: `${trialDays} day free Pro trial`,
+  };
 }
 
 function stripeConfigStatus() {
@@ -641,6 +662,7 @@ async function handleCheckout(request, response) {
   const requestedPlan = body.plan || "monthly";
   const planKey = requestedPlan === "founding" && foundingSpotsRemaining(store) <= 0 ? "monthly" : requestedPlan;
   const price = getPriceId(planKey);
+  const promo = checkoutPromoForCode(body.promoCode);
   if (!email) {
     jsonResponse(response, 400, { error: "Email is required before checkout." });
     return;
@@ -651,7 +673,7 @@ async function handleCheckout(request, response) {
   }
   try {
     const customer = await getOrCreateStripeCustomer(email);
-    const session = await stripeRequest("checkout/sessions", {
+    const sessionParams = {
       mode: "subscription",
       customer,
       "line_items[0][price]": price,
@@ -663,13 +685,29 @@ async function handleCheckout(request, response) {
       "subscription_data[metadata][plan]": planKey,
       success_url: body.successUrl || `${SITE_URL}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: body.cancelUrl || `${SITE_URL}?checkout=cancel`,
-    });
+    };
+    if (promo.valid) {
+      sessionParams["metadata[promoCode]"] = promo.code;
+      sessionParams["metadata[promoLabel]"] = promo.label;
+      sessionParams["subscription_data[metadata][promoCode]"] = promo.code;
+      sessionParams["subscription_data[metadata][promoLabel]"] = promo.label;
+      sessionParams["subscription_data[trial_period_days]"] = String(promo.trialDays);
+    }
+    const session = await stripeRequest("checkout/sessions", sessionParams);
     upsertUser(email, {
       stripeCustomerId: customer,
       pendingPlan: planKey,
       subscriptionStatus: "Checkout Started",
+      pendingPromoCode: promo.valid ? promo.code : "",
+      pendingTrialDays: promo.valid ? promo.trialDays : 0,
     });
-    jsonResponse(response, 200, { url: session.url, id: session.id, plan: planKey, founding: foundingStatusPayload(store) });
+    jsonResponse(response, 200, {
+      url: session.url,
+      id: session.id,
+      plan: planKey,
+      promo: promo.valid ? { code: promo.code, trialDays: promo.trialDays, label: promo.label } : null,
+      founding: foundingStatusPayload(store),
+    });
   } catch (error) {
     jsonResponse(response, 500, { error: error.message || "Could not create Stripe Checkout Session." });
   }
