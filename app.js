@@ -6488,6 +6488,7 @@ function normalizeAgeGroup(value) {
   if (text.includes("infant")) return "Infant";
   if (text.includes("toddler")) return "Toddler";
   if (text.includes("preschool")) return "Preschool";
+  if (text.includes("school")) return "School Age";
   if (text.includes("mixed")) return "Mixed Ages";
   if (text.includes("all")) return "All Ages";
   return "";
@@ -7067,6 +7068,158 @@ function renderGoalNeedPicker(records) {
   `;
 }
 
+function goalAreaFor(goal, child = {}) {
+  return normalizeObservationArea(goal?.area || inferAreasFromGoalText(`${goal?.goal || ""} ${child.activeGoals || ""}`)[0]) || goal?.area || "Approaches to Learning";
+}
+
+function goalContextAreas(child, goal, records) {
+  const childObservations = records.observations.filter((item) => item.childId === child.id).slice(-5);
+  const contextText = [
+    goal?.area,
+    goal?.goal,
+    goal?.notes,
+    child.activeGoals,
+    child.ageGroup,
+    childAgeLabel(child),
+    child.dob,
+    child.notes,
+    ...childObservations.map((item) => `${item.area || ""} ${item.text || ""} ${item.nextSteps || ""}`),
+  ].join(" ");
+  return Array.from(new Set([
+    goalAreaFor(goal, child),
+    ...inferAreasFromGoalText(contextText),
+  ].filter(Boolean))).slice(0, 4);
+}
+
+function goalRecommendations(child, goal, records) {
+  const areas = goalContextAreas(child, goal, records);
+  const area = areas[0] || goalAreaFor(goal, child);
+  const activityResources = portfolioResourcesFor("Activity Center", areas, child.ageGroup, 4);
+  const lessonResources = portfolioResourcesFor("Lesson Plans", areas, child.ageGroup, 4);
+  const printableResources = portfolioResourcesFor("Printables", areas, child.ageGroup, 4);
+  const observationResources = portfolioResourcesFor("Observation Hub", areas, child.ageGroup, 3);
+  const extraResources = resources
+    .filter((resource) => !["Activity Center", "Lesson Plans", "Printables", "Observation Hub"].includes(resource.category))
+    .filter((resource) => resourceRecommendationScore(resource, areas) > 0)
+    .map((resource) => ({
+      resource,
+      ageTier: resourceAgeTier(resource, child.ageGroup),
+      score: resourceRecommendationScore(resource, areas),
+    }))
+    .sort((a, b) => a.ageTier - b.ageTier || b.score - a.score || a.resource.title.localeCompare(b.resource.title))
+    .slice(0, 2)
+    .map((item) => item.resource);
+  return { areas, area, activityResources, lessonResources, printableResources, observationResources, extraResources };
+}
+
+function renderGoalDashboardStats(records, goalRows) {
+  const activeGoals = goalRows.filter(({ goal }) => goalProgressPercent(goal.progress) < 100);
+  const goalsNeedingUpdates = activeGoals.filter(({ child, goal }) => goalNeedsUpdate(child, goal, records));
+  const showingProgress = activeGoals.filter(({ goal }) => {
+    const progress = goalProgressPercent(goal.progress);
+    return progress > 0 && progress < 100;
+  });
+  const milestones = goalRows.filter(({ goal }) => goalProgressPercent(goal.progress) >= 100);
+  const observationsThisWeek = weeklyObservationStats(records).thisWeekObservations.length;
+  const stats = [
+    ["target", activeGoals.length, "Active Goals"],
+    ["edit", goalsNeedingUpdates.length, "Goals Needing Updates"],
+    ["trend", showingProgress.length, "Showing Progress"],
+    ["chat", observationsThisWeek, "Observations This Week"],
+    ["star", milestones.length, "Milestones Celebrated"],
+  ];
+  return `<div class="goal-dashboard-stats">${stats.map(([icon, value, label]) => `
+    <article class="goal-stat-card ${escapeHtml(icon)}">
+      <span aria-hidden="true">${goalStatIcon(icon)}</span>
+      <strong>${escapeHtml(String(value))}</strong>
+      <p>${escapeHtml(label)}</p>
+    </article>
+  `).join("")}</div>`;
+}
+
+function goalStatIcon(icon) {
+  const map = {
+    target: "◎",
+    edit: "✎",
+    trend: "↗",
+    chat: "●",
+    star: "★",
+  };
+  return map[icon] || "◎";
+}
+
+function goalNeedsUpdate(child, goal, records) {
+  const progress = goalProgressPercent(goal.progress);
+  if (progress >= 100) return false;
+  const connected = connectedObservationsForGoal({ ...goal, childId: child.id }, records);
+  if (!connected.length || progress === 0) return true;
+  const lastDate = connected.map((item) => item.date).filter(Boolean).sort().slice(-1)[0];
+  if (!lastDate) return true;
+  const last = new Date(`${lastDate}T12:00:00`);
+  if (Number.isNaN(last.getTime())) return true;
+  const daysSince = (Date.now() - last.getTime()) / (1000 * 60 * 60 * 24);
+  return daysSince > 7;
+}
+
+function domSafeId(value = "") {
+  return String(value || "goal").replace(/[^a-zA-Z0-9_-]/g, "-");
+}
+
+function renderGoalResourceList(title, resourcesList, fallbackItems = [], options = {}) {
+  const items = resourcesList || [];
+  const fallback = fallbackItems.filter(Boolean).slice(0, 3);
+  return `
+    <section class="goal-match-panel">
+      <h4>${escapeHtml(title)}</h4>
+      ${items.length ? `
+        <ul>
+          ${items.slice(0, 3).map((resource) => `<li>${escapeHtml(resource.title)}</li>`).join("")}
+        </ul>
+        ${items.length > 3 ? `<button class="link-button" data-view-resource="${items[0].id}" type="button">View Matches</button>` : ""}
+      ` : `
+        <p class="goal-empty-match">No matching resources yet — use AI to create activities for this goal.</p>
+        ${fallback.length ? `<ul>${fallback.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
+      `}
+      ${options.note ? `<p class="goal-match-note">${escapeHtml(options.note)}</p>` : ""}
+    </section>
+  `;
+}
+
+function goalLastObservation(child, goal, records) {
+  const connected = connectedObservationsForGoal({ ...goal, childId: child.id }, records);
+  const observations = connected.length ? connected : records.observations.filter((item) => item.childId === child.id);
+  return observations.slice().sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))[0] || null;
+}
+
+function goalSupportIdeaContent(child, goal, records) {
+  const recommendations = goalRecommendations(child, goal, records);
+  const area = recommendations.area;
+  const activityFallbacks = suggestedActivitiesForArea(area).slice(0, 3);
+  const activities = recommendations.activityResources.items.length
+    ? recommendations.activityResources.items.slice(0, 3).map((item) => item.title)
+    : activityFallbacks;
+  const lesson = recommendations.lessonResources.items[0]?.title || suggestedLessonPlansForArea(area)[0];
+  const observation = recommendations.observationResources.items[0]?.observationText
+    || recommendations.observationResources.items[0]?.description
+    || `${child.name} practiced ${area.toLowerCase()} skills during play and showed growing confidence with support.`;
+  const nextStep = nextStepForArea(area);
+  const parentNote = `${child.name} is working on ${area.toLowerCase()} through simple play-based practice. We will keep using short, supportive activities and share progress as we observe new growth.`;
+  return { area, activities, lesson, observation, nextStep, parentNote };
+}
+
+function renderGoalSupportIdeasOutput(child, goal, records) {
+  const ideas = goalSupportIdeaContent(child, goal, records);
+  return `
+    <div class="goal-ai-output-inner">
+      <div><strong>3 simple activities</strong><ul>${ideas.activities.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>
+      <div><strong>Lesson plan idea</strong><p>${escapeHtml(ideas.lesson)}</p></div>
+      <div><strong>Observation example</strong><p>${escapeHtml(ideas.observation)}</p></div>
+      <div><strong>Parent communication note</strong><p>${escapeHtml(ideas.parentNote)}</p></div>
+      <div><strong>Next step</strong><p>${escapeHtml(ideas.nextStep)}</p></div>
+    </div>
+  `;
+}
+
 function renderSimpleGoalsProgressPage(records) {
   const goalRows = records.children.flatMap((child) => {
     const goals = childActiveGoals(child, records);
@@ -7074,13 +7227,18 @@ function renderSimpleGoalsProgressPage(records) {
   });
   return `
     <section class="simple-child-page goals-simple-page">
-      <div class="child-page-header">
+      <div class="goal-dashboard-hero">
         <div>
           <h2>Goals & Progress</h2>
-          <p>Focus on the child, the goal, the activity to try next, and the progress.</p>
+          <p>Track goals, match activities and resources, document observations, and celebrate growth.</p>
         </div>
-        <button class="primary-button" data-child-view="list" type="button">Children</button>
+        <button class="primary-button" data-open-selected-goal-form type="button">+ Add New Goal</button>
       </div>
+      ${renderGoalDashboardStats(records, goalRows)}
+      <section class="goal-what-box">
+        <strong>What it does:</strong>
+        <span>This helps you set meaningful goals, find matching activities and lesson plans, track progress, and document observations all in one place.</span>
+      </section>
       ${renderGoalNeedPicker(records)}
       <div class="simple-goals-list one-column">
         ${goalRows.length ? goalRows.map(({ child, goal }) => renderSimpleGoalCard(child, goal, records)).join("") : `
@@ -7096,34 +7254,74 @@ function renderSimpleGoalsProgressPage(records) {
 }
 
 function renderSimpleGoalCard(child, goal, records) {
-  const area = normalizeObservationArea(goal?.area || inferAreasFromGoalText(goal?.goal || child.activeGoals || "")[0]) || "Approaches to Learning";
+  const normalizedGoal = { ...goal, childId: goal.childId || child.id };
+  const recommendations = goalRecommendations(child, normalizedGoal, records);
+  const area = recommendations.area;
   const progress = goal ? goalProgressPercent(goal.progress) : 0;
-  const activities = suggestedActivitiesForArea(area).slice(0, 3);
+  const activities = recommendations.activityResources.items.length
+    ? recommendations.activityResources.items.slice(0, 3).map((item) => item.title)
+    : suggestedActivitiesForArea(area).slice(0, 3);
+  const lessonFallbacks = suggestedLessonPlansForArea(area).slice(0, 3);
+  const printFallbacks = suggestedActivitiesForArea(area).slice(0, 3).map((item) => `${item} printable`);
+  const lastObservation = goalLastObservation(child, normalizedGoal, records);
+  const connectedObservations = connectedObservationsForGoal(normalizedGoal, records);
+  const childSummary = childProgressSummary(child.id, records);
   const isSavedGoal = Boolean(goal?.id && goal.source !== "typed" && records.goals.some((savedGoal) => savedGoal.id === goal.id));
+  const safeId = domSafeId(goal?.id || `${child.id}-${area}`);
+  const updatedLabel = goal.updatedAt ? formatDateLabel(goal.updatedAt.slice(0, 10)) : formatDateLabel(lastObservation?.date || "");
   return `
-    <article class="simple-goal-card">
-      <div class="simple-goal-head">
-        ${renderChildAvatar(child, "small")}
+    <article class="goal-dashboard-card">
+      <div class="goal-card-top">
+        <div class="goal-child-summary">
+          ${renderChildAvatar(child, "small")}
+          <div>
+            <h3>${escapeHtml(child.name)}</h3>
+            <p>${escapeHtml(childAgeLabel(child))} | ${escapeHtml(normalizeAgeGroup(child.ageGroup) || child.ageGroup || "Age group not entered")}</p>
+            <span class="goal-area-dot">${escapeHtml(area)}</span>
+          </div>
+        </div>
+        <div class="goal-progress-summary">
+          <span>Progress</span>
+          <div><div class="mini-progress"><span style="width:${progress}%"></span></div><strong>${progress}%</strong></div>
+        </div>
+        <div class="goal-updated">
+          <span>Last Updated</span>
+          <strong>${escapeHtml(updatedLabel || "Not updated yet")}</strong>
+        </div>
+      </div>
+
+      <div class="goal-card-grid">
+        <section class="goal-match-panel goal-main-panel">
+          <h4>Goal</h4>
+          <p>${escapeHtml(goal?.goal || child.activeGoals || goalExampleForArea(area))}</p>
+          <button class="link-button" data-view-child-profile="${child.id}" data-open-child-tab="goals" type="button">Edit Goal</button>
+        </section>
+        ${renderGoalResourceList("Suggested Activities", activities.map((title) => ({ title })), suggestedActivitiesForArea(area))}
+        ${renderGoalResourceList("Matching Lesson Plans", recommendations.lessonResources.items, lessonFallbacks, { note: recommendations.lessonResources.note })}
+        ${renderGoalResourceList("Printables & Resources", [...recommendations.printableResources.items, ...recommendations.extraResources], printFallbacks, { note: recommendations.printableResources.note })}
+      </div>
+
+      <div class="goal-observation-strip">
         <div>
-          <h3>${escapeHtml(child.name)}</h3>
-          <p>${escapeHtml(area)} Goal</p>
+          <strong>Last Observation</strong>
+          <p>${lastObservation ? escapeHtml(lastObservation.text || "Observation note saved.") : "No observation connected yet."}</p>
         </div>
+        <span>${lastObservation ? escapeHtml(formatDateLabel(lastObservation.date)) : "Add one when ready"}</span>
+        <button class="primary-button" data-quick-add-observation="${child.id}" data-goal-area="${escapeHtml(area)}" type="button">Add Observation</button>
       </div>
-      <div class="simple-goal-body">
-        <h4>${escapeHtml(goal?.goal || child.activeGoals || "Add a goal for this child")}</h4>
-        <div class="goal-progress-line">
-          <strong>Progress: ${progress}%</strong>
-          <div class="mini-progress"><span style="width:${progress}%"></span></div>
-        </div>
-        <strong>Suggested Activities</strong>
-        <ul class="activity-suggestion-list">
-          ${activities.map((activity) => `<li>${escapeHtml(activity)}</li>`).join("")}
-        </ul>
+
+      <div class="goal-portfolio-row">
+        <span><b>${connectedObservations.length}</b> connected observations</span>
+        <span><b>${childSummary.observationsCompleted}</b> portfolio observations</span>
+        <span><b>${childSummary.progressPercent}%</b> portfolio progress</span>
       </div>
-      <div class="child-card-actions">
-        <button class="ghost-button" data-quick-add-observation="${child.id}" data-goal-area="${escapeHtml(area)}" type="button">Add Observation</button>
-        ${isSavedGoal ? `<button class="primary-button" data-update-goal-progress="${goal.id}" type="button">Update Progress</button>` : `<button class="primary-button" data-view-child-profile="${child.id}" data-open-child-tab="goals" type="button">Update Progress</button>`}
+
+      <div class="goal-card-actions">
+        <button class="ghost-button" data-generate-goal-support="${escapeHtml(goal?.id || "")}" data-child-id="${escapeHtml(child.id)}" type="button">Generate Support Ideas</button>
+        ${isSavedGoal ? `<button class="ghost-button" data-update-goal-progress="${goal.id}" type="button">Update Progress</button>` : `<button class="ghost-button" data-view-child-profile="${child.id}" data-open-child-tab="goals" type="button">Update Progress</button>`}
+        <button class="ghost-button" ${isProUser() ? `data-open-portfolio="${child.id}"` : `data-pro-feature="child-portfolios"`} type="button">View Portfolio</button>
       </div>
+      <div class="goal-ai-output" id="goalSupportIdeas-${safeId}" aria-live="polite"></div>
     </article>
   `;
 }
@@ -11491,6 +11689,41 @@ document.addEventListener("click", (event) => {
     if (!text || text === "Fill out the form to create a ready-to-edit provider tool.") return;
     trackEvent("provider_tool_pdf", { title });
     printTextDocument(title, text);
+  }
+
+  const openSelectedGoalFormButton = event.target.closest("[data-open-selected-goal-form]");
+  if (openSelectedGoalFormButton) {
+    event.preventDefault();
+    const records = childRecords();
+    const child = selectedChild(records);
+    if (!child) {
+      childManagementMode = "add";
+      renderChildManagement();
+      return;
+    }
+    selectedChildId = child.id;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+    childManagementMode = "profile";
+    childProfileTab = "goals";
+    renderChildManagement();
+    return;
+  }
+
+  const generateGoalSupportButton = event.target.closest("[data-generate-goal-support]");
+  if (generateGoalSupportButton) {
+    event.preventDefault();
+    const records = childRecords();
+    const child = records.children.find((item) => item.id === generateGoalSupportButton.dataset.childId);
+    if (!child) return;
+    const goal = childActiveGoals(child, records).find((item) => item.id === generateGoalSupportButton.dataset.generateGoalSupport);
+    if (!goal) return;
+    const output = document.querySelector(`#goalSupportIdeas-${domSafeId(goal.id)}`);
+    if (output) output.innerHTML = renderGoalSupportIdeasOutput(child, { ...goal, childId: child.id }, records);
+    generateGoalSupportButton.textContent = "Ideas Generated";
+    setTimeout(() => {
+      generateGoalSupportButton.textContent = "Generate Support Ideas";
+    }, 1400);
+    return;
   }
 
   const completeGoalButton = event.target.closest("[data-complete-goal]");
