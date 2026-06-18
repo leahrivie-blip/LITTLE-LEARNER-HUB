@@ -8822,7 +8822,7 @@ function renderHomeFoundingOffer() {
   const soldOut = remaining <= 0;
   target.innerHTML = `
     <div class="founding-hero-card ${soldOut ? "founding-sold-out" : ""}">
-      <span class="founding-star" aria-hidden="true">‚òÖ</span>
+      <span class="founding-star" aria-hidden="true"></span>
       <span class="confetti confetti-one" aria-hidden="true"></span>
       <span class="confetti confetti-two" aria-hidden="true"></span>
       <span class="confetti confetti-three" aria-hidden="true"></span>
