@@ -2610,13 +2610,20 @@ button {
   grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
   gap: 18px;
   align-items: end;
-  margin-top: 18px;
-  background: linear-gradient(135deg, var(--white), rgba(220, 238, 245, 0.4));
+  margin: 18px 0;
+  background: linear-gradient(135deg, #fffdf8, rgba(220, 238, 245, 0.58));
+  border: 2px solid rgba(56, 96, 98, 0.24);
+  box-shadow: 0 16px 38px rgba(56, 96, 98, 0.12);
 }
 
 .promo-code-panel h3,
 .promo-code-panel p {
   margin-bottom: 0;
+}
+
+.promo-code-panel h3 {
+  color: #386062;
+  font-size: 24px;
 }
 
 .promo-code-panel label {
@@ -2647,6 +2654,11 @@ button {
   border-radius: var(--radius);
   font: inherit;
   text-transform: uppercase;
+}
+
+.promo-code-panel input:focus {
+  outline: 3px solid rgba(56, 96, 98, 0.16);
+  border-color: #386062;
 }
 
 .promo-code-entry .ghost-button {

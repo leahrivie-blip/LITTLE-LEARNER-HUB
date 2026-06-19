@@ -12,6 +12,8 @@ const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "";
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
 const PROMO_FREE_TRIAL_CODE = String(process.env.PROMO_FREE_TRIAL_CODE || "TRYPRO3").trim();
 const PROMO_FREE_TRIAL_DAYS = Number(process.env.PROMO_FREE_TRIAL_DAYS || 90);
+const PROMO_FREE_TRIAL_EXPIRES_AT = process.env.PROMO_FREE_TRIAL_EXPIRES_AT || "2026-11-01T05:00:00.000Z";
+const PROMO_FREE_TRIAL_EXPIRES_LABEL = process.env.PROMO_FREE_TRIAL_EXPIRES_LABEL || "October 31, 2026";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const FOUNDING_LIMIT = Number(process.env.FOUNDING_MEMBER_LIMIT || 50);
@@ -107,14 +109,27 @@ function checkoutPromoForCode(value) {
   const configuredCode = normalizePromoCode(PROMO_FREE_TRIAL_CODE);
   const enteredCode = normalizePromoCode(value);
   const trialDays = Number.isFinite(PROMO_FREE_TRIAL_DAYS) ? Math.max(0, Math.min(PROMO_FREE_TRIAL_DAYS, 365)) : 0;
+  const expiresAt = Date.parse(PROMO_FREE_TRIAL_EXPIRES_AT);
+  const expired = Number.isFinite(expiresAt) && Date.now() >= expiresAt;
   if (!configuredCode || !enteredCode || enteredCode !== configuredCode || trialDays <= 0) {
     return { valid: false, code: enteredCode };
+  }
+  if (expired) {
+    return {
+      valid: false,
+      code: configuredCode,
+      expired: true,
+      expiresAt: PROMO_FREE_TRIAL_EXPIRES_AT,
+      expiresLabel: PROMO_FREE_TRIAL_EXPIRES_LABEL,
+    };
   }
   return {
     valid: true,
     code: configuredCode,
     trialDays,
     label: `${trialDays} day free Pro trial`,
+    expiresAt: PROMO_FREE_TRIAL_EXPIRES_AT,
+    expiresLabel: PROMO_FREE_TRIAL_EXPIRES_LABEL,
   };
 }
 
@@ -276,6 +291,7 @@ function defaultStore() {
     analyticsEvents: [],
     billingEvents: [],
     leads: [],
+    promoRedemptions: [],
   };
 }
 
@@ -563,6 +579,58 @@ function upsertUser(email, updates) {
   return store.users[email];
 }
 
+function promoRedemptionRecords(store = readStore()) {
+  return Array.isArray(store.promoRedemptions) ? store.promoRedemptions : [];
+}
+
+function promoUsedByAccount(email, code, store = readStore()) {
+  const cleanEmail = normalizeEmail(email);
+  const promoCode = normalizePromoCode(code);
+  if (!cleanEmail || !promoCode) return false;
+  const user = store.users?.[cleanEmail] || {};
+  const accountRedemptions = Array.isArray(user.promoRedemptions) ? user.promoRedemptions : [];
+  return [...promoRedemptionRecords(store), ...accountRedemptions].some((record) => (
+    normalizeEmail(record?.email || cleanEmail) === cleanEmail
+    && normalizePromoCode(record?.code || record) === promoCode
+  ));
+}
+
+function markPromoRedeemed(email, code, details = {}) {
+  const cleanEmail = normalizeEmail(email);
+  const promoCode = normalizePromoCode(code);
+  if (!cleanEmail || !promoCode) return null;
+  const store = readStore();
+  store.promoRedemptions = promoRedemptionRecords(store);
+  const existing = store.promoRedemptions.find((record) => (
+    normalizeEmail(record.email) === cleanEmail && normalizePromoCode(record.code) === promoCode
+  ));
+  const record = existing || {
+    id: `promo_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
+    email: cleanEmail,
+    code: promoCode,
+    label: details.label || "",
+    trialDays: details.trialDays || 0,
+    stripeSessionId: details.stripeSessionId || "",
+    stripeSubscriptionId: details.stripeSubscriptionId || "",
+    redeemedAt: new Date().toISOString(),
+  };
+  if (!existing) store.promoRedemptions.push(record);
+  store.users = store.users || {};
+  const user = store.users[cleanEmail] || { email: cleanEmail };
+  const userRedemptions = Array.isArray(user.promoRedemptions) ? user.promoRedemptions : [];
+  const hasUserRecord = userRedemptions.some((item) => normalizePromoCode(item?.code || item) === promoCode);
+  store.users[cleanEmail] = {
+    ...user,
+    email: cleanEmail,
+    promoRedemptions: hasUserRecord ? userRedemptions : [...userRedemptions, record],
+    promoTrialDays: details.trialDays || user.promoTrialDays || 0,
+    promoRedeemedAt: user.promoRedeemedAt || record.redeemedAt,
+    updatedAt: new Date().toISOString(),
+  };
+  writeStore(store);
+  return record;
+}
+
 function getPriceId(planKey) {
   const config = planConfig[planKey];
   return config ? process.env[config.priceEnv] || "" : "";
@@ -717,25 +785,40 @@ async function handleAdminLogin(request, response) {
 async function handlePromoValidation(request, response, url) {
   const body = request.method === "POST" ? await readJson(request) : {};
   const enteredCode = normalizePromoCode(body.code || url.searchParams.get("code"));
+  const email = normalizeEmail(body.email || url.searchParams.get("email"));
   const promo = checkoutPromoForCode(enteredCode);
   if (!enteredCode) {
     jsonResponse(response, 400, { valid: false, error: "Enter a promo code before checkout." });
+    return;
+  }
+  if (!email) {
+    jsonResponse(response, 400, { valid: false, error: "Log in or create a free account to apply a promo code." });
     return;
   }
   if (!promo.valid) {
     jsonResponse(response, 400, {
       valid: false,
       code: enteredCode,
-      error: "That promo code is not active. Check the code and try again.",
+      error: promo.expired
+        ? `That promo code expired ${promo.expiresLabel}.`
+        : "That promo code is not active. Check the code and try again.",
+    });
+    return;
+  }
+  if (promoUsedByAccount(email, promo.code)) {
+    jsonResponse(response, 409, {
+      valid: false,
+      error: "This account has already used that promo code.",
     });
     return;
   }
   jsonResponse(response, 200, {
     valid: true,
-    code: promo.code,
     trialDays: promo.trialDays,
     label: promo.label,
-    message: `${promo.code} accepted: ${promo.trialDays} days free will be applied before Stripe checkout.`,
+    expiresAt: promo.expiresAt,
+    expiresLabel: promo.expiresLabel,
+    message: `Promo accepted: ${promo.trialDays} days free will be applied before Stripe checkout.`,
   });
 }
 
@@ -747,13 +830,21 @@ async function handleCheckout(request, response) {
   const requestedPlan = body.plan || "monthly";
   const planKey = requestedPlan === "founding" && foundingSpotsRemaining(store) <= 0 ? "monthly" : requestedPlan;
   const price = getPriceId(planKey);
-  const promo = checkoutPromoForCode(body.promoCode);
-  if (normalizePromoCode(body.promoCode) && !promo.valid) {
-    jsonResponse(response, 400, { error: "That promo code is not active. Check the code and try again." });
-    return;
-  }
   if (!email) {
     jsonResponse(response, 400, { error: "Email is required before checkout." });
+    return;
+  }
+  const promo = checkoutPromoForCode(body.promoCode);
+  if (normalizePromoCode(body.promoCode) && !promo.valid) {
+    jsonResponse(response, 400, {
+      error: promo.expired
+        ? `That promo code expired ${promo.expiresLabel}.`
+        : "That promo code is not active. Check the code and try again.",
+    });
+    return;
+  }
+  if (promo.valid && promoUsedByAccount(email, promo.code, store)) {
+    jsonResponse(response, 409, { error: "This account has already used that promo code." });
     return;
   }
   if (!planConfig[planKey] || !price) {
@@ -777,8 +868,10 @@ async function handleCheckout(request, response) {
     if (promo.valid) {
       sessionParams["metadata[promoCode]"] = promo.code;
       sessionParams["metadata[promoLabel]"] = promo.label;
+      sessionParams["metadata[promoTrialDays]"] = String(promo.trialDays);
       sessionParams["subscription_data[metadata][promoCode]"] = promo.code;
       sessionParams["subscription_data[metadata][promoLabel]"] = promo.label;
+      sessionParams["subscription_data[metadata][promoTrialDays]"] = String(promo.trialDays);
       sessionParams["subscription_data[trial_period_days]"] = String(promo.trialDays);
     }
     const session = await stripeRequest("checkout/sessions", sessionParams);
@@ -788,12 +881,13 @@ async function handleCheckout(request, response) {
       subscriptionStatus: "Checkout Started",
       pendingPromoCode: promo.valid ? promo.code : "",
       pendingTrialDays: promo.valid ? promo.trialDays : 0,
+      pendingPromoLabel: promo.valid ? promo.label : "",
     });
     jsonResponse(response, 200, {
       url: session.url,
       id: session.id,
       plan: planKey,
-      promo: promo.valid ? { code: promo.code, trialDays: promo.trialDays, label: promo.label } : null,
+      promo: promo.valid ? { applied: true, trialDays: promo.trialDays, label: promo.label, expiresAt: promo.expiresAt, expiresLabel: promo.expiresLabel } : null,
       founding: foundingStatusPayload(store),
     });
   } catch (error) {
@@ -869,6 +963,9 @@ async function handleCheckoutStatus(request, response, url) {
     const userEntry = Object.entries(store.users || {}).find(([, user]) => user.stripeCustomerId === session.customer);
     const email = normalizeEmail(session.customer_details?.email || session.customer_email || session.metadata?.email || userEntry?.[0]);
     const planKey = session.metadata?.plan || userEntry?.[1]?.pendingPlan || "monthly";
+    const promoCode = normalizePromoCode(session.metadata?.promoCode || userEntry?.[1]?.pendingPromoCode || "");
+    const promoTrialDays = Number(session.metadata?.promoTrialDays || userEntry?.[1]?.pendingTrialDays || 0);
+    const promoLabel = session.metadata?.promoLabel || userEntry?.[1]?.pendingPromoLabel || "";
     const paid = session.payment_status === "paid" || session.status === "complete";
     if (paid && email) {
       const founding = planKey === "founding" ? claimFoundingSpot(email) : { foundingMember: false, foundingMemberNumber: null };
@@ -881,6 +978,14 @@ async function handleCheckoutStatus(request, response, url) {
         paymentMethod: "Managed in Stripe",
         pendingPlan: "",
       });
+      if (promoCode) {
+        markPromoRedeemed(email, promoCode, {
+          label: promoLabel,
+          trialDays: promoTrialDays,
+          stripeSessionId: session.id,
+          stripeSubscriptionId: session.subscription,
+        });
+      }
       appendBillingEvent(email, "checkout_success", planKey, planConfig[planKey]?.amount || "");
     }
     jsonResponse(response, 200, {
@@ -891,6 +996,7 @@ async function handleCheckoutStatus(request, response, url) {
       plan: planKey,
       subscriptionId: session.subscription,
       customerId: session.customer,
+      promo: promoCode ? { applied: true, trialDays: promoTrialDays, label: promoLabel } : null,
       founding: foundingStatusPayload(readStore()),
     });
   } catch (error) {
@@ -939,6 +1045,9 @@ async function handleStripeWebhook(request, response) {
     const userEntry = Object.entries(store.users || {}).find(([, user]) => user.stripeCustomerId === session.customer);
     const email = normalizeEmail(session.customer_details?.email || session.customer_email || session.metadata?.email || userEntry?.[0]);
     const planKey = session.metadata?.plan || userEntry?.[1]?.pendingPlan || "monthly";
+    const promoCode = normalizePromoCode(session.metadata?.promoCode || userEntry?.[1]?.pendingPromoCode || "");
+    const promoTrialDays = Number(session.metadata?.promoTrialDays || userEntry?.[1]?.pendingTrialDays || 0);
+    const promoLabel = session.metadata?.promoLabel || userEntry?.[1]?.pendingPromoLabel || "";
     if (email) {
       const founding = planKey === "founding" ? claimFoundingSpot(email) : { foundingMember: false, foundingMemberNumber: null };
       upsertUser(email, {
@@ -950,6 +1059,14 @@ async function handleStripeWebhook(request, response) {
         paymentMethod: "Managed in Stripe",
         pendingPlan: "",
       });
+      if (promoCode) {
+        markPromoRedeemed(email, promoCode, {
+          label: promoLabel,
+          trialDays: promoTrialDays,
+          stripeSessionId: session.id,
+          stripeSubscriptionId: session.subscription,
+        });
+      }
       appendBillingEvent(email, "checkout_success", planKey, planConfig[planKey]?.amount || "");
     }
   }
@@ -982,6 +1099,14 @@ async function handleStripeWebhook(request, response) {
         pendingPlan: "",
         stripeSubscriptionId: subscription.id,
       });
+      const subscriptionPromoCode = normalizePromoCode(subscription.metadata?.promoCode || user.pendingPromoCode || "");
+      if (!canceled && subscriptionPromoCode) {
+        markPromoRedeemed(email, subscriptionPromoCode, {
+          label: subscription.metadata?.promoLabel || user.pendingPromoLabel || "",
+          trialDays: Number(subscription.metadata?.promoTrialDays || user.pendingTrialDays || 0),
+          stripeSubscriptionId: subscription.id,
+        });
+      }
       if (canceled) appendBillingEvent(email, "subscription_canceled", planKey, "$0");
     }
   }

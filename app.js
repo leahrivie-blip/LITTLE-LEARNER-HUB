@@ -1564,8 +1564,8 @@ const stripeCheckoutConfig = {
   checkoutStatusEndpoint: "/api/checkout-status",
   foundingStatusEndpoint: "/api/founding-status",
   promoValidationEndpoint: "/api/validate-promo-code",
-  defaultPromoCode: "TRYPRO3",
   defaultTrialDays: 90,
+  promoExpiresLabel: "October 31, 2026",
 };
 const aiGenerationConfig = {
   endpoint: "/api/ai-generate",
@@ -2039,6 +2039,7 @@ function subscriptionToAccountUpdates(subscription) {
       stripeCustomerId: subscription.stripeCustomerId || "",
       stripeSubscriptionId: subscription.stripeSubscriptionId || "",
       paymentMethod: subscription.paymentMethod || "Managed in Stripe",
+      promoRedemptions: accountPromoRedemptions(subscription),
     };
   }
   const pendingPlan = String(subscription.pendingPlan || "").toLowerCase();
@@ -2061,6 +2062,7 @@ function subscriptionToAccountUpdates(subscription) {
     stripeCustomerId: subscription.stripeCustomerId || "",
     stripeSubscriptionId: subscription.stripeSubscriptionId || "",
     paymentMethod: subscription.paymentMethod || "Managed in Stripe",
+    promoRedemptions: accountPromoRedemptions(subscription),
   };
 }
 
@@ -2141,10 +2143,9 @@ function normalizedCheckoutPromoCode() {
 }
 
 function checkoutPromoSummary() {
-  const code = normalizedCheckoutPromoCode();
-  return code
-    ? `Promo code ${code} will be checked here before Stripe opens.`
-    : "Enter your provider promo code here before checkout. It is applied automatically before Stripe opens.";
+  return normalizedCheckoutPromoCode()
+    ? "Your promo code will be checked securely before Stripe opens."
+    : `Enter a provider promo code before choosing a plan. Codes are private, can be used once per account, and expire ${stripeCheckoutConfig.promoExpiresLabel}.`;
 }
 
 function saveCheckoutPromoCode(value) {
@@ -2163,6 +2164,34 @@ function setPromoCodeMessage(message, success = false, panel = document) {
   target.classList.toggle("success", Boolean(success));
 }
 
+function accountPromoRedemptions(account = currentAccount()) {
+  return Array.isArray(account?.promoRedemptions) ? account.promoRedemptions : [];
+}
+
+function hasRedeemedCheckoutPromoCode(code = normalizedCheckoutPromoCode(), account = currentAccount()) {
+  const normalized = String(code || "").trim().toUpperCase();
+  if (!normalized) return false;
+  return accountPromoRedemptions(account).some((item) => String(item?.code || item || "").trim().toUpperCase() === normalized);
+}
+
+function markCheckoutPromoRedeemed(code, details = {}) {
+  if (!currentUser) return;
+  const normalized = String(code || "").trim().toUpperCase();
+  if (!normalized || hasRedeemedCheckoutPromoCode(normalized)) return;
+  const account = currentAccount() || ensureAccount(currentUser);
+  updateAccount(currentUser, {
+    promoRedemptions: [
+      ...accountPromoRedemptions(account),
+      {
+        code: normalized,
+        label: details.label || "",
+        trialDays: details.trialDays || 0,
+        redeemedAt: new Date().toISOString(),
+      },
+    ],
+  });
+}
+
 async function validateCheckoutPromoCode(options = {}) {
   const { quiet = false } = options;
   const code = normalizedCheckoutPromoCode();
@@ -2171,36 +2200,33 @@ async function validateCheckoutPromoCode(options = {}) {
     if (!quiet) setPromoCodeMessage("Enter a promo code before checkout.", false, panel);
     return { valid: false, empty: true };
   }
-  if (isProUser()) {
-    const message = "This promo is for new Pro checkouts. This account already has an active membership.";
+  if (!currentUser) {
+    const message = "Log in or create a free account to apply a promo code.";
     if (!quiet) setPromoCodeMessage(message, false, panel);
-    return { valid: false, error: message, alreadyActive: true };
+    if (!quiet) openAuthModal("signup");
+    return { valid: false, error: message, requiresAccount: true };
+  }
+  if (hasRedeemedCheckoutPromoCode(code)) {
+    const message = "This account has already used that promo code.";
+    if (!quiet) setPromoCodeMessage(message, false, panel);
+    return { valid: false, error: message, alreadyUsed: true };
   }
   if (!canUseStripeBackend() || !stripeCheckoutConfig.promoValidationEndpoint) {
-    const valid = code === String(stripeCheckoutConfig.defaultPromoCode || "TRYPRO3").toUpperCase();
-    const result = valid
-      ? { valid: true, code, trialDays: stripeCheckoutConfig.defaultTrialDays || 90, label: `${stripeCheckoutConfig.defaultTrialDays || 90} day free Pro trial` }
-      : { valid: false, code, error: "That promo code is not active. Check the code and try again." };
-    if (!quiet) {
-      setPromoCodeMessage(
-        valid ? `${code} accepted: ${result.trialDays} days free will be applied before checkout.` : result.error,
-        valid,
-        panel,
-      );
-    }
-    return result;
+    const message = "Promo codes are checked securely during checkout. Please use the live checkout page and try again.";
+    if (!quiet) setPromoCodeMessage(message, false, panel);
+    return { valid: false, code, error: message };
   }
   try {
     const response = await fetch(stripeCheckoutConfig.promoValidationEndpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({ code, email: currentUser }),
     });
     const data = await response.json();
     if (!response.ok || !data?.valid) {
       throw new Error(data?.error || "That promo code is not active. Check the code and try again.");
     }
-    if (!quiet) setPromoCodeMessage(data.message || `${data.code || code} accepted.`, true, panel);
+    if (!quiet) setPromoCodeMessage(data.message || "Promo accepted. Your free trial will be applied before checkout.", true, panel);
     return data;
   } catch (error) {
     const message = error.message || "That promo code could not be checked. Please try again.";
@@ -11746,13 +11772,13 @@ function promoCodePanel() {
     <section class="section-block promo-code-panel">
       <div>
         <p class="eyebrow">Promo Code</p>
-        <h3>Have a free trial code?</h3>
+        <h3>Have a promo code? Apply it first.</h3>
         <p class="muted-copy">${escapeHtml(checkoutPromoSummary())}</p>
       </div>
       <div class="promo-code-entry">
         <label>
           <span>Promo code</span>
-          <input id="checkoutPromoCodeInput" value="${escapeHtml(checkoutPromoCode)}" placeholder="${escapeHtml(stripeCheckoutConfig.defaultPromoCode || "TRYPRO3")}" autocomplete="off" />
+          <input id="checkoutPromoCodeInput" value="${escapeHtml(checkoutPromoCode)}" placeholder="Enter code" autocomplete="off" />
         </label>
         <button class="ghost-button" data-apply-promo-code type="button">Apply Code</button>
         <span class="form-message promo-code-message" id="checkoutPromoCodeMessage" aria-live="polite"></span>
@@ -11767,6 +11793,7 @@ function renderPricingPage() {
   const remaining = foundingSpotsRemaining();
   target.innerHTML = `
     ${foundingStatusCard()}
+    ${promoCodePanel()}
     <div class="pricing-grid">
       ${pricingCard("Free", { free: true, buttonText: "Use Free" })}
       ${remaining > 0
@@ -11774,7 +11801,6 @@ function renderPricingPage() {
         : pricingCard("ProMonthly", { featured: true, primary: true, eyebrow: "Main Paid Plan", checkoutType: "monthly", buttonText: "Choose Pro Monthly" })}
       ${pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Choose Pro Annual" })}
     </div>
-    ${promoCodePanel()}
     <section class="section-block billing-links">
       <button class="ghost-button" data-view="upgrade" type="button">Upgrade Page</button>
       <button class="ghost-button" data-view="billing" type="button">Billing Management</button>
@@ -11791,6 +11817,7 @@ function renderUpgradePage() {
   const soldOut = remaining <= 0;
   target.innerHTML = `
     ${foundingStatusCard()}
+    ${promoCodePanel()}
     <div class="pricing-grid">
       ${!soldOut
         ? pricingCard("Founding", { featured: true, primary: true, eyebrow: "Best Launch Offer", checkoutType: "founding", buttonText: "Checkout for $9.99/month" })
@@ -11798,7 +11825,6 @@ function renderUpgradePage() {
       ${!soldOut ? pricingCard("ProMonthly", { checkoutType: "monthly", buttonText: "Checkout Monthly" }) : ""}
       ${pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Checkout Annual" })}
     </div>
-    ${promoCodePanel()}
     <section class="section-block">
       <p class="eyebrow">Stripe Checkout</p>
       <h3>Secure payment handoff</h3>
@@ -12139,7 +12165,7 @@ async function startCheckout(type) {
   };
   localStorage.setItem("llhPendingCheckout", JSON.stringify(pending));
   trackEvent("checkout_start", { type: checkoutType, amount, promoCode: promoCode ? "entered" : "" });
-  addBillingHistory("Checkout Started", `${checkoutType === "annual" ? "Annual" : checkoutType === "founding" ? "Founding Member" : "Monthly"} Stripe checkout started${promoCode ? " with promo code" : ""}`, amount);
+  addBillingHistory("Checkout Started", `${checkoutType === "annual" ? "Annual" : checkoutType === "founding" ? "Founding Member" : "Monthly"} Stripe checkout started${promoCode ? " with promo applied" : ""}`, amount);
 
   if (stripeCheckoutConfig.checkoutEndpoint && canUseStripeBackend()) {
     try {
@@ -12235,7 +12261,10 @@ function completeCheckout() {
     promoCode: pending.promoCode || "",
     trialDays: pending.trialDays || 0,
   });
-  addBillingHistory("Payment Succeeded", `${billingPlanLabel(plan)} subscription activated${pending.promoCode ? ` with promo code ${pending.promoCode}` : ""}`, monthlyPrice);
+  if (pending.promoCode && pending.trialDays) {
+    markCheckoutPromoRedeemed(pending.promoCode, { trialDays: pending.trialDays, label: pending.promoLabel });
+  }
+  addBillingHistory("Payment Succeeded", `${billingPlanLabel(plan)} subscription activated${pending.promoCode ? " with promo trial" : ""}`, monthlyPrice);
   trackEvent("checkout_success", { plan, monthlyPrice, attribution: currentAttribution() });
   localStorage.removeItem("llhPendingCheckout");
   saveCurrentAccountState();
@@ -12265,6 +12294,9 @@ async function completeCheckoutFromStripeSession(session) {
     email: currentUser || session.email,
     startedAt: new Date().toISOString(),
     foundingEligible: type === "founding",
+    promoCode: pending?.promoCode || "",
+    trialDays: session.promo?.trialDays || pending?.trialDays || 0,
+    promoLabel: session.promo?.label || pending?.promoLabel || "",
   }));
   completeCheckout();
   updateCurrentAccountBilling({
