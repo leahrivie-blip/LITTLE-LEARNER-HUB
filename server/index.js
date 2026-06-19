@@ -1086,7 +1086,7 @@ async function handleStripeWebhook(request, response) {
         plan: "Free",
         subscriptionCadence: "",
         subscriptionStatus: "Canceled - Free Plan Active",
-        monthlyPrice: "$0",
+        monthlyPrice: "$0/month",
         stripeSubscriptionId: subscription.id,
         foundingMember: founding.foundingMember,
         foundingMemberNumber: founding.foundingMemberNumber,
@@ -1300,6 +1300,9 @@ function updateAnalyticsUser(store, event) {
   if (event.name === "subscription_canceled") {
     updates.plan = "Free";
     updates.subscriptionStatus = "Canceled - Free Plan Active";
+    updates.subscriptionCadence = "";
+    updates.monthlyPrice = "$0/month";
+    updates.priceLock = "";
   }
   store.users[event.user] = updates;
 }

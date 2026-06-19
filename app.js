@@ -1869,17 +1869,54 @@ function closeProFeatureModal() {
   modal.setAttribute("aria-hidden", "true");
 }
 
-function billingPlanLabel(plan = currentPlan) {
-  if (plan === "Founding") return "Founding Member";
-  if (plan === "Pro") return "Pro";
+function billingStatusIndicatesFree(status = "") {
+  const cleanStatus = String(status || "").toLowerCase();
+  return cleanStatus.includes("free plan")
+    || cleanStatus.includes("cancel")
+    || cleanStatus.includes("failed");
+}
+
+function billingStatusIndicatesPaid(status = "") {
+  const cleanStatus = String(status || "").toLowerCase();
+  return cleanStatus.includes("active")
+    || cleanStatus.includes("trial")
+    || cleanStatus.includes("paid");
+}
+
+function normalizeBillingPlan(plan = currentPlan, account = null) {
+  const rawPlan = String(account?.plan || plan || "Free").trim();
+  const lowerPlan = rawPlan.toLowerCase();
+  const status = String(account?.subscriptionStatus || "");
+  if (account && billingStatusIndicatesFree(status)) return "Free";
+  if (rawPlan === "Founding" || (account?.foundingMember && billingStatusIndicatesPaid(status))) return "Founding";
+  if (rawPlan === "Pro" || rawPlan === "Premium" || lowerPlan.includes("pro")) {
+    return account && status && !billingStatusIndicatesPaid(status) ? "Free" : "Pro";
+  }
+  return "Free";
+}
+
+function accountHasPaidBilling(account = currentAccount()) {
+  if (!account) return accessRank[normalizeBillingPlan(currentPlan)] >= accessRank.Pro;
+  const plan = normalizeBillingPlan(account.plan || currentPlan, account);
+  if (plan === "Free") return false;
+  const status = String(account.subscriptionStatus || "");
+  return billingStatusIndicatesPaid(status) || Boolean(account.stripeSubscriptionId || account.subscriptionStartedAt);
+}
+
+function billingPlanLabel(plan = currentPlan, account = plan === currentPlan ? currentAccount() : null) {
+  const normalizedPlan = normalizeBillingPlan(plan, account);
+  if (normalizedPlan === "Founding") return "Founding Member";
+  if (normalizedPlan === "Pro") return "Pro";
   return "Free";
 }
 
 function billingPriceLabel(account = currentAccount()) {
-  if (account?.foundingMember && isProUser()) return "$9.99/month";
-  if (account?.subscriptionCadence === "annual" && isProUser()) return "$199/year";
-  if (isProUser()) return "$19.99/month";
-  return "$0";
+  const plan = normalizeBillingPlan(account?.plan || currentPlan, account);
+  if (account && !accountHasPaidBilling(account)) return "$0/month";
+  if (plan === "Founding" || (account?.foundingMember && accountHasPaidBilling(account))) return "$9.99/month";
+  if (account?.subscriptionCadence === "annual") return "$199/year";
+  if (plan === "Pro") return "$19.99/month";
+  return "$0/month";
 }
 
 function foundingMembers() {
@@ -2035,7 +2072,7 @@ function subscriptionToAccountUpdates(subscription) {
       foundingMember: Boolean(subscription.foundingMember),
       foundingMemberNumber: subscription.foundingMemberNumber || null,
       priceLock: subscription.foundingMember ? "Lifetime" : "",
-      monthlyPrice: "$0",
+      monthlyPrice: "$0/month",
       stripeCustomerId: subscription.stripeCustomerId || "",
       stripeSubscriptionId: subscription.stripeSubscriptionId || "",
       paymentMethod: subscription.paymentMethod || "Managed in Stripe",
@@ -2397,7 +2434,7 @@ function ensureAccount(email) {
       foundingMember: false,
       foundingMemberNumber: null,
       priceLock: "",
-      monthlyPrice: "$0",
+      monthlyPrice: "$0/month",
       stripeCustomerId: "",
       stripeSubscriptionId: "",
       paymentMethod: "No payment method on file",
@@ -2433,7 +2470,15 @@ function loadAccountState(email) {
   const account = ensureAccount(email);
   if (!account) return;
   currentUser = account.email;
-  currentPlan = account.plan || (account.foundingMember ? "Founding" : "Free");
+  currentPlan = normalizeBillingPlan(account.plan || (account.foundingMember ? "Founding" : "Free"), account);
+  if (currentPlan === "Free" && (account.plan !== "Free" || account.monthlyPrice !== "$0/month")) {
+    updateAccount(account.email, {
+      plan: "Free",
+      subscriptionCadence: "",
+      monthlyPrice: "$0/month",
+      priceLock: "",
+    });
+  }
   favorites = account.favorites || [];
   savedDownloads = account.downloads || [];
   localStorage.setItem("llhGeneratedOutputs", JSON.stringify(account.generatedOutputs || []));
@@ -2459,10 +2504,17 @@ function saveCurrentAccountState() {
   if (!currentUser) return;
   const allAccounts = accounts();
   const account = allAccounts[currentUser] || ensureAccount(currentUser);
+  const normalizedPlan = normalizeBillingPlan(currentPlan, account);
+  const paidBilling = accountHasPaidBilling({ ...account, plan: normalizedPlan });
   allAccounts[currentUser] = {
     ...account,
-    plan: currentPlan,
-    subscriptionStatus: account?.subscriptionStatus || (isProUser() ? `${billingPlanLabel()} Subscription Active` : "Free Plan"),
+    plan: normalizedPlan,
+    subscriptionStatus: paidBilling
+      ? account?.subscriptionStatus || `${billingPlanLabel(normalizedPlan)} Subscription Active`
+      : "Free Plan",
+    subscriptionCadence: paidBilling ? account?.subscriptionCadence || "" : "",
+    monthlyPrice: paidBilling ? account?.monthlyPrice || billingPriceLabel({ ...account, plan: normalizedPlan }) : "$0/month",
+    priceLock: paidBilling ? account?.priceLock || "" : "",
     favorites,
     downloads: savedDownloads,
     generatedOutputs: generatedOutputs(),
@@ -5837,16 +5889,53 @@ function renderHome() {
   updatePlanLabel();
 }
 
-function defaultPlanner() {
-  const today = new Date();
-  const monday = new Date(today);
+function weekStartDate(date = new Date()) {
+  const monday = new Date(date);
   const day = monday.getDay() || 7;
+  monday.setHours(0, 0, 0, 0);
   monday.setDate(monday.getDate() - day + 1);
+  return monday;
+}
+
+function isoDateFromLocalDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function plannerWeekIndex(weekOf) {
+  const [year, month, day] = String(weekOf || "").split("-").map(Number);
+  if (!year || !month || !day) return 0;
+  const baseWeek = Date.UTC(2026, 0, 5);
+  const selectedWeek = Date.UTC(year, month - 1, day);
+  return Math.floor((selectedWeek - baseWeek) / (7 * 24 * 60 * 60 * 1000));
+}
+
+function plannerThemeForWeek(weekOf) {
+  const index = plannerWeekIndex(weekOf);
+  return lessonThemes[((index % lessonThemes.length) + lessonThemes.length) % lessonThemes.length];
+}
+
+function plannerFocusForTheme(theme) {
+  const lowerTheme = String(theme || "").toLowerCase();
+  if (lowerTheme.includes("feel") || lowerTheme.includes("friend")) return "Social emotional skills, language, and cooperative play";
+  if (lowerTheme.includes("letters")) return "Early literacy, letter sounds, and fine motor practice";
+  if (lowerTheme.includes("numbers") || lowerTheme.includes("shapes") || lowerTheme.includes("colors")) return "Early math, vocabulary, and hands-on exploration";
+  if (lowerTheme.includes("healthy")) return "Self help skills, routines, and body awareness";
+  if (lowerTheme.includes("music")) return "Language, movement, and listening skills";
+  return "Language, fine motor, and social emotional skills";
+}
+
+function defaultPlanner(date = new Date()) {
+  const monday = weekStartDate(date);
+  const weekOf = isoDateFromLocalDate(monday);
+  const theme = plannerThemeForWeek(weekOf);
   return {
-    weekOf: monday.toISOString().slice(0, 10),
+    weekOf,
     ageGroup: "Toddler",
-    theme: "Farm Animals",
-    focus: "Language, fine motor, and social emotional skills",
+    theme,
+    focus: plannerFocusForTheme(theme),
     notes: "Keep activities low-prep, flexible, and easy to repeat.",
     resourceId: "",
     days: Object.fromEntries(plannerDays.map((plannerDay) => [plannerDay, {
@@ -5856,6 +5945,14 @@ function defaultPlanner() {
       rest: "",
       support: "",
     }])),
+  };
+}
+
+function currentWeekPlanner(existing = weeklyPlanner()) {
+  const planner = defaultPlanner();
+  return {
+    ...planner,
+    ageGroup: existing?.ageGroup || planner.ageGroup,
   };
 }
 
@@ -5903,6 +6000,8 @@ function renderWeeklyPlanner() {
   const app = document.querySelector("#weeklyPlannerApp");
   if (!app) return;
   const planner = weeklyPlanner();
+  const thisWeek = defaultPlanner();
+  const isCurrentWeek = planner.weekOf === thisWeek.weekOf;
   const suggestions = plannerSuggestions(planner);
   const filledDayCount = plannerDays.filter((day) => {
     const entry = planner.days[day] || {};
@@ -5915,6 +6014,7 @@ function renderWeeklyPlanner() {
           <p class="eyebrow">Current Week</p>
           <h3>${planner.theme || "Untitled Week"}</h3>
           <p>${planner.ageGroup} plan beginning ${planner.weekOf || "not set"}</p>
+          ${isCurrentWeek ? `<p class="muted-copy">This week's suggested theme is ${escapeHtml(thisWeek.theme)}.</p>` : `<p class="muted-copy">New week available: ${escapeHtml(thisWeek.theme)} beginning ${escapeHtml(thisWeek.weekOf)}.</p>`}
         </div>
         <div class="planner-metrics">
           <div><strong>${filledDayCount}/5</strong><span>days planned</span></div>
@@ -5930,12 +6030,13 @@ function renderWeeklyPlanner() {
             <label>Week Of<input name="weekOf" type="date" value="${planner.weekOf || ""}" /></label>
             <label>Age Group<select name="ageGroup">${["Infant", "Toddler", "Preschool", "Mixed Ages"].map((age) => `<option ${planner.ageGroup === age ? "selected" : ""}>${age}</option>`).join("")}</select></label>
           </div>
-          <label>Theme<input name="theme" value="${planner.theme || ""}" placeholder="Farm Animals" /></label>
+          <label>Theme<input name="theme" value="${planner.theme || ""}" placeholder="${escapeHtml(thisWeek.theme)}" /></label>
           <label>Learning Focus<input name="focus" value="${planner.focus || ""}" placeholder="language, fine motor, social emotional" /></label>
           <label>Library Resource<select name="resourceId">${plannerResourceOptions(planner)}</select></label>
           <label>Provider Notes<textarea name="notes" rows="3" placeholder="Reminders, materials, family notes, prep list">${planner.notes || ""}</textarea></label>
           <div class="form-actions">
             <button class="primary-button" type="submit">Save Week</button>
+            <button class="ghost-button" type="button" id="useCurrentWeekButton">${isCurrentWeek ? "Use Suggested Theme" : "Start This Week"}</button>
             <button class="ghost-button" type="button" id="copyPlannerButton">Copy Plan</button>
             <button class="ghost-button" type="button" id="downloadPlannerButton">Print / Save PDF</button>
             <button class="danger-button" type="button" id="clearPlannerButton">Clear</button>
@@ -9907,7 +10008,11 @@ function effectiveAccessPlan() {
   const preview = adminPreviewMode();
   if (["Free", "Pro", "Founding"].includes(preview)) return preview;
   if (hasAdminFullAccess()) return "Founding";
-  return currentPlan;
+  if (currentUser) {
+    const account = currentAccount();
+    return accountHasPaidBilling(account) ? normalizeBillingPlan(account?.plan || currentPlan, account) : "Free";
+  }
+  return normalizeBillingPlan(currentPlan);
 }
 
 function adminSession() {
@@ -11835,13 +11940,19 @@ function renderUpgradePage() {
 
 function subscriptionSummaryHtml() {
   const account = currentAccount();
-  const planLabel = currentUser ? billingPlanLabel() : "Guest";
+  const paidBilling = currentUser ? accountHasPaidBilling(account) : false;
+  const planLabel = currentUser ? billingPlanLabel(currentPlan, account) : "Guest";
+  const statusLabel = currentUser
+    ? paidBilling
+      ? account?.subscriptionStatus || `${planLabel} Subscription Active`
+      : "Free Plan"
+    : "No account";
   return `
     <div class="billing-summary-grid">
       <div><span>Current Plan</span><strong>${escapeHtml(planLabel)}</strong></div>
       <div><span>Monthly Price</span><strong>${escapeHtml(billingPriceLabel(account))}</strong></div>
-      <div><span>Price Lock</span><strong>${account?.foundingMember ? "Lifetime" : isProUser() ? "Regular Pro pricing" : "None"}</strong></div>
-      <div><span>Status</span><strong>${escapeHtml(account?.subscriptionStatus || "No account")}</strong></div>
+      <div><span>Price Lock</span><strong>${paidBilling ? account?.foundingMember ? "Lifetime" : "Regular Pro pricing" : "None"}</strong></div>
+      <div><span>Status</span><strong>${escapeHtml(statusLabel)}</strong></div>
       <div><span>AI Usage</span><strong>${aiUsageCount()} / ${aiMonthlyLimit()}</strong></div>
       <div><span>AI Reset</span><strong>${escapeHtml(aiResetLabel())}</strong></div>
     </div>
@@ -11852,6 +11963,7 @@ function renderBillingPage() {
   const target = document.querySelector("#billingApp");
   if (!target) return;
   const account = currentAccount();
+  const paidBilling = currentUser ? accountHasPaidBilling(account) : false;
   target.innerHTML = `
     <section class="account-layout">
       <div class="account-panel">
@@ -11859,17 +11971,17 @@ function renderBillingPage() {
         <h3>${escapeHtml(currentUser || "Guest")}</h3>
         ${subscriptionSummaryHtml()}
         <div class="account-actions-row">
-          <button class="primary-button" data-view="upgrade" type="button">${isProUser() ? "Change Plan" : "Upgrade to Pro"}</button>
-          <button class="ghost-button" data-update-payment type="button">Update Payment Method</button>
+          <button class="primary-button" data-view="upgrade" type="button">${paidBilling ? "Change Plan" : "Upgrade to Pro"}</button>
+          ${paidBilling ? `<button class="ghost-button" data-update-payment type="button">Update Payment Method</button>` : ""}
           <button class="ghost-button" data-view="billing-history" type="button">View Billing History</button>
-          ${isProUser() ? `<button class="danger-button" data-view="cancel-subscription" type="button">Cancel Subscription</button>` : ""}
+          ${paidBilling ? `<button class="danger-button" data-view="cancel-subscription" type="button">Cancel Subscription</button>` : ""}
         </div>
       </div>
       <div class="account-panel">
         <p class="eyebrow">Payment Method</p>
-        <h3>${escapeHtml(account?.paymentMethod || "No payment method on file")}</h3>
-        <p>Stripe Customer: ${escapeHtml(account?.stripeCustomerId || "Created after live checkout")}</p>
-        <p>Subscription: ${escapeHtml(account?.stripeSubscriptionId || "Created after live checkout")}</p>
+        <h3>${escapeHtml(paidBilling ? account?.paymentMethod || "Managed in Stripe" : "No payment method on file")}</h3>
+        <p>Stripe Customer: ${escapeHtml(paidBilling ? account?.stripeCustomerId || "Created after live checkout" : "Created after checkout")}</p>
+        <p>Subscription: ${escapeHtml(paidBilling ? account?.stripeSubscriptionId || "Created after live checkout" : "No active subscription")}</p>
       </div>
     </section>
   `;
@@ -12020,8 +12132,9 @@ function renderAccountPage() {
   }
 
   const account = currentAccount();
+  const paidBilling = accountHasPaidBilling(account);
   emailLabel.textContent = currentUser;
-  planLabel.textContent = `${billingPlanLabel()} account`;
+  planLabel.textContent = `${billingPlanLabel(currentPlan, account)} account`;
   if (verificationLabel) {
     verificationLabel.textContent = account?.emailVerified
       ? `Email verified through ${account?.authProvider || authProviderName}.`
@@ -12029,18 +12142,18 @@ function renderAccountPage() {
     verificationLabel.classList.toggle("verified", Boolean(account?.emailVerified));
   }
   if (phoneInput) phoneInput.value = account?.phone || "";
-  statusLabel.textContent = account?.subscriptionStatus || (isProUser() ? `${billingPlanLabel()} Subscription Active` : "Free Plan");
-  detailLabel.innerHTML = isProUser()
-    ? `Current Plan: ${escapeHtml(billingPlanLabel())}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${account?.foundingMember ? "Lifetime" : "Regular Pro pricing"}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>AI Usage: ${aiUsageCount()} of ${paidAiMonthlyLimit} used this billing month. Resets ${escapeHtml(aiResetLabel())}.<br>Your account has full in-app resources, menus, child profiles, portfolios, tracking tools, provider tools, future premium features, and ${paidAiMonthlyLimit} AI generations per month.`
+  statusLabel.textContent = paidBilling ? account?.subscriptionStatus || `${billingPlanLabel(currentPlan, account)} Subscription Active` : "Free Plan";
+  detailLabel.innerHTML = paidBilling
+    ? `Current Plan: ${escapeHtml(billingPlanLabel(currentPlan, account))}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${account?.foundingMember ? "Lifetime" : "Regular Pro pricing"}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>AI Usage: ${aiUsageCount()} of ${paidAiMonthlyLimit} used this billing month. Resets ${escapeHtml(aiResetLabel())}.<br>Your account has full in-app resources, menus, child profiles, portfolios, tracking tools, provider tools, future premium features, and ${paidAiMonthlyLimit} AI generations per month.`
     : `Your Free account includes 3 lesson plans, 15 observations, 3 forms, 5 activities, 5 printables, ${freeAiMonthlyLimit} AI generations per month, up to 3 child profiles, and the weekly observation tracker. Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}. AI Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`;
   if (demoButton) demoButton.style.display = "none";
   if (upgradeButton) {
-    upgradeButton.textContent = isProUser() ? "Manage Billing" : "Upgrade to Pro";
+    upgradeButton.textContent = paidBilling ? "Manage Billing" : "Upgrade to Pro";
     upgradeButton.disabled = false;
     upgradeButton.classList.remove("disabled-control");
   }
   if (resendButton) resendButton.style.display = account?.emailVerified ? "none" : "inline-flex";
-  if (cancelButton) cancelButton.style.display = isProUser() ? "inline-flex" : "none";
+  if (cancelButton) cancelButton.style.display = paidBilling ? "inline-flex" : "none";
   if (signOutButton) signOutButton.style.display = "inline-flex";
 
   const savedFavoriteResources = resources.filter((resource) => favorites.includes(resource.id));
@@ -12117,7 +12230,7 @@ function setFreePlan() {
     plan: "Free",
     subscriptionCadence: "",
     subscriptionStatus: "Free Plan",
-    monthlyPrice: "$0",
+    monthlyPrice: "$0/month",
   });
   addBillingHistory("Plan Changed", "Free plan selected", "$0");
   saveCurrentAccountState();
@@ -12357,7 +12470,7 @@ function cancelSubscription() {
     plan: "Free",
     subscriptionCadence: "",
     subscriptionStatus: "Canceled - Free Plan Active",
-    monthlyPrice: "$0",
+    monthlyPrice: "$0/month",
     priceLock: account?.foundingMember ? "Lifetime" : "",
   });
   addBillingHistory("Subscription Canceled", "Pro permissions removed and Free limits restored.", "$0");
@@ -13090,6 +13203,13 @@ document.addEventListener("click", (event) => {
   const clearPlannerButton = event.target.closest("#clearPlannerButton");
   if (clearPlannerButton) {
     saveWeeklyPlanner(defaultPlanner());
+    renderWeeklyPlanner();
+  }
+
+  const useCurrentWeekButton = event.target.closest("#useCurrentWeekButton");
+  if (useCurrentWeekButton) {
+    const planner = currentWeekPlanner(weeklyPlanner());
+    saveWeeklyPlanner(planner);
     renderWeeklyPlanner();
   }
 
