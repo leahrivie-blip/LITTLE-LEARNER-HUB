@@ -3791,6 +3791,10 @@ button {
   max-width: 620px;
 }
 
+.wide-form-card {
+  max-width: 980px;
+}
+
 .simple-child-form,
 .simple-observation-form {
   display: grid;
@@ -3859,6 +3863,57 @@ button {
   flex: 1 1 auto;
 }
 
+.profile-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  justify-content: flex-end;
+}
+
+.child-ai-output:empty {
+  display: none;
+}
+
+.profile-check-section {
+  display: grid;
+  gap: 10px;
+}
+
+.profile-check-section > strong,
+.profile-support-summary strong {
+  color: var(--ink);
+}
+
+.profile-check-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.support-check-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.profile-support-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.profile-support-summary.compact {
+  margin: 0 0 14px;
+}
+
+.profile-support-summary > div {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  background: #fffdfa;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
 .monthly-goal-card {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
@@ -3922,6 +3977,90 @@ button {
 .focused-suggestion-list {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-bottom: 14px;
+}
+
+.child-lesson-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.child-lesson-mini-card,
+.child-lesson-context,
+.todays-focus-section {
+  background: #fffdfa;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.child-lesson-mini-card {
+  display: grid;
+  gap: 9px;
+  padding: 14px;
+}
+
+.child-lesson-mini-card h4,
+.child-lesson-mini-card p {
+  margin: 0;
+}
+
+.child-lesson-mini-card div,
+.lesson-card-context {
+  display: grid;
+  gap: 5px;
+}
+
+.child-lesson-mini-card span,
+.lesson-card-context span,
+.child-ai-context span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.lesson-card-context {
+  padding: 10px;
+  background: rgba(220, 238, 245, 0.45);
+  border: 1px solid rgba(56, 96, 98, 0.12);
+  border-radius: 10px;
+}
+
+.lesson-card-context strong {
+  color: #386062;
+}
+
+.lesson-card-context p {
+  margin: 2px 0 0;
+}
+
+.child-lesson-context {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.child-lesson-context > div,
+.child-ai-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+}
+
+.child-lesson-context strong {
+  color: #386062;
+}
+
+.child-lesson-context span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.child-lesson-context p {
+  margin: 0;
+  line-height: 1.45;
 }
 
 .attention-list > div,
@@ -4178,6 +4317,56 @@ button {
 .goal-what-box span {
   color: var(--ink);
   line-height: 1.45;
+}
+
+.todays-focus-section {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.todays-focus-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.todays-focus-head h3,
+.todays-focus-head p,
+.todays-focus-list p {
+  margin: 0;
+}
+
+.todays-focus-head p {
+  color: var(--muted);
+}
+
+.todays-focus-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.todays-focus-list article {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.todays-focus-list article > span {
+  color: #386062;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.todays-focus-list p {
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .goal-need-picker {
@@ -4461,6 +4650,15 @@ button {
   margin: 0;
   color: var(--ink);
   line-height: 1.45;
+}
+
+.child-ai-suggestions-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.child-ai-grid {
+  background: #fffdfa;
 }
 
 .simple-goal-card {
@@ -5397,13 +5595,28 @@ button {
   .goal-card-actions,
   .goal-ai-output-inner,
   .worksheet-preview-grid,
+  .profile-check-grid,
+  .support-check-grid,
+  .profile-support-summary,
+  .todays-focus-list,
+  .child-lesson-mini-grid,
   .profile-info-list div {
     grid-template-columns: 1fr;
   }
 
   .goal-dashboard-hero .primary-button,
-  .goal-observation-strip .primary-button {
+  .goal-observation-strip .primary-button,
+  .profile-hero-actions > *,
+  .todays-focus-head .ghost-button {
     width: 100%;
+  }
+
+  .profile-hero-actions,
+  .todays-focus-head,
+  .child-lesson-context > div,
+  .child-ai-context {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .goal-observation-strip > span {

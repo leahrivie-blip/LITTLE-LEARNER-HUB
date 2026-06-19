@@ -285,6 +285,7 @@ let childManagementMode = "list";
 let childProfileTab = "overview";
 let childToolsTab = "attendance";
 let activeChildObservationEditId = "";
+let activeChildProfileEditId = "";
 let pendingObservationArea = "";
 let activeObservationChildLock = "";
 let pendingGoalArea = "";
@@ -2747,8 +2748,21 @@ function saveDownloads() {
   saveCurrentAccountState();
 }
 
+function childFromSearchQuery(query = "", records = childRecords()) {
+  const lower = String(query || "").toLowerCase();
+  if (!lower) return null;
+  return records.children.find((child) => {
+    const name = String(child.name || "").toLowerCase();
+    if (!name) return false;
+    const first = name.split(/\s+/)[0];
+    return lower.includes(name) || (first && lower.includes(first));
+  }) || null;
+}
+
 function categoryResources(category) {
   const query = searchInput.value.trim().toLowerCase();
+  const searchedChild = category === "Lesson Plans" ? childFromSearchQuery(query) : null;
+  if (searchedChild) return childLessonRecommendations(searchedChild, childRecords(), 12);
   return resources.filter((resource) => {
     if (!isProUser() && !canAccess(resource)) return false;
     const matchesCategory = resource.category === category;
@@ -2768,6 +2782,8 @@ function categoryResources(category) {
 function searchedResources() {
   const query = searchInput.value.trim().toLowerCase();
   if (!query) return [];
+  const searchedChild = childFromSearchQuery(query);
+  if (searchedChild && query.includes("lesson")) return childLessonRecommendations(searchedChild, childRecords(), 12);
   return resources.filter((resource) => {
     if (!isProUser() && !canAccess(resource)) return false;
     const haystack = [
@@ -2788,6 +2804,7 @@ function resourceCard(resource) {
   const viewText = locked ? "Upgrade to Pro" : "View";
   const favoriteText = !isProUser() ? "Pro Save" : favorite ? "Saved" : "Save";
   const accessText = locked ? "Pro" : isProUser() ? "Included" : "Free Sample";
+  const lessonContext = resource._childRecommendation || null;
   return `
     <article class="resource-card ${locked ? "locked" : ""}">
       ${resource.previewData ? `<img class="resource-preview" src="${resource.previewData}" alt="${resource.title} preview" />` : ""}
@@ -2801,6 +2818,16 @@ function resourceCard(resource) {
         <h3>${resource.title}</h3>
         <p>${resource.description}</p>
       </div>
+      ${resource.category === "Lesson Plans" ? `
+        <div class="lesson-card-context">
+          ${lessonContext ? `<strong>Suggested for ${escapeHtml(lessonContext.childName)}</strong>` : ""}
+          <span><b>Age Group:</b> ${escapeHtml(resource.age || "Age Group")}</span>
+          <span><b>Theme:</b> ${escapeHtml(resource.theme || resource.tags?.[0] || "Theme")}</span>
+          <span><b>Development Area:</b> ${escapeHtml(displayDevelopmentArea(resource.developmentalArea || lessonContext?.goalMatch || resource.tags?.find((tag) => normalizeObservationArea(tag)) || "Developmental Area"))}</span>
+          ${lessonContext?.supportArea ? `<span><b>Support Area Match:</b> ${escapeHtml(lessonContext.supportArea)}</span>` : ""}
+          ${lessonContext ? `<p><b>Why this helps:</b> ${escapeHtml(lessonContext.why)}</p>` : ""}
+        </div>
+      ` : ""}
       <div class="resource-actions">
         <button class="favorite-button ${!isProUser() ? "disabled-control" : ""}" ${!isProUser() ? `data-pro-feature="favorites"` : `data-favorite="${resource.id}"`} type="button">${favoriteText}</button>
         ${resource.category === "Lesson Plans" && !locked ? `<button class="ghost-button" data-customize-lesson-ai="${resource.id}" type="button">Customize AI</button>` : ""}
@@ -5622,6 +5649,7 @@ function openResourceViewer(resourceId) {
 function renderCategoryPage(view) {
   const category = viewMap[view];
   const section = document.querySelector(`#view-${view}`);
+  const searchedChild = category === "Lesson Plans" ? childFromSearchQuery(searchInput.value.trim(), childRecords()) : null;
   const items = categoryResources(category);
   const allCategoryItems = resources.filter((resource) => resource.category === category);
   const accessCounts = categoryAccessCounts(category);
@@ -5643,6 +5671,7 @@ function renderCategoryPage(view) {
         ? `Pro is active: full in-app library access, saved favorites, viewed resources, and ${Math.max(paidAiMonthlyLimit - aiUsageCount(), 0)} AI generations left this month.`
         : `Free plan: ${accessCounts.freeLimit} ${displayTitle.toLowerCase()} resources are unlocked here. Upgrade to Pro for all ${accessCounts.total}.`}
     </div>
+    ${searchedChild ? renderChildLessonSearchContext(searchedChild) : ""}
     ${category === "Printables" ? renderPrintablesRefreshNotice() : ""}
     <div class="filter-row">
       ${filters.map((filter) => `<button class="${activeFilter === filter ? "active-filter" : ""}" data-filter="${filter}">${filter}</button>`).join("")}
@@ -5651,6 +5680,23 @@ function renderCategoryPage(view) {
     <div class="resource-grid">
       ${items.length ? items.map(resourceCard).join("") : `<div class="empty-state">No resources found. Try another search or filter.</div>`}
     </div>
+  `;
+}
+
+function renderChildLessonSearchContext(child) {
+  const context = childRecommendationContext(child);
+  const primaryArea = context.areas[0] || "Approaches to Learning";
+  const primarySupport = context.supportAreas[0] || "None selected";
+  return `
+    <section class="child-lesson-context">
+      <div>
+        <strong>Suggested for ${escapeHtml(child.name)}</strong>
+        <span>Age Group: ${escapeHtml(normalizeAgeGroup(child.ageGroup) || child.ageGroup || "Not entered")}</span>
+        <span>Goal Match: ${escapeHtml(displayDevelopmentArea(primaryArea))}</span>
+        <span>Support Area: ${escapeHtml(primarySupport)}</span>
+      </div>
+      <p><b>Why suggested:</b> Supports ${escapeHtml(child.name)}'s current goals, support needs, observations, and progress history.</p>
+    </section>
   `;
 }
 
@@ -6306,6 +6352,19 @@ function calculateAgeFromDob(dob) {
   return [yearPart, monthPart].filter(Boolean).join(" ") || "0 months";
 }
 
+function ageGroupFromDob(dob) {
+  if (!dob) return "";
+  const birthDate = new Date(`${dob}T12:00:00`);
+  if (Number.isNaN(birthDate.getTime())) return "";
+  const today = new Date();
+  let months = (today.getFullYear() - birthDate.getFullYear()) * 12 + (today.getMonth() - birthDate.getMonth());
+  if (today.getDate() < birthDate.getDate()) months -= 1;
+  if (months < 12) return "Infant";
+  if (months < 36) return "Toddler";
+  if (months < 60) return "Preschool";
+  return "School Age";
+}
+
 function cleanAgeText(value) {
   return String(value || "")
     .replace(/[^\x20-\x7E]/g, " ")
@@ -6317,6 +6376,135 @@ function cleanAgeText(value) {
 
 function childAgeLabel(child) {
   return calculateAgeFromDob(child.dob) || cleanAgeText(child.age) || "Age not entered";
+}
+
+function developmentalGoalOptions() {
+  return [
+    ["Fine Motor", "Fine Motor"],
+    ["Gross Motor", "Gross Motor"],
+    ["Speech & Language", "Speech & Language"],
+    ["Cognitive", "Cognitive"],
+    ["Social Emotional", "Social Emotional"],
+    ["Self Help Skills", "Self Help Skills"],
+    ["Literacy", "Literacy"],
+    ["Early Math", "Early Math"],
+  ];
+}
+
+function supportAreaOptions() {
+  return [
+    "Tantrums",
+    "Biting",
+    "Hitting",
+    "Pushing",
+    "Following Directions",
+    "Sharing",
+    "Emotional Regulation",
+    "Potty Training",
+    "Separation Anxiety",
+    "Transition Difficulties",
+    "Rest Time Challenges",
+    "Social Skills",
+    "Listening Skills",
+  ];
+}
+
+function displayDevelopmentArea(area = "") {
+  const text = String(area || "").toLowerCase();
+  if (text.includes("speech")) return "Speech & Language";
+  if (text.includes("literacy")) return "Literacy";
+  if (text.includes("early math")) return "Early Math";
+  if (text.includes("self")) return "Self Help Skills";
+  if (text === "cognitive") return "Cognitive";
+  const normalized = normalizeObservationArea(area) || area;
+  const labels = {
+    "Language & Literacy": "Speech & Language",
+    "Cognitive Development": "Cognitive",
+    "Physical Development": "Self Help Skills",
+  };
+  return labels[normalized] || normalized || "Developmental Goal";
+}
+
+function supportAreaToDevelopmentArea(area = "") {
+  const text = String(area || "").toLowerCase();
+  if (/(tantrum|emotional|separation|transition|sharing|social|biting|hitting|pushing)/.test(text)) return "Social Emotional";
+  if (/(following|listening|direction)/.test(text)) return "Language & Literacy";
+  if (/(potty|rest|self)/.test(text)) return "Physical Development";
+  return "Approaches to Learning";
+}
+
+function childSelectedGoalAreas(child = {}) {
+  const saved = Array.isArray(child.goalAreas) ? child.goalAreas : [];
+  const typed = inferAreasFromGoalText(child.activeGoals || "");
+  return Array.from(new Set([...saved.map((area) => normalizeObservationArea(area) || area), ...typed].filter(Boolean)));
+}
+
+function childSelectedSupportAreas(child = {}) {
+  const saved = Array.isArray(child.supportAreas) ? child.supportAreas : [];
+  return Array.from(new Set(saved.map((area) => String(area || "").trim()).filter(Boolean)));
+}
+
+function childGoalDisplayLabels(child = {}) {
+  const raw = Array.isArray(child.goalAreas) ? child.goalAreas : [];
+  if (raw.length) return Array.from(new Set(raw.map(displayDevelopmentArea)));
+  return childSelectedGoalAreas(child).map(displayDevelopmentArea);
+}
+
+function childRecommendationContext(child = {}, records = childRecords()) {
+  const portfolio = childPortfolioRecords(child.id, records);
+  const supportAreas = childSelectedSupportAreas(child);
+  const supportMappedAreas = supportAreas.map(supportAreaToDevelopmentArea);
+  const goalAreas = childSelectedGoalAreas(child);
+  const recordAreas = childRecommendationAreas(child, portfolio.goals, portfolio.observations);
+  const areas = Array.from(new Set([...goalAreas, ...supportMappedAreas, ...recordAreas].filter(Boolean))).slice(0, 5);
+  return {
+    child,
+    portfolio,
+    goalAreas,
+    supportAreas,
+    areas: areas.length ? areas : ["Approaches to Learning"],
+  };
+}
+
+function supportNextStep(area = "", childName = "The child") {
+  const steps = {
+    Tantrums: "Practice naming feelings and offer a calm-down choice before hard transitions.",
+    Biting: "Watch for triggers, offer a teether or words to ask for space, and stay close during peer play.",
+    Hitting: "Model gentle hands, give a short replacement phrase, and praise calm peer interactions.",
+    Pushing: "Practice waiting for a turn and use a visual cue for personal space.",
+    "Following Directions": "Give one-step directions with a picture cue, then celebrate follow-through right away.",
+    Sharing: "Use a timer or turn-taking basket during a short partner activity.",
+    "Emotional Regulation": "Use feelings faces, breathing practice, and a calm-down basket during group time.",
+    "Potty Training": "Use a predictable bathroom routine, visual steps, and simple encouragement.",
+    "Separation Anxiety": "Offer a goodbye routine, comfort object, and a first-then plan for arrival.",
+    "Transition Difficulties": "Give a two-minute warning, visual schedule, and a helper job for the next activity.",
+    "Rest Time Challenges": "Create a quiet rest routine with books, soft music, and a calm body choice.",
+    "Social Skills": "Practice greeting, asking to play, and taking turns in a small group.",
+    "Listening Skills": "Use short directions, movement songs, and call-and-response games.",
+  };
+  return steps[area] || `${childName} may benefit from short, predictable practice with gentle adult coaching.`;
+}
+
+function childSuggestionIdeas(child = {}, records = childRecords()) {
+  const context = childRecommendationContext(child, records);
+  const primaryArea = context.areas[0] || "Approaches to Learning";
+  const primarySupport = context.supportAreas[0] || "";
+  const activities = primarySupport
+    ? [
+      supportNextStep(primarySupport, child.name),
+      ...suggestedActivitiesForArea(supportAreaToDevelopmentArea(primarySupport)).slice(0, 2),
+    ]
+    : suggestedActivitiesForArea(primaryArea).slice(0, 3);
+  return {
+    context,
+    primaryArea,
+    primarySupport,
+    activities,
+    lesson: childLessonRecommendations(child, records, 1)[0]?.title || suggestedLessonPlansForArea(primaryArea)[0],
+    observation: `${child.name || "The child"} practiced ${displayDevelopmentArea(primaryArea).toLowerCase()} during play. Notice what support was needed, what the child tried independently, and what helped them stay engaged.`,
+    parentNote: `${child.name || "Your child"} is working on ${primarySupport || displayDevelopmentArea(primaryArea).toLowerCase()}. We are using short, supportive activities and will keep sharing what helps.`,
+    nextStep: primarySupport ? supportNextStep(primarySupport, child.name) : nextStepForArea(primaryArea),
+  };
 }
 
 function formatDateLabel(dateText) {
@@ -6341,7 +6529,7 @@ function categoryKeywords() {
 
 function normalizeObservationArea(area) {
   const text = String(area || "").toLowerCase();
-  if (text.includes("language") || text.includes("literacy")) return "Language & Literacy";
+  if (text.includes("language") || text.includes("literacy") || text.includes("speech") || text.includes("listening")) return "Language & Literacy";
   if (text.includes("cognitive") || text.includes("math") || text.includes("science")) return "Cognitive Development";
   if (text.includes("social")) return "Social Emotional";
   if (text.includes("fine")) return "Fine Motor";
@@ -6494,9 +6682,12 @@ function goalProgressPercent(progress) {
 }
 
 function childSupportAreas(childId, records = childRecords()) {
+  const child = records.children.find((item) => item.id === childId) || {};
   const observations = records.observations.filter((item) => item.childId === childId).slice(-6);
   const goals = records.goals.filter((item) => item.childId === childId && goalProgressPercent(item.progress) < 100);
-  const areas = [...goals.map((goal) => normalizeObservationArea(goal.area) || goal.area), ...observations.map((item) => item.developmentArea || item.area)];
+  const selectedAreas = childSelectedGoalAreas(child);
+  const supportAreas = childSelectedSupportAreas(child).map(supportAreaToDevelopmentArea);
+  const areas = [...selectedAreas, ...supportAreas, ...goals.map((goal) => normalizeObservationArea(goal.area) || goal.area), ...observations.map((item) => item.developmentArea || item.area)];
   return Array.from(new Set(areas.filter(Boolean))).slice(0, 4);
 }
 
@@ -6611,6 +6802,11 @@ function inferAreasFromGoalText(text = "") {
 }
 
 function childRecommendationAreas(child, goals = [], observations = []) {
+  const selectedAreas = [
+    ...childSelectedGoalAreas(child),
+    ...childSelectedSupportAreas(child).map(supportAreaToDevelopmentArea),
+  ];
+  if (selectedAreas.length) return Array.from(new Set(selectedAreas)).slice(0, 4);
   const activeGoals = goals.filter((goal) => goalProgressPercent(goal.progress) < 100);
   const goalText = [
     child?.activeGoals,
@@ -6767,6 +6963,43 @@ function portfolioResourcesFor(category, areas, childAgeGroup, limit = 4) {
     note = `No ${childAge || "matching age"} ${primaryArea} ${itemLabel} found. Showing age-neutral or fallback ${itemLabel}.`;
   }
   return { items: items.slice(0, limit).map((item) => item.resource), note };
+}
+
+function childLessonRecommendations(child = {}, records = childRecords(), limit = 6) {
+  const context = childRecommendationContext(child, records);
+  const primaryArea = context.areas[0] || "Approaches to Learning";
+  const primarySupport = context.supportAreas[0] || "";
+  return resources
+    .filter((resource) => resource.category === "Lesson Plans")
+    .filter((resource) => isProUser() || canAccess(resource))
+    .map((resource) => {
+      const ageTier = resourceAgeTier(resource, child.ageGroup);
+      const areaScore = resourceRecommendationScore(resource, context.areas);
+      const supportScore = context.supportAreas.reduce((score, support) => {
+        const mapped = supportAreaToDevelopmentArea(support);
+        const text = [support, mapped, ...recommendationKeywordsForArea(mapped)].join(" ").toLowerCase();
+        const haystack = [resource.title, resource.description, resource.theme, resource.developmentalArea, ...(resource.tags || [])].join(" ").toLowerCase();
+        return score + (text.split(/\s+/).some((word) => word.length > 3 && haystack.includes(word)) ? 3 : 0);
+      }, 0);
+      return {
+        resource,
+        score: (ageTier === 1 ? 30 : ageTier === 2 ? 12 : 0) + (areaScore * 3) + supportScore,
+        ageTier,
+      };
+    })
+    .sort((a, b) => b.score - a.score || a.ageTier - b.ageTier || a.resource.title.localeCompare(b.resource.title))
+    .slice(0, limit)
+    .map(({ resource }) => ({
+      ...resource,
+      _childRecommendation: {
+        childId: child.id,
+        childName: child.name || "Child",
+        ageGroup: normalizeAgeGroup(child.ageGroup) || child.ageGroup || "Age Group",
+        goalMatch: displayDevelopmentArea(primaryArea),
+        supportArea: primarySupport,
+        why: `Supports ${child.name || "this child"}'s current developmental goals${primarySupport ? ` and ${primarySupport.toLowerCase()} support needs` : ""}.`,
+      },
+    }));
 }
 
 function professionalResourceQualityScore(resource, areas = [], childAgeGroup = "", goalText = "") {
@@ -7012,6 +7245,8 @@ function renderChildPortfolioPage(childId) {
           <p><b>Enrollment date:</b> ${escapeHtml(formatDateLabel(child.enrollmentDate))}</p>
           <p><b>Classroom/group:</b> ${escapeHtml(child.classroom || child.ageGroup || "Not entered")}</p>
           <p><b>Allergies:</b> ${escapeHtml(child.allergies || "None listed")}</p>
+          <p><b>Developmental goals:</b> ${escapeHtml(childGoalDisplayLabels(child).join(", ") || "None selected")}</p>
+          <p><b>Support areas:</b> ${escapeHtml(childSelectedSupportAreas(child).join(", ") || "None selected")}</p>
           <p class="wide"><b>Notes:</b> ${escapeHtml(child.notes || "No notes added yet.")}</p>
           <p class="wide"><b>Active goals:</b> ${escapeHtml(child.activeGoals || activeGoals.map((goal) => goal.goal).join(", ") || "No active goals entered yet.")}</p>
         </div>
@@ -7166,7 +7401,23 @@ function childActiveGoals(child, records = childRecords()) {
       notes: "",
     }))
     : [];
-  return [...savedGoals, ...typedGoals];
+  const existingAreas = new Set([...savedGoals, ...typedGoals].map((goal) => normalizeObservationArea(goal.area) || goal.area).filter(Boolean));
+  const selectedGoals = (Array.isArray(child.goalAreas) ? child.goalAreas : [])
+    .map((rawArea, index) => {
+      const area = normalizeObservationArea(rawArea) || rawArea;
+      if (existingAreas.has(area)) return null;
+      existingAreas.add(area);
+      return {
+        id: `${child.id}-selected-goal-${index}`,
+        source: "selected",
+        area,
+        goal: `${displayDevelopmentArea(rawArea)} support`,
+        progress: "0%",
+        notes: "Selected in child profile.",
+      };
+    })
+    .filter(Boolean);
+  return [...savedGoals, ...typedGoals, ...selectedGoals];
 }
 
 function childPrimaryGoalLabel(child, records = childRecords()) {
@@ -7174,7 +7425,7 @@ function childPrimaryGoalLabel(child, records = childRecords()) {
   if (!activeGoals.length) return "";
   return activeGoals
     .slice(0, 2)
-    .map((goal) => normalizeObservationArea(goal.area) || inferAreasFromGoalText(goal.goal)[0] || goal.goal)
+    .map((goal) => displayDevelopmentArea(normalizeObservationArea(goal.area) || inferAreasFromGoalText(goal.goal)[0] || goal.goal))
     .join(", ");
 }
 
@@ -7225,9 +7476,10 @@ function renderChildProfileCard(child, records) {
   const summary = monthlyObservationSummary(child, records.observations);
   const goalLabel = childPrimaryGoalLabel(child, records);
   const activeGoalCount = childActiveGoals(child, records).length;
+  const supportAreas = childSelectedSupportAreas(child);
   const attention = summary.remaining > 0
     ? `${summary.remaining} observation${summary.remaining === 1 ? "" : "s"} needed`
-    : activeGoalCount ? "Active goal support" : "On track";
+    : supportAreas.length ? supportAreas[0] : activeGoalCount ? "Active goal support" : "On track";
   return `
     <article class="simple-child-card">
       <div class="simple-child-card-head">
@@ -7246,6 +7498,10 @@ function renderChildProfileCard(child, records) {
         <span>Active goals</span>
         ${goalLabel ? `<p><mark>${escapeHtml(goalLabel)}</mark></p>` : `<p>-</p>`}
       </div>
+      <div class="child-card-section">
+        <span>Support areas</span>
+        ${supportAreas.length ? renderChipList(supportAreas.slice(0, 3)) : `<p>-</p>`}
+      </div>
       <div class="child-card-actions">
         <button class="ghost-button" data-view-child-profile="${child.id}" type="button">View Profile</button>
         <button class="primary-button" data-quick-add-observation="${child.id}" type="button">Quick Add Observation</button>
@@ -7256,12 +7512,14 @@ function renderChildProfileCard(child, records) {
 
 function goalStarterAreas() {
   return [
-    ["Fine Motor", "Fine motor", "Cutting, tracing, grasp, hand strength"],
-    ["Language & Literacy", "Speech & language", "Words, sentences, books, communication"],
-    ["Social Emotional", "Social emotional", "Sharing, feelings, confidence, peer play"],
-    ["Cognitive Development", "Thinking skills", "Counting, sorting, matching, problem solving"],
-    ["Gross Motor", "Big body movement", "Balance, jumping, climbing, coordination"],
-    ["Physical Development", "Self-help routines", "Handwashing, dressing, toileting, safety"],
+    ["Fine Motor", "Fine Motor", "Cutting, tracing, grasp, hand strength"],
+    ["Gross Motor", "Gross Motor", "Balance, jumping, climbing, coordination"],
+    ["Speech & Language", "Speech & Language", "Words, sentences, books, communication"],
+    ["Cognitive", "Cognitive", "Counting, sorting, matching, problem solving"],
+    ["Social Emotional", "Social Emotional", "Sharing, feelings, confidence, peer play"],
+    ["Self Help Skills", "Self Help Skills", "Handwashing, dressing, toileting, routines"],
+    ["Literacy", "Literacy", "Books, letters, early writing, print awareness"],
+    ["Early Math", "Early Math", "Counting, number sense, patterns, sorting"],
   ];
 }
 
@@ -7269,10 +7527,15 @@ function goalExampleForArea(area) {
   const map = {
     "Fine Motor": "Improve scissor skills during cutting practice",
     "Language & Literacy": "Use longer sentences during play and routines",
+    "Speech & Language": "Use longer sentences during play and routines",
     "Social Emotional": "Practice turn-taking and sharing with peers",
     "Cognitive Development": "Match, sort, and count objects during small-group play",
+    "Cognitive": "Match, sort, and count objects during small-group play",
     "Gross Motor": "Build balance and coordination through movement games",
     "Physical Development": "Complete one self-help routine with less support",
+    "Self Help Skills": "Complete one self-help routine with less support",
+    "Literacy": "Engage with books, letters, and early writing during play",
+    "Early Math": "Count, sort, and match objects during small-group play",
     "Creative Arts": "Try new art materials and describe creative choices",
     "Approaches to Learning": "Stay with a chosen activity and try again when challenged",
   };
@@ -7325,6 +7588,7 @@ function goalAreaFor(goal, child = {}) {
 
 function goalContextAreas(child, goal, records) {
   const childObservations = records.observations.filter((item) => item.childId === child.id).slice(-5);
+  const childContext = childRecommendationContext(child, records);
   const contextText = [
     goal?.area,
     goal?.goal,
@@ -7337,6 +7601,7 @@ function goalContextAreas(child, goal, records) {
     ...childObservations.map((item) => `${item.area || ""} ${item.text || ""} ${item.nextSteps || ""}`),
   ].join(" ");
   return Array.from(new Set([
+    ...childContext.areas,
     goalAreaFor(goal, child),
     ...inferAreasFromGoalText(contextText),
   ].filter(Boolean))).slice(0, 4);
@@ -7402,6 +7667,70 @@ function renderGoalDashboardStats(records, goalRows) {
       <p>${escapeHtml(label)}</p>
     </article>
   `).join("")}</div>`;
+}
+
+function todayFocusItems(records = childRecords()) {
+  return records.children.map((child) => {
+    const summary = monthlyObservationSummary(child, records.observations);
+    const activeGoals = childActiveGoals(child, records);
+    const supportAreas = childSelectedSupportAreas(child);
+    if (summary.remaining > 0) {
+      return {
+        child,
+        label: "Observation Due",
+        nextStep: "Add a quick observation during free play.",
+        action: "Add Observation",
+        actionHtml: `data-quick-add-observation="${child.id}"`,
+        priority: 1,
+      };
+    }
+    if (supportAreas.length) {
+      const support = supportAreas[0];
+      return {
+        child,
+        label: support,
+        nextStep: supportNextStep(support, child.name),
+        action: "View Suggestions",
+        actionHtml: `data-view-child-profile="${child.id}"`,
+        priority: 2,
+      };
+    }
+    if (activeGoals.length) {
+      const area = displayDevelopmentArea(activeGoals[0].area);
+      return {
+        child,
+        label: `${area} Goal`,
+        nextStep: nextStepForArea(normalizeObservationArea(activeGoals[0].area) || activeGoals[0].area),
+        action: "View Suggestions",
+        actionHtml: `data-view-child-profile="${child.id}" data-open-child-tab="goals"`,
+        priority: 3,
+      };
+    }
+    return null;
+  }).filter(Boolean).sort((a, b) => a.priority - b.priority).slice(0, 3);
+}
+
+function renderTodaysFocus(records) {
+  const items = todayFocusItems(records);
+  return `
+    <section class="todays-focus-section">
+      <div class="todays-focus-head">
+        <div>
+          <h3>Today's Focus</h3>
+          <p>Quickly see which children may need attention today.</p>
+        </div>
+        <button class="ghost-button" data-view="children" type="button">View All</button>
+      </div>
+      ${items.length ? `<div class="todays-focus-list">${items.map((item) => `
+        <article>
+          <strong>${escapeHtml(item.child.name)}</strong>
+          <span>${escapeHtml(item.label)}</span>
+          <p><b>Suggested Next Step:</b> ${escapeHtml(item.nextStep)}</p>
+          <button class="link-button" ${item.actionHtml} type="button">${escapeHtml(item.action)}</button>
+        </article>
+      `).join("")}</div>` : `<p class="muted-copy">You're all caught up today.</p>`}
+    </section>
+  `;
 }
 
 function goalStatIcon(icon) {
@@ -7504,6 +7833,7 @@ function renderSimpleGoalsProgressPage(records) {
         <button class="primary-button" data-open-selected-goal-form type="button">+ Add New Goal</button>
       </div>
       ${renderGoalDashboardStats(records, goalRows)}
+      ${renderTodaysFocus(records)}
       <section class="goal-what-box">
         <strong>What it does:</strong>
         <span>This helps you set meaningful goals, find matching activities and lesson plans, track progress, and document observations all in one place.</span>
@@ -7526,6 +7856,7 @@ function renderSimpleGoalCard(child, goal, records) {
   const normalizedGoal = { ...goal, childId: goal.childId || child.id };
   const recommendations = goalRecommendations(child, normalizedGoal, records);
   const area = recommendations.area;
+  const areaLabel = displayDevelopmentArea(area);
   const progress = goal ? goalProgressPercent(goal.progress) : 0;
   const activities = recommendations.activityResources.items.length
     ? recommendations.activityResources.items.slice(0, 3).map((item) => item.title)
@@ -7551,7 +7882,7 @@ function renderSimpleGoalCard(child, goal, records) {
           <div>
             <h3>${escapeHtml(child.name)}</h3>
             <p>${escapeHtml(childAgeLabel(child))} | ${escapeHtml(normalizeAgeGroup(child.ageGroup) || child.ageGroup || "Age group not entered")}</p>
-            <span class="goal-area-dot">${escapeHtml(area)}</span>
+            <span class="goal-area-dot">${escapeHtml(areaLabel)}</span>
           </div>
         </div>
         <div class="goal-progress-summary">
@@ -7619,7 +7950,19 @@ function renderChildManagement() {
   }
 
   if (childManagementMode === "add") {
-    app.innerHTML = renderAddChildScreen();
+    app.innerHTML = renderChildProfileFormScreen();
+    updateChildAgePreview();
+    return;
+  }
+
+  if (childManagementMode === "edit") {
+    const editingChild = records.children.find((item) => item.id === (activeChildProfileEditId || selectedChildId));
+    if (!editingChild) {
+      childManagementMode = "list";
+      renderChildManagement();
+      return;
+    }
+    app.innerHTML = renderChildProfileFormScreen(editingChild);
     updateChildAgePreview();
     return;
   }
@@ -7670,41 +8013,52 @@ function renderChildManagement() {
   `;
 }
 
-function renderAddChildScreen() {
+function renderChildProfileFormScreen(child = null) {
+  const editing = Boolean(child?.id);
+  const selectedGoals = Array.isArray(child?.goalAreas) ? child.goalAreas : childSelectedGoalAreas(child || {});
+  const selectedSupports = childSelectedSupportAreas(child || {});
+  const monthlyGoal = child?.monthlyObservationGoal || child?.observationsRequiredPerMonth || "4";
   return `
     <section class="simple-child-page">
-      <button class="ghost-button back-button" data-child-view="list" type="button">Back to Children</button>
+      <button class="ghost-button back-button" ${editing ? `data-view-child-profile="${child.id}"` : `data-child-view="list"`} type="button">${editing ? `Back to ${escapeHtml(child.name)}` : "Back to Children"}</button>
       <div class="child-page-header compact">
         <div>
-          <h2>Add Child</h2>
-          <p>Only the basics are required. Age calculates automatically from the date of birth.</p>
+          <h2>${editing ? "Edit Child Profile" : "Add Child"}</h2>
+          <p>Child details, goals, and support areas power recommendations across the platform.</p>
         </div>
       </div>
-      <section class="section-block simple-form-card">
+      <section class="section-block simple-form-card wide-form-card">
         <form id="childProfileForm" class="mini-form simple-child-form">
-          <label>Child Name<input name="name" required placeholder="Enter child's name" /></label>
-          <label>Date of Birth<input id="childDobInput" name="dob" type="date" required /></label>
-          <label>Age<input id="childAgePreview" name="age" readonly placeholder="Age will calculate automatically" /></label>
-          <label>Classroom / Age Group
+          <input name="childId" type="hidden" value="${escapeHtml(child?.id || "")}" />
+          <label>Child Name<input name="name" required value="${escapeHtml(child?.name || "")}" placeholder="Enter child's name" /></label>
+          <label>Birthday<input id="childDobInput" name="dob" type="date" value="${escapeHtml(child?.dob || "")}" /></label>
+          <label>Age<input id="childAgePreview" name="age" value="${escapeHtml(child ? childAgeLabel(child) : "")}" placeholder="Age will calculate automatically" /></label>
+          <label>Age Group
             <select name="ageGroup" required>
               <option value="">Select classroom</option>
-              <option>Infant</option>
-              <option>Toddler</option>
-              <option>Preschool</option>
-              <option>Mixed Ages</option>
-              <option>School Age</option>
+              ${["Infant", "Toddler", "Preschool", "Mixed Ages", "School Age"].map((age) => `<option ${normalizeAgeGroup(child?.ageGroup) === age ? "selected" : ""}>${age}</option>`).join("")}
             </select>
           </label>
+          <label>Classroom / Room<input name="classroom" value="${escapeHtml(child?.classroom || "")}" placeholder="Blue Room, Toddlers, Preschool" /></label>
+          <label>Enrollment Date<input name="enrollmentDate" type="date" value="${escapeHtml(child?.enrollmentDate || "")}" /></label>
           <label>Observations Required Per Month
             <select id="monthlyObservationGoalSelect" name="monthlyObservationGoal">
-              <option value="1">1 per month</option>
-              <option value="2">2 per month</option>
-              <option value="4" selected>4 per month</option>
-              <option value="custom">Custom number</option>
+              ${["1", "2", "4"].map((value) => `<option value="${value}" ${String(monthlyGoal) === value ? "selected" : ""}>${value} per month</option>`).join("")}
+              <option value="custom" ${!["1", "2", "4"].includes(String(monthlyGoal)) ? "selected" : ""}>Custom number</option>
             </select>
           </label>
-          <label class="hidden-field" id="customMonthlyObservationGoalWrap">Custom Number<input name="customMonthlyObservationGoal" type="number" min="1" max="31" placeholder="Example: 6" /></label>
-          <button class="primary-button" type="submit">Save Child</button>
+          <label class="${["1", "2", "4"].includes(String(monthlyGoal)) ? "hidden-field" : ""}" id="customMonthlyObservationGoalWrap">Custom Number<input name="customMonthlyObservationGoal" type="number" min="1" max="31" value="${!["1", "2", "4"].includes(String(monthlyGoal)) ? escapeHtml(String(monthlyGoal)) : ""}" placeholder="Example: 6" /></label>
+          <div class="wide profile-check-section">
+            <strong>Developmental Goals</strong>
+            <div class="profile-check-grid">${renderDevelopmentGoalChecks(selectedGoals)}</div>
+          </div>
+          <div class="wide profile-check-section">
+            <strong>Support Areas</strong>
+            <div class="profile-check-grid support-check-grid">${renderSupportAreaChecks(selectedSupports)}</div>
+          </div>
+          <label class="wide">Goals / Notes About Current Needs<textarea name="activeGoals" rows="3" placeholder="Example: Improve scissor skills, use 3-4 word sentences">${escapeHtml(child?.activeGoals || "")}</textarea></label>
+          <label class="wide">Notes<textarea name="notes" rows="3" placeholder="Helpful routines, family notes, strengths, concerns">${escapeHtml(child?.notes || "")}</textarea></label>
+          <button class="primary-button" type="submit">${editing ? "Save Profile Changes" : "Save Child"}</button>
           ${!isProUser() ? `<p class="form-note">Free plan includes up to ${freeChildProfileLimit} child profiles.</p>` : ""}
         </form>
       </section>
@@ -7712,10 +8066,34 @@ function renderAddChildScreen() {
   `;
 }
 
+function renderDevelopmentGoalChecks(selectedGoals = []) {
+  const selectedRaw = selectedGoals.map((area) => String(area || "").trim()).filter(Boolean);
+  return developmentalGoalOptions().map(([value, label], index) => `
+    <label class="area-check">
+      <input type="checkbox" name="goalAreas" value="${escapeHtml(value)}" data-goal-label="${escapeHtml(label)}" ${selectedRaw.includes(value) || selectedRaw.includes(normalizeObservationArea(value) || value) ? "checked" : ""} />
+      <span>${escapeHtml(label)}</span>
+    </label>
+  `).join("");
+}
+
+function renderSupportAreaChecks(selectedSupports = []) {
+  return supportAreaOptions().map((value) => `
+    <label class="area-check">
+      <input type="checkbox" name="supportAreas" value="${escapeHtml(value)}" ${selectedSupports.includes(value) ? "checked" : ""} />
+      <span>${escapeHtml(value)}</span>
+    </label>
+  `).join("");
+}
+
 function updateChildAgePreview() {
   const dobInput = document.querySelector("#childDobInput");
   const ageInput = document.querySelector("#childAgePreview");
+  const ageGroupSelect = document.querySelector('#childProfileForm select[name="ageGroup"]');
   if (dobInput && ageInput) ageInput.value = calculateAgeFromDob(dobInput.value);
+  const inferredAgeGroup = ageGroupFromDob(dobInput?.value);
+  if (ageGroupSelect && inferredAgeGroup && ageGroupSelect.value !== "Mixed Ages") {
+    ageGroupSelect.value = inferredAgeGroup;
+  }
 }
 
 function renderSimpleChildProfile(child, records) {
@@ -7734,8 +8112,12 @@ function renderSimpleChildProfile(child, records) {
           <h2>${escapeHtml(child.name)}</h2>
           <p>${escapeHtml(childAgeLabel(child))} - ${escapeHtml(child.classroom || child.ageGroup || "Age group not entered")}</p>
         </div>
-        <button class="ghost-button" data-child-view="add" type="button">Add Child</button>
+        <div class="profile-hero-actions">
+          <button class="ghost-button" data-edit-child-profile="${child.id}" type="button">Edit Child Profile</button>
+          <button class="primary-button" data-child-ai-suggestions="${child.id}" type="button">Give Me Ideas</button>
+        </div>
       </section>
+      <div class="child-ai-output" id="childAiSuggestions-${domSafeId(child.id)}" aria-live="polite"></div>
 
       <section class="section-block monthly-goal-card">
         <div>
@@ -7805,9 +8187,12 @@ function renderChildProfileTabContent(child, records) {
 
 function renderChildOverviewTab(child, summary, records = childRecords()) {
   const activeGoals = childActiveGoals(child, records);
+  const context = childRecommendationContext(child, records);
   const primaryGoal = activeGoals[0];
-  const goalArea = normalizeObservationArea(primaryGoal?.area || inferAreasFromGoalText(primaryGoal?.goal || child.activeGoals || "")[0]) || "";
+  const goalArea = context.areas[0] || normalizeObservationArea(primaryGoal?.area || inferAreasFromGoalText(primaryGoal?.goal || child.activeGoals || "")[0]) || "";
   const nextActivity = suggestedActivitiesForArea(goalArea || "Approaches to Learning")[0];
+  const selectedGoals = childGoalDisplayLabels(child).length ? childGoalDisplayLabels(child) : ["No goals selected"];
+  const selectedSupports = context.supportAreas.length ? context.supportAreas : ["No support areas selected"];
   return `
     <section class="section-block profile-overview-card">
       <h3>Needs Attention</h3>
@@ -7830,6 +8215,10 @@ function renderChildOverviewTab(child, summary, records = childRecords()) {
         <div><span>Date of Birth</span><strong>${escapeHtml(formatDateLabel(child.dob))}</strong></div>
         <div><span>Age</span><strong>${escapeHtml(childAgeLabel(child))}</strong></div>
         <div><span>Monthly Observation Goal</span><strong>${summary.goal} per month</strong></div>
+      </div>
+      <div class="profile-support-summary">
+        <div><strong>Developmental Goals</strong>${renderChipList(selectedGoals)}</div>
+        <div><strong>Support Areas</strong>${renderChipList(selectedSupports)}</div>
       </div>
       <div class="quick-action-list">
         <button class="ghost-button" data-quick-add-observation="${child.id}" type="button">Add Observation</button>
@@ -7867,13 +8256,19 @@ function renderChildObservationsTab(child, observations, summary) {
 }
 
 function renderChildGoalsTab(child, goals, activeGoals, observations, records) {
+  const context = childRecommendationContext(child, records);
   return `
     <section class="section-block" id="childGoalsSection">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">Goals</p>
-          <h3>Goals for ${escapeHtml(child.name)}</h3>
+          <p class="eyebrow">Goals & Support Areas</p>
+          <h3>What ${escapeHtml(child.name)} needs help with</h3>
         </div>
+        <button class="ghost-button" data-edit-child-profile="${child.id}" type="button">Edit Selections</button>
+      </div>
+      <div class="profile-support-summary compact">
+        <div><strong>Developmental Goals</strong>${renderChipList(childGoalDisplayLabels(child).length ? childGoalDisplayLabels(child) : ["No goals selected"])}</div>
+        <div><strong>Support Areas</strong>${renderChipList(context.supportAreas.length ? context.supportAreas : ["No support areas selected"])}</div>
       </div>
       <div class="simple-goals-list one-column">${activeGoals.length ? activeGoals.map((goal) => renderSimpleGoalCard(child, goal, records)).join("") : `<div class="empty-state">No active goals yet.</div>`}</div>
       <div class="simple-add-record">
@@ -7887,12 +8282,17 @@ function renderChildGoalsTab(child, goals, activeGoals, observations, records) {
 function renderChildLessonsTab(child, records, observations, goals, differentiations) {
   const areas = childSupportAreas(child.id, records);
   const primaryAreas = areas.length ? areas : childRecommendationAreas(child, goals, observations);
+  const recommendedLessons = childLessonRecommendations(child, records, 3);
   const lessonPlans = primaryAreas.flatMap(suggestedLessonPlansForArea).slice(0, 5);
   const activities = primaryAreas.flatMap(suggestedActivitiesForArea).slice(0, 5);
   return `
     <section class="section-block">
       <p class="eyebrow">Lesson Plans</p>
-      <h3>Next ideas for ${escapeHtml(child.name)}</h3>
+      <h3>Suggested for ${escapeHtml(child.name)}</h3>
+      <p class="muted-copy">Matched from ${escapeHtml(child.name)}'s age group, goals, support areas, observations, and progress history.</p>
+      <div class="child-lesson-mini-grid">
+        ${recommendedLessons.length ? recommendedLessons.map(renderChildLessonMiniCard).join("") : `<div class="empty-state">No lesson plan matches yet.</div>`}
+      </div>
       <div class="focused-suggestion-list">
         <div>
           <strong>Lesson Plan Ideas</strong>
@@ -7905,6 +8305,23 @@ function renderChildLessonsTab(child, records, observations, goals, differentiat
       </div>
       <div class="resource-list compact">${differentiations.length ? differentiations.map(simpleRecordItem).join("") : `<div class="empty-state">No lesson plan supports saved yet.</div>`}</div>
     </section>
+  `;
+}
+
+function renderChildLessonMiniCard(resource) {
+  const context = resource._childRecommendation || {};
+  return `
+    <article class="child-lesson-mini-card">
+      <span class="tag">Suggested for ${escapeHtml(context.childName || "Child")}</span>
+      <h4>${escapeHtml(resource.title)}</h4>
+      <div>
+        <span><b>Age Group:</b> ${escapeHtml(resource.age || context.ageGroup || "Age Group")}</span>
+        <span><b>Goal Match:</b> ${escapeHtml(displayDevelopmentArea(context.goalMatch || resource.developmentalArea || ""))}</span>
+        ${context.supportArea ? `<span><b>Support Area:</b> ${escapeHtml(context.supportArea)}</span>` : ""}
+      </div>
+      <p><b>Why this helps:</b> ${escapeHtml(context.why || "Supports current goals and support needs.")}</p>
+      <button class="ghost-button" data-view-resource="${resource.id}" type="button">View Details</button>
+    </article>
   `;
 }
 
@@ -8078,19 +8495,51 @@ function renderGoalSupportIdeas(child, activeGoals, observations) {
   `;
 }
 
+function renderChildAiSuggestions(child, records = childRecords()) {
+  const ideas = childSuggestionIdeas(child, records);
+  const summary = childProgressSummary(child.id, records);
+  const supports = ideas.context.supportAreas.length ? ideas.context.supportAreas.join(", ") : "No support areas selected";
+  const goals = childGoalDisplayLabels(child).length ? childGoalDisplayLabels(child).join(", ") : displayDevelopmentArea(ideas.primaryArea);
+  return `
+    <section class="section-block child-ai-suggestions-panel">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">AI Suggestions</p>
+          <h3>Ideas for ${escapeHtml(child.name)}</h3>
+          <p class="muted-copy">${escapeHtml(childAgeLabel(child))} | ${escapeHtml(normalizeAgeGroup(child.ageGroup) || child.ageGroup || "Age group not entered")}</p>
+        </div>
+      </div>
+      <div class="child-ai-context">
+        <span><b>Goals:</b> ${escapeHtml(goals)}</span>
+        <span><b>Support areas:</b> ${escapeHtml(supports)}</span>
+        <span><b>Progress:</b> ${summary.progressPercent}% portfolio progress</span>
+      </div>
+      <div class="goal-ai-output-inner child-ai-grid">
+        <div><strong>Activities to try</strong><ul>${ideas.activities.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div>
+        <div><strong>Lesson plan idea</strong><p>${escapeHtml(ideas.lesson)}</p></div>
+        <div><strong>Observation idea</strong><p>${escapeHtml(ideas.observation)}</p></div>
+        <div><strong>Parent communication</strong><p>${escapeHtml(ideas.parentNote)}</p></div>
+        <div><strong>Next step</strong><p>${escapeHtml(ideas.nextStep)}</p></div>
+      </div>
+    </section>
+  `;
+}
+
 function renderDevelopmentAreaChecks(selectedAreas = []) {
   const normalized = selectedAreas.map(normalizeObservationArea).filter(Boolean);
   const shortAreas = [
     ["Fine Motor", "Fine motor"],
     ["Gross Motor", "Gross motor"],
-    ["Language & Literacy", "Language"],
+    ["Speech & Language", "Speech & language"],
     ["Social Emotional", "Social emotional"],
-    ["Cognitive Development", "Cognitive"],
-    ["Physical Development", "Self-help"],
+    ["Cognitive", "Cognitive"],
+    ["Self Help Skills", "Self-help"],
+    ["Literacy", "Literacy"],
+    ["Early Math", "Early math"],
   ];
   return shortAreas.map(([value, label]) => `
     <label class="area-check">
-      <input type="checkbox" name="areas" value="${escapeHtml(value)}" ${normalized.includes(value) ? "checked" : ""} />
+      <input type="checkbox" name="areas" value="${escapeHtml(value)}" ${normalized.includes(normalizeObservationArea(value) || value) ? "checked" : ""} />
       <span>${escapeHtml(label)}</span>
     </label>
   `).join("");
@@ -8204,12 +8653,12 @@ function supportForm(childId) {
 }
 
 function goalForm(childId) {
-  const selectedArea = normalizeObservationArea(pendingGoalArea) || pendingGoalArea || "";
+  const selectedArea = pendingGoalArea || normalizeObservationArea(pendingGoalArea) || "";
   const placeholder = goalExampleForArea(selectedArea || "Approaches to Learning");
   return `
     <form id="childGoalForm" class="mini-form">
       <input name="childId" type="hidden" value="${childId}" />
-      <label>What needs help?<select name="area">${areaOptions(selectedArea)}</select></label>
+      <label>What needs help?<select name="area">${goalAreaOptions(selectedArea)}</select></label>
       <label>Goal<input name="goal" placeholder="${escapeHtml(placeholder)}" /></label>
       <label>Target Date<input name="targetDate" type="date" /></label>
       <label>Progress<select name="progress"><option>0%</option><option>25%</option><option>50%</option><option>75%</option><option>100%</option></select></label>
@@ -8218,6 +8667,18 @@ function goalForm(childId) {
       <button class="primary-button" type="submit">Add Goal</button>
     </form>
   `;
+}
+
+function goalAreaOptions(selected = "") {
+  const options = developmentalGoalOptions();
+  const hasExact = options.some(([optionValue]) => optionValue === selected);
+  let matchedNormalized = false;
+  return options.map(([value, label]) => {
+    const normalizedMatch = !hasExact && !matchedNormalized && normalizeObservationArea(value) && normalizeObservationArea(value) === normalizeObservationArea(selected);
+    if (normalizedMatch) matchedNormalized = true;
+    const selectedMatch = value === selected || normalizedMatch;
+    return `<option value="${escapeHtml(value)}" ${selectedMatch ? "selected" : ""}>${escapeHtml(label)}</option>`;
+  }).join("");
 }
 
 function differentiationForm(childId) {
@@ -8378,6 +8839,8 @@ function exportChildPortfolio(childId) {
     `Emergency Contacts: ${child.emergency || ""}`,
     `Allergies: ${child.allergies || ""}`,
     `Medical Notes: ${child.medical || ""}`,
+    `Developmental Goals: ${childGoalDisplayLabels(child).join(", ")}`,
+    `Support Areas: ${childSelectedSupportAreas(child).join(", ")}`,
     `Active Goals: ${child.activeGoals || ""}`,
     `Additional Notes: ${child.notes || ""}`,
     "",
@@ -11311,6 +11774,7 @@ function toggleFavorite(id) {
 
 function showSearchResults() {
   const results = searchedResources();
+  const searchedChild = childFromSearchQuery(searchInput.value.trim(), childRecords());
   if (!searchInput.value.trim()) return;
   document.querySelectorAll(".view").forEach((section) => section.classList.remove("active-view"));
   document.querySelector("#view-home").classList.add("active-view");
@@ -11324,6 +11788,7 @@ function showSearchResults() {
       <h2>Results for "${searchInput.value.trim()}"</h2>
       <p>Search is checking titles, ages, skills, themes, descriptions, and categories.</p>
     </div>
+    ${searchedChild && searchInput.value.toLowerCase().includes("lesson") ? renderChildLessonSearchContext(searchedChild) : ""}
     <div class="resource-grid">
       ${results.length ? results.map(resourceCard).join("") : `<div class="empty-state">No matches yet. Try toddler, forms, menu, ocean, farm, fine motor, or observation.</div>`}
     </div>
@@ -11462,6 +11927,7 @@ document.addEventListener("click", (event) => {
     if (viewButton.dataset.view === "children") {
       childManagementMode = "list";
       childProfileTab = "overview";
+      activeChildProfileEditId = "";
       activeChildObservationEditId = "";
       activeObservationChildLock = "";
       activePortfolioChildId = "";
@@ -11469,6 +11935,7 @@ document.addEventListener("click", (event) => {
     if (viewButton.dataset.view === "goals") {
       childManagementMode = "goals";
       childProfileTab = "goals";
+      activeChildProfileEditId = "";
       activeChildObservationEditId = "";
       activeObservationChildLock = "";
       activePortfolioChildId = "";
@@ -11534,6 +12001,7 @@ document.addEventListener("click", (event) => {
   if (childViewButton) {
     event.preventDefault();
     childManagementMode = childViewButton.dataset.childView || "list";
+    activeChildProfileEditId = "";
     activeChildObservationEditId = "";
     activeObservationChildLock = "";
     if (childManagementMode === "list") childProfileTab = "overview";
@@ -11556,8 +12024,40 @@ document.addEventListener("click", (event) => {
       childProfileTab = "overview";
     }
     activeChildObservationEditId = "";
+    activeChildProfileEditId = "";
     activeObservationChildLock = "";
     renderChildManagement();
+    return;
+  }
+
+  const editChildProfileButton = event.target.closest("[data-edit-child-profile]");
+  if (editChildProfileButton) {
+    event.preventDefault();
+    activeChildProfileEditId = editChildProfileButton.dataset.editChildProfile;
+    selectedChildId = activeChildProfileEditId;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+    childManagementMode = "edit";
+    renderChildManagement();
+    return;
+  }
+
+  const childAiSuggestionsButton = event.target.closest("[data-child-ai-suggestions]");
+  if (childAiSuggestionsButton) {
+    event.preventDefault();
+    if (!canUseAi()) {
+      showProFeatureModal(aiLimitMessage());
+      return;
+    }
+    const records = childRecords();
+    const child = records.children.find((item) => item.id === childAiSuggestionsButton.dataset.childAiSuggestions);
+    if (!child) return;
+    const output = document.querySelector(`#childAiSuggestions-${domSafeId(child.id)}`);
+    if (output) output.innerHTML = renderChildAiSuggestions(child, records);
+    recordAiUse();
+    childAiSuggestionsButton.textContent = "Ideas Ready";
+    setTimeout(() => {
+      childAiSuggestionsButton.textContent = "Give Me Ideas";
+    }, 1400);
     return;
   }
 
@@ -12548,20 +13048,26 @@ document.addEventListener("submit", (event) => {
 document.addEventListener("submit", async (event) => {
   if (!event.target.matches("#childProfileForm")) return;
   event.preventDefault();
-  if (!isProUser() && childStore("Profiles").length >= freeChildProfileLimit) {
+  const form = event.target;
+  const data = collectFormData(form);
+  const editId = data.childId || activeChildProfileEditId || "";
+  if (!editId && !isProUser() && childStore("Profiles").length >= freeChildProfileLimit) {
     showProFeatureModal(`Free plan includes up to ${freeChildProfileLimit} child profiles. Upgrade to Pro for unlimited child profiles.`);
     return;
   }
-  const form = event.target;
-  const data = collectFormData(form);
-  const photoFile = new FormData(form).get("photo");
+  const formData = new FormData(form);
+  const photoFile = formData.get("photo");
+  const goalAreas = Array.from(new Set(formData.getAll("goalAreas").map((area) => String(area || "").trim()).filter(Boolean)));
+  const supportAreas = Array.from(new Set(formData.getAll("supportAreas").map((area) => String(area || "").trim()).filter(Boolean)));
+  const existing = editId ? childStore("Profiles").find((item) => item.id === editId) : null;
   const photo = photoFile?.name ? await fileToDataUrl(photoFile) : "";
   const monthlyGoal = data.monthlyObservationGoal === "custom" ? data.customMonthlyObservationGoal : data.monthlyObservationGoal;
   const age = calculateAgeFromDob(data.dob) || data.age;
   const child = {
-    id: `child-${Date.now()}`,
+    ...(existing || {}),
+    id: editId || `child-${Date.now()}`,
     name: data.name,
-    ageGroup: data.ageGroup,
+    ageGroup: normalizeAgeGroup(data.ageGroup) || ageGroupFromDob(data.dob) || data.ageGroup,
     age,
     dob: data.dob,
     enrollmentDate: data.enrollmentDate,
@@ -12572,16 +13078,21 @@ document.addEventListener("submit", async (event) => {
     emergency: data.emergency,
     allergies: data.allergies,
     medical: data.medical,
-    photo,
+    photo: photo || existing?.photo || "",
+    goalAreas,
+    supportAreas,
     activeGoals: data.activeGoals,
     notes: data.notes,
-    createdAt: new Date().toISOString(),
+    createdAt: existing?.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
   const children = childStore("Profiles");
-  saveChildStore("Profiles", [...children, child]);
+  saveChildStore("Profiles", editId ? children.map((item) => item.id === editId ? child : item) : [...children, child]);
   selectedChildId = child.id;
   localStorage.setItem("llhSelectedChild", selectedChildId);
   childManagementMode = "profile";
+  childProfileTab = "overview";
+  activeChildProfileEditId = "";
   form.reset();
   renderChildManagement();
 });
