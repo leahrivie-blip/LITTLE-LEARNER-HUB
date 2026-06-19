@@ -289,6 +289,10 @@ let activeChildProfileEditId = "";
 let pendingObservationArea = "";
 let activeObservationChildLock = "";
 let pendingGoalArea = "";
+let activeSupportCategoryId = "";
+let activeSupportTopicId = "";
+let activeSupportTab = "why";
+let activeSupportChildId = selectedChildId;
 let childCloudSaveTimer = null;
 let childCloudSyncing = false;
 
@@ -2658,6 +2662,7 @@ function setView(view) {
   if (resolvedView === "generators") renderGeneratorWorkspace("lesson");
   if (resolvedView === "tools") renderFutureTools();
   if (resolvedView === "children") renderChildManagement();
+  if (resolvedView === "support-center") renderSupportCenterPage();
   if (resolvedView === "planner") renderWeeklyPlanner();
   trackEvent("page_view", { view: resolvedView, nav: requestedView });
   updateSidebarDashboard();
@@ -6725,6 +6730,389 @@ function suggestedLessonPlansForArea(area) {
   return map[area] || map["Approaches to Learning"];
 }
 
+function supportCenterCategories() {
+  return [
+    {
+      id: "behavior-emotions",
+      title: "Behavior & Emotions",
+      detail: "Quick support for big feelings and safe bodies.",
+      topics: ["Tantrums", "Biting", "Hitting", "Pushing", "Throwing", "Emotional Regulation", "Aggressive Behaviors"],
+    },
+    {
+      id: "daily-routines",
+      title: "Daily Routines",
+      detail: "Simple help for care routines and transitions.",
+      topics: ["Potty Training", "Rest Time", "Cleanup Time", "Following Directions", "Transitions"],
+    },
+    {
+      id: "social-development",
+      title: "Social Development",
+      detail: "Support peer play, friendship, and group skills.",
+      topics: ["Sharing", "Taking Turns", "Friendships", "Cooperative Play", "Peer Interactions"],
+    },
+    {
+      id: "developmental-support",
+      title: "Developmental Support",
+      detail: "Find age-aware developmental activity ideas.",
+      topics: ["Speech & Language", "Fine Motor", "Gross Motor", "Sensory Activities", "Social Emotional Development"],
+    },
+  ];
+}
+
+function supportTopicSlug(topic = "") {
+  return slug(String(topic || "support-topic"));
+}
+
+function supportTopicIdForArea(area = "") {
+  const text = String(area || "").toLowerCase();
+  const directId = supportTopicSlug(area);
+  if (supportTopicById(directId)) return directId;
+  if (text.includes("rest")) return "rest-time";
+  if (text.includes("transition") || text.includes("separation")) return "transitions";
+  if (text.includes("listening")) return "following-directions";
+  if (text.includes("social")) return "peer-interactions";
+  if (text.includes("taking")) return "taking-turns";
+  if (text.includes("friend")) return "friendships";
+  return directId;
+}
+
+function childSupportMatchesTopic(child = {}, topic = "") {
+  return childSelectedSupportAreas(child).some((area) => supportTopicIdForArea(area) === supportTopicSlug(topic));
+}
+
+function supportTopicById(topicId = "") {
+  return supportCenterCategories()
+    .flatMap((category) => category.topics.map((topic) => ({ ...category, topic, topicId: supportTopicSlug(topic) })))
+    .find((item) => item.topicId === topicId) || null;
+}
+
+function supportCategoryById(categoryId = "") {
+  return supportCenterCategories().find((category) => category.id === categoryId) || null;
+}
+
+function supportTopicDevelopmentArea(topic = "") {
+  const text = String(topic || "").toLowerCase();
+  if (text.includes("speech") || text.includes("language") || text.includes("direction")) return "Language & Literacy";
+  if (text.includes("fine")) return "Fine Motor";
+  if (text.includes("gross")) return "Gross Motor";
+  if (text.includes("potty") || text.includes("rest") || text.includes("cleanup")) return "Physical Development";
+  if (text.includes("sensory")) return "Approaches to Learning";
+  if (text.includes("social") || text.includes("emotion") || text.includes("friend") || text.includes("sharing") || text.includes("turn") || text.includes("peer") || text.includes("throw") || text.includes("aggressive")) return "Social Emotional";
+  return normalizeObservationArea(topic) || supportAreaToDevelopmentArea(topic);
+}
+
+function supportTopicContent(topic = "") {
+  const area = supportTopicDevelopmentArea(topic);
+  const base = {
+    why: `${topic} often shows up when a child is still building communication, regulation, independence, or routine skills.`,
+    tips: [
+      "Keep language short and calm.",
+      "Name the skill you want to see next.",
+      "Practice during calm moments before expecting it during hard moments.",
+    ],
+    activities: suggestedActivitiesForArea(area).slice(0, 3),
+    observations: [
+      `Watch what happens before ${topic.toLowerCase()} starts.`,
+      "Notice which adult support helps the child recover.",
+      "Document what the child tried independently.",
+    ],
+    parentNotes: [
+      `Share one strategy you are using for ${topic.toLowerCase()}.`,
+      "Use strength-based wording and avoid blame.",
+      "Ask if the family is seeing the same pattern at home.",
+    ],
+  };
+  const overrides = {
+    Tantrums: {
+      why: "Tantrums often happen when a child has big feelings, limited language, hunger, tiredness, or a hard transition.",
+      tips: ["Stay close and calm.", "Offer two simple choices.", "Use a first-then cue before transitions."],
+      activities: ["Feelings face match", "Calm-down basket practice", "First-then transition game"],
+      observations: ["What happened right before the tantrum?", "How long did it take to recover?", "Which support helped the child calm?"],
+      parentNotes: ["We are helping name feelings and practice calm choices.", "Today we noticed transitions were hard, so we used a first-then cue.", "A short goodbye or transition routine may help us stay consistent."],
+    },
+    Biting: {
+      why: "Biting is often communication, teething, sensory seeking, frustration, or needing space.",
+      tips: ["Stay close during busy peer play.", "Offer words or a teether before biting happens.", "Comfort the hurt child and calmly redirect the child who bit."],
+      activities: ["Teether or chewy choice routine", "My space picture cards", "Gentle mouth sensory bin"],
+      observations: ["Was the child tired, crowded, excited, or frustrated?", "Who was nearby?", "What replacement helped?"],
+      parentNotes: ["We are watching for patterns and teaching safe replacement choices.", "We are using simple words like stop, space, and help.", "We will keep sharing triggers and what helps."],
+    },
+    Hitting: {
+      why: "Hitting can happen when a child is frustrated, excited, overstimulated, or still learning safe ways to interact.",
+      tips: ["Block gently and say, hands are for helping.", "Give a replacement phrase.", "Practice gentle hands during calm play."],
+      activities: ["Gentle hands puppet play", "Push wall then breathe", "Partner high-five turn game"],
+      observations: ["What was the child trying to get or avoid?", "Did adult proximity help?", "What replacement words were used?"],
+      parentNotes: ["We are practicing safe hands and replacement words.", "We will keep coaching before peer play gets too busy.", "We noticed calm reminders helped today."],
+    },
+    Pushing: {
+      why: "Pushing may mean a child wants space, a turn, or help joining play.",
+      tips: ["Teach stop and space.", "Use visual turn-taking cues.", "Stay nearby during high-energy play."],
+      activities: ["Personal space bubble game", "Timer turn-taking", "Ask to play picture cards"],
+      observations: ["Was pushing connected to turn taking?", "Was the child seeking space?", "What cue helped?"],
+      parentNotes: ["We are teaching space, stop, and turn-taking words.", "Short practice games are helping build safe peer play.", "We will keep watching when play gets crowded."],
+    },
+    "Potty Training": {
+      why: "Potty training grows from body awareness, routine, readiness, clothing independence, and confidence.",
+      tips: ["Use a predictable bathroom routine.", "Keep language neutral.", "Celebrate sitting, trying, and handwashing."],
+      activities: ["Bathroom visual steps", "Doll potty routine", "Handwashing song"],
+      observations: ["Did the child notice body cues?", "Did they follow bathroom steps?", "What support was needed?"],
+      parentNotes: ["We are keeping potty practice calm and predictable.", "Please share the words and routine used at home.", "Today we practiced bathroom steps and handwashing."],
+    },
+    "Following Directions": {
+      why: "Following directions depends on attention, language understanding, routine memory, and adult connection.",
+      tips: ["Give one direction at a time.", "Pair words with a visual or gesture.", "Praise the exact follow-through."],
+      activities: ["One-step direction game", "Picture direction cards", "Simon Says with movement"],
+      observations: ["Could the child follow one step?", "Did a gesture or picture help?", "Was the task too long?"],
+      parentNotes: ["We are practicing one-step directions with pictures and gestures.", "Short directions worked best today.", "We will keep building listening in playful routines."],
+    },
+    "Speech & Language": {
+      why: "Speech and language grow through repeated words, songs, books, play routines, and responsive conversations.",
+      tips: ["Model short phrases.", "Pause so the child can respond.", "Repeat important words during play."],
+      activities: ["Picture card naming", "Book basket conversation", "Choice-making with two objects"],
+      observations: ["What words, gestures, or sounds did the child use?", "Did they imitate?", "What helped them communicate?"],
+      parentNotes: ["We are modeling short phrases and giving wait time.", "Books, songs, and choices are helping us invite more language.", "We will keep noting new words and communication attempts."],
+    },
+    "Fine Motor": {
+      why: "Fine motor skills build through hand strength, grasp, coordination, and repeated practice with small tools.",
+      tips: ["Offer short practice times.", "Use chunky tools first if needed.", "Support hand strength before expecting precision."],
+      activities: ["Playdough pinch and roll", "Bead threading", "Scissor snip strips"],
+      observations: ["How did the child grasp materials?", "Did they use one hand or both?", "What level of help was needed?"],
+      parentNotes: ["We are building hand strength through play.", "Short tool practice is helping confidence.", "Playdough, stickers, and safe cutting are good next steps."],
+    },
+  };
+  return { ...base, ...(overrides[topic] || {}) };
+}
+
+function supportCenterSelectedChild(records = childRecords()) {
+  return records.children.find((child) => child.id === activeSupportChildId)
+    || records.children.find((child) => child.id === selectedChildId)
+    || records.children[0]
+    || null;
+}
+
+function supportTopicResources(topic = "", child = null, records = childRecords()) {
+  const area = supportTopicDevelopmentArea(topic);
+  const childAgeGroup = child?.ageGroup || "";
+  const lessons = child ? childLessonRecommendations(child, records, 3) : portfolioResourcesFor("Lesson Plans", [area], childAgeGroup, 3).items;
+  const printablesResult = portfolioResourcesFor("Printables", [area], childAgeGroup, 3);
+  const activitiesResult = portfolioResourcesFor("Activity Center", [area], childAgeGroup, 3);
+  return {
+    area,
+    lessons,
+    printables: printablesResult.items,
+    activities: activitiesResult.items,
+  };
+}
+
+function renderSupportCenterPage() {
+  const section = document.querySelector("#view-support-center");
+  if (!section) return;
+  const records = childRecords();
+  const topic = supportTopicById(activeSupportTopicId);
+  if (topic) {
+    section.innerHTML = renderSupportTopicPage(topic, records);
+    return;
+  }
+  const category = supportCategoryById(activeSupportCategoryId);
+  section.innerHTML = category ? renderSupportCategoryPage(category) : renderSupportHomePage(records);
+}
+
+function renderSupportHomePage(records = childRecords()) {
+  const currentChild = selectedChild(records);
+  const childSupportAreas = currentChild ? childSelectedSupportAreas(currentChild).slice(0, 3) : [];
+  return `
+    <section class="support-center-page">
+      <div class="page-title support-center-title">
+        <p class="eyebrow">Support Center</p>
+        <h2>Quick help for common childcare challenges.</h2>
+        <p>Pick one area, then open only the details you need.</p>
+      </div>
+      <div class="support-category-grid">
+        ${supportCenterCategories().map((category) => `
+          <button class="support-category-card" data-support-category="${category.id}" type="button">
+            <span>${escapeHtml(category.title.slice(0, 2).toUpperCase())}</span>
+            <strong>${escapeHtml(category.title)}</strong>
+            <p>${escapeHtml(category.detail)}</p>
+          </button>
+        `).join("")}
+      </div>
+      ${childSupportAreas.length ? `
+        <section class="section-block support-child-shortcuts">
+          <div>
+            <p class="eyebrow">From Child Profiles</p>
+            <h3>${escapeHtml(currentChild.name)} support areas</h3>
+          </div>
+          <div class="support-shortcut-list">
+            ${childSupportAreas.map((area) => `<button class="ghost-button" data-support-topic="${supportTopicIdForArea(area)}" data-support-child-id="${currentChild.id}" type="button">View ${escapeHtml(area)} Support</button>`).join("")}
+          </div>
+        </section>
+      ` : ""}
+    </section>
+  `;
+}
+
+function renderSupportCategoryPage(category) {
+  return `
+    <section class="support-center-page">
+      <button class="ghost-button back-button" data-support-home type="button">Back to Support Center</button>
+      <div class="page-title support-center-title">
+        <p class="eyebrow">Support Center</p>
+        <h2>${escapeHtml(category.title)}</h2>
+        <p>${escapeHtml(category.detail)}</p>
+      </div>
+      <div class="support-topic-grid">
+        ${category.topics.map((topic) => `
+          <button class="support-topic-card" data-support-topic="${supportTopicSlug(topic)}" type="button">
+            <strong>${escapeHtml(topic)}</strong>
+            <span>${escapeHtml(supportTopicContent(topic).why)}</span>
+          </button>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderSupportTopicPage(topicRecord, records = childRecords()) {
+  const topic = topicRecord.topic;
+  const child = supportCenterSelectedChild(records);
+  const content = supportTopicContent(topic);
+  const tabs = [
+    ["why", "Why"],
+    ["tips", "Tips"],
+    ["activities", "Activities"],
+    ["observations", "Observations"],
+    ["parent", "Parent Notes"],
+    ["resources", "Resources"],
+  ];
+  return `
+    <section class="support-center-page">
+      <button class="ghost-button back-button" data-support-category="${topicRecord.id}" type="button">Back to ${escapeHtml(topicRecord.title)}</button>
+      <section class="section-block support-topic-hero">
+        <div>
+          <p class="eyebrow">${escapeHtml(topicRecord.title)}</p>
+          <h2>${escapeHtml(topic)}</h2>
+          <p>${escapeHtml(content.why)}</p>
+        </div>
+        ${renderSupportChildPicker(topic, child, records)}
+      </section>
+      <div class="support-tab-row" aria-label="Support topic sections">
+        ${tabs.map(([id, label]) => `<button class="${activeSupportTab === id ? "active" : ""}" data-support-tab="${id}" type="button">${label}</button>`).join("")}
+      </div>
+      ${renderSupportTopicTabContent(topic, content, child, records)}
+      <section class="section-block support-ai-card">
+        <div>
+          <p class="eyebrow">AI Suggestions</p>
+          <h3>${child ? `Ideas for ${escapeHtml(child.name)}` : "Personalized ideas"}</h3>
+          <p>Uses child age, age group, goals, support areas, observations, and progress history when available.</p>
+        </div>
+        <button class="primary-button" data-support-ai="${supportTopicSlug(topic)}" type="button">Give Me Ideas</button>
+        <div class="support-ai-output" id="supportAiOutput" aria-live="polite"></div>
+      </section>
+    </section>
+  `;
+}
+
+function renderSupportChildPicker(topic, child, records = childRecords()) {
+  if (!records.children.length) {
+    return `<div class="support-child-context"><strong>No child selected</strong><span>Add a child profile for personalized ideas.</span></div>`;
+  }
+  const selectedSupport = child ? childSupportMatchesTopic(child, topic) : false;
+  return `
+    <label class="support-child-picker">
+      <span>Personalize for child</span>
+      <select id="supportCenterChildSelect">
+        ${records.children.map((item) => `<option value="${item.id}" ${child?.id === item.id ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}
+      </select>
+      ${child ? `<small>${escapeHtml(childAgeLabel(child))}${child.ageGroup ? ` | ${escapeHtml(child.ageGroup)}` : ""}${selectedSupport ? " | Connected from profile" : ""}</small>` : ""}
+    </label>
+  `;
+}
+
+function renderSupportTopicTabContent(topic, content, child, records = childRecords()) {
+  const resourcesForTopic = supportTopicResources(topic, child, records);
+  const cardList = (items) => `<div class="support-simple-card-grid">${items.map((item) => `<article><span>${escapeHtml(item)}</span></article>`).join("")}</div>`;
+  if (activeSupportTab === "tips") {
+    return `<section class="section-block support-detail-panel"><h3>Provider Tips</h3>${renderSupportBulletList(content.tips)}</section>`;
+  }
+  if (activeSupportTab === "activities") {
+    const resourceCards = resourcesForTopic.activities.length ? resourcesForTopic.activities.map(renderSupportMiniResourceCard).join("") : "";
+    return `<section class="section-block support-detail-panel"><h3>Activities To Try</h3>${cardList(content.activities)}${resourceCards ? `<div class="support-resource-mini-grid">${resourceCards}</div>` : ""}</section>`;
+  }
+  if (activeSupportTab === "observations") {
+    return `<section class="section-block support-detail-panel"><h3>Observation Ideas</h3>${cardList(content.observations)}</section>`;
+  }
+  if (activeSupportTab === "parent") {
+    return `<section class="section-block support-detail-panel"><h3>Parent Communication Ideas</h3>${cardList(content.parentNotes)}</section>`;
+  }
+  if (activeSupportTab === "resources") {
+    return `
+      <section class="section-block support-detail-panel">
+        <h3>Related Resources</h3>
+        <div class="support-resource-section">
+          <strong>Related Lesson Plans</strong>
+          <div class="support-resource-mini-grid">${resourcesForTopic.lessons.length ? resourcesForTopic.lessons.map(renderSupportMiniResourceCard).join("") : `<p>No matching lesson plans yet - use AI to create ideas for this support area.</p>`}</div>
+        </div>
+        <div class="support-resource-section">
+          <strong>Related Printables</strong>
+          <div class="support-resource-mini-grid">${resourcesForTopic.printables.length ? resourcesForTopic.printables.map(renderSupportMiniResourceCard).join("") : `<p>No matching printables yet - use AI to create activities for this support area.</p>`}</div>
+        </div>
+      </section>
+    `;
+  }
+  return `<section class="section-block support-detail-panel"><h3>Why It Happens</h3><p>${escapeHtml(content.why)}</p></section>`;
+}
+
+function renderSupportBulletList(items = []) {
+  return `<ul class="support-bullet-list">${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
+function renderSupportMiniResourceCard(resource = {}) {
+  return `
+    <article class="support-mini-resource">
+      <strong>${escapeHtml(resource.title || "Resource")}</strong>
+      <span>${escapeHtml([resource.age || resource.ageGroup, resource.developmentalArea || resource.activityFocus || resource.theme].filter(Boolean).join(" | "))}</span>
+    </article>
+  `;
+}
+
+function renderSupportAiIdeas(topic = "", child = null, records = childRecords()) {
+  const content = supportTopicContent(topic);
+  const resourcesForTopic = supportTopicResources(topic, child, records);
+  const observations = child ? records.observations.filter((item) => item.childId === child.id).slice(-2) : [];
+  const context = child ? childRecommendationContext(child, records) : null;
+  const progress = child ? childProgressSummary(child.id, records) : null;
+  const childLabel = child ? `${child.name} | ${childAgeLabel(child)}${child.ageGroup ? ` | ${child.ageGroup}` : ""}` : "General support ideas";
+  const activeGoalLabels = context
+    ? context.portfolio.goals
+      .filter((goal) => goalProgressPercent(goal.progress) < 100)
+      .map((goal) => displayDevelopmentArea(normalizeObservationArea(goal.area) || inferAreasFromGoalText(goal.goal)[0] || goal.area))
+      .filter(Boolean)
+    : [];
+  const goalLabel = childGoalDisplayLabels(child || {}).join(", ") || Array.from(new Set(activeGoalLabels)).join(", ") || "None selected";
+  const transitionIdeas = topic.toLowerCase().includes("transition") || topic === "Tantrums"
+    ? ["Use a two-minute warning.", "Give a helper job.", "Use first-then wording."]
+    : ["Practice the skill before the hard routine.", "Use a picture cue.", "Keep the routine predictable."];
+  return `
+    <div class="support-ai-panel">
+      <div class="child-ai-context">
+        <strong>${escapeHtml(childLabel)}</strong>
+        ${context ? `<span>Goals: ${escapeHtml(goalLabel)}</span><span>Support: ${escapeHtml(childSelectedSupportAreas(child).join(", ") || topic)}</span><span>Progress: ${progress.progressPercent}%</span>` : ""}
+      </div>
+      <div class="support-ai-grid">
+        <div><strong>Activities</strong>${renderSupportBulletList(content.activities.slice(0, 3))}</div>
+        <div><strong>Guidance Strategies</strong>${renderSupportBulletList(content.tips.slice(0, 3))}</div>
+        <div><strong>Transition Ideas</strong>${renderSupportBulletList(transitionIdeas)}</div>
+        <div><strong>Observation Prompts</strong>${renderSupportBulletList(observations.length ? observations.map((item) => `Build from: ${item.text}`) : content.observations.slice(0, 3))}</div>
+        <div><strong>Parent Communication</strong>${renderSupportBulletList(content.parentNotes.slice(0, 3))}</div>
+        <div><strong>Related Resources</strong>${renderSupportBulletList([
+          resourcesForTopic.lessons[0]?.title || "Create a matching lesson plan idea.",
+          resourcesForTopic.printables[0]?.title || "Create a printable support activity.",
+        ])}</div>
+      </div>
+    </div>
+  `;
+}
+
 function observationAnalysis(record, child = {}) {
   const selectedCategories = Array.isArray(record.categories)
     ? record.categories.map((area) => normalizeObservationArea(area) || area).filter(Boolean)
@@ -8268,6 +8656,22 @@ function renderChildProfileTabContent(child, records) {
   return renderChildOverviewTab(child, summary, records);
 }
 
+function renderChildSupportLinks(child, supportAreas = childSelectedSupportAreas(child)) {
+  const links = supportAreas
+    .map((area) => ({ area, topicId: supportTopicIdForArea(area) }))
+    .filter((item) => supportTopicById(item.topicId))
+    .slice(0, 4);
+  if (!links.length) return "";
+  return `
+    <div class="child-support-links">
+      <strong>Support Center</strong>
+      <div>
+        ${links.map(({ area, topicId }) => `<button class="ghost-button" data-support-topic="${topicId}" data-support-child-id="${child.id}" type="button">View ${escapeHtml(area)} Support</button>`).join("")}
+      </div>
+    </div>
+  `;
+}
+
 function renderChildOverviewTab(child, summary, records = childRecords()) {
   const activeGoals = childActiveGoals(child, records);
   const context = childRecommendationContext(child, records);
@@ -8303,6 +8707,7 @@ function renderChildOverviewTab(child, summary, records = childRecords()) {
         <div><strong>Developmental Goals</strong>${renderChipList(selectedGoals)}</div>
         <div><strong>Support Areas</strong>${renderChipList(selectedSupports)}</div>
       </div>
+      ${renderChildSupportLinks(child, context.supportAreas)}
       <div class="quick-action-list">
         <button class="ghost-button" data-quick-add-observation="${child.id}" type="button">Add Observation</button>
         <button class="ghost-button" data-child-tab="goals" type="button">Add Goal</button>
@@ -8353,6 +8758,7 @@ function renderChildGoalsTab(child, goals, activeGoals, observations, records) {
         <div><strong>Developmental Goals</strong>${renderChipList(childGoalDisplayLabels(child).length ? childGoalDisplayLabels(child) : ["No goals selected"])}</div>
         <div><strong>Support Areas</strong>${renderChipList(context.supportAreas.length ? context.supportAreas : ["No support areas selected"])}</div>
       </div>
+      ${renderChildSupportLinks(child, context.supportAreas)}
       <div class="simple-goals-list one-column">${activeGoals.length ? activeGoals.map((goal) => renderSimpleGoalCard(child, goal, records)).join("") : `<div class="empty-state">No active goals yet.</div>`}</div>
       <div class="simple-add-record">
         <h4>Add Goal</h4>
@@ -12010,6 +12416,70 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const supportHomeButton = event.target.closest("[data-support-home]");
+  if (supportHomeButton) {
+    event.preventDefault();
+    activeSupportCategoryId = "";
+    activeSupportTopicId = "";
+    activeSupportTab = "why";
+    setView("support-center");
+    return;
+  }
+
+  const supportCategoryButton = event.target.closest("[data-support-category]");
+  if (supportCategoryButton) {
+    event.preventDefault();
+    activeSupportCategoryId = supportCategoryButton.dataset.supportCategory || "";
+    activeSupportTopicId = "";
+    activeSupportTab = "why";
+    setView("support-center");
+    return;
+  }
+
+  const supportTopicButton = event.target.closest("[data-support-topic]");
+  if (supportTopicButton) {
+    event.preventDefault();
+    activeSupportTopicId = supportTopicButton.dataset.supportTopic || "";
+    const topic = supportTopicById(activeSupportTopicId);
+    activeSupportCategoryId = topic?.id || activeSupportCategoryId;
+    activeSupportTab = "why";
+    if (supportTopicButton.dataset.supportChildId) {
+      activeSupportChildId = supportTopicButton.dataset.supportChildId;
+      selectedChildId = activeSupportChildId;
+      localStorage.setItem("llhSelectedChild", selectedChildId);
+    }
+    setView("support-center");
+    return;
+  }
+
+  const supportTabButton = event.target.closest("[data-support-tab]");
+  if (supportTabButton) {
+    event.preventDefault();
+    activeSupportTab = supportTabButton.dataset.supportTab || "why";
+    renderSupportCenterPage();
+    return;
+  }
+
+  const supportAiButton = event.target.closest("[data-support-ai]");
+  if (supportAiButton) {
+    event.preventDefault();
+    if (!canUseAi()) {
+      showProFeatureModal(aiLimitMessage());
+      return;
+    }
+    const topic = supportTopicById(supportAiButton.dataset.supportAi)?.topic || "Support";
+    const records = childRecords();
+    const child = supportCenterSelectedChild(records);
+    const output = document.querySelector("#supportAiOutput");
+    if (output) output.innerHTML = renderSupportAiIdeas(topic, child, records);
+    recordAiUse();
+    supportAiButton.textContent = "Ideas Ready";
+    setTimeout(() => {
+      supportAiButton.textContent = "Give Me Ideas";
+    }, 1400);
+    return;
+  }
+
   const viewButton = event.target.closest("[data-view]");
   if (viewButton) {
     activeFilter = "All";
@@ -12032,6 +12502,12 @@ document.addEventListener("click", (event) => {
       activeChildObservationEditId = "";
       activeObservationChildLock = "";
       activePortfolioChildId = "";
+    }
+    if (viewButton.dataset.view === "support-center") {
+      activeSupportCategoryId = "";
+      activeSupportTopicId = "";
+      activeSupportTab = "why";
+      activeSupportChildId = selectedChildId;
     }
     const requestedChildToolTab = childToolTabFromView(viewButton.dataset.view);
     if (requestedChildToolTab) {
@@ -12774,6 +13250,12 @@ document.addEventListener("change", (event) => {
     localStorage.setItem("llhSelectedChild", selectedChildId);
     childManagementMode = "tools";
     renderChildManagement();
+  }
+  if (event.target.matches("#supportCenterChildSelect")) {
+    activeSupportChildId = event.target.value;
+    selectedChildId = activeSupportChildId;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+    renderSupportCenterPage();
   }
   if (event.target.matches("#portfolioObservationArea")) {
     childPortfolioAreaFilter = event.target.value;
