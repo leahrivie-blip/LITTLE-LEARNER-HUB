@@ -6514,6 +6514,110 @@ function formatDateLabel(dateText) {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+function presentPortfolioValue(value) {
+  const text = Array.isArray(value) ? value.filter(Boolean).join(", ") : String(value || "");
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  if (!cleaned) return "";
+  if (/^(not entered|none selected|none listed|no notes added yet\.?|no active goals entered yet\.?|age not entered)$/i.test(cleaned)) return "";
+  return cleaned;
+}
+
+function portfolioDateValue(dateText) {
+  if (!String(dateText || "").trim()) return "";
+  return presentPortfolioValue(formatDateLabel(dateText));
+}
+
+function portfolioAgeValue(child = {}) {
+  if (!child.dob && !cleanAgeText(child.age)) return "";
+  return presentPortfolioValue(childAgeLabel(child));
+}
+
+function portfolioAgeGroupValue(child = {}) {
+  return presentPortfolioValue(normalizeAgeGroup(child.ageGroup) || child.ageGroup);
+}
+
+function portfolioDetailRow(label, value, wide = false) {
+  const displayValue = presentPortfolioValue(value);
+  if (!displayValue) return "";
+  return `<p class="${wide ? "wide" : ""}"><b>${escapeHtml(label)}:</b> ${escapeHtml(displayValue)}</p>`;
+}
+
+function childPortfolioProfileRows(child = {}, activeGoals = []) {
+  const activeGoalText = presentPortfolioValue(child.activeGoals) || presentPortfolioValue(activeGoals.map((goal) => goal.goal));
+  return [
+    portfolioDetailRow("Birthday", portfolioDateValue(child.dob)),
+    portfolioDetailRow("Current age", portfolioAgeValue(child)),
+    portfolioDetailRow("Age group", portfolioAgeGroupValue(child)),
+    portfolioDetailRow("Enrollment date", portfolioDateValue(child.enrollmentDate)),
+    portfolioDetailRow("Classroom/room", child.classroom),
+    portfolioDetailRow("Parent/guardian", child.parentInfo),
+    portfolioDetailRow("Emergency contacts", child.emergency),
+    portfolioDetailRow("Allergies", child.allergies),
+    portfolioDetailRow("Medical notes", child.medical),
+    portfolioDetailRow("Developmental goals", childGoalDisplayLabels(child)),
+    portfolioDetailRow("Support areas", childSelectedSupportAreas(child)),
+    portfolioDetailRow("Notes", child.notes, true),
+    portfolioDetailRow("Active goals", activeGoalText, true),
+  ].filter(Boolean);
+}
+
+function renderChildPortfolioProfileSection(child = {}, activeGoals = []) {
+  const rows = childPortfolioProfileRows(child, activeGoals);
+  if (!rows.length) return "";
+  return `
+      <section class="section-block portfolio-overview">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Child Overview</p>
+            <h3>Profile details</h3>
+          </div>
+        </div>
+        <div class="portfolio-detail-grid">
+          ${rows.join("")}
+        </div>
+      </section>
+  `;
+}
+
+function childPortfolioHeroRows(child = {}) {
+  return [
+    portfolioDetailRow("Birthday", portfolioDateValue(child.dob)),
+    portfolioDetailRow("Current age", portfolioAgeValue(child)),
+    portfolioDetailRow("Age group", portfolioAgeGroupValue(child)),
+    portfolioDetailRow("Enrollment date", portfolioDateValue(child.enrollmentDate)),
+    portfolioDetailRow("Classroom/room", child.classroom),
+  ].filter(Boolean).join("");
+}
+
+function portfolioTextLine(label, value) {
+  const displayValue = presentPortfolioValue(value);
+  return displayValue ? `${label}: ${displayValue}` : "";
+}
+
+function portfolioBullet(parts = [], separator = " | ") {
+  const filledParts = parts.map(presentPortfolioValue).filter(Boolean);
+  return filledParts.length ? `- ${filledParts.join(separator)}` : "";
+}
+
+function childPortfolioTextDetails(child = {}, activeGoals = []) {
+  const activeGoalText = presentPortfolioValue(child.activeGoals) || presentPortfolioValue(activeGoals.map((goal) => goal.goal));
+  return [
+    portfolioTextLine("Age Group", portfolioAgeGroupValue(child)),
+    portfolioTextLine("Age", portfolioAgeValue(child)),
+    portfolioTextLine("Date of Birth", portfolioDateValue(child.dob)),
+    portfolioTextLine("Enrollment Date", portfolioDateValue(child.enrollmentDate)),
+    portfolioTextLine("Classroom/Group", child.classroom),
+    portfolioTextLine("Parent/Guardian", child.parentInfo),
+    portfolioTextLine("Emergency Contacts", child.emergency),
+    portfolioTextLine("Allergies", child.allergies),
+    portfolioTextLine("Medical Notes", child.medical),
+    portfolioTextLine("Developmental Goals", childGoalDisplayLabels(child)),
+    portfolioTextLine("Support Areas", childSelectedSupportAreas(child)),
+    portfolioTextLine("Active Goals", activeGoalText),
+    portfolioTextLine("Additional Notes", child.notes),
+  ].filter(Boolean);
+}
+
 function categoryKeywords() {
   return {
     "Social Emotional": ["friend", "share", "turn", "feeling", "emotion", "calm", "comfort", "self-regulation", "cooperate", "help", "peer", "independent"],
@@ -7203,6 +7307,7 @@ function renderChildPortfolioPage(childId) {
   const summary = childProgressSummary(childId, records);
   const activeGoals = portfolio.goals.filter((goal) => goalProgressPercent(goal.progress) < 100);
   const completedGoals = portfolio.goals.filter((goal) => goalProgressPercent(goal.progress) >= 100);
+  const recommendedActivities = childRecommendationAreas(child, portfolio.goals, portfolio.observations).flatMap(suggestedActivitiesForArea).slice(0, 8);
   const filteredObservations = portfolio.observations.filter((item) => {
     const analysis = observationAnalysis(item, child);
     const haystack = [item.text, analysis.developmentArea, analysis.nextSteps, analysis.strengths, ...(analysis.categories || [])].join(" ").toLowerCase();
@@ -7224,35 +7329,13 @@ function renderChildPortfolioPage(childId) {
         <div>
           <p class="eyebrow">Child Portfolio</p>
           <h2>${escapeHtml(child.name)}</h2>
-          <p>Birthday: ${escapeHtml(formatDateLabel(child.dob))}</p>
-          <p>Current age: ${escapeHtml(childAgeLabel(child))}</p>
-          <p>Enrollment date: ${escapeHtml(formatDateLabel(child.enrollmentDate))}</p>
-          <p>Classroom/group: ${escapeHtml(child.classroom || child.ageGroup || "Not entered")}</p>
+          ${childPortfolioHeroRows(child)}
         </div>
       </section>
 
-      <section class="section-block portfolio-overview">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Child Overview</p>
-            <h3>Profile details</h3>
-          </div>
-        </div>
-        <div class="portfolio-detail-grid">
-          <p><b>Name:</b> ${escapeHtml(child.name)}</p>
-          <p><b>Birthday:</b> ${escapeHtml(formatDateLabel(child.dob))}</p>
-          <p><b>Current age:</b> ${escapeHtml(childAgeLabel(child))}</p>
-          <p><b>Enrollment date:</b> ${escapeHtml(formatDateLabel(child.enrollmentDate))}</p>
-          <p><b>Classroom/group:</b> ${escapeHtml(child.classroom || child.ageGroup || "Not entered")}</p>
-          <p><b>Allergies:</b> ${escapeHtml(child.allergies || "None listed")}</p>
-          <p><b>Developmental goals:</b> ${escapeHtml(childGoalDisplayLabels(child).join(", ") || "None selected")}</p>
-          <p><b>Support areas:</b> ${escapeHtml(childSelectedSupportAreas(child).join(", ") || "None selected")}</p>
-          <p class="wide"><b>Notes:</b> ${escapeHtml(child.notes || "No notes added yet.")}</p>
-          <p class="wide"><b>Active goals:</b> ${escapeHtml(child.activeGoals || activeGoals.map((goal) => goal.goal).join(", ") || "No active goals entered yet.")}</p>
-        </div>
-      </section>
+      ${renderChildPortfolioProfileSection(child, activeGoals)}
 
-      <section class="section-block">
+      ${portfolio.observations.length ? `<section class="section-block">
         <div class="section-heading">
           <div>
             <p class="eyebrow">Observations</p>
@@ -7268,9 +7351,9 @@ function renderChildPortfolioPage(childId) {
         <div class="portfolio-timeline">
           ${filteredObservations.length ? filteredObservations.map((item) => portfolioObservationItem(item, child)).join("") : `<div class="empty-state">No observations match yet.</div>`}
         </div>
-      </section>
+      </section>` : ""}
 
-      <section class="section-block">
+      ${activeGoals.length || completedGoals.length ? `<section class="section-block">
         <div class="section-heading">
           <div>
             <p class="eyebrow">Goals & Progress</p>
@@ -7280,18 +7363,18 @@ function renderChildPortfolioPage(childId) {
         </div>
         <div class="progress-bar"><span style="width:${summary.progressPercent}%"></span></div>
         <div class="portfolio-two-column">
-          <div>
+          ${activeGoals.length ? `<div>
             <h4>Active Goals</h4>
-            <div class="resource-list compact">${activeGoals.length ? activeGoals.map(goalItem).join("") : `<div class="empty-state">No active goals yet.</div>`}</div>
-          </div>
-          <div>
+            <div class="resource-list compact">${activeGoals.map(goalItem).join("")}</div>
+          </div>` : ""}
+          ${completedGoals.length ? `<div>
             <h4>Completed Goals</h4>
-            <div class="resource-list compact">${completedGoals.length ? completedGoals.map(goalItem).join("") : `<div class="empty-state">No completed goals yet.</div>`}</div>
-          </div>
+            <div class="resource-list compact">${completedGoals.map(goalItem).join("")}</div>
+          </div>` : ""}
         </div>
-      </section>
+      </section>` : ""}
 
-      <section class="section-block">
+      ${portfolio.differentiations.length || recommendedActivities.length ? `<section class="section-block">
         <div class="section-heading">
           <div>
             <p class="eyebrow">Activities & Lessons</p>
@@ -7299,18 +7382,18 @@ function renderChildPortfolioPage(childId) {
           </div>
         </div>
         <div class="portfolio-two-column">
-          <div>
+          ${portfolio.differentiations.length ? `<div>
             <h4>Activities Completed</h4>
-            <div class="resource-list compact">${portfolio.differentiations.length ? portfolio.differentiations.map(simpleRecordItem).join("") : `<div class="empty-state">No connected activities yet.</div>`}</div>
-          </div>
-          <div>
+            <div class="resource-list compact">${portfolio.differentiations.map(simpleRecordItem).join("")}</div>
+          </div>` : ""}
+          ${recommendedActivities.length ? `<div>
             <h4>Recommended Activities</h4>
-            ${renderChipList(childRecommendationAreas(child, portfolio.goals, portfolio.observations).flatMap(suggestedActivitiesForArea).slice(0, 8))}
-          </div>
+            ${renderChipList(recommendedActivities)}
+          </div>` : ""}
         </div>
-      </section>
+      </section>` : ""}
 
-      <section class="section-block">
+      ${milestones.length ? `<section class="section-block">
         <div class="section-heading">
           <div>
             <p class="eyebrow">Milestones</p>
@@ -7318,16 +7401,16 @@ function renderChildPortfolioPage(childId) {
           </div>
         </div>
         <div class="portfolio-timeline">
-          ${milestones.length ? milestones.map((item) => `
+          ${milestones.map((item) => `
             <article class="portfolio-timeline-item">
               <div><strong>${escapeHtml(formatDateLabel(item.date))}</strong><span>${escapeHtml(item.title)}</span></div>
               <p>${escapeHtml(item.detail)}</p>
             </article>
-          `).join("") : `<div class="empty-state">Add observations and completed goals to build the milestone timeline.</div>`}
+          `).join("")}
         </div>
-      </section>
+      </section>` : ""}
 
-      <section class="section-block">
+      ${portfolio.reports.length ? `<section class="section-block">
         <div class="section-heading">
           <div>
             <p class="eyebrow">Reports</p>
@@ -7335,8 +7418,8 @@ function renderChildPortfolioPage(childId) {
           </div>
           <button class="ghost-button" data-build-daily-report="${child.id}" type="button">Generate Progress Report</button>
         </div>
-        <div class="resource-list compact">${portfolio.reports.length ? portfolio.reports.map(simpleRecordItem).join("") : `<div class="empty-state">No progress reports yet.</div>`}</div>
-      </section>
+        <div class="resource-list compact">${portfolio.reports.map(simpleRecordItem).join("")}</div>
+      </section>` : ""}
 
     </section>
   `;
@@ -8827,28 +8910,35 @@ function exportChildPortfolio(childId) {
   const records = childRecords();
   const child = records.children.find((item) => item.id === childId);
   if (!child) return;
+  const childObservations = records.observations.filter((item) => item.childId === childId);
+  const childGoals = records.goals.filter((item) => item.childId === childId);
+  const activeGoals = childGoals.filter((item) => goalProgressPercent(item.progress) < 100);
+  const childSupportPlans = records.supportPlans.filter((item) => item.childId === childId);
+  const childDifferentiations = records.differentiations.filter((item) => item.childId === childId);
+  const childAttendance = records.attendance.filter((item) => item.childId === childId);
+  const childMeals = records.meals.filter((item) => item.childId === childId);
+  const childReports = records.reports.filter((item) => item.childId === childId);
+  const childCommunications = records.communications.filter((item) => item.childId === childId);
+  const addSection = (lines, title, items) => {
+    const filledItems = items.filter((item) => presentPortfolioValue(item));
+    if (!filledItems.length) return;
+    if (lines[lines.length - 1] !== "") lines.push("");
+    lines.push(title, ...filledItems);
+  };
+  const profileLines = childPortfolioTextDetails(child, activeGoals);
   const lines = [
     `Child Portfolio: ${child.name}`,
-    "",
-    `Age Group: ${child.ageGroup}`,
-    `Age: ${childAgeLabel(child)}`,
-    `Date of Birth: ${child.dob || ""}`,
-    `Enrollment Date: ${child.enrollmentDate || ""}`,
-    `Classroom/Group: ${child.classroom || ""}`,
-    `Parent/Guardian: ${child.parentInfo || ""}`,
-    `Emergency Contacts: ${child.emergency || ""}`,
-    `Allergies: ${child.allergies || ""}`,
-    `Medical Notes: ${child.medical || ""}`,
-    `Developmental Goals: ${childGoalDisplayLabels(child).join(", ")}`,
-    `Support Areas: ${childSelectedSupportAreas(child).join(", ")}`,
-    `Active Goals: ${child.activeGoals || ""}`,
-    `Additional Notes: ${child.notes || ""}`,
-    "",
-    "Development Summary",
-    `${child.name} has ${records.observations.filter((item) => item.childId === childId).length} saved observations, ${records.goals.filter((item) => item.childId === childId && goalProgressPercent(item.progress) < 100).length} active goals, and ${records.differentiations.filter((item) => item.childId === childId).length} connected activity supports. Use this portfolio as a printable progress record for planning, family conferences, and documentation review.`,
-    "",
-    "Observations",
-    ...records.observations.filter((item) => item.childId === childId).map((item) => {
+    ...(profileLines.length ? ["", ...profileLines] : []),
+  ];
+  const summaryParts = [
+    childObservations.length ? `${childObservations.length} saved observation${childObservations.length === 1 ? "" : "s"}` : "",
+    activeGoals.length ? `${activeGoals.length} active goal${activeGoals.length === 1 ? "" : "s"}` : "",
+    childDifferentiations.length ? `${childDifferentiations.length} connected activity support${childDifferentiations.length === 1 ? "" : "s"}` : "",
+  ].filter(Boolean);
+  addSection(lines, "Development Summary", summaryParts.length
+    ? [`${child.name} has ${summaryParts.join(", ")}. Use this portfolio as a printable progress record for planning, family conferences, and documentation review.`]
+    : []);
+  addSection(lines, "Observations", childObservations.map((item) => {
       const analysis = observationAnalysis(item, child);
       return `- ${item.date} | ${analysis.developmentArea}: ${item.text}
   Categories: ${(analysis.categories || []).join(", ")}
@@ -8858,36 +8948,39 @@ function exportChildPortfolio(childId) {
   Suggested Lesson Plans: ${(analysis.suggestedLessonPlans || []).join(", ")}
   ELG Domain: ${analysis.elgDomain}
   ELG Skill Area: ${analysis.elgSkill}`;
-    }),
-    "",
-    "Goals",
-    ...records.goals.filter((item) => item.childId === childId).map((item) => {
+    }));
+  addSection(lines, "Goals", childGoals.map((item) => {
       const area = normalizeObservationArea(item.area) || item.area;
       return `- ${area}: ${item.goal} | Progress: ${goalProgressPercent(item.progress)}% | Target: ${item.targetDate || ""}
   Connected Observations: ${connectedObservationsForGoal(item, records).length}
   Suggested Activities: ${suggestedActivitiesForArea(area).join(", ")}
   Suggested Lesson Plans: ${suggestedLessonPlansForArea(area).join(", ")}
   Progress Notes: ${item.notes || ""}`;
-    }),
-    "",
-    "Support Plans",
-    ...records.supportPlans.filter((item) => item.childId === childId).map((item) => `- ${item.area}: ${item.goal} | ${item.activity} | ${item.status}`),
-    "",
-    "Activities Completed / Lesson Plan Connections",
-    ...records.differentiations.filter((item) => item.childId === childId).map((item) => `- Whole Group: ${item.wholeGroup}. Individual Support: ${item.support}`),
-    "",
-    "Attendance",
-    ...records.attendance.filter((item) => item.childId === childId).map((item) => `- ${item.date}: ${item.status}, drop-off ${item.dropoff || ""}, pick-up ${item.pickup || ""}`),
-    "",
-    "Meals",
-    ...records.meals.filter((item) => item.childId === childId).map((item) => `- ${item.date}: Breakfast ${item.breakfast || ""}; Lunch ${item.lunch || ""}; Snack ${item.snack || ""}; Notes ${item.notes || ""}`),
-    "",
-    "Daily Reports",
-    ...records.reports.filter((item) => item.childId === childId).map((item) => `- ${item.title}: ${item.summary}`),
-    "",
-    "Parent Communication",
-    ...records.communications.filter((item) => item.childId === childId).map((item) => `- ${item.date} | ${item.type}: ${item.message}`),
-  ];
+    }));
+  addSection(lines, "Support Plans", childSupportPlans.map((item) => portfolioBullet([item.area, item.goal, item.activity, item.status])));
+  addSection(lines, "Activities Completed / Lesson Plan Connections", childDifferentiations.map((item) => portfolioBullet([
+    portfolioTextLine("Whole Group", item.wholeGroup),
+    portfolioTextLine("Individual Support", item.support),
+  ], ". ")));
+  addSection(lines, "Attendance", childAttendance.map((item) => portfolioBullet([
+    item.date,
+    item.status,
+    item.dropoff ? `drop-off ${item.dropoff}` : "",
+    item.pickup ? `pick-up ${item.pickup}` : "",
+  ], ", ")));
+  addSection(lines, "Meals", childMeals.map((item) => portfolioBullet([
+    item.date,
+    item.breakfast ? `Breakfast ${item.breakfast}` : "",
+    item.lunch ? `Lunch ${item.lunch}` : "",
+    item.snack ? `Snack ${item.snack}` : "",
+    item.notes ? `Notes ${item.notes}` : "",
+  ], "; ")));
+  addSection(lines, "Daily Reports", childReports.map((item) => portfolioBullet([item.title, item.summary], ": ")));
+  addSection(lines, "Parent Communication", childCommunications.map((item) => portfolioBullet([
+    item.date,
+    item.type,
+    item.message,
+  ])));
   printTextDocument(`${child.name} Portfolio`, lines.join("\n"));
 }
 
