@@ -4086,6 +4086,27 @@ button {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.support-search {
+  display: grid;
+  gap: 7px;
+  max-width: 620px;
+  font-weight: 800;
+}
+
+.support-search span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.support-search input {
+  width: 100%;
+  padding: 13px;
+  color: var(--ink);
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
 .support-category-card,
 .support-topic-card {
   display: grid;
@@ -4331,6 +4352,20 @@ button {
 
 .support-ai-grid strong {
   color: #386062;
+}
+
+.observation-support-match {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  background: rgba(219, 233, 220, 0.46);
+  border: 1px solid rgba(56, 96, 98, 0.12);
+  border-radius: 10px;
+}
+
+.observation-support-match strong {
+  color: #386062;
+  font-size: 13px;
 }
 
 .attention-list > div,
