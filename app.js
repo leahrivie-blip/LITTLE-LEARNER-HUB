@@ -7048,7 +7048,7 @@ function supportTopicDevelopmentArea(topic = "") {
   return normalizeObservationArea(topic) || supportAreaToDevelopmentArea(topic);
 }
 
-function supportTopicContent(topic = "") {
+function supportTopicContent(topic = "", child = null) {
   const area = supportTopicDevelopmentArea(topic);
   const base = {
     why: `${topic} often shows up when a child is still building communication, regulation, independence, or routine skills.`,
@@ -7057,7 +7057,7 @@ function supportTopicContent(topic = "") {
       "Name the skill you want to see next.",
       "Practice during calm moments before expecting it during hard moments.",
     ],
-    activities: suggestedActivitiesForArea(area).slice(0, 3),
+    activities: suggestedActivitiesForArea(area, child).slice(0, 3),
     observations: [
       `Watch what happens before ${topic.toLowerCase()} starts.`,
       "Notice which adult support helps the child recover.",
@@ -7127,7 +7127,27 @@ function supportTopicContent(topic = "") {
       parentNotes: ["We are building hand strength through play.", "Short tool practice is helping confidence.", "Playdough, stickers, and safe cutting are good next steps."],
     },
   };
-  return { ...base, ...(overrides[topic] || {}) };
+  const content = { ...base, ...(overrides[topic] || {}) };
+  if (!child || !isInfantChild(child)) return content;
+  return {
+    ...content,
+    tips: [
+      "Use short one-to-one play moments and follow the baby's cues.",
+      "Use only large baby-safe materials and stay within arm's reach.",
+      "Stop when the baby shows fatigue, distress, or disinterest.",
+    ],
+    activities: suggestedActivitiesForArea(area || "Approaches to Learning", child).slice(0, 3),
+    observations: [
+      "What did the baby reach for, grasp, look at, babble toward, or try again?",
+      "Which support helped the baby stay calm and engaged?",
+      "How long did the baby participate before needing a break?",
+    ],
+    parentNotes: [
+      "We are using short, safe play moments that match your baby's age and cues.",
+      "Today we watched what your baby reached for, noticed, or tried again.",
+      "Simple floor play, songs, board books, and large safe toys are best right now.",
+    ],
+  };
 }
 
 function supportCenterSelectedChild(records = childRecords()) {
@@ -7253,7 +7273,7 @@ function renderSupportCategoryPage(category) {
 function renderSupportTopicPage(topicRecord, records = childRecords()) {
   const topic = topicRecord.topic;
   const child = supportCenterSelectedChild(records);
-  const content = supportTopicContent(topic);
+  const content = supportTopicContent(topic, child);
   const tabs = [
     ["why", "Why"],
     ["tips", "Tips"],
@@ -7354,7 +7374,7 @@ function renderSupportMiniResourceCard(resource = {}) {
 }
 
 function renderSupportAiIdeas(topic = "", child = null, records = childRecords()) {
-  const content = supportTopicContent(topic);
+  const content = supportTopicContent(topic, child);
   const resourcesForTopic = supportTopicResources(topic, child, records);
   const observations = child ? records.observations.filter((item) => item.childId === child.id).slice(-2) : [];
   const context = child ? childRecommendationContext(child, records) : null;
