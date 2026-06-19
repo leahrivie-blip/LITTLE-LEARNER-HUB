@@ -576,8 +576,8 @@ const formGroups = {
   ],
 };
 const activityTypes = ["Fine Motor", "Gross Motor", "Sensory", "Art", "Science", "STEM", "Literacy", "Math", "Outdoor Play", "Circle Time"];
-const printableTypes = ["Tracing Worksheets", "Coloring Pages", "Alphabet Practice", "Number Practice", "Shape Practice", "Name Writing", "Cutting Practice", "Matching Activities", "Seasonal Worksheets", "Holiday Worksheets"];
-const professionalPrintableTypes = ["Tracing Worksheets", "Coloring Pages", "Alphabet Practice", "Number Practice", "Shape Practice", "Name Writing", "Cutting Practice", "Matching Activities", "Assessment Forms", "Seasonal Worksheets", "Holiday Worksheets"];
+const printableTypes = ["Infant Activity Guide", "Tracing Worksheets", "Coloring Pages", "Alphabet Practice", "Number Practice", "Shape Practice", "Name Writing", "Cutting Practice", "Matching Activities", "Seasonal Worksheets", "Holiday Worksheets"];
+const professionalPrintableTypes = ["Infant Activity Guide", "Tracing Worksheets", "Coloring Pages", "Alphabet Practice", "Number Practice", "Shape Practice", "Name Writing", "Cutting Practice", "Matching Activities", "Assessment Forms", "Seasonal Worksheets", "Holiday Worksheets"];
 const printableQualityBlockedTerms = ["placeholder", "draw here", "blank box", "coming soon", "lorem ipsum", "unfinished", "ai draft", "ai-generated"];
 const printablePdfLimit = Number.POSITIVE_INFINITY;
 
@@ -3015,6 +3015,7 @@ function printableType(resource) {
   const exactType = printableTypes.find((type) => resource.tags.includes(type) || resource.title.includes(type));
   if (exactType) return exactType;
   const label = `${resource.title} ${resource.tags.join(" ")}`.toLowerCase();
+  if (label.includes("infant activity guide")) return "Infant Activity Guide";
   if (label.includes("letter") || label.includes("alphabet")) return "Alphabet Practice";
   if (label.includes("number")) return "Number Practice";
   if (label.includes("shape")) return "Shape Practice";
@@ -3061,6 +3062,7 @@ function printableTypeForArea(area = "", goalText = "") {
 
 function printableProfessionalFeatures(type) {
   const features = {
+    "Infant Activity Guide": ["Brief one-to-one play idea", "Safe materials only", "Observation prompts", "Family-friendly next step"],
     "Tracing Worksheets": ["Dotted tracing paths", "Letter and word formation practice", "Left-to-right movement", "Teacher observation note"],
     "Coloring Pages": ["Full-page outlined scene", "Vocabulary prompts", "Color key", "Conversation extension"],
     "Alphabet Practice": ["Letter recognition", "Uppercase and lowercase tracing", "Beginning sound practice", "Independent attempt space"],
@@ -6500,6 +6502,28 @@ function ageGroupFromDob(dob) {
   return "School Age";
 }
 
+function childAgeMonths(child = {}) {
+  if (child.dob) {
+    const birthDate = new Date(`${child.dob}T12:00:00`);
+    if (!Number.isNaN(birthDate.getTime())) {
+      const today = new Date();
+      let months = (today.getFullYear() - birthDate.getFullYear()) * 12 + (today.getMonth() - birthDate.getMonth());
+      if (today.getDate() < birthDate.getDate()) months -= 1;
+      return Math.max(months, 0);
+    }
+  }
+  const ageText = cleanAgeText(child.age || child.ageLabel || "");
+  const monthMatch = ageText.match(/(\d+)\s*months?/i);
+  if (monthMatch) return Number(monthMatch[1]);
+  const yearMatch = ageText.match(/(\d+)\s*years?/i);
+  if (yearMatch) return Number(yearMatch[1]) * 12;
+  return null;
+}
+
+function isInfantChild(child = {}) {
+  return normalizeAgeGroup(child.ageGroup) === "Infant" || (childAgeMonths(child) !== null && childAgeMonths(child) < 12);
+}
+
 function cleanAgeText(value) {
   return String(value || "")
     .replace(/[^\x20-\x7E]/g, " ")
@@ -6637,9 +6661,9 @@ function childSuggestionIdeas(child = {}, records = childRecords()) {
   const activities = primarySupport
     ? [
       supportNextStep(primarySupport, child.name),
-      ...suggestedActivitiesForArea(supportAreaToDevelopmentArea(primarySupport)).slice(0, 2),
+      ...suggestedActivitiesForArea(supportAreaToDevelopmentArea(primarySupport), child).slice(0, 2),
     ]
-    : suggestedActivitiesForArea(primaryArea).slice(0, 3);
+    : suggestedActivitiesForArea(primaryArea, child).slice(0, 3);
   return {
     context,
     primaryArea,
@@ -6648,7 +6672,7 @@ function childSuggestionIdeas(child = {}, records = childRecords()) {
     lesson: childLessonRecommendations(child, records, 1)[0]?.title || suggestedLessonPlansForArea(primaryArea)[0],
     observation: `${child.name || "The child"} practiced ${displayDevelopmentArea(primaryArea).toLowerCase()} during play. Notice what support was needed, what the child tried independently, and what helped them stay engaged.`,
     parentNote: `${child.name || "Your child"} is working on ${primarySupport || displayDevelopmentArea(primaryArea).toLowerCase()}. We are using short, supportive activities and will keep sharing what helps.`,
-    nextStep: primarySupport ? supportNextStep(primarySupport, child.name) : nextStepForArea(primaryArea),
+    nextStep: primarySupport ? supportNextStep(primarySupport, child.name) : nextStepForArea(primaryArea, child),
   };
 }
 
@@ -6874,7 +6898,43 @@ function strengthForArea(area, childName = "The child") {
   return map[area] || map["Approaches to Learning"];
 }
 
-function nextStepForArea(area) {
+function infantActivitiesForArea(area, child = {}) {
+  const months = childAgeMonths(child);
+  const veryYoung = months !== null && months < 6;
+  const map = {
+    "Social Emotional": veryYoung
+      ? ["Face-to-face smiles", "Comfort routine practice", "Gentle mirror play", "Responsive peekaboo"]
+      : ["Peekaboo turn-taking", "Mirror feelings faces", "Name the feeling", "Comfort object routine"],
+    "Language & Literacy": veryYoung
+      ? ["Serve-and-return cooing", "Soft song gestures", "Board book looking", "Name familiar people"]
+      : ["Picture book naming", "Babble back-and-forth", "Peekaboo words", "Song with simple gestures"],
+    "Cognitive Development": veryYoung
+      ? ["Track a soft toy", "Cause-and-effect rattle", "Peekaboo cloth play", "Explore safe textures"]
+      : ["Object permanence peekaboo", "Container fill-and-dump", "Cause-and-effect toy", "Large cup nesting"],
+    "Fine Motor": veryYoung
+      ? ["Tummy-time reaching", "Soft rattle grasping", "Hand-to-hand toy transfer", "Texture mat exploration"]
+      : ["Soft block grasp and release", "Peekaboo scarf pull", "Large ring stack with help", "Container fill-and-dump"],
+    "Gross Motor": veryYoung
+      ? ["Tummy-time reaching", "Supported side-lying play", "Gentle kick-and-reach", "Head-turn tracking"]
+      : ["Crawling tunnel peekaboo", "Supported cruising practice", "Reach-and-roll play", "Pull-to-stand support"],
+    "Physical Development": veryYoung
+      ? ["Responsive feeding cues", "Tummy-time routine", "Diaper-change song", "Gentle body awareness"]
+      : ["Self-feeding finger foods", "Cup practice with help", "Wash hands with song", "Routine picture cue"],
+    "Creative Arts": veryYoung
+      ? ["High-contrast art looking", "Soft music sway", "Texture cloth exploration", "Gentle shaker sounds"]
+      : ["Edible-safe sensory bag", "Music and movement", "Large paper texture touch", "Shaker sound play"],
+    "Approaches to Learning": veryYoung
+      ? ["Follow baby's gaze", "Repeat favorite sound", "Safe texture choice", "Reach-for-toy invitation"]
+      : ["Two-toy choice play", "Hidden toy peekaboo", "Repeat-and-try game", "Safe exploration basket"],
+  };
+  return map[area] || map["Approaches to Learning"];
+}
+
+function nextStepForArea(area, child = null) {
+  if (child && isInfantChild(child)) {
+    const activity = infantActivitiesForArea(area, child)[0];
+    return `Try ${activity.toLowerCase()} with close supervision and follow the baby's cues.`;
+  }
   const map = {
     "Social Emotional": "Offer small-group turn-taking games, feeling words, and gentle coaching during peer play.",
     "Language & Literacy": "Add repeated books, picture cards, songs, and open-ended questions to extend language.",
@@ -6888,7 +6948,8 @@ function nextStepForArea(area) {
   return map[area] || map["Approaches to Learning"];
 }
 
-function suggestedActivitiesForArea(area) {
+function suggestedActivitiesForArea(area, child = null) {
+  if (child && isInfantChild(child)) return infantActivitiesForArea(area, child);
   const map = {
     "Social Emotional": ["Feelings faces", "Partner turn-taking game", "Friendship helper chart", "Calm-down basket"],
     "Language & Literacy": ["Picture card naming", "Story retell basket", "Rhyming songs", "Name and letter hunt"],
@@ -7342,14 +7403,18 @@ function observationAnalysis(record, child = {}) {
   const supportMatches = inferredSupportMatches.length
     ? inferredSupportMatches
     : Array.isArray(record.supportAreaMatches) ? record.supportAreaMatches : [];
+  const generatedActivities = record.suggestedActivities || suggestedActivitiesForArea(primaryArea, child);
+  const safeActivities = isInfantChild(child)
+    ? generatedActivities.filter((item) => !infantUnsafeRecommendationText(item))
+    : generatedActivities;
   return {
     categories,
     primaryArea,
     developmentArea: primaryArea,
     supportAreaMatches: supportMatches,
     strengths: record.strengths || strengthForArea(primaryArea, childName),
-    nextSteps: record.nextSteps || nextStepForArea(primaryArea),
-    suggestedActivities: record.suggestedActivities || suggestedActivitiesForArea(primaryArea),
+    nextSteps: record.nextSteps || nextStepForArea(primaryArea, child),
+    suggestedActivities: safeActivities.length ? safeActivities : suggestedActivitiesForArea(primaryArea, child),
     suggestedLessonPlans: record.suggestedLessonPlans || suggestedLessonPlansForArea(primaryArea),
     elgDomain: record.elgDomain || elg.domain,
     elgSkill: record.elgSkill || elg.skill,
@@ -7579,6 +7644,23 @@ function resourceAgeTier(resource, childAgeGroup) {
   return 3;
 }
 
+function infantUnsafeRecommendationText(value = "") {
+  return /\b(scissors?|cutting|cut along|tracing|trace|beads?|beading|stringing|play\s*dough|playdough|tongs?|tweezers?|pencils?|writing|worksheet)\b/i.test(String(value || ""));
+}
+
+function resourceUnsafeForInfant(resource = {}) {
+  const haystack = [
+    resource.title,
+    resource.category,
+    resource.description,
+    resource.theme,
+    resource.activityFocus,
+    resource.developmentalArea,
+    ...(resource.tags || []),
+  ].join(" ");
+  return infantUnsafeRecommendationText(haystack);
+}
+
 function resourceAreaMatchLevel(resource, areas) {
   for (const area of areas) {
     const areaText = String(area || "").toLowerCase();
@@ -7614,8 +7696,10 @@ function resourceAreaMatchLevel(resource, areas) {
 }
 
 function ageAwareResourceMatches(category, areas, childAgeGroup) {
+  const infant = normalizeAgeGroup(childAgeGroup) === "Infant";
   return resources
     .filter((resource) => resource.category === category && resourceRecommendationScore(resource, areas) > 0)
+    .filter((resource) => !infant || !resourceUnsafeForInfant(resource))
     .map((resource) => ({
       resource,
       ageTier: resourceAgeTier(resource, childAgeGroup),
@@ -7680,6 +7764,7 @@ function childLessonRecommendations(child = {}, records = childRecords(), limit 
   const primarySupport = context.supportAreas[0] || "";
   const scored = resources
     .filter((resource) => resource.category === "Lesson Plans")
+    .filter((resource) => !isInfantChild(child) || !resourceUnsafeForInfant(resource))
     .map((resource) => {
       const ageTier = resourceAgeTier(resource, child.ageGroup);
       const primaryDisplayArea = displayDevelopmentArea(primaryGoalArea);
@@ -7760,7 +7845,7 @@ function prioritizeProfessionalResources(items = [], areas = [], childAgeGroup =
 
 function professionalGoalPrintableResource(child = {}, goal = {}, area = "Developmental Goal") {
   const childAge = normalizeAgeGroup(child.ageGroup) || child.ageGroup || "All Ages";
-  const type = printableTypeForArea(area, goal.goal || child.activeGoals || "");
+  const type = isInfantChild(child) ? "Infant Activity Guide" : printableTypeForArea(area, goal.goal || child.activeGoals || "");
   const theme = area.replace("Language & Literacy", "Speech and Language");
   return {
     id: `generated-printable-${child.id || "child"}-${domSafeId(goal.id || goal.goal || area)}`,
@@ -7781,15 +7866,16 @@ function professionalGoalPrintableResource(child = {}, goal = {}, area = "Develo
 function professionalGoalPrintableText(child = {}, goal = {}, area = "Developmental Goal", type = "Tracing Worksheets") {
   const childAge = normalizeAgeGroup(child.ageGroup) || child.ageGroup || "All Ages";
   const features = printableProfessionalFeatures(type);
+  const infant = isInfantChild(child);
   return `Professional Goal Support Printable
 Child: ${child.name || "Child"}
 Age Group: ${childAge}
 Developmental Area: ${area}
-Goal: ${goal.goal || child.activeGoals || goalExampleForArea(area)}
+Goal: ${goal.goal || child.activeGoals || goalExampleForArea(area, child)}
 Printable Type: ${type}
 
 Teacher Directions
-Use this as a short small-group, one-to-one, portfolio, or take-home page. Model the first step, offer only the support the child needs, and document what the child does independently.
+${infant ? "Use this as a brief one-to-one play guide. Stay within arm's reach, use only large baby-safe materials, follow the baby's cues, and stop when the baby shows fatigue or distress." : "Use this as a short small-group, one-to-one, portfolio, or take-home page. Model the first step, offer only the support the child needs, and document what the child does independently."}
 
 Included On This Page
 ${features.map((item) => `- ${item}`).join("\n")}
@@ -7797,7 +7883,7 @@ ${features.map((item) => `- ${item}`).join("\n")}
 Name: ____________________________________________  Date: ______________
 
 Practice Section
-Trace, cut, match, count, color, or mark the skill practice connected to this goal.
+${infant ? "Infant-safe play idea: Use soft blocks, a scarf, large rings, a board book, or a clean sensory-safe texture. Invite the baby to reach, grasp, release, look, listen, babble, or move during a short supervised play moment." : "Trace, cut, match, count, color, or mark the skill practice connected to this goal."}
 ________________________________________________________________________
 ________________________________________________________________________
 ________________________________________________________________________
@@ -7808,7 +7894,7 @@ ________________________________________________________________________
 ________________________________________________________________________
 
 Next Step
-Offer the same skill again with one small added challenge, less adult support, or a new material.`;
+${infant ? "Repeat the same safe play moment later in the day or week, watching for what the baby notices, reaches for, or tries again." : "Offer the same skill again with one small added challenge, less adult support, or a new material."}`;
 }
 
 function renderPortfolioResourceCard(resource) {
@@ -7923,7 +8009,9 @@ function renderChildPortfolioPage(childId) {
   const summary = childProgressSummary(childId, records);
   const activeGoals = portfolio.goals.filter((goal) => goalProgressPercent(goal.progress) < 100);
   const completedGoals = portfolio.goals.filter((goal) => goalProgressPercent(goal.progress) >= 100);
-  const recommendedActivities = childRecommendationAreas(child, portfolio.goals, portfolio.observations).flatMap(suggestedActivitiesForArea).slice(0, 8);
+  const recommendedActivities = childRecommendationAreas(child, portfolio.goals, portfolio.observations)
+    .flatMap((area) => suggestedActivitiesForArea(area, child))
+    .slice(0, 8);
   const filteredObservations = portfolio.observations.filter((item) => {
     const analysis = observationAnalysis(item, child);
     const haystack = [item.text, analysis.developmentArea, analysis.nextSteps, analysis.strengths, ...(analysis.categories || [])].join(" ").toLowerCase();
@@ -7981,11 +8069,11 @@ function renderChildPortfolioPage(childId) {
         <div class="portfolio-two-column">
           ${activeGoals.length ? `<div>
             <h4>Active Goals</h4>
-            <div class="resource-list compact">${activeGoals.map(goalItem).join("")}</div>
+            <div class="resource-list compact">${activeGoals.map((item) => goalItem(item, child)).join("")}</div>
           </div>` : ""}
           ${completedGoals.length ? `<div>
             <h4>Completed Goals</h4>
-            <div class="resource-list compact">${completedGoals.map(goalItem).join("")}</div>
+            <div class="resource-list compact">${completedGoals.map((item) => goalItem(item, child)).join("")}</div>
           </div>` : ""}
         </div>
       </section>` : ""}
@@ -8232,7 +8320,19 @@ function renderChildProfileCard(child, records) {
   `;
 }
 
-function goalStarterAreas() {
+function goalStarterAreas(child = null) {
+  if (child && isInfantChild(child)) {
+    return [
+      ["Fine Motor", "Fine Motor", "Reaching, grasping, transferring, safe texture play"],
+      ["Gross Motor", "Gross Motor", "Tummy time, rolling, crawling, supported standing"],
+      ["Speech & Language", "Speech & Language", "Babbling, songs, names, board books"],
+      ["Cognitive", "Cognitive", "Peekaboo, object permanence, cause and effect"],
+      ["Social Emotional", "Social Emotional", "Responsive play, comfort routines, connection"],
+      ["Self Help Skills", "Self Help Skills", "Feeding cues, care routines, handwashing songs"],
+      ["Literacy", "Literacy", "Board books, songs, gestures, familiar words"],
+      ["Early Math", "Early Math", "Size, shape, quantity, nesting, object permanence"],
+    ];
+  }
   return [
     ["Fine Motor", "Fine Motor", "Cutting, tracing, grasp, hand strength"],
     ["Gross Motor", "Gross Motor", "Balance, jumping, climbing, coordination"],
@@ -8245,7 +8345,25 @@ function goalStarterAreas() {
   ];
 }
 
-function goalExampleForArea(area) {
+function goalExampleForArea(area, child = null) {
+  if (child && isInfantChild(child)) {
+    const map = {
+      "Fine Motor": "Reach for, grasp, transfer, and release baby-safe toys",
+      "Language & Literacy": "Respond to songs, sounds, names, and simple board books",
+      "Speech & Language": "Respond to songs, sounds, names, and simple board books",
+      "Social Emotional": "Build trust through responsive play, peekaboo, and comfort routines",
+      "Cognitive Development": "Explore object permanence, cause and effect, and safe textures",
+      Cognitive: "Explore object permanence, cause and effect, and safe textures",
+      "Gross Motor": "Build strength through tummy time, reaching, rolling, crawling, or supported standing",
+      "Physical Development": "Practice safe feeding, movement, rest, and care routines",
+      "Self Help Skills": "Participate in feeding, diapering, handwashing, and simple care routines",
+      Literacy: "Look at board books and respond to songs, sounds, and familiar words",
+      "Early Math": "Explore size, shape, quantity, and object permanence through baby-safe play",
+      "Creative Arts": "Explore music, movement, and baby-safe textures",
+      "Approaches to Learning": "Explore a safe toy or texture with curiosity and repeated attempts",
+    };
+    return map[area] || map[normalizeObservationArea(area)] || map["Approaches to Learning"];
+  }
   const map = {
     "Fine Motor": "Improve scissor skills during cutting practice",
     "Language & Literacy": "Use longer sentences during play and routines",
@@ -8293,7 +8411,7 @@ function renderGoalNeedPicker(records) {
         `).join("")}
       </div>
       <div class="goal-area-picker">
-        ${goalStarterAreas().map(([area, label, detail]) => `
+        ${goalStarterAreas(child).map(([area, label, detail]) => `
           <button data-start-goal-area="${escapeHtml(area)}" data-child-id="${escapeHtml(child?.id || "")}" type="button">
             <strong>${escapeHtml(label)}</strong>
             <span>${escapeHtml(detail)}</span>
@@ -8351,6 +8469,7 @@ function goalRecommendations(child, goal, records) {
   const extraResources = resources
     .filter((resource) => !["Activity Center", "Lesson Plans", "Printables", "Observation Hub"].includes(resource.category))
     .filter((resource) => resourceRecommendationScore(resource, primaryAreas) > 0)
+    .filter((resource) => !isInfantChild(child) || !resourceUnsafeForInfant(resource))
     .map((resource) => ({
       resource,
       ageTier: resourceAgeTier(resource, child.ageGroup),
@@ -8430,7 +8549,7 @@ function todayFocusItems(records = childRecords()) {
       return {
         child,
         label: `${area} Goal`,
-        nextStep: nextStepForArea(normalizeObservationArea(activeGoals[0].area) || activeGoals[0].area),
+        nextStep: nextStepForArea(normalizeObservationArea(activeGoals[0].area) || activeGoals[0].area, child),
         action: "View Suggestions",
         actionHtml: `data-view-child-profile="${child.id}" data-open-child-tab="goals"`,
         priority: 3,
@@ -8523,10 +8642,10 @@ function goalSupportIdeaContent(child, goal, records) {
   const recommendations = goalRecommendations(child, goal, records);
   const area = recommendations.area;
   const areaLabel = displayDevelopmentArea(area);
-  const activities = suggestedActivitiesForArea(area).slice(0, 3);
+  const activities = suggestedActivitiesForArea(area, child).slice(0, 3);
   const lesson = recommendations.lessonResources.items[0]?.title || suggestedLessonPlansForArea(area)[0];
   const observation = `${child.name} practiced ${areaLabel.toLowerCase()} skills during play. Notice the words, gestures, independence, and support that helped the child stay engaged.`;
-  const nextStep = nextStepForArea(area);
+  const nextStep = nextStepForArea(area, child);
   const parentNote = `${child.name} is working on ${areaLabel.toLowerCase()} through simple play-based practice. We will keep using short, supportive activities and share progress as we observe new growth.`;
   return { area, activities, lesson, observation, nextStep, parentNote };
 }
@@ -8584,14 +8703,14 @@ function renderSimpleGoalCard(child, goal, records) {
   const area = recommendations.area;
   const areaLabel = displayDevelopmentArea(area);
   const progress = goal ? goalProgressPercent(goal.progress) : 0;
-  const activities = suggestedActivitiesForArea(area).slice(0, 3);
+  const activities = suggestedActivitiesForArea(area, child).slice(0, 3);
   const lessonFallbacks = suggestedLessonPlansForArea(area).slice(0, 3);
   const printResourceMatches = recommendations.printableResources.items.length
     ? [...recommendations.printableResources.items, ...recommendations.extraResources]
     : [];
   const printFallbacks = recommendations.professionalPrintableFallback
     ? [recommendations.professionalPrintableFallback.title, ...printableProfessionalFeatures(printableType(recommendations.professionalPrintableFallback)).slice(0, 2)]
-    : suggestedActivitiesForArea(area).slice(0, 3).map((item) => `${item} printable`);
+    : suggestedActivitiesForArea(area, child).slice(0, 3).map((item) => `${item} printable`);
   const lastObservation = goalLastObservation(child, normalizedGoal, records);
   const connectedObservations = connectedObservationsForGoal(normalizedGoal, records);
   const childSummary = childProgressSummary(child.id, records);
@@ -8622,10 +8741,10 @@ function renderSimpleGoalCard(child, goal, records) {
       <div class="goal-card-grid">
         <section class="goal-match-panel goal-main-panel">
           <h4>Goal</h4>
-          <p>${escapeHtml(goal?.goal || child.activeGoals || goalExampleForArea(area))}</p>
+          <p>${escapeHtml(goal?.goal || child.activeGoals || goalExampleForArea(area, child))}</p>
           <button class="link-button" data-view-child-profile="${child.id}" data-open-child-tab="goals" type="button">Edit Goal</button>
         </section>
-        ${renderGoalResourceList("Suggested Activities", activities.map((title) => ({ title })), suggestedActivitiesForArea(area))}
+        ${renderGoalResourceList("Suggested Activities", activities.map((title) => ({ title })), suggestedActivitiesForArea(area, child))}
         ${renderGoalResourceList("Matching Lesson Plans", recommendations.lessonResources.items, lessonFallbacks, { note: recommendations.lessonResources.note })}
         ${renderGoalResourceList("Printables & Resources", printResourceMatches, printFallbacks, {
           note: recommendations.printableResources.note,
@@ -8930,7 +9049,7 @@ function renderChildOverviewTab(child, summary, records = childRecords()) {
   const context = childRecommendationContext(child, records);
   const primaryGoal = activeGoals[0];
   const goalArea = context.areas[0] || normalizeObservationArea(primaryGoal?.area || inferAreasFromGoalText(primaryGoal?.goal || child.activeGoals || "")[0]) || "";
-  const nextActivity = suggestedActivitiesForArea(goalArea || "Approaches to Learning")[0];
+  const nextActivity = suggestedActivitiesForArea(goalArea || "Approaches to Learning", child)[0];
   const selectedGoals = childGoalDisplayLabels(child).length ? childGoalDisplayLabels(child) : ["No goals selected"];
   const selectedSupports = context.supportAreas.length ? context.supportAreas : ["No support areas selected"];
   return `
@@ -9399,7 +9518,8 @@ function supportForm(childId) {
 
 function goalForm(childId) {
   const selectedArea = pendingGoalArea || normalizeObservationArea(pendingGoalArea) || "";
-  const placeholder = goalExampleForArea(selectedArea || "Approaches to Learning");
+  const child = childRecords().children.find((item) => item.id === childId);
+  const placeholder = goalExampleForArea(selectedArea || "Approaches to Learning", child);
   return `
     <form id="childGoalForm" class="mini-form">
       <input name="childId" type="hidden" value="${childId}" />
@@ -9512,11 +9632,11 @@ function simpleRecordItem(item) {
   `;
 }
 
-function goalItem(item) {
+function goalItem(item, child = {}) {
   const progress = goalProgressPercent(item.progress);
   const area = normalizeObservationArea(item.area) || item.area || "Approaches to Learning";
   const connectedObservations = connectedObservationsForGoal(item);
-  const activities = suggestedActivitiesForArea(area).slice(0, 4);
+  const activities = suggestedActivitiesForArea(area, child).slice(0, 4);
   const lessonPlans = suggestedLessonPlansForArea(area).slice(0, 3);
   return `
     <div class="compact-item">
@@ -9617,7 +9737,7 @@ function exportChildPortfolio(childId) {
       const area = normalizeObservationArea(item.area) || item.area;
       return `- ${area}: ${item.goal} | Progress: ${goalProgressPercent(item.progress)}% | Target: ${item.targetDate || ""}
   Connected Observations: ${connectedObservationsForGoal(item, records).length}
-  Suggested Activities: ${suggestedActivitiesForArea(area).join(", ")}
+  Suggested Activities: ${suggestedActivitiesForArea(area, child).join(", ")}
   Suggested Lesson Plans: ${suggestedLessonPlansForArea(area).join(", ")}
   Progress Notes: ${item.notes || ""}`;
     }));
@@ -13001,8 +13121,8 @@ document.addEventListener("click", (event) => {
     const child = childRecords().children.find((item) => item.id === formData.get("childId"));
     const selectedAreas = formData.getAll("areas").map((area) => normalizeObservationArea(area) || area).filter(Boolean);
     const area = selectedAreas[0] || "Approaches to Learning";
-    const ideas = suggestedActivitiesForArea(area).slice(0, 4);
-    const nextStep = nextStepForArea(area);
+    const ideas = suggestedActivitiesForArea(area, child).slice(0, 4);
+    const nextStep = nextStepForArea(area, child);
     const output = form.querySelector("#observationIdeasOutput");
     if (output) {
       output.innerHTML = `
