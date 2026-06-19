@@ -915,7 +915,7 @@ button {
   color: #d9534f;
   font-size: clamp(30px, 4.8vw, 48px);
   line-height: 1.05;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .founding-hero-card .eyebrow {
@@ -930,7 +930,7 @@ button {
   color: #7d6253;
 }
 
-.founding-price-row span {
+.founding-price-row > span {
   font-size: clamp(18px, 2vw, 24px);
 }
 
@@ -948,6 +948,10 @@ button {
   font-weight: 800;
   line-height: 1.1;
   text-align: left;
+}
+
+.founding-price-row em span {
+  display: block;
 }
 
 .founding-remaining {
@@ -1045,6 +1049,65 @@ button {
   bottom: 70px;
   right: 7%;
   background: #e97872;
+}
+
+.mobile-signup-pitch {
+  margin: 0 0 24px;
+}
+
+.mobile-signup-card {
+  display: grid;
+  gap: 12px;
+  padding: 20px 22px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(214, 199, 180, 0.88);
+  border-radius: 16px;
+  box-shadow: 0 14px 28px rgba(83, 62, 42, 0.07);
+}
+
+.mobile-signup-card h2 {
+  margin: 0;
+  color: #2f5c57;
+  font-size: clamp(24px, 3vw, 34px);
+  line-height: 1.08;
+}
+
+.mobile-signup-card p {
+  max-width: 780px;
+  margin: 0;
+  color: var(--ink);
+  line-height: 1.48;
+}
+
+.mobile-signup-card ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mobile-signup-card li {
+  position: relative;
+  padding-left: 24px;
+  color: var(--ink);
+  font-weight: 800;
+  line-height: 1.28;
+}
+
+.mobile-signup-card li::before {
+  content: "\2713";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: #2f8f76;
+  font-weight: 900;
+}
+
+.mobile-signup-card .primary-button {
+  justify-self: start;
+  min-height: 46px;
 }
 
 .landing-value-strip,
@@ -5645,20 +5708,122 @@ button {
     padding: 22px;
   }
 
+  .landing-founding-slot {
+    margin: 0 0 8px;
+  }
+
   .founding-hero-card {
     min-height: auto;
-    padding: 54px 18px 24px;
-    border-radius: 16px;
+    gap: 7px;
+    padding: 15px 12px 12px;
+    border-radius: 14px;
+  }
+
+  .founding-star,
+  .confetti {
+    display: none;
+  }
+
+  .founding-hero-card h2 {
+    margin: 0;
+    font-size: 21px;
+    line-height: 1.05;
+    text-transform: none;
   }
 
   .founding-price-row {
-    display: grid;
+    display: flex;
     gap: 4px;
     text-align: center;
   }
 
+  .founding-price-prefix {
+    display: none;
+  }
+
+  .founding-price-row strong {
+    font-size: 39px;
+  }
+
   .founding-price-row em {
+    font-size: 15px;
+    line-height: 1;
     text-align: center;
+  }
+
+  .founding-price-row em span {
+    display: inline;
+    font-size: inherit;
+  }
+
+  .founding-remaining {
+    font-size: 15px;
+    line-height: 1.15;
+  }
+
+  .founding-cta-button {
+    min-height: 44px;
+    min-width: 0;
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 15px;
+    box-shadow: 0 8px 16px rgba(217, 83, 79, 0.18);
+  }
+
+  .founding-live-meter {
+    width: 100%;
+    max-width: 300px;
+    gap: 3px;
+    margin: 0 auto;
+  }
+
+  .founding-live-meter span {
+    height: 4px;
+  }
+
+  .founding-live-meter small {
+    font-size: 12px;
+    line-height: 1.1;
+  }
+
+  .mobile-signup-pitch {
+    margin: 0 0 14px;
+  }
+
+  .mobile-signup-card {
+    gap: 9px;
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .mobile-signup-card h2 {
+    font-size: 22px;
+  }
+
+  .mobile-signup-card p {
+    font-size: 14px;
+    line-height: 1.38;
+  }
+
+  .mobile-signup-card ul {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .mobile-signup-card li {
+    padding-left: 22px;
+    font-size: 14px;
+    line-height: 1.22;
+  }
+
+  .mobile-signup-card .primary-button {
+    justify-self: stretch;
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .landing-value-strip {
+    margin-top: 14px;
   }
 
   .landing-stat-grid,

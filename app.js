@@ -11841,18 +11841,18 @@ function renderHomeFoundingOffer() {
       <span class="confetti confetti-one" aria-hidden="true"></span>
       <span class="confetti confetti-two" aria-hidden="true"></span>
       <span class="confetti confetti-three" aria-hidden="true"></span>
-      <h2>${soldOut ? "Founding Member spots are filled" : "Founding Member Special"}</h2>
+      <h2>${soldOut ? "Founding Member spots are filled" : "Founding Member Pricing"}</h2>
       <div class="founding-price-row">
-        <span>Get Pro for</span>
+        <span class="founding-price-prefix">Get Pro for</span>
         <strong>${soldOut ? "$19.99" : "$9.99"}</strong>
-        <em>/month<br>${soldOut ? "regular price" : "for life!"}</em>
+        <em>/month <span>${soldOut ? "regular price" : "for life"}</span></em>
       </div>
-      <p class="founding-remaining">${soldOut ? "Founding pricing is closed" : `Only <strong>${remaining}</strong> spots remaining`}</p>
+      <p class="founding-remaining">${soldOut ? "Founding pricing is closed" : `Only <strong>${remaining}</strong> Spots Remaining`}</p>
+      <button class="primary-button founding-cta-button" data-checkout-plan="${soldOut ? "monthly" : "founding"}" type="button">${soldOut ? "Choose Pro Monthly" : "Claim Founding Member Pricing"}</button>
       <div class="founding-live-meter" aria-label="${claimed} of ${limit} founding spots claimed">
         <span><i style="width: ${foundingProgressPercent()}%"></i></span>
-        <small>${soldOut ? "All founding spots are claimed" : `${claimed} of ${limit} founding spots claimed`}</small>
+        <small>${soldOut ? "All founding spots are claimed" : `${claimed} of ${limit} Spots Claimed`}</small>
       </div>
-      <button class="primary-button founding-cta-button" data-checkout-plan="${soldOut ? "monthly" : "founding"}" type="button">${soldOut ? "Choose Pro Monthly" : "Claim Founding Member Pricing"}</button>
     </div>
   `;
 }
