@@ -6198,16 +6198,29 @@ function addAiMessage(role, text) {
 }
 
 function renderAiToolGrid() {
-  const grid = document.querySelector("#aiToolGrid");
-  if (!grid) return;
-  grid.innerHTML = aiTools.map((tool) => `
-    <article class="ai-tool-card">
-      <span class="tag access-tag">Pro AI</span>
-      <h3>${tool.title}</h3>
-      <p>${tool.detail}</p>
-      <button class="primary-button" data-tool="${tool.id}" type="button">Open Tool</button>
-    </article>
-  `).join("");
+  const grid = document.querySelector("#aiToolGrid");
+  if (!grid) return;
+
+  const featuredTools = ["observation", "lesson", "daily-report", "parent-message"];
+
+  grid.innerHTML = `
+    <div class="ai-tools-intro">
+      <h3>Start with the most-used tools</h3>
+      <p>Use these first to save time on observations, lesson plans, daily reports, and parent messages.</p>
+    </div>
+    ${aiTools
+      .sort((a, b) => featuredTools.indexOf(b.id) - featuredTools.indexOf(a.id))
+      .map((tool) => `
+        <article class="ai-tool-card ${featuredTools.includes(tool.id) ? "featured-tool" : ""}">
+          <span class="tag access-tag">${featuredTools.includes(tool.id) ? "Recommended" : "Pro AI"}</span>
+          <h3>${tool.title}</h3>
+          <p>${tool.detail}</p>
+          <button class="primary-button" data-tool="${tool.id}" type="button">Open Tool</button>
+        </article>
+      `)
+      .join("")}
+  `;
+}
 }
 
 function renderGeneratorWorkspace(toolId) {
