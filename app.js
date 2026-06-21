@@ -2284,7 +2284,9 @@ function canUseLaunchBackend() {
 
 function isPromoLinkActive() {
   const params = new URLSearchParams(window.location.search);
-  return params.has("promo") || window.location.hash.includes("promo=");
+  if (params.has("promo")) return true;
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  return hashParams.has("promo");
 }
 
 function requireBillingAccount() {
@@ -2301,8 +2303,12 @@ let currentPlan = localStorage.getItem("llhPlan") || "Free";
 let currentUser = localStorage.getItem("llhUser") || "";
 let activeFilter = "All";
 let currentAuthMode = "login";
-let checkoutPromoCode = isPromoLinkActive() ? (localStorage.getItem("llhCheckoutPromoCode") || "") : "";
-if (!isPromoLinkActive()) localStorage.removeItem("llhCheckoutPromoCode");
+let checkoutPromoCode = "";
+if (isPromoLinkActive()) {
+  checkoutPromoCode = localStorage.getItem("llhCheckoutPromoCode") || "";
+} else {
+  localStorage.removeItem("llhCheckoutPromoCode");
+}
 let adminAnalyticsCache = null;
 let adminAnalyticsLoading = false;
 
