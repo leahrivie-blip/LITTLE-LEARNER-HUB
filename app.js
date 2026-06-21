@@ -2534,6 +2534,7 @@ function setAuthMode(mode) {
   setFormMessage("#authMessage", "");
   if (!title || !phoneField || !passwordField || !submitButton || !forgotButton || !switchButton) return;
   phoneField.classList.toggle("hidden-field", mode !== "signup");
+  phoneField.setAttribute("aria-hidden", mode !== "signup" ? "true" : "false");
   passwordField.required = mode !== "forgot";
   passwordField.autocomplete = mode === "signup" ? "new-password" : "current-password";
   passwordField.closest("label")?.classList.toggle("hidden-field", mode === "forgot");
