@@ -25,7 +25,7 @@ function requestJson(target) {
             data: JSON.parse(Buffer.concat(chunks).toString("utf8")),
           });
         } catch (error) {
-          reject(new Error(`Billing readiness endpoint did not return JSON: ${error.message}`));
+          reject(new Error(`Failed to parse JSON response from billing readiness endpoint: ${error.message}`));
         }
       });
     });
