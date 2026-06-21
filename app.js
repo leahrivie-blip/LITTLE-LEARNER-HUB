@@ -1533,7 +1533,7 @@ const billingPlans = {
     price: "$0",
     interval: "",
     stripePriceKey: "",
-    features: ["3 Lesson Plans", "15 Observations", "3 Forms", "5 Activities", "5 Printables", "10 AI Generations Per Month", "Up to 3 Child Profiles", "Weekly Observation Tracker"],
+    features: ["5 Lesson Plans", "10 Observations", "10 Forms", "10 Activity Ideas", "10 Printables", "10 AI Generations Per Month", "Up to 3 Child Profiles", "Weekly Observation Tracker"],
   },
   Founding: {
     name: "Founding Member",
@@ -1584,12 +1584,12 @@ const firebaseAuthEnabled = Boolean(firebaseAuthConfig.apiKey && firebaseAuthCon
 const authProviderName = firebaseAuthEnabled ? "Firebase Authentication" : "Local demo authentication";
 let firebaseAuthClient = null;
 const freeAccessLimits = {
-  "Lesson Plans": 3,
-  "Observation Hub": 15,
-  "Forms Library": 3,
+  "Lesson Plans": 5,
+  "Observation Hub": 10,
+  "Forms Library": 10,
   "Menu Center": 0,
-  "Activity Center": 5,
-  "Printables": 5,
+  "Activity Center": 10,
+  "Printables": 10,
 };
 const freeAiMonthlyLimit = 10;
 const paidAiMonthlyLimit = 250;
@@ -11977,10 +11977,6 @@ function renderHomeFoundingOffer() {
   const soldOut = remaining <= 0;
   target.innerHTML = `
     <div class="founding-hero-card ${soldOut ? "founding-sold-out" : ""}">
-      <span class="founding-star" aria-hidden="true"></span>
-      <span class="confetti confetti-one" aria-hidden="true"></span>
-      <span class="confetti confetti-two" aria-hidden="true"></span>
-      <span class="confetti confetti-three" aria-hidden="true"></span>
       <h2>${soldOut ? "Founding Member spots are filled" : "Founding Member Pricing"}</h2>
       <div class="founding-price-row">
         <span class="founding-price-prefix">Get Pro for</span>
@@ -12285,7 +12281,7 @@ function renderAccountPage() {
   statusLabel.textContent = paidBilling ? account?.subscriptionStatus || `${billingPlanLabel(currentPlan, account)} Subscription Active` : "Free Plan";
   detailLabel.innerHTML = paidBilling
     ? `Current Plan: ${escapeHtml(billingPlanLabel(currentPlan, account))}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${account?.foundingMember ? "Lifetime" : "Regular Pro pricing"}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>AI Usage: ${aiUsageCount()} of ${paidAiMonthlyLimit} used this billing month. Resets ${escapeHtml(aiResetLabel())}.<br>Your account has full in-app resources, menus, child profiles, portfolios, tracking tools, provider tools, future premium features, and ${paidAiMonthlyLimit} AI generations per month.`
-    : `Your Free account includes 3 lesson plans, 15 observations, 3 forms, 5 activities, 5 printables, ${freeAiMonthlyLimit} AI generations per month, up to 3 child profiles, and the weekly observation tracker. Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}. AI Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`;
+    : `Your Free account includes 5 lesson plans, 10 observations, 10 forms, 10 activity ideas, 10 printables, ${freeAiMonthlyLimit} AI generations per month, up to 3 child profiles, and the weekly observation tracker. Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}. AI Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`;
   if (demoButton) demoButton.style.display = "none";
   if (upgradeButton) {
     upgradeButton.textContent = paidBilling ? "Manage Billing" : "Upgrade to Pro";
