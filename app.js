@@ -12761,6 +12761,28 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const startFreeButton = event.target.closest("[data-action='start-free']");
+  if (startFreeButton) {
+    event.preventDefault();
+    if (!currentUser) {
+      openAuthModal("signup");
+      return;
+    }
+    setView("home");
+    return;
+  }
+
+  const upgradeTrialButton = event.target.closest("[data-action='upgrade-trial']");
+  if (upgradeTrialButton) {
+    event.preventDefault();
+    if (!currentUser) {
+      openAuthModal("signup");
+      return;
+    }
+    setView("upgrade");
+    return;
+  }
+
   const freePlanButton = event.target.closest("[data-plan='Free']");
   if (freePlanButton) {
     event.preventDefault();
