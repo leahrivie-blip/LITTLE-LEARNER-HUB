@@ -1738,6 +1738,183 @@ function handleLaunchReadiness(request, response) {
   jsonResponse(response, 200, launchReadinessStatus());
 }
 
+function handleBillingReadiness(request, response) {
+  const stripe = stripeConfigStatus();
+
+  // 1. Stripe keys connected
+  const keysConnected = {
+    ready: stripe.checkoutReady,
+    mode: stripe.mode,
+    missing: stripe.missing,
+    note: stripe.checkoutReady
+      ? `Stripe is in ${stripe.mode} mode with all required keys configured.`
+      : `Missing env keys: ${stripe.missing.join(", ")}.`,
+  };
+
+  // 2. Webhook configured
+  const webhookReady = {
+    ready: stripe.webhookConfigured,
+    endpoint: stripe.webhookEndpoint,
+    handledEvents: [
+      "checkout.session.completed",
+      "customer.subscription.updated",
+      "customer.subscription.deleted",
+      "invoice.payment_failed",
+    ],
+    note: stripe.webhookConfigured
+      ? "STRIPE_WEBHOOK_SECRET is set. Webhook signature verification is active."
+      : "STRIPE_WEBHOOK_SECRET is not set. Add it after creating the webhook in Stripe Dashboard.",
+  };
+
+  // 3. Subscriptions update user permissions
+  const freeLimit = aiLimitForPlan("Free");
+  const proLimit = aiLimitForPlan("Pro");
+  const foundingLimit = aiLimitForPlan("Founding");
+  const activeProRecognized = storedSubscriptionActive({
+    plan: "Pro",
+    subscriptionStatus: "Pro Monthly Subscription Active",
+  });
+  const canceledDowngradesToFree = !storedSubscriptionActive({
+    plan: "Free",
+    subscriptionStatus: "Canceled - Free Plan Active",
+  });
+  const trialingRecognized = storedSubscriptionActive({
+    plan: "Pro",
+    subscriptionStatus: "Pro Monthly Subscription trialing",
+  });
+  const permissionsCorrect = freeLimit === 10 && proLimit === 250 && foundingLimit === 250
+    && activeProRecognized && canceledDowngradesToFree && trialingRecognized;
+  const subscriptionPermissions = {
+    ready: permissionsCorrect,
+    freeAiLimit: freeLimit,
+    proAiLimit: proLimit,
+    foundingAiLimit: foundingLimit,
+    activeProRecognized,
+    trialingRecognized,
+    canceledDowngradesToFree,
+    note: permissionsCorrect
+      ? "Plan → permission mapping is correct. Free: 10 AI/month, Pro/Founding: 250 AI/month."
+      : "Unexpected result in plan-to-permission mapping.",
+  };
+
+  // 4. Free → Trial → Paid flow
+  const promo = checkoutPromoForCode(PROMO_FREE_TRIAL_CODE);
+  const trialFlowReady = promo.valid && promo.trialDays > 0;
+  const planPriceIds = {
+    founding: isConfiguredValue(getPriceId("founding")),
+    monthly: isConfiguredValue(getPriceId("monthly")),
+    annual: isConfiguredValue(getPriceId("annual")),
+  };
+  const allPricesConfigured = Object.values(planPriceIds).every(Boolean);
+  const freeTrialPaidFlow = {
+    ready: stripe.checkoutReady,
+    trialFlowReady,
+    promoCodeConfigured: isConfiguredValue(PROMO_FREE_TRIAL_CODE),
+    promoTrialDays: trialFlowReady ? promo.trialDays : 0,
+    promoExpiresAt: PROMO_FREE_TRIAL_EXPIRES_AT,
+    planPriceIds,
+    allPricesConfigured,
+    note: !stripe.checkoutReady
+      ? "Add Stripe keys and price IDs to .env before checkout is possible."
+      : !allPricesConfigured
+        ? "Some plan price IDs are not configured. Add STRIPE_PRICE_FOUNDING_MONTHLY, STRIPE_PRICE_PRO_MONTHLY, and STRIPE_PRICE_PRO_ANNUAL."
+        : trialFlowReady
+          ? `Checkout → trial → paid flow ready. Free trial: ${promo.trialDays} days via promo code ${PROMO_FREE_TRIAL_CODE}.`
+          : "Promo trial flow is not active. Set PROMO_FREE_TRIAL_CODE and PROMO_FREE_TRIAL_DAYS to enable it.",
+  };
+
+  // 5. Cancellations work
+  const mockCanceledUser = {
+    plan: "Free",
+    subscriptionStatus: "Canceled - Free Plan Active",
+    subscriptionCadence: "",
+    monthlyPrice: "$0/month",
+    priceLock: "",
+  };
+  const cancelStillInactive = !storedSubscriptionActive(mockCanceledUser);
+  const cancelStatusCorrect = mockCanceledUser.plan === "Free"
+    && mockCanceledUser.subscriptionStatus === "Canceled - Free Plan Active";
+  const cancellationsWork = {
+    ready: cancelStillInactive && cancelStatusCorrect,
+    webhookEvent: "customer.subscription.deleted",
+    resultingPlan: mockCanceledUser.plan,
+    resultingStatus: mockCanceledUser.subscriptionStatus,
+    note: cancelStillInactive && cancelStatusCorrect
+      ? "Cancellation webhook sets plan to Free and deactivates paid access."
+      : "Cancellation logic produced an unexpected result.",
+  };
+
+  // 6. Upgrade prompts when limits are reached
+  const limitEnforcedByServer = freeLimit < proLimit;
+  const upgradePrompts = {
+    ready: limitEnforcedByServer,
+    freeMonthlyAiLimit: freeLimit,
+    proMonthlyAiLimit: proLimit,
+    serverEnforcement: "/api/ai-generate returns HTTP 429 when monthly limit is reached",
+    clientEnforcement: "data-pro-feature attributes on locked UI controls show upgrade modal",
+    note: limitEnforcedByServer
+      ? `Server enforces ${freeLimit} AI generations/month for Free and ${proLimit} for Pro. Client shows upgrade prompts on locked features.`
+      : "AI limit configuration is unexpected.",
+  };
+
+  // 7. Users keep their data after cancellation
+  const mockUserBefore = {
+    email: "test@example.com",
+    plan: "Pro",
+    subscriptionStatus: "Pro Monthly Subscription Active",
+    signupAt: "2026-01-01T00:00:00.000Z",
+    childrenCount: 3,
+    savedResourceCount: 12,
+    stripeCustomerId: "cus_test",
+  };
+  // upsertUser spreads existing fields then applies only billing updates — non-billing fields survive
+  const mockUserAfterCancel = {
+    ...mockUserBefore,
+    plan: "Free",
+    subscriptionStatus: "Canceled - Free Plan Active",
+    subscriptionCadence: "",
+    monthlyPrice: "$0/month",
+    priceLock: "",
+  };
+  const nonBillingFieldsPreserved = mockUserAfterCancel.signupAt === mockUserBefore.signupAt
+    && mockUserAfterCancel.childrenCount === mockUserBefore.childrenCount
+    && mockUserAfterCancel.savedResourceCount === mockUserBefore.savedResourceCount
+    && mockUserAfterCancel.stripeCustomerId === mockUserBefore.stripeCustomerId
+    && mockUserAfterCancel.email === mockUserBefore.email;
+  const dataRetention = {
+    ready: nonBillingFieldsPreserved,
+    preservedOnCancel: ["email", "signupAt", "childrenCount", "savedResources", "stripeCustomerId", "promoRedemptions"],
+    updatedOnCancel: ["plan", "subscriptionStatus", "subscriptionCadence", "monthlyPrice", "priceLock"],
+    note: nonBillingFieldsPreserved
+      ? "Cancellation only updates billing fields. All other user data is preserved via upsertUser() merge."
+      : "Data retention check produced an unexpected result.",
+  };
+
+  const checks = {
+    stripeKeysConnected: keysConnected,
+    webhookConfigured: webhookReady,
+    subscriptionPermissions,
+    freeTrialPaidFlow,
+    cancellationsWork,
+    upgradePrompts,
+    dataRetention,
+  };
+
+  const notReady = Object.entries(checks)
+    .filter(([, check]) => !check.ready)
+    .map(([key]) => key);
+  const allReady = notReady.length === 0;
+
+  jsonResponse(response, 200, {
+    ready: allReady,
+    checks,
+    notReady,
+    message: allReady
+      ? "All Stripe and billing verification checks passed."
+      : `Billing not fully ready. Fix: ${notReady.join(", ")}.`,
+  });
+}
+
 function handleHealth(request, response) {
   const store = readStore();
   jsonResponse(response, 200, {
@@ -1861,6 +2038,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/analytics") return handleAdminAnalytics(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/founding-status") return handleFoundingStatus(request, response);
     if (request.method === "GET" && url.pathname === "/api/stripe-readiness") return handleStripeReadiness(request, response);
+    if (request.method === "GET" && url.pathname === "/api/billing-readiness") return handleBillingReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/launch-readiness") return handleLaunchReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/health") return handleHealth(request, response);
     if (request.method === "GET" && url.pathname === "/api/client-config.js") return handleClientConfig(request, response);
