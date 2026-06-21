@@ -13,8 +13,9 @@
     "start": "node server/index.js",
     "serve": "python3 -m http.server 4173",
     "server": "node server/index.js",
-    "check": "node --check server/index.js && node --check app.js && node --check server/launch-check.js",
+    "check": "node --check server/index.js && node --check app.js && node --check server/launch-check.js && node --check server/billing-check.js",
     "stripe:check": "node server/stripe-check.js",
-    "launch:check": "node server/launch-check.js"
+    "launch:check": "node server/launch-check.js",
+    "billing:check": "node server/billing-check.js"
   }
 }

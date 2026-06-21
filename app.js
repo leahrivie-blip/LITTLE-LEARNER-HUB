@@ -2282,6 +2282,13 @@ function canUseLaunchBackend() {
   return canUseStripeBackend();
 }
 
+function isPromoLinkActive() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.has("promo")) return true;
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  return hashParams.has("promo");
+}
+
 function requireBillingAccount() {
   if (currentUser) return true;
   openAuthModal("signup");
@@ -2296,7 +2303,12 @@ let currentPlan = localStorage.getItem("llhPlan") || "Free";
 let currentUser = localStorage.getItem("llhUser") || "";
 let activeFilter = "All";
 let currentAuthMode = "login";
-let checkoutPromoCode = localStorage.getItem("llhCheckoutPromoCode") || "";
+let checkoutPromoCode = "";
+if (isPromoLinkActive()) {
+  checkoutPromoCode = localStorage.getItem("llhCheckoutPromoCode") || "";
+} else {
+  localStorage.removeItem("llhCheckoutPromoCode");
+}
 let adminAnalyticsCache = null;
 let adminAnalyticsLoading = false;
 
@@ -6214,7 +6226,7 @@ function renderGeneratorWorkspace(toolId) {
   const workspace = document.querySelector("#generatorWorkspace");
   if (!workspace) return;
   const tool = aiTools.find((item) => item.id === toolId) || aiTools[0];
-  const locked = accessRank[currentPlan] < accessRank.Pro;
+  const locked = accessRank[effectiveAccessPlan()] < accessRank.Pro;
   workspace.innerHTML = `
     <div class="tool-tabs">
       ${aiTools.map((item) => `<button class="${item.id === tool.id ? "active-filter" : ""}" data-tool="${item.id}" type="button">${item.title.replace("AI ", "")}</button>`).join("")}
@@ -12019,7 +12031,7 @@ function promoCodePanel() {
       <div class="promo-code-entry">
         <label>
           <span>Promo code</span>
-          <input id="checkoutPromoCodeInput" value="${escapeHtml(checkoutPromoCode)}" placeholder="Enter code" autocomplete="off" />
+          <input id="checkoutPromoCodeInput" value="" placeholder="Enter code" autocomplete="off" />
         </label>
         <button class="ghost-button" data-apply-promo-code type="button">Apply Code</button>
         <span class="form-message promo-code-message" id="checkoutPromoCodeMessage" aria-live="polite"></span>
@@ -12034,7 +12046,7 @@ function renderPricingPage() {
   const remaining = foundingSpotsRemaining();
   target.innerHTML = `
     ${foundingStatusCard()}
-    ${promoCodePanel()}
+    ${isPromoLinkActive() ? promoCodePanel() : ""}
     <div class="pricing-grid">
       ${pricingCard("Free", { free: true, buttonText: "Use Free" })}
       ${remaining > 0
@@ -12058,7 +12070,7 @@ function renderUpgradePage() {
   const soldOut = remaining <= 0;
   target.innerHTML = `
     ${foundingStatusCard()}
-    ${promoCodePanel()}
+    ${isPromoLinkActive() ? promoCodePanel() : ""}
     <div class="pricing-grid">
       ${!soldOut
         ? pricingCard("Founding", { featured: true, primary: true, eyebrow: "Best Launch Offer", checkoutType: "founding", buttonText: "Checkout for $9.99/month" })
@@ -12382,7 +12394,7 @@ async function startCheckout(type) {
   const remaining = foundingSpotsRemaining();
   const checkoutType = type === "founding" && remaining <= 0 ? "monthly" : type;
   const amount = checkoutAmount(checkoutType);
-  const promoCode = normalizedCheckoutPromoCode();
+  const promoCode = isPromoLinkActive() ? normalizedCheckoutPromoCode() : "";
   const checkoutButton = document.querySelector(`[data-checkout-plan="${type}"]`);
   if (checkoutButton) {
     checkoutButton.disabled = true;
