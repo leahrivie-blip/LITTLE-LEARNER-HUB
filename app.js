@@ -10228,6 +10228,10 @@ function allAccountsList() {
   return Object.values(accounts());
 }
 
+function displayUserName(user) {
+  return user?.name || user?.displayName || user?.email?.split("@")[0] || "Unknown";
+}
+
 function adminMetric(label, value, detail = "") {
   return `
     <div>
@@ -10294,7 +10298,7 @@ function renderAdminOwnerOverview() {
         <h4>Recent Accounts</h4>
         ${recentAccounts.length ? recentAccounts.map((account) => `
           <div class="analytics-row stacked">
-            <span><strong>${escapeHtml(account.name || account.email?.split("@")[0] || "Unknown")}</strong> &mdash; ${escapeHtml(account.email)}</span>
+            <span><strong>${escapeHtml(displayUserName(account))}</strong> &mdash; ${escapeHtml(account.email)}</span>
             <strong>${escapeHtml(account.plan || "Free")}</strong>
             <small>${escapeHtml(account.subscriptionStatus || "Free Plan")} · ${escapeHtml(account.monthlyPrice || "$0")}</small>
           </div>
@@ -10581,7 +10585,7 @@ function userAnalyticsTable(users = []) {
         <tbody>
           ${users.slice(0, 25).map((user) => `
             <tr>
-              <td><strong>${escapeHtml(user.name || user.email?.split("@")[0] || "Unknown")}</strong><br><small>${escapeHtml(user.email || "")}</small><br><small>Signup: ${escapeHtml(user.signupAt ? new Date(user.signupAt).toLocaleDateString() : "unknown")}</small></td>
+              <td><strong>${escapeHtml(displayUserName(user))}</strong><br><small>${escapeHtml(user.email || "")}</small><br><small>Signup: ${escapeHtml(user.signupAt ? new Date(user.signupAt).toLocaleDateString() : "unknown")}</small></td>
               <td>${escapeHtml(user.plan || "Free")}<br><small>${escapeHtml(user.subscriptionStatus || "")}</small></td>
               <td>${escapeHtml(user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : "Not tracked yet")}</td>
               <td>${escapeHtml(user.lastSeenAt ? new Date(user.lastSeenAt).toLocaleString() : "Not tracked yet")}</td>
