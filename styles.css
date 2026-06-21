@@ -1110,6 +1110,64 @@ button {
   min-height: 46px;
 }
 
+.how-it-works-section {
+  margin-top: 24px;
+}
+
+.how-it-works-content {
+  padding: 24px;
+  background: linear-gradient(135deg, rgba(229, 243, 248, 0.78), rgba(255, 255, 255, 0.95));
+  border: 1px solid rgba(158, 198, 217, 0.48);
+  border-radius: 14px;
+  box-shadow: 0 12px 24px rgba(65, 95, 114, 0.08);
+}
+
+.how-it-works-content h2 {
+  margin: 0 0 18px;
+  color: #2f5c57;
+  font-size: clamp(24px, 3vw, 32px);
+  text-align: center;
+}
+
+.how-it-works-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.how-it-works-steps li {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(186, 209, 220, 0.7);
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(83, 62, 42, 0.05);
+}
+
+.step-number {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: #5b96b5;
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.how-it-works-steps p {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .landing-value-strip,
 .landing-testimonials,
 .comparison-section,
@@ -5591,6 +5649,10 @@ button {
     border-bottom: 1px solid rgba(214, 199, 180, 0.65);
   }
 
+  .how-it-works-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .provider-needs-grid article:last-child {
     border-bottom: 0;
   }
@@ -5827,6 +5889,7 @@ button {
   }
 
   .landing-stat-grid,
+  .how-it-works-steps,
   .provider-needs-grid,
   .testimonial-grid,
   .mockup-metrics {
@@ -5838,6 +5901,7 @@ button {
   }
 
   .landing-story-card,
+  .how-it-works-content,
   .landing-testimonials,
   .provider-needs-section,
   .landing-final-cta {
