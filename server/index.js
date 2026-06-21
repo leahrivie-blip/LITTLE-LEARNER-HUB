@@ -835,6 +835,7 @@ async function handleCheckout(request, response) {
     return;
   }
   const promo = checkoutPromoForCode(body.promoCode);
+  const trial7day = body.trial7day === true;
   if (normalizePromoCode(body.promoCode) && !promo.valid) {
     jsonResponse(response, 400, {
       error: promo.expired
@@ -873,6 +874,10 @@ async function handleCheckout(request, response) {
       sessionParams["subscription_data[metadata][promoLabel]"] = promo.label;
       sessionParams["subscription_data[metadata][promoTrialDays]"] = String(promo.trialDays);
       sessionParams["subscription_data[trial_period_days]"] = String(promo.trialDays);
+    } else if (trial7day) {
+      sessionParams["subscription_data[trial_period_days]"] = "7";
+      sessionParams["metadata[promoLabel]"] = "7-Day Pro Trial";
+      sessionParams["subscription_data[metadata][promoLabel]"] = "7-Day Pro Trial";
     }
     const session = await stripeRequest("checkout/sessions", sessionParams);
     upsertUser(email, {
@@ -880,14 +885,15 @@ async function handleCheckout(request, response) {
       pendingPlan: planKey,
       subscriptionStatus: "Checkout Started",
       pendingPromoCode: promo.valid ? promo.code : "",
-      pendingTrialDays: promo.valid ? promo.trialDays : 0,
-      pendingPromoLabel: promo.valid ? promo.label : "",
+      pendingTrialDays: promo.valid ? promo.trialDays : trial7day ? 7 : 0,
+      pendingPromoLabel: promo.valid ? promo.label : trial7day ? "7-Day Pro Trial" : "",
     });
     jsonResponse(response, 200, {
       url: session.url,
       id: session.id,
       plan: planKey,
       promo: promo.valid ? { applied: true, trialDays: promo.trialDays, label: promo.label, expiresAt: promo.expiresAt, expiresLabel: promo.expiresLabel } : null,
+      trial: trial7day ? { applied: true, trialDays: 7, label: "7-Day Pro Trial" } : null,
       founding: foundingStatusPayload(store),
     });
   } catch (error) {
@@ -1457,6 +1463,7 @@ function analyticsSummary(store) {
       const userEvents = events.filter((event) => event.user === user.email);
       return {
         email: user.email,
+        name: user.name || user.displayName || "",
         plan: user.plan || "Free",
         subscriptionStatus: user.subscriptionStatus || "Free Plan",
         signupAt: user.signupAt || user.createdAt || "",

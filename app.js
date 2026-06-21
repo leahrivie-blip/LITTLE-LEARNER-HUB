@@ -1594,6 +1594,7 @@ const freeAccessLimits = {
 const freeAiMonthlyLimit = 10;
 const paidAiMonthlyLimit = 250;
 const freeChildProfileLimit = 3;
+const freeObservationRecordLimit = 10;
 const proFeatureList = [
   "1,500+ Observations",
   "200+ Lesson Plans",
@@ -1844,7 +1845,7 @@ function saveLead(email, source = "Free Daycare Starter Pack") {
   trackEvent("lead_capture", { source });
 }
 
-function showProFeatureModal(message = "Upgrade to Pro to unlock this feature.") {
+function showProFeatureModal(message = "You've reached your Free Plan limit.") {
   const modal = document.querySelector("#proModal");
   const body = document.querySelector("#proModalBody");
   if (!modal || !body) {
@@ -1853,10 +1854,8 @@ function showProFeatureModal(message = "Upgrade to Pro to unlock this feature.")
   }
   body.innerHTML = `
     <p>${escapeHtml(message)}</p>
-    <p><strong>Upgrade to Pro to unlock:</strong></p>
-    <ol>
-      ${proFeatureList.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
-    </ol>
+    <p>Unlock unlimited access with a 7-day Pro trial.</p>
+    <p><small>Credit card required. You will be charged after 7 days unless you cancel.</small></p>
   `;
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
@@ -10295,7 +10294,7 @@ function renderAdminOwnerOverview() {
         <h4>Recent Accounts</h4>
         ${recentAccounts.length ? recentAccounts.map((account) => `
           <div class="analytics-row stacked">
-            <span>${escapeHtml(account.email)}</span>
+            <span><strong>${escapeHtml(account.name || account.email?.split("@")[0] || "Unknown")}</strong> &mdash; ${escapeHtml(account.email)}</span>
             <strong>${escapeHtml(account.plan || "Free")}</strong>
             <small>${escapeHtml(account.subscriptionStatus || "Free Plan")} · ${escapeHtml(account.monthlyPrice || "$0")}</small>
           </div>
@@ -10572,7 +10571,7 @@ function userAnalyticsTable(users = []) {
       <table class="admin-table analytics-user-table">
         <thead>
           <tr>
-            <th>User</th>
+            <th>Name / Email</th>
             <th>Plan</th>
             <th>Last Login</th>
             <th>Last Seen</th>
@@ -10582,7 +10581,7 @@ function userAnalyticsTable(users = []) {
         <tbody>
           ${users.slice(0, 25).map((user) => `
             <tr>
-              <td><strong>${escapeHtml(user.email || "Unknown")}</strong><br><small>Signup: ${escapeHtml(user.signupAt ? new Date(user.signupAt).toLocaleDateString() : "unknown")}</small></td>
+              <td><strong>${escapeHtml(user.name || user.email?.split("@")[0] || "Unknown")}</strong><br><small>${escapeHtml(user.email || "")}</small><br><small>Signup: ${escapeHtml(user.signupAt ? new Date(user.signupAt).toLocaleDateString() : "unknown")}</small></td>
               <td>${escapeHtml(user.plan || "Free")}<br><small>${escapeHtml(user.subscriptionStatus || "")}</small></td>
               <td>${escapeHtml(user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : "Not tracked yet")}</td>
               <td>${escapeHtml(user.lastSeenAt ? new Date(user.lastSeenAt).toLocaleString() : "Not tracked yet")}</td>
@@ -12476,6 +12475,68 @@ async function startCheckout(type) {
   }
 }
 
+async function startProTrial() {
+  if (!requireBillingAccount()) return;
+  closeProFeatureModal();
+  await syncFoundingStatus({ render: false });
+  const remaining = foundingSpotsRemaining();
+  const checkoutType = remaining > 0 ? "founding" : "monthly";
+  const amount = checkoutAmount(checkoutType);
+  const pending = {
+    type: checkoutType,
+    amount,
+    email: currentUser,
+    startedAt: new Date().toISOString(),
+    foundingEligible: checkoutType === "founding",
+    promoCode: "",
+    trialDays: 7,
+    promoLabel: "7-Day Pro Trial",
+  };
+  localStorage.setItem("llhPendingCheckout", JSON.stringify(pending));
+  trackEvent("checkout_start", { type: checkoutType, amount, promoCode: "", trial7day: true });
+  addBillingHistory("Checkout Started", `${checkoutType === "founding" ? "Founding Member" : "Monthly"} Pro trial checkout started (7-day trial)`, amount);
+
+  if (stripeCheckoutConfig.checkoutEndpoint && canUseStripeBackend()) {
+    try {
+      const response = await fetch(stripeCheckoutConfig.checkoutEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: currentUser,
+          plan: checkoutType,
+          trial7day: true,
+          successUrl: `${window.location.origin}${window.location.pathname}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+          cancelUrl: `${window.location.origin}${window.location.pathname}?checkout=cancel`,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || "Stripe checkout could not start.");
+      if (data?.url) {
+        window.location.href = data.url;
+        return;
+      }
+    } catch (error) {
+      addBillingHistory("Stripe Error", error.message || "Checkout endpoint did not return a usable Stripe URL.", amount);
+    }
+  }
+
+  setView("upgrade");
+  const upgradeTarget = document.querySelector("#upgradeApp");
+  if (upgradeTarget) {
+    upgradeTarget.insertAdjacentHTML("afterbegin", `
+      <section class="section-block checkout-test-panel">
+        <p class="eyebrow">7-Day Pro Trial</p>
+        <h3>${escapeHtml(amount)} after 7-day free trial</h3>
+        <p class="muted-copy">Local test mode is active because the Stripe backend is not running or not configured yet.</p>
+        <div class="account-actions-row">
+          <button class="primary-button" data-complete-checkout type="button">Complete Test Payment</button>
+          <button class="ghost-button" data-fail-checkout type="button">Simulate Payment Failure</button>
+        </div>
+      </section>
+    `);
+  }
+}
+
 function completeCheckout() {
   const pending = readSavedJson("llhPendingCheckout", null);
   if (!pending || !currentUser) {
@@ -13142,6 +13203,10 @@ document.addEventListener("click", (event) => {
     const observations = childStore("Observations");
     const observation = observations.find((item) => item.id === duplicateChildObservationButton.dataset.duplicateChildObservation);
     if (!observation) return;
+    if (!isProUser() && observations.length >= freeObservationRecordLimit) {
+      showProFeatureModal(`You've reached your Free Plan limit of ${freeObservationRecordLimit} observations.`);
+      return;
+    }
     const copy = {
       ...observation,
       id: `Observations-${Date.now()}`,
@@ -13767,8 +13832,7 @@ document.querySelector("#switchAuthModeButton").addEventListener("click", () => 
 document.querySelector("#closeProModal").addEventListener("click", closeProFeatureModal);
 
 document.querySelector("#proModalUpgrade").addEventListener("click", () => {
-  closeProFeatureModal();
-  setView("plans");
+  startProTrial();
 });
 
 document.querySelector("#authForm").addEventListener("submit", async (event) => {
@@ -14087,7 +14151,7 @@ document.addEventListener("submit", async (event) => {
   const data = collectFormData(form);
   const editId = data.childId || activeChildProfileEditId || "";
   if (!editId && !isProUser() && childStore("Profiles").length >= freeChildProfileLimit) {
-    showProFeatureModal(`Free plan includes up to ${freeChildProfileLimit} child profiles. Upgrade to Pro for unlimited child profiles.`);
+    showProFeatureModal("You've reached your Free Plan limit of 3 child profiles.");
     return;
   }
   const formData = new FormData(form);
@@ -14162,6 +14226,10 @@ document.addEventListener("submit", (event) => {
       updatedAt: new Date().toISOString(),
     } : item));
   } else {
+    if (!isProUser() && observations.length >= freeObservationRecordLimit) {
+      showProFeatureModal(`You've reached your Free Plan limit of ${freeObservationRecordLimit} observations.`);
+      return;
+    }
     saveChildStore("Observations", [...observations, {
       id: `Observations-${Date.now()}`,
       createdAt: new Date().toISOString(),
