@@ -983,7 +983,7 @@ button {
 
 .hero-cta:hover {
   transform: translateY(-2px);
-  box-shadow: 0 16px 36px rgba(56, 96, 98, 0.34) !important;
+  box-shadow: 0 16px 36px rgba(56, 96, 98, 0.34);
 }
 
 .hero-subtext {
@@ -1247,8 +1247,8 @@ button {
 .free-features-grid {
   margin-top: 22px;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .free-feature-card {
@@ -6056,6 +6056,10 @@ button {
   .landing-stat-grid,
   .provider-needs-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .free-features-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .home-stats,
