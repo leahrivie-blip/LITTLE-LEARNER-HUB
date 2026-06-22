@@ -189,7 +189,7 @@ button {
   color: #386062;
   background: rgba(255, 255, 255, 0.8);
   border: 1px solid rgba(234, 220, 201, 0.75);
-  border-radius: 9px;
+  border-radius: var(--radius);
   flex-shrink: 0;
 }
 
