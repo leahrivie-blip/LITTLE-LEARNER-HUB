@@ -3,6 +3,7 @@ server/data/
 backups/
 .DS_Store
 node_modules/
+test-results/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
