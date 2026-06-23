@@ -13802,7 +13802,7 @@ document.addEventListener("change", (event) => {
 const modal = document.querySelector("#authModal");
 const authTitle = document.querySelector("#authTitle");
 
-document.querySelector("#signinButton").addEventListener("click", () => {
+document.querySelector("#signinButton")?.addEventListener("click", () => {
   trackEvent("login_click");
   if (currentUser) {
     setView("account");
@@ -13811,7 +13811,7 @@ document.querySelector("#signinButton").addEventListener("click", () => {
   openAuthModal("login");
 });
 
-document.querySelector("#signupButton").addEventListener("click", () => {
+document.querySelector("#signupButton")?.addEventListener("click", () => {
   trackEvent("signup_click");
   if (currentUser) {
     setView(isProUser() ? "account" : "plans");
@@ -13820,13 +13820,13 @@ document.querySelector("#signupButton").addEventListener("click", () => {
   openAuthModal("signup");
 });
 
-document.querySelector("#closeModal").addEventListener("click", () => {
+document.querySelector("#closeModal")?.addEventListener("click", () => {
   closeAuthModal();
 });
 
-document.querySelector("#forgotPasswordButton").addEventListener("click", () => setAuthMode("forgot"));
+document.querySelector("#forgotPasswordButton")?.addEventListener("click", () => setAuthMode("forgot"));
 
-document.querySelector("#switchAuthModeButton").addEventListener("click", () => {
+document.querySelector("#switchAuthModeButton")?.addEventListener("click", () => {
   if (currentAuthMode === "forgot") {
     setAuthMode("login");
     return;
@@ -13834,7 +13834,7 @@ document.querySelector("#switchAuthModeButton").addEventListener("click", () => 
   setAuthMode(currentAuthMode === "signup" ? "login" : "signup");
 });
 
-document.querySelector("#closeProModal").addEventListener("click", closeProFeatureModal);
+document.querySelector("#closeProModal")?.addEventListener("click", closeProFeatureModal);
 
 // -------------------------------------------------------
 // Feature Preview Modal
@@ -14150,11 +14150,11 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-document.querySelector("#proModalUpgrade").addEventListener("click", () => {
+document.querySelector("#proModalUpgrade")?.addEventListener("click", () => {
   startProTrial();
 });
 
-document.querySelector("#authForm").addEventListener("submit", async (event) => {
+document.querySelector("#authForm")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const email = document.querySelector("#emailInput").value;
   const password = document.querySelector("#passwordInput").value;
@@ -14230,7 +14230,7 @@ document.addEventListener("submit", async (event) => {
   }
 });
 
-document.querySelector("#uploadForm").addEventListener("submit", async (event) => {
+document.querySelector("#uploadForm")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
   const editId = form.get("id");
@@ -14288,20 +14288,20 @@ document.querySelector("#leadCaptureForm")?.addEventListener("submit", (event) =
   }
 });
 
-document.querySelector("#adminCancelEdit").addEventListener("click", resetAdminForm);
+document.querySelector("#adminCancelEdit")?.addEventListener("click", resetAdminForm);
 
-document.querySelector("#adminAddDemo").addEventListener("click", addDemoAdminResource);
+document.querySelector("#adminAddDemo")?.addEventListener("click", addDemoAdminResource);
 
-document.querySelector("#adminSearchInput").addEventListener("input", renderAdminDashboard);
+document.querySelector("#adminSearchInput")?.addEventListener("input", renderAdminDashboard);
 
-document.querySelector("#adminCategoryFilter").addEventListener("change", renderAdminDashboard);
+document.querySelector("#adminCategoryFilter")?.addEventListener("change", renderAdminDashboard);
 
-document.querySelector("#demoAccountButton").addEventListener("click", () => {
+document.querySelector("#demoAccountButton")?.addEventListener("click", () => {
   loadAccountState("demo@littlelearnerhub.com");
   renderAccountPage();
 });
 
-document.querySelector("#accountUpgradeButton").addEventListener("click", () => {
+document.querySelector("#accountUpgradeButton")?.addEventListener("click", () => {
   if (!currentUser) {
     openAuthModal("signup");
     return;
@@ -14309,13 +14309,13 @@ document.querySelector("#accountUpgradeButton").addEventListener("click", () => 
   setView(isProUser() ? "billing" : "upgrade");
 });
 
-document.querySelector("#accountCancelButton").addEventListener("click", () => {
+document.querySelector("#accountCancelButton")?.addEventListener("click", () => {
   setView("cancel-subscription");
 });
 
-document.querySelector("#signOutButton").addEventListener("click", signOut);
+document.querySelector("#signOutButton")?.addEventListener("click", signOut);
 
-document.querySelector("#resendVerificationButton").addEventListener("click", async () => {
+document.querySelector("#resendVerificationButton")?.addEventListener("click", async () => {
   setFormMessage("#profileSettingsMessage", "Sending...", true);
   try {
     const message = await resendVerificationEmail();
@@ -14326,7 +14326,7 @@ document.querySelector("#resendVerificationButton").addEventListener("click", as
   }
 });
 
-document.querySelector("#profileSettingsForm").addEventListener("submit", (event) => {
+document.querySelector("#profileSettingsForm")?.addEventListener("submit", (event) => {
   event.preventDefault();
   if (!currentUser) {
     setFormMessage("#profileSettingsMessage", "Please log in before saving account settings.");
@@ -14339,7 +14339,7 @@ document.querySelector("#profileSettingsForm").addEventListener("submit", (event
   renderAccountPage();
 });
 
-document.querySelector("#changePasswordForm").addEventListener("submit", async (event) => {
+document.querySelector("#changePasswordForm")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = new FormData(event.target);
   const button = event.target.querySelector("button[type='submit']");
@@ -14356,7 +14356,7 @@ document.querySelector("#changePasswordForm").addEventListener("submit", async (
   }
 });
 
-document.querySelector("#resetPasswordForm").addEventListener("submit", async (event) => {
+document.querySelector("#resetPasswordForm")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const button = event.target.querySelector("button[type='submit']");
   button.disabled = true;
@@ -14373,7 +14373,7 @@ document.querySelector("#resetPasswordForm").addEventListener("submit", async (e
   }
 });
 
-document.querySelector("#aiChatForm").addEventListener("submit", (event) => {
+document.querySelector("#aiChatForm")?.addEventListener("submit", (event) => {
   event.preventDefault();
   const promptBox = document.querySelector("#aiPrompt");
   const prompt = promptBox.value.trim();
@@ -14389,7 +14389,7 @@ document.querySelector("#aiChatForm").addEventListener("submit", (event) => {
   promptBox.value = "";
 });
 
-document.querySelector("#preferencesForm").addEventListener("submit", (event) => {
+document.querySelector("#preferencesForm")?.addEventListener("submit", (event) => {
   event.preventDefault();
   const prefs = collectFormData(event.currentTarget);
   localStorage.setItem("llhPreferences", JSON.stringify(prefs));
