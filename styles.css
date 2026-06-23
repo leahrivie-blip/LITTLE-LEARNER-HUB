@@ -14,6 +14,13 @@
   --shadow: 0 18px 42px rgba(83, 62, 42, 0.11);
   --soft-shadow: 0 10px 24px rgba(83, 62, 42, 0.08);
   --radius: 8px;
+  /* Landing page redesign palette */
+  --lavender: #9d85ff;
+  --lavender-dark: #7b5fe8;
+  --lavender-soft: #ede8ff;
+  --mint: #4dd4a8;
+  --mint-dark: #2eaf89;
+  --mint-soft: #e0f7f1;
 }
 
 * {
@@ -6565,5 +6572,985 @@ button {
     max-height: 9in !important;
     page-break-inside: avoid;
     break-inside: avoid;
+  }
+}
+
+/* ==========================================================
+   REDESIGNED LANDING PAGE — Little Learner Hub
+   Soft lavender + mint green palette, modern SaaS layout
+   ========================================================== */
+
+/* --- Section spacing ---------------------------------------- */
+.lp-hero,
+.lp-trust-section,
+.lp-feature-section,
+.lp-pricing-section,
+.lp-why-section,
+.lp-reviews-section,
+.lp-founder-section,
+.lp-final-cta {
+  margin-top: 28px;
+}
+
+/* --- Landing page buttons ----------------------------------- */
+.lp-btn-primary {
+  min-height: 50px;
+  padding: 13px 30px;
+  background: linear-gradient(135deg, var(--lavender-dark), var(--lavender));
+  color: var(--white);
+  border: none;
+  border-radius: 14px;
+  font-weight: 800;
+  font-size: 16px;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(123, 95, 232, 0.32);
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.lp-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px rgba(123, 95, 232, 0.42);
+}
+
+.lp-btn-secondary {
+  min-height: 50px;
+  padding: 13px 30px;
+  background: var(--white);
+  color: var(--ink);
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lp-btn-secondary:hover {
+  transform: translateY(-2px);
+  border-color: var(--lavender);
+  box-shadow: 0 8px 20px rgba(83, 62, 42, 0.08);
+}
+
+.lp-btn-outline {
+  min-height: 50px;
+  padding: 13px 30px;
+  background: transparent;
+  color: var(--ink);
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+  width: 100%;
+  transition: border-color 0.16s ease, background 0.16s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lp-btn-outline:hover {
+  border-color: var(--sage-dark);
+  background: rgba(79, 123, 101, 0.05);
+}
+
+.lp-btn-large {
+  min-height: 58px;
+  padding: 16px 44px;
+  font-size: 18px;
+  border-radius: 16px;
+}
+
+/* --- Section title / subtitle ------------------------------- */
+.lp-section-title {
+  margin: 0 0 12px;
+  font-size: clamp(26px, 3.5vw, 40px);
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.lp-section-sub {
+  margin: 0;
+  font-size: 17px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.lp-section-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+/* ==========================================================
+   PHASE 1 — HERO SECTION
+   ========================================================== */
+.lp-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 44px;
+  align-items: center;
+  padding: 56px 48px;
+  background: linear-gradient(135deg, #fff9f1 0%, #ede8ff 55%, #e0f7f1 100%);
+  border-radius: 24px;
+  box-shadow: 0 20px 60px rgba(123, 95, 232, 0.08);
+  border: 1px solid rgba(157, 133, 255, 0.12);
+}
+
+.lp-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 18px;
+  background: var(--lavender-soft);
+  color: var(--lavender-dark);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin-bottom: 20px;
+  border: 1px solid rgba(123, 95, 232, 0.22);
+}
+
+.lp-hero-headline {
+  margin: 0 0 18px;
+  font-size: clamp(32px, 4.5vw, 50px);
+  line-height: 1.1;
+  color: var(--ink);
+  letter-spacing: -0.015em;
+}
+
+.lp-hero-sub {
+  margin: 0 0 24px;
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--muted);
+  max-width: 520px;
+}
+
+.lp-hero-benefits {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 28px;
+  display: grid;
+  gap: 10px;
+}
+
+.lp-hero-benefits li {
+  font-size: 15px;
+  font-weight: 700;
+  color: #2f5c57;
+}
+
+.lp-hero-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+  align-items: center;
+}
+
+.lp-social-proof {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.lp-avatars {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.lp-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--lavender), var(--mint));
+  color: var(--white);
+  font-size: 12px;
+  font-weight: 900;
+  display: grid;
+  place-items: center;
+  border: 2.5px solid var(--white);
+  margin-right: -9px;
+  flex-shrink: 0;
+}
+
+.lp-social-proof p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 210px;
+  line-height: 1.4;
+  padding-left: 9px;
+}
+
+/* Dashboard Mockup */
+.lp-hero-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lp-dashboard-mockup {
+  width: 100%;
+  max-width: 470px;
+  background: var(--white);
+  border-radius: 18px;
+  box-shadow:
+    0 32px 80px rgba(123, 95, 232, 0.14),
+    0 8px 24px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  border: 1px solid rgba(157, 133, 255, 0.14);
+}
+
+.lp-dash-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  background: linear-gradient(135deg, #386062, #4f7b65);
+  color: var(--white);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.lp-dash-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.38);
+  flex-shrink: 0;
+}
+
+.lp-dash-body {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  min-height: 280px;
+}
+
+.lp-dash-sidebar {
+  background: #f9f5f0;
+  padding: 14px 8px;
+  border-right: 1px solid #f0e8dc;
+  display: grid;
+  gap: 5px;
+  align-content: start;
+}
+
+.lp-dash-nav-item {
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #70665d;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lp-dash-nav-item.active {
+  background: linear-gradient(135deg, #386062, #4f7b65);
+  color: var(--white);
+}
+
+.lp-dash-main {
+  padding: 14px;
+  background: #fff9f1;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.lp-dash-stat-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.lp-dash-stat {
+  padding: 8px 6px;
+  background: var(--white);
+  border-radius: 8px;
+  text-align: center;
+  border: 1px solid #f0e8dc;
+}
+
+.lp-dash-stat strong {
+  display: block;
+  font-size: 18px;
+  color: #386062;
+  line-height: 1;
+}
+
+.lp-dash-stat span {
+  font-size: 10px;
+  color: #70665d;
+  line-height: 1.3;
+  display: block;
+  margin-top: 2px;
+}
+
+.lp-dash-card {
+  background: var(--white);
+  border-radius: 8px;
+  border: 1px solid #f0e8dc;
+  padding: 10px;
+}
+
+.lp-dash-card-title {
+  font-size: 10px;
+  font-weight: 800;
+  color: #386062;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.lp-dash-obs-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 5px 0;
+  border-top: 1px solid #f5ede0;
+}
+
+.lp-obs-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--lavender), var(--mint));
+  color: var(--white);
+  font-size: 10px;
+  font-weight: 900;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.lp-dash-obs-item div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.lp-dash-obs-item strong {
+  font-size: 11px;
+  color: #302a26;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.lp-dash-obs-item small {
+  font-size: 10px;
+  color: #70665d;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.lp-dash-ai-banner {
+  padding: 8px 10px;
+  background: linear-gradient(135deg, var(--lavender-soft), var(--mint-soft));
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--lavender-dark);
+  text-align: center;
+}
+
+/* ==========================================================
+   PHASE 2 — TRUST SECTION
+   ========================================================== */
+.lp-trust-section {
+  padding: 48px 44px;
+  background: var(--white);
+  border-radius: 22px;
+  box-shadow: 0 8px 32px rgba(83, 62, 42, 0.06);
+  border: 1px solid var(--line);
+  text-align: center;
+}
+
+.lp-trust-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  margin: 24px 0 36px;
+}
+
+.lp-trust-item {
+  padding: 22px 14px;
+  background: linear-gradient(135deg, var(--cream), #f0fff8);
+  border-radius: 16px;
+  border: 1px solid rgba(77, 212, 168, 0.22);
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+
+.lp-trust-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.lp-trust-item strong {
+  font-size: 14px;
+  color: var(--ink);
+  line-height: 1.4;
+  text-align: center;
+}
+
+.lp-testimonial-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  text-align: left;
+}
+
+.lp-testimonial-mini-card {
+  padding: 22px 20px;
+  background: linear-gradient(135deg, var(--cream), var(--white));
+  border-radius: 16px;
+  border: 1px solid var(--line);
+}
+
+.lp-mini-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--lavender), var(--mint));
+  color: var(--white);
+  font-size: 18px;
+  font-weight: 900;
+  display: grid;
+  place-items: center;
+  margin-bottom: 8px;
+}
+
+.lp-mini-stars {
+  font-size: 14px;
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+}
+
+.lp-testimonial-mini-card p {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink);
+  font-style: italic;
+}
+
+.lp-testimonial-mini-card strong {
+  display: block;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.lp-testimonial-mini-card span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ==========================================================
+   PHASE 3 — FEATURE SHOWCASE
+   ========================================================== */
+.lp-feature-section {
+  padding: 56px 44px;
+  background: linear-gradient(135deg, var(--lavender-soft), var(--mint-soft) 60%, #f0fff8);
+  border-radius: 24px;
+  border: 1px solid rgba(157, 133, 255, 0.1);
+}
+
+.lp-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.lp-feature-card {
+  padding: 28px 24px;
+  background: var(--white);
+  border-radius: 20px;
+  box-shadow: 0 6px 20px rgba(83, 62, 42, 0.06);
+  border: 1px solid rgba(157, 133, 255, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.lp-feature-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 40px rgba(123, 95, 232, 0.12);
+}
+
+.lp-feature-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  margin-bottom: 16px;
+}
+
+.lp-icon-purple { background: var(--lavender-soft); }
+.lp-icon-mint   { background: var(--mint-soft); }
+.lp-icon-gold   { background: #fff3e0; }
+
+.lp-feature-card h3 {
+  margin: 0 0 8px;
+  font-size: 17px;
+  color: var(--ink);
+}
+
+.lp-feature-card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.lp-pro-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  color: var(--white);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+/* ==========================================================
+   PHASE 4 — FREE VS PRO PRICING
+   ========================================================== */
+.lp-pricing-section {
+  padding: 56px 44px;
+  text-align: center;
+  background: var(--white);
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(83, 62, 42, 0.06);
+  border: 1px solid var(--line);
+}
+
+.lp-pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.lp-pricing-card {
+  padding: 36px 32px;
+  border-radius: 22px;
+  text-align: left;
+  position: relative;
+}
+
+.lp-free-card {
+  background: linear-gradient(135deg, var(--cream), #f9fffe);
+  border: 2px solid var(--line);
+}
+
+.lp-pro-card {
+  background: linear-gradient(135deg, var(--lavender-soft), #e8fff8);
+  border: 2px solid var(--lavender);
+  box-shadow: 0 16px 48px rgba(123, 95, 232, 0.15);
+}
+
+.lp-pro-highlight-badge {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 18px;
+  background: linear-gradient(135deg, var(--lavender-dark), var(--lavender));
+  color: var(--white);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(123, 95, 232, 0.3);
+}
+
+.lp-price-header h3 {
+  margin: 0 0 10px;
+  font-size: 22px;
+  color: var(--ink);
+}
+
+.lp-price-amount {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 24px;
+}
+
+.lp-price-amount strong {
+  font-size: 48px;
+  color: var(--ink);
+  line-height: 1;
+}
+
+.lp-price-amount span {
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.lp-price-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 28px;
+  display: grid;
+  gap: 10px;
+}
+
+.lp-price-features li {
+  font-size: 14px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.lp-pro-card .lp-btn-primary {
+  width: 100%;
+}
+
+.lp-price-note {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* ==========================================================
+   PHASE 5 — WHY PROVIDERS LOVE IT
+   ========================================================== */
+.lp-why-section {
+  padding: 56px 44px;
+  background: linear-gradient(135deg, var(--mint-soft), var(--cream) 60%);
+  border-radius: 24px;
+  border: 1px solid rgba(77, 212, 168, 0.16);
+  text-align: center;
+}
+
+.lp-why-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+  margin-top: 36px;
+  text-align: left;
+}
+
+.lp-why-item {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.lp-why-icon {
+  font-size: 26px;
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--white);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 12px rgba(83, 62, 42, 0.07);
+}
+
+.lp-why-item strong {
+  display: block;
+  font-size: 17px;
+  margin-bottom: 6px;
+  color: var(--ink);
+}
+
+.lp-why-item p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* ==========================================================
+   PHASE 6 — TESTIMONIAL / REVIEW SECTION
+   ========================================================== */
+.lp-reviews-section {
+  padding: 56px 44px;
+  background: var(--white);
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(83, 62, 42, 0.06);
+  border: 1px solid var(--line);
+  text-align: center;
+}
+
+.lp-reviews-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: 36px;
+}
+
+.lp-review-card {
+  padding: 28px 24px;
+  background: linear-gradient(135deg, var(--cream), var(--white));
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  text-align: left;
+}
+
+.lp-review-stars {
+  font-size: 18px;
+  margin-bottom: 12px;
+  letter-spacing: 1px;
+}
+
+.lp-review-card p {
+  margin: 0 0 18px;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--ink);
+  font-style: italic;
+}
+
+.lp-reviewer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lp-reviewer-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--lavender), var(--mint));
+  color: var(--white);
+  font-size: 16px;
+  font-weight: 900;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.lp-reviewer strong {
+  display: block;
+  font-size: 15px;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+
+.lp-reviewer small {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ==========================================================
+   PHASE 7 — FOUNDER STORY
+   ========================================================== */
+.lp-founder-section {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 44px;
+  align-items: center;
+  padding: 56px 52px;
+  background: linear-gradient(135deg, var(--lavender-soft), var(--cream) 60%);
+  border-radius: 24px;
+  border: 1px solid rgba(157, 133, 255, 0.14);
+}
+
+.lp-founder-photo-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lp-founder-photo {
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--lavender), var(--mint));
+  display: grid;
+  place-items: center;
+  color: var(--white);
+  font-size: 30px;
+  font-weight: 900;
+  box-shadow: 0 20px 50px rgba(123, 95, 232, 0.2);
+  border: 5px solid var(--white);
+  flex-shrink: 0;
+}
+
+.lp-founder-content h2 {
+  margin: 0 0 20px;
+  font-size: clamp(26px, 3.5vw, 36px);
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.lp-founder-content p {
+  margin: 0 0 16px;
+  font-size: 17px;
+  line-height: 1.68;
+  color: var(--ink);
+}
+
+.lp-founder-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* ==========================================================
+   PHASE 8 — FINAL CTA
+   ========================================================== */
+.lp-final-cta {
+  padding: 72px 48px;
+  background: linear-gradient(135deg, var(--lavender-dark), var(--lavender) 50%, var(--mint-dark));
+  border-radius: 26px;
+  text-align: center;
+  box-shadow: 0 24px 64px rgba(123, 95, 232, 0.22);
+}
+
+.lp-final-cta h2 {
+  margin: 0 0 16px;
+  font-size: clamp(28px, 4vw, 44px);
+  color: var(--white);
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.lp-final-cta .lp-cta-body {
+  margin: 0 auto 32px;
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.85);
+  max-width: 500px;
+  line-height: 1.6;
+}
+
+.lp-final-cta .lp-btn-primary {
+  background: var(--white);
+  color: var(--lavender-dark);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
+  border: none;
+}
+
+.lp-final-cta .lp-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+}
+
+.lp-cta-subtext {
+  margin: 18px 0 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+/* ==========================================================
+   RESPONSIVE — TABLET (≤ 960px)
+   ========================================================== */
+@media (max-width: 960px) {
+  .lp-hero {
+    grid-template-columns: 1fr;
+    padding: 40px 28px;
+  }
+
+  .lp-hero-visual {
+    display: none;
+  }
+
+  .lp-trust-section,
+  .lp-feature-section,
+  .lp-pricing-section,
+  .lp-why-section,
+  .lp-reviews-section,
+  .lp-founder-section,
+  .lp-final-cta {
+    padding: 40px 28px;
+  }
+
+  .lp-trust-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lp-testimonial-mini-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lp-feature-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lp-pricing-grid {
+    grid-template-columns: 1fr;
+    max-width: 480px;
+  }
+
+  .lp-why-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lp-reviews-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lp-founder-section {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+}
+
+/* ==========================================================
+   RESPONSIVE — MOBILE (≤ 600px)
+   ========================================================== */
+@media (max-width: 600px) {
+  .lp-hero,
+  .lp-trust-section,
+  .lp-feature-section,
+  .lp-pricing-section,
+  .lp-why-section,
+  .lp-reviews-section,
+  .lp-founder-section,
+  .lp-final-cta {
+    padding: 30px 18px;
+    border-radius: 16px;
+  }
+
+  .lp-trust-grid,
+  .lp-testimonial-mini-grid,
+  .lp-feature-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lp-hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .lp-btn-primary,
+  .lp-btn-secondary {
+    width: 100%;
+  }
+
+  .lp-btn-large {
+    min-height: 52px;
+    padding: 14px 28px;
+    font-size: 16px;
+  }
+
+  .lp-final-cta h2 {
+    font-size: 26px;
+  }
+
+  .lp-founder-section {
+    grid-template-columns: 1fr;
+    text-align: center;
   }
 }

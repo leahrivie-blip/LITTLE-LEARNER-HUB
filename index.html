@@ -11,7 +11,7 @@
     <title>Little Learner Hub</title>
     <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="10" fill="%23386062"/><text x="32" y="39" text-anchor="middle" fill="%23fff" font-size="36" font-weight="bold" font-family="system-ui">LL</text></svg>' />
     <link rel="manifest" href="site.webmanifest" />
-    <link rel="stylesheet" href="styles.css?v=20260621-phase1-conversion" />
+    <link rel="stylesheet" href="styles.css?v=20260623-homepage-redesign" />
   </head>
   <body>
     <div class="app-shell">
@@ -186,225 +186,302 @@
         </header>
 
         <section id="view-home" class="view active-view landing-home">
-          <!-- HERO SECTION - Start Free -->
-          <section class="landing-hero" aria-label="Get started with Little Learner Hub">
-            <div class="hero-content">
-              <h2>The All-in-One Platform for Daycare Providers</h2>
-              <p>Keep everything organized in one place. Track observations, plan lessons, manage forms and printables, and save hours every week.</p>
-              <div class="hero-actions">
-                <button class="primary-button hero-cta" data-action="start-free">Start Free</button>
-                <p class="hero-subtext">No credit card required</p>
+
+          <!-- PHASE 1: HERO SECTION -->
+          <section class="lp-hero" aria-label="Get started with Little Learner Hub">
+            <div class="lp-hero-content">
+              <div class="lp-hero-badge">Built by a Childcare Provider &amp; Mom of 3</div>
+              <h2 class="lp-hero-headline">Spend Less Time on Paperwork.<br />More Time with Children.</h2>
+              <p class="lp-hero-sub">Track observations, lesson plans, child goals, forms, portfolios, and AI tools—all in one simple place.</p>
+              <ul class="lp-hero-benefits">
+                <li>✓ No Credit Card Required</li>
+                <li>✓ Free Forever Plan Available</li>
+                <li>✓ Loved by Childcare Providers</li>
+              </ul>
+              <div class="lp-hero-actions">
+                <button class="lp-btn-primary" data-action="start-free" type="button">Start Free Today</button>
+                <button class="lp-btn-secondary" data-action="start-free" type="button">See How It Works</button>
+              </div>
+              <div class="lp-social-proof">
+                <div class="lp-avatars" aria-hidden="true">
+                  <span class="lp-avatar">J</span>
+                  <span class="lp-avatar">A</span>
+                  <span class="lp-avatar">S</span>
+                  <span class="lp-avatar">M</span>
+                </div>
+                <p>Trusted by childcare providers, teachers, and home daycares.</p>
+              </div>
+            </div>
+            <div class="lp-hero-visual" aria-label="Little Learner Hub dashboard preview" aria-hidden="true">
+              <div class="lp-dashboard-mockup">
+                <div class="lp-dash-header">
+                  <div class="lp-dash-dot"></div>
+                  <div class="lp-dash-dot"></div>
+                  <div class="lp-dash-dot"></div>
+                  <span>Little Learner Hub</span>
+                </div>
+                <div class="lp-dash-body">
+                  <aside class="lp-dash-sidebar">
+                    <div class="lp-dash-nav-item active">Home</div>
+                    <div class="lp-dash-nav-item">Children</div>
+                    <div class="lp-dash-nav-item">Observations</div>
+                    <div class="lp-dash-nav-item">AI Tools</div>
+                    <div class="lp-dash-nav-item">Lessons</div>
+                  </aside>
+                  <main class="lp-dash-main">
+                    <div class="lp-dash-stat-row">
+                      <div class="lp-dash-stat"><strong>3</strong><span>Children</span></div>
+                      <div class="lp-dash-stat"><strong>12</strong><span>Observations</span></div>
+                      <div class="lp-dash-stat"><strong>5</strong><span>Plans</span></div>
+                    </div>
+                    <div class="lp-dash-card">
+                      <div class="lp-dash-card-title">Recent Observations</div>
+                      <div class="lp-dash-obs-item">
+                        <span class="lp-obs-avatar">E</span>
+                        <div>
+                          <strong>Emma — Fine Motor</strong>
+                          <small>Observed stacking blocks with both hands...</small>
+                        </div>
+                      </div>
+                      <div class="lp-dash-obs-item">
+                        <span class="lp-obs-avatar">L</span>
+                        <div>
+                          <strong>Liam — Language</strong>
+                          <small>Used 3-word sentences during play...</small>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="lp-dash-ai-banner">✨ AI Tools — Generate observations, reports &amp; more</div>
+                  </main>
+                </div>
               </div>
             </div>
           </section>
 
-          <!-- FREE PLAN SECTION - What's Included -->
-          <section class="free-plan-section" aria-label="Free Plan features">
-            <div class="free-plan-content">
-              <h2>Your Free Plan Includes</h2>
-              <p>Start using Little Learner Hub right away with no payment required.</p>
-              <div class="free-features-grid">
-                <article class="free-feature-card">
-                  <strong>✓ 3</strong>
-                  <p>Child Profiles</p>
-                </article>
-                <article class="free-feature-card">
-                  <strong>✓ 10</strong>
-                  <p>Observations</p>
-                </article>
-                <article class="free-feature-card">
-                  <strong>✓ 5</strong>
-                  <p>Lesson Plans</p>
-                </article>
-                <article class="free-feature-card">
-                  <strong>✓ 10</strong>
-                  <p>Forms</p>
-                </article>
-                <article class="free-feature-card">
-                  <strong>✓ 10</strong>
-                  <p>Printables</p>
-                </article>
-                <article class="free-feature-card">
-                  <strong>✓ 10</strong>
-                  <p>Activity Ideas</p>
-                </article>
-                <article class="free-feature-card">
-                  <strong>✓ 10</strong>
-                  <p>AI Generations</p>
-                </article>
+          <!-- PHASE 2: TRUST SECTION -->
+          <section class="lp-trust-section" aria-label="Trusted by childcare providers">
+            <h2 class="lp-section-title">Trusted by Childcare Providers</h2>
+            <div class="lp-trust-grid">
+              <div class="lp-trust-item">
+                <span class="lp-trust-icon" aria-hidden="true">⭐</span>
+                <strong>5-Star Reviews</strong>
               </div>
-              <div class="free-plan-perks">
-                <p>✓ Access to Free Resources</p>
-                <p>✓ No Credit Card Required</p>
+              <div class="lp-trust-item">
+                <span class="lp-trust-icon" aria-hidden="true">📍</span>
+                <strong>Used by Providers Across the U.S.</strong>
               </div>
-              <div class="free-plan-actions">
-                <button class="primary-button" data-plan="Free">Start Your Free Account</button>
+              <div class="lp-trust-item">
+                <span class="lp-trust-icon" aria-hidden="true">⏰</span>
+                <strong>Saves Hours Every Week</strong>
+              </div>
+              <div class="lp-trust-item">
+                <span class="lp-trust-icon" aria-hidden="true">❤️</span>
+                <strong>Built for Real Childcare Programs</strong>
               </div>
             </div>
-          </section>
-
-          <!-- HOW IT WORKS SECTION -->
-          <section class="how-it-works-section" aria-label="How Little Learner Hub works">
-            <div class="how-it-works-content">
-              <h2>How It Works</h2>
-              <ol class="how-it-works-steps">
-                <li>
-                  <div class="step-number">1</div>
-                  <p>Create your free account</p>
-                </li>
-                <li>
-                  <div class="step-number">2</div>
-                  <p>Add your child profiles</p>
-                </li>
-                <li>
-                  <div class="step-number">3</div>
-                  <p>Track observations and goals</p>
-                </li>
-                <li>
-                  <div class="step-number">4</div>
-                  <p>Upgrade only when you need more</p>
-                </li>
-              </ol>
-            </div>
-          </section>
-
-          <!-- TESTIMONIALS -->
-          <section class="landing-testimonials" aria-label="What childcare providers are saying">
-            <h2><span role="img" aria-label="Heart">❤️</span> What Childcare Providers Are Saying</h2>
-            <div class="testimonial-grid">
-              <article>
-                <span class="testimonial-stars" role="img" aria-label="Rating: 5 out of 5 stars"><span aria-hidden="true">⭐⭐⭐⭐⭐</span></span>
+            <div class="lp-testimonial-mini-grid">
+              <article class="lp-testimonial-mini-card">
+                <div class="lp-mini-avatar" aria-hidden="true">J</div>
+                <div class="lp-mini-stars" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
                 <p>"This has saved me hours every week. I don't know how I ran my daycare without it."</p>
-                <strong>– Jessica, Home Daycare</strong>
+                <strong>Jessica</strong>
+                <span>Home Daycare Provider</span>
               </article>
-              <article>
-                <span class="testimonial-stars" role="img" aria-label="Rating: 5 out of 5 stars"><span aria-hidden="true">⭐⭐⭐⭐⭐</span></span>
-                <p>"I love having my lesson plans and observations together. Everything is so easy to find."</p>
-                <strong>– Ashley, Home Daycare</strong>
+              <article class="lp-testimonial-mini-card">
+                <div class="lp-mini-avatar" aria-hidden="true">A</div>
+                <div class="lp-mini-stars" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
+                <p>"I love having my lesson plans and observations in one place. Everything is so easy to find."</p>
+                <strong>Ashley</strong>
+                <span>Family Daycare</span>
               </article>
-              <article>
-                <span class="testimonial-stars" role="img" aria-label="Rating: 5 out of 5 stars"><span aria-hidden="true">⭐⭐⭐⭐⭐</span></span>
+              <article class="lp-testimonial-mini-card">
+                <div class="lp-mini-avatar" aria-hidden="true">S</div>
+                <div class="lp-mini-stars" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
                 <p>"The AI tools help me draft observations faster, then I can review and adjust them."</p>
-                <strong>– Sarah, Home Daycare</strong>
+                <strong>Sarah</strong>
+                <span>Home Daycare</span>
               </article>
-            </div>
-            <div class="testimonial-cta">
-              <button class="primary-button" data-action="start-free">Start Free</button>
-              <p class="hero-subtext">No credit card required</p>
             </div>
           </section>
 
-          <!-- FOUNDING MEMBER OFFER - Secondary Position -->
+          <!-- PHASE 3: FEATURE SHOWCASE -->
+          <section class="lp-feature-section" aria-label="See inside Little Learner Hub">
+            <div class="lp-section-header">
+              <h2 class="lp-section-title">See Inside Little Learner Hub</h2>
+              <p class="lp-section-sub">Powerful tools designed to make your day easier.</p>
+            </div>
+            <div class="lp-feature-grid">
+              <article class="lp-feature-card">
+                <div class="lp-feature-icon lp-icon-purple" aria-hidden="true">👶</div>
+                <h3>Child Profiles</h3>
+                <p>Store important child information, notes, goals, and documents.</p>
+              </article>
+              <article class="lp-feature-card">
+                <div class="lp-feature-icon lp-icon-mint" aria-hidden="true">🔍</div>
+                <h3>Observation Tracker</h3>
+                <p>Track developmental milestones and progress.</p>
+              </article>
+              <article class="lp-feature-card">
+                <div class="lp-feature-icon lp-icon-purple" aria-hidden="true">📚</div>
+                <h3>Lesson Plans</h3>
+                <p>Create, save, and organize lesson plans.</p>
+              </article>
+              <article class="lp-feature-card">
+                <div class="lp-feature-icon lp-icon-mint" aria-hidden="true">✨</div>
+                <h3>AI Tools</h3>
+                <p>Generate observations, newsletters, reports, and more.</p>
+              </article>
+              <article class="lp-feature-card">
+                <div class="lp-feature-icon lp-icon-gold" aria-hidden="true">🏆</div>
+                <h3>Portfolio Builder <span class="lp-pro-badge">Pro</span></h3>
+                <p>Build beautiful child portfolios to share with families.</p>
+              </article>
+              <article class="lp-feature-card">
+                <div class="lp-feature-icon lp-icon-purple" aria-hidden="true">🎯</div>
+                <h3>Goals &amp; Progress</h3>
+                <p>Track goals and developmental growth over time.</p>
+              </article>
+            </div>
+          </section>
+
+          <!-- PHASE 4: FREE VS PRO PRICING -->
+          <section class="lp-pricing-section" aria-label="Pricing plans">
+            <div class="lp-section-header">
+              <h2 class="lp-section-title">Simple, Transparent Pricing</h2>
+              <p class="lp-section-sub">Start free, upgrade when you're ready.</p>
+            </div>
+            <div class="lp-pricing-grid">
+              <div class="lp-pricing-card lp-free-card">
+                <div class="lp-price-header">
+                  <h3>Free</h3>
+                  <div class="lp-price-amount"><strong>$0</strong><span>Forever</span></div>
+                </div>
+                <ul class="lp-price-features">
+                  <li>✓ 3 Child Profiles</li>
+                  <li>✓ 10 Observations Per Month</li>
+                  <li>✓ 5 Lesson Plans</li>
+                  <li>✓ 10 Activity Ideas</li>
+                  <li>✓ 10 AI Generations</li>
+                  <li>✓ Free Resources</li>
+                  <li>✓ No Credit Card Required</li>
+                </ul>
+                <button class="lp-btn-outline" data-plan="Free" type="button">Start Free</button>
+              </div>
+              <div class="lp-pricing-card lp-pro-card">
+                <div class="lp-pro-highlight-badge">Most Popular</div>
+                <div class="lp-price-header">
+                  <h3>Pro</h3>
+                  <div class="lp-price-amount"><strong>$19.99</strong><span>/month</span></div>
+                </div>
+                <ul class="lp-price-features">
+                  <li>✓ Unlimited Child Profiles</li>
+                  <li>✓ Unlimited Observations</li>
+                  <li>✓ Unlimited Lesson Plans</li>
+                  <li>✓ Unlimited AI Generations</li>
+                  <li>✓ Portfolio Builder</li>
+                  <li>✓ Premium Resources</li>
+                  <li>✓ Advanced AI Tools</li>
+                  <li>✓ Priority Support</li>
+                </ul>
+                <button class="lp-btn-primary" data-action="upgrade-trial" type="button">Try Pro Free For 7 Days</button>
+                <p class="lp-price-note">Credit card required. Automatically converts after trial unless canceled.</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- PHASE 5: WHY PROVIDERS LOVE IT -->
+          <section class="lp-why-section" aria-label="Why providers love Little Learner Hub">
+            <h2 class="lp-section-title">Everything You Need, All in One Place</h2>
+            <div class="lp-why-grid">
+              <div class="lp-why-item">
+                <div class="lp-why-icon" aria-hidden="true">📊</div>
+                <div>
+                  <strong>Track Child Progress</strong>
+                  <p>Keep observations, goals, and developmental notes organized.</p>
+                </div>
+              </div>
+              <div class="lp-why-item">
+                <div class="lp-why-icon" aria-hidden="true">⚡</div>
+                <div>
+                  <strong>Plan Faster</strong>
+                  <p>Access lesson plans and activities quickly.</p>
+                </div>
+              </div>
+              <div class="lp-why-item">
+                <div class="lp-why-icon" aria-hidden="true">⏰</div>
+                <div>
+                  <strong>Save Hours Every Week</strong>
+                  <p>Use AI to help create observations, reports, and newsletters.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- PHASE 6: REAL PROVIDERS. REAL IMPACT. -->
+          <section class="lp-reviews-section" aria-label="Provider reviews">
+            <div class="lp-section-header">
+              <h2 class="lp-section-title">Real Providers. Real Impact.</h2>
+            </div>
+            <div class="lp-reviews-grid">
+              <article class="lp-review-card">
+                <div class="lp-review-stars" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
+                <p>"This has saved me hours every week. I don't know how I ran my daycare without it."</p>
+                <div class="lp-reviewer">
+                  <span class="lp-reviewer-avatar" aria-hidden="true">J</span>
+                  <div><strong>Jessica</strong><small>Home Daycare Provider</small></div>
+                </div>
+              </article>
+              <article class="lp-review-card">
+                <div class="lp-review-stars" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
+                <p>"I love having my lesson plans and observations in one place. Everything is so easy to find."</p>
+                <div class="lp-reviewer">
+                  <span class="lp-reviewer-avatar" aria-hidden="true">A</span>
+                  <div><strong>Ashley</strong><small>Family Daycare</small></div>
+                </div>
+              </article>
+              <article class="lp-review-card">
+                <div class="lp-review-stars" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
+                <p>"The AI tools help me draft observations faster, then I can review and adjust them."</p>
+                <div class="lp-reviewer">
+                  <span class="lp-reviewer-avatar" aria-hidden="true">S</span>
+                  <div><strong>Sarah</strong><small>Home Daycare</small></div>
+                </div>
+              </article>
+              <article class="lp-review-card">
+                <div class="lp-review-stars" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
+                <p>"Finally an app that makes sense for childcare providers. Simple, easy, and everything in one place."</p>
+                <div class="lp-reviewer">
+                  <span class="lp-reviewer-avatar" aria-hidden="true">M</span>
+                  <div><strong>Maria</strong><small>Home Daycare Provider</small></div>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <!-- PHASE 7: FOUNDER STORY -->
+          <section class="lp-founder-section" aria-label="About the founder">
+            <div class="lp-founder-photo-wrap">
+              <div class="lp-founder-photo" aria-label="Leah, founder of Little Learner Hub"><span aria-hidden="true">LH</span></div>
+            </div>
+            <div class="lp-founder-content">
+              <h2>Hi, I'm Leah <span role="img" aria-label="waving hand">👋</span></h2>
+              <p>I'm a mom of three and a childcare provider.</p>
+              <p>I created Little Learner Hub because I was tired of keeping observations, lesson plans, forms, and child goals in different places.</p>
+              <p>I wanted one simple system that actually works for childcare providers so we can spend less time on paperwork and more time with children.</p>
+            </div>
+          </section>
+
+          <!-- PHASE 8: FINAL CTA -->
+          <section class="lp-final-cta" aria-label="Ready to get started">
+            <h2>Ready to Spend Less Time on Paperwork?</h2>
+            <p class="lp-cta-body">Join childcare providers who are saving time and staying organized with Little Learner Hub.</p>
+            <button class="lp-btn-primary lp-btn-large" data-action="start-free" type="button">Start Your Free Account</button>
+            <p class="lp-cta-subtext">No credit card required.</p>
+          </section>
+
+          <!-- PHASE 9: FOUNDING MEMBER SECTION (secondary) -->
           <section id="homeFoundingOffer" class="landing-founding-slot"></section>
 
-          <!-- STORY SECTION -->
-          <section class="landing-story-card">
-            <div class="provider-desk-visual" aria-hidden="true">
-              <div class="binder binder-one"></div>
-              <div class="binder binder-two"></div>
-              <div class="mug">Daycare<br />Provider</div>
-            </div>
-            <div>
-              <h2>Why I Built This</h2>
-              <p>I was tired of searching through folders, binders, Facebook groups, and multiple apps just to run my daycare. I created Little Learner Hub to keep everything in one place.</p>
-              <strong>Save time. Stay organized. Focus on what matters most - the children in your care.</strong>
-            </div>
-          </section>
-
-          <!-- SMART PLANNING SECTION -->
-          <section class="tracker-showcase">
-            <div class="tracker-copy">
-              <p class="eyebrow">Smart Planning</p>
-              <h2>Smart Goal-Based Lesson Planning</h2>
-              <p>If a child has a goal like fine motor, speech, gross motor, or social-emotional growth, Little Learner Hub helps suggest lessons and activities that fit that child&rsquo;s age group.</p>
-              <ul class="landing-check-list">
-                <li>Add child profiles and developmental goals</li>
-                <li>Match lessons and activities to each child&rsquo;s needs</li>
-                <li>Find support ideas for children who need extra help</li>
-                <li>Connect observations, goals, and lesson plans in one place</li>
-              </ul>
-              <button class="ghost-button" data-view="children" type="button">Open Smart Planning Tools</button>
-            </div>
-            <div class="tracker-mockup" aria-label="Smart planning mockup">
-              <div class="mockup-toolbar"><span>Child Goals</span><button type="button">+ Add Goal</button></div>
-              <div class="mockup-body">
-                <aside>
-                  <span class="active-child">Oakley</span>
-                  <span>Emma</span>
-                  <span>Liam</span>
-                  <span>Ava</span>
-                  <span>Sophia</span>
-                </aside>
-                <main>
-                  <h3>Goal-Based Planning</h3>
-                  <div class="mockup-metrics">
-                    <div><strong>Fine Motor</strong><small>Goal Area</small></div>
-                    <div><strong>Preschool</strong><small>Age Group</small></div>
-                    <div><strong>6</strong><small>Ideas Found</small></div>
-                  </div>
-                  <div class="mockup-note">
-                    <strong>Oakley</strong>
-                    <p>Suggested: cutting practice, playdough hand strength, and fine motor lesson plans.</p>
-                    <span>Preschool Fine Motor</span>
-                  </div>
-                </main>
-              </div>
-            </div>
-          </section>
-
-          <!-- FREE VS PRO COMPARISON -->
-          <section class="comparison-section">
-            <div class="comparison-header">
-              <h2>Free vs Pro</h2>
-              <p>Start free, upgrade to Pro anytime to unlock unlimited access.</p>
-            </div>
-            <div class="comparison-table-wrap">
-              <table class="comparison-table">
-                <thead>
-                  <tr><th>Feature</th><th>Free</th><th>Pro</th></tr>
-                </thead>
-                <tbody>
-                  <tr><td>Child Profiles</td><td>3</td><td>Unlimited</td></tr>
-                  <tr><td>Observations</td><td>10</td><td>Unlimited</td></tr>
-                  <tr><td>Lesson Plans</td><td>5</td><td>Unlimited</td></tr>
-                  <tr><td>Forms &amp; Printables</td><td>10</td><td>Unlimited</td></tr>
-                  <tr><td>Activity Ideas</td><td>10</td><td>Unlimited</td></tr>
-                  <tr><td>AI Generations</td><td>10 / month</td><td>Unlimited</td></tr>
-                  <tr><td>Child Portfolios</td><td>No</td><td><strong>Yes</strong></td></tr>
-                  <tr><td>Advanced Reporting</td><td>No</td><td><strong>Yes</strong></td></tr>
-                  <tr><td>Priority Support</td><td>No</td><td><strong>Yes</strong></td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="comparison-pro-offer">
-              <h3>Ready to get started?</h3>
-              <div class="comparison-buttons">
-                <div class="comparison-button-group">
-                  <button class="primary-button" data-plan="Free">Start Free</button>
-                  <p class="button-subtext">No credit card required</p>
-                </div>
-                <div class="comparison-button-group">
-                  <button class="ghost-button" data-action="upgrade-trial">Try Pro Free for 7 Days</button>
-                  <p class="button-subtext">Credit card required. Charges after 7 days unless canceled.</p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <!-- FINAL CTA -->
-          <section class="landing-start-free-cta" aria-label="Ready to start free">
-            <div class="start-free-cta-content">
-              <h2>Ready to Start Free?</h2>
-              <p>Create your free account today.</p>
-              <ul class="start-free-checklist">
-                <li>✅ No credit card required</li>
-                <li>✅ Up to 3 child profiles</li>
-                <li>✅ Access to observations, lesson planning, forms, activities, and AI tools</li>
-                <li>✅ Upgrade only when you need more</li>
-              </ul>
-              <button class="primary-button hero-cta" data-action="start-free">Start Free</button>
-            </div>
-          </section>
         </section>
 
         <section id="view-planner" class="view">
