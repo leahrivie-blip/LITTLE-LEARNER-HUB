@@ -11,7 +11,7 @@
     <title>Little Learner Hub</title>
     <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="10" fill="%23386062"/><text x="32" y="39" text-anchor="middle" fill="%23fff" font-size="36" font-weight="bold" font-family="system-ui">LL</text></svg>' />
     <link rel="manifest" href="site.webmanifest" />
-    <link rel="stylesheet" href="styles.css?v=20260623-homepage-redesign" />
+    <link rel="stylesheet" href="styles.css?v=20260623-homepage-mobile-previews" />
   </head>
   <body>
     <div class="app-shell">
@@ -311,35 +311,41 @@
               <p class="lp-section-sub">Powerful tools designed to make your day easier.</p>
             </div>
             <div class="lp-feature-grid">
-              <article class="lp-feature-card">
+              <article class="lp-feature-card" data-preview="child-profiles" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Preview Child Profiles">
                 <div class="lp-feature-icon lp-icon-purple" aria-hidden="true">👶</div>
                 <h3>Child Profiles</h3>
                 <p>Store important child information, notes, goals, and documents.</p>
+                <span class="lp-feature-card-cta">Click to Preview</span>
               </article>
-              <article class="lp-feature-card">
+              <article class="lp-feature-card" data-preview="observation-tracker" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Preview Observation Tracker">
                 <div class="lp-feature-icon lp-icon-mint" aria-hidden="true">🔍</div>
                 <h3>Observation Tracker</h3>
                 <p>Track developmental milestones and progress.</p>
+                <span class="lp-feature-card-cta">Click to Preview</span>
               </article>
-              <article class="lp-feature-card">
+              <article class="lp-feature-card" data-preview="lesson-plans" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Preview Lesson Plans">
                 <div class="lp-feature-icon lp-icon-purple" aria-hidden="true">📚</div>
                 <h3>Lesson Plans</h3>
                 <p>Create, save, and organize lesson plans.</p>
+                <span class="lp-feature-card-cta">Click to Preview</span>
               </article>
-              <article class="lp-feature-card">
+              <article class="lp-feature-card" data-preview="ai-tools" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Preview AI Tools">
                 <div class="lp-feature-icon lp-icon-mint" aria-hidden="true">✨</div>
                 <h3>AI Tools</h3>
                 <p>Generate observations, newsletters, reports, and more.</p>
+                <span class="lp-feature-card-cta">Click to Preview</span>
               </article>
-              <article class="lp-feature-card">
+              <article class="lp-feature-card" data-preview="portfolio-builder" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Preview Portfolio Builder">
                 <div class="lp-feature-icon lp-icon-gold" aria-hidden="true">🏆</div>
                 <h3>Portfolio Builder <span class="lp-pro-badge">Pro</span></h3>
                 <p>Build beautiful child portfolios to share with families.</p>
+                <span class="lp-feature-card-cta">Click to Preview</span>
               </article>
-              <article class="lp-feature-card">
+              <article class="lp-feature-card" data-preview="goals-progress" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Preview Goals and Progress">
                 <div class="lp-feature-icon lp-icon-purple" aria-hidden="true">🎯</div>
                 <h3>Goals &amp; Progress</h3>
                 <p>Track goals and developmental growth over time.</p>
+                <span class="lp-feature-card-cta">Click to Preview</span>
               </article>
             </div>
           </section>
@@ -1233,6 +1239,16 @@
       </div>
     </div>
 
-    <script src="app.js?v=20260621-phase1"></script>
+    <!-- Feature Preview Modal -->
+    <div class="modal" id="featurePreviewModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="featurePreviewTitle">
+      <div class="modal-card feature-preview-card">
+        <button class="close-button" id="closeFeaturePreviewModal" type="button" aria-label="Close feature preview">&times;</button>
+        <p class="eyebrow" id="featurePreviewEyebrow">Preview</p>
+        <h2 id="featurePreviewTitle" tabindex="-1">Feature Preview</h2>
+        <div id="featurePreviewBody"></div>
+      </div>
+    </div>
+
+    <script src="app.js?v=20260623-homepage-previews"></script>
   </body>
 </html>

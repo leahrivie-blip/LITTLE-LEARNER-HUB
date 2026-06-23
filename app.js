@@ -13843,6 +13843,7 @@ const featurePreviewModal = document.querySelector("#featurePreviewModal");
 const featurePreviewTitle = document.querySelector("#featurePreviewTitle");
 const featurePreviewEyebrow = document.querySelector("#featurePreviewEyebrow");
 const featurePreviewBody = document.querySelector("#featurePreviewBody");
+const closeFeaturePreviewButton = document.querySelector("#closeFeaturePreviewModal");
 
 const featurePreviewContent = {
   "child-profiles": {
@@ -14064,9 +14065,19 @@ const featurePreviewContent = {
 
 let featurePreviewTrigger = null;
 
+function isFeaturePreviewOpen() {
+  return featurePreviewModal?.getAttribute("aria-hidden") === "false";
+}
+
+function featurePreviewFocusableElements() {
+  if (!featurePreviewModal) return [];
+  return [...featurePreviewModal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+    .filter((element) => !element.disabled && !element.hidden && element.getAttribute("aria-hidden") !== "true");
+}
+
 function openFeaturePreview(previewId, triggerEl = null) {
   const content = featurePreviewContent[previewId];
-  if (!content || !featurePreviewModal) return;
+  if (!content || !featurePreviewModal || !featurePreviewTitle || !featurePreviewEyebrow || !featurePreviewBody) return;
   featurePreviewTrigger = triggerEl || document.activeElement || null;
   featurePreviewEyebrow.textContent = content.eyebrow;
   featurePreviewTitle.textContent = content.title;
@@ -14074,7 +14085,7 @@ function openFeaturePreview(previewId, triggerEl = null) {
   featurePreviewModal.classList.add("open");
   featurePreviewModal.setAttribute("aria-hidden", "false");
   document.body.classList.add("auth-modal-open");
-  featurePreviewTitle.focus();
+  (closeFeaturePreviewButton || featurePreviewTitle).focus();
 }
 
 function closeFeaturePreview() {
@@ -14089,9 +14100,9 @@ function closeFeaturePreview() {
   featurePreviewTrigger = null;
 }
 
-document.querySelector("#closeFeaturePreviewModal").addEventListener("click", closeFeaturePreview);
+closeFeaturePreviewButton?.addEventListener("click", closeFeaturePreview);
 
-featurePreviewModal.addEventListener("click", (event) => {
+featurePreviewModal?.addEventListener("click", (event) => {
   if (event.target === featurePreviewModal) closeFeaturePreview();
 });
 
@@ -14104,8 +14115,27 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && featurePreviewModal.getAttribute("aria-hidden") === "false") {
+  if (event.key === "Escape" && isFeaturePreviewOpen()) {
     closeFeaturePreview();
+    return;
+  }
+  if (event.key === "Tab" && isFeaturePreviewOpen()) {
+    const focusable = featurePreviewFocusableElements();
+    if (!focusable.length) {
+      event.preventDefault();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+      return;
+    }
+    if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
     return;
   }
   if ((event.key === "Enter" || event.key === " ") && event.target.closest("[data-preview]")) {
