@@ -7023,6 +7023,14 @@ button {
   border: 1px solid var(--line);
 }
 
+.lp-testimonial-mini-card.featured {
+  grid-column: 1 / -1;
+  padding: 28px 24px;
+  background: linear-gradient(135deg, rgba(157, 133, 255, 0.12), rgba(77, 212, 168, 0.12) 70%, var(--white));
+  border-color: rgba(157, 133, 255, 0.28);
+  box-shadow: 0 14px 34px rgba(83, 62, 42, 0.08);
+}
+
 .lp-mini-avatar {
   width: 44px;
   height: 44px;
@@ -7332,6 +7340,13 @@ button {
   border-radius: 18px;
   border: 1px solid var(--line);
   text-align: left;
+}
+
+.lp-review-card.featured {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, rgba(157, 133, 255, 0.12), rgba(77, 212, 168, 0.12) 70%, var(--white));
+  border-color: rgba(157, 133, 255, 0.28);
+  box-shadow: 0 16px 36px rgba(83, 62, 42, 0.08);
 }
 
 .lp-review-stars {
