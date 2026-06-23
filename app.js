@@ -2330,12 +2330,17 @@ const sidebarViewAliases = {
   help: "contact",
 };
 
+const sidebarFutureToolTargets = {
+  portfolio: "portfolio",
+};
+
 function resolveSidebarView(view) {
   return sidebarViewAliases[view] || view;
 }
 
 function childToolTabFromView(view) {
   const map = {
+    reports: "reports",
     "child-tools": "attendance",
     "child-tools-attendance": "attendance",
     "child-tools-meals": "meals",
@@ -2718,6 +2723,7 @@ function canSeeAdminNav() {
 function setView(view) {
   const requestedView = view;
   const requestedChildToolTab = childToolTabFromView(view);
+  const requestedFutureTool = sidebarFutureToolTargets[requestedView] || "";
   if (requestedChildToolTab) {
     childManagementMode = "tools";
     childToolsTab = requestedChildToolTab;
@@ -2752,7 +2758,7 @@ function setView(view) {
   if (resolvedView === "contact") renderContactPage();
   if (resolvedView === "ai") renderAiPage();
   if (resolvedView === "generators") renderGeneratorWorkspace("lesson");
-  if (resolvedView === "tools") renderFutureTools();
+  if (resolvedView === "tools") renderFutureTools(requestedFutureTool || undefined);
   if (resolvedView === "children") renderChildManagement();
   if (resolvedView === "support-center") renderSupportCenterPage();
   if (resolvedView === "planner") renderWeeklyPlanner();
