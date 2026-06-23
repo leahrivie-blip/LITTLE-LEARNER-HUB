@@ -485,7 +485,7 @@
           <!-- PHASE 7: FOUNDER STORY -->
           <section class="lp-founder-section" aria-label="About the founder">
             <div class="lp-founder-photo-wrap">
-              <img class="lp-founder-photo lp-founder-photo-img" src="image1" alt="Leah, founder of Little Learner Hub" />
+              <div class="lp-founder-photo" aria-label="Leah, founder of Little Learner Hub"><span aria-hidden="true">LH</span></div>
             </div>
             <div class="lp-founder-content">
               <h2>Hi, I'm Leah <span role="img" aria-label="waving hand">👋</span></h2>
@@ -997,9 +997,57 @@
             <h2>Reset your password</h2>
             <p>Use the secure reset link from your email to choose a new password.</p>
           </div>
-          <div id="resetPasswordApp"></div>
+          <section class="section-block">
+            <form id="resetPasswordForm" class="panel-form recovery-form">
+              <label>
+                New Password
+                <input type="password" name="newPassword" minlength="8" required autocomplete="new-password" placeholder="At least 8 characters" />
+              </label>
+              <button class="primary-button" type="submit">Save New Password</button>
+              <span class="form-message" id="resetPasswordMessage"></span>
+            </form>
+          </section>
         </section>
       </main>
     </div>
+
+    <div class="modal" id="authModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+      <div class="modal-card">
+        <button class="close-button" id="closeModal" type="button" aria-label="Close">&times;</button>
+        <h2 id="authTitle">Log in to Little Learner Hub</h2>
+        <form class="panel-form" id="authForm" novalidate>
+          <label>
+            Email
+            <input type="email" id="emailInput" name="email" required autocomplete="email" placeholder="you@example.com" />
+          </label>
+          <label id="authPhoneField" class="hidden-field" aria-hidden="true">
+            Phone (optional)
+            <input type="tel" id="phoneInput" name="phone" autocomplete="tel" placeholder="(555) 123-4567" />
+          </label>
+          <label>
+            Password
+            <input type="password" id="passwordInput" name="password" required autocomplete="current-password" placeholder="Password" minlength="8" />
+          </label>
+          <button class="primary-button" id="authSubmitButton" type="submit">Log In</button>
+          <span class="form-message" id="authMessage" aria-live="polite"></span>
+        </form>
+        <div class="auth-secondary-actions">
+          <button class="ghost-button" id="forgotPasswordButton" type="button">Forgot password?</button>
+          <button class="ghost-button" id="switchAuthModeButton" type="button">Create account</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="proModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="proModalTitle">
+      <div class="modal-card">
+        <button class="close-button" id="closeProModal" type="button" aria-label="Close">&times;</button>
+        <p class="eyebrow">Free Plan Limit Reached</p>
+        <h2 id="proModalTitle">You've reached your Free Plan limit.</h2>
+        <div class="pro-modal-body" id="proModalBody"></div>
+        <button class="primary-button" id="proModalUpgrade" type="button">Try Pro Free for 7 Days</button>
+      </div>
+    </div>
+
+    <script src="app.js?v=20260623-dashboard-fix"></script>
   </body>
 </html>
