@@ -7702,7 +7702,6 @@ button {
   }
 
   .lp-hero-visual {
-    order: 2;
   }
 
   .lp-trust-section,
@@ -7923,16 +7922,6 @@ button {
 }
 
 @media (max-width: 420px) {
-  body.home-view .topbar {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 10px;
-    padding: 10px 12px;
-  }
-
-  body.home-view .topbar .search-wrap {
-    display: none;
-  }
-
   body.home-view .mobile-brand {
     gap: 8px;
   }

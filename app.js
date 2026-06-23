@@ -14072,9 +14072,8 @@ function isFeaturePreviewOpen() {
 
 function featurePreviewFocusableElements() {
   if (!featurePreviewModal) return [];
-  const focusable = [...featurePreviewModal.querySelectorAll(FEATURE_PREVIEW_FOCUSABLE_SELECTOR)]
+  return [...featurePreviewModal.querySelectorAll(FEATURE_PREVIEW_FOCUSABLE_SELECTOR)]
     .filter((element) => !element.disabled && !element.hidden && element.getAttribute("aria-hidden") !== "true");
-  return focusable.length ? focusable : (closeFeaturePreviewButton ? [closeFeaturePreviewButton] : []);
 }
 
 function openFeaturePreview(previewId, triggerEl = null) {
@@ -14087,7 +14086,7 @@ function openFeaturePreview(previewId, triggerEl = null) {
   featurePreviewModal.classList.add("open");
   featurePreviewModal.setAttribute("aria-hidden", "false");
   document.body.classList.add("auth-modal-open");
-  closeFeaturePreviewButton.focus();
+  featurePreviewTitle.focus();
 }
 
 function closeFeaturePreview() {
@@ -14124,11 +14123,15 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Tab" && isFeaturePreviewOpen()) {
     const focusable = featurePreviewFocusableElements();
     if (!focusable.length) {
-      event.preventDefault();
       return;
     }
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
+    if (!focusable.includes(document.activeElement)) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
+      return;
+    }
     if (event.shiftKey && document.activeElement === first) {
       event.preventDefault();
       last.focus();
