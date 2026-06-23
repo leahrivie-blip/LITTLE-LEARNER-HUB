@@ -14071,13 +14071,17 @@ function openFeaturePreview(previewId, triggerEl = null) {
   featurePreviewEyebrow.textContent = content.eyebrow;
   featurePreviewTitle.textContent = content.title;
   featurePreviewBody.innerHTML = content.html;
+  featurePreviewModal.classList.add("open");
   featurePreviewModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("auth-modal-open");
   featurePreviewTitle.focus();
 }
 
 function closeFeaturePreview() {
   if (!featurePreviewModal) return;
+  featurePreviewModal.classList.remove("open");
   featurePreviewModal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("auth-modal-open");
   featurePreviewBody.innerHTML = "";
   if (featurePreviewTrigger && typeof featurePreviewTrigger.focus === "function") {
     featurePreviewTrigger.focus();
