@@ -14062,20 +14062,27 @@ const featurePreviewContent = {
   },
 };
 
-function openFeaturePreview(previewId) {
+let featurePreviewTrigger = null;
+
+function openFeaturePreview(previewId, triggerEl = null) {
   const content = featurePreviewContent[previewId];
   if (!content || !featurePreviewModal) return;
+  featurePreviewTrigger = triggerEl || document.activeElement || null;
   featurePreviewEyebrow.textContent = content.eyebrow;
   featurePreviewTitle.textContent = content.title;
   featurePreviewBody.innerHTML = content.html;
   featurePreviewModal.setAttribute("aria-hidden", "false");
-  document.querySelector("#closeFeaturePreviewModal").focus();
+  featurePreviewTitle.focus();
 }
 
 function closeFeaturePreview() {
   if (!featurePreviewModal) return;
   featurePreviewModal.setAttribute("aria-hidden", "true");
   featurePreviewBody.innerHTML = "";
+  if (featurePreviewTrigger && typeof featurePreviewTrigger.focus === "function") {
+    featurePreviewTrigger.focus();
+  }
+  featurePreviewTrigger = null;
 }
 
 document.querySelector("#closeFeaturePreviewModal").addEventListener("click", closeFeaturePreview);
@@ -14088,7 +14095,7 @@ document.addEventListener("click", (event) => {
   const card = event.target.closest("[data-preview]");
   if (card) {
     event.preventDefault();
-    openFeaturePreview(card.dataset.preview);
+    openFeaturePreview(card.dataset.preview, card);
   }
 });
 
@@ -14099,7 +14106,8 @@ document.addEventListener("keydown", (event) => {
   }
   if ((event.key === "Enter" || event.key === " ") && event.target.closest("[data-preview]")) {
     event.preventDefault();
-    openFeaturePreview(event.target.closest("[data-preview]").dataset.preview);
+    const card = event.target.closest("[data-preview]");
+    openFeaturePreview(card.dataset.preview, card);
   }
 });
 
