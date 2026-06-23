@@ -7092,6 +7092,8 @@ button {
 
 .lp-feature-card:hover {
   transform: translateY(-3px);
+  background: linear-gradient(180deg, #ffffff, #faf7ff);
+  border-color: rgba(123, 95, 232, 0.26);
   box-shadow: 0 16px 40px rgba(123, 95, 232, 0.12);
 }
 
@@ -7130,16 +7132,13 @@ button {
 .lp-feature-card-cta {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
   margin-top: 18px;
+  padding: 8px 12px;
   color: var(--lavender-dark);
+  background: rgba(237, 232, 255, 0.72);
+  border-radius: 999px;
   font-size: 13px;
   font-weight: 800;
-}
-
-.lp-feature-card-cta::after {
-  content: "→";
-  font-size: 15px;
 }
 
 .lp-pro-badge {
@@ -7703,7 +7702,6 @@ button {
   }
 
   .lp-hero-visual {
-    display: flex;
     order: 2;
   }
 

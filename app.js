@@ -14072,13 +14072,14 @@ function isFeaturePreviewOpen() {
 
 function featurePreviewFocusableElements() {
   if (!featurePreviewModal) return [];
-  return [...featurePreviewModal.querySelectorAll(FEATURE_PREVIEW_FOCUSABLE_SELECTOR)]
+  const focusable = [...featurePreviewModal.querySelectorAll(FEATURE_PREVIEW_FOCUSABLE_SELECTOR)]
     .filter((element) => !element.disabled && !element.hidden && element.getAttribute("aria-hidden") !== "true");
+  return focusable.length ? focusable : (closeFeaturePreviewButton ? [closeFeaturePreviewButton] : []);
 }
 
 function openFeaturePreview(previewId, triggerEl = null) {
   const content = featurePreviewContent[previewId];
-  if (!content || !featurePreviewModal || !featurePreviewTitle || !featurePreviewEyebrow || !featurePreviewBody) return;
+  if (!content || !featurePreviewModal || !featurePreviewTitle || !featurePreviewEyebrow || !featurePreviewBody || !closeFeaturePreviewButton) return;
   featurePreviewTrigger = triggerEl || document.activeElement || null;
   featurePreviewEyebrow.textContent = content.eyebrow;
   featurePreviewTitle.textContent = content.title;
@@ -14086,7 +14087,7 @@ function openFeaturePreview(previewId, triggerEl = null) {
   featurePreviewModal.classList.add("open");
   featurePreviewModal.setAttribute("aria-hidden", "false");
   document.body.classList.add("auth-modal-open");
-  (closeFeaturePreviewButton ? closeFeaturePreviewButton : featurePreviewTitle).focus();
+  closeFeaturePreviewButton.focus();
 }
 
 function closeFeaturePreview() {
