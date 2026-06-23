@@ -2732,6 +2732,7 @@ function setView(view) {
   }
   document.querySelectorAll(".view").forEach((section) => section.classList.remove("active-view"));
   document.querySelector(`#view-${resolvedView}`)?.classList.add("active-view");
+  document.body.classList.toggle("home-view", resolvedView === "home");
   document.querySelectorAll(".nav-link").forEach((button) => {
     button.classList.toggle("active", button.dataset.view === requestedView);
   });
@@ -14326,6 +14327,7 @@ if (currentUser) {
   updateAuthButtons();
   updatePlanLabel();
 }
+document.body.classList.add("home-view");
 renderHome();
 
 function initialViewFromLocation() {

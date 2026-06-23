@@ -7554,3 +7554,73 @@ button {
     text-align: center;
   }
 }
+
+/* ============================================================
+   STANDALONE HOMEPAGE / MARKETING LANDING PAGE
+   Applied when body.home-view is active — removes the dashboard
+   shell (sidebar + search topbar) so the landing page is full-width.
+   ============================================================ */
+
+body.home-view .app-shell {
+  display: block;
+}
+
+body.home-view .sidebar {
+  display: none;
+}
+
+/* Marketing nav — replaces the dashboard topbar */
+body.home-view .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 32px;
+  background: rgba(255, 249, 241, 0.95);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(16px);
+  gap: 16px;
+}
+
+body.home-view .topbar .mobile-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+body.home-view .topbar .mobile-brand strong {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+body.home-view .topbar .search-wrap {
+  display: none;
+}
+
+body.home-view .topbar .account-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* Home view itself — full-width, no padding */
+body.home-view #view-home.active-view {
+  padding: 0;
+  max-width: 100%;
+}
+
+body.home-view .landing-home {
+  max-width: 100%;
+}
+
+@media (max-width: 820px) {
+  body.home-view .topbar {
+    padding: 12px 16px;
+  }
+}
