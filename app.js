@@ -2330,12 +2330,17 @@ const sidebarViewAliases = {
   help: "contact",
 };
 
+const sidebarFutureToolTargets = {
+  portfolio: "portfolio",
+};
+
 function resolveSidebarView(view) {
   return sidebarViewAliases[view] || view;
 }
 
 function childToolTabFromView(view) {
   const map = {
+    reports: "reports",
     "child-tools": "attendance",
     "child-tools-attendance": "attendance",
     "child-tools-meals": "meals",
@@ -2718,6 +2723,7 @@ function canSeeAdminNav() {
 function setView(view) {
   const requestedView = view;
   const requestedChildToolTab = childToolTabFromView(view);
+  const requestedFutureTool = sidebarFutureToolTargets[requestedView] || "";
   if (requestedChildToolTab) {
     childManagementMode = "tools";
     childToolsTab = requestedChildToolTab;
@@ -2752,7 +2758,7 @@ function setView(view) {
   if (resolvedView === "contact") renderContactPage();
   if (resolvedView === "ai") renderAiPage();
   if (resolvedView === "generators") renderGeneratorWorkspace("lesson");
-  if (resolvedView === "tools") renderFutureTools();
+  if (resolvedView === "tools") renderFutureTools(requestedFutureTool || undefined);
   if (resolvedView === "children") renderChildManagement();
   if (resolvedView === "support-center") renderSupportCenterPage();
   if (resolvedView === "planner") renderWeeklyPlanner();
@@ -14057,6 +14063,41 @@ const featurePreviewContent = {
             <div class="fp-field"><label>Social-Emotional</label>
               <div class="fp-progress-bar-wrap"><div class="fp-progress-bar" style="width:90%"></div></div>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>`,
+  },
+  "forms-paperwork": {
+    eyebrow: "Preview",
+    title: "Forms & Paperwork",
+    html: `<div class="fp-screen">
+      <div class="fp-screen-bar"><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-screen-title">Forms &amp; Paperwork — Little Learner Hub</span></div>
+      <div class="fp-screen-body">
+        <aside class="fp-sidebar">
+          <div class="fp-nav">Children</div>
+          <div class="fp-nav">Observations</div>
+          <div class="fp-nav">Lessons</div>
+          <div class="fp-nav active">Forms</div>
+        </aside>
+        <div class="fp-main">
+          <div class="fp-stat-row">
+            <div class="fp-stat"><strong>50+</strong><span>Forms</span></div>
+            <div class="fp-stat"><strong>12</strong><span>Categories</span></div>
+            <div class="fp-stat"><strong>Free</strong><span>&amp; Pro</span></div>
+          </div>
+          <div class="fp-card">
+            <div class="fp-card-title">Forms Library</div>
+            <div class="fp-row"><span>📋</span><div><strong>Enrollment Form</strong><br><small>Editable · Enrollment &amp; Registration</small></div><span class="fp-tag">Editable</span></div>
+            <div class="fp-row"><span>📋</span><div><strong>Emergency Contact Card</strong><br><small>PDF · Child Info &amp; Medical Notes</small></div><span class="fp-tag purple">PDF</span></div>
+            <div class="fp-row"><span>📋</span><div><strong>Incident Report</strong><br><small>Editable · Accident Documentation</small></div><span class="fp-tag">Editable</span></div>
+            <div class="fp-row"><span>📋</span><div><strong>Parent Handbook Template</strong><br><small>Editable · Program Policies</small></div><span class="fp-tag gold">Pro</span></div>
+          </div>
+          <div class="fp-card">
+            <div class="fp-card-title">Enrollment Form — Details</div>
+            <div class="fp-field"><label>Type</label><div class="fp-field-value">Editable Word Document</div></div>
+            <div class="fp-field"><label>Category</label><div class="fp-field-value">Enrollment &amp; Registration</div></div>
+            <div class="fp-field"><label>Access</label><div class="fp-field-value">Free Plan Included</div></div>
           </div>
         </div>
       </div>

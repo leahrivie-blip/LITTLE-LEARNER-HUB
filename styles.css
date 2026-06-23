@@ -6584,6 +6584,7 @@ button {
 /* --- Section spacing ---------------------------------------- */
 .lp-hero,
 .lp-trust-section,
+.lp-feature-showcase,
 .lp-feature-section,
 .lp-pricing-section,
 .lp-why-section,
@@ -7162,6 +7163,302 @@ button {
 }
 
 /* ==========================================================
+   FEATURE SHOWCASE SECTION — "What Can I Actually Do"
+   ========================================================== */
+.lp-feature-showcase {
+  margin-top: 28px;
+  padding: 64px 44px;
+  background: linear-gradient(160deg, #f7f4ff 0%, #f0fff8 50%, #fff8f0 100%);
+  border-radius: 24px;
+  border: 1px solid rgba(157, 133, 255, 0.12);
+}
+
+.lp-showcase-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+}
+
+.lp-showcase-card {
+  background: var(--white);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(83, 62, 42, 0.09);
+  border: 1px solid rgba(157, 133, 255, 0.12);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.lp-showcase-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 56px rgba(123, 95, 232, 0.14);
+  border-color: rgba(123, 95, 232, 0.28);
+}
+
+.lp-showcase-card:focus-visible {
+  outline: 3px solid rgba(123, 95, 232, 0.4);
+  outline-offset: 4px;
+}
+
+/* The "screenshot" mockup area */
+.lp-showcase-screen {
+  background: #f0ecff;
+  border-bottom: 1px solid rgba(157, 133, 255, 0.14);
+  font-size: 11.5px;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+
+.lp-sc-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 14px;
+  background: #e8e2ff;
+  border-bottom: 1px solid rgba(157, 133, 255, 0.18);
+}
+
+.lp-sc-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(123, 95, 232, 0.28);
+  flex-shrink: 0;
+}
+
+.lp-sc-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--lavender-dark);
+  margin-left: 6px;
+  letter-spacing: 0.01em;
+}
+
+.lp-sc-body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lp-sc-stat-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.lp-sc-stat {
+  background: var(--white);
+  border-radius: 10px;
+  padding: 8px 6px;
+  text-align: center;
+  border: 1px solid rgba(157, 133, 255, 0.16);
+}
+
+.lp-sc-stat strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--lavender-dark);
+  line-height: 1.2;
+}
+
+.lp-sc-stat span {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.lp-sc-card {
+  background: var(--white);
+  border-radius: 10px;
+  border: 1px solid rgba(157, 133, 255, 0.16);
+  overflow: hidden;
+}
+
+.lp-sc-card-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--lavender-dark);
+  background: rgba(237, 232, 255, 0.5);
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(157, 133, 255, 0.14);
+  letter-spacing: 0.01em;
+}
+
+.lp-sc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(157, 133, 255, 0.08);
+}
+
+.lp-sc-row:last-child { border-bottom: 0; }
+
+.lp-sc-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--lavender-soft);
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--lavender-dark);
+  flex-shrink: 0;
+}
+
+.lp-sc-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.lp-sc-row strong {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.lp-sc-row small,
+.lp-sc-row div small {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.lp-sc-row div {
+  flex: 1;
+  min-width: 0;
+}
+
+.lp-sc-tag {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 700;
+  background: var(--mint-soft);
+  color: #19695a;
+}
+
+.lp-sc-tag-purple { background: var(--lavender-soft); color: var(--lavender-dark); }
+.lp-sc-tag-gold   { background: #fff3e0; color: #b45309; }
+
+.lp-sc-card-detail {
+  font-size: 10.5px;
+}
+
+.lp-sc-field {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 4px;
+  padding: 5px 12px;
+  border-bottom: 1px solid rgba(157, 133, 255, 0.08);
+  align-items: start;
+}
+
+.lp-sc-field:last-child { border-bottom: 0; }
+
+.lp-sc-field label {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding-top: 1px;
+}
+
+.lp-sc-field span {
+  font-size: 10.5px;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.lp-sc-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 12px;
+  border-bottom: 1px solid rgba(157, 133, 255, 0.08);
+}
+
+.lp-sc-progress:last-child { border-bottom: 0; }
+
+.lp-sc-progress label {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.lp-sc-bar-wrap {
+  height: 6px;
+  background: rgba(157, 133, 255, 0.15);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.lp-sc-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--lavender-dark), var(--lavender));
+  border-radius: 999px;
+}
+
+.lp-sc-ai-output p {
+  padding: 8px 12px;
+  font-size: 10.5px;
+  line-height: 1.6;
+  color: var(--ink);
+  margin: 0;
+}
+
+/* Card text info below screenshot */
+.lp-showcase-info {
+  padding: 20px 24px 22px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.lp-showcase-info h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.lp-showcase-info p {
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--muted);
+  flex: 1;
+}
+
+.lp-showcase-btn {
+  align-self: flex-start;
+  padding: 9px 18px;
+  background: linear-gradient(135deg, var(--lavender-dark), var(--lavender));
+  color: var(--white);
+  border: 0;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.18s;
+  pointer-events: none; /* card is the clickable element */
+}
+
+.lp-showcase-card:hover .lp-showcase-btn {
+  opacity: 0.9;
+}
+
+/* ==========================================================
    PHASE 4 — FREE VS PRO PRICING
    ========================================================== */
 .lp-pricing-section {
@@ -7717,6 +8014,7 @@ button {
   }
 
   .lp-trust-section,
+  .lp-feature-showcase,
   .lp-feature-section,
   .lp-pricing-section,
   .lp-why-section,
@@ -7732,6 +8030,10 @@ button {
 
   .lp-testimonial-mini-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lp-showcase-grid {
+    grid-template-columns: 1fr;
   }
 
   .lp-feature-grid {
@@ -7798,6 +8100,7 @@ button {
 
   .lp-hero,
   .lp-trust-section,
+  .lp-feature-showcase,
   .lp-feature-section,
   .lp-pricing-section,
   .lp-why-section,
@@ -7806,6 +8109,11 @@ button {
   .lp-final-cta {
     padding: 30px 18px;
     border-radius: 16px;
+  }
+
+  .lp-showcase-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
   }
 
   .lp-trust-grid,
@@ -7949,6 +8257,7 @@ button {
   }
 
   .lp-trust-section,
+  .lp-feature-showcase,
   .lp-feature-section,
   .lp-pricing-section,
   .lp-why-section,
