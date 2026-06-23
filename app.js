@@ -13836,6 +13836,281 @@ document.querySelector("#switchAuthModeButton").addEventListener("click", () => 
 
 document.querySelector("#closeProModal").addEventListener("click", closeProFeatureModal);
 
+// -------------------------------------------------------
+// Feature Preview Modal
+// -------------------------------------------------------
+const featurePreviewModal = document.querySelector("#featurePreviewModal");
+const featurePreviewTitle = document.querySelector("#featurePreviewTitle");
+const featurePreviewEyebrow = document.querySelector("#featurePreviewEyebrow");
+const featurePreviewBody = document.querySelector("#featurePreviewBody");
+
+const featurePreviewContent = {
+  "child-profiles": {
+    eyebrow: "Preview",
+    title: "Child Profiles",
+    html: `<div class="fp-screen">
+      <div class="fp-screen-bar"><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-screen-title">Child Profiles — Little Learner Hub</span></div>
+      <div class="fp-screen-body">
+        <aside class="fp-sidebar">
+          <div class="fp-nav active">Children</div>
+          <div class="fp-nav">Observations</div>
+          <div class="fp-nav">Lessons</div>
+          <div class="fp-nav">AI Tools</div>
+        </aside>
+        <div class="fp-main">
+          <div class="fp-stat-row">
+            <div class="fp-stat"><strong>3</strong><span>Profiles</span></div>
+            <div class="fp-stat"><strong>2</strong><span>Active Goals</span></div>
+            <div class="fp-stat"><strong>8</strong><span>Observations</span></div>
+          </div>
+          <div class="fp-card">
+            <div class="fp-card-title">Child Profiles</div>
+            <div class="fp-row"><span class="fp-avatar">E</span><span><strong>Emma, Age 3</strong> — Preschooler</span><span class="fp-tag">Active</span></div>
+            <div class="fp-row"><span class="fp-avatar">L</span><span><strong>Liam, Age 2</strong> — Toddler</span><span class="fp-tag">Active</span></div>
+            <div class="fp-row"><span class="fp-avatar">S</span><span><strong>Sofia, Age 4</strong> — Preschooler</span><span class="fp-tag">Active</span></div>
+          </div>
+          <div class="fp-card">
+            <div class="fp-card-title">Emma — Profile Details</div>
+            <div class="fp-field"><label>Age Group</label><div class="fp-field-value">Preschooler (3–5 years)</div></div>
+            <div class="fp-field"><label>Enrolled</label><div class="fp-field-value">September 2024</div></div>
+            <div class="fp-field"><label>Primary Goals</label><div class="fp-field-value">Fine Motor · Language · Social-Emotional</div></div>
+          </div>
+        </div>
+      </div>
+    </div>`,
+  },
+  "observation-tracker": {
+    eyebrow: "Preview",
+    title: "Observation Tracker",
+    html: `<div class="fp-screen">
+      <div class="fp-screen-bar"><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-screen-title">Observation Tracker — Little Learner Hub</span></div>
+      <div class="fp-screen-body">
+        <aside class="fp-sidebar">
+          <div class="fp-nav">Children</div>
+          <div class="fp-nav active">Observations</div>
+          <div class="fp-nav">Lessons</div>
+          <div class="fp-nav">AI Tools</div>
+        </aside>
+        <div class="fp-main">
+          <div class="fp-stat-row">
+            <div class="fp-stat"><strong>8</strong><span>This Month</span></div>
+            <div class="fp-stat"><strong>3</strong><span>Children</span></div>
+            <div class="fp-stat"><strong>5</strong><span>Areas Covered</span></div>
+          </div>
+          <div class="fp-card">
+            <div class="fp-card-title">Recent Observations</div>
+            <div class="fp-row"><span class="fp-avatar">E</span><div><strong>Emma — Fine Motor</strong><br><small>Stacking blocks with both hands, showing improving grip.</small></div><span class="fp-tag">Fine Motor</span></div>
+            <div class="fp-row"><span class="fp-avatar">L</span><div><strong>Liam — Language</strong><br><small>Used 3-word sentences during play with peers.</small></div><span class="fp-tag purple">Language</span></div>
+            <div class="fp-row"><span class="fp-avatar">S</span><div><strong>Sofia — Social</strong><br><small>Shared toys independently and invited a friend to play.</small></div><span class="fp-tag gold">Social</span></div>
+          </div>
+          <div class="fp-card">
+            <div class="fp-card-title">New Observation</div>
+            <div class="fp-field"><label>Child</label><div class="fp-field-value">Emma</div></div>
+            <div class="fp-field"><label>Developmental Area</label><div class="fp-field-value">Fine Motor</div></div>
+            <div class="fp-field"><label>Observation Note</label><div class="fp-field-value">Emma demonstrated strong pincer grasp while threading beads...</div></div>
+          </div>
+        </div>
+      </div>
+    </div>`,
+  },
+  "lesson-plans": {
+    eyebrow: "Preview",
+    title: "Lesson Plans",
+    html: `<div class="fp-screen">
+      <div class="fp-screen-bar"><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-screen-title">Lesson Plans — Little Learner Hub</span></div>
+      <div class="fp-screen-body">
+        <aside class="fp-sidebar">
+          <div class="fp-nav">Children</div>
+          <div class="fp-nav">Observations</div>
+          <div class="fp-nav active">Lessons</div>
+          <div class="fp-nav">AI Tools</div>
+        </aside>
+        <div class="fp-main">
+          <div class="fp-stat-row">
+            <div class="fp-stat"><strong>5</strong><span>Plans Available</span></div>
+            <div class="fp-stat"><strong>3</strong><span>Age Groups</span></div>
+            <div class="fp-stat"><strong>12</strong><span>Activities</span></div>
+          </div>
+          <div class="fp-card">
+            <div class="fp-card-title">Saved Lesson Plans</div>
+            <div class="fp-row"><span>🌿</span><div><strong>Spring Nature Walk</strong><br><small>Preschoolers · Science &amp; Outdoor</small></div><span class="fp-tag">Saved</span></div>
+            <div class="fp-row"><span>🎨</span><div><strong>Sensory Color Mixing</strong><br><small>Toddlers · Fine Motor &amp; Art</small></div><span class="fp-tag purple">New</span></div>
+            <div class="fp-row"><span>📖</span><div><strong>Storytime with Puppets</strong><br><small>All Ages · Language &amp; Literacy</small></div><span class="fp-tag">Saved</span></div>
+          </div>
+          <div class="fp-card">
+            <div class="fp-card-title">Spring Nature Walk — Plan Details</div>
+            <div class="fp-field"><label>Age Group</label><div class="fp-field-value">Preschoolers (3–5 years)</div></div>
+            <div class="fp-field"><label>Learning Goal</label><div class="fp-field-value">Explore seasonal changes, practice observation skills, build vocabulary.</div></div>
+            <div class="fp-field"><label>Materials</label><div class="fp-field-value">Magnifying glass · Collection bags · Field journal · Crayons</div></div>
+          </div>
+        </div>
+      </div>
+    </div>`,
+  },
+  "ai-tools": {
+    eyebrow: "Preview",
+    title: "AI Tools",
+    html: `<div class="fp-screen">
+      <div class="fp-screen-bar"><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-screen-title">AI Tools — Little Learner Hub</span></div>
+      <div class="fp-screen-body">
+        <aside class="fp-sidebar">
+          <div class="fp-nav">Children</div>
+          <div class="fp-nav">Observations</div>
+          <div class="fp-nav">Lessons</div>
+          <div class="fp-nav active">AI Tools</div>
+        </aside>
+        <div class="fp-main">
+          <div class="fp-stat-row">
+            <div class="fp-stat"><strong>10+</strong><span>AI Generators</span></div>
+            <div class="fp-stat"><strong>7</strong><span>Used This Month</span></div>
+            <div class="fp-stat"><strong>3</strong><span>Remaining</span></div>
+          </div>
+          <div class="fp-card">
+            <div class="fp-card-title">Generate Observation Note</div>
+            <div class="fp-field"><label>Child</label><div class="fp-field-value">Emma — Age 3</div></div>
+            <div class="fp-field"><label>Developmental Area</label><div class="fp-field-value">Fine Motor</div></div>
+            <div class="fp-field"><label>What did you notice?</label><div class="fp-field-value">Emma threaded 6 beads without help today.</div></div>
+          </div>
+          <div class="fp-card">
+            <div class="fp-card-title">✨ AI Generated Output</div>
+            <div class="fp-ai-output">During a structured fine motor activity, Emma demonstrated focused concentration and developing dexterity as she independently threaded six beads onto a string. This skill highlights Emma's growing hand-eye coordination and perseverance. Next steps: introduce smaller beads or lacing cards to continue building precision.</div>
+          </div>
+        </div>
+      </div>
+    </div>`,
+  },
+  "portfolio-builder": {
+    eyebrow: "Preview — Pro Feature",
+    title: "Portfolio Builder",
+    html: `<div class="fp-screen">
+      <div class="fp-screen-bar"><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-screen-title">Portfolio Builder — Little Learner Hub Pro</span></div>
+      <div class="fp-screen-body">
+        <aside class="fp-sidebar">
+          <div class="fp-nav">Children</div>
+          <div class="fp-nav">Observations</div>
+          <div class="fp-nav">Lessons</div>
+          <div class="fp-nav active">Portfolios</div>
+        </aside>
+        <div class="fp-main">
+          <div class="fp-stat-row">
+            <div class="fp-stat"><strong>3</strong><span>Portfolios</span></div>
+            <div class="fp-stat"><strong>24</strong><span>Entries</span></div>
+            <div class="fp-stat"><strong>2</strong><span>Shared</span></div>
+          </div>
+          <div class="fp-card">
+            <div class="fp-card-title">Emma's Portfolio — Fall 2024</div>
+            <p class="fp-desc">A compiled record of Emma's development including observations, goals, and highlights to share with families.</p>
+            <div class="fp-row"><span>📝</span><span>8 Observations Included</span><span class="fp-tag">Language</span></div>
+            <div class="fp-row"><span>🎯</span><span>3 Goals Tracked</span><span class="fp-tag purple">Fine Motor</span></div>
+            <div class="fp-row"><span>⭐</span><span>2 Monthly Highlights</span><span class="fp-tag gold">Social</span></div>
+          </div>
+          <div class="fp-card">
+            <div class="fp-card-title">Developmental Summary — Emma</div>
+            <div class="fp-field"><label>Fine Motor Progress</label>
+              <div class="fp-progress-bar-wrap"><div class="fp-progress-bar" style="width:75%"></div></div>
+            </div>
+            <div class="fp-field"><label>Language Progress</label>
+              <div class="fp-progress-bar-wrap"><div class="fp-progress-bar" style="width:60%"></div></div>
+            </div>
+            <div class="fp-field"><label>Social-Emotional</label>
+              <div class="fp-progress-bar-wrap"><div class="fp-progress-bar" style="width:85%"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`,
+  },
+  "goals-progress": {
+    eyebrow: "Preview",
+    title: "Goals & Progress",
+    html: `<div class="fp-screen">
+      <div class="fp-screen-bar"><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-screen-title">Goals &amp; Progress — Little Learner Hub</span></div>
+      <div class="fp-screen-body">
+        <aside class="fp-sidebar">
+          <div class="fp-nav">Children</div>
+          <div class="fp-nav active">Goals</div>
+          <div class="fp-nav">Lessons</div>
+          <div class="fp-nav">Reports</div>
+        </aside>
+        <div class="fp-main">
+          <div class="fp-stat-row">
+            <div class="fp-stat"><strong>6</strong><span>Active Goals</span></div>
+            <div class="fp-stat"><strong>4</strong><span>In Progress</span></div>
+            <div class="fp-stat"><strong>2</strong><span>Achieved</span></div>
+          </div>
+          <div class="fp-card">
+            <div class="fp-card-title">Emma — Active Goals</div>
+            <div class="fp-row"><span>🎯</span><div><strong>Fine Motor: Pincer Grasp</strong><br><small>Started Sept 2024</small></div><span class="fp-tag">In Progress</span></div>
+            <div class="fp-row"><span>🎯</span><div><strong>Language: 4-Word Sentences</strong><br><small>Started Oct 2024</small></div><span class="fp-tag purple">In Progress</span></div>
+            <div class="fp-row"><span>🎯</span><div><strong>Social: Cooperative Play</strong><br><small>Achieved Nov 2024</small></div><span class="fp-tag gold">✓ Done</span></div>
+          </div>
+          <div class="fp-card">
+            <div class="fp-card-title">Progress Overview</div>
+            <div class="fp-field"><label>Fine Motor</label>
+              <div class="fp-progress-bar-wrap"><div class="fp-progress-bar" style="width:70%"></div></div>
+            </div>
+            <div class="fp-field"><label>Language</label>
+              <div class="fp-progress-bar-wrap"><div class="fp-progress-bar" style="width:55%"></div></div>
+            </div>
+            <div class="fp-field"><label>Social-Emotional</label>
+              <div class="fp-progress-bar-wrap"><div class="fp-progress-bar" style="width:90%"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`,
+  },
+};
+
+let featurePreviewTrigger = null;
+
+function openFeaturePreview(previewId, triggerEl = null) {
+  const content = featurePreviewContent[previewId];
+  if (!content || !featurePreviewModal) return;
+  featurePreviewTrigger = triggerEl || document.activeElement || null;
+  featurePreviewEyebrow.textContent = content.eyebrow;
+  featurePreviewTitle.textContent = content.title;
+  featurePreviewBody.innerHTML = content.html;
+  featurePreviewModal.setAttribute("aria-hidden", "false");
+  featurePreviewTitle.focus();
+}
+
+function closeFeaturePreview() {
+  if (!featurePreviewModal) return;
+  featurePreviewModal.setAttribute("aria-hidden", "true");
+  featurePreviewBody.innerHTML = "";
+  if (featurePreviewTrigger && typeof featurePreviewTrigger.focus === "function") {
+    featurePreviewTrigger.focus();
+  }
+  featurePreviewTrigger = null;
+}
+
+document.querySelector("#closeFeaturePreviewModal").addEventListener("click", closeFeaturePreview);
+
+featurePreviewModal.addEventListener("click", (event) => {
+  if (event.target === featurePreviewModal) closeFeaturePreview();
+});
+
+document.addEventListener("click", (event) => {
+  const card = event.target.closest("[data-preview]");
+  if (card) {
+    event.preventDefault();
+    openFeaturePreview(card.dataset.preview, card);
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && featurePreviewModal.getAttribute("aria-hidden") === "false") {
+    closeFeaturePreview();
+    return;
+  }
+  if ((event.key === "Enter" || event.key === " ") && event.target.closest("[data-preview]")) {
+    event.preventDefault();
+    const card = event.target.closest("[data-preview]");
+    openFeaturePreview(card.dataset.preview, card);
+  }
+});
+
 document.querySelector("#proModalUpgrade").addEventListener("click", () => {
   startProTrial();
 });
