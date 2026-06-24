@@ -6452,7 +6452,7 @@ function renderGeneratorField(field) {
       </label>
     `;
   }
-  const inputType = ["date", "time", "email", "number"].includes(type) ? type : "text";
+  const inputType = typeof type === "string" && ["date", "time", "email", "number"].includes(type) ? type : "text";
   return `
     <label>
       ${label}
@@ -11153,7 +11153,7 @@ function ageGroupLabel(ageGroup) {
 function normalizeAiAgeGroup(rawAge) {
   if (aiAgeGroupOptions.includes(rawAge)) return rawAge;
   if (rawAge === "Toddler") return "Older Toddler";
-  return rawAge || "Preschool";
+  return "Preschool";
 }
 
 function ageGroupProfile(rawAge) {
@@ -11488,7 +11488,7 @@ function aiPromptFromForm(toolId, data) {
     .filter(([name, , value]) => value && !usedKeys.has(name))
     .map(([, label, value]) => `${label}: ${value}`);
   const uncatalogedLines = Object.entries(data)
-    .filter(([key, value]) => value && !usedKeys.has(key) && !fieldLabelMap[key])
+    .filter(([key, value]) => value && !usedKeys.has(key) && !fieldLabelMap[key] && !key.startsWith("_"))
     .map(([key, value]) => `${key}: ${value}`);
   return [
     `Tool Type: ${toolTitle}`,
@@ -11606,7 +11606,7 @@ function generateLessonPlan(data) {
  const profile = ageGroupProfile(rawAge);
  const theme = data.theme || "Farm";
  const planLength = data.planLength || "Weekly";
- const days = Number(data.days || 5);
+ const days = Math.min(Math.max(Number(data.days || 5) || 5, 1), 10);
  const focus = data.focus || profile.learningFocus;
  const materials = data.materials || profile.lessonMaterials;
  const programName = data.programName || "";
