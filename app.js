@@ -580,6 +580,9 @@ const printableTypes = ["Infant Activity Guide", "Tracing Worksheets", "Coloring
 const professionalPrintableTypes = ["Infant Activity Guide", "Tracing Worksheets", "Coloring Pages", "Alphabet Practice", "Number Practice", "Shape Practice", "Name Writing", "Cutting Practice", "Matching Activities", "Assessment Forms", "Seasonal Worksheets", "Holiday Worksheets"];
 const printableQualityBlockedTerms = ["placeholder", "draw here", "blank box", "coming soon", "lorem ipsum", "unfinished", "ai draft", "ai-generated"];
 const printablePdfLimit = Number.POSITIVE_INFINITY;
+// Set to true to temporarily hide the user-facing printables library while the section is being refreshed.
+// Admins always retain full access. Flip back to false to re-enable for users.
+const PRINTABLES_COMING_SOON = true;
 
 const libraryResources = buildResourceLibrary();
 
@@ -5756,6 +5759,12 @@ function openResourceViewer(resourceId) {
 function renderCategoryPage(view) {
   const category = viewMap[view];
   const section = document.querySelector(`#view-${view}`);
+
+  if (category === "Printables" && PRINTABLES_COMING_SOON && !hasAdminFullAccess()) {
+    section.innerHTML = renderPrintablesComingSoon();
+    return;
+  }
+
   const searchedChild = category === "Lesson Plans" ? childFromSearchQuery(searchInput.value.trim(), childRecords()) : null;
   const items = categoryResources(category);
   const allCategoryItems = resources.filter((resource) => resource.category === category);
@@ -5812,6 +5821,20 @@ function renderPrintablesRefreshNotice() {
     <div class="access-notice printable-refresh-notice">
       <strong>Professional print-ready resources.</strong>
       Worksheets use structured classroom layouts, PDF-ready pages, dotted tracing or cutting practice when appropriate, and quality checks for placeholder or unfinished content before printing.
+    </div>
+  `;
+}
+
+function renderPrintablesComingSoon() {
+  return `
+    <div class="page-title">
+      <p class="eyebrow">Printables</p>
+      <h2>Printables are being upgraded</h2>
+      <p>We're currently refreshing our printable library with higher-quality, teacher-friendly resources. New worksheets, activity pages, and classroom printables will be added soon.</p>
+    </div>
+    <div class="access-notice">
+      <strong>Check back soon.</strong>
+      Our updated printable library will include ready-to-print worksheets, tracing pages, coloring sheets, and more — all designed for home daycare and preschool providers.
     </div>
   `;
 }
