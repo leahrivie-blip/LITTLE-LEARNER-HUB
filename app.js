@@ -13181,7 +13181,7 @@ function toggleCustomCurriculumField(curriculumValue) {
   const customInput = document.querySelector('[name="customCurriculumName"]');
   if (!wrap || !customInput) return;
   const shouldShow = curriculumValue === "Custom/Other";
-  wrap.style.display = shouldShow ? "block" : "none";
+  wrap.classList.toggle("hidden-field", !shouldShow);
   if (!shouldShow) customInput.value = "";
 }
 
