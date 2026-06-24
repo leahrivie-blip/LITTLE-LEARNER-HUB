@@ -12029,13 +12029,16 @@ function aiPromptFromForm(toolId, data) {
     "Additional Details:",
     ...(remainingLines.length || uncatalogedLines.length ? [...remainingLines, ...uncatalogedLines] : ["No additional details were entered."]),
     "",
-    "Requirements:",
+    "Generation Requirements:",
     ageGroup
-      ? `- Keep every suggestion, strategy, activity, and expectation strictly appropriate for ${ageGroup} (${ageGroupLabel(ageGroup)}).`
-      : "- Keep the response developmentally appropriate for the age information provided.",
-    "- Use only the details provided and do not invent missing facts, injuries, behaviors, witnesses, or outcomes.",
-    "- Produce organized, ready-to-use content a childcare provider can copy right away.",
-    "- Use warm, professional childcare language and include the program name in formal documents when it is provided.",
+      ? `- Every suggestion, activity, strategy, and expectation MUST be strictly appropriate for ${ageGroup} (${ageGroupLabel(ageGroup)}). Do not include anything designed for a different age group.`
+      : "- Keep every element developmentally appropriate for the age information provided.",
+    "- Use ONLY the details provided above. Do not invent names, injuries, diagnoses, behaviors, dates, or outcomes not included in these inputs.",
+    "- Make this output specific to these exact inputs. The theme, child name, age group, concern, domain, and notes provided must visibly shape the content throughout.",
+    "- Name exact materials, books, songs, activities, and language to use. Never use vague instructions like 'offer an activity' or 'encourage exploration' — describe the specific activity, material, or phrase.",
+    "- Vary the structure and wording meaningfully based on these inputs. Do not produce a generic template with the inputs inserted.",
+    "- Every sentence must earn its place. Remove filler, repetition, and generic closing statements.",
+    "- The output must be complete enough to use immediately without rewriting.",
   ].filter(Boolean).join("\n");
 }
 
@@ -12125,25 +12128,34 @@ function generateLessonPlan(data) {
  const focus = data.focus || profile.learningFocus;
  const materials = data.materials || profile.lessonMaterials;
  const programName = data.programName || "";
+
+ // Build unique daily plans that vary by day focus rather than reusing the same structure
+ const dayFocusTitles = ["Introduce and Explore", "Investigate and Create", "Build and Connect", "Extend and Imagine", "Reflect and Share"];
  const daily = Array.from({ length: days }, (_, index) => {
    const dayName = index < 5
      ? ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"][index]
      : `Day ${index + 1}`;
+   const focusTitle = dayFocusTitles[index % dayFocusTitles.length];
    const [title, ...steps] = profile.lessonPlanDays[index % profile.lessonPlanDays.length];
-   return `${dayName}: ${theme} ${title}
+   return `${dayName}: ${theme} — ${focusTitle}
+Theme focus: ${theme} ${title}
 ${steps.join("\n")}
-- Learning Goal: Children will build ${focus} through developmentally appropriate play and interaction.`;
+Learning goal: ${focus.split(",")[index % focus.split(",").length]?.trim() || focus.split(",")[0].trim()}.`;
  }).join("\n\n");
- return `${planLength} Lesson Plan Overview
-${programName ? `Program Name: ${programName}\n` : ""}Age Group: ${rawAge}
+
+ return `${planLength} Lesson Plan
+${programName ? `Program: ${programName}\n` : ""}Age Group: ${rawAge}
 Theme: ${theme}
 Learning Focus: ${focus}
 
-Materials List
+Materials
 ${materials}
 
 Learning Objectives
 ${profile.lessonObjectives.map((objective) => `- ${objective}`).join("\n")}
+
+Vocabulary Words
+3–5 words connected to ${theme.toLowerCase()}: introduce each word with a picture, real object, or short example sentence.
 
 Daily Plans
 ${daily}
@@ -12151,41 +12163,50 @@ ${daily}
 Books and Songs
 ${profile.lessonBooks}
 
+Family Connection
+Share one simple idea families can try at home this week connected to the ${theme.toLowerCase()} theme.
+
 Provider Note
-Adjust timing, materials, and supervision to fit your group size, ages, individual children's needs, and state childcare requirements.`;
+Adjust timing, materials, and supervision to match your group size, individual children, and state licensing requirements.`;
 }
 function generateObservation(data) {
  const note = data.note || "Child counted to 10 and identified colors.";
  const rawAge = normalizeAiAgeGroup(data.age || "Preschool");
  const profile = ageGroupProfile(rawAge);
  const area = data.developmentalDomain || data.area || "Cognitive";
- const nextStep = data.nextStep || "Offer a similar activity with a small new challenge.";
+ const nextStep = data.nextStep || "Offer a related activity with a small new challenge.";
  const childName = data.childName || data.child || "";
- const childRef = childName || ("the " + rawAge.toLowerCase());
+ const childRef = childName || ("the " + rawAge.toLowerCase() + " child");
  const programName = data.programName || data.program || "";
- return `Professional Observation
+ const noteFormatted = note.charAt(0).toLowerCase() + note.slice(1);
+ return `Observation Record
 ${programName ? `Program: ${programName}\n` : ""}Child: ${childName || "Not specified"}
-Age Group: ${rawAge}
-Developmental Area: ${area}
+Age Group: ${rawAge} (${ageGroupLabel(rawAge)})
+Developmental Domain: ${area}
 
-Observation
-During ${profile.observationSetting}, ${childRef} demonstrated growing ${area.toLowerCase()} skills while ${note.charAt(0).toLowerCase() + note.slice(1)} This shows ${childName ? childName : "the child"} is making meaningful connections through ${profile.observationSupport}.
+Narrative Observation
+During ${profile.observationSetting}, ${childRef} was observed ${noteFormatted.endsWith(".") ? noteFormatted : noteFormatted + "."} This behavior reflects growing ${area.toLowerCase()} skills and demonstrates active engagement through ${profile.observationSupport}.
 
 Skills Demonstrated
 ${profile.observationSkills.map((s) => "- " + s).join("\n")}
 
-What to Look For Next
-Watch for ${childName ? childName : "the child"} repeating this skill independently, using it in a new setting, showing increased confidence, or demonstrating it with less support.
+Milestone Connection
+This observation connects to age-appropriate developmental expectations for ${rawAge} learners (${ageGroupLabel(rawAge)}), specifically the emergence of skills in ${area.toLowerCase()} through play-based and routine-embedded experiences.
 
-Next Steps for Learning
+What to Watch for Next
+Watch for ${childRef === childName && childName ? childName : "the child"} demonstrating this skill independently in a new setting, repeating the behavior with increased confidence, combining it with another emerging skill, or initiating it without a prompt.
+
+Provider Next Steps
 ${nextStep} ${rawAge === "Infant"
-   ? "Continue responsive care, narrate your actions, and offer safe sensory experiences."
+   ? "Continue narrating your actions during care routines and offer varied sensory-safe materials to build on this interest."
+   : rawAge === "Young Toddler" || rawAge === "Older Toddler"
+   ? "Model connected vocabulary, offer a follow-up material or prop, and repeat the experience across two to three days to reinforce the skill."
    : rawAge === "School Age"
-   ? "Encourage reflection, discussion, and opportunities to apply the skill independently."
-   : "Model new words, offer guided support, and allow time to practice at an age-appropriate pace."}
+   ? "Ask an open-ended question that invites the child to reflect, extend their thinking, or apply the skill to a new challenge."
+   : "Extend the activity slightly by introducing one new variable, vocabulary word, or challenge to build on current understanding."}
 
 Learning Standard Connection
-${area} development — connected to age-appropriate early learning guidelines for ${rawAge.toLowerCase()} learners.`;
+${area} development — aligned with age-appropriate early learning standards for ${rawAge} learners in the areas of ${profile.observationSkills.slice(0, 2).join(" and ").toLowerCase()}.`;
 }
 
 function generateActivity(data) {
@@ -12198,13 +12219,17 @@ function generateActivity(data) {
  const childAge = data.childAge || "";
  const programName = data.programName || data.program || "";
  const materials = data.materials || profile.activityMaterials;
- return `Activity: ${theme} ${skill.charAt(0).toUpperCase() + skill.slice(1)} ${profile.activityTitle}
-${programName ? "Program: " + programName + "\n" : ""}${childName ? "Child: " + childName + "\n" : ""}${childAge ? "Child Age: " + childAge + "\n" : ""}Age Group: ${rawAge}
+ const activityTitle = theme + " " + skill.charAt(0).toUpperCase() + skill.slice(1) + " " + profile.activityTitle;
+ return `Activity: ${activityTitle}
+${programName ? "Program: " + programName + "\n" : ""}${childName ? "Child: " + childName + "\n" : ""}${childAge ? "Child Age: " + childAge + "\n" : ""}Age Group: ${rawAge} (${ageGroupLabel(rawAge)})
 Duration: ${profile.activityDuration}
-Developmental Area: ${area}
+Developmental Domain: ${area}
 
 Materials
 ${materials}
+
+Set-Up
+Prepare the materials before children arrive. Clear a low table or floor space appropriate for the age group.
 
 Instructions
 ${profile.activityInstructions.map((step, i) => (i + 1) + ". " + step).join("\n")}
@@ -12212,10 +12237,14 @@ ${profile.activityInstructions.map((step, i) => (i + 1) + ". " + step).join("\n"
 Learning Goals
 ${profile.activityGoals.map((goal) => `- ${goal}`).join("\n")}
 
+Differentiation
+Simpler: Reduce steps and materials; offer hand-over-hand support or a model to copy.
+Extended: Add one new variable, a counting or labeling challenge, or a peer collaboration component.
+
 Safety Notes
 ${profile.activitySafety}
 
-Extensions
+Extension Ideas
 ${profile.activityExtensions}`;
 }
 
@@ -12366,34 +12395,49 @@ function generateCurriculumUnit(data) {
   const theme = data.theme || "Community Helpers";
   const length = data.length || "1 Month";
   const goals = data.goals || "language, social emotional, math, science";
-  return `Themed Curriculum Unit
-
-Age Group
-${age}
-
-Theme
-${theme}
-
-Length
-${length}
-
-Learning Goals
-${goals}
+  const programName = data.programName || data.program || "";
+  return `Curriculum Unit: ${theme}
+${programName ? `Program: ${programName}\n` : ""}Age Group: ${age}
+Unit Length: ${length}
+Core Learning Goals: ${goals}
 
 Unit Overview
-Children will explore ${theme.toLowerCase()} through books, songs, sensory play, art, dramatic play, movement, math, science, and outdoor experiences.
+Children will investigate ${theme.toLowerCase()} through hands-on exploration, meaningful play, creative expression, and community connection. This unit invites children to ask questions, make discoveries, build vocabulary, and connect learning to their own lived experiences.
 
-Weekly Focus Ideas
-- Week 1: Introduce vocabulary and real-life connections.
-- Week 2: Add hands-on centers, props, and small group activities.
-- Week 3: Extend learning through art, STEM, stories, and pretend play.
-- Week 4: Review, document observations, and share family connections.
+Essential Questions
+- What do we know about ${theme.toLowerCase()}?
+- How does ${theme.toLowerCase()} connect to our daily lives?
+- What questions do we still have?
 
-Materials
-Books, picture cards, props, art supplies, sensory materials, blocks, dramatic play items, music, and printable pages.
+Vocabulary to Introduce
+Build a word wall with 6-8 theme-specific terms. Introduce each word with a real object, photograph, or demonstration. Revisit vocabulary during circle time, books, and play throughout the unit.
 
-Family Connection
-Send home a short note with vocabulary words, book ideas, and one simple activity families can try at home.`;
+Book Suggestions
+Select 4-6 picture books and nonfiction titles connected to ${theme.toLowerCase()}. Read aloud multiple times, and add books to the reading area for child-initiated exploration.
+
+Weekly Focus Plan
+Week 1 — Introduce and Wonder
+Begin with what children already know. Use a KWL chart (Know / Wonder / Learned), photographs, and real objects to launch the theme. Circle time: introduce key vocabulary and an open-ended question. Art: create an initial response drawing or collage. Sensory/Science: set up one discovery station.
+
+Week 2 — Investigate and Create
+Deepen learning through hands-on centers and small-group activities. Add dramatic play props tied to the theme. Math: sort, count, graph, or compare theme-related materials. Literacy: shared reading and vocabulary games.
+
+Week 3 — Extend and Connect
+Introduce more complex ideas and peer collaboration. STEM challenge tied to the theme. Art project using a new technique. Social-emotional connection: how does this theme relate to our community or feelings?
+
+Week 4 — Reflect and Share
+Revisit the KWL chart to add what was learned. Documentation display or class book. Family sharing event or take-home learning reflection. Circle time: what did we discover? What do we still wonder?
+
+Materials Needed
+Books, picture cards, art supplies, sensory materials, dramatic play props, math manipulatives, science tools, building blocks, and theme-specific objects for exploration centers.
+
+Family Engagement
+Send home a take-home letter introducing the unit theme, vocabulary list, and one simple activity families can do together. Invite families to contribute photos, objects, or expertise related to the theme.
+
+Documentation Ideas
+- Photo documentation of learning moments in each center
+- Child quotes collected during discussions and play
+- Artwork and project samples added to individual portfolios`;
 }
 
 function generateBehaviorDocumentation(data) {
@@ -12404,45 +12448,45 @@ function generateBehaviorDocumentation(data) {
   const tone = data.tone || "Warm and professional";
   const ageContext = data.childAge ? ` (${data.childAge} · ${rawAge})` : rawAge ? ` (${rawAge})` : "";
   const domain = data.developmentalDomain || "Social Emotional";
+  const concern = data.concern || "a challenging moment";
   const parentMessage = toneCopy(tone, [
-    ["brief", `Today at ${programName}, ${childName} needed support with ${data.concern || "a challenging moment"}. ${profile.parentToneLine}`],
-    ["supportive", `Today at ${programName}, ${childName} needed extra support with ${data.concern || "a challenging moment"}. ${profile.parentToneLine} We will keep practicing the skill together and can share strategies that may help at home too.`],
-    ["warm", `Today at ${programName}, ${childName} needed some extra guidance with ${data.concern || "a challenging moment"}. ${profile.parentToneLine} I am happy to talk more about the strategies we are using together.`],
-    ["professional", `Today at ${programName}, ${childName} needed support with ${data.concern || "a challenging moment"}. ${profile.parentToneLine} We will continue using consistent age-appropriate strategies and keep you updated as needed.`],
+    ["brief", `Hi, I wanted to touch base about something that came up today at ${programName}. ${childName} needed some support with ${concern}. ${profile.parentToneLine} I will keep you updated on how things progress.`],
+    ["supportive", `Hi there, I wanted to reach out about ${childName}'s day at ${programName}. We had a moment around ${concern} that I wanted to share with you. ${profile.parentToneLine} I have some strategies I am already trying, and I would love to share what is working so we can stay consistent at home too.`],
+    ["warm", `Hi! I wanted to connect with you about something that happened today at ${programName}. ${childName} needed some extra guidance around ${concern}. ${profile.parentToneLine} I want to make sure we are working together on this — I would love to chat if you have a moment.`],
+    ["professional", `Good day. I am reaching out regarding a behavioral support need observed at ${programName} today involving ${childName}. The concern involved ${concern}. ${profile.parentToneLine} We are implementing consistent strategies and will keep you informed. Please reach out with any questions.`],
   ]);
   return `Behavior Support Documentation
 Program: ${programName}
 Child: ${childName}${ageContext}
 Developmental Domain: ${domain}
-Concern: ${data.concern || "Behavior that needed support"}
+Behavior of Concern: ${concern}
 
-What Happened
-${data.incident || "Describe the behavior factually and objectively."}
+Objective Behavior Description
+${data.incident || "Describe the specific behavior using factual, observable language — what the child did, when, how long it lasted, and how frequently it has occurred."}
 
 Possible Trigger or Antecedent
-${data.trigger || "Describe what occurred just before the behavior."}
+${data.trigger || "Describe what occurred immediately before the behavior. Consider time of day, transitions, materials, peer interactions, or environmental factors."}
 
-Support Given
-${data.support || "Comfort was offered, safety was maintained, and the child was redirected using calm guidance."}
+Support Provided in the Moment
+${data.support || "Comfort was offered, safety was maintained, and the child was guided using calm, age-appropriate redirection without shame or punishment."}
 
-What This Behavior May Communicate
-${childName} may be communicating a need for ${profile.behaviorNeed}.
+What This Behavior May Be Communicating
+${childName} may be expressing a need for ${profile.behaviorNeed}. At this developmental stage, children often use behavior to communicate before they have the language or regulatory skills to express needs directly.
 
 ${profile.behaviorStrategiesTitle}
 ${profile.behaviorStrategies.map((strategy) => `- ${strategy}`).join("\n")}
 
-Developmental Goal
+Replacement Skill to Build
 ${data.goal || profile.behaviorGoal}
 
-Follow-Up Plan
+Follow-Up and Monitoring Plan
 ${data.plan || profile.behaviorPlan}
 
 Parent Communication
-Tone: ${tone}
 ${parentMessage}
 
-Provider Note
-${data.providerNotes ? `Provider Notes: ${data.providerNotes}\n` : ""}Review your program policy and state licensing requirements for behavior documentation, incident reporting, and parent notification.`;
+Provider Notes
+${data.providerNotes ? `${data.providerNotes}\n\n` : ""}Review your program policy and state licensing requirements for behavior documentation, incident reporting, and parent notification timelines.`;
 }
 
 function generateIncidentReport(data) {
@@ -12491,28 +12535,33 @@ ${data.providerNotes ? `Provider Notes: ${data.providerNotes}\n` : ""}Review you
 
 
 function generateLearningStory(data) {
+  const child = data.child || "Child";
+  const domain = data.domain || "development";
+  const observation = data.observation || "Add the observation here.";
+  const nextStep = data.nextStep || "Offer a related activity with one small new challenge and continue documenting growth.";
   return `Learning Story
 
-Child
-${data.child || "Child"}
+Child: ${child}
 
 What Happened
-${data.observation || "Add the observation here."}
+${observation}
 
 What This Learning Means
-This moment shows growth in ${data.domain || "development"} as the child explored, made choices, communicated, solved problems, and participated in meaningful play.
+This moment captures something important about ${child}'s growth in ${domain}. The way ${child} approached this experience — the choices made, the persistence shown, and the thinking visible in their actions — reflects exactly the kind of learning we watch for and celebrate.
 
-Skills Noticed
-- Curiosity and engagement
-- Communication and vocabulary
-- Persistence and problem-solving
-- Social-emotional confidence
+In this moment, ${child} was doing more than just completing a task. There was genuine engagement: problem-solving, curiosity, communication, and the kind of concentrated focus that tells us a child is in their element.
 
-Next Step
-${data.nextStep || "Offer a related activity with one small new challenge and continue documenting growth."}
+Skills We Noticed
+- Curiosity and willingness to explore something new or challenging
+- Communication through words, gestures, actions, or creative expression
+- Persistence when something was difficult or didn't go as expected
+- Social-emotional confidence and growing sense of capability
 
-Family Connection
-Share a simple note with families so they can notice and support this learning at home.`;
+What's Next
+${nextStep}
+
+A Note for Home
+You may notice ${child} bringing up ideas, questions, or interests from this kind of learning at home. Follow their lead — the best conversations often start with "I wonder..." or "What would happen if...?"`;
 }
 
 function generateParentMessage(data) {
@@ -12530,41 +12579,41 @@ Topic: ${topic}
 Date: ${data.date || new Date().toLocaleDateString()}
 Child: ${childName || "Not specified"}
 ${childAge ? "Child Age: " + childAge + "\n" : ""}${ageGroup ? "Age Group: " + ageGroup + "\n" : ""}
-
 Documentation
 ${data.details || "Add details here."}
 
 Provider Notes
 ${data.providerNotes || "Keep in child file. Not for parent distribution."}`;
   }
+  const childRef = childName ? childName + "'s family" : "families";
   const greeting = toneCopy(tone, [
-    ["firm", `Hello ${childName ? childName + "'s family" : "families"},`],
-    ["gentle", `Hi ${childName ? childName + "'s family" : "there"},`],
-    ["friendly", `Hi ${childName ? childName + "'s family" : "there"}!`],
-    ["detailed", `Hello ${childName ? childName + "'s family" : "families"},`],
-    ["warm", `Hi ${childName ? childName + "'s family" : "there"}!`],
+    ["firm", `Hello ${childRef},`],
+    ["gentle", `Hi ${childRef},`],
+    ["friendly", `Hi ${childRef}!`],
+    ["detailed", `Hello ${childRef},`],
+    ["warm", `Hi ${childRef}!`],
   ]);
   const closing = toneCopy(tone, [
-    ["firm", "Thank you for your attention and partnership."],
-    ["gentle", "Thank you for partnering with us in such a caring way."],
-    ["friendly", "Thanks so much for your partnership and support!"],
-    ["detailed", "Thank you for your partnership. Please feel free to reach out if you would like to talk through any part of this message."],
-    ["warm", "Thank you for your partnership and for staying connected with us."],
+    ["firm", `Thank you for your attention to this. I am happy to connect if you have questions or would like to discuss further.`],
+    ["gentle", `Thank you for your understanding and continued partnership. I am always happy to talk through anything further.`],
+    ["friendly", `Thanks so much for reading! Reach out any time — I love hearing from you.`],
+    ["detailed", `I appreciate you taking the time to read through this. Please reach out if you would like to talk through any part of it together.`],
+    ["warm", `Thank you for the trust you place in us every day. I am here if you would like to connect about anything at all.`],
   ]);
-  return `Parent Message Draft — ${programName}
-
-Topic: ${topic}
-Tone: ${tone}
+  const body = data.details
+    ? data.details
+    : topic
+    ? `I wanted to reach out about ${topic.toLowerCase()}. ${childName ? childName + " has been doing well, and " : ""}I wanted to keep you informed and open a conversation about this topic. Please let me know if you have any questions or if there is anything I can do to support your family.`
+    : "I wanted to share a quick update and check in with your family.";
+  return `From: ${programName}
+Re: ${topic}
 ${childName ? "Child: " + childName + "\n" : ""}${childAge ? "Child Age: " + childAge + "\n" : ""}${ageGroup ? "Age Group: " + ageGroup + "\n" : ""}
-
-Message
 ${greeting}
 
-${data.details || "Add the important details here."}
+${body}
 
-${closing} Please don't hesitate to reach out if you have any questions or if there is anything you'd like me to know.
+${closing}
 
-Thank you for trusting us with your family,
 ${programName}`;
 }
 
@@ -12716,36 +12765,39 @@ function generateNewsletter(data) {
   const highlights = data.highlights || "";
   const tone = data.tone || "Warm and community-focused";
   const intro = toneCopy(tone, [
-    ["professional", `Welcome to our ${month} update from ${programName}. We are looking forward to a month of intentional, play-based learning experiences connected to ${theme}.`],
-    ["friendly", `We are so excited for another fun month at ${programName}! This month we will explore ${theme} through playful, hands-on learning.`],
-    ["warm", `Hello Families! We are excited to share what is coming up at ${programName} this month as we explore ${theme} together.`],
-    ["community", `Hello Families! We are excited to keep learning together at ${programName} this month as we explore ${theme}.`],
+    ["professional", `Welcome to our ${month} newsletter from ${programName}. This month we are diving into ${theme} through hands-on learning, creative exploration, and community connection. We are excited to share what your children are building, discovering, and growing into.`],
+    ["friendly", `Hello ${programName} families! We had to share everything happening this month because it is SO good. We are exploring ${theme} and the children are already full of questions, ideas, and energy for it.`],
+    ["warm", `Hello Families! Spring, summer, or fall — every season brings new wonder to ${programName}. This ${month}, we are leaning into ${theme} and watching your children make it their own in the most wonderful ways.`],
+    ["community", `${programName} families, thank you for being such an engaged, caring community. As we step into ${month}, our exploration of ${theme} is already sparking conversations and creativity that remind us why this work matters.`],
   ]);
   return `${programName}
-${month} Parent Newsletter
+${month} Newsletter
 Theme: ${theme}
-Tone: ${tone}
 
-Hello Families!
 ${intro}
 
-What We Are Learning This Month
-${highlights ? highlights + "\n" : ""}- New vocabulary and concepts connected to ${theme.toLowerCase()}
-- Sharing, turn-taking, and expressing feelings
-- Fine motor skills through art, building, and table activities
-- Gross motor skills through movement and outdoor play
-- Early problem-solving, counting, matching, and observation
+What We Are Exploring This Month
+${highlights ? highlights + "\n\n" : ""}This month, ${theme.toLowerCase()} comes to life through:
+- Themed books, songs, and vocabulary building during circle time
+- Hands-on science and sensory investigations connected to the theme
+- Art projects that allow children to interpret and represent their ideas
+- Dramatic play setups that extend the theme into imaginative storytelling
+- Math and counting experiences woven into daily moments and materials
+- Outdoor exploration tied to what we are studying indoors
+
+A Window Into Our Days
+The children have been bringing so much curiosity and energy to our time together. You might ask your child about what they are noticing, building, or wondering about — their answers might surprise you.
 
 Important Dates
 ${dates}
 
-Reminders
+Reminders for Families
 ${reminders}
 
-Family Connection at Home
-You can support learning by reading together, talking about your child's day, naming feelings, counting everyday objects, and encouraging independence with simple everyday routines.
+Family Connection Corner
+This month, try this at home: Read a picture book together that connects to ${theme.toLowerCase()}, then ask your child one open-ended question — "What would you do if..." or "I wonder why..." Give them time to think, and listen to where the conversation goes. These moments are powerful for language, reasoning, and connection.
 
-Thank you for being such wonderful partners in your child's care and learning. We love having your family with us!
+Thank you for being our partners in this incredible season of learning. Your children are curious, capable, and cared for — every single day.
 
 Warmly,
 ${programName}`;
@@ -12762,68 +12814,67 @@ function generateDailyReport(data) {
     programName ? programName + " — Daily Report" : "Daily Report",
     date ? "Date: " + date : "",
     "Child: " + child,
-    rawAge ? "Age Group: " + rawAge : "",
+    rawAge ? "Age Group: " + rawAge + " (" + ageGroupLabel(rawAge) + ")" : "",
   ].filter(Boolean).join("\n");
   const moodText = data.mood || "Happy and engaged";
   const intro = toneCopy(tone, [
-    ["professional", `${child} participated in routines and learning experiences throughout the day.`],
-    ["detailed", `${child} took part in routines, care moments, and learning experiences throughout the day. Below is a fuller summary of how the day went.`],
-    ["short", `${child} had a positive day with us.`],
-    ["warm", `${child} had a lovely day and joined in our routines and learning experiences.`],
-    ["friendly", `${child} had a lovely day and joined in our routines and learning experiences.`],
+    ["professional", `${child} had a productive and engaged day. Below is a summary of care, routines, and learning experiences.`],
+    ["detailed", `${child} had a full day of routines, play, and learning. Here is a complete picture of how things went.`],
+    ["short", `${child} had a great day!`],
+    ["warm", `What a day it was for ${child}! Here is a little window into how the hours went.`],
+    ["friendly", `${child} had such a lovely day — here are the highlights!`],
   ]);
   const infantExtra = rawAge === "Infant" ? `
 Feeding
-${data.meals || "Feeding was provided on cue and according to the family's feeding plan."}
+${data.meals || "Feeding was provided on demand and according to the family's current feeding plan. Cues were responded to promptly throughout the day."}
 
-Diapers
-${data.diapering || "Diaper changes were logged throughout the day."}
+Diaper Changes
+${data.diapering || "Diapers were checked and changed regularly throughout the day. Skin was clean and dry at each change."}
 
 Sleep
-${data.nap || "Sleep was supported in a safe sleep environment."}
+${data.nap || "Sleep was supported in a safe, on-back position in the designated sleep space. Awake periods were actively used for interaction and exploration."}
 
 Tummy Time
-Tummy time was offered during awake, supervised periods.` : "";
+Supervised tummy time was offered during an alert, awake period. Observed: head lifting, weight shifting, or engagement with a nearby mirror or object.` : "";
   const toddlerExtra = rawAge === "Young Toddler" || rawAge === "Older Toddler" ? `
-Meals
-${data.meals || "Meals and snacks were offered according to the daily menu."}
+Meals and Snacks
+${data.meals || "Meals and snacks were offered according to the daily menu. Portions were age-appropriate and textures were safe for this stage."}
 
-Diapering / Potty
-${data.diapering || "Diapering, potty attempts, and handwashing were supported throughout the day."}
+Diapering and Potty
+${data.diapering || "Diapering and potty opportunities were supported throughout the day with positive, no-pressure guidance."}
 
 Rest
-${data.nap || "Rest time was offered and supported."}` : "";
+${data.nap || "Rest time was offered and supported with consistent, calming cues."}` : "";
   const olderExtra = rawAge === "Preschool" || rawAge === "School Age" ? `
-Meals
-${data.meals || "Meals and snacks were offered according to the daily menu."}
+Meals and Snacks
+${data.meals || "Meals and snacks were served according to the daily menu. " + child + " was encouraged to try new items and practice self-help at the table."}
 
-Rest
-${data.nap || "Rest time was offered and supported."}` : "";
+Rest / Quiet Time
+${data.nap || "Rest or quiet time was offered. " + child + " used this period for " + (rawAge === "School Age" ? "independent reading or relaxed activity." : "rest, books, or calm play.")}` : "";
   const closing = toneCopy(tone, [
     ["professional", data.notes || profile.dailyClosing],
-    ["detailed", data.notes || `${profile.dailyClosing} I am happy to share more details if needed.`],
-    ["short", data.notes || "Thank you for your partnership today."],
+    ["detailed", data.notes || `${profile.dailyClosing} I am happy to share more details at pickup or by message.`],
+    ["short", data.notes || "Thanks for a great day!"],
     ["warm", data.notes || profile.dailyClosing],
     ["friendly", data.notes || profile.dailyClosing],
   ]);
   return `${header}
-Tone: ${tone}
 
 ${intro}
 
-Mood
+Overall Mood
 ${moodText}
 ${infantExtra}${toddlerExtra}${olderExtra}
 
-Highlights
-${data.highlights || `Today included ${profile.dailySummary}.`}
+Highlights from the Day
+${data.highlights || `Today's time together included ${profile.dailySummary}.`}
 
 Learning Moment
-${data.learning || `Today supported ${profile.dailyLearning}.`}
+${data.learning || `The day offered meaningful opportunities to practice and grow in ${profile.dailyLearning}.`}
 
-Parent Note
+A Note for Home
 ${closing}
-${data.providerNotes ? `\n\nProvider Notes\n${data.providerNotes}` : ""}`;
+${data.providerNotes ? `\nProvider Notes\n${data.providerNotes}` : ""}`;
 }
 
 function generateHandbook(data) {
