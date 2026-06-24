@@ -2421,12 +2421,7 @@ let currentPlan = localStorage.getItem("llhPlan") || "Free";
 let currentUser = localStorage.getItem("llhUser") || "";
 let activeFilter = "All";
 let currentAuthMode = "login";
-let checkoutPromoCode = "";
-if (isPromoLinkActive()) {
-  checkoutPromoCode = localStorage.getItem("llhCheckoutPromoCode") || "";
-} else {
-  localStorage.removeItem("llhCheckoutPromoCode");
-}
+let checkoutPromoCode = localStorage.getItem("llhCheckoutPromoCode") || "";
 let adminAnalyticsCache = null;
 let adminAnalyticsLoading = false;
 
@@ -12858,7 +12853,7 @@ function renderPricingPage() {
   const remaining = foundingSpotsRemaining();
   target.innerHTML = `
     ${foundingStatusCard()}
-    ${isPromoLinkActive() ? promoCodePanel() : ""}
+    ${promoCodePanel()}
     <div class="pricing-grid">
       ${pricingCard("Free", { free: true, buttonText: "Use Free" })}
       ${remaining > 0
@@ -12882,7 +12877,7 @@ function renderUpgradePage() {
   const soldOut = remaining <= 0;
   target.innerHTML = `
     ${foundingStatusCard()}
-    ${isPromoLinkActive() ? promoCodePanel() : ""}
+    ${promoCodePanel()}
     <div class="pricing-grid">
       ${!soldOut
         ? pricingCard("Founding", { featured: true, primary: true, eyebrow: "Best Launch Offer", checkoutType: "founding", buttonText: "Checkout for $9.99/month" })
@@ -13289,7 +13284,7 @@ async function startCheckout(type) {
   const remaining = foundingSpotsRemaining();
   const checkoutType = type === "founding" && remaining <= 0 ? "monthly" : type;
   const amount = checkoutAmount(checkoutType);
-  const promoCode = isPromoLinkActive() ? normalizedCheckoutPromoCode() : "";
+  const promoCode = normalizedCheckoutPromoCode();
   const checkoutButton = document.querySelector(`[data-checkout-plan="${type}"]`);
   if (checkoutButton) {
     checkoutButton.disabled = true;
@@ -13485,6 +13480,8 @@ function completeCheckout() {
   addBillingHistory("Payment Succeeded", `${billingPlanLabel(plan)} subscription activated${pending.promoCode ? " with promo trial" : ""}`, monthlyPrice);
   trackEvent("checkout_success", { plan, monthlyPrice, attribution: currentAttribution() });
   localStorage.removeItem("llhPendingCheckout");
+  checkoutPromoCode = "";
+  localStorage.removeItem("llhCheckoutPromoCode");
   saveCurrentAccountState();
   updateAuthButtons();
   updatePlanLabel();
@@ -13758,6 +13755,10 @@ document.addEventListener("click", (event) => {
     event.preventDefault();
     if (!currentUser) {
       openAuthModal("signup");
+      return;
+    }
+    if (normalizedCheckoutPromoCode()) {
+      startCheckout("monthly");
       return;
     }
     setFreePlan();
