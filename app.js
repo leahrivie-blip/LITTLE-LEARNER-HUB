@@ -1711,6 +1711,8 @@ const guestAllowedViews = new Set([
 ]);
 
 const MAX_LOGO_SIZE_BYTES = 512 * 1024;
+const CUSTOM_CURRICULUM_OPTION = "Custom/Other";
+const PROGRAM_SETTINGS_MESSAGE_TIMEOUT_MS = 3000;
 
 // Human-readable names for pro-only nav items, used in upgrade modal messages.
 const proNavLabels = {
@@ -13136,6 +13138,7 @@ function renderProgramSettingsPage() {
       messageEl.textContent = "Please log in to save Program Settings.";
       messageEl.classList.remove("success");
     }
+    return;
   }
 
   const settings = getProgramSettings();
@@ -13180,7 +13183,7 @@ function toggleCustomCurriculumField(curriculumValue) {
   const wrap = document.querySelector("#customCurriculumNameWrap");
   const customInput = document.querySelector('[name="customCurriculumName"]');
   if (!wrap || !customInput) return;
-  const shouldShow = curriculumValue === "Custom/Other";
+  const shouldShow = curriculumValue === CUSTOM_CURRICULUM_OPTION;
   wrap.classList.toggle("hidden-field", !shouldShow);
   if (!shouldShow) customInput.value = "";
 }
@@ -15587,7 +15590,7 @@ document.querySelector("#programSettingsForm")?.addEventListener("submit", (even
 
   // Collect plain text/select/url/tel fields
   const settings = collectFormData(form);
-  if (settings.curriculumUsed !== "Custom/Other") settings.customCurriculumName = "";
+  if (settings.curriculumUsed !== CUSTOM_CURRICULUM_OPTION) settings.customCurriculumName = "";
 
   // Override checkbox groups with arrays (collectFormData only keeps last checked value)
   ["agesServed", "dailyReportSections", "familyHubSettings"].forEach((groupName) => {
@@ -15611,7 +15614,7 @@ document.querySelector("#programSettingsForm")?.addEventListener("submit", (even
     if (messageEl) {
       messageEl.textContent = "Settings saved.";
       messageEl.classList.add("success");
-      setTimeout(() => { if (messageEl) messageEl.textContent = ""; }, 3000);
+      setTimeout(() => { if (messageEl) messageEl.textContent = ""; }, PROGRAM_SETTINGS_MESSAGE_TIMEOUT_MS);
     }
 
     // Update live signature preview
