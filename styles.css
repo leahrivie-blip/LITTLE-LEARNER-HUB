@@ -7913,6 +7913,12 @@ body.home-view .topbar .search-wrap {
   flex-shrink: 0;
 }
 
+.lp-founder-photo-img {
+  object-fit: cover;
+  object-position: center top;
+  background: linear-gradient(135deg, var(--lavender-soft), var(--cream));
+}
+
 .lp-founder-content h2 {
   margin: 0 0 20px;
   font-size: clamp(26px, 3.5vw, 36px);
