@@ -11149,6 +11149,8 @@ function aiPromptFromForm(toolId, data) {
     ? `\n\nCHILD AGE GROUP: ${ageGroup} (${ageGroupLabel(ageGroup)}). ALL content — activities, goals, language, milestones, strategies — MUST be appropriate for this age. Do not include anything outside this developmental range.`
     : "";
 
+  const CONTEXT_KEYS = ["childName", "child", "childAge", "age", "ageGroup", "group", "programName", "program", "providerNotes"];
+
   const contextLines = [
     programName ? `Program Name: ${programName}` : "",
     childName ? `Child: ${childName}` : "",
@@ -11157,7 +11159,7 @@ function aiPromptFromForm(toolId, data) {
   ].filter(Boolean).join("\n");
 
   const fieldLines = Object.entries(data)
-    .filter(([key, value]) => value && !["childName", "child", "childAge", "age", "ageGroup", "group", "programName", "program", "providerNotes"].includes(key))
+    .filter(([key, value]) => value && !CONTEXT_KEYS.includes(key))
     .map(([key, value]) => `${key}: ${value}`)
     .join("\n");
 
@@ -11324,11 +11326,10 @@ Adjust timing, materials, and supervision to fit your group size, ages, individu
 function generateObservation(data) {
   const note = data.note || "Child counted to 10 and identified colors.";
   const rawAge = data.age || "Toddler";
-  const age = rawAge === "Young Toddler" || rawAge === "Older Toddler" ? rawAge.toLowerCase() : rawAge.toLowerCase();
   const area = data.area || "Cognitive";
   const nextStep = data.nextStep || "Offer a similar activity with a small new challenge.";
   const childName = data.childName || data.child || "";
-  const childRef = childName || ("the " + age);
+  const childRef = childName || ("the " + rawAge.toLowerCase());
   const isInfant = rawAge === "Infant";
   const isSchoolAge = rawAge === "School Age";
   const skillsForAge = isInfant
@@ -11359,7 +11360,7 @@ ${area} development — connected to age-appropriate early learning guidelines f
 
 function generateActivity(data) {
   const rawAge = data.age || "Preschool";
-  const theme = data.theme || data.skill ? (data.theme || "Discovery") : "Ocean";
+  const theme = data.theme || (data.skill ? "Discovery" : "Ocean");
   const skill = data.skill || "fine motor";
   const area = data.developmentalArea || skill;
   const childName = data.childName || "";
