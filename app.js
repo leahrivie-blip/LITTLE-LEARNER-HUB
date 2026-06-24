@@ -584,6 +584,20 @@ const printablePdfLimit = Number.POSITIVE_INFINITY;
 // Admins always retain full access. Flip back to false to re-enable for users.
 const PRINTABLES_HIDDEN = true;
 
+function isPrintablesUpgradeModeActive() {
+  return PRINTABLES_HIDDEN && !hasAdminFullAccess();
+}
+
+function isResourceVisibleToCurrentUser(resource) {
+  if (!resource) return false;
+  if (resource.category === "Printables" && isPrintablesUpgradeModeActive()) return false;
+  return true;
+}
+
+function isCategoryVisibleToCurrentUser(category) {
+  return !(category === "Printables" && isPrintablesUpgradeModeActive());
+}
+
 const libraryResources = buildResourceLibrary();
 
 function slug(value) {
@@ -2758,6 +2772,9 @@ function updateAdminNavVisibility() {
   document.querySelectorAll("[data-admin-nav]").forEach((button) => {
     button.hidden = !canSeeAdminNav();
   });
+  document.querySelectorAll("[data-printables-entry]").forEach((button) => {
+    button.hidden = isPrintablesUpgradeModeActive();
+  });
 }
 
 function canSeeAdminNav() {
@@ -2922,6 +2939,7 @@ function categoryResources(category) {
   const searchedChild = category === "Lesson Plans" ? childFromSearchQuery(query) : null;
   if (searchedChild) return childLessonRecommendations(searchedChild, childRecords(), 12);
   return resources.filter((resource) => {
+    if (!isResourceVisibleToCurrentUser(resource)) return false;
     if (!isProUser() && !canAccess(resource)) return false;
     const matchesCategory = resource.category === category;
     const matchesFilter = activeFilter === "All" || resource.age === activeFilter || resource.tags.includes(activeFilter);
@@ -2943,6 +2961,7 @@ function searchedResources() {
   const searchedChild = childFromSearchQuery(query);
   if (searchedChild && query.includes("lesson")) return childLessonRecommendations(searchedChild, childRecords(), 12);
   return resources.filter((resource) => {
+    if (!isResourceVisibleToCurrentUser(resource)) return false;
     if (!isProUser() && !canAccess(resource)) return false;
     const haystack = [
       resource.title,
@@ -5764,6 +5783,10 @@ function openGeneratedPrintableResource(resource) {
 function openResourceViewer(resourceId) {
   const resource = resources.find((item) => item.id === resourceId);
   if (!resource) return;
+  if (!isResourceVisibleToCurrentUser(resource)) {
+    setView("printables");
+    return;
+  }
   if (!canAccess(resource)) {
     showProFeatureModal(freeResourceLimitMessage, "limit");
     return;
@@ -5812,7 +5835,7 @@ function renderCategoryPage(view) {
   const category = viewMap[view];
   const section = document.querySelector(`#view-${view}`);
 
-  if (category === "Printables" && PRINTABLES_HIDDEN && !hasAdminFullAccess()) {
+  if (category === "Printables" && isPrintablesUpgradeModeActive()) {
     section.innerHTML = renderPrintablesComingSoon();
     return;
   }
@@ -5967,7 +5990,7 @@ function renderHome() {
   }
   const categoryGrid = document.querySelector("#categoryGrid");
   if (categoryGrid) {
-    categoryGrid.innerHTML = categories.map((category) => `
+    categoryGrid.innerHTML = categories.filter((category) => isCategoryVisibleToCurrentUser(category.title)).map((category) => `
       <button class="category-button" data-view="${category.view}">
         <span class="icon">${category.icon}</span>
         <strong>${category.title}</strong>
@@ -5976,7 +5999,7 @@ function renderHome() {
     `).join("");
   }
 
-  const newItems = resources.filter((resource) => resource.month === "June").slice(0, 4);
+  const newItems = resources.filter((resource) => resource.month === "June" && isResourceVisibleToCurrentUser(resource)).slice(0, 4);
   const newThisMonth = document.querySelector("#newThisMonth");
   if (newThisMonth) newThisMonth.innerHTML = newItems.map(compactItem).join("");
   renderHomeFoundingOffer();
@@ -7812,6 +7835,7 @@ function ageAwareResourceMatches(category, areas, childAgeGroup) {
   const infant = normalizeAgeGroup(childAgeGroup) === "Infant";
   return resources
     .filter((resource) => resource.category === category && resourceRecommendationScore(resource, areas) > 0)
+    .filter((resource) => isResourceVisibleToCurrentUser(resource))
     .filter((resource) => !infant || !resourceUnsafeForInfant(resource))
     .map((resource) => ({
       resource,
@@ -12016,14 +12040,14 @@ function renderFavorites() {
     target.innerHTML = `<div class="empty-state">Saved favorites are included with Pro.</div>`;
     return;
   }
-  const saved = resources.filter((resource) => favorites.includes(resource.id));
+  const saved = resources.filter((resource) => favorites.includes(resource.id) && isResourceVisibleToCurrentUser(resource));
   target.innerHTML = saved.length
     ? saved.slice(0, 5).map(compactItem).join("")
     : `<div class="empty-state">Save resources you want to come back to later.</div>`;
 }
 
 function sampleResources(category, count) {
-  return resources.filter((resource) => resource.category === category).slice(0, count);
+  return resources.filter((resource) => resource.category === category && isResourceVisibleToCurrentUser(resource)).slice(0, count);
 }
 
 function previewCard(resource) {
@@ -12437,8 +12461,8 @@ function renderAccountPage() {
   if (cancelButton) cancelButton.style.display = paidBilling ? "inline-flex" : "none";
   if (signOutButton) signOutButton.style.display = "inline-flex";
 
-  const savedFavoriteResources = resources.filter((resource) => favorites.includes(resource.id));
-  const downloadedResources = resources.filter((resource) => savedDownloads.includes(resource.id));
+  const savedFavoriteResources = resources.filter((resource) => favorites.includes(resource.id) && isResourceVisibleToCurrentUser(resource));
+  const downloadedResources = resources.filter((resource) => savedDownloads.includes(resource.id) && isResourceVisibleToCurrentUser(resource));
   favoritesTarget.innerHTML = savedFavoriteResources.length
     ? savedFavoriteResources.slice(0, 10).map(accountListItem).join("")
     : `<div class="empty-state">${isProUser() ? "No saved favorites yet." : "Saved favorites are included with Pro."}</div>`;
