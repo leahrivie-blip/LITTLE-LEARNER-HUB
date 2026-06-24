@@ -1065,7 +1065,21 @@
                 <span class="settings-card-toggle" aria-hidden="true">▾</span>
               </summary>
               <div class="settings-card-body">
-                <label>Curriculum Used<input type="text" name="curriculumUsed" placeholder="e.g. Creative Curriculum, HighScope, or describe your own" /></label>
+                <label>Curriculum Used
+                  <select name="curriculumUsed" id="curriculumUsedSelect">
+                    <option value="">Select curriculum (optional)</option>
+                    <option>Creative Curriculum</option>
+                    <option>Frog Street</option>
+                    <option>HighScope</option>
+                    <option>Montessori</option>
+                    <option>Reggio Emilia</option>
+                    <option>Teaching Strategies Gold</option>
+                    <option>Mother Goose Time</option>
+                    <option>Experience Curriculum</option>
+                    <option>Custom/Other</option>
+                  </select>
+                </label>
+                <label id="customCurriculumNameWrap" style="display:none;">Custom Curriculum Name<input type="text" name="customCurriculumName" placeholder="Enter your curriculum name (optional)" /></label>
                 <label>Teaching Philosophy
                   <select name="teachingPhilosophy">
                     <option value="">Select a teaching philosophy (optional)</option>

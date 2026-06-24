@@ -13144,7 +13144,7 @@ function renderProgramSettingsPage() {
   const simpleFields = [
     "programName", "providerName", "contactEmail", "contactPhone",
     "website", "address", "stateLocation", "licenseNumber", "programType",
-    "curriculumUsed", "teachingPhilosophy",
+    "curriculumUsed", "customCurriculumName", "teachingPhilosophy",
     "signatureName", "signatureTitle",
     "defaultWritingStyle", "defaultTone",
   ];
@@ -13152,6 +13152,7 @@ function renderProgramSettingsPage() {
     const input = form.querySelector(`[name="${fieldName}"]`);
     if (input) input.value = settings[fieldName] || "";
   });
+  toggleCustomCurriculumField(settings.curriculumUsed || "");
 
   // Populate checkbox groups
   ["agesServed", "dailyReportSections", "familyHubSettings"].forEach((groupName) => {
@@ -13173,6 +13174,15 @@ function renderProgramSettingsPage() {
 
   // Show signature preview if data present
   updateSignaturePreview(settings.signatureName || "", settings.signatureTitle || "");
+}
+
+function toggleCustomCurriculumField(curriculumValue) {
+  const wrap = document.querySelector("#customCurriculumNameWrap");
+  const customInput = document.querySelector('[name="customCurriculumName"]');
+  if (!wrap || !customInput) return;
+  const shouldShow = curriculumValue === "Custom/Other";
+  wrap.style.display = shouldShow ? "block" : "none";
+  if (!shouldShow) customInput.value = "";
 }
 
 function updateSignaturePreview(name, title) {
@@ -15577,6 +15587,7 @@ document.querySelector("#programSettingsForm")?.addEventListener("submit", (even
 
   // Collect plain text/select/url/tel fields
   const settings = collectFormData(form);
+  if (settings.curriculumUsed !== "Custom/Other") settings.customCurriculumName = "";
 
   // Override checkbox groups with arrays (collectFormData only keeps last checked value)
   ["agesServed", "dailyReportSections", "familyHubSettings"].forEach((groupName) => {
@@ -15643,6 +15654,13 @@ document.addEventListener("input", (event) => {
       form.querySelector('[name="signatureName"]')?.value || "",
       form.querySelector('[name="signatureTitle"]')?.value || ""
     );
+  }
+});
+
+document.addEventListener("change", (event) => {
+  if (!event.target.closest("#programSettingsForm")) return;
+  if (event.target.name === "curriculumUsed") {
+    toggleCustomCurriculumField(event.target.value || "");
   }
 });
 
