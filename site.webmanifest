@@ -4,6 +4,6 @@
   "description": "Childcare provider platform with lesson plans, observations, printables, AI tools, billing, support tickets, and child management.",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#fff9f1",
-  "theme_color": "#386062"
+  "background_color": "#f8faff",
+  "theme_color": "#5b9bd5"
 }
