@@ -693,6 +693,10 @@ button {
   box-shadow: 0 0 0 4px rgba(97, 127, 104, 0.14);
 }
 
+body.home-view .topbar .search-wrap {
+  display: none;
+}
+
 .account-actions,
 .hero-actions,
 .resource-actions,
@@ -6801,12 +6805,12 @@ button {
 
 .lp-dashboard-mockup {
   width: 100%;
-  max-width: 470px;
+  max-width: 620px;
   background: var(--white);
-  border-radius: 18px;
+  border-radius: 20px;
   box-shadow:
-    0 32px 80px rgba(123, 95, 232, 0.14),
-    0 8px 24px rgba(0, 0, 0, 0.06);
+    0 38px 96px rgba(123, 95, 232, 0.2),
+    0 12px 30px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   border: 1px solid rgba(157, 133, 255, 0.14);
 }
@@ -6832,8 +6836,8 @@ button {
 
 .lp-dash-body {
   display: grid;
-  grid-template-columns: 96px 1fr;
-  min-height: 280px;
+  grid-template-columns: 120px 1fr;
+  min-height: 360px;
 }
 
 .lp-dash-sidebar {
@@ -6862,11 +6866,26 @@ button {
 }
 
 .lp-dash-main {
-  padding: 14px;
+  padding: 18px;
   background: #fff9f1;
   display: grid;
-  gap: 10px;
+  gap: 12px;
   align-content: start;
+}
+
+.lp-dash-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lp-dash-pill-row span {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(79, 123, 101, 0.12);
+  color: #2f5c57;
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .lp-dash-stat-row {
@@ -6885,17 +6904,57 @@ button {
 
 .lp-dash-stat strong {
   display: block;
-  font-size: 18px;
+  font-size: 20px;
   color: #386062;
   line-height: 1;
 }
 
 .lp-dash-stat span {
-  font-size: 10px;
+  font-size: 11px;
   color: #70665d;
   line-height: 1.3;
   display: block;
   margin-top: 2px;
+}
+
+.lp-hero-testimonials {
+  padding: 36px 44px;
+  background: var(--white);
+  border-radius: 22px;
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 30px rgba(83, 62, 42, 0.06);
+}
+
+.lp-hero-testimonials-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.lp-hero-testimonial-card {
+  padding: 28px 24px;
+  border-radius: 18px;
+  border: 1px solid rgba(157, 133, 255, 0.28);
+  background: linear-gradient(135deg, rgba(157, 133, 255, 0.12), rgba(77, 212, 168, 0.12) 70%, var(--white));
+}
+
+.lp-hero-testimonial-card p {
+  margin: 0 0 14px;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.65;
+  font-style: italic;
+}
+
+.lp-hero-testimonial-card strong {
+  display: block;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+
+.lp-hero-testimonial-card span {
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .lp-dash-card {
@@ -7574,16 +7633,20 @@ button {
 
 .lp-why-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 28px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
   margin-top: 36px;
   text-align: left;
 }
 
 .lp-why-item {
   display: flex;
-  gap: 16px;
+  gap: 14px;
   align-items: flex-start;
+  padding: 20px;
+  border-radius: 18px;
+  border: 1px solid rgba(77, 212, 168, 0.28);
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .lp-why-icon {
@@ -7600,8 +7663,8 @@ button {
 
 .lp-why-item strong {
   display: block;
-  font-size: 17px;
-  margin-bottom: 6px;
+  font-size: 18px;
+  margin-bottom: 0;
   color: var(--ink);
 }
 
@@ -8014,6 +8077,7 @@ button {
   }
 
   .lp-trust-section,
+  .lp-hero-testimonials,
   .lp-feature-showcase,
   .lp-feature-section,
   .lp-pricing-section,
@@ -8026,6 +8090,10 @@ button {
 
   .lp-trust-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lp-why-grid {
+    grid-template-columns: 1fr;
   }
 
   .lp-testimonial-mini-grid {
@@ -8100,6 +8168,7 @@ button {
 
   .lp-hero,
   .lp-trust-section,
+  .lp-hero-testimonials,
   .lp-feature-showcase,
   .lp-feature-section,
   .lp-pricing-section,
@@ -8117,7 +8186,6 @@ button {
   }
 
   .lp-trust-grid,
-  .lp-testimonial-mini-grid,
   .lp-feature-grid {
     grid-template-columns: 1fr;
   }
@@ -8182,12 +8250,16 @@ button {
   }
 
   .lp-dash-body {
-    grid-template-columns: 82px 1fr;
-    min-height: 240px;
+    grid-template-columns: 1fr;
+    min-height: 260px;
   }
 
   .lp-dash-main {
     padding: 12px;
+  }
+
+  .lp-dash-sidebar {
+    display: none;
   }
 
   .lp-dash-stat strong {
@@ -8196,7 +8268,6 @@ button {
 
   .lp-feature-card,
   .lp-pricing-card,
-  .lp-testimonial-mini-card,
   .lp-review-card {
     padding: 22px 18px;
   }
@@ -8257,6 +8328,7 @@ button {
   }
 
   .lp-trust-section,
+  .lp-hero-testimonials,
   .lp-feature-showcase,
   .lp-feature-section,
   .lp-pricing-section,
