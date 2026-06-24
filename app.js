@@ -11606,11 +11606,12 @@ function generateLessonPlan(data) {
  const profile = ageGroupProfile(rawAge);
  const theme = data.theme || "Farm";
  const planLength = data.planLength || "Weekly";
- const days = Math.min(Math.max(Number(data.days || 5) || 5, 1), 10);
+ const parsedDays = Number(data.days);
+ const days = Number.isFinite(parsedDays) && parsedDays > 0 ? Math.min(parsedDays, 10) : 5;
  const focus = data.focus || profile.learningFocus;
  const materials = data.materials || profile.lessonMaterials;
  const programName = data.programName || "";
- const daily = Array.from({ length: Math.max(days, 1) }, (_, index) => {
+ const daily = Array.from({ length: days }, (_, index) => {
    const dayName = index < 5
      ? ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"][index]
      : `Day ${index + 1}`;
