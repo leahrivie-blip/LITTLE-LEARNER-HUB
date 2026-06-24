@@ -7916,7 +7916,6 @@ body.home-view .topbar .search-wrap {
 .lp-founder-photo-img {
   object-fit: cover;
   object-position: center top;
-  background: linear-gradient(135deg, var(--lavender-soft), var(--cream));
 }
 
 .lp-founder-content h2 {
