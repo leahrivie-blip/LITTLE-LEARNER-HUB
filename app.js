@@ -11,56 +11,73 @@ const aiTools = [
   {
     id: "lesson",
     title: "AI Lesson Plan Generator",
-    detail: "Create daily, weekly, or monthly lesson plans with objectives, materials, and activity steps.",
+    detail: "Create daily, weekly, or monthly lesson plans with objectives, materials, and activity steps — all age-appropriate.",
     fields: [
-      ["age", "Age Group", "select", ["Infant", "Toddler", "Preschool"]],
+      ["age", "Age Group", "select", ["Infant", "Young Toddler", "Older Toddler", "Preschool", "School Age"]],
       ["planLength", "Plan Type", "select", ["Daily", "Weekly", "Monthly"]],
       ["theme", "Theme", "text", "Farm"],
       ["days", "Number of Days", "select", ["3", "5", "10"]],
-      ["focus", "Learning Focus", "text", "colors, animals, fine motor"],
+      ["focus", "Learning Focus", "text", "colors, animals, fine motor, language"],
+      ["goals", "Developmental Goals", "textarea", "language development, fine motor, social-emotional, curiosity"],
       ["materials", "Materials Already Available", "textarea", "paper, crayons, blocks, music, books, sensory bin"],
+      ["providerNotes", "Provider Notes (optional)", "textarea", ""],
     ],
   },
   {
     id: "observation",
     title: "AI Observation Generator",
-    detail: "Turn a quick note into professional documentation.",
+    detail: "Turn a quick note into professional, standards-aligned childcare documentation.",
     fields: [
-      ["note", "Quick Note", "textarea", "Child counted to 10 and identified colors."],
-      ["age", "Age Group", "select", ["Infant", "Toddler", "Preschool"]],
-      ["area", "Learning Area", "select", ["Cognitive", "Language", "Literacy", "Social Emotional", "Fine Motor", "Gross Motor", "Math", "Science", "Self Help"]],
-      ["nextStep", "Next Step Goal", "text", "Offer color sorting with small groups"],
+      ["childName", "Child Name", "text", "Child"],
+      ["childAge", "Child Age", "text", "2 years 6 months"],
+      ["age", "Age Group", "select", ["Infant", "Young Toddler", "Older Toddler", "Preschool", "School Age"]],
+      ["note", "What You Observed", "textarea", "Child stacked 5 blocks and said 'tower!' when finished."],
+      ["area", "Developmental Area", "select", ["Cognitive", "Language", "Literacy", "Social Emotional", "Fine Motor", "Gross Motor", "Math", "Science", "Self Help", "Creative Arts", "Approaches to Learning"]],
+      ["context", "Context / Setting", "text", "Free play at the block area"],
+      ["concern", "Developmental Concern or Goal (optional)", "text", ""],
+      ["nextStep", "Next Step Goal", "text", "Offer sorting and counting with blocks"],
+      ["providerNotes", "Provider Notes (optional)", "textarea", ""],
     ],
   },
   {
     id: "newsletter",
     title: "AI Newsletter Generator",
-    detail: "Make a polished parent newsletter for the month.",
+    detail: "Make a warm, polished parent newsletter for the month — ready to send.",
     fields: [
+      ["programName", "Program Name", "text", "Little Learner Home Daycare"],
       ["month", "Month", "text", "July"],
       ["theme", "Theme", "text", "Summer fun"],
+      ["ageGroups", "Ages in Your Program", "text", "Infants, toddlers, preschoolers"],
+      ["highlights", "What We Have Been Learning", "textarea", ""],
       ["dates", "Important Dates", "textarea", "Closed July 4, water day every Friday"],
       ["reminders", "Parent Reminders", "textarea", "Please bring labeled sunscreen, extra clothes, and a water bottle."],
+      ["providerNotes", "Provider Notes (optional)", "textarea", ""],
     ],
   },
   {
     id: "daily",
     title: "AI Daily Report Generator",
-    detail: "Turn daily notes into a warm parent-ready report.",
+    detail: "Turn daily notes into a warm, personalized parent-ready report.",
     fields: [
-      ["child", "Child Name", "text", "Your child"],
-      ["meals", "Meals", "text", "Ate most of lunch and snack"],
+      ["programName", "Program Name", "text", "Little Learner Home Daycare"],
+      ["date", "Date", "text", ""],
+      ["childName", "Child Name", "text", "Your child"],
+      ["childAge", "Child Age", "text", "2 years"],
+      ["age", "Age Group", "select", ["Infant", "Young Toddler", "Older Toddler", "Preschool", "School Age"]],
+      ["meals", "Meals / Feeding", "textarea", "Ate most of lunch and snack"],
       ["diapering", "Diapering / Toileting", "text", "Dry checks, diaper changes, or potty attempts noted"],
-      ["nap", "Nap", "text", "Rested 12:30-2:00"],
-      ["mood", "Mood", "select", ["Happy and engaged", "Calm", "Busy and curious", "Needed extra comfort", "Energetic"]],
+      ["nap", "Nap / Rest Time", "text", "Rested 12:30-2:00"],
+      ["mood", "Mood", "select", ["Happy and engaged", "Calm", "Busy and curious", "Needed extra comfort", "Energetic", "Tired", "Fussy"]],
       ["highlights", "Highlights", "textarea", "Played with blocks, listened during story time"],
+      ["learning", "Learning Moment", "textarea", ""],
       ["notes", "Parent Notes", "textarea", "Please bring extra clothes tomorrow."],
+      ["tone", "Report Tone", "select", ["Warm and friendly", "Professional", "Detailed", "Short and sweet"]],
     ],
   },
   {
     id: "handbook",
     title: "AI Parent Handbook Builder",
-    detail: "Build parent handbook policy sections from daycare details.",
+    detail: "Build professional parent handbook policy sections from your daycare details.",
     fields: [
       ["program", "Program Name", "text", "Little Learner Home Daycare"],
       ["tuition", "Tuition Policy", "textarea", "Tuition is due each Monday."],
@@ -69,6 +86,7 @@ const aiTools = [
       ["discipline", "Guidance Policy", "textarea", "We use positive guidance, redirection, choices, and calm support."],
       ["closures", "Closures/Vacation", "textarea", "Families will receive notice of planned closures in advance."],
       ["state", "State-Specific Notes", "textarea", "Add licensing rules, required notices, or state policy wording to review."],
+      ["tone", "Handbook Tone", "select", ["Warm and welcoming", "Professional", "Detailed and thorough"]],
     ],
   },
   {
@@ -86,12 +104,16 @@ const aiTools = [
   {
     id: "activity",
     title: "AI Activity Generator",
-    detail: "Generate age-appropriate activities with materials, instructions, and learning goals.",
+    detail: "Generate safe, age-appropriate activities with materials, instructions, learning goals, and safety notes.",
     fields: [
-      ["age", "Age Group", "select", ["Infant", "Toddler", "Preschool"]],
-      ["theme", "Theme", "text", "Ocean"],
-      ["skill", "Learning Skill", "text", "fine motor"],
+      ["age", "Age Group", "select", ["Infant", "Young Toddler", "Older Toddler", "Preschool", "School Age"]],
+      ["childName", "Child Name (optional)", "text", ""],
+      ["theme", "Theme or Topic", "text", "Ocean"],
+      ["skill", "Learning Skill or Goal", "text", "fine motor"],
+      ["developmentalArea", "Developmental Area", "select", ["Fine Motor", "Gross Motor", "Cognitive", "Language", "Social Emotional", "Sensory", "Creative Arts", "STEM", "Self Help"]],
+      ["concern", "Developmental Concern or Goal (optional)", "text", ""],
       ["materials", "Materials Available", "textarea", "tray, tongs, pom poms, picture cards"],
+      ["providerNotes", "Provider Notes (optional)", "textarea", ""],
     ],
   },
   {
@@ -162,13 +184,39 @@ const aiTools = [
   },
   {
     id: "behavior",
-    title: "AI Behavior Documentation Generator",
-    detail: "Create professional behavior reports, incident documentation, and parent wording.",
+    title: "AI Behavior Support Generator",
+    detail: "Create professional behavior support plans with strategies, parent wording, and age-appropriate next steps.",
     fields: [
-      ["incident", "What Happened", "textarea", "Child had difficulty sharing and pushed a peer."],
+      ["programName", "Program Name", "text", "Little Learner Home Daycare"],
+      ["childName", "Child Name", "text", "Child"],
+      ["childAge", "Child Age", "text", "3 years"],
+      ["age", "Age Group", "select", ["Infant", "Young Toddler", "Older Toddler", "Preschool", "School Age"]],
+      ["concern", "Behavior Concern", "text", "Difficulty with transitions, hitting when frustrated"],
+      ["incident", "What Happened", "textarea", "Child hit a peer during cleanup time."],
+      ["trigger", "Behavior Trigger (if known)", "text", "Transition from play to cleanup"],
       ["support", "Support Given", "textarea", "Comforted both children, used calm words, redirected to a turn-taking activity."],
-      ["plan", "Follow-up Plan", "textarea", "Practice sharing language and offer small group support."],
+      ["goal", "Developmental Goal or Skill to Build", "text", "Learn to express frustration with words"],
+      ["plan", "Follow-up Plan", "textarea", "Practice sharing language and offer visual schedule for transitions."],
       ["tone", "Parent Message Tone", "select", ["Warm and professional", "Brief and factual", "Supportive and detailed"]],
+      ["providerNotes", "Provider Notes (optional)", "textarea", ""],
+    ],
+  },
+  {
+    id: "incident",
+    title: "AI Incident Report Generator",
+    detail: "Create a professional, factual incident report with documentation, response, and parent notification wording.",
+    fields: [
+      ["programName", "Program Name", "text", "Little Learner Home Daycare"],
+      ["date", "Date and Time of Incident", "text", ""],
+      ["childName", "Child Name", "text", "Child"],
+      ["childAge", "Child Age", "text", "2 years"],
+      ["age", "Age Group", "select", ["Infant", "Young Toddler", "Older Toddler", "Preschool", "School Age"]],
+      ["incident", "What Happened", "textarea", "Child fell from the step and scraped their knee."],
+      ["trigger", "What Happened Before (Trigger)", "textarea", "Playing near the climbing area, lost balance."],
+      ["response", "Immediate Response Given", "textarea", "Comforted child, cleaned and bandaged scrape, monitored for 30 minutes."],
+      ["witnesses", "Witnesses or Others Present", "text", "Provider and 2 other children"],
+      ["nextSteps", "Next Steps or Follow-Up", "textarea", "Contacted parent, reviewed climbing area safety."],
+      ["tone", "Parent Notification Tone", "select", ["Factual and professional", "Warm and reassuring", "Detailed"]],
     ],
   },
   {
@@ -185,11 +233,15 @@ const aiTools = [
   {
     id: "parentMessage",
     title: "AI Parent Message Generator",
-    detail: "Write professional parent communication for updates, reminders, and difficult conversations.",
+    detail: "Write professional, ready-to-send parent communication for updates, reminders, and sensitive conversations.",
     fields: [
+      ["programName", "Program Name", "text", "Little Learner Home Daycare"],
+      ["childName", "Child Name (optional)", "text", ""],
       ["topic", "Message Topic", "text", "Late pickup reminder"],
       ["details", "Details", "textarea", "Parent has arrived late twice this week. Keep tone respectful."],
-      ["tone", "Tone", "select", ["Warm and clear", "Firm and professional", "Gentle and supportive"]],
+      ["tone", "Tone", "select", ["Warm and clear", "Firm and professional", "Gentle and supportive", "Friendly reminder", "Detailed update"]],
+      ["audience", "Message Type", "select", ["Parent-facing", "Provider-only documentation"]],
+      ["providerNotes", "Provider Notes (optional)", "textarea", ""],
     ],
   },
   {
@@ -11059,6 +11111,7 @@ function generateToolOutput(toolId, data) {
     portfolio: generatePortfolio,
     curriculum: generateCurriculumUnit,
     behavior: generateBehaviorDocumentation,
+    incident: generateIncidentReport,
     learningStory: generateLearningStory,
     parentMessage: generateParentMessage,
     schedule: generateAiDailySchedule,
@@ -11070,24 +11123,63 @@ function generateToolOutput(toolId, data) {
   return (generators[toolId] || generateLessonPlan)(data);
 }
 
+function ageGroupLabel(ageGroup) {
+  const labels = {
+    "Infant": "0-12 months",
+    "Young Toddler": "12-24 months",
+    "Older Toddler": "24-36 months",
+    "Toddler": "12-36 months",
+    "Preschool": "3-5 years",
+    "School Age": "5+ years",
+  };
+  return labels[ageGroup] || ageGroup;
+}
+
 function aiPromptFromForm(toolId, data) {
   const tool = [...aiTools, ...futureTools].find((item) => item.id === toolId);
-  const fields = Object.entries(data)
-    .filter(([, value]) => value)
+  const toolTitle = tool?.title || "Little Learner Hub AI Generator";
+
+  const childName = data.childName || data.child || "";
+  const childAge = data.childAge || "";
+  const ageGroup = data.age || data.ageGroup || data.group || "";
+  const programName = data.programName || data.program || "";
+  const providerNotes = data.providerNotes || "";
+
+  const ageContext = ageGroup
+    ? `\n\nCHILD AGE GROUP: ${ageGroup} (${ageGroupLabel(ageGroup)}). ALL content — activities, goals, language, milestones, strategies — MUST be appropriate for this age. Do not include anything outside this developmental range.`
+    : "";
+
+  const CONTEXT_KEYS = ["childName", "child", "childAge", "age", "ageGroup", "group", "programName", "program", "providerNotes"];
+
+  const contextLines = [
+    programName ? `Program Name: ${programName}` : "",
+    childName ? `Child: ${childName}` : "",
+    childAge ? `Child Age: ${childAge}` : "",
+    ageGroup ? `Age Group: ${ageGroup} (${ageGroupLabel(ageGroup)})` : "",
+  ].filter(Boolean).join("\n");
+
+  const fieldLines = Object.entries(data)
+    .filter(([key, value]) => value && !CONTEXT_KEYS.includes(key))
     .map(([key, value]) => `${key}: ${value}`)
     .join("\n");
+
+  const providerContext = providerNotes ? `\n\nProvider Notes: ${providerNotes}` : "";
+
   return [
-    `Create content for ${tool?.title || "Little Learner Hub AI Generator"}.`,
-    "Use daycare-focused, age-appropriate wording for home daycare providers.",
-    "Include practical sections, editable language, and clear next steps when helpful.",
-    fields || "No extra details were entered.",
-  ].join("\n");
+    `Generate: ${toolTitle}`,
+    contextLines,
+    ageContext,
+    "\nDetails:\n" + (fieldLines || "No extra details were entered."),
+    providerContext,
+    "\nProduce organized, ready-to-use content a childcare provider can copy right away. Use warm, professional childcare language. Reference the child by name and include the program name in all formal documents.",
+  ].filter(Boolean).join("\n");
 }
 
 async function generateToolOutputWithBackend(toolId, data) {
   if (!aiGenerationConfig.endpoint || !canUseLaunchBackend()) {
     return { output: generateToolOutput(toolId, data), backendUsed: false };
   }
+  const ageValue = data.age || data.ageGroup || data.group || "";
   const response = await fetch(aiGenerationConfig.endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -11095,7 +11187,7 @@ async function generateToolOutputWithBackend(toolId, data) {
       email: currentUser || "guest",
       plan: currentPlan,
       tool: toolId,
-      age: data.age || data.ageGroup || data.group || "",
+      age: ageValue,
       prompt: aiPromptFromForm(toolId, data),
     }),
   });
@@ -11119,16 +11211,30 @@ function cleanPromptTheme(prompt) {
     .trim();
 }
 
+function detectAgeFromPrompt(lower) {
+  if (lower.includes("infant") || lower.includes("baby") || lower.includes("newborn")) return "Infant";
+  if (lower.includes("young toddler") || lower.includes("12 month") || lower.includes("1 year")) return "Young Toddler";
+  if (lower.includes("older toddler") || lower.includes("2 year") || lower.includes("24 month")) return "Older Toddler";
+  if (lower.includes("preschool") || lower.includes("3 year") || lower.includes("4 year") || lower.includes("pre-k")) return "Preschool";
+  if (lower.includes("school age") || lower.includes("school-age") || lower.includes("5 year") || lower.includes("kindergarten") || lower.includes("first grade")) return "School Age";
+  if (lower.includes("toddler")) return "Toddler";
+  return "Preschool";
+}
+
 function generateFromPrompt(prompt) {
   const lower = prompt.toLowerCase();
+  const age = detectAgeFromPrompt(lower);
   if (lower.includes("observation") || lower.includes("stacking") || lower.includes("blocks")) {
-    return generateObservation({ note: prompt, age: lower.includes("preschool") ? "Preschool" : "Toddler" });
+    return generateObservation({ note: prompt, age });
   }
   if (lower.includes("newsletter")) {
     return generateNewsletter({ month: "This Month", theme: prompt, dates: "Add important dates here." });
   }
   if (lower.includes("daily report")) {
-    return generateDailyReport({ child: "The child", meals: "Meals were offered according to the daily menu.", nap: "Rest time was supported.", highlights: prompt });
+    return generateDailyReport({ childName: "The child", age, meals: "Meals were offered according to the daily menu.", nap: "Rest time was supported.", highlights: prompt });
+  }
+  if (lower.includes("incident report") || lower.includes("injury")) {
+    return generateIncidentReport({ incident: prompt, age });
   }
   if (lower.includes("contract") || lower.includes("agreement")) {
     return generateContract({ program: "Your Daycare Name", tuition: "Tuition is due on the scheduled payment date.", schedule: "Care schedule should be listed here.", policies: "Add late fees, sick policy, vacation, and termination notice." });
@@ -11137,37 +11243,63 @@ function generateFromPrompt(prompt) {
     return generateMenu(prompt);
   }
   if (lower.includes("activity") || lower.includes("sensory") || lower.includes("art")) {
-    return generateActivity({ age: lower.includes("infant") ? "Infant" : lower.includes("preschool") ? "Preschool" : "Toddler", theme: prompt, skill: lower.includes("sensory") ? "sensory" : "creative learning" });
+    return generateActivity({ age, theme: prompt, skill: lower.includes("sensory") ? "sensory exploration" : "creative learning" });
   }
   if (lower.includes("handbook")) {
     return generateHandbook({ program: "Your Daycare Name", tuition: "Tuition is due on the scheduled payment date.", sick: "Children should stay home when ill.", pickup: "Authorized adults must sign children in and out." });
   }
-  return generateLessonPlan({ age: lower.includes("infant") ? "Infant" : lower.includes("preschool") ? "Preschool" : "Toddler", theme: cleanPromptTheme(prompt) || "Farm", days: "5", focus: "language, social-emotional development, fine motor, and play-based learning" });
+  return generateLessonPlan({ age, theme: cleanPromptTheme(prompt) || "Farm", days: "5", focus: "language, social-emotional development, fine motor, and play-based learning" });
 }
 
 function generateLessonPlan(data) {
-  const age = data.age || "Toddler";
+  const rawAge = data.age || "Toddler";
   const theme = data.theme || "Farm";
   const planLength = data.planLength || "Weekly";
   const days = Number(data.days || 5);
   const focus = data.focus || "language, fine motor, social-emotional skills";
-  const materials = data.materials || "pictures or props, books, crayons, paper, sensory bin items, blocks, music, and simple printable pages";
+  const isInfant = rawAge === "Infant";
+  const isYoungToddler = rawAge === "Young Toddler";
+  const isOlderToddler = rawAge === "Older Toddler";
+  const isToddler = isYoungToddler || isOlderToddler || rawAge === "Toddler";
+  const isSchoolAge = rawAge === "School Age";
+  const materials = data.materials || (isInfant
+    ? "Soft textured items, sensory safe objects, board books, soft music, mirrors, rattles, tummy time mat"
+    : isSchoolAge
+    ? "Books, paper, pencils, scissors (supervised), science materials, building supplies, art supplies, games"
+    : "pictures or props, books, crayons, paper, sensory bin items, blocks, music, and simple printable pages");
   const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Monday 2", "Tuesday 2", "Wednesday 2", "Thursday 2", "Friday 2"];
   const daily = dayNames.slice(0, days).map((day, index) => {
+    if (isInfant) {
+      const infantActivities = ["Sensory Exploration", "Tummy Time and Music", "Tracking and Touch", "Responsive Play", "Sensory and Books"];
+      return `${day}: ${theme} ${infantActivities[index % infantActivities.length]}
+- Sensory: Introduce a safe ${theme.toLowerCase()} sensory item — soft, colorful, or textured.
+- Tummy Time: Offer supervised tummy time with themed visual interest (picture card or toy).
+- Music/Language: Sing a simple song or hum softly while narrating: "I see the ${theme.toLowerCase()}!"
+- Tracking: Hold a colorful ${theme.toLowerCase()} item and move it slowly for the infant to follow.
+- Routine: Diaper, feeding, and sleep are integrated as natural learning and bonding moments.`;
+    }
+    if (isSchoolAge) {
+      const schoolActivities = ["Introduce and Explore", "Create and Build", "Research and Write", "STEM and Problem-Solve", "Review and Share"];
+      return `${day}: ${theme} ${schoolActivities[index % schoolActivities.length]}
+- Opening Discussion: Ask a higher-order question connected to ${theme.toLowerCase()}. Encourage predictions and connections.
+- Reading/Writing: Use a nonfiction or fiction book about ${theme.toLowerCase()}. Add journaling, diagrams, or vocabulary work.
+- STEM/Project: Offer a hands-on challenge connected to ${theme.toLowerCase()}.
+- Collaboration: Pair or small-group work connecting to the theme.
+- Learning Goal: Build ${focus} through project-based, discussion-rich learning.`;
+    }
     const activities = ["Explore and Talk", "Create and Connect", "Move and Match", "Build and Sort", "Review and Share"];
     return `${day}: ${theme} ${activities[index % activities.length]}
 - Circle Time: Introduce ${theme} vocabulary with pictures, props, and simple questions.
 - Art: Offer a low-prep ${theme.toLowerCase()} art invitation using crayons, paper, glue, or safe collage pieces.
 - Sensory: Provide a supervised sensory bin or texture tray connected to ${theme.toLowerCase()}.
-- Fine Motor: Practice grasping, sorting, stacking, tracing, squeezing, or placing small safe materials.
-- Gross Motor: Add movement such as crawling, marching, tossing, balancing, dancing, or animal walks.
+- Fine Motor: Practice ${isToddler ? "grasping, sorting, stacking, or placing safe materials" : "tracing, cutting with guidance, sorting, or writing simple shapes"}.
+- Gross Motor: Add movement such as ${isToddler ? "crawling, marching, tossing, or animal walks" : "jumping, balancing, dancing, or obstacle courses"}.
 - Learning Goal: Children will build ${focus} through hands-on play and guided conversation.`;
   }).join("\n\n");
   return `${planLength} Lesson Plan Overview
-Age Group: ${age}
+Age Group: ${rawAge}
 Theme: ${theme}
 Learning Focus: ${focus}
-Style: ${preferenceLine()}
 
 Materials List
 ${materials}
@@ -11175,79 +11307,99 @@ ${materials}
 Learning Objectives
 - Build vocabulary connected to ${theme.toLowerCase()}.
 - Practice ${focus}.
-- Encourage social-emotional growth through choice-making, turn-taking, and participation.
-- Support early learning guidelines through play-based, hands-on experiences.
+- Encourage ${isInfant ? "sensory development, secure attachment, and early communication" : "social-emotional growth through choice-making, turn-taking, and participation"}.
+- Support early learning guidelines through ${isInfant ? "responsive care and safe sensory experiences" : "play-based, hands-on experiences"}.
 
 Daily Plans
 ${daily}
 
 Books and Songs
-- Choose simple board books or picture books connected to ${theme.toLowerCase()}.
-- Use repeat-after-me songs, fingerplays, movement songs, and name songs.
-
-Optional Printables
-Vocabulary cards, tracing page, matching page, coloring page, and family note.
+${isInfant
+    ? "Choose simple board books with high-contrast images, soft textures, or flap features. Sing soft lullabies, fingerplays, and name songs throughout the day."
+    : isSchoolAge
+    ? "Choose nonfiction and fiction books connected to the theme. Include poetry, read-alouds, and independent reading opportunities."
+    : "Choose simple board books or picture books connected to " + theme.toLowerCase() + ". Use repeat-after-me songs, fingerplays, movement songs, and name songs."}
 
 Provider Note
-Adjust timing, materials, and supervision to fit your group size, ages, and state childcare requirements.`;
+Adjust timing, materials, and supervision to fit your group size, ages, individual children's needs, and state childcare requirements.`;
 }
-
 function generateObservation(data) {
   const note = data.note || "Child counted to 10 and identified colors.";
-  const age = data.age || "Toddler";
+  const rawAge = data.age || "Toddler";
   const area = data.area || "Cognitive";
   const nextStep = data.nextStep || "Offer a similar activity with a small new challenge.";
+  const childName = data.childName || data.child || "";
+  const childRef = childName || ("the " + rawAge.toLowerCase());
+  const isInfant = rawAge === "Infant";
+  const isSchoolAge = rawAge === "School Age";
+  const skillsForAge = isInfant
+    ? ["Sensory exploration and responsiveness", "Visual tracking and attention", "Reaching, grasping, or mouthing safely", "Vocalizing and early communication", "Bonding and secure attachment"]
+    : isSchoolAge
+    ? ["Critical thinking and problem-solving", "Reading, writing, or math connections", "Peer collaboration and social reasoning", "Independence and self-direction", "Attention and persistence on challenging tasks"]
+    : ["Early problem-solving and curiosity", "Vocabulary and concept development", "Attention and persistence", "Hand-eye coordination and fine motor", "Confidence participating in learning experiences"];
   return `Professional Observation
-During play, the ${age.toLowerCase()} demonstrated growing confidence and understanding while ${note.charAt(0).toLowerCase() + note.slice(1)} This shows the child is making meaningful connections through hands-on exploration, communication, and problem-solving.
+Child: ${childName || "Not specified"}
+Age Group: ${rawAge}
+Developmental Area: ${area}
 
-Developmental Area
-${area} development, with supporting connections to language, approaches to learning, and fine motor development when appropriate.
+Observation
+During ${isInfant ? "a care routine and exploration time" : "play"}, ${childRef} demonstrated growing ${area.toLowerCase()} skills while ${note.charAt(0).toLowerCase() + note.slice(1)} This shows ${childName ? childName : "the child"} is making meaningful connections through ${isInfant ? "sensory exploration, secure bonding, and responsive care" : "hands-on exploration, communication, and problem-solving"}.
 
 Skills Demonstrated
-- Early problem-solving
-- Vocabulary and concept development
-- Attention and persistence
-- Hand-eye coordination
-- Confidence participating in learning experiences
+${skillsForAge.map((s) => "- " + s).join("\n")}
 
 What to Look For Next
-Watch for the child repeating the skill independently, using more descriptive language, staying engaged longer, or applying the skill in a new activity.
+Watch for ${childName ? childName : "the child"} repeating this skill independently, using it in a new setting, showing increased confidence, or demonstrating it with less support.
 
 Next Steps for Learning
-${nextStep} Model new words, ask simple open-ended questions, and provide time for the child to practice at their own pace.
+${nextStep} ${isInfant ? "Continue responsive care, narrate your actions, and offer safe sensory experiences." : "Model new words, ask simple open-ended questions, and allow time to practice at their own pace."}
 
-Learning Standard Category
-Early learning guideline area: cognitive development, communication/language, approaches to learning, and fine motor skills.`;
+Learning Standard Connection
+${area} development — connected to age-appropriate early learning guidelines for ${rawAge.toLowerCase()} learners.`;
 }
 
 function generateActivity(data) {
-  const age = data.age || "Preschool";
-  const theme = data.theme || "Ocean";
+  const rawAge = data.age || "Preschool";
+  const theme = data.theme || (data.skill ? "Discovery" : "Ocean");
   const skill = data.skill || "fine motor";
-  const materials = data.materials || "Tray or bin, themed pictures or props, child-safe manipulatives, tongs or scoops if age-appropriate, paper, crayons, and a small basket for sorting.";
-  return `Activity Title
-${theme} ${skill} Discovery Tray
-
-Age Group
-${age}
+  const area = data.developmentalArea || skill;
+  const childName = data.childName || "";
+  const materials = data.materials || (rawAge === "Infant"
+    ? "Soft textured mat, safe sensory items (fabric squares, crinkle toys), caregiver hands, simple board books."
+    : rawAge === "Young Toddler" || rawAge === "Older Toddler"
+    ? "Tray or bin, themed pictures or props, child-safe manipulatives, paper, crayons, and a small basket."
+    : rawAge === "School Age"
+    ? "Project materials, pencils, scissors (adult-supervised), measuring tools, building materials."
+    : "Tray or bin, themed pictures or props, tongs or scoops, paper, crayons, and a small basket for sorting.");
+  const isInfant = rawAge === "Infant";
+  const isSchoolAge = rawAge === "School Age";
+  const duration = isInfant ? "5-10 minutes" : isSchoolAge ? "20-30+ minutes" : rawAge.includes("Toddler") ? "10-15 minutes" : "15-20 minutes";
+  const instructions = isInfant
+    ? ["Set up a safe sensory space on a clean mat or blanket.", "Introduce each item by name while the infant explores through touch, sight, and sound.", "Narrate what the infant is doing: 'You found the soft square! It feels bumpy!'", "Follow the infant's lead and respond to their cues warmly.", "End the activity before overstimulation — watch for turning away or fussiness."]
+    : isSchoolAge
+    ? ["Introduce the activity and explain the learning goal in simple terms.", "Model one example, then invite children to explore and problem-solve.", "Encourage questions, predictions, and creative thinking.", "Allow children to work independently or in small groups.", "Wrap up with a discussion: 'What did you notice? What would you try differently?'"]
+    : ["Introduce the " + theme.toLowerCase() + " materials and name each item clearly.", "Invite children to touch, sort, match, move, or describe the materials.", "Model the skill: " + skill + ". Keep directions to 1-2 simple steps.", "Keep the activity short, playful, and flexible.", "Observe what children notice, say, choose, and try independently."];
+  return `Activity: ${theme} ${skill.charAt(0).toUpperCase() + skill.slice(1)} ${isInfant ? "Exploration" : isSchoolAge ? "Project" : "Discovery"}
+${childName ? "Child: " + childName + "\n" : ""}Age Group: ${rawAge}
+Duration: ${duration}
+Developmental Area: ${area}
 
 Materials
 ${materials}
 
 Instructions
-1. Introduce the ${theme.toLowerCase()} materials and name each item clearly.
-2. Invite children to touch, sort, match, move, or describe the materials.
-3. Model the target skill: ${skill}.
-4. Keep the activity short, playful, and flexible.
-5. Observe what children notice, say, choose, and try independently.
+${instructions.map((step, i) => (i + 1) + ". " + step).join("\n")}
 
 Learning Goals
-- Build ${skill} through hands-on practice.
-- Encourage language, attention, choice-making, and confidence.
-- Support curiosity and problem-solving.
+- Build ${area} skills through ${isInfant ? "safe sensory exploration and responsive interaction" : isSchoolAge ? "hands-on challenge and creative thinking" : "hands-on practice and play"}.
+- Encourage ${isInfant ? "bonding, curiosity, and early communication" : "language, attention, choice-making, and confidence"}.
+- Support ${isInfant ? "sensory development and secure attachment" : "curiosity, problem-solving, and independence"}.
+
+Safety Notes
+${isInfant ? "Always supervise closely. Ensure all items are too large to be a choking hazard. No small parts." : isSchoolAge ? "Supervise use of scissors, tools, and any project materials. Adjust for individual needs." : "Supervise closely. Ensure all materials are age-safe. Avoid small parts for young toddlers."}
 
 Extensions
-Add books, songs, counting, color matching, movement, or a simple take-home note connected to ${theme.toLowerCase()}.`;
+${isInfant ? "Try the activity in different positions (tummy time, supported sitting). Add soft music or gentle narration." : "Add books, songs, counting, color matching, movement, or a take-home note connected to " + theme.toLowerCase() + "."}`;
 }
 
 function generateAiMenu(data) {
@@ -11428,26 +11580,79 @@ Send home a short note with vocabulary words, book ideas, and one simple activit
 }
 
 function generateBehaviorDocumentation(data) {
-  return `Behavior Documentation Draft
+  const childName = data.childName || data.child || "Child";
+  const rawAge = data.age || "";
+  const programName = data.programName || data.program || "Your Daycare Name";
+  const tone = data.tone || "Warm and professional";
+  const ageContext = rawAge ? ` (${rawAge})` : "";
+  return `Behavior Support Documentation
+Program: ${programName}
+Child: ${childName}${ageContext}
+Concern: ${data.concern || "Behavior that needed support"}
 
 What Happened
-${data.incident || "Describe the behavior or incident factually."}
+${data.incident || "Describe the behavior factually and objectively."}
+
+Possible Trigger or Antecedent
+${data.trigger || "Describe what occurred just before the behavior."}
 
 Support Given
 ${data.support || "Comfort was offered, safety was maintained, and the child was redirected using calm guidance."}
 
-Professional Observation
-The child needed support with regulation, communication, or peer interaction during this moment. Documentation should remain factual, respectful, and focused on support.
+What This Behavior May Communicate
+${childName} may be communicating a need for ${rawAge === "Infant" ? "comfort, sensory regulation, or basic needs" : rawAge === "Young Toddler" || rawAge === "Older Toddler" ? "language support, attention, predictability, or physical comfort" : "connection, control, help with transitions, or emotional regulation"}.
+
+${rawAge === "Infant" ? "Infant Support Strategies\n- Respond promptly and consistently to cues.\n- Check for hunger, discomfort, or overstimulation.\n- Offer calm rocking, gentle touch, and a quiet environment.\n- Review safe sleep and routine schedule with the family." : rawAge === "Young Toddler" ? "Young Toddler Support Strategies\n- Offer simple 1-step directions and clear, predictable routines.\n- Use visual cues and transition warnings.\n- Name feelings and model simple words: 'You feel frustrated.'\n- Redirect to a safe alternative activity." : "Proactive Strategies\n- Offer a visual schedule and transition warnings.\n- Practice replacement language during calm moments.\n- Provide close supervision during known trigger times.\n- Use positive language, choices, and predictable routines."}
+
+Developmental Goal
+${data.goal || "Build age-appropriate self-regulation, communication, and coping skills."}
 
 Follow-Up Plan
 ${data.plan || "Teach replacement language, offer visual reminders, provide close supervision, and practice the skill during calm moments."}
 
-Parent Communication Wording
-${data.tone || "Warm and professional"}: Today we supported your child through a challenging moment. We used calm guidance, helped everyone stay safe, and will continue practicing the skills needed for successful play and routines.
+Parent Communication
+Tone: ${tone}
+Today at ${programName}, ${childName} needed some extra support. ${data.support || "We used calm guidance, kept everyone safe, and will continue practicing the skills needed for successful play and routines."} I would love to connect with you to share strategies we can use together at home and at daycare.
 
 Provider Note
-Review program policy and licensing requirements for incident reports, injury documentation, and parent notification.`;
+Review your program policy and state licensing requirements for behavior documentation, incident reporting, and parent notification.`;
 }
+
+function generateIncidentReport(data) {
+  const childName = data.childName || data.child || "Child";
+  const childAge = data.childAge || "";
+  const age = data.age || "";
+  const programName = data.programName || data.program || "Your Daycare Name";
+  const date = data.date || "Date of incident";
+  const ageLabel = childAge ? ` (${childAge})` : age ? ` (${age})` : "";
+  return `Incident Report
+Program: ${programName}
+Date and Time: ${date}
+Child Name: ${childName}${ageLabel}
+
+Description of Incident
+${data.incident || "Describe what happened using factual, objective language."}
+
+What Occurred Before the Incident
+${data.trigger || "Describe any known triggers, antecedents, or events that occurred just before the incident."}
+
+Immediate Response Given
+${data.response || "Describe the steps taken immediately after the incident, including first aid, comfort, and supervision."}
+
+Witnesses / Others Present
+${data.witnesses || "List any witnesses or children who were present."}
+
+Next Steps and Follow-Up
+${data.nextSteps || "Document any planned follow-up steps, safety changes, or monitoring needed."}
+
+Parent Notification
+Tone: ${data.tone || "Factual and professional"}
+Today at ${programName}, I am reaching out to share an incident that occurred involving ${childName}. ${data.incident || "An incident occurred today."} ${data.response ? "Immediate response included: " + data.response + "." : "Comfort and safety support was provided right away."} Please contact me if you have any questions.
+
+Provider Note
+Review your state licensing requirements for incident documentation, parent notification timelines, and required forms. Keep a copy in the child's file.`;
+}
+
 
 function generateLearningStory(data) {
   return `Learning Story
@@ -11475,23 +11680,39 @@ Share a simple note with families so they can notice and support this learning a
 }
 
 function generateParentMessage(data) {
-  return `Parent Message Draft
+  const programName = data.programName || data.program || "Your Childcare Program";
+  const childName = data.childName || data.child || "";
+  const topic = data.topic || "Program Update";
+  const tone = data.tone || "Warm and clear";
+  const isProviderOnly = (data.audience || "").includes("Provider-only");
+  if (isProviderOnly) {
+    return `Provider Documentation Note
 
-Topic
-${data.topic || "Program Update"}
+Topic: ${topic}
+Date: ${data.date || new Date().toLocaleDateString()}
+Child: ${childName || "Not specified"}
 
-Tone
-${data.tone || "Warm and clear"}
+Documentation
+${data.details || "Add details here."}
+
+Provider Notes
+${data.providerNotes || "Keep in child file. Not for parent distribution."}`;
+  }
+  return `Parent Message Draft — ${programName}
+
+Topic: ${topic}
+Tone: ${tone}
+${childName ? "Child: " + childName : ""}
 
 Message
-Hi! I wanted to share an update about ${data.topic || "your child's day"}.
+Hi ${childName ? childName + "'s family" : "there"}!
 
 ${data.details || "Add the important details here."}
 
-I appreciate your partnership and want to keep communication open. Please let me know if you have any questions or if there is anything helpful you would like me to know.
+I appreciate your partnership and always want to keep our communication open and positive. Please don't hesitate to reach out if you have any questions or if there is anything you'd like me to know.
 
-Thank you,
-Your Childcare Provider`;
+Thank you for trusting us with your family,
+${programName}`;
 }
 
 function generateAiDailySchedule(data) {
@@ -11638,15 +11859,17 @@ function generateNewsletter(data) {
   const theme = data.theme || "Learning Together";
   const dates = data.dates || "Add important dates here.";
   const reminders = data.reminders || "Please label all personal items and check your child's supply bin weekly.";
-  return `${month} Parent Newsletter
-
+  const programName = data.programName || data.program || "Your Childcare Program";
+  const highlights = data.highlights || "";
+  return `${programName}
+${month} Parent Newsletter
 Theme: ${theme}
 
-Hello Families,
-This month we are focusing on playful learning experiences that support language, social-emotional growth, creativity, movement, and independence. Children will explore through stories, songs, art, sensory play, outdoor play, and hands-on activities.
+Hello Families!
+We hope you and your little ones are doing wonderfully. This month at ${programName}, we are focusing on playful learning experiences that support language, social-emotional growth, creativity, movement, and independence. Children will explore through stories, songs, art, sensory play, outdoor play, and hands-on activities connected to our theme: ${theme}.
 
-What We Are Learning
-- New vocabulary connected to our monthly theme
+What We Are Learning This Month
+${highlights ? highlights + "\n" : ""}- New vocabulary and concepts connected to ${theme.toLowerCase()}
 - Sharing, turn-taking, and expressing feelings
 - Fine motor skills through art, building, and table activities
 - Gross motor skills through movement and outdoor play
@@ -11658,36 +11881,70 @@ ${dates}
 Reminders
 ${reminders}
 
-Family Connection
-At home, you can support learning by reading together, talking about your child's day, naming feelings, counting everyday objects, and encouraging independence with simple routines.
+Family Connection at Home
+You can support learning by reading together, talking about your child's day, naming feelings, counting everyday objects, and encouraging independence with simple everyday routines.
 
-Thank you for partnering with us and trusting us with your child's care.`;
+Thank you for being such wonderful partners in your child's care and learning. We love having your family with us!
+
+Warmly,
+${programName}`;
 }
 
 function generateDailyReport(data) {
-  const child = data.child || "Your child";
+  const child = data.childName || data.child || "Your child";
   const mood = data.mood || "Happy and engaged";
-  return `Daily Report
+  const rawAge = data.age || "";
+  const programName = data.programName || data.program || "";
+  const date = data.date || "";
+  const isInfant = rawAge === "Infant";
+  const isToddler = rawAge === "Young Toddler" || rawAge === "Older Toddler" || rawAge === "Toddler";
+  const header = [
+    programName ? programName + " — Daily Report" : "Daily Report",
+    date ? "Date: " + date : "",
+    "Child: " + child,
+    rawAge ? "Age Group: " + rawAge : "",
+  ].filter(Boolean).join("\n");
+  const moodText = data.mood || "Happy and engaged";
+  const infantExtra = isInfant ? `
+Feeding
+${data.meals || "Feeding was provided on cue and according to the family's feeding plan."}
 
-${child} had a positive day and participated in our daily routines and learning activities.
+Diapers
+${data.diapering || "Diaper changes were logged throughout the day."}
 
-Mood
-${mood}
+Sleep
+${data.nap || "Sleep was supported in a safe sleep environment."}
 
+Tummy Time
+Tummy time was offered during awake, supervised periods.` : "";
+  const toddlerExtra = isToddler ? `
 Meals
-${data.meals || "Meals were offered according to the daily menu."}
+${data.meals || "Meals and snacks were offered according to the daily menu."}
+
+Diapering / Potty
+${data.diapering || "Diapering, potty attempts, and handwashing were supported throughout the day."}
 
 Rest
-${data.nap || "Rest time was offered, and quiet routines were supported."}
+${data.nap || "Rest time was offered and supported."}` : "";
+  const olderExtra = !isInfant && !isToddler ? `
+Meals
+${data.meals || "Meals and snacks were offered according to the daily menu."}
 
-Diapering / Toileting
-${data.diapering || "Diapering, toileting, handwashing, and self-help routines were supported throughout the day."}
+Rest
+${data.nap || "Rest time was offered and supported."}` : "";
+  return `${header}
+
+${child} had a great day and participated in our daily routines and learning experiences.
+
+Mood
+${moodText}
+${infantExtra}${toddlerExtra}${olderExtra}
 
 Highlights
 ${data.highlights || "Enjoyed play, stories, movement, and hands-on learning activities."}
 
 Learning Moment
-Today supported social-emotional development, communication, independence, and play-based learning.
+${data.learning || "Today supported " + (isInfant ? "sensory development, bonding, communication, and early exploration" : isToddler ? "language development, social-emotional growth, and play-based learning" : "communication, independence, social skills, and curiosity") + "."}
 
 Parent Note
 ${data.notes || "Please let me know if there is anything you would like me to watch for or support tomorrow."}`;
