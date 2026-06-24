@@ -13480,6 +13480,8 @@ function completeCheckout() {
   addBillingHistory("Payment Succeeded", `${billingPlanLabel(plan)} subscription activated${pending.promoCode ? " with promo trial" : ""}`, monthlyPrice);
   trackEvent("checkout_success", { plan, monthlyPrice, attribution: currentAttribution() });
   localStorage.removeItem("llhPendingCheckout");
+  checkoutPromoCode = "";
+  localStorage.removeItem("llhCheckoutPromoCode");
   saveCurrentAccountState();
   updateAuthButtons();
   updatePlanLabel();
