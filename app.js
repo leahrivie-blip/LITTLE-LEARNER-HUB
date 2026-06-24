@@ -1622,6 +1622,24 @@ const viewMap = {
   menus: "Menu Center",
   printables: "Printables",
 };
+
+// Views that are accessible without being logged in.
+// All other views redirect to the login modal for unauthenticated visitors.
+const guestAllowedViews = new Set([
+  "home", "plans", "upgrade", "legal", "faq", "contact",
+  "reset-password", "payment-success", "payment-failed",
+]);
+
+// Human-readable names for pro-only nav items, used in upgrade modal messages.
+const proNavLabels = {
+  "child-tools-attendance": "Attendance Tracking",
+  "child-tools-meals": "Meal Tracking",
+  "child-tools-reports": "Daily Reports",
+  "child-tools-communication": "Parent Communication",
+  portfolio: "Portfolio Builder",
+  reports: "Reports & Analytics",
+  favorites: "Saved Favorites",
+};
 const adRouteMap = {
   "/free-daycare-forms": "forms",
   "/daycare-lesson-plans": "lessons",
@@ -1848,18 +1866,32 @@ function saveLead(email, source = "Free Daycare Starter Pack") {
   trackEvent("lead_capture", { source });
 }
 
-function showProFeatureModal(message = "You've reached your Free Plan limit.") {
+function showProFeatureModal(message = "This is a Pro Feature.", type = "feature") {
   const modal = document.querySelector("#proModal");
   const body = document.querySelector("#proModalBody");
+  const eyebrow = document.querySelector("#proModalEyebrow");
+  const title = document.querySelector("#proModalTitle");
   if (!modal || !body) {
     setView("plans");
     return;
   }
-  body.innerHTML = `
-    <p>${escapeHtml(message)}</p>
-    <p>Unlock unlimited access with a 7-day Pro trial.</p>
-    <p><small>Credit card required. You will be charged after 7 days unless you cancel.</small></p>
-  `;
+  if (type === "limit") {
+    if (eyebrow) eyebrow.textContent = "Free Plan Limit Reached";
+    if (title) title.textContent = "You've reached your Free Plan limit.";
+    body.innerHTML = `
+      <p>${escapeHtml(message)}</p>
+      <p>Upgrade to Pro to unlock unlimited child profiles, observations, lesson plans, resources, AI tools, Family Hub features, parent messaging, attendance tracking, and daily reports.</p>
+      <p><small>Start a 7-day free trial. Credit card required. You will be charged after 7 days unless you cancel.</small></p>
+    `;
+  } else {
+    if (eyebrow) eyebrow.textContent = "Pro Feature";
+    if (title) title.textContent = "This is a Pro Feature";
+    body.innerHTML = `
+      <p>${escapeHtml(message)}</p>
+      <p>Upgrade to Pro to unlock advanced AI tools, portfolio builder, parent messaging, attendance tracking, daily reports, and the full resource library.</p>
+      <p><small>Start a 7-day free trial. Credit card required. You will be charged after 7 days unless you cancel.</small></p>
+    `;
+  }
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
 }
@@ -2711,6 +2743,15 @@ function updateAuthButtons() {
     delete signUp.dataset.view;
   }
   updateAdminNavVisibility();
+  updateBodyAuthClass();
+}
+
+// Keeps body CSS classes in sync with auth + plan state.
+// body.user-authenticated — user is logged in
+// body.user-pro          — user has Pro or Founding access (subset of authenticated)
+function updateBodyAuthClass() {
+  document.body.classList.toggle("user-authenticated", Boolean(currentUser));
+  document.body.classList.toggle("user-pro", Boolean(currentUser) && isProUser());
 }
 
 function updateAdminNavVisibility() {
@@ -2735,6 +2776,11 @@ function setView(view) {
     activePortfolioChildId = "";
   }
   const resolvedView = resolveSidebarView(view);
+  // Route guard: unauthenticated visitors may only access public marketing views.
+  if (!isLoggedIn() && !hasAdminFullAccess() && !guestAllowedViews.has(resolvedView)) {
+    openAuthModal("login");
+    return;
+  }
   if (resolvedView === "tools" && !isProUser()) {
     showProFeatureModal("Provider business tools are Pro features.");
     return;
@@ -2778,6 +2824,12 @@ function canAccess(resource) {
 
 function isProUser() {
   return hasAdminFullAccess() || accessRank[effectiveAccessPlan()] >= accessRank.Pro;
+}
+
+// Single source-of-truth for "is a real user session active?"
+// Always use this instead of checking currentUser directly in feature guards.
+function isLoggedIn() {
+  return Boolean(currentUser);
 }
 
 function freeResourceIds(category) {
@@ -5713,7 +5765,7 @@ function openResourceViewer(resourceId) {
   const resource = resources.find((item) => item.id === resourceId);
   if (!resource) return;
   if (!canAccess(resource)) {
-    showProFeatureModal(freeResourceLimitMessage);
+    showProFeatureModal(freeResourceLimitMessage, "limit");
     return;
   }
   ensureResourceViewer();
@@ -10315,6 +10367,7 @@ function renderAdminOwnerOverview() {
         `).join("")}
       </div>
     </div>
+    ${renderAccessDebugPanel()}
     <div class="admin-owner-grid">
       ${adminMetric("total accounts", accountRows.length)}
       ${adminMetric("paid accounts", paidAccounts.length)}
@@ -10347,6 +10400,51 @@ function renderAdminOwnerOverview() {
         `).join("") : `<div class="empty-state">No activity tracked yet.</div>`}
       </article>
     </div>
+  `;
+}
+
+// Returns an HTML string showing the current access-control decisions for debugging.
+// Only rendered inside the admin-unlocked owner panel.
+function debugValueColor(value) {
+  if (value === "true") return "var(--success,#2e7d32)";
+  if (value === "false") return "var(--danger,#c0392b)";
+  return "var(--ink)";
+}
+
+function renderAccessDebugPanel() {
+  const account = currentAccount();
+  const debugRows = [
+    ["isLoggedIn()", String(isLoggedIn())],
+    ["currentUser", currentUser || "(none)"],
+    ["currentPlan (localStorage)", currentPlan],
+    ["effectiveAccessPlan()", effectiveAccessPlan()],
+    ["isProUser()", String(isProUser())],
+    ["hasAdminFullAccess()", String(hasAdminFullAccess())],
+    ["isAdminUnlocked()", String(isAdminUnlocked())],
+    ["adminPreviewMode()", adminPreviewMode() || "(none)"],
+    ["account?.plan", account?.plan || "(none)"],
+    ["account?.subscriptionStatus", account?.subscriptionStatus || "(none)"],
+    ["accountHasPaidBilling()", String(accountHasPaidBilling())],
+    ["aiUsageCount()", String(aiUsageCount())],
+    ["aiMonthlyLimit()", String(aiMonthlyLimit())],
+  ];
+  return `
+    <details class="admin-debug-panel" style="margin-bottom:14px;">
+      <summary style="cursor:pointer;font-weight:600;padding:8px 0;">🔍 Access Control Debug</summary>
+      <div class="admin-note" style="margin-top:8px;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead><tr style="text-align:left;border-bottom:1px solid var(--line)"><th style="padding:4px 8px">Check</th><th style="padding:4px 8px">Value</th></tr></thead>
+          <tbody>
+            ${debugRows.map(([label, value]) => `
+              <tr style="border-bottom:1px solid var(--line)">
+                <td style="padding:4px 8px;font-family:monospace;color:var(--muted)">${escapeHtml(label)}</td>
+                <td style="padding:4px 8px;font-weight:600;color:${debugValueColor(value)}">${escapeHtml(value)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </details>
   `;
 }
 
@@ -12375,6 +12473,14 @@ function resourceViewForCategory(category) {
 }
 
 function updatePlanLabel() {
+  if (!currentUser) {
+    // Logged-out: sidebar is hidden by CSS, but keep the DOM neutral just in case.
+    currentPlanLabel.textContent = "";
+    const summary = document.querySelector("#planAccessSummary");
+    if (summary) summary.textContent = "";
+    updateSidebarDashboard();
+    return;
+  }
   currentPlanLabel.textContent = billingPlanLabel();
   const summary = document.querySelector("#planAccessSummary");
   if (summary) {
@@ -12770,6 +12876,9 @@ async function signOut() {
       console.warn("Firebase sign out did not complete", error);
     }
   }
+  // Clear admin session so stale admin-unlocked state cannot grant Pro access
+  // to a visitor who is no longer authenticated.
+  clearAdminSession();
   currentUser = "";
   currentPlan = "Free";
   favorites = [];
@@ -12860,10 +12969,11 @@ document.addEventListener("click", (event) => {
   const proFeatureButton = event.target.closest("[data-pro-feature]");
   if (proFeatureButton) {
     event.preventDefault();
-    const message = proFeatureButton.dataset.proFeature === "resource-limit"
+    const isLimit = proFeatureButton.dataset.proFeature === "resource-limit";
+    const message = isLimit
       ? freeResourceLimitMessage
       : "Upgrade to Pro to unlock this feature.";
-    showProFeatureModal(message);
+    showProFeatureModal(message, isLimit ? "limit" : "feature");
     return;
   }
 
@@ -13007,7 +13117,7 @@ document.addEventListener("click", (event) => {
   if (supportAiButton) {
     event.preventDefault();
     if (!canUseAi()) {
-      showProFeatureModal(aiLimitMessage());
+      showProFeatureModal(aiLimitMessage(), "limit");
       return;
     }
     const topic = supportTopicById(supportAiButton.dataset.supportAi)?.topic || "Support";
@@ -13029,6 +13139,12 @@ document.addEventListener("click", (event) => {
     if (searchInput) searchInput.value = "";
     if (viewButton.dataset.view === "plans" || viewButton.dataset.view === "upgrade") {
       trackEvent("upgrade_click", { targetView: viewButton.dataset.view });
+    }
+    // Free-user guard: intercept pro-only nav items before state mutation
+    if (viewButton.hasAttribute("data-pro-nav") && !isProUser()) {
+      const label = proNavLabels[viewButton.dataset.view] || "This tool";
+      showProFeatureModal(`${label} is a Pro feature. Upgrade to unlock all Pro tools.`);
+      return;
     }
     if (viewButton.dataset.view === "children") {
       childManagementMode = "list";
@@ -13158,7 +13274,7 @@ document.addEventListener("click", (event) => {
   if (childAiSuggestionsButton) {
     event.preventDefault();
     if (!canUseAi()) {
-      showProFeatureModal(aiLimitMessage());
+      showProFeatureModal(aiLimitMessage(), "limit");
       return;
     }
     const records = childRecords();
@@ -13240,7 +13356,7 @@ document.addEventListener("click", (event) => {
     const observation = observations.find((item) => item.id === duplicateChildObservationButton.dataset.duplicateChildObservation);
     if (!observation) return;
     if (!isProUser() && observations.length >= freeObservationRecordLimit) {
-      showProFeatureModal(`You've reached your Free Plan limit of ${freeObservationRecordLimit} observations.`);
+      showProFeatureModal(`You've reached your Free Plan limit of ${freeObservationRecordLimit} observations.`, "limit");
       return;
     }
     const copy = {
@@ -14220,6 +14336,8 @@ document.querySelector("#proModalUpgrade")?.addEventListener("click", () => {
   startProTrial();
 });
 
+document.querySelector("#proModalDismiss")?.addEventListener("click", closeProFeatureModal);
+
 document.querySelector("#authForm")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const email = document.querySelector("#emailInput").value;
@@ -14536,7 +14654,7 @@ document.addEventListener("submit", async (event) => {
   const data = collectFormData(form);
   const editId = data.childId || activeChildProfileEditId || "";
   if (!editId && !isProUser() && childStore("Profiles").length >= freeChildProfileLimit) {
-    showProFeatureModal("You've reached your Free Plan limit of 3 child profiles.");
+    showProFeatureModal("You've reached your Free Plan limit of 3 child profiles.", "limit");
     return;
   }
   const formData = new FormData(form);
@@ -14612,7 +14730,7 @@ document.addEventListener("submit", (event) => {
     } : item));
   } else {
     if (!isProUser() && observations.length >= freeObservationRecordLimit) {
-      showProFeatureModal(`You've reached your Free Plan limit of ${freeObservationRecordLimit} observations.`);
+      showProFeatureModal(`You've reached your Free Plan limit of ${freeObservationRecordLimit} observations.`, "limit");
       return;
     }
     saveChildStore("Observations", [...observations, {

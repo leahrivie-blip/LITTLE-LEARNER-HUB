@@ -73,19 +73,19 @@
 
           <div class="nav-section">
             <p>Child Tools</p>
-            <button class="nav-link" data-view="child-tools-attendance">
+            <button class="nav-link" data-view="child-tools-attendance" data-pro-nav>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 2v4M16 2v4M4 9h16M8 13h3M8 16h6"/></svg></span>
               Attendance
             </button>
-            <button class="nav-link" data-view="child-tools-meals">
+            <button class="nav-link" data-view="child-tools-meals" data-pro-nav>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3v18M10 3v18M6 10h4M16 3v8a3 3 0 0 0 3 3v7"/></svg></span>
               Meals
             </button>
-            <button class="nav-link" data-view="child-tools-reports">
+            <button class="nav-link" data-view="child-tools-reports" data-pro-nav>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg></span>
               Daily Reports
             </button>
-            <button class="nav-link" data-view="child-tools-communication">
+            <button class="nav-link" data-view="child-tools-communication" data-pro-nav>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v10H7l-3 3z"/><path d="M8 9h8M8 12h5"/></svg></span>
               Parent Communication
             </button>
@@ -122,15 +122,15 @@
 
           <div class="nav-section">
             <p>Business Tools</p>
-            <button class="nav-link" data-view="portfolio">
+            <button class="nav-link" data-view="portfolio" data-pro-nav>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7h7l2 2h9v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 7V5a2 2 0 0 1 2-2h5l2 2h4"/></svg></span>
               Portfolio Builder
             </button>
-            <button class="nav-link" data-view="reports">
+            <button class="nav-link" data-view="reports" data-pro-nav>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16M7 17V9M12 17V5M17 17v-6"/></svg></span>
               Reports &amp; Analytics
             </button>
-            <button class="nav-link" data-view="favorites">
+            <button class="nav-link" data-view="favorites" data-pro-nav>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 2.7 5.5 6 .9-4.4 4.2 1 6-5.3-2.8-5.3 2.8 1-6-4.4-4.2 6-.9z"/></svg></span>
               Favorites
             </button>
@@ -1116,10 +1116,13 @@
     <div class="modal" id="proModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="proModalTitle">
       <div class="modal-card">
         <button class="close-button" id="closeProModal" type="button" aria-label="Close">&times;</button>
-        <p class="eyebrow">Free Plan Limit Reached</p>
-        <h2 id="proModalTitle">You've reached your Free Plan limit.</h2>
+        <p class="eyebrow" id="proModalEyebrow">Pro Feature</p>
+        <h2 id="proModalTitle">This is a Pro Feature</h2>
         <div class="pro-modal-body" id="proModalBody"></div>
-        <button class="primary-button" id="proModalUpgrade" type="button">Try Pro Free for 7 Days</button>
+        <div class="pro-modal-actions">
+          <button class="primary-button" id="proModalUpgrade" type="button">Start Free 7-Day Trial</button>
+          <button class="ghost-button" id="proModalDismiss" type="button">Maybe Later</button>
+        </div>
       </div>
     </div>
 

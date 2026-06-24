@@ -8511,3 +8511,48 @@ body.home-view .topbar .search-wrap {
     grid-template-columns: 1fr;
   }
 }
+
+/* ─── Auth State: Logged-Out (Guest) ─────────────────────────────────────── */
+
+/* When not authenticated, collapse the sidebar and give main full width */
+body:not(.user-authenticated) .app-shell {
+  grid-template-columns: 1fr;
+}
+
+body:not(.user-authenticated) .sidebar {
+  display: none;
+}
+
+/* ─── Auth State: Logged-In (Authenticated) ──────────────────────────────── */
+
+/* Pro-locked nav items — show a "Pro" badge for Free users */
+body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav]::after {
+  content: "Pro";
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  background: var(--accent, #5b9bd5);
+  color: #fff;
+  border-radius: 999px;
+  margin-left: auto;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
+  opacity: 0.72;
+}
+
+/* ─── Pro Modal Two-Button Layout ────────────────────────────────────────── */
+
+.pro-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.pro-modal-actions .ghost-button {
+  width: 100%;
+  text-align: center;
+}
