@@ -2597,6 +2597,16 @@ function updateAccount(email, updates) {
   return allAccounts[cleanEmail];
 }
 
+function getProgramSettings() {
+  if (!currentUser) return {};
+  return currentAccount()?.programSettings || {};
+}
+
+function saveProgramSettings(data) {
+  if (!currentUser) return;
+  updateAccount(currentUser, { programSettings: data });
+}
+
 function loadAccountState(email) {
   const account = ensureAccount(email);
   if (!account) return;
@@ -2878,6 +2888,7 @@ function setView(view) {
   if (resolvedView === "home") renderHome();
   if (resolvedView === "admin") renderAdminDashboard();
   if (resolvedView === "account") renderAccountPage();
+  if (resolvedView === "program-settings") renderProgramSettingsPage();
   if (resolvedView === "plans") renderPricingPage();
   if (resolvedView === "upgrade") renderUpgradePage();
   if (resolvedView === "billing") renderBillingPage();
@@ -6430,6 +6441,27 @@ function renderGeneratorWorkspace(toolId) {
     </div>
   `;
   renderGeneratedHistory();
+  prefillGeneratorFromSettings();
+}
+
+function prefillGeneratorFromSettings() {
+  const settings = getProgramSettings();
+  if (!settings || !Object.keys(settings).length) return;
+  const form = document.querySelector("#activeGeneratorForm");
+  if (!form) return;
+  const programNameField = form.querySelector('[name="programName"]') || form.querySelector('[name="program"]');
+  if (programNameField && !programNameField.value && settings.programName) {
+    programNameField.value = settings.programName;
+  }
+  if (settings.defaultWritingStyle) {
+    const styleSelect = form.querySelector('[name="tone"]');
+    if (styleSelect) {
+      const match = Array.from(styleSelect.options).find((o) =>
+        o.value.toLowerCase().startsWith(settings.defaultWritingStyle.toLowerCase())
+      );
+      if (match) styleSelect.value = match.value;
+    }
+  }
 }
 
 function renderGeneratorField(field) {
@@ -13091,6 +13123,70 @@ function renderAccountPage() {
   renderOnboardingChecklist();
 }
 
+function renderProgramSettingsPage() {
+  const form = document.querySelector("#programSettingsForm");
+  if (!form) return;
+  const messageEl = document.querySelector("#programSettingsMessage");
+  if (messageEl) messageEl.textContent = "";
+
+  if (!currentUser) {
+    if (messageEl) {
+      messageEl.textContent = "Please log in to save Program Settings.";
+      messageEl.classList.remove("success");
+    }
+  }
+
+  const settings = getProgramSettings();
+
+  // Populate plain text/select/url/tel inputs
+  const simpleFields = [
+    "programName", "providerName", "contactEmail", "contactPhone",
+    "website", "address", "stateLocation", "licenseNumber", "programType",
+    "curriculumUsed", "teachingPhilosophy",
+    "signatureName", "signatureTitle",
+    "defaultWritingStyle", "defaultTone",
+  ];
+  simpleFields.forEach((fieldName) => {
+    const input = form.querySelector(`[name="${fieldName}"]`);
+    if (input) input.value = settings[fieldName] || "";
+  });
+
+  // Populate checkbox groups
+  ["agesServed", "dailyReportSections", "familyHubSettings"].forEach((groupName) => {
+    const savedValues = Array.isArray(settings[groupName]) ? settings[groupName] : [];
+    form.querySelectorAll(`[name="${groupName}"]`).forEach((cb) => {
+      cb.checked = savedValues.includes(cb.value);
+    });
+  });
+
+  // Show logo preview if saved
+  const logoPreviewWrap = document.querySelector("#programLogoPreviewWrap");
+  const logoPreview = document.querySelector("#programLogoPreview");
+  if (logoPreviewWrap && logoPreview && settings.logoDataUrl) {
+    logoPreview.src = settings.logoDataUrl;
+    logoPreviewWrap.style.display = "block";
+  } else if (logoPreviewWrap) {
+    logoPreviewWrap.style.display = "none";
+  }
+
+  // Show signature preview if data present
+  updateSignaturePreview(settings.signatureName || "", settings.signatureTitle || "");
+}
+
+function updateSignaturePreview(name, title) {
+  const wrap = document.querySelector("#signaturePreview");
+  const nameEl = document.querySelector("#signaturePreviewName");
+  const titleEl = document.querySelector("#signaturePreviewTitle");
+  if (!wrap || !nameEl || !titleEl) return;
+  if (name || title) {
+    nameEl.textContent = name || "";
+    titleEl.textContent = title || "";
+    wrap.style.display = "block";
+  } else {
+    wrap.style.display = "none";
+  }
+}
+
 function accountListItem(resource) {
   return `
     <div class="compact-item">
@@ -15461,6 +15557,92 @@ document.addEventListener("submit", (event) => {
 });
 
 installMobileNavigation();
+
+// ─── Program Settings Form Submit ──────────────────────────────────────────
+
+document.querySelector("#programSettingsForm")?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const form = event.target;
+  const messageEl = document.querySelector("#programSettingsMessage");
+
+  if (!currentUser) {
+    if (messageEl) {
+      messageEl.textContent = "Please log in to save Program Settings.";
+      messageEl.classList.remove("success");
+    }
+    return;
+  }
+
+  // Collect plain text/select/url/tel fields
+  const settings = collectFormData(form);
+
+  // Override checkbox groups with arrays (collectFormData only keeps last checked value)
+  ["agesServed", "dailyReportSections", "familyHubSettings"].forEach((groupName) => {
+    settings[groupName] = Array.from(form.querySelectorAll(`[name="${groupName}"]:checked`)).map((cb) => cb.value);
+  });
+
+  // Remove file input entry (handled separately)
+  delete settings.logoUpload;
+
+  // Handle logo upload (read as base64, keep existing if no new file selected)
+  const existing = getProgramSettings();
+  const logoInput = document.querySelector("#programLogoInput");
+  const logoFile = logoInput?.files?.[0];
+
+  function finalize(logoDataUrl) {
+    if (logoDataUrl !== undefined) settings.logoDataUrl = logoDataUrl;
+    else if (existing.logoDataUrl) settings.logoDataUrl = existing.logoDataUrl;
+
+    saveProgramSettings(settings);
+
+    if (messageEl) {
+      messageEl.textContent = "Settings saved.";
+      messageEl.classList.add("success");
+      setTimeout(() => { if (messageEl) messageEl.textContent = ""; }, 3000);
+    }
+
+    // Update live signature preview
+    updateSignaturePreview(settings.signatureName || "", settings.signatureTitle || "");
+
+    // Show logo preview if available
+    const logoPreviewWrap = document.querySelector("#programLogoPreviewWrap");
+    const logoPreview = document.querySelector("#programLogoPreview");
+    if (logoPreviewWrap && logoPreview && settings.logoDataUrl) {
+      logoPreview.src = settings.logoDataUrl;
+      logoPreviewWrap.style.display = "block";
+    }
+
+    trackEvent("program_settings_saved", { plan: currentPlan, hasLogo: Boolean(settings.logoDataUrl), hasProgramName: Boolean(settings.programName) });
+  }
+
+  if (logoFile) {
+    if (logoFile.size > 524288) {
+      if (messageEl) {
+        messageEl.textContent = "Logo file is too large. Please use an image under 512 KB.";
+        messageEl.classList.remove("success");
+      }
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => finalize(e.target.result);
+    reader.onerror = () => finalize(undefined);
+    reader.readAsDataURL(logoFile);
+  } else {
+    finalize(undefined);
+  }
+});
+
+document.addEventListener("input", (event) => {
+  if (!event.target.closest("#programSettingsForm")) return;
+  if (event.target.name === "signatureName" || event.target.name === "signatureTitle") {
+    const form = document.querySelector("#programSettingsForm");
+    if (!form) return;
+    updateSignaturePreview(
+      form.querySelector('[name="signatureName"]')?.value || "",
+      form.querySelector('[name="signatureTitle"]')?.value || ""
+    );
+  }
+});
 
 if (currentUser) {
   loadAccountState(currentUser);
