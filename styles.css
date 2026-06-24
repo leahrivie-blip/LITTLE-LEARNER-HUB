@@ -8556,3 +8556,192 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   width: 100%;
   text-align: center;
 }
+
+/* ─── Program Settings Page ───────────────────────────────────────────────── */
+
+.settings-card {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 14px;
+}
+
+.settings-card > summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px;
+  cursor: pointer;
+  list-style: none;
+  border-radius: var(--radius);
+}
+
+.settings-card > summary::-webkit-details-marker,
+.settings-card > summary::marker {
+  display: none;
+}
+
+.settings-card > summary:hover {
+  background: var(--cream-2);
+}
+
+.settings-card-header-text {
+  display: grid;
+  gap: 4px;
+}
+
+.settings-card-header-text h3 {
+  margin: 0;
+}
+
+.settings-card-toggle {
+  flex-shrink: 0;
+  font-size: 18px;
+  color: var(--muted);
+  margin-top: 2px;
+  transition: transform 0.2s;
+}
+
+.settings-card[open] .settings-card-toggle {
+  transform: rotate(180deg);
+}
+
+.settings-card-body {
+  display: grid;
+  gap: 14px;
+  padding: 4px 22px 22px;
+}
+
+.settings-card-body label {
+  display: grid;
+  gap: 7px;
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.settings-card-body input:not([type="checkbox"]):not([type="file"]),
+.settings-card-body select,
+.settings-card-body textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--white);
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.settings-card-body input[type="file"] {
+  padding: 8px 0;
+  font-size: 14px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.settings-checkboxes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.settings-check-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400 !important;
+  cursor: pointer;
+}
+
+.settings-check-label input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.settings-coming-soon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.settings-coming-soon h3 {
+  margin: 0;
+}
+
+.badge-coming-soon {
+  display: inline-block;
+  padding: 3px 9px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
+}
+
+.settings-save-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-top: 6px;
+}
+
+.settings-save-note {
+  text-align: center;
+  margin-top: 6px;
+}
+
+.program-logo-preview {
+  max-width: 180px;
+  max-height: 80px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  display: block;
+  margin-top: 6px;
+  object-fit: contain;
+}
+
+.settings-signature-preview {
+  padding: 14px 16px;
+  background: var(--cream-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.settings-signature-name {
+  font-weight: 700;
+  margin: 4px 0 2px;
+  color: var(--ink);
+}
+
+.settings-signature-title {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .settings-checkboxes {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+
+  .settings-card-body {
+    padding: 4px 14px 18px;
+  }
+
+  .settings-card > summary {
+    padding: 14px;
+  }
+
+  .settings-save-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
