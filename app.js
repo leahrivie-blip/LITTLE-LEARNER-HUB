@@ -582,7 +582,7 @@ const printableQualityBlockedTerms = ["placeholder", "draw here", "blank box", "
 const printablePdfLimit = Number.POSITIVE_INFINITY;
 // Set to true to temporarily hide the user-facing printables library while the section is being refreshed.
 // Admins always retain full access. Flip back to false to re-enable for users.
-const PRINTABLES_COMING_SOON = true;
+const PRINTABLES_HIDDEN = true;
 
 const libraryResources = buildResourceLibrary();
 
@@ -5760,7 +5760,7 @@ function renderCategoryPage(view) {
   const category = viewMap[view];
   const section = document.querySelector(`#view-${view}`);
 
-  if (category === "Printables" && PRINTABLES_COMING_SOON && !hasAdminFullAccess()) {
+  if (category === "Printables" && PRINTABLES_HIDDEN && !hasAdminFullAccess()) {
     section.innerHTML = renderPrintablesComingSoon();
     return;
   }
