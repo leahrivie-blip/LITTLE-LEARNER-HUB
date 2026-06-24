@@ -11456,6 +11456,12 @@ function toneCopy(tone, variants) {
   return variants[variants.length - 1]?.[1] || "";
 }
 
+function withSentencePeriod(text) {
+  const value = String(text || "").trim();
+  if (!value) return "";
+  return /[.!?]$/.test(value) ? value : `${value}.`;
+}
+
 function aiPromptFromForm(toolId, data) {
   const tool = [...aiTools, ...futureTools].find((item) => item.id === toolId);
   const toolTitle = tool?.title || "Little Learner Hub AI Generator";
@@ -11934,10 +11940,10 @@ function generateIncidentReport(data) {
   const ageLabel = childAge && age ? ` (${childAge} · ${age})` : childAge ? ` (${childAge})` : age ? ` (${age})` : "";
   const tone = data.tone || "Factual and professional";
   const parentNotification = toneCopy(tone, [
-    ["warm", `Today at ${programName}, I am sharing an incident report involving ${childName}. ${data.incident || "An incident occurred during care today."} ${data.response ? `Immediate response provided: ${data.response}.` : "Immediate support and supervision were provided right away."} Please let me know if you would like to review the report together.`],
-    ["detailed", `This is a written incident report from ${programName} regarding ${childName}. ${data.incident || "An incident occurred during care today."} ${data.trigger ? `Before the incident: ${data.trigger}.` : ""} ${data.response ? `Immediate response: ${data.response}.` : "Immediate support and supervision were provided right away."} ${data.nextSteps ? `Follow-up: ${data.nextSteps}.` : ""} Please contact me if you have any questions about this documentation.`],
-    ["factual", `Today at ${programName}, an incident involving ${childName} was documented. ${data.incident || "An incident occurred during care today."} ${data.response ? `Immediate response: ${data.response}.` : "Immediate support and supervision were provided right away."} Please contact me with any questions.`],
-    ["professional", `Today at ${programName}, an incident involving ${childName} was documented. ${data.incident || "An incident occurred during care today."} ${data.response ? `Immediate response: ${data.response}.` : "Immediate support and supervision were provided right away."} Please contact me with any questions.`],
+    ["warm", `Today at ${programName}, I am sharing an incident report involving ${childName}. ${withSentencePeriod(data.incident || "An incident occurred during care today.")} ${data.response ? `Immediate response provided: ${withSentencePeriod(data.response)}` : "Immediate support and supervision were provided right away."} Please let me know if you would like to review the report together.`],
+    ["detailed", `This is a written incident report from ${programName} regarding ${childName}. ${withSentencePeriod(data.incident || "An incident occurred during care today.")} ${data.trigger ? `Before the incident: ${withSentencePeriod(data.trigger)}` : ""} ${data.response ? `Immediate response: ${withSentencePeriod(data.response)}` : "Immediate support and supervision were provided right away."} ${data.nextSteps ? `Follow-up: ${withSentencePeriod(data.nextSteps)}` : ""} Please contact me if you have any questions about this documentation.`],
+    ["factual", `Today at ${programName}, an incident involving ${childName} was documented. ${withSentencePeriod(data.incident || "An incident occurred during care today.")} ${data.response ? `Immediate response: ${withSentencePeriod(data.response)}` : "Immediate support and supervision were provided right away."} Please contact me with any questions.`],
+    ["professional", `Today at ${programName}, an incident involving ${childName} was documented. ${withSentencePeriod(data.incident || "An incident occurred during care today.")} ${data.response ? `Immediate response: ${withSentencePeriod(data.response)}` : "Immediate support and supervision were provided right away."} Please contact me with any questions.`],
   ]);
   return `Incident Report
 Program: ${programName}
