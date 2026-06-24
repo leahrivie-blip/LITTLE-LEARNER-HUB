@@ -45,6 +45,13 @@ const publicDir = path.join(__dirname, "..");
 const dataDir = path.join(__dirname, "data");
 const storePath = path.join(dataDir, "launch-store.json");
 const storeRecordId = "launch-store";
+const spaRoutePaths = new Set([
+  "/admin",
+  "/free-daycare-forms",
+  "/daycare-lesson-plans",
+  "/observation-generator",
+  "/home-daycare-provider-tools",
+]);
 let storeCache = null;
 let databaseReady = false;
 let postgresPool = null;
@@ -2000,13 +2007,24 @@ function clientAppScript(filePath) {
 }
 
 function serveStatic(request, response, url) {
-  const safePath = decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname).replace(/\.\.+/g, "");
+  const routePath = decodeURIComponent(url.pathname || "/").replace(/\.\.+/g, "");
+  const safePath = routePath === "/" ? "/index.html" : routePath;
   const filePath = path.join(publicDir, safePath);
   if (!filePath.startsWith(publicDir)) {
     request.method === "HEAD" ? headResponse(response, 403) : textResponse(response, 403, "Forbidden");
     return;
   }
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+    if (spaRoutePaths.has(routePath)) {
+      const indexPath = path.join(publicDir, "index.html");
+      response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      if (request.method === "HEAD") {
+        response.end();
+        return;
+      }
+      fs.createReadStream(indexPath).pipe(response);
+      return;
+    }
     request.method === "HEAD" ? headResponse(response, 404) : textResponse(response, 404, "Not found");
     return;
   }

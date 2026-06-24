@@ -1640,7 +1640,7 @@ const viewMap = {
 // Views that are accessible without being logged in.
 // All other views redirect to the login modal for unauthenticated visitors.
 const guestAllowedViews = new Set([
-  "home", "plans", "upgrade", "legal", "faq", "contact",
+  "home", "plans", "upgrade", "legal", "faq", "contact", "admin",
   "reset-password", "payment-success", "payment-failed",
 ]);
 
