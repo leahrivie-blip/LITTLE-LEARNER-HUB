@@ -1710,6 +1710,8 @@ const guestAllowedViews = new Set([
   "reset-password", "payment-success", "payment-failed",
 ]);
 
+const MAX_LOGO_SIZE_BYTES = 512 * 1024;
+
 // Human-readable names for pro-only nav items, used in upgrade modal messages.
 const proNavLabels = {
   "child-tools-attendance": "Attendance Tracking",
@@ -6457,7 +6459,7 @@ function prefillGeneratorFromSettings() {
     const styleSelect = form.querySelector('[name="tone"]');
     if (styleSelect) {
       const match = Array.from(styleSelect.options).find((o) =>
-        o.value.toLowerCase().startsWith(settings.defaultWritingStyle.toLowerCase())
+        o.value.toLowerCase() === settings.defaultWritingStyle.toLowerCase()
       );
       if (match) styleSelect.value = match.value;
     }
@@ -15616,7 +15618,7 @@ document.querySelector("#programSettingsForm")?.addEventListener("submit", (even
   }
 
   if (logoFile) {
-    if (logoFile.size > 524288) {
+    if (logoFile.size > MAX_LOGO_SIZE_BYTES) {
       if (messageEl) {
         messageEl.textContent = "Logo file is too large. Please use an image under 512 KB.";
         messageEl.classList.remove("success");
