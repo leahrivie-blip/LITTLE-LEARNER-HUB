@@ -47,10 +47,6 @@ const storePath = path.join(dataDir, "launch-store.json");
 const storeRecordId = "launch-store";
 const spaRoutePaths = new Set([
   "/admin",
-  "/free-daycare-forms",
-  "/daycare-lesson-plans",
-  "/observation-generator",
-  "/home-daycare-provider-tools",
 ]);
 let storeCache = null;
 let databaseReady = false;
