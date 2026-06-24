@@ -7,13 +7,17 @@ const categories = [
   { view: "printables", title: "Printables", detail: "Worksheets, coloring, tracing, letters, numbers, and shapes.", icon: "PR" },
 ];
 
+const aiAgeGroupOptions = ["Infant", "Young Toddler", "Older Toddler", "Preschool", "School Age"];
+const aiDevelopmentalDomainOptions = ["Social Emotional", "Language", "Cognitive", "Fine Motor", "Gross Motor", "Adaptive / Self Help"];
+
 const aiTools = [
   {
     id: "lesson",
     title: "AI Lesson Plan Generator",
     detail: "Create daily, weekly, or monthly lesson plans with objectives, materials, and activity steps — all age-appropriate.",
     fields: [
-      ["age", "Age Group", "select", ["Infant", "Young Toddler", "Older Toddler", "Preschool", "School Age"]],
+      ["programName", "Program Name", "text", "Little Learner Home Daycare"],
+      ["age", "Age Group", "select", aiAgeGroupOptions],
       ["planLength", "Plan Type", "select", ["Daily", "Weekly", "Monthly"]],
       ["theme", "Theme", "text", "Farm"],
       ["days", "Number of Days", "select", ["3", "5", "10"]],
@@ -28,11 +32,12 @@ const aiTools = [
     title: "AI Observation Generator",
     detail: "Turn a quick note into professional, standards-aligned childcare documentation.",
     fields: [
+      ["programName", "Program Name", "text", "Little Learner Home Daycare"],
       ["childName", "Child Name", "text", "Child"],
       ["childAge", "Child Age", "text", "2 years 6 months"],
-      ["age", "Age Group", "select", ["Infant", "Young Toddler", "Older Toddler", "Preschool", "School Age"]],
+      ["age", "Age Group", "select", aiAgeGroupOptions],
       ["note", "What You Observed", "textarea", "Child stacked 5 blocks and said 'tower!' when finished."],
-      ["area", "Developmental Area", "select", ["Cognitive", "Language", "Literacy", "Social Emotional", "Fine Motor", "Gross Motor", "Math", "Science", "Self Help", "Creative Arts", "Approaches to Learning"]],
+      ["developmentalDomain", "Developmental Domain", "select", aiDevelopmentalDomainOptions],
       ["context", "Context / Setting", "text", "Free play at the block area"],
       ["concern", "Developmental Concern or Goal (optional)", "text", ""],
       ["nextStep", "Next Step Goal", "text", "Offer sorting and counting with blocks"],
@@ -51,6 +56,7 @@ const aiTools = [
       ["highlights", "What We Have Been Learning", "textarea", ""],
       ["dates", "Important Dates", "textarea", "Closed July 4, water day every Friday"],
       ["reminders", "Parent Reminders", "textarea", "Please bring labeled sunscreen, extra clothes, and a water bottle."],
+      ["tone", "Newsletter Tone", "select", ["Warm and community-focused", "Professional and polished", "Friendly and upbeat"]],
       ["providerNotes", "Provider Notes (optional)", "textarea", ""],
     ],
   },
@@ -72,6 +78,7 @@ const aiTools = [
       ["learning", "Learning Moment", "textarea", ""],
       ["notes", "Parent Notes", "textarea", "Please bring extra clothes tomorrow."],
       ["tone", "Report Tone", "select", ["Warm and friendly", "Professional", "Detailed", "Short and sweet"]],
+      ["providerNotes", "Provider Notes (optional)", "textarea", ""],
     ],
   },
   {
@@ -106,11 +113,13 @@ const aiTools = [
     title: "AI Activity Generator",
     detail: "Generate safe, age-appropriate activities with materials, instructions, learning goals, and safety notes.",
     fields: [
-      ["age", "Age Group", "select", ["Infant", "Young Toddler", "Older Toddler", "Preschool", "School Age"]],
+      ["programName", "Program Name", "text", "Little Learner Home Daycare"],
       ["childName", "Child Name (optional)", "text", ""],
+      ["childAge", "Child Age (optional)", "text", ""],
+      ["age", "Age Group", "select", aiAgeGroupOptions],
       ["theme", "Theme or Topic", "text", "Ocean"],
       ["skill", "Learning Skill or Goal", "text", "fine motor"],
-      ["developmentalArea", "Developmental Area", "select", ["Fine Motor", "Gross Motor", "Cognitive", "Language", "Social Emotional", "Sensory", "Creative Arts", "STEM", "Self Help"]],
+      ["developmentalDomain", "Developmental Domain", "select", aiDevelopmentalDomainOptions],
       ["concern", "Developmental Concern or Goal (optional)", "text", ""],
       ["materials", "Materials Available", "textarea", "tray, tongs, pom poms, picture cards"],
       ["providerNotes", "Provider Notes (optional)", "textarea", ""],
@@ -190,7 +199,8 @@ const aiTools = [
       ["programName", "Program Name", "text", "Little Learner Home Daycare"],
       ["childName", "Child Name", "text", "Child"],
       ["childAge", "Child Age", "text", "3 years"],
-      ["age", "Age Group", "select", ["Infant", "Young Toddler", "Older Toddler", "Preschool", "School Age"]],
+      ["age", "Age Group", "select", aiAgeGroupOptions],
+      ["developmentalDomain", "Developmental Domain", "select", aiDevelopmentalDomainOptions],
       ["concern", "Behavior Concern", "text", "Difficulty with transitions, hitting when frustrated"],
       ["incident", "What Happened", "textarea", "Child hit a peer during cleanup time."],
       ["trigger", "Behavior Trigger (if known)", "text", "Transition from play to cleanup"],
@@ -207,16 +217,18 @@ const aiTools = [
     detail: "Create a professional, factual incident report with documentation, response, and parent notification wording.",
     fields: [
       ["programName", "Program Name", "text", "Little Learner Home Daycare"],
-      ["date", "Date and Time of Incident", "text", ""],
+      ["date", "Date of Incident", "date", ""],
+      ["time", "Time of Incident", "time", ""],
       ["childName", "Child Name", "text", "Child"],
       ["childAge", "Child Age", "text", "2 years"],
-      ["age", "Age Group", "select", ["Infant", "Young Toddler", "Older Toddler", "Preschool", "School Age"]],
+      ["age", "Age Group", "select", aiAgeGroupOptions],
       ["incident", "What Happened", "textarea", "Child fell from the step and scraped their knee."],
       ["trigger", "What Happened Before (Trigger)", "textarea", "Playing near the climbing area, lost balance."],
       ["response", "Immediate Response Given", "textarea", "Comforted child, cleaned and bandaged scrape, monitored for 30 minutes."],
       ["witnesses", "Witnesses or Others Present", "text", "Provider and 2 other children"],
       ["nextSteps", "Next Steps or Follow-Up", "textarea", "Contacted parent, reviewed climbing area safety."],
       ["tone", "Parent Notification Tone", "select", ["Factual and professional", "Warm and reassuring", "Detailed"]],
+      ["providerNotes", "Provider Notes (optional)", "textarea", ""],
     ],
   },
   {
@@ -237,6 +249,8 @@ const aiTools = [
     fields: [
       ["programName", "Program Name", "text", "Little Learner Home Daycare"],
       ["childName", "Child Name (optional)", "text", ""],
+      ["childAge", "Child Age (optional)", "text", ""],
+      ["age", "Age Group (optional)", "select", ["", ...aiAgeGroupOptions]],
       ["topic", "Message Topic", "text", "Late pickup reminder"],
       ["details", "Details", "textarea", "Parent has arrived late twice this week. Keep tone respectful."],
       ["tone", "Tone", "select", ["Warm and clear", "Firm and professional", "Gentle and supportive", "Friendly reminder", "Detailed update"]],
@@ -6438,10 +6452,11 @@ function renderGeneratorField(field) {
       </label>
     `;
   }
+  const inputType = ["date", "time", "email", "number"].includes(type) ? type : "text";
   return `
     <label>
       ${label}
-      <input name="${name}" placeholder="${value}" />
+      <input type="${inputType}" name="${name}" placeholder="${value}" />
     </label>
   `;
 }
@@ -11135,43 +11150,372 @@ function ageGroupLabel(ageGroup) {
   return labels[ageGroup] || ageGroup;
 }
 
+function normalizeAiAgeGroup(rawAge) {
+  if (aiAgeGroupOptions.includes(rawAge)) return rawAge;
+  if (rawAge === "Toddler") return "Older Toddler";
+  return rawAge || "Preschool";
+}
+
+function ageGroupProfile(rawAge) {
+  const ageGroup = normalizeAiAgeGroup(rawAge);
+  const profiles = {
+    "Infant": {
+      learningFocus: "sensory exploration, bonding, secure routines, tracking objects, tummy time, and early communication",
+      lessonMaterials: "Soft textured items, sensory-safe objects, board books, mirrors, rattles, scarves, soft music, and a tummy time mat",
+      lessonObjectives: [
+        "Support sensory exploration through safe floor play, songs, and visual tracking.",
+        "Build early communication through narration, facial expressions, and responsive interaction.",
+        "Encourage reaching, grasping, rolling, and other emerging motor skills through supervised movement.",
+      ],
+      lessonBooks: "Choose sturdy board books with high-contrast images, simple photos, mirrors, or touch-and-feel elements. Use lullabies, fingerplays, and gentle name songs.",
+      lessonPlanDays: [
+        ["Sensory Floor Play", "- Sensory: Offer a large textured scarf, soft ball, or crinkle toy for supervised exploration.", "- Movement: Provide tummy time or supported floor play with a mirror or picture card nearby.", "- Language: Narrate the infant's actions and repeat simple words connected to the theme.", "- Routine: Keep feeding, diapering, and rest routines responsive and calm."],
+        ["Songs and Tracking", "- Visual Tracking: Slowly move a safe, colorful item from side to side for the infant to follow.", "- Music: Sing a short themed song with gentle motions and pauses for cooing or smiles.", "- Touch: Offer hand-over-hand exploration of a soft themed prop.", "- Bonding: Follow cues closely and end before overstimulation."],
+        ["Safe Reaching Play", "- Reach and Grasp: Place a large safe object within view to encourage reaching and grasping.", "- Floor Time: Alternate tummy time, supported sitting, or lap play based on the infant's comfort.", "- Language: Repeat simple labels and describe what the infant notices.", "- Caregiving: Use routines as learning moments for eye contact and conversation."],
+        ["Responsive Exploration", "- Sensory: Reintroduce favorite textures and sounds in a calm, uncluttered space.", "- Communication: Pause after simple phrases to allow coos, gestures, or facial responses.", "- Movement: Encourage rolling, kicking, or grasping during supervised play.", "- Relationship: Provide warm one-to-one interaction throughout the activity."],
+        ["Books and Bonding", "- Books: Share a short board book with simple pictures tied to the theme.", "- Touch and Sound: Pair the book with one large sensory-safe object to feel and explore.", "- Music: End with a calm fingerplay or lullaby.", "- Reflection: Notice cues, preferences, and emerging skills to build on tomorrow."],
+      ],
+      observationSetting: "a care routine and safe floor play",
+      observationSupport: "sensory exploration, responsive caregiving, and early relationship-building",
+      observationSkills: [
+        "Sensory exploration and responsiveness",
+        "Visual tracking and attention",
+        "Reaching, grasping, or batting at safe objects",
+        "Vocalizing, cooing, or early social interaction",
+        "Bonding and secure attachment within routines",
+      ],
+      activityTitle: "Exploration",
+      activityDuration: "5-10 minutes",
+      activityMaterials: "Soft textured mat, large sensory-safe items, fabric squares, crinkle toys, mirrors, and simple board books.",
+      activityInstructions: [
+        "Set up a clean, calm, safe floor-play space with a mat or blanket.",
+        "Offer one or two large sensory-safe items at a time for touch, sight, and sound exploration.",
+        "Narrate what the infant is noticing and doing using warm, simple language.",
+        "Follow the infant's cues and pause or end the activity if they turn away or seem overstimulated.",
+        "Close with cuddles, a short song, or another soothing routine connection.",
+      ],
+      activityGoals: [
+        "Build early learning through safe sensory exploration and responsive interaction.",
+        "Encourage bonding, curiosity, visual attention, and emerging communication.",
+        "Support tracking, reaching, grasping, and calm engagement during supervised play.",
+      ],
+      activitySafety: "Always supervise closely. Use only large sensory-safe materials. No choking hazards, scissors, tracing pages, worksheets, or school-age expectations.",
+      activityExtensions: "Repeat the activity during tummy time, lap play, or supported sitting. Add a familiar song, mirror play, or simple narration.",
+      behaviorNeed: "comfort, sensory regulation, help with basic needs, or support through a routine change",
+      behaviorStrategiesTitle: "Infant Support Strategies",
+      behaviorStrategies: [
+        "Respond promptly and consistently to cues.",
+        "Check for hunger, fatigue, discomfort, overstimulation, or the need for connection.",
+        "Offer calm rocking, gentle touch, simple narration, and a quieter environment.",
+        "Review daily routines, safe sleep practices, and comfort strategies with the family.",
+      ],
+      behaviorGoal: "Build regulation through consistent routines, responsive caregiving, and secure attachment.",
+      behaviorPlan: "Watch for patterns around sleep, feeding, transitions, and overstimulation. Adjust routines and sensory input as needed.",
+      parentToneLine: "We focused on comfort, safety, and responsive support right away.",
+      dailySummary: "feeding, bonding, sensory exploration, communication, and supervised floor play",
+      dailyLearning: "sensory development, bonding, communication, tracking objects, and early exploration",
+      dailyClosing: "Please share any sleep, feeding, or comfort updates that would help us support tomorrow's routines.",
+    },
+    "Young Toddler": {
+      learningFocus: "simple movement, naming objects, stacking, sensory play, songs, routines, and early choices",
+      lessonMaterials: "Board books, stacking cups, large blocks, simple musical items, balls, scarves, toddler-safe sensory materials, and picture cards",
+      lessonObjectives: [
+        "Support movement, imitation, and cause-and-effect learning through hands-on play.",
+        "Build vocabulary by naming objects, actions, and simple routines.",
+        "Encourage early independence through simple choices, participation, and repetition.",
+      ],
+      lessonBooks: "Choose board books and simple picture books with repeated words, familiar actions, and clear photos. Use movement songs, action rhymes, and fingerplays.",
+      lessonPlanDays: [
+        ["Move and Name", "- Language: Name 2-3 themed objects and repeat simple action words.", "- Movement: Invite walking, crawling, carrying, or simple imitation movements tied to the theme.", "- Sensory: Offer one toddler-safe sensory invitation for scooping, touching, or filling.", "- Routine: Keep the plan flexible with short bursts of play and transitions."],
+        ["Stack and Explore", "- Fine Motor: Offer stacking, filling, dumping, or posting activities using large materials.", "- Songs: Repeat a short themed song with motions.", "- Books: Read a simple picture book and point to familiar items.", "- Choice: Let children pick between two safe materials or songs."],
+        ["Simple Sorting Play", "- Matching: Group or sort large items by color, picture, or type with adult help.", "- Language: Model one- or two-word phrases connected to what children see.", "- Sensory/Messy Play: Provide supervised scooping, patting, or pressing with safe materials.", "- Movement: Add push, pull, march, or carry actions."],
+        ["Pretend and Point", "- Pretend Play: Use simple props for feeding, rocking, driving, or washing.", "- Directions: Practice one-step directions such as 'put in,' 'give me,' or 'pat the drum.'", "- Social: Support turn-taking with close adult help.", "- Reflection: Notice favorite words, actions, and choices."],
+        ["Songs and Routines", "- Review: Repeat favorite objects, songs, and movement from the week.", "- Language: Use labeling, pointing, and imitation rather than questions that are too complex.", "- Calm Play: End with a familiar book and a simple sensory choice.", "- Family Connection: Share a short idea families can repeat at home."],
+      ],
+      observationSetting: "play and routine-based learning",
+      observationSupport: "repetition, movement, emerging language, and hands-on exploration",
+      observationSkills: [
+        "Cause-and-effect exploration",
+        "Emerging vocabulary and imitation",
+        "Stacking, filling, dumping, or simple problem-solving",
+        "Movement and body awareness",
+        "Participation in short routines with support",
+      ],
+      activityTitle: "Discovery",
+      activityDuration: "10-15 minutes",
+      activityMaterials: "Tray or bin, toddler-safe manipulatives, large picture cards, stacking items, crayons, and a small basket.",
+      activityInstructions: [
+        "Introduce the materials one at a time and name each object clearly.",
+        "Invite children to touch, stack, carry, sort, or match in a simple playful way.",
+        "Keep directions to one short step at a time and model the action first.",
+        "Offer two simple choices when possible to support independence.",
+        "End with a song, clean-up routine, or transition support before children lose interest.",
+      ],
+      activityGoals: [
+        "Build early learning through movement, imitation, and simple sensory experiences.",
+        "Encourage naming, pointing, choice-making, and confidence during play.",
+        "Support fine motor practice, attention, and participation in routines.",
+      ],
+      activitySafety: "Supervise closely. Use large toddler-safe materials and avoid choking hazards, scissors, worksheets, and tracing tasks.",
+      activityExtensions: "Add a familiar song, simple movement game, or matching basket using the same materials.",
+      behaviorNeed: "language support, attention, predictability, movement, or help with big feelings during routines",
+      behaviorStrategiesTitle: "Young Toddler Support Strategies",
+      behaviorStrategies: [
+        "Use one-step directions, simple words, and visual or gesture cues.",
+        "Offer transition warnings, first-then language, and predictable routines.",
+        "Name feelings and model short phrases such as 'help please' or 'my turn.'",
+        "Redirect quickly to a safe alternative and stay nearby for co-regulation.",
+      ],
+      behaviorGoal: "Build early communication, regulation, and participation in simple routines.",
+      behaviorPlan: "Practice the same calming words, visuals, and routines each day so expectations stay predictable.",
+      parentToneLine: "We used calm words, simple redirection, and close support during the moment.",
+      dailySummary: "simple movement, songs, naming objects, sensory play, routines, and early choices",
+      dailyLearning: "language growth, body awareness, sensory exploration, and early independence",
+      dailyClosing: "Please let me know if there are favorite words, routines, or comfort strategies you would like us to use tomorrow.",
+    },
+    "Older Toddler": {
+      learningFocus: "pretend play, matching, sorting, simple art, short conversations, and following simple directions",
+      lessonMaterials: "Picture books, pretend-play props, crayons, paper, paint sticks, large manipulatives, matching cards, and sensory materials",
+      lessonObjectives: [
+        "Support pretend play, matching, sorting, and simple problem-solving through playful routines.",
+        "Build short phrases and back-and-forth conversation during books, songs, and play.",
+        "Encourage following simple directions, trying new tasks, and building independence with support.",
+      ],
+      lessonBooks: "Choose simple picture books with repeated phrases, familiar routines, and playful themes. Add fingerplays, movement songs, and pretend-play songs.",
+      lessonPlanDays: [
+        ["Pretend and Talk", "- Circle Time: Introduce theme words with props, songs, and simple questions.", "- Pretend Play: Use simple props for acting out familiar routines or theme-based roles.", "- Art: Offer a short open-ended art invitation with crayons, paint sticks, or stickers.", "- Movement: Add marching, jumping, carrying, or obstacle-style play."],
+        ["Match and Sort", "- Fine Motor: Match or sort large objects, colors, or pictures tied to the theme.", "- Books: Read a short story and pause for labeling or simple predictions.", "- Sensory: Add scooping, pouring, pressing, or hiding-and-finding play.", "- Language: Model 2-3 word phrases connected to actions and materials."],
+        ["Build and Follow Directions", "- Problem-Solving: Invite children to build, line up, or compare materials.", "- Directions: Practice simple two-step routines such as 'pick one and put it in.'", "- Social: Support turn-taking and short cooperative play with close guidance.", "- Reflection: Celebrate attempts and persistence."],
+        ["Create and Move", "- Art: Offer collage, dot markers, stamping, or other toddler-safe art exploration.", "- Gross Motor: Add animal walks, balancing, tossing, or dance-and-freeze play.", "- Pretend: Revisit theme-based dramatic play with new props.", "- Language: Encourage children to describe what they made or noticed."],
+        ["Review and Share", "- Review: Repeat favorite songs, props, and matching activities from the week.", "- Story: Share a familiar book and invite children to fill in repeated words or actions.", "- Independence: Practice simple clean-up jobs and choices.", "- Family Connection: Share a short next-step idea for home."],
+      ],
+      observationSetting: "guided play and routine-based exploration",
+      observationSupport: "pretend play, repetition, growing language, and simple problem-solving",
+      observationSkills: [
+        "Pretend play and symbolic thinking",
+        "Matching, sorting, and early reasoning",
+        "Growing 2-3 word phrases and social language",
+        "Fine motor control during simple art and play tasks",
+        "Following simple directions and building independence",
+      ],
+      activityTitle: "Discovery",
+      activityDuration: "10-15 minutes",
+      activityMaterials: "Tray or bin, matching cards, pretend-play props, crayons, paper, large manipulatives, and a basket for sorting.",
+      activityInstructions: [
+        "Introduce the theme with a prop, picture, or short prompt children can relate to.",
+        "Invite children to sort, match, pretend, or create using simple 1-2 step directions.",
+        "Model the learning skill and repeat key words while children explore.",
+        "Leave room for choice-making and pretend play while staying nearby to support turns and safety.",
+        "Close by reviewing what children noticed, made, or practiced.",
+      ],
+      activityGoals: [
+        "Build language, problem-solving, and fine motor skills through playful practice.",
+        "Encourage pretend play, following directions, and confidence during short group activities.",
+        "Support matching, sorting, and social learning in age-appropriate ways.",
+      ],
+      activitySafety: "Supervise closely. Keep materials toddler-safe and avoid small choking hazards, scissors, worksheets, and school-age tasks.",
+      activityExtensions: "Add a simple story, movement game, or pretend-play variation using the same theme.",
+      behaviorNeed: "help with transitions, waiting, sharing, communication, or regulating strong feelings during play",
+      behaviorStrategiesTitle: "Older Toddler Support Strategies",
+      behaviorStrategies: [
+        "Use short clear directions, visual reminders, and transition warnings.",
+        "Teach simple replacement phrases such as 'help me,' 'my turn,' or 'all done.'",
+        "Practice waiting, sharing, and calming strategies during play with adult support.",
+        "Offer positive choices, close supervision, and quick redirection before behavior escalates.",
+      ],
+      behaviorGoal: "Build communication, waiting skills, flexible transitions, and early self-regulation.",
+      behaviorPlan: "Use repeated routines, visuals, role-play, and short practice moments to teach replacement skills.",
+      parentToneLine: "We practiced simple words, choices, and calm support to help build the needed skill.",
+      dailySummary: "pretend play, simple art, matching, sorting, short conversations, and following simple directions",
+      dailyLearning: "language growth, social learning, early problem-solving, and growing independence",
+      dailyClosing: "Feel free to share any favorite phrases or routines that help your child with transitions and big feelings.",
+    },
+    "Preschool": {
+      learningFocus: "early literacy, counting, science exploration, problem-solving, cooperative play, and growing independence",
+      lessonMaterials: "Picture books, paper, crayons, markers, glue, counting tools, sensory items, blocks, dramatic-play props, and simple science materials",
+      lessonObjectives: [
+        "Build early literacy, vocabulary, and conversation through books, songs, and discussion.",
+        "Support counting, observation, prediction, and problem-solving through hands-on play.",
+        "Encourage cooperative play, independence, and flexible thinking during routines and activities.",
+      ],
+      lessonBooks: "Choose picture books, nonfiction read-alouds, and songs tied to the theme. Add rhyming, retelling, and vocabulary practice.",
+      lessonPlanDays: [
+        ["Read and Explore", "- Circle Time: Introduce key vocabulary, a book, and a simple discussion question tied to the theme.", "- Literacy: Add name work, story retelling, or sound play that fits the topic.", "- Discovery: Offer a hands-on science or sensory invitation for observation and questions.", "- Gross Motor: Include movement tied to the theme."],
+        ["Count and Create", "- Math: Count, compare, sort, or graph theme-based materials.", "- Art: Offer an open-ended art invitation that encourages planning and fine motor control.", "- Language: Encourage children to describe their ideas and materials.", "- Social: Support sharing tools and working near peers."],
+        ["Problem-Solve Together", "- Small Group: Give children a challenge to build, test, or solve together.", "- Writing: Invite simple drawing, labeling, or mark-making connected to the activity.", "- Sensory/Science: Add measuring, mixing, or observation with teacher guidance.", "- Reflection: Ask what worked and what they might try next."],
+        ["Investigate and Pretend", "- Dramatic Play: Add theme-based props for cooperative pretend play.", "- Literacy: Revisit vocabulary with games, songs, or story retelling.", "- Fine Motor: Offer cutting alternatives, manipulatives, or drawing based on readiness.", "- Independence: Let children help set up, choose roles, or clean up."],
+        ["Share and Reflect", "- Review: Revisit favorite books, songs, and projects from the week.", "- Discussion: Ask children what they noticed, learned, or want to try again.", "- Family Connection: Prepare one simple home idea or question families can use.", "- Documentation: Note next steps for individual or group follow-up."],
+      ],
+      observationSetting: "play-based learning and small-group experiences",
+      observationSupport: "conversation, problem-solving, cooperative play, and hands-on exploration",
+      observationSkills: [
+        "Vocabulary growth and expressive language",
+        "Problem-solving, prediction, and curiosity",
+        "Cooperative play and social reasoning",
+        "Fine motor control during art, building, or table work",
+        "Independence with routines and multi-step tasks",
+      ],
+      activityTitle: "Activity",
+      activityDuration: "15-20 minutes",
+      activityMaterials: "Theme-based props, crayons, markers, paper, sensory items, counting tools, building materials, and simple science supplies.",
+      activityInstructions: [
+        "Introduce the topic with a book, question, prop, or short discussion.",
+        "Model the activity and explain the learning goal using clear child-friendly language.",
+        "Invite children to explore, create, count, predict, sort, or solve while you scaffold as needed.",
+        "Encourage children to talk about what they notice and make simple choices in their work.",
+        "Close with a quick reflection, share-out, or extension question.",
+      ],
+      activityGoals: [
+        "Build targeted developmental skills through hands-on, play-based learning.",
+        "Encourage conversation, problem-solving, cooperation, and growing independence.",
+        "Support early literacy, math, science, and social-emotional learning in developmentally appropriate ways.",
+      ],
+      activitySafety: "Supervise all materials and adapt tools for individual readiness. Avoid expecting school-age independence or academic pressure beyond preschool development.",
+      activityExtensions: "Add a related book, dramatic-play prop, simple writing invitation, or science question for tomorrow.",
+      behaviorNeed: "support with emotional regulation, flexible thinking, peer problem-solving, or transitions during group routines",
+      behaviorStrategiesTitle: "Preschool Support Strategies",
+      behaviorStrategies: [
+        "Teach feeling words, calm-down routines, and problem-solving steps during calm moments.",
+        "Use visuals, clear expectations, and reminders before challenging transitions or peer interactions.",
+        "Practice replacement skills such as asking for space, taking turns, or using words to solve problems.",
+        "Offer coaching, positive reinforcement, and logical follow-up that stays calm and respectful.",
+      ],
+      behaviorGoal: "Build self-regulation, communication, flexible thinking, and positive peer interaction.",
+      behaviorPlan: "Use role-play, visuals, and repeated practice to strengthen the replacement skill across routines.",
+      parentToneLine: "We focused on coaching the skill, keeping everyone safe, and supporting problem-solving.",
+      dailySummary: "group play, problem-solving, early literacy, counting, science exploration, and growing independence",
+      dailyLearning: "language, early academics, cooperation, self-help routines, and curiosity through play",
+      dailyClosing: "Please let me know if there are any home updates so we can keep building on today's learning and routines.",
+    },
+    "School Age": {
+      learningFocus: "projects, discussions, problem-solving, STEM, writing, leadership, responsibility, and independence",
+      lessonMaterials: "Books, journals, pencils, markers, project materials, building supplies, STEM tools, art materials, and discussion prompts",
+      lessonObjectives: [
+        "Build problem-solving, writing, discussion, and project-planning skills through meaningful tasks.",
+        "Support independence, collaboration, and responsibility during structured and choice-based learning.",
+        "Encourage reflection, leadership, and deeper thinking tied to the theme.",
+      ],
+      lessonBooks: "Choose fiction and nonfiction texts connected to the theme. Include discussion prompts, journaling, STEM read-alouds, and independent reading choices.",
+      lessonPlanDays: [
+        ["Question and Investigate", "- Discussion: Open with a higher-order question tied to the theme and invite predictions.", "- Reading/Writing: Read a short text and respond with drawing, writing, or note-taking.", "- Project Setup: Introduce a challenge, materials, and expectations for independent or partner work.", "- Reflection: Ask children to explain their plan."],
+        ["Design and Build", "- STEM: Guide children through a build, design, or test connected to the theme.", "- Collaboration: Encourage partner talk, shared roles, and respectful problem-solving.", "- Math/Measurement: Add recording, comparing, or measuring when it fits.", "- Reflection: Review what changed after testing ideas."],
+        ["Research and Write", "- Inquiry: Invite children to ask questions and gather information from books, visuals, or discussion.", "- Writing: Add journaling, labeling, list-making, or paragraph writing based on readiness.", "- Creativity: Encourage children to present their thinking in a chosen format.", "- Leadership: Let children make decisions about materials or roles."],
+        ["Solve and Revise", "- Problem-Solving: Present a new challenge or constraint to refine yesterday's work.", "- Discussion: Ask children to explain evidence, choices, or strategies.", "- Project Work: Continue building, creating, or revising independently.", "- Reflection: Encourage self-assessment and goal-setting."],
+        ["Share and Reflect", "- Presentation: Invite children to share projects, writing, or discoveries with peers.", "- Leadership: Let children lead part of the discussion or clean-up routine.", "- Reflection: Ask what they learned, what was challenging, and what they would do next.", "- Family Connection: Send home a simple conversation prompt or extension idea."],
+      ],
+      observationSetting: "project-based learning and collaborative work",
+      observationSupport: "discussion, critical thinking, independence, and problem-solving",
+      observationSkills: [
+        "Critical thinking and problem-solving",
+        "Reading, writing, or STEM connections",
+        "Peer collaboration and leadership",
+        "Independence and self-direction",
+        "Reflection, persistence, and responsibility",
+      ],
+      activityTitle: "Project",
+      activityDuration: "20-30+ minutes",
+      activityMaterials: "Project materials, journals, pencils, measuring tools, STEM or building supplies, art materials, and discussion prompts.",
+      activityInstructions: [
+        "Introduce the challenge and explain the goal, success criteria, and available materials.",
+        "Model one example or thinking strategy, then invite children to plan and problem-solve.",
+        "Encourage discussion, writing, testing, revising, and independent decision-making.",
+        "Support collaboration and leadership roles while keeping materials organized and safe.",
+        "Close with reflection questions about process, learning, and next steps.",
+      ],
+      activityGoals: [
+        "Build independence, leadership, and advanced problem-solving through meaningful project work.",
+        "Encourage writing, discussion, STEM thinking, and reflection.",
+        "Support collaboration, persistence, and age-appropriate responsibility.",
+      ],
+      activitySafety: "Supervise project tools and materials. Adjust complexity for individual readiness while preserving problem-solving and independence.",
+      activityExtensions: "Add a journal reflection, research question, design revision, or presentation opportunity.",
+      behaviorNeed: "support with self-management, peer conflict resolution, flexible thinking, or problem-solving during longer tasks",
+      behaviorStrategiesTitle: "School Age Support Strategies",
+      behaviorStrategies: [
+        "Coach self-reflection, perspective-taking, and collaborative problem-solving.",
+        "Set clear expectations, logical follow-up, and opportunities to repair or retry.",
+        "Teach replacement skills such as self-advocacy, conflict-resolution language, and independent regulation strategies.",
+        "Provide leadership roles, choice, and structured check-ins to support success.",
+      ],
+      behaviorGoal: "Build self-management, responsibility, social problem-solving, and reflective independence.",
+      behaviorPlan: "Use check-ins, goal-setting, and opportunities to practice repair, reflection, and leadership across the day.",
+      parentToneLine: "We supported reflection, problem-solving, and respectful repair while keeping expectations clear.",
+      dailySummary: "projects, discussion, writing, STEM thinking, leadership, and independent routines",
+      dailyLearning: "problem-solving, communication, responsibility, collaboration, and reflection",
+      dailyClosing: "Please reach out if there are any goals or responsibilities you would like us to reinforce together.",
+    },
+  };
+  return { ageGroup, ...(profiles[ageGroup] || profiles.Preschool) };
+}
+
+function toneCopy(tone, variants) {
+  const normalized = String(tone || "").toLowerCase();
+  for (const [matcher, value] of variants) {
+    if (normalized.includes(matcher)) return value;
+  }
+  return variants[variants.length - 1]?.[1] || "";
+}
+
 function aiPromptFromForm(toolId, data) {
   const tool = [...aiTools, ...futureTools].find((item) => item.id === toolId);
   const toolTitle = tool?.title || "Little Learner Hub AI Generator";
-
+  const fieldLabelMap = Object.fromEntries((tool?.fields || []).map(([name, label]) => [name, label]));
   const childName = data.childName || data.child || "";
   const childAge = data.childAge || "";
   const ageGroup = data.age || data.ageGroup || data.group || "";
   const programName = data.programName || data.program || "";
+  const developmentalDomain = data.developmentalDomain || data.area || data.domain || data.domains || "";
   const providerNotes = data.providerNotes || "";
-
-  const ageContext = ageGroup
-    ? `\n\nCHILD AGE GROUP: ${ageGroup} (${ageGroupLabel(ageGroup)}). ALL content — activities, goals, language, milestones, strategies — MUST be appropriate for this age. Do not include anything outside this developmental range.`
-    : "";
-
-  const CONTEXT_KEYS = ["childName", "child", "childAge", "age", "ageGroup", "group", "programName", "program", "providerNotes"];
-
-  const contextLines = [
-    programName ? `Program Name: ${programName}` : "",
-    childName ? `Child: ${childName}` : "",
-    childAge ? `Child Age: ${childAge}` : "",
-    ageGroup ? `Age Group: ${ageGroup} (${ageGroupLabel(ageGroup)})` : "",
-  ].filter(Boolean).join("\n");
-
-  const fieldLines = Object.entries(data)
-    .filter(([key, value]) => value && !CONTEXT_KEYS.includes(key))
-    .map(([key, value]) => `${key}: ${value}`)
-    .join("\n");
-
-  const providerContext = providerNotes ? `\n\nProvider Notes: ${providerNotes}` : "";
-
+  const tone = data.tone || "";
+  const audience = data.audience || "";
+  const date = data.date || "";
+  const time = data.time || "";
+  const priorityKeys = [
+    "programName", "program", "childName", "child", "childAge", "age", "ageGroup", "group",
+    "developmentalDomain", "area", "domain", "domains", "providerNotes", "tone", "audience", "date", "time",
+    "concern", "goal", "goals", "nextStep", "trigger", "incident", "response", "details", "note",
+  ];
+  const usedKeys = new Set(priorityKeys);
+  const formatLine = (label, value) => value ? `${label}: ${value}` : "";
+  const remainingLines = (tool?.fields || [])
+    .map(([name, label]) => [name, label, data[name]])
+    .filter(([name, , value]) => value && !usedKeys.has(name))
+    .map(([, label, value]) => `${label}: ${value}`);
+  const uncatalogedLines = Object.entries(data)
+    .filter(([key, value]) => value && !usedKeys.has(key) && !fieldLabelMap[key])
+    .map(([key, value]) => `${key}: ${value}`);
   return [
-    `Generate: ${toolTitle}`,
-    contextLines,
-    ageContext,
-    "\nDetails:\n" + (fieldLines || "No extra details were entered."),
-    providerContext,
-    "\nProduce organized, ready-to-use content a childcare provider can copy right away. Use warm, professional childcare language. Reference the child by name and include the program name in all formal documents.",
+    `Tool Type: ${toolTitle}`,
+    formatLine("Child Name", childName),
+    formatLine("Child Age", childAge),
+    ageGroup ? `Age Group: ${ageGroup} (${ageGroupLabel(ageGroup)})` : "",
+    formatLine("Program Name", programName),
+    formatLine("Developmental Domain", developmentalDomain),
+    formatLine("Provider Notes", providerNotes),
+    formatLine("Tone", tone),
+    formatLine("Audience", audience),
+    formatLine("Date", date),
+    formatLine("Time", time),
+    formatLine(fieldLabelMap.concern || "Concern or Goal", data.concern),
+    formatLine(fieldLabelMap.goal || "Goal", data.goal),
+    formatLine(fieldLabelMap.goals || "Goals", data.goals),
+    formatLine(fieldLabelMap.nextStep || "Next Step", data.nextStep),
+    formatLine(fieldLabelMap.trigger || "Trigger", data.trigger),
+    formatLine(fieldLabelMap.incident || "Incident Details", data.incident),
+    formatLine(fieldLabelMap.response || "Immediate Response", data.response),
+    formatLine(fieldLabelMap.note || "Observation Note", data.note),
+    formatLine(fieldLabelMap.details || "Details", data.details),
+    "",
+    "Additional Details:",
+    ...(remainingLines.length || uncatalogedLines.length ? [...remainingLines, ...uncatalogedLines] : ["No additional details were entered."]),
+    "",
+    "Requirements:",
+    ageGroup
+      ? `- Keep every suggestion, strategy, activity, and expectation strictly appropriate for ${ageGroup} (${ageGroupLabel(ageGroup)}).`
+      : "- Keep the response developmentally appropriate for the age information provided.",
+    "- Use only the details provided and do not invent missing facts, injuries, behaviors, witnesses, or outcomes.",
+    "- Produce organized, ready-to-use content a childcare provider can copy right away.",
+    "- Use warm, professional childcare language and include the program name in formal documents when it is provided.",
   ].filter(Boolean).join("\n");
 }
 
@@ -11252,52 +11596,25 @@ function generateFromPrompt(prompt) {
 }
 
 function generateLessonPlan(data) {
-  const rawAge = data.age || "Toddler";
-  const theme = data.theme || "Farm";
-  const planLength = data.planLength || "Weekly";
-  const days = Number(data.days || 5);
-  const focus = data.focus || "language, fine motor, social-emotional skills";
-  const isInfant = rawAge === "Infant";
-  const isYoungToddler = rawAge === "Young Toddler";
-  const isOlderToddler = rawAge === "Older Toddler";
-  const isToddler = isYoungToddler || isOlderToddler || rawAge === "Toddler";
-  const isSchoolAge = rawAge === "School Age";
-  const materials = data.materials || (isInfant
-    ? "Soft textured items, sensory safe objects, board books, soft music, mirrors, rattles, tummy time mat"
-    : isSchoolAge
-    ? "Books, paper, pencils, scissors (supervised), science materials, building supplies, art supplies, games"
-    : "pictures or props, books, crayons, paper, sensory bin items, blocks, music, and simple printable pages");
-  const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Monday 2", "Tuesday 2", "Wednesday 2", "Thursday 2", "Friday 2"];
-  const daily = dayNames.slice(0, days).map((day, index) => {
-    if (isInfant) {
-      const infantActivities = ["Sensory Exploration", "Tummy Time and Music", "Tracking and Touch", "Responsive Play", "Sensory and Books"];
-      return `${day}: ${theme} ${infantActivities[index % infantActivities.length]}
-- Sensory: Introduce a safe ${theme.toLowerCase()} sensory item — soft, colorful, or textured.
-- Tummy Time: Offer supervised tummy time with themed visual interest (picture card or toy).
-- Music/Language: Sing a simple song or hum softly while narrating: "I see the ${theme.toLowerCase()}!"
-- Tracking: Hold a colorful ${theme.toLowerCase()} item and move it slowly for the infant to follow.
-- Routine: Diaper, feeding, and sleep are integrated as natural learning and bonding moments.`;
-    }
-    if (isSchoolAge) {
-      const schoolActivities = ["Introduce and Explore", "Create and Build", "Research and Write", "STEM and Problem-Solve", "Review and Share"];
-      return `${day}: ${theme} ${schoolActivities[index % schoolActivities.length]}
-- Opening Discussion: Ask a higher-order question connected to ${theme.toLowerCase()}. Encourage predictions and connections.
-- Reading/Writing: Use a nonfiction or fiction book about ${theme.toLowerCase()}. Add journaling, diagrams, or vocabulary work.
-- STEM/Project: Offer a hands-on challenge connected to ${theme.toLowerCase()}.
-- Collaboration: Pair or small-group work connecting to the theme.
-- Learning Goal: Build ${focus} through project-based, discussion-rich learning.`;
-    }
-    const activities = ["Explore and Talk", "Create and Connect", "Move and Match", "Build and Sort", "Review and Share"];
-    return `${day}: ${theme} ${activities[index % activities.length]}
-- Circle Time: Introduce ${theme} vocabulary with pictures, props, and simple questions.
-- Art: Offer a low-prep ${theme.toLowerCase()} art invitation using crayons, paper, glue, or safe collage pieces.
-- Sensory: Provide a supervised sensory bin or texture tray connected to ${theme.toLowerCase()}.
-- Fine Motor: Practice ${isToddler ? "grasping, sorting, stacking, or placing safe materials" : "tracing, cutting with guidance, sorting, or writing simple shapes"}.
-- Gross Motor: Add movement such as ${isToddler ? "crawling, marching, tossing, or animal walks" : "jumping, balancing, dancing, or obstacle courses"}.
-- Learning Goal: Children will build ${focus} through hands-on play and guided conversation.`;
-  }).join("\n\n");
-  return `${planLength} Lesson Plan Overview
-Age Group: ${rawAge}
+ const rawAge = normalizeAiAgeGroup(data.age || "Preschool");
+ const profile = ageGroupProfile(rawAge);
+ const theme = data.theme || "Farm";
+ const planLength = data.planLength || "Weekly";
+ const days = Number(data.days || 5);
+ const focus = data.focus || profile.learningFocus;
+ const materials = data.materials || profile.lessonMaterials;
+ const programName = data.programName || "";
+ const daily = Array.from({ length: Math.max(days, 1) }, (_, index) => {
+   const dayName = index < 5
+     ? ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"][index]
+     : `Day ${index + 1}`;
+   const [title, ...steps] = profile.lessonPlanDays[index % profile.lessonPlanDays.length];
+   return `${dayName}: ${theme} ${title}
+${steps.join("\n")}
+- Learning Goal: Children will build ${focus} through developmentally appropriate play and interaction.`;
+ }).join("\n\n");
+ return `${planLength} Lesson Plan Overview
+${programName ? `Program Name: ${programName}\n` : ""}Age Group: ${rawAge}
 Theme: ${theme}
 Learning Focus: ${focus}
 
@@ -11305,101 +11622,80 @@ Materials List
 ${materials}
 
 Learning Objectives
-- Build vocabulary connected to ${theme.toLowerCase()}.
-- Practice ${focus}.
-- Encourage ${isInfant ? "sensory development, secure attachment, and early communication" : "social-emotional growth through choice-making, turn-taking, and participation"}.
-- Support early learning guidelines through ${isInfant ? "responsive care and safe sensory experiences" : "play-based, hands-on experiences"}.
+${profile.lessonObjectives.map((objective) => `- ${objective}`).join("\n")}
 
 Daily Plans
 ${daily}
 
 Books and Songs
-${isInfant
-    ? "Choose simple board books with high-contrast images, soft textures, or flap features. Sing soft lullabies, fingerplays, and name songs throughout the day."
-    : isSchoolAge
-    ? "Choose nonfiction and fiction books connected to the theme. Include poetry, read-alouds, and independent reading opportunities."
-    : "Choose simple board books or picture books connected to " + theme.toLowerCase() + ". Use repeat-after-me songs, fingerplays, movement songs, and name songs."}
+${profile.lessonBooks}
 
 Provider Note
 Adjust timing, materials, and supervision to fit your group size, ages, individual children's needs, and state childcare requirements.`;
 }
 function generateObservation(data) {
-  const note = data.note || "Child counted to 10 and identified colors.";
-  const rawAge = data.age || "Toddler";
-  const area = data.area || "Cognitive";
-  const nextStep = data.nextStep || "Offer a similar activity with a small new challenge.";
-  const childName = data.childName || data.child || "";
-  const childRef = childName || ("the " + rawAge.toLowerCase());
-  const isInfant = rawAge === "Infant";
-  const isSchoolAge = rawAge === "School Age";
-  const skillsForAge = isInfant
-    ? ["Sensory exploration and responsiveness", "Visual tracking and attention", "Reaching, grasping, or mouthing safely", "Vocalizing and early communication", "Bonding and secure attachment"]
-    : isSchoolAge
-    ? ["Critical thinking and problem-solving", "Reading, writing, or math connections", "Peer collaboration and social reasoning", "Independence and self-direction", "Attention and persistence on challenging tasks"]
-    : ["Early problem-solving and curiosity", "Vocabulary and concept development", "Attention and persistence", "Hand-eye coordination and fine motor", "Confidence participating in learning experiences"];
-  return `Professional Observation
-Child: ${childName || "Not specified"}
+ const note = data.note || "Child counted to 10 and identified colors.";
+ const rawAge = normalizeAiAgeGroup(data.age || "Preschool");
+ const profile = ageGroupProfile(rawAge);
+ const area = data.developmentalDomain || data.area || "Cognitive";
+ const nextStep = data.nextStep || "Offer a similar activity with a small new challenge.";
+ const childName = data.childName || data.child || "";
+ const childRef = childName || ("the " + rawAge.toLowerCase());
+ const programName = data.programName || data.program || "";
+ return `Professional Observation
+${programName ? `Program: ${programName}\n` : ""}Child: ${childName || "Not specified"}
 Age Group: ${rawAge}
 Developmental Area: ${area}
 
 Observation
-During ${isInfant ? "a care routine and exploration time" : "play"}, ${childRef} demonstrated growing ${area.toLowerCase()} skills while ${note.charAt(0).toLowerCase() + note.slice(1)} This shows ${childName ? childName : "the child"} is making meaningful connections through ${isInfant ? "sensory exploration, secure bonding, and responsive care" : "hands-on exploration, communication, and problem-solving"}.
+During ${profile.observationSetting}, ${childRef} demonstrated growing ${area.toLowerCase()} skills while ${note.charAt(0).toLowerCase() + note.slice(1)} This shows ${childName ? childName : "the child"} is making meaningful connections through ${profile.observationSupport}.
 
 Skills Demonstrated
-${skillsForAge.map((s) => "- " + s).join("\n")}
+${profile.observationSkills.map((s) => "- " + s).join("\n")}
 
 What to Look For Next
 Watch for ${childName ? childName : "the child"} repeating this skill independently, using it in a new setting, showing increased confidence, or demonstrating it with less support.
 
 Next Steps for Learning
-${nextStep} ${isInfant ? "Continue responsive care, narrate your actions, and offer safe sensory experiences." : "Model new words, ask simple open-ended questions, and allow time to practice at their own pace."}
+${nextStep} ${rawAge === "Infant"
+   ? "Continue responsive care, narrate your actions, and offer safe sensory experiences."
+   : rawAge === "School Age"
+   ? "Encourage reflection, discussion, and opportunities to apply the skill independently."
+   : "Model new words, offer guided support, and allow time to practice at an age-appropriate pace."}
 
 Learning Standard Connection
 ${area} development — connected to age-appropriate early learning guidelines for ${rawAge.toLowerCase()} learners.`;
 }
 
 function generateActivity(data) {
-  const rawAge = data.age || "Preschool";
-  const theme = data.theme || (data.skill ? "Discovery" : "Ocean");
-  const skill = data.skill || "fine motor";
-  const area = data.developmentalArea || skill;
-  const childName = data.childName || "";
-  const materials = data.materials || (rawAge === "Infant"
-    ? "Soft textured mat, safe sensory items (fabric squares, crinkle toys), caregiver hands, simple board books."
-    : rawAge === "Young Toddler" || rawAge === "Older Toddler"
-    ? "Tray or bin, themed pictures or props, child-safe manipulatives, paper, crayons, and a small basket."
-    : rawAge === "School Age"
-    ? "Project materials, pencils, scissors (adult-supervised), measuring tools, building materials."
-    : "Tray or bin, themed pictures or props, tongs or scoops, paper, crayons, and a small basket for sorting.");
-  const isInfant = rawAge === "Infant";
-  const isSchoolAge = rawAge === "School Age";
-  const duration = isInfant ? "5-10 minutes" : isSchoolAge ? "20-30+ minutes" : rawAge.includes("Toddler") ? "10-15 minutes" : "15-20 minutes";
-  const instructions = isInfant
-    ? ["Set up a safe sensory space on a clean mat or blanket.", "Introduce each item by name while the infant explores through touch, sight, and sound.", "Narrate what the infant is doing: 'You found the soft square! It feels bumpy!'", "Follow the infant's lead and respond to their cues warmly.", "End the activity before overstimulation — watch for turning away or fussiness."]
-    : isSchoolAge
-    ? ["Introduce the activity and explain the learning goal in simple terms.", "Model one example, then invite children to explore and problem-solve.", "Encourage questions, predictions, and creative thinking.", "Allow children to work independently or in small groups.", "Wrap up with a discussion: 'What did you notice? What would you try differently?'"]
-    : ["Introduce the " + theme.toLowerCase() + " materials and name each item clearly.", "Invite children to touch, sort, match, move, or describe the materials.", "Model the skill: " + skill + ". Keep directions to 1-2 simple steps.", "Keep the activity short, playful, and flexible.", "Observe what children notice, say, choose, and try independently."];
-  return `Activity: ${theme} ${skill.charAt(0).toUpperCase() + skill.slice(1)} ${isInfant ? "Exploration" : isSchoolAge ? "Project" : "Discovery"}
-${childName ? "Child: " + childName + "\n" : ""}Age Group: ${rawAge}
-Duration: ${duration}
+ const rawAge = normalizeAiAgeGroup(data.age || "Preschool");
+ const profile = ageGroupProfile(rawAge);
+ const theme = data.theme || (data.skill ? "Discovery" : "Ocean");
+ const skill = data.skill || "fine motor";
+ const area = data.developmentalDomain || data.developmentalArea || skill;
+ const childName = data.childName || "";
+ const childAge = data.childAge || "";
+ const programName = data.programName || data.program || "";
+ const materials = data.materials || profile.activityMaterials;
+ return `Activity: ${theme} ${skill.charAt(0).toUpperCase() + skill.slice(1)} ${profile.activityTitle}
+${programName ? "Program: " + programName + "\n" : ""}${childName ? "Child: " + childName + "\n" : ""}${childAge ? "Child Age: " + childAge + "\n" : ""}Age Group: ${rawAge}
+Duration: ${profile.activityDuration}
 Developmental Area: ${area}
 
 Materials
 ${materials}
 
 Instructions
-${instructions.map((step, i) => (i + 1) + ". " + step).join("\n")}
+${profile.activityInstructions.map((step, i) => (i + 1) + ". " + step).join("\n")}
 
 Learning Goals
-- Build ${area} skills through ${isInfant ? "safe sensory exploration and responsive interaction" : isSchoolAge ? "hands-on challenge and creative thinking" : "hands-on practice and play"}.
-- Encourage ${isInfant ? "bonding, curiosity, and early communication" : "language, attention, choice-making, and confidence"}.
-- Support ${isInfant ? "sensory development and secure attachment" : "curiosity, problem-solving, and independence"}.
+${profile.activityGoals.map((goal) => `- ${goal}`).join("\n")}
 
 Safety Notes
-${isInfant ? "Always supervise closely. Ensure all items are too large to be a choking hazard. No small parts." : isSchoolAge ? "Supervise use of scissors, tools, and any project materials. Adjust for individual needs." : "Supervise closely. Ensure all materials are age-safe. Avoid small parts for young toddlers."}
+${profile.activitySafety}
 
 Extensions
-${isInfant ? "Try the activity in different positions (tummy time, supported sitting). Add soft music or gentle narration." : "Add books, songs, counting, color matching, movement, or a take-home note connected to " + theme.toLowerCase() + "."}`;
+${profile.activityExtensions}`;
 }
 
 function generateAiMenu(data) {
@@ -11581,13 +11877,22 @@ Send home a short note with vocabulary words, book ideas, and one simple activit
 
 function generateBehaviorDocumentation(data) {
   const childName = data.childName || data.child || "Child";
-  const rawAge = data.age || "";
+  const rawAge = normalizeAiAgeGroup(data.age || "Preschool");
+  const profile = ageGroupProfile(rawAge);
   const programName = data.programName || data.program || "Your Daycare Name";
   const tone = data.tone || "Warm and professional";
-  const ageContext = rawAge ? ` (${rawAge})` : "";
+  const ageContext = data.childAge ? ` (${data.childAge} · ${rawAge})` : rawAge ? ` (${rawAge})` : "";
+  const domain = data.developmentalDomain || "Social Emotional";
+  const parentMessage = toneCopy(tone, [
+    ["brief", `Today at ${programName}, ${childName} needed support with ${data.concern || "a challenging moment"}. ${profile.parentToneLine}`],
+    ["supportive", `Today at ${programName}, ${childName} needed extra support with ${data.concern || "a challenging moment"}. ${profile.parentToneLine} We will keep practicing the skill together and can share strategies that may help at home too.`],
+    ["warm", `Today at ${programName}, ${childName} needed some extra guidance with ${data.concern || "a challenging moment"}. ${profile.parentToneLine} I am happy to talk more about the strategies we are using together.`],
+    ["professional", `Today at ${programName}, ${childName} needed support with ${data.concern || "a challenging moment"}. ${profile.parentToneLine} We will continue using consistent age-appropriate strategies and keep you updated as needed.`],
+  ]);
   return `Behavior Support Documentation
 Program: ${programName}
 Child: ${childName}${ageContext}
+Developmental Domain: ${domain}
 Concern: ${data.concern || "Behavior that needed support"}
 
 What Happened
@@ -11600,34 +11905,44 @@ Support Given
 ${data.support || "Comfort was offered, safety was maintained, and the child was redirected using calm guidance."}
 
 What This Behavior May Communicate
-${childName} may be communicating a need for ${rawAge === "Infant" ? "comfort, sensory regulation, or basic needs" : rawAge === "Young Toddler" || rawAge === "Older Toddler" ? "language support, attention, predictability, or physical comfort" : "connection, control, help with transitions, or emotional regulation"}.
+${childName} may be communicating a need for ${profile.behaviorNeed}.
 
-${rawAge === "Infant" ? "Infant Support Strategies\n- Respond promptly and consistently to cues.\n- Check for hunger, discomfort, or overstimulation.\n- Offer calm rocking, gentle touch, and a quiet environment.\n- Review safe sleep and routine schedule with the family." : rawAge === "Young Toddler" ? "Young Toddler Support Strategies\n- Offer simple 1-step directions and clear, predictable routines.\n- Use visual cues and transition warnings.\n- Name feelings and model simple words: 'You feel frustrated.'\n- Redirect to a safe alternative activity." : "Proactive Strategies\n- Offer a visual schedule and transition warnings.\n- Practice replacement language during calm moments.\n- Provide close supervision during known trigger times.\n- Use positive language, choices, and predictable routines."}
+${profile.behaviorStrategiesTitle}
+${profile.behaviorStrategies.map((strategy) => `- ${strategy}`).join("\n")}
 
 Developmental Goal
-${data.goal || "Build age-appropriate self-regulation, communication, and coping skills."}
+${data.goal || profile.behaviorGoal}
 
 Follow-Up Plan
-${data.plan || "Teach replacement language, offer visual reminders, provide close supervision, and practice the skill during calm moments."}
+${data.plan || profile.behaviorPlan}
 
 Parent Communication
 Tone: ${tone}
-Today at ${programName}, ${childName} needed some extra support. ${data.support || "We used calm guidance, kept everyone safe, and will continue practicing the skills needed for successful play and routines."} I would love to connect with you to share strategies we can use together at home and at daycare.
+${parentMessage}
 
 Provider Note
-Review your program policy and state licensing requirements for behavior documentation, incident reporting, and parent notification.`;
+${data.providerNotes ? `Provider Notes: ${data.providerNotes}\n` : ""}Review your program policy and state licensing requirements for behavior documentation, incident reporting, and parent notification.`;
 }
 
 function generateIncidentReport(data) {
   const childName = data.childName || data.child || "Child";
   const childAge = data.childAge || "";
-  const age = data.age || "";
+  const age = normalizeAiAgeGroup(data.age || "");
   const programName = data.programName || data.program || "Your Daycare Name";
   const date = data.date || "Date of incident";
-  const ageLabel = childAge ? ` (${childAge})` : age ? ` (${age})` : "";
+  const time = data.time || "Time not entered";
+  const ageLabel = childAge && age ? ` (${childAge} · ${age})` : childAge ? ` (${childAge})` : age ? ` (${age})` : "";
+  const tone = data.tone || "Factual and professional";
+  const parentNotification = toneCopy(tone, [
+    ["warm", `Today at ${programName}, I am sharing an incident report involving ${childName}. ${data.incident || "An incident occurred during care today."} ${data.response ? `Immediate response provided: ${data.response}.` : "Immediate support and supervision were provided right away."} Please let me know if you would like to review the report together.`],
+    ["detailed", `This is a written incident report from ${programName} regarding ${childName}. ${data.incident || "An incident occurred during care today."} ${data.trigger ? `Before the incident: ${data.trigger}.` : ""} ${data.response ? `Immediate response: ${data.response}.` : "Immediate support and supervision were provided right away."} ${data.nextSteps ? `Follow-up: ${data.nextSteps}.` : ""} Please contact me if you have any questions about this documentation.`],
+    ["factual", `Today at ${programName}, an incident involving ${childName} was documented. ${data.incident || "An incident occurred during care today."} ${data.response ? `Immediate response: ${data.response}.` : "Immediate support and supervision were provided right away."} Please contact me with any questions.`],
+    ["professional", `Today at ${programName}, an incident involving ${childName} was documented. ${data.incident || "An incident occurred during care today."} ${data.response ? `Immediate response: ${data.response}.` : "Immediate support and supervision were provided right away."} Please contact me with any questions.`],
+  ]);
   return `Incident Report
 Program: ${programName}
-Date and Time: ${date}
+Date: ${date}
+Time: ${time}
 Child Name: ${childName}${ageLabel}
 
 Description of Incident
@@ -11646,11 +11961,11 @@ Next Steps and Follow-Up
 ${data.nextSteps || "Document any planned follow-up steps, safety changes, or monitoring needed."}
 
 Parent Notification
-Tone: ${data.tone || "Factual and professional"}
-Today at ${programName}, I am reaching out to share an incident that occurred involving ${childName}. ${data.incident || "An incident occurred today."} ${data.response ? "Immediate response included: " + data.response + "." : "Comfort and safety support was provided right away."} Please contact me if you have any questions.
+Tone: ${tone}
+${parentNotification}
 
 Provider Note
-Review your state licensing requirements for incident documentation, parent notification timelines, and required forms. Keep a copy in the child's file.`;
+${data.providerNotes ? `Provider Notes: ${data.providerNotes}\n` : ""}Review your state licensing requirements for incident documentation, parent notification timelines, and required forms. Keep a copy in the child's file.`;
 }
 
 
@@ -11682,6 +11997,8 @@ Share a simple note with families so they can notice and support this learning a
 function generateParentMessage(data) {
   const programName = data.programName || data.program || "Your Childcare Program";
   const childName = data.childName || data.child || "";
+  const childAge = data.childAge || "";
+  const ageGroup = data.age || "";
   const topic = data.topic || "Program Update";
   const tone = data.tone || "Warm and clear";
   const isProviderOnly = (data.audience || "").includes("Provider-only");
@@ -11691,6 +12008,7 @@ function generateParentMessage(data) {
 Topic: ${topic}
 Date: ${data.date || new Date().toLocaleDateString()}
 Child: ${childName || "Not specified"}
+${childAge ? "Child Age: " + childAge + "\n" : ""}${ageGroup ? "Age Group: " + ageGroup + "\n" : ""}
 
 Documentation
 ${data.details || "Add details here."}
@@ -11698,18 +12016,32 @@ ${data.details || "Add details here."}
 Provider Notes
 ${data.providerNotes || "Keep in child file. Not for parent distribution."}`;
   }
+  const greeting = toneCopy(tone, [
+    ["firm", `Hello ${childName ? childName + "'s family" : "families"},`],
+    ["gentle", `Hi ${childName ? childName + "'s family" : "there"},`],
+    ["friendly", `Hi ${childName ? childName + "'s family" : "there"}!`],
+    ["detailed", `Hello ${childName ? childName + "'s family" : "families"},`],
+    ["warm", `Hi ${childName ? childName + "'s family" : "there"}!`],
+  ]);
+  const closing = toneCopy(tone, [
+    ["firm", "Thank you for your attention and partnership."],
+    ["gentle", "Thank you for partnering with us in such a caring way."],
+    ["friendly", "Thanks so much for your partnership and support!"],
+    ["detailed", "Thank you for your partnership. Please feel free to reach out if you would like to talk through any part of this message."],
+    ["warm", "Thank you for your partnership and for staying connected with us."],
+  ]);
   return `Parent Message Draft — ${programName}
 
 Topic: ${topic}
 Tone: ${tone}
-${childName ? "Child: " + childName : ""}
+${childName ? "Child: " + childName + "\n" : ""}${childAge ? "Child Age: " + childAge + "\n" : ""}${ageGroup ? "Age Group: " + ageGroup + "\n" : ""}
 
 Message
-Hi ${childName ? childName + "'s family" : "there"}!
+${greeting}
 
 ${data.details || "Add the important details here."}
 
-I appreciate your partnership and always want to keep our communication open and positive. Please don't hesitate to reach out if you have any questions or if there is anything you'd like me to know.
+${closing} Please don't hesitate to reach out if you have any questions or if there is anything you'd like me to know.
 
 Thank you for trusting us with your family,
 ${programName}`;
@@ -11861,12 +12193,20 @@ function generateNewsletter(data) {
   const reminders = data.reminders || "Please label all personal items and check your child's supply bin weekly.";
   const programName = data.programName || data.program || "Your Childcare Program";
   const highlights = data.highlights || "";
+  const tone = data.tone || "Warm and community-focused";
+  const intro = toneCopy(tone, [
+    ["professional", `Welcome to our ${month} update from ${programName}. We are looking forward to a month of intentional, play-based learning experiences connected to ${theme}.`],
+    ["friendly", `We are so excited for another fun month at ${programName}! This month we will explore ${theme} through playful, hands-on learning.`],
+    ["warm", `Hello Families! We are excited to share what is coming up at ${programName} this month as we explore ${theme} together.`],
+    ["community", `Hello Families! We are excited to keep learning together at ${programName} this month as we explore ${theme}.`],
+  ]);
   return `${programName}
 ${month} Parent Newsletter
 Theme: ${theme}
+Tone: ${tone}
 
 Hello Families!
-We hope you and your little ones are doing wonderfully. This month at ${programName}, we are focusing on playful learning experiences that support language, social-emotional growth, creativity, movement, and independence. Children will explore through stories, songs, art, sensory play, outdoor play, and hands-on activities connected to our theme: ${theme}.
+${intro}
 
 What We Are Learning This Month
 ${highlights ? highlights + "\n" : ""}- New vocabulary and concepts connected to ${theme.toLowerCase()}
@@ -11892,12 +12232,11 @@ ${programName}`;
 
 function generateDailyReport(data) {
   const child = data.childName || data.child || "Your child";
-  const mood = data.mood || "Happy and engaged";
-  const rawAge = data.age || "";
+  const rawAge = normalizeAiAgeGroup(data.age || "Preschool");
+  const profile = ageGroupProfile(rawAge);
   const programName = data.programName || data.program || "";
   const date = data.date || "";
-  const isInfant = rawAge === "Infant";
-  const isToddler = rawAge === "Young Toddler" || rawAge === "Older Toddler" || rawAge === "Toddler";
+  const tone = data.tone || "Warm and friendly";
   const header = [
     programName ? programName + " — Daily Report" : "Daily Report",
     date ? "Date: " + date : "",
@@ -11905,7 +12244,14 @@ function generateDailyReport(data) {
     rawAge ? "Age Group: " + rawAge : "",
   ].filter(Boolean).join("\n");
   const moodText = data.mood || "Happy and engaged";
-  const infantExtra = isInfant ? `
+  const intro = toneCopy(tone, [
+    ["professional", `${child} participated in routines and learning experiences throughout the day.`],
+    ["detailed", `${child} took part in routines, care moments, and learning experiences throughout the day. Below is a fuller summary of how the day went.`],
+    ["short", `${child} had a positive day with us.`],
+    ["warm", `${child} had a lovely day and joined in our routines and learning experiences.`],
+    ["friendly", `${child} had a lovely day and joined in our routines and learning experiences.`],
+  ]);
+  const infantExtra = rawAge === "Infant" ? `
 Feeding
 ${data.meals || "Feeding was provided on cue and according to the family's feeding plan."}
 
@@ -11917,7 +12263,7 @@ ${data.nap || "Sleep was supported in a safe sleep environment."}
 
 Tummy Time
 Tummy time was offered during awake, supervised periods.` : "";
-  const toddlerExtra = isToddler ? `
+  const toddlerExtra = rawAge === "Young Toddler" || rawAge === "Older Toddler" ? `
 Meals
 ${data.meals || "Meals and snacks were offered according to the daily menu."}
 
@@ -11926,28 +12272,37 @@ ${data.diapering || "Diapering, potty attempts, and handwashing were supported t
 
 Rest
 ${data.nap || "Rest time was offered and supported."}` : "";
-  const olderExtra = !isInfant && !isToddler ? `
+  const olderExtra = rawAge === "Preschool" || rawAge === "School Age" ? `
 Meals
 ${data.meals || "Meals and snacks were offered according to the daily menu."}
 
 Rest
 ${data.nap || "Rest time was offered and supported."}` : "";
+  const closing = toneCopy(tone, [
+    ["professional", data.notes || profile.dailyClosing],
+    ["detailed", data.notes || `${profile.dailyClosing} I am happy to share more details if needed.`],
+    ["short", data.notes || "Thank you for your partnership today."],
+    ["warm", data.notes || profile.dailyClosing],
+    ["friendly", data.notes || profile.dailyClosing],
+  ]);
   return `${header}
+Tone: ${tone}
 
-${child} had a great day and participated in our daily routines and learning experiences.
+${intro}
 
 Mood
 ${moodText}
 ${infantExtra}${toddlerExtra}${olderExtra}
 
 Highlights
-${data.highlights || "Enjoyed play, stories, movement, and hands-on learning activities."}
+${data.highlights || `Today included ${profile.dailySummary}.`}
 
 Learning Moment
-${data.learning || "Today supported " + (isInfant ? "sensory development, bonding, communication, and early exploration" : isToddler ? "language development, social-emotional growth, and play-based learning" : "communication, independence, social skills, and curiosity") + "."}
+${data.learning || `Today supported ${profile.dailyLearning}.`}
 
 Parent Note
-${data.notes || "Please let me know if there is anything you would like me to watch for or support tomorrow."}`;
+${closing}
+${data.providerNotes ? `\n\nProvider Notes\n${data.providerNotes}` : ""}`;
 }
 
 function generateHandbook(data) {
