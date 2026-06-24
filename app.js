@@ -336,7 +336,7 @@ const observationCategories = [
 ];
 const developmentalAreas = observationCategories;
 const weeklyObservationsPerChild = 3;
-const childDataKeys = ["Profiles", "Observations", "SupportPlans", "Goals", "Differentiations", "Attendance", "Meals", "Reports", "Communications"];
+const childDataKeys = ["Profiles", "Observations", "SupportPlans", "Goals", "Differentiations", "Attendance", "Meals", "Reports", "Communications", "Naps", "Diapers", "ActivityLogs"];
 const plannerDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 let selectedChildId = localStorage.getItem("llhSelectedChild") || "";
 let childObservationSearch = "";
@@ -350,6 +350,9 @@ let activeObservationEditId = "";
 let childManagementMode = "list";
 let childProfileTab = "overview";
 let childToolsTab = "attendance";
+let dailyLogsSection = "home";
+let dailyLogsChildTab = "overview";
+let dailyLogsGroupAction = "";
 let activeChildObservationEditId = "";
 let activeChildProfileEditId = "";
 let pendingObservationArea = "";
@@ -1720,6 +1723,7 @@ const proNavLabels = {
   "child-tools-meals": "Meal Tracking",
   "child-tools-reports": "Daily Reports",
   "child-tools-communication": "Parent Communication",
+  "child-tools-daily-logs": "Daily Logs Center",
   portfolio: "Portfolio Builder",
   reports: "Reports & Analytics",
   favorites: "Saved Favorites",
@@ -2436,6 +2440,7 @@ const sidebarViewAliases = {
   "child-tools-meals": "children",
   "child-tools-reports": "children",
   "child-tools-communication": "children",
+  "child-tools-daily-logs": "children",
   portfolio: "tools",
   reports: "children",
   favorites: "account",
@@ -2460,6 +2465,7 @@ function childToolTabFromView(view) {
     "child-tools-meals": "meals",
     "child-tools-reports": "reports",
     "child-tools-communication": "communication",
+    "child-tools-daily-logs": "daily-logs",
   };
   return map[view] || "";
 }
@@ -2470,6 +2476,7 @@ function childToolViewForTab(tab) {
     meals: "child-tools-meals",
     reports: "child-tools-reports",
     communication: "child-tools-communication",
+    "daily-logs": "child-tools-daily-logs",
   };
   return map[tab] || "child-tools-attendance";
 }
@@ -2860,7 +2867,15 @@ function setView(view) {
   const requestedView = view;
   const requestedChildToolTab = childToolTabFromView(view);
   const requestedFutureTool = sidebarFutureToolTargets[requestedView] || "";
-  if (requestedChildToolTab) {
+  if (requestedChildToolTab === "daily-logs") {
+    childManagementMode = "daily-logs";
+    dailyLogsSection = "home";
+    dailyLogsChildTab = "overview";
+    dailyLogsGroupAction = "";
+    activeChildObservationEditId = "";
+    activeObservationChildLock = "";
+    activePortfolioChildId = "";
+  } else if (requestedChildToolTab) {
     childManagementMode = "tools";
     childToolsTab = requestedChildToolTab;
     activeChildObservationEditId = "";
@@ -6658,6 +6673,9 @@ function childRecords() {
     meals: childStore("Meals"),
     reports: childStore("Reports"),
     communications: childStore("Communications"),
+    naps: childStore("Naps"),
+    diapers: childStore("Diapers"),
+    activityLogs: childStore("ActivityLogs"),
   };
 }
 
@@ -7763,6 +7781,9 @@ function childPortfolioRecords(childId, records = childRecords()) {
     meals: records.meals.filter((item) => item.childId === childId),
     reports: records.reports.filter((item) => item.childId === childId),
     communications: records.communications.filter((item) => item.childId === childId),
+    naps: records.naps ? records.naps.filter((item) => item.childId === childId) : [],
+    diapers: records.diapers ? records.diapers.filter((item) => item.childId === childId) : [],
+    activityLogs: records.activityLogs ? records.activityLogs.filter((item) => item.childId === childId) : [],
   };
 }
 
@@ -9060,6 +9081,11 @@ function renderChildManagement() {
     return;
   }
 
+  if (childManagementMode === "daily-logs") {
+    app.innerHTML = renderDailyLogsCenter(records);
+    return;
+  }
+
   if (childManagementMode === "profile" && child) {
     app.innerHTML = renderSimpleChildProfile(child, records);
     return;
@@ -9539,6 +9565,444 @@ function renderChildToolsContent(child, records) {
   return renderChildSimpleRecordTab("Attendance", "Track only attendance information for this child.", isProUser() ? attendanceForm(child.id) : lockedFeatureCard("Attendance Tracking"), attendance);
 }
 
+// ─── Daily Logs Center ──────────────────────────────────────────────────────
+
+function renderDailyLogsCenter(records) {
+  const child = selectedChild(records);
+  const today = new Date().toISOString().slice(0, 10);
+  return `
+    <section class="simple-child-page daily-logs-page">
+      <div class="child-page-header">
+        <div>
+          <h2>Daily Logs Center</h2>
+          <p>Track each child's day in one place.</p>
+        </div>
+        ${dailyLogsSection !== "home" ? `<button class="ghost-button back-button" data-daily-logs-section="home" type="button">← Back</button>` : ""}
+      </div>
+      ${dailyLogsSection === "home" ? renderDailyLogsHome(records) : ""}
+      ${dailyLogsSection === "group" ? renderDailyLogsGroupUpdate(records) : ""}
+      ${dailyLogsSection === "individual" ? renderDailyLogsIndividual(child, records, today) : ""}
+      ${dailyLogsSection === "quick" ? renderDailyLogsQuickDoc(records) : ""}
+    </section>
+  `;
+}
+
+function renderDailyLogsHome(records) {
+  return `
+    <div class="dlc-home">
+      <p class="dlc-prompt">What would you like to update today?</p>
+      <div class="dlc-action-cards">
+        <button class="dlc-action-card dlc-card-group" data-daily-logs-section="group" type="button">
+          <span class="dlc-card-icon" aria-hidden="true">👥</span>
+          <strong>Group Update</strong>
+          <span>Apply meals, snacks, activities, and announcements to multiple children at once.</span>
+          <ul class="dlc-card-list">
+            <li>Meals &amp; Snacks</li>
+            <li>Activities</li>
+            <li>Group Photos</li>
+            <li>Announcements</li>
+            <li>Parent Reminders</li>
+          </ul>
+        </button>
+        <button class="dlc-action-card dlc-card-individual" data-daily-logs-section="individual" type="button">
+          <span class="dlc-card-icon" aria-hidden="true">👶</span>
+          <strong>Individual Child Update</strong>
+          <span>Log attendance, nap, meals, diaper, observations, and more for one child.</span>
+          <ul class="dlc-card-list">
+            <li>Attendance</li>
+            <li>Nap &amp; Diaper/Potty</li>
+            <li>Observation &amp; Behavior</li>
+            <li>Goal Update</li>
+            <li>Parent Message</li>
+          </ul>
+        </button>
+        <button class="dlc-action-card dlc-card-quick" data-daily-logs-section="quick" type="button">
+          <span class="dlc-card-icon" aria-hidden="true">⭐</span>
+          <strong>Quick Documentation</strong>
+          <span>Type one note and let AI create observation, parent message, daily report, and more.</span>
+          <ul class="dlc-card-list">
+            <li>Observation Note</li>
+            <li>Parent Message</li>
+            <li>Daily Report Entry</li>
+            <li>Goal Update</li>
+          </ul>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function renderDailyLogsGroupUpdate(records) {
+  const children = records.children;
+  if (!children.length) {
+    return `
+      <section class="section-block empty-state">
+        <h3>No child profiles yet.</h3>
+        <p>Add a child profile first to use Group Update.</p>
+        <button class="primary-button" data-child-view="add" type="button">Add Child</button>
+      </section>
+    `;
+  }
+  const groupActions = [
+    { id: "meals", label: "Add Lunch", emoji: "🍽️", description: "Log lunch for selected children." },
+    { id: "snacks", label: "Add Snack", emoji: "🍎", description: "Log a snack for selected children." },
+    { id: "breakfast", label: "Add Breakfast", emoji: "🥣", description: "Log breakfast for selected children." },
+    { id: "activities", label: "Add Activity", emoji: "🎨", description: "Log a group activity for selected children." },
+    { id: "announcement", label: "Add Announcement", emoji: "📢", description: "Save a parent announcement for selected children." },
+    { id: "reminder", label: "Add Reminder", emoji: "🔔", description: "Save a parent reminder for selected children." },
+  ];
+  if (!dailyLogsGroupAction) {
+    return `
+      <div class="dlc-section">
+        <h3>Group Update</h3>
+        <p class="dlc-sub">Select an action to apply to multiple children at once.</p>
+        <div class="dlc-group-actions">
+          ${groupActions.map((action) => `
+            <button class="dlc-group-action-btn" data-dlc-group-action="${action.id}" type="button">
+              <span>${action.emoji}</span>
+              <strong>${action.label}</strong>
+              <span>${action.description}</span>
+            </button>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  }
+  const action = groupActions.find((a) => a.id === dailyLogsGroupAction) || groupActions[0];
+  const today = new Date().toISOString().slice(0, 10);
+  return `
+    <div class="dlc-section">
+      <div class="dlc-section-header">
+        <h3>${action.emoji} ${action.label}</h3>
+        <button class="ghost-button" data-dlc-group-action="" type="button">← All Actions</button>
+      </div>
+      <p class="dlc-sub">${action.description} Select which children to include.</p>
+      <form id="groupUpdateForm" class="dlc-group-form" data-group-action="${action.id}">
+        <input name="date" type="hidden" value="${today}" />
+        <input name="action" type="hidden" value="${action.id}" />
+        <fieldset class="dlc-children-select">
+          <legend>Select Children</legend>
+          <div class="dlc-children-grid">
+            ${children.map((child) => `
+              <label class="dlc-child-check">
+                <input type="checkbox" name="childIds" value="${child.id}" checked />
+                <span>${escapeHtml(child.name)}</span>
+                <span class="dlc-child-age">${escapeHtml(childAgeLabel(child))}</span>
+              </label>
+            `).join("")}
+          </div>
+        </fieldset>
+        ${renderGroupActionFields(action.id, today)}
+        <button class="primary-button" type="submit">Save to Selected Children</button>
+      </form>
+    </div>
+  `;
+}
+
+function renderGroupActionFields(actionId, today) {
+  if (actionId === "meals" || actionId === "lunch") {
+    return `
+      <label class="dlc-form-label">Lunch<input name="content" type="text" placeholder="e.g. Chicken nuggets, apples, milk" required /></label>
+      <label class="dlc-form-label">Notes<input name="notes" type="text" placeholder="Optional food notes" /></label>
+    `;
+  }
+  if (actionId === "snacks") {
+    return `
+      <label class="dlc-form-label">Snack<input name="content" type="text" placeholder="e.g. Crackers and cheese" required /></label>
+      <label class="dlc-form-label">Notes<input name="notes" type="text" placeholder="Optional notes" /></label>
+    `;
+  }
+  if (actionId === "breakfast") {
+    return `
+      <label class="dlc-form-label">Breakfast<input name="content" type="text" placeholder="e.g. Oatmeal, fruit, milk" required /></label>
+      <label class="dlc-form-label">Notes<input name="notes" type="text" placeholder="Optional notes" /></label>
+    `;
+  }
+  if (actionId === "activities") {
+    return `
+      <label class="dlc-form-label">Activity<input name="content" type="text" placeholder="e.g. Painting, circle time, outdoor play" required /></label>
+      <label class="dlc-form-label">Notes<textarea name="notes" rows="2" placeholder="Learning goals or notes"></textarea></label>
+    `;
+  }
+  if (actionId === "announcement" || actionId === "reminder") {
+    return `
+      <label class="dlc-form-label">Message<textarea name="content" rows="3" placeholder="Type your announcement or reminder here…" required></textarea></label>
+    `;
+  }
+  return `<label class="dlc-form-label">Note<textarea name="content" rows="2" placeholder="Add details…"></textarea></label>`;
+}
+
+function renderDailyLogsIndividual(child, records, today) {
+  if (!child) {
+    return `
+      <section class="section-block empty-state">
+        <h3>No child profiles yet.</h3>
+        <p>Add a child profile first to log individual updates.</p>
+        <button class="primary-button" data-child-view="add" type="button">Add Child</button>
+      </section>
+    `;
+  }
+  const tabs = [
+    ["overview", "Overview"],
+    ["attendance", "Attendance"],
+    ["meals", "Meals"],
+    ["naps", "Naps"],
+    ["diapers", "Diaper/Potty"],
+    ["activities", "Activities"],
+    ["notes", "Notes"],
+    ["parent-message", "Parent Message"],
+    ["daily-report", "Daily Report"],
+  ];
+  return `
+    <div class="dlc-section">
+      <div class="dlc-individual-header">
+        <div class="dlc-child-info">
+          ${renderChildAvatar(child, "small")}
+          <div>
+            <strong>${escapeHtml(child.name)}</strong>
+            <span>${escapeHtml(childAgeLabel(child))} — ${escapeHtml(childRoomAgeLabel(child))}</span>
+          </div>
+        </div>
+        <label class="child-tools-select" style="min-width:160px">
+          <select id="dlcChildSelect">
+            ${records.children.map((c) => `<option value="${c.id}" ${c.id === child.id ? "selected" : ""}>${escapeHtml(c.name)}</option>`).join("")}
+          </select>
+        </label>
+      </div>
+      <div class="dlc-tabs" role="tablist">
+        ${tabs.map(([id, label]) => `
+          <button class="dlc-tab ${dailyLogsChildTab === id ? "active" : ""}" data-dlc-child-tab="${id}" role="tab" type="button">${label}</button>
+        `).join("")}
+      </div>
+      <div class="dlc-tab-content">
+        ${renderDailyLogsChildTabContent(child, records, today)}
+      </div>
+    </div>
+  `;
+}
+
+function renderDailyLogsChildTabContent(child, records, today) {
+  if (dailyLogsChildTab === "overview") return renderDailyLogsOverviewTab(child, records, today);
+  if (dailyLogsChildTab === "attendance") {
+    const attendance = records.attendance.filter((item) => item.childId === child.id);
+    return renderChildSimpleRecordTab("Attendance", "Daily check-in for " + escapeHtml(child.name) + ".", isProUser() ? attendanceForm(child.id) : lockedFeatureCard("Attendance Tracking"), attendance);
+  }
+  if (dailyLogsChildTab === "meals") {
+    const meals = records.meals.filter((item) => item.childId === child.id);
+    return renderChildSimpleRecordTab("Meals", "Meal tracking for " + escapeHtml(child.name) + ".", isProUser() ? mealTrackingForm(child.id) : lockedFeatureCard("Meal Tracking"), meals);
+  }
+  if (dailyLogsChildTab === "naps") {
+    const naps = records.naps.filter((item) => item.childId === child.id);
+    return renderChildSimpleRecordTab("Nap Tracking", "Log nap and rest times for " + escapeHtml(child.name) + ".", isProUser() ? napTrackingForm(child.id) : lockedFeatureCard("Nap Tracking"), naps);
+  }
+  if (dailyLogsChildTab === "diapers") {
+    const diapers = records.diapers.filter((item) => item.childId === child.id);
+    return renderChildSimpleRecordTab("Diaper / Potty", "Log diaper changes and potty attempts for " + escapeHtml(child.name) + ".", isProUser() ? diaperTrackingForm(child.id) : lockedFeatureCard("Diaper / Potty Tracking"), diapers);
+  }
+  if (dailyLogsChildTab === "activities") {
+    const activityLogs = records.activityLogs.filter((item) => item.childId === child.id);
+    return renderChildSimpleRecordTab("Activities", "Log daily activities for " + escapeHtml(child.name) + ".", isProUser() ? activityLogForm(child.id) : lockedFeatureCard("Activity Logging"), activityLogs);
+  }
+  if (dailyLogsChildTab === "notes") {
+    const behaviorNotes = records.communications.filter((item) => item.childId === child.id && item.type === "Behavior Note");
+    return renderChildSimpleRecordTab("Behavior Notes", "Save behavior and observation notes for " + escapeHtml(child.name) + ".", isProUser() ? behaviorNoteForm(child.id) : lockedFeatureCard("Behavior Notes"), behaviorNotes);
+  }
+  if (dailyLogsChildTab === "parent-message") {
+    const comms = records.communications.filter((item) => item.childId === child.id && item.type !== "Behavior Note");
+    return renderChildSimpleRecordTab("Parent Message", "Save parent notes and communication for " + escapeHtml(child.name) + ".", isProUser() ? communicationForm(child.id) : lockedFeatureCard("Parent Communication"), comms);
+  }
+  if (dailyLogsChildTab === "daily-report") {
+    const reports = records.reports.filter((item) => item.childId === child.id);
+    return renderChildSimpleRecordTab("Daily Report", "Generate a parent-ready daily report for " + escapeHtml(child.name) + ".", isProUser() ? `
+      <div class="dlc-report-actions">
+        <button class="primary-button" data-build-daily-report="${child.id}" type="button">Generate Daily Report</button>
+        <p class="dlc-sub">Automatically pulls today's attendance, meals, nap, activities, and notes into a professional report.</p>
+      </div>` : lockedFeatureCard("Daily Reports"), reports);
+  }
+  return "";
+}
+
+function renderDailyLogsOverviewTab(child, records, today) {
+  const attendance = records.attendance.filter((item) => item.childId === child.id && item.date === today).slice(-1)[0];
+  const meal = records.meals.filter((item) => item.childId === child.id && item.date === today).slice(-1)[0];
+  const nap = records.naps.filter((item) => item.childId === child.id && item.date === today).slice(-1)[0];
+  const diaper = records.diapers.filter((item) => item.childId === child.id && item.date === today).slice(-1)[0];
+  const activities = records.activityLogs.filter((item) => item.childId === child.id && item.date === today);
+  const notes = records.communications.filter((item) => item.childId === child.id && item.date === today && item.type === "Behavior Note");
+  const messages = records.communications.filter((item) => item.childId === child.id && item.date === today && item.type !== "Behavior Note");
+  const reports = records.reports.filter((item) => item.childId === child.id && item.date === today);
+  const summaryItems = [
+    { label: "Attendance", value: attendance ? `${attendance.status}` : null, tab: "attendance", icon: "📋" },
+    { label: "Meals", value: meal ? `B: ${meal.breakfast || "—"} | L: ${meal.lunch || "—"} | S: ${meal.snack || "—"}` : null, tab: "meals", icon: "🍽️" },
+    { label: "Nap", value: nap ? `${nap.napStart || ""}${nap.napEnd ? " – " + nap.napEnd : ""}`.trim() || "Logged" : null, tab: "naps", icon: "😴" },
+    { label: "Diaper/Potty", value: diaper ? `${diaper.type || "Logged"}` : null, tab: "diapers", icon: "🚿" },
+    { label: "Activities", value: activities.length ? `${activities.length} logged` : null, tab: "activities", icon: "🎨" },
+    { label: "Notes", value: notes.length ? `${notes.length} note${notes.length > 1 ? "s" : ""}` : null, tab: "notes", icon: "📝" },
+    { label: "Parent Message", value: messages.length ? `${messages.length} message${messages.length > 1 ? "s" : ""}` : null, tab: "parent-message", icon: "💬" },
+    { label: "Daily Report", value: reports.length ? "Generated" : null, tab: "daily-report", icon: "📄" },
+  ];
+  const dateLabel = new Date(`${today}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  return `
+    <div class="dlc-overview">
+      <p class="dlc-overview-date">${dateLabel}</p>
+      <div class="dlc-overview-grid">
+        ${summaryItems.map(({ label, value, tab, icon }) => `
+          <button class="dlc-overview-card ${value ? "dlc-overview-card--filled" : ""}" data-dlc-child-tab="${tab}" type="button">
+            <span class="dlc-overview-icon">${icon}</span>
+            <strong>${label}</strong>
+            <span>${value || "Not logged yet"}</span>
+          </button>
+        `).join("")}
+      </div>
+      <div class="dlc-quick-actions">
+        <strong>Quick Add</strong>
+        <div class="dlc-quick-btns">
+          <button class="ghost-button" data-dlc-child-tab="meals" type="button">+ Meal</button>
+          <button class="ghost-button" data-dlc-child-tab="naps" type="button">+ Nap</button>
+          <button class="ghost-button" data-dlc-child-tab="activities" type="button">+ Activity</button>
+          <button class="ghost-button" data-dlc-child-tab="notes" type="button">+ Note</button>
+          <button class="ghost-button" data-dlc-child-tab="daily-report" type="button">Generate Report</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderDailyLogsQuickDoc(records) {
+  const today = new Date().toISOString().slice(0, 10);
+  return `
+    <div class="dlc-section dlc-quick-doc-section">
+      <h3>⭐ Quick Documentation</h3>
+      <p class="dlc-sub">Type one note and let AI create documentation for you.</p>
+      <div class="dlc-quick-doc section-block">
+        <label class="dlc-form-label">
+          <strong>What happened today?</strong>
+          <textarea id="quickDocNote" rows="4" placeholder="e.g. Waylon matched animal sounds during circle time and participated well in group activities."></textarea>
+        </label>
+        <label class="dlc-form-label">
+          Select Child
+          <select id="quickDocChild">
+            <option value="">— Select a child —</option>
+            ${records.children.map((child) => `<option value="${child.id}">${escapeHtml(child.name)}</option>`).join("")}
+          </select>
+        </label>
+        <fieldset class="dlc-quick-doc-types">
+          <legend><strong>Create:</strong></legend>
+          <label class="dlc-check-label"><input type="checkbox" name="quickDocType" value="observation" checked /> ☑ Observation</label>
+          <label class="dlc-check-label"><input type="checkbox" name="quickDocType" value="parent-message" checked /> ☑ Parent Message</label>
+          <label class="dlc-check-label"><input type="checkbox" name="quickDocType" value="goal-update" /> ☑ Goal Update</label>
+          <label class="dlc-check-label"><input type="checkbox" name="quickDocType" value="daily-report" /> ☑ Daily Report Entry</label>
+          <label class="dlc-check-label"><input type="checkbox" name="quickDocType" value="behavior-note" /> ☑ Behavior Note</label>
+          <label class="dlc-check-label"><input type="checkbox" name="quickDocType" value="activity" /> ☑ Activity Suggestion</label>
+        </fieldset>
+        <button class="primary-button" id="quickDocGenerate" type="button">Generate Selected</button>
+      </div>
+      <div id="quickDocOutput" class="dlc-quick-doc-output" style="display:none;"></div>
+    </div>
+  `;
+}
+
+// ─── Daily Logs Form Functions ──────────────────────────────────────────────
+
+function napTrackingForm(childId) {
+  return `
+    <form id="napTrackingForm" class="mini-form">
+      <input name="childId" type="hidden" value="${childId}" />
+      <label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
+      <label>Nap Start<input name="napStart" type="time" /></label>
+      <label>Nap End<input name="napEnd" type="time" /></label>
+      <label>Duration<input name="duration" placeholder="e.g. 1 hour 15 min" /></label>
+      <label>Notes<textarea name="notes" rows="2" placeholder="Slept well, restless, skipped nap, etc."></textarea></label>
+      <button class="primary-button" type="submit">Save Nap</button>
+    </form>
+  `;
+}
+
+function diaperTrackingForm(childId) {
+  return `
+    <form id="diaperTrackingForm" class="mini-form">
+      <input name="childId" type="hidden" value="${childId}" />
+      <label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
+      <label>Time<input name="time" type="time" /></label>
+      <label>Type<select name="type"><option>Wet</option><option>Dirty</option><option>Both</option><option>Dry</option><option>Potty - Success</option><option>Potty - Attempt</option></select></label>
+      <label>Notes<textarea name="notes" rows="2" placeholder="Any notes about diaper change or potty time"></textarea></label>
+      <button class="primary-button" type="submit">Save Entry</button>
+    </form>
+  `;
+}
+
+function activityLogForm(childId) {
+  return `
+    <form id="activityLogForm" class="mini-form">
+      <input name="childId" type="hidden" value="${childId}" />
+      <label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
+      <label>Activity<input name="activity" placeholder="e.g. Sensory play, circle time, outdoor play" required /></label>
+      <label>Developmental Area<select name="area">
+        <option>Approaches to Learning</option>
+        <option>Social Emotional</option>
+        <option>Language &amp; Literacy</option>
+        <option>Cognitive</option>
+        <option>Fine Motor</option>
+        <option>Gross Motor</option>
+        <option>Creative Arts</option>
+      </select></label>
+      <label>Notes<textarea name="notes" rows="2" placeholder="How the child participated, what was observed"></textarea></label>
+      <button class="primary-button" type="submit">Save Activity</button>
+    </form>
+  `;
+}
+
+function behaviorNoteForm(childId) {
+  return `
+    <form id="behaviorNoteForm" class="mini-form">
+      <input name="childId" type="hidden" value="${childId}" />
+      <label>Date<input name="date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
+      <label>Context<input name="context" placeholder="e.g. During lunch, at circle time" /></label>
+      <label>Note<textarea name="message" rows="3" placeholder="Describe the behavior or observation…" required></textarea></label>
+      <label>Follow-up Needed<select name="followUp"><option>No</option><option>Yes - Notify Parent</option><option>Yes - Monitor</option><option>Yes - Incident Report</option></select></label>
+      <button class="primary-button" type="submit">Save Note</button>
+    </form>
+  `;
+}
+
+// ─── Quick Documentation AI ─────────────────────────────────────────────────
+
+function generateQuickDocumentation(note, child, records, types) {
+  const childName = child ? child.name : "The child";
+  const ageGroup = child ? (childAgeGroupLabel(child) || child.ageGroup || "Preschool") : "Preschool";
+  const goals = child ? records.goals.filter((g) => g.childId === child.id && goalProgressPercent(g.progress) < 100).map((g) => g.area || g.goal).slice(0, 3).join(", ") : "";
+  const programSettings = getProgramSettings();
+  const programName = programSettings.programName || "";
+  const today = new Date().toISOString().slice(0, 10);
+  const parts = [];
+  if (types.includes("observation")) {
+    parts.push(generateObservation({ note, age: ageGroup, childName, programName }));
+  }
+  if (types.includes("parent-message")) {
+    parts.push(generateParentMessage({ topic: "Daily Update", details: note, childName, age: ageGroup, programName, tone: programSettings.communicationTone || "Warm and friendly" }));
+  }
+  if (types.includes("goal-update")) {
+    const goalContext = goals ? `Active goals: ${goals}. ` : "";
+    parts.push(`Goal Update\n\nChild: ${childName}\nAge Group: ${ageGroup}\nDate: ${today}\n\n${goalContext}${note}\n\nSuggested next step: Continue offering similar experiences and document progress over the coming week.`);
+  }
+  if (types.includes("daily-report")) {
+    parts.push(generateDailyReport({ childName, age: ageGroup, highlights: note, programName, date: today, tone: programSettings.communicationTone || "Warm and friendly" }));
+  }
+  if (types.includes("behavior-note")) {
+    parts.push(`Behavior Note\n\nChild: ${childName}\nAge Group: ${ageGroup}\nDate: ${today}\n\nObservation\n${note}\n\nContext\nThis note was recorded during the child's regular daily routine.\n\nFollow-up\nMonitor for similar patterns. Share with family at pickup or via daily report as appropriate.`);
+  }
+  if (types.includes("activity")) {
+    parts.push(generateActivity({ age: ageGroup, childName, theme: "Daily Routine", skill: "all areas of development", note }));
+  }
+  return parts.join("\n\n" + "─".repeat(60) + "\n\n");
+}
+
+function childAgeGroupLabel(child) {
+  if (!child) return "Preschool";
+  if (child.dob) return ageGroupFromDob(child.dob);
+  return child.ageGroup || "Preschool";
+}
+
 function renderChildPlanningConnections(child, records, observations, goals) {
   const activeGoals = goals.filter((goal) => goalProgressPercent(goal.progress) < 100);
   const areas = childSupportAreas(child.id, records);
@@ -9907,9 +10371,24 @@ function buildDailyReportFromChild(childId) {
   const attendance = records.attendance.filter((item) => item.childId === childId && item.date === today).slice(-1)[0];
   const meal = records.meals.filter((item) => item.childId === childId && item.date === today).slice(-1)[0];
   const observation = records.observations.filter((item) => item.childId === childId && item.date === today).slice(-1)[0];
+  const nap = records.naps.filter((item) => item.childId === childId && item.date === today).slice(-1)[0];
+  const diaperEntries = records.diapers.filter((item) => item.childId === childId && item.date === today);
+  const activityEntries = records.activityLogs.filter((item) => item.childId === childId && item.date === today);
+  const ageGroup = childAgeGroupLabel(child);
+  const napSection = nap
+    ? `Nap: ${nap.napStart || ""}${nap.napEnd ? "–" + nap.napEnd : ""} ${nap.duration ? "(" + nap.duration + ")" : ""}${nap.notes ? ". " + nap.notes : ""}`.trim()
+    : "Nap/rest was not entered yet.";
+  const diaperSection = diaperEntries.length
+    ? diaperEntries.map((d) => `${d.time ? d.time + ": " : ""}${d.type}${d.notes ? " — " + d.notes : ""}`).join("\n")
+    : null;
+  const activitiesSection = activityEntries.length
+    ? activityEntries.map((a) => `${a.activity}${a.area ? " (" + a.area + ")" : ""}${a.notes ? " — " + a.notes : ""}`).join("\n")
+    : null;
+  const isDiaperAge = ageGroup === "Infant" || ageGroup === "Toddler" || ageGroup === "Young Toddler" || ageGroup === "Older Toddler";
   const report = `Daily Report for ${child.name}
 
 Date: ${today}
+Age Group: ${ageGroup}
 
 Attendance
 ${attendance ? `${attendance.status}. Drop-off: ${attendance.dropoff || "not entered"}. Pick-up: ${attendance.pickup || "not entered"}.` : "Attendance was not entered yet."}
@@ -9917,8 +10396,11 @@ ${attendance ? `${attendance.status}. Drop-off: ${attendance.dropoff || "not ent
 Meals
 ${meal ? `Breakfast: ${meal.breakfast || "not entered"}\nLunch: ${meal.lunch || "not entered"}\nSnack: ${meal.snack || "not entered"}\nFood Notes: ${meal.notes || "none"}\nAllergy Notes: ${meal.allergyNotes || child.allergies || "none"}` : "Meal tracking was not entered yet."}
 
+Nap / Rest
+${napSection}
+${isDiaperAge && diaperSection ? "\nDiaper / Potty\n" + diaperSection : ""}
 Activities and Learning
-${observation ? `${observation.text}\nDevelopmental Area: ${observation.area}\nNext Steps: ${observation.nextSteps || "Continue supporting this skill through play."}` : "Add an observation or activity note to personalize this section."}
+${activitiesSection ? activitiesSection + "\n" : ""}${observation ? `${observation.text}\nDevelopmental Area: ${observation.area}\nNext Steps: ${observation.nextSteps || "Continue supporting this skill through play."}` : "Add an observation or activity note to personalize this section."}
 
 Provider Note
 ${child.name} participated in daily routines and learning experiences. Please let me know if there is anything you would like me to watch for tomorrow.`;
@@ -13925,7 +14407,15 @@ document.addEventListener("click", (event) => {
       supportCenterSearch = "";
     }
     const requestedChildToolTab = childToolTabFromView(viewButton.dataset.view);
-    if (requestedChildToolTab) {
+    if (requestedChildToolTab === "daily-logs") {
+      childManagementMode = "daily-logs";
+      dailyLogsSection = "home";
+      dailyLogsChildTab = "overview";
+      dailyLogsGroupAction = "";
+      activeChildObservationEditId = "";
+      activeObservationChildLock = "";
+      activePortfolioChildId = "";
+    } else if (requestedChildToolTab) {
       childManagementMode = "tools";
       childToolsTab = requestedChildToolTab;
       activeChildObservationEditId = "";
@@ -14073,6 +14563,70 @@ document.addEventListener("click", (event) => {
     childManagementMode = "tools";
     activeObservationChildLock = "";
     setView(childToolViewForTab(childToolsTab));
+    return;
+  }
+
+  // ─── Daily Logs Center handlers ───────────────────────────────────────────
+
+  const dailyLogsSectionBtn = event.target.closest("[data-daily-logs-section]");
+  if (dailyLogsSectionBtn) {
+    event.preventDefault();
+    dailyLogsSection = dailyLogsSectionBtn.dataset.dailyLogsSection || "home";
+    dailyLogsGroupAction = "";
+    if (dailyLogsSection === "individual") dailyLogsChildTab = "overview";
+    childManagementMode = "daily-logs";
+    renderChildManagement();
+    return;
+  }
+
+  const dlcChildTabBtn = event.target.closest("[data-dlc-child-tab]");
+  if (dlcChildTabBtn) {
+    event.preventDefault();
+    dailyLogsChildTab = dlcChildTabBtn.dataset.dlcChildTab || "overview";
+    dailyLogsSection = "individual";
+    childManagementMode = "daily-logs";
+    renderChildManagement();
+    return;
+  }
+
+  const dlcGroupActionBtn = event.target.closest("[data-dlc-group-action]");
+  if (dlcGroupActionBtn) {
+    event.preventDefault();
+    dailyLogsGroupAction = dlcGroupActionBtn.dataset.dlcGroupAction || "";
+    childManagementMode = "daily-logs";
+    renderChildManagement();
+    return;
+  }
+
+  const quickDocGenerateBtn = event.target.closest("#quickDocGenerate");
+  if (quickDocGenerateBtn) {
+    event.preventDefault();
+    if (!canUseAi()) {
+      showProFeatureModal(aiLimitMessage(), "limit");
+      return;
+    }
+    const note = document.querySelector("#quickDocNote")?.value?.trim() || "";
+    if (!note) {
+      alert("Please type a note first.");
+      return;
+    }
+    const childId = document.querySelector("#quickDocChild")?.value || "";
+    const records = childRecords();
+    const child = records.children.find((c) => c.id === childId) || null;
+    const types = Array.from(document.querySelectorAll("[name='quickDocType']:checked")).map((cb) => cb.value);
+    if (!types.length) {
+      alert("Please select at least one documentation type.");
+      return;
+    }
+    const output = generateQuickDocumentation(note, child, records, types);
+    recordAiUse();
+    const outputEl = document.querySelector("#quickDocOutput");
+    if (outputEl) {
+      outputEl.style.display = "";
+      outputEl.innerHTML = `<div class="section-block"><h4>Generated Documentation</h4><pre class="dlc-doc-output">${escapeHtml(output)}</pre><button class="ghost-button" data-copy-text="${escapeHtml(output)}" type="button">Copy All</button></div>`;
+    }
+    quickDocGenerateBtn.textContent = "Generated!";
+    setTimeout(() => { quickDocGenerateBtn.textContent = "Generate Selected"; }, 1600);
     return;
   }
 
@@ -14457,6 +15011,16 @@ document.addEventListener("click", (event) => {
     }, 1200);
   }
 
+  const copyTextButton = event.target.closest("[data-copy-text]");
+  if (copyTextButton) {
+    event.preventDefault();
+    const text = copyTextButton.dataset.copyText || "";
+    navigator.clipboard?.writeText(text);
+    copyTextButton.textContent = "Copied!";
+    setTimeout(() => { copyTextButton.textContent = "Copy All"; }, 1400);
+    return;
+  }
+
   const downloadFutureButton = event.target.closest("#downloadFutureOutputButton");
   if (downloadFutureButton) {
     const title = document.querySelector("#futureOutputTitle")?.textContent.trim() || "Provider Tool";
@@ -14681,6 +15245,12 @@ document.addEventListener("change", (event) => {
     selectedChildId = event.target.value;
     localStorage.setItem("llhSelectedChild", selectedChildId);
     childManagementMode = "tools";
+    renderChildManagement();
+  }
+  if (event.target.matches("#dlcChildSelect")) {
+    selectedChildId = event.target.value;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+    childManagementMode = "daily-logs";
     renderChildManagement();
   }
   if (event.target.matches("#supportCenterChildSelect")) {
@@ -15570,6 +16140,85 @@ document.addEventListener("submit", (event) => {
   }
   const data = collectFormData(event.target);
   appendChildRecord("Communications", { ...data, title: `${data.type} | ${data.date}`, summary: data.message });
+});
+
+// ─── Daily Logs Center Form Handlers ───────────────────────────────────────
+
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("#napTrackingForm")) return;
+  event.preventDefault();
+  if (!isProUser()) {
+    showProFeatureModal("Nap tracking is a Pro feature.");
+    return;
+  }
+  const data = collectFormData(event.target);
+  const dur = data.napStart && data.napEnd ? ` | ${data.napStart}–${data.napEnd}` : "";
+  appendChildRecord("Naps", { ...data, title: `Nap | ${data.date}${dur}`, summary: data.notes || `Nap logged${dur}` });
+});
+
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("#diaperTrackingForm")) return;
+  event.preventDefault();
+  if (!isProUser()) {
+    showProFeatureModal("Diaper/Potty tracking is a Pro feature.");
+    return;
+  }
+  const data = collectFormData(event.target);
+  const timeStr = data.time ? ` at ${data.time}` : "";
+  appendChildRecord("Diapers", { ...data, title: `${data.type} | ${data.date}${timeStr}`, summary: data.notes || data.type });
+});
+
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("#activityLogForm")) return;
+  event.preventDefault();
+  if (!isProUser()) {
+    showProFeatureModal("Activity logging is a Pro feature.");
+    return;
+  }
+  const data = collectFormData(event.target);
+  appendChildRecord("ActivityLogs", { ...data, title: data.activity || "Activity", summary: `${data.area || ""}${data.notes ? " | " + data.notes : ""}`.replace(/^\|/, "").trim() || data.activity });
+});
+
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("#behaviorNoteForm")) return;
+  event.preventDefault();
+  if (!isProUser()) {
+    showProFeatureModal("Behavior notes are a Pro feature.");
+    return;
+  }
+  const data = collectFormData(event.target);
+  appendChildRecord("Communications", { ...data, type: "Behavior Note", title: `Behavior Note | ${data.date}`, summary: data.message });
+});
+
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("#groupUpdateForm")) return;
+  event.preventDefault();
+  if (!isProUser()) {
+    showProFeatureModal("Group Update is a Pro feature.");
+    return;
+  }
+  const form = event.target;
+  const data = collectFormData(form);
+  const actionId = data.action || "";
+  const formData = new FormData(form);
+  const childIds = formData.getAll("childIds");
+  if (!childIds.length) return;
+  childIds.forEach((childId) => {
+    const today = data.date || new Date().toISOString().slice(0, 10);
+    if (actionId === "meals" || actionId === "lunch") {
+      appendChildRecord("Meals", { childId, date: today, lunch: data.content, notes: data.notes || "", title: `Meals | ${today}`, summary: `Lunch: ${data.content}` });
+    } else if (actionId === "snacks") {
+      appendChildRecord("Meals", { childId, date: today, snack: data.content, notes: data.notes || "", title: `Meals | ${today}`, summary: `Snack: ${data.content}` });
+    } else if (actionId === "breakfast") {
+      appendChildRecord("Meals", { childId, date: today, breakfast: data.content, notes: data.notes || "", title: `Meals | ${today}`, summary: `Breakfast: ${data.content}` });
+    } else if (actionId === "activities") {
+      appendChildRecord("ActivityLogs", { childId, date: today, activity: data.content, notes: data.notes || "", title: data.content, summary: data.notes || data.content });
+    } else {
+      appendChildRecord("Communications", { childId, date: today, type: actionId === "reminder" ? "Parent Reminder" : "Announcement", message: data.content, title: `${actionId === "reminder" ? "Reminder" : "Announcement"} | ${today}`, summary: data.content });
+    }
+  });
+  dailyLogsGroupAction = "";
+  renderChildManagement();
 });
 
 installMobileNavigation();
