@@ -2018,7 +2018,16 @@ function serveStatic(request, response, url) {
         response.end();
         return;
       }
-      fs.createReadStream(indexPath).pipe(response);
+      const stream = fs.createReadStream(indexPath);
+      stream.on("error", (error) => {
+        console.error(error);
+        if (!response.headersSent) {
+          textResponse(response, 500, "Server error.");
+          return;
+        }
+        response.destroy(error);
+      });
+      stream.pipe(response);
       return;
     }
     request.method === "HEAD" ? headResponse(response, 404) : textResponse(response, 404, "Not found");
@@ -2045,7 +2054,16 @@ function serveStatic(request, response, url) {
     response.end(clientAppScript(filePath));
     return;
   }
-  fs.createReadStream(filePath).pipe(response);
+  const stream = fs.createReadStream(filePath);
+  stream.on("error", (error) => {
+    console.error(error);
+    if (!response.headersSent) {
+      textResponse(response, 500, "Server error.");
+      return;
+    }
+    response.destroy(error);
+  });
+  stream.pipe(response);
 }
 
 const server = http.createServer(async (request, response) => {
