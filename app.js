@@ -337,6 +337,7 @@ const observationCategories = [
 const developmentalAreas = observationCategories;
 const weeklyObservationsPerChild = 3;
 const childDataKeys = ["Profiles", "Observations", "SupportPlans", "Goals", "Differentiations", "Attendance", "Meals", "Reports", "Communications", "Naps", "Diapers", "ActivityLogs"];
+const diaperAgeGroups = new Set(["Infant", "Toddler", "Young Toddler", "Older Toddler"]);
 const plannerDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 let selectedChildId = localStorage.getItem("llhSelectedChild") || "";
 let childObservationSearch = "";
@@ -9833,7 +9834,7 @@ function renderDailyLogsOverviewTab(child, records, today) {
   const reports = records.reports.filter((item) => item.childId === child.id && item.date === today);
   const summaryItems = [
     { label: "Attendance", value: attendance ? `${attendance.status}` : null, tab: "attendance", icon: "📋" },
-    { label: "Meals", value: meal ? `B: ${meal.breakfast || "—"} | L: ${meal.lunch || "—"} | S: ${meal.snack || "—"}` : null, tab: "meals", icon: "🍽️" },
+    { label: "Meals", value: meal ? `Breakfast: ${meal.breakfast || "—"} | Lunch: ${meal.lunch || "—"} | Snack: ${meal.snack || "—"}` : null, tab: "meals", icon: "🍽️" },
     { label: "Nap", value: nap ? `${nap.napStart || ""}${nap.napEnd ? " – " + nap.napEnd : ""}`.trim() || "Logged" : null, tab: "naps", icon: "😴" },
     { label: "Diaper/Potty", value: diaper ? `${diaper.type || "Logged"}` : null, tab: "diapers", icon: "🚿" },
     { label: "Activities", value: activities.length ? `${activities.length} logged` : null, tab: "activities", icon: "🎨" },
@@ -10384,7 +10385,7 @@ function buildDailyReportFromChild(childId) {
   const activitiesSection = activityEntries.length
     ? activityEntries.map((a) => `${a.activity}${a.area ? " (" + a.area + ")" : ""}${a.notes ? " — " + a.notes : ""}`).join("\n")
     : null;
-  const isDiaperAge = ageGroup === "Infant" || ageGroup === "Toddler" || ageGroup === "Young Toddler" || ageGroup === "Older Toddler";
+  const isDiaperAge = diaperAgeGroups.has(ageGroup);
   const report = `Daily Report for ${child.name}
 
 Date: ${today}
@@ -16176,7 +16177,9 @@ document.addEventListener("submit", (event) => {
     return;
   }
   const data = collectFormData(event.target);
-  appendChildRecord("ActivityLogs", { ...data, title: data.activity || "Activity", summary: `${data.area || ""}${data.notes ? " | " + data.notes : ""}`.replace(/^\|/, "").trim() || data.activity });
+  const activitySummaryParts = [data.area, data.notes].filter(Boolean);
+  const activitySummary = activitySummaryParts.join(" | ") || data.activity || "Activity";
+  appendChildRecord("ActivityLogs", { ...data, title: data.activity || "Activity", summary: activitySummary });
 });
 
 document.addEventListener("submit", (event) => {
