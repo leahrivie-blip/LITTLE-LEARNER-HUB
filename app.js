@@ -1898,7 +1898,7 @@ function normalizeBillingPlan(plan = currentPlan, account = null) {
 }
 
 function accountHasPaidBilling(account = currentAccount()) {
-  if (!account) return accessRank[normalizeBillingPlan(currentPlan)] >= accessRank.Pro;
+  if (!account) return false;
   const plan = normalizeBillingPlan(account.plan || currentPlan, account);
   if (plan === "Free") return false;
   const status = String(account.subscriptionStatus || "");
@@ -10191,9 +10191,11 @@ function effectiveAccessPlan() {
   if (hasAdminFullAccess()) return "Founding";
   if (currentUser) {
     const account = currentAccount();
-    return accountHasPaidBilling(account) ? normalizeBillingPlan(account?.plan || currentPlan, account) : "Free";
+    const resolved = accountHasPaidBilling(account) ? normalizeBillingPlan(account?.plan || currentPlan, account) : "Free";
+    console.debug(`[access] effectiveAccessPlan email=${currentUser} plan=${account?.plan || "none"} status="${account?.subscriptionStatus || "none"}" resolved=${resolved}`);
+    return resolved;
   }
-  return normalizeBillingPlan(currentPlan);
+  return "Free";
 }
 
 function adminSession() {

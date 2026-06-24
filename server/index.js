@@ -925,6 +925,11 @@ function storedSubscriptionActive(subscription) {
   );
 }
 
+function resolvedPlanForUser(user) {
+  if (!user || !storedSubscriptionActive(user)) return "Free";
+  return ["Pro", "Founding"].includes(user.plan) ? user.plan : "Pro";
+}
+
 function upsertStripeSubscription(email, customerId, subscription) {
   const cleanEmail = normalizeEmail(email);
   const store = readStore();
@@ -1130,7 +1135,10 @@ async function handleStripeWebhook(request, response) {
 async function handleAiGenerate(request, response) {
   const body = await readJson(request);
   const email = normalizeEmail(body.email || "guest");
-  const plan = body.plan || "Free";
+  const store = readStore();
+  const user = store.users?.[email] || null;
+  const plan = resolvedPlanForUser(user);
+  console.log(`[access] ai-generate email=${email} storedPlan=${user?.plan || "none"} resolvedPlan=${plan} status=${user?.subscriptionStatus || "none"}`);
   const usage = canUseServerAi(email, plan);
   if (!usage.allowed) {
     jsonResponse(response, 429, { error: `AI limit reached. ${usage.used} of ${usage.limit} generations used this month.`, used: usage.used, limit: usage.limit });
