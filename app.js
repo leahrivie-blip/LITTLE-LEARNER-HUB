@@ -339,6 +339,33 @@ const weeklyObservationsPerChild = 3;
 const childDataKeys = ["Profiles", "Observations", "SupportPlans", "Goals", "Differentiations", "Attendance", "Meals", "Reports", "Communications", "Naps", "Diapers", "ActivityLogs"];
 const diaperAgeGroups = new Set(["Infant", "Toddler", "Young Toddler", "Older Toddler"]);
 const plannerDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+const docHelperToolMap = {
+  "observation": "observation",
+  "daily-log": "daily",
+  "parent-message": "parentMessage",
+  "lesson-plan": "lesson",
+  "behavior-note": "behavior",
+  "incident-report": "incident",
+  "activity-idea": "activity",
+};
+const docTypeLabels = {
+  "observation": "Observation",
+  "daily-log": "Daily Log",
+  "parent-message": "Parent Message",
+  "lesson-plan": "Lesson Plan",
+  "behavior-note": "Behavior Note",
+  "incident-report": "Incident Report",
+  "activity-idea": "Activity Idea",
+};
+const docHelperSaveConfig = {
+  "observation": { key: "Observations", view: "resource-observations" },
+  "daily-log": { key: "Reports", view: "child-tools-daily-logs" },
+  "parent-message": { key: "Communications", view: "documentation-parent-messages" },
+  "lesson-plan": { key: null, view: "lessons" },
+  "behavior-note": { key: "Reports", view: "documentation-behavior-reports" },
+  "incident-report": { key: "Reports", view: "documentation-incident-reports" },
+  "activity-idea": { key: "ActivityLogs", view: "activities" },
+};
 let selectedChildId = localStorage.getItem("llhSelectedChild") || "";
 let childObservationSearch = "";
 let childObservationAreaFilter = "All";
@@ -6497,11 +6524,13 @@ ${plannerDays.map((day) => {
 }
 
 function renderAiPage() {
-  renderQuickPrompts();
-  renderChatWindow();
   renderAiUsagePanel();
-  renderAiToolGrid();
-  renderSavedPreferences();
+  const childSelect = document.querySelector("#docHelperChild");
+  if (childSelect) {
+    const records = childRecords();
+    childSelect.innerHTML = `<option value="">All Children</option>` +
+      records.children.map((child) => `<option value="${escapeHtml(child.id)}">${escapeHtml(child.name)}</option>`).join("");
+  }
 }
 
 function renderAiUsagePanel() {
@@ -6539,7 +6568,7 @@ function renderChatWindow() {
   if (!savedMessages.length) {
     chat.innerHTML = `
       <div class="chat-message assistant">
-        <strong>Ask Leah AI</strong>
+        <strong>Documentation Helper</strong>
         <p>Hi! Ask me for lesson plans, observations, newsletters, parent notes, menus, activities, daily reports, or handbook wording.</p>
       </div>
     `;
@@ -6547,7 +6576,7 @@ function renderChatWindow() {
   }
   chat.innerHTML = savedMessages.map((message) => `
     <div class="chat-message ${message.role}">
-      <strong>${message.role === "user" ? "You" : "Ask Leah AI"}</strong>
+      <strong>${message.role === "user" ? "You" : "Documentation Helper"}</strong>
       <p>${lineBreaks(message.text)}</p>
     </div>
   `).join("");
@@ -14749,7 +14778,7 @@ function renderPreviewLibrary() {
         <h3>Observation Generator sample output</h3>
         <p>Professional Observation: During play, the child demonstrated growing confidence while sorting colors, naming objects, and participating in a simple group routine. This supports language, cognitive development, and social-emotional growth.</p>
       </div>
-      <button class="primary-button" data-view="ai" type="button">Try AI Tools</button>
+      <button class="primary-button" data-view="ai" type="button">Documentation Helper</button>
     </section>
     <div class="preview-grid">
       ${samples.map(previewCard).join("")}
@@ -17046,6 +17075,70 @@ document.addEventListener("click", (event) => {
   if (completeTicketButton) {
     updateTicket(completeTicketButton.dataset.completeTicket, { status: "Complete" });
   }
+
+  const docHelperEditBtn = event.target.closest("#docHelperEditBtn");
+  if (docHelperEditBtn) {
+    const outputEl = document.querySelector("#docHelperOutput");
+    if (!outputEl) return;
+    const isEditing = outputEl.contentEditable === "true";
+    outputEl.contentEditable = isEditing ? "false" : "true";
+    docHelperEditBtn.textContent = isEditing ? "Edit" : "Done Editing";
+    if (!isEditing) outputEl.focus();
+    return;
+  }
+
+  const docHelperCopyBtn = event.target.closest("#docHelperCopyBtn");
+  if (docHelperCopyBtn) {
+    const outputEl = document.querySelector("#docHelperOutput");
+    if (!outputEl) return;
+    const text = outputEl.textContent || "";
+    const finish = () => {
+      docHelperCopyBtn.textContent = "Copied!";
+      setTimeout(() => { docHelperCopyBtn.textContent = "Copy"; }, 2000);
+    };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(finish).catch(() => {
+        document.execCommand?.("copy");
+        finish();
+      });
+    } else {
+      finish();
+    }
+    return;
+  }
+
+  const docHelperSaveBtn = event.target.closest("#docHelperSaveBtn");
+  if (docHelperSaveBtn) {
+    const docType = docHelperSaveBtn.dataset.docType || "observation";
+    const childId = docHelperSaveBtn.dataset.childId || "";
+    const outputEl = document.querySelector("#docHelperOutput");
+    const text = outputEl?.textContent?.trim() || "";
+    if (!text || text === "Generating...") return;
+    const today = new Date().toISOString().slice(0, 10);
+    const config = docHelperSaveConfig[docType] || { key: "Reports", view: "children" };
+    const title = `${docTypeLabels[docType] || "Documentation"} | ${today}`;
+    if (config.key) {
+      appendChildRecord(config.key, {
+        childId: childId || undefined,
+        title,
+        date: today,
+        summary: text.slice(0, 200),
+        message: text,
+        type: docTypeLabels[docType] || "Documentation",
+      });
+      if (childId) {
+        selectedChildId = childId;
+        localStorage.setItem("llhSelectedChild", selectedChildId);
+      }
+    } else {
+      const result = { id: `ai-${Date.now()}`, title, toolId: "lesson", text, date: new Date().toLocaleDateString() };
+      saveGeneratedOutputs([result, ...generatedOutputs()]);
+    }
+    docHelperSaveBtn.textContent = "Saved!";
+    setTimeout(() => { docHelperSaveBtn.textContent = "Save"; }, 2000);
+    setView(config.view);
+    return;
+  }
 });
 
 document.addEventListener("keydown", (event) => {
@@ -17793,6 +17886,85 @@ document.querySelector("#aiChatForm")?.addEventListener("submit", async (event) 
     addAiMessage("assistant", fallback);
     recordAiUse();
     trackEvent("ai_generation_success", { tool: "chat", promptLength: prompt.length, plan: currentPlan, backendUsed: false });
+  }
+});
+
+document.addEventListener("submit", async (event) => {
+  if (!event.target.matches("#docHelperForm")) return;
+  event.preventDefault();
+  const form = event.target;
+  const childId = form.querySelector("#docHelperChild")?.value || "";
+  const docType = form.querySelector("#docHelperType")?.value || "observation";
+  const note = form.querySelector("#docHelperNote")?.value.trim() || "";
+  if (!note) return;
+
+  const resultsEl = document.querySelector("#docHelperResults");
+  const outputEl = document.querySelector("#docHelperOutput");
+  const titleEl = document.querySelector("#docHelperResultTitle");
+  const labelEl = document.querySelector("#docHelperResultLabel");
+  const saveBtn = document.querySelector("#docHelperSaveBtn");
+
+  if (!outputEl || !resultsEl) return;
+
+  if (!canUseAi()) {
+    resultsEl.hidden = false;
+    outputEl.textContent = aiLimitMessage();
+    if (titleEl) titleEl.textContent = "Limit Reached";
+    if (labelEl) labelEl.textContent = "Notice";
+    return;
+  }
+
+  const records = childRecords();
+  const child = records.children.find((c) => c.id === childId) || null;
+  const settings = getProgramSettings();
+  const childName = child?.name || "";
+  const ageGroup = normalizeAgeGroup(child?.ageGroup) || "Preschool";
+  const programName = settings.programName || "";
+  const today = new Date().toISOString().slice(0, 10);
+
+  const toolId = docHelperToolMap[docType] || "observation";
+  const label = docTypeLabels[docType] || "Documentation";
+
+  const data = {
+    childName,
+    age: ageGroup,
+    programName,
+    note,
+    highlights: note,
+    details: note,
+    concern: note,
+    incident: note,
+    theme: cleanPromptTheme(note) || "Daily Activities",
+    skill: "play-based learning",
+    topic: label,
+    date: today,
+  };
+
+  resultsEl.hidden = false;
+  outputEl.textContent = "Generating...";
+  outputEl.contentEditable = "false";
+  if (titleEl) titleEl.textContent = label;
+  if (labelEl) labelEl.textContent = "Generating";
+  if (saveBtn) {
+    saveBtn.dataset.docType = docType;
+    saveBtn.dataset.childId = childId;
+    saveBtn.textContent = "Save";
+  }
+
+  try {
+    const result = await generateToolOutputWithBackend(toolId, data);
+    outputEl.textContent = result.output;
+    if (labelEl) labelEl.textContent = "Result";
+    recordAiUse();
+    renderAiUsagePanel();
+    trackEvent("ai_generation_success", { tool: "doc-helper", docType, plan: currentPlan, backendUsed: Boolean(result.backendUsed) });
+  } catch (error) {
+    const fallback = generateToolOutput(toolId, data);
+    outputEl.textContent = fallback;
+    if (labelEl) labelEl.textContent = "Result";
+    recordAiUse();
+    renderAiUsagePanel();
+    trackEvent("ai_generation_success", { tool: "doc-helper", docType, plan: currentPlan, backendUsed: false });
   }
 });
 

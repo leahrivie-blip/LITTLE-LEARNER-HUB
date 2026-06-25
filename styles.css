@@ -3504,7 +3504,8 @@ body.home-view .topbar .search-wrap {
 }
 
 #generatorOutput,
-#futureOutput {
+#futureOutput,
+#docHelperOutput {
   min-height: 420px;
   max-height: 680px;
   overflow: auto;
