@@ -13605,7 +13605,7 @@ function aiPromptFromForm(toolId, data) {
 
 async function generateToolOutputWithBackend(toolId, data) {
   if (!aiGenerationConfig.endpoint || !canUseLaunchBackend()) {
-    throw new Error("AI generation is unavailable because the OpenAI launch backend is not connected.");
+    throw new Error("AI generation is currently unavailable. Please try again shortly or contact support.");
   }
   const ageValue = data.age || data.ageGroup || data.group || "";
   const response = await fetch(aiGenerationConfig.endpoint, {
