@@ -1728,7 +1728,7 @@ const proNavLabels = {
   "child-tools-meals": "Meal Tracking",
   "child-tools-reports": "Daily Reports",
   "child-tools-communication": "Parent Communication",
-  "child-tools-daily-logs": "Daily Logs Center",
+  "child-tools-daily-logs": "Daily Logs",
   portfolio: "Portfolio Builder",
   reports: "Reports & Analytics",
   favorites: "Saved Favorites",
@@ -2441,6 +2441,8 @@ const mobileNavMaxWidth = 820;
 const sidebarViewAliases = {
   "dashboard-tasks": "planner",
   "dashboard-quick-stats": "home",
+  "resource-observations": "observations",
+  "documentation-observations": "observations",
   goals: "children",
   "child-tools": "children",
   "child-tools-attendance": "children",
