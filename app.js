@@ -11976,6 +11976,24 @@ function withSentencePeriod(text) {
   return /[.!?]$/.test(value) ? value : `${value}.`;
 }
 
+function providerSettingsContext() {
+  const settings = getProgramSettings();
+  const parts = [];
+  if (settings.stateLocation) parts.push(`State: ${settings.stateLocation}`);
+  if (settings.programType) parts.push(`Program Type: ${settings.programType}`);
+  if (settings.curriculumUsed) {
+    const curriculumLabel = settings.curriculumUsed === CUSTOM_CURRICULUM_OPTION && settings.customCurriculumName
+      ? settings.customCurriculumName
+      : settings.curriculumUsed;
+    parts.push(`Curriculum: ${curriculumLabel}`);
+  }
+  if (Array.isArray(settings.agesServed) && settings.agesServed.length) {
+    parts.push(`Ages Served: ${settings.agesServed.join(", ")}`);
+  }
+  if (settings.teachingPhilosophy) parts.push(`Teaching Philosophy: ${settings.teachingPhilosophy}`);
+  return parts.length ? `Provider Settings:\n${parts.map((p) => `- ${p}`).join("\n")}` : "";
+}
+
 function aiPromptFromForm(toolId, data) {
   const tool = [...aiTools, ...futureTools].find((item) => item.id === toolId);
   const toolTitle = tool?.title || "Little Learner Hub AI Generator";
@@ -11990,6 +12008,7 @@ function aiPromptFromForm(toolId, data) {
   const audience = data.audience || "";
   const date = data.date || "";
   const time = data.time || "";
+  const settingsContext = providerSettingsContext();
   const priorityKeys = [
     "programName", "program", "childName", "child", "childAge", "age", "ageGroup", "group",
     "developmentalDomain", "area", "domain", "domains", "providerNotes", "tone", "audience", "date", "time",
@@ -12004,7 +12023,11 @@ function aiPromptFromForm(toolId, data) {
   const uncatalogedLines = Object.entries(data)
     .filter(([key, value]) => value && !usedKeys.has(key) && !fieldLabelMap[key] && !key.startsWith("_"))
     .map(([key, value]) => `${key}: ${value}`);
+  const lessonVarietyNote = toolId === "lesson"
+    ? "- Include real book titles with author names, real song titles, original fingerplay rhymes, vocabulary words, and open-ended questions as part of the plan."
+    : "";
   return [
+    settingsContext,
     `Tool Type: ${toolTitle}`,
     formatLine("Child Name", childName),
     formatLine("Child Age", childAge),
@@ -12036,6 +12059,7 @@ function aiPromptFromForm(toolId, data) {
     "- Use only the details provided and do not invent missing facts, injuries, behaviors, witnesses, or outcomes.",
     "- Produce organized, ready-to-use content a childcare provider can copy right away.",
     "- Use warm, professional childcare language and include the program name in formal documents when it is provided.",
+    lessonVarietyNote,
   ].filter(Boolean).join("\n");
 }
 
@@ -15883,7 +15907,7 @@ document.querySelector("#resetPasswordForm")?.addEventListener("submit", async (
   }
 });
 
-document.querySelector("#aiChatForm")?.addEventListener("submit", (event) => {
+document.querySelector("#aiChatForm")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const promptBox = document.querySelector("#aiPrompt");
   const prompt = promptBox.value.trim();
@@ -15893,10 +15917,39 @@ document.querySelector("#aiChatForm")?.addEventListener("submit", (event) => {
     return;
   }
   addAiMessage("user", prompt);
-  addAiMessage("assistant", generateFromPrompt(prompt));
-  recordAiUse();
-  trackEvent("ai_generation_success", { tool: "chat", promptLength: prompt.length, plan: currentPlan, backendUsed: false });
   promptBox.value = "";
+  const age = detectAgeFromPrompt(prompt.toLowerCase());
+  const lower = prompt.toLowerCase();
+  let toolId = "lesson";
+  if (lower.includes("observation") || lower.includes("developmental")) toolId = "observation";
+  else if (lower.includes("newsletter")) toolId = "newsletter";
+  else if (lower.includes("daily report")) toolId = "daily";
+  else if (lower.includes("incident") || lower.includes("injury")) toolId = "incident";
+  else if (lower.includes("behavior")) toolId = "behavior";
+  else if (lower.includes("activity") || lower.includes("sensory") || lower.includes("art")) toolId = "activity";
+  else if (lower.includes("parent message") || lower.includes("parent note")) toolId = "parentMessage";
+  else if (lower.includes("menu")) toolId = "menu";
+  else if (lower.includes("handbook")) toolId = "handbook";
+  else if (lower.includes("contract")) toolId = "contract";
+  else if (lower.includes("curriculum unit")) toolId = "curriculum";
+  const settings = getProgramSettings();
+  try {
+    const result = await generateToolOutputWithBackend(toolId, {
+      age,
+      note: prompt,
+      details: prompt,
+      programName: settings.programName || "",
+    });
+    addAiMessage("assistant", result.output);
+    if (result.backendUsed) recordAiUse();
+    else recordAiUse();
+    trackEvent("ai_generation_success", { tool: "chat", promptLength: prompt.length, plan: currentPlan, backendUsed: result.backendUsed });
+  } catch (error) {
+    const fallback = generateFromPrompt(prompt);
+    addAiMessage("assistant", fallback);
+    recordAiUse();
+    trackEvent("ai_generation_success", { tool: "chat", promptLength: prompt.length, plan: currentPlan, backendUsed: false });
+  }
 });
 
 document.querySelector("#preferencesForm")?.addEventListener("submit", (event) => {
