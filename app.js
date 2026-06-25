@@ -1698,6 +1698,7 @@ const proFeatureList = [
 const freeAiLimitMessage = "You have used all 10 free AI generations for this month. Upgrade to Pro for 250 AI generations each month.";
 const paidAiLimitMessage = "You have used all 250 AI generations for this month. Your AI access will reset next month.";
 const freeResourceLimitMessage = "You have reached your Free Plan limit. Upgrade to Pro to unlock the full Little Learner Hub library.";
+const favoritesPageLimit = 20;
 const viewMap = {
   lessons: "Lesson Plans",
   observations: "Observation Hub",
@@ -2903,12 +2904,13 @@ function setView(view) {
     openAuthModal("login");
     return;
   }
-  if (resolvedView === "tools" && !isProUser()) {
-    showProFeatureModal("Provider business tools are Pro features.");
-    return;
-  }
-  if ((resolvedView === "favorites" || resolvedView === "reports") && !isProUser()) {
-    const label = resolvedView === "favorites" ? "Saved Favorites" : "Reports & Analytics";
+  const proViews = {
+    tools: "Provider business tools",
+    favorites: "Saved Favorites",
+    reports: "Reports & Analytics",
+  };
+  if (proViews[resolvedView] && !isProUser()) {
+    const label = proViews[resolvedView];
     showProFeatureModal(`${label} is a Pro feature. Upgrade to unlock all Pro tools.`);
     return;
   }
@@ -13632,7 +13634,8 @@ function renderFavoritesPage() {
     `;
     return;
   }
-  const savedFavoriteResources = resources.filter((resource) => favorites.includes(resource.id) && isResourceVisibleToCurrentUser(resource));
+  const favoriteIds = new Set(favorites);
+  const savedFavoriteResources = resources.filter((resource) => favoriteIds.has(resource.id) && isResourceVisibleToCurrentUser(resource));
   section.innerHTML = `
     <div class="page-title">
       <p class="eyebrow">Favorites</p>
@@ -13642,10 +13645,9 @@ function renderFavoritesPage() {
     <section class="section-block">
       <div class="resource-list compact">
         ${savedFavoriteResources.length
-    ? savedFavoriteResources.slice(0, 20).map(accountListItem).join("")
-    : `<div class="empty-state">${isProUser() ? "No saved favorites yet." : "Saved favorites are included with Pro."}</div>`}
+    ? savedFavoriteResources.slice(0, favoritesPageLimit).map(accountListItem).join("")
+    : `<div class="empty-state">No saved favorites yet.</div>`}
       </div>
-      ${!isProUser() ? `<div class="quick-action-list"><button class="primary-button" data-view="plans" type="button">Upgrade to Pro</button></div>` : ""}
     </section>
   `;
 }
