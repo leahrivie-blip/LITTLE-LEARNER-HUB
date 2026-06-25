@@ -34,15 +34,12 @@
         </div>
 
         <nav class="nav-list">
+
           <div class="nav-section">
             <p>🏠 Dashboard</p>
             <button class="nav-link active" data-view="home">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-5v-6h-5v6h-5A1.5 1.5 0 0 1 3 19.5z"/></svg></span>
-              Home
-            </button>
-            <button class="nav-link" data-view="dashboard-tasks">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M8 14h3M13 14h3M8 17h3"/></svg></span>
-              Today's Tasks
+              Dashboard
             </button>
           </div>
 
@@ -50,103 +47,167 @@
             <p>👶 Children</p>
             <button class="nav-link" data-view="children">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7.5 0"/></svg></span>
-              Children
+              Child Profiles
             </button>
-          </div>
-
-          <div class="nav-section">
-            <p>📅 Plan My Week</p>
-            <button class="nav-link" data-view="planner">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M8 14h3M13 14h3M8 17h3"/></svg></span>
-              Weekly Planner
+            <button class="nav-link" data-view="goals">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/></svg></span>
+              Goals &amp; Progress
             </button>
-          </div>
-
-          <div class="nav-section">
-            <p>📋 Quick Documentation</p>
-            <button class="nav-link" data-view="resource-observations">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4M11 8v3l2 2"/></svg></span>
-              Observation Library
-            </button>
-            <button class="nav-link" data-view="forms">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg></span>
-              Forms Library
-            </button>
-          </div>
-
-          <div class="nav-section">
-            <p>📚 Resources</p>
-            <button class="nav-link" data-view="lessons">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 0 4 22z"/><path d="M4 5.5V22M8 7h8M8 11h7"/></svg></span>
-              Lesson Plan Library
-            </button>
-            <button class="nav-link" data-view="activities">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6v5h5v6h-5v7H9v-7H4V8h5z"/></svg></span>
-              Activity Center
-            </button>
-            <button class="nav-link" data-view="menus">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3v18M10 3v18M6 10h4M16 3v8a3 3 0 0 0 3 3v7"/></svg></span>
-              Menu Center
-            </button>
-            <button class="nav-link" data-view="printables" data-printables-entry>
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-4a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v4a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></svg></span>
-              Printables
-            </button>
-            <button class="nav-link" data-view="support-center">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3a7 7 0 0 0-7 7c0 4 4 5 4 8h6c0-3 4-4 4-8a7 7 0 0 0-7-7z"/><path d="M9 21h6M10 10h4M12 8v4"/></svg></span>
-              Support &amp; Licensing
-            </button>
-            <button class="nav-link" data-view="ai">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 1.6 4.7L18 9l-4.4 1.3L12 15l-1.6-4.7L6 9l4.4-1.3zM19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8zM6 14l.8 2.2L9 17l-2.2.8L6 20l-.8-2.2L3 17l2.2-.8z"/></svg></span>
-              Ask Leah AI
-              <span class="nav-pill">New</span>
-            </button>
-          </div>
-
-          <div class="nav-section">
-            <p>📊 Reports</p>
-            <button class="nav-link" data-view="reports" data-pro-nav>
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16M7 17V9M12 17V5M17 17v-6"/></svg></span>
-              Reports &amp; Analytics
-            </button>
-            <button class="nav-link" data-view="favorites" data-pro-nav>
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 2.7 5.5 6 .9-4.4 4.2 1 6-5.3-2.8-5.3 2.8 1-6-4.4-4.2 6-.9z"/></svg></span>
-              Favorites
-            </button>
-          </div>
-
-          <div class="nav-section">
-            <p>👨‍👩‍👧 Family Hub</p>
-            <button class="nav-link nav-link-coming-soon" disabled type="button" aria-disabled="true">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 12c3.3 0 6-2.7 6-6S15.3 0 12 0 6 2.7 6 6s2.7 6 6 6zm0 2c-4 0-12 2-12 4v2h24v-2c0-2-8-4-12-4z"/></svg></span>
-              Family Hub
+            <button class="nav-link nav-link-coming-soon" data-view="portfolio" type="button" aria-disabled="true">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 9h18M7 5v4"/></svg></span>
+              Child Portfolios
               <span class="nav-pill">Soon</span>
             </button>
           </div>
 
           <div class="nav-section">
-            <p>⚙️ Account</p>
+            <p>📋 Documentation</p>
+            <button class="nav-link" data-view="observations">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4M11 8v3l2 2"/></svg></span>
+              Observations
+            </button>
+            <button class="nav-link" data-view="daily-logs">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M8 14h3M13 14h3M8 17h3"/></svg></span>
+              Daily Logs
+            </button>
+            <button class="nav-link" data-view="incident-reports">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg></span>
+              Incident Reports
+            </button>
+            <button class="nav-link" data-view="behavior-support">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+              Behavior Support
+            </button>
+            <button class="nav-link" data-view="parent-messages">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+              Parent Messages
+            </button>
+            <button class="nav-link" data-view="newsletters">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="m22 6-10 7L2 6"/></svg></span>
+              Newsletters
+            </button>
+          </div>
+
+          <div class="nav-section">
+            <p>📚 Planning</p>
+            <button class="nav-link" data-view="lessons">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 0 4 22z"/><path d="M4 5.5V22M8 7h8M8 11h7"/></svg></span>
+              Lesson Plans
+            </button>
+            <button class="nav-link" data-view="activities">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6v5h5v6h-5v7H9v-7H4V8h5z"/></svg></span>
+              Activities
+            </button>
+            <button class="nav-link" data-view="menus">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3v18M10 3v18M6 10h4M16 3v8a3 3 0 0 0 3 3v7"/></svg></span>
+              Menus
+            </button>
+            <button class="nav-link nav-link-coming-soon" data-view="curriculum" type="button" aria-disabled="true">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></span>
+              Curriculum
+              <span class="nav-pill">Soon</span>
+            </button>
+          </div>
+
+          <div class="nav-section">
+            <p>📁 Resources</p>
+            <button class="nav-link" data-view="forms">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg></span>
+              Forms
+            </button>
+            <button class="nav-link" data-view="printables" data-printables-entry>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-4a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v4a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></svg></span>
+              Printables
+            </button>
+            <button class="nav-link nav-link-coming-soon" data-view="policies" type="button" aria-disabled="true">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg></span>
+              Policies
+              <span class="nav-pill">Soon</span>
+            </button>
+            <button class="nav-link nav-link-coming-soon" data-view="templates" type="button" aria-disabled="true">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></span>
+              Templates
+              <span class="nav-pill">Soon</span>
+            </button>
+          </div>
+
+          <div class="nav-section">
+            <p>👨‍👩‍👧 Family Hub</p>
+            <button class="nav-link nav-link-coming-soon" data-view="family-messages" type="button" aria-disabled="true">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+              Family Messages
+              <span class="nav-pill">Soon</span>
+            </button>
+            <button class="nav-link nav-link-coming-soon" data-view="family-daily-reports" type="button" aria-disabled="true">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></span>
+              Daily Reports
+              <span class="nav-pill">Soon</span>
+            </button>
+            <button class="nav-link nav-link-coming-soon" data-view="family-photos" type="button" aria-disabled="true">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></span>
+              Photos
+              <span class="nav-pill">Soon</span>
+            </button>
+            <button class="nav-link nav-link-coming-soon" data-view="family-portal" type="button" aria-disabled="true">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></span>
+              Family Portal
+              <span class="nav-pill">Soon</span>
+            </button>
+          </div>
+
+          <div class="nav-section">
+            <p>📊 Reports &amp; Analytics</p>
+            <button class="nav-link" data-view="reports" data-pro-nav>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16M7 17V9M12 17V5M17 17v-6"/></svg></span>
+              Reports
+            </button>
+            <button class="nav-link" data-view="development-progress">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
+              Development Progress
+            </button>
+            <button class="nav-link nav-link-coming-soon" data-view="attendance-tracking" type="button" aria-disabled="true">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+              Attendance
+              <span class="nav-pill">Future</span>
+            </button>
+            <button class="nav-link" data-view="favorites" data-pro-nav>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 2.7 5.5 6 .9-4.4 4.2 1 6-5.3-2.8-5.3 2.8 1-6-4.4-4.2 6-.9z"/></svg></span>
+              Analytics
+            </button>
+          </div>
+
+          <div class="nav-section">
+            <p>⚙️ Settings</p>
+            <button class="nav-link" data-view="settings">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5l-.3 3.1a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.3 3.1h5l.3-3.1a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5a7 7 0 0 0 .1-1z"/></svg></span>
+              Account
+            </button>
             <button class="nav-link" data-view="membership">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg></span>
-              Membership/Billing
+              Membership
+            </button>
+            <button class="nav-link" data-view="billing">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4M15 15h2"/></svg></span>
+              Billing
             </button>
             <button class="nav-link" data-view="program-settings">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7h18M3 12h12M3 17h8"/><circle cx="19" cy="15" r="3"/><path d="M21.5 17.5 20 16"/></svg></span>
-              Program Settings
-            </button>
-            <button class="nav-link" data-view="settings">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5l-.3 3.1a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.3 3.1h5l.3-3.1a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5a7 7 0 0 0 .1-1z"/></svg></span>
-              Account Settings
+              Preferences
             </button>
             <button class="nav-link" data-view="help">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.7 2.7 0 0 1 5.1 1.3c0 2-2.6 2.1-2.6 4M12 18h.1"/></svg></span>
               Help Center
+            </button>
+            <button class="nav-link" data-view="ai">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 1.6 4.7L18 9l-4.4 1.3L12 15l-1.6-4.7L6 9l4.4-1.3zM19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8zM6 14l.8 2.2L9 17l-2.2.8L6 20l-.8-2.2L3 17l2.2-.8z"/></svg></span>
+              Ask Leah AI
             </button>
             <button class="nav-link" data-view="admin" data-admin-nav hidden>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.3 8 8 9 4.7-1 8-4 8-9V6z"/><path d="M9 12l2 2 4-5"/></svg></span>
               Admin Dashboard
             </button>
           </div>
+
         </nav>
 
         <div class="sidebar-dashboard-card">
@@ -645,6 +706,21 @@
         <section id="view-activities" class="view"></section>
         <section id="view-menus" class="view"></section>
         <section id="view-printables" class="view"></section>
+
+        <section id="view-daily-logs" class="view"></section>
+        <section id="view-behavior-support" class="view"></section>
+        <section id="view-incident-reports" class="view"></section>
+        <section id="view-parent-messages" class="view"></section>
+        <section id="view-newsletters" class="view"></section>
+        <section id="view-curriculum" class="view"></section>
+        <section id="view-policies" class="view"></section>
+        <section id="view-templates" class="view"></section>
+        <section id="view-family-messages" class="view"></section>
+        <section id="view-family-daily-reports" class="view"></section>
+        <section id="view-family-photos" class="view"></section>
+        <section id="view-family-portal" class="view"></section>
+        <section id="view-development-progress" class="view"></section>
+        <section id="view-attendance-tracking" class="view"></section>
 
         <section id="view-ai" class="view">
           <div class="page-title">
