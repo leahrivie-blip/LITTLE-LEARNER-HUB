@@ -1317,6 +1317,82 @@ async function generateOpenAiContent({ tool, prompt, age, plan, email }) {
     throw error;
   }
 }
+async function callOpenAiRaw(systemPrompt, userPrompt) {
+  if (!OPENAI_API_KEY) {
+    throw new Error("AI generation is not available. OPENAI_API_KEY is not configured.");
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `******`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        temperature: AI_TEMPERATURE,
+        input: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const data = await res.json();
+    if (!res.ok) {
+      const msg = String(data?.error?.message || "AI generation could not be completed.");
+      throw new Error(msg);
+    }
+    const output = data.output_text
+      || data.output?.flatMap((item) => item.content || []).map((item) => item.text || "").join("\n").trim()
+      || "";
+    if (!output) throw new Error("The AI did not return any content.");
+    return output;
+  } catch (error) {
+    clearTimeout(timeout);
+    if (error.name === "AbortError") throw new Error("The AI took too long to respond. Please try again.");
+    throw error;
+  }
+}
+
+async function scoreAiOutput(text) {
+  const scoringSystem = "You are a quality reviewer for early childhood education documentation. Respond ONLY with a valid JSON object. No markdown, no explanation, no code fences.";
+  const scoringUser = `Score this observation from 1–10 in each area (10 = excellent). Return exactly this JSON shape and nothing else:\n{"professionalWriting":0,"grammar":0,"developmentalAccuracy":0,"ageAppropriateness":0,"licensingReadiness":0,"familyFriendliness":0,"completeness":0,"naturalTone":0,"overallQuality":0}\n\nDocument:\n${text.slice(0, 2000)}`;
+  try {
+    const raw = await callOpenAiRaw(scoringSystem, scoringUser);
+    const clean = raw.replace(/```[a-z]*\n?|\n?```/g, "").trim();
+    return JSON.parse(clean);
+  } catch {
+    return null;
+  }
+}
+
+async function handleAdminAiTest(request, response) {
+  const body = await readJson(request);
+  const token = String(body.adminToken || "");
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const systemPrompt = String(body.systemPrompt || "").trim();
+  const userPrompt = String(body.userPrompt || "").trim();
+  const wantScore = Boolean(body.score);
+  if (!systemPrompt || !userPrompt) {
+    jsonResponse(response, 400, { error: "Both systemPrompt and userPrompt are required." });
+    return;
+  }
+  try {
+    const output = await callOpenAiRaw(systemPrompt, userPrompt);
+    const scores = wantScore ? await scoreAiOutput(output) : null;
+    jsonResponse(response, 200, { output, scores, model: OPENAI_MODEL });
+  } catch (error) {
+    jsonResponse(response, 503, { error: error.message || "AI generation failed." });
+  }
+}
+
 async function handleAdminLogin(request, response) {
   const body = await readJson(request);
   const email = normalizeEmail(body.email);
@@ -2638,6 +2714,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/subscription-status") return await handleSubscriptionStatus(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/support-tickets") return handleSupportTicketsList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/analytics") return handleAdminAnalytics(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/ai-test") return await handleAdminAiTest(request, response);
     if (request.method === "GET" && url.pathname === "/api/founding-status") return handleFoundingStatus(request, response);
     if (request.method === "GET" && url.pathname === "/api/stripe-readiness") return handleStripeReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/billing-readiness") return handleBillingReadiness(request, response);
