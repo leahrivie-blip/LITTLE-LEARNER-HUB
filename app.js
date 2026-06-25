@@ -379,6 +379,8 @@ let observationsGeneratedOutput = "";
 let lessonPlansPageMode = "overview"; // "overview"|"browse"|"create"
 let activitiesPageMode = "overview";
 let menusPageMode = "overview";
+let formsPageMode = "overview"; // "overview"|"browse"|"create"
+let formsGeneratedOutput = "";
 let behaviorSupportPageMode = "overview"; // "overview"|"browse"|"create"
 let behaviorSupportGeneratedOutput = "";
 let incidentReportsPageMode = "overview";
@@ -2957,7 +2959,7 @@ function setView(view) {
     button.classList.toggle("active", button.dataset.view === requestedView);
   });
   // Pages with dedicated workflow render functions skip renderCategoryPage
-  const dedicatedWorkflowViews = new Set(["observations", "lessons", "activities", "menus"]);
+  const dedicatedWorkflowViews = new Set(["observations", "lessons", "activities", "menus", "forms"]);
   if (viewMap[resolvedView] && !dedicatedWorkflowViews.has(resolvedView)) renderCategoryPage(resolvedView);
   if (resolvedView === "home") renderHome();
   if (resolvedView === "admin") renderAdminDashboard();
@@ -2986,6 +2988,7 @@ function setView(view) {
   if (resolvedView === "lessons") renderLessonPlansPage();
   if (resolvedView === "activities") renderActivitiesPage();
   if (resolvedView === "menus") renderMenusPage();
+  if (resolvedView === "forms") renderFormsPage();
   if (resolvedView === "daily-logs") renderDailyLogsPage();
   if (resolvedView === "behavior-support") renderBehaviorSupportPage();
   if (resolvedView === "incident-reports") renderIncidentReportsPage();
@@ -3008,12 +3011,13 @@ function setView(view) {
 // Re-render the currently active page (used by search/filter/favorites refresh).
 function rerenderActivePage() {
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "") || "home";
-  const dedicatedWorkflowViews = new Set(["observations", "lessons", "activities", "menus"]);
+  const dedicatedWorkflowViews = new Set(["observations", "lessons", "activities", "menus", "forms"]);
   if (viewMap[activeView] && !dedicatedWorkflowViews.has(activeView)) renderCategoryPage(activeView);
   if (activeView === "observations") renderObservationsPage();
   if (activeView === "lessons") renderLessonPlansPage();
   if (activeView === "activities") renderActivitiesPage();
   if (activeView === "menus") renderMenusPage();
+  if (activeView === "forms") renderFormsPage();
   if (activeView === "ai") renderAiPage();
   if (activeView === "children") renderChildManagement();
 }
@@ -6185,6 +6189,21 @@ function workflowBackButton(mode) {
   return `<button class="ghost-button back-button" data-workflow-mode="${mode}" type="button">← Back</button>`;
 }
 
+function workflowBrowseSection(label, browseView, description) {
+  return `
+    <div class="workflow-browse-section">
+      <div class="workflow-browse-section-inner">
+        <span class="workflow-browse-icon">📂</span>
+        <div class="workflow-browse-text">
+          <strong>${label}</strong>
+          <p>${description}</p>
+        </div>
+        <button class="ghost-button workflow-browse-btn" data-workflow-mode="${browseView}" type="button">Browse Library →</button>
+      </div>
+    </div>
+  `;
+}
+
 // ─── Observations Page ───────────────────────────────────────────────────────
 
 function renderObservationsPage() {
@@ -6202,15 +6221,7 @@ function renderObservationsPage() {
 }
 
 function renderObservationsOverview(section) {
-  section.innerHTML = `
-    ${workflowPageHeader("Observations", "Keep track of children&rsquo;s development with professional observations linked to each child&rsquo;s progress.")}
-    ${workflowCards(
-      "Browse Library", "Create New",
-      "obs-browse", "obs-create",
-      "Search, filter, edit, and manage everything you have already created.",
-      "Create a professional observation in seconds by entering a quick note."
-    )}
-  `;
+  renderObservationsCreate(section);
 }
 
 function renderObservationsBrowse(section) {
@@ -6246,8 +6257,7 @@ function renderObservationsCreate(section) {
   const programSettings = getProgramSettings();
   const canGenerate = canUseAi();
   section.innerHTML = `
-    ${workflowPageHeader("Create Observation", "Tell me what happened and I&rsquo;ll help you write a professional observation.")}
-    ${workflowBackButton("obs-overview")}
+    ${workflowPageHeader("Observations", "Keep track of children&rsquo;s development with professional observations linked to each child&rsquo;s progress.")}
     <div class="workflow-create-panel">
       <form class="panel-form" id="obsCreateForm">
         <div class="form-grid-two">
@@ -6296,6 +6306,7 @@ function renderObservationsCreate(section) {
         </div>
       </div>
     </div>
+    ${workflowBrowseSection("Observation Records", "obs-browse", "Search, filter, edit, and manage your saved observation records.")}
   `;
 }
 
@@ -6333,15 +6344,7 @@ function renderLessonPlansPage() {
 }
 
 function renderLessonPlansOverview(section) {
-  section.innerHTML = `
-    ${workflowPageHeader("Lesson Plans", "Plan engaging lessons that support children&rsquo;s learning and development.")}
-    ${workflowCards(
-      "Browse Library", "Generate Lesson Plan",
-      "lp-browse", "lp-create",
-      "Search, filter, edit, and manage your saved lesson plans.",
-      "Create a new lesson plan in seconds by entering a quick note."
-    )}
-  `;
+  renderLessonPlansCreate(section);
 }
 
 function renderLessonPlansBrowse(section) {
@@ -6371,8 +6374,7 @@ function renderLessonPlansBrowse(section) {
 function renderLessonPlansCreate(section) {
   const aiTool = aiTools.find((t) => t.id === "lesson");
   section.innerHTML = `
-    ${workflowPageHeader("Generate Lesson Plan", "Enter a theme, age group, or skill and I&rsquo;ll create a full lesson plan.")}
-    ${workflowBackButton("lp-overview")}
+    ${workflowPageHeader("Lesson Plans", "Plan engaging lessons that support children&rsquo;s learning and development.")}
     <div class="workflow-create-panel">
       <form class="panel-form" id="lpCreateForm" data-generator="lesson">
         ${aiTool ? aiTool.fields.map(renderGeneratorField).join("") : ""}
@@ -6391,6 +6393,7 @@ function renderLessonPlansCreate(section) {
         <pre id="lpOutput" contenteditable="true" spellcheck="true">Fill out the form and generate a lesson plan.</pre>
       </div>
     </div>
+    ${workflowBrowseSection("Lesson Plan Library", "lp-browse", "Search, filter, edit, and manage your saved lesson plans.")}
   `;
   prefillGeneratorFromSettings();
 }
@@ -6412,15 +6415,7 @@ function renderActivitiesPage() {
 }
 
 function renderActivitiesOverview(section) {
-  section.innerHTML = `
-    ${workflowPageHeader("Activities", "Find fun activities that support children&rsquo;s growth.")}
-    ${workflowCards(
-      "Browse Library", "Find Activities",
-      "act-browse", "act-create",
-      "Search and filter hundreds of ready-to-use activity ideas by age, theme, and skill.",
-      "Tell me what skill you&rsquo;re working on and I&rsquo;ll find the right activities."
-    )}
-  `;
+  renderActivitiesCreate(section);
 }
 
 function renderActivitiesBrowse(section) {
@@ -6448,8 +6443,7 @@ function renderActivitiesBrowse(section) {
 function renderActivitiesCreate(section) {
   const aiTool = aiTools.find((t) => t.id === "activity");
   section.innerHTML = `
-    ${workflowPageHeader("Find Activities", "Tell me what skill you&rsquo;re working on and I&rsquo;ll suggest the best activities.")}
-    ${workflowBackButton("act-overview")}
+    ${workflowPageHeader("Activities", "Find fun activities that support children&rsquo;s growth.")}
     <div class="workflow-create-panel">
       <form class="panel-form" id="actCreateForm" data-generator="activity">
         ${aiTool ? aiTool.fields.map(renderGeneratorField).join("") : `<label>What skill are you working on?<textarea name="skill" rows="3" placeholder="What skill are you working on?" required></textarea></label>`}
@@ -6467,6 +6461,7 @@ function renderActivitiesCreate(section) {
         <pre id="actOutput" contenteditable="true" spellcheck="true">Fill out the form to get activity ideas.</pre>
       </div>
     </div>
+    ${workflowBrowseSection("Activity Library", "act-browse", "Search and filter hundreds of ready-to-use activity ideas by age, theme, and skill.")}
   `;
   prefillGeneratorFromSettings();
 }
@@ -6488,15 +6483,7 @@ function renderMenusPage() {
 }
 
 function renderMenusOverview(section) {
-  section.innerHTML = `
-    ${workflowPageHeader("Menus", "Plan healthy weekly menus for your program.")}
-    ${workflowCards(
-      "Browse Library", "Generate Menu",
-      "mn-browse", "mn-create",
-      "Browse 52 weeks of daycare menus, meal ideas, and CACFP-friendly inspiration.",
-      "Tell me what meals you&rsquo;d like and I&rsquo;ll build a weekly menu for you."
-    )}
-  `;
+  renderMenusCreate(section);
 }
 
 function renderMenusBrowse(section) {
@@ -6524,8 +6511,7 @@ function renderMenusBrowse(section) {
 function renderMenusCreate(section) {
   const aiTool = aiTools.find((t) => t.id === "menu");
   section.innerHTML = `
-    ${workflowPageHeader("Generate Menu", "Tell me what meals you&rsquo;d like and I&rsquo;ll create a full weekly menu.")}
-    ${workflowBackButton("mn-overview")}
+    ${workflowPageHeader("Menus", "Plan healthy weekly menus for your program.")}
     <div class="workflow-create-panel">
       <form class="panel-form" id="mnCreateForm" data-generator="menu">
         ${aiTool ? aiTool.fields.map(renderGeneratorField).join("") : `<label>What meals would you like this week?<textarea name="note" rows="3" placeholder="What meals would you like to include this week?" required></textarea></label>`}
@@ -6543,6 +6529,75 @@ function renderMenusCreate(section) {
         <pre id="mnOutput" contenteditable="true" spellcheck="true">Fill out the form to generate a weekly menu.</pre>
       </div>
     </div>
+    ${workflowBrowseSection("Menu Library", "mn-browse", "Browse 52 weeks of daycare menus, meal ideas, and CACFP-friendly inspiration.")}
+  `;
+  prefillGeneratorFromSettings();
+}
+
+// ─── Forms Page ──────────────────────────────────────────────────────────────
+
+function renderFormsPage() {
+  const section = document.querySelector("#view-forms");
+  if (!section) return;
+  if (formsPageMode === "browse") {
+    renderFormsBrowse(section);
+    return;
+  }
+  if (formsPageMode === "create") {
+    renderFormsCreate(section);
+    return;
+  }
+  renderFormsOverview(section);
+}
+
+function renderFormsOverview(section) {
+  renderFormsCreate(section);
+}
+
+function renderFormsBrowse(section) {
+  const category = "Forms Library";
+  const items = categoryResources(category);
+  const accessCounts = categoryAccessCounts(category);
+  const filters = categoryFilters(category);
+  section.innerHTML = `
+    ${workflowPageHeader("Forms Library", "Browse editable childcare paperwork and parent forms.")}
+    ${workflowBackButton("fm-overview")}
+    <div class="access-notice ${isProUser() ? "pro" : ""}">
+      ${isProUser()
+        ? `Pro active: full library access, ${Math.max(paidAiMonthlyLimit - aiUsageCount(), 0)} AI generations left.`
+        : `Free plan: ${accessCounts.freeLimit} of ${accessCounts.total} forms available.`}
+    </div>
+    <div class="filter-row">
+      ${filters.map((f) => `<button class="${activeFilter === f ? "active-filter" : ""}" data-filter="${f}">${f}</button>`).join("")}
+    </div>
+    <div class="resource-grid">
+      ${items.length ? items.map(resourceCard).join("") : `<div class="empty-state">No forms found. Try a different filter.</div>`}
+    </div>
+  `;
+}
+
+function renderFormsCreate(section) {
+  const aiTool = aiTools.find((t) => t.id === "form");
+  section.innerHTML = `
+    ${workflowPageHeader("Forms", "Create custom daycare forms or browse your ready-made forms library.")}
+    <div class="workflow-create-panel">
+      <form class="panel-form" id="fmCreateForm" data-generator="form">
+        ${aiTool ? aiTool.fields.map(renderGeneratorField).join("") : `<label>What form do you need?<textarea name="purpose" rows="3" placeholder="Describe the form you need…" required></textarea></label>`}
+        <button class="primary-button" type="submit">Build Form</button>
+      </form>
+      <div class="ai-output-panel" id="fmOutputPanel" ${formsGeneratedOutput ? "" : 'style="display:none"'}>
+        <div class="output-toolbar">
+          <div><p class="eyebrow">Generated Form</p><h3 id="fmOutputTitle">Ready to review</h3></div>
+          <div class="output-actions">
+            <button class="ghost-button" id="fmCopyBtn" type="button">Copy</button>
+            <button class="ghost-button" id="fmSaveBtn" type="button">Save</button>
+            <button class="ghost-button" id="fmPrintBtn" type="button">Print</button>
+          </div>
+        </div>
+        <pre id="fmOutput" contenteditable="true" spellcheck="true">${escapeHtml(formsGeneratedOutput)}</pre>
+      </div>
+    </div>
+    ${workflowBrowseSection("Forms Library", "fm-browse", "Browse editable childcare paperwork, parent forms, and ready-made templates.")}
   `;
   prefillGeneratorFromSettings();
 }
@@ -18459,6 +18514,9 @@ document.addEventListener("click", (event) => {
   } else if (mode.startsWith("mn-")) {
     menusPageMode = mode === "mn-browse" ? "browse" : mode === "mn-create" ? "create" : "overview";
     renderMenusPage();
+  } else if (mode.startsWith("fm-")) {
+    formsPageMode = mode === "fm-browse" ? "browse" : mode === "fm-create" ? "create" : "overview";
+    renderFormsPage();
   } else if (mode.startsWith("bs-")) {
     behaviorSupportPageMode = mode === "bs-browse" ? "browse" : mode === "bs-create" ? "create" : "overview";
     renderBehaviorSupportPage();
@@ -18621,6 +18679,28 @@ document.addEventListener("click", (event) => {
     event.preventDefault();
     const out = document.querySelector("#mnOutput");
     if (out) printTextDocument("Menu", out.textContent || out.innerText);
+    return;
+  }
+  // Forms output actions
+  if (event.target.id === "fmCopyBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#fmOutput");
+    if (out) navigator.clipboard?.writeText(out.textContent || out.innerText);
+    return;
+  }
+  if (event.target.id === "fmSaveBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#fmOutput");
+    if (out && out.textContent.trim()) {
+      saveAiGeneratedResource("form", out.textContent.trim(), {});
+      showToast("Form saved to your library.");
+    }
+    return;
+  }
+  if (event.target.id === "fmPrintBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#fmOutput");
+    if (out) printTextDocument("Daycare Form", out.textContent || out.innerText);
     return;
   }
   // Incident Reports output actions
@@ -18867,6 +18947,26 @@ document.addEventListener("submit", (event) => {
     const pre = document.querySelector("#mnOutput");
     if (panel) panel.style.display = "";
     if (pre) pre.textContent = output;
+    panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  if (form.id === "fmCreateForm") {
+    event.preventDefault();
+    if (!canUseAi()) { showProFeatureModal(aiLimitMessage()); return; }
+    const data = collectFormData(form);
+    const settings = getProgramSettings();
+    const output = generateDaycareForm({
+      ...data,
+      program: data.program || settings.programName,
+    });
+    formsGeneratedOutput = output;
+    recordAiUse();
+    const panel = document.querySelector("#fmOutputPanel");
+    const pre = document.querySelector("#fmOutput");
+    const title = document.querySelector("#fmOutputTitle");
+    if (panel) panel.style.display = "";
+    if (pre) pre.textContent = output;
+    if (title) title.textContent = data.formType || "Generated Form";
     panel?.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }

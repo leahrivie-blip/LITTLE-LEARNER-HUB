@@ -9947,6 +9947,61 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   padding: 24px;
 }
 
+/* ─── Secondary Browse Section (shown below create form) ─── */
+.workflow-browse-section {
+  margin-top: 28px;
+  border-top: 1px solid var(--line, #e5e7eb);
+  padding-top: 20px;
+}
+
+.workflow-browse-section-inner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #f0f7ff;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+
+.workflow-browse-icon {
+  font-size: 1.6rem;
+  flex-shrink: 0;
+}
+
+.workflow-browse-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.workflow-browse-text strong {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e3a5f;
+  margin-bottom: 2px;
+}
+
+.workflow-browse-text p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted, #6b7280);
+}
+
+.workflow-browse-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .workflow-browse-section-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+}
+
 .workflow-filter-row {
   display: flex;
   flex-wrap: wrap;
