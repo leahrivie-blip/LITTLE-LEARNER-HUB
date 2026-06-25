@@ -354,6 +354,12 @@ let childToolsTab = "attendance";
 let dailyLogsSection = "home";
 let dailyLogsChildTab = "overview";
 let dailyLogsGroupAction = "";
+let dlcNewStep = "step1"; // "step1"|"step1-multiple"|"step1-one"|"step2"|"manual"|"ai-input"|"ai-suggestions"
+let dlcChildSelection = "all"; // "all"|"multiple"|"one"
+let dlcSelectedChildIds = []; // array of child IDs selected for this update
+let dlcAiNote = ""; // provider's free-text note for AI workflow
+let dlcAiSuggestions = []; // [{type,emoji,title,lines,saved,ignored,shareWithFamily}]
+let dlcManualSection = ""; // which accordion section is expanded in manual mode
 let activeChildObservationEditId = "";
 let activeChildProfileEditId = "";
 let pendingObservationArea = "";
@@ -2888,6 +2894,12 @@ function setView(view) {
     dailyLogsSection = "home";
     dailyLogsChildTab = "overview";
     dailyLogsGroupAction = "";
+    dlcNewStep = "step1";
+    dlcChildSelection = "all";
+    dlcSelectedChildIds = [];
+    dlcAiNote = "";
+    dlcAiSuggestions = [];
+    dlcManualSection = "";
     activeChildObservationEditId = "";
     activeObservationChildLock = "";
     activePortfolioChildId = "";
@@ -9694,68 +9706,735 @@ function renderChildToolsContent(child, records) {
 // ─── Daily Logs Center ──────────────────────────────────────────────────────
 
 function renderDailyLogsCenter(records) {
-  const child = selectedChild(records);
-  const today = new Date().toISOString().slice(0, 10);
+  const backTarget = dlcBackTarget();
   return `
     <section class="simple-child-page daily-logs-page">
       <div class="child-page-header">
         <div>
-          <h2>Daily Logs Center</h2>
-          <p>Track each child's day in one place.</p>
+          <h2>Daily Logs</h2>
+          <p>Tell Little Learner Hub what happened today.</p>
         </div>
-        ${dailyLogsSection !== "home" ? `<button class="ghost-button back-button" data-daily-logs-section="home" type="button">← Back</button>` : ""}
+        ${backTarget ? `<button class="ghost-button back-button" data-dlc-back="${backTarget}" type="button">← Back</button>` : ""}
       </div>
-      ${dailyLogsSection === "home" ? renderDailyLogsHome(records) : ""}
-      ${dailyLogsSection === "group" ? renderDailyLogsGroupUpdate(records) : ""}
-      ${dailyLogsSection === "individual" ? renderDailyLogsIndividual(child, records, today) : ""}
-      ${dailyLogsSection === "quick" ? renderDailyLogsQuickDoc(records) : ""}
+      ${renderDlcContent(records)}
     </section>
   `;
 }
 
-function renderDailyLogsHome(records) {
+function dlcBackTarget() {
+  if (dailyLogsSection !== "home") return "home";
+  if (dlcNewStep === "step1") return "";
+  if (dlcNewStep === "step1-multiple" || dlcNewStep === "step1-one") return "step1";
+  if (dlcNewStep === "step2") return "step1";
+  if (dlcNewStep === "manual" || dlcNewStep === "ai-input") return "step2";
+  if (dlcNewStep === "ai-suggestions") return "ai-input";
+  return "step1";
+}
+
+function renderDlcContent(records) {
+  if (dailyLogsSection === "group") return renderDailyLogsGroupUpdate(records);
+  if (dailyLogsSection === "individual") {
+    const child = selectedChild(records);
+    return renderDailyLogsIndividual(child, records, new Date().toISOString().slice(0, 10));
+  }
+  if (dailyLogsSection === "quick") return renderDailyLogsQuickDoc(records);
+  // "home" — new step-by-step flow
+  if (dlcNewStep === "step1-multiple") return renderDlcStep1Multiple(records);
+  if (dlcNewStep === "step1-one") return renderDlcStep1One(records);
+  if (dlcNewStep === "step2") return renderDlcStep2();
+  if (dlcNewStep === "manual") return renderDlcManual(records);
+  if (dlcNewStep === "ai-input") return renderDlcAiInput(records);
+  if (dlcNewStep === "ai-suggestions") return renderDlcAiSuggestions(records);
+  return renderDlcStep1(records);
+}
+
+// Step 1 – Who is this update for?
+function renderDlcStep1(records) {
+  const count = records.children.length;
   return `
-    <div class="dlc-home">
-      <p class="dlc-prompt">What would you like to update today?</p>
-      <div class="dlc-action-cards">
-        <button class="dlc-action-card dlc-card-group" data-daily-logs-section="group" type="button">
-          <span class="dlc-card-icon" aria-hidden="true">👥</span>
-          <strong>Group Update</strong>
-          <span>Apply meals, snacks, activities, and announcements to multiple children at once.</span>
-          <ul class="dlc-card-list">
-            <li>Meals &amp; Snacks</li>
-            <li>Activities</li>
-            <li>Group Photos</li>
-            <li>Announcements</li>
-            <li>Parent Reminders</li>
-          </ul>
+    <div class="dlc-step dlc-step1">
+      <p class="dlc-step-label">Step 1 — Who is this update for?</p>
+      <div class="dlc-sel-cards">
+        <button class="dlc-sel-card" data-dlc-child-sel="all" type="button">
+          <span class="dlc-sel-icon" aria-hidden="true">👨‍👩‍👧‍👦</span>
+          <strong>All Children</strong>
+          <span>${count ? `${count} child${count !== 1 ? "ren" : ""} enrolled` : "Add children to get started"}</span>
         </button>
-        <button class="dlc-action-card dlc-card-individual" data-daily-logs-section="individual" type="button">
-          <span class="dlc-card-icon" aria-hidden="true">👶</span>
-          <strong>Individual Child Update</strong>
-          <span>Log attendance, nap, meals, diaper, observations, and more for one child.</span>
-          <ul class="dlc-card-list">
-            <li>Attendance</li>
-            <li>Nap &amp; Diaper/Potty</li>
-            <li>Observation &amp; Behavior</li>
-            <li>Goal Update</li>
-            <li>Parent Message</li>
-          </ul>
+        <button class="dlc-sel-card" data-dlc-child-sel="multiple" type="button">
+          <span class="dlc-sel-icon" aria-hidden="true">👥</span>
+          <strong>Select Multiple Children</strong>
+          <span>Choose specific children to update</span>
         </button>
-        <button class="dlc-action-card dlc-card-quick" data-daily-logs-section="quick" type="button">
-          <span class="dlc-card-icon" aria-hidden="true">⭐</span>
-          <strong>Quick Documentation</strong>
-          <span>Type one note and let AI create observation, parent message, daily report, and more.</span>
-          <ul class="dlc-card-list">
-            <li>Observation Note</li>
-            <li>Parent Message</li>
-            <li>Daily Report Entry</li>
-            <li>Goal Update</li>
-          </ul>
+        <button class="dlc-sel-card" data-dlc-child-sel="one" type="button">
+          <span class="dlc-sel-icon" aria-hidden="true">👶</span>
+          <strong>One Child</strong>
+          <span>Update a single child's daily log</span>
         </button>
       </div>
     </div>
   `;
+}
+
+// Step 1 sub-view – multi-child checkbox picker
+function renderDlcStep1Multiple(records) {
+  const children = records.children;
+  if (!children.length) {
+    return `<section class="section-block empty-state"><h3>No child profiles yet.</h3><p>Add a child profile first.</p><button class="primary-button" data-child-view="add" type="button">Add Child</button></section>`;
+  }
+  return `
+    <div class="dlc-step dlc-step1-select">
+      <p class="dlc-step-label">Step 1 — Select the children for this update</p>
+      <div class="dlc-children-grid">
+        ${children.map((child) => `
+          <label class="dlc-child-check">
+            <input type="checkbox" class="dlc-multi-check" value="${child.id}" ${dlcSelectedChildIds.includes(child.id) ? "checked" : ""} />
+            <span>${escapeHtml(child.name)}</span>
+            <span class="dlc-child-age">${escapeHtml(childAgeLabel(child))}</span>
+          </label>
+        `).join("")}
+      </div>
+      <button class="primary-button dlc-confirm-btn" data-dlc-confirm-multiple type="button">Continue →</button>
+    </div>
+  `;
+}
+
+// Step 1 sub-view – single child picker
+function renderDlcStep1One(records) {
+  const children = records.children;
+  if (!children.length) {
+    return `<section class="section-block empty-state"><h3>No child profiles yet.</h3><p>Add a child profile first.</p><button class="primary-button" data-child-view="add" type="button">Add Child</button></section>`;
+  }
+  return `
+    <div class="dlc-step dlc-step1-select">
+      <p class="dlc-step-label">Step 1 — Which child are you updating?</p>
+      <div class="dlc-children-grid dlc-one-pick-grid">
+        ${children.map((child) => `
+          <button class="dlc-child-pick ${dlcSelectedChildIds[0] === child.id ? "selected" : ""}" data-dlc-pick-one="${child.id}" type="button">
+            ${renderChildAvatar(child, "small")}
+            <span>${escapeHtml(child.name)}</span>
+            <span class="dlc-child-age">${escapeHtml(childAgeLabel(child))}</span>
+          </button>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+// Step 2 – How would you like to update today?
+function renderDlcStep2() {
+  return `
+    <div class="dlc-step dlc-step2">
+      <p class="dlc-step-label">Step 2 — How would you like to update today?</p>
+      <p class="dlc-sel-summary">Updating: <strong>${escapeHtml(dlcSelectionLabel())}</strong></p>
+      <div class="dlc-mode-cards">
+        <button class="dlc-mode-card" data-dlc-mode="manual" type="button">
+          <span class="dlc-card-icon" aria-hidden="true">✏️</span>
+          <strong>Do It Myself</strong>
+          <span>Manually enter attendance, meals, naps, potty, activities, medication, incidents, photos, notes, and other daily information.</span>
+        </button>
+        <button class="dlc-mode-card dlc-mode-recommended" data-dlc-mode="ai" type="button">
+          <span class="dlc-mode-badge">Recommended</span>
+          <span class="dlc-card-icon" aria-hidden="true">✨</span>
+          <strong>Write What Happened</strong>
+          <span>Type or speak a quick summary of the day and Little Learner Hub will organize everything automatically.</span>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function dlcSelectionLabel() {
+  const records = childRecords();
+  if (dlcChildSelection === "all") return `All Children (${records.children.length})`;
+  if (!dlcSelectedChildIds.length) return "No children selected";
+  if (dlcSelectedChildIds.length === 1) {
+    const child = records.children.find((c) => c.id === dlcSelectedChildIds[0]);
+    return child ? child.name : "1 child";
+  }
+  const names = dlcSelectedChildIds.map((id) => {
+    const c = records.children.find((ch) => ch.id === id);
+    return c ? c.name : "";
+  }).filter(Boolean);
+  return names.join(", ");
+}
+
+function dlcGetSelectedChildren(records) {
+  if (dlcChildSelection === "all") return records.children;
+  return records.children.filter((c) => dlcSelectedChildIds.includes(c.id));
+}
+
+// Manual mode – expandable accordion
+function renderDlcManual(records) {
+  const sections = [
+    { id: "attendance", emoji: "📋", label: "Attendance" },
+    { id: "meals", emoji: "🍽️", label: "Meals" },
+    { id: "bottles", emoji: "🍼", label: "Bottles" },
+    { id: "naps", emoji: "😴", label: "Naps" },
+    { id: "diapers", emoji: "🚿", label: "Diapers / Potty" },
+    { id: "activities", emoji: "🎨", label: "Activities" },
+    { id: "mood", emoji: "😊", label: "Mood" },
+    { id: "medication", emoji: "💊", label: "Medication" },
+    { id: "incident", emoji: "⚠️", label: "Incident" },
+    { id: "photos", emoji: "📷", label: "Photos" },
+    { id: "notes", emoji: "📝", label: "Notes" },
+  ];
+  return `
+    <div class="dlc-manual">
+      <p class="dlc-sel-summary">Updating: <strong>${escapeHtml(dlcSelectionLabel())}</strong></p>
+      <div class="dlc-accordion">
+        ${sections.map(({ id, emoji, label }) => {
+          const isOpen = dlcManualSection === id;
+          return `
+            <div class="dlc-acc-item${isOpen ? " open" : ""}">
+              <button class="dlc-acc-header" data-dlc-accordion="${id}" type="button" aria-expanded="${isOpen}">
+                <span>${emoji} ${label}</span>
+                <span class="dlc-acc-arrow" aria-hidden="true">${isOpen ? "▲" : "▼"}</span>
+              </button>
+              ${isOpen ? `<div class="dlc-acc-body">${renderDlcAccordionForm(id, records)}</div>` : ""}
+            </div>
+          `;
+        }).join("")}
+      </div>
+      ${isProUser() ? `
+        <div class="dlc-manual-ai-row">
+          <span>✨ Finished logging? Let AI generate reports.</span>
+          <button class="primary-button" data-dlc-mode="ai" type="button">Generate Daily Reports</button>
+        </div>` : ""}
+    </div>
+  `;
+}
+
+function renderDlcChildSelector(records) {
+  const selected = dlcGetSelectedChildren(records);
+  if (selected.length <= 1) {
+    const childId = selected[0]?.id || "";
+    return `<input type="hidden" name="childIds" value="${childId}" />`;
+  }
+  return `
+    <fieldset class="dlc-children-select dlc-acc-children">
+      <legend>Apply to:</legend>
+      <div class="dlc-children-grid">
+        ${selected.map((child) => `
+          <label class="dlc-child-check">
+            <input type="checkbox" name="childIds" value="${child.id}" checked />
+            <span>${escapeHtml(child.name)}</span>
+          </label>
+        `).join("")}
+      </div>
+    </fieldset>
+  `;
+}
+
+function renderDlcAccordionForm(sectionId, records) {
+  const today = new Date().toISOString().slice(0, 10);
+  const childSel = renderDlcChildSelector(records);
+  if (sectionId === "attendance") {
+    if (!isProUser()) return lockedFeatureCard("Attendance Tracking");
+    return `
+      <form id="dlcAttendanceForm" class="dlc-acc-form">
+        ${childSel}
+        <label class="dlc-form-label">Date<input name="date" type="date" value="${today}" /></label>
+        <label class="dlc-form-label">Status<select name="status"><option>Present</option><option>Absent</option></select></label>
+        <label class="dlc-form-label">Drop-Off Time<input name="dropoff" type="time" /></label>
+        <label class="dlc-form-label">Pick-Up Time<input name="pickup" type="time" /></label>
+        <button class="primary-button" type="submit">Save Attendance</button>
+      </form>`;
+  }
+  if (sectionId === "meals") {
+    if (!isProUser()) return lockedFeatureCard("Meal Tracking");
+    return `
+      <form id="dlcMealsForm" class="dlc-acc-form">
+        ${childSel}
+        <label class="dlc-form-label">Date<input name="date" type="date" value="${today}" /></label>
+        <label class="dlc-form-label">Breakfast<input name="breakfast" placeholder="Ate most / refused / not served" /></label>
+        <label class="dlc-form-label">Lunch<input name="lunch" placeholder="Ate all lunch" /></label>
+        <label class="dlc-form-label">Snack<input name="snack" placeholder="Ate snack" /></label>
+        <label class="dlc-form-label">Food Notes<textarea name="notes" rows="2" placeholder="Any food notes"></textarea></label>
+        <button class="primary-button" type="submit">Save Meals</button>
+      </form>`;
+  }
+  if (sectionId === "bottles") {
+    if (!isProUser()) return lockedFeatureCard("Bottle Tracking");
+    return `
+      <form id="dlcBottleForm" class="dlc-acc-form">
+        ${childSel}
+        <label class="dlc-form-label">Date<input name="date" type="date" value="${today}" /></label>
+        <label class="dlc-form-label">Time<input name="time" type="time" /></label>
+        <label class="dlc-form-label">Amount<input name="amount" placeholder="e.g. 4 oz" /></label>
+        <label class="dlc-form-label">Type<select name="type"><option>Formula</option><option>Breast Milk</option><option>Water</option><option>Juice</option></select></label>
+        <label class="dlc-form-label">Notes<input name="notes" placeholder="Any notes" /></label>
+        <button class="primary-button" type="submit">Save Bottle</button>
+      </form>`;
+  }
+  if (sectionId === "naps") {
+    if (!isProUser()) return lockedFeatureCard("Nap Tracking");
+    return `
+      <form id="dlcNapForm" class="dlc-acc-form">
+        ${childSel}
+        <label class="dlc-form-label">Date<input name="date" type="date" value="${today}" /></label>
+        <label class="dlc-form-label">Nap Start<input name="napStart" type="time" /></label>
+        <label class="dlc-form-label">Nap End<input name="napEnd" type="time" /></label>
+        <label class="dlc-form-label">Duration<input name="duration" placeholder="e.g. 1 hour 15 min" /></label>
+        <label class="dlc-form-label">Notes<textarea name="notes" rows="2" placeholder="Slept well, restless, skipped, etc."></textarea></label>
+        <button class="primary-button" type="submit">Save Nap</button>
+      </form>`;
+  }
+  if (sectionId === "diapers") {
+    if (!isProUser()) return lockedFeatureCard("Diaper / Potty Tracking");
+    return `
+      <form id="dlcDiaperForm" class="dlc-acc-form">
+        ${childSel}
+        <label class="dlc-form-label">Date<input name="date" type="date" value="${today}" /></label>
+        <label class="dlc-form-label">Time<input name="time" type="time" /></label>
+        <label class="dlc-form-label">Type<select name="type"><option>Wet</option><option>Dirty</option><option>Both</option><option>Dry</option><option>Potty - Success</option><option>Potty - Attempt</option></select></label>
+        <label class="dlc-form-label">Notes<textarea name="notes" rows="2" placeholder="Any notes"></textarea></label>
+        <button class="primary-button" type="submit">Save Entry</button>
+      </form>`;
+  }
+  if (sectionId === "activities") {
+    if (!isProUser()) return lockedFeatureCard("Activity Logging");
+    return `
+      <form id="dlcActivityForm" class="dlc-acc-form">
+        ${childSel}
+        <label class="dlc-form-label">Date<input name="date" type="date" value="${today}" /></label>
+        <label class="dlc-form-label">Activity<input name="activity" placeholder="e.g. Painting, circle time, outdoor play" required /></label>
+        <label class="dlc-form-label">Developmental Area<select name="area">
+          <option>Approaches to Learning</option><option>Social Emotional</option><option>Language &amp; Literacy</option>
+          <option>Cognitive</option><option>Fine Motor</option><option>Gross Motor</option><option>Creative Arts</option>
+        </select></label>
+        <label class="dlc-form-label">Notes<textarea name="notes" rows="2" placeholder="How the child participated"></textarea></label>
+        <button class="primary-button" type="submit">Save Activity</button>
+      </form>`;
+  }
+  if (sectionId === "mood") {
+    if (!isProUser()) return lockedFeatureCard("Mood Tracking");
+    return `
+      <form id="dlcMoodForm" class="dlc-acc-form">
+        ${childSel}
+        <label class="dlc-form-label">Date<input name="date" type="date" value="${today}" /></label>
+        <label class="dlc-form-label">Mood<select name="mood">
+          <option>Happy</option><option>Content</option><option>Tired</option><option>Fussy</option>
+          <option>Upset</option><option>Energetic</option><option>Calm</option>
+        </select></label>
+        <label class="dlc-form-label">Notes<textarea name="notes" rows="2" placeholder="Additional observations about mood or behavior"></textarea></label>
+        <button class="primary-button" type="submit">Save Mood</button>
+      </form>`;
+  }
+  if (sectionId === "medication") {
+    if (!isProUser()) return lockedFeatureCard("Medication Tracking");
+    return `
+      <form id="dlcMedicationForm" class="dlc-acc-form">
+        ${childSel}
+        <label class="dlc-form-label">Date<input name="date" type="date" value="${today}" /></label>
+        <label class="dlc-form-label">Medication Name<input name="medication" placeholder="e.g. Amoxicillin" required /></label>
+        <label class="dlc-form-label">Dosage<input name="dosage" placeholder="e.g. 5 mL" /></label>
+        <label class="dlc-form-label">Time Given<input name="time" type="time" /></label>
+        <label class="dlc-form-label">Administered By<input name="administeredBy" placeholder="e.g. Ms. Sarah" /></label>
+        <label class="dlc-form-label">Notes<textarea name="notes" rows="2" placeholder="Any reactions or notes"></textarea></label>
+        <button class="primary-button" type="submit">Save Medication</button>
+      </form>`;
+  }
+  if (sectionId === "incident") {
+    if (!isProUser()) return lockedFeatureCard("Incident Reports");
+    return `
+      <form id="dlcIncidentForm" class="dlc-acc-form">
+        ${childSel}
+        <label class="dlc-form-label">Date<input name="date" type="date" value="${today}" /></label>
+        <label class="dlc-form-label">Time<input name="time" type="time" /></label>
+        <label class="dlc-form-label">Description<textarea name="description" rows="3" placeholder="What happened?" required></textarea></label>
+        <label class="dlc-form-label">Action Taken<textarea name="action" rows="2" placeholder="How did you respond?"></textarea></label>
+        <label class="dlc-form-label">Parent Notified<select name="parentNotified"><option>No</option><option>Yes - At Pickup</option><option>Yes - By Phone</option><option>Yes - By Message</option></select></label>
+        <button class="primary-button" type="submit">Save Incident</button>
+      </form>`;
+  }
+  if (sectionId === "photos") {
+    return renderDlcPhotoSection(records);
+  }
+  if (sectionId === "notes") {
+    if (!isProUser()) return lockedFeatureCard("Daily Notes");
+    return `
+      <form id="dlcNotesForm" class="dlc-acc-form">
+        ${childSel}
+        <label class="dlc-form-label">Date<input name="date" type="date" value="${today}" /></label>
+        <label class="dlc-form-label">Note<textarea name="message" rows="3" placeholder="Any notes about today…" required></textarea></label>
+        <label class="dlc-form-label">Note Type<select name="type"><option>Behavior Note</option><option>General Note</option><option>Parent Note</option></select></label>
+        <button class="primary-button" type="submit">Save Note</button>
+      </form>`;
+  }
+  return "";
+}
+
+function renderDlcPhotoSection(records) {
+  return `
+    <div class="dlc-photo-section">
+      <p class="dlc-sub">Photos are optional. Upload or take a photo to include with today's log.</p>
+      <div class="dlc-photo-actions">
+        <label class="dlc-photo-btn">
+          <input type="file" accept="image/*" class="dlc-photo-file" multiple style="display:none" />
+          📁 Upload Photos
+        </label>
+        <label class="dlc-photo-btn">
+          <input type="file" accept="image/*" capture="environment" class="dlc-photo-capture" style="display:none" />
+          📷 Take Photo
+        </label>
+      </div>
+      <div id="dlcPhotoPreview" class="dlc-photo-preview"></div>
+      <div class="dlc-photo-share">
+        <label class="dlc-check-label">
+          <input type="checkbox" id="dlcPhotoShareFamily" checked />
+          ☑ Share with Family Hub
+        </label>
+      </div>
+    </div>
+  `;
+}
+
+// AI Workflow – text input screen
+function renderDlcAiInput(records) {
+  const selectedChildren = dlcGetSelectedChildren(records || childRecords());
+  const names = selectedChildren.map((c) => c.name).join(", ");
+  return `
+    <div class="dlc-ai-input">
+      <p class="dlc-sel-summary">Updating: <strong>${escapeHtml(dlcSelectionLabel())}</strong></p>
+      <div class="dlc-ai-box section-block">
+        <label class="dlc-ai-label" for="dlcAiNoteInput">
+          <strong>What happened today?</strong>
+        </label>
+        <textarea
+          id="dlcAiNoteInput"
+          class="dlc-ai-textarea"
+          rows="6"
+          placeholder="Example: Everyone ate breakfast, painted butterflies, played outside, and listened to a story. Oakley ate half of lunch and napped from 12:15–2:00."
+        >${escapeHtml(dlcAiNote)}</textarea>
+        <div class="dlc-ai-tools">
+          <button class="ghost-button dlc-speak-btn" id="dlcSpeakBtn" type="button" aria-label="Speak instead of typing">🎤 Speak Instead</button>
+          <span class="dlc-speak-status" id="dlcSpeakStatus"></span>
+        </div>
+        <button class="primary-button dlc-organize-btn" id="dlcOrganizeBtn" type="button">Organize My Daily Log</button>
+      </div>
+    </div>
+  `;
+}
+
+// AI Workflow – suggestion cards
+function renderDlcAiSuggestions(records) {
+  if (!dlcAiSuggestions.length) {
+    return `<div class="dlc-ai-empty section-block"><p>No suggestions generated yet.</p><button class="ghost-button" data-dlc-back="ai-input" type="button">← Back</button></div>`;
+  }
+  const pending = dlcAiSuggestions.filter((s) => !s.ignored);
+  const hasPending = pending.some((s) => !s.saved);
+  return `
+    <div class="dlc-ai-suggestions">
+      <p class="dlc-sel-summary">Updating: <strong>${escapeHtml(dlcSelectionLabel())}</strong></p>
+      <p class="dlc-sub dlc-ai-review-note">Review the suggestions below. Save what you want or ignore what doesn't apply.</p>
+      <div class="dlc-sug-list">
+        ${dlcAiSuggestions.map((sug, i) => renderDlcSuggestionCard(sug, i)).join("")}
+      </div>
+      ${hasPending ? `
+        <div class="dlc-sug-save-all-row">
+          <button class="primary-button" data-dlc-save-all type="button">Save All Remaining</button>
+        </div>` : `
+        <div class="dlc-sug-done section-block">
+          <p>✅ All items reviewed! Check individual child profiles to see saved records.</p>
+        </div>`}
+    </div>
+  `;
+}
+
+function renderDlcSuggestionCard(sug, index) {
+  if (sug.ignored) return "";
+  const cardClass = sug.saved ? "dlc-sug-card dlc-sug-saved" : "dlc-sug-card";
+  return `
+    <div class="${cardClass}">
+      <div class="dlc-sug-header">
+        <span class="dlc-sug-icon" aria-hidden="true">${escapeHtml(sug.emoji)}</span>
+        <strong class="dlc-sug-title">${escapeHtml(sug.title)}</strong>
+        ${sug.saved ? `<span class="dlc-sug-saved-badge">Saved ✓</span>` : ""}
+      </div>
+      <div class="dlc-sug-body">
+        ${sug.lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
+        ${sug.type === "preview" ? `<div class="dlc-sug-preview-text">${escapeHtml(sug.preview || "")}</div>` : ""}
+      </div>
+      ${!sug.saved ? `
+        <div class="dlc-sug-share">
+          <label class="dlc-check-label">
+            <input type="checkbox" class="dlc-sug-family-check" data-sug-index="${index}" ${sug.shareWithFamily !== false ? "checked" : ""} />
+            Share with Family Hub
+          </label>
+        </div>
+        <div class="dlc-sug-actions">
+          <button class="primary-button" data-dlc-sug-save="${index}" type="button">Save</button>
+          <button class="ghost-button" data-dlc-sug-edit="${index}" type="button">Edit</button>
+          <button class="ghost-button dlc-sug-ignore-btn" data-dlc-sug-ignore="${index}" type="button">Ignore</button>
+        </div>` : ""}
+    </div>
+  `;
+}
+
+// ─── AI Parsing – Daily Log Note ─────────────────────────────────────────────
+
+function parseDailyLogNote(note, selectedChildren, records) {
+  const suggestions = [];
+  const noteLower = note.toLowerCase();
+  const today = new Date().toISOString().slice(0, 10);
+  const childNames = selectedChildren.map((c) => c.name);
+  const programSettings = getProgramSettings();
+  const programName = programSettings.programName || "";
+
+  // Helper: detect if a sentence mentions a specific child vs "everyone"
+  function isForEveryone(text) {
+    return /everyone|all (kids|children|the group|the class)/.test(text.toLowerCase());
+  }
+  function childMentionedIn(text, name) {
+    return text.toLowerCase().includes(name.toLowerCase());
+  }
+
+  // ── Meals ──────────────────────────────────────────────────────────────────
+  const mealKeywords = /breakfast|lunch|snack|ate|eat|ate well|didn.t eat|half of|drank|bottle|sippy/i;
+  if (mealKeywords.test(note)) {
+    const lines = [];
+    if (/breakfast/.test(noteLower)) lines.push("Breakfast logged for selected children.");
+    if (/lunch/.test(noteLower)) {
+      const halfMatch = note.match(/(\w+)\s+ate half of lunch/i);
+      if (halfMatch) {
+        lines.push(`${halfMatch[1]} ate half of lunch.`);
+        const others = childNames.filter((n) => n.toLowerCase() !== halfMatch[1].toLowerCase());
+        if (others.length) lines.push(`${others.join(", ")}: lunch logged.`);
+      } else {
+        lines.push("Lunch logged for selected children.");
+      }
+    }
+    if (/snack/.test(noteLower)) lines.push("Snack logged for selected children.");
+    if (lines.length) {
+      suggestions.push({ type: "meals", emoji: "🍎", title: "Meals Found", lines, shareWithFamily: true, saved: false, ignored: false });
+    }
+  }
+
+  // ── Naps ──────────────────────────────────────────────────────────────────
+  const napMatch = note.match(/(\w+)\s+(?:napped|slept)\s+from\s+(\d{1,2}:\d{2})\s*[–\-]\s*(\d{1,2}:\d{2})/i);
+  const generalNap = /napped|slept|nap time|rest time/.test(noteLower);
+  if (napMatch) {
+    suggestions.push({
+      type: "naps", emoji: "😴", title: "Nap Found",
+      lines: [`${napMatch[1]} slept from ${napMatch[2]}–${napMatch[3]}.`],
+      napData: { childName: napMatch[1], start: napMatch[2], end: napMatch[3] },
+      shareWithFamily: true, saved: false, ignored: false,
+    });
+  } else if (generalNap) {
+    suggestions.push({ type: "naps", emoji: "😴", title: "Nap Found", lines: ["Nap time logged for selected children."], shareWithFamily: true, saved: false, ignored: false });
+  }
+
+  // ── Activities ─────────────────────────────────────────────────────────────
+  const actKeywords = /paint|drew|drawing|art|outside|outdoor|play|sang|sing|read|story|circle time|sensory|dance|craft|built|block|puzzle|counting|math|science|music/i;
+  if (actKeywords.test(note)) {
+    const actLines = [];
+    const actMatches = [];
+    if (/paint|butterfly paint/.test(noteLower)) actMatches.push("Butterfly painting");
+    if (/outside|outdoor/.test(noteLower)) actMatches.push("Outside play");
+    if (/story|read/.test(noteLower)) actMatches.push("Story time");
+    if (/circle time/.test(noteLower)) actMatches.push("Circle time");
+    if (/sensory/.test(noteLower)) actMatches.push("Sensory play");
+    if (/music|sang|sing|dance/.test(noteLower)) actMatches.push("Music & movement");
+    if (/art|craft/.test(noteLower) && !actMatches.some((a) => a.includes("paint"))) actMatches.push("Art activity");
+    if (/count|math/.test(noteLower)) actMatches.push("Math / counting");
+    // Generic activity extraction
+    if (!actMatches.length) actMatches.push("Activities logged");
+    suggestions.push({ type: "activities", emoji: "🎨", title: "Activities Found", lines: actMatches, shareWithFamily: true, saved: false, ignored: false });
+  }
+
+  // ── Attendance ─────────────────────────────────────────────────────────────
+  if (note.trim().length > 10) {
+    suggestions.push({
+      type: "attendance", emoji: "📋", title: "Attendance",
+      lines: [`${childNames.length === 1 ? childNames[0] + " was" : "Selected children were"} present today.`],
+      shareWithFamily: false, saved: false, ignored: false,
+    });
+  }
+
+  // ── Parent Update ──────────────────────────────────────────────────────────
+  if (childNames.length) {
+    const firstChild = selectedChildren[0];
+    const age = childAgeGroupLabel(firstChild);
+    const preview = generateParentMessage({ topic: "Daily Update", details: note, childName: childNames.length === 1 ? childNames[0] : "your child", age, programName, tone: programSettings.communicationTone || "Warm and friendly" });
+    suggestions.push({
+      type: "preview", emoji: "💬", title: "Parent Update Ready",
+      lines: ["Generate a friendly parent message from today's note."],
+      preview,
+      shareWithFamily: true, saved: false, ignored: false,
+    });
+  }
+
+  // ── Observation ───────────────────────────────────────────────────────────
+  if (childNames.length) {
+    // Look for developmental milestones / specific child achievements
+    const devMatch = note.match(/(\w+)\s+(counted|identified|matched|recognized|said|named|sorted|built|drew|completed|showed|demonstrated)/i);
+    const childForObs = devMatch ? devMatch[1] : (childNames[0] || "");
+    const childObj = selectedChildren.find((c) => c.name.toLowerCase() === childForObs.toLowerCase()) || selectedChildren[0];
+    if (childObj) {
+      const age = childAgeGroupLabel(childObj);
+      const preview = generateObservation({ note, age, childName: childObj.name, programName });
+      suggestions.push({
+        type: "preview", emoji: "📝", title: "Observation Ready",
+        lines: [`Generate a developmental observation${childObj ? ` for ${childObj.name}` : ""}.`],
+        preview,
+        shareWithFamily: false, saved: false, ignored: false,
+      });
+    }
+  }
+
+  // ── Daily Reports ──────────────────────────────────────────────────────────
+  if (childNames.length && isProUser()) {
+    const reportLines = childNames.map((name) => `Daily report for ${name}`);
+    suggestions.push({
+      type: "preview", emoji: "📖", title: "Daily Reports Ready",
+      lines: reportLines,
+      preview: selectedChildren.map((child) => {
+        const age = childAgeGroupLabel(child);
+        return generateDailyReport({ childName: child.name, age, highlights: note, programName, date: today, tone: programSettings.communicationTone || "Warm and friendly" });
+      }).join("\n\n" + "─".repeat(60) + "\n\n"),
+      shareWithFamily: true, saved: false, ignored: false,
+    });
+  }
+
+  return suggestions;
+}
+
+// ─── Save suggestion to child records ────────────────────────────────────────
+
+function dlcSaveSuggestion(sug, idx) {
+  const records = childRecords();
+  const selectedChildren = dlcGetSelectedChildren(records);
+  const today = new Date().toISOString().slice(0, 10);
+  const shareFlag = sug.shareWithFamily !== false;
+
+  if (sug.type === "meals") {
+    selectedChildren.forEach((child) => {
+      appendChildRecord("Meals", {
+        childId: child.id, date: today,
+        breakfast: sug.lines.some((l) => /breakfast/i.test(l)) ? "Logged" : "",
+        lunch: sug.lines.some((l) => /lunch/i.test(l)) ? "Logged" : "",
+        snack: sug.lines.some((l) => /snack/i.test(l)) ? "Logged" : "",
+        notes: sug.lines.join(" "),
+        title: `Meals | ${today}`,
+        summary: sug.lines.join(" "),
+        shareWithFamily: shareFlag,
+      });
+    });
+  } else if (sug.type === "naps") {
+    const napData = sug.napData;
+    if (napData) {
+      const child = selectedChildren.find((c) => c.name.toLowerCase() === (napData.childName || "").toLowerCase()) || selectedChildren[0];
+      if (child) {
+        appendChildRecord("Naps", {
+          childId: child.id, date: today,
+          napStart: napData.start || "", napEnd: napData.end || "",
+          title: `Nap | ${today}${napData.start ? " | " + napData.start + "–" + napData.end : ""}`,
+          summary: sug.lines.join(" "),
+          shareWithFamily: shareFlag,
+        });
+      }
+    } else {
+      selectedChildren.forEach((child) => {
+        appendChildRecord("Naps", { childId: child.id, date: today, title: `Nap | ${today}`, summary: sug.lines.join(" "), shareWithFamily: shareFlag });
+      });
+    }
+  } else if (sug.type === "activities") {
+    selectedChildren.forEach((child) => {
+      sug.lines.forEach((activity) => {
+        appendChildRecord("ActivityLogs", {
+          childId: child.id, date: today,
+          activity, title: activity, summary: activity,
+          shareWithFamily: shareFlag,
+        });
+      });
+    });
+  } else if (sug.type === "attendance") {
+    selectedChildren.forEach((child) => {
+      appendChildRecord("Attendance", {
+        childId: child.id, date: today,
+        status: "Present", title: `Attendance | ${today}`, summary: "Present",
+        shareWithFamily: shareFlag,
+      });
+    });
+  } else if (sug.type === "preview") {
+    const content = sug.preview || sug.lines.join("\n");
+    const isReport = /report/i.test(sug.title);
+    const isObs = /observation/i.test(sug.title);
+    selectedChildren.forEach((child) => {
+      if (isReport) {
+        appendChildRecord("Reports", {
+          childId: child.id, date: today,
+          title: `Daily Report | ${today}`, message: content, summary: content.slice(0, 120),
+          shareWithFamily: shareFlag,
+        });
+      } else if (isObs) {
+        appendChildRecord("Observations", {
+          childId: child.id, date: today,
+          text: content, area: "Daily Log", title: `Observation | ${today}`,
+          summary: content.slice(0, 120),
+          shareWithFamily: shareFlag,
+        });
+      } else {
+        appendChildRecord("Communications", {
+          childId: child.id, date: today,
+          type: "Parent Note", message: content,
+          title: `Parent Update | ${today}`, summary: content.slice(0, 120),
+          shareWithFamily: shareFlag,
+        });
+      }
+    });
+  }
+}
+
+// ─── Speech Input ─────────────────────────────────────────────────────────────
+
+let dlcSpeechRecognition = null;
+
+function dlcStartSpeechInput() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const statusEl = document.querySelector("#dlcSpeakStatus");
+  const btn = document.querySelector("#dlcSpeakBtn");
+  const noteEl = document.querySelector("#dlcAiNoteInput");
+  if (!SpeechRecognition) {
+    if (statusEl) statusEl.textContent = "Speech recognition is not supported in this browser.";
+    return;
+  }
+  if (dlcSpeechRecognition) {
+    dlcSpeechRecognition.stop();
+    dlcSpeechRecognition = null;
+    if (btn) btn.textContent = "🎤 Speak Instead";
+    if (statusEl) statusEl.textContent = "";
+    return;
+  }
+  dlcSpeechRecognition = new SpeechRecognition();
+  dlcSpeechRecognition.continuous = true;
+  dlcSpeechRecognition.interimResults = true;
+  dlcSpeechRecognition.lang = "en-US";
+  if (btn) btn.textContent = "⏹ Stop Speaking";
+  if (statusEl) statusEl.textContent = "Listening…";
+  let finalTranscript = noteEl ? noteEl.value : "";
+  dlcSpeechRecognition.onresult = (e) => {
+    let interim = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        finalTranscript += e.results[i][0].transcript + " ";
+      } else {
+        interim += e.results[i][0].transcript;
+      }
+    }
+    if (noteEl) noteEl.value = finalTranscript + interim;
+  };
+  dlcSpeechRecognition.onerror = () => {
+    if (statusEl) statusEl.textContent = "Microphone error. Please check permissions.";
+    if (btn) btn.textContent = "🎤 Speak Instead";
+    dlcSpeechRecognition = null;
+  };
+  dlcSpeechRecognition.onend = () => {
+    if (statusEl) statusEl.textContent = "";
+    if (btn) btn.textContent = "🎤 Speak Instead";
+    dlcSpeechRecognition = null;
+  };
+  dlcSpeechRecognition.start();
 }
 
 function renderDailyLogsGroupUpdate(records) {
@@ -14707,6 +15386,12 @@ document.addEventListener("click", (event) => {
       dailyLogsSection = "home";
       dailyLogsChildTab = "overview";
       dailyLogsGroupAction = "";
+      dlcNewStep = "step1";
+      dlcChildSelection = "all";
+      dlcSelectedChildIds = [];
+      dlcAiNote = "";
+      dlcAiSuggestions = [];
+      dlcManualSection = "";
       activeChildObservationEditId = "";
       activeObservationChildLock = "";
       activePortfolioChildId = "";
@@ -14933,7 +15618,182 @@ document.addEventListener("click", (event) => {
     return;
   }
 
-  const quickDocGenerateBtn = event.target.closest("#quickDocGenerate");
+  // ─── New Daily Log Flow handlers ──────────────────────────────────────────
+
+  const dlcBackBtn = event.target.closest("[data-dlc-back]");
+  if (dlcBackBtn) {
+    event.preventDefault();
+    const target = dlcBackBtn.dataset.dlcBack;
+    if (target === "home" || target === "") {
+      dailyLogsSection = "home";
+      dlcNewStep = "step1";
+      dlcChildSelection = "all";
+      dlcSelectedChildIds = [];
+    } else {
+      dlcNewStep = target;
+    }
+    childManagementMode = "daily-logs";
+    renderChildManagement();
+    return;
+  }
+
+  const dlcChildSelBtn = event.target.closest("[data-dlc-child-sel]");
+  if (dlcChildSelBtn) {
+    event.preventDefault();
+    const sel = dlcChildSelBtn.dataset.dlcChildSel;
+    dlcChildSelection = sel;
+    const records = childRecords();
+    if (sel === "all") {
+      dlcSelectedChildIds = records.children.map((c) => c.id);
+      dlcNewStep = "step2";
+    } else if (sel === "multiple") {
+      dlcSelectedChildIds = records.children.map((c) => c.id); // pre-check all
+      dlcNewStep = "step1-multiple";
+    } else {
+      dlcSelectedChildIds = [];
+      dlcNewStep = "step1-one";
+    }
+    childManagementMode = "daily-logs";
+    renderChildManagement();
+    return;
+  }
+
+  const dlcConfirmMultiBtn = event.target.closest("[data-dlc-confirm-multiple]");
+  if (dlcConfirmMultiBtn) {
+    event.preventDefault();
+    const checked = Array.from(document.querySelectorAll(".dlc-multi-check:checked")).map((cb) => cb.value);
+    if (!checked.length) {
+      alert("Please select at least one child.");
+      return;
+    }
+    dlcSelectedChildIds = checked;
+    dlcNewStep = "step2";
+    childManagementMode = "daily-logs";
+    renderChildManagement();
+    return;
+  }
+
+  const dlcPickOneBtn = event.target.closest("[data-dlc-pick-one]");
+  if (dlcPickOneBtn) {
+    event.preventDefault();
+    dlcSelectedChildIds = [dlcPickOneBtn.dataset.dlcPickOne];
+    dlcNewStep = "step2";
+    childManagementMode = "daily-logs";
+    renderChildManagement();
+    return;
+  }
+
+  const dlcModeBtn = event.target.closest("[data-dlc-mode]");
+  if (dlcModeBtn) {
+    event.preventDefault();
+    const mode = dlcModeBtn.dataset.dlcMode;
+    dlcNewStep = mode === "ai" ? "ai-input" : "manual";
+    dlcManualSection = "";
+    childManagementMode = "daily-logs";
+    renderChildManagement();
+    return;
+  }
+
+  const dlcAccordionBtn = event.target.closest("[data-dlc-accordion]");
+  if (dlcAccordionBtn) {
+    event.preventDefault();
+    const secId = dlcAccordionBtn.dataset.dlcAccordion;
+    dlcManualSection = dlcManualSection === secId ? "" : secId;
+    childManagementMode = "daily-logs";
+    renderChildManagement();
+    return;
+  }
+
+  const dlcOrganizeBtn = event.target.closest("#dlcOrganizeBtn");
+  if (dlcOrganizeBtn) {
+    event.preventDefault();
+    if (!canUseAi()) {
+      showProFeatureModal(aiLimitMessage(), "limit");
+      return;
+    }
+    const noteEl = document.querySelector("#dlcAiNoteInput");
+    const note = noteEl?.value?.trim() || "";
+    if (!note) {
+      alert("Please describe what happened today first.");
+      return;
+    }
+    dlcAiNote = note;
+    const records = childRecords();
+    const selectedChildren = dlcGetSelectedChildren(records);
+    if (!selectedChildren.length) {
+      alert("No children selected. Please go back and select children first.");
+      return;
+    }
+    dlcAiSuggestions = parseDailyLogNote(note, selectedChildren, records);
+    recordAiUse();
+    dlcNewStep = "ai-suggestions";
+    childManagementMode = "daily-logs";
+    renderChildManagement();
+    return;
+  }
+
+  const dlcSugSaveBtn = event.target.closest("[data-dlc-sug-save]");
+  if (dlcSugSaveBtn) {
+    event.preventDefault();
+    const idx = parseInt(dlcSugSaveBtn.dataset.dlcSugSave, 10);
+    const sug = dlcAiSuggestions[idx];
+    if (!sug) return;
+    // Read shareWithFamily checkbox
+    const shareCheck = document.querySelector(`[data-sug-index="${idx}"].dlc-sug-family-check`);
+    sug.shareWithFamily = shareCheck ? shareCheck.checked : sug.shareWithFamily;
+    dlcSaveSuggestion(sug, idx);
+    dlcAiSuggestions[idx] = { ...sug, saved: true };
+    childManagementMode = "daily-logs";
+    renderChildManagement();
+    return;
+  }
+
+  const dlcSugIgnoreBtn = event.target.closest("[data-dlc-sug-ignore]");
+  if (dlcSugIgnoreBtn) {
+    event.preventDefault();
+    const idx = parseInt(dlcSugIgnoreBtn.dataset.dlcSugIgnore, 10);
+    if (dlcAiSuggestions[idx]) dlcAiSuggestions[idx] = { ...dlcAiSuggestions[idx], ignored: true };
+    childManagementMode = "daily-logs";
+    renderChildManagement();
+    return;
+  }
+
+  const dlcSugEditBtn = event.target.closest("[data-dlc-sug-edit]");
+  if (dlcSugEditBtn) {
+    event.preventDefault();
+    const idx = parseInt(dlcSugEditBtn.dataset.dlcSugEdit, 10);
+    const sug = dlcAiSuggestions[idx];
+    if (!sug) return;
+    const newText = prompt("Edit this suggestion:", sug.preview || sug.lines.join("\n"));
+    if (newText !== null) {
+      dlcAiSuggestions[idx] = { ...sug, preview: newText, lines: [newText.split("\n")[0]] };
+      renderChildManagement();
+    }
+    return;
+  }
+
+  const dlcSaveAllBtn = event.target.closest("[data-dlc-save-all]");
+  if (dlcSaveAllBtn) {
+    event.preventDefault();
+    dlcAiSuggestions.forEach((sug, idx) => {
+      if (!sug.saved && !sug.ignored) {
+        dlcSaveSuggestion(sug, idx);
+        dlcAiSuggestions[idx] = { ...sug, saved: true };
+      }
+    });
+    childManagementMode = "daily-logs";
+    renderChildManagement();
+    return;
+  }
+
+  const dlcSpeakBtn = event.target.closest("#dlcSpeakBtn");
+  if (dlcSpeakBtn) {
+    event.preventDefault();
+    dlcStartSpeechInput();
+    return;
+  }
+
+
   if (quickDocGenerateBtn) {
     event.preventDefault();
     if (!canUseAi()) {
@@ -16589,6 +17449,150 @@ document.addEventListener("submit", (event) => {
   renderChildManagement();
 });
 
+// ─── New Daily Log Accordion Form Handlers ──────────────────────────────────
+
+function dlcGetAccordionChildIds(form) {
+  const fd = new FormData(form);
+  return fd.getAll("childIds").filter(Boolean);
+}
+
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("#dlcAttendanceForm")) return;
+  event.preventDefault();
+  if (!isProUser()) { showProFeatureModal("Attendance Tracking is a Pro feature."); return; }
+  const data = collectFormData(event.target);
+  const childIds = dlcGetAccordionChildIds(event.target);
+  childIds.forEach((childId) => {
+    appendChildRecord("Attendance", { ...data, childId, title: `Attendance | ${data.date}`, summary: data.status });
+  });
+  showAfterActionPrompt("attendance", childIds[0]);
+  dlcManualSection = "";
+  renderChildManagement();
+});
+
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("#dlcMealsForm")) return;
+  event.preventDefault();
+  if (!isProUser()) { showProFeatureModal("Meal Tracking is a Pro feature."); return; }
+  const data = collectFormData(event.target);
+  const childIds = dlcGetAccordionChildIds(event.target);
+  childIds.forEach((childId) => {
+    const parts = [data.breakfast && `Breakfast: ${data.breakfast}`, data.lunch && `Lunch: ${data.lunch}`, data.snack && `Snack: ${data.snack}`].filter(Boolean);
+    appendChildRecord("Meals", { ...data, childId, title: `Meals | ${data.date}`, summary: parts.join(" | ") || "Meals logged" });
+  });
+  showAfterActionPrompt("meals", childIds[0]);
+  dlcManualSection = "";
+  renderChildManagement();
+});
+
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("#dlcBottleForm")) return;
+  event.preventDefault();
+  if (!isProUser()) { showProFeatureModal("Bottle Tracking is a Pro feature."); return; }
+  const data = collectFormData(event.target);
+  const childIds = dlcGetAccordionChildIds(event.target);
+  childIds.forEach((childId) => {
+    const timeStr = data.time ? ` at ${data.time}` : "";
+    appendChildRecord("Meals", { ...data, childId, title: `Bottle | ${data.date}${timeStr}`, summary: `${data.type}: ${data.amount}` });
+  });
+  dlcManualSection = "";
+  renderChildManagement();
+});
+
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("#dlcNapForm")) return;
+  event.preventDefault();
+  if (!isProUser()) { showProFeatureModal("Nap Tracking is a Pro feature."); return; }
+  const data = collectFormData(event.target);
+  const childIds = dlcGetAccordionChildIds(event.target);
+  childIds.forEach((childId) => {
+    const dur = data.napStart && data.napEnd ? ` | ${data.napStart}–${data.napEnd}` : "";
+    appendChildRecord("Naps", { ...data, childId, title: `Nap | ${data.date}${dur}`, summary: data.notes || `Nap logged${dur}` });
+  });
+  dlcManualSection = "";
+  renderChildManagement();
+});
+
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("#dlcDiaperForm")) return;
+  event.preventDefault();
+  if (!isProUser()) { showProFeatureModal("Diaper / Potty Tracking is a Pro feature."); return; }
+  const data = collectFormData(event.target);
+  const childIds = dlcGetAccordionChildIds(event.target);
+  childIds.forEach((childId) => {
+    const timeStr = data.time ? ` at ${data.time}` : "";
+    appendChildRecord("Diapers", { ...data, childId, title: `${data.type} | ${data.date}${timeStr}`, summary: data.notes || data.type });
+  });
+  dlcManualSection = "";
+  renderChildManagement();
+});
+
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("#dlcActivityForm")) return;
+  event.preventDefault();
+  if (!isProUser()) { showProFeatureModal("Activity Logging is a Pro feature."); return; }
+  const data = collectFormData(event.target);
+  const childIds = dlcGetAccordionChildIds(event.target);
+  childIds.forEach((childId) => {
+    const summary = [data.area, data.notes].filter(Boolean).join(" | ") || data.activity || "Activity";
+    appendChildRecord("ActivityLogs", { ...data, childId, title: data.activity || "Activity", summary });
+  });
+  dlcManualSection = "";
+  renderChildManagement();
+});
+
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("#dlcMoodForm")) return;
+  event.preventDefault();
+  if (!isProUser()) { showProFeatureModal("Mood Tracking is a Pro feature."); return; }
+  const data = collectFormData(event.target);
+  const childIds = dlcGetAccordionChildIds(event.target);
+  childIds.forEach((childId) => {
+    appendChildRecord("Communications", { ...data, childId, type: "Mood Note", title: `Mood | ${data.date}`, summary: `${data.mood}${data.notes ? " – " + data.notes : ""}` });
+  });
+  dlcManualSection = "";
+  renderChildManagement();
+});
+
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("#dlcMedicationForm")) return;
+  event.preventDefault();
+  if (!isProUser()) { showProFeatureModal("Medication Tracking is a Pro feature."); return; }
+  const data = collectFormData(event.target);
+  const childIds = dlcGetAccordionChildIds(event.target);
+  childIds.forEach((childId) => {
+    appendChildRecord("Communications", { ...data, childId, type: "Medication", title: `Medication | ${data.date}`, summary: `${data.medication} ${data.dosage || ""}`.trim() });
+  });
+  dlcManualSection = "";
+  renderChildManagement();
+});
+
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("#dlcIncidentForm")) return;
+  event.preventDefault();
+  if (!isProUser()) { showProFeatureModal("Incident Reports are a Pro feature."); return; }
+  const data = collectFormData(event.target);
+  const childIds = dlcGetAccordionChildIds(event.target);
+  childIds.forEach((childId) => {
+    appendChildRecord("Communications", { ...data, childId, type: "Incident Report", title: `Incident | ${data.date}`, summary: data.description });
+  });
+  dlcManualSection = "";
+  renderChildManagement();
+});
+
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("#dlcNotesForm")) return;
+  event.preventDefault();
+  if (!isProUser()) { showProFeatureModal("Daily Notes are a Pro feature."); return; }
+  const data = collectFormData(event.target);
+  const childIds = dlcGetAccordionChildIds(event.target);
+  childIds.forEach((childId) => {
+    appendChildRecord("Communications", { ...data, childId, title: `${data.type || "Note"} | ${data.date}`, summary: data.message });
+  });
+  dlcManualSection = "";
+  renderChildManagement();
+});
+
 installMobileNavigation();
 
 // ─── Program Settings Form Submit ──────────────────────────────────────────
@@ -16683,6 +17687,23 @@ document.addEventListener("change", (event) => {
   if (event.target.name === "curriculumUsed") {
     toggleCustomCurriculumField(event.target.value || "");
   }
+});
+
+document.addEventListener("change", (event) => {
+  const fileInput = event.target.closest(".dlc-photo-file, .dlc-photo-capture");
+  if (!fileInput) return;
+  const preview = document.querySelector("#dlcPhotoPreview");
+  if (!preview) return;
+  Array.from(fileInput.files).forEach((file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = document.createElement("img");
+      img.src = e.target.result;
+      img.alt = "Photo preview";
+      preview.appendChild(img);
+    };
+    reader.readAsDataURL(file);
+  });
 });
 
 if (currentUser) {

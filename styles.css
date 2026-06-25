@@ -5155,6 +5155,485 @@ body.home-view .topbar .search-wrap {
   gap: 10px;
 }
 
+/* ─── New Daily Log Flow ──────────────────────────────────────────────────── */
+
+.dlc-step {
+  display: grid;
+  gap: 20px;
+}
+
+.dlc-step-label {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+}
+
+/* Step 1 – child selection cards */
+.dlc-sel-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .dlc-sel-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dlc-sel-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 24px 20px;
+  background: var(--white);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.18s, box-shadow 0.18s;
+  text-align: left;
+}
+
+.dlc-sel-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 4px 16px rgba(91, 155, 213, 0.15);
+}
+
+.dlc-sel-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.dlc-sel-card strong {
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.dlc-sel-card > span:last-child {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Step 1 sub-views – child picker grid */
+.dlc-step1-select .dlc-children-grid {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+.dlc-one-pick-grid {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+.dlc-child-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 12px;
+  background: var(--white);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 13px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.dlc-child-pick:hover {
+  border-color: var(--primary);
+}
+
+.dlc-child-pick.selected {
+  border-color: var(--primary);
+  background: #f0f6ff;
+}
+
+.dlc-confirm-btn {
+  justify-self: start;
+}
+
+/* Step 2 – mode cards */
+.dlc-sel-summary {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.dlc-sel-summary strong {
+  color: var(--ink);
+}
+
+.dlc-mode-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 560px) {
+  .dlc-mode-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dlc-mode-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 28px 24px;
+  background: var(--white);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+
+.dlc-mode-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 4px 18px rgba(91, 155, 213, 0.15);
+}
+
+.dlc-mode-recommended {
+  border-top: 3px solid var(--primary);
+}
+
+.dlc-mode-badge {
+  position: absolute;
+  top: -1px;
+  right: 16px;
+  background: var(--primary);
+  color: var(--white);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 0 0 6px 6px;
+  letter-spacing: 0.03em;
+}
+
+.dlc-mode-card strong {
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.dlc-mode-card > span:last-child {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* Manual mode – accordion */
+.dlc-manual {
+  display: grid;
+  gap: 16px;
+}
+
+.dlc-accordion {
+  display: grid;
+  gap: 8px;
+}
+
+.dlc-acc-item {
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--white);
+  overflow: hidden;
+}
+
+.dlc-acc-item.open {
+  border-color: var(--primary);
+}
+
+.dlc-acc-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: left;
+  gap: 10px;
+}
+
+.dlc-acc-header:hover {
+  background: #f7fafd;
+}
+
+.dlc-acc-item.open .dlc-acc-header {
+  background: #f0f6ff;
+}
+
+.dlc-acc-arrow {
+  font-size: 11px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.dlc-acc-body {
+  padding: 16px 18px 20px;
+  border-top: 1px solid var(--line);
+}
+
+.dlc-acc-form {
+  display: grid;
+  gap: 12px;
+}
+
+.dlc-acc-children {
+  margin-bottom: 4px;
+}
+
+.dlc-manual-ai-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  background: #f0f6ff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 13.5px;
+  color: var(--ink);
+  flex-wrap: wrap;
+}
+
+/* AI Input mode */
+.dlc-ai-input {
+  display: grid;
+  gap: 16px;
+}
+
+.dlc-ai-box {
+  display: grid;
+  gap: 14px;
+}
+
+.dlc-ai-label {
+  display: grid;
+  gap: 6px;
+}
+
+.dlc-ai-label strong {
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.dlc-ai-textarea {
+  width: 100%;
+  padding: 14px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--ink);
+  background: var(--white);
+  resize: vertical;
+  box-sizing: border-box;
+  line-height: 1.6;
+}
+
+.dlc-ai-textarea:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+.dlc-ai-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dlc-speak-btn {
+  font-size: 13px;
+}
+
+.dlc-speak-status {
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.dlc-organize-btn {
+  justify-self: start;
+}
+
+/* AI Suggestion cards */
+.dlc-ai-suggestions {
+  display: grid;
+  gap: 16px;
+}
+
+.dlc-ai-review-note {
+  margin: 0;
+}
+
+.dlc-sug-list {
+  display: grid;
+  gap: 14px;
+}
+
+.dlc-sug-card {
+  background: var(--white);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.dlc-sug-saved {
+  border-color: #8bc4a8;
+  background: #f4faf6;
+  opacity: 0.75;
+}
+
+.dlc-sug-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px 10px;
+}
+
+.dlc-sug-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.dlc-sug-title {
+  font-size: 15px;
+  color: var(--ink);
+  flex: 1;
+}
+
+.dlc-sug-saved-badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: #3d8b65;
+  background: #d8f2e7;
+  padding: 3px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.dlc-sug-body {
+  padding: 0 16px 10px;
+}
+
+.dlc-sug-body p {
+  font-size: 13.5px;
+  color: var(--muted);
+  margin: 4px 0;
+}
+
+.dlc-sug-preview-text {
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink);
+  background: #f7fafd;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-top: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.dlc-sug-share {
+  padding: 6px 16px 10px;
+}
+
+.dlc-sug-actions {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px 16px;
+  border-top: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.dlc-sug-ignore-btn {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.dlc-sug-save-all-row {
+  display: flex;
+  justify-content: flex-start;
+  padding-top: 4px;
+}
+
+.dlc-sug-done {
+  text-align: center;
+  padding: 20px;
+}
+
+.dlc-sug-done p {
+  font-size: 15px;
+  color: var(--ink);
+  margin: 0;
+}
+
+/* Photo section */
+.dlc-photo-section {
+  display: grid;
+  gap: 12px;
+}
+
+.dlc-photo-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dlc-photo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  background: var(--white);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.dlc-photo-btn:hover {
+  border-color: var(--primary);
+}
+
+.dlc-photo-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-height: 0;
+}
+
+.dlc-photo-preview img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+}
+
+.dlc-photo-share {
+  padding-top: 4px;
+}
+
+.dlc-ai-empty {
+  text-align: center;
+  padding: 24px;
+}
+
+
+
 .profile-info-list {
   display: grid;
   gap: 0;
