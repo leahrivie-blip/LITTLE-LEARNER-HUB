@@ -9511,7 +9511,7 @@ function renderChildReportsTab(child, records, observations, goals, supportPlans
             <textarea id="dlcDailyReportNote" rows="3" placeholder="What happened today? e.g. Painted butterflies, played outside, and listened to a story. Ate well and napped from 12:15–2:00."></textarea>
           </label>
           <p class="dlc-sub">Add a short note and Little Learner Hub will transform it into a complete, family-ready daily report. Meals, nap, activities, and other logged information will be included automatically.</p>
-          <button class="primary-button" data-build-daily-report="${child.id}" type="button">Generate Daily Log</button>
+          <button class="primary-button" data-build-daily-report="${child.id}" type="button">Generate Daily Report</button>
         </div>` : lockedFeatureCard("Daily Reports")}
       <div class="resource-list compact">${reports.length ? reports.slice(-8).reverse().map(simpleRecordItem).join("") : `<div class="empty-state">No daily reports yet.</div>`}</div>
       <div class="portfolio-summary-block">
@@ -9828,7 +9828,7 @@ function renderChildToolsContent(child, records) {
           <textarea id="dlcDailyReportNote" rows="3" placeholder="What happened today? e.g. Painted butterflies, played outside, and listened to a story. Ate well and napped from 12:15–2:00."></textarea>
         </label>
         <p class="dlc-sub">Add a short note and Little Learner Hub will transform it into a complete, family-ready daily report.</p>
-        <button class="primary-button" data-build-daily-report="${child.id}" type="button">Generate Daily Log</button>
+        <button class="primary-button" data-build-daily-report="${child.id}" type="button">Generate Daily Report</button>
       </div>` : lockedFeatureCard("Daily Reports"), reports);
   }
   if (childToolsTab === "communication") {
@@ -10759,7 +10759,7 @@ function renderDailyLogsChildTabContent(child, records, today) {
           <textarea id="dlcDailyReportNote" rows="3" placeholder="What happened today? e.g. Painted butterflies, played outside, and listened to a story. Ate well and napped from 12:15–2:00."></textarea>
         </label>
         <p class="dlc-sub">Add a short note and Little Learner Hub will transform it into a complete, family-ready daily report. Meals, nap, activities, and other logged information will be included automatically.</p>
-        <button class="primary-button" data-build-daily-report="${child.id}" type="button">Generate Daily Log</button>
+        <button class="primary-button" data-build-daily-report="${child.id}" type="button">Generate Daily Report</button>
       </div>` : lockedFeatureCard("Daily Reports"), reports);
   }
   return "";
@@ -11404,7 +11404,7 @@ function buildDailyReportFromChild(childId, quickNote) {
     providerNotes: observation ? `Observation: ${observation.text}${observation.nextSteps ? "\nNext Steps: " + observation.nextSteps : ""}` : "",
   });
 
-  appendChildRecord("Reports", { childId, title: `Daily Report | ${today}`, date: today, summary: report, message: report, shareWithFamily: true });
+  appendChildRecord("Reports", { childId, title: `Daily Report | ${today}`, date: today, summary: report.slice(0, 200), message: report, shareWithFamily: true });
 }
 
 function exportChildPortfolio(childId) {
@@ -14166,9 +14166,9 @@ function generateDailyReport(data) {
 
   // ── Section 1: Daily Summary ───────────────────────────────────────────────
   const moodText = data.mood || "happy and engaged";
-  const highlightSnippet = highlights
+  const highlightSnippet = highlights && highlights.length > 1
     ? highlights.charAt(0).toLowerCase() + highlights.slice(1).replace(/\.$/, "")
-    : profile.dailySummary;
+    : highlights || profile.dailySummary;
   const summarySentence = toneCopy(tone, [
     ["professional", `${child} had a productive day and participated in routines and learning experiences.`],
     ["detailed", `${child} had a full day and took part in routines, care moments, and learning throughout the day.`],
