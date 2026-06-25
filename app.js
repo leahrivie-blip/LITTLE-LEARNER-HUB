@@ -1983,6 +1983,57 @@ function lineBreaks(value) {
   return escapeHtml(value).replace(/\n/g, "<br>");
 }
 
+function renderMarkdown(text) {
+  if (!text) return "";
+  function inlineFormat(str) {
+    return escapeHtml(str)
+      .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*([^*\n]+?)\*/g, "<em>$1</em>")
+      .replace(/_([^_\n]+?)_/g, "<em>$1</em>");
+  }
+  const lines = text.split("\n");
+  const out = [];
+  let inUl = false;
+  let inOl = false;
+  function closeList() {
+    if (inUl) { out.push("</ul>"); inUl = false; }
+    if (inOl) { out.push("</ol>"); inOl = false; }
+  }
+  for (const rawLine of lines) {
+    const line = rawLine.trimEnd();
+    const heading = line.match(/^(#{1,6})\s+(.+)/);
+    if (heading) {
+      closeList();
+      const level = Math.min(heading[1].length, 6);
+      out.push(`<h${level} class="md-h${level}">${inlineFormat(heading[2])}</h${level}>`);
+      continue;
+    }
+    const bullet = line.match(/^[-*+]\s+(.+)/);
+    if (bullet) {
+      if (inOl) { out.push("</ol>"); inOl = false; }
+      if (!inUl) { out.push('<ul class="md-ul">'); inUl = true; }
+      out.push(`<li>${inlineFormat(bullet[1])}</li>`);
+      continue;
+    }
+    const numbered = line.match(/^\d+\.\s+(.+)/);
+    if (numbered) {
+      if (inUl) { out.push("</ul>"); inUl = false; }
+      if (!inOl) { out.push('<ol class="md-ol">'); inOl = true; }
+      out.push(`<li>${inlineFormat(numbered[1])}</li>`);
+      continue;
+    }
+    if (line.trim() === "") {
+      closeList();
+      continue;
+    }
+    closeList();
+    out.push(`<p class="md-p">${inlineFormat(line)}</p>`);
+  }
+  closeList();
+  return out.join("");
+}
+
 function setFormMessage(elementOrSelector, message, isSuccess = false) {
   const element = typeof elementOrSelector === "string" ? document.querySelector(elementOrSelector) : elementOrSelector;
   if (!element) return;
@@ -6693,7 +6744,7 @@ function renderGeneratorWorkspace(toolId) {
             <button class="ghost-button" id="downloadOutputButton" type="button">Print / Save PDF</button>
           </div>
         </div>
-        <pre id="generatorOutput" contenteditable="true" spellcheck="true">Fill out the form and generate a childcare-ready result.</pre>
+        <div id="generatorOutput" class="ai-output-rendered" contenteditable="true" spellcheck="true">Fill out the form and generate a childcare-ready result.</div>
         <div id="generatorDebugPanel" class="section-block" hidden></div>
       </div>
     </div>
@@ -11692,7 +11743,8 @@ function saveGeneratedOutputs(items) {
 
 function currentGeneratedResult() {
   const title = document.querySelector("#outputTitle")?.textContent.trim() || "Generated Content";
-  const text = document.querySelector("#generatorOutput")?.textContent.trim() || "";
+  const el = document.querySelector("#generatorOutput");
+  const text = (el?.dataset.rawMarkdown || el?.textContent || "").trim();
   if (!text || text === "Fill out the form and generate a childcare-ready result.") return null;
   return {
     id: `ai-${Date.now()}`,
@@ -11762,16 +11814,23 @@ function printTextDocument(title, text) {
         <title>${escapeHtml(title)}</title>
         <style>
           @page { margin: 0.55in; }
-          body { font-family: Arial, sans-serif; line-height: 1.5; padding: 32px; color: #2f2a25; }
+          body { font-family: Arial, sans-serif; line-height: 1.6; padding: 32px; color: #2f2a25; }
           .brand { color: #386062; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
-          h1 { color: #386062; margin: 6px 0 18px; font-size: 28px; }
-          pre { white-space: pre-wrap; font-family: inherit; font-size: 14px; }
+          h1.doc-title { color: #386062; margin: 6px 0 24px; font-size: 28px; }
+          h2 { color: #386062; font-size: 20px; margin: 22px 0 6px; border-bottom: 1px solid #d5e3f0; padding-bottom: 4px; }
+          h3 { color: #386062; font-size: 17px; margin: 18px 0 5px; }
+          h4 { color: #536280; font-size: 15px; margin: 14px 0 4px; }
+          p { margin: 0 0 10px; font-size: 14px; }
+          ul, ol { margin: 0 0 10px; padding-left: 22px; }
+          li { margin-bottom: 4px; font-size: 14px; }
+          strong { font-weight: 700; }
+          em { font-style: italic; }
         </style>
       </head>
       <body>
         <div class="brand">Little Learner Hub</div>
-        <h1>${escapeHtml(title)}</h1>
-        <pre>${escapeHtml(text)}</pre>
+        <h1 class="doc-title">${escapeHtml(title)}</h1>
+        <div class="doc-body">${renderMarkdown(text)}</div>
       </body>
     </html>
   `);
@@ -16998,7 +17057,8 @@ document.addEventListener("click", async (event) => {
 
   const copyButton = event.target.closest("#copyOutputButton");
   if (copyButton) {
-    const output = document.querySelector("#generatorOutput")?.textContent || "";
+    const outputEl = document.querySelector("#generatorOutput");
+    const output = (outputEl?.dataset.rawMarkdown || outputEl?.textContent || "").trim();
     navigator.clipboard?.writeText(output);
     copyButton.textContent = "Copied";
     setTimeout(() => {
@@ -17010,6 +17070,9 @@ document.addEventListener("click", async (event) => {
   if (editOutputButton) {
     const output = document.querySelector("#generatorOutput");
     if (output) {
+      const raw = (output.dataset.rawMarkdown || output.textContent).trim();
+      output.textContent = raw;
+      delete output.dataset.rawMarkdown;
       output.focus();
       editOutputButton.textContent = "Editing";
       setTimeout(() => {
@@ -17084,7 +17147,11 @@ document.addEventListener("click", async (event) => {
     const item = generatedOutputs().find((saved) => saved.id === loadOutputButton.dataset.loadOutput);
     if (!item) return;
     document.querySelector("#outputTitle").textContent = item.title;
-    document.querySelector("#generatorOutput").textContent = item.text;
+    const outputEl = document.querySelector("#generatorOutput");
+    if (outputEl) {
+      outputEl.innerHTML = renderMarkdown(item.text);
+      outputEl.dataset.rawMarkdown = item.text;
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -17276,9 +17343,20 @@ document.addEventListener("click", async (event) => {
     const outputEl = document.querySelector("#docHelperOutput");
     if (!outputEl) return;
     const isEditing = outputEl.contentEditable === "true";
-    outputEl.contentEditable = isEditing ? "false" : "true";
-    docHelperEditBtn.textContent = isEditing ? "Edit" : "Done Editing";
-    if (!isEditing) outputEl.focus();
+    if (!isEditing) {
+      const raw = (outputEl.dataset.rawMarkdown || outputEl.textContent).trim();
+      outputEl.textContent = raw;
+      delete outputEl.dataset.rawMarkdown;
+      outputEl.contentEditable = "true";
+      docHelperEditBtn.textContent = "Done Editing";
+      outputEl.focus();
+    } else {
+      const edited = outputEl.textContent.trim();
+      outputEl.innerHTML = renderMarkdown(edited);
+      outputEl.dataset.rawMarkdown = edited;
+      outputEl.contentEditable = "false";
+      docHelperEditBtn.textContent = "Edit";
+    }
     return;
   }
 
@@ -17286,7 +17364,7 @@ document.addEventListener("click", async (event) => {
   if (docHelperCopyBtn) {
     const outputEl = document.querySelector("#docHelperOutput");
     if (!outputEl) return;
-    const text = outputEl.textContent || "";
+    const text = (outputEl.dataset.rawMarkdown || outputEl.textContent || "").trim();
     const finish = () => {
       docHelperCopyBtn.textContent = "Copied!";
       setTimeout(() => { docHelperCopyBtn.textContent = "Copy"; }, 2000);
@@ -17307,7 +17385,7 @@ document.addEventListener("click", async (event) => {
     const docType = docHelperSaveBtn.dataset.docType || "observation";
     const childId = docHelperSaveBtn.dataset.childId || "";
     const outputEl = document.querySelector("#docHelperOutput");
-    const text = outputEl?.textContent?.trim() || "";
+    const text = (outputEl?.dataset.rawMarkdown || outputEl?.textContent || "").trim();
     if (!text || text === "Generating...") return;
     const today = new Date().toISOString().slice(0, 10);
     const config = docHelperSaveConfig[docType] || { key: "Reports", view: "children" };
@@ -18107,6 +18185,7 @@ document.addEventListener("submit", async (event) => {
   if (!canUseAi()) {
     resultsEl.hidden = false;
     outputEl.textContent = aiLimitMessage();
+    delete outputEl.dataset.rawMarkdown;
     if (titleEl) titleEl.textContent = "Limit Reached";
     if (labelEl) labelEl.textContent = "Notice";
     return;
@@ -18140,6 +18219,7 @@ document.addEventListener("submit", async (event) => {
 
   resultsEl.hidden = false;
   outputEl.textContent = "Generating...";
+  delete outputEl.dataset.rawMarkdown;
   outputEl.contentEditable = "false";
   if (titleEl) titleEl.textContent = label;
   if (labelEl) labelEl.textContent = "Generating";
@@ -18151,7 +18231,8 @@ document.addEventListener("submit", async (event) => {
 
   try {
     const result = await generateToolOutputWithBackend(toolId, data);
-    outputEl.textContent = result.output;
+    outputEl.innerHTML = renderMarkdown(result.output);
+    outputEl.dataset.rawMarkdown = result.output;
     renderAiDebugPanel("#docHelperDebugPanel", result.debug, result.output);
     if (labelEl) labelEl.textContent = "Result";
     recordAiUse();
@@ -18160,6 +18241,7 @@ document.addEventListener("submit", async (event) => {
   } catch (error) {
     renderAiDebugPanel("#docHelperDebugPanel");
     outputEl.textContent = error.message || "AI generation could not be completed.";
+    delete outputEl.dataset.rawMarkdown;
     if (labelEl) labelEl.textContent = "Error";
   }
 });
@@ -18175,25 +18257,29 @@ document.addEventListener("submit", async (event) => {
   if (!event.target.matches("#activeGeneratorForm")) return;
   event.preventDefault();
   const toolId = event.target.dataset.generator;
+  const outputEl = document.querySelector("#generatorOutput");
   if (!canUseAi()) {
     document.querySelector("#outputTitle").textContent = "AI Limit Reached";
-    document.querySelector("#generatorOutput").textContent = aiLimitMessage();
+    if (outputEl) { outputEl.textContent = aiLimitMessage(); delete outputEl.dataset.rawMarkdown; }
     return;
   }
   const data = collectFormData(event.target);
   const title = aiTools.find((tool) => tool.id === toolId)?.title || "Generated Result";
   document.querySelector("#outputTitle").textContent = title.replace("AI ", "");
-  document.querySelector("#generatorOutput").textContent = "Generating...";
+  if (outputEl) { outputEl.textContent = "Generating..."; delete outputEl.dataset.rawMarkdown; }
   try {
     const result = await generateToolOutputWithBackend(toolId, data);
-    document.querySelector("#generatorOutput").textContent = result.output;
+    if (outputEl) {
+      outputEl.innerHTML = renderMarkdown(result.output);
+      outputEl.dataset.rawMarkdown = result.output;
+    }
     renderAiDebugPanel("#generatorDebugPanel", result.debug, result.output);
     recordAiUse();
     trackEvent("ai_generation_success", { tool: toolId, plan: currentPlan, backendUsed: Boolean(result.backendUsed), used: result.used, limit: result.limit });
   } catch (error) {
     renderAiDebugPanel("#generatorDebugPanel");
     document.querySelector("#outputTitle").textContent = "AI Generation Error";
-    document.querySelector("#generatorOutput").textContent = error.message || "AI generation could not be completed.";
+    if (outputEl) { outputEl.textContent = error.message || "AI generation could not be completed."; delete outputEl.dataset.rawMarkdown; }
   }
 });
 
