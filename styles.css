@@ -3538,7 +3538,9 @@ body.home-view .topbar .search-wrap {
   margin: 18px 0 6px;
 }
 
-.ai-output-rendered .md-h4 {
+.ai-output-rendered .md-h4,
+.ai-output-rendered .md-h5,
+.ai-output-rendered .md-h6 {
   font-size: 14px;
   font-weight: 700;
   color: var(--muted);
@@ -3550,7 +3552,9 @@ body.home-view .topbar .search-wrap {
 .ai-output-rendered .md-h1:first-child,
 .ai-output-rendered .md-h2:first-child,
 .ai-output-rendered .md-h3:first-child,
-.ai-output-rendered .md-h4:first-child {
+.ai-output-rendered .md-h4:first-child,
+.ai-output-rendered .md-h5:first-child,
+.ai-output-rendered .md-h6:first-child {
   margin-top: 0;
 }
 
