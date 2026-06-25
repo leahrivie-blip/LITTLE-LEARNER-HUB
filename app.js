@@ -1698,6 +1698,7 @@ const proFeatureList = [
 const freeAiLimitMessage = "You have used all 10 free AI generations for this month. Upgrade to Pro for 250 AI generations each month.";
 const paidAiLimitMessage = "You have used all 250 AI generations for this month. Your AI access will reset next month.";
 const freeResourceLimitMessage = "You have reached your Free Plan limit. Upgrade to Pro to unlock the full Little Learner Hub library.";
+const favoritesPageLimit = 20;
 const viewMap = {
   lessons: "Lesson Plans",
   observations: "Observation Hub",
@@ -2439,8 +2440,6 @@ const currentPlanLabel = document.querySelector("#currentPlanLabel");
 const homeViewTemplate = document.querySelector("#view-home").innerHTML;
 const mobileNavMaxWidth = 820;
 const sidebarViewAliases = {
-  "dashboard-tasks": "planner",
-  "dashboard-quick-stats": "home",
   "resource-observations": "observations",
   "documentation-observations": "observations",
   goals: "children",
@@ -2458,8 +2457,6 @@ const sidebarViewAliases = {
   "documentation-contracts": "forms",
   "resource-search": "home",
   portfolio: "tools",
-  reports: "children",
-  favorites: "account",
   membership: "billing",
   settings: "account",
   help: "contact",
@@ -2479,7 +2476,6 @@ function childToolTabFromView(view) {
     "documentation-behavior-reports": "reports",
     "documentation-parent-messages": "communication",
     "documentation-daily-reports": "reports",
-    reports: "reports",
     "child-tools": "attendance",
     "child-tools-attendance": "attendance",
     "child-tools-meals": "meals",
@@ -2908,8 +2904,14 @@ function setView(view) {
     openAuthModal("login");
     return;
   }
-  if (resolvedView === "tools" && !isProUser()) {
-    showProFeatureModal("Provider business tools are Pro features.");
+  const proViews = {
+    tools: "Provider business tools",
+    favorites: "Saved Favorites",
+    reports: "Reports & Analytics",
+  };
+  if (proViews[resolvedView] && !isProUser()) {
+    const label = proViews[resolvedView];
+    showProFeatureModal(`${label} is a Pro feature. Upgrade to unlock all Pro tools.`);
     return;
   }
   document.querySelectorAll(".view").forEach((section) => section.classList.remove("active-view"));
@@ -2939,6 +2941,9 @@ function setView(view) {
   if (resolvedView === "children") renderChildManagement();
   if (resolvedView === "support-center") renderSupportCenterPage();
   if (resolvedView === "planner") renderWeeklyPlanner();
+  if (resolvedView === "dashboard-tasks") renderDashboardTasksPage();
+  if (resolvedView === "favorites") renderFavoritesPage();
+  if (resolvedView === "reports") renderReportsPage();
   trackEvent("page_view", { view: resolvedView, nav: requestedView });
   updateSidebarDashboard();
   if (!isMobileLayout()) window.scrollTo({ top: 0, behavior: "smooth" });
@@ -13573,6 +13578,111 @@ function renderResetPasswordPage() {
   } else {
     setFormMessage(message, "Request a password reset email from the login screen first.");
   }
+}
+
+function renderDashboardTasksPage() {
+  const section = document.querySelector("#view-dashboard-tasks");
+  if (!section) return;
+  const records = childRecords();
+  const stats = weeklyObservationStats(records);
+  const planner = weeklyPlanner();
+  const weekday = new Date().toLocaleDateString("en-US", { weekday: "long" });
+  const dayPlan = planner.days?.[weekday] || {};
+  const plannedTasks = [dayPlan.circle, dayPlan.activity, dayPlan.meal, dayPlan.rest, dayPlan.support].filter((item) => String(item || "").trim()).length;
+  section.innerHTML = `
+    <div class="page-title">
+      <p class="eyebrow">Today&rsquo;s Tasks</p>
+      <h2>Focus on what needs attention today.</h2>
+      <p>Quickly jump to today&rsquo;s classroom documentation and planning priorities.</p>
+    </div>
+    <section class="section-block">
+      <div class="analytics-row">
+        <span>Child Profiles</span><strong>${records.children.length}</strong>
+      </div>
+      <div class="analytics-row">
+        <span>Observations still needed this week</span><strong>${stats.missingChildren.length}</strong>
+      </div>
+      <div class="analytics-row">
+        <span>Weekly observation progress</span><strong>${stats.percent}%</strong>
+      </div>
+      <div class="analytics-row">
+        <span>${escapeHtml(weekday)} planner tasks</span><strong>${plannedTasks}</strong>
+      </div>
+      <div class="quick-action-list">
+        <button class="primary-button" data-view="child-tools-daily-logs" type="button">Open Daily Logs</button>
+        <button class="ghost-button" data-view="planner" type="button">Open Weekly Planner</button>
+        <button class="ghost-button" data-view="goals" type="button">Review Goals</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderFavoritesPage() {
+  const section = document.querySelector("#view-favorites");
+  if (!section) return;
+  if (!currentUser) {
+    section.innerHTML = `
+      <div class="page-title">
+        <p class="eyebrow">Favorites</p>
+        <h2>Save resources you use most.</h2>
+        <p>Log in to save and revisit your top resources.</p>
+      </div>
+      <section class="section-block empty-state">
+        <h3>Log in to view favorites.</h3>
+        <button class="primary-button" data-view="account" type="button">Open Account</button>
+      </section>
+    `;
+    return;
+  }
+  const favoriteIds = new Set(favorites);
+  const savedFavoriteResources = resources.filter((resource) => favoriteIds.has(resource.id) && isResourceVisibleToCurrentUser(resource));
+  section.innerHTML = `
+    <div class="page-title">
+      <p class="eyebrow">Favorites</p>
+      <h2>Saved Favorites</h2>
+      <p>Your saved resources in one place.</p>
+    </div>
+    <section class="section-block">
+      <div class="resource-list compact">
+        ${savedFavoriteResources.length
+    ? savedFavoriteResources.slice(0, favoritesPageLimit).map(accountListItem).join("")
+    : `<div class="empty-state">No saved favorites yet.</div>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderReportsPage() {
+  const section = document.querySelector("#view-reports");
+  if (!section) return;
+  const records = childRecords();
+  const stats = weeklyObservationStats(records);
+  const today = new Date().toISOString().slice(0, 10);
+  const attendanceToday = records.attendance.filter((item) => item.date === today).length;
+  const mealsToday = records.meals.filter((item) => item.date === today).length;
+  const reportsToday = records.reports.filter((item) => item.date === today).length;
+  const messagesToday = records.communications.filter((item) => item.date === today && item.type !== "Behavior Note").length;
+  const activeGoals = records.goals.filter((goal) => goalProgressPercent(goal.progress) < 100).length;
+  section.innerHTML = `
+    <div class="page-title">
+      <p class="eyebrow">Reports &amp; Analytics</p>
+      <h2>Program reporting snapshot</h2>
+      <p>See daily documentation and weekly progress at a glance.</p>
+    </div>
+    <section class="section-block">
+      <div class="analytics-row"><span>Weekly observation completion</span><strong>${stats.percent}%</strong></div>
+      <div class="analytics-row"><span>Active goals</span><strong>${activeGoals}</strong></div>
+      <div class="analytics-row"><span>Attendance records today</span><strong>${attendanceToday}</strong></div>
+      <div class="analytics-row"><span>Meal records today</span><strong>${mealsToday}</strong></div>
+      <div class="analytics-row"><span>Daily reports today</span><strong>${reportsToday}</strong></div>
+      <div class="analytics-row"><span>Parent messages today</span><strong>${messagesToday}</strong></div>
+      <div class="quick-action-list">
+        <button class="ghost-button" data-view="child-tools-daily-logs" type="button">Daily Logs</button>
+        <button class="ghost-button" data-view="child-tools-reports" type="button">Child Daily Reports</button>
+        <button class="ghost-button" data-view="goals" type="button">Goals &amp; Progress</button>
+      </div>
+    </section>
+  `;
 }
 
 function renderAccountPage() {
