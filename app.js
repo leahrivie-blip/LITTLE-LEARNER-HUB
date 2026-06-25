@@ -373,6 +373,23 @@ let supportCenterSearch = "";
 let childCloudSaveTimer = null;
 let childCloudSyncing = false;
 
+// ─── Workflow Page State ──────────────────────────────────────────────────────
+let observationsPageMode = "overview"; // "overview"|"browse"|"create"
+let observationsGeneratedOutput = "";
+let lessonPlansPageMode = "overview"; // "overview"|"browse"|"create"
+let activitiesPageMode = "overview";
+let menusPageMode = "overview";
+let formsPageMode = "overview"; // "overview"|"browse"|"create"
+let formsGeneratedOutput = "";
+let behaviorSupportPageMode = "overview"; // "overview"|"browse"|"create"
+let behaviorSupportGeneratedOutput = "";
+let incidentReportsPageMode = "overview";
+let incidentReportsGeneratedOutput = "";
+let parentMessagesPageMode = "overview";
+let parentMessagesGeneratedOutput = "";
+let newslettersPageMode = "overview";
+let newslettersGeneratedOutput = "";
+
 const futureTools = [
   {
     id: "licensing",
@@ -2454,18 +2471,27 @@ const sidebarViewAliases = {
   "child-tools-meals": "children",
   "child-tools-reports": "children",
   "child-tools-communication": "children",
-  "child-tools-daily-logs": "children",
-  "documentation-incident-reports": "children",
-  "documentation-behavior-reports": "children",
-  "documentation-parent-messages": "children",
-  "documentation-daily-reports": "children",
-  "documentation-newsletters": "ai",
+  "child-tools-daily-logs": "daily-logs",
+  "documentation-incident-reports": "incident-reports",
+  "documentation-behavior-reports": "behavior-support",
+  "documentation-parent-messages": "parent-messages",
+  "documentation-daily-reports": "daily-logs",
+  "documentation-newsletters": "newsletters",
   "documentation-contracts": "forms",
   "resource-search": "home",
   portfolio: "children",
   membership: "billing",
   settings: "account",
   help: "contact",
+  "family-messages": "family-messages",
+  "family-daily-reports": "family-daily-reports",
+  "family-photos": "family-photos",
+  "family-portal": "family-portal",
+  "attendance-tracking": "attendance-tracking",
+  "development-progress": "development-progress",
+  curriculum: "curriculum",
+  policies: "policies",
+  templates: "templates",
 };
 
 const sidebarFutureToolTargets = {
@@ -2932,7 +2958,9 @@ function setView(view) {
   document.querySelectorAll(".nav-link").forEach((button) => {
     button.classList.toggle("active", button.dataset.view === requestedView);
   });
-  if (viewMap[resolvedView]) renderCategoryPage(resolvedView);
+  // Pages with dedicated workflow render functions skip renderCategoryPage
+  const dedicatedWorkflowViews = new Set(["observations", "lessons", "activities", "menus", "forms"]);
+  if (viewMap[resolvedView] && !dedicatedWorkflowViews.has(resolvedView)) renderCategoryPage(resolvedView);
   if (resolvedView === "home") renderHome();
   if (resolvedView === "admin") renderAdminDashboard();
   if (resolvedView === "account") renderAccountPage();
@@ -2956,9 +2984,42 @@ function setView(view) {
   if (resolvedView === "dashboard-tasks") renderDashboardTasksPage();
   if (resolvedView === "favorites") renderFavoritesPage();
   if (resolvedView === "reports") renderReportsPage();
+  if (resolvedView === "observations") renderObservationsPage();
+  if (resolvedView === "lessons") renderLessonPlansPage();
+  if (resolvedView === "activities") renderActivitiesPage();
+  if (resolvedView === "menus") renderMenusPage();
+  if (resolvedView === "forms") renderFormsPage();
+  if (resolvedView === "daily-logs") renderDailyLogsPage();
+  if (resolvedView === "behavior-support") renderBehaviorSupportPage();
+  if (resolvedView === "incident-reports") renderIncidentReportsPage();
+  if (resolvedView === "parent-messages") renderParentMessagesPage();
+  if (resolvedView === "newsletters") renderNewslettersPage();
+  if (resolvedView === "development-progress") renderDevelopmentProgressPage();
+  if (resolvedView === "curriculum") renderComingSoonPage("curriculum", "Curriculum", "Build structured curriculum units that support your program goals.", "📚");
+  if (resolvedView === "policies") renderComingSoonPage("policies", "Policies", "Create and store your program policies, handbooks, and parent agreements.", "📄");
+  if (resolvedView === "templates") renderComingSoonPage("templates", "Templates", "Ready-to-use document templates for your program.", "📝");
+  if (resolvedView === "family-messages") renderComingSoonPage("family-messages", "Family Messages", "Send and receive messages with families directly in Little Learner Hub.", "💬");
+  if (resolvedView === "family-daily-reports") renderComingSoonPage("family-daily-reports", "Daily Reports", "Share daily updates with families automatically.", "📋");
+  if (resolvedView === "family-photos") renderComingSoonPage("family-photos", "Photos", "Share photos and learning moments with families securely.", "📷");
+  if (resolvedView === "family-portal") renderComingSoonPage("family-portal", "Family Portal", "Give families their own portal to view updates, reports, and documents.", "🏠");
+  if (resolvedView === "attendance-tracking") renderComingSoonPage("attendance-tracking", "Attendance", "Track daily attendance, check-ins, and check-outs for your program.", "👥");
   trackEvent("page_view", { view: resolvedView, nav: requestedView });
   updateSidebarDashboard();
   if (!isMobileLayout()) window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// Re-render the currently active page (used by search/filter/favorites refresh).
+function rerenderActivePage() {
+  const activeView = document.querySelector(".active-view")?.id.replace("view-", "") || "home";
+  const dedicatedWorkflowViews = new Set(["observations", "lessons", "activities", "menus", "forms"]);
+  if (viewMap[activeView] && !dedicatedWorkflowViews.has(activeView)) renderCategoryPage(activeView);
+  if (activeView === "observations") renderObservationsPage();
+  if (activeView === "lessons") renderLessonPlansPage();
+  if (activeView === "activities") renderActivitiesPage();
+  if (activeView === "menus") renderMenusPage();
+  if (activeView === "forms") renderFormsPage();
+  if (activeView === "ai") renderAiPage();
+  if (activeView === "children") renderChildManagement();
 }
 
 function canAccess(resource) {
@@ -3044,6 +3105,28 @@ function recordAiUse() {
 
 function aiLimitMessage() {
   return isProUser() ? paidAiLimitMessage : freeAiLimitMessage;
+}
+
+function showToast(message) {
+  let toast = document.getElementById("llhToast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "llhToast";
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.className = "llh-toast llh-toast--visible";
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => {
+    toast.className = "llh-toast";
+  }, 3000);
+}
+
+function saveAiGeneratedResource(toolId, text, meta = {}) {
+  const title = meta.title || (toolId.charAt(0).toUpperCase() + toolId.slice(1).replace(/-/g, " ")) + " | " + new Date().toLocaleDateString();
+  saveGeneratedResultToLibrary({ id: `ai-${Date.now()}`, title, toolId, text, date: new Date().toLocaleDateString() });
 }
 
 function saveDownloads() {
@@ -6069,6 +6152,821 @@ function renderObservationEditor() {
         <button class="primary-button" type="submit">Save Observation Edit</button>
       </form>
     </section>
+  `;
+}
+
+// ─── Workflow Page Render Functions ──────────────────────────────────────────
+
+function workflowPageHeader(title, subtitle) {
+  return `
+    <div class="page-title">
+      <h2>${title}</h2>
+      <p>${subtitle}</p>
+    </div>
+  `;
+}
+
+function workflowCards(browseBtnLabel, createBtnLabel, browseView, createView, browseDesc, createDesc) {
+  return `
+    <div class="workflow-cards">
+      <article class="workflow-card workflow-card--browse">
+        <div class="workflow-card-icon">📂</div>
+        <h3>Browse Existing</h3>
+        <p>${browseDesc}</p>
+        <button class="primary-button" data-workflow-mode="${browseView}" type="button">${browseBtnLabel}</button>
+      </article>
+      <article class="workflow-card workflow-card--create">
+        <div class="workflow-card-icon">✨</div>
+        <h3>Create New</h3>
+        <p>${createDesc}</p>
+        <button class="primary-button" data-workflow-mode="${createView}" type="button">${createBtnLabel}</button>
+      </article>
+    </div>
+  `;
+}
+
+function workflowBackButton(mode) {
+  return `<button class="ghost-button back-button" data-workflow-mode="${mode}" type="button">← Back</button>`;
+}
+
+function workflowBrowseSection(label, browseView, description) {
+  return `
+    <div class="workflow-browse-section">
+      <div class="workflow-browse-section-inner">
+        <span class="workflow-browse-icon">📂</span>
+        <div class="workflow-browse-text">
+          <strong>${label}</strong>
+          <p>${description}</p>
+        </div>
+        <button class="ghost-button workflow-browse-btn" data-workflow-mode="${browseView}" type="button">Browse Library →</button>
+      </div>
+    </div>
+  `;
+}
+
+// ─── Observations Page ───────────────────────────────────────────────────────
+
+function renderObservationsPage() {
+  const section = document.querySelector("#view-observations");
+  if (!section) return;
+  if (observationsPageMode === "browse") {
+    renderObservationsBrowse(section);
+    return;
+  }
+  if (observationsPageMode === "create") {
+    renderObservationsCreate(section);
+    return;
+  }
+  renderObservationsOverview(section);
+}
+
+function renderObservationsOverview(section) {
+  renderObservationsCreate(section);
+}
+
+function renderObservationsBrowse(section) {
+  const category = "Observation Hub";
+  const items = categoryResources(category);
+  const accessCounts = categoryAccessCounts(category);
+  const filters = categoryFilters(category);
+  const children = childRecords().children || [];
+  section.innerHTML = `
+    ${workflowPageHeader("Observations", "Search, filter, edit, and manage your observation records.")}
+    ${workflowBackButton("obs-overview")}
+    <div class="access-notice ${isProUser() ? "pro" : ""}">
+      ${isProUser()
+        ? `Pro active: ${Math.max(paidAiMonthlyLimit - aiUsageCount(), 0)} AI generations left this month.`
+        : `Free plan: ${accessCounts.freeLimit} of ${accessCounts.total} observations available. Upgrade to Pro for full access.`}
+    </div>
+    ${renderObservationEditor()}
+    <div class="filter-row">
+      <select id="obsChildFilter" class="filter-select">
+        <option value="">All Children</option>
+        ${children.map((c) => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join("")}
+      </select>
+      ${filters.map((f) => `<button class="${activeFilter === f ? "active-filter" : ""}" data-filter="${f}">${f}</button>`).join("")}
+    </div>
+    <div class="resource-grid">
+      ${items.length ? items.map(resourceCard).join("") : `<div class="empty-state">No observations found. Try a different filter or create your first one.</div>`}
+    </div>
+  `;
+}
+
+function renderObservationsCreate(section) {
+  const children = childRecords().children || [];
+  const programSettings = getProgramSettings();
+  const canGenerate = canUseAi();
+  section.innerHTML = `
+    ${workflowPageHeader("Observations", "Keep track of children&rsquo;s development with professional observations linked to each child&rsquo;s progress.")}
+    <div class="workflow-create-panel">
+      <form class="panel-form" id="obsCreateForm">
+        <div class="form-grid-two">
+          <label>Select Child
+            <select name="child">
+              <option value="">No specific child</option>
+              ${children.map((c) => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join("")}
+            </select>
+          </label>
+          <label>Date<input type="date" name="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
+        </div>
+        <div class="form-grid-two">
+          <label>Developmental Area
+            <select name="area">
+              ${developmentalAreas.map((a) => `<option>${a}</option>`).join("")}
+            </select>
+          </label>
+          <label>Age Group
+            <select name="age">
+              ${aiAgeGroupOptions.map((a) => `<option>${a}</option>`).join("")}
+            </select>
+          </label>
+        </div>
+        <label>What happened?
+          <textarea name="note" rows="5" placeholder="Tell me what happened today…" required></textarea>
+        </label>
+        <button class="primary-button" type="submit">${canGenerate ? "Generate Observation" : "Preview (AI limit reached)"}</button>
+      </form>
+      <div class="ai-output-panel" id="obsOutputPanel" ${observationsGeneratedOutput ? "" : 'style="display:none"'}>
+        <div class="output-toolbar">
+          <div>
+            <p class="eyebrow">Generated Observation</p>
+            <h3 id="obsOutputTitle">Ready to review</h3>
+          </div>
+          <div class="output-actions">
+            <button class="ghost-button" id="obsEditOutputBtn" type="button">Edit</button>
+            <button class="ghost-button" id="obsCopyOutputBtn" type="button">Copy</button>
+            <button class="ghost-button" id="obsSaveOutputBtn" type="button">Save Observation</button>
+            <button class="ghost-button" id="obsPrintOutputBtn" type="button">Print</button>
+          </div>
+        </div>
+        <pre id="obsOutput" contenteditable="true" spellcheck="true">${escapeHtml(observationsGeneratedOutput)}</pre>
+        <div class="obs-post-actions">
+          <button class="ghost-button" id="obsCreateParentMsgBtn" type="button">Create Parent Message</button>
+          <button class="ghost-button" id="obsCreateGoalBtn" type="button">Create Goal</button>
+        </div>
+      </div>
+    </div>
+    ${workflowBrowseSection("Observation Records", "obs-browse", "Search, filter, edit, and manage your saved observation records.")}
+  `;
+}
+
+// ─── Daily Logs Page ─────────────────────────────────────────────────────────
+
+function renderDailyLogsPage() {
+  const section = document.querySelector("#view-daily-logs");
+  if (!section) return;
+  section.innerHTML = `
+    ${workflowPageHeader("Daily Logs", "Quickly record what happened throughout the day and share updates with families.")}
+    ${workflowCards(
+      "Browse Logs", "Create Daily Log",
+      "dlogs-browse", "dlogs-create",
+      "View today&rsquo;s logs, previous logs, search by child, filter by date, edit, or print.",
+      "Record meals, bottles, diapers, naps, activities, mood, photos, and notes for one child, multiple children, or the entire class."
+    )}
+    <div id="dailyLogsWorkspacePanel"></div>
+  `;
+}
+
+// ─── Lesson Plans Page ───────────────────────────────────────────────────────
+
+function renderLessonPlansPage() {
+  const section = document.querySelector("#view-lessons");
+  if (!section) return;
+  if (lessonPlansPageMode === "browse") {
+    renderLessonPlansBrowse(section);
+    return;
+  }
+  if (lessonPlansPageMode === "create") {
+    renderLessonPlansCreate(section);
+    return;
+  }
+  renderLessonPlansOverview(section);
+}
+
+function renderLessonPlansOverview(section) {
+  renderLessonPlansCreate(section);
+}
+
+function renderLessonPlansBrowse(section) {
+  const category = "Lesson Plans";
+  const items = categoryResources(category);
+  const accessCounts = categoryAccessCounts(category);
+  const filters = categoryFilters(category);
+  const searchedChild = childFromSearchQuery(searchInput.value.trim(), childRecords());
+  section.innerHTML = `
+    ${workflowPageHeader("Lesson Plans", "Search, filter, edit, and manage your lesson plan library.")}
+    ${workflowBackButton("lp-overview")}
+    <div class="access-notice ${isProUser() ? "pro" : ""}">
+      ${isProUser()
+        ? `Pro active: full library access, ${Math.max(paidAiMonthlyLimit - aiUsageCount(), 0)} AI generations left.`
+        : `Free plan: ${accessCounts.freeLimit} of ${accessCounts.total} lesson plans available.`}
+    </div>
+    ${searchedChild ? renderChildLessonSearchContext(searchedChild) : ""}
+    <div class="filter-row">
+      ${filters.map((f) => `<button class="${activeFilter === f ? "active-filter" : ""}" data-filter="${f}">${f}</button>`).join("")}
+    </div>
+    <div class="resource-grid">
+      ${items.length ? items.map(resourceCard).join("") : `<div class="empty-state">No lesson plans found. Try a different filter.</div>`}
+    </div>
+  `;
+}
+
+function renderLessonPlansCreate(section) {
+  const aiTool = aiTools.find((t) => t.id === "lesson");
+  section.innerHTML = `
+    ${workflowPageHeader("Lesson Plans", "Plan engaging lessons that support children&rsquo;s learning and development.")}
+    <div class="workflow-create-panel">
+      <form class="panel-form" id="lpCreateForm" data-generator="lesson">
+        ${aiTool ? aiTool.fields.map(renderGeneratorField).join("") : ""}
+        <button class="primary-button" type="submit">Generate Lesson Plan</button>
+      </form>
+      <div class="ai-output-panel" id="lpOutputPanel" style="display:none">
+        <div class="output-toolbar">
+          <div><p class="eyebrow">Generated Lesson Plan</p><h3 id="lpOutputTitle">Ready to review</h3></div>
+          <div class="output-actions">
+            <button class="ghost-button" id="lpEditBtn" type="button">Edit</button>
+            <button class="ghost-button" id="lpCopyBtn" type="button">Copy</button>
+            <button class="ghost-button" id="lpSaveBtn" type="button">Save</button>
+            <button class="ghost-button" id="lpPrintBtn" type="button">Print</button>
+          </div>
+        </div>
+        <pre id="lpOutput" contenteditable="true" spellcheck="true">Fill out the form and generate a lesson plan.</pre>
+      </div>
+    </div>
+    ${workflowBrowseSection("Lesson Plan Library", "lp-browse", "Search, filter, edit, and manage your saved lesson plans.")}
+  `;
+  prefillGeneratorFromSettings();
+}
+
+// ─── Activities Page ─────────────────────────────────────────────────────────
+
+function renderActivitiesPage() {
+  const section = document.querySelector("#view-activities");
+  if (!section) return;
+  if (activitiesPageMode === "browse") {
+    renderActivitiesBrowse(section);
+    return;
+  }
+  if (activitiesPageMode === "create") {
+    renderActivitiesCreate(section);
+    return;
+  }
+  renderActivitiesOverview(section);
+}
+
+function renderActivitiesOverview(section) {
+  renderActivitiesCreate(section);
+}
+
+function renderActivitiesBrowse(section) {
+  const category = "Activity Center";
+  const items = categoryResources(category);
+  const accessCounts = categoryAccessCounts(category);
+  const filters = categoryFilters(category);
+  section.innerHTML = `
+    ${workflowPageHeader("Activities", "Browse and filter your activity library.")}
+    ${workflowBackButton("act-overview")}
+    <div class="access-notice ${isProUser() ? "pro" : ""}">
+      ${isProUser()
+        ? `Pro active: full library access, ${Math.max(paidAiMonthlyLimit - aiUsageCount(), 0)} AI generations left.`
+        : `Free plan: ${accessCounts.freeLimit} of ${accessCounts.total} activities available.`}
+    </div>
+    <div class="filter-row">
+      ${filters.map((f) => `<button class="${activeFilter === f ? "active-filter" : ""}" data-filter="${f}">${f}</button>`).join("")}
+    </div>
+    <div class="resource-grid">
+      ${items.length ? items.map(resourceCard).join("") : `<div class="empty-state">No activities found. Try a different filter.</div>`}
+    </div>
+  `;
+}
+
+function renderActivitiesCreate(section) {
+  const aiTool = aiTools.find((t) => t.id === "activity");
+  section.innerHTML = `
+    ${workflowPageHeader("Activities", "Find fun activities that support children&rsquo;s growth.")}
+    <div class="workflow-create-panel">
+      <form class="panel-form" id="actCreateForm" data-generator="activity">
+        ${aiTool ? aiTool.fields.map(renderGeneratorField).join("") : `<label>What skill are you working on?<textarea name="skill" rows="3" placeholder="What skill are you working on?" required></textarea></label>`}
+        <button class="primary-button" type="submit">Find Activities</button>
+      </form>
+      <div class="ai-output-panel" id="actOutputPanel" style="display:none">
+        <div class="output-toolbar">
+          <div><p class="eyebrow">Activity Ideas</p><h3 id="actOutputTitle">Ready to review</h3></div>
+          <div class="output-actions">
+            <button class="ghost-button" id="actCopyBtn" type="button">Copy</button>
+            <button class="ghost-button" id="actSaveBtn" type="button">Save Activity</button>
+            <button class="ghost-button" id="actPrintBtn" type="button">Print</button>
+          </div>
+        </div>
+        <pre id="actOutput" contenteditable="true" spellcheck="true">Fill out the form to get activity ideas.</pre>
+      </div>
+    </div>
+    ${workflowBrowseSection("Activity Library", "act-browse", "Search and filter hundreds of ready-to-use activity ideas by age, theme, and skill.")}
+  `;
+  prefillGeneratorFromSettings();
+}
+
+// ─── Menus Page ──────────────────────────────────────────────────────────────
+
+function renderMenusPage() {
+  const section = document.querySelector("#view-menus");
+  if (!section) return;
+  if (menusPageMode === "browse") {
+    renderMenusBrowse(section);
+    return;
+  }
+  if (menusPageMode === "create") {
+    renderMenusCreate(section);
+    return;
+  }
+  renderMenusOverview(section);
+}
+
+function renderMenusOverview(section) {
+  renderMenusCreate(section);
+}
+
+function renderMenusBrowse(section) {
+  const category = "Menu Center";
+  const items = categoryResources(category);
+  const accessCounts = categoryAccessCounts(category);
+  const filters = categoryFilters(category);
+  section.innerHTML = `
+    ${workflowPageHeader("Menus", "Browse and filter your menu library.")}
+    ${workflowBackButton("mn-overview")}
+    <div class="access-notice ${isProUser() ? "pro" : ""}">
+      ${isProUser()
+        ? `Pro active: full library access.`
+        : `Free plan: ${accessCounts.freeLimit} of ${accessCounts.total} menus available.`}
+    </div>
+    <div class="filter-row">
+      ${filters.map((f) => `<button class="${activeFilter === f ? "active-filter" : ""}" data-filter="${f}">${f}</button>`).join("")}
+    </div>
+    <div class="resource-grid">
+      ${items.length ? items.map(resourceCard).join("") : `<div class="empty-state">No menus found. Try a different filter.</div>`}
+    </div>
+  `;
+}
+
+function renderMenusCreate(section) {
+  const aiTool = aiTools.find((t) => t.id === "menu");
+  section.innerHTML = `
+    ${workflowPageHeader("Menus", "Plan healthy weekly menus for your program.")}
+    <div class="workflow-create-panel">
+      <form class="panel-form" id="mnCreateForm" data-generator="menu">
+        ${aiTool ? aiTool.fields.map(renderGeneratorField).join("") : `<label>What meals would you like this week?<textarea name="note" rows="3" placeholder="What meals would you like to include this week?" required></textarea></label>`}
+        <button class="primary-button" type="submit">Generate Menu</button>
+      </form>
+      <div class="ai-output-panel" id="mnOutputPanel" style="display:none">
+        <div class="output-toolbar">
+          <div><p class="eyebrow">Weekly Menu</p><h3 id="mnOutputTitle">Ready to review</h3></div>
+          <div class="output-actions">
+            <button class="ghost-button" id="mnCopyBtn" type="button">Copy</button>
+            <button class="ghost-button" id="mnSaveBtn" type="button">Save</button>
+            <button class="ghost-button" id="mnPrintBtn" type="button">Print</button>
+          </div>
+        </div>
+        <pre id="mnOutput" contenteditable="true" spellcheck="true">Fill out the form to generate a weekly menu.</pre>
+      </div>
+    </div>
+    ${workflowBrowseSection("Menu Library", "mn-browse", "Browse 52 weeks of daycare menus, meal ideas, and CACFP-friendly inspiration.")}
+  `;
+  prefillGeneratorFromSettings();
+}
+
+// ─── Forms Page ──────────────────────────────────────────────────────────────
+
+function renderFormsPage() {
+  const section = document.querySelector("#view-forms");
+  if (!section) return;
+  if (formsPageMode === "browse") {
+    renderFormsBrowse(section);
+    return;
+  }
+  if (formsPageMode === "create") {
+    renderFormsCreate(section);
+    return;
+  }
+  renderFormsOverview(section);
+}
+
+function renderFormsOverview(section) {
+  renderFormsCreate(section);
+}
+
+function renderFormsBrowse(section) {
+  const category = "Forms Library";
+  const items = categoryResources(category);
+  const accessCounts = categoryAccessCounts(category);
+  const filters = categoryFilters(category);
+  section.innerHTML = `
+    ${workflowPageHeader("Forms Library", "Browse editable childcare paperwork and parent forms.")}
+    ${workflowBackButton("fm-overview")}
+    <div class="access-notice ${isProUser() ? "pro" : ""}">
+      ${isProUser()
+        ? `Pro active: full library access, ${Math.max(paidAiMonthlyLimit - aiUsageCount(), 0)} AI generations left.`
+        : `Free plan: ${accessCounts.freeLimit} of ${accessCounts.total} forms available.`}
+    </div>
+    <div class="filter-row">
+      ${filters.map((f) => `<button class="${activeFilter === f ? "active-filter" : ""}" data-filter="${f}">${f}</button>`).join("")}
+    </div>
+    <div class="resource-grid">
+      ${items.length ? items.map(resourceCard).join("") : `<div class="empty-state">No forms found. Try a different filter.</div>`}
+    </div>
+  `;
+}
+
+function renderFormsCreate(section) {
+  const aiTool = aiTools.find((t) => t.id === "form");
+  section.innerHTML = `
+    ${workflowPageHeader("Forms", "Create custom daycare forms or browse your ready-made forms library.")}
+    <div class="workflow-create-panel">
+      <form class="panel-form" id="fmCreateForm" data-generator="form">
+        ${aiTool ? aiTool.fields.map(renderGeneratorField).join("") : `<label>What form do you need?<textarea name="purpose" rows="3" placeholder="Describe the form you need…" required></textarea></label>`}
+        <button class="primary-button" type="submit">Build Form</button>
+      </form>
+      <div class="ai-output-panel" id="fmOutputPanel" ${formsGeneratedOutput ? "" : 'style="display:none"'}>
+        <div class="output-toolbar">
+          <div><p class="eyebrow">Generated Form</p><h3 id="fmOutputTitle">Ready to review</h3></div>
+          <div class="output-actions">
+            <button class="ghost-button" id="fmCopyBtn" type="button">Copy</button>
+            <button class="ghost-button" id="fmSaveBtn" type="button">Save</button>
+            <button class="ghost-button" id="fmPrintBtn" type="button">Print</button>
+          </div>
+        </div>
+        <pre id="fmOutput" contenteditable="true" spellcheck="true">${escapeHtml(formsGeneratedOutput)}</pre>
+      </div>
+    </div>
+    ${workflowBrowseSection("Forms Library", "fm-browse", "Browse editable childcare paperwork, parent forms, and ready-made templates.")}
+  `;
+  prefillGeneratorFromSettings();
+}
+
+// ─── Behavior Support Page ───────────────────────────────────────────────────
+
+function renderBehaviorSupportPage() {
+  const section = document.querySelector("#view-behavior-support");
+  if (!section) return;
+  if (behaviorSupportPageMode === "browse") {
+    renderBehaviorSupportBrowse(section);
+    return;
+  }
+  if (behaviorSupportPageMode === "create") {
+    renderBehaviorSupportCreate(section);
+    return;
+  }
+  renderBehaviorSupportOverview(section);
+}
+
+function renderBehaviorSupportOverview(section) {
+  section.innerHTML = `
+    ${workflowPageHeader("Behavior Support", "Track behaviors, identify patterns, document concerns, and receive positive guidance strategies.")}
+    ${workflowCards(
+      "Browse Library", "Analyze Behavior",
+      "bs-browse", "bs-create",
+      "Search by child, view behavior history, repeated behaviors, trends, previous strategies, parent communication, and progress over time.",
+      "Describe what happened and Little Learner Hub will help organize it into a professional behavior note with guidance strategies."
+    )}
+  `;
+}
+
+function renderBehaviorSupportBrowse(section) {
+  const records = childRecords();
+  const children = records.children || [];
+  const allNotes = children.flatMap((child) =>
+    (records.behaviorNotes || []).filter((n) => n.childId === child.id).map((n) => ({ ...n, childName: child.name }))
+  );
+  section.innerHTML = `
+    ${workflowPageHeader("Behavior Support", "Search behavior history and view patterns, strategies, and outcomes.")}
+    ${workflowBackButton("bs-overview")}
+    <div class="section-block">
+      <label class="search-wrap">
+        <span>Search by child</span>
+        <input id="bsBrowseSearch" type="search" placeholder="Search by child name or behavior…" />
+      </label>
+    </div>
+    <div class="resource-grid" id="bsBrowseList">
+      ${allNotes.length
+        ? allNotes.slice(0, 30).map((note) => `
+            <article class="section-block">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">${escapeHtml(note.childName)} · ${escapeHtml(note.date || "")}</p>
+                  <h3>${escapeHtml(note.context || "Behavior Note")}</h3>
+                </div>
+              </div>
+              <p>${escapeHtml(note.message || "")}</p>
+              <p class="tag">${escapeHtml(note.followUp || "")}</p>
+            </article>
+          `).join("")
+        : `<div class="empty-state">No behavior notes recorded yet. Use <strong>Analyze Behavior</strong> to create your first note.</div>`
+      }
+    </div>
+  `;
+}
+
+const behaviorCategories = [
+  "Hitting", "Biting", "Throwing", "Tantrum", "Difficulty Transitioning",
+  "Aggression", "Emotional Regulation", "Sharing", "Following Directions",
+  "Separation Anxiety", "Other",
+];
+
+function renderBehaviorSupportCreate(section) {
+  const children = childRecords().children || [];
+  section.innerHTML = `
+    ${workflowPageHeader("Analyze Behavior", "Describe what happened and Little Learner Hub will help organize it into a professional behavior note with guidance strategies.")}
+    ${workflowBackButton("bs-overview")}
+    <div class="workflow-create-panel">
+      <form class="panel-form" id="bsCreateForm">
+        <div class="form-grid-two">
+          <label>Select Child
+            <select name="child">
+              <option value="">No specific child</option>
+              ${children.map((c) => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join("")}
+            </select>
+          </label>
+          <label>Date<input type="date" name="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
+        </div>
+        <label>Behavior Category
+          <select name="behaviorCategory">
+            ${behaviorCategories.map((b) => `<option>${b}</option>`).join("")}
+          </select>
+        </label>
+        <label>
+          <span>Describe what happened and Little Learner Hub will help organize it into a professional behavior note with guidance strategies.</span>
+          <textarea name="incident" rows="5" placeholder="Tell me what happened…&#10;&#10;Example: &quot;Jackson became upset during cleanup, threw toys, and hit another child when asked to stop playing.&quot;" required></textarea>
+        </label>
+        <button class="primary-button" type="submit">Analyze Behavior</button>
+      </form>
+      <div class="ai-output-panel" id="bsOutputPanel" ${behaviorSupportGeneratedOutput ? "" : 'style="display:none"'}>
+        <div class="output-toolbar">
+          <div>
+            <p class="eyebrow">Behavior Analysis</p>
+            <h3>Professional Behavior Report</h3>
+          </div>
+          <div class="output-actions">
+            <button class="ghost-button" id="bsEditBtn" type="button">Edit</button>
+            <button class="ghost-button" id="bsCopyBtn" type="button">Copy</button>
+            <button class="ghost-button" id="bsSaveBtn" type="button">Save Behavior Note</button>
+            <button class="ghost-button" id="bsPrintBtn" type="button">Print</button>
+          </div>
+        </div>
+        <pre id="bsOutput" contenteditable="true" spellcheck="true">${escapeHtml(behaviorSupportGeneratedOutput)}</pre>
+        <div class="obs-post-actions">
+          <button class="ghost-button" id="bsCreateParentMsgBtn" type="button">Create Parent Message</button>
+          <button class="ghost-button" id="bsCreateIncidentBtn" type="button">Create Incident Report</button>
+          <button class="ghost-button" id="bsAddGoalBtn" type="button">Add Goal</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ─── Incident Reports Page ───────────────────────────────────────────────────
+
+function renderIncidentReportsPage() {
+  const section = document.querySelector("#view-incident-reports");
+  if (!section) return;
+  if (incidentReportsPageMode === "browse") {
+    renderIncidentReportsBrowse(section);
+    return;
+  }
+  if (incidentReportsPageMode === "create") {
+    renderIncidentReportsCreate(section);
+    return;
+  }
+  section.innerHTML = `
+    ${workflowPageHeader("Incident Reports", "Document accidents, injuries, and incidents with professional reports ready for parent review.")}
+    ${workflowCards(
+      "Browse Library", "Create New",
+      "ir-browse", "ir-create",
+      "Search, view, and manage your saved incident reports.",
+      "Document a new incident with a professional, parent-ready report."
+    )}
+  `;
+}
+
+function renderIncidentReportsBrowse(section) {
+  section.innerHTML = `
+    ${workflowPageHeader("Incident Reports", "View and manage saved incident reports.")}
+    ${workflowBackButton("ir-overview")}
+    <div class="empty-state">No incident reports saved yet. Use <strong>Create New</strong> to document your first incident.</div>
+  `;
+}
+
+function renderIncidentReportsCreate(section) {
+  const children = childRecords().children || [];
+  const aiTool = aiTools.find((t) => t.id === "incident");
+  section.innerHTML = `
+    ${workflowPageHeader("Create Incident Report", "Document what happened with a professional incident report.")}
+    ${workflowBackButton("ir-overview")}
+    <div class="workflow-create-panel">
+      <form class="panel-form" id="irCreateForm" data-generator="incident">
+        <div class="form-grid-two">
+          <label>Child Name
+            <select name="childName">
+              <option value="">Not specified</option>
+              ${children.map((c) => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join("")}
+            </select>
+          </label>
+          <label>Date<input type="date" name="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
+        </div>
+        ${aiTool
+          ? aiTool.fields.filter((f) => !["childName", "date"].includes(f[0])).map(renderGeneratorField).join("")
+          : `<label>What happened?<textarea name="incident" rows="4" placeholder="Describe the incident using factual language…" required></textarea></label>`}
+        <button class="primary-button" type="submit">Generate Incident Report</button>
+      </form>
+      <div class="ai-output-panel" id="irOutputPanel" style="display:none">
+        <div class="output-toolbar">
+          <div><p class="eyebrow">Incident Report</p><h3 id="irOutputTitle">Ready to review</h3></div>
+          <div class="output-actions">
+            <button class="ghost-button" id="irEditBtn" type="button">Edit</button>
+            <button class="ghost-button" id="irCopyBtn" type="button">Copy</button>
+            <button class="ghost-button" id="irSaveBtn" type="button">Save Report</button>
+            <button class="ghost-button" id="irPrintBtn" type="button">Print</button>
+          </div>
+        </div>
+        <pre id="irOutput" contenteditable="true" spellcheck="true">${escapeHtml(incidentReportsGeneratedOutput)}</pre>
+      </div>
+    </div>
+  `;
+}
+
+// ─── Parent Messages Page ────────────────────────────────────────────────────
+
+function renderParentMessagesPage() {
+  const section = document.querySelector("#view-parent-messages");
+  if (!section) return;
+  if (parentMessagesPageMode === "browse") {
+    section.innerHTML = `
+      ${workflowPageHeader("Parent Messages", "View saved parent messages and communication history.")}
+      ${workflowBackButton("pm-overview")}
+      <div class="empty-state">No parent messages saved yet. Use <strong>Create New</strong> to write your first message.</div>
+    `;
+    return;
+  }
+  if (parentMessagesPageMode === "create") {
+    const children = childRecords().children || [];
+    const aiTool = aiTools.find((t) => t.id === "parentMessage");
+    section.innerHTML = `
+      ${workflowPageHeader("Create Parent Message", "Write a warm, professional parent message in seconds.")}
+      ${workflowBackButton("pm-overview")}
+      <div class="workflow-create-panel">
+        <form class="panel-form" id="pmCreateForm" data-generator="parentMessage">
+          <div class="form-grid-two">
+            <label>Child Name
+              <select name="childName">
+                <option value="">Not specified</option>
+                ${children.map((c) => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join("")}
+              </select>
+            </label>
+          </div>
+          ${aiTool ? aiTool.fields.filter((f) => f[0] !== "childName").map(renderGeneratorField).join("") : ""}
+          <button class="primary-button" type="submit">Generate Message</button>
+        </form>
+        <div class="ai-output-panel" id="pmOutputPanel" style="display:none">
+          <div class="output-toolbar">
+            <div><p class="eyebrow">Parent Message</p><h3 id="pmOutputTitle">Ready to review</h3></div>
+            <div class="output-actions">
+              <button class="ghost-button" id="pmEditBtn" type="button">Edit</button>
+              <button class="ghost-button" id="pmCopyBtn" type="button">Copy</button>
+              <button class="ghost-button" id="pmSaveBtn" type="button">Save</button>
+              <button class="ghost-button" id="pmPrintBtn" type="button">Print</button>
+            </div>
+          </div>
+          <pre id="pmOutput" contenteditable="true" spellcheck="true">${escapeHtml(parentMessagesGeneratedOutput)}</pre>
+        </div>
+      </div>
+    `;
+    prefillGeneratorFromSettings();
+    return;
+  }
+  section.innerHTML = `
+    ${workflowPageHeader("Parent Messages", "Write warm, professional messages that keep families connected.")}
+    ${workflowCards(
+      "Browse Messages", "Create New",
+      "pm-browse", "pm-create",
+      "Search and view your saved parent messages and communication history.",
+      "Write a new parent message in seconds with the right tone and wording."
+    )}
+  `;
+}
+
+// ─── Newsletters Page ────────────────────────────────────────────────────────
+
+function renderNewslettersPage() {
+  const section = document.querySelector("#view-newsletters");
+  if (!section) return;
+  if (newslettersPageMode === "browse") {
+    section.innerHTML = `
+      ${workflowPageHeader("Newsletters", "View your saved newsletters.")}
+      ${workflowBackButton("nl-overview")}
+      <div class="empty-state">No newsletters saved yet. Use <strong>Create New</strong> to write your first newsletter.</div>
+    `;
+    return;
+  }
+  if (newslettersPageMode === "create") {
+    const aiTool = aiTools.find((t) => t.id === "newsletter");
+    section.innerHTML = `
+      ${workflowPageHeader("Create Newsletter", "Create a professional parent newsletter for your program.")}
+      ${workflowBackButton("nl-overview")}
+      <div class="workflow-create-panel">
+        <form class="panel-form" id="nlCreateForm" data-generator="newsletter">
+          ${aiTool ? aiTool.fields.map(renderGeneratorField).join("") : `<label>What would you like in this newsletter?<textarea name="theme" rows="4" placeholder="Monthly theme, important dates, updates…" required></textarea></label>`}
+          <button class="primary-button" type="submit">Generate Newsletter</button>
+        </form>
+        <div class="ai-output-panel" id="nlOutputPanel" style="display:none">
+          <div class="output-toolbar">
+            <div><p class="eyebrow">Newsletter</p><h3 id="nlOutputTitle">Ready to review</h3></div>
+            <div class="output-actions">
+              <button class="ghost-button" id="nlEditBtn" type="button">Edit</button>
+              <button class="ghost-button" id="nlCopyBtn" type="button">Copy</button>
+              <button class="ghost-button" id="nlSaveBtn" type="button">Save</button>
+              <button class="ghost-button" id="nlPrintBtn" type="button">Print</button>
+            </div>
+          </div>
+          <pre id="nlOutput" contenteditable="true" spellcheck="true">${escapeHtml(newslettersGeneratedOutput)}</pre>
+        </div>
+      </div>
+    `;
+    prefillGeneratorFromSettings();
+    return;
+  }
+  section.innerHTML = `
+    ${workflowPageHeader("Newsletters", "Keep families informed with a professional monthly newsletter.")}
+    ${workflowCards(
+      "Browse Newsletters", "Create New",
+      "nl-browse", "nl-create",
+      "View and manage your saved newsletters.",
+      "Create a professional newsletter in seconds with themes, dates, and updates."
+    )}
+  `;
+}
+
+// ─── Development Progress Page ───────────────────────────────────────────────
+
+function renderDevelopmentProgressPage() {
+  const section = document.querySelector("#view-development-progress");
+  if (!section) return;
+  const records = childRecords();
+  const children = records.children || [];
+  const goals = records.goals || [];
+  section.innerHTML = `
+    ${workflowPageHeader("Development Progress", "Track each child&rsquo;s developmental growth, active goals, and observation history.")}
+    <div class="section-block">
+      ${children.length === 0
+        ? `<div class="empty-state">No children added yet. <button class="link-button" data-view="children" type="button">Add a child profile</button> to start tracking development.</div>`
+        : children.map((child) => {
+            const childGoals = goals.filter((g) => g.childId === child.id);
+            const active = childGoals.filter((g) => goalProgressPercent(g.progress) < 100);
+            const completed = childGoals.filter((g) => goalProgressPercent(g.progress) >= 100);
+            return `
+              <article class="section-block">
+                <div class="section-heading">
+                  <div>
+                    <p class="eyebrow">${escapeHtml(normalizeAgeGroup(child.ageGroup) || child.ageGroup || "Age not set")}</p>
+                    <h3>${escapeHtml(child.name)}</h3>
+                  </div>
+                  <button class="ghost-button" data-view-child-profile="${child.id}" type="button">View Profile</button>
+                </div>
+                <div class="home-stats">
+                  <div><strong>${active.length}</strong><span>Active Goals</span></div>
+                  <div><strong>${completed.length}</strong><span>Completed Goals</span></div>
+                  <div><strong>${childGoals.length}</strong><span>Total Goals</span></div>
+                </div>
+                ${active.length
+                  ? `<div class="resource-list compact">${active.slice(0, 3).map((g) => `
+                      <div class="simple-record-item">
+                        <span>${escapeHtml(g.area || g.goal || "Goal")}</span>
+                        <span class="tag">${goalProgressPercent(g.progress)}%</span>
+                      </div>`).join("")}
+                    </div>`
+                  : ""
+                }
+              </article>
+            `;
+          }).join("")
+      }
+    </div>
+  `;
+}
+
+// ─── Coming Soon Page ────────────────────────────────────────────────────────
+
+function renderComingSoonPage(viewId, title, description, icon) {
+  const section = document.querySelector(`#view-${viewId}`);
+  if (!section) return;
+  section.innerHTML = `
+    <div class="page-title">
+      <div class="coming-soon-icon">${icon}</div>
+      <h2>${title}</h2>
+      <p>${description}</p>
+    </div>
+    <div class="section-block coming-soon-block">
+      <div class="coming-soon-badge">Coming Soon</div>
+      <p>We&rsquo;re working on this feature. It will be available in a future update of Little Learner Hub.</p>
+      <button class="primary-button" data-view="home" type="button">Back to Dashboard</button>
+    </div>
   `;
 }
 
@@ -11386,6 +12284,8 @@ function categoryForGenerator(toolId) {
     curriculum: "Lesson Plans",
     behavior: "Observation Hub",
     learningStory: "Observation Hub",
+    "behavior-note": "Observation Hub",
+    incident: "Observation Hub",
     parentMessage: "Forms Library",
     schedule: "Forms Library",
     classroomSetup: "Forms Library",
@@ -15097,7 +15997,7 @@ function toggleFavorite(id) {
   saveFavorites();
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "") || "home";
   if (activeView === "home") renderHome();
-  if (viewMap[activeView]) renderCategoryPage(activeView);
+  rerenderActivePage();
 }
 
 function showSearchResults() {
@@ -15144,7 +16044,7 @@ document.addEventListener("click", (event) => {
     updatePlanLabel();
     renderAdminDashboard();
     const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
-    if (viewMap[activeView]) renderCategoryPage(activeView);
+    rerenderActivePage();
     if (activeView === "ai") renderAiPage();
     if (activeView === "children") renderChildManagement();
     return;
@@ -15975,7 +16875,7 @@ document.addEventListener("click", (event) => {
   if (filterButton) {
     activeFilter = filterButton.dataset.filter;
     const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
-    if (viewMap[activeView]) renderCategoryPage(activeView);
+    rerenderActivePage();
   }
 
   const editObservationButton = event.target.closest("[data-edit-observation]");
@@ -16386,7 +17286,7 @@ searchInput.addEventListener("keydown", (event) => {
 
 searchInput.addEventListener("input", () => {
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
-  if (viewMap[activeView]) renderCategoryPage(activeView);
+  rerenderActivePage();
 });
 
 document.addEventListener("input", (event) => {
@@ -17595,7 +18495,482 @@ document.addEventListener("submit", (event) => {
 
 installMobileNavigation();
 
-// ─── Program Settings Form Submit ──────────────────────────────────────────
+// ─── Workflow Mode Navigation ────────────────────────────────────────────────
+
+document.addEventListener("click", (event) => {
+  const workflowBtn = event.target.closest("[data-workflow-mode]");
+  if (!workflowBtn) return;
+  event.preventDefault();
+  const mode = workflowBtn.dataset.workflowMode;
+  if (mode.startsWith("obs-")) {
+    observationsPageMode = mode === "obs-browse" ? "browse" : mode === "obs-create" ? "create" : "overview";
+    renderObservationsPage();
+  } else if (mode.startsWith("lp-")) {
+    lessonPlansPageMode = mode === "lp-browse" ? "browse" : mode === "lp-create" ? "create" : "overview";
+    renderLessonPlansPage();
+  } else if (mode.startsWith("act-")) {
+    activitiesPageMode = mode === "act-browse" ? "browse" : mode === "act-create" ? "create" : "overview";
+    renderActivitiesPage();
+  } else if (mode.startsWith("mn-")) {
+    menusPageMode = mode === "mn-browse" ? "browse" : mode === "mn-create" ? "create" : "overview";
+    renderMenusPage();
+  } else if (mode.startsWith("fm-")) {
+    formsPageMode = mode === "fm-browse" ? "browse" : mode === "fm-create" ? "create" : "overview";
+    renderFormsPage();
+  } else if (mode.startsWith("bs-")) {
+    behaviorSupportPageMode = mode === "bs-browse" ? "browse" : mode === "bs-create" ? "create" : "overview";
+    renderBehaviorSupportPage();
+  } else if (mode.startsWith("ir-")) {
+    incidentReportsPageMode = mode === "ir-browse" ? "browse" : mode === "ir-create" ? "create" : "overview";
+    renderIncidentReportsPage();
+  } else if (mode.startsWith("pm-")) {
+    parentMessagesPageMode = mode === "pm-browse" ? "browse" : mode === "pm-create" ? "create" : "overview";
+    renderParentMessagesPage();
+  } else if (mode.startsWith("nl-")) {
+    newslettersPageMode = mode === "nl-browse" ? "browse" : mode === "nl-create" ? "create" : "overview";
+    renderNewslettersPage();
+  } else if (mode.startsWith("dlogs-")) {
+    // Daily logs entry — set up and navigate into children daily logs
+    childManagementMode = "daily-logs";
+    dailyLogsSection = mode === "dlogs-create" ? "new" : "home";
+    dailyLogsChildTab = "overview";
+    dailyLogsGroupAction = "";
+    dlcNewStep = "step1";
+    dlcChildSelection = "all";
+    dlcSelectedChildIds = [];
+    dlcAiNote = "";
+    dlcAiSuggestions = [];
+    dlcManualSection = "";
+    const workspace = document.querySelector("#dailyLogsWorkspacePanel");
+    if (workspace) {
+      workspace.innerHTML = renderDailyLogsCenter(childRecords());
+    }
+  }
+});
+
+// ─── Workflow Output Action Buttons ─────────────────────────────────────────
+
+document.addEventListener("click", (event) => {
+  // Observations output actions
+  if (event.target.id === "obsCopyOutputBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#obsOutput");
+    if (out) navigator.clipboard?.writeText(out.textContent || out.innerText);
+    return;
+  }
+  if (event.target.id === "obsSaveOutputBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#obsOutput");
+    if (out && out.textContent.trim()) {
+      const settings = getProgramSettings();
+      saveAiGeneratedResource("observation", out.textContent.trim(), { programName: settings.programName });
+      showToast("Observation saved to your library.");
+    }
+    return;
+  }
+  if (event.target.id === "obsPrintOutputBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#obsOutput");
+    if (out) printTextDocument("Observation", out.textContent || out.innerText);
+    return;
+  }
+  // Behavior Support output actions
+  if (event.target.id === "bsCopyBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#bsOutput");
+    if (out) navigator.clipboard?.writeText(out.textContent || out.innerText);
+    return;
+  }
+  if (event.target.id === "bsSaveBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#bsOutput");
+    if (out && out.textContent.trim()) {
+      saveAiGeneratedResource("behavior-note", out.textContent.trim(), {});
+      showToast("Behavior note saved.");
+    }
+    return;
+  }
+  if (event.target.id === "bsPrintBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#bsOutput");
+    if (out) printTextDocument("Behavior Support Report", out.textContent || out.innerText);
+    return;
+  }
+  if (event.target.id === "bsCreateParentMsgBtn") {
+    event.preventDefault();
+    parentMessagesPageMode = "create";
+    setView("parent-messages");
+    return;
+  }
+  if (event.target.id === "bsCreateIncidentBtn") {
+    event.preventDefault();
+    incidentReportsPageMode = "create";
+    setView("incident-reports");
+    return;
+  }
+  if (event.target.id === "obsCreateParentMsgBtn") {
+    event.preventDefault();
+    parentMessagesPageMode = "create";
+    setView("parent-messages");
+    return;
+  }
+  // Lesson Plans output actions
+  if (event.target.id === "lpCopyBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#lpOutput");
+    if (out) navigator.clipboard?.writeText(out.textContent || out.innerText);
+    return;
+  }
+  if (event.target.id === "lpSaveBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#lpOutput");
+    if (out && out.textContent.trim()) {
+      const settings = getProgramSettings();
+      saveAiGeneratedResource("lesson", out.textContent.trim(), { programName: settings.programName });
+      showToast("Lesson plan saved to your library.");
+    }
+    return;
+  }
+  if (event.target.id === "lpPrintBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#lpOutput");
+    if (out) printTextDocument("Lesson Plan", out.textContent || out.innerText);
+    return;
+  }
+  // Activities output actions
+  if (event.target.id === "actCopyBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#actOutput");
+    if (out) navigator.clipboard?.writeText(out.textContent || out.innerText);
+    return;
+  }
+  if (event.target.id === "actSaveBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#actOutput");
+    if (out && out.textContent.trim()) {
+      saveAiGeneratedResource("activity", out.textContent.trim(), {});
+      showToast("Activity saved to your library.");
+    }
+    return;
+  }
+  if (event.target.id === "actPrintBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#actOutput");
+    if (out) printTextDocument("Activity", out.textContent || out.innerText);
+    return;
+  }
+  // Menus output actions
+  if (event.target.id === "mnCopyBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#mnOutput");
+    if (out) navigator.clipboard?.writeText(out.textContent || out.innerText);
+    return;
+  }
+  if (event.target.id === "mnSaveBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#mnOutput");
+    if (out && out.textContent.trim()) {
+      saveAiGeneratedResource("menu", out.textContent.trim(), {});
+      showToast("Menu saved to your library.");
+    }
+    return;
+  }
+  if (event.target.id === "mnPrintBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#mnOutput");
+    if (out) printTextDocument("Menu", out.textContent || out.innerText);
+    return;
+  }
+  // Forms output actions
+  if (event.target.id === "fmCopyBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#fmOutput");
+    if (out) navigator.clipboard?.writeText(out.textContent || out.innerText);
+    return;
+  }
+  if (event.target.id === "fmSaveBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#fmOutput");
+    if (out && out.textContent.trim()) {
+      saveAiGeneratedResource("form", out.textContent.trim(), {});
+      showToast("Form saved to your library.");
+    }
+    return;
+  }
+  if (event.target.id === "fmPrintBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#fmOutput");
+    if (out) printTextDocument("Daycare Form", out.textContent || out.innerText);
+    return;
+  }
+  // Incident Reports output actions
+  if (event.target.id === "irCopyBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#irOutput");
+    if (out) navigator.clipboard?.writeText(out.textContent || out.innerText);
+    return;
+  }
+  if (event.target.id === "irSaveBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#irOutput");
+    if (out && out.textContent.trim()) {
+      saveAiGeneratedResource("incident", out.textContent.trim(), {});
+      showToast("Incident report saved.");
+    }
+    return;
+  }
+  if (event.target.id === "irPrintBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#irOutput");
+    if (out) printTextDocument("Incident Report", out.textContent || out.innerText);
+    return;
+  }
+  // Parent Messages output actions
+  if (event.target.id === "pmCopyBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#pmOutput");
+    if (out) navigator.clipboard?.writeText(out.textContent || out.innerText);
+    return;
+  }
+  if (event.target.id === "pmSaveBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#pmOutput");
+    if (out && out.textContent.trim()) {
+      saveAiGeneratedResource("parentMessage", out.textContent.trim(), {});
+      showToast("Parent message saved.");
+    }
+    return;
+  }
+  if (event.target.id === "pmPrintBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#pmOutput");
+    if (out) printTextDocument("Parent Message", out.textContent || out.innerText);
+    return;
+  }
+  // Newsletters output actions
+  if (event.target.id === "nlCopyBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#nlOutput");
+    if (out) navigator.clipboard?.writeText(out.textContent || out.innerText);
+    return;
+  }
+  if (event.target.id === "nlSaveBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#nlOutput");
+    if (out && out.textContent.trim()) {
+      saveAiGeneratedResource("newsletter", out.textContent.trim(), {});
+      showToast("Newsletter saved.");
+    }
+    return;
+  }
+  if (event.target.id === "nlPrintBtn") {
+    event.preventDefault();
+    const out = document.querySelector("#nlOutput");
+    if (out) printTextDocument("Newsletter", out.textContent || out.innerText);
+    return;
+  }
+});
+
+// ─── Workflow Form Submissions ────────────────────────────────────────────────
+
+document.addEventListener("submit", (event) => {
+  const form = event.target;
+
+  // Observations Create
+  if (form.id === "obsCreateForm") {
+    event.preventDefault();
+    if (!canUseAi()) { showProFeatureModal(aiLimitMessage()); return; }
+    const data = collectFormData(form);
+    const settings = getProgramSettings();
+    const output = generateObservation({
+      note: data.note,
+      age: data.age || "Preschool",
+      developmentalDomain: data.area,
+      childName: data.child,
+      programName: data.programName || settings.programName,
+    });
+    observationsGeneratedOutput = output;
+    recordAiUse();
+    renderObservationsCreate(document.querySelector("#view-observations"));
+    const panel = document.querySelector("#obsOutputPanel");
+    const pre = document.querySelector("#obsOutput");
+    if (panel) panel.style.display = "";
+    if (pre) pre.textContent = output;
+    const obsOutputTitle = document.querySelector("#obsOutputTitle");
+    if (obsOutputTitle) obsOutputTitle.textContent = data.child ? `Observation: ${data.child}` : "Professional Observation";
+    panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  // Behavior Support Create
+  if (form.id === "bsCreateForm") {
+    event.preventDefault();
+    if (!canUseAi()) { showProFeatureModal(aiLimitMessage()); return; }
+    const data = collectFormData(form);
+    const settings = getProgramSettings();
+    const output = generateBehaviorDocumentation({
+      childName: data.child,
+      incident: data.incident,
+      concern: data.behaviorCategory || "Challenging behavior",
+      programName: data.programName || settings.programName,
+      tone: settings.communicationTone || "Warm and professional",
+    });
+    behaviorSupportGeneratedOutput = output;
+    recordAiUse();
+    renderBehaviorSupportCreate(document.querySelector("#view-behavior-support"));
+    const panel = document.querySelector("#bsOutputPanel");
+    const pre = document.querySelector("#bsOutput");
+    if (panel) panel.style.display = "";
+    if (pre) pre.textContent = output;
+    panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  // Incident Reports Create
+  if (form.id === "irCreateForm") {
+    event.preventDefault();
+    if (!canUseAi()) { showProFeatureModal(aiLimitMessage()); return; }
+    const data = collectFormData(form);
+    const settings = getProgramSettings();
+    const output = generateIncidentReport({
+      ...data,
+      programName: data.programName || settings.programName,
+    });
+    incidentReportsGeneratedOutput = output;
+    recordAiUse();
+    const section = document.querySelector("#view-incident-reports");
+    renderIncidentReportsCreate(section);
+    const panel = document.querySelector("#irOutputPanel");
+    const pre = document.querySelector("#irOutput");
+    if (panel) panel.style.display = "";
+    if (pre) pre.textContent = output;
+    panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  // Parent Messages Create
+  if (form.id === "pmCreateForm") {
+    event.preventDefault();
+    if (!canUseAi()) { showProFeatureModal(aiLimitMessage()); return; }
+    const data = collectFormData(form);
+    const settings = getProgramSettings();
+    const output = generateParentMessage({
+      ...data,
+      programName: data.programName || settings.programName,
+      tone: data.tone || settings.communicationTone || "Warm and friendly",
+    });
+    parentMessagesGeneratedOutput = output;
+    recordAiUse();
+    const section = document.querySelector("#view-parent-messages");
+    renderParentMessagesPage();
+    const panel = document.querySelector("#pmOutputPanel");
+    const pre = document.querySelector("#pmOutput");
+    if (panel) panel.style.display = "";
+    if (pre) pre.textContent = output;
+    panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  // Newsletters Create
+  if (form.id === "nlCreateForm") {
+    event.preventDefault();
+    if (!canUseAi()) { showProFeatureModal(aiLimitMessage()); return; }
+    const data = collectFormData(form);
+    const settings = getProgramSettings();
+    const output = generateNewsletter({
+      ...data,
+      programName: data.programName || settings.programName,
+    });
+    newslettersGeneratedOutput = output;
+    recordAiUse();
+    renderNewslettersPage();
+    const panel = document.querySelector("#nlOutputPanel");
+    const pre = document.querySelector("#nlOutput");
+    if (panel) panel.style.display = "";
+    if (pre) pre.textContent = output;
+    panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  // Lesson Plans Create
+  if (form.id === "lpCreateForm") {
+    event.preventDefault();
+    if (!canUseAi()) { showProFeatureModal(aiLimitMessage()); return; }
+    const data = collectFormData(form);
+    const settings = getProgramSettings();
+    const output = generateLessonPlan({
+      ...data,
+      programName: data.programName || settings.programName,
+    });
+    recordAiUse();
+    const panel = document.querySelector("#lpOutputPanel");
+    const pre = document.querySelector("#lpOutput");
+    if (panel) panel.style.display = "";
+    if (pre) pre.textContent = output;
+    const lpOutputTitle = document.querySelector("#lpOutputTitle");
+    if (lpOutputTitle) lpOutputTitle.textContent = "Lesson Plan";
+    panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  // Activities Create
+  if (form.id === "actCreateForm") {
+    event.preventDefault();
+    if (!canUseAi()) { showProFeatureModal(aiLimitMessage()); return; }
+    const data = collectFormData(form);
+    const settings = getProgramSettings();
+    const output = generateActivity({
+      ...data,
+      programName: data.programName || settings.programName,
+    });
+    recordAiUse();
+    const panel = document.querySelector("#actOutputPanel");
+    const pre = document.querySelector("#actOutput");
+    if (panel) panel.style.display = "";
+    if (pre) pre.textContent = output;
+    panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  // Menus Create
+  if (form.id === "mnCreateForm") {
+    event.preventDefault();
+    if (!canUseAi()) { showProFeatureModal(aiLimitMessage()); return; }
+    const data = collectFormData(form);
+    const settings = getProgramSettings();
+    const output = generateAiMenu({
+      ...data,
+      programName: data.programName || settings.programName,
+    });
+    recordAiUse();
+    const panel = document.querySelector("#mnOutputPanel");
+    const pre = document.querySelector("#mnOutput");
+    if (panel) panel.style.display = "";
+    if (pre) pre.textContent = output;
+    panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  if (form.id === "fmCreateForm") {
+    event.preventDefault();
+    if (!canUseAi()) { showProFeatureModal(aiLimitMessage()); return; }
+    const data = collectFormData(form);
+    const settings = getProgramSettings();
+    const output = generateDaycareForm({
+      ...data,
+      program: data.program || settings.programName,
+    });
+    formsGeneratedOutput = output;
+    recordAiUse();
+    const panel = document.querySelector("#fmOutputPanel");
+    const pre = document.querySelector("#fmOutput");
+    const title = document.querySelector("#fmOutputTitle");
+    if (panel) panel.style.display = "";
+    if (pre) pre.textContent = output;
+    if (title) title.textContent = data.formType || "Generated Form";
+    panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+});
 
 document.querySelector("#programSettingsForm")?.addEventListener("submit", (event) => {
   event.preventDefault();
