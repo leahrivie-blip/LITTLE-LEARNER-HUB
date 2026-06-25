@@ -1663,6 +1663,125 @@ const stripeCheckoutConfig = {
 const aiGenerationConfig = {
   endpoint: "/api/ai-generate",
 };
+const adminAiTestConfig = {
+  endpoint: "/api/admin/ai-test",
+};
+
+const ADMIN_PROMPT_LAYER_MASTER = `You are the professional Observation Assistant for Little Learner Hub.
+
+Your purpose is to help childcare providers create high-quality, professional, objective, and developmentally appropriate observations from a short teacher note.
+
+The provider using Little Learner Hub is busy caring for children. Assume they have very little time to type. Your job is to do the hard work for them.
+
+Never require the provider to write a long explanation. A quick sentence or two should be enough for you to generate a complete observation.
+
+You are an experienced early childhood educator with extensive knowledge of infant development, toddler development, preschool development, child development milestones, Developmentally Appropriate Practice (DAP), play-based learning, social-emotional development, language development, cognitive development, physical development, licensing-friendly documentation, objective observation writing, and family communication.
+
+You write observations the way an experienced childcare professional would.
+
+Never mention AI. Never explain that you are an AI assistant. Never apologize. Never tell the provider there is not enough information.
+
+Instead, make the best professional observation possible using the information available.
+
+Required Input: Only two things should ever be required — the selected child and the teacher quick note. Everything else should be automatically determined whenever possible.
+
+Missing Information: If information is missing, infer developmental areas, learning objectives, next steps, and appropriate activities when appropriate. Never invent major facts not supported by the teacher's note. Never diagnose developmental delays. Never assume medical conditions. Remain objective.`;
+
+const ADMIN_PROMPT_LAYER_OBSERVATION = `YOU ARE WRITING A PROFESSIONAL CHILDCARE OBSERVATION RECORD.
+Transform the provider's note into polished, standards-aligned documentation that sounds like a skilled educator wrote it.
+
+Required format:
+1. Observation Title (3–8 words summarizing the child's learning)
+2. Observation Narrative (describe specifically what the child did using observable, behavioral details)
+3. Developmental Areas (list all relevant domains)
+4. Skills Demonstrated (3–8 specific skills shown)
+5. Why This Learning Matters (one paragraph explaining developmental significance)
+6. Suggested Next Steps (2–4 realistic classroom recommendations)
+7. Suggested Activity (name, materials, instructions, learning objective, time needed)
+8. Family Summary (warm, jargon-free summary for parents)
+9. Teacher Reflection (one professional reflection statement)
+10. Tags (relevant tags for the observation)
+
+Rules:
+- Keep each observation 225–325 words in the narrative section.
+- Start with a unique sentence reflecting this specific child and moment.
+- Write about what the child actually did — not what children in general do.
+- Never diagnose, overstate, compare to other children, or invent details not in the provider's note.
+- The observation should be polished enough that the provider can simply click Save.`;
+
+const ADMIN_PROMPT_LAYER_WRITING_RULES = `Observation Generator – Writing Intelligence Rules
+
+Step 1: Read the Teacher's Note
+Carefully analyze the quick note. Ask yourself: What happened? What was the child trying to accomplish? What skills were demonstrated? What learning occurred? Was the child working independently or interacting with others? Was this teacher-directed or child-led? Never ignore important details.
+
+Step 2: Understand the Child
+Use the child's profile. Consider age, developmental stage, goals, previous observations, and classroom. Never expect skills beyond the child's developmental level. Infants, toddlers, and preschoolers should all sound different.
+
+Step 3: Identify Learning
+Look beyond what happened. Determine what learning actually occurred. Only include learning supported by the teacher's note. Never invent learning that did not occur.
+
+Step 4: Write Like an Experienced Early Childhood Professional
+Use professional language. Write naturally. Keep observations warm. Remain objective. Never diagnose. Never criticize. Never exaggerate. Avoid repetitive wording. Avoid robotic language. Do not copy the teacher's note word-for-word.
+
+Step 5: Explain Why It Matters
+Every observation should answer: Why is today's experience important? How does it support development? How could it help future learning?
+
+Step 6: Recommend Next Steps
+Suggest realistic classroom experiences that support continued development, use common classroom materials, are age appropriate, and are simple to implement.
+
+Step 7: Family Communication
+Write a family summary that celebrates progress, uses simple language, avoids educational jargon, and feels warm and encouraging.
+
+Step 8: Teacher Reflection
+Write one useful professional reflection to help teachers plan future learning.
+
+Step 9: Quality Review
+Before returning, verify: objective language, clearly explained learning, appropriate developmental areas, correct age expectations, correct grammar, warm professional tone, no assumptions, no diagnoses, licensing-friendly, ready to save.`;
+
+const ADMIN_PROMPT_LAYER_FORMATTING_RULES = `Observation Generator – Output Formatting Rules
+
+Always return the observation in this exact order:
+
+1. Observation Title — 3–8 words summarizing the child's learning.
+2. Observation — Complete narrative (one paragraph for a short note, two to three for a detailed note). Describe what happened, explain learning, highlight strengths, remain objective.
+3. Developmental Areas — List all areas supported by the observation (Social Emotional, Language, Communication, Literacy, Mathematics, Science, Fine Motor, Gross Motor, Cognitive, Creative Arts, Sensory, Self-Help, Executive Function, Problem Solving, Approaches to Learning).
+4. Skills Demonstrated — 3–8 skills shown (e.g. Counting, Vocabulary, Problem Solving, Turn Taking, Persistence, Curiosity, Fine Motor Control).
+5. Why This Learning Matters — One short paragraph connecting today's experience to future learning.
+6. Suggested Next Steps — 2–4 realistic recommendations using common classroom materials.
+7. Suggested Activity — Activity Name, Materials Needed, Simple Instructions, Learning Objective, Approximate Time.
+8. Family Summary — Warm, positive, jargon-free summary parents will immediately understand.
+9. Teacher Reflection — One professional reflection (e.g. "Continue offering opportunities for cooperative play.").
+10. Tags — Relevant tags only (e.g. Fine Motor, Math, Counting, Science, Outdoor Play, Creativity).
+
+Overall requirements: professional, warm, objective, easy to read, developmentally appropriate, family-friendly, licensing-friendly, grammatically correct, free from spelling errors. Never leave sections blank.`;
+
+const adminPromptLayers = [
+  { id: "master", label: "Master Prompt", description: "Role definition and core purpose for the observation assistant", text: ADMIN_PROMPT_LAYER_MASTER },
+  { id: "toolPrompt", label: "Observation Prompt", description: "Observation-specific output structure and writing rules", text: ADMIN_PROMPT_LAYER_OBSERVATION },
+  { id: "writingRules", label: "Writing Intelligence Rules", description: "Step-by-step process for analyzing and writing observations", text: ADMIN_PROMPT_LAYER_WRITING_RULES },
+  { id: "formattingRules", label: "Output Formatting Rules", description: "Required output sections and formatting standards", text: ADMIN_PROMPT_LAYER_FORMATTING_RULES },
+];
+
+const adminTestSampleNotes = [
+  { label: "Counting Blocks", note: "Mia counted to five while stacking blocks." },
+  { label: "Emotional Regulation", note: "Liam became upset when another child took his truck." },
+  { label: "Art", note: "We painted with red and blue today." },
+  { label: "Infant Reaching", note: "Ava reached for a toy during tummy time." },
+  { label: "Outdoor Play", note: "Children explored bugs and leaves on the playground." },
+  { label: "Cooperation", note: "Two toddlers worked together to push a large truck across the room." },
+  { label: "Language", note: "Sofia used three-word sentences during snack time." },
+];
+
+let adminTestCenterState = {
+  slots: { A: null, B: null, C: null },
+  activeSlot: "A",
+  layers: { master: true, toolPrompt: true, writingRules: true, formattingRules: true },
+  useCustomPrompt: false,
+  showPromptPreview: false,
+  showRequestViewer: false,
+  generating: false,
+};
+
 const analyticsConfig = {
   eventEndpoint: "/api/analytics/event",
   adminEndpoint: "/api/admin/analytics",
@@ -12351,6 +12470,7 @@ function renderAdminDashboard() {
   renderAdminAnalytics();
   renderLaunchReadiness();
   renderAdminTickets();
+  renderAdminAiTestCenter();
 }
 
 function adminRow(item) {
@@ -12438,6 +12558,375 @@ function addDemoAdminResource() {
   saveUploadedResources([...uploadedResources(), demo]);
   renderAdminDashboard();
 }
+
+// ─── Admin AI Testing Center ─────────────────────────────────────────────────
+
+function adminPromptVersions() {
+  return readSavedJson("llhAdminPromptVersions", []);
+}
+
+function saveAdminPromptVersions(versions) {
+  localStorage.setItem("llhAdminPromptVersions", JSON.stringify(versions));
+}
+
+function buildAdminTestCombinedPrompt(layers, customPrompt, useCustom) {
+  if (useCustom && customPrompt.trim()) return customPrompt.trim();
+  return adminPromptLayers
+    .filter((layer) => layers[layer.id])
+    .map((layer) => layer.text)
+    .join("\n\n---\n\n");
+}
+
+function buildAdminTestUserPrompt(form) {
+  const docType = form.querySelector('[name="docType"]')?.value || "Observation";
+  const childName = form.querySelector('[name="childName"]')?.value?.trim() || "";
+  const childAge = form.querySelector('[name="childAge"]')?.value?.trim() || "";
+  const ageGroup = form.querySelector('[name="ageGroup"]')?.value || "Preschool";
+  const classroom = form.querySelector('[name="classroom"]')?.value?.trim() || "";
+  const goals = form.querySelector('[name="goals"]')?.value?.trim() || "";
+  const previousObs = form.querySelector('[name="previousObs"]')?.value?.trim() || "";
+  const quickNote = form.querySelector('[name="quickNote"]')?.value?.trim() || "";
+  const obsDate = form.querySelector('[name="obsDate"]')?.value?.trim() || "";
+  return [
+    `Document Type: ${docType}`,
+    childName ? `Child Name: ${childName}` : "",
+    childAge ? `Child Age: ${childAge}` : "",
+    `Age Group: ${ageGroup}`,
+    classroom ? `Classroom: ${classroom}` : "",
+    goals ? `Development Goals: ${goals}` : "",
+    previousObs ? `Previous Observations: ${previousObs}` : "",
+    obsDate ? `Observation Date: ${obsDate}` : "",
+    "",
+    `Teacher Quick Note: ${quickNote}`,
+  ].filter(Boolean).join("\n");
+}
+
+async function callAdminAiTest(systemPrompt, userPrompt, wantScore) {
+  const token = adminSession()?.token || "";
+  if (!token) throw new Error("Admin session required. Please log in as admin.");
+  if (!canUseLaunchBackend()) throw new Error("Backend server is required for admin AI testing.");
+  const res = await fetch(adminAiTestConfig.endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminToken: token, systemPrompt, userPrompt, score: wantScore }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || "AI test generation failed.");
+  return data;
+}
+
+function renderAdminAiTestCenter() {
+  const target = document.querySelector("#adminAiTestCenter");
+  if (!target || !isAdminUnlocked()) return;
+  const state = adminTestCenterState;
+  const slot = state.activeSlot;
+  const slotResult = state.slots[slot];
+  const versions = adminPromptVersions();
+
+  target.innerHTML = `
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Admin Only</p>
+        <h3>AI Testing Center</h3>
+        <p>Develop, test, compare, and score AI prompts before releasing to providers. Nothing generated here is saved to live child records.</p>
+      </div>
+    </div>
+
+    <div class="aitc-grid">
+
+      <!-- LEFT COLUMN: inputs + prompt builder -->
+      <div class="aitc-left">
+
+        <div class="aitc-card">
+          <h4>Test Inputs</h4>
+          <form id="adminAiTestForm" class="panel-form aitc-form">
+            <label>Document Type
+              <select name="docType">
+                <option>Observation</option>
+                <option>Daily Log</option>
+                <option>Parent Message</option>
+                <option>Lesson Plan</option>
+                <option>Activity Idea</option>
+                <option>Behavior Note</option>
+                <option>Incident Report</option>
+              </select>
+            </label>
+            <div class="form-grid-two">
+              <label>Child Name<input name="childName" placeholder="e.g. Mia" /></label>
+              <label>Child Age<input name="childAge" placeholder="e.g. 2 years 6 months" /></label>
+            </div>
+            <div class="form-grid-two">
+              <label>Age Group
+                <select name="ageGroup">
+                  ${aiAgeGroupOptions.map((o) => `<option>${o}</option>`).join("")}
+                </select>
+              </label>
+              <label>Classroom<input name="classroom" placeholder="e.g. Blue Room" /></label>
+            </div>
+            <label>Development Goals<textarea name="goals" rows="2" placeholder="e.g. language development, fine motor skills"></textarea></label>
+            <label>Previous Observations <span class="aitc-optional">(optional)</span><textarea name="previousObs" rows="2" placeholder="Paste a previous observation or leave blank"></textarea></label>
+            <label>Teacher Quick Note <strong class="aitc-required">*</strong><textarea name="quickNote" rows="3" placeholder="e.g. Mia counted to five while stacking blocks." required></textarea></label>
+            <label>Observation Date <span class="aitc-optional">(optional)</span><input name="obsDate" type="date" /></label>
+
+            <div class="aitc-sample-notes">
+              <p class="aitc-label">Quick-Fill Examples:</p>
+              <div class="aitc-chips">
+                ${adminTestSampleNotes.map((s) => `<button type="button" class="aitc-chip" data-aitc-sample="${escapeHtml(s.note)}">${escapeHtml(s.label)}</button>`).join("")}
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <div class="aitc-card">
+          <h4>Prompt Builder</h4>
+          <p class="aitc-hint">Enable or disable each layer to test their effect on output quality.</p>
+          <div class="aitc-layers">
+            ${adminPromptLayers.map((layer) => `
+              <div class="aitc-layer-row">
+                <label class="aitc-layer-toggle">
+                  <input type="checkbox" data-aitc-layer="${layer.id}" ${state.layers[layer.id] ? "checked" : ""} />
+                  <span>
+                    <strong>${layer.label}</strong>
+                    <small>${layer.description}</small>
+                  </span>
+                </label>
+                <button type="button" class="ghost-button aitc-preview-layer-btn" data-aitc-preview-layer="${layer.id}">Preview</button>
+              </div>
+            `).join("")}
+          </div>
+          <div class="aitc-layer-preview" id="aitcLayerPreview" hidden></div>
+
+          <div class="aitc-custom-prompt-row">
+            <label class="aitc-layer-toggle">
+              <input type="checkbox" id="aitcUseCustomPrompt" ${state.useCustomPrompt ? "checked" : ""} />
+              <span><strong>Use Custom Prompt Override</strong><small>Replaces all layers with your own system prompt</small></span>
+            </label>
+          </div>
+          <div id="aitcCustomPromptArea" ${state.useCustomPrompt ? "" : "hidden"}>
+            <textarea id="aitcCustomPromptText" class="aitc-prompt-textarea" rows="8" placeholder="Paste your custom system prompt here...">${escapeHtml(state.useCustomPrompt ? (document.querySelector("#aitcCustomPromptText")?.value || "") : "")}</textarea>
+          </div>
+
+          <div class="aitc-prompt-actions">
+            <button type="button" class="ghost-button" id="aitcShowCombinedPrompt">
+              ${state.showPromptPreview ? "Hide" : "Preview"} Combined Prompt
+            </button>
+            <button type="button" class="ghost-button" id="aitcShowRequestViewer">
+              ${state.showRequestViewer ? "Hide" : "Show"} Request Preview
+            </button>
+          </div>
+
+          <div id="aitcCombinedPromptPreview" class="aitc-prompt-preview" ${state.showPromptPreview ? "" : "hidden"}>
+            <div class="aitc-prompt-preview-header">
+              <strong>Combined System Prompt</strong>
+              <button type="button" class="ghost-button" id="aitcCopyPrompt">Copy</button>
+            </div>
+            <pre class="aitc-prompt-pre" id="aitcCombinedPromptText"></pre>
+          </div>
+
+          <div id="aitcRequestViewer" class="aitc-prompt-preview" ${state.showRequestViewer ? "" : "hidden"}>
+            <strong>Request Preview</strong>
+            <p class="aitc-hint">This is exactly what will be sent to the AI.</p>
+            <pre class="aitc-prompt-pre" id="aitcRequestPreviewText">Fill in the test inputs above to see the request preview.</pre>
+          </div>
+        </div>
+
+        <div class="aitc-card">
+          <h4>Prompt Version Library</h4>
+          <p class="aitc-hint">Save the current prompt configuration for future comparison.</p>
+          <div class="form-grid-two">
+            <input type="text" id="aitcVersionName" placeholder="Version name (e.g. v2 observation)" />
+            <button type="button" class="ghost-button" id="aitcSaveVersion">Save Current Prompt</button>
+          </div>
+          <div class="aitc-version-list" id="aitcVersionList">
+            ${versions.length ? versions.map((v, i) => `
+              <div class="aitc-version-row">
+                <div>
+                  <strong>${escapeHtml(v.name)}</strong>
+                  <small>${v.docType || "Observation"} &middot; ${v.savedAt ? new Date(v.savedAt).toLocaleDateString() : ""} &middot; ${v.layersEnabled.join(", ")}</small>
+                </div>
+                <div class="aitc-version-actions">
+                  <button type="button" class="ghost-button" data-aitc-restore-version="${i}">Restore</button>
+                  <button type="button" class="danger-button" data-aitc-delete-version="${i}">Delete</button>
+                </div>
+              </div>
+            `).join("") : `<p class="aitc-hint">No saved versions yet.</p>`}
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT COLUMN: comparison slots + results -->
+      <div class="aitc-right">
+
+        <div class="aitc-card">
+          <h4>Generate &amp; Compare</h4>
+          <p class="aitc-hint">Run the same note through different prompt configurations side by side.</p>
+          <div class="aitc-slot-tabs">
+            ${["A", "B", "C"].map((s) => `
+              <button type="button" class="aitc-slot-tab ${s === slot ? "active" : ""}" data-aitc-slot="${s}">
+                Slot ${s}
+                ${state.slots[s] ? `<span class="aitc-slot-badge">✓</span>` : ""}
+              </button>
+            `).join("")}
+          </div>
+          <p class="aitc-hint">Active: <strong>Slot ${slot}</strong>. Configure prompt layers above and generate.</p>
+
+          <div class="aitc-generate-row">
+            <label class="aitc-inline-label">
+              <input type="checkbox" id="aitcWantScore" checked />
+              Auto-score output
+            </label>
+            <button type="button" class="primary-button" id="aitcGenerateBtn" ${state.generating ? "disabled" : ""}>
+              ${state.generating ? "Generating…" : `Generate for Slot ${slot}`}
+            </button>
+          </div>
+          <span id="aitcGenerateError" class="form-message" style="color:var(--color-danger)"></span>
+        </div>
+
+        ${slotResult ? `
+          <div class="aitc-card">
+            <div class="aitc-result-header">
+              <h4>Slot ${slot} Result</h4>
+              <div class="aitc-result-actions">
+                <button type="button" class="ghost-button" data-aitc-copy-slot="${slot}">Copy</button>
+                <button type="button" class="ghost-button" data-aitc-download-slot="${slot}">Download</button>
+                <button type="button" class="ghost-button" data-aitc-clear-slot="${slot}">Clear</button>
+              </div>
+            </div>
+
+            <div class="aitc-result-tabs">
+              <button type="button" class="aitc-result-tab active" data-aitc-view-tab="formatted" data-aitc-slot-tab="${slot}">Formatted</button>
+              <button type="button" class="aitc-result-tab" data-aitc-view-tab="raw" data-aitc-slot-tab="${slot}">Raw</button>
+              <button type="button" class="aitc-result-tab" data-aitc-view-tab="prompt" data-aitc-slot-tab="${slot}">Prompt Used</button>
+            </div>
+            <div id="aitcSlotOutput${slot}" class="aitc-output">
+              <pre class="aitc-output-pre">${escapeHtml(slotResult.output || "")}</pre>
+            </div>
+            <div id="aitcSlotRaw${slot}" class="aitc-output" hidden>
+              <pre class="aitc-output-pre">${escapeHtml(slotResult.output || "")}</pre>
+            </div>
+            <div id="aitcSlotPrompt${slot}" class="aitc-output" hidden>
+              <p class="aitc-hint"><strong>Model:</strong> ${escapeHtml(slotResult.model || "unknown")}</p>
+              <p class="aitc-hint"><strong>System Prompt:</strong></p>
+              <pre class="aitc-output-pre aitc-prompt-pre">${escapeHtml(slotResult.systemPrompt || "")}</pre>
+              <p class="aitc-hint"><strong>User Prompt:</strong></p>
+              <pre class="aitc-output-pre">${escapeHtml(slotResult.userPrompt || "")}</pre>
+            </div>
+
+            ${slotResult.scores ? renderAdminAiScores(slotResult.scores) : `<p class="aitc-hint">Scores not available for this result.</p>`}
+          </div>
+        ` : `
+          <div class="aitc-card aitc-empty-slot">
+            <p>Slot ${slot} is empty. Configure your prompt layers and click <strong>Generate for Slot ${slot}</strong>.</p>
+          </div>
+        `}
+
+        ${(state.slots.A || state.slots.B || state.slots.C) ? renderAdminAiComparison() : ""}
+
+      </div>
+    </div>
+  `;
+
+  updateAdminTestCombinedPromptPreview();
+}
+
+function renderAdminAiScores(scores) {
+  if (!scores) return "";
+  const criteria = [
+    ["professionalWriting", "Professional Writing"],
+    ["grammar", "Grammar"],
+    ["developmentalAccuracy", "Developmental Accuracy"],
+    ["ageAppropriateness", "Age Appropriateness"],
+    ["licensingReadiness", "Licensing Readiness"],
+    ["familyFriendliness", "Family Friendliness"],
+    ["completeness", "Completeness"],
+    ["naturalTone", "Natural Tone"],
+    ["overallQuality", "Overall Quality"],
+  ];
+  const total = criteria.reduce((sum, [key]) => sum + (scores[key] || 0), 0);
+  const avg = (total / criteria.length).toFixed(1);
+  return `
+    <div class="aitc-scores">
+      <div class="aitc-scores-header">
+        <strong>Quality Score</strong>
+        <span class="aitc-score-total">${avg} / 10</span>
+      </div>
+      <div class="aitc-score-grid">
+        ${criteria.map(([key, label]) => {
+          const val = scores[key] || 0;
+          const cls = val >= 8 ? "aitc-score-high" : val >= 6 ? "aitc-score-mid" : "aitc-score-low";
+          return `
+            <div class="aitc-score-item">
+              <span class="aitc-score-label">${label}</span>
+              <div class="aitc-score-bar-wrap">
+                <div class="aitc-score-bar ${cls}" style="width:${val * 10}%"></div>
+              </div>
+              <span class="aitc-score-val ${cls}">${val}</span>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderAdminAiComparison() {
+  const { slots } = adminTestCenterState;
+  const filled = ["A", "B", "C"].filter((s) => slots[s]);
+  if (filled.length < 2) return "";
+  return `
+    <div class="aitc-card">
+      <h4>Side-by-Side Comparison</h4>
+      <div class="aitc-comparison" style="grid-template-columns: repeat(${filled.length}, 1fr)">
+        ${filled.map((s) => `
+          <div class="aitc-compare-col">
+            <div class="aitc-compare-header">
+              <strong>Slot ${s}</strong>
+              ${slots[s].scores ? `<span class="aitc-score-badge">${(Object.values(slots[s].scores).reduce((a, b) => a + b, 0) / 9).toFixed(1)}/10</span>` : ""}
+            </div>
+            <div class="aitc-compare-layers">
+              ${(slots[s].layersEnabled || []).map((l) => `<span class="tag">${l}</span>`).join("")}
+            </div>
+            <pre class="aitc-output-pre aitc-compare-pre">${escapeHtml(slots[s].output || "")}</pre>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function updateAdminTestCombinedPromptPreview() {
+  const previewEl = document.querySelector("#aitcCombinedPromptText");
+  const requestEl = document.querySelector("#aitcRequestPreviewText");
+  const state = adminTestCenterState;
+  const customText = document.querySelector("#aitcCustomPromptText")?.value || "";
+  const combined = buildAdminTestCombinedPrompt(state.layers, customText, state.useCustomPrompt);
+  if (previewEl) previewEl.textContent = combined;
+  if (requestEl) {
+    const form = document.querySelector("#adminAiTestForm");
+    const userPrompt = form ? buildAdminTestUserPrompt(form) : "(Fill in the test inputs above)";
+    requestEl.textContent = `=== System Prompt ===\n${combined}\n\n=== User Prompt ===\n${userPrompt}`;
+  }
+}
+
+function adminAiTestExport(slot, mode) {
+  const result = adminTestCenterState.slots[slot];
+  if (!result) return;
+  if (mode === "copy") {
+    navigator.clipboard.writeText(result.output).catch(() => {});
+    return;
+  }
+  if (mode === "download") {
+    const blob = new Blob([result.output], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ai-test-slot-${slot}-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+}
+
 
 function fileToDataUrl(file) {
   return new Promise((resolve) => {
@@ -17752,3 +18241,233 @@ if (canUseLaunchBackend()) {
     syncFoundingStatus({ render: true });
   }, 60000);
 }
+
+// ─── Admin AI Testing Center Event Handlers ───────────────────────────────────
+
+document.addEventListener("click", (event) => {
+  // Slot selection
+  const slotTab = event.target.closest("[data-aitc-slot]");
+  if (slotTab && slotTab.closest("#adminAiTestCenter")) {
+    adminTestCenterState.activeSlot = slotTab.dataset.aitcSlot;
+    renderAdminAiTestCenter();
+    return;
+  }
+
+  // Generate button
+  if (event.target.matches("#aitcGenerateBtn")) {
+    handleAdminAiTestGenerate();
+    return;
+  }
+
+  // Show/hide combined prompt preview
+  if (event.target.matches("#aitcShowCombinedPrompt")) {
+    adminTestCenterState.showPromptPreview = !adminTestCenterState.showPromptPreview;
+    const preview = document.querySelector("#aitcCombinedPromptPreview");
+    if (preview) preview.hidden = !adminTestCenterState.showPromptPreview;
+    event.target.textContent = (adminTestCenterState.showPromptPreview ? "Hide" : "Preview") + " Combined Prompt";
+    updateAdminTestCombinedPromptPreview();
+    return;
+  }
+
+  // Show/hide request viewer
+  if (event.target.matches("#aitcShowRequestViewer")) {
+    adminTestCenterState.showRequestViewer = !adminTestCenterState.showRequestViewer;
+    const viewer = document.querySelector("#aitcRequestViewer");
+    if (viewer) viewer.hidden = !adminTestCenterState.showRequestViewer;
+    event.target.textContent = (adminTestCenterState.showRequestViewer ? "Hide" : "Show") + " Request Preview";
+    updateAdminTestCombinedPromptPreview();
+    return;
+  }
+
+  // Copy combined prompt
+  if (event.target.matches("#aitcCopyPrompt")) {
+    const text = document.querySelector("#aitcCombinedPromptText")?.textContent || "";
+    navigator.clipboard.writeText(text).catch(() => {});
+    return;
+  }
+
+  // Layer prompt preview
+  const layerPreviewBtn = event.target.closest("[data-aitc-preview-layer]");
+  if (layerPreviewBtn) {
+    const layerId = layerPreviewBtn.dataset.aitcPreviewLayer;
+    const layer = adminPromptLayers.find((l) => l.id === layerId);
+    const previewEl = document.querySelector("#aitcLayerPreview");
+    if (!layer || !previewEl) return;
+    const isShowing = !previewEl.hidden && previewEl.dataset.showing === layerId;
+    previewEl.hidden = isShowing;
+    previewEl.dataset.showing = layerId;
+    previewEl.innerHTML = isShowing ? "" : `<strong>${layer.label}</strong><pre class="aitc-prompt-pre">${escapeHtml(layer.text)}</pre>`;
+    return;
+  }
+
+  // Quick-fill sample note
+  const sampleBtn = event.target.closest("[data-aitc-sample]");
+  if (sampleBtn) {
+    const noteField = document.querySelector('#adminAiTestForm [name="quickNote"]');
+    if (noteField) {
+      noteField.value = sampleBtn.dataset.aitcSample;
+      updateAdminTestCombinedPromptPreview();
+    }
+    return;
+  }
+
+  // Copy slot output
+  const copySlotBtn = event.target.closest("[data-aitc-copy-slot]");
+  if (copySlotBtn) {
+    adminAiTestExport(copySlotBtn.dataset.aitcCopySlot, "copy");
+    return;
+  }
+
+  // Download slot output
+  const downloadSlotBtn = event.target.closest("[data-aitc-download-slot]");
+  if (downloadSlotBtn) {
+    adminAiTestExport(downloadSlotBtn.dataset.aitcDownloadSlot, "download");
+    return;
+  }
+
+  // Clear slot
+  const clearSlotBtn = event.target.closest("[data-aitc-clear-slot]");
+  if (clearSlotBtn) {
+    adminTestCenterState.slots[clearSlotBtn.dataset.aitcClearSlot] = null;
+    renderAdminAiTestCenter();
+    return;
+  }
+
+  // Result view tab (formatted / raw / prompt)
+  const resultTab = event.target.closest("[data-aitc-view-tab]");
+  if (resultTab) {
+    const slot = resultTab.dataset.aitcSlotTab;
+    const view = resultTab.dataset.aitcViewTab;
+    const container = resultTab.closest(".aitc-card");
+    if (!container) return;
+    container.querySelectorAll(".aitc-result-tab").forEach((btn) => btn.classList.remove("active"));
+    resultTab.classList.add("active");
+    const formattedEl = document.querySelector(`#aitcSlotOutput${slot}`);
+    const rawEl = document.querySelector(`#aitcSlotRaw${slot}`);
+    const promptEl = document.querySelector(`#aitcSlotPrompt${slot}`);
+    if (formattedEl) formattedEl.hidden = view !== "formatted";
+    if (rawEl) rawEl.hidden = view !== "raw";
+    if (promptEl) promptEl.hidden = view !== "prompt";
+    return;
+  }
+
+  // Save prompt version
+  if (event.target.matches("#aitcSaveVersion")) {
+    const name = document.querySelector("#aitcVersionName")?.value?.trim();
+    if (!name) return;
+    const form = document.querySelector("#adminAiTestForm");
+    const docType = form?.querySelector('[name="docType"]')?.value || "Observation";
+    const customText = document.querySelector("#aitcCustomPromptText")?.value || "";
+    const state = adminTestCenterState;
+    const versions = adminPromptVersions();
+    versions.unshift({
+      name,
+      docType,
+      savedAt: new Date().toISOString(),
+      layers: { ...state.layers },
+      useCustomPrompt: state.useCustomPrompt,
+      customPromptText: customText,
+      layersEnabled: adminPromptLayers.filter((l) => state.layers[l.id]).map((l) => l.label),
+      systemPrompt: buildAdminTestCombinedPrompt(state.layers, customText, state.useCustomPrompt),
+    });
+    saveAdminPromptVersions(versions.slice(0, 20));
+    const nameInput = document.querySelector("#aitcVersionName");
+    if (nameInput) nameInput.value = "";
+    renderAdminAiTestCenter();
+    return;
+  }
+
+  // Restore prompt version
+  const restoreBtn = event.target.closest("[data-aitc-restore-version]");
+  if (restoreBtn) {
+    const versions = adminPromptVersions();
+    const version = versions[Number(restoreBtn.dataset.aitcRestoreVersion)];
+    if (!version) return;
+    adminTestCenterState.layers = { ...version.layers };
+    adminTestCenterState.useCustomPrompt = version.useCustomPrompt;
+    renderAdminAiTestCenter();
+    if (version.customPromptText) {
+      const ta = document.querySelector("#aitcCustomPromptText");
+      if (ta) ta.value = version.customPromptText;
+    }
+    updateAdminTestCombinedPromptPreview();
+    return;
+  }
+
+  // Delete prompt version
+  const deleteBtn = event.target.closest("[data-aitc-delete-version]");
+  if (deleteBtn) {
+    const versions = adminPromptVersions();
+    const idx = Number(deleteBtn.dataset.aitcDeleteVersion);
+    versions.splice(idx, 1);
+    saveAdminPromptVersions(versions);
+    renderAdminAiTestCenter();
+    return;
+  }
+});
+
+document.addEventListener("change", (event) => {
+  // Layer toggle checkboxes
+  const layerToggle = event.target.closest("[data-aitc-layer]");
+  if (layerToggle) {
+    adminTestCenterState.layers[layerToggle.dataset.aitcLayer] = layerToggle.checked;
+    updateAdminTestCombinedPromptPreview();
+    return;
+  }
+
+  // Custom prompt override toggle
+  if (event.target.matches("#aitcUseCustomPrompt")) {
+    adminTestCenterState.useCustomPrompt = event.target.checked;
+    const area = document.querySelector("#aitcCustomPromptArea");
+    if (area) area.hidden = !event.target.checked;
+    updateAdminTestCombinedPromptPreview();
+    return;
+  }
+});
+
+document.addEventListener("input", (event) => {
+  if (event.target.matches("#aitcCustomPromptText") || event.target.closest("#adminAiTestForm")) {
+    updateAdminTestCombinedPromptPreview();
+  }
+});
+
+async function handleAdminAiTestGenerate() {
+  const form = document.querySelector("#adminAiTestForm");
+  const errEl = document.querySelector("#aitcGenerateError");
+  if (!form) return;
+  const quickNote = form.querySelector('[name="quickNote"]')?.value?.trim();
+  if (!quickNote) {
+    if (errEl) errEl.textContent = "Teacher Quick Note is required.";
+    return;
+  }
+  if (errEl) errEl.textContent = "";
+  const state = adminTestCenterState;
+  const customText = document.querySelector("#aitcCustomPromptText")?.value || "";
+  const systemPrompt = buildAdminTestCombinedPrompt(state.layers, customText, state.useCustomPrompt);
+  const userPrompt = buildAdminTestUserPrompt(form);
+  const wantScore = document.querySelector("#aitcWantScore")?.checked !== false;
+  const slot = state.activeSlot;
+
+  state.generating = true;
+  const btn = document.querySelector("#aitcGenerateBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "Generating…"; }
+
+  try {
+    const result = await callAdminAiTest(systemPrompt, userPrompt, wantScore);
+    state.slots[slot] = {
+      output: result.output || "",
+      scores: result.scores || null,
+      model: result.model || "unknown",
+      systemPrompt,
+      userPrompt,
+      layersEnabled: adminPromptLayers.filter((l) => state.layers[l.id]).map((l) => l.label),
+      generatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    if (errEl) errEl.textContent = error.message || "Generation failed.";
+  }
+
+  state.generating = false;
+  renderAdminAiTestCenter();
+}
+
