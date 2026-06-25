@@ -51,3 +51,4 @@ Connect production services before accepting real payments:
 - Production analytics
 
 The current local version includes a safe Stripe checkout simulation so the buyer path can be tested without live keys.
+test after Github transfer
