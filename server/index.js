@@ -1384,7 +1384,7 @@ async function generateOpenAiContent({ tool, prompt, age, plan, email, debug }) 
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        Authorization: `******`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -1406,12 +1406,18 @@ async function generateOpenAiContent({ tool, prompt, age, plan, email, debug }) 
     clearTimeout(timeout);
     const data = await response.json();
     if (!response.ok) {
-      const msg = String(data?.error?.message || "");
-      if (msg.toLowerCase().includes("quota") || msg.toLowerCase().includes("billing")) {
+      const errType = String(data?.error?.type || "unknown");
+      const errMsg = String(data?.error?.message || "");
+      const errCode = String(data?.error?.code || "");
+      console.error(`[openai-error] status=${response.status} type=${errType} code=${errCode} model=${OPENAI_MODEL} email=${email} message=${errMsg}`);
+      if (errCode === "insufficient_quota" || errMsg.toLowerCase().includes("quota") || errMsg.toLowerCase().includes("billing")) {
         throw new Error("AI generation quota has been reached. Please contact support or try again later.");
       }
-      if (msg.toLowerCase().includes("rate")) {
+      if (response.status === 429 || errMsg.toLowerCase().includes("rate")) {
         throw new Error("Too many requests at once. Please wait a moment and try again.");
+      }
+      if (response.status === 401) {
+        throw new Error("AI generation service is temporarily unavailable. Please contact support.");
       }
       throw new Error("AI generation could not be completed. Please try again.");
     }
@@ -1450,7 +1456,7 @@ async function callOpenAiRaw(systemPrompt, userPrompt) {
     const res = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        Authorization: `******`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -1466,8 +1472,11 @@ async function callOpenAiRaw(systemPrompt, userPrompt) {
     clearTimeout(timeout);
     const data = await res.json();
     if (!res.ok) {
-      const msg = String(data?.error?.message || "AI generation could not be completed.");
-      throw new Error(msg);
+      const errType = String(data?.error?.type || "unknown");
+      const errMsg = String(data?.error?.message || "");
+      const errCode = String(data?.error?.code || "");
+      console.error(`[openai-error] status=${res.status} type=${errType} code=${errCode} model=${OPENAI_MODEL} message=${errMsg}`);
+      throw new Error("AI generation could not be completed. Please try again.");
     }
     const output = data.output_text
       || data.output?.flatMap((item) => item.content || []).map((item) => item.text || "").join("\n").trim()
@@ -1912,6 +1921,7 @@ async function handleAiGenerate(request, response) {
       resetCycle: currentAiCycle(),
     });
   } catch (error) {
+    console.error(`[ai-generate-error] email=${email} error=${error.message || "unknown"}`);
     jsonResponse(response, 503, { error: error.message || "AI generation failed." });
   }
 }
