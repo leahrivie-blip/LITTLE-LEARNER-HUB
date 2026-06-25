@@ -742,11 +742,23 @@ function getToolSystemPrompt(tool) {
     "Use the child's name, age, goals, observations, program name, and provider notes whenever they are provided.",
     "Include the program/daycare name in all formal documents when it is supplied.",
     "Use only the details provided. Never invent injuries, triggers, witness names, diagnoses, timelines, or developmental concerns that were not entered.",
+    "Provider and teacher notes are the highest-priority source. Understand exactly what happened before writing.",
+    "Only include developmental areas, skills, and recommendations that are clearly supported by the note and context provided.",
+    "Avoid generic developmental template language that could apply to any child. Make each response specific to this child and this exact situation.",
+    "Recommendations must be directly tied to what was observed, not generic filler.",
     "If the provider's note is brief or minimal, produce a helpful result using appropriate general childcare context — note 'Based on the note provided...' and keep details realistic but not invented.",
     "VARIETY: Generate fresh, specific content every single time. Vary your sentence openings, vocabulary, structure, transitions, and examples. Never reuse the same phrases, openers, or conclusions across outputs.",
     "Avoid empty filler phrases like 'had a great day,' 'very engaged,' 'wonderful experience,' 'it is a pleasure to share,' 'I hope this message finds you well,' 'in today's fast-paced world,' or any formulaic AI opener.",
+    "Do not use repetitive or generic phrasing such as 'This supports future learning,' 'Making meaningful connections,' or 'Growing cognitive skills' unless it is truly specific and necessary.",
     "If a curriculum framework is mentioned (Creative Curriculum, HighScope, Frog Street, Montessori, Reggio Emilia, Mother Goose Time, or a custom curriculum), align your language, documentation style, and activity structure to that framework.",
     "If a state or state standards are mentioned, reference relevant domain indicators and align developmental language accordingly.",
+    "",
+    "FINAL QUALITY REVIEW — complete before returning any response:",
+    "- Correct spelling, grammar, punctuation, and natural sentence structure.",
+    "- Professional writing with a warm, friendly, age-appropriate tone.",
+    "- No repetitive wording, awkward AI phrasing, incomplete sentences, placeholders, template language, duplicated paragraphs, or contradictions.",
+    "- Consistent formatting and polished readability.",
+    "- If any issue is found, revise and return the corrected final version (never return a first draft).",
     "",
     "CRITICAL — DEVELOPMENTAL APPROPRIATENESS:",
     "All content MUST match the child's stated age group. Never suggest activities, milestones, goals, behaviors, lesson plans, or expectations outside the correct age range.",
@@ -776,6 +788,9 @@ Rules:
 - Keep the full observation to 225-325 words.
 - Start the Narrative with a unique sentence that reflects this specific child and moment. Never begin with "Today," "During circle time," or any repeated phrase across outputs.
 - Write about what the child actually did — not what children in general do.
+- Determine the primary developmental domain from the note itself. Do not default to Cognitive unless the note actually supports it.
+- Domain examples: pulling up/cruising -> Gross Motor; sharing/peer conflict -> Social Emotional; counting/patterns -> Mathematics or Cognitive; painting/drawing -> Creative Arts + Fine Motor; story time -> Language and Literacy; outdoor exploration -> Science + Gross Motor.
+- If a skill was not observed or clearly supported by the note, do not include it.
 - Never diagnose, overstate, compare to other children, or invent details not in the provider's note.
 - If the note is very brief, write "Based on the note provided..." and produce a realistic, helpful observation using appropriate general context for the age group.`,
 
@@ -1264,7 +1279,7 @@ async function generateOpenAiContent({ tool, prompt, age, plan, email }) {
   const userContent = [
     prompt || "Create a helpful childcare document.",
     age ? `Age group: ${age}` : "",
-    isShortNote ? "Note: The provider's note is brief. Produce a helpful, realistic result using appropriate general childcare context where specific details are missing." : "",
+    isShortNote ? "Note: The provider's note is brief. Stay tightly grounded in the exact details provided, use only minimal context to keep the response practical, and avoid generic developmental template language." : "",
   ].filter(Boolean).join("\n\n");
 
   const controller = new AbortController();
