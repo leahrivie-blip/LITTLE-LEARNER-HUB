@@ -1720,6 +1720,10 @@ const PROGRAM_SETTINGS_MESSAGE_TIMEOUT_MS = 3000;
 
 // Human-readable names for pro-only nav items, used in upgrade modal messages.
 const proNavLabels = {
+  "documentation-incident-reports": "Incident Reports",
+  "documentation-behavior-reports": "Behavior Reports",
+  "documentation-parent-messages": "Parent Messages",
+  "documentation-daily-reports": "Daily Reports",
   "child-tools-attendance": "Attendance Tracking",
   "child-tools-meals": "Meal Tracking",
   "child-tools-reports": "Daily Reports",
@@ -2435,6 +2439,8 @@ const currentPlanLabel = document.querySelector("#currentPlanLabel");
 const homeViewTemplate = document.querySelector("#view-home").innerHTML;
 const mobileNavMaxWidth = 820;
 const sidebarViewAliases = {
+  "dashboard-tasks": "planner",
+  "dashboard-quick-stats": "home",
   goals: "children",
   "child-tools": "children",
   "child-tools-attendance": "children",
@@ -2442,6 +2448,13 @@ const sidebarViewAliases = {
   "child-tools-reports": "children",
   "child-tools-communication": "children",
   "child-tools-daily-logs": "children",
+  "documentation-incident-reports": "children",
+  "documentation-behavior-reports": "children",
+  "documentation-parent-messages": "children",
+  "documentation-daily-reports": "children",
+  "documentation-newsletters": "ai",
+  "documentation-contracts": "forms",
+  "resource-search": "home",
   portfolio: "tools",
   reports: "children",
   favorites: "account",
@@ -2460,6 +2473,10 @@ function resolveSidebarView(view) {
 
 function childToolTabFromView(view) {
   const map = {
+    "documentation-incident-reports": "reports",
+    "documentation-behavior-reports": "reports",
+    "documentation-parent-messages": "communication",
+    "documentation-daily-reports": "reports",
     reports: "reports",
     "child-tools": "attendance",
     "child-tools-attendance": "attendance",
