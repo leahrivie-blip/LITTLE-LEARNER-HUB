@@ -18716,7 +18716,8 @@ document.addEventListener("submit", (event) => {
     const pre = document.querySelector("#obsOutput");
     if (panel) panel.style.display = "";
     if (pre) pre.textContent = output;
-    document.querySelector("#obsOutputTitle")?.textContent && (document.querySelector("#obsOutputTitle").textContent = data.child ? `Observation: ${data.child}` : "Professional Observation");
+    const obsOutputTitle = document.querySelector("#obsOutputTitle");
+    if (obsOutputTitle) obsOutputTitle.textContent = data.child ? `Observation: ${data.child}` : "Professional Observation";
     panel?.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
@@ -18826,7 +18827,8 @@ document.addEventListener("submit", (event) => {
     const pre = document.querySelector("#lpOutput");
     if (panel) panel.style.display = "";
     if (pre) pre.textContent = output;
-    document.querySelector("#lpOutputTitle")?.textContent && (document.querySelector("#lpOutputTitle").textContent = "Lesson Plan");
+    const lpOutputTitle = document.querySelector("#lpOutputTitle");
+    if (lpOutputTitle) lpOutputTitle.textContent = "Lesson Plan";
     panel?.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
