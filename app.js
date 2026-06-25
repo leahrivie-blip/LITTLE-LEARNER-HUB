@@ -9503,9 +9503,16 @@ function renderChildReportsTab(child, records, observations, goals, supportPlans
           <h3>Daily Reports &amp; Portfolio</h3>
           <p class="muted-copy">Generate parent-ready daily reports and view ${escapeHtml(child.name)}'s portfolio.</p>
         </div>
-        ${isProUser() ? `<button class="primary-button" data-build-daily-report="${child.id}" type="button">Generate Daily Report</button>` : ""}
       </div>
-      ${!isProUser() ? lockedFeatureCard("Daily Reports") : ""}
+      ${isProUser() ? `
+        <div class="dlc-report-actions">
+          <label class="dlc-form-label">
+            <strong>Teacher Quick Note</strong>
+            <textarea id="dlcDailyReportNote" rows="3" placeholder="What happened today? e.g. Painted butterflies, played outside, and listened to a story. Ate well and napped from 12:15–2:00."></textarea>
+          </label>
+          <p class="dlc-sub">Add a short note and Little Learner Hub will transform it into a complete, family-ready daily report. Meals, nap, activities, and other logged information will be included automatically.</p>
+          <button class="primary-button" data-build-daily-report="${child.id}" type="button">Generate Daily Report</button>
+        </div>` : lockedFeatureCard("Daily Reports")}
       <div class="resource-list compact">${reports.length ? reports.slice(-8).reverse().map(simpleRecordItem).join("") : `<div class="empty-state">No daily reports yet.</div>`}</div>
       <div class="portfolio-summary-block">
         <p class="eyebrow">Portfolio</p>
@@ -9814,7 +9821,15 @@ function renderChildToolsContent(child, records) {
     return renderChildSimpleRecordTab("Meals", "Track only meal notes for this child.", isProUser() ? mealTrackingForm(child.id) : lockedFeatureCard("Meal Tracking"), meals);
   }
   if (childToolsTab === "reports") {
-    return renderChildSimpleRecordTab("Daily Reports", "Create simple parent-ready daily reports for this child.", isProUser() ? `<button class="primary-button" data-build-daily-report="${child.id}" type="button">Generate Daily Report</button>` : lockedFeatureCard("Daily Reports"), reports);
+    return renderChildSimpleRecordTab("Daily Reports", "Create simple parent-ready daily reports for this child.", isProUser() ? `
+      <div class="dlc-report-actions">
+        <label class="dlc-form-label">
+          <strong>Teacher Quick Note</strong>
+          <textarea id="dlcDailyReportNote" rows="3" placeholder="What happened today? e.g. Painted butterflies, played outside, and listened to a story. Ate well and napped from 12:15–2:00."></textarea>
+        </label>
+        <p class="dlc-sub">Add a short note and Little Learner Hub will transform it into a complete, family-ready daily report.</p>
+        <button class="primary-button" data-build-daily-report="${child.id}" type="button">Generate Daily Report</button>
+      </div>` : lockedFeatureCard("Daily Reports"), reports);
   }
   if (childToolsTab === "communication") {
     return renderChildSimpleRecordTab("Parent Communication", "Keep parent notes and communication records for this child.", isProUser() ? communicationForm(child.id) : lockedFeatureCard("Parent Communication Tools"), comms);
@@ -10739,8 +10754,12 @@ function renderDailyLogsChildTabContent(child, records, today) {
     const reports = records.reports.filter((item) => item.childId === child.id);
     return renderChildSimpleRecordTab("Daily Report", "Generate a parent-ready daily report for " + escapeHtml(child.name) + ".", isProUser() ? `
       <div class="dlc-report-actions">
+        <label class="dlc-form-label">
+          <strong>Teacher Quick Note</strong>
+          <textarea id="dlcDailyReportNote" rows="3" placeholder="What happened today? e.g. Painted butterflies, played outside, and listened to a story. Ate well and napped from 12:15–2:00."></textarea>
+        </label>
+        <p class="dlc-sub">Add a short note and Little Learner Hub will transform it into a complete, family-ready daily report. Meals, nap, activities, and other logged information will be included automatically.</p>
         <button class="primary-button" data-build-daily-report="${child.id}" type="button">Generate Daily Report</button>
-        <p class="dlc-sub">Automatically pulls today's attendance, meals, nap, activities, and notes into a professional report.</p>
       </div>` : lockedFeatureCard("Daily Reports"), reports);
   }
   return "";
@@ -11319,48 +11338,73 @@ function showAfterActionPrompt(trigger, childId) {
   afterActionPromptTimeout = setTimeout(() => banner.classList.remove("visible"), 10000);
 }
 
-function buildDailyReportFromChild(childId) {
+function buildDailyReportFromChild(childId, quickNote) {
   const records = childRecords();
   const child = records.children.find((item) => item.id === childId);
   if (!child) return;
   const today = new Date().toISOString().slice(0, 10);
-  const attendance = records.attendance.filter((item) => item.childId === childId && item.date === today).slice(-1)[0];
+  const programSettings = getProgramSettings();
+  const programName = programSettings.programName || "";
+  const tone = programSettings.communicationTone || "Warm and friendly";
+
+  // Gather today's records
   const meal = records.meals.filter((item) => item.childId === childId && item.date === today).slice(-1)[0];
   const observation = records.observations.filter((item) => item.childId === childId && item.date === today).slice(-1)[0];
   const nap = records.naps.filter((item) => item.childId === childId && item.date === today).slice(-1)[0];
   const diaperEntries = records.diapers.filter((item) => item.childId === childId && item.date === today);
   const activityEntries = records.activityLogs.filter((item) => item.childId === childId && item.date === today);
+  const behaviorNotes = records.communications.filter((item) => item.childId === childId && item.date === today && item.type === "Behavior Note");
   const ageGroup = childAgeGroupLabel(child);
-  const napSection = nap
-    ? `Nap: ${nap.napStart || ""}${nap.napEnd ? "–" + nap.napEnd : ""} ${nap.duration ? "(" + nap.duration + ")" : ""}${nap.notes ? ". " + nap.notes : ""}`.trim()
-    : "Nap/rest was not entered yet.";
-  const diaperSection = diaperEntries.length
-    ? diaperEntries.map((d) => `${d.time ? d.time + ": " : ""}${d.type}${d.notes ? " — " + d.notes : ""}`).join("\n")
-    : null;
-  const activitiesSection = activityEntries.length
-    ? activityEntries.map((a) => `${a.activity}${a.area ? " (" + a.area + ")" : ""}${a.notes ? " — " + a.notes : ""}`).join("\n")
-    : null;
-  const isDiaperAge = diaperAgeGroups.has(ageGroup);
-  const report = `Daily Report for ${child.name}
 
-Date: ${today}
-Age Group: ${ageGroup}
+  // Build meals text from logged data
+  let mealsText = "";
+  if (meal) {
+    const parts = [];
+    if (meal.breakfast) parts.push(`Breakfast: ${meal.breakfast}`);
+    if (meal.lunch) parts.push(`Lunch: ${meal.lunch}`);
+    if (meal.snack) parts.push(`Snack: ${meal.snack}`);
+    if (meal.notes) parts.push(meal.notes);
+    mealsText = parts.join("\n");
+  }
 
-Attendance
-${attendance ? `${attendance.status}. Drop-off: ${attendance.dropoff || "not entered"}. Pick-up: ${attendance.pickup || "not entered"}.` : "Attendance was not entered yet."}
+  // Build nap text from logged data
+  let napText = "";
+  if (nap) {
+    const times = nap.napStart ? `${nap.napStart}${nap.napEnd ? "–" + nap.napEnd : ""}` : "";
+    const duration = nap.duration ? ` (${nap.duration})` : "";
+    const notes = nap.notes ? ` ${nap.notes}` : "";
+    napText = times ? `Slept from ${times}${duration}.${notes}`.trim() : `Rested during nap time.${notes}`.trim();
+  }
 
-Meals
-${meal ? `Breakfast: ${meal.breakfast || "not entered"}\nLunch: ${meal.lunch || "not entered"}\nSnack: ${meal.snack || "not entered"}\nFood Notes: ${meal.notes || "none"}\nAllergy Notes: ${meal.allergyNotes || child.allergies || "none"}` : "Meal tracking was not entered yet."}
+  // Build diaper text from logged data
+  let diaperText = "";
+  if (diaperEntries.length) {
+    diaperText = diaperEntries.map((d) => `${d.time ? d.time + ": " : ""}${d.type}${d.notes ? " — " + d.notes : ""}`).join("\n");
+  }
 
-Nap / Rest
-${napSection}
-${isDiaperAge && diaperSection ? "\nDiaper / Potty\n" + diaperSection : ""}
-Activities and Learning
-${activitiesSection ? activitiesSection + "\n" : ""}${observation ? `${observation.text}\nDevelopmental Area: ${observation.area}\nNext Steps: ${observation.nextSteps || "Continue supporting this skill through play."}` : "Add an observation or activity note to personalize this section."}
+  // Build activities list from logged data
+  const loggedActivities = activityEntries.map((a) => a.activity).filter(Boolean);
 
-Provider Note
-${child.name} participated in daily routines and learning experiences. Please let me know if there is anything you would like me to watch for tomorrow.`;
-  appendChildRecord("Reports", { childId, title: `Daily Report | ${today}`, date: today, summary: report });
+  // Build highlights from teacher quick note and/or observation
+  let highlights = quickNote || "";
+  if (!highlights && observation) highlights = observation.text || "";
+  if (!highlights && behaviorNotes.length) highlights = behaviorNotes.map((n) => n.message || n.notes || "").filter(Boolean).join(" ");
+
+  const report = generateDailyReport({
+    childName: child.name,
+    age: ageGroup,
+    programName,
+    date: today,
+    tone,
+    highlights,
+    meals: mealsText,
+    nap: napText,
+    diapering: diaperText,
+    activities: loggedActivities,
+    providerNotes: observation ? `Observation: ${observation.text}${observation.nextSteps ? "\nNext Steps: " + observation.nextSteps : ""}` : "",
+  });
+
+  appendChildRecord("Reports", { childId, title: `Daily Report | ${today}`, date: today, summary: report.slice(0, 200), message: report, shareWithFamily: true });
 }
 
 function exportChildPortfolio(childId) {
@@ -14107,72 +14151,213 @@ function generateDailyReport(data) {
   const programName = data.programName || data.program || "";
   const date = data.date || "";
   const tone = data.tone || "Warm and friendly";
+  const isInfant = rawAge === "Infant";
+  const isToddler = rawAge === "Young Toddler" || rawAge === "Older Toddler";
+  const isDiaperAge = isInfant || isToddler;
+  const highlights = data.highlights || "";
+
+  // ── Header ─────────────────────────────────────────────────────────────────
   const header = [
     programName ? programName + " — Daily Report" : "Daily Report",
     date ? "Date: " + date : "",
     "Child: " + child,
     rawAge ? "Age Group: " + rawAge : "",
   ].filter(Boolean).join("\n");
-  const moodText = data.mood || "Happy and engaged";
-  const intro = toneCopy(tone, [
-    ["professional", `${child} participated in routines and learning experiences throughout the day.`],
-    ["detailed", `${child} took part in routines, care moments, and learning experiences throughout the day. Below is a fuller summary of how the day went.`],
-    ["short", `${child} had a positive day with us.`],
-    ["warm", `${child} had a lovely day and joined in our routines and learning experiences.`],
-    ["friendly", `${child} had a lovely day and joined in our routines and learning experiences.`],
+
+  // ── Section 1: Daily Summary ───────────────────────────────────────────────
+  const moodText = data.mood || "happy and engaged";
+  const highlightSnippet = highlights && highlights.length > 1
+    ? highlights.charAt(0).toLowerCase() + highlights.slice(1).replace(/\.$/, "")
+    : highlights || profile.dailySummary;
+  const summarySentence = toneCopy(tone, [
+    ["professional", `${child} had a productive day and participated in routines and learning experiences.`],
+    ["detailed", `${child} had a full day and took part in routines, care moments, and learning throughout the day.`],
+    ["short", `${child} had a positive day with us today.`],
+    ["warm", `${child} had a wonderful day with us today!`],
+    ["friendly", `${child} had a great day with us today!`],
   ]);
-  const infantExtra = rawAge === "Infant" ? `
-Feeding
-${data.meals || "Feeding was provided on cue and according to the family's feeding plan."}
+  const dailySummary = `${summarySentence} ${child} arrived ${moodText} and had an enjoyable day filled with ${highlightSnippet}.`;
 
-Diapers
-${data.diapering || "Diaper changes were logged throughout the day."}
+  // ── Section 2: Today's Activities ─────────────────────────────────────────
+  let activitiesList = [];
+  if (data.activities && Array.isArray(data.activities) && data.activities.length) {
+    activitiesList = data.activities;
+  } else if (data.activities && typeof data.activities === "string" && data.activities.trim()) {
+    activitiesList = data.activities.split(/[,\n]+/).map((a) => a.trim()).filter(Boolean);
+  } else {
+    // Infer activities from highlights
+    const note = highlights.toLowerCase();
+    if (/paint|brush|art|drawing|drew|color/.test(note)) activitiesList.push("Art");
+    if (/outside|outdoor|playground|yard/.test(note)) activitiesList.push("Outdoor Play");
+    if (/story|book|read|library/.test(note)) activitiesList.push("Story Time");
+    if (/circle/.test(note)) activitiesList.push("Circle Time");
+    if (/sensory|sand|water play|slime/.test(note)) activitiesList.push("Sensory Play");
+    if (/music|sing|sang|dance|danc/.test(note)) activitiesList.push("Music & Movement");
+    if (/block|build|lego|construct/.test(note)) activitiesList.push("Blocks & Building");
+    if (/puzzle|game/.test(note)) activitiesList.push("Puzzles & Games");
+    if (/dramatic|pretend|role/.test(note)) activitiesList.push("Dramatic Play");
+    if (/count|number|math/.test(note)) activitiesList.push("Math & Counting");
+    if (/science|experiment|nature|bug|plant/.test(note)) activitiesList.push("Science Exploration");
+    if (/free play|choice/.test(note)) activitiesList.push("Free Play");
+    if (!activitiesList.length) activitiesList.push("Free Play", "Group Activities");
+  }
+  const activitiesSection = activitiesList.map((a) => `• ${a}`).join("\n");
 
-Sleep
-${data.nap || "Sleep was supported in a safe sleep environment."}
+  // ── Section 3: Learning Highlights ────────────────────────────────────────
+  const learningText = data.learning || buildLearningHighlights(highlights, rawAge, profile, child);
 
-Tummy Time
-Tummy time was offered during awake, supervised periods.` : "";
-  const toddlerExtra = rawAge === "Young Toddler" || rawAge === "Older Toddler" ? `
-Meals
-${data.meals || "Meals and snacks were offered according to the daily menu."}
+  // ── Section 4: Meals & Snacks ──────────────────────────────────────────────
+  let mealsSection = "";
+  if (data.meals && data.meals.trim()) {
+    mealsSection = data.meals.trim();
+  } else if (isInfant) {
+    mealsSection = "Feeding was provided on cue and according to the family's feeding plan.";
+  } else {
+    mealsSection = "Meals and snacks were offered according to the daily menu.";
+  }
 
-Diapering / Potty
-${data.diapering || "Diapering, potty attempts, and handwashing were supported throughout the day."}
+  // ── Section 5: Nap / Rest ──────────────────────────────────────────────────
+  const napSection = data.nap && data.nap.trim()
+    ? data.nap.trim()
+    : isInfant
+      ? "Sleep was supported in a safe sleep environment according to safe sleep guidelines."
+      : "Rest time was offered and supported.";
 
-Rest
-${data.nap || "Rest time was offered and supported."}` : "";
-  const olderExtra = rawAge === "Preschool" || rawAge === "School Age" ? `
-Meals
-${data.meals || "Meals and snacks were offered according to the daily menu."}
+  // ── Section 6: Diaper / Potty ──────────────────────────────────────────────
+  const diaperSection = isDiaperAge
+    ? (data.diapering && data.diapering.trim()
+      ? data.diapering.trim()
+      : isInfant
+        ? "Diaper changes were completed throughout the day. No concerns noted."
+        : "Diapering and potty attempts were supported throughout the day with handwashing.")
+    : "";
 
-Rest
-${data.nap || "Rest time was offered and supported."}` : "";
-  const closing = toneCopy(tone, [
-    ["professional", data.notes || profile.dailyClosing],
-    ["detailed", data.notes || `${profile.dailyClosing} I am happy to share more details if needed.`],
-    ["short", data.notes || "Thank you for your partnership today."],
-    ["warm", data.notes || profile.dailyClosing],
-    ["friendly", data.notes || profile.dailyClosing],
+  // ── Section 7: Mood & Social Interactions ─────────────────────────────────
+  const socialText = data.social || buildSocialText(highlights, moodText, child, rawAge);
+
+  // ── Section 8: Special Moments ────────────────────────────────────────────
+  const specialMoments = data.specialMoments || buildSpecialMoments(highlights, child, rawAge, profile);
+
+  // ── Section 9: Family Note ─────────────────────────────────────────────────
+  const familyClosing = data.notes || profile.dailyClosing;
+  const familyNote = toneCopy(tone, [
+    ["professional", `Thank you for entrusting us with ${child}'s care today. ${familyClosing}`],
+    ["detailed", `It was a pleasure spending the day with ${child}. ${familyClosing} Please don't hesitate to reach out with any questions.`],
+    ["short", `Thank you for sharing ${child} with us today! ${familyClosing}`],
+    ["warm", `We loved having ${child} with us today! ${familyClosing}`],
+    ["friendly", `We loved having ${child} with us today! ${familyClosing}`],
   ]);
+
+  // ── Section 10: Follow-Up (only if present) ───────────────────────────────
+  const followUpSection = data.followUp && data.followUp.trim()
+    ? `\nFollow-Up\n${data.followUp.trim()}`
+    : "";
+
+  // ── Section 11: Tags ───────────────────────────────────────────────────────
+  const tags = buildDailyReportTags(activitiesList, highlights, rawAge);
+  const tagsSection = tags.length ? `\nTags\n${tags.join(" · ")}` : "";
+
+  // ── Infant tummy time note ─────────────────────────────────────────────────
+  const tummyTimeNote = isInfant ? "\n\nTummy Time\nTummy time was offered during awake, supervised periods." : "";
+
   return `${header}
-Tone: ${tone}
 
-${intro}
+Daily Summary
+${dailySummary}
 
-Mood
-${moodText}
-${infantExtra}${toddlerExtra}${olderExtra}
+Today's Activities
+${activitiesSection}
 
-Highlights
-${data.highlights || `Today included ${profile.dailySummary}.`}
+Learning Highlights
+${learningText}
 
-Learning Moment
-${data.learning || `Today supported ${profile.dailyLearning}.`}
+Meals & Snacks
+${mealsSection}
 
-Parent Note
-${closing}
-${data.providerNotes ? `\n\nProvider Notes\n${data.providerNotes}` : ""}`;
+Nap / Rest
+${napSection}${isDiaperAge ? `\n\nDiaper / Potty\n${diaperSection}` : ""}${tummyTimeNote}
+
+Mood & Social Interactions
+${socialText}
+
+Special Moments
+${specialMoments}
+
+Family Note
+${familyNote}${followUpSection}${tagsSection}${data.providerNotes ? `\n\nProvider Notes\n${data.providerNotes}` : ""}`;
+}
+
+function buildLearningHighlights(note, rawAge, profile, child) {
+  const n = note.toLowerCase();
+  const highlights = [];
+  if (/count|number|math/.test(n)) highlights.push("Practiced counting and early math skills.");
+  if (/color|colour/.test(n)) highlights.push("Explored colors through hands-on play.");
+  if (/shar|cooperat|take turn/.test(n)) highlights.push("Practiced sharing and taking turns with friends.");
+  if (/fine motor|scissor|bead|thread|write|draw|paint/.test(n)) highlights.push("Strengthened fine motor skills.");
+  if (/sensory/.test(n)) highlights.push("Enjoyed sensory exploration.");
+  if (/story|book|read/.test(n)) highlights.push("Engaged with books and storytelling, supporting early literacy.");
+  if (/science|nature|experiment|observe/.test(n)) highlights.push("Explored science concepts through observation and discovery.");
+  if (/music|song|sing|dance/.test(n)) highlights.push("Built rhythm, listening, and coordination through music and movement.");
+  if (/outdoor|outside|gross motor|run|jump|climb/.test(n)) highlights.push("Developed gross motor skills through active outdoor play.");
+  if (/problem.solv|puzzl|figur/.test(n)) highlights.push("Practiced problem-solving and critical thinking.");
+  if (/independ|self-help|dress|wash|clean up/.test(n)) highlights.push("Practiced independence and self-help routines.");
+  if (!highlights.length) {
+    highlights.push(`Today supported ${profile.dailyLearning}.`);
+  }
+  return highlights.join("\n");
+}
+
+function buildSocialText(note, moodText, child, rawAge) {
+  const n = note.toLowerCase();
+  const parts = [`${child} was ${moodText} throughout the day.`];
+  if (/friend|peer|together|group|cooperat|partner/.test(n)) parts.push("Enjoyed positive interactions and play with friends.");
+  if (/kind|shar|help|compassion/.test(n)) parts.push("Showed kindness and a willingness to help others.");
+  if (/lead|direct|instruct/.test(n)) parts.push("Demonstrated leadership and confidence during group activities.");
+  if (/excit|enthusias|eager|happy|laugh|smile/.test(n)) parts.push("Was enthusiastic and joyful throughout the day.");
+  if (parts.length === 1) parts.push("Participated well in group routines and learning experiences.");
+  return parts.join(" ");
+}
+
+function buildSpecialMoments(note, child, rawAge, profile) {
+  const n = note.toLowerCase();
+  const moments = [];
+  if (/count|number/.test(n)) moments.push(`${child} showed confidence with counting and numbers.`);
+  if (/paint|drew|art|craft/.test(n)) moments.push(`${child} created a colorful piece of artwork that they were very proud of.`);
+  if (/block|tower|build/.test(n)) moments.push(`${child} built an impressive structure during building time.`);
+  if (/story|book|read/.test(n)) moments.push(`${child} was engaged and attentive during story time.`);
+  if (/song|sing|music|dance/.test(n)) moments.push(`${child} participated enthusiastically in music and movement.`);
+  if (/outdoor|outside|playground/.test(n)) moments.push(`${child} had a great time playing and exploring outdoors.`);
+  if (/shar|friend|cooperat/.test(n)) moments.push(`${child} showed wonderful social skills and enjoyed time with friends.`);
+  if (/sensory/.test(n)) moments.push(`${child} thoroughly explored and engaged with the sensory materials.`);
+  if (!moments.length) {
+    moments.push(`${child} had a positive and engaging day. ${profile.dailyClosing.split(".")[0]}.`);
+  }
+  return moments.join(" ");
+}
+
+function buildDailyReportTags(activities, note, rawAge) {
+  const tags = new Set();
+  activities.forEach((a) => {
+    const al = a.toLowerCase();
+    if (/outdoor|outside|playground/.test(al)) tags.add("Outdoor Play");
+    if (/art|paint|draw|craft/.test(al)) tags.add("Art");
+    if (/story|book|read/.test(al)) tags.add("Story Time");
+    if (/circle/.test(al)) tags.add("Circle Time");
+    if (/sensory/.test(al)) tags.add("Sensory");
+    if (/music|movement|dance|sing/.test(al)) tags.add("Music");
+    if (/block|build/.test(al)) tags.add("Blocks");
+    if (/dramatic|pretend/.test(al)) tags.add("Dramatic Play");
+    if (/math|count|number/.test(al)) tags.add("Math");
+    if (/science|nature/.test(al)) tags.add("Science");
+    if (/free play/.test(al)) tags.add("Free Play");
+  });
+  const n = note.toLowerCase();
+  if (/shar|friend|cooperat|take turn/.test(n)) tags.add("Social Skills");
+  if (/fine motor|scissor|bead|paint|draw/.test(n)) tags.add("Fine Motor");
+  if (/run|jump|climb|outdoor|gross motor/.test(n)) tags.add("Gross Motor");
+  if (/water/.test(n)) tags.add("Water Play");
+  if (/nature|bug|plant|garden|leaf/.test(n)) tags.add("Nature");
+  return [...tags].slice(0, 8);
 }
 
 function generateHandbook(data) {
@@ -16801,7 +16986,8 @@ document.addEventListener("click", (event) => {
       showProFeatureModal("Daily reports are a Pro feature.");
       return;
     }
-    buildDailyReportFromChild(buildDailyReportButton.dataset.buildDailyReport);
+    const quickNote = document.querySelector("#dlcDailyReportNote")?.value?.trim() || "";
+    buildDailyReportFromChild(buildDailyReportButton.dataset.buildDailyReport, quickNote);
   }
 
   const openPortfolioButton = event.target.closest("[data-open-portfolio]");
