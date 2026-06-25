@@ -1174,11 +1174,18 @@ Rules:
   return toolPrompts[tool] || (base + "\n\nCreate practical, daycare-focused, age-appropriate childcare content. Keep wording professional, warm, and ready to use. Remind providers to review for licensing and state requirements when relevant.");
 }
 
+// Prompts shorter than this character count receive an extra context hint
+const AI_SHORT_NOTE_THRESHOLD = 25;
+// Timeout in ms for OpenAI API requests
+const AI_REQUEST_TIMEOUT_MS = 20000;
+// Temperature for generation: high enough for variety, conservative enough for consistency
+const AI_TEMPERATURE = 0.9;
+
 async function generateOpenAiContent({ tool, prompt, age, plan, email }) {
   if (!OPENAI_API_KEY) {
     throw new Error("AI generation is not available right now. Please contact support or try again later.");
   }
-  const isShortNote = !prompt || prompt.trim().length < 25;
+  const isShortNote = !prompt || prompt.trim().length < AI_SHORT_NOTE_THRESHOLD;
   const userContent = [
     prompt || "Create a helpful childcare document.",
     age ? `Age group: ${age}` : "",
@@ -1186,7 +1193,7 @@ async function generateOpenAiContent({ tool, prompt, age, plan, email }) {
   ].filter(Boolean).join("\n\n");
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 28000);
+  const timeout = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
   try {
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -1196,7 +1203,7 @@ async function generateOpenAiContent({ tool, prompt, age, plan, email }) {
       },
       body: JSON.stringify({
         model: OPENAI_MODEL,
-        temperature: 1.0,
+        temperature: AI_TEMPERATURE,
         input: [
           {
             role: "system",
@@ -1215,7 +1222,7 @@ async function generateOpenAiContent({ tool, prompt, age, plan, email }) {
     if (!response.ok) {
       const msg = String(data?.error?.message || "");
       if (msg.toLowerCase().includes("quota") || msg.toLowerCase().includes("billing")) {
-        throw new Error("AI generation is temporarily unavailable. Please try again in a few minutes.");
+        throw new Error("AI generation quota has been reached. Please contact support or try again later.");
       }
       if (msg.toLowerCase().includes("rate")) {
         throw new Error("Too many requests at once. Please wait a moment and try again.");
