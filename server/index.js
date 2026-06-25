@@ -1410,14 +1410,14 @@ async function generateOpenAiContent({ tool, prompt, age, plan, email, debug }) 
       const errMsg = String(data?.error?.message || "");
       const errCode = String(data?.error?.code || "");
       console.error(`[openai-error] status=${response.status} type=${errType} code=${errCode} model=${OPENAI_MODEL} email=${email} message=${errMsg}`);
-      if (errMsg.toLowerCase().includes("quota") || errMsg.toLowerCase().includes("billing") || errCode === "insufficient_quota") {
+      if (errCode === "insufficient_quota" || errMsg.toLowerCase().includes("quota") || errMsg.toLowerCase().includes("billing")) {
         throw new Error("AI generation quota has been reached. Please contact support or try again later.");
       }
-      if (errMsg.toLowerCase().includes("rate") || response.status === 429) {
+      if (response.status === 429 || errMsg.toLowerCase().includes("rate")) {
         throw new Error("Too many requests at once. Please wait a moment and try again.");
       }
       if (response.status === 401) {
-        throw new Error("AI generation is not available right now. Please contact support.");
+        throw new Error("AI generation service is temporarily unavailable. Please contact support.");
       }
       throw new Error("AI generation could not be completed. Please try again.");
     }
@@ -1922,7 +1922,7 @@ async function handleAiGenerate(request, response) {
     });
   } catch (error) {
     console.error(`[ai-generate-error] email=${email} error=${error.message || "unknown"}`);
-    jsonResponse(response, 503, { error: error.message || "AI generation failed. Please try again." });
+    jsonResponse(response, 503, { error: error.message || "AI generation failed." });
   }
 }
 
