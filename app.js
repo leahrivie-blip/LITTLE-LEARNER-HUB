@@ -2456,7 +2456,7 @@ const sidebarViewAliases = {
   "documentation-newsletters": "ai",
   "documentation-contracts": "forms",
   "resource-search": "home",
-  portfolio: "tools",
+  portfolio: "children",
   membership: "billing",
   settings: "account",
   help: "contact",
@@ -9120,8 +9120,8 @@ function renderChildManagement() {
     <section class="simple-child-page">
       <div class="child-page-header">
         <div>
-          <h2>Child Profiles</h2>
-          <p>Add children, track observations, goals, support plans, and lesson plan ideas for each child.</p>
+          <h2>Children</h2>
+          <p>Select a child to open their workspace — track observations, goals, attendance, daily logs, reports, and parent communication all in one place.</p>
         </div>
         <div class="child-header-actions">
           <button class="ghost-button" data-child-view="observe" type="button">Add Observation</button>
@@ -9133,7 +9133,7 @@ function renderChildManagement() {
         ${records.children.length ? records.children.map((item) => renderChildProfileCard(item, records)).join("") : `
           <section class="section-block empty-state">
             <h3>No child profiles yet.</h3>
-            <p>Add your first child profile to track monthly observations, goals, and lesson plan ideas.</p>
+            <p>Add your first child profile to track observations, goals, and lesson plan ideas.</p>
             <button class="primary-button" data-child-view="add" type="button">Add Child</button>
           </section>
         `}
@@ -9226,38 +9226,23 @@ function updateChildAgePreview() {
 }
 
 function renderSimpleChildProfile(child, records) {
-  const observations = records.observations.filter((item) => item.childId === child.id);
-  const supportPlans = records.supportPlans.filter((item) => item.childId === child.id);
-  const goals = records.goals.filter((item) => item.childId === child.id);
-  const differentiations = records.differentiations.filter((item) => item.childId === child.id);
   const summary = monthlyObservationSummary(child, records.observations);
   return `
     <section class="simple-child-page">
-      <button class="ghost-button back-button" data-child-view="list" type="button">Back to Children</button>
+      <button class="ghost-button back-button" data-child-view="list" type="button">← Back to Children</button>
       <section class="section-block simple-profile-hero">
         ${renderChildAvatar(child)}
         <div>
-          <p class="eyebrow">Child Profile</p>
+          <p class="eyebrow">Child Workspace</p>
           <h2>${escapeHtml(child.name)}</h2>
-          <p>${escapeHtml(childAgeLabel(child))} - ${escapeHtml(childRoomAgeLabel(child))}</p>
+          <p>${escapeHtml(childAgeLabel(child))} &mdash; ${escapeHtml(childRoomAgeLabel(child))}</p>
         </div>
         <div class="profile-hero-actions">
-          <button class="ghost-button" data-edit-child-profile="${child.id}" type="button">Edit Child Profile</button>
-          <button class="primary-button" data-child-ai-suggestions="${child.id}" type="button">Give Me Ideas</button>
+          <button class="ghost-button" data-edit-child-profile="${child.id}" type="button">Edit Profile</button>
         </div>
       </section>
-      <div class="child-ai-output" id="childAiSuggestions-${domSafeId(child.id)}" aria-live="polite"></div>
 
-      <section class="section-block monthly-goal-card">
-        <div>
-          <strong>Monthly Observation Goal</strong>
-          <p>${summary.goal} per month</p>
-        </div>
-        <div>
-          <strong>This Month</strong>
-          ${renderMonthlyProgress(summary)}
-        </div>
-      </section>
+      ${renderChildAiQuickEntry(child)}
 
       ${renderChildProfileTabs()}
       ${renderChildProfileTabContent(child, records)}
@@ -9268,14 +9253,12 @@ function renderSimpleChildProfile(child, records) {
 function renderChildProfileTabs() {
   const tabs = [
     ["overview", "Overview"],
+    ["daily-log", "Daily Log"],
     ["observations", "Observations"],
-    ["goals", "Goals"],
-    ["lessons", "Lesson Plans"],
-    ["portfolio", "Portfolio"],
     ["attendance", "Attendance"],
-    ["meals", "Meals"],
-    ["reports", "Daily Reports"],
-    ["communication", "Parent Communication"],
+    ["goals", "Goals"],
+    ["reports", "Reports"],
+    ["family", "Family"],
   ];
   return `
     <div class="simple-profile-tabs" aria-label="Child profile sections">
@@ -9291,31 +9274,128 @@ function renderChildProfileTabContent(child, records) {
   const activeGoals = childActiveGoals(child, records);
   const differentiations = records.differentiations.filter((item) => item.childId === child.id);
   const summary = monthlyObservationSummary(child, records.observations);
+  if (childProfileTab === "daily-log") return renderChildDailyLogTab(child, records);
   if (childProfileTab === "observations") return renderChildObservationsTab(child, observations, summary);
   if (childProfileTab === "goals") return renderChildGoalsTab(child, goals, activeGoals, observations, records);
-  if (childProfileTab === "lessons") return renderChildLessonsTab(child, records, observations, goals, differentiations);
-  if (childProfileTab === "portfolio") return renderChildPortfolioTab(child, observations, goals, supportPlans, differentiations);
   if (childProfileTab === "attendance") {
     const attendance = records.attendance.filter((item) => item.childId === child.id);
     return renderChildSimpleRecordTab("Attendance", "Attendance information for this child only.", isProUser() ? attendanceForm(child.id) : lockedFeatureCard("Attendance Tracking"), attendance);
   }
-  if (childProfileTab === "meals") {
-    const meals = records.meals.filter((item) => item.childId === child.id);
-    return renderChildSimpleRecordTab("Meals", "Meal tracking for this child only.", isProUser() ? mealTrackingForm(child.id) : lockedFeatureCard("Meal Tracking"), meals);
-  }
-  if (childProfileTab === "reports") {
-    const reports = records.reports.filter((item) => item.childId === child.id);
-    return renderChildSimpleRecordTab("Daily Reports", "Parent-ready daily reports for this child only.", isProUser() ? `<button class="primary-button" data-build-daily-report="${child.id}" type="button">Generate Daily Report</button>` : lockedFeatureCard("Daily Reports"), reports);
-  }
-  if (childProfileTab === "communication") {
+  if (childProfileTab === "reports") return renderChildReportsTab(child, records, observations, goals, supportPlans, differentiations);
+  if (childProfileTab === "family") {
     const comms = records.communications.filter((item) => item.childId === child.id);
-    return renderChildSimpleRecordTab("Parent Communication", "Parent notes and communication records for this child only.", isProUser() ? communicationForm(child.id) : lockedFeatureCard("Parent Communication Tools"), comms);
+    return renderChildSimpleRecordTab("Family Communication", "Parent notes and communication records for this child only.", isProUser() ? communicationForm(child.id) : lockedFeatureCard("Parent Communication Tools"), comms);
   }
   return renderChildOverviewTab(child, summary, records);
 }
 
-function renderChildSupportLinks(child, supportAreas = childSelectedSupportAreas(child)) {
-  const links = supportAreas
+function renderChildAiQuickEntry(child) {
+  return `
+    <section class="section-block child-quick-entry" id="childQuickEntry-${domSafeId(child.id)}">
+      <div class="quick-entry-header">
+        <div>
+          <p class="eyebrow">AI Quick Entry</p>
+          <strong>What happened today?</strong>
+        </div>
+      </div>
+      <textarea
+        id="childQuickNote-${domSafeId(child.id)}"
+        class="quick-entry-textarea"
+        rows="3"
+        placeholder="e.g. ${escapeHtml(child.name)} stacked blocks today, counted to ten, ate all of lunch, and needed reminders to share."
+      ></textarea>
+      <div class="quick-entry-buttons" role="group" aria-label="Generate documentation">
+        <button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="observation" type="button">Generate Observation</button>
+        <button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="parent-message" type="button">Generate Parent Message</button>
+        <button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="daily-report" type="button">Generate Daily Report</button>
+        <button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="activities" type="button">Suggest Activities</button>
+        <button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="goal-update" type="button">Update Goals</button>
+        <button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="portfolio" type="button">Portfolio Entry</button>
+      </div>
+      <div id="childQuickEntryOutput-${domSafeId(child.id)}" class="quick-entry-output" aria-live="polite"></div>
+    </section>
+  `;
+}
+
+function renderChildDailyLogTab(child, records) {
+  const today = new Date().toISOString().slice(0, 10);
+  const meals = records.meals.filter((item) => item.childId === child.id);
+  const naps = records.naps ? records.naps.filter((item) => item.childId === child.id) : [];
+  const diapers = records.diapers ? records.diapers.filter((item) => item.childId === child.id) : [];
+  const activityLogs = records.activityLogs ? records.activityLogs.filter((item) => item.childId === child.id) : [];
+  const todayMeals = meals.filter((item) => item.date === today);
+  const todayNaps = naps.filter((item) => item.date === today);
+  const todayDiapers = diapers.filter((item) => item.date === today);
+  const todayActivities = activityLogs.filter((item) => item.date === today);
+  return `
+    <section class="section-block child-daily-log-tab">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Daily Log</p>
+          <h3>Today's log for ${escapeHtml(child.name)}</h3>
+          <p class="muted-copy">Track meals, naps, diapers, and activities for today.</p>
+        </div>
+      </div>
+      <div class="daily-log-grid">
+        <div class="daily-log-section">
+          <h4>🍽️ Meals</h4>
+          ${isProUser() ? mealTrackingForm(child.id) : lockedFeatureCard("Meal Tracking")}
+          <div class="resource-list compact">${todayMeals.length ? todayMeals.slice(-4).reverse().map(simpleRecordItem).join("") : `<p class="muted-copy">No meals logged today.</p>`}</div>
+        </div>
+        <div class="daily-log-section">
+          <h4>😴 Naps</h4>
+          ${isProUser() ? napTrackingForm(child.id) : lockedFeatureCard("Nap Tracking")}
+          <div class="resource-list compact">${todayNaps.length ? todayNaps.slice(-4).reverse().map(simpleRecordItem).join("") : `<p class="muted-copy">No naps logged today.</p>`}</div>
+        </div>
+        <div class="daily-log-section">
+          <h4>🚽 Diaper / Potty</h4>
+          ${isProUser() ? diaperTrackingForm(child.id) : lockedFeatureCard("Diaper / Potty Tracking")}
+          <div class="resource-list compact">${todayDiapers.length ? todayDiapers.slice(-4).reverse().map(simpleRecordItem).join("") : `<p class="muted-copy">No diaper entries today.</p>`}</div>
+        </div>
+        <div class="daily-log-section">
+          <h4>🎨 Activities</h4>
+          ${isProUser() ? activityLogForm(child.id) : lockedFeatureCard("Activity Logging")}
+          <div class="resource-list compact">${todayActivities.length ? todayActivities.slice(-4).reverse().map(simpleRecordItem).join("") : `<p class="muted-copy">No activities logged today.</p>`}</div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderChildReportsTab(child, records, observations, goals, supportPlans, differentiations) {
+  const reports = records.reports.filter((item) => item.childId === child.id);
+  return `
+    <section class="section-block">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Reports</p>
+          <h3>Daily Reports &amp; Portfolio</h3>
+          <p class="muted-copy">Generate parent-ready daily reports and view ${escapeHtml(child.name)}'s portfolio.</p>
+        </div>
+        ${isProUser() ? `<button class="primary-button" data-build-daily-report="${child.id}" type="button">Generate Daily Report</button>` : ""}
+      </div>
+      ${!isProUser() ? lockedFeatureCard("Daily Reports") : ""}
+      <div class="resource-list compact">${reports.length ? reports.slice(-8).reverse().map(simpleRecordItem).join("") : `<div class="empty-state">No daily reports yet.</div>`}</div>
+      <div class="portfolio-summary-block">
+        <p class="eyebrow">Portfolio</p>
+        <h4>Progress Record</h4>
+        <p class="muted-copy">Portfolio includes observations, goals, progress notes, and lesson supports.</p>
+        <div class="quick-action-list">
+          <button class="ghost-button" ${isProUser() ? `data-open-portfolio="${child.id}"` : `data-pro-feature="child-portfolios"`} type="button">Expand Portfolio</button>
+          <button class="ghost-button" ${isProUser() ? `data-export-portfolio="${child.id}"` : `data-pro-feature="child-portfolios"`} type="button">Export Portfolio PDF</button>
+        </div>
+        <div class="portfolio-mini-list">
+          <span>${observations.length} observations</span>
+          <span>${goals.length} goals</span>
+          <span>${supportPlans.length} support plans</span>
+          <span>${differentiations.length} lesson supports</span>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderChildSupportLinks(child, supportAreas = childSelectedSupportAreas(child)) {  const links = supportAreas
     .map((area) => ({ area, topicId: supportTopicIdForArea(area) }))
     .filter((item) => supportTopicById(item.topicId))
     .slice(0, 4);
@@ -9336,39 +9416,60 @@ function renderChildOverviewTab(child, summary, records = childRecords()) {
   const primaryGoal = activeGoals[0];
   const goalArea = context.areas[0] || normalizeObservationArea(primaryGoal?.area || inferAreasFromGoalText(primaryGoal?.goal || child.activeGoals || "")[0]) || "";
   const nextActivity = suggestedActivitiesForArea(goalArea || "Approaches to Learning", child)[0];
-  const selectedGoals = childGoalDisplayLabels(child).length ? childGoalDisplayLabels(child) : ["No goals selected"];
-  const selectedSupports = context.supportAreas.length ? context.supportAreas : ["No support areas selected"];
+  const today = new Date().toISOString().slice(0, 10);
+  const todayAttendance = records.attendance.filter((item) => item.childId === child.id && item.date === today).slice(-1)[0];
+  const recentComm = records.communications.filter((item) => item.childId === child.id).slice(-1)[0];
+  const recentObs = records.observations.filter((item) => item.childId === child.id).sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 1)[0];
   return `
     <section class="section-block profile-overview-card">
-      <h3>Needs Attention</h3>
-      <div class="attention-list">
-        <div>
-          <span>Observations</span>
-          <strong>${summary.remaining > 0 ? `${summary.remaining} needed this month` : "Monthly goal complete"}</strong>
+      <div class="overview-info-grid">
+        <div class="overview-info-item">
+          <span class="overview-label">Age</span>
+          <strong>${escapeHtml(childAgeLabel(child))}</strong>
         </div>
-        <div>
-          <span>Active Goals</span>
-          <strong>${activeGoals.length ? `${activeGoals.length} active` : "No active goals"}</strong>
+        <div class="overview-info-item">
+          <span class="overview-label">Classroom</span>
+          <strong>${escapeHtml(childRoomAgeLabel(child))}</strong>
         </div>
-        <div>
-          <span>Next Activity</span>
-          <strong>${escapeHtml(primaryGoal ? nextActivity : "Add a goal to suggest an activity")}</strong>
+        <div class="overview-info-item">
+          <span class="overview-label">Attendance Today</span>
+          <strong>${todayAttendance ? escapeHtml(todayAttendance.status || "Logged") : "Not yet recorded"}</strong>
+        </div>
+        <div class="overview-info-item">
+          <span class="overview-label">Observation Progress</span>
+          <strong>${summary.completed}/${summary.goal} this month${summary.remaining > 0 ? ` — ${summary.remaining} remaining` : " ✓"}</strong>
+        </div>
+        <div class="overview-info-item">
+          <span class="overview-label">Active Goals</span>
+          <strong>${activeGoals.length ? `${activeGoals.length} goal${activeGoals.length !== 1 ? "s" : ""}` : "No active goals"}</strong>
+        </div>
+        <div class="overview-info-item">
+          <span class="overview-label">Latest Activity</span>
+          <strong>${escapeHtml(primaryGoal ? nextActivity : "Add a goal to get suggestions")}</strong>
         </div>
       </div>
-      <div class="profile-info-list">
-        <div><span>Age Group / Classroom</span><strong>${escapeHtml(childRoomAgeLabel(child))}</strong></div>
-        <div><span>Date of Birth</span><strong>${escapeHtml(formatDateLabel(child.dob))}</strong></div>
-        <div><span>Age</span><strong>${escapeHtml(childAgeLabel(child))}</strong></div>
-        <div><span>Monthly Observation Goal</span><strong>${summary.goal} per month</strong></div>
-      </div>
-      <div class="profile-support-summary">
-        <div><strong>Developmental Goals</strong>${renderChipList(selectedGoals)}</div>
-        <div><strong>Support Areas</strong>${renderChipList(selectedSupports)}</div>
-      </div>
-      ${renderChildSupportLinks(child, context.supportAreas)}
+      ${activeGoals.length ? `
+        <div class="overview-goals-summary">
+          <strong>Current Goals</strong>
+          <div class="chip-list">${activeGoals.slice(0, 4).map((g) => `<span class="chip">${escapeHtml(g.area || g.goal || "Goal")}</span>`).join("")}</div>
+        </div>
+      ` : ""}
+      ${recentObs ? `
+        <div class="overview-recent-item">
+          <span class="overview-label">Latest Observation</span>
+          <p>${escapeHtml((recentObs.text || "").slice(0, 140))}${(recentObs.text || "").length > 140 ? "…" : ""}</p>
+        </div>
+      ` : ""}
+      ${recentComm ? `
+        <div class="overview-recent-item">
+          <span class="overview-label">Recent Parent Communication</span>
+          <p>${escapeHtml((recentComm.message || recentComm.summary || "").slice(0, 120))}${(recentComm.message || recentComm.summary || "").length > 120 ? "…" : ""}</p>
+        </div>
+      ` : ""}
       <div class="quick-action-list">
         <button class="ghost-button" data-quick-add-observation="${child.id}" type="button">Add Observation</button>
-        <button class="ghost-button" data-child-tab="goals" type="button">Add Goal</button>
+        <button class="ghost-button" data-child-tab="attendance" type="button">Take Attendance</button>
+        <button class="ghost-button" data-child-tab="goals" type="button">View Goals</button>
       </div>
     </section>
   `;
@@ -10386,6 +10487,38 @@ function appendChildRecord(key, record) {
   } else {
     renderChildManagement();
   }
+}
+
+let afterActionPromptTimeout = null;
+
+function showAfterActionPrompt(trigger, childId) {
+  const prompts = {
+    attendance: "Attendance saved! Would you like to generate today's daily report?",
+    observation: "Observation saved! Would you like to generate a parent message?",
+    meals: "Meals logged! Would you like to create today's portfolio entry?",
+  };
+  const promptText = prompts[trigger];
+  if (!promptText || !childId) return;
+  let banner = document.querySelector("#afterActionPrompt");
+  if (!banner) {
+    banner = document.createElement("div");
+    banner.id = "afterActionPrompt";
+    banner.className = "after-action-prompt";
+    banner.setAttribute("role", "status");
+    banner.setAttribute("aria-live", "polite");
+    document.querySelector(".main")?.appendChild(banner);
+  }
+  const actionAttr = trigger === "attendance" ? `data-build-daily-report="${childId}"` :
+    trigger === "observation" ? `data-child-quick-entry="${childId}" data-quick-action="parent-message"` :
+    `data-child-quick-entry="${childId}" data-quick-action="portfolio"`;
+  banner.innerHTML = `
+    <span class="after-action-text">${escapeHtml(promptText)}</span>
+    <button class="primary-button after-action-yes" ${actionAttr} type="button">Yes, generate</button>
+    <button class="ghost-button after-action-dismiss" type="button">Dismiss</button>
+  `;
+  banner.classList.add("visible");
+  if (afterActionPromptTimeout) clearTimeout(afterActionPromptTimeout);
+  afterActionPromptTimeout = setTimeout(() => banner.classList.remove("visible"), 10000);
 }
 
 function buildDailyReportFromChild(childId) {
@@ -14470,6 +14603,14 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const afterActionDismissButton = event.target.closest(".after-action-dismiss");
+  if (afterActionDismissButton) {
+    event.preventDefault();
+    const banner = document.querySelector("#afterActionPrompt");
+    if (banner) banner.classList.remove("visible");
+    if (afterActionPromptTimeout) { clearTimeout(afterActionPromptTimeout); afterActionPromptTimeout = null; }
+    return;
+  }
   const supportCategoryButton = event.target.closest("[data-support-category]");
   if (supportCategoryButton) {
     event.preventDefault();
@@ -14686,6 +14827,46 @@ document.addEventListener("click", (event) => {
     setTimeout(() => {
       childAiSuggestionsButton.textContent = "Give Me Ideas";
     }, 1400);
+    return;
+  }
+
+  const childQuickEntryButton = event.target.closest("[data-child-quick-entry]");
+  if (childQuickEntryButton) {
+    event.preventDefault();
+    if (!canUseAi()) {
+      showProFeatureModal(aiLimitMessage(), "limit");
+      return;
+    }
+    const childId = childQuickEntryButton.dataset.childQuickEntry;
+    const action = childQuickEntryButton.dataset.quickAction || "observation";
+    const noteInput = document.querySelector(`#childQuickNote-${domSafeId(childId)}`);
+    const note = noteInput ? noteInput.value.trim() : "";
+    if (!note) {
+      if (noteInput) { noteInput.focus(); noteInput.placeholder = "Please type what happened today before generating."; }
+      return;
+    }
+    const records = childRecords();
+    const child = records.children.find((item) => item.id === childId);
+    if (!child) return;
+    const output = document.querySelector(`#childQuickEntryOutput-${domSafeId(childId)}`);
+    const actionTypeMap = {
+      observation: ["observation"],
+      "parent-message": ["parent-message"],
+      "daily-report": ["daily-report"],
+      activities: ["activity"],
+      "goal-update": ["goal-update"],
+      portfolio: ["observation", "goal-update"],
+    };
+    const types = actionTypeMap[action] || [action];
+    const result = generateQuickDocumentation(note, child, records, types);
+    if (output) {
+      output.style.display = "block";
+      output.innerHTML = result
+        ? `<div class="quick-entry-result section-block"><pre class="ai-result-text">${escapeHtml(result)}</pre></div>`
+        : `<div class="quick-entry-result section-block"><p class="muted-copy">No output generated. Please try again.</p></div>`;
+      output.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+    recordAiUse();
     return;
   }
 
@@ -16254,6 +16435,7 @@ document.addEventListener("submit", (event) => {
   childProfileTab = "observations";
   childManagementMode = "profile";
   renderChildManagement();
+  showAfterActionPrompt("observation", child.id);
 });
 
 document.addEventListener("submit", (event) => {
@@ -16300,6 +16482,7 @@ document.addEventListener("submit", (event) => {
   }
   const data = collectFormData(event.target);
   appendChildRecord("Attendance", { ...data, title: `${data.date} | ${data.status}`, summary: `Drop-off: ${data.dropoff || "not entered"} | Pick-up: ${data.pickup || "not entered"}` });
+  showAfterActionPrompt("attendance", data.childId);
 });
 
 document.addEventListener("submit", (event) => {
@@ -16311,6 +16494,7 @@ document.addEventListener("submit", (event) => {
   }
   const data = collectFormData(event.target);
   appendChildRecord("Meals", { ...data, title: `Meals | ${data.date}`, summary: `Breakfast: ${data.breakfast || ""} | Lunch: ${data.lunch || ""} | Snack: ${data.snack || ""}` });
+  showAfterActionPrompt("meals", data.childId);
 });
 
 document.addEventListener("submit", (event) => {
