@@ -688,6 +688,10 @@
               </label>
               <p class="form-note">Keep it simple. One or two sentences are enough. Little Learner Hub will create the rest.</p>
             </div>
+            <label class="settings-check-label ai-debug-toggle">
+              <input type="checkbox" data-ai-debug-toggle />
+              Debug mode
+            </label>
             <button class="primary-button" type="submit">Generate Documentation</button>
           </form>
 
@@ -704,6 +708,7 @@
               </div>
             </div>
             <pre id="docHelperOutput" contenteditable="false" spellcheck="true"></pre>
+            <div id="docHelperDebugPanel" class="section-block" hidden></div>
           </div>
         </section>
         <section id="view-admin" class="view">
