@@ -9319,7 +9319,7 @@ function renderChildAiQuickEntry(child) {
 
 function renderChildDailyLogTab(child, records) {
   const today = new Date().toISOString().slice(0, 10);
-  const meals = records.meals.filter((item) => item.childId === child.id);
+  const meals = records.meals ? records.meals.filter((item) => item.childId === child.id) : [];
   const naps = records.naps ? records.naps.filter((item) => item.childId === child.id) : [];
   const diapers = records.diapers ? records.diapers.filter((item) => item.childId === child.id) : [];
   const activityLogs = records.activityLogs ? records.activityLogs.filter((item) => item.childId === child.id) : [];
