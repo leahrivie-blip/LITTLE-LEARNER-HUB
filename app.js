@@ -15918,8 +15918,8 @@ document.querySelector("#aiChatForm")?.addEventListener("submit", async (event) 
   }
   addAiMessage("user", prompt);
   promptBox.value = "";
-  const age = detectAgeFromPrompt(prompt.toLowerCase());
   const lower = prompt.toLowerCase();
+  const age = detectAgeFromPrompt(lower);
   let toolId = "lesson";
   if (lower.includes("observation") || lower.includes("developmental")) toolId = "observation";
   else if (lower.includes("newsletter")) toolId = "newsletter";
@@ -15941,8 +15941,7 @@ document.querySelector("#aiChatForm")?.addEventListener("submit", async (event) 
       programName: settings.programName || "",
     });
     addAiMessage("assistant", result.output);
-    if (result.backendUsed) recordAiUse();
-    else recordAiUse();
+    recordAiUse();
     trackEvent("ai_generation_success", { tool: "chat", promptLength: prompt.length, plan: currentPlan, backendUsed: result.backendUsed });
   } catch (error) {
     const fallback = generateFromPrompt(prompt);
