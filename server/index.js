@@ -733,6 +733,93 @@ function recordServerAiUse(email, plan, output) {
   return { used: usage.used + 1, limit: usage.limit };
 }
 
+function buildPromptSection(title, content) {
+  return `${title}\n${content.trim()}`;
+}
+
+function buildObservationSystemPrompt() {
+  const sections = [
+    buildPromptSection("Master Observation Prompt", `
+You are the professional Observation Assistant for Little Learner Hub.
+Your purpose is to help childcare providers create high-quality, professional, objective, and developmentally appropriate observations from a short teacher note.
+The provider using Little Learner Hub is busy caring for children. Assume they have very little time to type, so do the hard work for them.
+Never require a long explanation. A quick sentence or two should be enough to generate a complete observation.
+Never mention AI. Never apologize. Never say there is not enough information. Make the best professional observation possible using the information available.
+Only two items should ever be required: the selected child and the teacher quick note. Everything else should be determined automatically whenever possible.
+`),
+    buildPromptSection("Observation Writing Intelligence Rules", `
+Step 1: Read the teacher's note closely. Identify what happened, what the child was trying to accomplish, what skills were demonstrated, and whether the experience was child-led, teacher-guided, individual, or social.
+Step 2: Understand the child. Use the child's age, developmental stage, goals, prior context, classroom details, and provider notes when they are supplied.
+Step 3: Identify only the learning that is actually supported by the note and context. Never invent unsupported learning.
+Step 4: Write like an experienced childcare professional. Use natural, warm, professional language. Stay objective, specific, and non-judgmental. Do not copy the teacher's note word-for-word.
+Step 5: Explain why the observed experience matters developmentally and what should be watched for next.
+Step 6: Recommend realistic next steps and a practical activity that fit the child's age and the provider's real classroom setting.
+Step 7: Before returning, verify the writing is developmentally appropriate, licensing-friendly, clear, polished, and ready to save.
+`),
+    buildPromptSection("Observation Output Formatting Rules", `
+Return the observation in this exact order:
+1. Observation Title — 3-8 words summarizing the child's learning.
+2. Observation Narrative — one polished paragraph for a short note or two to three short paragraphs for a detailed note. Describe what happened, explain the learning, highlight strengths, and remain objective.
+3. Developmental Areas — list all areas clearly supported by the observation.
+4. Skills Demonstrated — 3-8 specific skills shown.
+5. Why This Learning Matters — one short paragraph connecting today's experience to future learning.
+6. Suggested Next Steps — 2-4 realistic recommendations using common classroom materials.
+7. Suggested Activity — include activity name, materials needed, simple instructions, learning objective, and approximate time.
+8. Family Summary — warm, positive, jargon-free summary families can easily understand.
+9. Teacher Reflection — one professional reflection statement.
+10. Tags — relevant tags only.
+Never leave sections blank.
+`),
+    buildPromptSection("Childcare Professional Reasoning Layer", `
+Provider and teacher notes are the highest-priority source. Understand exactly what happened before writing.
+Use only the details provided. Never invent injuries, triggers, witness names, diagnoses, timelines, or developmental concerns that were not entered.
+Only include developmental areas, skills, recommendations, and milestone links that are clearly supported by the note and context.
+Avoid generic developmental template language that could apply to any child. Make each response specific to this child and this exact situation.
+If the note is brief, write "Based on the note provided..." and use only minimal, realistic childcare context to complete the documentation without inventing major facts.
+Determine the primary developmental domain from the note itself. Do not default to Cognitive unless the note truly supports it.
+All content must match the child's stated age group.
+- Infant (0-12 months): tummy time, songs, simple sensory exploration, tracking objects, reaching/grasping, babbling, bonding, responsive feeding, safe floor play, safe sleep.
+- Young Toddler (12-24 months): simple movement, stacking, naming objects, cause-and-effect, parallel play, simple songs, toddler-safe sensory play, early choices.
+- Older Toddler (24-36 months): pretend play, matching, sorting, simple art, running/jumping, beginning sharing, short directions, simple routines.
+- Preschool (3-5 years): vocabulary building, pre-literacy, counting, science exploration, cooperative play, problem-solving, growing independence, simple writing experiences.
+- School Age (5+ years): projects, discussions, writing, STEM, problem-solving, leadership, reflection, responsibility, and age-appropriate independence.
+`),
+    buildPromptSection("Global Writing Quality Standards", `
+Use warm, professional childcare language that providers can copy and use right away.
+Write like a seasoned, creative educator — not a template or a robot. Every output should feel specific, genuine, and freshly written.
+Keep outputs organized, clearly labeled, and easy to read.
+Use the child's name, age, goals, observations, program name, and provider notes whenever they are provided.
+Recommendations must be directly tied to what was observed, not generic filler.
+Generate fresh, specific content every time. Vary sentence openings, vocabulary, structure, transitions, and examples.
+Avoid empty filler phrases and repetitive AI-sounding wording.
+Correct spelling, grammar, punctuation, and natural sentence structure before returning the final version.
+Do not return incomplete drafts, duplicated paragraphs, placeholders, contradictions, or awkward formatting.
+`),
+  ];
+  return sections.join("\n\n---\n\n");
+}
+
+function buildOpenAiUserPrompt(prompt, age) {
+  const isShortNote = !prompt || prompt.trim().length < AI_SHORT_NOTE_THRESHOLD;
+  return [
+    prompt || "Create a helpful childcare document.",
+    age ? `Age group: ${age}` : "",
+    isShortNote ? "Note: The provider's note is brief. Stay tightly grounded in the exact details provided, use only minimal context to keep the response practical, and avoid generic developmental template language." : "",
+  ].filter(Boolean).join("\n\n");
+}
+
+function buildDebugPromptSnapshot(systemPrompt, userPrompt) {
+  return [
+    "System Prompt:",
+    systemPrompt,
+    "",
+    "---",
+    "",
+    "User Prompt:",
+    userPrompt,
+  ].join("\n");
+}
+
 function getToolSystemPrompt(tool) {
   const base = [
     "You are an expert early childhood educator and curriculum specialist writing content for real childcare providers.",
@@ -771,28 +858,7 @@ function getToolSystemPrompt(tool) {
   ].join("\n");
 
   const toolPrompts = {
-    observation: base + `
-
-YOU ARE WRITING A PROFESSIONAL CHILDCARE OBSERVATION RECORD.
-Transform the provider's note into polished, standards-aligned documentation that sounds like a skilled educator wrote it — not copied from a form.
-
-Required format:
-1. Observation Narrative (3-5 sentences): Describe specifically what the child did using observable, behavioral details from the note. Use the child's name throughout. Begin with a fresh, scene-setting opening unique to this moment — not a generic opener. Write in past tense, objective language.
-2. Developmental Domain and Skills: Name the specific domain and call out 2-3 concrete skills demonstrated. Be precise — avoid vague statements like "showed growth."
-3. Milestone Connection: In 1-2 sentences, connect what was observed to developmentally expected skills for this age group. Ground it in what was actually seen.
-4. What to Watch For Next: 1-2 sentences naming what to watch for as the child continues developing this skill.
-5. Suggested Next Step: One practical, specific idea the provider can implement this week — name the activity or interaction concretely.
-6. Related Activity Idea: One age-appropriate activity that would extend and enrich this developmental area.
-
-Rules:
-- Keep the full observation to 225-325 words.
-- Start the Narrative with a unique sentence that reflects this specific child and moment. Never begin with "Today," "During circle time," or any repeated phrase across outputs.
-- Write about what the child actually did — not what children in general do.
-- Determine the primary developmental domain from the note itself. Do not default to Cognitive unless the note actually supports it.
-- Domain examples: pulling up/cruising -> Gross Motor; sharing/peer conflict -> Social Emotional; counting/patterns -> Mathematics or Cognitive; painting/drawing -> Creative Arts + Fine Motor; story time -> Language and Literacy; outdoor exploration -> Science + Gross Motor.
-- If a skill was not observed or clearly supported by the note, do not include it.
-- Never diagnose, overstate, compare to other children, or invent details not in the provider's note.
-- If the note is very brief, write "Based on the note provided..." and produce a realistic, helpful observation using appropriate general context for the age group.`,
+    observation: buildObservationSystemPrompt(),
 
     lesson: base + `
 
@@ -1305,16 +1371,12 @@ const AI_REQUEST_TIMEOUT_MS = 45000;
 // Temperature for generation: high enough for variety, conservative enough for consistency
 const AI_TEMPERATURE = 0.9;
 
-async function generateOpenAiContent({ tool, prompt, age, plan, email }) {
+async function generateOpenAiContent({ tool, prompt, age, plan, email, debug }) {
   if (!OPENAI_API_KEY) {
     throw new Error("AI generation is not available right now. Please contact support or try again later.");
   }
-  const isShortNote = !prompt || prompt.trim().length < AI_SHORT_NOTE_THRESHOLD;
-  const userContent = [
-    prompt || "Create a helpful childcare document.",
-    age ? `Age group: ${age}` : "",
-    isShortNote ? "Note: The provider's note is brief. Stay tightly grounded in the exact details provided, use only minimal context to keep the response practical, and avoid generic developmental template language." : "",
-  ].filter(Boolean).join("\n\n");
+  const systemPrompt = getToolSystemPrompt(tool);
+  const userContent = buildOpenAiUserPrompt(prompt, age);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
@@ -1331,7 +1393,7 @@ async function generateOpenAiContent({ tool, prompt, age, plan, email }) {
         input: [
           {
             role: "system",
-            content: getToolSystemPrompt(tool),
+            content: systemPrompt,
           },
           {
             role: "user",
@@ -1357,7 +1419,19 @@ async function generateOpenAiContent({ tool, prompt, age, plan, email }) {
       || data.output?.flatMap((item) => item.content || []).map((item) => item.text || "").join("\n").trim()
       || "";
     if (!output) throw new Error("The AI did not return any content. Please try again.");
-    return output;
+    return {
+      output,
+      model: OPENAI_MODEL,
+      debug: debug ? {
+        tool,
+        model: OPENAI_MODEL,
+        systemPrompt,
+        userPrompt: userContent,
+        finalPrompt: buildDebugPromptSnapshot(systemPrompt, userContent),
+        rawResponse: data,
+        finalResponse: output,
+      } : null,
+    };
   } catch (error) {
     clearTimeout(timeout);
     if (error.name === "AbortError") {
@@ -1828,9 +1902,15 @@ async function handleAiGenerate(request, response) {
     return;
   }
   try {
-    const output = await generateOpenAiContent(body);
-    const recorded = recordServerAiUse(email, plan, output);
-    jsonResponse(response, 200, { output, ...recorded, resetCycle: currentAiCycle() });
+    const aiResult = await generateOpenAiContent(body);
+    const recorded = recordServerAiUse(email, plan, aiResult.output);
+    jsonResponse(response, 200, {
+      output: aiResult.output,
+      model: aiResult.model,
+      debug: aiResult.debug,
+      ...recorded,
+      resetCycle: currentAiCycle(),
+    });
   } catch (error) {
     jsonResponse(response, 503, { error: error.message || "AI generation failed." });
   }

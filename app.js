@@ -1693,6 +1693,60 @@ const aiGenerationConfig = {
 const adminAiTestConfig = {
   endpoint: "/api/admin/ai-test",
 };
+const AI_DEBUG_STORAGE_KEY = "llhAiDebugMode";
+
+function aiDebugEnabled() {
+  return localStorage.getItem(AI_DEBUG_STORAGE_KEY) === "true";
+}
+
+function syncAiDebugToggles() {
+  document.querySelectorAll("[data-ai-debug-toggle]").forEach((toggle) => {
+    toggle.checked = aiDebugEnabled();
+  });
+}
+
+function renderAiDebugPanel(target, debug, displayedResponse = "") {
+  const panel = typeof target === "string" ? document.querySelector(target) : target;
+  if (!panel) return;
+  if (!aiDebugEnabled() || !debug) {
+    panel.hidden = true;
+    panel.innerHTML = "";
+    return;
+  }
+  const rawResponse = typeof debug.rawResponse === "string"
+    ? debug.rawResponse
+    : JSON.stringify(debug.rawResponse || {}, null, 2);
+  const finalResponse = displayedResponse || debug.finalResponse || "";
+  panel.hidden = false;
+  panel.innerHTML = `
+    <div class="output-toolbar">
+      <div>
+        <p class="eyebrow">Debug Mode</p>
+        <h3 style="margin:0;">OpenAI Request Details</h3>
+      </div>
+    </div>
+    <div class="dlc-sug-body">
+      <p><strong>AI Model Used:</strong> ${escapeHtml(debug.model || "")}</p>
+      <p><strong>Final Prompt Sent to OpenAI</strong></p>
+      <pre class="aitc-prompt-pre">${escapeHtml(debug.finalPrompt || "")}</pre>
+      <p><strong>Raw OpenAI Response</strong></p>
+      <pre class="aitc-prompt-pre">${escapeHtml(rawResponse)}</pre>
+      <p><strong>Final Response Displayed to the Provider</strong></p>
+      <pre class="aitc-prompt-pre">${escapeHtml(finalResponse)}</pre>
+    </div>
+  `;
+}
+
+function setAiDebugEnabled(enabled) {
+  if (enabled) localStorage.setItem(AI_DEBUG_STORAGE_KEY, "true");
+  else localStorage.removeItem(AI_DEBUG_STORAGE_KEY);
+  syncAiDebugToggles();
+  if (!enabled) {
+    renderAiDebugPanel("#generatorDebugPanel");
+    renderAiDebugPanel("#docHelperDebugPanel");
+  }
+}
+syncAiDebugToggles();
 
 const ADMIN_PROMPT_LAYER_MASTER = `You are the professional Observation Assistant for Little Learner Hub.
 
@@ -6616,6 +6670,10 @@ function renderGeneratorWorkspace(toolId) {
         <p class="eyebrow">${locked ? "Premium Preview" : "Ready to Generate"}</p>
         <h3>${tool.title}</h3>
         <p>${tool.detail}</p>
+        <label class="settings-check-label ai-debug-toggle">
+          <input type="checkbox" data-ai-debug-toggle ${aiDebugEnabled() ? "checked" : ""} />
+          Debug mode
+        </label>
         ${tool.fields.map(renderGeneratorField).join("")}
         <button class="primary-button" type="submit">${locked ? "Preview AI Output" : "Generate"}</button>
       </form>
@@ -6636,11 +6694,14 @@ function renderGeneratorWorkspace(toolId) {
           </div>
         </div>
         <pre id="generatorOutput" contenteditable="true" spellcheck="true">Fill out the form and generate a childcare-ready result.</pre>
+        <div id="generatorDebugPanel" class="section-block" hidden></div>
       </div>
     </div>
   `;
   renderGeneratedHistory();
   prefillGeneratorFromSettings();
+  renderAiDebugPanel("#generatorDebugPanel");
+  syncAiDebugToggles();
 }
 
 function prefillGeneratorFromSettings() {
@@ -10336,7 +10397,7 @@ function renderDlcSuggestionCard(sug, index) {
 
 // ─── AI Parsing – Daily Log Note ─────────────────────────────────────────────
 
-function parseDailyLogNote(note, selectedChildren, records) {
+async function parseDailyLogNote(note, selectedChildren, records) {
   const suggestions = [];
   const noteLower = note.toLowerCase();
   const today = new Date().toISOString().slice(0, 10);
@@ -10418,13 +10479,28 @@ function parseDailyLogNote(note, selectedChildren, records) {
   if (childNames.length) {
     const firstChild = selectedChildren[0];
     const age = childAgeGroupLabel(firstChild);
-    const preview = generateParentMessage({ topic: "Daily Update", details: note, childName: childNames.length === 1 ? childNames[0] : "your child", age, programName, tone: programSettings.communicationTone || "Warm and friendly" });
-    suggestions.push({
-      type: "preview", emoji: "💬", title: "Parent Update Ready",
-      lines: ["Generate a friendly parent message from today's note."],
-      preview,
-      shareWithFamily: true, saved: false, ignored: false,
-    });
+    try {
+      const result = await generateToolOutputWithBackend("parentMessage", {
+        topic: "Daily Update",
+        details: note,
+        childName: childNames.length === 1 ? childNames[0] : "your child",
+        age,
+        programName,
+        tone: programSettings.communicationTone || "Warm and friendly",
+      });
+      suggestions.push({
+        type: "preview", emoji: "💬", title: "Parent Update Ready",
+        lines: ["Generate a friendly parent message from today's note."],
+        preview: result.output,
+        shareWithFamily: true, saved: false, ignored: false,
+      });
+    } catch (error) {
+      suggestions.push({
+        type: "notice", emoji: "⚠️", title: "Parent Update Unavailable",
+        lines: [error.message || "AI generation could not be completed."],
+        shareWithFamily: false, saved: true, ignored: false,
+      });
+    }
   }
 
   // ── Observation ───────────────────────────────────────────────────────────
@@ -10435,28 +10511,58 @@ function parseDailyLogNote(note, selectedChildren, records) {
     const childObj = selectedChildren.find((c) => c.name.toLowerCase() === childForObs.toLowerCase()) || selectedChildren[0];
     if (childObj) {
       const age = childAgeGroupLabel(childObj);
-      const preview = generateObservation({ note, age, childName: childObj.name, programName });
-      suggestions.push({
-        type: "preview", emoji: "📝", title: "Observation Ready",
-        lines: [`Generate a developmental observation${childObj ? ` for ${childObj.name}` : ""}.`],
-        preview,
-        shareWithFamily: false, saved: false, ignored: false,
-      });
+      try {
+        const result = await generateToolOutputWithBackend("observation", {
+          note,
+          age,
+          childName: childObj.name,
+          programName,
+        });
+        suggestions.push({
+          type: "preview", emoji: "📝", title: "Observation Ready",
+          lines: [`Generate a developmental observation${childObj ? ` for ${childObj.name}` : ""}.`],
+          preview: result.output,
+          shareWithFamily: false, saved: false, ignored: false,
+        });
+      } catch (error) {
+        suggestions.push({
+          type: "notice", emoji: "⚠️", title: "Observation Unavailable",
+          lines: [error.message || "AI generation could not be completed."],
+          shareWithFamily: false, saved: true, ignored: false,
+        });
+      }
     }
   }
 
   // ── Daily Reports ──────────────────────────────────────────────────────────
   if (childNames.length && isProUser()) {
     const reportLines = childNames.map((name) => `Daily report for ${name}`);
-    suggestions.push({
-      type: "preview", emoji: "📖", title: "Daily Reports Ready",
-      lines: reportLines,
-      preview: selectedChildren.map((child) => {
+    try {
+      const reports = await Promise.all(selectedChildren.map(async (child) => {
         const age = childAgeGroupLabel(child);
-        return generateDailyReport({ childName: child.name, age, highlights: note, programName, date: today, tone: programSettings.communicationTone || "Warm and friendly" });
-      }).join("\n\n" + "─".repeat(60) + "\n\n"),
-      shareWithFamily: true, saved: false, ignored: false,
-    });
+        const result = await generateToolOutputWithBackend("daily", {
+          childName: child.name,
+          age,
+          highlights: note,
+          programName,
+          date: today,
+          tone: programSettings.communicationTone || "Warm and friendly",
+        });
+        return result.output;
+      }));
+      suggestions.push({
+        type: "preview", emoji: "📖", title: "Daily Reports Ready",
+        lines: reportLines,
+        preview: reports.join("\n\n" + "─".repeat(60) + "\n\n"),
+        shareWithFamily: true, saved: false, ignored: false,
+      });
+    } catch (error) {
+      suggestions.push({
+        type: "notice", emoji: "⚠️", title: "Daily Reports Unavailable",
+        lines: [error.message || "AI generation could not be completed."],
+        shareWithFamily: false, saved: true, ignored: false,
+      });
+    }
   }
 
   return suggestions;
@@ -10939,7 +11045,7 @@ function behaviorNoteForm(childId) {
 
 // ─── Quick Documentation AI ─────────────────────────────────────────────────
 
-function generateQuickDocumentation(note, child, records, types) {
+async function generateQuickDocumentation(note, child, records, types) {
   const childName = child ? child.name : "The child";
   const ageGroup = child ? (childAgeGroupLabel(child) || child.ageGroup || "Preschool") : "Preschool";
   const goals = child ? records.goals.filter((g) => g.childId === child.id && goalProgressPercent(g.progress) < 100).map((g) => g.area || g.goal).slice(0, 3).join(", ") : "";
@@ -10948,23 +11054,58 @@ function generateQuickDocumentation(note, child, records, types) {
   const today = new Date().toISOString().slice(0, 10);
   const parts = [];
   if (types.includes("observation")) {
-    parts.push(generateObservation({ note, age: ageGroup, childName, programName }));
+    const result = await generateToolOutputWithBackend("observation", { note, age: ageGroup, childName, programName });
+    parts.push(result.output);
   }
   if (types.includes("parent-message")) {
-    parts.push(generateParentMessage({ topic: "Daily Update", details: note, childName, age: ageGroup, programName, tone: programSettings.communicationTone || "Warm and friendly" }));
+    const result = await generateToolOutputWithBackend("parentMessage", {
+      topic: "Daily Update",
+      details: note,
+      childName,
+      age: ageGroup,
+      programName,
+      tone: programSettings.communicationTone || "Warm and friendly",
+    });
+    parts.push(result.output);
   }
   if (types.includes("goal-update")) {
     const goalContext = goals ? `Active goals: ${goals}. ` : "";
     parts.push(`Goal Update\n\nChild: ${childName}\nAge Group: ${ageGroup}\nDate: ${today}\n\n${goalContext}${note}\n\nSuggested next step: Continue offering similar experiences and document progress over the coming week.`);
   }
   if (types.includes("daily-report")) {
-    parts.push(generateDailyReport({ childName, age: ageGroup, highlights: note, programName, date: today, tone: programSettings.communicationTone || "Warm and friendly" }));
+    const result = await generateToolOutputWithBackend("daily", {
+      childName,
+      age: ageGroup,
+      highlights: note,
+      programName,
+      date: today,
+      tone: programSettings.communicationTone || "Warm and friendly",
+    });
+    parts.push(result.output);
   }
   if (types.includes("behavior-note")) {
-    parts.push(`Behavior Note\n\nChild: ${childName}\nAge Group: ${ageGroup}\nDate: ${today}\n\nObservation\n${note}\n\nContext\nThis note was recorded during the child's regular daily routine.\n\nFollow-up\nMonitor for similar patterns. Share with family at pickup or via daily report as appropriate.`);
+    const result = await generateToolOutputWithBackend("behavior", {
+      childName,
+      age: ageGroup,
+      programName,
+      concern: note,
+      incident: note,
+      details: note,
+      tone: programSettings.communicationTone || "Warm and friendly",
+      providerNotes: "Generated from the Daily Logs quick documentation flow.",
+    });
+    parts.push(result.output);
   }
   if (types.includes("activity")) {
-    parts.push(generateActivity({ age: ageGroup, childName, theme: "Daily Routine", skill: "all areas of development", note }));
+    const result = await generateToolOutputWithBackend("activity", {
+      age: ageGroup,
+      childName,
+      programName,
+      theme: "Daily Routine",
+      skill: "all areas of development",
+      note,
+    });
+    parts.push(result.output);
   }
   return parts.join("\n\n" + "─".repeat(60) + "\n\n");
 }
@@ -11367,7 +11508,7 @@ function showAfterActionPrompt(trigger, childId) {
   afterActionPromptTimeout = setTimeout(() => banner.classList.remove("visible"), 10000);
 }
 
-function buildDailyReportFromChild(childId, quickNote) {
+async function buildDailyReportFromChild(childId, quickNote) {
   const records = childRecords();
   const child = records.children.find((item) => item.id === childId);
   if (!child) return;
@@ -11419,7 +11560,7 @@ function buildDailyReportFromChild(childId, quickNote) {
   if (!highlights && observation) highlights = observation.text || "";
   if (!highlights && behaviorNotes.length) highlights = behaviorNotes.map((n) => n.message || n.notes || "").filter(Boolean).join(" ");
 
-  const report = generateDailyReport({
+  const result = await generateToolOutputWithBackend("daily", {
     childName: child.name,
     age: ageGroup,
     programName,
@@ -11432,6 +11573,7 @@ function buildDailyReportFromChild(childId, quickNote) {
     activities: loggedActivities,
     providerNotes: observation ? `Observation: ${observation.text}${observation.nextSteps ? "\nNext Steps: " + observation.nextSteps : ""}` : "",
   });
+  const report = result.output;
 
   appendChildRecord("Reports", { childId, title: `Daily Report | ${today}`, date: today, summary: report.slice(0, 200), message: report, shareWithFamily: true });
 }
@@ -13463,7 +13605,7 @@ function aiPromptFromForm(toolId, data) {
 
 async function generateToolOutputWithBackend(toolId, data) {
   if (!aiGenerationConfig.endpoint || !canUseLaunchBackend()) {
-    return { output: generateToolOutput(toolId, data), backendUsed: false };
+    throw new Error("AI generation is currently unavailable. Please try again shortly or contact support.");
   }
   const ageValue = data.age || data.ageGroup || data.group || "";
   const response = await fetch(aiGenerationConfig.endpoint, {
@@ -13475,17 +13617,23 @@ async function generateToolOutputWithBackend(toolId, data) {
       tool: toolId,
       age: ageValue,
       prompt: aiPromptFromForm(toolId, data),
+      debug: aiDebugEnabled(),
     }),
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(result?.error || "AI generation could not be completed.");
   }
+  if (!result.output) {
+    throw new Error("The AI did not return any content. Please try again.");
+  }
   return {
-    output: result.output || generateToolOutput(toolId, data),
+    output: result.output,
     backendUsed: true,
     used: result.used,
     limit: result.limit,
+    model: result.model,
+    debug: result.debug || null,
   };
 }
 
@@ -15827,7 +15975,7 @@ function showSearchResults() {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-document.addEventListener("click", (event) => {
+document.addEventListener("click", async (event) => {
   const clickedButton = event.target.closest("button");
   if (clickedButton && !clickedButton.closest("#adminProtectedContent")) {
     trackEvent("button_click", {
@@ -16246,15 +16394,22 @@ document.addEventListener("click", (event) => {
       portfolio: ["observation", "goal-update"],
     };
     const types = actionTypeMap[action] || [action];
-    const result = generateQuickDocumentation(note, child, records, types);
-    if (output) {
-      output.style.display = "block";
-      output.innerHTML = result
-        ? `<div class="quick-entry-result section-block"><pre class="ai-result-text">${escapeHtml(result)}</pre></div>`
-        : `<div class="quick-entry-result section-block"><p class="muted-copy">No output generated. Please try again.</p></div>`;
-      output.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    try {
+      const result = await generateQuickDocumentation(note, child, records, types);
+      if (output) {
+        output.style.display = "block";
+        output.innerHTML = result
+          ? `<div class="quick-entry-result section-block"><pre class="ai-result-text">${escapeHtml(result)}</pre></div>`
+          : `<div class="quick-entry-result section-block"><p class="muted-copy">No output generated. Please try again.</p></div>`;
+        output.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+      recordAiUse();
+    } catch (error) {
+      if (output) {
+        output.style.display = "block";
+        output.innerHTML = `<div class="quick-entry-result section-block"><p class="muted-copy">${escapeHtml(error.message || "AI generation could not be completed.")}</p></div>`;
+      }
     }
-    recordAiUse();
     return;
   }
 
@@ -16427,11 +16582,15 @@ document.addEventListener("click", (event) => {
       alert("No children selected. Please go back and select children first.");
       return;
     }
-    dlcAiSuggestions = parseDailyLogNote(note, selectedChildren, records);
-    recordAiUse();
-    dlcNewStep = "ai-suggestions";
-    childManagementMode = "daily-logs";
-    renderChildManagement();
+    try {
+      dlcAiSuggestions = await parseDailyLogNote(note, selectedChildren, records);
+      recordAiUse();
+      dlcNewStep = "ai-suggestions";
+      childManagementMode = "daily-logs";
+      renderChildManagement();
+    } catch (error) {
+      alert(error.message || "AI generation could not be completed.");
+    }
     return;
   }
 
@@ -16516,15 +16675,19 @@ document.addEventListener("click", (event) => {
       alert("Please select at least one documentation type.");
       return;
     }
-    const output = generateQuickDocumentation(note, child, records, types);
-    recordAiUse();
-    const outputEl = document.querySelector("#quickDocOutput");
-    if (outputEl) {
-      outputEl.style.display = "";
-      outputEl.innerHTML = `<div class="section-block"><h4>Generated Documentation</h4><pre class="dlc-doc-output">${escapeHtml(output)}</pre><button class="ghost-button" data-copy-text="${escapeHtml(output)}" type="button">Copy All</button></div>`;
+    try {
+      const output = await generateQuickDocumentation(note, child, records, types);
+      recordAiUse();
+      const outputEl = document.querySelector("#quickDocOutput");
+      if (outputEl) {
+        outputEl.style.display = "";
+        outputEl.innerHTML = `<div class="section-block"><h4>Generated Documentation</h4><pre class="dlc-doc-output">${escapeHtml(output)}</pre><button class="ghost-button" data-copy-text="${escapeHtml(output)}" type="button">Copy All</button></div>`;
+      }
+      quickDocGenerateBtn.textContent = "Generated!";
+      setTimeout(() => { quickDocGenerateBtn.textContent = "Generate Selected"; }, 1600);
+    } catch (error) {
+      alert(error.message || "AI generation could not be completed.");
     }
-    quickDocGenerateBtn.textContent = "Generated!";
-    setTimeout(() => { quickDocGenerateBtn.textContent = "Generate Selected"; }, 1600);
     return;
   }
 
@@ -16654,8 +16817,34 @@ document.addEventListener("click", (event) => {
     const promptBox = document.querySelector("#aiPrompt");
     if (promptBox) promptBox.value = prompt;
     addAiMessage("user", prompt);
-    addAiMessage("assistant", generateFromPrompt(prompt));
-    recordAiUse();
+    const lower = prompt.toLowerCase();
+    const age = detectAgeFromPrompt(lower);
+    let toolId = "lesson";
+    if (lower.includes("observation") || lower.includes("developmental")) toolId = "observation";
+    else if (lower.includes("newsletter")) toolId = "newsletter";
+    else if (lower.includes("daily report")) toolId = "daily";
+    else if (lower.includes("incident") || lower.includes("injury")) toolId = "incident";
+    else if (lower.includes("behavior")) toolId = "behavior";
+    else if (lower.includes("activity") || lower.includes("sensory") || lower.includes("art")) toolId = "activity";
+    else if (lower.includes("parent message") || lower.includes("parent note")) toolId = "parentMessage";
+    else if (lower.includes("menu")) toolId = "menu";
+    else if (lower.includes("handbook")) toolId = "handbook";
+    else if (lower.includes("contract")) toolId = "contract";
+    else if (lower.includes("curriculum unit")) toolId = "curriculum";
+    const settings = getProgramSettings();
+    try {
+      const result = await generateToolOutputWithBackend(toolId, {
+        age,
+        note: prompt,
+        details: prompt,
+        programName: settings.programName || "",
+      });
+      addAiMessage("assistant", result.output);
+      recordAiUse();
+    } catch (error) {
+      addAiMessage("assistant", error.message || "AI generation could not be completed.");
+    }
+    return;
   }
 
   const favoriteButton = event.target.closest("[data-favorite]");
@@ -17016,7 +17205,13 @@ document.addEventListener("click", (event) => {
       return;
     }
     const quickNote = document.querySelector("#dlcDailyReportNote")?.value?.trim() || "";
-    buildDailyReportFromChild(buildDailyReportButton.dataset.buildDailyReport, quickNote);
+    try {
+      await buildDailyReportFromChild(buildDailyReportButton.dataset.buildDailyReport, quickNote);
+      recordAiUse();
+    } catch (error) {
+      alert(error.message || "AI generation could not be completed.");
+    }
+    return;
   }
 
   const openPortfolioButton = event.target.closest("[data-open-portfolio]");
@@ -17845,6 +18040,12 @@ document.querySelector("#resetPasswordForm")?.addEventListener("submit", async (
   }
 });
 
+document.addEventListener("change", (event) => {
+  const debugToggle = event.target.closest("[data-ai-debug-toggle]");
+  if (!debugToggle) return;
+  setAiDebugEnabled(debugToggle.checked);
+});
+
 document.querySelector("#aiChatForm")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const promptBox = document.querySelector("#aiPrompt");
@@ -17882,10 +18083,7 @@ document.querySelector("#aiChatForm")?.addEventListener("submit", async (event) 
     recordAiUse();
     trackEvent("ai_generation_success", { tool: "chat", promptLength: prompt.length, plan: currentPlan, backendUsed: result.backendUsed });
   } catch (error) {
-    const fallback = generateFromPrompt(prompt);
-    addAiMessage("assistant", fallback);
-    recordAiUse();
-    trackEvent("ai_generation_success", { tool: "chat", promptLength: prompt.length, plan: currentPlan, backendUsed: false });
+    addAiMessage("assistant", error.message || "AI generation could not be completed.");
   }
 });
 
@@ -17954,17 +18152,15 @@ document.addEventListener("submit", async (event) => {
   try {
     const result = await generateToolOutputWithBackend(toolId, data);
     outputEl.textContent = result.output;
+    renderAiDebugPanel("#docHelperDebugPanel", result.debug, result.output);
     if (labelEl) labelEl.textContent = "Result";
     recordAiUse();
     renderAiUsagePanel();
     trackEvent("ai_generation_success", { tool: "doc-helper", docType, plan: currentPlan, backendUsed: Boolean(result.backendUsed) });
   } catch (error) {
-    const fallback = generateToolOutput(toolId, data);
-    outputEl.textContent = fallback;
-    if (labelEl) labelEl.textContent = "Result";
-    recordAiUse();
-    renderAiUsagePanel();
-    trackEvent("ai_generation_success", { tool: "doc-helper", docType, plan: currentPlan, backendUsed: false });
+    renderAiDebugPanel("#docHelperDebugPanel");
+    outputEl.textContent = error.message || "AI generation could not be completed.";
+    if (labelEl) labelEl.textContent = "Error";
   }
 });
 
@@ -17991,9 +18187,11 @@ document.addEventListener("submit", async (event) => {
   try {
     const result = await generateToolOutputWithBackend(toolId, data);
     document.querySelector("#generatorOutput").textContent = result.output;
+    renderAiDebugPanel("#generatorDebugPanel", result.debug, result.output);
     recordAiUse();
     trackEvent("ai_generation_success", { tool: toolId, plan: currentPlan, backendUsed: Boolean(result.backendUsed), used: result.used, limit: result.limit });
   } catch (error) {
+    renderAiDebugPanel("#generatorDebugPanel");
     document.querySelector("#outputTitle").textContent = "AI Generation Error";
     document.querySelector("#generatorOutput").textContent = error.message || "AI generation could not be completed.";
   }
@@ -18828,4 +19026,3 @@ async function handleAdminAiTestGenerate() {
   state.generating = false;
   renderAdminAiTestCenter();
 }
-
