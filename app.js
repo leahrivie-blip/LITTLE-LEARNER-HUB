@@ -9,6 +9,22 @@ const categories = [
 
 const aiAgeGroupOptions = ["Infant", "Young Toddler", "Older Toddler", "Preschool", "School Age"];
 const aiDevelopmentalDomainOptions = ["Social Emotional", "Language", "Cognitive", "Fine Motor", "Gross Motor", "Adaptive / Self Help"];
+const LESSON_WORKFLOW_PLANNER_NOTES_LIMIT = 1200;
+const lessonWorkflowCustomizationOptions = [
+  "Learning domains",
+  "Sensory activities",
+  "Art",
+  "Music & Movement",
+  "STEM",
+  "Dramatic Play",
+  "Outdoor activities",
+  "Fine motor",
+  "Gross motor",
+  "Social-emotional learning",
+  "Language & Literacy",
+  "Math",
+  "Science",
+];
 
 const aiTools = [
   {
@@ -387,6 +403,28 @@ let dlcSelectedChildIds = []; // array of child IDs selected for this update
 let dlcAiNote = ""; // provider's free-text note for AI workflow
 let dlcAiSuggestions = []; // [{type,emoji,title,lines,saved,ignored,shareWithFamily}]
 let dlcManualSection = ""; // which accordion section is expanded in manual mode
+let lessonPlanWorkflowState = {
+  step: 1,
+  generating: false,
+  step1: {
+    programName: "",
+    age: "Preschool",
+    planLength: "Weekly",
+    theme: "",
+    childCount: "",
+    materials: "",
+    environment: "Both",
+    timeAvailable: "",
+    developmentalFocus: "",
+    specialRequests: "",
+  },
+  step2: {
+    options: [],
+    accommodations: "",
+  },
+  sectionRegenerate: "Full lesson plan",
+  improveRequest: "",
+};
 let activeChildObservationEditId = "";
 let activeChildProfileEditId = "";
 let pendingObservationArea = "";
@@ -6707,32 +6745,128 @@ function renderAiToolGrid() {
     </article>
   `).join("");
 }
-function renderGeneratorWorkspace(toolId) {
-  const workspace = document.querySelector("#generatorWorkspace");
-  if (!workspace) return;
-  const tool = aiTools.find((item) => item.id === toolId) || aiTools[0];
-  const locked = accessRank[effectiveAccessPlan()] < accessRank.Pro;
-  workspace.innerHTML = `
-    <div class="tool-tabs">
-      ${aiTools.map((item) => `<button class="${item.id === tool.id ? "active-filter" : ""}" data-tool="${item.id}" type="button">${item.title.replace("AI ", "")}</button>`).join("")}
-    </div>
-    <div class="generator-panel ${locked ? "tool-locked" : ""}">
-      <form class="panel-form generator-form" id="activeGeneratorForm" data-generator="${tool.id}">
-        <p class="eyebrow">${locked ? "Premium Preview" : "Ready to Generate"}</p>
-        <h3>${tool.title}</h3>
-        <p>${tool.detail}</p>
+function lessonPlanWorkflowBuildData(extraInstruction = "") {
+  const settings = getProgramSettings();
+  const step1 = lessonPlanWorkflowState.step1;
+  const step2 = lessonPlanWorkflowState.step2;
+  const selectedOptions = step2.options.join(", ");
+  const focusText = [step1.developmentalFocus, selectedOptions].filter(Boolean).join(", ");
+  const providerNotes = [
+    step1.specialRequests ? `Special requests: ${step1.specialRequests}` : "",
+    step1.childCount ? `Number of children: ${step1.childCount}` : "",
+    step1.environment ? `Indoor/Outdoor setting: ${step1.environment}` : "",
+    step1.timeAvailable ? `Time available: ${step1.timeAvailable}` : "",
+    step2.accommodations ? `Accommodations or modifications: ${step2.accommodations}` : "",
+    extraInstruction || "",
+  ].filter(Boolean).join("\n");
+  return {
+    programName: step1.programName || settings.programName || "",
+    age: step1.age || "Preschool",
+    planLength: step1.planLength || "Weekly",
+    theme: step1.theme || "Play-based learning",
+    days: (step1.planLength || "Weekly") === "Daily" ? "1" : "5",
+    focus: focusText || "play-based learning",
+    goals: focusText || step1.developmentalFocus || "play-based learning",
+    materials: step1.materials || "",
+    providerNotes,
+  };
+}
+
+function renderLessonPlanWorkflow(tool, locked, preserveOutput = true) {
+  const settings = getProgramSettings();
+  if (!lessonPlanWorkflowState.step1.programName && settings.programName) {
+    lessonPlanWorkflowState.step1.programName = settings.programName;
+  }
+  const step = lessonPlanWorkflowState.step;
+  const step1 = lessonPlanWorkflowState.step1;
+  const step2 = lessonPlanWorkflowState.step2;
+  const existingTitle = preserveOutput ? (document.querySelector("#outputTitle")?.textContent?.trim() || "") : "";
+  const outputRaw = preserveOutput
+    ? (document.querySelector("#generatorOutput")?.dataset.rawMarkdown
+      || document.querySelector("#generatorOutput")?.textContent?.trim()
+      || "")
+    : "";
+  const outputTitle = outputRaw ? (existingTitle || "Lesson Plan") : "Ready when you are";
+  const outputMarkup = outputRaw
+    ? renderMarkdown(outputRaw)
+    : "Fill out the steps and generate a childcare-ready lesson plan.";
+  return `
+    <div class="generator-panel lesson-workflow-panel ${locked ? "tool-locked" : ""}">
+      <section class="panel-form generator-form lesson-workflow-card">
+        <div class="lesson-workflow-steps">
+          ${[
+            ["1", "Tell AI About Your Classroom"],
+            ["2", "Customize Your Lesson Plan"],
+            ["3", "Generate Lesson Plan"],
+            ["4", "Review & Customize"],
+          ].map(([value, label]) => `<button class="lesson-step-pill ${Number(value) === step ? "active" : ""}" data-lesson-step="${value}" type="button">${value}. ${label}</button>`).join("")}
+        </div>
         <label class="settings-check-label ai-debug-toggle">
           <input type="checkbox" data-ai-debug-toggle ${aiDebugEnabled() ? "checked" : ""} />
           Debug mode
         </label>
-        ${tool.fields.map(renderGeneratorField).join("")}
-        <button class="primary-button" type="submit">${locked ? "Preview AI Output" : "Generate"}</button>
-      </form>
+        ${step === 1 ? `
+          <div class="dlc-step">
+            <p class="dlc-step-label">Step 1 — Tell AI About Your Classroom</p>
+            <label>Program Name<input name="programName" data-lesson-step1="programName" value="${escapeHtml(step1.programName || "")}" placeholder="Little Learner Home Daycare" /></label>
+            <label>Age Group<select name="age" data-lesson-step1="age">${aiAgeGroupOptions.map((option) => `<option ${step1.age === option ? "selected" : ""}>${option}</option>`).join("")}</select></label>
+            <label>Lesson Type<select name="planLength" data-lesson-step1="planLength">${["Daily", "Weekly"].map((option) => `<option ${step1.planLength === option ? "selected" : ""}>${option}</option>`).join("")}</select></label>
+            <label>Theme<input name="theme" data-lesson-step1="theme" value="${escapeHtml(step1.theme || "")}" placeholder="Farm, ocean, weather, helpers..." /></label>
+            <label>Number of Children<input name="childCount" data-lesson-step1="childCount" value="${escapeHtml(step1.childCount || "")}" placeholder="8" /></label>
+            <label>Available Materials<textarea name="materials" data-lesson-step1="materials" rows="3" placeholder="paper, crayons, books, sensory bin">${escapeHtml(step1.materials || "")}</textarea></label>
+            <label>Indoor / Outdoor<select name="environment" data-lesson-step1="environment">${["Indoor", "Outdoor", "Both"].map((option) => `<option ${step1.environment === option ? "selected" : ""}>${option}</option>`).join("")}</select></label>
+            <label>Time Available<input name="timeAvailable" data-lesson-step1="timeAvailable" value="${escapeHtml(step1.timeAvailable || "")}" placeholder="30 minutes" /></label>
+            <label>Developmental Focus<input name="developmentalFocus" data-lesson-step1="developmentalFocus" value="${escapeHtml(step1.developmentalFocus || "")}" placeholder="language, social-emotional, fine motor" /></label>
+            <label>Special Requests (optional)<textarea name="specialRequests" data-lesson-step1="specialRequests" rows="3" placeholder="Any special requests">${escapeHtml(step1.specialRequests || "")}</textarea></label>
+            <button class="primary-button" data-lesson-next="2" type="button">Continue to Step 2</button>
+          </div>
+        ` : ""}
+        ${step === 2 ? `
+          <div class="dlc-step">
+            <p class="dlc-step-label">Step 2 — Customize Your Lesson Plan</p>
+            <fieldset class="dlc-quick-doc-types">
+              <legend>Choose focus areas</legend>
+              ${lessonWorkflowCustomizationOptions.map((option) => `
+                <label class="dlc-check-label">
+                  <input type="checkbox" data-lesson-option="${escapeHtml(option)}" ${step2.options.includes(option) ? "checked" : ""} />
+                  ${option}
+                </label>
+              `).join("")}
+            </fieldset>
+            <label>Accommodations or Modifications<textarea name="accommodations" data-lesson-step2="accommodations" rows="3" placeholder="Adjustments for individual children">${escapeHtml(step2.accommodations || "")}</textarea></label>
+            <div class="lesson-step-actions">
+              <button class="ghost-button" data-lesson-next="1" type="button">Back</button>
+              <button class="primary-button" data-lesson-generate type="button">${lessonPlanWorkflowState.generating ? "Generating…" : (locked ? "Preview Lesson Plan" : "Generate Lesson Plan")}</button>
+            </div>
+          </div>
+        ` : ""}
+        ${step === 3 ? `
+          <div class="dlc-step lesson-step-loading">
+            <p class="dlc-step-label">Step 3 — Generate Lesson Plan</p>
+            <p>Creating your personalized lesson plan…</p>
+          </div>
+        ` : ""}
+        ${step === 4 ? `
+          <div class="dlc-step lesson-step-review">
+            <p class="dlc-step-label">Step 4 — Review & Customize</p>
+            <p class="dlc-sub">Use the tools on the right to edit, copy, save, print, export PDF, and add this plan to My Week.</p>
+            <label>Regenerate Section<select data-lesson-section>
+              ${["Full lesson plan", "Learning Objectives", "Activities", "Materials", "Family Connection", "Assessment / Reflection"].map((option) => `<option ${lessonPlanWorkflowState.sectionRegenerate === option ? "selected" : ""}>${option}</option>`).join("")}
+            </select></label>
+            <button class="ghost-button" data-lesson-regenerate-section type="button">Regenerate Selected Section</button>
+            <label>Improve Writing<textarea data-lesson-improve rows="3" placeholder="Ex: make it shorter and parent-friendly">${escapeHtml(lessonPlanWorkflowState.improveRequest || "")}</textarea></label>
+            <div class="lesson-step-actions">
+              <button class="ghost-button" data-lesson-next="2" type="button">Back to Step 2</button>
+              <button class="primary-button" data-lesson-improve-writing type="button">Apply Writing Improvements</button>
+            </div>
+          </div>
+        ` : ""}
+      </section>
       <div class="ai-output-panel">
         <div class="output-toolbar">
           <div>
-            <p class="eyebrow">Generated Result</p>
-            <h3 id="outputTitle">Ready when you are</h3>
+            <p class="eyebrow">${step < 4 ? "Lesson Plan Preview" : "Generated Result"}</p>
+            <h3 id="outputTitle">${escapeHtml(outputTitle)}</h3>
           </div>
           <div class="output-actions">
             <button class="ghost-button" id="editOutputButton" type="button">Edit</button>
@@ -6742,17 +6876,139 @@ function renderGeneratorWorkspace(toolId) {
             <button class="ghost-button" id="regenerateOutputButton" type="button">Regenerate</button>
             <button class="ghost-button" id="printOutputButton" type="button">Print</button>
             <button class="ghost-button" id="downloadOutputButton" type="button">Print / Save PDF</button>
+            <button class="ghost-button" id="lessonAddToWeekButton" type="button">Add to My Week</button>
           </div>
         </div>
-        <div id="generatorOutput" class="ai-output-rendered" contenteditable="true" spellcheck="true">Fill out the form and generate a childcare-ready result.</div>
+        <div id="generatorOutput" class="ai-output-rendered" contenteditable="true" spellcheck="true" ${outputRaw ? `data-raw-markdown="${escapeHtml(outputRaw)}"` : ""}>${outputMarkup}</div>
         <div id="generatorDebugPanel" class="section-block" hidden></div>
       </div>
     </div>
+  `;
+}
+
+function renderGeneratorWorkspace(toolId) {
+  const workspace = document.querySelector("#generatorWorkspace");
+  if (!workspace) return;
+  const tool = aiTools.find((item) => item.id === toolId) || aiTools[0];
+  const locked = accessRank[effectiveAccessPlan()] < accessRank.Pro;
+  const previousToolId = workspace.dataset.activeTool || "";
+  workspace.dataset.activeTool = tool.id;
+  workspace.innerHTML = `
+    <div class="tool-tabs">
+      ${aiTools.map((item) => `<button class="${item.id === tool.id ? "active-filter" : ""}" data-tool="${item.id}" type="button">${item.title.replace("AI ", "")}</button>`).join("")}
+    </div>
+    ${tool.id === "lesson" ? renderLessonPlanWorkflow(tool, locked, previousToolId === "lesson") : `
+      <div class="generator-panel ${locked ? "tool-locked" : ""}">
+        <form class="panel-form generator-form" id="activeGeneratorForm" data-generator="${tool.id}">
+          <p class="eyebrow">${locked ? "Premium Preview" : "Ready to Generate"}</p>
+          <h3>${tool.title}</h3>
+          <p>${tool.detail}</p>
+          <label class="settings-check-label ai-debug-toggle">
+            <input type="checkbox" data-ai-debug-toggle ${aiDebugEnabled() ? "checked" : ""} />
+            Debug mode
+          </label>
+          ${tool.fields.map(renderGeneratorField).join("")}
+          <button class="primary-button" type="submit">${locked ? "Preview AI Output" : "Generate"}</button>
+        </form>
+        <div class="ai-output-panel">
+          <div class="output-toolbar">
+            <div>
+              <p class="eyebrow">Generated Result</p>
+              <h3 id="outputTitle">Ready when you are</h3>
+            </div>
+            <div class="output-actions">
+              <button class="ghost-button" id="editOutputButton" type="button">Edit</button>
+              <button class="ghost-button" id="copyOutputButton" type="button">Copy</button>
+              <button class="ghost-button" id="saveOutputButton" type="button">Save</button>
+              <button class="ghost-button" id="saveOutputLibraryButton" type="button">Save to Library</button>
+              <button class="ghost-button" id="regenerateOutputButton" type="button">Regenerate</button>
+              <button class="ghost-button" id="printOutputButton" type="button">Print</button>
+              <button class="ghost-button" id="downloadOutputButton" type="button">Print / Save PDF</button>
+            </div>
+          </div>
+          <div id="generatorOutput" class="ai-output-rendered" contenteditable="true" spellcheck="true">Fill out the form and generate a childcare-ready result.</div>
+          <div id="generatorDebugPanel" class="section-block" hidden></div>
+        </div>
+      </div>
+    `}
   `;
   renderGeneratedHistory();
   prefillGeneratorFromSettings();
   renderAiDebugPanel("#generatorDebugPanel");
   syncAiDebugToggles();
+}
+
+async function runLessonPlanWorkflowGeneration(extraInstruction = "") {
+  const outputEl = document.querySelector("#generatorOutput");
+  const titleEl = document.querySelector("#outputTitle");
+  if (!outputEl) return;
+  if (!canUseAi()) {
+    if (titleEl) titleEl.textContent = "AI Limit Reached";
+    outputEl.textContent = aiLimitMessage();
+    delete outputEl.dataset.rawMarkdown;
+    return;
+  }
+  lessonPlanWorkflowState.generating = true;
+  lessonPlanWorkflowState.step = 3;
+  renderGeneratorWorkspace("lesson");
+  try {
+    const data = lessonPlanWorkflowBuildData(extraInstruction);
+    const result = await generateToolOutputWithBackend("lesson", data);
+    lessonPlanWorkflowState.generating = false;
+    lessonPlanWorkflowState.step = 4;
+    renderGeneratorWorkspace("lesson");
+    const refreshedOutput = document.querySelector("#generatorOutput");
+    if (refreshedOutput) {
+      refreshedOutput.innerHTML = renderMarkdown(result.output);
+      refreshedOutput.dataset.rawMarkdown = result.output;
+    }
+    const refreshedTitle = document.querySelector("#outputTitle");
+    if (refreshedTitle) refreshedTitle.textContent = "Lesson Plan";
+    renderAiDebugPanel("#generatorDebugPanel", result.debug, result.output);
+    recordAiUse();
+    renderAiUsagePanel();
+    trackEvent("ai_generation_success", { tool: "lesson", plan: currentPlan, backendUsed: Boolean(result.backendUsed), used: result.used, limit: result.limit });
+  } catch (error) {
+    lessonPlanWorkflowState.generating = false;
+    lessonPlanWorkflowState.step = 4;
+    renderGeneratorWorkspace("lesson");
+    const refreshedOutput = document.querySelector("#generatorOutput");
+    if (refreshedOutput) {
+      refreshedOutput.textContent = error.message || "AI generation could not be completed.";
+      delete refreshedOutput.dataset.rawMarkdown;
+    }
+    renderAiDebugPanel("#generatorDebugPanel");
+  }
+}
+
+function addLessonWorkflowToMyWeek() {
+  const planner = weeklyPlanner();
+  const step1 = lessonPlanWorkflowState.step1;
+  const step2 = lessonPlanWorkflowState.step2;
+  const output = (document.querySelector("#generatorOutput")?.dataset.rawMarkdown || document.querySelector("#generatorOutput")?.textContent || "").trim();
+  planner.ageGroup = step1.age || planner.ageGroup;
+  planner.theme = step1.theme || planner.theme;
+  planner.focus = [step1.developmentalFocus, step2.options.join(", ")].filter(Boolean).join(", ") || planner.focus;
+  planner.notes = output ? output.slice(0, LESSON_WORKFLOW_PLANNER_NOTES_LIMIT) : planner.notes;
+  saveWeeklyPlanner(planner);
+  setView("planner");
+}
+
+function syncLessonWorkflowStateFromDom() {
+  document.querySelectorAll("[data-lesson-step1]").forEach((field) => {
+    const key = field.dataset.lessonStep1;
+    lessonPlanWorkflowState.step1[key] = field.value;
+  });
+  const selectedOptions = Array.from(document.querySelectorAll("[data-lesson-option]:checked"))
+    .map((input) => input.dataset.lessonOption)
+    .filter(Boolean);
+  lessonPlanWorkflowState.step2.options = selectedOptions;
+  const accommodations = document.querySelector("[data-lesson-step2='accommodations']");
+  if (accommodations) lessonPlanWorkflowState.step2.accommodations = accommodations.value;
+  const section = document.querySelector("[data-lesson-section]");
+  if (section) lessonPlanWorkflowState.sectionRegenerate = section.value;
+  const improve = document.querySelector("[data-lesson-improve]");
+  if (improve) lessonPlanWorkflowState.improveRequest = improve.value;
 }
 
 function prefillGeneratorFromSettings() {
@@ -17008,6 +17264,53 @@ document.addEventListener("click", async (event) => {
     setView("children");
   }
 
+  const lessonStepButton = event.target.closest("[data-lesson-step]");
+  if (lessonStepButton) {
+    syncLessonWorkflowStateFromDom();
+    const nextStep = Number(lessonStepButton.dataset.lessonStep || 1);
+    if (!Number.isNaN(nextStep)) {
+      lessonPlanWorkflowState.step = nextStep;
+      renderGeneratorWorkspace("lesson");
+    }
+  }
+
+  const lessonNextButton = event.target.closest("[data-lesson-next]");
+  if (lessonNextButton) {
+    syncLessonWorkflowStateFromDom();
+    const nextStep = Number(lessonNextButton.dataset.lessonNext || 1);
+    lessonPlanWorkflowState.step = nextStep;
+    renderGeneratorWorkspace("lesson");
+  }
+
+  const lessonGenerateButton = event.target.closest("[data-lesson-generate]");
+  if (lessonGenerateButton) {
+    syncLessonWorkflowStateFromDom();
+    runLessonPlanWorkflowGeneration();
+  }
+
+  const lessonRegenerateSectionButton = event.target.closest("[data-lesson-regenerate-section]");
+  if (lessonRegenerateSectionButton) {
+    syncLessonWorkflowStateFromDom();
+    const sectionName = lessonPlanWorkflowState.sectionRegenerate || "Full lesson plan";
+    runLessonPlanWorkflowGeneration(`Regenerate this section while keeping everything else aligned: ${sectionName}.`);
+  }
+
+  const lessonImproveWritingButton = event.target.closest("[data-lesson-improve-writing]");
+  if (lessonImproveWritingButton) {
+    syncLessonWorkflowStateFromDom();
+    const instruction = lessonPlanWorkflowState.improveRequest
+      ? `Improve writing with this request: ${lessonPlanWorkflowState.improveRequest}`
+      : "Improve writing clarity while keeping the same lesson plan structure.";
+    runLessonPlanWorkflowGeneration(instruction);
+  }
+
+  const lessonAddToWeekButton = event.target.closest("#lessonAddToWeekButton");
+  if (lessonAddToWeekButton) {
+    syncLessonWorkflowStateFromDom();
+    addLessonWorkflowToMyWeek();
+    return;
+  }
+
   const plannerResourceButton = event.target.closest("[data-planner-resource]");
   if (plannerResourceButton) {
     const planner = weeklyPlanner();
@@ -17115,7 +17418,11 @@ document.addEventListener("click", async (event) => {
   const regenerateButton = event.target.closest("#regenerateOutputButton");
   if (regenerateButton) {
     const form = document.querySelector("#activeGeneratorForm");
-    form?.requestSubmit();
+    if (form) form.requestSubmit();
+    else if (document.querySelector("#generatorWorkspace")?.dataset.activeTool === "lesson") {
+      syncLessonWorkflowStateFromDom();
+      runLessonPlanWorkflowGeneration();
+    }
   }
 
   const printOutputButton = event.target.closest("#printOutputButton");
