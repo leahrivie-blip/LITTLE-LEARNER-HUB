@@ -339,6 +339,33 @@ const weeklyObservationsPerChild = 3;
 const childDataKeys = ["Profiles", "Observations", "SupportPlans", "Goals", "Differentiations", "Attendance", "Meals", "Reports", "Communications", "Naps", "Diapers", "ActivityLogs"];
 const diaperAgeGroups = new Set(["Infant", "Toddler", "Young Toddler", "Older Toddler"]);
 const plannerDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+const docHelperToolMap = {
+  "observation": "observation",
+  "daily-log": "daily",
+  "parent-message": "parentMessage",
+  "lesson-plan": "lesson",
+  "behavior-note": "behavior",
+  "incident-report": "incident",
+  "activity-idea": "activity",
+};
+const docTypeLabels = {
+  "observation": "Observation",
+  "daily-log": "Daily Log",
+  "parent-message": "Parent Message",
+  "lesson-plan": "Lesson Plan",
+  "behavior-note": "Behavior Note",
+  "incident-report": "Incident Report",
+  "activity-idea": "Activity Idea",
+};
+const docHelperSaveConfig = {
+  "observation": { key: "Observations", view: "resource-observations" },
+  "daily-log": { key: "Reports", view: "child-tools-daily-logs" },
+  "parent-message": { key: "Communications", view: "documentation-parent-messages" },
+  "lesson-plan": { key: null, view: "lessons" },
+  "behavior-note": { key: "Reports", view: "documentation-behavior-reports" },
+  "incident-report": { key: "Reports", view: "documentation-incident-reports" },
+  "activity-idea": { key: "ActivityLogs", view: "activities" },
+};
 let selectedChildId = localStorage.getItem("llhSelectedChild") || "";
 let childObservationSearch = "";
 let childObservationAreaFilter = "All";
@@ -17088,24 +17115,6 @@ document.addEventListener("click", (event) => {
     const text = outputEl?.textContent?.trim() || "";
     if (!text || text === "Generating...") return;
     const today = new Date().toISOString().slice(0, 10);
-    const docTypeLabels = {
-      "observation": "Observation",
-      "daily-log": "Daily Log",
-      "parent-message": "Parent Message",
-      "lesson-plan": "Lesson Plan",
-      "behavior-note": "Behavior Note",
-      "incident-report": "Incident Report",
-      "activity-idea": "Activity Idea",
-    };
-    const docHelperSaveConfig = {
-      "observation": { key: "Observations", view: "resource-observations" },
-      "daily-log": { key: "Reports", view: "child-tools-daily-logs" },
-      "parent-message": { key: "Communications", view: "documentation-parent-messages" },
-      "lesson-plan": { key: null, view: "lessons" },
-      "behavior-note": { key: "Reports", view: "documentation-behavior-reports" },
-      "incident-report": { key: "Reports", view: "documentation-incident-reports" },
-      "activity-idea": { key: "ActivityLogs", view: "activities" },
-    };
     const config = docHelperSaveConfig[docType] || { key: "Reports", view: "children" };
     const title = `${docTypeLabels[docType] || "Documentation"} | ${today}`;
     if (config.key) {
@@ -17913,24 +17922,6 @@ document.addEventListener("submit", async (event) => {
   const programName = settings.programName || "";
   const today = new Date().toISOString().slice(0, 10);
 
-  const docHelperToolMap = {
-    "observation": "observation",
-    "daily-log": "daily",
-    "parent-message": "parentMessage",
-    "lesson-plan": "lesson",
-    "behavior-note": "behavior",
-    "incident-report": "incident",
-    "activity-idea": "activity",
-  };
-  const docTypeLabels = {
-    "observation": "Observation",
-    "daily-log": "Daily Log",
-    "parent-message": "Parent Message",
-    "lesson-plan": "Lesson Plan",
-    "behavior-note": "Behavior Note",
-    "incident-report": "Incident Report",
-    "activity-idea": "Activity Idea",
-  };
   const toolId = docHelperToolMap[docType] || "observation";
   const label = docTypeLabels[docType] || "Documentation";
 
