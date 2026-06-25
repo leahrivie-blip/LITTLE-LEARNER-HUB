@@ -35,55 +35,75 @@
 
         <nav class="nav-list">
           <div class="nav-section">
-            <p>Home</p>
+            <p>🏠 Dashboard</p>
             <button class="nav-link active" data-view="home">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-5v-6h-5v6h-5A1.5 1.5 0 0 1 3 19.5z"/></svg></span>
               Home
             </button>
+            <button class="nav-link" data-view="dashboard-tasks">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M8 14h3M13 14h3M8 17h3"/></svg></span>
+              Today's Tasks
+            </button>
+            <button class="nav-link" data-view="dashboard-quick-stats">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16M7 17V9M12 17V5M17 17v-6"/></svg></span>
+              Quick Stats
+            </button>
+            <button class="nav-link" data-view="favorites" data-pro-nav>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 2.7 5.5 6 .9-4.4 4.2 1 6-5.3-2.8-5.3 2.8 1-6-4.4-4.2 6-.9z"/></svg></span>
+              Favorites
+            </button>
+            <button class="nav-link" data-view="reports" data-pro-nav>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16M7 17V9M12 17V5M17 17v-6"/></svg></span>
+              Reports &amp; Analytics
+            </button>
           </div>
 
           <div class="nav-section">
-            <p>Plan &amp; Track</p>
-            <button class="nav-link" data-view="planner">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M8 14h3M13 14h3M8 17h3"/></svg></span>
-              Weekly Planner
-            </button>
+            <p>👶 Children</p>
             <button class="nav-link" data-view="children">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7.5 0"/></svg></span>
               Child Profiles
               <span class="nav-pill">New</span>
             </button>
-            <button class="nav-link" data-view="observations">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4M11 8v3l2 2"/></svg></span>
-              Observation Hub
-            </button>
             <button class="nav-link" data-view="goals">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 12 19 5"/></svg></span>
               Goals &amp; Progress
             </button>
+            <button class="nav-link" data-view="child-tools-daily-logs" data-pro-nav>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v5M16 4v5M7 14h3M7 17h5M14 14h3"/></svg></span>
+              Daily Logs
+            </button>
+            <button class="nav-link" data-view="child-tools-reports" data-pro-nav>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16M7 17V9M12 17V5M17 17v-6"/></svg></span>
+              Child Daily Reports
+            </button>
+            <button class="nav-link" data-view="child-tools-attendance" data-pro-nav>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v15H4zM8 3v4M16 3v4M4 10h16"/></svg></span>
+              Attendance
+            </button>
+            <button class="nav-link" data-view="child-tools-meals" data-pro-nav>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3v18M10 3v18M6 10h4M16 3v8a3 3 0 0 0 3 3v7"/></svg></span>
+              Meals
+            </button>
+            <button class="nav-link" data-view="child-tools-communication" data-pro-nav>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 3z"/></svg></span>
+              Parent Communication
+            </button>
+            <button class="nav-link" data-view="portfolio" data-pro-nav>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7h7l2 2h9v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 7V5a2 2 0 0 1 2-2h5l2 2h4"/></svg></span>
+              Portfolios
+            </button>
+          </div>
+
+          <div class="nav-section">
+            <p>📅 Planning</p>
+            <button class="nav-link" data-view="planner">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M8 14h3M13 14h3M8 17h3"/></svg></span>
+              Weekly Planner
+            </button>
             <button class="nav-link" data-view="lessons">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 0 4 22z"/><path d="M4 5.5V22M8 7h8M8 11h7"/></svg></span>
               Lesson Plan Library
-            </button>
-            <button class="nav-link" data-view="support-center">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3a7 7 0 0 0-7 7c0 4 4 5 4 8h6c0-3 4-4 4-8a7 7 0 0 0-7-7z"/><path d="M9 21h6M10 10h4M12 8v4"/></svg></span>
-              Support Center
-            </button>
-          </div>
-
-          <div class="nav-section">
-            <p>Child Tools</p>
-            <button class="nav-link" data-view="child-tools-daily-logs" data-pro-nav>
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v5M16 4v5M7 14h3M7 17h5M14 14h3"/></svg></span>
-              Daily Logs Center
-            </button>
-          </div>
-
-          <div class="nav-section">
-            <p>Resources</p>
-            <button class="nav-link" data-view="forms">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg></span>
-              Forms Library
             </button>
             <button class="nav-link" data-view="activities">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6v5h5v6h-5v7H9v-7H4V8h5z"/></svg></span>
@@ -100,27 +120,63 @@
           </div>
 
           <div class="nav-section">
-            <p>AI Tools</p>
-            <button class="nav-link" data-view="ai">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 1.6 4.7L18 9l-4.4 1.3L12 15l-1.6-4.7L6 9l4.4-1.3zM19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8zM6 14l.8 2.2L9 17l-2.2.8L6 20l-.8-2.2L3 17l2.2-.8z"/></svg></span>
-              AI Tools
-              <span class="nav-pill">New</span>
+            <p>📚 Resources</p>
+            <button class="nav-link" data-view="resource-observations">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4M11 8v3l2 2"/></svg></span>
+              Observation Library
+            </button>
+            <button class="nav-link" data-view="forms">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg></span>
+              Forms Library
+            </button>
+            <button class="nav-link" data-view="support-center">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3a7 7 0 0 0-7 7c0 4 4 5 4 8h6c0-3 4-4 4-8a7 7 0 0 0-7-7z"/><path d="M9 21h6M10 10h4M12 8v4"/></svg></span>
+              Support &amp; Licensing
+            </button>
+            <button class="nav-link" data-view="resource-search">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg></span>
+              Resource Search
             </button>
           </div>
 
           <div class="nav-section">
-            <p>Business Tools</p>
-            <button class="nav-link" data-view="portfolio" data-pro-nav>
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7h7l2 2h9v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 7V5a2 2 0 0 1 2-2h5l2 2h4"/></svg></span>
-              Portfolio Builder
+            <p>📝 Documentation Hub</p>
+            <button class="nav-link" data-view="documentation-observations">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4M11 8v3l2 2"/></svg></span>
+              Observations (Records)
             </button>
-            <button class="nav-link" data-view="reports" data-pro-nav>
+            <button class="nav-link" data-view="documentation-incident-reports" data-pro-nav>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg></span>
+              Incident Reports
+            </button>
+            <button class="nav-link" data-view="documentation-behavior-reports" data-pro-nav>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg></span>
+              Behavior Reports
+            </button>
+            <button class="nav-link" data-view="documentation-parent-messages" data-pro-nav>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 3z"/></svg></span>
+              Parent Messages
+            </button>
+            <button class="nav-link" data-view="documentation-daily-reports" data-pro-nav>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16M7 17V9M12 17V5M17 17v-6"/></svg></span>
-              Reports &amp; Analytics
+              Daily Reports
             </button>
-            <button class="nav-link" data-view="favorites" data-pro-nav>
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 2.7 5.5 6 .9-4.4 4.2 1 6-5.3-2.8-5.3 2.8 1-6-4.4-4.2 6-.9z"/></svg></span>
-              Favorites
+            <button class="nav-link" data-view="documentation-newsletters">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z"/><path d="m4 8 8 5 8-5"/></svg></span>
+              Newsletters (AI)
+            </button>
+            <button class="nav-link" data-view="documentation-contracts">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg></span>
+              Contracts
+            </button>
+          </div>
+
+          <div class="nav-section">
+            <p>🤖 Ask Leah AI</p>
+            <button class="nav-link" data-view="ai">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 1.6 4.7L18 9l-4.4 1.3L12 15l-1.6-4.7L6 9l4.4-1.3zM19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8zM6 14l.8 2.2L9 17l-2.2.8L6 20l-.8-2.2L3 17l2.2-.8z"/></svg></span>
+              Ask Leah AI
+              <span class="nav-pill">New</span>
             </button>
           </div>
 
