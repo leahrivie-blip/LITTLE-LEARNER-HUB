@@ -2441,6 +2441,16 @@ body.home-view .topbar .search-wrap {
   font-weight: 700;
 }
 
+.admin-lesson-editing-heading {
+  margin: 2px 0 4px;
+  color: #5b4a9e;
+}
+
+#adminLessonPlanForm textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
 .admin-lesson-generator {
   background: linear-gradient(135deg, #fdf6ff 0%, #f0f8ff 100%);
   border: 1.5px solid #c9aff5;
@@ -2510,6 +2520,10 @@ body.home-view .topbar .search-wrap {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.admin-stacked-form .form-actions button {
+  min-height: 44px;
 }
 
 #adminCancelEdit {
@@ -7485,6 +7499,27 @@ body.home-view .topbar .search-wrap {
   line-height: 1.55;
 }
 
+.install-instructions-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.install-instructions-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(248, 250, 255, 0.9);
+  padding: 14px 16px;
+}
+
+.install-instructions-card h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.install-instructions-card ol {
+  margin: 0;
+}
+
 .close-button {
   position: absolute;
   top: 12px;
@@ -7562,6 +7597,10 @@ body.home-view .topbar .search-wrap {
 	  .onboarding-list {
 	    grid-template-columns: 1fr;
 	  }
+
+  #adminLessonPlanForm .form-actions button {
+    width: 100%;
+  }
 
   .provider-needs-grid article {
     border-right: 0;
@@ -10360,6 +10399,32 @@ body.home-view .topbar .search-wrap {
   margin-bottom: 20px;
 }
 
+.dashboard-install-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  background: linear-gradient(135deg, rgba(91, 155, 213, 0.12) 0%, rgba(139, 124, 246, 0.08) 100%);
+  border: 1px solid rgba(91, 155, 213, 0.35);
+  margin-bottom: 20px;
+}
+
+.dashboard-install-copy h3 {
+  margin: 0 0 6px;
+}
+
+.dashboard-install-copy p:last-child {
+  margin-bottom: 0;
+  color: var(--text-muted, #6b7280);
+}
+
+.dashboard-install-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 .dashboard-quick-doc-header h3 {
   font-size: 1.15rem;
   margin: 0 0 4px;
@@ -10390,10 +10455,90 @@ body.home-view .topbar .search-wrap {
 }
 
 .dashboard-today h3,
-.dashboard-recent h3 {
+.dashboard-recent h3,
+.dashboard-calendar h3,
+.dashboard-reminders h3 {
   font-size: 1rem;
   font-weight: 700;
   margin: 0 0 14px;
+}
+
+.dashboard-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.dashboard-panel-heading h3 {
+  margin-bottom: 4px;
+}
+
+.dashboard-grid-secondary {
+  margin-top: 16px;
+}
+
+.dashboard-calendar-list,
+.dashboard-reminder-group {
+  display: grid;
+  gap: 10px;
+}
+
+.dashboard-calendar-row,
+.dashboard-reminder-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.dashboard-calendar-row.is-today {
+  border-color: rgba(91, 155, 213, 0.45);
+  background: rgba(91, 155, 213, 0.08);
+}
+
+.dashboard-calendar-row div,
+.dashboard-reminder-row {
+  min-width: 0;
+}
+
+.dashboard-calendar-row strong,
+.dashboard-reminder-row span {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.dashboard-calendar-row small,
+.dashboard-reminder-row small {
+  color: var(--text-muted, #6b7280);
+}
+
+.dashboard-calendar-row span,
+.dashboard-reminder-row small:last-child {
+  flex-shrink: 0;
+}
+
+.dashboard-reminders {
+  display: grid;
+  gap: 14px;
+}
+
+.dashboard-reminder-group strong {
+  font-size: 0.95rem;
+}
+
+.account-install-panel .account-actions-row {
+  margin-top: 14px;
+}
+
+.account-install-copy {
+  margin: 0;
+  color: var(--text-muted, #6b7280);
 }
 
 .dashboard-stat-alert {
@@ -10459,6 +10604,25 @@ body.home-view .topbar .search-wrap {
   .dashboard-quick-doc-actions .ghost-button {
     width: 100%;
     text-align: center;
+  }
+
+  .dashboard-install-card,
+  .dashboard-panel-heading,
+  .dashboard-calendar-row,
+  .dashboard-reminder-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dashboard-install-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .dashboard-install-actions .primary-button,
+  .dashboard-install-actions .ghost-button,
+  .dashboard-panel-heading .ghost-button {
+    width: 100%;
   }
 }
 

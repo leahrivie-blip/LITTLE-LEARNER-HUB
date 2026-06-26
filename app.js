@@ -2867,10 +2867,17 @@ let adminLessonEditorId = "";
 let adminReviewEditorId = "";
 let adminImageEditorId = "";
 let adminLessonSelection = new Set();
+let adminLessonEditorInitialSnapshot = "";
+const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
+const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
+const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
 const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","reviews","homepage","founder","images","analytics","support","ai-testing"]);
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "dashboard";
 let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabRaw) ? adminActiveSectionTabRaw : "dashboard";
 const mobileNavMaxWidth = 820;
+const installPromptDeferDays = 30;
+let deferredInstallPrompt = null;
+let installModalSource = "settings";
 const sidebarViewAliases = {
   "resource-observations": "observations",
   "documentation-observations": "observations",
@@ -3581,6 +3588,188 @@ function updateAuthButtons() {
   updateBodyAuthClass();
 }
 
+function installPromptState() {
+  if (currentUser) return currentAccount()?.installPrompt || {};
+  return readSavedJson("llhGuestInstallPrompt", {});
+}
+
+function saveInstallPromptState(updates = {}) {
+  const nextState = { ...installPromptState(), ...updates };
+  if (currentUser) {
+    updateAccount(currentUser, { installPrompt: nextState });
+  } else {
+    localStorage.setItem("llhGuestInstallPrompt", JSON.stringify(nextState));
+  }
+  return nextState;
+}
+
+function isIosDevice() {
+  return /iphone|ipad|ipod/i.test(window.navigator.userAgent) || (window.navigator.platform === "MacIntel" && window.navigator.maxTouchPoints > 1);
+}
+
+function isAndroidDevice() {
+  return /android/i.test(window.navigator.userAgent);
+}
+
+function isSafariBrowser() {
+  const agent = window.navigator.userAgent || "";
+  return /safari/i.test(agent) && !/chrome|android|crios|fxios|edgios/i.test(agent);
+}
+
+function isStandaloneDisplayMode() {
+  return window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
+}
+
+function canTriggerInstallPrompt() {
+  return Boolean(deferredInstallPrompt && typeof deferredInstallPrompt.prompt === "function");
+}
+
+function shouldShowInstallPromptCard() {
+  if (!currentUser || isStandaloneDisplayMode()) return false;
+  const state = installPromptState();
+  if (state.installedAt) return false;
+  if (state.deferredUntil && new Date(state.deferredUntil).getTime() > Date.now()) return false;
+  return true;
+}
+
+function installInstructionsMarkup() {
+  const autoPromptText = canTriggerInstallPrompt()
+    ? `<p>Your device supports the browser install prompt, so you can use the button below for the fastest setup.</p>`
+    : `<p>If your browser does not show an install prompt automatically, use the steps below for your device.</p>`;
+  const deviceHint = isIosDevice() && isSafariBrowser()
+    ? `<p><strong>You&rsquo;re on iPhone/iPad Safari.</strong> Use the Share button, then choose <strong>Add to Home Screen</strong>.</p>`
+    : isAndroidDevice()
+      ? `<p><strong>You&rsquo;re on Android.</strong> Open the browser menu and choose <strong>Install App</strong> or <strong>Add to Home Screen</strong>.</p>`
+      : `<p><strong>Tip:</strong> Install works best in Safari on iPhone and Chrome on Android.</p>`;
+  return `
+    ${autoPromptText}
+    ${deviceHint}
+    <div class="install-instructions-grid">
+      <div class="install-instructions-card">
+        <h3>iPhone (Safari)</h3>
+        <ol>
+          <li>Open Little Learner Hub in Safari.</li>
+          <li>Tap the Share button.</li>
+          <li>Tap Add to Home Screen.</li>
+          <li>Tap Add.</li>
+        </ol>
+      </div>
+      <div class="install-instructions-card">
+        <h3>Android (Chrome)</h3>
+        <ol>
+          <li>Open Little Learner Hub in Chrome.</li>
+          <li>Tap the three-dot menu.</li>
+          <li>Tap Install App or Add to Home Screen.</li>
+          <li>Confirm installation.</li>
+        </ol>
+      </div>
+    </div>
+  `;
+}
+
+function refreshInstallSurfaces() {
+  const activeView = document.querySelector(".active-view")?.id.replace("view-", "") || "";
+  if (activeView === "home") renderHome();
+  if (activeView === "account") renderAccountPage();
+}
+
+function updateInstallSettingsPanel() {
+  const description = document.querySelector("#accountInstallDescription");
+  const installButton = document.querySelector("#accountInstallAppButton");
+  const instructionsButton = document.querySelector("#accountInstallInstructionsButton");
+  if (!description || !installButton || !instructionsButton) return;
+  if (isStandaloneDisplayMode()) {
+    description.textContent = "Little Learner Hub is already installed on this device and ready to use like an app.";
+    installButton.textContent = "Installed";
+    installButton.disabled = true;
+    instructionsButton.textContent = "View Instructions";
+    return;
+  }
+  description.textContent = canTriggerInstallPrompt()
+    ? "Install Little Learner Hub for faster access, app-style launching, and a smoother daily workflow."
+    : "Add Little Learner Hub to your Home Screen for faster access. If your browser does not show an install prompt, we'll walk you through the steps.";
+  installButton.textContent = canTriggerInstallPrompt() ? "Install App" : "Add to Home Screen";
+  installButton.disabled = false;
+  instructionsButton.textContent = "View Instructions";
+}
+
+function closeInstallAppModal() {
+  const modal = document.querySelector("#installAppModal");
+  if (!modal) return;
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("auth-modal-open");
+}
+
+function openInstallAppModal({ source = "settings", forceInstructions = false } = {}) {
+  const modal = document.querySelector("#installAppModal");
+  const body = document.querySelector("#installAppBody");
+  const primaryButton = document.querySelector("#installAppPrimaryButton");
+  const secondaryButton = document.querySelector("#installAppSecondaryButton");
+  if (!modal || !body || !primaryButton || !secondaryButton) return;
+  installModalSource = source;
+  body.innerHTML = installInstructionsMarkup();
+  primaryButton.textContent = canTriggerInstallPrompt() && !forceInstructions ? "Add to Home Screen" : "Got It";
+  primaryButton.dataset.installMode = canTriggerInstallPrompt() && !forceInstructions ? "prompt" : "close";
+  secondaryButton.textContent = source === "dashboard" ? "Maybe Later" : "Close";
+  secondaryButton.dataset.installMode = source === "dashboard" ? "later" : "close";
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("auth-modal-open");
+}
+
+async function promptInstallFlow({ source = "settings", forceInstructions = false } = {}) {
+  if (!forceInstructions && canTriggerInstallPrompt()) {
+    const promptEvent = deferredInstallPrompt;
+    deferredInstallPrompt = null;
+    await promptEvent.prompt();
+    const choice = await promptEvent.userChoice;
+    if (choice?.outcome === "accepted") {
+      saveInstallPromptState({ installedAt: new Date().toISOString(), deferredUntil: "", dismissedAt: "" });
+      closeInstallAppModal();
+      refreshInstallSurfaces();
+      updateInstallSettingsPanel();
+      return;
+    }
+  }
+  openInstallAppModal({ source, forceInstructions });
+  updateInstallSettingsPanel();
+}
+
+function deferInstallPrompt() {
+  const deferredUntil = new Date(Date.now() + installPromptDeferDays * 24 * 60 * 60 * 1000).toISOString();
+  saveInstallPromptState({
+    dismissedAt: new Date().toISOString(),
+    deferredUntil,
+  });
+  closeInstallAppModal();
+  refreshInstallSurfaces();
+  updateInstallSettingsPanel();
+}
+
+function registerPwaSupport() {
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/service-worker.js").catch((error) => {
+        console.warn("Service worker registration failed", error);
+      });
+    });
+  }
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    updateInstallSettingsPanel();
+    refreshInstallSurfaces();
+  });
+  window.addEventListener("appinstalled", () => {
+    deferredInstallPrompt = null;
+    saveInstallPromptState({ installedAt: new Date().toISOString(), deferredUntil: "", dismissedAt: "" });
+    closeInstallAppModal();
+    updateInstallSettingsPanel();
+    refreshInstallSurfaces();
+  });
+}
+
 // Keeps body CSS classes in sync with auth + plan state.
 // body.user-authenticated — user is logged in
 // body.user-pro          — user has Pro or Founding access (subset of authenticated)
@@ -3606,6 +3795,9 @@ function setView(view) {
   const requestedView = view;
   const requestedChildToolTab = childToolTabFromView(view);
   const requestedFutureTool = sidebarFutureToolTargets[requestedView] || "";
+  const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
+  const resolvedView = resolveSidebarView(view);
+  if (activeView === "admin" && resolvedView !== "admin" && !confirmDiscardAdminLessonChanges()) return;
   if (requestedChildToolTab === "daily-logs") {
     childManagementMode = "daily-logs";
     dailyLogsSection = "home";
@@ -3628,7 +3820,6 @@ function setView(view) {
     activeObservationChildLock = "";
     activePortfolioChildId = "";
   }
-  const resolvedView = resolveSidebarView(view);
   // Route guard: unauthenticated visitors may only access public marketing views.
   if (!isLoggedIn() && !hasAdminFullAccess() && !guestAllowedViews.has(resolvedView)) {
     openAuthModal("login");
@@ -3885,6 +4076,8 @@ function childTimelineEntries(child, records) {
     items.filter((item) => item.childId === child.id).forEach((item) => {
       entries.push({
         id: item.id || `${type}-${item.date || ""}-${item.createdAt || ""}`,
+        childId: child.id,
+        childName: child.name,
         date: item.date || String(item.createdAt || "").slice(0, 10),
         time: timeBuilder(item),
         displayTime: dlcFormatTime(timeBuilder(item)) || "Logged",
@@ -8000,6 +8193,65 @@ function renderManagedHomeContent() {
   }
 }
 
+function dashboardInstallCardMarkup() {
+  if (!shouldShowInstallPromptCard()) return "";
+  return `
+    <section class="section-block dashboard-install-card">
+      <div class="dashboard-install-copy">
+        <p class="eyebrow">📱 Install Little Learner Hub</p>
+        <h3>Add Little Learner Hub to your Home Screen</h3>
+        <p>Add Little Learner Hub to your Home Screen for faster access. It works like an app, keeps you signed in, and makes documenting throughout the day even easier.</p>
+      </div>
+      <div class="dashboard-install-actions">
+        <button class="primary-button" data-install-app="dashboard" type="button">Add to Home Screen</button>
+        <button class="ghost-button" data-install-later="dashboard" type="button">Maybe Later</button>
+      </div>
+    </section>
+  `;
+}
+
+function plannerDaySummary(dayPlan = {}) {
+  return Object.values(dayPlan).map((value) => String(value || "").trim()).find(Boolean) || "";
+}
+
+function dashboardCalendarMarkup(planner = {}, weekday = "") {
+  return plannerDays.map((day) => {
+    const summary = plannerDaySummary(planner.days?.[day] || {});
+    return `
+      <div class="dashboard-calendar-row ${day === weekday ? "is-today" : ""}">
+        <div>
+          <strong>${escapeHtml(day)}</strong>
+          <small>${summary ? escapeHtml(summary.slice(0, 64)) : "No plan added yet."}</small>
+        </div>
+        <span>${day === weekday ? "Today" : summary ? "Planned" : "Open"}</span>
+      </div>
+    `;
+  }).join("");
+}
+
+function dashboardRecentActivity(records, childById) {
+  return (records.children || [])
+    .flatMap((child) => childTimelineEntries(child, records).slice(0, 6))
+    .sort((a, b) => `${b.date} ${b.time || ""}`.localeCompare(`${a.date} ${a.time || ""}`))
+    .slice(0, 5)
+    .map((entry) => ({
+      ...entry,
+      childName: childById[entry.childId]?.name || entry.childName || "Child",
+    }));
+}
+
+function dashboardReminderMarkup(records, stats) {
+  const today = new Date().toISOString().slice(0, 10);
+  const dailyLogNeeds = getActiveChildren(records)
+    .map((child) => ({ child, status: getDailyLogStatus(child, records, today) }))
+    .filter((item) => item.status !== "complete");
+  return {
+    observationChildren: stats.missingChildren.slice(0, 3),
+    dailyLogNeeds: dailyLogNeeds.slice(0, 3),
+    dailyLogCount: dailyLogNeeds.length,
+  };
+}
+
 function renderUserDashboard() {
   const homeSection = document.querySelector("#view-home");
   if (!homeSection) return;
@@ -8034,6 +8286,8 @@ function renderUserDashboard() {
 
   const recentObservations = [...(records.observations || [])].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 3);
   const childById = Object.fromEntries((records.children || []).map((c) => [c.id, c]));
+  const recentActivity = dashboardRecentActivity(records, childById);
+  const reminders = dashboardReminderMarkup(records, stats);
 
   homeSection.innerHTML = `
     <div class="user-dashboard">
@@ -8043,6 +8297,8 @@ function renderUserDashboard() {
           <p class="dashboard-date">${escapeHtml(today)}${programName ? ` · ${escapeHtml(programName)}` : ""}</p>
         </div>
       </div>
+
+      ${dashboardInstallCardMarkup()}
 
       <section class="section-block dashboard-quick-doc">
         <div class="dashboard-quick-doc-header">
@@ -8085,12 +8341,33 @@ function renderUserDashboard() {
           </div>
         </section>
 
+        <section class="section-block dashboard-calendar">
+          <div class="dashboard-panel-heading">
+            <div>
+              <p class="eyebrow">Calendar</p>
+              <h3>This Week</h3>
+            </div>
+            <button class="ghost-button" data-view="planner" type="button">Open Planner</button>
+          </div>
+          <div class="dashboard-calendar-list">
+            ${dashboardCalendarMarkup(planner, weekday)}
+          </div>
+        </section>
+      </div>
+
+      <div class="dashboard-grid dashboard-grid-secondary">
         <section class="section-block dashboard-recent">
-          <h3>Recent Observations</h3>
-          ${recentObservations.length
-    ? recentObservations.map((obs) => {
-      const child = childById[obs.childId];
-      const nameParts = (child?.name || "").trim().split(/\s+/);
+          <div class="dashboard-panel-heading">
+            <div>
+              <p class="eyebrow">Recent Activity</p>
+              <h3>Latest updates</h3>
+            </div>
+            <button class="ghost-button" data-view="children" type="button">Open Children</button>
+          </div>
+          ${recentActivity.length
+    ? recentActivity.map((entry) => {
+      const child = childById[entry.childId];
+      const nameParts = (child?.name || "").trim().split(/\s+/).filter(Boolean);
       const initials = nameParts.length > 1
         ? (nameParts[0].charAt(0) + nameParts[nameParts.length - 1].charAt(0)).toUpperCase()
         : (nameParts[0]?.charAt(0) || "?").toUpperCase();
@@ -8098,13 +8375,53 @@ function renderUserDashboard() {
               <div class="dashboard-obs-row">
                 <span class="dashboard-obs-avatar">${escapeHtml(initials)}</span>
                 <div>
-                  <strong>${escapeHtml(child?.name || "Unknown")} — ${escapeHtml(obs.area || "")}</strong>
-                  <small>${escapeHtml((obs.note || obs.text || "").slice(0, 80))}${(obs.note || obs.text || "").length > 80 ? "…" : ""}</small>
+                  <strong>${escapeHtml(child?.name || "Unknown")} — ${escapeHtml(entry.title || entry.type || "Update")}</strong>
+                  <small>${escapeHtml(entry.detail || "Saved in Little Learner Hub")} · ${escapeHtml(entry.date || "")}</small>
                 </div>
               </div>`;
     }).join("")
-    : `<div class="empty-state">No observations yet. <button class="link-button" data-view="resource-observations" type="button">Add one now</button></div>`}
-          ${recentObservations.length ? `<button class="ghost-button" style="width:100%;margin-top:12px;" data-view="resource-observations" type="button">View All Observations</button>` : ""}
+    : recentObservations.length
+      ? recentObservations.map((obs) => {
+        const child = childById[obs.childId];
+        const nameParts = (child?.name || "").trim().split(/\s+/).filter(Boolean);
+        const initials = nameParts.length > 1
+          ? (nameParts[0].charAt(0) + nameParts[nameParts.length - 1].charAt(0)).toUpperCase()
+          : (nameParts[0]?.charAt(0) || "?").toUpperCase();
+        return `
+              <div class="dashboard-obs-row">
+                <span class="dashboard-obs-avatar">${escapeHtml(initials)}</span>
+                <div>
+                  <strong>${escapeHtml(child?.name || "Unknown")} — ${escapeHtml(obs.area || "Observation")}</strong>
+                  <small>${escapeHtml((obs.note || obs.text || "").slice(0, 80))}${(obs.note || obs.text || "").length > 80 ? "…" : ""}</small>
+                </div>
+              </div>`;
+      }).join("")
+      : `<div class="empty-state">No activity yet. <button class="link-button" data-view="ai" type="button">Create your first update</button></div>`}
+        </section>
+
+        <section class="section-block dashboard-reminders">
+          <div class="dashboard-panel-heading">
+            <div>
+              <p class="eyebrow">Reminders</p>
+              <h3>Documentation to finish</h3>
+            </div>
+          </div>
+          <div class="dashboard-reminder-group">
+            <strong>Observation reminders</strong>
+            ${reminders.observationChildren.length
+    ? reminders.observationChildren.map((child) => `<div class="dashboard-reminder-row"><span>${escapeHtml(child.name)}</span><small>Needs ${weeklyObservationsPerChild - (stats.byChild.get(child.id) || 0)} more this week</small></div>`).join("")
+    : `<div class="dashboard-reminder-row"><span>All set</span><small>Every child is on track for observations this week.</small></div>`}
+          </div>
+          <div class="dashboard-reminder-group">
+            <strong>Daily Log reminders</strong>
+            ${reminders.dailyLogNeeds.length
+    ? reminders.dailyLogNeeds.map(({ child, status }) => `<div class="dashboard-reminder-row"><span>${escapeHtml(child.name)}</span><small>${escapeHtml(status === "not-started" ? "Daily log not started today" : "Daily log still in progress today")}</small></div>`).join("")
+    : `<div class="dashboard-reminder-row"><span>All set</span><small>Today&rsquo;s daily logs are complete.</small></div>`}
+          </div>
+          <div class="quick-action-list" style="margin-top:16px;">
+            <button class="primary-button" data-view="resource-observations" type="button">Open Observations</button>
+            <button class="ghost-button" data-view="child-tools-daily-logs" type="button">Open Daily Logs</button>
+          </div>
         </section>
       </div>
     </div>
@@ -15491,6 +15808,73 @@ function filteredAdminLessonPlans() {
   });
 }
 
+function adminLessonFormSnapshot(form = document.querySelector("#adminLessonPlanForm")) {
+  if (!form) return "";
+  const snapshot = {};
+  const fields = Array.from(form.elements || []).filter((el) => el.name && !el.disabled && el.type !== "submit" && el.type !== "button");
+  fields.forEach((field) => {
+    if (field.type === "file") {
+      snapshot[field.name] = field.files?.length ? Array.from(field.files).map((item) => item.name).join(",") : "";
+      return;
+    }
+    if (field.type === "checkbox") {
+      snapshot[field.name] = field.checked;
+      return;
+    }
+    snapshot[field.name] = String(field.value || "").trim();
+  });
+  return JSON.stringify(snapshot);
+}
+
+function adminLessonHasUnsavedChanges() {
+  const form = document.querySelector("#adminLessonPlanForm");
+  if (!form || !adminLessonEditorInitialSnapshot) return false;
+  return adminLessonFormSnapshot(form) !== adminLessonEditorInitialSnapshot;
+}
+
+function confirmDiscardAdminLessonChanges() {
+  if (!adminLessonHasUnsavedChanges()) return true;
+  return window.confirm(adminLessonUnsavedWarning);
+}
+
+function updateAdminLessonEditorHeading() {
+  const heading = document.querySelector("#adminLessonEditorHeading");
+  if (!heading) return;
+  const title = (document.querySelector("#adminLessonPlanForm [name='title']")?.value || "").trim() || "Untitled Lesson Plan";
+  heading.textContent = `Editing: ${title}`;
+}
+
+function setAdminLessonFormCleanState(form = document.querySelector("#adminLessonPlanForm")) {
+  if (!form) {
+    adminLessonEditorInitialSnapshot = "";
+    return;
+  }
+  adminLessonEditorInitialSnapshot = adminLessonFormSnapshot(form);
+  updateAdminLessonEditorHeading();
+}
+
+function focusAdminLessonTitleInput() {
+  const titleInput = document.querySelector("#adminLessonTitleInput");
+  if (!titleInput) return;
+  titleInput.focus({ preventScroll: true });
+  titleInput.select();
+}
+
+function openAdminLessonEditor(id, { scroll = false, focusTitle = false } = {}) {
+  adminLessonEditorId = id;
+  if (adminActiveSectionTab !== "lesson-plans") setAdminSectionTab("lesson-plans");
+  renderAdminContentManager();
+  applyAdminSectionVisibility();
+  const form = document.querySelector("#adminLessonPlanForm");
+  if (form && scroll) form.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (focusTitle) window.setTimeout(focusAdminLessonTitleInput, scroll ? 240 : 0);
+}
+
+function scrollToAdminLessonList() {
+  const list = document.querySelector("#adminLessonPlanList");
+  if (list) list.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function lessonPlanAdminCardHtml(plan) {
   const selected = adminLessonSelection.has(plan.id);
   const image = sanitizedImageSource(plan.thumbnailUrl);
@@ -15609,12 +15993,13 @@ function renderAdminContentManager() {
           <button class="ghost-button" type="button" data-admin-bulk="pro">Bulk Mark Pro</button>
           <button class="ghost-button" type="button" id="adminShowOnly50Button">Show only 50 per age group</button>
         </div>
-        <div class="admin-mobile-list">${lessons.slice(0, 120).map(lessonPlanAdminCardHtml).join("") || `<div class="empty-state">No lesson plans match these filters.</div>`}</div>
+        <div class="admin-mobile-list" id="adminLessonPlanList">${lessons.slice(0, 120).map(lessonPlanAdminCardHtml).join("") || `<div class="empty-state">No lesson plans match these filters.</div>`}</div>
         ${lessonRecord ? `
           <form id="adminLessonPlanForm" class="panel-form admin-stacked-form">
             <input type="hidden" name="id" value="${escapeHtml(lessonRecord.id)}" />
+            <h4 class="admin-lesson-editing-heading" id="adminLessonEditorHeading">Editing: ${escapeHtml(lessonRecord.title || "Untitled Lesson Plan")}</h4>
             <div class="form-grid-two">
-              <label>Title<input name="title" value="${escapeHtml(lessonRecord.title)}" /></label>
+              <label>Title<input id="adminLessonTitleInput" name="title" value="${escapeHtml(lessonRecord.title)}" /></label>
               <label>Age group<select name="age">${["Infant", "Toddler", "Preschool"].map((age) => `<option${lessonRecord.age === age ? " selected" : ""}>${age}</option>`).join("")}</select></label>
             </div>
             <div class="form-grid-two">
@@ -15665,6 +16050,7 @@ function renderAdminContentManager() {
             <label>Upload thumbnail<input name="thumbnailFile" type="file" accept="image/*" /></label>
             <div class="form-actions">
               <button class="primary-button" type="submit">Save lesson plan</button>
+              <button class="ghost-button" type="button" data-admin-lesson-back="true">Back to Lesson Plans</button>
               <button class="ghost-button" type="button" data-admin-lesson-reset="${escapeHtml(lessonRecord.id)}">Reset lesson to default</button>
             </div>
             <span class="form-message" id="adminLessonPlanMessage"></span>
@@ -15796,6 +16182,7 @@ function renderAdminContentManager() {
       </section>
     </div>
   `;
+  setAdminLessonFormCleanState();
 }
 
 function nextSiteContentDraft() {
@@ -15840,10 +16227,11 @@ async function saveAdminLessonPlanForm(form) {
     };
     adminLessonEditorId = id;
   });
+  setAdminLessonFormCleanState();
   const isVisible = formData.get("visible") === "on";
   const successMsg = isVisible
-    ? "Lesson plan saved. This lesson plan is now live on the website."
-    : "Lesson plan saved as hidden.";
+    ? "Lesson plan saved successfully. This lesson plan is live on the website."
+    : "Lesson plan saved successfully.";
   setFormMessage("#adminLessonPlanMessage", successMsg, true);
 }
 
@@ -16119,6 +16507,14 @@ function applyAdminSectionVisibility() {
 // ─── Structured Lesson Plan Import ───────────────────────────────────────────
 
 const structuredImportSectionMap = {
+  TITLE: "title",
+  AGE_GROUP: "age",
+  THEME: "theme",
+  LESSON_PLAN_NUMBER: "generatorLessonNumber",
+  FREE_PRO: "plan",
+  ACCESS_LEVEL: "plan",
+  VISIBLE: "visible",
+  VISIBILITY: "visible",
   OVERVIEW: "weeklyOverview",
   MATERIALS: "materials",
   OBJECTIVES: "objectives",
@@ -16155,8 +16551,11 @@ function parseStructuredLessonPlan(text) {
 function applyStructuredLessonPlanImport(fields) {
   const form = document.querySelector("#adminLessonPlanForm");
   if (!form) return 0;
+  const importedMetadata = Object.entries(fields).filter(([fieldName]) => adminLessonImportMetadataFields.has(fieldName));
+  const shouldApplyMetadata = !importedMetadata.length || window.confirm("Imported metadata was found (Title/Theme/Age/Plan/Visibility). Replace current metadata?");
   let filled = 0;
   Object.entries(fields).forEach(([fieldName, value]) => {
+    if (adminLessonImportMetadataFields.has(fieldName) && !shouldApplyMetadata) return;
     if (fieldName === "__thumbnailDescription") {
       const thumbEl = form.querySelector('[name="thumbnailUrl"]');
       if (thumbEl) {
@@ -16169,10 +16568,16 @@ function applyStructuredLessonPlanImport(fields) {
     }
     const el = form.querySelector(`[name="${fieldName}"]`);
     if (el) {
-      el.value = value;
+      if (fieldName === "visible" && el.type === "checkbox") {
+        const normalized = String(value || "").trim().toLowerCase();
+        el.checked = adminLessonVisibleTruthyValues.has(normalized);
+      } else {
+        el.value = value;
+      }
       filled++;
     }
   });
+  updateAdminLessonEditorHeading();
   return filled;
 }
 
@@ -16393,7 +16798,6 @@ function fillAdminLessonPlanFormFields(fields, mode) {
   const form = document.querySelector("#adminLessonPlanForm");
   if (!form) return;
   const fieldMap = [
-    ["title", "title"],
     ["weeklyOverview", "weeklyOverview"],
     ["materials", "materials"],
     ["objectives", "objectives"],
@@ -16407,6 +16811,9 @@ function fillAdminLessonPlanFormFields(fields, mode) {
     ["familyConnection", "familyConnection"],
     ["reflectionNotes", "reflectionNotes"],
   ];
+  const titleValue = String(fields.title || "").trim();
+  const titleEl = form.querySelector('[name="title"]');
+  if (titleEl && titleValue && !titleEl.value.trim()) titleEl.value = titleValue;
   fieldMap.forEach(([fieldKey, formName]) => {
     const value = String(fields[fieldKey] || "").trim();
     if (!value) return;
@@ -16421,6 +16828,7 @@ function fillAdminLessonPlanFormFields(fields, mode) {
     thumbUrl.setAttribute("data-thumbnail-prompt", prompt);
     thumbUrl.placeholder = `Generated prompt: ${prompt.slice(0, 100)}${prompt.length > 100 ? "…" : ""}`;
   }
+  updateAdminLessonEditorHeading();
 }
 
 async function triggerAdminLessonGenerate(fillMode) {
@@ -19022,6 +19430,7 @@ function renderAccountPage() {
     favoritesTarget.innerHTML = `<div class="empty-state">Log in to save favorites.</div>`;
     downloadsTarget.innerHTML = `<div class="empty-state">Log in to save viewed resources.</div>`;
     renderOnboardingChecklist();
+    updateInstallSettingsPanel();
     return;
   }
 
@@ -19059,6 +19468,7 @@ function renderAccountPage() {
     ? downloadedResources.slice(0, 10).map(accountListItem).join("")
     : `<div class="empty-state">${isProUser() ? "No viewed resources yet." : "Viewed resources are included with your account."}</div>`;
   renderOnboardingChecklist();
+  updateInstallSettingsPanel();
 }
 
 function renderProgramSettingsPage() {
@@ -19665,6 +20075,20 @@ document.addEventListener("click", async (event) => {
       ? freeResourceLimitMessage
       : "Upgrade to Pro to unlock this feature.";
     showProFeatureModal(message, isLimit ? "limit" : "feature");
+    return;
+  }
+
+  const installAppButton = event.target.closest("[data-install-app]");
+  if (installAppButton) {
+    event.preventDefault();
+    promptInstallFlow({ source: installAppButton.dataset.installApp || "dashboard" });
+    return;
+  }
+
+  const installLaterButton = event.target.closest("[data-install-later]");
+  if (installLaterButton) {
+    event.preventDefault();
+    deferInstallPrompt();
     return;
   }
 
@@ -21243,6 +21667,12 @@ document.addEventListener("keydown", (event) => {
   closeProFeatureModal();
 });
 
+window.addEventListener("beforeunload", (event) => {
+  if (!adminLessonHasUnsavedChanges()) return;
+  event.preventDefault();
+  event.returnValue = adminLessonUnsavedWarning;
+});
+
 searchInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") showSearchResults();
 });
@@ -21253,6 +21683,9 @@ searchInput.addEventListener("input", () => {
 });
 
 document.addEventListener("input", (event) => {
+  if (event.target.matches("#adminLessonPlanForm [name='title']")) {
+    updateAdminLessonEditorHeading();
+  }
   if (event.target.matches("#adminLessonSearch")) {
     renderAdminContentManager();
   }
@@ -21704,6 +22137,33 @@ featurePreviewModal?.addEventListener("click", (event) => {
   if (event.target === featurePreviewModal) closeFeaturePreview();
 });
 
+document.querySelector("#closeInstallAppModal")?.addEventListener("click", closeInstallAppModal);
+document.querySelector("#accountInstallAppButton")?.addEventListener("click", () => {
+  promptInstallFlow({ source: "settings" });
+});
+document.querySelector("#accountInstallInstructionsButton")?.addEventListener("click", () => {
+  openInstallAppModal({ source: "settings", forceInstructions: true });
+});
+document.querySelector("#installAppPrimaryButton")?.addEventListener("click", () => {
+  const mode = document.querySelector("#installAppPrimaryButton")?.dataset.installMode || "prompt";
+  if (mode === "close") {
+    closeInstallAppModal();
+    return;
+  }
+  promptInstallFlow({ source: installModalSource });
+});
+document.querySelector("#installAppSecondaryButton")?.addEventListener("click", () => {
+  const mode = document.querySelector("#installAppSecondaryButton")?.dataset.installMode || "close";
+  if (mode === "later") {
+    deferInstallPrompt();
+    return;
+  }
+  closeInstallAppModal();
+});
+document.querySelector("#installAppModal")?.addEventListener("click", (event) => {
+  if (event.target === document.querySelector("#installAppModal")) closeInstallAppModal();
+});
+
 document.addEventListener("click", (event) => {
   const card = event.target.closest("[data-preview]");
   if (card) {
@@ -21715,6 +22175,10 @@ document.addEventListener("click", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && isFeaturePreviewOpen()) {
     closeFeaturePreview();
+    return;
+  }
+  if (event.key === "Escape" && document.querySelector("#installAppModal.open")) {
+    closeInstallAppModal();
     return;
   }
   if (event.key === "Tab" && isFeaturePreviewOpen()) {
@@ -21916,6 +22380,7 @@ document.addEventListener("click", async (event) => {
   // Admin section navigation
   const sectionNavBtn = event.target.closest("[data-admin-section-tab]");
   if (sectionNavBtn) {
+    if (sectionNavBtn.dataset.adminSectionTab !== adminActiveSectionTab && !confirmDiscardAdminLessonChanges()) return;
     setAdminSectionTab(sectionNavBtn.dataset.adminSectionTab);
     return;
   }
@@ -21955,10 +22420,8 @@ document.addEventListener("click", async (event) => {
 
   const lessonEditButton = event.target.closest("[data-admin-lesson-edit]");
   if (lessonEditButton) {
-    adminLessonEditorId = lessonEditButton.dataset.adminLessonEdit;
-    if (adminActiveSectionTab !== "lesson-plans") setAdminSectionTab("lesson-plans");
-    renderAdminContentManager();
-    applyAdminSectionVisibility();
+    if (!confirmDiscardAdminLessonChanges()) return;
+    openAdminLessonEditor(lessonEditButton.dataset.adminLessonEdit, { scroll: true, focusTitle: true });
     return;
   }
   const lessonToggleButton = event.target.closest("[data-admin-lesson-toggle]");
@@ -21997,6 +22460,10 @@ document.addEventListener("click", async (event) => {
   }
   if (event.target.closest("#adminLessonPreviewBtn")) {
     previewAdminLessonPlan();
+    return;
+  }
+  if (event.target.closest("[data-admin-lesson-back]")) {
+    scrollToAdminLessonList();
     return;
   }
   const reviewEditButton = event.target.closest("[data-admin-review-edit]");
@@ -22839,6 +23306,7 @@ document.addEventListener("submit", async (event) => {
 });
 
 installMobileNavigation();
+registerPwaSupport();
 
 // ─── Program Settings Form Submit ──────────────────────────────────────────
 
@@ -22957,6 +23425,7 @@ if (currentUser) {
   updateAuthButtons();
   updatePlanLabel();
 }
+updateInstallSettingsPanel();
 document.body.classList.add("home-view");
 renderHome();
 loadSiteContentFromBackend().catch(() => {});
