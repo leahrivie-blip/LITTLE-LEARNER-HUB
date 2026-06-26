@@ -10216,6 +10216,140 @@ body.home-view .topbar .search-wrap {
   }
 }
 
+/* ─── User Dashboard ─────────────────────────────────────────────────────── */
+
+.user-dashboard {
+  max-width: 900px;
+  padding: 0 0 48px;
+}
+
+.dashboard-welcome {
+  padding: 24px 0 20px;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  margin-bottom: 24px;
+}
+
+.dashboard-welcome h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.dashboard-date {
+  color: var(--text-muted, #6b7280);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.dashboard-quick-doc {
+  background: linear-gradient(135deg, var(--accent-light, #eff6ff) 0%, var(--bg-card, #fff) 100%);
+  border: 1px solid var(--accent, #5b9bd5);
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.dashboard-quick-doc-header h3 {
+  font-size: 1.15rem;
+  margin: 0 0 4px;
+}
+
+.dashboard-quick-doc-sub {
+  color: var(--text-muted, #6b7280);
+  font-size: 0.9rem;
+  margin: 0 0 16px;
+}
+
+.dashboard-quick-doc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dashboard-quick-doc-actions .primary-button,
+.dashboard-quick-doc-actions .ghost-button {
+  font-size: 0.85rem;
+  padding: 8px 14px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.dashboard-today h3,
+.dashboard-recent h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 14px;
+}
+
+.dashboard-stat-alert {
+  color: var(--danger, #dc2626);
+}
+
+.dashboard-obs-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+}
+
+.dashboard-obs-row:last-of-type {
+  border-bottom: none;
+}
+
+.dashboard-obs-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--accent, #5b9bd5);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dashboard-obs-row strong {
+  display: block;
+  font-size: 0.875rem;
+}
+
+.dashboard-obs-row small {
+  color: var(--text-muted, #6b7280);
+  font-size: 0.8rem;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: var(--accent, #5b9bd5);
+  cursor: pointer;
+  font-size: inherit;
+  padding: 0;
+  text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-quick-doc-actions {
+    flex-direction: column;
+  }
+
+  .dashboard-quick-doc-actions .primary-button,
+  .dashboard-quick-doc-actions .ghost-button {
+    width: 100%;
+    text-align: center;
+  }
+}
+
 /* ─── Auth State: Logged-Out (Guest) ─────────────────────────────────────── */
 
 /* When not authenticated, collapse the sidebar and give main full width */

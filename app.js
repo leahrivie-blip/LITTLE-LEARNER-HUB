@@ -383,6 +383,7 @@ const docHelperSaveConfig = {
   "activity-idea": { key: "ActivityLogs", view: "activities" },
 };
 let selectedChildId = localStorage.getItem("llhSelectedChild") || "";
+let pendingAiDocType = "";
 let childObservationSearch = "";
 let childObservationAreaFilter = "All";
 let childObservationDateFilter = "";
@@ -7976,9 +7977,120 @@ function renderManagedHomeContent() {
   }
 }
 
+function renderUserDashboard() {
+  const homeSection = document.querySelector("#view-home");
+  if (!homeSection) return;
+  homeSection.classList.remove("landing-home");
+  homeSection.classList.add("user-dashboard-view");
+
+  const now = new Date();
+  const hour = now.getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const today = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  const accountName = currentAccount()?.name || currentUser?.split("@")[0] || "Provider";
+  const programSettings = getProgramSettings();
+  const programName = programSettings.programName || "";
+
+  const records = childRecords();
+  const stats = weeklyObservationStats(records);
+  const activeGoals = records.goals.filter((goal) => goalProgressPercent(goal.progress) < 100).length;
+  const childCount = records.children.length;
+  const observationsDue = Math.max(stats.totalNeeded - stats.completed, 0);
+
+  const planner = weeklyPlanner();
+  const weekday = now.toLocaleDateString("en-US", { weekday: "long" });
+  const dayPlan = planner.days?.[weekday] || {};
+  const plannedTasks = [dayPlan.circle, dayPlan.activity, dayPlan.meal, dayPlan.rest, dayPlan.support].filter((item) => String(item || "").trim());
+
+  const recentObservations = [...(records.observations || [])].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 3);
+  const childById = Object.fromEntries((records.children || []).map((c) => [c.id, c]));
+
+  homeSection.innerHTML = `
+    <div class="user-dashboard">
+      <div class="dashboard-welcome">
+        <div class="dashboard-welcome-text">
+          <h2>${escapeHtml(greeting)}, ${escapeHtml(accountName)}! 👋</h2>
+          <p class="dashboard-date">${escapeHtml(today)}${programName ? ` · ${escapeHtml(programName)}` : ""}</p>
+        </div>
+      </div>
+
+      <section class="section-block dashboard-quick-doc">
+        <div class="dashboard-quick-doc-header">
+          <div>
+            <p class="eyebrow">Quick Documentation</p>
+            <h3>Type one quick note. Use it everywhere.</h3>
+            <p class="dashboard-quick-doc-sub">Enter a quick note and turn it into an observation, parent message, incident report, behavior note, daily report, or activity update.</p>
+          </div>
+        </div>
+        <div class="dashboard-quick-doc-actions">
+          <button class="primary-button" data-view="ai" data-quick-doc-type="observation" type="button">📝 Observation</button>
+          <button class="ghost-button" data-view="ai" data-quick-doc-type="parent-message" type="button">💬 Parent Message</button>
+          <button class="ghost-button" data-view="ai" data-quick-doc-type="incident-report" type="button">⚠️ Incident Report</button>
+          <button class="ghost-button" data-view="ai" data-quick-doc-type="behavior-note" type="button">📌 Behavior Note</button>
+          <button class="ghost-button" data-view="ai" data-quick-doc-type="daily-log" type="button">📓 Daily Report</button>
+          <button class="ghost-button" data-view="ai" data-quick-doc-type="activity-idea" type="button">🎨 Activity Update</button>
+        </div>
+      </section>
+
+      <div class="dashboard-grid">
+        <section class="section-block dashboard-today">
+          <h3>Today&rsquo;s To-Do List</h3>
+          <div class="analytics-row">
+            <span>Children enrolled</span><strong>${childCount}</strong>
+          </div>
+          <div class="analytics-row">
+            <span>Observations still needed this week</span><strong class="${observationsDue > 0 ? "dashboard-stat-alert" : ""}">${observationsDue}</strong>
+          </div>
+          <div class="analytics-row">
+            <span>Weekly observation progress</span><strong>${stats.percent}%</strong>
+          </div>
+          <div class="analytics-row">
+            <span>Active goals</span><strong>${activeGoals}</strong>
+          </div>
+          ${plannedTasks.length ? `<div class="analytics-row"><span>${escapeHtml(weekday)} planner tasks</span><strong>${plannedTasks.length}</strong></div>` : ""}
+          <div class="quick-action-list" style="margin-top:16px;">
+            <button class="primary-button" data-view="child-tools-daily-logs" type="button">Open Daily Logs</button>
+            <button class="ghost-button" data-view="children" type="button">View Children</button>
+            <button class="ghost-button" data-view="planner" type="button">Weekly Planner</button>
+          </div>
+        </section>
+
+        <section class="section-block dashboard-recent">
+          <h3>Recent Observations</h3>
+          ${recentObservations.length
+    ? recentObservations.map((obs) => {
+      const child = childById[obs.childId];
+      const initials = child?.name ? child.name.charAt(0).toUpperCase() : "?";
+      return `
+              <div class="dashboard-obs-row">
+                <span class="dashboard-obs-avatar">${escapeHtml(initials)}</span>
+                <div>
+                  <strong>${escapeHtml(child?.name || "Unknown")} — ${escapeHtml(obs.area || "")}</strong>
+                  <small>${escapeHtml((obs.note || obs.text || "").slice(0, 80))}${(obs.note || obs.text || "").length > 80 ? "…" : ""}</small>
+                </div>
+              </div>`;
+    }).join("")
+    : `<div class="empty-state">No observations yet. <button class="link-button" data-view="resource-observations" type="button">Add one now</button></div>`}
+          ${recentObservations.length ? `<button class="ghost-button" style="width:100%;margin-top:12px;" data-view="resource-observations" type="button">View All Observations</button>` : ""}
+        </section>
+      </div>
+    </div>
+  `;
+}
+
 function renderHome() {
+  if (currentUser) {
+    renderUserDashboard();
+    updatePlanLabel();
+    return;
+  }
+  const homeSection = document.querySelector("#view-home");
+  if (homeSection) {
+    homeSection.classList.add("landing-home");
+    homeSection.classList.remove("user-dashboard-view");
+  }
   if (!document.querySelector("#homeFoundingOffer")) {
-    document.querySelector("#view-home").innerHTML = homeViewTemplate;
+    if (homeSection) homeSection.innerHTML = homeViewTemplate;
   }
   renderManagedHomeContent();
   const stats = {
@@ -8264,6 +8376,11 @@ function renderAiPage() {
     const records = childRecords();
     childSelect.innerHTML = `<option value="">All Children</option>` +
       records.children.map((child) => `<option value="${escapeHtml(child.id)}">${escapeHtml(child.name)}</option>`).join("");
+  }
+  if (pendingAiDocType) {
+    const typeSelect = document.querySelector("#docHelperType");
+    if (typeSelect) typeSelect.value = pendingAiDocType;
+    pendingAiDocType = "";
   }
 }
 
@@ -19509,6 +19626,9 @@ document.addEventListener("click", async (event) => {
   if (viewButton) {
     activeFilter = "All";
     if (searchInput) searchInput.value = "";
+    if (viewButton.dataset.quickDocType) {
+      pendingAiDocType = viewButton.dataset.quickDocType;
+    }
     if (viewButton.dataset.view === "plans" || viewButton.dataset.view === "upgrade") {
       trackEvent("upgrade_click", { targetView: viewButton.dataset.view });
     }
@@ -21457,7 +21577,7 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
       trackEvent("account_login_complete", { email: result.email, plan: currentPlan });
     }
     closeAuthModal();
-    setView("children");
+    setView("home");
   } catch (error) {
     setFormMessage("#authMessage", friendlyAuthError(error));
   } finally {
