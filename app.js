@@ -19645,6 +19645,52 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const dlcTemplateBtn = event.target.closest("[data-dlc-template]");
+  if (dlcTemplateBtn) {
+    event.preventDefault();
+    const template = dailyLogTemplates.find((item) => item.id === dlcTemplateBtn.dataset.dlcTemplate);
+    if (!template) return;
+    const noteInput = document.querySelector("#dlcDashboardNote, #dlcAiNoteInput");
+    if (!noteInput) return;
+    const existing = String(noteInput.value || "").trim();
+    const templateNote = String(template.note || "").trim();
+    noteInput.value = existing ? `${existing}\n\n${templateNote}` : templateNote;
+    dlcAiNote = noteInput.value;
+    noteInput.focus();
+    noteInput.setSelectionRange(noteInput.value.length, noteInput.value.length);
+    return;
+  }
+
+  const dlcFavoriteActivityBtn = event.target.closest("[data-dlc-favorite-activity]");
+  if (dlcFavoriteActivityBtn) {
+    event.preventDefault();
+    const form = dlcFavoriteActivityBtn.closest("form");
+    const activityInput = form?.querySelector('input[name="activity"]');
+    if (!activityInput) return;
+    activityInput.value = dlcFavoriteActivityBtn.dataset.dlcFavoriteActivity || "";
+    activityInput.focus();
+    activityInput.dispatchEvent(new Event("input", { bubbles: true }));
+    return;
+  }
+
+  const dlcSaveFavoriteBtn = event.target.closest("[data-save-dlc-favorite]");
+  if (dlcSaveFavoriteBtn) {
+    event.preventDefault();
+    const form = dlcSaveFavoriteBtn.closest("form");
+    const activityInput = form?.querySelector('input[name="activity"]');
+    const activity = String(activityInput?.value || "").trim();
+    if (!activity) {
+      alert("Type an activity first, then save it as a favorite.");
+      return;
+    }
+    if (!addDailyLogFavorite(activity)) {
+      alert("That activity is already in your favorites.");
+      return;
+    }
+    renderChildManagement();
+    return;
+  }
+
   // Open a child's individual log from the dashboard
   const dlcOpenChildBtn = event.target.closest("[data-dlc-open-child]");
   if (dlcOpenChildBtn) {
@@ -20781,6 +20827,10 @@ document.addEventListener("input", (event) => {
     activeSupportTopicId = "";
     renderSupportCenterPage();
   }
+  if (event.target.matches("#childTimelineSearch")) {
+    childTimelineSearch = event.target.value || "";
+    renderChildManagement();
+  }
   if (event.target.matches("#checkoutPromoCodeInput")) {
     saveCheckoutPromoCode(event.target.value);
     const panel = event.target.closest(".promo-code-panel");
@@ -20829,6 +20879,14 @@ document.addEventListener("change", (event) => {
     selectedChildId = event.target.value;
     localStorage.setItem("llhSelectedChild", selectedChildId);
     childManagementMode = "daily-logs";
+    renderChildManagement();
+  }
+  if (event.target.matches("#childTimelineTypeFilter")) {
+    childTimelineTypeFilter = event.target.value || "All";
+    renderChildManagement();
+  }
+  if (event.target.matches("#childTimelineDateFilter")) {
+    childTimelineDateFilter = event.target.value || "all";
     renderChildManagement();
   }
   if (event.target.matches("#supportCenterChildSelect")) {
