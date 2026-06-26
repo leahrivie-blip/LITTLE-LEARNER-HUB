@@ -6053,6 +6053,15 @@ body.home-view .topbar .search-wrap {
   white-space: nowrap;
 }
 
+.dlc-quick-doc-for-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
 .dlc-inline-select {
   border: 1px solid var(--line);
   border-radius: 6px;

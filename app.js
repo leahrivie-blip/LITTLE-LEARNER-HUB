@@ -11596,7 +11596,7 @@ function renderDlcChildStatusCard(child, records, today) {
       <div class="dlc-child-card-top">
         ${renderChildAvatar(child, "small")}
         <div class="dlc-child-card-info">
-          <strong>${escapeHtml(child.name)}</strong>
+          <h4>${escapeHtml(child.name)}</h4>
           <span class="dlc-child-card-age">${escapeHtml(childAgeLabel(child))}</span>
           <span class="dlc-child-card-arrival">${escapeHtml(arrivalInfo)}</span>
         </div>
@@ -11659,9 +11659,7 @@ function renderDlcDashboard(records) {
   return `
     <div class="dlc-dashboard">
       <div class="dlc-dashboard-date-row">
-        <div class="dlc-dashboard-date-info">
-          <span class="dlc-dashboard-date-label">${escapeHtml(dateLabel)}</span>
-        </div>
+        <span class="dlc-dashboard-date-label">${escapeHtml(dateLabel)}</span>
         <div class="dlc-dashboard-date-picker">
           <label class="dlc-date-picker-label" for="dlcDashboardDateInput">Date</label>
           <input id="dlcDashboardDateInput" class="dlc-date-input" type="date" value="${today}" data-dlc-dashboard-date />
@@ -11680,7 +11678,7 @@ function renderDlcDashboard(records) {
         </div>
         <div class="dlc-quick-doc-controls">
           <div class="dlc-quick-doc-children">
-            <label class="dlc-form-label" style="display:flex;align-items:center;gap:8px;font-size:13px;">
+            <label class="dlc-quick-doc-for-label">
               For:
               <select id="dlcDashboardNoteChild" class="dlc-inline-select">
                 <option value="all">All children</option>
