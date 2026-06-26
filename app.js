@@ -2867,6 +2867,9 @@ let adminLessonEditorId = "";
 let adminReviewEditorId = "";
 let adminImageEditorId = "";
 let adminLessonSelection = new Set();
+const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","reviews","homepage","founder","images","analytics","support","ai-testing"]);
+const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "dashboard";
+let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabRaw) ? adminActiveSectionTabRaw : "dashboard";
 const mobileNavMaxWidth = 820;
 const sidebarViewAliases = {
   "resource-observations": "observations",
@@ -3649,7 +3652,11 @@ function setView(view) {
   });
   if (viewMap[resolvedView]) renderCategoryPage(resolvedView);
   if (resolvedView === "home") renderHome();
-  if (resolvedView === "admin") renderAdminDashboard();
+  if (resolvedView === "admin") {
+    localStorage.setItem("llhAdminLastView", "admin");
+    renderAdminDashboard();
+  }
+  if (resolvedView !== "admin") localStorage.removeItem("llhAdminLastView");
   if (resolvedView === "account") renderAccountPage();
   if (resolvedView === "program-settings") renderProgramSettingsPage();
   if (resolvedView === "plans") renderPricingPage();
@@ -15583,7 +15590,7 @@ function renderAdminContentManager() {
   const imageRecord = images.find((item) => item.id === adminImageEditorId) || images[0] || { id: "", label: "", group: "", imageUrl: "" };
   target.innerHTML = `
     <div class="admin-manager-grid">
-      <section class="admin-manager-section">
+      <section class="admin-manager-section" data-admin-cm-section="lesson-plans">
         <div class="section-heading">
           <div><p class="eyebrow">Lesson Plan Manager</p><h3>Edit library lesson plans</h3></div>
         </div>
@@ -15611,7 +15618,7 @@ function renderAdminContentManager() {
               <label>Age group<select name="age">${["Infant", "Toddler", "Preschool"].map((age) => `<option${lessonRecord.age === age ? " selected" : ""}>${age}</option>`).join("")}</select></label>
             </div>
             <div class="form-grid-two">
-              <label>Theme / Category<input name="theme" value="${escapeHtml(lessonRecord.theme || "")}" /></label>
+              <label>Theme / Category<input name="theme" value="${escapeHtml(lessonRecord.theme || "")}" data-lesson-theme-original="${escapeHtml(lessonRecord.theme || "")}" /></label>
               <label>Free / Pro<select name="plan">${["Free", "Pro"].map((plan) => `<option${lessonRecord.plan === plan ? " selected" : ""}>${plan}</option>`).join("")}</select></label>
             </div>
             <label class="admin-inline-toggle"><input type="checkbox" name="visible" ${lessonRecord.visible !== false ? "checked" : ""} /> <span>Visible on public site</span></label>
@@ -15621,6 +15628,7 @@ function renderAdminContentManager() {
               <label>Lesson Plan Number <span class="admin-generator-optional">(optional — helps generate a unique plan)</span><input name="generatorLessonNumber" placeholder="e.g. 1, 2, 3" /></label>
               <div class="form-actions">
                 <button class="primary-button" type="button" id="adminLessonGenerateBtn">✨ Generate Lesson Plan</button>
+                <button class="ghost-button" type="button" id="adminLessonImportBtn">📋 Import Structured Lesson Plan</button>
                 <button class="ghost-button" type="button" id="adminLessonPreviewBtn">Preview Public View</button>
               </div>
               <div id="adminLessonOverwriteConfirm" class="admin-overwrite-confirm" hidden>
@@ -15629,6 +15637,14 @@ function renderAdminContentManager() {
                   <button class="primary-button" type="button" data-admin-lesson-overwrite="all">Replace Everything</button>
                   <button class="ghost-button" type="button" data-admin-lesson-overwrite="empty">Fill Empty Fields Only</button>
                   <button class="ghost-button" type="button" data-admin-lesson-overwrite="cancel">Cancel</button>
+                </div>
+              </div>
+              <div id="adminThemeChangeConfirm" class="admin-overwrite-confirm" hidden>
+                <p><strong>The theme has changed. Would you like to regenerate the lesson plan?</strong></p>
+                <div class="form-actions">
+                  <button class="primary-button" type="button" data-admin-theme-action="regenerate-all">Regenerate Everything</button>
+                  <button class="ghost-button" type="button" data-admin-theme-action="regenerate-empty">Regenerate Empty Fields</button>
+                  <button class="ghost-button" type="button" data-admin-theme-action="keep">Keep Current Content</button>
                 </div>
               </div>
               <span class="form-message" id="adminLessonGenerateMessage"></span>
@@ -15656,7 +15672,7 @@ function renderAdminContentManager() {
         ` : ""}
       </section>
 
-      <section class="admin-manager-section">
+      <section class="admin-manager-section" data-admin-cm-section="reviews">
         <div class="section-heading">
           <div><p class="eyebrow">Reviews / Testimonials</p><h3>Control homepage reviews</h3></div>
         </div>
@@ -15682,7 +15698,7 @@ function renderAdminContentManager() {
         </form>
       </section>
 
-      <section class="admin-manager-section">
+      <section class="admin-manager-section" data-admin-cm-section="founder">
         <div class="section-heading">
           <div><p class="eyebrow">Founder / About</p><h3>Update profile and homepage about copy</h3></div>
         </div>
@@ -15713,7 +15729,7 @@ function renderAdminContentManager() {
         </form>
       </section>
 
-      <section class="admin-manager-section">
+      <section class="admin-manager-section" data-admin-cm-section="homepage">
         <div class="section-heading">
           <div><p class="eyebrow">Homepage Content</p><h3>Edit public homepage text and images</h3></div>
         </div>
@@ -15760,7 +15776,7 @@ function renderAdminContentManager() {
         </form>
       </section>
 
-      <section class="admin-manager-section">
+      <section class="admin-manager-section" data-admin-cm-section="images">
         <div class="section-heading">
           <div><p class="eyebrow">Image Manager</p><h3>Save reusable image links and uploads</h3></div>
         </div>
@@ -16023,11 +16039,168 @@ async function deleteImageAsset(id) {
   await saveAdminSiteContent(nextContent);
 }
 
+// ─── Admin Section Navigation ─────────────────────────────────────────────────
+
+const adminSectionTabs = [
+  { id: "dashboard",   label: "Dashboard" },
+  { id: "resources",   label: "Resources" },
+  { id: "lesson-plans", label: "Lesson Plans" },
+  { id: "reviews",     label: "Reviews" },
+  { id: "homepage",    label: "Homepage" },
+  { id: "founder",     label: "Founder" },
+  { id: "images",      label: "Images" },
+  { id: "analytics",   label: "Analytics" },
+  { id: "support",     label: "Support" },
+  { id: "ai-testing",  label: "AI Testing" },
+];
+
+function setAdminSectionTab(tabId) {
+  adminActiveSectionTab = tabId;
+  localStorage.setItem("llhAdminActiveSection", tabId);
+  renderAdminSectionNav();
+  applyAdminSectionVisibility();
+}
+
+function renderAdminSectionNav() {
+  const nav = document.querySelector("#adminSectionNav");
+  if (!nav || !isAdminUnlocked()) return;
+  nav.innerHTML = adminSectionTabs.map(({ id, label }) =>
+    `<button class="admin-section-nav-btn${adminActiveSectionTab === id ? " active" : ""}" data-admin-section-tab="${id}" type="button">${label}</button>`
+  ).join("");
+}
+
+const adminCmSectionIds = ["lesson-plans", "reviews", "founder", "homepage", "images"];
+
+function applyAdminSectionVisibility() {
+  const tab = adminActiveSectionTab;
+  const isCmSection = adminCmSectionIds.includes(tab);
+
+  const topSelectors = [
+    ".admin-content-manager-panel",
+    ".admin-layout",
+    ".admin-owner-panel",
+    ".admin-analytics-panel",
+    ".launch-readiness-panel",
+    ".admin-ticket-panel",
+    ".admin-ai-test-panel",
+  ];
+
+  topSelectors.forEach((sel) => {
+    const el = document.querySelector(sel);
+    if (el) el.hidden = true;
+  });
+
+  if (isCmSection) {
+    const cm = document.querySelector(".admin-content-manager-panel");
+    if (cm) cm.hidden = false;
+    document.querySelectorAll("[data-admin-cm-section]").forEach((el) => {
+      el.hidden = el.dataset.adminCmSection !== tab;
+    });
+  } else if (tab === "dashboard") {
+    const el = document.querySelector(".admin-owner-panel");
+    if (el) el.hidden = false;
+  } else if (tab === "resources") {
+    const el = document.querySelector(".admin-layout");
+    if (el) el.hidden = false;
+  } else if (tab === "analytics") {
+    [".admin-analytics-panel", ".launch-readiness-panel"].forEach((sel) => {
+      const el = document.querySelector(sel);
+      if (el) el.hidden = false;
+    });
+  } else if (tab === "support") {
+    const el = document.querySelector(".admin-ticket-panel");
+    if (el) el.hidden = false;
+  } else if (tab === "ai-testing") {
+    const el = document.querySelector(".admin-ai-test-panel");
+    if (el) el.hidden = false;
+  }
+}
+
+// ─── Structured Lesson Plan Import ───────────────────────────────────────────
+
+const structuredImportSectionMap = {
+  OVERVIEW: "weeklyOverview",
+  MATERIALS: "materials",
+  OBJECTIVES: "objectives",
+  TEACHER_LANGUAGE: "teacherLanguage",
+  MONDAY: "monday",
+  TUESDAY: "tuesday",
+  WEDNESDAY: "wednesday",
+  THURSDAY: "thursday",
+  FRIDAY: "friday",
+  ELG_CONNECTIONS: "elgConnections",
+  FAMILY_CONNECTION: "familyConnection",
+  REFLECTION_NOTES: "reflectionNotes",
+  THUMBNAIL: "__thumbnailDescription",
+};
+
+// Field names checked to determine if a lesson plan already has content.
+const adminLessonContentFields = ["weeklyOverview", "materials", "objectives", "monday"];
+
+function parseStructuredLessonPlan(text) {
+  const result = {};
+  // Limit section name length to prevent excessive backtracking on malformed input.
+  const parts = text.split(/===([A-Z_]{1,40})===/);
+  for (let i = 1; i < parts.length; i += 2) {
+    const key = parts[i].trim();
+    const content = (parts[i + 1] || "").trim();
+    const fieldName = structuredImportSectionMap[key];
+    if (fieldName && content) {
+      result[fieldName] = content;
+    }
+  }
+  return result;
+}
+
+function applyStructuredLessonPlanImport(fields) {
+  const form = document.querySelector("#adminLessonPlanForm");
+  if (!form) return 0;
+  let filled = 0;
+  Object.entries(fields).forEach(([fieldName, value]) => {
+    if (fieldName === "__thumbnailDescription") {
+      const thumbEl = form.querySelector('[name="thumbnailUrl"]');
+      if (thumbEl) {
+        thumbEl.setAttribute("data-thumbnail-prompt", escapeHtml(value));
+        const preview = value.slice(0, 120) + (value.length > 120 ? "…" : "");
+        thumbEl.placeholder = `Thumbnail: ${escapeHtml(preview)}`;
+        filled++;
+      }
+      return;
+    }
+    const el = form.querySelector(`[name="${fieldName}"]`);
+    if (el) {
+      el.value = value;
+      filled++;
+    }
+  });
+  return filled;
+}
+
+function openAdminLessonImportModal() {
+  const modal = document.querySelector("#adminLessonImportModal");
+  const textarea = document.querySelector("#adminImportTextarea");
+  const msg = document.querySelector("#adminImportMessage");
+  if (!modal) return;
+  if (textarea) textarea.value = "";
+  if (msg) { msg.textContent = ""; msg.classList.remove("success"); }
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+  if (textarea) textarea.focus();
+}
+
+function closeAdminLessonImportModal() {
+  const modal = document.querySelector("#adminLessonImportModal");
+  if (!modal) return;
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden", "true");
+}
+
 function renderAdminDashboard() {
   if (!renderAdminAccessShell()) return;
   const table = document.querySelector("#adminContentTable");
   const summary = document.querySelector("#adminSummary");
   if (!table || !summary) return;
+  renderAdminSectionNav();
   renderAdminContentManager();
   const query = (document.querySelector("#adminSearchInput")?.value || "").trim().toLowerCase();
   const category = document.querySelector("#adminCategoryFilter")?.value || "All Categories";
@@ -16057,6 +16230,7 @@ function renderAdminDashboard() {
   renderLaunchReadiness();
   renderAdminTickets();
   renderAdminAiTestCenter();
+  applyAdminSectionVisibility();
 }
 
 function adminRow(item) {
@@ -16264,7 +16438,7 @@ async function triggerAdminLessonGenerate(fillMode) {
   }
 
   if (fillMode === "check") {
-    const hasContent = ["weeklyOverview", "materials", "objectives", "monday"].some(
+    const hasContent = adminLessonContentFields.some(
       (name) => (form.querySelector(`[name="${name}"]`)?.value || "").trim() !== ""
     );
     if (hasContent) {
@@ -21680,6 +21854,28 @@ document.addEventListener("submit", async (event) => {
   if (event.target.matches("#adminImageAssetForm")) {
     event.preventDefault();
     await saveAdminImageAssetForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminLessonImportForm")) {
+    event.preventDefault();
+    const textarea = document.querySelector("#adminImportTextarea");
+    const msgEl = document.querySelector("#adminImportMessage");
+    const text = textarea?.value || "";
+    if (!text.trim()) {
+      if (msgEl) { msgEl.textContent = "Paste a structured lesson plan before importing."; msgEl.classList.remove("success"); }
+      return;
+    }
+    const fields = parseStructuredLessonPlan(text);
+    const count = applyStructuredLessonPlanImport(fields);
+    if (count === 0) {
+      if (msgEl) { msgEl.textContent = "No recognized sections found. Check the ===SECTION=== labels and try again."; msgEl.classList.remove("success"); }
+      return;
+    }
+    closeAdminLessonImportModal();
+    const form = document.querySelector("#adminLessonPlanForm");
+    if (form) form.scrollIntoView({ behavior: "smooth", block: "start" });
+    setFormMessage("#adminLessonGenerateMessage", `✅ Imported ${count} section${count !== 1 ? "s" : ""} successfully. Review all fields and click Save Lesson Plan when ready.`, true);
+    return;
   }
 });
 
@@ -21700,13 +21896,69 @@ document.addEventListener("change", (event) => {
       preview.style.display = "none";
     }
   }
+
+  // Theme change detection — show regeneration prompt when admin changes the theme field
+  if (event.target.matches("#adminLessonPlanForm [name='theme']")) {
+    const input = event.target;
+    const original = input.getAttribute("data-lesson-theme-original") || "";
+    const current = input.value.trim();
+    const confirmEl = document.querySelector("#adminThemeChangeConfirm");
+    if (confirmEl) {
+      const hasContent = adminLessonContentFields.some(
+        (name) => (document.querySelector(`#adminLessonPlanForm [name="${name}"]`)?.value || "").trim() !== ""
+      );
+      confirmEl.hidden = !hasContent || current === original || current === "";
+    }
+  }
 });
 
 document.addEventListener("click", async (event) => {
+  // Admin section navigation
+  const sectionNavBtn = event.target.closest("[data-admin-section-tab]");
+  if (sectionNavBtn) {
+    setAdminSectionTab(sectionNavBtn.dataset.adminSectionTab);
+    return;
+  }
+
+  // Import structured lesson plan button
+  if (event.target.closest("#adminLessonImportBtn")) {
+    openAdminLessonImportModal();
+    return;
+  }
+
+  // Close import modal
+  if (event.target.closest("#closeAdminImportModal") || event.target.closest("#cancelAdminImportBtn")) {
+    closeAdminLessonImportModal();
+    return;
+  }
+
+  // Click outside import modal card to close
+  if (event.target.matches("#adminLessonImportModal")) {
+    closeAdminLessonImportModal();
+    return;
+  }
+
+  // Theme change confirmation
+  const themeActionBtn = event.target.closest("[data-admin-theme-action]");
+  if (themeActionBtn) {
+    const action = themeActionBtn.dataset.adminThemeAction;
+    const confirmEl = document.querySelector("#adminThemeChangeConfirm");
+    if (confirmEl) confirmEl.hidden = true;
+    if (action === "regenerate-all") {
+      await triggerAdminLessonGenerate("all");
+    } else if (action === "regenerate-empty") {
+      await triggerAdminLessonGenerate("empty");
+    }
+    // "keep" — do nothing, just close
+    return;
+  }
+
   const lessonEditButton = event.target.closest("[data-admin-lesson-edit]");
   if (lessonEditButton) {
     adminLessonEditorId = lessonEditButton.dataset.adminLessonEdit;
+    if (adminActiveSectionTab !== "lesson-plans") setAdminSectionTab("lesson-plans");
     renderAdminContentManager();
+    applyAdminSectionVisibility();
     return;
   }
   const lessonToggleButton = event.target.closest("[data-admin-lesson-toggle]");
@@ -22736,6 +22988,11 @@ async function initializeAppView() {
     saveAttribution({ route, view: initialView });
     trackEvent("ad_route_visit", { route, view: initialView });
     setView(initialView);
+    return;
+  }
+  // If admin was previously in the admin area, restore the admin view on refresh.
+  if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") {
+    setView("admin");
   }
 }
 
