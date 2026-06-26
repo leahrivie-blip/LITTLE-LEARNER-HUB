@@ -2870,6 +2870,7 @@ let adminLessonSelection = new Set();
 let adminLessonEditorInitialSnapshot = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
+const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
 const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","reviews","homepage","founder","images","analytics","support","ai-testing"]);
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "dashboard";
 let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabRaw) ? adminActiveSectionTabRaw : "dashboard";
@@ -16569,7 +16570,7 @@ function applyStructuredLessonPlanImport(fields) {
     if (el) {
       if (fieldName === "visible" && el.type === "checkbox") {
         const normalized = String(value || "").trim().toLowerCase();
-        el.checked = ["true", "yes", "visible", "live", "on", "1"].includes(normalized);
+        el.checked = adminLessonVisibleTruthyValues.has(normalized);
       } else {
         el.value = value;
       }
