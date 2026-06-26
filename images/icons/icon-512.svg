@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Little Learner Hub icon</title>
+  <desc id="desc">Rounded blue app icon with Little Learner Hub initials.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5b9bd5" />
+      <stop offset="100%" stop-color="#8b7cf6" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#bg)" />
+  <circle cx="256" cy="204" r="82" fill="#ffffff" opacity="0.18" />
+  <path d="M152 162h60v188h112v54H152z" fill="#ffffff" />
+  <path d="M247 162h53v134h60v54H247z" fill="#ffffff" opacity="0.96" />
+</svg>
