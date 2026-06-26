@@ -2867,7 +2867,9 @@ let adminLessonEditorId = "";
 let adminReviewEditorId = "";
 let adminImageEditorId = "";
 let adminLessonSelection = new Set();
-let adminActiveSectionTab = localStorage.getItem("llhAdminActiveSection") || "dashboard";
+const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","reviews","homepage","founder","images","analytics","support","ai-testing"]);
+const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "dashboard";
+let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabRaw) ? adminActiveSectionTabRaw : "dashboard";
 const mobileNavMaxWidth = 820;
 const sidebarViewAliases = {
   "resource-observations": "observations",
@@ -16132,9 +16134,13 @@ const structuredImportSectionMap = {
   THUMBNAIL: "__thumbnailDescription",
 };
 
+// Field names checked to determine if a lesson plan already has content.
+const adminLessonContentFields = ["weeklyOverview", "materials", "objectives", "monday"];
+
 function parseStructuredLessonPlan(text) {
   const result = {};
-  const parts = text.split(/===([A-Z_]+)===/);
+  // Limit section name length to prevent excessive backtracking on malformed input.
+  const parts = text.split(/===([A-Z_]{1,40})===/);
   for (let i = 1; i < parts.length; i += 2) {
     const key = parts[i].trim();
     const content = (parts[i + 1] || "").trim();
@@ -16154,8 +16160,9 @@ function applyStructuredLessonPlanImport(fields) {
     if (fieldName === "__thumbnailDescription") {
       const thumbEl = form.querySelector('[name="thumbnailUrl"]');
       if (thumbEl) {
-        thumbEl.setAttribute("data-thumbnail-prompt", value);
-        thumbEl.placeholder = `Thumbnail: ${value.slice(0, 120)}${value.length > 120 ? "…" : ""}`;
+        thumbEl.setAttribute("data-thumbnail-prompt", escapeHtml(value));
+        const preview = value.slice(0, 120) + (value.length > 120 ? "…" : "");
+        thumbEl.placeholder = `Thumbnail: ${escapeHtml(preview)}`;
         filled++;
       }
       return;
@@ -16431,7 +16438,7 @@ async function triggerAdminLessonGenerate(fillMode) {
   }
 
   if (fillMode === "check") {
-    const hasContent = ["weeklyOverview", "materials", "objectives", "monday"].some(
+    const hasContent = adminLessonContentFields.some(
       (name) => (form.querySelector(`[name="${name}"]`)?.value || "").trim() !== ""
     );
     if (hasContent) {
@@ -21897,7 +21904,7 @@ document.addEventListener("change", (event) => {
     const current = input.value.trim();
     const confirmEl = document.querySelector("#adminThemeChangeConfirm");
     if (confirmEl) {
-      const hasContent = ["weeklyOverview", "materials", "objectives", "monday"].some(
+      const hasContent = adminLessonContentFields.some(
         (name) => (document.querySelector(`#adminLessonPlanForm [name="${name}"]`)?.value || "").trim() !== ""
       );
       confirmEl.hidden = !hasContent || current === original || current === "";
