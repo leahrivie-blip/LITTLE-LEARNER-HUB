@@ -2386,6 +2386,45 @@ body.home-view .topbar .search-wrap {
   font-weight: 700;
 }
 
+.admin-lesson-generator {
+  background: linear-gradient(135deg, #fdf6ff 0%, #f0f8ff 100%);
+  border: 1.5px solid #c9aff5;
+  display: grid;
+  gap: 12px;
+}
+
+.admin-lesson-generator legend {
+  color: #7c3aed;
+  font-size: 15px;
+}
+
+.admin-generator-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.admin-generator-optional {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.admin-overwrite-confirm {
+  background: #fff8e6;
+  border: 1px solid #f5c842;
+  border-radius: 10px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.admin-overwrite-confirm p {
+  margin: 0;
+  font-size: 14px;
+}
+
 .lp-showcase-managed-image,
 .lp-home-hero-image,
 .lp-reviewer-image {
