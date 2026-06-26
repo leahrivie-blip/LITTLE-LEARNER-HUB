@@ -3001,6 +3001,13 @@ function sanitizedImageSource(value) {
   return "";
 }
 
+function sanitizedUrl(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (/^https?:\/\//i.test(text)) return text.slice(0, 2000);
+  return "";
+}
+
 function safeContentHtml(value) {
   return escapeHtml(normalizedMultilineText(value)).replace(/\n/g, "<br>");
 }
@@ -15936,9 +15943,9 @@ async function saveAdminFounderForm(form) {
     shortBio: normalizedMultilineText(formData.get("shortBio")),
     profileImageUrl: profileImage || sanitizedImageSource(formData.get("profileImageUrl")),
     homeImageUrl: homeImage || sanitizedImageSource(formData.get("homeImageUrl")),
-    websiteUrl: sanitizedImageSource(formData.get("websiteUrl")),
-    instagramUrl: sanitizedImageSource(formData.get("instagramUrl")),
-    linkedInUrl: sanitizedImageSource(formData.get("linkedInUrl")),
+    websiteUrl: sanitizedUrl(formData.get("websiteUrl")),
+    instagramUrl: sanitizedUrl(formData.get("instagramUrl")),
+    linkedInUrl: sanitizedUrl(formData.get("linkedInUrl")),
   };
   await saveAdminSiteContent(nextContent);
   setFormMessage("#adminFounderMessage", "Founder section saved.", true);

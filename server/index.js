@@ -326,6 +326,13 @@ function sanitizedImageSource(value, maxLength = 1_000_000) {
   return "";
 }
 
+function sanitizedUrl(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (/^https?:\/\//i.test(text)) return text.slice(0, 2000);
+  return "";
+}
+
 function normalizedList(items, limit, mapper) {
   return Array.isArray(items) ? items.slice(0, limit).map(mapper).filter(Boolean) : [];
 }
@@ -404,9 +411,9 @@ function normalizedSiteContent(value) {
       shortBio: normalizedMultilineText(input.founder?.shortBio, 1200),
       profileImageUrl: sanitizedImageSource(input.founder?.profileImageUrl),
       homeImageUrl: sanitizedImageSource(input.founder?.homeImageUrl),
-      websiteUrl: sanitizedImageSource(input.founder?.websiteUrl),
-      instagramUrl: sanitizedImageSource(input.founder?.instagramUrl),
-      linkedInUrl: sanitizedImageSource(input.founder?.linkedInUrl),
+      websiteUrl: sanitizedUrl(input.founder?.websiteUrl),
+      instagramUrl: sanitizedUrl(input.founder?.instagramUrl),
+      linkedInUrl: sanitizedUrl(input.founder?.linkedInUrl),
     },
     homepage: {
       heroBadge: normalizedShortText(input.homepage?.heroBadge, 180),
