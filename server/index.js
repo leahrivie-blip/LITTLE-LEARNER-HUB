@@ -1144,19 +1144,20 @@ Provide 6–8 open-ended questions for use across the week. Match developmental 
 • Preschool: higher-order thinking ("What would happen if…?" / "How could we find out?")
 
 ─ MONDAY THROUGH FRIDAY DAILY PLANS (or one day if Daily lesson type)
-Each day must follow this structure:
+Each day must follow this exact structure — every subsection is required:
 
 [Day Name]: [Day Theme or Focus]
-• Morning Circle: [specific song title OR book title OR discussion question — not just "sing a song" or "read a book"]
-• Main Learning Activity: [step-by-step, hands-on activity with setup, directions, and teacher role]
+• Circle Time: [specific song title OR book title OR discussion question — not just "sing a song" or "read a book"; describe exactly what happens]
+• Main Activity: [activity title — step-by-step, hands-on activity with setup, directions, and teacher role]
   - Objective: [what children will learn]
   - Materials: [exact items for this activity]
   - Setup: [what teacher prepares]
   - Steps: [numbered directions]
   - Teacher Language: ["I see you…" / "What do you think…?" — 2 specific phrases]
-  - Questions: [2 questions to ask children today]
-• Developmental Domains Addressed: [named domains]
-• Transition Tip: [one specific named strategy, e.g., "Animal walk to the snack table," "Whisper-count to 5"]
+• Book Recommendation: [Real Title by Real Author] — [1 sentence why this real, published book fits the theme; include 1 discussion question to ask children]
+• Music & Movement: [Real song or well-known fingerplay title] — [description of movements, lyrics excerpt if fingerplay, and what children do; never invent fake song titles]
+• Discussion Ideas: [2–3 open-ended questions or conversation starters tied to today's theme focus and age group]
+• Learning Focus: [1–2 sentences naming the developmental domain(s) and specific skill emphasized today]
 
 Day themes:
 • Monday: Introduce the theme — literacy, sensory, language
@@ -1198,16 +1199,31 @@ VARIETY AND QUALITY RULES — CRITICAL:
 - Every plan must feel freshly written. No plan should read like a copied template.
 - Vary art media, science topics, sensory materials, and dramatic play scenarios every single time.
 - Never write vague instructions like "read a book," "sing a song," "do an art activity," or "go outside." Every instruction must be complete and specific.
-- Never omit a required section. Every section must be fully written out.
+- Never omit a required section. Every section must be fully written out with no placeholder text and no empty sections.
 - Infant plans: sensory-safe only, no small parts, 5–10 min, caregiver-led.
 - Toddler plans: 10–15 min, simple, adult-supported, hands-on, no worksheets.
 - Preschool plans: literacy + math + science + social-emotional all appear across the week.
 - School Age: meaningfully more advanced than preschool — projects, writing, STEM, leadership.
+- All books must be real, published children's books with real authors matched to the theme — never invent fake book titles or fake authors; use different books each day when possible.
+- All songs must be real or well-known children's songs, fingerplays, or nursery rhymes — never invent fake song titles.
+- No duplicate paragraphs, no placeholder text, no repeated phrases across sections.
 
 CURRICULUM ALIGNMENT:
 - If a curriculum framework is specified, align activity structure and documentation to that framework.
 - If state standards are mentioned, reference relevant early learning domain indicators.
-- If neither is specified, base content on Developmentally Appropriate Practice (DAP).`,
+- If neither is specified, base content on Developmentally Appropriate Practice (DAP).
+
+─────────────────────────────────────────
+FINAL AI VALIDATION — complete before returning the lesson plan:
+─────────────────────────────────────────
+Verify every required section is present and fully written: Weekly Learning Objectives, Vocabulary Words, Complete Materials List, Featured Books, Music and Movement, Art Activity, Sensory Activity, Fine Motor Activity, Gross Motor Activity, Social-Emotional Connection, Teacher Language Guide, Questions to Ask Children, Monday through Friday Daily Plans, Adaptations for Different Abilities, Extensions, Assessment and Observation Notes, Family Connection Idea, and Provider Notes.
+Verify each of Monday–Friday includes all six subsections: Circle Time, Main Activity, Book Recommendation, Music & Movement, Discussion Ideas, and Learning Focus.
+Verify all books are real published titles with real authors and match the theme.
+Verify all songs are real or well-known children's songs or fingerplays.
+Verify all activities are age-appropriate for the stated age group.
+Verify the selected theme is consistent across every section — objectives, materials, daily activities, books, songs, discussion ideas, family connection, and assessment notes.
+Verify there is no placeholder text, no empty sections, and no duplicate paragraphs.
+If any section is missing or incomplete, regenerate only that section before returning the lesson plan.`,
 
     daily: base + `
 
@@ -1804,11 +1820,11 @@ Required JSON keys and content:
   "materials": "Complete list of ALL materials needed for the entire week. One item per line starting with a dash. Be specific — write exact items and quantities. Example:\\n- Plastic bug figures (ants, butterflies, bees) x 12\\n- Blue and yellow washable tempera paint\\n- 12x18 white construction paper (5 sheets per child)",
   "objectives": "3–5 developmental objectives written in provider-friendly language. One per line. Each names a specific developmental domain (Language, Cognitive, Fine Motor, Gross Motor, Social-Emotional, Literacy, Math, Science, or Creative Arts). Example:\\n- Language: Children will use 5 new theme-related vocabulary words during activities and conversations.\\n- Fine Motor: Children will strengthen hand control through art and sensory exploration.",
   "teacherLanguage": "6–8 helpful phrases teachers can naturally say throughout the week. One phrase per line starting with a dash. These should NOT appear inside the daily plans. Example:\\n- \\"What do you notice about this? Tell me more!\\"\\n- \\"Let's try that together — you go first.\\"",
-  "monday": "Circle Time:\\n[2–3 sentence description of Monday's circle time activity]\\n\\nMain Activity:\\n[Activity title]\\n[Step-by-step numbered instructions the provider follows]\\n\\nBook Recommendation:\\n[Title by Author] — [1 sentence why this fits the theme and one discussion question]\\n\\nMusic & Movement:\\n[Song or fingerplay title] — [description of movements and what children do]",
-  "tuesday": "[Same four-section format as monday with completely different circle time, activity, book, and song]",
-  "wednesday": "[Same four-section format as monday with completely different circle time, activity, book, and song]",
-  "thursday": "[Same four-section format as monday with completely different circle time, activity, book, and song]",
-  "friday": "[Same four-section format as monday with completely different circle time, activity, book, and song]",
+  "monday": "Circle Time:\\n[2–3 sentence description of Monday's circle time activity]\\n\\nMain Activity:\\n[Activity title]\\n[Step-by-step numbered instructions the provider follows]\\n\\nBook Recommendation:\\n[Title by Author] — [1 sentence why this fits the theme and one discussion question]\\n\\nMusic & Movement:\\n[Song or fingerplay title] — [description of movements and what children do]\\n\\nDiscussion Ideas:\\n[2–3 open-ended questions or conversation starters tied to Monday's theme focus and age group]\\n\\nLearning Focus:\\n[1–2 sentences naming the developmental domain(s) and specific skill emphasized on Monday]",
+  "tuesday": "[Same six-section format as monday — Circle Time, Main Activity, Book Recommendation, Music & Movement, Discussion Ideas, Learning Focus — with completely different content]",
+  "wednesday": "[Same six-section format as monday — Circle Time, Main Activity, Book Recommendation, Music & Movement, Discussion Ideas, Learning Focus — with completely different content]",
+  "thursday": "[Same six-section format as monday — Circle Time, Main Activity, Book Recommendation, Music & Movement, Discussion Ideas, Learning Focus — with completely different content]",
+  "friday": "[Same six-section format as monday — Circle Time, Main Activity, Book Recommendation, Music & Movement, Discussion Ideas, Learning Focus — with completely different content]",
   "elgConnections": "3–4 specific Oklahoma Early Learning Guideline connections for ${elgAgeLabel}. Format: [Domain]: [Indicator description] — [brief explanation of how this lesson connects]",
   "familyConnection": "2–3 sentence summary families can read about the week's theme. Then: Home Activity: [title and 2–3 step description families can do at home using common household items]",
   "reflectionNotes": "4–5 thoughtful reflection questions for providers, one per line starting with a dash. Examples:\\n- Which activities were most engaging for your group?\\n- Which children showed the most interest or made unexpected connections?\\n- What vocabulary or skills were observed during activities?\\n- What would you extend or repeat next week?\\n- What family shares or home connections did you notice?",
@@ -1816,13 +1832,25 @@ Required JSON keys and content:
 }
 
 Critical rules:
-- Every daily plan (Monday–Friday) MUST include all four sections: Circle Time, Main Activity, Book Recommendation, and Music & Movement
+- Every daily plan (Monday–Friday) MUST include all six sections: Circle Time, Main Activity, Book Recommendation, Music & Movement, Discussion Ideas, and Learning Focus
 - Do NOT include materials lists or teacher language phrases inside the daily plans — they belong in their own top-level sections
-- All books must be real, published children's books matched to the theme
-- All songs must be real, well-known children's songs or fingerplays
+- All books must be real, published children's books matched to the theme — never invent fake book titles or fake authors
+- All songs must be real, well-known children's songs or fingerplays — never invent fake song titles
 - Each day must have a completely different circle time, activity, book, and song
 - Every activity must be truly age-appropriate for ${age}
 - This lesson plan must be specific and professional — use specific book titles, specific song names, and detailed step-by-step instructions
+- Every section (weeklyOverview, materials, objectives, teacherLanguage, monday–friday, elgConnections, familyConnection, reflectionNotes, thumbnailPrompt) must be fully written with no placeholder text, no empty values, and no duplicate paragraphs
+- The theme "${theme}" must be consistent across every section: overview, materials, objectives, daily activities, books, songs, discussion ideas, family connection, and reflection notes
+- Do not mix unrelated themes
+
+FINAL AI VALIDATION — complete before returning the JSON:
+- Confirm every required JSON key is present and fully written (no empty strings, no placeholder text)
+- Confirm each of Monday–Friday includes all six sections: Circle Time, Main Activity, Book Recommendation, Music & Movement, Discussion Ideas, and Learning Focus
+- Confirm all books are real published titles with real authors matched to the theme
+- Confirm all songs are real or well-known children's songs or fingerplays
+- Confirm all activities are appropriate for ${age}
+- Confirm the theme is consistent throughout the entire plan
+- If any section is incomplete or missing, regenerate only that section before returning
 - Output ONLY the JSON object with no surrounding text`;
 }
 
@@ -1840,7 +1868,7 @@ async function handleAdminGenerateLessonPlan(request, response) {
     jsonResponse(response, 400, { error: "Theme is required to generate a lesson plan." });
     return;
   }
-  const systemPrompt = "You are an expert early childhood educator and curriculum specialist creating complete, classroom-ready weekly lesson plans for real childcare providers. Your lesson plans are detailed, age-appropriate, provider-ready, and genuinely specific — never generic or template-like. Return ONLY a valid JSON object. No markdown, no code fences, no text before or after the JSON.";
+  const systemPrompt = "You are an expert early childhood educator and curriculum specialist creating complete, classroom-ready weekly lesson plans for real childcare providers. Your lesson plans are detailed, age-appropriate, provider-ready, and genuinely specific — never generic or template-like. Books must be real published titles with real authors. Songs must be real or well-known children's songs or fingerplays. Never invent fake book titles, fake authors, or fake song titles. Every section must be fully written with no placeholder text and no empty values. Before returning, verify every required field is complete, every daily plan includes all six required sections (Circle Time, Main Activity, Book Recommendation, Music & Movement, Discussion Ideas, Learning Focus), all books and songs are real, all activities match the age group, and the theme is consistent throughout. Regenerate any incomplete section before returning. Return ONLY a valid JSON object. No markdown, no code fences, no text before or after the JSON.";
   const userPrompt = buildAdminLessonGeneratorPrompt(age, theme, lessonNumber);
   try {
     const rawOutput = await callOpenAiRaw(systemPrompt, userPrompt);
