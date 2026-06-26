@@ -17802,6 +17802,7 @@ document.addEventListener("click", async (event) => {
   }
 
 
+  const quickDocGenerateBtn = event.target.closest("#quickDocGenerate");
   if (quickDocGenerateBtn) {
     event.preventDefault();
     if (!canUseAi()) {
