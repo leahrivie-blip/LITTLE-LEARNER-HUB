@@ -1779,6 +1779,88 @@ async function scoreAiOutput(text) {
   }
 }
 
+function buildAdminLessonGeneratorPrompt(age, theme, lessonNumber) {
+  const ageInstructions = {
+    Infant: "infants (0–12 months). Activities: 5–10 minutes, caregiver-led, sensory-safe only. Focus: tummy time, songs, tracking, reaching, sensory exploration, bonding. Never suggest scissors, small parts, worksheets, or complex crafts.",
+    Toddler: "toddlers (12–36 months). Activities: 10–15 minutes, adult-supported, 1–2 step directions. Focus: movement, pretend play, simple art, songs, vocabulary, sensory play. Never suggest worksheets or academic pressure.",
+    Preschool: "preschool children (3–5 years). Activities: 15–20 minutes, small or whole group. Focus: problem-solving, pre-literacy, counting, science, cooperative play, early writing, open-ended questions.",
+  };
+  const elgAgeLabel = age === "Infant" ? "Infant (0–12 months)" : age === "Toddler" ? "Toddler (1–3 years)" : "Preschool (3–5 years)";
+  const ageNote = ageInstructions[age] || ageInstructions.Preschool;
+  const themeUpper = theme.toUpperCase();
+
+  return `Create a complete, professional weekly lesson plan for ${ageNote}
+
+Theme: ${theme}
+${lessonNumber ? `Lesson Plan Number: ${lessonNumber}` : ""}
+
+Return ONLY a valid JSON object — no markdown, no code fences, no text before or after the JSON.
+
+Required JSON keys and content:
+
+{
+  "title": "Descriptive lesson plan title including the theme and age group",
+  "weeklyOverview": "3–4 sentence paragraph introducing the weekly theme, what children will explore, and the developmental focus. Written in warm, provider-friendly language.",
+  "materials": "Complete list of ALL materials needed for the entire week. One item per line starting with a dash. Be specific — write exact items and quantities. Example:\\n- Plastic bug figures (ants, butterflies, bees) x 12\\n- Blue and yellow washable tempera paint\\n- 12x18 white construction paper (5 sheets per child)",
+  "objectives": "3–5 developmental objectives written in provider-friendly language. One per line. Each names a specific developmental domain (Language, Cognitive, Fine Motor, Gross Motor, Social-Emotional, Literacy, Math, Science, or Creative Arts). Example:\\n- Language: Children will use 5 new theme-related vocabulary words during activities and conversations.\\n- Fine Motor: Children will strengthen hand control through art and sensory exploration.",
+  "teacherLanguage": "6–8 helpful phrases teachers can naturally say throughout the week. One phrase per line starting with a dash. These should NOT appear inside the daily plans. Example:\\n- \\"What do you notice about this? Tell me more!\\"\\n- \\"Let's try that together — you go first.\\"",
+  "monday": "Circle Time:\\n[2–3 sentence description of Monday's circle time activity]\\n\\nMain Activity:\\n[Activity title]\\n[Step-by-step numbered instructions the provider follows]\\n\\nBook Recommendation:\\n[Title by Author] — [1 sentence why this fits the theme and one discussion question]\\n\\nMusic & Movement:\\n[Song or fingerplay title] — [description of movements and what children do]",
+  "tuesday": "[Same four-section format as monday with completely different circle time, activity, book, and song]",
+  "wednesday": "[Same four-section format as monday with completely different circle time, activity, book, and song]",
+  "thursday": "[Same four-section format as monday with completely different circle time, activity, book, and song]",
+  "friday": "[Same four-section format as monday with completely different circle time, activity, book, and song]",
+  "elgConnections": "3–4 specific Oklahoma Early Learning Guideline connections for ${elgAgeLabel}. Format: [Domain]: [Indicator description] — [brief explanation of how this lesson connects]",
+  "familyConnection": "2–3 sentence summary families can read about the week's theme. Then: Home Activity: [title and 2–3 step description families can do at home using common household items]",
+  "reflectionNotes": "4–5 thoughtful reflection questions for providers, one per line starting with a dash. Examples:\\n- Which activities were most engaging for your group?\\n- Which children showed the most interest or made unexpected connections?\\n- What vocabulary or skills were observed during activities?\\n- What would you extend or repeat next week?\\n- What family shares or home connections did you notice?",
+  "thumbnailPrompt": "Clean Canva-style lesson plan cover: white background, soft pastel accent colors, large bold title '${themeUpper}', subtitle '${age} Weekly Lesson Plan', small theme-related illustrations for ${theme}, modern clean layout, professional appearance"
+}
+
+Critical rules:
+- Every daily plan (Monday–Friday) MUST include all four sections: Circle Time, Main Activity, Book Recommendation, and Music & Movement
+- Do NOT include materials lists or teacher language phrases inside the daily plans — they belong in their own top-level sections
+- All books must be real, published children's books matched to the theme
+- All songs must be real, well-known children's songs or fingerplays
+- Each day must have a completely different circle time, activity, book, and song
+- Every activity must be truly age-appropriate for ${age}
+- This lesson plan must be specific and professional — use specific book titles, specific song names, and detailed step-by-step instructions
+- Output ONLY the JSON object with no surrounding text`;
+}
+
+async function handleAdminGenerateLessonPlan(request, response) {
+  const body = await readJson(request);
+  const token = String(body.adminToken || "");
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const age = String(body.age || "Preschool").trim();
+  const theme = String(body.theme || "").trim();
+  const lessonNumber = String(body.lessonNumber || "").trim();
+  if (!theme) {
+    jsonResponse(response, 400, { error: "Theme is required to generate a lesson plan." });
+    return;
+  }
+  const systemPrompt = "You are an expert early childhood educator and curriculum specialist creating complete, classroom-ready weekly lesson plans for real childcare providers. Your lesson plans are detailed, age-appropriate, provider-ready, and genuinely specific — never generic or template-like. Return ONLY a valid JSON object. No markdown, no code fences, no text before or after the JSON.";
+  const userPrompt = buildAdminLessonGeneratorPrompt(age, theme, lessonNumber);
+  try {
+    const rawOutput = await callOpenAiRaw(systemPrompt, userPrompt);
+    const clean = rawOutput.replace(/```[a-z]*\n?|\n?```/g, "").trim();
+    const jsonStart = clean.indexOf("{");
+    const jsonEnd = clean.lastIndexOf("}");
+    if (jsonStart === -1 || jsonEnd === -1) {
+      throw new Error("The AI did not return structured lesson plan data. Please try again.");
+    }
+    const fields = JSON.parse(clean.slice(jsonStart, jsonEnd + 1));
+    jsonResponse(response, 200, { fields });
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      jsonResponse(response, 503, { error: "Lesson plan could not be generated. Please try again." });
+      return;
+    }
+    jsonResponse(response, 503, { error: error.message || "Lesson plan could not be generated. Please try again." });
+  }
+}
+
 async function handleAdminAiTest(request, response) {
   const body = await readJson(request);
   const token = String(body.adminToken || "");
@@ -3163,6 +3245,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/support-tickets") return handleSupportTicketsList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/analytics") return handleAdminAnalytics(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-test") return await handleAdminAiTest(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/generate-lesson-plan") return await handleAdminGenerateLessonPlan(request, response);
     if (request.method === "GET" && url.pathname === "/api/founding-status") return handleFoundingStatus(request, response);
     if (request.method === "GET" && url.pathname === "/api/stripe-readiness") return handleStripeReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/billing-readiness") return handleBillingReadiness(request, response);

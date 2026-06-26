@@ -1751,6 +1751,9 @@ const aiGenerationConfig = {
 const adminAiTestConfig = {
   endpoint: "/api/admin/ai-test",
 };
+const adminLessonGenerateConfig = {
+  endpoint: "/api/admin/generate-lesson-plan",
+};
 const siteContentConfig = {
   publicEndpoint: "/api/site-content",
   adminEndpoint: "/api/admin/site-content",
@@ -15469,6 +15472,24 @@ function renderAdminContentManager() {
               <label>Free / Pro<select name="plan">${["Free", "Pro"].map((plan) => `<option${lessonRecord.plan === plan ? " selected" : ""}>${plan}</option>`).join("")}</select></label>
             </div>
             <label class="admin-inline-toggle"><input type="checkbox" name="visible" ${lessonRecord.visible !== false ? "checked" : ""} /> <span>Visible on public site</span></label>
+            <fieldset class="admin-fieldset admin-lesson-generator">
+              <legend>✨ AI Lesson Plan Generator</legend>
+              <p class="admin-generator-note">Fill in Age Group and Theme above, then click Generate to populate all fields automatically. Review and edit before saving.</p>
+              <label>Lesson Plan Number <span class="admin-generator-optional">(optional — helps generate a unique plan)</span><input name="generatorLessonNumber" placeholder="e.g. 1, 2, 3" /></label>
+              <div class="form-actions">
+                <button class="primary-button" type="button" id="adminLessonGenerateBtn">✨ Generate Lesson Plan</button>
+                <button class="ghost-button" type="button" id="adminLessonPreviewBtn">Preview Public View</button>
+              </div>
+              <div id="adminLessonOverwriteConfirm" class="admin-overwrite-confirm" hidden>
+                <p><strong>This will replace the current lesson plan content. Continue?</strong></p>
+                <div class="form-actions">
+                  <button class="primary-button" type="button" data-admin-lesson-overwrite="all">Replace Everything</button>
+                  <button class="ghost-button" type="button" data-admin-lesson-overwrite="empty">Fill Empty Fields Only</button>
+                  <button class="ghost-button" type="button" data-admin-lesson-overwrite="cancel">Cancel</button>
+                </div>
+              </div>
+              <span class="form-message" id="adminLessonGenerateMessage"></span>
+            </fieldset>
             <label>Overview<textarea name="weeklyOverview" rows="3">${escapeHtml(lessonRecord.weeklyOverview || "")}</textarea></label>
             <label>Materials<textarea name="materials" rows="3">${escapeHtml(lessonRecord.materials || "")}</textarea></label>
             <label>Objectives<textarea name="objectives" rows="4">${escapeHtml(lessonRecord.objectives || "")}</textarea></label>
@@ -15649,7 +15670,11 @@ async function saveAdminLessonPlanForm(form) {
     };
     adminLessonEditorId = id;
   });
-  setFormMessage("#adminLessonPlanMessage", "Lesson plan saved.", true);
+  const isVisible = formData.get("visible") === "on";
+  const successMsg = isVisible
+    ? "Lesson plan saved. This lesson plan is now live on the website."
+    : "Lesson plan saved as hidden.";
+  setFormMessage("#adminLessonPlanMessage", successMsg, true);
 }
 
 async function resetLessonPlanOverride(id) {
@@ -16018,6 +16043,101 @@ async function callAdminAiTest(systemPrompt, userPrompt, wantScore) {
   if (!res.ok) throw new Error(data?.error || "AI test generation failed.");
   return data;
 }
+
+async function callAdminGenerateLessonPlan(age, theme, lessonNumber) {
+  const token = adminSession()?.token || "";
+  if (!token) throw new Error("Admin session required. Please log in as admin.");
+  if (!canUseLaunchBackend()) throw new Error("Backend server is required for lesson plan generation.");
+  const res = await fetch(adminLessonGenerateConfig.endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminToken: token, age, theme, lessonNumber }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || "Lesson plan could not be generated. Please try again.");
+  return data.fields || {};
+}
+
+function fillAdminLessonPlanFormFields(fields, mode) {
+  const form = document.querySelector("#adminLessonPlanForm");
+  if (!form) return;
+  const fieldMap = [
+    ["title", "title"],
+    ["weeklyOverview", "weeklyOverview"],
+    ["materials", "materials"],
+    ["objectives", "objectives"],
+    ["teacherLanguage", "teacherLanguage"],
+    ["monday", "monday"],
+    ["tuesday", "tuesday"],
+    ["wednesday", "wednesday"],
+    ["thursday", "thursday"],
+    ["friday", "friday"],
+    ["elgConnections", "elgConnections"],
+    ["familyConnection", "familyConnection"],
+    ["reflectionNotes", "reflectionNotes"],
+  ];
+  fieldMap.forEach(([fieldKey, formName]) => {
+    const value = String(fields[fieldKey] || "").trim();
+    if (!value) return;
+    const el = form.querySelector(`[name="${formName}"]`);
+    if (!el) return;
+    if (mode === "empty" && el.value.trim()) return;
+    el.value = value;
+  });
+  const thumbUrl = form.querySelector('[name="thumbnailUrl"]');
+  if (thumbUrl && !thumbUrl.value.trim() && fields.thumbnailPrompt) {
+    const prompt = String(fields.thumbnailPrompt).trim();
+    thumbUrl.setAttribute("data-thumbnail-prompt", prompt);
+    thumbUrl.placeholder = `Generated prompt: ${prompt.slice(0, 100)}${prompt.length > 100 ? "…" : ""}`;
+  }
+}
+
+async function triggerAdminLessonGenerate(fillMode) {
+  const form = document.querySelector("#adminLessonPlanForm");
+  if (!form) return;
+  const age = (form.querySelector('[name="age"]')?.value || "").trim();
+  const theme = (form.querySelector('[name="theme"]')?.value || "").trim();
+  const lessonNumber = (form.querySelector('[name="generatorLessonNumber"]')?.value || "").trim();
+  const generateBtn = document.querySelector("#adminLessonGenerateBtn");
+  const confirmEl = document.querySelector("#adminLessonOverwriteConfirm");
+
+  if (!age || !theme) {
+    setFormMessage("#adminLessonGenerateMessage", "Please enter the Age Group and Theme before generating.");
+    return;
+  }
+
+  if (fillMode === "check") {
+    const hasContent = ["weeklyOverview", "materials", "objectives", "monday"].some(
+      (name) => (form.querySelector(`[name="${name}"]`)?.value || "").trim() !== ""
+    );
+    if (hasContent) {
+      if (confirmEl) confirmEl.hidden = false;
+      setFormMessage("#adminLessonGenerateMessage", "");
+      return;
+    }
+    fillMode = "all";
+  }
+
+  if (confirmEl) confirmEl.hidden = true;
+  if (generateBtn) { generateBtn.disabled = true; generateBtn.textContent = "Generating…"; }
+  setFormMessage("#adminLessonGenerateMessage", "Generating lesson plan — this may take up to 30 seconds…", true);
+
+  try {
+    const fields = await callAdminGenerateLessonPlan(age, theme, lessonNumber);
+    fillAdminLessonPlanFormFields(fields, fillMode);
+    setFormMessage("#adminLessonGenerateMessage", "✅ Lesson plan generated. Review all fields below and click Save Lesson Plan when ready.", true);
+  } catch (error) {
+    setFormMessage("#adminLessonGenerateMessage", error.message || "Lesson plan could not be generated. Please try again.");
+  } finally {
+    if (generateBtn) { generateBtn.disabled = false; generateBtn.textContent = "✨ Generate Lesson Plan"; }
+  }
+}
+
+function previewAdminLessonPlan() {
+  if (adminLessonEditorId) openResourceViewer(adminLessonEditorId);
+}
+
+
 
 function renderAdminAiTestCenter() {
   const target = document.querySelector("#adminAiTestCenter");
@@ -21427,6 +21547,25 @@ document.addEventListener("click", async (event) => {
   }
   if (event.target.closest("#adminShowOnly50Button")) {
     await showOnlyFiftyLessonPlansPerAge();
+    return;
+  }
+  if (event.target.closest("#adminLessonGenerateBtn")) {
+    await triggerAdminLessonGenerate("check");
+    return;
+  }
+  const lessonOverwriteBtn = event.target.closest("[data-admin-lesson-overwrite]");
+  if (lessonOverwriteBtn) {
+    const mode = lessonOverwriteBtn.dataset.adminLessonOverwrite;
+    if (mode === "cancel") {
+      const confirmEl = document.querySelector("#adminLessonOverwriteConfirm");
+      if (confirmEl) confirmEl.hidden = true;
+    } else {
+      await triggerAdminLessonGenerate(mode === "all" ? "all" : "empty");
+    }
+    return;
+  }
+  if (event.target.closest("#adminLessonPreviewBtn")) {
+    previewAdminLessonPlan();
     return;
   }
   const reviewEditButton = event.target.closest("[data-admin-review-edit]");
