@@ -1850,7 +1850,13 @@ async function handleAdminGenerateLessonPlan(request, response) {
     if (jsonStart === -1 || jsonEnd === -1) {
       throw new Error("The AI did not return structured lesson plan data. Please try again.");
     }
-    const fields = JSON.parse(clean.slice(jsonStart, jsonEnd + 1));
+    // Replace unescaped literal newlines inside JSON string values with \n so JSON.parse succeeds
+    // even when the AI emits actual newlines instead of escape sequences inside strings.
+    const jsonSlice = clean.slice(jsonStart, jsonEnd + 1);
+    const sanitized = jsonSlice.replace(/"((?:[^"\\]|\\.)*)"/g, (match) =>
+      match.replace(/\n/g, "\\n").replace(/\r/g, "\\r")
+    );
+    const fields = JSON.parse(sanitized);
     jsonResponse(response, 200, { fields });
   } catch (error) {
     if (error instanceof SyntaxError) {
