@@ -2441,6 +2441,16 @@ body.home-view .topbar .search-wrap {
   font-weight: 700;
 }
 
+.admin-lesson-editing-heading {
+  margin: 2px 0 4px;
+  color: #5b4a9e;
+}
+
+#adminLessonPlanForm textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
 .admin-lesson-generator {
   background: linear-gradient(135deg, #fdf6ff 0%, #f0f8ff 100%);
   border: 1.5px solid #c9aff5;
@@ -2510,6 +2520,10 @@ body.home-view .topbar .search-wrap {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.admin-stacked-form .form-actions button {
+  min-height: 44px;
 }
 
 #adminCancelEdit {
@@ -7583,6 +7597,10 @@ body.home-view .topbar .search-wrap {
 	  .onboarding-list {
 	    grid-template-columns: 1fr;
 	  }
+
+  #adminLessonPlanForm .form-actions button {
+    width: 100%;
+  }
 
   .provider-needs-grid article {
     border-right: 0;

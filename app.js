@@ -2867,6 +2867,9 @@ let adminLessonEditorId = "";
 let adminReviewEditorId = "";
 let adminImageEditorId = "";
 let adminLessonSelection = new Set();
+let adminLessonEditorInitialSnapshot = "";
+const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
+const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","reviews","homepage","founder","images","analytics","support","ai-testing"]);
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "dashboard";
 let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabRaw) ? adminActiveSectionTabRaw : "dashboard";
@@ -3791,6 +3794,9 @@ function setView(view) {
   const requestedView = view;
   const requestedChildToolTab = childToolTabFromView(view);
   const requestedFutureTool = sidebarFutureToolTargets[requestedView] || "";
+  const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
+  const resolvedView = resolveSidebarView(view);
+  if (activeView === "admin" && resolvedView !== "admin" && !confirmDiscardAdminLessonChanges()) return;
   if (requestedChildToolTab === "daily-logs") {
     childManagementMode = "daily-logs";
     dailyLogsSection = "home";
@@ -3813,7 +3819,6 @@ function setView(view) {
     activeObservationChildLock = "";
     activePortfolioChildId = "";
   }
-  const resolvedView = resolveSidebarView(view);
   // Route guard: unauthenticated visitors may only access public marketing views.
   if (!isLoggedIn() && !hasAdminFullAccess() && !guestAllowedViews.has(resolvedView)) {
     openAuthModal("login");
@@ -15802,6 +15807,73 @@ function filteredAdminLessonPlans() {
   });
 }
 
+function adminLessonFormSnapshot(form = document.querySelector("#adminLessonPlanForm")) {
+  if (!form) return "";
+  const snapshot = {};
+  const fields = Array.from(form.elements || []).filter((el) => el.name && !el.disabled && el.type !== "submit" && el.type !== "button");
+  fields.forEach((field) => {
+    if (field.type === "file") {
+      snapshot[field.name] = field.files?.length ? Array.from(field.files).map((item) => item.name).join(",") : "";
+      return;
+    }
+    if (field.type === "checkbox") {
+      snapshot[field.name] = field.checked;
+      return;
+    }
+    snapshot[field.name] = String(field.value || "").trim();
+  });
+  return JSON.stringify(snapshot);
+}
+
+function adminLessonHasUnsavedChanges() {
+  const form = document.querySelector("#adminLessonPlanForm");
+  if (!form || !adminLessonEditorInitialSnapshot) return false;
+  return adminLessonFormSnapshot(form) !== adminLessonEditorInitialSnapshot;
+}
+
+function confirmDiscardAdminLessonChanges() {
+  if (!adminLessonHasUnsavedChanges()) return true;
+  return window.confirm(adminLessonUnsavedWarning);
+}
+
+function updateAdminLessonEditorHeading() {
+  const heading = document.querySelector("#adminLessonEditorHeading");
+  if (!heading) return;
+  const title = (document.querySelector("#adminLessonPlanForm [name='title']")?.value || "").trim() || "Untitled Lesson Plan";
+  heading.textContent = `Editing: ${title}`;
+}
+
+function setAdminLessonFormCleanState(form = document.querySelector("#adminLessonPlanForm")) {
+  if (!form) {
+    adminLessonEditorInitialSnapshot = "";
+    return;
+  }
+  adminLessonEditorInitialSnapshot = adminLessonFormSnapshot(form);
+  updateAdminLessonEditorHeading();
+}
+
+function focusAdminLessonTitleInput() {
+  const titleInput = document.querySelector("#adminLessonTitleInput");
+  if (!titleInput) return;
+  titleInput.focus({ preventScroll: true });
+  titleInput.select();
+}
+
+function openAdminLessonEditor(id, { scroll = false, focusTitle = false } = {}) {
+  adminLessonEditorId = id;
+  if (adminActiveSectionTab !== "lesson-plans") setAdminSectionTab("lesson-plans");
+  renderAdminContentManager();
+  applyAdminSectionVisibility();
+  const form = document.querySelector("#adminLessonPlanForm");
+  if (form && scroll) form.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (focusTitle) window.setTimeout(focusAdminLessonTitleInput, scroll ? 240 : 0);
+}
+
+function scrollToAdminLessonList() {
+  const list = document.querySelector("#adminLessonPlanList");
+  if (list) list.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function lessonPlanAdminCardHtml(plan) {
   const selected = adminLessonSelection.has(plan.id);
   const image = sanitizedImageSource(plan.thumbnailUrl);
@@ -15920,12 +15992,13 @@ function renderAdminContentManager() {
           <button class="ghost-button" type="button" data-admin-bulk="pro">Bulk Mark Pro</button>
           <button class="ghost-button" type="button" id="adminShowOnly50Button">Show only 50 per age group</button>
         </div>
-        <div class="admin-mobile-list">${lessons.slice(0, 120).map(lessonPlanAdminCardHtml).join("") || `<div class="empty-state">No lesson plans match these filters.</div>`}</div>
+        <div class="admin-mobile-list" id="adminLessonPlanList">${lessons.slice(0, 120).map(lessonPlanAdminCardHtml).join("") || `<div class="empty-state">No lesson plans match these filters.</div>`}</div>
         ${lessonRecord ? `
           <form id="adminLessonPlanForm" class="panel-form admin-stacked-form">
             <input type="hidden" name="id" value="${escapeHtml(lessonRecord.id)}" />
+            <h4 class="admin-lesson-editing-heading" id="adminLessonEditorHeading">Editing: ${escapeHtml(lessonRecord.title || "Untitled Lesson Plan")}</h4>
             <div class="form-grid-two">
-              <label>Title<input name="title" value="${escapeHtml(lessonRecord.title)}" /></label>
+              <label>Title<input id="adminLessonTitleInput" name="title" value="${escapeHtml(lessonRecord.title)}" /></label>
               <label>Age group<select name="age">${["Infant", "Toddler", "Preschool"].map((age) => `<option${lessonRecord.age === age ? " selected" : ""}>${age}</option>`).join("")}</select></label>
             </div>
             <div class="form-grid-two">
@@ -15976,6 +16049,7 @@ function renderAdminContentManager() {
             <label>Upload thumbnail<input name="thumbnailFile" type="file" accept="image/*" /></label>
             <div class="form-actions">
               <button class="primary-button" type="submit">Save lesson plan</button>
+              <button class="ghost-button" type="button" data-admin-lesson-back="true">Back to Lesson Plans</button>
               <button class="ghost-button" type="button" data-admin-lesson-reset="${escapeHtml(lessonRecord.id)}">Reset lesson to default</button>
             </div>
             <span class="form-message" id="adminLessonPlanMessage"></span>
@@ -16107,6 +16181,7 @@ function renderAdminContentManager() {
       </section>
     </div>
   `;
+  setAdminLessonFormCleanState();
 }
 
 function nextSiteContentDraft() {
@@ -16151,10 +16226,11 @@ async function saveAdminLessonPlanForm(form) {
     };
     adminLessonEditorId = id;
   });
+  setAdminLessonFormCleanState();
   const isVisible = formData.get("visible") === "on";
   const successMsg = isVisible
-    ? "Lesson plan saved. This lesson plan is now live on the website."
-    : "Lesson plan saved as hidden.";
+    ? "Lesson plan saved successfully. This lesson plan is live on the website."
+    : "Lesson plan saved successfully.";
   setFormMessage("#adminLessonPlanMessage", successMsg, true);
 }
 
@@ -16430,6 +16506,14 @@ function applyAdminSectionVisibility() {
 // ─── Structured Lesson Plan Import ───────────────────────────────────────────
 
 const structuredImportSectionMap = {
+  TITLE: "title",
+  AGE_GROUP: "age",
+  THEME: "theme",
+  LESSON_PLAN_NUMBER: "generatorLessonNumber",
+  FREE_PRO: "plan",
+  ACCESS_LEVEL: "plan",
+  VISIBLE: "visible",
+  VISIBILITY: "visible",
   OVERVIEW: "weeklyOverview",
   MATERIALS: "materials",
   OBJECTIVES: "objectives",
@@ -16466,8 +16550,11 @@ function parseStructuredLessonPlan(text) {
 function applyStructuredLessonPlanImport(fields) {
   const form = document.querySelector("#adminLessonPlanForm");
   if (!form) return 0;
+  const importedMetadata = Object.entries(fields).filter(([fieldName]) => adminLessonImportMetadataFields.has(fieldName));
+  const shouldApplyMetadata = !importedMetadata.length || window.confirm("Imported metadata was found (Title/Theme/Age/Plan/Visibility). Replace current metadata?");
   let filled = 0;
   Object.entries(fields).forEach(([fieldName, value]) => {
+    if (adminLessonImportMetadataFields.has(fieldName) && !shouldApplyMetadata) return;
     if (fieldName === "__thumbnailDescription") {
       const thumbEl = form.querySelector('[name="thumbnailUrl"]');
       if (thumbEl) {
@@ -16480,10 +16567,16 @@ function applyStructuredLessonPlanImport(fields) {
     }
     const el = form.querySelector(`[name="${fieldName}"]`);
     if (el) {
-      el.value = value;
+      if (fieldName === "visible" && el.type === "checkbox") {
+        const normalized = String(value || "").trim().toLowerCase();
+        el.checked = ["true", "yes", "visible", "live", "on", "1"].includes(normalized);
+      } else {
+        el.value = value;
+      }
       filled++;
     }
   });
+  updateAdminLessonEditorHeading();
   return filled;
 }
 
@@ -16704,7 +16797,6 @@ function fillAdminLessonPlanFormFields(fields, mode) {
   const form = document.querySelector("#adminLessonPlanForm");
   if (!form) return;
   const fieldMap = [
-    ["title", "title"],
     ["weeklyOverview", "weeklyOverview"],
     ["materials", "materials"],
     ["objectives", "objectives"],
@@ -16718,6 +16810,9 @@ function fillAdminLessonPlanFormFields(fields, mode) {
     ["familyConnection", "familyConnection"],
     ["reflectionNotes", "reflectionNotes"],
   ];
+  const titleValue = String(fields.title || "").trim();
+  const titleEl = form.querySelector('[name="title"]');
+  if (titleEl && titleValue && !titleEl.value.trim()) titleEl.value = titleValue;
   fieldMap.forEach(([fieldKey, formName]) => {
     const value = String(fields[fieldKey] || "").trim();
     if (!value) return;
@@ -16732,6 +16827,7 @@ function fillAdminLessonPlanFormFields(fields, mode) {
     thumbUrl.setAttribute("data-thumbnail-prompt", prompt);
     thumbUrl.placeholder = `Generated prompt: ${prompt.slice(0, 100)}${prompt.length > 100 ? "…" : ""}`;
   }
+  updateAdminLessonEditorHeading();
 }
 
 async function triggerAdminLessonGenerate(fillMode) {
@@ -21570,6 +21666,12 @@ document.addEventListener("keydown", (event) => {
   closeProFeatureModal();
 });
 
+window.addEventListener("beforeunload", (event) => {
+  if (!adminLessonHasUnsavedChanges()) return;
+  event.preventDefault();
+  event.returnValue = adminLessonUnsavedWarning;
+});
+
 searchInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") showSearchResults();
 });
@@ -21580,6 +21682,9 @@ searchInput.addEventListener("input", () => {
 });
 
 document.addEventListener("input", (event) => {
+  if (event.target.matches("#adminLessonPlanForm [name='title']")) {
+    updateAdminLessonEditorHeading();
+  }
   if (event.target.matches("#adminLessonSearch")) {
     renderAdminContentManager();
   }
@@ -22274,6 +22379,7 @@ document.addEventListener("click", async (event) => {
   // Admin section navigation
   const sectionNavBtn = event.target.closest("[data-admin-section-tab]");
   if (sectionNavBtn) {
+    if (sectionNavBtn.dataset.adminSectionTab !== adminActiveSectionTab && !confirmDiscardAdminLessonChanges()) return;
     setAdminSectionTab(sectionNavBtn.dataset.adminSectionTab);
     return;
   }
@@ -22313,10 +22419,8 @@ document.addEventListener("click", async (event) => {
 
   const lessonEditButton = event.target.closest("[data-admin-lesson-edit]");
   if (lessonEditButton) {
-    adminLessonEditorId = lessonEditButton.dataset.adminLessonEdit;
-    if (adminActiveSectionTab !== "lesson-plans") setAdminSectionTab("lesson-plans");
-    renderAdminContentManager();
-    applyAdminSectionVisibility();
+    if (!confirmDiscardAdminLessonChanges()) return;
+    openAdminLessonEditor(lessonEditButton.dataset.adminLessonEdit, { scroll: true, focusTitle: true });
     return;
   }
   const lessonToggleButton = event.target.closest("[data-admin-lesson-toggle]");
@@ -22355,6 +22459,10 @@ document.addEventListener("click", async (event) => {
   }
   if (event.target.closest("#adminLessonPreviewBtn")) {
     previewAdminLessonPlan();
+    return;
+  }
+  if (event.target.closest("[data-admin-lesson-back]")) {
+    scrollToAdminLessonList();
     return;
   }
   const reviewEditButton = event.target.closest("[data-admin-review-edit]");
