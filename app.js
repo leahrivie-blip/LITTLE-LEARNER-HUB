@@ -403,6 +403,7 @@ let dlcSelectedChildIds = []; // array of child IDs selected for this update
 let dlcAiNote = ""; // provider's free-text note for AI workflow
 let dlcAiSuggestions = []; // [{type,emoji,title,lines,saved,ignored,shareWithFamily}]
 let dlcManualSection = ""; // which accordion section is expanded in manual mode
+let dlcDashboardDate = ""; // date shown on Daily Logs dashboard (empty = today)
 let lessonPlanWorkflowState = {
   step: 1,
   generating: false,
@@ -3557,6 +3558,7 @@ function setView(view) {
     dlcAiNote = "";
     dlcAiSuggestions = [];
     dlcManualSection = "";
+    dlcDashboardDate = "";
     activeChildObservationEditId = "";
     activeObservationChildLock = "";
     activePortfolioChildId = "";
@@ -10416,14 +10418,14 @@ function renderChildProfileCard(child, records) {
     ? `${summary.remaining} observation${summary.remaining === 1 ? "" : "s"} needed`
     : supportAreas.length ? supportAreas[0] : activeGoalCount ? "Active goal support" : "On track";
   return `
-    <article class="simple-child-card">
+    <article class="simple-child-card${child.hiddenFromActive ? " child-card-hidden" : ""}">
       <div class="simple-child-card-head">
         ${renderChildAvatar(child, "small")}
         <div>
           <h3>${escapeHtml(child.name)}</h3>
           <p>${escapeHtml(childAgeLabel(child))} - ${escapeHtml(childRoomAgeLabel(child))}</p>
         </div>
-        <span class="attention-tag">${escapeHtml(attention)}</span>
+        <span class="attention-tag">${child.hiddenFromActive ? "Hidden from Daily Logs" : escapeHtml(attention)}</span>
       </div>
       <div class="child-card-section">
         <span>Monthly observations</span>
@@ -10440,6 +10442,10 @@ function renderChildProfileCard(child, records) {
       <div class="child-card-actions">
         <button class="ghost-button" data-view-child-profile="${child.id}" type="button">View Profile</button>
         <button class="primary-button" data-quick-add-observation="${child.id}" type="button">Quick Add Observation</button>
+        ${child.hiddenFromActive
+          ? `<button class="ghost-button" data-dlc-unhide-child="${child.id}" type="button">Show in Daily Logs</button>`
+          : `<button class="ghost-button" data-dlc-hide-child="${child.id}" type="button">Hide from Daily Logs</button>`
+        }
       </div>
     </article>
   `;
@@ -11552,6 +11558,186 @@ function renderChildToolsContent(child, records) {
 
 // ─── Daily Logs Center ──────────────────────────────────────────────────────
 
+// Returns children not hidden from active daily workflows
+function getActiveChildren(records) {
+  return (records.children || []).filter((c) => !c.hiddenFromActive);
+}
+
+// Returns hidden children (hidden from active daily workflows)
+function getHiddenChildren(records) {
+  return (records.children || []).filter((c) => c.hiddenFromActive);
+}
+
+// Derive daily log status for one child on a given date
+// "not-started" | "in-progress" | "complete"
+function getDailyLogStatus(child, records, today) {
+  const id = child.id;
+  const hasAttendance = records.attendance.some((r) => r.childId === id && r.date === today);
+  const hasMeals = records.meals.some((r) => r.childId === id && r.date === today);
+  const hasNap = records.naps.some((r) => r.childId === id && r.date === today);
+  const hasDiaper = records.diapers.some((r) => r.childId === id && r.date === today);
+  const hasActivity = records.activityLogs.some((r) => r.childId === id && r.date === today);
+  const hasReport = records.reports.some((r) => r.childId === id && r.date === today);
+  const recordCount = [hasAttendance, hasMeals, hasNap, hasDiaper, hasActivity, hasReport].filter(Boolean).length;
+  if (recordCount === 0) return "not-started";
+  if (hasReport || (hasAttendance && recordCount >= 3)) return "complete";
+  return "in-progress";
+}
+
+// Render a child status card for the Daily Logs dashboard
+function renderDlcChildStatusCard(child, records, today) {
+  const status = getDailyLogStatus(child, records, today);
+  const statusLabel = { "not-started": "Not Started", "in-progress": "In Progress", complete: "Complete" }[status];
+  const statusClass = { "not-started": "dlc-status-not-started", "in-progress": "dlc-status-in-progress", complete: "dlc-status-complete" }[status];
+  const attendance = records.attendance.find((r) => r.childId === child.id && r.date === today);
+  const arrivalInfo = attendance?.dropoff ? `Arrived ${attendance.dropoff}` : attendance?.status === "Present" ? "Present" : attendance?.status === "Absent" ? "Absent" : "Not checked in";
+  return `
+    <div class="dlc-child-card">
+      <div class="dlc-child-card-top">
+        ${renderChildAvatar(child, "small")}
+        <div class="dlc-child-card-info">
+          <strong>${escapeHtml(child.name)}</strong>
+          <span class="dlc-child-card-age">${escapeHtml(childAgeLabel(child))}</span>
+          <span class="dlc-child-card-arrival">${escapeHtml(arrivalInfo)}</span>
+        </div>
+        <span class="dlc-status-badge ${statusClass}">${statusLabel}</span>
+      </div>
+      <div class="dlc-child-card-actions">
+        <button class="dlc-quick-btn" data-dlc-open-child="${child.id}" data-dlc-quick-tab="attendance" type="button">Check In</button>
+        <button class="dlc-quick-btn" data-dlc-open-child="${child.id}" data-dlc-quick-tab="meals" type="button">+ Meal</button>
+        <button class="dlc-quick-btn" data-dlc-open-child="${child.id}" data-dlc-quick-tab="naps" type="button">+ Nap</button>
+        <button class="dlc-quick-btn" data-dlc-open-child="${child.id}" data-dlc-quick-tab="diapers" type="button">+ Diaper</button>
+        <button class="dlc-quick-btn" data-dlc-open-child="${child.id}" data-dlc-quick-tab="notes" type="button">+ Note</button>
+        <button class="dlc-quick-btn dlc-quick-btn-primary" data-dlc-open-child="${child.id}" data-dlc-quick-tab="overview" type="button">Open Log</button>
+      </div>
+    </div>
+  `;
+}
+
+// Render the classroom overview stats row
+function renderDlcClassroomOverview(activeChildren, records, today) {
+  const total = activeChildren.length;
+  const present = activeChildren.filter((c) => records.attendance.some((r) => r.childId === c.id && r.date === today && r.status === "Present")).length;
+  const notStarted = activeChildren.filter((c) => getDailyLogStatus(c, records, today) === "not-started").length;
+  const inProgress = activeChildren.filter((c) => getDailyLogStatus(c, records, today) === "in-progress").length;
+  const complete = activeChildren.filter((c) => getDailyLogStatus(c, records, today) === "complete").length;
+  const hasMedication = activeChildren.some((c) => {
+    const meds = childStore("Medications") || [];
+    return meds.some((m) => m.childId === c.id);
+  });
+  const stats = [
+    { label: "Children Active", value: total, icon: "👶" },
+    { label: "Present Today", value: present, icon: "✅" },
+    { label: "Logs Not Started", value: notStarted, icon: "⬜", highlight: notStarted > 0 },
+    { label: "In Progress", value: inProgress, icon: "🔄" },
+    { label: "Complete", value: complete, icon: "✅", success: complete > 0 },
+  ];
+  if (hasMedication) stats.push({ label: "Med Reminders", value: "⚠️", icon: "💊", warning: true });
+  return `
+    <div class="dlc-classroom-overview">
+      <h3 class="dlc-overview-heading">Today's Classroom</h3>
+      <div class="dlc-stat-row">
+        ${stats.map(({ label, value, icon, highlight, success, warning }) => `
+          <div class="dlc-stat-card${highlight ? " dlc-stat-warn" : ""}${success ? " dlc-stat-success" : ""}${warning ? " dlc-stat-warning" : ""}">
+            <span class="dlc-stat-icon">${icon}</span>
+            <strong class="dlc-stat-value">${value}</strong>
+            <span class="dlc-stat-label">${label}</span>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+// The main Daily Logs Dashboard – shown when provider first opens Daily Logs
+function renderDlcDashboard(records) {
+  const today = dlcDashboardDate || new Date().toISOString().slice(0, 10);
+  const dateLabel = new Date(`${today}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  const activeChildren = getActiveChildren(records);
+  const hiddenChildren = getHiddenChildren(records);
+
+  return `
+    <div class="dlc-dashboard">
+      <div class="dlc-dashboard-date-row">
+        <div class="dlc-dashboard-date-info">
+          <span class="dlc-dashboard-date-label">${escapeHtml(dateLabel)}</span>
+        </div>
+        <div class="dlc-dashboard-date-picker">
+          <label class="dlc-date-picker-label" for="dlcDashboardDateInput">Date</label>
+          <input id="dlcDashboardDateInput" class="dlc-date-input" type="date" value="${today}" data-dlc-dashboard-date />
+        </div>
+      </div>
+
+      ${renderDlcClassroomOverview(activeChildren, records, today)}
+
+      <div class="dlc-quick-doc-box section-block">
+        <div class="dlc-quick-doc-header">
+          <strong class="dlc-quick-doc-title">What happened today?</strong>
+          <p class="dlc-sub">Type a quick note, use voice input, or upload photos. AI will organize it — you review before saving.</p>
+        </div>
+        <div class="dlc-quick-doc-input-row">
+          <textarea id="dlcDashboardNote" class="dlc-dashboard-textarea" rows="3" placeholder="e.g. Everyone ate breakfast, painted, played outside. Oakley napped 12:15–2:00 and ate half of lunch."></textarea>
+        </div>
+        <div class="dlc-quick-doc-controls">
+          <div class="dlc-quick-doc-children">
+            <label class="dlc-form-label" style="display:flex;align-items:center;gap:8px;font-size:13px;">
+              For:
+              <select id="dlcDashboardNoteChild" class="dlc-inline-select">
+                <option value="all">All children</option>
+                ${activeChildren.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}
+              </select>
+            </label>
+          </div>
+          <div class="dlc-quick-doc-btns">
+            <button class="ghost-button dlc-speak-dash-btn" id="dlcSpeakDashBtn" type="button" aria-label="Voice input">🎤 Speak</button>
+            <button class="primary-button" id="dlcDashOrganizeBtn" type="button">✨ Organize with AI</button>
+          </div>
+        </div>
+        <div id="dlcDashboardNoteOutput" class="dlc-dash-output" style="display:none;"></div>
+      </div>
+
+      <div class="dlc-dashboard-actions-row">
+        <strong class="dlc-section-title">Update Today's Logs</strong>
+        <div class="dlc-dashboard-action-btns">
+          <button class="ghost-button" data-daily-logs-section="group" type="button">📋 Group Update</button>
+          <button class="ghost-button" data-dlc-child-sel="multiple" data-dlc-from-dashboard type="button">👥 Select Children</button>
+          <button class="ghost-button" data-daily-logs-section="quick" type="button">⭐ Quick Documentation</button>
+        </div>
+      </div>
+
+      <div class="dlc-children-section">
+        <div class="dlc-children-section-header">
+          <strong class="dlc-section-title">Active Children (${activeChildren.length})</strong>
+        </div>
+        ${activeChildren.length ? `
+          <div class="dlc-child-cards-grid">
+            ${activeChildren.map((child) => renderDlcChildStatusCard(child, records, today)).join("")}
+          </div>
+        ` : `
+          <div class="section-block empty-state">
+            <p>No active children. <button class="inline-link" data-child-view="add" type="button">Add a child profile</button> to get started.</p>
+          </div>
+        `}
+      </div>
+
+      ${hiddenChildren.length ? `
+        <details class="dlc-hidden-section">
+          <summary class="dlc-hidden-summary">Hidden Children (${hiddenChildren.length})</summary>
+          <div class="dlc-hidden-list">
+            ${hiddenChildren.map((child) => `
+              <div class="dlc-hidden-child-row">
+                ${renderChildAvatar(child, "small")}
+                <span>${escapeHtml(child.name)}</span>
+                <button class="ghost-button dlc-unhide-btn" data-dlc-unhide-child="${child.id}" type="button">Restore to Active</button>
+              </div>
+            `).join("")}
+          </div>
+        </details>
+      ` : ""}
+    </div>
+  `;
+}
+
 function renderDailyLogsCenter(records) {
   const backTarget = dlcBackTarget();
   return `
@@ -11559,7 +11745,7 @@ function renderDailyLogsCenter(records) {
       <div class="child-page-header">
         <div>
           <h2>Daily Logs</h2>
-          <p>Tell Little Learner Hub what happened today.</p>
+          <p>Track meals, naps, activities, and more throughout the day.</p>
         </div>
         ${backTarget ? `<button class="ghost-button back-button" data-dlc-back="${backTarget}" type="button">← Back</button>` : ""}
       </div>
@@ -11585,14 +11771,15 @@ function renderDlcContent(records) {
     return renderDailyLogsIndividual(child, records, new Date().toISOString().slice(0, 10));
   }
   if (dailyLogsSection === "quick") return renderDailyLogsQuickDoc(records);
-  // "home" — new step-by-step flow
+  // "home" — show dashboard or step-by-step update flow
   if (dlcNewStep === "step1-multiple") return renderDlcStep1Multiple(records);
   if (dlcNewStep === "step1-one") return renderDlcStep1One(records);
   if (dlcNewStep === "step2") return renderDlcStep2();
   if (dlcNewStep === "manual") return renderDlcManual(records);
   if (dlcNewStep === "ai-input") return renderDlcAiInput(records);
   if (dlcNewStep === "ai-suggestions") return renderDlcAiSuggestions(records);
-  return renderDlcStep1(records);
+  // Default home = dashboard
+  return renderDlcDashboard(records);
 }
 
 // Step 1 – Who is this update for?
@@ -11624,13 +11811,13 @@ function renderDlcStep1(records) {
 
 // Step 1 sub-view – multi-child checkbox picker
 function renderDlcStep1Multiple(records) {
-  const children = records.children;
+  const children = getActiveChildren(records);
   if (!children.length) {
-    return `<section class="section-block empty-state"><h3>No child profiles yet.</h3><p>Add a child profile first.</p><button class="primary-button" data-child-view="add" type="button">Add Child</button></section>`;
+    return `<section class="section-block empty-state"><h3>No active child profiles.</h3><p>Add a child profile first.</p><button class="primary-button" data-child-view="add" type="button">Add Child</button></section>`;
   }
   return `
     <div class="dlc-step dlc-step1-select">
-      <p class="dlc-step-label">Step 1 — Select the children for this update</p>
+      <p class="dlc-step-label">Select the children for this update</p>
       <div class="dlc-children-grid">
         ${children.map((child) => `
           <label class="dlc-child-check">
@@ -11647,13 +11834,13 @@ function renderDlcStep1Multiple(records) {
 
 // Step 1 sub-view – single child picker
 function renderDlcStep1One(records) {
-  const children = records.children;
+  const children = getActiveChildren(records);
   if (!children.length) {
-    return `<section class="section-block empty-state"><h3>No child profiles yet.</h3><p>Add a child profile first.</p><button class="primary-button" data-child-view="add" type="button">Add Child</button></section>`;
+    return `<section class="section-block empty-state"><h3>No active child profiles.</h3><p>Add a child profile first.</p><button class="primary-button" data-child-view="add" type="button">Add Child</button></section>`;
   }
   return `
     <div class="dlc-step dlc-step1-select">
-      <p class="dlc-step-label">Step 1 — Which child are you updating?</p>
+      <p class="dlc-step-label">Which child are you updating?</p>
       <div class="dlc-children-grid dlc-one-pick-grid">
         ${children.map((child) => `
           <button class="dlc-child-pick ${dlcSelectedChildIds[0] === child.id ? "selected" : ""}" data-dlc-pick-one="${child.id}" type="button">
@@ -12329,12 +12516,54 @@ function dlcStartSpeechInput() {
   dlcSpeechRecognition.start();
 }
 
+function dlcStartDashboardSpeechInput() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const btn = document.querySelector("#dlcSpeakDashBtn");
+  const noteEl = document.querySelector("#dlcDashboardNote");
+  if (!SpeechRecognition) {
+    if (btn) btn.textContent = "🎤 Not supported";
+    return;
+  }
+  if (dlcSpeechRecognition) {
+    dlcSpeechRecognition.stop();
+    dlcSpeechRecognition = null;
+    if (btn) btn.textContent = "🎤 Speak";
+    return;
+  }
+  dlcSpeechRecognition = new SpeechRecognition();
+  dlcSpeechRecognition.continuous = true;
+  dlcSpeechRecognition.interimResults = true;
+  dlcSpeechRecognition.lang = "en-US";
+  if (btn) btn.textContent = "⏹ Stop";
+  let finalTranscript = noteEl ? noteEl.value : "";
+  dlcSpeechRecognition.onresult = (e) => {
+    let interim = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        finalTranscript += e.results[i][0].transcript + " ";
+      } else {
+        interim += e.results[i][0].transcript;
+      }
+    }
+    if (noteEl) noteEl.value = finalTranscript + interim;
+  };
+  dlcSpeechRecognition.onerror = () => {
+    if (btn) btn.textContent = "🎤 Speak";
+    dlcSpeechRecognition = null;
+  };
+  dlcSpeechRecognition.onend = () => {
+    if (btn) btn.textContent = "🎤 Speak";
+    dlcSpeechRecognition = null;
+  };
+  dlcSpeechRecognition.start();
+}
+
 function renderDailyLogsGroupUpdate(records) {
-  const children = records.children;
+  const children = getActiveChildren(records);
   if (!children.length) {
     return `
       <section class="section-block empty-state">
-        <h3>No child profiles yet.</h3>
+        <h3>No active child profiles.</h3>
         <p>Add a child profile first to use Group Update.</p>
         <button class="primary-button" data-child-view="add" type="button">Add Child</button>
       </section>
@@ -18602,6 +18831,107 @@ document.addEventListener("click", async (event) => {
 
   // ─── Daily Logs Center handlers ───────────────────────────────────────────
 
+  // Dashboard date picker
+  const dlcDashDateInput = event.target.closest("[data-dlc-dashboard-date]");
+  if (dlcDashDateInput) {
+    dlcDashboardDate = dlcDashDateInput.value || "";
+    childManagementMode = "daily-logs";
+    renderChildManagement();
+    return;
+  }
+
+  // Open a child's individual log from the dashboard
+  const dlcOpenChildBtn = event.target.closest("[data-dlc-open-child]");
+  if (dlcOpenChildBtn) {
+    event.preventDefault();
+    const childId = dlcOpenChildBtn.dataset.dlcOpenChild;
+    const tab = dlcOpenChildBtn.dataset.dlcQuickTab || "overview";
+    selectedChildId = childId;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+    dailyLogsSection = "individual";
+    dailyLogsChildTab = tab;
+    childManagementMode = "daily-logs";
+    renderChildManagement();
+    return;
+  }
+
+  // Hide child from active daily log list
+  const dlcHideChildBtn = event.target.closest("[data-dlc-hide-child]");
+  if (dlcHideChildBtn) {
+    event.preventDefault();
+    const childId = dlcHideChildBtn.dataset.dlcHideChild;
+    const profiles = childStore("Profiles");
+    saveChildStore("Profiles", profiles.map((c) => c.id === childId ? { ...c, hiddenFromActive: true } : c));
+    // Stay in current mode — works from both Children list and Daily Logs
+    renderChildManagement();
+    return;
+  }
+
+  // Unhide / restore child to active list
+  const dlcUnhideChildBtn = event.target.closest("[data-dlc-unhide-child]");
+  if (dlcUnhideChildBtn) {
+    event.preventDefault();
+    const childId = dlcUnhideChildBtn.dataset.dlcUnhideChild;
+    const profiles = childStore("Profiles");
+    saveChildStore("Profiles", profiles.map((c) => c.id === childId ? { ...c, hiddenFromActive: false } : c));
+    // Stay in current mode — works from both Children list and Daily Logs
+    renderChildManagement();
+    return;
+  }
+
+  // Dashboard AI organize button
+  const dlcDashOrganizeBtn = event.target.closest("#dlcDashOrganizeBtn");
+  if (dlcDashOrganizeBtn) {
+    event.preventDefault();
+    if (!canUseAi()) {
+      showProFeatureModal(aiLimitMessage(), "limit");
+      return;
+    }
+    const noteEl = document.querySelector("#dlcDashboardNote");
+    const note = noteEl?.value?.trim() || "";
+    if (!note) {
+      alert("Please describe what happened today first.");
+      return;
+    }
+    dlcAiNote = note;
+    const childSelEl = document.querySelector("#dlcDashboardNoteChild");
+    const childSelVal = childSelEl?.value || "all";
+    const records = childRecords();
+    let selectedChildren;
+    if (childSelVal === "all") {
+      selectedChildren = getActiveChildren(records);
+      dlcChildSelection = "all";
+      dlcSelectedChildIds = selectedChildren.map((c) => c.id);
+    } else {
+      selectedChildren = records.children.filter((c) => c.id === childSelVal);
+      dlcChildSelection = "one";
+      dlcSelectedChildIds = [childSelVal];
+    }
+    if (!selectedChildren.length) {
+      alert("No children available. Add a child profile first.");
+      return;
+    }
+    try {
+      dlcAiSuggestions = await parseDailyLogNote(note, selectedChildren, records);
+      recordAiUse();
+      dlcNewStep = "ai-suggestions";
+      dailyLogsSection = "home";
+      childManagementMode = "daily-logs";
+      renderChildManagement();
+    } catch (error) {
+      alert(error.message || "AI generation could not be completed.");
+    }
+    return;
+  }
+
+  // Dashboard speak button
+  const dlcSpeakDashBtn = event.target.closest("#dlcSpeakDashBtn");
+  if (dlcSpeakDashBtn) {
+    event.preventDefault();
+    dlcStartDashboardSpeechInput();
+    return;
+  }
+
   const dailyLogsSectionBtn = event.target.closest("[data-daily-logs-section]");
   if (dailyLogsSectionBtn) {
     event.preventDefault();
@@ -18657,16 +18987,18 @@ document.addEventListener("click", async (event) => {
     const sel = dlcChildSelBtn.dataset.dlcChildSel;
     dlcChildSelection = sel;
     const records = childRecords();
+    const active = getActiveChildren(records);
     if (sel === "all") {
-      dlcSelectedChildIds = records.children.map((c) => c.id);
+      dlcSelectedChildIds = active.map((c) => c.id);
       dlcNewStep = "step2";
     } else if (sel === "multiple") {
-      dlcSelectedChildIds = records.children.map((c) => c.id); // pre-check all
+      dlcSelectedChildIds = active.map((c) => c.id); // pre-check all active
       dlcNewStep = "step1-multiple";
     } else {
       dlcSelectedChildIds = [];
       dlcNewStep = "step1-one";
     }
+    dailyLogsSection = "home";
     childManagementMode = "daily-logs";
     renderChildManagement();
     return;
@@ -19652,6 +19984,11 @@ document.addEventListener("change", (event) => {
     selectedChildId = event.target.value;
     localStorage.setItem("llhSelectedChild", selectedChildId);
     childManagementMode = "tools";
+    renderChildManagement();
+  }
+  if (event.target.matches("[data-dlc-dashboard-date]")) {
+    dlcDashboardDate = event.target.value || "";
+    childManagementMode = "daily-logs";
     renderChildManagement();
   }
   if (event.target.matches("#dlcChildSelect")) {
