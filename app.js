@@ -18053,17 +18053,19 @@ document.addEventListener("click", async (event) => {
   const customizeLessonButton = event.target.closest("[data-customize-lesson-ai]");
   if (customizeLessonButton) {
     const resource = resources.find((item) => item.id === customizeLessonButton.dataset.customizeLessonAi);
+    if (resource) {
+      lessonPlanWorkflowState.step = 1;
+      lessonPlanWorkflowState.generating = false;
+      lessonPlanWorkflowState.step1 = {
+        ...lessonPlanWorkflowState.step1,
+        age: resource.age,
+        theme: resourceTheme(resource),
+        developmentalFocus: resourceFocus(resource),
+        materials: resource.materials || "",
+      };
+    }
     setView("generators");
     renderGeneratorWorkspace("lesson");
-    if (resource) {
-      const form = document.querySelector("#activeGeneratorForm");
-      if (form) {
-        form.querySelector('[name="age"]').value = resource.age;
-        form.querySelector('[name="theme"]').value = resource.theme || resource.tags[0] || "";
-        form.querySelector('[name="focus"]').value = resource.developmentalArea || resource.tags.find((tag) => learningAreas.includes(tag)) || "";
-        form.querySelector('[name="materials"]').value = resource.materials || "";
-      }
-    }
   }
 
   const findLessonActivitiesButton = event.target.closest("[data-find-lesson-activities]");
