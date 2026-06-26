@@ -725,6 +725,7 @@
           </div>
           <section id="adminLockPanel" class="section-block admin-lock-panel"></section>
           <div id="adminProtectedContent">
+          <nav id="adminSectionNav" class="admin-section-nav" aria-label="Admin sections"></nav>
           <section class="section-block admin-content-manager-panel">
             <div id="adminContentManagerApp"></div>
           </section>
@@ -1371,6 +1372,24 @@
         <p class="eyebrow" id="featurePreviewEyebrow">Preview</p>
         <h2 id="featurePreviewTitle" tabindex="-1">Feature Preview</h2>
         <div id="featurePreviewBody"></div>
+      </div>
+    </div>
+
+    <div class="modal admin-import-modal" id="adminLessonImportModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="adminImportTitle">
+      <div class="modal-card">
+        <button class="close-button" id="closeAdminImportModal" type="button" aria-label="Close import modal">&times;</button>
+        <p class="eyebrow">Admin Tool</p>
+        <h2 id="adminImportTitle" tabindex="-1">📋 Import Structured Lesson Plan</h2>
+        <p style="font-size:14px;color:var(--muted);margin:8px 0 12px">Paste a lesson plan that uses <code>===SECTION===</code> labels. Each labeled section will automatically fill the matching field in the form.</p>
+        <form id="adminLessonImportForm">
+          <textarea id="adminImportTextarea" class="admin-import-textarea" placeholder="===OVERVIEW===&#10;Paste your overview here...&#10;&#10;===MATERIALS===&#10;List of materials...&#10;&#10;===MONDAY===&#10;Circle Time: ..."></textarea>
+          <p class="admin-import-hint">Supported sections: OVERVIEW, MATERIALS, OBJECTIVES, TEACHER_LANGUAGE, MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, ELG_CONNECTIONS, FAMILY_CONNECTION, REFLECTION_NOTES, THUMBNAIL</p>
+          <div class="form-actions" style="margin-top:14px">
+            <button class="primary-button" type="submit">Import &amp; Fill Fields</button>
+            <button class="ghost-button" type="button" id="cancelAdminImportBtn">Cancel</button>
+          </div>
+          <span class="form-message" id="adminImportMessage"></span>
+        </form>
       </div>
     </div>
 

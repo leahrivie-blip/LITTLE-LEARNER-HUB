@@ -2265,6 +2265,61 @@ body.home-view .topbar .search-wrap {
   align-items: start;
 }
 
+.admin-section-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 14px 0 10px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.admin-section-nav-btn {
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--white);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.admin-section-nav-btn:hover {
+  background: var(--bg-soft, #f5f0eb);
+  border-color: var(--accent, #386062);
+}
+
+.admin-section-nav-btn.active {
+  background: var(--accent, #386062);
+  color: #fff;
+  border-color: var(--accent, #386062);
+}
+
+.admin-import-modal .modal-card {
+  width: min(640px, 100%);
+}
+
+.admin-import-textarea {
+  width: 100%;
+  min-height: 260px;
+  font-family: monospace;
+  font-size: 13px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.admin-import-hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+
 .admin-manager-grid {
   display: grid;
   gap: 18px;
