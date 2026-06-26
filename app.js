@@ -7954,9 +7954,18 @@ function renderManagedHomeContent() {
   if (founderParagraphs.length && aboutText) {
     const parts = aboutText.split(/\n{2,}/).filter(Boolean);
     founderParagraphs[0].textContent = parts[0] || founder.shortBio || founderParagraphs[0].textContent;
-    if (founderParagraphs[1]) founderParagraphs[1].textContent = parts[1] || founder.shortBio || founderParagraphs[1].textContent;
+    if (founderParagraphs[1]) founderParagraphs[1].textContent = parts[1] || founderParagraphs[1].textContent;
+    if (founderParagraphs[2]) founderParagraphs[2].textContent = parts[2] || founderParagraphs[2].textContent;
   } else if (founderParagraphs[0] && founder.shortBio) {
     founderParagraphs[0].textContent = founder.shortBio;
+  }
+  const founderLinks = document.querySelector(".lp-founder-links");
+  if (founderLinks) {
+    const linkItems = [];
+    if (founder.websiteUrl) linkItems.push(`<a class="lp-founder-link" href="${escapeHtml(founder.websiteUrl)}" target="_blank" rel="noopener noreferrer">🌐 Website</a>`);
+    if (founder.instagramUrl) linkItems.push(`<a class="lp-founder-link" href="${escapeHtml(founder.instagramUrl)}" target="_blank" rel="noopener noreferrer">📷 Instagram</a>`);
+    if (founder.linkedInUrl) linkItems.push(`<a class="lp-founder-link" href="${escapeHtml(founder.linkedInUrl)}" target="_blank" rel="noopener noreferrer">💼 LinkedIn</a>`);
+    founderLinks.innerHTML = linkItems.join("");
   }
   const founderImg = document.querySelector(".lp-founder-photo-img");
   const founderFallback = document.querySelector(".lp-founder-photo-fallback");
@@ -15672,13 +15681,24 @@ function renderAdminContentManager() {
         </div>
         <form id="adminFounderForm" class="panel-form admin-stacked-form">
           <label>Name<input name="name" value="${escapeHtml(founder.name || "")}" /></label>
-          <label>Title<input name="title" value="${escapeHtml(founder.title || "")}" /></label>
-          <label>Founder / About text<textarea name="aboutText" rows="5">${escapeHtml(founder.aboutText || "")}</textarea></label>
+          <label>Heading<input name="title" value="${escapeHtml(founder.title || "")}" placeholder="e.g. Hi, I'm Leah 👋" /></label>
+          <label>Biography<textarea name="aboutText" rows="7">${escapeHtml(founder.aboutText || "")}</textarea></label>
           <label>Short bio<textarea name="shortBio" rows="3">${escapeHtml(founder.shortBio || "")}</textarea></label>
-          <label>Profile picture URL<input name="profileImageUrl" value="${escapeHtml(founder.profileImageUrl || "")}" placeholder="https://..." /></label>
-          <label>Upload profile picture<input name="profileImageFile" type="file" accept="image/*" /></label>
-          <label>Homepage founder image URL<input name="homeImageUrl" value="${escapeHtml(founder.homeImageUrl || "")}" placeholder="https://..." /></label>
-          <label>Upload homepage founder image<input name="homeImageFile" type="file" accept="image/*" /></label>
+          <fieldset class="admin-fieldset">
+            <legend>Profile photo</legend>
+            ${founder.homeImageUrl || founder.profileImageUrl ? `<img class="admin-founder-photo-preview" src="${escapeHtml(founder.homeImageUrl || founder.profileImageUrl)}" alt="Current founder photo" />` : `<div class="admin-founder-photo-placeholder">No photo uploaded</div>`}
+            <img class="admin-founder-photo-preview" id="adminFounderPhotoPreview" style="display:none" alt="Founder photo preview" />
+            <label>Upload photo<input id="adminFounderPhotoFile" name="homeImageFile" type="file" accept="image/*" /></label>
+            <label>Or paste image URL<input name="homeImageUrl" value="${escapeHtml(founder.homeImageUrl || "")}" placeholder="https://..." /></label>
+            <label>Profile picture URL (optional)<input name="profileImageUrl" value="${escapeHtml(founder.profileImageUrl || "")}" placeholder="https://..." /></label>
+            <label>Upload profile picture<input name="profileImageFile" type="file" accept="image/*" /></label>
+          </fieldset>
+          <fieldset class="admin-fieldset">
+            <legend>Links (optional)</legend>
+            <label>Website<input name="websiteUrl" type="url" value="${escapeHtml(founder.websiteUrl || "")}" placeholder="https://..." /></label>
+            <label>Instagram<input name="instagramUrl" type="url" value="${escapeHtml(founder.instagramUrl || "")}" placeholder="https://instagram.com/..." /></label>
+            <label>LinkedIn<input name="linkedInUrl" type="url" value="${escapeHtml(founder.linkedInUrl || "")}" placeholder="https://linkedin.com/in/..." /></label>
+          </fieldset>
           <div class="form-actions">
             <button class="primary-button" type="submit">Save founder section</button>
           </div>
@@ -15916,6 +15936,9 @@ async function saveAdminFounderForm(form) {
     shortBio: normalizedMultilineText(formData.get("shortBio")),
     profileImageUrl: profileImage || sanitizedImageSource(formData.get("profileImageUrl")),
     homeImageUrl: homeImage || sanitizedImageSource(formData.get("homeImageUrl")),
+    websiteUrl: sanitizedImageSource(formData.get("websiteUrl")),
+    instagramUrl: sanitizedImageSource(formData.get("instagramUrl")),
+    linkedInUrl: sanitizedImageSource(formData.get("linkedInUrl")),
   };
   await saveAdminSiteContent(nextContent);
   setFormMessage("#adminFounderMessage", "Founder section saved.", true);
@@ -21650,6 +21673,25 @@ document.addEventListener("submit", async (event) => {
   if (event.target.matches("#adminImageAssetForm")) {
     event.preventDefault();
     await saveAdminImageAssetForm(event.target);
+  }
+});
+
+document.addEventListener("change", (event) => {
+  if (event.target.matches("#adminFounderPhotoFile")) {
+    const file = event.target.files?.[0];
+    const preview = document.querySelector("#adminFounderPhotoPreview");
+    if (!preview) return;
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        preview.src = String(e.target?.result || "");
+        preview.style.display = "";
+      };
+      reader.readAsDataURL(file);
+    } else {
+      preview.src = "";
+      preview.style.display = "none";
+    }
   }
 });
 

@@ -404,6 +404,9 @@ function normalizedSiteContent(value) {
       shortBio: normalizedMultilineText(input.founder?.shortBio, 1200),
       profileImageUrl: sanitizedImageSource(input.founder?.profileImageUrl),
       homeImageUrl: sanitizedImageSource(input.founder?.homeImageUrl),
+      websiteUrl: sanitizedImageSource(input.founder?.websiteUrl),
+      instagramUrl: sanitizedImageSource(input.founder?.instagramUrl),
+      linkedInUrl: sanitizedImageSource(input.founder?.linkedInUrl),
     },
     homepage: {
       heroBadge: normalizedShortText(input.homepage?.heroBadge, 180),
