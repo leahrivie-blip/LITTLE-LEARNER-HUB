@@ -3280,13 +3280,17 @@ function isLoggedIn() {
   return Boolean(currentUser);
 }
 
+function visibleResourcesForCategory(category) {
+  return resources.filter((resource) => resource.category === category && isResourceVisibleToCurrentUser(resource));
+}
+
 function freeResourceIds(category) {
   const limit = freeAccessLimits[category] ?? 0;
-  return new Set(resources.filter((resource) => resource.category === category).slice(0, limit).map((resource) => resource.id));
+  return new Set(visibleResourcesForCategory(category).slice(0, limit).map((resource) => resource.id));
 }
 
 function categoryAccessCounts(category) {
-  const total = resources.filter((resource) => resource.category === category).length;
+  const total = visibleResourcesForCategory(category).length;
   const freeLimit = Math.min(freeAccessLimits[category] ?? 0, total);
   return {
     total,
