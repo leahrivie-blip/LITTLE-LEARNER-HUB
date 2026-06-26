@@ -18057,12 +18057,23 @@ document.addEventListener("click", async (event) => {
       lessonPlanWorkflowState.step = 1;
       lessonPlanWorkflowState.generating = false;
       lessonPlanWorkflowState.step1 = {
-        ...lessonPlanWorkflowState.step1,
+        programName: "",
         age: resource.age,
+        planLength: "Weekly",
         theme: resourceTheme(resource),
+        childCount: "",
         developmentalFocus: resourceFocus(resource),
         materials: resource.materials || "",
+        environment: "Both",
+        timeAvailable: "",
+        specialRequests: "",
       };
+      lessonPlanWorkflowState.step2 = {
+        options: [],
+        accommodations: "",
+      };
+      lessonPlanWorkflowState.sectionRegenerate = "Full lesson plan";
+      lessonPlanWorkflowState.improveRequest = "";
     }
     setView("generators");
     renderGeneratorWorkspace("lesson");
