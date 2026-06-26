@@ -1745,6 +1745,10 @@ const aiGenerationConfig = {
 const adminAiTestConfig = {
   endpoint: "/api/admin/ai-test",
 };
+const siteContentConfig = {
+  publicEndpoint: "/api/site-content",
+  adminEndpoint: "/api/admin/site-content",
+};
 const AI_DEBUG_STORAGE_KEY = "llhAiDebugMode";
 
 function aiDebugEnabled() {
@@ -2719,6 +2723,67 @@ function canUseLaunchBackend() {
   return canUseStripeBackend();
 }
 
+function syncSiteManagedResources() {
+  resources = loadResources();
+}
+
+function rerenderActiveContent() {
+  syncSiteManagedResources();
+  renderHome();
+  renderFavorites();
+  renderAccountPage();
+  const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
+  if (activeView && viewMap[activeView]) renderCategoryPage(activeView);
+  if (activeView === "admin") renderAdminDashboard();
+}
+
+async function loadSiteContentFromBackend() {
+  if (!siteContentConfig.publicEndpoint || !canUseLaunchBackend()) {
+    rerenderActiveContent();
+    return effectiveSiteContent();
+  }
+  try {
+    const response = await fetch(siteContentConfig.publicEndpoint);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error || "Could not load site content.");
+    siteContentState = data.siteContent || emptySiteContent();
+    rerenderActiveContent();
+    return effectiveSiteContent();
+  } catch (error) {
+    console.warn(error);
+    rerenderActiveContent();
+    return effectiveSiteContent();
+  }
+}
+
+async function loadAdminSiteContent() {
+  const token = adminSession()?.token || "";
+  if (!siteContentConfig.adminEndpoint || !canUseLaunchBackend() || !token) return effectiveSiteContent();
+  const params = new URLSearchParams({ adminToken: token });
+  const response = await fetch(`${siteContentConfig.adminEndpoint}?${params.toString()}`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.error || "Could not load admin content.");
+  siteContentState = data.siteContent || emptySiteContent();
+  return effectiveSiteContent();
+}
+
+async function saveAdminSiteContent(nextContent) {
+  const token = adminSession()?.token || "";
+  if (!siteContentConfig.adminEndpoint || !canUseLaunchBackend() || !token) {
+    throw new Error("Backend server is required for admin content changes.");
+  }
+  const response = await fetch(siteContentConfig.adminEndpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminToken: token, siteContent: nextContent }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.error || "Could not save content changes.");
+  siteContentState = data.siteContent || emptySiteContent();
+  rerenderActiveContent();
+  return effectiveSiteContent();
+}
+
 function isPromoLinkActive() {
   const params = new URLSearchParams(window.location.search);
   if (params.has("promo")) return true;
@@ -2732,6 +2797,7 @@ function requireBillingAccount() {
   return false;
 }
 
+let siteContentState = emptySiteContent();
 let resources = loadResources();
 let favorites = readSavedJson("llhFavorites", []);
 let savedDownloads = readSavedJson("llhDownloads", []);
@@ -2743,10 +2809,15 @@ let currentAuthMode = "login";
 let checkoutPromoCode = localStorage.getItem("llhCheckoutPromoCode") || "";
 let adminAnalyticsCache = null;
 let adminAnalyticsLoading = false;
+let adminLessonEditorId = "";
+let adminReviewEditorId = "";
+let adminImageEditorId = "";
+let adminLessonSelection = new Set();
 
 const searchInput = document.querySelector("#searchInput");
 const currentPlanLabel = document.querySelector("#currentPlanLabel");
 const homeViewTemplate = document.querySelector("#view-home").innerHTML;
+const defaultSiteContentState = captureDefaultSiteContent();
 const mobileNavMaxWidth = 820;
 const sidebarViewAliases = {
   "resource-observations": "observations",
@@ -2846,10 +2917,290 @@ function installMobileNavigation() {
   });
 }
 
+function emptySiteContent() {
+  return {
+    lessonPlans: {},
+    reviews: [],
+    founder: {},
+    homepage: {},
+    images: [],
+    updatedAt: "",
+  };
+}
+
+function cloneJson(value, fallback) {
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return fallback;
+  }
+}
+
+function normalizedShortText(value) {
+  return String(value || "").trim();
+}
+
+function normalizedMultilineText(value) {
+  return String(value || "").replace(/\r\n?/g, "\n").trim();
+}
+
+function sanitizedImageSource(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (/^data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=]+$/i.test(text)) return text;
+  if (/^(https?:)?\/\//i.test(text) || text.startsWith("/")) return text;
+  return "";
+}
+
+function safeContentHtml(value) {
+  return escapeHtml(normalizedMultilineText(value)).replace(/\n/g, "<br>");
+}
+
+function mergeContentCards(defaultCards = [], overrideCards = []) {
+  return defaultCards.map((card, index) => {
+    const override = overrideCards.find((item) => item.id === card.id) || overrideCards[index] || {};
+    return {
+      ...card,
+      ...override,
+      imageUrl: sanitizedImageSource(override.imageUrl || card.imageUrl || ""),
+    };
+  });
+}
+
+function initialsFromName(value, fallback = "LL") {
+  const parts = String(value || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return fallback;
+  return parts.slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+}
+
+function fileToImageDataUrl(file) {
+  if (!file?.name) return Promise.resolve("");
+  return fileToDataUrl(file).then((dataUrl) => sanitizedImageSource(dataUrl));
+}
+
+function captureDefaultSiteContent() {
+  const showcaseCards = Array.from(document.querySelectorAll(".lp-showcase-card")).map((card, index) => ({
+    id: card.dataset.preview || `preview-${index + 1}`,
+    title: card.querySelector(".lp-showcase-info h3")?.textContent?.trim() || "",
+    text: card.querySelector(".lp-showcase-info p")?.textContent?.trim() || "",
+    imageUrl: "",
+  }));
+  const heroBadge = document.querySelector(".lp-hero-badge")?.textContent?.trim() || "";
+  const heroHeadline = document.querySelector(".lp-hero-headline")?.textContent?.trim() || "";
+  const heroSubheadline = document.querySelector(".lp-hero-sub")?.textContent?.trim() || "";
+  const heroCtaText = document.querySelector(".lp-hero-actions .lp-btn-primary")?.textContent?.trim() || "";
+  const heroSecondaryCtaText = document.querySelector(".lp-hero-actions .lp-btn-secondary")?.textContent?.trim() || "";
+  const socialProofText = document.querySelector(".lp-social-proof p")?.textContent?.trim() || "";
+  const reviews = Array.from(document.querySelectorAll(".lp-reviews-grid .lp-review-card")).map((card, index) => ({
+    id: `review-${index + 1}`,
+    name: card.querySelector(".lp-reviewer strong")?.textContent?.trim() || "",
+    businessName: card.querySelector(".lp-reviewer small")?.textContent?.trim() || "",
+    text: card.querySelector("p")?.textContent?.replace(/[“”]/g, '"')?.trim() || "",
+    imageUrl: "",
+    visible: true,
+    order: index + 1,
+  }));
+  const founderParagraphs = Array.from(document.querySelectorAll(".lp-founder-content p")).map((node) => node.textContent.trim());
+  return {
+    lessonPlans: {},
+    reviews,
+    founder: {
+      name: "Leah",
+      title: document.querySelector(".lp-founder-content h2")?.textContent?.replace(/👋/g, "")?.trim() || "",
+      aboutText: founderParagraphs.join("\n\n"),
+      shortBio: founderParagraphs[0] || "",
+      profileImageUrl: sanitizedImageSource(document.querySelector(".lp-founder-photo-img")?.getAttribute("src") || ""),
+      homeImageUrl: sanitizedImageSource(document.querySelector(".lp-founder-photo-img")?.getAttribute("src") || ""),
+    },
+    homepage: {
+      heroBadge,
+      heroHeadline,
+      heroSubheadline,
+      heroCtaText,
+      heroSecondaryCtaText,
+      socialProofText,
+      heroImageUrl: "",
+      featureCards: [
+        { id: "proof-1", title: document.querySelectorAll(".lp-proof-card strong")[0]?.textContent?.trim() || "", text: document.querySelectorAll(".lp-proof-card p")[0]?.textContent?.trim() || "", imageUrl: "" },
+        { id: "proof-2", title: document.querySelectorAll(".lp-proof-card strong")[1]?.textContent?.trim() || "", text: document.querySelectorAll(".lp-proof-card p")[1]?.textContent?.trim() || "", imageUrl: "" },
+        { id: "proof-3", title: document.querySelectorAll(".lp-proof-card strong")[2]?.textContent?.trim() || "", text: document.querySelectorAll(".lp-proof-card p")[2]?.textContent?.trim() || "", imageUrl: "" },
+      ].filter((item) => item.title),
+      howItWorks: Array.from(document.querySelectorAll(".lp-how-grid .lp-step-card")).map((card, index) => ({
+        id: `how-${index + 1}`,
+        title: card.querySelector("strong")?.textContent?.trim() || "",
+        text: "",
+        imageUrl: "",
+      })),
+      comingSoon: Array.from(document.querySelectorAll(".lp-coming-soon-list span")).map((node, index) => ({
+        id: `soon-${index + 1}`,
+        title: node.textContent.trim(),
+        text: "",
+        imageUrl: "",
+      })),
+      previewCards: showcaseCards,
+      finalCtaHeadline: document.querySelector(".lp-final-cta h2")?.textContent?.trim() || "",
+      finalCtaText: document.querySelector(".lp-final-cta .lp-cta-body")?.textContent?.trim() || "",
+      finalCtaButtonText: document.querySelector(".lp-final-cta .lp-btn-primary")?.textContent?.trim() || "",
+    },
+    images: [],
+    updatedAt: "",
+  };
+}
+
+function effectiveSiteContent() {
+  const base = cloneJson(defaultSiteContentState, emptySiteContent());
+  const overrides = siteContentState || emptySiteContent();
+  return {
+    ...base,
+    ...overrides,
+    lessonPlans: { ...(base.lessonPlans || {}), ...(overrides.lessonPlans || {}) },
+    reviews: (overrides.reviews?.length ? overrides.reviews : base.reviews || []).map((item) => ({
+      ...item,
+      imageUrl: sanitizedImageSource(item.imageUrl || ""),
+      visible: item.visible !== false,
+      order: Number(item.order || 0),
+    })),
+    founder: {
+      ...(base.founder || {}),
+      ...(overrides.founder || {}),
+      profileImageUrl: sanitizedImageSource(overrides.founder?.profileImageUrl || base.founder?.profileImageUrl || ""),
+      homeImageUrl: sanitizedImageSource(overrides.founder?.homeImageUrl || base.founder?.homeImageUrl || ""),
+    },
+    homepage: {
+      ...(base.homepage || {}),
+      ...(overrides.homepage || {}),
+      featureCards: mergeContentCards(base.homepage?.featureCards, overrides.homepage?.featureCards),
+      howItWorks: mergeContentCards(base.homepage?.howItWorks, overrides.homepage?.howItWorks),
+      comingSoon: mergeContentCards(base.homepage?.comingSoon, overrides.homepage?.comingSoon),
+      previewCards: mergeContentCards(base.homepage?.previewCards, overrides.homepage?.previewCards),
+      heroImageUrl: sanitizedImageSource(overrides.homepage?.heroImageUrl || base.homepage?.heroImageUrl || ""),
+    },
+    images: Array.isArray(overrides.images) ? overrides.images : [],
+    updatedAt: overrides.updatedAt || base.updatedAt || "",
+  };
+}
+
+function lessonPlanDefaults(resource) {
+  const theme = resource.theme || resourceTheme(resource);
+  const area = resourceFocus(resource);
+  const objectives = lessonObjectives(resource, theme, area).join("\n");
+  const daily = lessonDailyPlans(resource, theme, area).split(/\n\n+/);
+  return {
+    id: resource.id,
+    title: resource.title,
+    age: resource.age,
+    theme,
+    weeklyOverview: resource.weeklyOverview || resource.description || "",
+    materials: resource.materials || lessonThemeMaterials(theme),
+    teacherLanguage: lessonTeacherLanguageGuide(lessonPlanAge(resource.age)),
+    objectives,
+    elgConnections: resourceStandardConnections(resource),
+    familyConnection: lessonFamilyConnectionDetail(theme, lessonPlanAge(resource.age)),
+    reflectionNotes: "What worked well this week?\nWhich child showed new language, confidence, persistence, or social participation?\nWhat will you repeat, extend, or change next week?\nWhat would you like to document or share with families?",
+    plan: resource.plan,
+    visible: true,
+    thumbnailUrl: sanitizedImageSource(resource.previewData || ""),
+    dailyActivities: {
+      monday: daily[0] || "",
+      tuesday: daily[1] || "",
+      wednesday: daily[2] || "",
+      thursday: daily[3] || "",
+      friday: daily[4] || "",
+    },
+  };
+}
+
+function lessonPlanOverrideFor(resourceId) {
+  return effectiveSiteContent().lessonPlans?.[resourceId] || null;
+}
+
+function buildLessonPlanTextFromOverride(resource, override) {
+  const merged = { ...lessonPlanDefaults(resource), ...(override || {}) };
+  const daySections = [
+    ["Monday", merged.dailyActivities?.monday],
+    ["Tuesday", merged.dailyActivities?.tuesday],
+    ["Wednesday", merged.dailyActivities?.wednesday],
+    ["Thursday", merged.dailyActivities?.thursday],
+    ["Friday", merged.dailyActivities?.friday],
+  ].filter(([, value]) => normalizedMultilineText(value)).map(([day, value]) => `${day}\n${normalizedMultilineText(value)}`).join("\n\n");
+  return `Weekly Lesson Plan
+Title: ${merged.title}
+Theme: ${merged.theme}
+Month: ${resource.month}
+Age Group: ${merged.age}
+Developmental Focus: ${resourceFocus(resource)}
+Holiday: ${resource.holiday || "Non-Holiday"}
+
+Weekly Overview
+${merged.weeklyOverview}
+
+Weekly Learning Objectives
+${normalizedMultilineText(merged.objectives)}
+
+Complete Materials List
+${merged.materials}
+
+Teacher Language Guide
+${merged.teacherLanguage}
+
+Monday Through Friday
+${daySections}
+
+Family Connection Idea
+${merged.familyConnection}
+
+ELG / Early Learning Standard Connections
+${merged.elgConnections}
+
+Provider Reflection
+${merged.reflectionNotes}`;
+}
+
+function applyLessonPlanOverrides(items, includeHidden = false) {
+  return items.flatMap((resource) => {
+    if (resource.category !== "Lesson Plans") return [resource];
+    const override = lessonPlanOverrideFor(resource.id);
+    const merged = override ? {
+      ...resource,
+      title: override.title || resource.title,
+      age: override.age || resource.age,
+      theme: override.theme || resource.theme,
+      weeklyOverview: override.weeklyOverview || resource.weeklyOverview,
+      materials: override.materials || resource.materials,
+      plan: override.plan || resource.plan,
+      previewData: override.thumbnailUrl || resource.previewData || "",
+      lessonPlanOverride: override,
+    } : resource;
+    if (!includeHidden && override?.visible === false) return [];
+    return [merged];
+  });
+}
+
+function allLessonPlansForAdmin() {
+  return applyLessonPlanOverrides(libraryResources.filter((resource) => resource.category === "Lesson Plans"), true)
+    .map((resource) => {
+      const defaults = lessonPlanDefaults(resource);
+      const override = lessonPlanOverrideFor(resource.id) || {};
+      return {
+        ...defaults,
+        ...override,
+        id: resource.id,
+        title: override.title || resource.title,
+        age: override.age || resource.age,
+        theme: override.theme || resource.theme || resourceTheme(resource),
+        plan: override.plan || resource.plan,
+        visible: override.visible !== false,
+        thumbnailUrl: override.thumbnailUrl || resource.previewData || "",
+        resource,
+      };
+    });
+}
+
 function loadResources() {
   const saved = readSavedJson("llhUploadedResources", []);
   const starterWithoutOldGenerated = starterResources.filter((resource) => !["Observation Hub", "Lesson Plans"].includes(resource.category));
-  return applyObservationEdits([...starterWithoutOldGenerated, ...libraryResources, ...saved]);
+  const mergedLibrary = applyLessonPlanOverrides(libraryResources);
+  return applyObservationEdits([...starterWithoutOldGenerated, ...mergedLibrary, ...saved]);
 }
 
 function observationEdits() {
@@ -5969,11 +6320,27 @@ function resourceDownloadBody(resource) {
     return savedContent;
   }
   if (resource.category === "Lesson Plans") {
-    const theme = resource.theme || resourceTheme(resource);
+    const override = resource.lessonPlanOverride || lessonPlanOverrideFor(resource.id) || null;
+    const theme = override?.theme || resource.theme || resourceTheme(resource);
     const area = resourceFocus(resource);
-    const age = lessonPlanAge(resource.age);
-    const standards = resourceStandardConnections(resource);
-    const objectives = lessonObjectives(resource, theme, area);
+    const age = lessonPlanAge(override?.age || resource.age);
+    const standards = override?.elgConnections || resourceStandardConnections(resource);
+    const objectives = override?.objectives
+      ? normalizedMultilineText(override.objectives)
+      : lessonObjectives(resource, theme, area).map((item) => `- ${item}`).join("\n");
+    const dailyPlanText = override && Object.values(override.dailyActivities || {}).some((value) => normalizedMultilineText(value))
+      ? [
+        ["Monday", override.dailyActivities?.monday],
+        ["Tuesday", override.dailyActivities?.tuesday],
+        ["Wednesday", override.dailyActivities?.wednesday],
+        ["Thursday", override.dailyActivities?.thursday],
+        ["Friday", override.dailyActivities?.friday],
+      ].map(([day, value]) => `${day}\n${normalizedMultilineText(value) || "Activity details to be added."}`).join("\n\n")
+      : lessonDailyPlans(resource, theme, area);
+    const reflectionNotes = override?.reflectionNotes || `What worked well this week?
+Which child showed new language, confidence, persistence, or social participation?
+What will you repeat, extend, or change next week?
+What would you like to document or share with families?`;
     return `Weekly Lesson Plan
 Title: ${resource.title}
 Theme: ${theme}
@@ -5983,29 +6350,29 @@ Developmental Focus: ${area}
 Holiday: ${resource.holiday || "Non-Holiday"}
 
 Weekly Overview
-${resource.weeklyOverview || resource.description}
+${override?.weeklyOverview || resource.weeklyOverview || resource.description}
 
 Age Group Teaching Approach
 ${lessonAgeApproach(age)}
 
 Weekly Learning Objectives
-${objectives.map((item) => `- ${item}`).join("\n")}
+${objectives}
 
 Vocabulary Words
 ${lessonVocabulary(theme, area)}
 
 Complete Materials List
-${resource.materials || lessonThemeMaterials(theme)}
+${override?.materials || resource.materials || lessonThemeMaterials(theme)}
 
 Teacher Language Guide
 Use these age-matched phrases throughout the week:
-${lessonTeacherLanguageGuide(age)}
+${override?.teacherLanguage || lessonTeacherLanguageGuide(age)}
 
 Questions to Ask Children
 ${lessonQuestionsGuide(theme, age)}
 
 Monday Through Friday
-${lessonDailyPlans(resource, theme, area)}
+${dailyPlanText}
 
 Art Activity
 ${lessonArtActivityDetail(theme, age)}
@@ -6031,7 +6398,7 @@ Extensions
 
 ${lessonAssessmentSection(area)}
 
-${lessonFamilyConnectionDetail(theme, age)}
+${override?.familyConnection || lessonFamilyConnectionDetail(theme, age)}
 
 ELG / Early Learning Standard Connections
 ${standards}
@@ -6040,10 +6407,7 @@ Child Support Connection
 Use the Add Support button to document individualized accommodations, modifications, and support activities inside a child profile.
 
 Provider Reflection
-What worked well this week?
-Which child showed new language, confidence, persistence, or social participation?
-What will you repeat, extend, or change next week?
-What would you like to document or share with families?`;
+${reflectionNotes}`;
   }
   if (resource.category === "Observation Hub") {
     const area = resource.tags.find((tag) => learningAreas.includes(tag)) || "Developmental area";
@@ -7217,10 +7581,128 @@ function categoryIntro(category) {
   return copy[category];
 }
 
+function reviewCardHtml(review) {
+  const initials = initialsFromName(review.name || review.businessName || "LL", "LL");
+  const image = sanitizedImageSource(review.imageUrl);
+  return `
+    <article class="lp-review-card${review.order === 1 ? " featured" : ""}">
+      <div class="lp-review-stars" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
+      <p>${escapeHtml(review.text || "")}</p>
+      <div class="lp-reviewer">
+        ${image
+          ? `<img class="lp-reviewer-avatar lp-reviewer-image" src="${escapeHtml(image)}" alt="${escapeHtml(review.name || "Reviewer")}" />`
+          : `<span class="lp-reviewer-avatar" aria-hidden="true">${escapeHtml(initials)}</span>`}
+        <div><strong>${escapeHtml(review.name || "Anonymous reviewer")}</strong><small>${escapeHtml(review.businessName || "Little Learner Hub")}</small></div>
+      </div>
+    </article>
+  `;
+}
+
+function renderManagedHomeContent() {
+  const content = effectiveSiteContent();
+  const homepage = content.homepage || {};
+  const founder = content.founder || {};
+  const reviews = (content.reviews || []).filter((item) => item.visible !== false).sort((a, b) => (a.order || 0) - (b.order || 0));
+  const setText = (selector, value) => {
+    const node = document.querySelector(selector);
+    if (node && normalizedMultilineText(value)) node.textContent = value;
+  };
+  setText(".lp-hero-badge", homepage.heroBadge);
+  setText(".lp-hero-headline", homepage.heroHeadline);
+  setText(".lp-hero-sub", homepage.heroSubheadline);
+  setText(".lp-social-proof p", homepage.socialProofText);
+  setText(".lp-final-cta h2", homepage.finalCtaHeadline);
+  setText(".lp-final-cta .lp-cta-body", homepage.finalCtaText);
+  const heroPrimary = document.querySelector(".lp-hero-actions .lp-btn-primary");
+  if (heroPrimary && homepage.heroCtaText) heroPrimary.textContent = homepage.heroCtaText;
+  const heroSecondary = document.querySelector(".lp-hero-actions .lp-btn-secondary");
+  if (heroSecondary && homepage.heroSecondaryCtaText) heroSecondary.textContent = homepage.heroSecondaryCtaText;
+  const finalButton = document.querySelector(".lp-final-cta .lp-btn-primary");
+  if (finalButton && homepage.finalCtaButtonText) finalButton.textContent = homepage.finalCtaButtonText;
+
+  document.querySelectorAll(".lp-proof-card").forEach((card, index) => {
+    const item = homepage.featureCards?.[index];
+    if (!item) return;
+    const title = card.querySelector("strong");
+    const text = card.querySelector("p");
+    if (title && item.title) title.textContent = item.title;
+    if (text && item.text) text.textContent = item.text;
+  });
+
+  document.querySelectorAll(".lp-how-grid .lp-step-card").forEach((card, index) => {
+    const item = homepage.howItWorks?.[index];
+    const title = card.querySelector("strong");
+    if (title && item?.title) title.textContent = item.title;
+  });
+
+  const comingSoonList = document.querySelector(".lp-coming-soon-list");
+  if (comingSoonList && homepage.comingSoon?.length) {
+    comingSoonList.innerHTML = homepage.comingSoon.map((item) => `<span>${escapeHtml(item.title)}</span>`).join("");
+  }
+
+  document.querySelectorAll(".lp-showcase-card").forEach((card, index) => {
+    const item = homepage.previewCards?.find((entry) => entry.id === card.dataset.preview) || homepage.previewCards?.[index];
+    if (!item) return;
+    const title = card.querySelector(".lp-showcase-info h3");
+    const text = card.querySelector(".lp-showcase-info p");
+    if (title && item.title) title.textContent = item.title;
+    if (text && item.text) text.textContent = item.text;
+    const screen = card.querySelector(".lp-showcase-screen");
+    if (!screen) return;
+    screen.querySelector(".lp-showcase-managed-image")?.remove();
+    if (item.imageUrl) {
+      screen.insertAdjacentHTML("afterbegin", `<img class="lp-showcase-managed-image" src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.title || "Preview image")}" />`);
+    }
+  });
+
+  const heroVisual = document.querySelector(".lp-hero-visual");
+  if (heroVisual) {
+    heroVisual.querySelector(".lp-home-hero-image")?.remove();
+    if (homepage.heroImageUrl) {
+      heroVisual.insertAdjacentHTML("afterbegin", `<img class="lp-home-hero-image" src="${escapeHtml(homepage.heroImageUrl)}" alt="Little Learner Hub preview" />`);
+    }
+  }
+
+  const reviewsGrid = document.querySelector(".lp-reviews-grid");
+  if (reviewsGrid && reviews.length) {
+    reviewsGrid.innerHTML = reviews.map(reviewCardHtml).join("");
+  }
+
+  const founderTitle = founder.title || founder.name;
+  if (founderTitle) setText(".lp-founder-content h2", founderTitle);
+  const founderParagraphs = document.querySelectorAll(".lp-founder-content p");
+  const aboutText = normalizedMultilineText(founder.aboutText || "");
+  if (founderParagraphs.length && aboutText) {
+    const parts = aboutText.split(/\n{2,}/).filter(Boolean);
+    founderParagraphs[0].textContent = parts[0] || founder.shortBio || founderParagraphs[0].textContent;
+    if (founderParagraphs[1]) founderParagraphs[1].textContent = parts[1] || founder.shortBio || founderParagraphs[1].textContent;
+  } else if (founderParagraphs[0] && founder.shortBio) {
+    founderParagraphs[0].textContent = founder.shortBio;
+  }
+  const founderImg = document.querySelector(".lp-founder-photo-img");
+  const founderFallback = document.querySelector(".lp-founder-photo-fallback");
+  const founderImage = founder.homeImageUrl || founder.profileImageUrl || "";
+  if (founderImg) {
+    if (founderImage) {
+      founderImg.src = founderImage;
+      founderImg.style.display = "";
+      if (founderFallback) founderFallback.style.display = "none";
+    } else {
+      founderImg.removeAttribute("src");
+      founderImg.style.display = "none";
+      if (founderFallback) {
+        founderFallback.style.display = "grid";
+        founderFallback.innerHTML = `<span aria-hidden="true">${escapeHtml(initialsFromName(founder.name || founder.title || "LL"))}</span>`;
+      }
+    }
+  }
+}
+
 function renderHome() {
   if (!document.querySelector("#homeFoundingOffer")) {
     document.querySelector("#view-home").innerHTML = homeViewTemplate;
   }
+  renderManagedHomeContent();
   const stats = {
     total: resources.length,
     lessons: resources.filter((resource) => resource.category === "Lesson Plans").length,
@@ -13799,11 +14281,530 @@ function renderLaunchReadiness() {
   `;
 }
 
+function adminLessonFilters() {
+  return {
+    search: (document.querySelector("#adminLessonSearch")?.value || "").trim().toLowerCase(),
+    age: document.querySelector("#adminLessonAgeFilter")?.value || "All Ages",
+    visibility: document.querySelector("#adminLessonVisibilityFilter")?.value || "all",
+  };
+}
+
+function filteredAdminLessonPlans() {
+  const filters = adminLessonFilters();
+  return allLessonPlansForAdmin().filter((item) => {
+    const haystack = [item.title, item.age, item.theme, item.weeklyOverview, item.plan].join(" ").toLowerCase();
+    const ageMatch = filters.age === "All Ages" || item.age === filters.age;
+    const visibilityMatch = filters.visibility === "all"
+      || (filters.visibility === "visible" && item.visible !== false)
+      || (filters.visibility === "hidden" && item.visible === false);
+    return ageMatch && visibilityMatch && haystack.includes(filters.search);
+  });
+}
+
+function lessonPlanAdminCardHtml(plan) {
+  const selected = adminLessonSelection.has(plan.id);
+  const image = sanitizedImageSource(plan.thumbnailUrl);
+  return `
+    <article class="admin-mobile-card${plan.visible === false ? " is-hidden" : ""}">
+      <label class="admin-select-row">
+        <input type="checkbox" data-admin-lesson-select="${plan.id}" ${selected ? "checked" : ""} />
+        <span>Select</span>
+      </label>
+      <div class="admin-mobile-card-body">
+        ${image ? `<img class="admin-mobile-thumb" src="${escapeHtml(image)}" alt="${escapeHtml(plan.title)} thumbnail" />` : `<div class="admin-mobile-thumb admin-mobile-thumb-placeholder">${escapeHtml(initialsFromName(plan.title, "LP"))}</div>`}
+        <div>
+          <strong>${escapeHtml(plan.title)}</strong>
+          <p>${escapeHtml(plan.theme || "Theme")} · ${escapeHtml(plan.age)} · ${escapeHtml(plan.plan)}</p>
+          <div class="tag-row">
+            <span class="tag">${escapeHtml(plan.age)}</span>
+            <span class="tag">${escapeHtml(plan.plan)}</span>
+            <span class="tag">${plan.visible === false ? "Hidden" : "Visible"}</span>
+          </div>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="ghost-button" type="button" data-admin-lesson-edit="${plan.id}">Edit</button>
+        <button class="ghost-button" type="button" data-admin-lesson-toggle="${plan.id}">${plan.visible === false ? "Unhide" : "Hide"}</button>
+      </div>
+    </article>
+  `;
+}
+
+function reviewAdminCardHtml(review) {
+  const image = sanitizedImageSource(review.imageUrl);
+  return `
+    <article class="admin-mobile-card${review.visible === false ? " is-hidden" : ""}">
+      <div class="admin-mobile-card-body">
+        ${image ? `<img class="admin-mobile-avatar" src="${escapeHtml(image)}" alt="${escapeHtml(review.name || "Reviewer")}" />` : `<div class="admin-mobile-avatar">${escapeHtml(initialsFromName(review.name || review.businessName || "RV"))}</div>`}
+        <div>
+          <strong>${escapeHtml(review.name || "Reviewer")}</strong>
+          <p>${escapeHtml(review.businessName || "Business name")}</p>
+          <small>${review.visible === false ? "Hidden" : "Visible"} · Order ${Number(review.order || 0)}</small>
+        </div>
+      </div>
+      <p>${escapeHtml(review.text || "")}</p>
+      <div class="form-actions">
+        <button class="ghost-button" type="button" data-admin-review-edit="${review.id}">Edit</button>
+        <button class="ghost-button" type="button" data-admin-review-toggle="${review.id}">${review.visible === false ? "Show" : "Hide"}</button>
+        <button class="danger-button" type="button" data-admin-review-delete="${review.id}">Delete</button>
+      </div>
+    </article>
+  `;
+}
+
+function adminImageCardHtml(image) {
+  const src = sanitizedImageSource(image.imageUrl);
+  return `
+    <article class="admin-mobile-card">
+      <div class="admin-mobile-card-body">
+        ${src ? `<img class="admin-mobile-thumb" src="${escapeHtml(src)}" alt="${escapeHtml(image.label || "Image asset")}" />` : `<div class="admin-mobile-thumb admin-mobile-thumb-placeholder">IMG</div>`}
+        <div>
+          <strong>${escapeHtml(image.label || "Image asset")}</strong>
+          <p>${escapeHtml(image.group || "General")}</p>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="ghost-button" type="button" data-admin-image-edit="${image.id}">Edit</button>
+        <button class="danger-button" type="button" data-admin-image-delete="${image.id}">Delete</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderAdminContentManager() {
+  const target = document.querySelector("#adminContentManagerApp");
+  if (!target || !isAdminUnlocked()) return;
+  const content = effectiveSiteContent();
+  const lessons = filteredAdminLessonPlans();
+  const lessonCounts = allLessonPlansForAdmin().reduce((counts, item) => {
+    counts[item.age] = (counts[item.age] || 0) + 1;
+    return counts;
+  }, {});
+  const lessonRecord = allLessonPlansForAdmin().find((item) => item.id === adminLessonEditorId)
+    || lessons[0]
+    || allLessonPlansForAdmin()[0];
+  if (lessonRecord && !adminLessonEditorId) adminLessonEditorId = lessonRecord.id;
+  const reviews = (content.reviews || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+  const reviewRecord = reviews.find((item) => item.id === adminReviewEditorId) || reviews[0] || {
+    id: "",
+    name: "",
+    businessName: "",
+    text: "",
+    imageUrl: "",
+    visible: true,
+    order: reviews.length + 1,
+  };
+  const founder = content.founder || {};
+  const homepage = content.homepage || {};
+  const images = Array.isArray(content.images) ? content.images : [];
+  const imageRecord = images.find((item) => item.id === adminImageEditorId) || images[0] || { id: "", label: "", group: "", imageUrl: "" };
+  target.innerHTML = `
+    <div class="admin-manager-grid">
+      <section class="admin-manager-section">
+        <div class="section-heading">
+          <div><p class="eyebrow">Lesson Plan Manager</p><h3>Edit library lesson plans</h3></div>
+        </div>
+        <div class="admin-mobile-toolbar">
+          <label><span>Search</span><input id="adminLessonSearch" type="search" placeholder="Search lesson plans" value="${escapeHtml(document.querySelector("#adminLessonSearch")?.value || "")}" /></label>
+          <label><span>Age group</span><select id="adminLessonAgeFilter"><option${(document.querySelector("#adminLessonAgeFilter")?.value || "All Ages") === "All Ages" ? " selected" : ""}>All Ages</option>${["Infant", "Toddler", "Preschool"].map((age) => `<option${(document.querySelector("#adminLessonAgeFilter")?.value || "") === age ? " selected" : ""}>${age}</option>`).join("")}</select></label>
+          <label><span>Show</span><select id="adminLessonVisibilityFilter">${[["all", "All"], ["visible", "Visible"], ["hidden", "Hidden"]].map(([value, label]) => `<option value="${value}"${(document.querySelector("#adminLessonVisibilityFilter")?.value || "all") === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
+        </div>
+        <div class="admin-mobile-stats">
+          ${Object.entries(lessonCounts).map(([label, count]) => `<div><strong>${count}</strong><span>${escapeHtml(label)}</span></div>`).join("")}
+        </div>
+        <div class="form-actions">
+          <button class="primary-button" type="button" data-admin-bulk="hide">Bulk Hide</button>
+          <button class="ghost-button" type="button" data-admin-bulk="unhide">Bulk Unhide</button>
+          <button class="ghost-button" type="button" data-admin-bulk="free">Bulk Mark Free</button>
+          <button class="ghost-button" type="button" data-admin-bulk="pro">Bulk Mark Pro</button>
+          <button class="ghost-button" type="button" id="adminShowOnly50Button">Show only 50 per age group</button>
+        </div>
+        <div class="admin-mobile-list">${lessons.slice(0, 120).map(lessonPlanAdminCardHtml).join("") || `<div class="empty-state">No lesson plans match these filters.</div>`}</div>
+        ${lessonRecord ? `
+          <form id="adminLessonPlanForm" class="panel-form admin-stacked-form">
+            <input type="hidden" name="id" value="${escapeHtml(lessonRecord.id)}" />
+            <div class="form-grid-two">
+              <label>Title<input name="title" value="${escapeHtml(lessonRecord.title)}" /></label>
+              <label>Age group<select name="age">${["Infant", "Toddler", "Preschool"].map((age) => `<option${lessonRecord.age === age ? " selected" : ""}>${age}</option>`).join("")}</select></label>
+            </div>
+            <div class="form-grid-two">
+              <label>Theme / Category<input name="theme" value="${escapeHtml(lessonRecord.theme || "")}" /></label>
+              <label>Free / Pro<select name="plan">${["Free", "Pro"].map((plan) => `<option${lessonRecord.plan === plan ? " selected" : ""}>${plan}</option>`).join("")}</select></label>
+            </div>
+            <label class="admin-inline-toggle"><input type="checkbox" name="visible" ${lessonRecord.visible !== false ? "checked" : ""} /> <span>Visible on public site</span></label>
+            <label>Overview<textarea name="weeklyOverview" rows="3">${escapeHtml(lessonRecord.weeklyOverview || "")}</textarea></label>
+            <label>Materials<textarea name="materials" rows="3">${escapeHtml(lessonRecord.materials || "")}</textarea></label>
+            <label>Objectives<textarea name="objectives" rows="4">${escapeHtml(lessonRecord.objectives || "")}</textarea></label>
+            <label>Teacher language<textarea name="teacherLanguage" rows="4">${escapeHtml(lessonRecord.teacherLanguage || "")}</textarea></label>
+            <label>Monday<textarea name="monday" rows="4">${escapeHtml(lessonRecord.dailyActivities?.monday || "")}</textarea></label>
+            <label>Tuesday<textarea name="tuesday" rows="4">${escapeHtml(lessonRecord.dailyActivities?.tuesday || "")}</textarea></label>
+            <label>Wednesday<textarea name="wednesday" rows="4">${escapeHtml(lessonRecord.dailyActivities?.wednesday || "")}</textarea></label>
+            <label>Thursday<textarea name="thursday" rows="4">${escapeHtml(lessonRecord.dailyActivities?.thursday || "")}</textarea></label>
+            <label>Friday<textarea name="friday" rows="4">${escapeHtml(lessonRecord.dailyActivities?.friday || "")}</textarea></label>
+            <label>ELG connections<textarea name="elgConnections" rows="3">${escapeHtml(lessonRecord.elgConnections || "")}</textarea></label>
+            <label>Family connection<textarea name="familyConnection" rows="3">${escapeHtml(lessonRecord.familyConnection || "")}</textarea></label>
+            <label>Reflection notes<textarea name="reflectionNotes" rows="3">${escapeHtml(lessonRecord.reflectionNotes || "")}</textarea></label>
+            <label>Thumbnail image URL<input name="thumbnailUrl" value="${escapeHtml(lessonRecord.thumbnailUrl || "")}" placeholder="https://..." /></label>
+            <label>Upload thumbnail<input name="thumbnailFile" type="file" accept="image/*" /></label>
+            <div class="form-actions">
+              <button class="primary-button" type="submit">Save lesson plan</button>
+              <button class="ghost-button" type="button" data-admin-lesson-reset="${escapeHtml(lessonRecord.id)}">Reset lesson to default</button>
+            </div>
+            <span class="form-message" id="adminLessonPlanMessage"></span>
+          </form>
+        ` : ""}
+      </section>
+
+      <section class="admin-manager-section">
+        <div class="section-heading">
+          <div><p class="eyebrow">Reviews / Testimonials</p><h3>Control homepage reviews</h3></div>
+        </div>
+        <div class="admin-mobile-list">${reviews.map(reviewAdminCardHtml).join("") || `<div class="empty-state">No reviews saved yet.</div>`}</div>
+        <form id="adminReviewForm" class="panel-form admin-stacked-form">
+          <input type="hidden" name="id" value="${escapeHtml(reviewRecord.id || "")}" />
+          <div class="form-grid-two">
+            <label>Reviewer name<input name="name" value="${escapeHtml(reviewRecord.name || "")}" /></label>
+            <label>Daycare / business<input name="businessName" value="${escapeHtml(reviewRecord.businessName || "")}" /></label>
+          </div>
+          <label>Review text<textarea name="text" rows="4">${escapeHtml(reviewRecord.text || "")}</textarea></label>
+          <div class="form-grid-two">
+            <label>Display order<input name="order" type="number" min="1" value="${escapeHtml(String(reviewRecord.order || reviews.length + 1))}" /></label>
+            <label class="admin-inline-toggle"><input type="checkbox" name="visible" ${reviewRecord.visible !== false ? "checked" : ""} /> <span>Visible on homepage</span></label>
+          </div>
+          <label>Profile image URL<input name="imageUrl" value="${escapeHtml(reviewRecord.imageUrl || "")}" placeholder="https://..." /></label>
+          <label>Upload profile image<input name="imageFile" type="file" accept="image/*" /></label>
+          <div class="form-actions">
+            <button class="primary-button" type="submit">Save review</button>
+            <button class="ghost-button" type="button" id="adminNewReviewButton">Add new review</button>
+          </div>
+          <span class="form-message" id="adminReviewMessage"></span>
+        </form>
+      </section>
+
+      <section class="admin-manager-section">
+        <div class="section-heading">
+          <div><p class="eyebrow">Founder / About</p><h3>Update profile and homepage about copy</h3></div>
+        </div>
+        <form id="adminFounderForm" class="panel-form admin-stacked-form">
+          <label>Name<input name="name" value="${escapeHtml(founder.name || "")}" /></label>
+          <label>Title<input name="title" value="${escapeHtml(founder.title || "")}" /></label>
+          <label>Founder / About text<textarea name="aboutText" rows="5">${escapeHtml(founder.aboutText || "")}</textarea></label>
+          <label>Short bio<textarea name="shortBio" rows="3">${escapeHtml(founder.shortBio || "")}</textarea></label>
+          <label>Profile picture URL<input name="profileImageUrl" value="${escapeHtml(founder.profileImageUrl || "")}" placeholder="https://..." /></label>
+          <label>Upload profile picture<input name="profileImageFile" type="file" accept="image/*" /></label>
+          <label>Homepage founder image URL<input name="homeImageUrl" value="${escapeHtml(founder.homeImageUrl || "")}" placeholder="https://..." /></label>
+          <label>Upload homepage founder image<input name="homeImageFile" type="file" accept="image/*" /></label>
+          <div class="form-actions">
+            <button class="primary-button" type="submit">Save founder section</button>
+          </div>
+          <span class="form-message" id="adminFounderMessage"></span>
+        </form>
+      </section>
+
+      <section class="admin-manager-section">
+        <div class="section-heading">
+          <div><p class="eyebrow">Homepage Content</p><h3>Edit public homepage text and images</h3></div>
+        </div>
+        <form id="adminHomepageForm" class="panel-form admin-stacked-form">
+          <label>Hero headline<input name="heroHeadline" value="${escapeHtml(homepage.heroHeadline || "")}" /></label>
+          <label>Hero subheadline<textarea name="heroSubheadline" rows="3">${escapeHtml(homepage.heroSubheadline || "")}</textarea></label>
+          <div class="form-grid-two">
+            <label>Hero CTA text<input name="heroCtaText" value="${escapeHtml(homepage.heroCtaText || "")}" /></label>
+            <label>Secondary CTA text<input name="heroSecondaryCtaText" value="${escapeHtml(homepage.heroSecondaryCtaText || "")}" /></label>
+          </div>
+          <label>Hero preview image URL<input name="heroImageUrl" value="${escapeHtml(homepage.heroImageUrl || "")}" placeholder="https://..." /></label>
+          <label>Upload hero preview image<input name="heroImageFile" type="file" accept="image/*" /></label>
+          ${homepage.featureCards?.map((card, index) => `
+            <fieldset class="admin-fieldset">
+              <legend>Feature card ${index + 1}</legend>
+              <input type="hidden" name="featureCardId:${index}" value="${escapeHtml(card.id || `feature-${index + 1}`)}" />
+              <label>Title<input name="featureCardTitle:${index}" value="${escapeHtml(card.title || "")}" /></label>
+              <label>Text<textarea name="featureCardText:${index}" rows="2">${escapeHtml(card.text || "")}</textarea></label>
+            </fieldset>
+          `).join("") || ""}
+          ${homepage.howItWorks?.map((card, index) => `
+            <label>How It Works step ${index + 1}<input name="howTitle:${index}" value="${escapeHtml(card.title || "")}" /></label>
+          `).join("") || ""}
+          ${homepage.comingSoon?.map((card, index) => `
+            <label>Coming Soon item ${index + 1}<input name="soonTitle:${index}" value="${escapeHtml(card.title || "")}" /></label>
+          `).join("") || ""}
+          ${homepage.previewCards?.map((card, index) => `
+            <fieldset class="admin-fieldset">
+              <legend>Preview card ${index + 1}</legend>
+              <input type="hidden" name="previewCardId:${index}" value="${escapeHtml(card.id || `preview-${index + 1}`)}" />
+              <label>Title<input name="previewCardTitle:${index}" value="${escapeHtml(card.title || "")}" /></label>
+              <label>Text<textarea name="previewCardText:${index}" rows="2">${escapeHtml(card.text || "")}</textarea></label>
+              <label>Image URL<input name="previewCardImage:${index}" value="${escapeHtml(card.imageUrl || "")}" placeholder="https://..." /></label>
+              <label>Upload image<input name="previewCardImageFile:${index}" type="file" accept="image/*" /></label>
+            </fieldset>
+          `).join("") || ""}
+          <label>Final CTA headline<input name="finalCtaHeadline" value="${escapeHtml(homepage.finalCtaHeadline || "")}" /></label>
+          <label>Final CTA text<textarea name="finalCtaText" rows="3">${escapeHtml(homepage.finalCtaText || "")}</textarea></label>
+          <label>Final CTA button text<input name="finalCtaButtonText" value="${escapeHtml(homepage.finalCtaButtonText || "")}" /></label>
+          <div class="form-actions">
+            <button class="primary-button" type="submit">Save homepage content</button>
+          </div>
+          <span class="form-message" id="adminHomepageMessage"></span>
+        </form>
+      </section>
+
+      <section class="admin-manager-section">
+        <div class="section-heading">
+          <div><p class="eyebrow">Image Manager</p><h3>Save reusable image links and uploads</h3></div>
+        </div>
+        <div class="admin-mobile-list">${images.map(adminImageCardHtml).join("") || `<div class="empty-state">No image assets saved yet.</div>`}</div>
+        <form id="adminImageAssetForm" class="panel-form admin-stacked-form">
+          <input type="hidden" name="id" value="${escapeHtml(imageRecord.id || "")}" />
+          <label>Label<input name="label" value="${escapeHtml(imageRecord.label || "")}" /></label>
+          <label>Group<input name="group" value="${escapeHtml(imageRecord.group || "")}" placeholder="Homepage, Founder, Reviews" /></label>
+          <label>Image URL<input name="imageUrl" value="${escapeHtml(imageRecord.imageUrl || "")}" placeholder="https://..." /></label>
+          <label>Upload image<input name="imageFile" type="file" accept="image/*" /></label>
+          <div class="form-actions">
+            <button class="primary-button" type="submit">Save image</button>
+            <button class="ghost-button" type="button" id="adminNewImageButton">Add new image</button>
+          </div>
+          <span class="form-message" id="adminImageMessage"></span>
+        </form>
+      </section>
+    </div>
+  `;
+}
+
+function nextSiteContentDraft() {
+  return cloneJson(effectiveSiteContent(), emptySiteContent());
+}
+
+async function updateLessonOverrides(updater) {
+  const nextContent = nextSiteContentDraft();
+  nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
+  updater(nextContent.lessonPlans);
+  await saveAdminSiteContent(nextContent);
+}
+
+async function saveAdminLessonPlanForm(form) {
+  const formData = new FormData(form);
+  const id = String(formData.get("id") || "");
+  if (!id) return;
+  const uploadedImage = await fileToImageDataUrl(formData.get("thumbnailFile"));
+  await updateLessonOverrides((lessonPlans) => {
+    lessonPlans[id] = {
+      id,
+      title: normalizedShortText(formData.get("title")),
+      age: normalizedShortText(formData.get("age")),
+      theme: normalizedShortText(formData.get("theme")),
+      weeklyOverview: normalizedMultilineText(formData.get("weeklyOverview")),
+      materials: normalizedMultilineText(formData.get("materials")),
+      objectives: normalizedMultilineText(formData.get("objectives")),
+      teacherLanguage: normalizedMultilineText(formData.get("teacherLanguage")),
+      elgConnections: normalizedMultilineText(formData.get("elgConnections")),
+      familyConnection: normalizedMultilineText(formData.get("familyConnection")),
+      reflectionNotes: normalizedMultilineText(formData.get("reflectionNotes")),
+      plan: normalizedShortText(formData.get("plan")) || "Free",
+      visible: formData.get("visible") === "on",
+      thumbnailUrl: uploadedImage || sanitizedImageSource(formData.get("thumbnailUrl")),
+      dailyActivities: {
+        monday: normalizedMultilineText(formData.get("monday")),
+        tuesday: normalizedMultilineText(formData.get("tuesday")),
+        wednesday: normalizedMultilineText(formData.get("wednesday")),
+        thursday: normalizedMultilineText(formData.get("thursday")),
+        friday: normalizedMultilineText(formData.get("friday")),
+      },
+    };
+    adminLessonEditorId = id;
+  });
+  setFormMessage("#adminLessonPlanMessage", "Lesson plan saved.", true);
+}
+
+async function resetLessonPlanOverride(id) {
+  await updateLessonOverrides((lessonPlans) => {
+    delete lessonPlans[id];
+  });
+  adminLessonEditorId = id;
+}
+
+async function toggleLessonPlanVisibility(id) {
+  const record = allLessonPlansForAdmin().find((item) => item.id === id);
+  if (!record) return;
+  await updateLessonOverrides((lessonPlans) => {
+    const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
+    lessonPlans[id] = { ...current, id, visible: !(record.visible !== false) };
+  });
+}
+
+async function applyLessonPlanBulkAction(action) {
+  const ids = Array.from(adminLessonSelection);
+  if (!ids.length) return;
+  await updateLessonOverrides((lessonPlans) => {
+    ids.forEach((id) => {
+      const record = allLessonPlansForAdmin().find((item) => item.id === id);
+      if (!record) return;
+      const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
+      lessonPlans[id] = {
+        ...current,
+        id,
+        visible: action === "hide" ? false : action === "unhide" ? true : current.visible !== false,
+        plan: action === "free" ? "Free" : action === "pro" ? "Pro" : current.plan,
+      };
+    });
+  });
+}
+
+async function showOnlyFiftyLessonPlansPerAge() {
+  const grouped = allLessonPlansForAdmin().reduce((map, item) => {
+    map[item.age] = map[item.age] || [];
+    map[item.age].push(item);
+    return map;
+  }, {});
+  await updateLessonOverrides((lessonPlans) => {
+    Object.values(grouped).forEach((items) => {
+      items
+        .slice()
+        .sort((a, b) => a.title.localeCompare(b.title))
+        .forEach((item, index) => {
+          const current = lessonPlans[item.id] || lessonPlanDefaults(item.resource);
+          lessonPlans[item.id] = { ...current, id: item.id, visible: index < 50 };
+        });
+    });
+  });
+}
+
+async function saveAdminReviewForm(form) {
+  const formData = new FormData(form);
+  const uploadedImage = await fileToImageDataUrl(formData.get("imageFile"));
+  const nextContent = nextSiteContentDraft();
+  const id = normalizedShortText(formData.get("id")) || `review-${Date.now()}`;
+  const entry = {
+    id,
+    name: normalizedShortText(formData.get("name")),
+    businessName: normalizedShortText(formData.get("businessName")),
+    text: normalizedMultilineText(formData.get("text")),
+    imageUrl: uploadedImage || sanitizedImageSource(formData.get("imageUrl")),
+    visible: formData.get("visible") === "on",
+    order: Number(formData.get("order") || 0) || 1,
+  };
+  const existing = (nextContent.reviews || []).filter((item) => item.id !== id);
+  nextContent.reviews = [...existing, entry].sort((a, b) => (a.order || 0) - (b.order || 0));
+  adminReviewEditorId = id;
+  await saveAdminSiteContent(nextContent);
+  setFormMessage("#adminReviewMessage", "Review saved.", true);
+}
+
+async function updateReviewCollection(updater) {
+  const nextContent = nextSiteContentDraft();
+  nextContent.reviews = [...(nextContent.reviews || [])];
+  updater(nextContent.reviews);
+  await saveAdminSiteContent(nextContent);
+}
+
+async function toggleReviewVisibility(id) {
+  await updateReviewCollection((reviews) => {
+    const index = reviews.findIndex((item) => item.id === id);
+    if (index >= 0) reviews[index] = { ...reviews[index], visible: reviews[index].visible === false };
+  });
+}
+
+async function deleteReviewEntry(id) {
+  await updateReviewCollection((reviews) => reviews.splice(0, reviews.length, ...reviews.filter((item) => item.id !== id)));
+  adminReviewEditorId = "";
+}
+
+async function saveAdminFounderForm(form) {
+  const formData = new FormData(form);
+  const profileImage = await fileToImageDataUrl(formData.get("profileImageFile"));
+  const homeImage = await fileToImageDataUrl(formData.get("homeImageFile"));
+  const nextContent = nextSiteContentDraft();
+  nextContent.founder = {
+    name: normalizedShortText(formData.get("name")),
+    title: normalizedShortText(formData.get("title")),
+    aboutText: normalizedMultilineText(formData.get("aboutText")),
+    shortBio: normalizedMultilineText(formData.get("shortBio")),
+    profileImageUrl: profileImage || sanitizedImageSource(formData.get("profileImageUrl")),
+    homeImageUrl: homeImage || sanitizedImageSource(formData.get("homeImageUrl")),
+  };
+  await saveAdminSiteContent(nextContent);
+  setFormMessage("#adminFounderMessage", "Founder section saved.", true);
+}
+
+async function saveAdminHomepageForm(form) {
+  const formData = new FormData(form);
+  const nextContent = nextSiteContentDraft();
+  const heroImage = await fileToImageDataUrl(formData.get("heroImageFile"));
+  const existingHomepage = nextContent.homepage || {};
+  const featureCards = (existingHomepage.featureCards || []).map((card, index) => ({
+    ...card,
+    id: normalizedShortText(formData.get(`featureCardId:${index}`)) || card.id,
+    title: normalizedShortText(formData.get(`featureCardTitle:${index}`)),
+    text: normalizedMultilineText(formData.get(`featureCardText:${index}`)),
+  }));
+  const howItWorks = (existingHomepage.howItWorks || []).map((card, index) => ({
+    ...card,
+    title: normalizedShortText(formData.get(`howTitle:${index}`)),
+  }));
+  const comingSoon = (existingHomepage.comingSoon || []).map((card, index) => ({
+    ...card,
+    title: normalizedShortText(formData.get(`soonTitle:${index}`)),
+  }));
+  const previewCards = [];
+  for (let index = 0; index < (existingHomepage.previewCards || []).length; index += 1) {
+    const uploadedImage = await fileToImageDataUrl(formData.get(`previewCardImageFile:${index}`));
+    previewCards.push({
+      ...(existingHomepage.previewCards || [])[index],
+      id: normalizedShortText(formData.get(`previewCardId:${index}`)) || (existingHomepage.previewCards || [])[index]?.id,
+      title: normalizedShortText(formData.get(`previewCardTitle:${index}`)),
+      text: normalizedMultilineText(formData.get(`previewCardText:${index}`)),
+      imageUrl: uploadedImage || sanitizedImageSource(formData.get(`previewCardImage:${index}`)),
+    });
+  }
+  nextContent.homepage = {
+    ...existingHomepage,
+    heroHeadline: normalizedShortText(formData.get("heroHeadline")),
+    heroSubheadline: normalizedMultilineText(formData.get("heroSubheadline")),
+    heroCtaText: normalizedShortText(formData.get("heroCtaText")),
+    heroSecondaryCtaText: normalizedShortText(formData.get("heroSecondaryCtaText")),
+    heroImageUrl: heroImage || sanitizedImageSource(formData.get("heroImageUrl")),
+    featureCards,
+    howItWorks,
+    comingSoon,
+    previewCards,
+    finalCtaHeadline: normalizedShortText(formData.get("finalCtaHeadline")),
+    finalCtaText: normalizedMultilineText(formData.get("finalCtaText")),
+    finalCtaButtonText: normalizedShortText(formData.get("finalCtaButtonText")),
+  };
+  await saveAdminSiteContent(nextContent);
+  setFormMessage("#adminHomepageMessage", "Homepage content saved.", true);
+}
+
+async function saveAdminImageAssetForm(form) {
+  const formData = new FormData(form);
+  const uploadedImage = await fileToImageDataUrl(formData.get("imageFile"));
+  const nextContent = nextSiteContentDraft();
+  const id = normalizedShortText(formData.get("id")) || `image-${Date.now()}`;
+  const entry = {
+    id,
+    label: normalizedShortText(formData.get("label")),
+    group: normalizedShortText(formData.get("group")),
+    imageUrl: uploadedImage || sanitizedImageSource(formData.get("imageUrl")),
+  };
+  const existing = (nextContent.images || []).filter((item) => item.id !== id);
+  nextContent.images = [...existing, entry];
+  adminImageEditorId = id;
+  await saveAdminSiteContent(nextContent);
+  setFormMessage("#adminImageMessage", "Image saved.", true);
+}
+
+async function deleteImageAsset(id) {
+  const nextContent = nextSiteContentDraft();
+  nextContent.images = (nextContent.images || []).filter((item) => item.id !== id);
+  adminImageEditorId = "";
+  await saveAdminSiteContent(nextContent);
+}
+
 function renderAdminDashboard() {
   if (!renderAdminAccessShell()) return;
   const table = document.querySelector("#adminContentTable");
   const summary = document.querySelector("#adminSummary");
   if (!table || !summary) return;
+  renderAdminContentManager();
   const query = (document.querySelector("#adminSearchInput")?.value || "").trim().toLowerCase();
   const category = document.querySelector("#adminCategoryFilter")?.value || "All Categories";
   const uploads = uploadedResources();
@@ -17158,6 +18159,7 @@ document.addEventListener("click", async (event) => {
       mode: "local-owner-account",
     });
     trackEvent("admin_unlocked", { email: currentUser, mode: "local-owner-account" });
+    await loadAdminSiteContent().catch(() => {});
     renderAdminDashboard();
     return;
   }
@@ -18582,6 +19584,9 @@ searchInput.addEventListener("input", () => {
 });
 
 document.addEventListener("input", (event) => {
+  if (event.target.matches("#adminLessonSearch")) {
+    renderAdminContentManager();
+  }
   if (event.target.matches("#childDobInput")) {
     updateChildAgePreview();
   }
@@ -18617,6 +19622,13 @@ document.addEventListener("input", (event) => {
 });
 
 document.addEventListener("change", (event) => {
+  if (event.target.matches("#adminLessonAgeFilter, #adminLessonVisibilityFilter")) {
+    renderAdminContentManager();
+  }
+  if (event.target.matches("[data-admin-lesson-select]")) {
+    if (event.target.checked) adminLessonSelection.add(event.target.dataset.adminLessonSelect);
+    else adminLessonSelection.delete(event.target.dataset.adminLessonSelect);
+  }
   if (event.target.matches("#childDobInput")) {
     updateChildAgePreview();
   }
@@ -19114,6 +20126,7 @@ document.addEventListener("submit", async (event) => {
     const session = await adminLogin(email, password, code);
     setAdminSession(session);
     trackEvent("admin_unlocked", { email: session.email, mode: session.mode || "server" });
+    await loadAdminSiteContent().catch(() => {});
     renderAdminDashboard();
     return;
   } catch (error) {
@@ -19123,6 +20136,97 @@ document.addEventListener("submit", async (event) => {
     }
   } finally {
     button.disabled = false;
+  }
+});
+
+document.addEventListener("submit", async (event) => {
+  if (event.target.matches("#adminLessonPlanForm")) {
+    event.preventDefault();
+    await saveAdminLessonPlanForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminReviewForm")) {
+    event.preventDefault();
+    await saveAdminReviewForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminFounderForm")) {
+    event.preventDefault();
+    await saveAdminFounderForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminHomepageForm")) {
+    event.preventDefault();
+    await saveAdminHomepageForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminImageAssetForm")) {
+    event.preventDefault();
+    await saveAdminImageAssetForm(event.target);
+  }
+});
+
+document.addEventListener("click", async (event) => {
+  const lessonEditButton = event.target.closest("[data-admin-lesson-edit]");
+  if (lessonEditButton) {
+    adminLessonEditorId = lessonEditButton.dataset.adminLessonEdit;
+    renderAdminContentManager();
+    return;
+  }
+  const lessonToggleButton = event.target.closest("[data-admin-lesson-toggle]");
+  if (lessonToggleButton) {
+    await toggleLessonPlanVisibility(lessonToggleButton.dataset.adminLessonToggle);
+    return;
+  }
+  const lessonResetButton = event.target.closest("[data-admin-lesson-reset]");
+  if (lessonResetButton) {
+    await resetLessonPlanOverride(lessonResetButton.dataset.adminLessonReset);
+    return;
+  }
+  const bulkButton = event.target.closest("[data-admin-bulk]");
+  if (bulkButton) {
+    await applyLessonPlanBulkAction(bulkButton.dataset.adminBulk);
+    return;
+  }
+  if (event.target.closest("#adminShowOnly50Button")) {
+    await showOnlyFiftyLessonPlansPerAge();
+    return;
+  }
+  const reviewEditButton = event.target.closest("[data-admin-review-edit]");
+  if (reviewEditButton) {
+    adminReviewEditorId = reviewEditButton.dataset.adminReviewEdit;
+    renderAdminContentManager();
+    return;
+  }
+  const reviewToggleButton = event.target.closest("[data-admin-review-toggle]");
+  if (reviewToggleButton) {
+    await toggleReviewVisibility(reviewToggleButton.dataset.adminReviewToggle);
+    return;
+  }
+  const reviewDeleteButton = event.target.closest("[data-admin-review-delete]");
+  if (reviewDeleteButton) {
+    await deleteReviewEntry(reviewDeleteButton.dataset.adminReviewDelete);
+    return;
+  }
+  if (event.target.closest("#adminNewReviewButton")) {
+    adminReviewEditorId = "";
+    renderAdminContentManager();
+    return;
+  }
+  const imageEditButton = event.target.closest("[data-admin-image-edit]");
+  if (imageEditButton) {
+    adminImageEditorId = imageEditButton.dataset.adminImageEdit;
+    renderAdminContentManager();
+    return;
+  }
+  const imageDeleteButton = event.target.closest("[data-admin-image-delete]");
+  if (imageDeleteButton) {
+    await deleteImageAsset(imageDeleteButton.dataset.adminImageDelete);
+    return;
+  }
+  if (event.target.closest("#adminNewImageButton")) {
+    adminImageEditorId = "";
+    renderAdminContentManager();
   }
 });
 
@@ -19996,6 +21100,7 @@ if (currentUser) {
 }
 document.body.classList.add("home-view");
 renderHome();
+loadSiteContentFromBackend().catch(() => {});
 
 function initialViewFromLocation() {
   const params = new URLSearchParams(window.location.search);
