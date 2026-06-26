@@ -18053,28 +18053,27 @@ document.addEventListener("click", async (event) => {
   const customizeLessonButton = event.target.closest("[data-customize-lesson-ai]");
   if (customizeLessonButton) {
     const resource = resources.find((item) => item.id === customizeLessonButton.dataset.customizeLessonAi);
-    if (resource) {
-      lessonPlanWorkflowState.step = 1;
-      lessonPlanWorkflowState.generating = false;
-      lessonPlanWorkflowState.step1 = {
-        programName: "",
-        age: resource.age,
-        planLength: "Weekly",
-        theme: resourceTheme(resource),
-        childCount: "",
-        developmentalFocus: resourceFocus(resource),
-        materials: resource.materials || "",
-        environment: "Both",
-        timeAvailable: "",
-        specialRequests: "",
-      };
-      lessonPlanWorkflowState.step2 = {
-        options: [],
-        accommodations: "",
-      };
-      lessonPlanWorkflowState.sectionRegenerate = "Full lesson plan";
-      lessonPlanWorkflowState.improveRequest = "";
-    }
+    if (!resource) return;
+    lessonPlanWorkflowState.step = 1;
+    lessonPlanWorkflowState.generating = false;
+    lessonPlanWorkflowState.step1 = {
+      programName: "",
+      age: resource.age,
+      planLength: "Weekly",
+      theme: resourceTheme(resource),
+      childCount: "",
+      developmentalFocus: resourceFocus(resource),
+      materials: resource.materials || "",
+      environment: "Both",
+      timeAvailable: "",
+      specialRequests: "",
+    };
+    lessonPlanWorkflowState.step2 = {
+      options: [],
+      accommodations: "",
+    };
+    lessonPlanWorkflowState.sectionRegenerate = "Full lesson plan";
+    lessonPlanWorkflowState.improveRequest = "";
     setView("generators");
     renderGeneratorWorkspace("lesson");
   }
