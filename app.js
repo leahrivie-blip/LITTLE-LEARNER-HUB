@@ -7985,7 +7985,14 @@ function renderUserDashboard() {
 
   const now = new Date();
   const hour = now.getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  let greeting;
+  if (hour < 12) {
+    greeting = "Good morning";
+  } else if (hour < 17) {
+    greeting = "Good afternoon";
+  } else {
+    greeting = "Good evening";
+  }
   const today = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
   const accountName = currentAccount()?.name || currentUser?.split("@")[0] || "Provider";
   const programSettings = getProgramSettings();
@@ -8000,7 +8007,7 @@ function renderUserDashboard() {
   const planner = weeklyPlanner();
   const weekday = now.toLocaleDateString("en-US", { weekday: "long" });
   const dayPlan = planner.days?.[weekday] || {};
-  const plannedTasks = [dayPlan.circle, dayPlan.activity, dayPlan.meal, dayPlan.rest, dayPlan.support].filter((item) => String(item || "").trim());
+  const plannedTasks = Object.values(dayPlan).filter((item) => String(item || "").trim());
 
   const recentObservations = [...(records.observations || [])].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 3);
   const childById = Object.fromEntries((records.children || []).map((c) => [c.id, c]));
@@ -8060,7 +8067,10 @@ function renderUserDashboard() {
           ${recentObservations.length
     ? recentObservations.map((obs) => {
       const child = childById[obs.childId];
-      const initials = child?.name ? child.name.charAt(0).toUpperCase() : "?";
+      const nameParts = (child?.name || "").trim().split(/\s+/);
+      const initials = nameParts.length > 1
+        ? (nameParts[0].charAt(0) + nameParts[nameParts.length - 1].charAt(0)).toUpperCase()
+        : (nameParts[0]?.charAt(0) || "?").toUpperCase();
       return `
               <div class="dashboard-obs-row">
                 <span class="dashboard-obs-avatar">${escapeHtml(initials)}</span>
