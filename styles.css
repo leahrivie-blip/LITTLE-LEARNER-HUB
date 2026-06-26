@@ -5706,6 +5706,22 @@ body.home-view .topbar .search-wrap {
   justify-self: start;
 }
 
+.dlc-output-options,
+.dlc-share-fieldset {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.dlc-output-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px 14px;
+}
+
 /* AI Suggestion cards */
 .dlc-ai-suggestions {
   display: grid;
@@ -5786,6 +5802,71 @@ body.home-view .topbar .search-wrap {
   overflow-y: auto;
 }
 
+.dlc-overview-lower {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.dlc-timeline-list {
+  display: grid;
+  gap: 12px;
+}
+
+.dlc-timeline-item {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.dlc-timeline-time {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.dlc-timeline-content {
+  display: grid;
+  gap: 3px;
+}
+
+.dlc-timeline-content strong {
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.dlc-timeline-content span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.dlc-parent-summary-card {
+  margin-top: 16px;
+}
+
+.dlc-parent-summary-input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 120px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font: inherit;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.dlc-parent-summary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+
 .dlc-sug-share {
   padding: 6px 16px 10px;
 }
@@ -5845,6 +5926,25 @@ body.home-view .topbar .search-wrap {
   transition: border-color 0.15s;
   font-weight: 600;
   color: var(--ink);
+}
+
+@media (max-width: 720px) {
+  .dlc-overview-lower {
+    grid-template-columns: 1fr;
+  }
+
+  .dlc-timeline-item {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .dlc-parent-summary-actions {
+    align-items: stretch;
+  }
+
+  .dlc-parent-summary-actions .primary-button {
+    width: 100%;
+  }
 }
 
 .dlc-photo-btn:hover {
