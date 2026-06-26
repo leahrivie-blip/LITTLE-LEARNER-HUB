@@ -4784,6 +4784,19 @@ function lessonPlanPrintableText(resource) {
   return `${resourceDownloadBody(resource)}\n\n${resourcePrintableWorksheet(resource)}`;
 }
 
+function lessonPlanAge(age) {
+  const raw = String(age || "").trim();
+  if (aiAgeGroupOptions.includes(raw)) return raw;
+  return normalizeAgeGroup(raw) || "Preschool";
+}
+
+function lessonAgeData(data, age) {
+  const lessonAge = lessonPlanAge(age);
+  if (data[lessonAge]) return data[lessonAge];
+  if ((lessonAge === "Young Toddler" || lessonAge === "Older Toddler") && data.Toddler) return data.Toddler;
+  return data[normalizeAgeGroup(lessonAge)] || data.Preschool || data.Toddler || data.Infant || Object.values(data)[0];
+}
+
 function formPrintableText(resource) {
   return formResourceContent(resource);
 }
@@ -5052,10 +5065,13 @@ function decodedTextFileData(resource) {
 function lessonAgeApproach(age) {
   const approaches = {
     Infant: "Use short one-to-one or very small group moments (5–10 minutes), responsive language, safe floor play, repeated songs, picture cards, and sensory-safe materials. Follow each baby's cues and stop before overstimulation. Never use worksheets, scissors, small parts, or multi-step directions with infants.",
+    "Young Toddler": "Use very short, active lessons (8–12 minutes) with movement, repetition, visual cues, sensory play, and one-step directions. Offer two simple choices, expect lots of modeling, and keep adult support close throughout the activity.",
+    "Older Toddler": "Use short hands-on lessons (10–15 minutes) with pretend play, sorting, simple art, movement, and one-to-two step directions. Keep language concrete, repeat key vocabulary, and build in chances to practice independence without adding academic pressure.",
     Toddler: "Use short active lessons (10–15 minutes) with two-choice options, movement breaks, repetition, simple naming, hands-on practice, and sensory exploration. Expect children to move in and out of activities. Never use worksheets or academic pressure. Model first, then invite participation.",
     Preschool: "Use small-group discussion, hands-on investigation, early writing or drawing, counting, comparison, prediction, cooperative play, and child-led extensions. Invite children to explain their thinking and make decisions. Activities run 15–20 minutes with open-ended outcomes.",
+    "School Age": "Use project-based lessons (20–30 minutes or more) with collaboration, writing, discussion, problem-solving, reflection, and meaningful choice. Invite children to explain strategies, document discoveries, take leadership roles, and connect the theme to real-world experiences.",
   };
-  return approaches[age] || approaches.Preschool;
+  return lessonAgeData(approaches, age);
 }
 
 function lessonAreaPractice(area, theme, age) {
@@ -5176,12 +5192,22 @@ function lessonVocabulary(theme, area) {
 }
 
 function lessonObjectives(resource, theme, area) {
-  const age = resource.age || "Preschool";
+  const age = lessonPlanAge(resource.age);
   const ageObjectives = {
     Infant: [
       `Explore ${theme.toLowerCase()} through safe sensory materials, tracking, and responsive one-on-one interactions.`,
       `Build early communication through teacher narration, facial expressions, and back-and-forth coos and gestures.`,
       `Strengthen emerging motor skills (reaching, grasping, tummy time, rolling) through supervised play.`,
+    ],
+    "Young Toddler": [
+      `Build ${theme.toLowerCase()} vocabulary through repetition, songs, picture cards, and hands-on sensory play.`,
+      `Support ${area.toLowerCase()} development with short one-step activities, movement, and adult-guided exploration.`,
+      `Encourage participation, early choices, and confidence through simple routines children can repeat all week.`,
+    ],
+    "Older Toddler": [
+      `Build ${theme.toLowerCase()} vocabulary through books, songs, pretend play, and hands-on materials children can sort, match, and explore.`,
+      `Support ${area.toLowerCase()} development through short active experiences with one-to-two step directions and teacher scaffolding.`,
+      `Encourage independence, problem-solving, and early peer interaction through playful routines and shared materials.`,
     ],
     Toddler: [
       `Build ${theme.toLowerCase()} vocabulary through books, songs, hands-on props, and teacher conversation.`,
@@ -5193,8 +5219,13 @@ function lessonObjectives(resource, theme, area) {
       `Build vocabulary, literacy, and language by connecting ${theme.toLowerCase()} to books, conversations, and writing experiences.`,
       `Support cooperative learning, independence, and critical thinking through child-led exploration and discussion.`,
     ],
+    "School Age": [
+      `Deepen ${area.toLowerCase()} skills through projects, discussion, strategy use, and real-world ${theme.toLowerCase()} connections.`,
+      `Strengthen communication by having children read, write, explain, and reflect on their ideas throughout the week.`,
+      `Build independence, collaboration, and leadership through choice, teamwork, and multi-step problem-solving tasks.`,
+    ],
   };
-  const base = resource.learningObjectives || ageObjectives[age] || ageObjectives.Preschool;
+  const base = resource.learningObjectives || lessonAgeData(ageObjectives, age);
   return [
     ...base,
     `Connect ${theme.toLowerCase()} learning to music, movement, creative arts, and family engagement across the week.`,
@@ -5229,11 +5260,20 @@ function lessonTeacherLanguageGuide(age) {
 - "I see you [action]. What are you trying to do?"
 - "What do you remember about [topic] from [yesterday/our book]?"
 - "How could we find out the answer to that question?"`,
+    "School Age": `- "What strategy are you trying first, and why did you choose it?"
+- "Walk me through your thinking so I can understand your plan."
+- "What evidence do you have from what you observed or tested?"
+- "If this doesn't work, what could you revise or try next?"
+- "How could your group divide the work so everyone contributes?"
+- "What connection do you see between this activity and real life?"
+- "Teach the group one thing you discovered today."
+- "How will you reflect on what went well and what you would change?"`,
   };
-  return guides[age] || guides.Preschool;
+  return lessonAgeData(guides, age);
 }
 
 function lessonQuestionsGuide(theme, age) {
+  const lessonAge = lessonPlanAge(age);
   const infant = `- "Where is the [${theme.toLowerCase()} object]?" (pause and point together)
 - "Can you look at this? What do you see?"
 - "Do you want [option A] or [option B]?" (hold up both)
@@ -5245,6 +5285,12 @@ function lessonQuestionsGuide(theme, age) {
 - "Which one do you want — this one or that one?"
 - "What do you think will happen when we [action]?"
 - "Can you tell me one word about what you see?"`;
+  const olderToddler = `- "What do you notice first about this ${theme.toLowerCase()} item?"
+- "How are these two things the same? How are they different?"
+- "What do you think will happen when we try [action]?"
+- "Can you tell me how you solved that problem?"
+- "Which one should we use next, and why?"
+- "What could we add to make this even better?"`;
   const preschool = `- "What do you already know about ${theme.toLowerCase()}?"
 - "What do you notice when you look closely at this?"
 - "What would happen if [variable changed]? Let's predict."
@@ -5253,8 +5299,18 @@ function lessonQuestionsGuide(theme, age) {
 - "Why do you think [observation]? What's your evidence?"
 - "What would you do differently if you tried this again?"
 - "If you could change one thing about this, what would it be?"`;
-  if (age === "Infant") return infant;
-  if (age === "Toddler") return toddler;
+  const schoolAge = `- "What background knowledge do you already have about ${theme.toLowerCase()}?"
+- "What pattern, problem, or detail stands out to you first?"
+- "What is your plan for solving or investigating this?"
+- "Which evidence supports your idea right now?"
+- "How could your team test a different approach?"
+- "What connection can you make between this topic and everyday life?"
+- "What would you explain to a younger child about this theme?"
+- "What is one question you still want to research?"`;
+  if (lessonAge === "Infant") return infant;
+  if (lessonAge === "Young Toddler") return toddler;
+  if (lessonAge === "Older Toddler" || lessonAge === "Toddler") return olderToddler;
+  if (lessonAge === "School Age") return schoolAge;
   return preschool;
 }
 
@@ -5299,8 +5355,21 @@ function lessonArtActivityDetail(theme, age) {
       extension: `Add a second day: children can revisit and add to their art. Extend with a "gallery walk" where children share their work.`,
       adaptation: `Easier: Pre-cut collage pieces; use larger brushes. Harder: Challenge children to tell or write a one-sentence story about their art.`,
     },
+    "School Age": {
+      title: `${theme} Mixed-Media Design Challenge`,
+      objective: `School-age children plan and create a detailed art piece connected to the theme, using mixed media, revision, and artist reflection.`,
+      materials: `Sketch paper, pencils, watercolor or tempera paint, fine-tip markers, collage materials, scissors, glue, rulers, optional recycled materials, ${theme.toLowerCase()} reference images, artist reflection sheet`,
+      prep: `1. Set out materials in labeled bins.\n2. Display 2–3 reference images connected to the theme.\n3. Add reflection sheets and planning paper at each seat.\n4. Prepare a sample checklist: plan, create, revise, reflect.`,
+      steps: `1. Invite children to sketch a quick plan before they begin.\n2. Ask them to choose the message or scene they want their art to communicate.\n3. Children build their project using at least two art materials.\n4. Pause midway for a revision check: "What is working? What do you want to improve?"\n5. Finish with a short artist reflection: title, materials used, and one challenge solved.\n6. Display work with reflections for a gallery walk.`,
+      language: `"What effect are you trying to create with those materials?";\n"Show me where you revised your original plan.";\n"How does your art communicate the theme to someone else?"`,
+      questions: `"What was your design plan before you started?"\n"Which material choice had the biggest impact on your final work?"\n"If you had more time, what would you refine or add?"`,
+      skills: `Planning, creative problem-solving, fine motor precision, revision, expressive language, self-reflection`,
+      cleanup: `Assign cleanup roles for shared materials, table surfaces, and drying/display spaces. Have children return labeled bins independently.`,
+      extension: `Turn the artwork into a mini exhibit with written captions or artist talks.`,
+      adaptation: `Easier: Offer a planning template with prompts. Harder: Challenge children to include labels, captions, or a written artist statement.`,
+    },
   };
-  const data = artData[age] || artData.Preschool;
+  const data = lessonAgeData(artData, age);
   return `Art Activity: ${data.title}
 Learning Objective: ${data.objective}
 
@@ -5390,8 +5459,21 @@ function lessonSensoryActivityDetail(theme, age) {
       extension: `Add a "hypothesis station" where children predict what will happen to a material when mixed with water. Test the predictions together.`,
       adaptation: `Simpler: Provide sentence starters for observation: "I notice…" Harder: Ask children to rank materials from smoothest to roughest and explain their ranking.`,
     },
+    "School Age": {
+      title: `${theme} Investigation Lab`,
+      objective: `School-age children investigate theme-related materials, compare evidence, record findings, and discuss conclusions using scientific language.`,
+      setup: `Set up 3 investigation stations using ${filler}. Add recording sheets, pencils, measuring tools, magnifying glasses, and one challenge card at each station.`,
+      steps: `1. Introduce the lab question for the day and review safety expectations.\n2. Children rotate through stations in pairs or trios.\n3. At each station, they observe, test, and record at least two findings.\n4. Pause midway for partners to compare notes and revise ideas.\n5. Close with a discussion: "What evidence supports your conclusion?"\n6. Invite children to suggest one follow-up experiment for tomorrow.`,
+      teacherDoes: `Introduces the challenge, prompts evidence-based thinking, monitors collaboration, and helps children clarify observations and conclusions.`,
+      childDoes: `Observes closely, tests materials, measures or compares items, writes or sketches findings, and discusses conclusions with peers.`,
+      language: `"What evidence supports that idea?";\n"Compare your results with your partner's notes.";\n"How could you test that question in a different way?"`,
+      questions: `"What pattern are you noticing across the stations?"\n"Which evidence changed your thinking?"\n"What would you investigate next if we had one more station?"`,
+      skills: `Scientific inquiry, observation, recording data, collaboration, reasoning, descriptive language`,
+      extension: `Have children design an extra investigation card for classmates to try.`,
+      adaptation: `Simpler: Provide a recording sheet with checkboxes and sentence stems. Harder: Ask children to summarize their conclusion in writing with supporting evidence.`,
+    },
   };
-  const data = ageData[age] || ageData.Preschool;
+  const data = lessonAgeData(ageData, age);
   return `Sensory Activity: ${data.title}
 Learning Objective: ${data.objective}
 
@@ -5461,8 +5543,20 @@ function lessonFineMotorActivityDetail(theme, age) {
       extension: `Add a fourth station with tweezers and beads. Invite children to create a "fine motor challenge" for a friend.`,
       adaptation: `Simpler: Pre-cut lines more widely spaced; use thicker play dough. Harder: Add writing with pencils; use smaller scissors and more complex shapes.`,
     },
+    "School Age": {
+      title: `${theme} Precision Makers Station`,
+      objective: `School-age children strengthen precision, control, and endurance by completing detailed hands-on tasks connected to the weekly theme.`,
+      materials: `Index cards, pencils, fine-tip markers, rulers, scissors, tape, hole punch, lacing yarn, tweezers, small manipulatives, binder clips, ${theme.toLowerCase()} challenge cards`,
+      setup: `Prepare 3 challenge trays: one building/design task, one lacing or assembly task, and one recording/drawing task. Put written directions at each tray.`,
+      steps: `1. Review all three challenge trays and let children choose a starting station.\n2. Children read the direction card, gather tools, and begin independently or with a partner.\n3. Encourage careful grip, neat cuts, controlled tracing, and organized materials.\n4. Midway through, ask children to self-check: "Is your work sturdy, neat, and complete?"\n5. Rotate to a second station and compare how the fine motor demand changes.\n6. Close with a quick reflection on which task required the most control.`,
+      language: `"Which tool gives you the best control for this job?";\n"Pause and self-check before you move to the next step.";\n"Your careful work is making the final product stronger."`,
+      questions: `"What made this task precise or challenging?"\n"How did you adjust your grip or tool choice?"\n"What advice would you give another student before they try this station?"`,
+      skills: `Precision, hand strength, tool control, planning, perseverance, self-monitoring`,
+      extension: `Invite children to design their own fine motor challenge card for next week's center.`,
+      adaptation: `Easier: Offer larger materials and shorter task cards. Harder: Add timed design constraints or a multi-step assembly challenge.`,
+    },
   };
-  const data = ageData[age] || ageData.Preschool;
+  const data = lessonAgeData(ageData, age);
   return `Fine Motor Activity: ${data.title}
 Learning Objective: ${data.objective}
 
@@ -5529,8 +5623,20 @@ function lessonGrossMotorActivityDetail(theme, age) {
       extension: `Have children design their own station to add to the course. Time runs and track "personal bests."`,
       adaptation: `Simpler: Remove time pressure; allow unlimited attempts. Harder: Add a ball to carry through the course without dropping it.`,
     },
+    "School Age": {
+      title: `${theme} Team Challenge Course`,
+      objective: `School-age children build coordination, endurance, teamwork, and strategy through a themed movement challenge with collaborative goals.`,
+      materials: `Cones, hoops, beanbags, jump ropes, stopwatch, whiteboard for scores or reflections, theme challenge cards, tape markers`,
+      setup: `Set up a multi-step course with 4 stations and a team challenge card at each one. Include one balance task, one throwing or aiming task, one agility task, and one cooperative relay.`,
+      steps: `1. Introduce the challenge and review safety and teamwork expectations.\n2. Divide children into small teams and assign a starting station.\n3. Each team completes the physical task, then discusses one strategy to improve their next round.\n4. Rotate teams every 4–5 minutes.\n5. Finish with a final cooperative round where teams try to beat their own score or time.\n6. Debrief: "Which strategy helped your team most?"`,
+      language: `"Talk with your team before you begin — what is your plan?";\n"How will you encourage each other if the task gets tricky?";\n"Let's compare your first round with your final round."`,
+      questions: `"Which station needed the most teamwork?"\n"What strategy helped your team improve?"\n"How did you manage frustration or mistakes during the challenge?"`,
+      skills: `Coordination, endurance, teamwork, strategy, self-regulation, communication`,
+      extension: `Invite children to redesign one station to make it more challenging or more inclusive.`,
+      adaptation: `Easier: Reduce the number of tasks per station or remove time limits. Harder: Add scoring rules, extra equipment, or a planning sheet for strategies.`,
+    },
   };
-  const data = ageData[age] || ageData.Preschool;
+  const data = lessonAgeData(ageData, age);
   return `Gross Motor Activity: ${data.title}
 Learning Objective: ${data.objective}
 
@@ -5588,8 +5694,17 @@ function lessonSocialEmotionalDetail(theme, age) {
       skills: `Perspective-taking, empathy, conflict resolution, problem-solving, emotional vocabulary, cooperative play`,
       adaptation: `Simpler: Provide 2 solution choices for children to evaluate. More complex: Add a journaling step — children draw or write how they solved a real problem this week.`,
     },
+    "School Age": {
+      title: `${theme} Team Reflection Circle`,
+      objective: `School-age children practice perspective-taking, collaborative problem-solving, and self-advocacy while reflecting on social situations connected to the theme.`,
+      activity: `Present a realistic school-age scenario connected to ${theme.toLowerCase()} work:\n1. Read the scenario aloud and ask children to identify the problem.\n2. Give each child a minute to think silently, then share possible responses.\n3. Sort ideas into helpful, unhelpful, and "need more information."\n4. Invite children to role-play one strong solution.\n5. End with written or spoken reflection: "What would I do? Why?"`,
+      language: `"What perspective might we be missing here?";\n"How can you disagree respectfully and still solve the problem together?";\n"What is one fair next step everyone could agree on?"`,
+      questions: `"What feelings or needs does each person have in this situation?"\n"Which solution is most fair, and what evidence supports that?"\n"What would you say if you needed to advocate for yourself respectfully?"`,
+      skills: `Perspective-taking, self-advocacy, empathy, conflict resolution, reflection, communication`,
+      adaptation: `Simpler: Offer 2–3 solution cards to sort before discussing. More complex: Ask children to write a brief reflection or script for the role-play conversation.`,
+    },
   };
-  const data = ageData[age] || ageData.Preschool;
+  const data = lessonAgeData(ageData, age);
   return `Social-Emotional Connection: ${data.title}
 Learning Objective: ${data.objective}
 
@@ -5655,8 +5770,21 @@ For children ready for more challenge:
 
 Mixed-age groups:
 - Use tiered questioning: ask simpler questions to younger children, deeper questions to older children during the same activity.`,
+    "School Age": `Adaptations for Different Abilities:
+For children who need more support:
+- Break larger projects into checkpoints with a visible checklist.
+- Offer graphic organizers, word banks, or discussion stems before asking for independent responses.
+- Pair with a supportive peer for planning, reading directions, or organizing materials.
+
+For children ready for more challenge:
+- Add leadership roles, deeper research questions, or a written reflection component.
+- Invite children to compare strategies, defend a conclusion, or revise work after feedback.
+- Extend the lesson into a multi-day project with student choice.
+
+Mixed-age groups:
+- Let older children mentor younger peers during setup, partner work, or reflection while still keeping expectations age-appropriate.`,
   };
-  return adaptations[age] || adaptations.Preschool;
+  return lessonAgeData(adaptations, age);
 }
 
 function lessonAssessmentSection(area) {
@@ -5685,8 +5813,9 @@ function lessonFamilyConnectionDetail(theme, age) {
     Infant: "Share this simple activity with families during pickup. Keep it brief and encouraging — caregivers don't need supplies.",
     Toddler: "Send this home as a simple note or post it in your communication app. Encourage families to try it over the weekend.",
     Preschool: "Share this with families in a brief note or newsletter. Preschoolers can help explain the activity to their family.",
+    "School Age": "Share this as a take-home challenge or short family discussion prompt. School-age children can explain the activity, lead part of it, and reflect on what they learned.",
   };
-  const note = ageNote[age] || ageNote.Preschool;
+  const note = lessonAgeData(ageNote, age);
   return `Family Connection Idea:
 Theme: ${theme}
 
@@ -5711,9 +5840,10 @@ This conversation reinforces the vocabulary, questions, and curiosity built at s
 }
 
 function lessonDailyPlans(resource, theme, area) {
-  const age = resource.age || "Preschool";
+  const age = lessonPlanAge(resource.age);
   const isInfant = age === "Infant";
-  const isToddler = age === "Toddler";
+  const isToddler = age === "Toddler" || age === "Young Toddler" || age === "Older Toddler";
+  const isSchoolAge = age === "School Age";
 
   const dayIntros = {
     Infant: [
@@ -5736,6 +5866,13 @@ function lessonDailyPlans(resource, theme, area) {
       `Share a nonfiction book or photo related to ${theme.toLowerCase()}. Ask: "What surprises you about this? What do you notice?"`,
       `Lead a small-group problem-solving activity connected to ${theme.toLowerCase()}. Invite children to think out loud.`,
       `Revisit the week's learning: "What is the most interesting thing you discovered? What would you want to learn next about ${theme.toLowerCase()}?"`,
+    ],
+    "School Age": [
+      `Launch the theme with an essential question: "What do we already know about ${theme.toLowerCase()}, and what do we still need to investigate?" Record ideas.`,
+      `Review key vocabulary and ask children to predict how it will connect to today's project or challenge.`,
+      `Share a short article, video clip summary, or photo set connected to ${theme.toLowerCase()}. Ask children to cite one detail they noticed.`,
+      `Invite teams to solve a problem, complete a project checkpoint, or test a strategy connected to ${theme.toLowerCase()}.`,
+      `Close the week with reflection: "What did you learn, what surprised you, and what would you improve next time?"`,
     ],
   };
 
@@ -5761,6 +5898,13 @@ function lessonDailyPlans(resource, theme, area) {
       { name: `${theme} Dramatic Play and Literacy`, steps: `1. Set up a dramatic play space with ${theme.toLowerCase()}-related props and costumes.\n2. Add print elements: signs, labels, menus, maps, or order forms.\n3. Introduce the scenario and let children develop the play.\n4. Circulate and narrate; ask questions to extend the narrative.\n5. After play, debrief: "What happened in your story? What was your role?"`, lang: "\"Tell me about your character. What is your job in this story?\"", domains: "Social-Emotional, Language, Literacy, Cognitive, Creative Arts" },
       { name: `${theme} Review, Documentation, and Reflection`, steps: `1. Display child work and photos from the week.\n2. Gallery walk: children look at displayed work and leave a sticky note compliment.\n3. Revisit the vocabulary chart: "Can you remember all 8 words?"\n4. Children draw or write one thing they learned.\n5. Share family connection idea; preview next week's theme.`, lang: "\"What is the most interesting thing you discovered this week? Why?\"", domains: "Literacy, Language, Social-Emotional, Cognitive" },
     ],
+    "School Age": [
+      { name: `${theme} Inquiry Launch`, steps: `1. Post an essential question about ${theme.toLowerCase()} and let children brainstorm prior knowledge.\n2. Sort ideas into "know," "wonder," and "want to test."\n3. Introduce 4–5 key vocabulary words and have children use each in a sentence.\n4. Read or summarize a short informational text connected to the theme.\n5. Ask children to identify one possible project direction for the week.`, lang: "\"Back up your idea — what makes you think that?\"", domains: "Literacy, Language, Cognitive, Social-Emotional" },
+      { name: `${theme} Research and STEM Challenge`, steps: `1. Present a multi-step challenge tied to the theme.\n2. In pairs or small teams, children plan materials and predict what will happen.\n3. Build, test, or compare solutions while recording observations.\n4. Pause for teams to revise their strategy based on evidence.\n5. End with a quick share-out of the strongest solution so far.`, lang: "\"What evidence helped your team make that choice?\"", domains: "Science, Math, Cognitive, Collaboration, Language" },
+      { name: `${theme} Investigation and Documentation`, steps: `1. Rotate through investigation stations with recording sheets.\n2. Ask children to sketch, label, or write at least two findings per station.\n3. Compare notes with a partner and add one new question.\n4. Discuss what patterns or surprises emerged.\n5. Save notes for Friday reflection.`, lang: "\"What did you record, and what does it tell you?\"", domains: "Science, Literacy, Language, Fine Motor, Cognitive" },
+      { name: `${theme} Creative Application Project`, steps: `1. Invite children to apply the week's learning through an art, writing, or design task.\n2. Review project criteria and success checklist.\n3. Children work independently or in teams while the teacher conferences with groups.\n4. Build in a revision pause so children can improve one part of the project.\n5. Prepare projects for a brief share or gallery walk.`, lang: "\"What revision will make your work clearer or stronger?\"", domains: "Creative Arts, Literacy, Fine Motor, Cognitive, Social-Emotional" },
+      { name: `${theme} Reflection and Presentation`, steps: `1. Display projects, notes, or photos from the week.\n2. Children present one discovery, challenge, or strategy they used.\n3. Revisit the essential question and discuss how ideas changed.\n4. Write or share one goal for extending the learning at home or next week.\n5. Close with peer feedback focused on effort, teamwork, and insight.`, lang: "\"How did your thinking change from Monday to today?\"", domains: "Literacy, Language, Reflection, Social-Emotional, Cognitive" },
+    ],
   };
 
   const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
@@ -5768,17 +5912,19 @@ function lessonDailyPlans(resource, theme, area) {
     Infant: ["Introduce and Explore", "Songs and Tracking", "Sensory Discovery", "Movement and Strength", "Books and Bonding"],
     Toddler: ["Introduce the Theme", "Songs and Vocabulary", "Hands-On Exploration", "Art and Movement", "Review and Share"],
     Preschool: ["Introduce and Anchor", "Math and STEM", "Science Investigation", "Dramatic Play and Literacy", "Review and Reflect"],
+    "School Age": ["Inquiry Launch", "Research and STEM", "Investigation and Documentation", "Creative Application", "Reflection and Presentation"],
   };
   const transitions = {
     Infant: ["Follow baby's lead to the next care routine", "Soft lullaby to signal rest time", "Gentle narration of the transition: 'Now we are going to…'", "Calming scarf wave before changing positions", "Short song during diapering or feeding transition"],
     Toddler: ["Sing the cleanup song together", "Animal walk to the next activity ('Let's hop like bunnies!')", "Count down from 5 with hand signals", "Whisper voice to gather attention: 'If you can hear me, touch your nose'", "March in a line to the next space"],
     Preschool: ["Invite children to pick a transition job (line leader, door holder, lamp lighter)", "Ask a thinking question on the way: 'What do you remember about…?'", "Count down from 10 as children clean up and move", "Secret signal: clap pattern that children repeat back", "Quiet challenge: 'Can you tiptoe silently to the circle?'"],
+    "School Age": ["Have teams assign a cleanup lead and materials checker", "Use a quick turn-and-talk prompt before moving to the next space", "Challenge groups to reset materials in under one minute", "Ask children to carry their notes or project folder to the next station", "Pause for a silent reflection breath before the final share"],
   };
 
-  const intros = dayIntros[age] || dayIntros.Preschool;
-  const activities = mainActivities[age] || mainActivities.Preschool;
-  const focuses = dayFocuses[age] || dayFocuses.Preschool;
-  const trans = transitions[age] || transitions.Preschool;
+  const intros = lessonAgeData(dayIntros, age);
+  const activities = lessonAgeData(mainActivities, age);
+  const focuses = lessonAgeData(dayFocuses, age);
+  const trans = lessonAgeData(transitions, age);
 
   return dayNames.map((day, i) => {
     const activity = activities[i];
@@ -5787,7 +5933,7 @@ function lessonDailyPlans(resource, theme, area) {
 Morning Circle: ${intros[i]}
 Main Learning Activity: ${activity.name}
   Objective: Build ${area.toLowerCase()} skills through ${theme.toLowerCase()} exploration.
-  Setup: Gather materials. Arrange space for ${isInfant ? "safe floor play" : isToddler ? "small group table or floor work" : "small group discussion and hands-on work"}.
+  Setup: Gather materials. Arrange space for ${isInfant ? "safe floor play" : isToddler ? "small group table or floor work" : isSchoolAge ? "project work, note-taking, and team collaboration" : "small group discussion and hands-on work"}.
   Steps:
   ${steps}
   Teacher Language: ${activity.lang}
@@ -5807,7 +5953,7 @@ function resourceDownloadBody(resource) {
   if (resource.category === "Lesson Plans") {
     const theme = resource.theme || resourceTheme(resource);
     const area = resourceFocus(resource);
-    const age = resource.age || "Preschool";
+    const age = lessonPlanAge(resource.age);
     const standards = resourceStandardConnections(resource);
     const objectives = lessonObjectives(resource, theme, area);
     return `Weekly Lesson Plan
