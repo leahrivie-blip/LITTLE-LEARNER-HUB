@@ -725,13 +725,24 @@ const printablePdfLimit = Number.POSITIVE_INFINITY;
 // Admins always retain full access. Flip back to false to re-enable for users.
 const PRINTABLES_HIDDEN = true;
 
+// Set to true to enable the premium infant lesson library upgrade mode.
+// Auto-generated (non-premium) infant lesson plans are hidden for regular users while
+// the premium collection is active. Admins retain full access.
+// Flip back to false once the full upgrade cycle is complete.
+const INFANT_LESSONS_UPGRADE_MODE = true;
+
 function isPrintablesUpgradeModeActive() {
   return PRINTABLES_HIDDEN && !hasAdminFullAccess();
+}
+
+function isInfantLessonsUpgradeModeActive() {
+  return INFANT_LESSONS_UPGRADE_MODE && !hasAdminFullAccess();
 }
 
 function isResourceVisibleToCurrentUser(resource) {
   if (!resource) return false;
   if (resource.category === "Printables" && isPrintablesUpgradeModeActive()) return false;
+  if (resource.category === "Lesson Plans" && resource.age === "Infant" && !resource.premium && isInfantLessonsUpgradeModeActive()) return false;
   return true;
 }
 
@@ -747,6 +758,7 @@ function slug(value) {
 
 function buildResourceLibrary() {
   return [
+    ...buildPremiumInfantLessonPlans(),
     ...buildLessonPlans(),
     ...buildObservationLibrary(),
     ...buildFormsLibrary(),
@@ -757,7 +769,6 @@ function buildResourceLibrary() {
 }
 
 function buildLessonPlans() {
-  const lessonThemeSet = lessonThemes.slice(0, 30);
   return ages.flatMap((age) => learningAreas.flatMap((area, areaIndex) => lessonThemeSet.map((theme, index) => {
     const month = months[(index + areaIndex) % months.length];
     const holiday = holidays.includes(theme) ? "Holiday" : "Non-Holiday";
@@ -7083,6 +7094,7 @@ function renderCategoryPage(view) {
     </div>
     ${searchedChild ? renderChildLessonSearchContext(searchedChild) : ""}
     ${category === "Printables" ? renderPrintablesRefreshNotice() : ""}
+    ${category === "Lesson Plans" && isInfantLessonsUpgradeModeActive() ? renderInfantLessonsUpgradeNotice() : ""}
     <div class="filter-row">
       ${filters.map((filter) => `<button class="${activeFilter === filter ? "active-filter" : ""}" data-filter="${filter}">${filter}</button>`).join("")}
     </div>
@@ -7129,6 +7141,15 @@ function renderPrintablesComingSoon() {
     <div class="access-notice">
       <strong>Check back soon.</strong>
       Our updated printable library will include ready-to-print worksheets, tracing pages, coloring sheets, and more — all designed for home daycare and preschool providers.
+    </div>
+  `;
+}
+
+function renderInfantLessonsUpgradeNotice() {
+  return `
+    <div class="access-notice printable-refresh-notice">
+      <strong>More Infant Lesson Plans Coming Soon.</strong>
+      We're currently expanding our Premium Infant Lesson Library. Additional professionally reviewed lesson plans are being upgraded and will be released in future updates.
     </div>
   `;
 }
