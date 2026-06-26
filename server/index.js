@@ -318,7 +318,7 @@ function normalizedShortText(value, maxLength = 240) {
   return normalizedMultilineText(value, maxLength);
 }
 
-function sanitizedImageSource(value, maxLength = 2_000_000) {
+function sanitizedImageSource(value, maxLength = 1_000_000) {
   const text = String(value || "").trim();
   if (!text) return "";
   if (/^data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=]+$/i.test(text)) return text.slice(0, maxLength);
@@ -361,7 +361,7 @@ function normalizedLessonPlanOverride(id, value) {
 function normalizedReviewEntry(value) {
   const entry = value && typeof value === "object" ? value : {};
   return {
-    id: normalizedShortText(entry.id || `review-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`, 120),
+    id: normalizedShortText(entry.id || `review-${Date.now()}-${crypto.randomBytes(6).toString("hex")}`, 120),
     name: normalizedShortText(entry.name, 120),
     businessName: normalizedShortText(entry.businessName, 140),
     text: normalizedMultilineText(entry.text, 2400),

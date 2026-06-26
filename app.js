@@ -2797,6 +2797,10 @@ function requireBillingAccount() {
   return false;
 }
 
+const searchInput = document.querySelector("#searchInput");
+const currentPlanLabel = document.querySelector("#currentPlanLabel");
+const homeViewTemplate = document.querySelector("#view-home").innerHTML;
+const defaultSiteContentState = captureDefaultSiteContent();
 let siteContentState = emptySiteContent();
 let resources = loadResources();
 let favorites = readSavedJson("llhFavorites", []);
@@ -2813,11 +2817,6 @@ let adminLessonEditorId = "";
 let adminReviewEditorId = "";
 let adminImageEditorId = "";
 let adminLessonSelection = new Set();
-
-const searchInput = document.querySelector("#searchInput");
-const currentPlanLabel = document.querySelector("#currentPlanLabel");
-const homeViewTemplate = document.querySelector("#view-home").innerHTML;
-const defaultSiteContentState = captureDefaultSiteContent();
 const mobileNavMaxWidth = 820;
 const sidebarViewAliases = {
   "resource-observations": "observations",
@@ -2973,6 +2972,10 @@ function initialsFromName(value, fallback = "LL") {
   return parts.slice(0, 2).map((part) => part[0]).join("").toUpperCase();
 }
 
+function cleanFounderHeading(value) {
+  return String(value || "").replace(/👋/g, "").trim();
+}
+
 function fileToImageDataUrl(file) {
   if (!file?.name) return Promise.resolve("");
   return fileToDataUrl(file).then((dataUrl) => sanitizedImageSource(dataUrl));
@@ -3006,7 +3009,7 @@ function captureDefaultSiteContent() {
     reviews,
     founder: {
       name: "Leah",
-      title: document.querySelector(".lp-founder-content h2")?.textContent?.replace(/👋/g, "")?.trim() || "",
+      title: cleanFounderHeading(document.querySelector(".lp-founder-content h2")?.textContent || ""),
       aboutText: founderParagraphs.join("\n\n"),
       shortBio: founderParagraphs[0] || "",
       profileImageUrl: sanitizedImageSource(document.querySelector(".lp-founder-photo-img")?.getAttribute("src") || ""),
@@ -14672,7 +14675,7 @@ async function saveAdminReviewForm(form) {
   const formData = new FormData(form);
   const uploadedImage = await fileToImageDataUrl(formData.get("imageFile"));
   const nextContent = nextSiteContentDraft();
-  const id = normalizedShortText(formData.get("id")) || `review-${Date.now()}`;
+  const id = normalizedShortText(formData.get("id")) || `review-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
   const entry = {
     id,
     name: normalizedShortText(formData.get("name")),
@@ -14699,12 +14702,19 @@ async function updateReviewCollection(updater) {
 async function toggleReviewVisibility(id) {
   await updateReviewCollection((reviews) => {
     const index = reviews.findIndex((item) => item.id === id);
-    if (index >= 0) reviews[index] = { ...reviews[index], visible: reviews[index].visible === false };
+    if (index >= 0) {
+      const currentlyVisible = reviews[index].visible !== false;
+      reviews[index] = { ...reviews[index], visible: !currentlyVisible };
+    }
   });
 }
 
 async function deleteReviewEntry(id) {
-  await updateReviewCollection((reviews) => reviews.splice(0, reviews.length, ...reviews.filter((item) => item.id !== id)));
+  await updateReviewCollection((reviews) => {
+    const filtered = reviews.filter((item) => item.id !== id);
+    reviews.length = 0;
+    reviews.push(...filtered);
+  });
   adminReviewEditorId = "";
 }
 
@@ -14744,17 +14754,15 @@ async function saveAdminHomepageForm(form) {
     ...card,
     title: normalizedShortText(formData.get(`soonTitle:${index}`)),
   }));
-  const previewCards = [];
-  for (let index = 0; index < (existingHomepage.previewCards || []).length; index += 1) {
-    const uploadedImage = await fileToImageDataUrl(formData.get(`previewCardImageFile:${index}`));
-    previewCards.push({
-      ...(existingHomepage.previewCards || [])[index],
-      id: normalizedShortText(formData.get(`previewCardId:${index}`)) || (existingHomepage.previewCards || [])[index]?.id,
-      title: normalizedShortText(formData.get(`previewCardTitle:${index}`)),
-      text: normalizedMultilineText(formData.get(`previewCardText:${index}`)),
-      imageUrl: uploadedImage || sanitizedImageSource(formData.get(`previewCardImage:${index}`)),
-    });
-  }
+  const basePreviewCards = existingHomepage.previewCards || [];
+  const uploadedPreviewImages = await Promise.all(basePreviewCards.map((_, index) => fileToImageDataUrl(formData.get(`previewCardImageFile:${index}`))));
+  const previewCards = basePreviewCards.map((card, index) => ({
+    ...card,
+    id: normalizedShortText(formData.get(`previewCardId:${index}`)) || card?.id,
+    title: normalizedShortText(formData.get(`previewCardTitle:${index}`)),
+    text: normalizedMultilineText(formData.get(`previewCardText:${index}`)),
+    imageUrl: uploadedPreviewImages[index] || sanitizedImageSource(formData.get(`previewCardImage:${index}`)),
+  }));
   nextContent.homepage = {
     ...existingHomepage,
     heroHeadline: normalizedShortText(formData.get("heroHeadline")),
