@@ -1216,12 +1216,12 @@ CURRICULUM ALIGNMENT:
 ─────────────────────────────────────────
 FINAL AI VALIDATION — complete before returning the lesson plan:
 ─────────────────────────────────────────
-Verify every required section is present and fully written: Overview, Materials, Objectives, Teacher Language, Monday, Tuesday, Wednesday, Thursday, Friday, ELG Connections, Family Connection, Reflection Notes, and Thumbnail description when applicable.
+Verify every required section is present and fully written: Weekly Learning Objectives, Vocabulary Words, Complete Materials List, Featured Books, Music and Movement, Art Activity, Sensory Activity, Fine Motor Activity, Gross Motor Activity, Social-Emotional Connection, Teacher Language Guide, Questions to Ask Children, Monday through Friday Daily Plans, Adaptations for Different Abilities, Extensions, Assessment and Observation Notes, Family Connection Idea, and Provider Notes.
 Verify each of Monday–Friday includes all six subsections: Circle Time, Main Activity, Book Recommendation, Music & Movement, Discussion Ideas, and Learning Focus.
 Verify all books are real published titles with real authors and match the theme.
 Verify all songs are real or well-known children's songs or fingerplays.
 Verify all activities are age-appropriate for the stated age group.
-Verify the selected theme is consistent across every section — overview, materials, objectives, daily activities, books, songs, discussion ideas, family connection, and reflection notes.
+Verify the selected theme is consistent across every section — objectives, materials, daily activities, books, songs, discussion ideas, family connection, and assessment notes.
 Verify there is no placeholder text, no empty sections, and no duplicate paragraphs.
 If any section is missing or incomplete, regenerate only that section before returning the lesson plan.`,
 
