@@ -5022,7 +5022,7 @@ function printableCartoonPreviewHtml(resource) {
 
 function resourcePrintableHtml(resource) {
   const text = resourceDocumentText(resource);
-  const headingPattern = /^(Short Description|What Is Included|Who It Is For|How To Use It|Materials \/ Information Needed|ELG \/ Early Learning Standard Connections|Full Resource Content|Weekly Lesson Plan|Weekly Overview|Age Group Teaching Approach|Learning Objectives|Materials|Vocabulary|Monday - Introduce the Theme|Tuesday - Build Vocabulary and Concepts|Wednesday - Hands-On .+ Practice|Thursday - Creative Expression and Child Choice|Friday - Review, Document, and Connect Home|Related Activities|Differentiation and Supports|Child Support Connection|Provider Reflection|Observation Resource|Professional Observation Wording|What to Look For|Learning Standard Category|Evidence To Add|Next Steps|Editable Note|Follow-Up Planning|Purpose|Provider Instructions|Details \/ Notes|Weekly Daycare Menu|Shopping List|Provider Reminder|Setup|Steps|Learning Objective|Extension|Teacher Directions|Child Directions|Activity Ideas|Learning Goal|Provider Note|Printable Planning Notes|Daily Notes|Printable Observation Record|Additional Write-In Space|Checklist|Menu Notes|Shopping Notes|Activity Prep Sheet|Printable Resource|Printable Type|Theme \/ Skill|Printable Page|Tracing Practice|Warm-Up Paths|Letter And Word Tracing|Portfolio Work Sample|Printable Picture Space|Independent Practice|Count And Show|Shape Builder|Child Work Space|Coloring Page|Picture Checklist|Color Key|Talk About It|Alphabet Practice Page|Find The Letter|Trace The Letter|Beginning Sound Words|Number Practice Page|Trace The Number|Count And Mark|Compare|Shape Practice Page|Trace The Shapes|Shape Hunt|Teacher Check|Name Writing Page|My Name|Trace My Name|Try My Name|Name Hunt|Cutting Practice Page|Provider Safety Check|Cutting Lines|Cut And Sort|Teacher Note|Matching Activity Page|Draw Lines To Match|Match Here|Make Your Own Match|Seasonal Worksheet Page|Weather Check|Seasonal Words|I Notice|Count And Color|Seasonal Work Sample|Holiday Worksheet Page|Holiday Vocabulary|Trace And Write|Count The Holiday Items|Teacher Notes|Printable Worksheet Page|Try It|Reflection \/ Teacher Note)$/;
+  const headingPattern = /^(Short Description|What Is Included|Who It Is For|How To Use It|Materials \/ Information Needed|ELG \/ Early Learning Standard Connections|Full Resource Content|Weekly Lesson Plan|Weekly Overview|Age Group Teaching Approach|Learning Objectives|Weekly Learning Objectives|Complete Materials List|Materials|Vocabulary|Vocabulary Words|Teacher Language Guide|Questions to Ask Children|Monday Through Friday|Monday — Introduce and Explore|Monday — Introduce the Theme|Tuesday — Songs and Vocabulary|Tuesday — Build Vocabulary and Concepts|Wednesday — Hands-On Exploration|Wednesday — Hands-On .+ Practice|Thursday — Art and Movement|Thursday — Creative Expression and Child Choice|Friday — Review and Share|Friday — Review, Document, and Connect Home|Art Activity|Sensory Activity|Fine Motor Activity|Gross Motor Activity|Social-Emotional Connection|Adaptations for Different Abilities|Extensions|Assessment and Observation Notes|Family Connection Idea|Related Activities|Differentiation and Supports|Child Support Connection|Provider Reflection|Provider Notes|Observation Resource|Professional Observation Wording|What to Look For|Learning Standard Category|Evidence To Add|Next Steps|Editable Note|Follow-Up Planning|Purpose|Provider Instructions|Details \/ Notes|Weekly Daycare Menu|Shopping List|Provider Reminder|Setup|Steps|Learning Objective|Extension|Teacher Directions|Child Directions|Activity Ideas|Learning Goal|Provider Note|Printable Planning Notes|Daily Notes|Printable Observation Record|Additional Write-In Space|Checklist|Menu Notes|Shopping Notes|Activity Prep Sheet|Printable Resource|Printable Type|Theme \/ Skill|Printable Page|Tracing Practice|Warm-Up Paths|Letter And Word Tracing|Portfolio Work Sample|Printable Picture Space|Independent Practice|Count And Show|Shape Builder|Child Work Space|Coloring Page|Picture Checklist|Color Key|Talk About It|Alphabet Practice Page|Find The Letter|Trace The Letter|Beginning Sound Words|Number Practice Page|Trace The Number|Count And Mark|Compare|Shape Practice Page|Trace The Shapes|Shape Hunt|Teacher Check|Name Writing Page|My Name|Trace My Name|Try My Name|Name Hunt|Cutting Practice Page|Provider Safety Check|Cutting Lines|Cut And Sort|Teacher Note|Matching Activity Page|Draw Lines To Match|Match Here|Make Your Own Match|Seasonal Worksheet Page|Weather Check|Seasonal Words|I Notice|Count And Color|Seasonal Work Sample|Holiday Worksheet Page|Holiday Vocabulary|Trace And Write|Count The Holiday Items|Teacher Notes|Printable Worksheet Page|Try It|Reflection \/ Teacher Note)$/;
   const blocks = text.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
   const content = blocks.map((block, index) => {
     const lines = block.split("\n").map((line) => line.trimEnd()).filter((line) => line.length);
@@ -5051,9 +5051,9 @@ function decodedTextFileData(resource) {
 
 function lessonAgeApproach(age) {
   const approaches = {
-    Infant: "Use short one-to-one or very small group moments, responsive language, safe floor play, repeated songs, picture cards, and sensory-safe materials. Keep activities brief and follow each baby's cues.",
-    Toddler: "Use short active lessons with choices, movement, repetition, naming, simple turn-taking, sensory exploration, and hands-on practice. Expect children to move in and out of the activity.",
-    Preschool: "Use small group discussion, hands-on investigation, early writing/drawing, counting, comparison, prediction, collaboration, and child-led extensions. Invite children to explain their thinking.",
+    Infant: "Use short one-to-one or very small group moments (5–10 minutes), responsive language, safe floor play, repeated songs, picture cards, and sensory-safe materials. Follow each baby's cues and stop before overstimulation. Never use worksheets, scissors, small parts, or multi-step directions with infants.",
+    Toddler: "Use short active lessons (10–15 minutes) with two-choice options, movement breaks, repetition, simple naming, hands-on practice, and sensory exploration. Expect children to move in and out of activities. Never use worksheets or academic pressure. Model first, then invite participation.",
+    Preschool: "Use small-group discussion, hands-on investigation, early writing or drawing, counting, comparison, prediction, cooperative play, and child-led extensions. Invite children to explain their thinking and make decisions. Activities run 15–20 minutes with open-ended outcomes.",
   };
   return approaches[age] || approaches.Preschool;
 }
@@ -5062,114 +5062,742 @@ function lessonAreaPractice(area, theme, age) {
   const ageWord = String(age || "children").toLowerCase();
   const themeWord = String(theme || "the theme").toLowerCase();
   const practices = {
-    Cognitive: `${ageWord} learners sort, match, compare, remember routines, and solve simple problems using ${themeWord} pictures, props, and materials.`,
-    Language: `${ageWord} learners hear, repeat, point to, name, and use ${themeWord} words during songs, books, play, and teacher-child conversation.`,
-    Literacy: `${ageWord} learners explore books, pictures, print, storytelling, beginning sounds, mark making, and retelling connected to ${themeWord}.`,
-    "Social Emotional": `${ageWord} learners practice connection, confidence, feelings language, turn-taking, gentle touch, waiting, helping, and belonging through ${themeWord} routines.`,
-    "Fine Motor": `${ageWord} learners grasp, squeeze, place, stack, tear, trace, draw, turn pages, or use safe tools with ${themeWord} materials.`,
-    "Gross Motor": `${ageWord} learners crawl, walk, balance, reach, jump, stretch, dance, carry, or move like ${themeWord} items while practicing body control.`,
-    Science: `${ageWord} learners observe, ask questions, explore textures, notice changes, compare, and investigate safe ${themeWord} materials.`,
-    Math: `${ageWord} learners count, match, sort, compare size, notice patterns, use position words, and group ${themeWord} materials.`,
-    "Creative Arts": `${ageWord} learners create, move, sing, pretend, build, paint, collage, and use open-ended materials inspired by ${themeWord}.`,
-    "Self Help": `${ageWord} learners practice simple routines, clean-up, choices, independence, handwashing, dressing, transitions, and asking for help with ${themeWord} supports.`,
+    Cognitive: `${ageWord} learners sort, match, compare, remember routines, and solve simple problems using ${themeWord} pictures, props, and materials. Teacher scaffolds with open-ended prompts and thinking questions.`,
+    Language: `${ageWord} learners hear, repeat, point to, name, and use ${themeWord} vocabulary during songs, books, play, and back-and-forth conversation with the teacher and peers.`,
+    Literacy: `${ageWord} learners explore books, pictures, print, storytelling, beginning sounds, mark making, and retelling stories connected to ${themeWord}. Teacher models reading behaviors and invites participation.`,
+    "Social Emotional": `${ageWord} learners practice connection, confidence, feelings vocabulary, turn-taking, gentle touch, waiting, helping, and belonging through ${themeWord} routines. Teacher names emotions and models positive interactions.`,
+    "Fine Motor": `${ageWord} learners grasp, squeeze, place, stack, tear, trace, draw, turn pages, or use age-appropriate tools with ${themeWord} materials. Teacher provides scaffolding and celebrates effort and attempts.`,
+    "Gross Motor": `${ageWord} learners crawl, walk, balance, reach, jump, stretch, dance, carry, or move with ${themeWord} themes while practicing coordination, spatial awareness, and body control.`,
+    Science: `${ageWord} learners observe, ask questions, explore textures, notice changes, compare objects, and investigate safe ${themeWord} materials. Teacher models scientific thinking: "I wonder…" and "What do you notice?"`,
+    Math: `${ageWord} learners count, match, sort, compare size, notice patterns, use position words, and group ${themeWord} materials. Teacher names math concepts during play and daily routines.`,
+    "Creative Arts": `${ageWord} learners create, move, sing, pretend, build, paint, collage, and use open-ended materials inspired by ${themeWord}. Teacher values process over product and invites children to describe their work.`,
+    "Self Help": `${ageWord} learners practice simple routines, clean-up, choices, independence, handwashing, dressing, transitions, and asking for help using ${themeWord} supports and visual cues.`,
   };
   return practices[area] || practices.Cognitive;
 }
 
 function lessonThemeMaterials(theme) {
-  const words = themeVocabulary(theme).slice(0, 4);
-  return `${theme} picture cards or photos, ${words.join(", ")} props or labels, books, music, art paper, crayons, glue sticks, sensory-safe bin materials, blocks, manipulatives, dramatic play items, and one printable extension page.`;
+  const specific = {
+    "Farm Animals": "Farm animal plastic figures (cow, pig, chicken, horse), barn playset or cardboard barn, farm picture cards, hay or straw (sensory bin), mud play dough (brown), eggs (plastic), small shovels and scoops",
+    "Ocean": "Blue water beads or dyed rice (sensory bin), ocean animal plastic figures (fish, crab, octopus, starfish), blue and green cellophane, seashells, sand (sensory bin), ocean picture cards, blue paint",
+    "Dinosaurs": "Plastic dinosaur figures (at least 6 types), dinosaur picture cards, kinetic sand or brown play dough (fossils), large paper for dinosaur footprint art, magnifying glasses, small brushes (archaeologist play)",
+    "Transportation": "Toy cars, trucks, boats, and airplanes, road/track building blocks, traffic sign cutouts, blue felt (water), green felt (land), brown felt (roads), vehicle picture cards",
+    "Community Helpers": "Dress-up items (firefighter hat, doctor kit, chef apron, police badge), prop boxes, clipboard and paper, picture cards of community helpers, toy tools, play food",
+    "Weather": "Rain sticks, pinwheel, weather wheel, cotton balls (clouds), blue cellophane (rain), yellow tissue paper (sunshine), white paper for cloud art, thermometer prop, weather chart",
+    "Seasons": "Nature items (leaves, pinecones, flowers, twigs), seasonal picture cards, sorting trays, nature walk basket, watercolor paints, seasonal art collage materials",
+    "Space": "Glow-in-dark stars, aluminum foil (moon surface), black paper, silver and gold paint, planet picture cards, astronaut helmet prop (craft), constellation cards, telescope prop",
+    "Bugs & Insects": "Plastic bug figures (ants, butterflies, bees, caterpillars), bug viewer containers, magnifying glasses, leaf rubbings, black and yellow paint (bees), pipe cleaners (antennae), bug picture cards",
+    "Zoo Animals": "Zoo animal plastic figures, animal picture cards, binoculars prop, animal footprint stamps, sand for tracks sensory bin, animal habitat sorting cards",
+    "Pets": "Stuffed animals (dog, cat, rabbit, fish, bird), pet care props (brush, bowl, leash), pet picture cards, stethoscope (vet play), pet carrier box prop",
+    "Colors": "Color sorting trays, paint samples, colored cellophane squares, colored tissue paper, rainbow ribbon streamers, color mixing materials (watercolor + water), color picture cards",
+    "Shapes": "Shape manipulatives (foam or wooden), shape sorting board, colored construction paper for shape art, shape stamps, geoboard with rubber bands (preschool), playdough and shape cutters",
+    "Numbers": "Counting bears or cubes (20+), number cards 1–10, ten frames, number stamps, counting tray with real objects, dice (large foam), number picture cards",
+    "Letters": "Foam or magnetic letters, alphabet picture cards, letter stamps and ink pads, name cards, letter-sound picture cards, tracing paper, play dough for letter forming",
+    "Healthy Habits": "Toothbrush and toothpaste props, wash basin (handwashing practice), play food sorted into healthy/treat groups, exercise picture cards, feelings chart, nutrition picture cards",
+    "Camping": "Flashlights, sleeping bag or blanket fort, pretend campfire (orange and red tissue paper), binoculars, compass prop, nature items, trail mix ingredients, animal track cards",
+    "Christmas": "Wrapping paper scraps, ribbon, tissue paper, holiday color paint (red, green, gold), star shapes, jingle bells, holiday picture cards, cotton balls (snow art)",
+    "Thanksgiving": "Feather set (for headband craft), orange and brown paint, leaf shapes, harvest vegetable pictures, sorting trays, cornhusk dolls prop, gratitude writing/drawing",
+    "Easter": "Plastic eggs, egg carton for sorting, pastel paint and art paper, cotton balls (bunny craft), Easter basket, spring flowers (plastic or real), chick and bunny picture cards",
+    "Valentine's Day": "Heart shape cutouts (red, pink, white), doily paper, heart stamps, stickers, watercolor paints, conversation heart candies (sensory counting), friendship picture cards",
+    "St. Patrick's Day": "Gold coin manipulatives, rainbow color strips (sorting), green paint, pot of gold prop, clover stamps, leprechaun hat prop, color mixing (yellow + blue = green)",
+    "4th of July": "Red, white, and blue paint, star stamps and stickers, streamers, patriotic picture cards, firecracker craft materials (paper towel roll + tissue), flag craft supplies",
+    "All About Me": "Hand and foot tracing paper, mirror, family photo frames (blank), self-portrait drawing paper, height measuring tape, body outline paper (large), feelings chart",
+    "Feelings": "Feelings picture cards, emotion face puppets, feelings color wheel, mirror (making faces), feelings sorting cards, playdough (making feeling faces), feelings story cards",
+    "Friendship": "Partner activity props, cooperative building blocks, friendship bracelet materials (simple), friendship picture books, compliment cards, sharing practice materials",
+    "Gardening": "Potting soil, seeds (bean or sunflower), small plant pots, watering can, gardening gloves (child-size), trowel and rake (plastic), seed picture cards, flower and vegetable pictures",
+    "Five Senses": "Smell jars (lemon, cinnamon, vanilla), texture board (smooth, rough, bumpy), sound shakers (rice, bells, beans), taste cards, magnifying glass, sense picture cards",
+    "Music": "Rhythm instruments (drums, shakers, tambourine, bells, sticks), scarves for movement, CD or playlist, music picture cards, homemade instruments materials, musical notation cards",
+    "Construction": "Unit blocks (20+), cardboard tubes, wood scraps, plastic hard hats, blueprints (simple drawings), measuring tape, ruler, building picture cards, recycled materials",
+    "Apples": "Real apples (red, green, yellow), apple stamps (apple cut in half), red paint, apple picture cards, apple tasting supplies, tree craft materials, balance scale for comparison",
+    "Pumpkins": "Small pumpkins (3–4 sizes), orange and black paint, pumpkin picture cards, scoop and seeds (sensory bin), pumpkin stencils, leaf and vine collage materials",
+    "Winter": "Fake snow or white sensory bin materials, mittens for fine motor (putting on/off), snowflake cutouts, blue and white paint, ice sensory exploration (ice cubes in water table), winter animal pictures",
+    "Spring": "Flower seeds, plastic flowers and butterflies, bug/insect figures, gardening props, pastel watercolors, butterfly life cycle cards, rain sticks, umbrella prop",
+    "Summer": "Water table or water sensory bin, beach items (shells, sand), sunglasses and hat props, sunscreen discussion cards, ice cube art, outdoor exploration basket, bright primary paint",
+    "Fall": "Real leaves (multiple colors), leaf rubbings, orange/red/brown paint, acorns and pinecones (sensory bin), leaf sorting tray, scarecrow craft materials, harvest picture cards",
+  };
+  const fallback = `${theme} picture cards and photos, theme-related plastic figures or props, art paper (9x12), washable tempera paint (3 colors), paintbrushes, crayons and markers, glue sticks, sensory bin with theme-related filler, blocks (15–20), manipulatives for sorting and counting, scissors (preschool-safe), and 2–3 theme-matched picture books`;
+  return specific[theme] || fallback;
 }
 
 function lessonVocabulary(theme, area) {
-  const words = themeVocabulary(theme).slice(0, 5);
-  const areaWords = {
-    Cognitive: ["same", "different", "match", "sort", "remember"],
-    Language: ["say", "listen", "name", "tell", "question"],
-    Literacy: ["book", "story", "letter", "picture", "print"],
-    "Social Emotional": ["feel", "help", "gentle", "turn", "friend"],
-    "Fine Motor": ["pinch", "trace", "place", "squeeze", "draw"],
-    "Gross Motor": ["move", "jump", "crawl", "balance", "stretch"],
-    Science: ["observe", "change", "texture", "compare", "wonder"],
-    Math: ["count", "more", "less", "shape", "pattern"],
-    "Creative Arts": ["create", "color", "music", "pretend", "design"],
-    "Self Help": ["try", "clean", "choose", "help", "independent"],
+  const themeWords = {
+    "Farm Animals": ["barnyard", "livestock", "pasture", "harvest", "farmer", "stable", "rooster", "trough"],
+    "Ocean": ["ocean", "wave", "coral", "creature", "shallow", "deep", "current", "tide"],
+    "Dinosaurs": ["extinct", "fossil", "prehistoric", "carnivore", "herbivore", "scales", "enormous", "roar"],
+    "Transportation": ["vehicle", "passenger", "cargo", "route", "journey", "engine", "navigate", "transport"],
+    "Community Helpers": ["community", "service", "protect", "rescue", "uniform", "emergency", "tool", "helper"],
+    "Weather": ["forecast", "temperature", "cloud", "thunder", "lightning", "breeze", "season", "meteorologist"],
+    "Seasons": ["cycle", "change", "temperature", "bloom", "hibernate", "migrate", "harvest", "transition"],
+    "Space": ["galaxy", "orbit", "planet", "asteroid", "gravity", "astronaut", "telescope", "constellation"],
+    "Bugs & Insects": ["insect", "metamorphosis", "antennae", "colony", "camouflage", "larvae", "pollinate", "burrow"],
+    "Zoo Animals": ["habitat", "exhibit", "endangered", "mammal", "reptile", "nocturnal", "migrate", "predator"],
+    "Pets": ["veterinarian", "shelter", "groom", "nourish", "domesticated", "loyal", "adopt", "habitat"],
+    "Colors": ["vibrant", "blend", "shade", "hue", "transparent", "opaque", "primary", "secondary"],
+    "Shapes": ["vertex", "edge", "symmetry", "geometric", "dimension", "polygon", "circle", "rectangle"],
+    "Numbers": ["quantity", "numeral", "compare", "pattern", "sequence", "equal", "total", "estimate"],
+    "Letters": ["alphabet", "vowel", "consonant", "syllable", "initial", "sound", "print", "word"],
+    "Healthy Habits": ["nutrition", "hygiene", "exercise", "wellness", "bacteria", "vitamins", "rest", "hydrated"],
+    "Camping": ["wilderness", "campfire", "shelter", "compass", "nocturnal", "trail", "nature", "stargazing"],
+    "Christmas": ["tradition", "celebrate", "generosity", "decorate", "holiday", "evergreen", "tinsel", "festive"],
+    "Thanksgiving": ["gratitude", "harvest", "tradition", "feast", "pilgrim", "indigenous", "abundance", "thankful"],
+    "Easter": ["spring", "celebrate", "symbol", "resurrection", "basket", "tradition", "hatching", "pastel"],
+    "Valentine's Day": ["friendship", "caring", "affection", "kindness", "heart", "valentine", "love", "appreciate"],
+    "St. Patrick's Day": ["tradition", "shamrock", "luck", "rainbow", "culture", "heritage", "celebrate", "emerald"],
+    "4th of July": ["independence", "freedom", "celebrate", "patriotic", "fireworks", "tradition", "liberty", "honor"],
+    "All About Me": ["unique", "identity", "family", "culture", "special", "different", "similar", "belong"],
+    "Feelings": ["emotion", "express", "recognize", "calm", "frustrated", "excited", "worried", "content"],
+    "Friendship": ["cooperate", "share", "include", "respect", "kind", "trustworthy", "together", "support"],
+    "Gardening": ["germinate", "seedling", "photosynthesis", "nutrients", "roots", "soil", "pollinate", "harvest"],
+    "Five Senses": ["observe", "texture", "aroma", "vibration", "sensation", "perceive", "detect", "explore"],
+    "Music": ["rhythm", "melody", "beat", "tempo", "instrument", "harmony", "lyrics", "conductor"],
+    "Construction": ["structure", "blueprint", "engineer", "balance", "sturdy", "material", "foundation", "design"],
+    "Apples": ["orchard", "core", "seeds", "variety", "ripe", "harvest", "cider", "crisp"],
+    "Pumpkins": ["vine", "gourd", "carve", "hollow", "seeds", "harvest", "orange", "autumn"],
+    "Winter": ["hibernate", "dormant", "frost", "blizzard", "insulate", "crystallize", "freezing", "cozy"],
+    "Spring": ["bloom", "blossom", "seedling", "migrate", "thaw", "pollen", "nest", "renewal"],
+    "Summer": ["sunshine", "hydrated", "shade", "humid", "tropical", "outdoor", "evaporate", "vibrant"],
+    "Fall": ["harvest", "migrate", "dormant", "crisp", "rustling", "deciduous", "amber", "transition"],
   };
-  return [...new Set([theme, ...words, ...(areaWords[area] || areaWords.Cognitive)])].join(", ");
+  const areaWords = {
+    Cognitive: ["sort", "match", "compare", "predict", "remember"],
+    Language: ["describe", "name", "ask", "listen", "respond"],
+    Literacy: ["story", "letter", "sound", "print", "author"],
+    "Social Emotional": ["feel", "help", "share", "gentle", "together"],
+    "Fine Motor": ["grip", "pinch", "trace", "steady", "careful"],
+    "Gross Motor": ["balance", "stretch", "jump", "coordinate", "move"],
+    Science: ["observe", "investigate", "wonder", "discover", "test"],
+    Math: ["count", "pattern", "more", "fewer", "equal"],
+    "Creative Arts": ["create", "design", "imagine", "color", "express"],
+    "Self Help": ["independent", "try", "choose", "manage", "clean"],
+  };
+  const tw = (themeWords[theme] || themeVocabulary(theme).slice(0, 5));
+  const aw = areaWords[area] || areaWords.Cognitive;
+  return [...new Set([...tw, ...aw])].slice(0, 8).join(", ");
 }
 
 function lessonObjectives(resource, theme, area) {
-  const base = resource.learningObjectives || [
-    "Support developmental growth through play-based learning.",
-    "Build language, confidence, social connection, and participation.",
-    "Provide hands-on activities with simple materials.",
-  ];
+  const age = resource.age || "Preschool";
+  const ageObjectives = {
+    Infant: [
+      `Explore ${theme.toLowerCase()} through safe sensory materials, tracking, and responsive one-on-one interactions.`,
+      `Build early communication through teacher narration, facial expressions, and back-and-forth coos and gestures.`,
+      `Strengthen emerging motor skills (reaching, grasping, tummy time, rolling) through supervised play.`,
+    ],
+    Toddler: [
+      `Build ${theme.toLowerCase()} vocabulary through books, songs, hands-on props, and teacher conversation.`,
+      `Support ${area.toLowerCase()} development through short, active, choice-based activities with adult scaffolding.`,
+      `Encourage independence, participation, and confidence through simple routines and hands-on exploration.`,
+    ],
+    Preschool: [
+      `Develop early ${area.toLowerCase()} skills through problem-solving, investigation, and open-ended ${theme.toLowerCase()} activities.`,
+      `Build vocabulary, literacy, and language by connecting ${theme.toLowerCase()} to books, conversations, and writing experiences.`,
+      `Support cooperative learning, independence, and critical thinking through child-led exploration and discussion.`,
+    ],
+  };
+  const base = resource.learningObjectives || ageObjectives[age] || ageObjectives.Preschool;
   return [
     ...base,
-    lessonAreaPractice(area, theme, resource.age),
-    `Connect ${theme.toLowerCase()} learning to books, songs, sensory play, movement, art, and child-led exploration.`,
+    `Connect ${theme.toLowerCase()} learning to music, movement, creative arts, and family engagement across the week.`,
   ];
+}
+
+function lessonTeacherLanguageGuide(age) {
+  const guides = {
+    Infant: `- "I see you reaching for the [object]. You found it!"
+- "Oh, you're looking at the [picture]. That's a [name]."
+- "Let's feel this together. It feels [soft/bumpy/smooth]."
+- "You worked so hard on tummy time today!"
+- "I love your happy sounds! Tell me more."
+- "Here comes the [animal/object]. Can you track it?"
+- "Your hands are so busy and curious!"
+- "I'm going to sing a song just for you."`,
+    Toddler: `- "Can you find the [object]? Show me!"
+- "You did it all by yourself! I saw you try and try."
+- "What do you think this is? Can you tell me?"
+- "Let's try it together. Watch me first, then your turn."
+- "More? All done? You can tell me what you need."
+- "I see you [action]. What happens next?"
+- "That's the [word]. Can you say it with me?"
+- "You worked hard to [skill]. That took real effort!"`,
+    Preschool: `- "What do you notice about [object/activity]?"
+- "What do you think will happen if we [action]?"
+- "I wonder why [observation]. What do you think?"
+- "You worked hard to figure that out. How did you do it?"
+- "Can you show me another way to [task]?"
+- "What would happen if we changed [variable]?"
+- "Tell me more about your thinking."
+- "I see you [action]. What are you trying to do?"
+- "What do you remember about [topic] from [yesterday/our book]?"
+- "How could we find out the answer to that question?"`,
+  };
+  return guides[age] || guides.Preschool;
+}
+
+function lessonQuestionsGuide(theme, age) {
+  const infant = `- "Where is the [${theme.toLowerCase()} object]?" (pause and point together)
+- "Can you look at this? What do you see?"
+- "Do you want [option A] or [option B]?" (hold up both)
+- "Can you reach for it? You can do it!"
+- "Hear that sound? What was that?"`;
+  const toddler = `- "What is this called? Can you point to it?"
+- "What sound does the [${theme.toLowerCase()} animal/object] make?"
+- "Where does the [object] go? Can you show me?"
+- "Which one do you want — this one or that one?"
+- "What do you think will happen when we [action]?"
+- "Can you tell me one word about what you see?"`;
+  const preschool = `- "What do you already know about ${theme.toLowerCase()}?"
+- "What do you notice when you look closely at this?"
+- "What would happen if [variable changed]? Let's predict."
+- "How is this the same as [other item]? How is it different?"
+- "How could we solve this problem? What are our ideas?"
+- "Why do you think [observation]? What's your evidence?"
+- "What would you do differently if you tried this again?"
+- "If you could change one thing about this, what would it be?"`;
+  if (age === "Infant") return infant;
+  if (age === "Toddler") return toddler;
+  return preschool;
+}
+
+function lessonArtActivityDetail(theme, age) {
+  const artData = {
+    Infant: {
+      title: `${theme} Soft Texture Exploration`,
+      objective: `Babies explore safe, theme-related textures using sight and touch to build sensory awareness and early language.`,
+      materials: `Sensory-safe fabric swatches (soft, bumpy, crinkly), large picture cards (${theme.toLowerCase()} images), non-toxic finger paint on tray (teacher-controlled), large paper for handprint art`,
+      prep: `1. Lay a clean mat or blanket on the floor.\n2. Prepare a tray with a thin layer of non-toxic paint.\n3. Place large ${theme.toLowerCase()} picture cards where babies can see them.\n4. Have a warm wet cloth ready for cleanup.`,
+      steps: `1. Lay baby on the mat near the sensory materials.\n2. Name each texture as you introduce it: "This one is soft. Soft."\n3. Gently guide baby's hand to touch different textures.\n4. Support a handprint in the paint tray if baby is interested.\n5. Narrate the entire experience: "You touched it! How does it feel?"\n6. Wipe hands clean with warm cloth when done.`,
+      language: `"Oh, that one is so soft! Feel it with your hand.";\n"I see you looking at the [image]. That's a [name]!";\n"Your handprint is beautiful. That's you!"`,
+      questions: `"Can you look at the [object]? Where is it?"\n"Do you want the soft one or the bumpy one?"\n"What do you feel on your hand?"`,
+      skills: `Sensory exploration, visual tracking, early language (object labeling), tactile discrimination, bonding with caregiver`,
+      cleanup: `Wipe all surfaces and baby's hands immediately. Remove paint tray promptly. Store sensory materials safely.`,
+      extension: `Repeat with different safe textures each week: cotton balls, velvet, burlap, silk. Let babies vote with their gaze or reaching.`,
+      adaptation: `Easier: Skip the paint; use only fabric swatches. Harder: Add a mirror so baby can see their face during exploration.`,
+    },
+    Toddler: {
+      title: `${theme} Process Art Exploration`,
+      objective: `Toddlers use theme-related art materials to practice fine motor control, color exploration, and creative expression.`,
+      materials: `Large paper (12x18), washable tempera paint (2–3 theme colors), thick paintbrushes (1-inch), sponge daubers, ${theme.toLowerCase()} shape stamps or stencils, smocks, newspaper table cover`,
+      prep: `1. Cover the table with newspaper.\n2. Pour paint into shallow trays.\n3. Pre-cut simple ${theme.toLowerCase()} shapes for stamping (optional).\n4. Place paper and brushes at each spot.\n5. Have warm wet cloths ready.`,
+      steps: `1. Show children the art materials and name each color.\n2. Say: "Today we are making ${theme.toLowerCase()} art. You choose how."\n3. Demonstrate one brushstroke or stamp without telling children to copy.\n4. Let each child explore freely for 10–12 minutes.\n5. Narrate their work: "I see red and yellow! You mixed them!"\n6. Allow paintings to dry on a flat surface.\n7. Write child's name on the back while they watch.`,
+      language: `"I see you chose [color]. What made you pick that one?";\n"Tell me about your picture. I want to hear your ideas.";\n"You worked so hard on that! Look what you made!"`,
+      questions: `"What color are you using right now?"\n"What happens when you press hard? What about soft?"\n"What does your painting remind you of?"`,
+      skills: `Fine motor control, color recognition, expressive language, independence, creative arts`,
+      cleanup: `Children help collect brushes. Teacher wipes table. Hang paintings to dry. Celebrate all artwork equally.`,
+      extension: `Add collage materials (tissue paper, stickers) on a second day. Let toddlers add to their dried painting.`,
+      adaptation: `Easier: Use larger sponge daubers instead of brushes. Harder: Add a color-mixing challenge: "Can you make orange?"`,
+    },
+    Preschool: {
+      title: `${theme} Collaborative Art Project`,
+      objective: `Preschoolers plan, create, and discuss their artwork using theme-related materials, building fine motor control, creative thinking, and expressive language.`,
+      materials: `Large paper (18x24 or butcher paper roll), washable tempera paint (4–5 colors), brushes (various sizes), sponges, rollers, collage materials (tissue paper, fabric scraps, construction paper), glue, scissors (safety), smocks, newspaper`,
+      prep: `1. Set up two or three art stations with different materials.\n2. Pour paint and arrange collage materials.\n3. Post a ${theme.toLowerCase()} picture for inspiration (not copying).\n4. Prepare a "planning question" on a card: "What will you create today?"`,
+      steps: `1. Show children the materials and the inspiration photo.\n2. Ask: "What do you want to make? What's your plan?"\n3. Allow 15–18 minutes of open-ended exploration.\n4. Move between children asking: "Tell me about your work."\n5. Encourage children to name colors, describe their process, and make choices.\n6. After cleanup, display art at child eye level.\n7. Lead a brief 2-minute sharing: each child names one thing they like about their work.`,
+      language: `"I notice you used many colors together. Tell me about that.";\n"What was tricky? How did you solve it?";\n"What would you do differently if you tried this again?";\n"You persisted even when it got hard. That's a learning skill."`,
+      questions: `"What is your art about? Walk me through it."\n"What techniques did you use — painting, tearing, layering?"\n"What would you add if you had one more material?"`,
+      skills: `Fine motor control, planning and decision-making, expressive language, creative thinking, self-assessment`,
+      cleanup: `Children help clean brushes and put lids on paints. Designate cleanup jobs: paper collector, brush washer, table wiper.`,
+      extension: `Add a second day: children can revisit and add to their art. Extend with a "gallery walk" where children share their work.`,
+      adaptation: `Easier: Pre-cut collage pieces; use larger brushes. Harder: Challenge children to tell or write a one-sentence story about their art.`,
+    },
+  };
+  const data = artData[age] || artData.Preschool;
+  return `Art Activity: ${data.title}
+Learning Objective: ${data.objective}
+
+Materials:
+${data.materials}
+
+Preparation (before children arrive):
+${data.prep}
+
+Step-by-Step Directions:
+${data.steps}
+
+Teacher Language:
+${data.language}
+
+Questions to Ask Children:
+${data.questions}
+
+Skills Being Developed:
+${data.skills}
+
+Cleanup Suggestions:
+${data.cleanup}
+
+Extension:
+${data.extension}
+
+Adaptation:
+${data.adaptation}`;
+}
+
+function lessonSensoryActivityDetail(theme, age) {
+  const fillers = {
+    "Farm Animals": "dried corn, hay, and small farm animal figures",
+    "Ocean": "blue water beads or dyed rice with seashells and plastic sea creatures",
+    "Dinosaurs": "kinetic sand or brown play dough with plastic dinosaur figures and small fossils",
+    "Transportation": "small rocks, wooden dowels as roads, and toy vehicles",
+    "Weather": "white cotton balls (clouds), blue cellophane strips (rain), and ice cubes in water",
+    "Seasons": "fall leaves, pinecones, acorns, and dried flowers sorted by season",
+    "Gardening": "potting soil, seeds, small scoops, and plastic flowers",
+    "Five Senses": "mix of rice, dried pasta, coffee grounds, and cinnamon in separate trays",
+    "Space": "black dried beans with star sequins, moon sand, and planet figurines",
+    "Camping": "gravel, twigs, pine needles, and pinecones in a nature bin",
+    "Winter": "shaving cream (snow), ice cubes, and silver glitter in water",
+    "Spring": "flower petals, soil, seeds, and small watering can",
+    "Summer": "kinetic sand, seashells, small shovels, and pails",
+    "Fall": "leaves, acorns, small gourds, cinnamon sticks, and orange sensory filler",
+  };
+  const filler = fillers[theme] || `${theme.toLowerCase()}-themed materials (picture cards, safe props, and theme-related sensory filler)`;
+  const ageData = {
+    Infant: {
+      title: `${theme} Texture Exploration Tray`,
+      objective: `Babies explore safe textures related to the theme, building sensory awareness, curiosity, and early language connections.`,
+      setup: `Place a shallow tray on the floor with a clean mat. Add 1–2 safe texture items from: ${filler}. Ensure ALL items are too large to swallow and non-toxic.`,
+      steps: `1. Sit beside baby on the floor.\n2. Name each texture item slowly: "[Name], this is a [object]. Can you touch it?"\n3. Gently move items within baby's reach to encourage reaching.\n4. Narrate every action: "You picked it up! How does it feel?"\n5. Offer a different item after 2–3 minutes or when baby loses interest.\n6. Keep session to 5–8 minutes, following baby's cues.`,
+      teacherDoes: `Sits beside baby, narrates, offers items within reach, watches for overstimulation, speaks slowly and warmly.`,
+      childDoes: `Reaches, grasps, mouths (safe items only), looks, tracks, vocalizes, and explores with hands.`,
+      language: `"Ooh, feel this! It's so [soft/bumpy/smooth].";\n"You found it! Look at you go!";\n"This one crinkles! Hear that sound?"`,
+      questions: `"Can you touch this one? What does it feel like?"\n"Where did it go? Can you find it?"\n"Do you want this one or that one?"`,
+      skills: `Tactile sensory processing, visual tracking, reaching and grasping, early language (object labeling), bonding`,
+      extension: `Rotate one new texture each session. Add a mirror so baby can watch their own face during exploration.`,
+      adaptation: `Simpler: Use only 1 item at a time. More complex: Add a second texture item to compare.`,
+    },
+    Toddler: {
+      title: `${theme} Sensory Bin Play`,
+      objective: `Toddlers explore, scoop, pour, and investigate theme-related sensory materials, building vocabulary, fine motor skills, and curiosity.`,
+      setup: `Fill a sensory bin with ${filler}. Add 2–3 small scoops, cups, and tongs. Place a plastic mat underneath. Set up 2–4 spots around the bin.`,
+      steps: `1. Show children the sensory bin: "What do you notice? What do you see?"\n2. Invite children to reach in: "Let's explore! What does it feel like?"\n3. Model scooping and pouring: "Watch — I fill my scoop and pour it here."\n4. Encourage naming: "Can you find the [object]? What color is it?"\n5. Allow 12–15 minutes of open exploration.\n6. Signal cleanup with a song: "Time to clean up our sensory bin!"`,
+      teacherDoes: `Introduces vocabulary, models actions, asks naming questions, narrates play, supervises safety, supports language.`,
+      childDoes: `Scoops, pours, fills, dumps, finds hidden objects, names items, sorts, and engages with peers.`,
+      language: `"Can you scoop some? Fill it up — now dump it!";\n"I see you found the [object]. Tell me about it!";\n"What does it feel like in your hands? Is it [cool/bumpy/squishy]?"`,
+      questions: `"What do you notice when you squeeze it?"\n"Can you find all the [objects] and put them in the cup?"\n"What happens when you pour it from up high?"`,
+      skills: `Fine motor control, vocabulary building, cause and effect, sensory processing, early science exploration`,
+      extension: `Add measuring cups on Day 2. Add water to change the texture. Add a "find it" challenge (hide 5 objects).`,
+      adaptation: `Simpler: Use only 1 tool (a scoop). More complex: Add sorting trays and ask children to group by type.`,
+    },
+    Preschool: {
+      title: `${theme} Science Sensory Investigation`,
+      objective: `Preschoolers investigate theme-related sensory materials using observation, comparison, prediction, and descriptive language, building early science skills.`,
+      setup: `Prepare 3–4 small trays each with a different material from the theme (${filler}). Provide magnifying glasses, tweezers, measuring cups, and recording clipboards with blank paper.`,
+      steps: `1. Gather children: "Today we are scientists! We will investigate [materials]."\n2. Post vocabulary words on a card: observe, describe, compare, predict.\n3. Children rotate through trays every 4–5 minutes.\n4. At each tray, ask: "What do you notice? How does it feel? What does it remind you of?"\n5. Encourage children to record observations with drawings.\n6. Close with a 3-minute group share: "What was the most interesting discovery?"`,
+      teacherDoes: `Introduces scientific vocabulary, models recording observations, asks open-ended questions, validates all responses, connects to prior knowledge.`,
+      childDoes: `Observes, touches, smells (safe items), compares, records drawings, discusses, predicts, and shares findings.`,
+      language: `"What do you notice? Use your scientist eyes.";\n"How is this different from the first tray?";\n"I wonder why it feels that way. What do you think?"`,
+      questions: `"How would you describe this material to someone who couldn't see it?"\n"Which one is rougher — this one or that one? How do you know?"\n"What do you predict would happen if we added water?"`,
+      skills: `Scientific observation, descriptive language, comparison, fine motor (using tools), recording/documentation, critical thinking`,
+      extension: `Add a "hypothesis station" where children predict what will happen to a material when mixed with water. Test the predictions together.`,
+      adaptation: `Simpler: Provide sentence starters for observation: "I notice…" Harder: Ask children to rank materials from smoothest to roughest and explain their ranking.`,
+    },
+  };
+  const data = ageData[age] || ageData.Preschool;
+  return `Sensory Activity: ${data.title}
+Learning Objective: ${data.objective}
+
+Setup Instructions:
+${data.setup}
+
+Step-by-Step Directions:
+${data.steps}
+
+What the Teacher Does:
+${data.teacherDoes}
+
+What Children Do:
+${data.childDoes}
+
+Teacher Language:
+${data.language}
+
+Questions to Ask Children:
+${data.questions}
+
+Skills Being Developed:
+${data.skills}
+
+Extension:
+${data.extension}
+
+Adaptation:
+${data.adaptation}`;
+}
+
+function lessonFineMotorActivityDetail(theme, age) {
+  const ageData = {
+    Infant: {
+      title: `${theme} Reaching and Grasping Play`,
+      objective: `Babies practice reaching, grasping, and transferring safe objects to build hand strength, coordination, and hand-eye tracking.`,
+      materials: `Large, lightweight ${theme.toLowerCase()} safe objects (soft balls, fabric shapes, board book, rattle), tummy time mat, mirror (optional)`,
+      setup: `Place mat on floor. Arrange 2–3 safe objects just within reaching distance of baby. Position a mirror nearby if available.`,
+      steps: `1. Lay baby on tummy or back based on comfort and developmental stage.\n2. Place an interesting object just slightly out of reach.\n3. Narrate: "[Name], look at the [object]! Can you reach for it?"\n4. Allow baby to work toward the object — don't rush to hand it over.\n5. When baby grasps it, celebrate: "You got it! Look at your strong hands!"\n6. Offer a second object to encourage transfer (passing from hand to hand).\n7. End session after 5–8 minutes or at baby's first signs of fatigue.`,
+      language: `"Reach for it — you're so close!";\n"You grabbed it! I saw your hard work!";\n"Can you give it to this hand? Try passing it."`,
+      questions: `"Where is the [object]? Can you reach it?"\n"What does it feel like in your hand?"`,
+      skills: `Reaching, grasping, transferring, hand-eye coordination, tummy time strength, visual tracking`,
+      extension: `Add a rattle or crinkle toy to introduce cause and effect (shake to make sound).`,
+      adaptation: `Simpler: Hand the object directly to practice grasping. More complex: Place in a soft cloth and let baby pull it out.`,
+    },
+    Toddler: {
+      title: `${theme} Pincer Practice Activity`,
+      objective: `Toddlers practice using their fingers to pick up, place, and sort small (safe-size) ${theme.toLowerCase()}-themed objects, strengthening hand muscles for drawing and self-help skills.`,
+      materials: `Toddler-safe small items (1-inch minimum), sorting tray or muffin tin, small tongs or clothespins, ${theme.toLowerCase()} picture cards, shallow bin`,
+      setup: `Fill shallow bin with 20–30 safe theme-related items. Place sorting tray beside it. Set one pair of tongs at each seat.`,
+      steps: `1. Show children the sorting tray: "We have a job today! Move the [items] into the tray."\n2. Demonstrate tongs or pincer grip: "Use two fingers — pinch and pick!"\n3. Encourage children to sort by color, size, or type.\n4. Name items as children work: "That's a [name]! You got it!"\n5. Allow 10–12 minutes. Celebrate effort and attempts.\n6. Children count items as they transfer to tray.`,
+      language: `"Pinch with two fingers — like a crab claw!";\n"You picked up [count] already! Nice pinching!";\n"Try the tongs — squeeze them together."`,
+      questions: `"How many did you put in? Can we count together?"\n"Which ones are the same? Can you group them?"\n"What was tricky? How did you figure it out?"`,
+      skills: `Pincer grip, hand strength, sorting, counting, concentration, pre-writing fine motor control`,
+      extension: `Use tweezers for additional challenge. Time children on a "beat your own record" challenge.`,
+      adaptation: `Simpler: Use larger items and no tongs — just fingers. More complex: Add a second sorting criterion (by color AND size).`,
+    },
+    Preschool: {
+      title: `${theme} Fine Motor Skills Station`,
+      objective: `Preschoolers use a variety of fine motor tools to build hand strength, precision, and coordination while exploring the week's theme.`,
+      materials: `Scissors (safety), construction paper, glue sticks, play dough, small rolling pins, scissors, stencils, pencils, crayons, hole puncher, lacing cards, ${theme.toLowerCase()} picture reference cards`,
+      setup: `Set up 3 stations at tables:\n  Station 1: Cutting and collage (pre-draw lines to cut on paper)\n  Station 2: Play dough sculpting with theme shapes\n  Station 3: Lacing or stencil tracing`,
+      steps: `1. Explain the three stations and rotate children every 5–6 minutes.\n2. Station 1: Demonstrate how to hold scissors. Say: "Thumb on top, fingers underneath. Cut on the line."\n3. Station 2: Model rolling a play dough ball, then challenge: "Can you make a [theme object]?"\n4. Station 3: Show lacing or stencil technique. Name the shape or object being traced.\n5. Circulate to offer support, name what children are doing, and encourage persistence.\n6. Close by asking: "Which station was your favorite? What was challenging?"`,
+      language: `"I see your fingers working hard. That takes real control.";\n"Try again — you almost had it. Persistence is a learning skill.";\n"Tell me about what you are making at this station."`,
+      questions: `"How did you decide how to cut/lace/roll that?"\n"What part was hardest? What helped you?"\n"What would you make differently next time?"`,
+      skills: `Scissor use, pincer control, hand strength, bilateral coordination, pre-writing skills, problem-solving`,
+      extension: `Add a fourth station with tweezers and beads. Invite children to create a "fine motor challenge" for a friend.`,
+      adaptation: `Simpler: Pre-cut lines more widely spaced; use thicker play dough. Harder: Add writing with pencils; use smaller scissors and more complex shapes.`,
+    },
+  };
+  const data = ageData[age] || ageData.Preschool;
+  return `Fine Motor Activity: ${data.title}
+Learning Objective: ${data.objective}
+
+Materials:
+${data.materials}
+
+Setup Instructions:
+${data.setup}
+
+Step-by-Step Directions:
+${data.steps}
+
+Teacher Language:
+${data.language}
+
+Questions to Ask Children:
+${data.questions}
+
+Skills Being Developed:
+${data.skills}
+
+Extension:
+${data.extension}
+
+Adaptation:
+${data.adaptation}`;
+}
+
+function lessonGrossMotorActivityDetail(theme, age) {
+  const ageData = {
+    Infant: {
+      title: `${theme} Tummy Time and Movement`,
+      objective: `Babies strengthen neck, back, and arm muscles through supervised tummy time and guided movement, building core strength for future milestones.`,
+      materials: `Tummy time mat, ${theme.toLowerCase()} picture card or small safe prop, mirror (propped safely), soft music`,
+      setup: `Place mat on clean floor. Position a propped mirror or ${theme.toLowerCase()} picture card at eye level (3–6 inches away). Ensure all nearby items are safe.`,
+      steps: `1. Place baby on tummy. Get to baby's eye level.\n2. Show the picture or mirror: "Look! Can you see it?"\n3. Encourage baby to lift head to see the image.\n4. Narrate: "You're lifting your head so strong!"\n5. If baby fusses, try supported tummy time on your chest or lap.\n6. After 2–4 minutes, turn baby over for rest and continued interaction.\n7. Repeat 2–3 times per session, following baby's cues.`,
+      language: `"Push up! You're so strong!";\n"I see you working hard. Look at those muscles!";\n"You lifted your head! I'm right here with you."`,
+      questions: `"Can you look up? What do you see?"\n"Do you want to kick your legs? Let's go!"`,
+      skills: `Tummy time strength, head lifting, neck and back muscles, visual tracking, body awareness`,
+      extension: `Hang a mobile or safe object above to increase motivation. Add gentle music for rhythm awareness.`,
+      adaptation: `Easier: Support on caregiver's chest. More challenge: Place a safe toy slightly out of reach to motivate lifting.`,
+    },
+    Toddler: {
+      title: `${theme} Movement and Action Game`,
+      objective: `Toddlers practice coordination, balance, and following simple movement directions through a fun, themed movement activity.`,
+      materials: `Open floor space, music source, ${theme.toLowerCase()} picture cards or props, tape for floor lines or shapes, scarves (optional)`,
+      setup: `Clear the floor space. Place tape in simple patterns (straight lines, circle). Gather 4–5 picture cards to use as movement cues.`,
+      steps: `1. Gather children in the open space.\n2. Show a picture card: "This is a [animal/object]. How does it move?"\n3. Model the movement and invite all children to join.\n4. Cycle through 4–5 movement cues:\n   - Farm: walk like a horse, flap like a chicken, jump like a frog\n   - Ocean: swim like a fish, walk like a crab, jump over a "wave"\n   - General: stomp, tiptoe, wiggle, freeze, spin\n5. Play music and call out movements.\n6. Include Freeze Dance: pause music and freeze in a shape.\n7. End with a slow deep-breath stretch: "Big stretch up, and melt down slowly."`,
+      language: `"Can you move like a [animal/object]? Show me!";\n"FREEZE! Make a statue shape. Hold it…now melt!";\n"Big jump! Small jump! Now tiptoe — quietly!"`,
+      questions: `"How do [animals/vehicles] move? Can you show me?"\n"What's a fast way to move? What's a slow way?"\n"Can you jump higher than before?"`,
+      skills: `Gross motor coordination, balance, following directions, body awareness, language connections`,
+      extension: `Add an obstacle course: crawl under a table, jump over a tape line, spin three times. Repeat daily with new movements.`,
+      adaptation: `Simpler: Stick to 2–3 movements. More complex: Sequence two movements: "Gallop to the wall then tiptoe back."`,
+    },
+    Preschool: {
+      title: `${theme} Cooperative Movement Challenge`,
+      objective: `Preschoolers build gross motor skills, coordination, and cooperation through a structured active game connected to the week's theme.`,
+      materials: `Open floor space, tape for course markers, beanbags or balls, hoops, cones (4–6), timer, ${theme.toLowerCase()} picture cards as station labels`,
+      setup: `Set up a 4-station course with tape and cones:\n  Station 1: Balance beam (tape line on floor)\n  Station 2: Jumping targets (hoops)\n  Station 3: Throw and catch (beanbags)\n  Station 4: Obstacle crawl (under table or tunnel)`,
+      steps: `1. Introduce the course: "Today we are [astronauts/farmers/explorers]! We will move through 4 challenges."\n2. Demonstrate each station before children begin.\n3. Split children into pairs. Partners move through together.\n4. Each station lasts 3 minutes. Teacher signals rotation with a bell or clap.\n5. Encourage children to help and cheer for their partner.\n6. After all stations: "Which station was most challenging? What made it hard?"`,
+      language: `"Encourage your partner — say 'You've got this!'";\n"I see you using your whole body for that task. That's core strength!";\n"Try the harder version: walk backward on the beam!"`,
+      questions: `"Which station needed the most balance? How do you know?"\n"How did you work together with your partner?"\n"What strategy helped you get across the balance beam?"`,
+      skills: `Gross motor coordination, balance, spatial awareness, bilateral movement, cooperation, self-regulation`,
+      extension: `Have children design their own station to add to the course. Time runs and track "personal bests."`,
+      adaptation: `Simpler: Remove time pressure; allow unlimited attempts. Harder: Add a ball to carry through the course without dropping it.`,
+    },
+  };
+  const data = ageData[age] || ageData.Preschool;
+  return `Gross Motor Activity: ${data.title}
+Learning Objective: ${data.objective}
+
+Materials:
+${data.materials}
+
+Setup Instructions:
+${data.setup}
+
+Step-by-Step Directions:
+${data.steps}
+
+Teacher Language:
+${data.language}
+
+Questions to Ask Children:
+${data.questions}
+
+Skills Being Developed:
+${data.skills}
+
+Extension:
+${data.extension}
+
+Adaptation:
+${data.adaptation}`;
+}
+
+function lessonSocialEmotionalDetail(theme, age) {
+  const ageData = {
+    Infant: {
+      title: `${theme} Responsive Connection Time`,
+      objective: `Babies experience warm, responsive one-on-one interactions, building secure attachment, early emotional regulation, and trust in caregivers.`,
+      activity: `During ${theme.toLowerCase()} play, focus 3–5 minutes on pure face-to-face connection with each baby. Hold baby in your lap or on the mat. Make eye contact, smile, mirror their expressions, and wait for responses.\n\nNarrate their feelings: "You look happy! I see your big smile." or "Oh, that surprised you! Your eyes got big."\n\nRespond to all communication — coos, babbles, reaching, turning away — as meaningful messages.`,
+      language: `"I see you! You are so happy!";\n"Oh, did that surprise you? I'm right here. You are safe.";\n"Tell me more — I'm listening! You have so much to say."`,
+      questions: `"Can you show me happy? There it is — a smile!"\n"Are you comfortable? Do you need anything?"\n(Pause after speaking to allow baby's response)`,
+      skills: `Secure attachment, emotional recognition, early communication, trust and safety, self-regulation`,
+      adaptation: `For fussier babies: Use a quiet space, reduce stimulation, and focus on physical contact and calm narration. For highly social babies: Extend to include peer awareness (place two babies near each other on mat).`,
+    },
+    Toddler: {
+      title: `${theme} Feelings and Friends Activity`,
+      objective: `Toddlers identify and name basic emotions, practice gentle social interactions, and build early empathy skills through a simple, playful activity.`,
+      activity: `During ${theme.toLowerCase()} play:\n1. Show a feelings chart or simple emotion cards (happy, sad, mad, scared, surprised).\n2. Make the face: "Watch me — I'm making a HAPPY face. Can you make one too?"\n3. Point to theme-related puppets or pictures: "How do you think [animal/character] feels right now?"\n4. Role-play a simple scenario: "Your friend wants the toy too. What could we do?"\n5. Practice: "When we want a turn, we say 'My turn please' and wait."`,
+      language: `"I see your [emotion] face. You feel [emotion] because [reason].";\n"You used your words! 'My turn please' is a great thing to say.";\n"That was kind. You shared. I noticed."`,
+      questions: `"How does [character] look? Happy or sad?"\n"What do you do when you feel mad?"\n"How can we help our friend feel better?"`,
+      skills: `Emotion identification, vocabulary (feeling words), empathy, turn-taking, using words to solve problems`,
+      adaptation: `Simpler: Focus on just 2 feelings (happy and sad). Use a mirror so children see their own face. More complex: Act out a 3-step sharing scenario.`,
+    },
+    Preschool: {
+      title: `${theme} Problem-Solving Together`,
+      objective: `Preschoolers practice identifying feelings, understanding others' perspectives, and solving social conflicts using a structured approach.`,
+      activity: `Use a real or imagined ${theme.toLowerCase()} scenario:\n1. Present a social dilemma to the group: "In our [theme] classroom, two friends both want to use the only blue paint. What could they do?"\n2. Ask children to brainstorm solutions: list all ideas without judgment.\n3. Evaluate solutions: "If we tried that, what might happen? Would everyone feel okay?"\n4. Choose a solution and role-play it.\n5. Debrief: "How did we solve this together? How did each person feel at the end?"`,
+      language: `"I wonder how your friend felt when that happened. What do you think?";\n"Before you decide, let's think — what are our choices?";\n"You solved that problem together. That's real teamwork."`,
+      questions: `"How did [character/friend] feel? How do you know?"\n"What are three things we could try to solve this?"\n"What would be fair for everyone? How can we check?"`,
+      skills: `Perspective-taking, empathy, conflict resolution, problem-solving, emotional vocabulary, cooperative play`,
+      adaptation: `Simpler: Provide 2 solution choices for children to evaluate. More complex: Add a journaling step — children draw or write how they solved a real problem this week.`,
+    },
+  };
+  const data = ageData[age] || ageData.Preschool;
+  return `Social-Emotional Connection: ${data.title}
+Learning Objective: ${data.objective}
+
+Activity:
+${data.activity}
+
+Teacher Language:
+${data.language}
+
+Questions to Ask Children:
+${data.questions}
+
+Skills Being Developed:
+${data.skills}
+
+Adaptation:
+${data.adaptation}`;
+}
+
+function lessonAdaptationsSection(age) {
+  const adaptations = {
+    Infant: `Adaptations for Different Abilities:
+For children who need more support:
+- Reduce stimulation to 1 item at a time. Use quieter, softer materials.
+- Increase physical proximity and warmth. Hold baby closer during floor play.
+- Follow the baby's lead entirely — stop and rest whenever cues indicate.
+
+For children showing advanced engagement:
+- Introduce 2 objects to encourage comparison (looking between two items).
+- Add gentle cause-effect (shake rattle; ball rolls when pushed).
+- Extend tummy time duration slightly when baby shows readiness.
+
+Mixed-age groups:
+- Keep infant activities separated from toddler activities during floor time.
+- Involve mobile infants briefly in group songs at a safe distance.`,
+    Toddler: `Adaptations for Different Abilities:
+For children who need more support:
+- Break directions into single steps: "First, pick it up. Now put it in."
+- Use visual cues (point, gesture, demonstration) before spoken directions.
+- Offer parallel play opportunities before expecting cooperation.
+- Reduce the number of choices to 2.
+
+For children ready for more challenge:
+- Add a second step to sorting or matching activities.
+- Introduce simple counting ("How many do you have? Let's count!").
+- Encourage 2–3 word sentences: "Red ball" becomes "I have the red ball."
+
+Mixed-age groups:
+- Older toddlers can "show" younger ones one step of an activity.
+- Use identical materials in slightly different ways by age.`,
+    Preschool: `Adaptations for Different Abilities:
+For children who need more support:
+- Provide sentence starters: "I notice…" / "I think…" / "I wonder…"
+- Use visual supports (picture schedules, object-based prompts).
+- Partner with a more advanced peer for activities requiring multiple steps.
+- Reduce writing expectations; accept drawing as documentation.
+
+For children ready for more challenge:
+- Add open-ended extensions: "What would happen if…? Test your idea."
+- Introduce journaling: record observations, predictions, or drawings.
+- Assign leadership roles: "You're the scientist helper today — ask a question!"
+- Connect to early literacy: label drawings, write words, retell stories.
+
+Mixed-age groups:
+- Use tiered questioning: ask simpler questions to younger children, deeper questions to older children during the same activity.`,
+  };
+  return adaptations[age] || adaptations.Preschool;
+}
+
+function lessonAssessmentSection(area) {
+  return `Assessment and Observation Notes:
+What to Look For:
+- Evidence of ${area.toLowerCase()} skill use: labeling, sorting, comparing, creating, moving, helping, solving
+- Language used during activities: new vocabulary, questions asked, responses given
+- Social engagement: peer interaction, turn-taking, cooperation, help-seeking
+- Persistence: how the child approaches difficulty, attempts, and problem-solving
+
+Documentation Suggestions:
+- Anecdotal note: jot the child's exact words or describe an observed action in 1–2 sentences
+- Photo evidence: capture child engaged with materials, a finished product, or a social moment
+- Checklist: note which vocabulary words the child used independently
+- Work sample: save art or drawing with child's name and date
+
+Next Steps:
+- Repeat successful activities with one new challenge added
+- Introduce a related book or song that extends the theme
+- Offer the same materials in a new context (outdoors, small group, free choice)
+- Plan a family connection follow-up based on observed interests`;
+}
+
+function lessonFamilyConnectionDetail(theme, age) {
+  const ageNote = {
+    Infant: "Share this simple activity with families during pickup. Keep it brief and encouraging — caregivers don't need supplies.",
+    Toddler: "Send this home as a simple note or post it in your communication app. Encourage families to try it over the weekend.",
+    Preschool: "Share this with families in a brief note or newsletter. Preschoolers can help explain the activity to their family.",
+  };
+  const note = ageNote[age] || ageNote.Preschool;
+  return `Family Connection Idea:
+Theme: ${theme}
+
+${note}
+
+At-Home Activity: "${theme} Conversation Walk"
+Materials Needed: No supplies needed (or a simple walk around the home, yard, or neighborhood)
+
+Directions for Families:
+1. While on a walk or doing daily routines, look for anything connected to ${theme.toLowerCase()}.
+2. Ask your child: "What do you notice? Can you tell me about it?"
+3. Use the vocabulary words from this week. Name things together.
+4. Ask one "wondering" question: "I wonder why [observation]... what do you think?"
+5. Celebrate every answer — there are no wrong responses!
+
+What to Say:
+"We've been learning about ${theme.toLowerCase()} at school. Tell me what you know!"
+"What's your favorite thing about ${theme.toLowerCase()}? Why?"
+
+How It Connects to Classroom Learning:
+This conversation reinforces the vocabulary, questions, and curiosity built at school this week. It also strengthens the family-school partnership and shows children that learning happens everywhere.`;
 }
 
 function lessonDailyPlans(resource, theme, area) {
   const age = resource.age || "Preschool";
-  const focus = resource.activityFocus || resource.tags.find((tag) => activityTypes.includes(tag)) || "Hands-on";
-  const ageSupport = {
-    Infant: {
-      intro: `Show one ${theme.toLowerCase()} photo or prop during floor play. Name it slowly and repeat the word while the child looks, reaches, babbles, or turns away.`,
-      small: `Offer two safe ${theme.toLowerCase()} objects or picture cards. Let the child touch, look, mouth safely if appropriate, or choose one item.`,
-      active: `Add a simple lap bounce, tummy-time reach, scarf movement, or gentle action song connected to ${theme.toLowerCase()}.`,
-      support: "Respond to eye gaze, gestures, sounds, smiles, reaching, or turning away. Stop and adjust when the child needs a break.",
-    },
-    Toddler: {
-      intro: `Introduce ${theme.toLowerCase()} with a short book, song, or real-life photo. Ask children to point, name, copy a sound, or choose a favorite item.`,
-      small: `Invite children to sort, carry, match, stack, scoop, draw, or place ${theme.toLowerCase()} materials with simple teacher support.`,
-      active: `Play a movement game where children move, freeze, crawl, jump, or pretend using ${theme.toLowerCase()} vocabulary.`,
-      support: "Offer two choices, model the first step, use repeated words, and allow movement breaks.",
-    },
-    Preschool: {
-      intro: `Begin with a ${theme.toLowerCase()} question, book, photo, or object. Invite children to predict, describe, compare, and share what they already know.`,
-      small: `Guide a small group task where children sort, count, draw, write, build, investigate, or explain an idea connected to ${theme.toLowerCase()}.`,
-      active: `Add a partner activity, dramatic play invitation, movement challenge, or open-ended art/science extension.`,
-      support: "Ask open-ended questions, document child language, and offer an added challenge for children who are ready.",
-    },
+  const isInfant = age === "Infant";
+  const isToddler = age === "Toddler";
+
+  const dayIntros = {
+    Infant: [
+      `Hold a ${theme.toLowerCase()} picture card at eye level. Name the image slowly and wait for baby's gaze, reach, or vocalization. Respond warmly to every cue.`,
+      `Sing a short, simple song with your hands — repeat the same song twice in a row so baby can begin to anticipate the pattern.`,
+      `Place a safe ${theme.toLowerCase()} object on the floor mat. Narrate as baby explores: "You found it! It's a [name]. Can you touch it?"`,
+      `Do supervised tummy time with a ${theme.toLowerCase()} picture card propped at eye level to motivate head lifting.`,
+      `Read a short board book together. Point to each picture and say its name. Pause and wait for baby's responses.`,
+    ],
+    Toddler: [
+      `Introduce ${theme.toLowerCase()} by showing a real object, photo, or picture card. Ask: "What is this? Can you point to it?" Name the object together.`,
+      `Gather children for a short song connected to the theme. Sing it twice with simple hand motions. Ask children to fill in words or sounds.`,
+      `Lead a small sorting activity: children group ${theme.toLowerCase()} materials by color, type, or size. Say: "Where does this one go?"`,
+      `Read a simple picture book connected to ${theme.toLowerCase()}. Pause to ask: "What do you see? Can you point to the [name]?"`,
+      `Invite children to share their favorite thing from the week: "What was your favorite? Show me or tell me."`,
+    ],
+    Preschool: [
+      `Introduce the theme with a question: "What do you already know about ${theme.toLowerCase()}? What do you want to find out?" Chart responses.`,
+      `Begin with a vocabulary review: show 3–4 theme words on cards. Ask children to describe each one in their own words.`,
+      `Share a nonfiction book or photo related to ${theme.toLowerCase()}. Ask: "What surprises you about this? What do you notice?"`,
+      `Lead a small-group problem-solving activity connected to ${theme.toLowerCase()}. Invite children to think out loud.`,
+      `Revisit the week's learning: "What is the most interesting thing you discovered? What would you want to learn next about ${theme.toLowerCase()}?"`,
+    ],
   };
-  const support = ageSupport[age] || ageSupport.Preschool;
-  return `Monday - Introduce the Theme
-Circle Time: ${support.intro}
-Main Activity: Create a shared ${theme.toLowerCase()} anchor chart or display. Add child words, drawings, photos, or teacher notes as children participate.
-${area} Focus: ${lessonAreaPractice(area, theme, age)}
-Teacher Language: "I see you noticing ${theme.toLowerCase()}. What can we try next?"
-Observation Look-For: Watch for interest, participation, attention, gestures, words, choices, or attempts to use the material.
 
-Tuesday - Build Vocabulary and Concepts
-Circle Time: Sing a repeated song or fingerplay using ${theme.toLowerCase()} vocabulary. Pause so children can fill in a sound, motion, word, or gesture.
-Small Group: ${support.small}
-Printable or Table Activity: Use a simple ${theme.toLowerCase()} tracing, matching, counting, coloring, or drawing page. Keep support age-appropriate.
-Teacher Language: "You found one that is the same. Let's say the word together."
-Observation Look-For: Notice new words, pointing, matching, repeating, eye contact, turn-taking, or problem solving.
+  const mainActivities = {
+    Infant: [
+      { name: "Sensory Floor Exploration", steps: "1. Place 2 safe ${theme}-related items on the tummy time mat within baby's reach.\n2. Narrate each item: 'This is a [name]. It feels [texture].'\n3. Encourage reaching by placing items just slightly out of reach.\n4. Respond warmly to every vocalization and movement attempt.\n5. End after 8 minutes or at first signs of overstimulation.", lang: "\"Oh, you reached for it! Look at your strong arms!\"", domains: "Sensory, Fine Motor, Language, Social-Emotional" },
+      { name: "Song and Visual Tracking", steps: "1. Hold a colorful ${theme}-related prop or scarf at eye level.\n2. Slowly move the object from side to side while singing a gentle song.\n3. Pause when baby tracks; narrate: 'Your eyes followed it all the way!'\n4. Offer the object for touching after tracking.\n5. Repeat with a second prop in a different color.", lang: "\"Can you follow it with your eyes? There it goes!\"", domains: "Visual Tracking, Language, Sensory, Social-Emotional" },
+      { name: "Texture Discovery Tray", steps: "1. Prepare a shallow tray with 3 different safe textures.\n2. Sit beside baby and introduce each texture by name and description.\n3. Guide baby's hand gently to feel each texture in turn.\n4. Narrate observations: 'This one is smooth. This one is bumpy.'\n5. Notice which textures baby responds to most and repeat those.", lang: "\"Feel this one — it's so soft! What about this bumpy one?\"", domains: "Sensory, Fine Motor, Language, Cognitive" },
+      { name: "Tummy Time with Theme Prop", steps: "1. Place baby on tummy on the clean mat.\n2. Position a ${theme}-themed picture or safe object at eye level.\n3. Encourage head lifting: 'Look up! You can see it!'\n4. Support baby with a rolled towel under the chest if needed.\n5. Celebrate every head lift: 'You did it! So strong!'\n6. End after 3–5 minutes or when baby shows fatigue.", lang: "\"Push up! I see those strong arms working!\"", domains: "Gross Motor, Visual Tracking, Sensory, Social-Emotional" },
+      { name: "Board Book Sharing", steps: "1. Hold baby in your lap or side by side on the mat.\n2. Open a board book with ${theme}-related pictures.\n3. Point to each image and say its name clearly.\n4. Pause after each page and wait for baby to look or respond.\n5. Follow baby's interest — let them touch pages and turn them.\n6. End with a familiar short song to close the activity.", lang: "\"There's a [picture]! Can you see it? You're looking right at it!\"", domains: "Literacy, Language, Sensory, Social-Emotional, Cognitive" },
+    ],
+    Toddler: [
+      { name: `${theme} Matching and Naming`, steps: `1. Place 4–6 ${theme.toLowerCase()}-themed picture cards face up on the table.\n2. Show a matching object or card and ask: "Can you find the one that matches?"\n3. Name each item as children pick it up.\n4. After matching, ask: "Can you tell me one thing about this [item]?"\n5. Repeat with a new set of pictures.`, lang: "\"You found it! Great matching! Now can you tell me its name?\"", domains: "Cognitive, Language, Fine Motor" },
+      { name: `${theme} Song with Movements`, steps: `1. Teach children a simple song connected to the theme.\n2. Add 3–4 simple movements (clap, stomp, reach, jump).\n3. Sing it slowly the first time; model each movement.\n4. Sing again and invite children to join movements.\n5. Vary the tempo — fast, then slow — on the third time.`, lang: "\"Watch me! Now your turn — can you do that move?\"", domains: "Language, Gross Motor, Social-Emotional, Cognitive" },
+      { name: `${theme} Hands-On Sorting`, steps: `1. Prepare a bin with 12–15 ${theme.toLowerCase()}-related objects.\n2. Place 2–3 sorting trays or bowls labeled by category.\n3. Model sorting one item: "This goes here because it's [color/type]."\n4. Invite children to sort the remaining items.\n5. Count items in each tray when done.`, lang: "\"Where does this one go? You decide. Good thinking!\"", domains: "Cognitive, Fine Motor, Language, Math" },
+      { name: `${theme} Simple Art`, steps: `1. Cover the table with newspaper.\n2. Place one large sheet of paper and 2 paint colors at each spot.\n3. Show children the ${theme.toLowerCase()} inspiration picture.\n4. Say: "You choose how to make your own [theme] picture."\n5. Allow 10-12 minutes of free process art.\n6. Name colors and actions as children work.`, lang: '"I love how you chose that color! Tell me about your picture."', domains: "Creative Arts, Fine Motor, Language, Cognitive" },
+      { name: `${theme} Review and Sharing`, steps: `1. Gather children in a circle with the week's materials visible.\n2. Hold up one item at a time: "Who can remember what this is?"\n3. Let each child choose one favorite activity to demonstrate or describe.\n4. End with the week's favorite song together.\n5. Share a simple family connection idea: one thing to try at home.`, lang: "\"What did we learn this week about [theme]? I remember you said…\"", domains: "Language, Cognitive, Social-Emotional" },
+    ],
+    Preschool: [
+      { name: `${theme} Discovery and Anchoring`, steps: `1. Write "What We Know About ${theme}" at the top of chart paper.\n2. Invite children to share: record exact child language.\n3. Introduce 3-4 vocabulary words with picture cards.\n4. Read aloud a picture book connected to the theme.\n5. Ask 2 discussion questions and chart new learning.\n6. Introduce the week's sensory invitation for exploration.`, lang: '"What do you already know? I want to write your exact words."', domains: "Literacy, Language, Cognitive, Social-Emotional" },
+      { name: `${theme} Math and STEM Exploration`, steps: `1. Set up 2 small-group math stations with ${theme.toLowerCase()}-related materials.\n2. Station 1: Sort and count objects; graph results on large paper.\n3. Station 2: Measure, compare, or weigh theme-related items.\n4. Children rotate after 7–8 minutes.\n5. Close with a group share: "What did you discover? What surprised you?"`, lang: "\"How many do you have? Is that more or fewer than [other group]?\"", domains: "Math, Cognitive, Language, Fine Motor" },
+      { name: `${theme} Science Investigation`, steps: `1. Set up 3 exploration trays with different theme-related materials.\n2. Provide magnifying glasses, clipboards, and observation recording sheets.\n3. Model a scientific observation: "I notice… I wonder… I think…"\n4. Children rotate every 5 minutes and record drawings.\n5. Close with a 3-minute group discussion: "What was most surprising?"`, lang: "\"Use your scientist eyes. What do you notice first? What do you wonder?\"", domains: "Science, Language, Cognitive, Fine Motor" },
+      { name: `${theme} Dramatic Play and Literacy`, steps: `1. Set up a dramatic play space with ${theme.toLowerCase()}-related props and costumes.\n2. Add print elements: signs, labels, menus, maps, or order forms.\n3. Introduce the scenario and let children develop the play.\n4. Circulate and narrate; ask questions to extend the narrative.\n5. After play, debrief: "What happened in your story? What was your role?"`, lang: "\"Tell me about your character. What is your job in this story?\"", domains: "Social-Emotional, Language, Literacy, Cognitive, Creative Arts" },
+      { name: `${theme} Review, Documentation, and Reflection`, steps: `1. Display child work and photos from the week.\n2. Gallery walk: children look at displayed work and leave a sticky note compliment.\n3. Revisit the vocabulary chart: "Can you remember all 8 words?"\n4. Children draw or write one thing they learned.\n5. Share family connection idea; preview next week's theme.`, lang: "\"What is the most interesting thing you discovered this week? Why?\"", domains: "Literacy, Language, Social-Emotional, Cognitive" },
+    ],
+  };
 
-Wednesday - Hands-On ${area} Practice
-Circle Time: Review two favorite words from the week and invite children to show, say, move, or draw an example.
-Small Group: ${lessonAreaPractice(area, theme, age)}
-${focus} Extension: Add blocks, art, sensory materials, dramatic play props, outdoor movement, or science tools so children can explore the idea in a new way.
-Teacher Language: "You tried another way. That is careful thinking."
-Observation Look-For: Document one clear example of ${area.toLowerCase()} development during play.
+  const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  const dayFocuses = {
+    Infant: ["Introduce and Explore", "Songs and Tracking", "Sensory Discovery", "Movement and Strength", "Books and Bonding"],
+    Toddler: ["Introduce the Theme", "Songs and Vocabulary", "Hands-On Exploration", "Art and Movement", "Review and Share"],
+    Preschool: ["Introduce and Anchor", "Math and STEM", "Science Investigation", "Dramatic Play and Literacy", "Review and Reflect"],
+  };
+  const transitions = {
+    Infant: ["Follow baby's lead to the next care routine", "Soft lullaby to signal rest time", "Gentle narration of the transition: 'Now we are going to…'", "Calming scarf wave before changing positions", "Short song during diapering or feeding transition"],
+    Toddler: ["Sing the cleanup song together", "Animal walk to the next activity ('Let's hop like bunnies!')", "Count down from 5 with hand signals", "Whisper voice to gather attention: 'If you can hear me, touch your nose'", "March in a line to the next space"],
+    Preschool: ["Invite children to pick a transition job (line leader, door holder, lamp lighter)", "Ask a thinking question on the way: 'What do you remember about…?'", "Count down from 10 as children clean up and move", "Secret signal: clap pattern that children repeat back", "Quiet challenge: 'Can you tiptoe silently to the circle?'"],
+  };
 
-Thursday - Creative Expression and Child Choice
-Circle Time: Revisit the theme book, song, photo, or prop. Invite children to choose what they want to explore again.
-Art / Sensory / Pretend Play: ${support.active}
-Choice Time: Let children repeat a favorite activity, use the materials in a new way, or work with a peer.
-Teacher Language: "Tell me about your work. I want to hear your idea."
-Observation Look-For: Watch for confidence, persistence, peer interaction, independent choices, and expressive language.
+  const intros = dayIntros[age] || dayIntros.Preschool;
+  const activities = mainActivities[age] || mainActivities.Preschool;
+  const focuses = dayFocuses[age] || dayFocuses.Preschool;
+  const trans = transitions[age] || transitions.Preschool;
 
-Friday - Review, Document, and Connect Home
-Circle Time: Review the week with photos, child work, props, or a simple question: "What did we learn about ${theme.toLowerCase()}?"
-Small Group: Repeat the most successful activity and add one small challenge for children who are ready.
-Assessment Note: Record each child's participation, new vocabulary, developmental skill, support needed, and next step.
-Family Connection: Send home one ${theme.toLowerCase()} word, song, question, or simple activity families can try over the weekend.
-Teacher Reflection: ${support.support}`;
+  return dayNames.map((day, i) => {
+    const activity = activities[i];
+    const steps = activity.steps.replace(/\${theme}/g, theme);
+    return `${day} — ${focuses[i]}
+Morning Circle: ${intros[i]}
+Main Learning Activity: ${activity.name}
+  Objective: Build ${area.toLowerCase()} skills through ${theme.toLowerCase()} exploration.
+  Setup: Gather materials. Arrange space for ${isInfant ? "safe floor play" : isToddler ? "small group table or floor work" : "small group discussion and hands-on work"}.
+  Steps:
+  ${steps}
+  Teacher Language: ${activity.lang}
+  Questions to Ask: ${lessonQuestionsGuide(theme, age).split("\n")[i % 5] || "What do you notice? What do you want to try?"}
+Developmental Domains: ${activity.domains}
+Transition Tip: ${trans[i]}`;
+  }).join("\n\n");
 }
+
+
 
 function resourceDownloadBody(resource) {
   const savedContent = resource.customContent || decodedTextFileData(resource);
@@ -5179,51 +5807,79 @@ function resourceDownloadBody(resource) {
   if (resource.category === "Lesson Plans") {
     const theme = resource.theme || resourceTheme(resource);
     const area = resourceFocus(resource);
+    const age = resource.age || "Preschool";
     const standards = resourceStandardConnections(resource);
     const objectives = lessonObjectives(resource, theme, area);
     return `Weekly Lesson Plan
 Title: ${resource.title}
-Theme: ${resource.theme || resource.tags[0]}
+Theme: ${theme}
 Month: ${resource.month}
-Age Group: ${resource.age}
-Developmental Area: ${area}
+Age Group: ${age}
+Developmental Focus: ${area}
 Holiday: ${resource.holiday || "Non-Holiday"}
 
 Weekly Overview
 ${resource.weeklyOverview || resource.description}
 
 Age Group Teaching Approach
-${lessonAgeApproach(resource.age)}
+${lessonAgeApproach(age)}
 
-Learning Objectives
+Weekly Learning Objectives
 ${objectives.map((item) => `- ${item}`).join("\n")}
+
+Vocabulary Words
+${lessonVocabulary(theme, area)}
+
+Complete Materials List
+${resource.materials || lessonThemeMaterials(theme)}
+
+Teacher Language Guide
+Use these age-matched phrases throughout the week:
+${lessonTeacherLanguageGuide(age)}
+
+Questions to Ask Children
+${lessonQuestionsGuide(theme, age)}
+
+Monday Through Friday
+${lessonDailyPlans(resource, theme, area)}
+
+Art Activity
+${lessonArtActivityDetail(theme, age)}
+
+Sensory Activity
+${lessonSensoryActivityDetail(theme, age)}
+
+Fine Motor Activity
+${lessonFineMotorActivityDetail(theme, age)}
+
+Gross Motor Activity
+${lessonGrossMotorActivityDetail(theme, age)}
+
+Social-Emotional Connection
+${lessonSocialEmotionalDetail(theme, age)}
+
+${lessonAdaptationsSection(age)}
+
+Extensions
+- Introduce a second picture book connected to the theme on a different day.
+- Add a new sensory material to extend the exploration (change the texture, color, or scale).
+- Connect the theme to a real-world experience: a nature walk, a guest visitor, or a cooking activity.
+
+${lessonAssessmentSection(area)}
+
+${lessonFamilyConnectionDetail(theme, age)}
 
 ELG / Early Learning Standard Connections
 ${standards}
-
-Materials
-${resource.materials || lessonThemeMaterials(theme)}
-
-Vocabulary
-${lessonVocabulary(theme, area)}
-
-${lessonDailyPlans(resource, theme, area)}
-
-Related Activities
-${(resource.relatedActivities || ["Circle time", "Small group", "Printable extension"]).map((item) => `- ${item}`).join("\n")}
-
-Differentiation and Supports
-- Offer fewer materials, more modeling, shorter wait time, or one-to-one support for children who need extra help.
-- Add vocabulary, sorting, drawing, counting, writing, leadership, or peer-helper roles for children who are ready for more.
-- Adapt materials for allergies, sensory needs, motor access, communication supports, and family culture.
 
 Child Support Connection
 Use the Add Support button to document individualized accommodations, modifications, and support activities inside a child profile.
 
 Provider Reflection
-What worked well?
+What worked well this week?
 Which child showed new language, confidence, persistence, or social participation?
-What will you repeat or extend next week?`;
+What will you repeat, extend, or change next week?
+What would you like to document or share with families?`;
   }
   if (resource.category === "Observation Hub") {
     const area = resource.tags.find((tag) => learningAreas.includes(tag)) || "Developmental area";
