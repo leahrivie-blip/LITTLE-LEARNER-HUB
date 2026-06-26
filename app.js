@@ -3280,13 +3280,17 @@ function isLoggedIn() {
   return Boolean(currentUser);
 }
 
+function visibleResourcesForCategory(category) {
+  return resources.filter((resource) => resource.category === category && isResourceVisibleToCurrentUser(resource));
+}
+
 function freeResourceIds(category) {
   const limit = freeAccessLimits[category] ?? 0;
-  return new Set(resources.filter((resource) => resource.category === category).slice(0, limit).map((resource) => resource.id));
+  return new Set(visibleResourcesForCategory(category).slice(0, limit).map((resource) => resource.id));
 }
 
 function categoryAccessCounts(category) {
-  const total = resources.filter((resource) => resource.category === category).length;
+  const total = visibleResourcesForCategory(category).length;
   const freeLimit = Math.min(freeAccessLimits[category] ?? 0, total);
   return {
     total,
@@ -17798,6 +17802,7 @@ document.addEventListener("click", async (event) => {
   }
 
 
+  const quickDocGenerateBtn = event.target.closest("#quickDocGenerate");
   if (quickDocGenerateBtn) {
     event.preventDefault();
     if (!canUseAi()) {
@@ -18048,17 +18053,29 @@ document.addEventListener("click", async (event) => {
   const customizeLessonButton = event.target.closest("[data-customize-lesson-ai]");
   if (customizeLessonButton) {
     const resource = resources.find((item) => item.id === customizeLessonButton.dataset.customizeLessonAi);
+    if (!resource) return;
+    lessonPlanWorkflowState.step = 1;
+    lessonPlanWorkflowState.generating = false;
+    lessonPlanWorkflowState.step1 = {
+      programName: "",
+      age: resource.age,
+      planLength: "Weekly",
+      theme: resourceTheme(resource),
+      childCount: "",
+      developmentalFocus: resourceFocus(resource),
+      materials: resource.materials || "",
+      environment: "Both",
+      timeAvailable: "",
+      specialRequests: "",
+    };
+    lessonPlanWorkflowState.step2 = {
+      options: [],
+      accommodations: "",
+    };
+    lessonPlanWorkflowState.sectionRegenerate = "Full lesson plan";
+    lessonPlanWorkflowState.improveRequest = "";
     setView("generators");
     renderGeneratorWorkspace("lesson");
-    if (resource) {
-      const form = document.querySelector("#activeGeneratorForm");
-      if (form) {
-        form.querySelector('[name="age"]').value = resource.age;
-        form.querySelector('[name="theme"]').value = resource.theme || resource.tags[0] || "";
-        form.querySelector('[name="focus"]').value = resource.developmentalArea || resource.tags.find((tag) => learningAreas.includes(tag)) || "";
-        form.querySelector('[name="materials"]').value = resource.materials || "";
-      }
-    }
   }
 
   const findLessonActivitiesButton = event.target.closest("[data-find-lesson-activities]");
