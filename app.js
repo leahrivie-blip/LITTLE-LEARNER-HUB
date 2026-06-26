@@ -725,13 +725,27 @@ const printablePdfLimit = Number.POSITIVE_INFINITY;
 // Admins always retain full access. Flip back to false to re-enable for users.
 const PRINTABLES_HIDDEN = true;
 
+// Set to true to temporarily hide legacy infant lesson plans while they are being upgraded.
+// Plans marked premium: true remain visible. Admins always retain full access.
+// Flip back to false to re-enable legacy plans for users.
+const INFANT_LEGACY_HIDDEN = true;
+
 function isPrintablesUpgradeModeActive() {
   return PRINTABLES_HIDDEN && !hasAdminFullAccess();
+}
+
+function isInfantLegacyUpgradeModeActive() {
+  return INFANT_LEGACY_HIDDEN && !hasAdminFullAccess();
+}
+
+function isInfantLegacyPlan(resource) {
+  return resource.category === "Lesson Plans" && resource.age === "Infant" && !resource.premium;
 }
 
 function isResourceVisibleToCurrentUser(resource) {
   if (!resource) return false;
   if (resource.category === "Printables" && isPrintablesUpgradeModeActive()) return false;
+  if (isInfantLegacyPlan(resource) && isInfantLegacyUpgradeModeActive()) return false;
   return true;
 }
 
@@ -7083,6 +7097,7 @@ function renderCategoryPage(view) {
     </div>
     ${searchedChild ? renderChildLessonSearchContext(searchedChild) : ""}
     ${category === "Printables" ? renderPrintablesRefreshNotice() : ""}
+    ${category === "Lesson Plans" ? renderInfantLegacyNotice() : ""}
     <div class="filter-row">
       ${filters.map((filter) => `<button class="${activeFilter === filter ? "active-filter" : ""}" data-filter="${filter}">${filter}</button>`).join("")}
     </div>
@@ -7115,6 +7130,16 @@ function renderPrintablesRefreshNotice() {
     <div class="access-notice printable-refresh-notice">
       <strong>Professional print-ready resources.</strong>
       Worksheets use structured classroom layouts, PDF-ready pages, dotted tracing or cutting practice when appropriate, and quality checks for placeholder or unfinished content before printing.
+    </div>
+  `;
+}
+
+function renderInfantLegacyNotice() {
+  if (!isInfantLegacyUpgradeModeActive()) return "";
+  return `
+    <div class="access-notice infant-legacy-notice">
+      <strong>Infant lesson plans are being upgraded.</strong>
+      We're upgrading our infant lesson plans to a stronger framework. Some older plans are temporarily hidden while they are being improved.
     </div>
   `;
 }
