@@ -295,6 +295,143 @@ function defaultStore() {
     billingEvents: [],
     leads: [],
     promoRedemptions: [],
+    siteContent: defaultSiteContentStore(),
+  };
+}
+
+function defaultSiteContentStore() {
+  return {
+    lessonPlans: {},
+    reviews: [],
+    founder: {},
+    homepage: {},
+    images: [],
+    updatedAt: "",
+  };
+}
+
+function normalizedMultilineText(value, maxLength = 12000) {
+  return String(value || "").replace(/\r\n?/g, "\n").trim().slice(0, maxLength);
+}
+
+function normalizedShortText(value, maxLength = 240) {
+  return normalizedMultilineText(value, maxLength);
+}
+
+function sanitizedImageSource(value, maxLength = 1_000_000) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (/^data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=]+$/i.test(text)) return text.slice(0, maxLength);
+  if (/^(https?:)?\/\//i.test(text) || text.startsWith("/")) return text.slice(0, 4000);
+  return "";
+}
+
+function normalizedList(items, limit, mapper) {
+  return Array.isArray(items) ? items.slice(0, limit).map(mapper).filter(Boolean) : [];
+}
+
+function normalizedLessonPlanOverride(id, value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const days = entry.dailyActivities && typeof entry.dailyActivities === "object" ? entry.dailyActivities : {};
+  return {
+    id: normalizedShortText(id, 160),
+    title: normalizedShortText(entry.title, 180),
+    age: normalizedShortText(entry.age, 40),
+    theme: normalizedShortText(entry.theme, 120),
+    weeklyOverview: normalizedMultilineText(entry.weeklyOverview, 4000),
+    materials: normalizedMultilineText(entry.materials, 4000),
+    teacherLanguage: normalizedMultilineText(entry.teacherLanguage, 4000),
+    objectives: normalizedMultilineText(entry.objectives, 4000),
+    elgConnections: normalizedMultilineText(entry.elgConnections, 4000),
+    familyConnection: normalizedMultilineText(entry.familyConnection, 4000),
+    reflectionNotes: normalizedMultilineText(entry.reflectionNotes, 4000),
+    plan: normalizedShortText(entry.plan, 20),
+    visible: entry.visible !== false,
+    thumbnailUrl: sanitizedImageSource(entry.thumbnailUrl),
+    dailyActivities: {
+      monday: normalizedMultilineText(days.monday, 4000),
+      tuesday: normalizedMultilineText(days.tuesday, 4000),
+      wednesday: normalizedMultilineText(days.wednesday, 4000),
+      thursday: normalizedMultilineText(days.thursday, 4000),
+      friday: normalizedMultilineText(days.friday, 4000),
+    },
+  };
+}
+
+function normalizedReviewEntry(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  return {
+    id: normalizedShortText(entry.id || `review-${Date.now()}-${crypto.randomBytes(6).toString("hex")}`, 120),
+    name: normalizedShortText(entry.name, 120),
+    businessName: normalizedShortText(entry.businessName, 140),
+    text: normalizedMultilineText(entry.text, 2400),
+    imageUrl: sanitizedImageSource(entry.imageUrl),
+    visible: entry.visible !== false,
+    order: Number.isFinite(Number(entry.order)) ? Number(entry.order) : 0,
+  };
+}
+
+function normalizedSimpleCard(value, fallbackId = "") {
+  const entry = value && typeof value === "object" ? value : {};
+  const id = normalizedShortText(entry.id || fallbackId, 120);
+  return {
+    id,
+    title: normalizedShortText(entry.title, 180),
+    text: normalizedMultilineText(entry.text, 2000),
+    imageUrl: sanitizedImageSource(entry.imageUrl),
+  };
+}
+
+function normalizedSiteContent(value) {
+  const input = value && typeof value === "object" ? value : {};
+  const lessonPlansInput = input.lessonPlans && typeof input.lessonPlans === "object" ? input.lessonPlans : {};
+  const lessonPlans = Object.fromEntries(
+    Object.entries(lessonPlansInput)
+      .slice(0, 2000)
+      .map(([id, item]) => {
+        const normalized = normalizedLessonPlanOverride(id, item);
+        return normalized.id ? [normalized.id, normalized] : null;
+      })
+      .filter(Boolean),
+  );
+  return {
+    lessonPlans,
+    reviews: normalizedList(input.reviews, 100, normalizedReviewEntry),
+    founder: {
+      name: normalizedShortText(input.founder?.name, 120),
+      title: normalizedShortText(input.founder?.title, 120),
+      aboutText: normalizedMultilineText(input.founder?.aboutText, 4000),
+      shortBio: normalizedMultilineText(input.founder?.shortBio, 1200),
+      profileImageUrl: sanitizedImageSource(input.founder?.profileImageUrl),
+      homeImageUrl: sanitizedImageSource(input.founder?.homeImageUrl),
+    },
+    homepage: {
+      heroBadge: normalizedShortText(input.homepage?.heroBadge, 180),
+      heroHeadline: normalizedShortText(input.homepage?.heroHeadline, 240),
+      heroSubheadline: normalizedMultilineText(input.homepage?.heroSubheadline, 1200),
+      heroCtaText: normalizedShortText(input.homepage?.heroCtaText, 120),
+      heroSecondaryCtaText: normalizedShortText(input.homepage?.heroSecondaryCtaText, 120),
+      socialProofText: normalizedMultilineText(input.homepage?.socialProofText, 400),
+      heroImageUrl: sanitizedImageSource(input.homepage?.heroImageUrl),
+      featureCards: normalizedList(input.homepage?.featureCards, 12, (item, index) => normalizedSimpleCard(item, `feature-${index + 1}`)),
+      howItWorks: normalizedList(input.homepage?.howItWorks, 12, (item, index) => normalizedSimpleCard(item, `how-${index + 1}`)),
+      comingSoon: normalizedList(input.homepage?.comingSoon, 12, (item, index) => normalizedSimpleCard(item, `soon-${index + 1}`)),
+      previewCards: normalizedList(input.homepage?.previewCards, 12, (item, index) => normalizedSimpleCard(item, `preview-${index + 1}`)),
+      finalCtaHeadline: normalizedShortText(input.homepage?.finalCtaHeadline, 240),
+      finalCtaText: normalizedMultilineText(input.homepage?.finalCtaText, 1200),
+      finalCtaButtonText: normalizedShortText(input.homepage?.finalCtaButtonText, 120),
+    },
+    images: normalizedList(input.images, 200, (item, index) => {
+      const entry = item && typeof item === "object" ? item : {};
+      const normalized = {
+        id: normalizedShortText(entry.id || `image-${index + 1}`, 120),
+        label: normalizedShortText(entry.label, 180),
+        group: normalizedShortText(entry.group, 120),
+        imageUrl: sanitizedImageSource(entry.imageUrl),
+      };
+      return normalized.id ? normalized : null;
+    }),
+    updatedAt: normalizedShortText(input.updatedAt, 80),
   };
 }
 
@@ -1688,6 +1825,20 @@ async function handleAdminLogin(request, response) {
   });
 }
 
+async function handleAdminSiteContentSave(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = readStore();
+  const nextContent = normalizedSiteContent(body.siteContent || defaultSiteContentStore());
+  nextContent.updatedAt = new Date().toISOString();
+  store.siteContent = nextContent;
+  writeStore(store);
+  jsonResponse(response, 200, { siteContent: nextContent });
+}
+
 async function handlePromoValidation(request, response, url) {
   const body = request.method === "POST" ? await readJson(request) : {};
   const enteredCode = normalizePromoCode(body.code || url.searchParams.get("code"));
@@ -2448,6 +2599,21 @@ function handleAdminAnalytics(request, response, url) {
   jsonResponse(response, 200, { analytics: analyticsSummary(readStore()) });
 }
 
+function handlePublicSiteContent(request, response) {
+  const store = readStore();
+  jsonResponse(response, 200, { siteContent: normalizedSiteContent(store.siteContent || defaultSiteContentStore()) });
+}
+
+function handleAdminSiteContent(request, response, url) {
+  const token = url.searchParams.get("adminToken");
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = readStore();
+  jsonResponse(response, 200, { siteContent: normalizedSiteContent(store.siteContent || defaultSiteContentStore()) });
+}
+
 function htmlEscape(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -2980,6 +3146,9 @@ const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, SITE_URL);
   try {
     if (request.method === "POST" && url.pathname === "/api/admin/login") return await handleAdminLogin(request, response);
+    if (request.method === "GET" && url.pathname === "/api/site-content") return handlePublicSiteContent(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/site-content") return handleAdminSiteContent(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/site-content") return await handleAdminSiteContentSave(request, response);
     if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/validate-promo-code") return await handlePromoValidation(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/create-checkout-session") return await handleCheckout(request, response);
     if (request.method === "POST" && url.pathname === "/api/create-customer-portal-session") return await handlePortal(request, response);
