@@ -735,7 +735,7 @@ const PRINTABLES_HIDDEN = true;
 // Set to true to temporarily hide legacy infant lesson plans while they are being upgraded.
 // Plans marked premium: true remain visible. Admins always retain full access.
 // Flip back to false to re-enable legacy plans for users.
-const INFANT_LEGACY_HIDDEN = true;
+const INFANT_LEGACY_HIDDEN = false;
 
 function isPrintablesUpgradeModeActive() {
   return PRINTABLES_HIDDEN && !hasAdminFullAccess();
