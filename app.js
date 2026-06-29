@@ -17735,15 +17735,18 @@ function cleanPromptTheme(prompt) {
 // Detect a count from a phrase like "2 books", "five activities", "3 songs"
 function detectCount(lower, keywords) {
   const wordNums = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+  const wordNumPattern = Object.keys(wordNums).join("|");
   for (const kw of keywords) {
+    // Escape the keyword for safe use in RegExp (keywords are hardcoded but best practice)
+    const escapedKw = kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     // "3 books" or "three books"
-    const numMatch = lower.match(new RegExp("(\\d+|" + Object.keys(wordNums).join("|") + ")\\s+" + kw));
+    const numMatch = lower.match(new RegExp("(\\d+|" + wordNumPattern + ")\\s+" + escapedKw));
     if (numMatch) {
       const raw = numMatch[1];
       return wordNums[raw] || Number(raw);
     }
     // "books (3)" or "books x3"
-    const afterMatch = lower.match(new RegExp(kw + "\\s*[x(×]?\\s*(\\d+)"));
+    const afterMatch = lower.match(new RegExp(escapedKw + "\\s*[x(×]?\\s*(\\d+)"));
     if (afterMatch) return Number(afterMatch[1]);
   }
   return null;
@@ -17763,7 +17766,8 @@ function detectPromptIntent(prompt) {
   const wantsELG = /\belg|early learning goal|standard(s)?|domain\b/.test(lower);
   const wantsSafety = /\bsafety|safe|hazard\b/.test(lower);
   const isParentMessage = /\bparent message|parent note|parent letter|message to parent|notify parent|parent communication|closed|holiday notice\b/.test(lower);
-  const isObservation = /\bobservation|observed|observing|developmental note\b/.test(lower);
+  // Include common block/stacking observations as observation indicators
+  const isObservation = /\bobservation|observed|observing|developmental note|stacking|block(s)?\b/.test(lower);
   return {
     bookCount, activityCount, songCount,
     wantsBooks, wantsSongs, wantsActivities, wantsMaterials,
@@ -17820,11 +17824,11 @@ function generateFromPrompt(prompt) {
   const age = detectAgeFromPrompt(lower);
   const intent = detectPromptIntent(lower);
 
-  // Route by detected intent
-  if (intent.isObservation || lower.includes("stacking") || lower.includes("blocks")) {
+  // Route by detected intent — all keyword checks consolidated in detectPromptIntent
+  if (intent.isObservation) {
     return generateObservation({ note: prompt, age });
   }
-  if (intent.isParentMessage || lower.includes("parent message") || lower.includes("parent note") || lower.includes("newsletter")) {
+  if (intent.isParentMessage || lower.includes("newsletter")) {
     if (lower.includes("newsletter")) {
       return generateNewsletter({ month: "This Month", theme: prompt, dates: "Add important dates here." });
     }
@@ -17842,10 +17846,7 @@ function generateFromPrompt(prompt) {
   if (lower.includes("menu")) {
     return generateMenu(prompt);
   }
-  if (intent.wantsActivities && !lower.includes("lesson")) {
-    return generateActivity({ age, theme: prompt, skill: lower.includes("sensory") ? "sensory exploration" : "creative learning" });
-  }
-  if (lower.includes("activity") || lower.includes("sensory") || lower.includes("art")) {
+  if ((intent.wantsActivities || lower.includes("sensory") || lower.includes("art")) && !lower.includes("lesson")) {
     return generateActivity({ age, theme: prompt, skill: lower.includes("sensory") ? "sensory exploration" : "creative learning" });
   }
   if (lower.includes("handbook")) {
