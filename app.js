@@ -16201,14 +16201,20 @@ async function updateLessonOverrides(updater) {
 }
 
 async function saveAdminLessonPlanForm(form) {
-  if (adminLessonSaving) return;
+  if (adminLessonSaving) {
+    setFormMessage("#adminLessonPlanMessage", "Already saving — please wait.", false);
+    return;
+  }
   const formData = new FormData(form);
   const id = String(formData.get("id") || "");
   if (!id) return;
   const submitBtn = form.querySelector("[type='submit']");
   const originalLabel = submitBtn ? submitBtn.textContent : "";
   adminLessonSaving = true;
-  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Saving…"; }
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Saving…";
+  }
   setFormMessage("#adminLessonPlanMessage", "Saving…", true);
   try {
     const uploadedImage = await fileToImageDataUrl(formData.get("thumbnailFile"));
@@ -16248,7 +16254,10 @@ async function saveAdminLessonPlanForm(form) {
     setFormMessage("#adminLessonPlanMessage", `Save failed: ${err.message || "Unknown error"}`, false);
   } finally {
     adminLessonSaving = false;
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalLabel; }
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalLabel;
+    }
   }
 }
 
