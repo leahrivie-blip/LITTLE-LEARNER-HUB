@@ -2868,6 +2868,7 @@ let adminReviewEditorId = "";
 let adminImageEditorId = "";
 let adminLessonSelection = new Set();
 let adminLessonEditorInitialSnapshot = "";
+let adminLessonSaving = false;
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
@@ -11545,6 +11546,7 @@ function renderSimpleGoalsProgressPage(records) {
   });
   return `
     <section class="simple-child-page goals-simple-page">
+      <button class="ghost-button back-button" data-view="home" type="button">← Back to Home</button>
       <div class="goal-dashboard-hero">
         <div>
           <h2>Goals & Progress</h2>
@@ -15899,6 +15901,8 @@ function lessonPlanAdminCardHtml(plan) {
       <div class="form-actions">
         <button class="ghost-button" type="button" data-admin-lesson-edit="${plan.id}">Edit</button>
         <button class="ghost-button" type="button" data-admin-lesson-toggle="${plan.id}">${plan.visible === false ? "Unhide" : "Hide"}</button>
+        <button class="ghost-button" type="button" data-admin-lesson-preview="${plan.id}">Preview</button>
+        <button class="danger-button" type="button" data-admin-lesson-reset="${plan.id}">Reset</button>
       </div>
     </article>
   `;
@@ -16197,42 +16201,55 @@ async function updateLessonOverrides(updater) {
 }
 
 async function saveAdminLessonPlanForm(form) {
+  if (adminLessonSaving) return;
   const formData = new FormData(form);
   const id = String(formData.get("id") || "");
   if (!id) return;
-  const uploadedImage = await fileToImageDataUrl(formData.get("thumbnailFile"));
-  await updateLessonOverrides((lessonPlans) => {
-    lessonPlans[id] = {
-      id,
-      title: normalizedShortText(formData.get("title")),
-      age: normalizedShortText(formData.get("age")),
-      theme: normalizedShortText(formData.get("theme")),
-      weeklyOverview: normalizedMultilineText(formData.get("weeklyOverview")),
-      materials: normalizedMultilineText(formData.get("materials")),
-      objectives: normalizedMultilineText(formData.get("objectives")),
-      teacherLanguage: normalizedMultilineText(formData.get("teacherLanguage")),
-      elgConnections: normalizedMultilineText(formData.get("elgConnections")),
-      familyConnection: normalizedMultilineText(formData.get("familyConnection")),
-      reflectionNotes: normalizedMultilineText(formData.get("reflectionNotes")),
-      plan: normalizedShortText(formData.get("plan")) || "Free",
-      visible: formData.get("visible") === "on",
-      thumbnailUrl: uploadedImage || sanitizedImageSource(formData.get("thumbnailUrl")),
-      dailyActivities: {
-        monday: normalizedMultilineText(formData.get("monday")),
-        tuesday: normalizedMultilineText(formData.get("tuesday")),
-        wednesday: normalizedMultilineText(formData.get("wednesday")),
-        thursday: normalizedMultilineText(formData.get("thursday")),
-        friday: normalizedMultilineText(formData.get("friday")),
-      },
-    };
-    adminLessonEditorId = id;
-  });
-  setAdminLessonFormCleanState();
-  const isVisible = formData.get("visible") === "on";
-  const successMsg = isVisible
-    ? "Lesson plan saved successfully. This lesson plan is live on the website."
-    : "Lesson plan saved successfully.";
-  setFormMessage("#adminLessonPlanMessage", successMsg, true);
+  const submitBtn = form.querySelector("[type='submit']");
+  const originalLabel = submitBtn ? submitBtn.textContent : "";
+  adminLessonSaving = true;
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Saving…"; }
+  setFormMessage("#adminLessonPlanMessage", "Saving…", true);
+  try {
+    const uploadedImage = await fileToImageDataUrl(formData.get("thumbnailFile"));
+    await updateLessonOverrides((lessonPlans) => {
+      lessonPlans[id] = {
+        id,
+        title: normalizedShortText(formData.get("title")),
+        age: normalizedShortText(formData.get("age")),
+        theme: normalizedShortText(formData.get("theme")),
+        weeklyOverview: normalizedMultilineText(formData.get("weeklyOverview")),
+        materials: normalizedMultilineText(formData.get("materials")),
+        objectives: normalizedMultilineText(formData.get("objectives")),
+        teacherLanguage: normalizedMultilineText(formData.get("teacherLanguage")),
+        elgConnections: normalizedMultilineText(formData.get("elgConnections")),
+        familyConnection: normalizedMultilineText(formData.get("familyConnection")),
+        reflectionNotes: normalizedMultilineText(formData.get("reflectionNotes")),
+        plan: normalizedShortText(formData.get("plan")) || "Free",
+        visible: formData.get("visible") === "on",
+        thumbnailUrl: uploadedImage || sanitizedImageSource(formData.get("thumbnailUrl")),
+        dailyActivities: {
+          monday: normalizedMultilineText(formData.get("monday")),
+          tuesday: normalizedMultilineText(formData.get("tuesday")),
+          wednesday: normalizedMultilineText(formData.get("wednesday")),
+          thursday: normalizedMultilineText(formData.get("thursday")),
+          friday: normalizedMultilineText(formData.get("friday")),
+        },
+      };
+      adminLessonEditorId = id;
+    });
+    setAdminLessonFormCleanState();
+    const isVisible = formData.get("visible") === "on";
+    const successMsg = isVisible
+      ? "Lesson plan saved successfully. This lesson plan is live on the website."
+      : "Lesson plan saved successfully.";
+    setFormMessage("#adminLessonPlanMessage", successMsg, true);
+  } catch (err) {
+    setFormMessage("#adminLessonPlanMessage", `Save failed: ${err.message || "Unknown error"}`, false);
+  } finally {
+    adminLessonSaving = false;
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalLabel; }
+  }
 }
 
 async function resetLessonPlanOverride(id) {
@@ -16452,9 +16469,10 @@ function setAdminSectionTab(tabId) {
 function renderAdminSectionNav() {
   const nav = document.querySelector("#adminSectionNav");
   if (!nav || !isAdminUnlocked()) return;
-  nav.innerHTML = adminSectionTabs.map(({ id, label }) =>
-    `<button class="admin-section-nav-btn${adminActiveSectionTab === id ? " active" : ""}" data-admin-section-tab="${id}" type="button">${label}</button>`
-  ).join("");
+  nav.innerHTML = `<button class="ghost-button back-button" data-view="home" type="button">← Back to Home</button>` +
+    adminSectionTabs.map(({ id, label }) =>
+      `<button class="admin-section-nav-btn${adminActiveSectionTab === id ? " active" : ""}" data-admin-section-tab="${id}" type="button">${label}</button>`
+    ).join("");
 }
 
 const adminCmSectionIds = ["lesson-plans", "reviews", "founder", "homepage", "images"];
@@ -19104,6 +19122,7 @@ function renderPricingPage() {
       ${pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Choose Pro Annual" })}
     </div>
     <section class="section-block billing-links">
+      <button class="ghost-button back-button" data-view="account" type="button">← Back to Account</button>
       <button class="ghost-button" data-view="upgrade" type="button">Upgrade Page</button>
       <button class="ghost-button" data-view="billing" type="button">Billing Management</button>
       <button class="ghost-button" data-view="subscription" type="button">Subscription Status</button>
@@ -19128,6 +19147,7 @@ function renderUpgradePage() {
       ${pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Checkout Annual" })}
     </div>
     <section class="section-block">
+      <button class="ghost-button back-button" data-view="account" type="button">← Back to Account</button>
       <p class="eyebrow">Stripe Checkout</p>
       <h3>Secure payment handoff</h3>
       <p class="muted-copy">In production, these buttons create a Stripe Checkout Session on your server. In this local file, they run a safe test checkout simulation so billing permissions can be verified.</p>
@@ -19168,6 +19188,7 @@ function renderBillingPage() {
         <h3>${escapeHtml(currentUser || "Guest")}</h3>
         ${subscriptionSummaryHtml()}
         <div class="account-actions-row">
+          <button class="ghost-button back-button" data-view="account" type="button">← Back to Account</button>
           <button class="primary-button" data-view="upgrade" type="button">${paidBilling ? "Change Plan" : "Upgrade to Pro"}</button>
           ${paidBilling ? `<button class="ghost-button" data-update-payment type="button">Update Payment Method</button>` : ""}
           <button class="ghost-button" data-view="billing-history" type="button">View Billing History</button>
@@ -19301,6 +19322,7 @@ function renderDashboardTasksPage() {
   const dayPlan = planner.days?.[weekday] || {};
   const plannedTasks = [dayPlan.circle, dayPlan.activity, dayPlan.meal, dayPlan.rest, dayPlan.support].filter((item) => String(item || "").trim()).length;
   section.innerHTML = `
+    <button class="ghost-button back-button" data-view="home" type="button">← Back to Home</button>
     <div class="page-title">
       <p class="eyebrow">Today&rsquo;s Tasks</p>
       <h2>Focus on what needs attention today.</h2>
@@ -19375,6 +19397,7 @@ function renderReportsPage() {
   const messagesToday = records.communications.filter((item) => item.date === today && item.type !== "Behavior Note").length;
   const activeGoals = records.goals.filter((goal) => goalProgressPercent(goal.progress) < 100).length;
   section.innerHTML = `
+    <button class="ghost-button back-button" data-view="home" type="button">← Back to Home</button>
     <div class="page-title">
       <p class="eyebrow">Reports &amp; Analytics</p>
       <h2>Program reporting snapshot</h2>
@@ -22432,6 +22455,12 @@ document.addEventListener("click", async (event) => {
   const lessonResetButton = event.target.closest("[data-admin-lesson-reset]");
   if (lessonResetButton) {
     await resetLessonPlanOverride(lessonResetButton.dataset.adminLessonReset);
+    return;
+  }
+  const lessonCardPreviewButton = event.target.closest("[data-admin-lesson-preview]");
+  if (lessonCardPreviewButton) {
+    const previewId = lessonCardPreviewButton.dataset.adminLessonPreview;
+    if (previewId) openResourceViewer(previewId);
     return;
   }
   const bulkButton = event.target.closest("[data-admin-bulk]");
