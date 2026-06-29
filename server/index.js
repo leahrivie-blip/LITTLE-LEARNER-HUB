@@ -1669,39 +1669,35 @@ Rules:
 
 // Prompts shorter than this character count receive an extra context hint
 const AI_SHORT_NOTE_THRESHOLD = 25;
-// Timeout in ms for OpenAI API requests — gpt-4o may need more time for detailed lesson plans
-const AI_REQUEST_TIMEOUT_MS = 45000;
+// Timeout in ms for OpenAI API requests — 90s allows gpt-4o time for detailed lesson plans
+const AI_REQUEST_TIMEOUT_MS = 90000;
+// Max retry attempts for transient failures (network errors, timeouts, rate limits)
+const AI_MAX_RETRIES = 2;
+// Base delay in ms between retry attempts (multiplied by attempt number)
+const AI_RETRY_BASE_DELAY_MS = 3000;
 // Temperature for generation: high enough for variety, conservative enough for consistency
 const AI_TEMPERATURE = 0.9;
 
-async function generateOpenAiContent({ tool, prompt, age, plan, email, debug }) {
-  if (!OPENAI_API_KEY) {
-    throw new Error("AI generation is not available right now. Please contact support or try again later.");
-  }
-  const systemPrompt = getToolSystemPrompt(tool);
-  const userContent = buildOpenAiUserPrompt(prompt, age);
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
+async function callOpenAiOnce(systemPrompt, userContent, email, label) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
   try {
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `******`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         model: OPENAI_MODEL,
         temperature: AI_TEMPERATURE,
         input: [
-          {
-            role: "system",
-            content: systemPrompt,
-          },
-          {
-            role: "user",
-            content: userContent,
-          },
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
         ],
       }),
       signal: controller.signal,
@@ -1712,46 +1708,81 @@ async function generateOpenAiContent({ tool, prompt, age, plan, email, debug }) 
       const errType = String(data?.error?.type || "unknown");
       const errMsg = String(data?.error?.message || "");
       const errCode = String(data?.error?.code || "");
-      console.error(`[openai-error] status=${response.status} type=${errType} code=${errCode} model=${OPENAI_MODEL} email=${email} message=${errMsg}`);
+      console.error(`[openai-error] ${label} status=${response.status} type=${errType} code=${errCode} model=${OPENAI_MODEL} email=${email} message=${errMsg}`);
       if (errCode === "insufficient_quota" || errMsg.toLowerCase().includes("quota") || errMsg.toLowerCase().includes("billing")) {
-        throw new Error("AI generation quota has been reached. Please contact support or try again later.");
+        const err = new Error("Document creation quota has been reached. Please contact support or try again later.");
+        err.noRetry = true;
+        throw err;
       }
       if (response.status === 429 || errMsg.toLowerCase().includes("rate")) {
-        throw new Error("Too many requests at once. Please wait a moment and try again.");
+        throw new Error("The system is busy right now. Please wait a moment and try again.");
       }
       if (response.status === 401) {
-        throw new Error("AI generation service is temporarily unavailable. Please contact support.");
+        const err = new Error("Document creation service is temporarily unavailable. Please contact support.");
+        err.noRetry = true;
+        throw err;
       }
-      throw new Error("AI generation could not be completed. Please try again.");
+      throw new Error("Document creation could not be completed. Please try again.");
     }
     const output = data.output_text
       || data.output?.flatMap((item) => item.content || []).map((item) => item.text || "").join("\n").trim()
       || "";
-    if (!output) throw new Error("The AI did not return any content. Please try again.");
-    return {
-      output,
-      model: OPENAI_MODEL,
-      debug: debug ? {
-        tool,
-        model: OPENAI_MODEL,
-        systemPrompt,
-        userPrompt: userContent,
-        finalPrompt: buildDebugPromptSnapshot(systemPrompt, userContent),
-        rawResponse: data,
-        finalResponse: output,
-      } : null,
-    };
+    if (!output) throw new Error("No content was returned. Please try again.");
+    return { output, rawResponse: data };
   } catch (error) {
     clearTimeout(timeout);
     if (error.name === "AbortError") {
-      throw new Error("The AI took too long to respond. Please try again.");
+      throw new Error("Document creation took too long. Please try again — your usage was not charged.");
     }
     throw error;
   }
 }
+
+async function generateOpenAiContent({ tool, prompt, age, plan, email, debug }) {
+  if (!OPENAI_API_KEY) {
+    throw new Error("Document creation is not available right now. Please contact support or try again later.");
+  }
+  const systemPrompt = getToolSystemPrompt(tool);
+  const userContent = buildOpenAiUserPrompt(prompt, age);
+
+  let lastError;
+  for (let attempt = 1; attempt <= AI_MAX_RETRIES + 1; attempt++) {
+    try {
+      const label = `tool=${tool} attempt=${attempt}`;
+      const { output, rawResponse } = await callOpenAiOnce(systemPrompt, userContent, email, label);
+      if (attempt > 1) {
+        console.log(`[helper-retry-success] tool=${tool} email=${email} attempt=${attempt}`);
+      }
+      return {
+        output,
+        model: OPENAI_MODEL,
+        debug: debug ? {
+          tool,
+          model: OPENAI_MODEL,
+          systemPrompt,
+          userPrompt: userContent,
+          finalPrompt: buildDebugPromptSnapshot(systemPrompt, userContent),
+          rawResponse,
+          finalResponse: output,
+          attempts: attempt,
+        } : null,
+      };
+    } catch (error) {
+      lastError = error;
+      const isRetryable = !error.noRetry && attempt <= AI_MAX_RETRIES;
+      console.error(`[helper-generate-error] tool=${tool} email=${email} attempt=${attempt}/${AI_MAX_RETRIES + 1} retryable=${isRetryable} error=${error.message}`);
+      if (!isRetryable) break;
+      const delay = AI_RETRY_BASE_DELAY_MS * attempt;
+      console.log(`[helper-retry] tool=${tool} email=${email} waiting ${delay}ms before attempt ${attempt + 1}`);
+      await sleep(delay);
+    }
+  }
+  throw lastError;
+}
+
 async function callOpenAiRaw(systemPrompt, userPrompt) {
   if (!OPENAI_API_KEY) {
-    throw new Error("AI generation is not available. OPENAI_API_KEY is not configured.");
+    throw new Error("Document creation is not available. OPENAI_API_KEY is not configured.");
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
@@ -1759,7 +1790,7 @@ async function callOpenAiRaw(systemPrompt, userPrompt) {
     const res = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `******`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -1779,16 +1810,16 @@ async function callOpenAiRaw(systemPrompt, userPrompt) {
       const errMsg = String(data?.error?.message || "");
       const errCode = String(data?.error?.code || "");
       console.error(`[openai-error] status=${res.status} type=${errType} code=${errCode} model=${OPENAI_MODEL} message=${errMsg}`);
-      throw new Error("AI generation could not be completed. Please try again.");
+      throw new Error("Document creation could not be completed. Please try again.");
     }
     const output = data.output_text
       || data.output?.flatMap((item) => item.content || []).map((item) => item.text || "").join("\n").trim()
       || "";
-    if (!output) throw new Error("The AI did not return any content.");
+    if (!output) throw new Error("No content was returned.");
     return output;
   } catch (error) {
     clearTimeout(timeout);
-    if (error.name === "AbortError") throw new Error("The AI took too long to respond. Please try again.");
+    if (error.name === "AbortError") throw new Error("Document creation took too long. Please try again.");
     throw error;
   }
 }
@@ -2324,7 +2355,7 @@ async function handleAiGenerate(request, response) {
   console.log(`[access] ai-generate email=${email} storedPlan=${user?.plan || "none"} resolvedPlan=${plan} status=${user?.subscriptionStatus || "none"}`);
   const usage = canUseServerAi(email, plan);
   if (!usage.allowed) {
-    jsonResponse(response, 429, { error: `AI limit reached. ${usage.used} of ${usage.limit} generations used this month.`, used: usage.used, limit: usage.limit });
+    jsonResponse(response, 429, { error: `Monthly helper limit reached. ${usage.used} of ${usage.limit} documents created this month.`, used: usage.used, limit: usage.limit });
     return;
   }
   try {
@@ -2338,8 +2369,8 @@ async function handleAiGenerate(request, response) {
       resetCycle: currentAiCycle(),
     });
   } catch (error) {
-    console.error(`[ai-generate-error] email=${email} error=${error.message || "unknown"}`);
-    jsonResponse(response, 503, { error: error.message || "AI generation failed." });
+    console.error(`[helper-generate-failure] email=${email} tool=${body.tool || "unknown"} plan=${plan} error=${error.message || "unknown"}`);
+    jsonResponse(response, 503, { error: error.message || "We couldn't create your document right now. Please try again." });
   }
 }
 

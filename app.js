@@ -29,7 +29,7 @@ const lessonWorkflowCustomizationOptions = [
 const aiTools = [
   {
     id: "lesson",
-    title: "AI Lesson Plan Generator",
+    title: "Lesson Plan Helper",
     detail: "Create daily, weekly, or monthly lesson plans with objectives, materials, and activity steps — all age-appropriate.",
     fields: [
       ["programName", "Program Name", "text", "Little Learner Home Daycare"],
@@ -45,7 +45,7 @@ const aiTools = [
   },
   {
     id: "observation",
-    title: "AI Observation Generator",
+    title: "Observation Helper",
     detail: "Turn a quick note into professional, standards-aligned childcare documentation.",
     fields: [
       ["programName", "Program Name", "text", "Little Learner Home Daycare"],
@@ -62,7 +62,7 @@ const aiTools = [
   },
   {
     id: "newsletter",
-    title: "AI Newsletter Generator",
+    title: "Newsletter Helper",
     detail: "Make a warm, polished parent newsletter for the month — ready to send.",
     fields: [
       ["programName", "Program Name", "text", "Little Learner Home Daycare"],
@@ -78,7 +78,7 @@ const aiTools = [
   },
   {
     id: "daily",
-    title: "AI Daily Report Generator",
+    title: "Daily Report Helper",
     detail: "Turn daily notes into a warm, personalized parent-ready report.",
     fields: [
       ["programName", "Program Name", "text", "Little Learner Home Daycare"],
@@ -99,7 +99,7 @@ const aiTools = [
   },
   {
     id: "handbook",
-    title: "AI Parent Handbook Builder",
+    title: "Parent Handbook Builder",
     detail: "Build professional parent handbook policy sections from your daycare details.",
     fields: [
       ["program", "Program Name", "text", "Little Learner Home Daycare"],
@@ -114,7 +114,7 @@ const aiTools = [
   },
   {
     id: "contract",
-    title: "AI Contract Generator",
+    title: "Contract Builder",
     detail: "Create a daycare contract draft families can review and sign.",
     fields: [
       ["program", "Program Name", "text", "Little Learner Home Daycare"],
@@ -126,7 +126,7 @@ const aiTools = [
   },
   {
     id: "activity",
-    title: "AI Activity Generator",
+    title: "Activity Helper",
     detail: "Generate safe, age-appropriate activities with materials, instructions, learning goals, and safety notes.",
     fields: [
       ["programName", "Program Name", "text", "Little Learner Home Daycare"],
@@ -143,7 +143,7 @@ const aiTools = [
   },
   {
     id: "menu",
-    title: "AI Menu Generator",
+    title: "Menu Helper",
     detail: "Create daily, weekly, or monthly menus with breakfast, lunch, snack, and CACFP-friendly ideas.",
     fields: [
       ["age", "Age Group", "select", ["Infant", "Toddler", "Preschool", "Mixed Ages"]],
@@ -154,7 +154,7 @@ const aiTools = [
   },
   {
     id: "form",
-    title: "AI Daycare Form Builder",
+    title: "Form Builder",
     detail: "Create permission slips, incident reports, enrollment forms, and custom daycare forms.",
     fields: [
       ["formType", "Form Type", "select", ["Permission Slip", "Incident Report", "Enrollment Form", "Medication Authorization", "Custom Form"]],
@@ -165,7 +165,7 @@ const aiTools = [
   },
   {
     id: "assessment",
-    title: "AI Assessment Generator",
+    title: "Assessment Helper",
     detail: "Generate developmental assessments by age group, domain, strengths, and next steps.",
     fields: [
       ["child", "Child Name", "text", "Child"],
@@ -176,7 +176,7 @@ const aiTools = [
   },
   {
     id: "progress",
-    title: "AI Progress Report Generator",
+    title: "Progress Report Helper",
     detail: "Create parent-friendly child progress reports with strengths, growth, and goals.",
     fields: [
       ["child", "Child Name", "text", "Child"],
@@ -187,7 +187,7 @@ const aiTools = [
   },
   {
     id: "portfolio",
-    title: "AI Portfolio Generator",
+    title: "Portfolio Builder",
     detail: "Build child portfolio entries from observations, photos notes, goals, and learning moments.",
     fields: [
       ["child", "Child Name", "text", "Child"],
@@ -198,7 +198,7 @@ const aiTools = [
   },
   {
     id: "curriculum",
-    title: "AI Curriculum Generator",
+    title: "Curriculum Helper",
     detail: "Generate themed curriculum units with weekly themes, goals, activities, and family connection ideas.",
     fields: [
       ["age", "Age Group", "select", ["Infant", "Toddler", "Preschool", "Mixed Ages"]],
@@ -209,7 +209,7 @@ const aiTools = [
   },
   {
     id: "behavior",
-    title: "AI Behavior Support Generator",
+    title: "Behavior Note Helper",
     detail: "Create professional behavior support plans with strategies, parent wording, and age-appropriate next steps.",
     fields: [
       ["programName", "Program Name", "text", "Little Learner Home Daycare"],
@@ -229,7 +229,7 @@ const aiTools = [
   },
   {
     id: "incident",
-    title: "AI Incident Report Generator",
+    title: "Incident Report Helper",
     detail: "Create a professional, factual incident report with documentation, response, and parent notification wording.",
     fields: [
       ["programName", "Program Name", "text", "Little Learner Home Daycare"],
@@ -249,7 +249,7 @@ const aiTools = [
   },
   {
     id: "learningStory",
-    title: "AI Learning Story Generator",
+    title: "Learning Story Helper",
     detail: "Convert observations into warm learning stories with skills, meaning, and next steps.",
     fields: [
       ["child", "Child Name", "text", "Child"],
@@ -260,7 +260,7 @@ const aiTools = [
   },
   {
     id: "parentMessage",
-    title: "AI Parent Message Generator",
+    title: "Parent Message Helper",
     detail: "Write professional, ready-to-send parent communication for updates, reminders, and sensitive conversations.",
     fields: [
       ["programName", "Program Name", "text", "Little Learner Home Daycare"],
@@ -276,7 +276,7 @@ const aiTools = [
   },
   {
     id: "schedule",
-    title: "AI Daily Schedule Generator",
+    title: "Daily Schedule Helper",
     detail: "Generate age-appropriate daily schedules for home daycare routines.",
     fields: [
       ["openTime", "Opening Time", "text", "7:30 AM"],
@@ -287,7 +287,7 @@ const aiTools = [
   },
   {
     id: "classroomSetup",
-    title: "AI Classroom Setup Generator",
+    title: "Classroom Setup Helper",
     detail: "Get room layout suggestions, learning center ideas, and setup notes.",
     fields: [
       ["space", "Space Description", "textarea", "Small living room daycare space with reading corner and art table"],
@@ -297,7 +297,7 @@ const aiTools = [
   },
   {
     id: "emergency",
-    title: "AI Emergency Plan Generator",
+    title: "Emergency Plan Helper",
     detail: "Create emergency procedures, evacuation plans, and safety documentation drafts.",
     fields: [
       ["program", "Program Name", "text", "Little Learner Home Daycare"],
@@ -1712,28 +1712,28 @@ const billingPlans = {
     price: "$0",
     interval: "",
     stripePriceKey: "",
-    features: ["5 Lesson Plans", "10 Observations", "10 Forms", "10 Activity Ideas", "10 Printables", "10 AI Generations Per Month", "Up to 3 Child Profiles", "Weekly Observation Tracker"],
+    features: ["5 Lesson Plans", "10 Observations", "10 Forms", "10 Activity Ideas", "10 Printables", "10 Document Creations Per Month", "Up to 3 Child Profiles", "Weekly Observation Tracker"],
   },
   Founding: {
     name: "Founding Member",
     price: "$9.99",
     interval: "/month",
     stripePriceKey: "STRIPE_PRICE_FOUNDING_MONTHLY",
-    features: ["Founding Member Status", "$9.99/month", "Lifetime Price Lock", "All Pro features", "250 AI Generations Per Month"],
+    features: ["Founding Member Status", "$9.99/month", "Lifetime Price Lock", "All Pro features", "250 Document Creations Per Month"],
   },
   ProMonthly: {
     name: "Pro Monthly",
     price: "$19.99",
     interval: "/month",
     stripePriceKey: "STRIPE_PRICE_PRO_MONTHLY",
-    features: ["Full in-app library", "All Pro resources", "250 AI generations per month", "All child management and provider tools"],
+    features: ["Full in-app library", "All Pro resources", "250 document creations per month", "All child management and provider tools"],
   },
   ProAnnual: {
     name: "Pro Annual",
     price: "$199",
     interval: "/year",
     stripePriceKey: "STRIPE_PRICE_PRO_ANNUAL",
-    features: ["Best regular value", "Full in-app library", "All Pro resources", "250 AI generations per month"],
+    features: ["Best regular value", "Full in-app library", "All Pro resources", "250 document creations per month"],
   },
 };
 const stripeCheckoutConfig = {
@@ -1969,8 +1969,8 @@ const proFeatureList = [
   "Premium Menus",
   "Future Premium Features",
 ];
-const freeAiLimitMessage = "You have used all 10 free AI generations for this month. Upgrade to Pro for 250 AI generations each month.";
-const paidAiLimitMessage = "You have used all 250 AI generations for this month. Your AI access will reset next month.";
+const freeAiLimitMessage = "You have used all 10 free document creations for this month. Upgrade to Pro for 250 document creations each month.";
+const paidAiLimitMessage = "You have used all 250 document creations for this month. Your access will reset next month.";
 const freeResourceLimitMessage = "You have reached your Free Plan limit. Upgrade to Pro to unlock the full Little Learner Hub library.";
 const favoritesPageLimit = 20;
 const dailyLogFavoriteStorageKey = "llhDailyLogFavoriteActivities";
@@ -7947,7 +7947,7 @@ function renderCategoryPage(view) {
     </div>
     <div class="access-notice ${isProUser() ? "pro" : ""}">
       ${isProUser()
-        ? `Pro is active: full in-app library access, saved favorites, viewed resources, and ${Math.max(paidAiMonthlyLimit - aiUsageCount(), 0)} AI generations left this month.`
+        ? `Pro is active: full in-app library access, saved favorites, viewed resources, and ${Math.max(paidAiMonthlyLimit - aiUsageCount(), 0)} document creations left this month.`
         : `Free plan: ${accessCounts.freeLimit} ${displayTitle.toLowerCase()} resources are unlocked here. Upgrade to Pro for all ${accessCounts.total}.`}
     </div>
     ${searchedChild ? renderChildLessonSearchContext(searchedChild) : ""}
@@ -8744,11 +8744,11 @@ function renderAiUsagePanel() {
   target.innerHTML = `
     <div class="ai-usage-panel">
       <div>
-        <p class="eyebrow">AI Usage</p>
+        <p class="eyebrow">Helper Usage</p>
         <h4>${used} of ${limit} generations used</h4>
         <span>${remaining} remaining · Resets ${escapeHtml(aiResetLabel())}</span>
       </div>
-      <div class="usage-bar" aria-label="${used} of ${limit} AI generations used">
+      <div class="usage-bar" aria-label="${used} of ${limit} document creations used">
         <span style="width: ${Math.min((used / limit) * 100, 100)}%"></span>
       </div>
     </div>
@@ -8797,7 +8797,7 @@ function renderAiToolGrid() {
   if (!grid) return;
   grid.innerHTML = aiTools.map((tool) => `
     <article class="ai-tool-card">
-      <span class="tag access-tag">Pro AI</span>
+      <span class="tag access-tag">Pro</span>
       <h3>${tool.title}</h3>
       <p>${tool.detail}</p>
       <button class="primary-button" data-tool="${tool.id}" type="button">Open Tool</button>
@@ -8854,10 +8854,10 @@ function renderLessonPlanWorkflow(tool, locked, preserveOutput = true) {
       <section class="panel-form generator-form lesson-workflow-card">
         <div class="lesson-workflow-steps">
           ${[
-            ["1", "Tell AI About Your Classroom"],
+            ["1", "Tell Us About Your Classroom"],
             ["2", "Customize Your Lesson Plan"],
-            ["3", "Generate Lesson Plan"],
-            ["4", "Review & Customize"],
+            ["3", "Create Lesson Plan"],
+            ["4", "Review & Save"],
           ].map(([value, label]) => `<button class="lesson-step-pill ${Number(value) === step ? "active" : ""}" data-lesson-step="${value}" type="button">${value}. ${label}</button>`).join("")}
         </div>
         <label class="settings-check-label ai-debug-toggle">
@@ -8866,7 +8866,7 @@ function renderLessonPlanWorkflow(tool, locked, preserveOutput = true) {
         </label>
         ${step === 1 ? `
           <div class="dlc-step">
-            <p class="dlc-step-label">Step 1 — Tell AI About Your Classroom</p>
+            <p class="dlc-step-label">Step 1 — Tell Us About Your Classroom</p>
             <label>Program Name<input name="programName" data-lesson-step1="programName" value="${escapeHtml(step1.programName || "")}" placeholder="Little Learner Home Daycare" /></label>
             <label>Age Group<select name="age" data-lesson-step1="age">${aiAgeGroupOptions.map((option) => `<option ${step1.age === option ? "selected" : ""}>${option}</option>`).join("")}</select></label>
             <label>Lesson Type<select name="planLength" data-lesson-step1="planLength">${["Daily", "Weekly"].map((option) => `<option ${step1.planLength === option ? "selected" : ""}>${option}</option>`).join("")}</select></label>
@@ -8895,19 +8895,19 @@ function renderLessonPlanWorkflow(tool, locked, preserveOutput = true) {
             <label>Accommodations or Modifications<textarea name="accommodations" data-lesson-step2="accommodations" rows="3" placeholder="Adjustments for individual children">${escapeHtml(step2.accommodations || "")}</textarea></label>
             <div class="lesson-step-actions">
               <button class="ghost-button" data-lesson-next="1" type="button">Back</button>
-              <button class="primary-button" data-lesson-generate type="button">${lessonPlanWorkflowState.generating ? "Generating…" : (locked ? "Preview Lesson Plan" : "Generate Lesson Plan")}</button>
+              <button class="primary-button" data-lesson-generate type="button">${lessonPlanWorkflowState.generating ? "Creating…" : (locked ? "Preview Lesson Plan" : "Generate Lesson Plan")}</button>
             </div>
           </div>
         ` : ""}
         ${step === 3 ? `
           <div class="dlc-step lesson-step-loading">
-            <p class="dlc-step-label">Step 3 — Generate Lesson Plan</p>
+            <p class="dlc-step-label">Step 3 — Creating Lesson Plan</p>
             <p>Creating your personalized lesson plan…</p>
           </div>
         ` : ""}
         ${step === 4 ? `
           <div class="dlc-step lesson-step-review">
-            <p class="dlc-step-label">Step 4 — Review & Customize</p>
+            <p class="dlc-step-label">Step 4 — Review & Save</p>
             <p class="dlc-sub">Use the tools on the right to edit, copy, save, print, export PDF, and add this plan to My Week.</p>
             <label>Regenerate Section<select data-lesson-section>
               ${["Full lesson plan", "Learning Objectives", "Activities", "Materials", "Family Connection", "Assessment / Reflection"].map((option) => `<option ${lessonPlanWorkflowState.sectionRegenerate === option ? "selected" : ""}>${option}</option>`).join("")}
@@ -8924,7 +8924,7 @@ function renderLessonPlanWorkflow(tool, locked, preserveOutput = true) {
       <div class="ai-output-panel">
         <div class="output-toolbar">
           <div>
-            <p class="eyebrow">${step < 4 ? "Lesson Plan Preview" : "Generated Result"}</p>
+            <p class="eyebrow">${step < 4 ? "Lesson Plan Preview" : "Created Document"}</p>
             <h3 id="outputTitle">${escapeHtml(outputTitle)}</h3>
           </div>
           <div class="output-actions">
@@ -8954,7 +8954,7 @@ function renderGeneratorWorkspace(toolId) {
   workspace.dataset.activeTool = tool.id;
   workspace.innerHTML = `
     <div class="tool-tabs">
-      ${aiTools.map((item) => `<button class="${item.id === tool.id ? "active-filter" : ""}" data-tool="${item.id}" type="button">${item.title.replace("AI ", "")}</button>`).join("")}
+      ${aiTools.map((item) => `<button class="${item.id === tool.id ? "active-filter" : ""}" data-tool="${item.id}" type="button">${item.title}</button>`).join("")}
     </div>
     ${tool.id === "lesson" ? renderLessonPlanWorkflow(tool, locked, previousToolId === "lesson") : `
       <div class="generator-panel ${locked ? "tool-locked" : ""}">
@@ -8967,12 +8967,12 @@ function renderGeneratorWorkspace(toolId) {
             Debug mode
           </label>
           ${tool.fields.map(renderGeneratorField).join("")}
-          <button class="primary-button" type="submit">${locked ? "Preview AI Output" : "Generate"}</button>
+          <button class="primary-button" type="submit" data-generate-btn>${locked ? "Preview Output" : "Create Document"}</button>
         </form>
         <div class="ai-output-panel">
           <div class="output-toolbar">
             <div>
-              <p class="eyebrow">Generated Result</p>
+              <p class="eyebrow">Your Document</p>
               <h3 id="outputTitle">Ready when you are</h3>
             </div>
             <div class="output-actions">
@@ -9001,8 +9001,10 @@ async function runLessonPlanWorkflowGeneration(extraInstruction = "") {
   const outputEl = document.querySelector("#generatorOutput");
   const titleEl = document.querySelector("#outputTitle");
   if (!outputEl) return;
+  // Prevent duplicate submissions
+  if (lessonPlanWorkflowState.generating) return;
   if (!canUseAi()) {
-    if (titleEl) titleEl.textContent = "AI Limit Reached";
+    if (titleEl) titleEl.textContent = "Usage Limit Reached";
     outputEl.textContent = aiLimitMessage();
     delete outputEl.dataset.rawMarkdown;
     return;
@@ -9029,11 +9031,11 @@ async function runLessonPlanWorkflowGeneration(extraInstruction = "") {
     trackEvent("ai_generation_success", { tool: "lesson", plan: currentPlan, backendUsed: Boolean(result.backendUsed), used: result.used, limit: result.limit });
   } catch (error) {
     lessonPlanWorkflowState.generating = false;
-    lessonPlanWorkflowState.step = 4;
+    lessonPlanWorkflowState.step = 2;
     renderGeneratorWorkspace("lesson");
     const refreshedOutput = document.querySelector("#generatorOutput");
     if (refreshedOutput) {
-      refreshedOutput.textContent = error.message || "AI generation could not be completed.";
+      refreshedOutput.textContent = error.message || "We couldn't create your document right now. Please try again.";
       delete refreshedOutput.dataset.rawMarkdown;
     }
     renderAiDebugPanel("#generatorDebugPanel");
@@ -13401,7 +13403,7 @@ async function parseDailyLogNote(note, selectedChildren, records, requestedOutpu
     } catch (error) {
       suggestions.push({
         type: "notice", emoji: "⚠️", title: "Parent Update Unavailable",
-        lines: [error.message || "AI generation could not be completed."],
+        lines: [error.message || "We couldn't create your document right now. Please try again."],
         shareWithFamily: false, saved: true, ignored: false,
       });
     }
@@ -13430,7 +13432,7 @@ async function parseDailyLogNote(note, selectedChildren, records, requestedOutpu
       } catch (error) {
         suggestions.push({
           type: "notice", emoji: "⚠️", title: "Observation Unavailable",
-          lines: [error.message || "AI generation could not be completed."],
+          lines: [error.message || "We couldn't create your document right now. Please try again."],
           shareWithFamily: false, saved: true, ignored: false,
         });
       }
@@ -13463,7 +13465,7 @@ async function parseDailyLogNote(note, selectedChildren, records, requestedOutpu
     } catch (error) {
       suggestions.push({
         type: "notice", emoji: "⚠️", title: "Daily Reports Unavailable",
-        lines: [error.message || "AI generation could not be completed."],
+        lines: [error.message || "We couldn't create your document right now. Please try again."],
         shareWithFamily: false, saved: true, ignored: false,
       });
     }
@@ -15287,7 +15289,7 @@ function renderAdminOwnerOverview() {
       ${adminMetric("open support tickets", openTickets.length)}
       ${adminMetric("lead signups", leadRows.length)}
       ${adminMetric("viewed resources", downloads.length)}
-      ${adminMetric("AI generations tracked", aiUseTotal)}
+      ${adminMetric("Helper documents tracked", aiUseTotal)}
       ${adminMetric("billing events", billingEvents.length)}
     </div>
     <div class="admin-owner-lists">
@@ -15558,7 +15560,7 @@ function localAnalyticsSummary() {
       pageViews: groupCounts(pageViews, (event) => event.detail?.view || event.path || event.hash || "Home"),
       sources: groupCounts(visits, (event) => event.source || event.attribution?.source || "Direct"),
       buttonClicks: groupCounts(events.filter((event) => event.name === "button_click"), (event) => event.detail?.label || event.detail?.action || "Button"),
-      aiUsage: groupCounts(events.filter((event) => event.name === "ai_generation_success"), (event) => event.detail?.tool || "AI Generator"),
+      aiUsage: groupCounts(events.filter((event) => event.name === "ai_generation_success"), (event) => event.detail?.tool || "Document Helper"),
       resourceViews: groupCounts(events.filter((event) => event.name === "resource_view"), (event) => event.detail?.category || "Resource"),
       resourcePrints: groupCounts(events.filter((event) => ["resource_print", "generated_pdf", "generated_print", "provider_tool_pdf"].includes(event.name)), (event) => event.detail?.category || event.detail?.tool || "Printable/PDF"),
       featureUsage: groupCounts(featureEvents, (event) => event.name),
@@ -15699,7 +15701,7 @@ function renderAdminAnalytics() {
       </article>
       <article class="analytics-card">
         <h4>AI Generator Usage</h4>
-        ${countListHtml(counts.aiUsage, "AI usage will appear after generations.")}
+        ${countListHtml(counts.aiUsage, "Helper usage will appear after document creations.")}
       </article>
       <article class="analytics-card">
         <h4>Resource Views</h4>
@@ -15754,7 +15756,7 @@ function renderLaunchReadiness() {
   const checklist = [
     ["Public homepage", "Ready", "Sales homepage, founding offer, samples, lead magnet, trust copy, and Pro preview are in place."],
     ["Resource library", "Local Ready", `${resources.length} local resources are available with Free/Pro locking and in-app viewing.`],
-    ["AI generator suite", "Local Ready", `${aiTools.length} AI generators are available with edit, copy, save, download, print, regenerate, and save-to-library actions.`],
+    ["Document helper suite", "Local Ready", `${aiTools.length} AI generators are available with edit, copy, save, download, print, regenerate, and save-to-library actions.`],
     ["Free vs Pro permissions", "Local Ready", "Limits, locked content, Pro prompts, and AI generation limits are enforced locally."],
     ["Private Admin", "Local Ready", "Admin, support tickets, content uploads, analytics, and launch checklist are protected by owner email, password, and access code on this device."],
     ["Analytics", "Local Ready", "Page views, signup clicks, checkout starts, conversions, lead captures, and ad routes are tracked locally."],
@@ -16885,7 +16887,7 @@ async function triggerAdminLessonGenerate(fillMode) {
   }
 
   if (confirmEl) confirmEl.hidden = true;
-  if (generateBtn) { generateBtn.disabled = true; generateBtn.textContent = "Generating…"; }
+  if (generateBtn) { generateBtn.disabled = true; generateBtn.textContent = "Creating…"; }
   setFormMessage("#adminLessonGenerateMessage", "Generating lesson plan — this may take up to 30 seconds…", true);
 
   try {
@@ -17067,7 +17069,7 @@ function renderAdminAiTestCenter() {
               Auto-score output
             </label>
             <button type="button" class="primary-button" id="aitcGenerateBtn" ${state.generating ? "disabled" : ""}>
-              ${state.generating ? "Generating…" : `Generate for Slot ${slot}`}
+              ${state.generating ? "Creating…" : `Generate for Slot ${slot}`}
             </button>
           </div>
           <span id="aitcGenerateError" class="form-message" style="color:var(--color-danger)"></span>
@@ -17611,7 +17613,7 @@ function providerSettingsContext() {
 
 function aiPromptFromForm(toolId, data) {
   const tool = [...aiTools, ...futureTools].find((item) => item.id === toolId);
-  const toolTitle = tool?.title || "Little Learner Hub AI Generator";
+  const toolTitle = tool?.title || "Little Learner Hub Document Helper";
   const fieldLabelMap = Object.fromEntries((tool?.fields || []).map(([name, label]) => [name, label]));
   const childName = data.childName || data.child || "";
   const childAge = data.childAge || "";
@@ -17638,9 +17640,19 @@ function aiPromptFromForm(toolId, data) {
   const uncatalogedLines = Object.entries(data)
     .filter(([key, value]) => value && !usedKeys.has(key) && !fieldLabelMap[key] && !key.startsWith("_"))
     .map(([key, value]) => `${key}: ${value}`);
-  const lessonVarietyNote = toolId === "lesson"
-    ? "- Include real book titles with author names, real song titles, original fingerplay rhymes, vocabulary words, and open-ended questions as part of the plan."
-    : "";
+
+  // Smart intent detection for lesson plans — detect count and component requests
+  const intentRequirements = [];
+  if (toolId === "lesson") {
+    const themeText = data.theme || data.focus || providerNotes || "";
+    const intent = detectPromptIntent(themeText);
+    const intentLines = buildLessonIntentRequirements(intent);
+    intentRequirements.push(
+      "- Include real book titles with author names, real song titles, original fingerplay rhymes, vocabulary words, and open-ended questions as part of the plan.",
+      ...intentLines,
+    );
+  }
+
   return [
     settingsContext,
     `Tool Type: ${toolTitle}`,
@@ -17674,13 +17686,13 @@ function aiPromptFromForm(toolId, data) {
     "- Use only the details provided and do not invent missing facts, injuries, behaviors, witnesses, or outcomes.",
     "- Produce organized, ready-to-use content a childcare provider can copy right away.",
     "- Use warm, professional childcare language and include the program name in formal documents when it is provided.",
-    lessonVarietyNote,
+    ...intentRequirements,
   ].filter(Boolean).join("\n");
 }
 
 async function generateToolOutputWithBackend(toolId, data) {
   if (!aiGenerationConfig.endpoint || !canUseLaunchBackend()) {
-    throw new Error("AI generation is currently unavailable. Please try again shortly or contact support.");
+    throw new Error("Document creation is currently unavailable. Please try again shortly or contact support.");
   }
   const ageValue = data.age || data.ageGroup || data.group || "";
   const response = await fetch(aiGenerationConfig.endpoint, {
@@ -17697,10 +17709,10 @@ async function generateToolOutputWithBackend(toolId, data) {
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(result?.error || "AI generation could not be completed.");
+    throw new Error(result?.error || "We couldn't create your document right now. Please try again.");
   }
   if (!result.output) {
-    throw new Error("The AI did not return any content. Please try again.");
+    throw new Error("We couldn't create your document right now. Please try again.");
   }
   return {
     output: result.output,
@@ -17720,6 +17732,79 @@ function cleanPromptTheme(prompt) {
     .trim();
 }
 
+// Detect a count from a phrase like "2 books", "five activities", "3 songs"
+function detectCount(lower, keywords) {
+  const wordNums = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+  for (const kw of keywords) {
+    // "3 books" or "three books"
+    const numMatch = lower.match(new RegExp("(\\d+|" + Object.keys(wordNums).join("|") + ")\\s+" + kw));
+    if (numMatch) {
+      const raw = numMatch[1];
+      return wordNums[raw] || Number(raw);
+    }
+    // "books (3)" or "books x3"
+    const afterMatch = lower.match(new RegExp(kw + "\\s*[x(×]?\\s*(\\d+)"));
+    if (afterMatch) return Number(afterMatch[1]);
+  }
+  return null;
+}
+
+// Detect intent signals from a user's free-text prompt
+function detectPromptIntent(prompt) {
+  const lower = prompt.toLowerCase();
+  const bookCount = detectCount(lower, ["book", "books"]);
+  const activityCount = detectCount(lower, ["activity", "activities"]);
+  const songCount = detectCount(lower, ["song", "songs"]);
+  const wantsBooks = bookCount !== null || /\bbook(s)?\b/.test(lower);
+  const wantsSongs = songCount !== null || /\bsong(s)?|music|rhyme(s)?|fingerplay\b/.test(lower);
+  const wantsActivities = activityCount !== null || /\bactivit(y|ies)\b/.test(lower);
+  const wantsMaterials = /\bmaterial(s)?|supply|supplies|supply list\b/.test(lower);
+  const wantsFamilyConnection = /\bfamily|parent(s)?|home connection|take.?home\b/.test(lower);
+  const wantsELG = /\belg|early learning goal|standard(s)?|domain\b/.test(lower);
+  const wantsSafety = /\bsafety|safe|hazard\b/.test(lower);
+  const isParentMessage = /\bparent message|parent note|parent letter|message to parent|notify parent|parent communication|closed|holiday notice\b/.test(lower);
+  const isObservation = /\bobservation|observed|observing|developmental note\b/.test(lower);
+  return {
+    bookCount, activityCount, songCount,
+    wantsBooks, wantsSongs, wantsActivities, wantsMaterials,
+    wantsFamilyConnection, wantsELG, wantsSafety,
+    isParentMessage, isObservation,
+  };
+}
+
+// Build structured requirement lines from detected intent for lesson plans
+function buildLessonIntentRequirements(intent) {
+  const lines = [];
+  if (intent.wantsBooks) {
+    lines.push(intent.bookCount
+      ? `- Include exactly ${intent.bookCount} age-appropriate book recommendation(s) with real author names.`
+      : "- Include age-appropriate book recommendations with real author names.");
+  }
+  if (intent.wantsSongs) {
+    lines.push(intent.songCount
+      ? `- Include exactly ${intent.songCount} age-appropriate song(s) or fingerplay(s) with lyrics or instructions.`
+      : "- Include age-appropriate songs and/or fingerplays.");
+  }
+  if (intent.wantsActivities) {
+    lines.push(intent.activityCount
+      ? `- Include exactly ${intent.activityCount} activity idea(s) with materials and step-by-step instructions.`
+      : "- Include age-appropriate activity ideas with materials and instructions.");
+  }
+  if (intent.wantsMaterials) {
+    lines.push("- Include a complete materials list.");
+  }
+  if (intent.wantsFamilyConnection) {
+    lines.push("- Include a family connection or take-home activity suggestion.");
+  }
+  if (intent.wantsELG) {
+    lines.push("- Include Early Learning Goal or standards connections.");
+  }
+  if (intent.wantsSafety) {
+    lines.push("- Include relevant safety notes.");
+  }
+  return lines;
+}
+
 function detectAgeFromPrompt(lower) {
   if (lower.includes("infant") || lower.includes("baby") || lower.includes("newborn")) return "Infant";
   if (lower.includes("young toddler") || lower.includes("12 month") || lower.includes("1 year")) return "Young Toddler";
@@ -17733,11 +17818,17 @@ function detectAgeFromPrompt(lower) {
 function generateFromPrompt(prompt) {
   const lower = prompt.toLowerCase();
   const age = detectAgeFromPrompt(lower);
-  if (lower.includes("observation") || lower.includes("stacking") || lower.includes("blocks")) {
+  const intent = detectPromptIntent(lower);
+
+  // Route by detected intent
+  if (intent.isObservation || lower.includes("stacking") || lower.includes("blocks")) {
     return generateObservation({ note: prompt, age });
   }
-  if (lower.includes("newsletter")) {
-    return generateNewsletter({ month: "This Month", theme: prompt, dates: "Add important dates here." });
+  if (intent.isParentMessage || lower.includes("parent message") || lower.includes("parent note") || lower.includes("newsletter")) {
+    if (lower.includes("newsletter")) {
+      return generateNewsletter({ month: "This Month", theme: prompt, dates: "Add important dates here." });
+    }
+    return generateParentMessage({ topic: prompt, tone: "Warm and clear" });
   }
   if (lower.includes("daily report")) {
     return generateDailyReport({ childName: "The child", age, meals: "Meals were offered according to the daily menu.", nap: "Rest time was supported.", highlights: prompt });
@@ -17750,6 +17841,9 @@ function generateFromPrompt(prompt) {
   }
   if (lower.includes("menu")) {
     return generateMenu(prompt);
+  }
+  if (intent.wantsActivities && !lower.includes("lesson")) {
+    return generateActivity({ age, theme: prompt, skill: lower.includes("sensory") ? "sensory exploration" : "creative learning" });
   }
   if (lower.includes("activity") || lower.includes("sensory") || lower.includes("art")) {
     return generateActivity({ age, theme: prompt, skill: lower.includes("sensory") ? "sensory exploration" : "creative learning" });
@@ -19479,8 +19573,8 @@ function renderAccountPage() {
   if (phoneInput) phoneInput.value = account?.phone || "";
   statusLabel.textContent = paidBilling ? account?.subscriptionStatus || `${billingPlanLabel(currentPlan, account)} Subscription Active` : "Free Plan";
   detailLabel.innerHTML = paidBilling
-    ? `Current Plan: ${escapeHtml(billingPlanLabel(currentPlan, account))}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${account?.foundingMember ? "Lifetime" : "Regular Pro pricing"}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>AI Usage: ${aiUsageCount()} of ${paidAiMonthlyLimit} used this billing month. Resets ${escapeHtml(aiResetLabel())}.<br>Your account has full in-app resources, menus, child profiles, portfolios, tracking tools, provider tools, future premium features, and ${paidAiMonthlyLimit} AI generations per month.`
-    : `Your Free account includes 5 lesson plans, 10 observations, 10 forms, 10 activity ideas, 10 printables, ${freeAiMonthlyLimit} AI generations per month, up to 3 child profiles, and the weekly observation tracker. Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}. AI Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`;
+    ? `Current Plan: ${escapeHtml(billingPlanLabel(currentPlan, account))}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${account?.foundingMember ? "Lifetime" : "Regular Pro pricing"}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>Helper Usage: ${aiUsageCount()} of ${paidAiMonthlyLimit} used this billing month. Resets ${escapeHtml(aiResetLabel())}.<br>Your account has full in-app resources, menus, child profiles, portfolios, tracking tools, provider tools, future premium features, and ${paidAiMonthlyLimit} document creations per month.`
+    : `Your Free account includes 5 lesson plans, 10 observations, 10 forms, 10 activity ideas, 10 printables, ${freeAiMonthlyLimit} document creations per month, up to 3 child profiles, and the weekly observation tracker. Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}. Helper Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`;
   if (demoButton) demoButton.style.display = "none";
   if (upgradeButton) {
     upgradeButton.textContent = paidBilling ? "Manage Billing" : "Upgrade to Pro";
@@ -19615,8 +19709,8 @@ function updatePlanLabel() {
   const summary = document.querySelector("#planAccessSummary");
   if (summary) {
     summary.textContent = isProUser()
-      ? `${billingPlanLabel()} active: ${billingPriceLabel()} with full library access and ${Math.max(paidAiMonthlyLimit - aiUsageCount(), 0)} AI generations left this month.`
-      : `Free plan: limited library access, up to 3 child profiles, and ${Math.max(freeAiMonthlyLimit - aiUsageCount(), 0)} AI generations left this month.`;
+      ? `${billingPlanLabel()} active: ${billingPriceLabel()} with full library access and ${Math.max(paidAiMonthlyLimit - aiUsageCount(), 0)} document creations left this month.`
+      : `Free plan: limited library access, up to 3 child profiles, and ${Math.max(freeAiMonthlyLimit - aiUsageCount(), 0)} document creations left this month.`;
   }
   updateSidebarDashboard();
 }
@@ -20507,7 +20601,7 @@ document.addEventListener("click", async (event) => {
     } catch (error) {
       if (output) {
         output.style.display = "block";
-        output.innerHTML = `<div class="quick-entry-result section-block"><p class="muted-copy">${escapeHtml(error.message || "AI generation could not be completed.")}</p></div>`;
+        output.innerHTML = `<div class="quick-entry-result section-block"><p class="muted-copy">${escapeHtml(error.message || "We couldn't create your document right now. Please try again.")}</p></div>`;
       }
     }
     return;
@@ -20681,7 +20775,7 @@ document.addEventListener("click", async (event) => {
       childManagementMode = "daily-logs";
       renderChildManagement();
     } catch (error) {
-      alert(error.message || "AI generation could not be completed.");
+      alert(error.message || "We couldn't create your document right now. Please try again.");
     }
     return;
   }
@@ -20840,7 +20934,7 @@ document.addEventListener("click", async (event) => {
       childManagementMode = "daily-logs";
       renderChildManagement();
     } catch (error) {
-      alert(error.message || "AI generation could not be completed.");
+      alert(error.message || "We couldn't create your document right now. Please try again.");
     }
     return;
   }
@@ -20960,7 +21054,7 @@ document.addEventListener("click", async (event) => {
       quickDocGenerateBtn.textContent = "Generated!";
       setTimeout(() => { quickDocGenerateBtn.textContent = "Generate Selected"; }, 1600);
     } catch (error) {
-      alert(error.message || "AI generation could not be completed.");
+      alert(error.message || "We couldn't create your document right now. Please try again.");
     }
     return;
   }
@@ -21116,7 +21210,7 @@ document.addEventListener("click", async (event) => {
       addAiMessage("assistant", result.output);
       recordAiUse();
     } catch (error) {
-      addAiMessage("assistant", error.message || "AI generation could not be completed.");
+      addAiMessage("assistant", error.message || "We couldn't create your document right now. Please try again.");
     }
     return;
   }
@@ -21554,7 +21648,7 @@ document.addEventListener("click", async (event) => {
       await buildDailyReportFromChild(buildDailyReportButton.dataset.buildDailyReport, quickNote);
       recordAiUse();
     } catch (error) {
-      alert(error.message || "AI generation could not be completed.");
+      alert(error.message || "We couldn't create your document right now. Please try again.");
     }
     return;
   }
@@ -21884,7 +21978,7 @@ const featurePreviewContent = {
           <div class="fp-nav active">Children</div>
           <div class="fp-nav">Observations</div>
           <div class="fp-nav">Lessons</div>
-          <div class="fp-nav">AI Tools</div>
+          <div class="fp-nav">Doc Helpers</div>
         </aside>
         <div class="fp-main">
           <div class="fp-stat-row">
@@ -21918,7 +22012,7 @@ const featurePreviewContent = {
           <div class="fp-nav">Children</div>
           <div class="fp-nav active">Observations</div>
           <div class="fp-nav">Lessons</div>
-          <div class="fp-nav">AI Tools</div>
+          <div class="fp-nav">Doc Helpers</div>
         </aside>
         <div class="fp-main">
           <div class="fp-stat-row">
@@ -21952,7 +22046,7 @@ const featurePreviewContent = {
           <div class="fp-nav">Children</div>
           <div class="fp-nav">Observations</div>
           <div class="fp-nav active">Lessons</div>
-          <div class="fp-nav">AI Tools</div>
+          <div class="fp-nav">Doc Helpers</div>
         </aside>
         <div class="fp-main">
           <div class="fp-stat-row">
@@ -21978,19 +22072,19 @@ const featurePreviewContent = {
   },
   "ai-tools": {
     eyebrow: "Preview",
-    title: "AI Tools",
+    title: "Doc Helpers",
     html: `<div class="fp-screen">
-      <div class="fp-screen-bar"><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-screen-title">AI Tools — Little Learner Hub</span></div>
+      <div class="fp-screen-bar"><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-screen-title">Doc Helpers — Little Learner Hub</span></div>
       <div class="fp-screen-body">
         <aside class="fp-sidebar">
           <div class="fp-nav">Children</div>
           <div class="fp-nav">Observations</div>
           <div class="fp-nav">Lessons</div>
-          <div class="fp-nav active">AI Tools</div>
+          <div class="fp-nav active">Doc Helpers</div>
         </aside>
         <div class="fp-main">
           <div class="fp-stat-row">
-            <div class="fp-stat"><strong>10+</strong><span>AI Generators</span></div>
+            <div class="fp-stat"><strong>10+</strong><span>Doc Helpers</span></div>
             <div class="fp-stat"><strong>7</strong><span>Used This Month</span></div>
             <div class="fp-stat"><strong>3</strong><span>Remaining</span></div>
           </div>
@@ -22001,7 +22095,7 @@ const featurePreviewContent = {
             <div class="fp-field"><label>What did you notice?</label><div class="fp-field-value">Emma threaded 6 beads without help today.</div></div>
           </div>
           <div class="fp-card">
-            <div class="fp-card-title">✨ AI Generated Output</div>
+            <div class="fp-card-title">✨ Created Document</div>
             <div class="fp-ai-output">During a structured fine motor activity, Emma demonstrated focused concentration and developing dexterity as she independently threaded six beads onto a string. This skill highlights Emma's growing hand-eye coordination and perseverance. Next steps: introduce smaller beads or lacing cards to continue building precision.</div>
           </div>
         </div>
@@ -22728,7 +22822,7 @@ document.querySelector("#aiChatForm")?.addEventListener("submit", async (event) 
     recordAiUse();
     trackEvent("ai_generation_success", { tool: "chat", promptLength: prompt.length, plan: currentPlan, backendUsed: result.backendUsed });
   } catch (error) {
-    addAiMessage("assistant", error.message || "AI generation could not be completed.");
+    addAiMessage("assistant", error.message || "We couldn't create your document right now. Please try again.");
   }
 });
 
@@ -22736,6 +22830,11 @@ document.addEventListener("submit", async (event) => {
   if (!event.target.matches("#docHelperForm")) return;
   event.preventDefault();
   const form = event.target;
+  const submitBtn = form.querySelector("[type='submit']");
+
+  // Prevent duplicate submissions
+  if (submitBtn && submitBtn.disabled) return;
+
   const childId = form.querySelector("#docHelperChild")?.value || "";
   const docType = form.querySelector("#docHelperType")?.value || "observation";
   const note = form.querySelector("#docHelperNote")?.value.trim() || "";
@@ -22785,16 +22884,19 @@ document.addEventListener("submit", async (event) => {
   };
 
   resultsEl.hidden = false;
-  outputEl.textContent = "Generating...";
+  outputEl.textContent = "Creating your document…";
   delete outputEl.dataset.rawMarkdown;
   outputEl.contentEditable = "false";
   if (titleEl) titleEl.textContent = label;
-  if (labelEl) labelEl.textContent = "Generating";
+  if (labelEl) labelEl.textContent = "Creating";
   if (saveBtn) {
     saveBtn.dataset.docType = docType;
     saveBtn.dataset.childId = childId;
     saveBtn.textContent = "Save";
   }
+
+  // Disable submit button during generation
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Creating…"; }
 
   try {
     const result = await generateToolOutputWithBackend(toolId, data);
@@ -22807,9 +22909,11 @@ document.addEventListener("submit", async (event) => {
     trackEvent("ai_generation_success", { tool: "doc-helper", docType, plan: currentPlan, backendUsed: Boolean(result.backendUsed) });
   } catch (error) {
     renderAiDebugPanel("#docHelperDebugPanel");
-    outputEl.textContent = error.message || "AI generation could not be completed.";
+    outputEl.textContent = error.message || "We couldn't create your document right now. Please try again.";
     delete outputEl.dataset.rawMarkdown;
     if (labelEl) labelEl.textContent = "Error";
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Create Document"; }
   }
 });
 
@@ -22825,15 +22929,26 @@ document.addEventListener("submit", async (event) => {
   event.preventDefault();
   const toolId = event.target.dataset.generator;
   const outputEl = document.querySelector("#generatorOutput");
+  const titleEl = document.querySelector("#outputTitle");
+  const submitBtn = event.target.querySelector("[data-generate-btn]");
+
+  // Prevent duplicate submissions
+  if (submitBtn && submitBtn.disabled) return;
+
   if (!canUseAi()) {
-    document.querySelector("#outputTitle").textContent = "AI Limit Reached";
+    if (titleEl) titleEl.textContent = "Usage Limit Reached";
     if (outputEl) { outputEl.textContent = aiLimitMessage(); delete outputEl.dataset.rawMarkdown; }
     return;
   }
+
   const data = collectFormData(event.target);
-  const title = aiTools.find((tool) => tool.id === toolId)?.title || "Generated Result";
-  document.querySelector("#outputTitle").textContent = title.replace("AI ", "");
-  if (outputEl) { outputEl.textContent = "Generating..."; delete outputEl.dataset.rawMarkdown; }
+  const title = aiTools.find((tool) => tool.id === toolId)?.title || "Your Document";
+  if (titleEl) titleEl.textContent = title;
+
+  // Disable button and show in-progress state
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Creating…"; }
+  if (outputEl) { outputEl.textContent = "Creating your document…"; delete outputEl.dataset.rawMarkdown; }
+
   try {
     const result = await generateToolOutputWithBackend(toolId, data);
     if (outputEl) {
@@ -22845,8 +22960,11 @@ document.addEventListener("submit", async (event) => {
     trackEvent("ai_generation_success", { tool: toolId, plan: currentPlan, backendUsed: Boolean(result.backendUsed), used: result.used, limit: result.limit });
   } catch (error) {
     renderAiDebugPanel("#generatorDebugPanel");
-    document.querySelector("#outputTitle").textContent = "AI Generation Error";
-    if (outputEl) { outputEl.textContent = error.message || "AI generation could not be completed."; delete outputEl.dataset.rawMarkdown; }
+    if (titleEl) titleEl.textContent = "Document Creation Error";
+    if (outputEl) { outputEl.textContent = error.message || "We couldn't create your document right now. Please try again."; delete outputEl.dataset.rawMarkdown; }
+  } finally {
+    // Re-enable the button so users can try again
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Create Document"; }
   }
 });
 
@@ -23719,7 +23837,7 @@ async function handleAdminAiTestGenerate() {
 
   state.generating = true;
   const btn = document.querySelector("#aitcGenerateBtn");
-  if (btn) { btn.disabled = true; btn.textContent = "Generating…"; }
+  if (btn) { btn.disabled = true; btn.textContent = "Creating…"; }
 
   try {
     const result = await callAdminAiTest(systemPrompt, userPrompt, wantScore);
