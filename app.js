@@ -2585,13 +2585,14 @@ function subscriptionToAccountUpdates(subscription) {
   }
 
   function monthlyDocumentationStats(records = childRecords()) {
+    const documentationMinutesSavedPerEntry = 3;
     const observations = (records.observations || []).filter((item) => isCurrentMonthDate(item.date)).length;
     const attendance = (records.attendance || []).filter((item) => isCurrentMonthDate(item.date)).length;
     const meals = (records.meals || []).filter((item) => isCurrentMonthDate(item.date)).length;
     const reports = (records.reports || []).filter((item) => isCurrentMonthDate(item.date)).length;
     const parentMessages = (records.communications || []).filter((item) => isCurrentMonthDate(item.date) && item.type !== "Behavior Note").length;
     const total = observations + attendance + meals + reports + parentMessages;
-    const estimatedMinutesSaved = total * 3;
+    const estimatedMinutesSaved = total * documentationMinutesSavedPerEntry;
     return {
       observations,
       attendance,
@@ -11136,7 +11137,7 @@ function areaOptions(selected = "") {
   return developmentalAreas.map((area) => `<option ${area === selected ? "selected" : ""}>${area}</option>`).join("");
 }
 
-function lockedFeatureCard(title, detail = "Upgrade to Pro to save time on paperwork and unlock this child management workflow.", previewId = "") {
+function lockedFeatureCard(title, detail = "Upgrade to Pro to save time on paperwork and unlock this workflow.", previewId = "") {
   return `
     <div class="locked-tool">
       <span class="tag access-tag">Included with Pro</span>
@@ -20848,7 +20849,7 @@ document.addEventListener("click", async (event) => {
       "daily-report": ["daily-report"],
       activities: ["activity"],
       "goal-update": ["goal-update"],
-        portfolio: ["observation"],
+        portfolio: ["observation", "goal-update"],
     };
       if (!isProUser() && ["parent-message", "daily-report"].includes(action)) {
         if (output) {

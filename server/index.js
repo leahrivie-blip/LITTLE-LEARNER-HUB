@@ -2053,10 +2053,8 @@ async function handleCheckout(request, response) {
   const promo = checkoutPromoForCode(body.promoCode);
   const trial7day = body.trial7day === true;
   const firstMonthOfferRequested = body.firstMonthOffer === true;
-  const firstMonthOfferAllowed = firstMonthOfferRequested
-    && planKey === "monthly"
-    && !trial7day
-    && !promo.valid;
+  const firstMonthOfferApplied = firstMonthOfferRequested && planKey === "monthly";
+  const firstMonthOfferAllowed = firstMonthOfferApplied && !trial7day && !promo.valid;
   if (firstMonthOfferRequested && !firstMonthOfferAllowed) {
     jsonResponse(response, 400, {
       error: "The first-month offer applies only to Pro Monthly checkout and cannot be combined with trial or promo paths.",
@@ -2126,7 +2124,7 @@ async function handleCheckout(request, response) {
       pendingPromoCode: promo.valid ? promo.code : "",
       pendingTrialDays: promo.valid ? promo.trialDays : trial7day ? 7 : 0,
       pendingPromoLabel: promo.valid ? promo.label : trial7day ? "7-Day Pro Trial" : "",
-      pendingFirstMonthOffer: firstMonthOfferRequested && planKey === "monthly" ? true : false,
+      pendingFirstMonthOffer: firstMonthOfferApplied,
     });
     jsonResponse(response, 200, {
       url: session.url,
@@ -2134,7 +2132,7 @@ async function handleCheckout(request, response) {
       plan: planKey,
       promo: promo.valid ? { applied: true, trialDays: promo.trialDays, label: promo.label, expiresAt: promo.expiresAt, expiresLabel: promo.expiresLabel } : null,
       trial: trial7day ? { applied: true, trialDays: 7, label: "7-Day Pro Trial" } : null,
-      firstMonthOffer: firstMonthOfferRequested && planKey === "monthly" ? { applied: true, firstMonthPrice: "$4.99", regularPrice: "$19.99/month" } : null,
+      firstMonthOffer: firstMonthOfferApplied ? { applied: true, firstMonthPrice: "$4.99", regularPrice: "$19.99/month" } : null,
       founding: foundingStatusPayload(store),
     });
   } catch (error) {
