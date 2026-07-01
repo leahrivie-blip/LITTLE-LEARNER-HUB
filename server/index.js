@@ -2758,7 +2758,11 @@ function handleAdminAnalytics(request, response, url) {
 
 function handlePublicSiteContent(request, response) {
   const store = readStore();
-  jsonResponse(response, 200, { siteContent: normalizedSiteContent(store.siteContent || defaultSiteContentStore()) });
+  const content = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  const publicLessonPlans = Object.fromEntries(
+    Object.entries(content.lessonPlans).filter(([, plan]) => plan.visible !== false)
+  );
+  jsonResponse(response, 200, { siteContent: { ...content, lessonPlans: publicLessonPlans } });
 }
 
 function handleAdminSiteContent(request, response, url) {
