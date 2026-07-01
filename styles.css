@@ -6306,6 +6306,74 @@ body.home-view .topbar .search-wrap {
 
 /* Dashboard action row */
 
+.dlc-workflow-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dlc-workflow-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.dlc-workflow-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dlc-workflow-card-future {
+  background: var(--bg);
+  opacity: 0.82;
+}
+
+.dlc-workflow-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dlc-workflow-step-number,
+.dlc-workflow-step-tag,
+.dlc-workflow-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.dlc-workflow-step-number {
+  background: var(--primary-light, #eef2ff);
+  color: var(--primary);
+}
+
+.dlc-workflow-step-tag,
+.dlc-workflow-pill {
+  background: var(--bg);
+  color: var(--ink-muted);
+  border: 1px solid var(--line);
+}
+
+.dlc-workflow-title {
+  font-size: 0.98rem;
+  color: var(--ink);
+}
+
+.dlc-workflow-action {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .dlc-dashboard-actions-row {
   display: flex;
   align-items: center;
