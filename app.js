@@ -16020,7 +16020,7 @@ function renderAdminContentManager() {
           <button class="ghost-button" type="button" data-admin-bulk="pro">Bulk Mark Pro</button>
           <button class="ghost-button" type="button" id="adminShowOnly50Button">Show only 50 per age group</button>
         </div>
-        <div class="admin-mobile-list" id="adminLessonPlanList">${lessons.slice(0, 120).map(lessonPlanAdminCardHtml).join("") || `<div class="empty-state">No lesson plans match these filters.</div>`}</div>
+        <div class="admin-mobile-list" id="adminLessonPlanList">${lessons.map(lessonPlanAdminCardHtml).join("") || `<div class="empty-state">No lesson plans match these filters.</div>`}</div>
         ${lessonRecord ? `
           <form id="adminLessonPlanForm" class="panel-form admin-stacked-form">
             <input type="hidden" name="id" value="${escapeHtml(lessonRecord.id)}" />
