@@ -12480,10 +12480,62 @@ function renderDlcDashboard(records) {
   const dateLabel = new Date(`${today}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
   const activeChildren = getActiveChildren(records);
   const hiddenChildren = getHiddenChildren(records);
+  const nextChildForUpdates = activeChildren.find((child) => getDailyLogStatus(child, records, today) !== "complete") || activeChildren[0] || null;
+  const nextChildForReports = activeChildren.find((child) => dailyLogCompletionState(child, records, today).percent > 0) || nextChildForUpdates;
   const completionValues = activeChildren.map((child) => dailyLogCompletionState(child, records, today).percent);
   const classroomCompletion = completionValues.length
     ? Math.round(completionValues.reduce((sum, value) => sum + value, 0) / completionValues.length)
     : 0;
+  const workflowSteps = [
+    {
+      number: 1,
+      title: "Classroom Meals",
+      detail: "Use the classroom meal flow first to capture breakfast, lunch, and snack updates for multiple children.",
+      actionHtml: `<button class="primary-button" data-dlc-dashboard-flow="meals" type="button">Open Classroom Meals</button>`,
+    },
+    {
+      number: 2,
+      title: "Classroom Activities",
+      detail: "Log shared activities next so the room's learning highlights are recorded in one place.",
+      actionHtml: `<button class="ghost-button" data-dlc-dashboard-flow="activities" type="button">Open Classroom Activities</button>`,
+    },
+    {
+      number: 3,
+      title: "Classroom Notes",
+      detail: "Capture classroom-wide notes and quick documentation before moving into child-specific follow-up.",
+      actionHtml: `<button class="ghost-button" data-daily-logs-section="quick" type="button">Open Classroom Notes</button>`,
+    },
+    {
+      number: 4,
+      title: "Quick Child Updates",
+      detail: activeChildren.length
+        ? `Finish individual updates for ${escapeHtml(nextChildForUpdates.name)} and the rest of the class below.`
+        : "Add a child profile to open individual daily log workspaces.",
+      actionHtml: nextChildForUpdates
+        ? `<button class="ghost-button" data-dlc-open-child="${nextChildForUpdates.id}" data-dlc-quick-tab="overview" type="button">Open Next Child</button>`
+        : `<button class="ghost-button" data-child-view="add" type="button">Add Child Profile</button>`,
+    },
+    {
+      number: 5,
+      title: "Generate Daily Reports",
+      detail: nextChildForReports
+        ? `Generate reports one child at a time for now, starting with ${escapeHtml(nextChildForReports.name)}.`
+        : "Daily reports stay inside each child's workspace. Batch report generation is not part of this step.",
+      actionHtml: nextChildForReports
+        ? `<button class="ghost-button" data-dlc-open-child="${nextChildForReports.id}" data-dlc-quick-tab="daily-report" type="button">Open Daily Report</button>`
+        : `<span class="dlc-workflow-pill">Per-child reports only</span>`,
+    },
+    {
+      number: 6,
+      title: "Print All Reports",
+      detail: activeChildren.length
+        ? `Print daily log reports for all ${activeChildren.length} active ${activeChildren.length === 1 ? "child" : "children"} for ${escapeHtml(dateLabel)} in one document.`
+        : "Add active children to enable batch printing.",
+      actionHtml: activeChildren.length
+        ? `<button class="primary-button" data-dlc-print-all type="button">Print All Reports</button>`
+        : `<span class="dlc-workflow-pill">No active children</span>`,
+    },
+  ];
 
   return `
     <div class="dlc-dashboard">
@@ -12517,6 +12569,29 @@ function renderDlcDashboard(records) {
         ${dailyLogProgressBar(classroomCompletion)}
       </section>
 
+      <section class="section-block dlc-workflow-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Primary Workspace</p>
+            <h4>Follow today's Daily Logs workflow in order</h4>
+            <p class="muted-copy">Use this workspace for classroom-first updates, then finish child-specific logs, reports, and printing steps in sequence.</p>
+          </div>
+        </div>
+        <div class="dlc-workflow-list">
+          ${workflowSteps.map((step) => `
+            <article class="dlc-workflow-card${step.future ? " dlc-workflow-card-future" : ""}">
+              <div class="dlc-workflow-card-top">
+                <span class="dlc-workflow-step-number">Step ${step.number}</span>
+                ${step.future ? `<span class="dlc-workflow-step-tag">Later Phase</span>` : ""}
+              </div>
+              <strong class="dlc-workflow-title">${step.title}</strong>
+              <p class="dlc-sub">${step.detail}</p>
+              <div class="dlc-workflow-action">${step.actionHtml}</div>
+            </article>
+          `).join("")}
+        </div>
+      </section>
+
       <div class="dlc-quick-doc-box section-block">
         <div class="dlc-quick-doc-header">
           <strong class="dlc-quick-doc-title">What happened today?</strong>
@@ -12546,13 +12621,11 @@ function renderDlcDashboard(records) {
         </div>
         <div id="dlcDashboardNoteOutput" class="dlc-dash-output" style="display:none;"></div>
       </div>
-
       <div class="dlc-dashboard-actions-row">
-        <strong class="dlc-section-title">Update Today's Logs</strong>
+        <strong class="dlc-section-title">Other Daily Logs Tools</strong>
         <div class="dlc-dashboard-action-btns">
           <button class="ghost-button" ${isProUser() ? `data-daily-logs-section="group"` : `data-preview="daily-log-group-updates" data-pro-feature="daily-log-group-updates"`} type="button">📋 Group Update ${!isProUser() ? `<span class="mini-pro-label">Pro</span>` : ""}</button>
           <button class="ghost-button" data-dlc-child-sel="multiple" data-dlc-from-dashboard type="button">👥 Select Children</button>
-          <button class="ghost-button" data-daily-logs-section="quick" type="button">⭐ Quick Documentation</button>
         </div>
       </div>
 
@@ -13283,13 +13356,11 @@ function getDailyLogParentSummaryDraft(child, records, today) {
   return dlcParentSummaryDrafts[key] || buildDailyLogParentSummary(child, records, today);
 }
 
-function printDailyLog(childId, today = new Date().toISOString().slice(0, 10)) {
-  const records = childRecords();
-  const child = records.children.find((item) => item.id === childId);
-  if (!child) return;
+function buildDailyLogLines(child, records, today) {
+  if (!child || !records) return [];
   const snapshot = dlcChildDaySnapshot(child, records, today);
   const timeline = buildDailyLogTimelineEntries(child, records, today);
-  const lines = [
+  return [
     `Daily Log: ${child.name}`,
     `Date: ${today}`,
     "",
@@ -13303,7 +13374,25 @@ function printDailyLog(childId, today = new Date().toISOString().slice(0, 10)) {
     "Timeline",
     ...(timeline.length ? timeline.map((entry) => `- ${entry.displayTime}: ${entry.title}${entry.detail ? ` — ${entry.detail}` : ""}`) : ["- No timeline entries yet."]),
   ];
-  printTextDocument(`${child.name} Daily Log`, lines.join("\n"));
+}
+
+function printDailyLog(childId, today = new Date().toISOString().slice(0, 10)) {
+  const records = childRecords();
+  const child = records.children.find((item) => item.id === childId);
+  if (!child) return;
+  printTextDocument(`${child.name} Daily Log`, buildDailyLogLines(child, records, today).join("\n"));
+}
+
+function printAllDailyLogs(today = new Date().toISOString().slice(0, 10)) {
+  const records = childRecords();
+  const activeChildren = getActiveChildren(records);
+  if (!activeChildren.length) {
+    alert("No active children to print reports for.");
+    return;
+  }
+  const dateLabel = new Date(`${today}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  const sections = activeChildren.map((child) => buildDailyLogLines(child, records, today).join("\n"));
+  printTextDocument(`Daily Reports — ${dateLabel}`, sections.join("\n\n---\n\n"));
 }
 
 function setDailyLogParentSummaryDraft(childId, today, value) {
@@ -20825,6 +20914,23 @@ document.addEventListener("click", async (event) => {
   if (dlcSpeakDashBtn) {
     event.preventDefault();
     dlcStartDashboardSpeechInput();
+    return;
+  }
+
+  const dlcDashboardFlowBtn = event.target.closest("[data-dlc-dashboard-flow]");
+  if (dlcDashboardFlowBtn) {
+    event.preventDefault();
+    dailyLogsSection = "group";
+    dailyLogsGroupAction = dlcDashboardFlowBtn.dataset.dlcDashboardFlow || "";
+    childManagementMode = "daily-logs";
+    renderChildManagement();
+    return;
+  }
+
+  const dlcPrintAllBtn = event.target.closest("[data-dlc-print-all]");
+  if (dlcPrintAllBtn) {
+    event.preventDefault();
+    printAllDailyLogs(dlcDashboardDate || new Date().toISOString().slice(0, 10));
     return;
   }
 
