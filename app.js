@@ -751,6 +751,7 @@ function isInfantLegacyPlan(resource) {
 
 function isResourceVisibleToCurrentUser(resource) {
   if (!resource) return false;
+  if (resource.visible === false && !hasAdminFullAccess()) return false;
   if (resource.category === "Printables" && isPrintablesUpgradeModeActive()) return false;
   if (isInfantLegacyPlan(resource) && isInfantLegacyUpgradeModeActive()) return false;
   return true;
@@ -16668,8 +16669,9 @@ function renderAdminDashboard() {
 }
 
 function adminRow(item) {
+  const isHidden = item.visible === false;
   return `
-    <tr>
+    <tr${isHidden ? ' class="admin-row-hidden"' : ''}>
       <td>
         <strong>${item.title}</strong>
         <span>${item.description || "No description yet."}</span>
@@ -16684,8 +16686,10 @@ function adminRow(item) {
         <small>${item.previewName ? `Preview: ${item.previewName}` : "No preview image"}</small>
       </td>
       <td>
+        <span class="tag${isHidden ? " tag-hidden" : ""}">${isHidden ? "Hidden" : "Visible"}</span>
         <div class="table-actions">
           <button class="ghost-button" data-admin-edit="${item.id}">Edit</button>
+          <button class="ghost-button" data-admin-toggle-visibility="${item.id}">${isHidden ? "Unhide" : "Hide"}</button>
           <button class="danger-button" data-admin-delete="${item.id}">Delete</button>
         </div>
       </td>
@@ -16713,6 +16717,8 @@ function fillAdminForm(id) {
   form.querySelector('[name="plan"]').value = item.plan;
   form.querySelector('[name="tags"]').value = (item.tags || []).filter((tag) => tag !== "Uploaded").join(", ");
   form.querySelector('[name="description"]').value = item.description || "";
+  const visibleCheckbox = form.querySelector('[name="visible"]');
+  if (visibleCheckbox) visibleCheckbox.checked = item.visible !== false;
   document.querySelector("#adminSubmitButton").textContent = "Save Changes";
   document.querySelector("#adminCancelEdit").style.display = "inline-flex";
   form.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -21681,6 +21687,17 @@ document.addEventListener("click", async (event) => {
   const adminEdit = event.target.closest("[data-admin-edit]");
   if (adminEdit) fillAdminForm(adminEdit.dataset.adminEdit);
 
+  const adminToggleVisibility = event.target.closest("[data-admin-toggle-visibility]");
+  if (adminToggleVisibility) {
+    const id = adminToggleVisibility.dataset.adminToggleVisibility;
+    const uploads = uploadedResources();
+    const updated = uploads.map((item) =>
+      item.id === id ? { ...item, visible: !(item.visible !== false) } : item
+    );
+    saveUploadedResources(updated);
+    renderAdminDashboard();
+  }
+
   const adminDelete = event.target.closest("[data-admin-delete]");
   if (adminDelete) deleteAdminResource(adminDelete.dataset.adminDelete);
 
@@ -22664,6 +22681,7 @@ document.querySelector("#uploadForm")?.addEventListener("submit", async (event) 
     previewName: preview?.name || existingItem?.previewName || "",
     previewData,
     description: form.get("description") || "New uploaded resource.",
+    visible: form.get("visible") === "on",
   };
   const savedUploads = uploadedResources();
   const updatedUploads = editId

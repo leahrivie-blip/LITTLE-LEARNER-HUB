@@ -2711,6 +2711,16 @@ body.home-view .topbar .search-wrap {
   flex-wrap: wrap;
 }
 
+.admin-row-hidden {
+  opacity: 0.6;
+}
+
+.tag-hidden {
+  background: #f3e8f7;
+  color: #7b4f8a;
+  border-color: #d6b8e0;
+}
+
 .danger-button {
   min-height: 42px;
   padding: 10px 14px;
