@@ -1960,7 +1960,7 @@ const freeDailyLogHistoryDays = 14;
 const proFeatureList = [
   "1,500+ Observations",
   "200+ Lesson Plans",
-  "AI Generators",
+  "Document Helper",
   "Child Portfolios",
   "Attendance Tracking",
   "Individual Child Support Plans",
@@ -15701,7 +15701,7 @@ function renderAdminAnalytics() {
         ${countListHtml(counts.buttonClicks, "Button clicks will appear here.")}
       </article>
       <article class="analytics-card">
-        <h4>AI Generator Usage</h4>
+        <h4>Document Helper Usage</h4>
         ${countListHtml(counts.aiUsage, "Helper usage will appear after document creations.")}
       </article>
       <article class="analytics-card">
@@ -15757,7 +15757,7 @@ function renderLaunchReadiness() {
   const checklist = [
     ["Public homepage", "Ready", "Sales homepage, founding offer, samples, lead magnet, trust copy, and Pro preview are in place."],
     ["Resource library", "Local Ready", `${resources.length} local resources are available with Free/Pro locking and in-app viewing.`],
-    ["Document helper suite", "Local Ready", `${aiTools.length} AI generators are available with edit, copy, save, download, print, regenerate, and save-to-library actions.`],
+    ["Document helper suite", "Local Ready", `${aiTools.length} document helpers are available with edit, copy, save, download, print, regenerate, and save-to-library actions.`],
     ["Free vs Pro permissions", "Local Ready", "Limits, locked content, Pro prompts, and AI generation limits are enforced locally."],
     ["Private Admin", "Local Ready", "Admin, support tickets, content uploads, analytics, and launch checklist are protected by owner email, password, and access code on this device."],
     ["Analytics", "Local Ready", "Page views, signup clicks, checkout starts, conversions, lead captures, and ad routes are tracked locally."],
@@ -17701,18 +17701,31 @@ async function generateToolOutputWithBackend(toolId, data) {
     throw new Error("Document creation is currently unavailable. Please try again shortly or contact support.");
   }
   const ageValue = data.age || data.ageGroup || data.group || "";
-  const response = await fetch(aiGenerationConfig.endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email: currentUser || "guest",
-      plan: currentPlan,
-      tool: toolId,
-      age: ageValue,
-      prompt: aiPromptFromForm(toolId, data),
-      debug: aiDebugEnabled(),
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  let response;
+  try {
+    response = await fetch(aiGenerationConfig.endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: currentUser || "guest",
+        plan: currentPlan,
+        tool: toolId,
+        age: ageValue,
+        prompt: aiPromptFromForm(toolId, data),
+        debug: aiDebugEnabled(),
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err.name === "AbortError") {
+      throw new Error("The request timed out. Please check your connection and try again.");
+    }
+    throw new Error("We couldn't create your document right now. Please try again.");
+  } finally {
+    clearTimeout(timeoutId);
+  }
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(result?.error || "We couldn't create your document right now. Please try again.");
