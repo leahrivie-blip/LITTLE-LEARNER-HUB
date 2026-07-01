@@ -21692,7 +21692,7 @@ document.addEventListener("click", async (event) => {
     const id = adminToggleVisibility.dataset.adminToggleVisibility;
     const uploads = uploadedResources();
     const updated = uploads.map((item) =>
-      item.id === id ? { ...item, visible: item.visible === false } : item
+      item.id === id ? { ...item, visible: !(item.visible !== false) } : item
     );
     saveUploadedResources(updated);
     renderAdminDashboard();
@@ -22681,7 +22681,7 @@ document.querySelector("#uploadForm")?.addEventListener("submit", async (event) 
     previewName: preview?.name || existingItem?.previewName || "",
     previewData,
     description: form.get("description") || "New uploaded resource.",
-    visible: form.get("visible") !== null,
+    visible: form.get("visible") === "on",
   };
   const savedUploads = uploadedResources();
   const updatedUploads = editId
