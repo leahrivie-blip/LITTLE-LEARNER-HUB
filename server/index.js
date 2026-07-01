@@ -2760,7 +2760,7 @@ function handlePublicSiteContent(request, response) {
   const store = readStore();
   const content = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
   const publicLessonPlans = Object.fromEntries(
-    Object.entries(content.lessonPlans).filter(([, plan]) => plan.visible !== false)
+    Object.entries(content.lessonPlans).filter(([, plan]) => plan.visible === true)
   );
   jsonResponse(response, 200, { siteContent: { ...content, lessonPlans: publicLessonPlans } });
 }
