@@ -12509,7 +12509,7 @@ function renderDlcDashboard(records) {
       number: 4,
       title: "Quick Child Updates",
       detail: activeChildren.length
-        ? `Finish individual updates for ${escapeHtml(nextChildForUpdates?.name || activeChildren[0].name)} and the rest of the class below.`
+        ? `Finish individual updates for ${escapeHtml(nextChildForUpdates.name)} and the rest of the class below.`
         : "Add a child profile to open individual daily log workspaces.",
       actionHtml: nextChildForUpdates
         ? `<button class="ghost-button" data-dlc-open-child="${nextChildForUpdates.id}" data-dlc-quick-tab="overview" type="button">Open Next Child</button>`
@@ -12528,7 +12528,7 @@ function renderDlcDashboard(records) {
     {
       number: 6,
       title: "Print All Reports",
-      detail: "Keep this final step visible in the workflow order, but batch printing is not available in Phase 1 Step 1.",
+      detail: "Keep this final step visible in the workflow order, but batch printing is not available in this initial dashboard update.",
       actionHtml: `<span class="dlc-workflow-pill">Coming in a later step</span>`,
       future: true,
     },
