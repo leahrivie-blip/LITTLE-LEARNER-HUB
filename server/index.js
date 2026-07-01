@@ -14,6 +14,7 @@ const PROMO_FREE_TRIAL_CODE = String(process.env.PROMO_FREE_TRIAL_CODE || "TRYPR
 const PROMO_FREE_TRIAL_DAYS = Number(process.env.PROMO_FREE_TRIAL_DAYS || 90);
 const PROMO_FREE_TRIAL_EXPIRES_AT = process.env.PROMO_FREE_TRIAL_EXPIRES_AT || "2026-11-01T05:00:00.000Z";
 const PROMO_FREE_TRIAL_EXPIRES_LABEL = process.env.PROMO_FREE_TRIAL_EXPIRES_LABEL || "October 31, 2026";
+const STRIPE_MONTHLY_FIRST_MONTH_COUPON = String(process.env.STRIPE_MONTHLY_FIRST_MONTH_COUPON || "").trim();
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o";
 const FOUNDING_LIMIT = Number(process.env.FOUNDING_MEMBER_LIMIT || 50);
@@ -152,6 +153,7 @@ function stripeConfigStatus() {
       monthly: maskedValue(process.env.STRIPE_PRICE_PRO_MONTHLY),
       annual: maskedValue(process.env.STRIPE_PRICE_PRO_ANNUAL),
     },
+    monthlyFirstMonthOfferConfigured: isConfiguredValue(STRIPE_MONTHLY_FIRST_MONTH_COUPON),
     checkoutEndpoint: "/api/create-checkout-session",
     customerPortalEndpoint: "/api/create-customer-portal-session",
     webhookEndpoint: "/api/webhooks/stripe",
@@ -2050,6 +2052,23 @@ async function handleCheckout(request, response) {
   }
   const promo = checkoutPromoForCode(body.promoCode);
   const trial7day = body.trial7day === true;
+  const firstMonthOfferRequested = body.firstMonthOffer === true;
+  const firstMonthOfferAllowed = firstMonthOfferRequested
+    && planKey === "monthly"
+    && !trial7day
+    && !promo.valid;
+  if (firstMonthOfferRequested && !firstMonthOfferAllowed) {
+    jsonResponse(response, 400, {
+      error: "The first-month offer applies only to Pro Monthly checkout and cannot be combined with trial or promo paths.",
+    });
+    return;
+  }
+  if (firstMonthOfferRequested && !isConfiguredValue(STRIPE_MONTHLY_FIRST_MONTH_COUPON)) {
+    jsonResponse(response, 400, {
+      error: "The first-month offer is currently unavailable. Please choose standard monthly checkout.",
+    });
+    return;
+  }
   if (normalizePromoCode(body.promoCode) && !promo.valid) {
     jsonResponse(response, 400, {
       error: promo.expired
@@ -2092,6 +2111,12 @@ async function handleCheckout(request, response) {
       sessionParams["subscription_data[trial_period_days]"] = "7";
       sessionParams["metadata[promoLabel]"] = "7-Day Pro Trial";
       sessionParams["subscription_data[metadata][promoLabel]"] = "7-Day Pro Trial";
+    } else if (firstMonthOfferRequested) {
+      sessionParams["discounts[0][coupon]"] = STRIPE_MONTHLY_FIRST_MONTH_COUPON;
+      sessionParams["metadata[firstMonthOffer]"] = "true";
+      sessionParams["metadata[firstMonthOfferLabel]"] = "$4.99 first month";
+      sessionParams["subscription_data[metadata][firstMonthOffer]"] = "true";
+      sessionParams["subscription_data[metadata][firstMonthOfferLabel]"] = "$4.99 first month";
     }
     const session = await stripeRequest("checkout/sessions", sessionParams);
     upsertUser(email, {
@@ -2101,6 +2126,7 @@ async function handleCheckout(request, response) {
       pendingPromoCode: promo.valid ? promo.code : "",
       pendingTrialDays: promo.valid ? promo.trialDays : trial7day ? 7 : 0,
       pendingPromoLabel: promo.valid ? promo.label : trial7day ? "7-Day Pro Trial" : "",
+      pendingFirstMonthOffer: firstMonthOfferRequested && planKey === "monthly" ? true : false,
     });
     jsonResponse(response, 200, {
       url: session.url,
@@ -2108,6 +2134,7 @@ async function handleCheckout(request, response) {
       plan: planKey,
       promo: promo.valid ? { applied: true, trialDays: promo.trialDays, label: promo.label, expiresAt: promo.expiresAt, expiresLabel: promo.expiresLabel } : null,
       trial: trial7day ? { applied: true, trialDays: 7, label: "7-Day Pro Trial" } : null,
+      firstMonthOffer: firstMonthOfferRequested && planKey === "monthly" ? { applied: true, firstMonthPrice: "$4.99", regularPrice: "$19.99/month" } : null,
       founding: foundingStatusPayload(store),
     });
   } catch (error) {
@@ -2191,6 +2218,7 @@ async function handleCheckoutStatus(request, response, url) {
     const promoCode = normalizePromoCode(session.metadata?.promoCode || userEntry?.[1]?.pendingPromoCode || "");
     const promoTrialDays = Number(session.metadata?.promoTrialDays || userEntry?.[1]?.pendingTrialDays || 0);
     const promoLabel = session.metadata?.promoLabel || userEntry?.[1]?.pendingPromoLabel || "";
+    const firstMonthOffer = String(session.metadata?.firstMonthOffer || userEntry?.[1]?.pendingFirstMonthOffer || "").toLowerCase() === "true";
     const paid = session.payment_status === "paid" || session.status === "complete";
     if (paid && email) {
       const founding = planKey === "founding" ? claimFoundingSpot(email) : { foundingMember: false, foundingMemberNumber: null };
@@ -2202,6 +2230,7 @@ async function handleCheckoutStatus(request, response, url) {
         subscriptionStartedAt: new Date().toISOString(),
         paymentMethod: "Managed in Stripe",
         pendingPlan: "",
+        pendingFirstMonthOffer: false,
       });
       if (promoCode) {
         markPromoRedeemed(email, promoCode, {
@@ -2222,6 +2251,7 @@ async function handleCheckoutStatus(request, response, url) {
       subscriptionId: session.subscription,
       customerId: session.customer,
       promo: promoCode ? { applied: true, trialDays: promoTrialDays, label: promoLabel } : null,
+      firstMonthOffer: firstMonthOffer ? { applied: true, firstMonthPrice: "$4.99", regularPrice: "$19.99/month" } : null,
       founding: foundingStatusPayload(readStore()),
     });
   } catch (error) {
@@ -2283,6 +2313,7 @@ async function handleStripeWebhook(request, response) {
         subscriptionStartedAt: new Date().toISOString(),
         paymentMethod: "Managed in Stripe",
         pendingPlan: "",
+        pendingFirstMonthOffer: false,
       });
       if (promoCode) {
         markPromoRedeemed(email, promoCode, {

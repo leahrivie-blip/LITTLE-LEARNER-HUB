@@ -1727,7 +1727,7 @@ const billingPlans = {
     price: "$19.99",
     interval: "/month",
     stripePriceKey: "STRIPE_PRICE_PRO_MONTHLY",
-    features: ["Full in-app library", "All Pro resources", "250 document creations per month", "All child management and provider tools"],
+    features: ["$4.99 first month, then $19.99/month", "Full in-app library", "All Pro resources", "250 document creations per month", "All child management and provider tools"],
   },
   ProAnnual: {
     name: "Pro Annual",
@@ -2343,7 +2343,7 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
     if (title) title.textContent = "You've reached your Free Plan limit.";
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
-      <p>Upgrade to Pro to unlock unlimited child profiles, observations, lesson plans, resources, AI tools, Family Hub features, parent messaging, attendance tracking, and daily reports.</p>
+      <p>Upgrade to Pro to spend less time on paperwork with unlimited child profiles, observations, reports, parent messaging, attendance tracking, and the full resource library.</p>
       <p><small>Start a 7-day free trial. Credit card required. You will be charged after 7 days unless you cancel.</small></p>
     `;
   } else {
@@ -2351,7 +2351,7 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
     if (title) title.textContent = "This is a Pro Feature";
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
-      <p>Upgrade to Pro to unlock advanced AI tools, portfolio builder, parent messaging, attendance tracking, daily reports, and the full resource library.</p>
+      <p>Upgrade to Pro to keep documentation moving with advanced AI tools, daily reports, portfolio builder, parent messaging, and full resource access.</p>
       <p><small>Start a 7-day free trial. Credit card required. You will be charged after 7 days unless you cancel.</small></p>
     `;
   }
@@ -2574,6 +2574,35 @@ function subscriptionToAccountUpdates(subscription) {
       stripeSubscriptionId: subscription.stripeSubscriptionId || "",
       paymentMethod: subscription.paymentMethod || "Managed in Stripe",
       promoRedemptions: accountPromoRedemptions(subscription),
+    };
+  }
+
+  function isCurrentMonthDate(dateText) {
+    if (!dateText) return false;
+    const date = new Date(`${dateText}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return false;
+    return currentMonthKey(date) === currentMonthKey();
+  }
+
+  function monthlyDocumentationStats(records = childRecords()) {
+    const observations = (records.observations || []).filter((item) => isCurrentMonthDate(item.date)).length;
+    const attendance = (records.attendance || []).filter((item) => isCurrentMonthDate(item.date)).length;
+    const meals = (records.meals || []).filter((item) => isCurrentMonthDate(item.date)).length;
+    const reports = (records.reports || []).filter((item) => isCurrentMonthDate(item.date)).length;
+    const parentMessages = (records.communications || []).filter((item) => isCurrentMonthDate(item.date) && item.type !== "Behavior Note").length;
+    const total = observations + attendance + meals + reports + parentMessages;
+    const estimatedMinutesSaved = total * 3;
+    return {
+      observations,
+      attendance,
+      meals,
+      reports,
+      parentMessages,
+      total,
+      estimatedMinutesSaved,
+      timeSavedLabel: estimatedMinutesSaved >= 60
+        ? `${(estimatedMinutesSaved / 60).toFixed(1)} hrs`
+        : `${estimatedMinutesSaved} min`,
     };
   }
   const pendingPlan = String(subscription.pendingPlan || "").toLowerCase();
@@ -8018,6 +8047,7 @@ function renderCategoryPage(view) {
   const filters = categoryFilters(category);
   const displayTitle = view === "lessons" ? "Lesson Plan Library" : category;
   section.innerHTML = `
+    <button class="ghost-button back-button" data-view="home" type="button">← Back to Home</button>
     <div class="page-title">
       <p class="eyebrow">${displayTitle}</p>
       <h2>${displayTitle}</h2>
@@ -8362,6 +8392,7 @@ function renderUserDashboard() {
   const activeGoals = records.goals.filter((goal) => goalProgressPercent(goal.progress) < 100).length;
   const childCount = records.children.length;
   const observationsDue = Math.max(stats.totalNeeded - stats.completed, 0);
+  const documentationStats = monthlyDocumentationStats(records);
 
   const planner = weeklyPlanner();
   const weekday = now.toLocaleDateString("en-US", { weekday: "long" });
@@ -8416,6 +8447,9 @@ function renderUserDashboard() {
           </div>
           <div class="analytics-row">
             <span>Active goals</span><strong>${activeGoals}</strong>
+          </div>
+          <div class="analytics-row">
+            <span>Estimated paperwork time saved this month</span><strong>${documentationStats.timeSavedLabel}</strong>
           </div>
           ${plannedTasks.length ? `<div class="analytics-row"><span>${escapeHtml(weekday)} planner tasks</span><strong>${plannedTasks.length}</strong></div>` : ""}
           <div class="quick-action-list" style="margin-top:16px;">
@@ -8508,6 +8542,16 @@ function renderUserDashboard() {
           </div>
         </section>
       </div>
+      ${!isProUser() ? `
+        <section class="section-block">
+          <p class="eyebrow">Pro Preview</p>
+          <h3>Spend less time on paperwork</h3>
+          <p class="muted-copy">Preview what unlocks when you're ready: family-ready messages, daily reports, and portfolio entries.</p>
+          ${lockedFeatureCard("Parent Message Generator", "Turn one classroom note into a polished parent-ready update in seconds.", "daily-log-parent-messages")}
+          ${lockedFeatureCard("Daily Report Generator", "Generate family-ready daily reports from your attendance, meals, and activity logs.", "daily-log-reports")}
+          ${lockedFeatureCard("Portfolio Builder", "Build portfolio entries from saved observations, goals, and documentation.", "daily-log-portfolio")}
+        </section>
+      ` : ""}
     </div>
   `;
 }
@@ -11092,7 +11136,7 @@ function areaOptions(selected = "") {
   return developmentalAreas.map((area) => `<option ${area === selected ? "selected" : ""}>${area}</option>`).join("");
 }
 
-function lockedFeatureCard(title, detail = "Upgrade to Pro to unlock this child management tool.", previewId = "") {
+function lockedFeatureCard(title, detail = "Upgrade to Pro to save time on paperwork and unlock this child management workflow.", previewId = "") {
   return `
     <div class="locked-tool">
       <span class="tag access-tag">Included with Pro</span>
@@ -12364,6 +12408,7 @@ function renderChildToolsPage(records) {
   if (!child) {
     return `
       <section class="simple-child-page">
+        <button class="ghost-button back-button" data-child-view="list" type="button">← Back to Children</button>
         <div class="child-page-header">
           <div>
             <h2>${escapeHtml(activeTool[1])}</h2>
@@ -12385,7 +12430,7 @@ function renderChildToolsPage(records) {
           <h2>${escapeHtml(activeTool[1])}</h2>
           <p>Select a child, then manage only ${escapeHtml(activeTool[1].toLowerCase())}.</p>
         </div>
-        <button class="ghost-button" data-view-child-profile="${child.id}" type="button">Back to ${escapeHtml(child.name)}</button>
+        <button class="ghost-button back-button" data-view-child-profile="${child.id}" type="button">← Back to ${escapeHtml(child.name)}</button>
       </div>
       <div class="child-tools-layout">
         <aside class="section-block child-tools-side">
@@ -14783,14 +14828,7 @@ function appendChildRecord(key, record) {
 
 let afterActionPromptTimeout = null;
 
-function showAfterActionPrompt(trigger, childId) {
-  const prompts = {
-    attendance: "Attendance saved! Would you like to generate today's daily report?",
-    observation: "Observation saved! Would you like to generate a parent message?",
-    meals: "Meals logged! Would you like to create today's portfolio entry?",
-  };
-  const promptText = prompts[trigger];
-  if (!promptText || !childId) return;
+function showActionBanner(contentHtml, durationMs = 10000) {
   let banner = document.querySelector("#afterActionPrompt");
   if (!banner) {
     banner = document.createElement("div");
@@ -14800,17 +14838,36 @@ function showAfterActionPrompt(trigger, childId) {
     banner.setAttribute("aria-live", "polite");
     document.querySelector(".main")?.appendChild(banner);
   }
+  banner.innerHTML = contentHtml;
+  banner.classList.add("visible");
+  if (afterActionPromptTimeout) clearTimeout(afterActionPromptTimeout);
+  afterActionPromptTimeout = setTimeout(() => banner.classList.remove("visible"), durationMs);
+}
+
+function showSavedPrompt(message) {
+  if (!message) return;
+  showActionBanner(`
+    <span class="after-action-text">${escapeHtml(message)}</span>
+    <button class="ghost-button after-action-dismiss" type="button">Dismiss</button>
+  `, 5000);
+}
+
+function showAfterActionPrompt(trigger, childId) {
+  const prompts = {
+    attendance: "Attendance saved! Would you like to generate today's daily report?",
+    observation: "Observation saved! Would you like to generate a parent message?",
+    meals: "Meals logged! Would you like to create today's portfolio entry?",
+  };
+  const promptText = prompts[trigger];
+  if (!promptText || !childId) return;
   const actionAttr = trigger === "attendance" ? `data-build-daily-report="${childId}"` :
     trigger === "observation" ? `data-child-quick-entry="${childId}" data-quick-action="parent-message"` :
     `data-child-quick-entry="${childId}" data-quick-action="portfolio"`;
-  banner.innerHTML = `
+  showActionBanner(`
     <span class="after-action-text">${escapeHtml(promptText)}</span>
     <button class="primary-button after-action-yes" ${actionAttr} type="button">Yes, generate</button>
     <button class="ghost-button after-action-dismiss" type="button">Dismiss</button>
-  `;
-  banner.classList.add("visible");
-  if (afterActionPromptTimeout) clearTimeout(afterActionPromptTimeout);
-  afterActionPromptTimeout = setTimeout(() => banner.classList.remove("visible"), 10000);
+  `, 10000);
 }
 
 async function buildDailyReportFromChild(childId, quickNote) {
@@ -19335,8 +19392,8 @@ function foundingStatusCard() {
     <section class="founding-banner ${soldOut ? "founding-sold-out" : ""}">
       <div>
         <p class="eyebrow">${soldOut ? "Regular Pro Pricing" : "Founding Member Special"}</p>
-        <h3>${soldOut ? "Founding spots are filled. Pro is now $19.99/month." : "First 50 Members: $9.99/month for life"}</h3>
-        <p>${soldOut ? "The founding price-lock offer is closed. New members can join Pro Monthly for $19.99/month or Pro Annual for $199/year." : `${claimed} spots are filled, ${remaining} remain, and regular pricing begins when all ${foundingStatusCache.limit || foundingMemberLimit} are claimed.`}</p>
+        <h3>${soldOut ? "Founding spots are filled. Pro starts at $4.99 for month one." : "First 50 Members: $9.99/month for life"}</h3>
+        <p>${soldOut ? "The founding price-lock offer is closed. New members can start Pro Monthly at $4.99 for the first month, then $19.99/month, or choose Pro Annual for $199/year." : `${claimed} spots are filled, ${remaining} remain, and regular pricing begins when all ${foundingStatusCache.limit || foundingMemberLimit} are claimed.`}</p>
       </div>
       ${foundingMeterHtml()}
     </section>
@@ -19359,7 +19416,7 @@ function renderHomeFoundingOffer() {
         <em>/month <span>${soldOut ? "regular price" : "for life"}</span></em>
       </div>
       <p class="founding-remaining">${soldOut ? "Founding pricing is closed" : `Only <strong>${remaining}</strong> Spots Remaining`}</p>
-      <button class="primary-button founding-cta-button" data-checkout-plan="${soldOut ? "monthly" : "founding"}" type="button">${soldOut ? "Choose Pro Monthly" : "Claim Founding Member Pricing"}</button>
+      <button class="primary-button founding-cta-button" data-checkout-plan="${soldOut ? "monthly" : "founding"}" ${soldOut ? `data-first-month-offer="true"` : ""} type="button">${soldOut ? "Choose Pro Monthly ($4.99 first month)" : "Claim Founding Member Pricing"}</button>
       <div class="founding-live-meter" aria-label="${claimed} of ${limit} founding spots claimed">
         <span><i style="width: ${foundingProgressPercent()}%"></i></span>
         <small>${soldOut ? "All founding spots are claimed" : `${claimed} of ${limit} Spots Claimed`}</small>
@@ -19377,8 +19434,9 @@ function pricingCard(planKey, options = {}) {
       ${options.eyebrow ? `<p class="eyebrow">${escapeHtml(options.eyebrow)}</p>` : ""}
       <h3>${escapeHtml(plan.name)}</h3>
       <p class="price">${plan.price}<span>${plan.interval}</span></p>
+      ${options.priceNote ? `<p class="muted-copy">${escapeHtml(options.priceNote)}</p>` : ""}
       ${featureListHtml(plan.features)}
-      <button class="${buttonClass}" ${options.free ? `data-plan="Free"` : `data-checkout-plan="${options.checkoutType}"`} type="button">${escapeHtml(buttonText)}</button>
+      <button class="${buttonClass}" ${options.free ? `data-plan="Free"` : `data-checkout-plan="${options.checkoutType}" ${options.firstMonthOffer ? `data-first-month-offer="true"` : ""}`} type="button">${escapeHtml(buttonText)}</button>
     </article>
   `;
 }
@@ -19414,7 +19472,7 @@ function renderPricingPage() {
       ${pricingCard("Free", { free: true, buttonText: "Use Free" })}
       ${remaining > 0
         ? pricingCard("Founding", { featured: true, primary: true, eyebrow: "First 50 Members", checkoutType: "founding", buttonText: "Claim Founding Spot" })
-        : pricingCard("ProMonthly", { featured: true, primary: true, eyebrow: "Main Paid Plan", checkoutType: "monthly", buttonText: "Choose Pro Monthly" })}
+        : pricingCard("ProMonthly", { featured: true, primary: true, eyebrow: "Main Paid Plan", checkoutType: "monthly", buttonText: "Choose Pro Monthly", firstMonthOffer: true, priceNote: "$4.99 first month, then $19.99/month." })}
       ${pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Choose Pro Annual" })}
     </div>
     <section class="section-block billing-links">
@@ -19438,8 +19496,8 @@ function renderUpgradePage() {
     <div class="pricing-grid">
       ${!soldOut
         ? pricingCard("Founding", { featured: true, primary: true, eyebrow: "Best Launch Offer", checkoutType: "founding", buttonText: "Checkout for $9.99/month" })
-        : pricingCard("ProMonthly", { featured: true, primary: true, eyebrow: "Pro", checkoutType: "monthly", buttonText: "Checkout for $19.99/month" })}
-      ${!soldOut ? pricingCard("ProMonthly", { checkoutType: "monthly", buttonText: "Checkout Monthly" }) : ""}
+        : pricingCard("ProMonthly", { featured: true, primary: true, eyebrow: "Pro", checkoutType: "monthly", buttonText: "Checkout for $4.99 first month", firstMonthOffer: true, priceNote: "Then $19.99/month." })}
+      ${!soldOut ? pricingCard("ProMonthly", { checkoutType: "monthly", buttonText: "Checkout Monthly ($4.99 first month)", firstMonthOffer: true, priceNote: "Then $19.99/month." }) : ""}
       ${pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Checkout Annual" })}
     </div>
     <section class="section-block">
@@ -19651,6 +19709,7 @@ function renderFavoritesPage() {
   if (!section) return;
   if (!currentUser) {
     section.innerHTML = `
+      <button class="ghost-button back-button" data-view="home" type="button">← Back to Home</button>
       <div class="page-title">
         <p class="eyebrow">Favorites</p>
         <h2>Save resources you use most.</h2>
@@ -19666,6 +19725,7 @@ function renderFavoritesPage() {
   const favoriteIds = new Set(favorites);
   const savedFavoriteResources = resources.filter((resource) => favoriteIds.has(resource.id) && isResourceVisibleToCurrentUser(resource));
   section.innerHTML = `
+    <button class="ghost-button back-button" data-view="home" type="button">← Back to Home</button>
     <div class="page-title">
       <p class="eyebrow">Favorites</p>
       <h2>Saved Favorites</h2>
@@ -19692,6 +19752,7 @@ function renderReportsPage() {
   const reportsToday = records.reports.filter((item) => item.date === today).length;
   const messagesToday = records.communications.filter((item) => item.date === today && item.type !== "Behavior Note").length;
   const activeGoals = records.goals.filter((goal) => goalProgressPercent(goal.progress) < 100).length;
+  const monthlyStats = monthlyDocumentationStats(records);
   section.innerHTML = `
     <button class="ghost-button back-button" data-view="home" type="button">← Back to Home</button>
     <div class="page-title">
@@ -19706,6 +19767,8 @@ function renderReportsPage() {
       <div class="analytics-row"><span>Meal records today</span><strong>${mealsToday}</strong></div>
       <div class="analytics-row"><span>Daily reports today</span><strong>${reportsToday}</strong></div>
       <div class="analytics-row"><span>Parent messages today</span><strong>${messagesToday}</strong></div>
+      <div class="analytics-row"><span>Documentation entries this month</span><strong>${monthlyStats.total}</strong></div>
+      <div class="analytics-row"><span>Estimated paperwork time saved this month</span><strong>${monthlyStats.timeSavedLabel}</strong></div>
       <div class="quick-action-list">
         <button class="ghost-button" data-view="child-tools-daily-logs" type="button">Daily Logs</button>
         <button class="ghost-button" data-view="child-tools-reports" type="button">Child Daily Reports</button>
@@ -19755,6 +19818,7 @@ function renderAccountPage() {
 
   const account = currentAccount();
   const paidBilling = accountHasPaidBilling(account);
+  const monthlyStats = monthlyDocumentationStats();
   emailLabel.textContent = currentUser;
   planLabel.textContent = `${billingPlanLabel(currentPlan, account)} account`;
   if (verificationLabel) {
@@ -19766,8 +19830,8 @@ function renderAccountPage() {
   if (phoneInput) phoneInput.value = account?.phone || "";
   statusLabel.textContent = paidBilling ? account?.subscriptionStatus || `${billingPlanLabel(currentPlan, account)} Subscription Active` : "Free Plan";
   detailLabel.innerHTML = paidBilling
-    ? `Current Plan: ${escapeHtml(billingPlanLabel(currentPlan, account))}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${account?.foundingMember ? "Lifetime" : "Regular Pro pricing"}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>Helper Usage: ${aiUsageCount()} of ${paidAiMonthlyLimit} used this billing month. Resets ${escapeHtml(aiResetLabel())}.<br>Your account has full in-app resources, menus, child profiles, portfolios, tracking tools, provider tools, future premium features, and ${paidAiMonthlyLimit} document creations per month.`
-    : `Your Free account includes 5 lesson plans, 10 observations, 10 forms, 10 activity ideas, 10 printables, ${freeAiMonthlyLimit} document creations per month, up to 3 child profiles, and the weekly observation tracker. Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}. Helper Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`;
+    ? `Current Plan: ${escapeHtml(billingPlanLabel(currentPlan, account))}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${account?.foundingMember ? "Lifetime" : "Regular Pro pricing"}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>Helper Usage: ${aiUsageCount()} of ${paidAiMonthlyLimit} used this billing month. Resets ${escapeHtml(aiResetLabel())}.<br>Estimated paperwork time saved this month: ${escapeHtml(monthlyStats.timeSavedLabel)} from ${monthlyStats.total} logged entries.<br>Your account has full in-app resources, menus, child profiles, portfolios, tracking tools, provider tools, future premium features, and ${paidAiMonthlyLimit} document creations per month.`
+    : `Your Free account includes 5 lesson plans, 10 observations, 10 forms, 10 activity ideas, 10 printables, ${freeAiMonthlyLimit} document creations per month, up to 3 child profiles, and the weekly observation tracker. Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}. Helper Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}. Estimated paperwork time saved this month: ${escapeHtml(monthlyStats.timeSavedLabel)} from ${monthlyStats.total} logged entries.`;
   if (demoButton) demoButton.style.display = "none";
   if (upgradeButton) {
     upgradeButton.textContent = paidBilling ? "Manage Billing" : "Upgrade to Pro";
@@ -19946,13 +20010,14 @@ function setFreePlan() {
   setView("account");
 }
 
-async function startCheckout(type) {
+async function startCheckout(type, options = {}) {
   if (!requireBillingAccount()) return;
   if (type === "founding") await syncFoundingStatus({ render: true });
   const remaining = foundingSpotsRemaining();
   const checkoutType = type === "founding" && remaining <= 0 ? "monthly" : type;
   const amount = checkoutAmount(checkoutType);
   const promoCode = normalizedCheckoutPromoCode();
+  const firstMonthOffer = options.firstMonthOffer === true && checkoutType === "monthly" && !promoCode;
   const checkoutButton = document.querySelector(`[data-checkout-plan="${type}"]`);
   if (checkoutButton) {
     checkoutButton.disabled = true;
@@ -19981,10 +20046,11 @@ async function startCheckout(type) {
     promoCode,
     trialDays: promoValidation?.trialDays || 0,
     promoLabel: promoValidation?.label || "",
+    firstMonthOffer,
   };
   localStorage.setItem("llhPendingCheckout", JSON.stringify(pending));
-  trackEvent("checkout_start", { type: checkoutType, amount, promoCode: promoCode ? "entered" : "" });
-  addBillingHistory("Checkout Started", `${checkoutType === "annual" ? "Annual" : checkoutType === "founding" ? "Founding Member" : "Monthly"} Stripe checkout started${promoCode ? " with promo applied" : ""}`, amount);
+  trackEvent("checkout_start", { type: checkoutType, amount, promoCode: promoCode ? "entered" : "", firstMonthOffer });
+  addBillingHistory("Checkout Started", `${checkoutType === "annual" ? "Annual" : checkoutType === "founding" ? "Founding Member" : "Monthly"} Stripe checkout started${promoCode ? " with promo applied" : firstMonthOffer ? " with first-month offer" : ""}`, amount);
 
   if (stripeCheckoutConfig.checkoutEndpoint && canUseStripeBackend()) {
     try {
@@ -19995,6 +20061,7 @@ async function startCheckout(type) {
           email: currentUser,
           plan: checkoutType,
           promoCode,
+          firstMonthOffer,
           successUrl: `${window.location.origin}${window.location.pathname}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
           cancelUrl: `${window.location.origin}${window.location.pathname}?checkout=cancel`,
           priceKey: checkoutType === "founding" ? billingPlans.Founding.stripePriceKey : checkoutType === "annual" ? billingPlans.ProAnnual.stripePriceKey : billingPlans.ProMonthly.stripePriceKey,
@@ -20110,6 +20177,9 @@ function completeCheckout() {
   let priceLock = "";
   let monthlyPrice = type === "annual" ? "$199/year" : "$19.99/month";
   let status = type === "annual" ? "Pro Annual Subscription Active" : "Pro Monthly Subscription Active";
+  if (type === "monthly" && pending.firstMonthOffer) {
+    status = "Pro Monthly Subscription Active - $4.99 first month";
+  }
   if (pending.promoCode && pending.trialDays) {
     status = `${status} - ${pending.trialDays} Day Free Trial`;
   }
@@ -20145,7 +20215,7 @@ function completeCheckout() {
   if (pending.promoCode && pending.trialDays) {
     markCheckoutPromoRedeemed(pending.promoCode, { trialDays: pending.trialDays, label: pending.promoLabel });
   }
-  addBillingHistory("Payment Succeeded", `${billingPlanLabel(plan)} subscription activated${pending.promoCode ? " with promo trial" : ""}`, monthlyPrice);
+  addBillingHistory("Payment Succeeded", `${billingPlanLabel(plan)} subscription activated${pending.promoCode ? " with promo trial" : pending.firstMonthOffer ? " with first-month offer" : ""}`, monthlyPrice);
   trackEvent("checkout_success", { plan, monthlyPrice, attribution: currentAttribution() });
   localStorage.removeItem("llhPendingCheckout");
   checkoutPromoCode = "";
@@ -20463,7 +20533,7 @@ document.addEventListener("click", async (event) => {
   const checkoutButton = event.target.closest("[data-checkout-plan]");
   if (checkoutButton) {
     event.preventDefault();
-    startCheckout(checkoutButton.dataset.checkoutPlan);
+    startCheckout(checkoutButton.dataset.checkoutPlan, { firstMonthOffer: checkoutButton.dataset.firstMonthOffer === "true" });
     return;
   }
 
@@ -20778,18 +20848,39 @@ document.addEventListener("click", async (event) => {
       "daily-report": ["daily-report"],
       activities: ["activity"],
       "goal-update": ["goal-update"],
-      portfolio: ["observation", "goal-update"],
+        portfolio: ["observation"],
     };
-    const types = actionTypeMap[action] || [action];
-    try {
-      const result = await generateQuickDocumentation(note, child, records, types);
-      if (output) {
-        output.style.display = "block";
-        output.innerHTML = result
-          ? `<div class="quick-entry-result section-block"><pre class="ai-result-text">${escapeHtml(result)}</pre></div>`
-          : `<div class="quick-entry-result section-block"><p class="muted-copy">No output generated. Please try again.</p></div>`;
-        output.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      if (!isProUser() && ["parent-message", "daily-report"].includes(action)) {
+        if (output) {
+          output.style.display = "block";
+          output.innerHTML = `
+            <div class="quick-entry-result section-block">
+              <p class="muted-copy">This output is included with Pro. Preview it below, then upgrade when you're ready.</p>
+              ${lockedFeatureCard("Parent Message Generator", "Turn one classroom note into a polished parent update without rewriting from scratch.", "daily-log-parent-messages")}
+              ${lockedFeatureCard("Daily Report Generator", "Create family-ready daily reports from your logged documentation in seconds.", "daily-log-reports")}
+              ${lockedFeatureCard("Portfolio Builder", "Build portfolio entries from observations and highlights as your records grow.", "daily-log-portfolio")}
+            </div>
+          `;
+          output.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+        return;
       }
+      const types = actionTypeMap[action] || [action];
+      try {
+        const result = await generateQuickDocumentation(note, child, records, types);
+        if (output) {
+          output.style.display = "block";
+          output.innerHTML = result
+            ? `<div class="quick-entry-result section-block"><pre class="ai-result-text">${escapeHtml(result)}</pre>${!isProUser() && ["observation", "portfolio"].includes(action) ? `
+                <div style="margin-top:16px">
+                  <p class="muted-copy">Want to keep documentation moving? Preview the next Pro-ready outputs:</p>
+                  ${lockedFeatureCard("Parent Message Generator", "Turn this same note into a polished parent update.", "daily-log-parent-messages")}
+                  ${lockedFeatureCard("Daily Report Generator", "Build a family-ready daily report from this note and today's logs.", "daily-log-reports")}
+                  ${lockedFeatureCard("Portfolio Builder", "Create a share-ready portfolio entry from this learning moment.", "daily-log-portfolio")}
+                </div>` : ""}</div>`
+            : `<div class="quick-entry-result section-block"><p class="muted-copy">No output generated. Please try again.</p></div>`;
+          output.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
       recordAiUse();
     } catch (error) {
       if (output) {
@@ -23330,6 +23421,7 @@ document.addEventListener("submit", async (event) => {
   activeChildProfileEditId = "";
   form.reset();
   renderChildManagement();
+  showSavedPrompt("Child profile saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -23451,6 +23543,7 @@ document.addEventListener("submit", (event) => {
   }
   const data = collectFormData(event.target);
   appendChildRecord("Communications", { ...data, title: `${data.type} | ${data.date}`, summary: data.message });
+  showSavedPrompt("Parent communication saved.");
 });
 
 // ─── Daily Logs Center Form Handlers ───────────────────────────────────────
@@ -23461,6 +23554,7 @@ document.addEventListener("submit", (event) => {
   const data = collectFormData(event.target);
   const dur = data.napStart && data.napEnd ? ` | ${data.napStart}–${data.napEnd}` : "";
   appendChildRecord("Naps", { ...data, title: `Nap | ${data.date}${dur}`, summary: data.notes || `Nap logged${dur}` });
+  showSavedPrompt("Nap saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -23469,6 +23563,7 @@ document.addEventListener("submit", (event) => {
   const data = collectFormData(event.target);
   const timeStr = data.time ? ` at ${data.time}` : "";
   appendChildRecord("Diapers", { ...data, title: `${data.type} | ${data.date}${timeStr}`, summary: data.notes || data.type });
+  showSavedPrompt("Diaper / potty update saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -23478,6 +23573,7 @@ document.addEventListener("submit", (event) => {
   const activitySummaryParts = [data.area, data.notes].filter(Boolean);
   const activitySummary = activitySummaryParts.join(" | ") || data.activity || "Activity";
   appendChildRecord("ActivityLogs", { ...data, title: data.activity || "Activity", summary: activitySummary });
+  showSavedPrompt("Activity saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -23521,6 +23617,7 @@ document.addEventListener("submit", (event) => {
   });
   dailyLogsGroupAction = "";
   renderChildManagement();
+  showSavedPrompt("Group update saved.");
 });
 
 // ─── New Daily Log Accordion Form Handlers ──────────────────────────────────
@@ -23574,6 +23671,7 @@ document.addEventListener("submit", (event) => {
   });
   dlcManualSection = "";
   renderChildManagement();
+  showSavedPrompt("Bottle entry saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -23589,6 +23687,7 @@ document.addEventListener("submit", (event) => {
   });
   dlcManualSection = "";
   renderChildManagement();
+  showSavedPrompt("Nap saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -23604,6 +23703,7 @@ document.addEventListener("submit", (event) => {
   });
   dlcManualSection = "";
   renderChildManagement();
+  showSavedPrompt("Diaper / potty update saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -23619,6 +23719,7 @@ document.addEventListener("submit", (event) => {
   });
   dlcManualSection = "";
   renderChildManagement();
+  showSavedPrompt("Activity saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -23633,6 +23734,7 @@ document.addEventListener("submit", (event) => {
   });
   dlcManualSection = "";
   renderChildManagement();
+  showSavedPrompt("Mood note saved.");
 });
 
 document.addEventListener("submit", (event) => {
