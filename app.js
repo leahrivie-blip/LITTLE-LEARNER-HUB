@@ -1953,6 +1953,10 @@ const freeAccessLimits = {
 };
 const freeAiMonthlyLimit = 10;
 const paidAiMonthlyLimit = 250;
+// Server-provided usage values, populated on login/page-load via /api/subscription-status.
+// null means "not yet loaded"; when null, canUseAi() defaults to true and the server enforces the limit.
+let serverAiUsed = null;
+let serverAiLimit = null;
 const freeChildProfileLimit = 3;
 const freeObservationRecordLimit = 10;
 const freeDailyLogPhotoLimit = 3;
@@ -2604,6 +2608,10 @@ async function syncSubscriptionFromBackend(email, options = {}) {
     const data = await response.json();
     if (!response.ok) throw new Error(data?.error || "Could not sync subscription.");
     if (data?.founding) applyFoundingStatus(data.founding);
+    if (data?.aiUsage && cleanEmail === currentUser) {
+      if (typeof data.aiUsage.used === "number") serverAiUsed = data.aiUsage.used;
+      if (typeof data.aiUsage.limit === "number") serverAiLimit = data.aiUsage.limit;
+    }
     const updates = subscriptionToAccountUpdates(data?.subscription);
     if (!updates) {
       if (options.renderFounding) refreshFoundingDisplays();
@@ -3953,11 +3961,22 @@ function aiResetLabel() {
 }
 
 function canUseAi() {
-  return aiUsageCount() < aiMonthlyLimit();
+  if (serverAiUsed !== null && serverAiLimit !== null) {
+    return serverAiUsed < serverAiLimit;
+  }
+  // Server values not yet loaded — allow the attempt; the server will enforce the hard limit.
+  return true;
 }
 
-function recordAiUse() {
-  localStorage.setItem(aiUsageKey(), String(aiUsageCount() + 1));
+// Call with (used, limit) from a server response to sync authoritative counts, or with no arguments
+// to locally estimate usage (e.g. for template-only helpers that don't return server counts).
+function recordAiUse(used, limit) {
+  if (typeof used === "number" && typeof limit === "number") {
+    serverAiUsed = used;
+    serverAiLimit = limit;
+  } else if (serverAiUsed !== null) {
+    serverAiUsed = serverAiUsed + 1;
+  }
   updatePlanLabel();
   renderAiUsagePanel();
 }
@@ -8740,9 +8759,9 @@ function renderAiPage() {
 function renderAiUsagePanel() {
   const target = document.querySelector("#aiUsagePanel");
   if (!target) return;
-  const used = aiUsageCount();
-  const limit = aiMonthlyLimit();
-  const remaining = aiUsageRemaining();
+  const used = serverAiUsed !== null ? serverAiUsed : aiUsageCount();
+  const limit = serverAiLimit !== null ? serverAiLimit : aiMonthlyLimit();
+  const remaining = Math.max(limit - used, 0);
   target.innerHTML = `
     <div class="ai-usage-panel">
       <div>
@@ -9028,7 +9047,7 @@ async function runLessonPlanWorkflowGeneration(extraInstruction = "") {
     const refreshedTitle = document.querySelector("#outputTitle");
     if (refreshedTitle) refreshedTitle.textContent = "Lesson Plan";
     renderAiDebugPanel("#generatorDebugPanel", result.debug, result.output);
-    recordAiUse();
+    recordAiUse(result.used, result.limit);
     renderAiUsagePanel();
     trackEvent("ai_generation_success", { tool: "lesson", plan: currentPlan, backendUsed: Boolean(result.backendUsed), used: result.used, limit: result.limit });
   } catch (error) {
@@ -19294,7 +19313,7 @@ function subscriptionSummaryHtml() {
       <div><span>Monthly Price</span><strong>${escapeHtml(billingPriceLabel(account))}</strong></div>
       <div><span>Price Lock</span><strong>${paidBilling ? account?.foundingMember ? "Lifetime" : "Regular Pro pricing" : "None"}</strong></div>
       <div><span>Status</span><strong>${escapeHtml(statusLabel)}</strong></div>
-      <div><span>AI Usage</span><strong>${aiUsageCount()} / ${aiMonthlyLimit()}</strong></div>
+      <div><span>AI Usage</span><strong>${serverAiUsed !== null ? serverAiUsed : aiUsageCount()} / ${serverAiLimit !== null ? serverAiLimit : aiMonthlyLimit()}</strong></div>
       <div><span>AI Reset</span><strong>${escapeHtml(aiResetLabel())}</strong></div>
     </div>
   `;
@@ -21229,7 +21248,7 @@ document.addEventListener("click", async (event) => {
         programName: settings.programName || "",
       });
       addAiMessage("assistant", result.output);
-      recordAiUse();
+      recordAiUse(result.used, result.limit);
     } catch (error) {
       addAiMessage("assistant", error.message || "We couldn't create your document right now. Please try again.");
     }
@@ -22852,7 +22871,7 @@ document.querySelector("#aiChatForm")?.addEventListener("submit", async (event) 
       programName: settings.programName || "",
     });
     addAiMessage("assistant", result.output);
-    recordAiUse();
+    recordAiUse(result.used, result.limit);
     trackEvent("ai_generation_success", { tool: "chat", promptLength: prompt.length, plan: currentPlan, backendUsed: result.backendUsed });
   } catch (error) {
     addAiMessage("assistant", error.message || "We couldn't create your document right now. Please try again.");
@@ -22937,7 +22956,7 @@ document.addEventListener("submit", async (event) => {
     outputEl.dataset.rawMarkdown = result.output;
     renderAiDebugPanel("#docHelperDebugPanel", result.debug, result.output);
     if (labelEl) labelEl.textContent = "Result";
-    recordAiUse();
+    recordAiUse(result.used, result.limit);
     renderAiUsagePanel();
     trackEvent("ai_generation_success", { tool: "doc-helper", docType, plan: currentPlan, backendUsed: Boolean(result.backendUsed) });
   } catch (error) {
@@ -22989,7 +23008,7 @@ document.addEventListener("submit", async (event) => {
       outputEl.dataset.rawMarkdown = result.output;
     }
     renderAiDebugPanel("#generatorDebugPanel", result.debug, result.output);
-    recordAiUse();
+    recordAiUse(result.used, result.limit);
     trackEvent("ai_generation_success", { tool: toolId, plan: currentPlan, backendUsed: Boolean(result.backendUsed), used: result.used, limit: result.limit });
   } catch (error) {
     renderAiDebugPanel("#generatorDebugPanel");
