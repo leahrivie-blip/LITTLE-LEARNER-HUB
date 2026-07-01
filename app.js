@@ -1957,7 +1957,7 @@ const freeChildProfileLimit = 3;
 const freeObservationRecordLimit = 10;
 const freeDailyLogPhotoLimit = 3;
 const freeDailyLogHistoryDays = 14;
-const AI_GENERATION_TIMEOUT_MS = 30000;
+const AI_GENERATION_TIMEOUT_MS = 120000;
 const proFeatureList = [
   "1,500+ Observations",
   "200+ Lesson Plans",
