@@ -12528,9 +12528,12 @@ function renderDlcDashboard(records) {
     {
       number: 6,
       title: "Print All Reports",
-      detail: "Keep this final step visible in the workflow order, but batch printing is not available in this initial dashboard update.",
-      actionHtml: `<span class="dlc-workflow-pill">Coming in a later step</span>`,
-      future: true,
+      detail: activeChildren.length
+        ? `Print daily log reports for all ${activeChildren.length} active ${activeChildren.length === 1 ? "child" : "children"} for ${escapeHtml(dateLabel)} in one document.`
+        : "Add active children to enable batch printing.",
+      actionHtml: activeChildren.length
+        ? `<button class="primary-button" data-dlc-print-all type="button">Print All Reports</button>`
+        : `<span class="dlc-workflow-pill">No active children</span>`,
     },
   ];
 
@@ -13353,13 +13356,10 @@ function getDailyLogParentSummaryDraft(child, records, today) {
   return dlcParentSummaryDrafts[key] || buildDailyLogParentSummary(child, records, today);
 }
 
-function printDailyLog(childId, today = new Date().toISOString().slice(0, 10)) {
-  const records = childRecords();
-  const child = records.children.find((item) => item.id === childId);
-  if (!child) return;
+function buildDailyLogLines(child, records, today) {
   const snapshot = dlcChildDaySnapshot(child, records, today);
   const timeline = buildDailyLogTimelineEntries(child, records, today);
-  const lines = [
+  return [
     `Daily Log: ${child.name}`,
     `Date: ${today}`,
     "",
@@ -13373,7 +13373,25 @@ function printDailyLog(childId, today = new Date().toISOString().slice(0, 10)) {
     "Timeline",
     ...(timeline.length ? timeline.map((entry) => `- ${entry.displayTime}: ${entry.title}${entry.detail ? ` — ${entry.detail}` : ""}`) : ["- No timeline entries yet."]),
   ];
-  printTextDocument(`${child.name} Daily Log`, lines.join("\n"));
+}
+
+function printDailyLog(childId, today = new Date().toISOString().slice(0, 10)) {
+  const records = childRecords();
+  const child = records.children.find((item) => item.id === childId);
+  if (!child) return;
+  printTextDocument(`${child.name} Daily Log`, buildDailyLogLines(child, records, today).join("\n"));
+}
+
+function printAllDailyLogs(today = new Date().toISOString().slice(0, 10)) {
+  const records = childRecords();
+  const activeChildren = getActiveChildren(records);
+  if (!activeChildren.length) {
+    alert("No active children to print reports for.");
+    return;
+  }
+  const dateLabel = new Date(`${today}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  const sections = activeChildren.map((child) => buildDailyLogLines(child, records, today).join("\n"));
+  printTextDocument(`Daily Reports — ${dateLabel}`, sections.join("\n\n---\n\n"));
 }
 
 function setDailyLogParentSummaryDraft(childId, today, value) {
@@ -20905,6 +20923,13 @@ document.addEventListener("click", async (event) => {
     dailyLogsGroupAction = dlcDashboardFlowBtn.dataset.dlcDashboardFlow || "";
     childManagementMode = "daily-logs";
     renderChildManagement();
+    return;
+  }
+
+  const dlcPrintAllBtn = event.target.closest("[data-dlc-print-all]");
+  if (dlcPrintAllBtn) {
+    event.preventDefault();
+    printAllDailyLogs(dlcDashboardDate || new Date().toISOString().slice(0, 10));
     return;
   }
 
