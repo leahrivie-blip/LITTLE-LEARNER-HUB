@@ -13357,6 +13357,7 @@ function getDailyLogParentSummaryDraft(child, records, today) {
 }
 
 function buildDailyLogLines(child, records, today) {
+  if (!child || !records) return [];
   const snapshot = dlcChildDaySnapshot(child, records, today);
   const timeline = buildDailyLogTimelineEntries(child, records, today);
   return [
