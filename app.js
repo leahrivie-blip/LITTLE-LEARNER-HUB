@@ -352,7 +352,7 @@ const observationCategories = [
 ];
 const developmentalAreas = observationCategories;
 const weeklyObservationsPerChild = 3;
-const childDataKeys = ["Profiles", "Observations", "SupportPlans", "Goals", "Differentiations", "Attendance", "Meals", "Reports", "Communications", "Naps", "Diapers", "ActivityLogs"];
+const childDataKeys = ["Profiles", "Observations", "SupportPlans", "Goals", "Differentiations", "Attendance", "Meals", "MealPresets", "Reports", "Communications", "Naps", "Diapers", "ActivityLogs"];
 const diaperAgeGroups = new Set(["Infant", "Toddler", "Young Toddler", "Older Toddler"]);
 const plannerDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const docHelperToolMap = {
@@ -4046,6 +4046,68 @@ function recentDailyLogValues(items = [], field, childId = "", limit = 6) {
     .map((item) => String(item?.[field] || "").trim())
     .filter(Boolean);
   return Array.from(new Set(values)).slice(0, limit);
+}
+
+function mealPresets() {
+  const saved = childStore("MealPresets", []);
+  if (!Array.isArray(saved)) return [];
+  return saved
+    .map((item) => ({
+      id: String(item?.id || ""),
+      name: String(item?.name || "").trim(),
+      breakfast: String(item?.breakfast || "").trim(),
+      lunch: String(item?.lunch || "").trim(),
+      snack: String(item?.snack || "").trim(),
+    }))
+    .filter((item) => item.id && item.name && (item.breakfast || item.lunch || item.snack))
+    .slice(0, 24);
+}
+
+function saveMealPreset(name, values = {}) {
+  const cleanName = String(name || "").trim();
+  const preset = {
+    id: `MealPreset-${Date.now()}`,
+    name: cleanName,
+    breakfast: String(values.breakfast || "").trim(),
+    lunch: String(values.lunch || "").trim(),
+    snack: String(values.snack || "").trim(),
+  };
+  if (!cleanName || (!preset.breakfast && !preset.lunch && !preset.snack)) return false;
+  const existing = mealPresets();
+  const next = existing.filter((item) => item.name.toLowerCase() !== cleanName.toLowerCase());
+  saveChildStore("MealPresets", [preset, ...next].slice(0, 24));
+  return true;
+}
+
+function deleteMealPreset(presetId = "") {
+  const next = mealPresets().filter((item) => item.id !== presetId);
+  saveChildStore("MealPresets", next);
+}
+
+function renderMealPresetControls(selectId, labelClass = "") {
+  const presets = mealPresets();
+  const labelOpen = labelClass ? `<label class="${labelClass}">` : "<label>";
+  return `
+    ${labelOpen}Select Preset<select id="${selectId}" data-meal-preset-select>
+      <option value="">Choose a saved meal</option>
+      ${presets.map((preset) => `<option value="${escapeHtml(preset.id)}">${escapeHtml(preset.name)}</option>`).join("")}
+    </select></label>
+    <div>
+      <button class="secondary-button" data-select-meal-preset type="button">Select Preset</button>
+      <button class="secondary-button" data-save-meal-preset type="button">Save Meal as Preset</button>
+      <button class="secondary-button" data-delete-meal-preset type="button">Delete Preset</button>
+    </div>
+  `;
+}
+
+function applyMealPresetToForm(form, presetId = "") {
+  const preset = mealPresets().find((item) => item.id === presetId);
+  if (!form || !preset) return false;
+  ["breakfast", "lunch", "snack"].forEach((field) => {
+    const input = form.querySelector(`[name="${field}"]`);
+    if (input) input.value = preset[field] || "";
+  });
+  return true;
 }
 
 function renderSuggestionDataList(id, values = []) {
@@ -12978,6 +13040,7 @@ function renderDlcAccordionForm(sectionId, records) {
         <label class="dlc-form-label">Breakfast<input name="breakfast" list="dlcMealSuggestions" placeholder="Ate most / refused / not served" /></label>
         <label class="dlc-form-label">Lunch<input name="lunch" list="dlcMealSuggestions" placeholder="Ate all lunch" /></label>
         <label class="dlc-form-label">Snack<input name="snack" list="dlcMealSuggestions" placeholder="Ate snack" /></label>
+        ${renderMealPresetControls("dlcMealPresetSelect", "dlc-form-label")}
         <label class="dlc-form-label">Food Notes<textarea name="notes" rows="2" placeholder="Any food notes"></textarea></label>
         ${renderSuggestionDataList("dlcMealSuggestions", mealSuggestions)}
         ${renderDlcShareFields(true)}
@@ -14631,6 +14694,7 @@ function mealTrackingForm(childId) {
       <label>Breakfast<input name="breakfast" list="mealTrackingSuggestions-${childId}" placeholder="Ate most / refused / not served" /></label>
       <label>Lunch<input name="lunch" list="mealTrackingSuggestions-${childId}" placeholder="Ate all lunch" /></label>
       <label>Snack<input name="snack" list="mealTrackingSuggestions-${childId}" placeholder="Ate snack" /></label>
+      ${renderMealPresetControls(`mealPresetSelect-${childId}`)}
       <label>Food Notes<textarea name="notes" rows="2" placeholder="Food notes"></textarea></label>
       <label>Allergy Notes<textarea name="allergyNotes" rows="2" placeholder="Allergy notes"></textarea></label>
       ${renderSuggestionDataList(`mealTrackingSuggestions-${childId}`, suggestions)}
@@ -20820,6 +20884,52 @@ document.addEventListener("click", async (event) => {
       alert("That activity is already in your favorites.");
       return;
     }
+    renderChildManagement();
+    return;
+  }
+
+  const selectMealPresetBtn = event.target.closest("[data-select-meal-preset]");
+  if (selectMealPresetBtn) {
+    event.preventDefault();
+    const form = selectMealPresetBtn.closest("form");
+    const presetId = form?.querySelector("[data-meal-preset-select]")?.value || "";
+    if (!presetId || !applyMealPresetToForm(form, presetId)) return;
+    return;
+  }
+
+  const saveMealPresetBtn = event.target.closest("[data-save-meal-preset]");
+  if (saveMealPresetBtn) {
+    event.preventDefault();
+    const form = saveMealPresetBtn.closest("form");
+    if (!form) return;
+    const breakfast = String(form.querySelector('[name="breakfast"]')?.value || "").trim();
+    const lunch = String(form.querySelector('[name="lunch"]')?.value || "").trim();
+    const snack = String(form.querySelector('[name="snack"]')?.value || "").trim();
+    if (!breakfast && !lunch && !snack) {
+      alert("Enter breakfast, lunch, or snack first.");
+      return;
+    }
+    const selectedPreset = mealPresets().find((item) => item.id === (form.querySelector("[data-meal-preset-select]")?.value || ""));
+    const defaultName = selectedPreset?.name || [breakfast && "Breakfast", lunch && "Lunch", snack && "Snack"].filter(Boolean).join(" / ") || "Meal preset";
+    const name = window.prompt("Name this meal preset:", defaultName);
+    if (!name) return;
+    if (!saveMealPreset(name, { breakfast, lunch, snack })) {
+      alert("Meal preset could not be saved.");
+      return;
+    }
+    renderChildManagement();
+    return;
+  }
+
+  const deleteMealPresetBtn = event.target.closest("[data-delete-meal-preset]");
+  if (deleteMealPresetBtn) {
+    event.preventDefault();
+    const form = deleteMealPresetBtn.closest("form");
+    const presetId = form?.querySelector("[data-meal-preset-select]")?.value || "";
+    const preset = mealPresets().find((item) => item.id === presetId);
+    if (!preset) return;
+    if (!window.confirm(`Delete preset "${preset.name}"?`)) return;
+    deleteMealPreset(presetId);
     renderChildManagement();
     return;
   }
