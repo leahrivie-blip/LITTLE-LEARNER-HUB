@@ -12619,10 +12619,9 @@ function renderDlcDashboard(records) {
         <div id="dlcDashboardNoteOutput" class="dlc-dash-output" style="display:none;"></div>
       </div>
       <div class="dlc-dashboard-actions-row">
-      <div class="dlc-dashboard-actions-row">
+        <strong class="dlc-section-title">Other Daily Logs Tools</strong>
         <div class="dlc-dashboard-action-btns">
           <button class="ghost-button" ${isProUser() ? `data-daily-logs-section="group"` : `data-preview="daily-log-group-updates" data-pro-feature="daily-log-group-updates"`} type="button">📋 Group Update ${!isProUser() ? `<span class="mini-pro-label">Pro</span>` : ""}</button>
-          <button class="ghost-button" data-dlc-child-sel="multiple" data-dlc-from-dashboard type="button">👥 Select Children</button>
           <button class="ghost-button" data-dlc-child-sel="multiple" data-dlc-from-dashboard type="button">👥 Select Children</button>
         </div>
       </div>
