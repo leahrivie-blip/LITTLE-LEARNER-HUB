@@ -1686,10 +1686,11 @@ async function callOpenAiOnce(systemPrompt, userContent, email, label) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
   try {
+    console.log(`[openai-key-diag] present=${!!OPENAI_API_KEY} length=${OPENAI_API_KEY.length}`);
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        Authorization: `******`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -1790,7 +1791,7 @@ async function callOpenAiRaw(systemPrompt, userPrompt) {
     const res = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        Authorization: `******`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
