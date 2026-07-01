@@ -4066,7 +4066,7 @@ function mealPresets() {
 function saveMealPreset(name, values = {}) {
   const cleanName = String(name || "").trim();
   const preset = {
-    id: `MealPreset-${Date.now()}`,
+    id: `MealPreset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     name: cleanName,
     breakfast: String(values.breakfast || "").trim(),
     lunch: String(values.lunch || "").trim(),
@@ -20910,7 +20910,8 @@ document.addEventListener("click", async (event) => {
       return;
     }
     const selectedPreset = mealPresets().find((item) => item.id === (form.querySelector("[data-meal-preset-select]")?.value || ""));
-    const defaultName = selectedPreset?.name || [breakfast && "Breakfast", lunch && "Lunch", snack && "Snack"].filter(Boolean).join(" / ") || "Meal preset";
+    const defaultLabelParts = [breakfast && "Breakfast", lunch && "Lunch", snack && "Snack"].filter(Boolean);
+    const defaultName = selectedPreset?.name || defaultLabelParts.join(" / ") || "Meal preset";
     const name = window.prompt("Name this meal preset:", defaultName);
     if (!name) return;
     if (!saveMealPreset(name, { breakfast, lunch, snack })) {
