@@ -1686,7 +1686,7 @@ async function callOpenAiOnce(systemPrompt, userContent, email, label) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
   try {
-    console.log(`[openai-key-diag] present=${!!OPENAI_API_KEY} length=${OPENAI_API_KEY.length} prefix=${OPENAI_API_KEY.slice(0, 7)}`);
+    console.log(`[openai-key-diag] present=${!!OPENAI_API_KEY} length=${OPENAI_API_KEY.length}`);
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
