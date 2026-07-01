@@ -1957,6 +1957,7 @@ const freeChildProfileLimit = 3;
 const freeObservationRecordLimit = 10;
 const freeDailyLogPhotoLimit = 3;
 const freeDailyLogHistoryDays = 14;
+const AI_GENERATION_TIMEOUT_MS = 30000;
 const proFeatureList = [
   "1,500+ Observations",
   "200+ Lesson Plans",
@@ -17702,7 +17703,7 @@ async function generateToolOutputWithBackend(toolId, data) {
   }
   const ageValue = data.age || data.ageGroup || data.group || "";
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  const timeoutId = setTimeout(() => controller.abort(), AI_GENERATION_TIMEOUT_MS);
   let response;
   try {
     response = await fetch(aiGenerationConfig.endpoint, {
