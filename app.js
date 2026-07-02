@@ -833,15 +833,20 @@ function lessonPlanHasOldDomainLabel(resource) {
   return OLD_DEVELOPMENTAL_DOMAIN_LABELS.some((label) => textContainsLabel(fullText, label));
 }
 
-function isLessonPlanTemporarilyHidden(resource) {
-  if (!resource || resource.category !== "Lesson Plans" || hasAdminFullAccess()) return false;
-  if (lessonPlanHasOldDomainLabel(resource)) return true;
+function lessonPlanTemporaryHiddenReason(resource) {
+  if (!resource || resource.category !== "Lesson Plans") return "";
+  if (lessonPlanHasOldDomainLabel(resource)) return "Old skill/domain label in title";
   const age = normalizeAgeGroup(resource.age) || resource.age;
   const limit = LESSON_PLAN_VISIBILITY_LIMITS[age];
-  if (!Number.isFinite(limit)) return false;
+  if (!Number.isFinite(limit)) return "";
   const number = lessonPlanNumber(resource);
-  if (!Number.isFinite(number)) return false;
-  return number > limit;
+  if (!Number.isFinite(number)) return "";
+  return number > limit ? "Needs lesson plan update" : "";
+}
+
+function isLessonPlanTemporarilyHidden(resource) {
+  if (!resource || resource.category !== "Lesson Plans" || hasAdminFullAccess()) return false;
+  return Boolean(lessonPlanTemporaryHiddenReason(resource));
 }
 
 function isResourceVisibleToCurrentUser(resource) {
@@ -3276,6 +3281,9 @@ function lessonPlanDefaults(resource) {
     reflectionNotes: "What worked well this week?\nWhich child showed new language, confidence, persistence, or social participation?\nWhat will you repeat, extend, or change next week?\nWhat would you like to document or share with families?",
     plan: resource.plan,
     visible: true,
+    updatedAt: "",
+    titleThemeImporterUpdated: false,
+    titleThemeImporterUpdatedAt: "",
     thumbnailUrl: sanitizedImageSource(resource.previewData || ""),
     dailyActivities: {
       monday: daily[0] || "",
@@ -3358,6 +3366,10 @@ function allLessonPlansForAdmin() {
     .map((resource) => {
       const defaults = lessonPlanDefaults(resource);
       const override = lessonPlanOverrideFor(resource.id) || {};
+      const manuallyVisible = override.visible !== false;
+      const temporaryHiddenReason = lessonPlanTemporaryHiddenReason({ ...resource, ...override });
+      const hiddenReason = !manuallyVisible ? "Manually hidden by admin" : temporaryHiddenReason;
+      const hiddenForUsers = !manuallyVisible || Boolean(temporaryHiddenReason);
       return {
         ...defaults,
         ...override,
@@ -3366,7 +3378,9 @@ function allLessonPlansForAdmin() {
         age: override.age || resource.age,
         theme: override.theme || resource.theme || resourceTheme(resource),
         plan: override.plan || resource.plan,
-        visible: override.visible !== false,
+        visible: manuallyVisible,
+        userVisible: !hiddenForUsers,
+        hiddenReason,
         thumbnailUrl: override.thumbnailUrl || resource.previewData || "",
         resource,
       };
@@ -16170,6 +16184,7 @@ function adminLessonFilters() {
     search: (document.querySelector("#adminLessonSearch")?.value || "").trim().toLowerCase(),
     age: document.querySelector("#adminLessonAgeFilter")?.value || "All Ages",
     visibility: document.querySelector("#adminLessonVisibilityFilter")?.value || "all",
+    plan: document.querySelector("#adminLessonPlanFilter")?.value || "all",
   };
 }
 
@@ -16179,10 +16194,19 @@ function filteredAdminLessonPlans() {
     const haystack = [item.title, item.age, item.theme, item.weeklyOverview, item.plan].join(" ").toLowerCase();
     const ageMatch = filters.age === "All Ages" || item.age === filters.age;
     const visibilityMatch = filters.visibility === "all"
-      || (filters.visibility === "visible" && item.visible !== false)
-      || (filters.visibility === "hidden" && item.visible === false);
-    return ageMatch && visibilityMatch && haystack.includes(filters.search);
+      || (filters.visibility === "visible" && item.userVisible)
+      || (filters.visibility === "hidden" && !item.userVisible);
+    const planMatch = filters.plan === "all"
+      || (filters.plan === "free" && item.plan === "Free")
+      || (filters.plan === "pro" && item.plan === "Pro");
+    return ageMatch && visibilityMatch && planMatch && haystack.includes(filters.search);
   });
+}
+
+function adminLessonUpdatedLabel(value) {
+  if (!value) return "Not updated yet";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "Not updated yet" : parsed.toLocaleString();
 }
 
 function adminLessonFormSnapshot(form = document.querySelector("#adminLessonPlanForm")) {
@@ -16255,8 +16279,10 @@ function scrollToAdminLessonList() {
 function lessonPlanAdminCardHtml(plan) {
   const selected = adminLessonSelection.has(plan.id);
   const image = sanitizedImageSource(plan.thumbnailUrl);
+  const hiddenForUsers = !plan.userVisible;
+  const hiddenReason = hiddenForUsers ? (plan.hiddenReason || "Hidden from users") : "";
   return `
-    <article class="admin-mobile-card${plan.visible === false ? " is-hidden" : ""}">
+    <article class="admin-mobile-card${hiddenForUsers ? " is-hidden" : ""}">
       <label class="admin-select-row">
         <input type="checkbox" data-admin-lesson-select="${plan.id}" ${selected ? "checked" : ""} />
         <span>Select</span>
@@ -16266,10 +16292,13 @@ function lessonPlanAdminCardHtml(plan) {
         <div>
           <strong>${escapeHtml(plan.title)}</strong>
           <p>${escapeHtml(plan.theme || "Theme")} · ${escapeHtml(plan.age)} · ${escapeHtml(plan.plan)}</p>
+          <small>${hiddenForUsers ? "Hidden from users" : "Visible to users"} · Last updated: ${escapeHtml(adminLessonUpdatedLabel(plan.updatedAt))}</small>
+          <small>Title/theme importer updated: ${plan.titleThemeImporterUpdated ? "Yes" : "No"}</small>
+          ${hiddenReason ? `<small class="tag">Hidden: ${escapeHtml(hiddenReason)}</small>` : ""}
           <div class="tag-row">
             <span class="tag">${escapeHtml(plan.age)}</span>
             <span class="tag">${escapeHtml(plan.plan)}</span>
-            <span class="tag">${plan.visible === false ? "Hidden" : "Visible"}</span>
+            <span class="tag">${hiddenForUsers ? "Hidden" : "Visible"}</span>
           </div>
         </div>
       </div>
@@ -16361,6 +16390,7 @@ function renderAdminContentManager() {
           <label><span>Search</span><input id="adminLessonSearch" type="search" placeholder="Search lesson plans" value="${escapeHtml(document.querySelector("#adminLessonSearch")?.value || "")}" /></label>
           <label><span>Age group</span><select id="adminLessonAgeFilter"><option${(document.querySelector("#adminLessonAgeFilter")?.value || "All Ages") === "All Ages" ? " selected" : ""}>All Ages</option>${["Infant", "Toddler", "Preschool"].map((age) => `<option${(document.querySelector("#adminLessonAgeFilter")?.value || "") === age ? " selected" : ""}>${age}</option>`).join("")}</select></label>
           <label><span>Show</span><select id="adminLessonVisibilityFilter">${[["all", "All"], ["visible", "Visible"], ["hidden", "Hidden"]].map(([value, label]) => `<option value="${value}"${(document.querySelector("#adminLessonVisibilityFilter")?.value || "all") === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
+          <label><span>Plan</span><select id="adminLessonPlanFilter">${[["all", "All"], ["free", "Free"], ["pro", "Pro"]].map(([value, label]) => `<option value="${value}"${(document.querySelector("#adminLessonPlanFilter")?.value || "all") === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
         </div>
         <div class="admin-mobile-stats">
           ${Object.entries(lessonCounts).map(([label, count]) => `<div><strong>${count}</strong><span>${escapeHtml(label)}</span></div>`).join("")}
@@ -16374,9 +16404,14 @@ function renderAdminContentManager() {
         </div>
         <div class="admin-mobile-list" id="adminLessonPlanList">${lessons.map(lessonPlanAdminCardHtml).join("") || `<div class="empty-state">No lesson plans match these filters.</div>`}</div>
         ${lessonRecord ? `
-          <form id="adminLessonPlanForm" class="panel-form admin-stacked-form">
+          <form id="adminLessonPlanForm" class="panel-form admin-stacked-form" data-importer-updated-title-theme="${lessonRecord.titleThemeImporterUpdated ? "true" : "false"}">
             <input type="hidden" name="id" value="${escapeHtml(lessonRecord.id)}" />
             <h4 class="admin-lesson-editing-heading" id="adminLessonEditorHeading">Editing: ${escapeHtml(lessonRecord.title || "Untitled Lesson Plan")}</h4>
+            <p class="muted-copy">
+              ${lessonRecord.userVisible ? "Visible to users" : `Hidden from users${lessonRecord.hiddenReason ? ` — ${escapeHtml(lessonRecord.hiddenReason)}` : ""}`} ·
+              Last updated: ${escapeHtml(adminLessonUpdatedLabel(lessonRecord.updatedAt))} ·
+              Title/theme importer updated: ${lessonRecord.titleThemeImporterUpdated ? "Yes" : "No"}
+            </p>
             <div class="form-grid-two">
               <label>Title<input id="adminLessonTitleInput" name="title" value="${escapeHtml(lessonRecord.title)}" /></label>
               <label>Age group<select name="age">${["Infant", "Toddler", "Preschool"].map((age) => `<option${lessonRecord.age === age ? " selected" : ""}>${age}</option>`).join("")}</select></label>
@@ -16593,8 +16628,12 @@ async function saveAdminLessonPlanForm(form) {
   setFormMessage("#adminLessonPlanMessage", "Saving…", true);
   try {
     const uploadedImage = await fileToImageDataUrl(formData.get("thumbnailFile"));
+    const now = new Date().toISOString();
+    const titleThemeImporterUpdated = form.dataset.importerUpdatedTitleTheme === "true";
     await updateLessonOverrides((lessonPlans) => {
+      const current = lessonPlans[id] || {};
       lessonPlans[id] = {
+        ...current,
         id,
         title: normalizedShortText(formData.get("title")),
         age: normalizedShortText(formData.get("age")),
@@ -16609,6 +16648,9 @@ async function saveAdminLessonPlanForm(form) {
         plan: normalizedShortText(formData.get("plan")) || "Free",
         visible: formData.get("visible") === "on",
         thumbnailUrl: uploadedImage || sanitizedImageSource(formData.get("thumbnailUrl")),
+        updatedAt: now,
+        titleThemeImporterUpdated,
+        titleThemeImporterUpdatedAt: titleThemeImporterUpdated ? now : (current.titleThemeImporterUpdatedAt || ""),
         dailyActivities: {
           monday: normalizedMultilineText(formData.get("monday")),
           tuesday: normalizedMultilineText(formData.get("tuesday")),
@@ -16646,15 +16688,17 @@ async function resetLessonPlanOverride(id) {
 async function toggleLessonPlanVisibility(id) {
   const record = allLessonPlansForAdmin().find((item) => item.id === id);
   if (!record) return;
+  const now = new Date().toISOString();
   await updateLessonOverrides((lessonPlans) => {
     const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
-    lessonPlans[id] = { ...current, id, visible: !(record.visible !== false) };
+    lessonPlans[id] = { ...current, id, visible: !(record.visible !== false), updatedAt: now };
   });
 }
 
 async function applyLessonPlanBulkAction(action) {
   const ids = Array.from(adminLessonSelection);
   if (!ids.length) return;
+  const now = new Date().toISOString();
   await updateLessonOverrides((lessonPlans) => {
     ids.forEach((id) => {
       const record = allLessonPlansForAdmin().find((item) => item.id === id);
@@ -16665,6 +16709,7 @@ async function applyLessonPlanBulkAction(action) {
         id,
         visible: action === "hide" ? false : action === "unhide" ? true : current.visible !== false,
         plan: action === "free" ? "Free" : action === "pro" ? "Pro" : current.plan,
+        updatedAt: now,
       };
     });
   });
@@ -16676,6 +16721,7 @@ async function showOnlyFiftyLessonPlansPerAge() {
     map[item.age].push(item);
     return map;
   }, {});
+  const now = new Date().toISOString();
   await updateLessonOverrides((lessonPlans) => {
     Object.values(grouped).forEach((items) => {
       items
@@ -16683,7 +16729,7 @@ async function showOnlyFiftyLessonPlansPerAge() {
         .sort((a, b) => a.title.localeCompare(b.title))
         .forEach((item, index) => {
           const current = lessonPlans[item.id] || lessonPlanDefaults(item.resource);
-          lessonPlans[item.id] = { ...current, id: item.id, visible: index < 50 };
+          lessonPlans[item.id] = { ...current, id: item.id, visible: index < 50, updatedAt: now };
         });
     });
   });
@@ -16956,6 +17002,7 @@ function applyStructuredLessonPlanImport(fields) {
   const importedMetadata = Object.entries(fields).filter(([fieldName]) => adminLessonImportMetadataFields.has(fieldName));
   const shouldApplyMetadata = !importedMetadata.length || window.confirm("Imported metadata was found (Title/Theme/Age/Plan/Visibility). Replace current metadata?");
   let filled = 0;
+  let importerUpdatedTitleTheme = false;
   Object.entries(fields).forEach(([fieldName, value]) => {
     if (adminLessonImportMetadataFields.has(fieldName) && !shouldApplyMetadata) return;
     if (fieldName === "__thumbnailDescription") {
@@ -16976,6 +17023,7 @@ function applyStructuredLessonPlanImport(fields) {
       } else {
         el.value = value;
       }
+      if (fieldName === "title" || fieldName === "theme") importerUpdatedTitleTheme = true;
       filled++;
     }
   });
@@ -16989,9 +17037,11 @@ function applyStructuredLessonPlanImport(fields) {
     const theme = (themeEl?.value || "").trim();
     if (age && theme && titleEl && !titleEl.value.trim()) {
       titleEl.value = `${age} ${theme} Lesson Plan`;
+      importerUpdatedTitleTheme = true;
       filled++;
     }
   }
+  form.dataset.importerUpdatedTitleTheme = importerUpdatedTitleTheme ? "true" : "false";
   updateAdminLessonEditorHeading();
   return filled;
 }
@@ -22346,7 +22396,7 @@ document.addEventListener("input", (event) => {
 });
 
 document.addEventListener("change", (event) => {
-  if (event.target.matches("#adminLessonAgeFilter, #adminLessonVisibilityFilter")) {
+  if (event.target.matches("#adminLessonAgeFilter, #adminLessonVisibilityFilter, #adminLessonPlanFilter")) {
     renderAdminContentManager();
   }
   if (event.target.matches("[data-admin-lesson-select]")) {
