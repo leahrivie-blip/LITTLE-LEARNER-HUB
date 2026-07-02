@@ -14845,6 +14845,12 @@ function appendChildRecord(key, record) {
 
 let afterActionPromptTimeout = null;
 
+/**
+ * Show a transient feedback banner at the bottom of the screen.
+ * Prefer showAfterActionPrompt for save events tied to a specific trigger/child.
+ * @param {string} message - The text to display in the banner.
+ * @param {{label: string, attr: string}|null} action - Optional CTA button. label is the button text; attr is the HTML attribute string (e.g. 'data-view="plans"').
+ */
 function showActionFeedback(message, action = null) {
   if (!message) return;
   let banner = document.querySelector("#afterActionPrompt");
