@@ -2008,7 +2008,7 @@ const dailyLogTemplates = [
     note: "Children stayed indoors for movement games, stories, art, sensory play, meals, and rest time. Add any individual notes below.",
   },
 ];
-const dailyLogAdvancedOutputIds = ["parent-message", "observation", "portfolio-entry", "behavior-note", "incident-report", "daily-report"];
+const dailyLogAdvancedOutputIds = ["parent-message", "portfolio-entry", "behavior-note", "incident-report", "daily-report"];
 const dailyLogOutputPreviewMap = {
   "parent-message": "daily-log-parent-messages",
   observation: "daily-log-observations",
@@ -2343,16 +2343,16 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
     if (title) title.textContent = "You've reached your Free Plan limit.";
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
-      <p>Upgrade to Pro to unlock unlimited child profiles, observations, lesson plans, resources, AI tools, Family Hub features, parent messaging, attendance tracking, and daily reports.</p>
-      <p><small>Start a 7-day free trial. Credit card required. You will be charged after 7 days unless you cancel.</small></p>
+      <p>Upgrade to Pro to spend less time on paperwork with unlimited child profiles, observations, lesson plans, family-ready reports, parent messaging, tracking tools, and AI helpers.</p>
+      <p><small>Start a 7-day free trial and keep documentation moving without rewriting the same update twice.</small></p>
     `;
   } else {
     if (eyebrow) eyebrow.textContent = "Pro Feature";
     if (title) title.textContent = "This is a Pro Feature";
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
-      <p>Upgrade to Pro to unlock advanced AI tools, portfolio builder, parent messaging, attendance tracking, daily reports, and the full resource library.</p>
-      <p><small>Start a 7-day free trial. Credit card required. You will be charged after 7 days unless you cancel.</small></p>
+      <p>Upgrade to Pro to spend less time on paperwork with portfolio builder, parent messaging, daily reports, tracking tools, and the full resource library.</p>
+      <p><small>Start a 7-day free trial and keep documentation moving with polished family-ready outputs.</small></p>
     `;
   }
   modal.classList.add("open");
@@ -3673,6 +3673,47 @@ function installInstructionsMarkup() {
           <li>Tap Install App or Add to Home Screen.</li>
           <li>Confirm installation.</li>
         </ol>
+      </div>
+    </div>
+  `;
+}
+
+function renderChildQuickEntryUpgradePreviews() {
+  if (isProUser()) return "";
+  return `
+    <div class="quick-entry-preview-list" aria-label="Pro documentation previews">
+      <div class="quick-entry-preview-row">
+        <div>
+          <span class="tag access-tag">Included with Pro</span>
+          <strong>Parent Message</strong>
+          <p>Preview how one observation turns into a polished family update you can send in minutes.</p>
+        </div>
+        <div class="quick-entry-preview-actions">
+          <button class="ghost-button" data-preview="daily-log-parent-messages" type="button">Preview</button>
+          <button class="primary-button" data-pro-feature="parent-message" type="button">Upgrade to Pro</button>
+        </div>
+      </div>
+      <div class="quick-entry-preview-row">
+        <div>
+          <span class="tag access-tag">Included with Pro</span>
+          <strong>Daily Report</strong>
+          <p>Preview a family-ready daily report that bundles meals, routines, and learning highlights into one shareable update.</p>
+        </div>
+        <div class="quick-entry-preview-actions">
+          <button class="ghost-button" data-preview="daily-log-reports" type="button">Preview</button>
+          <button class="primary-button" data-pro-feature="daily-report" type="button">Upgrade to Pro</button>
+        </div>
+      </div>
+      <div class="quick-entry-preview-row">
+        <div>
+          <span class="tag access-tag">Included with Pro</span>
+          <strong>Portfolio Builder</strong>
+          <p>Preview how saved moments become shareable portfolio entries without extra paperwork at the end of the week.</p>
+        </div>
+        <div class="quick-entry-preview-actions">
+          <button class="ghost-button" data-preview="portfolio-builder" type="button">Preview</button>
+          <button class="primary-button" data-pro-feature="portfolio-builder" type="button">Upgrade to Pro</button>
+        </div>
       </div>
     </div>
   `;
@@ -8018,6 +8059,7 @@ function renderCategoryPage(view) {
   const filters = categoryFilters(category);
   const displayTitle = view === "lessons" ? "Lesson Plan Library" : category;
   section.innerHTML = `
+    <button class="ghost-button back-button" data-view="home" type="button">← Back to Home</button>
     <div class="page-title">
       <p class="eyebrow">${displayTitle}</p>
       <h2>${displayTitle}</h2>
@@ -8372,6 +8414,22 @@ function renderUserDashboard() {
   const childById = Object.fromEntries((records.children || []).map((c) => [c.id, c]));
   const recentActivity = dashboardRecentActivity(records, childById);
   const reminders = dashboardReminderMarkup(records, stats);
+  const dashboardTeasers = !isProUser() ? `
+    <section class="section-block dashboard-teasers">
+      <div class="dashboard-panel-heading">
+        <div>
+          <p class="eyebrow">Pro previews</p>
+          <h3>Spend less time on paperwork</h3>
+        </div>
+      </div>
+      <p class="dashboard-teaser-copy">Preview the parent-facing tools that save time once your free observation note is saved.</p>
+      <div class="dashboard-teaser-grid">
+        ${lockedFeatureCard("Parent Message Generator", "Turn one quick note into a family-ready update without rewriting it later.", "daily-log-parent-messages")}
+        ${lockedFeatureCard("Daily Report Generator", "Bundle attendance, meals, and classroom highlights into one polished report.", "daily-log-reports")}
+        ${lockedFeatureCard("Portfolio Builder", "Collect observations, photos, and progress notes into shareable portfolio updates.", "portfolio-builder")}
+      </div>
+    </section>
+  ` : "";
 
   homeSection.innerHTML = `
     <div class="user-dashboard">
@@ -8401,6 +8459,8 @@ function renderUserDashboard() {
           <button class="ghost-button" data-view="ai" data-quick-doc-type="activity-idea" type="button">🎨 Activity Update</button>
         </div>
       </section>
+
+      ${dashboardTeasers}
 
       <div class="dashboard-grid">
         <section class="section-block dashboard-today">
@@ -11999,12 +12059,13 @@ function renderChildAiQuickEntry(child) {
       ></textarea>
       <div class="quick-entry-buttons" role="group" aria-label="Generate documentation">
         <button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="observation" type="button">Generate Observation</button>
-        <button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="parent-message" type="button">Generate Parent Message</button>
-        <button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="daily-report" type="button">Generate Daily Report</button>
+        ${isProUser() ? `<button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="parent-message" type="button">Generate Parent Message</button>` : ""}
+        ${isProUser() ? `<button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="daily-report" type="button">Generate Daily Report</button>` : ""}
         <button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="activities" type="button">Suggest Activities</button>
         <button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="goal-update" type="button">Update Goals</button>
-        <button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="portfolio" type="button">Portfolio Entry</button>
+        ${isProUser() ? `<button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="portfolio" type="button">Portfolio Entry</button>` : ""}
       </div>
+      ${renderChildQuickEntryUpgradePreviews()}
       <div id="childQuickEntryOutput-${domSafeId(child.id)}" class="quick-entry-output" aria-live="polite"></div>
     </section>
   `;
@@ -12364,6 +12425,7 @@ function renderChildToolsPage(records) {
   if (!child) {
     return `
       <section class="simple-child-page">
+        <button class="ghost-button back-button" data-child-view="list" type="button">← Back to Children</button>
         <div class="child-page-header">
           <div>
             <h2>${escapeHtml(activeTool[1])}</h2>
@@ -12380,12 +12442,12 @@ function renderChildToolsPage(records) {
   }
   return `
     <section class="simple-child-page child-tools-page">
+      <button class="ghost-button back-button" data-view-child-profile="${child.id}" type="button">← Back to ${escapeHtml(child.name)}</button>
       <div class="child-page-header">
         <div>
           <h2>${escapeHtml(activeTool[1])}</h2>
           <p>Select a child, then manage only ${escapeHtml(activeTool[1].toLowerCase())}.</p>
         </div>
-        <button class="ghost-button" data-view-child-profile="${child.id}" type="button">Back to ${escapeHtml(child.name)}</button>
       </div>
       <div class="child-tools-layout">
         <aside class="section-block child-tools-side">
@@ -14231,7 +14293,7 @@ function renderDailyLogsOverviewTab(child, records, today) {
 function renderDailyLogsQuickDoc(records) {
   const today = new Date().toISOString().slice(0, 10);
   const quickDocOptions = [
-    { value: "observation", label: "Observation", pro: true },
+    { value: "observation", label: "Observation", pro: false },
     { value: "parent-message", label: "Parent Message", pro: true },
     { value: "goal-update", label: "Goal Update", pro: false },
     { value: "daily-report", label: "Daily Report Entry", pro: true },
@@ -14345,7 +14407,7 @@ function behaviorNoteForm(childId) {
 
 async function generateQuickDocumentation(note, child, records, types) {
   const requestedTypes = (types || []).filter((type) => {
-    if (["observation", "parent-message", "daily-report", "behavior-note"].includes(type) && !isProUser()) return false;
+    if (["parent-message", "daily-report", "behavior-note"].includes(type) && !isProUser()) return false;
     return true;
   });
   const childName = child ? child.name : "The child";
@@ -14783,14 +14845,14 @@ function appendChildRecord(key, record) {
 
 let afterActionPromptTimeout = null;
 
-function showAfterActionPrompt(trigger, childId) {
-  const prompts = {
-    attendance: "Attendance saved! Would you like to generate today's daily report?",
-    observation: "Observation saved! Would you like to generate a parent message?",
-    meals: "Meals logged! Would you like to create today's portfolio entry?",
-  };
-  const promptText = prompts[trigger];
-  if (!promptText || !childId) return;
+/**
+ * Show a transient feedback banner at the bottom of the screen.
+ * Prefer showAfterActionPrompt for save events tied to a specific trigger/child.
+ * @param {string} message - The text to display in the banner.
+ * @param {{label: string, attr: string}|null} action - Optional CTA button. label is the button text; attr is the HTML attribute string (e.g. 'data-view="plans"').
+ */
+function showActionFeedback(message, action = null) {
+  if (!message) return;
   let banner = document.querySelector("#afterActionPrompt");
   if (!banner) {
     banner = document.createElement("div");
@@ -14800,17 +14862,43 @@ function showAfterActionPrompt(trigger, childId) {
     banner.setAttribute("aria-live", "polite");
     document.querySelector(".main")?.appendChild(banner);
   }
-  const actionAttr = trigger === "attendance" ? `data-build-daily-report="${childId}"` :
-    trigger === "observation" ? `data-child-quick-entry="${childId}" data-quick-action="parent-message"` :
-    `data-child-quick-entry="${childId}" data-quick-action="portfolio"`;
   banner.innerHTML = `
-    <span class="after-action-text">${escapeHtml(promptText)}</span>
-    <button class="primary-button after-action-yes" ${actionAttr} type="button">Yes, generate</button>
+    <span class="after-action-text">${escapeHtml(message)}</span>
+    ${action ? `<button class="primary-button after-action-yes" ${action.attr} type="button">${escapeHtml(action.label)}</button>` : ""}
     <button class="ghost-button after-action-dismiss" type="button">Dismiss</button>
   `;
   banner.classList.add("visible");
   if (afterActionPromptTimeout) clearTimeout(afterActionPromptTimeout);
   afterActionPromptTimeout = setTimeout(() => banner.classList.remove("visible"), 10000);
+}
+
+function showAfterActionPrompt(trigger, childId) {
+  const prompts = {
+    attendance: {
+      message: "Attendance saved! Would you like to generate today's daily report?",
+      proAction: { label: "Yes, generate", attr: `data-build-daily-report="${childId}"` },
+      freeMessage: "Attendance saved! Preview the Pro daily report workflow.",
+      freeAction: { label: "Preview daily report", attr: `data-preview="daily-log-reports"` },
+    },
+    observation: {
+      message: "Observation saved! Would you like to generate a parent message?",
+      proAction: { label: "Yes, generate", attr: `data-child-quick-entry="${childId}" data-quick-action="parent-message"` },
+      freeMessage: "Observation saved! Preview the Pro parent message workflow.",
+      freeAction: { label: "Preview parent message", attr: `data-preview="daily-log-parent-messages"` },
+    },
+    meals: {
+      message: "Meals logged! Would you like to create today's portfolio entry?",
+      proAction: { label: "Yes, generate", attr: `data-child-quick-entry="${childId}" data-quick-action="portfolio"` },
+      freeMessage: "Meals logged! Preview the Pro portfolio workflow.",
+      freeAction: { label: "Preview portfolio", attr: `data-preview="portfolio-builder"` },
+    },
+  };
+  const prompt = prompts[trigger];
+  if (!prompt || !childId) return;
+  showActionFeedback(
+    isProUser() ? prompt.message : prompt.freeMessage,
+    isProUser() ? prompt.proAction : prompt.freeAction,
+  );
 }
 
 async function buildDailyReportFromChild(childId, quickNote) {
@@ -19651,6 +19739,7 @@ function renderFavoritesPage() {
   if (!section) return;
   if (!currentUser) {
     section.innerHTML = `
+      <button class="ghost-button back-button" data-view="home" type="button">← Back to Home</button>
       <div class="page-title">
         <p class="eyebrow">Favorites</p>
         <h2>Save resources you use most.</h2>
@@ -19666,6 +19755,7 @@ function renderFavoritesPage() {
   const favoriteIds = new Set(favorites);
   const savedFavoriteResources = resources.filter((resource) => favoriteIds.has(resource.id) && isResourceVisibleToCurrentUser(resource));
   section.innerHTML = `
+    <button class="ghost-button back-button" data-view="home" type="button">← Back to Home</button>
     <div class="page-title">
       <p class="eyebrow">Favorites</p>
       <h2>Saved Favorites</h2>
@@ -19767,7 +19857,7 @@ function renderAccountPage() {
   statusLabel.textContent = paidBilling ? account?.subscriptionStatus || `${billingPlanLabel(currentPlan, account)} Subscription Active` : "Free Plan";
   detailLabel.innerHTML = paidBilling
     ? `Current Plan: ${escapeHtml(billingPlanLabel(currentPlan, account))}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${account?.foundingMember ? "Lifetime" : "Regular Pro pricing"}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>Helper Usage: ${aiUsageCount()} of ${paidAiMonthlyLimit} used this billing month. Resets ${escapeHtml(aiResetLabel())}.<br>Your account has full in-app resources, menus, child profiles, portfolios, tracking tools, provider tools, future premium features, and ${paidAiMonthlyLimit} document creations per month.`
-    : `Your Free account includes 5 lesson plans, 10 observations, 10 forms, 10 activity ideas, 10 printables, ${freeAiMonthlyLimit} document creations per month, up to 3 child profiles, and the weekly observation tracker. Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}. Helper Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`;
+    : `Your Free account includes 5 lesson plans, 10 observations, 10 forms, 10 activity ideas, 10 printables, ${freeAiMonthlyLimit} document creations per month, up to 3 child profiles, and the weekly observation tracker. Upgrade to Pro to spend less time on paperwork with parent messages, daily reports, portfolios, and faster documentation workflows. Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}. Helper Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`;
   if (demoButton) demoButton.style.display = "none";
   if (upgradeButton) {
     upgradeButton.textContent = paidBilling ? "Manage Billing" : "Upgrade to Pro";
@@ -22488,6 +22578,73 @@ const featurePreviewContent = {
   },
 };
 
+featurePreviewContent["daily-log-observations"] = featurePreviewContent["observation-tracker"];
+featurePreviewContent["daily-log-portfolio"] = featurePreviewContent["portfolio-builder"];
+featurePreviewContent["daily-log-parent-messages"] = {
+  eyebrow: "Preview — Pro Feature",
+  title: "Parent Messages",
+  html: `<div class="fp-screen">
+    <div class="fp-screen-bar"><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-screen-title">Parent Messages — Little Learner Hub Pro</span></div>
+    <div class="fp-screen-body">
+      <aside class="fp-sidebar">
+        <div class="fp-nav">Children</div>
+        <div class="fp-nav active">Parent Messages</div>
+        <div class="fp-nav">Daily Reports</div>
+        <div class="fp-nav">Portfolio</div>
+      </aside>
+      <div class="fp-main">
+        <div class="fp-stat-row">
+          <div class="fp-stat"><strong>1 note</strong><span>Typed once</span></div>
+          <div class="fp-stat"><strong>3</strong><span>Family-ready drafts</span></div>
+          <div class="fp-stat"><strong>0</strong><span>Extra rewriting</span></div>
+        </div>
+        <div class="fp-card">
+          <div class="fp-card-title">Teacher quick note</div>
+          <div class="fp-field"><label>What happened today?</label><div class="fp-field-value">Emma worked hard on bead threading, helped clean up, and was proud to show a friend her bracelet.</div></div>
+        </div>
+        <div class="fp-card">
+          <div class="fp-card-title">Parent-ready message</div>
+          <div class="fp-ai-output">Emma had a wonderful day practicing fine motor skills with bead threading and showed great persistence while completing her bracelet. She was especially proud to share her work with a friend during clean-up time.</div>
+        </div>
+      </div>
+    </div>
+  </div>`,
+};
+featurePreviewContent["daily-log-reports"] = {
+  eyebrow: "Preview — Pro Feature",
+  title: "Daily Reports",
+  html: `<div class="fp-screen">
+    <div class="fp-screen-bar"><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-screen-title">Daily Reports — Little Learner Hub Pro</span></div>
+    <div class="fp-screen-body">
+      <aside class="fp-sidebar">
+        <div class="fp-nav">Children</div>
+        <div class="fp-nav">Parent Messages</div>
+        <div class="fp-nav active">Daily Reports</div>
+        <div class="fp-nav">Portfolio</div>
+      </aside>
+      <div class="fp-main">
+        <div class="fp-stat-row">
+          <div class="fp-stat"><strong>Meals</strong><span>Included</span></div>
+          <div class="fp-stat"><strong>Naps</strong><span>Included</span></div>
+          <div class="fp-stat"><strong>Highlights</strong><span>Included</span></div>
+        </div>
+        <div class="fp-card">
+          <div class="fp-card-title">Today's log</div>
+          <div class="fp-row"><span>🍽️</span><span>Ate lunch and snack well</span><span class="fp-tag">Meals</span></div>
+          <div class="fp-row"><span>😴</span><span>Napped from 12:15–2:00</span><span class="fp-tag purple">Rest</span></div>
+          <div class="fp-row"><span>🎨</span><span>Painted butterflies and joined story time</span><span class="fp-tag gold">Learning</span></div>
+        </div>
+        <div class="fp-card">
+          <div class="fp-card-title">Family-ready daily report</div>
+          <div class="fp-ai-output">Today Emma enjoyed painting butterflies, joined story time with enthusiasm, ate well, and rested from 12:15–2:00. She ended the day proud of her art and ready to tell you about it.</div>
+        </div>
+      </div>
+    </div>
+  </div>`,
+};
+featurePreviewContent["daily-log-behavior"] = featurePreviewContent["daily-log-parent-messages"];
+featurePreviewContent["daily-log-incident"] = featurePreviewContent["daily-log-reports"];
+
 let featurePreviewTrigger = null;
 
 function isFeaturePreviewOpen() {
@@ -23330,6 +23487,7 @@ document.addEventListener("submit", async (event) => {
   activeChildProfileEditId = "";
   form.reset();
   renderChildManagement();
+  showActionFeedback(`${child.name}’s profile saved.`);
 });
 
 document.addEventListener("submit", (event) => {
@@ -23451,6 +23609,7 @@ document.addEventListener("submit", (event) => {
   }
   const data = collectFormData(event.target);
   appendChildRecord("Communications", { ...data, title: `${data.type} | ${data.date}`, summary: data.message });
+  showActionFeedback("Parent communication saved.");
 });
 
 // ─── Daily Logs Center Form Handlers ───────────────────────────────────────
@@ -23461,6 +23620,7 @@ document.addEventListener("submit", (event) => {
   const data = collectFormData(event.target);
   const dur = data.napStart && data.napEnd ? ` | ${data.napStart}–${data.napEnd}` : "";
   appendChildRecord("Naps", { ...data, title: `Nap | ${data.date}${dur}`, summary: data.notes || `Nap logged${dur}` });
+  showActionFeedback("Nap saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -23469,6 +23629,7 @@ document.addEventListener("submit", (event) => {
   const data = collectFormData(event.target);
   const timeStr = data.time ? ` at ${data.time}` : "";
   appendChildRecord("Diapers", { ...data, title: `${data.type} | ${data.date}${timeStr}`, summary: data.notes || data.type });
+  showActionFeedback("Diaper / potty entry saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -23478,6 +23639,7 @@ document.addEventListener("submit", (event) => {
   const activitySummaryParts = [data.area, data.notes].filter(Boolean);
   const activitySummary = activitySummaryParts.join(" | ") || data.activity || "Activity";
   appendChildRecord("ActivityLogs", { ...data, title: data.activity || "Activity", summary: activitySummary });
+  showActionFeedback("Activity saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -23489,6 +23651,7 @@ document.addEventListener("submit", (event) => {
   }
   const data = collectFormData(event.target);
   appendChildRecord("Communications", { ...data, type: "Behavior Note", title: `Behavior Note | ${data.date}`, summary: data.message });
+  showActionFeedback("Behavior note saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -23521,6 +23684,7 @@ document.addEventListener("submit", (event) => {
   });
   dailyLogsGroupAction = "";
   renderChildManagement();
+  showActionFeedback("Group update saved.");
 });
 
 // ─── New Daily Log Accordion Form Handlers ──────────────────────────────────
@@ -23574,6 +23738,7 @@ document.addEventListener("submit", (event) => {
   });
   dlcManualSection = "";
   renderChildManagement();
+  showActionFeedback("Bottle log saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -23589,6 +23754,7 @@ document.addEventListener("submit", (event) => {
   });
   dlcManualSection = "";
   renderChildManagement();
+  showActionFeedback("Nap saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -23604,6 +23770,7 @@ document.addEventListener("submit", (event) => {
   });
   dlcManualSection = "";
   renderChildManagement();
+  showActionFeedback("Diaper / potty entry saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -23619,6 +23786,7 @@ document.addEventListener("submit", (event) => {
   });
   dlcManualSection = "";
   renderChildManagement();
+  showActionFeedback("Activity saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -23633,6 +23801,7 @@ document.addEventListener("submit", (event) => {
   });
   dlcManualSection = "";
   renderChildManagement();
+  showActionFeedback("Mood note saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -23648,6 +23817,7 @@ document.addEventListener("submit", (event) => {
   });
   dlcManualSection = "";
   renderChildManagement();
+  showActionFeedback("Medication entry saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -23663,6 +23833,7 @@ document.addEventListener("submit", (event) => {
   });
   dlcManualSection = "";
   renderChildManagement();
+  showActionFeedback("Incident report saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -23681,6 +23852,7 @@ document.addEventListener("submit", (event) => {
   });
   dlcManualSection = "";
   renderChildManagement();
+  showActionFeedback(`${data.type || "Note"} saved.`);
 });
 
 document.addEventListener("submit", async (event) => {
