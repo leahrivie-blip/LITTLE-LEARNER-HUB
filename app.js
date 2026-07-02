@@ -3686,7 +3686,7 @@ function renderChildQuickEntryUpgradePreviews() {
         <div>
           <span class="tag access-tag">Included with Pro</span>
           <strong>Parent Message</strong>
-          <p>Preview how one observation turns into a polished family update and keeps documentation moving.</p>
+          <p>Preview how one observation turns into a polished family update you can send in minutes.</p>
         </div>
         <div class="quick-entry-preview-actions">
           <button class="ghost-button" data-preview="daily-log-parent-messages" type="button">Preview</button>
@@ -8422,7 +8422,7 @@ function renderUserDashboard() {
           <h3>Spend less time on paperwork</h3>
         </div>
       </div>
-      <p class="dashboard-teaser-copy">Preview the parent-facing tools that keep documentation moving once your free observation note is saved.</p>
+      <p class="dashboard-teaser-copy">Preview the parent-facing tools that save time once your free observation note is saved.</p>
       <div class="dashboard-teaser-grid">
         ${lockedFeatureCard("Parent Message Generator", "Turn one quick note into a family-ready update without rewriting it later.", "daily-log-parent-messages")}
         ${lockedFeatureCard("Daily Report Generator", "Bundle attendance, meals, and classroom highlights into one polished report.", "daily-log-reports")}
