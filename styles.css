@@ -10526,6 +10526,21 @@ body.home-view .topbar .search-wrap {
   padding: 8px 14px;
 }
 
+.dashboard-teasers {
+  margin-bottom: 20px;
+}
+
+.dashboard-teaser-copy {
+  margin: 0 0 16px;
+  color: var(--text-muted, #6b7280);
+}
+
+.dashboard-teaser-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -10991,6 +11006,41 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   margin-top: 12px;
 }
 
+.quick-entry-preview-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.quick-entry-preview-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(112, 85, 209, 0.16);
+  border-radius: 16px;
+}
+
+.quick-entry-preview-row strong {
+  display: block;
+  margin-top: 8px;
+}
+
+.quick-entry-preview-row p {
+  margin: 6px 0 0;
+  color: var(--text-muted, #6b7280);
+  font-size: 13px;
+}
+
+.quick-entry-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .quick-entry-btn {
   font-size: 13px;
   padding: 8px 14px;
@@ -11122,6 +11172,15 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 @media (max-width: 640px) {
   .quick-entry-buttons {
     gap: 6px;
+  }
+
+  .quick-entry-preview-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .quick-entry-preview-actions {
+    justify-content: flex-start;
   }
 
   .quick-entry-btn {
