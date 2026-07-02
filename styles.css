@@ -2216,6 +2216,54 @@ body.home-view .topbar .search-wrap {
   margin-bottom: 3px;
 }
 
+.lesson-update-notice {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+  color: #2c3f72;
+  background: linear-gradient(135deg, rgba(255, 244, 230, 0.92), rgba(237, 232, 255, 0.8));
+  border-color: rgba(224, 147, 47, 0.34);
+  font-weight: 500;
+}
+
+.lesson-update-notice-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(224, 147, 47, 0.18);
+  font-size: 18px;
+}
+
+.lesson-update-notice-copy h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  color: #1f2d55;
+}
+
+.lesson-update-notice-copy p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.lesson-update-notice-copy p + p {
+  margin-top: 6px;
+}
+
+@media (max-width: 640px) {
+  .lesson-update-notice {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .lesson-update-notice-icon {
+    width: 32px;
+    height: 32px;
+  }
+}
+
 .resource-list.compact {
   display: grid;
   gap: 10px;
