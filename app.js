@@ -732,28 +732,43 @@ const printablePdfLimit = Number.POSITIVE_INFINITY;
 // Admins always retain full access. Flip back to false to re-enable for users.
 const PRINTABLES_HIDDEN = true;
 
-// Set to true to temporarily hide legacy infant lesson plans while they are being upgraded.
-// Plans marked premium: true remain visible. Admins always retain full access.
-// Flip back to false to re-enable legacy plans for users.
-const INFANT_LEGACY_HIDDEN = false;
+// Temporary user-facing lesson plan visibility limits while updates are in progress.
+// Admins always retain full access and can continue editing all plans.
+const LESSON_PLAN_VISIBILITY_LIMITS = Object.freeze({
+  Infant: 40,
+  Toddler: 30,
+  Preschool: 30,
+});
 
 function isPrintablesUpgradeModeActive() {
   return PRINTABLES_HIDDEN && !hasAdminFullAccess();
 }
 
-function isInfantLegacyUpgradeModeActive() {
-  return INFANT_LEGACY_HIDDEN && !hasAdminFullAccess();
+function lessonPlanNumber(resource) {
+  if (!resource || resource.category !== "Lesson Plans") return null;
+  const explicit = Number(resource.lessonNumber);
+  if (Number.isFinite(explicit) && explicit > 0) return explicit;
+  const idMatch = String(resource.id || "").match(/-(\d+)$/);
+  if (!idMatch) return null;
+  const parsed = Number(idMatch[1]);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-function isInfantLegacyPlan(resource) {
-  return resource.category === "Lesson Plans" && resource.age === "Infant" && !resource.premium;
+function isLessonPlanTemporarilyHidden(resource) {
+  if (!resource || resource.category !== "Lesson Plans" || hasAdminFullAccess()) return false;
+  const age = normalizeAgeGroup(resource.age) || resource.age;
+  const limit = LESSON_PLAN_VISIBILITY_LIMITS[age];
+  if (!Number.isFinite(limit)) return false;
+  const number = lessonPlanNumber(resource);
+  if (!Number.isFinite(number)) return false;
+  return number > limit;
 }
 
 function isResourceVisibleToCurrentUser(resource) {
   if (!resource) return false;
   if (resource.visible === false && !hasAdminFullAccess()) return false;
   if (resource.category === "Printables" && isPrintablesUpgradeModeActive()) return false;
-  if (isInfantLegacyPlan(resource) && isInfantLegacyUpgradeModeActive()) return false;
+  if (isLessonPlanTemporarilyHidden(resource)) return false;
   return true;
 }
 
@@ -797,6 +812,7 @@ function buildLessonPlans() {
       description: `Pre-made ${age.toLowerCase()} ${theme.toLowerCase()} lesson plan focused on ${area.toLowerCase()} development. Includes weekly overview, daily activities, materials, objectives, step-by-step instructions, ELG standards, printable ideas, and related ${activityFocus.toLowerCase()} activity support.`,
       theme,
       developmentalArea: area,
+      lessonNumber: sequence,
       holiday,
       activityFocus,
       weeklyOverview: `${age} learners explore ${theme.toLowerCase()} through ${area.toLowerCase()} experiences, play-based routines, guided conversation, and hands-on practice.`,
@@ -8077,7 +8093,7 @@ function renderCategoryPage(view) {
     </div>
     ${searchedChild ? renderChildLessonSearchContext(searchedChild) : ""}
     ${category === "Printables" ? renderPrintablesRefreshNotice() : ""}
-    ${category === "Lesson Plans" ? renderInfantLegacyNotice() : ""}
+    ${category === "Lesson Plans" ? renderLessonPlanUpdateNotice() : ""}
     <div class="filter-row">
       ${filters.map((filter) => `<button class="${activeFilter === filter ? "active-filter" : ""}" data-filter="${filter}">${filter}</button>`).join("")}
     </div>
@@ -8114,13 +8130,18 @@ function renderPrintablesRefreshNotice() {
   `;
 }
 
-function renderInfantLegacyNotice() {
-  if (!isInfantLegacyUpgradeModeActive()) return "";
+function renderLessonPlanUpdateNotice() {
   return `
-    <div class="access-notice infant-legacy-notice">
-      <strong>Infant lesson plans are being upgraded.</strong>
-      We're upgrading our infant lesson plans to a stronger framework. Some older plans are temporarily hidden while they are being improved.
-    </div>
+    <section class="access-notice lesson-update-notice" role="status" aria-live="polite">
+      <div class="lesson-update-notice-icon" aria-hidden="true">🚧</div>
+      <div class="lesson-update-notice-copy">
+        <h3>🚧 Lesson Plan Library Updates in Progress</h3>
+        <p>We are currently updating and improving our lesson plan library to provide more detailed activities, books, songs, learning experiences, and developmental support for each age group.</p>
+        <p>To ensure the highest quality content, some lesson plans may be temporarily unavailable while updates are being completed.</p>
+        <p>We are adding and improving approximately 5 lesson plans per age group each day.</p>
+        <p>Thank you for your patience as we continue making Little Learner Hub better for childcare providers.</p>
+      </div>
+    </section>
   `;
 }
 
@@ -8705,6 +8726,7 @@ function plannerSuggestions(planner) {
   const query = [planner.theme, planner.ageGroup, planner.focus].join(" ").toLowerCase();
   return resources
     .filter((resource) => ["Lesson Plans", "Activity Center", "Menu Center", "Printables"].includes(resource.category))
+    .filter((resource) => isResourceVisibleToCurrentUser(resource))
     .filter((resource) => canAccess(resource))
     .map((resource) => {
       const haystack = [resource.title, resource.age, resource.description, ...resource.tags].join(" ").toLowerCase();
@@ -10778,6 +10800,7 @@ function childLessonRecommendations(child = {}, records = childRecords(), limit 
   const primarySupport = context.supportAreas[0] || "";
   const scored = resources
     .filter((resource) => resource.category === "Lesson Plans")
+    .filter((resource) => isResourceVisibleToCurrentUser(resource))
     .filter((resource) => !isInfantChild(child) || !resourceUnsafeForInfant(resource))
     .map((resource) => {
       const ageTier = resourceAgeTier(resource, child.ageGroup);
