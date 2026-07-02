@@ -740,6 +740,24 @@ const LESSON_PLAN_VISIBILITY_LIMITS = Object.freeze({
   Preschool: 30,
 });
 
+// Old developmental domain label strings. Any Infant, Toddler, or Preschool lesson plan whose
+// content contains one of these labels is automatically hidden from users until updated and approved.
+// Admins always retain full access and can unhide plans after updates are completed.
+const OLD_DEVELOPMENTAL_DOMAIN_LABELS = Object.freeze([
+  "Social Emotional Development",
+  "Social-Emotional Development",
+  "Cognitive Development",
+  "Physical Development",
+  "Language Development",
+  "Language and Literacy Development",
+  "Language & Literacy Development",
+  "Mathematics Development",
+  "Math Development",
+  "Science Development",
+  "Creative Arts Development",
+  "Approaches to Learning",
+]);
+
 function isPrintablesUpgradeModeActive() {
   return PRINTABLES_HIDDEN && !hasAdminFullAccess();
 }
@@ -754,8 +772,31 @@ function lessonPlanNumber(resource) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+// Returns true if any old developmental domain label appears anywhere in the lesson plan content.
+// Scans the description, weekly overview, and any admin-stored override content.
+function lessonPlanHasOldDomainLabel(resource) {
+  if (!resource || resource.category !== "Lesson Plans") return false;
+  const age = normalizeAgeGroup(resource.age) || resource.age;
+  if (!["Infant", "Toddler", "Preschool"].includes(age)) return false;
+  const override = resource.lessonPlanOverride || null;
+  const textParts = [
+    resource.description,
+    resource.weeklyOverview,
+    override ? override.weeklyOverview : "",
+    override ? override.objectives : "",
+    override ? override.materials : "",
+    override ? override.teacherLanguage : "",
+    override ? override.elgConnections : "",
+    override ? override.familyConnection : "",
+    override ? override.reflectionNotes : "",
+    override && override.dailyActivities ? Object.values(override.dailyActivities).join(" ") : "",
+  ].filter(Boolean).join(" ").toLowerCase();
+  return OLD_DEVELOPMENTAL_DOMAIN_LABELS.some((label) => textParts.includes(label.toLowerCase()));
+}
+
 function isLessonPlanTemporarilyHidden(resource) {
   if (!resource || resource.category !== "Lesson Plans" || hasAdminFullAccess()) return false;
+  if (lessonPlanHasOldDomainLabel(resource)) return true;
   const age = normalizeAgeGroup(resource.age) || resource.age;
   const limit = LESSON_PLAN_VISIBILITY_LIMITS[age];
   if (!Number.isFinite(limit)) return false;
@@ -8135,11 +8176,11 @@ function renderLessonPlanUpdateNotice() {
     <section class="access-notice lesson-update-notice" role="status" aria-live="polite">
       <div class="lesson-update-notice-icon" aria-hidden="true">🚧</div>
       <div class="lesson-update-notice-copy">
-        <h3>🚧 Lesson Plan Library Updates in Progress</h3>
-        <p>We are currently updating and improving our lesson plan library to provide more detailed activities, books, songs, learning experiences, and developmental support for each age group.</p>
-        <p>To ensure the highest quality content, some lesson plans may be temporarily unavailable while updates are being completed.</p>
-        <p>We are adding and improving approximately 5 lesson plans per age group each day.</p>
-        <p>Thank you for your patience as we continue making Little Learner Hub better for childcare providers.</p>
+        <h3>🚧 Lesson Plan Updates in Progress</h3>
+        <p>We are currently updating and improving our lesson plan library to provide higher-quality content, improved activities, and a more consistent learning experience.</p>
+        <p>Some lesson plans may be temporarily unavailable while updates are being completed.</p>
+        <p>We are updating approximately 5 lesson plans per age group each day.</p>
+        <p>Thank you for your patience as we continue improving Little Learner Hub.</p>
       </div>
     </section>
   `;
