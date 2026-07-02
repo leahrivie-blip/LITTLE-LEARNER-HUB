@@ -1412,8 +1412,8 @@
         <h2 id="adminImportTitle" tabindex="-1">📋 Import Structured Lesson Plan</h2>
         <p style="font-size:14px;color:var(--muted);margin:8px 0 12px">Paste a lesson plan that uses <code>===SECTION===</code> labels. Each labeled section will automatically fill the matching field in the form.</p>
         <form id="adminLessonImportForm">
-          <textarea id="adminImportTextarea" class="admin-import-textarea" placeholder="===OVERVIEW===&#10;Paste your overview here...&#10;&#10;===MATERIALS===&#10;List of materials...&#10;&#10;===MONDAY===&#10;Circle Time: ..."></textarea>
-          <p class="admin-import-hint">Supported sections: OVERVIEW, MATERIALS, OBJECTIVES, TEACHER_LANGUAGE, MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, ELG_CONNECTIONS, FAMILY_CONNECTION, REFLECTION_NOTES, THUMBNAIL</p>
+          <textarea id="adminImportTextarea" class="admin-import-textarea" placeholder="===TITLE===&#10;Toddler Animals on the Farm Lesson Plan&#10;&#10;===THEME===&#10;Animals on the Farm&#10;&#10;===OVERVIEW===&#10;Paste your overview here...&#10;&#10;===MATERIALS===&#10;List of materials...&#10;&#10;===MONDAY===&#10;Circle Time: ..."></textarea>
+          <p class="admin-import-hint">Supported sections: TITLE, THEME, OVERVIEW, MATERIALS, OBJECTIVES, TEACHER_LANGUAGE, MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, ELG_CONNECTIONS, FAMILY_CONNECTION, REFLECTION_NOTES, THUMBNAIL. If TITLE is omitted, it will be auto-generated from Age Group + Theme.</p>
           <div class="form-actions" style="margin-top:14px">
             <button class="primary-button" type="submit">Import &amp; Fill Fields</button>
             <button class="ghost-button" type="button" id="cancelAdminImportBtn">Cancel</button>

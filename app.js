@@ -16971,6 +16971,19 @@ function applyStructuredLessonPlanImport(fields) {
       filled++;
     }
   });
+  // If no ===TITLE=== section was in the import, auto-generate the title from
+  // Age Group + Theme when the title field is blank (new or untitled plans).
+  if (!fields.title && shouldApplyMetadata) {
+    const ageEl = form.querySelector('[name="age"]');
+    const themeEl = form.querySelector('[name="theme"]');
+    const titleEl = form.querySelector('[name="title"]');
+    const age = (ageEl?.value || "").trim();
+    const theme = (themeEl?.value || "").trim();
+    if (age && theme && titleEl && !titleEl.value.trim()) {
+      titleEl.value = `${age} ${theme} Lesson Plan`;
+      filled++;
+    }
+  }
   updateAdminLessonEditorHeading();
   return filled;
 }
