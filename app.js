@@ -758,6 +758,42 @@ const OLD_DEVELOPMENTAL_DOMAIN_LABELS = Object.freeze([
   "Approaches to Learning",
 ]);
 
+// Old skill/area label strings checked specifically against lesson plan titles.
+// Any Infant, Toddler, or Preschool lesson plan whose title contains one of these labels
+// (as a whole word or phrase) is hidden from users until updated and approved.
+const OLD_TITLE_DOMAIN_LABELS = Object.freeze([
+  "Social Emotional",
+  "Social-Emotional",
+  "Fine Motor",
+  "Gross Motor",
+  "Cognitive",
+  "Language",
+  "Literacy",
+  "Math",
+  "Mathematics",
+  "Science",
+  "Creative Arts",
+  "Physical Development",
+  "Approaches to Learning",
+]);
+
+// Returns true when `text` contains `label` as a whole-word/phrase match (case-insensitive).
+// The label must not be immediately preceded or followed by another letter, preventing
+// partial-word false positives (e.g. "Languages" should not match "Language").
+function textContainsLabel(text, label) {
+  const lower = label.toLowerCase();
+  let start = 0;
+  while (start < text.length) {
+    const idx = text.indexOf(lower, start);
+    if (idx === -1) return false;
+    const charBefore = idx > 0 ? text[idx - 1] : "";
+    const charAfter = text[idx + lower.length] || "";
+    if (!/[a-z]/.test(charBefore) && !/[a-z]/.test(charAfter)) return true;
+    start = idx + 1;
+  }
+  return false;
+}
+
 function isPrintablesUpgradeModeActive() {
   return PRINTABLES_HIDDEN && !hasAdminFullAccess();
 }
@@ -772,14 +808,17 @@ function lessonPlanNumber(resource) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-// Returns true if any old developmental domain label appears anywhere in the lesson plan content.
-// Scans the description, weekly overview, and any admin-stored override content.
+// Returns true if any old developmental domain label appears in the lesson plan title or body content.
+// Title is checked against OLD_TITLE_DOMAIN_LABELS; description and override fields are checked
+// against OLD_DEVELOPMENTAL_DOMAIN_LABELS. All matching is case-insensitive and whole-phrase.
 function lessonPlanHasOldDomainLabel(resource) {
   if (!resource || resource.category !== "Lesson Plans") return false;
   const age = normalizeAgeGroup(resource.age) || resource.age;
   if (!["Infant", "Toddler", "Preschool"].includes(age)) return false;
+  const titleText = (resource.title || "").toLowerCase();
+  if (OLD_TITLE_DOMAIN_LABELS.some((label) => textContainsLabel(titleText, label))) return true;
   const override = resource.lessonPlanOverride || null;
-  const textParts = [
+  const fullText = [
     resource.description,
     resource.weeklyOverview,
     override ? override.weeklyOverview : "",
@@ -791,7 +830,7 @@ function lessonPlanHasOldDomainLabel(resource) {
     override ? override.reflectionNotes : "",
     override && override.dailyActivities ? Object.values(override.dailyActivities).join(" ") : "",
   ].filter(Boolean).join(" ").toLowerCase();
-  return OLD_DEVELOPMENTAL_DOMAIN_LABELS.some((label) => textParts.includes(label.toLowerCase()));
+  return OLD_DEVELOPMENTAL_DOMAIN_LABELS.some((label) => textContainsLabel(fullText, label));
 }
 
 function isLessonPlanTemporarilyHidden(resource) {
