@@ -4442,6 +4442,8 @@ function categoryResources(category) {
       resource.age,
       resource.plan,
       resource.description,
+      resource.theme,
+      resource.weeklyOverview,
       ...resource.tags,
     ].join(" ").toLowerCase();
     return matchesCategory && matchesFilter && haystack.includes(query);
@@ -8174,6 +8176,12 @@ function renderCategoryPage(view) {
     ${searchedChild ? renderChildLessonSearchContext(searchedChild) : ""}
     ${category === "Printables" ? renderPrintablesRefreshNotice() : ""}
     ${category === "Lesson Plans" ? renderLessonPlanUpdateNotice() : ""}
+    ${category === "Lesson Plans" ? `
+      <div class="lesson-plan-search-bar">
+        <label class="lesson-plan-search-label" for="lessonPlanSearch">Search lesson plans</label>
+        <input id="lessonPlanSearch" type="search" placeholder="Search by title, theme, activity, book, or song…" value="${escapeHtml(searchInput.value)}" autocomplete="off" />
+      </div>
+    ` : ""}
     <div class="filter-row">
       ${filters.map((filter) => `<button class="${activeFilter === filter ? "active-filter" : ""}" data-filter="${filter}">${filter}</button>`).join("")}
     </div>
@@ -8272,7 +8280,7 @@ function renderObservationEditor() {
 function categoryFilters(category) {
   const shared = ["All", "Infant", "Toddler", "Preschool", "All Ages"];
   const map = {
-    "Lesson Plans": [...shared, ...learningAreas, ...months, "Holiday", "Non-Holiday", ...lessonThemes.slice(0, 30)],
+    "Lesson Plans": ["All", "Infant", "Toddler", "Preschool", ...lessonThemes.slice(0, 30)],
     "Observation Hub": [...shared, ...learningAreas],
     "Forms Library": ["All", "All Ages", ...Object.keys(formGroups), "Editable", "PDF"],
     "Menu Center": ["All", "All Ages", "Infant", "Toddler", "Preschool", "52 Weeks of Menus", "Breakfast", "Lunch", "Snack", "Shopping List"],
@@ -22283,6 +22291,11 @@ searchInput.addEventListener("input", () => {
 });
 
 document.addEventListener("input", (event) => {
+  if (event.target.matches("#lessonPlanSearch")) {
+    searchInput.value = event.target.value;
+    const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
+    if (viewMap[activeView]) renderCategoryPage(activeView);
+  }
   if (event.target.matches("#adminLessonPlanForm [name='title']")) {
     updateAdminLessonEditorHeading();
   }
