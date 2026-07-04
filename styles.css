@@ -11763,3 +11763,196 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* ─── Lesson Plan Printables & Resources ──────────────────────────────────── */
+
+.lp-resources-fieldset {
+  margin-top: 24px;
+}
+
+.lp-resource-category {
+  border: 1px solid var(--border, #e4ddd6);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.lp-resource-category summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  background: var(--surface-alt, #faf7f4);
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lp-resource-category summary::-webkit-details-marker { display: none; }
+.lp-resource-category summary::before { content: "▶"; font-size: 0.7rem; transition: transform 0.2s; }
+.lp-resource-category[open] > summary::before { transform: rotate(90deg); }
+
+.lp-resource-count {
+  font-weight: 400;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.lp-resource-category-body {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lp-resource-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid var(--border, #e4ddd6);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.lp-resource-thumb {
+  width: 52px;
+  height: 52px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--border, #e4ddd6);
+  flex-shrink: 0;
+}
+
+.lp-resource-pdf-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+  width: 52px;
+  text-align: center;
+}
+
+.lp-resource-title {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.lp-resource-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.lp-resource-actions .ghost-button,
+.lp-resource-actions .danger-button {
+  padding: 4px 8px;
+  font-size: 0.78rem;
+}
+
+/* Add resource panel */
+.lp-add-resource-panel {
+  border: 1px dashed var(--border, #e4ddd6);
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+.lp-add-resource-panel > summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 600;
+  color: var(--accent, #386062);
+  user-select: none;
+  list-style: none;
+}
+.lp-add-resource-panel > summary::-webkit-details-marker { display: none; }
+
+.lp-add-resource-form {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lp-add-resource-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* Viewer-side resource display */
+.lp-resources-section {
+  margin-top: 24px;
+}
+
+.lp-resource-category-viewer {
+  border: 1px solid var(--border, #e4ddd6);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.lp-resource-category-viewer > summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  background: var(--surface-alt, #faf7f4);
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lp-resource-category-viewer > summary::-webkit-details-marker { display: none; }
+.lp-resource-category-viewer > summary::before { content: "▶"; font-size: 0.7rem; transition: transform 0.2s; }
+.lp-resource-category-viewer[open] > summary::before { transform: rotate(90deg); }
+
+.lp-resource-viewer-grid {
+  padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.lp-resource-viewer-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border, #e4ddd6);
+  border-radius: 8px;
+  background: #fff;
+  text-align: center;
+}
+
+.lp-resource-viewer-img {
+  width: 100%;
+  max-width: 140px;
+  height: 120px;
+  object-fit: contain;
+  border-radius: 4px;
+  border: 1px solid var(--border, #e4ddd6);
+}
+
+.lp-resource-viewer-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.lp-resource-viewer-meta strong {
+  font-size: 0.85rem;
+}
+
+.lp-resource-open-btn {
+  font-size: 0.8rem;
+  padding: 4px 10px;
+}
+
+@media print {
+  .lp-resource-category-viewer > summary::before { display: none; }
+  .lp-resource-viewer-img { max-width: 100%; height: auto; }
+}

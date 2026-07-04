@@ -326,6 +326,50 @@ function sanitizedImageSource(value, maxLength = 1_000_000) {
   return "";
 }
 
+// Accepts image data URLs, PDF data URLs, and external HTTPS URLs for lesson plan resources.
+function sanitizedResourceUrl(value, maxLength = 8_000_000) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (/^data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=]+$/i.test(text)) return text.slice(0, maxLength);
+  if (/^data:application\/pdf;base64,[a-z0-9+/=]+$/i.test(text)) return text.slice(0, maxLength);
+  // External URLs: HTTPS only, validated via URL parser
+  try {
+    const parsed = new URL(text);
+    if (parsed.protocol !== "https:") return "";
+    return text.slice(0, 4000);
+  } catch {
+    return "";
+  }
+}
+
+const validLessonPlanResourceCategories = new Set([
+  "Coloring Pages",
+  "Tracing Activities",
+  "Counting Activities",
+  "Matching Activities",
+  "Crafts",
+  "Teacher Resources",
+  "Activity Photos",
+  "General",
+]);
+
+function normalizedLessonPlanResource(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const id = normalizedShortText(entry.id, 120);
+  if (!id) return null;
+  const category = validLessonPlanResourceCategories.has(entry.category) ? entry.category : "General";
+  const url = sanitizedResourceUrl(entry.url);
+  if (!url) return null;
+  return {
+    id,
+    title: normalizedShortText(entry.title, 180) || "Resource",
+    category,
+    url,
+    mimeType: normalizedShortText(entry.mimeType, 60),
+    order: Number.isFinite(Number(entry.order)) ? Number(entry.order) : 0,
+  };
+}
+
 function sanitizedUrl(value) {
   const text = String(value || "").trim();
   if (!text) return "";
@@ -362,6 +406,7 @@ function normalizedLessonPlanOverride(id, value) {
       thursday: normalizedMultilineText(days.thursday, 4000),
       friday: normalizedMultilineText(days.friday, 4000),
     },
+    resources: normalizedList(entry.resources, 50, normalizedLessonPlanResource),
   };
 }
 

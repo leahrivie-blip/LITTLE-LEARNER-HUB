@@ -2980,10 +2980,13 @@ let adminImageEditorId = "";
 let adminLessonSelection = new Set();
 let adminLessonEditorInitialSnapshot = "";
 let adminLessonSaving = false;
+let adminLessonResourcesDraft = null;
+let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
 const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","reviews","homepage","founder","images","analytics","support","ai-testing"]);
+const lessonPlanResourceCategories = ["Coloring Pages", "Tracing Activities", "Counting Activities", "Matching Activities", "Crafts", "Teacher Resources", "Activity Photos", "General"];
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "dashboard";
 let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabRaw) ? adminActiveSectionTabRaw : "dashboard";
 const mobileNavMaxWidth = 820;
@@ -3159,6 +3162,137 @@ function fileToImageDataUrl(file) {
   if (!file?.name) return Promise.resolve("");
   return fileToDataUrl(file).then((dataUrl) => sanitizedImageSource(dataUrl));
 }
+
+// ─── Lesson Plan Resource Management ─────────────────────────────────────────
+
+function initAdminLessonResourcesDraft(lessonRecord) {
+  if (adminLessonResourcesDraftId === (lessonRecord?.id || "")) return;
+  adminLessonResourcesDraft = Array.isArray(lessonRecord?.resources) ? lessonRecord.resources.slice() : [];
+  adminLessonResourcesDraftId = lessonRecord?.id || "";
+}
+
+function renderAdminLessonResourcesSection() {
+  const resources = adminLessonResourcesDraft || [];
+  const categories = lessonPlanResourceCategories;
+  const grouped = {};
+  resources.forEach((r) => { (grouped[r.category] = grouped[r.category] || []).push(r); });
+
+  const resourceItemHtml = (r, catResources) => {
+    const idx = catResources.indexOf(r);
+    const isImage = r.mimeType && r.mimeType.startsWith("image/");
+    const isPdf = r.mimeType === "application/pdf";
+    return `
+      <div class="lp-resource-item" data-resource-id="${escapeHtml(r.id)}">
+        ${isImage ? `<img class="lp-resource-thumb" src="${escapeHtml(r.url)}" alt="${escapeHtml(r.title)}" />` : ""}
+        ${isPdf ? `<span class="lp-resource-pdf-icon">📄</span>` : ""}
+        <span class="lp-resource-title">${escapeHtml(r.title)}</span>
+        <div class="lp-resource-actions">
+          <button class="ghost-button" type="button" data-admin-resource-up="${escapeHtml(r.id)}" ${idx === 0 ? "disabled" : ""}>↑</button>
+          <button class="ghost-button" type="button" data-admin-resource-down="${escapeHtml(r.id)}" ${idx === catResources.length - 1 ? "disabled" : ""}>↓</button>
+          <button class="danger-button" type="button" data-admin-resource-remove="${escapeHtml(r.id)}">Remove</button>
+        </div>
+      </div>
+    `;
+  };
+
+  const categorySections = categories.map((cat) => {
+    const catResources = (grouped[cat] || []).slice().sort((a, b) => a.order - b.order);
+    return `
+      <details class="lp-resource-category" ${catResources.length ? "open" : ""}>
+        <summary>${escapeHtml(cat)} <span class="lp-resource-count">(${catResources.length})</span></summary>
+        <div class="lp-resource-category-body">
+          ${catResources.map((r) => resourceItemHtml(r, catResources)).join("") || `<p class="muted-copy">No resources in this category.</p>`}
+        </div>
+      </details>
+    `;
+  }).join("");
+
+  return `
+    <fieldset class="admin-fieldset lp-resources-fieldset">
+      <legend>📎 Printables &amp; Resources</legend>
+      <p class="admin-generator-note">Attach printables, coloring pages, PDFs, and activity sheets to this lesson plan. Resources are organized by category and visible to providers viewing this plan.</p>
+      <div id="adminLessonResourceCategories">${categorySections}</div>
+      <details class="lp-add-resource-panel" id="adminAddResourcePanel">
+        <summary>+ Add Resource</summary>
+        <form id="adminAddLessonResourceForm" class="lp-add-resource-form">
+          <div class="form-grid-two">
+            <label>Resource title<input name="resourceTitle" placeholder="e.g. Farm Animal Coloring Sheet" required /></label>
+            <label>Category<select name="resourceCategory">${lessonPlanResourceCategories.map((cat) => `<option>${escapeHtml(cat)}</option>`).join("")}</select></label>
+          </div>
+          <label>Upload file (image or PDF)<input name="resourceFile" type="file" accept="image/*,application/pdf" required /></label>
+          <div class="form-actions">
+            <button class="primary-button" type="submit">Add Resource</button>
+            <button class="ghost-button" type="button" data-close-add-resource>Cancel</button>
+          </div>
+          <span class="form-message" id="adminAddResourceMessage"></span>
+        </form>
+      </details>
+    </fieldset>
+  `;
+}
+
+async function handleAddLessonResource(form) {
+  const title = (form.querySelector('[name="resourceTitle"]')?.value || "").trim();
+  const category = form.querySelector('[name="resourceCategory"]')?.value || "General";
+  const fileInput = form.querySelector('[name="resourceFile"]');
+  const file = fileInput?.files?.[0];
+  const msgEl = form.querySelector("#adminAddResourceMessage");
+
+  if (!title) {
+    if (msgEl) { msgEl.textContent = "Please enter a resource title."; msgEl.classList.remove("success"); }
+    return;
+  }
+  if (!file) {
+    if (msgEl) { msgEl.textContent = "Please select a file to upload."; msgEl.classList.remove("success"); }
+    return;
+  }
+  if (msgEl) { msgEl.textContent = "Reading file…"; msgEl.classList.remove("success"); }
+
+  const url = await fileToDataUrl(file);
+  if (!url) {
+    if (msgEl) { msgEl.textContent = "Could not read file. Try a different file."; msgEl.classList.remove("success"); }
+    return;
+  }
+  const mimeType = file.type || "";
+  const id = `res-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  const maxOrder = (adminLessonResourcesDraft || []).filter((r) => r.category === category).reduce((m, r) => Math.max(m, r.order), -1);
+  const resource = { id, title, category, url, mimeType, order: maxOrder + 1 };
+
+  adminLessonResourcesDraft = [...(adminLessonResourcesDraft || []), resource];
+  renderAdminContentManager();
+  const panel = document.querySelector("#adminAddResourcePanel");
+  if (panel) panel.open = false;
+}
+
+function removeAdminLessonResource(id) {
+  adminLessonResourcesDraft = (adminLessonResourcesDraft || []).filter((r) => r.id !== id);
+  const catEl = document.querySelector("#adminLessonResourceCategories");
+  if (!catEl) return;
+  catEl.innerHTML = renderAdminLessonResourcesSection().replace(/^[\s\S]*<div id="adminLessonResourceCategories">/, "").replace(/<\/div>\s*<details[\s\S]*$/, "");
+  renderAdminContentManager();
+}
+
+function reorderAdminLessonResource(id, direction) {
+  const resources = adminLessonResourcesDraft || [];
+  const resource = resources.find((r) => r.id === id);
+  if (!resource) return;
+  const catResources = resources.filter((r) => r.category === resource.category).slice().sort((a, b) => a.order - b.order);
+  const idx = catResources.findIndex((r) => r.id === id);
+  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= catResources.length) return;
+  const swapWith = catResources[swapIdx];
+  const tempOrder = resource.order;
+  resource.order = swapWith.order;
+  swapWith.order = tempOrder;
+  // Ensure unique ordering within category
+  if (resource.order === swapWith.order) {
+    resource.order = idx;
+    swapWith.order = swapIdx;
+  }
+  adminLessonResourcesDraft = resources.slice();
+  renderAdminContentManager();
+}
+
 
 function captureDefaultSiteContent() {
   const showcaseCards = Array.from(document.querySelectorAll(".lp-showcase-card")).map((card, index) => ({
@@ -3382,6 +3516,7 @@ function allLessonPlansForAdmin() {
         userVisible: !hiddenForUsers,
         hiddenReason,
         thumbnailUrl: override.thumbnailUrl || resource.previewData || "",
+        resources: Array.isArray(override.resources) ? override.resources : [],
         resource,
       };
     });
@@ -6148,7 +6283,51 @@ function resourcePrintableHtml(resource) {
     }
     return `<section class="print-section">${printableLinesHtml(lines)}</section>`;
   }).join("");
-  return `<article class="printable-resource-page">${printableCartoonPreviewHtml(resource)}${content}${printableQualityCheckHtml(resource, text)}</article>`;
+  const resourcesHtml = lessonPlanAttachedResourcesHtml(resource);
+  return `<article class="printable-resource-page">${printableCartoonPreviewHtml(resource)}${content}${printableQualityCheckHtml(resource, text)}${resourcesHtml}</article>`;
+}
+
+function lessonPlanAttachedResourcesHtml(resource) {
+  if (resource.category !== "Lesson Plans") return "";
+  const override = resource.lessonPlanOverride || lessonPlanOverrideFor(resource.id) || null;
+  const attachedResources = Array.isArray(override?.resources) ? override.resources : [];
+  if (!attachedResources.length) return "";
+
+  // Group by category and sort within each group
+  const grouped = {};
+  attachedResources.forEach((r) => { (grouped[r.category] = grouped[r.category] || []).push(r); });
+  Object.values(grouped).forEach((arr) => arr.sort((a, b) => a.order - b.order));
+
+  const categorySections = Object.entries(grouped).map(([cat, items]) => {
+    const itemsHtml = items.map((r) => {
+      const isImage = r.mimeType && r.mimeType.startsWith("image/");
+      const isPdf = r.mimeType === "application/pdf";
+      const isExternal = r.url && r.url.startsWith("http");
+      return `
+        <div class="lp-resource-viewer-item">
+          ${isImage ? `<img class="lp-resource-viewer-img" src="${escapeHtml(r.url)}" alt="${escapeHtml(r.title)}" />` : ""}
+          <div class="lp-resource-viewer-meta">
+            <strong>${escapeHtml(r.title)}</strong>
+            ${isPdf || isExternal ? `<a class="ghost-button lp-resource-open-btn" href="${escapeHtml(r.url)}" target="_blank" rel="noopener noreferrer">${isPdf ? "Open PDF" : "Open Resource"}</a>` : ""}
+          </div>
+        </div>
+      `;
+    }).join("");
+    return `
+      <details class="lp-resource-category-viewer" open>
+        <summary><strong>${escapeHtml(cat)}</strong> <span class="lp-resource-count">(${items.length})</span></summary>
+        <div class="lp-resource-viewer-grid">${itemsHtml}</div>
+      </details>
+    `;
+  }).join("");
+
+  return `
+    <section class="print-section lp-resources-section no-print-break">
+      <h3>Printables &amp; Resources</h3>
+      <p>Expand a category to view, print, or open attached resources for this lesson plan.</p>
+      ${categorySections}
+    </section>
+  `;
 }
 
 function decodedTextFileData(resource) {
@@ -16376,6 +16555,8 @@ function renderAdminContentManager() {
     || lessons[0]
     || allLessonPlansForAdmin()[0];
   if (lessonRecord && !adminLessonEditorId) adminLessonEditorId = lessonRecord.id;
+  // Initialize resource draft when switching to a different lesson plan
+  initAdminLessonResourcesDraft(lessonRecord);
   const reviews = (content.reviews || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
   const reviewRecord = reviews.find((item) => item.id === adminReviewEditorId) || reviews[0] || {
     id: "",
@@ -16472,6 +16653,7 @@ function renderAdminContentManager() {
             <label>Reflection notes<textarea name="reflectionNotes" rows="3">${escapeHtml(lessonRecord.reflectionNotes || "")}</textarea></label>
             <label>Thumbnail image URL<input name="thumbnailUrl" value="${escapeHtml(lessonRecord.thumbnailUrl || "")}" placeholder="https://..." /></label>
             <label>Upload thumbnail<input name="thumbnailFile" type="file" accept="image/*" /></label>
+            ${renderAdminLessonResourcesSection()}
             <div class="form-actions">
               <button class="primary-button" type="submit">Save lesson plan</button>
               <button class="ghost-button" type="button" data-admin-lesson-back="true">Back to Lesson Plans</button>
@@ -16668,6 +16850,9 @@ async function saveAdminLessonPlanForm(form) {
           thursday: normalizedMultilineText(formData.get("thursday")),
           friday: normalizedMultilineText(formData.get("friday")),
         },
+        resources: Array.isArray(adminLessonResourcesDraft) && adminLessonResourcesDraftId === id
+          ? adminLessonResourcesDraft
+          : (current.resources || []),
       };
       adminLessonEditorId = id;
     });
@@ -16692,6 +16877,11 @@ async function resetLessonPlanOverride(id) {
   await updateLessonOverrides((lessonPlans) => {
     delete lessonPlans[id];
   });
+  // Clear the resources draft so it re-initializes from the reset override
+  if (adminLessonResourcesDraftId === id) {
+    adminLessonResourcesDraft = null;
+    adminLessonResourcesDraftId = "";
+  }
   adminLessonEditorId = id;
 }
 
@@ -16993,7 +17183,32 @@ const adminLessonContentFields = ["weeklyOverview", "materials", "objectives", "
 
 function parseStructuredLessonPlan(text) {
   const result = {};
-  // Limit section name length to prevent excessive backtracking on malformed input.
+  // 1. Support "KEY:\nValue" format (e.g. TITLE:\nMy Plan\n\nTHEME:\nFarm Animals)
+  //    Only applied for the metadata keys that appear before ===SECTION=== blocks.
+  const headerKeyPattern = /^(TITLE|THEME|AGE[_\s]?GROUP|FREE[_\s]?PRO|ACCESS[_\s]?LEVEL|VISIBLE|VISIBILITY|LESSON[_\s]?PLAN[_\s]?NUMBER)\s*:\s*$/im;
+  const headerLines = text.split(/\r?\n/);
+  for (let i = 0; i < headerLines.length; i++) {
+    const line = headerLines[i].trim();
+    const keyMatch = line.match(/^([A-Z][A-Z0-9_ ]{0,30})\s*:$/i);
+    if (!keyMatch) continue;
+    const rawKey = keyMatch[1].trim().toUpperCase().replace(/\s+/g, "_");
+    const fieldName = structuredImportSectionMap[rawKey];
+    if (!fieldName) continue;
+    // Look ahead for a non-empty value line (skip blank lines)
+    let value = "";
+    for (let j = i + 1; j < headerLines.length && j < i + 4; j++) {
+      const valueLine = headerLines[j].trim();
+      if (valueLine && !valueLine.match(/^===/) && !valueLine.match(/^[A-Z][A-Z0-9_ ]{0,30}\s*:$/i)) {
+        value = valueLine;
+        break;
+      }
+      if (valueLine.match(/^===/)) break;
+    }
+    if (value && !result[fieldName]) {
+      result[fieldName] = value;
+    }
+  }
+  // 2. Original ===SECTION=== format (always applied; overrides header values if present)
   const parts = text.split(/===([A-Z_]{1,40})===/);
   for (let i = 1; i < parts.length; i += 2) {
     const key = parts[i].trim();
@@ -17049,6 +17264,20 @@ function applyStructuredLessonPlanImport(fields) {
       titleEl.value = `${age} ${theme} Lesson Plan`;
       importerUpdatedTitleTheme = true;
       filled++;
+    }
+  }
+  // Auto-detect age group from the imported title when the age field wasn't explicitly imported.
+  if (fields.title && !fields.age && shouldApplyMetadata) {
+    const ageEl = form.querySelector('[name="age"]');
+    if (ageEl) {
+      const titleLower = (fields.title || "").toLowerCase();
+      const detectedAge = titleLower.includes("infant") ? "Infant"
+        : titleLower.includes("preschool") ? "Preschool"
+        : titleLower.includes("toddler") ? "Toddler"
+        : "";
+      if (detectedAge && ageEl.value !== detectedAge) {
+        ageEl.value = detectedAge;
+      }
     }
   }
   form.dataset.importerUpdatedTitleTheme = importerUpdatedTitleTheme ? "true" : "false";
@@ -23072,13 +23301,19 @@ document.addEventListener("submit", async (event) => {
     const fields = parseStructuredLessonPlan(text);
     const count = applyStructuredLessonPlanImport(fields);
     if (count === 0) {
-      if (msgEl) { msgEl.textContent = "No recognized sections found. Check the ===SECTION=== labels and try again."; msgEl.classList.remove("success"); }
+      if (msgEl) { msgEl.textContent = "No recognized sections found. Check the ===SECTION=== or KEY:\\nValue labels and try again."; msgEl.classList.remove("success"); }
       return;
     }
     closeAdminLessonImportModal();
     const form = document.querySelector("#adminLessonPlanForm");
     if (form) form.scrollIntoView({ behavior: "smooth", block: "start" });
     setFormMessage("#adminLessonGenerateMessage", `✅ Imported ${count} section${count !== 1 ? "s" : ""} successfully. Review all fields and click Save Lesson Plan when ready.`, true);
+    return;
+  }
+  // Add lesson plan resource
+  if (event.target.matches("#adminAddLessonResourceForm")) {
+    event.preventDefault();
+    await handleAddLessonResource(event.target);
     return;
   }
 });
@@ -23210,6 +23445,27 @@ document.addEventListener("click", async (event) => {
   }
   if (event.target.closest("[data-admin-lesson-back]")) {
     scrollToAdminLessonList();
+    return;
+  }
+  // Lesson plan resource management
+  const resourceRemoveBtn = event.target.closest("[data-admin-resource-remove]");
+  if (resourceRemoveBtn) {
+    removeAdminLessonResource(resourceRemoveBtn.dataset.adminResourceRemove);
+    return;
+  }
+  const resourceUpBtn = event.target.closest("[data-admin-resource-up]");
+  if (resourceUpBtn) {
+    reorderAdminLessonResource(resourceUpBtn.dataset.adminResourceUp, "up");
+    return;
+  }
+  const resourceDownBtn = event.target.closest("[data-admin-resource-down]");
+  if (resourceDownBtn) {
+    reorderAdminLessonResource(resourceDownBtn.dataset.adminResourceDown, "down");
+    return;
+  }
+  if (event.target.closest("[data-close-add-resource]")) {
+    const panel = document.querySelector("#adminAddResourcePanel");
+    if (panel) panel.open = false;
     return;
   }
   const reviewEditButton = event.target.closest("[data-admin-review-edit]");
