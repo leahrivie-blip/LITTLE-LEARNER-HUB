@@ -302,6 +302,7 @@ function defaultStore() {
 function defaultSiteContentStore() {
   return {
     lessonPlans: {},
+    activities: [],
     reviews: [],
     founder: {},
     homepage: {},
@@ -423,6 +424,26 @@ function normalizedReviewEntry(value) {
   };
 }
 
+function normalizedActivityEntry(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const id = normalizedShortText(entry.id, 160);
+  if (!id) return null;
+  const tagsInput = Array.isArray(entry.tags) ? entry.tags : [];
+  return {
+    id,
+    title: normalizedShortText(entry.title, 200),
+    age: normalizedShortText(entry.age, 40),
+    activityCategory: normalizedShortText(entry.activityCategory, 80),
+    description: normalizedMultilineText(entry.description, 2000),
+    tags: tagsInput.map((t) => normalizedShortText(t, 80)).filter(Boolean).slice(0, 20),
+    plan: normalizedShortText(entry.plan, 20),
+    printableUrl: sanitizedImageSource(entry.printableUrl),
+    thumbnailUrl: sanitizedImageSource(entry.thumbnailUrl),
+    visible: entry.visible === true,
+    updatedAt: normalizedShortText(entry.updatedAt, 80),
+  };
+}
+
 function normalizedSimpleCard(value, fallbackId = "") {
   const entry = value && typeof value === "object" ? value : {};
   const id = normalizedShortText(entry.id || fallbackId, 120);
@@ -448,6 +469,7 @@ function normalizedSiteContent(value) {
   );
   return {
     lessonPlans,
+    activities: normalizedList(input.activities, 500, normalizedActivityEntry),
     reviews: normalizedList(input.reviews, 100, normalizedReviewEntry),
     founder: {
       name: normalizedShortText(input.founder?.name, 120),
@@ -2807,7 +2829,8 @@ function handlePublicSiteContent(request, response) {
   const publicLessonPlans = Object.fromEntries(
     Object.entries(content.lessonPlans).filter(([, plan]) => plan.visible === true)
   );
-  jsonResponse(response, 200, { siteContent: { ...content, lessonPlans: publicLessonPlans } });
+  const publicActivities = (content.activities || []).filter((a) => a.visible === true);
+  jsonResponse(response, 200, { siteContent: { ...content, lessonPlans: publicLessonPlans, activities: publicActivities } });
 }
 
 function handleAdminSiteContent(request, response, url) {
