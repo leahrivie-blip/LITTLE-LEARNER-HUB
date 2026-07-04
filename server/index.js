@@ -332,8 +332,14 @@ function sanitizedResourceUrl(value, maxLength = 8_000_000) {
   if (!text) return "";
   if (/^data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=]+$/i.test(text)) return text.slice(0, maxLength);
   if (/^data:application\/pdf;base64,[a-z0-9+/=]+$/i.test(text)) return text.slice(0, maxLength);
-  if (/^https?:\/\//i.test(text)) return text.slice(0, 4000);
-  return "";
+  // External URLs: HTTPS only, validated via URL parser
+  try {
+    const parsed = new URL(text);
+    if (parsed.protocol !== "https:") return "";
+    return text.slice(0, 4000);
+  } catch {
+    return "";
+  }
 }
 
 const validLessonPlanResourceCategories = new Set([
