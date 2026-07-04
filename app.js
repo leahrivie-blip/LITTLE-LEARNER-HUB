@@ -4449,7 +4449,11 @@ function categoryResources(category) {
     if (!isResourceVisibleToCurrentUser(resource)) return false;
     if (!isProUser() && !canAccess(resource)) return false;
     const matchesCategory = resource.category === category;
-    const matchesFilter = activeFilter === "All" || resource.age === activeFilter || resource.tags.includes(activeFilter);
+    const lessonFilter = lessonPlanPublicFilters.includes(activeFilter) ? activeFilter : "All";
+    const normalizedAge = normalizeAgeGroup(resource.age) || resource.age;
+    const matchesFilter = category === "Lesson Plans"
+      ? lessonFilter === "All" || normalizedAge === lessonFilter
+      : activeFilter === "All" || resource.age === activeFilter || resource.tags.includes(activeFilter);
     const haystack = [
       resource.title,
       resource.category,
@@ -4458,6 +4462,7 @@ function categoryResources(category) {
       resource.description,
       resource.theme,
       resource.weeklyOverview,
+      resource.keywords,
       ...resource.tags,
     ].join(" ").toLowerCase();
     return matchesCategory && matchesFilter && haystack.includes(query);
@@ -4478,6 +4483,8 @@ function searchedResources() {
       resource.age,
       resource.plan,
       resource.description,
+      resource.theme,
+      resource.keywords,
       ...resource.tags,
     ].join(" ").toLowerCase();
     return haystack.includes(query);
@@ -8158,17 +8165,19 @@ function openResourceViewer(resourceId) {
 function renderCategoryPage(view) {
   const category = viewMap[view];
   const section = document.querySelector(`#view-${view}`);
+  const isLessonPlanCategory = category === "Lesson Plans";
 
   if (category === "Printables" && isPrintablesUpgradeModeActive()) {
     section.innerHTML = renderPrintablesComingSoon();
     return;
   }
 
-  const searchedChild = category === "Lesson Plans" ? childFromSearchQuery(searchInput.value.trim(), childRecords()) : null;
+  const searchedChild = !isLessonPlanCategory ? childFromSearchQuery(searchInput.value.trim(), childRecords()) : null;
   const items = categoryResources(category);
   const allCategoryItems = resources.filter((resource) => resource.category === category);
-  const accessCounts = categoryAccessCounts(category);
+  const accessCounts = isLessonPlanCategory ? null : categoryAccessCounts(category);
   const filters = categoryFilters(category);
+  if (isLessonPlanCategory && !filters.includes(activeFilter)) activeFilter = "All";
   const displayTitle = view === "lessons" ? "Lesson Plan Library" : category;
   section.innerHTML = `
     <button class="ghost-button back-button" data-view="home" type="button">← Back to Home</button>
@@ -8177,23 +8186,22 @@ function renderCategoryPage(view) {
       <h2>${displayTitle}</h2>
       <p>${categoryIntro(category)}</p>
     </div>
-    <div class="library-stats">
+    ${isLessonPlanCategory ? "" : `<div class="library-stats">
       <div><strong>${accessCounts.total}</strong><span>ready-made resources</span></div>
       <div><strong>${accessCounts.freeLimit}</strong><span>Free access</span></div>
       <div><strong>${accessCounts.proOnly}</strong><span>Pro unlocks</span></div>
-    </div>
-    <div class="access-notice ${isProUser() ? "pro" : ""}">
+    </div>`}
+    ${isLessonPlanCategory ? "" : `<div class="access-notice ${isProUser() ? "pro" : ""}">
       ${isProUser()
         ? `Pro is active: full in-app library access, saved favorites, viewed resources, and ${Math.max(paidAiMonthlyLimit - aiUsageCount(), 0)} document creations left this month.`
         : `Free plan: ${accessCounts.freeLimit} ${displayTitle.toLowerCase()} resources are unlocked here. Upgrade to Pro for all ${accessCounts.total}.`}
-    </div>
+    </div>`}
     ${searchedChild ? renderChildLessonSearchContext(searchedChild) : ""}
     ${category === "Printables" ? renderPrintablesRefreshNotice() : ""}
-    ${category === "Lesson Plans" ? renderLessonPlanUpdateNotice() : ""}
     ${category === "Lesson Plans" ? `
       <div class="lesson-plan-search-bar">
         <label class="lesson-plan-search-label" for="lessonPlanSearch">Search lesson plans</label>
-        <input id="lessonPlanSearch" type="search" placeholder="Search by title, theme, activity, book, or song…" value="${escapeHtml(searchInput.value)}" autocomplete="off" />
+        <input id="lessonPlanSearch" type="search" placeholder="Search title, theme, description, tags, or keywords…" value="${escapeHtml(searchInput.value)}" autocomplete="off" />
       </div>
     ` : ""}
     <div class="filter-row">
@@ -8291,10 +8299,12 @@ function renderObservationEditor() {
   `;
 }
 
+const lessonPlanPublicFilters = Object.freeze(["All", "Infant", "Toddler", "Preschool", "All Ages"]);
+
 function categoryFilters(category) {
   const shared = ["All", "Infant", "Toddler", "Preschool", "All Ages"];
   const map = {
-    "Lesson Plans": ["All", "Infant", "Toddler", "Preschool", ...lessonThemes.slice(0, 30)],
+    "Lesson Plans": lessonPlanPublicFilters,
     "Observation Hub": [...shared, ...learningAreas],
     "Forms Library": ["All", "All Ages", ...Object.keys(formGroups), "Editable", "PDF"],
     "Menu Center": ["All", "All Ages", "Infant", "Toddler", "Preschool", "52 Weeks of Menus", "Breakfast", "Lunch", "Snack", "Shopping List"],
@@ -8306,7 +8316,7 @@ function categoryFilters(category) {
 
 function categoryIntro(category) {
   const copy = {
-    "Lesson Plans": "Choose infant, toddler, preschool, holiday, and seasonal lesson plans with materials, activities, books, goals, and printable options.",
+    "Lesson Plans": "Search and browse lesson plans by age group.",
     "Observation Hub": "Search infant, toddler, and preschool observation wording by developmental area, what to look for, standards, and next steps.",
     "Forms Library": "View editable childcare paperwork like parent handbooks, enrollment forms, emergency contacts, reports, trackers, and receipts inside Little Learner Hub.",
     "Activity Center": "Find a large bank of activities by age, theme, skill, and materials with quick steps and learning goals.",
