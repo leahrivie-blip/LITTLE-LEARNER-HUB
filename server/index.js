@@ -397,7 +397,7 @@ function normalizedLessonPlanOverride(id, value) {
     familyConnection: normalizedMultilineText(entry.familyConnection, 4000),
     reflectionNotes: normalizedMultilineText(entry.reflectionNotes, 4000),
     plan: normalizedShortText(entry.plan, 20),
-    visible: entry.visible !== false,
+    visible: entry.visible === true,
     thumbnailUrl: sanitizedImageSource(entry.thumbnailUrl),
     dailyActivities: {
       monday: normalizedMultilineText(days.monday, 4000),

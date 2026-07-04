@@ -16602,6 +16602,7 @@ function renderAdminContentManager() {
           <button class="ghost-button" type="button" data-admin-bulk="free">Bulk Mark Free</button>
           <button class="ghost-button" type="button" data-admin-bulk="pro">Bulk Mark Pro</button>
           <button class="ghost-button" type="button" id="adminShowOnly50Button">Show only 50 per age group</button>
+          <button class="danger-button" type="button" id="adminHideAllLessonPlansButton">Hide ALL Lesson Plans</button>
         </div>
         <div class="admin-mobile-list" id="adminLessonPlanList">${lessons.map(lessonPlanAdminCardHtml).join("") || `<div class="empty-state">No lesson plans match these filters.</div>`}</div>
         ${lessonRecord ? `
@@ -16941,6 +16942,19 @@ async function showOnlyFiftyLessonPlansPerAge() {
           const current = lessonPlans[item.id] || lessonPlanDefaults(item.resource);
           lessonPlans[item.id] = { ...current, id: item.id, visible: index < 50, updatedAt: now };
         });
+    });
+  });
+}
+
+async function hideAllLessonPlans() {
+  const all = allLessonPlansForAdmin();
+  if (!all.length) return;
+  if (!window.confirm(`Hide ALL ${all.length} lesson plans from the public library? You can re-publish plans one at a time from the admin panel.`)) return;
+  const now = new Date().toISOString();
+  await updateLessonOverrides((lessonPlans) => {
+    all.forEach((item) => {
+      const current = lessonPlans[item.id] || lessonPlanDefaults(item.resource);
+      lessonPlans[item.id] = { ...current, id: item.id, visible: false, updatedAt: now };
     });
   });
 }
@@ -23432,6 +23446,10 @@ document.addEventListener("click", async (event) => {
   }
   if (event.target.closest("#adminShowOnly50Button")) {
     await showOnlyFiftyLessonPlansPerAge();
+    return;
+  }
+  if (event.target.closest("#adminHideAllLessonPlansButton")) {
+    await hideAllLessonPlans();
     return;
   }
   if (event.target.closest("#adminLessonGenerateBtn")) {
