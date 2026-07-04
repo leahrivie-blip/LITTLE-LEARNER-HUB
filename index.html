@@ -1410,10 +1410,10 @@
         <button class="close-button" id="closeAdminImportModal" type="button" aria-label="Close import modal">&times;</button>
         <p class="eyebrow">Admin Tool</p>
         <h2 id="adminImportTitle" tabindex="-1">📋 Import Structured Lesson Plan</h2>
-        <p style="font-size:14px;color:var(--muted);margin:8px 0 12px">Paste a lesson plan that uses <code>===SECTION===</code> labels. Each labeled section will automatically fill the matching field in the form.</p>
+        <p style="font-size:14px;color:var(--muted);margin:8px 0 12px">Paste a lesson plan using <code>===SECTION===</code> labels <em>or</em> the <code>KEY:</code> header format. Each recognized label automatically fills the matching field.</p>
         <form id="adminLessonImportForm">
-          <textarea id="adminImportTextarea" class="admin-import-textarea" placeholder="===TITLE===&#10;Toddler Animals on the Farm Lesson Plan&#10;&#10;===THEME===&#10;Animals on the Farm&#10;&#10;===OVERVIEW===&#10;Paste your overview here...&#10;&#10;===MATERIALS===&#10;List of materials...&#10;&#10;===MONDAY===&#10;Circle Time: ..."></textarea>
-          <p class="admin-import-hint">Supported sections: TITLE, THEME, OVERVIEW, MATERIALS, OBJECTIVES, TEACHER_LANGUAGE, MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, ELG_CONNECTIONS, FAMILY_CONNECTION, REFLECTION_NOTES, THUMBNAIL. If TITLE is omitted, it will be auto-generated from Age Group + Theme.</p>
+          <textarea id="adminImportTextarea" class="admin-import-textarea" placeholder="TITLE:&#10;Toddler Animals on the Farm Lesson Plan&#10;&#10;THEME:&#10;Animals on the Farm&#10;&#10;===OVERVIEW===&#10;Paste your overview here...&#10;&#10;===MATERIALS===&#10;List of materials...&#10;&#10;===MONDAY===&#10;Circle Time: ..."></textarea>
+          <p class="admin-import-hint">Supported formats: <strong>KEY:</strong> (on its own line, value on next line) for TITLE, THEME, AGE_GROUP — or <strong>===SECTION===</strong> for OVERVIEW, MATERIALS, OBJECTIVES, TEACHER_LANGUAGE, MONDAY–FRIDAY, ELG_CONNECTIONS, FAMILY_CONNECTION, REFLECTION_NOTES. If TITLE is omitted it will be auto-generated from Age Group + Theme. If TITLE contains "Infant", "Toddler", or "Preschool", Age Group is auto-detected.</p>
           <div class="form-actions" style="margin-top:14px">
             <button class="primary-button" type="submit">Import &amp; Fill Fields</button>
             <button class="ghost-button" type="button" id="cancelAdminImportBtn">Cancel</button>
