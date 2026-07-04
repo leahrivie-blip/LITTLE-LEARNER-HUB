@@ -2983,12 +2983,13 @@ let adminImageEditorId = "";
 let adminLessonSelection = new Set();
 let adminLessonEditorInitialSnapshot = "";
 let adminLessonSaving = false;
+let adminLessonTogglingId = "";
 let adminLessonResourcesDraft = null;
 let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","reviews","homepage","founder","images","analytics","support","ai-testing"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","activities","reviews","homepage","founder","images","analytics","support","ai-testing"]);
 const lessonPlanResourceCategories = ["Coloring Pages", "Tracing Activities", "Counting Activities", "Matching Activities", "Crafts", "Teacher Resources", "Activity Photos", "General"];
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "dashboard";
 let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabRaw) ? adminActiveSectionTabRaw : "dashboard";
@@ -3097,6 +3098,7 @@ function installMobileNavigation() {
 function emptySiteContent() {
   return {
     lessonPlans: {},
+    activities: [],
     reviews: [],
     founder: {},
     homepage: {},
@@ -3373,6 +3375,7 @@ function effectiveSiteContent() {
     ...base,
     ...overrides,
     lessonPlans: { ...(base.lessonPlans || {}), ...(overrides.lessonPlans || {}) },
+    activities: Array.isArray(overrides.activities) ? overrides.activities : [],
     reviews: (overrides.reviews?.length ? overrides.reviews : base.reviews || []).map((item) => ({
       ...item,
       imageUrl: sanitizedImageSource(item.imageUrl || ""),
@@ -3531,7 +3534,30 @@ function loadResources() {
   const saved = readSavedJson("llhUploadedResources", []);
   const starterWithoutOldGenerated = starterResources.filter((resource) => !["Observation Hub", "Lesson Plans"].includes(resource.category));
   const mergedLibrary = applyLessonPlanOverrides(libraryResources);
-  return applyObservationEdits([...starterWithoutOldGenerated, ...mergedLibrary, ...saved]);
+  const adminActivities = loadAdminManagedActivities();
+  return applyObservationEdits([...starterWithoutOldGenerated, ...mergedLibrary, ...adminActivities, ...saved]);
+}
+
+function loadAdminManagedActivities() {
+  const all = effectiveSiteContent().activities || [];
+  return all
+    .filter((item) => item.id && item.title)
+    .filter((item) => item.visible === true || hasAdminFullAccess())
+    .map((item) => ({
+      id: item.id,
+      category: "Activity Center",
+      title: item.title,
+      age: item.age || "All Ages",
+      plan: item.plan || "Free",
+      description: item.description || "",
+      theme: item.theme || item.activityCategory || "",
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      previewData: sanitizedImageSource(item.thumbnailUrl || ""),
+      downloadUrl: sanitizedImageSource(item.printableUrl || ""),
+      format: item.printableUrl ? "Printable PDF" : "Activity",
+      visible: item.visible === true,
+      _adminManaged: true,
+    }));
 }
 
 function observationEdits() {
@@ -4603,6 +4629,9 @@ function categoryResources(category) {
       resource.theme,
       resource.weeklyOverview,
       resource.keywords,
+      resource.month,
+      resource.holiday,
+      resource.activityFocus,
       ...resource.tags,
     ].join(" ").toLowerCase();
     return matchesCategory && matchesFilter && haystack.includes(query);
@@ -8384,14 +8413,15 @@ function renderCategoryPage(view) {
     ${category === "Printables" ? renderPrintablesRefreshNotice() : ""}
     ${category === "Lesson Plans" ? `
       <div class="lesson-helper-reminder">
+        <h3 class="lesson-helper-reminder-heading">Need a custom lesson plan?</h3>
         <div class="lesson-helper-reminder-body">
-          <p class="lesson-helper-reminder-text"><strong>Reminder:</strong> Don't forget you can also create your own custom lesson plans using the Document Helper! Simply enter your theme, age group, and any details you'd like included, and Document Helper can help generate a lesson plan tailored to your classroom needs.</p>
+          <p class="lesson-helper-reminder-text">Don't forget you can also create your own custom lesson plans using the Document Helper. Simply enter your theme, age group, and any details you'd like included, and Document Helper can help generate a lesson plan tailored to your classroom needs.</p>
           <button class="primary-button lesson-helper-reminder-btn" data-view="ai" data-quick-doc-type="lesson" type="button">Create a Lesson Plan</button>
         </div>
       </div>
       <div class="lesson-plan-search-bar">
         <label class="lesson-plan-search-label" for="lessonPlanSearch">Search lesson plans</label>
-        <input id="lessonPlanSearch" type="search" placeholder="Search title, theme, description, tags, or keywords…" value="${escapeHtml(searchInput.value)}" autocomplete="off" />
+        <input id="lessonPlanSearch" type="search" placeholder="Search by title, theme, age group, category, tags, month, holiday, or keyword…" value="${escapeHtml(searchInput.value)}" autocomplete="off" />
       </div>
     ` : ""}
     <div class="filter-row">
@@ -16480,6 +16510,11 @@ function lessonPlanAdminCardHtml(plan) {
   const image = sanitizedImageSource(plan.thumbnailUrl);
   const hiddenForUsers = !plan.userVisible;
   const hiddenReason = hiddenForUsers ? (plan.hiddenReason || "Hidden from users") : "";
+  const isToggling = adminLessonTogglingId === plan.id;
+  // Label: use "Show" when not visible (covers both "never published" and "explicitly hidden")
+  // and "Hide" when currently visible to users
+  const toggleLabel = isToggling ? "Saving…" : (plan.visible === true ? "Hide" : "Show");
+  const visibilityStatusLabel = plan.visible === true ? "Visible" : (plan.hiddenReason === "Manually hidden by admin" ? "Hidden" : "Not Published");
   return `
     <article class="admin-mobile-card${hiddenForUsers ? " is-hidden" : ""}">
       <label class="admin-select-row">
@@ -16497,13 +16532,13 @@ function lessonPlanAdminCardHtml(plan) {
           <div class="tag-row">
             <span class="tag">${escapeHtml(plan.age)}</span>
             <span class="tag">${escapeHtml(plan.plan)}</span>
-            <span class="tag">${hiddenForUsers ? "Hidden" : "Visible"}</span>
+            <span class="tag tag-visibility${plan.visible === true ? " tag-visible" : " tag-hidden"}">${escapeHtml(visibilityStatusLabel)}</span>
           </div>
         </div>
       </div>
       <div class="form-actions">
         <button class="ghost-button" type="button" data-admin-lesson-edit="${plan.id}">Edit</button>
-        <button class="ghost-button" type="button" data-admin-lesson-toggle="${plan.id}">${plan.visible === false ? "Unhide" : "Hide"}</button>
+        <button class="ghost-button" type="button" data-admin-lesson-toggle="${plan.id}" ${isToggling ? "disabled" : ""}>${toggleLabel}</button>
         <button class="ghost-button" type="button" data-admin-lesson-preview="${plan.id}">Preview</button>
         <button class="danger-button" type="button" data-admin-lesson-reset="${plan.id}">Reset</button>
       </div>
@@ -16797,9 +16832,13 @@ function renderAdminContentManager() {
           <span class="form-message" id="adminImageMessage"></span>
         </form>
       </section>
+      <section class="admin-manager-section" data-admin-cm-section="activities">
+        <div id="adminActivitiesManagerApp"></div>
+      </section>
     </div>
   `;
   setAdminLessonFormCleanState();
+  if (adminActiveSectionTab === "activities") renderAdminActivitiesManager();
 }
 
 function nextSiteContentDraft() {
@@ -16897,13 +16936,22 @@ async function resetLessonPlanOverride(id) {
 }
 
 async function toggleLessonPlanVisibility(id) {
+  if (adminLessonTogglingId) return; // prevent concurrent toggles
   const record = allLessonPlansForAdmin().find((item) => item.id === id);
   if (!record) return;
-  const now = new Date().toISOString();
-  await updateLessonOverrides((lessonPlans) => {
-    const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
-    lessonPlans[id] = { ...current, id, visible: !(record.visible !== false), updatedAt: now };
-  });
+  adminLessonTogglingId = id;
+  renderAdminContentManager();
+  try {
+    const now = new Date().toISOString();
+    // Determine new visibility: if currently visible (visible===true), hide it; otherwise show it
+    const nextVisible = record.visible !== true;
+    await updateLessonOverrides((lessonPlans) => {
+      const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
+      lessonPlans[id] = { ...current, id, visible: nextVisible, updatedAt: now };
+    });
+  } finally {
+    adminLessonTogglingId = "";
+  }
 }
 
 async function applyLessonPlanBulkAction(action) {
@@ -17098,12 +17146,161 @@ async function deleteImageAsset(id) {
   await saveAdminSiteContent(nextContent);
 }
 
+// ─── Admin Printable Activities Manager ──────────────────────────────────────
+
+let adminActivityEditorId = "";
+let adminActivitySaving = false;
+
+function renderAdminActivitiesManager() {
+  const target = document.querySelector("#adminActivitiesManagerApp");
+  if (!target || !isAdminUnlocked()) return;
+  const activities = effectiveSiteContent().activities || [];
+  const editorActivity = activities.find((a) => a.id === adminActivityEditorId) || null;
+  const ageOptions = ["All Ages", "Infant", "Toddler", "Preschool"];
+  const planOptions = ["Free", "Pro"];
+  const categoryOptions = ["Math", "Literacy", "Science", "Art", "Sensory", "Fine Motor", "Gross Motor", "Social Emotional", "Music", "Outdoor", "Seasonal", "Holiday", "General"];
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Activity Manager</p><h3>Printable &amp; digital activities</h3></div>
+      <button class="ghost-button" type="button" id="adminNewActivityButton">+ Add Activity</button>
+    </div>
+    <div class="admin-mobile-list" id="adminActivityList">
+      ${activities.length ? activities.map((a) => adminActivityCardHtml(a)).join("") : `<div class="empty-state">No activities yet. Click + Add Activity to create the first one.</div>`}
+    </div>
+    <form id="adminActivityForm" class="panel-form admin-stacked-form">
+      <input type="hidden" name="id" value="${escapeHtml(editorActivity?.id || "")}" />
+      <h4 class="admin-lesson-editing-heading">${editorActivity ? `Editing: ${escapeHtml(editorActivity.title || "Untitled")}` : "New Activity"}</h4>
+      <div class="form-grid-two">
+        <label>Activity Title<input name="title" value="${escapeHtml(editorActivity?.title || "")}" placeholder="Spring Butterfly Counting" required /></label>
+        <label>Age Group<select name="age">${ageOptions.map((a) => `<option${(editorActivity?.age || "All Ages") === a ? " selected" : ""}>${a}</option>`).join("")}</select></label>
+      </div>
+      <div class="form-grid-two">
+        <label>Category / Theme<select name="activityCategory">${categoryOptions.map((c) => `<option${(editorActivity?.activityCategory || "General") === c ? " selected" : ""}>${c}</option>`).join("")}</select></label>
+        <label>Access<select name="plan">${planOptions.map((p) => `<option${(editorActivity?.plan || "Free") === p ? " selected" : ""}>${p}</option>`).join("")}</select></label>
+      </div>
+      <label>Description<textarea name="description" rows="3" placeholder="What does this activity include and how is it used?">${escapeHtml(editorActivity?.description || "")}</textarea></label>
+      <label>Tags (comma-separated)<input name="tags" value="${escapeHtml(Array.isArray(editorActivity?.tags) ? editorActivity.tags.join(", ") : (editorActivity?.tags || ""))}" placeholder="counting, spring, fine motor" /></label>
+      <div class="form-grid-two">
+        <label>Upload Printable File (PDF or image)<input name="printableFile" type="file" accept=".pdf,image/*" /></label>
+        <label>Upload Preview Image<input name="thumbnailFile" type="file" accept="image/*" /></label>
+      </div>
+      ${editorActivity?.printableUrl ? `<p class="muted-copy">Current printable: <a href="${escapeHtml(editorActivity.printableUrl)}" target="_blank" rel="noopener">View</a></p>` : ""}
+      ${editorActivity?.thumbnailUrl ? `<img class="admin-activity-thumb-preview" src="${escapeHtml(editorActivity.thumbnailUrl)}" alt="Preview" />` : ""}
+      <label class="admin-inline-toggle"><input name="visible" type="checkbox" ${editorActivity?.visible !== false ? "checked" : ""} /> <span>Visible to users</span></label>
+      <div class="form-actions">
+        <button class="primary-button" type="submit">Save Activity</button>
+        ${editorActivity ? `<button class="danger-button" type="button" id="adminDeleteActivityButton" data-activity-id="${escapeHtml(editorActivity.id)}">Delete</button>` : ""}
+        <button class="ghost-button" type="button" id="adminNewActivityButton2">Cancel / New</button>
+      </div>
+      <span class="form-message" id="adminActivityMessage"></span>
+    </form>
+  `;
+}
+
+function adminActivityCardHtml(activity) {
+  const image = sanitizedImageSource(activity.thumbnailUrl || "");
+  const isVisible = activity.visible !== false;
+  return `
+    <article class="admin-mobile-card${isVisible ? "" : " is-hidden"}">
+      <div class="admin-mobile-card-body">
+        ${image ? `<img class="admin-mobile-thumb" src="${escapeHtml(image)}" alt="${escapeHtml(activity.title)} preview" />` : `<div class="admin-mobile-thumb admin-mobile-thumb-placeholder">${escapeHtml(initialsFromName(activity.title, "AC"))}</div>`}
+        <div>
+          <strong>${escapeHtml(activity.title)}</strong>
+          <p>${escapeHtml(activity.activityCategory || "General")} · ${escapeHtml(activity.age || "All Ages")} · ${escapeHtml(activity.plan || "Free")}</p>
+          <div class="tag-row">
+            <span class="tag">${escapeHtml(activity.age || "All Ages")}</span>
+            <span class="tag">${escapeHtml(activity.plan || "Free")}</span>
+            <span class="tag tag-visibility${isVisible ? " tag-visible" : " tag-hidden"}">${isVisible ? "Visible" : "Hidden"}</span>
+            ${activity.printableUrl ? `<span class="tag">Printable</span>` : ""}
+          </div>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="ghost-button" type="button" data-admin-activity-edit="${escapeHtml(activity.id)}">Edit</button>
+        <button class="ghost-button" type="button" data-admin-activity-toggle="${escapeHtml(activity.id)}">${isVisible ? "Hide" : "Show"}</button>
+      </div>
+    </article>
+  `;
+}
+
+async function saveAdminActivityForm(form) {
+  if (adminActivitySaving) {
+    setFormMessage("#adminActivityMessage", "Already saving — please wait.", false);
+    return;
+  }
+  const formData = new FormData(form);
+  const submitBtn = form.querySelector("[type='submit']");
+  const originalLabel = submitBtn ? submitBtn.textContent : "";
+  adminActivitySaving = true;
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Saving…"; }
+  setFormMessage("#adminActivityMessage", "Saving…", true);
+  try {
+    const id = normalizedShortText(formData.get("id")) || `activity-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    const uploadedPrintable = await fileToImageDataUrl(formData.get("printableFile"));
+    const uploadedThumb = await fileToImageDataUrl(formData.get("thumbnailFile"));
+    const tagsRaw = normalizedShortText(formData.get("tags"));
+    const tags = tagsRaw ? tagsRaw.split(",").map((t) => t.trim()).filter(Boolean) : [];
+    const now = new Date().toISOString();
+    const nextContent = nextSiteContentDraft();
+    const existing = Array.isArray(nextContent.activities) ? nextContent.activities : [];
+    const prev = existing.find((a) => a.id === id) || {};
+    const entry = {
+      ...prev,
+      id,
+      title: normalizedShortText(formData.get("title")),
+      age: normalizedShortText(formData.get("age")) || "All Ages",
+      activityCategory: normalizedShortText(formData.get("activityCategory")) || "General",
+      description: normalizedShortText(formData.get("description")),
+      tags,
+      plan: normalizedShortText(formData.get("plan")) || "Free",
+      printableUrl: uploadedPrintable || sanitizedImageSource(prev.printableUrl || ""),
+      thumbnailUrl: uploadedThumb || sanitizedImageSource(prev.thumbnailUrl || ""),
+      visible: formData.get("visible") === "on",
+      updatedAt: now,
+    };
+    nextContent.activities = [...existing.filter((a) => a.id !== id), entry];
+    adminActivityEditorId = id;
+    await saveAdminSiteContent(nextContent);
+    syncSiteManagedResources();
+    setFormMessage("#adminActivityMessage", "Activity saved.", true);
+    renderAdminActivitiesManager();
+  } catch (err) {
+    setFormMessage("#adminActivityMessage", `Save failed: ${err.message || "Unknown error"}`, false);
+  } finally {
+    adminActivitySaving = false;
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalLabel; }
+  }
+}
+
+async function deleteAdminActivity(id) {
+  if (!window.confirm("Delete this activity? This cannot be undone.")) return;
+  const nextContent = nextSiteContentDraft();
+  nextContent.activities = (Array.isArray(nextContent.activities) ? nextContent.activities : []).filter((a) => a.id !== id);
+  if (adminActivityEditorId === id) adminActivityEditorId = "";
+  await saveAdminSiteContent(nextContent);
+  syncSiteManagedResources();
+  renderAdminActivitiesManager();
+}
+
+async function toggleAdminActivityVisibility(id) {
+  const nextContent = nextSiteContentDraft();
+  const activities = Array.isArray(nextContent.activities) ? nextContent.activities : [];
+  const idx = activities.findIndex((a) => a.id === id);
+  if (idx === -1) return;
+  activities[idx] = { ...activities[idx], visible: activities[idx].visible === false, updatedAt: new Date().toISOString() };
+  nextContent.activities = activities;
+  await saveAdminSiteContent(nextContent);
+  syncSiteManagedResources();
+  renderAdminActivitiesManager();
+}
+
 // ─── Admin Section Navigation ─────────────────────────────────────────────────
 
 const adminSectionTabs = [
   { id: "dashboard",   label: "Dashboard" },
   { id: "resources",   label: "Resources" },
   { id: "lesson-plans", label: "Lesson Plans" },
+  { id: "activities",  label: "Activities" },
   { id: "reviews",     label: "Reviews" },
   { id: "homepage",    label: "Homepage" },
   { id: "founder",     label: "Founder" },
@@ -17129,7 +17326,7 @@ function renderAdminSectionNav() {
     ).join("");
 }
 
-const adminCmSectionIds = ["lesson-plans", "reviews", "founder", "homepage", "images"];
+const adminCmSectionIds = ["lesson-plans", "activities", "reviews", "founder", "homepage", "images"];
 
 function applyAdminSectionVisibility() {
   const tab = adminActiveSectionTab;
@@ -17156,6 +17353,7 @@ function applyAdminSectionVisibility() {
     document.querySelectorAll("[data-admin-cm-section]").forEach((el) => {
       el.hidden = el.dataset.adminCmSection !== tab;
     });
+    if (tab === "activities") renderAdminActivitiesManager();
   } else if (tab === "dashboard") {
     const el = document.querySelector(".admin-owner-panel");
     if (el) el.hidden = false;
@@ -23313,6 +23511,11 @@ document.addEventListener("submit", async (event) => {
     await saveAdminImageAssetForm(event.target);
     return;
   }
+  if (event.target.matches("#adminActivityForm")) {
+    event.preventDefault();
+    await saveAdminActivityForm(event.target);
+    return;
+  }
   if (event.target.matches("#adminLessonImportForm")) {
     event.preventDefault();
     const textarea = document.querySelector("#adminImportTextarea");
@@ -23531,6 +23734,28 @@ document.addEventListener("click", async (event) => {
   if (event.target.closest("#adminNewImageButton")) {
     adminImageEditorId = "";
     renderAdminContentManager();
+  }
+  // ── Admin Activities ──
+  const activityEditButton = event.target.closest("[data-admin-activity-edit]");
+  if (activityEditButton) {
+    adminActivityEditorId = activityEditButton.dataset.adminActivityEdit;
+    renderAdminActivitiesManager();
+    return;
+  }
+  const activityToggleButton = event.target.closest("[data-admin-activity-toggle]");
+  if (activityToggleButton) {
+    await toggleAdminActivityVisibility(activityToggleButton.dataset.adminActivityToggle);
+    return;
+  }
+  const activityDeleteButton = event.target.closest("#adminDeleteActivityButton");
+  if (activityDeleteButton) {
+    await deleteAdminActivity(activityDeleteButton.dataset.activityId);
+    return;
+  }
+  if (event.target.id === "adminNewActivityButton" || event.target.id === "adminNewActivityButton2") {
+    adminActivityEditorId = "";
+    renderAdminActivitiesManager();
+    return;
   }
 });
 
