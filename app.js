@@ -8383,6 +8383,12 @@ function renderCategoryPage(view) {
     ${searchedChild ? renderChildLessonSearchContext(searchedChild) : ""}
     ${category === "Printables" ? renderPrintablesRefreshNotice() : ""}
     ${category === "Lesson Plans" ? `
+      <div class="lesson-helper-reminder">
+        <div class="lesson-helper-reminder-body">
+          <p class="lesson-helper-reminder-text"><strong>Reminder:</strong> Don't forget you can also create your own custom lesson plans using the Document Helper! Simply enter your theme, age group, and any details you'd like included, and Document Helper can help generate a lesson plan tailored to your classroom needs.</p>
+          <button class="primary-button lesson-helper-reminder-btn" data-view="ai" data-quick-doc-type="lesson" type="button">Create a Lesson Plan</button>
+        </div>
+      </div>
       <div class="lesson-plan-search-bar">
         <label class="lesson-plan-search-label" for="lessonPlanSearch">Search lesson plans</label>
         <input id="lessonPlanSearch" type="search" placeholder="Search title, theme, description, tags, or keywords…" value="${escapeHtml(searchInput.value)}" autocomplete="off" />

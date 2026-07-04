@@ -2296,6 +2296,42 @@ body.home-view .topbar .search-wrap {
   }
 }
 
+.lesson-helper-reminder {
+  margin: 0 0 16px;
+  padding: 16px 18px;
+  background: linear-gradient(135deg, rgba(237, 232, 255, 0.7), rgba(219, 234, 247, 0.6));
+  border: 1px solid rgba(139, 107, 232, 0.28);
+  border-radius: var(--radius);
+  color: #2c3f72;
+}
+
+.lesson-helper-reminder-body {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.lesson-helper-reminder-text {
+  margin: 0;
+  flex: 1 1 240px;
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.lesson-helper-reminder-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .lesson-helper-reminder-body {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+}
+
 .resource-list.compact {
   display: grid;
   gap: 10px;
