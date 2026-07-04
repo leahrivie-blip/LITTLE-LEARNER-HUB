@@ -846,6 +846,9 @@ function lessonPlanTemporaryHiddenReason(resource) {
 
 function isLessonPlanTemporarilyHidden(resource) {
   if (!resource || resource.category !== "Lesson Plans" || hasAdminFullAccess()) return false;
+  // If admin has explicitly published this plan, respect that decision
+  const override = resource.lessonPlanOverride || lessonPlanOverrideFor(resource.id);
+  if (override?.visible === true) return false;
   return Boolean(lessonPlanTemporaryHiddenReason(resource));
 }
 
@@ -3490,7 +3493,7 @@ function applyLessonPlanOverrides(items, includeHidden = false) {
       previewData: override.thumbnailUrl || resource.previewData || "",
       lessonPlanOverride: override,
     } : resource;
-    if (!includeHidden && override?.visible === false) return [];
+    if (!includeHidden && override?.visible !== true) return [];
     return [merged];
   });
 }
@@ -3500,10 +3503,12 @@ function allLessonPlansForAdmin() {
     .map((resource) => {
       const defaults = lessonPlanDefaults(resource);
       const override = lessonPlanOverrideFor(resource.id) || {};
-      const manuallyVisible = override.visible !== false;
-      const temporaryHiddenReason = lessonPlanTemporaryHiddenReason({ ...resource, ...override });
-      const hiddenReason = !manuallyVisible ? "Manually hidden by admin" : temporaryHiddenReason;
-      const hiddenForUsers = !manuallyVisible || Boolean(temporaryHiddenReason);
+      const manuallyVisible = override.visible === true;
+      const temporaryHiddenReason = manuallyVisible ? lessonPlanTemporaryHiddenReason({ ...resource, ...override }) : "";
+      const hiddenReason = !manuallyVisible
+        ? (override?.visible === false ? "Manually hidden by admin" : "Not yet published")
+        : temporaryHiddenReason;
+      const hiddenForUsers = !manuallyVisible;
       return {
         ...defaults,
         ...override,
@@ -8388,7 +8393,7 @@ function renderCategoryPage(view) {
     </div>
     ${category === "Observation Hub" ? renderObservationEditor() : ""}
     <div class="resource-grid">
-      ${items.length ? items.map(resourceCard).join("") : `<div class="empty-state">No resources found. Try another search or filter.</div>`}
+      ${items.length ? items.map(resourceCard).join("") : isLessonPlanCategory && !allCategoryItems.length ? renderLessonPlanUpdateNotice() : `<div class="empty-state">No resources found. Try another search or filter.</div>`}
     </div>
   `;
 }
@@ -8422,13 +8427,12 @@ function renderPrintablesRefreshNotice() {
 function renderLessonPlanUpdateNotice() {
   return `
     <section class="access-notice lesson-update-notice" role="status" aria-live="polite">
-      <div class="lesson-update-notice-icon" aria-hidden="true">🚧</div>
       <div class="lesson-update-notice-copy">
-        <h3>🚧 Lesson Plan Updates in Progress</h3>
-        <p>We are currently updating and improving our lesson plan library to provide higher-quality content, improved activities, and a more consistent learning experience.</p>
-        <p>Some lesson plans may be temporarily unavailable while updates are being completed.</p>
-        <p>We are updating approximately 5 lesson plans per age group each day.</p>
-        <p>Thank you for your patience as we continue improving Little Learner Hub.</p>
+        <h3>LESSON PLAN LIBRARY UPDATE</h3>
+        <p>We are actively expanding and improving our Lesson Plan Library.</p>
+        <p>New lesson plans, printable resources, activities, and curriculum materials are being added regularly.</p>
+        <p>Our library is continuously growing, and new resources are being added every day.</p>
+        <p>Check back often as new content becomes available.</p>
       </div>
     </section>
   `;
@@ -8478,7 +8482,7 @@ function renderObservationEditor() {
   `;
 }
 
-const lessonPlanPublicFilters = Object.freeze(["All", "Infant", "Toddler", "Preschool", "All Ages"]);
+const lessonPlanPublicFilters = Object.freeze(["All", "Infant", "Toddler", "Preschool"]);
 
 function categoryFilters(category) {
   const shared = ["All", "Infant", "Toddler", "Preschool", "All Ages"];
@@ -16611,7 +16615,7 @@ function renderAdminContentManager() {
               <label>Theme / Category<input name="theme" value="${escapeHtml(lessonRecord.theme || "")}" data-lesson-theme-original="${escapeHtml(lessonRecord.theme || "")}" /></label>
               <label>Free / Pro<select name="plan">${["Free", "Pro"].map((plan) => `<option${lessonRecord.plan === plan ? " selected" : ""}>${plan}</option>`).join("")}</select></label>
             </div>
-            <label class="admin-inline-toggle"><input type="checkbox" name="visible" ${lessonRecord.visible !== false ? "checked" : ""} /> <span>Visible on public site</span></label>
+            <label class="admin-inline-toggle"><input type="checkbox" name="visible" ${lessonRecord.visible === true ? "checked" : ""} /> <span>Visible on public site</span></label>
             <fieldset class="admin-fieldset admin-lesson-generator">
               <legend>✨ AI Lesson Plan Generator</legend>
               <p class="admin-generator-note">Fill in Age Group and Theme above, then click Generate to populate all fields automatically. Review and edit before saving.</p>
