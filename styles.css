@@ -2263,30 +2263,26 @@ body.home-view .topbar .search-wrap {
   margin-bottom: 3px;
 }
 
-.lesson-update-notice {
+.lesson-library-notice {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 12px;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
   color: #2c3f72;
-  background: linear-gradient(135deg, rgba(255, 244, 230, 0.92), rgba(237, 232, 255, 0.8));
-  border-color: rgba(224, 147, 47, 0.34);
+  background: linear-gradient(135deg, rgba(237, 232, 255, 0.92), rgba(219, 234, 247, 0.88));
+  border-color: rgba(91, 155, 213, 0.24);
   font-weight: 500;
 }
 
-.lesson-update-notice-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: rgba(224, 147, 47, 0.18);
-  font-size: 18px;
+.lesson-library-notice-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .lesson-update-notice-copy h3 {
   margin: 0 0 6px;
-  font-size: 16px;
+  font-size: 1rem;
   color: #1f2d55;
 }
 
@@ -2295,64 +2291,20 @@ body.home-view .topbar .search-wrap {
   line-height: 1.45;
 }
 
-.lesson-update-notice-copy p + p {
-  margin-top: 6px;
-}
-
 @media (max-width: 640px) {
-  .lesson-update-notice {
+  .lesson-library-notice {
     grid-template-columns: 1fr;
     gap: 10px;
   }
 
-  .lesson-update-notice-icon {
-    width: 32px;
-    height: 32px;
+  .lesson-library-notice-actions {
+    justify-content: flex-start;
   }
-}
-
-.lesson-helper-reminder {
-  margin: 0 0 16px;
-  padding: 16px 18px;
-  background: linear-gradient(135deg, rgba(237, 232, 255, 0.7), rgba(219, 234, 247, 0.6));
-  border: 1px solid rgba(139, 107, 232, 0.28);
-  border-radius: var(--radius);
-  color: #2c3f72;
-}
-
-.lesson-helper-reminder-heading {
-  margin: 0 0 10px;
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: #2c3f72;
-  line-height: 1.3;
-}
-
-.lesson-helper-reminder-body {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.lesson-helper-reminder-text {
-  margin: 0;
-  flex: 1 1 240px;
-  line-height: 1.5;
-  font-size: 0.95rem;
 }
 
 .lesson-helper-reminder-btn {
   flex-shrink: 0;
   white-space: nowrap;
-}
-
-@media (max-width: 600px) {
-  .lesson-helper-reminder-body {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
 }
 
 .resource-list.compact {
