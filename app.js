@@ -1,6 +1,6 @@
 const categories = [
   { view: "observations", title: "Observation Hub", detail: "Professional wording, skills, standards, and next steps.", icon: "OB" },
-  { view: "lessons", title: "Lesson Plan Library", detail: "Infant, toddler, preschool, holiday, and seasonal plans.", icon: "LP" },
+  { view: "lessons", title: "Lesson Plan Library", detail: "Search infant, toddler, and preschool lesson plans.", icon: "LP" },
   { view: "forms", title: "Forms Library", detail: "Editable daycare paperwork and parent forms.", icon: "FM" },
   { view: "menus", title: "Menu Center", detail: "Weekly menus, meal ideas, snacks, and shopping lists.", icon: "MN" },
   { view: "activities", title: "Activity Center", detail: "Search by age, theme, skill, and materials.", icon: "AC" },
@@ -8412,16 +8412,10 @@ function renderCategoryPage(view) {
     ${searchedChild ? renderChildLessonSearchContext(searchedChild) : ""}
     ${category === "Printables" ? renderPrintablesRefreshNotice() : ""}
     ${category === "Lesson Plans" ? `
-      <div class="lesson-helper-reminder">
-        <h3 class="lesson-helper-reminder-heading">Need a custom lesson plan?</h3>
-        <div class="lesson-helper-reminder-body">
-          <p class="lesson-helper-reminder-text">Don't forget you can also create your own custom lesson plans using the Document Helper. Simply enter your theme, age group, and any details you'd like included, and Document Helper can help generate a lesson plan tailored to your classroom needs.</p>
-          <button class="primary-button lesson-helper-reminder-btn" data-view="ai" data-quick-doc-type="lesson" type="button">Create a Lesson Plan</button>
-        </div>
-      </div>
+      ${renderLessonPlanLibraryNotice()}
       <div class="lesson-plan-search-bar">
         <label class="lesson-plan-search-label" for="lessonPlanSearch">Search lesson plans</label>
-        <input id="lessonPlanSearch" type="search" placeholder="Search by title, theme, age group, category, tags, month, holiday, or keyword…" value="${escapeHtml(searchInput.value)}" autocomplete="off" />
+        <input id="lessonPlanSearch" type="search" placeholder="Search by title, theme, age group, or keyword" value="${escapeHtml(searchInput.value)}" autocomplete="off" />
       </div>
     ` : ""}
     <div class="filter-row">
@@ -8429,7 +8423,7 @@ function renderCategoryPage(view) {
     </div>
     ${category === "Observation Hub" ? renderObservationEditor() : ""}
     <div class="resource-grid">
-      ${items.length ? items.map(resourceCard).join("") : isLessonPlanCategory && !allCategoryItems.length ? renderLessonPlanUpdateNotice() : `<div class="empty-state">No resources found. Try another search or filter.</div>`}
+      ${items.length ? items.map(resourceCard).join("") : `<div class="empty-state">${isLessonPlanCategory ? "No lesson plans found. Try another search or filter." : "No resources found. Try another search or filter."}</div>`}
     </div>
   `;
 }
@@ -8460,15 +8454,15 @@ function renderPrintablesRefreshNotice() {
   `;
 }
 
-function renderLessonPlanUpdateNotice() {
+function renderLessonPlanLibraryNotice() {
   return `
-    <section class="access-notice lesson-update-notice" role="status" aria-live="polite">
+    <section class="access-notice lesson-library-notice" role="status" aria-live="polite">
       <div class="lesson-update-notice-copy">
-        <h3>LESSON PLAN LIBRARY UPDATE</h3>
-        <p>We are actively expanding and improving our Lesson Plan Library.</p>
-        <p>New lesson plans, printable resources, activities, and curriculum materials are being added regularly.</p>
-        <p>Our library is continuously growing, and new resources are being added every day.</p>
-        <p>Check back often as new content becomes available.</p>
+        <h3>Lesson Plan Library Updates</h3>
+        <p>Lesson plans are currently being reviewed, improved, and added daily. New lesson plans are released regularly. Can’t find what you’re looking for? Use the Document Helper to generate a custom lesson plan tailored to your needs.</p>
+      </div>
+      <div class="lesson-library-notice-actions">
+        <button class="primary-button lesson-helper-reminder-btn" data-view="ai" data-quick-doc-type="lesson" type="button">Open Document Helper</button>
       </div>
     </section>
   `;
@@ -8535,7 +8529,7 @@ function categoryFilters(category) {
 
 function categoryIntro(category) {
   const copy = {
-    "Lesson Plans": "Search and browse lesson plans by age group.",
+    "Lesson Plans": "Search and browse lesson plans by age group or keyword.",
     "Observation Hub": "Search infant, toddler, and preschool observation wording by developmental area, what to look for, standards, and next steps.",
     "Forms Library": "View editable childcare paperwork like parent handbooks, enrollment forms, emergency contacts, reports, trackers, and receipts inside Little Learner Hub.",
     "Activity Center": "Find a large bank of activities by age, theme, skill, and materials with quick steps and learning goals.",
@@ -10307,17 +10301,36 @@ function suggestedActivitiesForArea(area, child = null) {
 }
 
 function suggestedLessonPlansForArea(area) {
-  const map = {
-    "Social Emotional": ["Friendship and Feelings Week", "Turn-Taking Practice Activities", "Calm Bodies and Kind Words"],
-    "Language & Literacy": ["Storytelling and Vocabulary Week", "Letter and Sound Awareness", "Book Basket Conversation Plans"],
-    "Cognitive Development": ["Math Skills Week 1", "Number Recognition Activities", "Sorting and Matching Week"],
-    "Fine Motor": ["Fine Motor Development", "Cutting Practice Activities", "Hand Strength Activities"],
-    "Gross Motor": ["Movement and Balance Week", "Outdoor Gross Motor Games", "Body Control Activities"],
-    "Physical Development": ["Healthy Routines Week", "Self-Help Skills Practice", "Safety and Body Awareness"],
-    "Creative Arts": ["Creative Expression Week", "Music and Movement Activities", "Process Art Exploration"],
-    "Approaches to Learning": ["Curiosity and Problem Solving", "Persistence Practice Activities", "Explore, Try, Reflect Week"],
-  };
-  return map[area] || map["Approaches to Learning"];
+  const normalizedArea = normalizeObservationArea(area) || area || "Approaches to Learning";
+  const keywords = Array.from(new Set([
+    normalizedArea,
+    displayDevelopmentArea(normalizedArea),
+    ...recommendationKeywordsForArea(normalizedArea),
+  ].map((item) => String(item || "").toLowerCase()).filter((item) => item.length > 2)));
+  const matches = resources
+    .filter((resource) => resource.category === "Lesson Plans")
+    .filter((resource) => isResourceVisibleToCurrentUser(resource))
+    .map((resource) => {
+      const primaryText = [
+        resource.developmentalArea,
+        resource.title,
+        resource.theme,
+      ].join(" ").toLowerCase();
+      const secondaryText = [
+        resource.description,
+        resource.weeklyOverview,
+        resource.month,
+        resource.holiday,
+        ...(resource.tags || []),
+      ].join(" ").toLowerCase();
+      let score = 0;
+      if (keywords.some((keyword) => primaryText.includes(keyword))) score += 3;
+      if (keywords.some((keyword) => secondaryText.includes(keyword))) score += 1;
+      return { resource, score };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score || a.resource.title.localeCompare(b.resource.title));
+  return Array.from(new Set(matches.map((item) => item.resource.title)));
 }
 
 function supportCenterCategories() {
@@ -16513,8 +16526,8 @@ function lessonPlanAdminCardHtml(plan) {
   const isToggling = adminLessonTogglingId === plan.id;
   // Label: use "Show" when not visible (covers both "never published" and "explicitly hidden")
   // and "Hide" when currently visible to users
-  const toggleLabel = isToggling ? "Saving…" : (plan.visible === true ? "Hide" : "Show");
-  const visibilityStatusLabel = plan.visible === true ? "Visible" : (plan.hiddenReason === "Manually hidden by admin" ? "Hidden" : "Not Published");
+  const toggleLabel = isToggling ? "Saving…" : (plan.userVisible ? "Hide" : "Show");
+  const visibilityStatusLabel = plan.userVisible ? "Visible" : "Hidden";
   return `
     <article class="admin-mobile-card${hiddenForUsers ? " is-hidden" : ""}">
       <label class="admin-select-row">
@@ -16591,14 +16604,16 @@ function renderAdminContentManager() {
   const target = document.querySelector("#adminContentManagerApp");
   if (!target || !isAdminUnlocked()) return;
   const content = effectiveSiteContent();
+  const allLessons = allLessonPlansForAdmin();
   const lessons = filteredAdminLessonPlans();
-  const lessonCounts = allLessonPlansForAdmin().reduce((counts, item) => {
-    counts[item.age] = (counts[item.age] || 0) + 1;
-    return counts;
-  }, {});
-  const lessonRecord = allLessonPlansForAdmin().find((item) => item.id === adminLessonEditorId)
+  const visibilityCounts = {
+    all: allLessons.length,
+    visible: allLessons.filter((item) => item.userVisible).length,
+    hidden: allLessons.filter((item) => !item.userVisible).length,
+  };
+  const lessonRecord = allLessons.find((item) => item.id === adminLessonEditorId)
     || lessons[0]
-    || allLessonPlansForAdmin()[0];
+    || allLessons[0];
   if (lessonRecord && !adminLessonEditorId) adminLessonEditorId = lessonRecord.id;
   // Initialize resource draft when switching to a different lesson plan
   initAdminLessonResourcesDraft(lessonRecord);
@@ -16629,7 +16644,9 @@ function renderAdminContentManager() {
           <label><span>Plan</span><select id="adminLessonPlanFilter">${[["all", "All"], ["free", "Free"], ["pro", "Pro"]].map(([value, label]) => `<option value="${value}"${(document.querySelector("#adminLessonPlanFilter")?.value || "all") === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
         </div>
         <div class="admin-mobile-stats">
-          ${Object.entries(lessonCounts).map(([label, count]) => `<div><strong>${count}</strong><span>${escapeHtml(label)}</span></div>`).join("")}
+          <div><strong>${visibilityCounts.all}</strong><span>All</span></div>
+          <div><strong>${visibilityCounts.visible}</strong><span>Visible</span></div>
+          <div><strong>${visibilityCounts.hidden}</strong><span>Hidden</span></div>
         </div>
         <div class="form-actions">
           <button class="primary-button" type="button" data-admin-bulk="hide">Bulk Hide</button>
