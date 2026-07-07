@@ -575,7 +575,9 @@ function readStore() {
 
 // Returns the store without deep-cloning. Safe for read-only handlers that never
 // mutate the returned object. For Postgres this avoids an expensive structuredClone
-// of potentially large store data (lesson plans, analytics, child records) on every request.
+// of potentially large store data (lesson plans, analytics, child records) on every
+// request. For local-json the file is parsed fresh on each call (same as readStore),
+// since local-json mode does not keep storeCache warm between reads.
 function peekStore() {
   if (usePostgresStore()) return storeCache || defaultStore();
   ensureStore();
@@ -3344,7 +3346,7 @@ function clientAppScript(filePath) {
     `const firebaseAuthConfig = ${JSON.stringify(config.firebase, null, 2)};`,
   );
   clientAppScriptCache = source;
-  return clientAppScriptCache;
+  return source;
 }
 
 function serveStatic(request, response, url) {
