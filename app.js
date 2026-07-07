@@ -18746,83 +18746,455 @@ function renderAdminVisibilityDashboard() {
 
 // ─── Admin 2.0 Users & Memberships Dashboard ─────────────────────────────────
 
+// ─── Admin Users & Memberships Dashboard ─────────────────────────────────────
+
+function adminUserPlanBadge(plan) {
+  const p = String(plan || "Free");
+  if (p === "Founding") return `<span class="aup-badge aup-badge--founding">⭐ Founding</span>`;
+  if (p === "Pro")      return `<span class="aup-badge aup-badge--pro">🔷 Pro</span>`;
+  if (p === "Free")     return `<span class="aup-badge aup-badge--free">Free</span>`;
+  return `<span class="aup-badge aup-badge--free">${escapeHtml(p)}</span>`;
+}
+
+function adminUserStatusBadge(status) {
+  const s = String(status || "").toLowerCase();
+  if (s.includes("cancel")) return `<span class="aup-status aup-status--canceled">Canceled</span>`;
+  if (s.includes("trial"))  return `<span class="aup-status aup-status--trial">Trial</span>`;
+  if (s.includes("active") || s.includes("active")) return `<span class="aup-status aup-status--active">Active</span>`;
+  if (s === "free plan")    return `<span class="aup-status aup-status--free">Free</span>`;
+  return `<span class="aup-status aup-status--free">${escapeHtml(status || "Free Plan")}</span>`;
+}
+
+function adminUserLastActiveLabel(account) {
+  const ts = account.lastLoginAt || account.updatedAt || account.createdAt || "";
+  if (!ts) return "Not tracked";
+  const d = new Date(ts);
+  const now = new Date();
+  const diffMs = now - d;
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7)   return `${diffDays} days ago`;
+  if (diffDays < 31)  return `${Math.floor(diffDays / 7)} wk ago`;
+  return d.toLocaleDateString();
+}
+
+function adminUserCard(account) {
+  const plan   = account.plan || "Free";
+  const status = account.subscriptionStatus || "Free Plan";
+  const joined = account.createdAt ? new Date(account.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "—";
+  const lastActive = adminUserLastActiveLabel(account);
+  const email = account.email || "";
+  return `
+    <div class="admin-user-card aup-card">
+      <div class="aup-card-top">
+        <div class="aup-card-identity">
+          <strong class="aup-card-name">${escapeHtml(displayUserName(account))}</strong>
+          <span class="aup-card-email">${escapeHtml(email)}</span>
+        </div>
+        <div class="aup-card-badges">
+          ${adminUserPlanBadge(plan)}
+          ${adminUserStatusBadge(status)}
+        </div>
+      </div>
+      <div class="aup-card-dates">
+        <span>📅 Joined <strong>${escapeHtml(joined)}</strong></span>
+        <span>🕐 Last Active <strong>${escapeHtml(lastActive)}</strong></span>
+      </div>
+      <div class="aup-card-actions">
+        <button class="ghost-button aup-btn" type="button" data-aup-view="${escapeHtml(email)}">View</button>
+        <button class="primary-button aup-btn" type="button" data-aup-manage="${escapeHtml(email)}">Manage</button>
+      </div>
+    </div>
+  `;
+}
+
 function renderAdminUsersDashboard() {
   const target = document.querySelector("#adminUsersApp");
   if (!target || !isAdminUnlocked()) return;
-  const accounts = allAccountsList();
-  const free = accounts.filter((a) => !a.plan || a.plan === "Free");
-  const trial = accounts.filter((a) => a.subscriptionStatus === "trialing");
-  const pro = accounts.filter((a) => a.plan === "Pro");
-  const founding = accounts.filter((a) => a.plan === "Founding" || a.foundingMember);
+  const allAccounts = allAccountsList();
+  const free     = allAccounts.filter((a) => !a.plan || a.plan === "Free");
+  const trial    = allAccounts.filter((a) => String(a.subscriptionStatus || "").toLowerCase().includes("trial"));
+  const pro      = allAccounts.filter((a) => a.plan === "Pro");
+  const founding = allAccounts.filter((a) => a.plan === "Founding" || a.foundingMember);
+  const canceled = allAccounts.filter((a) => String(a.subscriptionStatus || "").toLowerCase().includes("cancel"));
 
-  function userCard(account) {
-    const plan = account.plan || "Free";
-    const status = account.subscriptionStatus || "Free Plan";
-    const price = account.monthlyPrice || "$0";
-    return `
-      <div class="admin-user-card">
-        <div class="admin-user-card-header">
-          <div>
-            <strong>${escapeHtml(displayUserName(account))}</strong>
-            <span>${escapeHtml(account.email || "")}</span>
-          </div>
-          <span class="tag access-tag">${escapeHtml(plan)}</span>
-        </div>
-        <div class="admin-user-card-meta">
-          <small>${escapeHtml(status)} · ${escapeHtml(price)}</small>
-          ${account.createdAt ? `<small>Joined ${escapeHtml(new Date(account.createdAt).toLocaleDateString())}</small>` : ""}
-        </div>
-      </div>
-    `;
-  }
+  // Track which set is currently displayed (used by search)
+  let activeItems = allAccounts.slice();
 
   function userListHtml(items) {
-    return items.length ? items.map(userCard).join("") : `<div class="empty-state">No accounts in this category yet.</div>`;
+    if (!items.length) return `<div class="empty-state">No accounts in this category yet.</div>`;
+    return items.map(adminUserCard).join("");
+  }
+
+  function filterBySearch(items, query) {
+    const q = query.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((a) => {
+      const name  = String(displayUserName(a) || "").toLowerCase();
+      const email = String(a.email || "").toLowerCase();
+      return name.includes(q) || email.includes(q);
+    });
   }
 
   target.innerHTML = `
     <div class="section-heading">
-      <div><p class="eyebrow">Users & Memberships</p><h3>Account and subscription overview</h3></div>
+      <div><p class="eyebrow">Users &amp; Memberships</p><h3>Account and subscription overview</h3></div>
     </div>
-    <div class="admin-mobile-stats" style="margin-bottom:18px;">
-      <div><strong>${Number(accounts.length)}</strong><span>Total</span></div>
-      <div><strong>${Number(free.length)}</strong><span>Free</span></div>
-      <div><strong style="color:#5b9bd5">${Number(trial.length)}</strong><span>Trial</span></div>
-      <div><strong style="color:var(--accent,#386062)">${Number(pro.length)}</strong><span>Pro</span></div>
-      <div><strong style="color:#c9a84c">${Number(founding.length)}</strong><span>Founding</span></div>
+    <div class="aup-insight-grid">
+      <div class="aup-insight-card">
+        <strong>${Number(allAccounts.length)}</strong>
+        <span>Total Users</span>
+      </div>
+      <div class="aup-insight-card aup-insight--free">
+        <strong>${Number(free.length)}</strong>
+        <span>Free</span>
+      </div>
+      <div class="aup-insight-card aup-insight--trial">
+        <strong>${Number(trial.length)}</strong>
+        <span>Trial</span>
+      </div>
+      <div class="aup-insight-card aup-insight--pro">
+        <strong>${Number(pro.length)}</strong>
+        <span>Pro</span>
+      </div>
+      <div class="aup-insight-card aup-insight--founding">
+        <strong>${Number(founding.length)}</strong>
+        <span>Founding</span>
+      </div>
+      <div class="aup-insight-card aup-insight--canceled">
+        <strong>${Number(canceled.length)}</strong>
+        <span>Canceled</span>
+      </div>
     </div>
-    <div class="admin-vis-tabs" id="adminUserFilterTabs">
-      <button class="admin-sub-tab active" id="adminUserTabAll"      type="button">All (${Number(accounts.length)})</button>
+    <div class="aup-search-wrap">
+      <input class="aup-search-input" id="adminUsersSearch" type="search" placeholder="🔍  Search by name or email…" autocomplete="off" />
+    </div>
+    <div class="admin-vis-tabs aup-filter-tabs" id="adminUserFilterTabs">
+      <button class="admin-sub-tab active" id="adminUserTabAll"      type="button">All (${Number(allAccounts.length)})</button>
       <button class="admin-sub-tab"        id="adminUserTabFree"     type="button">Free (${Number(free.length)})</button>
       <button class="admin-sub-tab"        id="adminUserTabTrial"    type="button">Trial (${Number(trial.length)})</button>
       <button class="admin-sub-tab"        id="adminUserTabPro"      type="button">Pro (${Number(pro.length)})</button>
       <button class="admin-sub-tab"        id="adminUserTabFounding" type="button">Founding (${Number(founding.length)})</button>
+      <button class="admin-sub-tab"        id="adminUserTabCanceled" type="button">Canceled (${Number(canceled.length)})</button>
     </div>
-    <div id="adminUsersList" class="admin-user-list">
-      ${userListHtml(accounts)}
+    <div id="adminUsersList" class="admin-user-list aup-list">
+      ${userListHtml(allAccounts)}
     </div>
   `;
 
-  // Attach filter tab handlers using closures — items arrays are pre-computed and
-  // not derived from any DOM attribute, eliminating any DOM-text-to-innerHTML path.
+  // Filter tab handlers — item sets are pre-computed closures, no DOM-text-to-innerHTML.
   const userTabs = [
-    { id: "adminUserTabAll",      items: accounts },
+    { id: "adminUserTabAll",      items: allAccounts },
     { id: "adminUserTabFree",     items: free },
     { id: "adminUserTabTrial",    items: trial },
     { id: "adminUserTabPro",      items: pro },
     { id: "adminUserTabFounding", items: founding },
+    { id: "adminUserTabCanceled", items: canceled },
   ];
   const allUserTabBtns = userTabs.map(({ id }) => target.querySelector(`#${id}`)).filter(Boolean);
+  const listEl = target.querySelector("#adminUsersList");
+  const searchEl = target.querySelector("#adminUsersSearch");
+
   userTabs.forEach(({ id, items }) => {
     const btn = target.querySelector(`#${id}`);
     if (!btn) return;
     btn.addEventListener("click", () => {
       allUserTabBtns.forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
-      const list = target.querySelector("#adminUsersList");
-      if (list) list.innerHTML = userListHtml(items);
+      activeItems = items;
+      if (searchEl) searchEl.value = "";
+      if (listEl) listEl.innerHTML = userListHtml(items);
     });
   });
+
+  // Search handler
+  if (searchEl) {
+    searchEl.addEventListener("input", () => {
+      if (listEl) listEl.innerHTML = userListHtml(filterBySearch(activeItems, searchEl.value));
+    });
+  }
+
+  // View / Manage button delegation
+  if (listEl) {
+    listEl.addEventListener("click", (e) => {
+      const viewEmail   = e.target.closest("[data-aup-view]")?.dataset?.aupView;
+      const manageEmail = e.target.closest("[data-aup-manage]")?.dataset?.aupManage;
+      if (viewEmail)   openAdminUserProfile(viewEmail, "view");
+      if (manageEmail) openAdminUserProfile(manageEmail, "manage");
+    });
+  }
+}
+
+// ─── Admin User Profile Modal ─────────────────────────────────────────────────
+
+function openAdminUserProfile(email, startTab) {
+  if (!isAdminUnlocked()) return;
+  const allAccounts = allAccountsList();
+  const account = allAccounts.find((a) => a.email === email);
+  if (!account) return;
+
+  const modal = document.querySelector("#adminUserProfileModal");
+  if (!modal) return;
+
+  const plan   = account.plan || "Free";
+  const status = account.subscriptionStatus || "Free Plan";
+  const isTrial    = String(status).toLowerCase().includes("trial");
+  const isCanceled = String(status).toLowerCase().includes("cancel");
+  const isFounding = account.plan === "Founding" || Boolean(account.foundingMember);
+  const isPro      = account.plan === "Pro";
+
+  const joined     = account.createdAt    ? new Date(account.createdAt).toLocaleDateString()    : "—";
+  const lastLogin  = account.lastLoginAt  ? new Date(account.lastLoginAt).toLocaleString()      : "Not tracked";
+  const lastActive = adminUserLastActiveLabel(account);
+
+  // Trial dates
+  const trialStart  = account.trialStart  ? new Date(account.trialStart).toLocaleDateString()  : null;
+  const trialEnd    = account.trialEnd    ? new Date(account.trialEnd).toLocaleDateString()    : null;
+  let trialDaysLeft = null;
+  if (account.trialEnd) {
+    const ms = new Date(account.trialEnd) - new Date();
+    trialDaysLeft = Math.max(0, Math.ceil(ms / 86400000));
+  }
+
+  // Per-user analytics from cache
+  const analyticsUsers = (adminAnalyticsCache || localAnalyticsSummary()).users || [];
+  const userAnalytics  = analyticsUsers.find((u) => u.email === email) || {};
+  const featureUseCount = userAnalytics.featureUseCount || 0;
+
+  const activeTab = startTab || "view";
+
+  modal.querySelector("#adminUserProfileBody").innerHTML = `
+    <div class="aup-modal-header">
+      <div class="aup-modal-identity">
+        <div class="aup-modal-avatar">${escapeHtml((displayUserName(account) || "?")[0].toUpperCase())}</div>
+        <div>
+          <strong class="aup-modal-name">${escapeHtml(displayUserName(account))}</strong>
+          <span class="aup-modal-email">${escapeHtml(email)}</span>
+          <div class="aup-modal-badges">
+            ${adminUserPlanBadge(plan)}
+            ${adminUserStatusBadge(status)}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="aup-modal-tabs" id="aupModalTabs">
+      <button class="aup-modal-tab${activeTab === "view" ? " active" : ""}"   data-aup-modal-tab="view"   type="button">Account</button>
+      <button class="aup-modal-tab${activeTab === "manage" ? " active" : ""}" data-aup-modal-tab="manage" type="button">Membership</button>
+      <button class="aup-modal-tab" data-aup-modal-tab="usage"   type="button">Usage</button>
+    </div>
+
+    <div class="aup-modal-panel" id="aupPanelView"   ${activeTab !== "view"   ? 'hidden' : ''}>
+      <fieldset class="admin-fieldset">
+        <legend>Account Information</legend>
+        <div class="aup-info-grid">
+          <div><span>Name</span><strong>${escapeHtml(displayUserName(account))}</strong></div>
+          <div><span>Email</span><strong>${escapeHtml(email)}</strong></div>
+          <div><span>Plan</span><strong>${escapeHtml(plan)}</strong></div>
+          <div><span>Status</span><strong>${escapeHtml(status)}</strong></div>
+          <div><span>Signed Up</span><strong>${escapeHtml(joined)}</strong></div>
+          <div><span>Last Login</span><strong>${escapeHtml(lastLogin)}</strong></div>
+          <div><span>Last Active</span><strong>${escapeHtml(lastActive)}</strong></div>
+          ${account.authProvider ? `<div><span>Auth Provider</span><strong>${escapeHtml(account.authProvider)}</strong></div>` : ""}
+          ${account.monthlyPrice ? `<div><span>Monthly Price</span><strong>${escapeHtml(account.monthlyPrice)}</strong></div>` : ""}
+          ${account.priceLock ? `<div><span>Price Lock</span><strong>${escapeHtml(account.priceLock)}</strong></div>` : ""}
+        </div>
+      </fieldset>
+
+      ${isFounding ? `
+      <fieldset class="admin-fieldset aup-founding-fieldset">
+        <legend>⭐ Founding Member</legend>
+        <div class="aup-info-grid">
+          <div><span>Founding Member</span><strong>Yes</strong></div>
+          ${account.foundingMemberNumber ? `<div><span>Member #</span><strong>${escapeHtml(String(account.foundingMemberNumber))}</strong></div>` : ""}
+          <div><span>Original Join Date</span><strong>${escapeHtml(joined)}</strong></div>
+          <div><span>Founding Status</span><strong>${isCanceled ? "Canceled" : "Active"}</strong></div>
+          <div><span>Price Lock</span><strong>Lifetime Founding Pricing</strong></div>
+        </div>
+      </fieldset>
+      ` : ""}
+    </div>
+
+    <div class="aup-modal-panel" id="aupPanelManage" ${activeTab !== "manage" ? 'hidden' : ''}>
+      ${isTrial ? `
+      <fieldset class="admin-fieldset aup-trial-fieldset">
+        <legend>🧪 Trial Management</legend>
+        <div class="aup-info-grid">
+          ${trialStart  ? `<div><span>Trial Start</span><strong>${escapeHtml(trialStart)}</strong></div>` : ""}
+          ${trialEnd    ? `<div><span>Trial End</span><strong>${escapeHtml(trialEnd)}</strong></div>` : ""}
+          ${trialDaysLeft !== null ? `<div><span>Days Remaining</span><strong>${escapeHtml(String(trialDaysLeft))} ${trialDaysLeft === 1 ? "day" : "days"}</strong></div>` : ""}
+        </div>
+        <div class="aup-action-row" style="margin-top:12px;">
+          <button class="ghost-button aup-action-btn" type="button" data-aup-action="extend-trial" data-aup-email="${escapeHtml(email)}">Extend Trial</button>
+          <button class="ghost-button aup-action-btn" type="button" data-aup-action="end-trial"    data-aup-email="${escapeHtml(email)}">End Trial</button>
+          <button class="primary-button aup-action-btn" type="button" data-aup-action="convert-pro"  data-aup-email="${escapeHtml(email)}">Convert to Pro</button>
+        </div>
+        <p id="aupTrialMsg" class="form-message" style="margin-top:8px;"></p>
+      </fieldset>
+      ` : ""}
+
+      <fieldset class="admin-fieldset">
+        <legend>💳 Subscription Management</legend>
+        <div class="aup-info-grid">
+          <div><span>Current Plan</span><strong>${escapeHtml(plan)}</strong></div>
+          <div><span>Status</span><strong>${isCanceled ? "Canceled" : "Active"}</strong></div>
+          ${account.subscriptionCadence ? `<div><span>Billing Cadence</span><strong>${escapeHtml(account.subscriptionCadence)}</strong></div>` : ""}
+          ${account.monthlyPrice ? `<div><span>Monthly Price</span><strong>${escapeHtml(account.monthlyPrice)}</strong></div>` : ""}
+          ${account.stripeSubscriptionId ? `<div><span>Stripe Sub ID</span><strong><small>${escapeHtml(account.stripeSubscriptionId)}</small></strong></div>` : ""}
+        </div>
+        <div class="aup-action-row" style="margin-top:12px;">
+          ${!isPro && !isFounding ? `<button class="primary-button aup-action-btn" type="button" data-aup-action="upgrade"    data-aup-email="${escapeHtml(email)}">Upgrade to Pro</button>` : ""}
+          ${(isPro || isFounding) && !isCanceled ? `<button class="ghost-button aup-action-btn" type="button" data-aup-action="downgrade"  data-aup-email="${escapeHtml(email)}">Downgrade to Free</button>` : ""}
+          ${!isCanceled ? `<button class="ghost-button aup-action-btn aup-btn--danger" type="button" data-aup-action="cancel"     data-aup-email="${escapeHtml(email)}">Cancel</button>` : ""}
+          ${isCanceled  ? `<button class="primary-button aup-action-btn" type="button" data-aup-action="reactivate" data-aup-email="${escapeHtml(email)}">Reactivate</button>` : ""}
+        </div>
+        <p id="aupSubMsg" class="form-message" style="margin-top:8px;"></p>
+      </fieldset>
+
+      ${isFounding ? `
+      <fieldset class="admin-fieldset aup-founding-fieldset">
+        <legend>⭐ Founding Member Management</legend>
+        <div class="aup-info-grid">
+          <div><span>Founding Status</span><strong>${isCanceled ? "Canceled" : "Active"}</strong></div>
+          <div><span>Original Join Date</span><strong>${escapeHtml(joined)}</strong></div>
+          <div><span>Founding Price Lock</span><strong>Protected — Lifetime Pricing</strong></div>
+          ${account.foundingMemberNumber ? `<div><span>Founding Member #</span><strong>${escapeHtml(String(account.foundingMemberNumber))}</strong></div>` : ""}
+        </div>
+        <p class="aup-founding-note">⚠️ Founding Member pricing is protected. Actions above may affect subscription status but founding pricing information is preserved.</p>
+      </fieldset>
+      ` : ""}
+    </div>
+
+    <div class="aup-modal-panel" id="aupPanelUsage" hidden>
+      <fieldset class="admin-fieldset">
+        <legend>📊 Usage Information</legend>
+        <div class="aup-info-grid">
+          <div><span>Feature Events</span><strong>${escapeHtml(String(featureUseCount))}</strong></div>
+          ${userAnalytics.topFeatures?.length ? `<div><span>Top Features</span><strong>${escapeHtml(userAnalytics.topFeatures.map(([l, c]) => `${l} (${c})`).join(", "))}</strong></div>` : ""}
+          <div><span>Last Login</span><strong>${escapeHtml(lastLogin)}</strong></div>
+          <div><span>Last Seen</span><strong>${escapeHtml(userAnalytics.lastSeenAt ? new Date(userAnalytics.lastSeenAt).toLocaleString() : lastActive)}</strong></div>
+        </div>
+        <p class="aup-usage-note">Usage data reflects analytics events tracked in this browser or synced from the server. Per-user child profiles and observations are stored on each user's device.</p>
+      </fieldset>
+
+      ${account.billingHistory?.length ? `
+      <fieldset class="admin-fieldset">
+        <legend>💰 Billing History</legend>
+        ${account.billingHistory.slice(0, 8).map((item) => `
+          <div class="aup-billing-row">
+            <span>${escapeHtml(item.event || item.type || "event")}</span>
+            <strong>${escapeHtml(item.plan || "")}</strong>
+            <small>${escapeHtml(item.amount || "")} · ${escapeHtml(item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "")}</small>
+          </div>
+        `).join("")}
+      </fieldset>
+      ` : ""}
+    </div>
+  `;
+
+  // Tab switching
+  const tabBtns  = modal.querySelectorAll("[data-aup-modal-tab]");
+  const panels   = { view: modal.querySelector("#aupPanelView"), manage: modal.querySelector("#aupPanelManage"), usage: modal.querySelector("#aupPanelUsage") };
+  tabBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      tabBtns.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      Object.values(panels).forEach((p) => { if (p) p.hidden = true; });
+      const pKey = btn.dataset.aupModalTab;
+      if (panels[pKey]) panels[pKey].hidden = false;
+    });
+  });
+
+  // Action handlers
+  modal.querySelector("#adminUserProfileBody").addEventListener("click", (e) => {
+    const actionBtn = e.target.closest("[data-aup-action]");
+    if (!actionBtn) return;
+    const action     = actionBtn.dataset.aupAction;
+    const targetEmail = actionBtn.dataset.aupEmail;
+    if (!action || !targetEmail) return;
+    handleAdminUserAction(action, targetEmail, modal);
+  });
+
+  modal.setAttribute("aria-hidden", "false");
+  modal.classList.add("open");
+  modal.querySelector(".close-button")?.focus();
+}
+
+function closeAdminUserProfile() {
+  const modal = document.querySelector("#adminUserProfileModal");
+  if (!modal) return;
+  modal.setAttribute("aria-hidden", "true");
+  modal.classList.remove("open");
+}
+
+function handleAdminUserAction(action, email, modal) {
+  const allAccounts = allAccountsList();
+  const account = allAccounts.find((a) => a.email === email);
+  if (!account) return;
+
+  const msgEl = modal?.querySelector(action.includes("trial") ? "#aupTrialMsg" : "#aupSubMsg");
+  function showMsg(text, ok = true) {
+    if (!msgEl) return;
+    msgEl.textContent = text;
+    msgEl.style.color = ok ? "var(--accent, #386062)" : "#c0392b";
+  }
+
+  if (action === "extend-trial") {
+    const newEnd = new Date(account.trialEnd || Date.now());
+    newEnd.setDate(newEnd.getDate() + 7);
+    updateAccount(email, { trialEnd: newEnd.toISOString() });
+    showMsg("✅ Trial extended by 7 days.");
+    return;
+  }
+  if (action === "end-trial") {
+    if (!confirm(`End trial for ${displayUserName(account)} (${email})?`)) return;
+    updateAccount(email, { subscriptionStatus: "Free Plan", plan: "Free", trialEnd: new Date().toISOString() });
+    showMsg("Trial ended. User moved to Free Plan.");
+    renderAdminUsersDashboard();
+    openAdminUserProfile(email, "manage");
+    return;
+  }
+  if (action === "convert-pro") {
+    if (!confirm(`Convert ${displayUserName(account)} (${email}) to Pro?`)) return;
+    updateAccount(email, { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", trialEnd: null });
+    showMsg("✅ User converted to Pro.");
+    renderAdminUsersDashboard();
+    openAdminUserProfile(email, "manage");
+    return;
+  }
+  if (action === "upgrade") {
+    if (!confirm(`Upgrade ${displayUserName(account)} (${email}) to Pro?`)) return;
+    updateAccount(email, { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active" });
+    showMsg("✅ User upgraded to Pro.");
+    renderAdminUsersDashboard();
+    openAdminUserProfile(email, "manage");
+    return;
+  }
+  if (action === "downgrade") {
+    if (!confirm(`Downgrade ${displayUserName(account)} (${email}) to Free? This will remove Pro access.`)) return;
+    updateAccount(email, { plan: "Free", subscriptionStatus: "Free Plan", monthlyPrice: "$0/month" });
+    showMsg("User downgraded to Free Plan.");
+    renderAdminUsersDashboard();
+    openAdminUserProfile(email, "manage");
+    return;
+  }
+  if (action === "cancel") {
+    if (!confirm(`Cancel subscription for ${displayUserName(account)} (${email})?`)) return;
+    updateAccount(email, { subscriptionStatus: "Canceled - Free Plan Active", plan: "Free", monthlyPrice: "$0/month" });
+    showMsg("Subscription canceled. User on Free Plan.");
+    renderAdminUsersDashboard();
+    openAdminUserProfile(email, "manage");
+    return;
+  }
+  if (action === "reactivate") {
+    if (!confirm(`Reactivate Pro subscription for ${displayUserName(account)} (${email})?`)) return;
+    updateAccount(email, { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active" });
+    showMsg("✅ Subscription reactivated as Pro.");
+    renderAdminUsersDashboard();
+    openAdminUserProfile(email, "manage");
+    return;
+  }
 }
 
 
@@ -25973,6 +26345,12 @@ document.addEventListener("click", async (event) => {
   // Click outside import modal card to close
   if (event.target.matches("#adminLessonImportModal")) {
     closeAdminLessonImportModal();
+    return;
+  }
+
+  // Close user profile modal
+  if (event.target.closest("#closeAdminUserProfileModal") || event.target.matches("#adminUserProfileModal")) {
+    closeAdminUserProfile();
     return;
   }
 

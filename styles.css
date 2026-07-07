@@ -2593,9 +2593,401 @@ body.home-view .topbar .search-wrap {
   color: var(--muted);
 }
 
+/* ── Users & Memberships Phase 4 ─────────────────────────────────────────── */
 
-  width: min(640px, 100%);
+/* Insight stat cards */
+.aup-insight-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
 }
+
+@media (min-width: 500px) {
+  .aup-insight-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+.aup-insight-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--white);
+  text-align: center;
+  gap: 2px;
+}
+
+.aup-insight-card strong {
+  display: block;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1.1;
+}
+
+.aup-insight-card span {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.aup-insight--free     strong { color: #536280; }
+.aup-insight--trial    strong { color: #5b9bd5; }
+.aup-insight--pro      strong { color: var(--accent); }
+.aup-insight--founding strong { color: #c9a84c; }
+.aup-insight--canceled strong { color: #c0392b; }
+
+/* Search */
+.aup-search-wrap {
+  margin-bottom: 12px;
+}
+
+.aup-search-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  font-size: 15px;
+  background: var(--white);
+  color: var(--ink);
+  box-sizing: border-box;
+  -webkit-appearance: none;
+}
+
+.aup-search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(139, 107, 232, 0.12);
+}
+
+/* Filter tabs */
+.aup-filter-tabs {
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+/* Enhanced user cards */
+.aup-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.aup-card {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--white);
+  display: grid;
+  gap: 10px;
+}
+
+.aup-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.aup-card-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.aup-card-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.aup-card-email {
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.aup-card-badges {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.aup-card-dates {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.aup-card-dates strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.aup-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.aup-btn {
+  flex: 1;
+  min-height: 42px;
+  font-size: 14px;
+  border-radius: 10px;
+  padding: 10px 14px;
+  min-width: 0;
+}
+
+/* Plan + status badges */
+.aup-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.aup-badge--free     { background: var(--cream-2); color: var(--muted); }
+.aup-badge--trial    { background: #dbeaf7; color: #3a7abf; }
+.aup-badge--pro      { background: var(--accent-soft); color: var(--accent); }
+.aup-badge--founding { background: #fef9e7; color: #c9a84c; }
+
+.aup-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.aup-status--free     { background: var(--cream-2); color: var(--muted); }
+.aup-status--trial    { background: #e3f2fd; color: #1565c0; }
+.aup-status--active   { background: #e8f5e9; color: #2e7d32; }
+.aup-status--canceled { background: #fdecea; color: #c0392b; }
+
+/* User Profile Modal */
+.aup-profile-modal {
+  align-items: flex-end;
+  padding: 0;
+}
+
+@media (min-width: 540px) {
+  .aup-profile-modal {
+    align-items: center;
+    padding: 20px;
+  }
+}
+
+.aup-profile-card {
+  width: 100%;
+  max-width: 520px;
+  max-height: 90dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 20px 20px 0 0;
+  padding: 24px 20px 32px;
+  background: var(--white);
+  box-shadow: var(--shadow);
+}
+
+@media (min-width: 540px) {
+  .aup-profile-card {
+    border-radius: 20px;
+    max-height: 85dvh;
+  }
+}
+
+.aup-modal-header {
+  margin-bottom: 18px;
+}
+
+.aup-modal-identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.aup-modal-avatar {
+  width: 52px;
+  height: 52px;
+  min-width: 52px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 22px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.aup-modal-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  display: block;
+}
+
+.aup-modal-email {
+  font-size: 13px;
+  color: var(--muted);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.aup-modal-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Tabs inside the profile modal */
+.aup-modal-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--cream-2);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 18px;
+}
+
+.aup-modal-tab {
+  flex: 1;
+  padding: 9px 4px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.aup-modal-tab.active {
+  background: var(--white);
+  color: var(--ink);
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+
+/* Info grid inside panels */
+.aup-info-grid {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.aup-info-grid > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--cream-2);
+  font-size: 14px;
+}
+
+.aup-info-grid > div:last-child {
+  border-bottom: none;
+}
+
+.aup-info-grid > div span {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.aup-info-grid > div strong {
+  color: var(--ink);
+  text-align: right;
+  word-break: break-all;
+}
+
+/* Action row inside modal panels */
+.aup-action-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.aup-action-btn {
+  flex: 1;
+  min-height: 44px;
+  font-size: 14px;
+  border-radius: 10px;
+  min-width: 120px;
+}
+
+.aup-btn--danger {
+  border-color: #e74c3c !important;
+  color: #e74c3c !important;
+}
+
+.aup-btn--danger:hover {
+  background: #fdecea !important;
+}
+
+/* Founding member fieldset highlight */
+.aup-founding-fieldset {
+  border-color: #c9a84c !important;
+  background: #fef9e7;
+}
+
+.aup-founding-note {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: #8d6e1b;
+  background: #fef3cd;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+/* Trial fieldset highlight */
+.aup-trial-fieldset {
+  border-color: #5b9bd5 !important;
+  background: rgba(91, 155, 213, 0.05);
+}
+
+/* Usage note */
+.aup-usage-note {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* Billing history rows */
+.aup-billing-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--cream-2);
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.aup-billing-row:last-child { border-bottom: none; }
+.aup-billing-row span { color: var(--muted); }
+.aup-billing-row small { color: var(--muted); }
 
 .admin-import-textarea {
   width: 100%;
