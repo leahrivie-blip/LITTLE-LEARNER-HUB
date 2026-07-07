@@ -2072,22 +2072,47 @@ async function handleAdminLogin(request, response) {
 }
 
 async function handleAdminSiteContentSave(request, response) {
+  console.log("[DIAG] handleAdminSiteContentSave: POST /api/admin/site-content received");
   const body = await readJson(request);
+  console.log("[DIAG] handleAdminSiteContentSave: body keys =", Object.keys(body || {}), "| hasAdminToken =", !!(body?.adminToken));
   if (!validAdminToken(body.adminToken || "")) {
+    console.error("[DIAG] handleAdminSiteContentSave: REJECTED — invalid admin token");
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
+  console.log("[DIAG] handleAdminSiteContentSave: token valid");
+  const incomingLessonPlans = (body.siteContent?.lessonPlans) || {};
+  const incomingIds = Object.keys(incomingLessonPlans);
+  console.log("[DIAG] handleAdminSiteContentSave: incoming lessonPlan overrides count =", incomingIds.length, "| ids (first 5) =", incomingIds.slice(0, 5));
+  if (incomingIds.length > 0) {
+    const sampleId = incomingIds[incomingIds.length - 1];
+    const sample = incomingLessonPlans[sampleId];
+    console.log("[DIAG] handleAdminSiteContentSave: last lessonPlan entry (", sampleId, ") fields =", Object.keys(sample || {}));
+    console.log("[DIAG] handleAdminSiteContentSave: last lessonPlan entry title =", JSON.stringify(sample?.title), "| visible =", sample?.visible, "| plan =", JSON.stringify(sample?.plan));
+  }
   const store = readStore();
   const nextContent = normalizedSiteContent(body.siteContent || defaultSiteContentStore());
+  const normalizedIds = Object.keys(nextContent.lessonPlans || {});
+  console.log("[DIAG] handleAdminSiteContentSave: after normalizedSiteContent, lessonPlan count =", normalizedIds.length);
+  if (normalizedIds.length > 0) {
+    const sampleId2 = normalizedIds[normalizedIds.length - 1];
+    const sample2 = nextContent.lessonPlans[sampleId2];
+    console.log("[DIAG] handleAdminSiteContentSave: normalized last lessonPlan (", sampleId2, ") fields =", Object.keys(sample2 || {}));
+    console.log("[DIAG] handleAdminSiteContentSave: normalized last lessonPlan title =", JSON.stringify(sample2?.title), "| visible =", sample2?.visible, "| plan =", JSON.stringify(sample2?.plan));
+  }
   nextContent.updatedAt = new Date().toISOString();
   store.siteContent = nextContent;
+  console.log("[DIAG] handleAdminSiteContentSave: calling writeStoreAsync…");
   try {
     await writeStoreAsync(store);
+    console.log("[DIAG] handleAdminSiteContentSave: writeStoreAsync succeeded");
   } catch (error) {
+    console.error("[DIAG] handleAdminSiteContentSave: writeStoreAsync FAILED →", error.message);
     console.error("Admin site content save failed:", error.message);
     jsonResponse(response, 503, { error: "Changes could not be saved to the database. Please try again." });
     return;
   }
+  console.log("[DIAG] handleAdminSiteContentSave: responding 200 OK");
   jsonResponse(response, 200, { siteContent: nextContent });
 }
 
