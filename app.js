@@ -3481,13 +3481,13 @@ function captureDefaultSiteContent() {
       cancelText: "Cancel anytime.",
       _draft: false,
     },
-    faqs: Array.from(document.querySelectorAll("#defaultFaqList .faq-item")).map((el, index) => ({
-      id: `faq-${index + 1}`,
-      question: el.querySelector("h3")?.textContent?.trim() || "",
-      answer: el.querySelector("p,ul")?.textContent?.trim() || "",
-      visible: true,
-      order: index + 1,
-    })).filter((f) => f.question),
+    faqs: Array.from(document.querySelectorAll("#defaultFaqList .faq-item")).map((el, index) => {
+      const question = el.querySelector("h3")?.textContent?.trim() || "";
+      const pEl = el.querySelector("p");
+      const ulEl = el.querySelector("ul");
+      const answer = pEl ? (pEl.textContent?.trim() || "") : ulEl ? Array.from(ulEl.querySelectorAll("li")).map((li) => li.textContent.trim()).join(", ") : "";
+      return { id: `faq-${index + 1}`, question, answer, visible: true, order: index + 1 };
+    }).filter((f) => f.question),
     announcement: { text: "", visible: false, expiresAt: "", location: "top", _draft: false },
     upgradeMessaging: {
       upgradePopupHeadline: "This is a Pro Feature",
