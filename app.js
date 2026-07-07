@@ -4625,6 +4625,7 @@ function categoryResources(category) {
   if (searchedChild) return childLessonRecommendations(searchedChild, childRecords(), 12);
   return resources.filter((resource) => {
     if (!isResourceVisibleToCurrentUser(resource)) return false;
+    if (!isProUser() && !canAccess(resource) && !supportsLockedResourcePreview(resource)) return false;
     const matchesCategory = resource.category === category;
     const lessonFilter = lessonPlanPublicFilters.includes(activeFilter) ? activeFilter : "All";
     const normalizedAge = normalizeAgeGroup(resource.age) || resource.age;
@@ -4656,6 +4657,7 @@ function searchedResources() {
   if (searchedChild && query.includes("lesson")) return childLessonRecommendations(searchedChild, childRecords(), 12);
   return resources.filter((resource) => {
     if (!isResourceVisibleToCurrentUser(resource)) return false;
+    if (!isProUser() && !canAccess(resource) && !supportsLockedResourcePreview(resource)) return false;
     const haystack = [
       resource.title,
       resource.category,
