@@ -319,7 +319,7 @@ function normalizedShortText(value, maxLength = 240) {
   return normalizedMultilineText(value, maxLength);
 }
 
-function sanitizedImageSource(value, maxLength = 1_000_000) {
+function sanitizedImageSource(value, maxLength = 200_000) {
   const text = String(value || "").trim();
   if (!text) return "";
   if (/^data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=]+$/i.test(text)) return text.slice(0, maxLength);
@@ -328,7 +328,7 @@ function sanitizedImageSource(value, maxLength = 1_000_000) {
 }
 
 // Accepts image data URLs, PDF data URLs, and external HTTPS URLs for lesson plan resources.
-function sanitizedResourceUrl(value, maxLength = 8_000_000) {
+function sanitizedResourceUrl(value, maxLength = 2_000_000) {
   const text = String(value || "").trim();
   if (!text) return "";
   if (/^data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=]+$/i.test(text)) return text.slice(0, maxLength);
@@ -567,9 +567,16 @@ function ensureStore() {
 }
 
 function readStore() {
-  if (usePostgresStore()) return structuredClone(storeCache || defaultStore());
+  // Return a shallow copy so callers can safely set top-level keys without affecting the
+  // shared cache. This is intentionally *not* a deep clone: structuredClone on a large store
+  // (e.g. one with many embedded base64 resources) copies megabytes of data on every request
+  // and is the primary cause of "JavaScript heap out of memory" crashes on low-RAM deployments.
+  // All write paths replace entire top-level keys (e.g. store.siteContent = ...) rather than
+  // mutating nested objects in place, so a shallow copy is sufficient for isolation.
+  if (usePostgresStore()) return { ...(storeCache || defaultStore()) };
   ensureStore();
-  return JSON.parse(fs.readFileSync(storePath, "utf8"));
+  storeCache = JSON.parse(fs.readFileSync(storePath, "utf8"));
+  return { ...storeCache };
 }
 
 const POSTGRES_UPSERT_STORE = "INSERT INTO llh_store (id, data, updated_at) VALUES ($1, $2::jsonb, NOW()) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()";
@@ -635,10 +642,21 @@ function headResponse(response, statusCode, type = "text/plain; charset=utf-8") 
   response.end();
 }
 
+const MAX_BODY_BYTES = 20 * 1024 * 1024; // 20 MB — prevents a single huge request from OOM-ing the server
+
 function readBody(request) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    request.on("data", (chunk) => chunks.push(chunk));
+    let totalLength = 0;
+    request.on("data", (chunk) => {
+      totalLength += chunk.length;
+      if (totalLength > MAX_BODY_BYTES) {
+        request.destroy();
+        reject(new Error("Request body too large (limit: 20 MB)"));
+        return;
+      }
+      chunks.push(chunk);
+    });
     request.on("end", () => resolve(Buffer.concat(chunks)));
     request.on("error", reject);
   });
@@ -2647,6 +2665,7 @@ function recordBillingEvent(store, event) {
     amount: event.amount || event.detail?.monthlyPrice || event.detail?.amount || "",
     createdAt: event.createdAt || new Date().toISOString(),
   });
+  store.billingEvents = store.billingEvents.slice(0, 500);
 }
 
 function appendBillingEvent(email, type, planKey, amount) {
@@ -2689,7 +2708,7 @@ function sanitizeChildDataPayload(data = {}) {
     const items = Array.isArray(data[key]) ? data[key] : [];
     payload[key] = items.slice(0, 1000).map((item) => (
       item && typeof item === "object"
-        ? JSON.parse(JSON.stringify(item))
+        ? structuredClone(item)
         : {}
     ));
     return payload;
@@ -2753,6 +2772,7 @@ async function handleAnalyticsEvent(request, response) {
   if (!store.analyticsEvents.some((item) => item.id === event.id)) {
     store.analyticsEvents.push(event);
   }
+  store.analyticsEvents = store.analyticsEvents.slice(0, 5000);
   updateAnalyticsUser(store, event);
   if (["checkout_success", "subscription_canceled"].includes(event.name)) recordBillingEvent(store, event);
   writeStore(store);
