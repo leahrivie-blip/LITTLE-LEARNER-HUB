@@ -2082,6 +2082,7 @@ const proFeatureList = [
 const freeAiLimitMessage = "You have used all 10 free document creations for this month. Upgrade to Pro for 250 document creations each month.";
 const paidAiLimitMessage = "You have used all 250 document creations for this month. Your access will reset next month.";
 const freeResourceLimitMessage = "You have reached your Free Plan limit. Upgrade to Pro to unlock the full Little Learner Hub library.";
+const proTrialUpgradeMessage = "Start your 7-Day Free Pro Trial to unlock full access to all lesson plans, unlimited observations, unlimited AI tools, premium resources, forms, printables, and more. Credit card required. Cancel anytime before your trial ends.";
 const favoritesPageLimit = 20;
 const dailyLogFavoriteStorageKey = "llhDailyLogFavoriteActivities";
 const defaultDailyLogFavorites = ["Circle Time", "Outside Play", "Art", "Sensory Bin", "Water Play"];
@@ -2447,16 +2448,14 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
     if (title) title.textContent = "You've reached your Free Plan limit.";
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
-      <p>Upgrade to Pro to spend less time on paperwork with unlimited child profiles, observations, lesson plans, family-ready reports, parent messaging, tracking tools, and AI helpers.</p>
-      <p><small>Start a 7-day free trial and keep documentation moving without rewriting the same update twice.</small></p>
+      <p>${escapeHtml(proTrialUpgradeMessage)}</p>
     `;
   } else {
     if (eyebrow) eyebrow.textContent = "Pro Feature";
     if (title) title.textContent = "This is a Pro Feature";
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
-      <p>Upgrade to Pro to spend less time on paperwork with portfolio builder, parent messaging, daily reports, tracking tools, and the full resource library.</p>
-      <p><small>Start a 7-day free trial and keep documentation moving with polished family-ready outputs.</small></p>
+      <p>${escapeHtml(proTrialUpgradeMessage)}</p>
     `;
   }
   modal.classList.add("open");
@@ -4626,7 +4625,6 @@ function categoryResources(category) {
   if (searchedChild) return childLessonRecommendations(searchedChild, childRecords(), 12);
   return resources.filter((resource) => {
     if (!isResourceVisibleToCurrentUser(resource)) return false;
-    if (!isProUser() && !canAccess(resource)) return false;
     const matchesCategory = resource.category === category;
     const lessonFilter = lessonPlanPublicFilters.includes(activeFilter) ? activeFilter : "All";
     const normalizedAge = normalizeAgeGroup(resource.age) || resource.age;
@@ -4658,7 +4656,6 @@ function searchedResources() {
   if (searchedChild && query.includes("lesson")) return childLessonRecommendations(searchedChild, childRecords(), 12);
   return resources.filter((resource) => {
     if (!isResourceVisibleToCurrentUser(resource)) return false;
-    if (!isProUser() && !canAccess(resource)) return false;
     const haystack = [
       resource.title,
       resource.category,
@@ -4676,7 +4673,7 @@ function searchedResources() {
 function resourceCard(resource) {
   const locked = !canAccess(resource);
   const favorite = favorites.includes(resource.id);
-  const viewText = locked ? "Upgrade to Pro" : "View";
+  const viewText = locked ? "Preview" : "View";
   const favoriteText = !isProUser() ? "Pro Save" : favorite ? "Saved" : "Save";
   const accessText = locked ? "Pro" : isProUser() ? "Included" : "Free Sample";
   const lessonContext = resource._childRecommendation || null;
@@ -4711,10 +4708,7 @@ function resourceCard(resource) {
         ${resource.category === "Observation Hub" && !locked ? `<button class="ghost-button" data-edit-observation="${resource.id}" type="button">Edit</button>` : ""}
         ${resource.category === "Observation Hub" && !locked ? `<button class="ghost-button" data-add-observation-child="${resource.id}" type="button">Add to Child</button>` : ""}
         ${hasResourcePdf(resource) && !locked ? `<button class="ghost-button" data-download-pdf="${resource.id}" type="button">Download PDF</button>` : ""}
-        ${locked
-          ? `<button class="download-button" data-pro-feature="resource-limit" type="button">${viewText}</button>`
-          : `<button class="download-button" data-view-resource="${resource.id}" type="button">${viewText}</button>`
-        }
+        <button class="download-button" data-view-resource="${resource.id}" type="button">${viewText}</button>
       </div>
     </article>
   `;
@@ -8337,6 +8331,77 @@ function openGeneratedPrintableResource(resource) {
   });
 }
 
+function supportsLockedResourcePreview(resource) {
+  return ["Lesson Plans", "Activity Center", "Forms Library", "Printables"].includes(resource?.category);
+}
+
+function lockedResourcePreviewBenefits(resource) {
+  if (!resource) return [];
+  if (resource.category === "Lesson Plans") {
+    return [
+      `Supports ${displayDevelopmentArea(resource.developmentalArea || resource.tags?.find((tag) => normalizeObservationArea(tag)) || "play-based learning")} with a ready-made weekly plan.`,
+      `Saves prep time with materials, objectives, and guided activities matched to ${String(resource.age || "your classroom").toLowerCase()}.`,
+    ];
+  }
+  if (resource.category === "Activity Center") {
+    const activityType = resource.tags?.find((tag) => activityTypes.includes(tag)) || "hands-on";
+    return [
+      `Builds engagement through ${activityType.toLowerCase()} practice.`,
+      `Gives providers quick materials, instructions, and learning goals for ${String(resource.age || "young").toLowerCase()} learners.`,
+    ];
+  }
+  if (resource.category === "Forms Library") {
+    const formGroup = resource.tags?.[0] || "childcare";
+    return [
+      `Keeps ${formGroup.toLowerCase()} paperwork organized and family-ready.`,
+      "Helps providers customize polished forms for daily operations, records, and parent communication.",
+    ];
+  }
+  if (resource.category === "Printables") {
+    const type = printableType(resource);
+    return [
+      `Reinforces ${type.toLowerCase()} practice with a print-ready activity.`,
+      `Supports independent skill-building, fine motor practice, and quick table-time prep for ${String(resource.age || "young").toLowerCase()} learners.`,
+    ];
+  }
+  return [resource.description || "Unlock the full resource with Pro."];
+}
+
+function openLockedResourcePreview(resource, triggerEl = null) {
+  if (!resource || !supportsLockedResourcePreview(resource) || !featurePreviewModal || !featurePreviewTitle || !featurePreviewEyebrow || !featurePreviewBody) {
+    showProFeatureModal(freeResourceLimitMessage, "limit");
+    return;
+  }
+  const benefits = lockedResourcePreviewBenefits(resource)
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join("");
+  featurePreviewTrigger = triggerEl || document.activeElement || null;
+  featurePreviewEyebrow.textContent = "Pro Resource Preview";
+  featurePreviewTitle.textContent = resource.title;
+  featurePreviewBody.innerHTML = `
+    <section class="section-block" style="margin:0;">
+      <p>${escapeHtml(resource.description || "Unlock the full resource with Pro.")}</p>
+      <div class="fp-field"><label>Age Group</label><div class="fp-field-value">${escapeHtml(normalizeAgeGroup(resource.age) || resource.age || "All Ages")}</div></div>
+      <div class="fp-field"><label>Category</label><div class="fp-field-value">${escapeHtml(resource.category)}</div></div>
+      <div class="fp-field">
+        <label>What this helps with</label>
+        <div class="fp-field-value"><ul class="md-ul">${benefits}</ul></div>
+      </div>
+      <div class="pro-modal-actions" style="margin-top:20px;justify-content:flex-start;">
+        <button class="primary-button" data-start-pro-trial type="button">Start Your 7-Day Free Pro Trial</button>
+      </div>
+      <p><small>Credit card required</small></p>
+      <p><small>Cancel anytime</small></p>
+    </section>
+  `;
+  featurePreviewModal.classList.add("open");
+  featurePreviewModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("auth-modal-open");
+  featurePreviewTitle.focus();
+}
+
 function openResourceViewer(resourceId) {
   const resource = resources.find((item) => item.id === resourceId);
   if (!resource) return;
@@ -8345,7 +8410,7 @@ function openResourceViewer(resourceId) {
     return;
   }
   if (!canAccess(resource)) {
-    showProFeatureModal(freeResourceLimitMessage, "limit");
+    openLockedResourcePreview(resource);
     return;
   }
   ensureResourceViewer();
@@ -11298,7 +11363,7 @@ function renderPortfolioResourceCard(resource) {
       <span class="tag">${escapeHtml(resource.category)}</span>
       <strong>${escapeHtml(resource.title)}</strong>
       <p>${escapeHtml(resource.description || "Ready-to-use Little Learner Hub resource.")}</p>
-      <button class="ghost-button" ${locked ? `data-pro-feature="resource-limit"` : `data-view-resource="${resource.id}"`} type="button">${locked ? "Upgrade" : "Open"}</button>
+      <button class="ghost-button" data-view-resource="${resource.id}" type="button">${locked ? "Preview" : "Open"}</button>
     </article>
   `;
 }
@@ -21224,6 +21289,19 @@ document.addEventListener("click", async (event) => {
       return;
     }
     setView("upgrade");
+    return;
+  }
+
+  const directTrialButton = event.target.closest("[data-start-pro-trial]");
+  if (directTrialButton) {
+    event.preventDefault();
+    if (!currentUser) {
+      closeFeaturePreview();
+      openAuthModal("signup");
+      return;
+    }
+    closeFeaturePreview();
+    await startProTrial();
     return;
   }
 
