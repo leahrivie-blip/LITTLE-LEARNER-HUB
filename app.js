@@ -2914,6 +2914,15 @@ async function loadSiteContentFromBackend() {
     rerenderActiveContent();
     return effectiveSiteContent();
   }
+  if (isAdminUnlocked() && adminSession()?.token && siteContentConfig.adminEndpoint) {
+    try {
+      await loadAdminSiteContent();
+      rerenderActiveContent();
+      return effectiveSiteContent();
+    } catch (error) {
+      console.warn(error);
+    }
+  }
   try {
     const response = await fetch(siteContentConfig.publicEndpoint);
     const data = await response.json();
