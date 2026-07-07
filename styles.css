@@ -2357,14 +2357,11 @@ body.home-view .topbar .search-wrap {
 }
 
 .admin-section-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 14px 0 10px;
-  margin-bottom: 14px;
-  border-bottom: 1px solid var(--line);
+  padding: 12px 0 0;
+  margin-bottom: 0;
 }
 
+/* Keep old btn styles for any legacy references */
 .admin-section-nav-btn {
   padding: 7px 14px;
   border: 1px solid var(--line);
@@ -2388,7 +2385,209 @@ body.home-view .topbar .search-wrap {
   border-color: var(--accent, #386062);
 }
 
-.admin-import-modal .modal-card {
+/* ── Admin 2.0 Group Navigation ───────────────────────────────────────────── */
+
+.admin-group-nav {
+  margin-bottom: 0;
+}
+
+.admin-back-btn {
+  font-size: 13px;
+  padding: 6px 12px;
+  margin-bottom: 12px;
+}
+
+.admin-group-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+@media (min-width: 640px) {
+  .admin-group-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+.admin-group-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 12px 6px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--white);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+  min-height: 64px;
+}
+
+.admin-group-btn:hover {
+  background: var(--bg-soft, #f5f0eb);
+  border-color: var(--accent, #386062);
+}
+
+.admin-group-btn.active {
+  background: var(--accent, #386062);
+  color: #fff;
+  border-color: var(--accent, #386062);
+  box-shadow: 0 2px 8px rgba(56,96,98,.22);
+}
+
+.admin-group-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.admin-group-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+}
+
+.admin-sub-nav {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 4px 0 10px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.admin-sub-nav::-webkit-scrollbar { display: none; }
+
+.admin-sub-tab {
+  flex-shrink: 0;
+  padding: 6px 16px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--white);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.admin-sub-tab:hover {
+  background: var(--bg-soft, #f5f0eb);
+  border-color: var(--accent, #386062);
+}
+
+.admin-sub-tab.active {
+  background: var(--accent, #386062);
+  color: #fff;
+  border-color: var(--accent, #386062);
+}
+
+/* ── Visibility Dashboard ─────────────────────────────────────────────────── */
+
+.admin-vis-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.admin-vis-card {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--white);
+}
+
+.admin-vis-card.is-hidden {
+  background: rgba(245, 240, 235, 0.7);
+  border-color: rgba(0,0,0,.08);
+}
+
+.admin-vis-card-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.admin-vis-card-main > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-vis-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.admin-vis-badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  margin-bottom: 2px;
+}
+
+.admin-vis-badge.badge-visible {
+  background: rgba(46,125,50,.12);
+  color: var(--success, #2e7d32);
+}
+
+.admin-vis-badge.badge-hidden {
+  background: rgba(192,57,43,.10);
+  color: var(--danger, #c0392b);
+}
+
+/* ── Users & Memberships Dashboard ───────────────────────────────────────── */
+
+.admin-user-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.admin-user-card {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--white);
+}
+
+.admin-user-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.admin-user-card-header > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-user-card-meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--muted);
+}
+
+
   width: min(640px, 100%);
 }
 
