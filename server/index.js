@@ -572,19 +572,41 @@ function readStore() {
   return JSON.parse(fs.readFileSync(storePath, "utf8"));
 }
 
+const POSTGRES_UPSERT_STORE = "INSERT INTO llh_store (id, data, updated_at) VALUES ($1, $2::jsonb, NOW()) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()";
+
 function writeStore(store) {
   storeCache = store;
   if (usePostgresStore()) {
     const payload = JSON.stringify(store);
     postgresWriteChain = postgresWriteChain
-      .then(() => postgresPool.query(
-        "INSERT INTO llh_store (id, data, updated_at) VALUES ($1, $2::jsonb, NOW()) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()",
-        [storeRecordId, payload],
-      ))
+      .then(() => postgresPool.query(POSTGRES_UPSERT_STORE, [storeRecordId, payload]))
       .catch((error) => {
         databaseReady = false;
         console.error("Could not persist launch store to Postgres:", error.message);
       });
+    return;
+  }
+  ensureStore();
+  fs.writeFileSync(storePath, JSON.stringify(store, null, 2));
+}
+
+// Writes the store and waits for the Postgres write to complete before returning.
+// Throws if the database write fails so the caller can surface the error to the client
+// instead of reporting a false success. Use this for admin writes where persistence must
+// be confirmed before responding (e.g. lesson plan visibility changes, site content saves).
+async function writeStoreAsync(store) {
+  storeCache = store;
+  if (usePostgresStore()) {
+    const payload = JSON.stringify(store);
+    // Wait for any in-flight fire-and-forget writes to settle before issuing our own,
+    // so we don't race against them and produce an out-of-order result.
+    // Log (but do not rethrow) chain errors — they are already logged by writeStore's .catch handler.
+    // It is safe to proceed even if a previous chain write failed: every write sends the
+    // complete store state (not a delta), so the latest write always supersedes older ones.
+    await postgresWriteChain.catch((error) => {
+      console.error("Pending write chain error before async write:", error.message);
+    });
+    await postgresPool.query(POSTGRES_UPSERT_STORE, [storeRecordId, payload]);
     return;
   }
   ensureStore();
@@ -2059,7 +2081,13 @@ async function handleAdminSiteContentSave(request, response) {
   const nextContent = normalizedSiteContent(body.siteContent || defaultSiteContentStore());
   nextContent.updatedAt = new Date().toISOString();
   store.siteContent = nextContent;
-  writeStore(store);
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    console.error("Admin site content save failed:", error.message);
+    jsonResponse(response, 503, { error: "Changes could not be saved to the database. Please try again." });
+    return;
+  }
   jsonResponse(response, 200, { siteContent: nextContent });
 }
 
