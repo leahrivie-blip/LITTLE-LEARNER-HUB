@@ -567,16 +567,17 @@ function ensureStore() {
 }
 
 function readStore() {
-  // Return a shallow copy so callers can safely set top-level keys without affecting the
-  // shared cache. This is intentionally *not* a deep clone: structuredClone on a large store
-  // (e.g. one with many embedded base64 resources) copies megabytes of data on every request
-  // and is the primary cause of "JavaScript heap out of memory" crashes on low-RAM deployments.
-  // All write paths replace entire top-level keys (e.g. store.siteContent = ...) rather than
-  // mutating nested objects in place, so a shallow copy is sufficient for isolation.
+  // For Postgres: return a shallow copy of the in-memory cache so callers can safely set
+  // top-level keys (e.g. store.siteContent = ...) without affecting the shared storeCache.
+  // This is intentionally *not* a deep clone: structuredClone on a large store containing
+  // many embedded base64 resources copies megabytes of data on every request and is the
+  // primary cause of "JavaScript heap out of memory" crashes on low-RAM deployments.
+  // Callers MUST replace entire top-level keys rather than mutating nested objects in place
+  // so that the shallow copy provides sufficient isolation from the shared cache.
   if (usePostgresStore()) return { ...(storeCache || defaultStore()) };
+  // For file-based storage: always read fresh from disk (no in-memory cache to protect).
   ensureStore();
-  storeCache = JSON.parse(fs.readFileSync(storePath, "utf8"));
-  return { ...storeCache };
+  return JSON.parse(fs.readFileSync(storePath, "utf8"));
 }
 
 const POSTGRES_UPSERT_STORE = "INSERT INTO llh_store (id, data, updated_at) VALUES ($1, $2::jsonb, NOW()) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()";
