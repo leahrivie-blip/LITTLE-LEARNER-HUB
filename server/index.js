@@ -576,6 +576,25 @@ function normalizedSiteContent(value) {
       finalCtaHeadline: normalizedShortText(input.homepage?.finalCtaHeadline, 240),
       finalCtaText: normalizedMultilineText(input.homepage?.finalCtaText, 1200),
       finalCtaButtonText: normalizedShortText(input.homepage?.finalCtaButtonText, 120),
+      finalCtaSubtext: normalizedShortText(input.homepage?.finalCtaSubtext, 300),
+      heroBenefits: normalizedList(input.homepage?.heroBenefits, 20, (item) => {
+        const text = normalizedShortText(typeof item === "string" ? item : String(item?.text || ""), 200);
+        return text || null;
+      }),
+      trustSectionHeading: normalizedShortText(input.homepage?.trustSectionHeading, 240),
+      showcaseSectionHeading: normalizedShortText(input.homepage?.showcaseSectionHeading, 240),
+      showcaseSectionSubtitle: normalizedMultilineText(input.homepage?.showcaseSectionSubtitle, 600),
+      journeySectionHeading: normalizedShortText(input.homepage?.journeySectionHeading, 240),
+      journeySectionSubtitle: normalizedMultilineText(input.homepage?.journeySectionSubtitle, 600),
+      journeyHowItWorksHeading: normalizedShortText(input.homepage?.journeyHowItWorksHeading, 120),
+      journeyComingSoonHeading: normalizedShortText(input.homepage?.journeyComingSoonHeading, 120),
+      whySectionHeading: normalizedShortText(input.homepage?.whySectionHeading, 240),
+      whyItems: normalizedList(input.homepage?.whyItems, 12, (item, index) => {
+        const entry = item && typeof item === "object" ? item : { title: String(item || "") };
+        const title = normalizedShortText(entry.title, 200);
+        return title ? { id: normalizedShortText(entry.id, 80) || `why-${index + 1}`, title } : null;
+      }),
+      reviewsSectionHeading: normalizedShortText(input.homepage?.reviewsSectionHeading, 240),
     },
     images: normalizedList(input.images, 200, (item, index) => {
       const entry = item && typeof item === "object" ? item : {};
@@ -599,6 +618,19 @@ function normalizedSiteContent(value) {
       trialNoteText: normalizedMultilineText(input.pricing?.trialNoteText, 400),
       creditCardText: normalizedShortText(input.pricing?.creditCardText, 200),
       cancelText: normalizedShortText(input.pricing?.cancelText, 200),
+      freePlanPrice: normalizedShortText(input.pricing?.freePlanPrice, 40),
+      freePlanPriceInterval: normalizedShortText(input.pricing?.freePlanPriceInterval, 40),
+      proPlanPrice: normalizedShortText(input.pricing?.proPlanPrice, 40),
+      proPlanPriceInterval: normalizedShortText(input.pricing?.proPlanPriceInterval, 40),
+      freePlanCtaText: normalizedShortText(input.pricing?.freePlanCtaText, 120),
+      freePlanFeatures: normalizedList(input.pricing?.freePlanFeatures, 20, (item) => {
+        const text = normalizedShortText(typeof item === "string" ? item : String(item?.text || ""), 200);
+        return text || null;
+      }),
+      proPlanFeatures: normalizedList(input.pricing?.proPlanFeatures, 20, (item) => {
+        const text = normalizedShortText(typeof item === "string" ? item : String(item?.text || ""), 200);
+        return text || null;
+      }),
       _draft: input.pricing?._draft === true,
     },
     faqs: normalizedList(input.faqs, 100, normalizedFaqEntry),
@@ -617,6 +649,15 @@ function normalizedSiteContent(value) {
       freeLimitMessage: normalizedMultilineText(input.upgradeMessaging?.freeLimitMessage, 400),
       trialUpgradeSummary: normalizedMultilineText(input.upgradeMessaging?.trialUpgradeSummary, 400),
       _draft: input.upgradeMessaging?._draft === true,
+    },
+    founding: {
+      heading: normalizedShortText(input.founding?.heading, 200),
+      soldOutHeading: normalizedShortText(input.founding?.soldOutHeading, 200),
+      pricePrefix: normalizedShortText(input.founding?.pricePrefix, 120),
+      priceLifeLabel: normalizedShortText(input.founding?.priceLifeLabel, 60),
+      ctaButtonText: normalizedShortText(input.founding?.ctaButtonText, 120),
+      soldOutCtaText: normalizedShortText(input.founding?.soldOutCtaText, 120),
+      _draft: input.founding?._draft === true,
     },
     updatedAt: normalizedShortText(input.updatedAt, 80),
   };
