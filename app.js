@@ -17637,35 +17637,45 @@ function renderAdminVisibilityDashboard() {
     `;
   }
 
+  function listHtml(items, emptyMsg) {
+    return items.length ? items.map(visibilityCard).join("") : `<div class="empty-state">${emptyMsg}</div>`;
+  }
+
   target.innerHTML = `
     <div class="section-heading">
       <div><p class="eyebrow">Visibility Dashboard</p><h3>Manage what's visible on the public site</h3></div>
     </div>
     <div class="admin-mobile-stats" style="margin-bottom:18px;">
-      <div><strong>${allLessons.length}</strong><span>Total Plans</span></div>
-      <div><strong style="color:var(--success,#2e7d32)">${visible.length}</strong><span>Visible</span></div>
-      <div><strong style="color:var(--danger,#c0392b)">${hidden.length}</strong><span>Hidden</span></div>
+      <div><strong>${Number(allLessons.length)}</strong><span>Total Plans</span></div>
+      <div><strong style="color:var(--success,#2e7d32)">${Number(visible.length)}</strong><span>Visible</span></div>
+      <div><strong style="color:var(--danger,#c0392b)">${Number(hidden.length)}</strong><span>Hidden</span></div>
     </div>
     <div class="admin-vis-tabs" id="adminVisTabs">
-      <button class="admin-sub-tab active" data-vis-filter="visible" type="button">Visible (${visible.length})</button>
-      <button class="admin-sub-tab" data-vis-filter="hidden" type="button">Hidden (${hidden.length})</button>
-      <button class="admin-sub-tab" data-vis-filter="all" type="button">All (${allLessons.length})</button>
+      <button class="admin-sub-tab active" id="adminVisTabVisible" type="button">Visible (${Number(visible.length)})</button>
+      <button class="admin-sub-tab" id="adminVisTabHidden" type="button">Hidden (${Number(hidden.length)})</button>
+      <button class="admin-sub-tab" id="adminVisTabAll" type="button">All (${Number(allLessons.length)})</button>
     </div>
     <div id="adminVisibilityList" class="admin-mobile-list">
-      ${visible.length ? visible.map(visibilityCard).join("") : `<div class="empty-state">No visible lesson plans yet.</div>`}
+      ${listHtml(visible, "No visible lesson plans yet.")}
     </div>
   `;
 
-  // Tab filter behaviour
-  target.querySelectorAll("[data-vis-filter]").forEach((btn) => {
+  // Attach filter tab handlers using closures — items arrays are pre-computed and
+  // not derived from any DOM attribute, eliminating any DOM-text-to-innerHTML path.
+  const visTabs = [
+    { id: "adminVisTabVisible", items: visible, emptyMsg: "No visible lesson plans." },
+    { id: "adminVisTabHidden",  items: hidden,  emptyMsg: "No hidden lesson plans." },
+    { id: "adminVisTabAll",     items: allLessons, emptyMsg: "No lesson plans found." },
+  ];
+  const allTabBtns = visTabs.map(({ id }) => target.querySelector(`#${id}`)).filter(Boolean);
+  visTabs.forEach(({ id, items, emptyMsg }) => {
+    const btn = target.querySelector(`#${id}`);
+    if (!btn) return;
     btn.addEventListener("click", () => {
-      target.querySelectorAll("[data-vis-filter]").forEach((b) => b.classList.remove("active"));
+      allTabBtns.forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
-      const filter = btn.dataset.visFilter;
       const list = target.querySelector("#adminVisibilityList");
-      if (!list) return;
-      const items = filter === "visible" ? visible : filter === "hidden" ? hidden : allLessons;
-      list.innerHTML = items.length ? items.map(visibilityCard).join("") : `<div class="empty-state">Nothing to show for this filter.</div>`;
+      if (list) list.innerHTML = listHtml(items, emptyMsg);
     });
   });
 }
@@ -17702,20 +17712,8 @@ function renderAdminUsersDashboard() {
     `;
   }
 
-  let activeFilter = "all";
-  function filteredAccounts() {
-    if (activeFilter === "free") return free;
-    if (activeFilter === "trial") return trial;
-    if (activeFilter === "pro") return pro;
-    if (activeFilter === "founding") return founding;
-    return accounts;
-  }
-
-  function renderList() {
-    const items = filteredAccounts();
-    return items.length
-      ? items.map(userCard).join("")
-      : `<div class="empty-state">No accounts in this category yet.</div>`;
+  function userListHtml(items) {
+    return items.length ? items.map(userCard).join("") : `<div class="empty-state">No accounts in this category yet.</div>`;
   }
 
   target.innerHTML = `
@@ -17723,31 +17721,42 @@ function renderAdminUsersDashboard() {
       <div><p class="eyebrow">Users & Memberships</p><h3>Account and subscription overview</h3></div>
     </div>
     <div class="admin-mobile-stats" style="margin-bottom:18px;">
-      <div><strong>${accounts.length}</strong><span>Total</span></div>
-      <div><strong>${free.length}</strong><span>Free</span></div>
-      <div><strong style="color:#5b9bd5">${trial.length}</strong><span>Trial</span></div>
-      <div><strong style="color:var(--accent,#386062)">${pro.length}</strong><span>Pro</span></div>
-      <div><strong style="color:#c9a84c">${founding.length}</strong><span>Founding</span></div>
+      <div><strong>${Number(accounts.length)}</strong><span>Total</span></div>
+      <div><strong>${Number(free.length)}</strong><span>Free</span></div>
+      <div><strong style="color:#5b9bd5">${Number(trial.length)}</strong><span>Trial</span></div>
+      <div><strong style="color:var(--accent,#386062)">${Number(pro.length)}</strong><span>Pro</span></div>
+      <div><strong style="color:#c9a84c">${Number(founding.length)}</strong><span>Founding</span></div>
     </div>
     <div class="admin-vis-tabs" id="adminUserFilterTabs">
-      <button class="admin-sub-tab active" data-user-filter="all" type="button">All (${accounts.length})</button>
-      <button class="admin-sub-tab" data-user-filter="free" type="button">Free (${free.length})</button>
-      <button class="admin-sub-tab" data-user-filter="trial" type="button">Trial (${trial.length})</button>
-      <button class="admin-sub-tab" data-user-filter="pro" type="button">Pro (${pro.length})</button>
-      <button class="admin-sub-tab" data-user-filter="founding" type="button">Founding (${founding.length})</button>
+      <button class="admin-sub-tab active" id="adminUserTabAll"      type="button">All (${Number(accounts.length)})</button>
+      <button class="admin-sub-tab"        id="adminUserTabFree"     type="button">Free (${Number(free.length)})</button>
+      <button class="admin-sub-tab"        id="adminUserTabTrial"    type="button">Trial (${Number(trial.length)})</button>
+      <button class="admin-sub-tab"        id="adminUserTabPro"      type="button">Pro (${Number(pro.length)})</button>
+      <button class="admin-sub-tab"        id="adminUserTabFounding" type="button">Founding (${Number(founding.length)})</button>
     </div>
     <div id="adminUsersList" class="admin-user-list">
-      ${renderList()}
+      ${userListHtml(accounts)}
     </div>
   `;
 
-  target.querySelectorAll("[data-user-filter]").forEach((btn) => {
+  // Attach filter tab handlers using closures — items arrays are pre-computed and
+  // not derived from any DOM attribute, eliminating any DOM-text-to-innerHTML path.
+  const userTabs = [
+    { id: "adminUserTabAll",      items: accounts },
+    { id: "adminUserTabFree",     items: free },
+    { id: "adminUserTabTrial",    items: trial },
+    { id: "adminUserTabPro",      items: pro },
+    { id: "adminUserTabFounding", items: founding },
+  ];
+  const allUserTabBtns = userTabs.map(({ id }) => target.querySelector(`#${id}`)).filter(Boolean);
+  userTabs.forEach(({ id, items }) => {
+    const btn = target.querySelector(`#${id}`);
+    if (!btn) return;
     btn.addEventListener("click", () => {
-      target.querySelectorAll("[data-user-filter]").forEach((b) => b.classList.remove("active"));
+      allUserTabBtns.forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
-      activeFilter = btn.dataset.userFilter;
       const list = target.querySelector("#adminUsersList");
-      if (list) list.innerHTML = renderList();
+      if (list) list.innerHTML = userListHtml(items);
     });
   });
 }
