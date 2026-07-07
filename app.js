@@ -8472,7 +8472,7 @@ function renderLessonPlanLibraryNotice() {
     <section class="access-notice lesson-library-notice" role="status" aria-live="polite">
       <div class="lesson-update-notice-copy">
         <h3>Lesson Plan Library Updates</h3>
-        <p>Lesson plans are currently being reviewed, improved, and added daily. New lesson plans are released regularly. Can’t find what you’re looking for? Use the Document Helper to generate a custom lesson plan tailored to your needs.</p>
+        <p>We are currently reviewing and updating our lesson plans to improve quality, add additional resources, and enhance the overall experience. Thank you for your patience while improvements are being made.</p>
       </div>
       <div class="lesson-library-notice-actions">
         <button class="primary-button lesson-helper-reminder-btn" data-view="ai" data-quick-doc-type="lesson" type="button">Open Document Helper</button>
