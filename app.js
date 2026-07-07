@@ -3010,10 +3010,51 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","activities","reviews","homepage","founder","images","analytics","support","ai-testing"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","activities","reviews","homepage","founder","images","analytics","support","ai-testing","visibility","users"]);
 const lessonPlanResourceCategories = ["Coloring Pages", "Tracing Activities", "Counting Activities", "Matching Activities", "Crafts", "Teacher Resources", "Activity Photos", "General"];
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "dashboard";
 let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabRaw) ? adminActiveSectionTabRaw : "dashboard";
+
+// ─── Admin 2.0 Navigation Groups ─────────────────────────────────────────────
+const adminGroups = [
+  { id: "dashboard", icon: "🏠", label: "Dashboard",  tabs: ["dashboard", "analytics", "support"], defaultTab: "dashboard" },
+  { id: "content",   icon: "📚", label: "Content",    tabs: ["lesson-plans", "activities", "reviews", "founder", "resources"], defaultTab: "lesson-plans" },
+  { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
+  { id: "users",     icon: "👥", label: "Users",      tabs: ["users"], defaultTab: "users" },
+  { id: "settings",  icon: "⚙️", label: "Settings",   tabs: ["homepage", "images"], defaultTab: "homepage" },
+  { id: "ai",        icon: "🤖", label: "AI",         tabs: ["ai-testing"], defaultTab: "ai-testing" },
+];
+const adminGroupForTab = {
+  "dashboard":   "dashboard",
+  "analytics":   "dashboard",
+  "support":     "dashboard",
+  "lesson-plans":"content",
+  "activities":  "content",
+  "reviews":     "content",
+  "founder":     "content",
+  "resources":   "content",
+  "visibility":  "visibility",
+  "users":       "users",
+  "homepage":    "settings",
+  "images":      "settings",
+  "ai-testing":  "ai",
+};
+const adminTabLabels = {
+  "dashboard":   "Overview",
+  "analytics":   "Analytics",
+  "support":     "Support",
+  "lesson-plans":"Lesson Plans",
+  "activities":  "Activities",
+  "reviews":     "Reviews",
+  "founder":     "Founder",
+  "resources":   "Uploads",
+  "visibility":  "Visibility",
+  "users":       "Users",
+  "homepage":    "Homepage",
+  "images":      "Images",
+  "ai-testing":  "AI Testing",
+};
+let adminActiveGroup = adminGroupForTab[adminActiveSectionTab] || "dashboard";
 const mobileNavMaxWidth = 820;
 const installPromptDeferDays = 30;
 let deferredInstallPrompt = null;
@@ -4195,6 +4236,15 @@ function setView(view) {
   if (resolvedView === "admin") {
     localStorage.setItem("llhAdminLastView", "admin");
     renderAdminDashboard();
+    // Reload full admin site content (includes hidden lesson plans) whenever the
+    // admin area is entered so that edits to hidden plans are never missing after
+    // a page refresh.  Render twice: once immediately with whatever is in state,
+    // then again after the fresh data arrives.
+    if (isAdminUnlocked() && adminSession()?.token && canUseLaunchBackend()) {
+      loadAdminSiteContent()
+        .catch(() => {})
+        .then(() => renderAdminDashboard());
+    }
   }
   if (resolvedView !== "admin") localStorage.removeItem("llhAdminLastView");
   if (resolvedView === "account") renderAccountPage();
@@ -16972,6 +17022,7 @@ async function saveAdminLessonPlanForm(form) {
   console.log("[DIAG] saveAdminLessonPlanForm: lesson id =", JSON.stringify(id));
   if (!id) {
     console.error("[DIAG] saveAdminLessonPlanForm: ABORTED — id field is empty or missing from form");
+    setFormMessage("#adminLessonPlanMessage", "Save failed: lesson plan ID is missing. Please reload the page and try again.", false);
     return;
   }
   const submitBtn = form.querySelector("[type='submit']");
@@ -17440,6 +17491,8 @@ async function toggleAdminActivityVisibility(id) {
 
 // ─── Admin Section Navigation ─────────────────────────────────────────────────
 
+// adminSectionTabs is kept for backward compatibility with any code that iterates it;
+// the actual navigation is now driven by adminGroups defined earlier.
 const adminSectionTabs = [
   { id: "dashboard",   label: "Dashboard" },
   { id: "resources",   label: "Resources" },
@@ -17456,18 +17509,46 @@ const adminSectionTabs = [
 
 function setAdminSectionTab(tabId) {
   adminActiveSectionTab = tabId;
+  adminActiveGroup = adminGroupForTab[tabId] || "dashboard";
   localStorage.setItem("llhAdminActiveSection", tabId);
   renderAdminSectionNav();
   applyAdminSectionVisibility();
 }
 
+function setAdminGroup(groupId) {
+  const group = adminGroups.find((g) => g.id === groupId);
+  if (!group) return;
+  // Stay on the current sub-tab if it belongs to this group; otherwise use the default.
+  const targetTab = group.tabs.includes(adminActiveSectionTab) ? adminActiveSectionTab : group.defaultTab;
+  setAdminSectionTab(targetTab);
+}
+
 function renderAdminSectionNav() {
   const nav = document.querySelector("#adminSectionNav");
   if (!nav || !isAdminUnlocked()) return;
-  nav.innerHTML = `<button class="ghost-button back-button" data-view="home" type="button">← Back to Home</button>` +
-    adminSectionTabs.map(({ id, label }) =>
-      `<button class="admin-section-nav-btn${adminActiveSectionTab === id ? " active" : ""}" data-admin-section-tab="${id}" type="button">${label}</button>`
-    ).join("");
+  const currentGroup = adminActiveGroup || "dashboard";
+  const group = adminGroups.find((g) => g.id === currentGroup);
+  const subTabs = group && group.tabs.length > 1 ? group.tabs : null;
+  nav.innerHTML = `
+    <div class="admin-group-nav">
+      <button class="ghost-button admin-back-btn" data-view="home" type="button">← Home</button>
+      <div class="admin-group-grid">
+        ${adminGroups.map((g) => `
+          <button class="admin-group-btn${g.id === currentGroup ? " active" : ""}" data-admin-group="${g.id}" type="button" aria-pressed="${g.id === currentGroup}">
+            <span class="admin-group-icon" aria-hidden="true">${g.icon}</span>
+            <span class="admin-group-label">${g.label}</span>
+          </button>
+        `).join("")}
+      </div>
+    </div>
+    ${subTabs ? `
+      <div class="admin-sub-nav" role="tablist" aria-label="${group.label} sections">
+        ${subTabs.map((tabId) => `
+          <button class="admin-sub-tab${adminActiveSectionTab === tabId ? " active" : ""}" data-admin-section-tab="${tabId}" type="button" role="tab" aria-selected="${adminActiveSectionTab === tabId}">${adminTabLabels[tabId] || tabId}</button>
+        `).join("")}
+      </div>
+    ` : ""}
+  `;
 }
 
 const adminCmSectionIds = ["lesson-plans", "activities", "reviews", "founder", "homepage", "images"];
@@ -17484,6 +17565,8 @@ function applyAdminSectionVisibility() {
     ".launch-readiness-panel",
     ".admin-ticket-panel",
     ".admin-ai-test-panel",
+    ".admin-visibility-panel",
+    ".admin-users-panel",
   ];
 
   topSelectors.forEach((sel) => {
@@ -17515,10 +17598,170 @@ function applyAdminSectionVisibility() {
   } else if (tab === "ai-testing") {
     const el = document.querySelector(".admin-ai-test-panel");
     if (el) el.hidden = false;
+  } else if (tab === "visibility") {
+    const el = document.querySelector(".admin-visibility-panel");
+    if (el) el.hidden = false;
+    renderAdminVisibilityDashboard();
+  } else if (tab === "users") {
+    const el = document.querySelector(".admin-users-panel");
+    if (el) el.hidden = false;
+    renderAdminUsersDashboard();
   }
 }
 
-// ─── Structured Lesson Plan Import ───────────────────────────────────────────
+// ─── Admin 2.0 Visibility Dashboard ──────────────────────────────────────────
+
+function renderAdminVisibilityDashboard() {
+  const target = document.querySelector("#adminVisibilityApp");
+  if (!target || !isAdminUnlocked()) return;
+  const allLessons = allLessonPlansForAdmin();
+  const visible = allLessons.filter((l) => l.userVisible);
+  const hidden = allLessons.filter((l) => !l.userVisible);
+
+  function visibilityCard(lesson) {
+    const isVisible = lesson.userVisible;
+    return `
+      <div class="admin-vis-card${isVisible ? "" : " is-hidden"}">
+        <div class="admin-vis-card-main">
+          <div>
+            <span class="admin-vis-badge${isVisible ? " badge-visible" : " badge-hidden"}">${isVisible ? "Visible" : "Hidden"}</span>
+            <strong>${escapeHtml(lesson.title || "Untitled")}</strong>
+            <small>${escapeHtml(lesson.age || "")} · ${escapeHtml(lesson.plan || "Free")}${lesson.hiddenReason ? ` · ${escapeHtml(lesson.hiddenReason)}` : ""}</small>
+          </div>
+          <div class="admin-vis-actions">
+            <button class="ghost-button" type="button" data-admin-lesson-visibility-toggle="${escapeHtml(lesson.id)}" data-current-visible="${isVisible}">${isVisible ? "Hide" : "Show"}</button>
+            <button class="ghost-button" type="button" data-admin-open-lesson="${escapeHtml(lesson.id)}">Edit</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function listHtml(items, emptyMsg) {
+    return items.length ? items.map(visibilityCard).join("") : `<div class="empty-state">${emptyMsg}</div>`;
+  }
+
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Visibility Dashboard</p><h3>Manage what's visible on the public site</h3></div>
+    </div>
+    <div class="admin-mobile-stats" style="margin-bottom:18px;">
+      <div><strong>${Number(allLessons.length)}</strong><span>Total Plans</span></div>
+      <div><strong style="color:var(--success,#2e7d32)">${Number(visible.length)}</strong><span>Visible</span></div>
+      <div><strong style="color:var(--danger,#c0392b)">${Number(hidden.length)}</strong><span>Hidden</span></div>
+    </div>
+    <div class="admin-vis-tabs" id="adminVisTabs">
+      <button class="admin-sub-tab active" id="adminVisTabVisible" type="button">Visible (${Number(visible.length)})</button>
+      <button class="admin-sub-tab" id="adminVisTabHidden" type="button">Hidden (${Number(hidden.length)})</button>
+      <button class="admin-sub-tab" id="adminVisTabAll" type="button">All (${Number(allLessons.length)})</button>
+    </div>
+    <div id="adminVisibilityList" class="admin-mobile-list">
+      ${listHtml(visible, "No visible lesson plans yet.")}
+    </div>
+  `;
+
+  // Attach filter tab handlers using closures — items arrays are pre-computed and
+  // not derived from any DOM attribute, eliminating any DOM-text-to-innerHTML path.
+  const visTabs = [
+    { id: "adminVisTabVisible", items: visible, emptyMsg: "No visible lesson plans." },
+    { id: "adminVisTabHidden",  items: hidden,  emptyMsg: "No hidden lesson plans." },
+    { id: "adminVisTabAll",     items: allLessons, emptyMsg: "No lesson plans found." },
+  ];
+  const allTabBtns = visTabs.map(({ id }) => target.querySelector(`#${id}`)).filter(Boolean);
+  visTabs.forEach(({ id, items, emptyMsg }) => {
+    const btn = target.querySelector(`#${id}`);
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      allTabBtns.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      const list = target.querySelector("#adminVisibilityList");
+      if (list) list.innerHTML = listHtml(items, emptyMsg);
+    });
+  });
+}
+
+// ─── Admin 2.0 Users & Memberships Dashboard ─────────────────────────────────
+
+function renderAdminUsersDashboard() {
+  const target = document.querySelector("#adminUsersApp");
+  if (!target || !isAdminUnlocked()) return;
+  const accounts = allAccountsList();
+  const free = accounts.filter((a) => !a.plan || a.plan === "Free");
+  const trial = accounts.filter((a) => a.subscriptionStatus === "trialing");
+  const pro = accounts.filter((a) => a.plan === "Pro");
+  const founding = accounts.filter((a) => a.plan === "Founding" || a.foundingMember);
+
+  function userCard(account) {
+    const plan = account.plan || "Free";
+    const status = account.subscriptionStatus || "Free Plan";
+    const price = account.monthlyPrice || "$0";
+    return `
+      <div class="admin-user-card">
+        <div class="admin-user-card-header">
+          <div>
+            <strong>${escapeHtml(displayUserName(account))}</strong>
+            <span>${escapeHtml(account.email || "")}</span>
+          </div>
+          <span class="tag access-tag">${escapeHtml(plan)}</span>
+        </div>
+        <div class="admin-user-card-meta">
+          <small>${escapeHtml(status)} · ${escapeHtml(price)}</small>
+          ${account.createdAt ? `<small>Joined ${escapeHtml(new Date(account.createdAt).toLocaleDateString())}</small>` : ""}
+        </div>
+      </div>
+    `;
+  }
+
+  function userListHtml(items) {
+    return items.length ? items.map(userCard).join("") : `<div class="empty-state">No accounts in this category yet.</div>`;
+  }
+
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Users & Memberships</p><h3>Account and subscription overview</h3></div>
+    </div>
+    <div class="admin-mobile-stats" style="margin-bottom:18px;">
+      <div><strong>${Number(accounts.length)}</strong><span>Total</span></div>
+      <div><strong>${Number(free.length)}</strong><span>Free</span></div>
+      <div><strong style="color:#5b9bd5">${Number(trial.length)}</strong><span>Trial</span></div>
+      <div><strong style="color:var(--accent,#386062)">${Number(pro.length)}</strong><span>Pro</span></div>
+      <div><strong style="color:#c9a84c">${Number(founding.length)}</strong><span>Founding</span></div>
+    </div>
+    <div class="admin-vis-tabs" id="adminUserFilterTabs">
+      <button class="admin-sub-tab active" id="adminUserTabAll"      type="button">All (${Number(accounts.length)})</button>
+      <button class="admin-sub-tab"        id="adminUserTabFree"     type="button">Free (${Number(free.length)})</button>
+      <button class="admin-sub-tab"        id="adminUserTabTrial"    type="button">Trial (${Number(trial.length)})</button>
+      <button class="admin-sub-tab"        id="adminUserTabPro"      type="button">Pro (${Number(pro.length)})</button>
+      <button class="admin-sub-tab"        id="adminUserTabFounding" type="button">Founding (${Number(founding.length)})</button>
+    </div>
+    <div id="adminUsersList" class="admin-user-list">
+      ${userListHtml(accounts)}
+    </div>
+  `;
+
+  // Attach filter tab handlers using closures — items arrays are pre-computed and
+  // not derived from any DOM attribute, eliminating any DOM-text-to-innerHTML path.
+  const userTabs = [
+    { id: "adminUserTabAll",      items: accounts },
+    { id: "adminUserTabFree",     items: free },
+    { id: "adminUserTabTrial",    items: trial },
+    { id: "adminUserTabPro",      items: pro },
+    { id: "adminUserTabFounding", items: founding },
+  ];
+  const allUserTabBtns = userTabs.map(({ id }) => target.querySelector(`#${id}`)).filter(Boolean);
+  userTabs.forEach(({ id, items }) => {
+    const btn = target.querySelector(`#${id}`);
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      allUserTabBtns.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      const list = target.querySelector("#adminUsersList");
+      if (list) list.innerHTML = userListHtml(items);
+    });
+  });
+}
+
+
 
 const structuredImportSectionMap = {
   TITLE: "title",
@@ -23737,7 +23980,16 @@ document.addEventListener("change", (event) => {
 });
 
 document.addEventListener("click", async (event) => {
-  // Admin section navigation
+  // Admin section navigation — group buttons (top-level 6-section nav)
+  const groupBtn = event.target.closest("[data-admin-group]");
+  if (groupBtn) {
+    const groupId = groupBtn.dataset.adminGroup;
+    if (groupId !== adminActiveGroup && !confirmDiscardAdminLessonChanges()) return;
+    setAdminGroup(groupId);
+    return;
+  }
+
+  // Admin section navigation — sub-tabs within a group
   const sectionNavBtn = event.target.closest("[data-admin-section-tab]");
   if (sectionNavBtn) {
     if (sectionNavBtn.dataset.adminSectionTab !== adminActiveSectionTab && !confirmDiscardAdminLessonChanges()) return;
@@ -23787,6 +24039,21 @@ document.addEventListener("click", async (event) => {
   const lessonToggleButton = event.target.closest("[data-admin-lesson-toggle]");
   if (lessonToggleButton) {
     await toggleLessonPlanVisibility(lessonToggleButton.dataset.adminLessonToggle);
+    return;
+  }
+
+  // Visibility Dashboard — quick hide/show toggle
+  const visToggleBtn = event.target.closest("[data-admin-lesson-visibility-toggle]");
+  if (visToggleBtn) {
+    const id = visToggleBtn.dataset.adminLessonVisibilityToggle;
+    if (id) await toggleLessonPlanVisibility(id);
+    return;
+  }
+  // Visibility Dashboard — open lesson in Content Manager editor
+  const openLessonBtn = event.target.closest("[data-admin-open-lesson]");
+  if (openLessonBtn) {
+    if (!confirmDiscardAdminLessonChanges()) return;
+    openAdminLessonEditor(openLessonBtn.dataset.adminOpenLesson, { scroll: true, focusTitle: true });
     return;
   }
   const lessonResetButton = event.target.closest("[data-admin-lesson-reset]");
