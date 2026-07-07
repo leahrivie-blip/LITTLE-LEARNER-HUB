@@ -10,7 +10,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "start": "node server/index.js",
+    "start": "node --max-old-space-size=300 server/index.js",
     "serve": "python3 -m http.server 4173",
     "server": "node server/index.js",
     "check": "node --check server/index.js && node --check app.js && node --check server/launch-check.js && node --check server/billing-check.js",

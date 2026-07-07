@@ -53,6 +53,7 @@ let databaseReady = false;
 let postgresPool = null;
 let postgresWriteChain = Promise.resolve();
 let firebaseCertCache = { expiresAt: 0, certs: {} };
+let clientAppScriptCache = null;
 
 const planConfig = {
   founding: {
@@ -568,6 +569,15 @@ function ensureStore() {
 
 function readStore() {
   if (usePostgresStore()) return structuredClone(storeCache || defaultStore());
+  ensureStore();
+  return JSON.parse(fs.readFileSync(storePath, "utf8"));
+}
+
+// Returns the store without deep-cloning. Safe for read-only handlers that never
+// mutate the returned object. For Postgres this avoids an expensive structuredClone
+// of potentially large store data (lesson plans, analytics, child records) on every request.
+function peekStore() {
+  if (usePostgresStore()) return storeCache || defaultStore();
   ensureStore();
   return JSON.parse(fs.readFileSync(storePath, "utf8"));
 }
@@ -2848,11 +2858,11 @@ function handleAdminAnalytics(request, response, url) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
-  jsonResponse(response, 200, { analytics: analyticsSummary(readStore()) });
+  jsonResponse(response, 200, { analytics: analyticsSummary(peekStore()) });
 }
 
 function handlePublicSiteContent(request, response) {
-  const store = readStore();
+  const store = peekStore();
   const content = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
   const publicLessonPlans = Object.fromEntries(
     Object.entries(content.lessonPlans).filter(([, plan]) => plan.visible === true)
@@ -2867,7 +2877,7 @@ function handleAdminSiteContent(request, response, url) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
-  const store = readStore();
+  const store = peekStore();
   jsonResponse(response, 200, { siteContent: normalizedSiteContent(store.siteContent || defaultSiteContentStore()) });
 }
 
@@ -3063,7 +3073,7 @@ async function handleSupportTicketUpdate(request, response) {
 function handleSupportTicketsList(request, response, url) {
   const email = normalizeEmail(url.searchParams.get("email"));
   const adminToken = url.searchParams.get("adminToken") || "";
-  const store = readStore();
+  const store = peekStore();
   const allTickets = store.supportTickets || [];
   const tickets = validAdminToken(adminToken)
     ? allTickets
@@ -3073,7 +3083,7 @@ function handleSupportTicketsList(request, response, url) {
 
 function handleStripeReadiness(request, response) {
   const status = stripeConfigStatus();
-  const store = readStore();
+  const store = peekStore();
   jsonResponse(response, 200, {
     stripe: status,
     founding: foundingStatusPayload(store),
@@ -3267,7 +3277,7 @@ function handleBillingReadiness(request, response) {
 }
 
 function handleHealth(request, response) {
-  const store = readStore();
+  const store = peekStore();
   jsonResponse(response, 200, {
     ok: true,
     service: "Little Learner Hub",
@@ -3280,7 +3290,7 @@ function handleHealth(request, response) {
 }
 
 function handleFoundingStatus(request, response) {
-  jsonResponse(response, 200, { founding: foundingStatusPayload(readStore()) });
+  jsonResponse(response, 200, { founding: foundingStatusPayload(peekStore()) });
 }
 
 function handleClientConfig(request, response) {
@@ -3322,6 +3332,7 @@ function clientRuntimeConfig() {
 }
 
 function clientAppScript(filePath) {
+  if (clientAppScriptCache !== null) return clientAppScriptCache;
   let source = fs.readFileSync(filePath, "utf8");
   const config = clientRuntimeConfig();
   source = source.replace(
@@ -3332,7 +3343,8 @@ function clientAppScript(filePath) {
     /const firebaseAuthConfig = \{\n  apiKey: ".*?",\n  authDomain: ".*?",\n  projectId: ".*?",\n  appId: ".*?",\n\};/,
     `const firebaseAuthConfig = ${JSON.stringify(config.firebase, null, 2)};`,
   );
-  return source;
+  clientAppScriptCache = source;
+  return clientAppScriptCache;
 }
 
 function serveStatic(request, response, url) {
