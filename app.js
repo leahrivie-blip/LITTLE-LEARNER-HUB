@@ -2449,25 +2449,33 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
   const body = document.querySelector("#proModalBody");
   const eyebrow = document.querySelector("#proModalEyebrow");
   const title = document.querySelector("#proModalTitle");
+  const upgradeBtn = document.querySelector("#proModalUpgrade");
   if (!modal || !body) {
     setView("plans");
     return;
   }
+  const um = effectiveSiteContent().upgradeMessaging || {};
+  const isDraft = um._draft === true;
+  const upgradePopupBody = (!isDraft && um.upgradePopupBody) ? um.upgradePopupBody : proTrialUpgradeMessage;
+  const proTrialBtnText = (!isDraft && um.proTrialButtonText) ? um.proTrialButtonText : "Start Your 7-Day Free Pro Trial";
   if (type === "limit") {
+    const limitHeadline = (!isDraft && um.upgradeLimitHeadline) ? um.upgradeLimitHeadline : "You've reached your Free Plan limit.";
     if (eyebrow) eyebrow.textContent = "Free Plan Limit Reached";
-    if (title) title.textContent = "You've reached your Free Plan limit.";
+    if (title) title.textContent = limitHeadline;
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
-      <p>${escapeHtml(proTrialUpgradeMessage)}</p>
+      <p>${escapeHtml(upgradePopupBody)}</p>
     `;
   } else {
+    const popupHeadline = (!isDraft && um.upgradePopupHeadline) ? um.upgradePopupHeadline : "This is a Pro Feature";
     if (eyebrow) eyebrow.textContent = "Pro Feature";
-    if (title) title.textContent = "This is a Pro Feature";
+    if (title) title.textContent = popupHeadline;
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
-      <p>${escapeHtml(proTrialUpgradeMessage)}</p>
+      <p>${escapeHtml(upgradePopupBody)}</p>
     `;
   }
+  if (upgradeBtn) upgradeBtn.textContent = proTrialBtnText;
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
 }
@@ -2908,6 +2916,9 @@ function rerenderActiveContent() {
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
   if (activeView && viewMap[activeView]) renderCategoryPage(activeView);
   if (activeView === "admin") renderAdminDashboard();
+  renderManagedPricingText();
+  renderManagedFaqContent();
+  renderManagedAnnouncementBanner();
 }
 
 async function loadSiteContentFromBackend() {
@@ -3020,7 +3031,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","activities","forms","printables","reviews","homepage","founder","images","analytics","support","ai-testing","visibility","users"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","activities","forms","printables","reviews","homepage","founder","images","analytics","support","ai-testing","visibility","users","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding"]);
 const lessonPlanResourceCategories = ["Coloring Pages", "Tracing Activities", "Counting Activities", "Matching Activities", "Crafts", "Teacher Resources", "Activity Photos", "General"];
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "dashboard";
 let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabRaw) ? adminActiveSectionTabRaw : "dashboard";
@@ -3032,6 +3043,7 @@ const adminGroups = [
   { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
   { id: "users",     icon: "👥", label: "Users",      tabs: ["users"], defaultTab: "users" },
   { id: "settings",  icon: "⚙️", label: "Settings",   tabs: ["homepage", "images"], defaultTab: "homepage" },
+  { id: "site-editor", icon: "✏️", label: "Site Editor", tabs: ["hero", "trust", "journey", "reviews-cta", "founding", "pricing", "faqs", "announcement", "upgrade-msg"], defaultTab: "hero" },
   { id: "ai",        icon: "🤖", label: "AI",         tabs: ["ai-testing"], defaultTab: "ai-testing" },
 ];
 const adminGroupForTab = {
@@ -3049,6 +3061,15 @@ const adminGroupForTab = {
   "users":       "users",
   "homepage":    "settings",
   "images":      "settings",
+  "pricing":     "site-editor",
+  "faqs":        "site-editor",
+  "announcement":"site-editor",
+  "upgrade-msg": "site-editor",
+  "hero":        "site-editor",
+  "trust":       "site-editor",
+  "journey":     "site-editor",
+  "reviews-cta": "site-editor",
+  "founding":    "site-editor",
   "ai-testing":  "ai",
 };
 const adminTabLabels = {
@@ -3066,6 +3087,15 @@ const adminTabLabels = {
   "users":       "Users",
   "homepage":    "Homepage",
   "images":      "Images",
+  "pricing":     "Pricing",
+  "faqs":        "FAQs",
+  "announcement":"Announcement",
+  "upgrade-msg": "Upgrade Msg",
+  "hero":        "Hero",
+  "trust":       "Trust & Showcase",
+  "journey":     "Journey & Why",
+  "reviews-cta": "Reviews & CTA",
+  "founding":    "Founding",
   "ai-testing":  "AI Testing",
 };
 let adminActiveGroup = adminGroupForTab[adminActiveSectionTab] || "dashboard";
@@ -3181,6 +3211,11 @@ function emptySiteContent() {
     reviews: [],
     founder: {},
     homepage: {},
+    pricing: {},
+    faqs: [],
+    announcement: {},
+    upgradeMessaging: {},
+    founding: {},
     images: [],
     updatedAt: "",
   };
@@ -3441,8 +3476,67 @@ function captureDefaultSiteContent() {
       finalCtaHeadline: document.querySelector(".lp-final-cta h2")?.textContent?.trim() || "",
       finalCtaText: document.querySelector(".lp-final-cta .lp-cta-body")?.textContent?.trim() || "",
       finalCtaButtonText: document.querySelector(".lp-final-cta .lp-btn-primary")?.textContent?.trim() || "",
+      finalCtaSubtext: document.querySelector(".lp-final-cta .lp-cta-subtext")?.textContent?.trim() || "",
+      heroBenefits: Array.from(document.querySelectorAll(".lp-hero-benefits li")).map((li) => li.textContent.trim()).filter(Boolean),
+      trustSectionHeading: document.querySelector(".lp-hero-testimonials .lp-section-title")?.textContent?.trim() || "",
+      showcaseSectionHeading: document.querySelector("#homePlatformPreview .lp-section-title")?.textContent?.trim() || "",
+      showcaseSectionSubtitle: document.querySelector("#homePlatformPreview .lp-section-sub")?.textContent?.trim() || "",
+      journeySectionHeading: document.querySelector(".lp-home-journey .lp-section-title")?.textContent?.trim() || "",
+      journeySectionSubtitle: document.querySelector(".lp-home-journey .lp-section-sub")?.textContent?.trim() || "",
+      journeyHowItWorksHeading: document.querySelector(".lp-journey-card[aria-label='How it works'] h3")?.textContent?.trim() || "",
+      journeyComingSoonHeading: document.querySelector(".lp-journey-card[aria-label='Coming soon features'] h3")?.textContent?.trim() || "",
+      whySectionHeading: document.querySelector(".lp-why-section .lp-section-title")?.textContent?.trim() || "",
+      whyItems: Array.from(document.querySelectorAll(".lp-why-item strong")).map((el, index) => ({ id: `why-${index + 1}`, title: el.textContent.trim() })).filter((item) => item.title),
+      reviewsSectionHeading: document.querySelector(".lp-reviews-section .lp-section-title")?.textContent?.trim() || "",
     },
     images: [],
+    pricing: {
+      sectionTitle: document.querySelector(".lp-pricing-section .lp-section-title")?.textContent?.trim() || "Simple, Transparent Pricing",
+      sectionSubtitle: document.querySelector(".lp-pricing-section .lp-section-sub")?.textContent?.trim() || "",
+      freePlanName: document.querySelector(".lp-free-card h3")?.textContent?.trim() || "Free",
+      freePlanDescription: "",
+      freePlanPrice: document.querySelector(".lp-free-card .lp-price-amount strong")?.textContent?.trim() || "$0",
+      freePlanPriceInterval: document.querySelector(".lp-free-card .lp-price-amount span")?.textContent?.trim() || "Forever",
+      freePlanCtaText: document.querySelector(".lp-free-card [data-plan='Free']")?.textContent?.trim() || "Start Free",
+      freePlanFeatures: Array.from(document.querySelectorAll(".lp-free-card .lp-price-features li")).map((li) => li.textContent.trim()).filter(Boolean),
+      proPlanName: document.querySelector(".lp-pro-card h3")?.textContent?.trim() || "Pro",
+      proPlanDescription: "",
+      proPlanPrice: document.querySelector(".lp-pro-card .lp-price-amount strong")?.textContent?.trim() || "$19.99",
+      proPlanPriceInterval: document.querySelector(".lp-pro-card .lp-price-amount span")?.textContent?.trim() || "/month",
+      proPlanFeatures: Array.from(document.querySelectorAll(".lp-pro-card .lp-price-features li")).map((li) => li.textContent.trim()).filter(Boolean),
+      proPlanHighlightBadge: document.querySelector(".lp-pro-highlight-badge")?.textContent?.trim() || "Most Popular",
+      trialButtonText: document.querySelector(".lp-pro-card [data-action='upgrade-trial']")?.textContent?.trim() || "Start Your 7-Day Free Pro Trial",
+      trialNoteText: document.querySelector(".lp-price-note")?.textContent?.trim() || "Credit card required. Cancel anytime. Full Pro access during the 7-day trial.",
+      creditCardText: "Credit card required.",
+      cancelText: "Cancel anytime.",
+      _draft: false,
+    },
+    faqs: Array.from(document.querySelectorAll("#defaultFaqList .faq-item")).map((el, index) => {
+      const question = el.querySelector("h3")?.textContent?.trim() || "";
+      const pEl = el.querySelector("p");
+      const ulEl = el.querySelector("ul");
+      const answer = pEl ? (pEl.textContent?.trim() || "") : ulEl ? Array.from(ulEl.querySelectorAll("li")).map((li) => li.textContent.trim()).join(", ") : "";
+      return { id: `faq-${index + 1}`, question, answer, visible: true, order: index + 1 };
+    }).filter((f) => f.question),
+    announcement: { text: "", visible: false, expiresAt: "", location: "top", _draft: false },
+    upgradeMessaging: {
+      upgradePopupHeadline: "This is a Pro Feature",
+      upgradeLimitHeadline: "You've reached your Free Plan limit.",
+      upgradePopupBody: "Start your 7-Day Free Pro Trial for full Pro access to every lesson plan, activity, form, printable, and premium workflow. Credit card required. Cancel anytime.",
+      proTrialButtonText: "Start Your 7-Day Free Pro Trial",
+      freeLimitMessage: "You have reached your Free Plan limit. Upgrade to Pro to unlock the full Little Learner Hub library.",
+      trialUpgradeSummary: "7-Day Free Pro Trial · Credit card required · Cancel anytime · Full Pro access during the trial.",
+      _draft: false,
+    },
+    founding: {
+      heading: "Founding Member Pricing",
+      soldOutHeading: "Founding Member spots are filled",
+      pricePrefix: "Get Pro for",
+      priceLifeLabel: "for life",
+      ctaButtonText: "Claim Founding Member Pricing",
+      soldOutCtaText: "Choose Pro Monthly",
+      _draft: false,
+    },
     updatedAt: "",
   };
 }
@@ -3477,9 +3571,21 @@ function effectiveSiteContent() {
       howItWorks: mergeContentCards(base.homepage?.howItWorks, overrides.homepage?.howItWorks),
       comingSoon: mergeContentCards(base.homepage?.comingSoon, overrides.homepage?.comingSoon),
       previewCards: mergeContentCards(base.homepage?.previewCards, overrides.homepage?.previewCards),
+      heroBenefits: Array.isArray(overrides.homepage?.heroBenefits) && overrides.homepage.heroBenefits.length ? overrides.homepage.heroBenefits : (base.homepage?.heroBenefits || []),
+      whyItems: Array.isArray(overrides.homepage?.whyItems) && overrides.homepage.whyItems.length ? overrides.homepage.whyItems : (base.homepage?.whyItems || []),
       heroImageUrl: sanitizedImageSource(overrides.homepage?.heroImageUrl || base.homepage?.heroImageUrl || ""),
     },
     images: Array.isArray(overrides.images) ? overrides.images : [],
+    pricing: {
+      ...(base.pricing || {}),
+      ...(overrides.pricing || {}),
+      freePlanFeatures: Array.isArray(overrides.pricing?.freePlanFeatures) && overrides.pricing.freePlanFeatures.length ? overrides.pricing.freePlanFeatures : (base.pricing?.freePlanFeatures || []),
+      proPlanFeatures: Array.isArray(overrides.pricing?.proPlanFeatures) && overrides.pricing.proPlanFeatures.length ? overrides.pricing.proPlanFeatures : (base.pricing?.proPlanFeatures || []),
+    },
+    faqs: Array.isArray(overrides.faqs) && overrides.faqs.length ? overrides.faqs : (base.faqs || []),
+    announcement: { ...(base.announcement || {}), ...(overrides.announcement || {}) },
+    upgradeMessaging: { ...(base.upgradeMessaging || {}), ...(overrides.upgradeMessaging || {}) },
+    founding: { ...(base.founding || {}), ...(overrides.founding || {}) },
     updatedAt: overrides.updatedAt || base.updatedAt || "",
   };
 }
@@ -8883,12 +8989,37 @@ function renderManagedHomeContent() {
   setText(".lp-social-proof p", homepage.socialProofText);
   setText(".lp-final-cta h2", homepage.finalCtaHeadline);
   setText(".lp-final-cta .lp-cta-body", homepage.finalCtaText);
+  setText(".lp-final-cta .lp-cta-subtext", homepage.finalCtaSubtext);
   const heroPrimary = document.querySelector(".lp-hero-actions .lp-btn-primary");
   if (heroPrimary && homepage.heroCtaText) heroPrimary.textContent = homepage.heroCtaText;
   const heroSecondary = document.querySelector(".lp-hero-actions .lp-btn-secondary");
   if (heroSecondary && homepage.heroSecondaryCtaText) heroSecondary.textContent = homepage.heroSecondaryCtaText;
   const finalButton = document.querySelector(".lp-final-cta .lp-btn-primary");
   if (finalButton && homepage.finalCtaButtonText) finalButton.textContent = homepage.finalCtaButtonText;
+
+  if (homepage.heroBenefits?.length) {
+    const heroBenefitsList = document.querySelector(".lp-hero-benefits");
+    if (heroBenefitsList) {
+      heroBenefitsList.innerHTML = homepage.heroBenefits.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+    }
+  }
+
+  setText(".lp-hero-testimonials .lp-section-title", homepage.trustSectionHeading);
+  setText("#homePlatformPreview .lp-section-title", homepage.showcaseSectionHeading);
+  setText("#homePlatformPreview .lp-section-sub", homepage.showcaseSectionSubtitle);
+  setText(".lp-home-journey .lp-section-title", homepage.journeySectionHeading);
+  setText(".lp-home-journey .lp-section-sub", homepage.journeySectionSubtitle);
+  setText(".lp-journey-card[aria-label='How it works'] h3", homepage.journeyHowItWorksHeading);
+  setText(".lp-journey-card[aria-label='Coming soon features'] h3", homepage.journeyComingSoonHeading);
+  setText(".lp-why-section .lp-section-title", homepage.whySectionHeading);
+  setText(".lp-reviews-section .lp-section-title", homepage.reviewsSectionHeading);
+
+  if (homepage.whyItems?.length) {
+    const whyTitles = document.querySelectorAll(".lp-why-item strong");
+    homepage.whyItems.forEach((item, index) => {
+      if (whyTitles[index] && item.title) whyTitles[index].textContent = item.title;
+    });
+  }
 
   document.querySelectorAll(".lp-proof-card").forEach((card, index) => {
     const item = homepage.featureCards?.[index];
@@ -8974,6 +9105,86 @@ function renderManagedHomeContent() {
         founderFallback.innerHTML = `<span aria-hidden="true">${escapeHtml(initialsFromName(founder.name || founder.title || "LL"))}</span>`;
       }
     }
+  }
+}
+
+function renderManagedPricingText() {
+  const content = effectiveSiteContent();
+  const pricing = content.pricing || {};
+  if (pricing._draft) return;
+  const setText = (selector, value) => {
+    const node = document.querySelector(selector);
+    if (node && value) node.textContent = value;
+  };
+  setText(".lp-pricing-section .lp-section-title", pricing.sectionTitle);
+  setText(".lp-pricing-section .lp-section-sub", pricing.sectionSubtitle);
+  setText(".lp-free-card h3", pricing.freePlanName);
+  setText(".lp-pro-card h3", pricing.proPlanName);
+  setText(".lp-pro-highlight-badge", pricing.proPlanHighlightBadge);
+  const trialBtn = document.querySelector(".lp-pro-card [data-action='upgrade-trial']");
+  if (trialBtn && pricing.trialButtonText) trialBtn.textContent = pricing.trialButtonText;
+  setText(".lp-price-note", pricing.trialNoteText);
+
+  const freePriceStrong = document.querySelector(".lp-free-card .lp-price-amount strong");
+  if (freePriceStrong && pricing.freePlanPrice) freePriceStrong.textContent = pricing.freePlanPrice;
+  const freePriceSpan = document.querySelector(".lp-free-card .lp-price-amount span");
+  if (freePriceSpan && pricing.freePlanPriceInterval) freePriceSpan.textContent = pricing.freePlanPriceInterval;
+  const freeCtaBtn = document.querySelector(".lp-free-card [data-plan='Free']");
+  if (freeCtaBtn && pricing.freePlanCtaText) freeCtaBtn.textContent = pricing.freePlanCtaText;
+
+  const proPriceStrong = document.querySelector(".lp-pro-card .lp-price-amount strong");
+  if (proPriceStrong && pricing.proPlanPrice) proPriceStrong.textContent = pricing.proPlanPrice;
+  const proPriceSpan = document.querySelector(".lp-pro-card .lp-price-amount span");
+  if (proPriceSpan && pricing.proPlanPriceInterval) proPriceSpan.textContent = pricing.proPlanPriceInterval;
+
+  if (pricing.freePlanFeatures?.length) {
+    const freeList = document.querySelector(".lp-free-card .lp-price-features");
+    if (freeList) freeList.innerHTML = pricing.freePlanFeatures.map((f) => `<li>${escapeHtml(f)}</li>`).join("");
+  }
+  if (pricing.proPlanFeatures?.length) {
+    const proList = document.querySelector(".lp-pro-card .lp-price-features");
+    if (proList) proList.innerHTML = pricing.proPlanFeatures.map((f) => `<li>${escapeHtml(f)}</li>`).join("");
+  }
+}
+
+function renderManagedFaqContent() {
+  const target = document.querySelector("#faqList");
+  if (!target) return;
+  const content = effectiveSiteContent();
+  const faqs = (content.faqs || [])
+    .filter((f) => f.visible !== false)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+  if (!faqs.length) {
+    // Fall back to static default content if no dynamic FAQs are saved
+    const defaultFaqs = document.querySelectorAll("#defaultFaqList .faq-item");
+    if (defaultFaqs.length) {
+      target.innerHTML = Array.from(defaultFaqs).map((el) => el.outerHTML).join("");
+    }
+    return;
+  }
+  target.innerHTML = faqs.map((f) => `
+    <article class="faq-item">
+      <h3>${escapeHtml(f.question)}</h3>
+      <p>${escapeHtml(f.answer)}</p>
+    </article>
+  `).join("");
+}
+
+function renderManagedAnnouncementBanner() {
+  const banner = document.querySelector("#siteAnnouncementBanner");
+  const textEl = document.querySelector("#siteAnnouncementText");
+  if (!banner || !textEl) return;
+  const content = effectiveSiteContent();
+  const ann = content.announcement || {};
+  const dismissed = sessionStorage.getItem("llhAnnouncementDismissed") === ann.text;
+  const isExpired = ann.expiresAt && new Date(ann.expiresAt) < new Date();
+  const shouldShow = ann.visible === true && !ann._draft && !dismissed && !isExpired && ann.text;
+  if (shouldShow) {
+    textEl.textContent = ann.text;
+    banner.hidden = false;
+  } else {
+    banner.hidden = true;
+    textEl.textContent = "";
   }
 }
 
@@ -9245,6 +9456,9 @@ function renderHome() {
     if (homeSection) homeSection.innerHTML = homeViewTemplate;
   }
   renderManagedHomeContent();
+  renderManagedPricingText();
+  renderManagedFaqContent();
+  renderManagedAnnouncementBanner();
   const stats = {
     total: resources.length,
     lessons: resources.filter((resource) => resource.category === "Lesson Plans").length,
@@ -18310,6 +18524,7 @@ function applyAdminSectionVisibility() {
     ".admin-ai-test-panel",
     ".admin-visibility-panel",
     ".admin-users-panel",
+    ".admin-site-editor-panel",
   ];
 
   topSelectors.forEach((sel) => {
@@ -18351,6 +18566,10 @@ function applyAdminSectionVisibility() {
     const el = document.querySelector(".admin-users-panel");
     if (el) el.hidden = false;
     renderAdminUsersDashboard();
+  } else if (tab === "pricing" || tab === "faqs" || tab === "announcement" || tab === "upgrade-msg" || tab === "hero" || tab === "trust" || tab === "journey" || tab === "reviews-cta" || tab === "founding") {
+    const el = document.querySelector(".admin-site-editor-panel");
+    if (el) el.hidden = false;
+    renderAdminSiteEditorSection(tab);
   }
 }
 
@@ -18607,6 +18826,827 @@ function renderAdminUsersDashboard() {
 }
 
 
+
+// ─── Admin 2.0 Site Editor ────────────────────────────────────────────────────
+
+function adminDraftStatusBadge(isDraft) {
+  return isDraft
+    ? `<span class="se-status-badge se-draft">🟡 Draft</span>`
+    : `<span class="se-status-badge se-live">🟢 Live</span>`;
+}
+
+function renderAdminSiteEditorSection(tab) {
+  [
+    { id: "adminHeroApp",        tabId: "hero" },
+    { id: "adminTrustApp",       tabId: "trust" },
+    { id: "adminJourneyApp",     tabId: "journey" },
+    { id: "adminReviewsCtaApp",  tabId: "reviews-cta" },
+    { id: "adminFoundingApp",    tabId: "founding" },
+    { id: "adminPricingApp",     tabId: "pricing" },
+    { id: "adminFaqsApp",        tabId: "faqs" },
+    { id: "adminAnnouncementApp",tabId: "announcement" },
+    { id: "adminUpgradeMsgApp",  tabId: "upgrade-msg" },
+  ].forEach(({ id, tabId }) => {
+    const el = document.querySelector(`#${id}`);
+    if (el) el.hidden = tabId !== tab;
+  });
+  if (tab === "hero")         renderAdminHeroSection();
+  if (tab === "trust")        renderAdminTrustSection();
+  if (tab === "journey")      renderAdminJourneySection();
+  if (tab === "reviews-cta")  renderAdminReviewsCtaSection();
+  if (tab === "founding")     renderAdminFoundingSection();
+  if (tab === "pricing")      renderAdminPricingSection();
+  if (tab === "faqs")         renderAdminFaqsSection();
+  if (tab === "announcement") renderAdminAnnouncementSection();
+  if (tab === "upgrade-msg")  renderAdminUpgradeMsgSection();
+}
+
+// ── Hero Section ──
+
+function renderAdminHeroSection() {
+  const target = document.querySelector("#adminHeroApp");
+  if (!target || !isAdminUnlocked()) return;
+  const homepage = (effectiveSiteContent().homepage || {});
+  const benefitsText = (homepage.heroBenefits || []).join("\n");
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>Hero Section <span class="se-status-badge se-live">🟢 Live</span></h3></div>
+    </div>
+    <form id="adminHeroForm" class="panel-form admin-stacked-form">
+      <details class="se-accordion" open>
+        <summary class="se-accordion-summary">Hero Text</summary>
+        <div class="se-accordion-body">
+          <label>Badge text<input name="heroBadge" value="${escapeHtml(homepage.heroBadge || "")}" placeholder="Built by a Childcare Provider &amp; Mama of 3" /></label>
+          <label>Headline<input name="heroHeadline" value="${escapeHtml(homepage.heroHeadline || "")}" placeholder="Stop Spending Your Evenings on Childcare Paperwork" /></label>
+          <label>Subheadline<textarea name="heroSubheadline" rows="3">${escapeHtml(homepage.heroSubheadline || "")}</textarea></label>
+          <label>Social proof text<input name="socialProofText" value="${escapeHtml(homepage.socialProofText || "")}" /></label>
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">Benefits Bullet List</summary>
+        <div class="se-accordion-body">
+          <label>Benefits (one per line)<textarea name="heroBenefits" rows="6" placeholder="✓ Never wonder which children still need observations&#10;✓ Keep goals and progress connected">${escapeHtml(benefitsText)}</textarea></label>
+          <p class="admin-generator-note">Each line becomes one bullet. Include the ✓ symbol if desired.</p>
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">CTA Buttons</summary>
+        <div class="se-accordion-body">
+          <div class="form-grid-two">
+            <label>Primary button text<input name="heroCtaText" value="${escapeHtml(homepage.heroCtaText || "")}" placeholder="Start Free Today" /></label>
+            <label>Secondary button text<input name="heroSecondaryCtaText" value="${escapeHtml(homepage.heroSecondaryCtaText || "")}" placeholder="See What's Included" /></label>
+          </div>
+        </div>
+      </details>
+      <div class="se-form-actions">
+        <div class="se-action-buttons">
+          <button class="ghost-button" type="button" data-se-restore="hero">Restore Defaults</button>
+          <button class="primary-button" type="submit">Save Hero Section</button>
+        </div>
+      </div>
+      <span class="form-message" id="adminHeroMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminHeroForm(form) {
+  const formData = new FormData(form);
+  const nextContent = nextSiteContentDraft();
+  const heroBenefits = normalizedMultilineText(formData.get("heroBenefits")).split("\n").map((s) => s.trim()).filter(Boolean);
+  nextContent.homepage = {
+    ...(nextContent.homepage || {}),
+    heroBadge: normalizedShortText(formData.get("heroBadge")),
+    heroHeadline: normalizedShortText(formData.get("heroHeadline")),
+    heroSubheadline: normalizedMultilineText(formData.get("heroSubheadline")),
+    socialProofText: normalizedMultilineText(formData.get("socialProofText")),
+    heroCtaText: normalizedShortText(formData.get("heroCtaText")),
+    heroSecondaryCtaText: normalizedShortText(formData.get("heroSecondaryCtaText")),
+    heroBenefits,
+  };
+  await saveAdminSiteContent(nextContent);
+  renderManagedHomeContent();
+  setFormMessage("#adminHeroMessage", "Hero section saved.", true);
+}
+
+// ── Trust & Showcase Section ──
+
+function renderAdminTrustSection() {
+  const target = document.querySelector("#adminTrustApp");
+  if (!target || !isAdminUnlocked()) return;
+  const homepage = (effectiveSiteContent().homepage || {});
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>Provider Trust &amp; Showcase Sections <span class="se-status-badge se-live">🟢 Live</span></h3></div>
+    </div>
+    <form id="adminTrustForm" class="panel-form admin-stacked-form">
+      <details class="se-accordion" open>
+        <summary class="se-accordion-summary">Provider Trust Section</summary>
+        <div class="se-accordion-body">
+          <label>Section heading<input name="trustSectionHeading" value="${escapeHtml(homepage.trustSectionHeading || "")}" placeholder="Trusted by Providers Who Want Their Evenings Back" /></label>
+          ${(homepage.featureCards || []).map((card, index) => `
+            <fieldset class="admin-fieldset">
+              <legend>Trust card ${index + 1}</legend>
+              <input type="hidden" name="featureCardId:${index}" value="${escapeHtml(card.id || `feature-${index + 1}`)}" />
+              <label>Title<input name="featureCardTitle:${index}" value="${escapeHtml(card.title || "")}" /></label>
+              <label>Description<textarea name="featureCardText:${index}" rows="2">${escapeHtml(card.text || "")}</textarea></label>
+            </fieldset>
+          `).join("")}
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">Feature Showcase Section</summary>
+        <div class="se-accordion-body">
+          <label>Section heading<input name="showcaseSectionHeading" value="${escapeHtml(homepage.showcaseSectionHeading || "")}" placeholder="What Can I Actually Do Inside Little Learner Hub?" /></label>
+          <label>Section subtitle<textarea name="showcaseSectionSubtitle" rows="2">${escapeHtml(homepage.showcaseSectionSubtitle || "")}</textarea></label>
+          ${(homepage.previewCards || []).map((card, index) => `
+            <fieldset class="admin-fieldset">
+              <legend>Showcase card ${index + 1}: ${escapeHtml(card.title || `Card ${index + 1}`)}</legend>
+              <input type="hidden" name="previewCardId:${index}" value="${escapeHtml(card.id || `preview-${index + 1}`)}" />
+              <label>Title<input name="previewCardTitle:${index}" value="${escapeHtml(card.title || "")}" /></label>
+              <label>Description<textarea name="previewCardText:${index}" rows="2">${escapeHtml(card.text || "")}</textarea></label>
+            </fieldset>
+          `).join("")}
+        </div>
+      </details>
+      <div class="se-form-actions">
+        <div class="se-action-buttons">
+          <button class="ghost-button" type="button" data-se-restore="trust">Restore Defaults</button>
+          <button class="primary-button" type="submit">Save Trust &amp; Showcase</button>
+        </div>
+      </div>
+      <span class="form-message" id="adminTrustMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminTrustForm(form) {
+  const formData = new FormData(form);
+  const nextContent = nextSiteContentDraft();
+  const existingHomepage = nextContent.homepage || {};
+  const featureCards = (existingHomepage.featureCards || []).map((card, index) => ({
+    ...card,
+    id: normalizedShortText(formData.get(`featureCardId:${index}`)) || card.id,
+    title: normalizedShortText(formData.get(`featureCardTitle:${index}`)),
+    text: normalizedMultilineText(formData.get(`featureCardText:${index}`)),
+  }));
+  const previewCards = (existingHomepage.previewCards || []).map((card, index) => ({
+    ...card,
+    id: normalizedShortText(formData.get(`previewCardId:${index}`)) || card.id,
+    title: normalizedShortText(formData.get(`previewCardTitle:${index}`)),
+    text: normalizedMultilineText(formData.get(`previewCardText:${index}`)),
+  }));
+  nextContent.homepage = {
+    ...existingHomepage,
+    trustSectionHeading: normalizedShortText(formData.get("trustSectionHeading")),
+    showcaseSectionHeading: normalizedShortText(formData.get("showcaseSectionHeading")),
+    showcaseSectionSubtitle: normalizedMultilineText(formData.get("showcaseSectionSubtitle")),
+    featureCards,
+    previewCards,
+  };
+  await saveAdminSiteContent(nextContent);
+  renderManagedHomeContent();
+  setFormMessage("#adminTrustMessage", "Trust & Showcase section saved.", true);
+}
+
+// ── Journey & Why Section ──
+
+function renderAdminJourneySection() {
+  const target = document.querySelector("#adminJourneyApp");
+  if (!target || !isAdminUnlocked()) return;
+  const homepage = (effectiveSiteContent().homepage || {});
+  const whyText = (homepage.whyItems || []).map((item) => item.title).join("\n");
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>Journey, How It Works &amp; Why Section <span class="se-status-badge se-live">🟢 Live</span></h3></div>
+    </div>
+    <form id="adminJourneyForm" class="panel-form admin-stacked-form">
+      <details class="se-accordion" open>
+        <summary class="se-accordion-summary">Simple to Start Section</summary>
+        <div class="se-accordion-body">
+          <label>Section heading<input name="journeySectionHeading" value="${escapeHtml(homepage.journeySectionHeading || "")}" placeholder="Simple to Start. More Helpful Every Week." /></label>
+          <label>Section subtitle<textarea name="journeySectionSubtitle" rows="2">${escapeHtml(homepage.journeySectionSubtitle || "")}</textarea></label>
+          <div class="form-grid-two">
+            <label>How It Works card heading<input name="journeyHowItWorksHeading" value="${escapeHtml(homepage.journeyHowItWorksHeading || "")}" placeholder="How It Works" /></label>
+            <label>Coming Soon card heading<input name="journeyComingSoonHeading" value="${escapeHtml(homepage.journeyComingSoonHeading || "")}" placeholder="Coming Soon" /></label>
+          </div>
+          ${(homepage.howItWorks || []).map((card, index) => `
+            <label>How It Works step ${index + 1}<input name="howTitle:${index}" value="${escapeHtml(card.title || "")}" /></label>
+          `).join("")}
+          ${(homepage.comingSoon || []).map((card, index) => `
+            <label>Coming Soon item ${index + 1}<input name="soonTitle:${index}" value="${escapeHtml(card.title || "")}" /></label>
+          `).join("")}
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">Why Providers Love It Section</summary>
+        <div class="se-accordion-body">
+          <label>Section heading<input name="whySectionHeading" value="${escapeHtml(homepage.whySectionHeading || "")}" placeholder="Why Childcare Providers Love Little Learner Hub" /></label>
+          <label>Why items (one per line)<textarea name="whyItems" rows="6" placeholder="Never wonder which children still need observations&#10;Keep goals and progress connected">${escapeHtml(whyText)}</textarea></label>
+          <p class="admin-generator-note">Each line becomes one item in the Why section grid.</p>
+        </div>
+      </details>
+      <div class="se-form-actions">
+        <div class="se-action-buttons">
+          <button class="ghost-button" type="button" data-se-restore="journey">Restore Defaults</button>
+          <button class="primary-button" type="submit">Save Journey &amp; Why</button>
+        </div>
+      </div>
+      <span class="form-message" id="adminJourneyMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminJourneyForm(form) {
+  const formData = new FormData(form);
+  const nextContent = nextSiteContentDraft();
+  const existingHomepage = nextContent.homepage || {};
+  const whyItems = normalizedMultilineText(formData.get("whyItems")).split("\n").map((s, i) => ({ id: `why-${i + 1}`, title: s.trim() })).filter((item) => item.title);
+  const howItWorks = (existingHomepage.howItWorks || []).map((card, index) => ({
+    ...card,
+    title: normalizedShortText(formData.get(`howTitle:${index}`)),
+  }));
+  const comingSoon = (existingHomepage.comingSoon || []).map((card, index) => ({
+    ...card,
+    title: normalizedShortText(formData.get(`soonTitle:${index}`)),
+  }));
+  nextContent.homepage = {
+    ...existingHomepage,
+    journeySectionHeading: normalizedShortText(formData.get("journeySectionHeading")),
+    journeySectionSubtitle: normalizedMultilineText(formData.get("journeySectionSubtitle")),
+    journeyHowItWorksHeading: normalizedShortText(formData.get("journeyHowItWorksHeading")),
+    journeyComingSoonHeading: normalizedShortText(formData.get("journeyComingSoonHeading")),
+    whySectionHeading: normalizedShortText(formData.get("whySectionHeading")),
+    whyItems,
+    howItWorks,
+    comingSoon,
+  };
+  await saveAdminSiteContent(nextContent);
+  renderManagedHomeContent();
+  setFormMessage("#adminJourneyMessage", "Journey & Why section saved.", true);
+}
+
+// ── Reviews & Final CTA Section ──
+
+function renderAdminReviewsCtaSection() {
+  const target = document.querySelector("#adminReviewsCtaApp");
+  if (!target || !isAdminUnlocked()) return;
+  const homepage = (effectiveSiteContent().homepage || {});
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>Reviews &amp; Final CTA Sections <span class="se-status-badge se-live">🟢 Live</span></h3></div>
+    </div>
+    <form id="adminReviewsCtaForm" class="panel-form admin-stacked-form">
+      <details class="se-accordion" open>
+        <summary class="se-accordion-summary">Reviews Section</summary>
+        <div class="se-accordion-body">
+          <label>Section heading<input name="reviewsSectionHeading" value="${escapeHtml(homepage.reviewsSectionHeading || "")}" placeholder="Real Providers. Real Feedback." /></label>
+          <p class="admin-generator-note">To add or edit individual reviews, use the Reviews tab in the Content group.</p>
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">Final CTA Section</summary>
+        <div class="se-accordion-body">
+          <label>Headline<input name="finalCtaHeadline" value="${escapeHtml(homepage.finalCtaHeadline || "")}" placeholder="Ready to Stop Doing Childcare Paperwork Alone at Night?" /></label>
+          <label>Body text<textarea name="finalCtaText" rows="3">${escapeHtml(homepage.finalCtaText || "")}</textarea></label>
+          <div class="form-grid-two">
+            <label>Button text<input name="finalCtaButtonText" value="${escapeHtml(homepage.finalCtaButtonText || "")}" placeholder="Start Free Today" /></label>
+            <label>Subtext below button<input name="finalCtaSubtext" value="${escapeHtml(homepage.finalCtaSubtext || "")}" placeholder="Upgrade anytime to start a 7-Day Free Pro Trial with full Pro access." /></label>
+          </div>
+        </div>
+      </details>
+      <div class="se-form-actions">
+        <div class="se-action-buttons">
+          <button class="ghost-button" type="button" data-se-restore="reviews-cta">Restore Defaults</button>
+          <button class="primary-button" type="submit">Save Reviews &amp; CTA</button>
+        </div>
+      </div>
+      <span class="form-message" id="adminReviewsCtaMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminReviewsCtaForm(form) {
+  const formData = new FormData(form);
+  const nextContent = nextSiteContentDraft();
+  nextContent.homepage = {
+    ...(nextContent.homepage || {}),
+    reviewsSectionHeading: normalizedShortText(formData.get("reviewsSectionHeading")),
+    finalCtaHeadline: normalizedShortText(formData.get("finalCtaHeadline")),
+    finalCtaText: normalizedMultilineText(formData.get("finalCtaText")),
+    finalCtaButtonText: normalizedShortText(formData.get("finalCtaButtonText")),
+    finalCtaSubtext: normalizedShortText(formData.get("finalCtaSubtext")),
+  };
+  await saveAdminSiteContent(nextContent);
+  renderManagedHomeContent();
+  setFormMessage("#adminReviewsCtaMessage", "Reviews & CTA section saved.", true);
+}
+
+// ── Founding Member Section ──
+
+function renderAdminFoundingSection() {
+  const target = document.querySelector("#adminFoundingApp");
+  if (!target || !isAdminUnlocked()) return;
+  const f = (effectiveSiteContent().founding || {});
+  const isDraft = f._draft === true;
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>Founding Member Section ${adminDraftStatusBadge(isDraft)}</h3></div>
+    </div>
+    <form id="adminFoundingForm" class="panel-form admin-stacked-form">
+      <details class="se-accordion" open>
+        <summary class="se-accordion-summary">When Spots Are Available</summary>
+        <div class="se-accordion-body">
+          <label>Section heading<input name="heading" value="${escapeHtml(f.heading || "")}" placeholder="Founding Member Pricing" /></label>
+          <div class="form-grid-two">
+            <label>Price prefix text<input name="pricePrefix" value="${escapeHtml(f.pricePrefix || "")}" placeholder="Get Pro for" /></label>
+            <label>&ldquo;for life&rdquo; label<input name="priceLifeLabel" value="${escapeHtml(f.priceLifeLabel || "")}" placeholder="for life" /></label>
+          </div>
+          <label>CTA button text<input name="ctaButtonText" value="${escapeHtml(f.ctaButtonText || "")}" placeholder="Claim Founding Member Pricing" /></label>
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">When Spots Are Sold Out</summary>
+        <div class="se-accordion-body">
+          <label>Sold-out heading<input name="soldOutHeading" value="${escapeHtml(f.soldOutHeading || "")}" placeholder="Founding Member spots are filled" /></label>
+          <label>Sold-out CTA button text<input name="soldOutCtaText" value="${escapeHtml(f.soldOutCtaText || "")}" placeholder="Choose Pro Monthly" /></label>
+        </div>
+      </details>
+      <div class="se-form-actions">
+        <label class="se-draft-toggle"><input type="checkbox" name="_draft"${isDraft ? " checked" : ""} /> Save as Draft (hides the founding offer on the homepage)</label>
+        <div class="se-action-buttons">
+          <button class="ghost-button" type="button" data-se-restore="founding">Restore Defaults</button>
+          <button class="primary-button" type="submit">Save Founding Section</button>
+        </div>
+      </div>
+      <span class="form-message" id="adminFoundingMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminFoundingForm(form) {
+  const formData = new FormData(form);
+  const nextContent = nextSiteContentDraft();
+  nextContent.founding = {
+    heading: normalizedShortText(formData.get("heading")),
+    soldOutHeading: normalizedShortText(formData.get("soldOutHeading")),
+    pricePrefix: normalizedShortText(formData.get("pricePrefix")),
+    priceLifeLabel: normalizedShortText(formData.get("priceLifeLabel")),
+    ctaButtonText: normalizedShortText(formData.get("ctaButtonText")),
+    soldOutCtaText: normalizedShortText(formData.get("soldOutCtaText")),
+    _draft: formData.get("_draft") === "on",
+  };
+  await saveAdminSiteContent(nextContent);
+  renderHomeFoundingOffer();
+  setFormMessage("#adminFoundingMessage", formData.get("_draft") === "on" ? "Founding section saved as draft (hidden from homepage)." : "Founding section saved.", true);
+}
+
+// ── Pricing ──
+
+function renderAdminPricingSection() {
+  const target = document.querySelector("#adminPricingApp");
+  if (!target || !isAdminUnlocked()) return;
+  const content = effectiveSiteContent();
+  const pricing = content.pricing || {};
+  const isDraft = pricing._draft === true;
+  const freeFeaturesText = (pricing.freePlanFeatures || []).join("\n");
+  const proFeaturesText = (pricing.proPlanFeatures || []).join("\n");
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>Pricing Section ${adminDraftStatusBadge(isDraft)}</h3></div>
+    </div>
+    <form id="adminPricingForm" class="panel-form admin-stacked-form">
+      <details class="se-accordion" open>
+        <summary class="se-accordion-summary">Section Header</summary>
+        <div class="se-accordion-body">
+          <label>Section title<input name="sectionTitle" value="${escapeHtml(pricing.sectionTitle || "")}" placeholder="Simple, Transparent Pricing" /></label>
+          <label>Section subtitle<textarea name="sectionSubtitle" rows="2">${escapeHtml(pricing.sectionSubtitle || "")}</textarea></label>
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">Free Plan Card</summary>
+        <div class="se-accordion-body">
+          <div class="form-grid-two">
+            <label>Plan name<input name="freePlanName" value="${escapeHtml(pricing.freePlanName || "")}" placeholder="Free" /></label>
+            <label>CTA button text<input name="freePlanCtaText" value="${escapeHtml(pricing.freePlanCtaText || "")}" placeholder="Start Free" /></label>
+          </div>
+          <div class="form-grid-two">
+            <label>Price<input name="freePlanPrice" value="${escapeHtml(pricing.freePlanPrice || "")}" placeholder="$0" /></label>
+            <label>Price interval<input name="freePlanPriceInterval" value="${escapeHtml(pricing.freePlanPriceInterval || "")}" placeholder="Forever" /></label>
+          </div>
+          <label>Plan description<textarea name="freePlanDescription" rows="2">${escapeHtml(pricing.freePlanDescription || "")}</textarea></label>
+          <label>Feature list (one per line — include ✓ if desired)<textarea name="freePlanFeatures" rows="10" placeholder="✓ 3 Child Profiles&#10;✓ 10 Observations Per Month">${escapeHtml(freeFeaturesText)}</textarea></label>
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">Pro Plan Card</summary>
+        <div class="se-accordion-body">
+          <div class="form-grid-two">
+            <label>Plan name<input name="proPlanName" value="${escapeHtml(pricing.proPlanName || "")}" placeholder="Pro" /></label>
+            <label>Highlight badge<input name="proPlanHighlightBadge" value="${escapeHtml(pricing.proPlanHighlightBadge || "")}" placeholder="Most Popular" /></label>
+          </div>
+          <div class="form-grid-two">
+            <label>Price<input name="proPlanPrice" value="${escapeHtml(pricing.proPlanPrice || "")}" placeholder="$19.99" /></label>
+            <label>Price interval<input name="proPlanPriceInterval" value="${escapeHtml(pricing.proPlanPriceInterval || "")}" placeholder="/month" /></label>
+          </div>
+          <label>Plan description<textarea name="proPlanDescription" rows="2">${escapeHtml(pricing.proPlanDescription || "")}</textarea></label>
+          <label>Feature list (one per line — include ✓ if desired)<textarea name="proPlanFeatures" rows="10" placeholder="✓ Unlimited Child Profiles&#10;✓ Unlimited Observations">${escapeHtml(proFeaturesText)}</textarea></label>
+          <label>Trial button text<input name="trialButtonText" value="${escapeHtml(pricing.trialButtonText || "")}" placeholder="Start Your 7-Day Free Pro Trial" /></label>
+          <label>Trial note (below button)<textarea name="trialNoteText" rows="2">${escapeHtml(pricing.trialNoteText || "")}</textarea></label>
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">Fine Print</summary>
+        <div class="se-accordion-body">
+          <label>Credit card required text<input name="creditCardText" value="${escapeHtml(pricing.creditCardText || "")}" /></label>
+          <label>Cancel anytime text<input name="cancelText" value="${escapeHtml(pricing.cancelText || "")}" /></label>
+        </div>
+      </details>
+      <div class="se-form-actions">
+        <label class="se-draft-toggle"><input type="checkbox" name="_draft"${isDraft ? " checked" : ""} /> Save as Draft (not shown on live site)</label>
+        <div class="se-action-buttons">
+          <button class="ghost-button" type="button" data-se-restore="pricing">Restore Defaults</button>
+          <button class="primary-button" type="submit">Save Pricing</button>
+        </div>
+      </div>
+      <span class="form-message" id="adminPricingMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminPricingForm(form) {
+  const formData = new FormData(form);
+  const nextContent = nextSiteContentDraft();
+  const freePlanFeatures = normalizedMultilineText(formData.get("freePlanFeatures")).split("\n").map((s) => s.trim()).filter(Boolean);
+  const proPlanFeatures = normalizedMultilineText(formData.get("proPlanFeatures")).split("\n").map((s) => s.trim()).filter(Boolean);
+  nextContent.pricing = {
+    ...(nextContent.pricing || {}),
+    sectionTitle:          normalizedShortText(formData.get("sectionTitle")),
+    sectionSubtitle:       normalizedMultilineText(formData.get("sectionSubtitle")),
+    freePlanName:          normalizedShortText(formData.get("freePlanName")),
+    freePlanDescription:   normalizedMultilineText(formData.get("freePlanDescription")),
+    freePlanPrice:         normalizedShortText(formData.get("freePlanPrice")),
+    freePlanPriceInterval: normalizedShortText(formData.get("freePlanPriceInterval")),
+    freePlanCtaText:       normalizedShortText(formData.get("freePlanCtaText")),
+    freePlanFeatures,
+    proPlanName:           normalizedShortText(formData.get("proPlanName")),
+    proPlanDescription:    normalizedMultilineText(formData.get("proPlanDescription")),
+    proPlanPrice:          normalizedShortText(formData.get("proPlanPrice")),
+    proPlanPriceInterval:  normalizedShortText(formData.get("proPlanPriceInterval")),
+    proPlanFeatures,
+    proPlanHighlightBadge: normalizedShortText(formData.get("proPlanHighlightBadge")),
+    trialButtonText:       normalizedShortText(formData.get("trialButtonText")),
+    trialNoteText:         normalizedMultilineText(formData.get("trialNoteText")),
+    creditCardText:        normalizedShortText(formData.get("creditCardText")),
+    cancelText:            normalizedShortText(formData.get("cancelText")),
+    _draft:                formData.get("_draft") === "on",
+  };
+  await saveAdminSiteContent(nextContent);
+  renderManagedPricingText();
+  setFormMessage("#adminPricingMessage", formData.get("_draft") === "on" ? "Pricing saved as draft." : "Pricing saved and live.", true);
+}
+
+// ── FAQs ──
+
+let adminFaqEditId = "";
+
+function renderAdminFaqsSection() {
+  const target = document.querySelector("#adminFaqsApp");
+  if (!target || !isAdminUnlocked()) return;
+  const content = effectiveSiteContent();
+  const faqs = (content.faqs || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+  const editFaq = faqs.find((f) => f.id === adminFaqEditId) || null;
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>FAQ Manager</h3></div>
+      <button class="ghost-button" type="button" id="adminNewFaqButton">+ Add FAQ</button>
+    </div>
+    <div class="admin-mobile-list" id="adminFaqList">
+      ${faqs.length ? faqs.map((f, index) => `
+        <div class="admin-se-card${f.visible === false ? " se-hidden" : ""}${f.id === adminFaqEditId ? " active" : ""}" data-faq-id="${escapeHtml(f.id)}">
+          <div class="admin-se-card-main">
+            <div class="admin-se-card-title">${escapeHtml(f.question || "(no question)")}</div>
+            <div class="admin-se-card-meta">
+              ${f.visible !== false ? `<span class="tag green-tag">Visible</span>` : `<span class="tag">Hidden</span>`}
+              Order: ${f.order || index + 1}
+            </div>
+          </div>
+          <div class="admin-se-card-actions">
+            <button class="ghost-button xs-button" type="button" data-faq-edit="${escapeHtml(f.id)}">Edit</button>
+            <button class="ghost-button xs-button" type="button" data-faq-toggle="${escapeHtml(f.id)}">${f.visible !== false ? "Hide" : "Show"}</button>
+            <button class="ghost-button xs-button" type="button" data-faq-up="${escapeHtml(f.id)}"${index === 0 ? " disabled" : ""}>↑</button>
+            <button class="ghost-button xs-button" type="button" data-faq-down="${escapeHtml(f.id)}"${index === faqs.length - 1 ? " disabled" : ""}>↓</button>
+            <button class="ghost-button xs-button danger-button" type="button" data-faq-delete="${escapeHtml(f.id)}">Delete</button>
+          </div>
+        </div>
+      `).join("") : `<div class="empty-state">No FAQs yet. Click + Add FAQ to create the first one.</div>`}
+    </div>
+    <form id="adminFaqForm" class="panel-form admin-stacked-form" style="margin-top:18px">
+      <h4 style="margin:0 0 10px">${editFaq ? "Edit FAQ" : "New FAQ"}</h4>
+      <input type="hidden" name="id" value="${editFaq ? escapeHtml(editFaq.id) : ""}" />
+      <label>Question<input name="question" value="${escapeHtml(editFaq?.question || "")}" required /></label>
+      <label>Answer<textarea name="answer" rows="4" required>${escapeHtml(editFaq?.answer || "")}</textarea></label>
+      <div class="form-actions">
+        <button class="primary-button" type="submit">${editFaq ? "Update FAQ" : "Add FAQ"}</button>
+        ${editFaq ? `<button class="ghost-button" type="button" id="adminFaqCancelEdit">Cancel</button>` : ""}
+      </div>
+      <span class="form-message" id="adminFaqMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminFaqForm(form) {
+  const formData = new FormData(form);
+  const nextContent = nextSiteContentDraft();
+  const existing = Array.isArray(nextContent.faqs) ? nextContent.faqs : [];
+  const id = normalizedShortText(formData.get("id")) || `faq-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const question = normalizedShortText(formData.get("question"));
+  const answer = normalizedMultilineText(formData.get("answer"));
+  if (!question || !answer) {
+    setFormMessage("#adminFaqMessage", "Question and answer are required.", false);
+    return;
+  }
+  const isEdit = !!normalizedShortText(formData.get("id"));
+  if (isEdit) {
+    nextContent.faqs = existing.map((f) => f.id === id ? { ...f, question, answer } : f);
+  } else {
+    const maxOrder = existing.reduce((m, f) => Math.max(m, f.order || 0), 0);
+    nextContent.faqs = [...existing, { id, question, answer, visible: true, order: maxOrder + 1 }];
+  }
+  await saveAdminSiteContent(nextContent);
+  adminFaqEditId = "";
+  setFormMessage("#adminFaqMessage", isEdit ? "FAQ updated." : "FAQ added.", true);
+  renderAdminFaqsSection();
+  renderManagedFaqContent();
+}
+
+async function toggleAdminFaq(id) {
+  const nextContent = nextSiteContentDraft();
+  nextContent.faqs = (nextContent.faqs || []).map((f) => f.id === id ? { ...f, visible: f.visible === false } : f);
+  await saveAdminSiteContent(nextContent);
+  renderAdminFaqsSection();
+  renderManagedFaqContent();
+}
+
+async function deleteAdminFaq(id) {
+  if (!confirm("Delete this FAQ? This cannot be undone.")) return;
+  const nextContent = nextSiteContentDraft();
+  nextContent.faqs = (nextContent.faqs || []).filter((f) => f.id !== id);
+  await saveAdminSiteContent(nextContent);
+  if (adminFaqEditId === id) adminFaqEditId = "";
+  renderAdminFaqsSection();
+  renderManagedFaqContent();
+}
+
+async function moveFaq(id, direction) {
+  const nextContent = nextSiteContentDraft();
+  const faqs = (nextContent.faqs || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+  const idx = faqs.findIndex((f) => f.id === id);
+  if (idx < 0) return;
+  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= faqs.length) return;
+  const tempOrder = faqs[idx].order;
+  faqs[idx] = { ...faqs[idx], order: faqs[swapIdx].order };
+  faqs[swapIdx] = { ...faqs[swapIdx], order: tempOrder };
+  nextContent.faqs = faqs;
+  await saveAdminSiteContent(nextContent);
+  renderAdminFaqsSection();
+  renderManagedFaqContent();
+}
+
+// ── Announcement ──
+
+function renderAdminAnnouncementSection() {
+  const target = document.querySelector("#adminAnnouncementApp");
+  if (!target || !isAdminUnlocked()) return;
+  const content = effectiveSiteContent();
+  const ann = content.announcement || {};
+  const isDraft = ann._draft === true;
+  const isVisible = ann.visible === true;
+  const isExpired = ann.expiresAt && new Date(ann.expiresAt) < new Date();
+  let statusLabel = adminDraftStatusBadge(isDraft);
+  if (!isDraft && isVisible) statusLabel = isExpired ? `<span class="se-status-badge se-draft">⏰ Expired</span>` : `<span class="se-status-badge se-live">🟢 Showing</span>`;
+  if (!isDraft && !isVisible) statusLabel = `<span class="se-status-badge">⭕ Hidden</span>`;
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>Site Announcement ${statusLabel}</h3></div>
+    </div>
+    <form id="adminAnnouncementForm" class="panel-form admin-stacked-form">
+      <label>Announcement text
+        <textarea name="text" rows="3" placeholder="e.g. 🎉 New lesson plans added! Check them out.">${escapeHtml(ann.text || "")}</textarea>
+      </label>
+      <div class="form-grid-two">
+        <label>
+          <input type="checkbox" name="visible"${isVisible ? " checked" : ""} /> Show announcement on site
+        </label>
+        <label>Expires (optional)<input type="date" name="expiresAt" value="${escapeHtml(ann.expiresAt ? ann.expiresAt.slice(0, 10) : "")}" /></label>
+      </div>
+      <label>Display location
+        <select name="location">
+          <option value="top"${(ann.location || "top") === "top" ? " selected" : ""}>Top of every page</option>
+          <option value="homepage"${ann.location === "homepage" ? " selected" : ""}>Homepage only</option>
+          <option value="all"${ann.location === "all" ? " selected" : ""}>All pages (sticky)</option>
+        </select>
+      </label>
+      <div class="se-form-actions">
+        <label class="se-draft-toggle"><input type="checkbox" name="_draft"${isDraft ? " checked" : ""} /> Save as Draft</label>
+        <div class="se-action-buttons">
+          <button class="ghost-button" type="button" data-se-restore="announcement">Clear</button>
+          <button class="primary-button" type="submit">Save Announcement</button>
+        </div>
+      </div>
+      <span class="form-message" id="adminAnnouncementMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminAnnouncementForm(form) {
+  const formData = new FormData(form);
+  const nextContent = nextSiteContentDraft();
+  nextContent.announcement = {
+    text:      normalizedMultilineText(formData.get("text")),
+    visible:   formData.get("visible") === "on",
+    expiresAt: normalizedShortText(formData.get("expiresAt")),
+    location:  normalizedShortText(formData.get("location")) || "top",
+    _draft:    formData.get("_draft") === "on",
+  };
+  await saveAdminSiteContent(nextContent);
+  renderManagedAnnouncementBanner();
+  const ann = nextContent.announcement;
+  const msg = ann._draft ? "Announcement saved as draft." : ann.visible ? "Announcement saved and live." : "Announcement saved (hidden).";
+  setFormMessage("#adminAnnouncementMessage", msg, true);
+}
+
+// ── Upgrade Messaging ──
+
+function renderAdminUpgradeMsgSection() {
+  const target = document.querySelector("#adminUpgradeMsgApp");
+  if (!target || !isAdminUnlocked()) return;
+  const content = effectiveSiteContent();
+  const um = content.upgradeMessaging || {};
+  const isDraft = um._draft === true;
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>Upgrade &amp; Trial Messaging ${adminDraftStatusBadge(isDraft)}</h3></div>
+    </div>
+    <form id="adminUpgradeMsgForm" class="panel-form admin-stacked-form">
+      <details class="se-accordion" open>
+        <summary class="se-accordion-summary">Pro Feature Popup</summary>
+        <div class="se-accordion-body">
+          <label>Popup headline<input name="upgradePopupHeadline" value="${escapeHtml(um.upgradePopupHeadline || "")}" placeholder="This is a Pro Feature" /></label>
+          <label>Free-limit headline<input name="upgradeLimitHeadline" value="${escapeHtml(um.upgradeLimitHeadline || "")}" placeholder="You've reached your Free Plan limit." /></label>
+          <label>Popup body text<textarea name="upgradePopupBody" rows="3">${escapeHtml(um.upgradePopupBody || "")}</textarea></label>
+          <label>Trial button text<input name="proTrialButtonText" value="${escapeHtml(um.proTrialButtonText || "")}" placeholder="Start Your 7-Day Free Pro Trial" /></label>
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">Free Plan &amp; Trial Wording</summary>
+        <div class="se-accordion-body">
+          <label>Free plan limit message<textarea name="freeLimitMessage" rows="2">${escapeHtml(um.freeLimitMessage || "")}</textarea></label>
+          <label>Trial summary line (shown under upgrade options)<textarea name="trialUpgradeSummary" rows="2">${escapeHtml(um.trialUpgradeSummary || "")}</textarea></label>
+        </div>
+      </details>
+      <div class="se-form-actions">
+        <label class="se-draft-toggle"><input type="checkbox" name="_draft"${isDraft ? " checked" : ""} /> Save as Draft (not applied to live site)</label>
+        <div class="se-action-buttons">
+          <button class="ghost-button" type="button" data-se-restore="upgrade-msg">Restore Defaults</button>
+          <button class="primary-button" type="submit">Save Messaging</button>
+        </div>
+      </div>
+      <span class="form-message" id="adminUpgradeMsgMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminUpgradeMsgForm(form) {
+  const formData = new FormData(form);
+  const nextContent = nextSiteContentDraft();
+  nextContent.upgradeMessaging = {
+    upgradePopupHeadline: normalizedShortText(formData.get("upgradePopupHeadline")),
+    upgradeLimitHeadline: normalizedShortText(formData.get("upgradeLimitHeadline")),
+    upgradePopupBody:     normalizedMultilineText(formData.get("upgradePopupBody")),
+    proTrialButtonText:   normalizedShortText(formData.get("proTrialButtonText")),
+    freeLimitMessage:     normalizedMultilineText(formData.get("freeLimitMessage")),
+    trialUpgradeSummary:  normalizedMultilineText(formData.get("trialUpgradeSummary")),
+    _draft:               formData.get("_draft") === "on",
+  };
+  await saveAdminSiteContent(nextContent);
+  setFormMessage("#adminUpgradeMsgMessage", formData.get("_draft") === "on" ? "Upgrade messaging saved as draft." : "Upgrade messaging saved and live.", true);
+}
+
+// ── Site Editor restore-defaults handlers ──
+
+function siteEditorDefaultPricing() {
+  const def = captureDefaultSiteContent();
+  return def.pricing || {};
+}
+function siteEditorDefaultUpgradeMsg() {
+  const def = captureDefaultSiteContent();
+  return def.upgradeMessaging || {};
+}
+function siteEditorDefaultHomepage() {
+  const def = captureDefaultSiteContent();
+  return def.homepage || {};
+}
+function siteEditorDefaultFounding() {
+  const def = captureDefaultSiteContent();
+  return def.founding || {};
+}
+
+async function handleSiteEditorRestore(section) {
+  if (section === "hero") {
+    if (!confirm("Restore hero section to original site defaults?")) return;
+    const def = siteEditorDefaultHomepage();
+    const nextContent = nextSiteContentDraft();
+    nextContent.homepage = {
+      ...(nextContent.homepage || {}),
+      heroBadge: def.heroBadge,
+      heroHeadline: def.heroHeadline,
+      heroSubheadline: def.heroSubheadline,
+      socialProofText: def.socialProofText,
+      heroCtaText: def.heroCtaText,
+      heroSecondaryCtaText: def.heroSecondaryCtaText,
+      heroBenefits: def.heroBenefits,
+    };
+    await saveAdminSiteContent(nextContent);
+    renderManagedHomeContent();
+    renderAdminHeroSection();
+  } else if (section === "trust") {
+    if (!confirm("Restore trust & showcase sections to original site defaults?")) return;
+    const def = siteEditorDefaultHomepage();
+    const nextContent = nextSiteContentDraft();
+    nextContent.homepage = {
+      ...(nextContent.homepage || {}),
+      trustSectionHeading: def.trustSectionHeading,
+      featureCards: def.featureCards,
+      showcaseSectionHeading: def.showcaseSectionHeading,
+      showcaseSectionSubtitle: def.showcaseSectionSubtitle,
+      previewCards: def.previewCards,
+    };
+    await saveAdminSiteContent(nextContent);
+    renderManagedHomeContent();
+    renderAdminTrustSection();
+  } else if (section === "journey") {
+    if (!confirm("Restore journey & why sections to original site defaults?")) return;
+    const def = siteEditorDefaultHomepage();
+    const nextContent = nextSiteContentDraft();
+    nextContent.homepage = {
+      ...(nextContent.homepage || {}),
+      journeySectionHeading: def.journeySectionHeading,
+      journeySectionSubtitle: def.journeySectionSubtitle,
+      journeyHowItWorksHeading: def.journeyHowItWorksHeading,
+      journeyComingSoonHeading: def.journeyComingSoonHeading,
+      howItWorks: def.howItWorks,
+      comingSoon: def.comingSoon,
+      whySectionHeading: def.whySectionHeading,
+      whyItems: def.whyItems,
+    };
+    await saveAdminSiteContent(nextContent);
+    renderManagedHomeContent();
+    renderAdminJourneySection();
+  } else if (section === "reviews-cta") {
+    if (!confirm("Restore reviews & CTA sections to original site defaults?")) return;
+    const def = siteEditorDefaultHomepage();
+    const nextContent = nextSiteContentDraft();
+    nextContent.homepage = {
+      ...(nextContent.homepage || {}),
+      reviewsSectionHeading: def.reviewsSectionHeading,
+      finalCtaHeadline: def.finalCtaHeadline,
+      finalCtaText: def.finalCtaText,
+      finalCtaButtonText: def.finalCtaButtonText,
+      finalCtaSubtext: def.finalCtaSubtext,
+    };
+    await saveAdminSiteContent(nextContent);
+    renderManagedHomeContent();
+    renderAdminReviewsCtaSection();
+  } else if (section === "founding") {
+    if (!confirm("Restore founding member section to defaults?")) return;
+    const nextContent = nextSiteContentDraft();
+    nextContent.founding = siteEditorDefaultFounding();
+    await saveAdminSiteContent(nextContent);
+    renderHomeFoundingOffer();
+    renderAdminFoundingSection();
+  } else if (section === "pricing") {
+    if (!confirm("Restore all pricing text to the original site defaults?")) return;
+    const nextContent = nextSiteContentDraft();
+    nextContent.pricing = siteEditorDefaultPricing();
+    await saveAdminSiteContent(nextContent);
+    renderManagedPricingText();
+    renderAdminPricingSection();
+  } else if (section === "announcement") {
+    if (!confirm("Clear the announcement?")) return;
+    const nextContent = nextSiteContentDraft();
+    nextContent.announcement = { text: "", visible: false, expiresAt: "", location: "top", _draft: false };
+    await saveAdminSiteContent(nextContent);
+    renderManagedAnnouncementBanner();
+    renderAdminAnnouncementSection();
+  } else if (section === "upgrade-msg") {
+    if (!confirm("Restore upgrade messaging to defaults?")) return;
+    const nextContent = nextSiteContentDraft();
+    nextContent.upgradeMessaging = siteEditorDefaultUpgradeMsg();
+    await saveAdminSiteContent(nextContent);
+    renderAdminUpgradeMsgSection();
+  }
+}
 
 const structuredImportSectionMap = {
   TITLE: "title",
@@ -21305,16 +22345,22 @@ function renderHomeFoundingOffer() {
   const claimed = foundingSpotsClaimed();
   const limit = Number(foundingStatusCache.limit || foundingMemberLimit);
   const soldOut = remaining <= 0;
+  const f = (effectiveSiteContent().founding || {});
+  if (f._draft) return;
+  const heading = soldOut ? (f.soldOutHeading || "Founding Member spots are filled") : (f.heading || "Founding Member Pricing");
+  const pricePrefix = f.pricePrefix || "Get Pro for";
+  const priceLifeLabel = soldOut ? "regular price" : (f.priceLifeLabel || "for life");
+  const ctaButtonText = soldOut ? (f.soldOutCtaText || "Choose Pro Monthly") : (f.ctaButtonText || "Claim Founding Member Pricing");
   target.innerHTML = `
     <div class="founding-hero-card ${soldOut ? "founding-sold-out" : ""}">
-      <h2>${soldOut ? "Founding Member spots are filled" : "Founding Member Pricing"}</h2>
+      <h2>${escapeHtml(heading)}</h2>
       <div class="founding-price-row">
-        <span class="founding-price-prefix">Get Pro for</span>
+        <span class="founding-price-prefix">${escapeHtml(pricePrefix)}</span>
         <strong>${soldOut ? "$19.99" : "$9.99"}</strong>
-        <em>/month <span>${soldOut ? "regular price" : "for life"}</span></em>
+        <em>/month <span>${escapeHtml(priceLifeLabel)}</span></em>
       </div>
       <p class="founding-remaining">${soldOut ? "Founding pricing is closed" : `Only <strong>${remaining}</strong> Spots Remaining`}</p>
-      <button class="primary-button founding-cta-button" data-checkout-plan="${soldOut ? "monthly" : "founding"}" type="button">${soldOut ? "Choose Pro Monthly" : "Claim Founding Member Pricing"}</button>
+      <button class="primary-button founding-cta-button" data-checkout-plan="${soldOut ? "monthly" : "founding"}" type="button">${escapeHtml(ctaButtonText)}</button>
       <div class="founding-live-meter" aria-label="${claimed} of ${limit} founding spots claimed">
         <span><i style="width: ${foundingProgressPercent()}%"></i></span>
         <small>${soldOut ? "All founding spots are claimed" : `${claimed} of ${limit} Spots Claimed`}</small>
@@ -24813,6 +25859,52 @@ document.addEventListener("submit", async (event) => {
     await handleAddLessonResource(event.target);
     return;
   }
+  // Site Editor forms
+  if (event.target.matches("#adminHeroForm")) {
+    event.preventDefault();
+    await saveAdminHeroForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminTrustForm")) {
+    event.preventDefault();
+    await saveAdminTrustForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminJourneyForm")) {
+    event.preventDefault();
+    await saveAdminJourneyForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminReviewsCtaForm")) {
+    event.preventDefault();
+    await saveAdminReviewsCtaForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminFoundingForm")) {
+    event.preventDefault();
+    await saveAdminFoundingForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminPricingForm")) {
+    event.preventDefault();
+    await saveAdminPricingForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminFaqForm")) {
+    event.preventDefault();
+    await saveAdminFaqForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminAnnouncementForm")) {
+    event.preventDefault();
+    await saveAdminAnnouncementForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminUpgradeMsgForm")) {
+    event.preventDefault();
+    await saveAdminUpgradeMsgForm(event.target);
+    return;
+  }
 });
 
 document.addEventListener("change", (event) => {
@@ -25147,6 +26239,61 @@ document.addEventListener("click", async (event) => {
   if (managedPreviewButton) {
     const [, id] = (managedPreviewButton.dataset.adminManagedPreview || "").split(":");
     if (id) openResourceViewer(id);
+    return;
+  }
+
+  // ── Site Editor – FAQ management ──
+  if (event.target.matches("#adminNewFaqButton")) {
+    adminFaqEditId = "";
+    renderAdminFaqsSection();
+    return;
+  }
+  if (event.target.matches("#adminFaqCancelEdit")) {
+    adminFaqEditId = "";
+    renderAdminFaqsSection();
+    return;
+  }
+  const faqEditBtn = event.target.closest("[data-faq-edit]");
+  if (faqEditBtn) {
+    adminFaqEditId = faqEditBtn.dataset.faqEdit;
+    renderAdminFaqsSection();
+    return;
+  }
+  const faqToggleBtn = event.target.closest("[data-faq-toggle]");
+  if (faqToggleBtn) {
+    await toggleAdminFaq(faqToggleBtn.dataset.faqToggle);
+    return;
+  }
+  const faqDeleteBtn = event.target.closest("[data-faq-delete]");
+  if (faqDeleteBtn) {
+    await deleteAdminFaq(faqDeleteBtn.dataset.faqDelete);
+    return;
+  }
+  const faqUpBtn = event.target.closest("[data-faq-up]");
+  if (faqUpBtn) {
+    await moveFaq(faqUpBtn.dataset.faqUp, "up");
+    return;
+  }
+  const faqDownBtn = event.target.closest("[data-faq-down]");
+  if (faqDownBtn) {
+    await moveFaq(faqDownBtn.dataset.faqDown, "down");
+    return;
+  }
+
+  // ── Site Editor – restore defaults ──
+  const seRestoreBtn = event.target.closest("[data-se-restore]");
+  if (seRestoreBtn) {
+    await handleSiteEditorRestore(seRestoreBtn.dataset.seRestore);
+    return;
+  }
+
+  // ── Announcement banner dismiss ──
+  if (event.target.matches("#siteAnnouncementClose")) {
+    const banner = document.querySelector("#siteAnnouncementBanner");
+    const textEl = document.querySelector("#siteAnnouncementText");
+    if (banner) banner.hidden = true;
+    const text = textEl?.textContent || "";
+    if (text) sessionStorage.setItem("llhAnnouncementDismissed", text);
     return;
   }
 });

@@ -191,6 +191,12 @@
           </div>
         </header>
 
+        <!-- SITE-WIDE ANNOUNCEMENT BANNER -->
+        <div id="siteAnnouncementBanner" class="site-announcement-banner" hidden role="alert" aria-live="polite">
+          <span id="siteAnnouncementText"></span>
+          <button class="site-announcement-close" id="siteAnnouncementClose" type="button" aria-label="Dismiss announcement">✕</button>
+        </div>
+
         <section id="view-home" class="view active-view landing-home">
 
           <!-- HERO SECTION -->
@@ -820,6 +826,17 @@
           <section class="section-block admin-users-panel" hidden>
             <div id="adminUsersApp"></div>
           </section>
+          <section class="section-block admin-site-editor-panel" hidden>
+            <div id="adminHeroApp"></div>
+            <div id="adminTrustApp"></div>
+            <div id="adminJourneyApp"></div>
+            <div id="adminReviewsCtaApp"></div>
+            <div id="adminFoundingApp"></div>
+            <div id="adminPricingApp"></div>
+            <div id="adminFaqsApp"></div>
+            <div id="adminAnnouncementApp"></div>
+            <div id="adminUpgradeMsgApp"></div>
+          </section>
           </div>
         </section>
 
@@ -1274,7 +1291,11 @@
             <h2>Little Learner Hub FAQ</h2>
             <p>Quick answers for home daycare and childcare providers using the platform.</p>
           </div>
-          <section class="section-block faq-list">
+          <section class="section-block faq-list" id="faqList">
+            <!-- FAQs rendered dynamically from site content; default FAQs are below as fallback -->
+          </section>
+          <!-- Default FAQ content (hidden; used as baseline for site content capture) -->
+          <section id="defaultFaqList" hidden aria-hidden="true">
             <article class="faq-item"><h3>What is Little Learner Hub?</h3><p>Little Learner Hub helps childcare providers organize observations, lesson plans, child goals, forms, incident reports, and paperwork in one place so documentation takes minutes instead of hours.</p></article>
             <article class="faq-item"><h3>Is there a free plan?</h3><p>Yes. Little Learner Hub offers a Free Plan that allows providers to explore the platform and access a limited amount of content before upgrading.</p></article>
             <article class="faq-item"><h3>What is included in the Free Plan?</h3><ul><li>3 Child Profiles</li><li>10 Observations Per Month</li><li>5 Lesson Plans</li><li>8 Activity Ideas</li><li>6 Forms</li><li>6 Printables</li><li>10 AI Generations</li><li>No Credit Card Required</li></ul></article>
