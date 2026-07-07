@@ -18082,6 +18082,7 @@ function renderAdminManagedCollection(type) {
   const config = adminManagedContentConfig[type];
   const target = document.querySelector(config.appId);
   if (!target || !isAdminUnlocked()) return;
+  const filterState = adminManagedFilterState(type);
   const allItems = adminManagedItems(type);
   const filtered = filteredAdminManagedItems(type);
   const editorId = adminManagedEditorId(type);
@@ -18096,15 +18097,23 @@ function renderAdminManagedCollection(type) {
       <button class="ghost-button" type="button" data-admin-managed-new="${type}">+ Create ${config.singular}</button>
     </div>
     <div class="admin-mobile-toolbar">
-      <label><span>Search</span><input id="admin${key}Search" type="search" placeholder="${escapeHtml(config.searchPlaceholder)}" value="${escapeHtml(document.querySelector(`#admin${key}Search`)?.value || "")}" /></label>
-      <label><span>${config.primaryLabel}</span><select id="admin${key}Primary">${primaryOptions.map((value) => `<option value="${escapeHtml(value)}"${(document.querySelector(`#admin${key}Primary`)?.value || "all") === value ? " selected" : ""}>${escapeHtml(value === "all" ? "All" : value)}</option>`).join("")}</select></label>
-      <label><span>Status</span><select id="admin${key}Status">${[["all","All"],["visible","Visible"],["hidden","Hidden"],["archived","Archived"]].map(([value, label]) => `<option value="${value}"${(document.querySelector(`#admin${key}Status`)?.value || "all") === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
-      <label><span>Access</span><select id="admin${key}Access">${[["all","All"],["free","Free"],["pro","Pro"]].map(([value, label]) => `<option value="${value}"${(document.querySelector(`#admin${key}Access`)?.value || "all") === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
+      <label><span>Search</span><input id="admin${key}Search" type="search" placeholder="${escapeHtml(config.searchPlaceholder)}" /></label>
+      <label><span>${config.primaryLabel}</span><select id="admin${key}Primary">${primaryOptions.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value === "all" ? "All" : value)}</option>`).join("")}</select></label>
+      <label><span>Status</span><select id="admin${key}Status">${[["all","All"],["visible","Visible"],["hidden","Hidden"],["archived","Archived"]].map(([value, label]) => `<option value="${value}">${escapeHtml(label)}</option>`).join("")}</select></label>
+      <label><span>Access</span><select id="admin${key}Access">${[["all","All"],["free","Free"],["pro","Pro"]].map(([value, label]) => `<option value="${value}">${escapeHtml(label)}</option>`).join("")}</select></label>
     </div>
     ${adminManagedStatsHtml(type)}
     <div class="admin-mobile-list">${filtered.length ? filtered.map((item) => adminManagedCardHtml(type, item)).join("") : `<div class="empty-state">No ${config.plural.toLowerCase()} match these filters.</div>`}</div>
     ${adminManagedFormHtml(type, editorItem || { visible: false, plan: "Free", age: "All Ages", [config.primaryField]: config.primaryOptions()[0] || "General" })}
   `;
+  const searchField = target.querySelector(`#admin${key}Search`);
+  const primaryField = target.querySelector(`#admin${key}Primary`);
+  const statusField = target.querySelector(`#admin${key}Status`);
+  const accessField = target.querySelector(`#admin${key}Access`);
+  if (searchField) searchField.value = filterState.search || "";
+  if (primaryField) primaryField.value = filterState.primary || "all";
+  if (statusField) statusField.value = filterState.status || "all";
+  if (accessField) accessField.value = filterState.access || "all";
 }
 
 function renderAdminActivitiesManager() {
