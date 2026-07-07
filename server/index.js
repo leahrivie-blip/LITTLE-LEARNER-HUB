@@ -302,7 +302,10 @@ function defaultStore() {
 function defaultSiteContentStore() {
   return {
     lessonPlans: {},
+    customLessonPlans: [],
     activities: [],
+    forms: [],
+    printables: [],
     reviews: [],
     founder: {},
     homepage: {},
@@ -399,6 +402,7 @@ function normalizedLessonPlanOverride(id, value) {
     reflectionNotes: normalizedMultilineText(entry.reflectionNotes, 4000),
     plan: normalizedShortText(entry.plan, 20),
     visible: entry.visible === true,
+    archived: entry.archived === true,
     thumbnailUrl: sanitizedImageSource(entry.thumbnailUrl),
     updatedAt: normalizedShortText(entry.updatedAt, 80),
     titleThemeImporterUpdated: entry.titleThemeImporterUpdated === true,
@@ -437,13 +441,65 @@ function normalizedActivityEntry(value) {
     title: normalizedShortText(entry.title, 200),
     age: normalizedShortText(entry.age, 40),
     activityCategory: normalizedShortText(entry.activityCategory, 80),
+    theme: normalizedShortText(entry.theme, 120),
     description: normalizedMultilineText(entry.description, 2000),
     tags: tagsInput.map((t) => normalizedShortText(t, 80)).filter(Boolean).slice(0, 20),
     plan: normalizedShortText(entry.plan, 20),
+    format: normalizedShortText(entry.format, 80),
+    fileData: sanitizedResourceUrl(entry.fileData),
+    previewData: sanitizedImageSource(entry.previewData),
+    customContent: normalizedMultilineText(entry.customContent, 20000),
     printableUrl: sanitizedImageSource(entry.printableUrl),
     thumbnailUrl: sanitizedImageSource(entry.thumbnailUrl),
     visible: entry.visible === true,
+    archived: entry.archived === true,
     updatedAt: normalizedShortText(entry.updatedAt, 80),
+  };
+}
+
+function normalizedLibraryItemEntry(value, defaultCategory) {
+  const entry = value && typeof value === "object" ? value : {};
+  const id = normalizedShortText(entry.id, 160);
+  if (!id) return null;
+  const tagsInput = Array.isArray(entry.tags) ? entry.tags : [];
+  return {
+    id,
+    title: normalizedShortText(entry.title, 200),
+    category: normalizedShortText(entry.category, 80) || defaultCategory,
+    age: normalizedShortText(entry.age, 40),
+    plan: normalizedShortText(entry.plan, 20),
+    description: normalizedMultilineText(entry.description, 2000),
+    theme: normalizedShortText(entry.theme, 120),
+    formCategory: normalizedShortText(entry.formCategory, 120),
+    printableType: normalizedShortText(entry.printableType, 120),
+    tags: tagsInput.map((t) => normalizedShortText(t, 80)).filter(Boolean).slice(0, 20),
+    format: normalizedShortText(entry.format, 80),
+    fileName: normalizedShortText(entry.fileName, 180),
+    fileData: sanitizedResourceUrl(entry.fileData),
+    previewName: normalizedShortText(entry.previewName, 180),
+    previewData: sanitizedImageSource(entry.previewData),
+    customContent: normalizedMultilineText(entry.customContent, 20000),
+    visible: entry.visible === true,
+    archived: entry.archived === true,
+    updatedAt: normalizedShortText(entry.updatedAt, 80),
+  };
+}
+
+function normalizedCustomLessonPlanEntry(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const normalized = normalizedLessonPlanOverride(entry.id, entry);
+  if (!normalized.id) return null;
+  const tagsInput = Array.isArray(entry.tags) ? entry.tags : [];
+  return {
+    ...normalized,
+    sourceId: normalizedShortText(entry.sourceId, 160),
+    month: normalizedShortText(entry.month, 40),
+    holiday: normalizedShortText(entry.holiday, 40),
+    developmentalArea: normalizedShortText(entry.developmentalArea, 120),
+    activityFocus: normalizedShortText(entry.activityFocus, 120),
+    description: normalizedMultilineText(entry.description, 2000),
+    tags: tagsInput.map((t) => normalizedShortText(t, 80)).filter(Boolean).slice(0, 20),
+    archived: entry.archived === true,
   };
 }
 
@@ -472,7 +528,10 @@ function normalizedSiteContent(value) {
   );
   return {
     lessonPlans,
+    customLessonPlans: normalizedList(input.customLessonPlans, 500, normalizedCustomLessonPlanEntry),
     activities: normalizedList(input.activities, 500, normalizedActivityEntry),
+    forms: normalizedList(input.forms, 500, (item) => normalizedLibraryItemEntry(item, "Forms Library")),
+    printables: normalizedList(input.printables, 500, (item) => normalizedLibraryItemEntry(item, "Printables")),
     reviews: normalizedList(input.reviews, 100, normalizedReviewEntry),
     founder: {
       name: normalizedShortText(input.founder?.name, 120),
@@ -2883,10 +2942,22 @@ function handlePublicSiteContent(request, response) {
   const store = readStore();
   const content = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
   const publicLessonPlans = Object.fromEntries(
-    Object.entries(content.lessonPlans).filter(([, plan]) => plan.visible === true)
+    Object.entries(content.lessonPlans).filter(([, plan]) => plan.visible === true && plan.archived !== true)
   );
-  const publicActivities = (content.activities || []).filter((a) => a.visible === true);
-  jsonResponse(response, 200, { siteContent: { ...content, lessonPlans: publicLessonPlans, activities: publicActivities } });
+  const publicCustomLessonPlans = (content.customLessonPlans || []).filter((item) => item.visible === true && item.archived !== true);
+  const publicActivities = (content.activities || []).filter((a) => a.visible === true && a.archived !== true);
+  const publicForms = (content.forms || []).filter((item) => item.visible === true && item.archived !== true);
+  const publicPrintables = (content.printables || []).filter((item) => item.visible === true && item.archived !== true);
+  jsonResponse(response, 200, {
+    siteContent: {
+      ...content,
+      lessonPlans: publicLessonPlans,
+      customLessonPlans: publicCustomLessonPlans,
+      activities: publicActivities,
+      forms: publicForms,
+      printables: publicPrintables,
+    },
+  });
 }
 
 function handleAdminSiteContent(request, response, url) {

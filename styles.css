@@ -2510,6 +2510,11 @@ body.home-view .topbar .search-wrap {
   border-color: rgba(0,0,0,.08);
 }
 
+.admin-vis-card.is-archived {
+  opacity: 0.76;
+  background: linear-gradient(180deg, rgba(245, 240, 235, 0.98), rgba(236, 233, 240, 0.92));
+}
+
 .admin-vis-card-main {
   display: flex;
   justify-content: space-between;
@@ -2527,6 +2532,7 @@ body.home-view .topbar .search-wrap {
 .admin-vis-actions {
   display: flex;
   gap: 6px;
+  flex-wrap: wrap;
   flex-shrink: 0;
 }
 
@@ -2630,7 +2636,7 @@ body.home-view .topbar .search-wrap {
 }
 
 .admin-mobile-toolbar {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-bottom: 14px;
 }
 
@@ -2659,8 +2665,24 @@ body.home-view .topbar .search-wrap {
   background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,248,250,0.92));
 }
 
+.admin-content-card {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,248,250,0.92));
+}
+
 .admin-mobile-card.is-hidden {
   opacity: 0.82;
+}
+
+.admin-content-card.is-hidden {
+  opacity: 0.82;
+}
+
+.admin-content-card.is-archived {
+  opacity: 0.76;
+  background: linear-gradient(180deg, rgba(245, 240, 235, 0.98), rgba(236, 233, 240, 0.92));
 }
 
 .admin-mobile-card-body {
@@ -2668,6 +2690,28 @@ body.home-view .topbar .search-wrap {
   grid-template-columns: 72px minmax(0, 1fr);
   gap: 12px;
   align-items: start;
+}
+
+.admin-content-card-body {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.admin-content-card-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-content-card-copy p,
+.admin-content-card-copy small {
+  margin: 0;
+}
+
+.admin-content-card-actions {
+  margin-top: 12px;
 }
 
 .admin-mobile-thumb,
@@ -2734,6 +2778,31 @@ body.home-view .topbar .search-wrap {
 .admin-lesson-editing-heading {
   margin: 2px 0 4px;
   color: #5b4a9e;
+}
+
+.admin-visibility-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.admin-visibility-summary-card {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--white);
+}
+
+.admin-visibility-summary-card strong,
+.admin-visibility-summary-card span {
+  margin: 0;
+}
+
+.admin-visibility-bulk-actions {
+  margin: 14px 0 16px;
 }
 
 #adminLessonPlanForm textarea {
@@ -7968,6 +8037,10 @@ body.home-view .topbar .search-wrap {
 
   #adminLessonPlanForm .form-actions button {
     width: 100%;
+  }
+
+  .admin-vis-card-main {
+    flex-direction: column;
   }
 
   .provider-needs-grid article {

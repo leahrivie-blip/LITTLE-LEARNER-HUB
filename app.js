@@ -862,6 +862,7 @@ function isLessonPlanTemporarilyHidden(resource) {
 
 function isResourceVisibleToCurrentUser(resource) {
   if (!resource) return false;
+  if (resource.archived === true && !hasAdminFullAccess()) return false;
   if (resource.visible === false && !hasAdminFullAccess()) return false;
   if (resource.category === "Printables" && isPrintablesUpgradeModeActive()) return false;
   if (isLessonPlanTemporarilyHidden(resource)) return false;
@@ -3019,7 +3020,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","activities","reviews","homepage","founder","images","analytics","support","ai-testing","visibility","users"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","activities","forms","printables","reviews","homepage","founder","images","analytics","support","ai-testing","visibility","users"]);
 const lessonPlanResourceCategories = ["Coloring Pages", "Tracing Activities", "Counting Activities", "Matching Activities", "Crafts", "Teacher Resources", "Activity Photos", "General"];
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "dashboard";
 let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabRaw) ? adminActiveSectionTabRaw : "dashboard";
@@ -3027,7 +3028,7 @@ let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabRaw) 
 // ─── Admin 2.0 Navigation Groups ─────────────────────────────────────────────
 const adminGroups = [
   { id: "dashboard", icon: "🏠", label: "Dashboard",  tabs: ["dashboard", "analytics", "support"], defaultTab: "dashboard" },
-  { id: "content",   icon: "📚", label: "Content",    tabs: ["lesson-plans", "activities", "reviews", "founder", "resources"], defaultTab: "lesson-plans" },
+  { id: "content",   icon: "📚", label: "Content",    tabs: ["lesson-plans", "activities", "forms", "printables", "reviews", "founder", "resources"], defaultTab: "lesson-plans" },
   { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
   { id: "users",     icon: "👥", label: "Users",      tabs: ["users"], defaultTab: "users" },
   { id: "settings",  icon: "⚙️", label: "Settings",   tabs: ["homepage", "images"], defaultTab: "homepage" },
@@ -3039,6 +3040,8 @@ const adminGroupForTab = {
   "support":     "dashboard",
   "lesson-plans":"content",
   "activities":  "content",
+  "forms":       "content",
+  "printables":  "content",
   "reviews":     "content",
   "founder":     "content",
   "resources":   "content",
@@ -3054,6 +3057,8 @@ const adminTabLabels = {
   "support":     "Support",
   "lesson-plans":"Lesson Plans",
   "activities":  "Activities",
+  "forms":       "Forms",
+  "printables":  "Printables",
   "reviews":     "Reviews",
   "founder":     "Founder",
   "resources":   "Uploads",
@@ -3169,7 +3174,10 @@ function installMobileNavigation() {
 function emptySiteContent() {
   return {
     lessonPlans: {},
+    customLessonPlans: [],
     activities: [],
+    forms: [],
+    printables: [],
     reviews: [],
     founder: {},
     homepage: {},
@@ -3446,7 +3454,10 @@ function effectiveSiteContent() {
     ...base,
     ...overrides,
     lessonPlans: { ...(base.lessonPlans || {}), ...(overrides.lessonPlans || {}) },
+    customLessonPlans: Array.isArray(overrides.customLessonPlans) ? overrides.customLessonPlans : [],
     activities: Array.isArray(overrides.activities) ? overrides.activities : [],
+    forms: Array.isArray(overrides.forms) ? overrides.forms : [],
+    printables: Array.isArray(overrides.printables) ? overrides.printables : [],
     reviews: (overrides.reviews?.length ? overrides.reviews : base.reviews || []).map((item) => ({
       ...item,
       imageUrl: sanitizedImageSource(item.imageUrl || ""),
@@ -3556,6 +3567,7 @@ function applyLessonPlanOverrides(items, includeHidden = false) {
   return items.flatMap((resource) => {
     if (resource.category !== "Lesson Plans") return [resource];
     const override = lessonPlanOverrideFor(resource.id);
+    if (override?.archived === true && !includeHidden) return [];
     const merged = override ? {
       ...resource,
       title: override.title || resource.title,
@@ -3566,23 +3578,25 @@ function applyLessonPlanOverrides(items, includeHidden = false) {
       plan: override.plan || resource.plan,
       previewData: override.thumbnailUrl || resource.previewData || "",
       lessonPlanOverride: override,
+      archived: override.archived === true,
     } : resource;
-    if (!includeHidden && override?.visible !== true) return [];
+    if (!includeHidden && (override?.visible !== true || override?.archived === true)) return [];
     return [merged];
   });
 }
 
 function allLessonPlansForAdmin() {
-  return applyLessonPlanOverrides(libraryResources.filter((resource) => resource.category === "Lesson Plans"), true)
+  const basePlans = applyLessonPlanOverrides(libraryResources.filter((resource) => resource.category === "Lesson Plans"), true)
     .map((resource) => {
       const defaults = lessonPlanDefaults(resource);
       const override = lessonPlanOverrideFor(resource.id) || {};
       const manuallyVisible = override.visible === true;
       const temporaryHiddenReason = manuallyVisible ? lessonPlanTemporaryHiddenReason({ ...resource, ...override }) : "";
+      const archived = override.archived === true;
       const hiddenReason = !manuallyVisible
         ? (override?.visible === false ? "Manually hidden by admin" : "Not yet published")
         : temporaryHiddenReason;
-      const hiddenForUsers = !manuallyVisible;
+      const hiddenForUsers = archived || !manuallyVisible;
       return {
         ...defaults,
         ...override,
@@ -3593,12 +3607,66 @@ function allLessonPlansForAdmin() {
         plan: override.plan || resource.plan,
         visible: manuallyVisible,
         userVisible: !hiddenForUsers,
+        archived,
+        isCustom: false,
         hiddenReason,
         thumbnailUrl: override.thumbnailUrl || resource.previewData || "",
         resources: Array.isArray(override.resources) ? override.resources : [],
         resource,
       };
     });
+  const customPlans = (effectiveSiteContent().customLessonPlans || []).map((item) => {
+    const archived = item.archived === true;
+    const visible = item.visible === true && !archived;
+    const resource = {
+      id: item.id,
+      category: "Lesson Plans",
+      title: item.title || "Untitled Lesson Plan",
+      age: item.age || "Infant",
+      plan: item.plan || "Free",
+      month: item.month || "",
+      holiday: item.holiday || "",
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      theme: item.theme || "",
+      description: item.description || item.weeklyOverview || "",
+      weeklyOverview: item.weeklyOverview || "",
+      materials: item.materials || "",
+      developmentalArea: item.developmentalArea || item.tags?.find((tag) => learningAreas.includes(tag)) || "Approaches to Learning",
+      activityFocus: item.activityFocus || item.tags?.[0] || "",
+      previewData: item.thumbnailUrl || "",
+      lessonPlanOverride: item,
+      customContent: buildLessonPlanTextFromOverride({
+        id: item.id,
+        title: item.title || "Untitled Lesson Plan",
+        category: "Lesson Plans",
+        month: item.month || "",
+        age: item.age || "Infant",
+        holiday: item.holiday || "",
+        theme: item.theme || "",
+        tags: Array.isArray(item.tags) ? item.tags : [],
+        developmentalArea: item.developmentalArea || "Approaches to Learning",
+        activityFocus: item.activityFocus || "",
+      }, item),
+    };
+    return {
+      ...lessonPlanDefaults(resource),
+      ...item,
+      id: item.id,
+      title: item.title || "Untitled Lesson Plan",
+      age: item.age || "Infant",
+      theme: item.theme || "",
+      plan: item.plan || "Free",
+      visible,
+      userVisible: visible,
+      archived,
+      isCustom: true,
+      hiddenReason: archived ? "Archived by admin" : (visible ? "" : "Hidden by admin"),
+      thumbnailUrl: item.thumbnailUrl || "",
+      resources: Array.isArray(item.resources) ? item.resources : [],
+      resource,
+    };
+  });
+  return [...customPlans, ...basePlans];
 }
 
 function loadResources() {
@@ -3606,14 +3674,25 @@ function loadResources() {
   const starterWithoutOldGenerated = starterResources.filter((resource) => !["Observation Hub", "Lesson Plans"].includes(resource.category));
   const mergedLibrary = applyLessonPlanOverrides(libraryResources);
   const adminActivities = loadAdminManagedActivities();
-  return applyObservationEdits([...starterWithoutOldGenerated, ...mergedLibrary, ...adminActivities, ...saved]);
+  const adminForms = loadAdminManagedForms();
+  const adminPrintables = loadAdminManagedPrintables();
+  const adminLessons = loadAdminManagedLessonPlans();
+  return applyObservationEdits([
+    ...starterWithoutOldGenerated,
+    ...mergedLibrary,
+    ...adminLessons,
+    ...adminActivities,
+    ...adminForms,
+    ...adminPrintables,
+    ...saved,
+  ]);
 }
 
 function loadAdminManagedActivities() {
   const all = effectiveSiteContent().activities || [];
   return all
     .filter((item) => item.id && item.title)
-    .filter((item) => item.visible === true || hasAdminFullAccess())
+    .filter((item) => (item.visible === true && item.archived !== true) || hasAdminFullAccess())
     .map((item) => ({
       id: item.id,
       category: "Activity Center",
@@ -3623,12 +3702,98 @@ function loadAdminManagedActivities() {
       description: item.description || "",
       theme: item.theme || item.activityCategory || "",
       tags: Array.isArray(item.tags) ? item.tags : [],
-      previewData: sanitizedImageSource(item.thumbnailUrl || ""),
-      downloadUrl: sanitizedImageSource(item.printableUrl || ""),
-      format: item.printableUrl ? "Printable PDF" : "Activity",
-      visible: item.visible === true,
+      previewData: sanitizedImageSource(item.previewData || item.thumbnailUrl || ""),
+      fileData: item.fileData || item.printableUrl || "",
+      customContent: item.customContent || "",
+      downloadUrl: item.printableUrl || "",
+      format: item.format || (item.printableUrl ? "Printable PDF" : "Activity"),
+      visible: item.visible === true && item.archived !== true,
+      archived: item.archived === true,
+      updatedAt: item.updatedAt || "",
+      activityCategory: item.activityCategory || "General",
       _adminManaged: true,
     }));
+}
+
+function loadAdminManagedLessonPlans() {
+  const all = effectiveSiteContent().customLessonPlans || [];
+  return all
+    .filter((item) => item.id && item.title)
+    .filter((item) => ((item.visible === true) && item.archived !== true) || hasAdminFullAccess())
+    .map((item) => ({
+      id: item.id,
+      category: "Lesson Plans",
+      title: item.title,
+      age: item.age || "Infant",
+      plan: item.plan || "Free",
+      month: item.month || "",
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      format: "PDF + Editable",
+      description: item.description || item.weeklyOverview || "",
+      theme: item.theme || "",
+      developmentalArea: item.developmentalArea || item.tags?.find((tag) => learningAreas.includes(tag)) || "Approaches to Learning",
+      holiday: item.holiday || "",
+      activityFocus: item.activityFocus || "",
+      weeklyOverview: item.weeklyOverview || "",
+      materials: item.materials || "",
+      previewData: sanitizedImageSource(item.thumbnailUrl || ""),
+      visible: item.visible === true && item.archived !== true,
+      archived: item.archived === true,
+      lessonPlanOverride: item,
+      customContent: buildLessonPlanTextFromOverride({
+        id: item.id,
+        title: item.title,
+        category: "Lesson Plans",
+        month: item.month || "",
+        age: item.age || "Infant",
+        holiday: item.holiday || "",
+        theme: item.theme || "",
+        tags: Array.isArray(item.tags) ? item.tags : [],
+        developmentalArea: item.developmentalArea || "Approaches to Learning",
+        activityFocus: item.activityFocus || "",
+      }, item),
+      _adminManaged: true,
+    }));
+}
+
+function loadAdminManagedForms() {
+  const all = effectiveSiteContent().forms || [];
+  return all
+    .filter((item) => item.id && item.title)
+    .filter((item) => (item.visible === true && item.archived !== true) || hasAdminFullAccess())
+    .map((item) => ({
+      ...item,
+      category: "Forms Library",
+      age: item.age || "All Ages",
+      plan: item.plan || "Free",
+      format: item.format || "PDF + Editable",
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      visible: item.visible === true && item.archived !== true,
+      archived: item.archived === true,
+      _adminManaged: true,
+    }));
+}
+
+function loadAdminManagedPrintables() {
+  const all = effectiveSiteContent().printables || [];
+  return all
+    .filter((item) => item.id && item.title)
+    .filter((item) => (item.visible === true && item.archived !== true) || hasAdminFullAccess())
+    .map((item) => ({
+      ...item,
+      category: "Printables",
+      age: item.age || "All Ages",
+      plan: item.plan || "Free",
+      format: item.format || "Worksheet PDF",
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      visible: item.visible === true && item.archived !== true,
+      archived: item.archived === true,
+      _adminManaged: true,
+    }));
+}
+
+function customLessonPlanForId(id) {
+  return (effectiveSiteContent().customLessonPlans || []).find((item) => item.id === id) || null;
 }
 
 function observationEdits() {
@@ -16584,7 +16749,8 @@ function filteredAdminLessonPlans() {
     const ageMatch = filters.age === "All Ages" || item.age === filters.age;
     const visibilityMatch = filters.visibility === "all"
       || (filters.visibility === "visible" && item.userVisible)
-      || (filters.visibility === "hidden" && !item.userVisible);
+      || (filters.visibility === "hidden" && !item.userVisible && item.archived !== true)
+      || (filters.visibility === "archived" && item.archived === true);
     const planMatch = filters.plan === "all"
       || (filters.plan === "free" && item.plan === "Free")
       || (filters.plan === "pro" && item.plan === "Pro");
@@ -16669,14 +16835,14 @@ function lessonPlanAdminCardHtml(plan) {
   const selected = adminLessonSelection.has(plan.id);
   const image = sanitizedImageSource(plan.thumbnailUrl);
   const hiddenForUsers = !plan.userVisible;
-  const hiddenReason = hiddenForUsers ? (plan.hiddenReason || "Hidden from users") : "";
+  const hiddenReason = hiddenForUsers ? (plan.hiddenReason || (plan.archived ? "Archived" : "Hidden from users")) : "";
   const isToggling = adminLessonTogglingId === plan.id;
   // Label: use "Show" when not visible (covers both "never published" and "explicitly hidden")
   // and "Hide" when currently visible to users
   const toggleLabel = isToggling ? "Saving…" : (plan.userVisible ? "Hide" : "Show");
-  const visibilityStatusLabel = plan.userVisible ? "Visible" : "Hidden";
+  const visibilityStatusLabel = plan.archived ? "Archived" : plan.userVisible ? "Visible" : "Hidden";
   return `
-    <article class="admin-mobile-card${hiddenForUsers ? " is-hidden" : ""}">
+    <article class="admin-content-card ${plan.archived ? "is-archived" : hiddenForUsers ? "is-hidden" : "is-visible"}">
       <label class="admin-select-row">
         <input type="checkbox" data-admin-lesson-select="${plan.id}" ${selected ? "checked" : ""} />
         <span>Select</span>
@@ -16685,22 +16851,26 @@ function lessonPlanAdminCardHtml(plan) {
         ${image ? `<img class="admin-mobile-thumb" src="${escapeHtml(image)}" alt="${escapeHtml(plan.title)} thumbnail" />` : `<div class="admin-mobile-thumb admin-mobile-thumb-placeholder">${escapeHtml(initialsFromName(plan.title, "LP"))}</div>`}
         <div>
           <strong>${escapeHtml(plan.title)}</strong>
-          <p>${escapeHtml(plan.theme || "Theme")} · ${escapeHtml(plan.age)} · ${escapeHtml(plan.plan)}</p>
-          <small>${hiddenForUsers ? "Hidden from users" : "Visible to users"} · Last updated: ${escapeHtml(adminLessonUpdatedLabel(plan.updatedAt))}</small>
+          <p>${escapeHtml(plan.age)} • ${escapeHtml(plan.plan)} • ${escapeHtml(visibilityStatusLabel)}</p>
+          <small>${escapeHtml(plan.theme || "Theme")}</small>
+          <small>Last Updated: ${escapeHtml(adminLessonUpdatedLabel(plan.updatedAt))}</small>
           <small>Title/theme importer updated: ${plan.titleThemeImporterUpdated ? "Yes" : "No"}</small>
           ${hiddenReason ? `<small class="tag">Hidden: ${escapeHtml(hiddenReason)}</small>` : ""}
           <div class="tag-row">
             <span class="tag">${escapeHtml(plan.age)}</span>
             <span class="tag">${escapeHtml(plan.plan)}</span>
-            <span class="tag tag-visibility${plan.visible === true ? " tag-visible" : " tag-hidden"}">${escapeHtml(visibilityStatusLabel)}</span>
+            <span class="tag tag-visibility${plan.archived ? " tag-hidden" : plan.visible === true ? " tag-visible" : " tag-hidden"}">${escapeHtml(visibilityStatusLabel)}</span>
+            ${Array.isArray(plan.resource?.tags) ? plan.resource.tags.slice(0, 3).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("") : ""}
           </div>
         </div>
       </div>
       <div class="form-actions">
         <button class="ghost-button" type="button" data-admin-lesson-edit="${plan.id}">Edit</button>
+        <button class="ghost-button" type="button" data-admin-lesson-duplicate="${plan.id}">Duplicate</button>
         <button class="ghost-button" type="button" data-admin-lesson-toggle="${plan.id}" ${isToggling ? "disabled" : ""}>${toggleLabel}</button>
+        <button class="ghost-button" type="button" data-admin-lesson-archive="${plan.id}">${plan.archived ? "Restore" : "Archive"}</button>
         <button class="ghost-button" type="button" data-admin-lesson-preview="${plan.id}">Preview</button>
-        <button class="danger-button" type="button" data-admin-lesson-reset="${plan.id}">Reset</button>
+        <button class="danger-button" type="button" data-admin-lesson-delete="${plan.id}">Delete</button>
       </div>
     </article>
   `;
@@ -16756,7 +16926,8 @@ function renderAdminContentManager() {
   const visibilityCounts = {
     all: allLessons.length,
     visible: allLessons.filter((item) => item.userVisible).length,
-    hidden: allLessons.filter((item) => !item.userVisible).length,
+    hidden: allLessons.filter((item) => !item.userVisible && item.archived !== true).length,
+    archived: allLessons.filter((item) => item.archived === true).length,
   };
   const lessonRecord = allLessons.find((item) => item.id === adminLessonEditorId)
     || lessons[0]
@@ -16783,17 +16954,19 @@ function renderAdminContentManager() {
       <section class="admin-manager-section" data-admin-cm-section="lesson-plans">
         <div class="section-heading">
           <div><p class="eyebrow">Lesson Plan Manager</p><h3>Edit library lesson plans</h3></div>
+          <button class="ghost-button" type="button" id="adminCreateLessonPlanButton">+ Create Lesson Plan</button>
         </div>
         <div class="admin-mobile-toolbar">
           <label><span>Search</span><input id="adminLessonSearch" type="search" placeholder="Search lesson plans" value="${escapeHtml(document.querySelector("#adminLessonSearch")?.value || "")}" /></label>
           <label><span>Age group</span><select id="adminLessonAgeFilter"><option${(document.querySelector("#adminLessonAgeFilter")?.value || "All Ages") === "All Ages" ? " selected" : ""}>All Ages</option>${["Infant", "Toddler", "Preschool"].map((age) => `<option${(document.querySelector("#adminLessonAgeFilter")?.value || "") === age ? " selected" : ""}>${age}</option>`).join("")}</select></label>
-          <label><span>Show</span><select id="adminLessonVisibilityFilter">${[["all", "All"], ["visible", "Visible"], ["hidden", "Hidden"]].map(([value, label]) => `<option value="${value}"${(document.querySelector("#adminLessonVisibilityFilter")?.value || "all") === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
+          <label><span>Status</span><select id="adminLessonVisibilityFilter">${[["all", "All"], ["visible", "Visible"], ["hidden", "Hidden"], ["archived", "Archived"]].map(([value, label]) => `<option value="${value}"${(document.querySelector("#adminLessonVisibilityFilter")?.value || "all") === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
           <label><span>Plan</span><select id="adminLessonPlanFilter">${[["all", "All"], ["free", "Free"], ["pro", "Pro"]].map(([value, label]) => `<option value="${value}"${(document.querySelector("#adminLessonPlanFilter")?.value || "all") === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
         </div>
         <div class="admin-mobile-stats">
           <div><strong>${visibilityCounts.all}</strong><span>All</span></div>
           <div><strong>${visibilityCounts.visible}</strong><span>Visible</span></div>
           <div><strong>${visibilityCounts.hidden}</strong><span>Hidden</span></div>
+          <div><strong>${visibilityCounts.archived}</strong><span>Archived</span></div>
         </div>
         <div class="form-actions">
           <button class="primary-button" type="button" data-admin-bulk="hide">Bulk Hide</button>
@@ -16999,10 +17172,18 @@ function renderAdminContentManager() {
       <section class="admin-manager-section" data-admin-cm-section="activities">
         <div id="adminActivitiesManagerApp"></div>
       </section>
+      <section class="admin-manager-section" data-admin-cm-section="forms">
+        <div id="adminFormsManagerApp"></div>
+      </section>
+      <section class="admin-manager-section" data-admin-cm-section="printables">
+        <div id="adminPrintablesManagerApp"></div>
+      </section>
     </div>
   `;
   setAdminLessonFormCleanState();
   if (adminActiveSectionTab === "activities") renderAdminActivitiesManager();
+  if (adminActiveSectionTab === "forms") renderAdminFormsManager();
+  if (adminActiveSectionTab === "printables") renderAdminPrintablesManager();
 }
 
 function nextSiteContentDraft() {
@@ -17046,6 +17227,7 @@ async function saveAdminLessonPlanForm(form) {
     const uploadedImage = await fileToImageDataUrl(formData.get("thumbnailFile"));
     const now = new Date().toISOString();
     const titleThemeImporterUpdated = form.dataset.importerUpdatedTitleTheme === "true";
+    const isCustomPlan = Boolean(customLessonPlanForId(id));
     const lessonPayload = {
       id,
       title: normalizedShortText(formData.get("title")),
@@ -17063,6 +17245,7 @@ async function saveAdminLessonPlanForm(form) {
       thumbnailUrl: uploadedImage ? "(data URL)" : normalizedShortText(formData.get("thumbnailUrl")),
       updatedAt: now,
       titleThemeImporterUpdated,
+      archived: false,
       dailyActivities: {
         monday: (normalizedMultilineText(formData.get("monday")) || "").slice(0, 80) + "…",
         tuesday: (normalizedMultilineText(formData.get("tuesday")) || "").slice(0, 80) + "…",
@@ -17072,10 +17255,11 @@ async function saveAdminLessonPlanForm(form) {
       },
     };
     console.log("[DIAG] saveAdminLessonPlanForm: form fields collected →", lessonPayload);
-    await updateLessonOverrides((lessonPlans) => {
-      const current = lessonPlans[id] || {};
-      console.log("[DIAG] updateLessonOverrides: existing override for id", JSON.stringify(id), "→ keys:", Object.keys(current));
-      lessonPlans[id] = {
+    if (isCustomPlan) {
+      const nextContent = nextSiteContentDraft();
+      const existing = Array.isArray(nextContent.customLessonPlans) ? nextContent.customLessonPlans : [];
+      const current = existing.find((item) => item.id === id) || {};
+      const nextEntry = {
         ...current,
         id,
         title: normalizedShortText(formData.get("title")),
@@ -17090,6 +17274,7 @@ async function saveAdminLessonPlanForm(form) {
         reflectionNotes: normalizedMultilineText(formData.get("reflectionNotes")),
         plan: normalizedShortText(formData.get("plan")) || "Free",
         visible: formData.get("visible") === "on",
+        archived: false,
         thumbnailUrl: uploadedImage || sanitizedImageSource(formData.get("thumbnailUrl")),
         updatedAt: now,
         titleThemeImporterUpdated,
@@ -17105,9 +17290,48 @@ async function saveAdminLessonPlanForm(form) {
           ? adminLessonResourcesDraft
           : (current.resources || []),
       };
-      console.log("[DIAG] updateLessonOverrides: lesson object written to lessonPlans →", JSON.stringify(Object.keys(lessonPlans[id])));
+      nextContent.customLessonPlans = [...existing.filter((item) => item.id !== id), nextEntry];
+      await saveAdminSiteContent(nextContent);
       adminLessonEditorId = id;
-    });
+    } else {
+      await updateLessonOverrides((lessonPlans) => {
+        const current = lessonPlans[id] || {};
+        console.log("[DIAG] updateLessonOverrides: existing override for id", JSON.stringify(id), "→ keys:", Object.keys(current));
+        lessonPlans[id] = {
+          ...current,
+          id,
+          title: normalizedShortText(formData.get("title")),
+          age: normalizedShortText(formData.get("age")),
+          theme: normalizedShortText(formData.get("theme")),
+          weeklyOverview: normalizedMultilineText(formData.get("weeklyOverview")),
+          materials: normalizedMultilineText(formData.get("materials")),
+          objectives: normalizedMultilineText(formData.get("objectives")),
+          teacherLanguage: normalizedMultilineText(formData.get("teacherLanguage")),
+          elgConnections: normalizedMultilineText(formData.get("elgConnections")),
+          familyConnection: normalizedMultilineText(formData.get("familyConnection")),
+          reflectionNotes: normalizedMultilineText(formData.get("reflectionNotes")),
+          plan: normalizedShortText(formData.get("plan")) || "Free",
+          visible: formData.get("visible") === "on",
+          archived: false,
+          thumbnailUrl: uploadedImage || sanitizedImageSource(formData.get("thumbnailUrl")),
+          updatedAt: now,
+          titleThemeImporterUpdated,
+          titleThemeImporterUpdatedAt: titleThemeImporterUpdated ? now : (current.titleThemeImporterUpdatedAt || ""),
+          dailyActivities: {
+            monday: normalizedMultilineText(formData.get("monday")),
+            tuesday: normalizedMultilineText(formData.get("tuesday")),
+            wednesday: normalizedMultilineText(formData.get("wednesday")),
+            thursday: normalizedMultilineText(formData.get("thursday")),
+            friday: normalizedMultilineText(formData.get("friday")),
+          },
+          resources: Array.isArray(adminLessonResourcesDraft) && adminLessonResourcesDraftId === id
+            ? adminLessonResourcesDraft
+            : (current.resources || []),
+        };
+        console.log("[DIAG] updateLessonOverrides: lesson object written to lessonPlans →", JSON.stringify(Object.keys(lessonPlans[id])));
+        adminLessonEditorId = id;
+      });
+    }
     console.log("[DIAG] saveAdminLessonPlanForm: updateLessonOverrides resolved — save succeeded");
     setAdminLessonFormCleanState();
     const isVisible = formData.get("visible") === "on";
@@ -17128,6 +17352,13 @@ async function saveAdminLessonPlanForm(form) {
 }
 
 async function resetLessonPlanOverride(id) {
+  if (customLessonPlanForId(id)) {
+    const nextContent = nextSiteContentDraft();
+    nextContent.customLessonPlans = (Array.isArray(nextContent.customLessonPlans) ? nextContent.customLessonPlans : []).filter((item) => item.id !== id);
+    await saveAdminSiteContent(nextContent);
+    if (adminLessonEditorId === id) adminLessonEditorId = "";
+    return;
+  }
   await updateLessonOverrides((lessonPlans) => {
     delete lessonPlans[id];
   });
@@ -17149,10 +17380,21 @@ async function toggleLessonPlanVisibility(id) {
     const now = new Date().toISOString();
     // Determine new visibility: if currently visible (visible===true), hide it; otherwise show it
     const nextVisible = record.visible !== true;
-    await updateLessonOverrides((lessonPlans) => {
-      const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
-      lessonPlans[id] = { ...current, id, visible: nextVisible, updatedAt: now };
-    });
+    if (record.isCustom) {
+      const nextContent = nextSiteContentDraft();
+      const current = (nextContent.customLessonPlans || []).find((item) => item.id === id);
+      if (current) {
+        nextContent.customLessonPlans = nextContent.customLessonPlans.map((item) => (
+          item.id === id ? { ...item, visible: nextVisible, archived: false, updatedAt: now } : item
+        ));
+        await saveAdminSiteContent(nextContent);
+      }
+    } else {
+      await updateLessonOverrides((lessonPlans) => {
+        const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
+        lessonPlans[id] = { ...current, id, visible: nextVisible, archived: false, updatedAt: now };
+      });
+    }
   } finally {
     adminLessonTogglingId = "";
   }
@@ -17162,20 +17404,155 @@ async function applyLessonPlanBulkAction(action) {
   const ids = Array.from(adminLessonSelection);
   if (!ids.length) return;
   const now = new Date().toISOString();
-  await updateLessonOverrides((lessonPlans) => {
-    ids.forEach((id) => {
-      const record = allLessonPlansForAdmin().find((item) => item.id === id);
-      if (!record) return;
-      const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
-      lessonPlans[id] = {
-        ...current,
-        id,
-        visible: action === "hide" ? false : action === "unhide" ? true : current.visible !== false,
-        plan: action === "free" ? "Free" : action === "pro" ? "Pro" : current.plan,
+  const nextContent = nextSiteContentDraft();
+  const byId = new Map(allLessonPlansForAdmin().map((item) => [item.id, item]));
+  const customIds = new Set((nextContent.customLessonPlans || []).map((item) => item.id));
+  nextContent.customLessonPlans = (nextContent.customLessonPlans || []).map((item) => (
+    ids.includes(item.id)
+      ? {
+        ...item,
+        visible: action === "hide" ? false : action === "unhide" ? true : item.visible !== false,
+        archived: false,
+        plan: action === "free" ? "Free" : action === "pro" ? "Pro" : item.plan,
         updatedAt: now,
-      };
-    });
+      }
+      : item
+  ));
+  nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
+  ids.forEach((id) => {
+    if (customIds.has(id)) return;
+    const record = byId.get(id);
+    if (!record) return;
+    const current = nextContent.lessonPlans[id] || lessonPlanDefaults(record.resource);
+    nextContent.lessonPlans[id] = {
+      ...current,
+      id,
+      visible: action === "hide" ? false : action === "unhide" ? true : current.visible !== false,
+      archived: false,
+      plan: action === "free" ? "Free" : action === "pro" ? "Pro" : current.plan,
+      updatedAt: now,
+    };
   });
+  await saveAdminSiteContent(nextContent);
+}
+
+async function createAdminLessonPlan() {
+  const id = `custom-lesson-${Date.now()}`;
+  const now = new Date().toISOString();
+  const entry = {
+    id,
+    title: "New Lesson Plan",
+    age: "Infant",
+    theme: "",
+    weeklyOverview: "",
+    materials: "",
+    objectives: "",
+    teacherLanguage: "",
+    elgConnections: "",
+    familyConnection: "",
+    reflectionNotes: "",
+    plan: "Free",
+    visible: false,
+    archived: false,
+    updatedAt: now,
+    month: "",
+    holiday: "",
+    developmentalArea: "Approaches to Learning",
+    activityFocus: "",
+    tags: ["Custom Lesson Plan"],
+    dailyActivities: {
+      monday: "",
+      tuesday: "",
+      wednesday: "",
+      thursday: "",
+      friday: "",
+    },
+    resources: [],
+  };
+  const nextContent = nextSiteContentDraft();
+  nextContent.customLessonPlans = [...(nextContent.customLessonPlans || []), entry];
+  await saveAdminSiteContent(nextContent);
+  adminLessonEditorId = id;
+  adminLessonResourcesDraft = [];
+  adminLessonResourcesDraftId = id;
+  renderAdminContentManager();
+  openAdminLessonEditor(id, { scroll: true, focusTitle: true });
+}
+
+async function duplicateAdminLessonPlan(id) {
+  const record = allLessonPlansForAdmin().find((item) => item.id === id);
+  if (!record) return;
+  const duplicateId = `custom-lesson-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
+  const now = new Date().toISOString();
+  const nextContent = nextSiteContentDraft();
+  const entry = {
+    id: duplicateId,
+    sourceId: record.id,
+    title: `${record.title || "Lesson Plan"} Copy`,
+    age: record.age || "Infant",
+    theme: record.theme || "",
+    weeklyOverview: record.weeklyOverview || "",
+    materials: record.materials || "",
+    objectives: record.objectives || "",
+    teacherLanguage: record.teacherLanguage || "",
+    elgConnections: record.elgConnections || "",
+    familyConnection: record.familyConnection || "",
+    reflectionNotes: record.reflectionNotes || "",
+    plan: record.plan || "Free",
+    visible: false,
+    archived: false,
+    updatedAt: now,
+    month: record.resource?.month || record.month || "",
+    holiday: record.resource?.holiday || record.holiday || "",
+    developmentalArea: record.resource?.developmentalArea || record.developmentalArea || "Approaches to Learning",
+    activityFocus: record.resource?.activityFocus || record.activityFocus || "",
+    tags: Array.isArray(record.resource?.tags) ? record.resource.tags : (Array.isArray(record.tags) ? record.tags : []),
+    thumbnailUrl: record.thumbnailUrl || "",
+    dailyActivities: {
+      monday: record.dailyActivities?.monday || "",
+      tuesday: record.dailyActivities?.tuesday || "",
+      wednesday: record.dailyActivities?.wednesday || "",
+      thursday: record.dailyActivities?.thursday || "",
+      friday: record.dailyActivities?.friday || "",
+    },
+    resources: Array.isArray(record.resources) ? cloneJson(record.resources, []) : [],
+  };
+  nextContent.customLessonPlans = [...(nextContent.customLessonPlans || []), entry];
+  await saveAdminSiteContent(nextContent);
+  adminLessonEditorId = duplicateId;
+  renderAdminContentManager();
+  openAdminLessonEditor(duplicateId, { scroll: true, focusTitle: true });
+}
+
+async function archiveAdminLessonPlan(id) {
+  const record = allLessonPlansForAdmin().find((item) => item.id === id);
+  if (!record) return;
+  const now = new Date().toISOString();
+  if (record.isCustom) {
+    const nextContent = nextSiteContentDraft();
+    nextContent.customLessonPlans = (nextContent.customLessonPlans || []).map((item) => (
+      item.id === id ? { ...item, visible: false, archived: true, updatedAt: now } : item
+    ));
+    await saveAdminSiteContent(nextContent);
+  } else {
+    await updateLessonOverrides((lessonPlans) => {
+      const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
+      lessonPlans[id] = { ...current, id, visible: false, archived: true, updatedAt: now };
+    });
+  }
+}
+
+async function deleteAdminLessonPlan(id) {
+  const record = allLessonPlansForAdmin().find((item) => item.id === id);
+  if (!record || !window.confirm("Delete this lesson plan?")) return;
+  if (record.isCustom) {
+    const nextContent = nextSiteContentDraft();
+    nextContent.customLessonPlans = (nextContent.customLessonPlans || []).filter((item) => item.id !== id);
+    await saveAdminSiteContent(nextContent);
+  } else {
+    await archiveAdminLessonPlan(id);
+  }
+  if (adminLessonEditorId === id) adminLessonEditorId = "";
 }
 
 async function showOnlyFiftyLessonPlansPerAge() {
@@ -17185,17 +17562,25 @@ async function showOnlyFiftyLessonPlansPerAge() {
     return map;
   }, {});
   const now = new Date().toISOString();
-  await updateLessonOverrides((lessonPlans) => {
-    Object.values(grouped).forEach((items) => {
-      items
-        .slice()
-        .sort((a, b) => a.title.localeCompare(b.title))
-        .forEach((item, index) => {
-          const current = lessonPlans[item.id] || lessonPlanDefaults(item.resource);
-          lessonPlans[item.id] = { ...current, id: item.id, visible: index < 50, updatedAt: now };
-        });
-    });
+  const nextContent = nextSiteContentDraft();
+  nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
+  nextContent.customLessonPlans = [...(nextContent.customLessonPlans || [])];
+  Object.values(grouped).forEach((items) => {
+    items
+      .slice()
+      .sort((a, b) => a.title.localeCompare(b.title))
+      .forEach((item, index) => {
+        if (item.isCustom) {
+          nextContent.customLessonPlans = nextContent.customLessonPlans.map((plan) => (
+            plan.id === item.id ? { ...plan, visible: index < 50, archived: false, updatedAt: now } : plan
+          ));
+        } else {
+          const current = nextContent.lessonPlans[item.id] || lessonPlanDefaults(item.resource);
+          nextContent.lessonPlans[item.id] = { ...current, id: item.id, visible: index < 50, archived: false, updatedAt: now };
+        }
+      });
   });
+  await saveAdminSiteContent(nextContent);
 }
 
 async function hideAllLessonPlans() {
@@ -17203,12 +17588,15 @@ async function hideAllLessonPlans() {
   if (!all.length) return;
   if (!window.confirm(`Hide ALL ${all.length} lesson plans from the public library? You can re-publish plans one at a time from the admin panel.`)) return;
   const now = new Date().toISOString();
-  await updateLessonOverrides((lessonPlans) => {
-    all.forEach((item) => {
-      const current = lessonPlans[item.id] || lessonPlanDefaults(item.resource);
-      lessonPlans[item.id] = { ...current, id: item.id, visible: false, updatedAt: now };
-    });
+  const nextContent = nextSiteContentDraft();
+  nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
+  nextContent.customLessonPlans = (nextContent.customLessonPlans || []).map((item) => ({ ...item, visible: false, updatedAt: now }));
+  all.forEach((item) => {
+    if (item.isCustom) return;
+    const current = nextContent.lessonPlans[item.id] || lessonPlanDefaults(item.resource);
+    nextContent.lessonPlans[item.id] = { ...current, id: item.id, visible: false, updatedAt: now };
   });
+  await saveAdminSiteContent(nextContent);
 }
 
 async function saveAdminReviewForm(form) {
@@ -17498,6 +17886,341 @@ async function toggleAdminActivityVisibility(id) {
   renderAdminActivitiesManager();
 }
 
+let adminFormEditorId = "";
+let adminPrintableEditorId = "";
+
+const adminManagedContentConfig = {
+  activities: {
+    appId: "#adminActivitiesManagerApp",
+    contentKey: "activities",
+    sectionKey: "activities",
+    category: "Activity Center",
+    singular: "Activity",
+    plural: "Activities",
+    icon: "🎯",
+    title: "Activity Manager",
+    subtitle: "Create and manage activity cards, files, and visibility.",
+    primaryField: "activityCategory",
+    primaryLabel: "Theme / Category",
+    primaryOptions: () => ["Math", "Literacy", "Science", "Art", "Sensory", "Fine Motor", "Gross Motor", "Social Emotional", "Music", "Outdoor", "Seasonal", "Holiday", "General"],
+    ageOptions: () => ["All Ages", "Infant", "Toddler", "Preschool"],
+    formatPlaceholder: "Activity or Printable PDF",
+    searchPlaceholder: "Search title, theme, or tags",
+  },
+  forms: {
+    appId: "#adminFormsManagerApp",
+    contentKey: "forms",
+    sectionKey: "forms",
+    category: "Forms Library",
+    singular: "Form",
+    plural: "Forms",
+    icon: "📝",
+    title: "Forms Manager",
+    subtitle: "Manage editable forms and family paperwork from your phone.",
+    primaryField: "formCategory",
+    primaryLabel: "Category",
+    primaryOptions: () => Array.from(new Set([
+      ...Object.keys(formGroups || {}),
+      ...(effectiveSiteContent().forms || []).map((item) => item.formCategory || "").filter(Boolean),
+      "General",
+    ])).sort((a, b) => a.localeCompare(b)),
+    ageOptions: () => ["All Ages", "Infant", "Toddler", "Preschool"],
+    formatPlaceholder: "PDF + Editable",
+    searchPlaceholder: "Search title, category, or tags",
+  },
+  printables: {
+    appId: "#adminPrintablesManagerApp",
+    contentKey: "printables",
+    sectionKey: "printables",
+    category: "Printables",
+    singular: "Printable",
+    plural: "Printables",
+    icon: "🖨️",
+    title: "Printables Manager",
+    subtitle: "Manage worksheets, take-home pages, and print-ready files.",
+    primaryField: "printableType",
+    primaryLabel: "Printable Type",
+    primaryOptions: () => Array.from(new Set([...printableTypes, ...(effectiveSiteContent().printables || []).map((item) => item.printableType || "").filter(Boolean), "General"])),
+    ageOptions: () => ["All Ages", "Infant", "Toddler", "Preschool"],
+    formatPlaceholder: "Worksheet PDF",
+    searchPlaceholder: "Search title, type, or tags",
+  },
+};
+
+function adminManagedEditorId(type) {
+  if (type === "activities") return adminActivityEditorId;
+  if (type === "forms") return adminFormEditorId;
+  if (type === "printables") return adminPrintableEditorId;
+  return "";
+}
+
+function setAdminManagedEditorId(type, id) {
+  if (type === "activities") adminActivityEditorId = id;
+  if (type === "forms") adminFormEditorId = id;
+  if (type === "printables") adminPrintableEditorId = id;
+}
+
+function adminManagedItems(type) {
+  const config = adminManagedContentConfig[type];
+  return config ? (effectiveSiteContent()[config.contentKey] || []) : [];
+}
+
+function adminManagedFilterState(type) {
+  const search = (document.querySelector(`#admin${type[0].toUpperCase()}${type.slice(1)}Search`)?.value || "").trim().toLowerCase();
+  const status = document.querySelector(`#admin${type[0].toUpperCase()}${type.slice(1)}Status`)?.value || "all";
+  const access = document.querySelector(`#admin${type[0].toUpperCase()}${type.slice(1)}Access`)?.value || "all";
+  const primary = document.querySelector(`#admin${type[0].toUpperCase()}${type.slice(1)}Primary`)?.value || "all";
+  return { search, status, access, primary };
+}
+
+function filteredAdminManagedItems(type) {
+  const config = adminManagedContentConfig[type];
+  const { search, status, access, primary } = adminManagedFilterState(type);
+  return adminManagedItems(type).filter((item) => {
+    const itemStatus = item.archived === true ? "archived" : (item.visible === true ? "visible" : "hidden");
+    const haystack = [
+      item.title,
+      item.description,
+      item.theme,
+      item[config.primaryField],
+      ...(Array.isArray(item.tags) ? item.tags : []),
+    ].join(" ").toLowerCase();
+    const statusMatch = status === "all" || status === itemStatus;
+    const accessMatch = access === "all" || (access === "free" ? item.plan === "Free" : item.plan === "Pro");
+    const primaryMatch = primary === "all" || (type === "forms" ? (item[config.primaryField] || "General") === primary : (item.age || "All Ages") === primary);
+    return statusMatch && accessMatch && primaryMatch && haystack.includes(search);
+  });
+}
+
+function adminManagedStatusLabel(item) {
+  if (item.archived === true) return "Archived";
+  return item.visible === true ? "Visible" : "Hidden";
+}
+
+function adminManagedCardHtml(type, item) {
+  const config = adminManagedContentConfig[type];
+  const status = adminManagedStatusLabel(item);
+  const preview = sanitizedImageSource(item.previewData || item.thumbnailUrl || "");
+  const metaLabel = item[config.primaryField] || (type === "forms" ? "General" : item.age || "All Ages");
+  return `
+    <article class="admin-content-card ${item.archived === true ? "is-archived" : item.visible === true ? "is-visible" : "is-hidden"}">
+      <div class="admin-content-card-body">
+        ${preview ? `<img class="admin-mobile-thumb" src="${escapeHtml(preview)}" alt="${escapeHtml(item.title)} preview" />` : `<div class="admin-mobile-thumb admin-mobile-thumb-placeholder">${escapeHtml(initialsFromName(item.title, config.icon))}</div>`}
+        <div class="admin-content-card-copy">
+          <strong>${escapeHtml(item.title || `Untitled ${config.singular}`)}</strong>
+          <p>${escapeHtml(item.age || "All Ages")} • ${escapeHtml(item.plan || "Free")} • ${escapeHtml(status)}</p>
+          <small>${escapeHtml(config.primaryLabel)}: ${escapeHtml(metaLabel)}</small>
+          <small>Last Updated: ${escapeHtml(adminLessonUpdatedLabel(item.updatedAt))}</small>
+          ${(Array.isArray(item.tags) && item.tags.length) ? `<div class="tag-row">${item.tags.slice(0, 5).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
+        </div>
+      </div>
+      <div class="form-actions admin-content-card-actions">
+        <button class="ghost-button" type="button" data-admin-managed-edit="${type}:${item.id}">Edit</button>
+        <button class="ghost-button" type="button" data-admin-managed-duplicate="${type}:${item.id}">Duplicate</button>
+        <button class="ghost-button" type="button" data-admin-managed-toggle="${type}:${item.id}">${item.visible === true ? "Hide" : "Show"}</button>
+        <button class="ghost-button" type="button" data-admin-managed-archive="${type}:${item.id}">${item.archived === true ? "Restore" : "Archive"}</button>
+        <button class="ghost-button" type="button" data-admin-managed-preview="${type}:${item.id}">Preview</button>
+        <button class="danger-button" type="button" data-admin-managed-delete="${type}:${item.id}">Delete</button>
+      </div>
+    </article>
+  `;
+}
+
+function adminManagedStatsHtml(type) {
+  const items = adminManagedItems(type);
+  const visible = items.filter((item) => item.visible === true && item.archived !== true).length;
+  const hidden = items.filter((item) => item.visible !== true && item.archived !== true).length;
+  const archived = items.filter((item) => item.archived === true).length;
+  return `
+    <div class="admin-mobile-stats">
+      <div><strong>${items.length}</strong><span>Total</span></div>
+      <div><strong>${visible}</strong><span>Visible</span></div>
+      <div><strong>${hidden}</strong><span>Hidden</span></div>
+      <div><strong>${archived}</strong><span>Archived</span></div>
+    </div>
+  `;
+}
+
+function adminManagedFormHtml(type, item = {}) {
+  const config = adminManagedContentConfig[type];
+  const ageOptions = config.ageOptions();
+  const primaryOptions = config.primaryOptions();
+  const title = item.id ? `Editing: ${escapeHtml(item.title || `Untitled ${config.singular}`)}` : `New ${config.singular}`;
+  const primaryValue = item[config.primaryField] || (primaryOptions[0] || "General");
+  return `
+    <form id="admin${type[0].toUpperCase()}${type.slice(1)}Form" class="panel-form admin-stacked-form" data-admin-managed-type="${type}">
+      <input type="hidden" name="id" value="${escapeHtml(item.id || "")}" />
+      <h4 class="admin-lesson-editing-heading">${title}</h4>
+      <div class="form-grid-two">
+        <label>${config.singular} Title<input name="title" value="${escapeHtml(item.title || "")}" placeholder="${escapeHtml(config.singular)} title" required /></label>
+        <label>Age Group<select name="age">${ageOptions.map((age) => `<option${(item.age || "All Ages") === age ? " selected" : ""}>${age}</option>`).join("")}</select></label>
+      </div>
+      <div class="form-grid-two">
+        <label>${config.primaryLabel}<select name="${config.primaryField}">${primaryOptions.map((value) => `<option${primaryValue === value ? " selected" : ""}>${escapeHtml(value)}</option>`).join("")}</select></label>
+        <label>Free / Pro<select name="plan">${["Free", "Pro"].map((value) => `<option${(item.plan || "Free") === value ? " selected" : ""}>${value}</option>`).join("")}</select></label>
+      </div>
+      <label>Theme / Search Topic<input name="theme" value="${escapeHtml(item.theme || "")}" placeholder="e.g. Ocean, All About Me, Enrollment" /></label>
+      <label>Description<textarea name="description" rows="3">${escapeHtml(item.description || "")}</textarea></label>
+      <label>Tags (comma-separated)<input name="tags" value="${escapeHtml(Array.isArray(item.tags) ? item.tags.join(", ") : "")}" placeholder="theme, bundle, fine motor" /></label>
+      <label>Format<input name="format" value="${escapeHtml(item.format || config.formatPlaceholder)}" placeholder="${escapeHtml(config.formatPlaceholder)}" /></label>
+      <label>Editable Content<textarea name="customContent" rows="6" placeholder="Optional in-app content or notes.">${escapeHtml(item.customContent || "")}</textarea></label>
+      <div class="form-grid-two">
+        <label>Upload File<input name="file" type="file" accept=".pdf,image/*,.txt" /></label>
+        <label>Preview Image<input name="preview" type="file" accept="image/*" /></label>
+      </div>
+      <label class="admin-inline-toggle"><input name="visible" type="checkbox" ${item.visible === true ? "checked" : ""} /> <span>Visible to users</span></label>
+      <div class="form-actions">
+        <button class="primary-button" type="submit">Save ${config.singular}</button>
+        <button class="ghost-button" type="button" data-admin-managed-new="${type}">Create New</button>
+      </div>
+      <span class="form-message" id="admin${type[0].toUpperCase()}${type.slice(1)}Message"></span>
+    </form>
+  `;
+}
+
+function renderAdminManagedCollection(type) {
+  const config = adminManagedContentConfig[type];
+  const target = document.querySelector(config.appId);
+  if (!target || !isAdminUnlocked()) return;
+  const allItems = adminManagedItems(type);
+  const filtered = filteredAdminManagedItems(type);
+  const editorId = adminManagedEditorId(type);
+  const editorItem = allItems.find((item) => item.id === editorId) || null;
+  const key = type[0].toUpperCase() + type.slice(1);
+  const primaryOptions = type === "forms"
+    ? ["all", ...config.primaryOptions()]
+    : ["all", ...config.ageOptions()];
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">${config.icon} ${config.plural}</p><h3>${config.title}</h3><p>${config.subtitle}</p></div>
+      <button class="ghost-button" type="button" data-admin-managed-new="${type}">+ Create ${config.singular}</button>
+    </div>
+    <div class="admin-mobile-toolbar">
+      <label><span>Search</span><input id="admin${key}Search" type="search" placeholder="${escapeHtml(config.searchPlaceholder)}" value="${escapeHtml(document.querySelector(`#admin${key}Search`)?.value || "")}" /></label>
+      <label><span>${config.primaryLabel}</span><select id="admin${key}Primary">${primaryOptions.map((value) => `<option value="${escapeHtml(value)}"${(document.querySelector(`#admin${key}Primary`)?.value || "all") === value ? " selected" : ""}>${escapeHtml(value === "all" ? "All" : value)}</option>`).join("")}</select></label>
+      <label><span>Status</span><select id="admin${key}Status">${[["all","All"],["visible","Visible"],["hidden","Hidden"],["archived","Archived"]].map(([value, label]) => `<option value="${value}"${(document.querySelector(`#admin${key}Status`)?.value || "all") === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
+      <label><span>Access</span><select id="admin${key}Access">${[["all","All"],["free","Free"],["pro","Pro"]].map(([value, label]) => `<option value="${value}"${(document.querySelector(`#admin${key}Access`)?.value || "all") === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
+    </div>
+    ${adminManagedStatsHtml(type)}
+    <div class="admin-mobile-list">${filtered.length ? filtered.map((item) => adminManagedCardHtml(type, item)).join("") : `<div class="empty-state">No ${config.plural.toLowerCase()} match these filters.</div>`}</div>
+    ${adminManagedFormHtml(type, editorItem || { visible: false, plan: "Free", age: "All Ages", [config.primaryField]: config.primaryOptions()[0] || "General" })}
+  `;
+}
+
+function renderAdminActivitiesManager() {
+  renderAdminManagedCollection("activities");
+}
+
+function renderAdminFormsManager() {
+  renderAdminManagedCollection("forms");
+}
+
+function renderAdminPrintablesManager() {
+  renderAdminManagedCollection("printables");
+}
+
+async function saveAdminManagedCollectionForm(type, form) {
+  const config = adminManagedContentConfig[type];
+  const nextContent = nextSiteContentDraft();
+  const existing = Array.isArray(nextContent[config.contentKey]) ? nextContent[config.contentKey] : [];
+  const formData = new FormData(form);
+  const id = normalizedShortText(formData.get("id")) || `${type}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  const current = existing.find((item) => item.id === id) || {};
+  const uploadedFile = await fileToDataUrl(formData.get("file"));
+  const uploadedPreview = await fileToImageDataUrl(formData.get("preview"));
+  const tags = normalizedShortText(formData.get("tags"))
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+  const entry = {
+    ...current,
+    id,
+    title: normalizedShortText(formData.get("title")),
+    category: config.category,
+    age: normalizedShortText(formData.get("age")) || "All Ages",
+    plan: normalizedShortText(formData.get("plan")) || "Free",
+    theme: normalizedShortText(formData.get("theme")),
+    description: normalizedMultilineText(formData.get("description")),
+    tags,
+    format: normalizedShortText(formData.get("format")) || config.formatPlaceholder,
+    customContent: normalizedMultilineText(formData.get("customContent")),
+    fileName: formData.get("file")?.name || current.fileName || "",
+    fileData: uploadedFile || current.fileData || "",
+    previewName: formData.get("preview")?.name || current.previewName || "",
+    previewData: uploadedPreview || current.previewData || "",
+    visible: formData.get("visible") === "on",
+    archived: false,
+    updatedAt: new Date().toISOString(),
+  };
+  entry[config.primaryField] = normalizedShortText(formData.get(config.primaryField)) || config.primaryOptions()[0] || "General";
+  if (type === "activities") {
+    entry.activityCategory = entry[config.primaryField];
+    entry.printableUrl = entry.fileData || current.printableUrl || "";
+    entry.thumbnailUrl = entry.previewData || current.thumbnailUrl || "";
+  }
+  nextContent[config.contentKey] = [...existing.filter((item) => item.id !== id), entry];
+  await saveAdminSiteContent(nextContent);
+  syncSiteManagedResources();
+  setAdminManagedEditorId(type, id);
+  renderAdminManagedCollection(type);
+  setFormMessage(`#admin${type[0].toUpperCase()}${type.slice(1)}Message`, `${config.singular} saved.`, true);
+}
+
+async function toggleAdminManagedCollectionVisibility(type, id) {
+  const config = adminManagedContentConfig[type];
+  const nextContent = nextSiteContentDraft();
+  nextContent[config.contentKey] = (nextContent[config.contentKey] || []).map((item) => (
+    item.id === id ? { ...item, visible: item.visible !== true, archived: false, updatedAt: new Date().toISOString() } : item
+  ));
+  await saveAdminSiteContent(nextContent);
+  syncSiteManagedResources();
+  renderAdminManagedCollection(type);
+}
+
+async function archiveAdminManagedCollectionItem(type, id) {
+  const config = adminManagedContentConfig[type];
+  const nextContent = nextSiteContentDraft();
+  nextContent[config.contentKey] = (nextContent[config.contentKey] || []).map((item) => (
+    item.id === id
+      ? { ...item, archived: item.archived !== true, visible: item.archived === true ? item.visible : false, updatedAt: new Date().toISOString() }
+      : item
+  ));
+  await saveAdminSiteContent(nextContent);
+  syncSiteManagedResources();
+  renderAdminManagedCollection(type);
+}
+
+async function duplicateAdminManagedCollectionItem(type, id) {
+  const config = adminManagedContentConfig[type];
+  const source = adminManagedItems(type).find((item) => item.id === id);
+  if (!source) return;
+  const duplicate = {
+    ...cloneJson(source, {}),
+    id: `${type}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    title: `${source.title || config.singular} Copy`,
+    visible: false,
+    archived: false,
+    updatedAt: new Date().toISOString(),
+  };
+  const nextContent = nextSiteContentDraft();
+  nextContent[config.contentKey] = [...(nextContent[config.contentKey] || []), duplicate];
+  await saveAdminSiteContent(nextContent);
+  syncSiteManagedResources();
+  setAdminManagedEditorId(type, duplicate.id);
+  renderAdminManagedCollection(type);
+}
+
+async function deleteAdminManagedCollectionItem(type, id) {
+  const config = adminManagedContentConfig[type];
+  if (!window.confirm(`Delete this ${config.singular.toLowerCase()}?`)) return;
+  const nextContent = nextSiteContentDraft();
+  nextContent[config.contentKey] = (nextContent[config.contentKey] || []).filter((item) => item.id !== id);
+  await saveAdminSiteContent(nextContent);
+  syncSiteManagedResources();
+  if (adminManagedEditorId(type) === id) setAdminManagedEditorId(type, "");
+  renderAdminManagedCollection(type);
+}
+
 // ─── Admin Section Navigation ─────────────────────────────────────────────────
 
 // adminSectionTabs is kept for backward compatibility with any code that iterates it;
@@ -17507,6 +18230,8 @@ const adminSectionTabs = [
   { id: "resources",   label: "Resources" },
   { id: "lesson-plans", label: "Lesson Plans" },
   { id: "activities",  label: "Activities" },
+  { id: "forms",       label: "Forms" },
+  { id: "printables",  label: "Printables" },
   { id: "reviews",     label: "Reviews" },
   { id: "homepage",    label: "Homepage" },
   { id: "founder",     label: "Founder" },
@@ -17560,7 +18285,7 @@ function renderAdminSectionNav() {
   `;
 }
 
-const adminCmSectionIds = ["lesson-plans", "activities", "reviews", "founder", "homepage", "images"];
+const adminCmSectionIds = ["lesson-plans", "activities", "forms", "printables", "reviews", "founder", "homepage", "images"];
 
 function applyAdminSectionVisibility() {
   const tab = adminActiveSectionTab;
@@ -17590,6 +18315,8 @@ function applyAdminSectionVisibility() {
       el.hidden = el.dataset.adminCmSection !== tab;
     });
     if (tab === "activities") renderAdminActivitiesManager();
+    if (tab === "forms") renderAdminFormsManager();
+    if (tab === "printables") renderAdminPrintablesManager();
   } else if (tab === "dashboard") {
     const el = document.querySelector(".admin-owner-panel");
     if (el) el.hidden = false;
@@ -17620,26 +18347,106 @@ function applyAdminSectionVisibility() {
 
 // ─── Admin 2.0 Visibility Dashboard ──────────────────────────────────────────
 
+function adminVisibilityEntries() {
+  const lessonEntries = allLessonPlansForAdmin().map((item) => ({
+    id: item.id,
+    type: "lesson-plans",
+    label: "Lesson Plans",
+    title: item.title || "Untitled Lesson Plan",
+    age: item.age || "All Ages",
+    plan: item.plan || "Free",
+    updatedAt: item.updatedAt || "",
+    status: item.archived ? "archived" : item.userVisible ? "visible" : "hidden",
+    previewId: item.id,
+  }));
+  const collectionEntries = [
+    ["activities", "Activities"],
+    ["forms", "Forms"],
+    ["printables", "Printables"],
+  ].flatMap(([type, label]) => adminManagedItems(type).map((item) => ({
+    id: item.id,
+    type,
+    label,
+    title: item.title || `Untitled ${label.slice(0, -1)}`,
+    age: item.age || "All Ages",
+    plan: item.plan || "Free",
+    updatedAt: item.updatedAt || "",
+    status: item.archived === true ? "archived" : item.visible === true ? "visible" : "hidden",
+    previewId: item.id,
+  })));
+  return [...lessonEntries, ...collectionEntries];
+}
+
+async function setVisibilityDashboardCollection(type, visible) {
+  if (type === "lesson-plans") {
+    const nextContent = nextSiteContentDraft();
+    const now = new Date().toISOString();
+    nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
+    nextContent.customLessonPlans = (nextContent.customLessonPlans || []).map((item) => ({ ...item, visible, archived: false, updatedAt: now }));
+    allLessonPlansForAdmin().forEach((item) => {
+      if (item.isCustom) return;
+      const current = nextContent.lessonPlans[item.id] || lessonPlanDefaults(item.resource);
+      nextContent.lessonPlans[item.id] = { ...current, id: item.id, visible, archived: false, updatedAt: now };
+    });
+    await saveAdminSiteContent(nextContent);
+  } else {
+    const config = adminManagedContentConfig[type];
+    const nextContent = nextSiteContentDraft();
+    nextContent[config.contentKey] = (nextContent[config.contentKey] || []).map((item) => ({ ...item, visible, archived: false, updatedAt: new Date().toISOString() }));
+    await saveAdminSiteContent(nextContent);
+  }
+  syncSiteManagedResources();
+}
+
+async function toggleVisibilityDashboardItem(type, id) {
+  if (type === "lesson-plans") {
+    await toggleLessonPlanVisibility(id);
+    return;
+  }
+  await toggleAdminManagedCollectionVisibility(type, id);
+}
+
+function editVisibilityDashboardItem(type, id) {
+  if (type === "lesson-plans") {
+    openAdminLessonEditor(id, { scroll: true, focusTitle: true });
+    return;
+  }
+  setAdminSectionTab(type);
+  setAdminManagedEditorId(type, id);
+  if (type === "activities") renderAdminActivitiesManager();
+  if (type === "forms") renderAdminFormsManager();
+  if (type === "printables") renderAdminPrintablesManager();
+}
+
 function renderAdminVisibilityDashboard() {
   const target = document.querySelector("#adminVisibilityApp");
   if (!target || !isAdminUnlocked()) return;
-  const allLessons = allLessonPlansForAdmin();
-  const visible = allLessons.filter((l) => l.userVisible);
-  const hidden = allLessons.filter((l) => !l.userVisible);
+  const items = adminVisibilityEntries();
+  const visible = items.filter((item) => item.status === "visible");
+  const hidden = items.filter((item) => item.status === "hidden");
+  const archived = items.filter((item) => item.status === "archived");
+  const summary = {
+    lessons: allLessonPlansForAdmin(),
+    activities: adminManagedItems("activities"),
+    forms: adminManagedItems("forms"),
+    printables: adminManagedItems("printables"),
+  };
 
-  function visibilityCard(lesson) {
-    const isVisible = lesson.userVisible;
+  function visibilityCard(item) {
+    const isVisible = item.status === "visible";
     return `
-      <div class="admin-vis-card${isVisible ? "" : " is-hidden"}">
+      <div class="admin-vis-card${item.status === "archived" ? " is-archived" : isVisible ? "" : " is-hidden"}">
         <div class="admin-vis-card-main">
           <div>
-            <span class="admin-vis-badge${isVisible ? " badge-visible" : " badge-hidden"}">${isVisible ? "Visible" : "Hidden"}</span>
-            <strong>${escapeHtml(lesson.title || "Untitled")}</strong>
-            <small>${escapeHtml(lesson.age || "")} · ${escapeHtml(lesson.plan || "Free")}${lesson.hiddenReason ? ` · ${escapeHtml(lesson.hiddenReason)}` : ""}</small>
+            <span class="admin-vis-badge${item.status === "archived" ? " badge-hidden" : isVisible ? " badge-visible" : " badge-hidden"}">${escapeHtml(item.status[0].toUpperCase() + item.status.slice(1))}</span>
+            <strong>${escapeHtml(item.title || "Untitled")}</strong>
+            <small>${escapeHtml(item.label)} · ${escapeHtml(item.age || "")} · ${escapeHtml(item.plan || "Free")}</small>
+            <small>Last Updated: ${escapeHtml(adminLessonUpdatedLabel(item.updatedAt))}</small>
           </div>
           <div class="admin-vis-actions">
-            <button class="ghost-button" type="button" data-admin-lesson-visibility-toggle="${escapeHtml(lesson.id)}" data-current-visible="${isVisible}">${isVisible ? "Hide" : "Show"}</button>
-            <button class="ghost-button" type="button" data-admin-open-lesson="${escapeHtml(lesson.id)}">Edit</button>
+            <button class="ghost-button" type="button" data-admin-visibility-toggle="${escapeHtml(item.type)}:${escapeHtml(item.id)}">${isVisible ? "Hide" : "Show"}</button>
+            <button class="ghost-button" type="button" data-admin-visibility-edit="${escapeHtml(item.type)}:${escapeHtml(item.id)}">Edit</button>
+            <button class="ghost-button" type="button" data-admin-visibility-preview="${escapeHtml(item.previewId)}">Preview</button>
           </div>
         </div>
       </div>
@@ -17654,27 +18461,47 @@ function renderAdminVisibilityDashboard() {
     <div class="section-heading">
       <div><p class="eyebrow">Visibility Dashboard</p><h3>Manage what's visible on the public site</h3></div>
     </div>
-    <div class="admin-mobile-stats" style="margin-bottom:18px;">
-      <div><strong>${Number(allLessons.length)}</strong><span>Total Plans</span></div>
-      <div><strong style="color:var(--success,#2e7d32)">${Number(visible.length)}</strong><span>Visible</span></div>
-      <div><strong style="color:var(--danger,#c0392b)">${Number(hidden.length)}</strong><span>Hidden</span></div>
+    <div class="admin-visibility-summary-grid">
+      ${[
+        ["Lesson Plans", summary.lessons],
+        ["Activities", summary.activities],
+        ["Forms", summary.forms],
+        ["Printables", summary.printables],
+      ].map(([label, collection]) => {
+        const visibleCount = collection.filter((item) => (item.userVisible === true || item.visible === true) && item.archived !== true).length;
+        const hiddenCount = collection.filter((item) => (item.userVisible !== true && item.visible !== true) && item.archived !== true).length;
+        const archivedCount = collection.filter((item) => item.archived === true).length;
+        return `<div class="admin-visibility-summary-card"><strong>${label}</strong><span>Visible: ${visibleCount}</span><span>Hidden: ${hiddenCount}</span><span>Archived: ${archivedCount}</span></div>`;
+      }).join("")}
+    </div>
+    <div class="form-actions admin-visibility-bulk-actions">
+      <button class="primary-button" type="button" data-admin-visibility-bulk="all:hide">Hide All</button>
+      <button class="ghost-button" type="button" data-admin-visibility-bulk="all:show">Show All</button>
+      <button class="ghost-button" type="button" data-admin-visibility-bulk="lesson-plans:hide">Hide Lesson Plans</button>
+      <button class="ghost-button" type="button" data-admin-visibility-bulk="lesson-plans:show">Show Lesson Plans</button>
+      <button class="ghost-button" type="button" data-admin-visibility-bulk="activities:hide">Hide Activities</button>
+      <button class="ghost-button" type="button" data-admin-visibility-bulk="activities:show">Show Activities</button>
+      <button class="ghost-button" type="button" data-admin-visibility-bulk="forms:hide">Hide Forms</button>
+      <button class="ghost-button" type="button" data-admin-visibility-bulk="forms:show">Show Forms</button>
+      <button class="ghost-button" type="button" data-admin-visibility-bulk="printables:hide">Hide Printables</button>
+      <button class="ghost-button" type="button" data-admin-visibility-bulk="printables:show">Show Printables</button>
     </div>
     <div class="admin-vis-tabs" id="adminVisTabs">
       <button class="admin-sub-tab active" id="adminVisTabVisible" type="button">Visible (${Number(visible.length)})</button>
       <button class="admin-sub-tab" id="adminVisTabHidden" type="button">Hidden (${Number(hidden.length)})</button>
-      <button class="admin-sub-tab" id="adminVisTabAll" type="button">All (${Number(allLessons.length)})</button>
+      <button class="admin-sub-tab" id="adminVisTabArchived" type="button">Archived (${Number(archived.length)})</button>
     </div>
     <div id="adminVisibilityList" class="admin-mobile-list">
-      ${listHtml(visible, "No visible lesson plans yet.")}
+      ${listHtml(visible, "No visible items yet.")}
     </div>
   `;
 
   // Attach filter tab handlers using closures — items arrays are pre-computed and
   // not derived from any DOM attribute, eliminating any DOM-text-to-innerHTML path.
   const visTabs = [
-    { id: "adminVisTabVisible", items: visible, emptyMsg: "No visible lesson plans." },
-    { id: "adminVisTabHidden",  items: hidden,  emptyMsg: "No hidden lesson plans." },
-    { id: "adminVisTabAll",     items: allLessons, emptyMsg: "No lesson plans found." },
+    { id: "adminVisTabVisible", items: visible, emptyMsg: "No visible items." },
+    { id: "adminVisTabHidden",  items: hidden,  emptyMsg: "No hidden items." },
+    { id: "adminVisTabArchived", items: archived, emptyMsg: "No archived items." },
   ];
   const allTabBtns = visTabs.map(({ id }) => target.querySelector(`#${id}`)).filter(Boolean);
   visTabs.forEach(({ id, items, emptyMsg }) => {
@@ -23223,6 +24050,11 @@ document.addEventListener("input", (event) => {
   if (event.target.matches("#adminLessonSearch")) {
     renderAdminContentManager();
   }
+  if (event.target.matches("#adminActivitiesSearch, #adminFormsSearch, #adminPrintablesSearch")) {
+    if (event.target.matches("#adminActivitiesSearch")) renderAdminActivitiesManager();
+    if (event.target.matches("#adminFormsSearch")) renderAdminFormsManager();
+    if (event.target.matches("#adminPrintablesSearch")) renderAdminPrintablesManager();
+  }
   if (event.target.matches("#childDobInput")) {
     updateChildAgePreview();
   }
@@ -23269,6 +24101,15 @@ document.addEventListener("input", (event) => {
 document.addEventListener("change", (event) => {
   if (event.target.matches("#adminLessonAgeFilter, #adminLessonVisibilityFilter, #adminLessonPlanFilter")) {
     renderAdminContentManager();
+  }
+  if (event.target.matches("#adminActivitiesPrimary, #adminActivitiesStatus, #adminActivitiesAccess")) {
+    renderAdminActivitiesManager();
+  }
+  if (event.target.matches("#adminFormsPrimary, #adminFormsStatus, #adminFormsAccess")) {
+    renderAdminFormsManager();
+  }
+  if (event.target.matches("#adminPrintablesPrimary, #adminPrintablesStatus, #adminPrintablesAccess")) {
+    renderAdminPrintablesManager();
   }
   if (event.target.matches("[data-admin-lesson-select]")) {
     if (event.target.checked) adminLessonSelection.add(event.target.dataset.adminLessonSelect);
@@ -23921,9 +24762,19 @@ document.addEventListener("submit", async (event) => {
     await saveAdminImageAssetForm(event.target);
     return;
   }
-  if (event.target.matches("#adminActivityForm")) {
+  if (event.target.matches("#adminActivityForm, #adminActivitiesForm")) {
     event.preventDefault();
-    await saveAdminActivityForm(event.target);
+    await saveAdminManagedCollectionForm("activities", event.target);
+    return;
+  }
+  if (event.target.matches("#adminFormsForm")) {
+    event.preventDefault();
+    await saveAdminManagedCollectionForm("forms", event.target);
+    return;
+  }
+  if (event.target.matches("#adminPrintablesForm")) {
+    event.preventDefault();
+    await saveAdminManagedCollectionForm("printables", event.target);
     return;
   }
   if (event.target.matches("#adminLessonImportForm")) {
@@ -24050,12 +24901,66 @@ document.addEventListener("click", async (event) => {
     await toggleLessonPlanVisibility(lessonToggleButton.dataset.adminLessonToggle);
     return;
   }
+  const lessonDuplicateButton = event.target.closest("[data-admin-lesson-duplicate]");
+  if (lessonDuplicateButton) {
+    await duplicateAdminLessonPlan(lessonDuplicateButton.dataset.adminLessonDuplicate);
+    return;
+  }
+  const lessonArchiveButton = event.target.closest("[data-admin-lesson-archive]");
+  if (lessonArchiveButton) {
+    await archiveAdminLessonPlan(lessonArchiveButton.dataset.adminLessonArchive);
+    return;
+  }
+  const lessonDeleteButton = event.target.closest("[data-admin-lesson-delete]");
+  if (lessonDeleteButton) {
+    await deleteAdminLessonPlan(lessonDeleteButton.dataset.adminLessonDelete);
+    return;
+  }
+  if (event.target.closest("#adminCreateLessonPlanButton")) {
+    await createAdminLessonPlan();
+    return;
+  }
 
   // Visibility Dashboard — quick hide/show toggle
   const visToggleBtn = event.target.closest("[data-admin-lesson-visibility-toggle]");
   if (visToggleBtn) {
     const id = visToggleBtn.dataset.adminLessonVisibilityToggle;
     if (id) await toggleLessonPlanVisibility(id);
+    return;
+  }
+  const visibilityToggleBtn = event.target.closest("[data-admin-visibility-toggle]");
+  if (visibilityToggleBtn) {
+    const [type, id] = (visibilityToggleBtn.dataset.adminVisibilityToggle || "").split(":");
+    if (type && id) await toggleVisibilityDashboardItem(type, id);
+    return;
+  }
+  const visibilityEditBtn = event.target.closest("[data-admin-visibility-edit]");
+  if (visibilityEditBtn) {
+    const [type, id] = (visibilityEditBtn.dataset.adminVisibilityEdit || "").split(":");
+    if (type && id) editVisibilityDashboardItem(type, id);
+    return;
+  }
+  const visibilityPreviewBtn = event.target.closest("[data-admin-visibility-preview]");
+  if (visibilityPreviewBtn) {
+    const id = visibilityPreviewBtn.dataset.adminVisibilityPreview || "";
+    if (id) openResourceViewer(id);
+    return;
+  }
+  const visibilityBulkBtn = event.target.closest("[data-admin-visibility-bulk]");
+  if (visibilityBulkBtn) {
+    const [type, action] = (visibilityBulkBtn.dataset.adminVisibilityBulk || "").split(":");
+    const visible = action === "show";
+    if (type === "all") {
+      await Promise.all([
+        setVisibilityDashboardCollection("lesson-plans", visible),
+        setVisibilityDashboardCollection("activities", visible),
+        setVisibilityDashboardCollection("forms", visible),
+        setVisibilityDashboardCollection("printables", visible),
+      ]);
+    } else if (type) {
+      await setVisibilityDashboardCollection(type, visible);
+    }
+    renderAdminVisibilityDashboard();
     return;
   }
   // Visibility Dashboard — open lesson in Content Manager editor
@@ -24189,6 +25094,50 @@ document.addEventListener("click", async (event) => {
   if (event.target.id === "adminNewActivityButton" || event.target.id === "adminNewActivityButton2") {
     adminActivityEditorId = "";
     renderAdminActivitiesManager();
+    return;
+  }
+  const managedEditButton = event.target.closest("[data-admin-managed-edit]");
+  if (managedEditButton) {
+    const [type, id] = (managedEditButton.dataset.adminManagedEdit || "").split(":");
+    setAdminManagedEditorId(type, id || "");
+    renderAdminManagedCollection(type);
+    return;
+  }
+  const managedNewButton = event.target.closest("[data-admin-managed-new]");
+  if (managedNewButton) {
+    const type = managedNewButton.dataset.adminManagedNew;
+    setAdminManagedEditorId(type, "");
+    renderAdminManagedCollection(type);
+    return;
+  }
+  const managedToggleButton = event.target.closest("[data-admin-managed-toggle]");
+  if (managedToggleButton) {
+    const [type, id] = (managedToggleButton.dataset.adminManagedToggle || "").split(":");
+    await toggleAdminManagedCollectionVisibility(type, id);
+    return;
+  }
+  const managedArchiveButton = event.target.closest("[data-admin-managed-archive]");
+  if (managedArchiveButton) {
+    const [type, id] = (managedArchiveButton.dataset.adminManagedArchive || "").split(":");
+    await archiveAdminManagedCollectionItem(type, id);
+    return;
+  }
+  const managedDuplicateButton = event.target.closest("[data-admin-managed-duplicate]");
+  if (managedDuplicateButton) {
+    const [type, id] = (managedDuplicateButton.dataset.adminManagedDuplicate || "").split(":");
+    await duplicateAdminManagedCollectionItem(type, id);
+    return;
+  }
+  const managedDeleteButton = event.target.closest("[data-admin-managed-delete]");
+  if (managedDeleteButton) {
+    const [type, id] = (managedDeleteButton.dataset.adminManagedDelete || "").split(":");
+    await deleteAdminManagedCollectionItem(type, id);
+    return;
+  }
+  const managedPreviewButton = event.target.closest("[data-admin-managed-preview]");
+  if (managedPreviewButton) {
+    const [, id] = (managedPreviewButton.dataset.adminManagedPreview || "").split(":");
+    if (id) openResourceViewer(id);
     return;
   }
 });
