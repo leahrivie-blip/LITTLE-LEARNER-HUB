@@ -723,6 +723,14 @@ const formGroups = {
     "Volunteer Agreement", "Confidentiality Agreement",
   ],
 };
+const freeFormGroups = new Set([
+  "Enrollment Forms",
+  "Medical Forms",
+  "Daily Forms",
+  "Parent Communication",
+  "Safety Forms",
+  "Program Planning Forms",
+]);
 const activityTypes = ["Fine Motor", "Gross Motor", "Sensory", "Art", "Science", "STEM", "Literacy", "Math", "Outdoor Play", "Circle Time"];
 const printableTypes = ["Infant Activity Guide", "Tracing Worksheets", "Coloring Pages", "Alphabet Practice", "Number Practice", "Shape Practice", "Name Writing", "Cutting Practice", "Matching Activities", "Seasonal Worksheets", "Holiday Worksheets"];
 const professionalPrintableTypes = ["Infant Activity Guide", "Tracing Worksheets", "Coloring Pages", "Alphabet Practice", "Number Practice", "Shape Practice", "Name Writing", "Cutting Practice", "Matching Activities", "Assessment Forms", "Seasonal Worksheets", "Holiday Worksheets"];
@@ -730,7 +738,7 @@ const printableQualityBlockedTerms = ["placeholder", "draw here", "blank box", "
 const printablePdfLimit = Number.POSITIVE_INFINITY;
 // Set to true to temporarily hide the user-facing printables library while the section is being refreshed.
 // Admins always retain full access. Flip back to false to re-enable for users.
-const PRINTABLES_HIDDEN = true;
+const PRINTABLES_HIDDEN = false;
 
 // Temporary user-facing lesson plan visibility limits while updates are in progress.
 // Admins always retain full access and can continue editing all plans.
@@ -893,7 +901,7 @@ function buildLessonPlans() {
       category: "Lesson Plans",
       title: `${age} ${theme} ${area} Lesson Plan ${index + 1}`,
       age,
-      plan: sequence <= 10 ? "Free" : "Pro",
+      plan: sequence === 1 ? "Free" : "Pro",
       month,
       tags: [theme, area, month, holiday, activityFocus, "Weekly Plan", "ELG Standards"],
       format: "PDF + Editable",
@@ -936,7 +944,7 @@ function buildObservationLibrary() {
       category: "Observation Hub",
       title: `${age} ${area} Observation ${sequence}`,
       age,
-      plan: index < 2 ? "Free" : "Pro",
+      plan: index === 0 ? "Free" : "Pro",
       month: months[(index + learningAreas.indexOf(area)) % months.length],
       tags: [area, "Observation Wording", "Next Steps", "Learning Standard"],
       format: "Editable Observation",
@@ -955,7 +963,7 @@ function buildFormsLibrary() {
     category: "Forms Library",
     title: form,
     age: "All Ages",
-    plan: index === 0 && group !== "Business Forms" ? "Free" : "Pro",
+    plan: index === 0 && freeFormGroups.has(group) ? "Free" : "Pro",
     month: "All Year",
     tags: [group, "PDF", "Editable", "In-App"],
     format: "PDF + Editable",
@@ -1740,7 +1748,7 @@ function buildMenuLibrary() {
     category: "Menu Center",
     title: `Week ${index + 1} Daycare Menu`,
     age: "All Ages",
-    plan: index < 2 ? "Free" : "Pro",
+    plan: "Pro",
     month: months[index % months.length],
     tags: ["52 Weeks of Menus", "Breakfast", "Lunch", "Snack", "Shopping List"],
     format: "PDF + Editable",
@@ -1766,7 +1774,7 @@ function buildActivityLibrary() {
     category: "Activity Center",
     title: `${age} ${theme} ${type} Activity`,
     age,
-    plan: index % 10 === 0 ? "Free" : "Pro",
+    plan: index === 0 ? "Free" : "Pro",
     month: months[index % months.length],
     tags: [type, theme, "Materials", "Instructions", "Learning Objective"],
     format: "PDF + Editable",
@@ -1783,7 +1791,7 @@ function buildPrintableLibrary() {
       category: "Printables",
       title: `${theme} ${type}`,
       age: index % 3 === 0 ? "Toddler" : "Preschool",
-      plan: index % 9 === 0 ? "Free" : "Pro",
+      plan: index === 0 ? "Free" : "Pro",
       month: holidays.includes(theme) ? "Holiday" : months[index % months.length],
       tags: [type, theme, holidays.includes(theme) ? "Holiday" : "Seasonal", "Printable", ...(pdfReady ? ["PDF Ready"] : [])],
       format: pdfReady ? "Worksheet PDF" : "PDF",
@@ -1817,7 +1825,7 @@ const billingPlans = {
     price: "$0",
     interval: "",
     stripePriceKey: "",
-    features: ["5 Lesson Plans", "10 Observations", "10 Forms", "10 Activity Ideas", "10 Printables", "10 Document Creations Per Month", "Up to 3 Child Profiles", "Weekly Observation Tracker"],
+    features: ["5 Lesson Plans", "10 Observations", "6 Forms", "8 Activity Ideas", "6 Printables", "10 Document Creations Per Month", "Up to 3 Child Profiles", "Weekly Observation Tracker"],
   },
   Founding: {
     name: "Founding Member",
@@ -1848,7 +1856,7 @@ const stripeCheckoutConfig = {
   checkoutStatusEndpoint: "/api/checkout-status",
   foundingStatusEndpoint: "/api/founding-status",
   promoValidationEndpoint: "/api/validate-promo-code",
-  defaultTrialDays: 90,
+  defaultTrialDays: 7,
   promoExpiresLabel: "October 31, 2026",
 };
 const aiGenerationConfig = {
@@ -2050,10 +2058,10 @@ let firebaseAuthClient = null;
 const freeAccessLimits = {
   "Lesson Plans": 5,
   "Observation Hub": 10,
-  "Forms Library": 10,
+  "Forms Library": 6,
   "Menu Center": 0,
-  "Activity Center": 10,
-  "Printables": 10,
+  "Activity Center": 8,
+  "Printables": 6,
 };
 const freeAiMonthlyLimit = 10;
 const paidAiMonthlyLimit = 250;
@@ -2082,7 +2090,8 @@ const proFeatureList = [
 const freeAiLimitMessage = "You have used all 10 free document creations for this month. Upgrade to Pro for 250 document creations each month.";
 const paidAiLimitMessage = "You have used all 250 document creations for this month. Your access will reset next month.";
 const freeResourceLimitMessage = "You have reached your Free Plan limit. Upgrade to Pro to unlock the full Little Learner Hub library.";
-const proTrialUpgradeMessage = "Start your 7-Day Free Pro Trial to unlock full access to all lesson plans, unlimited observations, unlimited AI tools, premium resources, forms, printables, and more. Credit card required. Cancel anytime before your trial ends.";
+const proTrialUpgradeMessage = "Start your 7-Day Free Pro Trial for full Pro access to every lesson plan, activity, form, printable, and premium workflow. Credit card required. Cancel anytime.";
+const proTrialUpgradeSummary = "7-Day Free Pro Trial · Credit card required · Cancel anytime · Full Pro access during the trial.";
 const favoritesPageLimit = 20;
 const dailyLogFavoriteStorageKey = "llhDailyLogFavoriteActivities";
 const defaultDailyLogFavorites = ["Circle Time", "Outside Play", "Art", "Sensory Bin", "Water Play"];
@@ -8394,8 +8403,7 @@ function openLockedResourcePreview(resource, triggerEl = null) {
       <div class="pro-modal-actions" style="margin-top:20px;justify-content:flex-start;">
         <button class="primary-button" data-start-pro-trial type="button">Start Your 7-Day Free Pro Trial</button>
       </div>
-      <p><small>Credit card required</small></p>
-      <p><small>Cancel anytime</small></p>
+      <p><small>${escapeHtml(proTrialUpgradeSummary)}</small></p>
     </section>
   `;
   featurePreviewModal.classList.add("open");
@@ -20238,6 +20246,7 @@ function pricingCard(planKey, options = {}) {
       <p class="price">${plan.price}<span>${plan.interval}</span></p>
       ${featureListHtml(plan.features)}
       <button class="${buttonClass}" ${options.free ? `data-plan="Free"` : `data-checkout-plan="${options.checkoutType}"`} type="button">${escapeHtml(buttonText)}</button>
+      ${options.free ? "" : `<p class="muted-copy">${escapeHtml(proTrialUpgradeSummary)}</p>`}
     </article>
   `;
 }
@@ -20628,7 +20637,7 @@ function renderAccountPage() {
   statusLabel.textContent = paidBilling ? account?.subscriptionStatus || `${billingPlanLabel(currentPlan, account)} Subscription Active` : "Free Plan";
   detailLabel.innerHTML = paidBilling
     ? `Current Plan: ${escapeHtml(billingPlanLabel(currentPlan, account))}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${account?.foundingMember ? "Lifetime" : "Regular Pro pricing"}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>Helper Usage: ${aiUsageCount()} of ${paidAiMonthlyLimit} used this billing month. Resets ${escapeHtml(aiResetLabel())}.<br>Your account has full in-app resources, menus, child profiles, portfolios, tracking tools, provider tools, future premium features, and ${paidAiMonthlyLimit} document creations per month.`
-    : `Your Free account includes 5 lesson plans, 10 observations, 10 forms, 10 activity ideas, 10 printables, ${freeAiMonthlyLimit} document creations per month, up to 3 child profiles, and the weekly observation tracker. Upgrade to Pro to spend less time on paperwork with parent messages, daily reports, portfolios, and faster documentation workflows. Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}. Helper Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`;
+    : `Your Free account includes 5 lesson plans, 10 observations, 6 forms, 8 activity ideas, 6 printables, ${freeAiMonthlyLimit} document creations per month, up to 3 child profiles, and the weekly observation tracker. Upgrade to Pro to spend less time on paperwork with parent messages, daily reports, portfolios, and faster documentation workflows. Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}. Helper Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`;
   if (demoButton) demoButton.style.display = "none";
   if (upgradeButton) {
     upgradeButton.textContent = paidBilling ? "Manage Billing" : "Upgrade to Pro";

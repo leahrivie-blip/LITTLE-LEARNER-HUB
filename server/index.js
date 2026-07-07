@@ -11,7 +11,7 @@ const SITE_URL = process.env.SITE_URL || `http://localhost:${PORT}`;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "";
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
 const PROMO_FREE_TRIAL_CODE = String(process.env.PROMO_FREE_TRIAL_CODE || "TRYPRO3").trim();
-const PROMO_FREE_TRIAL_DAYS = Number(process.env.PROMO_FREE_TRIAL_DAYS || 90);
+const PROMO_FREE_TRIAL_DAYS = Number(process.env.PROMO_FREE_TRIAL_DAYS || 7);
 const PROMO_FREE_TRIAL_EXPIRES_AT = process.env.PROMO_FREE_TRIAL_EXPIRES_AT || "2026-11-01T05:00:00.000Z";
 const PROMO_FREE_TRIAL_EXPIRES_LABEL = process.env.PROMO_FREE_TRIAL_EXPIRES_LABEL || "October 31, 2026";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
@@ -400,6 +400,9 @@ function normalizedLessonPlanOverride(id, value) {
     plan: normalizedShortText(entry.plan, 20),
     visible: entry.visible === true,
     thumbnailUrl: sanitizedImageSource(entry.thumbnailUrl),
+    updatedAt: normalizedShortText(entry.updatedAt, 80),
+    titleThemeImporterUpdated: entry.titleThemeImporterUpdated === true,
+    titleThemeImporterUpdatedAt: normalizedShortText(entry.titleThemeImporterUpdatedAt, 80),
     dailyActivities: {
       monday: normalizedMultilineText(days.monday, 4000),
       tuesday: normalizedMultilineText(days.tuesday, 4000),
