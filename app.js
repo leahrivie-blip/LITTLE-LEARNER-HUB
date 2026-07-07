@@ -17426,15 +17426,17 @@ async function saveAdminLessonPlanForm(form) {
   console.log("[DIAG] saveAdminLessonPlanForm: lesson id =", JSON.stringify(id));
   if (!id) {
     console.error("[DIAG] saveAdminLessonPlanForm: ABORTED — id field is empty or missing from form");
-    setFormMessage("#adminLessonPlanMessage", "Save failed: lesson plan ID is missing. Please reload the page and try again.", false);
+    setFormMessage("#adminLessonPlanMessage", "Missing lesson plan ID. Please reload the page and try again.", false);
     return;
   }
-  const submitBtn = form.querySelector("[type='submit']");
-  const originalLabel = submitBtn ? submitBtn.textContent : "";
   adminLessonSaving = true;
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.textContent = "Saving…";
+  // Disable and label the button via the live form reference so it works even after re-render
+  const getLessonSaveBtn = () => document.querySelector("#adminLessonPlanForm [type='submit']");
+  const initialBtn = getLessonSaveBtn();
+  const originalLabel = initialBtn ? initialBtn.textContent : "Save lesson plan";
+  if (initialBtn) {
+    initialBtn.disabled = true;
+    initialBtn.textContent = "Saving…";
   }
   setFormMessage("#adminLessonPlanMessage", "Saving…", true);
   try {
@@ -17442,6 +17444,7 @@ async function saveAdminLessonPlanForm(form) {
     const now = new Date().toISOString();
     const titleThemeImporterUpdated = form.dataset.importerUpdatedTitleTheme === "true";
     const isCustomPlan = Boolean(customLessonPlanForId(id));
+    // Full payload snapshot for diagnostic logging (not used for saving)
     const lessonPayload = {
       id,
       title: normalizedShortText(formData.get("title")),
@@ -17461,14 +17464,14 @@ async function saveAdminLessonPlanForm(form) {
       titleThemeImporterUpdated,
       archived: false,
       dailyActivities: {
-        monday: (normalizedMultilineText(formData.get("monday")) || "").slice(0, 80) + "…",
-        tuesday: (normalizedMultilineText(formData.get("tuesday")) || "").slice(0, 80) + "…",
-        wednesday: (normalizedMultilineText(formData.get("wednesday")) || "").slice(0, 80) + "…",
-        thursday: (normalizedMultilineText(formData.get("thursday")) || "").slice(0, 80) + "…",
-        friday: (normalizedMultilineText(formData.get("friday")) || "").slice(0, 80) + "…",
+        monday: normalizedMultilineText(formData.get("monday")),
+        tuesday: normalizedMultilineText(formData.get("tuesday")),
+        wednesday: normalizedMultilineText(formData.get("wednesday")),
+        thursday: normalizedMultilineText(formData.get("thursday")),
+        friday: normalizedMultilineText(formData.get("friday")),
       },
     };
-    console.log("[DIAG] saveAdminLessonPlanForm: form fields collected →", lessonPayload);
+    console.log("[DIAG] saveAdminLessonPlanForm: payload being sent →", JSON.stringify(lessonPayload));
     if (isCustomPlan) {
       const nextContent = nextSiteContentDraft();
       const existing = Array.isArray(nextContent.customLessonPlans) ? nextContent.customLessonPlans : [];
@@ -17546,21 +17549,32 @@ async function saveAdminLessonPlanForm(form) {
         adminLessonEditorId = id;
       });
     }
-    console.log("[DIAG] saveAdminLessonPlanForm: updateLessonOverrides resolved — save succeeded");
+    // Log the updated record returned from the server
+    const savedRecord = effectiveSiteContent().lessonPlans?.[id] || effectiveSiteContent().customLessonPlans?.find((p) => p.id === id) || null;
+    console.log("[DIAG] saveAdminLessonPlanForm: save succeeded — updated record from store →", JSON.stringify(savedRecord ? { id: savedRecord.id, title: savedRecord.title, theme: savedRecord.theme, updatedAt: savedRecord.updatedAt } : null));
     setAdminLessonFormCleanState();
     const isVisible = formData.get("visible") === "on";
     const successMsg = isVisible
-      ? "Lesson plan saved successfully. This lesson plan is live on the website."
-      : "Lesson plan saved successfully.";
+      ? "Saved successfully. This lesson plan is live on the website."
+      : "Saved successfully.";
     setFormMessage("#adminLessonPlanMessage", successMsg, true);
+    // Scroll the success message into view so the admin can see it on long forms
+    const msgEl = document.querySelector("#adminLessonPlanMessage");
+    if (msgEl) msgEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
   } catch (err) {
     console.error("[DIAG] saveAdminLessonPlanForm: CAUGHT ERROR →", err);
-    setFormMessage("#adminLessonPlanMessage", `Save failed: ${err.message || "Unknown error"}`, false);
+    const errMsg = err.message || "Unknown error";
+    const isDbError = /database|could not be saved|storage/i.test(errMsg);
+    setFormMessage("#adminLessonPlanMessage", isDbError ? `Database update failed: ${errMsg}` : `Save failed: ${errMsg}`, false);
+    const msgEl = document.querySelector("#adminLessonPlanMessage");
+    if (msgEl) msgEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
   } finally {
     adminLessonSaving = false;
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = originalLabel;
+    // Re-query the submit button because the form may have been re-rendered during save
+    const currentBtn = getLessonSaveBtn();
+    if (currentBtn) {
+      currentBtn.disabled = false;
+      currentBtn.textContent = originalLabel;
     }
   }
 }
