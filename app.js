@@ -2933,16 +2933,29 @@ async function loadAdminSiteContent() {
 
 async function saveAdminSiteContent(nextContent) {
   const token = adminSession()?.token || "";
+  console.log("[DIAG] saveAdminSiteContent: called. endpoint =", siteContentConfig.adminEndpoint, "| hasToken =", !!token, "| canUseLaunchBackend =", canUseLaunchBackend());
   if (!siteContentConfig.adminEndpoint || !canUseLaunchBackend() || !token) {
+    console.error("[DIAG] saveAdminSiteContent: ABORTED — missing endpoint, backend unavailable, or no admin token");
     throw new Error("Backend server is required for admin content changes.");
   }
+  const lessonPlanIds = Object.keys(nextContent?.lessonPlans || {});
+  console.log("[DIAG] saveAdminSiteContent: POSTing to", siteContentConfig.adminEndpoint, "| lessonPlan overrides count =", lessonPlanIds.length, "| ids =", lessonPlanIds.slice(0, 5));
+  const bodyStr = JSON.stringify({ adminToken: token, siteContent: nextContent });
+  console.log("[DIAG] saveAdminSiteContent: request body size (bytes) =", bodyStr.length);
   const response = await fetch(siteContentConfig.adminEndpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminToken: token, siteContent: nextContent }),
+    body: bodyStr,
   });
+  console.log("[DIAG] saveAdminSiteContent: response status =", response.status, response.statusText);
   const data = await response.json();
-  if (!response.ok) throw new Error(data?.error || "Could not save content changes.");
+  console.log("[DIAG] saveAdminSiteContent: response body keys =", Object.keys(data || {}), "| error =", data?.error || "(none)");
+  if (!response.ok) {
+    console.error("[DIAG] saveAdminSiteContent: SERVER RETURNED ERROR →", data?.error);
+    throw new Error(data?.error || "Could not save content changes.");
+  }
+  const returnedLessonPlanIds = Object.keys(data.siteContent?.lessonPlans || {});
+  console.log("[DIAG] saveAdminSiteContent: server returned lessonPlan overrides count =", returnedLessonPlanIds.length);
   siteContentState = data.siteContent || emptySiteContent();
   rerenderActiveContent();
   return effectiveSiteContent();
@@ -8459,7 +8472,7 @@ function renderLessonPlanLibraryNotice() {
     <section class="access-notice lesson-library-notice" role="status" aria-live="polite">
       <div class="lesson-update-notice-copy">
         <h3>Lesson Plan Library Updates</h3>
-        <p>Lesson plans are currently being reviewed, improved, and added daily. New lesson plans are released regularly. Can’t find what you’re looking for? Use the Document Helper to generate a custom lesson plan tailored to your needs.</p>
+        <p>We are currently reviewing and updating our lesson plans to improve quality, add additional resources, and enhance the overall experience. Thank you for your patience while improvements are being made.</p>
       </div>
       <div class="lesson-library-notice-actions">
         <button class="primary-button lesson-helper-reminder-btn" data-view="ai" data-quick-doc-type="lesson" type="button">Open Document Helper</button>
@@ -16864,19 +16877,28 @@ function nextSiteContentDraft() {
 
 async function updateLessonOverrides(updater) {
   const nextContent = nextSiteContentDraft();
+  console.log("[DIAG] updateLessonOverrides: nextSiteContentDraft lessonPlan keys =", Object.keys(nextContent.lessonPlans || {}));
   nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
   updater(nextContent.lessonPlans);
+  console.log("[DIAG] updateLessonOverrides: after updater, lessonPlan keys =", Object.keys(nextContent.lessonPlans));
   await saveAdminSiteContent(nextContent);
+  console.log("[DIAG] updateLessonOverrides: saveAdminSiteContent resolved");
 }
 
 async function saveAdminLessonPlanForm(form) {
+  console.log("[DIAG] saveAdminLessonPlanForm: called");
   if (adminLessonSaving) {
+    console.log("[DIAG] saveAdminLessonPlanForm: blocked — already saving");
     setFormMessage("#adminLessonPlanMessage", "Already saving — please wait.", false);
     return;
   }
   const formData = new FormData(form);
   const id = String(formData.get("id") || "");
-  if (!id) return;
+  console.log("[DIAG] saveAdminLessonPlanForm: lesson id =", JSON.stringify(id));
+  if (!id) {
+    console.error("[DIAG] saveAdminLessonPlanForm: ABORTED — id field is empty or missing from form");
+    return;
+  }
   const submitBtn = form.querySelector("[type='submit']");
   const originalLabel = submitBtn ? submitBtn.textContent : "";
   adminLessonSaving = true;
@@ -16889,8 +16911,35 @@ async function saveAdminLessonPlanForm(form) {
     const uploadedImage = await fileToImageDataUrl(formData.get("thumbnailFile"));
     const now = new Date().toISOString();
     const titleThemeImporterUpdated = form.dataset.importerUpdatedTitleTheme === "true";
+    const lessonPayload = {
+      id,
+      title: normalizedShortText(formData.get("title")),
+      age: normalizedShortText(formData.get("age")),
+      theme: normalizedShortText(formData.get("theme")),
+      weeklyOverview: normalizedMultilineText(formData.get("weeklyOverview")),
+      materials: normalizedMultilineText(formData.get("materials")),
+      objectives: normalizedMultilineText(formData.get("objectives")),
+      teacherLanguage: normalizedMultilineText(formData.get("teacherLanguage")),
+      elgConnections: normalizedMultilineText(formData.get("elgConnections")),
+      familyConnection: normalizedMultilineText(formData.get("familyConnection")),
+      reflectionNotes: normalizedMultilineText(formData.get("reflectionNotes")),
+      plan: normalizedShortText(formData.get("plan")) || "Free",
+      visible: formData.get("visible") === "on",
+      thumbnailUrl: uploadedImage ? "(data URL)" : normalizedShortText(formData.get("thumbnailUrl")),
+      updatedAt: now,
+      titleThemeImporterUpdated,
+      dailyActivities: {
+        monday: (normalizedMultilineText(formData.get("monday")) || "").slice(0, 80) + "…",
+        tuesday: (normalizedMultilineText(formData.get("tuesday")) || "").slice(0, 80) + "…",
+        wednesday: (normalizedMultilineText(formData.get("wednesday")) || "").slice(0, 80) + "…",
+        thursday: (normalizedMultilineText(formData.get("thursday")) || "").slice(0, 80) + "…",
+        friday: (normalizedMultilineText(formData.get("friday")) || "").slice(0, 80) + "…",
+      },
+    };
+    console.log("[DIAG] saveAdminLessonPlanForm: form fields collected →", lessonPayload);
     await updateLessonOverrides((lessonPlans) => {
       const current = lessonPlans[id] || {};
+      console.log("[DIAG] updateLessonOverrides: existing override for id", JSON.stringify(id), "→ keys:", Object.keys(current));
       lessonPlans[id] = {
         ...current,
         id,
@@ -16921,8 +16970,10 @@ async function saveAdminLessonPlanForm(form) {
           ? adminLessonResourcesDraft
           : (current.resources || []),
       };
+      console.log("[DIAG] updateLessonOverrides: lesson object written to lessonPlans →", JSON.stringify(Object.keys(lessonPlans[id])));
       adminLessonEditorId = id;
     });
+    console.log("[DIAG] saveAdminLessonPlanForm: updateLessonOverrides resolved — save succeeded");
     setAdminLessonFormCleanState();
     const isVisible = formData.get("visible") === "on";
     const successMsg = isVisible
@@ -16930,6 +16981,7 @@ async function saveAdminLessonPlanForm(form) {
       : "Lesson plan saved successfully.";
     setFormMessage("#adminLessonPlanMessage", successMsg, true);
   } catch (err) {
+    console.error("[DIAG] saveAdminLessonPlanForm: CAUGHT ERROR →", err);
     setFormMessage("#adminLessonPlanMessage", `Save failed: ${err.message || "Unknown error"}`, false);
   } finally {
     adminLessonSaving = false;
