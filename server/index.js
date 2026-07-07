@@ -2085,20 +2085,20 @@ async function handleAdminSiteContentSave(request, response) {
   const incomingIds = Object.keys(incomingLessonPlans);
   console.log("[DIAG] handleAdminSiteContentSave: incoming lessonPlan overrides count =", incomingIds.length, "| ids (first 5) =", incomingIds.slice(0, 5));
   if (incomingIds.length > 0) {
-    const sampleId = incomingIds[incomingIds.length - 1];
-    const sample = incomingLessonPlans[sampleId];
-    console.log("[DIAG] handleAdminSiteContentSave: last lessonPlan entry (", sampleId, ") fields =", Object.keys(sample || {}));
-    console.log("[DIAG] handleAdminSiteContentSave: last lessonPlan entry title =", JSON.stringify(sample?.title), "| visible =", sample?.visible, "| plan =", JSON.stringify(sample?.plan));
+    const lastIncomingId = incomingIds[incomingIds.length - 1];
+    const lastIncomingLesson = incomingLessonPlans[lastIncomingId];
+    console.log("[DIAG] handleAdminSiteContentSave: last lessonPlan entry (", lastIncomingId, ") fields =", Object.keys(lastIncomingLesson || {}));
+    console.log("[DIAG] handleAdminSiteContentSave: last lessonPlan entry title =", JSON.stringify(lastIncomingLesson?.title), "| visible =", lastIncomingLesson?.visible, "| plan =", JSON.stringify(lastIncomingLesson?.plan));
   }
   const store = readStore();
   const nextContent = normalizedSiteContent(body.siteContent || defaultSiteContentStore());
   const normalizedIds = Object.keys(nextContent.lessonPlans || {});
   console.log("[DIAG] handleAdminSiteContentSave: after normalizedSiteContent, lessonPlan count =", normalizedIds.length);
   if (normalizedIds.length > 0) {
-    const sampleId2 = normalizedIds[normalizedIds.length - 1];
-    const sample2 = nextContent.lessonPlans[sampleId2];
-    console.log("[DIAG] handleAdminSiteContentSave: normalized last lessonPlan (", sampleId2, ") fields =", Object.keys(sample2 || {}));
-    console.log("[DIAG] handleAdminSiteContentSave: normalized last lessonPlan title =", JSON.stringify(sample2?.title), "| visible =", sample2?.visible, "| plan =", JSON.stringify(sample2?.plan));
+    const lastNormalizedId = normalizedIds[normalizedIds.length - 1];
+    const lastNormalizedLesson = nextContent.lessonPlans[lastNormalizedId];
+    console.log("[DIAG] handleAdminSiteContentSave: normalized last lessonPlan (", lastNormalizedId, ") fields =", Object.keys(lastNormalizedLesson || {}));
+    console.log("[DIAG] handleAdminSiteContentSave: normalized last lessonPlan title =", JSON.stringify(lastNormalizedLesson?.title), "| visible =", lastNormalizedLesson?.visible, "| plan =", JSON.stringify(lastNormalizedLesson?.plan));
   }
   nextContent.updatedAt = new Date().toISOString();
   store.siteContent = nextContent;
