@@ -2449,25 +2449,33 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
   const body = document.querySelector("#proModalBody");
   const eyebrow = document.querySelector("#proModalEyebrow");
   const title = document.querySelector("#proModalTitle");
+  const upgradeBtn = document.querySelector("#proModalUpgrade");
   if (!modal || !body) {
     setView("plans");
     return;
   }
+  const um = effectiveSiteContent().upgradeMessaging || {};
+  const isDraft = um._draft === true;
+  const upgradePopupBody = (!isDraft && um.upgradePopupBody) ? um.upgradePopupBody : proTrialUpgradeMessage;
+  const proTrialBtnText = (!isDraft && um.proTrialButtonText) ? um.proTrialButtonText : "Start Your 7-Day Free Pro Trial";
   if (type === "limit") {
+    const limitHeadline = (!isDraft && um.upgradeLimitHeadline) ? um.upgradeLimitHeadline : "You've reached your Free Plan limit.";
     if (eyebrow) eyebrow.textContent = "Free Plan Limit Reached";
-    if (title) title.textContent = "You've reached your Free Plan limit.";
+    if (title) title.textContent = limitHeadline;
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
-      <p>${escapeHtml(proTrialUpgradeMessage)}</p>
+      <p>${escapeHtml(upgradePopupBody)}</p>
     `;
   } else {
+    const popupHeadline = (!isDraft && um.upgradePopupHeadline) ? um.upgradePopupHeadline : "This is a Pro Feature";
     if (eyebrow) eyebrow.textContent = "Pro Feature";
-    if (title) title.textContent = "This is a Pro Feature";
+    if (title) title.textContent = popupHeadline;
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
-      <p>${escapeHtml(proTrialUpgradeMessage)}</p>
+      <p>${escapeHtml(upgradePopupBody)}</p>
     `;
   }
+  if (upgradeBtn) upgradeBtn.textContent = proTrialBtnText;
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
 }
@@ -2908,6 +2916,9 @@ function rerenderActiveContent() {
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
   if (activeView && viewMap[activeView]) renderCategoryPage(activeView);
   if (activeView === "admin") renderAdminDashboard();
+  renderManagedPricingText();
+  renderManagedFaqContent();
+  renderManagedAnnouncementBanner();
 }
 
 async function loadSiteContentFromBackend() {
@@ -3020,7 +3031,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","activities","forms","printables","reviews","homepage","founder","images","analytics","support","ai-testing","visibility","users"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","activities","forms","printables","reviews","homepage","founder","images","analytics","support","ai-testing","visibility","users","pricing","faqs","announcement","upgrade-msg"]);
 const lessonPlanResourceCategories = ["Coloring Pages", "Tracing Activities", "Counting Activities", "Matching Activities", "Crafts", "Teacher Resources", "Activity Photos", "General"];
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "dashboard";
 let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabRaw) ? adminActiveSectionTabRaw : "dashboard";
@@ -3032,6 +3043,7 @@ const adminGroups = [
   { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
   { id: "users",     icon: "👥", label: "Users",      tabs: ["users"], defaultTab: "users" },
   { id: "settings",  icon: "⚙️", label: "Settings",   tabs: ["homepage", "images"], defaultTab: "homepage" },
+  { id: "site-editor", icon: "✏️", label: "Site Editor", tabs: ["pricing", "faqs", "announcement", "upgrade-msg"], defaultTab: "pricing" },
   { id: "ai",        icon: "🤖", label: "AI",         tabs: ["ai-testing"], defaultTab: "ai-testing" },
 ];
 const adminGroupForTab = {
@@ -3049,6 +3061,10 @@ const adminGroupForTab = {
   "users":       "users",
   "homepage":    "settings",
   "images":      "settings",
+  "pricing":     "site-editor",
+  "faqs":        "site-editor",
+  "announcement":"site-editor",
+  "upgrade-msg": "site-editor",
   "ai-testing":  "ai",
 };
 const adminTabLabels = {
@@ -3066,6 +3082,10 @@ const adminTabLabels = {
   "users":       "Users",
   "homepage":    "Homepage",
   "images":      "Images",
+  "pricing":     "Pricing",
+  "faqs":        "FAQs",
+  "announcement":"Announcement",
+  "upgrade-msg": "Upgrade Messaging",
   "ai-testing":  "AI Testing",
 };
 let adminActiveGroup = adminGroupForTab[adminActiveSectionTab] || "dashboard";
@@ -3181,6 +3201,10 @@ function emptySiteContent() {
     reviews: [],
     founder: {},
     homepage: {},
+    pricing: {},
+    faqs: [],
+    announcement: {},
+    upgradeMessaging: {},
     images: [],
     updatedAt: "",
   };
@@ -3443,6 +3467,37 @@ function captureDefaultSiteContent() {
       finalCtaButtonText: document.querySelector(".lp-final-cta .lp-btn-primary")?.textContent?.trim() || "",
     },
     images: [],
+    pricing: {
+      sectionTitle: document.querySelector(".lp-pricing-section .lp-section-title")?.textContent?.trim() || "Simple, Transparent Pricing",
+      sectionSubtitle: document.querySelector(".lp-pricing-section .lp-section-sub")?.textContent?.trim() || "",
+      freePlanName: document.querySelector(".lp-free-card h3")?.textContent?.trim() || "Free",
+      freePlanDescription: "",
+      proPlanName: document.querySelector(".lp-pro-card h3")?.textContent?.trim() || "Pro",
+      proPlanDescription: "",
+      proPlanHighlightBadge: document.querySelector(".lp-pro-highlight-badge")?.textContent?.trim() || "Most Popular",
+      trialButtonText: document.querySelector(".lp-pro-card [data-action='upgrade-trial']")?.textContent?.trim() || "Start Your 7-Day Free Pro Trial",
+      trialNoteText: document.querySelector(".lp-price-note")?.textContent?.trim() || "Credit card required. Cancel anytime. Full Pro access during the 7-day trial.",
+      creditCardText: "Credit card required.",
+      cancelText: "Cancel anytime.",
+      _draft: false,
+    },
+    faqs: Array.from(document.querySelectorAll("#defaultFaqList .faq-item")).map((el, index) => ({
+      id: `faq-${index + 1}`,
+      question: el.querySelector("h3")?.textContent?.trim() || "",
+      answer: el.querySelector("p,ul")?.textContent?.trim() || "",
+      visible: true,
+      order: index + 1,
+    })).filter((f) => f.question),
+    announcement: { text: "", visible: false, expiresAt: "", location: "top", _draft: false },
+    upgradeMessaging: {
+      upgradePopupHeadline: "This is a Pro Feature",
+      upgradeLimitHeadline: "You've reached your Free Plan limit.",
+      upgradePopupBody: "Start your 7-Day Free Pro Trial for full Pro access to every lesson plan, activity, form, printable, and premium workflow. Credit card required. Cancel anytime.",
+      proTrialButtonText: "Start Your 7-Day Free Pro Trial",
+      freeLimitMessage: "You have reached your Free Plan limit. Upgrade to Pro to unlock the full Little Learner Hub library.",
+      trialUpgradeSummary: "7-Day Free Pro Trial · Credit card required · Cancel anytime · Full Pro access during the trial.",
+      _draft: false,
+    },
     updatedAt: "",
   };
 }
@@ -3480,6 +3535,10 @@ function effectiveSiteContent() {
       heroImageUrl: sanitizedImageSource(overrides.homepage?.heroImageUrl || base.homepage?.heroImageUrl || ""),
     },
     images: Array.isArray(overrides.images) ? overrides.images : [],
+    pricing: { ...(base.pricing || {}), ...(overrides.pricing || {}) },
+    faqs: Array.isArray(overrides.faqs) && overrides.faqs.length ? overrides.faqs : (base.faqs || []),
+    announcement: { ...(base.announcement || {}), ...(overrides.announcement || {}) },
+    upgradeMessaging: { ...(base.upgradeMessaging || {}), ...(overrides.upgradeMessaging || {}) },
     updatedAt: overrides.updatedAt || base.updatedAt || "",
   };
 }
@@ -8977,6 +9036,65 @@ function renderManagedHomeContent() {
   }
 }
 
+function renderManagedPricingText() {
+  const content = effectiveSiteContent();
+  const pricing = content.pricing || {};
+  if (pricing._draft) return;
+  const setText = (selector, value) => {
+    const node = document.querySelector(selector);
+    if (node && value) node.textContent = value;
+  };
+  setText(".lp-pricing-section .lp-section-title", pricing.sectionTitle);
+  setText(".lp-pricing-section .lp-section-sub", pricing.sectionSubtitle);
+  setText(".lp-free-card h3", pricing.freePlanName);
+  setText(".lp-pro-card h3", pricing.proPlanName);
+  setText(".lp-pro-highlight-badge", pricing.proPlanHighlightBadge);
+  const trialBtn = document.querySelector(".lp-pro-card [data-action='upgrade-trial']");
+  if (trialBtn && pricing.trialButtonText) trialBtn.textContent = pricing.trialButtonText;
+  setText(".lp-price-note", pricing.trialNoteText);
+}
+
+function renderManagedFaqContent() {
+  const target = document.querySelector("#faqList");
+  if (!target) return;
+  const content = effectiveSiteContent();
+  const faqs = (content.faqs || [])
+    .filter((f) => f.visible !== false)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+  if (!faqs.length) {
+    // Fall back to static default content if no dynamic FAQs are saved
+    const defaultFaqs = document.querySelectorAll("#defaultFaqList .faq-item");
+    if (defaultFaqs.length) {
+      target.innerHTML = Array.from(defaultFaqs).map((el) => el.outerHTML).join("");
+    }
+    return;
+  }
+  target.innerHTML = faqs.map((f) => `
+    <article class="faq-item">
+      <h3>${escapeHtml(f.question)}</h3>
+      <p>${escapeHtml(f.answer)}</p>
+    </article>
+  `).join("");
+}
+
+function renderManagedAnnouncementBanner() {
+  const banner = document.querySelector("#siteAnnouncementBanner");
+  const textEl = document.querySelector("#siteAnnouncementText");
+  if (!banner || !textEl) return;
+  const content = effectiveSiteContent();
+  const ann = content.announcement || {};
+  const dismissed = sessionStorage.getItem("llhAnnouncementDismissed") === ann.text;
+  const isExpired = ann.expiresAt && new Date(ann.expiresAt) < new Date();
+  const shouldShow = ann.visible === true && !ann._draft && !dismissed && !isExpired && ann.text;
+  if (shouldShow) {
+    textEl.textContent = ann.text;
+    banner.hidden = false;
+  } else {
+    banner.hidden = true;
+    textEl.textContent = "";
+  }
+}
+
 function dashboardInstallCardMarkup() {
   if (!shouldShowInstallPromptCard()) return "";
   return `
@@ -9245,6 +9363,9 @@ function renderHome() {
     if (homeSection) homeSection.innerHTML = homeViewTemplate;
   }
   renderManagedHomeContent();
+  renderManagedPricingText();
+  renderManagedFaqContent();
+  renderManagedAnnouncementBanner();
   const stats = {
     total: resources.length,
     lessons: resources.filter((resource) => resource.category === "Lesson Plans").length,
@@ -18310,6 +18431,7 @@ function applyAdminSectionVisibility() {
     ".admin-ai-test-panel",
     ".admin-visibility-panel",
     ".admin-users-panel",
+    ".admin-site-editor-panel",
   ];
 
   topSelectors.forEach((sel) => {
@@ -18351,6 +18473,10 @@ function applyAdminSectionVisibility() {
     const el = document.querySelector(".admin-users-panel");
     if (el) el.hidden = false;
     renderAdminUsersDashboard();
+  } else if (tab === "pricing" || tab === "faqs" || tab === "announcement" || tab === "upgrade-msg") {
+    const el = document.querySelector(".admin-site-editor-panel");
+    if (el) el.hidden = false;
+    renderAdminSiteEditorSection(tab);
   }
 }
 
@@ -18607,6 +18733,372 @@ function renderAdminUsersDashboard() {
 }
 
 
+
+// ─── Admin 2.0 Site Editor ────────────────────────────────────────────────────
+
+function adminDraftStatusBadge(isDraft) {
+  return isDraft
+    ? `<span class="se-status-badge se-draft">🟡 Draft</span>`
+    : `<span class="se-status-badge se-live">🟢 Live</span>`;
+}
+
+function renderAdminSiteEditorSection(tab) {
+  [
+    { id: "adminPricingApp",     tabId: "pricing" },
+    { id: "adminFaqsApp",        tabId: "faqs" },
+    { id: "adminAnnouncementApp",tabId: "announcement" },
+    { id: "adminUpgradeMsgApp",  tabId: "upgrade-msg" },
+  ].forEach(({ id, tabId }) => {
+    const el = document.querySelector(`#${id}`);
+    if (el) el.hidden = tabId !== tab;
+  });
+  if (tab === "pricing")      renderAdminPricingSection();
+  if (tab === "faqs")         renderAdminFaqsSection();
+  if (tab === "announcement") renderAdminAnnouncementSection();
+  if (tab === "upgrade-msg")  renderAdminUpgradeMsgSection();
+}
+
+// ── Pricing ──
+
+function renderAdminPricingSection() {
+  const target = document.querySelector("#adminPricingApp");
+  if (!target || !isAdminUnlocked()) return;
+  const content = effectiveSiteContent();
+  const pricing = content.pricing || {};
+  const isDraft = pricing._draft === true;
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>Pricing Section Text ${adminDraftStatusBadge(isDraft)}</h3></div>
+    </div>
+    <form id="adminPricingForm" class="panel-form admin-stacked-form">
+      <details class="se-accordion" open>
+        <summary class="se-accordion-summary">Section Header</summary>
+        <div class="se-accordion-body">
+          <label>Section title<input name="sectionTitle" value="${escapeHtml(pricing.sectionTitle || "")}" placeholder="Simple, Transparent Pricing" /></label>
+          <label>Section subtitle<textarea name="sectionSubtitle" rows="2">${escapeHtml(pricing.sectionSubtitle || "")}</textarea></label>
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">Free Plan Card</summary>
+        <div class="se-accordion-body">
+          <label>Plan name<input name="freePlanName" value="${escapeHtml(pricing.freePlanName || "")}" placeholder="Free" /></label>
+          <label>Plan description<textarea name="freePlanDescription" rows="2">${escapeHtml(pricing.freePlanDescription || "")}</textarea></label>
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">Pro Plan Card</summary>
+        <div class="se-accordion-body">
+          <label>Plan name<input name="proPlanName" value="${escapeHtml(pricing.proPlanName || "")}" placeholder="Pro" /></label>
+          <label>Plan description<textarea name="proPlanDescription" rows="2">${escapeHtml(pricing.proPlanDescription || "")}</textarea></label>
+          <label>Highlight badge<input name="proPlanHighlightBadge" value="${escapeHtml(pricing.proPlanHighlightBadge || "")}" placeholder="Most Popular" /></label>
+          <label>Trial button text<input name="trialButtonText" value="${escapeHtml(pricing.trialButtonText || "")}" placeholder="Start Your 7-Day Free Pro Trial" /></label>
+          <label>Trial note (below button)<textarea name="trialNoteText" rows="2">${escapeHtml(pricing.trialNoteText || "")}</textarea></label>
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">Fine Print</summary>
+        <div class="se-accordion-body">
+          <label>Credit card required text<input name="creditCardText" value="${escapeHtml(pricing.creditCardText || "")}" /></label>
+          <label>Cancel anytime text<input name="cancelText" value="${escapeHtml(pricing.cancelText || "")}" /></label>
+        </div>
+      </details>
+      <div class="se-form-actions">
+        <label class="se-draft-toggle"><input type="checkbox" name="_draft"${isDraft ? " checked" : ""} /> Save as Draft (not shown on live site)</label>
+        <div class="se-action-buttons">
+          <button class="ghost-button" type="button" data-se-restore="pricing">Restore Defaults</button>
+          <button class="primary-button" type="submit">Save Pricing Text</button>
+        </div>
+      </div>
+      <span class="form-message" id="adminPricingMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminPricingForm(form) {
+  const formData = new FormData(form);
+  const nextContent = nextSiteContentDraft();
+  nextContent.pricing = {
+    ...(nextContent.pricing || {}),
+    sectionTitle:         normalizedShortText(formData.get("sectionTitle")),
+    sectionSubtitle:      normalizedMultilineText(formData.get("sectionSubtitle")),
+    freePlanName:         normalizedShortText(formData.get("freePlanName")),
+    freePlanDescription:  normalizedMultilineText(formData.get("freePlanDescription")),
+    proPlanName:          normalizedShortText(formData.get("proPlanName")),
+    proPlanDescription:   normalizedMultilineText(formData.get("proPlanDescription")),
+    proPlanHighlightBadge:normalizedShortText(formData.get("proPlanHighlightBadge")),
+    trialButtonText:      normalizedShortText(formData.get("trialButtonText")),
+    trialNoteText:        normalizedMultilineText(formData.get("trialNoteText")),
+    creditCardText:       normalizedShortText(formData.get("creditCardText")),
+    cancelText:           normalizedShortText(formData.get("cancelText")),
+    _draft:               formData.get("_draft") === "on",
+  };
+  await saveAdminSiteContent(nextContent);
+  renderManagedPricingText();
+  setFormMessage("#adminPricingMessage", formData.get("_draft") === "on" ? "Pricing text saved as draft." : "Pricing text saved and live.", true);
+}
+
+// ── FAQs ──
+
+let adminFaqEditId = "";
+
+function renderAdminFaqsSection() {
+  const target = document.querySelector("#adminFaqsApp");
+  if (!target || !isAdminUnlocked()) return;
+  const content = effectiveSiteContent();
+  const faqs = (content.faqs || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+  const editFaq = faqs.find((f) => f.id === adminFaqEditId) || null;
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>FAQ Manager</h3></div>
+      <button class="ghost-button" type="button" id="adminNewFaqButton">+ Add FAQ</button>
+    </div>
+    <div class="admin-mobile-list" id="adminFaqList">
+      ${faqs.length ? faqs.map((f, index) => `
+        <div class="admin-se-card${f.visible === false ? " se-hidden" : ""}${f.id === adminFaqEditId ? " active" : ""}" data-faq-id="${escapeHtml(f.id)}">
+          <div class="admin-se-card-main">
+            <div class="admin-se-card-title">${escapeHtml(f.question || "(no question)")}</div>
+            <div class="admin-se-card-meta">
+              ${f.visible !== false ? `<span class="tag green-tag">Visible</span>` : `<span class="tag">Hidden</span>`}
+              Order: ${f.order || index + 1}
+            </div>
+          </div>
+          <div class="admin-se-card-actions">
+            <button class="ghost-button xs-button" type="button" data-faq-edit="${escapeHtml(f.id)}">Edit</button>
+            <button class="ghost-button xs-button" type="button" data-faq-toggle="${escapeHtml(f.id)}">${f.visible !== false ? "Hide" : "Show"}</button>
+            <button class="ghost-button xs-button" type="button" data-faq-up="${escapeHtml(f.id)}"${index === 0 ? " disabled" : ""}>↑</button>
+            <button class="ghost-button xs-button" type="button" data-faq-down="${escapeHtml(f.id)}"${index === faqs.length - 1 ? " disabled" : ""}>↓</button>
+            <button class="ghost-button xs-button danger-button" type="button" data-faq-delete="${escapeHtml(f.id)}">Delete</button>
+          </div>
+        </div>
+      `).join("") : `<div class="empty-state">No FAQs yet. Click + Add FAQ to create the first one.</div>`}
+    </div>
+    <form id="adminFaqForm" class="panel-form admin-stacked-form" style="margin-top:18px">
+      <h4 style="margin:0 0 10px">${editFaq ? "Edit FAQ" : "New FAQ"}</h4>
+      <input type="hidden" name="id" value="${editFaq ? escapeHtml(editFaq.id) : ""}" />
+      <label>Question<input name="question" value="${escapeHtml(editFaq?.question || "")}" required /></label>
+      <label>Answer<textarea name="answer" rows="4" required>${escapeHtml(editFaq?.answer || "")}</textarea></label>
+      <div class="form-actions">
+        <button class="primary-button" type="submit">${editFaq ? "Update FAQ" : "Add FAQ"}</button>
+        ${editFaq ? `<button class="ghost-button" type="button" id="adminFaqCancelEdit">Cancel</button>` : ""}
+      </div>
+      <span class="form-message" id="adminFaqMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminFaqForm(form) {
+  const formData = new FormData(form);
+  const nextContent = nextSiteContentDraft();
+  const existing = Array.isArray(nextContent.faqs) ? nextContent.faqs : [];
+  const id = normalizedShortText(formData.get("id")) || `faq-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const question = normalizedShortText(formData.get("question"));
+  const answer = normalizedMultilineText(formData.get("answer"));
+  if (!question || !answer) {
+    setFormMessage("#adminFaqMessage", "Question and answer are required.", false);
+    return;
+  }
+  const isEdit = !!normalizedShortText(formData.get("id"));
+  if (isEdit) {
+    nextContent.faqs = existing.map((f) => f.id === id ? { ...f, question, answer } : f);
+  } else {
+    const maxOrder = existing.reduce((m, f) => Math.max(m, f.order || 0), 0);
+    nextContent.faqs = [...existing, { id, question, answer, visible: true, order: maxOrder + 1 }];
+  }
+  await saveAdminSiteContent(nextContent);
+  adminFaqEditId = "";
+  setFormMessage("#adminFaqMessage", isEdit ? "FAQ updated." : "FAQ added.", true);
+  renderAdminFaqsSection();
+  renderManagedFaqContent();
+}
+
+async function toggleAdminFaq(id) {
+  const nextContent = nextSiteContentDraft();
+  nextContent.faqs = (nextContent.faqs || []).map((f) => f.id === id ? { ...f, visible: f.visible === false } : f);
+  await saveAdminSiteContent(nextContent);
+  renderAdminFaqsSection();
+  renderManagedFaqContent();
+}
+
+async function deleteAdminFaq(id) {
+  if (!confirm("Delete this FAQ? This cannot be undone.")) return;
+  const nextContent = nextSiteContentDraft();
+  nextContent.faqs = (nextContent.faqs || []).filter((f) => f.id !== id);
+  await saveAdminSiteContent(nextContent);
+  if (adminFaqEditId === id) adminFaqEditId = "";
+  renderAdminFaqsSection();
+  renderManagedFaqContent();
+}
+
+async function moveFaq(id, direction) {
+  const nextContent = nextSiteContentDraft();
+  const faqs = (nextContent.faqs || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+  const idx = faqs.findIndex((f) => f.id === id);
+  if (idx < 0) return;
+  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= faqs.length) return;
+  const tempOrder = faqs[idx].order;
+  faqs[idx] = { ...faqs[idx], order: faqs[swapIdx].order };
+  faqs[swapIdx] = { ...faqs[swapIdx], order: tempOrder };
+  nextContent.faqs = faqs;
+  await saveAdminSiteContent(nextContent);
+  renderAdminFaqsSection();
+  renderManagedFaqContent();
+}
+
+// ── Announcement ──
+
+function renderAdminAnnouncementSection() {
+  const target = document.querySelector("#adminAnnouncementApp");
+  if (!target || !isAdminUnlocked()) return;
+  const content = effectiveSiteContent();
+  const ann = content.announcement || {};
+  const isDraft = ann._draft === true;
+  const isVisible = ann.visible === true;
+  const isExpired = ann.expiresAt && new Date(ann.expiresAt) < new Date();
+  let statusLabel = adminDraftStatusBadge(isDraft);
+  if (!isDraft && isVisible) statusLabel = isExpired ? `<span class="se-status-badge se-draft">⏰ Expired</span>` : `<span class="se-status-badge se-live">🟢 Showing</span>`;
+  if (!isDraft && !isVisible) statusLabel = `<span class="se-status-badge">⭕ Hidden</span>`;
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>Site Announcement ${statusLabel}</h3></div>
+    </div>
+    <form id="adminAnnouncementForm" class="panel-form admin-stacked-form">
+      <label>Announcement text
+        <textarea name="text" rows="3" placeholder="e.g. 🎉 New lesson plans added! Check them out.">${escapeHtml(ann.text || "")}</textarea>
+      </label>
+      <div class="form-grid-two">
+        <label>
+          <input type="checkbox" name="visible"${isVisible ? " checked" : ""} /> Show announcement on site
+        </label>
+        <label>Expires (optional)<input type="date" name="expiresAt" value="${escapeHtml(ann.expiresAt ? ann.expiresAt.slice(0, 10) : "")}" /></label>
+      </div>
+      <label>Display location
+        <select name="location">
+          <option value="top"${(ann.location || "top") === "top" ? " selected" : ""}>Top of every page</option>
+          <option value="homepage"${ann.location === "homepage" ? " selected" : ""}>Homepage only</option>
+          <option value="all"${ann.location === "all" ? " selected" : ""}>All pages (sticky)</option>
+        </select>
+      </label>
+      <div class="se-form-actions">
+        <label class="se-draft-toggle"><input type="checkbox" name="_draft"${isDraft ? " checked" : ""} /> Save as Draft</label>
+        <div class="se-action-buttons">
+          <button class="ghost-button" type="button" data-se-restore="announcement">Clear</button>
+          <button class="primary-button" type="submit">Save Announcement</button>
+        </div>
+      </div>
+      <span class="form-message" id="adminAnnouncementMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminAnnouncementForm(form) {
+  const formData = new FormData(form);
+  const nextContent = nextSiteContentDraft();
+  nextContent.announcement = {
+    text:      normalizedMultilineText(formData.get("text")),
+    visible:   formData.get("visible") === "on",
+    expiresAt: normalizedShortText(formData.get("expiresAt")),
+    location:  normalizedShortText(formData.get("location")) || "top",
+    _draft:    formData.get("_draft") === "on",
+  };
+  await saveAdminSiteContent(nextContent);
+  renderManagedAnnouncementBanner();
+  const ann = nextContent.announcement;
+  const msg = ann._draft ? "Announcement saved as draft." : ann.visible ? "Announcement saved and live." : "Announcement saved (hidden).";
+  setFormMessage("#adminAnnouncementMessage", msg, true);
+}
+
+// ── Upgrade Messaging ──
+
+function renderAdminUpgradeMsgSection() {
+  const target = document.querySelector("#adminUpgradeMsgApp");
+  if (!target || !isAdminUnlocked()) return;
+  const content = effectiveSiteContent();
+  const um = content.upgradeMessaging || {};
+  const isDraft = um._draft === true;
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>Upgrade &amp; Trial Messaging ${adminDraftStatusBadge(isDraft)}</h3></div>
+    </div>
+    <form id="adminUpgradeMsgForm" class="panel-form admin-stacked-form">
+      <details class="se-accordion" open>
+        <summary class="se-accordion-summary">Pro Feature Popup</summary>
+        <div class="se-accordion-body">
+          <label>Popup headline<input name="upgradePopupHeadline" value="${escapeHtml(um.upgradePopupHeadline || "")}" placeholder="This is a Pro Feature" /></label>
+          <label>Free-limit headline<input name="upgradeLimitHeadline" value="${escapeHtml(um.upgradeLimitHeadline || "")}" placeholder="You've reached your Free Plan limit." /></label>
+          <label>Popup body text<textarea name="upgradePopupBody" rows="3">${escapeHtml(um.upgradePopupBody || "")}</textarea></label>
+          <label>Trial button text<input name="proTrialButtonText" value="${escapeHtml(um.proTrialButtonText || "")}" placeholder="Start Your 7-Day Free Pro Trial" /></label>
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">Free Plan &amp; Trial Wording</summary>
+        <div class="se-accordion-body">
+          <label>Free plan limit message<textarea name="freeLimitMessage" rows="2">${escapeHtml(um.freeLimitMessage || "")}</textarea></label>
+          <label>Trial summary line (shown under upgrade options)<textarea name="trialUpgradeSummary" rows="2">${escapeHtml(um.trialUpgradeSummary || "")}</textarea></label>
+        </div>
+      </details>
+      <div class="se-form-actions">
+        <label class="se-draft-toggle"><input type="checkbox" name="_draft"${isDraft ? " checked" : ""} /> Save as Draft (not applied to live site)</label>
+        <div class="se-action-buttons">
+          <button class="ghost-button" type="button" data-se-restore="upgrade-msg">Restore Defaults</button>
+          <button class="primary-button" type="submit">Save Messaging</button>
+        </div>
+      </div>
+      <span class="form-message" id="adminUpgradeMsgMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminUpgradeMsgForm(form) {
+  const formData = new FormData(form);
+  const nextContent = nextSiteContentDraft();
+  nextContent.upgradeMessaging = {
+    upgradePopupHeadline: normalizedShortText(formData.get("upgradePopupHeadline")),
+    upgradeLimitHeadline: normalizedShortText(formData.get("upgradeLimitHeadline")),
+    upgradePopupBody:     normalizedMultilineText(formData.get("upgradePopupBody")),
+    proTrialButtonText:   normalizedShortText(formData.get("proTrialButtonText")),
+    freeLimitMessage:     normalizedMultilineText(formData.get("freeLimitMessage")),
+    trialUpgradeSummary:  normalizedMultilineText(formData.get("trialUpgradeSummary")),
+    _draft:               formData.get("_draft") === "on",
+  };
+  await saveAdminSiteContent(nextContent);
+  setFormMessage("#adminUpgradeMsgMessage", formData.get("_draft") === "on" ? "Upgrade messaging saved as draft." : "Upgrade messaging saved and live.", true);
+}
+
+// ── Site Editor restore-defaults handlers ──
+
+function siteEditorDefaultPricing() {
+  const def = captureDefaultSiteContent();
+  return def.pricing || {};
+}
+function siteEditorDefaultUpgradeMsg() {
+  const def = captureDefaultSiteContent();
+  return def.upgradeMessaging || {};
+}
+
+async function handleSiteEditorRestore(section) {
+  if (section === "pricing") {
+    if (!confirm("Restore all pricing text to the original site defaults?")) return;
+    const nextContent = nextSiteContentDraft();
+    nextContent.pricing = siteEditorDefaultPricing();
+    await saveAdminSiteContent(nextContent);
+    renderManagedPricingText();
+    renderAdminPricingSection();
+  } else if (section === "announcement") {
+    if (!confirm("Clear the announcement?")) return;
+    const nextContent = nextSiteContentDraft();
+    nextContent.announcement = { text: "", visible: false, expiresAt: "", location: "top", _draft: false };
+    await saveAdminSiteContent(nextContent);
+    renderManagedAnnouncementBanner();
+    renderAdminAnnouncementSection();
+  } else if (section === "upgrade-msg") {
+    if (!confirm("Restore upgrade messaging to defaults?")) return;
+    const nextContent = nextSiteContentDraft();
+    nextContent.upgradeMessaging = siteEditorDefaultUpgradeMsg();
+    await saveAdminSiteContent(nextContent);
+    renderAdminUpgradeMsgSection();
+  }
+}
 
 const structuredImportSectionMap = {
   TITLE: "title",
@@ -24813,6 +25305,27 @@ document.addEventListener("submit", async (event) => {
     await handleAddLessonResource(event.target);
     return;
   }
+  // Site Editor forms
+  if (event.target.matches("#adminPricingForm")) {
+    event.preventDefault();
+    await saveAdminPricingForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminFaqForm")) {
+    event.preventDefault();
+    await saveAdminFaqForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminAnnouncementForm")) {
+    event.preventDefault();
+    await saveAdminAnnouncementForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminUpgradeMsgForm")) {
+    event.preventDefault();
+    await saveAdminUpgradeMsgForm(event.target);
+    return;
+  }
 });
 
 document.addEventListener("change", (event) => {
@@ -25147,6 +25660,61 @@ document.addEventListener("click", async (event) => {
   if (managedPreviewButton) {
     const [, id] = (managedPreviewButton.dataset.adminManagedPreview || "").split(":");
     if (id) openResourceViewer(id);
+    return;
+  }
+
+  // ── Site Editor – FAQ management ──
+  if (event.target.matches("#adminNewFaqButton")) {
+    adminFaqEditId = "";
+    renderAdminFaqsSection();
+    return;
+  }
+  if (event.target.matches("#adminFaqCancelEdit")) {
+    adminFaqEditId = "";
+    renderAdminFaqsSection();
+    return;
+  }
+  const faqEditBtn = event.target.closest("[data-faq-edit]");
+  if (faqEditBtn) {
+    adminFaqEditId = faqEditBtn.dataset.faqEdit;
+    renderAdminFaqsSection();
+    return;
+  }
+  const faqToggleBtn = event.target.closest("[data-faq-toggle]");
+  if (faqToggleBtn) {
+    await toggleAdminFaq(faqToggleBtn.dataset.faqToggle);
+    return;
+  }
+  const faqDeleteBtn = event.target.closest("[data-faq-delete]");
+  if (faqDeleteBtn) {
+    await deleteAdminFaq(faqDeleteBtn.dataset.faqDelete);
+    return;
+  }
+  const faqUpBtn = event.target.closest("[data-faq-up]");
+  if (faqUpBtn) {
+    await moveFaq(faqUpBtn.dataset.faqUp, "up");
+    return;
+  }
+  const faqDownBtn = event.target.closest("[data-faq-down]");
+  if (faqDownBtn) {
+    await moveFaq(faqDownBtn.dataset.faqDown, "down");
+    return;
+  }
+
+  // ── Site Editor – restore defaults ──
+  const seRestoreBtn = event.target.closest("[data-se-restore]");
+  if (seRestoreBtn) {
+    await handleSiteEditorRestore(seRestoreBtn.dataset.seRestore);
+    return;
+  }
+
+  // ── Announcement banner dismiss ──
+  if (event.target.matches("#siteAnnouncementClose")) {
+    const banner = document.querySelector("#siteAnnouncementBanner");
+    const textEl = document.querySelector("#siteAnnouncementText");
+    if (banner) banner.hidden = true;
+    const text = textEl?.textContent || "";
+    if (text) sessionStorage.setItem("llhAnnouncementDismissed", text);
     return;
   }
 });

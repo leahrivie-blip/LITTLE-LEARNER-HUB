@@ -309,6 +309,10 @@ function defaultSiteContentStore() {
     reviews: [],
     founder: {},
     homepage: {},
+    pricing: {},
+    faqs: [],
+    announcement: {},
+    upgradeMessaging: {},
     images: [],
     updatedAt: "",
   };
@@ -415,6 +419,19 @@ function normalizedLessonPlanOverride(id, value) {
       friday: normalizedMultilineText(days.friday, 4000),
     },
     resources: normalizedList(entry.resources, 50, normalizedLessonPlanResource),
+  };
+}
+
+function normalizedFaqEntry(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const id = normalizedShortText(entry.id, 120);
+  if (!id) return null;
+  return {
+    id,
+    question: normalizedShortText(entry.question, 400),
+    answer: normalizedMultilineText(entry.answer, 4000),
+    visible: entry.visible !== false,
+    order: Number.isFinite(Number(entry.order)) ? Number(entry.order) : 0,
   };
 }
 
@@ -570,6 +587,37 @@ function normalizedSiteContent(value) {
       };
       return normalized.id ? normalized : null;
     }),
+    pricing: {
+      sectionTitle: normalizedShortText(input.pricing?.sectionTitle, 240),
+      sectionSubtitle: normalizedMultilineText(input.pricing?.sectionSubtitle, 600),
+      freePlanName: normalizedShortText(input.pricing?.freePlanName, 120),
+      freePlanDescription: normalizedMultilineText(input.pricing?.freePlanDescription, 600),
+      proPlanName: normalizedShortText(input.pricing?.proPlanName, 120),
+      proPlanDescription: normalizedMultilineText(input.pricing?.proPlanDescription, 600),
+      proPlanHighlightBadge: normalizedShortText(input.pricing?.proPlanHighlightBadge, 120),
+      trialButtonText: normalizedShortText(input.pricing?.trialButtonText, 200),
+      trialNoteText: normalizedMultilineText(input.pricing?.trialNoteText, 400),
+      creditCardText: normalizedShortText(input.pricing?.creditCardText, 200),
+      cancelText: normalizedShortText(input.pricing?.cancelText, 200),
+      _draft: input.pricing?._draft === true,
+    },
+    faqs: normalizedList(input.faqs, 100, normalizedFaqEntry),
+    announcement: {
+      text: normalizedMultilineText(input.announcement?.text, 1000),
+      visible: input.announcement?.visible === true,
+      expiresAt: normalizedShortText(input.announcement?.expiresAt, 80),
+      location: ["top", "homepage", "all"].includes(input.announcement?.location) ? input.announcement.location : "top",
+      _draft: input.announcement?._draft === true,
+    },
+    upgradeMessaging: {
+      upgradePopupHeadline: normalizedShortText(input.upgradeMessaging?.upgradePopupHeadline, 200),
+      upgradeLimitHeadline: normalizedShortText(input.upgradeMessaging?.upgradeLimitHeadline, 200),
+      upgradePopupBody: normalizedMultilineText(input.upgradeMessaging?.upgradePopupBody, 800),
+      proTrialButtonText: normalizedShortText(input.upgradeMessaging?.proTrialButtonText, 200),
+      freeLimitMessage: normalizedMultilineText(input.upgradeMessaging?.freeLimitMessage, 400),
+      trialUpgradeSummary: normalizedMultilineText(input.upgradeMessaging?.trialUpgradeSummary, 400),
+      _draft: input.upgradeMessaging?._draft === true,
+    },
     updatedAt: normalizedShortText(input.updatedAt, 80),
   };
 }
