@@ -1893,6 +1893,18 @@ const aiGenerationConfig = {
 const adminAiTestConfig = {
   endpoint: "/api/admin/ai-test",
 };
+const adminAiPromptsConfig = {
+  getEndpoint: "/api/admin/ai-prompts",
+  saveEndpoint: "/api/admin/ai-prompts",
+  restoreEndpoint: "/api/admin/ai-prompts/restore",
+};
+const adminAiSettingsConfig = {
+  getEndpoint: "/api/admin/ai-settings",
+  saveEndpoint: "/api/admin/ai-settings",
+};
+const adminAiUsageConfig = {
+  endpoint: "/api/admin/ai-usage",
+};
 const adminLessonGenerateConfig = {
   endpoint: "/api/admin/generate-lesson-plan",
 };
@@ -3066,7 +3078,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","activities","forms","printables","reviews","homepage","founder","images","analytics","support","ai-testing","visibility","users","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","activities","forms","printables","reviews","homepage","founder","images","analytics","support","ai-testing","prompts","settings","usage","visibility","users","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding"]);
 const lessonPlanResourceCategories = ["Coloring Pages", "Tracing Activities", "Counting Activities", "Matching Activities", "Crafts", "Teacher Resources", "Activity Photos", "General"];
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "dashboard";
 let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabRaw) ? adminActiveSectionTabRaw : "dashboard";
@@ -3079,7 +3091,7 @@ const adminGroups = [
   { id: "users",     icon: "👥", label: "Users",      tabs: ["users"], defaultTab: "users" },
   { id: "settings",  icon: "⚙️", label: "Settings",   tabs: ["homepage", "images"], defaultTab: "homepage" },
   { id: "site-editor", icon: "✏️", label: "Site Editor", tabs: ["hero", "trust", "journey", "reviews-cta", "founding", "pricing", "faqs", "announcement", "upgrade-msg"], defaultTab: "hero" },
-  { id: "ai",        icon: "🤖", label: "AI",         tabs: ["ai-testing"], defaultTab: "ai-testing" },
+  { id: "ai",        icon: "🤖", label: "AI",         tabs: ["prompts", "settings", "usage", "ai-testing"], defaultTab: "prompts" },
 ];
 const adminGroupForTab = {
   "dashboard":   "dashboard",
@@ -3106,6 +3118,9 @@ const adminGroupForTab = {
   "reviews-cta": "site-editor",
   "founding":    "site-editor",
   "ai-testing":  "ai",
+  "prompts":     "ai",
+  "settings":    "ai",
+  "usage":       "ai",
 };
 const adminTabLabels = {
   "dashboard":   "Overview",
@@ -3132,6 +3147,9 @@ const adminTabLabels = {
   "reviews-cta": "Reviews & CTA",
   "founding":    "Founding",
   "ai-testing":  "AI Testing",
+  "prompts":     "Prompt Manager",
+  "settings":    "AI Settings",
+  "usage":       "Usage Monitor",
 };
 let adminActiveGroup = adminGroupForTab[adminActiveSectionTab] || "dashboard";
 const mobileNavMaxWidth = 820;
@@ -18711,6 +18729,9 @@ const adminSectionTabs = [
   { id: "analytics",   label: "Analytics" },
   { id: "support",     label: "Support" },
   { id: "ai-testing",  label: "AI Testing" },
+  { id: "prompts",     label: "Prompt Manager" },
+  { id: "settings",    label: "AI Settings" },
+  { id: "usage",       label: "Usage Monitor" },
 ];
 
 function setAdminSectionTab(tabId) {
@@ -18771,6 +18792,9 @@ function applyAdminSectionVisibility() {
     ".launch-readiness-panel",
     ".admin-ticket-panel",
     ".admin-ai-test-panel",
+    ".admin-ai-prompts-panel",
+    ".admin-ai-settings-panel",
+    ".admin-ai-usage-panel",
     ".admin-visibility-panel",
     ".admin-users-panel",
     ".admin-site-editor-panel",
@@ -18807,6 +18831,26 @@ function applyAdminSectionVisibility() {
   } else if (tab === "ai-testing") {
     const el = document.querySelector(".admin-ai-test-panel");
     if (el) el.hidden = false;
+  } else if (tab === "prompts") {
+    const el = document.querySelector(".admin-ai-prompts-panel");
+    if (el) el.hidden = false;
+    if (!adminAiPromptsState.aiPrompts || Object.keys(adminAiPromptsState.aiPrompts).length === 0) {
+      loadAdminAiPrompts();
+    } else {
+      renderAdminAiPromptsTab();
+    }
+  } else if (tab === "settings") {
+    const el = document.querySelector(".admin-ai-settings-panel");
+    if (el) el.hidden = false;
+    if (!adminAiSettingsState.aiSettings) {
+      loadAdminAiSettings();
+    } else {
+      renderAdminAiSettingsTab();
+    }
+  } else if (tab === "usage") {
+    const el = document.querySelector(".admin-ai-usage-panel");
+    if (el) el.hidden = false;
+    loadAdminAiUsage();
   } else if (tab === "visibility") {
     const el = document.querySelector(".admin-visibility-panel");
     if (el) el.hidden = false;
@@ -20616,6 +20660,518 @@ async function callAdminGenerateLessonPlan(age, theme, lessonNumber) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || "Lesson plan could not be generated. Please try again.");
   return data.fields || {};
+}
+
+async function callAdminGenerateLessonPlan(age, theme, lessonNumber) {
+  const token = adminSession()?.token || "";
+  if (!token) throw new Error("Admin session required. Please log in as admin.");
+  if (!canUseLaunchBackend()) throw new Error("Backend server is required for lesson plan generation.");
+  const res = await fetch(adminLessonGenerateConfig.endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminToken: token, age, theme, lessonNumber }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || "Lesson plan could not be generated. Please try again.");
+  return data.fields || {};
+}
+
+// ─── AI Prompt Manager ────────────────────────────────────────────────────────
+
+let adminAiPromptsState = {
+  loading: false,
+  saving: false,
+  error: "",
+  success: "",
+  aiPrompts: {},
+  aiPromptVersions: [],
+  hardcodedDefaults: {},
+  activeTool: "observation",
+  showVersionHistory: false,
+};
+
+const AI_TOOL_LABELS = {
+  observation:    "Observation Generator",
+  lesson:         "Lesson Plan Generator",
+  daily:          "Daily Log Generator",
+  parentMessage:  "Parent Message Generator",
+  activity:       "Activity Generator",
+  behaviorNote:   "Behavior Note Generator",
+  incidentReport: "Incident Report Generator",
+};
+
+const AI_LAYER_LABELS = {
+  masterPrompt:        "Master Prompt",
+  toolSpecificPrompt:  "Tool-Specific Prompt",
+  writingIntelligence: "Writing Intelligence Rules",
+  outputFormatting:    "Output Formatting Rules",
+};
+
+const AI_LAYER_DESCRIPTIONS = {
+  masterPrompt:        "Core role definition and shared rules applied to all documents for this tool.",
+  toolSpecificPrompt:  "Rules specific to this document type — structure, format, and content requirements.",
+  writingIntelligence: "Step-by-step reasoning instructions for analyzing notes and writing content.",
+  outputFormatting:    "Required output sections, order, and formatting standards.",
+};
+
+const AI_PROMPT_LAYERS_ORDERED = ["masterPrompt", "toolSpecificPrompt", "writingIntelligence", "outputFormatting"];
+
+async function loadAdminAiPrompts() {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return;
+  adminAiPromptsState.loading = true;
+  renderAdminAiPromptsTab();
+  try {
+    const res = await fetch(`${adminAiPromptsConfig.getEndpoint}?adminToken=${encodeURIComponent(token)}&t=${Date.now()}`, { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Failed to load prompts.");
+    adminAiPromptsState.aiPrompts = data.aiPrompts || {};
+    adminAiPromptsState.aiPromptVersions = data.aiPromptVersions || [];
+    adminAiPromptsState.hardcodedDefaults = data.hardcodedDefaults || {};
+    adminAiPromptsState.error = "";
+  } catch (error) {
+    adminAiPromptsState.error = error.message || "Could not load prompts.";
+  }
+  adminAiPromptsState.loading = false;
+  renderAdminAiPromptsTab();
+}
+
+async function saveAdminAiPrompts(tool) {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return;
+  const form = document.querySelector("#adminAiPromptsForm");
+  if (!form) return;
+  adminAiPromptsState.saving = true;
+  adminAiPromptsState.success = "";
+  adminAiPromptsState.error = "";
+  renderAdminAiPromptsTab();
+  const body = {
+    adminToken: token,
+    tool,
+    adminEmail: adminSession()?.email || "",
+  };
+  for (const layer of AI_PROMPT_LAYERS_ORDERED) {
+    body[layer] = form.querySelector(`[name="${layer}"]`)?.value || "";
+  }
+  try {
+    const res = await fetch(adminAiPromptsConfig.saveEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Failed to save prompts.");
+    adminAiPromptsState.aiPrompts = data.aiPrompts || adminAiPromptsState.aiPrompts;
+    adminAiPromptsState.aiPromptVersions = data.aiPromptVersions || adminAiPromptsState.aiPromptVersions;
+    adminAiPromptsState.success = "Prompts saved successfully.";
+  } catch (error) {
+    adminAiPromptsState.error = error.message || "Could not save prompts.";
+  }
+  adminAiPromptsState.saving = false;
+  renderAdminAiPromptsTab();
+}
+
+async function restoreAdminAiPromptVersion(versionId) {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return;
+  adminAiPromptsState.saving = true;
+  adminAiPromptsState.success = "";
+  adminAiPromptsState.error = "";
+  renderAdminAiPromptsTab();
+  try {
+    const res = await fetch(adminAiPromptsConfig.restoreEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminToken: token, versionId, adminEmail: adminSession()?.email || "" }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Failed to restore version.");
+    adminAiPromptsState.aiPrompts = data.aiPrompts || adminAiPromptsState.aiPrompts;
+    adminAiPromptsState.aiPromptVersions = data.aiPromptVersions || adminAiPromptsState.aiPromptVersions;
+    adminAiPromptsState.success = "Version restored successfully.";
+  } catch (error) {
+    adminAiPromptsState.error = error.message || "Could not restore version.";
+  }
+  adminAiPromptsState.saving = false;
+  renderAdminAiPromptsTab();
+}
+
+function renderAdminAiPromptsTab() {
+  const target = document.querySelector("#adminAiPromptsApp");
+  if (!target || !isAdminUnlocked()) return;
+  const state = adminAiPromptsState;
+  const tool = state.activeTool;
+  const toolEntry = state.aiPrompts[tool] || {};
+  const defaults = state.hardcodedDefaults[tool] || "";
+  const versions = state.aiPromptVersions.filter((v) => v.tool === tool).slice(0, 20);
+
+  if (state.loading) {
+    target.innerHTML = `<p class="ai-pm-loading">Loading prompt data…</p>`;
+    return;
+  }
+
+  target.innerHTML = `
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Admin Only</p>
+        <h3>AI Prompt Manager</h3>
+        <p>Edit the prompt layers used by each AI tool. Changes take effect immediately for all new AI generations. Empty layers fall back to built-in defaults.</p>
+      </div>
+    </div>
+    ${state.error ? `<p class="form-error" style="margin-bottom:12px;">${escapeHtml(state.error)}</p>` : ""}
+    ${state.success ? `<p class="form-success" style="margin-bottom:12px;">${escapeHtml(state.success)}</p>` : ""}
+    <div class="ai-pm-grid">
+      <div class="ai-pm-sidebar">
+        <p class="eyebrow" style="margin-bottom:8px;">AI Tools</p>
+        ${Object.entries(AI_TOOL_LABELS).map(([id, label]) => `
+          <button class="ai-pm-tool-btn${tool === id ? " active" : ""}" data-ai-pm-tool="${id}" type="button">
+            ${escapeHtml(label)}
+            ${state.aiPrompts[id] ? `<span class="ai-pm-customized-badge">Custom</span>` : ""}
+          </button>
+        `).join("")}
+      </div>
+      <div class="ai-pm-main">
+        <div class="ai-pm-tool-header">
+          <div>
+            <h4 style="margin:0 0 4px;">${escapeHtml(AI_TOOL_LABELS[tool] || tool)}</h4>
+            ${toolEntry.updatedAt ? `<small class="ai-pm-meta">Last saved ${new Date(toolEntry.updatedAt).toLocaleString()} by ${escapeHtml(toolEntry.updatedBy || "admin")}</small>` : `<small class="ai-pm-meta">Using built-in default prompt</small>`}
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button class="ghost-button" type="button" id="aiPmToggleHistory">${state.showVersionHistory ? "Hide History" : "Version History"}</button>
+            <button class="ghost-button" type="button" id="aiPmResetBtn">Reset to Default</button>
+          </div>
+        </div>
+        <form id="adminAiPromptsForm" class="ai-pm-form">
+          ${AI_PROMPT_LAYERS_ORDERED.map((layer) => `
+            <details class="ai-pm-layer" open>
+              <summary class="ai-pm-layer-summary">
+                <strong>${escapeHtml(AI_LAYER_LABELS[layer] || layer)}</strong>
+                <small>${escapeHtml(AI_LAYER_DESCRIPTIONS[layer] || "")}</small>
+              </summary>
+              <div class="ai-pm-layer-body">
+                <textarea
+                  name="${layer}"
+                  class="aitc-prompt-textarea ai-pm-textarea"
+                  rows="8"
+                  placeholder="Leave empty to use the built-in default for this layer."
+                >${escapeHtml(String(toolEntry[layer] || ""))}</textarea>
+              </div>
+            </details>
+          `).join("")}
+          <div class="ai-pm-actions">
+            <button class="primary-button" type="submit" id="aiPmSaveBtn" ${state.saving ? "disabled" : ""}>
+              ${state.saving ? "Saving…" : "Save Prompts"}
+            </button>
+          </div>
+        </form>
+        ${state.showVersionHistory ? `
+          <div class="ai-pm-history">
+            <p class="eyebrow" style="margin-bottom:8px;">Version History — ${escapeHtml(AI_TOOL_LABELS[tool] || tool)}</p>
+            ${versions.length === 0 ? `<p class="aitc-hint">No version history yet for this tool.</p>` : `
+              <div class="aitc-version-list">
+                ${versions.map((v) => `
+                  <div class="aitc-version-row">
+                    <div>
+                      <strong>${escapeHtml(AI_LAYER_LABELS[v.layer] || v.layer)}</strong>
+                      <small>${new Date(v.savedAt).toLocaleString()} · ${escapeHtml(v.savedBy || "admin")}${v.restoredFrom ? " · Restored" : ""}</small>
+                      <small style="display:block;margin-top:2px;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px;">${escapeHtml((v.previousValue || "").slice(0, 80) || "(empty)")}</small>
+                    </div>
+                    <div class="aitc-version-actions">
+                      <button class="ghost-button xs-button" type="button" data-ai-pm-restore="${escapeHtml(v.id)}">Restore</button>
+                    </div>
+                  </div>
+                `).join("")}
+              </div>
+            `}
+          </div>
+        ` : ""}
+        ${defaults && !toolEntry.masterPrompt ? `
+          <details class="ai-pm-default-preview">
+            <summary>Preview built-in default prompt</summary>
+            <pre class="aitc-prompt-pre">${escapeHtml(defaults.slice(0, 2000))}${defaults.length > 2000 ? "\n…(truncated)" : ""}</pre>
+          </details>
+        ` : ""}
+      </div>
+    </div>
+  `;
+}
+
+// ─── AI Settings ─────────────────────────────────────────────────────────────
+
+let adminAiSettingsState = {
+  loading: false,
+  saving: false,
+  error: "",
+  success: "",
+  aiSettings: null,
+};
+
+async function loadAdminAiSettings() {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return;
+  adminAiSettingsState.loading = true;
+  renderAdminAiSettingsTab();
+  try {
+    const res = await fetch(`${adminAiSettingsConfig.getEndpoint}?adminToken=${encodeURIComponent(token)}&t=${Date.now()}`, { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Failed to load AI settings.");
+    adminAiSettingsState.aiSettings = data.aiSettings || null;
+    adminAiSettingsState.error = "";
+  } catch (error) {
+    adminAiSettingsState.error = error.message || "Could not load AI settings.";
+  }
+  adminAiSettingsState.loading = false;
+  renderAdminAiSettingsTab();
+}
+
+async function saveAdminAiSettings() {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return;
+  const form = document.querySelector("#adminAiSettingsForm");
+  if (!form) return;
+  adminAiSettingsState.saving = true;
+  adminAiSettingsState.success = "";
+  adminAiSettingsState.error = "";
+  renderAdminAiSettingsTab();
+  // Build settings from form
+  const masterEnabled = form.querySelector("#aiSettingsMasterEnabled")?.checked !== false;
+  const tools = {};
+  for (const toolId of Object.keys(AI_TOOL_LABELS)) {
+    tools[toolId] = {
+      enabled: form.querySelector(`[name="tool_enabled_${toolId}"]`)?.checked !== false,
+      generationLimit: parseInt(form.querySelector(`[name="tool_limit_${toolId}"]`)?.value || "", 10) || null,
+      fallbackMessage: form.querySelector(`[name="tool_fallback_${toolId}"]`)?.value?.trim() || "",
+    };
+  }
+  try {
+    const res = await fetch(adminAiSettingsConfig.saveEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminToken: token, aiSettings: { masterEnabled, tools } }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Failed to save AI settings.");
+    adminAiSettingsState.aiSettings = data.aiSettings || adminAiSettingsState.aiSettings;
+    adminAiSettingsState.success = "AI settings saved successfully.";
+  } catch (error) {
+    adminAiSettingsState.error = error.message || "Could not save AI settings.";
+  }
+  adminAiSettingsState.saving = false;
+  renderAdminAiSettingsTab();
+}
+
+function renderAdminAiSettingsTab() {
+  const target = document.querySelector("#adminAiSettingsApp");
+  if (!target || !isAdminUnlocked()) return;
+  const state = adminAiSettingsState;
+  const settings = state.aiSettings;
+
+  if (state.loading) {
+    target.innerHTML = `<p class="ai-pm-loading">Loading AI settings…</p>`;
+    return;
+  }
+  if (!settings) {
+    target.innerHTML = `
+      <div class="section-heading"><div><p class="eyebrow">Admin Only</p><h3>AI Settings</h3></div></div>
+      ${state.error ? `<p class="form-error">${escapeHtml(state.error)}</p>` : ""}
+      <p>Could not load AI settings. <button class="ghost-button" type="button" id="aiSettingsRetryBtn">Retry</button></p>
+    `;
+    return;
+  }
+
+  target.innerHTML = `
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Admin Only</p>
+        <h3>AI Settings &amp; Safety Controls</h3>
+        <p>Enable or disable individual AI tools, set per-tool generation limits, and configure fallback messages shown to users when a tool is unavailable.</p>
+      </div>
+    </div>
+    ${state.error ? `<p class="form-error" style="margin-bottom:12px;">${escapeHtml(state.error)}</p>` : ""}
+    ${state.success ? `<p class="form-success" style="margin-bottom:12px;">${escapeHtml(state.success)}</p>` : ""}
+    <form id="adminAiSettingsForm" class="panel-form">
+      <div class="ai-settings-master">
+        <label class="admin-inline-toggle">
+          <input type="checkbox" id="aiSettingsMasterEnabled" ${settings.masterEnabled !== false ? "checked" : ""} />
+          <strong>AI Document Creation Master Switch</strong>
+        </label>
+        <p class="form-note">Turn off to disable all AI generations across the entire app. Individual tool settings below are ignored when the master switch is off.</p>
+      </div>
+      <p class="eyebrow" style="margin:20px 0 8px;">Per-Tool Settings</p>
+      <div class="ai-settings-grid">
+        ${Object.entries(AI_TOOL_LABELS).map(([toolId, label]) => {
+          const tool = settings.tools?.[toolId] || {};
+          return `
+            <div class="ai-settings-tool-card">
+              <div class="ai-settings-tool-header">
+                <label class="admin-inline-toggle">
+                  <input type="checkbox" name="tool_enabled_${toolId}" ${tool.enabled !== false ? "checked" : ""} />
+                  <strong>${escapeHtml(label)}</strong>
+                </label>
+                <span class="ai-tool-status-badge ${tool.enabled !== false ? "badge-on" : "badge-off"}">${tool.enabled !== false ? "Active" : "Disabled"}</span>
+              </div>
+              <div class="ai-settings-tool-fields">
+                <label class="form-field-small">
+                  Monthly Limit (blank = no limit)
+                  <input type="number" name="tool_limit_${toolId}" min="1" max="9999" value="${tool.generationLimit != null ? tool.generationLimit : ""}" placeholder="No limit" />
+                </label>
+                <label class="form-field-small">
+                  Fallback Message (shown to users when tool is disabled)
+                  <input type="text" name="tool_fallback_${toolId}" maxlength="500" value="${escapeHtml(tool.fallbackMessage || "")}" placeholder="This AI tool is currently unavailable." />
+                </label>
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+      <div class="form-actions" style="margin-top:20px;">
+        <button class="primary-button" type="submit" id="aiSettingsSaveBtn" ${state.saving ? "disabled" : ""}>
+          ${state.saving ? "Saving…" : "Save AI Settings"}
+        </button>
+      </div>
+    </form>
+  `;
+}
+
+// ─── AI Usage Monitor ─────────────────────────────────────────────────────────
+
+let adminAiUsageState = {
+  loading: false,
+  error: "",
+  data: null,
+};
+
+async function loadAdminAiUsage() {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return;
+  adminAiUsageState.loading = true;
+  renderAdminAiUsageTab();
+  try {
+    const res = await fetch(`${adminAiUsageConfig.endpoint}?adminToken=${encodeURIComponent(token)}&t=${Date.now()}`, { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Failed to load AI usage data.");
+    adminAiUsageState.data = data.aiUsage || null;
+    adminAiUsageState.error = "";
+  } catch (error) {
+    adminAiUsageState.error = error.message || "Could not load AI usage data.";
+    adminAiUsageState.data = null;
+  }
+  adminAiUsageState.loading = false;
+  renderAdminAiUsageTab();
+}
+
+function renderAdminAiUsageTab() {
+  const target = document.querySelector("#adminAiUsageApp");
+  if (!target || !isAdminUnlocked()) return;
+  const state = adminAiUsageState;
+
+  if (state.loading) {
+    target.innerHTML = `<p class="ai-pm-loading">Loading usage data…</p>`;
+    return;
+  }
+
+  const d = state.data;
+  if (!d) {
+    target.innerHTML = `
+      <div class="section-heading"><div><p class="eyebrow">Admin Only</p><h3>AI Usage Monitor</h3></div></div>
+      ${state.error ? `<p class="form-error">${escapeHtml(state.error)}</p>` : ""}
+      <p>Could not load usage data. <button class="ghost-button" type="button" id="aiUsageRetryBtn">Retry</button></p>
+    `;
+    return;
+  }
+
+  const formatMs = (ms) => ms == null ? "—" : ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+  const toolRows = Object.entries(d.byTool || {}).sort((a, b) => b[1].total - a[1].total);
+  const maxTotal = toolRows.reduce((m, [, v]) => Math.max(m, v.total), 1);
+
+  target.innerHTML = `
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Admin Only</p>
+        <h3>AI Usage Monitor</h3>
+        <p>Aggregate statistics for all AI generations. Data is collected from server-side logs.</p>
+      </div>
+      <button class="ghost-button" type="button" id="aiUsageRefreshBtn">Refresh</button>
+    </div>
+    <div class="ai-usage-stats-grid">
+      <div class="ai-usage-stat-card">
+        <p class="ai-stat-label">Total Generations</p>
+        <p class="ai-stat-value">${d.total.toLocaleString()}</p>
+      </div>
+      <div class="ai-usage-stat-card ai-stat-success">
+        <p class="ai-stat-label">Successful</p>
+        <p class="ai-stat-value">${d.successful.toLocaleString()}</p>
+      </div>
+      <div class="ai-usage-stat-card ai-stat-failed">
+        <p class="ai-stat-label">Failed</p>
+        <p class="ai-stat-value">${d.failed.toLocaleString()}</p>
+      </div>
+      <div class="ai-usage-stat-card">
+        <p class="ai-stat-label">Avg Response Time</p>
+        <p class="ai-stat-value">${formatMs(d.avgResponseMs)}</p>
+      </div>
+      <div class="ai-usage-stat-card">
+        <p class="ai-stat-label">Input Tokens</p>
+        <p class="ai-stat-value">${(d.totalInputTokens || 0).toLocaleString()}</p>
+      </div>
+      <div class="ai-usage-stat-card">
+        <p class="ai-stat-label">Output Tokens</p>
+        <p class="ai-stat-value">${(d.totalOutputTokens || 0).toLocaleString()}</p>
+      </div>
+      <div class="ai-usage-stat-card">
+        <p class="ai-stat-label">Est. AI Cost</p>
+        <p class="ai-stat-value">$${(d.estimatedCostUsd || 0).toFixed(2)}</p>
+        <p class="ai-stat-note">gpt-4o approx. rates</p>
+      </div>
+    </div>
+    ${toolRows.length ? `
+      <div class="ai-usage-by-tool">
+        <p class="eyebrow" style="margin-bottom:10px;">Generations by Tool</p>
+        ${toolRows.map(([toolId, counts]) => `
+          <div class="ai-usage-tool-row">
+            <div class="ai-usage-tool-name">${escapeHtml(AI_TOOL_LABELS[toolId] || toolId)}</div>
+            <div class="ai-usage-tool-bar-wrap">
+              <div class="ai-usage-tool-bar" style="width:${Math.round((counts.total / maxTotal) * 100)}%"></div>
+            </div>
+            <div class="ai-usage-tool-count">${counts.total} <small>(${counts.failed} failed)</small></div>
+          </div>
+        `).join("")}
+      </div>
+    ` : ""}
+    ${d.recentLogs?.length ? `
+      <div class="ai-usage-log-section">
+        <p class="eyebrow" style="margin-bottom:10px;">Recent Generations (last 100)</p>
+        <div class="ai-usage-log-table-wrap">
+          <table class="ai-usage-log-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Tool</th>
+                <th>User</th>
+                <th>Plan</th>
+                <th>Status</th>
+                <th>Response</th>
+                <th>Tokens</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${d.recentLogs.map((l) => `
+                <tr class="${l.success ? "" : "ai-log-row-failed"}">
+                  <td>${l.createdAt ? new Date(l.createdAt).toLocaleString() : "—"}</td>
+                  <td>${escapeHtml(AI_TOOL_LABELS[l.tool] || l.tool || "—")}</td>
+                  <td class="ai-log-email">${escapeHtml(l.email || "—")}</td>
+                  <td>${escapeHtml(l.plan || "—")}</td>
+                  <td>${l.success ? `<span class="green-tag" style="padding:2px 8px;border-radius:4px;font-size:0.75rem;">OK</span>` : `<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:0.75rem;" title="${escapeHtml(l.errorMessage || "")}">Failed</span>`}</td>
+                  <td>${formatMs(l.responseTimeMs)}</td>
+                  <td>${l.inputTokens != null ? `${l.inputTokens}↑ ${l.outputTokens ?? "?"}↓` : "—"}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ` : ""}
+  `;
 }
 
 function fillAdminLessonPlanFormFields(fields, mode) {
@@ -28187,3 +28743,73 @@ async function handleAdminAiTestGenerate() {
   state.generating = false;
   renderAdminAiTestCenter();
 }
+
+// ─── AI Prompt Manager Event Handlers ────────────────────────────────────────
+
+document.addEventListener("click", (event) => {
+  // Tool selector
+  const toolBtn = event.target.closest("[data-ai-pm-tool]");
+  if (toolBtn) {
+    adminAiPromptsState.activeTool = toolBtn.dataset.aiPmTool;
+    adminAiPromptsState.success = "";
+    adminAiPromptsState.error = "";
+    renderAdminAiPromptsTab();
+    return;
+  }
+  // Restore version
+  const restoreBtn = event.target.closest("[data-ai-pm-restore]");
+  if (restoreBtn) {
+    if (confirm("Restore this prompt version? The current version will be saved in history.")) {
+      restoreAdminAiPromptVersion(restoreBtn.dataset.aiPmRestore);
+    }
+    return;
+  }
+  // Toggle version history
+  if (event.target.matches("#aiPmToggleHistory")) {
+    adminAiPromptsState.showVersionHistory = !adminAiPromptsState.showVersionHistory;
+    renderAdminAiPromptsTab();
+    return;
+  }
+  // Reset to default
+  if (event.target.matches("#aiPmResetBtn")) {
+    const tool = adminAiPromptsState.activeTool;
+    const defaultText = adminAiPromptsState.hardcodedDefaults[tool] || "";
+    const form = document.querySelector("#adminAiPromptsForm");
+    if (!form) return;
+    if (confirm("Reset all prompt layers for this tool to the built-in defaults? This will clear all custom text in the editor (not yet saved to the server).")) {
+      for (const layer of AI_PROMPT_LAYERS_ORDERED) {
+        const el = form.querySelector(`[name="${layer}"]`);
+        if (el) el.value = "";
+      }
+      // Put the full default in masterPrompt as a convenient starting point
+      const masterEl = form.querySelector('[name="masterPrompt"]');
+      if (masterEl) masterEl.value = defaultText;
+    }
+    return;
+  }
+  // AI Settings retry
+  if (event.target.matches("#aiSettingsRetryBtn")) {
+    loadAdminAiSettings();
+    return;
+  }
+  // AI Usage retry/refresh
+  if (event.target.matches("#aiUsageRetryBtn") || event.target.matches("#aiUsageRefreshBtn")) {
+    loadAdminAiUsage();
+    return;
+  }
+});
+
+document.addEventListener("submit", (event) => {
+  // Prompt Manager save
+  if (event.target.matches("#adminAiPromptsForm")) {
+    event.preventDefault();
+    saveAdminAiPrompts(adminAiPromptsState.activeTool);
+    return;
+  }
+  // AI Settings save
+  if (event.target.matches("#adminAiSettingsForm")) {
+    event.preventDefault();
+    saveAdminAiSettings();
+    return;
+  }
+});
