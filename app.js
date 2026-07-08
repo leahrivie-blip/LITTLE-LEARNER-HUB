@@ -2329,6 +2329,68 @@ function setAdminLessonSaveFlowMessage(message, { reset = false, isSuccess = tru
   setFormMessage("#adminLessonPlanMessage", adminLessonSaveFlowMessages.join(" → "), isSuccess);
 }
 
+// ─── Universal Admin Save Orchestrator ───────────────────────────────────────
+//
+// Wraps any admin save operation with consistent save state UI:
+//   • Disables the submit button and shows "Saving… Please wait."
+//   • On success shows successMsg and (optionally) calls redirectFn after 2.5 s
+//   • On failure shows "❌ Save Failed — <detail>" and re-enables the button
+//   • All steps emit standardized [SAVE] console logs
+//
+// Usage:
+//   await runAdminSave({
+//     messageSelector: "#adminHeroMessage",
+//     form,           // optional — the <form> element (used to locate submit button)
+//     saveFn: async () => { ... },
+//     successMsg: "Hero section saved.",
+//     onComplete: () => { ... },   // sync callback called immediately on success
+//     redirectFn: () => { ... },   // called after 2.5 s delay on success
+//   });
+
+async function runAdminSave({ messageSelector, form, saveFn, successMsg, onComplete, redirectFn } = {}) {
+  const msgEl = messageSelector
+    ? (typeof messageSelector === "string" ? document.querySelector(messageSelector) : messageSelector)
+    : null;
+  const submitBtn = form ? form.querySelector("[type='submit']") : null;
+
+  if (submitBtn && submitBtn.disabled) {
+    console.log("[SAVE] Blocked — already saving");
+    return;
+  }
+
+  const originalLabel = submitBtn ? submitBtn.textContent : "Save";
+
+  // ── Saving state ──────────────────────────────────────────────────────────
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Saving…"; }
+  if (msgEl) setFormMessage(msgEl, "Saving… Please wait.", true);
+  console.log("[SAVE] Started →", successMsg || messageSelector || "(unknown)");
+
+  try {
+    await saveFn();
+
+    // ── Success state ─────────────────────────────────────────────────────
+    const msg = successMsg || "✅ Changes Saved Successfully";
+    console.log("[SAVE] Completed →", msg);
+    if (msgEl) {
+      setFormMessage(msgEl, msg, true);
+      msgEl.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+    }
+    if (onComplete) onComplete();
+    if (redirectFn) window.setTimeout(redirectFn, 2500);
+
+  } catch (err) {
+    // ── Error state ───────────────────────────────────────────────────────
+    const errDetail = err?.message || "Unknown error";
+    console.error("[SAVE] Failed →", errDetail, err);
+    if (msgEl) {
+      setFormMessage(msgEl, `❌ Save Failed — ${errDetail}. Please try again.`, false);
+      msgEl.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+    }
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalLabel; }
+  }
+}
+
 function friendlyAuthError(error) {
   const code = error?.code || "";
   if (code.includes("invalid-email")) return "Please enter a valid email address.";
@@ -3354,7 +3416,55 @@ function fileToImageDataUrl(file) {
   return fileToDataUrl(file).then((dataUrl) => sanitizedImageSource(dataUrl));
 }
 
-// ─── Lesson Plan Resource Management ─────────────────────────────────────────
+// ─── Safe Upload Utilities (file size validation + Mobile Safari protection) ──
+//
+// Mobile Safari can reload the page ("a problem occurred") when the browser
+// runs out of memory while reading large files in JavaScript via FileReader.
+// These utilities enforce a maximum file size before reading and add a
+// 30-second timeout so a frozen reader does not hang the UI indefinitely.
+//
+// ADMIN_UPLOAD_MAX_MB  — hard limit; rejects and shows a clear error message
+// ADMIN_UPLOAD_WARN_MB — soft limit on Safari; warns in console only
+
+const ADMIN_UPLOAD_MAX_MB = 20;
+const ADMIN_UPLOAD_WARN_MB = 10;
+
+function validateAdminUploadFile(file, { maxMb = ADMIN_UPLOAD_MAX_MB } = {}) {
+  if (!file?.size) return null; // no file or unknown size — let it through
+  const mb = file.size / (1024 * 1024);
+  if (mb > maxMb) {
+    return `File is too large (${mb.toFixed(1)} MB). Please use a file under ${maxMb} MB to ensure reliable uploads, especially on mobile devices.`;
+  }
+  if (isSafariBrowser() && mb > ADMIN_UPLOAD_WARN_MB) {
+    console.warn(`[SAVE] Upload size warning — Safari detected and file is ${mb.toFixed(1)} MB. Large files may cause page reloads on older iOS versions.`);
+  }
+  return null; // valid
+}
+
+// Like fileToDataUrl but rejects (instead of silently returning "") on errors,
+// and enforces ADMIN_UPLOAD_MAX_MB with a 30-second FileReader timeout.
+function fileToDataUrlSafe(file, { maxMb = ADMIN_UPLOAD_MAX_MB } = {}) {
+  if (!file?.name) return Promise.resolve(""); // no file selected — OK
+  const validationError = validateAdminUploadFile(file, { maxMb });
+  if (validationError) return Promise.reject(new Error(validationError));
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    const tid = window.setTimeout(() => {
+      reader.abort();
+      reject(new Error("File read timed out. Please try a smaller file or reload the page and try again."));
+    }, 30000);
+    reader.onload = () => { clearTimeout(tid); resolve(String(reader.result || "")); };
+    reader.onerror = () => { clearTimeout(tid); reject(new Error("Could not read file. Please try a different file.")); };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Like fileToImageDataUrl but with safety validation.
+function fileToImageDataUrlSafe(file, { maxMb = ADMIN_UPLOAD_MAX_MB } = {}) {
+  return fileToDataUrlSafe(file, { maxMb }).then((dataUrl) => sanitizedImageSource(dataUrl));
+}
+
+
 
 function initAdminLessonResourcesDraft(lessonRecord) {
   if (adminLessonResourcesDraftId === (lessonRecord?.id || "")) return;
@@ -17787,6 +17897,7 @@ async function updateLessonOverrides(updater) {
 }
 
 async function saveAdminLessonPlanForm(form) {
+  console.log("[SAVE] Started → saveAdminLessonPlanForm");
   console.log("[DIAG] saveAdminLessonPlanForm: called");
   if (adminLessonSaving) {
     console.log("[DIAG] saveAdminLessonPlanForm: blocked — already saving");
@@ -17812,11 +17923,13 @@ async function saveAdminLessonPlanForm(form) {
   const originalLabel = initialBtn ? initialBtn.textContent : "Save lesson plan";
   if (initialBtn) {
     initialBtn.disabled = true;
-    initialBtn.textContent = "Saving...";
+    initialBtn.textContent = "Saving…";
   }
-  setFormMessage("#adminLessonPlanMessage", "Saving...", true);
+  setFormMessage("#adminLessonPlanMessage", "Saving… Please wait.", true);
   try {
-    const uploadedImage = await fileToImageDataUrl(formData.get("thumbnailFile"));
+    console.log("[SAVE] Upload started → thumbnailFile (lesson plan)");
+    const uploadedImage = await fileToImageDataUrlSafe(formData.get("thumbnailFile"));
+    console.log("[SAVE] Upload completed");
     const now = new Date().toISOString();
     const titleThemeImporterUpdated = form.dataset.importerUpdatedTitleTheme === "true";
     const isCustomPlan = Boolean(customLessonPlanForId(id));
@@ -17886,7 +17999,9 @@ async function saveAdminLessonPlanForm(form) {
           : (current.resources || []),
       };
       nextContent.customLessonPlans = [...existing.filter((item) => item.id !== id), nextEntry];
+      console.log("[SAVE] Database save started");
       await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
       adminLessonEditorId = id;
     } else {
       setAdminLessonSaveFlowMessage("API request sent", { isSuccess: true });
@@ -17928,9 +18043,11 @@ async function saveAdminLessonPlanForm(form) {
         console.log("[DIAG] updateLessonOverrides: lesson object written to lessonPlans →", JSON.stringify(Object.keys(lessonPlans[id])));
         adminLessonEditorId = id;
       });
+      console.log("[SAVE] Database saved");
     }
-    // Log the updated record returned from the server
+    // Verify the record was saved and log the result
     const savedRecord = effectiveSiteContent().lessonPlans?.[id] || effectiveSiteContent().customLessonPlans?.find((p) => p.id === id) || null;
+    console.log("[SAVE] Verification →", savedRecord ? `record found (updatedAt: ${savedRecord.updatedAt})` : "record NOT found in store");
     console.log("[DIAG] saveAdminLessonPlanForm: save succeeded — updated record from store →", JSON.stringify(savedRecord ? { id: savedRecord.id, title: savedRecord.title, theme: savedRecord.theme, updatedAt: savedRecord.updatedAt } : null));
     setAdminLessonFormCleanState();
     const isVisible = formData.get("visible") === "on";
@@ -17938,17 +18055,19 @@ async function saveAdminLessonPlanForm(form) {
     const savedStatus = isFeatured ? "featured" : isVisible ? "approved" : "draft";
     const statusLine = `Status: ${contentStatusEmoji[savedStatus]} ${contentStatusLabel[savedStatus]}`;
     const successMsg = isVisible
-      ? `✓ Published Successfully — ${statusLine}`
-      : `✓ Saved Successfully — ${statusLine}`;
+      ? `✅ Published Successfully — ${statusLine}`
+      : `✅ Saved Successfully — ${statusLine}`;
+    console.log("[SAVE] Completed → saveAdminLessonPlanForm:", successMsg);
     setAdminLessonSaveFlowMessage(successMsg, { isSuccess: true });
     // Scroll the success message into view so the admin can see it on long forms
     const msgEl = document.querySelector("#adminLessonPlanMessage");
     if (msgEl) msgEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
   } catch (err) {
+    console.error("[SAVE] Failed → saveAdminLessonPlanForm:", err);
     console.error("[DIAG] saveAdminLessonPlanForm: CAUGHT ERROR →", err);
     const errMsg = err.message || "Unknown error";
     const isDbError = /database|could not be saved|storage/i.test(errMsg);
-    setAdminLessonSaveFlowMessage(isDbError ? `Database update failed: ${errMsg}` : `Save failed: ${errMsg}`, { isSuccess: false });
+    setAdminLessonSaveFlowMessage(isDbError ? `❌ Database update failed: ${errMsg}` : `❌ Save Failed — ${errMsg}. Please try again.`, { isSuccess: false });
     const msgEl = document.querySelector("#adminLessonPlanMessage");
     if (msgEl) msgEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
   } finally {
@@ -18285,24 +18404,34 @@ async function setLessonPlanStatus(id, status) {
 }
 
 async function saveAdminReviewForm(form) {
-  const formData = new FormData(form);
-  const uploadedImage = await fileToImageDataUrl(formData.get("imageFile"));
-  const nextContent = nextSiteContentDraft();
-  const id = normalizedShortText(formData.get("id")) || `review-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-  const entry = {
-    id,
-    name: normalizedShortText(formData.get("name")),
-    businessName: normalizedShortText(formData.get("businessName")),
-    text: normalizedMultilineText(formData.get("text")),
-    imageUrl: uploadedImage || sanitizedImageSource(formData.get("imageUrl")),
-    visible: formData.get("visible") === "on",
-    order: Number(formData.get("order") || 0) || 1,
-  };
-  const existing = (nextContent.reviews || []).filter((item) => item.id !== id);
-  nextContent.reviews = [...existing, entry].sort((a, b) => (a.order || 0) - (b.order || 0));
-  adminReviewEditorId = id;
-  await saveAdminSiteContent(nextContent);
-  setFormMessage("#adminReviewMessage", "Review saved.", true);
+  await runAdminSave({
+    messageSelector: "#adminReviewMessage",
+    form,
+    saveFn: async () => {
+      const formData = new FormData(form);
+      console.log("[SAVE] Upload started → imageFile (review)");
+      const uploadedImage = await fileToImageDataUrlSafe(formData.get("imageFile"));
+      console.log("[SAVE] Upload completed");
+      const nextContent = nextSiteContentDraft();
+      const id = normalizedShortText(formData.get("id")) || `review-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+      const entry = {
+        id,
+        name: normalizedShortText(formData.get("name")),
+        businessName: normalizedShortText(formData.get("businessName")),
+        text: normalizedMultilineText(formData.get("text")),
+        imageUrl: uploadedImage || sanitizedImageSource(formData.get("imageUrl")),
+        visible: formData.get("visible") === "on",
+        order: Number(formData.get("order") || 0) || 1,
+      };
+      const existing = (nextContent.reviews || []).filter((item) => item.id !== id);
+      nextContent.reviews = [...existing, entry].sort((a, b) => (a.order || 0) - (b.order || 0));
+      adminReviewEditorId = id;
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+    },
+    successMsg: "✅ Review saved.",
+  });
 }
 
 async function updateReviewCollection(updater) {
@@ -18332,90 +18461,119 @@ async function deleteReviewEntry(id) {
 }
 
 async function saveAdminFounderForm(form) {
-  const formData = new FormData(form);
-  const profileImage = await fileToImageDataUrl(formData.get("profileImageFile"));
-  const homeImage = await fileToImageDataUrl(formData.get("homeImageFile"));
-  const nextContent = nextSiteContentDraft();
-  nextContent.founder = {
-    name: normalizedShortText(formData.get("name")),
-    title: normalizedShortText(formData.get("title")),
-    aboutText: normalizedMultilineText(formData.get("aboutText")),
-    shortBio: normalizedMultilineText(formData.get("shortBio")),
-    profileImageUrl: profileImage || sanitizedImageSource(formData.get("profileImageUrl")),
-    homeImageUrl: homeImage || sanitizedImageSource(formData.get("homeImageUrl")),
-    websiteUrl: sanitizedUrl(formData.get("websiteUrl")),
-    instagramUrl: sanitizedUrl(formData.get("instagramUrl")),
-    linkedInUrl: sanitizedUrl(formData.get("linkedInUrl")),
-  };
-  await saveAdminSiteContent(nextContent);
-  setFormMessage("#adminFounderMessage", "Founder section saved.", true);
+  await runAdminSave({
+    messageSelector: "#adminFounderMessage",
+    form,
+    saveFn: async () => {
+      const formData = new FormData(form);
+      console.log("[SAVE] Upload started → profileImageFile / homeImageFile (founder)");
+      const profileImage = await fileToImageDataUrlSafe(formData.get("profileImageFile"));
+      const homeImage = await fileToImageDataUrlSafe(formData.get("homeImageFile"));
+      console.log("[SAVE] Upload completed");
+      const nextContent = nextSiteContentDraft();
+      nextContent.founder = {
+        name: normalizedShortText(formData.get("name")),
+        title: normalizedShortText(formData.get("title")),
+        aboutText: normalizedMultilineText(formData.get("aboutText")),
+        shortBio: normalizedMultilineText(formData.get("shortBio")),
+        profileImageUrl: profileImage || sanitizedImageSource(formData.get("profileImageUrl")),
+        homeImageUrl: homeImage || sanitizedImageSource(formData.get("homeImageUrl")),
+        websiteUrl: sanitizedUrl(formData.get("websiteUrl")),
+        instagramUrl: sanitizedUrl(formData.get("instagramUrl")),
+        linkedInUrl: sanitizedUrl(formData.get("linkedInUrl")),
+      };
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+    },
+    successMsg: "✅ Founder section saved.",
+  });
 }
 
 async function saveAdminHomepageForm(form) {
-  const formData = new FormData(form);
-  const nextContent = nextSiteContentDraft();
-  const heroImage = await fileToImageDataUrl(formData.get("heroImageFile"));
-  const existingHomepage = nextContent.homepage || {};
-  const featureCards = (existingHomepage.featureCards || []).map((card, index) => ({
-    ...card,
-    id: normalizedShortText(formData.get(`featureCardId:${index}`)) || card.id,
-    title: normalizedShortText(formData.get(`featureCardTitle:${index}`)),
-    text: normalizedMultilineText(formData.get(`featureCardText:${index}`)),
-  }));
-  const howItWorks = (existingHomepage.howItWorks || []).map((card, index) => ({
-    ...card,
-    title: normalizedShortText(formData.get(`howTitle:${index}`)),
-  }));
-  const comingSoon = (existingHomepage.comingSoon || []).map((card, index) => ({
-    ...card,
-    title: normalizedShortText(formData.get(`soonTitle:${index}`)),
-  }));
-  const basePreviewCards = existingHomepage.previewCards || [];
-  const uploadedPreviewImages = await Promise.all(basePreviewCards.map((_, index) => fileToImageDataUrl(formData.get(`previewCardImageFile:${index}`))));
-  const previewCards = basePreviewCards.map((card, index) => ({
-    ...card,
-    id: normalizedShortText(formData.get(`previewCardId:${index}`)) || card?.id,
-    title: normalizedShortText(formData.get(`previewCardTitle:${index}`)),
-    text: normalizedMultilineText(formData.get(`previewCardText:${index}`)),
-    imageUrl: uploadedPreviewImages[index] || sanitizedImageSource(formData.get(`previewCardImage:${index}`)),
-  }));
-  nextContent.homepage = {
-    ...existingHomepage,
-    heroHeadline: normalizedShortText(formData.get("heroHeadline")),
-    heroSubheadline: normalizedMultilineText(formData.get("heroSubheadline")),
-    heroCtaText: normalizedShortText(formData.get("heroCtaText")),
-    heroSecondaryCtaText: normalizedShortText(formData.get("heroSecondaryCtaText")),
-    heroImageUrl: heroImage || sanitizedImageSource(formData.get("heroImageUrl")),
-    featureCards,
-    howItWorks,
-    comingSoon,
-    previewCards,
-    finalCtaHeadline: normalizedShortText(formData.get("finalCtaHeadline")),
-    finalCtaText: normalizedMultilineText(formData.get("finalCtaText")),
-    finalCtaButtonText: normalizedShortText(formData.get("finalCtaButtonText")),
-  };
-  await saveAdminSiteContent(nextContent);
-  setFormMessage("#adminHomepageMessage", "Homepage content saved.", true);
+  await runAdminSave({
+    messageSelector: "#adminHomepageMessage",
+    form,
+    saveFn: async () => {
+      const formData = new FormData(form);
+      const nextContent = nextSiteContentDraft();
+      const existingHomepage = nextContent.homepage || {};
+      console.log("[SAVE] Upload started → heroImageFile (homepage)");
+      const heroImage = await fileToImageDataUrlSafe(formData.get("heroImageFile"));
+      const basePreviewCards = existingHomepage.previewCards || [];
+      const uploadedPreviewImages = await Promise.all(basePreviewCards.map((_, index) => fileToImageDataUrlSafe(formData.get(`previewCardImageFile:${index}`))));
+      console.log("[SAVE] Upload completed");
+      const featureCards = (existingHomepage.featureCards || []).map((card, index) => ({
+        ...card,
+        id: normalizedShortText(formData.get(`featureCardId:${index}`)) || card.id,
+        title: normalizedShortText(formData.get(`featureCardTitle:${index}`)),
+        text: normalizedMultilineText(formData.get(`featureCardText:${index}`)),
+      }));
+      const howItWorks = (existingHomepage.howItWorks || []).map((card, index) => ({
+        ...card,
+        title: normalizedShortText(formData.get(`howTitle:${index}`)),
+      }));
+      const comingSoon = (existingHomepage.comingSoon || []).map((card, index) => ({
+        ...card,
+        title: normalizedShortText(formData.get(`soonTitle:${index}`)),
+      }));
+      const previewCards = basePreviewCards.map((card, index) => ({
+        ...card,
+        id: normalizedShortText(formData.get(`previewCardId:${index}`)) || card?.id,
+        title: normalizedShortText(formData.get(`previewCardTitle:${index}`)),
+        text: normalizedMultilineText(formData.get(`previewCardText:${index}`)),
+        imageUrl: uploadedPreviewImages[index] || sanitizedImageSource(formData.get(`previewCardImage:${index}`)),
+      }));
+      nextContent.homepage = {
+        ...existingHomepage,
+        heroHeadline: normalizedShortText(formData.get("heroHeadline")),
+        heroSubheadline: normalizedMultilineText(formData.get("heroSubheadline")),
+        heroCtaText: normalizedShortText(formData.get("heroCtaText")),
+        heroSecondaryCtaText: normalizedShortText(formData.get("heroSecondaryCtaText")),
+        heroImageUrl: heroImage || sanitizedImageSource(formData.get("heroImageUrl")),
+        featureCards,
+        howItWorks,
+        comingSoon,
+        previewCards,
+        finalCtaHeadline: normalizedShortText(formData.get("finalCtaHeadline")),
+        finalCtaText: normalizedMultilineText(formData.get("finalCtaText")),
+        finalCtaButtonText: normalizedShortText(formData.get("finalCtaButtonText")),
+      };
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+    },
+    successMsg: "✅ Homepage content saved.",
+  });
 }
 
 async function saveAdminImageAssetForm(form) {
-  const formData = new FormData(form);
-  const uploadedImage = await fileToImageDataUrl(formData.get("imageFile"));
-  const nextContent = nextSiteContentDraft();
-  const id = normalizedShortText(formData.get("id")) || `image-${Date.now()}`;
-  const entry = {
-    id,
-    label: normalizedShortText(formData.get("label")),
-    group: normalizedShortText(formData.get("group")),
-    imageUrl: uploadedImage || sanitizedImageSource(formData.get("imageUrl")),
-  };
-  const existing = (nextContent.images || []).filter((item) => item.id !== id);
-  nextContent.images = [...existing, entry];
-  adminImageEditorId = id;
-  await saveAdminSiteContent(nextContent);
-  setFormMessage("#adminImageMessage", "Image saved.", true);
+  await runAdminSave({
+    messageSelector: "#adminImageMessage",
+    form,
+    saveFn: async () => {
+      const formData = new FormData(form);
+      console.log("[SAVE] Upload started → imageFile (image asset)");
+      const uploadedImage = await fileToImageDataUrlSafe(formData.get("imageFile"));
+      console.log("[SAVE] Upload completed");
+      const nextContent = nextSiteContentDraft();
+      const id = normalizedShortText(formData.get("id")) || `image-${Date.now()}`;
+      const entry = {
+        id,
+        label: normalizedShortText(formData.get("label")),
+        group: normalizedShortText(formData.get("group")),
+        imageUrl: uploadedImage || sanitizedImageSource(formData.get("imageUrl")),
+      };
+      const existing = (nextContent.images || []).filter((item) => item.id !== id);
+      nextContent.images = [...existing, entry];
+      adminImageEditorId = id;
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+    },
+    successMsg: "✅ Image saved.",
+  });
 }
-
 async function deleteImageAsset(id) {
   const nextContent = nextSiteContentDraft();
   nextContent.images = (nextContent.images || []).filter((item) => item.id !== id);
@@ -18510,11 +18668,15 @@ async function saveAdminActivityForm(form) {
   const originalLabel = submitBtn ? submitBtn.textContent : "";
   adminActivitySaving = true;
   if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Saving…"; }
-  setFormMessage("#adminActivityMessage", "Saving…", true);
+  setFormMessage("#adminActivityMessage", "Saving… Please wait.", true);
+  console.log("[SAVE] Started → saveAdminActivityForm");
   try {
     const id = normalizedShortText(formData.get("id")) || `activity-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-    const uploadedPrintable = await fileToImageDataUrl(formData.get("printableFile"));
-    const uploadedThumb = await fileToImageDataUrl(formData.get("thumbnailFile"));
+    console.log("[SAVE] Upload started → printableFile");
+    const uploadedPrintable = await fileToImageDataUrlSafe(formData.get("printableFile"));
+    console.log("[SAVE] Upload started → thumbnailFile");
+    const uploadedThumb = await fileToImageDataUrlSafe(formData.get("thumbnailFile"));
+    console.log("[SAVE] Upload completed");
     const tagsRaw = normalizedShortText(formData.get("tags"));
     const tags = tagsRaw ? tagsRaw.split(",").map((t) => t.trim()).filter(Boolean) : [];
     const now = new Date().toISOString();
@@ -18537,12 +18699,27 @@ async function saveAdminActivityForm(form) {
     };
     nextContent.activities = [...existing.filter((a) => a.id !== id), entry];
     adminActivityEditorId = id;
+    console.log("[SAVE] Database save started");
     await saveAdminSiteContent(nextContent);
+    console.log("[SAVE] Database saved");
     syncSiteManagedResources();
-    setFormMessage("#adminActivityMessage", "Activity saved.", true);
-    renderAdminActivitiesManager();
+    const savedStatus = contentItemStatus(entry);
+    const statusMsg = `✅ ${entry.visible ? "Published" : "Saved"} Successfully — Status: ${contentStatusEmoji[savedStatus]} ${contentStatusLabel[savedStatus]}`;
+    setFormMessage("#adminActivityMessage", statusMsg, true);
+    const msgEl = document.querySelector("#adminActivityMessage");
+    if (msgEl) msgEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    console.log("[SAVE] Completed → saveAdminActivityForm");
+    // Redirect to list after a short delay so the admin can read the success message
+    window.setTimeout(() => {
+      adminActivityEditorId = "";
+      renderAdminActivitiesManager();
+    }, 2500);
   } catch (err) {
-    setFormMessage("#adminActivityMessage", `Save failed: ${err.message || "Unknown error"}`, false);
+    const errDetail = err?.message || "Unknown error";
+    console.error("[SAVE] Failed → saveAdminActivityForm:", errDetail, err);
+    setFormMessage("#adminActivityMessage", `❌ Save Failed — ${errDetail}. Please try again.`, false);
+    const msgEl = document.querySelector("#adminActivityMessage");
+    if (msgEl) msgEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
   } finally {
     adminActivitySaving = false;
     if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalLabel; }
@@ -18573,6 +18750,15 @@ async function toggleAdminActivityVisibility(id) {
 
 let adminFormEditorId = "";
 let adminPrintableEditorId = "";
+
+// Tracks which managed-collection editor types have unsaved user input.
+// Cleared on successful save; checked in beforeunload and tab-navigation guards.
+const _adminManagedFormDirty = new Set();
+
+function markAdminManagedFormDirty(type) { _adminManagedFormDirty.add(type); }
+function clearAdminManagedFormDirty(type) { _adminManagedFormDirty.delete(type); }
+function isAdminManagedFormDirty(type) { return _adminManagedFormDirty.has(type); }
+function isAnyAdminManagedFormDirty() { return _adminManagedFormDirty.size > 0; }
 
 const adminManagedContentConfig = {
   activities: {
@@ -18845,53 +19031,98 @@ function renderAdminPrintablesManager() {
 
 async function saveAdminManagedCollectionForm(type, form) {
   const config = adminManagedContentConfig[type];
-  const nextContent = nextSiteContentDraft();
-  const existing = Array.isArray(nextContent[config.contentKey]) ? nextContent[config.contentKey] : [];
-  const formData = new FormData(form);
-  const id = normalizedShortText(formData.get("id")) || `${type}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-  const current = existing.find((item) => item.id === id) || {};
-  const uploadedFile = await fileToDataUrl(formData.get("file"));
-  const uploadedPreview = await fileToImageDataUrl(formData.get("preview"));
-  const tags = normalizedShortText(formData.get("tags"))
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean);
-  const entry = {
-    ...current,
-    id,
-    title: normalizedShortText(formData.get("title")),
-    category: config.category,
-    age: normalizedShortText(formData.get("age")) || "All Ages",
-    plan: normalizedShortText(formData.get("plan")) || "Free",
-    theme: normalizedShortText(formData.get("theme")),
-    description: normalizedMultilineText(formData.get("description")),
-    tags,
-    format: normalizedShortText(formData.get("format")) || config.formatPlaceholder,
-    customContent: normalizedMultilineText(formData.get("customContent")),
-    fileName: formData.get("file")?.name || current.fileName || "",
-    fileData: uploadedFile || current.fileData || "",
-    previewName: formData.get("preview")?.name || current.previewName || "",
-    previewData: uploadedPreview || current.previewData || "",
-    visible: formData.get("visible") === "on",
-    featured: formData.get("featured") === "on",
-    archived: false,
-    updatedAt: new Date().toISOString(),
-  };
-  entry[config.primaryField] = normalizedShortText(formData.get(config.primaryField)) || config.primaryOptions()[0] || "General";
-  if (type === "activities") {
-    entry.activityCategory = entry[config.primaryField];
-    entry.printableUrl = entry.fileData || current.printableUrl || "";
-    entry.thumbnailUrl = entry.previewData || current.thumbnailUrl || "";
+  const msgKey = `#admin${type[0].toUpperCase()}${type.slice(1)}Message`;
+  const submitBtn = form ? form.querySelector("[type='submit']") : null;
+
+  // Guard against double-saves
+  if (submitBtn && submitBtn.disabled) {
+    setFormMessage(msgKey, "Already saving — please wait.", false);
+    return;
   }
-  nextContent[config.contentKey] = [...existing.filter((item) => item.id !== id), entry];
-  await saveAdminSiteContent(nextContent);
-  syncSiteManagedResources();
-  setAdminManagedEditorId(type, id);
-  renderAdminManagedCollection(type);
-  const savedStatus = contentItemStatus(entry);
-  const statusMsg = `✓ ${entry.visible ? "Published" : "Saved"} Successfully — Status: ${contentStatusEmoji[savedStatus]} ${contentStatusLabel[savedStatus]}`;
-  setFormMessage(`#admin${type[0].toUpperCase()}${type.slice(1)}Message`, statusMsg, true);
+
+  const originalLabel = submitBtn ? submitBtn.textContent : `Save ${config.singular}`;
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Saving…"; }
+  setFormMessage(msgKey, "Saving… Please wait.", true);
+  console.log("[SAVE] Started → saveAdminManagedCollectionForm:", type);
+
+  try {
+    const nextContent = nextSiteContentDraft();
+    const existing = Array.isArray(nextContent[config.contentKey]) ? nextContent[config.contentKey] : [];
+    const formData = new FormData(form);
+    const id = normalizedShortText(formData.get("id")) || `${type}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    const current = existing.find((item) => item.id === id) || {};
+
+    console.log("[SAVE] Upload started → file");
+    const uploadedFile = await fileToDataUrlSafe(formData.get("file"));
+    console.log("[SAVE] Upload started → preview");
+    const uploadedPreview = await fileToImageDataUrlSafe(formData.get("preview"));
+    console.log("[SAVE] Upload completed");
+
+    const tags = normalizedShortText(formData.get("tags"))
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    const entry = {
+      ...current,
+      id,
+      title: normalizedShortText(formData.get("title")),
+      category: config.category,
+      age: normalizedShortText(formData.get("age")) || "All Ages",
+      plan: normalizedShortText(formData.get("plan")) || "Free",
+      theme: normalizedShortText(formData.get("theme")),
+      description: normalizedMultilineText(formData.get("description")),
+      tags,
+      format: normalizedShortText(formData.get("format")) || config.formatPlaceholder,
+      customContent: normalizedMultilineText(formData.get("customContent")),
+      fileName: formData.get("file")?.name || current.fileName || "",
+      fileData: uploadedFile || current.fileData || "",
+      previewName: formData.get("preview")?.name || current.previewName || "",
+      previewData: uploadedPreview || current.previewData || "",
+      visible: formData.get("visible") === "on",
+      featured: formData.get("featured") === "on",
+      archived: false,
+      updatedAt: new Date().toISOString(),
+    };
+    entry[config.primaryField] = normalizedShortText(formData.get(config.primaryField)) || config.primaryOptions()[0] || "General";
+    if (type === "activities") {
+      entry.activityCategory = entry[config.primaryField];
+      entry.printableUrl = entry.fileData || current.printableUrl || "";
+      entry.thumbnailUrl = entry.previewData || current.thumbnailUrl || "";
+    }
+    nextContent[config.contentKey] = [...existing.filter((item) => item.id !== id), entry];
+
+    console.log("[SAVE] Database save started");
+    await saveAdminSiteContent(nextContent);
+    console.log("[SAVE] Database saved");
+
+    syncSiteManagedResources();
+    setAdminManagedEditorId(type, id);
+    clearAdminManagedFormDirty(type);
+
+    const savedStatus = contentItemStatus(entry);
+    const statusMsg = `✅ ${entry.visible ? "Published" : "Saved"} Successfully — Status: ${contentStatusEmoji[savedStatus]} ${contentStatusLabel[savedStatus]}`;
+    setFormMessage(msgKey, statusMsg, true);
+    const msgEl = document.querySelector(msgKey);
+    if (msgEl) msgEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    console.log("[SAVE] Completed → saveAdminManagedCollectionForm:", type);
+
+    // Redirect to list after a short delay so the admin can read the success message
+    window.setTimeout(() => {
+      setAdminManagedEditorId(type, "");
+      renderAdminManagedCollection(type);
+    }, 2500);
+
+  } catch (err) {
+    const errDetail = err?.message || "Unknown error";
+    console.error("[SAVE] Failed → saveAdminManagedCollectionForm:", type, errDetail, err);
+    setFormMessage(msgKey, `❌ Save Failed — ${errDetail}. Please try again.`, false);
+    const msgEl = document.querySelector(msgKey);
+    if (msgEl) msgEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalLabel; }
+  }
 }
+
 
 async function setAdminManagedCollectionItemStatus(type, id, status) {
   const config = adminManagedContentConfig[type];
@@ -19823,22 +20054,30 @@ function renderAdminHeroSection() {
 }
 
 async function saveAdminHeroForm(form) {
-  const formData = new FormData(form);
-  const nextContent = nextSiteContentDraft();
-  const heroBenefits = normalizedMultilineText(formData.get("heroBenefits")).split("\n").map((s) => s.trim()).filter(Boolean);
-  nextContent.homepage = {
-    ...(nextContent.homepage || {}),
-    heroBadge: normalizedShortText(formData.get("heroBadge")),
-    heroHeadline: normalizedShortText(formData.get("heroHeadline")),
-    heroSubheadline: normalizedMultilineText(formData.get("heroSubheadline")),
-    socialProofText: normalizedMultilineText(formData.get("socialProofText")),
-    heroCtaText: normalizedShortText(formData.get("heroCtaText")),
-    heroSecondaryCtaText: normalizedShortText(formData.get("heroSecondaryCtaText")),
-    heroBenefits,
-  };
-  await saveAdminSiteContent(nextContent);
-  renderManagedHomeContent();
-  setFormMessage("#adminHeroMessage", "Hero section saved.", true);
+  await runAdminSave({
+    messageSelector: "#adminHeroMessage",
+    form,
+    saveFn: async () => {
+      const formData = new FormData(form);
+      const nextContent = nextSiteContentDraft();
+      const heroBenefits = normalizedMultilineText(formData.get("heroBenefits")).split("\n").map((s) => s.trim()).filter(Boolean);
+      nextContent.homepage = {
+        ...(nextContent.homepage || {}),
+        heroBadge: normalizedShortText(formData.get("heroBadge")),
+        heroHeadline: normalizedShortText(formData.get("heroHeadline")),
+        heroSubheadline: normalizedMultilineText(formData.get("heroSubheadline")),
+        socialProofText: normalizedMultilineText(formData.get("socialProofText")),
+        heroCtaText: normalizedShortText(formData.get("heroCtaText")),
+        heroSecondaryCtaText: normalizedShortText(formData.get("heroSecondaryCtaText")),
+        heroBenefits,
+      };
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+      renderManagedHomeContent();
+    },
+    successMsg: "✅ Hero section saved.",
+  });
 }
 
 // ── Trust & Showcase Section ──
@@ -19893,32 +20132,40 @@ function renderAdminTrustSection() {
 }
 
 async function saveAdminTrustForm(form) {
-  const formData = new FormData(form);
-  const nextContent = nextSiteContentDraft();
-  const existingHomepage = nextContent.homepage || {};
-  const featureCards = (existingHomepage.featureCards || []).map((card, index) => ({
-    ...card,
-    id: normalizedShortText(formData.get(`featureCardId:${index}`)) || card.id,
-    title: normalizedShortText(formData.get(`featureCardTitle:${index}`)),
-    text: normalizedMultilineText(formData.get(`featureCardText:${index}`)),
-  }));
-  const previewCards = (existingHomepage.previewCards || []).map((card, index) => ({
-    ...card,
-    id: normalizedShortText(formData.get(`previewCardId:${index}`)) || card.id,
-    title: normalizedShortText(formData.get(`previewCardTitle:${index}`)),
-    text: normalizedMultilineText(formData.get(`previewCardText:${index}`)),
-  }));
-  nextContent.homepage = {
-    ...existingHomepage,
-    trustSectionHeading: normalizedShortText(formData.get("trustSectionHeading")),
-    showcaseSectionHeading: normalizedShortText(formData.get("showcaseSectionHeading")),
-    showcaseSectionSubtitle: normalizedMultilineText(formData.get("showcaseSectionSubtitle")),
-    featureCards,
-    previewCards,
-  };
-  await saveAdminSiteContent(nextContent);
-  renderManagedHomeContent();
-  setFormMessage("#adminTrustMessage", "Trust & Showcase section saved.", true);
+  await runAdminSave({
+    messageSelector: "#adminTrustMessage",
+    form,
+    saveFn: async () => {
+      const formData = new FormData(form);
+      const nextContent = nextSiteContentDraft();
+      const existingHomepage = nextContent.homepage || {};
+      const featureCards = (existingHomepage.featureCards || []).map((card, index) => ({
+        ...card,
+        id: normalizedShortText(formData.get(`featureCardId:${index}`)) || card.id,
+        title: normalizedShortText(formData.get(`featureCardTitle:${index}`)),
+        text: normalizedMultilineText(formData.get(`featureCardText:${index}`)),
+      }));
+      const previewCards = (existingHomepage.previewCards || []).map((card, index) => ({
+        ...card,
+        id: normalizedShortText(formData.get(`previewCardId:${index}`)) || card.id,
+        title: normalizedShortText(formData.get(`previewCardTitle:${index}`)),
+        text: normalizedMultilineText(formData.get(`previewCardText:${index}`)),
+      }));
+      nextContent.homepage = {
+        ...existingHomepage,
+        trustSectionHeading: normalizedShortText(formData.get("trustSectionHeading")),
+        showcaseSectionHeading: normalizedShortText(formData.get("showcaseSectionHeading")),
+        showcaseSectionSubtitle: normalizedMultilineText(formData.get("showcaseSectionSubtitle")),
+        featureCards,
+        previewCards,
+      };
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+      renderManagedHomeContent();
+    },
+    successMsg: "✅ Trust & Showcase section saved.",
+  });
 }
 
 // ── Journey & Why Section ──
@@ -19970,32 +20217,40 @@ function renderAdminJourneySection() {
 }
 
 async function saveAdminJourneyForm(form) {
-  const formData = new FormData(form);
-  const nextContent = nextSiteContentDraft();
-  const existingHomepage = nextContent.homepage || {};
-  const whyItems = normalizedMultilineText(formData.get("whyItems")).split("\n").map((s, i) => ({ id: `why-${i + 1}`, title: s.trim() })).filter((item) => item.title);
-  const howItWorks = (existingHomepage.howItWorks || []).map((card, index) => ({
-    ...card,
-    title: normalizedShortText(formData.get(`howTitle:${index}`)),
-  }));
-  const comingSoon = (existingHomepage.comingSoon || []).map((card, index) => ({
-    ...card,
-    title: normalizedShortText(formData.get(`soonTitle:${index}`)),
-  }));
-  nextContent.homepage = {
-    ...existingHomepage,
-    journeySectionHeading: normalizedShortText(formData.get("journeySectionHeading")),
-    journeySectionSubtitle: normalizedMultilineText(formData.get("journeySectionSubtitle")),
-    journeyHowItWorksHeading: normalizedShortText(formData.get("journeyHowItWorksHeading")),
-    journeyComingSoonHeading: normalizedShortText(formData.get("journeyComingSoonHeading")),
-    whySectionHeading: normalizedShortText(formData.get("whySectionHeading")),
-    whyItems,
-    howItWorks,
-    comingSoon,
-  };
-  await saveAdminSiteContent(nextContent);
-  renderManagedHomeContent();
-  setFormMessage("#adminJourneyMessage", "Journey & Why section saved.", true);
+  await runAdminSave({
+    messageSelector: "#adminJourneyMessage",
+    form,
+    saveFn: async () => {
+      const formData = new FormData(form);
+      const nextContent = nextSiteContentDraft();
+      const existingHomepage = nextContent.homepage || {};
+      const whyItems = normalizedMultilineText(formData.get("whyItems")).split("\n").map((s, i) => ({ id: `why-${i + 1}`, title: s.trim() })).filter((item) => item.title);
+      const howItWorks = (existingHomepage.howItWorks || []).map((card, index) => ({
+        ...card,
+        title: normalizedShortText(formData.get(`howTitle:${index}`)),
+      }));
+      const comingSoon = (existingHomepage.comingSoon || []).map((card, index) => ({
+        ...card,
+        title: normalizedShortText(formData.get(`soonTitle:${index}`)),
+      }));
+      nextContent.homepage = {
+        ...existingHomepage,
+        journeySectionHeading: normalizedShortText(formData.get("journeySectionHeading")),
+        journeySectionSubtitle: normalizedMultilineText(formData.get("journeySectionSubtitle")),
+        journeyHowItWorksHeading: normalizedShortText(formData.get("journeyHowItWorksHeading")),
+        journeyComingSoonHeading: normalizedShortText(formData.get("journeyComingSoonHeading")),
+        whySectionHeading: normalizedShortText(formData.get("whySectionHeading")),
+        whyItems,
+        howItWorks,
+        comingSoon,
+      };
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+      renderManagedHomeContent();
+    },
+    successMsg: "✅ Journey & Why section saved.",
+  });
 }
 
 // ── Reviews & Final CTA Section ──
@@ -20039,19 +20294,27 @@ function renderAdminReviewsCtaSection() {
 }
 
 async function saveAdminReviewsCtaForm(form) {
-  const formData = new FormData(form);
-  const nextContent = nextSiteContentDraft();
-  nextContent.homepage = {
-    ...(nextContent.homepage || {}),
-    reviewsSectionHeading: normalizedShortText(formData.get("reviewsSectionHeading")),
-    finalCtaHeadline: normalizedShortText(formData.get("finalCtaHeadline")),
-    finalCtaText: normalizedMultilineText(formData.get("finalCtaText")),
-    finalCtaButtonText: normalizedShortText(formData.get("finalCtaButtonText")),
-    finalCtaSubtext: normalizedShortText(formData.get("finalCtaSubtext")),
-  };
-  await saveAdminSiteContent(nextContent);
-  renderManagedHomeContent();
-  setFormMessage("#adminReviewsCtaMessage", "Reviews & CTA section saved.", true);
+  await runAdminSave({
+    messageSelector: "#adminReviewsCtaMessage",
+    form,
+    saveFn: async () => {
+      const formData = new FormData(form);
+      const nextContent = nextSiteContentDraft();
+      nextContent.homepage = {
+        ...(nextContent.homepage || {}),
+        reviewsSectionHeading: normalizedShortText(formData.get("reviewsSectionHeading")),
+        finalCtaHeadline: normalizedShortText(formData.get("finalCtaHeadline")),
+        finalCtaText: normalizedMultilineText(formData.get("finalCtaText")),
+        finalCtaButtonText: normalizedShortText(formData.get("finalCtaButtonText")),
+        finalCtaSubtext: normalizedShortText(formData.get("finalCtaSubtext")),
+      };
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+      renderManagedHomeContent();
+    },
+    successMsg: "✅ Reviews & CTA section saved.",
+  });
 }
 
 // ── Founding Member Section ──
@@ -20098,19 +20361,28 @@ function renderAdminFoundingSection() {
 
 async function saveAdminFoundingForm(form) {
   const formData = new FormData(form);
-  const nextContent = nextSiteContentDraft();
-  nextContent.founding = {
-    heading: normalizedShortText(formData.get("heading")),
-    soldOutHeading: normalizedShortText(formData.get("soldOutHeading")),
-    pricePrefix: normalizedShortText(formData.get("pricePrefix")),
-    priceLifeLabel: normalizedShortText(formData.get("priceLifeLabel")),
-    ctaButtonText: normalizedShortText(formData.get("ctaButtonText")),
-    soldOutCtaText: normalizedShortText(formData.get("soldOutCtaText")),
-    _draft: formData.get("_draft") === "on",
-  };
-  await saveAdminSiteContent(nextContent);
-  renderHomeFoundingOffer();
-  setFormMessage("#adminFoundingMessage", formData.get("_draft") === "on" ? "Founding section saved as draft (hidden from homepage)." : "Founding section saved.", true);
+  const isDraft = formData.get("_draft") === "on";
+  await runAdminSave({
+    messageSelector: "#adminFoundingMessage",
+    form,
+    saveFn: async () => {
+      const nextContent = nextSiteContentDraft();
+      nextContent.founding = {
+        heading: normalizedShortText(formData.get("heading")),
+        soldOutHeading: normalizedShortText(formData.get("soldOutHeading")),
+        pricePrefix: normalizedShortText(formData.get("pricePrefix")),
+        priceLifeLabel: normalizedShortText(formData.get("priceLifeLabel")),
+        ctaButtonText: normalizedShortText(formData.get("ctaButtonText")),
+        soldOutCtaText: normalizedShortText(formData.get("soldOutCtaText")),
+        _draft: isDraft,
+      };
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+      renderHomeFoundingOffer();
+    },
+    successMsg: isDraft ? "✅ Founding section saved as draft (hidden from homepage)." : "✅ Founding section saved.",
+  });
 }
 
 // ── Pricing ──
@@ -20188,34 +20460,43 @@ function renderAdminPricingSection() {
 
 async function saveAdminPricingForm(form) {
   const formData = new FormData(form);
-  const nextContent = nextSiteContentDraft();
-  const freePlanFeatures = normalizedMultilineText(formData.get("freePlanFeatures")).split("\n").map((s) => s.trim()).filter(Boolean);
-  const proPlanFeatures = normalizedMultilineText(formData.get("proPlanFeatures")).split("\n").map((s) => s.trim()).filter(Boolean);
-  nextContent.pricing = {
-    ...(nextContent.pricing || {}),
-    sectionTitle:          normalizedShortText(formData.get("sectionTitle")),
-    sectionSubtitle:       normalizedMultilineText(formData.get("sectionSubtitle")),
-    freePlanName:          normalizedShortText(formData.get("freePlanName")),
-    freePlanDescription:   normalizedMultilineText(formData.get("freePlanDescription")),
-    freePlanPrice:         normalizedShortText(formData.get("freePlanPrice")),
-    freePlanPriceInterval: normalizedShortText(formData.get("freePlanPriceInterval")),
-    freePlanCtaText:       normalizedShortText(formData.get("freePlanCtaText")),
-    freePlanFeatures,
-    proPlanName:           normalizedShortText(formData.get("proPlanName")),
-    proPlanDescription:    normalizedMultilineText(formData.get("proPlanDescription")),
-    proPlanPrice:          normalizedShortText(formData.get("proPlanPrice")),
-    proPlanPriceInterval:  normalizedShortText(formData.get("proPlanPriceInterval")),
-    proPlanFeatures,
-    proPlanHighlightBadge: normalizedShortText(formData.get("proPlanHighlightBadge")),
-    trialButtonText:       normalizedShortText(formData.get("trialButtonText")),
-    trialNoteText:         normalizedMultilineText(formData.get("trialNoteText")),
-    creditCardText:        normalizedShortText(formData.get("creditCardText")),
-    cancelText:            normalizedShortText(formData.get("cancelText")),
-    _draft:                formData.get("_draft") === "on",
-  };
-  await saveAdminSiteContent(nextContent);
-  renderManagedPricingText();
-  setFormMessage("#adminPricingMessage", formData.get("_draft") === "on" ? "Pricing saved as draft." : "Pricing saved and live.", true);
+  const isDraft = formData.get("_draft") === "on";
+  await runAdminSave({
+    messageSelector: "#adminPricingMessage",
+    form,
+    saveFn: async () => {
+      const freePlanFeatures = normalizedMultilineText(formData.get("freePlanFeatures")).split("\n").map((s) => s.trim()).filter(Boolean);
+      const proPlanFeatures = normalizedMultilineText(formData.get("proPlanFeatures")).split("\n").map((s) => s.trim()).filter(Boolean);
+      const nextContent = nextSiteContentDraft();
+      nextContent.pricing = {
+        ...(nextContent.pricing || {}),
+        sectionTitle:          normalizedShortText(formData.get("sectionTitle")),
+        sectionSubtitle:       normalizedMultilineText(formData.get("sectionSubtitle")),
+        freePlanName:          normalizedShortText(formData.get("freePlanName")),
+        freePlanDescription:   normalizedMultilineText(formData.get("freePlanDescription")),
+        freePlanPrice:         normalizedShortText(formData.get("freePlanPrice")),
+        freePlanPriceInterval: normalizedShortText(formData.get("freePlanPriceInterval")),
+        freePlanCtaText:       normalizedShortText(formData.get("freePlanCtaText")),
+        freePlanFeatures,
+        proPlanName:           normalizedShortText(formData.get("proPlanName")),
+        proPlanDescription:    normalizedMultilineText(formData.get("proPlanDescription")),
+        proPlanPrice:          normalizedShortText(formData.get("proPlanPrice")),
+        proPlanPriceInterval:  normalizedShortText(formData.get("proPlanPriceInterval")),
+        proPlanFeatures,
+        proPlanHighlightBadge: normalizedShortText(formData.get("proPlanHighlightBadge")),
+        trialButtonText:       normalizedShortText(formData.get("trialButtonText")),
+        trialNoteText:         normalizedMultilineText(formData.get("trialNoteText")),
+        creditCardText:        normalizedShortText(formData.get("creditCardText")),
+        cancelText:            normalizedShortText(formData.get("cancelText")),
+        _draft:                isDraft,
+      };
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+      renderManagedPricingText();
+    },
+    successMsg: isDraft ? "✅ Pricing saved as draft." : "✅ Pricing saved and live.",
+  });
 }
 
 // ── FAQs ──
@@ -20269,9 +20550,6 @@ function renderAdminFaqsSection() {
 
 async function saveAdminFaqForm(form) {
   const formData = new FormData(form);
-  const nextContent = nextSiteContentDraft();
-  const existing = Array.isArray(nextContent.faqs) ? nextContent.faqs : [];
-  const id = normalizedShortText(formData.get("id")) || `faq-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const question = normalizedShortText(formData.get("question"));
   const answer = normalizedMultilineText(formData.get("answer"));
   if (!question || !answer) {
@@ -20279,17 +20557,28 @@ async function saveAdminFaqForm(form) {
     return;
   }
   const isEdit = !!normalizedShortText(formData.get("id"));
-  if (isEdit) {
-    nextContent.faqs = existing.map((f) => f.id === id ? { ...f, question, answer } : f);
-  } else {
-    const maxOrder = existing.reduce((m, f) => Math.max(m, f.order || 0), 0);
-    nextContent.faqs = [...existing, { id, question, answer, visible: true, order: maxOrder + 1 }];
-  }
-  await saveAdminSiteContent(nextContent);
-  adminFaqEditId = "";
-  setFormMessage("#adminFaqMessage", isEdit ? "FAQ updated." : "FAQ added.", true);
-  renderAdminFaqsSection();
-  renderManagedFaqContent();
+  await runAdminSave({
+    messageSelector: "#adminFaqMessage",
+    form,
+    saveFn: async () => {
+      const nextContent = nextSiteContentDraft();
+      const existing = Array.isArray(nextContent.faqs) ? nextContent.faqs : [];
+      const id = normalizedShortText(formData.get("id")) || `faq-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      if (isEdit) {
+        nextContent.faqs = existing.map((f) => f.id === id ? { ...f, question, answer } : f);
+      } else {
+        const maxOrder = existing.reduce((m, f) => Math.max(m, f.order || 0), 0);
+        nextContent.faqs = [...existing, { id, question, answer, visible: true, order: maxOrder + 1 }];
+      }
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+      adminFaqEditId = "";
+      renderAdminFaqsSection();
+      renderManagedFaqContent();
+    },
+    successMsg: isEdit ? "✅ FAQ updated." : "✅ FAQ added.",
+  });
 }
 
 async function toggleAdminFaq(id) {
@@ -20374,19 +20663,27 @@ function renderAdminAnnouncementSection() {
 
 async function saveAdminAnnouncementForm(form) {
   const formData = new FormData(form);
-  const nextContent = nextSiteContentDraft();
-  nextContent.announcement = {
+  const ann = {
     text:      normalizedMultilineText(formData.get("text")),
     visible:   formData.get("visible") === "on",
     expiresAt: normalizedShortText(formData.get("expiresAt")),
     location:  normalizedShortText(formData.get("location")) || "top",
     _draft:    formData.get("_draft") === "on",
   };
-  await saveAdminSiteContent(nextContent);
-  renderManagedAnnouncementBanner();
-  const ann = nextContent.announcement;
-  const msg = ann._draft ? "Announcement saved as draft." : ann.visible ? "Announcement saved and live." : "Announcement saved (hidden).";
-  setFormMessage("#adminAnnouncementMessage", msg, true);
+  const successMsg = ann._draft ? "✅ Announcement saved as draft." : ann.visible ? "✅ Announcement saved and live." : "✅ Announcement saved (hidden).";
+  await runAdminSave({
+    messageSelector: "#adminAnnouncementMessage",
+    form,
+    saveFn: async () => {
+      const nextContent = nextSiteContentDraft();
+      nextContent.announcement = ann;
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+      renderManagedAnnouncementBanner();
+    },
+    successMsg,
+  });
 }
 
 // ── Upgrade Messaging ──
@@ -20432,18 +20729,27 @@ function renderAdminUpgradeMsgSection() {
 
 async function saveAdminUpgradeMsgForm(form) {
   const formData = new FormData(form);
-  const nextContent = nextSiteContentDraft();
-  nextContent.upgradeMessaging = {
-    upgradePopupHeadline: normalizedShortText(formData.get("upgradePopupHeadline")),
-    upgradeLimitHeadline: normalizedShortText(formData.get("upgradeLimitHeadline")),
-    upgradePopupBody:     normalizedMultilineText(formData.get("upgradePopupBody")),
-    proTrialButtonText:   normalizedShortText(formData.get("proTrialButtonText")),
-    freeLimitMessage:     normalizedMultilineText(formData.get("freeLimitMessage")),
-    trialUpgradeSummary:  normalizedMultilineText(formData.get("trialUpgradeSummary")),
-    _draft:               formData.get("_draft") === "on",
-  };
-  await saveAdminSiteContent(nextContent);
-  setFormMessage("#adminUpgradeMsgMessage", formData.get("_draft") === "on" ? "Upgrade messaging saved as draft." : "Upgrade messaging saved and live.", true);
+  const isDraft = formData.get("_draft") === "on";
+  await runAdminSave({
+    messageSelector: "#adminUpgradeMsgMessage",
+    form,
+    saveFn: async () => {
+      const nextContent = nextSiteContentDraft();
+      nextContent.upgradeMessaging = {
+        upgradePopupHeadline: normalizedShortText(formData.get("upgradePopupHeadline")),
+        upgradeLimitHeadline: normalizedShortText(formData.get("upgradeLimitHeadline")),
+        upgradePopupBody:     normalizedMultilineText(formData.get("upgradePopupBody")),
+        proTrialButtonText:   normalizedShortText(formData.get("proTrialButtonText")),
+        freeLimitMessage:     normalizedMultilineText(formData.get("freeLimitMessage")),
+        trialUpgradeSummary:  normalizedMultilineText(formData.get("trialUpgradeSummary")),
+        _draft:               isDraft,
+      };
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+    },
+    successMsg: isDraft ? "✅ Upgrade messaging saved as draft." : "✅ Upgrade messaging saved and live.",
+  });
 }
 
 // ── Site Editor restore-defaults handlers ──
@@ -26687,7 +26993,7 @@ document.addEventListener("keydown", (event) => {
 });
 
 window.addEventListener("beforeunload", (event) => {
-  if (!adminLessonHasUnsavedChanges()) return;
+  if (!adminLessonHasUnsavedChanges() && !isAnyAdminManagedFormDirty()) return;
   event.preventDefault();
   event.returnValue = adminLessonUnsavedWarning;
 });
@@ -26717,6 +27023,15 @@ document.addEventListener("input", (event) => {
     if (event.target.matches("#adminActivitiesSearch")) renderAdminActivitiesManager();
     if (event.target.matches("#adminFormsSearch")) renderAdminFormsManager();
     if (event.target.matches("#adminPrintablesSearch")) renderAdminPrintablesManager();
+  }
+  // Mark managed-collection editor forms dirty when the user types in them
+  const managedFormTypes = { "#adminActivitiesManagerApp": "activities", "#adminFormsManagerApp": "forms", "#adminPrintablesManagerApp": "printables" };
+  for (const [appId, type] of Object.entries(managedFormTypes)) {
+    const app = document.querySelector(appId);
+    if (app && app.contains(event.target) && event.target.closest("form")) {
+      markAdminManagedFormDirty(type);
+      break;
+    }
   }
   if (event.target.matches("#childDobInput")) {
     updateChildAgePreview();
@@ -26770,6 +27085,15 @@ document.addEventListener("change", (event) => {
   }
   if (event.target.matches("#adminFormsPrimary, #adminFormsStatus, #adminFormsAccess")) {
     renderAdminFormsManager();
+  }
+  // Mark managed-collection editor forms dirty when user changes a checkbox or select inside them
+  const managedFormTypes = { "#adminActivitiesManagerApp": "activities", "#adminFormsManagerApp": "forms", "#adminPrintablesManagerApp": "printables" };
+  for (const [appId, type] of Object.entries(managedFormTypes)) {
+    const app = document.querySelector(appId);
+    if (app && app.contains(event.target) && event.target.closest("form")) {
+      markAdminManagedFormDirty(type);
+      break;
+    }
   }
   if (event.target.matches("#adminPrintablesPrimary, #adminPrintablesStatus, #adminPrintablesAccess")) {
     renderAdminPrintablesManager();
