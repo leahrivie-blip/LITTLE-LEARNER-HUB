@@ -1850,6 +1850,14 @@ const adminOwnerAccount = {
   name: "Leah",
   loginEndpoint: "/api/admin/login",
 };
+const uploadedResourcesConfig = {
+  storageKey: "llhUploadedResources",
+  migrationKey: "llhUploadedResourcesMigrationV1",
+  listEndpoint: "/api/uploads",
+  migrateEndpoint: "/api/admin/uploads/migrate",
+  upsertEndpoint: "/api/admin/uploads/upsert",
+  deleteEndpoint: "/api/admin/uploads/delete",
+};
 const billingPlans = {
   Free: {
     name: "Free",
@@ -3854,7 +3862,7 @@ function allLessonPlansForAdmin() {
 }
 
 function loadResources() {
-  const saved = readSavedJson("llhUploadedResources", []);
+  const saved = uploadedResources();
   const starterWithoutOldGenerated = starterResources.filter((resource) => !["Observation Hub", "Lesson Plans"].includes(resource.category));
   const mergedLibrary = applyLessonPlanOverrides(libraryResources);
   const adminActivities = loadAdminManagedActivities();
@@ -16216,13 +16224,180 @@ function renderGeneratedHistory() {
     : `<div class="empty-state">Generated AI results you save will show up here for quick reuse.</div>`;
 }
 
+function uploadedResourceFingerprint(resource) {
+  const payload = JSON.stringify({
+    category: String(resource?.category || "").trim(),
+    title: String(resource?.title || "").trim(),
+    age: String(resource?.age || "").trim(),
+    plan: String(resource?.plan || "").trim(),
+    month: String(resource?.month || "").trim(),
+    tags: Array.isArray(resource?.tags) ? resource.tags.map((tag) => String(tag || "").trim()).filter(Boolean).slice(0, 25) : [],
+    format: String(resource?.format || "").trim(),
+    fileName: String(resource?.fileName || "").trim(),
+    fileData: String(resource?.fileData || "").trim(),
+    previewName: String(resource?.previewName || "").trim(),
+    previewData: String(resource?.previewData || "").trim(),
+    description: String(resource?.description || "").trim(),
+    customContent: String(resource?.customContent || "").trim(),
+    visible: resource?.visible !== false,
+    archived: resource?.archived === true,
+  });
+  let hash = 0;
+  for (let i = 0; i < payload.length; i += 1) {
+    hash = ((hash << 5) - hash + payload.charCodeAt(i)) | 0;
+  }
+  return `fp-${Math.abs(hash).toString(36)}`;
+}
+
+function normalizeUploadedResource(resource) {
+  if (!resource || typeof resource !== "object") return null;
+  const id = String(resource.id || "").trim();
+  if (!id) return null;
+  const tags = Array.isArray(resource.tags)
+    ? resource.tags.map((tag) => String(tag || "").trim()).filter(Boolean).slice(0, 25)
+    : [];
+  const normalized = {
+    ...resource,
+    id,
+    category: String(resource.category || "Forms Library").trim(),
+    title: String(resource.title || "Uploaded Resource").trim(),
+    age: String(resource.age || "All Ages").trim(),
+    plan: String(resource.plan || "Free").trim(),
+    month: String(resource.month || "").trim(),
+    tags,
+    format: String(resource.format || "").trim(),
+    fileName: String(resource.fileName || "").trim(),
+    fileData: String(resource.fileData || "").trim(),
+    previewName: String(resource.previewName || "").trim(),
+    previewData: String(resource.previewData || "").trim(),
+    description: String(resource.description || "").trim(),
+    customContent: String(resource.customContent || "").trim(),
+    visible: resource.visible !== false,
+    archived: resource.archived === true,
+    updatedAt: String(resource.updatedAt || "").trim(),
+  };
+  normalized.fingerprint = String(resource.fingerprint || uploadedResourceFingerprint(normalized)).trim();
+  return normalized;
+}
+
+function dedupeUploadedResourcesList(items = [], limit = 3000) {
+  const byId = new Set();
+  const byFingerprint = new Set();
+  const deduped = [];
+  for (const item of items) {
+    const normalized = normalizeUploadedResource(item);
+    if (!normalized) continue;
+    const fp = normalized.fingerprint || uploadedResourceFingerprint(normalized);
+    if (byId.has(normalized.id) || (fp && byFingerprint.has(fp))) continue;
+    byId.add(normalized.id);
+    if (fp) byFingerprint.add(fp);
+    deduped.push({ ...normalized, fingerprint: fp });
+    if (deduped.length >= limit) break;
+  }
+  return deduped;
+}
+
+function uploadedResourcesDigest(items = []) {
+  return dedupeUploadedResourcesList(items).map((item) => `${item.id}:${item.fingerprint}`).join("|");
+}
+
 function uploadedResources() {
-  return readSavedJson("llhUploadedResources", []);
+  return dedupeUploadedResourcesList(readSavedJson(uploadedResourcesConfig.storageKey, []));
 }
 
 function saveUploadedResources(items) {
-  localStorage.setItem("llhUploadedResources", JSON.stringify(items));
+  const deduped = dedupeUploadedResourcesList(items);
+  localStorage.setItem(uploadedResourcesConfig.storageKey, JSON.stringify(deduped));
   resources = loadResources();
+  return deduped;
+}
+
+function mergeUploadedResources(remoteUploads = []) {
+  const merged = dedupeUploadedResourcesList([...remoteUploads, ...uploadedResources()]);
+  return saveUploadedResources(merged);
+}
+
+async function loadUploadedResourcesFromBackend({ admin = false, migrateLocal = false } = {}) {
+  if (!canUseLaunchBackend()) return uploadedResources();
+  const params = new URLSearchParams({ t: String(Date.now()) });
+  const token = adminSession()?.token || "";
+  if (admin && token) params.set("adminToken", token);
+  try {
+    const response = await fetch(`${uploadedResourcesConfig.listEndpoint}?${params.toString()}`, { cache: "no-store" });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error || "Could not load uploaded resources.");
+    const remoteUploads = dedupeUploadedResourcesList(data.uploads || []);
+    saveUploadedResources(remoteUploads);
+    if (admin && migrateLocal && token) {
+      await migrateUploadedResourcesFromLocalStorage();
+    }
+    return uploadedResources();
+  } catch (error) {
+    console.warn("Uploaded resources backend sync failed", error);
+    return uploadedResources();
+  }
+}
+
+async function migrateUploadedResourcesFromLocalStorage() {
+  const token = adminSession()?.token || "";
+  if (!canUseLaunchBackend() || !token) return { migrated: false };
+  const localUploads = uploadedResources();
+  if (!localUploads.length) return { migrated: false };
+  const localDigest = uploadedResourcesDigest(localUploads);
+  const marker = readSavedJson(uploadedResourcesConfig.migrationKey, null);
+  if (marker?.completed === true && marker?.digest === localDigest) {
+    return { migrated: false, reason: "already-migrated" };
+  }
+  try {
+    const response = await fetch(uploadedResourcesConfig.migrateEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminToken: token, uploads: localUploads }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error || "Could not migrate uploads.");
+    const merged = dedupeUploadedResourcesList(data.uploads || []);
+    saveUploadedResources(merged);
+    localStorage.setItem(uploadedResourcesConfig.migrationKey, JSON.stringify({
+      completed: true,
+      digest: localDigest,
+      migratedAt: new Date().toISOString(),
+      count: localUploads.length,
+      remoteCount: merged.length,
+    }));
+    return { migrated: true, migration: data.migration || null };
+  } catch (error) {
+    console.warn("Uploaded resource migration failed", error);
+    return { migrated: false, error: error.message || "migration-failed" };
+  }
+}
+
+async function saveUploadedResourceToBackend(upload) {
+  const token = adminSession()?.token || "";
+  if (!canUseLaunchBackend() || !isAdminUnlocked() || !token) return null;
+  const response = await fetch(uploadedResourcesConfig.upsertEndpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminToken: token, upload }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.error || "Could not save uploaded resource.");
+  saveUploadedResources(data.uploads || []);
+  return data.upload;
+}
+
+async function deleteUploadedResourceFromBackend(id) {
+  const token = adminSession()?.token || "";
+  if (!canUseLaunchBackend() || !isAdminUnlocked() || !token) return false;
+  const response = await fetch(uploadedResourcesConfig.deleteEndpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminToken: token, id }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.error || "Could not delete uploaded resource.");
+  saveUploadedResources(data.uploads || []);
+  return true;
 }
 
 function supportTickets() {
@@ -20630,15 +20805,23 @@ function fillAdminForm(id) {
   form.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function deleteAdminResource(id) {
-  const uploads = uploadedResources();
-  saveUploadedResources(uploads.filter((item) => item.id !== id));
+async function deleteAdminResource(id) {
+  let deletedRemotely = false;
+  try {
+    deletedRemotely = await deleteUploadedResourceFromBackend(id);
+  } catch (error) {
+    console.warn("Uploaded resource backend delete failed", error);
+  }
+  if (!deletedRemotely) {
+    const uploads = uploadedResources();
+    saveUploadedResources(uploads.filter((item) => item.id !== id));
+  }
   favorites = favorites.filter((favorite) => favorite !== id);
   saveFavorites();
   renderAdminDashboard();
 }
 
-function addDemoAdminResource() {
+async function addDemoAdminResource() {
   const previewSvg = encodeURIComponent(`
     <svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
       <rect width="600" height="400" fill="#fffaf1"/>
@@ -20661,7 +20844,12 @@ function addDemoAdminResource() {
     previewData: `data:image/svg+xml;charset=utf-8,${previewSvg}`,
     description: "Sample uploaded resource used to test the admin dashboard workflow.",
   };
-  saveUploadedResources([...uploadedResources(), demo]);
+  try {
+    await saveUploadedResourceToBackend(demo);
+  } catch (error) {
+    console.warn("Uploaded resource backend save failed", error);
+    saveUploadedResources([...uploadedResources(), demo]);
+  }
   renderAdminDashboard();
 }
 
@@ -24797,6 +24985,7 @@ document.addEventListener("click", async (event) => {
     });
     trackEvent("admin_unlocked", { email: currentUser, mode: "local-owner-account" });
     await loadAdminSiteContent().catch(() => {});
+    await loadUploadedResourcesFromBackend({ admin: true, migrateLocal: true }).catch(() => {});
     renderAdminDashboard();
     return;
   }
@@ -26368,16 +26557,24 @@ document.addEventListener("click", async (event) => {
   const adminToggleVisibility = event.target.closest("[data-admin-toggle-visibility]");
   if (adminToggleVisibility) {
     const id = adminToggleVisibility.dataset.adminToggleVisibility;
-    const uploads = uploadedResources();
-    const updated = uploads.map((item) =>
-      item.id === id ? { ...item, visible: !(item.visible !== false) } : item
-    );
-    saveUploadedResources(updated);
+    const current = uploadedResources().find((item) => item.id === id);
+    if (!current) return;
+    const nextUpload = { ...current, visible: !(current.visible !== false), updatedAt: new Date().toISOString() };
+    try {
+      await saveUploadedResourceToBackend(nextUpload);
+    } catch (error) {
+      console.warn("Uploaded resource backend visibility toggle failed", error);
+      const uploads = uploadedResources();
+      const updated = uploads.map((item) =>
+        item.id === id ? nextUpload : item
+      );
+      saveUploadedResources(updated);
+    }
     renderAdminDashboard();
   }
 
   const adminDelete = event.target.closest("[data-admin-delete]");
-  if (adminDelete) deleteAdminResource(adminDelete.dataset.adminDelete);
+  if (adminDelete) await deleteAdminResource(adminDelete.dataset.adminDelete);
 
   const adminLockButton = event.target.closest("#adminLockButton");
   if (adminLockButton) {
@@ -27194,6 +27391,7 @@ document.addEventListener("submit", async (event) => {
     setAdminSession(session);
     trackEvent("admin_unlocked", { email: session.email, mode: session.mode || "server" });
     await loadAdminSiteContent().catch(() => {});
+    await loadUploadedResourcesFromBackend({ admin: true, migrateLocal: true }).catch(() => {});
     renderAdminDashboard();
     return;
   } catch (error) {
@@ -27772,12 +27970,22 @@ document.querySelector("#uploadForm")?.addEventListener("submit", async (event) 
     previewData,
     description: form.get("description") || "New uploaded resource.",
     visible: form.get("visible") === "on",
+    updatedAt: new Date().toISOString(),
   };
-  const savedUploads = uploadedResources();
-  const updatedUploads = editId
-    ? savedUploads.map((item) => item.id === editId ? uploaded : item)
-    : [...savedUploads, uploaded];
-  saveUploadedResources(updatedUploads);
+  let savedToBackend = false;
+  try {
+    await saveUploadedResourceToBackend(uploaded);
+    savedToBackend = true;
+  } catch (error) {
+    console.warn("Uploaded resource backend save failed", error);
+  }
+  if (!savedToBackend) {
+    const savedUploads = uploadedResources();
+    const updatedUploads = editId
+      ? savedUploads.map((item) => item.id === editId ? uploaded : item)
+      : [...savedUploads, uploaded];
+    saveUploadedResources(updatedUploads);
+  }
   resetAdminForm();
   renderAdminDashboard();
 });
@@ -27805,7 +28013,9 @@ document.querySelector("#leadCaptureForm")?.addEventListener("submit", (event) =
 
 document.querySelector("#adminCancelEdit")?.addEventListener("click", resetAdminForm);
 
-document.querySelector("#adminAddDemo")?.addEventListener("click", addDemoAdminResource);
+document.querySelector("#adminAddDemo")?.addEventListener("click", () => {
+  addDemoAdminResource();
+});
 
 document.querySelector("#adminSearchInput")?.addEventListener("input", renderAdminDashboard);
 
@@ -28709,6 +28919,7 @@ updateInstallSettingsPanel();
 document.body.classList.add("home-view");
 renderHome();
 loadSiteContentFromBackend().catch(() => {});
+loadUploadedResourcesFromBackend({ admin: isAdminUnlocked(), migrateLocal: isAdminUnlocked() }).catch(() => {});
 
 function initialViewFromLocation() {
   const params = new URLSearchParams(window.location.search);

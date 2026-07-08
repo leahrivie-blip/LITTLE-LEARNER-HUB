@@ -296,6 +296,7 @@ function defaultStore() {
     aiPromptVersions: [],
     aiUsageLogs: [],
     supportTickets: [],
+    uploadedResources: [],
     analyticsEvents: [],
     billingEvents: [],
     leads: [],
@@ -571,6 +572,83 @@ function normalizedLibraryItemEntry(value, defaultCategory) {
   };
 }
 
+function uploadedResourceFingerprint(entry) {
+  const payload = {
+    category: normalizedShortText(entry.category, 80),
+    title: normalizedShortText(entry.title, 200),
+    age: normalizedShortText(entry.age, 40),
+    plan: normalizedShortText(entry.plan, 20),
+    month: normalizedShortText(entry.month, 40),
+    tags: (Array.isArray(entry.tags) ? entry.tags : [])
+      .map((tag) => normalizedShortText(tag, 80))
+      .filter(Boolean)
+      .slice(0, 25),
+    format: normalizedShortText(entry.format, 80),
+    fileName: normalizedShortText(entry.fileName, 180),
+    fileData: sanitizedResourceUrl(entry.fileData),
+    previewName: normalizedShortText(entry.previewName, 180),
+    previewData: sanitizedImageSource(entry.previewData),
+    description: normalizedMultilineText(entry.description, 2000),
+    customContent: normalizedMultilineText(entry.customContent, 20000),
+    visible: entry.visible !== false,
+    archived: entry.archived === true,
+  };
+  return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex").slice(0, 40);
+}
+
+function normalizedUploadedResourceEntry(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const id = normalizedShortText(entry.id, 180);
+  if (!id) return null;
+  const tagsInput = Array.isArray(entry.tags) ? entry.tags : [];
+  const normalized = {
+    id,
+    category: normalizedShortText(entry.category, 80) || "Forms Library",
+    title: normalizedShortText(entry.title, 200) || "Uploaded Resource",
+    age: normalizedShortText(entry.age, 40) || "All Ages",
+    plan: normalizedShortText(entry.plan, 20) || "Free",
+    month: normalizedShortText(entry.month, 40),
+    tags: tagsInput.map((t) => normalizedShortText(t, 80)).filter(Boolean).slice(0, 25),
+    format: normalizedShortText(entry.format, 80),
+    fileName: normalizedShortText(entry.fileName, 180),
+    fileData: sanitizedResourceUrl(entry.fileData),
+    previewName: normalizedShortText(entry.previewName, 180),
+    previewData: sanitizedImageSource(entry.previewData),
+    description: normalizedMultilineText(entry.description, 2000),
+    customContent: normalizedMultilineText(entry.customContent, 20000),
+    visible: entry.visible !== false,
+    archived: entry.archived === true,
+    updatedAt: normalizedShortText(entry.updatedAt, 80),
+  };
+  const incomingFingerprint = normalizedShortText(entry.fingerprint, 80);
+  normalized.fingerprint = incomingFingerprint || uploadedResourceFingerprint(normalized);
+  return normalized;
+}
+
+function dedupeUploadedResources(items = [], limit = 3000) {
+  const seenIds = new Set();
+  const seenFingerprints = new Set();
+  const unique = [];
+  for (const item of items) {
+    const normalized = normalizedUploadedResourceEntry(item);
+    if (!normalized) continue;
+    const fingerprint = normalized.fingerprint || uploadedResourceFingerprint(normalized);
+    if (seenIds.has(normalized.id) || (fingerprint && seenFingerprints.has(fingerprint))) continue;
+    seenIds.add(normalized.id);
+    if (fingerprint) seenFingerprints.add(fingerprint);
+    unique.push({ ...normalized, fingerprint });
+    if (unique.length >= limit) break;
+  }
+  return unique;
+}
+
+function mergeUploadedResources(existingItems = [], incomingItems = []) {
+  const incoming = dedupeUploadedResources(incomingItems, 1000);
+  const incomingIds = new Set(incoming.map((item) => item.id));
+  const existingRemainder = dedupeUploadedResources(existingItems, 3000).filter((item) => !incomingIds.has(item.id));
+  return dedupeUploadedResources([...incoming, ...existingRemainder], 3000);
+}
+
 function normalizedCustomLessonPlanEntry(value) {
   const entry = value && typeof value === "object" ? value : {};
   const normalized = normalizedLessonPlanOverride(entry.id, entry);
@@ -730,6 +808,12 @@ function normalizedSiteContent(value) {
     },
     updatedAt: normalizedShortText(input.updatedAt, 80),
   };
+}
+
+function uploadedResourcesForResponse(items = [], { admin = false } = {}) {
+  const normalized = dedupeUploadedResources(items, 3000);
+  if (admin) return normalized;
+  return normalized.filter((item) => item.visible !== false && item.archived !== true);
 }
 
 function usePostgresStore() {
@@ -3972,6 +4056,78 @@ function handleSupportTicketsList(request, response, url) {
   jsonResponse(response, 200, { tickets: tickets.slice(0, 100).map(publicTicket) });
 }
 
+function handleUploadedResourcesList(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  const admin = validAdminToken(adminToken);
+  const store = readStore();
+  store.uploadedResources = dedupeUploadedResources(store.uploadedResources || [], 3000);
+  jsonResponse(response, 200, { uploads: uploadedResourcesForResponse(store.uploadedResources, { admin }) });
+}
+
+async function handleAdminUploadedResourcesMigrate(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required for upload migration." });
+    return;
+  }
+  const incoming = Array.isArray(body.uploads) ? body.uploads : [];
+  const store = readStore();
+  const existing = store.uploadedResources || [];
+  const merged = mergeUploadedResources(existing, incoming);
+  const before = dedupeUploadedResources(existing, 3000).length;
+  const after = merged.length;
+  store.uploadedResources = merged;
+  writeStore(store);
+  jsonResponse(response, 200, {
+    uploads: uploadedResourcesForResponse(merged, { admin: true }),
+    migration: {
+      incoming: incoming.length,
+      before,
+      after,
+      added: Math.max(0, after - before),
+    },
+  });
+}
+
+async function handleAdminUploadedResourceUpsert(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to save uploads." });
+    return;
+  }
+  const upload = normalizedUploadedResourceEntry(body.upload || {});
+  if (!upload) {
+    jsonResponse(response, 400, { error: "A valid upload with an id is required." });
+    return;
+  }
+  upload.updatedAt = new Date().toISOString();
+  const store = readStore();
+  store.uploadedResources = mergeUploadedResources(store.uploadedResources || [], [upload]);
+  writeStore(store);
+  jsonResponse(response, 200, {
+    upload,
+    uploads: uploadedResourcesForResponse(store.uploadedResources, { admin: true }),
+  });
+}
+
+async function handleAdminUploadedResourceDelete(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to delete uploads." });
+    return;
+  }
+  const id = normalizedShortText(body.id, 180);
+  if (!id) {
+    jsonResponse(response, 400, { error: "Upload id is required." });
+    return;
+  }
+  const store = readStore();
+  const existing = dedupeUploadedResources(store.uploadedResources || [], 3000);
+  store.uploadedResources = existing.filter((item) => item.id !== id);
+  writeStore(store);
+  jsonResponse(response, 200, { uploads: uploadedResourcesForResponse(store.uploadedResources, { admin: true }) });
+}
+
 function handleStripeReadiness(request, response) {
   const status = stripeConfigStatus();
   const store = readStore();
@@ -4315,6 +4471,10 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/analytics/event") return await handleAnalyticsEvent(request, response);
     if (request.method === "POST" && url.pathname === "/api/support-ticket") return await handleSupportTicketCreate(request, response);
     if (request.method === "POST" && url.pathname === "/api/support-ticket-update") return await handleSupportTicketUpdate(request, response);
+    if (request.method === "GET" && url.pathname === "/api/uploads") return handleUploadedResourcesList(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/uploads/migrate") return await handleAdminUploadedResourcesMigrate(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/uploads/upsert") return await handleAdminUploadedResourceUpsert(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/uploads/delete") return await handleAdminUploadedResourceDelete(request, response);
     if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/child-data") return await handleChildData(request, response);
     if (request.method === "GET" && url.pathname === "/api/checkout-status") return await handleCheckoutStatus(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/subscription-status") return await handleSubscriptionStatus(request, response, url);
