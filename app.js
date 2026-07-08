@@ -2765,6 +2765,9 @@ function subscriptionToAccountUpdates(subscription) {
     stripeSubscriptionId: subscription.stripeSubscriptionId || "",
     paymentMethod: subscription.paymentMethod || "Managed in Stripe",
     promoRedemptions: accountPromoRedemptions(subscription),
+    trialStatus: subscription.trialStatus || undefined,
+    trialStart: subscription.trialStart || undefined,
+    trialEnd: subscription.trialEnd || undefined,
   };
 }
 
@@ -4115,6 +4118,7 @@ function saveCurrentAccountState() {
 function setAuthMode(mode) {
   currentAuthMode = mode;
   const title = document.querySelector("#authTitle");
+  const nameFields = document.querySelector("#authNameFields");
   const phoneField = document.querySelector("#authPhoneField");
   const passwordField = document.querySelector("#passwordInput");
   const submitButton = document.querySelector("#authSubmitButton");
@@ -4122,8 +4126,13 @@ function setAuthMode(mode) {
   const switchButton = document.querySelector("#switchAuthModeButton");
   setFormMessage("#authMessage", "");
   if (!title || !phoneField || !passwordField || !submitButton || !forgotButton || !switchButton) return;
-  phoneField.classList.toggle("hidden-field", mode !== "signup");
-  phoneField.setAttribute("aria-hidden", mode !== "signup" ? "true" : "false");
+  const isSignup = mode === "signup";
+  if (nameFields) {
+    nameFields.classList.toggle("hidden-field", !isSignup);
+    nameFields.setAttribute("aria-hidden", isSignup ? "false" : "true");
+  }
+  phoneField.classList.toggle("hidden-field", !isSignup);
+  phoneField.setAttribute("aria-hidden", isSignup ? "false" : "true");
   passwordField.required = mode !== "forgot";
   passwordField.autocomplete = mode === "signup" ? "new-password" : "current-password";
   passwordField.closest("label")?.classList.toggle("hidden-field", mode === "forgot");
@@ -4145,10 +4154,13 @@ function setAuthMode(mode) {
   }
 }
 
-async function signUpWithProvider(email, password, phone) {
+async function signUpWithProvider(email, password, phone, firstName, lastName) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail) throw new Error("Please enter your email address.");
   if (String(password || "").length < 8) throw new Error("Please use a password with at least 8 characters.");
+  const cleanFirst = String(firstName || "").trim();
+  const cleanLast  = String(lastName || "").trim();
+  const fullName   = [cleanFirst, cleanLast].filter(Boolean).join(" ");
   if (firebaseAuthEnabled) {
     const client = await getFirebaseAuthClient();
     const credential = await client.createUserWithEmailAndPassword(client.auth, cleanEmail, password);
@@ -4159,6 +4171,9 @@ async function signUpWithProvider(email, password, phone) {
       emailVerified: credential.user.emailVerified,
       firebaseUid: credential.user.uid,
       phone: String(phone || "").trim(),
+      firstName: cleanFirst,
+      lastName: cleanLast,
+      name: fullName || undefined,
     });
     return { email: cleanEmail, verified: credential.user.emailVerified, message: "Account created. Please check your email to verify your address." };
   }
@@ -4167,6 +4182,9 @@ async function signUpWithProvider(email, password, phone) {
     authProvider: "Local demo authentication",
     emailVerified: false,
     phone: String(phone || "").trim(),
+    firstName: cleanFirst,
+    lastName: cleanLast,
+    name: fullName || undefined,
     passwordHash: await localPasswordHash(password),
   });
   return { email: cleanEmail, verified: false, message: "Demo account created. Connect Firebase Auth to send real verification emails." };
@@ -16449,7 +16467,8 @@ function allAccountsList() {
 }
 
 function displayUserName(user) {
-  return user?.name || user?.displayName || user?.email?.split("@")[0] || "Unknown";
+  const fromParts = [user?.firstName, user?.lastName].filter(Boolean).join(" ");
+  return fromParts || user?.name || user?.displayName || user?.fullName || user?.email?.split("@")[0] || "Unknown";
 }
 
 function adminMetric(label, value, detail = "") {
@@ -16465,7 +16484,13 @@ function adminMetric(label, value, detail = "") {
 function renderAdminOwnerOverview() {
   const target = document.querySelector("#adminOwnerOverview");
   if (!target || !isAdminUnlocked()) return;
-  const accountRows = allAccountsList();
+  // Prefer backend users; supplement with any local-only accounts not yet in the cache.
+  const serverUsers = (adminAnalyticsCache?.users || []);
+  const serverEmails = new Set(serverUsers.map((u) => u.email).filter(Boolean));
+  const localAccounts = allAccountsList();
+  const localOnlyAccounts = localAccounts.filter((a) => a.email && !serverEmails.has(a.email));
+  const accountRows = [...serverUsers, ...localOnlyAccounts];
+  const totals = adminAnalyticsCache?.totals;
   const paidAccounts = accountRows.filter((account) => ["Pro", "Founding"].includes(account.plan));
   const foundingAccounts = accountRows.filter((account) => account.foundingMember);
   const ticketRows = supportTickets();
@@ -16505,9 +16530,9 @@ function renderAdminOwnerOverview() {
     </div>
     ${renderAccessDebugPanel()}
     <div class="admin-owner-grid">
-      ${adminMetric("total accounts", accountRows.length)}
-      ${adminMetric("paid accounts", paidAccounts.length)}
-      ${adminMetric("founding members", foundingAccounts.length, `${foundingSpotsRemaining()} spots left`)}
+      ${adminMetric("total accounts", totals?.totalRegisteredUsers ?? accountRows.length)}
+      ${adminMetric("paid accounts", totals?.paidUsers ?? paidAccounts.length)}
+      ${adminMetric("founding members", totals?.foundingMembers ?? foundingAccounts.length, `${foundingSpotsRemaining()} spots left`)}
       ${adminMetric("open support tickets", openTickets.length)}
       ${adminMetric("lead signups", leadRows.length)}
       ${adminMetric("viewed resources", downloads.length)}
@@ -16862,6 +16887,7 @@ async function loadAdminAnalyticsFromBackend() {
     adminAnalyticsCache = data.analytics || data;
     renderAdminAnalytics();
     renderAdminOwnerOverview();
+    renderAdminUsersDashboard();
   } catch (error) {
     console.warn("Admin analytics backend load failed", error);
   } finally {
@@ -16912,13 +16938,14 @@ function userAnalyticsTable(users = []) {
 function renderAdminAnalytics() {
   const target = document.querySelector("#adminAnalyticsApp");
   if (!target || !isAdminUnlocked()) return;
+  const isLive = Boolean(adminAnalyticsCache);
   const summary = adminAnalyticsCache || localAnalyticsSummary();
   const totals = summary.totals || {};
   const periods = summary.periods || {};
   const counts = summary.counts || {};
   target.innerHTML = `
     <div class="admin-analytics-status">
-      <span>${escapeHtml(summary.mode || "Analytics")}</span>
+      <span>${escapeHtml(summary.mode || "Analytics")}${!isLive && adminAnalyticsLoading ? " — loading backend data…" : ""}</span>
       <small>Historical events are retained. Existing visits from before this update cannot be backfilled.</small>
       <button class="ghost-button" type="button" data-refresh-analytics>Refresh Analytics</button>
     </div>
@@ -19105,7 +19132,11 @@ function adminUserCard(account) {
 function renderAdminUsersDashboard() {
   const target = document.querySelector("#adminUsersApp");
   if (!target || !isAdminUnlocked()) return;
-  const allAccounts = allAccountsList();
+  // Prefer backend users (authoritative); merge any local-only accounts on top.
+  const serverUsers = (adminAnalyticsCache?.users || []);
+  const serverEmails = new Set(serverUsers.map((u) => u.email).filter(Boolean));
+  const localOnlyAccounts = allAccountsList().filter((a) => a.email && !serverEmails.has(a.email));
+  const allAccounts = [...serverUsers, ...localOnlyAccounts];
   const free     = allAccounts.filter((a) => !a.plan || a.plan === "Free");
   const trial    = allAccounts.filter((a) => String(a.subscriptionStatus || "").toLowerCase().includes("trial"));
   const pro      = allAccounts.filter((a) => a.plan === "Pro");
@@ -19224,7 +19255,8 @@ function renderAdminUsersDashboard() {
 function openAdminUserProfile(email, startTab) {
   if (!isAdminUnlocked()) return;
   const allAccounts = allAccountsList();
-  const account = allAccounts.find((a) => a.email === email);
+  const account = allAccounts.find((a) => a.email === email)
+    || (adminAnalyticsCache?.users || []).find((u) => u.email === email);
   if (!account) return;
 
   const modal = document.querySelector("#adminUserProfileModal");
@@ -26896,6 +26928,8 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
   const email = document.querySelector("#emailInput").value;
   const password = document.querySelector("#passwordInput").value;
   const phone = document.querySelector("#phoneInput").value;
+  const firstName = (document.querySelector("#firstNameInput")?.value || "").trim();
+  const lastName  = (document.querySelector("#lastNameInput")?.value || "").trim();
   const submitButton = document.querySelector("#authSubmitButton");
   submitButton.disabled = true;
   setFormMessage("#authMessage", "Working...", true);
@@ -26909,7 +26943,7 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
       return;
     }
     if (currentAuthMode === "signup") {
-      const result = await signUpWithProvider(email, password, phone);
+      const result = await signUpWithProvider(email, password, phone, firstName, lastName);
       loadAccountState(result.email);
       updateAccount(result.email, {
         signupAt: new Date().toISOString(),
@@ -26918,7 +26952,7 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
       });
       await syncSubscriptionFromBackend(result.email);
       await syncChildDataFromBackend();
-      trackEvent("account_signup_complete", { email: result.email, plan: currentPlan, source: trafficSource() });
+      trackEvent("account_signup_complete", { email: result.email, plan: currentPlan, source: trafficSource(), firstName, lastName });
       setFormMessage("#authMessage", result.message || "Account created.", true);
     } else {
       const result = await loginWithProvider(email, password);

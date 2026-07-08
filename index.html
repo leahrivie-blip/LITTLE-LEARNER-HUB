@@ -1387,6 +1387,16 @@
             Email
             <input type="email" id="emailInput" name="email" required autocomplete="email" placeholder="you@example.com" />
           </label>
+          <div id="authNameFields" class="hidden-field" aria-hidden="true">
+            <label>
+              First Name
+              <input type="text" id="firstNameInput" name="firstName" autocomplete="given-name" placeholder="Jane" />
+            </label>
+            <label>
+              Last Name
+              <input type="text" id="lastNameInput" name="lastName" autocomplete="family-name" placeholder="Smith" />
+            </label>
+          </div>
           <label id="authPhoneField" class="hidden-field" aria-hidden="true">
             Phone (optional)
             <input type="tel" id="phoneInput" name="phone" autocomplete="tel" placeholder="(555) 123-4567" />
