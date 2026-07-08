@@ -296,6 +296,13 @@ function defaultStore() {
     aiPromptVersions: [],
     aiUsageLogs: [],
     supportTickets: [],
+    bugReports: [],
+    featureRequests: [],
+    feedbackItems: [],
+    communications: [],
+    announcements: [],
+    releaseNotes: [],
+    knowledgeBase: [],
     uploadedResources: [],
     analyticsEvents: [],
     billingEvents: [],
@@ -3914,6 +3921,129 @@ async function postJson(url, headers, payload) {
   }
 }
 
+// ─── Shared email helper ──────────────────────────────────────────────────────
+// All outbound email passes through sendEmail() so that switching the provider
+// or from/to addresses only requires env var changes — no code changes needed.
+//
+// opts: { to, replyTo, subject, text, html }
+// Returns { sent, configured, provider }
+async function sendEmail(opts = {}) {
+  const status = supportEmailConfigStatus();
+  if (!status.ready) return { sent: false, configured: false, provider: status.provider };
+
+  const provider = detectedEmailProvider();
+  const toAddr = opts.to || SUPPORT_EMAIL_TO;
+  const toList = Array.isArray(toAddr) ? toAddr : [toAddr];
+  const replyTo = String(opts.replyTo || "");
+  const subject = String(opts.subject || "").slice(0, 500);
+  const text = String(opts.text || "");
+  const html = String(opts.html || "");
+
+  if (provider === "resend") {
+    const payload = { from: SUPPORT_EMAIL_FROM, to: toList, subject, text, html };
+    if (replyTo) payload.reply_to = replyTo;
+    await postJson("https://api.resend.com/emails", { Authorization: "Bearer " + RESEND_API_KEY }, payload);
+    return { sent: true, configured: true, provider };
+  }
+  if (provider === "sendgrid") {
+    const from = parseEmailAddress(SUPPORT_EMAIL_FROM);
+    const payload = {
+      personalizations: [{ to: [{ email: toList[0] }], subject }],
+      from,
+      content: [{ type: "text/plain", value: text }, { type: "text/html", value: html }],
+    };
+    if (replyTo) payload.reply_to = { email: replyTo };
+    await postJson("https://api.sendgrid.com/v3/mail/send", { Authorization: "Bearer " + SENDGRID_API_KEY }, payload);
+    return { sent: true, configured: true, provider };
+  }
+  if (provider === "postmark") {
+    const payload = {
+      From: SUPPORT_EMAIL_FROM,
+      To: toList[0],
+      Subject: subject,
+      TextBody: text,
+      HtmlBody: html,
+      MessageStream: "outbound",
+    };
+    if (replyTo) payload.ReplyTo = replyTo;
+    await postJson("https://api.postmarkapp.com/email", { "X-Postmark-Server-Token": POSTMARK_SERVER_TOKEN }, payload);
+    return { sent: true, configured: true, provider };
+  }
+  return { sent: false, configured: false, provider: provider || "not configured" };
+}
+
+// ─── User acknowledgment email ────────────────────────────────────────────────
+// Sent to the submitter right after any new submission (ticket, bug, feature, feedback).
+async function notifyUserAck({ toEmail, toName, submissionType, topic }) {
+  if (!toEmail) return { sent: false, configured: false, reason: "no user email" };
+  const displayType = String(submissionType || "submission");
+  const displayTopic = String(topic || "");
+  const subject = `[Little Learner Hub] We received your ${displayType}`;
+  const greeting = toName ? `Hi ${toName},` : "Hi there,";
+  const topicLine = displayTopic ? ` regarding "${displayTopic}"` : "";
+  const text = [
+    greeting,
+    "",
+    `Thank you for submitting your ${displayType}${topicLine}.`,
+    "",
+    "We received your submission and will review it shortly. If you have anything to add, please reply to this email.",
+    "",
+    "— The Little Learner Hub Team",
+  ].join("\n");
+  const html = `
+    <p>${htmlEscape(greeting)}</p>
+    <p>Thank you for submitting your ${htmlEscape(displayType)}${htmlEscape(topicLine)}.</p>
+    <p>We received your submission and will review it shortly. If you have anything to add, please reply to this email.</p>
+    <p>— The Little Learner Hub Team</p>
+  `;
+  try {
+    return await sendEmail({ to: toEmail, replyTo: SUPPORT_EMAIL_TO, subject, text, html });
+  } catch (err) {
+    console.warn("[email] User ack email failed:", err.message);
+    return { sent: false, configured: supportEmailConfigStatus().ready, error: err.message };
+  }
+}
+
+// ─── Admin notification email ─────────────────────────────────────────────────
+// Sent to the admin inbox when a new submission arrives.
+// opts: { kind, topic, name, email, message, createdAt, sourceUrl, fields }
+// `fields` is an optional array of [label, value] pairs for type-specific data.
+async function notifyAdmin(opts = {}) {
+  const kind = String(opts.kind || "Submission");
+  const topicOrTitle = String(opts.topic || opts.title || "");
+  const subject = `[Little Learner Hub] New ${kind}: ${topicOrTitle}`;
+  const baseFields = [
+    ["Type", kind],
+    topicOrTitle ? ["Topic", topicOrTitle] : null,
+    ["Name", opts.name || ""],
+    ["Email", opts.email || ""],
+    ["Created", opts.createdAt || ""],
+  ].filter(Boolean);
+  const extraFields = Array.isArray(opts.fields) ? opts.fields : [];
+  const sourceField = opts.sourceUrl ? [["Page", opts.sourceUrl]] : [];
+  const allFields = [...baseFields, ...extraFields, ...sourceField];
+  const text = [
+    `New Little Learner Hub ${kind}`,
+    "",
+    ...allFields.map(([label, value]) => `${label}: ${value}`),
+    "",
+    "Message:",
+    opts.message || "",
+  ].join("\n");
+  const html = `
+    <h2>New Little Learner Hub ${htmlEscape(kind)}</h2>
+    ${allFields.map(([label, value]) => `<p><strong>${htmlEscape(String(label))}:</strong> ${htmlEscape(String(value || ""))}</p>`).join("")}
+    <hr>
+    <p>${htmlEscape(String(opts.message || "")).replace(/\n/g, "<br>")}</p>
+  `;
+  try {
+    return await sendEmail({ to: SUPPORT_EMAIL_TO, replyTo: opts.email || "", subject, text, html });
+  } catch (err) {
+    console.warn(`[email] Admin notification for ${kind} failed:`, err.message);
+    return { sent: false, configured: supportEmailConfigStatus().ready, error: err.message };
+  }
+}
+
 function supportTicketEmailPayload(ticket) {
   const subject = `[Little Learner Hub] ${ticket.kind}: ${ticket.topic}`;
   const text = [
@@ -3944,54 +4074,8 @@ function supportTicketEmailPayload(ticket) {
 }
 
 async function notifySupportTicket(ticket) {
-  const status = supportEmailConfigStatus();
-  if (!status.ready) return { sent: false, configured: false, provider: status.provider };
-
-  const provider = detectedEmailProvider();
   const email = supportTicketEmailPayload(ticket);
-  if (provider === "resend") {
-    await postJson("https://api.resend.com/emails", {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-    }, {
-      from: SUPPORT_EMAIL_FROM,
-      to: [SUPPORT_EMAIL_TO],
-      reply_to: ticket.email,
-      subject: email.subject,
-      text: email.text,
-      html: email.html,
-    });
-    return { sent: true, configured: true, provider };
-  }
-  if (provider === "sendgrid") {
-    const from = parseEmailAddress(SUPPORT_EMAIL_FROM);
-    await postJson("https://api.sendgrid.com/v3/mail/send", {
-      Authorization: `Bearer ${SENDGRID_API_KEY}`,
-    }, {
-      personalizations: [{ to: [{ email: SUPPORT_EMAIL_TO }], subject: email.subject }],
-      from,
-      reply_to: { email: ticket.email },
-      content: [
-        { type: "text/plain", value: email.text },
-        { type: "text/html", value: email.html },
-      ],
-    });
-    return { sent: true, configured: true, provider };
-  }
-  if (provider === "postmark") {
-    await postJson("https://api.postmarkapp.com/email", {
-      "X-Postmark-Server-Token": POSTMARK_SERVER_TOKEN,
-    }, {
-      From: SUPPORT_EMAIL_FROM,
-      To: SUPPORT_EMAIL_TO,
-      ReplyTo: ticket.email,
-      Subject: email.subject,
-      TextBody: email.text,
-      HtmlBody: email.html,
-      MessageStream: "outbound",
-    });
-    return { sent: true, configured: true, provider };
-  }
-  return { sent: false, configured: false, provider: provider || "not configured" };
+  return sendEmail({ to: SUPPORT_EMAIL_TO, replyTo: ticket.email, subject: email.subject, text: email.text, html: email.html });
 }
 
 async function handleSupportTicketCreate(request, response) {
@@ -4034,6 +4118,8 @@ async function handleSupportTicketCreate(request, response) {
       error: "Ticket was saved, but the email notification did not send.",
     };
   }
+  // Send auto-acknowledgment to the user (best-effort; does not affect the response)
+  notifyUserAck({ toEmail: ticket.email, toName: ticket.name, submissionType: "support request", topic: ticket.topic }).catch((err) => console.warn("[email] Support ticket ack failed:", err.message));
   jsonResponse(response, 200, {
     ticket: publicTicket(ticket),
     supportEmail: SUPPORT_EMAIL_TO,
@@ -4477,6 +4563,632 @@ function serveStatic(request, response, url) {
   stream.pipe(response);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Phase 6-A: Bug Reports, Feature Requests, Feedback, Admin Reply,
+//            Announcements, Release Notes handlers
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── Normalizers ──────────────────────────────────────────────────────────────
+
+function publicBugReport(item) {
+  return {
+    id: item.id,
+    title: item.title,
+    description: item.description,
+    category: item.category,
+    screenshotUrl: item.screenshotUrl || "",
+    email: item.email,
+    name: item.name,
+    status: item.status,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  };
+}
+
+function publicFeatureRequest(item) {
+  return {
+    id: item.id,
+    title: item.title,
+    description: item.description,
+    category: item.category,
+    email: item.email,
+    name: item.name,
+    status: item.status,
+    votes: item.votes || 0,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  };
+}
+
+function publicFeedback(item) {
+  return {
+    id: item.id,
+    type: item.type,
+    message: item.message,
+    email: item.email,
+    name: item.name,
+    status: item.status,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  };
+}
+
+function publicAnnouncement(item) {
+  return {
+    id: item.id,
+    title: item.title,
+    body: item.body,
+    audience: item.audience,
+    deliveryMode: item.deliveryMode,
+    status: item.status,
+    publishedAt: item.publishedAt || "",
+    createdAt: item.createdAt,
+  };
+}
+
+function publicReleaseNote(item) {
+  return {
+    id: item.id,
+    version: item.version,
+    releaseDate: item.releaseDate,
+    featuresAdded: item.featuresAdded || [],
+    bugsFixed: item.bugsFixed || [],
+    improvements: item.improvements || [],
+    status: item.status,
+    createdAt: item.createdAt,
+  };
+}
+
+// ─── Bug Report handlers ───────────────────────────────────────────────────────
+
+const BUG_REPORT_CATEGORIES = new Set([
+  "Broken Feature", "Error", "Lesson Plan Issue", "Billing Issue",
+  "Mobile Issue", "Content Issue", "Login Problem", "Other",
+]);
+const BUG_REPORT_STATUSES = new Set(["New", "Investigating", "Fix In Progress", "Fixed", "Closed"]);
+
+async function handleBugReportCreate(request, response) {
+  const body = await readJson(request);
+  const email = normalizeEmail(body.email);
+  const title = String(body.title || "").trim().slice(0, 200);
+  const description = String(body.description || "").trim().slice(0, 5000);
+  if (!title || !description) {
+    jsonResponse(response, 400, { error: "Title and description are required." });
+    return;
+  }
+  const store = readStore();
+  store.bugReports = store.bugReports || [];
+  const rawCategory = String(body.category || "Other");
+  const report = {
+    id: `bug-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`,
+    title,
+    description,
+    category: BUG_REPORT_CATEGORIES.has(rawCategory) ? rawCategory : "Other",
+    screenshotUrl: String(body.screenshotUrl || "").slice(0, 1000),
+    email,
+    name: String(body.name || "Provider").slice(0, 120),
+    status: "New",
+    adminNotes: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    sourceUrl: String(body.sourceUrl || "").slice(0, 500),
+    userAgent: String(body.userAgent || "").slice(0, 300),
+  };
+  store.bugReports.unshift(report);
+  store.bugReports = store.bugReports.slice(0, 1000);
+  writeStore(store);
+  // Admin notification (best-effort)
+  notifyAdmin({
+    kind: "Bug Report",
+    title: report.title,
+    name: report.name,
+    email: report.email,
+    message: report.description,
+    createdAt: report.createdAt,
+    sourceUrl: report.sourceUrl,
+    fields: [["Category", report.category]],
+  }).catch((err) => console.warn("[email] Bug report admin notification failed:", err.message));
+  // User auto-ack (best-effort)
+  notifyUserAck({ toEmail: report.email, toName: report.name, submissionType: "bug report", topic: report.title }).catch((err) => console.warn("[email] Bug report ack failed:", err.message));
+  jsonResponse(response, 200, { bugReport: publicBugReport(report), supportEmail: SUPPORT_EMAIL_TO });
+}
+
+async function handleBugReportUpdate(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to update bug reports." });
+    return;
+  }
+  const id = String(body.id || "");
+  const store = readStore();
+  const items = store.bugReports || [];
+  const index = items.findIndex((r) => r.id === id);
+  if (index < 0) {
+    jsonResponse(response, 404, { error: "Bug report was not found." });
+    return;
+  }
+  const rawStatus = body.status ? String(body.status).slice(0, 40) : "";
+  items[index] = {
+    ...items[index],
+    status: rawStatus && BUG_REPORT_STATUSES.has(rawStatus) ? rawStatus : items[index].status,
+    updatedAt: new Date().toISOString(),
+  };
+  if (body.adminNote) {
+    items[index].adminNotes = items[index].adminNotes || [];
+    items[index].adminNotes.push({
+      note: String(body.adminNote).slice(0, 2000),
+      addedAt: new Date().toISOString(),
+    });
+  }
+  store.bugReports = items;
+  writeStore(store);
+  jsonResponse(response, 200, { bugReport: publicBugReport(items[index]) });
+}
+
+function handleBugReportsList(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  const email = normalizeEmail(url.searchParams.get("email") || "");
+  const store = readStore();
+  const allReports = store.bugReports || [];
+  const reports = validAdminToken(adminToken)
+    ? allReports
+    : allReports.filter((r) => email && r.email === email);
+  jsonResponse(response, 200, { bugReports: reports.slice(0, 200).map(publicBugReport) });
+}
+
+// ─── Feature Request handlers ─────────────────────────────────────────────────
+
+const FEATURE_REQUEST_STATUSES = new Set([
+  "New", "Under Review", "Planned", "In Development", "Released", "Declined",
+]);
+
+async function handleFeatureRequestCreate(request, response) {
+  const body = await readJson(request);
+  const email = normalizeEmail(body.email);
+  const title = String(body.title || "").trim().slice(0, 200);
+  const description = String(body.description || "").trim().slice(0, 5000);
+  if (!title || !description) {
+    jsonResponse(response, 400, { error: "Title and description are required." });
+    return;
+  }
+  const store = readStore();
+  store.featureRequests = store.featureRequests || [];
+  const item = {
+    id: `feature-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`,
+    title,
+    description,
+    category: String(body.category || "General").slice(0, 80),
+    email,
+    name: String(body.name || "Provider").slice(0, 120),
+    status: "New",
+    votes: 1,
+    voterEmails: email ? [email] : [],
+    adminNotes: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    sourceUrl: String(body.sourceUrl || "").slice(0, 500),
+  };
+  store.featureRequests.unshift(item);
+  store.featureRequests = store.featureRequests.slice(0, 1000);
+  writeStore(store);
+  notifyAdmin({
+    kind: "Feature Request",
+    title: item.title,
+    name: item.name,
+    email: item.email,
+    message: item.description,
+    createdAt: item.createdAt,
+    sourceUrl: item.sourceUrl,
+    fields: [["Category", item.category]],
+  }).catch((err) => console.warn("[email] Feature request admin notification failed:", err.message));
+  notifyUserAck({ toEmail: item.email, toName: item.name, submissionType: "feature request", topic: item.title }).catch((err) => console.warn("[email] Feature request ack failed:", err.message));
+  jsonResponse(response, 200, { featureRequest: publicFeatureRequest(item), supportEmail: SUPPORT_EMAIL_TO });
+}
+
+async function handleFeatureRequestVote(request, response) {
+  const body = await readJson(request);
+  const id = String(body.id || "");
+  const voterEmail = normalizeEmail(body.email);
+  if (!id || !voterEmail) {
+    jsonResponse(response, 400, { error: "Feature request id and email are required to vote." });
+    return;
+  }
+  const store = readStore();
+  const items = store.featureRequests || [];
+  const index = items.findIndex((r) => r.id === id);
+  if (index < 0) {
+    jsonResponse(response, 404, { error: "Feature request was not found." });
+    return;
+  }
+  const alreadyVoted = (items[index].voterEmails || []).includes(voterEmail);
+  if (!alreadyVoted) {
+    items[index].voterEmails = [...(items[index].voterEmails || []), voterEmail];
+    items[index].votes = items[index].voterEmails.length;
+    items[index].updatedAt = new Date().toISOString();
+    store.featureRequests = items;
+    writeStore(store);
+  }
+  jsonResponse(response, 200, { featureRequest: publicFeatureRequest(items[index]), alreadyVoted });
+}
+
+async function handleFeatureRequestUpdate(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to update feature requests." });
+    return;
+  }
+  const id = String(body.id || "");
+  const store = readStore();
+  const items = store.featureRequests || [];
+  const index = items.findIndex((r) => r.id === id);
+  if (index < 0) {
+    jsonResponse(response, 404, { error: "Feature request was not found." });
+    return;
+  }
+  const rawStatus = body.status ? String(body.status).slice(0, 40) : "";
+  items[index] = {
+    ...items[index],
+    status: rawStatus && FEATURE_REQUEST_STATUSES.has(rawStatus) ? rawStatus : items[index].status,
+    updatedAt: new Date().toISOString(),
+  };
+  if (body.adminNote) {
+    items[index].adminNotes = items[index].adminNotes || [];
+    items[index].adminNotes.push({
+      note: String(body.adminNote).slice(0, 2000),
+      addedAt: new Date().toISOString(),
+    });
+  }
+  // Merge duplicate: transfer votes and voter emails to a target feature request
+  if (body.mergeIntoId) {
+    const targetIdx = items.findIndex((r) => r.id === String(body.mergeIntoId));
+    if (targetIdx >= 0 && targetIdx !== index) {
+      const mergedVoters = [...new Set([...(items[targetIdx].voterEmails || []), ...(items[index].voterEmails || [])])];
+      items[targetIdx].voterEmails = mergedVoters;
+      items[targetIdx].votes = mergedVoters.length;
+      items[targetIdx].updatedAt = new Date().toISOString();
+      items[index].status = "Declined";
+      items[index].updatedAt = new Date().toISOString();
+    }
+  }
+  store.featureRequests = items;
+  writeStore(store);
+  jsonResponse(response, 200, { featureRequest: publicFeatureRequest(items[index]) });
+}
+
+function handleFeatureRequestsList(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  const email = normalizeEmail(url.searchParams.get("email") || "");
+  const store = readStore();
+  const allItems = store.featureRequests || [];
+  const items = validAdminToken(adminToken)
+    ? allItems
+    : allItems.filter((r) => r.status !== "Declined");
+  // Sort by votes descending for public; by createdAt for admin
+  const sorted = validAdminToken(adminToken)
+    ? items.slice()
+    : items.slice().sort((a, b) => (b.votes || 0) - (a.votes || 0));
+  jsonResponse(response, 200, { featureRequests: sorted.slice(0, 200).map(publicFeatureRequest) });
+}
+
+// ─── Feedback handlers ────────────────────────────────────────────────────────
+
+const FEEDBACK_TYPES = new Set([
+  "General Feedback", "Suggestion", "Idea", "Compliment", "Improvement Request",
+]);
+const FEEDBACK_STATUSES = new Set(["New", "Reviewed", "Planned", "Completed", "Archived"]);
+
+async function handleFeedbackCreate(request, response) {
+  const body = await readJson(request);
+  const email = normalizeEmail(body.email);
+  const message = String(body.message || "").trim().slice(0, 5000);
+  if (!message) {
+    jsonResponse(response, 400, { error: "Message is required." });
+    return;
+  }
+  const rawType = String(body.type || "General Feedback");
+  const store = readStore();
+  store.feedbackItems = store.feedbackItems || [];
+  const item = {
+    id: `feedback-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`,
+    type: FEEDBACK_TYPES.has(rawType) ? rawType : "General Feedback",
+    message,
+    email,
+    name: String(body.name || "Provider").slice(0, 120),
+    status: "New",
+    adminNotes: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    sourceUrl: String(body.sourceUrl || "").slice(0, 500),
+  };
+  store.feedbackItems.unshift(item);
+  store.feedbackItems = store.feedbackItems.slice(0, 1000);
+  writeStore(store);
+  notifyAdmin({
+    kind: "Feedback",
+    title: item.type,
+    name: item.name,
+    email: item.email,
+    message: item.message,
+    createdAt: item.createdAt,
+    sourceUrl: item.sourceUrl,
+    fields: [["Feedback Type", item.type]],
+  }).catch((err) => console.warn("[email] Feedback admin notification failed:", err.message));
+  notifyUserAck({ toEmail: item.email, toName: item.name, submissionType: "feedback", topic: item.type }).catch((err) => console.warn("[email] Feedback ack failed:", err.message));
+  jsonResponse(response, 200, { feedback: publicFeedback(item), supportEmail: SUPPORT_EMAIL_TO });
+}
+
+async function handleFeedbackUpdate(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to update feedback." });
+    return;
+  }
+  const id = String(body.id || "");
+  const store = readStore();
+  const items = store.feedbackItems || [];
+  const index = items.findIndex((r) => r.id === id);
+  if (index < 0) {
+    jsonResponse(response, 404, { error: "Feedback item was not found." });
+    return;
+  }
+  const rawStatus = body.status ? String(body.status).slice(0, 40) : "";
+  items[index] = {
+    ...items[index],
+    status: rawStatus && FEEDBACK_STATUSES.has(rawStatus) ? rawStatus : items[index].status,
+    updatedAt: new Date().toISOString(),
+  };
+  if (body.adminNote) {
+    items[index].adminNotes = items[index].adminNotes || [];
+    items[index].adminNotes.push({
+      note: String(body.adminNote).slice(0, 2000),
+      addedAt: new Date().toISOString(),
+    });
+  }
+  store.feedbackItems = items;
+  writeStore(store);
+  jsonResponse(response, 200, { feedback: publicFeedback(items[index]) });
+}
+
+function handleFeedbackList(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  const email = normalizeEmail(url.searchParams.get("email") || "");
+  const store = readStore();
+  const allItems = store.feedbackItems || [];
+  const items = validAdminToken(adminToken)
+    ? allItems
+    : allItems.filter((r) => email && r.email === email);
+  jsonResponse(response, 200, { feedback: items.slice(0, 200).map(publicFeedback) });
+}
+
+// ─── Admin Reply handler ───────────────────────────────────────────────────────
+// Sends an email from admin to a user, and logs it to communications[].
+
+async function handleAdminReply(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to send replies." });
+    return;
+  }
+  const toEmail = normalizeEmail(body.toEmail);
+  const subject = String(body.subject || "").trim().slice(0, 500);
+  const message = String(body.message || "").trim().slice(0, 10000);
+  if (!toEmail || !subject || !message) {
+    jsonResponse(response, 400, { error: "toEmail, subject, and message are required." });
+    return;
+  }
+  const relatedId = String(body.relatedId || "");
+  const relatedType = String(body.relatedType || "ticket").slice(0, 40);
+  const now = new Date().toISOString();
+  const text = `${message}\n\n— The Little Learner Hub Team`;
+  const html = `<p>${htmlEscape(message).replace(/\n/g, "<br>")}</p><p>— The Little Learner Hub Team</p>`;
+  let emailResult = { sent: false, configured: false };
+  try {
+    emailResult = await sendEmail({ to: toEmail, replyTo: SUPPORT_EMAIL_TO, subject, text, html });
+  } catch (err) {
+    console.warn("[email] Admin reply failed:", err.message);
+    emailResult = { sent: false, configured: supportEmailConfigStatus().ready, error: err.message };
+  }
+  const entry = {
+    id: `comm-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`,
+    relatedId,
+    relatedType,
+    direction: "out",
+    from: SUPPORT_EMAIL_FROM || SUPPORT_EMAIL_TO,
+    to: toEmail,
+    subject,
+    body: message,
+    sentAt: now,
+    method: "email",
+    emailResult,
+  };
+  const store = readStore();
+  store.communications = store.communications || [];
+  store.communications.unshift(entry);
+  store.communications = store.communications.slice(0, 5000);
+  writeStore(store);
+  jsonResponse(response, 200, { ok: true, communication: entry, emailResult });
+}
+
+function handleCommunicationsList(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const relatedId = url.searchParams.get("relatedId") || "";
+  const store = readStore();
+  const all = store.communications || [];
+  const items = relatedId ? all.filter((c) => c.relatedId === relatedId) : all;
+  jsonResponse(response, 200, { communications: items.slice(0, 500) });
+}
+
+// ─── Announcements handlers ───────────────────────────────────────────────────
+
+const ANNOUNCEMENT_AUDIENCES = new Set(["all", "free", "pro", "founding"]);
+const ANNOUNCEMENT_DELIVERY_MODES = new Set(["in-app", "email", "both"]);
+const ANNOUNCEMENT_STATUSES = new Set(["draft", "published", "archived"]);
+
+async function handleAnnouncementCreate(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to create announcements." });
+    return;
+  }
+  const title = String(body.title || "").trim().slice(0, 300);
+  const announcementBody = String(body.body || "").trim().slice(0, 10000);
+  if (!title || !announcementBody) {
+    jsonResponse(response, 400, { error: "Title and body are required." });
+    return;
+  }
+  const rawAudience = String(body.audience || "all").toLowerCase();
+  const rawDelivery = String(body.deliveryMode || "in-app").toLowerCase();
+  const rawStatus = String(body.status || "draft").toLowerCase();
+  const store = readStore();
+  store.announcements = store.announcements || [];
+  const item = {
+    id: `ann-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`,
+    title,
+    body: announcementBody,
+    audience: ANNOUNCEMENT_AUDIENCES.has(rawAudience) ? rawAudience : "all",
+    deliveryMode: ANNOUNCEMENT_DELIVERY_MODES.has(rawDelivery) ? rawDelivery : "in-app",
+    status: ANNOUNCEMENT_STATUSES.has(rawStatus) ? rawStatus : "draft",
+    publishedAt: rawStatus === "published" ? new Date().toISOString() : "",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  store.announcements.unshift(item);
+  store.announcements = store.announcements.slice(0, 500);
+  writeStore(store);
+  jsonResponse(response, 200, { announcement: publicAnnouncement(item) });
+}
+
+async function handleAnnouncementUpdate(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to update announcements." });
+    return;
+  }
+  const id = String(body.id || "");
+  const store = readStore();
+  const items = store.announcements || [];
+  const index = items.findIndex((r) => r.id === id);
+  if (index < 0) {
+    jsonResponse(response, 404, { error: "Announcement was not found." });
+    return;
+  }
+  const rawStatus = body.status ? String(body.status).toLowerCase() : "";
+  const prevStatus = items[index].status;
+  const nextStatus = rawStatus && ANNOUNCEMENT_STATUSES.has(rawStatus) ? rawStatus : prevStatus;
+  items[index] = {
+    ...items[index],
+    title: body.title ? String(body.title).slice(0, 300) : items[index].title,
+    body: body.body ? String(body.body).slice(0, 10000) : items[index].body,
+    audience: body.audience && ANNOUNCEMENT_AUDIENCES.has(String(body.audience).toLowerCase()) ? String(body.audience).toLowerCase() : items[index].audience,
+    deliveryMode: body.deliveryMode && ANNOUNCEMENT_DELIVERY_MODES.has(String(body.deliveryMode).toLowerCase()) ? String(body.deliveryMode).toLowerCase() : items[index].deliveryMode,
+    status: nextStatus,
+    publishedAt: nextStatus === "published" && !items[index].publishedAt ? new Date().toISOString() : items[index].publishedAt,
+    updatedAt: new Date().toISOString(),
+  };
+  store.announcements = items;
+  writeStore(store);
+  jsonResponse(response, 200, { announcement: publicAnnouncement(items[index]) });
+}
+
+function handleAnnouncementsList(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  const store = readStore();
+  const all = store.announcements || [];
+  if (validAdminToken(adminToken)) {
+    jsonResponse(response, 200, { announcements: all.slice(0, 200).map(publicAnnouncement) });
+    return;
+  }
+  // Public: only published in-app announcements
+  const published = all.filter((a) => a.status === "published" && (a.deliveryMode === "in-app" || a.deliveryMode === "both"));
+  jsonResponse(response, 200, { announcements: published.slice(0, 50).map(publicAnnouncement) });
+}
+
+// ─── Release Notes handlers ───────────────────────────────────────────────────
+
+const RELEASE_NOTE_STATUSES = new Set(["draft", "published"]);
+
+async function handleReleaseNoteCreate(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to create release notes." });
+    return;
+  }
+  const version = String(body.version || "").trim().slice(0, 80);
+  const releaseDate = String(body.releaseDate || "").trim().slice(0, 30);
+  if (!version) {
+    jsonResponse(response, 400, { error: "Version is required." });
+    return;
+  }
+  const toArray = (val) => (Array.isArray(val) ? val.map((v) => String(v).slice(0, 500)) : []).slice(0, 100);
+  const rawStatus = String(body.status || "draft").toLowerCase();
+  const store = readStore();
+  store.releaseNotes = store.releaseNotes || [];
+  const item = {
+    id: `release-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`,
+    version,
+    releaseDate,
+    featuresAdded: toArray(body.featuresAdded),
+    bugsFixed: toArray(body.bugsFixed),
+    improvements: toArray(body.improvements),
+    status: RELEASE_NOTE_STATUSES.has(rawStatus) ? rawStatus : "draft",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  store.releaseNotes.unshift(item);
+  store.releaseNotes = store.releaseNotes.slice(0, 200);
+  writeStore(store);
+  jsonResponse(response, 200, { releaseNote: publicReleaseNote(item) });
+}
+
+async function handleReleaseNoteUpdate(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to update release notes." });
+    return;
+  }
+  const id = String(body.id || "");
+  const store = readStore();
+  const items = store.releaseNotes || [];
+  const index = items.findIndex((r) => r.id === id);
+  if (index < 0) {
+    jsonResponse(response, 404, { error: "Release note was not found." });
+    return;
+  }
+  const toArray = (val) => (Array.isArray(val) ? val.map((v) => String(v).slice(0, 500)) : null);
+  const rawStatus = body.status ? String(body.status).toLowerCase() : "";
+  items[index] = {
+    ...items[index],
+    version: body.version ? String(body.version).slice(0, 80) : items[index].version,
+    releaseDate: body.releaseDate ? String(body.releaseDate).slice(0, 30) : items[index].releaseDate,
+    featuresAdded: toArray(body.featuresAdded) ?? items[index].featuresAdded,
+    bugsFixed: toArray(body.bugsFixed) ?? items[index].bugsFixed,
+    improvements: toArray(body.improvements) ?? items[index].improvements,
+    status: rawStatus && RELEASE_NOTE_STATUSES.has(rawStatus) ? rawStatus : items[index].status,
+    updatedAt: new Date().toISOString(),
+  };
+  store.releaseNotes = items;
+  writeStore(store);
+  jsonResponse(response, 200, { releaseNote: publicReleaseNote(items[index]) });
+}
+
+function handleReleaseNotesList(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  const store = readStore();
+  const all = store.releaseNotes || [];
+  if (validAdminToken(adminToken)) {
+    jsonResponse(response, 200, { releaseNotes: all.slice(0, 200).map(publicReleaseNote) });
+    return;
+  }
+  // Public: only published notes
+  const published = all.filter((n) => n.status === "published");
+  jsonResponse(response, 200, { releaseNotes: published.slice(0, 50).map(publicReleaseNote) });
+}
+
+
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, SITE_URL);
   try {
@@ -4492,6 +5204,33 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/analytics/event") return await handleAnalyticsEvent(request, response);
     if (request.method === "POST" && url.pathname === "/api/support-ticket") return await handleSupportTicketCreate(request, response);
     if (request.method === "POST" && url.pathname === "/api/support-ticket-update") return await handleSupportTicketUpdate(request, response);
+    if (request.method === "GET" && url.pathname === "/api/support-tickets") return handleSupportTicketsList(request, response, url);
+    // Phase 6-A: Bug Reports
+    if (request.method === "POST" && url.pathname === "/api/bug-report") return await handleBugReportCreate(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/bug-report-update") return await handleBugReportUpdate(request, response);
+    if (request.method === "GET" && url.pathname === "/api/bug-reports") return handleBugReportsList(request, response, url);
+    // Phase 6-A: Feature Requests
+    if (request.method === "POST" && url.pathname === "/api/feature-request") return await handleFeatureRequestCreate(request, response);
+    if (request.method === "POST" && url.pathname === "/api/feature-request/vote") return await handleFeatureRequestVote(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/feature-request-update") return await handleFeatureRequestUpdate(request, response);
+    if (request.method === "GET" && url.pathname === "/api/feature-requests") return handleFeatureRequestsList(request, response, url);
+    // Phase 6-A: Feedback
+    if (request.method === "POST" && url.pathname === "/api/feedback") return await handleFeedbackCreate(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/feedback-update") return await handleFeedbackUpdate(request, response);
+    if (request.method === "GET" && url.pathname === "/api/feedback") return handleFeedbackList(request, response, url);
+    // Phase 6-A: Admin Reply & Communications
+    if (request.method === "POST" && url.pathname === "/api/admin/reply") return await handleAdminReply(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/communications") return handleCommunicationsList(request, response, url);
+    // Phase 6-A: Announcements
+    if (request.method === "POST" && url.pathname === "/api/admin/announcements") return await handleAnnouncementCreate(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/announcement-update") return await handleAnnouncementUpdate(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/announcements") return handleAnnouncementsList(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/announcements") return handleAnnouncementsList(request, response, url);
+    // Phase 6-A: Release Notes
+    if (request.method === "POST" && url.pathname === "/api/admin/release-notes") return await handleReleaseNoteCreate(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/release-note-update") return await handleReleaseNoteUpdate(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/release-notes") return handleReleaseNotesList(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/release-notes") return handleReleaseNotesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/uploads") return handleUploadedResourcesList(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/migrate") return await handleAdminUploadedResourcesMigrate(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/upsert") return await handleAdminUploadedResourceUpsert(request, response);
@@ -4500,7 +5239,6 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/checkout-status") return await handleCheckoutStatus(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/subscription-status") return await handleSubscriptionStatus(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/user/ai-usage") return handleUserAiUsage(request, response, url);
-    if (request.method === "GET" && url.pathname === "/api/support-tickets") return handleSupportTicketsList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/analytics") return handleAdminAnalytics(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-test") return await handleAdminAiTest(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/ai-prompts") return handleAdminAiPrompts(request, response, url);
