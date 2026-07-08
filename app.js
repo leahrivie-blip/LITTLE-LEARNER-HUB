@@ -2340,14 +2340,15 @@ function setAdminLessonSaveFlowMessage(message, { reset = false, isSuccess = tru
 // Usage:
 //   await runAdminSave({
 //     messageSelector: "#adminHeroMessage",
-//     form,           // optional — the <form> element (used to locate submit button)
+//     form,            // optional — the <form> element (used to locate submit button)
 //     saveFn: async () => { ... },
-//     successMsg: "Hero section saved.",
-//     onComplete: () => { ... },   // sync callback called immediately on success
-//     redirectFn: () => { ... },   // called after 2.5 s delay on success
+//     successMsg: "Hero section saved.",       // string or () => string (evaluated after saveFn)
+//     onComplete: () => { ... },               // sync callback called immediately on success
+//     onError: (detail, err) => { ... },       // optional — overrides default error display
+//     redirectFn: () => { ... },               // called after 2.5 s delay on success
 //   });
 
-async function runAdminSave({ messageSelector, form, saveFn, successMsg, onComplete, redirectFn } = {}) {
+async function runAdminSave({ messageSelector, form, saveFn, successMsg, onComplete, onError, redirectFn } = {}) {
   const msgEl = messageSelector
     ? (typeof messageSelector === "string" ? document.querySelector(messageSelector) : messageSelector)
     : null;
@@ -2363,13 +2364,13 @@ async function runAdminSave({ messageSelector, form, saveFn, successMsg, onCompl
   // ── Saving state ──────────────────────────────────────────────────────────
   if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Saving…"; }
   if (msgEl) setFormMessage(msgEl, "Saving… Please wait.", true);
-  console.log("[SAVE] Started →", successMsg || messageSelector || "(unknown)");
+  console.log("[SAVE] Started →", (typeof successMsg === "string" ? successMsg : null) || messageSelector || "(unknown)");
 
   try {
     await saveFn();
 
     // ── Success state ─────────────────────────────────────────────────────
-    const msg = successMsg || "✅ Changes Saved Successfully";
+    const msg = (typeof successMsg === "function" ? successMsg() : successMsg) || "✅ Changes Saved Successfully";
     console.log("[SAVE] Completed →", msg);
     if (msgEl) {
       setFormMessage(msgEl, msg, true);
@@ -2382,7 +2383,9 @@ async function runAdminSave({ messageSelector, form, saveFn, successMsg, onCompl
     // ── Error state ───────────────────────────────────────────────────────
     const errDetail = err?.message || "Unknown error";
     console.error("[SAVE] Failed →", errDetail, err);
-    if (msgEl) {
+    if (onError) {
+      onError(errDetail, err);
+    } else if (msgEl) {
       setFormMessage(msgEl, `❌ Save Failed — ${errDetail}. Please try again.`, false);
       msgEl.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
     }
@@ -17904,10 +17907,6 @@ async function saveAdminLessonPlanForm(form) {
     setFormMessage("#adminLessonPlanMessage", "Already saving — please wait.", false);
     return;
   }
-  setAdminLessonSaveFlowMessage("Save function started", {
-    reset: adminLessonSaveFlowMessages[0] !== "Save button clicked",
-    isSuccess: true,
-  });
   const formData = new FormData(form);
   const id = String(formData.get("id") || "");
   console.log("[DIAG] saveAdminLessonPlanForm: lesson id =", JSON.stringify(id));
@@ -17916,100 +17915,35 @@ async function saveAdminLessonPlanForm(form) {
     setFormMessage("#adminLessonPlanMessage", "Missing lesson plan ID. Please reload the page and try again.", false);
     return;
   }
-  adminLessonSaving = true;
-  // Disable and label the button via the live form reference so it works even after re-render
+
+  // Re-query the submit button by ID so it still works if the form is re-rendered mid-save
   const getLessonSaveBtn = () => document.querySelector("#adminLessonPlanForm [type='submit']");
+  const originalLabel = getLessonSaveBtn()?.textContent || "Save lesson plan";
+
+  adminLessonSaving = true;
+  setAdminLessonSaveFlowMessage("Save function started", {
+    reset: adminLessonSaveFlowMessages[0] !== "Save button clicked",
+    isSuccess: true,
+  });
+
+  // Disable the button before runAdminSave (we manage it ourselves to support re-render)
   const initialBtn = getLessonSaveBtn();
-  const originalLabel = initialBtn ? initialBtn.textContent : "Save lesson plan";
-  if (initialBtn) {
-    initialBtn.disabled = true;
-    initialBtn.textContent = "Saving…";
-  }
-  setFormMessage("#adminLessonPlanMessage", "Saving… Please wait.", true);
+  if (initialBtn) { initialBtn.disabled = true; initialBtn.textContent = "Saving…"; }
+
+  let computedSuccessMsg = "";
   try {
-    console.log("[SAVE] Upload started → thumbnailFile (lesson plan)");
-    const uploadedImage = await fileToImageDataUrlSafe(formData.get("thumbnailFile"));
-    console.log("[SAVE] Upload completed");
-    const now = new Date().toISOString();
-    const titleThemeImporterUpdated = form.dataset.importerUpdatedTitleTheme === "true";
-    const isCustomPlan = Boolean(customLessonPlanForId(id));
-    // Full payload snapshot for diagnostic logging (not used for saving)
-    const lessonPayload = {
-      id,
-      title: normalizedShortText(formData.get("title")),
-      age: normalizedShortText(formData.get("age")),
-      theme: normalizedShortText(formData.get("theme")),
-      weeklyOverview: normalizedMultilineText(formData.get("weeklyOverview")),
-      materials: normalizedMultilineText(formData.get("materials")),
-      objectives: normalizedMultilineText(formData.get("objectives")),
-      teacherLanguage: normalizedMultilineText(formData.get("teacherLanguage")),
-      elgConnections: normalizedMultilineText(formData.get("elgConnections")),
-      familyConnection: normalizedMultilineText(formData.get("familyConnection")),
-      reflectionNotes: normalizedMultilineText(formData.get("reflectionNotes")),
-      plan: normalizedShortText(formData.get("plan")) || "Free",
-      visible: formData.get("visible") === "on",
-      thumbnailUrl: uploadedImage ? "(data URL)" : normalizedShortText(formData.get("thumbnailUrl")),
-      updatedAt: now,
-      titleThemeImporterUpdated,
-      archived: false,
-      dailyActivities: {
-        monday: normalizedMultilineText(formData.get("monday")),
-        tuesday: normalizedMultilineText(formData.get("tuesday")),
-        wednesday: normalizedMultilineText(formData.get("wednesday")),
-        thursday: normalizedMultilineText(formData.get("thursday")),
-        friday: normalizedMultilineText(formData.get("friday")),
-      },
-    };
-    console.log("[DIAG] saveAdminLessonPlanForm: payload being sent →", JSON.stringify(lessonPayload));
-    if (isCustomPlan) {
-      setAdminLessonSaveFlowMessage("API request sent", { isSuccess: true });
-      const nextContent = nextSiteContentDraft();
-      const existing = Array.isArray(nextContent.customLessonPlans) ? nextContent.customLessonPlans : [];
-      const current = existing.find((item) => item.id === id) || {};
-      const nextEntry = {
-        ...current,
-        id,
-        title: normalizedShortText(formData.get("title")),
-        age: normalizedShortText(formData.get("age")),
-        theme: normalizedShortText(formData.get("theme")),
-        weeklyOverview: normalizedMultilineText(formData.get("weeklyOverview")),
-        materials: normalizedMultilineText(formData.get("materials")),
-        objectives: normalizedMultilineText(formData.get("objectives")),
-        teacherLanguage: normalizedMultilineText(formData.get("teacherLanguage")),
-        elgConnections: normalizedMultilineText(formData.get("elgConnections")),
-        familyConnection: normalizedMultilineText(formData.get("familyConnection")),
-        reflectionNotes: normalizedMultilineText(formData.get("reflectionNotes")),
-        plan: normalizedShortText(formData.get("plan")) || "Free",
-        visible: formData.get("visible") === "on",
-        featured: formData.get("featured") === "on",
-        archived: false,
-        thumbnailUrl: uploadedImage || sanitizedImageSource(formData.get("thumbnailUrl")),
-        updatedAt: now,
-        titleThemeImporterUpdated,
-        titleThemeImporterUpdatedAt: titleThemeImporterUpdated ? now : (current.titleThemeImporterUpdatedAt || ""),
-        dailyActivities: {
-          monday: normalizedMultilineText(formData.get("monday")),
-          tuesday: normalizedMultilineText(formData.get("tuesday")),
-          wednesday: normalizedMultilineText(formData.get("wednesday")),
-          thursday: normalizedMultilineText(formData.get("thursday")),
-          friday: normalizedMultilineText(formData.get("friday")),
-        },
-        resources: Array.isArray(adminLessonResourcesDraft) && adminLessonResourcesDraftId === id
-          ? adminLessonResourcesDraft
-          : (current.resources || []),
-      };
-      nextContent.customLessonPlans = [...existing.filter((item) => item.id !== id), nextEntry];
-      console.log("[SAVE] Database save started");
-      await saveAdminSiteContent(nextContent);
-      console.log("[SAVE] Database saved");
-      adminLessonEditorId = id;
-    } else {
-      setAdminLessonSaveFlowMessage("API request sent", { isSuccess: true });
-      await updateLessonOverrides((lessonPlans) => {
-        const current = lessonPlans[id] || {};
-        console.log("[DIAG] updateLessonOverrides: existing override for id", JSON.stringify(id), "→ keys:", Object.keys(current));
-        lessonPlans[id] = {
-          ...current,
+    await runAdminSave({
+      messageSelector: "#adminLessonPlanMessage",
+      // form is not passed — we manage the button ourselves via getLessonSaveBtn()
+      saveFn: async () => {
+        console.log("[SAVE] Upload started → thumbnailFile (lesson plan)");
+        const uploadedImage = await fileToImageDataUrlSafe(formData.get("thumbnailFile"));
+        console.log("[SAVE] Upload completed");
+        const now = new Date().toISOString();
+        const titleThemeImporterUpdated = form.dataset.importerUpdatedTitleTheme === "true";
+        const isCustomPlan = Boolean(customLessonPlanForId(id));
+        // Full payload snapshot for diagnostic logging (not used for saving)
+        const lessonPayload = {
           id,
           title: normalizedShortText(formData.get("title")),
           age: normalizedShortText(formData.get("age")),
@@ -18023,12 +17957,10 @@ async function saveAdminLessonPlanForm(form) {
           reflectionNotes: normalizedMultilineText(formData.get("reflectionNotes")),
           plan: normalizedShortText(formData.get("plan")) || "Free",
           visible: formData.get("visible") === "on",
-          featured: formData.get("featured") === "on",
-          archived: false,
-          thumbnailUrl: uploadedImage || sanitizedImageSource(formData.get("thumbnailUrl")),
+          thumbnailUrl: uploadedImage ? "(data URL)" : normalizedShortText(formData.get("thumbnailUrl")),
           updatedAt: now,
           titleThemeImporterUpdated,
-          titleThemeImporterUpdatedAt: titleThemeImporterUpdated ? now : (current.titleThemeImporterUpdatedAt || ""),
+          archived: false,
           dailyActivities: {
             monday: normalizedMultilineText(formData.get("monday")),
             tuesday: normalizedMultilineText(formData.get("tuesday")),
@@ -18036,48 +17968,125 @@ async function saveAdminLessonPlanForm(form) {
             thursday: normalizedMultilineText(formData.get("thursday")),
             friday: normalizedMultilineText(formData.get("friday")),
           },
-          resources: Array.isArray(adminLessonResourcesDraft) && adminLessonResourcesDraftId === id
-            ? adminLessonResourcesDraft
-            : (current.resources || []),
         };
-        console.log("[DIAG] updateLessonOverrides: lesson object written to lessonPlans →", JSON.stringify(Object.keys(lessonPlans[id])));
-        adminLessonEditorId = id;
-      });
-      console.log("[SAVE] Database saved");
-    }
-    // Verify the record was saved and log the result
-    const savedRecord = effectiveSiteContent().lessonPlans?.[id] || effectiveSiteContent().customLessonPlans?.find((p) => p.id === id) || null;
-    console.log("[SAVE] Verification →", savedRecord ? `record found (updatedAt: ${savedRecord.updatedAt})` : "record NOT found in store");
-    console.log("[DIAG] saveAdminLessonPlanForm: save succeeded — updated record from store →", JSON.stringify(savedRecord ? { id: savedRecord.id, title: savedRecord.title, theme: savedRecord.theme, updatedAt: savedRecord.updatedAt } : null));
-    setAdminLessonFormCleanState();
-    const isVisible = formData.get("visible") === "on";
-    const isFeatured = formData.get("featured") === "on";
-    const savedStatus = isFeatured ? "featured" : isVisible ? "approved" : "draft";
-    const statusLine = `Status: ${contentStatusEmoji[savedStatus]} ${contentStatusLabel[savedStatus]}`;
-    const successMsg = isVisible
-      ? `✅ Published Successfully — ${statusLine}`
-      : `✅ Saved Successfully — ${statusLine}`;
-    console.log("[SAVE] Completed → saveAdminLessonPlanForm:", successMsg);
-    setAdminLessonSaveFlowMessage(successMsg, { isSuccess: true });
-    // Scroll the success message into view so the admin can see it on long forms
-    const msgEl = document.querySelector("#adminLessonPlanMessage");
-    if (msgEl) msgEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  } catch (err) {
-    console.error("[SAVE] Failed → saveAdminLessonPlanForm:", err);
-    console.error("[DIAG] saveAdminLessonPlanForm: CAUGHT ERROR →", err);
-    const errMsg = err.message || "Unknown error";
-    const isDbError = /database|could not be saved|storage/i.test(errMsg);
-    setAdminLessonSaveFlowMessage(isDbError ? `❌ Database update failed: ${errMsg}` : `❌ Save Failed — ${errMsg}. Please try again.`, { isSuccess: false });
-    const msgEl = document.querySelector("#adminLessonPlanMessage");
-    if (msgEl) msgEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        console.log("[DIAG] saveAdminLessonPlanForm: payload being sent →", JSON.stringify(lessonPayload));
+        if (isCustomPlan) {
+          setAdminLessonSaveFlowMessage("API request sent", { isSuccess: true });
+          const nextContent = nextSiteContentDraft();
+          const existing = Array.isArray(nextContent.customLessonPlans) ? nextContent.customLessonPlans : [];
+          const current = existing.find((item) => item.id === id) || {};
+          const nextEntry = {
+            ...current,
+            id,
+            title: normalizedShortText(formData.get("title")),
+            age: normalizedShortText(formData.get("age")),
+            theme: normalizedShortText(formData.get("theme")),
+            weeklyOverview: normalizedMultilineText(formData.get("weeklyOverview")),
+            materials: normalizedMultilineText(formData.get("materials")),
+            objectives: normalizedMultilineText(formData.get("objectives")),
+            teacherLanguage: normalizedMultilineText(formData.get("teacherLanguage")),
+            elgConnections: normalizedMultilineText(formData.get("elgConnections")),
+            familyConnection: normalizedMultilineText(formData.get("familyConnection")),
+            reflectionNotes: normalizedMultilineText(formData.get("reflectionNotes")),
+            plan: normalizedShortText(formData.get("plan")) || "Free",
+            visible: formData.get("visible") === "on",
+            featured: formData.get("featured") === "on",
+            archived: false,
+            thumbnailUrl: uploadedImage || sanitizedImageSource(formData.get("thumbnailUrl")),
+            updatedAt: now,
+            titleThemeImporterUpdated,
+            titleThemeImporterUpdatedAt: titleThemeImporterUpdated ? now : (current.titleThemeImporterUpdatedAt || ""),
+            dailyActivities: {
+              monday: normalizedMultilineText(formData.get("monday")),
+              tuesday: normalizedMultilineText(formData.get("tuesday")),
+              wednesday: normalizedMultilineText(formData.get("wednesday")),
+              thursday: normalizedMultilineText(formData.get("thursday")),
+              friday: normalizedMultilineText(formData.get("friday")),
+            },
+            resources: Array.isArray(adminLessonResourcesDraft) && adminLessonResourcesDraftId === id
+              ? adminLessonResourcesDraft
+              : (current.resources || []),
+          };
+          nextContent.customLessonPlans = [...existing.filter((item) => item.id !== id), nextEntry];
+          console.log("[SAVE] Database save started");
+          await saveAdminSiteContent(nextContent);
+          console.log("[SAVE] Database saved");
+          adminLessonEditorId = id;
+        } else {
+          setAdminLessonSaveFlowMessage("API request sent", { isSuccess: true });
+          await updateLessonOverrides((lessonPlans) => {
+            const current = lessonPlans[id] || {};
+            console.log("[DIAG] updateLessonOverrides: existing override for id", JSON.stringify(id), "→ keys:", Object.keys(current));
+            lessonPlans[id] = {
+              ...current,
+              id,
+              title: normalizedShortText(formData.get("title")),
+              age: normalizedShortText(formData.get("age")),
+              theme: normalizedShortText(formData.get("theme")),
+              weeklyOverview: normalizedMultilineText(formData.get("weeklyOverview")),
+              materials: normalizedMultilineText(formData.get("materials")),
+              objectives: normalizedMultilineText(formData.get("objectives")),
+              teacherLanguage: normalizedMultilineText(formData.get("teacherLanguage")),
+              elgConnections: normalizedMultilineText(formData.get("elgConnections")),
+              familyConnection: normalizedMultilineText(formData.get("familyConnection")),
+              reflectionNotes: normalizedMultilineText(formData.get("reflectionNotes")),
+              plan: normalizedShortText(formData.get("plan")) || "Free",
+              visible: formData.get("visible") === "on",
+              featured: formData.get("featured") === "on",
+              archived: false,
+              thumbnailUrl: uploadedImage || sanitizedImageSource(formData.get("thumbnailUrl")),
+              updatedAt: now,
+              titleThemeImporterUpdated,
+              titleThemeImporterUpdatedAt: titleThemeImporterUpdated ? now : (current.titleThemeImporterUpdatedAt || ""),
+              dailyActivities: {
+                monday: normalizedMultilineText(formData.get("monday")),
+                tuesday: normalizedMultilineText(formData.get("tuesday")),
+                wednesday: normalizedMultilineText(formData.get("wednesday")),
+                thursday: normalizedMultilineText(formData.get("thursday")),
+                friday: normalizedMultilineText(formData.get("friday")),
+              },
+              resources: Array.isArray(adminLessonResourcesDraft) && adminLessonResourcesDraftId === id
+                ? adminLessonResourcesDraft
+                : (current.resources || []),
+            };
+            console.log("[DIAG] updateLessonOverrides: lesson object written to lessonPlans →", JSON.stringify(Object.keys(lessonPlans[id])));
+            adminLessonEditorId = id;
+          });
+          console.log("[SAVE] Database saved");
+        }
+        // Verify the record was saved and log the result
+        const savedRecord = effectiveSiteContent().lessonPlans?.[id] || effectiveSiteContent().customLessonPlans?.find((p) => p.id === id) || null;
+        console.log("[SAVE] Verification →", savedRecord ? `record found (updatedAt: ${savedRecord.updatedAt})` : "record NOT found in store");
+        console.log("[DIAG] saveAdminLessonPlanForm: save succeeded — updated record from store →", JSON.stringify(savedRecord ? { id: savedRecord.id, title: savedRecord.title, theme: savedRecord.theme, updatedAt: savedRecord.updatedAt } : null));
+        setAdminLessonFormCleanState();
+        const isVisible = formData.get("visible") === "on";
+        const isFeatured = formData.get("featured") === "on";
+        const savedStatus = isFeatured ? "featured" : isVisible ? "approved" : "draft";
+        const statusLine = `Status: ${contentStatusEmoji[savedStatus]} ${contentStatusLabel[savedStatus]}`;
+        computedSuccessMsg = isVisible
+          ? `✅ Published Successfully — ${statusLine}`
+          : `✅ Saved Successfully — ${statusLine}`;
+      },
+      successMsg: () => computedSuccessMsg,
+      onComplete: () => {
+        setAdminLessonSaveFlowMessage(computedSuccessMsg, { isSuccess: true });
+      },
+      onError: (errDetail, err) => {
+        console.error("[DIAG] saveAdminLessonPlanForm: CAUGHT ERROR →", err);
+        const isDbError = /database|could not be saved|storage/i.test(errDetail);
+        setAdminLessonSaveFlowMessage(
+          isDbError ? `❌ Database update failed: ${errDetail}` : `❌ Save Failed — ${errDetail}. Please try again.`,
+          { isSuccess: false }
+        );
+        const msgEl = document.querySelector("#adminLessonPlanMessage");
+        if (msgEl) msgEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      },
+    });
   } finally {
     adminLessonSaving = false;
     // Re-query the submit button because the form may have been re-rendered during save
     const currentBtn = getLessonSaveBtn();
-    if (currentBtn) {
-      currentBtn.disabled = false;
-      currentBtn.textContent = originalLabel;
-    }
+    if (currentBtn) { currentBtn.disabled = false; currentBtn.textContent = originalLabel; }
   }
 }
 
@@ -18584,7 +18593,6 @@ async function deleteImageAsset(id) {
 // ─── Admin Printable Activities Manager ──────────────────────────────────────
 
 let adminActivityEditorId = "";
-let adminActivitySaving = false;
 
 function renderAdminActivitiesManager() {
   const target = document.querySelector("#adminActivitiesManagerApp");
@@ -18656,74 +18664,6 @@ function adminActivityCardHtml(activity) {
       </div>
     </article>
   `;
-}
-
-async function saveAdminActivityForm(form) {
-  if (adminActivitySaving) {
-    setFormMessage("#adminActivityMessage", "Already saving — please wait.", false);
-    return;
-  }
-  const formData = new FormData(form);
-  const submitBtn = form.querySelector("[type='submit']");
-  const originalLabel = submitBtn ? submitBtn.textContent : "";
-  adminActivitySaving = true;
-  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Saving…"; }
-  setFormMessage("#adminActivityMessage", "Saving… Please wait.", true);
-  console.log("[SAVE] Started → saveAdminActivityForm");
-  try {
-    const id = normalizedShortText(formData.get("id")) || `activity-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-    console.log("[SAVE] Upload started → printableFile");
-    const uploadedPrintable = await fileToImageDataUrlSafe(formData.get("printableFile"));
-    console.log("[SAVE] Upload started → thumbnailFile");
-    const uploadedThumb = await fileToImageDataUrlSafe(formData.get("thumbnailFile"));
-    console.log("[SAVE] Upload completed");
-    const tagsRaw = normalizedShortText(formData.get("tags"));
-    const tags = tagsRaw ? tagsRaw.split(",").map((t) => t.trim()).filter(Boolean) : [];
-    const now = new Date().toISOString();
-    const nextContent = nextSiteContentDraft();
-    const existing = Array.isArray(nextContent.activities) ? nextContent.activities : [];
-    const prev = existing.find((a) => a.id === id) || {};
-    const entry = {
-      ...prev,
-      id,
-      title: normalizedShortText(formData.get("title")),
-      age: normalizedShortText(formData.get("age")) || "All Ages",
-      activityCategory: normalizedShortText(formData.get("activityCategory")) || "General",
-      description: normalizedShortText(formData.get("description")),
-      tags,
-      plan: normalizedShortText(formData.get("plan")) || "Free",
-      printableUrl: uploadedPrintable || sanitizedImageSource(prev.printableUrl || ""),
-      thumbnailUrl: uploadedThumb || sanitizedImageSource(prev.thumbnailUrl || ""),
-      visible: formData.get("visible") === "on",
-      updatedAt: now,
-    };
-    nextContent.activities = [...existing.filter((a) => a.id !== id), entry];
-    adminActivityEditorId = id;
-    console.log("[SAVE] Database save started");
-    await saveAdminSiteContent(nextContent);
-    console.log("[SAVE] Database saved");
-    syncSiteManagedResources();
-    const savedStatus = contentItemStatus(entry);
-    const statusMsg = `✅ ${entry.visible ? "Published" : "Saved"} Successfully — Status: ${contentStatusEmoji[savedStatus]} ${contentStatusLabel[savedStatus]}`;
-    setFormMessage("#adminActivityMessage", statusMsg, true);
-    const msgEl = document.querySelector("#adminActivityMessage");
-    if (msgEl) msgEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    console.log("[SAVE] Completed → saveAdminActivityForm");
-    // Redirect to list after a short delay so the admin can read the success message
-    window.setTimeout(() => {
-      adminActivityEditorId = "";
-      renderAdminActivitiesManager();
-    }, 2500);
-  } catch (err) {
-    const errDetail = err?.message || "Unknown error";
-    console.error("[SAVE] Failed → saveAdminActivityForm:", errDetail, err);
-    setFormMessage("#adminActivityMessage", `❌ Save Failed — ${errDetail}. Please try again.`, false);
-    const msgEl = document.querySelector("#adminActivityMessage");
-    if (msgEl) msgEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  } finally {
-    adminActivitySaving = false;
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalLabel; }
-  }
 }
 
 async function deleteAdminActivity(id) {
@@ -19032,95 +18972,76 @@ function renderAdminPrintablesManager() {
 async function saveAdminManagedCollectionForm(type, form) {
   const config = adminManagedContentConfig[type];
   const msgKey = `#admin${type[0].toUpperCase()}${type.slice(1)}Message`;
-  const submitBtn = form ? form.querySelector("[type='submit']") : null;
+  let savedEntry = null;
 
-  // Guard against double-saves
-  if (submitBtn && submitBtn.disabled) {
-    setFormMessage(msgKey, "Already saving — please wait.", false);
-    return;
-  }
+  await runAdminSave({
+    messageSelector: msgKey,
+    form,
+    saveFn: async () => {
+      const nextContent = nextSiteContentDraft();
+      const existing = Array.isArray(nextContent[config.contentKey]) ? nextContent[config.contentKey] : [];
+      const formData = new FormData(form);
+      const id = normalizedShortText(formData.get("id")) || `${type}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+      const current = existing.find((item) => item.id === id) || {};
 
-  const originalLabel = submitBtn ? submitBtn.textContent : `Save ${config.singular}`;
-  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Saving…"; }
-  setFormMessage(msgKey, "Saving… Please wait.", true);
-  console.log("[SAVE] Started → saveAdminManagedCollectionForm:", type);
+      console.log("[SAVE] Upload started → file");
+      const uploadedFile = await fileToDataUrlSafe(formData.get("file"));
+      console.log("[SAVE] Upload started → preview");
+      const uploadedPreview = await fileToImageDataUrlSafe(formData.get("preview"));
+      console.log("[SAVE] Upload completed");
 
-  try {
-    const nextContent = nextSiteContentDraft();
-    const existing = Array.isArray(nextContent[config.contentKey]) ? nextContent[config.contentKey] : [];
-    const formData = new FormData(form);
-    const id = normalizedShortText(formData.get("id")) || `${type}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-    const current = existing.find((item) => item.id === id) || {};
+      const tags = normalizedShortText(formData.get("tags"))
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+      const entry = {
+        ...current,
+        id,
+        title: normalizedShortText(formData.get("title")),
+        category: config.category,
+        age: normalizedShortText(formData.get("age")) || "All Ages",
+        plan: normalizedShortText(formData.get("plan")) || "Free",
+        theme: normalizedShortText(formData.get("theme")),
+        description: normalizedMultilineText(formData.get("description")),
+        tags,
+        format: normalizedShortText(formData.get("format")) || config.formatPlaceholder,
+        customContent: normalizedMultilineText(formData.get("customContent")),
+        fileName: formData.get("file")?.name || current.fileName || "",
+        fileData: uploadedFile || current.fileData || "",
+        previewName: formData.get("preview")?.name || current.previewName || "",
+        previewData: uploadedPreview || current.previewData || "",
+        visible: formData.get("visible") === "on",
+        featured: formData.get("featured") === "on",
+        archived: false,
+        updatedAt: new Date().toISOString(),
+      };
+      entry[config.primaryField] = normalizedShortText(formData.get(config.primaryField)) || config.primaryOptions()[0] || "General";
+      if (type === "activities") {
+        entry.activityCategory = entry[config.primaryField];
+        entry.printableUrl = entry.fileData || current.printableUrl || "";
+        entry.thumbnailUrl = entry.previewData || current.thumbnailUrl || "";
+      }
+      nextContent[config.contentKey] = [...existing.filter((item) => item.id !== id), entry];
 
-    console.log("[SAVE] Upload started → file");
-    const uploadedFile = await fileToDataUrlSafe(formData.get("file"));
-    console.log("[SAVE] Upload started → preview");
-    const uploadedPreview = await fileToImageDataUrlSafe(formData.get("preview"));
-    console.log("[SAVE] Upload completed");
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
 
-    const tags = normalizedShortText(formData.get("tags"))
-      .split(",")
-      .map((tag) => tag.trim())
-      .filter(Boolean);
-    const entry = {
-      ...current,
-      id,
-      title: normalizedShortText(formData.get("title")),
-      category: config.category,
-      age: normalizedShortText(formData.get("age")) || "All Ages",
-      plan: normalizedShortText(formData.get("plan")) || "Free",
-      theme: normalizedShortText(formData.get("theme")),
-      description: normalizedMultilineText(formData.get("description")),
-      tags,
-      format: normalizedShortText(formData.get("format")) || config.formatPlaceholder,
-      customContent: normalizedMultilineText(formData.get("customContent")),
-      fileName: formData.get("file")?.name || current.fileName || "",
-      fileData: uploadedFile || current.fileData || "",
-      previewName: formData.get("preview")?.name || current.previewName || "",
-      previewData: uploadedPreview || current.previewData || "",
-      visible: formData.get("visible") === "on",
-      featured: formData.get("featured") === "on",
-      archived: false,
-      updatedAt: new Date().toISOString(),
-    };
-    entry[config.primaryField] = normalizedShortText(formData.get(config.primaryField)) || config.primaryOptions()[0] || "General";
-    if (type === "activities") {
-      entry.activityCategory = entry[config.primaryField];
-      entry.printableUrl = entry.fileData || current.printableUrl || "";
-      entry.thumbnailUrl = entry.previewData || current.thumbnailUrl || "";
-    }
-    nextContent[config.contentKey] = [...existing.filter((item) => item.id !== id), entry];
-
-    console.log("[SAVE] Database save started");
-    await saveAdminSiteContent(nextContent);
-    console.log("[SAVE] Database saved");
-
-    syncSiteManagedResources();
-    setAdminManagedEditorId(type, id);
-    clearAdminManagedFormDirty(type);
-
-    const savedStatus = contentItemStatus(entry);
-    const statusMsg = `✅ ${entry.visible ? "Published" : "Saved"} Successfully — Status: ${contentStatusEmoji[savedStatus]} ${contentStatusLabel[savedStatus]}`;
-    setFormMessage(msgKey, statusMsg, true);
-    const msgEl = document.querySelector(msgKey);
-    if (msgEl) msgEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    console.log("[SAVE] Completed → saveAdminManagedCollectionForm:", type);
-
-    // Redirect to list after a short delay so the admin can read the success message
-    window.setTimeout(() => {
+      syncSiteManagedResources();
+      setAdminManagedEditorId(type, id);
+      clearAdminManagedFormDirty(type);
+      savedEntry = entry;
+    },
+    successMsg: () => {
+      if (!savedEntry) return "✅ Saved Successfully";
+      const savedStatus = contentItemStatus(savedEntry);
+      return `✅ ${savedEntry.visible ? "Published" : "Saved"} Successfully — Status: ${contentStatusEmoji[savedStatus]} ${contentStatusLabel[savedStatus]}`;
+    },
+    redirectFn: () => {
       setAdminManagedEditorId(type, "");
       renderAdminManagedCollection(type);
-    }, 2500);
-
-  } catch (err) {
-    const errDetail = err?.message || "Unknown error";
-    console.error("[SAVE] Failed → saveAdminManagedCollectionForm:", type, errDetail, err);
-    setFormMessage(msgKey, `❌ Save Failed — ${errDetail}. Please try again.`, false);
-    const msgEl = document.querySelector(msgKey);
-    if (msgEl) msgEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  } finally {
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalLabel; }
-  }
+    },
+  });
 }
 
 
