@@ -296,6 +296,7 @@ function defaultStore() {
     aiPromptVersions: [],
     aiUsageLogs: [],
     supportTickets: [],
+    uploadedResources: [],
     analyticsEvents: [],
     billingEvents: [],
     leads: [],
@@ -571,6 +572,104 @@ function normalizedLibraryItemEntry(value, defaultCategory) {
   };
 }
 
+const UPLOADED_RESOURCE_LIMITS = Object.freeze({
+  // Keep aligned with existing frontend form constraints and storage payload sizes.
+  id: 180,
+  category: 80,
+  title: 200,
+  age: 40,
+  plan: 20,
+  month: 40,
+  tag: 80,
+  format: 80,
+  fileName: 180,
+  previewName: 180,
+});
+const DEFAULT_UPLOADED_RESOURCE_CATEGORY = "Forms Library";
+const MAX_UPLOADED_RESOURCE_TAGS = 25;
+const MAX_UPLOADED_RESOURCES = 3000;
+const MAX_UPLOADED_RESOURCES_INCOMING = 1000;
+
+function normalizedUploadedResourceTags(tags) {
+  return (Array.isArray(tags) ? tags : [])
+    .map((tag) => normalizedShortText(tag, UPLOADED_RESOURCE_LIMITS.tag))
+    .filter(Boolean)
+    .slice(0, MAX_UPLOADED_RESOURCE_TAGS);
+}
+
+function uploadedResourceFingerprint(entry) {
+  const payload = {
+    category: normalizedShortText(entry.category, UPLOADED_RESOURCE_LIMITS.category),
+    title: normalizedShortText(entry.title, UPLOADED_RESOURCE_LIMITS.title),
+    age: normalizedShortText(entry.age, UPLOADED_RESOURCE_LIMITS.age),
+    plan: normalizedShortText(entry.plan, UPLOADED_RESOURCE_LIMITS.plan),
+    month: normalizedShortText(entry.month, UPLOADED_RESOURCE_LIMITS.month),
+    tags: normalizedUploadedResourceTags(entry.tags),
+    format: normalizedShortText(entry.format, UPLOADED_RESOURCE_LIMITS.format),
+    fileName: normalizedShortText(entry.fileName, UPLOADED_RESOURCE_LIMITS.fileName),
+    fileData: sanitizedResourceUrl(entry.fileData),
+    previewName: normalizedShortText(entry.previewName, UPLOADED_RESOURCE_LIMITS.previewName),
+    previewData: sanitizedImageSource(entry.previewData),
+    description: normalizedMultilineText(entry.description, 2000),
+    customContent: normalizedMultilineText(entry.customContent, 20000),
+    visible: entry.visible !== false,
+    archived: entry.archived === true,
+  };
+  return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex").slice(0, 40);
+}
+
+function normalizedUploadedResourceEntry(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const id = normalizedShortText(entry.id, UPLOADED_RESOURCE_LIMITS.id);
+  if (!id) return null;
+  const normalized = {
+    id,
+    category: normalizedShortText(entry.category, UPLOADED_RESOURCE_LIMITS.category) || DEFAULT_UPLOADED_RESOURCE_CATEGORY,
+    title: normalizedShortText(entry.title, UPLOADED_RESOURCE_LIMITS.title) || "Uploaded Resource",
+    age: normalizedShortText(entry.age, UPLOADED_RESOURCE_LIMITS.age) || "All Ages",
+    plan: normalizedShortText(entry.plan, UPLOADED_RESOURCE_LIMITS.plan) || "Free",
+    month: normalizedShortText(entry.month, UPLOADED_RESOURCE_LIMITS.month),
+    tags: normalizedUploadedResourceTags(entry.tags),
+    format: normalizedShortText(entry.format, UPLOADED_RESOURCE_LIMITS.format),
+    fileName: normalizedShortText(entry.fileName, UPLOADED_RESOURCE_LIMITS.fileName),
+    fileData: sanitizedResourceUrl(entry.fileData),
+    previewName: normalizedShortText(entry.previewName, UPLOADED_RESOURCE_LIMITS.previewName),
+    previewData: sanitizedImageSource(entry.previewData),
+    description: normalizedMultilineText(entry.description, 2000),
+    customContent: normalizedMultilineText(entry.customContent, 20000),
+    visible: entry.visible !== false,
+    archived: entry.archived === true,
+    updatedAt: normalizedShortText(entry.updatedAt, 80),
+  };
+  const incomingFingerprint = normalizedShortText(entry.fingerprint, 80);
+  normalized.fingerprint = incomingFingerprint || uploadedResourceFingerprint(normalized);
+  return normalized;
+}
+
+function dedupeUploadedResources(items = [], limit = MAX_UPLOADED_RESOURCES) {
+  const seenIds = new Set();
+  const seenFingerprints = new Set();
+  const unique = [];
+  for (const item of items) {
+    const normalized = normalizedUploadedResourceEntry(item);
+    if (!normalized) continue;
+    const fingerprint = normalized.fingerprint;
+    if (seenIds.has(normalized.id) || (fingerprint && seenFingerprints.has(fingerprint))) continue;
+    seenIds.add(normalized.id);
+    if (fingerprint) seenFingerprints.add(fingerprint);
+    unique.push(normalized);
+    if (unique.length >= limit) break;
+  }
+  return unique;
+}
+
+function mergeUploadedResources(existingItems = [], incomingItems = []) {
+  const incoming = dedupeUploadedResources(incomingItems, MAX_UPLOADED_RESOURCES_INCOMING);
+  const incomingIds = new Set(incoming.map((item) => item.id));
+  const existingRemainder = dedupeUploadedResources(existingItems, MAX_UPLOADED_RESOURCES).filter((item) => !incomingIds.has(item.id));
+  return dedupeUploadedResources([...incoming, ...existingRemainder], MAX_UPLOADED_RESOURCES);
+}
+
 function normalizedCustomLessonPlanEntry(value) {
   const entry = value && typeof value === "object" ? value : {};
   const normalized = normalizedLessonPlanOverride(entry.id, entry);
@@ -730,6 +829,12 @@ function normalizedSiteContent(value) {
     },
     updatedAt: normalizedShortText(input.updatedAt, 80),
   };
+}
+
+function uploadedResourcesForResponse(items = [], { admin = false } = {}) {
+  const normalized = dedupeUploadedResources(items, MAX_UPLOADED_RESOURCES);
+  if (admin) return normalized;
+  return normalized.filter((item) => item.visible !== false && item.archived !== true);
 }
 
 function usePostgresStore() {
@@ -3972,6 +4077,78 @@ function handleSupportTicketsList(request, response, url) {
   jsonResponse(response, 200, { tickets: tickets.slice(0, 100).map(publicTicket) });
 }
 
+function handleUploadedResourcesList(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  const admin = validAdminToken(adminToken);
+  const store = readStore();
+  store.uploadedResources = dedupeUploadedResources(store.uploadedResources || [], MAX_UPLOADED_RESOURCES);
+  jsonResponse(response, 200, { uploads: uploadedResourcesForResponse(store.uploadedResources, { admin }) });
+}
+
+async function handleAdminUploadedResourcesMigrate(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required for upload migration." });
+    return;
+  }
+  const incoming = Array.isArray(body.uploads) ? body.uploads : [];
+  const store = readStore();
+  const existing = store.uploadedResources || [];
+  const merged = mergeUploadedResources(existing, incoming);
+  const before = dedupeUploadedResources(existing, MAX_UPLOADED_RESOURCES).length;
+  const after = merged.length;
+  store.uploadedResources = merged;
+  writeStore(store);
+  jsonResponse(response, 200, {
+    uploads: uploadedResourcesForResponse(merged, { admin: true }),
+    migration: {
+      incoming: incoming.length,
+      before,
+      after,
+      added: Math.max(0, after - before),
+    },
+  });
+}
+
+async function handleAdminUploadedResourceUpsert(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to save uploads." });
+    return;
+  }
+  const upload = normalizedUploadedResourceEntry(body.upload || {});
+  if (!upload) {
+    jsonResponse(response, 400, { error: "A valid upload with an id is required." });
+    return;
+  }
+  upload.updatedAt = new Date().toISOString();
+  const store = readStore();
+  store.uploadedResources = mergeUploadedResources(store.uploadedResources || [], [upload]);
+  writeStore(store);
+  jsonResponse(response, 200, {
+    upload,
+    uploads: uploadedResourcesForResponse(store.uploadedResources, { admin: true }),
+  });
+}
+
+async function handleAdminUploadedResourceDelete(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to delete uploads." });
+    return;
+  }
+  const id = normalizedShortText(body.id, 180);
+  if (!id) {
+    jsonResponse(response, 400, { error: "Upload id is required." });
+    return;
+  }
+  const store = readStore();
+  const existing = dedupeUploadedResources(store.uploadedResources || [], MAX_UPLOADED_RESOURCES);
+  store.uploadedResources = existing.filter((item) => item.id !== id);
+  writeStore(store);
+  jsonResponse(response, 200, { uploads: uploadedResourcesForResponse(store.uploadedResources, { admin: true }) });
+}
+
 function handleStripeReadiness(request, response) {
   const status = stripeConfigStatus();
   const store = readStore();
@@ -4315,6 +4492,10 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/analytics/event") return await handleAnalyticsEvent(request, response);
     if (request.method === "POST" && url.pathname === "/api/support-ticket") return await handleSupportTicketCreate(request, response);
     if (request.method === "POST" && url.pathname === "/api/support-ticket-update") return await handleSupportTicketUpdate(request, response);
+    if (request.method === "GET" && url.pathname === "/api/uploads") return handleUploadedResourcesList(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/uploads/migrate") return await handleAdminUploadedResourcesMigrate(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/uploads/upsert") return await handleAdminUploadedResourceUpsert(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/uploads/delete") return await handleAdminUploadedResourceDelete(request, response);
     if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/child-data") return await handleChildData(request, response);
     if (request.method === "GET" && url.pathname === "/api/checkout-status") return await handleCheckoutStatus(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/subscription-status") return await handleSubscriptionStatus(request, response, url);
