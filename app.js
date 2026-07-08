@@ -8136,6 +8136,7 @@ function ensureResourceViewer() {
   document.querySelector("#printResourceButton")?.addEventListener("click", printResourceViewer);
   document.querySelector("#resourceViewerModal")?.addEventListener("click", (event) => {
     if (event.target.id === "resourceViewerModal") closeResourceViewer();
+    if (event.target.closest("[data-close-lesson-viewer]")) closeResourceViewer();
   });
 }
 
@@ -9310,6 +9311,7 @@ function lessonViewerShellHtml(resource) {
       </aside>
       <section class="lesson-viewer-content">
         <div class="lesson-viewer-tab-row" role="tablist" aria-label="Lesson viewer tabs">
+          <button class="lesson-viewer-mobile-close" type="button" data-close-lesson-viewer aria-label="Close lesson viewer">← Close</button>
           <button type="button" data-lesson-viewer-tab="lesson-plan" role="tab">Lesson Plan</button>
           <button type="button" data-lesson-viewer-tab="activities" role="tab">Activities</button>
           <button type="button" data-lesson-viewer-tab="resources" role="tab">Resources & Printables</button>
@@ -19484,6 +19486,7 @@ function adminManagedFormHtml(type, item = {}) {
       <label class="admin-inline-toggle"><input name="featured" type="checkbox" ${item.featured === true ? "checked" : ""} /> <span>⭐ Featured (prioritized in searches)</span></label>
       <div class="form-actions">
         <button class="primary-button" type="submit">💾 Save ${config.singular}</button>
+        <button class="ghost-button back-button" type="button" data-admin-managed-back="${type}">← Back to ${config.plural}</button>
         <button class="ghost-button" type="button" data-admin-managed-new="${type}">Create New</button>
       </div>
       <span class="form-message" id="admin${type[0].toUpperCase()}${type.slice(1)}Message"></span>
@@ -28784,6 +28787,14 @@ document.addEventListener("click", async (event) => {
     const [type, id] = (managedEditButton.dataset.adminManagedEdit || "").split(":");
     setAdminManagedEditorId(type, id || "");
     renderAdminManagedCollection(type);
+    return;
+  }
+  const managedBackButton = event.target.closest("[data-admin-managed-back]");
+  if (managedBackButton) {
+    const type = managedBackButton.dataset.adminManagedBack;
+    const cfg = adminManagedContentConfig[type];
+    const list = cfg && document.querySelector(cfg.appId + " .admin-mobile-list");
+    if (list) list.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
   const managedNewButton = event.target.closest("[data-admin-managed-new]");

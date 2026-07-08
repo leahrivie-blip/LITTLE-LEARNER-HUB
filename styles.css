@@ -488,6 +488,10 @@ button {
   white-space: nowrap;
 }
 
+.lesson-viewer-mobile-close {
+  display: none;
+}
+
 .lesson-viewer-nav button.active,
 .lesson-viewer-tab-row button.active {
   color: #fff;
@@ -9093,6 +9097,19 @@ body.home-view .topbar .search-wrap {
 
   .lesson-viewer-nav {
     display: none;
+  }
+
+  .lesson-viewer-mobile-close {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    padding: 10px 14px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--ink);
+    font-weight: 700;
+    white-space: nowrap;
   }
 
   .lesson-viewer-tab-row {
