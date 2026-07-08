@@ -2860,6 +2860,8 @@ let resources = loadResources();
 let favorites = readSavedJson("llhFavorites", []);
 let savedDownloads = readSavedJson("llhDownloads", []);
 let activeGeneratedPdfResource = null;
+let activeLessonViewerResourceId = "";
+let activeLessonViewerTab = "lesson-plan";
 let currentPlan = localStorage.getItem("llhPlan") || "Free";
 let currentUser = localStorage.getItem("llhUser") || "";
 let activeFilter = "All";
@@ -7413,6 +7415,10 @@ function closeResourceViewer() {
   viewer.setAttribute("aria-hidden", "true");
   document.body.classList.remove("printing-resource");
   activeGeneratedPdfResource = null;
+  activeLessonViewerResourceId = "";
+  activeLessonViewerTab = "lesson-plan";
+  const card = viewer.querySelector(".resource-viewer-card");
+  if (card) card.classList.remove("lesson-viewer-mode");
 }
 
 function printResourceViewer() {
@@ -8196,6 +8202,7 @@ function downloadActiveResourcePdf() {
 function openGeneratedPrintableResource(resource) {
   ensureResourceViewer();
   activeGeneratedPdfResource = resource;
+  activeLessonViewerResourceId = "";
   document.querySelector("#resourceViewerCategory").textContent = resource.category;
   document.querySelector("#resourceViewerTitle").textContent = resource.title;
   const pdfButton = document.querySelector("#downloadPdfButton");
@@ -8223,6 +8230,455 @@ function openGeneratedPrintableResource(resource) {
   });
 }
 
+function lessonViewerRecord(resource) {
+  const defaults = lessonPlanDefaults(resource);
+  const override = resource.lessonPlanOverride || lessonPlanOverrideFor(resource.id) || {};
+  return {
+    ...defaults,
+    ...override,
+    dailyActivities: { ...(defaults.dailyActivities || {}), ...(override.dailyActivities || {}) },
+  };
+}
+
+function lessonViewerTextHtml(text, fallback = "Not added yet.") {
+  const normalized = normalizedMultilineText(text || fallback) || fallback;
+  return printableLinesHtml(normalized.split("\n"));
+}
+
+function lessonLinkedItemsForViewer(resource, categories, { includeThemeFallback = false, limit = 10 } = {}) {
+  const stableLessonId = normalizedShortText(resource.id);
+  const theme = normalizedShortText(resource.theme || resourceTheme(resource)).toLowerCase();
+  const age = normalizeAgeGroup(resource.age) || resource.age;
+  const matchesCategory = (item) => categories.includes(item.category);
+  const linked = resources
+    .filter((item) => item.id !== resource.id)
+    .filter((item) => matchesCategory(item))
+    .filter((item) => isResourceVisibleToCurrentUser(item))
+    .filter((item) => canAccess(item))
+    .filter((item) => {
+      const linkedLesson = normalizedShortText(item.linkedLessonPlanId || item.sourceLessonPlanId || "");
+      return linkedLesson && linkedLesson === stableLessonId;
+    });
+  if (linked.length || !includeThemeFallback) return linked.slice(0, limit);
+  return resources
+    .filter((item) => item.id !== resource.id)
+    .filter((item) => matchesCategory(item))
+    .filter((item) => isResourceVisibleToCurrentUser(item))
+    .filter((item) => canAccess(item))
+    .filter((item) => (normalizeAgeGroup(item.age) || item.age) === age || item.age === "All Ages")
+    .filter((item) => {
+      const haystack = [item.title, item.description, item.theme, ...(item.tags || [])].join(" ").toLowerCase();
+      return theme ? haystack.includes(theme) : true;
+    })
+    .slice(0, limit);
+}
+
+function lessonActivitiesForViewer(resource) {
+  return lessonLinkedItemsForViewer(resource, ["Activity Center"], { includeThemeFallback: true, limit: 12 });
+}
+
+function lessonResourcesForViewer(resource) {
+  return lessonLinkedItemsForViewer(resource, ["Printables", "Menu Center"], { includeThemeFallback: true, limit: 12 });
+}
+
+function lessonFormsForViewer(resource) {
+  return lessonLinkedItemsForViewer(resource, ["Forms Library"], { includeThemeFallback: true, limit: 12 });
+}
+
+function firstMeaningfulLine(text, fallback = "") {
+  return String(text || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .find(Boolean) || fallback;
+}
+
+function findLineByKeywords(text, keywords, fallback = "") {
+  const lines = String(text || "")
+    .split("\n")
+    .map((line) => line.replace(/^[-*]\s+/, "").trim())
+    .filter(Boolean);
+  return lines.find((line) => keywords.some((keyword) => line.toLowerCase().includes(keyword))) || lines[0] || fallback;
+}
+
+function lessonWeeklyCalendarModel(resource) {
+  const record = lessonViewerRecord(resource);
+  const theme = record.theme || resource.theme || resourceTheme(resource);
+  const age = lessonPlanAge(record.age || resource.age);
+  const area = resourceFocus(resource);
+  const objective = firstMeaningfulLine(record.objectives, "Support core learning goals through play-based experiences.");
+  const materials = firstMeaningfulLine(record.materials, lessonThemeMaterials(theme));
+  const days = {
+    Monday: normalizedMultilineText(record.dailyActivities?.monday),
+    Tuesday: normalizedMultilineText(record.dailyActivities?.tuesday),
+    Wednesday: normalizedMultilineText(record.dailyActivities?.wednesday),
+    Thursday: normalizedMultilineText(record.dailyActivities?.thursday),
+    Friday: normalizedMultilineText(record.dailyActivities?.friday),
+  };
+  const rows = [
+    "Book",
+    "Circle Time",
+    "Art Activity",
+    "Sensory Activity",
+    "Fine Motor",
+    "Gross Motor",
+    "Music & Movement",
+    "Materials",
+    "Learning Goal",
+  ];
+  const values = {};
+  Object.entries(days).forEach(([day, dayText]) => {
+    values[day] = {
+      "Book": findLineByKeywords(dayText, ["book", "story", "read"], `${theme} picture book and discussion`),
+      "Circle Time": findLineByKeywords(dayText, ["circle", "song", "introduce"], `Introduce ${theme} vocabulary and visuals`),
+      "Art Activity": firstMeaningfulLine(lessonArtActivityDetail(theme, age), `${theme} process art invitation`),
+      "Sensory Activity": firstMeaningfulLine(lessonSensoryActivityDetail(theme, age), `${theme} sensory exploration`),
+      "Fine Motor": firstMeaningfulLine(lessonFineMotorActivityDetail(theme, age), "Fine motor invitation connected to the weekly theme"),
+      "Gross Motor": firstMeaningfulLine(lessonGrossMotorActivityDetail(theme, age), "Gross motor movement connected to the weekly theme"),
+      "Music & Movement": findLineByKeywords(dayText, ["music", "song", "movement", "dance"], `Theme songs, rhythm, and movement for ${day}`),
+      Materials: materials,
+      "Learning Goal": objective,
+    };
+  });
+  return {
+    title: record.title || resource.title,
+    theme,
+    ageGroup: age,
+    weeklyObjectives: objective,
+    developmentalFocus: area,
+    dateRange: resource.month || "",
+    rows,
+    values,
+  };
+}
+
+function lessonWeeklyCalendarHtml(model) {
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  return `
+    <html>
+      <head>
+        <title>${escapeHtml(model.title)} Weekly Calendar</title>
+        <style>
+          body { font-family: Arial, Helvetica, sans-serif; color: #1b1b1b; margin: 22px; }
+          h1 { margin: 0 0 8px; font-size: 24px; }
+          .meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; margin-bottom: 14px; font-size: 13px; }
+          .meta strong { display: block; font-size: 11px; text-transform: uppercase; color: #555; letter-spacing: 0.03em; }
+          table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+          th, td { border: 1px solid #7e8aa0; padding: 8px; vertical-align: top; font-size: 11px; line-height: 1.35; }
+          th { background: #f1f6ff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+          th:first-child, td:first-child { width: 16%; font-weight: 700; background: #f8f9fc; }
+        </style>
+      </head>
+      <body>
+        <h1>${escapeHtml(model.title)} · Weekly Curriculum Planner</h1>
+        <div class="meta">
+          <div><strong>Theme</strong>${escapeHtml(model.theme)}</div>
+          <div><strong>Age Group</strong>${escapeHtml(model.ageGroup)}</div>
+          <div><strong>Weekly Objectives</strong>${escapeHtml(model.weeklyObjectives)}</div>
+          <div><strong>Developmental Focus</strong>${escapeHtml(model.developmentalFocus)}</div>
+          <div><strong>Date Range</strong>${escapeHtml(model.dateRange || "Weekly Plan")}</div>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Planning Area</th>${days.map((day) => `<th>${day}</th>`).join("")}</tr>
+          </thead>
+          <tbody>
+            ${model.rows.map((row) => `<tr><td>${escapeHtml(row)}</td>${days.map((day) => `<td>${escapeHtml(model.values?.[day]?.[row] || "")}</td>`).join("")}</tr>`).join("")}
+          </tbody>
+        </table>
+      </body>
+    </html>
+  `;
+}
+
+function lessonWeeklyCalendarText(model) {
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  return `Weekly Curriculum Planner
+Title: ${model.title}
+Theme: ${model.theme}
+Age Group: ${model.ageGroup}
+Weekly Objectives: ${model.weeklyObjectives}
+Developmental Focus: ${model.developmentalFocus}
+Date Range: ${model.dateRange || "Weekly Plan"}
+
+${model.rows.map((row) => `${row}
+${days.map((day) => `- ${day}: ${model.values?.[day]?.[row] || ""}`).join("\n")}`).join("\n\n")}`;
+}
+
+function lessonDocumentText(resource, mode) {
+  const lessonText = resourceDownloadBody(resource);
+  const activities = lessonActivitiesForViewer(resource);
+  const linkedResources = lessonResourcesForViewer(resource);
+  const forms = lessonFormsForViewer(resource);
+  if (mode === "weekly-plan") return lessonText;
+  if (mode === "weekly-calendar") return lessonWeeklyCalendarText(lessonWeeklyCalendarModel(resource));
+  if (mode === "plan-activities") {
+    return `${lessonText}
+
+Activities
+${activities.length
+    ? activities.map((item, index) => `${index + 1}. ${item.title}
+Description: ${firstMeaningfulLine(item.description, "No description added.")}
+Instructions: ${firstMeaningfulLine(item.instructions, "No instructions added.")}`).join("\n\n")
+    : "No linked activities were found for this lesson plan."}`;
+  }
+  if (mode === "plan-resources") {
+    return `${lessonText}
+
+Resources & Printables
+${linkedResources.length
+    ? linkedResources.map((item, index) => `${index + 1}. ${item.title} (${item.category})
+Details: ${firstMeaningfulLine(item.description, "No details added.")}`).join("\n\n")
+    : "No linked resources were found for this lesson plan."}`;
+  }
+  return `${lessonText}
+
+Activities
+${activities.length
+    ? activities.map((item, index) => `${index + 1}. ${item.title}
+Description: ${firstMeaningfulLine(item.description, "No description added.")}
+Instructions: ${firstMeaningfulLine(item.instructions, "No instructions added.")}`).join("\n\n")
+    : "No linked activities were found for this lesson plan."}
+
+Resources & Printables
+${linkedResources.length
+    ? linkedResources.map((item, index) => `${index + 1}. ${item.title} (${item.category})
+Details: ${firstMeaningfulLine(item.description, "No details added.")}`).join("\n\n")
+    : "No linked resources were found for this lesson plan."}
+
+Forms & Extras
+${forms.length
+    ? forms.map((item, index) => `${index + 1}. ${item.title}
+Details: ${firstMeaningfulLine(item.description, "No details added.")}`).join("\n\n")
+    : "No linked forms or extras were found for this lesson plan."}`;
+}
+
+function lessonDocumentTitle(resource, mode) {
+  const map = {
+    "weekly-calendar": `${resource.title} Weekly Calendar`,
+    "weekly-plan": `${resource.title} Weekly Lesson Plan`,
+    "plan-activities": `${resource.title} Lesson Plan + Activities`,
+    "plan-resources": `${resource.title} Lesson Plan + Resources`,
+    "complete-bundle": `${resource.title} Complete Weekly Bundle`,
+  };
+  return map[mode] || `${resource.title} Weekly Lesson Plan`;
+}
+
+function printLessonDocument(resource, mode) {
+  if (mode === "weekly-calendar") {
+    const model = lessonWeeklyCalendarModel(resource);
+    const printWindow = window.open("", "_blank", "width=1200,height=900");
+    if (!printWindow) return;
+    printWindow.document.write(lessonWeeklyCalendarHtml(model));
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    return;
+  }
+  const title = lessonDocumentTitle(resource, mode);
+  const text = lessonDocumentText(resource, mode);
+  printTextDocument(title, text);
+}
+
+function downloadLessonDocument(resource, mode) {
+  const title = lessonDocumentTitle(resource, mode);
+  const text = lessonDocumentText(resource, mode);
+  const tempResource = {
+    ...resource,
+    category: "Lesson Plans",
+    title,
+    customContent: text,
+    age: resource.age || "Preschool",
+    plan: resource.plan || "Free",
+  };
+  downloadBlob(buildTextResourcePdfBlob(tempResource), `${slug(title)}.pdf`);
+}
+
+function setLessonViewerTab(tab) {
+  const shell = document.querySelector("#lessonViewerShell");
+  if (!shell) return;
+  const target = ["lesson-plan", "activities", "resources", "forms", "print"].includes(tab) ? tab : "lesson-plan";
+  activeLessonViewerTab = target;
+  shell.querySelectorAll("[data-lesson-viewer-tab]").forEach((button) => {
+    const selected = button.dataset.lessonViewerTab === target;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-selected", selected ? "true" : "false");
+  });
+  shell.querySelectorAll("[data-lesson-viewer-panel]").forEach((panel) => {
+    panel.hidden = panel.dataset.lessonViewerPanel !== target;
+  });
+}
+
+function lessonViewerResourceCard(item, { showOpen = true } = {}) {
+  return `
+    <article class="lesson-linked-card">
+      <div class="tag-row">
+        <span class="tag">${escapeHtml(item.category)}</span>
+        <span class="tag">${escapeHtml(item.age || "All Ages")}</span>
+        ${item.plan ? `<span class="tag access-tag">${escapeHtml(item.plan)}</span>` : ""}
+      </div>
+      <h4>${escapeHtml(item.title)}</h4>
+      <p>${escapeHtml(firstMeaningfulLine(item.description, "No description added yet."))}</p>
+      ${item.instructions ? `<details><summary>Instructions</summary>${lessonViewerTextHtml(item.instructions)}</details>` : ""}
+      ${showOpen ? `<div class="lesson-linked-actions"><button class="ghost-button" type="button" data-view-resource="${item.id}">View</button></div>` : ""}
+    </article>
+  `;
+}
+
+function lessonActivityViewerCard(item) {
+  return `
+    <article class="lesson-linked-card">
+      <div class="tag-row">
+        <span class="tag">${escapeHtml(item.category)}</span>
+        <span class="tag">${escapeHtml(item.age || "All Ages")}</span>
+        ${item.plan ? `<span class="tag access-tag">${escapeHtml(item.plan)}</span>` : ""}
+      </div>
+      <h4>${escapeHtml(item.title)}</h4>
+      <p>${escapeHtml(firstMeaningfulLine(item.description, "No description added yet."))}</p>
+      <details><summary>Activity Instructions</summary>${lessonViewerTextHtml(item.instructions || item.description)}</details>
+      <div class="lesson-linked-actions">
+        <button class="ghost-button" type="button" data-view-resource="${item.id}">Activity Preview</button>
+        <button class="ghost-button" type="button" data-find-lesson-activities="${activeLessonViewerResourceId || item.sourceLessonPlanId || ""}">Edit Activity</button>
+        ${isAdminUnlocked() ? `<button class="danger-button" type="button" data-lesson-remove-activity="${item.id}">Remove Activity</button>` : ""}
+      </div>
+    </article>
+  `;
+}
+
+function lessonViewerShellHtml(resource) {
+  const record = lessonViewerRecord(resource);
+  const activities = lessonActivitiesForViewer(resource);
+  const linkedResources = lessonResourcesForViewer(resource);
+  const forms = lessonFormsForViewer(resource);
+  const area = resourceFocus(resource);
+  const standards = record.elgConnections || resourceStandardConnections(resource);
+  const dayFields = [
+    ["monday", "Monday"],
+    ["tuesday", "Tuesday"],
+    ["wednesday", "Wednesday"],
+    ["thursday", "Thursday"],
+    ["friday", "Friday"],
+  ];
+  return `
+    <div class="lesson-viewer-shell" id="lessonViewerShell">
+      <aside class="lesson-viewer-nav">
+        <h3>Lesson Workspace</h3>
+        <div class="lesson-viewer-nav-tabs">
+          <button type="button" data-lesson-viewer-tab="lesson-plan" role="tab">Lesson Plan</button>
+          <button type="button" data-lesson-viewer-tab="activities" role="tab">Activities</button>
+          <button type="button" data-lesson-viewer-tab="resources" role="tab">Resources & Printables</button>
+          <button type="button" data-lesson-viewer-tab="forms" role="tab">Forms & Extras</button>
+          <button type="button" data-lesson-viewer-tab="print" role="tab">Print & Download</button>
+        </div>
+        <div class="lesson-viewer-section-links">
+          <strong>Quick Jump</strong>
+          ${["overview", "materials", "objectives", "teacher-language", "monday", "tuesday", "wednesday", "thursday", "friday", "elg", "family", "reflection"].map((section) => `
+            <button type="button" data-lesson-section-target="${section}">
+              ${section === "teacher-language" ? "Teacher Language" : section === "elg" ? "ELG Connections" : section.charAt(0).toUpperCase() + section.slice(1)}
+            </button>`).join("")}
+        </div>
+      </aside>
+      <section class="lesson-viewer-content">
+        <div class="lesson-viewer-tab-row" role="tablist" aria-label="Lesson viewer tabs">
+          <button type="button" data-lesson-viewer-tab="lesson-plan" role="tab">Lesson Plan</button>
+          <button type="button" data-lesson-viewer-tab="activities" role="tab">Activities</button>
+          <button type="button" data-lesson-viewer-tab="resources" role="tab">Resources & Printables</button>
+          <button type="button" data-lesson-viewer-tab="forms" role="tab">Forms & Extras</button>
+          <button type="button" data-lesson-viewer-tab="print" role="tab">Print & Download</button>
+        </div>
+
+        <div class="lesson-viewer-panel" data-lesson-viewer-panel="lesson-plan">
+          <details class="lesson-detail" id="lesson-section-overview" open>
+            <summary>Overview</summary>
+            ${lessonViewerTextHtml(record.weeklyOverview || resource.description)}
+          </details>
+          <details class="lesson-detail" id="lesson-section-materials" open>
+            <summary>Materials</summary>
+            ${lessonViewerTextHtml(record.materials || lessonThemeMaterials(record.theme))}
+          </details>
+          <details class="lesson-detail" id="lesson-section-objectives" open>
+            <summary>Objectives</summary>
+            ${lessonViewerTextHtml(record.objectives)}
+          </details>
+          <details class="lesson-detail" id="lesson-section-teacher-language" open>
+            <summary>Teacher Language</summary>
+            ${lessonViewerTextHtml(record.teacherLanguage || lessonTeacherLanguageGuide(lessonPlanAge(record.age)))}
+          </details>
+          ${dayFields.map(([key, label]) => `
+            <details class="lesson-detail" id="lesson-section-${key}" open>
+              <summary>${label}</summary>
+              ${lessonViewerTextHtml(record.dailyActivities?.[key])}
+            </details>
+          `).join("")}
+          <details class="lesson-detail" id="lesson-section-elg" open>
+            <summary>ELG Connections</summary>
+            ${lessonViewerTextHtml(standards)}
+          </details>
+          <details class="lesson-detail" id="lesson-section-family" open>
+            <summary>Family Connection</summary>
+            ${lessonViewerTextHtml(record.familyConnection || lessonFamilyConnectionDetail(record.theme, lessonPlanAge(record.age)))}
+          </details>
+          <details class="lesson-detail" id="lesson-section-reflection" open>
+            <summary>Reflection Notes</summary>
+            ${lessonViewerTextHtml(record.reflectionNotes)}
+          </details>
+          <div class="lesson-detail-meta">
+            <span><strong>Theme:</strong> ${escapeHtml(record.theme || "Not added")}</span>
+            <span><strong>Age Group:</strong> ${escapeHtml(record.age || resource.age || "Not added")}</span>
+            <span><strong>Developmental Focus:</strong> ${escapeHtml(area)}</span>
+          </div>
+        </div>
+
+        <div class="lesson-viewer-panel" data-lesson-viewer-panel="activities" hidden>
+          <div class="lesson-linked-toolbar">
+            <button class="primary-button" type="button" data-find-lesson-activities="${resource.id}">Add Activity</button>
+            <button class="ghost-button" type="button" data-view="activities">Browse Activity Center</button>
+          </div>
+          ${activities.length
+    ? `<div class="lesson-linked-grid">${activities.map((item) => lessonActivityViewerCard(item)).join("")}</div>`
+    : `<div class="empty-state">No linked activities yet. Use Add Activity to attach or discover activities for this lesson.</div>`}
+        </div>
+
+        <div class="lesson-viewer-panel" data-lesson-viewer-panel="resources" hidden>
+          <div class="lesson-linked-toolbar">
+            <button class="ghost-button" type="button" data-view="printables">Browse Printables</button>
+          </div>
+          ${linkedResources.length
+    ? `<div class="lesson-linked-grid">${linkedResources.map((item) => lessonViewerResourceCard(item)).join("")}</div>`
+    : `<div class="empty-state">No linked resources or printables yet.</div>`}
+        </div>
+
+        <div class="lesson-viewer-panel" data-lesson-viewer-panel="forms" hidden>
+          ${forms.length
+    ? `<div class="lesson-linked-grid">${forms.map((item) => lessonViewerResourceCard(item)).join("")}</div>`
+    : `<div class="empty-state">No linked forms or extras yet.</div>`}
+        </div>
+
+        <div class="lesson-viewer-panel lesson-viewer-print-panel" data-lesson-viewer-panel="print" hidden>
+          <section>
+            <h4>Print Options</h4>
+            <div class="lesson-print-actions">
+              <button class="primary-button" type="button" data-lesson-print-option="weekly-calendar">Print Weekly Calendar</button>
+              <button class="ghost-button" type="button" data-lesson-print-option="weekly-plan">Print Weekly Lesson Plan</button>
+              <button class="ghost-button" type="button" data-lesson-print-option="plan-activities">Print Lesson Plan + Activities</button>
+              <button class="ghost-button" type="button" data-lesson-print-option="plan-resources">Print Lesson Plan + Resources</button>
+              <button class="ghost-button" type="button" data-lesson-print-option="complete-bundle">Print Complete Weekly Bundle</button>
+            </div>
+          </section>
+          <section>
+            <h4>Download Options</h4>
+            <div class="lesson-print-actions">
+              <button class="primary-button" type="button" data-lesson-download-option="weekly-calendar">Download Weekly Calendar PDF</button>
+              <button class="ghost-button" type="button" data-lesson-download-option="weekly-plan">Download Weekly Lesson Plan PDF</button>
+              <button class="ghost-button" type="button" data-lesson-download-option="plan-activities">Download Lesson Plan + Activities PDF</button>
+              <button class="ghost-button" type="button" data-lesson-download-option="complete-bundle">Download Complete Bundle PDF</button>
+            </div>
+          </section>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
 function openResourceViewer(resourceId) {
   const resource = resources.find((item) => item.id === resourceId);
   if (!resource) return;
@@ -8235,6 +8691,7 @@ function openResourceViewer(resourceId) {
     return;
   }
   ensureResourceViewer();
+  activeLessonViewerResourceId = resource.id;
   activeGeneratedPdfResource = null;
   document.querySelector("#resourceViewerCategory").textContent = resource.category;
   document.querySelector("#resourceViewerTitle").textContent = resource.title;
@@ -8250,6 +8707,17 @@ function openResourceViewer(resourceId) {
     ...resource.tags.slice(0, 4),
   ].map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
   const body = document.querySelector("#resourceViewerBody");
+  const toolbar = document.querySelector(".resource-viewer-toolbar");
+  const viewerCard = document.querySelector("#resourceViewerModal .resource-viewer-card");
+  if (viewerCard) viewerCard.classList.remove("lesson-viewer-mode");
+  if (toolbar) toolbar.hidden = false;
+  if (resource.category === "Lesson Plans") {
+    if (viewerCard) viewerCard.classList.add("lesson-viewer-mode");
+    if (toolbar) toolbar.hidden = true;
+    body.innerHTML = lessonViewerShellHtml(resource);
+    setLessonViewerTab(activeLessonViewerTab || "lesson-plan");
+  } else {
+    activeLessonViewerTab = "lesson-plan";
   const savedActivity = resource.category === "Activity Center" ? siteManagedActivityRecordById(resource.id) : null;
   const savedActivityDetails = activitySavedContentDetails(savedActivity, resource);
   if (savedActivity && savedActivityDetails.hasSavedContent) {
@@ -8290,6 +8758,7 @@ function openResourceViewer(resourceId) {
     `;
   } else {
     body.innerHTML = resourcePrintableHtml(resource);
+  }
   }
   if (!savedDownloads.includes(resource.id)) {
     savedDownloads = [...savedDownloads, resource.id];
@@ -20902,6 +21371,60 @@ document.addEventListener("click", async (event) => {
     }
     setMobileNavOpen(false);
     setView(viewButton.dataset.view);
+    return;
+  }
+
+  const lessonViewerTabButton = event.target.closest("[data-lesson-viewer-tab]");
+  if (lessonViewerTabButton) {
+    event.preventDefault();
+    setLessonViewerTab(lessonViewerTabButton.dataset.lessonViewerTab);
+    return;
+  }
+
+  const lessonViewerSectionButton = event.target.closest("[data-lesson-section-target]");
+  if (lessonViewerSectionButton) {
+    event.preventDefault();
+    setLessonViewerTab("lesson-plan");
+    const sectionId = `lesson-section-${lessonViewerSectionButton.dataset.lessonSectionTarget}`;
+    const section = document.querySelector(`#${sectionId}`);
+    if (section) {
+      section.open = true;
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    return;
+  }
+
+  const lessonPrintButton = event.target.closest("[data-lesson-print-option]");
+  if (lessonPrintButton) {
+    event.preventDefault();
+    const resource = resources.find((item) => item.id === activeLessonViewerResourceId);
+    if (!resource || resource.category !== "Lesson Plans") return;
+    const mode = lessonPrintButton.dataset.lessonPrintOption || "weekly-plan";
+    printLessonDocument(resource, mode);
+    trackEvent("lesson_viewer_print_option", { resourceId: resource.id, mode });
+    return;
+  }
+
+  const lessonDownloadButton = event.target.closest("[data-lesson-download-option]");
+  if (lessonDownloadButton) {
+    event.preventDefault();
+    const resource = resources.find((item) => item.id === activeLessonViewerResourceId);
+    if (!resource || resource.category !== "Lesson Plans") return;
+    const mode = lessonDownloadButton.dataset.lessonDownloadOption || "weekly-plan";
+    downloadLessonDocument(resource, mode);
+    trackEvent("lesson_viewer_download_option", { resourceId: resource.id, mode });
+    return;
+  }
+
+  const lessonRemoveActivityButton = event.target.closest("[data-lesson-remove-activity]");
+  if (lessonRemoveActivityButton) {
+    event.preventDefault();
+    if (!isAdminUnlocked()) return;
+    const activityId = lessonRemoveActivityButton.dataset.lessonRemoveActivity;
+    if (!activityId) return;
+    await deleteAdminResource(activityId);
+    resources = loadResources();
+    if (activeLessonViewerResourceId) openResourceViewer(activeLessonViewerResourceId);
     return;
   }
 
