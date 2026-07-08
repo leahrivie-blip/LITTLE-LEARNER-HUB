@@ -1,6 +1,6 @@
 const categories = [
   { view: "observations", title: "Observation Hub", detail: "Professional wording, skills, standards, and next steps.", icon: "OB" },
-  { view: "lessons", title: "Lesson Plan Library", detail: "Infant, toddler, preschool, holiday, and seasonal plans.", icon: "LP" },
+  { view: "lessons", title: "Lesson Plan Library", detail: "Search infant, toddler, and preschool lesson plans.", icon: "LP" },
   { view: "forms", title: "Forms Library", detail: "Editable daycare paperwork and parent forms.", icon: "FM" },
   { view: "menus", title: "Menu Center", detail: "Weekly menus, meal ideas, snacks, and shopping lists.", icon: "MN" },
   { view: "activities", title: "Activity Center", detail: "Search by age, theme, skill, and materials.", icon: "AC" },
@@ -352,7 +352,7 @@ const observationCategories = [
 ];
 const developmentalAreas = observationCategories;
 const weeklyObservationsPerChild = 3;
-const childDataKeys = ["Profiles", "Observations", "SupportPlans", "Goals", "Differentiations", "Attendance", "Meals", "Reports", "Communications", "Naps", "Diapers", "ActivityLogs"];
+const childDataKeys = ["Profiles", "Observations", "SupportPlans", "Goals", "Differentiations", "Attendance", "Meals", "MealPresets", "Reports", "Communications", "Naps", "Diapers", "ActivityLogs"];
 const diaperAgeGroups = new Set(["Infant", "Toddler", "Young Toddler", "Older Toddler"]);
 const plannerDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const docHelperToolMap = {
@@ -723,6 +723,14 @@ const formGroups = {
     "Volunteer Agreement", "Confidentiality Agreement",
   ],
 };
+const freeFormGroups = new Set([
+  "Enrollment Forms",
+  "Medical Forms",
+  "Daily Forms",
+  "Parent Communication",
+  "Safety Forms",
+  "Program Planning Forms",
+]);
 const activityTypes = ["Fine Motor", "Gross Motor", "Sensory", "Art", "Science", "STEM", "Literacy", "Math", "Outdoor Play", "Circle Time"];
 const printableTypes = ["Infant Activity Guide", "Tracing Worksheets", "Coloring Pages", "Alphabet Practice", "Number Practice", "Shape Practice", "Name Writing", "Cutting Practice", "Matching Activities", "Seasonal Worksheets", "Holiday Worksheets"];
 const professionalPrintableTypes = ["Infant Activity Guide", "Tracing Worksheets", "Coloring Pages", "Alphabet Practice", "Number Practice", "Shape Practice", "Name Writing", "Cutting Practice", "Matching Activities", "Assessment Forms", "Seasonal Worksheets", "Holiday Worksheets"];
@@ -730,33 +738,164 @@ const printableQualityBlockedTerms = ["placeholder", "draw here", "blank box", "
 const printablePdfLimit = Number.POSITIVE_INFINITY;
 // Set to true to temporarily hide the user-facing printables library while the section is being refreshed.
 // Admins always retain full access. Flip back to false to re-enable for users.
-const PRINTABLES_HIDDEN = true;
+const PRINTABLES_HIDDEN = false;
 
-// Set to true to temporarily hide legacy infant lesson plans while they are being upgraded.
-// Plans marked premium: true remain visible. Admins always retain full access.
-// Flip back to false to re-enable legacy plans for users.
-const INFANT_LEGACY_HIDDEN = false;
+// Temporary user-facing lesson plan visibility limits while updates are in progress.
+// Admins always retain full access and can continue editing all plans.
+const LESSON_PLAN_VISIBILITY_LIMITS = Object.freeze({
+  Infant: 40,
+  Toddler: 30,
+  Preschool: 30,
+});
+
+// Old developmental domain label strings. Any Infant, Toddler, or Preschool lesson plan whose
+// content contains one of these labels is automatically hidden from users until updated and approved.
+// Admins always retain full access and can unhide plans after updates are completed.
+const OLD_DEVELOPMENTAL_DOMAIN_LABELS = Object.freeze([
+  "Social Emotional Development",
+  "Social-Emotional Development",
+  "Cognitive Development",
+  "Physical Development",
+  "Language Development",
+  "Language and Literacy Development",
+  "Language & Literacy Development",
+  "Mathematics Development",
+  "Math Development",
+  "Science Development",
+  "Creative Arts Development",
+  "Approaches to Learning",
+]);
+
+// Old skill/area label strings checked specifically against lesson plan titles.
+// Any Infant, Toddler, or Preschool lesson plan whose title contains one of these labels
+// (as a whole word or phrase) is hidden from users until updated and approved.
+const OLD_TITLE_DOMAIN_LABELS = Object.freeze([
+  "Social Emotional",
+  "Social-Emotional",
+  "Fine Motor",
+  "Gross Motor",
+  "Cognitive",
+  "Language",
+  "Literacy",
+  "Math",
+  "Mathematics",
+  "Science",
+  "Creative Arts",
+  "Physical Development",
+  "Approaches to Learning",
+]);
+
+// Returns true when `text` contains `label` as a whole-word/phrase match (case-insensitive).
+// The label must not be immediately preceded or followed by another letter, preventing
+// partial-word false positives (e.g. "Languages" should not match "Language").
+function textContainsLabel(text, label) {
+  const lower = label.toLowerCase();
+  let start = 0;
+  while (start < text.length) {
+    const idx = text.indexOf(lower, start);
+    if (idx === -1) return false;
+    const charBefore = idx > 0 ? text[idx - 1] : "";
+    const charAfter = text[idx + lower.length] || "";
+    if (!/[a-z]/.test(charBefore) && !/[a-z]/.test(charAfter)) return true;
+    start = idx + 1;
+  }
+  return false;
+}
 
 function isPrintablesUpgradeModeActive() {
   return PRINTABLES_HIDDEN && !hasAdminFullAccess();
 }
 
-function isInfantLegacyUpgradeModeActive() {
-  return INFANT_LEGACY_HIDDEN && !hasAdminFullAccess();
+function lessonPlanNumber(resource) {
+  if (!resource || resource.category !== "Lesson Plans") return null;
+  const explicit = Number(resource.lessonNumber);
+  if (Number.isFinite(explicit) && explicit > 0) return explicit;
+  const idMatch = String(resource.id || "").match(/-(\d+)$/);
+  if (!idMatch) return null;
+  const parsed = Number(idMatch[1]);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-function isInfantLegacyPlan(resource) {
-  return resource.category === "Lesson Plans" && resource.age === "Infant" && !resource.premium;
+// Returns true if any old developmental domain label appears in the lesson plan title or body content.
+// Title is checked against OLD_TITLE_DOMAIN_LABELS; description and override fields are checked
+// against OLD_DEVELOPMENTAL_DOMAIN_LABELS. All matching is case-insensitive and whole-phrase.
+function lessonPlanHasOldDomainLabel(resource) {
+  if (!resource || resource.category !== "Lesson Plans") return false;
+  const age = normalizeAgeGroup(resource.age) || resource.age;
+  if (!["Infant", "Toddler", "Preschool"].includes(age)) return false;
+  const titleText = (resource.title || "").toLowerCase();
+  if (OLD_TITLE_DOMAIN_LABELS.some((label) => textContainsLabel(titleText, label))) return true;
+  const override = resource.lessonPlanOverride || null;
+  const fullText = [
+    resource.description,
+    resource.weeklyOverview,
+    override ? override.weeklyOverview : "",
+    override ? override.objectives : "",
+    override ? override.materials : "",
+    override ? override.teacherLanguage : "",
+    override ? override.elgConnections : "",
+    override ? override.familyConnection : "",
+    override ? override.reflectionNotes : "",
+    override && override.dailyActivities ? Object.values(override.dailyActivities).join(" ") : "",
+  ].filter(Boolean).join(" ").toLowerCase();
+  return OLD_DEVELOPMENTAL_DOMAIN_LABELS.some((label) => textContainsLabel(fullText, label));
+}
+
+function lessonPlanTemporaryHiddenReason(resource) {
+  if (!resource || resource.category !== "Lesson Plans") return "";
+  // If admin has explicitly published this plan, it is never temporarily hidden regardless of label content
+  const override = resource.lessonPlanOverride || lessonPlanOverrideFor(resource.id);
+  if (override?.visible === true) return "";
+  if (lessonPlanHasOldDomainLabel(resource)) return "Old skill/domain label in title";
+  const age = normalizeAgeGroup(resource.age) || resource.age;
+  const limit = LESSON_PLAN_VISIBILITY_LIMITS[age];
+  if (!Number.isFinite(limit)) return "";
+  const number = lessonPlanNumber(resource);
+  if (!Number.isFinite(number)) return "";
+  return number > limit ? "Needs lesson plan update" : "";
+}
+
+function isLessonPlanTemporarilyHidden(resource) {
+  if (!resource || resource.category !== "Lesson Plans" || hasAdminFullAccess()) return false;
+  // If admin has explicitly published this plan, respect that decision
+  const override = resource.lessonPlanOverride || lessonPlanOverrideFor(resource.id);
+  if (override?.visible === true) return false;
+  return Boolean(lessonPlanTemporaryHiddenReason(resource));
+}
+
+// ─── 4-Status Content System ──────────────────────────────────────────────────
+// Status values: "draft" | "approved" | "featured" | "archived"
+// Derived from existing visible/archived/featured boolean fields for backward compatibility.
+
+const contentStatusEmoji = { draft: "🟡", approved: "🟢", featured: "⭐", archived: "📦" };
+const contentStatusLabel = { draft: "Draft", approved: "Approved", featured: "Featured", archived: "Archived" };
+
+function contentItemStatus(item) {
+  if (!item) return "draft";
+  if (item.archived === true) return "archived";
+  if (item.visible === true && item.featured === true) return "featured";
+  if (item.visible === true) return "approved";
+  return "draft";
+}
+
+function contentStatusFields(status, now = new Date().toISOString()) {
+  if (status === "archived") return { visible: false, archived: true, featured: false, updatedAt: now };
+  if (status === "featured") return { visible: true, archived: false, featured: true, updatedAt: now };
+  if (status === "approved") return { visible: true, archived: false, featured: false, updatedAt: now };
+  return { visible: false, archived: false, featured: false, updatedAt: now }; // draft
+}
+
+function contentStatusHtml(item) {
+  const status = contentItemStatus(item);
+  return `<span class="content-status content-status-${status}">${contentStatusEmoji[status]} ${contentStatusLabel[status]}</span>`;
 }
 
 function isResourceVisibleToCurrentUser(resource) {
   if (!resource) return false;
-  if (resource.category === "Activity Center" && !hasAdminFullAccess()) {
-    if (resource.hidden) return false;
-    if (resource.status && resource.status !== "Published") return false;
-  }
+  if (resource.archived === true && !hasAdminFullAccess()) return false;
+  if (resource.visible === false && !hasAdminFullAccess()) return false;
   if (resource.category === "Printables" && isPrintablesUpgradeModeActive()) return false;
-  if (isInfantLegacyPlan(resource) && isInfantLegacyUpgradeModeActive()) return false;
+  if (isLessonPlanTemporarilyHidden(resource)) return false;
   return true;
 }
 
@@ -793,13 +932,14 @@ function buildLessonPlans() {
       category: "Lesson Plans",
       title: `${age} ${theme} ${area} Lesson Plan ${index + 1}`,
       age,
-      plan: sequence <= 10 ? "Free" : "Pro",
+      plan: sequence === 1 ? "Free" : "Pro",
       month,
       tags: [theme, area, month, holiday, activityFocus, "Weekly Plan", "ELG Standards"],
       format: "PDF + Editable",
       description: `Pre-made ${age.toLowerCase()} ${theme.toLowerCase()} lesson plan focused on ${area.toLowerCase()} development. Includes weekly overview, daily activities, materials, objectives, step-by-step instructions, ELG standards, printable ideas, and related ${activityFocus.toLowerCase()} activity support.`,
       theme,
       developmentalArea: area,
+      lessonNumber: sequence,
       holiday,
       activityFocus,
       weeklyOverview: `${age} learners explore ${theme.toLowerCase()} through ${area.toLowerCase()} experiences, play-based routines, guided conversation, and hands-on practice.`,
@@ -814,6 +954,9 @@ function buildLessonPlans() {
   })));
 }
 
+// FUTURE ADMIN BUILD: Observation Packs (buildObservationLibrary) are currently hardcoded.
+// A future admin section should allow creating, editing, and managing observation packs
+// by learning area and age group, similar to the Activities/Forms/Printables managers.
 function buildObservationLibrary() {
   const stems = {
     Cognitive: ["solved a simple problem", "matched familiar objects", "remembered a routine", "explored cause and effect", "sorted materials"],
@@ -835,7 +978,7 @@ function buildObservationLibrary() {
       category: "Observation Hub",
       title: `${age} ${area} Observation ${sequence}`,
       age,
-      plan: index < 2 ? "Free" : "Pro",
+      plan: index === 0 ? "Free" : "Pro",
       month: months[(index + learningAreas.indexOf(area)) % months.length],
       tags: [area, "Observation Wording", "Next Steps", "Learning Standard"],
       format: "Editable Observation",
@@ -854,7 +997,7 @@ function buildFormsLibrary() {
     category: "Forms Library",
     title: form,
     age: "All Ages",
-    plan: index === 0 && group !== "Business Forms" ? "Free" : "Pro",
+    plan: index === 0 && freeFormGroups.has(group) ? "Free" : "Pro",
     month: "All Year",
     tags: [group, "PDF", "Editable", "In-App"],
     format: "PDF + Editable",
@@ -1633,13 +1776,16 @@ This bundle is a template and does not replace legal, tax, medical, or licensing
   ].join("\n\n");
 }
 
+// FUTURE ADMIN BUILD: Menu Center (buildMenuLibrary) is currently hardcoded.
+// A future admin section should allow creating, editing, and managing menu packs
+// (weekly menus, age-based packs) via the admin dashboard, similar to Activities/Forms/Printables.
 function buildMenuLibrary() {
   const weeklyMenus = Array.from({ length: 52 }, (_, index) => ({
     id: `menu-week-${index + 1}`,
     category: "Menu Center",
     title: `Week ${index + 1} Daycare Menu`,
     age: "All Ages",
-    plan: index < 2 ? "Free" : "Pro",
+    plan: "Pro",
     month: months[index % months.length],
     tags: ["52 Weeks of Menus", "Breakfast", "Lunch", "Snack", "Shopping List"],
     format: "PDF + Editable",
@@ -1665,7 +1811,7 @@ function buildActivityLibrary() {
     category: "Activity Center",
     title: `${age} ${theme} ${type} Activity`,
     age,
-    plan: index % 10 === 0 ? "Free" : "Pro",
+    plan: index === 0 ? "Free" : "Pro",
     month: months[index % months.length],
     tags: [type, theme, "Materials", "Instructions", "Learning Objective"],
     format: "PDF + Editable",
@@ -1682,7 +1828,7 @@ function buildPrintableLibrary() {
       category: "Printables",
       title: `${theme} ${type}`,
       age: index % 3 === 0 ? "Toddler" : "Preschool",
-      plan: index % 9 === 0 ? "Free" : "Pro",
+      plan: index === 0 ? "Free" : "Pro",
       month: holidays.includes(theme) ? "Holiday" : months[index % months.length],
       tags: [type, theme, holidays.includes(theme) ? "Holiday" : "Seasonal", "Printable", ...(pdfReady ? ["PDF Ready"] : [])],
       format: pdfReady ? "Worksheet PDF" : "PDF",
@@ -1710,13 +1856,21 @@ const adminOwnerAccount = {
   name: "Leah",
   loginEndpoint: "/api/admin/login",
 };
+const uploadedResourcesConfig = {
+  storageKey: "llhUploadedResources",
+  migrationKey: "llhUploadedResourcesMigrationV1",
+  listEndpoint: "/api/uploads",
+  migrateEndpoint: "/api/admin/uploads/migrate",
+  upsertEndpoint: "/api/admin/uploads/upsert",
+  deleteEndpoint: "/api/admin/uploads/delete",
+};
 const billingPlans = {
   Free: {
     name: "Free",
     price: "$0",
     interval: "",
     stripePriceKey: "",
-    features: ["5 Lesson Plans", "10 Observations", "10 Forms", "10 Activity Ideas", "10 Printables", "10 Document Creations Per Month", "Up to 3 Child Profiles", "Weekly Observation Tracker"],
+    features: ["5 Lesson Plans", "10 Observations", "6 Forms", "8 Activity Ideas", "6 Printables", "10 Document Creations Per Month", "Up to 3 Child Profiles", "Weekly Observation Tracker"],
   },
   Founding: {
     name: "Founding Member",
@@ -1747,7 +1901,7 @@ const stripeCheckoutConfig = {
   checkoutStatusEndpoint: "/api/checkout-status",
   foundingStatusEndpoint: "/api/founding-status",
   promoValidationEndpoint: "/api/validate-promo-code",
-  defaultTrialDays: 90,
+  defaultTrialDays: 7,
   promoExpiresLabel: "October 31, 2026",
 };
 const aiGenerationConfig = {
@@ -1755,6 +1909,21 @@ const aiGenerationConfig = {
 };
 const adminAiTestConfig = {
   endpoint: "/api/admin/ai-test",
+};
+const adminAiPromptsConfig = {
+  getEndpoint: "/api/admin/ai-prompts",
+  saveEndpoint: "/api/admin/ai-prompts",
+  restoreEndpoint: "/api/admin/ai-prompts/restore",
+};
+const adminAiSettingsConfig = {
+  getEndpoint: "/api/admin/ai-settings",
+  saveEndpoint: "/api/admin/ai-settings",
+};
+const adminAiUsageConfig = {
+  endpoint: "/api/admin/ai-usage",
+};
+const userAiUsageConfig = {
+  endpoint: "/api/user/ai-usage",
 };
 const adminLessonGenerateConfig = {
   endpoint: "/api/admin/generate-lesson-plan",
@@ -1949,21 +2118,26 @@ let firebaseAuthClient = null;
 const freeAccessLimits = {
   "Lesson Plans": 5,
   "Observation Hub": 10,
-  "Forms Library": 10,
+  "Forms Library": 6,
   "Menu Center": 0,
-  "Activity Center": 10,
-  "Printables": 10,
+  "Activity Center": 8,
+  "Printables": 6,
 };
 const freeAiMonthlyLimit = 10;
 const paidAiMonthlyLimit = 250;
+// Server-provided usage values, populated on login/page-load via /api/subscription-status.
+// null means "not yet loaded"; when null, canUseAi() defaults to true and the server enforces the limit.
+let serverAiUsed = null;
+let serverAiLimit = null;
 const freeChildProfileLimit = 3;
 const freeObservationRecordLimit = 10;
 const freeDailyLogPhotoLimit = 3;
 const freeDailyLogHistoryDays = 14;
+const AI_GENERATION_TIMEOUT_MS = 120000; // must exceed server's 90s per-attempt OpenAI timeout
 const proFeatureList = [
   "1,500+ Observations",
   "200+ Lesson Plans",
-  "AI Generators",
+  "Document Helper",
   "Child Portfolios",
   "Attendance Tracking",
   "Individual Child Support Plans",
@@ -1976,6 +2150,8 @@ const proFeatureList = [
 const freeAiLimitMessage = "You have used all 10 free document creations for this month. Upgrade to Pro for 250 document creations each month.";
 const paidAiLimitMessage = "You have used all 250 document creations for this month. Your access will reset next month.";
 const freeResourceLimitMessage = "You have reached your Free Plan limit. Upgrade to Pro to unlock the full Little Learner Hub library.";
+const proTrialUpgradeMessage = "Start your 7-Day Free Pro Trial for full Pro access to every lesson plan, activity, form, printable, and premium workflow. Credit card required. Cancel anytime.";
+const proTrialUpgradeSummary = "7-Day Free Pro Trial · Credit card required · Cancel anytime · Full Pro access during the trial.";
 const favoritesPageLimit = 20;
 const dailyLogFavoriteStorageKey = "llhDailyLogFavoriteActivities";
 const defaultDailyLogFavorites = ["Circle Time", "Outside Play", "Art", "Sensory Bin", "Water Play"];
@@ -2006,7 +2182,7 @@ const dailyLogTemplates = [
     note: "Children stayed indoors for movement games, stories, art, sensory play, meals, and rest time. Add any individual notes below.",
   },
 ];
-const dailyLogAdvancedOutputIds = ["parent-message", "observation", "portfolio-entry", "behavior-note", "incident-report", "daily-report"];
+const dailyLogAdvancedOutputIds = ["parent-message", "portfolio-entry", "behavior-note", "incident-report", "daily-report"];
 const dailyLogOutputPreviewMap = {
   "parent-message": "daily-log-parent-messages",
   observation: "daily-log-observations",
@@ -2149,6 +2325,79 @@ function setFormMessage(elementOrSelector, message, isSuccess = false) {
   if (!element) return;
   element.textContent = message || "";
   element.classList.toggle("success", Boolean(isSuccess));
+}
+
+let adminLessonSaveFlowMessages = [];
+
+function setAdminLessonSaveFlowMessage(message, { reset = false, isSuccess = true } = {}) {
+  if (reset) adminLessonSaveFlowMessages = [];
+  if (message) adminLessonSaveFlowMessages.push(message);
+  setFormMessage("#adminLessonPlanMessage", adminLessonSaveFlowMessages.join(" → "), isSuccess);
+}
+
+// ─── Universal Admin Save Orchestrator ───────────────────────────────────────
+//
+// Wraps any admin save operation with consistent save state UI:
+//   • Disables the submit button and shows "Saving… Please wait."
+//   • On success shows successMsg and (optionally) calls redirectFn after 2.5 s
+//   • On failure shows "❌ Save Failed — <detail>" and re-enables the button
+//   • All steps emit standardized [SAVE] console logs
+//
+// Usage:
+//   await runAdminSave({
+//     messageSelector: "#adminHeroMessage",
+//     form,            // optional — the <form> element (used to locate submit button)
+//     saveFn: async () => { ... },
+//     successMsg: "Hero section saved.",       // string or () => string (evaluated after saveFn)
+//     onComplete: () => { ... },               // sync callback called immediately on success
+//     onError: (detail, err) => { ... },       // optional — overrides default error display
+//     redirectFn: () => { ... },               // called after 2.5 s delay on success
+//   });
+
+async function runAdminSave({ messageSelector, form, saveFn, successMsg, onComplete, onError, redirectFn } = {}) {
+  const msgEl = messageSelector
+    ? (typeof messageSelector === "string" ? document.querySelector(messageSelector) : messageSelector)
+    : null;
+  const submitBtn = form ? form.querySelector("[type='submit']") : null;
+
+  if (submitBtn && submitBtn.disabled) {
+    console.log("[SAVE] Blocked — already saving");
+    return;
+  }
+
+  const originalLabel = submitBtn ? submitBtn.textContent : "Save";
+
+  // ── Saving state ──────────────────────────────────────────────────────────
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Saving…"; }
+  if (msgEl) setFormMessage(msgEl, "Saving… Please wait.", true);
+  console.log("[SAVE] Started →", (typeof successMsg === "string" ? successMsg : null) || messageSelector || "(unknown)");
+
+  try {
+    await saveFn();
+
+    // ── Success state ─────────────────────────────────────────────────────
+    const msg = (typeof successMsg === "function" ? successMsg() : successMsg) || "✅ Changes Saved Successfully";
+    console.log("[SAVE] Completed →", msg);
+    if (msgEl) {
+      setFormMessage(msgEl, msg, true);
+      msgEl.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+    }
+    if (onComplete) onComplete();
+    if (redirectFn) window.setTimeout(redirectFn, 2500);
+
+  } catch (err) {
+    // ── Error state ───────────────────────────────────────────────────────
+    const errDetail = err?.message || "Unknown error";
+    console.error("[SAVE] Failed →", errDetail, err);
+    if (onError) {
+      onError(errDetail, err);
+    } else if (msgEl) {
+      setFormMessage(msgEl, `❌ Save Failed — ${errDetail}. Please try again.`, false);
+      msgEl.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+    }
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalLabel; }
+  }
 }
 
 function friendlyAuthError(error) {
@@ -2332,27 +2581,33 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
   const body = document.querySelector("#proModalBody");
   const eyebrow = document.querySelector("#proModalEyebrow");
   const title = document.querySelector("#proModalTitle");
+  const upgradeBtn = document.querySelector("#proModalUpgrade");
   if (!modal || !body) {
     setView("plans");
     return;
   }
+  const um = effectiveSiteContent().upgradeMessaging || {};
+  const isDraft = um._draft === true;
+  const upgradePopupBody = (!isDraft && um.upgradePopupBody) ? um.upgradePopupBody : proTrialUpgradeMessage;
+  const proTrialBtnText = (!isDraft && um.proTrialButtonText) ? um.proTrialButtonText : "Start Your 7-Day Free Pro Trial";
   if (type === "limit") {
+    const limitHeadline = (!isDraft && um.upgradeLimitHeadline) ? um.upgradeLimitHeadline : "You've reached your Free Plan limit.";
     if (eyebrow) eyebrow.textContent = "Free Plan Limit Reached";
-    if (title) title.textContent = "You've reached your Free Plan limit.";
+    if (title) title.textContent = limitHeadline;
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
-      <p>Upgrade to Pro to unlock unlimited child profiles, observations, lesson plans, resources, AI tools, Family Hub features, parent messaging, attendance tracking, and daily reports.</p>
-      <p><small>Start a 7-day free trial. Credit card required. You will be charged after 7 days unless you cancel.</small></p>
+      <p>${escapeHtml(upgradePopupBody)}</p>
     `;
   } else {
+    const popupHeadline = (!isDraft && um.upgradePopupHeadline) ? um.upgradePopupHeadline : "This is a Pro Feature";
     if (eyebrow) eyebrow.textContent = "Pro Feature";
-    if (title) title.textContent = "This is a Pro Feature";
+    if (title) title.textContent = popupHeadline;
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
-      <p>Upgrade to Pro to unlock advanced AI tools, portfolio builder, parent messaging, attendance tracking, daily reports, and the full resource library.</p>
-      <p><small>Start a 7-day free trial. Credit card required. You will be charged after 7 days unless you cancel.</small></p>
+      <p>${escapeHtml(upgradePopupBody)}</p>
     `;
   }
+  if (upgradeBtn) upgradeBtn.textContent = proTrialBtnText;
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
 }
@@ -2595,6 +2850,9 @@ function subscriptionToAccountUpdates(subscription) {
     stripeSubscriptionId: subscription.stripeSubscriptionId || "",
     paymentMethod: subscription.paymentMethod || "Managed in Stripe",
     promoRedemptions: accountPromoRedemptions(subscription),
+    trialStatus: subscription.trialStatus || undefined,
+    trialStart: subscription.trialStart || undefined,
+    trialEnd: subscription.trialEnd || undefined,
   };
 }
 
@@ -2606,6 +2864,10 @@ async function syncSubscriptionFromBackend(email, options = {}) {
     const data = await response.json();
     if (!response.ok) throw new Error(data?.error || "Could not sync subscription.");
     if (data?.founding) applyFoundingStatus(data.founding);
+    if (data?.aiUsage && cleanEmail === currentUser) {
+      if (typeof data.aiUsage.used === "number") serverAiUsed = data.aiUsage.used;
+      if (typeof data.aiUsage.limit === "number") serverAiLimit = data.aiUsage.limit;
+    }
     const updates = subscriptionToAccountUpdates(data?.subscription);
     if (!updates) {
       if (options.renderFounding) refreshFoundingDisplays();
@@ -2789,12 +3051,24 @@ function rerenderActiveContent() {
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
   if (activeView && viewMap[activeView]) renderCategoryPage(activeView);
   if (activeView === "admin") renderAdminDashboard();
+  renderManagedPricingText();
+  renderManagedFaqContent();
+  renderManagedAnnouncementBanner();
 }
 
 async function loadSiteContentFromBackend() {
   if (!siteContentConfig.publicEndpoint || !canUseLaunchBackend()) {
     rerenderActiveContent();
     return effectiveSiteContent();
+  }
+  if (isAdminUnlocked() && adminSession()?.token && siteContentConfig.adminEndpoint) {
+    try {
+      await loadAdminSiteContent();
+      rerenderActiveContent();
+      return effectiveSiteContent();
+    } catch (error) {
+      console.warn(error);
+    }
   }
   try {
     const response = await fetch(siteContentConfig.publicEndpoint);
@@ -2813,8 +3087,8 @@ async function loadSiteContentFromBackend() {
 async function loadAdminSiteContent() {
   const token = adminSession()?.token || "";
   if (!siteContentConfig.adminEndpoint || !canUseLaunchBackend() || !token) return effectiveSiteContent();
-  const params = new URLSearchParams({ adminToken: token });
-  const response = await fetch(`${siteContentConfig.adminEndpoint}?${params.toString()}`);
+  const params = new URLSearchParams({ adminToken: token, t: String(Date.now()) });
+  const response = await fetch(`${siteContentConfig.adminEndpoint}?${params.toString()}`, { cache: "no-store" });
   const data = await response.json();
   if (!response.ok) throw new Error(data?.error || "Could not load admin content.");
   siteContentState = data.siteContent || emptySiteContent();
@@ -2823,16 +3097,29 @@ async function loadAdminSiteContent() {
 
 async function saveAdminSiteContent(nextContent) {
   const token = adminSession()?.token || "";
+  console.log("[DIAG] saveAdminSiteContent: called. endpoint =", siteContentConfig.adminEndpoint, "| hasToken =", !!token, "| canUseLaunchBackend =", canUseLaunchBackend());
   if (!siteContentConfig.adminEndpoint || !canUseLaunchBackend() || !token) {
+    console.error("[DIAG] saveAdminSiteContent: ABORTED — missing endpoint, backend unavailable, or no admin token");
     throw new Error("Backend server is required for admin content changes.");
   }
+  const lessonPlanIds = Object.keys(nextContent?.lessonPlans || {});
+  console.log("[DIAG] saveAdminSiteContent: POSTing to", siteContentConfig.adminEndpoint, "| lessonPlan overrides count =", lessonPlanIds.length, "| ids =", lessonPlanIds.slice(0, 5));
+  const bodyStr = JSON.stringify({ adminToken: token, siteContent: nextContent });
+  console.log("[DIAG] saveAdminSiteContent: request body size (bytes) =", bodyStr.length);
   const response = await fetch(siteContentConfig.adminEndpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminToken: token, siteContent: nextContent }),
+    body: bodyStr,
   });
+  console.log("[DIAG] saveAdminSiteContent: response status =", response.status, response.statusText);
   const data = await response.json();
-  if (!response.ok) throw new Error(data?.error || "Could not save content changes.");
+  console.log("[DIAG] saveAdminSiteContent: response body keys =", Object.keys(data || {}), "| error =", data?.error || "(none)");
+  if (!response.ok) {
+    console.error("[DIAG] saveAdminSiteContent: SERVER RETURNED ERROR →", data?.error);
+    throw new Error(data?.error || "Could not save content changes.");
+  }
+  const returnedLessonPlanIds = Object.keys(data.siteContent?.lessonPlans || {});
+  console.log("[DIAG] saveAdminSiteContent: server returned lessonPlan overrides count =", returnedLessonPlanIds.length);
   siteContentState = data.siteContent || emptySiteContent();
   rerenderActiveContent();
   return effectiveSiteContent();
@@ -2877,12 +3164,91 @@ let adminLessonEditorInitialSnapshot = "";
 let adminLessonSaving = false;
 const adminUploadDraftStorageKey = "llhAdminUploadDraft";
 const adminActivityStatusOptions = new Set(["Draft", "Published", "Hidden"]);
+let adminLessonTogglingId = "";
+let adminLessonResourcesDraft = null;
+let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","reviews","homepage","founder","images","analytics","support","ai-testing"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","activities","forms","printables","reviews","homepage","founder","images","analytics","support","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding"]);
+// FUTURE ADMIN BUILD: lessonPlanResourceCategories is currently hardcoded.
+// A future admin section should allow adding, renaming, and reordering these category labels
+// so new upload categories can be managed without a code change.
+const lessonPlanResourceCategories = ["Coloring Pages", "Tracing Activities", "Counting Activities", "Matching Activities", "Crafts", "Teacher Resources", "Activity Photos", "General"];
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "dashboard";
 let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabRaw) ? adminActiveSectionTabRaw : "dashboard";
+
+// ─── Admin 2.0 Navigation Groups ─────────────────────────────────────────────
+const adminGroups = [
+  { id: "dashboard", icon: "🏠", label: "Dashboard",  tabs: ["dashboard", "analytics", "support"], defaultTab: "dashboard" },
+  { id: "content",   icon: "📚", label: "Content",    tabs: ["lesson-plans", "activities", "forms", "printables", "reviews", "founder", "resources"], defaultTab: "lesson-plans" },
+  { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
+  { id: "users",     icon: "👥", label: "Users",      tabs: ["users", "stripe-backfill"], defaultTab: "users" },
+  { id: "settings",  icon: "⚙️", label: "Settings",   tabs: ["homepage", "images"], defaultTab: "homepage" },
+  { id: "site-editor", icon: "✏️", label: "Site Editor", tabs: ["hero", "trust", "journey", "reviews-cta", "founding", "pricing", "faqs", "announcement", "upgrade-msg"], defaultTab: "hero" },
+  { id: "ai",        icon: "🤖", label: "AI",         tabs: ["prompts", "settings", "usage", "ai-testing"], defaultTab: "prompts" },
+];
+const adminGroupForTab = {
+  "dashboard":   "dashboard",
+  "analytics":   "dashboard",
+  "support":     "dashboard",
+  "lesson-plans":"content",
+  "activities":  "content",
+  "forms":       "content",
+  "printables":  "content",
+  "reviews":     "content",
+  "founder":     "content",
+  "resources":   "content",
+  "visibility":  "visibility",
+  "users":       "users",
+  "stripe-backfill": "users",
+  "homepage":    "settings",
+  "images":      "settings",
+  "pricing":     "site-editor",
+  "faqs":        "site-editor",
+  "announcement":"site-editor",
+  "upgrade-msg": "site-editor",
+  "hero":        "site-editor",
+  "trust":       "site-editor",
+  "journey":     "site-editor",
+  "reviews-cta": "site-editor",
+  "founding":    "site-editor",
+  "ai-testing":  "ai",
+  "prompts":     "ai",
+  "settings":    "ai",
+  "usage":       "ai",
+};
+const adminTabLabels = {
+  "dashboard":   "Overview",
+  "analytics":   "Analytics",
+  "support":     "Support",
+  "lesson-plans":"Lesson Plans",
+  "activities":  "Activities",
+  "forms":       "Forms",
+  "printables":  "Printables",
+  "reviews":     "Reviews",
+  "founder":     "Founder",
+  "resources":   "Uploads",
+  "visibility":  "Visibility",
+  "users":       "Users",
+  "stripe-backfill": "Stripe Backfill",
+  "homepage":    "Homepage",
+  "images":      "Images",
+  "pricing":     "Pricing",
+  "faqs":        "FAQs",
+  "announcement":"Announcement",
+  "upgrade-msg": "Upgrade Msg",
+  "hero":        "Hero",
+  "trust":       "Trust & Showcase",
+  "journey":     "Journey & Why",
+  "reviews-cta": "Reviews & CTA",
+  "founding":    "Founding",
+  "ai-testing":  "AI Testing",
+  "prompts":     "Prompt Manager",
+  "settings":    "AI Settings",
+  "usage":       "Usage Monitor",
+};
+let adminActiveGroup = adminGroupForTab[adminActiveSectionTab] || "dashboard";
 const mobileNavMaxWidth = 820;
 const installPromptDeferDays = 30;
 let deferredInstallPrompt = null;
@@ -2988,10 +3354,18 @@ function installMobileNavigation() {
 function emptySiteContent() {
   return {
     lessonPlans: {},
+    customLessonPlans: [],
     activities: [],
+    forms: [],
+    printables: [],
     reviews: [],
     founder: {},
     homepage: {},
+    pricing: {},
+    faqs: [],
+    announcement: {},
+    upgradeMessaging: {},
+    founding: {},
     images: [],
     updatedAt: "",
   };
@@ -3063,323 +3437,184 @@ function fileToImageDataUrl(file) {
   return fileToDataUrl(file).then((dataUrl) => sanitizedImageSource(dataUrl));
 }
 
-function normalizedTagList(value, extra = []) {
-  const tags = Array.isArray(value)
-    ? value
-    : String(value || "")
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
-  return [...new Set([...extra, ...tags].map((item) => normalizedShortText(item)).filter(Boolean))];
-}
+// ─── Safe Upload Utilities (file size validation + Mobile Safari protection) ──
+//
+// Mobile Safari can reload the page ("a problem occurred") when the browser
+// runs out of memory while reading large files in JavaScript via FileReader.
+// These utilities enforce a maximum file size before reading and add a
+// 30-second timeout so a frozen reader does not hang the UI indefinitely.
+//
+// ADMIN_UPLOAD_MAX_MB  — hard limit; rejects and shows a clear error message
+// ADMIN_UPLOAD_WARN_MB — soft limit on Safari; warns in console only
 
-function defaultTagsForCategory(category) {
-  return category === "Activity Center" ? [] : ["Uploaded"];
-}
+const ADMIN_UPLOAD_MAX_MB = 20;
+const ADMIN_UPLOAD_WARN_MB = 10;
 
-function resourceMonthLabel(value = new Date()) {
-  try {
-    return value.toLocaleString("en-US", { month: "long" });
-  } catch {
-    return "Current";
+function validateAdminUploadFile(file, { maxMb = ADMIN_UPLOAD_MAX_MB } = {}) {
+  if (!file?.size) return null; // no file or unknown size — let it through
+  const mb = file.size / (1024 * 1024);
+  if (mb > maxMb) {
+    return `File is too large (${mb.toFixed(1)} MB). Please use a file under ${maxMb} MB to ensure reliable uploads, especially on mobile devices.`;
   }
-}
-
-async function fileToDataUrlSafe(file, fallback = "") {
-  const nextValue = await fileToDataUrl(file);
-  return nextValue || String(fallback || "");
-}
-
-async function fileToImageDataUrlSafe(file, fallback = "") {
-  const nextValue = await fileToImageDataUrl(file);
-  return nextValue || sanitizedImageSource(fallback);
-}
-
-function adminLessonDraftStorageKey(id = adminLessonEditorId) {
-  return `llhAdminLessonDraft:${String(id || "").trim() || "new"}`;
-}
-
-function readAdminFormDraft(storageKey) {
-  return readSavedJson(storageKey, {});
-}
-
-function saveAdminFormDraft(storageKey, draft) {
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(draft || {}));
-  } catch (error) {
-    console.warn("Could not save admin draft", error);
+  if (isSafariBrowser() && mb > ADMIN_UPLOAD_WARN_MB) {
+    console.warn(`[SAVE] Upload size warning — Safari detected and file is ${mb.toFixed(1)} MB. Large files may cause page reloads on older iOS versions.`);
   }
+  return null; // valid
 }
 
-function clearAdminFormDraft(storageKey) {
-  try {
-    localStorage.removeItem(storageKey);
-  } catch (error) {
-    console.warn("Could not clear admin draft", error);
-  }
-}
-
-function collectAdminFormDraft(form) {
-  if (!form) return {};
-  const draft = {};
-  Array.from(form.elements || []).forEach((field) => {
-    if (!field.name || field.disabled || field.type === "submit" || field.type === "button" || field.type === "file") return;
-    draft[field.name] = field.type === "checkbox" ? Boolean(field.checked) : String(field.value || "");
-  });
-  return draft;
-}
-
-function applyAdminFormDraft(form, draft = {}) {
-  if (!form || !draft || typeof draft !== "object") return;
-  Object.entries(draft).forEach(([name, value]) => {
-    const field = form.elements?.namedItem(name);
-    if (!field) return;
-    if (field instanceof RadioNodeList) return;
-    if (field.type === "checkbox") {
-      field.checked = Boolean(value);
-      return;
-    }
-    field.value = String(value ?? "");
+// Like fileToDataUrl but rejects (instead of silently returning "") on errors,
+// and enforces ADMIN_UPLOAD_MAX_MB with a 30-second FileReader timeout.
+function fileToDataUrlSafe(file, { maxMb = ADMIN_UPLOAD_MAX_MB } = {}) {
+  if (!file?.name) return Promise.resolve(""); // no file selected — OK
+  const validationError = validateAdminUploadFile(file, { maxMb });
+  if (validationError) return Promise.reject(new Error(validationError));
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    const tid = window.setTimeout(() => {
+      reader.abort();
+      reject(new Error("File read timed out. Please try a smaller file or reload the page and try again."));
+    }, 30000);
+    reader.onload = () => { clearTimeout(tid); resolve(String(reader.result || "")); };
+    reader.onerror = () => { clearTimeout(tid); reject(new Error("Could not read file. Please try a different file.")); };
+    reader.readAsDataURL(file);
   });
 }
 
-async function runAdminSave({
-  form,
-  messageTarget,
-  savingMessage = "Saving…",
-  successMessage = "Saved.",
-  action,
-  onSuccess,
-  onError,
-}) {
-  const submitButton = form?.querySelector("[type='submit']");
-  const originalLabel = submitButton?.textContent || "";
-  if (submitButton) {
-    submitButton.disabled = true;
-    submitButton.textContent = "Saving…";
-  }
-  setFormMessage(messageTarget, savingMessage, true);
-  try {
-    const result = await action();
-    setFormMessage(messageTarget, typeof successMessage === "function" ? successMessage(result) : successMessage, true);
-    if (typeof onSuccess === "function") onSuccess(result);
-    return result;
-  } catch (error) {
-    const message = error?.message || "Unknown error";
-    setFormMessage(messageTarget, `Save failed: ${message}`, false);
-    if (typeof onError === "function") onError(error);
-    throw error;
-  } finally {
-    if (submitButton) {
-      submitButton.disabled = false;
-      submitButton.textContent = originalLabel;
-    }
-  }
+// Like fileToImageDataUrl but with safety validation.
+function fileToImageDataUrlSafe(file, { maxMb = ADMIN_UPLOAD_MAX_MB } = {}) {
+  return fileToDataUrlSafe(file, { maxMb }).then((dataUrl) => sanitizedImageSource(dataUrl));
 }
 
-function syncAdminStoredFileNote(kind, { name = "", emptyLabel = "" } = {}) {
-  const selector = kind === "preview" ? "#adminPreviewSelectionNote" : "#adminFileSelectionNote";
-  const target = document.querySelector(selector);
-  if (!target) return;
-  target.textContent = name ? `Selected: ${name}` : emptyLabel;
+
+
+function initAdminLessonResourcesDraft(lessonRecord) {
+  if (adminLessonResourcesDraftId === (lessonRecord?.id || "")) return;
+  adminLessonResourcesDraft = Array.isArray(lessonRecord?.resources) ? lessonRecord.resources.slice() : [];
+  adminLessonResourcesDraftId = lessonRecord?.id || "";
 }
 
-function syncAdminUploadFileNotes(form = document.querySelector("#uploadForm")) {
-  if (!form) return;
-  syncAdminStoredFileNote("file", {
-    name: form.querySelector('[name="fileNameStored"]')?.value || "",
-    emptyLabel: "No file selected.",
-  });
-  syncAdminStoredFileNote("preview", {
-    name: form.querySelector('[name="previewNameStored"]')?.value || "",
-    emptyLabel: "No preview image selected.",
-  });
-}
+function renderAdminLessonResourcesSection() {
+  const resources = adminLessonResourcesDraft || [];
+  const categories = lessonPlanResourceCategories;
+  const grouped = {};
+  resources.forEach((r) => { (grouped[r.category] = grouped[r.category] || []).push(r); });
 
-function saveAdminUploadDraft(form = document.querySelector("#uploadForm")) {
-  if (!form) return;
-  saveAdminFormDraft(adminUploadDraftStorageKey, collectAdminFormDraft(form));
-}
-
-function restoreAdminUploadDraft(form = document.querySelector("#uploadForm")) {
-  if (!form) return;
-  applyAdminFormDraft(form, readAdminFormDraft(adminUploadDraftStorageKey));
-  syncAdminUploadFileNotes(form);
-}
-
-function saveAdminLessonDraft(form = document.querySelector("#adminLessonPlanForm")) {
-  if (!form) return;
-  saveAdminFormDraft(adminLessonDraftStorageKey(form.querySelector('[name="id"]')?.value), collectAdminFormDraft(form));
-}
-
-function restoreAdminLessonDraft(form = document.querySelector("#adminLessonPlanForm")) {
-  if (!form) return;
-  applyAdminFormDraft(form, readAdminFormDraft(adminLessonDraftStorageKey(form.querySelector('[name="id"]')?.value)));
-}
-
-function normalizedActivityRecord(value = {}, fallbackId = "") {
-  const record = value && typeof value === "object" ? value : {};
-  const status = normalizedShortText(record.status || "");
-  const normalizedStatus = adminActivityStatusOptions.has(status) ? status : (record.hidden ? "Hidden" : "Published");
-  return {
-    id: normalizedShortText(record.id || fallbackId || generatedRecordId("activity")),
-    category: "Activity Center",
-    title: normalizedShortText(record.title),
-    description: normalizedMultilineText(record.description || ""),
-    instructions: normalizedMultilineText(record.instructions || ""),
-    age: normalizedShortText(record.age || "Preschool"),
-    theme: normalizedShortText(record.theme || ""),
-    activityCategory: normalizedShortText(record.activityCategory || ""),
-    tags: normalizedTagList(record.tags),
-    plan: normalizedShortText(record.plan || "Free") || "Free",
-    status: normalizedStatus,
-    hidden: record.hidden === true || normalizedStatus === "Hidden",
-    featured: record.featured === true,
-    linkedLessonPlanId: normalizedShortText(record.linkedLessonPlanId || ""),
-    linkedLessonPlanTitle: normalizedShortText(record.linkedLessonPlanTitle || ""),
-    sourceLessonPlanId: normalizedShortText(record.sourceLessonPlanId || ""),
-    sourceLessonPlanTitle: normalizedShortText(record.sourceLessonPlanTitle || ""),
-    sourceActivityId: normalizedShortText(record.sourceActivityId || ""),
-    fileName: normalizedShortText(record.fileName || ""),
-    fileData: String(record.fileData || ""),
-    previewName: normalizedShortText(record.previewName || ""),
-    previewData: sanitizedImageSource(record.previewData || ""),
-    updatedAt: normalizedShortText(record.updatedAt || new Date().toISOString()),
+  const resourceItemHtml = (r, catResources) => {
+    const idx = catResources.indexOf(r);
+    const isImage = r.mimeType && r.mimeType.startsWith("image/");
+    const isPdf = r.mimeType === "application/pdf";
+    return `
+      <div class="lp-resource-item" data-resource-id="${escapeHtml(r.id)}">
+        ${isImage ? `<img class="lp-resource-thumb" src="${escapeHtml(r.url)}" alt="${escapeHtml(r.title)}" />` : ""}
+        ${isPdf ? `<span class="lp-resource-pdf-icon">📄</span>` : ""}
+        <span class="lp-resource-title">${escapeHtml(r.title)}</span>
+        <div class="lp-resource-actions">
+          <button class="ghost-button" type="button" data-admin-resource-up="${escapeHtml(r.id)}" ${idx === 0 ? "disabled" : ""}>↑</button>
+          <button class="ghost-button" type="button" data-admin-resource-down="${escapeHtml(r.id)}" ${idx === catResources.length - 1 ? "disabled" : ""}>↓</button>
+          <button class="danger-button" type="button" data-admin-resource-remove="${escapeHtml(r.id)}">Remove</button>
+        </div>
+      </div>
+    `;
   };
+
+  const categorySections = categories.map((cat) => {
+    const catResources = (grouped[cat] || []).slice().sort((a, b) => a.order - b.order);
+    return `
+      <details class="lp-resource-category" ${catResources.length ? "open" : ""}>
+        <summary>${escapeHtml(cat)} <span class="lp-resource-count">(${catResources.length})</span></summary>
+        <div class="lp-resource-category-body">
+          ${catResources.map((r) => resourceItemHtml(r, catResources)).join("") || `<p class="muted-copy">No resources in this category.</p>`}
+        </div>
+      </details>
+    `;
+  }).join("");
+
+  return `
+    <fieldset class="admin-fieldset lp-resources-fieldset">
+      <legend>📎 Printables &amp; Resources</legend>
+      <p class="admin-generator-note">Attach printables, coloring pages, PDFs, and activity sheets to this lesson plan. Resources are organized by category and visible to providers viewing this plan.</p>
+      <div id="adminLessonResourceCategories">${categorySections}</div>
+      <details class="lp-add-resource-panel" id="adminAddResourcePanel">
+        <summary>+ Add Resource</summary>
+        <div id="adminAddLessonResourceForm" class="lp-add-resource-form">
+          <div class="form-grid-two">
+            <label>Resource title<input name="resourceTitle" placeholder="e.g. Farm Animal Coloring Sheet" /></label>
+            <label>Category<select name="resourceCategory">${lessonPlanResourceCategories.map((cat) => `<option>${escapeHtml(cat)}</option>`).join("")}</select></label>
+          </div>
+          <label>Upload file (image or PDF)<input name="resourceFile" type="file" accept="image/*,application/pdf" /></label>
+          <div class="form-actions">
+            <button class="primary-button" type="button" data-admin-add-resource>Add Resource</button>
+            <button class="ghost-button" type="button" data-close-add-resource>Cancel</button>
+          </div>
+          <span class="form-message" id="adminAddResourceMessage"></span>
+        </div>
+      </details>
+    </fieldset>
+  `;
 }
 
-function activityRecordToResource(record) {
-  const activity = normalizedActivityRecord(record);
-  return {
-    ...activity,
-    title: activity.title,
-    age: activity.age,
-    plan: activity.plan,
-    description: activity.description || activity.instructions || "Untitled activity",
-    format: activity.fileName ? "Uploaded File" : "Manual Resource",
-    month: resourceMonthLabel(activity.updatedAt ? new Date(activity.updatedAt) : new Date()),
-  };
+async function handleAddLessonResource(form) {
+  const title = (form.querySelector('[name="resourceTitle"]')?.value || "").trim();
+  const category = form.querySelector('[name="resourceCategory"]')?.value || "General";
+  const fileInput = form.querySelector('[name="resourceFile"]');
+  const file = fileInput?.files?.[0];
+  const msgEl = form.querySelector("#adminAddResourceMessage");
+
+  if (!title) {
+    if (msgEl) { msgEl.textContent = "Please enter a resource title."; msgEl.classList.remove("success"); }
+    return;
+  }
+  if (!file) {
+    if (msgEl) { msgEl.textContent = "Please select a file to upload."; msgEl.classList.remove("success"); }
+    return;
+  }
+  if (msgEl) { msgEl.textContent = "Reading file…"; msgEl.classList.remove("success"); }
+
+  const url = await fileToDataUrl(file);
+  if (!url) {
+    if (msgEl) { msgEl.textContent = "Could not read file. Try a different file."; msgEl.classList.remove("success"); }
+    return;
+  }
+  const mimeType = file.type || "";
+  const id = `res-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  const maxOrder = (adminLessonResourcesDraft || []).filter((r) => r.category === category).reduce((m, r) => Math.max(m, r.order), -1);
+  const resource = { id, title, category, url, mimeType, order: maxOrder + 1 };
+
+  adminLessonResourcesDraft = [...(adminLessonResourcesDraft || []), resource];
+  renderAdminContentManager();
+  const panel = document.querySelector("#adminAddResourcePanel");
+  if (panel) panel.open = false;
 }
 
-function siteManagedActivityResources() {
-  return (effectiveSiteContent().activities || [])
-    .map((item) => activityRecordToResource(item))
-    .filter((item) => item.id && item.title);
+function removeAdminLessonResource(id) {
+  adminLessonResourcesDraft = (adminLessonResourcesDraft || []).filter((r) => r.id !== id);
+  const catEl = document.querySelector("#adminLessonResourceCategories");
+  if (!catEl) return;
+  catEl.innerHTML = renderAdminLessonResourcesSection().replace(/^[\s\S]*<div id="adminLessonResourceCategories">/, "").replace(/<\/div>\s*<details[\s\S]*$/, "");
+  renderAdminContentManager();
 }
 
-function siteManagedActivityRecordById(id) {
-  const stableId = normalizedShortText(id);
-  if (!stableId) return null;
-  return (effectiveSiteContent().activities || []).find((item) => normalizedShortText(item.id) === stableId) || null;
+function reorderAdminLessonResource(id, direction) {
+  const resources = adminLessonResourcesDraft || [];
+  const resource = resources.find((r) => r.id === id);
+  if (!resource) return;
+  const catResources = resources.filter((r) => r.category === resource.category).slice().sort((a, b) => a.order - b.order);
+  const idx = catResources.findIndex((r) => r.id === id);
+  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= catResources.length) return;
+  const swapWith = catResources[swapIdx];
+  const tempOrder = resource.order;
+  resource.order = swapWith.order;
+  swapWith.order = tempOrder;
+  // Ensure unique ordering within category
+  if (resource.order === swapWith.order) {
+    resource.order = idx;
+    swapWith.order = swapIdx;
+  }
+  adminLessonResourcesDraft = resources.slice();
+  renderAdminContentManager();
 }
 
-function activitySavedContentDetails(activity, resource = {}) {
-  const record = activity || null;
-  const tags = (record?.tags || resource.tags || []).filter(Boolean);
-  const description = normalizedMultilineText(record?.description || resource.description || "");
-  const instructions = normalizedMultilineText(record?.instructions || resource.instructions || "");
-  const theme = normalizedShortText(record?.theme || resource.theme || "");
-  const activityCategory = normalizedShortText(record?.activityCategory || resource.activityCategory || "");
-  const previewData = sanitizedImageSource(record?.previewData || resource.previewData || "");
-  const fileData = String(record?.fileData || resource.fileData || "");
-  const fileName = normalizedShortText(record?.fileName || resource.fileName || "");
-  const previewName = normalizedShortText(record?.previewName || resource.previewName || "");
-  return {
-    tags,
-    description,
-    instructions,
-    theme,
-    activityCategory,
-    previewData,
-    fileData,
-    fileName,
-    previewName,
-    hasSavedContent: [description, instructions, theme, activityCategory, tags.join(", "), previewData, fileData, fileName, previewName].some(Boolean),
-  };
-}
-
-function combinedAdminResources() {
-  return [...siteManagedActivityResources(), ...uploadedResources()];
-}
-
-function syncAdminLessonPlanOptions(form = document.querySelector("#uploadForm")) {
-  const select = form?.querySelector('[name="linkedLessonPlanId"]');
-  if (!select) return;
-  const currentValue = select.value || "";
-  const options = allLessonPlansForAdmin()
-    .map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.title || item.id)}</option>`)
-    .join("");
-  select.innerHTML = `<option value="">None</option>${options}`;
-  select.value = currentValue;
-}
-
-function lessonPlanActivitySummary(text) {
-  const clean = normalizedMultilineText(text);
-  if (!clean) return "";
-  return clean.split("\n").map((line) => line.trim()).find(Boolean) || "";
-}
-
-function buildLinkedActivitiesFromLessonPlan(id, payload) {
-  const days = [
-    ["Monday", payload.dailyActivities?.monday],
-    ["Tuesday", payload.dailyActivities?.tuesday],
-    ["Wednesday", payload.dailyActivities?.wednesday],
-    ["Thursday", payload.dailyActivities?.thursday],
-    ["Friday", payload.dailyActivities?.friday],
-  ];
-  return days
-    .filter(([, instructions]) => normalizedMultilineText(instructions))
-    .map(([day, instructions]) => normalizedActivityRecord({
-      id: `lesson-activity-${id}-${day.toLowerCase()}`,
-      title: `${payload.title} — ${day}`,
-      description: lessonPlanActivitySummary(instructions),
-      instructions,
-      age: payload.age,
-      theme: payload.theme,
-      activityCategory: "Lesson Plan Activity",
-      tags: normalizedTagList(payload.tags || [], [payload.theme, day, "Lesson Plan"]),
-      plan: payload.plan,
-      status: payload.visible === false ? "Hidden" : "Published",
-      hidden: payload.visible === false,
-      featured: payload.featured === true,
-      linkedLessonPlanId: id,
-      linkedLessonPlanTitle: payload.title,
-      sourceLessonPlanId: id,
-      sourceLessonPlanTitle: payload.title,
-      sourceActivityId: day.toLowerCase(),
-      previewName: payload.thumbnailUrl ? `${slug(payload.title || id)}-thumbnail` : "",
-      previewData: payload.thumbnailUrl || "",
-      updatedAt: new Date().toISOString(),
-    }));
-}
-
-function mergeLinkedActivities(existingActivities, linkedActivities, lessonId) {
-  const unrelated = (existingActivities || []).filter((item) => normalizedShortText(item.sourceLessonPlanId) !== lessonId);
-  const seen = new Set();
-  const mergedLinked = linkedActivities.filter((item) => {
-    const sourceLessonPlanId = normalizedShortText(item.sourceLessonPlanId);
-    const sourceActivityId = normalizedShortText(item.sourceActivityId);
-    if (!sourceLessonPlanId || !sourceActivityId) return false;
-    const stableId = `${sourceLessonPlanId}:${sourceActivityId}`;
-    if (!stableId || seen.has(stableId)) return false;
-    seen.add(stableId);
-    return true;
-  });
-  return [...mergedLinked, ...unrelated];
-}
-
-function updateLinkedActivityVisibility(activities, lessonId, visible, plan) {
-  return (activities || []).map((item) => {
-    if (normalizedShortText(item.sourceLessonPlanId) !== lessonId) return item;
-    return normalizedActivityRecord({
-      ...item,
-      plan: plan || item.plan,
-      hidden: visible === false,
-      status: visible === false ? "Hidden" : (item.status === "Draft" ? "Draft" : "Published"),
-      updatedAt: new Date().toISOString(),
-    });
-  });
-}
 
 function captureDefaultSiteContent() {
   const showcaseCards = Array.from(document.querySelectorAll(".lp-showcase-card")).map((card, index) => ({
@@ -3444,8 +3679,67 @@ function captureDefaultSiteContent() {
       finalCtaHeadline: document.querySelector(".lp-final-cta h2")?.textContent?.trim() || "",
       finalCtaText: document.querySelector(".lp-final-cta .lp-cta-body")?.textContent?.trim() || "",
       finalCtaButtonText: document.querySelector(".lp-final-cta .lp-btn-primary")?.textContent?.trim() || "",
+      finalCtaSubtext: document.querySelector(".lp-final-cta .lp-cta-subtext")?.textContent?.trim() || "",
+      heroBenefits: Array.from(document.querySelectorAll(".lp-hero-benefits li")).map((li) => li.textContent.trim()).filter(Boolean),
+      trustSectionHeading: document.querySelector(".lp-hero-testimonials .lp-section-title")?.textContent?.trim() || "",
+      showcaseSectionHeading: document.querySelector("#homePlatformPreview .lp-section-title")?.textContent?.trim() || "",
+      showcaseSectionSubtitle: document.querySelector("#homePlatformPreview .lp-section-sub")?.textContent?.trim() || "",
+      journeySectionHeading: document.querySelector(".lp-home-journey .lp-section-title")?.textContent?.trim() || "",
+      journeySectionSubtitle: document.querySelector(".lp-home-journey .lp-section-sub")?.textContent?.trim() || "",
+      journeyHowItWorksHeading: document.querySelector(".lp-journey-card[aria-label='How it works'] h3")?.textContent?.trim() || "",
+      journeyComingSoonHeading: document.querySelector(".lp-journey-card[aria-label='Coming soon features'] h3")?.textContent?.trim() || "",
+      whySectionHeading: document.querySelector(".lp-why-section .lp-section-title")?.textContent?.trim() || "",
+      whyItems: Array.from(document.querySelectorAll(".lp-why-item strong")).map((el, index) => ({ id: `why-${index + 1}`, title: el.textContent.trim() })).filter((item) => item.title),
+      reviewsSectionHeading: document.querySelector(".lp-reviews-section .lp-section-title")?.textContent?.trim() || "",
     },
     images: [],
+    pricing: {
+      sectionTitle: document.querySelector(".lp-pricing-section .lp-section-title")?.textContent?.trim() || "Simple, Transparent Pricing",
+      sectionSubtitle: document.querySelector(".lp-pricing-section .lp-section-sub")?.textContent?.trim() || "",
+      freePlanName: document.querySelector(".lp-free-card h3")?.textContent?.trim() || "Free",
+      freePlanDescription: "",
+      freePlanPrice: document.querySelector(".lp-free-card .lp-price-amount strong")?.textContent?.trim() || "$0",
+      freePlanPriceInterval: document.querySelector(".lp-free-card .lp-price-amount span")?.textContent?.trim() || "Forever",
+      freePlanCtaText: document.querySelector(".lp-free-card [data-plan='Free']")?.textContent?.trim() || "Start Free",
+      freePlanFeatures: Array.from(document.querySelectorAll(".lp-free-card .lp-price-features li")).map((li) => li.textContent.trim()).filter(Boolean),
+      proPlanName: document.querySelector(".lp-pro-card h3")?.textContent?.trim() || "Pro",
+      proPlanDescription: "",
+      proPlanPrice: document.querySelector(".lp-pro-card .lp-price-amount strong")?.textContent?.trim() || "$19.99",
+      proPlanPriceInterval: document.querySelector(".lp-pro-card .lp-price-amount span")?.textContent?.trim() || "/month",
+      proPlanFeatures: Array.from(document.querySelectorAll(".lp-pro-card .lp-price-features li")).map((li) => li.textContent.trim()).filter(Boolean),
+      proPlanHighlightBadge: document.querySelector(".lp-pro-highlight-badge")?.textContent?.trim() || "Most Popular",
+      trialButtonText: document.querySelector(".lp-pro-card [data-action='upgrade-trial']")?.textContent?.trim() || "Start Your 7-Day Free Pro Trial",
+      trialNoteText: document.querySelector(".lp-price-note")?.textContent?.trim() || "Credit card required. Cancel anytime. Full Pro access during the 7-day trial.",
+      creditCardText: "Credit card required.",
+      cancelText: "Cancel anytime.",
+      _draft: false,
+    },
+    faqs: Array.from(document.querySelectorAll("#defaultFaqList .faq-item")).map((el, index) => {
+      const question = el.querySelector("h3")?.textContent?.trim() || "";
+      const pEl = el.querySelector("p");
+      const ulEl = el.querySelector("ul");
+      const answer = pEl ? (pEl.textContent?.trim() || "") : ulEl ? Array.from(ulEl.querySelectorAll("li")).map((li) => li.textContent.trim()).join(", ") : "";
+      return { id: `faq-${index + 1}`, question, answer, visible: true, order: index + 1 };
+    }).filter((f) => f.question),
+    announcement: { text: "", visible: false, expiresAt: "", location: "top", _draft: false },
+    upgradeMessaging: {
+      upgradePopupHeadline: "This is a Pro Feature",
+      upgradeLimitHeadline: "You've reached your Free Plan limit.",
+      upgradePopupBody: "Start your 7-Day Free Pro Trial for full Pro access to every lesson plan, activity, form, printable, and premium workflow. Credit card required. Cancel anytime.",
+      proTrialButtonText: "Start Your 7-Day Free Pro Trial",
+      freeLimitMessage: "You have reached your Free Plan limit. Upgrade to Pro to unlock the full Little Learner Hub library.",
+      trialUpgradeSummary: "7-Day Free Pro Trial · Credit card required · Cancel anytime · Full Pro access during the trial.",
+      _draft: false,
+    },
+    founding: {
+      heading: "Founding Member Pricing",
+      soldOutHeading: "Founding Member spots are filled",
+      pricePrefix: "Get Pro for",
+      priceLifeLabel: "for life",
+      ctaButtonText: "Claim Founding Member Pricing",
+      soldOutCtaText: "Choose Pro Monthly",
+      _draft: false,
+    },
     updatedAt: "",
   };
 }
@@ -3457,7 +3751,10 @@ function effectiveSiteContent() {
     ...base,
     ...overrides,
     lessonPlans: { ...(base.lessonPlans || {}), ...(overrides.lessonPlans || {}) },
-    activities: Array.isArray(overrides.activities) ? overrides.activities.map((item) => normalizedActivityRecord(item)) : [],
+    customLessonPlans: Array.isArray(overrides.customLessonPlans) ? overrides.customLessonPlans : [],
+    activities: Array.isArray(overrides.activities) ? overrides.activities : [],
+    forms: Array.isArray(overrides.forms) ? overrides.forms : [],
+    printables: Array.isArray(overrides.printables) ? overrides.printables : [],
     reviews: (overrides.reviews?.length ? overrides.reviews : base.reviews || []).map((item) => ({
       ...item,
       imageUrl: sanitizedImageSource(item.imageUrl || ""),
@@ -3477,9 +3774,21 @@ function effectiveSiteContent() {
       howItWorks: mergeContentCards(base.homepage?.howItWorks, overrides.homepage?.howItWorks),
       comingSoon: mergeContentCards(base.homepage?.comingSoon, overrides.homepage?.comingSoon),
       previewCards: mergeContentCards(base.homepage?.previewCards, overrides.homepage?.previewCards),
+      heroBenefits: Array.isArray(overrides.homepage?.heroBenefits) && overrides.homepage.heroBenefits.length ? overrides.homepage.heroBenefits : (base.homepage?.heroBenefits || []),
+      whyItems: Array.isArray(overrides.homepage?.whyItems) && overrides.homepage.whyItems.length ? overrides.homepage.whyItems : (base.homepage?.whyItems || []),
       heroImageUrl: sanitizedImageSource(overrides.homepage?.heroImageUrl || base.homepage?.heroImageUrl || ""),
     },
     images: Array.isArray(overrides.images) ? overrides.images : [],
+    pricing: {
+      ...(base.pricing || {}),
+      ...(overrides.pricing || {}),
+      freePlanFeatures: Array.isArray(overrides.pricing?.freePlanFeatures) && overrides.pricing.freePlanFeatures.length ? overrides.pricing.freePlanFeatures : (base.pricing?.freePlanFeatures || []),
+      proPlanFeatures: Array.isArray(overrides.pricing?.proPlanFeatures) && overrides.pricing.proPlanFeatures.length ? overrides.pricing.proPlanFeatures : (base.pricing?.proPlanFeatures || []),
+    },
+    faqs: Array.isArray(overrides.faqs) && overrides.faqs.length ? overrides.faqs : (base.faqs || []),
+    announcement: { ...(base.announcement || {}), ...(overrides.announcement || {}) },
+    upgradeMessaging: { ...(base.upgradeMessaging || {}), ...(overrides.upgradeMessaging || {}) },
+    founding: { ...(base.founding || {}), ...(overrides.founding || {}) },
     updatedAt: overrides.updatedAt || base.updatedAt || "",
   };
 }
@@ -3503,6 +3812,9 @@ function lessonPlanDefaults(resource) {
     reflectionNotes: "What worked well this week?\nWhich child showed new language, confidence, persistence, or social participation?\nWhat will you repeat, extend, or change next week?\nWhat would you like to document or share with families?",
     plan: resource.plan,
     visible: true,
+    updatedAt: "",
+    titleThemeImporterUpdated: false,
+    titleThemeImporterUpdatedAt: "",
     thumbnailUrl: sanitizedImageSource(resource.previewData || ""),
     dailyActivities: {
       monday: daily[0] || "",
@@ -3561,9 +3873,10 @@ ${merged.reflectionNotes}`;
 }
 
 function applyLessonPlanOverrides(items, includeHidden = false) {
-  return items.flatMap((resource) => {
+  const result = items.flatMap((resource) => {
     if (resource.category !== "Lesson Plans") return [resource];
     const override = lessonPlanOverrideFor(resource.id);
+    if (override?.archived === true && !includeHidden) return [];
     const merged = override ? {
       ...resource,
       title: override.title || resource.title,
@@ -3574,17 +3887,36 @@ function applyLessonPlanOverrides(items, includeHidden = false) {
       plan: override.plan || resource.plan,
       previewData: override.thumbnailUrl || resource.previewData || "",
       lessonPlanOverride: override,
+      archived: override.archived === true,
+      featured: override.featured === true,
     } : resource;
-    if (!includeHidden && override?.visible === false) return [];
+    if (!includeHidden && (override?.visible !== true || override?.archived === true)) return [];
     return [merged];
   });
+  // Sort featured plans first for user-facing library
+  if (!includeHidden) {
+    result.sort((a, b) => {
+      const aFeatured = (a.featured === true || a.lessonPlanOverride?.featured === true) ? 0 : 1;
+      const bFeatured = (b.featured === true || b.lessonPlanOverride?.featured === true) ? 0 : 1;
+      return aFeatured - bFeatured;
+    });
+  }
+  return result;
 }
 
 function allLessonPlansForAdmin() {
-  return applyLessonPlanOverrides(libraryResources.filter((resource) => resource.category === "Lesson Plans"), true)
+  const basePlans = applyLessonPlanOverrides(libraryResources.filter((resource) => resource.category === "Lesson Plans"), true)
     .map((resource) => {
       const defaults = lessonPlanDefaults(resource);
       const override = lessonPlanOverrideFor(resource.id) || {};
+      const manuallyVisible = override.visible === true;
+      const temporaryHiddenReason = manuallyVisible ? lessonPlanTemporaryHiddenReason({ ...resource, ...override }) : "";
+      const archived = override.archived === true;
+      const featured = override.featured === true;
+      const hiddenReason = !manuallyVisible
+        ? (override?.visible === false ? "Manually hidden by admin" : "Not yet published")
+        : temporaryHiddenReason;
+      const hiddenForUsers = archived || !manuallyVisible;
       return {
         ...defaults,
         ...override,
@@ -3593,18 +3925,198 @@ function allLessonPlansForAdmin() {
         age: override.age || resource.age,
         theme: override.theme || resource.theme || resourceTheme(resource),
         plan: override.plan || resource.plan,
-        visible: override.visible !== false,
+        visible: manuallyVisible,
+        userVisible: !hiddenForUsers,
+        archived,
+        featured,
+        isCustom: false,
+        hiddenReason,
         thumbnailUrl: override.thumbnailUrl || resource.previewData || "",
+        resources: Array.isArray(override.resources) ? override.resources : [],
         resource,
       };
     });
+  const customPlans = (effectiveSiteContent().customLessonPlans || []).map((item) => {
+    const archived = item.archived === true;
+    const featured = item.featured === true;
+    const visible = item.visible === true && !archived;
+    const resource = {
+      id: item.id,
+      category: "Lesson Plans",
+      title: item.title || "Untitled Lesson Plan",
+      age: item.age || "Infant",
+      plan: item.plan || "Free",
+      month: item.month || "",
+      holiday: item.holiday || "",
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      theme: item.theme || "",
+      description: item.description || item.weeklyOverview || "",
+      weeklyOverview: item.weeklyOverview || "",
+      materials: item.materials || "",
+      developmentalArea: item.developmentalArea || item.tags?.find((tag) => learningAreas.includes(tag)) || "Approaches to Learning",
+      activityFocus: item.activityFocus || item.tags?.[0] || "",
+      previewData: item.thumbnailUrl || "",
+      lessonPlanOverride: item,
+      customContent: buildLessonPlanTextFromOverride({
+        id: item.id,
+        title: item.title || "Untitled Lesson Plan",
+        category: "Lesson Plans",
+        month: item.month || "",
+        age: item.age || "Infant",
+        holiday: item.holiday || "",
+        theme: item.theme || "",
+        tags: Array.isArray(item.tags) ? item.tags : [],
+        developmentalArea: item.developmentalArea || "Approaches to Learning",
+        activityFocus: item.activityFocus || "",
+      }, item),
+    };
+    return {
+      ...lessonPlanDefaults(resource),
+      ...item,
+      id: item.id,
+      title: item.title || "Untitled Lesson Plan",
+      age: item.age || "Infant",
+      theme: item.theme || "",
+      plan: item.plan || "Free",
+      visible,
+      userVisible: visible,
+      archived,
+      featured,
+      isCustom: true,
+      hiddenReason: archived ? "Archived by admin" : (visible ? "" : "Hidden by admin"),
+      thumbnailUrl: item.thumbnailUrl || "",
+      resources: Array.isArray(item.resources) ? item.resources : [],
+      resource,
+    };
+  });
+  return [...customPlans, ...basePlans];
 }
 
 function loadResources() {
-  const saved = readSavedJson("llhUploadedResources", []);
+  const saved = uploadedResources();
   const starterWithoutOldGenerated = starterResources.filter((resource) => !["Observation Hub", "Lesson Plans"].includes(resource.category));
   const mergedLibrary = applyLessonPlanOverrides(libraryResources);
-  return applyObservationEdits([...starterWithoutOldGenerated, ...mergedLibrary, ...siteManagedActivityResources(), ...saved]);
+  const adminActivities = loadAdminManagedActivities();
+  const adminForms = loadAdminManagedForms();
+  const adminPrintables = loadAdminManagedPrintables();
+  const adminLessons = loadAdminManagedLessonPlans();
+  return applyObservationEdits([
+    ...starterWithoutOldGenerated,
+    ...mergedLibrary,
+    ...adminLessons,
+    ...adminActivities,
+    ...adminForms,
+    ...adminPrintables,
+    ...saved,
+  ]);
+}
+
+function loadAdminManagedActivities() {
+  const all = effectiveSiteContent().activities || [];
+  return all
+    .filter((item) => item.id && item.title)
+    .filter((item) => (item.visible === true && item.archived !== true) || hasAdminFullAccess())
+    .map((item) => ({
+      id: item.id,
+      category: "Activity Center",
+      title: item.title,
+      age: item.age || "All Ages",
+      plan: item.plan || "Free",
+      description: item.description || "",
+      theme: item.theme || item.activityCategory || "",
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      previewData: sanitizedImageSource(item.previewData || item.thumbnailUrl || ""),
+      fileData: item.fileData || item.printableUrl || "",
+      customContent: item.customContent || "",
+      downloadUrl: item.printableUrl || "",
+      format: item.format || (item.printableUrl ? "Printable PDF" : "Activity"),
+      visible: item.visible === true && item.archived !== true,
+      archived: item.archived === true,
+      updatedAt: item.updatedAt || "",
+      activityCategory: item.activityCategory || "General",
+      _adminManaged: true,
+    }));
+}
+
+function loadAdminManagedLessonPlans() {
+  const all = effectiveSiteContent().customLessonPlans || [];
+  return all
+    .filter((item) => item.id && item.title)
+    .filter((item) => ((item.visible === true) && item.archived !== true) || hasAdminFullAccess())
+    .map((item) => ({
+      id: item.id,
+      category: "Lesson Plans",
+      title: item.title,
+      age: item.age || "Infant",
+      plan: item.plan || "Free",
+      month: item.month || "",
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      format: "PDF + Editable",
+      description: item.description || item.weeklyOverview || "",
+      theme: item.theme || "",
+      developmentalArea: item.developmentalArea || item.tags?.find((tag) => learningAreas.includes(tag)) || "Approaches to Learning",
+      holiday: item.holiday || "",
+      activityFocus: item.activityFocus || "",
+      weeklyOverview: item.weeklyOverview || "",
+      materials: item.materials || "",
+      previewData: sanitizedImageSource(item.thumbnailUrl || ""),
+      visible: item.visible === true && item.archived !== true,
+      archived: item.archived === true,
+      lessonPlanOverride: item,
+      customContent: buildLessonPlanTextFromOverride({
+        id: item.id,
+        title: item.title,
+        category: "Lesson Plans",
+        month: item.month || "",
+        age: item.age || "Infant",
+        holiday: item.holiday || "",
+        theme: item.theme || "",
+        tags: Array.isArray(item.tags) ? item.tags : [],
+        developmentalArea: item.developmentalArea || "Approaches to Learning",
+        activityFocus: item.activityFocus || "",
+      }, item),
+      _adminManaged: true,
+    }));
+}
+
+function loadAdminManagedForms() {
+  const all = effectiveSiteContent().forms || [];
+  return all
+    .filter((item) => item.id && item.title)
+    .filter((item) => (item.visible === true && item.archived !== true) || hasAdminFullAccess())
+    .map((item) => ({
+      ...item,
+      category: "Forms Library",
+      age: item.age || "All Ages",
+      plan: item.plan || "Free",
+      format: item.format || "PDF + Editable",
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      visible: item.visible === true && item.archived !== true,
+      archived: item.archived === true,
+      _adminManaged: true,
+    }));
+}
+
+function loadAdminManagedPrintables() {
+  const all = effectiveSiteContent().printables || [];
+  return all
+    .filter((item) => item.id && item.title)
+    .filter((item) => (item.visible === true && item.archived !== true) || hasAdminFullAccess())
+    .map((item) => ({
+      ...item,
+      category: "Printables",
+      age: item.age || "All Ages",
+      plan: item.plan || "Free",
+      format: item.format || "Worksheet PDF",
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      visible: item.visible === true && item.archived !== true,
+      archived: item.archived === true,
+      _adminManaged: true,
+    }));
+}
+
+function customLessonPlanForId(id) {
+  return (effectiveSiteContent().customLessonPlans || []).find((item) => item.id === id) || null;
 }
 
 function observationEdits() {
@@ -3753,6 +4265,7 @@ function saveCurrentAccountState() {
 function setAuthMode(mode) {
   currentAuthMode = mode;
   const title = document.querySelector("#authTitle");
+  const nameFields = document.querySelector("#authNameFields");
   const phoneField = document.querySelector("#authPhoneField");
   const passwordField = document.querySelector("#passwordInput");
   const submitButton = document.querySelector("#authSubmitButton");
@@ -3760,8 +4273,13 @@ function setAuthMode(mode) {
   const switchButton = document.querySelector("#switchAuthModeButton");
   setFormMessage("#authMessage", "");
   if (!title || !phoneField || !passwordField || !submitButton || !forgotButton || !switchButton) return;
-  phoneField.classList.toggle("hidden-field", mode !== "signup");
-  phoneField.setAttribute("aria-hidden", mode !== "signup" ? "true" : "false");
+  const isSignup = mode === "signup";
+  if (nameFields) {
+    nameFields.classList.toggle("hidden-field", !isSignup);
+    nameFields.setAttribute("aria-hidden", isSignup ? "false" : "true");
+  }
+  phoneField.classList.toggle("hidden-field", !isSignup);
+  phoneField.setAttribute("aria-hidden", isSignup ? "false" : "true");
   passwordField.required = mode !== "forgot";
   passwordField.autocomplete = mode === "signup" ? "new-password" : "current-password";
   passwordField.closest("label")?.classList.toggle("hidden-field", mode === "forgot");
@@ -3783,10 +4301,13 @@ function setAuthMode(mode) {
   }
 }
 
-async function signUpWithProvider(email, password, phone) {
+async function signUpWithProvider(email, password, phone, firstName, lastName) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail) throw new Error("Please enter your email address.");
   if (String(password || "").length < 8) throw new Error("Please use a password with at least 8 characters.");
+  const cleanFirst = String(firstName || "").trim();
+  const cleanLast  = String(lastName || "").trim();
+  const fullName   = [cleanFirst, cleanLast].filter(Boolean).join(" ");
   if (firebaseAuthEnabled) {
     const client = await getFirebaseAuthClient();
     const credential = await client.createUserWithEmailAndPassword(client.auth, cleanEmail, password);
@@ -3797,6 +4318,9 @@ async function signUpWithProvider(email, password, phone) {
       emailVerified: credential.user.emailVerified,
       firebaseUid: credential.user.uid,
       phone: String(phone || "").trim(),
+      firstName: cleanFirst,
+      lastName: cleanLast,
+      name: fullName || undefined,
     });
     return { email: cleanEmail, verified: credential.user.emailVerified, message: "Account created. Please check your email to verify your address." };
   }
@@ -3805,6 +4329,9 @@ async function signUpWithProvider(email, password, phone) {
     authProvider: "Local demo authentication",
     emailVerified: false,
     phone: String(phone || "").trim(),
+    firstName: cleanFirst,
+    lastName: cleanLast,
+    name: fullName || undefined,
     passwordHash: await localPasswordHash(password),
   });
   return { email: cleanEmail, verified: false, message: "Demo account created. Connect Firebase Auth to send real verification emails." };
@@ -4001,6 +4528,47 @@ function installInstructionsMarkup() {
   `;
 }
 
+function renderChildQuickEntryUpgradePreviews() {
+  if (isProUser()) return "";
+  return `
+    <div class="quick-entry-preview-list" aria-label="Pro documentation previews">
+      <div class="quick-entry-preview-row">
+        <div>
+          <span class="tag access-tag">Included with Pro</span>
+          <strong>Parent Message</strong>
+          <p>Preview how one observation turns into a polished family update you can send in minutes.</p>
+        </div>
+        <div class="quick-entry-preview-actions">
+          <button class="ghost-button" data-preview="daily-log-parent-messages" type="button">Preview</button>
+          <button class="primary-button" data-pro-feature="parent-message" type="button">Upgrade to Pro</button>
+        </div>
+      </div>
+      <div class="quick-entry-preview-row">
+        <div>
+          <span class="tag access-tag">Included with Pro</span>
+          <strong>Daily Report</strong>
+          <p>Preview a family-ready daily report that bundles meals, routines, and learning highlights into one shareable update.</p>
+        </div>
+        <div class="quick-entry-preview-actions">
+          <button class="ghost-button" data-preview="daily-log-reports" type="button">Preview</button>
+          <button class="primary-button" data-pro-feature="daily-report" type="button">Upgrade to Pro</button>
+        </div>
+      </div>
+      <div class="quick-entry-preview-row">
+        <div>
+          <span class="tag access-tag">Included with Pro</span>
+          <strong>Portfolio Builder</strong>
+          <p>Preview how saved moments become shareable portfolio entries without extra paperwork at the end of the week.</p>
+        </div>
+        <div class="quick-entry-preview-actions">
+          <button class="ghost-button" data-preview="portfolio-builder" type="button">Preview</button>
+          <button class="primary-button" data-pro-feature="portfolio-builder" type="button">Upgrade to Pro</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function refreshInstallSurfaces() {
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "") || "";
   if (activeView === "home") renderHome();
@@ -4180,6 +4748,15 @@ function setView(view) {
   if (resolvedView === "admin") {
     localStorage.setItem("llhAdminLastView", "admin");
     renderAdminDashboard();
+    // Reload full admin site content (includes hidden lesson plans) whenever the
+    // admin area is entered so that edits to hidden plans are never missing after
+    // a page refresh.  Render twice: once immediately with whatever is in state,
+    // then again after the fresh data arrives.
+    if (isAdminUnlocked() && adminSession()?.token && canUseLaunchBackend()) {
+      loadAdminSiteContent()
+        .catch(() => {})
+        .then(() => renderAdminDashboard());
+    }
   }
   if (resolvedView !== "admin") localStorage.removeItem("llhAdminLastView");
   if (resolvedView === "account") renderAccountPage();
@@ -4283,14 +4860,53 @@ function aiResetLabel() {
   return nextMonth.toLocaleDateString();
 }
 
-function canUseAi() {
-  return aiUsageCount() < aiMonthlyLimit();
+function aiUsageRemaining() {
+  if (serverAiUsed !== null && serverAiLimit !== null) {
+    return Math.max(serverAiLimit - serverAiUsed, 0);
+  }
+  return Math.max(aiMonthlyLimit() - aiUsageCount(), 0);
 }
 
-function recordAiUse() {
-  localStorage.setItem(aiUsageKey(), String(aiUsageCount() + 1));
+function canUseAi() {
+  if (serverAiUsed !== null && serverAiLimit !== null) {
+    return serverAiUsed < serverAiLimit;
+  }
+  // Server values not yet loaded — allow the attempt; the server will enforce the hard limit.
+  return true;
+}
+
+// Call with (used, limit) from a server response to sync authoritative counts, or with no arguments
+// to locally estimate usage (e.g. for template-only helpers that don't return server counts).
+function recordAiUse(used, limit) {
+  if (typeof used === "number" && typeof limit === "number") {
+    serverAiUsed = used;
+    serverAiLimit = limit;
+  } else if (serverAiUsed !== null) {
+    serverAiUsed = serverAiUsed + 1;
+  }
   updatePlanLabel();
   renderAiUsagePanel();
+}
+
+// Fetch authoritative AI usage from the backend and update serverAiUsed / serverAiLimit.
+// Called on login and whenever accurate cross-device counts are needed.
+async function loadUserAiUsage(email) {
+  const cleanEmail = String(email || currentUser || "").trim().toLowerCase();
+  if (!cleanEmail || !userAiUsageConfig.endpoint || !canUseLaunchBackend()) return;
+  try {
+    const res = await fetch(`${userAiUsageConfig.endpoint}?email=${encodeURIComponent(cleanEmail)}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return;
+    const usage = data?.aiUsage;
+    if (usage && cleanEmail === currentUser) {
+      if (typeof usage.used === "number") serverAiUsed = usage.used;
+      if (typeof usage.limit === "number") serverAiLimit = usage.limit;
+      renderAiUsagePanel();
+      updatePlanLabel();
+    }
+  } catch (_) {
+    // Non-critical; display falls back to subscription-status values
+  }
 }
 
 function aiLimitMessage() {
@@ -4358,6 +4974,68 @@ function recentDailyLogValues(items = [], field, childId = "", limit = 6) {
     .map((item) => String(item?.[field] || "").trim())
     .filter(Boolean);
   return Array.from(new Set(values)).slice(0, limit);
+}
+
+function mealPresets() {
+  const saved = childStore("MealPresets", []);
+  if (!Array.isArray(saved)) return [];
+  return saved
+    .map((item) => ({
+      id: String(item?.id || ""),
+      name: String(item?.name || "").trim(),
+      breakfast: String(item?.breakfast || "").trim(),
+      lunch: String(item?.lunch || "").trim(),
+      snack: String(item?.snack || "").trim(),
+    }))
+    .filter((item) => item.id && item.name && (item.breakfast || item.lunch || item.snack))
+    .slice(0, 24);
+}
+
+function saveMealPreset(name, values = {}) {
+  const cleanName = String(name || "").trim();
+  const preset = {
+    id: `MealPreset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name: cleanName,
+    breakfast: String(values.breakfast || "").trim(),
+    lunch: String(values.lunch || "").trim(),
+    snack: String(values.snack || "").trim(),
+  };
+  if (!cleanName || (!preset.breakfast && !preset.lunch && !preset.snack)) return false;
+  const existing = mealPresets();
+  const next = existing.filter((item) => item.name.toLowerCase() !== cleanName.toLowerCase());
+  saveChildStore("MealPresets", [preset, ...next].slice(0, 24));
+  return true;
+}
+
+function deleteMealPreset(presetId = "") {
+  const next = mealPresets().filter((item) => item.id !== presetId);
+  saveChildStore("MealPresets", next);
+}
+
+function renderMealPresetControls(selectId, labelClass = "") {
+  const presets = mealPresets();
+  const labelOpen = labelClass ? `<label class="${labelClass}">` : "<label>";
+  return `
+    ${labelOpen}Select Preset<select id="${selectId}" data-meal-preset-select>
+      <option value="">Choose a saved meal</option>
+      ${presets.map((preset) => `<option value="${escapeHtml(preset.id)}">${escapeHtml(preset.name)}</option>`).join("")}
+    </select></label>
+    <div>
+      <button class="secondary-button" data-select-meal-preset type="button">Select Preset</button>
+      <button class="secondary-button" data-save-meal-preset type="button">Save Meal as Preset</button>
+      <button class="secondary-button" data-delete-meal-preset type="button">Delete Preset</button>
+    </div>
+  `;
+}
+
+function applyMealPresetToForm(form, presetId = "") {
+  const preset = mealPresets().find((item) => item.id === presetId);
+  if (!form || !preset) return false;
+  ["breakfast", "lunch", "snack"].forEach((field) => {
+    const input = form.querySelector(`[name="${field}"]`);
+    if (input) input.value = preset[field] || "";
+  });
+  return true;
 }
 
 function renderSuggestionDataList(id, values = []) {
@@ -4546,15 +5224,25 @@ function categoryResources(category) {
   if (searchedChild) return childLessonRecommendations(searchedChild, childRecords(), 12);
   return resources.filter((resource) => {
     if (!isResourceVisibleToCurrentUser(resource)) return false;
-    if (!isProUser() && !canAccess(resource)) return false;
+    if (!isProUser() && !canAccess(resource) && !supportsLockedResourcePreview(resource)) return false;
     const matchesCategory = resource.category === category;
-    const matchesFilter = activeFilter === "All" || resource.age === activeFilter || resource.tags.includes(activeFilter);
+    const lessonFilter = lessonPlanPublicFilters.includes(activeFilter) ? activeFilter : "All";
+    const normalizedAge = normalizeAgeGroup(resource.age) || resource.age;
+    const matchesFilter = category === "Lesson Plans"
+      ? lessonFilter === "All" || normalizedAge === lessonFilter
+      : activeFilter === "All" || resource.age === activeFilter || resource.tags.includes(activeFilter);
     const haystack = [
       resource.title,
       resource.category,
       resource.age,
       resource.plan,
       resource.description,
+      resource.theme,
+      resource.weeklyOverview,
+      resource.keywords,
+      resource.month,
+      resource.holiday,
+      resource.activityFocus,
       ...resource.tags,
     ].join(" ").toLowerCase();
     return matchesCategory && matchesFilter && haystack.includes(query);
@@ -4568,13 +5256,15 @@ function searchedResources() {
   if (searchedChild && query.includes("lesson")) return childLessonRecommendations(searchedChild, childRecords(), 12);
   return resources.filter((resource) => {
     if (!isResourceVisibleToCurrentUser(resource)) return false;
-    if (!isProUser() && !canAccess(resource)) return false;
+    if (!isProUser() && !canAccess(resource) && !supportsLockedResourcePreview(resource)) return false;
     const haystack = [
       resource.title,
       resource.category,
       resource.age,
       resource.plan,
       resource.description,
+      resource.theme,
+      resource.keywords,
       ...resource.tags,
     ].join(" ").toLowerCase();
     return haystack.includes(query);
@@ -4584,7 +5274,7 @@ function searchedResources() {
 function resourceCard(resource) {
   const locked = !canAccess(resource);
   const favorite = favorites.includes(resource.id);
-  const viewText = locked ? "Upgrade to Pro" : "View";
+  const viewText = locked ? "Preview" : "View";
   const favoriteText = !isProUser() ? "Pro Save" : favorite ? "Saved" : "Save";
   const accessText = locked ? "Pro" : isProUser() ? "Included" : "Free Sample";
   const lessonContext = resource._childRecommendation || null;
@@ -4619,10 +5309,7 @@ function resourceCard(resource) {
         ${resource.category === "Observation Hub" && !locked ? `<button class="ghost-button" data-edit-observation="${resource.id}" type="button">Edit</button>` : ""}
         ${resource.category === "Observation Hub" && !locked ? `<button class="ghost-button" data-add-observation-child="${resource.id}" type="button">Add to Child</button>` : ""}
         ${hasResourcePdf(resource) && !locked ? `<button class="ghost-button" data-download-pdf="${resource.id}" type="button">Download PDF</button>` : ""}
-        ${locked
-          ? `<button class="download-button" data-pro-feature="resource-limit" type="button">${viewText}</button>`
-          : `<button class="download-button" data-view-resource="${resource.id}" type="button">${viewText}</button>`
-        }
+        <button class="download-button" data-view-resource="${resource.id}" type="button">${viewText}</button>
       </div>
     </article>
   `;
@@ -6238,7 +6925,51 @@ function resourcePrintableHtml(resource) {
     }
     return `<section class="print-section">${printableLinesHtml(lines)}</section>`;
   }).join("");
-  return `<article class="printable-resource-page">${printableCartoonPreviewHtml(resource)}${content}${printableQualityCheckHtml(resource, text)}</article>`;
+  const resourcesHtml = lessonPlanAttachedResourcesHtml(resource);
+  return `<article class="printable-resource-page">${printableCartoonPreviewHtml(resource)}${content}${printableQualityCheckHtml(resource, text)}${resourcesHtml}</article>`;
+}
+
+function lessonPlanAttachedResourcesHtml(resource) {
+  if (resource.category !== "Lesson Plans") return "";
+  const override = resource.lessonPlanOverride || lessonPlanOverrideFor(resource.id) || null;
+  const attachedResources = Array.isArray(override?.resources) ? override.resources : [];
+  if (!attachedResources.length) return "";
+
+  // Group by category and sort within each group
+  const grouped = {};
+  attachedResources.forEach((r) => { (grouped[r.category] = grouped[r.category] || []).push(r); });
+  Object.values(grouped).forEach((arr) => arr.sort((a, b) => a.order - b.order));
+
+  const categorySections = Object.entries(grouped).map(([cat, items]) => {
+    const itemsHtml = items.map((r) => {
+      const isImage = r.mimeType && r.mimeType.startsWith("image/");
+      const isPdf = r.mimeType === "application/pdf";
+      const isExternal = r.url && r.url.startsWith("http");
+      return `
+        <div class="lp-resource-viewer-item">
+          ${isImage ? `<img class="lp-resource-viewer-img" src="${escapeHtml(r.url)}" alt="${escapeHtml(r.title)}" />` : ""}
+          <div class="lp-resource-viewer-meta">
+            <strong>${escapeHtml(r.title)}</strong>
+            ${isPdf || isExternal ? `<a class="ghost-button lp-resource-open-btn" href="${escapeHtml(r.url)}" target="_blank" rel="noopener noreferrer">${isPdf ? "Open PDF" : "Open Resource"}</a>` : ""}
+          </div>
+        </div>
+      `;
+    }).join("");
+    return `
+      <details class="lp-resource-category-viewer" open>
+        <summary><strong>${escapeHtml(cat)}</strong> <span class="lp-resource-count">(${items.length})</span></summary>
+        <div class="lp-resource-viewer-grid">${itemsHtml}</div>
+      </details>
+    `;
+  }).join("");
+
+  return `
+    <section class="print-section lp-resources-section no-print-break">
+      <h3>Printables &amp; Resources</h3>
+      <p>Expand a category to view, print, or open attached resources for this lesson plan.</p>
+      ${categorySections}
+    </section>
+  `;
 }
 
 function decodedTextFileData(resource) {
@@ -8679,6 +9410,76 @@ function lessonViewerShellHtml(resource) {
   `;
 }
 
+function supportsLockedResourcePreview(resource) {
+  return ["Lesson Plans", "Activity Center", "Forms Library", "Printables"].includes(resource?.category);
+}
+
+function lockedResourcePreviewBenefits(resource) {
+  if (!resource) return [];
+  if (resource.category === "Lesson Plans") {
+    return [
+      `Supports ${displayDevelopmentArea(resource.developmentalArea || resource.tags?.find((tag) => normalizeObservationArea(tag)) || "play-based learning")} with a ready-made weekly plan.`,
+      `Saves prep time with materials, objectives, and guided activities matched to ${String(resource.age || "your classroom").toLowerCase()}.`,
+    ];
+  }
+  if (resource.category === "Activity Center") {
+    const activityType = resource.tags?.find((tag) => activityTypes.includes(tag)) || "hands-on";
+    return [
+      `Builds engagement through ${activityType.toLowerCase()} practice.`,
+      `Gives providers quick materials, instructions, and learning goals for ${String(resource.age || "young").toLowerCase()} learners.`,
+    ];
+  }
+  if (resource.category === "Forms Library") {
+    const formGroup = resource.tags?.[0] || "childcare";
+    return [
+      `Keeps ${formGroup.toLowerCase()} paperwork organized and family-ready.`,
+      "Helps providers customize polished forms for daily operations, records, and parent communication.",
+    ];
+  }
+  if (resource.category === "Printables") {
+    const type = printableType(resource);
+    return [
+      `Reinforces ${type.toLowerCase()} practice with a print-ready activity.`,
+      `Supports independent skill-building, fine motor practice, and quick table-time prep for ${String(resource.age || "young").toLowerCase()} learners.`,
+    ];
+  }
+  return [resource.description || "Unlock the full resource with Pro."];
+}
+
+function openLockedResourcePreview(resource, triggerEl = null) {
+  if (!resource || !supportsLockedResourcePreview(resource) || !featurePreviewModal || !featurePreviewTitle || !featurePreviewEyebrow || !featurePreviewBody) {
+    showProFeatureModal(freeResourceLimitMessage, "limit");
+    return;
+  }
+  const benefits = lockedResourcePreviewBenefits(resource)
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join("");
+  featurePreviewTrigger = triggerEl || document.activeElement || null;
+  featurePreviewEyebrow.textContent = "Pro Resource Preview";
+  featurePreviewTitle.textContent = resource.title;
+  featurePreviewBody.innerHTML = `
+    <section class="section-block" style="margin:0;">
+      <p>${escapeHtml(resource.description || "Unlock the full resource with Pro.")}</p>
+      <div class="fp-field"><label>Age Group</label><div class="fp-field-value">${escapeHtml(normalizeAgeGroup(resource.age) || resource.age || "All Ages")}</div></div>
+      <div class="fp-field"><label>Category</label><div class="fp-field-value">${escapeHtml(resource.category)}</div></div>
+      <div class="fp-field">
+        <label>What this helps with</label>
+        <div class="fp-field-value"><ul class="md-ul">${benefits}</ul></div>
+      </div>
+      <div class="pro-modal-actions" style="margin-top:20px;justify-content:flex-start;">
+        <button class="primary-button" data-start-pro-trial type="button">Start Your 7-Day Free Pro Trial</button>
+      </div>
+      <p><small>${escapeHtml(proTrialUpgradeSummary)}</small></p>
+    </section>
+  `;
+  featurePreviewModal.classList.add("open");
+  featurePreviewModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("auth-modal-open");
+  featurePreviewTitle.focus();
+}
+
 function openResourceViewer(resourceId) {
   const resource = resources.find((item) => item.id === resourceId);
   if (!resource) return;
@@ -8687,7 +9488,7 @@ function openResourceViewer(resourceId) {
     return;
   }
   if (!canAccess(resource)) {
-    showProFeatureModal(freeResourceLimitMessage, "limit");
+    openLockedResourcePreview(resource);
     return;
   }
   ensureResourceViewer();
@@ -8774,43 +9575,52 @@ function openResourceViewer(resourceId) {
 function renderCategoryPage(view) {
   const category = viewMap[view];
   const section = document.querySelector(`#view-${view}`);
+  const isLessonPlanCategory = category === "Lesson Plans";
 
   if (category === "Printables" && isPrintablesUpgradeModeActive()) {
     section.innerHTML = renderPrintablesComingSoon();
     return;
   }
 
-  const searchedChild = category === "Lesson Plans" ? childFromSearchQuery(searchInput.value.trim(), childRecords()) : null;
+  const searchedChild = !isLessonPlanCategory ? childFromSearchQuery(searchInput.value.trim(), childRecords()) : null;
   const items = categoryResources(category);
   const allCategoryItems = resources.filter((resource) => resource.category === category);
-  const accessCounts = categoryAccessCounts(category);
+  const accessCounts = isLessonPlanCategory ? null : categoryAccessCounts(category);
   const filters = categoryFilters(category);
+  if (isLessonPlanCategory && !filters.includes(activeFilter)) activeFilter = "All";
   const displayTitle = view === "lessons" ? "Lesson Plan Library" : category;
   section.innerHTML = `
+    <button class="ghost-button back-button" data-view="home" type="button">← Back to Home</button>
     <div class="page-title">
       <p class="eyebrow">${displayTitle}</p>
       <h2>${displayTitle}</h2>
       <p>${categoryIntro(category)}</p>
     </div>
-    <div class="library-stats">
+    ${isLessonPlanCategory ? "" : `<div class="library-stats">
       <div><strong>${accessCounts.total}</strong><span>ready-made resources</span></div>
       <div><strong>${accessCounts.freeLimit}</strong><span>Free access</span></div>
       <div><strong>${accessCounts.proOnly}</strong><span>Pro unlocks</span></div>
-    </div>
-    <div class="access-notice ${isProUser() ? "pro" : ""}">
+    </div>`}
+    ${isLessonPlanCategory ? "" : `<div class="access-notice ${isProUser() ? "pro" : ""}">
       ${isProUser()
-        ? `Pro is active: full in-app library access, saved favorites, viewed resources, and ${Math.max(paidAiMonthlyLimit - aiUsageCount(), 0)} document creations left this month.`
+        ? `Pro is active: full in-app library access, saved favorites, viewed resources, and ${aiUsageRemaining()} document creations left this month.`
         : `Free plan: ${accessCounts.freeLimit} ${displayTitle.toLowerCase()} resources are unlocked here. Upgrade to Pro for all ${accessCounts.total}.`}
-    </div>
+    </div>`}
     ${searchedChild ? renderChildLessonSearchContext(searchedChild) : ""}
     ${category === "Printables" ? renderPrintablesRefreshNotice() : ""}
-    ${category === "Lesson Plans" ? renderInfantLegacyNotice() : ""}
+    ${category === "Lesson Plans" ? `
+      ${renderLessonPlanLibraryNotice()}
+      <div class="lesson-plan-search-bar">
+        <label class="lesson-plan-search-label" for="lessonPlanSearch">Search lesson plans</label>
+        <input id="lessonPlanSearch" type="search" placeholder="Search by title, theme, age group, or keyword" value="${escapeHtml(searchInput.value)}" autocomplete="off" />
+      </div>
+    ` : ""}
     <div class="filter-row">
       ${filters.map((filter) => `<button class="${activeFilter === filter ? "active-filter" : ""}" data-filter="${filter}">${filter}</button>`).join("")}
     </div>
     ${category === "Observation Hub" ? renderObservationEditor() : ""}
     <div class="resource-grid">
-      ${items.length ? items.map(resourceCard).join("") : `<div class="empty-state">No resources found. Try another search or filter.</div>`}
+      ${items.length ? items.map(resourceCard).join("") : `<div class="empty-state">${isLessonPlanCategory ? "No lesson plans found. Try another search or filter." : "No resources found. Try another search or filter."}</div>`}
     </div>
   `;
 }
@@ -8841,13 +9651,17 @@ function renderPrintablesRefreshNotice() {
   `;
 }
 
-function renderInfantLegacyNotice() {
-  if (!isInfantLegacyUpgradeModeActive()) return "";
+function renderLessonPlanLibraryNotice() {
   return `
-    <div class="access-notice infant-legacy-notice">
-      <strong>Infant lesson plans are being upgraded.</strong>
-      We're upgrading our infant lesson plans to a stronger framework. Some older plans are temporarily hidden while they are being improved.
-    </div>
+    <section class="access-notice lesson-library-notice" role="status" aria-live="polite">
+      <div class="lesson-update-notice-copy">
+        <h3>Lesson Plan Library Updates</h3>
+        <p>We are currently reviewing and updating our lesson plans to improve quality, add additional resources, and enhance the overall experience. Thank you for your patience while improvements are being made.</p>
+      </div>
+      <div class="lesson-library-notice-actions">
+        <button class="primary-button lesson-helper-reminder-btn" data-view="ai" data-quick-doc-type="lesson" type="button">Open Document Helper</button>
+      </div>
+    </section>
   `;
 }
 
@@ -8895,10 +9709,12 @@ function renderObservationEditor() {
   `;
 }
 
+const lessonPlanPublicFilters = Object.freeze(["All", "Infant", "Toddler", "Preschool"]);
+
 function categoryFilters(category) {
   const shared = ["All", "Infant", "Toddler", "Preschool", "All Ages"];
   const map = {
-    "Lesson Plans": [...shared, ...learningAreas, ...months, "Holiday", "Non-Holiday", ...lessonThemes.slice(0, 30)],
+    "Lesson Plans": lessonPlanPublicFilters,
     "Observation Hub": [...shared, ...learningAreas],
     "Forms Library": ["All", "All Ages", ...Object.keys(formGroups), "Editable", "PDF"],
     "Menu Center": ["All", "All Ages", "Infant", "Toddler", "Preschool", "52 Weeks of Menus", "Breakfast", "Lunch", "Snack", "Shopping List"],
@@ -8910,7 +9726,7 @@ function categoryFilters(category) {
 
 function categoryIntro(category) {
   const copy = {
-    "Lesson Plans": "Choose infant, toddler, preschool, holiday, and seasonal lesson plans with materials, activities, books, goals, and printable options.",
+    "Lesson Plans": "Search and browse lesson plans by age group or keyword.",
     "Observation Hub": "Search infant, toddler, and preschool observation wording by developmental area, what to look for, standards, and next steps.",
     "Forms Library": "View editable childcare paperwork like parent handbooks, enrollment forms, emergency contacts, reports, trackers, and receipts inside Little Learner Hub.",
     "Activity Center": "Find a large bank of activities by age, theme, skill, and materials with quick steps and learning goals.",
@@ -8952,12 +9768,37 @@ function renderManagedHomeContent() {
   setText(".lp-social-proof p", homepage.socialProofText);
   setText(".lp-final-cta h2", homepage.finalCtaHeadline);
   setText(".lp-final-cta .lp-cta-body", homepage.finalCtaText);
+  setText(".lp-final-cta .lp-cta-subtext", homepage.finalCtaSubtext);
   const heroPrimary = document.querySelector(".lp-hero-actions .lp-btn-primary");
   if (heroPrimary && homepage.heroCtaText) heroPrimary.textContent = homepage.heroCtaText;
   const heroSecondary = document.querySelector(".lp-hero-actions .lp-btn-secondary");
   if (heroSecondary && homepage.heroSecondaryCtaText) heroSecondary.textContent = homepage.heroSecondaryCtaText;
   const finalButton = document.querySelector(".lp-final-cta .lp-btn-primary");
   if (finalButton && homepage.finalCtaButtonText) finalButton.textContent = homepage.finalCtaButtonText;
+
+  if (homepage.heroBenefits?.length) {
+    const heroBenefitsList = document.querySelector(".lp-hero-benefits");
+    if (heroBenefitsList) {
+      heroBenefitsList.innerHTML = homepage.heroBenefits.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+    }
+  }
+
+  setText(".lp-hero-testimonials .lp-section-title", homepage.trustSectionHeading);
+  setText("#homePlatformPreview .lp-section-title", homepage.showcaseSectionHeading);
+  setText("#homePlatformPreview .lp-section-sub", homepage.showcaseSectionSubtitle);
+  setText(".lp-home-journey .lp-section-title", homepage.journeySectionHeading);
+  setText(".lp-home-journey .lp-section-sub", homepage.journeySectionSubtitle);
+  setText(".lp-journey-card[aria-label='How it works'] h3", homepage.journeyHowItWorksHeading);
+  setText(".lp-journey-card[aria-label='Coming soon features'] h3", homepage.journeyComingSoonHeading);
+  setText(".lp-why-section .lp-section-title", homepage.whySectionHeading);
+  setText(".lp-reviews-section .lp-section-title", homepage.reviewsSectionHeading);
+
+  if (homepage.whyItems?.length) {
+    const whyTitles = document.querySelectorAll(".lp-why-item strong");
+    homepage.whyItems.forEach((item, index) => {
+      if (whyTitles[index] && item.title) whyTitles[index].textContent = item.title;
+    });
+  }
 
   document.querySelectorAll(".lp-proof-card").forEach((card, index) => {
     const item = homepage.featureCards?.[index];
@@ -9043,6 +9884,86 @@ function renderManagedHomeContent() {
         founderFallback.innerHTML = `<span aria-hidden="true">${escapeHtml(initialsFromName(founder.name || founder.title || "LL"))}</span>`;
       }
     }
+  }
+}
+
+function renderManagedPricingText() {
+  const content = effectiveSiteContent();
+  const pricing = content.pricing || {};
+  if (pricing._draft) return;
+  const setText = (selector, value) => {
+    const node = document.querySelector(selector);
+    if (node && value) node.textContent = value;
+  };
+  setText(".lp-pricing-section .lp-section-title", pricing.sectionTitle);
+  setText(".lp-pricing-section .lp-section-sub", pricing.sectionSubtitle);
+  setText(".lp-free-card h3", pricing.freePlanName);
+  setText(".lp-pro-card h3", pricing.proPlanName);
+  setText(".lp-pro-highlight-badge", pricing.proPlanHighlightBadge);
+  const trialBtn = document.querySelector(".lp-pro-card [data-action='upgrade-trial']");
+  if (trialBtn && pricing.trialButtonText) trialBtn.textContent = pricing.trialButtonText;
+  setText(".lp-price-note", pricing.trialNoteText);
+
+  const freePriceStrong = document.querySelector(".lp-free-card .lp-price-amount strong");
+  if (freePriceStrong && pricing.freePlanPrice) freePriceStrong.textContent = pricing.freePlanPrice;
+  const freePriceSpan = document.querySelector(".lp-free-card .lp-price-amount span");
+  if (freePriceSpan && pricing.freePlanPriceInterval) freePriceSpan.textContent = pricing.freePlanPriceInterval;
+  const freeCtaBtn = document.querySelector(".lp-free-card [data-plan='Free']");
+  if (freeCtaBtn && pricing.freePlanCtaText) freeCtaBtn.textContent = pricing.freePlanCtaText;
+
+  const proPriceStrong = document.querySelector(".lp-pro-card .lp-price-amount strong");
+  if (proPriceStrong && pricing.proPlanPrice) proPriceStrong.textContent = pricing.proPlanPrice;
+  const proPriceSpan = document.querySelector(".lp-pro-card .lp-price-amount span");
+  if (proPriceSpan && pricing.proPlanPriceInterval) proPriceSpan.textContent = pricing.proPlanPriceInterval;
+
+  if (pricing.freePlanFeatures?.length) {
+    const freeList = document.querySelector(".lp-free-card .lp-price-features");
+    if (freeList) freeList.innerHTML = pricing.freePlanFeatures.map((f) => `<li>${escapeHtml(f)}</li>`).join("");
+  }
+  if (pricing.proPlanFeatures?.length) {
+    const proList = document.querySelector(".lp-pro-card .lp-price-features");
+    if (proList) proList.innerHTML = pricing.proPlanFeatures.map((f) => `<li>${escapeHtml(f)}</li>`).join("");
+  }
+}
+
+function renderManagedFaqContent() {
+  const target = document.querySelector("#faqList");
+  if (!target) return;
+  const content = effectiveSiteContent();
+  const faqs = (content.faqs || [])
+    .filter((f) => f.visible !== false)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+  if (!faqs.length) {
+    // Fall back to static default content if no dynamic FAQs are saved
+    const defaultFaqs = document.querySelectorAll("#defaultFaqList .faq-item");
+    if (defaultFaqs.length) {
+      target.innerHTML = Array.from(defaultFaqs).map((el) => el.outerHTML).join("");
+    }
+    return;
+  }
+  target.innerHTML = faqs.map((f) => `
+    <article class="faq-item">
+      <h3>${escapeHtml(f.question)}</h3>
+      <p>${escapeHtml(f.answer)}</p>
+    </article>
+  `).join("");
+}
+
+function renderManagedAnnouncementBanner() {
+  const banner = document.querySelector("#siteAnnouncementBanner");
+  const textEl = document.querySelector("#siteAnnouncementText");
+  if (!banner || !textEl) return;
+  const content = effectiveSiteContent();
+  const ann = content.announcement || {};
+  const dismissed = sessionStorage.getItem("llhAnnouncementDismissed") === ann.text;
+  const isExpired = ann.expiresAt && new Date(ann.expiresAt) < new Date();
+  const shouldShow = ann.visible === true && !ann._draft && !dismissed && !isExpired && ann.text;
+  if (shouldShow) {
+    textEl.textContent = ann.text;
+    banner.hidden = false;
+  } else {
+    banner.hidden = true;
+    textEl.textContent = "";
   }
 }
 
@@ -9141,6 +10062,22 @@ function renderUserDashboard() {
   const childById = Object.fromEntries((records.children || []).map((c) => [c.id, c]));
   const recentActivity = dashboardRecentActivity(records, childById);
   const reminders = dashboardReminderMarkup(records, stats);
+  const dashboardTeasers = !isProUser() ? `
+    <section class="section-block dashboard-teasers">
+      <div class="dashboard-panel-heading">
+        <div>
+          <p class="eyebrow">Pro previews</p>
+          <h3>Spend less time on paperwork</h3>
+        </div>
+      </div>
+      <p class="dashboard-teaser-copy">Preview the parent-facing tools that save time once your free observation note is saved.</p>
+      <div class="dashboard-teaser-grid">
+        ${lockedFeatureCard("Parent Message Generator", "Turn one quick note into a family-ready update without rewriting it later.", "daily-log-parent-messages")}
+        ${lockedFeatureCard("Daily Report Generator", "Bundle attendance, meals, and classroom highlights into one polished report.", "daily-log-reports")}
+        ${lockedFeatureCard("Portfolio Builder", "Collect observations, photos, and progress notes into shareable portfolio updates.", "portfolio-builder")}
+      </div>
+    </section>
+  ` : "";
 
   homeSection.innerHTML = `
     <div class="user-dashboard">
@@ -9170,6 +10107,8 @@ function renderUserDashboard() {
           <button class="ghost-button" data-view="ai" data-quick-doc-type="activity-idea" type="button">🎨 Activity Update</button>
         </div>
       </section>
+
+      ${dashboardTeasers}
 
       <div class="dashboard-grid">
         <section class="section-block dashboard-today">
@@ -9296,6 +10235,9 @@ function renderHome() {
     if (homeSection) homeSection.innerHTML = homeViewTemplate;
   }
   renderManagedHomeContent();
+  renderManagedPricingText();
+  renderManagedFaqContent();
+  renderManagedAnnouncementBanner();
   const stats = {
     total: resources.length,
     lessons: resources.filter((resource) => resource.category === "Lesson Plans").length,
@@ -9414,6 +10356,7 @@ function plannerSuggestions(planner) {
   const query = [planner.theme, planner.ageGroup, planner.focus].join(" ").toLowerCase();
   return resources
     .filter((resource) => ["Lesson Plans", "Activity Center", "Menu Center", "Printables"].includes(resource.category))
+    .filter((resource) => isResourceVisibleToCurrentUser(resource))
     .filter((resource) => canAccess(resource))
     .map((resource) => {
       const haystack = [resource.title, resource.age, resource.description, ...resource.tags].join(" ").toLowerCase();
@@ -9590,9 +10533,9 @@ function renderAiPage() {
 function renderAiUsagePanel() {
   const target = document.querySelector("#aiUsagePanel");
   if (!target) return;
-  const used = aiUsageCount();
-  const limit = aiMonthlyLimit();
-  const remaining = aiUsageRemaining();
+  const used = serverAiUsed !== null ? serverAiUsed : aiUsageCount();
+  const limit = serverAiLimit !== null ? serverAiLimit : aiMonthlyLimit();
+  const remaining = Math.max(limit - used, 0);
   target.innerHTML = `
     <div class="ai-usage-panel">
       <div>
@@ -9878,7 +10821,7 @@ async function runLessonPlanWorkflowGeneration(extraInstruction = "") {
     const refreshedTitle = document.querySelector("#outputTitle");
     if (refreshedTitle) refreshedTitle.textContent = "Lesson Plan";
     renderAiDebugPanel("#generatorDebugPanel", result.debug, result.output);
-    recordAiUse();
+    recordAiUse(result.used, result.limit);
     renderAiUsagePanel();
     trackEvent("ai_generation_success", { tool: "lesson", plan: currentPlan, backendUsed: Boolean(result.backendUsed), used: result.used, limit: result.limit });
   } catch (error) {
@@ -10663,17 +11606,36 @@ function suggestedActivitiesForArea(area, child = null) {
 }
 
 function suggestedLessonPlansForArea(area) {
-  const map = {
-    "Social Emotional": ["Friendship and Feelings Week", "Turn-Taking Practice Activities", "Calm Bodies and Kind Words"],
-    "Language & Literacy": ["Storytelling and Vocabulary Week", "Letter and Sound Awareness", "Book Basket Conversation Plans"],
-    "Cognitive Development": ["Math Skills Week 1", "Number Recognition Activities", "Sorting and Matching Week"],
-    "Fine Motor": ["Fine Motor Development", "Cutting Practice Activities", "Hand Strength Activities"],
-    "Gross Motor": ["Movement and Balance Week", "Outdoor Gross Motor Games", "Body Control Activities"],
-    "Physical Development": ["Healthy Routines Week", "Self-Help Skills Practice", "Safety and Body Awareness"],
-    "Creative Arts": ["Creative Expression Week", "Music and Movement Activities", "Process Art Exploration"],
-    "Approaches to Learning": ["Curiosity and Problem Solving", "Persistence Practice Activities", "Explore, Try, Reflect Week"],
-  };
-  return map[area] || map["Approaches to Learning"];
+  const normalizedArea = normalizeObservationArea(area) || area || "Approaches to Learning";
+  const keywords = Array.from(new Set([
+    normalizedArea,
+    displayDevelopmentArea(normalizedArea),
+    ...recommendationKeywordsForArea(normalizedArea),
+  ].map((item) => String(item || "").toLowerCase()).filter((item) => item.length > 2)));
+  const matches = resources
+    .filter((resource) => resource.category === "Lesson Plans")
+    .filter((resource) => isResourceVisibleToCurrentUser(resource))
+    .map((resource) => {
+      const primaryText = [
+        resource.developmentalArea,
+        resource.title,
+        resource.theme,
+      ].join(" ").toLowerCase();
+      const secondaryText = [
+        resource.description,
+        resource.weeklyOverview,
+        resource.month,
+        resource.holiday,
+        ...(resource.tags || []),
+      ].join(" ").toLowerCase();
+      let score = 0;
+      if (keywords.some((keyword) => primaryText.includes(keyword))) score += 3;
+      if (keywords.some((keyword) => secondaryText.includes(keyword))) score += 1;
+      return { resource, score };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score || a.resource.title.localeCompare(b.resource.title));
+  return Array.from(new Set(matches.map((item) => item.resource.title)));
 }
 
 function supportCenterCategories() {
@@ -11487,6 +12449,7 @@ function childLessonRecommendations(child = {}, records = childRecords(), limit 
   const primarySupport = context.supportAreas[0] || "";
   const scored = resources
     .filter((resource) => resource.category === "Lesson Plans")
+    .filter((resource) => isResourceVisibleToCurrentUser(resource))
     .filter((resource) => !isInfantChild(child) || !resourceUnsafeForInfant(resource))
     .map((resource) => {
       const ageTier = resourceAgeTier(resource, child.ageGroup);
@@ -11627,7 +12590,7 @@ function renderPortfolioResourceCard(resource) {
       <span class="tag">${escapeHtml(resource.category)}</span>
       <strong>${escapeHtml(resource.title)}</strong>
       <p>${escapeHtml(resource.description || "Ready-to-use Little Learner Hub resource.")}</p>
-      <button class="ghost-button" ${locked ? `data-pro-feature="resource-limit"` : `data-view-resource="${resource.id}"`} type="button">${locked ? "Upgrade" : "Open"}</button>
+      <button class="ghost-button" data-view-resource="${resource.id}" type="button">${locked ? "Preview" : "Open"}</button>
     </article>
   `;
 }
@@ -12768,12 +13731,13 @@ function renderChildAiQuickEntry(child) {
       ></textarea>
       <div class="quick-entry-buttons" role="group" aria-label="Generate documentation">
         <button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="observation" type="button">Generate Observation</button>
-        <button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="parent-message" type="button">Generate Parent Message</button>
-        <button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="daily-report" type="button">Generate Daily Report</button>
+        ${isProUser() ? `<button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="parent-message" type="button">Generate Parent Message</button>` : ""}
+        ${isProUser() ? `<button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="daily-report" type="button">Generate Daily Report</button>` : ""}
         <button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="activities" type="button">Suggest Activities</button>
         <button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="goal-update" type="button">Update Goals</button>
-        <button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="portfolio" type="button">Portfolio Entry</button>
+        ${isProUser() ? `<button class="ghost-button quick-entry-btn" data-child-quick-entry="${child.id}" data-quick-action="portfolio" type="button">Portfolio Entry</button>` : ""}
       </div>
+      ${renderChildQuickEntryUpgradePreviews()}
       <div id="childQuickEntryOutput-${domSafeId(child.id)}" class="quick-entry-output" aria-live="polite"></div>
     </section>
   `;
@@ -13133,6 +14097,7 @@ function renderChildToolsPage(records) {
   if (!child) {
     return `
       <section class="simple-child-page">
+        <button class="ghost-button back-button" data-child-view="list" type="button">← Back to Children</button>
         <div class="child-page-header">
           <div>
             <h2>${escapeHtml(activeTool[1])}</h2>
@@ -13149,12 +14114,12 @@ function renderChildToolsPage(records) {
   }
   return `
     <section class="simple-child-page child-tools-page">
+      <button class="ghost-button back-button" data-view-child-profile="${child.id}" type="button">← Back to ${escapeHtml(child.name)}</button>
       <div class="child-page-header">
         <div>
           <h2>${escapeHtml(activeTool[1])}</h2>
           <p>Select a child, then manage only ${escapeHtml(activeTool[1].toLowerCase())}.</p>
         </div>
-        <button class="ghost-button" data-view-child-profile="${child.id}" type="button">Back to ${escapeHtml(child.name)}</button>
       </div>
       <div class="child-tools-layout">
         <aside class="section-block child-tools-side">
@@ -13311,10 +14276,62 @@ function renderDlcDashboard(records) {
   const dateLabel = new Date(`${today}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
   const activeChildren = getActiveChildren(records);
   const hiddenChildren = getHiddenChildren(records);
+  const nextChildForUpdates = activeChildren.find((child) => getDailyLogStatus(child, records, today) !== "complete") || activeChildren[0] || null;
+  const nextChildForReports = activeChildren.find((child) => dailyLogCompletionState(child, records, today).percent > 0) || nextChildForUpdates;
   const completionValues = activeChildren.map((child) => dailyLogCompletionState(child, records, today).percent);
   const classroomCompletion = completionValues.length
     ? Math.round(completionValues.reduce((sum, value) => sum + value, 0) / completionValues.length)
     : 0;
+  const workflowSteps = [
+    {
+      number: 1,
+      title: "Classroom Meals",
+      detail: "Use the classroom meal flow first to capture breakfast, lunch, and snack updates for multiple children.",
+      actionHtml: `<button class="primary-button" data-dlc-dashboard-flow="meals" type="button">Open Classroom Meals</button>`,
+    },
+    {
+      number: 2,
+      title: "Classroom Activities",
+      detail: "Log shared activities next so the room's learning highlights are recorded in one place.",
+      actionHtml: `<button class="ghost-button" data-dlc-dashboard-flow="activities" type="button">Open Classroom Activities</button>`,
+    },
+    {
+      number: 3,
+      title: "Classroom Notes",
+      detail: "Capture classroom-wide notes and quick documentation before moving into child-specific follow-up.",
+      actionHtml: `<button class="ghost-button" data-daily-logs-section="quick" type="button">Open Classroom Notes</button>`,
+    },
+    {
+      number: 4,
+      title: "Quick Child Updates",
+      detail: activeChildren.length
+        ? `Finish individual updates for ${escapeHtml(nextChildForUpdates.name)} and the rest of the class below.`
+        : "Add a child profile to open individual daily log workspaces.",
+      actionHtml: nextChildForUpdates
+        ? `<button class="ghost-button" data-dlc-open-child="${nextChildForUpdates.id}" data-dlc-quick-tab="overview" type="button">Open Next Child</button>`
+        : `<button class="ghost-button" data-child-view="add" type="button">Add Child Profile</button>`,
+    },
+    {
+      number: 5,
+      title: "Generate Daily Reports",
+      detail: nextChildForReports
+        ? `Generate reports one child at a time for now, starting with ${escapeHtml(nextChildForReports.name)}.`
+        : "Daily reports stay inside each child's workspace. Batch report generation is not part of this step.",
+      actionHtml: nextChildForReports
+        ? `<button class="ghost-button" data-dlc-open-child="${nextChildForReports.id}" data-dlc-quick-tab="daily-report" type="button">Open Daily Report</button>`
+        : `<span class="dlc-workflow-pill">Per-child reports only</span>`,
+    },
+    {
+      number: 6,
+      title: "Print All Reports",
+      detail: activeChildren.length
+        ? `Print daily log reports for all ${activeChildren.length} active ${activeChildren.length === 1 ? "child" : "children"} for ${escapeHtml(dateLabel)} in one document.`
+        : "Add active children to enable batch printing.",
+      actionHtml: activeChildren.length
+        ? `<button class="primary-button" data-dlc-print-all type="button">Print All Reports</button>`
+        : `<span class="dlc-workflow-pill">No active children</span>`,
+    },
+  ];
 
   return `
     <div class="dlc-dashboard">
@@ -13348,6 +14365,29 @@ function renderDlcDashboard(records) {
         ${dailyLogProgressBar(classroomCompletion)}
       </section>
 
+      <section class="section-block dlc-workflow-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Primary Workspace</p>
+            <h4>Follow today's Daily Logs workflow in order</h4>
+            <p class="muted-copy">Use this workspace for classroom-first updates, then finish child-specific logs, reports, and printing steps in sequence.</p>
+          </div>
+        </div>
+        <div class="dlc-workflow-list">
+          ${workflowSteps.map((step) => `
+            <article class="dlc-workflow-card${step.future ? " dlc-workflow-card-future" : ""}">
+              <div class="dlc-workflow-card-top">
+                <span class="dlc-workflow-step-number">Step ${step.number}</span>
+                ${step.future ? `<span class="dlc-workflow-step-tag">Later Phase</span>` : ""}
+              </div>
+              <strong class="dlc-workflow-title">${step.title}</strong>
+              <p class="dlc-sub">${step.detail}</p>
+              <div class="dlc-workflow-action">${step.actionHtml}</div>
+            </article>
+          `).join("")}
+        </div>
+      </section>
+
       <div class="dlc-quick-doc-box section-block">
         <div class="dlc-quick-doc-header">
           <strong class="dlc-quick-doc-title">What happened today?</strong>
@@ -13377,13 +14417,11 @@ function renderDlcDashboard(records) {
         </div>
         <div id="dlcDashboardNoteOutput" class="dlc-dash-output" style="display:none;"></div>
       </div>
-
       <div class="dlc-dashboard-actions-row">
-        <strong class="dlc-section-title">Update Today's Logs</strong>
+        <strong class="dlc-section-title">Other Daily Logs Tools</strong>
         <div class="dlc-dashboard-action-btns">
           <button class="ghost-button" ${isProUser() ? `data-daily-logs-section="group"` : `data-preview="daily-log-group-updates" data-pro-feature="daily-log-group-updates"`} type="button">📋 Group Update ${!isProUser() ? `<span class="mini-pro-label">Pro</span>` : ""}</button>
           <button class="ghost-button" data-dlc-child-sel="multiple" data-dlc-from-dashboard type="button">👥 Select Children</button>
-          <button class="ghost-button" data-daily-logs-section="quick" type="button">⭐ Quick Documentation</button>
         </div>
       </div>
 
@@ -13736,6 +14774,7 @@ function renderDlcAccordionForm(sectionId, records) {
         <label class="dlc-form-label">Breakfast<input name="breakfast" list="dlcMealSuggestions" placeholder="Ate most / refused / not served" /></label>
         <label class="dlc-form-label">Lunch<input name="lunch" list="dlcMealSuggestions" placeholder="Ate all lunch" /></label>
         <label class="dlc-form-label">Snack<input name="snack" list="dlcMealSuggestions" placeholder="Ate snack" /></label>
+        ${renderMealPresetControls("dlcMealPresetSelect", "dlc-form-label")}
         <label class="dlc-form-label">Food Notes<textarea name="notes" rows="2" placeholder="Any food notes"></textarea></label>
         ${renderSuggestionDataList("dlcMealSuggestions", mealSuggestions)}
         ${renderDlcShareFields(true)}
@@ -14114,13 +15153,11 @@ function getDailyLogParentSummaryDraft(child, records, today) {
   return dlcParentSummaryDrafts[key] || buildDailyLogParentSummary(child, records, today);
 }
 
-function printDailyLog(childId, today = new Date().toISOString().slice(0, 10)) {
-  const records = childRecords();
-  const child = records.children.find((item) => item.id === childId);
-  if (!child) return;
+function buildDailyLogLines(child, records, today) {
+  if (!child || !records) return [];
   const snapshot = dlcChildDaySnapshot(child, records, today);
   const timeline = buildDailyLogTimelineEntries(child, records, today);
-  const lines = [
+  return [
     `Daily Log: ${child.name}`,
     `Date: ${today}`,
     "",
@@ -14134,7 +15171,25 @@ function printDailyLog(childId, today = new Date().toISOString().slice(0, 10)) {
     "Timeline",
     ...(timeline.length ? timeline.map((entry) => `- ${entry.displayTime}: ${entry.title}${entry.detail ? ` — ${entry.detail}` : ""}`) : ["- No timeline entries yet."]),
   ];
-  printTextDocument(`${child.name} Daily Log`, lines.join("\n"));
+}
+
+function printDailyLog(childId, today = new Date().toISOString().slice(0, 10)) {
+  const records = childRecords();
+  const child = records.children.find((item) => item.id === childId);
+  if (!child) return;
+  printTextDocument(`${child.name} Daily Log`, buildDailyLogLines(child, records, today).join("\n"));
+}
+
+function printAllDailyLogs(today = new Date().toISOString().slice(0, 10)) {
+  const records = childRecords();
+  const activeChildren = getActiveChildren(records);
+  if (!activeChildren.length) {
+    alert("No active children to print reports for.");
+    return;
+  }
+  const dateLabel = new Date(`${today}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  const sections = activeChildren.map((child) => buildDailyLogLines(child, records, today).join("\n"));
+  printTextDocument(`Daily Reports — ${dateLabel}`, sections.join("\n\n---\n\n"));
 }
 
 function setDailyLogParentSummaryDraft(childId, today, value) {
@@ -14910,7 +15965,7 @@ function renderDailyLogsOverviewTab(child, records, today) {
 function renderDailyLogsQuickDoc(records) {
   const today = new Date().toISOString().slice(0, 10);
   const quickDocOptions = [
-    { value: "observation", label: "Observation", pro: true },
+    { value: "observation", label: "Observation", pro: false },
     { value: "parent-message", label: "Parent Message", pro: true },
     { value: "goal-update", label: "Goal Update", pro: false },
     { value: "daily-report", label: "Daily Report Entry", pro: true },
@@ -15024,7 +16079,7 @@ function behaviorNoteForm(childId) {
 
 async function generateQuickDocumentation(note, child, records, types) {
   const requestedTypes = (types || []).filter((type) => {
-    if (["observation", "parent-message", "daily-report", "behavior-note"].includes(type) && !isProUser()) return false;
+    if (["parent-message", "daily-report", "behavior-note"].includes(type) && !isProUser()) return false;
     return true;
   });
   const childName = child ? child.name : "The child";
@@ -15373,6 +16428,7 @@ function mealTrackingForm(childId) {
       <label>Breakfast<input name="breakfast" list="mealTrackingSuggestions-${childId}" placeholder="Ate most / refused / not served" /></label>
       <label>Lunch<input name="lunch" list="mealTrackingSuggestions-${childId}" placeholder="Ate all lunch" /></label>
       <label>Snack<input name="snack" list="mealTrackingSuggestions-${childId}" placeholder="Ate snack" /></label>
+      ${renderMealPresetControls(`mealPresetSelect-${childId}`)}
       <label>Food Notes<textarea name="notes" rows="2" placeholder="Food notes"></textarea></label>
       <label>Allergy Notes<textarea name="allergyNotes" rows="2" placeholder="Allergy notes"></textarea></label>
       ${renderSuggestionDataList(`mealTrackingSuggestions-${childId}`, suggestions)}
@@ -15461,14 +16517,14 @@ function appendChildRecord(key, record) {
 
 let afterActionPromptTimeout = null;
 
-function showAfterActionPrompt(trigger, childId) {
-  const prompts = {
-    attendance: "Attendance saved! Would you like to generate today's daily report?",
-    observation: "Observation saved! Would you like to generate a parent message?",
-    meals: "Meals logged! Would you like to create today's portfolio entry?",
-  };
-  const promptText = prompts[trigger];
-  if (!promptText || !childId) return;
+/**
+ * Show a transient feedback banner at the bottom of the screen.
+ * Prefer showAfterActionPrompt for save events tied to a specific trigger/child.
+ * @param {string} message - The text to display in the banner.
+ * @param {{label: string, attr: string}|null} action - Optional CTA button. label is the button text; attr is the HTML attribute string (e.g. 'data-view="plans"').
+ */
+function showActionFeedback(message, action = null) {
+  if (!message) return;
   let banner = document.querySelector("#afterActionPrompt");
   if (!banner) {
     banner = document.createElement("div");
@@ -15478,17 +16534,43 @@ function showAfterActionPrompt(trigger, childId) {
     banner.setAttribute("aria-live", "polite");
     document.querySelector(".main")?.appendChild(banner);
   }
-  const actionAttr = trigger === "attendance" ? `data-build-daily-report="${childId}"` :
-    trigger === "observation" ? `data-child-quick-entry="${childId}" data-quick-action="parent-message"` :
-    `data-child-quick-entry="${childId}" data-quick-action="portfolio"`;
   banner.innerHTML = `
-    <span class="after-action-text">${escapeHtml(promptText)}</span>
-    <button class="primary-button after-action-yes" ${actionAttr} type="button">Yes, generate</button>
+    <span class="after-action-text">${escapeHtml(message)}</span>
+    ${action ? `<button class="primary-button after-action-yes" ${action.attr} type="button">${escapeHtml(action.label)}</button>` : ""}
     <button class="ghost-button after-action-dismiss" type="button">Dismiss</button>
   `;
   banner.classList.add("visible");
   if (afterActionPromptTimeout) clearTimeout(afterActionPromptTimeout);
   afterActionPromptTimeout = setTimeout(() => banner.classList.remove("visible"), 10000);
+}
+
+function showAfterActionPrompt(trigger, childId) {
+  const prompts = {
+    attendance: {
+      message: "Attendance saved! Would you like to generate today's daily report?",
+      proAction: { label: "Yes, generate", attr: `data-build-daily-report="${childId}"` },
+      freeMessage: "Attendance saved! Preview the Pro daily report workflow.",
+      freeAction: { label: "Preview daily report", attr: `data-preview="daily-log-reports"` },
+    },
+    observation: {
+      message: "Observation saved! Would you like to generate a parent message?",
+      proAction: { label: "Yes, generate", attr: `data-child-quick-entry="${childId}" data-quick-action="parent-message"` },
+      freeMessage: "Observation saved! Preview the Pro parent message workflow.",
+      freeAction: { label: "Preview parent message", attr: `data-preview="daily-log-parent-messages"` },
+    },
+    meals: {
+      message: "Meals logged! Would you like to create today's portfolio entry?",
+      proAction: { label: "Yes, generate", attr: `data-child-quick-entry="${childId}" data-quick-action="portfolio"` },
+      freeMessage: "Meals logged! Preview the Pro portfolio workflow.",
+      freeAction: { label: "Preview portfolio", attr: `data-preview="portfolio-builder"` },
+    },
+  };
+  const prompt = prompts[trigger];
+  if (!prompt || !childId) return;
+  showActionFeedback(
+    isProUser() ? prompt.message : prompt.freeMessage,
+    isProUser() ? prompt.proAction : prompt.freeAction,
+  );
 }
 
 async function buildDailyReportFromChild(childId, quickNote) {
@@ -15792,13 +16874,180 @@ function renderGeneratedHistory() {
     : `<div class="empty-state">Generated AI results you save will show up here for quick reuse.</div>`;
 }
 
+function uploadedResourceFingerprint(resource) {
+  const payload = JSON.stringify({
+    category: String(resource?.category || "").trim(),
+    title: String(resource?.title || "").trim(),
+    age: String(resource?.age || "").trim(),
+    plan: String(resource?.plan || "").trim(),
+    month: String(resource?.month || "").trim(),
+    tags: Array.isArray(resource?.tags) ? resource.tags.map((tag) => String(tag || "").trim()).filter(Boolean).slice(0, 25) : [],
+    format: String(resource?.format || "").trim(),
+    fileName: String(resource?.fileName || "").trim(),
+    fileData: String(resource?.fileData || "").trim(),
+    previewName: String(resource?.previewName || "").trim(),
+    previewData: String(resource?.previewData || "").trim(),
+    description: String(resource?.description || "").trim(),
+    customContent: String(resource?.customContent || "").trim(),
+    visible: resource?.visible !== false,
+    archived: resource?.archived === true,
+  });
+  let hash = 0;
+  for (let i = 0; i < payload.length; i += 1) {
+    hash = ((hash << 5) - hash + payload.charCodeAt(i)) | 0;
+  }
+  return `fp-${Math.abs(hash).toString(36)}`;
+}
+
+function normalizeUploadedResource(resource) {
+  if (!resource || typeof resource !== "object") return null;
+  const id = String(resource.id || "").trim();
+  if (!id) return null;
+  const tags = Array.isArray(resource.tags)
+    ? resource.tags.map((tag) => String(tag || "").trim()).filter(Boolean).slice(0, 25)
+    : [];
+  const normalized = {
+    ...resource,
+    id,
+    category: String(resource.category || "Forms Library").trim(),
+    title: String(resource.title || "Uploaded Resource").trim(),
+    age: String(resource.age || "All Ages").trim(),
+    plan: String(resource.plan || "Free").trim(),
+    month: String(resource.month || "").trim(),
+    tags,
+    format: String(resource.format || "").trim(),
+    fileName: String(resource.fileName || "").trim(),
+    fileData: String(resource.fileData || "").trim(),
+    previewName: String(resource.previewName || "").trim(),
+    previewData: String(resource.previewData || "").trim(),
+    description: String(resource.description || "").trim(),
+    customContent: String(resource.customContent || "").trim(),
+    visible: resource.visible !== false,
+    archived: resource.archived === true,
+    updatedAt: String(resource.updatedAt || "").trim(),
+  };
+  normalized.fingerprint = String(resource.fingerprint || uploadedResourceFingerprint(normalized)).trim();
+  return normalized;
+}
+
+function dedupeUploadedResourcesList(items = [], limit = 3000) {
+  const byId = new Set();
+  const byFingerprint = new Set();
+  const deduped = [];
+  for (const item of items) {
+    const normalized = normalizeUploadedResource(item);
+    if (!normalized) continue;
+    const fp = normalized.fingerprint || uploadedResourceFingerprint(normalized);
+    if (byId.has(normalized.id) || (fp && byFingerprint.has(fp))) continue;
+    byId.add(normalized.id);
+    if (fp) byFingerprint.add(fp);
+    deduped.push({ ...normalized, fingerprint: fp });
+    if (deduped.length >= limit) break;
+  }
+  return deduped;
+}
+
+function uploadedResourcesDigest(items = []) {
+  return dedupeUploadedResourcesList(items).map((item) => `${item.id}:${item.fingerprint}`).join("|");
+}
+
 function uploadedResources() {
-  return readSavedJson("llhUploadedResources", []);
+  return dedupeUploadedResourcesList(readSavedJson(uploadedResourcesConfig.storageKey, []));
 }
 
 function saveUploadedResources(items) {
-  localStorage.setItem("llhUploadedResources", JSON.stringify(items));
+  const deduped = dedupeUploadedResourcesList(items);
+  localStorage.setItem(uploadedResourcesConfig.storageKey, JSON.stringify(deduped));
   resources = loadResources();
+  return deduped;
+}
+
+function mergeUploadedResources(remoteUploads = []) {
+  const merged = dedupeUploadedResourcesList([...remoteUploads, ...uploadedResources()]);
+  return saveUploadedResources(merged);
+}
+
+async function loadUploadedResourcesFromBackend({ admin = false, migrateLocal = false } = {}) {
+  if (!canUseLaunchBackend()) return uploadedResources();
+  const params = new URLSearchParams({ t: String(Date.now()) });
+  const token = adminSession()?.token || "";
+  if (admin && token) params.set("adminToken", token);
+  try {
+    const response = await fetch(`${uploadedResourcesConfig.listEndpoint}?${params.toString()}`, { cache: "no-store" });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error || "Could not load uploaded resources.");
+    const remoteUploads = dedupeUploadedResourcesList(data.uploads || []);
+    saveUploadedResources(remoteUploads);
+    if (admin && migrateLocal && token) {
+      await migrateUploadedResourcesFromLocalStorage();
+    }
+    return uploadedResources();
+  } catch (error) {
+    console.warn("Uploaded resources backend sync failed", error);
+    return uploadedResources();
+  }
+}
+
+async function migrateUploadedResourcesFromLocalStorage() {
+  const token = adminSession()?.token || "";
+  if (!canUseLaunchBackend() || !token) return { migrated: false };
+  const localUploads = uploadedResources();
+  if (!localUploads.length) return { migrated: false };
+  const localDigest = uploadedResourcesDigest(localUploads);
+  const marker = readSavedJson(uploadedResourcesConfig.migrationKey, null);
+  if (marker?.completed === true && marker?.digest === localDigest) {
+    return { migrated: false, reason: "already-migrated" };
+  }
+  try {
+    const response = await fetch(uploadedResourcesConfig.migrateEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminToken: token, uploads: localUploads }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error || "Could not migrate uploads.");
+    const merged = dedupeUploadedResourcesList(data.uploads || []);
+    saveUploadedResources(merged);
+    localStorage.setItem(uploadedResourcesConfig.migrationKey, JSON.stringify({
+      completed: true,
+      digest: localDigest,
+      migratedAt: new Date().toISOString(),
+      count: localUploads.length,
+      remoteCount: merged.length,
+    }));
+    return { migrated: true, migration: data.migration || null };
+  } catch (error) {
+    console.warn("Uploaded resource migration failed", error);
+    return { migrated: false, error: error.message || "migration-failed" };
+  }
+}
+
+async function saveUploadedResourceToBackend(upload) {
+  const token = adminSession()?.token || "";
+  if (!canUseLaunchBackend() || !isAdminUnlocked() || !token) return null;
+  const response = await fetch(uploadedResourcesConfig.upsertEndpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminToken: token, upload }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.error || "Could not save uploaded resource.");
+  saveUploadedResources(data.uploads || []);
+  return data.upload;
+}
+
+async function deleteUploadedResourceFromBackend(id) {
+  const token = adminSession()?.token || "";
+  if (!canUseLaunchBackend() || !isAdminUnlocked() || !token) return false;
+  const response = await fetch(uploadedResourcesConfig.deleteEndpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminToken: token, id }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.error || "Could not delete uploaded resource.");
+  saveUploadedResources(data.uploads || []);
+  return true;
 }
 
 function supportTickets() {
@@ -16079,7 +17328,8 @@ function allAccountsList() {
 }
 
 function displayUserName(user) {
-  return user?.name || user?.displayName || user?.email?.split("@")[0] || "Unknown";
+  const fromParts = [user?.firstName, user?.lastName].filter(Boolean).join(" ");
+  return fromParts || user?.name || user?.displayName || user?.fullName || user?.email?.split("@")[0] || "Unknown";
 }
 
 function adminMetric(label, value, detail = "") {
@@ -16095,7 +17345,13 @@ function adminMetric(label, value, detail = "") {
 function renderAdminOwnerOverview() {
   const target = document.querySelector("#adminOwnerOverview");
   if (!target || !isAdminUnlocked()) return;
-  const accountRows = allAccountsList();
+  // Prefer backend users; supplement with any local-only accounts not yet in the cache.
+  const serverUsers = (adminAnalyticsCache?.users || []);
+  const serverEmails = new Set(serverUsers.map((u) => u.email).filter(Boolean));
+  const localAccounts = allAccountsList();
+  const localOnlyAccounts = localAccounts.filter((a) => a.email && !serverEmails.has(a.email));
+  const accountRows = [...serverUsers, ...localOnlyAccounts];
+  const totals = adminAnalyticsCache?.totals;
   const paidAccounts = accountRows.filter((account) => ["Pro", "Founding"].includes(account.plan));
   const foundingAccounts = accountRows.filter((account) => account.foundingMember);
   const ticketRows = supportTickets();
@@ -16135,9 +17391,9 @@ function renderAdminOwnerOverview() {
     </div>
     ${renderAccessDebugPanel()}
     <div class="admin-owner-grid">
-      ${adminMetric("total accounts", accountRows.length)}
-      ${adminMetric("paid accounts", paidAccounts.length)}
-      ${adminMetric("founding members", foundingAccounts.length, `${foundingSpotsRemaining()} spots left`)}
+      ${adminMetric("total accounts", totals?.totalRegisteredUsers ?? accountRows.length)}
+      ${adminMetric("paid accounts", totals?.paidUsers ?? paidAccounts.length)}
+      ${adminMetric("founding members", totals?.foundingMembers ?? foundingAccounts.length, `${foundingSpotsRemaining()} spots left`)}
       ${adminMetric("open support tickets", openTickets.length)}
       ${adminMetric("lead signups", leadRows.length)}
       ${adminMetric("viewed resources", downloads.length)}
@@ -16165,6 +17421,86 @@ function renderAdminOwnerOverview() {
           </div>
         `).join("") : `<div class="empty-state">No activity tracked yet.</div>`}
       </article>
+    </div>
+    ${renderContentHealthDashboard()}
+  `;
+}
+
+function renderContentHealthDashboard() {
+  const allLessons = allLessonPlansForAdmin();
+  const activities = effectiveSiteContent().activities || [];
+  const forms = effectiveSiteContent().forms || [];
+  const printables = effectiveSiteContent().printables || [];
+  const contentTypes = [
+    { label: "Lesson Plans", icon: "📖", items: allLessons },
+    { label: "Activities", icon: "🎯", items: activities },
+    { label: "Forms", icon: "📝", items: forms },
+    { label: "Printables", icon: "🖨️", items: printables },
+  ];
+  const cardHtml = contentTypes.map(({ label, icon, items }) => {
+    const counts = {
+      total: items.length,
+      draft: items.filter((item) => contentItemStatus(item) === "draft").length,
+      approved: items.filter((item) => contentItemStatus(item) === "approved").length,
+      featured: items.filter((item) => contentItemStatus(item) === "featured").length,
+      archived: items.filter((item) => contentItemStatus(item) === "archived").length,
+    };
+    return `
+      <article class="analytics-card content-health-card">
+        <h4>${icon} ${escapeHtml(label)}</h4>
+        <div class="admin-mobile-stats" style="font-size:0.85rem">
+          <div><strong>${counts.total}</strong><span>Total</span></div>
+          <div><strong>${counts.draft}</strong><span>🟡 Draft</span></div>
+          <div><strong>${counts.approved}</strong><span>🟢 Approved</span></div>
+          <div><strong>${counts.featured}</strong><span>⭐ Featured</span></div>
+          <div><strong>${counts.archived}</strong><span>📦 Archived</span></div>
+        </div>
+      </article>
+    `;
+  }).join("");
+  return `
+    <div class="admin-owner-section">
+      <p class="eyebrow">Content Health</p>
+      <h4>Library Status Overview</h4>
+      <p class="muted-copy">Only <strong>🟢 Approved</strong> and <strong>⭐ Featured</strong> content is visible to users.</p>
+      </div>
+    </div>
+    ${renderFutureAdminBuildItems()}
+  `;
+}
+
+function renderFutureAdminBuildItems() {
+  const futureItems = [
+    {
+      icon: "🍽️",
+      label: "Menu Center Admin",
+      detail: "buildMenuLibrary() is hardcoded. Future build: admin UI to create, edit, and manage weekly and age-based menu packs without a code change.",
+    },
+    {
+      icon: "🗂️",
+      label: "Resource Categories Admin",
+      detail: "lessonPlanResourceCategories is a hardcoded array. Future build: admin UI to add, rename, and reorder lesson plan resource upload categories.",
+    },
+    {
+      icon: "👁️",
+      label: "Observation Packs Admin",
+      detail: "buildObservationLibrary() is hardcoded. Future build: admin UI to create and manage observation packs by age group and learning area, similar to Activities/Forms/Printables.",
+    },
+  ];
+  return `
+    <div class="admin-owner-section">
+      <p class="eyebrow">Future Admin Build Items</p>
+      <h4>Not Yet Editable via Admin</h4>
+      <p class="muted-copy">The following content sections are currently hardcoded and do not have admin save forms. They are tracked here as planned future build items.</p>
+      <div class="admin-owner-lists" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))">
+        ${futureItems.map(({ icon, label, detail }) => `
+          <article class="analytics-card content-health-card">
+            <h4>${icon} ${escapeHtml(label)}</h4>
+            <p class="muted-copy" style="font-size:0.85rem;margin:0">${escapeHtml(detail)}</p>
+            <p style="margin:0.5rem 0 0"><span class="tag tag-hidden">Future Build</span></p>
+          </article>
+        `).join("")}
+      </div>
     </div>
   `;
 }
@@ -16447,6 +17783,7 @@ async function loadAdminAnalyticsFromBackend() {
     adminAnalyticsCache = data.analytics || data;
     renderAdminAnalytics();
     renderAdminOwnerOverview();
+    renderAdminUsersDashboard();
   } catch (error) {
     console.warn("Admin analytics backend load failed", error);
   } finally {
@@ -16497,13 +17834,14 @@ function userAnalyticsTable(users = []) {
 function renderAdminAnalytics() {
   const target = document.querySelector("#adminAnalyticsApp");
   if (!target || !isAdminUnlocked()) return;
+  const isLive = Boolean(adminAnalyticsCache);
   const summary = adminAnalyticsCache || localAnalyticsSummary();
   const totals = summary.totals || {};
   const periods = summary.periods || {};
   const counts = summary.counts || {};
   target.innerHTML = `
     <div class="admin-analytics-status">
-      <span>${escapeHtml(summary.mode || "Analytics")}</span>
+      <span>${escapeHtml(summary.mode || "Analytics")}${!isLive && adminAnalyticsLoading ? " — loading backend data…" : ""}</span>
       <small>Historical events are retained. Existing visits from before this update cannot be backfilled.</small>
       <button class="ghost-button" type="button" data-refresh-analytics>Refresh Analytics</button>
     </div>
@@ -16552,7 +17890,7 @@ function renderAdminAnalytics() {
         ${countListHtml(counts.buttonClicks, "Button clicks will appear here.")}
       </article>
       <article class="analytics-card">
-        <h4>AI Generator Usage</h4>
+        <h4>Document Helper Usage</h4>
         ${countListHtml(counts.aiUsage, "Helper usage will appear after document creations.")}
       </article>
       <article class="analytics-card">
@@ -16608,7 +17946,7 @@ function renderLaunchReadiness() {
   const checklist = [
     ["Public homepage", "Ready", "Sales homepage, founding offer, samples, lead magnet, trust copy, and Pro preview are in place."],
     ["Resource library", "Local Ready", `${resources.length} local resources are available with Free/Pro locking and in-app viewing.`],
-    ["Document helper suite", "Local Ready", `${aiTools.length} AI generators are available with edit, copy, save, download, print, regenerate, and save-to-library actions.`],
+    ["Document helper suite", "Local Ready", `${aiTools.length} document helpers are available with edit, copy, save, download, print, regenerate, and save-to-library actions.`],
     ["Free vs Pro permissions", "Local Ready", "Limits, locked content, Pro prompts, and AI generation limits are enforced locally."],
     ["Private Admin", "Local Ready", "Admin, support tickets, content uploads, analytics, and launch checklist are protected by owner email, password, and access code on this device."],
     ["Analytics", "Local Ready", "Page views, signup clicks, checkout starts, conversions, lead captures, and ad routes are tracked locally."],
@@ -16649,6 +17987,7 @@ function adminLessonFilters() {
     search: (document.querySelector("#adminLessonSearch")?.value || "").trim().toLowerCase(),
     age: document.querySelector("#adminLessonAgeFilter")?.value || "All Ages",
     visibility: document.querySelector("#adminLessonVisibilityFilter")?.value || "all",
+    plan: document.querySelector("#adminLessonPlanFilter")?.value || "all",
   };
 }
 
@@ -16657,11 +17996,24 @@ function filteredAdminLessonPlans() {
   return allLessonPlansForAdmin().filter((item) => {
     const haystack = [item.title, item.age, item.theme, item.weeklyOverview, item.plan].join(" ").toLowerCase();
     const ageMatch = filters.age === "All Ages" || item.age === filters.age;
+    const itemStatus = contentItemStatus(item);
     const visibilityMatch = filters.visibility === "all"
-      || (filters.visibility === "visible" && item.visible !== false)
-      || (filters.visibility === "hidden" && item.visible === false);
-    return ageMatch && visibilityMatch && haystack.includes(filters.search);
+      || filters.visibility === itemStatus
+      // backward-compat aliases still work
+      || (filters.visibility === "visible" && (itemStatus === "approved" || itemStatus === "featured"))
+      || (filters.visibility === "hidden" && itemStatus === "draft")
+      || (filters.visibility === "archived" && itemStatus === "archived");
+    const planMatch = filters.plan === "all"
+      || (filters.plan === "free" && item.plan === "Free")
+      || (filters.plan === "pro" && item.plan === "Pro");
+    return ageMatch && visibilityMatch && planMatch && haystack.includes(filters.search);
   });
+}
+
+function adminLessonUpdatedLabel(value) {
+  if (!value) return "Not updated yet";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "Not updated yet" : parsed.toLocaleString();
 }
 
 function adminLessonFormSnapshot(form = document.querySelector("#adminLessonPlanForm")) {
@@ -16734,8 +18086,14 @@ function scrollToAdminLessonList() {
 function lessonPlanAdminCardHtml(plan) {
   const selected = adminLessonSelection.has(plan.id);
   const image = sanitizedImageSource(plan.thumbnailUrl);
+  const isToggling = adminLessonTogglingId === plan.id;
+  const status = contentItemStatus(plan);
+  const statusEmoji = contentStatusEmoji[status];
+  const statusText = contentStatusLabel[status];
+  const statusCss = `content-status content-status-${status}`;
+  const hiddenReason = status === "draft" ? (plan.hiddenReason || "Not published") : status === "archived" ? "Archived by admin" : "";
   return `
-    <article class="admin-mobile-card${plan.visible === false ? " is-hidden" : ""}">
+    <article class="admin-content-card is-${status}">
       <label class="admin-select-row">
         <input type="checkbox" data-admin-lesson-select="${plan.id}" ${selected ? "checked" : ""} />
         <span>Select</span>
@@ -16744,19 +18102,39 @@ function lessonPlanAdminCardHtml(plan) {
         ${image ? `<img class="admin-mobile-thumb" src="${escapeHtml(image)}" alt="${escapeHtml(plan.title)} thumbnail" />` : `<div class="admin-mobile-thumb admin-mobile-thumb-placeholder">${escapeHtml(initialsFromName(plan.title, "LP"))}</div>`}
         <div>
           <strong>${escapeHtml(plan.title)}</strong>
-          <p>${escapeHtml(plan.theme || "Theme")} · ${escapeHtml(plan.age)} · ${escapeHtml(plan.plan)}</p>
-          <div class="tag-row">
+          <div class="tag-row" style="margin:2px 0 4px">
+            <span class="${statusCss}">${statusEmoji} ${escapeHtml(statusText)}</span>
             <span class="tag">${escapeHtml(plan.age)}</span>
             <span class="tag">${escapeHtml(plan.plan)}</span>
-            <span class="tag">${plan.visible === false ? "Hidden" : "Visible"}</span>
           </div>
+          <small>${escapeHtml(plan.theme || "Theme")}</small>
+          <small>Last Updated: ${escapeHtml(adminLessonUpdatedLabel(plan.updatedAt))}</small>
+          <small>Title/theme importer updated: ${plan.titleThemeImporterUpdated ? "Yes" : "No"}</small>
+          ${hiddenReason ? `<small class="tag">${escapeHtml(hiddenReason)}</small>` : ""}
+          ${Array.isArray(plan.resource?.tags) && plan.resource.tags.length ? `<div class="tag-row">${plan.resource.tags.slice(0, 3).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
         </div>
       </div>
       <div class="form-actions">
         <button class="ghost-button" type="button" data-admin-lesson-edit="${plan.id}">Edit</button>
-        <button class="ghost-button" type="button" data-admin-lesson-toggle="${plan.id}">${plan.visible === false ? "Unhide" : "Hide"}</button>
-        <button class="ghost-button" type="button" data-admin-lesson-preview="${plan.id}">Preview</button>
-        <button class="danger-button" type="button" data-admin-lesson-reset="${plan.id}">Reset</button>
+        <button class="ghost-button" type="button" data-admin-lesson-duplicate="${plan.id}">Duplicate</button>
+        <button class="ghost-button" type="button" data-admin-lesson-preview="${plan.id}">👁️ View Live</button>
+        ${status === "archived"
+          ? `<button class="ghost-button" type="button" data-admin-lesson-set-status="${plan.id}:approved">🟢 Restore</button>`
+          : `<button class="ghost-button" type="button" data-admin-lesson-toggle="${plan.id}" ${isToggling ? "disabled" : ""}>${isToggling ? "Saving…" : (status === "approved" || status === "featured" ? "🟡 Save Draft" : "🟢 Publish")}</button>`
+        }
+        ${status !== "featured" && status !== "archived"
+          ? `<button class="ghost-button" type="button" data-admin-lesson-set-status="${plan.id}:featured">⭐ Feature</button>`
+          : ""
+        }
+        ${status === "featured"
+          ? `<button class="ghost-button" type="button" data-admin-lesson-set-status="${plan.id}:approved">🟢 Unfeature</button>`
+          : ""
+        }
+        ${status !== "archived"
+          ? `<button class="ghost-button" type="button" data-admin-lesson-archive="${plan.id}">📦 Archive</button>`
+          : ""
+        }
+        <button class="danger-button" type="button" data-admin-lesson-delete="${plan.id}">Delete</button>
       </div>
     </article>
   `;
@@ -16807,15 +18185,21 @@ function renderAdminContentManager() {
   const target = document.querySelector("#adminContentManagerApp");
   if (!target || !isAdminUnlocked()) return;
   const content = effectiveSiteContent();
+  const allLessons = allLessonPlansForAdmin();
   const lessons = filteredAdminLessonPlans();
-  const lessonCounts = allLessonPlansForAdmin().reduce((counts, item) => {
-    counts[item.age] = (counts[item.age] || 0) + 1;
-    return counts;
-  }, {});
-  const lessonRecord = allLessonPlansForAdmin().find((item) => item.id === adminLessonEditorId)
+  const statusCounts = {
+    all: allLessons.length,
+    draft: allLessons.filter((item) => contentItemStatus(item) === "draft").length,
+    approved: allLessons.filter((item) => contentItemStatus(item) === "approved").length,
+    featured: allLessons.filter((item) => contentItemStatus(item) === "featured").length,
+    archived: allLessons.filter((item) => contentItemStatus(item) === "archived").length,
+  };
+  const lessonRecord = allLessons.find((item) => item.id === adminLessonEditorId)
     || lessons[0]
-    || allLessonPlansForAdmin()[0];
+    || allLessons[0];
   if (lessonRecord && !adminLessonEditorId) adminLessonEditorId = lessonRecord.id;
+  // Initialize resource draft when switching to a different lesson plan
+  initAdminLessonResourcesDraft(lessonRecord);
   const reviews = (content.reviews || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
   const reviewRecord = reviews.find((item) => item.id === adminReviewEditorId) || reviews[0] || {
     id: "",
@@ -16830,32 +18214,48 @@ function renderAdminContentManager() {
   const homepage = content.homepage || {};
   const images = Array.isArray(content.images) ? content.images : [];
   const imageRecord = images.find((item) => item.id === adminImageEditorId) || images[0] || { id: "", label: "", group: "", imageUrl: "" };
+  const curLessonVisFilter = document.querySelector("#adminLessonVisibilityFilter")?.value || "all";
   target.innerHTML = `
     <div class="admin-manager-grid">
       <section class="admin-manager-section" data-admin-cm-section="lesson-plans">
         <div class="section-heading">
           <div><p class="eyebrow">Lesson Plan Manager</p><h3>Edit library lesson plans</h3></div>
+          <button class="ghost-button" type="button" id="adminCreateLessonPlanButton">+ Create Lesson Plan</button>
         </div>
         <div class="admin-mobile-toolbar">
           <label><span>Search</span><input id="adminLessonSearch" type="search" placeholder="Search lesson plans" value="${escapeHtml(document.querySelector("#adminLessonSearch")?.value || "")}" /></label>
           <label><span>Age group</span><select id="adminLessonAgeFilter"><option${(document.querySelector("#adminLessonAgeFilter")?.value || "All Ages") === "All Ages" ? " selected" : ""}>All Ages</option>${["Infant", "Toddler", "Preschool"].map((age) => `<option${(document.querySelector("#adminLessonAgeFilter")?.value || "") === age ? " selected" : ""}>${age}</option>`).join("")}</select></label>
-          <label><span>Show</span><select id="adminLessonVisibilityFilter">${[["all", "All"], ["visible", "Visible"], ["hidden", "Hidden"]].map(([value, label]) => `<option value="${value}"${(document.querySelector("#adminLessonVisibilityFilter")?.value || "all") === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
+          <label><span>Status</span><select id="adminLessonVisibilityFilter">${[["all", "All"], ["draft", "🟡 Draft"], ["approved", "🟢 Approved"], ["featured", "⭐ Featured"], ["archived", "📦 Archived"]].map(([value, label]) => `<option value="${value}"${curLessonVisFilter === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
+          <label><span>Plan</span><select id="adminLessonPlanFilter">${[["all", "All"], ["free", "Free"], ["pro", "Pro"]].map(([value, label]) => `<option value="${value}"${(document.querySelector("#adminLessonPlanFilter")?.value || "all") === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
         </div>
         <div class="admin-mobile-stats">
-          ${Object.entries(lessonCounts).map(([label, count]) => `<div><strong>${count}</strong><span>${escapeHtml(label)}</span></div>`).join("")}
+          <div><strong>${statusCounts.all}</strong><span>All</span></div>
+          <div><strong>${statusCounts.draft}</strong><span>🟡 Draft</span></div>
+          <div><strong>${statusCounts.approved}</strong><span>🟢 Approved</span></div>
+          <div><strong>${statusCounts.featured}</strong><span>⭐ Featured</span></div>
+          <div><strong>${statusCounts.archived}</strong><span>📦 Archived</span></div>
         </div>
         <div class="form-actions">
-          <button class="primary-button" type="button" data-admin-bulk="hide">Bulk Hide</button>
-          <button class="ghost-button" type="button" data-admin-bulk="unhide">Bulk Unhide</button>
+          <button class="ghost-button" type="button" data-admin-bulk="hide">🟡 Draft Selected</button>
+          <button class="ghost-button" type="button" data-admin-bulk="unhide">🟢 Publish Selected</button>
+          <button class="ghost-button" type="button" data-admin-bulk="feature">⭐ Feature Selected</button>
+          <button class="ghost-button" type="button" data-admin-bulk="archive">📦 Archive Selected</button>
           <button class="ghost-button" type="button" data-admin-bulk="free">Bulk Mark Free</button>
           <button class="ghost-button" type="button" data-admin-bulk="pro">Bulk Mark Pro</button>
+          <button class="ghost-button" type="button" id="adminExportLessonPlansButton">💾 Export Backup</button>
           <button class="ghost-button" type="button" id="adminShowOnly50Button">Show only 50 per age group</button>
+          <button class="danger-button" type="button" id="adminArchiveAllLessonPlansButton">📦 Archive ALL Lesson Plans</button>
         </div>
-        <div class="admin-mobile-list" id="adminLessonPlanList">${lessons.slice(0, 120).map(lessonPlanAdminCardHtml).join("") || `<div class="empty-state">No lesson plans match these filters.</div>`}</div>
+        <div class="admin-mobile-list" id="adminLessonPlanList">${lessons.map(lessonPlanAdminCardHtml).join("") || `<div class="empty-state">No lesson plans match these filters.</div>`}</div>
         ${lessonRecord ? `
-          <form id="adminLessonPlanForm" class="panel-form admin-stacked-form">
+          <form id="adminLessonPlanForm" class="panel-form admin-stacked-form" data-importer-updated-title-theme="${lessonRecord.titleThemeImporterUpdated ? "true" : "false"}">
             <input type="hidden" name="id" value="${escapeHtml(lessonRecord.id)}" />
             <h4 class="admin-lesson-editing-heading" id="adminLessonEditorHeading">Editing: ${escapeHtml(lessonRecord.title || "Untitled Lesson Plan")}</h4>
+            <p class="muted-copy">
+              ${contentStatusHtml(lessonRecord)} ·
+              Last updated: ${escapeHtml(adminLessonUpdatedLabel(lessonRecord.updatedAt))} ·
+              Title/theme importer updated: ${lessonRecord.titleThemeImporterUpdated ? "Yes" : "No"}
+            </p>
             <div class="form-grid-two">
               <label>Title<input id="adminLessonTitleInput" name="title" value="${escapeHtml(lessonRecord.title)}" /></label>
               <label>Age group<select name="age">${["Infant", "Toddler", "Preschool"].map((age) => `<option${lessonRecord.age === age ? " selected" : ""}>${age}</option>`).join("")}</select></label>
@@ -16864,7 +18264,8 @@ function renderAdminContentManager() {
               <label>Theme / Category<input name="theme" value="${escapeHtml(lessonRecord.theme || "")}" data-lesson-theme-original="${escapeHtml(lessonRecord.theme || "")}" /></label>
               <label>Free / Pro<select name="plan">${["Free", "Pro"].map((plan) => `<option${lessonRecord.plan === plan ? " selected" : ""}>${plan}</option>`).join("")}</select></label>
             </div>
-            <label class="admin-inline-toggle"><input type="checkbox" name="visible" ${lessonRecord.visible !== false ? "checked" : ""} /> <span>Visible on public site</span></label>
+            <label class="admin-inline-toggle"><input type="checkbox" name="visible" ${lessonRecord.visible === true ? "checked" : ""} /> <span>Visible on public site</span></label>
+            <label class="admin-inline-toggle"><input type="checkbox" name="featured" ${lessonRecord.featured === true ? "checked" : ""} /> <span>⭐ Featured (prioritized in searches and recommendations)</span></label>
             <fieldset class="admin-fieldset admin-lesson-generator">
               <legend>✨ AI Lesson Plan Generator</legend>
               <p class="admin-generator-note">Fill in Age Group and Theme above, then click Generate to populate all fields automatically. Review and edit before saving.</p>
@@ -16872,7 +18273,7 @@ function renderAdminContentManager() {
               <div class="form-actions">
                 <button class="primary-button" type="button" id="adminLessonGenerateBtn">✨ Generate Lesson Plan</button>
                 <button class="ghost-button" type="button" id="adminLessonImportBtn">📋 Import Structured Lesson Plan</button>
-                <button class="ghost-button" type="button" id="adminLessonPreviewBtn">Preview Public View</button>
+                <button class="ghost-button" type="button" id="adminLessonPreviewBtn">👁️ View Live</button>
               </div>
               <div id="adminLessonOverwriteConfirm" class="admin-overwrite-confirm" hidden>
                 <p><strong>This will replace the current lesson plan content. Continue?</strong></p>
@@ -16906,10 +18307,9 @@ function renderAdminContentManager() {
             <label>Reflection notes<textarea name="reflectionNotes" rows="3">${escapeHtml(lessonRecord.reflectionNotes || "")}</textarea></label>
             <label>Thumbnail image URL<input name="thumbnailUrl" value="${escapeHtml(lessonRecord.thumbnailUrl || "")}" placeholder="https://..." /></label>
             <label>Upload thumbnail<input name="thumbnailFile" type="file" accept="image/*" /></label>
-            <input type="hidden" name="thumbnailDataStored" value="${escapeHtml(lessonRecord.thumbnailUrl || "")}" />
-            <small id="adminLessonThumbnailNote">${lessonRecord.thumbnailUrl ? "Selected: saved thumbnail" : "No thumbnail selected."}</small>
+            ${renderAdminLessonResourcesSection()}
             <div class="form-actions">
-              <button class="primary-button" type="submit">Save lesson plan</button>
+              <button class="primary-button" type="submit">💾 Save lesson plan</button>
               <button class="ghost-button" type="button" data-admin-lesson-back="true">Back to Lesson Plans</button>
               <button class="ghost-button" type="button" data-admin-lesson-reset="${escapeHtml(lessonRecord.id)}">Reset lesson to default</button>
             </div>
@@ -17040,17 +18440,21 @@ function renderAdminContentManager() {
           <span class="form-message" id="adminImageMessage"></span>
         </form>
       </section>
+      <section class="admin-manager-section" data-admin-cm-section="activities">
+        <div id="adminActivitiesManagerApp"></div>
+      </section>
+      <section class="admin-manager-section" data-admin-cm-section="forms">
+        <div id="adminFormsManagerApp"></div>
+      </section>
+      <section class="admin-manager-section" data-admin-cm-section="printables">
+        <div id="adminPrintablesManagerApp"></div>
+      </section>
     </div>
   `;
-  const lessonForm = document.querySelector("#adminLessonPlanForm");
-  if (lessonForm) {
-    restoreAdminLessonDraft(lessonForm);
-    updateAdminLessonEditorHeading();
-    const storedThumb = lessonForm.querySelector('[name="thumbnailDataStored"]')?.value || lessonForm.querySelector('[name="thumbnailUrl"]')?.value || "";
-    const note = document.querySelector("#adminLessonThumbnailNote");
-    if (note) note.textContent = storedThumb ? "Selected: draft thumbnail preserved" : "No thumbnail selected.";
-  }
-  setAdminLessonFormCleanState(lessonForm);
+  setAdminLessonFormCleanState();
+  if (adminActiveSectionTab === "activities") renderAdminActivitiesManager();
+  if (adminActiveSectionTab === "forms") renderAdminFormsManager();
+  if (adminActiveSectionTab === "printables") renderAdminPrintablesManager();
 }
 
 function nextSiteContentDraft() {
@@ -17059,120 +18463,402 @@ function nextSiteContentDraft() {
 
 async function updateLessonOverrides(updater) {
   const nextContent = nextSiteContentDraft();
+  console.log("[DIAG] updateLessonOverrides: nextSiteContentDraft lessonPlan keys =", Object.keys(nextContent.lessonPlans || {}));
   nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
   updater(nextContent.lessonPlans);
+  console.log("[DIAG] updateLessonOverrides: after updater, lessonPlan keys =", Object.keys(nextContent.lessonPlans));
   await saveAdminSiteContent(nextContent);
+  console.log("[DIAG] updateLessonOverrides: saveAdminSiteContent resolved");
 }
 
 async function saveAdminLessonPlanForm(form) {
+  console.log("[SAVE] Started → saveAdminLessonPlanForm");
+  console.log("[DIAG] saveAdminLessonPlanForm: called");
   if (adminLessonSaving) {
+    console.log("[DIAG] saveAdminLessonPlanForm: blocked — already saving");
     setFormMessage("#adminLessonPlanMessage", "Already saving — please wait.", false);
     return;
   }
   const formData = new FormData(form);
   const id = String(formData.get("id") || "");
-  if (!id) return;
+  console.log("[DIAG] saveAdminLessonPlanForm: lesson id =", JSON.stringify(id));
+  if (!id) {
+    console.error("[DIAG] saveAdminLessonPlanForm: ABORTED — id field is empty or missing from form");
+    setFormMessage("#adminLessonPlanMessage", "Missing lesson plan ID. Please reload the page and try again.", false);
+    return;
+  }
+
+  // Re-query the submit button by ID so it still works if the form is re-rendered mid-save
+  const getLessonSaveBtn = () => document.querySelector("#adminLessonPlanForm [type='submit']");
+  const originalLabel = getLessonSaveBtn()?.textContent || "Save lesson plan";
+
   adminLessonSaving = true;
+  setAdminLessonSaveFlowMessage("Save function started", {
+    reset: adminLessonSaveFlowMessages[0] !== "Save button clicked",
+    isSuccess: true,
+  });
+
+  // Disable the button before runAdminSave (we manage it ourselves to support re-render)
+  const initialBtn = getLessonSaveBtn();
+  if (initialBtn) { initialBtn.disabled = true; initialBtn.textContent = "Saving…"; }
+
+  let computedSuccessMsg = "";
   try {
-    const storedThumbnail = formData.get("thumbnailDataStored") || "";
-    const manualThumbnailUrl = formData.get("thumbnailUrl") || "";
-    const thumbnailFallbackUrl = storedThumbnail || manualThumbnailUrl;
-    const payload = {
-      id,
-      title: normalizedShortText(formData.get("title")),
-      age: normalizedShortText(formData.get("age")),
-      theme: normalizedShortText(formData.get("theme")),
-      weeklyOverview: normalizedMultilineText(formData.get("weeklyOverview")),
-      materials: normalizedMultilineText(formData.get("materials")),
-      objectives: normalizedMultilineText(formData.get("objectives")),
-      teacherLanguage: normalizedMultilineText(formData.get("teacherLanguage")),
-      elgConnections: normalizedMultilineText(formData.get("elgConnections")),
-      familyConnection: normalizedMultilineText(formData.get("familyConnection")),
-      reflectionNotes: normalizedMultilineText(formData.get("reflectionNotes")),
-      plan: normalizedShortText(formData.get("plan")) || "Free",
-      visible: formData.get("visible") === "on",
-      thumbnailUrl: await fileToImageDataUrlSafe(formData.get("thumbnailFile"), thumbnailFallbackUrl),
-      dailyActivities: {
-        monday: normalizedMultilineText(formData.get("monday")),
-        tuesday: normalizedMultilineText(formData.get("tuesday")),
-        wednesday: normalizedMultilineText(formData.get("wednesday")),
-        thursday: normalizedMultilineText(formData.get("thursday")),
-        friday: normalizedMultilineText(formData.get("friday")),
-      },
-    };
     await runAdminSave({
-      form,
-      messageTarget: "#adminLessonPlanMessage",
-      successMessage: () => (payload.visible
-        ? "Lesson plan saved successfully. This lesson plan is live on the website."
-        : "Lesson plan saved successfully."),
-      action: async () => {
-        const nextContent = nextSiteContentDraft();
-        nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
-        nextContent.lessonPlans[id] = payload;
-        nextContent.activities = mergeLinkedActivities(nextContent.activities || [], buildLinkedActivitiesFromLessonPlan(id, payload), id);
-        adminLessonEditorId = id;
-        return saveAdminSiteContent(nextContent);
+      messageSelector: "#adminLessonPlanMessage",
+      // form is not passed — we manage the button ourselves via getLessonSaveBtn()
+      saveFn: async () => {
+        console.log("[SAVE] Upload started → thumbnailFile (lesson plan)");
+        const uploadedImage = await fileToImageDataUrlSafe(formData.get("thumbnailFile"));
+        console.log("[SAVE] Upload completed");
+        const now = new Date().toISOString();
+        const titleThemeImporterUpdated = form.dataset.importerUpdatedTitleTheme === "true";
+        const isCustomPlan = Boolean(customLessonPlanForId(id));
+        // Full payload snapshot for diagnostic logging (not used for saving)
+        const lessonPayload = {
+          id,
+          title: normalizedShortText(formData.get("title")),
+          age: normalizedShortText(formData.get("age")),
+          theme: normalizedShortText(formData.get("theme")),
+          weeklyOverview: normalizedMultilineText(formData.get("weeklyOverview")),
+          materials: normalizedMultilineText(formData.get("materials")),
+          objectives: normalizedMultilineText(formData.get("objectives")),
+          teacherLanguage: normalizedMultilineText(formData.get("teacherLanguage")),
+          elgConnections: normalizedMultilineText(formData.get("elgConnections")),
+          familyConnection: normalizedMultilineText(formData.get("familyConnection")),
+          reflectionNotes: normalizedMultilineText(formData.get("reflectionNotes")),
+          plan: normalizedShortText(formData.get("plan")) || "Free",
+          visible: formData.get("visible") === "on",
+          thumbnailUrl: uploadedImage ? "(data URL)" : normalizedShortText(formData.get("thumbnailUrl")),
+          updatedAt: now,
+          titleThemeImporterUpdated,
+          archived: false,
+          dailyActivities: {
+            monday: normalizedMultilineText(formData.get("monday")),
+            tuesday: normalizedMultilineText(formData.get("tuesday")),
+            wednesday: normalizedMultilineText(formData.get("wednesday")),
+            thursday: normalizedMultilineText(formData.get("thursday")),
+            friday: normalizedMultilineText(formData.get("friday")),
+          },
+        };
+        console.log("[DIAG] saveAdminLessonPlanForm: payload being sent →", JSON.stringify(lessonPayload));
+        if (isCustomPlan) {
+          setAdminLessonSaveFlowMessage("API request sent", { isSuccess: true });
+          const nextContent = nextSiteContentDraft();
+          const existing = Array.isArray(nextContent.customLessonPlans) ? nextContent.customLessonPlans : [];
+          const current = existing.find((item) => item.id === id) || {};
+          const nextEntry = {
+            ...current,
+            id,
+            title: normalizedShortText(formData.get("title")),
+            age: normalizedShortText(formData.get("age")),
+            theme: normalizedShortText(formData.get("theme")),
+            weeklyOverview: normalizedMultilineText(formData.get("weeklyOverview")),
+            materials: normalizedMultilineText(formData.get("materials")),
+            objectives: normalizedMultilineText(formData.get("objectives")),
+            teacherLanguage: normalizedMultilineText(formData.get("teacherLanguage")),
+            elgConnections: normalizedMultilineText(formData.get("elgConnections")),
+            familyConnection: normalizedMultilineText(formData.get("familyConnection")),
+            reflectionNotes: normalizedMultilineText(formData.get("reflectionNotes")),
+            plan: normalizedShortText(formData.get("plan")) || "Free",
+            visible: formData.get("visible") === "on",
+            featured: formData.get("featured") === "on",
+            archived: false,
+            thumbnailUrl: uploadedImage || sanitizedImageSource(formData.get("thumbnailUrl")),
+            updatedAt: now,
+            titleThemeImporterUpdated,
+            titleThemeImporterUpdatedAt: titleThemeImporterUpdated ? now : (current.titleThemeImporterUpdatedAt || ""),
+            dailyActivities: {
+              monday: normalizedMultilineText(formData.get("monday")),
+              tuesday: normalizedMultilineText(formData.get("tuesday")),
+              wednesday: normalizedMultilineText(formData.get("wednesday")),
+              thursday: normalizedMultilineText(formData.get("thursday")),
+              friday: normalizedMultilineText(formData.get("friday")),
+            },
+            resources: Array.isArray(adminLessonResourcesDraft) && adminLessonResourcesDraftId === id
+              ? adminLessonResourcesDraft
+              : (current.resources || []),
+          };
+          nextContent.customLessonPlans = [...existing.filter((item) => item.id !== id), nextEntry];
+          console.log("[SAVE] Database save started");
+          await saveAdminSiteContent(nextContent);
+          console.log("[SAVE] Database saved");
+          adminLessonEditorId = id;
+        } else {
+          setAdminLessonSaveFlowMessage("API request sent", { isSuccess: true });
+          await updateLessonOverrides((lessonPlans) => {
+            const current = lessonPlans[id] || {};
+            console.log("[DIAG] updateLessonOverrides: existing override for id", JSON.stringify(id), "→ keys:", Object.keys(current));
+            lessonPlans[id] = {
+              ...current,
+              id,
+              title: normalizedShortText(formData.get("title")),
+              age: normalizedShortText(formData.get("age")),
+              theme: normalizedShortText(formData.get("theme")),
+              weeklyOverview: normalizedMultilineText(formData.get("weeklyOverview")),
+              materials: normalizedMultilineText(formData.get("materials")),
+              objectives: normalizedMultilineText(formData.get("objectives")),
+              teacherLanguage: normalizedMultilineText(formData.get("teacherLanguage")),
+              elgConnections: normalizedMultilineText(formData.get("elgConnections")),
+              familyConnection: normalizedMultilineText(formData.get("familyConnection")),
+              reflectionNotes: normalizedMultilineText(formData.get("reflectionNotes")),
+              plan: normalizedShortText(formData.get("plan")) || "Free",
+              visible: formData.get("visible") === "on",
+              featured: formData.get("featured") === "on",
+              archived: false,
+              thumbnailUrl: uploadedImage || sanitizedImageSource(formData.get("thumbnailUrl")),
+              updatedAt: now,
+              titleThemeImporterUpdated,
+              titleThemeImporterUpdatedAt: titleThemeImporterUpdated ? now : (current.titleThemeImporterUpdatedAt || ""),
+              dailyActivities: {
+                monday: normalizedMultilineText(formData.get("monday")),
+                tuesday: normalizedMultilineText(formData.get("tuesday")),
+                wednesday: normalizedMultilineText(formData.get("wednesday")),
+                thursday: normalizedMultilineText(formData.get("thursday")),
+                friday: normalizedMultilineText(formData.get("friday")),
+              },
+              resources: Array.isArray(adminLessonResourcesDraft) && adminLessonResourcesDraftId === id
+                ? adminLessonResourcesDraft
+                : (current.resources || []),
+            };
+            console.log("[DIAG] updateLessonOverrides: lesson object written to lessonPlans →", JSON.stringify(Object.keys(lessonPlans[id])));
+            adminLessonEditorId = id;
+          });
+          console.log("[SAVE] Database saved");
+        }
+        // Verify the record was saved and log the result
+        const savedRecord = effectiveSiteContent().lessonPlans?.[id] || effectiveSiteContent().customLessonPlans?.find((p) => p.id === id) || null;
+        console.log("[SAVE] Verification →", savedRecord ? `record found (updatedAt: ${savedRecord.updatedAt})` : "record NOT found in store");
+        console.log("[DIAG] saveAdminLessonPlanForm: save succeeded — updated record from store →", JSON.stringify(savedRecord ? { id: savedRecord.id, title: savedRecord.title, theme: savedRecord.theme, updatedAt: savedRecord.updatedAt } : null));
+        setAdminLessonFormCleanState();
+        const isVisible = formData.get("visible") === "on";
+        const isFeatured = formData.get("featured") === "on";
+        const savedStatus = isFeatured ? "featured" : isVisible ? "approved" : "draft";
+        const statusLine = `Status: ${contentStatusEmoji[savedStatus]} ${contentStatusLabel[savedStatus]}`;
+        computedSuccessMsg = isVisible
+          ? `✅ Published Successfully — ${statusLine}`
+          : `✅ Saved Successfully — ${statusLine}`;
+      },
+      successMsg: () => computedSuccessMsg,
+      onComplete: () => {
+        setAdminLessonSaveFlowMessage(computedSuccessMsg, { isSuccess: true });
+      },
+      onError: (errDetail, err) => {
+        console.error("[DIAG] saveAdminLessonPlanForm: CAUGHT ERROR →", err);
+        const isDbError = /database|could not be saved|storage/i.test(errDetail);
+        setAdminLessonSaveFlowMessage(
+          isDbError ? `❌ Database update failed: ${errDetail}` : `❌ Save Failed — ${errDetail}. Please try again.`,
+          { isSuccess: false }
+        );
+        const msgEl = document.querySelector("#adminLessonPlanMessage");
+        if (msgEl) msgEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
       },
     });
-    const thumbStore = form.querySelector('[name="thumbnailDataStored"]');
-    if (thumbStore) thumbStore.value = payload.thumbnailUrl;
-    clearAdminFormDraft(adminLessonDraftStorageKey(id));
-    setAdminLessonFormCleanState();
-  } catch (err) {
   } finally {
     adminLessonSaving = false;
+    // Re-query the submit button because the form may have been re-rendered during save
+    const currentBtn = getLessonSaveBtn();
+    if (currentBtn) { currentBtn.disabled = false; currentBtn.textContent = originalLabel; }
   }
 }
 
 async function resetLessonPlanOverride(id) {
-  const record = allLessonPlansForAdmin().find((item) => item.id === id);
-  const nextContent = nextSiteContentDraft();
-  nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
-  delete nextContent.lessonPlans[id];
-  const fallback = record ? lessonPlanDefaults(record.resource) : null;
-  nextContent.activities = fallback
-    ? mergeLinkedActivities(nextContent.activities || [], buildLinkedActivitiesFromLessonPlan(id, fallback), id)
-    : (nextContent.activities || []).filter((item) => normalizedShortText(item.sourceLessonPlanId) !== id);
-  await saveAdminSiteContent(nextContent);
-  clearAdminFormDraft(adminLessonDraftStorageKey(id));
+  if (customLessonPlanForId(id)) {
+    const nextContent = nextSiteContentDraft();
+    nextContent.customLessonPlans = (Array.isArray(nextContent.customLessonPlans) ? nextContent.customLessonPlans : []).filter((item) => item.id !== id);
+    await saveAdminSiteContent(nextContent);
+    if (adminLessonEditorId === id) adminLessonEditorId = "";
+    return;
+  }
+  await updateLessonOverrides((lessonPlans) => {
+    delete lessonPlans[id];
+  });
+  // Clear the resources draft so it re-initializes from the reset override
+  if (adminLessonResourcesDraftId === id) {
+    adminLessonResourcesDraft = null;
+    adminLessonResourcesDraftId = "";
+  }
   adminLessonEditorId = id;
 }
 
 async function toggleLessonPlanVisibility(id) {
+  if (adminLessonTogglingId) return; // prevent concurrent toggles
   const record = allLessonPlansForAdmin().find((item) => item.id === id);
   if (!record) return;
-  const nextVisible = !(record.visible !== false);
-  const nextContent = nextSiteContentDraft();
-  nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
-  const current = nextContent.lessonPlans[id] || lessonPlanDefaults(record.resource);
-  nextContent.lessonPlans[id] = { ...current, id, visible: nextVisible };
-  nextContent.activities = updateLinkedActivityVisibility(nextContent.activities || [], id, nextVisible, current.plan);
-  await saveAdminSiteContent(nextContent);
+  adminLessonTogglingId = id;
+  renderAdminContentManager();
+  try {
+    const now = new Date().toISOString();
+    // Determine new visibility: if currently visible (visible===true), hide it; otherwise show it
+    const nextVisible = record.visible !== true;
+    if (record.isCustom) {
+      const nextContent = nextSiteContentDraft();
+      const current = (nextContent.customLessonPlans || []).find((item) => item.id === id);
+      if (current) {
+        nextContent.customLessonPlans = nextContent.customLessonPlans.map((item) => (
+          item.id === id ? { ...item, visible: nextVisible, archived: false, updatedAt: now } : item
+        ));
+        await saveAdminSiteContent(nextContent);
+      }
+    } else {
+      await updateLessonOverrides((lessonPlans) => {
+        const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
+        lessonPlans[id] = { ...current, id, visible: nextVisible, archived: false, updatedAt: now };
+      });
+    }
+  } finally {
+    adminLessonTogglingId = "";
+  }
 }
 
 async function applyLessonPlanBulkAction(action) {
   const ids = Array.from(adminLessonSelection);
   if (!ids.length) return;
+  const now = new Date().toISOString();
   const nextContent = nextSiteContentDraft();
+  const byId = new Map(allLessonPlansForAdmin().map((item) => [item.id, item]));
+  const customIds = new Set((nextContent.customLessonPlans || []).map((item) => item.id));
+  const applyBulkFields = (item) => {
+    if (action === "hide") return { ...item, visible: false, archived: false, featured: false, updatedAt: now };
+    if (action === "unhide") return { ...item, visible: true, archived: false, updatedAt: now };
+    if (action === "feature") return { ...item, visible: true, archived: false, featured: true, updatedAt: now };
+    if (action === "archive") return { ...item, visible: false, archived: true, featured: false, updatedAt: now };
+    if (action === "free") return { ...item, plan: "Free", updatedAt: now };
+    if (action === "pro") return { ...item, plan: "Pro", updatedAt: now };
+    return item;
+  };
+  nextContent.customLessonPlans = (nextContent.customLessonPlans || []).map((item) => (
+    ids.includes(item.id) ? applyBulkFields(item) : item
+  ));
   nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
-  let nextActivities = nextContent.activities || [];
   ids.forEach((id) => {
-    const record = allLessonPlansForAdmin().find((item) => item.id === id);
+    if (customIds.has(id)) return;
+    const record = byId.get(id);
     if (!record) return;
     const current = nextContent.lessonPlans[id] || lessonPlanDefaults(record.resource);
-    const nextVisible = action === "hide" ? false : action === "unhide" ? true : current.visible !== false;
-    const nextPlan = action === "free" ? "Free" : action === "pro" ? "Pro" : current.plan;
-    nextContent.lessonPlans[id] = {
-      ...current,
-      id,
-      visible: nextVisible,
-      plan: nextPlan,
-    };
-    nextActivities = updateLinkedActivityVisibility(nextActivities, id, nextVisible, nextPlan);
+    nextContent.lessonPlans[id] = applyBulkFields({ ...current, id });
   });
-  nextContent.activities = nextActivities;
   await saveAdminSiteContent(nextContent);
+}
+
+async function createAdminLessonPlan() {
+  const id = `custom-lesson-${Date.now()}`;
+  const now = new Date().toISOString();
+  const entry = {
+    id,
+    title: "New Lesson Plan",
+    age: "Infant",
+    theme: "",
+    weeklyOverview: "",
+    materials: "",
+    objectives: "",
+    teacherLanguage: "",
+    elgConnections: "",
+    familyConnection: "",
+    reflectionNotes: "",
+    plan: "Free",
+    visible: false,
+    archived: false,
+    updatedAt: now,
+    month: "",
+    holiday: "",
+    developmentalArea: "Approaches to Learning",
+    activityFocus: "",
+    tags: ["Custom Lesson Plan"],
+    dailyActivities: {
+      monday: "",
+      tuesday: "",
+      wednesday: "",
+      thursday: "",
+      friday: "",
+    },
+    resources: [],
+  };
+  const nextContent = nextSiteContentDraft();
+  nextContent.customLessonPlans = [...(nextContent.customLessonPlans || []), entry];
+  await saveAdminSiteContent(nextContent);
+  adminLessonEditorId = id;
+  adminLessonResourcesDraft = [];
+  adminLessonResourcesDraftId = id;
+  renderAdminContentManager();
+  openAdminLessonEditor(id, { scroll: true, focusTitle: true });
+}
+
+async function duplicateAdminLessonPlan(id) {
+  const record = allLessonPlansForAdmin().find((item) => item.id === id);
+  if (!record) return;
+  const duplicateId = `custom-lesson-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
+  const now = new Date().toISOString();
+  const nextContent = nextSiteContentDraft();
+  const entry = {
+    id: duplicateId,
+    sourceId: record.id,
+    title: `${record.title || "Lesson Plan"} Copy`,
+    age: record.age || "Infant",
+    theme: record.theme || "",
+    weeklyOverview: record.weeklyOverview || "",
+    materials: record.materials || "",
+    objectives: record.objectives || "",
+    teacherLanguage: record.teacherLanguage || "",
+    elgConnections: record.elgConnections || "",
+    familyConnection: record.familyConnection || "",
+    reflectionNotes: record.reflectionNotes || "",
+    plan: record.plan || "Free",
+    visible: false,
+    archived: false,
+    updatedAt: now,
+    month: record.resource?.month || record.month || "",
+    holiday: record.resource?.holiday || record.holiday || "",
+    developmentalArea: record.resource?.developmentalArea || record.developmentalArea || "Approaches to Learning",
+    activityFocus: record.resource?.activityFocus || record.activityFocus || "",
+    tags: Array.isArray(record.resource?.tags) ? record.resource.tags : (Array.isArray(record.tags) ? record.tags : []),
+    thumbnailUrl: record.thumbnailUrl || "",
+    dailyActivities: {
+      monday: record.dailyActivities?.monday || "",
+      tuesday: record.dailyActivities?.tuesday || "",
+      wednesday: record.dailyActivities?.wednesday || "",
+      thursday: record.dailyActivities?.thursday || "",
+      friday: record.dailyActivities?.friday || "",
+    },
+    resources: Array.isArray(record.resources) ? cloneJson(record.resources, []) : [],
+  };
+  nextContent.customLessonPlans = [...(nextContent.customLessonPlans || []), entry];
+  await saveAdminSiteContent(nextContent);
+  adminLessonEditorId = duplicateId;
+  renderAdminContentManager();
+  openAdminLessonEditor(duplicateId, { scroll: true, focusTitle: true });
+}
+
+async function archiveAdminLessonPlan(id) {
+  const record = allLessonPlansForAdmin().find((item) => item.id === id);
+  if (!record) return;
+  const now = new Date().toISOString();
+  if (record.isCustom) {
+    const nextContent = nextSiteContentDraft();
+    nextContent.customLessonPlans = (nextContent.customLessonPlans || []).map((item) => (
+      item.id === id ? { ...item, visible: false, archived: true, featured: false, updatedAt: now } : item
+    ));
+    await saveAdminSiteContent(nextContent);
+  } else {
+    await updateLessonOverrides((lessonPlans) => {
+      const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
+      lessonPlans[id] = { ...current, id, visible: false, archived: true, featured: false, updatedAt: now };
+    });
+  }
+  renderAdminContentManager();
+}
+
+async function deleteAdminLessonPlan(id) {
+  const record = allLessonPlansForAdmin().find((item) => item.id === id);
+  if (!record || !window.confirm("Delete this lesson plan?")) return;
+  if (record.isCustom) {
+    const nextContent = nextSiteContentDraft();
+    nextContent.customLessonPlans = (nextContent.customLessonPlans || []).filter((item) => item.id !== id);
+    await saveAdminSiteContent(nextContent);
+  } else {
+    await archiveAdminLessonPlan(id);
+  }
+  if (adminLessonEditorId === id) adminLessonEditorId = "";
 }
 
 async function showOnlyFiftyLessonPlansPerAge() {
@@ -17181,43 +18867,152 @@ async function showOnlyFiftyLessonPlansPerAge() {
     map[item.age].push(item);
     return map;
   }, {});
+  const now = new Date().toISOString();
   const nextContent = nextSiteContentDraft();
   nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
-  let nextActivities = nextContent.activities || [];
+  nextContent.customLessonPlans = [...(nextContent.customLessonPlans || [])];
   Object.values(grouped).forEach((items) => {
     items
       .slice()
       .sort((a, b) => a.title.localeCompare(b.title))
       .forEach((item, index) => {
-        const current = nextContent.lessonPlans[item.id] || lessonPlanDefaults(item.resource);
-        const nextVisible = index < 50;
-        nextContent.lessonPlans[item.id] = { ...current, id: item.id, visible: nextVisible };
-        nextActivities = updateLinkedActivityVisibility(nextActivities, item.id, nextVisible, current.plan);
+        if (item.isCustom) {
+          nextContent.customLessonPlans = nextContent.customLessonPlans.map((plan) => (
+            plan.id === item.id ? { ...plan, visible: index < 50, archived: false, updatedAt: now } : plan
+          ));
+        } else {
+          const current = nextContent.lessonPlans[item.id] || lessonPlanDefaults(item.resource);
+          nextContent.lessonPlans[item.id] = { ...current, id: item.id, visible: index < 50, archived: false, updatedAt: now };
+        }
       });
   });
-  nextContent.activities = nextActivities;
   await saveAdminSiteContent(nextContent);
 }
 
-async function saveAdminReviewForm(form) {
-  const formData = new FormData(form);
-  const uploadedImage = await fileToImageDataUrl(formData.get("imageFile"));
+async function hideAllLessonPlans() {
+  const all = allLessonPlansForAdmin();
+  if (!all.length) return;
+  if (!window.confirm(`Hide ALL ${all.length} lesson plans from the public library? You can re-publish plans one at a time from the admin panel.`)) return;
+  const now = new Date().toISOString();
   const nextContent = nextSiteContentDraft();
-  const id = normalizedShortText(formData.get("id")) || `review-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-  const entry = {
-    id,
-    name: normalizedShortText(formData.get("name")),
-    businessName: normalizedShortText(formData.get("businessName")),
-    text: normalizedMultilineText(formData.get("text")),
-    imageUrl: uploadedImage || sanitizedImageSource(formData.get("imageUrl")),
-    visible: formData.get("visible") === "on",
-    order: Number(formData.get("order") || 0) || 1,
-  };
-  const existing = (nextContent.reviews || []).filter((item) => item.id !== id);
-  nextContent.reviews = [...existing, entry].sort((a, b) => (a.order || 0) - (b.order || 0));
-  adminReviewEditorId = id;
+  nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
+  nextContent.customLessonPlans = (nextContent.customLessonPlans || []).map((item) => ({ ...item, visible: false, updatedAt: now }));
+  all.forEach((item) => {
+    if (item.isCustom) return;
+    const current = nextContent.lessonPlans[item.id] || lessonPlanDefaults(item.resource);
+    nextContent.lessonPlans[item.id] = { ...current, id: item.id, visible: false, updatedAt: now };
+  });
   await saveAdminSiteContent(nextContent);
-  setFormMessage("#adminReviewMessage", "Review saved.", true);
+}
+
+function exportAllLessonPlansJson() {
+  const all = allLessonPlansForAdmin();
+  const content = effectiveSiteContent();
+  const exportData = {
+    exportedAt: new Date().toISOString(),
+    totalPlans: all.length,
+    lessonPlanOverrides: content.lessonPlans || {},
+    customLessonPlans: content.customLessonPlans || [],
+    allPlans: all.map((plan) => ({
+      id: plan.id,
+      title: plan.title,
+      age: plan.age,
+      theme: plan.theme,
+      plan: plan.plan,
+      status: contentItemStatus(plan),
+      visible: plan.visible,
+      archived: plan.archived,
+      featured: plan.featured,
+      isCustom: plan.isCustom,
+      updatedAt: plan.updatedAt,
+    })),
+  };
+  try {
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `lesson-plans-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    window.alert(`Export failed: ${err.message || "Unknown error"}. Check your browser permissions.`);
+  }
+}
+
+async function archiveAllLessonPlans() {
+  const all = allLessonPlansForAdmin();
+  if (!all.length) {
+    window.alert("No lesson plans to archive.");
+    return;
+  }
+  const nonArchived = all.filter((item) => contentItemStatus(item) !== "archived");
+  if (!window.confirm(`Archive ALL ${nonArchived.length} non-archived lesson plans?\n\nA JSON backup will be downloaded first. Archived plans are hidden from users but fully recoverable by Admin.`)) return;
+  exportAllLessonPlansJson();
+  const now = new Date().toISOString();
+  const nextContent = nextSiteContentDraft();
+  nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
+  nextContent.customLessonPlans = (nextContent.customLessonPlans || []).map((item) => ({
+    ...item, visible: false, archived: true, featured: false, updatedAt: now,
+  }));
+  all.filter((item) => !item.isCustom).forEach((item) => {
+    const current = nextContent.lessonPlans[item.id] || lessonPlanDefaults(item.resource);
+    nextContent.lessonPlans[item.id] = { ...current, id: item.id, visible: false, archived: true, featured: false, updatedAt: now };
+  });
+  await saveAdminSiteContent(nextContent);
+  renderAdminContentManager();
+}
+
+async function setLessonPlanStatus(id, status) {
+  const record = allLessonPlansForAdmin().find((item) => item.id === id);
+  if (!record) return;
+  const fields = contentStatusFields(status);
+  if (record.isCustom) {
+    const nextContent = nextSiteContentDraft();
+    nextContent.customLessonPlans = (nextContent.customLessonPlans || []).map((item) => (
+      item.id === id ? { ...item, ...fields } : item
+    ));
+    await saveAdminSiteContent(nextContent);
+  } else {
+    await updateLessonOverrides((lessonPlans) => {
+      const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
+      lessonPlans[id] = { ...current, id, ...fields };
+    });
+  }
+  renderAdminContentManager();
+}
+
+async function saveAdminReviewForm(form) {
+  await runAdminSave({
+    messageSelector: "#adminReviewMessage",
+    form,
+    saveFn: async () => {
+      const formData = new FormData(form);
+      console.log("[SAVE] Upload started → imageFile (review)");
+      const uploadedImage = await fileToImageDataUrlSafe(formData.get("imageFile"));
+      console.log("[SAVE] Upload completed");
+      const nextContent = nextSiteContentDraft();
+      const id = normalizedShortText(formData.get("id")) || `review-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+      const entry = {
+        id,
+        name: normalizedShortText(formData.get("name")),
+        businessName: normalizedShortText(formData.get("businessName")),
+        text: normalizedMultilineText(formData.get("text")),
+        imageUrl: uploadedImage || sanitizedImageSource(formData.get("imageUrl")),
+        visible: formData.get("visible") === "on",
+        order: Number(formData.get("order") || 0) || 1,
+      };
+      const existing = (nextContent.reviews || []).filter((item) => item.id !== id);
+      nextContent.reviews = [...existing, entry].sort((a, b) => (a.order || 0) - (b.order || 0));
+      adminReviewEditorId = id;
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+    },
+    successMsg: "✅ Review saved.",
+  });
 }
 
 async function updateReviewCollection(updater) {
@@ -17247,90 +19042,119 @@ async function deleteReviewEntry(id) {
 }
 
 async function saveAdminFounderForm(form) {
-  const formData = new FormData(form);
-  const profileImage = await fileToImageDataUrl(formData.get("profileImageFile"));
-  const homeImage = await fileToImageDataUrl(formData.get("homeImageFile"));
-  const nextContent = nextSiteContentDraft();
-  nextContent.founder = {
-    name: normalizedShortText(formData.get("name")),
-    title: normalizedShortText(formData.get("title")),
-    aboutText: normalizedMultilineText(formData.get("aboutText")),
-    shortBio: normalizedMultilineText(formData.get("shortBio")),
-    profileImageUrl: profileImage || sanitizedImageSource(formData.get("profileImageUrl")),
-    homeImageUrl: homeImage || sanitizedImageSource(formData.get("homeImageUrl")),
-    websiteUrl: sanitizedUrl(formData.get("websiteUrl")),
-    instagramUrl: sanitizedUrl(formData.get("instagramUrl")),
-    linkedInUrl: sanitizedUrl(formData.get("linkedInUrl")),
-  };
-  await saveAdminSiteContent(nextContent);
-  setFormMessage("#adminFounderMessage", "Founder section saved.", true);
+  await runAdminSave({
+    messageSelector: "#adminFounderMessage",
+    form,
+    saveFn: async () => {
+      const formData = new FormData(form);
+      console.log("[SAVE] Upload started → profileImageFile / homeImageFile (founder)");
+      const profileImage = await fileToImageDataUrlSafe(formData.get("profileImageFile"));
+      const homeImage = await fileToImageDataUrlSafe(formData.get("homeImageFile"));
+      console.log("[SAVE] Upload completed");
+      const nextContent = nextSiteContentDraft();
+      nextContent.founder = {
+        name: normalizedShortText(formData.get("name")),
+        title: normalizedShortText(formData.get("title")),
+        aboutText: normalizedMultilineText(formData.get("aboutText")),
+        shortBio: normalizedMultilineText(formData.get("shortBio")),
+        profileImageUrl: profileImage || sanitizedImageSource(formData.get("profileImageUrl")),
+        homeImageUrl: homeImage || sanitizedImageSource(formData.get("homeImageUrl")),
+        websiteUrl: sanitizedUrl(formData.get("websiteUrl")),
+        instagramUrl: sanitizedUrl(formData.get("instagramUrl")),
+        linkedInUrl: sanitizedUrl(formData.get("linkedInUrl")),
+      };
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+    },
+    successMsg: "✅ Founder section saved.",
+  });
 }
 
 async function saveAdminHomepageForm(form) {
-  const formData = new FormData(form);
-  const nextContent = nextSiteContentDraft();
-  const heroImage = await fileToImageDataUrl(formData.get("heroImageFile"));
-  const existingHomepage = nextContent.homepage || {};
-  const featureCards = (existingHomepage.featureCards || []).map((card, index) => ({
-    ...card,
-    id: normalizedShortText(formData.get(`featureCardId:${index}`)) || card.id,
-    title: normalizedShortText(formData.get(`featureCardTitle:${index}`)),
-    text: normalizedMultilineText(formData.get(`featureCardText:${index}`)),
-  }));
-  const howItWorks = (existingHomepage.howItWorks || []).map((card, index) => ({
-    ...card,
-    title: normalizedShortText(formData.get(`howTitle:${index}`)),
-  }));
-  const comingSoon = (existingHomepage.comingSoon || []).map((card, index) => ({
-    ...card,
-    title: normalizedShortText(formData.get(`soonTitle:${index}`)),
-  }));
-  const basePreviewCards = existingHomepage.previewCards || [];
-  const uploadedPreviewImages = await Promise.all(basePreviewCards.map((_, index) => fileToImageDataUrl(formData.get(`previewCardImageFile:${index}`))));
-  const previewCards = basePreviewCards.map((card, index) => ({
-    ...card,
-    id: normalizedShortText(formData.get(`previewCardId:${index}`)) || card?.id,
-    title: normalizedShortText(formData.get(`previewCardTitle:${index}`)),
-    text: normalizedMultilineText(formData.get(`previewCardText:${index}`)),
-    imageUrl: uploadedPreviewImages[index] || sanitizedImageSource(formData.get(`previewCardImage:${index}`)),
-  }));
-  nextContent.homepage = {
-    ...existingHomepage,
-    heroHeadline: normalizedShortText(formData.get("heroHeadline")),
-    heroSubheadline: normalizedMultilineText(formData.get("heroSubheadline")),
-    heroCtaText: normalizedShortText(formData.get("heroCtaText")),
-    heroSecondaryCtaText: normalizedShortText(formData.get("heroSecondaryCtaText")),
-    heroImageUrl: heroImage || sanitizedImageSource(formData.get("heroImageUrl")),
-    featureCards,
-    howItWorks,
-    comingSoon,
-    previewCards,
-    finalCtaHeadline: normalizedShortText(formData.get("finalCtaHeadline")),
-    finalCtaText: normalizedMultilineText(formData.get("finalCtaText")),
-    finalCtaButtonText: normalizedShortText(formData.get("finalCtaButtonText")),
-  };
-  await saveAdminSiteContent(nextContent);
-  setFormMessage("#adminHomepageMessage", "Homepage content saved.", true);
+  await runAdminSave({
+    messageSelector: "#adminHomepageMessage",
+    form,
+    saveFn: async () => {
+      const formData = new FormData(form);
+      const nextContent = nextSiteContentDraft();
+      const existingHomepage = nextContent.homepage || {};
+      console.log("[SAVE] Upload started → heroImageFile (homepage)");
+      const heroImage = await fileToImageDataUrlSafe(formData.get("heroImageFile"));
+      const basePreviewCards = existingHomepage.previewCards || [];
+      const uploadedPreviewImages = await Promise.all(basePreviewCards.map((_, index) => fileToImageDataUrlSafe(formData.get(`previewCardImageFile:${index}`))));
+      console.log("[SAVE] Upload completed");
+      const featureCards = (existingHomepage.featureCards || []).map((card, index) => ({
+        ...card,
+        id: normalizedShortText(formData.get(`featureCardId:${index}`)) || card.id,
+        title: normalizedShortText(formData.get(`featureCardTitle:${index}`)),
+        text: normalizedMultilineText(formData.get(`featureCardText:${index}`)),
+      }));
+      const howItWorks = (existingHomepage.howItWorks || []).map((card, index) => ({
+        ...card,
+        title: normalizedShortText(formData.get(`howTitle:${index}`)),
+      }));
+      const comingSoon = (existingHomepage.comingSoon || []).map((card, index) => ({
+        ...card,
+        title: normalizedShortText(formData.get(`soonTitle:${index}`)),
+      }));
+      const previewCards = basePreviewCards.map((card, index) => ({
+        ...card,
+        id: normalizedShortText(formData.get(`previewCardId:${index}`)) || card?.id,
+        title: normalizedShortText(formData.get(`previewCardTitle:${index}`)),
+        text: normalizedMultilineText(formData.get(`previewCardText:${index}`)),
+        imageUrl: uploadedPreviewImages[index] || sanitizedImageSource(formData.get(`previewCardImage:${index}`)),
+      }));
+      nextContent.homepage = {
+        ...existingHomepage,
+        heroHeadline: normalizedShortText(formData.get("heroHeadline")),
+        heroSubheadline: normalizedMultilineText(formData.get("heroSubheadline")),
+        heroCtaText: normalizedShortText(formData.get("heroCtaText")),
+        heroSecondaryCtaText: normalizedShortText(formData.get("heroSecondaryCtaText")),
+        heroImageUrl: heroImage || sanitizedImageSource(formData.get("heroImageUrl")),
+        featureCards,
+        howItWorks,
+        comingSoon,
+        previewCards,
+        finalCtaHeadline: normalizedShortText(formData.get("finalCtaHeadline")),
+        finalCtaText: normalizedMultilineText(formData.get("finalCtaText")),
+        finalCtaButtonText: normalizedShortText(formData.get("finalCtaButtonText")),
+      };
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+    },
+    successMsg: "✅ Homepage content saved.",
+  });
 }
 
 async function saveAdminImageAssetForm(form) {
-  const formData = new FormData(form);
-  const uploadedImage = await fileToImageDataUrl(formData.get("imageFile"));
-  const nextContent = nextSiteContentDraft();
-  const id = normalizedShortText(formData.get("id")) || `image-${Date.now()}`;
-  const entry = {
-    id,
-    label: normalizedShortText(formData.get("label")),
-    group: normalizedShortText(formData.get("group")),
-    imageUrl: uploadedImage || sanitizedImageSource(formData.get("imageUrl")),
-  };
-  const existing = (nextContent.images || []).filter((item) => item.id !== id);
-  nextContent.images = [...existing, entry];
-  adminImageEditorId = id;
-  await saveAdminSiteContent(nextContent);
-  setFormMessage("#adminImageMessage", "Image saved.", true);
+  await runAdminSave({
+    messageSelector: "#adminImageMessage",
+    form,
+    saveFn: async () => {
+      const formData = new FormData(form);
+      console.log("[SAVE] Upload started → imageFile (image asset)");
+      const uploadedImage = await fileToImageDataUrlSafe(formData.get("imageFile"));
+      console.log("[SAVE] Upload completed");
+      const nextContent = nextSiteContentDraft();
+      const id = normalizedShortText(formData.get("id")) || `image-${Date.now()}`;
+      const entry = {
+        id,
+        label: normalizedShortText(formData.get("label")),
+        group: normalizedShortText(formData.get("group")),
+        imageUrl: uploadedImage || sanitizedImageSource(formData.get("imageUrl")),
+      };
+      const existing = (nextContent.images || []).filter((item) => item.id !== id);
+      nextContent.images = [...existing, entry];
+      adminImageEditorId = id;
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+    },
+    successMsg: "✅ Image saved.",
+  });
 }
-
 async function deleteImageAsset(id) {
   const nextContent = nextSiteContentDraft();
   nextContent.images = (nextContent.images || []).filter((item) => item.id !== id);
@@ -17338,12 +19162,528 @@ async function deleteImageAsset(id) {
   await saveAdminSiteContent(nextContent);
 }
 
+// ─── Admin Printable Activities Manager ──────────────────────────────────────
+
+let adminActivityEditorId = "";
+
+function renderAdminActivitiesManager() {
+  const target = document.querySelector("#adminActivitiesManagerApp");
+  if (!target || !isAdminUnlocked()) return;
+  const activities = effectiveSiteContent().activities || [];
+  const editorActivity = activities.find((a) => a.id === adminActivityEditorId) || null;
+  const ageOptions = ["All Ages", "Infant", "Toddler", "Preschool"];
+  const planOptions = ["Free", "Pro"];
+  const categoryOptions = ["Math", "Literacy", "Science", "Art", "Sensory", "Fine Motor", "Gross Motor", "Social Emotional", "Music", "Outdoor", "Seasonal", "Holiday", "General"];
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Activity Manager</p><h3>Printable &amp; digital activities</h3></div>
+      <button class="ghost-button" type="button" id="adminNewActivityButton">+ Add Activity</button>
+    </div>
+    <div class="admin-mobile-list" id="adminActivityList">
+      ${activities.length ? activities.map((a) => adminActivityCardHtml(a)).join("") : `<div class="empty-state">No activities yet. Click + Add Activity to create the first one.</div>`}
+    </div>
+    <form id="adminActivityForm" class="panel-form admin-stacked-form">
+      <input type="hidden" name="id" value="${escapeHtml(editorActivity?.id || "")}" />
+      <h4 class="admin-lesson-editing-heading">${editorActivity ? `Editing: ${escapeHtml(editorActivity.title || "Untitled")}` : "New Activity"}</h4>
+      <div class="form-grid-two">
+        <label>Activity Title<input name="title" value="${escapeHtml(editorActivity?.title || "")}" placeholder="Spring Butterfly Counting" required /></label>
+        <label>Age Group<select name="age">${ageOptions.map((a) => `<option${(editorActivity?.age || "All Ages") === a ? " selected" : ""}>${a}</option>`).join("")}</select></label>
+      </div>
+      <div class="form-grid-two">
+        <label>Category / Theme<select name="activityCategory">${categoryOptions.map((c) => `<option${(editorActivity?.activityCategory || "General") === c ? " selected" : ""}>${c}</option>`).join("")}</select></label>
+        <label>Access<select name="plan">${planOptions.map((p) => `<option${(editorActivity?.plan || "Free") === p ? " selected" : ""}>${p}</option>`).join("")}</select></label>
+      </div>
+      <label>Description<textarea name="description" rows="3" placeholder="What does this activity include and how is it used?">${escapeHtml(editorActivity?.description || "")}</textarea></label>
+      <label>Tags (comma-separated)<input name="tags" value="${escapeHtml(Array.isArray(editorActivity?.tags) ? editorActivity.tags.join(", ") : (editorActivity?.tags || ""))}" placeholder="counting, spring, fine motor" /></label>
+      <div class="form-grid-two">
+        <label>Upload Printable File (PDF or image)<input name="printableFile" type="file" accept=".pdf,image/*" /></label>
+        <label>Upload Preview Image<input name="thumbnailFile" type="file" accept="image/*" /></label>
+      </div>
+      ${editorActivity?.printableUrl ? `<p class="muted-copy">Current printable: <a href="${escapeHtml(editorActivity.printableUrl)}" target="_blank" rel="noopener">View</a></p>` : ""}
+      ${editorActivity?.thumbnailUrl ? `<img class="admin-activity-thumb-preview" src="${escapeHtml(editorActivity.thumbnailUrl)}" alt="Preview" />` : ""}
+      <label class="admin-inline-toggle"><input name="visible" type="checkbox" ${editorActivity?.visible !== false ? "checked" : ""} /> <span>Visible to users</span></label>
+      <div class="form-actions">
+        <button class="primary-button" type="submit">Save Activity</button>
+        ${editorActivity ? `<button class="danger-button" type="button" id="adminDeleteActivityButton" data-activity-id="${escapeHtml(editorActivity.id)}">Delete</button>` : ""}
+        <button class="ghost-button" type="button" id="adminNewActivityButton2">Cancel / New</button>
+      </div>
+      <span class="form-message" id="adminActivityMessage"></span>
+    </form>
+  `;
+}
+
+function adminActivityCardHtml(activity) {
+  const image = sanitizedImageSource(activity.thumbnailUrl || "");
+  const isVisible = activity.visible !== false;
+  return `
+    <article class="admin-mobile-card${isVisible ? "" : " is-hidden"}">
+      <div class="admin-mobile-card-body">
+        ${image ? `<img class="admin-mobile-thumb" src="${escapeHtml(image)}" alt="${escapeHtml(activity.title)} preview" />` : `<div class="admin-mobile-thumb admin-mobile-thumb-placeholder">${escapeHtml(initialsFromName(activity.title, "AC"))}</div>`}
+        <div>
+          <strong>${escapeHtml(activity.title)}</strong>
+          <p>${escapeHtml(activity.activityCategory || "General")} · ${escapeHtml(activity.age || "All Ages")} · ${escapeHtml(activity.plan || "Free")}</p>
+          <div class="tag-row">
+            <span class="tag">${escapeHtml(activity.age || "All Ages")}</span>
+            <span class="tag">${escapeHtml(activity.plan || "Free")}</span>
+            <span class="tag tag-visibility${isVisible ? " tag-visible" : " tag-hidden"}">${isVisible ? "Visible" : "Hidden"}</span>
+            ${activity.printableUrl ? `<span class="tag">Printable</span>` : ""}
+          </div>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="ghost-button" type="button" data-admin-activity-edit="${escapeHtml(activity.id)}">Edit</button>
+        <button class="ghost-button" type="button" data-admin-activity-toggle="${escapeHtml(activity.id)}">${isVisible ? "Hide" : "Show"}</button>
+      </div>
+    </article>
+  `;
+}
+
+async function deleteAdminActivity(id) {
+  if (!window.confirm("Delete this activity? This cannot be undone.")) return;
+  const nextContent = nextSiteContentDraft();
+  nextContent.activities = (Array.isArray(nextContent.activities) ? nextContent.activities : []).filter((a) => a.id !== id);
+  if (adminActivityEditorId === id) adminActivityEditorId = "";
+  await saveAdminSiteContent(nextContent);
+  syncSiteManagedResources();
+  renderAdminActivitiesManager();
+}
+
+async function toggleAdminActivityVisibility(id) {
+  const nextContent = nextSiteContentDraft();
+  const activities = Array.isArray(nextContent.activities) ? nextContent.activities : [];
+  const idx = activities.findIndex((a) => a.id === id);
+  if (idx === -1) return;
+  activities[idx] = { ...activities[idx], visible: activities[idx].visible === false, updatedAt: new Date().toISOString() };
+  nextContent.activities = activities;
+  await saveAdminSiteContent(nextContent);
+  syncSiteManagedResources();
+  renderAdminActivitiesManager();
+}
+
+let adminFormEditorId = "";
+let adminPrintableEditorId = "";
+
+// Tracks which managed-collection editor types have unsaved user input.
+// Cleared on successful save; checked in beforeunload and tab-navigation guards.
+const _adminManagedFormDirty = new Set();
+
+function markAdminManagedFormDirty(type) { _adminManagedFormDirty.add(type); }
+function clearAdminManagedFormDirty(type) { _adminManagedFormDirty.delete(type); }
+function isAdminManagedFormDirty(type) { return _adminManagedFormDirty.has(type); }
+function isAnyAdminManagedFormDirty() { return _adminManagedFormDirty.size > 0; }
+
+const adminManagedContentConfig = {
+  activities: {
+    appId: "#adminActivitiesManagerApp",
+    contentKey: "activities",
+    sectionKey: "activities",
+    category: "Activity Center",
+    singular: "Activity",
+    plural: "Activities",
+    icon: "🎯",
+    title: "Activity Manager",
+    subtitle: "Create and manage activity cards, files, and visibility.",
+    primaryField: "activityCategory",
+    primaryLabel: "Theme / Category",
+    primaryOptions: () => ["Math", "Literacy", "Science", "Art", "Sensory", "Fine Motor", "Gross Motor", "Social Emotional", "Music", "Outdoor", "Seasonal", "Holiday", "General"],
+    ageOptions: () => ["All Ages", "Infant", "Toddler", "Preschool"],
+    formatPlaceholder: "Activity or Printable PDF",
+    searchPlaceholder: "Search title, theme, or tags",
+  },
+  forms: {
+    appId: "#adminFormsManagerApp",
+    contentKey: "forms",
+    sectionKey: "forms",
+    category: "Forms Library",
+    singular: "Form",
+    plural: "Forms",
+    icon: "📝",
+    title: "Forms Manager",
+    subtitle: "Manage editable forms and family paperwork from your phone.",
+    primaryField: "formCategory",
+    primaryLabel: "Category",
+    primaryOptions: () => Array.from(new Set([
+      ...Object.keys(formGroups || {}),
+      ...(effectiveSiteContent().forms || []).map((item) => item.formCategory || "").filter(Boolean),
+      "General",
+    ])).sort((a, b) => a.localeCompare(b)),
+    ageOptions: () => ["All Ages", "Infant", "Toddler", "Preschool"],
+    formatPlaceholder: "PDF + Editable",
+    searchPlaceholder: "Search title, category, or tags",
+  },
+  printables: {
+    appId: "#adminPrintablesManagerApp",
+    contentKey: "printables",
+    sectionKey: "printables",
+    category: "Printables",
+    singular: "Printable",
+    plural: "Printables",
+    icon: "🖨️",
+    title: "Printables Manager",
+    subtitle: "Manage worksheets, take-home pages, and print-ready files.",
+    primaryField: "printableType",
+    primaryLabel: "Printable Type",
+    primaryOptions: () => Array.from(new Set([...printableTypes, ...(effectiveSiteContent().printables || []).map((item) => item.printableType || "").filter(Boolean), "General"])),
+    ageOptions: () => ["All Ages", "Infant", "Toddler", "Preschool"],
+    formatPlaceholder: "Worksheet PDF",
+    searchPlaceholder: "Search title, type, or tags",
+  },
+};
+
+function adminManagedEditorId(type) {
+  if (type === "activities") return adminActivityEditorId;
+  if (type === "forms") return adminFormEditorId;
+  if (type === "printables") return adminPrintableEditorId;
+  return "";
+}
+
+function setAdminManagedEditorId(type, id) {
+  if (type === "activities") adminActivityEditorId = id;
+  if (type === "forms") adminFormEditorId = id;
+  if (type === "printables") adminPrintableEditorId = id;
+}
+
+function adminManagedItems(type) {
+  const config = adminManagedContentConfig[type];
+  return config ? (effectiveSiteContent()[config.contentKey] || []) : [];
+}
+
+function adminManagedFilterState(type) {
+  const search = (document.querySelector(`#admin${type[0].toUpperCase()}${type.slice(1)}Search`)?.value || "").trim().toLowerCase();
+  const status = document.querySelector(`#admin${type[0].toUpperCase()}${type.slice(1)}Status`)?.value || "all";
+  const access = document.querySelector(`#admin${type[0].toUpperCase()}${type.slice(1)}Access`)?.value || "all";
+  const primary = document.querySelector(`#admin${type[0].toUpperCase()}${type.slice(1)}Primary`)?.value || "all";
+  return { search, status, access, primary };
+}
+
+function filteredAdminManagedItems(type) {
+  const config = adminManagedContentConfig[type];
+  const { search, status, access, primary } = adminManagedFilterState(type);
+  return adminManagedItems(type).filter((item) => {
+    const itemStatus = contentItemStatus(item);
+    const haystack = [
+      item.title,
+      item.description,
+      item.theme,
+      item[config.primaryField],
+      ...(Array.isArray(item.tags) ? item.tags : []),
+    ].join(" ").toLowerCase();
+    const statusMatch = status === "all" || status === itemStatus
+      // backward-compat aliases
+      || (status === "visible" && (itemStatus === "approved" || itemStatus === "featured"))
+      || (status === "hidden" && itemStatus === "draft");
+    const accessMatch = access === "all" || (access === "free" ? item.plan === "Free" : item.plan === "Pro");
+    const primaryMatch = primary === "all" || (type === "forms" ? (item[config.primaryField] || "General") === primary : (item.age || "All Ages") === primary);
+    return statusMatch && accessMatch && primaryMatch && haystack.includes(search);
+  });
+}
+
+function adminManagedStatusLabel(item) {
+  const status = contentItemStatus(item);
+  return `${contentStatusEmoji[status]} ${contentStatusLabel[status]}`;
+}
+
+function adminManagedCardHtml(type, item) {
+  const config = adminManagedContentConfig[type];
+  const status = contentItemStatus(item);
+  const statusEmoji = contentStatusEmoji[status];
+  const statusText = contentStatusLabel[status];
+  const preview = sanitizedImageSource(item.previewData || item.thumbnailUrl || "");
+  const metaLabel = item[config.primaryField] || (type === "forms" ? "General" : item.age || "All Ages");
+  return `
+    <article class="admin-content-card is-${status}">
+      <div class="admin-content-card-body">
+        ${preview ? `<img class="admin-mobile-thumb" src="${escapeHtml(preview)}" alt="${escapeHtml(item.title)} preview" />` : `<div class="admin-mobile-thumb admin-mobile-thumb-placeholder">${escapeHtml(initialsFromName(item.title, config.icon))}</div>`}
+        <div class="admin-content-card-copy">
+          <strong>${escapeHtml(item.title || `Untitled ${config.singular}`)}</strong>
+          <div class="tag-row" style="margin:2px 0 4px">
+            <span class="content-status content-status-${status}">${statusEmoji} ${escapeHtml(statusText)}</span>
+            <span class="tag">${escapeHtml(item.age || "All Ages")}</span>
+            <span class="tag">${escapeHtml(item.plan || "Free")}</span>
+          </div>
+          <small>${escapeHtml(config.primaryLabel)}: ${escapeHtml(metaLabel)}</small>
+          <small>Last Updated: ${escapeHtml(adminLessonUpdatedLabel(item.updatedAt))}</small>
+          ${(Array.isArray(item.tags) && item.tags.length) ? `<div class="tag-row">${item.tags.slice(0, 5).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
+        </div>
+      </div>
+      <div class="form-actions admin-content-card-actions">
+        <button class="ghost-button" type="button" data-admin-managed-edit="${type}:${item.id}">Edit</button>
+        <button class="ghost-button" type="button" data-admin-managed-duplicate="${type}:${item.id}">Duplicate</button>
+        <button class="ghost-button" type="button" data-admin-managed-preview="${type}:${item.id}">👁️ View Live</button>
+        ${status === "archived"
+          ? `<button class="ghost-button" type="button" data-admin-managed-set-status="${type}:${item.id}:approved">🟢 Restore</button>`
+          : `<button class="ghost-button" type="button" data-admin-managed-toggle="${type}:${item.id}">${(status === "approved" || status === "featured") ? "🟡 Save Draft" : "🟢 Publish"}</button>`
+        }
+        ${status !== "featured" && status !== "archived"
+          ? `<button class="ghost-button" type="button" data-admin-managed-set-status="${type}:${item.id}:featured">⭐ Feature</button>`
+          : ""
+        }
+        ${status === "featured"
+          ? `<button class="ghost-button" type="button" data-admin-managed-set-status="${type}:${item.id}:approved">🟢 Unfeature</button>`
+          : ""
+        }
+        ${status !== "archived"
+          ? `<button class="ghost-button" type="button" data-admin-managed-archive="${type}:${item.id}">📦 Archive</button>`
+          : ""
+        }
+        <button class="danger-button" type="button" data-admin-managed-delete="${type}:${item.id}">Delete</button>
+      </div>
+    </article>
+  `;
+}
+
+function adminManagedStatsHtml(type) {
+  const items = adminManagedItems(type);
+  const counts = {
+    draft: items.filter((item) => contentItemStatus(item) === "draft").length,
+    approved: items.filter((item) => contentItemStatus(item) === "approved").length,
+    featured: items.filter((item) => contentItemStatus(item) === "featured").length,
+    archived: items.filter((item) => contentItemStatus(item) === "archived").length,
+  };
+  return `
+    <div class="admin-mobile-stats">
+      <div><strong>${items.length}</strong><span>Total</span></div>
+      <div><strong>${counts.draft}</strong><span>🟡 Draft</span></div>
+      <div><strong>${counts.approved}</strong><span>🟢 Approved</span></div>
+      <div><strong>${counts.featured}</strong><span>⭐ Featured</span></div>
+      <div><strong>${counts.archived}</strong><span>📦 Archived</span></div>
+    </div>
+  `;
+}
+
+function adminManagedFormHtml(type, item = {}) {
+  const config = adminManagedContentConfig[type];
+  const ageOptions = config.ageOptions();
+  const primaryOptions = config.primaryOptions();
+  const title = item.id ? `Editing: ${escapeHtml(item.title || `Untitled ${config.singular}`)}` : `New ${config.singular}`;
+  const primaryValue = item[config.primaryField] || (primaryOptions[0] || "General");
+  const statusLine = item.id ? `<p class="muted-copy">${contentStatusHtml(item)} · Last updated: ${escapeHtml(adminLessonUpdatedLabel(item.updatedAt))}</p>` : "";
+  return `
+    <form id="admin${type[0].toUpperCase()}${type.slice(1)}Form" class="panel-form admin-stacked-form" data-admin-managed-type="${type}">
+      <input type="hidden" name="id" value="${escapeHtml(item.id || "")}" />
+      <h4 class="admin-lesson-editing-heading">${title}</h4>
+      ${statusLine}
+      <div class="form-grid-two">
+        <label>${config.singular} Title<input name="title" value="${escapeHtml(item.title || "")}" placeholder="${escapeHtml(config.singular)} title" required /></label>
+        <label>Age Group<select name="age">${ageOptions.map((age) => `<option${(item.age || "All Ages") === age ? " selected" : ""}>${age}</option>`).join("")}</select></label>
+      </div>
+      <div class="form-grid-two">
+        <label>${config.primaryLabel}<select name="${config.primaryField}">${primaryOptions.map((value) => `<option${primaryValue === value ? " selected" : ""}>${escapeHtml(value)}</option>`).join("")}</select></label>
+        <label>Free / Pro<select name="plan">${["Free", "Pro"].map((value) => `<option${(item.plan || "Free") === value ? " selected" : ""}>${value}</option>`).join("")}</select></label>
+      </div>
+      <label>Theme / Search Topic<input name="theme" value="${escapeHtml(item.theme || "")}" placeholder="e.g. Ocean, All About Me, Enrollment" /></label>
+      <label>Description<textarea name="description" rows="3">${escapeHtml(item.description || "")}</textarea></label>
+      <label>Tags (comma-separated)<input name="tags" value="${escapeHtml(Array.isArray(item.tags) ? item.tags.join(", ") : "")}" placeholder="theme, bundle, fine motor" /></label>
+      <label>Format<input name="format" value="${escapeHtml(item.format || config.formatPlaceholder)}" placeholder="${escapeHtml(config.formatPlaceholder)}" /></label>
+      <label>Editable Content<textarea name="customContent" rows="6" placeholder="Optional in-app content or notes.">${escapeHtml(item.customContent || "")}</textarea></label>
+      <div class="form-grid-two">
+        <label>Upload File<input name="file" type="file" accept=".pdf,image/*,.txt" /></label>
+        <label>Preview Image<input name="preview" type="file" accept="image/*" /></label>
+      </div>
+      <label class="admin-inline-toggle"><input name="visible" type="checkbox" ${item.visible === true ? "checked" : ""} /> <span>Visible to users (Approved)</span></label>
+      <label class="admin-inline-toggle"><input name="featured" type="checkbox" ${item.featured === true ? "checked" : ""} /> <span>⭐ Featured (prioritized in searches)</span></label>
+      <div class="form-actions">
+        <button class="primary-button" type="submit">💾 Save ${config.singular}</button>
+        <button class="ghost-button" type="button" data-admin-managed-new="${type}">Create New</button>
+      </div>
+      <span class="form-message" id="admin${type[0].toUpperCase()}${type.slice(1)}Message"></span>
+    </form>
+  `;
+}
+
+function renderAdminManagedCollection(type) {
+  const config = adminManagedContentConfig[type];
+  const target = document.querySelector(config.appId);
+  if (!target || !isAdminUnlocked()) return;
+  const filterState = adminManagedFilterState(type);
+  const allItems = adminManagedItems(type);
+  const filtered = filteredAdminManagedItems(type);
+  const editorId = adminManagedEditorId(type);
+  const editorItem = allItems.find((item) => item.id === editorId) || null;
+  const key = type[0].toUpperCase() + type.slice(1);
+  const primaryOptions = type === "forms"
+    ? ["all", ...config.primaryOptions()]
+    : ["all", ...config.ageOptions()];
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">${config.icon} ${config.plural}</p><h3>${config.title}</h3><p>${config.subtitle}</p></div>
+      <button class="ghost-button" type="button" data-admin-managed-new="${type}">+ Create ${config.singular}</button>
+    </div>
+    <div class="admin-mobile-toolbar">
+      <label><span>Search</span><input id="admin${key}Search" type="search" placeholder="${escapeHtml(config.searchPlaceholder)}" /></label>
+      <label><span>${config.primaryLabel}</span><select id="admin${key}Primary">${primaryOptions.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value === "all" ? "All" : value)}</option>`).join("")}</select></label>
+      <label><span>Status</span><select id="admin${key}Status">${[["all","All"],["draft","🟡 Draft"],["approved","🟢 Approved"],["featured","⭐ Featured"],["archived","📦 Archived"]].map(([value, label]) => `<option value="${value}">${escapeHtml(label)}</option>`).join("")}</select></label>
+      <label><span>Access</span><select id="admin${key}Access">${[["all","All"],["free","Free"],["pro","Pro"]].map(([value, label]) => `<option value="${value}">${escapeHtml(label)}</option>`).join("")}</select></label>
+    </div>
+    ${adminManagedStatsHtml(type)}
+    <div class="admin-mobile-list">${filtered.length ? filtered.map((item) => adminManagedCardHtml(type, item)).join("") : `<div class="empty-state">No ${config.plural.toLowerCase()} match these filters.</div>`}</div>
+    ${adminManagedFormHtml(type, editorItem || { visible: false, featured: false, plan: "Free", age: "All Ages", [config.primaryField]: config.primaryOptions()[0] || "General" })}
+  `;
+  const searchField = target.querySelector(`#admin${key}Search`);
+  const primaryField = target.querySelector(`#admin${key}Primary`);
+  const statusField = target.querySelector(`#admin${key}Status`);
+  const accessField = target.querySelector(`#admin${key}Access`);
+  if (searchField) searchField.value = filterState.search || "";
+  if (primaryField) primaryField.value = filterState.primary || "all";
+  if (statusField) statusField.value = filterState.status || "all";
+  if (accessField) accessField.value = filterState.access || "all";
+}
+
+function renderAdminActivitiesManager() {
+  renderAdminManagedCollection("activities");
+}
+
+function renderAdminFormsManager() {
+  renderAdminManagedCollection("forms");
+}
+
+function renderAdminPrintablesManager() {
+  renderAdminManagedCollection("printables");
+}
+
+async function saveAdminManagedCollectionForm(type, form) {
+  const config = adminManagedContentConfig[type];
+  const msgKey = `#admin${type[0].toUpperCase()}${type.slice(1)}Message`;
+  let savedEntry = null;
+
+  await runAdminSave({
+    messageSelector: msgKey,
+    form,
+    saveFn: async () => {
+      const nextContent = nextSiteContentDraft();
+      const existing = Array.isArray(nextContent[config.contentKey]) ? nextContent[config.contentKey] : [];
+      const formData = new FormData(form);
+      const id = normalizedShortText(formData.get("id")) || `${type}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+      const current = existing.find((item) => item.id === id) || {};
+
+      console.log("[SAVE] Upload started → file");
+      const uploadedFile = await fileToDataUrlSafe(formData.get("file"));
+      console.log("[SAVE] Upload started → preview");
+      const uploadedPreview = await fileToImageDataUrlSafe(formData.get("preview"));
+      console.log("[SAVE] Upload completed");
+
+      const tags = normalizedShortText(formData.get("tags"))
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+      const entry = {
+        ...current,
+        id,
+        title: normalizedShortText(formData.get("title")),
+        category: config.category,
+        age: normalizedShortText(formData.get("age")) || "All Ages",
+        plan: normalizedShortText(formData.get("plan")) || "Free",
+        theme: normalizedShortText(formData.get("theme")),
+        description: normalizedMultilineText(formData.get("description")),
+        tags,
+        format: normalizedShortText(formData.get("format")) || config.formatPlaceholder,
+        customContent: normalizedMultilineText(formData.get("customContent")),
+        fileName: formData.get("file")?.name || current.fileName || "",
+        fileData: uploadedFile || current.fileData || "",
+        previewName: formData.get("preview")?.name || current.previewName || "",
+        previewData: uploadedPreview || current.previewData || "",
+        visible: formData.get("visible") === "on",
+        featured: formData.get("featured") === "on",
+        archived: false,
+        updatedAt: new Date().toISOString(),
+      };
+      entry[config.primaryField] = normalizedShortText(formData.get(config.primaryField)) || config.primaryOptions()[0] || "General";
+      if (type === "activities") {
+        entry.activityCategory = entry[config.primaryField];
+        entry.printableUrl = entry.fileData || current.printableUrl || "";
+        entry.thumbnailUrl = entry.previewData || current.thumbnailUrl || "";
+      }
+      nextContent[config.contentKey] = [...existing.filter((item) => item.id !== id), entry];
+
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+
+      syncSiteManagedResources();
+      setAdminManagedEditorId(type, id);
+      clearAdminManagedFormDirty(type);
+      savedEntry = entry;
+    },
+    successMsg: () => {
+      if (!savedEntry) return "✅ Saved Successfully";
+      const savedStatus = contentItemStatus(savedEntry);
+      return `✅ ${savedEntry.visible ? "Published" : "Saved"} Successfully — Status: ${contentStatusEmoji[savedStatus]} ${contentStatusLabel[savedStatus]}`;
+    },
+    redirectFn: () => {
+      setAdminManagedEditorId(type, "");
+      renderAdminManagedCollection(type);
+    },
+  });
+}
+
+
+async function setAdminManagedCollectionItemStatus(type, id, status) {
+  const config = adminManagedContentConfig[type];
+  const fields = contentStatusFields(status);
+  const nextContent = nextSiteContentDraft();
+  nextContent[config.contentKey] = (nextContent[config.contentKey] || []).map((item) => (
+    item.id === id ? { ...item, ...fields } : item
+  ));
+  await saveAdminSiteContent(nextContent);
+  syncSiteManagedResources();
+  renderAdminManagedCollection(type);
+}
+
+async function toggleAdminManagedCollectionVisibility(type, id) {
+  const items = adminManagedItems(type);
+  const item = items.find((i) => i.id === id);
+  if (!item) return;
+  const currentStatus = contentItemStatus(item);
+  const nextStatus = (currentStatus === "approved" || currentStatus === "featured") ? "draft" : "approved";
+  await setAdminManagedCollectionItemStatus(type, id, nextStatus);
+}
+
+async function archiveAdminManagedCollectionItem(type, id) {
+  await setAdminManagedCollectionItemStatus(type, id, "archived");
+}
+
+async function duplicateAdminManagedCollectionItem(type, id) {
+  const config = adminManagedContentConfig[type];
+  const source = adminManagedItems(type).find((item) => item.id === id);
+  if (!source) return;
+  const duplicate = {
+    ...cloneJson(source, {}),
+    id: `${type}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    title: `${source.title || config.singular} Copy`,
+    visible: false,
+    archived: false,
+    updatedAt: new Date().toISOString(),
+  };
+  const nextContent = nextSiteContentDraft();
+  nextContent[config.contentKey] = [...(nextContent[config.contentKey] || []), duplicate];
+  await saveAdminSiteContent(nextContent);
+  syncSiteManagedResources();
+  setAdminManagedEditorId(type, duplicate.id);
+  renderAdminManagedCollection(type);
+}
+
+async function deleteAdminManagedCollectionItem(type, id) {
+  const config = adminManagedContentConfig[type];
+  if (!window.confirm(`Delete this ${config.singular.toLowerCase()}?`)) return;
+  const nextContent = nextSiteContentDraft();
+  nextContent[config.contentKey] = (nextContent[config.contentKey] || []).filter((item) => item.id !== id);
+  await saveAdminSiteContent(nextContent);
+  syncSiteManagedResources();
+  if (adminManagedEditorId(type) === id) setAdminManagedEditorId(type, "");
+  renderAdminManagedCollection(type);
+}
+
 // ─── Admin Section Navigation ─────────────────────────────────────────────────
 
+// adminSectionTabs is kept for backward compatibility with any code that iterates it;
+// the actual navigation is now driven by adminGroups defined earlier.
 const adminSectionTabs = [
   { id: "dashboard",   label: "Dashboard" },
   { id: "resources",   label: "Resources" },
   { id: "lesson-plans", label: "Lesson Plans" },
+  { id: "activities",  label: "Activities" },
+  { id: "forms",       label: "Forms" },
+  { id: "printables",  label: "Printables" },
   { id: "reviews",     label: "Reviews" },
   { id: "homepage",    label: "Homepage" },
   { id: "founder",     label: "Founder" },
@@ -17351,25 +19691,56 @@ const adminSectionTabs = [
   { id: "analytics",   label: "Analytics" },
   { id: "support",     label: "Support" },
   { id: "ai-testing",  label: "AI Testing" },
+  { id: "prompts",     label: "Prompt Manager" },
+  { id: "settings",    label: "AI Settings" },
+  { id: "usage",       label: "Usage Monitor" },
 ];
 
 function setAdminSectionTab(tabId) {
   adminActiveSectionTab = tabId;
+  adminActiveGroup = adminGroupForTab[tabId] || "dashboard";
   localStorage.setItem("llhAdminActiveSection", tabId);
   renderAdminSectionNav();
   applyAdminSectionVisibility();
 }
 
+function setAdminGroup(groupId) {
+  const group = adminGroups.find((g) => g.id === groupId);
+  if (!group) return;
+  // Stay on the current sub-tab if it belongs to this group; otherwise use the default.
+  const targetTab = group.tabs.includes(adminActiveSectionTab) ? adminActiveSectionTab : group.defaultTab;
+  setAdminSectionTab(targetTab);
+}
+
 function renderAdminSectionNav() {
   const nav = document.querySelector("#adminSectionNav");
   if (!nav || !isAdminUnlocked()) return;
-  nav.innerHTML = `<button class="ghost-button back-button" data-view="home" type="button">← Back to Home</button>` +
-    adminSectionTabs.map(({ id, label }) =>
-      `<button class="admin-section-nav-btn${adminActiveSectionTab === id ? " active" : ""}" data-admin-section-tab="${id}" type="button">${label}</button>`
-    ).join("");
+  const currentGroup = adminActiveGroup || "dashboard";
+  const group = adminGroups.find((g) => g.id === currentGroup);
+  const subTabs = group && group.tabs.length > 1 ? group.tabs : null;
+  nav.innerHTML = `
+    <div class="admin-group-nav">
+      <button class="ghost-button admin-back-btn" data-view="home" type="button">← Home</button>
+      <div class="admin-group-grid">
+        ${adminGroups.map((g) => `
+          <button class="admin-group-btn${g.id === currentGroup ? " active" : ""}" data-admin-group="${g.id}" type="button" aria-pressed="${g.id === currentGroup}">
+            <span class="admin-group-icon" aria-hidden="true">${g.icon}</span>
+            <span class="admin-group-label">${g.label}</span>
+          </button>
+        `).join("")}
+      </div>
+    </div>
+    ${subTabs ? `
+      <div class="admin-sub-nav" role="tablist" aria-label="${group.label} sections">
+        ${subTabs.map((tabId) => `
+          <button class="admin-sub-tab${adminActiveSectionTab === tabId ? " active" : ""}" data-admin-section-tab="${tabId}" type="button" role="tab" aria-selected="${adminActiveSectionTab === tabId}">${adminTabLabels[tabId] || tabId}</button>
+        `).join("")}
+      </div>
+    ` : ""}
+  `;
 }
 
-const adminCmSectionIds = ["lesson-plans", "reviews", "founder", "homepage", "images"];
+const adminCmSectionIds = ["lesson-plans", "activities", "forms", "printables", "reviews", "founder", "homepage", "images"];
 
 function applyAdminSectionVisibility() {
   const tab = adminActiveSectionTab;
@@ -17383,6 +19754,13 @@ function applyAdminSectionVisibility() {
     ".launch-readiness-panel",
     ".admin-ticket-panel",
     ".admin-ai-test-panel",
+    ".admin-ai-prompts-panel",
+    ".admin-ai-settings-panel",
+    ".admin-ai-usage-panel",
+    ".admin-visibility-panel",
+    ".admin-users-panel",
+    ".admin-stripe-backfill-panel",
+    ".admin-site-editor-panel",
   ];
 
   topSelectors.forEach((sel) => {
@@ -17396,6 +19774,9 @@ function applyAdminSectionVisibility() {
     document.querySelectorAll("[data-admin-cm-section]").forEach((el) => {
       el.hidden = el.dataset.adminCmSection !== tab;
     });
+    if (tab === "activities") renderAdminActivitiesManager();
+    if (tab === "forms") renderAdminFormsManager();
+    if (tab === "printables") renderAdminPrintablesManager();
   } else if (tab === "dashboard") {
     const el = document.querySelector(".admin-owner-panel");
     if (el) el.hidden = false;
@@ -17413,10 +19794,1571 @@ function applyAdminSectionVisibility() {
   } else if (tab === "ai-testing") {
     const el = document.querySelector(".admin-ai-test-panel");
     if (el) el.hidden = false;
+  } else if (tab === "prompts") {
+    const el = document.querySelector(".admin-ai-prompts-panel");
+    if (el) el.hidden = false;
+    if (!adminAiPromptsState.aiPrompts || Object.keys(adminAiPromptsState.aiPrompts).length === 0) {
+      loadAdminAiPrompts();
+    } else {
+      renderAdminAiPromptsTab();
+    }
+  } else if (tab === "settings") {
+    const el = document.querySelector(".admin-ai-settings-panel");
+    if (el) el.hidden = false;
+    if (!adminAiSettingsState.aiSettings) {
+      loadAdminAiSettings();
+    } else {
+      renderAdminAiSettingsTab();
+    }
+  } else if (tab === "usage") {
+    const el = document.querySelector(".admin-ai-usage-panel");
+    if (el) el.hidden = false;
+    loadAdminAiUsage();
+  } else if (tab === "visibility") {
+    const el = document.querySelector(".admin-visibility-panel");
+    if (el) el.hidden = false;
+    renderAdminVisibilityDashboard();
+  } else if (tab === "users") {
+    const el = document.querySelector(".admin-users-panel");
+    if (el) el.hidden = false;
+    renderAdminUsersDashboard();
+  } else if (tab === "stripe-backfill") {
+    const el = document.querySelector(".admin-stripe-backfill-panel");
+    if (el) el.hidden = false;
+    renderAdminStripeBackfillTab();
+  } else if (tab === "pricing" || tab === "faqs" || tab === "announcement" || tab === "upgrade-msg" || tab === "hero" || tab === "trust" || tab === "journey" || tab === "reviews-cta" || tab === "founding") {
+    const el = document.querySelector(".admin-site-editor-panel");
+    if (el) el.hidden = false;
+    renderAdminSiteEditorSection(tab);
   }
 }
 
-// ─── Structured Lesson Plan Import ───────────────────────────────────────────
+// ─── Admin 2.0 Visibility Dashboard ──────────────────────────────────────────
+
+function adminVisibilityEntries() {
+  const lessonEntries = allLessonPlansForAdmin().map((item) => ({
+    id: item.id,
+    type: "lesson-plans",
+    label: "Lesson Plans",
+    title: item.title || "Untitled Lesson Plan",
+    age: item.age || "All Ages",
+    plan: item.plan || "Free",
+    updatedAt: item.updatedAt || "",
+    status: item.archived ? "archived" : item.userVisible ? "visible" : "hidden",
+    previewId: item.id,
+  }));
+  const collectionEntries = [
+    ["activities", "Activities"],
+    ["forms", "Forms"],
+    ["printables", "Printables"],
+  ].flatMap(([type, label]) => adminManagedItems(type).map((item) => ({
+    id: item.id,
+    type,
+    label,
+    title: item.title || `Untitled ${label.slice(0, -1)}`,
+    age: item.age || "All Ages",
+    plan: item.plan || "Free",
+    updatedAt: item.updatedAt || "",
+    status: item.archived === true ? "archived" : item.visible === true ? "visible" : "hidden",
+    previewId: item.id,
+  })));
+  return [...lessonEntries, ...collectionEntries];
+}
+
+async function setVisibilityDashboardCollection(type, visible) {
+  if (type === "lesson-plans") {
+    const nextContent = nextSiteContentDraft();
+    const now = new Date().toISOString();
+    nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
+    nextContent.customLessonPlans = (nextContent.customLessonPlans || []).map((item) => ({ ...item, visible, archived: false, updatedAt: now }));
+    allLessonPlansForAdmin().forEach((item) => {
+      if (item.isCustom) return;
+      const current = nextContent.lessonPlans[item.id] || lessonPlanDefaults(item.resource);
+      nextContent.lessonPlans[item.id] = { ...current, id: item.id, visible, archived: false, updatedAt: now };
+    });
+    await saveAdminSiteContent(nextContent);
+  } else {
+    const config = adminManagedContentConfig[type];
+    const nextContent = nextSiteContentDraft();
+    nextContent[config.contentKey] = (nextContent[config.contentKey] || []).map((item) => ({ ...item, visible, archived: false, updatedAt: new Date().toISOString() }));
+    await saveAdminSiteContent(nextContent);
+  }
+  syncSiteManagedResources();
+}
+
+async function toggleVisibilityDashboardItem(type, id) {
+  if (type === "lesson-plans") {
+    await toggleLessonPlanVisibility(id);
+    return;
+  }
+  await toggleAdminManagedCollectionVisibility(type, id);
+}
+
+function editVisibilityDashboardItem(type, id) {
+  if (type === "lesson-plans") {
+    openAdminLessonEditor(id, { scroll: true, focusTitle: true });
+    return;
+  }
+  setAdminSectionTab(type);
+  setAdminManagedEditorId(type, id);
+  if (type === "activities") renderAdminActivitiesManager();
+  if (type === "forms") renderAdminFormsManager();
+  if (type === "printables") renderAdminPrintablesManager();
+}
+
+function renderAdminVisibilityDashboard() {
+  const target = document.querySelector("#adminVisibilityApp");
+  if (!target || !isAdminUnlocked()) return;
+  const items = adminVisibilityEntries();
+  const visible = items.filter((item) => item.status === "visible");
+  const hidden = items.filter((item) => item.status === "hidden");
+  const archived = items.filter((item) => item.status === "archived");
+  const summary = {
+    lessons: allLessonPlansForAdmin(),
+    activities: adminManagedItems("activities"),
+    forms: adminManagedItems("forms"),
+    printables: adminManagedItems("printables"),
+  };
+
+  function visibilityCard(item) {
+    const isVisible = item.status === "visible";
+    return `
+      <div class="admin-vis-card${item.status === "archived" ? " is-archived" : isVisible ? "" : " is-hidden"}">
+        <div class="admin-vis-card-main">
+          <div>
+            <span class="admin-vis-badge${item.status === "archived" ? " badge-hidden" : isVisible ? " badge-visible" : " badge-hidden"}">${escapeHtml(item.status[0].toUpperCase() + item.status.slice(1))}</span>
+            <strong>${escapeHtml(item.title || "Untitled")}</strong>
+            <small>${escapeHtml(item.label)} · ${escapeHtml(item.age || "")} · ${escapeHtml(item.plan || "Free")}</small>
+            <small>Last Updated: ${escapeHtml(adminLessonUpdatedLabel(item.updatedAt))}</small>
+          </div>
+          <div class="admin-vis-actions">
+            <button class="ghost-button" type="button" data-admin-visibility-toggle="${escapeHtml(item.type)}:${escapeHtml(item.id)}">${isVisible ? "Hide" : "Show"}</button>
+            <button class="ghost-button" type="button" data-admin-visibility-edit="${escapeHtml(item.type)}:${escapeHtml(item.id)}">Edit</button>
+            <button class="ghost-button" type="button" data-admin-visibility-preview="${escapeHtml(item.previewId)}">Preview</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function listHtml(items, emptyMsg) {
+    return items.length ? items.map(visibilityCard).join("") : `<div class="empty-state">${emptyMsg}</div>`;
+  }
+
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Visibility Dashboard</p><h3>Manage what's visible on the public site</h3></div>
+    </div>
+    <div class="admin-visibility-summary-grid">
+      ${[
+        ["Lesson Plans", summary.lessons],
+        ["Activities", summary.activities],
+        ["Forms", summary.forms],
+        ["Printables", summary.printables],
+      ].map(([label, collection]) => {
+        const visibleCount = collection.filter((item) => (item.userVisible === true || item.visible === true) && item.archived !== true).length;
+        const hiddenCount = collection.filter((item) => (item.userVisible !== true && item.visible !== true) && item.archived !== true).length;
+        const archivedCount = collection.filter((item) => item.archived === true).length;
+        return `<div class="admin-visibility-summary-card"><strong>${label}</strong><span>Visible: ${visibleCount}</span><span>Hidden: ${hiddenCount}</span><span>Archived: ${archivedCount}</span></div>`;
+      }).join("")}
+    </div>
+    <div class="form-actions admin-visibility-bulk-actions">
+      <button class="primary-button" type="button" data-admin-visibility-bulk="all:hide">Hide All</button>
+      <button class="ghost-button" type="button" data-admin-visibility-bulk="all:show">Show All</button>
+      <button class="ghost-button" type="button" data-admin-visibility-bulk="lesson-plans:hide">Hide Lesson Plans</button>
+      <button class="ghost-button" type="button" data-admin-visibility-bulk="lesson-plans:show">Show Lesson Plans</button>
+      <button class="ghost-button" type="button" data-admin-visibility-bulk="activities:hide">Hide Activities</button>
+      <button class="ghost-button" type="button" data-admin-visibility-bulk="activities:show">Show Activities</button>
+      <button class="ghost-button" type="button" data-admin-visibility-bulk="forms:hide">Hide Forms</button>
+      <button class="ghost-button" type="button" data-admin-visibility-bulk="forms:show">Show Forms</button>
+      <button class="ghost-button" type="button" data-admin-visibility-bulk="printables:hide">Hide Printables</button>
+      <button class="ghost-button" type="button" data-admin-visibility-bulk="printables:show">Show Printables</button>
+    </div>
+    <div class="admin-vis-tabs" id="adminVisTabs">
+      <button class="admin-sub-tab active" id="adminVisTabVisible" type="button">Visible (${Number(visible.length)})</button>
+      <button class="admin-sub-tab" id="adminVisTabHidden" type="button">Hidden (${Number(hidden.length)})</button>
+      <button class="admin-sub-tab" id="adminVisTabArchived" type="button">Archived (${Number(archived.length)})</button>
+    </div>
+    <div id="adminVisibilityList" class="admin-mobile-list">
+      ${listHtml(visible, "No visible items yet.")}
+    </div>
+  `;
+
+  // Attach filter tab handlers using closures — items arrays are pre-computed and
+  // not derived from any DOM attribute, eliminating any DOM-text-to-innerHTML path.
+  const visTabs = [
+    { id: "adminVisTabVisible", items: visible, emptyMsg: "No visible items." },
+    { id: "adminVisTabHidden",  items: hidden,  emptyMsg: "No hidden items." },
+    { id: "adminVisTabArchived", items: archived, emptyMsg: "No archived items." },
+  ];
+  const allTabBtns = visTabs.map(({ id }) => target.querySelector(`#${id}`)).filter(Boolean);
+  visTabs.forEach(({ id, items, emptyMsg }) => {
+    const btn = target.querySelector(`#${id}`);
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      allTabBtns.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      const list = target.querySelector("#adminVisibilityList");
+      if (list) list.innerHTML = listHtml(items, emptyMsg);
+    });
+  });
+}
+
+// ─── Admin 2.0 Users & Memberships Dashboard ─────────────────────────────────
+
+// ─── Admin Users & Memberships Dashboard ─────────────────────────────────────
+
+function adminUserPlanBadge(plan) {
+  const p = String(plan || "Free");
+  if (p === "Founding") return `<span class="aup-badge aup-badge--founding">⭐ Founding</span>`;
+  if (p === "Pro")      return `<span class="aup-badge aup-badge--pro">🔷 Pro</span>`;
+  if (p === "Free")     return `<span class="aup-badge aup-badge--free">Free</span>`;
+  return `<span class="aup-badge aup-badge--free">${escapeHtml(p)}</span>`;
+}
+
+function adminUserStatusBadge(status) {
+  const s = String(status || "").toLowerCase();
+  if (s.includes("cancel")) return `<span class="aup-status aup-status--canceled">Canceled</span>`;
+  if (s.includes("trial"))  return `<span class="aup-status aup-status--trial">Trial</span>`;
+  if (s.includes("active") || s.includes("active")) return `<span class="aup-status aup-status--active">Active</span>`;
+  if (s === "free plan")    return `<span class="aup-status aup-status--free">Free</span>`;
+  return `<span class="aup-status aup-status--free">${escapeHtml(status || "Free Plan")}</span>`;
+}
+
+function adminUserLastActiveLabel(account) {
+  const ts = account.lastLoginAt || account.updatedAt || account.createdAt || "";
+  if (!ts) return "Not tracked";
+  const d = new Date(ts);
+  const now = new Date();
+  const diffMs = now - d;
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7)   return `${diffDays} days ago`;
+  if (diffDays < 31)  return `${Math.floor(diffDays / 7)} wk ago`;
+  return d.toLocaleDateString();
+}
+
+function adminUserCard(account) {
+  const plan   = account.plan || "Free";
+  const status = account.subscriptionStatus || "Free Plan";
+  const joined = account.createdAt ? new Date(account.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "—";
+  const lastActive = adminUserLastActiveLabel(account);
+  const email = account.email || "";
+  return `
+    <div class="admin-user-card aup-card">
+      <div class="aup-card-top">
+        <div class="aup-card-identity">
+          <strong class="aup-card-name">${escapeHtml(displayUserName(account))}</strong>
+          <span class="aup-card-email">${escapeHtml(email)}</span>
+        </div>
+        <div class="aup-card-badges">
+          ${adminUserPlanBadge(plan)}
+          ${adminUserStatusBadge(status)}
+        </div>
+      </div>
+      <div class="aup-card-dates">
+        <span>📅 Joined <strong>${escapeHtml(joined)}</strong></span>
+        <span>🕐 Last Active <strong>${escapeHtml(lastActive)}</strong></span>
+      </div>
+      <div class="aup-card-actions">
+        <button class="ghost-button aup-btn" type="button" data-aup-view="${escapeHtml(email)}">View</button>
+        <button class="primary-button aup-btn" type="button" data-aup-manage="${escapeHtml(email)}">Manage</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderAdminUsersDashboard() {
+  const target = document.querySelector("#adminUsersApp");
+  if (!target || !isAdminUnlocked()) return;
+  // Prefer backend users (authoritative); merge any local-only accounts on top.
+  const serverUsers = (adminAnalyticsCache?.users || []);
+  const serverEmails = new Set(serverUsers.map((u) => u.email).filter(Boolean));
+  const localOnlyAccounts = allAccountsList().filter((a) => a.email && !serverEmails.has(a.email));
+  const allAccounts = [...serverUsers, ...localOnlyAccounts];
+  const free     = allAccounts.filter((a) => !a.plan || a.plan === "Free");
+  const trial    = allAccounts.filter((a) => String(a.subscriptionStatus || "").toLowerCase().includes("trial"));
+  const pro      = allAccounts.filter((a) => a.plan === "Pro");
+  const founding = allAccounts.filter((a) => a.plan === "Founding" || a.foundingMember);
+  const canceled = allAccounts.filter((a) => String(a.subscriptionStatus || "").toLowerCase().includes("cancel"));
+
+  // Track which set is currently displayed (used by search)
+  let activeItems = allAccounts.slice();
+
+  function userListHtml(items) {
+    if (!items.length) return `<div class="empty-state">No accounts in this category yet.</div>`;
+    return items.map(adminUserCard).join("");
+  }
+
+  function filterBySearch(items, query) {
+    const q = query.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((a) => {
+      const name  = String(displayUserName(a) || "").toLowerCase();
+      const email = String(a.email || "").toLowerCase();
+      return name.includes(q) || email.includes(q);
+    });
+  }
+
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Users &amp; Memberships</p><h3>Account and subscription overview</h3></div>
+    </div>
+    <div class="aup-insight-grid">
+      <div class="aup-insight-card">
+        <strong>${Number(allAccounts.length)}</strong>
+        <span>Total Users</span>
+      </div>
+      <div class="aup-insight-card aup-insight--free">
+        <strong>${Number(free.length)}</strong>
+        <span>Free</span>
+      </div>
+      <div class="aup-insight-card aup-insight--trial">
+        <strong>${Number(trial.length)}</strong>
+        <span>Trial</span>
+      </div>
+      <div class="aup-insight-card aup-insight--pro">
+        <strong>${Number(pro.length)}</strong>
+        <span>Pro</span>
+      </div>
+      <div class="aup-insight-card aup-insight--founding">
+        <strong>${Number(founding.length)}</strong>
+        <span>Founding</span>
+      </div>
+      <div class="aup-insight-card aup-insight--canceled">
+        <strong>${Number(canceled.length)}</strong>
+        <span>Canceled</span>
+      </div>
+    </div>
+    <div class="aup-search-wrap">
+      <input class="aup-search-input" id="adminUsersSearch" type="search" placeholder="🔍  Search by name or email…" autocomplete="off" />
+    </div>
+    <div class="admin-vis-tabs aup-filter-tabs" id="adminUserFilterTabs">
+      <button class="admin-sub-tab active" id="adminUserTabAll"      type="button">All (${Number(allAccounts.length)})</button>
+      <button class="admin-sub-tab"        id="adminUserTabFree"     type="button">Free (${Number(free.length)})</button>
+      <button class="admin-sub-tab"        id="adminUserTabTrial"    type="button">Trial (${Number(trial.length)})</button>
+      <button class="admin-sub-tab"        id="adminUserTabPro"      type="button">Pro (${Number(pro.length)})</button>
+      <button class="admin-sub-tab"        id="adminUserTabFounding" type="button">Founding (${Number(founding.length)})</button>
+      <button class="admin-sub-tab"        id="adminUserTabCanceled" type="button">Canceled (${Number(canceled.length)})</button>
+    </div>
+    <div id="adminUsersList" class="admin-user-list aup-list">
+      ${userListHtml(allAccounts)}
+    </div>
+  `;
+
+  // Filter tab handlers — item sets are pre-computed closures, no DOM-text-to-innerHTML.
+  const userTabs = [
+    { id: "adminUserTabAll",      items: allAccounts },
+    { id: "adminUserTabFree",     items: free },
+    { id: "adminUserTabTrial",    items: trial },
+    { id: "adminUserTabPro",      items: pro },
+    { id: "adminUserTabFounding", items: founding },
+    { id: "adminUserTabCanceled", items: canceled },
+  ];
+  const allUserTabBtns = userTabs.map(({ id }) => target.querySelector(`#${id}`)).filter(Boolean);
+  const listEl = target.querySelector("#adminUsersList");
+  const searchEl = target.querySelector("#adminUsersSearch");
+
+  userTabs.forEach(({ id, items }) => {
+    const btn = target.querySelector(`#${id}`);
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      allUserTabBtns.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      activeItems = items;
+      if (searchEl) searchEl.value = "";
+      if (listEl) listEl.innerHTML = userListHtml(items);
+    });
+  });
+
+  // Search handler
+  if (searchEl) {
+    searchEl.addEventListener("input", () => {
+      if (listEl) listEl.innerHTML = userListHtml(filterBySearch(activeItems, searchEl.value));
+    });
+  }
+
+  // View / Manage button delegation
+  if (listEl) {
+    listEl.addEventListener("click", (e) => {
+      const viewEmail   = e.target.closest("[data-aup-view]")?.dataset?.aupView;
+      const manageEmail = e.target.closest("[data-aup-manage]")?.dataset?.aupManage;
+      if (viewEmail)   openAdminUserProfile(viewEmail, "view");
+      if (manageEmail) openAdminUserProfile(manageEmail, "manage");
+    });
+  }
+}
+
+// ─── Admin User Profile Modal ─────────────────────────────────────────────────
+
+function openAdminUserProfile(email, startTab) {
+  if (!isAdminUnlocked()) return;
+  const allAccounts = allAccountsList();
+  const account = allAccounts.find((a) => a.email === email)
+    || (adminAnalyticsCache?.users || []).find((u) => u.email === email);
+  if (!account) return;
+
+  const modal = document.querySelector("#adminUserProfileModal");
+  if (!modal) return;
+
+  const plan   = account.plan || "Free";
+  const status = account.subscriptionStatus || "Free Plan";
+  const isTrial    = String(status).toLowerCase().includes("trial");
+  const isCanceled = String(status).toLowerCase().includes("cancel");
+  const isFounding = account.plan === "Founding" || Boolean(account.foundingMember);
+  const isPro      = account.plan === "Pro";
+
+  const joined     = account.createdAt    ? new Date(account.createdAt).toLocaleDateString()    : "—";
+  const lastLogin  = account.lastLoginAt  ? new Date(account.lastLoginAt).toLocaleString()      : "Not tracked";
+  const lastActive = adminUserLastActiveLabel(account);
+
+  // Trial dates
+  const trialStart  = account.trialStart  ? new Date(account.trialStart).toLocaleDateString()  : null;
+  const trialEnd    = account.trialEnd    ? new Date(account.trialEnd).toLocaleDateString()    : null;
+  let trialDaysLeft = null;
+  if (account.trialEnd) {
+    const ms = new Date(account.trialEnd) - new Date();
+    trialDaysLeft = Math.max(0, Math.ceil(ms / 86400000));
+  }
+
+  // Per-user analytics from cache
+  const analyticsUsers = (adminAnalyticsCache || localAnalyticsSummary()).users || [];
+  const userAnalytics  = analyticsUsers.find((u) => u.email === email) || {};
+  const featureUseCount = userAnalytics.featureUseCount || 0;
+
+  const activeTab = startTab || "view";
+
+  modal.querySelector("#adminUserProfileBody").innerHTML = `
+    <div class="aup-modal-header">
+      <div class="aup-modal-identity">
+        <div class="aup-modal-avatar">${escapeHtml((displayUserName(account) || "?")[0].toUpperCase())}</div>
+        <div>
+          <strong class="aup-modal-name">${escapeHtml(displayUserName(account))}</strong>
+          <span class="aup-modal-email">${escapeHtml(email)}</span>
+          <div class="aup-modal-badges">
+            ${adminUserPlanBadge(plan)}
+            ${adminUserStatusBadge(status)}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="aup-modal-tabs" id="aupModalTabs">
+      <button class="aup-modal-tab${activeTab === "view" ? " active" : ""}"   data-aup-modal-tab="view"   type="button">Account</button>
+      <button class="aup-modal-tab${activeTab === "manage" ? " active" : ""}" data-aup-modal-tab="manage" type="button">Membership</button>
+      <button class="aup-modal-tab" data-aup-modal-tab="usage"   type="button">Usage</button>
+    </div>
+
+    <div class="aup-modal-panel" id="aupPanelView"   ${activeTab !== "view"   ? 'hidden' : ''}>
+      <fieldset class="admin-fieldset">
+        <legend>Account Information</legend>
+        <div class="aup-info-grid">
+          <div><span>Name</span><strong>${escapeHtml(displayUserName(account))}</strong></div>
+          <div><span>Email</span><strong>${escapeHtml(email)}</strong></div>
+          <div><span>Plan</span><strong>${escapeHtml(plan)}</strong></div>
+          <div><span>Status</span><strong>${escapeHtml(status)}</strong></div>
+          <div><span>Signed Up</span><strong>${escapeHtml(joined)}</strong></div>
+          <div><span>Last Login</span><strong>${escapeHtml(lastLogin)}</strong></div>
+          <div><span>Last Active</span><strong>${escapeHtml(lastActive)}</strong></div>
+          ${account.authProvider ? `<div><span>Auth Provider</span><strong>${escapeHtml(account.authProvider)}</strong></div>` : ""}
+          ${account.monthlyPrice ? `<div><span>Monthly Price</span><strong>${escapeHtml(account.monthlyPrice)}</strong></div>` : ""}
+          ${account.priceLock ? `<div><span>Price Lock</span><strong>${escapeHtml(account.priceLock)}</strong></div>` : ""}
+        </div>
+      </fieldset>
+
+      ${isFounding ? `
+      <fieldset class="admin-fieldset aup-founding-fieldset">
+        <legend>⭐ Founding Member</legend>
+        <div class="aup-info-grid">
+          <div><span>Founding Member</span><strong>Yes</strong></div>
+          ${account.foundingMemberNumber ? `<div><span>Member #</span><strong>${escapeHtml(String(account.foundingMemberNumber))}</strong></div>` : ""}
+          <div><span>Original Join Date</span><strong>${escapeHtml(joined)}</strong></div>
+          <div><span>Founding Status</span><strong>${isCanceled ? "Canceled" : "Active"}</strong></div>
+          <div><span>Price Lock</span><strong>Lifetime Founding Pricing</strong></div>
+        </div>
+      </fieldset>
+      ` : ""}
+    </div>
+
+    <div class="aup-modal-panel" id="aupPanelManage" ${activeTab !== "manage" ? 'hidden' : ''}>
+      ${isTrial ? `
+      <fieldset class="admin-fieldset aup-trial-fieldset">
+        <legend>🧪 Trial Management</legend>
+        <div class="aup-info-grid">
+          ${trialStart  ? `<div><span>Trial Start</span><strong>${escapeHtml(trialStart)}</strong></div>` : ""}
+          ${trialEnd    ? `<div><span>Trial End</span><strong>${escapeHtml(trialEnd)}</strong></div>` : ""}
+          ${trialDaysLeft !== null ? `<div><span>Days Remaining</span><strong>${escapeHtml(String(trialDaysLeft))} ${trialDaysLeft === 1 ? "day" : "days"}</strong></div>` : ""}
+        </div>
+        <div class="aup-action-row" style="margin-top:12px;">
+          <button class="ghost-button aup-action-btn" type="button" data-aup-action="extend-trial" data-aup-email="${escapeHtml(email)}">Extend Trial</button>
+          <button class="ghost-button aup-action-btn" type="button" data-aup-action="end-trial"    data-aup-email="${escapeHtml(email)}">End Trial</button>
+          <button class="primary-button aup-action-btn" type="button" data-aup-action="convert-pro"  data-aup-email="${escapeHtml(email)}">Convert to Pro</button>
+        </div>
+        <p id="aupTrialMsg" class="form-message" style="margin-top:8px;"></p>
+      </fieldset>
+      ` : ""}
+
+      <fieldset class="admin-fieldset">
+        <legend>💳 Subscription Management</legend>
+        <div class="aup-info-grid">
+          <div><span>Current Plan</span><strong>${escapeHtml(plan)}</strong></div>
+          <div><span>Status</span><strong>${isCanceled ? "Canceled" : "Active"}</strong></div>
+          ${account.subscriptionCadence ? `<div><span>Billing Cadence</span><strong>${escapeHtml(account.subscriptionCadence)}</strong></div>` : ""}
+          ${account.monthlyPrice ? `<div><span>Monthly Price</span><strong>${escapeHtml(account.monthlyPrice)}</strong></div>` : ""}
+          ${account.stripeSubscriptionId ? `<div><span>Stripe Sub ID</span><strong><small>${escapeHtml(account.stripeSubscriptionId)}</small></strong></div>` : ""}
+        </div>
+        <div class="aup-action-row" style="margin-top:12px;">
+          ${!isPro && !isFounding ? `<button class="primary-button aup-action-btn" type="button" data-aup-action="upgrade"    data-aup-email="${escapeHtml(email)}">Upgrade to Pro</button>` : ""}
+          ${(isPro || isFounding) && !isCanceled ? `<button class="ghost-button aup-action-btn" type="button" data-aup-action="downgrade"  data-aup-email="${escapeHtml(email)}">Downgrade to Free</button>` : ""}
+          ${!isCanceled ? `<button class="ghost-button aup-action-btn aup-btn--danger" type="button" data-aup-action="cancel"     data-aup-email="${escapeHtml(email)}">Cancel</button>` : ""}
+          ${isCanceled  ? `<button class="primary-button aup-action-btn" type="button" data-aup-action="reactivate" data-aup-email="${escapeHtml(email)}">Reactivate</button>` : ""}
+        </div>
+        <p id="aupSubMsg" class="form-message" style="margin-top:8px;"></p>
+      </fieldset>
+
+      ${isFounding ? `
+      <fieldset class="admin-fieldset aup-founding-fieldset">
+        <legend>⭐ Founding Member Management</legend>
+        <div class="aup-info-grid">
+          <div><span>Founding Status</span><strong>${isCanceled ? "Canceled" : "Active"}</strong></div>
+          <div><span>Original Join Date</span><strong>${escapeHtml(joined)}</strong></div>
+          <div><span>Founding Price Lock</span><strong>Protected — Lifetime Pricing</strong></div>
+          ${account.foundingMemberNumber ? `<div><span>Founding Member #</span><strong>${escapeHtml(String(account.foundingMemberNumber))}</strong></div>` : ""}
+        </div>
+        <p class="aup-founding-note">⚠️ Founding Member pricing is protected. Actions above may affect subscription status but founding pricing information is preserved.</p>
+      </fieldset>
+      ` : ""}
+    </div>
+
+    <div class="aup-modal-panel" id="aupPanelUsage" hidden>
+      <fieldset class="admin-fieldset">
+        <legend>📊 Usage Information</legend>
+        <div class="aup-info-grid">
+          <div><span>Feature Events</span><strong>${escapeHtml(String(featureUseCount))}</strong></div>
+          ${userAnalytics.topFeatures?.length ? `<div><span>Top Features</span><strong>${escapeHtml(userAnalytics.topFeatures.map(([l, c]) => `${l} (${c})`).join(", "))}</strong></div>` : ""}
+          <div><span>Last Login</span><strong>${escapeHtml(lastLogin)}</strong></div>
+          <div><span>Last Seen</span><strong>${escapeHtml(userAnalytics.lastSeenAt ? new Date(userAnalytics.lastSeenAt).toLocaleString() : lastActive)}</strong></div>
+        </div>
+        <p class="aup-usage-note">Usage data reflects analytics events tracked in this browser or synced from the server. Per-user child profiles and observations are stored on each user's device.</p>
+      </fieldset>
+
+      ${account.billingHistory?.length ? `
+      <fieldset class="admin-fieldset">
+        <legend>💰 Billing History</legend>
+        ${account.billingHistory.slice(0, 8).map((item) => `
+          <div class="aup-billing-row">
+            <span>${escapeHtml(item.event || item.type || "event")}</span>
+            <strong>${escapeHtml(item.plan || "")}</strong>
+            <small>${escapeHtml(item.amount || "")} · ${escapeHtml(item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "")}</small>
+          </div>
+        `).join("")}
+      </fieldset>
+      ` : ""}
+    </div>
+  `;
+
+  // Tab switching
+  const tabBtns  = modal.querySelectorAll("[data-aup-modal-tab]");
+  const panels   = { view: modal.querySelector("#aupPanelView"), manage: modal.querySelector("#aupPanelManage"), usage: modal.querySelector("#aupPanelUsage") };
+  tabBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      tabBtns.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      Object.values(panels).forEach((p) => { if (p) p.hidden = true; });
+      const pKey = btn.dataset.aupModalTab;
+      if (panels[pKey]) panels[pKey].hidden = false;
+    });
+  });
+
+  // Action handlers
+  modal.querySelector("#adminUserProfileBody").addEventListener("click", (e) => {
+    const actionBtn = e.target.closest("[data-aup-action]");
+    if (!actionBtn) return;
+    const action     = actionBtn.dataset.aupAction;
+    const targetEmail = actionBtn.dataset.aupEmail;
+    if (!action || !targetEmail) return;
+    handleAdminUserAction(action, targetEmail, modal);
+  });
+
+  modal.setAttribute("aria-hidden", "false");
+  modal.classList.add("open");
+  modal.querySelector(".close-button")?.focus();
+}
+
+function closeAdminUserProfile() {
+  const modal = document.querySelector("#adminUserProfileModal");
+  if (!modal) return;
+  modal.setAttribute("aria-hidden", "true");
+  modal.classList.remove("open");
+}
+
+function handleAdminUserAction(action, email, modal) {
+  const allAccounts = allAccountsList();
+  const account = allAccounts.find((a) => a.email === email);
+  if (!account) return;
+
+  const msgEl = modal?.querySelector(action.includes("trial") ? "#aupTrialMsg" : "#aupSubMsg");
+  function showMsg(text, ok = true) {
+    if (!msgEl) return;
+    msgEl.textContent = text;
+    msgEl.style.color = ok ? "var(--accent, #386062)" : "#c0392b";
+  }
+
+  if (action === "extend-trial") {
+    const newEnd = new Date(account.trialEnd || Date.now());
+    newEnd.setDate(newEnd.getDate() + 7);
+    updateAccount(email, { trialEnd: newEnd.toISOString() });
+    showMsg("✅ Trial extended by 7 days.");
+    return;
+  }
+  if (action === "end-trial") {
+    if (!confirm(`End trial for ${displayUserName(account)} (${email})?`)) return;
+    updateAccount(email, { subscriptionStatus: "Free Plan", plan: "Free", trialEnd: new Date().toISOString() });
+    showMsg("Trial ended. User moved to Free Plan.");
+    renderAdminUsersDashboard();
+    openAdminUserProfile(email, "manage");
+    return;
+  }
+  if (action === "convert-pro") {
+    if (!confirm(`Convert ${displayUserName(account)} (${email}) to Pro?`)) return;
+    updateAccount(email, { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", trialEnd: null });
+    showMsg("✅ User converted to Pro.");
+    renderAdminUsersDashboard();
+    openAdminUserProfile(email, "manage");
+    return;
+  }
+  if (action === "upgrade") {
+    if (!confirm(`Upgrade ${displayUserName(account)} (${email}) to Pro?`)) return;
+    updateAccount(email, { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active" });
+    showMsg("✅ User upgraded to Pro.");
+    renderAdminUsersDashboard();
+    openAdminUserProfile(email, "manage");
+    return;
+  }
+  if (action === "downgrade") {
+    if (!confirm(`Downgrade ${displayUserName(account)} (${email}) to Free? This will remove Pro access.`)) return;
+    updateAccount(email, { plan: "Free", subscriptionStatus: "Free Plan", monthlyPrice: "$0/month" });
+    showMsg("User downgraded to Free Plan.");
+    renderAdminUsersDashboard();
+    openAdminUserProfile(email, "manage");
+    return;
+  }
+  if (action === "cancel") {
+    if (!confirm(`Cancel subscription for ${displayUserName(account)} (${email})?`)) return;
+    updateAccount(email, { subscriptionStatus: "Canceled - Free Plan Active", plan: "Free", monthlyPrice: "$0/month" });
+    showMsg("Subscription canceled. User on Free Plan.");
+    renderAdminUsersDashboard();
+    openAdminUserProfile(email, "manage");
+    return;
+  }
+  if (action === "reactivate") {
+    if (!confirm(`Reactivate Pro subscription for ${displayUserName(account)} (${email})?`)) return;
+    updateAccount(email, { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active" });
+    showMsg("✅ Subscription reactivated as Pro.");
+    renderAdminUsersDashboard();
+    openAdminUserProfile(email, "manage");
+    return;
+  }
+}
+
+
+
+// ─── Admin 2.0 Site Editor ────────────────────────────────────────────────────
+
+function adminDraftStatusBadge(isDraft) {
+  return isDraft
+    ? `<span class="se-status-badge se-draft">🟡 Draft</span>`
+    : `<span class="se-status-badge se-live">🟢 Live</span>`;
+}
+
+function renderAdminSiteEditorSection(tab) {
+  [
+    { id: "adminHeroApp",        tabId: "hero" },
+    { id: "adminTrustApp",       tabId: "trust" },
+    { id: "adminJourneyApp",     tabId: "journey" },
+    { id: "adminReviewsCtaApp",  tabId: "reviews-cta" },
+    { id: "adminFoundingApp",    tabId: "founding" },
+    { id: "adminPricingApp",     tabId: "pricing" },
+    { id: "adminFaqsApp",        tabId: "faqs" },
+    { id: "adminAnnouncementApp",tabId: "announcement" },
+    { id: "adminUpgradeMsgApp",  tabId: "upgrade-msg" },
+  ].forEach(({ id, tabId }) => {
+    const el = document.querySelector(`#${id}`);
+    if (el) el.hidden = tabId !== tab;
+  });
+  if (tab === "hero")         renderAdminHeroSection();
+  if (tab === "trust")        renderAdminTrustSection();
+  if (tab === "journey")      renderAdminJourneySection();
+  if (tab === "reviews-cta")  renderAdminReviewsCtaSection();
+  if (tab === "founding")     renderAdminFoundingSection();
+  if (tab === "pricing")      renderAdminPricingSection();
+  if (tab === "faqs")         renderAdminFaqsSection();
+  if (tab === "announcement") renderAdminAnnouncementSection();
+  if (tab === "upgrade-msg")  renderAdminUpgradeMsgSection();
+}
+
+// ── Hero Section ──
+
+function renderAdminHeroSection() {
+  const target = document.querySelector("#adminHeroApp");
+  if (!target || !isAdminUnlocked()) return;
+  const homepage = (effectiveSiteContent().homepage || {});
+  const benefitsText = (homepage.heroBenefits || []).join("\n");
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>Hero Section <span class="se-status-badge se-live">🟢 Live</span></h3></div>
+    </div>
+    <form id="adminHeroForm" class="panel-form admin-stacked-form">
+      <details class="se-accordion" open>
+        <summary class="se-accordion-summary">Hero Text</summary>
+        <div class="se-accordion-body">
+          <label>Badge text<input name="heroBadge" value="${escapeHtml(homepage.heroBadge || "")}" placeholder="Built by a Childcare Provider &amp; Mama of 3" /></label>
+          <label>Headline<input name="heroHeadline" value="${escapeHtml(homepage.heroHeadline || "")}" placeholder="Stop Spending Your Evenings on Childcare Paperwork" /></label>
+          <label>Subheadline<textarea name="heroSubheadline" rows="3">${escapeHtml(homepage.heroSubheadline || "")}</textarea></label>
+          <label>Social proof text<input name="socialProofText" value="${escapeHtml(homepage.socialProofText || "")}" /></label>
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">Benefits Bullet List</summary>
+        <div class="se-accordion-body">
+          <label>Benefits (one per line)<textarea name="heroBenefits" rows="6" placeholder="✓ Never wonder which children still need observations&#10;✓ Keep goals and progress connected">${escapeHtml(benefitsText)}</textarea></label>
+          <p class="admin-generator-note">Each line becomes one bullet. Include the ✓ symbol if desired.</p>
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">CTA Buttons</summary>
+        <div class="se-accordion-body">
+          <div class="form-grid-two">
+            <label>Primary button text<input name="heroCtaText" value="${escapeHtml(homepage.heroCtaText || "")}" placeholder="Start Free Today" /></label>
+            <label>Secondary button text<input name="heroSecondaryCtaText" value="${escapeHtml(homepage.heroSecondaryCtaText || "")}" placeholder="See What's Included" /></label>
+          </div>
+        </div>
+      </details>
+      <div class="se-form-actions">
+        <div class="se-action-buttons">
+          <button class="ghost-button" type="button" data-se-restore="hero">Restore Defaults</button>
+          <button class="primary-button" type="submit">Save Hero Section</button>
+        </div>
+      </div>
+      <span class="form-message" id="adminHeroMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminHeroForm(form) {
+  await runAdminSave({
+    messageSelector: "#adminHeroMessage",
+    form,
+    saveFn: async () => {
+      const formData = new FormData(form);
+      const nextContent = nextSiteContentDraft();
+      const heroBenefits = normalizedMultilineText(formData.get("heroBenefits")).split("\n").map((s) => s.trim()).filter(Boolean);
+      nextContent.homepage = {
+        ...(nextContent.homepage || {}),
+        heroBadge: normalizedShortText(formData.get("heroBadge")),
+        heroHeadline: normalizedShortText(formData.get("heroHeadline")),
+        heroSubheadline: normalizedMultilineText(formData.get("heroSubheadline")),
+        socialProofText: normalizedMultilineText(formData.get("socialProofText")),
+        heroCtaText: normalizedShortText(formData.get("heroCtaText")),
+        heroSecondaryCtaText: normalizedShortText(formData.get("heroSecondaryCtaText")),
+        heroBenefits,
+      };
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+      renderManagedHomeContent();
+    },
+    successMsg: "✅ Hero section saved.",
+  });
+}
+
+// ── Trust & Showcase Section ──
+
+function renderAdminTrustSection() {
+  const target = document.querySelector("#adminTrustApp");
+  if (!target || !isAdminUnlocked()) return;
+  const homepage = (effectiveSiteContent().homepage || {});
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>Provider Trust &amp; Showcase Sections <span class="se-status-badge se-live">🟢 Live</span></h3></div>
+    </div>
+    <form id="adminTrustForm" class="panel-form admin-stacked-form">
+      <details class="se-accordion" open>
+        <summary class="se-accordion-summary">Provider Trust Section</summary>
+        <div class="se-accordion-body">
+          <label>Section heading<input name="trustSectionHeading" value="${escapeHtml(homepage.trustSectionHeading || "")}" placeholder="Trusted by Providers Who Want Their Evenings Back" /></label>
+          ${(homepage.featureCards || []).map((card, index) => `
+            <fieldset class="admin-fieldset">
+              <legend>Trust card ${index + 1}</legend>
+              <input type="hidden" name="featureCardId:${index}" value="${escapeHtml(card.id || `feature-${index + 1}`)}" />
+              <label>Title<input name="featureCardTitle:${index}" value="${escapeHtml(card.title || "")}" /></label>
+              <label>Description<textarea name="featureCardText:${index}" rows="2">${escapeHtml(card.text || "")}</textarea></label>
+            </fieldset>
+          `).join("")}
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">Feature Showcase Section</summary>
+        <div class="se-accordion-body">
+          <label>Section heading<input name="showcaseSectionHeading" value="${escapeHtml(homepage.showcaseSectionHeading || "")}" placeholder="What Can I Actually Do Inside Little Learner Hub?" /></label>
+          <label>Section subtitle<textarea name="showcaseSectionSubtitle" rows="2">${escapeHtml(homepage.showcaseSectionSubtitle || "")}</textarea></label>
+          ${(homepage.previewCards || []).map((card, index) => `
+            <fieldset class="admin-fieldset">
+              <legend>Showcase card ${index + 1}: ${escapeHtml(card.title || `Card ${index + 1}`)}</legend>
+              <input type="hidden" name="previewCardId:${index}" value="${escapeHtml(card.id || `preview-${index + 1}`)}" />
+              <label>Title<input name="previewCardTitle:${index}" value="${escapeHtml(card.title || "")}" /></label>
+              <label>Description<textarea name="previewCardText:${index}" rows="2">${escapeHtml(card.text || "")}</textarea></label>
+            </fieldset>
+          `).join("")}
+        </div>
+      </details>
+      <div class="se-form-actions">
+        <div class="se-action-buttons">
+          <button class="ghost-button" type="button" data-se-restore="trust">Restore Defaults</button>
+          <button class="primary-button" type="submit">Save Trust &amp; Showcase</button>
+        </div>
+      </div>
+      <span class="form-message" id="adminTrustMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminTrustForm(form) {
+  await runAdminSave({
+    messageSelector: "#adminTrustMessage",
+    form,
+    saveFn: async () => {
+      const formData = new FormData(form);
+      const nextContent = nextSiteContentDraft();
+      const existingHomepage = nextContent.homepage || {};
+      const featureCards = (existingHomepage.featureCards || []).map((card, index) => ({
+        ...card,
+        id: normalizedShortText(formData.get(`featureCardId:${index}`)) || card.id,
+        title: normalizedShortText(formData.get(`featureCardTitle:${index}`)),
+        text: normalizedMultilineText(formData.get(`featureCardText:${index}`)),
+      }));
+      const previewCards = (existingHomepage.previewCards || []).map((card, index) => ({
+        ...card,
+        id: normalizedShortText(formData.get(`previewCardId:${index}`)) || card.id,
+        title: normalizedShortText(formData.get(`previewCardTitle:${index}`)),
+        text: normalizedMultilineText(formData.get(`previewCardText:${index}`)),
+      }));
+      nextContent.homepage = {
+        ...existingHomepage,
+        trustSectionHeading: normalizedShortText(formData.get("trustSectionHeading")),
+        showcaseSectionHeading: normalizedShortText(formData.get("showcaseSectionHeading")),
+        showcaseSectionSubtitle: normalizedMultilineText(formData.get("showcaseSectionSubtitle")),
+        featureCards,
+        previewCards,
+      };
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+      renderManagedHomeContent();
+    },
+    successMsg: "✅ Trust & Showcase section saved.",
+  });
+}
+
+// ── Journey & Why Section ──
+
+function renderAdminJourneySection() {
+  const target = document.querySelector("#adminJourneyApp");
+  if (!target || !isAdminUnlocked()) return;
+  const homepage = (effectiveSiteContent().homepage || {});
+  const whyText = (homepage.whyItems || []).map((item) => item.title).join("\n");
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>Journey, How It Works &amp; Why Section <span class="se-status-badge se-live">🟢 Live</span></h3></div>
+    </div>
+    <form id="adminJourneyForm" class="panel-form admin-stacked-form">
+      <details class="se-accordion" open>
+        <summary class="se-accordion-summary">Simple to Start Section</summary>
+        <div class="se-accordion-body">
+          <label>Section heading<input name="journeySectionHeading" value="${escapeHtml(homepage.journeySectionHeading || "")}" placeholder="Simple to Start. More Helpful Every Week." /></label>
+          <label>Section subtitle<textarea name="journeySectionSubtitle" rows="2">${escapeHtml(homepage.journeySectionSubtitle || "")}</textarea></label>
+          <div class="form-grid-two">
+            <label>How It Works card heading<input name="journeyHowItWorksHeading" value="${escapeHtml(homepage.journeyHowItWorksHeading || "")}" placeholder="How It Works" /></label>
+            <label>Coming Soon card heading<input name="journeyComingSoonHeading" value="${escapeHtml(homepage.journeyComingSoonHeading || "")}" placeholder="Coming Soon" /></label>
+          </div>
+          ${(homepage.howItWorks || []).map((card, index) => `
+            <label>How It Works step ${index + 1}<input name="howTitle:${index}" value="${escapeHtml(card.title || "")}" /></label>
+          `).join("")}
+          ${(homepage.comingSoon || []).map((card, index) => `
+            <label>Coming Soon item ${index + 1}<input name="soonTitle:${index}" value="${escapeHtml(card.title || "")}" /></label>
+          `).join("")}
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">Why Providers Love It Section</summary>
+        <div class="se-accordion-body">
+          <label>Section heading<input name="whySectionHeading" value="${escapeHtml(homepage.whySectionHeading || "")}" placeholder="Why Childcare Providers Love Little Learner Hub" /></label>
+          <label>Why items (one per line)<textarea name="whyItems" rows="6" placeholder="Never wonder which children still need observations&#10;Keep goals and progress connected">${escapeHtml(whyText)}</textarea></label>
+          <p class="admin-generator-note">Each line becomes one item in the Why section grid.</p>
+        </div>
+      </details>
+      <div class="se-form-actions">
+        <div class="se-action-buttons">
+          <button class="ghost-button" type="button" data-se-restore="journey">Restore Defaults</button>
+          <button class="primary-button" type="submit">Save Journey &amp; Why</button>
+        </div>
+      </div>
+      <span class="form-message" id="adminJourneyMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminJourneyForm(form) {
+  await runAdminSave({
+    messageSelector: "#adminJourneyMessage",
+    form,
+    saveFn: async () => {
+      const formData = new FormData(form);
+      const nextContent = nextSiteContentDraft();
+      const existingHomepage = nextContent.homepage || {};
+      const whyItems = normalizedMultilineText(formData.get("whyItems")).split("\n").map((s, i) => ({ id: `why-${i + 1}`, title: s.trim() })).filter((item) => item.title);
+      const howItWorks = (existingHomepage.howItWorks || []).map((card, index) => ({
+        ...card,
+        title: normalizedShortText(formData.get(`howTitle:${index}`)),
+      }));
+      const comingSoon = (existingHomepage.comingSoon || []).map((card, index) => ({
+        ...card,
+        title: normalizedShortText(formData.get(`soonTitle:${index}`)),
+      }));
+      nextContent.homepage = {
+        ...existingHomepage,
+        journeySectionHeading: normalizedShortText(formData.get("journeySectionHeading")),
+        journeySectionSubtitle: normalizedMultilineText(formData.get("journeySectionSubtitle")),
+        journeyHowItWorksHeading: normalizedShortText(formData.get("journeyHowItWorksHeading")),
+        journeyComingSoonHeading: normalizedShortText(formData.get("journeyComingSoonHeading")),
+        whySectionHeading: normalizedShortText(formData.get("whySectionHeading")),
+        whyItems,
+        howItWorks,
+        comingSoon,
+      };
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+      renderManagedHomeContent();
+    },
+    successMsg: "✅ Journey & Why section saved.",
+  });
+}
+
+// ── Reviews & Final CTA Section ──
+
+function renderAdminReviewsCtaSection() {
+  const target = document.querySelector("#adminReviewsCtaApp");
+  if (!target || !isAdminUnlocked()) return;
+  const homepage = (effectiveSiteContent().homepage || {});
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>Reviews &amp; Final CTA Sections <span class="se-status-badge se-live">🟢 Live</span></h3></div>
+    </div>
+    <form id="adminReviewsCtaForm" class="panel-form admin-stacked-form">
+      <details class="se-accordion" open>
+        <summary class="se-accordion-summary">Reviews Section</summary>
+        <div class="se-accordion-body">
+          <label>Section heading<input name="reviewsSectionHeading" value="${escapeHtml(homepage.reviewsSectionHeading || "")}" placeholder="Real Providers. Real Feedback." /></label>
+          <p class="admin-generator-note">To add or edit individual reviews, use the Reviews tab in the Content group.</p>
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">Final CTA Section</summary>
+        <div class="se-accordion-body">
+          <label>Headline<input name="finalCtaHeadline" value="${escapeHtml(homepage.finalCtaHeadline || "")}" placeholder="Ready to Stop Doing Childcare Paperwork Alone at Night?" /></label>
+          <label>Body text<textarea name="finalCtaText" rows="3">${escapeHtml(homepage.finalCtaText || "")}</textarea></label>
+          <div class="form-grid-two">
+            <label>Button text<input name="finalCtaButtonText" value="${escapeHtml(homepage.finalCtaButtonText || "")}" placeholder="Start Free Today" /></label>
+            <label>Subtext below button<input name="finalCtaSubtext" value="${escapeHtml(homepage.finalCtaSubtext || "")}" placeholder="Upgrade anytime to start a 7-Day Free Pro Trial with full Pro access." /></label>
+          </div>
+        </div>
+      </details>
+      <div class="se-form-actions">
+        <div class="se-action-buttons">
+          <button class="ghost-button" type="button" data-se-restore="reviews-cta">Restore Defaults</button>
+          <button class="primary-button" type="submit">Save Reviews &amp; CTA</button>
+        </div>
+      </div>
+      <span class="form-message" id="adminReviewsCtaMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminReviewsCtaForm(form) {
+  await runAdminSave({
+    messageSelector: "#adminReviewsCtaMessage",
+    form,
+    saveFn: async () => {
+      const formData = new FormData(form);
+      const nextContent = nextSiteContentDraft();
+      nextContent.homepage = {
+        ...(nextContent.homepage || {}),
+        reviewsSectionHeading: normalizedShortText(formData.get("reviewsSectionHeading")),
+        finalCtaHeadline: normalizedShortText(formData.get("finalCtaHeadline")),
+        finalCtaText: normalizedMultilineText(formData.get("finalCtaText")),
+        finalCtaButtonText: normalizedShortText(formData.get("finalCtaButtonText")),
+        finalCtaSubtext: normalizedShortText(formData.get("finalCtaSubtext")),
+      };
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+      renderManagedHomeContent();
+    },
+    successMsg: "✅ Reviews & CTA section saved.",
+  });
+}
+
+// ── Founding Member Section ──
+
+function renderAdminFoundingSection() {
+  const target = document.querySelector("#adminFoundingApp");
+  if (!target || !isAdminUnlocked()) return;
+  const f = (effectiveSiteContent().founding || {});
+  const isDraft = f._draft === true;
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>Founding Member Section ${adminDraftStatusBadge(isDraft)}</h3></div>
+    </div>
+    <form id="adminFoundingForm" class="panel-form admin-stacked-form">
+      <details class="se-accordion" open>
+        <summary class="se-accordion-summary">When Spots Are Available</summary>
+        <div class="se-accordion-body">
+          <label>Section heading<input name="heading" value="${escapeHtml(f.heading || "")}" placeholder="Founding Member Pricing" /></label>
+          <div class="form-grid-two">
+            <label>Price prefix text<input name="pricePrefix" value="${escapeHtml(f.pricePrefix || "")}" placeholder="Get Pro for" /></label>
+            <label>&ldquo;for life&rdquo; label<input name="priceLifeLabel" value="${escapeHtml(f.priceLifeLabel || "")}" placeholder="for life" /></label>
+          </div>
+          <label>CTA button text<input name="ctaButtonText" value="${escapeHtml(f.ctaButtonText || "")}" placeholder="Claim Founding Member Pricing" /></label>
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">When Spots Are Sold Out</summary>
+        <div class="se-accordion-body">
+          <label>Sold-out heading<input name="soldOutHeading" value="${escapeHtml(f.soldOutHeading || "")}" placeholder="Founding Member spots are filled" /></label>
+          <label>Sold-out CTA button text<input name="soldOutCtaText" value="${escapeHtml(f.soldOutCtaText || "")}" placeholder="Choose Pro Monthly" /></label>
+        </div>
+      </details>
+      <div class="se-form-actions">
+        <label class="se-draft-toggle"><input type="checkbox" name="_draft"${isDraft ? " checked" : ""} /> Save as Draft (hides the founding offer on the homepage)</label>
+        <div class="se-action-buttons">
+          <button class="ghost-button" type="button" data-se-restore="founding">Restore Defaults</button>
+          <button class="primary-button" type="submit">Save Founding Section</button>
+        </div>
+      </div>
+      <span class="form-message" id="adminFoundingMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminFoundingForm(form) {
+  const formData = new FormData(form);
+  const isDraft = formData.get("_draft") === "on";
+  await runAdminSave({
+    messageSelector: "#adminFoundingMessage",
+    form,
+    saveFn: async () => {
+      const nextContent = nextSiteContentDraft();
+      nextContent.founding = {
+        heading: normalizedShortText(formData.get("heading")),
+        soldOutHeading: normalizedShortText(formData.get("soldOutHeading")),
+        pricePrefix: normalizedShortText(formData.get("pricePrefix")),
+        priceLifeLabel: normalizedShortText(formData.get("priceLifeLabel")),
+        ctaButtonText: normalizedShortText(formData.get("ctaButtonText")),
+        soldOutCtaText: normalizedShortText(formData.get("soldOutCtaText")),
+        _draft: isDraft,
+      };
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+      renderHomeFoundingOffer();
+    },
+    successMsg: isDraft ? "✅ Founding section saved as draft (hidden from homepage)." : "✅ Founding section saved.",
+  });
+}
+
+// ── Pricing ──
+
+function renderAdminPricingSection() {
+  const target = document.querySelector("#adminPricingApp");
+  if (!target || !isAdminUnlocked()) return;
+  const content = effectiveSiteContent();
+  const pricing = content.pricing || {};
+  const isDraft = pricing._draft === true;
+  const freeFeaturesText = (pricing.freePlanFeatures || []).join("\n");
+  const proFeaturesText = (pricing.proPlanFeatures || []).join("\n");
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>Pricing Section ${adminDraftStatusBadge(isDraft)}</h3></div>
+    </div>
+    <form id="adminPricingForm" class="panel-form admin-stacked-form">
+      <details class="se-accordion" open>
+        <summary class="se-accordion-summary">Section Header</summary>
+        <div class="se-accordion-body">
+          <label>Section title<input name="sectionTitle" value="${escapeHtml(pricing.sectionTitle || "")}" placeholder="Simple, Transparent Pricing" /></label>
+          <label>Section subtitle<textarea name="sectionSubtitle" rows="2">${escapeHtml(pricing.sectionSubtitle || "")}</textarea></label>
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">Free Plan Card</summary>
+        <div class="se-accordion-body">
+          <div class="form-grid-two">
+            <label>Plan name<input name="freePlanName" value="${escapeHtml(pricing.freePlanName || "")}" placeholder="Free" /></label>
+            <label>CTA button text<input name="freePlanCtaText" value="${escapeHtml(pricing.freePlanCtaText || "")}" placeholder="Start Free" /></label>
+          </div>
+          <div class="form-grid-two">
+            <label>Price<input name="freePlanPrice" value="${escapeHtml(pricing.freePlanPrice || "")}" placeholder="$0" /></label>
+            <label>Price interval<input name="freePlanPriceInterval" value="${escapeHtml(pricing.freePlanPriceInterval || "")}" placeholder="Forever" /></label>
+          </div>
+          <label>Plan description<textarea name="freePlanDescription" rows="2">${escapeHtml(pricing.freePlanDescription || "")}</textarea></label>
+          <label>Feature list (one per line — include ✓ if desired)<textarea name="freePlanFeatures" rows="10" placeholder="✓ 3 Child Profiles&#10;✓ 10 Observations Per Month">${escapeHtml(freeFeaturesText)}</textarea></label>
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">Pro Plan Card</summary>
+        <div class="se-accordion-body">
+          <div class="form-grid-two">
+            <label>Plan name<input name="proPlanName" value="${escapeHtml(pricing.proPlanName || "")}" placeholder="Pro" /></label>
+            <label>Highlight badge<input name="proPlanHighlightBadge" value="${escapeHtml(pricing.proPlanHighlightBadge || "")}" placeholder="Most Popular" /></label>
+          </div>
+          <div class="form-grid-two">
+            <label>Price<input name="proPlanPrice" value="${escapeHtml(pricing.proPlanPrice || "")}" placeholder="$19.99" /></label>
+            <label>Price interval<input name="proPlanPriceInterval" value="${escapeHtml(pricing.proPlanPriceInterval || "")}" placeholder="/month" /></label>
+          </div>
+          <label>Plan description<textarea name="proPlanDescription" rows="2">${escapeHtml(pricing.proPlanDescription || "")}</textarea></label>
+          <label>Feature list (one per line — include ✓ if desired)<textarea name="proPlanFeatures" rows="10" placeholder="✓ Unlimited Child Profiles&#10;✓ Unlimited Observations">${escapeHtml(proFeaturesText)}</textarea></label>
+          <label>Trial button text<input name="trialButtonText" value="${escapeHtml(pricing.trialButtonText || "")}" placeholder="Start Your 7-Day Free Pro Trial" /></label>
+          <label>Trial note (below button)<textarea name="trialNoteText" rows="2">${escapeHtml(pricing.trialNoteText || "")}</textarea></label>
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">Fine Print</summary>
+        <div class="se-accordion-body">
+          <label>Credit card required text<input name="creditCardText" value="${escapeHtml(pricing.creditCardText || "")}" /></label>
+          <label>Cancel anytime text<input name="cancelText" value="${escapeHtml(pricing.cancelText || "")}" /></label>
+        </div>
+      </details>
+      <div class="se-form-actions">
+        <label class="se-draft-toggle"><input type="checkbox" name="_draft"${isDraft ? " checked" : ""} /> Save as Draft (not shown on live site)</label>
+        <div class="se-action-buttons">
+          <button class="ghost-button" type="button" data-se-restore="pricing">Restore Defaults</button>
+          <button class="primary-button" type="submit">Save Pricing</button>
+        </div>
+      </div>
+      <span class="form-message" id="adminPricingMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminPricingForm(form) {
+  const formData = new FormData(form);
+  const isDraft = formData.get("_draft") === "on";
+  await runAdminSave({
+    messageSelector: "#adminPricingMessage",
+    form,
+    saveFn: async () => {
+      const freePlanFeatures = normalizedMultilineText(formData.get("freePlanFeatures")).split("\n").map((s) => s.trim()).filter(Boolean);
+      const proPlanFeatures = normalizedMultilineText(formData.get("proPlanFeatures")).split("\n").map((s) => s.trim()).filter(Boolean);
+      const nextContent = nextSiteContentDraft();
+      nextContent.pricing = {
+        ...(nextContent.pricing || {}),
+        sectionTitle:          normalizedShortText(formData.get("sectionTitle")),
+        sectionSubtitle:       normalizedMultilineText(formData.get("sectionSubtitle")),
+        freePlanName:          normalizedShortText(formData.get("freePlanName")),
+        freePlanDescription:   normalizedMultilineText(formData.get("freePlanDescription")),
+        freePlanPrice:         normalizedShortText(formData.get("freePlanPrice")),
+        freePlanPriceInterval: normalizedShortText(formData.get("freePlanPriceInterval")),
+        freePlanCtaText:       normalizedShortText(formData.get("freePlanCtaText")),
+        freePlanFeatures,
+        proPlanName:           normalizedShortText(formData.get("proPlanName")),
+        proPlanDescription:    normalizedMultilineText(formData.get("proPlanDescription")),
+        proPlanPrice:          normalizedShortText(formData.get("proPlanPrice")),
+        proPlanPriceInterval:  normalizedShortText(formData.get("proPlanPriceInterval")),
+        proPlanFeatures,
+        proPlanHighlightBadge: normalizedShortText(formData.get("proPlanHighlightBadge")),
+        trialButtonText:       normalizedShortText(formData.get("trialButtonText")),
+        trialNoteText:         normalizedMultilineText(formData.get("trialNoteText")),
+        creditCardText:        normalizedShortText(formData.get("creditCardText")),
+        cancelText:            normalizedShortText(formData.get("cancelText")),
+        _draft:                isDraft,
+      };
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+      renderManagedPricingText();
+    },
+    successMsg: isDraft ? "✅ Pricing saved as draft." : "✅ Pricing saved and live.",
+  });
+}
+
+// ── FAQs ──
+
+let adminFaqEditId = "";
+
+function renderAdminFaqsSection() {
+  const target = document.querySelector("#adminFaqsApp");
+  if (!target || !isAdminUnlocked()) return;
+  const content = effectiveSiteContent();
+  const faqs = (content.faqs || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+  const editFaq = faqs.find((f) => f.id === adminFaqEditId) || null;
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>FAQ Manager</h3></div>
+      <button class="ghost-button" type="button" id="adminNewFaqButton">+ Add FAQ</button>
+    </div>
+    <div class="admin-mobile-list" id="adminFaqList">
+      ${faqs.length ? faqs.map((f, index) => `
+        <div class="admin-se-card${f.visible === false ? " se-hidden" : ""}${f.id === adminFaqEditId ? " active" : ""}" data-faq-id="${escapeHtml(f.id)}">
+          <div class="admin-se-card-main">
+            <div class="admin-se-card-title">${escapeHtml(f.question || "(no question)")}</div>
+            <div class="admin-se-card-meta">
+              ${f.visible !== false ? `<span class="tag green-tag">Visible</span>` : `<span class="tag">Hidden</span>`}
+              Order: ${f.order || index + 1}
+            </div>
+          </div>
+          <div class="admin-se-card-actions">
+            <button class="ghost-button xs-button" type="button" data-faq-edit="${escapeHtml(f.id)}">Edit</button>
+            <button class="ghost-button xs-button" type="button" data-faq-toggle="${escapeHtml(f.id)}">${f.visible !== false ? "Hide" : "Show"}</button>
+            <button class="ghost-button xs-button" type="button" data-faq-up="${escapeHtml(f.id)}"${index === 0 ? " disabled" : ""}>↑</button>
+            <button class="ghost-button xs-button" type="button" data-faq-down="${escapeHtml(f.id)}"${index === faqs.length - 1 ? " disabled" : ""}>↓</button>
+            <button class="ghost-button xs-button danger-button" type="button" data-faq-delete="${escapeHtml(f.id)}">Delete</button>
+          </div>
+        </div>
+      `).join("") : `<div class="empty-state">No FAQs yet. Click + Add FAQ to create the first one.</div>`}
+    </div>
+    <form id="adminFaqForm" class="panel-form admin-stacked-form" style="margin-top:18px">
+      <h4 style="margin:0 0 10px">${editFaq ? "Edit FAQ" : "New FAQ"}</h4>
+      <input type="hidden" name="id" value="${editFaq ? escapeHtml(editFaq.id) : ""}" />
+      <label>Question<input name="question" value="${escapeHtml(editFaq?.question || "")}" required /></label>
+      <label>Answer<textarea name="answer" rows="4" required>${escapeHtml(editFaq?.answer || "")}</textarea></label>
+      <div class="form-actions">
+        <button class="primary-button" type="submit">${editFaq ? "Update FAQ" : "Add FAQ"}</button>
+        ${editFaq ? `<button class="ghost-button" type="button" id="adminFaqCancelEdit">Cancel</button>` : ""}
+      </div>
+      <span class="form-message" id="adminFaqMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminFaqForm(form) {
+  const formData = new FormData(form);
+  const question = normalizedShortText(formData.get("question"));
+  const answer = normalizedMultilineText(formData.get("answer"));
+  if (!question || !answer) {
+    setFormMessage("#adminFaqMessage", "Question and answer are required.", false);
+    return;
+  }
+  const isEdit = !!normalizedShortText(formData.get("id"));
+  await runAdminSave({
+    messageSelector: "#adminFaqMessage",
+    form,
+    saveFn: async () => {
+      const nextContent = nextSiteContentDraft();
+      const existing = Array.isArray(nextContent.faqs) ? nextContent.faqs : [];
+      const id = normalizedShortText(formData.get("id")) || `faq-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      if (isEdit) {
+        nextContent.faqs = existing.map((f) => f.id === id ? { ...f, question, answer } : f);
+      } else {
+        const maxOrder = existing.reduce((m, f) => Math.max(m, f.order || 0), 0);
+        nextContent.faqs = [...existing, { id, question, answer, visible: true, order: maxOrder + 1 }];
+      }
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+      adminFaqEditId = "";
+      renderAdminFaqsSection();
+      renderManagedFaqContent();
+    },
+    successMsg: isEdit ? "✅ FAQ updated." : "✅ FAQ added.",
+  });
+}
+
+async function toggleAdminFaq(id) {
+  const nextContent = nextSiteContentDraft();
+  nextContent.faqs = (nextContent.faqs || []).map((f) => f.id === id ? { ...f, visible: f.visible === false } : f);
+  await saveAdminSiteContent(nextContent);
+  renderAdminFaqsSection();
+  renderManagedFaqContent();
+}
+
+async function deleteAdminFaq(id) {
+  if (!confirm("Delete this FAQ? This cannot be undone.")) return;
+  const nextContent = nextSiteContentDraft();
+  nextContent.faqs = (nextContent.faqs || []).filter((f) => f.id !== id);
+  await saveAdminSiteContent(nextContent);
+  if (adminFaqEditId === id) adminFaqEditId = "";
+  renderAdminFaqsSection();
+  renderManagedFaqContent();
+}
+
+async function moveFaq(id, direction) {
+  const nextContent = nextSiteContentDraft();
+  const faqs = (nextContent.faqs || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+  const idx = faqs.findIndex((f) => f.id === id);
+  if (idx < 0) return;
+  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= faqs.length) return;
+  const tempOrder = faqs[idx].order;
+  faqs[idx] = { ...faqs[idx], order: faqs[swapIdx].order };
+  faqs[swapIdx] = { ...faqs[swapIdx], order: tempOrder };
+  nextContent.faqs = faqs;
+  await saveAdminSiteContent(nextContent);
+  renderAdminFaqsSection();
+  renderManagedFaqContent();
+}
+
+// ── Announcement ──
+
+function renderAdminAnnouncementSection() {
+  const target = document.querySelector("#adminAnnouncementApp");
+  if (!target || !isAdminUnlocked()) return;
+  const content = effectiveSiteContent();
+  const ann = content.announcement || {};
+  const isDraft = ann._draft === true;
+  const isVisible = ann.visible === true;
+  const isExpired = ann.expiresAt && new Date(ann.expiresAt) < new Date();
+  let statusLabel = adminDraftStatusBadge(isDraft);
+  if (!isDraft && isVisible) statusLabel = isExpired ? `<span class="se-status-badge se-draft">⏰ Expired</span>` : `<span class="se-status-badge se-live">🟢 Showing</span>`;
+  if (!isDraft && !isVisible) statusLabel = `<span class="se-status-badge">⭕ Hidden</span>`;
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>Site Announcement ${statusLabel}</h3></div>
+    </div>
+    <form id="adminAnnouncementForm" class="panel-form admin-stacked-form">
+      <label>Announcement text
+        <textarea name="text" rows="3" placeholder="e.g. 🎉 New lesson plans added! Check them out.">${escapeHtml(ann.text || "")}</textarea>
+      </label>
+      <div class="form-grid-two">
+        <label>
+          <input type="checkbox" name="visible"${isVisible ? " checked" : ""} /> Show announcement on site
+        </label>
+        <label>Expires (optional)<input type="date" name="expiresAt" value="${escapeHtml(ann.expiresAt ? ann.expiresAt.slice(0, 10) : "")}" /></label>
+      </div>
+      <label>Display location
+        <select name="location">
+          <option value="top"${(ann.location || "top") === "top" ? " selected" : ""}>Top of every page</option>
+          <option value="homepage"${ann.location === "homepage" ? " selected" : ""}>Homepage only</option>
+          <option value="all"${ann.location === "all" ? " selected" : ""}>All pages (sticky)</option>
+        </select>
+      </label>
+      <div class="se-form-actions">
+        <label class="se-draft-toggle"><input type="checkbox" name="_draft"${isDraft ? " checked" : ""} /> Save as Draft</label>
+        <div class="se-action-buttons">
+          <button class="ghost-button" type="button" data-se-restore="announcement">Clear</button>
+          <button class="primary-button" type="submit">Save Announcement</button>
+        </div>
+      </div>
+      <span class="form-message" id="adminAnnouncementMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminAnnouncementForm(form) {
+  const formData = new FormData(form);
+  const ann = {
+    text:      normalizedMultilineText(formData.get("text")),
+    visible:   formData.get("visible") === "on",
+    expiresAt: normalizedShortText(formData.get("expiresAt")),
+    location:  normalizedShortText(formData.get("location")) || "top",
+    _draft:    formData.get("_draft") === "on",
+  };
+  const successMsg = ann._draft ? "✅ Announcement saved as draft." : ann.visible ? "✅ Announcement saved and live." : "✅ Announcement saved (hidden).";
+  await runAdminSave({
+    messageSelector: "#adminAnnouncementMessage",
+    form,
+    saveFn: async () => {
+      const nextContent = nextSiteContentDraft();
+      nextContent.announcement = ann;
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+      renderManagedAnnouncementBanner();
+    },
+    successMsg,
+  });
+}
+
+// ── Upgrade Messaging ──
+
+function renderAdminUpgradeMsgSection() {
+  const target = document.querySelector("#adminUpgradeMsgApp");
+  if (!target || !isAdminUnlocked()) return;
+  const content = effectiveSiteContent();
+  const um = content.upgradeMessaging || {};
+  const isDraft = um._draft === true;
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>Upgrade &amp; Trial Messaging ${adminDraftStatusBadge(isDraft)}</h3></div>
+    </div>
+    <form id="adminUpgradeMsgForm" class="panel-form admin-stacked-form">
+      <details class="se-accordion" open>
+        <summary class="se-accordion-summary">Pro Feature Popup</summary>
+        <div class="se-accordion-body">
+          <label>Popup headline<input name="upgradePopupHeadline" value="${escapeHtml(um.upgradePopupHeadline || "")}" placeholder="This is a Pro Feature" /></label>
+          <label>Free-limit headline<input name="upgradeLimitHeadline" value="${escapeHtml(um.upgradeLimitHeadline || "")}" placeholder="You've reached your Free Plan limit." /></label>
+          <label>Popup body text<textarea name="upgradePopupBody" rows="3">${escapeHtml(um.upgradePopupBody || "")}</textarea></label>
+          <label>Trial button text<input name="proTrialButtonText" value="${escapeHtml(um.proTrialButtonText || "")}" placeholder="Start Your 7-Day Free Pro Trial" /></label>
+        </div>
+      </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">Free Plan &amp; Trial Wording</summary>
+        <div class="se-accordion-body">
+          <label>Free plan limit message<textarea name="freeLimitMessage" rows="2">${escapeHtml(um.freeLimitMessage || "")}</textarea></label>
+          <label>Trial summary line (shown under upgrade options)<textarea name="trialUpgradeSummary" rows="2">${escapeHtml(um.trialUpgradeSummary || "")}</textarea></label>
+        </div>
+      </details>
+      <div class="se-form-actions">
+        <label class="se-draft-toggle"><input type="checkbox" name="_draft"${isDraft ? " checked" : ""} /> Save as Draft (not applied to live site)</label>
+        <div class="se-action-buttons">
+          <button class="ghost-button" type="button" data-se-restore="upgrade-msg">Restore Defaults</button>
+          <button class="primary-button" type="submit">Save Messaging</button>
+        </div>
+      </div>
+      <span class="form-message" id="adminUpgradeMsgMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminUpgradeMsgForm(form) {
+  const formData = new FormData(form);
+  const isDraft = formData.get("_draft") === "on";
+  await runAdminSave({
+    messageSelector: "#adminUpgradeMsgMessage",
+    form,
+    saveFn: async () => {
+      const nextContent = nextSiteContentDraft();
+      nextContent.upgradeMessaging = {
+        upgradePopupHeadline: normalizedShortText(formData.get("upgradePopupHeadline")),
+        upgradeLimitHeadline: normalizedShortText(formData.get("upgradeLimitHeadline")),
+        upgradePopupBody:     normalizedMultilineText(formData.get("upgradePopupBody")),
+        proTrialButtonText:   normalizedShortText(formData.get("proTrialButtonText")),
+        freeLimitMessage:     normalizedMultilineText(formData.get("freeLimitMessage")),
+        trialUpgradeSummary:  normalizedMultilineText(formData.get("trialUpgradeSummary")),
+        _draft:               isDraft,
+      };
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+    },
+    successMsg: isDraft ? "✅ Upgrade messaging saved as draft." : "✅ Upgrade messaging saved and live.",
+  });
+}
+
+// ── Site Editor restore-defaults handlers ──
+
+function siteEditorDefaultPricing() {
+  const def = captureDefaultSiteContent();
+  return def.pricing || {};
+}
+function siteEditorDefaultUpgradeMsg() {
+  const def = captureDefaultSiteContent();
+  return def.upgradeMessaging || {};
+}
+function siteEditorDefaultHomepage() {
+  const def = captureDefaultSiteContent();
+  return def.homepage || {};
+}
+function siteEditorDefaultFounding() {
+  const def = captureDefaultSiteContent();
+  return def.founding || {};
+}
+
+async function handleSiteEditorRestore(section) {
+  if (section === "hero") {
+    if (!confirm("Restore hero section to original site defaults?")) return;
+    const def = siteEditorDefaultHomepage();
+    const nextContent = nextSiteContentDraft();
+    nextContent.homepage = {
+      ...(nextContent.homepage || {}),
+      heroBadge: def.heroBadge,
+      heroHeadline: def.heroHeadline,
+      heroSubheadline: def.heroSubheadline,
+      socialProofText: def.socialProofText,
+      heroCtaText: def.heroCtaText,
+      heroSecondaryCtaText: def.heroSecondaryCtaText,
+      heroBenefits: def.heroBenefits,
+    };
+    await saveAdminSiteContent(nextContent);
+    renderManagedHomeContent();
+    renderAdminHeroSection();
+  } else if (section === "trust") {
+    if (!confirm("Restore trust & showcase sections to original site defaults?")) return;
+    const def = siteEditorDefaultHomepage();
+    const nextContent = nextSiteContentDraft();
+    nextContent.homepage = {
+      ...(nextContent.homepage || {}),
+      trustSectionHeading: def.trustSectionHeading,
+      featureCards: def.featureCards,
+      showcaseSectionHeading: def.showcaseSectionHeading,
+      showcaseSectionSubtitle: def.showcaseSectionSubtitle,
+      previewCards: def.previewCards,
+    };
+    await saveAdminSiteContent(nextContent);
+    renderManagedHomeContent();
+    renderAdminTrustSection();
+  } else if (section === "journey") {
+    if (!confirm("Restore journey & why sections to original site defaults?")) return;
+    const def = siteEditorDefaultHomepage();
+    const nextContent = nextSiteContentDraft();
+    nextContent.homepage = {
+      ...(nextContent.homepage || {}),
+      journeySectionHeading: def.journeySectionHeading,
+      journeySectionSubtitle: def.journeySectionSubtitle,
+      journeyHowItWorksHeading: def.journeyHowItWorksHeading,
+      journeyComingSoonHeading: def.journeyComingSoonHeading,
+      howItWorks: def.howItWorks,
+      comingSoon: def.comingSoon,
+      whySectionHeading: def.whySectionHeading,
+      whyItems: def.whyItems,
+    };
+    await saveAdminSiteContent(nextContent);
+    renderManagedHomeContent();
+    renderAdminJourneySection();
+  } else if (section === "reviews-cta") {
+    if (!confirm("Restore reviews & CTA sections to original site defaults?")) return;
+    const def = siteEditorDefaultHomepage();
+    const nextContent = nextSiteContentDraft();
+    nextContent.homepage = {
+      ...(nextContent.homepage || {}),
+      reviewsSectionHeading: def.reviewsSectionHeading,
+      finalCtaHeadline: def.finalCtaHeadline,
+      finalCtaText: def.finalCtaText,
+      finalCtaButtonText: def.finalCtaButtonText,
+      finalCtaSubtext: def.finalCtaSubtext,
+    };
+    await saveAdminSiteContent(nextContent);
+    renderManagedHomeContent();
+    renderAdminReviewsCtaSection();
+  } else if (section === "founding") {
+    if (!confirm("Restore founding member section to defaults?")) return;
+    const nextContent = nextSiteContentDraft();
+    nextContent.founding = siteEditorDefaultFounding();
+    await saveAdminSiteContent(nextContent);
+    renderHomeFoundingOffer();
+    renderAdminFoundingSection();
+  } else if (section === "pricing") {
+    if (!confirm("Restore all pricing text to the original site defaults?")) return;
+    const nextContent = nextSiteContentDraft();
+    nextContent.pricing = siteEditorDefaultPricing();
+    await saveAdminSiteContent(nextContent);
+    renderManagedPricingText();
+    renderAdminPricingSection();
+  } else if (section === "announcement") {
+    if (!confirm("Clear the announcement?")) return;
+    const nextContent = nextSiteContentDraft();
+    nextContent.announcement = { text: "", visible: false, expiresAt: "", location: "top", _draft: false };
+    await saveAdminSiteContent(nextContent);
+    renderManagedAnnouncementBanner();
+    renderAdminAnnouncementSection();
+  } else if (section === "upgrade-msg") {
+    if (!confirm("Restore upgrade messaging to defaults?")) return;
+    const nextContent = nextSiteContentDraft();
+    nextContent.upgradeMessaging = siteEditorDefaultUpgradeMsg();
+    await saveAdminSiteContent(nextContent);
+    renderAdminUpgradeMsgSection();
+  }
+}
 
 const structuredImportSectionMap = {
   TITLE: "title",
@@ -17447,7 +21389,32 @@ const adminLessonContentFields = ["weeklyOverview", "materials", "objectives", "
 
 function parseStructuredLessonPlan(text) {
   const result = {};
-  // Limit section name length to prevent excessive backtracking on malformed input.
+  // 1. Support "KEY:\nValue" format (e.g. TITLE:\nMy Plan\n\nTHEME:\nFarm Animals)
+  //    Only applied for the metadata keys that appear before ===SECTION=== blocks.
+  const headerKeyPattern = /^(TITLE|THEME|AGE[_\s]?GROUP|FREE[_\s]?PRO|ACCESS[_\s]?LEVEL|VISIBLE|VISIBILITY|LESSON[_\s]?PLAN[_\s]?NUMBER)\s*:\s*$/im;
+  const headerLines = text.split(/\r?\n/);
+  for (let i = 0; i < headerLines.length; i++) {
+    const line = headerLines[i].trim();
+    const keyMatch = line.match(/^([A-Z][A-Z0-9_ ]{0,30})\s*:$/i);
+    if (!keyMatch) continue;
+    const rawKey = keyMatch[1].trim().toUpperCase().replace(/\s+/g, "_");
+    const fieldName = structuredImportSectionMap[rawKey];
+    if (!fieldName) continue;
+    // Look ahead for a non-empty value line (skip blank lines)
+    let value = "";
+    for (let j = i + 1; j < headerLines.length && j < i + 4; j++) {
+      const valueLine = headerLines[j].trim();
+      if (valueLine && !valueLine.match(/^===/) && !valueLine.match(/^[A-Z][A-Z0-9_ ]{0,30}\s*:$/i)) {
+        value = valueLine;
+        break;
+      }
+      if (valueLine.match(/^===/)) break;
+    }
+    if (value && !result[fieldName]) {
+      result[fieldName] = value;
+    }
+  }
+  // 2. Original ===SECTION=== format (always applied; overrides header values if present)
   const parts = text.split(/===([A-Z_]{1,40})===/);
   for (let i = 1; i < parts.length; i += 2) {
     const key = parts[i].trim();
@@ -17466,6 +21433,7 @@ function applyStructuredLessonPlanImport(fields) {
   const importedMetadata = Object.entries(fields).filter(([fieldName]) => adminLessonImportMetadataFields.has(fieldName));
   const shouldApplyMetadata = !importedMetadata.length || window.confirm("Imported metadata was found (Title/Theme/Age/Plan/Visibility). Replace current metadata?");
   let filled = 0;
+  let importerUpdatedTitleTheme = false;
   Object.entries(fields).forEach(([fieldName, value]) => {
     if (adminLessonImportMetadataFields.has(fieldName) && !shouldApplyMetadata) return;
     if (fieldName === "__thumbnailDescription") {
@@ -17486,9 +21454,39 @@ function applyStructuredLessonPlanImport(fields) {
       } else {
         el.value = value;
       }
+      if (fieldName === "title" || fieldName === "theme") importerUpdatedTitleTheme = true;
       filled++;
     }
   });
+  // If no ===TITLE=== section was in the import, auto-generate the title from
+  // Age Group + Theme when the title field is blank (new or untitled plans).
+  if (!fields.title && shouldApplyMetadata) {
+    const ageEl = form.querySelector('[name="age"]');
+    const themeEl = form.querySelector('[name="theme"]');
+    const titleEl = form.querySelector('[name="title"]');
+    const age = (ageEl?.value || "").trim();
+    const theme = (themeEl?.value || "").trim();
+    if (age && theme && titleEl && !titleEl.value.trim()) {
+      titleEl.value = `${age} ${theme} Lesson Plan`;
+      importerUpdatedTitleTheme = true;
+      filled++;
+    }
+  }
+  // Auto-detect age group from the imported title when the age field wasn't explicitly imported.
+  if (fields.title && !fields.age && shouldApplyMetadata) {
+    const ageEl = form.querySelector('[name="age"]');
+    if (ageEl) {
+      const titleLower = (fields.title || "").toLowerCase();
+      const detectedAge = titleLower.includes("infant") ? "Infant"
+        : titleLower.includes("preschool") ? "Preschool"
+        : titleLower.includes("toddler") ? "Toddler"
+        : "";
+      if (detectedAge && ageEl.value !== detectedAge) {
+        ageEl.value = detectedAge;
+      }
+    }
+  }
+  form.dataset.importerUpdatedTitleTheme = importerUpdatedTitleTheme ? "true" : "false";
   updateAdminLessonEditorHeading();
   saveAdminLessonDraft(form);
   return filled;
@@ -17554,8 +21552,9 @@ function renderAdminDashboard() {
 }
 
 function adminRow(item) {
+  const isHidden = item.visible === false;
   return `
-    <tr>
+    <tr${isHidden ? ' class="admin-row-hidden"' : ''}>
       <td>
         <strong>${item.title}</strong>
         <span>${item.description || "No description yet."}</span>
@@ -17570,8 +21569,10 @@ function adminRow(item) {
         <small>${item.previewName ? `Preview: ${item.previewName}` : "No preview image"}</small>
       </td>
       <td>
+        <span class="tag${isHidden ? " tag-hidden" : ""}">${isHidden ? "Hidden" : "Visible"}</span>
         <div class="table-actions">
           <button class="ghost-button" data-admin-edit="${item.id}">Edit</button>
+          <button class="ghost-button" data-admin-toggle-visibility="${item.id}">${isHidden ? "Unhide" : "Hide"}</button>
           <button class="danger-button" data-admin-delete="${item.id}">Delete</button>
         </div>
       </td>
@@ -17609,35 +21610,21 @@ function fillAdminForm(id) {
   form.querySelector('[name="plan"]').value = item.plan;
   form.querySelector('[name="tags"]').value = (item.tags || []).filter((tag) => tag !== "Uploaded").join(", ");
   form.querySelector('[name="description"]').value = item.description || "";
-  form.querySelector('[name="instructions"]').value = item.instructions || "";
-  form.querySelector('[name="theme"]').value = item.theme || "";
-  form.querySelector('[name="activityCategory"]').value = item.activityCategory || "";
-  form.querySelector('[name="linkedLessonPlanId"]').value = item.linkedLessonPlanId || item.sourceLessonPlanId || "";
-  form.querySelector('[name="sourceLessonPlanId"]').value = item.sourceLessonPlanId || "";
-  form.querySelector('[name="sourceLessonPlanTitle"]').value = item.sourceLessonPlanTitle || "";
-  form.querySelector('[name="sourceActivityId"]').value = item.sourceActivityId || "";
-  form.querySelector('[name="status"]').value = item.status || (item.hidden ? "Hidden" : "Published");
-  form.querySelector('[name="featured"]').checked = item.featured === true;
-  form.querySelector('[name="hidden"]').checked = item.hidden === true;
-  form.querySelector('[name="fileData"]').value = item.fileData || "";
-  form.querySelector('[name="fileNameStored"]').value = item.fileName || "";
-  form.querySelector('[name="previewDataStored"]').value = item.previewData || "";
-  form.querySelector('[name="previewNameStored"]').value = item.previewName || "";
-  syncAdminUploadFileNotes(form);
-  saveAdminUploadDraft(form);
-  setFormMessage("#adminUploadMessage", "");
+  const visibleCheckbox = form.querySelector('[name="visible"]');
+  if (visibleCheckbox) visibleCheckbox.checked = item.visible !== false;
   document.querySelector("#adminSubmitButton").textContent = "Save Changes";
   document.querySelector("#adminCancelEdit").style.display = "inline-flex";
   form.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 async function deleteAdminResource(id) {
-  const activity = (effectiveSiteContent().activities || []).find((item) => item.id === id);
-  if (activity) {
-    const nextContent = nextSiteContentDraft();
-    nextContent.activities = (nextContent.activities || []).filter((item) => item.id !== id);
-    await saveAdminSiteContent(nextContent);
-  } else {
+  let deletedRemotely = false;
+  try {
+    deletedRemotely = await deleteUploadedResourceFromBackend(id);
+  } catch (error) {
+    console.warn("Uploaded resource backend delete failed", error);
+  }
+  if (!deletedRemotely) {
     const uploads = uploadedResources();
     saveUploadedResources(uploads.filter((item) => item.id !== id));
   }
@@ -17646,7 +21633,7 @@ async function deleteAdminResource(id) {
   renderAdminDashboard();
 }
 
-function addDemoAdminResource() {
+async function addDemoAdminResource() {
   const previewSvg = encodeURIComponent(`
     <svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
       <rect width="600" height="400" fill="#fffaf1"/>
@@ -17669,7 +21656,12 @@ function addDemoAdminResource() {
     previewData: `data:image/svg+xml;charset=utf-8,${previewSvg}`,
     description: "Sample uploaded resource used to test the admin dashboard workflow.",
   };
-  saveUploadedResources([...uploadedResources(), demo]);
+  try {
+    await saveUploadedResourceToBackend(demo);
+  } catch (error) {
+    console.warn("Uploaded resource backend save failed", error);
+    saveUploadedResources([...uploadedResources(), demo]);
+  }
   renderAdminDashboard();
 }
 
@@ -17741,6 +21733,678 @@ async function callAdminGenerateLessonPlan(age, theme, lessonNumber) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || "Lesson plan could not be generated. Please try again.");
   return data.fields || {};
+}
+
+async function callAdminGenerateLessonPlan(age, theme, lessonNumber) {
+  const token = adminSession()?.token || "";
+  if (!token) throw new Error("Admin session required. Please log in as admin.");
+  if (!canUseLaunchBackend()) throw new Error("Backend server is required for lesson plan generation.");
+  const res = await fetch(adminLessonGenerateConfig.endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminToken: token, age, theme, lessonNumber }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || "Lesson plan could not be generated. Please try again.");
+  return data.fields || {};
+}
+
+// ─── AI Prompt Manager ────────────────────────────────────────────────────────
+
+let adminAiPromptsState = {
+  loading: false,
+  saving: false,
+  error: "",
+  success: "",
+  aiPrompts: {},
+  aiPromptVersions: [],
+  hardcodedDefaults: {},
+  activeTool: "observation",
+  showVersionHistory: false,
+};
+
+const AI_TOOL_LABELS = {
+  observation:    "Observation Generator",
+  lesson:         "Lesson Plan Generator",
+  daily:          "Daily Log Generator",
+  parentMessage:  "Parent Message Generator",
+  activity:       "Activity Generator",
+  behaviorNote:   "Behavior Note Generator",
+  incidentReport: "Incident Report Generator",
+};
+
+const AI_LAYER_LABELS = {
+  masterPrompt:        "Master Prompt",
+  toolSpecificPrompt:  "Tool-Specific Prompt",
+  writingIntelligence: "Writing Intelligence Rules",
+  outputFormatting:    "Output Formatting Rules",
+};
+
+const AI_LAYER_DESCRIPTIONS = {
+  masterPrompt:        "Core role definition and shared rules applied to all documents for this tool.",
+  toolSpecificPrompt:  "Rules specific to this document type — structure, format, and content requirements.",
+  writingIntelligence: "Step-by-step reasoning instructions for analyzing notes and writing content.",
+  outputFormatting:    "Required output sections, order, and formatting standards.",
+};
+
+const AI_PROMPT_LAYERS_ORDERED = ["masterPrompt", "toolSpecificPrompt", "writingIntelligence", "outputFormatting"];
+
+async function loadAdminAiPrompts() {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return;
+  adminAiPromptsState.loading = true;
+  renderAdminAiPromptsTab();
+  try {
+    const res = await fetch(`${adminAiPromptsConfig.getEndpoint}?adminToken=${encodeURIComponent(token)}&t=${Date.now()}`, { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Failed to load prompts.");
+    adminAiPromptsState.aiPrompts = data.aiPrompts || {};
+    adminAiPromptsState.aiPromptVersions = data.aiPromptVersions || [];
+    adminAiPromptsState.hardcodedDefaults = data.hardcodedDefaults || {};
+    adminAiPromptsState.error = "";
+  } catch (error) {
+    adminAiPromptsState.error = error.message || "Could not load prompts.";
+  }
+  adminAiPromptsState.loading = false;
+  renderAdminAiPromptsTab();
+}
+
+async function saveAdminAiPrompts(tool) {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return;
+  const form = document.querySelector("#adminAiPromptsForm");
+  if (!form) return;
+  adminAiPromptsState.saving = true;
+  adminAiPromptsState.success = "";
+  adminAiPromptsState.error = "";
+  renderAdminAiPromptsTab();
+  const body = {
+    adminToken: token,
+    tool,
+    adminEmail: adminSession()?.email || "",
+  };
+  for (const layer of AI_PROMPT_LAYERS_ORDERED) {
+    body[layer] = form.querySelector(`[name="${layer}"]`)?.value || "";
+  }
+  try {
+    const res = await fetch(adminAiPromptsConfig.saveEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Failed to save prompts.");
+    adminAiPromptsState.aiPrompts = data.aiPrompts || adminAiPromptsState.aiPrompts;
+    adminAiPromptsState.aiPromptVersions = data.aiPromptVersions || adminAiPromptsState.aiPromptVersions;
+    adminAiPromptsState.success = "Prompts saved successfully.";
+  } catch (error) {
+    adminAiPromptsState.error = error.message || "Could not save prompts.";
+  }
+  adminAiPromptsState.saving = false;
+  renderAdminAiPromptsTab();
+}
+
+async function restoreAdminAiPromptVersion(versionId) {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return;
+  adminAiPromptsState.saving = true;
+  adminAiPromptsState.success = "";
+  adminAiPromptsState.error = "";
+  renderAdminAiPromptsTab();
+  try {
+    const res = await fetch(adminAiPromptsConfig.restoreEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminToken: token, versionId, adminEmail: adminSession()?.email || "" }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Failed to restore version.");
+    adminAiPromptsState.aiPrompts = data.aiPrompts || adminAiPromptsState.aiPrompts;
+    adminAiPromptsState.aiPromptVersions = data.aiPromptVersions || adminAiPromptsState.aiPromptVersions;
+    adminAiPromptsState.success = "Version restored successfully.";
+  } catch (error) {
+    adminAiPromptsState.error = error.message || "Could not restore version.";
+  }
+  adminAiPromptsState.saving = false;
+  renderAdminAiPromptsTab();
+}
+
+function renderAdminAiPromptsTab() {
+  const target = document.querySelector("#adminAiPromptsApp");
+  if (!target || !isAdminUnlocked()) return;
+  const state = adminAiPromptsState;
+  const tool = state.activeTool;
+  const toolEntry = state.aiPrompts[tool] || {};
+  const defaults = state.hardcodedDefaults[tool] || "";
+  const versions = state.aiPromptVersions.filter((v) => v.tool === tool).slice(0, 20);
+
+  if (state.loading) {
+    target.innerHTML = `<p class="ai-pm-loading">Loading prompt data…</p>`;
+    return;
+  }
+
+  target.innerHTML = `
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Admin Only</p>
+        <h3>AI Prompt Manager</h3>
+        <p>Edit the prompt layers used by each AI tool. Changes take effect immediately for all new AI generations. Empty layers fall back to built-in defaults.</p>
+      </div>
+    </div>
+    ${state.error ? `<p class="form-error" style="margin-bottom:12px;">${escapeHtml(state.error)}</p>` : ""}
+    ${state.success ? `<p class="form-success" style="margin-bottom:12px;">${escapeHtml(state.success)}</p>` : ""}
+    <div class="ai-pm-grid">
+      <div class="ai-pm-sidebar">
+        <p class="eyebrow" style="margin-bottom:8px;">AI Tools</p>
+        ${Object.entries(AI_TOOL_LABELS).map(([id, label]) => `
+          <button class="ai-pm-tool-btn${tool === id ? " active" : ""}" data-ai-pm-tool="${id}" type="button">
+            ${escapeHtml(label)}
+            ${state.aiPrompts[id] ? `<span class="ai-pm-customized-badge">Custom</span>` : ""}
+          </button>
+        `).join("")}
+      </div>
+      <div class="ai-pm-main">
+        <div class="ai-pm-tool-header">
+          <div>
+            <h4 style="margin:0 0 4px;">${escapeHtml(AI_TOOL_LABELS[tool] || tool)}</h4>
+            ${toolEntry.updatedAt ? `<small class="ai-pm-meta">Last saved ${new Date(toolEntry.updatedAt).toLocaleString()} by ${escapeHtml(toolEntry.updatedBy || "admin")}</small>` : `<small class="ai-pm-meta">Using built-in default prompt</small>`}
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button class="ghost-button" type="button" id="aiPmToggleHistory">${state.showVersionHistory ? "Hide History" : "Version History"}</button>
+            <button class="ghost-button" type="button" id="aiPmResetBtn">Reset to Default</button>
+          </div>
+        </div>
+        <form id="adminAiPromptsForm" class="ai-pm-form">
+          ${AI_PROMPT_LAYERS_ORDERED.map((layer) => `
+            <details class="ai-pm-layer" open>
+              <summary class="ai-pm-layer-summary">
+                <strong>${escapeHtml(AI_LAYER_LABELS[layer] || layer)}</strong>
+                <small>${escapeHtml(AI_LAYER_DESCRIPTIONS[layer] || "")}</small>
+              </summary>
+              <div class="ai-pm-layer-body">
+                <textarea
+                  name="${layer}"
+                  class="aitc-prompt-textarea ai-pm-textarea"
+                  rows="8"
+                  placeholder="Leave empty to use the built-in default for this layer."
+                >${escapeHtml(String(toolEntry[layer] || ""))}</textarea>
+              </div>
+            </details>
+          `).join("")}
+          <div class="ai-pm-actions">
+            <button class="primary-button" type="submit" id="aiPmSaveBtn" ${state.saving ? "disabled" : ""}>
+              ${state.saving ? "Saving…" : "Save Prompts"}
+            </button>
+          </div>
+        </form>
+        ${state.showVersionHistory ? `
+          <div class="ai-pm-history">
+            <p class="eyebrow" style="margin-bottom:8px;">Version History — ${escapeHtml(AI_TOOL_LABELS[tool] || tool)}</p>
+            ${versions.length === 0 ? `<p class="aitc-hint">No version history yet for this tool.</p>` : `
+              <div class="aitc-version-list">
+                ${versions.map((v) => `
+                  <div class="aitc-version-row">
+                    <div>
+                      <strong>${escapeHtml(AI_LAYER_LABELS[v.layer] || v.layer)}</strong>
+                      <small>${new Date(v.savedAt).toLocaleString()} · ${escapeHtml(v.savedBy || "admin")}${v.restoredFrom ? " · Restored" : ""}</small>
+                      <small style="display:block;margin-top:2px;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px;">${escapeHtml((v.previousValue || "").slice(0, 80) || "(empty)")}</small>
+                    </div>
+                    <div class="aitc-version-actions">
+                      <button class="ghost-button xs-button" type="button" data-ai-pm-restore="${escapeHtml(v.id)}">Restore</button>
+                    </div>
+                  </div>
+                `).join("")}
+              </div>
+            `}
+          </div>
+        ` : ""}
+        ${defaults && !toolEntry.masterPrompt ? `
+          <details class="ai-pm-default-preview">
+            <summary>Preview built-in default prompt</summary>
+            <pre class="aitc-prompt-pre">${escapeHtml(defaults.slice(0, 2000))}${defaults.length > 2000 ? "\n…(truncated)" : ""}</pre>
+          </details>
+        ` : ""}
+      </div>
+    </div>
+  `;
+}
+
+// ─── AI Settings ─────────────────────────────────────────────────────────────
+
+let adminAiSettingsState = {
+  loading: false,
+  saving: false,
+  error: "",
+  success: "",
+  aiSettings: null,
+};
+
+async function loadAdminAiSettings() {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return;
+  adminAiSettingsState.loading = true;
+  renderAdminAiSettingsTab();
+  try {
+    const res = await fetch(`${adminAiSettingsConfig.getEndpoint}?adminToken=${encodeURIComponent(token)}&t=${Date.now()}`, { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Failed to load AI settings.");
+    adminAiSettingsState.aiSettings = data.aiSettings || null;
+    adminAiSettingsState.error = "";
+  } catch (error) {
+    adminAiSettingsState.error = error.message || "Could not load AI settings.";
+  }
+  adminAiSettingsState.loading = false;
+  renderAdminAiSettingsTab();
+}
+
+async function saveAdminAiSettings() {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return;
+  const form = document.querySelector("#adminAiSettingsForm");
+  if (!form) return;
+  adminAiSettingsState.saving = true;
+  adminAiSettingsState.success = "";
+  adminAiSettingsState.error = "";
+  renderAdminAiSettingsTab();
+  // Build settings from form
+  const masterEnabled = form.querySelector("#aiSettingsMasterEnabled")?.checked !== false;
+  const tools = {};
+  for (const toolId of Object.keys(AI_TOOL_LABELS)) {
+    tools[toolId] = {
+      enabled: form.querySelector(`[name="tool_enabled_${toolId}"]`)?.checked !== false,
+      generationLimit: parseInt(form.querySelector(`[name="tool_limit_${toolId}"]`)?.value || "", 10) || null,
+      fallbackMessage: form.querySelector(`[name="tool_fallback_${toolId}"]`)?.value?.trim() || "",
+    };
+  }
+  try {
+    const res = await fetch(adminAiSettingsConfig.saveEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminToken: token, aiSettings: { masterEnabled, tools } }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Failed to save AI settings.");
+    adminAiSettingsState.aiSettings = data.aiSettings || adminAiSettingsState.aiSettings;
+    adminAiSettingsState.success = "AI settings saved successfully.";
+  } catch (error) {
+    adminAiSettingsState.error = error.message || "Could not save AI settings.";
+  }
+  adminAiSettingsState.saving = false;
+  renderAdminAiSettingsTab();
+}
+
+function renderAdminAiSettingsTab() {
+  const target = document.querySelector("#adminAiSettingsApp");
+  if (!target || !isAdminUnlocked()) return;
+  const state = adminAiSettingsState;
+  const settings = state.aiSettings;
+
+  if (state.loading) {
+    target.innerHTML = `<p class="ai-pm-loading">Loading AI settings…</p>`;
+    return;
+  }
+  if (!settings) {
+    target.innerHTML = `
+      <div class="section-heading"><div><p class="eyebrow">Admin Only</p><h3>AI Settings</h3></div></div>
+      ${state.error ? `<p class="form-error">${escapeHtml(state.error)}</p>` : ""}
+      <p>Could not load AI settings. <button class="ghost-button" type="button" id="aiSettingsRetryBtn">Retry</button></p>
+    `;
+    return;
+  }
+
+  target.innerHTML = `
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Admin Only</p>
+        <h3>AI Settings &amp; Safety Controls</h3>
+        <p>Enable or disable individual AI tools, set per-tool generation limits, and configure fallback messages shown to users when a tool is unavailable.</p>
+      </div>
+    </div>
+    ${state.error ? `<p class="form-error" style="margin-bottom:12px;">${escapeHtml(state.error)}</p>` : ""}
+    ${state.success ? `<p class="form-success" style="margin-bottom:12px;">${escapeHtml(state.success)}</p>` : ""}
+    <form id="adminAiSettingsForm" class="panel-form">
+      <div class="ai-settings-master">
+        <label class="admin-inline-toggle">
+          <input type="checkbox" id="aiSettingsMasterEnabled" ${settings.masterEnabled !== false ? "checked" : ""} />
+          <strong>AI Document Creation Master Switch</strong>
+        </label>
+        <p class="form-note">Turn off to disable all AI generations across the entire app. Individual tool settings below are ignored when the master switch is off.</p>
+      </div>
+      <p class="eyebrow" style="margin:20px 0 8px;">Per-Tool Settings</p>
+      <div class="ai-settings-grid">
+        ${Object.entries(AI_TOOL_LABELS).map(([toolId, label]) => {
+          const tool = settings.tools?.[toolId] || {};
+          return `
+            <div class="ai-settings-tool-card">
+              <div class="ai-settings-tool-header">
+                <label class="admin-inline-toggle">
+                  <input type="checkbox" name="tool_enabled_${toolId}" ${tool.enabled !== false ? "checked" : ""} />
+                  <strong>${escapeHtml(label)}</strong>
+                </label>
+                <span class="ai-tool-status-badge ${tool.enabled !== false ? "badge-on" : "badge-off"}">${tool.enabled !== false ? "Active" : "Disabled"}</span>
+              </div>
+              <div class="ai-settings-tool-fields">
+                <label class="form-field-small">
+                  Monthly Limit (blank = no limit)
+                  <input type="number" name="tool_limit_${toolId}" min="1" max="9999" value="${tool.generationLimit != null ? tool.generationLimit : ""}" placeholder="No limit" />
+                </label>
+                <label class="form-field-small">
+                  Fallback Message (shown to users when tool is disabled)
+                  <input type="text" name="tool_fallback_${toolId}" maxlength="500" value="${escapeHtml(tool.fallbackMessage || "")}" placeholder="This AI tool is currently unavailable." />
+                </label>
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+      <div class="form-actions" style="margin-top:20px;">
+        <button class="primary-button" type="submit" id="aiSettingsSaveBtn" ${state.saving ? "disabled" : ""}>
+          ${state.saving ? "Saving…" : "Save AI Settings"}
+        </button>
+      </div>
+    </form>
+  `;
+}
+
+// ─── AI Usage Monitor ─────────────────────────────────────────────────────────
+
+let adminAiUsageState = {
+  loading: false,
+  error: "",
+  data: null,
+};
+
+async function loadAdminAiUsage() {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return;
+  adminAiUsageState.loading = true;
+  renderAdminAiUsageTab();
+  try {
+    const res = await fetch(`${adminAiUsageConfig.endpoint}?adminToken=${encodeURIComponent(token)}&t=${Date.now()}`, { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Failed to load AI usage data.");
+    adminAiUsageState.data = data.aiUsage || null;
+    adminAiUsageState.error = "";
+  } catch (error) {
+    adminAiUsageState.error = error.message || "Could not load AI usage data.";
+    adminAiUsageState.data = null;
+  }
+  adminAiUsageState.loading = false;
+  renderAdminAiUsageTab();
+}
+
+function renderAdminAiUsageTab() {
+  const target = document.querySelector("#adminAiUsageApp");
+  if (!target || !isAdminUnlocked()) return;
+  const state = adminAiUsageState;
+
+  if (state.loading) {
+    target.innerHTML = `<p class="ai-pm-loading">Loading usage data…</p>`;
+    return;
+  }
+
+  const d = state.data;
+  if (!d) {
+    target.innerHTML = `
+      <div class="section-heading"><div><p class="eyebrow">Admin Only</p><h3>AI Usage Monitor</h3></div></div>
+      ${state.error ? `<p class="form-error">${escapeHtml(state.error)}</p>` : ""}
+      <p>Could not load usage data. <button class="ghost-button" type="button" id="aiUsageRetryBtn">Retry</button></p>
+    `;
+    return;
+  }
+
+  const formatMs = (ms) => ms == null ? "—" : ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+  const toolRows = Object.entries(d.byTool || {}).sort((a, b) => b[1].total - a[1].total);
+  const maxTotal = toolRows.reduce((m, [, v]) => Math.max(m, v.total), 1);
+
+  target.innerHTML = `
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Admin Only</p>
+        <h3>AI Usage Monitor</h3>
+        <p>Aggregate statistics for all AI generations. Data is collected from server-side logs.</p>
+      </div>
+      <button class="ghost-button" type="button" id="aiUsageRefreshBtn">Refresh</button>
+    </div>
+    <div class="ai-usage-stats-grid">
+      <div class="ai-usage-stat-card">
+        <p class="ai-stat-label">Total Generations</p>
+        <p class="ai-stat-value">${d.total.toLocaleString()}</p>
+      </div>
+      <div class="ai-usage-stat-card ai-stat-success">
+        <p class="ai-stat-label">Successful</p>
+        <p class="ai-stat-value">${d.successful.toLocaleString()}</p>
+      </div>
+      <div class="ai-usage-stat-card ai-stat-failed">
+        <p class="ai-stat-label">Failed</p>
+        <p class="ai-stat-value">${d.failed.toLocaleString()}</p>
+      </div>
+      <div class="ai-usage-stat-card">
+        <p class="ai-stat-label">Avg Response Time</p>
+        <p class="ai-stat-value">${formatMs(d.avgResponseMs)}</p>
+      </div>
+      <div class="ai-usage-stat-card">
+        <p class="ai-stat-label">Input Tokens</p>
+        <p class="ai-stat-value">${(d.totalInputTokens || 0).toLocaleString()}</p>
+      </div>
+      <div class="ai-usage-stat-card">
+        <p class="ai-stat-label">Output Tokens</p>
+        <p class="ai-stat-value">${(d.totalOutputTokens || 0).toLocaleString()}</p>
+      </div>
+      <div class="ai-usage-stat-card">
+        <p class="ai-stat-label">Est. AI Cost</p>
+        <p class="ai-stat-value">$${(d.estimatedCostUsd || 0).toFixed(2)}</p>
+        <p class="ai-stat-note">gpt-4o approx. rates</p>
+      </div>
+    </div>
+    ${toolRows.length ? `
+      <div class="ai-usage-by-tool">
+        <p class="eyebrow" style="margin-bottom:10px;">Generations by Tool</p>
+        ${toolRows.map(([toolId, counts]) => `
+          <div class="ai-usage-tool-row">
+            <div class="ai-usage-tool-name">${escapeHtml(AI_TOOL_LABELS[toolId] || toolId)}</div>
+            <div class="ai-usage-tool-bar-wrap">
+              <div class="ai-usage-tool-bar" style="width:${Math.round((counts.total / maxTotal) * 100)}%"></div>
+            </div>
+            <div class="ai-usage-tool-count">${counts.total} <small>(${counts.failed} failed)</small></div>
+          </div>
+        `).join("")}
+      </div>
+    ` : ""}
+    ${d.recentLogs?.length ? `
+      <div class="ai-usage-log-section">
+        <p class="eyebrow" style="margin-bottom:10px;">Recent Generations (last 100)</p>
+        <div class="ai-usage-log-table-wrap">
+          <table class="ai-usage-log-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Tool</th>
+                <th>User</th>
+                <th>Plan</th>
+                <th>Status</th>
+                <th>Response</th>
+                <th>Tokens</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${d.recentLogs.map((l) => `
+                <tr class="${l.success ? "" : "ai-log-row-failed"}">
+                  <td>${l.createdAt ? new Date(l.createdAt).toLocaleString() : "—"}</td>
+                  <td>${escapeHtml(AI_TOOL_LABELS[l.tool] || l.tool || "—")}</td>
+                  <td class="ai-log-email">${escapeHtml(l.email || "—")}</td>
+                  <td>${escapeHtml(l.plan || "—")}</td>
+                  <td>${l.success ? `<span class="green-tag" style="padding:2px 8px;border-radius:4px;font-size:0.75rem;">OK</span>` : `<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:0.75rem;" title="${escapeHtml(l.errorMessage || "")}">Failed</span>`}</td>
+                  <td>${formatMs(l.responseTimeMs)}</td>
+                  <td>${l.inputTokens != null ? `${l.inputTokens}↑ ${l.outputTokens ?? "?"}↓` : "—"}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ` : ""}
+  `;
+}
+
+// ─── Stripe Backfill Admin UI ──────────────────────────────────────────────────
+
+let stripeBackfillState = {
+  loading: false,
+  error: "",
+  preview: null,  // dry-run report
+  running: false,
+  runResult: null,
+  runError: "",
+};
+
+async function loadStripeBackfillPreview() {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return;
+  stripeBackfillState.loading = true;
+  stripeBackfillState.error = "";
+  stripeBackfillState.preview = null;
+  stripeBackfillState.runResult = null;
+  stripeBackfillState.runError = "";
+  renderAdminStripeBackfillTab();
+  try {
+    const res = await fetch("/api/admin/stripe-backfill", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminToken: token, dryRun: true }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Stripe backfill preview failed.");
+    stripeBackfillState.preview = data.report || null;
+  } catch (error) {
+    stripeBackfillState.error = error.message || "Could not load backfill preview.";
+  }
+  stripeBackfillState.loading = false;
+  renderAdminStripeBackfillTab();
+}
+
+async function runStripeBackfillConfirm() {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return;
+  stripeBackfillState.running = true;
+  stripeBackfillState.runResult = null;
+  stripeBackfillState.runError = "";
+  renderAdminStripeBackfillTab();
+  try {
+    const res = await fetch("/api/admin/stripe-backfill", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminToken: token, dryRun: false }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Stripe backfill failed.");
+    stripeBackfillState.runResult = data.report || null;
+  } catch (error) {
+    stripeBackfillState.runError = error.message || "Backfill could not complete.";
+  }
+  stripeBackfillState.running = false;
+  renderAdminStripeBackfillTab();
+}
+
+function renderStripeBackfillReport(report, label) {
+  if (!report) return "";
+  const dups = Array.isArray(report.duplicateAccountsDetected) ? report.duplicateAccountsDetected : [];
+  const reviews = Array.isArray(report.recordsNeedingManualReview) ? report.recordsNeedingManualReview : [];
+  return `
+    <div class="backfill-report">
+      <p class="eyebrow" style="margin-bottom:8px;">${escapeHtml(label)}</p>
+      <div class="backfill-stats-grid">
+        <div class="backfill-stat"><strong>${report.stripeCustomersFound ?? "—"}</strong><span>Stripe customers found</span></div>
+        <div class="backfill-stat"><strong>${report.usersMatchedByEmail ?? "—"}</strong><span>Matched by email</span></div>
+        <div class="backfill-stat"><strong>${report.usersNotMatched ?? "—"}</strong><span>Not matched</span></div>
+        <div class="backfill-stat backfill-stat-warn"><strong>${report.usersCreatedFromStripeRecords ?? "—"}</strong><span>Users ${report.dryRun ? "to be created" : "created"}</span></div>
+        <div class="backfill-stat backfill-stat-error"><strong>${dups.length}</strong><span>Duplicate accounts</span></div>
+        <div class="backfill-stat backfill-stat-error"><strong>${reviews.length}</strong><span>Need manual review</span></div>
+      </div>
+      ${dups.length ? `
+        <div class="backfill-section">
+          <p class="backfill-section-title">⚠️ Duplicate Accounts Detected</p>
+          <div class="backfill-list">
+            ${dups.map((d) => `
+              <div class="backfill-list-item">
+                <strong>${escapeHtml(d.type === "stripe_duplicate_email" ? d.email : (d.stripeCustomerId || ""))}</strong>
+                <span>${d.type === "stripe_duplicate_email"
+                  ? `Multiple Stripe customer IDs: ${(d.stripeCustomerIds || []).map((id) => escapeHtml(id)).join(", ")}`
+                  : `Multiple backend accounts: ${(d.emails || []).map((e) => escapeHtml(e)).join(", ")}`
+                }</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      ` : ""}
+      ${reviews.length ? `
+        <div class="backfill-section">
+          <p class="backfill-section-title">🔍 Records Needing Manual Review</p>
+          <div class="backfill-list">
+            ${reviews.map((r) => `
+              <div class="backfill-list-item">
+                <strong>${escapeHtml(r.type || "")}</strong>
+                <span>${escapeHtml(r.note || "")}</span>
+                ${r.email ? `<small>${escapeHtml(r.email)}</small>` : ""}
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      ` : ""}
+    </div>
+  `;
+}
+
+function renderAdminStripeBackfillTab() {
+  const target = document.querySelector("#adminStripeBackfillApp");
+  if (!target || !isAdminUnlocked()) return;
+  const s = stripeBackfillState;
+
+  target.innerHTML = `
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Admin Only</p>
+        <h3>Stripe Backfill</h3>
+        <p>Reconcile legacy Stripe customers with backend user accounts. Run a dry-run preview first, then confirm to apply changes.</p>
+      </div>
+    </div>
+
+    ${s.error ? `<p class="form-error">${escapeHtml(s.error)}</p>` : ""}
+
+    ${s.loading ? `<p class="ai-pm-loading">Running preview…</p>` : ""}
+
+    ${!s.loading && !s.preview && !s.runResult ? `
+      <button class="primary-button" type="button" id="stripeBackfillPreviewBtn" ${s.loading ? "disabled" : ""}>
+        Run Dry-Run Preview
+      </button>
+    ` : ""}
+
+    ${s.preview && !s.runResult ? `
+      ${renderStripeBackfillReport(s.preview, "Dry-Run Preview Results")}
+      <div class="backfill-confirm-row">
+        <button class="ghost-button" type="button" id="stripeBackfillResetBtn">Start Over</button>
+        <button class="primary-button" type="button" id="stripeBackfillRunBtn" ${s.running ? "disabled" : ""}>
+          ${s.running ? "Applying changes…" : "Confirm &amp; Run Backfill"}
+        </button>
+      </div>
+      ${s.runError ? `<p class="form-error">${escapeHtml(s.runError)}</p>` : ""}
+    ` : ""}
+
+    ${s.runResult ? `
+      ${renderStripeBackfillReport(s.runResult, "Backfill Complete")}
+      <button class="ghost-button" type="button" id="stripeBackfillResetBtn" style="margin-top:16px;">Run Again</button>
+    ` : ""}
+  `;
+
+  document.querySelector("#stripeBackfillPreviewBtn")?.addEventListener("click", loadStripeBackfillPreview);
+  document.querySelector("#stripeBackfillRunBtn")?.addEventListener("click", runStripeBackfillConfirm);
+  document.querySelector("#stripeBackfillResetBtn")?.addEventListener("click", () => {
+    stripeBackfillState.preview = null;
+    stripeBackfillState.runResult = null;
+    stripeBackfillState.error = "";
+    stripeBackfillState.runError = "";
+    renderAdminStripeBackfillTab();
+  });
 }
 
 function fillAdminLessonPlanFormFields(fields, mode) {
@@ -18616,18 +23280,31 @@ async function generateToolOutputWithBackend(toolId, data) {
     throw new Error("Document creation is currently unavailable. Please try again shortly or contact support.");
   }
   const ageValue = data.age || data.ageGroup || data.group || "";
-  const response = await fetch(aiGenerationConfig.endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email: currentUser || "guest",
-      plan: currentPlan,
-      tool: toolId,
-      age: ageValue,
-      prompt: aiPromptFromForm(toolId, data),
-      debug: aiDebugEnabled(),
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), AI_GENERATION_TIMEOUT_MS);
+  let response;
+  try {
+    response = await fetch(aiGenerationConfig.endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: currentUser || "guest",
+        plan: currentPlan,
+        tool: toolId,
+        age: ageValue,
+        prompt: aiPromptFromForm(toolId, data),
+        debug: aiDebugEnabled(),
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err.name === "AbortError") {
+      throw new Error("The request timed out. Please check your connection and try again.");
+    }
+    throw new Error("We couldn't create your document right now. Please try again.");
+  } finally {
+    clearTimeout(timeoutId);
+  }
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(result?.error || "We couldn't create your document right now. Please try again.");
@@ -20079,16 +24756,22 @@ function renderHomeFoundingOffer() {
   const claimed = foundingSpotsClaimed();
   const limit = Number(foundingStatusCache.limit || foundingMemberLimit);
   const soldOut = remaining <= 0;
+  const f = (effectiveSiteContent().founding || {});
+  if (f._draft) return;
+  const heading = soldOut ? (f.soldOutHeading || "Founding Member spots are filled") : (f.heading || "Founding Member Pricing");
+  const pricePrefix = f.pricePrefix || "Get Pro for";
+  const priceLifeLabel = soldOut ? "regular price" : (f.priceLifeLabel || "for life");
+  const ctaButtonText = soldOut ? (f.soldOutCtaText || "Choose Pro Monthly") : (f.ctaButtonText || "Claim Founding Member Pricing");
   target.innerHTML = `
     <div class="founding-hero-card ${soldOut ? "founding-sold-out" : ""}">
-      <h2>${soldOut ? "Founding Member spots are filled" : "Founding Member Pricing"}</h2>
+      <h2>${escapeHtml(heading)}</h2>
       <div class="founding-price-row">
-        <span class="founding-price-prefix">Get Pro for</span>
+        <span class="founding-price-prefix">${escapeHtml(pricePrefix)}</span>
         <strong>${soldOut ? "$19.99" : "$9.99"}</strong>
-        <em>/month <span>${soldOut ? "regular price" : "for life"}</span></em>
+        <em>/month <span>${escapeHtml(priceLifeLabel)}</span></em>
       </div>
       <p class="founding-remaining">${soldOut ? "Founding pricing is closed" : `Only <strong>${remaining}</strong> Spots Remaining`}</p>
-      <button class="primary-button founding-cta-button" data-checkout-plan="${soldOut ? "monthly" : "founding"}" type="button">${soldOut ? "Choose Pro Monthly" : "Claim Founding Member Pricing"}</button>
+      <button class="primary-button founding-cta-button" data-checkout-plan="${soldOut ? "monthly" : "founding"}" type="button">${escapeHtml(ctaButtonText)}</button>
       <div class="founding-live-meter" aria-label="${claimed} of ${limit} founding spots claimed">
         <span><i style="width: ${foundingProgressPercent()}%"></i></span>
         <small>${soldOut ? "All founding spots are claimed" : `${claimed} of ${limit} Spots Claimed`}</small>
@@ -20108,6 +24791,7 @@ function pricingCard(planKey, options = {}) {
       <p class="price">${plan.price}<span>${plan.interval}</span></p>
       ${featureListHtml(plan.features)}
       <button class="${buttonClass}" ${options.free ? `data-plan="Free"` : `data-checkout-plan="${options.checkoutType}"`} type="button">${escapeHtml(buttonText)}</button>
+      ${options.free ? "" : `<p class="muted-copy">${escapeHtml(proTrialUpgradeSummary)}</p>`}
     </article>
   `;
 }
@@ -20195,7 +24879,7 @@ function subscriptionSummaryHtml() {
       <div><span>Monthly Price</span><strong>${escapeHtml(billingPriceLabel(account))}</strong></div>
       <div><span>Price Lock</span><strong>${paidBilling ? account?.foundingMember ? "Lifetime" : "Regular Pro pricing" : "None"}</strong></div>
       <div><span>Status</span><strong>${escapeHtml(statusLabel)}</strong></div>
-      <div><span>AI Usage</span><strong>${aiUsageCount()} / ${aiMonthlyLimit()}</strong></div>
+      <div><span>AI Usage</span><strong>${serverAiUsed !== null ? serverAiUsed : aiUsageCount()} / ${serverAiLimit !== null ? serverAiLimit : aiMonthlyLimit()}</strong></div>
       <div><span>AI Reset</span><strong>${escapeHtml(aiResetLabel())}</strong></div>
     </div>
   `;
@@ -20380,6 +25064,7 @@ function renderFavoritesPage() {
   if (!section) return;
   if (!currentUser) {
     section.innerHTML = `
+      <button class="ghost-button back-button" data-view="home" type="button">← Back to Home</button>
       <div class="page-title">
         <p class="eyebrow">Favorites</p>
         <h2>Save resources you use most.</h2>
@@ -20395,6 +25080,7 @@ function renderFavoritesPage() {
   const favoriteIds = new Set(favorites);
   const savedFavoriteResources = resources.filter((resource) => favoriteIds.has(resource.id) && isResourceVisibleToCurrentUser(resource));
   section.innerHTML = `
+    <button class="ghost-button back-button" data-view="home" type="button">← Back to Home</button>
     <div class="page-title">
       <p class="eyebrow">Favorites</p>
       <h2>Saved Favorites</h2>
@@ -20496,7 +25182,7 @@ function renderAccountPage() {
   statusLabel.textContent = paidBilling ? account?.subscriptionStatus || `${billingPlanLabel(currentPlan, account)} Subscription Active` : "Free Plan";
   detailLabel.innerHTML = paidBilling
     ? `Current Plan: ${escapeHtml(billingPlanLabel(currentPlan, account))}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${account?.foundingMember ? "Lifetime" : "Regular Pro pricing"}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>Helper Usage: ${aiUsageCount()} of ${paidAiMonthlyLimit} used this billing month. Resets ${escapeHtml(aiResetLabel())}.<br>Your account has full in-app resources, menus, child profiles, portfolios, tracking tools, provider tools, future premium features, and ${paidAiMonthlyLimit} document creations per month.`
-    : `Your Free account includes 5 lesson plans, 10 observations, 10 forms, 10 activity ideas, 10 printables, ${freeAiMonthlyLimit} document creations per month, up to 3 child profiles, and the weekly observation tracker. Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}. Helper Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`;
+    : `Your Free account includes 5 lesson plans, 10 observations, 6 forms, 8 activity ideas, 6 printables, ${freeAiMonthlyLimit} document creations per month, up to 3 child profiles, and the weekly observation tracker. Upgrade to Pro to spend less time on paperwork with parent messages, daily reports, portfolios, and faster documentation workflows. Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}. Helper Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`;
   if (demoButton) demoButton.style.display = "none";
   if (upgradeButton) {
     upgradeButton.textContent = paidBilling ? "Manage Billing" : "Upgrade to Pro";
@@ -20631,8 +25317,8 @@ function updatePlanLabel() {
   const summary = document.querySelector("#planAccessSummary");
   if (summary) {
     summary.textContent = isProUser()
-      ? `${billingPlanLabel()} active: ${billingPriceLabel()} with full library access and ${Math.max(paidAiMonthlyLimit - aiUsageCount(), 0)} document creations left this month.`
-      : `Free plan: limited library access, up to 3 child profiles, and ${Math.max(freeAiMonthlyLimit - aiUsageCount(), 0)} document creations left this month.`;
+      ? `${billingPlanLabel()} active: ${billingPriceLabel()} with full library access and ${aiUsageRemaining()} document creations left this month.`
+      : `Free plan: limited library access, up to 3 child profiles, and ${aiUsageRemaining()} document creations left this month.`;
   }
   updateSidebarDashboard();
 }
@@ -20917,6 +25603,7 @@ async function completeCheckoutFromStripeSession(session) {
     paymentMethod: "Managed in Stripe",
   });
   await syncSubscriptionFromBackend(currentUser || session.email, { renderFounding: true });
+  loadUserAiUsage(currentUser || session.email).catch(() => {});
   await syncFoundingStatus({ render: true });
   saveCurrentAccountState();
   renderPaymentSuccessPage();
@@ -21111,6 +25798,7 @@ document.addEventListener("click", async (event) => {
     });
     trackEvent("admin_unlocked", { email: currentUser, mode: "local-owner-account" });
     await loadAdminSiteContent().catch(() => {});
+    await loadUploadedResourcesFromBackend({ admin: true, migrateLocal: true }).catch(() => {});
     renderAdminDashboard();
     return;
   }
@@ -21159,6 +25847,19 @@ document.addEventListener("click", async (event) => {
       return;
     }
     setView("upgrade");
+    return;
+  }
+
+  const directTrialButton = event.target.closest("[data-start-pro-trial]");
+  if (directTrialButton) {
+    event.preventDefault();
+    if (!currentUser) {
+      closeFeaturePreview();
+      openAuthModal("signup");
+      return;
+    }
+    closeFeaturePreview();
+    await startProTrial();
     return;
   }
 
@@ -21671,6 +26372,53 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const selectMealPresetBtn = event.target.closest("[data-select-meal-preset]");
+  if (selectMealPresetBtn) {
+    event.preventDefault();
+    const form = selectMealPresetBtn.closest("form");
+    const presetId = form?.querySelector("[data-meal-preset-select]")?.value || "";
+    if (!presetId || !applyMealPresetToForm(form, presetId)) return;
+    return;
+  }
+
+  const saveMealPresetBtn = event.target.closest("[data-save-meal-preset]");
+  if (saveMealPresetBtn) {
+    event.preventDefault();
+    const form = saveMealPresetBtn.closest("form");
+    if (!form) return;
+    const breakfast = String(form.querySelector('[name="breakfast"]')?.value || "").trim();
+    const lunch = String(form.querySelector('[name="lunch"]')?.value || "").trim();
+    const snack = String(form.querySelector('[name="snack"]')?.value || "").trim();
+    if (!breakfast && !lunch && !snack) {
+      alert("Enter breakfast, lunch, or snack first.");
+      return;
+    }
+    const selectedPreset = mealPresets().find((item) => item.id === (form.querySelector("[data-meal-preset-select]")?.value || ""));
+    const defaultLabelParts = [breakfast && "Breakfast", lunch && "Lunch", snack && "Snack"].filter(Boolean);
+    const defaultName = selectedPreset?.name || defaultLabelParts.join(" / ") || "Meal preset";
+    const name = window.prompt("Name this meal preset:", defaultName);
+    if (!name) return;
+    if (!saveMealPreset(name, { breakfast, lunch, snack })) {
+      alert("Meal preset could not be saved.");
+      return;
+    }
+    renderChildManagement();
+    return;
+  }
+
+  const deleteMealPresetBtn = event.target.closest("[data-delete-meal-preset]");
+  if (deleteMealPresetBtn) {
+    event.preventDefault();
+    const form = deleteMealPresetBtn.closest("form");
+    const presetId = form?.querySelector("[data-meal-preset-select]")?.value || "";
+    const preset = mealPresets().find((item) => item.id === presetId);
+    if (!preset) return;
+    if (!window.confirm(`Delete preset "${preset.name}"?`)) return;
+    deleteMealPreset(presetId);
+    renderChildManagement();
+    return;
+  }
+
   // Open a child's individual log from the dashboard
   const dlcOpenChildBtn = event.target.closest("[data-dlc-open-child]");
   if (dlcOpenChildBtn) {
@@ -21761,6 +26509,23 @@ document.addEventListener("click", async (event) => {
   if (dlcSpeakDashBtn) {
     event.preventDefault();
     dlcStartDashboardSpeechInput();
+    return;
+  }
+
+  const dlcDashboardFlowBtn = event.target.closest("[data-dlc-dashboard-flow]");
+  if (dlcDashboardFlowBtn) {
+    event.preventDefault();
+    dailyLogsSection = "group";
+    dailyLogsGroupAction = dlcDashboardFlowBtn.dataset.dlcDashboardFlow || "";
+    childManagementMode = "daily-logs";
+    renderChildManagement();
+    return;
+  }
+
+  const dlcPrintAllBtn = event.target.closest("[data-dlc-print-all]");
+  if (dlcPrintAllBtn) {
+    event.preventDefault();
+    printAllDailyLogs(dlcDashboardDate || new Date().toISOString().slice(0, 10));
     return;
   }
 
@@ -22184,7 +26949,7 @@ document.addEventListener("click", async (event) => {
         programName: settings.programName || "",
       });
       addAiMessage("assistant", result.output);
-      recordAiUse();
+      recordAiUse(result.used, result.limit);
     } catch (error) {
       addAiMessage("assistant", error.message || "We couldn't create your document right now. Please try again.");
     }
@@ -22656,14 +27421,27 @@ document.addEventListener("click", async (event) => {
   const adminEdit = event.target.closest("[data-admin-edit]");
   if (adminEdit) fillAdminForm(adminEdit.dataset.adminEdit);
 
-  const adminDelete = event.target.closest("[data-admin-delete]");
-  if (adminDelete) {
+  const adminToggleVisibility = event.target.closest("[data-admin-toggle-visibility]");
+  if (adminToggleVisibility) {
+    const id = adminToggleVisibility.dataset.adminToggleVisibility;
+    const current = uploadedResources().find((item) => item.id === id);
+    if (!current) return;
+    const nextUpload = { ...current, visible: !(current.visible !== false), updatedAt: new Date().toISOString() };
     try {
-      await deleteAdminResource(adminDelete.dataset.adminDelete);
+      await saveUploadedResourceToBackend(nextUpload);
     } catch (error) {
-      setFormMessage("#adminUploadMessage", error.message || "Could not delete this resource.");
+      console.warn("Uploaded resource backend visibility toggle failed", error);
+      const uploads = uploadedResources();
+      const updated = uploads.map((item) =>
+        item.id === id ? nextUpload : item
+      );
+      saveUploadedResources(updated);
     }
+    renderAdminDashboard();
   }
+
+  const adminDelete = event.target.closest("[data-admin-delete]");
+  if (adminDelete) await deleteAdminResource(adminDelete.dataset.adminDelete);
 
   const adminLockButton = event.target.closest("#adminLockButton");
   if (adminLockButton) {
@@ -22776,7 +27554,7 @@ document.addEventListener("keydown", (event) => {
 });
 
 window.addEventListener("beforeunload", (event) => {
-  if (!adminLessonHasUnsavedChanges()) return;
+  if (!adminLessonHasUnsavedChanges() && !isAnyAdminManagedFormDirty()) return;
   event.preventDefault();
   event.returnValue = adminLessonUnsavedWarning;
 });
@@ -22791,6 +27569,11 @@ searchInput.addEventListener("input", () => {
 });
 
 document.addEventListener("input", (event) => {
+  if (event.target.matches("#lessonPlanSearch")) {
+    searchInput.value = event.target.value;
+    const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
+    if (viewMap[activeView]) renderCategoryPage(activeView);
+  }
   if (event.target.matches("#adminLessonPlanForm [name='title']")) {
     updateAdminLessonEditorHeading();
   }
@@ -22802,6 +27585,20 @@ document.addEventListener("input", (event) => {
   }
   if (event.target.matches("#adminLessonSearch")) {
     renderAdminContentManager();
+  }
+  if (event.target.matches("#adminActivitiesSearch, #adminFormsSearch, #adminPrintablesSearch")) {
+    if (event.target.matches("#adminActivitiesSearch")) renderAdminActivitiesManager();
+    if (event.target.matches("#adminFormsSearch")) renderAdminFormsManager();
+    if (event.target.matches("#adminPrintablesSearch")) renderAdminPrintablesManager();
+  }
+  // Mark managed-collection editor forms dirty when the user types in them
+  const managedFormTypes = { "#adminActivitiesManagerApp": "activities", "#adminFormsManagerApp": "forms", "#adminPrintablesManagerApp": "printables" };
+  for (const [appId, type] of Object.entries(managedFormTypes)) {
+    const app = document.querySelector(appId);
+    if (app && app.contains(event.target) && event.target.closest("form")) {
+      markAdminManagedFormDirty(type);
+      break;
+    }
   }
   if (event.target.matches("#childDobInput")) {
     updateChildAgePreview();
@@ -22847,8 +27644,26 @@ document.addEventListener("input", (event) => {
 });
 
 document.addEventListener("change", (event) => {
-  if (event.target.matches("#adminLessonAgeFilter, #adminLessonVisibilityFilter")) {
+  if (event.target.matches("#adminLessonAgeFilter, #adminLessonVisibilityFilter, #adminLessonPlanFilter")) {
     renderAdminContentManager();
+  }
+  if (event.target.matches("#adminActivitiesPrimary, #adminActivitiesStatus, #adminActivitiesAccess")) {
+    renderAdminActivitiesManager();
+  }
+  if (event.target.matches("#adminFormsPrimary, #adminFormsStatus, #adminFormsAccess")) {
+    renderAdminFormsManager();
+  }
+  // Mark managed-collection editor forms dirty when user changes a checkbox or select inside them
+  const managedFormTypes = { "#adminActivitiesManagerApp": "activities", "#adminFormsManagerApp": "forms", "#adminPrintablesManagerApp": "printables" };
+  for (const [appId, type] of Object.entries(managedFormTypes)) {
+    const app = document.querySelector(appId);
+    if (app && app.contains(event.target) && event.target.closest("form")) {
+      markAdminManagedFormDirty(type);
+      break;
+    }
+  }
+  if (event.target.matches("#adminPrintablesPrimary, #adminPrintablesStatus, #adminPrintablesAccess")) {
+    renderAdminPrintablesManager();
   }
   if (event.target.matches("[data-admin-lesson-select]")) {
     if (event.target.checked) adminLessonSelection.add(event.target.dataset.adminLessonSelect);
@@ -23208,6 +28023,73 @@ const featurePreviewContent = {
   },
 };
 
+featurePreviewContent["daily-log-observations"] = featurePreviewContent["observation-tracker"];
+featurePreviewContent["daily-log-portfolio"] = featurePreviewContent["portfolio-builder"];
+featurePreviewContent["daily-log-parent-messages"] = {
+  eyebrow: "Preview — Pro Feature",
+  title: "Parent Messages",
+  html: `<div class="fp-screen">
+    <div class="fp-screen-bar"><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-screen-title">Parent Messages — Little Learner Hub Pro</span></div>
+    <div class="fp-screen-body">
+      <aside class="fp-sidebar">
+        <div class="fp-nav">Children</div>
+        <div class="fp-nav active">Parent Messages</div>
+        <div class="fp-nav">Daily Reports</div>
+        <div class="fp-nav">Portfolio</div>
+      </aside>
+      <div class="fp-main">
+        <div class="fp-stat-row">
+          <div class="fp-stat"><strong>1 note</strong><span>Typed once</span></div>
+          <div class="fp-stat"><strong>3</strong><span>Family-ready drafts</span></div>
+          <div class="fp-stat"><strong>0</strong><span>Extra rewriting</span></div>
+        </div>
+        <div class="fp-card">
+          <div class="fp-card-title">Teacher quick note</div>
+          <div class="fp-field"><label>What happened today?</label><div class="fp-field-value">Emma worked hard on bead threading, helped clean up, and was proud to show a friend her bracelet.</div></div>
+        </div>
+        <div class="fp-card">
+          <div class="fp-card-title">Parent-ready message</div>
+          <div class="fp-ai-output">Emma had a wonderful day practicing fine motor skills with bead threading and showed great persistence while completing her bracelet. She was especially proud to share her work with a friend during clean-up time.</div>
+        </div>
+      </div>
+    </div>
+  </div>`,
+};
+featurePreviewContent["daily-log-reports"] = {
+  eyebrow: "Preview — Pro Feature",
+  title: "Daily Reports",
+  html: `<div class="fp-screen">
+    <div class="fp-screen-bar"><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-screen-title">Daily Reports — Little Learner Hub Pro</span></div>
+    <div class="fp-screen-body">
+      <aside class="fp-sidebar">
+        <div class="fp-nav">Children</div>
+        <div class="fp-nav">Parent Messages</div>
+        <div class="fp-nav active">Daily Reports</div>
+        <div class="fp-nav">Portfolio</div>
+      </aside>
+      <div class="fp-main">
+        <div class="fp-stat-row">
+          <div class="fp-stat"><strong>Meals</strong><span>Included</span></div>
+          <div class="fp-stat"><strong>Naps</strong><span>Included</span></div>
+          <div class="fp-stat"><strong>Highlights</strong><span>Included</span></div>
+        </div>
+        <div class="fp-card">
+          <div class="fp-card-title">Today's log</div>
+          <div class="fp-row"><span>🍽️</span><span>Ate lunch and snack well</span><span class="fp-tag">Meals</span></div>
+          <div class="fp-row"><span>😴</span><span>Napped from 12:15–2:00</span><span class="fp-tag purple">Rest</span></div>
+          <div class="fp-row"><span>🎨</span><span>Painted butterflies and joined story time</span><span class="fp-tag gold">Learning</span></div>
+        </div>
+        <div class="fp-card">
+          <div class="fp-card-title">Family-ready daily report</div>
+          <div class="fp-ai-output">Today Emma enjoyed painting butterflies, joined story time with enthusiasm, ate well, and rested from 12:15–2:00. She ended the day proud of her art and ready to tell you about it.</div>
+        </div>
+      </div>
+    </div>
+  </div>`,
+};
+featurePreviewContent["daily-log-behavior"] = featurePreviewContent["daily-log-parent-messages"];
+featurePreviewContent["daily-log-incident"] = featurePreviewContent["daily-log-reports"];
+
 let featurePreviewTrigger = null;
 
 function isFeaturePreviewOpen() {
@@ -23336,6 +28218,8 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
   const email = document.querySelector("#emailInput").value;
   const password = document.querySelector("#passwordInput").value;
   const phone = document.querySelector("#phoneInput").value;
+  const firstName = (document.querySelector("#firstNameInput")?.value || "").trim();
+  const lastName  = (document.querySelector("#lastNameInput")?.value || "").trim();
   const submitButton = document.querySelector("#authSubmitButton");
   submitButton.disabled = true;
   setFormMessage("#authMessage", "Working...", true);
@@ -23349,7 +28233,7 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
       return;
     }
     if (currentAuthMode === "signup") {
-      const result = await signUpWithProvider(email, password, phone);
+      const result = await signUpWithProvider(email, password, phone, firstName, lastName);
       loadAccountState(result.email);
       updateAccount(result.email, {
         signupAt: new Date().toISOString(),
@@ -23358,7 +28242,8 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
       });
       await syncSubscriptionFromBackend(result.email);
       await syncChildDataFromBackend();
-      trackEvent("account_signup_complete", { email: result.email, plan: currentPlan, source: trafficSource() });
+      loadUserAiUsage(result.email).catch(() => {});
+      trackEvent("account_signup_complete", { email: result.email, plan: currentPlan, source: trafficSource(), firstName, lastName });
       setFormMessage("#authMessage", result.message || "Account created.", true);
     } else {
       const result = await loginWithProvider(email, password);
@@ -23366,6 +28251,7 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
       markAccountLogin(result.email);
       await syncSubscriptionFromBackend(result.email);
       await syncChildDataFromBackend();
+      loadUserAiUsage(result.email).catch(() => {});
       trackEvent("account_login_complete", { email: result.email, plan: currentPlan });
     }
     closeAuthModal();
@@ -23396,6 +28282,7 @@ document.addEventListener("submit", async (event) => {
     setAdminSession(session);
     trackEvent("admin_unlocked", { email: session.email, mode: session.mode || "server" });
     await loadAdminSiteContent().catch(() => {});
+    await loadUploadedResourcesFromBackend({ admin: true, migrateLocal: true }).catch(() => {});
     renderAdminDashboard();
     return;
   } catch (error) {
@@ -23411,6 +28298,7 @@ document.addEventListener("submit", async (event) => {
 document.addEventListener("submit", async (event) => {
   if (event.target.matches("#adminLessonPlanForm")) {
     event.preventDefault();
+    console.log("[DIAG] submit event fired on #adminLessonPlanForm — save triggered");
     await saveAdminLessonPlanForm(event.target);
     return;
   }
@@ -23434,6 +28322,21 @@ document.addEventListener("submit", async (event) => {
     await saveAdminImageAssetForm(event.target);
     return;
   }
+  if (event.target.matches("#adminActivityForm, #adminActivitiesForm")) {
+    event.preventDefault();
+    await saveAdminManagedCollectionForm("activities", event.target);
+    return;
+  }
+  if (event.target.matches("#adminFormsForm")) {
+    event.preventDefault();
+    await saveAdminManagedCollectionForm("forms", event.target);
+    return;
+  }
+  if (event.target.matches("#adminPrintablesForm")) {
+    event.preventDefault();
+    await saveAdminManagedCollectionForm("printables", event.target);
+    return;
+  }
   if (event.target.matches("#adminLessonImportForm")) {
     event.preventDefault();
     const textarea = document.querySelector("#adminImportTextarea");
@@ -23446,13 +28349,59 @@ document.addEventListener("submit", async (event) => {
     const fields = parseStructuredLessonPlan(text);
     const count = applyStructuredLessonPlanImport(fields);
     if (count === 0) {
-      if (msgEl) { msgEl.textContent = "No recognized sections found. Check the ===SECTION=== labels and try again."; msgEl.classList.remove("success"); }
+      if (msgEl) { msgEl.textContent = "No recognized sections found. Check the ===SECTION=== or KEY:\\nValue labels and try again."; msgEl.classList.remove("success"); }
       return;
     }
     closeAdminLessonImportModal();
     const form = document.querySelector("#adminLessonPlanForm");
     if (form) form.scrollIntoView({ behavior: "smooth", block: "start" });
     setFormMessage("#adminLessonGenerateMessage", `✅ Imported ${count} section${count !== 1 ? "s" : ""} successfully. Review all fields and click Save Lesson Plan when ready.`, true);
+    return;
+  }
+  // Site Editor forms
+  if (event.target.matches("#adminHeroForm")) {
+    event.preventDefault();
+    await saveAdminHeroForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminTrustForm")) {
+    event.preventDefault();
+    await saveAdminTrustForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminJourneyForm")) {
+    event.preventDefault();
+    await saveAdminJourneyForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminReviewsCtaForm")) {
+    event.preventDefault();
+    await saveAdminReviewsCtaForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminFoundingForm")) {
+    event.preventDefault();
+    await saveAdminFoundingForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminPricingForm")) {
+    event.preventDefault();
+    await saveAdminPricingForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminFaqForm")) {
+    event.preventDefault();
+    await saveAdminFaqForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminAnnouncementForm")) {
+    event.preventDefault();
+    await saveAdminAnnouncementForm(event.target);
+    return;
+  }
+  if (event.target.matches("#adminUpgradeMsgForm")) {
+    event.preventDefault();
+    await saveAdminUpgradeMsgForm(event.target);
     return;
   }
 });
@@ -23538,7 +28487,21 @@ document.addEventListener("change", (event) => {
 });
 
 document.addEventListener("click", async (event) => {
-  // Admin section navigation
+  const lessonSaveButton = event.target.closest("#adminLessonPlanForm button[type='submit']");
+  if (lessonSaveButton) {
+    setAdminLessonSaveFlowMessage("Save button clicked", { reset: true, isSuccess: true });
+  }
+
+  // Admin section navigation — group buttons (top-level 6-section nav)
+  const groupBtn = event.target.closest("[data-admin-group]");
+  if (groupBtn) {
+    const groupId = groupBtn.dataset.adminGroup;
+    if (groupId !== adminActiveGroup && !confirmDiscardAdminLessonChanges()) return;
+    setAdminGroup(groupId);
+    return;
+  }
+
+  // Admin section navigation — sub-tabs within a group
   const sectionNavBtn = event.target.closest("[data-admin-section-tab]");
   if (sectionNavBtn) {
     if (sectionNavBtn.dataset.adminSectionTab !== adminActiveSectionTab && !confirmDiscardAdminLessonChanges()) return;
@@ -23561,6 +28524,12 @@ document.addEventListener("click", async (event) => {
   // Click outside import modal card to close
   if (event.target.matches("#adminLessonImportModal")) {
     closeAdminLessonImportModal();
+    return;
+  }
+
+  // Close user profile modal
+  if (event.target.closest("#closeAdminUserProfileModal") || event.target.matches("#adminUserProfileModal")) {
+    closeAdminUserProfile();
     return;
   }
 
@@ -23590,6 +28559,81 @@ document.addEventListener("click", async (event) => {
     await toggleLessonPlanVisibility(lessonToggleButton.dataset.adminLessonToggle);
     return;
   }
+  const lessonDuplicateButton = event.target.closest("[data-admin-lesson-duplicate]");
+  if (lessonDuplicateButton) {
+    await duplicateAdminLessonPlan(lessonDuplicateButton.dataset.adminLessonDuplicate);
+    return;
+  }
+  const lessonSetStatusButton = event.target.closest("[data-admin-lesson-set-status]");
+  if (lessonSetStatusButton) {
+    const [id, status] = (lessonSetStatusButton.dataset.adminLessonSetStatus || "").split(":");
+    if (id && status) await setLessonPlanStatus(id, status);
+    return;
+  }
+  const lessonArchiveButton = event.target.closest("[data-admin-lesson-archive]");
+  if (lessonArchiveButton) {
+    await archiveAdminLessonPlan(lessonArchiveButton.dataset.adminLessonArchive);
+    return;
+  }
+  const lessonDeleteButton = event.target.closest("[data-admin-lesson-delete]");
+  if (lessonDeleteButton) {
+    await deleteAdminLessonPlan(lessonDeleteButton.dataset.adminLessonDelete);
+    return;
+  }
+  if (event.target.closest("#adminCreateLessonPlanButton")) {
+    await createAdminLessonPlan();
+    return;
+  }
+
+  // Visibility Dashboard — quick hide/show toggle
+  const visToggleBtn = event.target.closest("[data-admin-lesson-visibility-toggle]");
+  if (visToggleBtn) {
+    const id = visToggleBtn.dataset.adminLessonVisibilityToggle;
+    if (id) await toggleLessonPlanVisibility(id);
+    return;
+  }
+  const visibilityToggleBtn = event.target.closest("[data-admin-visibility-toggle]");
+  if (visibilityToggleBtn) {
+    const [type, id] = (visibilityToggleBtn.dataset.adminVisibilityToggle || "").split(":");
+    if (type && id) await toggleVisibilityDashboardItem(type, id);
+    return;
+  }
+  const visibilityEditBtn = event.target.closest("[data-admin-visibility-edit]");
+  if (visibilityEditBtn) {
+    const [type, id] = (visibilityEditBtn.dataset.adminVisibilityEdit || "").split(":");
+    if (type && id) editVisibilityDashboardItem(type, id);
+    return;
+  }
+  const visibilityPreviewBtn = event.target.closest("[data-admin-visibility-preview]");
+  if (visibilityPreviewBtn) {
+    const id = visibilityPreviewBtn.dataset.adminVisibilityPreview || "";
+    if (id) openResourceViewer(id);
+    return;
+  }
+  const visibilityBulkBtn = event.target.closest("[data-admin-visibility-bulk]");
+  if (visibilityBulkBtn) {
+    const [type, action] = (visibilityBulkBtn.dataset.adminVisibilityBulk || "").split(":");
+    const visible = action === "show";
+    if (type === "all") {
+      await Promise.all([
+        setVisibilityDashboardCollection("lesson-plans", visible),
+        setVisibilityDashboardCollection("activities", visible),
+        setVisibilityDashboardCollection("forms", visible),
+        setVisibilityDashboardCollection("printables", visible),
+      ]);
+    } else if (type) {
+      await setVisibilityDashboardCollection(type, visible);
+    }
+    renderAdminVisibilityDashboard();
+    return;
+  }
+  // Visibility Dashboard — open lesson in Content Manager editor
+  const openLessonBtn = event.target.closest("[data-admin-open-lesson]");
+  if (openLessonBtn) {
+    if (!confirmDiscardAdminLessonChanges()) return;
+    openAdminLessonEditor(openLessonBtn.dataset.adminOpenLesson, { scroll: true, focusTitle: true });
+    return;
+  }
   const lessonResetButton = event.target.closest("[data-admin-lesson-reset]");
   if (lessonResetButton) {
     await resetLessonPlanOverride(lessonResetButton.dataset.adminLessonReset);
@@ -23606,8 +28650,20 @@ document.addEventListener("click", async (event) => {
     await applyLessonPlanBulkAction(bulkButton.dataset.adminBulk);
     return;
   }
+  if (event.target.closest("#adminExportLessonPlansButton")) {
+    exportAllLessonPlansJson();
+    return;
+  }
+  if (event.target.closest("#adminArchiveAllLessonPlansButton")) {
+    await archiveAllLessonPlans();
+    return;
+  }
   if (event.target.closest("#adminShowOnly50Button")) {
     await showOnlyFiftyLessonPlansPerAge();
+    return;
+  }
+  if (event.target.closest("#adminHideAllLessonPlansButton")) {
+    await hideAllLessonPlans();
     return;
   }
   if (event.target.closest("#adminLessonGenerateBtn")) {
@@ -23631,6 +28687,32 @@ document.addEventListener("click", async (event) => {
   }
   if (event.target.closest("[data-admin-lesson-back]")) {
     scrollToAdminLessonList();
+    return;
+  }
+  // Lesson plan resource management
+  if (event.target.closest("[data-admin-add-resource]")) {
+    const container = document.querySelector("#adminAddLessonResourceForm");
+    if (container) await handleAddLessonResource(container);
+    return;
+  }
+  const resourceRemoveBtn = event.target.closest("[data-admin-resource-remove]");
+  if (resourceRemoveBtn) {
+    removeAdminLessonResource(resourceRemoveBtn.dataset.adminResourceRemove);
+    return;
+  }
+  const resourceUpBtn = event.target.closest("[data-admin-resource-up]");
+  if (resourceUpBtn) {
+    reorderAdminLessonResource(resourceUpBtn.dataset.adminResourceUp, "up");
+    return;
+  }
+  const resourceDownBtn = event.target.closest("[data-admin-resource-down]");
+  if (resourceDownBtn) {
+    reorderAdminLessonResource(resourceDownBtn.dataset.adminResourceDown, "down");
+    return;
+  }
+  if (event.target.closest("[data-close-add-resource]")) {
+    const panel = document.querySelector("#adminAddResourcePanel");
+    if (panel) panel.open = false;
     return;
   }
   const reviewEditButton = event.target.closest("[data-admin-review-edit]");
@@ -23668,6 +28750,133 @@ document.addEventListener("click", async (event) => {
   if (event.target.closest("#adminNewImageButton")) {
     adminImageEditorId = "";
     renderAdminContentManager();
+  }
+  // ── Admin Activities ──
+  const activityEditButton = event.target.closest("[data-admin-activity-edit]");
+  if (activityEditButton) {
+    adminActivityEditorId = activityEditButton.dataset.adminActivityEdit;
+    renderAdminActivitiesManager();
+    return;
+  }
+  const activityToggleButton = event.target.closest("[data-admin-activity-toggle]");
+  if (activityToggleButton) {
+    await toggleAdminActivityVisibility(activityToggleButton.dataset.adminActivityToggle);
+    return;
+  }
+  const activityDeleteButton = event.target.closest("#adminDeleteActivityButton");
+  if (activityDeleteButton) {
+    await deleteAdminActivity(activityDeleteButton.dataset.activityId);
+    return;
+  }
+  if (event.target.id === "adminNewActivityButton" || event.target.id === "adminNewActivityButton2") {
+    adminActivityEditorId = "";
+    renderAdminActivitiesManager();
+    return;
+  }
+  const managedSetStatusButton = event.target.closest("[data-admin-managed-set-status]");
+  if (managedSetStatusButton) {
+    const [type, id, status] = (managedSetStatusButton.dataset.adminManagedSetStatus || "").split(":");
+    if (type && id && status) await setAdminManagedCollectionItemStatus(type, id, status);
+    return;
+  }
+  const managedEditButton = event.target.closest("[data-admin-managed-edit]");
+  if (managedEditButton) {
+    const [type, id] = (managedEditButton.dataset.adminManagedEdit || "").split(":");
+    setAdminManagedEditorId(type, id || "");
+    renderAdminManagedCollection(type);
+    return;
+  }
+  const managedNewButton = event.target.closest("[data-admin-managed-new]");
+  if (managedNewButton) {
+    const type = managedNewButton.dataset.adminManagedNew;
+    setAdminManagedEditorId(type, "");
+    renderAdminManagedCollection(type);
+    return;
+  }
+  const managedToggleButton = event.target.closest("[data-admin-managed-toggle]");
+  if (managedToggleButton) {
+    const [type, id] = (managedToggleButton.dataset.adminManagedToggle || "").split(":");
+    await toggleAdminManagedCollectionVisibility(type, id);
+    return;
+  }
+  const managedArchiveButton = event.target.closest("[data-admin-managed-archive]");
+  if (managedArchiveButton) {
+    const [type, id] = (managedArchiveButton.dataset.adminManagedArchive || "").split(":");
+    await archiveAdminManagedCollectionItem(type, id);
+    return;
+  }
+  const managedDuplicateButton = event.target.closest("[data-admin-managed-duplicate]");
+  if (managedDuplicateButton) {
+    const [type, id] = (managedDuplicateButton.dataset.adminManagedDuplicate || "").split(":");
+    await duplicateAdminManagedCollectionItem(type, id);
+    return;
+  }
+  const managedDeleteButton = event.target.closest("[data-admin-managed-delete]");
+  if (managedDeleteButton) {
+    const [type, id] = (managedDeleteButton.dataset.adminManagedDelete || "").split(":");
+    await deleteAdminManagedCollectionItem(type, id);
+    return;
+  }
+  const managedPreviewButton = event.target.closest("[data-admin-managed-preview]");
+  if (managedPreviewButton) {
+    const [, id] = (managedPreviewButton.dataset.adminManagedPreview || "").split(":");
+    if (id) openResourceViewer(id);
+    return;
+  }
+
+  // ── Site Editor – FAQ management ──
+  if (event.target.matches("#adminNewFaqButton")) {
+    adminFaqEditId = "";
+    renderAdminFaqsSection();
+    return;
+  }
+  if (event.target.matches("#adminFaqCancelEdit")) {
+    adminFaqEditId = "";
+    renderAdminFaqsSection();
+    return;
+  }
+  const faqEditBtn = event.target.closest("[data-faq-edit]");
+  if (faqEditBtn) {
+    adminFaqEditId = faqEditBtn.dataset.faqEdit;
+    renderAdminFaqsSection();
+    return;
+  }
+  const faqToggleBtn = event.target.closest("[data-faq-toggle]");
+  if (faqToggleBtn) {
+    await toggleAdminFaq(faqToggleBtn.dataset.faqToggle);
+    return;
+  }
+  const faqDeleteBtn = event.target.closest("[data-faq-delete]");
+  if (faqDeleteBtn) {
+    await deleteAdminFaq(faqDeleteBtn.dataset.faqDelete);
+    return;
+  }
+  const faqUpBtn = event.target.closest("[data-faq-up]");
+  if (faqUpBtn) {
+    await moveFaq(faqUpBtn.dataset.faqUp, "up");
+    return;
+  }
+  const faqDownBtn = event.target.closest("[data-faq-down]");
+  if (faqDownBtn) {
+    await moveFaq(faqDownBtn.dataset.faqDown, "down");
+    return;
+  }
+
+  // ── Site Editor – restore defaults ──
+  const seRestoreBtn = event.target.closest("[data-se-restore]");
+  if (seRestoreBtn) {
+    await handleSiteEditorRestore(seRestoreBtn.dataset.seRestore);
+    return;
+  }
+
+  // ── Announcement banner dismiss ──
+  if (event.target.matches("#siteAnnouncementClose")) {
+    const banner = document.querySelector("#siteAnnouncementBanner");
+    const textEl = document.querySelector("#siteAnnouncementText");
+    if (banner) banner.hidden = true;
+    const text = textEl?.textContent || "";
+    if (text) sessionStorage.setItem("llhAnnouncementDismissed", text);
+    return;
   }
 });
 
@@ -23712,38 +28921,24 @@ document.querySelector("#uploadForm")?.addEventListener("submit", async (event) 
     fileData,
     previewName: normalizedShortText(form.get("preview")?.name || form.get("previewNameStored") || existingItem?.previewName || ""),
     previewData,
+    description: form.get("description") || "New uploaded resource.",
+    visible: form.get("visible") === "on",
     updatedAt: new Date().toISOString(),
   };
+  let savedToBackend = false;
   try {
-    await runAdminSave({
-      form: formEl,
-      messageTarget: "#adminUploadMessage",
-      successMessage: category === "Activity Center" ? "Activity saved." : "Resource saved.",
-      action: async () => {
-        if (category === "Activity Center") {
-          const nextContent = nextSiteContentDraft();
-          const activities = (nextContent.activities || []).filter((item) => item.id !== stableId);
-          nextContent.activities = [normalizedActivityRecord(payload), ...activities];
-          return saveAdminSiteContent(nextContent);
-        }
-        const savedUploads = uploadedResources();
-        const uploaded = {
-          ...payload,
-          month: existingItem?.month || resourceMonthLabel(),
-          format: payload.fileName ? "Uploaded File" : "Manual Resource",
-        };
-        const updatedUploads = editId
-          ? savedUploads.map((item) => item.id === editId ? uploaded : item)
-          : [...savedUploads, uploaded];
-        saveUploadedResources(updatedUploads);
-        rerenderActiveContent();
-        return uploaded;
-      },
-    });
-  } catch {
-    return;
+    await saveUploadedResourceToBackend(uploaded);
+    savedToBackend = true;
+  } catch (error) {
+    console.warn("Uploaded resource backend save failed", error);
   }
-  clearAdminFormDraft(adminUploadDraftStorageKey);
+  if (!savedToBackend) {
+    const savedUploads = uploadedResources();
+    const updatedUploads = editId
+      ? savedUploads.map((item) => item.id === editId ? uploaded : item)
+      : [...savedUploads, uploaded];
+    saveUploadedResources(updatedUploads);
+  }
   resetAdminForm();
   renderAdminDashboard();
 });
@@ -23771,7 +28966,9 @@ document.querySelector("#leadCaptureForm")?.addEventListener("submit", (event) =
 
 document.querySelector("#adminCancelEdit")?.addEventListener("click", resetAdminForm);
 
-document.querySelector("#adminAddDemo")?.addEventListener("click", addDemoAdminResource);
+document.querySelector("#adminAddDemo")?.addEventListener("click", () => {
+  addDemoAdminResource();
+});
 
 document.querySelector("#adminSearchInput")?.addEventListener("input", renderAdminDashboard);
 
@@ -23894,7 +29091,7 @@ document.querySelector("#aiChatForm")?.addEventListener("submit", async (event) 
       programName: settings.programName || "",
     });
     addAiMessage("assistant", result.output);
-    recordAiUse();
+    recordAiUse(result.used, result.limit);
     trackEvent("ai_generation_success", { tool: "chat", promptLength: prompt.length, plan: currentPlan, backendUsed: result.backendUsed });
   } catch (error) {
     addAiMessage("assistant", error.message || "We couldn't create your document right now. Please try again.");
@@ -23979,7 +29176,7 @@ document.addEventListener("submit", async (event) => {
     outputEl.dataset.rawMarkdown = result.output;
     renderAiDebugPanel("#docHelperDebugPanel", result.debug, result.output);
     if (labelEl) labelEl.textContent = "Result";
-    recordAiUse();
+    recordAiUse(result.used, result.limit);
     renderAiUsagePanel();
     trackEvent("ai_generation_success", { tool: "doc-helper", docType, plan: currentPlan, backendUsed: Boolean(result.backendUsed) });
   } catch (error) {
@@ -24031,7 +29228,7 @@ document.addEventListener("submit", async (event) => {
       outputEl.dataset.rawMarkdown = result.output;
     }
     renderAiDebugPanel("#generatorDebugPanel", result.debug, result.output);
-    recordAiUse();
+    recordAiUse(result.used, result.limit);
     trackEvent("ai_generation_success", { tool: toolId, plan: currentPlan, backendUsed: Boolean(result.backendUsed), used: result.used, limit: result.limit });
   } catch (error) {
     renderAiDebugPanel("#generatorDebugPanel");
@@ -24136,6 +29333,7 @@ document.addEventListener("submit", async (event) => {
   activeChildProfileEditId = "";
   form.reset();
   renderChildManagement();
+  showActionFeedback(`${child.name}’s profile saved.`);
 });
 
 document.addEventListener("submit", (event) => {
@@ -24257,6 +29455,7 @@ document.addEventListener("submit", (event) => {
   }
   const data = collectFormData(event.target);
   appendChildRecord("Communications", { ...data, title: `${data.type} | ${data.date}`, summary: data.message });
+  showActionFeedback("Parent communication saved.");
 });
 
 // ─── Daily Logs Center Form Handlers ───────────────────────────────────────
@@ -24267,6 +29466,7 @@ document.addEventListener("submit", (event) => {
   const data = collectFormData(event.target);
   const dur = data.napStart && data.napEnd ? ` | ${data.napStart}–${data.napEnd}` : "";
   appendChildRecord("Naps", { ...data, title: `Nap | ${data.date}${dur}`, summary: data.notes || `Nap logged${dur}` });
+  showActionFeedback("Nap saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -24275,6 +29475,7 @@ document.addEventListener("submit", (event) => {
   const data = collectFormData(event.target);
   const timeStr = data.time ? ` at ${data.time}` : "";
   appendChildRecord("Diapers", { ...data, title: `${data.type} | ${data.date}${timeStr}`, summary: data.notes || data.type });
+  showActionFeedback("Diaper / potty entry saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -24284,6 +29485,7 @@ document.addEventListener("submit", (event) => {
   const activitySummaryParts = [data.area, data.notes].filter(Boolean);
   const activitySummary = activitySummaryParts.join(" | ") || data.activity || "Activity";
   appendChildRecord("ActivityLogs", { ...data, title: data.activity || "Activity", summary: activitySummary });
+  showActionFeedback("Activity saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -24295,6 +29497,7 @@ document.addEventListener("submit", (event) => {
   }
   const data = collectFormData(event.target);
   appendChildRecord("Communications", { ...data, type: "Behavior Note", title: `Behavior Note | ${data.date}`, summary: data.message });
+  showActionFeedback("Behavior note saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -24327,6 +29530,7 @@ document.addEventListener("submit", (event) => {
   });
   dailyLogsGroupAction = "";
   renderChildManagement();
+  showActionFeedback("Group update saved.");
 });
 
 // ─── New Daily Log Accordion Form Handlers ──────────────────────────────────
@@ -24380,6 +29584,7 @@ document.addEventListener("submit", (event) => {
   });
   dlcManualSection = "";
   renderChildManagement();
+  showActionFeedback("Bottle log saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -24395,6 +29600,7 @@ document.addEventListener("submit", (event) => {
   });
   dlcManualSection = "";
   renderChildManagement();
+  showActionFeedback("Nap saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -24410,6 +29616,7 @@ document.addEventListener("submit", (event) => {
   });
   dlcManualSection = "";
   renderChildManagement();
+  showActionFeedback("Diaper / potty entry saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -24425,6 +29632,7 @@ document.addEventListener("submit", (event) => {
   });
   dlcManualSection = "";
   renderChildManagement();
+  showActionFeedback("Activity saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -24439,6 +29647,7 @@ document.addEventListener("submit", (event) => {
   });
   dlcManualSection = "";
   renderChildManagement();
+  showActionFeedback("Mood note saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -24454,6 +29663,7 @@ document.addEventListener("submit", (event) => {
   });
   dlcManualSection = "";
   renderChildManagement();
+  showActionFeedback("Medication entry saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -24469,6 +29679,7 @@ document.addEventListener("submit", (event) => {
   });
   dlcManualSection = "";
   renderChildManagement();
+  showActionFeedback("Incident report saved.");
 });
 
 document.addEventListener("submit", (event) => {
@@ -24487,6 +29698,7 @@ document.addEventListener("submit", (event) => {
   });
   dlcManualSection = "";
   renderChildManagement();
+  showActionFeedback(`${data.type || "Note"} saved.`);
 });
 
 document.addEventListener("submit", async (event) => {
@@ -24660,6 +29872,7 @@ updateInstallSettingsPanel();
 document.body.classList.add("home-view");
 renderHome();
 loadSiteContentFromBackend().catch(() => {});
+loadUploadedResourcesFromBackend({ admin: isAdminUnlocked(), migrateLocal: isAdminUnlocked() }).catch(() => {});
 
 function initialViewFromLocation() {
   const params = new URLSearchParams(window.location.search);
@@ -24675,6 +29888,7 @@ async function initializeAppView() {
   if (currentUser) {
     await syncSubscriptionFromBackend(currentUser, { renderFounding: true });
     await syncChildDataFromBackend({ render: true });
+    loadUserAiUsage(currentUser).catch(() => {});
   }
   await syncFoundingStatus({ render: true });
   const initialView = initialViewFromLocation();
@@ -24932,3 +30146,73 @@ async function handleAdminAiTestGenerate() {
   state.generating = false;
   renderAdminAiTestCenter();
 }
+
+// ─── AI Prompt Manager Event Handlers ────────────────────────────────────────
+
+document.addEventListener("click", (event) => {
+  // Tool selector
+  const toolBtn = event.target.closest("[data-ai-pm-tool]");
+  if (toolBtn) {
+    adminAiPromptsState.activeTool = toolBtn.dataset.aiPmTool;
+    adminAiPromptsState.success = "";
+    adminAiPromptsState.error = "";
+    renderAdminAiPromptsTab();
+    return;
+  }
+  // Restore version
+  const restoreBtn = event.target.closest("[data-ai-pm-restore]");
+  if (restoreBtn) {
+    if (confirm("Restore this prompt version? The current version will be saved in history.")) {
+      restoreAdminAiPromptVersion(restoreBtn.dataset.aiPmRestore);
+    }
+    return;
+  }
+  // Toggle version history
+  if (event.target.matches("#aiPmToggleHistory")) {
+    adminAiPromptsState.showVersionHistory = !adminAiPromptsState.showVersionHistory;
+    renderAdminAiPromptsTab();
+    return;
+  }
+  // Reset to default
+  if (event.target.matches("#aiPmResetBtn")) {
+    const tool = adminAiPromptsState.activeTool;
+    const defaultText = adminAiPromptsState.hardcodedDefaults[tool] || "";
+    const form = document.querySelector("#adminAiPromptsForm");
+    if (!form) return;
+    if (confirm("Reset all prompt layers for this tool to the built-in defaults? This will clear all custom text in the editor (not yet saved to the server).")) {
+      for (const layer of AI_PROMPT_LAYERS_ORDERED) {
+        const el = form.querySelector(`[name="${layer}"]`);
+        if (el) el.value = "";
+      }
+      // Put the full default in masterPrompt as a convenient starting point
+      const masterEl = form.querySelector('[name="masterPrompt"]');
+      if (masterEl) masterEl.value = defaultText;
+    }
+    return;
+  }
+  // AI Settings retry
+  if (event.target.matches("#aiSettingsRetryBtn")) {
+    loadAdminAiSettings();
+    return;
+  }
+  // AI Usage retry/refresh
+  if (event.target.matches("#aiUsageRetryBtn") || event.target.matches("#aiUsageRefreshBtn")) {
+    loadAdminAiUsage();
+    return;
+  }
+});
+
+document.addEventListener("submit", (event) => {
+  // Prompt Manager save
+  if (event.target.matches("#adminAiPromptsForm")) {
+    event.preventDefault();
+    saveAdminAiPrompts(adminAiPromptsState.activeTool);
+    return;
+  }
+  // AI Settings save
+  if (event.target.matches("#adminAiSettingsForm")) {
+    event.preventDefault();
+    saveAdminAiSettings();
+    return;
+  }
+});

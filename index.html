@@ -164,7 +164,7 @@
               <span id="currentPlanLabel">Free</span>
             </div>
           </div>
-          <p id="planAccessSummary">Free: 3 profiles, 10 observations, 5 lesson plans, 10 forms &amp; printables, 10 activity ideas, 10 document creations. No credit card needed.</p>
+          <p id="planAccessSummary">Free: 3 profiles, 10 observations, 5 lesson plans, 6 forms, 8 activity ideas, 6 printables, and 10 document creations. Upgrade anytime to start a 7-Day Free Pro Trial.</p>
           <div class="sidebar-glance">
             <h3>At a Glance</h3>
             <div><span>Observations Due</span><strong id="sidebarObservationsDue">0</strong></div>
@@ -190,6 +190,12 @@
             <button class="primary-button" id="signupButton">Sign up</button>
           </div>
         </header>
+
+        <!-- SITE-WIDE ANNOUNCEMENT BANNER -->
+        <div id="siteAnnouncementBanner" class="site-announcement-banner" hidden role="alert" aria-live="polite">
+          <span id="siteAnnouncementText"></span>
+          <button class="site-announcement-close" id="siteAnnouncementClose" type="button" aria-label="Dismiss announcement">✕</button>
+        </div>
 
         <section id="view-home" class="view active-view landing-home">
 
@@ -561,9 +567,10 @@
                   <li>✓ 3 Child Profiles</li>
                   <li>✓ 10 Observations Per Month</li>
                   <li>✓ 5 Lesson Plans</li>
-                  <li>✓ 10 Activity Ideas</li>
+                  <li>✓ 8 Activity Ideas</li>
+                  <li>✓ 6 Forms</li>
+                  <li>✓ 6 Printables</li>
                   <li>✓ 10 AI Generations</li>
-                  <li>✓ Free Resources</li>
                   <li>✓ No Credit Card Required</li>
                 </ul>
                 <button class="lp-btn-outline" data-plan="Free" type="button">Start Free</button>
@@ -584,8 +591,8 @@
                   <li>✓ Documentation Helpers</li>
                   <li>✓ Priority Support</li>
                 </ul>
-                <button class="lp-btn-primary" data-action="upgrade-trial" type="button">Try Pro Free For 7 Days</button>
-                <p class="lp-price-note">Credit card required. Automatically converts after trial unless canceled.</p>
+                <button class="lp-btn-primary" data-action="upgrade-trial" type="button">Start Your 7-Day Free Pro Trial</button>
+                <p class="lp-price-note">Credit card required. Cancel anytime. Full Pro access during the 7-day trial.</p>
               </div>
             </div>
           </section>
@@ -627,7 +634,7 @@
             <h2>Ready to Stop Doing Childcare Paperwork Alone at Night?</h2>
             <p class="lp-cta-body">Start your free account and begin organizing observations, lesson plans, child goals, forms, and reports in one place.</p>
             <button class="lp-btn-primary lp-btn-large" data-action="start-free" type="button">Start Free Today</button>
-            <p class="lp-cta-subtext">No credit card required.</p>
+            <p class="lp-cta-subtext">Upgrade anytime to start a 7-Day Free Pro Trial with full Pro access.</p>
           </section>
 
           <!-- FOUNDING MEMBER SLOT -->
@@ -761,25 +768,7 @@
                 <label>Activity category<input name="activityCategory" placeholder="Sensory, art, literacy" /></label>
               </div>
               <label>Description<textarea name="description" rows="4" placeholder="What is included?"></textarea></label>
-              <label>Instructions<textarea name="instructions" rows="4" placeholder="Step-by-step activity instructions"></textarea></label>
-              <div class="form-grid-two">
-                <label>Linked lesson plan
-                  <select name="linkedLessonPlanId">
-                    <option value="">None</option>
-                  </select>
-                </label>
-                <label>Status
-                  <select name="status">
-                    <option>Draft</option>
-                    <option>Published</option>
-                    <option>Hidden</option>
-                  </select>
-                </label>
-              </div>
-              <div class="form-grid-two">
-                <label class="admin-inline-toggle"><input name="featured" type="checkbox" /> <span>Featured</span></label>
-                <label class="admin-inline-toggle"><input name="hidden" type="checkbox" /> <span>Hidden</span></label>
-              </div>
+              <label class="admin-inline-toggle"><input name="visible" type="checkbox" checked /> <span>Visible to users</span></label>
               <div class="form-grid-two">
                 <label>Download file<input name="file" type="file" /></label>
                 <label>Preview image<input name="preview" type="file" accept="image/*" /></label>
@@ -846,6 +835,35 @@
           </section>
           <section class="section-block admin-ai-test-panel">
             <div id="adminAiTestCenter"></div>
+          </section>
+          <section class="section-block admin-ai-prompts-panel" hidden>
+            <div id="adminAiPromptsApp"></div>
+          </section>
+          <section class="section-block admin-ai-settings-panel" hidden>
+            <div id="adminAiSettingsApp"></div>
+          </section>
+          <section class="section-block admin-ai-usage-panel" hidden>
+            <div id="adminAiUsageApp"></div>
+          </section>
+          <section class="section-block admin-visibility-panel" hidden>
+            <div id="adminVisibilityApp"></div>
+          </section>
+          <section class="section-block admin-users-panel" hidden>
+            <div id="adminUsersApp"></div>
+          </section>
+          <section class="section-block admin-stripe-backfill-panel" hidden>
+            <div id="adminStripeBackfillApp"></div>
+          </section>
+          <section class="section-block admin-site-editor-panel" hidden>
+            <div id="adminHeroApp"></div>
+            <div id="adminTrustApp"></div>
+            <div id="adminJourneyApp"></div>
+            <div id="adminReviewsCtaApp"></div>
+            <div id="adminFoundingApp"></div>
+            <div id="adminPricingApp"></div>
+            <div id="adminFaqsApp"></div>
+            <div id="adminAnnouncementApp"></div>
+            <div id="adminUpgradeMsgApp"></div>
           </section>
           </div>
         </section>
@@ -1301,10 +1319,14 @@
             <h2>Little Learner Hub FAQ</h2>
             <p>Quick answers for home daycare and childcare providers using the platform.</p>
           </div>
-          <section class="section-block faq-list">
+          <section class="section-block faq-list" id="faqList">
+            <!-- FAQs rendered dynamically from site content; default FAQs are below as fallback -->
+          </section>
+          <!-- Default FAQ content (hidden; used as baseline for site content capture) -->
+          <section id="defaultFaqList" hidden aria-hidden="true">
             <article class="faq-item"><h3>What is Little Learner Hub?</h3><p>Little Learner Hub helps childcare providers organize observations, lesson plans, child goals, forms, incident reports, and paperwork in one place so documentation takes minutes instead of hours.</p></article>
             <article class="faq-item"><h3>Is there a free plan?</h3><p>Yes. Little Learner Hub offers a Free Plan that allows providers to explore the platform and access a limited amount of content before upgrading.</p></article>
-            <article class="faq-item"><h3>What is included in the Free Plan?</h3><ul><li>3 Child Profiles</li><li>10 Observations Per Month</li><li>5 Lesson Plans</li><li>10 Activity Ideas</li><li>10 AI Generations</li><li>Free Resources</li><li>No Credit Card Required</li></ul></article>
+            <article class="faq-item"><h3>What is included in the Free Plan?</h3><ul><li>3 Child Profiles</li><li>10 Observations Per Month</li><li>5 Lesson Plans</li><li>8 Activity Ideas</li><li>6 Forms</li><li>6 Printables</li><li>10 AI Generations</li><li>No Credit Card Required</li></ul></article>
             <article class="faq-item"><h3>What is included in the Pro Plan?</h3><p>The Pro Plan includes unlimited access to resources, downloads, child management features, and 250 document creations per month.</p></article>
             <article class="faq-item"><h3>Can I cancel my subscription?</h3><p>Yes. You may cancel your subscription at any time through your account settings.</p></article>
             <article class="faq-item"><h3>Do I need to enter payment information for the Free Plan?</h3><p>No. The Free Plan is available without a paid subscription.</p></article>
@@ -1384,6 +1406,16 @@
             Email
             <input type="email" id="emailInput" name="email" required autocomplete="email" placeholder="you@example.com" />
           </label>
+          <div id="authNameFields" class="hidden-field" aria-hidden="true">
+            <label>
+              First Name
+              <input type="text" id="firstNameInput" name="firstName" autocomplete="given-name" placeholder="Jane" />
+            </label>
+            <label>
+              Last Name
+              <input type="text" id="lastNameInput" name="lastName" autocomplete="family-name" placeholder="Smith" />
+            </label>
+          </div>
           <label id="authPhoneField" class="hidden-field" aria-hidden="true">
             Phone (optional)
             <input type="tel" id="phoneInput" name="phone" autocomplete="tel" placeholder="(555) 123-4567" />
@@ -1410,7 +1442,7 @@
         <h2 id="proModalTitle">This is a Pro Feature</h2>
         <div class="pro-modal-body" id="proModalBody"></div>
         <div class="pro-modal-actions">
-          <button class="primary-button" id="proModalUpgrade" type="button">Start Free 7-Day Trial</button>
+          <button class="primary-button" id="proModalUpgrade" type="button">Start Your 7-Day Free Pro Trial</button>
           <button class="ghost-button" id="proModalDismiss" type="button">Maybe Later</button>
         </div>
       </div>
@@ -1444,16 +1476,24 @@
         <button class="close-button" id="closeAdminImportModal" type="button" aria-label="Close import modal">&times;</button>
         <p class="eyebrow">Admin Tool</p>
         <h2 id="adminImportTitle" tabindex="-1">📋 Import Structured Lesson Plan</h2>
-        <p style="font-size:14px;color:var(--muted);margin:8px 0 12px">Paste a lesson plan that uses <code>===SECTION===</code> labels. Each labeled section will automatically fill the matching field in the form.</p>
+        <p style="font-size:14px;color:var(--muted);margin:8px 0 12px">Paste a lesson plan using <code>===SECTION===</code> labels <em>or</em> the <code>KEY:</code> header format. Each recognized label automatically fills the matching field.</p>
         <form id="adminLessonImportForm">
-          <textarea id="adminImportTextarea" class="admin-import-textarea" placeholder="===OVERVIEW===&#10;Paste your overview here...&#10;&#10;===MATERIALS===&#10;List of materials...&#10;&#10;===MONDAY===&#10;Circle Time: ..."></textarea>
-          <p class="admin-import-hint">Supported sections: OVERVIEW, MATERIALS, OBJECTIVES, TEACHER_LANGUAGE, MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, ELG_CONNECTIONS, FAMILY_CONNECTION, REFLECTION_NOTES, THUMBNAIL</p>
+          <textarea id="adminImportTextarea" class="admin-import-textarea" placeholder="TITLE:&#10;Toddler Animals on the Farm Lesson Plan&#10;&#10;THEME:&#10;Animals on the Farm&#10;&#10;===OVERVIEW===&#10;Paste your overview here...&#10;&#10;===MATERIALS===&#10;List of materials...&#10;&#10;===MONDAY===&#10;Circle Time: ..."></textarea>
+          <p class="admin-import-hint">Supported formats: <strong>KEY:</strong> (on its own line, value on next line) for TITLE:, THEME:, AGE_GROUP: — or <strong>===SECTION===</strong> for OVERVIEW, MATERIALS, OBJECTIVES, TEACHER_LANGUAGE, MONDAY–FRIDAY, ELG_CONNECTIONS, FAMILY_CONNECTION, REFLECTION_NOTES. If TITLE is omitted it will be auto-generated from Age Group + Theme. If TITLE contains "Infant", "Toddler", or "Preschool", Age Group is auto-detected.</p>
           <div class="form-actions" style="margin-top:14px">
             <button class="primary-button" type="submit">Import &amp; Fill Fields</button>
             <button class="ghost-button" type="button" id="cancelAdminImportBtn">Cancel</button>
           </div>
           <span class="form-message" id="adminImportMessage"></span>
         </form>
+      </div>
+    </div>
+
+    <div class="modal aup-profile-modal" id="adminUserProfileModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="adminUserProfileTitle">
+      <div class="modal-card aup-profile-card">
+        <button class="close-button" id="closeAdminUserProfileModal" type="button" aria-label="Close user profile">&times;</button>
+        <p class="eyebrow" id="adminUserProfileTitle" tabindex="-1">User Profile</p>
+        <div id="adminUserProfileBody"></div>
       </div>
     </div>
 

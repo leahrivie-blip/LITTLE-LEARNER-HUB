@@ -11,7 +11,7 @@ const SITE_URL = process.env.SITE_URL || `http://localhost:${PORT}`;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "";
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
 const PROMO_FREE_TRIAL_CODE = String(process.env.PROMO_FREE_TRIAL_CODE || "TRYPRO3").trim();
-const PROMO_FREE_TRIAL_DAYS = Number(process.env.PROMO_FREE_TRIAL_DAYS || 90);
+const PROMO_FREE_TRIAL_DAYS = Number(process.env.PROMO_FREE_TRIAL_DAYS || 7);
 const PROMO_FREE_TRIAL_EXPIRES_AT = process.env.PROMO_FREE_TRIAL_EXPIRES_AT || "2026-11-01T05:00:00.000Z";
 const PROMO_FREE_TRIAL_EXPIRES_LABEL = process.env.PROMO_FREE_TRIAL_EXPIRES_LABEL || "October 31, 2026";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
@@ -53,6 +53,7 @@ let databaseReady = false;
 let postgresPool = null;
 let postgresWriteChain = Promise.resolve();
 let firebaseCertCache = { expiresAt: 0, certs: {} };
+const MAX_BACKFILL_REPORT_ITEMS = 500;
 
 const planConfig = {
   founding: {
@@ -246,7 +247,7 @@ function databaseConfigStatus() {
       ? "Postgres storage is connected for launch data."
       : external && credentialsReady
         ? "External database credentials are configured. Connect this provider before accepting serious traffic."
-      : "Local JSON storage is only for testing. Use a protected hosted database before serious traffic.",
+        : "Local JSON storage is only for testing. Use a protected hosted database before serious traffic.",
   };
 }
 
@@ -290,7 +291,19 @@ function defaultStore() {
     adminSessions: {},
     aiUsage: {},
     aiOutputs: [],
+    aiSettings: defaultAiSettings(),
+    aiPrompts: {},
+    aiPromptVersions: [],
+    aiUsageLogs: [],
     supportTickets: [],
+    bugReports: [],
+    featureRequests: [],
+    feedbackItems: [],
+    communications: [],
+    announcements: [],
+    releaseNotes: [],
+    knowledgeBase: [],
+    uploadedResources: [],
     analyticsEvents: [],
     billingEvents: [],
     leads: [],
@@ -299,13 +312,36 @@ function defaultStore() {
   };
 }
 
+function defaultAiSettings() {
+  const toolDefaults = () => ({ enabled: true, generationLimit: null, fallbackMessage: "" });
+  return {
+    masterEnabled: true,
+    tools: {
+      observation:    toolDefaults(),
+      lesson:         toolDefaults(),
+      daily:          toolDefaults(),
+      parentMessage:  toolDefaults(),
+      activity:       toolDefaults(),
+      behaviorNote:   toolDefaults(),
+      incidentReport: toolDefaults(),
+    },
+  };
+}
+
 function defaultSiteContentStore() {
   return {
     lessonPlans: {},
+    customLessonPlans: [],
     activities: [],
+    forms: [],
+    printables: [],
     reviews: [],
     founder: {},
     homepage: {},
+    pricing: {},
+    faqs: [],
+    announcement: {},
+    upgradeMessaging: {},
     images: [],
     updatedAt: "",
   };
@@ -319,12 +355,103 @@ function normalizedShortText(value, maxLength = 240) {
   return normalizedMultilineText(value, maxLength);
 }
 
+const AI_VALID_TOOLS = new Set(["observation", "lesson", "daily", "parentMessage", "activity", "behaviorNote", "incidentReport"]);
+const AI_PROMPT_LAYERS = ["masterPrompt", "toolSpecificPrompt", "writingIntelligence", "outputFormatting"];
+const AI_PROMPT_MAX_CHARS = 32000;
+
+function normalizedAiToolSettings(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  return {
+    enabled: entry.enabled !== false,
+    generationLimit: Number.isFinite(Number(entry.generationLimit)) && Number(entry.generationLimit) > 0
+      ? Math.floor(Number(entry.generationLimit))
+      : null,
+    fallbackMessage: normalizedShortText(entry.fallbackMessage, 500),
+  };
+}
+
+function normalizedAiSettings(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const tools = entry.tools && typeof entry.tools === "object" ? entry.tools : {};
+  const defaults = defaultAiSettings();
+  const normalizedTools = {};
+  for (const toolId of AI_VALID_TOOLS) {
+    normalizedTools[toolId] = normalizedAiToolSettings(tools[toolId] || defaults.tools[toolId] || {});
+  }
+  return {
+    masterEnabled: entry.masterEnabled !== false,
+    tools: normalizedTools,
+  };
+}
+
+function normalizedAiPromptEntry(value, updatedBy) {
+  const entry = value && typeof value === "object" ? value : {};
+  const result = { updatedAt: String(entry.updatedAt || ""), updatedBy: String(entry.updatedBy || updatedBy || "") };
+  for (const layer of AI_PROMPT_LAYERS) {
+    result[layer] = normalizedMultilineText(entry[layer], AI_PROMPT_MAX_CHARS);
+  }
+  return result;
+}
+
+function normalizedAiPrompts(value, updatedBy) {
+  const obj = value && typeof value === "object" ? value : {};
+  const result = {};
+  for (const toolId of AI_VALID_TOOLS) {
+    if (obj[toolId]) result[toolId] = normalizedAiPromptEntry(obj[toolId], updatedBy);
+  }
+  return result;
+}
+
 function sanitizedImageSource(value, maxLength = 1_000_000) {
   const text = String(value || "").trim();
   if (!text) return "";
   if (/^data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=]+$/i.test(text)) return text.slice(0, maxLength);
   if (/^(https?:)?\/\//i.test(text) || text.startsWith("/")) return text.slice(0, 4000);
   return "";
+}
+
+// Accepts image data URLs, PDF data URLs, and external HTTPS URLs for lesson plan resources.
+function sanitizedResourceUrl(value, maxLength = 8_000_000) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (/^data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=]+$/i.test(text)) return text.slice(0, maxLength);
+  if (/^data:application\/pdf;base64,[a-z0-9+/=]+$/i.test(text)) return text.slice(0, maxLength);
+  // External URLs: HTTPS only, validated via URL parser
+  try {
+    const parsed = new URL(text);
+    if (parsed.protocol !== "https:") return "";
+    return text.slice(0, 4000);
+  } catch {
+    return "";
+  }
+}
+
+const validLessonPlanResourceCategories = new Set([
+  "Coloring Pages",
+  "Tracing Activities",
+  "Counting Activities",
+  "Matching Activities",
+  "Crafts",
+  "Teacher Resources",
+  "Activity Photos",
+  "General",
+]);
+
+function normalizedLessonPlanResource(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const id = normalizedShortText(entry.id, 120);
+  if (!id) return null;
+  const category = validLessonPlanResourceCategories.has(entry.category) ? entry.category : "General";
+  const url = sanitizedResourceUrl(entry.url);
+  if (!url) return null;
+  return {
+    id,
+    title: normalizedShortText(entry.title, 180) || "Resource",
+    category,
+    url,
+    mimeType: normalizedShortText(entry.mimeType, 60),
+    order: Number.isFinite(Number(entry.order)) ? Number(entry.order) : 0,
+  };
 }
 
 function sanitizedUrl(value) {
@@ -354,8 +481,13 @@ function normalizedLessonPlanOverride(id, value) {
     familyConnection: normalizedMultilineText(entry.familyConnection, 4000),
     reflectionNotes: normalizedMultilineText(entry.reflectionNotes, 4000),
     plan: normalizedShortText(entry.plan, 20),
-    visible: entry.visible !== false,
+    visible: entry.visible === true,
+    archived: entry.archived === true,
+    featured: entry.featured === true,
     thumbnailUrl: sanitizedImageSource(entry.thumbnailUrl),
+    updatedAt: normalizedShortText(entry.updatedAt, 80),
+    titleThemeImporterUpdated: entry.titleThemeImporterUpdated === true,
+    titleThemeImporterUpdatedAt: normalizedShortText(entry.titleThemeImporterUpdatedAt, 80),
     dailyActivities: {
       monday: normalizedMultilineText(days.monday, 4000),
       tuesday: normalizedMultilineText(days.tuesday, 4000),
@@ -363,6 +495,20 @@ function normalizedLessonPlanOverride(id, value) {
       thursday: normalizedMultilineText(days.thursday, 4000),
       friday: normalizedMultilineText(days.friday, 4000),
     },
+    resources: normalizedList(entry.resources, 50, normalizedLessonPlanResource),
+  };
+}
+
+function normalizedFaqEntry(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const id = normalizedShortText(entry.id, 120);
+  if (!id) return null;
+  return {
+    id,
+    question: normalizedShortText(entry.question, 400),
+    answer: normalizedMultilineText(entry.answer, 4000),
+    visible: entry.visible !== false,
+    order: Number.isFinite(Number(entry.order)) ? Number(entry.order) : 0,
   };
 }
 
@@ -376,6 +522,176 @@ function normalizedReviewEntry(value) {
     imageUrl: sanitizedImageSource(entry.imageUrl),
     visible: entry.visible !== false,
     order: Number.isFinite(Number(entry.order)) ? Number(entry.order) : 0,
+  };
+}
+
+function normalizedActivityEntry(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const id = normalizedShortText(entry.id, 160);
+  if (!id) return null;
+  const tagsInput = Array.isArray(entry.tags) ? entry.tags : [];
+  return {
+    id,
+    title: normalizedShortText(entry.title, 200),
+    age: normalizedShortText(entry.age, 40),
+    activityCategory: normalizedShortText(entry.activityCategory, 80),
+    theme: normalizedShortText(entry.theme, 120),
+    description: normalizedMultilineText(entry.description, 2000),
+    tags: tagsInput.map((t) => normalizedShortText(t, 80)).filter(Boolean).slice(0, 20),
+    plan: normalizedShortText(entry.plan, 20),
+    format: normalizedShortText(entry.format, 80),
+    fileData: sanitizedResourceUrl(entry.fileData),
+    previewData: sanitizedImageSource(entry.previewData),
+    customContent: normalizedMultilineText(entry.customContent, 20000),
+    printableUrl: sanitizedImageSource(entry.printableUrl),
+    thumbnailUrl: sanitizedImageSource(entry.thumbnailUrl),
+    visible: entry.visible === true,
+    archived: entry.archived === true,
+    updatedAt: normalizedShortText(entry.updatedAt, 80),
+  };
+}
+
+function normalizedLibraryItemEntry(value, defaultCategory) {
+  const entry = value && typeof value === "object" ? value : {};
+  const id = normalizedShortText(entry.id, 160);
+  if (!id) return null;
+  const tagsInput = Array.isArray(entry.tags) ? entry.tags : [];
+  return {
+    id,
+    title: normalizedShortText(entry.title, 200),
+    category: normalizedShortText(entry.category, 80) || defaultCategory,
+    age: normalizedShortText(entry.age, 40),
+    plan: normalizedShortText(entry.plan, 20),
+    description: normalizedMultilineText(entry.description, 2000),
+    theme: normalizedShortText(entry.theme, 120),
+    formCategory: normalizedShortText(entry.formCategory, 120),
+    printableType: normalizedShortText(entry.printableType, 120),
+    tags: tagsInput.map((t) => normalizedShortText(t, 80)).filter(Boolean).slice(0, 20),
+    format: normalizedShortText(entry.format, 80),
+    fileName: normalizedShortText(entry.fileName, 180),
+    fileData: sanitizedResourceUrl(entry.fileData),
+    previewName: normalizedShortText(entry.previewName, 180),
+    previewData: sanitizedImageSource(entry.previewData),
+    customContent: normalizedMultilineText(entry.customContent, 20000),
+    visible: entry.visible === true,
+    archived: entry.archived === true,
+    updatedAt: normalizedShortText(entry.updatedAt, 80),
+  };
+}
+
+const UPLOADED_RESOURCE_LIMITS = Object.freeze({
+  // Keep aligned with existing frontend form constraints and storage payload sizes.
+  id: 180,
+  category: 80,
+  title: 200,
+  age: 40,
+  plan: 20,
+  month: 40,
+  tag: 80,
+  format: 80,
+  fileName: 180,
+  previewName: 180,
+});
+const DEFAULT_UPLOADED_RESOURCE_CATEGORY = "Forms Library";
+const MAX_UPLOADED_RESOURCE_TAGS = 25;
+const MAX_UPLOADED_RESOURCES = 3000;
+const MAX_UPLOADED_RESOURCES_INCOMING = 1000;
+
+function normalizedUploadedResourceTags(tags) {
+  return (Array.isArray(tags) ? tags : [])
+    .map((tag) => normalizedShortText(tag, UPLOADED_RESOURCE_LIMITS.tag))
+    .filter(Boolean)
+    .slice(0, MAX_UPLOADED_RESOURCE_TAGS);
+}
+
+function uploadedResourceFingerprint(entry) {
+  const payload = {
+    category: normalizedShortText(entry.category, UPLOADED_RESOURCE_LIMITS.category),
+    title: normalizedShortText(entry.title, UPLOADED_RESOURCE_LIMITS.title),
+    age: normalizedShortText(entry.age, UPLOADED_RESOURCE_LIMITS.age),
+    plan: normalizedShortText(entry.plan, UPLOADED_RESOURCE_LIMITS.plan),
+    month: normalizedShortText(entry.month, UPLOADED_RESOURCE_LIMITS.month),
+    tags: normalizedUploadedResourceTags(entry.tags),
+    format: normalizedShortText(entry.format, UPLOADED_RESOURCE_LIMITS.format),
+    fileName: normalizedShortText(entry.fileName, UPLOADED_RESOURCE_LIMITS.fileName),
+    fileData: sanitizedResourceUrl(entry.fileData),
+    previewName: normalizedShortText(entry.previewName, UPLOADED_RESOURCE_LIMITS.previewName),
+    previewData: sanitizedImageSource(entry.previewData),
+    description: normalizedMultilineText(entry.description, 2000),
+    customContent: normalizedMultilineText(entry.customContent, 20000),
+    visible: entry.visible !== false,
+    archived: entry.archived === true,
+  };
+  return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex").slice(0, 40);
+}
+
+function normalizedUploadedResourceEntry(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const id = normalizedShortText(entry.id, UPLOADED_RESOURCE_LIMITS.id);
+  if (!id) return null;
+  const normalized = {
+    id,
+    category: normalizedShortText(entry.category, UPLOADED_RESOURCE_LIMITS.category) || DEFAULT_UPLOADED_RESOURCE_CATEGORY,
+    title: normalizedShortText(entry.title, UPLOADED_RESOURCE_LIMITS.title) || "Uploaded Resource",
+    age: normalizedShortText(entry.age, UPLOADED_RESOURCE_LIMITS.age) || "All Ages",
+    plan: normalizedShortText(entry.plan, UPLOADED_RESOURCE_LIMITS.plan) || "Free",
+    month: normalizedShortText(entry.month, UPLOADED_RESOURCE_LIMITS.month),
+    tags: normalizedUploadedResourceTags(entry.tags),
+    format: normalizedShortText(entry.format, UPLOADED_RESOURCE_LIMITS.format),
+    fileName: normalizedShortText(entry.fileName, UPLOADED_RESOURCE_LIMITS.fileName),
+    fileData: sanitizedResourceUrl(entry.fileData),
+    previewName: normalizedShortText(entry.previewName, UPLOADED_RESOURCE_LIMITS.previewName),
+    previewData: sanitizedImageSource(entry.previewData),
+    description: normalizedMultilineText(entry.description, 2000),
+    customContent: normalizedMultilineText(entry.customContent, 20000),
+    visible: entry.visible !== false,
+    archived: entry.archived === true,
+    updatedAt: normalizedShortText(entry.updatedAt, 80),
+  };
+  const incomingFingerprint = normalizedShortText(entry.fingerprint, 80);
+  normalized.fingerprint = incomingFingerprint || uploadedResourceFingerprint(normalized);
+  return normalized;
+}
+
+function dedupeUploadedResources(items = [], limit = MAX_UPLOADED_RESOURCES) {
+  const seenIds = new Set();
+  const seenFingerprints = new Set();
+  const unique = [];
+  for (const item of items) {
+    const normalized = normalizedUploadedResourceEntry(item);
+    if (!normalized) continue;
+    const fingerprint = normalized.fingerprint;
+    if (seenIds.has(normalized.id) || (fingerprint && seenFingerprints.has(fingerprint))) continue;
+    seenIds.add(normalized.id);
+    if (fingerprint) seenFingerprints.add(fingerprint);
+    unique.push(normalized);
+    if (unique.length >= limit) break;
+  }
+  return unique;
+}
+
+function mergeUploadedResources(existingItems = [], incomingItems = []) {
+  const incoming = dedupeUploadedResources(incomingItems, MAX_UPLOADED_RESOURCES_INCOMING);
+  const incomingIds = new Set(incoming.map((item) => item.id));
+  const existingRemainder = dedupeUploadedResources(existingItems, MAX_UPLOADED_RESOURCES).filter((item) => !incomingIds.has(item.id));
+  return dedupeUploadedResources([...incoming, ...existingRemainder], MAX_UPLOADED_RESOURCES);
+}
+
+function normalizedCustomLessonPlanEntry(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const normalized = normalizedLessonPlanOverride(entry.id, entry);
+  if (!normalized.id) return null;
+  const tagsInput = Array.isArray(entry.tags) ? entry.tags : [];
+  return {
+    ...normalized,
+    sourceId: normalizedShortText(entry.sourceId, 160),
+    month: normalizedShortText(entry.month, 40),
+    holiday: normalizedShortText(entry.holiday, 40),
+    developmentalArea: normalizedShortText(entry.developmentalArea, 120),
+    activityFocus: normalizedShortText(entry.activityFocus, 120),
+    description: normalizedMultilineText(entry.description, 2000),
+    tags: tagsInput.map((t) => normalizedShortText(t, 80)).filter(Boolean).slice(0, 20),
+    archived: entry.archived === true,
   };
 }
 
@@ -440,7 +756,10 @@ function normalizedSiteContent(value) {
   );
   return {
     lessonPlans,
-    activities: normalizedList(input.activities, 5000, normalizedActivityEntry),
+    customLessonPlans: normalizedList(input.customLessonPlans, 500, normalizedCustomLessonPlanEntry),
+    activities: normalizedList(input.activities, 500, normalizedActivityEntry),
+    forms: normalizedList(input.forms, 500, (item) => normalizedLibraryItemEntry(item, "Forms Library")),
+    printables: normalizedList(input.printables, 500, (item) => normalizedLibraryItemEntry(item, "Printables")),
     reviews: normalizedList(input.reviews, 100, normalizedReviewEntry),
     founder: {
       name: normalizedShortText(input.founder?.name, 120),
@@ -468,6 +787,25 @@ function normalizedSiteContent(value) {
       finalCtaHeadline: normalizedShortText(input.homepage?.finalCtaHeadline, 240),
       finalCtaText: normalizedMultilineText(input.homepage?.finalCtaText, 1200),
       finalCtaButtonText: normalizedShortText(input.homepage?.finalCtaButtonText, 120),
+      finalCtaSubtext: normalizedShortText(input.homepage?.finalCtaSubtext, 300),
+      heroBenefits: normalizedList(input.homepage?.heroBenefits, 20, (item) => {
+        const text = normalizedShortText(typeof item === "string" ? item : String(item?.text || ""), 200);
+        return text || null;
+      }),
+      trustSectionHeading: normalizedShortText(input.homepage?.trustSectionHeading, 240),
+      showcaseSectionHeading: normalizedShortText(input.homepage?.showcaseSectionHeading, 240),
+      showcaseSectionSubtitle: normalizedMultilineText(input.homepage?.showcaseSectionSubtitle, 600),
+      journeySectionHeading: normalizedShortText(input.homepage?.journeySectionHeading, 240),
+      journeySectionSubtitle: normalizedMultilineText(input.homepage?.journeySectionSubtitle, 600),
+      journeyHowItWorksHeading: normalizedShortText(input.homepage?.journeyHowItWorksHeading, 120),
+      journeyComingSoonHeading: normalizedShortText(input.homepage?.journeyComingSoonHeading, 120),
+      whySectionHeading: normalizedShortText(input.homepage?.whySectionHeading, 240),
+      whyItems: normalizedList(input.homepage?.whyItems, 12, (item, index) => {
+        const entry = item && typeof item === "object" ? item : { title: String(item || "") };
+        const title = normalizedShortText(entry.title, 200);
+        return title ? { id: normalizedShortText(entry.id, 80) || `why-${index + 1}`, title } : null;
+      }),
+      reviewsSectionHeading: normalizedShortText(input.homepage?.reviewsSectionHeading, 240),
     },
     images: normalizedList(input.images, 200, (item, index) => {
       const entry = item && typeof item === "object" ? item : {};
@@ -479,8 +817,67 @@ function normalizedSiteContent(value) {
       };
       return normalized.id ? normalized : null;
     }),
+    pricing: {
+      sectionTitle: normalizedShortText(input.pricing?.sectionTitle, 240),
+      sectionSubtitle: normalizedMultilineText(input.pricing?.sectionSubtitle, 600),
+      freePlanName: normalizedShortText(input.pricing?.freePlanName, 120),
+      freePlanDescription: normalizedMultilineText(input.pricing?.freePlanDescription, 600),
+      proPlanName: normalizedShortText(input.pricing?.proPlanName, 120),
+      proPlanDescription: normalizedMultilineText(input.pricing?.proPlanDescription, 600),
+      proPlanHighlightBadge: normalizedShortText(input.pricing?.proPlanHighlightBadge, 120),
+      trialButtonText: normalizedShortText(input.pricing?.trialButtonText, 200),
+      trialNoteText: normalizedMultilineText(input.pricing?.trialNoteText, 400),
+      creditCardText: normalizedShortText(input.pricing?.creditCardText, 200),
+      cancelText: normalizedShortText(input.pricing?.cancelText, 200),
+      freePlanPrice: normalizedShortText(input.pricing?.freePlanPrice, 40),
+      freePlanPriceInterval: normalizedShortText(input.pricing?.freePlanPriceInterval, 40),
+      proPlanPrice: normalizedShortText(input.pricing?.proPlanPrice, 40),
+      proPlanPriceInterval: normalizedShortText(input.pricing?.proPlanPriceInterval, 40),
+      freePlanCtaText: normalizedShortText(input.pricing?.freePlanCtaText, 120),
+      freePlanFeatures: normalizedList(input.pricing?.freePlanFeatures, 20, (item) => {
+        const text = normalizedShortText(typeof item === "string" ? item : String(item?.text || ""), 200);
+        return text || null;
+      }),
+      proPlanFeatures: normalizedList(input.pricing?.proPlanFeatures, 20, (item) => {
+        const text = normalizedShortText(typeof item === "string" ? item : String(item?.text || ""), 200);
+        return text || null;
+      }),
+      _draft: input.pricing?._draft === true,
+    },
+    faqs: normalizedList(input.faqs, 100, normalizedFaqEntry),
+    announcement: {
+      text: normalizedMultilineText(input.announcement?.text, 1000),
+      visible: input.announcement?.visible === true,
+      expiresAt: normalizedShortText(input.announcement?.expiresAt, 80),
+      location: ["top", "homepage", "all"].includes(input.announcement?.location) ? input.announcement.location : "top",
+      _draft: input.announcement?._draft === true,
+    },
+    upgradeMessaging: {
+      upgradePopupHeadline: normalizedShortText(input.upgradeMessaging?.upgradePopupHeadline, 200),
+      upgradeLimitHeadline: normalizedShortText(input.upgradeMessaging?.upgradeLimitHeadline, 200),
+      upgradePopupBody: normalizedMultilineText(input.upgradeMessaging?.upgradePopupBody, 800),
+      proTrialButtonText: normalizedShortText(input.upgradeMessaging?.proTrialButtonText, 200),
+      freeLimitMessage: normalizedMultilineText(input.upgradeMessaging?.freeLimitMessage, 400),
+      trialUpgradeSummary: normalizedMultilineText(input.upgradeMessaging?.trialUpgradeSummary, 400),
+      _draft: input.upgradeMessaging?._draft === true,
+    },
+    founding: {
+      heading: normalizedShortText(input.founding?.heading, 200),
+      soldOutHeading: normalizedShortText(input.founding?.soldOutHeading, 200),
+      pricePrefix: normalizedShortText(input.founding?.pricePrefix, 120),
+      priceLifeLabel: normalizedShortText(input.founding?.priceLifeLabel, 60),
+      ctaButtonText: normalizedShortText(input.founding?.ctaButtonText, 120),
+      soldOutCtaText: normalizedShortText(input.founding?.soldOutCtaText, 120),
+      _draft: input.founding?._draft === true,
+    },
     updatedAt: normalizedShortText(input.updatedAt, 80),
   };
+}
+
+function uploadedResourcesForResponse(items = [], { admin = false } = {}) {
+  const normalized = dedupeUploadedResources(items, MAX_UPLOADED_RESOURCES);
+  if (admin) return normalized;
+  return normalized.filter((item) => item.visible !== false && item.archived !== true);
 }
 
 function usePostgresStore() {
@@ -543,19 +940,41 @@ function readStore() {
   return JSON.parse(fs.readFileSync(storePath, "utf8"));
 }
 
+const POSTGRES_UPSERT_STORE = "INSERT INTO llh_store (id, data, updated_at) VALUES ($1, $2::jsonb, NOW()) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()";
+
 function writeStore(store) {
   storeCache = store;
   if (usePostgresStore()) {
     const payload = JSON.stringify(store);
     postgresWriteChain = postgresWriteChain
-      .then(() => postgresPool.query(
-        "INSERT INTO llh_store (id, data, updated_at) VALUES ($1, $2::jsonb, NOW()) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()",
-        [storeRecordId, payload],
-      ))
+      .then(() => postgresPool.query(POSTGRES_UPSERT_STORE, [storeRecordId, payload]))
       .catch((error) => {
         databaseReady = false;
         console.error("Could not persist launch store to Postgres:", error.message);
       });
+    return;
+  }
+  ensureStore();
+  fs.writeFileSync(storePath, JSON.stringify(store, null, 2));
+}
+
+// Writes the store and waits for the Postgres write to complete before returning.
+// Throws if the database write fails so the caller can surface the error to the client
+// instead of reporting a false success. Use this for admin writes where persistence must
+// be confirmed before responding (e.g. lesson plan visibility changes, site content saves).
+async function writeStoreAsync(store) {
+  storeCache = store;
+  if (usePostgresStore()) {
+    const payload = JSON.stringify(store);
+    // Wait for any in-flight fire-and-forget writes to settle before issuing our own,
+    // so we don't race against them and produce an out-of-order result.
+    // Log (but do not rethrow) chain errors — they are already logged by writeStore's .catch handler.
+    // It is safe to proceed even if a previous chain write failed: every write sends the
+    // complete store state (not a delta), so the latest write always supersedes older ones.
+    await postgresWriteChain.catch((error) => {
+      console.error("Pending write chain error before async write:", error.message);
+    });
+    await postgresPool.query(POSTGRES_UPSERT_STORE, [storeRecordId, payload]);
     return;
   }
   ensureStore();
@@ -900,20 +1319,36 @@ function canUseServerAi(email, plan) {
   return { used, limit: aiLimitForPlan(plan), allowed: used < aiLimitForPlan(plan), key };
 }
 
-function recordServerAiUse(email, plan, output) {
+function recordServerAiUse(email, plan, output, { tool = "", responseTimeMs = null, inputTokens = null, outputTokens = null, success = true, errorMessage = null } = {}) {
   const store = readStore();
   const usage = canUseServerAi(email, plan);
   store.aiUsage = store.aiUsage || {};
   store.aiUsage[usage.key] = usage.used + 1;
   store.aiOutputs = store.aiOutputs || [];
+  const logId = `ai_${Date.now()}_${crypto.randomBytes(5).toString("hex")}`;
   store.aiOutputs.unshift({
-    id: `ai_${Date.now()}_${crypto.randomBytes(5).toString("hex")}`,
+    id: logId,
     email,
     plan,
     output,
     createdAt: new Date().toISOString(),
   });
   store.aiOutputs = store.aiOutputs.slice(0, 1000);
+  // Structured usage log for admin monitoring
+  store.aiUsageLogs = store.aiUsageLogs || [];
+  store.aiUsageLogs.unshift({
+    id: logId,
+    tool: String(tool || "unknown"),
+    email,
+    plan,
+    responseTimeMs: Number.isFinite(responseTimeMs) ? responseTimeMs : null,
+    success,
+    errorMessage: errorMessage ? String(errorMessage).slice(0, 500) : null,
+    inputTokens: Number.isFinite(inputTokens) ? inputTokens : null,
+    outputTokens: Number.isFinite(outputTokens) ? outputTokens : null,
+    createdAt: new Date().toISOString(),
+  });
+  store.aiUsageLogs = store.aiUsageLogs.slice(0, 5000);
   writeStore(store);
   return { used: usage.used + 1, limit: usage.limit };
 }
@@ -933,7 +1368,7 @@ Never mention AI. Never apologize. Never say there is not enough information. Ma
 Only two items should ever be required: the selected child and the teacher quick note. Everything else should be determined automatically whenever possible.
 `),
     buildPromptSection("Observation Writing Intelligence Rules", `
-Step 1: Read the teacher's note closely. Identify what happened, what the child was trying to accomplish, what skills were demonstrated, and whether the experience was child-led, teacher-guided, individual, or social.
+Step 1: Read the teacher's note closely. Identify what happened, what the child was trying to accomplish, what skills were demonstrated, and whether the experience was child-led, teacher-guided, [...]
 Step 2: Understand the child. Use the child's age, developmental stage, goals, prior context, classroom details, and provider notes when they are supplied.
 Step 3: Identify only the learning that is actually supported by the note and context. Never invent unsupported learning.
 Step 4: Write like an experienced childcare professional. Use natural, warm, professional language. Stay objective, specific, and non-judgmental. Do not copy the teacher's note word-for-word.
@@ -944,7 +1379,7 @@ Step 7: Before returning, verify the writing is developmentally appropriate, lic
     buildPromptSection("Observation Output Formatting Rules", `
 Return the observation in this exact order:
 1. Observation Title — 3-8 words summarizing the child's learning.
-2. Observation Narrative — one polished paragraph for a short note or two to three short paragraphs for a detailed note. Describe what happened, explain the learning, highlight strengths, and remain objective.
+2. Observation Narrative — one polished paragraph for a short note or two to three short paragraphs for a detailed note. Describe what happened, explain the learning, highlight strengths, and r[...]
 3. Developmental Areas — list all areas clearly supported by the observation.
 4. Skills Demonstrated — 3-8 specific skills shown.
 5. Why This Learning Matters — one short paragraph connecting today's experience to future learning.
@@ -989,7 +1424,7 @@ function buildOpenAiUserPrompt(prompt, age) {
   return [
     prompt || "Create a helpful childcare document.",
     age ? `Age group: ${age}` : "",
-    isShortNote ? "Note: The provider's note is brief. Stay tightly grounded in the exact details provided, use only minimal context to keep the response practical, and avoid generic developmental template language." : "",
+    isShortNote ? "Note: The provider's note is brief. Stay tightly grounded in the exact details provided, use only minimal context to keep the response practical, and avoid generic developmenta[...]" : "",
   ].filter(Boolean).join("\n\n");
 }
 
@@ -1018,11 +1453,11 @@ function getToolSystemPrompt(tool) {
     "Only include developmental areas, skills, and recommendations that are clearly supported by the note and context provided.",
     "Avoid generic developmental template language that could apply to any child. Make each response specific to this child and this exact situation.",
     "Recommendations must be directly tied to what was observed, not generic filler.",
-    "If the provider's note is brief or minimal, produce a helpful result using appropriate general childcare context — note 'Based on the note provided...' and keep details realistic but not invented.",
-    "VARIETY: Generate fresh, specific content every single time. Vary your sentence openings, vocabulary, structure, transitions, and examples. Never reuse the same phrases, openers, or conclusions across outputs.",
-    "Avoid empty filler phrases like 'had a great day,' 'very engaged,' 'wonderful experience,' 'it is a pleasure to share,' 'I hope this message finds you well,' 'in today's fast-paced world,' or any formulaic AI opener.",
+    "If the provider's note is brief or minimal, produce a helpful result using appropriate general childcare context — note 'Based on the note provided...' and keep details realistic but not i[...]",
+    "VARIETY: Generate fresh, specific content every single time. Vary your sentence openings, vocabulary, structure, transitions, and examples. Never reuse the same phrases, openers, or conclusi[...]",
+    "Avoid empty filler phrases like 'had a great day,' 'very engaged,' 'wonderful experience,' 'it is a pleasure to share,' 'I hope this message finds you well,' 'in today's fast-paced world,' o[...]",
     "Do not use repetitive or generic phrasing such as 'This supports future learning,' 'Making meaningful connections,' or 'Growing cognitive skills' unless it is truly specific and necessary.",
-    "If a curriculum framework is mentioned (Creative Curriculum, HighScope, Frog Street, Montessori, Reggio Emilia, Mother Goose Time, or a custom curriculum), align your language, documentation style, and activity structure to that framework.",
+    "If a curriculum framework is mentioned (Creative Curriculum, HighScope, Frog Street, Montessori, Reggio Emilia, Mother Goose Time, or a custom curriculum), align your language, documentation[...]",
     "If a state or state standards are mentioned, reference relevant domain indicators and align developmental language accordingly.",
     "",
     "FINAL QUALITY REVIEW — complete before returning any response:",
@@ -1035,8 +1470,8 @@ function getToolSystemPrompt(tool) {
     "CRITICAL — DEVELOPMENTAL APPROPRIATENESS:",
     "All content MUST match the child's stated age group. Never suggest activities, milestones, goals, behaviors, lesson plans, or expectations outside the correct age range.",
     "Age ranges and what belongs in each:",
-    "- Infant (0-12 months): tummy time, songs, simple sensory exploration, tracking objects, reaching/grasping, babbling, bonding, responsive feeding, safe floor play, safe sleep. NEVER suggest scissors, tracing, worksheets, small parts, choking hazards, or school-age tasks.",
-    "- Young Toddler (12-24 months): simple movement, stacking, naming objects, cause-and-effect, parallel play, simple songs, toddler-safe sensory play, early choices. NEVER suggest tracing, worksheets, or complex multi-step projects.",
+    "- Infant (0-12 months): tummy time, songs, simple sensory exploration, tracking objects, reaching/grasping, babbling, bonding, responsive feeding, safe floor play, safe sleep. NEVER suggest[...]",
+    "- Young Toddler (12-24 months): simple movement, stacking, naming objects, cause-and-effect, parallel play, simple songs, toddler-safe sensory play, early choices. NEVER suggest tracing, wo[...]",
     "- Older Toddler (24-36 months): pretend play, matching, sorting, simple art, running/jumping, beginning sharing, short directions, simple routines. NEVER suggest kindergarten or school-age expectations.",
     "- Preschool (3-5 years): vocabulary building, pre-literacy, counting, science exploration, cooperative play, problem-solving, growing independence, simple writing experiences. NEVER suggest elementary-level workload or pressure.",
     "- School Age (5+ years): projects, discussions, writing, STEM, problem-solving, leadership, reflection, responsibility, and age-appropriate independence. Content should feel meaningfully more advanced than preschool.",
@@ -1705,6 +2140,20 @@ Rules:
   return toolPrompts[tool] || (base + "\n\nCreate practical, daycare-focused, age-appropriate childcare content. Keep wording professional, warm, and ready to use. Remind providers to review for licensing and state requirements when relevant.");
 }
 
+// Returns the system prompt for a tool, using store-saved prompt layers if present, or falling back to the hardcoded default.
+function getToolSystemPromptResolved(tool) {
+  const store = readStore();
+  const entry = store.aiPrompts?.[tool];
+  if (entry) {
+    const combined = AI_PROMPT_LAYERS
+      .map((layer) => String(entry[layer] || "").trim())
+      .filter(Boolean)
+      .join("\n\n---\n\n");
+    if (combined) return combined;
+  }
+  return getToolSystemPrompt(tool);
+}
+
 // Prompts shorter than this character count receive an extra context hint
 const AI_SHORT_NOTE_THRESHOLD = 25;
 // Timeout in ms for OpenAI API requests — 90s allows gpt-4o time for detailed lesson plans
@@ -1727,7 +2176,7 @@ async function callOpenAiOnce(systemPrompt, userContent, email, label) {
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        Authorization: `******`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -1780,7 +2229,24 @@ async function generateOpenAiContent({ tool, prompt, age, plan, email, debug }) 
   if (!OPENAI_API_KEY) {
     throw new Error("Document creation is not available right now. Please contact support or try again later.");
   }
-  const systemPrompt = getToolSystemPrompt(tool);
+
+  // Check per-tool enabled flag and global master switch
+  const store = readStore();
+  const aiSettings = normalizedAiSettings(store.aiSettings || defaultAiSettings());
+  if (!aiSettings.masterEnabled) {
+    const err = new Error("AI document creation is currently unavailable. Please try again later.");
+    err.toolDisabled = true;
+    throw err;
+  }
+  const toolConfig = aiSettings.tools[tool];
+  if (toolConfig && !toolConfig.enabled) {
+    const msg = toolConfig.fallbackMessage?.trim() || "This AI tool is currently unavailable. Please try again later.";
+    const err = new Error(msg);
+    err.toolDisabled = true;
+    throw err;
+  }
+
+  const systemPrompt = getToolSystemPromptResolved(tool);
   const userContent = buildOpenAiUserPrompt(prompt, age);
 
   let lastError;
@@ -1794,6 +2260,9 @@ async function generateOpenAiContent({ tool, prompt, age, plan, email, debug }) 
       return {
         output,
         model: OPENAI_MODEL,
+        // Always capture token usage for monitoring; rawResponse.usage is available in both /v1/responses and /v1/chat/completions
+        inputTokens: rawResponse?.usage?.input_tokens ?? rawResponse?.usage?.prompt_tokens ?? null,
+        outputTokens: rawResponse?.usage?.output_tokens ?? rawResponse?.usage?.completion_tokens ?? null,
         debug: debug ? {
           tool,
           model: OPENAI_MODEL,
@@ -1828,7 +2297,7 @@ async function callOpenAiRaw(systemPrompt, userPrompt) {
     const res = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        Authorization: `******`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -1997,6 +2466,194 @@ async function handleAdminAiTest(request, response) {
   }
 }
 
+function handleAdminAiPrompts(request, response, url) {
+  const token = url.searchParams.get("adminToken");
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = readStore();
+  const aiPrompts = normalizedAiPrompts(store.aiPrompts || {});
+  const aiPromptVersions = (store.aiPromptVersions || []).slice(0, 200);
+  // Expose the current resolved prompt (store or hardcoded) for each tool as defaults
+  const hardcodedDefaults = {};
+  for (const toolId of AI_VALID_TOOLS) {
+    hardcodedDefaults[toolId] = getToolSystemPrompt(toolId);
+  }
+  jsonResponse(response, 200, { aiPrompts, aiPromptVersions, hardcodedDefaults });
+}
+
+async function handleAdminAiPromptsSave(request, response) {
+  const body = await readJson(request);
+  const token = String(body.adminToken || "");
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const toolId = String(body.tool || "").trim();
+  if (!AI_VALID_TOOLS.has(toolId)) {
+    jsonResponse(response, 400, { error: "Invalid tool identifier." });
+    return;
+  }
+  const now = new Date().toISOString();
+  const savedBy = (body.adminEmail ? String(body.adminEmail) : ADMIN_EMAIL) || "admin";
+  const newEntry = normalizedAiPromptEntry({
+    masterPrompt: body.masterPrompt,
+    toolSpecificPrompt: body.toolSpecificPrompt,
+    writingIntelligence: body.writingIntelligence,
+    outputFormatting: body.outputFormatting,
+    updatedAt: now,
+    updatedBy: savedBy,
+  }, savedBy);
+  const store = readStore();
+  store.aiPrompts = store.aiPrompts || {};
+  const previous = store.aiPrompts[toolId];
+  store.aiPrompts[toolId] = newEntry;
+  // Save version history for each changed layer
+  store.aiPromptVersions = store.aiPromptVersions || [];
+  for (const layer of AI_PROMPT_LAYERS) {
+    const prev = String((previous || {})[layer] || "");
+    const next = String(newEntry[layer] || "");
+    if (prev !== next) {
+      store.aiPromptVersions.unshift({
+        id: `pv_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
+        tool: toolId,
+        layer,
+        previousValue: prev,
+        newValue: next,
+        savedAt: now,
+        savedBy,
+      });
+    }
+  }
+  store.aiPromptVersions = store.aiPromptVersions.slice(0, 200);
+  await writeStoreAsync(store);
+  jsonResponse(response, 200, { ok: true, aiPrompts: normalizedAiPrompts(store.aiPrompts), aiPromptVersions: store.aiPromptVersions.slice(0, 200) });
+}
+
+async function handleAdminAiPromptsRestore(request, response) {
+  const body = await readJson(request);
+  const token = String(body.adminToken || "");
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const versionId = String(body.versionId || "").trim();
+  const store = readStore();
+  const version = (store.aiPromptVersions || []).find((v) => v.id === versionId);
+  if (!version) {
+    jsonResponse(response, 404, { error: "Version not found." });
+    return;
+  }
+  const { tool, layer, previousValue } = version;
+  if (!AI_VALID_TOOLS.has(tool) || !AI_PROMPT_LAYERS.includes(layer)) {
+    jsonResponse(response, 400, { error: "Invalid version data." });
+    return;
+  }
+  const now = new Date().toISOString();
+  const restoredBy = (body.adminEmail ? String(body.adminEmail) : ADMIN_EMAIL) || "admin";
+  store.aiPrompts = store.aiPrompts || {};
+  store.aiPrompts[tool] = store.aiPrompts[tool] || {};
+  const before = String(store.aiPrompts[tool][layer] || "");
+  store.aiPrompts[tool][layer] = String(previousValue || "");
+  store.aiPrompts[tool].updatedAt = now;
+  store.aiPrompts[tool].updatedBy = restoredBy;
+  // Record the restore as a new version entry
+  store.aiPromptVersions.unshift({
+    id: `pv_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
+    tool,
+    layer,
+    previousValue: before,
+    newValue: String(previousValue || ""),
+    savedAt: now,
+    savedBy: restoredBy,
+    restoredFrom: versionId,
+  });
+  store.aiPromptVersions = store.aiPromptVersions.slice(0, 200);
+  await writeStoreAsync(store);
+  jsonResponse(response, 200, { ok: true, aiPrompts: normalizedAiPrompts(store.aiPrompts), aiPromptVersions: store.aiPromptVersions.slice(0, 200) });
+}
+
+function handleAdminAiSettings(request, response, url) {
+  const token = url.searchParams.get("adminToken");
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = readStore();
+  const aiSettings = normalizedAiSettings(store.aiSettings || defaultAiSettings());
+  jsonResponse(response, 200, { aiSettings });
+}
+
+async function handleAdminAiSettingsSave(request, response) {
+  const body = await readJson(request);
+  const token = String(body.adminToken || "");
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const nextSettings = normalizedAiSettings(body.aiSettings || {});
+  const store = readStore();
+  store.aiSettings = nextSettings;
+  await writeStoreAsync(store);
+  jsonResponse(response, 200, { ok: true, aiSettings: nextSettings });
+}
+
+function handleAdminAiUsage(request, response, url) {
+  const token = url.searchParams.get("adminToken");
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = readStore();
+  const logs = (store.aiUsageLogs || []).slice(0, 5000);
+  // Aggregate stats
+  const total = logs.length;
+  const successful = logs.filter((l) => l.success).length;
+  const failed = logs.filter((l) => !l.success).length;
+  const byTool = {};
+  const successTimings = logs.filter((l) => l.success && Number.isFinite(l.responseTimeMs)).map((l) => l.responseTimeMs);
+  const avgResponseMs = successTimings.length ? Math.round(successTimings.reduce((a, b) => a + b, 0) / successTimings.length) : null;
+  const totalInputTokens = logs.reduce((sum, l) => sum + (Number.isFinite(l.inputTokens) ? l.inputTokens : 0), 0);
+  const totalOutputTokens = logs.reduce((sum, l) => sum + (Number.isFinite(l.outputTokens) ? l.outputTokens : 0), 0);
+  // Cost estimate uses approximate gpt-4o pricing ($0.0025/1K input + $0.01/1K output).
+  // This is an approximation only — actual costs depend on the configured model and OpenAI's current rates.
+  const estimatedCostUsd = Number(((totalInputTokens / 1000) * 0.0025 + (totalOutputTokens / 1000) * 0.01).toFixed(4));
+  for (const log of logs) {
+    const t = log.tool || "unknown";
+    if (!byTool[t]) byTool[t] = { total: 0, successful: 0, failed: 0 };
+    byTool[t].total++;
+    if (log.success) byTool[t].successful++;
+    else byTool[t].failed++;
+  }
+  // Recent 100 log entries for the table
+  const recentLogs = logs.slice(0, 100).map((l) => ({
+    id: l.id,
+    tool: l.tool,
+    email: l.email,
+    plan: l.plan,
+    success: l.success,
+    responseTimeMs: l.responseTimeMs,
+    errorMessage: l.errorMessage,
+    inputTokens: l.inputTokens,
+    outputTokens: l.outputTokens,
+    createdAt: l.createdAt,
+  }));
+  jsonResponse(response, 200, {
+    aiUsage: {
+      total,
+      successful,
+      failed,
+      byTool,
+      avgResponseMs,
+      totalInputTokens,
+      totalOutputTokens,
+      estimatedCostUsd,
+      recentLogs,
+    },
+  });
+}
+
 async function handleAdminLogin(request, response) {
   const body = await readJson(request);
   const email = normalizeEmail(body.email);
@@ -2021,16 +2678,47 @@ async function handleAdminLogin(request, response) {
 }
 
 async function handleAdminSiteContentSave(request, response) {
+  console.log("[DIAG] handleAdminSiteContentSave: POST /api/admin/site-content received");
   const body = await readJson(request);
+  console.log("[DIAG] handleAdminSiteContentSave: body keys =", Object.keys(body || {}), "| hasAdminToken =", !!(body?.adminToken));
   if (!validAdminToken(body.adminToken || "")) {
+    console.error("[DIAG] handleAdminSiteContentSave: REJECTED — invalid admin token");
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
+  console.log("[DIAG] handleAdminSiteContentSave: token valid");
+  const incomingLessonPlans = (body.siteContent?.lessonPlans) || {};
+  const incomingIds = Object.keys(incomingLessonPlans);
+  console.log("[DIAG] handleAdminSiteContentSave: incoming lessonPlan overrides count =", incomingIds.length, "| ids (first 5) =", incomingIds.slice(0, 5));
+  if (incomingIds.length > 0) {
+    const lastIncomingId = incomingIds[incomingIds.length - 1];
+    const lastIncomingLesson = incomingLessonPlans[lastIncomingId];
+    console.log("[DIAG] handleAdminSiteContentSave: last lessonPlan entry (", lastIncomingId, ") fields =", Object.keys(lastIncomingLesson || {}));
+    console.log("[DIAG] handleAdminSiteContentSave: last lessonPlan entry title =", JSON.stringify(lastIncomingLesson?.title), "| visible =", lastIncomingLesson?.visible, "| plan =", JSON.stringify(lastIncomingLesson?.plan));
+  }
   const store = readStore();
   const nextContent = normalizedSiteContent(body.siteContent || defaultSiteContentStore());
+  const normalizedIds = Object.keys(nextContent.lessonPlans || {});
+  console.log("[DIAG] handleAdminSiteContentSave: after normalizedSiteContent, lessonPlan count =", normalizedIds.length);
+  if (normalizedIds.length > 0) {
+    const lastNormalizedId = normalizedIds[normalizedIds.length - 1];
+    const lastNormalizedLesson = nextContent.lessonPlans[lastNormalizedId];
+    console.log("[DIAG] handleAdminSiteContentSave: normalized last lessonPlan (", lastNormalizedId, ") fields =", Object.keys(lastNormalizedLesson || {}));
+    console.log("[DIAG] handleAdminSiteContentSave: normalized last lessonPlan title =", JSON.stringify(lastNormalizedLesson?.title), "| visible =", lastNormalizedLesson?.visible, "| plan =", JSON.stringify(lastNormalizedLesson?.plan));
+  }
   nextContent.updatedAt = new Date().toISOString();
   store.siteContent = nextContent;
-  writeStore(store);
+  console.log("[DIAG] handleAdminSiteContentSave: calling writeStoreAsync…");
+  try {
+    await writeStoreAsync(store);
+    console.log("[DIAG] handleAdminSiteContentSave: writeStoreAsync succeeded");
+  } catch (error) {
+    console.error("[DIAG] handleAdminSiteContentSave: writeStoreAsync FAILED →", error.message);
+    console.error("Admin site content save failed:", error.message);
+    jsonResponse(response, 503, { error: "Changes could not be saved to the database. Please try again." });
+    return;
+  }
+  console.log("[DIAG] handleAdminSiteContentSave: responding 200 OK");
   jsonResponse(response, 200, { siteContent: nextContent });
 }
 
@@ -2163,6 +2851,296 @@ async function stripeGet(pathname) {
   const data = await response.json();
   if (!response.ok) throw new Error(data?.error?.message || "Stripe request failed.");
   return data;
+}
+
+async function stripeListAll(resource, query = {}) {
+  const results = [];
+  let startingAfterId = "";
+  while (true) {
+    const params = new URLSearchParams();
+    Object.entries(query || {}).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === "") return;
+      params.set(key, String(value));
+    });
+    if (!params.has("limit")) params.set("limit", "100");
+    if (startingAfterId) params.set("starting_after", startingAfterId);
+    const page = await stripeGet(`${resource}?${params.toString()}`);
+    const pageItems = Array.isArray(page?.data) ? page.data : [];
+    results.push(...pageItems);
+    if (!page?.has_more || !pageItems.length) break;
+    startingAfterId = pageItems[pageItems.length - 1]?.id || "";
+    if (!startingAfterId) break;
+  }
+  return results;
+}
+
+function legacySubscriptionPriority(status) {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "trialing") return 6;
+  if (normalized === "active") return 5;
+  if (normalized === "past_due" || normalized === "unpaid") return 4;
+  if (normalized === "canceled") return 3;
+  if (normalized === "incomplete" || normalized === "incomplete_expired") return 2;
+  return 1;
+}
+
+function selectLegacySubscription(subscriptions = []) {
+  const list = Array.isArray(subscriptions) ? subscriptions.slice() : [];
+  if (!list.length) return null;
+  list.sort((left, right) => {
+    const priorityDiff = legacySubscriptionPriority(right?.status) - legacySubscriptionPriority(left?.status);
+    if (priorityDiff) return priorityDiff;
+    return Number(right?.created || 0) - Number(left?.created || 0);
+  });
+  return list[0] || null;
+}
+
+function legacySubscriptionState(subscription) {
+  if (!subscription) return "No Subscription";
+  const status = String(subscription?.status || "").toLowerCase();
+  if (status === "trialing") return "Trial";
+  if (status === "active" || status === "past_due" || status === "unpaid") return "Active";
+  if (status === "canceled" || status === "incomplete_expired") return "Canceled";
+  return "No Subscription";
+}
+
+function legacyPlanFromSubscription(subscription) {
+  if (!subscription) return { plan: "Free", planDisplayName: "Free" };
+  const planKey = planKeyFromStripe(subscription, {});
+  if (planKey === "founding") return { plan: "Founding", planDisplayName: "Founding Member" };
+  if (planKey === "monthly" || planKey === "annual") return { plan: "Pro", planDisplayName: "Pro" };
+  const metadataPlan = String(subscription?.metadata?.plan || "").trim().toLowerCase();
+  if (metadataPlan.includes("found")) return { plan: "Founding", planDisplayName: "Founding Member" };
+  if (metadataPlan.includes("pro")) return { plan: "Pro", planDisplayName: "Pro" };
+  return { plan: "Free", planDisplayName: "Free" };
+}
+
+function legacyTrialStatus(subscriptionState) {
+  return subscriptionState === "Trial" ? "Trial Active" : "No Trial";
+}
+
+function legacyAccountStatus(subscriptionState) {
+  return subscriptionState === "Canceled" ? "Canceled" : "Active";
+}
+
+function hasMeaningfulValue(value) {
+  if (value === null || value === undefined) return false;
+  if (typeof value === "string") return Boolean(value.trim());
+  return true;
+}
+
+function mergeLegacyStripeIntoUser(existing, incoming, report) {
+  const merged = {
+    ...existing,
+    email: incoming.email || existing.email || "",
+    updatedAt: new Date().toISOString(),
+  };
+  if (!hasMeaningfulValue(existing.name) && hasMeaningfulValue(incoming.name)) merged.name = incoming.name;
+  if (!hasMeaningfulValue(existing.displayName) && hasMeaningfulValue(incoming.name)) merged.displayName = incoming.name;
+  if (!hasMeaningfulValue(existing.signupAt) && hasMeaningfulValue(incoming.signupAt)) merged.signupAt = incoming.signupAt;
+  if (!hasMeaningfulValue(existing.createdAt) && hasMeaningfulValue(incoming.createdAt)) merged.createdAt = incoming.createdAt;
+  if (!hasMeaningfulValue(existing.accountStatus) && hasMeaningfulValue(incoming.accountStatus)) merged.accountStatus = incoming.accountStatus;
+  if (!hasMeaningfulValue(existing.trialStatus) && hasMeaningfulValue(incoming.trialStatus)) merged.trialStatus = incoming.trialStatus;
+  if (!hasMeaningfulValue(existing.stripeCustomerCreatedAt) && hasMeaningfulValue(incoming.stripeCustomerCreatedAt)) {
+    merged.stripeCustomerCreatedAt = incoming.stripeCustomerCreatedAt;
+  }
+  if (!hasMeaningfulValue(existing.stripeCustomerId) && hasMeaningfulValue(incoming.stripeCustomerId)) {
+    merged.stripeCustomerId = incoming.stripeCustomerId;
+  } else if (
+    hasMeaningfulValue(existing.stripeCustomerId)
+    && hasMeaningfulValue(incoming.stripeCustomerId)
+    && existing.stripeCustomerId !== incoming.stripeCustomerId
+  ) {
+    report.duplicateAccountsDetected.push({
+      type: "existing_user_multiple_stripe_customers",
+      email: incoming.email,
+      existingStripeCustomerId: existing.stripeCustomerId,
+      incomingStripeCustomerId: incoming.stripeCustomerId,
+    });
+    report.recordsNeedingManualReview.push({
+      type: "conflicting_stripe_customer_id",
+      email: incoming.email,
+      existingStripeCustomerId: existing.stripeCustomerId,
+      incomingStripeCustomerId: incoming.stripeCustomerId,
+      note: "User already has a different Stripe customer ID. Review before changing linkage.",
+    });
+  }
+  if (!hasMeaningfulValue(existing.stripeSubscriptionId) && hasMeaningfulValue(incoming.stripeSubscriptionId)) {
+    merged.stripeSubscriptionId = incoming.stripeSubscriptionId;
+  }
+  const existingIsPaid = ["Pro", "Founding"].includes(String(existing.plan || ""));
+  const incomingIsPaid = ["Pro", "Founding"].includes(String(incoming.plan || ""));
+  if (!hasMeaningfulValue(existing.plan) || existing.plan === "Free" || (!existingIsPaid && incomingIsPaid)) merged.plan = incoming.plan;
+  if (!hasMeaningfulValue(existing.planDisplayName) || existing.planDisplayName === "Free" || (!existingIsPaid && incomingIsPaid)) {
+    merged.planDisplayName = incoming.planDisplayName;
+  }
+  const shouldUpdateSubscriptionState = !hasMeaningfulValue(existing.subscriptionState)
+    || existing.subscriptionState === "No Subscription"
+    || incoming.subscriptionState === "Active"
+    || incoming.subscriptionState === "Trial";
+  if (shouldUpdateSubscriptionState) {
+    merged.subscriptionState = incoming.subscriptionState;
+  }
+  const shouldUpdateSubscriptionStatus = !hasMeaningfulValue(existing.subscriptionStatus)
+    || existing.subscriptionStatus === "Free Plan"
+    || incoming.subscriptionState === "Active"
+    || incoming.subscriptionState === "Trial";
+  if (shouldUpdateSubscriptionStatus) {
+    merged.subscriptionStatus = incoming.subscriptionStatus;
+  }
+  if (!hasMeaningfulValue(existing.subscriptionCadence) && hasMeaningfulValue(incoming.subscriptionCadence)) {
+    merged.subscriptionCadence = incoming.subscriptionCadence;
+  }
+  if (!hasMeaningfulValue(existing.monthlyPrice) && hasMeaningfulValue(incoming.monthlyPrice)) {
+    merged.monthlyPrice = incoming.monthlyPrice;
+  }
+  if (!hasMeaningfulValue(existing.priceLock) && hasMeaningfulValue(incoming.priceLock)) {
+    merged.priceLock = incoming.priceLock;
+  }
+  return merged;
+}
+
+function normalizeLegacyStripeUser(customer, subscription) {
+  const email = normalizeEmail(customer?.email || "");
+  const createdAt = unixTimestampToIso(customer?.created);
+  const subscriptionState = legacySubscriptionState(subscription);
+  const planInfo = legacyPlanFromSubscription(subscription);
+  const planKey = planInfo.plan === "Founding"
+    ? "founding"
+    : planInfo.plan === "Pro"
+      ? "monthly"
+      : "";
+  return {
+    email,
+    name: String(customer?.name || "").trim(),
+    stripeCustomerId: String(customer?.id || "").trim(),
+    stripeSubscriptionId: String(subscription?.id || "").trim(),
+    stripeCustomerCreatedAt: createdAt,
+    createdAt,
+    signupAt: createdAt,
+    plan: planInfo.plan,
+    planDisplayName: planInfo.planDisplayName,
+    subscriptionState,
+    subscriptionStatus: subscriptionState,
+    trialStatus: legacyTrialStatus(subscriptionState),
+    accountStatus: legacyAccountStatus(subscriptionState),
+    subscriptionCadence: planConfig[planKey]?.cadence || "",
+    monthlyPrice: planConfig[planKey]?.amount || "$0/month",
+    priceLock: planConfig[planKey]?.priceLock || "",
+    paymentMethod: "Managed in Stripe",
+  };
+}
+
+function unixTimestampToIso(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return "";
+  return new Date(numeric * 1000).toISOString();
+}
+
+async function backfillLegacyStripeUsers({ dryRun = false } = {}) {
+  if (!isConfiguredValue(STRIPE_SECRET_KEY)) {
+    throw new Error("Stripe is not configured. Add STRIPE_SECRET_KEY before running backfill.");
+  }
+  const store = readStore();
+  store.users = store.users || {};
+  const report = {
+    generatedAt: new Date().toISOString(),
+    dryRun: dryRun === true,
+    stripeCustomersFound: 0,
+    usersMatchedByEmail: 0,
+    usersNotMatched: 0,
+    usersCreatedFromStripeRecords: 0,
+    duplicateAccountsDetected: [],
+    recordsNeedingManualReview: [],
+  };
+  const stripeCustomers = await stripeListAll("customers");
+  report.stripeCustomersFound = stripeCustomers.length;
+  const allSubscriptions = await stripeListAll("subscriptions", { status: "all" });
+  const subscriptionsByCustomer = allSubscriptions.reduce((map, subscription) => {
+    const customerId = String(subscription?.customer || "").trim();
+    if (!customerId) return map;
+    map[customerId] = map[customerId] || [];
+    map[customerId].push(subscription);
+    return map;
+  }, {});
+
+  const customerIdsByEmail = {};
+  for (const customer of stripeCustomers) {
+    const email = normalizeEmail(customer?.email || "");
+    if (!email) continue;
+    customerIdsByEmail[email] = customerIdsByEmail[email] || [];
+    customerIdsByEmail[email].push(customer.id);
+  }
+  Object.entries(customerIdsByEmail).forEach(([email, ids]) => {
+    if (ids.length <= 1) return;
+    report.duplicateAccountsDetected.push({
+      type: "stripe_duplicate_email",
+      email,
+      stripeCustomerIds: ids,
+    });
+    report.recordsNeedingManualReview.push({
+      type: "stripe_duplicate_email",
+      email,
+      stripeCustomerIds: ids,
+      note: "Multiple Stripe customers share the same email. Confirm the correct primary customer.",
+    });
+  });
+
+  const userEmailsByStripeCustomerId = {};
+  Object.entries(store.users).forEach(([email, user]) => {
+    const customerId = String(user?.stripeCustomerId || "").trim();
+    if (!customerId) return;
+    userEmailsByStripeCustomerId[customerId] = userEmailsByStripeCustomerId[customerId] || [];
+    userEmailsByStripeCustomerId[customerId].push(email);
+  });
+  Object.entries(userEmailsByStripeCustomerId).forEach(([customerId, emails]) => {
+    if (emails.length <= 1) return;
+    report.duplicateAccountsDetected.push({
+      type: "backend_duplicate_stripe_customer",
+      stripeCustomerId: customerId,
+      emails,
+    });
+    report.recordsNeedingManualReview.push({
+      type: "backend_duplicate_stripe_customer",
+      stripeCustomerId: customerId,
+      emails,
+      note: "Multiple backend users are linked to the same Stripe customer ID.",
+    });
+  });
+
+  for (const customer of stripeCustomers) {
+    const email = normalizeEmail(customer?.email || "");
+    if (!email) {
+      report.recordsNeedingManualReview.push({
+        type: "missing_customer_email",
+        stripeCustomerId: customer?.id || "",
+        note: "Stripe customer has no email and cannot be matched to or created as a backend user.",
+      });
+      continue;
+    }
+    const subscriptions = subscriptionsByCustomer[customer.id] || [];
+    const subscription = selectLegacySubscription(subscriptions);
+    const incomingUser = normalizeLegacyStripeUser(customer, subscription);
+    const existing = store.users[email];
+    if (existing) {
+      report.usersMatchedByEmail += 1;
+      store.users[email] = mergeLegacyStripeIntoUser(existing, incomingUser, report);
+    } else {
+      report.usersNotMatched += 1;
+      report.usersCreatedFromStripeRecords += 1;
+      store.users[email] = {
+        email,
+        ...incomingUser,
+        lastSeenAt: "",
+        lastLoginAt: "",
+        updatedAt: new Date().toISOString(),
+      };
+    }
+  }
+  if (!dryRun) writeStore(store);
+  report.duplicateAccountsDetected = report.duplicateAccountsDetected.slice(0, MAX_BACKFILL_REPORT_ITEMS);
+  report.recordsNeedingManualReview = report.recordsNeedingManualReview.slice(0, MAX_BACKFILL_REPORT_ITEMS);
+  return report;
 }
 
 function paidStripeSubscription(subscription) {
@@ -2313,8 +3291,15 @@ async function handleStripeWebhook(request, response) {
     const promoLabel = session.metadata?.promoLabel || userEntry?.[1]?.pendingPromoLabel || "";
     if (email) {
       const founding = planKey === "founding" ? claimFoundingSpot(email) : { foundingMember: false, foundingMemberNumber: null };
+      const checkoutTrialUpdates = {};
+      if (promoTrialDays > 0) {
+        checkoutTrialUpdates.trialStatus = "In Trial";
+        checkoutTrialUpdates.trialStart = new Date().toISOString();
+        checkoutTrialUpdates.trialEnd = new Date(Date.now() + promoTrialDays * 86400000).toISOString();
+      }
       upsertUser(email, {
-        ...statusForPlan(planKey, session.subscription, "Active"),
+        ...statusForPlan(planKey, session.subscription, promoTrialDays > 0 ? "trialing" : "Active"),
+        ...checkoutTrialUpdates,
         stripeCustomerId: session.customer,
         foundingMember: founding.foundingMember,
         foundingMemberNumber: founding.foundingMemberNumber,
@@ -2345,6 +3330,18 @@ async function handleStripeWebhook(request, response) {
       const founding = planKey === "founding"
         ? claimFoundingSpot(email)
         : { foundingMember: Boolean(user.foundingMember), foundingMemberNumber: user.foundingMemberNumber || null };
+      const trialUpdates = {};
+      if (!canceled && subscription.trial_start) {
+        trialUpdates.trialStart = new Date(subscription.trial_start * 1000).toISOString();
+      }
+      if (!canceled && subscription.trial_end) {
+        trialUpdates.trialEnd = new Date(subscription.trial_end * 1000).toISOString();
+      }
+      if (!canceled && subscription.status === "trialing") {
+        trialUpdates.trialStatus = "In Trial";
+      } else if (!canceled && subscription.status === "active" && user.trialStatus === "In Trial") {
+        trialUpdates.trialStatus = "Trial Ended";
+      }
       upsertUser(email, canceled ? {
         plan: "Free",
         subscriptionCadence: "",
@@ -2356,6 +3353,7 @@ async function handleStripeWebhook(request, response) {
         priceLock: founding.foundingMember ? "Lifetime" : "",
       } : {
         ...statusForPlan(planKey, subscription.id, subscription.status === "active" ? "Active" : subscription.status),
+        ...trialUpdates,
         foundingMember: founding.foundingMember,
         foundingMemberNumber: founding.foundingMemberNumber,
         paymentMethod: "Managed in Stripe",
@@ -2390,15 +3388,20 @@ async function handleAiGenerate(request, response) {
   const store = readStore();
   const user = store.users?.[email] || null;
   const plan = resolvedPlanForUser(user);
-  console.log(`[access] ai-generate email=${email} storedPlan=${user?.plan || "none"} resolvedPlan=${plan} status=${user?.subscriptionStatus || "none"}`);
+  const tool = String(body.tool || "unknown");
+  console.log(`[access] ai-generate email=${email} tool=${tool} storedPlan=${user?.plan || "none"} resolvedPlan=${plan} status=${user?.subscriptionStatus || "none"}`);
   const usage = canUseServerAi(email, plan);
   if (!usage.allowed) {
     jsonResponse(response, 429, { error: `Monthly helper limit reached. ${usage.used} of ${usage.limit} documents created this month.`, used: usage.used, limit: usage.limit });
     return;
   }
+  const startTime = Date.now();
   try {
     const aiResult = await generateOpenAiContent(body);
-    const recorded = recordServerAiUse(email, plan, aiResult.output);
+    const responseTimeMs = Date.now() - startTime;
+    const inputTokens = aiResult.inputTokens ?? null;
+    const outputTokens = aiResult.outputTokens ?? null;
+    const recorded = recordServerAiUse(email, plan, aiResult.output, { tool, responseTimeMs, inputTokens, outputTokens, success: true });
     jsonResponse(response, 200, {
       output: aiResult.output,
       model: aiResult.model,
@@ -2407,7 +3410,31 @@ async function handleAiGenerate(request, response) {
       resetCycle: currentAiCycle(),
     });
   } catch (error) {
-    console.error(`[helper-generate-failure] email=${email} tool=${body.tool || "unknown"} plan=${plan} error=${error.message || "unknown"}`);
+    const responseTimeMs = Date.now() - startTime;
+    console.error(`[helper-generate-failure] email=${email} tool=${tool} plan=${plan} error=${error.message || "unknown"}`);
+    // Log failed generations to aiUsageLogs without incrementing the monthly counter
+    try {
+      const failStore = readStore();
+      failStore.aiUsageLogs = failStore.aiUsageLogs || [];
+      failStore.aiUsageLogs.unshift({
+        id: `ai_${Date.now()}_${crypto.randomBytes(5).toString("hex")}`,
+        tool,
+        email,
+        plan,
+        responseTimeMs,
+        success: false,
+        errorMessage: String(error.message || "unknown").slice(0, 500),
+        inputTokens: null,
+        outputTokens: null,
+        createdAt: new Date().toISOString(),
+      });
+      failStore.aiUsageLogs = failStore.aiUsageLogs.slice(0, 5000);
+      writeStore(failStore);
+    } catch (err) { console.warn("[ai-fail-log] Could not write failure to aiUsageLogs:", err.message); }
+    if (error.toolDisabled) {
+      jsonResponse(response, 503, { error: error.message });
+      return;
+    }
     jsonResponse(response, 503, { error: error.message || "We couldn't create your document right now. Please try again." });
   }
 }
@@ -2435,6 +3462,48 @@ async function handleSubscriptionStatus(request, response, url) {
     aiUsage: email ? canUseServerAi(email, subscription?.plan || "Free") : null,
     founding: foundingStatusPayload(readStore()),
   });
+}
+
+function handleUserAiUsage(request, response, url) {
+  const email = normalizeEmail(url.searchParams.get("email"));
+  if (!email) {
+    jsonResponse(response, 400, { error: "email is required." });
+    return;
+  }
+  const store = readStore();
+  const user = store.users?.[email] || null;
+  const plan = user?.plan || "Free";
+  const usage = canUseServerAi(email, plan);
+  const now = new Date();
+  const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  jsonResponse(response, 200, {
+    aiUsage: {
+      email,
+      used: usage.used,
+      limit: usage.limit,
+      remaining: Math.max(usage.limit - usage.used, 0),
+      plan,
+      resetDate: nextMonth.toISOString().slice(0, 10),
+    },
+  });
+}
+
+async function handleAdminStripeBackfill(request, response) {
+  const body = await readJson(request);
+  const token = String(body.adminToken || "");
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const dryRun = body.dryRun === true;
+  try {
+    const report = await backfillLegacyStripeUsers({ dryRun });
+    jsonResponse(response, 200, { ok: true, report });
+  } catch (error) {
+    const message = error?.message || "Unknown error.";
+    console.error("Stripe backfill failed:", message);
+    jsonResponse(response, 503, { error: `Stripe backfill failed: ${message}` });
+  }
 }
 
 function publicTicket(ticket) {
@@ -2563,6 +3632,15 @@ function updateAnalyticsUser(store, event) {
   if (event.name === "account_signup_complete" && !updates.signupAt) {
     updates.signupAt = event.createdAt;
     updates.createdAt = existing.createdAt || event.createdAt;
+  }
+  if (event.name === "account_signup_complete") {
+    const detailFirst = normalizedShortText(event.detail?.firstName, 80);
+    const detailLast  = normalizedShortText(event.detail?.lastName, 80);
+    if (detailFirst && !existing.firstName) updates.firstName = detailFirst;
+    if (detailLast  && !existing.lastName)  updates.lastName  = detailLast;
+    if ((detailFirst || detailLast) && !existing.name) {
+      updates.name = [detailFirst, detailLast].filter(Boolean).join(" ");
+    }
   }
   if (event.name === "account_login_complete") updates.lastLoginAt = event.createdAt;
   if (event.name === "checkout_success") {
@@ -2728,14 +3806,30 @@ function analyticsSummary(store) {
   const userRows = users
     .map((user) => {
       const userEvents = events.filter((event) => event.user === user.email);
+      const displayName = user.name || user.displayName || [user.firstName, user.lastName].filter(Boolean).join(" ") || "";
       return {
         email: user.email,
-        name: user.name || user.displayName || "",
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        fullName: displayName,
+        name: displayName,
         plan: user.plan || "Free",
+        planDisplayName: user.planDisplayName || user.plan || "Free",
+        accountStatus: user.accountStatus || "Active",
+        trialStatus: user.trialStatus || "No Trial",
+        trialStart: user.trialStart || "",
+        trialEnd: user.trialEnd || "",
+        stripeCustomerId: user.stripeCustomerId || "",
+        stripeSubscriptionId: user.stripeSubscriptionId || "",
         subscriptionStatus: user.subscriptionStatus || "Free Plan",
+        subscriptionState: user.subscriptionState || "No Subscription",
         signupAt: user.signupAt || user.createdAt || "",
+        createdAt: user.createdAt || user.signupAt || "",
         lastLoginAt: user.lastLoginAt || "",
         lastSeenAt: user.lastSeenAt || user.updatedAt || "",
+        monthlyPrice: user.monthlyPrice || "",
+        foundingMember: Boolean(user.foundingMember),
+        foundingMemberNumber: user.foundingMemberNumber || null,
         featureUseCount: userEvents.length || Object.values(user.featureUsage || {}).reduce((total, value) => total + Number(value || 0), 0),
         topFeatures: topFeaturePairs(userEvents),
       };
@@ -2774,7 +3868,7 @@ function analyticsSummary(store) {
       pageViews: countBy(pageViews, (event) => event.detail?.view || event.path || event.hash || "Home"),
       sources: countBy(visits, detectEventSource),
       buttonClicks: countBy(events.filter((event) => event.name === "button_click"), (event) => event.detail?.label || event.detail?.action || "Button"),
-      aiUsage: countBy(events.filter((event) => event.name === "ai_generation_success"), (event) => event.detail?.tool || "AI Generator"),
+      aiUsage: countBy(events.filter((event) => event.name === "ai_generation_success"), (event) => event.detail?.tool || "Document Helper"),
       resourceViews: countBy(events.filter((event) => event.name === "resource_view"), (event) => event.detail?.category || "Resource"),
       resourcePrints: countBy(events.filter((event) => ["resource_print", "generated_pdf", "generated_print", "provider_tool_pdf"].includes(event.name)), (event) => event.detail?.category || event.detail?.tool || "Printable/PDF"),
       featureUsage: countBy(events.filter((event) => ["button_click", "ai_generation_success", "resource_view", "resource_print", "generated_pdf", "generated_print", "provider_tool_pdf", "checkout_start", "checkout_success"].includes(event.name)), (event) => event.name),
@@ -2796,7 +3890,24 @@ function handleAdminAnalytics(request, response, url) {
 
 function handlePublicSiteContent(request, response) {
   const store = readStore();
-  jsonResponse(response, 200, { siteContent: normalizedSiteContent(store.siteContent || defaultSiteContentStore()) });
+  const content = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  const publicLessonPlans = Object.fromEntries(
+    Object.entries(content.lessonPlans).filter(([, plan]) => plan.visible === true && plan.archived !== true)
+  );
+  const publicCustomLessonPlans = (content.customLessonPlans || []).filter((item) => item.visible === true && item.archived !== true);
+  const publicActivities = (content.activities || []).filter((a) => a.visible === true && a.archived !== true);
+  const publicForms = (content.forms || []).filter((item) => item.visible === true && item.archived !== true);
+  const publicPrintables = (content.printables || []).filter((item) => item.visible === true && item.archived !== true);
+  jsonResponse(response, 200, {
+    siteContent: {
+      ...content,
+      lessonPlans: publicLessonPlans,
+      customLessonPlans: publicCustomLessonPlans,
+      activities: publicActivities,
+      forms: publicForms,
+      printables: publicPrintables,
+    },
+  });
 }
 
 function handleAdminSiteContent(request, response, url) {
@@ -2846,6 +3957,129 @@ async function postJson(url, headers, payload) {
   }
 }
 
+// ─── Shared email helper ──────────────────────────────────────────────────────
+// All outbound email passes through sendEmail() so that switching the provider
+// or from/to addresses only requires env var changes — no code changes needed.
+//
+// opts: { to, replyTo, subject, text, html }
+// Returns { sent, configured, provider }
+async function sendEmail(opts = {}) {
+  const status = supportEmailConfigStatus();
+  if (!status.ready) return { sent: false, configured: false, provider: status.provider };
+
+  const provider = detectedEmailProvider();
+  const toAddr = opts.to || SUPPORT_EMAIL_TO;
+  const toList = Array.isArray(toAddr) ? toAddr : [toAddr];
+  const replyTo = String(opts.replyTo || "");
+  const subject = String(opts.subject || "").slice(0, 500);
+  const text = String(opts.text || "");
+  const html = String(opts.html || "");
+
+  if (provider === "resend") {
+    const payload = { from: SUPPORT_EMAIL_FROM, to: toList, subject, text, html };
+    if (replyTo) payload.reply_to = replyTo;
+    await postJson("https://api.resend.com/emails", { Authorization: "Bearer " + RESEND_API_KEY }, payload);
+    return { sent: true, configured: true, provider };
+  }
+  if (provider === "sendgrid") {
+    const from = parseEmailAddress(SUPPORT_EMAIL_FROM);
+    const payload = {
+      personalizations: [{ to: [{ email: toList[0] }], subject }],
+      from,
+      content: [{ type: "text/plain", value: text }, { type: "text/html", value: html }],
+    };
+    if (replyTo) payload.reply_to = { email: replyTo };
+    await postJson("https://api.sendgrid.com/v3/mail/send", { Authorization: "Bearer " + SENDGRID_API_KEY }, payload);
+    return { sent: true, configured: true, provider };
+  }
+  if (provider === "postmark") {
+    const payload = {
+      From: SUPPORT_EMAIL_FROM,
+      To: toList[0],
+      Subject: subject,
+      TextBody: text,
+      HtmlBody: html,
+      MessageStream: "outbound",
+    };
+    if (replyTo) payload.ReplyTo = replyTo;
+    await postJson("https://api.postmarkapp.com/email", { "X-Postmark-Server-Token": POSTMARK_SERVER_TOKEN }, payload);
+    return { sent: true, configured: true, provider };
+  }
+  return { sent: false, configured: false, provider: provider || "not configured" };
+}
+
+// ─── User acknowledgment email ────────────────────────────────────────────────
+// Sent to the submitter right after any new submission (ticket, bug, feature, feedback).
+async function notifyUserAck({ toEmail, toName, submissionType, topic }) {
+  if (!toEmail) return { sent: false, configured: false, reason: "no user email" };
+  const displayType = String(submissionType || "submission");
+  const displayTopic = String(topic || "");
+  const subject = `[Little Learner Hub] We received your ${displayType}`;
+  const greeting = toName ? `Hi ${toName},` : "Hi there,";
+  const topicLine = displayTopic ? ` regarding "${displayTopic}"` : "";
+  const text = [
+    greeting,
+    "",
+    `Thank you for submitting your ${displayType}${topicLine}.`,
+    "",
+    "We received your submission and will review it shortly. If you have anything to add, please reply to this email.",
+    "",
+    "— The Little Learner Hub Team",
+  ].join("\n");
+  const html = `
+    <p>${htmlEscape(greeting)}</p>
+    <p>Thank you for submitting your ${htmlEscape(displayType)}${htmlEscape(topicLine)}.</p>
+    <p>We received your submission and will review it shortly. If you have anything to add, please reply to this email.</p>
+    <p>— The Little Learner Hub Team</p>
+  `;
+  try {
+    return await sendEmail({ to: toEmail, replyTo: SUPPORT_EMAIL_TO, subject, text, html });
+  } catch (err) {
+    console.warn("[email] User ack email failed:", err.message);
+    return { sent: false, configured: supportEmailConfigStatus().ready, error: err.message };
+  }
+}
+
+// ─── Admin notification email ─────────────────────────────────────────────────
+// Sent to the admin inbox when a new submission arrives.
+// opts: { kind, topic, name, email, message, createdAt, sourceUrl, fields }
+// `fields` is an optional array of [label, value] pairs for type-specific data.
+async function notifyAdmin(opts = {}) {
+  const kind = String(opts.kind || "Submission");
+  const topicOrTitle = String(opts.topic || opts.title || "");
+  const subject = `[Little Learner Hub] New ${kind}: ${topicOrTitle}`;
+  const baseFields = [
+    ["Type", kind],
+    topicOrTitle ? ["Topic", topicOrTitle] : null,
+    ["Name", opts.name || ""],
+    ["Email", opts.email || ""],
+    ["Created", opts.createdAt || ""],
+  ].filter(Boolean);
+  const extraFields = Array.isArray(opts.fields) ? opts.fields : [];
+  const sourceField = opts.sourceUrl ? [["Page", opts.sourceUrl]] : [];
+  const allFields = [...baseFields, ...extraFields, ...sourceField];
+  const text = [
+    `New Little Learner Hub ${kind}`,
+    "",
+    ...allFields.map(([label, value]) => `${label}: ${value}`),
+    "",
+    "Message:",
+    opts.message || "",
+  ].join("\n");
+  const html = `
+    <h2>New Little Learner Hub ${htmlEscape(kind)}</h2>
+    ${allFields.map(([label, value]) => `<p><strong>${htmlEscape(String(label))}:</strong> ${htmlEscape(String(value || ""))}</p>`).join("")}
+    <hr>
+    <p>${htmlEscape(String(opts.message || "")).replace(/\n/g, "<br>")}</p>
+  `;
+  try {
+    return await sendEmail({ to: SUPPORT_EMAIL_TO, replyTo: opts.email || "", subject, text, html });
+  } catch (err) {
+    console.warn(`[email] Admin notification for ${kind} failed:`, err.message);
+    return { sent: false, configured: supportEmailConfigStatus().ready, error: err.message };
+  }
+}
+
 function supportTicketEmailPayload(ticket) {
   const subject = `[Little Learner Hub] ${ticket.kind}: ${ticket.topic}`;
   const text = [
@@ -2876,54 +4110,8 @@ function supportTicketEmailPayload(ticket) {
 }
 
 async function notifySupportTicket(ticket) {
-  const status = supportEmailConfigStatus();
-  if (!status.ready) return { sent: false, configured: false, provider: status.provider };
-
-  const provider = detectedEmailProvider();
   const email = supportTicketEmailPayload(ticket);
-  if (provider === "resend") {
-    await postJson("https://api.resend.com/emails", {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-    }, {
-      from: SUPPORT_EMAIL_FROM,
-      to: [SUPPORT_EMAIL_TO],
-      reply_to: ticket.email,
-      subject: email.subject,
-      text: email.text,
-      html: email.html,
-    });
-    return { sent: true, configured: true, provider };
-  }
-  if (provider === "sendgrid") {
-    const from = parseEmailAddress(SUPPORT_EMAIL_FROM);
-    await postJson("https://api.sendgrid.com/v3/mail/send", {
-      Authorization: `Bearer ${SENDGRID_API_KEY}`,
-    }, {
-      personalizations: [{ to: [{ email: SUPPORT_EMAIL_TO }], subject: email.subject }],
-      from,
-      reply_to: { email: ticket.email },
-      content: [
-        { type: "text/plain", value: email.text },
-        { type: "text/html", value: email.html },
-      ],
-    });
-    return { sent: true, configured: true, provider };
-  }
-  if (provider === "postmark") {
-    await postJson("https://api.postmarkapp.com/email", {
-      "X-Postmark-Server-Token": POSTMARK_SERVER_TOKEN,
-    }, {
-      From: SUPPORT_EMAIL_FROM,
-      To: SUPPORT_EMAIL_TO,
-      ReplyTo: ticket.email,
-      Subject: email.subject,
-      TextBody: email.text,
-      HtmlBody: email.html,
-      MessageStream: "outbound",
-    });
-    return { sent: true, configured: true, provider };
-  }
-  return { sent: false, configured: false, provider: provider || "not configured" };
+  return sendEmail({ to: SUPPORT_EMAIL_TO, replyTo: ticket.email, subject: email.subject, text: email.text, html: email.html });
 }
 
 async function handleSupportTicketCreate(request, response) {
@@ -2966,6 +4154,8 @@ async function handleSupportTicketCreate(request, response) {
       error: "Ticket was saved, but the email notification did not send.",
     };
   }
+  // Send auto-acknowledgment to the user (best-effort; does not affect the response)
+  notifyUserAck({ toEmail: ticket.email, toName: ticket.name, submissionType: "support request", topic: ticket.topic }).catch((err) => console.warn("[email] Support ticket ack failed:", err.message));
   jsonResponse(response, 200, {
     ticket: publicTicket(ticket),
     supportEmail: SUPPORT_EMAIL_TO,
@@ -3007,6 +4197,78 @@ function handleSupportTicketsList(request, response, url) {
     ? allTickets
     : allTickets.filter((ticket) => email && (ticket.email === email || ticket.createdBy === email));
   jsonResponse(response, 200, { tickets: tickets.slice(0, 100).map(publicTicket) });
+}
+
+function handleUploadedResourcesList(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  const admin = validAdminToken(adminToken);
+  const store = readStore();
+  store.uploadedResources = dedupeUploadedResources(store.uploadedResources || [], MAX_UPLOADED_RESOURCES);
+  jsonResponse(response, 200, { uploads: uploadedResourcesForResponse(store.uploadedResources, { admin }) });
+}
+
+async function handleAdminUploadedResourcesMigrate(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required for upload migration." });
+    return;
+  }
+  const incoming = Array.isArray(body.uploads) ? body.uploads : [];
+  const store = readStore();
+  const existing = store.uploadedResources || [];
+  const merged = mergeUploadedResources(existing, incoming);
+  const before = dedupeUploadedResources(existing, MAX_UPLOADED_RESOURCES).length;
+  const after = merged.length;
+  store.uploadedResources = merged;
+  writeStore(store);
+  jsonResponse(response, 200, {
+    uploads: uploadedResourcesForResponse(merged, { admin: true }),
+    migration: {
+      incoming: incoming.length,
+      before,
+      after,
+      added: Math.max(0, after - before),
+    },
+  });
+}
+
+async function handleAdminUploadedResourceUpsert(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to save uploads." });
+    return;
+  }
+  const upload = normalizedUploadedResourceEntry(body.upload || {});
+  if (!upload) {
+    jsonResponse(response, 400, { error: "A valid upload with an id is required." });
+    return;
+  }
+  upload.updatedAt = new Date().toISOString();
+  const store = readStore();
+  store.uploadedResources = mergeUploadedResources(store.uploadedResources || [], [upload]);
+  writeStore(store);
+  jsonResponse(response, 200, {
+    upload,
+    uploads: uploadedResourcesForResponse(store.uploadedResources, { admin: true }),
+  });
+}
+
+async function handleAdminUploadedResourceDelete(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to delete uploads." });
+    return;
+  }
+  const id = normalizedShortText(body.id, 180);
+  if (!id) {
+    jsonResponse(response, 400, { error: "Upload id is required." });
+    return;
+  }
+  const store = readStore();
+  const existing = dedupeUploadedResources(store.uploadedResources || [], MAX_UPLOADED_RESOURCES);
+  store.uploadedResources = existing.filter((item) => item.id !== id);
+  writeStore(store);
+  jsonResponse(response, 200, { uploads: uploadedResourcesForResponse(store.uploadedResources, { admin: true }) });
 }
 
 function handleStripeReadiness(request, response) {
@@ -3337,6 +4599,632 @@ function serveStatic(request, response, url) {
   stream.pipe(response);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Phase 6-A: Bug Reports, Feature Requests, Feedback, Admin Reply,
+//            Announcements, Release Notes handlers
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── Normalizers ──────────────────────────────────────────────────────────────
+
+function publicBugReport(item) {
+  return {
+    id: item.id,
+    title: item.title,
+    description: item.description,
+    category: item.category,
+    screenshotUrl: item.screenshotUrl || "",
+    email: item.email,
+    name: item.name,
+    status: item.status,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  };
+}
+
+function publicFeatureRequest(item) {
+  return {
+    id: item.id,
+    title: item.title,
+    description: item.description,
+    category: item.category,
+    email: item.email,
+    name: item.name,
+    status: item.status,
+    votes: item.votes || 0,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  };
+}
+
+function publicFeedback(item) {
+  return {
+    id: item.id,
+    type: item.type,
+    message: item.message,
+    email: item.email,
+    name: item.name,
+    status: item.status,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  };
+}
+
+function publicAnnouncement(item) {
+  return {
+    id: item.id,
+    title: item.title,
+    body: item.body,
+    audience: item.audience,
+    deliveryMode: item.deliveryMode,
+    status: item.status,
+    publishedAt: item.publishedAt || "",
+    createdAt: item.createdAt,
+  };
+}
+
+function publicReleaseNote(item) {
+  return {
+    id: item.id,
+    version: item.version,
+    releaseDate: item.releaseDate,
+    featuresAdded: item.featuresAdded || [],
+    bugsFixed: item.bugsFixed || [],
+    improvements: item.improvements || [],
+    status: item.status,
+    createdAt: item.createdAt,
+  };
+}
+
+// ─── Bug Report handlers ───────────────────────────────────────────────────────
+
+const BUG_REPORT_CATEGORIES = new Set([
+  "Broken Feature", "Error", "Lesson Plan Issue", "Billing Issue",
+  "Mobile Issue", "Content Issue", "Login Problem", "Other",
+]);
+const BUG_REPORT_STATUSES = new Set(["New", "Investigating", "Fix In Progress", "Fixed", "Closed"]);
+
+async function handleBugReportCreate(request, response) {
+  const body = await readJson(request);
+  const email = normalizeEmail(body.email);
+  const title = String(body.title || "").trim().slice(0, 200);
+  const description = String(body.description || "").trim().slice(0, 5000);
+  if (!title || !description) {
+    jsonResponse(response, 400, { error: "Title and description are required." });
+    return;
+  }
+  const store = readStore();
+  store.bugReports = store.bugReports || [];
+  const rawCategory = String(body.category || "Other");
+  const report = {
+    id: `bug-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`,
+    title,
+    description,
+    category: BUG_REPORT_CATEGORIES.has(rawCategory) ? rawCategory : "Other",
+    screenshotUrl: String(body.screenshotUrl || "").slice(0, 1000),
+    email,
+    name: String(body.name || "Provider").slice(0, 120),
+    status: "New",
+    adminNotes: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    sourceUrl: String(body.sourceUrl || "").slice(0, 500),
+    userAgent: String(body.userAgent || "").slice(0, 300),
+  };
+  store.bugReports.unshift(report);
+  store.bugReports = store.bugReports.slice(0, 1000);
+  writeStore(store);
+  // Admin notification (best-effort)
+  notifyAdmin({
+    kind: "Bug Report",
+    title: report.title,
+    name: report.name,
+    email: report.email,
+    message: report.description,
+    createdAt: report.createdAt,
+    sourceUrl: report.sourceUrl,
+    fields: [["Category", report.category]],
+  }).catch((err) => console.warn("[email] Bug report admin notification failed:", err.message));
+  // User auto-ack (best-effort)
+  notifyUserAck({ toEmail: report.email, toName: report.name, submissionType: "bug report", topic: report.title }).catch((err) => console.warn("[email] Bug report ack failed:", err.message));
+  jsonResponse(response, 200, { bugReport: publicBugReport(report), supportEmail: SUPPORT_EMAIL_TO });
+}
+
+async function handleBugReportUpdate(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to update bug reports." });
+    return;
+  }
+  const id = String(body.id || "");
+  const store = readStore();
+  const items = store.bugReports || [];
+  const index = items.findIndex((r) => r.id === id);
+  if (index < 0) {
+    jsonResponse(response, 404, { error: "Bug report was not found." });
+    return;
+  }
+  const rawStatus = body.status ? String(body.status).slice(0, 40) : "";
+  items[index] = {
+    ...items[index],
+    status: rawStatus && BUG_REPORT_STATUSES.has(rawStatus) ? rawStatus : items[index].status,
+    updatedAt: new Date().toISOString(),
+  };
+  if (body.adminNote) {
+    items[index].adminNotes = items[index].adminNotes || [];
+    items[index].adminNotes.push({
+      note: String(body.adminNote).slice(0, 2000),
+      addedAt: new Date().toISOString(),
+    });
+  }
+  store.bugReports = items;
+  writeStore(store);
+  jsonResponse(response, 200, { bugReport: publicBugReport(items[index]) });
+}
+
+function handleBugReportsList(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  const email = normalizeEmail(url.searchParams.get("email") || "");
+  const store = readStore();
+  const allReports = store.bugReports || [];
+  const reports = validAdminToken(adminToken)
+    ? allReports
+    : allReports.filter((r) => email && r.email === email);
+  jsonResponse(response, 200, { bugReports: reports.slice(0, 200).map(publicBugReport) });
+}
+
+// ─── Feature Request handlers ─────────────────────────────────────────────────
+
+const FEATURE_REQUEST_STATUSES = new Set([
+  "New", "Under Review", "Planned", "In Development", "Released", "Declined",
+]);
+
+async function handleFeatureRequestCreate(request, response) {
+  const body = await readJson(request);
+  const email = normalizeEmail(body.email);
+  const title = String(body.title || "").trim().slice(0, 200);
+  const description = String(body.description || "").trim().slice(0, 5000);
+  if (!title || !description) {
+    jsonResponse(response, 400, { error: "Title and description are required." });
+    return;
+  }
+  const store = readStore();
+  store.featureRequests = store.featureRequests || [];
+  const item = {
+    id: `feature-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`,
+    title,
+    description,
+    category: String(body.category || "General").slice(0, 80),
+    email,
+    name: String(body.name || "Provider").slice(0, 120),
+    status: "New",
+    votes: 1,
+    voterEmails: email ? [email] : [],
+    adminNotes: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    sourceUrl: String(body.sourceUrl || "").slice(0, 500),
+  };
+  store.featureRequests.unshift(item);
+  store.featureRequests = store.featureRequests.slice(0, 1000);
+  writeStore(store);
+  notifyAdmin({
+    kind: "Feature Request",
+    title: item.title,
+    name: item.name,
+    email: item.email,
+    message: item.description,
+    createdAt: item.createdAt,
+    sourceUrl: item.sourceUrl,
+    fields: [["Category", item.category]],
+  }).catch((err) => console.warn("[email] Feature request admin notification failed:", err.message));
+  notifyUserAck({ toEmail: item.email, toName: item.name, submissionType: "feature request", topic: item.title }).catch((err) => console.warn("[email] Feature request ack failed:", err.message));
+  jsonResponse(response, 200, { featureRequest: publicFeatureRequest(item), supportEmail: SUPPORT_EMAIL_TO });
+}
+
+async function handleFeatureRequestVote(request, response) {
+  const body = await readJson(request);
+  const id = String(body.id || "");
+  const voterEmail = normalizeEmail(body.email);
+  if (!id || !voterEmail) {
+    jsonResponse(response, 400, { error: "Feature request id and email are required to vote." });
+    return;
+  }
+  const store = readStore();
+  const items = store.featureRequests || [];
+  const index = items.findIndex((r) => r.id === id);
+  if (index < 0) {
+    jsonResponse(response, 404, { error: "Feature request was not found." });
+    return;
+  }
+  const alreadyVoted = (items[index].voterEmails || []).includes(voterEmail);
+  if (!alreadyVoted) {
+    items[index].voterEmails = [...(items[index].voterEmails || []), voterEmail];
+    items[index].votes = items[index].voterEmails.length;
+    items[index].updatedAt = new Date().toISOString();
+    store.featureRequests = items;
+    writeStore(store);
+  }
+  jsonResponse(response, 200, { featureRequest: publicFeatureRequest(items[index]), alreadyVoted });
+}
+
+async function handleFeatureRequestUpdate(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to update feature requests." });
+    return;
+  }
+  const id = String(body.id || "");
+  const store = readStore();
+  const items = store.featureRequests || [];
+  const index = items.findIndex((r) => r.id === id);
+  if (index < 0) {
+    jsonResponse(response, 404, { error: "Feature request was not found." });
+    return;
+  }
+  const rawStatus = body.status ? String(body.status).slice(0, 40) : "";
+  items[index] = {
+    ...items[index],
+    status: rawStatus && FEATURE_REQUEST_STATUSES.has(rawStatus) ? rawStatus : items[index].status,
+    updatedAt: new Date().toISOString(),
+  };
+  if (body.adminNote) {
+    items[index].adminNotes = items[index].adminNotes || [];
+    items[index].adminNotes.push({
+      note: String(body.adminNote).slice(0, 2000),
+      addedAt: new Date().toISOString(),
+    });
+  }
+  // Merge duplicate: transfer votes and voter emails to a target feature request
+  if (body.mergeIntoId) {
+    const targetIdx = items.findIndex((r) => r.id === String(body.mergeIntoId));
+    if (targetIdx >= 0 && targetIdx !== index) {
+      const mergedVoters = [...new Set([...(items[targetIdx].voterEmails || []), ...(items[index].voterEmails || [])])];
+      items[targetIdx].voterEmails = mergedVoters;
+      items[targetIdx].votes = mergedVoters.length;
+      items[targetIdx].updatedAt = new Date().toISOString();
+      items[index].status = "Declined";
+      items[index].updatedAt = new Date().toISOString();
+    }
+  }
+  store.featureRequests = items;
+  writeStore(store);
+  jsonResponse(response, 200, { featureRequest: publicFeatureRequest(items[index]) });
+}
+
+function handleFeatureRequestsList(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  const email = normalizeEmail(url.searchParams.get("email") || "");
+  const store = readStore();
+  const allItems = store.featureRequests || [];
+  const items = validAdminToken(adminToken)
+    ? allItems
+    : allItems.filter((r) => r.status !== "Declined");
+  // Sort by votes descending for public; by createdAt for admin
+  const sorted = validAdminToken(adminToken)
+    ? items.slice()
+    : items.slice().sort((a, b) => (b.votes || 0) - (a.votes || 0));
+  jsonResponse(response, 200, { featureRequests: sorted.slice(0, 200).map(publicFeatureRequest) });
+}
+
+// ─── Feedback handlers ────────────────────────────────────────────────────────
+
+const FEEDBACK_TYPES = new Set([
+  "General Feedback", "Suggestion", "Idea", "Compliment", "Improvement Request",
+]);
+const FEEDBACK_STATUSES = new Set(["New", "Reviewed", "Planned", "Completed", "Archived"]);
+
+async function handleFeedbackCreate(request, response) {
+  const body = await readJson(request);
+  const email = normalizeEmail(body.email);
+  const message = String(body.message || "").trim().slice(0, 5000);
+  if (!message) {
+    jsonResponse(response, 400, { error: "Message is required." });
+    return;
+  }
+  const rawType = String(body.type || "General Feedback");
+  const store = readStore();
+  store.feedbackItems = store.feedbackItems || [];
+  const item = {
+    id: `feedback-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`,
+    type: FEEDBACK_TYPES.has(rawType) ? rawType : "General Feedback",
+    message,
+    email,
+    name: String(body.name || "Provider").slice(0, 120),
+    status: "New",
+    adminNotes: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    sourceUrl: String(body.sourceUrl || "").slice(0, 500),
+  };
+  store.feedbackItems.unshift(item);
+  store.feedbackItems = store.feedbackItems.slice(0, 1000);
+  writeStore(store);
+  notifyAdmin({
+    kind: "Feedback",
+    title: item.type,
+    name: item.name,
+    email: item.email,
+    message: item.message,
+    createdAt: item.createdAt,
+    sourceUrl: item.sourceUrl,
+    fields: [["Feedback Type", item.type]],
+  }).catch((err) => console.warn("[email] Feedback admin notification failed:", err.message));
+  notifyUserAck({ toEmail: item.email, toName: item.name, submissionType: "feedback", topic: item.type }).catch((err) => console.warn("[email] Feedback ack failed:", err.message));
+  jsonResponse(response, 200, { feedback: publicFeedback(item), supportEmail: SUPPORT_EMAIL_TO });
+}
+
+async function handleFeedbackUpdate(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to update feedback." });
+    return;
+  }
+  const id = String(body.id || "");
+  const store = readStore();
+  const items = store.feedbackItems || [];
+  const index = items.findIndex((r) => r.id === id);
+  if (index < 0) {
+    jsonResponse(response, 404, { error: "Feedback item was not found." });
+    return;
+  }
+  const rawStatus = body.status ? String(body.status).slice(0, 40) : "";
+  items[index] = {
+    ...items[index],
+    status: rawStatus && FEEDBACK_STATUSES.has(rawStatus) ? rawStatus : items[index].status,
+    updatedAt: new Date().toISOString(),
+  };
+  if (body.adminNote) {
+    items[index].adminNotes = items[index].adminNotes || [];
+    items[index].adminNotes.push({
+      note: String(body.adminNote).slice(0, 2000),
+      addedAt: new Date().toISOString(),
+    });
+  }
+  store.feedbackItems = items;
+  writeStore(store);
+  jsonResponse(response, 200, { feedback: publicFeedback(items[index]) });
+}
+
+function handleFeedbackList(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  const email = normalizeEmail(url.searchParams.get("email") || "");
+  const store = readStore();
+  const allItems = store.feedbackItems || [];
+  const items = validAdminToken(adminToken)
+    ? allItems
+    : allItems.filter((r) => email && r.email === email);
+  jsonResponse(response, 200, { feedback: items.slice(0, 200).map(publicFeedback) });
+}
+
+// ─── Admin Reply handler ───────────────────────────────────────────────────────
+// Sends an email from admin to a user, and logs it to communications[].
+
+async function handleAdminReply(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to send replies." });
+    return;
+  }
+  const toEmail = normalizeEmail(body.toEmail);
+  const subject = String(body.subject || "").trim().slice(0, 500);
+  const message = String(body.message || "").trim().slice(0, 10000);
+  if (!toEmail || !subject || !message) {
+    jsonResponse(response, 400, { error: "toEmail, subject, and message are required." });
+    return;
+  }
+  const relatedId = String(body.relatedId || "");
+  const relatedType = String(body.relatedType || "ticket").slice(0, 40);
+  const now = new Date().toISOString();
+  const text = `${message}\n\n— The Little Learner Hub Team`;
+  const html = `<p>${htmlEscape(message).replace(/\n/g, "<br>")}</p><p>— The Little Learner Hub Team</p>`;
+  let emailResult = { sent: false, configured: false };
+  try {
+    emailResult = await sendEmail({ to: toEmail, replyTo: SUPPORT_EMAIL_TO, subject, text, html });
+  } catch (err) {
+    console.warn("[email] Admin reply failed:", err.message);
+    emailResult = { sent: false, configured: supportEmailConfigStatus().ready, error: err.message };
+  }
+  const entry = {
+    id: `comm-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`,
+    relatedId,
+    relatedType,
+    direction: "out",
+    from: SUPPORT_EMAIL_FROM || SUPPORT_EMAIL_TO,
+    to: toEmail,
+    subject,
+    body: message,
+    sentAt: now,
+    method: "email",
+    emailResult,
+  };
+  const store = readStore();
+  store.communications = store.communications || [];
+  store.communications.unshift(entry);
+  store.communications = store.communications.slice(0, 5000);
+  writeStore(store);
+  jsonResponse(response, 200, { ok: true, communication: entry, emailResult });
+}
+
+function handleCommunicationsList(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const relatedId = url.searchParams.get("relatedId") || "";
+  const store = readStore();
+  const all = store.communications || [];
+  const items = relatedId ? all.filter((c) => c.relatedId === relatedId) : all;
+  jsonResponse(response, 200, { communications: items.slice(0, 500) });
+}
+
+// ─── Announcements handlers ───────────────────────────────────────────────────
+
+const ANNOUNCEMENT_AUDIENCES = new Set(["all", "free", "pro", "founding"]);
+const ANNOUNCEMENT_DELIVERY_MODES = new Set(["in-app", "email", "both"]);
+const ANNOUNCEMENT_STATUSES = new Set(["draft", "published", "archived"]);
+
+async function handleAnnouncementCreate(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to create announcements." });
+    return;
+  }
+  const title = String(body.title || "").trim().slice(0, 300);
+  const announcementBody = String(body.body || "").trim().slice(0, 10000);
+  if (!title || !announcementBody) {
+    jsonResponse(response, 400, { error: "Title and body are required." });
+    return;
+  }
+  const rawAudience = String(body.audience || "all").toLowerCase();
+  const rawDelivery = String(body.deliveryMode || "in-app").toLowerCase();
+  const rawStatus = String(body.status || "draft").toLowerCase();
+  const store = readStore();
+  store.announcements = store.announcements || [];
+  const item = {
+    id: `ann-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`,
+    title,
+    body: announcementBody,
+    audience: ANNOUNCEMENT_AUDIENCES.has(rawAudience) ? rawAudience : "all",
+    deliveryMode: ANNOUNCEMENT_DELIVERY_MODES.has(rawDelivery) ? rawDelivery : "in-app",
+    status: ANNOUNCEMENT_STATUSES.has(rawStatus) ? rawStatus : "draft",
+    publishedAt: rawStatus === "published" ? new Date().toISOString() : "",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  store.announcements.unshift(item);
+  store.announcements = store.announcements.slice(0, 500);
+  writeStore(store);
+  jsonResponse(response, 200, { announcement: publicAnnouncement(item) });
+}
+
+async function handleAnnouncementUpdate(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to update announcements." });
+    return;
+  }
+  const id = String(body.id || "");
+  const store = readStore();
+  const items = store.announcements || [];
+  const index = items.findIndex((r) => r.id === id);
+  if (index < 0) {
+    jsonResponse(response, 404, { error: "Announcement was not found." });
+    return;
+  }
+  const rawStatus = body.status ? String(body.status).toLowerCase() : "";
+  const prevStatus = items[index].status;
+  const nextStatus = rawStatus && ANNOUNCEMENT_STATUSES.has(rawStatus) ? rawStatus : prevStatus;
+  items[index] = {
+    ...items[index],
+    title: body.title ? String(body.title).slice(0, 300) : items[index].title,
+    body: body.body ? String(body.body).slice(0, 10000) : items[index].body,
+    audience: body.audience && ANNOUNCEMENT_AUDIENCES.has(String(body.audience).toLowerCase()) ? String(body.audience).toLowerCase() : items[index].audience,
+    deliveryMode: body.deliveryMode && ANNOUNCEMENT_DELIVERY_MODES.has(String(body.deliveryMode).toLowerCase()) ? String(body.deliveryMode).toLowerCase() : items[index].deliveryMode,
+    status: nextStatus,
+    publishedAt: nextStatus === "published" && !items[index].publishedAt ? new Date().toISOString() : items[index].publishedAt,
+    updatedAt: new Date().toISOString(),
+  };
+  store.announcements = items;
+  writeStore(store);
+  jsonResponse(response, 200, { announcement: publicAnnouncement(items[index]) });
+}
+
+function handleAnnouncementsList(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  const store = readStore();
+  const all = store.announcements || [];
+  if (validAdminToken(adminToken)) {
+    jsonResponse(response, 200, { announcements: all.slice(0, 200).map(publicAnnouncement) });
+    return;
+  }
+  // Public: only published in-app announcements
+  const published = all.filter((a) => a.status === "published" && (a.deliveryMode === "in-app" || a.deliveryMode === "both"));
+  jsonResponse(response, 200, { announcements: published.slice(0, 50).map(publicAnnouncement) });
+}
+
+// ─── Release Notes handlers ───────────────────────────────────────────────────
+
+const RELEASE_NOTE_STATUSES = new Set(["draft", "published"]);
+
+async function handleReleaseNoteCreate(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to create release notes." });
+    return;
+  }
+  const version = String(body.version || "").trim().slice(0, 80);
+  const releaseDate = String(body.releaseDate || "").trim().slice(0, 30);
+  if (!version) {
+    jsonResponse(response, 400, { error: "Version is required." });
+    return;
+  }
+  const toArray = (val) => (Array.isArray(val) ? val.map((v) => String(v).slice(0, 500)) : []).slice(0, 100);
+  const rawStatus = String(body.status || "draft").toLowerCase();
+  const store = readStore();
+  store.releaseNotes = store.releaseNotes || [];
+  const item = {
+    id: `release-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`,
+    version,
+    releaseDate,
+    featuresAdded: toArray(body.featuresAdded),
+    bugsFixed: toArray(body.bugsFixed),
+    improvements: toArray(body.improvements),
+    status: RELEASE_NOTE_STATUSES.has(rawStatus) ? rawStatus : "draft",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  store.releaseNotes.unshift(item);
+  store.releaseNotes = store.releaseNotes.slice(0, 200);
+  writeStore(store);
+  jsonResponse(response, 200, { releaseNote: publicReleaseNote(item) });
+}
+
+async function handleReleaseNoteUpdate(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to update release notes." });
+    return;
+  }
+  const id = String(body.id || "");
+  const store = readStore();
+  const items = store.releaseNotes || [];
+  const index = items.findIndex((r) => r.id === id);
+  if (index < 0) {
+    jsonResponse(response, 404, { error: "Release note was not found." });
+    return;
+  }
+  const toArray = (val) => (Array.isArray(val) ? val.map((v) => String(v).slice(0, 500)) : null);
+  const rawStatus = body.status ? String(body.status).toLowerCase() : "";
+  items[index] = {
+    ...items[index],
+    version: body.version ? String(body.version).slice(0, 80) : items[index].version,
+    releaseDate: body.releaseDate ? String(body.releaseDate).slice(0, 30) : items[index].releaseDate,
+    featuresAdded: toArray(body.featuresAdded) ?? items[index].featuresAdded,
+    bugsFixed: toArray(body.bugsFixed) ?? items[index].bugsFixed,
+    improvements: toArray(body.improvements) ?? items[index].improvements,
+    status: rawStatus && RELEASE_NOTE_STATUSES.has(rawStatus) ? rawStatus : items[index].status,
+    updatedAt: new Date().toISOString(),
+  };
+  store.releaseNotes = items;
+  writeStore(store);
+  jsonResponse(response, 200, { releaseNote: publicReleaseNote(items[index]) });
+}
+
+function handleReleaseNotesList(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  const store = readStore();
+  const all = store.releaseNotes || [];
+  if (validAdminToken(adminToken)) {
+    jsonResponse(response, 200, { releaseNotes: all.slice(0, 200).map(publicReleaseNote) });
+    return;
+  }
+  // Public: only published notes
+  const published = all.filter((n) => n.status === "published");
+  jsonResponse(response, 200, { releaseNotes: published.slice(0, 50).map(publicReleaseNote) });
+}
+
+
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, SITE_URL);
   try {
@@ -3352,13 +5240,51 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/analytics/event") return await handleAnalyticsEvent(request, response);
     if (request.method === "POST" && url.pathname === "/api/support-ticket") return await handleSupportTicketCreate(request, response);
     if (request.method === "POST" && url.pathname === "/api/support-ticket-update") return await handleSupportTicketUpdate(request, response);
+    if (request.method === "GET" && url.pathname === "/api/support-tickets") return handleSupportTicketsList(request, response, url);
+    // Phase 6-A: Bug Reports
+    if (request.method === "POST" && url.pathname === "/api/bug-report") return await handleBugReportCreate(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/bug-report-update") return await handleBugReportUpdate(request, response);
+    if (request.method === "GET" && url.pathname === "/api/bug-reports") return handleBugReportsList(request, response, url);
+    // Phase 6-A: Feature Requests
+    if (request.method === "POST" && url.pathname === "/api/feature-request") return await handleFeatureRequestCreate(request, response);
+    if (request.method === "POST" && url.pathname === "/api/feature-request/vote") return await handleFeatureRequestVote(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/feature-request-update") return await handleFeatureRequestUpdate(request, response);
+    if (request.method === "GET" && url.pathname === "/api/feature-requests") return handleFeatureRequestsList(request, response, url);
+    // Phase 6-A: Feedback
+    if (request.method === "POST" && url.pathname === "/api/feedback") return await handleFeedbackCreate(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/feedback-update") return await handleFeedbackUpdate(request, response);
+    if (request.method === "GET" && url.pathname === "/api/feedback") return handleFeedbackList(request, response, url);
+    // Phase 6-A: Admin Reply & Communications
+    if (request.method === "POST" && url.pathname === "/api/admin/reply") return await handleAdminReply(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/communications") return handleCommunicationsList(request, response, url);
+    // Phase 6-A: Announcements
+    if (request.method === "POST" && url.pathname === "/api/admin/announcements") return await handleAnnouncementCreate(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/announcement-update") return await handleAnnouncementUpdate(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/announcements") return handleAnnouncementsList(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/announcements") return handleAnnouncementsList(request, response, url);
+    // Phase 6-A: Release Notes
+    if (request.method === "POST" && url.pathname === "/api/admin/release-notes") return await handleReleaseNoteCreate(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/release-note-update") return await handleReleaseNoteUpdate(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/release-notes") return handleReleaseNotesList(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/release-notes") return handleReleaseNotesList(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/uploads") return handleUploadedResourcesList(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/uploads/migrate") return await handleAdminUploadedResourcesMigrate(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/uploads/upsert") return await handleAdminUploadedResourceUpsert(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/uploads/delete") return await handleAdminUploadedResourceDelete(request, response);
     if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/child-data") return await handleChildData(request, response);
     if (request.method === "GET" && url.pathname === "/api/checkout-status") return await handleCheckoutStatus(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/subscription-status") return await handleSubscriptionStatus(request, response, url);
-    if (request.method === "GET" && url.pathname === "/api/support-tickets") return handleSupportTicketsList(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/user/ai-usage") return handleUserAiUsage(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/analytics") return handleAdminAnalytics(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-test") return await handleAdminAiTest(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/ai-prompts") return handleAdminAiPrompts(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/ai-prompts") return await handleAdminAiPromptsSave(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/ai-prompts/restore") return await handleAdminAiPromptsRestore(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/ai-settings") return handleAdminAiSettings(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/ai-settings") return await handleAdminAiSettingsSave(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/ai-usage") return handleAdminAiUsage(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/generate-lesson-plan") return await handleAdminGenerateLessonPlan(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/stripe-backfill") return await handleAdminStripeBackfill(request, response);
     if (request.method === "GET" && url.pathname === "/api/founding-status") return handleFoundingStatus(request, response);
     if (request.method === "GET" && url.pathname === "/api/stripe-readiness") return handleStripeReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/billing-readiness") return handleBillingReadiness(request, response);
