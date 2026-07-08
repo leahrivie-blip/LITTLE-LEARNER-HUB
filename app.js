@@ -3333,18 +3333,18 @@ function renderAdminLessonResourcesSection() {
       <div id="adminLessonResourceCategories">${categorySections}</div>
       <details class="lp-add-resource-panel" id="adminAddResourcePanel">
         <summary>+ Add Resource</summary>
-        <form id="adminAddLessonResourceForm" class="lp-add-resource-form">
+        <div id="adminAddLessonResourceForm" class="lp-add-resource-form">
           <div class="form-grid-two">
             <label>Resource title<input name="resourceTitle" placeholder="e.g. Farm Animal Coloring Sheet" required /></label>
             <label>Category<select name="resourceCategory">${lessonPlanResourceCategories.map((cat) => `<option>${escapeHtml(cat)}</option>`).join("")}</select></label>
           </div>
           <label>Upload file (image or PDF)<input name="resourceFile" type="file" accept="image/*,application/pdf" required /></label>
           <div class="form-actions">
-            <button class="primary-button" type="submit">Add Resource</button>
+            <button class="primary-button" type="button" data-admin-add-resource>Add Resource</button>
             <button class="ghost-button" type="button" data-close-add-resource>Cancel</button>
           </div>
           <span class="form-message" id="adminAddResourceMessage"></span>
-        </form>
+        </div>
       </details>
     </fieldset>
   `;
@@ -26180,6 +26180,7 @@ document.addEventListener("submit", async (event) => {
 document.addEventListener("submit", async (event) => {
   if (event.target.matches("#adminLessonPlanForm")) {
     event.preventDefault();
+    console.log("[DIAG] submit event fired on #adminLessonPlanForm — save triggered");
     await saveAdminLessonPlanForm(event.target);
     return;
   }
@@ -26237,12 +26238,6 @@ document.addEventListener("submit", async (event) => {
     const form = document.querySelector("#adminLessonPlanForm");
     if (form) form.scrollIntoView({ behavior: "smooth", block: "start" });
     setFormMessage("#adminLessonGenerateMessage", `✅ Imported ${count} section${count !== 1 ? "s" : ""} successfully. Review all fields and click Save Lesson Plan when ready.`, true);
-    return;
-  }
-  // Add lesson plan resource
-  if (event.target.matches("#adminAddLessonResourceForm")) {
-    event.preventDefault();
-    await handleAddLessonResource(event.target);
     return;
   }
   // Site Editor forms
@@ -26511,6 +26506,11 @@ document.addEventListener("click", async (event) => {
     return;
   }
   // Lesson plan resource management
+  if (event.target.closest("[data-admin-add-resource]")) {
+    const container = document.querySelector("#adminAddLessonResourceForm");
+    if (container) await handleAddLessonResource(container);
+    return;
+  }
   const resourceRemoveBtn = event.target.closest("[data-admin-resource-remove]");
   if (resourceRemoveBtn) {
     removeAdminLessonResource(resourceRemoveBtn.dataset.adminResourceRemove);
