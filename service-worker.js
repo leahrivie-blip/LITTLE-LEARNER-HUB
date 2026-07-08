@@ -1,9 +1,9 @@
-const CACHE_NAME = "llh-shell-v1";
+const CACHE_NAME = "llh-shell-v3-admin-lesson-save-fix";
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/styles.css?v=20260626-pwa-dashboard-polish",
-  "/app.js?v=20260626-pwa-dashboard-polish",
+  "/styles.css?v=20260708-admin-lesson-save-fix",
+  "/app.js?v=20260708-admin-lesson-save-fix",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
