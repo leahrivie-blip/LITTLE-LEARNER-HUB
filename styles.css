@@ -3072,9 +3072,71 @@ body.home-view .topbar .search-wrap {
   opacity: 0.82;
 }
 
+/* 4-status card states */
+.admin-content-card.is-draft {
+  opacity: 0.82;
+}
+
 .admin-content-card.is-archived {
-  opacity: 0.76;
+  opacity: 0.72;
   background: linear-gradient(180deg, rgba(245, 240, 235, 0.98), rgba(236, 233, 240, 0.92));
+}
+
+.admin-content-card.is-featured {
+  border-color: #f0c060;
+  background: linear-gradient(180deg, rgba(255, 252, 240, 0.99), rgba(254, 249, 220, 0.95));
+}
+
+/* Content status badge (used on cards and in edit forms) */
+.content-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 9px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.content-status-draft {
+  background: #fef9e7;
+  color: #875a00;
+  border-color: #f0d880;
+}
+
+.content-status-approved {
+  background: #eaf6ed;
+  color: #1a6b30;
+  border-color: #86c990;
+}
+
+.content-status-featured {
+  background: #fff8e0;
+  color: #7a5300;
+  border-color: #f0c040;
+}
+
+.content-status-archived {
+  background: #f3eef8;
+  color: #5a3d7a;
+  border-color: #c4a8e0;
+}
+
+/* Content health dashboard */
+.content-health-card .admin-mobile-stats {
+  margin-top: 8px;
+}
+
+.admin-owner-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.admin-owner-section h4 {
+  margin: 4px 0 8px;
 }
 
 .admin-mobile-card-body {
