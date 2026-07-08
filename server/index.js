@@ -572,21 +572,43 @@ function normalizedLibraryItemEntry(value, defaultCategory) {
   };
 }
 
+const UPLOADED_RESOURCE_LIMITS = Object.freeze({
+  // Keep aligned with existing frontend form constraints and storage payload sizes.
+  id: 180,
+  category: 80,
+  title: 200,
+  age: 40,
+  plan: 20,
+  month: 40,
+  tag: 80,
+  format: 80,
+  fileName: 180,
+  previewName: 180,
+});
+const DEFAULT_UPLOADED_RESOURCE_CATEGORY = "Forms Library";
+const MAX_UPLOADED_RESOURCE_TAGS = 25;
+const MAX_UPLOADED_RESOURCES = 3000;
+const MAX_UPLOADED_RESOURCES_INCOMING = 1000;
+
+function normalizedUploadedResourceTags(tags) {
+  return (Array.isArray(tags) ? tags : [])
+    .map((tag) => normalizedShortText(tag, UPLOADED_RESOURCE_LIMITS.tag))
+    .filter(Boolean)
+    .slice(0, MAX_UPLOADED_RESOURCE_TAGS);
+}
+
 function uploadedResourceFingerprint(entry) {
   const payload = {
-    category: normalizedShortText(entry.category, 80),
-    title: normalizedShortText(entry.title, 200),
-    age: normalizedShortText(entry.age, 40),
-    plan: normalizedShortText(entry.plan, 20),
-    month: normalizedShortText(entry.month, 40),
-    tags: (Array.isArray(entry.tags) ? entry.tags : [])
-      .map((tag) => normalizedShortText(tag, 80))
-      .filter(Boolean)
-      .slice(0, 25),
-    format: normalizedShortText(entry.format, 80),
-    fileName: normalizedShortText(entry.fileName, 180),
+    category: normalizedShortText(entry.category, UPLOADED_RESOURCE_LIMITS.category),
+    title: normalizedShortText(entry.title, UPLOADED_RESOURCE_LIMITS.title),
+    age: normalizedShortText(entry.age, UPLOADED_RESOURCE_LIMITS.age),
+    plan: normalizedShortText(entry.plan, UPLOADED_RESOURCE_LIMITS.plan),
+    month: normalizedShortText(entry.month, UPLOADED_RESOURCE_LIMITS.month),
+    tags: normalizedUploadedResourceTags(entry.tags),
+    format: normalizedShortText(entry.format, UPLOADED_RESOURCE_LIMITS.format),
+    fileName: normalizedShortText(entry.fileName, UPLOADED_RESOURCE_LIMITS.fileName),
     fileData: sanitizedResourceUrl(entry.fileData),
-    previewName: normalizedShortText(entry.previewName, 180),
+    previewName: normalizedShortText(entry.previewName, UPLOADED_RESOURCE_LIMITS.previewName),
     previewData: sanitizedImageSource(entry.previewData),
     description: normalizedMultilineText(entry.description, 2000),
     customContent: normalizedMultilineText(entry.customContent, 20000),
@@ -598,21 +620,20 @@ function uploadedResourceFingerprint(entry) {
 
 function normalizedUploadedResourceEntry(value) {
   const entry = value && typeof value === "object" ? value : {};
-  const id = normalizedShortText(entry.id, 180);
+  const id = normalizedShortText(entry.id, UPLOADED_RESOURCE_LIMITS.id);
   if (!id) return null;
-  const tagsInput = Array.isArray(entry.tags) ? entry.tags : [];
   const normalized = {
     id,
-    category: normalizedShortText(entry.category, 80) || "Forms Library",
-    title: normalizedShortText(entry.title, 200) || "Uploaded Resource",
-    age: normalizedShortText(entry.age, 40) || "All Ages",
-    plan: normalizedShortText(entry.plan, 20) || "Free",
-    month: normalizedShortText(entry.month, 40),
-    tags: tagsInput.map((t) => normalizedShortText(t, 80)).filter(Boolean).slice(0, 25),
-    format: normalizedShortText(entry.format, 80),
-    fileName: normalizedShortText(entry.fileName, 180),
+    category: normalizedShortText(entry.category, UPLOADED_RESOURCE_LIMITS.category) || DEFAULT_UPLOADED_RESOURCE_CATEGORY,
+    title: normalizedShortText(entry.title, UPLOADED_RESOURCE_LIMITS.title) || "Uploaded Resource",
+    age: normalizedShortText(entry.age, UPLOADED_RESOURCE_LIMITS.age) || "All Ages",
+    plan: normalizedShortText(entry.plan, UPLOADED_RESOURCE_LIMITS.plan) || "Free",
+    month: normalizedShortText(entry.month, UPLOADED_RESOURCE_LIMITS.month),
+    tags: normalizedUploadedResourceTags(entry.tags),
+    format: normalizedShortText(entry.format, UPLOADED_RESOURCE_LIMITS.format),
+    fileName: normalizedShortText(entry.fileName, UPLOADED_RESOURCE_LIMITS.fileName),
     fileData: sanitizedResourceUrl(entry.fileData),
-    previewName: normalizedShortText(entry.previewName, 180),
+    previewName: normalizedShortText(entry.previewName, UPLOADED_RESOURCE_LIMITS.previewName),
     previewData: sanitizedImageSource(entry.previewData),
     description: normalizedMultilineText(entry.description, 2000),
     customContent: normalizedMultilineText(entry.customContent, 20000),
@@ -625,28 +646,28 @@ function normalizedUploadedResourceEntry(value) {
   return normalized;
 }
 
-function dedupeUploadedResources(items = [], limit = 3000) {
+function dedupeUploadedResources(items = [], limit = MAX_UPLOADED_RESOURCES) {
   const seenIds = new Set();
   const seenFingerprints = new Set();
   const unique = [];
   for (const item of items) {
     const normalized = normalizedUploadedResourceEntry(item);
     if (!normalized) continue;
-    const fingerprint = normalized.fingerprint || uploadedResourceFingerprint(normalized);
+    const fingerprint = normalized.fingerprint;
     if (seenIds.has(normalized.id) || (fingerprint && seenFingerprints.has(fingerprint))) continue;
     seenIds.add(normalized.id);
     if (fingerprint) seenFingerprints.add(fingerprint);
-    unique.push({ ...normalized, fingerprint });
+    unique.push(normalized);
     if (unique.length >= limit) break;
   }
   return unique;
 }
 
 function mergeUploadedResources(existingItems = [], incomingItems = []) {
-  const incoming = dedupeUploadedResources(incomingItems, 1000);
+  const incoming = dedupeUploadedResources(incomingItems, MAX_UPLOADED_RESOURCES_INCOMING);
   const incomingIds = new Set(incoming.map((item) => item.id));
-  const existingRemainder = dedupeUploadedResources(existingItems, 3000).filter((item) => !incomingIds.has(item.id));
-  return dedupeUploadedResources([...incoming, ...existingRemainder], 3000);
+  const existingRemainder = dedupeUploadedResources(existingItems, MAX_UPLOADED_RESOURCES).filter((item) => !incomingIds.has(item.id));
+  return dedupeUploadedResources([...incoming, ...existingRemainder], MAX_UPLOADED_RESOURCES);
 }
 
 function normalizedCustomLessonPlanEntry(value) {
@@ -811,7 +832,7 @@ function normalizedSiteContent(value) {
 }
 
 function uploadedResourcesForResponse(items = [], { admin = false } = {}) {
-  const normalized = dedupeUploadedResources(items, 3000);
+  const normalized = dedupeUploadedResources(items, MAX_UPLOADED_RESOURCES);
   if (admin) return normalized;
   return normalized.filter((item) => item.visible !== false && item.archived !== true);
 }
@@ -4060,7 +4081,7 @@ function handleUploadedResourcesList(request, response, url) {
   const adminToken = url.searchParams.get("adminToken") || "";
   const admin = validAdminToken(adminToken);
   const store = readStore();
-  store.uploadedResources = dedupeUploadedResources(store.uploadedResources || [], 3000);
+  store.uploadedResources = dedupeUploadedResources(store.uploadedResources || [], MAX_UPLOADED_RESOURCES);
   jsonResponse(response, 200, { uploads: uploadedResourcesForResponse(store.uploadedResources, { admin }) });
 }
 
@@ -4074,7 +4095,7 @@ async function handleAdminUploadedResourcesMigrate(request, response) {
   const store = readStore();
   const existing = store.uploadedResources || [];
   const merged = mergeUploadedResources(existing, incoming);
-  const before = dedupeUploadedResources(existing, 3000).length;
+  const before = dedupeUploadedResources(existing, MAX_UPLOADED_RESOURCES).length;
   const after = merged.length;
   store.uploadedResources = merged;
   writeStore(store);
@@ -4122,7 +4143,7 @@ async function handleAdminUploadedResourceDelete(request, response) {
     return;
   }
   const store = readStore();
-  const existing = dedupeUploadedResources(store.uploadedResources || [], 3000);
+  const existing = dedupeUploadedResources(store.uploadedResources || [], MAX_UPLOADED_RESOURCES);
   store.uploadedResources = existing.filter((item) => item.id !== id);
   writeStore(store);
   jsonResponse(response, 200, { uploads: uploadedResourcesForResponse(store.uploadedResources, { admin: true }) });
