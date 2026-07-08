@@ -53,6 +53,7 @@ let databaseReady = false;
 let postgresPool = null;
 let postgresWriteChain = Promise.resolve();
 let firebaseCertCache = { expiresAt: 0, certs: {} };
+let clientAppScriptCache = { mtimeMs: 0, source: "" };
 const MAX_BACKFILL_REPORT_ITEMS = 500;
 
 const planConfig = {
@@ -4431,7 +4432,7 @@ function handleBillingReadiness(request, response) {
 }
 
 function handleHealth(request, response) {
-  const store = readStore();
+  const store = storeCache || defaultStore();
   jsonResponse(response, 200, {
     ok: true,
     service: "Little Learner Hub",
@@ -4486,6 +4487,10 @@ function clientRuntimeConfig() {
 }
 
 function clientAppScript(filePath) {
+  const stat = fs.statSync(filePath);
+  if (clientAppScriptCache.source && clientAppScriptCache.mtimeMs === stat.mtimeMs) {
+    return clientAppScriptCache.source;
+  }
   let source = fs.readFileSync(filePath, "utf8");
   const config = clientRuntimeConfig();
   source = source.replace(
@@ -4496,6 +4501,7 @@ function clientAppScript(filePath) {
     /const firebaseAuthConfig = \{\n  apiKey: ".*?",\n  authDomain: ".*?",\n  projectId: ".*?",\n  appId: ".*?",\n\};/,
     `const firebaseAuthConfig = ${JSON.stringify(config.firebase, null, 2)};`,
   );
+  clientAppScriptCache = { mtimeMs: stat.mtimeMs, source };
   return source;
 }
 
