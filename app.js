@@ -954,6 +954,9 @@ function buildLessonPlans() {
   })));
 }
 
+// FUTURE ADMIN BUILD: Observation Packs (buildObservationLibrary) are currently hardcoded.
+// A future admin section should allow creating, editing, and managing observation packs
+// by learning area and age group, similar to the Activities/Forms/Printables managers.
 function buildObservationLibrary() {
   const stems = {
     Cognitive: ["solved a simple problem", "matched familiar objects", "remembered a routine", "explored cause and effect", "sorted materials"],
@@ -1773,6 +1776,9 @@ This bundle is a template and does not replace legal, tax, medical, or licensing
   ].join("\n\n");
 }
 
+// FUTURE ADMIN BUILD: Menu Center (buildMenuLibrary) is currently hardcoded.
+// A future admin section should allow creating, editing, and managing menu packs
+// (weekly menus, age-based packs) via the admin dashboard, similar to Activities/Forms/Printables.
 function buildMenuLibrary() {
   const weeklyMenus = Array.from({ length: 52 }, (_, index) => ({
     id: `menu-week-${index + 1}`,
@@ -3161,6 +3167,9 @@ const adminLessonUnsavedWarning = "You have unsaved changes. Leave without savin
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
 const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","activities","forms","printables","reviews","homepage","founder","images","analytics","support","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding"]);
+// FUTURE ADMIN BUILD: lessonPlanResourceCategories is currently hardcoded.
+// A future admin section should allow adding, renaming, and reordering these category labels
+// so new upload categories can be managed without a code change.
 const lessonPlanResourceCategories = ["Coloring Pages", "Tracing Activities", "Counting Activities", "Matching Activities", "Crafts", "Teacher Resources", "Activity Photos", "General"];
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "dashboard";
 let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabRaw) ? adminActiveSectionTabRaw : "dashboard";
@@ -16926,8 +16935,43 @@ function renderContentHealthDashboard() {
       <p class="eyebrow">Content Health</p>
       <h4>Library Status Overview</h4>
       <p class="muted-copy">Only <strong>🟢 Approved</strong> and <strong>⭐ Featured</strong> content is visible to users.</p>
-      <div class="admin-owner-lists" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">
-        ${cardHtml}
+      </div>
+    </div>
+    ${renderFutureAdminBuildItems()}
+  `;
+}
+
+function renderFutureAdminBuildItems() {
+  const futureItems = [
+    {
+      icon: "🍽️",
+      label: "Menu Center Admin",
+      detail: "buildMenuLibrary() is hardcoded. Future build: admin UI to create, edit, and manage weekly and age-based menu packs without a code change.",
+    },
+    {
+      icon: "🗂️",
+      label: "Resource Categories Admin",
+      detail: "lessonPlanResourceCategories is a hardcoded array. Future build: admin UI to add, rename, and reorder lesson plan resource upload categories.",
+    },
+    {
+      icon: "👁️",
+      label: "Observation Packs Admin",
+      detail: "buildObservationLibrary() is hardcoded. Future build: admin UI to create and manage observation packs by age group and learning area, similar to Activities/Forms/Printables.",
+    },
+  ];
+  return `
+    <div class="admin-owner-section">
+      <p class="eyebrow">Future Admin Build Items</p>
+      <h4>Not Yet Editable via Admin</h4>
+      <p class="muted-copy">The following content sections are currently hardcoded and do not have admin save forms. They are tracked here as planned future build items.</p>
+      <div class="admin-owner-lists" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))">
+        ${futureItems.map(({ icon, label, detail }) => `
+          <article class="analytics-card content-health-card">
+            <h4>${icon} ${escapeHtml(label)}</h4>
+            <p class="muted-copy" style="font-size:0.85rem;margin:0">${escapeHtml(detail)}</p>
+            <p style="margin:0.5rem 0 0"><span class="tag tag-hidden">Future Build</span></p>
+          </article>
+        `).join("")}
       </div>
     </div>
   `;
