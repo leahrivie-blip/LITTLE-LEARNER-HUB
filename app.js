@@ -860,6 +860,33 @@ function isLessonPlanTemporarilyHidden(resource) {
   return Boolean(lessonPlanTemporaryHiddenReason(resource));
 }
 
+// ─── 4-Status Content System ──────────────────────────────────────────────────
+// Status values: "draft" | "approved" | "featured" | "archived"
+// Derived from existing visible/archived/featured boolean fields for backward compatibility.
+
+const contentStatusEmoji = { draft: "🟡", approved: "🟢", featured: "⭐", archived: "📦" };
+const contentStatusLabel = { draft: "Draft", approved: "Approved", featured: "Featured", archived: "Archived" };
+
+function contentItemStatus(item) {
+  if (!item) return "draft";
+  if (item.archived === true) return "archived";
+  if (item.visible === true && item.featured === true) return "featured";
+  if (item.visible === true) return "approved";
+  return "draft";
+}
+
+function contentStatusFields(status, now = new Date().toISOString()) {
+  if (status === "archived") return { visible: false, archived: true, featured: false, updatedAt: now };
+  if (status === "featured") return { visible: true, archived: false, featured: true, updatedAt: now };
+  if (status === "approved") return { visible: true, archived: false, featured: false, updatedAt: now };
+  return { visible: false, archived: false, featured: false, updatedAt: now }; // draft
+}
+
+function contentStatusHtml(item) {
+  const status = contentItemStatus(item);
+  return `<span class="content-status content-status-${status}">${contentStatusEmoji[status]} ${contentStatusLabel[status]}</span>`;
+}
+
 function isResourceVisibleToCurrentUser(resource) {
   if (!resource) return false;
   if (resource.archived === true && !hasAdminFullAccess()) return false;
@@ -3678,7 +3705,7 @@ ${merged.reflectionNotes}`;
 }
 
 function applyLessonPlanOverrides(items, includeHidden = false) {
-  return items.flatMap((resource) => {
+  const result = items.flatMap((resource) => {
     if (resource.category !== "Lesson Plans") return [resource];
     const override = lessonPlanOverrideFor(resource.id);
     if (override?.archived === true && !includeHidden) return [];
@@ -3693,10 +3720,20 @@ function applyLessonPlanOverrides(items, includeHidden = false) {
       previewData: override.thumbnailUrl || resource.previewData || "",
       lessonPlanOverride: override,
       archived: override.archived === true,
+      featured: override.featured === true,
     } : resource;
     if (!includeHidden && (override?.visible !== true || override?.archived === true)) return [];
     return [merged];
   });
+  // Sort featured plans first for user-facing library
+  if (!includeHidden) {
+    result.sort((a, b) => {
+      const aFeatured = (a.featured === true || a.lessonPlanOverride?.featured === true) ? 0 : 1;
+      const bFeatured = (b.featured === true || b.lessonPlanOverride?.featured === true) ? 0 : 1;
+      return aFeatured - bFeatured;
+    });
+  }
+  return result;
 }
 
 function allLessonPlansForAdmin() {
@@ -3707,6 +3744,7 @@ function allLessonPlansForAdmin() {
       const manuallyVisible = override.visible === true;
       const temporaryHiddenReason = manuallyVisible ? lessonPlanTemporaryHiddenReason({ ...resource, ...override }) : "";
       const archived = override.archived === true;
+      const featured = override.featured === true;
       const hiddenReason = !manuallyVisible
         ? (override?.visible === false ? "Manually hidden by admin" : "Not yet published")
         : temporaryHiddenReason;
@@ -3722,6 +3760,7 @@ function allLessonPlansForAdmin() {
         visible: manuallyVisible,
         userVisible: !hiddenForUsers,
         archived,
+        featured,
         isCustom: false,
         hiddenReason,
         thumbnailUrl: override.thumbnailUrl || resource.previewData || "",
@@ -3731,6 +3770,7 @@ function allLessonPlansForAdmin() {
     });
   const customPlans = (effectiveSiteContent().customLessonPlans || []).map((item) => {
     const archived = item.archived === true;
+    const featured = item.featured === true;
     const visible = item.visible === true && !archived;
     const resource = {
       id: item.id,
@@ -3773,6 +3813,7 @@ function allLessonPlansForAdmin() {
       visible,
       userVisible: visible,
       archived,
+      featured,
       isCustom: true,
       hiddenReason: archived ? "Archived by admin" : (visible ? "" : "Hidden by admin"),
       thumbnailUrl: item.thumbnailUrl || "",
@@ -16477,6 +16518,51 @@ function renderAdminOwnerOverview() {
         `).join("") : `<div class="empty-state">No activity tracked yet.</div>`}
       </article>
     </div>
+    ${renderContentHealthDashboard()}
+  `;
+}
+
+function renderContentHealthDashboard() {
+  const allLessons = allLessonPlansForAdmin();
+  const activities = effectiveSiteContent().activities || [];
+  const forms = effectiveSiteContent().forms || [];
+  const printables = effectiveSiteContent().printables || [];
+  const contentTypes = [
+    { label: "Lesson Plans", icon: "📖", items: allLessons },
+    { label: "Activities", icon: "🎯", items: activities },
+    { label: "Forms", icon: "📝", items: forms },
+    { label: "Printables", icon: "🖨️", items: printables },
+  ];
+  const cardHtml = contentTypes.map(({ label, icon, items }) => {
+    const counts = {
+      total: items.length,
+      draft: items.filter((item) => contentItemStatus(item) === "draft").length,
+      approved: items.filter((item) => contentItemStatus(item) === "approved").length,
+      featured: items.filter((item) => contentItemStatus(item) === "featured").length,
+      archived: items.filter((item) => contentItemStatus(item) === "archived").length,
+    };
+    return `
+      <article class="analytics-card content-health-card">
+        <h4>${icon} ${escapeHtml(label)}</h4>
+        <div class="admin-mobile-stats" style="font-size:0.85rem">
+          <div><strong>${counts.total}</strong><span>Total</span></div>
+          <div><strong>${counts.draft}</strong><span>🟡 Draft</span></div>
+          <div><strong>${counts.approved}</strong><span>🟢 Approved</span></div>
+          <div><strong>${counts.featured}</strong><span>⭐ Featured</span></div>
+          <div><strong>${counts.archived}</strong><span>📦 Archived</span></div>
+        </div>
+      </article>
+    `;
+  }).join("");
+  return `
+    <div class="admin-owner-section">
+      <p class="eyebrow">Content Health</p>
+      <h4>Library Status Overview</h4>
+      <p class="muted-copy">Only <strong>🟢 Approved</strong> and <strong>⭐ Featured</strong> content is visible to users.</p>
+      <div class="admin-owner-lists" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">
+        ${cardHtml}
+      </div>
+    </div>
   `;
 }
 
@@ -16969,10 +17055,13 @@ function filteredAdminLessonPlans() {
   return allLessonPlansForAdmin().filter((item) => {
     const haystack = [item.title, item.age, item.theme, item.weeklyOverview, item.plan].join(" ").toLowerCase();
     const ageMatch = filters.age === "All Ages" || item.age === filters.age;
+    const itemStatus = contentItemStatus(item);
     const visibilityMatch = filters.visibility === "all"
-      || (filters.visibility === "visible" && item.userVisible)
-      || (filters.visibility === "hidden" && !item.userVisible && item.archived !== true)
-      || (filters.visibility === "archived" && item.archived === true);
+      || filters.visibility === itemStatus
+      // backward-compat aliases still work
+      || (filters.visibility === "visible" && (itemStatus === "approved" || itemStatus === "featured"))
+      || (filters.visibility === "hidden" && itemStatus === "draft")
+      || (filters.visibility === "archived" && itemStatus === "archived");
     const planMatch = filters.plan === "all"
       || (filters.plan === "free" && item.plan === "Free")
       || (filters.plan === "pro" && item.plan === "Pro");
@@ -17056,15 +17145,14 @@ function scrollToAdminLessonList() {
 function lessonPlanAdminCardHtml(plan) {
   const selected = adminLessonSelection.has(plan.id);
   const image = sanitizedImageSource(plan.thumbnailUrl);
-  const hiddenForUsers = !plan.userVisible;
-  const hiddenReason = hiddenForUsers ? (plan.hiddenReason || (plan.archived ? "Archived" : "Hidden from users")) : "";
   const isToggling = adminLessonTogglingId === plan.id;
-  // Label: use "Show" when not visible (covers both "never published" and "explicitly hidden")
-  // and "Hide" when currently visible to users
-  const toggleLabel = isToggling ? "Saving…" : (plan.userVisible ? "Hide" : "Show");
-  const visibilityStatusLabel = plan.archived ? "Archived" : plan.userVisible ? "Visible" : "Hidden";
+  const status = contentItemStatus(plan);
+  const statusEmoji = contentStatusEmoji[status];
+  const statusText = contentStatusLabel[status];
+  const statusCss = `content-status content-status-${status}`;
+  const hiddenReason = status === "draft" ? (plan.hiddenReason || "Not published") : status === "archived" ? "Archived by admin" : "";
   return `
-    <article class="admin-content-card ${plan.archived ? "is-archived" : hiddenForUsers ? "is-hidden" : "is-visible"}">
+    <article class="admin-content-card is-${status}">
       <label class="admin-select-row">
         <input type="checkbox" data-admin-lesson-select="${plan.id}" ${selected ? "checked" : ""} />
         <span>Select</span>
@@ -17073,25 +17161,38 @@ function lessonPlanAdminCardHtml(plan) {
         ${image ? `<img class="admin-mobile-thumb" src="${escapeHtml(image)}" alt="${escapeHtml(plan.title)} thumbnail" />` : `<div class="admin-mobile-thumb admin-mobile-thumb-placeholder">${escapeHtml(initialsFromName(plan.title, "LP"))}</div>`}
         <div>
           <strong>${escapeHtml(plan.title)}</strong>
-          <p>${escapeHtml(plan.age)} • ${escapeHtml(plan.plan)} • ${escapeHtml(visibilityStatusLabel)}</p>
+          <div class="tag-row" style="margin:2px 0 4px">
+            <span class="${statusCss}">${statusEmoji} ${escapeHtml(statusText)}</span>
+            <span class="tag">${escapeHtml(plan.age)}</span>
+            <span class="tag">${escapeHtml(plan.plan)}</span>
+          </div>
           <small>${escapeHtml(plan.theme || "Theme")}</small>
           <small>Last Updated: ${escapeHtml(adminLessonUpdatedLabel(plan.updatedAt))}</small>
           <small>Title/theme importer updated: ${plan.titleThemeImporterUpdated ? "Yes" : "No"}</small>
-          ${hiddenReason ? `<small class="tag">Hidden: ${escapeHtml(hiddenReason)}</small>` : ""}
-          <div class="tag-row">
-            <span class="tag">${escapeHtml(plan.age)}</span>
-            <span class="tag">${escapeHtml(plan.plan)}</span>
-            <span class="tag tag-visibility${plan.archived ? " tag-hidden" : plan.visible === true ? " tag-visible" : " tag-hidden"}">${escapeHtml(visibilityStatusLabel)}</span>
-            ${Array.isArray(plan.resource?.tags) ? plan.resource.tags.slice(0, 3).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("") : ""}
-          </div>
+          ${hiddenReason ? `<small class="tag">${escapeHtml(hiddenReason)}</small>` : ""}
+          ${Array.isArray(plan.resource?.tags) && plan.resource.tags.length ? `<div class="tag-row">${plan.resource.tags.slice(0, 3).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
         </div>
       </div>
       <div class="form-actions">
         <button class="ghost-button" type="button" data-admin-lesson-edit="${plan.id}">Edit</button>
         <button class="ghost-button" type="button" data-admin-lesson-duplicate="${plan.id}">Duplicate</button>
-        <button class="ghost-button" type="button" data-admin-lesson-toggle="${plan.id}" ${isToggling ? "disabled" : ""}>${toggleLabel}</button>
-        <button class="ghost-button" type="button" data-admin-lesson-archive="${plan.id}">${plan.archived ? "Restore" : "Archive"}</button>
-        <button class="ghost-button" type="button" data-admin-lesson-preview="${plan.id}">Preview</button>
+        <button class="ghost-button" type="button" data-admin-lesson-preview="${plan.id}">👁️ View Live</button>
+        ${status === "archived"
+          ? `<button class="ghost-button" type="button" data-admin-lesson-set-status="${plan.id}:approved">🟢 Restore</button>`
+          : `<button class="ghost-button" type="button" data-admin-lesson-toggle="${plan.id}" ${isToggling ? "disabled" : ""}>${isToggling ? "Saving…" : (status === "approved" || status === "featured" ? "🟡 Save Draft" : "🟢 Publish")}</button>`
+        }
+        ${status !== "featured" && status !== "archived"
+          ? `<button class="ghost-button" type="button" data-admin-lesson-set-status="${plan.id}:featured">⭐ Feature</button>`
+          : ""
+        }
+        ${status === "featured"
+          ? `<button class="ghost-button" type="button" data-admin-lesson-set-status="${plan.id}:approved">🟢 Unfeature</button>`
+          : ""
+        }
+        ${status !== "archived"
+          ? `<button class="ghost-button" type="button" data-admin-lesson-archive="${plan.id}">📦 Archive</button>`
+          : ""
+        }
         <button class="danger-button" type="button" data-admin-lesson-delete="${plan.id}">Delete</button>
       </div>
     </article>
@@ -17145,11 +17246,12 @@ function renderAdminContentManager() {
   const content = effectiveSiteContent();
   const allLessons = allLessonPlansForAdmin();
   const lessons = filteredAdminLessonPlans();
-  const visibilityCounts = {
+  const statusCounts = {
     all: allLessons.length,
-    visible: allLessons.filter((item) => item.userVisible).length,
-    hidden: allLessons.filter((item) => !item.userVisible && item.archived !== true).length,
-    archived: allLessons.filter((item) => item.archived === true).length,
+    draft: allLessons.filter((item) => contentItemStatus(item) === "draft").length,
+    approved: allLessons.filter((item) => contentItemStatus(item) === "approved").length,
+    featured: allLessons.filter((item) => contentItemStatus(item) === "featured").length,
+    archived: allLessons.filter((item) => contentItemStatus(item) === "archived").length,
   };
   const lessonRecord = allLessons.find((item) => item.id === adminLessonEditorId)
     || lessons[0]
@@ -17171,6 +17273,7 @@ function renderAdminContentManager() {
   const homepage = content.homepage || {};
   const images = Array.isArray(content.images) ? content.images : [];
   const imageRecord = images.find((item) => item.id === adminImageEditorId) || images[0] || { id: "", label: "", group: "", imageUrl: "" };
+  const curLessonVisFilter = document.querySelector("#adminLessonVisibilityFilter")?.value || "all";
   target.innerHTML = `
     <div class="admin-manager-grid">
       <section class="admin-manager-section" data-admin-cm-section="lesson-plans">
@@ -17181,22 +17284,26 @@ function renderAdminContentManager() {
         <div class="admin-mobile-toolbar">
           <label><span>Search</span><input id="adminLessonSearch" type="search" placeholder="Search lesson plans" value="${escapeHtml(document.querySelector("#adminLessonSearch")?.value || "")}" /></label>
           <label><span>Age group</span><select id="adminLessonAgeFilter"><option${(document.querySelector("#adminLessonAgeFilter")?.value || "All Ages") === "All Ages" ? " selected" : ""}>All Ages</option>${["Infant", "Toddler", "Preschool"].map((age) => `<option${(document.querySelector("#adminLessonAgeFilter")?.value || "") === age ? " selected" : ""}>${age}</option>`).join("")}</select></label>
-          <label><span>Status</span><select id="adminLessonVisibilityFilter">${[["all", "All"], ["visible", "Visible"], ["hidden", "Hidden"], ["archived", "Archived"]].map(([value, label]) => `<option value="${value}"${(document.querySelector("#adminLessonVisibilityFilter")?.value || "all") === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
+          <label><span>Status</span><select id="adminLessonVisibilityFilter">${[["all", "All"], ["draft", "🟡 Draft"], ["approved", "🟢 Approved"], ["featured", "⭐ Featured"], ["archived", "📦 Archived"]].map(([value, label]) => `<option value="${value}"${curLessonVisFilter === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
           <label><span>Plan</span><select id="adminLessonPlanFilter">${[["all", "All"], ["free", "Free"], ["pro", "Pro"]].map(([value, label]) => `<option value="${value}"${(document.querySelector("#adminLessonPlanFilter")?.value || "all") === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
         </div>
         <div class="admin-mobile-stats">
-          <div><strong>${visibilityCounts.all}</strong><span>All</span></div>
-          <div><strong>${visibilityCounts.visible}</strong><span>Visible</span></div>
-          <div><strong>${visibilityCounts.hidden}</strong><span>Hidden</span></div>
-          <div><strong>${visibilityCounts.archived}</strong><span>Archived</span></div>
+          <div><strong>${statusCounts.all}</strong><span>All</span></div>
+          <div><strong>${statusCounts.draft}</strong><span>🟡 Draft</span></div>
+          <div><strong>${statusCounts.approved}</strong><span>🟢 Approved</span></div>
+          <div><strong>${statusCounts.featured}</strong><span>⭐ Featured</span></div>
+          <div><strong>${statusCounts.archived}</strong><span>📦 Archived</span></div>
         </div>
         <div class="form-actions">
-          <button class="primary-button" type="button" data-admin-bulk="hide">Bulk Hide</button>
-          <button class="ghost-button" type="button" data-admin-bulk="unhide">Bulk Unhide</button>
+          <button class="ghost-button" type="button" data-admin-bulk="hide">🟡 Draft Selected</button>
+          <button class="ghost-button" type="button" data-admin-bulk="unhide">🟢 Publish Selected</button>
+          <button class="ghost-button" type="button" data-admin-bulk="feature">⭐ Feature Selected</button>
+          <button class="ghost-button" type="button" data-admin-bulk="archive">📦 Archive Selected</button>
           <button class="ghost-button" type="button" data-admin-bulk="free">Bulk Mark Free</button>
           <button class="ghost-button" type="button" data-admin-bulk="pro">Bulk Mark Pro</button>
+          <button class="ghost-button" type="button" id="adminExportLessonPlansButton">💾 Export Backup</button>
           <button class="ghost-button" type="button" id="adminShowOnly50Button">Show only 50 per age group</button>
-          <button class="danger-button" type="button" id="adminHideAllLessonPlansButton">Hide ALL Lesson Plans</button>
+          <button class="danger-button" type="button" id="adminArchiveAllLessonPlansButton">📦 Archive ALL Lesson Plans</button>
         </div>
         <div class="admin-mobile-list" id="adminLessonPlanList">${lessons.map(lessonPlanAdminCardHtml).join("") || `<div class="empty-state">No lesson plans match these filters.</div>`}</div>
         ${lessonRecord ? `
@@ -17204,7 +17311,7 @@ function renderAdminContentManager() {
             <input type="hidden" name="id" value="${escapeHtml(lessonRecord.id)}" />
             <h4 class="admin-lesson-editing-heading" id="adminLessonEditorHeading">Editing: ${escapeHtml(lessonRecord.title || "Untitled Lesson Plan")}</h4>
             <p class="muted-copy">
-              ${lessonRecord.userVisible ? "Visible to users" : `Hidden from users${lessonRecord.hiddenReason ? ` — ${escapeHtml(lessonRecord.hiddenReason)}` : ""}`} ·
+              ${contentStatusHtml(lessonRecord)} ·
               Last updated: ${escapeHtml(adminLessonUpdatedLabel(lessonRecord.updatedAt))} ·
               Title/theme importer updated: ${lessonRecord.titleThemeImporterUpdated ? "Yes" : "No"}
             </p>
@@ -17217,6 +17324,7 @@ function renderAdminContentManager() {
               <label>Free / Pro<select name="plan">${["Free", "Pro"].map((plan) => `<option${lessonRecord.plan === plan ? " selected" : ""}>${plan}</option>`).join("")}</select></label>
             </div>
             <label class="admin-inline-toggle"><input type="checkbox" name="visible" ${lessonRecord.visible === true ? "checked" : ""} /> <span>Visible on public site</span></label>
+            <label class="admin-inline-toggle"><input type="checkbox" name="featured" ${lessonRecord.featured === true ? "checked" : ""} /> <span>⭐ Featured (prioritized in searches and recommendations)</span></label>
             <fieldset class="admin-fieldset admin-lesson-generator">
               <legend>✨ AI Lesson Plan Generator</legend>
               <p class="admin-generator-note">Fill in Age Group and Theme above, then click Generate to populate all fields automatically. Review and edit before saving.</p>
@@ -17224,7 +17332,7 @@ function renderAdminContentManager() {
               <div class="form-actions">
                 <button class="primary-button" type="button" id="adminLessonGenerateBtn">✨ Generate Lesson Plan</button>
                 <button class="ghost-button" type="button" id="adminLessonImportBtn">📋 Import Structured Lesson Plan</button>
-                <button class="ghost-button" type="button" id="adminLessonPreviewBtn">Preview Public View</button>
+                <button class="ghost-button" type="button" id="adminLessonPreviewBtn">👁️ View Live</button>
               </div>
               <div id="adminLessonOverwriteConfirm" class="admin-overwrite-confirm" hidden>
                 <p><strong>This will replace the current lesson plan content. Continue?</strong></p>
@@ -17260,7 +17368,7 @@ function renderAdminContentManager() {
             <label>Upload thumbnail<input name="thumbnailFile" type="file" accept="image/*" /></label>
             ${renderAdminLessonResourcesSection()}
             <div class="form-actions">
-              <button class="primary-button" type="submit">Save lesson plan</button>
+              <button class="primary-button" type="submit">💾 Save lesson plan</button>
               <button class="ghost-button" type="button" data-admin-lesson-back="true">Back to Lesson Plans</button>
               <button class="ghost-button" type="button" data-admin-lesson-reset="${escapeHtml(lessonRecord.id)}">Reset lesson to default</button>
             </div>
@@ -17504,6 +17612,7 @@ async function saveAdminLessonPlanForm(form) {
         reflectionNotes: normalizedMultilineText(formData.get("reflectionNotes")),
         plan: normalizedShortText(formData.get("plan")) || "Free",
         visible: formData.get("visible") === "on",
+        featured: formData.get("featured") === "on",
         archived: false,
         thumbnailUrl: uploadedImage || sanitizedImageSource(formData.get("thumbnailUrl")),
         updatedAt: now,
@@ -17543,6 +17652,7 @@ async function saveAdminLessonPlanForm(form) {
           reflectionNotes: normalizedMultilineText(formData.get("reflectionNotes")),
           plan: normalizedShortText(formData.get("plan")) || "Free",
           visible: formData.get("visible") === "on",
+          featured: formData.get("featured") === "on",
           archived: false,
           thumbnailUrl: uploadedImage || sanitizedImageSource(formData.get("thumbnailUrl")),
           updatedAt: now,
@@ -17568,9 +17678,12 @@ async function saveAdminLessonPlanForm(form) {
     console.log("[DIAG] saveAdminLessonPlanForm: save succeeded — updated record from store →", JSON.stringify(savedRecord ? { id: savedRecord.id, title: savedRecord.title, theme: savedRecord.theme, updatedAt: savedRecord.updatedAt } : null));
     setAdminLessonFormCleanState();
     const isVisible = formData.get("visible") === "on";
+    const isFeatured = formData.get("featured") === "on";
+    const savedStatus = isFeatured ? "featured" : isVisible ? "approved" : "draft";
+    const statusLine = `Status: ${contentStatusEmoji[savedStatus]} ${contentStatusLabel[savedStatus]}`;
     const successMsg = isVisible
-      ? "Saved successfully. This lesson plan is live on the website."
-      : "Saved successfully.";
+      ? `✓ Published Successfully — ${statusLine}`
+      : `✓ Saved Successfully — ${statusLine}`;
     setAdminLessonSaveFlowMessage(successMsg, { isSuccess: true });
     // Scroll the success message into view so the admin can see it on long forms
     const msgEl = document.querySelector("#adminLessonPlanMessage");
@@ -17649,16 +17762,17 @@ async function applyLessonPlanBulkAction(action) {
   const nextContent = nextSiteContentDraft();
   const byId = new Map(allLessonPlansForAdmin().map((item) => [item.id, item]));
   const customIds = new Set((nextContent.customLessonPlans || []).map((item) => item.id));
+  const applyBulkFields = (item) => {
+    if (action === "hide") return { ...item, visible: false, archived: false, featured: false, updatedAt: now };
+    if (action === "unhide") return { ...item, visible: true, archived: false, updatedAt: now };
+    if (action === "feature") return { ...item, visible: true, archived: false, featured: true, updatedAt: now };
+    if (action === "archive") return { ...item, visible: false, archived: true, featured: false, updatedAt: now };
+    if (action === "free") return { ...item, plan: "Free", updatedAt: now };
+    if (action === "pro") return { ...item, plan: "Pro", updatedAt: now };
+    return item;
+  };
   nextContent.customLessonPlans = (nextContent.customLessonPlans || []).map((item) => (
-    ids.includes(item.id)
-      ? {
-        ...item,
-        visible: action === "hide" ? false : action === "unhide" ? true : item.visible !== false,
-        archived: false,
-        plan: action === "free" ? "Free" : action === "pro" ? "Pro" : item.plan,
-        updatedAt: now,
-      }
-      : item
+    ids.includes(item.id) ? applyBulkFields(item) : item
   ));
   nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
   ids.forEach((id) => {
@@ -17666,14 +17780,7 @@ async function applyLessonPlanBulkAction(action) {
     const record = byId.get(id);
     if (!record) return;
     const current = nextContent.lessonPlans[id] || lessonPlanDefaults(record.resource);
-    nextContent.lessonPlans[id] = {
-      ...current,
-      id,
-      visible: action === "hide" ? false : action === "unhide" ? true : current.visible !== false,
-      archived: false,
-      plan: action === "free" ? "Free" : action === "pro" ? "Pro" : current.plan,
-      updatedAt: now,
-    };
+    nextContent.lessonPlans[id] = applyBulkFields({ ...current, id });
   });
   await saveAdminSiteContent(nextContent);
 }
@@ -17773,15 +17880,16 @@ async function archiveAdminLessonPlan(id) {
   if (record.isCustom) {
     const nextContent = nextSiteContentDraft();
     nextContent.customLessonPlans = (nextContent.customLessonPlans || []).map((item) => (
-      item.id === id ? { ...item, visible: false, archived: true, updatedAt: now } : item
+      item.id === id ? { ...item, visible: false, archived: true, featured: false, updatedAt: now } : item
     ));
     await saveAdminSiteContent(nextContent);
   } else {
     await updateLessonOverrides((lessonPlans) => {
       const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
-      lessonPlans[id] = { ...current, id, visible: false, archived: true, updatedAt: now };
+      lessonPlans[id] = { ...current, id, visible: false, archived: true, featured: false, updatedAt: now };
     });
   }
+  renderAdminContentManager();
 }
 
 async function deleteAdminLessonPlan(id) {
@@ -17839,6 +17947,85 @@ async function hideAllLessonPlans() {
     nextContent.lessonPlans[item.id] = { ...current, id: item.id, visible: false, updatedAt: now };
   });
   await saveAdminSiteContent(nextContent);
+}
+
+function exportAllLessonPlansJson() {
+  const all = allLessonPlansForAdmin();
+  const content = effectiveSiteContent();
+  const exportData = {
+    exportedAt: new Date().toISOString(),
+    totalPlans: all.length,
+    lessonPlanOverrides: content.lessonPlans || {},
+    customLessonPlans: content.customLessonPlans || [],
+    allPlans: all.map((plan) => ({
+      id: plan.id,
+      title: plan.title,
+      age: plan.age,
+      theme: plan.theme,
+      plan: plan.plan,
+      status: contentItemStatus(plan),
+      visible: plan.visible,
+      archived: plan.archived,
+      featured: plan.featured,
+      isCustom: plan.isCustom,
+      updatedAt: plan.updatedAt,
+    })),
+  };
+  try {
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `lesson-plans-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    window.alert(`Export failed: ${err.message || "Unknown error"}. Check your browser permissions.`);
+  }
+}
+
+async function archiveAllLessonPlans() {
+  const all = allLessonPlansForAdmin();
+  if (!all.length) {
+    window.alert("No lesson plans to archive.");
+    return;
+  }
+  const nonArchived = all.filter((item) => contentItemStatus(item) !== "archived");
+  if (!window.confirm(`Archive ALL ${nonArchived.length} non-archived lesson plans?\n\nA JSON backup will be downloaded first. Archived plans are hidden from users but fully recoverable by Admin.`)) return;
+  exportAllLessonPlansJson();
+  const now = new Date().toISOString();
+  const nextContent = nextSiteContentDraft();
+  nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
+  nextContent.customLessonPlans = (nextContent.customLessonPlans || []).map((item) => ({
+    ...item, visible: false, archived: true, featured: false, updatedAt: now,
+  }));
+  all.filter((item) => !item.isCustom).forEach((item) => {
+    const current = nextContent.lessonPlans[item.id] || lessonPlanDefaults(item.resource);
+    nextContent.lessonPlans[item.id] = { ...current, id: item.id, visible: false, archived: true, featured: false, updatedAt: now };
+  });
+  await saveAdminSiteContent(nextContent);
+  renderAdminContentManager();
+}
+
+async function setLessonPlanStatus(id, status) {
+  const record = allLessonPlansForAdmin().find((item) => item.id === id);
+  if (!record) return;
+  const fields = contentStatusFields(status);
+  if (record.isCustom) {
+    const nextContent = nextSiteContentDraft();
+    nextContent.customLessonPlans = (nextContent.customLessonPlans || []).map((item) => (
+      item.id === id ? { ...item, ...fields } : item
+    ));
+    await saveAdminSiteContent(nextContent);
+  } else {
+    await updateLessonOverrides((lessonPlans) => {
+      const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
+      lessonPlans[id] = { ...current, id, ...fields };
+    });
+  }
+  renderAdminContentManager();
 }
 
 async function saveAdminReviewForm(form) {
@@ -18219,7 +18406,7 @@ function filteredAdminManagedItems(type) {
   const config = adminManagedContentConfig[type];
   const { search, status, access, primary } = adminManagedFilterState(type);
   return adminManagedItems(type).filter((item) => {
-    const itemStatus = item.archived === true ? "archived" : (item.visible === true ? "visible" : "hidden");
+    const itemStatus = contentItemStatus(item);
     const haystack = [
       item.title,
       item.description,
@@ -18227,7 +18414,10 @@ function filteredAdminManagedItems(type) {
       item[config.primaryField],
       ...(Array.isArray(item.tags) ? item.tags : []),
     ].join(" ").toLowerCase();
-    const statusMatch = status === "all" || status === itemStatus;
+    const statusMatch = status === "all" || status === itemStatus
+      // backward-compat aliases
+      || (status === "visible" && (itemStatus === "approved" || itemStatus === "featured"))
+      || (status === "hidden" && itemStatus === "draft");
     const accessMatch = access === "all" || (access === "free" ? item.plan === "Free" : item.plan === "Pro");
     const primaryMatch = primary === "all" || (type === "forms" ? (item[config.primaryField] || "General") === primary : (item.age || "All Ages") === primary);
     return statusMatch && accessMatch && primaryMatch && haystack.includes(search);
@@ -18235,22 +18425,28 @@ function filteredAdminManagedItems(type) {
 }
 
 function adminManagedStatusLabel(item) {
-  if (item.archived === true) return "Archived";
-  return item.visible === true ? "Visible" : "Hidden";
+  const status = contentItemStatus(item);
+  return `${contentStatusEmoji[status]} ${contentStatusLabel[status]}`;
 }
 
 function adminManagedCardHtml(type, item) {
   const config = adminManagedContentConfig[type];
-  const status = adminManagedStatusLabel(item);
+  const status = contentItemStatus(item);
+  const statusEmoji = contentStatusEmoji[status];
+  const statusText = contentStatusLabel[status];
   const preview = sanitizedImageSource(item.previewData || item.thumbnailUrl || "");
   const metaLabel = item[config.primaryField] || (type === "forms" ? "General" : item.age || "All Ages");
   return `
-    <article class="admin-content-card ${item.archived === true ? "is-archived" : item.visible === true ? "is-visible" : "is-hidden"}">
+    <article class="admin-content-card is-${status}">
       <div class="admin-content-card-body">
         ${preview ? `<img class="admin-mobile-thumb" src="${escapeHtml(preview)}" alt="${escapeHtml(item.title)} preview" />` : `<div class="admin-mobile-thumb admin-mobile-thumb-placeholder">${escapeHtml(initialsFromName(item.title, config.icon))}</div>`}
         <div class="admin-content-card-copy">
           <strong>${escapeHtml(item.title || `Untitled ${config.singular}`)}</strong>
-          <p>${escapeHtml(item.age || "All Ages")} • ${escapeHtml(item.plan || "Free")} • ${escapeHtml(status)}</p>
+          <div class="tag-row" style="margin:2px 0 4px">
+            <span class="content-status content-status-${status}">${statusEmoji} ${escapeHtml(statusText)}</span>
+            <span class="tag">${escapeHtml(item.age || "All Ages")}</span>
+            <span class="tag">${escapeHtml(item.plan || "Free")}</span>
+          </div>
           <small>${escapeHtml(config.primaryLabel)}: ${escapeHtml(metaLabel)}</small>
           <small>Last Updated: ${escapeHtml(adminLessonUpdatedLabel(item.updatedAt))}</small>
           ${(Array.isArray(item.tags) && item.tags.length) ? `<div class="tag-row">${item.tags.slice(0, 5).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
@@ -18259,9 +18455,23 @@ function adminManagedCardHtml(type, item) {
       <div class="form-actions admin-content-card-actions">
         <button class="ghost-button" type="button" data-admin-managed-edit="${type}:${item.id}">Edit</button>
         <button class="ghost-button" type="button" data-admin-managed-duplicate="${type}:${item.id}">Duplicate</button>
-        <button class="ghost-button" type="button" data-admin-managed-toggle="${type}:${item.id}">${item.visible === true ? "Hide" : "Show"}</button>
-        <button class="ghost-button" type="button" data-admin-managed-archive="${type}:${item.id}">${item.archived === true ? "Restore" : "Archive"}</button>
-        <button class="ghost-button" type="button" data-admin-managed-preview="${type}:${item.id}">Preview</button>
+        <button class="ghost-button" type="button" data-admin-managed-preview="${type}:${item.id}">👁️ View Live</button>
+        ${status === "archived"
+          ? `<button class="ghost-button" type="button" data-admin-managed-set-status="${type}:${item.id}:approved">🟢 Restore</button>`
+          : `<button class="ghost-button" type="button" data-admin-managed-toggle="${type}:${item.id}">${(status === "approved" || status === "featured") ? "🟡 Save Draft" : "🟢 Publish"}</button>`
+        }
+        ${status !== "featured" && status !== "archived"
+          ? `<button class="ghost-button" type="button" data-admin-managed-set-status="${type}:${item.id}:featured">⭐ Feature</button>`
+          : ""
+        }
+        ${status === "featured"
+          ? `<button class="ghost-button" type="button" data-admin-managed-set-status="${type}:${item.id}:approved">🟢 Unfeature</button>`
+          : ""
+        }
+        ${status !== "archived"
+          ? `<button class="ghost-button" type="button" data-admin-managed-archive="${type}:${item.id}">📦 Archive</button>`
+          : ""
+        }
         <button class="danger-button" type="button" data-admin-managed-delete="${type}:${item.id}">Delete</button>
       </div>
     </article>
@@ -18270,15 +18480,19 @@ function adminManagedCardHtml(type, item) {
 
 function adminManagedStatsHtml(type) {
   const items = adminManagedItems(type);
-  const visible = items.filter((item) => item.visible === true && item.archived !== true).length;
-  const hidden = items.filter((item) => item.visible !== true && item.archived !== true).length;
-  const archived = items.filter((item) => item.archived === true).length;
+  const counts = {
+    draft: items.filter((item) => contentItemStatus(item) === "draft").length,
+    approved: items.filter((item) => contentItemStatus(item) === "approved").length,
+    featured: items.filter((item) => contentItemStatus(item) === "featured").length,
+    archived: items.filter((item) => contentItemStatus(item) === "archived").length,
+  };
   return `
     <div class="admin-mobile-stats">
       <div><strong>${items.length}</strong><span>Total</span></div>
-      <div><strong>${visible}</strong><span>Visible</span></div>
-      <div><strong>${hidden}</strong><span>Hidden</span></div>
-      <div><strong>${archived}</strong><span>Archived</span></div>
+      <div><strong>${counts.draft}</strong><span>🟡 Draft</span></div>
+      <div><strong>${counts.approved}</strong><span>🟢 Approved</span></div>
+      <div><strong>${counts.featured}</strong><span>⭐ Featured</span></div>
+      <div><strong>${counts.archived}</strong><span>📦 Archived</span></div>
     </div>
   `;
 }
@@ -18289,10 +18503,12 @@ function adminManagedFormHtml(type, item = {}) {
   const primaryOptions = config.primaryOptions();
   const title = item.id ? `Editing: ${escapeHtml(item.title || `Untitled ${config.singular}`)}` : `New ${config.singular}`;
   const primaryValue = item[config.primaryField] || (primaryOptions[0] || "General");
+  const statusLine = item.id ? `<p class="muted-copy">${contentStatusHtml(item)} · Last updated: ${escapeHtml(adminLessonUpdatedLabel(item.updatedAt))}</p>` : "";
   return `
     <form id="admin${type[0].toUpperCase()}${type.slice(1)}Form" class="panel-form admin-stacked-form" data-admin-managed-type="${type}">
       <input type="hidden" name="id" value="${escapeHtml(item.id || "")}" />
       <h4 class="admin-lesson-editing-heading">${title}</h4>
+      ${statusLine}
       <div class="form-grid-two">
         <label>${config.singular} Title<input name="title" value="${escapeHtml(item.title || "")}" placeholder="${escapeHtml(config.singular)} title" required /></label>
         <label>Age Group<select name="age">${ageOptions.map((age) => `<option${(item.age || "All Ages") === age ? " selected" : ""}>${age}</option>`).join("")}</select></label>
@@ -18310,9 +18526,10 @@ function adminManagedFormHtml(type, item = {}) {
         <label>Upload File<input name="file" type="file" accept=".pdf,image/*,.txt" /></label>
         <label>Preview Image<input name="preview" type="file" accept="image/*" /></label>
       </div>
-      <label class="admin-inline-toggle"><input name="visible" type="checkbox" ${item.visible === true ? "checked" : ""} /> <span>Visible to users</span></label>
+      <label class="admin-inline-toggle"><input name="visible" type="checkbox" ${item.visible === true ? "checked" : ""} /> <span>Visible to users (Approved)</span></label>
+      <label class="admin-inline-toggle"><input name="featured" type="checkbox" ${item.featured === true ? "checked" : ""} /> <span>⭐ Featured (prioritized in searches)</span></label>
       <div class="form-actions">
-        <button class="primary-button" type="submit">Save ${config.singular}</button>
+        <button class="primary-button" type="submit">💾 Save ${config.singular}</button>
         <button class="ghost-button" type="button" data-admin-managed-new="${type}">Create New</button>
       </div>
       <span class="form-message" id="admin${type[0].toUpperCase()}${type.slice(1)}Message"></span>
@@ -18341,12 +18558,12 @@ function renderAdminManagedCollection(type) {
     <div class="admin-mobile-toolbar">
       <label><span>Search</span><input id="admin${key}Search" type="search" placeholder="${escapeHtml(config.searchPlaceholder)}" /></label>
       <label><span>${config.primaryLabel}</span><select id="admin${key}Primary">${primaryOptions.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value === "all" ? "All" : value)}</option>`).join("")}</select></label>
-      <label><span>Status</span><select id="admin${key}Status">${[["all","All"],["visible","Visible"],["hidden","Hidden"],["archived","Archived"]].map(([value, label]) => `<option value="${value}">${escapeHtml(label)}</option>`).join("")}</select></label>
+      <label><span>Status</span><select id="admin${key}Status">${[["all","All"],["draft","🟡 Draft"],["approved","🟢 Approved"],["featured","⭐ Featured"],["archived","📦 Archived"]].map(([value, label]) => `<option value="${value}">${escapeHtml(label)}</option>`).join("")}</select></label>
       <label><span>Access</span><select id="admin${key}Access">${[["all","All"],["free","Free"],["pro","Pro"]].map(([value, label]) => `<option value="${value}">${escapeHtml(label)}</option>`).join("")}</select></label>
     </div>
     ${adminManagedStatsHtml(type)}
     <div class="admin-mobile-list">${filtered.length ? filtered.map((item) => adminManagedCardHtml(type, item)).join("") : `<div class="empty-state">No ${config.plural.toLowerCase()} match these filters.</div>`}</div>
-    ${adminManagedFormHtml(type, editorItem || { visible: false, plan: "Free", age: "All Ages", [config.primaryField]: config.primaryOptions()[0] || "General" })}
+    ${adminManagedFormHtml(type, editorItem || { visible: false, featured: false, plan: "Free", age: "All Ages", [config.primaryField]: config.primaryOptions()[0] || "General" })}
   `;
   const searchField = target.querySelector(`#admin${key}Search`);
   const primaryField = target.querySelector(`#admin${key}Primary`);
@@ -18400,6 +18617,7 @@ async function saveAdminManagedCollectionForm(type, form) {
     previewName: formData.get("preview")?.name || current.previewName || "",
     previewData: uploadedPreview || current.previewData || "",
     visible: formData.get("visible") === "on",
+    featured: formData.get("featured") === "on",
     archived: false,
     updatedAt: new Date().toISOString(),
   };
@@ -18414,31 +18632,34 @@ async function saveAdminManagedCollectionForm(type, form) {
   syncSiteManagedResources();
   setAdminManagedEditorId(type, id);
   renderAdminManagedCollection(type);
-  setFormMessage(`#admin${type[0].toUpperCase()}${type.slice(1)}Message`, `${config.singular} saved.`, true);
+  const savedStatus = contentItemStatus(entry);
+  const statusMsg = `✓ ${entry.visible ? "Published" : "Saved"} Successfully — Status: ${contentStatusEmoji[savedStatus]} ${contentStatusLabel[savedStatus]}`;
+  setFormMessage(`#admin${type[0].toUpperCase()}${type.slice(1)}Message`, statusMsg, true);
+}
+
+async function setAdminManagedCollectionItemStatus(type, id, status) {
+  const config = adminManagedContentConfig[type];
+  const fields = contentStatusFields(status);
+  const nextContent = nextSiteContentDraft();
+  nextContent[config.contentKey] = (nextContent[config.contentKey] || []).map((item) => (
+    item.id === id ? { ...item, ...fields } : item
+  ));
+  await saveAdminSiteContent(nextContent);
+  syncSiteManagedResources();
+  renderAdminManagedCollection(type);
 }
 
 async function toggleAdminManagedCollectionVisibility(type, id) {
-  const config = adminManagedContentConfig[type];
-  const nextContent = nextSiteContentDraft();
-  nextContent[config.contentKey] = (nextContent[config.contentKey] || []).map((item) => (
-    item.id === id ? { ...item, visible: item.visible !== true, archived: false, updatedAt: new Date().toISOString() } : item
-  ));
-  await saveAdminSiteContent(nextContent);
-  syncSiteManagedResources();
-  renderAdminManagedCollection(type);
+  const items = adminManagedItems(type);
+  const item = items.find((i) => i.id === id);
+  if (!item) return;
+  const currentStatus = contentItemStatus(item);
+  const nextStatus = (currentStatus === "approved" || currentStatus === "featured") ? "draft" : "approved";
+  await setAdminManagedCollectionItemStatus(type, id, nextStatus);
 }
 
 async function archiveAdminManagedCollectionItem(type, id) {
-  const config = adminManagedContentConfig[type];
-  const nextContent = nextSiteContentDraft();
-  nextContent[config.contentKey] = (nextContent[config.contentKey] || []).map((item) => (
-    item.id === id
-      ? { ...item, archived: item.archived !== true, visible: item.archived === true ? item.visible : false, updatedAt: new Date().toISOString() }
-      : item
-  ));
-  await saveAdminSiteContent(nextContent);
-  syncSiteManagedResources();
-  renderAdminManagedCollection(type);
+  await setAdminManagedCollectionItemStatus(type, id, "archived");
 }
 
 async function duplicateAdminManagedCollectionItem(type, id) {
@@ -26413,6 +26634,12 @@ document.addEventListener("click", async (event) => {
     await duplicateAdminLessonPlan(lessonDuplicateButton.dataset.adminLessonDuplicate);
     return;
   }
+  const lessonSetStatusButton = event.target.closest("[data-admin-lesson-set-status]");
+  if (lessonSetStatusButton) {
+    const [id, status] = (lessonSetStatusButton.dataset.adminLessonSetStatus || "").split(":");
+    if (id && status) await setLessonPlanStatus(id, status);
+    return;
+  }
   const lessonArchiveButton = event.target.closest("[data-admin-lesson-archive]");
   if (lessonArchiveButton) {
     await archiveAdminLessonPlan(lessonArchiveButton.dataset.adminLessonArchive);
@@ -26491,6 +26718,14 @@ document.addEventListener("click", async (event) => {
   const bulkButton = event.target.closest("[data-admin-bulk]");
   if (bulkButton) {
     await applyLessonPlanBulkAction(bulkButton.dataset.adminBulk);
+    return;
+  }
+  if (event.target.closest("#adminExportLessonPlansButton")) {
+    exportAllLessonPlansJson();
+    return;
+  }
+  if (event.target.closest("#adminArchiveAllLessonPlansButton")) {
+    await archiveAllLessonPlans();
     return;
   }
   if (event.target.closest("#adminShowOnly50Button")) {
@@ -26606,6 +26841,12 @@ document.addEventListener("click", async (event) => {
   if (event.target.id === "adminNewActivityButton" || event.target.id === "adminNewActivityButton2") {
     adminActivityEditorId = "";
     renderAdminActivitiesManager();
+    return;
+  }
+  const managedSetStatusButton = event.target.closest("[data-admin-managed-set-status]");
+  if (managedSetStatusButton) {
+    const [type, id, status] = (managedSetStatusButton.dataset.adminManagedSetStatus || "").split(":");
+    if (type && id && status) await setAdminManagedCollectionItemStatus(type, id, status);
     return;
   }
   const managedEditButton = event.target.closest("[data-admin-managed-edit]");
