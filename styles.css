@@ -478,7 +478,7 @@ button {
   overflow-x: auto;
   margin: 0 0 12px;
   padding: 10px 0 8px;
-  background: linear-gradient(180deg, rgba(255,255,255,1), rgba(255,255,255,0.97));
+  background: #fff;
 }
 
 .lesson-viewer-tab-row button {
@@ -7799,6 +7799,10 @@ body.home-view .topbar .search-wrap {
   .ai-tool-grid,
   .future-tool-grid,
   .category-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lesson-detail-meta {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
