@@ -2111,6 +2111,9 @@ async function generateOpenAiContent({ tool, prompt, age, plan, email, debug }) 
       return {
         output,
         model: OPENAI_MODEL,
+        // Always capture token usage for monitoring; rawResponse.usage is available in both /v1/responses and /v1/chat/completions
+        inputTokens: rawResponse?.usage?.input_tokens ?? rawResponse?.usage?.prompt_tokens ?? null,
+        outputTokens: rawResponse?.usage?.output_tokens ?? rawResponse?.usage?.completion_tokens ?? null,
         debug: debug ? {
           tool,
           model: OPENAI_MODEL,
@@ -2464,7 +2467,8 @@ function handleAdminAiUsage(request, response, url) {
   const avgResponseMs = successTimings.length ? Math.round(successTimings.reduce((a, b) => a + b, 0) / successTimings.length) : null;
   const totalInputTokens = logs.reduce((sum, l) => sum + (Number.isFinite(l.inputTokens) ? l.inputTokens : 0), 0);
   const totalOutputTokens = logs.reduce((sum, l) => sum + (Number.isFinite(l.outputTokens) ? l.outputTokens : 0), 0);
-  // $0.0025 per 1K input tokens + $0.01 per 1K output tokens (gpt-4o approximate blended)
+  // Cost estimate uses approximate gpt-4o pricing ($0.0025/1K input + $0.01/1K output).
+  // This is an approximation only — actual costs depend on the configured model and OpenAI's current rates.
   const estimatedCostUsd = Number(((totalInputTokens / 1000) * 0.0025 + (totalOutputTokens / 1000) * 0.01).toFixed(4));
   for (const log of logs) {
     const t = log.tool || "unknown";
@@ -3226,8 +3230,8 @@ async function handleAiGenerate(request, response) {
   try {
     const aiResult = await generateOpenAiContent(body);
     const responseTimeMs = Date.now() - startTime;
-    const inputTokens = aiResult.debug?.rawResponse?.usage?.input_tokens ?? null;
-    const outputTokens = aiResult.debug?.rawResponse?.usage?.output_tokens ?? null;
+    const inputTokens = aiResult.inputTokens ?? null;
+    const outputTokens = aiResult.outputTokens ?? null;
     const recorded = recordServerAiUse(email, plan, aiResult.output, { tool, responseTimeMs, inputTokens, outputTokens, success: true });
     jsonResponse(response, 200, {
       output: aiResult.output,
@@ -3257,7 +3261,7 @@ async function handleAiGenerate(request, response) {
       });
       failStore.aiUsageLogs = failStore.aiUsageLogs.slice(0, 5000);
       writeStore(failStore);
-    } catch (_) { /* non-critical */ }
+    } catch (err) { console.warn("[ai-fail-log] Could not write failure to aiUsageLogs:", err.message); }
     if (error.toolDisabled) {
       jsonResponse(response, 503, { error: error.message });
       return;
