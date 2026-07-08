@@ -461,8 +461,8 @@ button {
 
 .lesson-viewer-nav button.active {
   color: #fff;
-  background: #5b9bd5;
-  border-color: #5b9bd5;
+  background: var(--primary);
+  border-color: var(--primary);
 }
 
 .lesson-viewer-content {
@@ -494,8 +494,8 @@ button {
 
 .lesson-viewer-tab-row button.active {
   color: #fff;
-  background: #5b9bd5;
-  border-color: #5b9bd5;
+  background: var(--primary);
+  border-color: var(--primary);
 }
 
 .lesson-viewer-panel {
