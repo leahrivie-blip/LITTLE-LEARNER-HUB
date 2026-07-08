@@ -3343,10 +3343,10 @@ function renderAdminLessonResourcesSection() {
         <summary>+ Add Resource</summary>
         <div id="adminAddLessonResourceForm" class="lp-add-resource-form">
           <div class="form-grid-two">
-            <label>Resource title<input name="resourceTitle" placeholder="e.g. Farm Animal Coloring Sheet" required /></label>
+            <label>Resource title<input name="resourceTitle" placeholder="e.g. Farm Animal Coloring Sheet" /></label>
             <label>Category<select name="resourceCategory">${lessonPlanResourceCategories.map((cat) => `<option>${escapeHtml(cat)}</option>`).join("")}</select></label>
           </div>
-          <label>Upload file (image or PDF)<input name="resourceFile" type="file" accept="image/*,application/pdf" required /></label>
+          <label>Upload file (image or PDF)<input name="resourceFile" type="file" accept="image/*,application/pdf" /></label>
           <div class="form-actions">
             <button class="primary-button" type="button" data-admin-add-resource>Add Resource</button>
             <button class="ghost-button" type="button" data-close-add-resource>Cancel</button>
@@ -17448,8 +17448,9 @@ async function saveAdminLessonPlanForm(form) {
   const originalLabel = initialBtn ? initialBtn.textContent : "Save lesson plan";
   if (initialBtn) {
     initialBtn.disabled = true;
-    initialBtn.textContent = "Saving…";
+    initialBtn.textContent = "Saving...";
   }
+  setFormMessage("#adminLessonPlanMessage", "Saving...", true);
   try {
     const uploadedImage = await fileToImageDataUrl(formData.get("thumbnailFile"));
     const now = new Date().toISOString();
