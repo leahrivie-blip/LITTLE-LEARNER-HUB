@@ -3655,6 +3655,12 @@ body.home-view .topbar .search-wrap {
   color: var(--sage-dark);
 }
 
+/* Universal admin save — saving/success/error indicators */
+.form-message.admin-saving {
+  color: var(--muted);
+  font-style: italic;
+}
+
 .hidden-field {
   display: none !important;
 }
