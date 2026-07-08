@@ -302,6 +302,7 @@ function defaultStore() {
 function defaultSiteContentStore() {
   return {
     lessonPlans: {},
+    activities: [],
     reviews: [],
     founder: {},
     homepage: {},
@@ -389,6 +390,42 @@ function normalizedSimpleCard(value, fallbackId = "") {
   };
 }
 
+function normalizedTagList(value, limit = 24) {
+  const tags = Array.isArray(value) ? value : String(value || "").split(",");
+  return [...new Set(tags.map((item) => normalizedShortText(item, 80)).filter(Boolean))].slice(0, limit);
+}
+
+function normalizedActivityEntry(value, index = 0) {
+  const entry = value && typeof value === "object" ? value : {};
+  const status = normalizedShortText(entry.status, 40);
+  const normalizedStatus = ["Draft", "Published", "Hidden"].includes(status) ? status : (entry.hidden ? "Hidden" : "Published");
+  return {
+    id: normalizedShortText(entry.id || `activity-${index + 1}`, 160),
+    category: "Activity Center",
+    title: normalizedShortText(entry.title, 180),
+    description: normalizedMultilineText(entry.description, 4000),
+    instructions: normalizedMultilineText(entry.instructions, 8000),
+    age: normalizedShortText(entry.age, 40),
+    theme: normalizedShortText(entry.theme, 120),
+    activityCategory: normalizedShortText(entry.activityCategory, 120),
+    tags: normalizedTagList(entry.tags),
+    plan: normalizedShortText(entry.plan || "Free", 20) || "Free",
+    status: normalizedStatus,
+    hidden: entry.hidden === true || normalizedStatus === "Hidden",
+    featured: entry.featured === true,
+    linkedLessonPlanId: normalizedShortText(entry.linkedLessonPlanId, 160),
+    linkedLessonPlanTitle: normalizedShortText(entry.linkedLessonPlanTitle, 240),
+    sourceLessonPlanId: normalizedShortText(entry.sourceLessonPlanId, 160),
+    sourceLessonPlanTitle: normalizedShortText(entry.sourceLessonPlanTitle, 240),
+    sourceActivityId: normalizedShortText(entry.sourceActivityId, 160),
+    fileName: normalizedShortText(entry.fileName, 240),
+    fileData: normalizedMultilineText(entry.fileData, 1_000_000),
+    previewName: normalizedShortText(entry.previewName, 240),
+    previewData: sanitizedImageSource(entry.previewData),
+    updatedAt: normalizedShortText(entry.updatedAt, 80),
+  };
+}
+
 function normalizedSiteContent(value) {
   const input = value && typeof value === "object" ? value : {};
   const lessonPlansInput = input.lessonPlans && typeof input.lessonPlans === "object" ? input.lessonPlans : {};
@@ -403,6 +440,7 @@ function normalizedSiteContent(value) {
   );
   return {
     lessonPlans,
+    activities: normalizedList(input.activities, 5000, normalizedActivityEntry),
     reviews: normalizedList(input.reviews, 100, normalizedReviewEntry),
     founder: {
       name: normalizedShortText(input.founder?.name, 120),

@@ -751,6 +751,10 @@ function isInfantLegacyPlan(resource) {
 
 function isResourceVisibleToCurrentUser(resource) {
   if (!resource) return false;
+  if (resource.category === "Activity Center" && !hasAdminFullAccess()) {
+    if (resource.hidden) return false;
+    if (resource.status && resource.status !== "Published") return false;
+  }
   if (resource.category === "Printables" && isPrintablesUpgradeModeActive()) return false;
   if (isInfantLegacyPlan(resource) && isInfantLegacyUpgradeModeActive()) return false;
   return true;
@@ -2869,6 +2873,8 @@ let adminImageEditorId = "";
 let adminLessonSelection = new Set();
 let adminLessonEditorInitialSnapshot = "";
 let adminLessonSaving = false;
+const adminUploadDraftStorageKey = "llhAdminUploadDraft";
+const adminActivityStatusOptions = new Set(["Draft", "Published", "Hidden"]);
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
@@ -2980,6 +2986,7 @@ function installMobileNavigation() {
 function emptySiteContent() {
   return {
     lessonPlans: {},
+    activities: [],
     reviews: [],
     founder: {},
     homepage: {},
@@ -3047,6 +3054,278 @@ function cleanFounderHeading(value) {
 function fileToImageDataUrl(file) {
   if (!file?.name) return Promise.resolve("");
   return fileToDataUrl(file).then((dataUrl) => sanitizedImageSource(dataUrl));
+}
+
+function normalizedTagList(value, extra = []) {
+  const tags = Array.isArray(value)
+    ? value
+    : String(value || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  return [...new Set([...extra, ...tags].map((item) => normalizedShortText(item)).filter(Boolean))];
+}
+
+async function fileToDataUrlSafe(file, fallback = "") {
+  const nextValue = await fileToDataUrl(file);
+  return nextValue || String(fallback || "");
+}
+
+async function fileToImageDataUrlSafe(file, fallback = "") {
+  const nextValue = await fileToImageDataUrl(file);
+  return nextValue || sanitizedImageSource(fallback);
+}
+
+function adminLessonDraftStorageKey(id = adminLessonEditorId) {
+  return `llhAdminLessonDraft:${String(id || "").trim() || "new"}`;
+}
+
+function readAdminFormDraft(storageKey) {
+  return readSavedJson(storageKey, {});
+}
+
+function saveAdminFormDraft(storageKey, draft) {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(draft || {}));
+  } catch (error) {
+    console.warn("Could not save admin draft", error);
+  }
+}
+
+function clearAdminFormDraft(storageKey) {
+  try {
+    localStorage.removeItem(storageKey);
+  } catch (error) {
+    console.warn("Could not clear admin draft", error);
+  }
+}
+
+function collectAdminFormDraft(form) {
+  if (!form) return {};
+  const draft = {};
+  Array.from(form.elements || []).forEach((field) => {
+    if (!field.name || field.disabled || field.type === "submit" || field.type === "button" || field.type === "file") return;
+    draft[field.name] = field.type === "checkbox" ? Boolean(field.checked) : String(field.value || "");
+  });
+  return draft;
+}
+
+function applyAdminFormDraft(form, draft = {}) {
+  if (!form || !draft || typeof draft !== "object") return;
+  Object.entries(draft).forEach(([name, value]) => {
+    const field = form.elements?.namedItem(name);
+    if (!field) return;
+    if (field instanceof RadioNodeList) return;
+    if (field.type === "checkbox") {
+      field.checked = Boolean(value);
+      return;
+    }
+    field.value = String(value ?? "");
+  });
+}
+
+async function runAdminSave({
+  form,
+  messageTarget,
+  savingMessage = "Saving…",
+  successMessage = "Saved.",
+  action,
+  onSuccess,
+  onError,
+}) {
+  const submitButton = form?.querySelector("[type='submit']");
+  const originalLabel = submitButton?.textContent || "";
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.textContent = "Saving…";
+  }
+  setFormMessage(messageTarget, savingMessage, true);
+  try {
+    const result = await action();
+    setFormMessage(messageTarget, typeof successMessage === "function" ? successMessage(result) : successMessage, true);
+    if (typeof onSuccess === "function") onSuccess(result);
+    return result;
+  } catch (error) {
+    const message = error?.message || "Unknown error";
+    setFormMessage(messageTarget, `Save failed: ${message}`, false);
+    if (typeof onError === "function") onError(error);
+    throw error;
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.textContent = originalLabel;
+    }
+  }
+}
+
+function syncAdminStoredFileNote(kind, { name = "", emptyLabel = "" } = {}) {
+  const selector = kind === "preview" ? "#adminPreviewSelectionNote" : "#adminFileSelectionNote";
+  const target = document.querySelector(selector);
+  if (!target) return;
+  target.textContent = name ? `Selected: ${name}` : emptyLabel;
+}
+
+function syncAdminUploadFileNotes(form = document.querySelector("#uploadForm")) {
+  if (!form) return;
+  syncAdminStoredFileNote("file", {
+    name: form.querySelector('[name="fileNameStored"]')?.value || "",
+    emptyLabel: "No file selected.",
+  });
+  syncAdminStoredFileNote("preview", {
+    name: form.querySelector('[name="previewNameStored"]')?.value || "",
+    emptyLabel: "No preview image selected.",
+  });
+}
+
+function saveAdminUploadDraft(form = document.querySelector("#uploadForm")) {
+  if (!form) return;
+  saveAdminFormDraft(adminUploadDraftStorageKey, collectAdminFormDraft(form));
+}
+
+function restoreAdminUploadDraft(form = document.querySelector("#uploadForm")) {
+  if (!form) return;
+  applyAdminFormDraft(form, readAdminFormDraft(adminUploadDraftStorageKey));
+  syncAdminUploadFileNotes(form);
+}
+
+function saveAdminLessonDraft(form = document.querySelector("#adminLessonPlanForm")) {
+  if (!form) return;
+  saveAdminFormDraft(adminLessonDraftStorageKey(form.querySelector('[name="id"]')?.value), collectAdminFormDraft(form));
+}
+
+function restoreAdminLessonDraft(form = document.querySelector("#adminLessonPlanForm")) {
+  if (!form) return;
+  applyAdminFormDraft(form, readAdminFormDraft(adminLessonDraftStorageKey(form.querySelector('[name="id"]')?.value)));
+}
+
+function normalizedActivityRecord(value = {}, fallbackId = "") {
+  const record = value && typeof value === "object" ? value : {};
+  const status = normalizedShortText(record.status || "");
+  const normalizedStatus = adminActivityStatusOptions.has(status) ? status : (record.hidden ? "Hidden" : "Published");
+  return {
+    id: normalizedShortText(record.id || fallbackId || `activity-${Date.now()}`),
+    category: "Activity Center",
+    title: normalizedShortText(record.title),
+    description: normalizedMultilineText(record.description || ""),
+    instructions: normalizedMultilineText(record.instructions || ""),
+    age: normalizedShortText(record.age || "Preschool"),
+    theme: normalizedShortText(record.theme || ""),
+    activityCategory: normalizedShortText(record.activityCategory || ""),
+    tags: normalizedTagList(record.tags),
+    plan: normalizedShortText(record.plan || "Free") || "Free",
+    status: normalizedStatus,
+    hidden: record.hidden === true || normalizedStatus === "Hidden",
+    featured: record.featured === true,
+    linkedLessonPlanId: normalizedShortText(record.linkedLessonPlanId || ""),
+    linkedLessonPlanTitle: normalizedShortText(record.linkedLessonPlanTitle || ""),
+    sourceLessonPlanId: normalizedShortText(record.sourceLessonPlanId || ""),
+    sourceLessonPlanTitle: normalizedShortText(record.sourceLessonPlanTitle || ""),
+    sourceActivityId: normalizedShortText(record.sourceActivityId || ""),
+    fileName: normalizedShortText(record.fileName || ""),
+    fileData: String(record.fileData || ""),
+    previewName: normalizedShortText(record.previewName || ""),
+    previewData: sanitizedImageSource(record.previewData || ""),
+    updatedAt: normalizedShortText(record.updatedAt || new Date().toISOString()),
+  };
+}
+
+function activityRecordToResource(record) {
+  const activity = normalizedActivityRecord(record);
+  return {
+    ...activity,
+    title: activity.title,
+    age: activity.age,
+    plan: activity.plan,
+    description: activity.description || activity.instructions || "Activity resource",
+    format: activity.fileName ? "Uploaded File" : "Manual Resource",
+    month: "June",
+  };
+}
+
+function siteManagedActivityResources() {
+  return (effectiveSiteContent().activities || [])
+    .map((item) => activityRecordToResource(item))
+    .filter((item) => item.id && item.title);
+}
+
+function combinedAdminResources() {
+  return [...siteManagedActivityResources(), ...uploadedResources()];
+}
+
+function syncAdminLessonPlanOptions(form = document.querySelector("#uploadForm")) {
+  const select = form?.querySelector('[name="linkedLessonPlanId"]');
+  if (!select) return;
+  const currentValue = select.value || "";
+  const options = allLessonPlansForAdmin()
+    .map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.title || item.id)}</option>`)
+    .join("");
+  select.innerHTML = `<option value="">None</option>${options}`;
+  select.value = currentValue;
+}
+
+function lessonPlanActivitySummary(text) {
+  const clean = normalizedMultilineText(text);
+  if (!clean) return "";
+  return clean.split("\n").map((line) => line.trim()).find(Boolean) || "";
+}
+
+function buildLinkedActivitiesFromLessonPlan(id, payload) {
+  const days = [
+    ["Monday", payload.dailyActivities?.monday],
+    ["Tuesday", payload.dailyActivities?.tuesday],
+    ["Wednesday", payload.dailyActivities?.wednesday],
+    ["Thursday", payload.dailyActivities?.thursday],
+    ["Friday", payload.dailyActivities?.friday],
+  ];
+  return days
+    .filter(([, instructions]) => normalizedMultilineText(instructions))
+    .map(([day, instructions]) => normalizedActivityRecord({
+      id: `lesson-activity-${id}-${day.toLowerCase()}`,
+      title: `${payload.title} — ${day}`,
+      description: lessonPlanActivitySummary(instructions),
+      instructions,
+      age: payload.age,
+      theme: payload.theme,
+      activityCategory: "Lesson Plan Activity",
+      tags: normalizedTagList(payload.tags || [], [payload.theme, day, "Lesson Plan"]),
+      plan: payload.plan,
+      status: payload.visible === false ? "Hidden" : "Published",
+      hidden: payload.visible === false,
+      featured: payload.featured === true,
+      linkedLessonPlanId: id,
+      linkedLessonPlanTitle: payload.title,
+      sourceLessonPlanId: id,
+      sourceLessonPlanTitle: payload.title,
+      sourceActivityId: day.toLowerCase(),
+      previewName: payload.thumbnailUrl ? `${slug(payload.title || id)}-thumbnail` : "",
+      previewData: payload.thumbnailUrl || "",
+      updatedAt: new Date().toISOString(),
+    }));
+}
+
+function mergeLinkedActivities(existingActivities, linkedActivities, lessonId) {
+  const unrelated = (existingActivities || []).filter((item) => normalizedShortText(item.sourceLessonPlanId) !== lessonId);
+  const seen = new Set();
+  const mergedLinked = linkedActivities.filter((item) => {
+    const stableId = `${item.sourceLessonPlanId}:${item.sourceActivityId}`;
+    if (!stableId || seen.has(stableId)) return false;
+    seen.add(stableId);
+    return true;
+  });
+  return [...mergedLinked, ...unrelated];
+}
+
+function updateLinkedActivityVisibility(activities, lessonId, visible, plan) {
+  return (activities || []).map((item) => {
+    if (normalizedShortText(item.sourceLessonPlanId) !== lessonId) return item;
+    return normalizedActivityRecord({
+      ...item,
+      plan: plan || item.plan,
+      hidden: visible === false,
+      status: visible === false ? "Hidden" : (item.status === "Draft" ? "Draft" : "Published"),
+      updatedAt: new Date().toISOString(),
+    });
+  });
 }
 
 function captureDefaultSiteContent() {
@@ -3125,6 +3404,7 @@ function effectiveSiteContent() {
     ...base,
     ...overrides,
     lessonPlans: { ...(base.lessonPlans || {}), ...(overrides.lessonPlans || {}) },
+    activities: Array.isArray(overrides.activities) ? overrides.activities.map((item) => normalizedActivityRecord(item)) : [],
     reviews: (overrides.reviews?.length ? overrides.reviews : base.reviews || []).map((item) => ({
       ...item,
       imageUrl: sanitizedImageSource(item.imageUrl || ""),
@@ -3271,7 +3551,7 @@ function loadResources() {
   const saved = readSavedJson("llhUploadedResources", []);
   const starterWithoutOldGenerated = starterResources.filter((resource) => !["Observation Hub", "Lesson Plans"].includes(resource.category));
   const mergedLibrary = applyLessonPlanOverrides(libraryResources);
-  return applyObservationEdits([...starterWithoutOldGenerated, ...mergedLibrary, ...saved]);
+  return applyObservationEdits([...starterWithoutOldGenerated, ...mergedLibrary, ...siteManagedActivityResources(), ...saved]);
 }
 
 function observationEdits() {
@@ -16054,6 +16334,8 @@ function renderAdminContentManager() {
             <label>Reflection notes<textarea name="reflectionNotes" rows="3">${escapeHtml(lessonRecord.reflectionNotes || "")}</textarea></label>
             <label>Thumbnail image URL<input name="thumbnailUrl" value="${escapeHtml(lessonRecord.thumbnailUrl || "")}" placeholder="https://..." /></label>
             <label>Upload thumbnail<input name="thumbnailFile" type="file" accept="image/*" /></label>
+            <input type="hidden" name="thumbnailDataStored" value="${escapeHtml(lessonRecord.thumbnailUrl || "")}" />
+            <small id="adminLessonThumbnailNote">${lessonRecord.thumbnailUrl ? "Selected: saved thumbnail" : "No thumbnail selected."}</small>
             <div class="form-actions">
               <button class="primary-button" type="submit">Save lesson plan</button>
               <button class="ghost-button" type="button" data-admin-lesson-back="true">Back to Lesson Plans</button>
@@ -16188,7 +16470,15 @@ function renderAdminContentManager() {
       </section>
     </div>
   `;
-  setAdminLessonFormCleanState();
+  const lessonForm = document.querySelector("#adminLessonPlanForm");
+  if (lessonForm) {
+    restoreAdminLessonDraft(lessonForm);
+    updateAdminLessonEditorHeading();
+    const storedThumb = lessonForm.querySelector('[name="thumbnailDataStored"]')?.value || lessonForm.querySelector('[name="thumbnailUrl"]')?.value || "";
+    const note = document.querySelector("#adminLessonThumbnailNote");
+    if (note) note.textContent = storedThumb ? "Selected: draft thumbnail preserved" : "No thumbnail selected.";
+  }
+  setAdminLessonFormCleanState(lessonForm);
 }
 
 function nextSiteContentDraft() {
@@ -16210,91 +16500,104 @@ async function saveAdminLessonPlanForm(form) {
   const formData = new FormData(form);
   const id = String(formData.get("id") || "");
   if (!id) return;
-  const submitBtn = form.querySelector("[type='submit']");
-  const originalLabel = submitBtn ? submitBtn.textContent : "";
   adminLessonSaving = true;
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.textContent = "Saving…";
-  }
-  setFormMessage("#adminLessonPlanMessage", "Saving…", true);
   try {
-    const uploadedImage = await fileToImageDataUrl(formData.get("thumbnailFile"));
-    await updateLessonOverrides((lessonPlans) => {
-      lessonPlans[id] = {
-        id,
-        title: normalizedShortText(formData.get("title")),
-        age: normalizedShortText(formData.get("age")),
-        theme: normalizedShortText(formData.get("theme")),
-        weeklyOverview: normalizedMultilineText(formData.get("weeklyOverview")),
-        materials: normalizedMultilineText(formData.get("materials")),
-        objectives: normalizedMultilineText(formData.get("objectives")),
-        teacherLanguage: normalizedMultilineText(formData.get("teacherLanguage")),
-        elgConnections: normalizedMultilineText(formData.get("elgConnections")),
-        familyConnection: normalizedMultilineText(formData.get("familyConnection")),
-        reflectionNotes: normalizedMultilineText(formData.get("reflectionNotes")),
-        plan: normalizedShortText(formData.get("plan")) || "Free",
-        visible: formData.get("visible") === "on",
-        thumbnailUrl: uploadedImage || sanitizedImageSource(formData.get("thumbnailUrl")),
-        dailyActivities: {
-          monday: normalizedMultilineText(formData.get("monday")),
-          tuesday: normalizedMultilineText(formData.get("tuesday")),
-          wednesday: normalizedMultilineText(formData.get("wednesday")),
-          thursday: normalizedMultilineText(formData.get("thursday")),
-          friday: normalizedMultilineText(formData.get("friday")),
-        },
-      };
-      adminLessonEditorId = id;
+    const payload = {
+      id,
+      title: normalizedShortText(formData.get("title")),
+      age: normalizedShortText(formData.get("age")),
+      theme: normalizedShortText(formData.get("theme")),
+      weeklyOverview: normalizedMultilineText(formData.get("weeklyOverview")),
+      materials: normalizedMultilineText(formData.get("materials")),
+      objectives: normalizedMultilineText(formData.get("objectives")),
+      teacherLanguage: normalizedMultilineText(formData.get("teacherLanguage")),
+      elgConnections: normalizedMultilineText(formData.get("elgConnections")),
+      familyConnection: normalizedMultilineText(formData.get("familyConnection")),
+      reflectionNotes: normalizedMultilineText(formData.get("reflectionNotes")),
+      plan: normalizedShortText(formData.get("plan")) || "Free",
+      visible: formData.get("visible") === "on",
+      thumbnailUrl: await fileToImageDataUrlSafe(formData.get("thumbnailFile"), formData.get("thumbnailDataStored") || formData.get("thumbnailUrl")),
+      dailyActivities: {
+        monday: normalizedMultilineText(formData.get("monday")),
+        tuesday: normalizedMultilineText(formData.get("tuesday")),
+        wednesday: normalizedMultilineText(formData.get("wednesday")),
+        thursday: normalizedMultilineText(formData.get("thursday")),
+        friday: normalizedMultilineText(formData.get("friday")),
+      },
+    };
+    await runAdminSave({
+      form,
+      messageTarget: "#adminLessonPlanMessage",
+      successMessage: () => (payload.visible
+        ? "Lesson plan saved successfully. This lesson plan is live on the website."
+        : "Lesson plan saved successfully."),
+      action: async () => {
+        const nextContent = nextSiteContentDraft();
+        nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
+        nextContent.lessonPlans[id] = payload;
+        nextContent.activities = mergeLinkedActivities(nextContent.activities || [], buildLinkedActivitiesFromLessonPlan(id, payload), id);
+        adminLessonEditorId = id;
+        return saveAdminSiteContent(nextContent);
+      },
     });
+    const thumbStore = form.querySelector('[name="thumbnailDataStored"]');
+    if (thumbStore) thumbStore.value = payload.thumbnailUrl;
+    clearAdminFormDraft(adminLessonDraftStorageKey(id));
     setAdminLessonFormCleanState();
-    const isVisible = formData.get("visible") === "on";
-    const successMsg = isVisible
-      ? "Lesson plan saved successfully. This lesson plan is live on the website."
-      : "Lesson plan saved successfully.";
-    setFormMessage("#adminLessonPlanMessage", successMsg, true);
   } catch (err) {
-    setFormMessage("#adminLessonPlanMessage", `Save failed: ${err.message || "Unknown error"}`, false);
   } finally {
     adminLessonSaving = false;
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = originalLabel;
-    }
   }
 }
 
 async function resetLessonPlanOverride(id) {
-  await updateLessonOverrides((lessonPlans) => {
-    delete lessonPlans[id];
-  });
+  const record = allLessonPlansForAdmin().find((item) => item.id === id);
+  const nextContent = nextSiteContentDraft();
+  nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
+  delete nextContent.lessonPlans[id];
+  const fallback = record ? lessonPlanDefaults(record.resource) : null;
+  nextContent.activities = fallback
+    ? mergeLinkedActivities(nextContent.activities || [], buildLinkedActivitiesFromLessonPlan(id, fallback), id)
+    : (nextContent.activities || []).filter((item) => normalizedShortText(item.sourceLessonPlanId) !== id);
+  await saveAdminSiteContent(nextContent);
+  clearAdminFormDraft(adminLessonDraftStorageKey(id));
   adminLessonEditorId = id;
 }
 
 async function toggleLessonPlanVisibility(id) {
   const record = allLessonPlansForAdmin().find((item) => item.id === id);
   if (!record) return;
-  await updateLessonOverrides((lessonPlans) => {
-    const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
-    lessonPlans[id] = { ...current, id, visible: !(record.visible !== false) };
-  });
+  const nextVisible = !(record.visible !== false);
+  const nextContent = nextSiteContentDraft();
+  nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
+  const current = nextContent.lessonPlans[id] || lessonPlanDefaults(record.resource);
+  nextContent.lessonPlans[id] = { ...current, id, visible: nextVisible };
+  nextContent.activities = updateLinkedActivityVisibility(nextContent.activities || [], id, nextVisible, current.plan);
+  await saveAdminSiteContent(nextContent);
 }
 
 async function applyLessonPlanBulkAction(action) {
   const ids = Array.from(adminLessonSelection);
   if (!ids.length) return;
-  await updateLessonOverrides((lessonPlans) => {
-    ids.forEach((id) => {
-      const record = allLessonPlansForAdmin().find((item) => item.id === id);
-      if (!record) return;
-      const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
-      lessonPlans[id] = {
-        ...current,
-        id,
-        visible: action === "hide" ? false : action === "unhide" ? true : current.visible !== false,
-        plan: action === "free" ? "Free" : action === "pro" ? "Pro" : current.plan,
-      };
-    });
+  const nextContent = nextSiteContentDraft();
+  nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
+  let nextActivities = nextContent.activities || [];
+  ids.forEach((id) => {
+    const record = allLessonPlansForAdmin().find((item) => item.id === id);
+    if (!record) return;
+    const current = nextContent.lessonPlans[id] || lessonPlanDefaults(record.resource);
+    const nextVisible = action === "hide" ? false : action === "unhide" ? true : current.visible !== false;
+    const nextPlan = action === "free" ? "Free" : action === "pro" ? "Pro" : current.plan;
+    nextContent.lessonPlans[id] = {
+      ...current,
+      id,
+      visible: nextVisible,
+      plan: nextPlan,
+    };
+    nextActivities = updateLinkedActivityVisibility(nextActivities, id, nextVisible, nextPlan);
   });
+  nextContent.activities = nextActivities;
+  await saveAdminSiteContent(nextContent);
 }
 
 async function showOnlyFiftyLessonPlansPerAge() {
@@ -16303,17 +16606,22 @@ async function showOnlyFiftyLessonPlansPerAge() {
     map[item.age].push(item);
     return map;
   }, {});
-  await updateLessonOverrides((lessonPlans) => {
-    Object.values(grouped).forEach((items) => {
-      items
-        .slice()
-        .sort((a, b) => a.title.localeCompare(b.title))
-        .forEach((item, index) => {
-          const current = lessonPlans[item.id] || lessonPlanDefaults(item.resource);
-          lessonPlans[item.id] = { ...current, id: item.id, visible: index < 50 };
-        });
-    });
+  const nextContent = nextSiteContentDraft();
+  nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
+  let nextActivities = nextContent.activities || [];
+  Object.values(grouped).forEach((items) => {
+    items
+      .slice()
+      .sort((a, b) => a.title.localeCompare(b.title))
+      .forEach((item, index) => {
+        const current = nextContent.lessonPlans[item.id] || lessonPlanDefaults(item.resource);
+        const nextVisible = index < 50;
+        nextContent.lessonPlans[item.id] = { ...current, id: item.id, visible: nextVisible };
+        nextActivities = updateLinkedActivityVisibility(nextActivities, item.id, nextVisible, current.plan);
+      });
   });
+  nextContent.activities = nextActivities;
+  await saveAdminSiteContent(nextContent);
 }
 
 async function saveAdminReviewForm(form) {
@@ -16607,6 +16915,7 @@ function applyStructuredLessonPlanImport(fields) {
     }
   });
   updateAdminLessonEditorHeading();
+  saveAdminLessonDraft(form);
   return filled;
 }
 
@@ -16638,24 +16947,24 @@ function renderAdminDashboard() {
   renderAdminContentManager();
   const query = (document.querySelector("#adminSearchInput")?.value || "").trim().toLowerCase();
   const category = document.querySelector("#adminCategoryFilter")?.value || "All Categories";
-  const uploads = uploadedResources();
+  const uploads = combinedAdminResources();
   const filtered = uploads.filter((item) => {
     const matchesCategory = category === "All Categories" || item.category === category;
-    const haystack = [item.title, item.category, item.age, item.plan, item.description, ...(item.tags || [])].join(" ").toLowerCase();
+    const haystack = [item.title, item.category, item.age, item.plan, item.description, item.instructions, item.theme, item.linkedLessonPlanTitle, ...(item.tags || [])].join(" ").toLowerCase();
     return matchesCategory && haystack.includes(query);
   });
   const categoryCounts = ["Lesson Plans", "Observation Hub", "Forms Library", "Activity Center", "Menu Center", "Printables"]
     .map((name) => `<span>${name}: <strong>${uploads.filter((item) => item.category === name).length}</strong></span>`)
     .join("");
   summary.innerHTML = `
-    <div><strong>${uploads.length}</strong><span>uploaded resources</span></div>
+    <div><strong>${uploads.length}</strong><span>managed resources</span></div>
     <div><strong>${filtered.length}</strong><span>showing now</span></div>
     <div class="admin-category-counts">${categoryCounts}</div>
   `;
   table.innerHTML = filtered.length ? filtered.map(adminRow).join("") : `
     <tr>
       <td colspan="6">
-        <div class="empty-state">No uploaded content yet. Add your first lesson plan, observation, form, activity, menu, or printable.</div>
+        <div class="empty-state">No managed content yet. Add your first lesson plan, observation, form, activity, menu, or printable.</div>
       </td>
     </tr>
   `;
@@ -16664,6 +16973,8 @@ function renderAdminDashboard() {
   renderLaunchReadiness();
   renderAdminTickets();
   renderAdminAiTestCenter();
+  syncAdminLessonPlanOptions();
+  restoreAdminUploadDraft();
   applyAdminSectionVisibility();
 }
 
@@ -16673,7 +16984,7 @@ function adminRow(item) {
       <td>
         <strong>${item.title}</strong>
         <span>${item.description || "No description yet."}</span>
-        <small>${(item.tags || []).join(", ") || "No tags"}</small>
+        <small>${(item.tags || []).join(", ") || "No tags"}${item.linkedLessonPlanTitle ? ` · Linked to ${escapeHtml(item.linkedLessonPlanTitle)}` : ""}</small>
       </td>
       <td>${item.category}</td>
       <td>${item.age}</td>
@@ -16698,12 +17009,19 @@ function resetAdminForm() {
   if (!form) return;
   form.reset();
   form.querySelector('[name="id"]').value = "";
+  form.querySelector('[name="fileData"]').value = "";
+  form.querySelector('[name="fileNameStored"]').value = "";
+  form.querySelector('[name="previewDataStored"]').value = "";
+  form.querySelector('[name="previewNameStored"]').value = "";
+  syncAdminUploadFileNotes(form);
+  clearAdminFormDraft(adminUploadDraftStorageKey);
+  setFormMessage("#adminUploadMessage", "");
   document.querySelector("#adminSubmitButton").textContent = "Add Content";
   document.querySelector("#adminCancelEdit").style.display = "none";
 }
 
 function fillAdminForm(id) {
-  const item = uploadedResources().find((resource) => resource.id === id);
+  const item = combinedAdminResources().find((resource) => resource.id === id);
   const form = document.querySelector("#uploadForm");
   if (!item || !form) return;
   form.querySelector('[name="id"]').value = item.id;
@@ -16713,14 +17031,35 @@ function fillAdminForm(id) {
   form.querySelector('[name="plan"]').value = item.plan;
   form.querySelector('[name="tags"]').value = (item.tags || []).filter((tag) => tag !== "Uploaded").join(", ");
   form.querySelector('[name="description"]').value = item.description || "";
+  form.querySelector('[name="instructions"]').value = item.instructions || "";
+  form.querySelector('[name="theme"]').value = item.theme || "";
+  form.querySelector('[name="activityCategory"]').value = item.activityCategory || "";
+  form.querySelector('[name="linkedLessonPlanId"]').value = item.linkedLessonPlanId || item.sourceLessonPlanId || "";
+  form.querySelector('[name="status"]').value = item.status || (item.hidden ? "Hidden" : "Published");
+  form.querySelector('[name="featured"]').checked = item.featured === true;
+  form.querySelector('[name="hidden"]').checked = item.hidden === true;
+  form.querySelector('[name="fileData"]').value = item.fileData || "";
+  form.querySelector('[name="fileNameStored"]').value = item.fileName || "";
+  form.querySelector('[name="previewDataStored"]').value = item.previewData || "";
+  form.querySelector('[name="previewNameStored"]').value = item.previewName || "";
+  syncAdminUploadFileNotes(form);
+  saveAdminUploadDraft(form);
+  setFormMessage("#adminUploadMessage", "");
   document.querySelector("#adminSubmitButton").textContent = "Save Changes";
   document.querySelector("#adminCancelEdit").style.display = "inline-flex";
   form.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function deleteAdminResource(id) {
-  const uploads = uploadedResources();
-  saveUploadedResources(uploads.filter((item) => item.id !== id));
+async function deleteAdminResource(id) {
+  const activity = (effectiveSiteContent().activities || []).find((item) => item.id === id);
+  if (activity) {
+    const nextContent = nextSiteContentDraft();
+    nextContent.activities = (nextContent.activities || []).filter((item) => item.id !== id);
+    await saveAdminSiteContent(nextContent);
+  } else {
+    const uploads = uploadedResources();
+    saveUploadedResources(uploads.filter((item) => item.id !== id));
+  }
   favorites = favorites.filter((favorite) => favorite !== id);
   saveFavorites();
   renderAdminDashboard();
@@ -16858,6 +17197,7 @@ function fillAdminLessonPlanFormFields(fields, mode) {
     thumbUrl.placeholder = `Generated prompt: ${prompt.slice(0, 100)}${prompt.length > 100 ? "…" : ""}`;
   }
   updateAdminLessonEditorHeading();
+  saveAdminLessonDraft(form);
 }
 
 async function triggerAdminLessonGenerate(fillMode) {
@@ -21682,7 +22022,7 @@ document.addEventListener("click", async (event) => {
   if (adminEdit) fillAdminForm(adminEdit.dataset.adminEdit);
 
   const adminDelete = event.target.closest("[data-admin-delete]");
-  if (adminDelete) deleteAdminResource(adminDelete.dataset.adminDelete);
+  if (adminDelete) await deleteAdminResource(adminDelete.dataset.adminDelete);
 
   const adminLockButton = event.target.closest("#adminLockButton");
   if (adminLockButton) {
@@ -21812,6 +22152,12 @@ searchInput.addEventListener("input", () => {
 document.addEventListener("input", (event) => {
   if (event.target.matches("#adminLessonPlanForm [name='title']")) {
     updateAdminLessonEditorHeading();
+  }
+  if (event.target.closest("#adminLessonPlanForm")) {
+    saveAdminLessonDraft(event.target.closest("#adminLessonPlanForm"));
+  }
+  if (event.target.closest("#uploadForm")) {
+    saveAdminUploadDraft(event.target.closest("#uploadForm"));
   }
   if (event.target.matches("#adminLessonSearch")) {
     renderAdminContentManager();
@@ -22488,6 +22834,53 @@ document.addEventListener("change", (event) => {
     }
   }
 
+  if (event.target.closest("#adminLessonPlanForm")) {
+    const form = event.target.closest("#adminLessonPlanForm");
+    if (event.target.matches("#adminLessonPlanForm [name='thumbnailFile']")) {
+      const input = event.target;
+      const file = input.files?.[0];
+      if (file) {
+        fileToImageDataUrl(file).then((dataUrl) => {
+          const stored = form.querySelector('[name="thumbnailDataStored"]');
+          if (stored) stored.value = dataUrl;
+          const note = document.querySelector("#adminLessonThumbnailNote");
+          if (note) note.textContent = `Selected: ${file.name}`;
+          const urlField = form.querySelector('[name="thumbnailUrl"]');
+          if (urlField && !urlField.value.trim()) urlField.placeholder = `Selected upload: ${file.name}`;
+          saveAdminLessonDraft(form);
+        });
+      }
+    }
+    saveAdminLessonDraft(form);
+  }
+
+  if (event.target.closest("#uploadForm")) {
+    const form = event.target.closest("#uploadForm");
+    if (event.target.matches('#uploadForm [name="file"]')) {
+      const file = event.target.files?.[0];
+      if (file) {
+        fileToDataUrl(file).then((dataUrl) => {
+          form.querySelector('[name="fileData"]').value = dataUrl;
+          form.querySelector('[name="fileNameStored"]').value = file.name;
+          syncAdminUploadFileNotes(form);
+          saveAdminUploadDraft(form);
+        });
+      }
+    }
+    if (event.target.matches('#uploadForm [name="preview"]')) {
+      const file = event.target.files?.[0];
+      if (file) {
+        fileToImageDataUrl(file).then((dataUrl) => {
+          form.querySelector('[name="previewDataStored"]').value = dataUrl;
+          form.querySelector('[name="previewNameStored"]').value = file.name;
+          syncAdminUploadFileNotes(form);
+          saveAdminUploadDraft(form);
+        });
+      }
+    }
+    saveAdminUploadDraft(form);
+  }
+
   // Theme change detection — show regeneration prompt when admin changes the theme field
   if (event.target.matches("#adminLessonPlanForm [name='theme']")) {
     const input = event.target;
@@ -22639,37 +23032,71 @@ document.addEventListener("click", async (event) => {
 
 document.querySelector("#uploadForm")?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const form = new FormData(event.currentTarget);
-  const editId = form.get("id");
-  const file = form.get("file");
-  const preview = form.get("preview");
-  const existingItem = editId ? uploadedResources().find((item) => item.id === editId) : null;
-  const fileData = file?.name ? await fileToDataUrl(file) : existingItem?.fileData || "";
-  const previewData = preview?.name ? await fileToDataUrl(preview) : existingItem?.previewData || "";
-  const tags = String(form.get("tags") || "")
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean);
-  const uploaded = {
-    id: editId || `upload-${Date.now()}`,
-    category: form.get("category"),
-    title: form.get("title"),
-    age: form.get("age"),
-    plan: form.get("plan"),
-    month: "June",
-    tags: ["Uploaded", ...tags],
-    format: file?.name ? "Uploaded File" : "Manual Resource",
-    fileName: file?.name || existingItem?.fileName || "",
+  const formEl = event.currentTarget;
+  const form = new FormData(formEl);
+  const editId = normalizedShortText(form.get("id"));
+  const category = normalizedShortText(form.get("category"));
+  const stableId = editId || `upload-${Date.now()}`;
+  const existingItem = combinedAdminResources().find((item) => item.id === stableId || item.id === editId) || null;
+  const linkedLessonPlanId = normalizedShortText(form.get("linkedLessonPlanId"));
+  const linkedLessonPlan = linkedLessonPlanId ? allLessonPlansForAdmin().find((item) => item.id === linkedLessonPlanId) : null;
+  const hiddenChecked = form.get("hidden") === "on";
+  const requestedStatus = normalizedShortText(form.get("status"));
+  const status = hiddenChecked ? "Hidden" : (adminActivityStatusOptions.has(requestedStatus) ? requestedStatus : "Draft");
+  const fileData = await fileToDataUrlSafe(form.get("file"), form.get("fileData") || existingItem?.fileData || "");
+  const previewData = await fileToImageDataUrlSafe(form.get("preview"), form.get("previewDataStored") || existingItem?.previewData || "");
+  const payload = {
+    id: stableId,
+    category,
+    title: normalizedShortText(form.get("title")),
+    age: normalizedShortText(form.get("age")) || "Preschool",
+    plan: normalizedShortText(form.get("plan")) || "Free",
+    tags: normalizedTagList(form.get("tags"), category === "Activity Center" ? [] : ["Uploaded"]),
+    description: normalizedMultilineText(form.get("description")) || "New uploaded resource.",
+    instructions: normalizedMultilineText(form.get("instructions")),
+    theme: normalizedShortText(form.get("theme")),
+    activityCategory: normalizedShortText(form.get("activityCategory")),
+    linkedLessonPlanId,
+    linkedLessonPlanTitle: linkedLessonPlan?.title || "",
+    status,
+    hidden: hiddenChecked || status === "Hidden",
+    featured: form.get("featured") === "on",
+    fileName: normalizedShortText(form.get("file")?.name || form.get("fileNameStored") || existingItem?.fileName || ""),
     fileData,
-    previewName: preview?.name || existingItem?.previewName || "",
+    previewName: normalizedShortText(form.get("preview")?.name || form.get("previewNameStored") || existingItem?.previewName || ""),
     previewData,
-    description: form.get("description") || "New uploaded resource.",
+    updatedAt: new Date().toISOString(),
   };
-  const savedUploads = uploadedResources();
-  const updatedUploads = editId
-    ? savedUploads.map((item) => item.id === editId ? uploaded : item)
-    : [...savedUploads, uploaded];
-  saveUploadedResources(updatedUploads);
+  try {
+    await runAdminSave({
+      form: formEl,
+      messageTarget: "#adminUploadMessage",
+      successMessage: category === "Activity Center" ? "Activity saved." : "Resource saved.",
+      action: async () => {
+        if (category === "Activity Center") {
+          const nextContent = nextSiteContentDraft();
+          const activities = (nextContent.activities || []).filter((item) => item.id !== stableId);
+          nextContent.activities = [normalizedActivityRecord(payload), ...activities];
+          return saveAdminSiteContent(nextContent);
+        }
+        const savedUploads = uploadedResources();
+        const uploaded = {
+          ...payload,
+          month: existingItem?.month || "June",
+          format: payload.fileName ? "Uploaded File" : "Manual Resource",
+        };
+        const updatedUploads = editId
+          ? savedUploads.map((item) => item.id === editId ? uploaded : item)
+          : [...savedUploads, uploaded];
+        saveUploadedResources(updatedUploads);
+        rerenderActiveContent();
+        return uploaded;
+      },
+    });
+  } catch {
+    return;
+  }
+  clearAdminFormDraft(adminUploadDraftStorageKey);
   resetAdminForm();
   renderAdminDashboard();
 });

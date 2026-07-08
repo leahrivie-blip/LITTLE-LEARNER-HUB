@@ -756,16 +756,48 @@
                 </label>
                 <label>Tags<input name="tags" placeholder="Farm, fine motor, March" /></label>
               </div>
+              <div class="form-grid-two">
+                <label>Theme<input name="theme" placeholder="Farm animals" /></label>
+                <label>Activity category<input name="activityCategory" placeholder="Sensory, art, literacy" /></label>
+              </div>
               <label>Description<textarea name="description" rows="4" placeholder="What is included?"></textarea></label>
+              <label>Instructions<textarea name="instructions" rows="4" placeholder="Step-by-step activity instructions"></textarea></label>
+              <div class="form-grid-two">
+                <label>Linked lesson plan
+                  <select name="linkedLessonPlanId">
+                    <option value="">None</option>
+                  </select>
+                </label>
+                <label>Status
+                  <select name="status">
+                    <option>Draft</option>
+                    <option>Published</option>
+                    <option>Hidden</option>
+                  </select>
+                </label>
+              </div>
+              <div class="form-grid-two">
+                <label class="admin-inline-toggle"><input name="featured" type="checkbox" /> <span>Featured</span></label>
+                <label class="admin-inline-toggle"><input name="hidden" type="checkbox" /> <span>Hidden</span></label>
+              </div>
               <div class="form-grid-two">
                 <label>Download file<input name="file" type="file" /></label>
                 <label>Preview image<input name="preview" type="file" accept="image/*" /></label>
+              </div>
+              <input name="fileData" type="hidden" />
+              <input name="fileNameStored" type="hidden" />
+              <input name="previewDataStored" type="hidden" />
+              <input name="previewNameStored" type="hidden" />
+              <div class="form-grid-two">
+                <small id="adminFileSelectionNote">No file selected.</small>
+                <small id="adminPreviewSelectionNote">No preview image selected.</small>
               </div>
               <div class="form-actions">
                 <button class="primary-button" type="submit" id="adminSubmitButton">Add Content</button>
                 <button class="ghost-button" type="button" id="adminAddDemo">Add Demo Resource</button>
                 <button class="ghost-button" type="button" id="adminCancelEdit">Cancel Edit</button>
               </div>
+              <span class="form-message" id="adminUploadMessage"></span>
             </form>
             <div class="admin-manager">
               <div class="admin-controls">
