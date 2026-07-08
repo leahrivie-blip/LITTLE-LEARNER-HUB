@@ -2987,8 +2987,8 @@ async function loadSiteContentFromBackend() {
 async function loadAdminSiteContent() {
   const token = adminSession()?.token || "";
   if (!siteContentConfig.adminEndpoint || !canUseLaunchBackend() || !token) return effectiveSiteContent();
-  const params = new URLSearchParams({ adminToken: token });
-  const response = await fetch(`${siteContentConfig.adminEndpoint}?${params.toString()}`);
+  const params = new URLSearchParams({ adminToken: token, t: String(Date.now()) });
+  const response = await fetch(`${siteContentConfig.adminEndpoint}?${params.toString()}`, { cache: "no-store" });
   const data = await response.json();
   if (!response.ok) throw new Error(data?.error || "Could not load admin content.");
   siteContentState = data.siteContent || emptySiteContent();
