@@ -3634,12 +3634,13 @@ function analyticsSummary(store) {
   const userRows = users
     .map((user) => {
       const userEvents = events.filter((event) => event.user === user.email);
+      const displayName = user.name || user.displayName || [user.firstName, user.lastName].filter(Boolean).join(" ") || "";
       return {
         email: user.email,
         firstName: user.firstName || "",
         lastName: user.lastName || "",
-        fullName: user.name || user.displayName || [user.firstName, user.lastName].filter(Boolean).join(" ") || "",
-        name: user.name || user.displayName || [user.firstName, user.lastName].filter(Boolean).join(" ") || "",
+        fullName: displayName,
+        name: displayName,
         plan: user.plan || "Free",
         planDisplayName: user.planDisplayName || user.plan || "Free",
         accountStatus: user.accountStatus || "Active",
