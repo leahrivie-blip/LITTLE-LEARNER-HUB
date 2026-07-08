@@ -3011,6 +3011,11 @@ function normalizedMultilineText(value) {
   return String(value || "").replace(/\r\n?/g, "\n").trim();
 }
 
+function generatedRecordId(prefix) {
+  const random = window.crypto?.randomUUID ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `${prefix}-${random}`;
+}
+
 function sanitizedImageSource(value) {
   const text = String(value || "").trim();
   if (!text) return "";
@@ -3215,7 +3220,7 @@ function normalizedActivityRecord(value = {}, fallbackId = "") {
   const status = normalizedShortText(record.status || "");
   const normalizedStatus = adminActivityStatusOptions.has(status) ? status : (record.hidden ? "Hidden" : "Published");
   return {
-    id: normalizedShortText(record.id || fallbackId || `activity-${Date.now()}`),
+    id: normalizedShortText(record.id || fallbackId || generatedRecordId("activity")),
     category: "Activity Center",
     title: normalizedShortText(record.title),
     description: normalizedMultilineText(record.description || ""),
@@ -3248,7 +3253,7 @@ function activityRecordToResource(record) {
     title: activity.title,
     age: activity.age,
     plan: activity.plan,
-    description: activity.description || activity.instructions || "Activity resource",
+    description: activity.description || activity.instructions || "Untitled activity",
     format: activity.fileName ? "Uploaded File" : "Manual Resource",
     month: resourceMonthLabel(activity.updatedAt ? new Date(activity.updatedAt) : new Date()),
   };
@@ -16519,6 +16524,7 @@ async function saveAdminLessonPlanForm(form) {
   try {
     const storedThumbnail = formData.get("thumbnailDataStored") || "";
     const manualThumbnailUrl = formData.get("thumbnailUrl") || "";
+    const thumbnailFallbackUrl = storedThumbnail || manualThumbnailUrl;
     const payload = {
       id,
       title: normalizedShortText(formData.get("title")),
@@ -16533,7 +16539,7 @@ async function saveAdminLessonPlanForm(form) {
       reflectionNotes: normalizedMultilineText(formData.get("reflectionNotes")),
       plan: normalizedShortText(formData.get("plan")) || "Free",
       visible: formData.get("visible") === "on",
-      thumbnailUrl: await fileToImageDataUrlSafe(formData.get("thumbnailFile"), storedThumbnail || manualThumbnailUrl),
+      thumbnailUrl: await fileToImageDataUrlSafe(formData.get("thumbnailFile"), thumbnailFallbackUrl),
       dailyActivities: {
         monday: normalizedMultilineText(formData.get("monday")),
         tuesday: normalizedMultilineText(formData.get("tuesday")),
@@ -23059,7 +23065,7 @@ document.querySelector("#uploadForm")?.addEventListener("submit", async (event) 
   const form = new FormData(formEl);
   const editId = normalizedShortText(form.get("id"));
   const category = normalizedShortText(form.get("category"));
-  const stableId = editId || `upload-${Date.now()}`;
+  const stableId = editId || generatedRecordId("upload");
   const existingItem = combinedAdminResources().find((item) => item.id === stableId || item.id === editId) || null;
   const linkedLessonPlanId = normalizedShortText(form.get("linkedLessonPlanId"));
   const linkedLessonPlan = linkedLessonPlanId ? allLessonPlansForAdmin().find((item) => item.id === linkedLessonPlanId) : null;
