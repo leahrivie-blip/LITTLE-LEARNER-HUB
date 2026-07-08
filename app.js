@@ -3271,6 +3271,31 @@ function siteManagedActivityRecordById(id) {
   return (effectiveSiteContent().activities || []).find((item) => normalizedShortText(item.id) === stableId) || null;
 }
 
+function activitySavedContentDetails(activity, resource = {}) {
+  const record = activity || null;
+  const tags = (record?.tags || resource.tags || []).filter(Boolean);
+  const description = normalizedMultilineText(record?.description || resource.description || "");
+  const instructions = normalizedMultilineText(record?.instructions || resource.instructions || "");
+  const theme = normalizedShortText(record?.theme || resource.theme || "");
+  const activityCategory = normalizedShortText(record?.activityCategory || resource.activityCategory || "");
+  const previewData = sanitizedImageSource(record?.previewData || resource.previewData || "");
+  const fileData = String(record?.fileData || resource.fileData || "");
+  const fileName = normalizedShortText(record?.fileName || resource.fileName || "");
+  const previewName = normalizedShortText(record?.previewName || resource.previewName || "");
+  return {
+    tags,
+    description,
+    instructions,
+    theme,
+    activityCategory,
+    previewData,
+    fileData,
+    fileName,
+    previewName,
+    hasSavedContent: [description, instructions, theme, activityCategory, tags.join(", "), previewData, fileData, fileName, previewName].some(Boolean),
+  };
+}
+
 function combinedAdminResources() {
   return [...siteManagedActivityResources(), ...uploadedResources()];
 }
@@ -7277,40 +7302,25 @@ Check current CACFP/state rules, allergy plans, serving sizes, and infant/toddle
   }
   if (resource.category === "Activity Center") {
     const savedActivity = siteManagedActivityRecordById(resource.id);
-    const activityTags = (savedActivity?.tags || resource.tags || []).filter(Boolean);
-    const savedFields = [
-      normalizedMultilineText(savedActivity?.description || resource.description || ""),
-      normalizedMultilineText(savedActivity?.instructions || resource.instructions || ""),
-      normalizedShortText(savedActivity?.theme || resource.theme || ""),
-      normalizedShortText(savedActivity?.activityCategory || resource.activityCategory || ""),
-      activityTags.join(", "),
-      savedActivity?.previewData || resource.previewData || "",
-      savedActivity?.fileData || resource.fileData || "",
-      normalizedShortText(savedActivity?.fileName || resource.fileName || ""),
-      normalizedShortText(savedActivity?.previewName || resource.previewName || ""),
-    ].some(Boolean);
-    if (savedActivity && savedFields) {
-      const activityTheme = normalizedShortText(savedActivity.theme || resource.theme || "");
-      const activityType = normalizedShortText(savedActivity.activityCategory || resource.activityCategory || "");
+    const savedActivityDetails = activitySavedContentDetails(savedActivity, resource);
+    if (savedActivity && savedActivityDetails.hasSavedContent) {
       const uploadedText = decodedTextFileData(savedActivity);
-      const attachedFileName = normalizedShortText(savedActivity.fileName || resource.fileName || "");
-      const previewName = normalizedShortText(savedActivity.previewName || resource.previewName || "");
       const imageNotes = [];
-      if ((savedActivity.previewData || resource.previewData) && previewName) imageNotes.push(`Preview image: ${previewName}`);
-      if ((savedActivity.fileData || resource.fileData) && attachedFileName && !uploadedText) imageNotes.push(`Attached file: ${attachedFileName}`);
+      if (savedActivityDetails.previewData && savedActivityDetails.previewName) imageNotes.push(`Preview image: ${savedActivityDetails.previewName}`);
+      if (savedActivityDetails.fileData && savedActivityDetails.fileName && !uploadedText) imageNotes.push(`Attached file: ${savedActivityDetails.fileName}`);
       return [
         resource.title,
         "",
         `Age Group: ${resource.age}`,
-        `Theme: ${activityTheme || "Not specified"}`,
-        `Category: ${activityType || "Not specified"}`,
-        `Tags: ${activityTags.join(", ") || "None"}`,
+        `Theme: ${savedActivityDetails.theme || "Not specified"}`,
+        `Category: ${savedActivityDetails.activityCategory || "Not specified"}`,
+        `Tags: ${savedActivityDetails.tags.join(", ") || "None"}`,
         "",
         "Description",
-        normalizedMultilineText(savedActivity.description || resource.description || "No description provided."),
+        savedActivityDetails.description || "No description provided.",
         "",
         "Instructions",
-        normalizedMultilineText(savedActivity.instructions || resource.instructions || "No instructions provided."),
+        savedActivityDetails.instructions || "No instructions provided.",
         ...(uploadedText ? ["", "Attached File Content", uploadedText] : []),
         ...(imageNotes.length ? ["", "Saved Uploads", ...imageNotes] : []),
       ].join("\n");
@@ -8241,46 +8251,31 @@ function openResourceViewer(resourceId) {
   ].map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
   const body = document.querySelector("#resourceViewerBody");
   const savedActivity = resource.category === "Activity Center" ? siteManagedActivityRecordById(resource.id) : null;
-  const savedActivityContent = savedActivity && [
-    normalizedMultilineText(savedActivity.description || resource.description || ""),
-    normalizedMultilineText(savedActivity.instructions || resource.instructions || ""),
-    normalizedShortText(savedActivity.theme || resource.theme || ""),
-    normalizedShortText(savedActivity.activityCategory || resource.activityCategory || ""),
-    (savedActivity.tags || resource.tags || []).filter(Boolean).join(", "),
-    savedActivity.previewData || resource.previewData || "",
-    savedActivity.fileData || resource.fileData || "",
-  ].some(Boolean);
-  if (savedActivity && savedActivityContent) {
-    const activityTags = (savedActivity.tags || resource.tags || []).filter(Boolean);
+  const savedActivityDetails = activitySavedContentDetails(savedActivity, resource);
+  if (savedActivity && savedActivityDetails.hasSavedContent) {
     const uploadedText = decodedTextFileData(savedActivity);
-    const previewData = savedActivity.previewData || resource.previewData || "";
-    const fileData = savedActivity.fileData || resource.fileData || "";
-    const fileName = normalizedShortText(savedActivity.fileName || resource.fileName || "");
-    const previewName = normalizedShortText(savedActivity.previewName || resource.previewName || "");
-    const theme = normalizedShortText(savedActivity.theme || resource.theme || "");
-    const activityCategory = normalizedShortText(savedActivity.activityCategory || resource.activityCategory || "");
     body.innerHTML = `
       <article class="printable-resource-page">
         <section class="print-section print-cover">
           <h3>${escapeHtml(resource.title)}</h3>
-          <p>${escapeHtml(savedActivity.description || resource.description || "Activity details saved by admin.")}</p>
+          <p>${escapeHtml(savedActivityDetails.description || "Activity details saved by admin.")}</p>
           <p><strong>Age Group:</strong> ${escapeHtml(resource.age)}</p>
-          <p><strong>Theme:</strong> ${escapeHtml(theme || "Not specified")}</p>
-          <p><strong>Category:</strong> ${escapeHtml(activityCategory || "Not specified")}</p>
-          <p><strong>Tags:</strong> ${escapeHtml(activityTags.join(", ") || "None")}</p>
+          <p><strong>Theme:</strong> ${escapeHtml(savedActivityDetails.theme || "Not specified")}</p>
+          <p><strong>Category:</strong> ${escapeHtml(savedActivityDetails.activityCategory || "Not specified")}</p>
+          <p><strong>Tags:</strong> ${escapeHtml(savedActivityDetails.tags.join(", ") || "None")}</p>
         </section>
         <section class="print-section">
           <h3>Description</h3>
-          ${printableLinesHtml(normalizedMultilineText(savedActivity.description || resource.description || "No description provided.").split("\n"))}
+          ${printableLinesHtml((savedActivityDetails.description || "No description provided.").split("\n"))}
         </section>
         <section class="print-section">
           <h3>Instructions</h3>
-          ${printableLinesHtml(normalizedMultilineText(savedActivity.instructions || resource.instructions || "No instructions provided.").split("\n"))}
+          ${printableLinesHtml((savedActivityDetails.instructions || "No instructions provided.").split("\n"))}
         </section>
-        ${previewData ? `<section class="print-section"><h3>Preview Image</h3><img class="resource-viewer-image" src="${previewData}" alt="${escapeHtml(previewName || `${resource.title} preview`)}" /></section>` : ""}
-        ${fileData && fileData.startsWith("data:image") ? `<section class="print-section"><h3>${escapeHtml(fileName || "Uploaded Activity Image")}</h3><img class="resource-viewer-image" src="${fileData}" alt="${escapeHtml(fileName || resource.title)}" /></section>` : ""}
+        ${savedActivityDetails.previewData ? `<section class="print-section"><h3>Preview Image</h3><img class="resource-viewer-image" src="${savedActivityDetails.previewData}" alt="${escapeHtml(savedActivityDetails.previewName || `${resource.title} preview`)}" /></section>` : ""}
+        ${savedActivityDetails.fileData.startsWith("data:image") ? `<section class="print-section"><h3>${escapeHtml(savedActivityDetails.fileName || "Uploaded Activity Image")}</h3><img class="resource-viewer-image" src="${savedActivityDetails.fileData}" alt="${escapeHtml(savedActivityDetails.fileName || resource.title)}" /></section>` : ""}
         ${uploadedText ? `<section class="print-section"><h3>Attached File Content</h3>${printableLinesHtml(uploadedText.split("\n"))}</section>` : ""}
-        ${fileData && !fileData.startsWith("data:image") && !uploadedText ? `<section class="print-section"><h3>Attached File</h3><p>${escapeHtml(fileName || "Saved file attached to this activity.")}</p></section>` : ""}
+        ${savedActivityDetails.fileData && !savedActivityDetails.fileData.startsWith("data:image") && !uploadedText ? `<section class="print-section"><h3>Attached File</h3><p>${escapeHtml(savedActivityDetails.fileName || "Saved file attached to this activity.")}</p></section>` : ""}
       </article>
     `;
   } else if (resource.fileData && resource.fileData.startsWith("data:image")) {
