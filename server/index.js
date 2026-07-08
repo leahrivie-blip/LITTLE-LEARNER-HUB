@@ -53,6 +53,7 @@ let databaseReady = false;
 let postgresPool = null;
 let postgresWriteChain = Promise.resolve();
 let firebaseCertCache = { expiresAt: 0, certs: {} };
+const MAX_BACKFILL_REPORT_ITEMS = 500;
 
 const planConfig = {
   founding: {
@@ -2400,7 +2401,7 @@ async function stripeGet(pathname) {
 
 async function stripeListAll(resource, query = {}) {
   const results = [];
-  let startingAfter = "";
+  let startingAfterId = "";
   while (true) {
     const params = new URLSearchParams();
     Object.entries(query || {}).forEach(([key, value]) => {
@@ -2408,13 +2409,13 @@ async function stripeListAll(resource, query = {}) {
       params.set(key, String(value));
     });
     if (!params.has("limit")) params.set("limit", "100");
-    if (startingAfter) params.set("starting_after", startingAfter);
+    if (startingAfterId) params.set("starting_after", startingAfterId);
     const page = await stripeGet(`${resource}?${params.toString()}`);
     const pageItems = Array.isArray(page?.data) ? page.data : [];
     results.push(...pageItems);
     if (!page?.has_more || !pageItems.length) break;
-    startingAfter = pageItems[pageItems.length - 1]?.id || "";
-    if (!startingAfter) break;
+    startingAfterId = pageItems[pageItems.length - 1]?.id || "";
+    if (!startingAfterId) break;
   }
   return results;
 }
@@ -2441,8 +2442,8 @@ function selectLegacySubscription(subscriptions = []) {
 }
 
 function legacySubscriptionState(subscription) {
-  const status = String(subscription?.status || "").toLowerCase();
   if (!subscription) return "No Subscription";
+  const status = String(subscription?.status || "").toLowerCase();
   if (status === "trialing") return "Trial";
   if (status === "active" || status === "past_due" || status === "unpaid") return "Active";
   if (status === "canceled" || status === "incomplete_expired") return "Canceled";
@@ -2519,10 +2520,18 @@ function mergeLegacyStripeIntoUser(existing, incoming, report) {
   if (!hasMeaningfulValue(existing.planDisplayName) || existing.planDisplayName === "Free" || (!existingIsPaid && incomingIsPaid)) {
     merged.planDisplayName = incoming.planDisplayName;
   }
-  if (!hasMeaningfulValue(existing.subscriptionState) || existing.subscriptionState === "No Subscription" || incoming.subscriptionState === "Active" || incoming.subscriptionState === "Trial") {
+  const shouldUpdateSubscriptionState = !hasMeaningfulValue(existing.subscriptionState)
+    || existing.subscriptionState === "No Subscription"
+    || incoming.subscriptionState === "Active"
+    || incoming.subscriptionState === "Trial";
+  if (shouldUpdateSubscriptionState) {
     merged.subscriptionState = incoming.subscriptionState;
   }
-  if (!hasMeaningfulValue(existing.subscriptionStatus) || existing.subscriptionStatus === "Free Plan" || incoming.subscriptionState === "Active" || incoming.subscriptionState === "Trial") {
+  const shouldUpdateSubscriptionStatus = !hasMeaningfulValue(existing.subscriptionStatus)
+    || existing.subscriptionStatus === "Free Plan"
+    || incoming.subscriptionState === "Active"
+    || incoming.subscriptionState === "Trial";
+  if (shouldUpdateSubscriptionStatus) {
     merged.subscriptionStatus = incoming.subscriptionStatus;
   }
   if (!hasMeaningfulValue(existing.subscriptionCadence) && hasMeaningfulValue(incoming.subscriptionCadence)) {
@@ -2539,9 +2548,7 @@ function mergeLegacyStripeIntoUser(existing, incoming, report) {
 
 function normalizeLegacyStripeUser(customer, subscription) {
   const email = normalizeEmail(customer?.email || "");
-  const createdAt = Number.isFinite(Number(customer?.created))
-    ? new Date(Number(customer.created) * 1000).toISOString()
-    : "";
+  const createdAt = unixTimestampToIso(customer?.created);
   const subscriptionState = legacySubscriptionState(subscription);
   const planInfo = legacyPlanFromSubscription(subscription);
   const planKey = planInfo.plan === "Founding"
@@ -2570,6 +2577,12 @@ function normalizeLegacyStripeUser(customer, subscription) {
   };
 }
 
+function unixTimestampToIso(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return "";
+  return new Date(numeric * 1000).toISOString();
+}
+
 async function backfillLegacyStripeUsers({ dryRun = false } = {}) {
   if (!isConfiguredValue(STRIPE_SECRET_KEY)) {
     throw new Error("Stripe is not configured. Add STRIPE_SECRET_KEY before running backfill.");
@@ -2586,8 +2599,16 @@ async function backfillLegacyStripeUsers({ dryRun = false } = {}) {
     duplicateAccountsDetected: [],
     recordsNeedingManualReview: [],
   };
-  const stripeCustomers = await stripeListAll("customers", { limit: 100 });
+  const stripeCustomers = await stripeListAll("customers");
   report.stripeCustomersFound = stripeCustomers.length;
+  const allSubscriptions = await stripeListAll("subscriptions", { status: "all" });
+  const subscriptionsByCustomer = allSubscriptions.reduce((map, subscription) => {
+    const customerId = String(subscription?.customer || "").trim();
+    if (!customerId) return map;
+    map[customerId] = map[customerId] || [];
+    map[customerId].push(subscription);
+    return map;
+  }, {});
 
   const customerIdsByEmail = {};
   for (const customer of stripeCustomers) {
@@ -2643,11 +2664,7 @@ async function backfillLegacyStripeUsers({ dryRun = false } = {}) {
       });
       continue;
     }
-    const subscriptions = await stripeListAll("subscriptions", {
-      customer: customer.id,
-      status: "all",
-      limit: 100,
-    });
+    const subscriptions = subscriptionsByCustomer[customer.id] || [];
     const subscription = selectLegacySubscription(subscriptions);
     const incomingUser = normalizeLegacyStripeUser(customer, subscription);
     const existing = store.users[email];
@@ -2667,8 +2684,8 @@ async function backfillLegacyStripeUsers({ dryRun = false } = {}) {
     }
   }
   if (!dryRun) writeStore(store);
-  report.duplicateAccountsDetected = report.duplicateAccountsDetected.slice(0, 500);
-  report.recordsNeedingManualReview = report.recordsNeedingManualReview.slice(0, 500);
+  report.duplicateAccountsDetected = report.duplicateAccountsDetected.slice(0, MAX_BACKFILL_REPORT_ITEMS);
+  report.recordsNeedingManualReview = report.recordsNeedingManualReview.slice(0, MAX_BACKFILL_REPORT_ITEMS);
   return report;
 }
 
@@ -2956,7 +2973,9 @@ async function handleAdminStripeBackfill(request, response) {
     const report = await backfillLegacyStripeUsers({ dryRun });
     jsonResponse(response, 200, { ok: true, report });
   } catch (error) {
-    jsonResponse(response, 503, { error: error.message || "Stripe backfill failed." });
+    const message = error?.message || "Unknown error.";
+    console.error("Stripe backfill failed:", message);
+    jsonResponse(response, 503, { error: `Stripe backfill failed: ${message}` });
   }
 }
 
