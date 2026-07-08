@@ -513,7 +513,7 @@ button {
 .lesson-detail summary {
   cursor: pointer;
   font-weight: 800;
-  color: #386194;
+  color: var(--primary-dark);
 }
 
 .lesson-detail-meta {
@@ -521,7 +521,7 @@ button {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   padding: 12px;
-  background: #f8faff;
+  background: var(--cream);
   border: 1px solid var(--line);
   border-radius: var(--radius);
 }
