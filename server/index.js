@@ -3316,6 +3316,30 @@ async function handleSubscriptionStatus(request, response, url) {
   });
 }
 
+function handleUserAiUsage(request, response, url) {
+  const email = normalizeEmail(url.searchParams.get("email"));
+  if (!email) {
+    jsonResponse(response, 400, { error: "email is required." });
+    return;
+  }
+  const store = readStore();
+  const user = store.users?.[email] || null;
+  const plan = user?.plan || "Free";
+  const usage = canUseServerAi(email, plan);
+  const now = new Date();
+  const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  jsonResponse(response, 200, {
+    aiUsage: {
+      email,
+      used: usage.used,
+      limit: usage.limit,
+      remaining: Math.max(usage.limit - usage.used, 0),
+      plan,
+      resetDate: nextMonth.toISOString().slice(0, 10),
+    },
+  });
+}
+
 async function handleAdminStripeBackfill(request, response) {
   const body = await readJson(request);
   const token = String(body.adminToken || "");
@@ -4294,6 +4318,7 @@ const server = http.createServer(async (request, response) => {
     if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/child-data") return await handleChildData(request, response);
     if (request.method === "GET" && url.pathname === "/api/checkout-status") return await handleCheckoutStatus(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/subscription-status") return await handleSubscriptionStatus(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/user/ai-usage") return handleUserAiUsage(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/support-tickets") return handleSupportTicketsList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/analytics") return handleAdminAnalytics(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-test") return await handleAdminAiTest(request, response);

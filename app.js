@@ -843,6 +843,9 @@ function lessonPlanHasOldDomainLabel(resource) {
 
 function lessonPlanTemporaryHiddenReason(resource) {
   if (!resource || resource.category !== "Lesson Plans") return "";
+  // If admin has explicitly published this plan, it is never temporarily hidden regardless of label content
+  const override = resource.lessonPlanOverride || lessonPlanOverrideFor(resource.id);
+  if (override?.visible === true) return "";
   if (lessonPlanHasOldDomainLabel(resource)) return "Old skill/domain label in title";
   const age = normalizeAgeGroup(resource.age) || resource.age;
   const limit = LESSON_PLAN_VISIBILITY_LIMITS[age];
@@ -1904,6 +1907,9 @@ const adminAiSettingsConfig = {
 };
 const adminAiUsageConfig = {
   endpoint: "/api/admin/ai-usage",
+};
+const userAiUsageConfig = {
+  endpoint: "/api/user/ai-usage",
 };
 const adminLessonGenerateConfig = {
   endpoint: "/api/admin/generate-lesson-plan",
@@ -3081,7 +3087,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","activities","forms","printables","reviews","homepage","founder","images","analytics","support","ai-testing","prompts","settings","usage","visibility","users","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","activities","forms","printables","reviews","homepage","founder","images","analytics","support","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding"]);
 const lessonPlanResourceCategories = ["Coloring Pages", "Tracing Activities", "Counting Activities", "Matching Activities", "Crafts", "Teacher Resources", "Activity Photos", "General"];
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "dashboard";
 let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabRaw) ? adminActiveSectionTabRaw : "dashboard";
@@ -3091,7 +3097,7 @@ const adminGroups = [
   { id: "dashboard", icon: "🏠", label: "Dashboard",  tabs: ["dashboard", "analytics", "support"], defaultTab: "dashboard" },
   { id: "content",   icon: "📚", label: "Content",    tabs: ["lesson-plans", "activities", "forms", "printables", "reviews", "founder", "resources"], defaultTab: "lesson-plans" },
   { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
-  { id: "users",     icon: "👥", label: "Users",      tabs: ["users"], defaultTab: "users" },
+  { id: "users",     icon: "👥", label: "Users",      tabs: ["users", "stripe-backfill"], defaultTab: "users" },
   { id: "settings",  icon: "⚙️", label: "Settings",   tabs: ["homepage", "images"], defaultTab: "homepage" },
   { id: "site-editor", icon: "✏️", label: "Site Editor", tabs: ["hero", "trust", "journey", "reviews-cta", "founding", "pricing", "faqs", "announcement", "upgrade-msg"], defaultTab: "hero" },
   { id: "ai",        icon: "🤖", label: "AI",         tabs: ["prompts", "settings", "usage", "ai-testing"], defaultTab: "prompts" },
@@ -3109,6 +3115,7 @@ const adminGroupForTab = {
   "resources":   "content",
   "visibility":  "visibility",
   "users":       "users",
+  "stripe-backfill": "users",
   "homepage":    "settings",
   "images":      "settings",
   "pricing":     "site-editor",
@@ -3138,6 +3145,7 @@ const adminTabLabels = {
   "resources":   "Uploads",
   "visibility":  "Visibility",
   "users":       "Users",
+  "stripe-backfill": "Stripe Backfill",
   "homepage":    "Homepage",
   "images":      "Images",
   "pricing":     "Pricing",
@@ -4713,6 +4721,13 @@ function aiResetLabel() {
   return nextMonth.toLocaleDateString();
 }
 
+function aiUsageRemaining() {
+  if (serverAiUsed !== null && serverAiLimit !== null) {
+    return Math.max(serverAiLimit - serverAiUsed, 0);
+  }
+  return Math.max(aiMonthlyLimit() - aiUsageCount(), 0);
+}
+
 function canUseAi() {
   if (serverAiUsed !== null && serverAiLimit !== null) {
     return serverAiUsed < serverAiLimit;
@@ -4732,6 +4747,27 @@ function recordAiUse(used, limit) {
   }
   updatePlanLabel();
   renderAiUsagePanel();
+}
+
+// Fetch authoritative AI usage from the backend and update serverAiUsed / serverAiLimit.
+// Called on login and whenever accurate cross-device counts are needed.
+async function loadUserAiUsage(email) {
+  const cleanEmail = String(email || currentUser || "").trim().toLowerCase();
+  if (!cleanEmail || !userAiUsageConfig.endpoint || !canUseLaunchBackend()) return;
+  try {
+    const res = await fetch(`${userAiUsageConfig.endpoint}?email=${encodeURIComponent(cleanEmail)}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return;
+    const usage = data?.aiUsage;
+    if (usage && cleanEmail === currentUser) {
+      if (typeof usage.used === "number") serverAiUsed = usage.used;
+      if (typeof usage.limit === "number") serverAiLimit = usage.limit;
+      renderAiUsagePanel();
+      updatePlanLabel();
+    }
+  } catch (_) {
+    // Non-critical; display falls back to subscription-status values
+  }
 }
 
 function aiLimitMessage() {
@@ -8909,7 +8945,7 @@ function renderCategoryPage(view) {
     </div>`}
     ${isLessonPlanCategory ? "" : `<div class="access-notice ${isProUser() ? "pro" : ""}">
       ${isProUser()
-        ? `Pro is active: full in-app library access, saved favorites, viewed resources, and ${Math.max(paidAiMonthlyLimit - aiUsageCount(), 0)} document creations left this month.`
+        ? `Pro is active: full in-app library access, saved favorites, viewed resources, and ${aiUsageRemaining()} document creations left this month.`
         : `Free plan: ${accessCounts.freeLimit} ${displayTitle.toLowerCase()} resources are unlocked here. Upgrade to Pro for all ${accessCounts.total}.`}
     </div>`}
     ${searchedChild ? renderChildLessonSearchContext(searchedChild) : ""}
@@ -18824,6 +18860,7 @@ function applyAdminSectionVisibility() {
     ".admin-ai-usage-panel",
     ".admin-visibility-panel",
     ".admin-users-panel",
+    ".admin-stripe-backfill-panel",
     ".admin-site-editor-panel",
   ];
 
@@ -18886,6 +18923,10 @@ function applyAdminSectionVisibility() {
     const el = document.querySelector(".admin-users-panel");
     if (el) el.hidden = false;
     renderAdminUsersDashboard();
+  } else if (tab === "stripe-backfill") {
+    const el = document.querySelector(".admin-stripe-backfill-panel");
+    if (el) el.hidden = false;
+    renderAdminStripeBackfillTab();
   } else if (tab === "pricing" || tab === "faqs" || tab === "announcement" || tab === "upgrade-msg" || tab === "hero" || tab === "trust" || tab === "journey" || tab === "reviews-cta" || tab === "founding") {
     const el = document.querySelector(".admin-site-editor-panel");
     if (el) el.hidden = false;
@@ -21204,6 +21245,166 @@ function renderAdminAiUsageTab() {
       </div>
     ` : ""}
   `;
+}
+
+// ─── Stripe Backfill Admin UI ──────────────────────────────────────────────────
+
+let stripeBackfillState = {
+  loading: false,
+  error: "",
+  preview: null,  // dry-run report
+  running: false,
+  runResult: null,
+  runError: "",
+};
+
+async function loadStripeBackfillPreview() {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return;
+  stripeBackfillState.loading = true;
+  stripeBackfillState.error = "";
+  stripeBackfillState.preview = null;
+  stripeBackfillState.runResult = null;
+  stripeBackfillState.runError = "";
+  renderAdminStripeBackfillTab();
+  try {
+    const res = await fetch("/api/admin/stripe-backfill", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminToken: token, dryRun: true }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Stripe backfill preview failed.");
+    stripeBackfillState.preview = data.report || null;
+  } catch (error) {
+    stripeBackfillState.error = error.message || "Could not load backfill preview.";
+  }
+  stripeBackfillState.loading = false;
+  renderAdminStripeBackfillTab();
+}
+
+async function runStripeBackfillConfirm() {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return;
+  stripeBackfillState.running = true;
+  stripeBackfillState.runResult = null;
+  stripeBackfillState.runError = "";
+  renderAdminStripeBackfillTab();
+  try {
+    const res = await fetch("/api/admin/stripe-backfill", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminToken: token, dryRun: false }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Stripe backfill failed.");
+    stripeBackfillState.runResult = data.report || null;
+  } catch (error) {
+    stripeBackfillState.runError = error.message || "Backfill could not complete.";
+  }
+  stripeBackfillState.running = false;
+  renderAdminStripeBackfillTab();
+}
+
+function renderStripeBackfillReport(report, label) {
+  if (!report) return "";
+  const dups = Array.isArray(report.duplicateAccountsDetected) ? report.duplicateAccountsDetected : [];
+  const reviews = Array.isArray(report.recordsNeedingManualReview) ? report.recordsNeedingManualReview : [];
+  return `
+    <div class="backfill-report">
+      <p class="eyebrow" style="margin-bottom:8px;">${escapeHtml(label)}</p>
+      <div class="backfill-stats-grid">
+        <div class="backfill-stat"><strong>${report.stripeCustomersFound ?? "—"}</strong><span>Stripe customers found</span></div>
+        <div class="backfill-stat"><strong>${report.usersMatchedByEmail ?? "—"}</strong><span>Matched by email</span></div>
+        <div class="backfill-stat"><strong>${report.usersNotMatched ?? "—"}</strong><span>Not matched</span></div>
+        <div class="backfill-stat backfill-stat-warn"><strong>${report.usersCreatedFromStripeRecords ?? "—"}</strong><span>Users ${report.dryRun ? "to be created" : "created"}</span></div>
+        <div class="backfill-stat backfill-stat-error"><strong>${dups.length}</strong><span>Duplicate accounts</span></div>
+        <div class="backfill-stat backfill-stat-error"><strong>${reviews.length}</strong><span>Need manual review</span></div>
+      </div>
+      ${dups.length ? `
+        <div class="backfill-section">
+          <p class="backfill-section-title">⚠️ Duplicate Accounts Detected</p>
+          <div class="backfill-list">
+            ${dups.map((d) => `
+              <div class="backfill-list-item">
+                <strong>${escapeHtml(d.type === "stripe_duplicate_email" ? d.email : (d.stripeCustomerId || ""))}</strong>
+                <span>${d.type === "stripe_duplicate_email"
+                  ? `Multiple Stripe customer IDs: ${(d.stripeCustomerIds || []).map((id) => escapeHtml(id)).join(", ")}`
+                  : `Multiple backend accounts: ${(d.emails || []).map((e) => escapeHtml(e)).join(", ")}`
+                }</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      ` : ""}
+      ${reviews.length ? `
+        <div class="backfill-section">
+          <p class="backfill-section-title">🔍 Records Needing Manual Review</p>
+          <div class="backfill-list">
+            ${reviews.map((r) => `
+              <div class="backfill-list-item">
+                <strong>${escapeHtml(r.type || "")}</strong>
+                <span>${escapeHtml(r.note || "")}</span>
+                ${r.email ? `<small>${escapeHtml(r.email)}</small>` : ""}
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      ` : ""}
+    </div>
+  `;
+}
+
+function renderAdminStripeBackfillTab() {
+  const target = document.querySelector("#adminStripeBackfillApp");
+  if (!target || !isAdminUnlocked()) return;
+  const s = stripeBackfillState;
+
+  target.innerHTML = `
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Admin Only</p>
+        <h3>Stripe Backfill</h3>
+        <p>Reconcile legacy Stripe customers with backend user accounts. Run a dry-run preview first, then confirm to apply changes.</p>
+      </div>
+    </div>
+
+    ${s.error ? `<p class="form-error">${escapeHtml(s.error)}</p>` : ""}
+
+    ${s.loading ? `<p class="ai-pm-loading">Running preview…</p>` : ""}
+
+    ${!s.loading && !s.preview && !s.runResult ? `
+      <button class="primary-button" type="button" id="stripeBackfillPreviewBtn" ${s.loading ? "disabled" : ""}>
+        Run Dry-Run Preview
+      </button>
+    ` : ""}
+
+    ${s.preview && !s.runResult ? `
+      ${renderStripeBackfillReport(s.preview, "Dry-Run Preview Results")}
+      <div class="backfill-confirm-row">
+        <button class="ghost-button" type="button" id="stripeBackfillResetBtn">Start Over</button>
+        <button class="primary-button" type="button" id="stripeBackfillRunBtn" ${s.running ? "disabled" : ""}>
+          ${s.running ? "Applying changes…" : "Confirm &amp; Run Backfill"}
+        </button>
+      </div>
+      ${s.runError ? `<p class="form-error">${escapeHtml(s.runError)}</p>` : ""}
+    ` : ""}
+
+    ${s.runResult ? `
+      ${renderStripeBackfillReport(s.runResult, "Backfill Complete")}
+      <button class="ghost-button" type="button" id="stripeBackfillResetBtn" style="margin-top:16px;">Run Again</button>
+    ` : ""}
+  `;
+
+  document.querySelector("#stripeBackfillPreviewBtn")?.addEventListener("click", loadStripeBackfillPreview);
+  document.querySelector("#stripeBackfillRunBtn")?.addEventListener("click", runStripeBackfillConfirm);
+  document.querySelector("#stripeBackfillResetBtn")?.addEventListener("click", () => {
+    stripeBackfillState.preview = null;
+    stripeBackfillState.runResult = null;
+    stripeBackfillState.error = "";
+    stripeBackfillState.runError = "";
+    renderAdminStripeBackfillTab();
+  });
 }
 
 function fillAdminLessonPlanFormFields(fields, mode) {
@@ -24115,8 +24316,8 @@ function updatePlanLabel() {
   const summary = document.querySelector("#planAccessSummary");
   if (summary) {
     summary.textContent = isProUser()
-      ? `${billingPlanLabel()} active: ${billingPriceLabel()} with full library access and ${Math.max(paidAiMonthlyLimit - aiUsageCount(), 0)} document creations left this month.`
-      : `Free plan: limited library access, up to 3 child profiles, and ${Math.max(freeAiMonthlyLimit - aiUsageCount(), 0)} document creations left this month.`;
+      ? `${billingPlanLabel()} active: ${billingPriceLabel()} with full library access and ${aiUsageRemaining()} document creations left this month.`
+      : `Free plan: limited library access, up to 3 child profiles, and ${aiUsageRemaining()} document creations left this month.`;
   }
   updateSidebarDashboard();
 }
@@ -24401,6 +24602,7 @@ async function completeCheckoutFromStripeSession(session) {
     paymentMethod: "Managed in Stripe",
   });
   await syncSubscriptionFromBackend(currentUser || session.email, { renderFounding: true });
+  loadUserAiUsage(currentUser || session.email).catch(() => {});
   await syncFoundingStatus({ render: true });
   saveCurrentAccountState();
   renderPaymentSuccessPage();
@@ -26952,6 +27154,7 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
       });
       await syncSubscriptionFromBackend(result.email);
       await syncChildDataFromBackend();
+      loadUserAiUsage(result.email).catch(() => {});
       trackEvent("account_signup_complete", { email: result.email, plan: currentPlan, source: trafficSource(), firstName, lastName });
       setFormMessage("#authMessage", result.message || "Account created.", true);
     } else {
@@ -26960,6 +27163,7 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
       markAccountLogin(result.email);
       await syncSubscriptionFromBackend(result.email);
       await syncChildDataFromBackend();
+      loadUserAiUsage(result.email).catch(() => {});
       trackEvent("account_login_complete", { email: result.email, plan: currentPlan });
     }
     closeAuthModal();
@@ -28520,6 +28724,7 @@ async function initializeAppView() {
   if (currentUser) {
     await syncSubscriptionFromBackend(currentUser, { renderFounding: true });
     await syncChildDataFromBackend({ render: true });
+    loadUserAiUsage(currentUser).catch(() => {});
   }
   await syncFoundingStatus({ render: true });
   const initialView = initialViewFromLocation();
