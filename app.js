@@ -3066,6 +3066,18 @@ function normalizedTagList(value, extra = []) {
   return [...new Set([...extra, ...tags].map((item) => normalizedShortText(item)).filter(Boolean))];
 }
 
+function defaultTagsForCategory(category) {
+  return category === "Activity Center" ? [] : ["Uploaded"];
+}
+
+function resourceMonthLabel(value = new Date()) {
+  try {
+    return value.toLocaleString("en-US", { month: "long" });
+  } catch {
+    return "Current";
+  }
+}
+
 async function fileToDataUrlSafe(file, fallback = "") {
   const nextValue = await fileToDataUrl(file);
   return nextValue || String(fallback || "");
@@ -3238,7 +3250,7 @@ function activityRecordToResource(record) {
     plan: activity.plan,
     description: activity.description || activity.instructions || "Activity resource",
     format: activity.fileName ? "Uploaded File" : "Manual Resource",
-    month: "June",
+    month: resourceMonthLabel(activity.updatedAt ? new Date(activity.updatedAt) : new Date()),
   };
 }
 
@@ -3307,7 +3319,10 @@ function mergeLinkedActivities(existingActivities, linkedActivities, lessonId) {
   const unrelated = (existingActivities || []).filter((item) => normalizedShortText(item.sourceLessonPlanId) !== lessonId);
   const seen = new Set();
   const mergedLinked = linkedActivities.filter((item) => {
-    const stableId = `${item.sourceLessonPlanId}:${item.sourceActivityId}`;
+    const sourceLessonPlanId = normalizedShortText(item.sourceLessonPlanId);
+    const sourceActivityId = normalizedShortText(item.sourceActivityId);
+    if (!sourceLessonPlanId || !sourceActivityId) return false;
+    const stableId = `${sourceLessonPlanId}:${sourceActivityId}`;
     if (!stableId || seen.has(stableId)) return false;
     seen.add(stableId);
     return true;
@@ -16502,6 +16517,8 @@ async function saveAdminLessonPlanForm(form) {
   if (!id) return;
   adminLessonSaving = true;
   try {
+    const storedThumbnail = formData.get("thumbnailDataStored") || "";
+    const manualThumbnailUrl = formData.get("thumbnailUrl") || "";
     const payload = {
       id,
       title: normalizedShortText(formData.get("title")),
@@ -16516,7 +16533,7 @@ async function saveAdminLessonPlanForm(form) {
       reflectionNotes: normalizedMultilineText(formData.get("reflectionNotes")),
       plan: normalizedShortText(formData.get("plan")) || "Free",
       visible: formData.get("visible") === "on",
-      thumbnailUrl: await fileToImageDataUrlSafe(formData.get("thumbnailFile"), formData.get("thumbnailDataStored") || formData.get("thumbnailUrl")),
+      thumbnailUrl: await fileToImageDataUrlSafe(formData.get("thumbnailFile"), storedThumbnail || manualThumbnailUrl),
       dailyActivities: {
         monday: normalizedMultilineText(formData.get("monday")),
         tuesday: normalizedMultilineText(formData.get("tuesday")),
@@ -22022,7 +22039,13 @@ document.addEventListener("click", async (event) => {
   if (adminEdit) fillAdminForm(adminEdit.dataset.adminEdit);
 
   const adminDelete = event.target.closest("[data-admin-delete]");
-  if (adminDelete) await deleteAdminResource(adminDelete.dataset.adminDelete);
+  if (adminDelete) {
+    try {
+      await deleteAdminResource(adminDelete.dataset.adminDelete);
+    } catch (error) {
+      setFormMessage("#adminUploadMessage", error.message || "Could not delete this resource.");
+    }
+  }
 
   const adminLockButton = event.target.closest("#adminLockButton");
   if (adminLockButton) {
@@ -23051,7 +23074,7 @@ document.querySelector("#uploadForm")?.addEventListener("submit", async (event) 
     title: normalizedShortText(form.get("title")),
     age: normalizedShortText(form.get("age")) || "Preschool",
     plan: normalizedShortText(form.get("plan")) || "Free",
-    tags: normalizedTagList(form.get("tags"), category === "Activity Center" ? [] : ["Uploaded"]),
+    tags: normalizedTagList(form.get("tags"), defaultTagsForCategory(category)),
     description: normalizedMultilineText(form.get("description")) || "New uploaded resource.",
     instructions: normalizedMultilineText(form.get("instructions")),
     theme: normalizedShortText(form.get("theme")),
@@ -23082,7 +23105,7 @@ document.querySelector("#uploadForm")?.addEventListener("submit", async (event) 
         const savedUploads = uploadedResources();
         const uploaded = {
           ...payload,
-          month: existingItem?.month || "June",
+          month: existingItem?.month || resourceMonthLabel(),
           format: payload.fileName ? "Uploaded File" : "Manual Resource",
         };
         const updatedUploads = editId
