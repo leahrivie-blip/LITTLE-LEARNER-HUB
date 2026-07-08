@@ -2398,6 +2398,280 @@ async function stripeGet(pathname) {
   return data;
 }
 
+async function stripeListAll(resource, query = {}) {
+  const results = [];
+  let startingAfter = "";
+  while (true) {
+    const params = new URLSearchParams();
+    Object.entries(query || {}).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === "") return;
+      params.set(key, String(value));
+    });
+    if (!params.has("limit")) params.set("limit", "100");
+    if (startingAfter) params.set("starting_after", startingAfter);
+    const page = await stripeGet(`${resource}?${params.toString()}`);
+    const pageItems = Array.isArray(page?.data) ? page.data : [];
+    results.push(...pageItems);
+    if (!page?.has_more || !pageItems.length) break;
+    startingAfter = pageItems[pageItems.length - 1]?.id || "";
+    if (!startingAfter) break;
+  }
+  return results;
+}
+
+function legacySubscriptionPriority(status) {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "trialing") return 6;
+  if (normalized === "active") return 5;
+  if (normalized === "past_due" || normalized === "unpaid") return 4;
+  if (normalized === "canceled") return 3;
+  if (normalized === "incomplete" || normalized === "incomplete_expired") return 2;
+  return 1;
+}
+
+function selectLegacySubscription(subscriptions = []) {
+  const list = Array.isArray(subscriptions) ? subscriptions.slice() : [];
+  if (!list.length) return null;
+  list.sort((left, right) => {
+    const priorityDiff = legacySubscriptionPriority(right?.status) - legacySubscriptionPriority(left?.status);
+    if (priorityDiff) return priorityDiff;
+    return Number(right?.created || 0) - Number(left?.created || 0);
+  });
+  return list[0] || null;
+}
+
+function legacySubscriptionState(subscription) {
+  const status = String(subscription?.status || "").toLowerCase();
+  if (!subscription) return "No Subscription";
+  if (status === "trialing") return "Trial";
+  if (status === "active" || status === "past_due" || status === "unpaid") return "Active";
+  if (status === "canceled" || status === "incomplete_expired") return "Canceled";
+  return "No Subscription";
+}
+
+function legacyPlanFromSubscription(subscription) {
+  if (!subscription) return { plan: "Free", planDisplayName: "Free" };
+  const planKey = planKeyFromStripe(subscription, {});
+  if (planKey === "founding") return { plan: "Founding", planDisplayName: "Founding Member" };
+  if (planKey === "monthly" || planKey === "annual") return { plan: "Pro", planDisplayName: "Pro" };
+  const metadataPlan = String(subscription?.metadata?.plan || "").trim().toLowerCase();
+  if (metadataPlan.includes("found")) return { plan: "Founding", planDisplayName: "Founding Member" };
+  if (metadataPlan.includes("pro")) return { plan: "Pro", planDisplayName: "Pro" };
+  return { plan: "Free", planDisplayName: "Free" };
+}
+
+function legacyTrialStatus(subscriptionState) {
+  return subscriptionState === "Trial" ? "Trial Active" : "No Trial";
+}
+
+function legacyAccountStatus(subscriptionState) {
+  return subscriptionState === "Canceled" ? "Canceled" : "Active";
+}
+
+function hasMeaningfulValue(value) {
+  if (value === null || value === undefined) return false;
+  if (typeof value === "string") return Boolean(value.trim());
+  return true;
+}
+
+function mergeLegacyStripeIntoUser(existing, incoming, report) {
+  const merged = {
+    ...existing,
+    email: incoming.email || existing.email || "",
+    updatedAt: new Date().toISOString(),
+  };
+  if (!hasMeaningfulValue(existing.name) && hasMeaningfulValue(incoming.name)) merged.name = incoming.name;
+  if (!hasMeaningfulValue(existing.displayName) && hasMeaningfulValue(incoming.name)) merged.displayName = incoming.name;
+  if (!hasMeaningfulValue(existing.signupAt) && hasMeaningfulValue(incoming.signupAt)) merged.signupAt = incoming.signupAt;
+  if (!hasMeaningfulValue(existing.createdAt) && hasMeaningfulValue(incoming.createdAt)) merged.createdAt = incoming.createdAt;
+  if (!hasMeaningfulValue(existing.accountStatus) && hasMeaningfulValue(incoming.accountStatus)) merged.accountStatus = incoming.accountStatus;
+  if (!hasMeaningfulValue(existing.trialStatus) && hasMeaningfulValue(incoming.trialStatus)) merged.trialStatus = incoming.trialStatus;
+  if (!hasMeaningfulValue(existing.stripeCustomerCreatedAt) && hasMeaningfulValue(incoming.stripeCustomerCreatedAt)) {
+    merged.stripeCustomerCreatedAt = incoming.stripeCustomerCreatedAt;
+  }
+  if (!hasMeaningfulValue(existing.stripeCustomerId) && hasMeaningfulValue(incoming.stripeCustomerId)) {
+    merged.stripeCustomerId = incoming.stripeCustomerId;
+  } else if (
+    hasMeaningfulValue(existing.stripeCustomerId)
+    && hasMeaningfulValue(incoming.stripeCustomerId)
+    && existing.stripeCustomerId !== incoming.stripeCustomerId
+  ) {
+    report.duplicateAccountsDetected.push({
+      type: "existing_user_multiple_stripe_customers",
+      email: incoming.email,
+      existingStripeCustomerId: existing.stripeCustomerId,
+      incomingStripeCustomerId: incoming.stripeCustomerId,
+    });
+    report.recordsNeedingManualReview.push({
+      type: "conflicting_stripe_customer_id",
+      email: incoming.email,
+      existingStripeCustomerId: existing.stripeCustomerId,
+      incomingStripeCustomerId: incoming.stripeCustomerId,
+      note: "User already has a different Stripe customer ID. Review before changing linkage.",
+    });
+  }
+  if (!hasMeaningfulValue(existing.stripeSubscriptionId) && hasMeaningfulValue(incoming.stripeSubscriptionId)) {
+    merged.stripeSubscriptionId = incoming.stripeSubscriptionId;
+  }
+  const existingIsPaid = ["Pro", "Founding"].includes(String(existing.plan || ""));
+  const incomingIsPaid = ["Pro", "Founding"].includes(String(incoming.plan || ""));
+  if (!hasMeaningfulValue(existing.plan) || existing.plan === "Free" || (!existingIsPaid && incomingIsPaid)) merged.plan = incoming.plan;
+  if (!hasMeaningfulValue(existing.planDisplayName) || existing.planDisplayName === "Free" || (!existingIsPaid && incomingIsPaid)) {
+    merged.planDisplayName = incoming.planDisplayName;
+  }
+  if (!hasMeaningfulValue(existing.subscriptionState) || existing.subscriptionState === "No Subscription" || incoming.subscriptionState === "Active" || incoming.subscriptionState === "Trial") {
+    merged.subscriptionState = incoming.subscriptionState;
+  }
+  if (!hasMeaningfulValue(existing.subscriptionStatus) || existing.subscriptionStatus === "Free Plan" || incoming.subscriptionState === "Active" || incoming.subscriptionState === "Trial") {
+    merged.subscriptionStatus = incoming.subscriptionStatus;
+  }
+  if (!hasMeaningfulValue(existing.subscriptionCadence) && hasMeaningfulValue(incoming.subscriptionCadence)) {
+    merged.subscriptionCadence = incoming.subscriptionCadence;
+  }
+  if (!hasMeaningfulValue(existing.monthlyPrice) && hasMeaningfulValue(incoming.monthlyPrice)) {
+    merged.monthlyPrice = incoming.monthlyPrice;
+  }
+  if (!hasMeaningfulValue(existing.priceLock) && hasMeaningfulValue(incoming.priceLock)) {
+    merged.priceLock = incoming.priceLock;
+  }
+  return merged;
+}
+
+function normalizeLegacyStripeUser(customer, subscription) {
+  const email = normalizeEmail(customer?.email || "");
+  const createdAt = Number.isFinite(Number(customer?.created))
+    ? new Date(Number(customer.created) * 1000).toISOString()
+    : "";
+  const subscriptionState = legacySubscriptionState(subscription);
+  const planInfo = legacyPlanFromSubscription(subscription);
+  const planKey = planInfo.plan === "Founding"
+    ? "founding"
+    : planInfo.plan === "Pro"
+      ? "monthly"
+      : "";
+  return {
+    email,
+    name: String(customer?.name || "").trim(),
+    stripeCustomerId: String(customer?.id || "").trim(),
+    stripeSubscriptionId: String(subscription?.id || "").trim(),
+    stripeCustomerCreatedAt: createdAt,
+    createdAt,
+    signupAt: createdAt,
+    plan: planInfo.plan,
+    planDisplayName: planInfo.planDisplayName,
+    subscriptionState,
+    subscriptionStatus: subscriptionState,
+    trialStatus: legacyTrialStatus(subscriptionState),
+    accountStatus: legacyAccountStatus(subscriptionState),
+    subscriptionCadence: planConfig[planKey]?.cadence || "",
+    monthlyPrice: planConfig[planKey]?.amount || "$0/month",
+    priceLock: planConfig[planKey]?.priceLock || "",
+    paymentMethod: "Managed in Stripe",
+  };
+}
+
+async function backfillLegacyStripeUsers({ dryRun = false } = {}) {
+  if (!isConfiguredValue(STRIPE_SECRET_KEY)) {
+    throw new Error("Stripe is not configured. Add STRIPE_SECRET_KEY before running backfill.");
+  }
+  const store = readStore();
+  store.users = store.users || {};
+  const report = {
+    generatedAt: new Date().toISOString(),
+    dryRun: dryRun === true,
+    stripeCustomersFound: 0,
+    usersMatchedByEmail: 0,
+    usersNotMatched: 0,
+    usersCreatedFromStripeRecords: 0,
+    duplicateAccountsDetected: [],
+    recordsNeedingManualReview: [],
+  };
+  const stripeCustomers = await stripeListAll("customers", { limit: 100 });
+  report.stripeCustomersFound = stripeCustomers.length;
+
+  const customerIdsByEmail = {};
+  for (const customer of stripeCustomers) {
+    const email = normalizeEmail(customer?.email || "");
+    if (!email) continue;
+    customerIdsByEmail[email] = customerIdsByEmail[email] || [];
+    customerIdsByEmail[email].push(customer.id);
+  }
+  Object.entries(customerIdsByEmail).forEach(([email, ids]) => {
+    if (ids.length <= 1) return;
+    report.duplicateAccountsDetected.push({
+      type: "stripe_duplicate_email",
+      email,
+      stripeCustomerIds: ids,
+    });
+    report.recordsNeedingManualReview.push({
+      type: "stripe_duplicate_email",
+      email,
+      stripeCustomerIds: ids,
+      note: "Multiple Stripe customers share the same email. Confirm the correct primary customer.",
+    });
+  });
+
+  const userEmailsByStripeCustomerId = {};
+  Object.entries(store.users).forEach(([email, user]) => {
+    const customerId = String(user?.stripeCustomerId || "").trim();
+    if (!customerId) return;
+    userEmailsByStripeCustomerId[customerId] = userEmailsByStripeCustomerId[customerId] || [];
+    userEmailsByStripeCustomerId[customerId].push(email);
+  });
+  Object.entries(userEmailsByStripeCustomerId).forEach(([customerId, emails]) => {
+    if (emails.length <= 1) return;
+    report.duplicateAccountsDetected.push({
+      type: "backend_duplicate_stripe_customer",
+      stripeCustomerId: customerId,
+      emails,
+    });
+    report.recordsNeedingManualReview.push({
+      type: "backend_duplicate_stripe_customer",
+      stripeCustomerId: customerId,
+      emails,
+      note: "Multiple backend users are linked to the same Stripe customer ID.",
+    });
+  });
+
+  for (const customer of stripeCustomers) {
+    const email = normalizeEmail(customer?.email || "");
+    if (!email) {
+      report.recordsNeedingManualReview.push({
+        type: "missing_customer_email",
+        stripeCustomerId: customer?.id || "",
+        note: "Stripe customer has no email and cannot be matched to or created as a backend user.",
+      });
+      continue;
+    }
+    const subscriptions = await stripeListAll("subscriptions", {
+      customer: customer.id,
+      status: "all",
+      limit: 100,
+    });
+    const subscription = selectLegacySubscription(subscriptions);
+    const incomingUser = normalizeLegacyStripeUser(customer, subscription);
+    const existing = store.users[email];
+    if (existing) {
+      report.usersMatchedByEmail += 1;
+      store.users[email] = mergeLegacyStripeIntoUser(existing, incomingUser, report);
+    } else {
+      report.usersNotMatched += 1;
+      report.usersCreatedFromStripeRecords += 1;
+      store.users[email] = {
+        email,
+        ...incomingUser,
+        lastSeenAt: "",
+        lastLoginAt: "",
+        updatedAt: new Date().toISOString(),
+      };
+    }
+  }
+  if (!dryRun) writeStore(store);
+  report.duplicateAccountsDetected = report.duplicateAccountsDetected.slice(0, 500);
+  report.recordsNeedingManualReview = report.recordsNeedingManualReview.slice(0, 500);
+  return report;
+}
+
 function paidStripeSubscription(subscription) {
   return ["active", "trialing"].includes(String(subscription?.status || "").toLowerCase());
 }
@@ -2668,6 +2942,22 @@ async function handleSubscriptionStatus(request, response, url) {
     aiUsage: email ? canUseServerAi(email, subscription?.plan || "Free") : null,
     founding: foundingStatusPayload(readStore()),
   });
+}
+
+async function handleAdminStripeBackfill(request, response) {
+  const body = await readJson(request);
+  const token = String(body.adminToken || "");
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const dryRun = body.dryRun === true;
+  try {
+    const report = await backfillLegacyStripeUsers({ dryRun });
+    jsonResponse(response, 200, { ok: true, report });
+  } catch (error) {
+    jsonResponse(response, 503, { error: error.message || "Stripe backfill failed." });
+  }
 }
 
 function publicTicket(ticket) {
@@ -2963,9 +3253,16 @@ function analyticsSummary(store) {
       const userEvents = events.filter((event) => event.user === user.email);
       return {
         email: user.email,
+        fullName: user.name || user.displayName || "",
         name: user.name || user.displayName || "",
         plan: user.plan || "Free",
+        planDisplayName: user.planDisplayName || user.plan || "Free",
+        accountStatus: user.accountStatus || "Active",
+        trialStatus: user.trialStatus || "No Trial",
+        stripeCustomerId: user.stripeCustomerId || "",
+        stripeSubscriptionId: user.stripeSubscriptionId || "",
         subscriptionStatus: user.subscriptionStatus || "Free Plan",
+        subscriptionState: user.subscriptionState || "No Subscription",
         signupAt: user.signupAt || user.createdAt || "",
         lastLoginAt: user.lastLoginAt || "",
         lastSeenAt: user.lastSeenAt || user.updatedAt || "",
@@ -3609,6 +3906,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/analytics") return handleAdminAnalytics(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-test") return await handleAdminAiTest(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/generate-lesson-plan") return await handleAdminGenerateLessonPlan(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/stripe-backfill") return await handleAdminStripeBackfill(request, response);
     if (request.method === "GET" && url.pathname === "/api/founding-status") return handleFoundingStatus(request, response);
     if (request.method === "GET" && url.pathname === "/api/stripe-readiness") return handleStripeReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/billing-readiness") return handleBillingReadiness(request, response);
