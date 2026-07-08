@@ -291,12 +291,32 @@ function defaultStore() {
     adminSessions: {},
     aiUsage: {},
     aiOutputs: [],
+    aiSettings: defaultAiSettings(),
+    aiPrompts: {},
+    aiPromptVersions: [],
+    aiUsageLogs: [],
     supportTickets: [],
     analyticsEvents: [],
     billingEvents: [],
     leads: [],
     promoRedemptions: [],
     siteContent: defaultSiteContentStore(),
+  };
+}
+
+function defaultAiSettings() {
+  const toolDefaults = () => ({ enabled: true, generationLimit: null, fallbackMessage: "" });
+  return {
+    masterEnabled: true,
+    tools: {
+      observation:    toolDefaults(),
+      lesson:         toolDefaults(),
+      daily:          toolDefaults(),
+      parentMessage:  toolDefaults(),
+      activity:       toolDefaults(),
+      behaviorNote:   toolDefaults(),
+      incidentReport: toolDefaults(),
+    },
   };
 }
 
@@ -325,6 +345,53 @@ function normalizedMultilineText(value, maxLength = 12000) {
 
 function normalizedShortText(value, maxLength = 240) {
   return normalizedMultilineText(value, maxLength);
+}
+
+const AI_VALID_TOOLS = new Set(["observation", "lesson", "daily", "parentMessage", "activity", "behaviorNote", "incidentReport"]);
+const AI_PROMPT_LAYERS = ["masterPrompt", "toolSpecificPrompt", "writingIntelligence", "outputFormatting"];
+const AI_PROMPT_MAX_CHARS = 32000;
+
+function normalizedAiToolSettings(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  return {
+    enabled: entry.enabled !== false,
+    generationLimit: Number.isFinite(Number(entry.generationLimit)) && Number(entry.generationLimit) > 0
+      ? Math.floor(Number(entry.generationLimit))
+      : null,
+    fallbackMessage: normalizedShortText(entry.fallbackMessage, 500),
+  };
+}
+
+function normalizedAiSettings(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const tools = entry.tools && typeof entry.tools === "object" ? entry.tools : {};
+  const defaults = defaultAiSettings();
+  const normalizedTools = {};
+  for (const toolId of AI_VALID_TOOLS) {
+    normalizedTools[toolId] = normalizedAiToolSettings(tools[toolId] || defaults.tools[toolId] || {});
+  }
+  return {
+    masterEnabled: entry.masterEnabled !== false,
+    tools: normalizedTools,
+  };
+}
+
+function normalizedAiPromptEntry(value, updatedBy) {
+  const entry = value && typeof value === "object" ? value : {};
+  const result = { updatedAt: String(entry.updatedAt || ""), updatedBy: String(entry.updatedBy || updatedBy || "") };
+  for (const layer of AI_PROMPT_LAYERS) {
+    result[layer] = normalizedMultilineText(entry[layer], AI_PROMPT_MAX_CHARS);
+  }
+  return result;
+}
+
+function normalizedAiPrompts(value, updatedBy) {
+  const obj = value && typeof value === "object" ? value : {};
+  const result = {};
+  for (const toolId of AI_VALID_TOOLS) {
+    if (obj[toolId]) result[toolId] = normalizedAiPromptEntry(obj[toolId], updatedBy);
+  }
+  return result;
 }
 
 function sanitizedImageSource(value, maxLength = 1_000_000) {
@@ -1103,20 +1170,36 @@ function canUseServerAi(email, plan) {
   return { used, limit: aiLimitForPlan(plan), allowed: used < aiLimitForPlan(plan), key };
 }
 
-function recordServerAiUse(email, plan, output) {
+function recordServerAiUse(email, plan, output, { tool = "", responseTimeMs = null, inputTokens = null, outputTokens = null, success = true, errorMessage = null } = {}) {
   const store = readStore();
   const usage = canUseServerAi(email, plan);
   store.aiUsage = store.aiUsage || {};
   store.aiUsage[usage.key] = usage.used + 1;
   store.aiOutputs = store.aiOutputs || [];
+  const logId = `ai_${Date.now()}_${crypto.randomBytes(5).toString("hex")}`;
   store.aiOutputs.unshift({
-    id: `ai_${Date.now()}_${crypto.randomBytes(5).toString("hex")}`,
+    id: logId,
     email,
     plan,
     output,
     createdAt: new Date().toISOString(),
   });
   store.aiOutputs = store.aiOutputs.slice(0, 1000);
+  // Structured usage log for admin monitoring
+  store.aiUsageLogs = store.aiUsageLogs || [];
+  store.aiUsageLogs.unshift({
+    id: logId,
+    tool: String(tool || "unknown"),
+    email,
+    plan,
+    responseTimeMs: Number.isFinite(responseTimeMs) ? responseTimeMs : null,
+    success,
+    errorMessage: errorMessage ? String(errorMessage).slice(0, 500) : null,
+    inputTokens: Number.isFinite(inputTokens) ? inputTokens : null,
+    outputTokens: Number.isFinite(outputTokens) ? outputTokens : null,
+    createdAt: new Date().toISOString(),
+  });
+  store.aiUsageLogs = store.aiUsageLogs.slice(0, 5000);
   writeStore(store);
   return { used: usage.used + 1, limit: usage.limit };
 }
@@ -1908,6 +1991,20 @@ Rules:
   return toolPrompts[tool] || (base + "\n\nCreate practical, daycare-focused, age-appropriate childcare content. Keep wording professional, warm, and ready to use. Remind providers to review for licensing and state requirements when relevant.");
 }
 
+// Returns the system prompt for a tool, using store-saved prompt layers if present, or falling back to the hardcoded default.
+function getToolSystemPromptResolved(tool) {
+  const store = readStore();
+  const entry = store.aiPrompts?.[tool];
+  if (entry) {
+    const combined = AI_PROMPT_LAYERS
+      .map((layer) => String(entry[layer] || "").trim())
+      .filter(Boolean)
+      .join("\n\n---\n\n");
+    if (combined) return combined;
+  }
+  return getToolSystemPrompt(tool);
+}
+
 // Prompts shorter than this character count receive an extra context hint
 const AI_SHORT_NOTE_THRESHOLD = 25;
 // Timeout in ms for OpenAI API requests — 90s allows gpt-4o time for detailed lesson plans
@@ -1983,7 +2080,24 @@ async function generateOpenAiContent({ tool, prompt, age, plan, email, debug }) 
   if (!OPENAI_API_KEY) {
     throw new Error("Document creation is not available right now. Please contact support or try again later.");
   }
-  const systemPrompt = getToolSystemPrompt(tool);
+
+  // Check per-tool enabled flag and global master switch
+  const store = readStore();
+  const aiSettings = normalizedAiSettings(store.aiSettings || defaultAiSettings());
+  if (!aiSettings.masterEnabled) {
+    const err = new Error("AI document creation is currently unavailable. Please try again later.");
+    err.toolDisabled = true;
+    throw err;
+  }
+  const toolConfig = aiSettings.tools[tool];
+  if (toolConfig && !toolConfig.enabled) {
+    const msg = toolConfig.fallbackMessage?.trim() || "This AI tool is currently unavailable. Please try again later.";
+    const err = new Error(msg);
+    err.toolDisabled = true;
+    throw err;
+  }
+
+  const systemPrompt = getToolSystemPromptResolved(tool);
   const userContent = buildOpenAiUserPrompt(prompt, age);
 
   let lastError;
@@ -2198,6 +2312,193 @@ async function handleAdminAiTest(request, response) {
   } catch (error) {
     jsonResponse(response, 503, { error: error.message || "AI generation failed." });
   }
+}
+
+function handleAdminAiPrompts(request, response, url) {
+  const token = url.searchParams.get("adminToken");
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = readStore();
+  const aiPrompts = normalizedAiPrompts(store.aiPrompts || {});
+  const aiPromptVersions = (store.aiPromptVersions || []).slice(0, 200);
+  // Expose the current resolved prompt (store or hardcoded) for each tool as defaults
+  const hardcodedDefaults = {};
+  for (const toolId of AI_VALID_TOOLS) {
+    hardcodedDefaults[toolId] = getToolSystemPrompt(toolId);
+  }
+  jsonResponse(response, 200, { aiPrompts, aiPromptVersions, hardcodedDefaults });
+}
+
+async function handleAdminAiPromptsSave(request, response) {
+  const body = await readJson(request);
+  const token = String(body.adminToken || "");
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const toolId = String(body.tool || "").trim();
+  if (!AI_VALID_TOOLS.has(toolId)) {
+    jsonResponse(response, 400, { error: "Invalid tool identifier." });
+    return;
+  }
+  const now = new Date().toISOString();
+  const savedBy = (body.adminEmail ? String(body.adminEmail) : ADMIN_EMAIL) || "admin";
+  const newEntry = normalizedAiPromptEntry({
+    masterPrompt: body.masterPrompt,
+    toolSpecificPrompt: body.toolSpecificPrompt,
+    writingIntelligence: body.writingIntelligence,
+    outputFormatting: body.outputFormatting,
+    updatedAt: now,
+    updatedBy: savedBy,
+  }, savedBy);
+  const store = readStore();
+  store.aiPrompts = store.aiPrompts || {};
+  const previous = store.aiPrompts[toolId];
+  store.aiPrompts[toolId] = newEntry;
+  // Save version history for each changed layer
+  store.aiPromptVersions = store.aiPromptVersions || [];
+  for (const layer of AI_PROMPT_LAYERS) {
+    const prev = String((previous || {})[layer] || "");
+    const next = String(newEntry[layer] || "");
+    if (prev !== next) {
+      store.aiPromptVersions.unshift({
+        id: `pv_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
+        tool: toolId,
+        layer,
+        previousValue: prev,
+        newValue: next,
+        savedAt: now,
+        savedBy,
+      });
+    }
+  }
+  store.aiPromptVersions = store.aiPromptVersions.slice(0, 200);
+  await writeStoreAsync(store);
+  jsonResponse(response, 200, { ok: true, aiPrompts: normalizedAiPrompts(store.aiPrompts), aiPromptVersions: store.aiPromptVersions.slice(0, 200) });
+}
+
+async function handleAdminAiPromptsRestore(request, response) {
+  const body = await readJson(request);
+  const token = String(body.adminToken || "");
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const versionId = String(body.versionId || "").trim();
+  const store = readStore();
+  const version = (store.aiPromptVersions || []).find((v) => v.id === versionId);
+  if (!version) {
+    jsonResponse(response, 404, { error: "Version not found." });
+    return;
+  }
+  const { tool, layer, previousValue } = version;
+  if (!AI_VALID_TOOLS.has(tool) || !AI_PROMPT_LAYERS.includes(layer)) {
+    jsonResponse(response, 400, { error: "Invalid version data." });
+    return;
+  }
+  const now = new Date().toISOString();
+  const restoredBy = (body.adminEmail ? String(body.adminEmail) : ADMIN_EMAIL) || "admin";
+  store.aiPrompts = store.aiPrompts || {};
+  store.aiPrompts[tool] = store.aiPrompts[tool] || {};
+  const before = String(store.aiPrompts[tool][layer] || "");
+  store.aiPrompts[tool][layer] = String(previousValue || "");
+  store.aiPrompts[tool].updatedAt = now;
+  store.aiPrompts[tool].updatedBy = restoredBy;
+  // Record the restore as a new version entry
+  store.aiPromptVersions.unshift({
+    id: `pv_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
+    tool,
+    layer,
+    previousValue: before,
+    newValue: String(previousValue || ""),
+    savedAt: now,
+    savedBy: restoredBy,
+    restoredFrom: versionId,
+  });
+  store.aiPromptVersions = store.aiPromptVersions.slice(0, 200);
+  await writeStoreAsync(store);
+  jsonResponse(response, 200, { ok: true, aiPrompts: normalizedAiPrompts(store.aiPrompts), aiPromptVersions: store.aiPromptVersions.slice(0, 200) });
+}
+
+function handleAdminAiSettings(request, response, url) {
+  const token = url.searchParams.get("adminToken");
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = readStore();
+  const aiSettings = normalizedAiSettings(store.aiSettings || defaultAiSettings());
+  jsonResponse(response, 200, { aiSettings });
+}
+
+async function handleAdminAiSettingsSave(request, response) {
+  const body = await readJson(request);
+  const token = String(body.adminToken || "");
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const nextSettings = normalizedAiSettings(body.aiSettings || {});
+  const store = readStore();
+  store.aiSettings = nextSettings;
+  await writeStoreAsync(store);
+  jsonResponse(response, 200, { ok: true, aiSettings: nextSettings });
+}
+
+function handleAdminAiUsage(request, response, url) {
+  const token = url.searchParams.get("adminToken");
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = readStore();
+  const logs = (store.aiUsageLogs || []).slice(0, 5000);
+  // Aggregate stats
+  const total = logs.length;
+  const successful = logs.filter((l) => l.success).length;
+  const failed = logs.filter((l) => !l.success).length;
+  const byTool = {};
+  const successTimings = logs.filter((l) => l.success && Number.isFinite(l.responseTimeMs)).map((l) => l.responseTimeMs);
+  const avgResponseMs = successTimings.length ? Math.round(successTimings.reduce((a, b) => a + b, 0) / successTimings.length) : null;
+  const totalInputTokens = logs.reduce((sum, l) => sum + (Number.isFinite(l.inputTokens) ? l.inputTokens : 0), 0);
+  const totalOutputTokens = logs.reduce((sum, l) => sum + (Number.isFinite(l.outputTokens) ? l.outputTokens : 0), 0);
+  // $0.0025 per 1K input tokens + $0.01 per 1K output tokens (gpt-4o approximate blended)
+  const estimatedCostUsd = Number(((totalInputTokens / 1000) * 0.0025 + (totalOutputTokens / 1000) * 0.01).toFixed(4));
+  for (const log of logs) {
+    const t = log.tool || "unknown";
+    if (!byTool[t]) byTool[t] = { total: 0, successful: 0, failed: 0 };
+    byTool[t].total++;
+    if (log.success) byTool[t].successful++;
+    else byTool[t].failed++;
+  }
+  // Recent 100 log entries for the table
+  const recentLogs = logs.slice(0, 100).map((l) => ({
+    id: l.id,
+    tool: l.tool,
+    email: l.email,
+    plan: l.plan,
+    success: l.success,
+    responseTimeMs: l.responseTimeMs,
+    errorMessage: l.errorMessage,
+    inputTokens: l.inputTokens,
+    outputTokens: l.outputTokens,
+    createdAt: l.createdAt,
+  }));
+  jsonResponse(response, 200, {
+    aiUsage: {
+      total,
+      successful,
+      failed,
+      byTool,
+      avgResponseMs,
+      totalInputTokens,
+      totalOutputTokens,
+      estimatedCostUsd,
+      recentLogs,
+    },
+  });
 }
 
 async function handleAdminLogin(request, response) {
@@ -2914,15 +3215,20 @@ async function handleAiGenerate(request, response) {
   const store = readStore();
   const user = store.users?.[email] || null;
   const plan = resolvedPlanForUser(user);
-  console.log(`[access] ai-generate email=${email} storedPlan=${user?.plan || "none"} resolvedPlan=${plan} status=${user?.subscriptionStatus || "none"}`);
+  const tool = String(body.tool || "unknown");
+  console.log(`[access] ai-generate email=${email} tool=${tool} storedPlan=${user?.plan || "none"} resolvedPlan=${plan} status=${user?.subscriptionStatus || "none"}`);
   const usage = canUseServerAi(email, plan);
   if (!usage.allowed) {
     jsonResponse(response, 429, { error: `Monthly helper limit reached. ${usage.used} of ${usage.limit} documents created this month.`, used: usage.used, limit: usage.limit });
     return;
   }
+  const startTime = Date.now();
   try {
     const aiResult = await generateOpenAiContent(body);
-    const recorded = recordServerAiUse(email, plan, aiResult.output);
+    const responseTimeMs = Date.now() - startTime;
+    const inputTokens = aiResult.debug?.rawResponse?.usage?.input_tokens ?? null;
+    const outputTokens = aiResult.debug?.rawResponse?.usage?.output_tokens ?? null;
+    const recorded = recordServerAiUse(email, plan, aiResult.output, { tool, responseTimeMs, inputTokens, outputTokens, success: true });
     jsonResponse(response, 200, {
       output: aiResult.output,
       model: aiResult.model,
@@ -2931,7 +3237,31 @@ async function handleAiGenerate(request, response) {
       resetCycle: currentAiCycle(),
     });
   } catch (error) {
-    console.error(`[helper-generate-failure] email=${email} tool=${body.tool || "unknown"} plan=${plan} error=${error.message || "unknown"}`);
+    const responseTimeMs = Date.now() - startTime;
+    console.error(`[helper-generate-failure] email=${email} tool=${tool} plan=${plan} error=${error.message || "unknown"}`);
+    // Log failed generations to aiUsageLogs without incrementing the monthly counter
+    try {
+      const failStore = readStore();
+      failStore.aiUsageLogs = failStore.aiUsageLogs || [];
+      failStore.aiUsageLogs.unshift({
+        id: `ai_${Date.now()}_${crypto.randomBytes(5).toString("hex")}`,
+        tool,
+        email,
+        plan,
+        responseTimeMs,
+        success: false,
+        errorMessage: String(error.message || "unknown").slice(0, 500),
+        inputTokens: null,
+        outputTokens: null,
+        createdAt: new Date().toISOString(),
+      });
+      failStore.aiUsageLogs = failStore.aiUsageLogs.slice(0, 5000);
+      writeStore(failStore);
+    } catch (_) { /* non-critical */ }
+    if (error.toolDisabled) {
+      jsonResponse(response, 503, { error: error.message });
+      return;
+    }
     jsonResponse(response, 503, { error: error.message || "We couldn't create your document right now. Please try again." });
   }
 }
@@ -3924,6 +4254,12 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/support-tickets") return handleSupportTicketsList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/analytics") return handleAdminAnalytics(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-test") return await handleAdminAiTest(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/ai-prompts") return handleAdminAiPrompts(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/ai-prompts") return await handleAdminAiPromptsSave(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/ai-prompts/restore") return await handleAdminAiPromptsRestore(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/ai-settings") return handleAdminAiSettings(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/ai-settings") return await handleAdminAiSettingsSave(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/ai-usage") return handleAdminAiUsage(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/generate-lesson-plan") return await handleAdminGenerateLessonPlan(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/stripe-backfill") return await handleAdminStripeBackfill(request, response);
     if (request.method === "GET" && url.pathname === "/api/founding-status") return handleFoundingStatus(request, response);
