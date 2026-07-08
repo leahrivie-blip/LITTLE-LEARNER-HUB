@@ -2268,6 +2268,14 @@ function setFormMessage(elementOrSelector, message, isSuccess = false) {
   element.classList.toggle("success", Boolean(isSuccess));
 }
 
+let adminLessonSaveFlowMessages = [];
+
+function setAdminLessonSaveFlowMessage(message, { reset = false, isSuccess = true } = {}) {
+  if (reset) adminLessonSaveFlowMessages = [];
+  if (message) adminLessonSaveFlowMessages.push(message);
+  setFormMessage("#adminLessonPlanMessage", adminLessonSaveFlowMessages.join(" → "), isSuccess);
+}
+
 function friendlyAuthError(error) {
   const code = error?.code || "";
   if (code.includes("invalid-email")) return "Please enter a valid email address.";
@@ -17421,6 +17429,10 @@ async function saveAdminLessonPlanForm(form) {
     setFormMessage("#adminLessonPlanMessage", "Already saving — please wait.", false);
     return;
   }
+  setAdminLessonSaveFlowMessage("Save function started", {
+    reset: adminLessonSaveFlowMessages[0] !== "Save button clicked",
+    isSuccess: true,
+  });
   const formData = new FormData(form);
   const id = String(formData.get("id") || "");
   console.log("[DIAG] saveAdminLessonPlanForm: lesson id =", JSON.stringify(id));
@@ -17438,7 +17450,6 @@ async function saveAdminLessonPlanForm(form) {
     initialBtn.disabled = true;
     initialBtn.textContent = "Saving…";
   }
-  setFormMessage("#adminLessonPlanMessage", "Saving…", true);
   try {
     const uploadedImage = await fileToImageDataUrl(formData.get("thumbnailFile"));
     const now = new Date().toISOString();
@@ -17473,6 +17484,7 @@ async function saveAdminLessonPlanForm(form) {
     };
     console.log("[DIAG] saveAdminLessonPlanForm: payload being sent →", JSON.stringify(lessonPayload));
     if (isCustomPlan) {
+      setAdminLessonSaveFlowMessage("API request sent", { isSuccess: true });
       const nextContent = nextSiteContentDraft();
       const existing = Array.isArray(nextContent.customLessonPlans) ? nextContent.customLessonPlans : [];
       const current = existing.find((item) => item.id === id) || {};
@@ -17511,6 +17523,7 @@ async function saveAdminLessonPlanForm(form) {
       await saveAdminSiteContent(nextContent);
       adminLessonEditorId = id;
     } else {
+      setAdminLessonSaveFlowMessage("API request sent", { isSuccess: true });
       await updateLessonOverrides((lessonPlans) => {
         const current = lessonPlans[id] || {};
         console.log("[DIAG] updateLessonOverrides: existing override for id", JSON.stringify(id), "→ keys:", Object.keys(current));
@@ -17557,7 +17570,7 @@ async function saveAdminLessonPlanForm(form) {
     const successMsg = isVisible
       ? "Saved successfully. This lesson plan is live on the website."
       : "Saved successfully.";
-    setFormMessage("#adminLessonPlanMessage", successMsg, true);
+    setAdminLessonSaveFlowMessage(successMsg, { isSuccess: true });
     // Scroll the success message into view so the admin can see it on long forms
     const msgEl = document.querySelector("#adminLessonPlanMessage");
     if (msgEl) msgEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -17565,7 +17578,7 @@ async function saveAdminLessonPlanForm(form) {
     console.error("[DIAG] saveAdminLessonPlanForm: CAUGHT ERROR →", err);
     const errMsg = err.message || "Unknown error";
     const isDbError = /database|could not be saved|storage/i.test(errMsg);
-    setFormMessage("#adminLessonPlanMessage", isDbError ? `Database update failed: ${errMsg}` : `Save failed: ${errMsg}`, false);
+    setAdminLessonSaveFlowMessage(isDbError ? `Database update failed: ${errMsg}` : `Save failed: ${errMsg}`, { isSuccess: false });
     const msgEl = document.querySelector("#adminLessonPlanMessage");
     if (msgEl) msgEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
   } finally {
@@ -26322,6 +26335,11 @@ document.addEventListener("change", (event) => {
 });
 
 document.addEventListener("click", async (event) => {
+  const lessonSaveButton = event.target.closest("#adminLessonPlanForm button[type='submit']");
+  if (lessonSaveButton) {
+    setAdminLessonSaveFlowMessage("Save button clicked", { reset: true, isSuccess: true });
+  }
+
   // Admin section navigation — group buttons (top-level 6-section nav)
   const groupBtn = event.target.closest("[data-admin-group]");
   if (groupBtn) {
