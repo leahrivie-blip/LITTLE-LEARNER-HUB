@@ -475,6 +475,7 @@ function normalizedLessonPlanOverride(id, value) {
     plan: normalizedShortText(entry.plan, 20),
     visible: entry.visible === true,
     archived: entry.archived === true,
+    featured: entry.featured === true,
     thumbnailUrl: sanitizedImageSource(entry.thumbnailUrl),
     updatedAt: normalizedShortText(entry.updatedAt, 80),
     titleThemeImporterUpdated: entry.titleThemeImporterUpdated === true,
@@ -3142,8 +3143,15 @@ async function handleStripeWebhook(request, response) {
     const promoLabel = session.metadata?.promoLabel || userEntry?.[1]?.pendingPromoLabel || "";
     if (email) {
       const founding = planKey === "founding" ? claimFoundingSpot(email) : { foundingMember: false, foundingMemberNumber: null };
+      const checkoutTrialUpdates = {};
+      if (promoTrialDays > 0) {
+        checkoutTrialUpdates.trialStatus = "In Trial";
+        checkoutTrialUpdates.trialStart = new Date().toISOString();
+        checkoutTrialUpdates.trialEnd = new Date(Date.now() + promoTrialDays * 86400000).toISOString();
+      }
       upsertUser(email, {
-        ...statusForPlan(planKey, session.subscription, "Active"),
+        ...statusForPlan(planKey, session.subscription, promoTrialDays > 0 ? "trialing" : "Active"),
+        ...checkoutTrialUpdates,
         stripeCustomerId: session.customer,
         foundingMember: founding.foundingMember,
         foundingMemberNumber: founding.foundingMemberNumber,
@@ -3174,6 +3182,18 @@ async function handleStripeWebhook(request, response) {
       const founding = planKey === "founding"
         ? claimFoundingSpot(email)
         : { foundingMember: Boolean(user.foundingMember), foundingMemberNumber: user.foundingMemberNumber || null };
+      const trialUpdates = {};
+      if (!canceled && subscription.trial_start) {
+        trialUpdates.trialStart = new Date(subscription.trial_start * 1000).toISOString();
+      }
+      if (!canceled && subscription.trial_end) {
+        trialUpdates.trialEnd = new Date(subscription.trial_end * 1000).toISOString();
+      }
+      if (!canceled && subscription.status === "trialing") {
+        trialUpdates.trialStatus = "In Trial";
+      } else if (!canceled && subscription.status === "active" && user.trialStatus === "In Trial") {
+        trialUpdates.trialStatus = "Trial Ended";
+      }
       upsertUser(email, canceled ? {
         plan: "Free",
         subscriptionCadence: "",
@@ -3185,6 +3205,7 @@ async function handleStripeWebhook(request, response) {
         priceLock: founding.foundingMember ? "Lifetime" : "",
       } : {
         ...statusForPlan(planKey, subscription.id, subscription.status === "active" ? "Active" : subscription.status),
+        ...trialUpdates,
         foundingMember: founding.foundingMember,
         foundingMemberNumber: founding.foundingMemberNumber,
         paymentMethod: "Managed in Stripe",
@@ -3440,6 +3461,15 @@ function updateAnalyticsUser(store, event) {
     updates.signupAt = event.createdAt;
     updates.createdAt = existing.createdAt || event.createdAt;
   }
+  if (event.name === "account_signup_complete") {
+    const detailFirst = normalizedShortText(event.detail?.firstName, 80);
+    const detailLast  = normalizedShortText(event.detail?.lastName, 80);
+    if (detailFirst && !existing.firstName) updates.firstName = detailFirst;
+    if (detailLast  && !existing.lastName)  updates.lastName  = detailLast;
+    if ((detailFirst || detailLast) && !existing.name) {
+      updates.name = [detailFirst, detailLast].filter(Boolean).join(" ");
+    }
+  }
   if (event.name === "account_login_complete") updates.lastLoginAt = event.createdAt;
   if (event.name === "checkout_success") {
     updates.plan = event.detail?.plan || event.plan || updates.plan;
@@ -3604,21 +3634,30 @@ function analyticsSummary(store) {
   const userRows = users
     .map((user) => {
       const userEvents = events.filter((event) => event.user === user.email);
+      const displayName = user.name || user.displayName || [user.firstName, user.lastName].filter(Boolean).join(" ") || "";
       return {
         email: user.email,
-        fullName: user.name || user.displayName || "",
-        name: user.name || user.displayName || "",
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        fullName: displayName,
+        name: displayName,
         plan: user.plan || "Free",
         planDisplayName: user.planDisplayName || user.plan || "Free",
         accountStatus: user.accountStatus || "Active",
         trialStatus: user.trialStatus || "No Trial",
+        trialStart: user.trialStart || "",
+        trialEnd: user.trialEnd || "",
         stripeCustomerId: user.stripeCustomerId || "",
         stripeSubscriptionId: user.stripeSubscriptionId || "",
         subscriptionStatus: user.subscriptionStatus || "Free Plan",
         subscriptionState: user.subscriptionState || "No Subscription",
         signupAt: user.signupAt || user.createdAt || "",
+        createdAt: user.createdAt || user.signupAt || "",
         lastLoginAt: user.lastLoginAt || "",
         lastSeenAt: user.lastSeenAt || user.updatedAt || "",
+        monthlyPrice: user.monthlyPrice || "",
+        foundingMember: Boolean(user.foundingMember),
+        foundingMemberNumber: user.foundingMemberNumber || null,
         featureUseCount: userEvents.length || Object.values(user.featureUsage || {}).reduce((total, value) => total + Number(value || 0), 0),
         topFeatures: topFeaturePairs(userEvents),
       };
