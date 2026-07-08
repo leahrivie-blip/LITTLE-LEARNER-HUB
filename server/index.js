@@ -4119,7 +4119,7 @@ async function handleSupportTicketCreate(request, response) {
     };
   }
   // Send auto-acknowledgment to the user (best-effort; does not affect the response)
-  notifyUserAck({ toEmail: ticket.email, toName: ticket.name, submissionType: "support request", topic: ticket.topic }).catch(() => {});
+  notifyUserAck({ toEmail: ticket.email, toName: ticket.name, submissionType: "support request", topic: ticket.topic }).catch((err) => console.warn("[email] Support ticket ack failed:", err.message));
   jsonResponse(response, 200, {
     ticket: publicTicket(ticket),
     supportEmail: SUPPORT_EMAIL_TO,
@@ -4687,9 +4687,9 @@ async function handleBugReportCreate(request, response) {
     createdAt: report.createdAt,
     sourceUrl: report.sourceUrl,
     fields: [["Category", report.category]],
-  }).catch(() => {});
+  }).catch((err) => console.warn("[email] Bug report admin notification failed:", err.message));
   // User auto-ack (best-effort)
-  notifyUserAck({ toEmail: report.email, toName: report.name, submissionType: "bug report", topic: report.title }).catch(() => {});
+  notifyUserAck({ toEmail: report.email, toName: report.name, submissionType: "bug report", topic: report.title }).catch((err) => console.warn("[email] Bug report ack failed:", err.message));
   jsonResponse(response, 200, { bugReport: publicBugReport(report), supportEmail: SUPPORT_EMAIL_TO });
 }
 
@@ -4780,8 +4780,8 @@ async function handleFeatureRequestCreate(request, response) {
     createdAt: item.createdAt,
     sourceUrl: item.sourceUrl,
     fields: [["Category", item.category]],
-  }).catch(() => {});
-  notifyUserAck({ toEmail: item.email, toName: item.name, submissionType: "feature request", topic: item.title }).catch(() => {});
+  }).catch((err) => console.warn("[email] Feature request admin notification failed:", err.message));
+  notifyUserAck({ toEmail: item.email, toName: item.name, submissionType: "feature request", topic: item.title }).catch((err) => console.warn("[email] Feature request ack failed:", err.message));
   jsonResponse(response, 200, { featureRequest: publicFeatureRequest(item), supportEmail: SUPPORT_EMAIL_TO });
 }
 
@@ -4912,8 +4912,8 @@ async function handleFeedbackCreate(request, response) {
     createdAt: item.createdAt,
     sourceUrl: item.sourceUrl,
     fields: [["Feedback Type", item.type]],
-  }).catch(() => {});
-  notifyUserAck({ toEmail: item.email, toName: item.name, submissionType: "feedback", topic: item.type }).catch(() => {});
+  }).catch((err) => console.warn("[email] Feedback admin notification failed:", err.message));
+  notifyUserAck({ toEmail: item.email, toName: item.name, submissionType: "feedback", topic: item.type }).catch((err) => console.warn("[email] Feedback ack failed:", err.message));
   jsonResponse(response, 200, { feedback: publicFeedback(item), supportEmail: SUPPORT_EMAIL_TO });
 }
 
