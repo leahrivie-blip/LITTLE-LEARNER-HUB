@@ -3265,6 +3265,12 @@ function siteManagedActivityResources() {
     .filter((item) => item.id && item.title);
 }
 
+function siteManagedActivityRecordById(id) {
+  const stableId = normalizedShortText(id);
+  if (!stableId) return null;
+  return (effectiveSiteContent().activities || []).find((item) => normalizedShortText(item.id) === stableId) || null;
+}
+
 function combinedAdminResources() {
   return [...siteManagedActivityResources(), ...uploadedResources()];
 }
@@ -7270,6 +7276,45 @@ Provider Reminder
 Check current CACFP/state rules, allergy plans, serving sizes, and infant/toddler texture safety before serving.`;
   }
   if (resource.category === "Activity Center") {
+    const savedActivity = siteManagedActivityRecordById(resource.id);
+    const activityTags = (savedActivity?.tags || resource.tags || []).filter(Boolean);
+    const savedFields = [
+      normalizedMultilineText(savedActivity?.description || resource.description || ""),
+      normalizedMultilineText(savedActivity?.instructions || resource.instructions || ""),
+      normalizedShortText(savedActivity?.theme || resource.theme || ""),
+      normalizedShortText(savedActivity?.activityCategory || resource.activityCategory || ""),
+      activityTags.join(", "),
+      savedActivity?.previewData || resource.previewData || "",
+      savedActivity?.fileData || resource.fileData || "",
+      normalizedShortText(savedActivity?.fileName || resource.fileName || ""),
+      normalizedShortText(savedActivity?.previewName || resource.previewName || ""),
+    ].some(Boolean);
+    if (savedActivity && savedFields) {
+      const activityTheme = normalizedShortText(savedActivity.theme || resource.theme || "");
+      const activityType = normalizedShortText(savedActivity.activityCategory || resource.activityCategory || "");
+      const uploadedText = decodedTextFileData(savedActivity);
+      const attachedFileName = normalizedShortText(savedActivity.fileName || resource.fileName || "");
+      const previewName = normalizedShortText(savedActivity.previewName || resource.previewName || "");
+      const imageNotes = [];
+      if ((savedActivity.previewData || resource.previewData) && previewName) imageNotes.push(`Preview image: ${previewName}`);
+      if ((savedActivity.fileData || resource.fileData) && attachedFileName && !uploadedText) imageNotes.push(`Attached file: ${attachedFileName}`);
+      return [
+        resource.title,
+        "",
+        `Age Group: ${resource.age}`,
+        `Theme: ${activityTheme || "Not specified"}`,
+        `Category: ${activityType || "Not specified"}`,
+        `Tags: ${activityTags.join(", ") || "None"}`,
+        "",
+        "Description",
+        normalizedMultilineText(savedActivity.description || resource.description || "No description provided."),
+        "",
+        "Instructions",
+        normalizedMultilineText(savedActivity.instructions || resource.instructions || "No instructions provided."),
+        ...(uploadedText ? ["", "Attached File Content", uploadedText] : []),
+        ...(imageNotes.length ? ["", "Saved Uploads", ...imageNotes] : []),
+      ].join("\n");
+    }
     const focus = resource.tags[0] || "Hands-on learning";
     const theme = resource.tags[1] || resource.theme || "daily routines";
     return `${resource.title}
@@ -8195,7 +8240,50 @@ function openResourceViewer(resourceId) {
     ...resource.tags.slice(0, 4),
   ].map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
   const body = document.querySelector("#resourceViewerBody");
-  if (resource.fileData && resource.fileData.startsWith("data:image")) {
+  const savedActivity = resource.category === "Activity Center" ? siteManagedActivityRecordById(resource.id) : null;
+  const savedActivityContent = savedActivity && [
+    normalizedMultilineText(savedActivity.description || resource.description || ""),
+    normalizedMultilineText(savedActivity.instructions || resource.instructions || ""),
+    normalizedShortText(savedActivity.theme || resource.theme || ""),
+    normalizedShortText(savedActivity.activityCategory || resource.activityCategory || ""),
+    (savedActivity.tags || resource.tags || []).filter(Boolean).join(", "),
+    savedActivity.previewData || resource.previewData || "",
+    savedActivity.fileData || resource.fileData || "",
+  ].some(Boolean);
+  if (savedActivity && savedActivityContent) {
+    const activityTags = (savedActivity.tags || resource.tags || []).filter(Boolean);
+    const uploadedText = decodedTextFileData(savedActivity);
+    const previewData = savedActivity.previewData || resource.previewData || "";
+    const fileData = savedActivity.fileData || resource.fileData || "";
+    const fileName = normalizedShortText(savedActivity.fileName || resource.fileName || "");
+    const previewName = normalizedShortText(savedActivity.previewName || resource.previewName || "");
+    const theme = normalizedShortText(savedActivity.theme || resource.theme || "");
+    const activityCategory = normalizedShortText(savedActivity.activityCategory || resource.activityCategory || "");
+    body.innerHTML = `
+      <article class="printable-resource-page">
+        <section class="print-section print-cover">
+          <h3>${escapeHtml(resource.title)}</h3>
+          <p>${escapeHtml(savedActivity.description || resource.description || "Activity details saved by admin.")}</p>
+          <p><strong>Age Group:</strong> ${escapeHtml(resource.age)}</p>
+          <p><strong>Theme:</strong> ${escapeHtml(theme || "Not specified")}</p>
+          <p><strong>Category:</strong> ${escapeHtml(activityCategory || "Not specified")}</p>
+          <p><strong>Tags:</strong> ${escapeHtml(activityTags.join(", ") || "None")}</p>
+        </section>
+        <section class="print-section">
+          <h3>Description</h3>
+          ${printableLinesHtml(normalizedMultilineText(savedActivity.description || resource.description || "No description provided.").split("\n"))}
+        </section>
+        <section class="print-section">
+          <h3>Instructions</h3>
+          ${printableLinesHtml(normalizedMultilineText(savedActivity.instructions || resource.instructions || "No instructions provided.").split("\n"))}
+        </section>
+        ${previewData ? `<section class="print-section"><h3>Preview Image</h3><img class="resource-viewer-image" src="${previewData}" alt="${escapeHtml(previewName || `${resource.title} preview`)}" /></section>` : ""}
+        ${fileData && fileData.startsWith("data:image") ? `<section class="print-section"><h3>${escapeHtml(fileName || "Uploaded Activity Image")}</h3><img class="resource-viewer-image" src="${fileData}" alt="${escapeHtml(fileName || resource.title)}" /></section>` : ""}
+        ${uploadedText ? `<section class="print-section"><h3>Attached File Content</h3>${printableLinesHtml(uploadedText.split("\n"))}</section>` : ""}
+        ${fileData && !fileData.startsWith("data:image") && !uploadedText ? `<section class="print-section"><h3>Attached File</h3><p>${escapeHtml(fileName || "Saved file attached to this activity.")}</p></section>` : ""}
+      </article>
+    `;
+  } else if (resource.fileData && resource.fileData.startsWith("data:image")) {
     body.innerHTML = `
       <article class="printable-resource-page">
         <section class="print-section print-cover">
@@ -17032,6 +17120,9 @@ function resetAdminForm() {
   if (!form) return;
   form.reset();
   form.querySelector('[name="id"]').value = "";
+  form.querySelector('[name="sourceLessonPlanId"]').value = "";
+  form.querySelector('[name="sourceLessonPlanTitle"]').value = "";
+  form.querySelector('[name="sourceActivityId"]').value = "";
   form.querySelector('[name="fileData"]').value = "";
   form.querySelector('[name="fileNameStored"]').value = "";
   form.querySelector('[name="previewDataStored"]').value = "";
@@ -17058,6 +17149,9 @@ function fillAdminForm(id) {
   form.querySelector('[name="theme"]').value = item.theme || "";
   form.querySelector('[name="activityCategory"]').value = item.activityCategory || "";
   form.querySelector('[name="linkedLessonPlanId"]').value = item.linkedLessonPlanId || item.sourceLessonPlanId || "";
+  form.querySelector('[name="sourceLessonPlanId"]').value = item.sourceLessonPlanId || "";
+  form.querySelector('[name="sourceLessonPlanTitle"]').value = item.sourceLessonPlanTitle || "";
+  form.querySelector('[name="sourceActivityId"]').value = item.sourceActivityId || "";
   form.querySelector('[name="status"]').value = item.status || (item.hidden ? "Hidden" : "Published");
   form.querySelector('[name="featured"]').checked = item.featured === true;
   form.querySelector('[name="hidden"]').checked = item.hidden === true;
@@ -23074,6 +23168,9 @@ document.querySelector("#uploadForm")?.addEventListener("submit", async (event) 
   const status = hiddenChecked ? "Hidden" : (adminActivityStatusOptions.has(requestedStatus) ? requestedStatus : "Draft");
   const fileData = await fileToDataUrlSafe(form.get("file"), form.get("fileData") || existingItem?.fileData || "");
   const previewData = await fileToImageDataUrlSafe(form.get("preview"), form.get("previewDataStored") || existingItem?.previewData || "");
+  const sourceLessonPlanId = normalizedShortText(form.get("sourceLessonPlanId") || existingItem?.sourceLessonPlanId || "");
+  const sourceLessonPlanTitle = normalizedShortText(form.get("sourceLessonPlanTitle") || existingItem?.sourceLessonPlanTitle || "");
+  const sourceActivityId = normalizedShortText(form.get("sourceActivityId") || existingItem?.sourceActivityId || "");
   const payload = {
     id: stableId,
     category,
@@ -23086,7 +23183,10 @@ document.querySelector("#uploadForm")?.addEventListener("submit", async (event) 
     theme: normalizedShortText(form.get("theme")),
     activityCategory: normalizedShortText(form.get("activityCategory")),
     linkedLessonPlanId,
-    linkedLessonPlanTitle: linkedLessonPlan?.title || "",
+    linkedLessonPlanTitle: linkedLessonPlan?.title || existingItem?.linkedLessonPlanTitle || sourceLessonPlanTitle || "",
+    sourceLessonPlanId,
+    sourceLessonPlanTitle,
+    sourceActivityId,
     status,
     hidden: hiddenChecked || status === "Hidden",
     featured: form.get("featured") === "on",
