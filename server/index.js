@@ -547,6 +547,7 @@ function normalizedActivityEntry(value) {
     thumbnailUrl: sanitizedImageSource(entry.thumbnailUrl),
     visible: entry.visible === true,
     archived: entry.archived === true,
+    featured: entry.featured === true,
     updatedAt: normalizedShortText(entry.updatedAt, 80),
   };
 }
@@ -575,6 +576,7 @@ function normalizedLibraryItemEntry(value, defaultCategory) {
     customContent: normalizedMultilineText(entry.customContent, 20000),
     visible: entry.visible === true,
     archived: entry.archived === true,
+    featured: entry.featured === true,
     updatedAt: normalizedShortText(entry.updatedAt, 80),
   };
 }
