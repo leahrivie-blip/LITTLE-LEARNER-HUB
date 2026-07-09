@@ -3484,6 +3484,40 @@ function initAdminLessonResourcesDraft(lessonRecord) {
   adminLessonResourcesDraftId = lessonRecord?.id || "";
 }
 
+function savedLessonResourcesForId(id) {
+  if (!id) return [];
+  const custom = (effectiveSiteContent().customLessonPlans || []).find((item) => item.id === id);
+  if (custom) return Array.isArray(custom.resources) ? custom.resources : [];
+  const override = lessonPlanOverrideFor(id) || {};
+  return Array.isArray(override.resources) ? override.resources : [];
+}
+
+function lessonResourcesCompareKey(resources) {
+  return JSON.stringify(
+    (Array.isArray(resources) ? resources : []).map((item) => ({
+      id: item?.id || "",
+      title: item?.title || "",
+      category: item?.category || "",
+      url: item?.url || "",
+      mimeType: item?.mimeType || "",
+      order: Number.isFinite(Number(item?.order)) ? Number(item.order) : 0,
+    }))
+  );
+}
+
+function adminLessonResourcesDraftIsDirty() {
+  if (!adminLessonResourcesDraftId || !Array.isArray(adminLessonResourcesDraft)) return false;
+  return lessonResourcesCompareKey(adminLessonResourcesDraft) !== lessonResourcesCompareKey(savedLessonResourcesForId(adminLessonResourcesDraftId));
+}
+
+function notifyAdminLessonResourcesDraftPending(actionLabel = "Resource list updated") {
+  setFormMessage(
+    "#adminLessonPlanMessage",
+    `${actionLabel} in this editor only — click Save lesson plan to keep it. Refreshing now will lose these changes.`,
+    false
+  );
+}
+
 function renderAdminLessonResourcesSection() {
   const resources = adminLessonResourcesDraft || [];
   const categories = lessonPlanResourceCategories;
@@ -3523,7 +3557,7 @@ function renderAdminLessonResourcesSection() {
   return `
     <fieldset class="admin-fieldset lp-resources-fieldset">
       <legend>📎 Printables &amp; Resources</legend>
-      <p class="admin-generator-note">Attach printables, coloring pages, PDFs, and activity sheets to this lesson plan. Resources are organized by category and visible to providers viewing this plan.</p>
+      <p class="admin-generator-note">Attach printables, coloring pages, PDFs, and activity sheets to this lesson plan. Changes here are a draft until you click Save lesson plan — refreshing before save will lose them. After save, they are visible to providers viewing this plan.</p>
       <div id="adminLessonResourceCategories">${categorySections}</div>
       <details class="lp-add-resource-panel" id="adminAddResourcePanel">
         <summary>+ Add Resource</summary>
@@ -3575,14 +3609,13 @@ async function handleAddLessonResource(form) {
   renderAdminContentManager();
   const panel = document.querySelector("#adminAddResourcePanel");
   if (panel) panel.open = false;
+  notifyAdminLessonResourcesDraftPending("Resource added");
 }
 
 function removeAdminLessonResource(id) {
   adminLessonResourcesDraft = (adminLessonResourcesDraft || []).filter((r) => r.id !== id);
-  const catEl = document.querySelector("#adminLessonResourceCategories");
-  if (!catEl) return;
-  catEl.innerHTML = renderAdminLessonResourcesSection().replace(/^[\s\S]*<div id="adminLessonResourceCategories">/, "").replace(/<\/div>\s*<details[\s\S]*$/, "");
   renderAdminContentManager();
+  notifyAdminLessonResourcesDraftPending("Resource removed");
 }
 
 function reorderAdminLessonResource(id, direction) {
@@ -3604,6 +3637,7 @@ function reorderAdminLessonResource(id, direction) {
   }
   adminLessonResourcesDraft = resources.slice();
   renderAdminContentManager();
+  notifyAdminLessonResourcesDraftPending("Resource order updated");
 }
 
 
@@ -17507,6 +17541,7 @@ function adminLessonFormSnapshot(form = document.querySelector("#adminLessonPlan
 }
 
 function adminLessonHasUnsavedChanges() {
+  if (adminLessonResourcesDraftIsDirty()) return true;
   const form = document.querySelector("#adminLessonPlanForm");
   if (!form || !adminLessonEditorInitialSnapshot) return false;
   return adminLessonFormSnapshot(form) !== adminLessonEditorInitialSnapshot;
