@@ -18693,100 +18693,6 @@ async function deleteImageAsset(id) {
 
 let adminActivityEditorId = "";
 
-function renderAdminActivitiesManager() {
-  const target = document.querySelector("#adminActivitiesManagerApp");
-  if (!target || !isAdminUnlocked()) return;
-  const activities = effectiveSiteContent().activities || [];
-  const editorActivity = activities.find((a) => a.id === adminActivityEditorId) || null;
-  const ageOptions = ["All Ages", "Infant", "Toddler", "Preschool"];
-  const planOptions = ["Free", "Pro"];
-  const categoryOptions = ["Math", "Literacy", "Science", "Art", "Sensory", "Fine Motor", "Gross Motor", "Social Emotional", "Music", "Outdoor", "Seasonal", "Holiday", "General"];
-  target.innerHTML = `
-    <div class="section-heading">
-      <div><p class="eyebrow">Activity Manager</p><h3>Printable &amp; digital activities</h3></div>
-      <button class="ghost-button" type="button" id="adminNewActivityButton">+ Add Activity</button>
-    </div>
-    <div class="admin-mobile-list" id="adminActivityList">
-      ${activities.length ? activities.map((a) => adminActivityCardHtml(a)).join("") : `<div class="empty-state">No activities yet. Click + Add Activity to create the first one.</div>`}
-    </div>
-    <form id="adminActivityForm" class="panel-form admin-stacked-form">
-      <input type="hidden" name="id" value="${escapeHtml(editorActivity?.id || "")}" />
-      <h4 class="admin-lesson-editing-heading">${editorActivity ? `Editing: ${escapeHtml(editorActivity.title || "Untitled")}` : "New Activity"}</h4>
-      <div class="form-grid-two">
-        <label>Activity Title<input name="title" value="${escapeHtml(editorActivity?.title || "")}" placeholder="Spring Butterfly Counting" required /></label>
-        <label>Age Group<select name="age">${ageOptions.map((a) => `<option${(editorActivity?.age || "All Ages") === a ? " selected" : ""}>${a}</option>`).join("")}</select></label>
-      </div>
-      <div class="form-grid-two">
-        <label>Category / Theme<select name="activityCategory">${categoryOptions.map((c) => `<option${(editorActivity?.activityCategory || "General") === c ? " selected" : ""}>${c}</option>`).join("")}</select></label>
-        <label>Access<select name="plan">${planOptions.map((p) => `<option${(editorActivity?.plan || "Free") === p ? " selected" : ""}>${p}</option>`).join("")}</select></label>
-      </div>
-      <label>Description<textarea name="description" rows="3" placeholder="What does this activity include and how is it used?">${escapeHtml(editorActivity?.description || "")}</textarea></label>
-      <label>Tags (comma-separated)<input name="tags" value="${escapeHtml(Array.isArray(editorActivity?.tags) ? editorActivity.tags.join(", ") : (editorActivity?.tags || ""))}" placeholder="counting, spring, fine motor" /></label>
-      <div class="form-grid-two">
-        <label>Upload Printable File (PDF or image)<input name="printableFile" type="file" accept=".pdf,image/*" /></label>
-        <label>Upload Preview Image<input name="thumbnailFile" type="file" accept="image/*" /></label>
-      </div>
-      ${editorActivity?.printableUrl ? `<p class="muted-copy">Current printable: <a href="${escapeHtml(editorActivity.printableUrl)}" target="_blank" rel="noopener">View</a></p>` : ""}
-      ${editorActivity?.thumbnailUrl ? `<img class="admin-activity-thumb-preview" src="${escapeHtml(editorActivity.thumbnailUrl)}" alt="Preview" />` : ""}
-      <label class="admin-inline-toggle"><input name="visible" type="checkbox" ${editorActivity?.visible !== false ? "checked" : ""} /> <span>Visible to users</span></label>
-      <div class="form-actions">
-        <button class="primary-button" type="submit">Save Activity</button>
-        ${editorActivity ? `<button class="danger-button" type="button" id="adminDeleteActivityButton" data-activity-id="${escapeHtml(editorActivity.id)}">Delete</button>` : ""}
-        <button class="ghost-button" type="button" id="adminNewActivityButton2">Cancel / New</button>
-      </div>
-      <span class="form-message" id="adminActivityMessage"></span>
-    </form>
-  `;
-}
-
-function adminActivityCardHtml(activity) {
-  const image = sanitizedImageSource(activity.thumbnailUrl || "");
-  const isVisible = activity.visible !== false;
-  return `
-    <article class="admin-mobile-card${isVisible ? "" : " is-hidden"}">
-      <div class="admin-mobile-card-body">
-        ${image ? `<img class="admin-mobile-thumb" src="${escapeHtml(image)}" alt="${escapeHtml(activity.title)} preview" />` : `<div class="admin-mobile-thumb admin-mobile-thumb-placeholder">${escapeHtml(initialsFromName(activity.title, "AC"))}</div>`}
-        <div>
-          <strong>${escapeHtml(activity.title)}</strong>
-          <p>${escapeHtml(activity.activityCategory || "General")} · ${escapeHtml(activity.age || "All Ages")} · ${escapeHtml(activity.plan || "Free")}</p>
-          <div class="tag-row">
-            <span class="tag">${escapeHtml(activity.age || "All Ages")}</span>
-            <span class="tag">${escapeHtml(activity.plan || "Free")}</span>
-            <span class="tag tag-visibility${isVisible ? " tag-visible" : " tag-hidden"}">${isVisible ? "Visible" : "Hidden"}</span>
-            ${activity.printableUrl ? `<span class="tag">Printable</span>` : ""}
-          </div>
-        </div>
-      </div>
-      <div class="form-actions">
-        <button class="ghost-button" type="button" data-admin-activity-edit="${escapeHtml(activity.id)}">Edit</button>
-        <button class="ghost-button" type="button" data-admin-activity-toggle="${escapeHtml(activity.id)}">${isVisible ? "Hide" : "Show"}</button>
-      </div>
-    </article>
-  `;
-}
-
-async function deleteAdminActivity(id) {
-  if (!window.confirm("Delete this activity? This cannot be undone.")) return;
-  const nextContent = nextSiteContentDraft();
-  nextContent.activities = (Array.isArray(nextContent.activities) ? nextContent.activities : []).filter((a) => a.id !== id);
-  if (adminActivityEditorId === id) adminActivityEditorId = "";
-  await saveAdminSiteContent(nextContent);
-  syncSiteManagedResources();
-  renderAdminActivitiesManager();
-}
-
-async function toggleAdminActivityVisibility(id) {
-  const nextContent = nextSiteContentDraft();
-  const activities = Array.isArray(nextContent.activities) ? nextContent.activities : [];
-  const idx = activities.findIndex((a) => a.id === id);
-  if (idx === -1) return;
-  activities[idx] = { ...activities[idx], visible: activities[idx].visible === false, updatedAt: new Date().toISOString() };
-  nextContent.activities = activities;
-  await saveAdminSiteContent(nextContent);
-  syncSiteManagedResources();
-  renderAdminActivitiesManager();
-}
-
 let adminFormEditorId = "";
 let adminPrintableEditorId = "";
 
@@ -27792,7 +27698,7 @@ document.addEventListener("submit", async (event) => {
     await saveAdminImageAssetForm(event.target);
     return;
   }
-  if (event.target.matches("#adminActivityForm, #adminActivitiesForm")) {
+  if (event.target.matches("#adminActivitiesForm")) {
     event.preventDefault();
     await saveAdminManagedCollectionForm("activities", event.target);
     return;
@@ -28173,28 +28079,6 @@ document.addEventListener("click", async (event) => {
   if (event.target.closest("#adminNewImageButton")) {
     adminImageEditorId = "";
     renderAdminContentManager();
-  }
-  // ── Admin Activities ──
-  const activityEditButton = event.target.closest("[data-admin-activity-edit]");
-  if (activityEditButton) {
-    adminActivityEditorId = activityEditButton.dataset.adminActivityEdit;
-    renderAdminActivitiesManager();
-    return;
-  }
-  const activityToggleButton = event.target.closest("[data-admin-activity-toggle]");
-  if (activityToggleButton) {
-    await toggleAdminActivityVisibility(activityToggleButton.dataset.adminActivityToggle);
-    return;
-  }
-  const activityDeleteButton = event.target.closest("#adminDeleteActivityButton");
-  if (activityDeleteButton) {
-    await deleteAdminActivity(activityDeleteButton.dataset.activityId);
-    return;
-  }
-  if (event.target.id === "adminNewActivityButton" || event.target.id === "adminNewActivityButton2") {
-    adminActivityEditorId = "";
-    renderAdminActivitiesManager();
-    return;
   }
   const managedSetStatusButton = event.target.closest("[data-admin-managed-set-status]");
   if (managedSetStatusButton) {
