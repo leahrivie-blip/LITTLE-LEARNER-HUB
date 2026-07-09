@@ -16530,7 +16530,9 @@ async function migrateUploadedResourcesFromLocalStorage() {
 
 async function saveUploadedResourceToBackend(upload) {
   const token = adminSession()?.token || "";
-  if (!canUseLaunchBackend() || !isAdminUnlocked() || !token) return null;
+  if (!canUseLaunchBackend() || !isAdminUnlocked() || !token) {
+    throw new Error("Backend server and admin login are required to save uploads.");
+  }
   const response = await fetch(uploadedResourcesConfig.upsertEndpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -16544,7 +16546,9 @@ async function saveUploadedResourceToBackend(upload) {
 
 async function deleteUploadedResourceFromBackend(id) {
   const token = adminSession()?.token || "";
-  if (!canUseLaunchBackend() || !isAdminUnlocked() || !token) return false;
+  if (!canUseLaunchBackend() || !isAdminUnlocked() || !token) {
+    throw new Error("Backend server and admin login are required to delete uploads.");
+  }
   const response = await fetch(uploadedResourcesConfig.deleteEndpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -21113,19 +21117,16 @@ function fillAdminForm(id) {
 }
 
 async function deleteAdminResource(id) {
-  let deletedRemotely = false;
   try {
-    deletedRemotely = await deleteUploadedResourceFromBackend(id);
+    await deleteUploadedResourceFromBackend(id);
+    favorites = favorites.filter((favorite) => favorite !== id);
+    saveFavorites();
+    setFormMessage("#adminUploadMessage", "✅ Upload deleted.", true);
+    renderAdminDashboard();
   } catch (error) {
     console.warn("Uploaded resource backend delete failed", error);
+    setFormMessage("#adminUploadMessage", `❌ Could not delete upload — ${error.message || "please try again."}`, false);
   }
-  if (!deletedRemotely) {
-    const uploads = uploadedResources();
-    saveUploadedResources(uploads.filter((item) => item.id !== id));
-  }
-  favorites = favorites.filter((favorite) => favorite !== id);
-  saveFavorites();
-  renderAdminDashboard();
 }
 
 async function addDemoAdminResource() {
@@ -21153,11 +21154,12 @@ async function addDemoAdminResource() {
   };
   try {
     await saveUploadedResourceToBackend(demo);
+    setFormMessage("#adminUploadMessage", "✅ Demo resource saved.", true);
+    renderAdminDashboard();
   } catch (error) {
     console.warn("Uploaded resource backend save failed", error);
-    saveUploadedResources([...uploadedResources(), demo]);
+    setFormMessage("#adminUploadMessage", `❌ Demo resource could not be saved — ${error.message || "please try again."}`, false);
   }
-  renderAdminDashboard();
 }
 
 // ─── Admin AI Testing Center ─────────────────────────────────────────────────
@@ -26869,15 +26871,12 @@ document.addEventListener("click", async (event) => {
     const nextUpload = { ...current, visible: !(current.visible !== false), updatedAt: new Date().toISOString() };
     try {
       await saveUploadedResourceToBackend(nextUpload);
+      setFormMessage("#adminUploadMessage", nextUpload.visible !== false ? "✅ Upload is now visible." : "✅ Upload is now hidden.", true);
+      renderAdminDashboard();
     } catch (error) {
       console.warn("Uploaded resource backend visibility toggle failed", error);
-      const uploads = uploadedResources();
-      const updated = uploads.map((item) =>
-        item.id === id ? nextUpload : item
-      );
-      saveUploadedResources(updated);
+      setFormMessage("#adminUploadMessage", `❌ Could not update visibility — ${error.message || "please try again."}`, false);
     }
-    renderAdminDashboard();
   }
 
   const adminDelete = event.target.closest("[data-admin-delete]");
@@ -28269,50 +28268,58 @@ document.addEventListener("click", async (event) => {
 
 document.querySelector("#uploadForm")?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const form = new FormData(event.currentTarget);
+  const formEl = event.currentTarget;
+  const submitBtn = formEl.querySelector("#adminSubmitButton");
+  if (submitBtn?.disabled) return;
+  const form = new FormData(formEl);
   const editId = form.get("id");
   const file = form.get("file");
   const preview = form.get("preview");
   const existingItem = editId ? uploadedResources().find((item) => item.id === editId) : null;
-  const fileData = file?.name ? await fileToDataUrl(file) : existingItem?.fileData || "";
-  const previewData = preview?.name ? await fileToDataUrl(preview) : existingItem?.previewData || "";
-  const tags = String(form.get("tags") || "")
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean);
-  const uploaded = {
-    id: editId || `upload-${Date.now()}`,
-    category: form.get("category"),
-    title: form.get("title"),
-    age: form.get("age"),
-    plan: form.get("plan"),
-    month: "June",
-    tags: ["Uploaded", ...tags],
-    format: file?.name ? "Uploaded File" : "Manual Resource",
-    fileName: file?.name || existingItem?.fileName || "",
-    fileData,
-    previewName: preview?.name || existingItem?.previewName || "",
-    previewData,
-    description: form.get("description") || "New uploaded resource.",
-    visible: form.get("visible") === "on",
-    updatedAt: new Date().toISOString(),
-  };
-  let savedToBackend = false;
+  const originalLabel = submitBtn?.textContent || "Add Content";
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Saving…";
+  }
+  setFormMessage("#adminUploadMessage", "Saving… Please wait.", true);
   try {
+    const fileData = file?.name ? await fileToDataUrl(file) : existingItem?.fileData || "";
+    const previewData = preview?.name ? await fileToDataUrl(preview) : existingItem?.previewData || "";
+    const tags = String(form.get("tags") || "")
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    const uploaded = {
+      ...(existingItem || {}),
+      id: editId || `upload-${Date.now()}`,
+      category: form.get("category"),
+      title: form.get("title"),
+      age: form.get("age"),
+      plan: form.get("plan"),
+      month: existingItem?.month || "",
+      tags: ["Uploaded", ...tags],
+      format: file?.name ? "Uploaded File" : (existingItem?.format || "Manual Resource"),
+      fileName: file?.name || existingItem?.fileName || "",
+      fileData,
+      previewName: preview?.name || existingItem?.previewName || "",
+      previewData,
+      description: form.get("description") || existingItem?.description || "New uploaded resource.",
+      visible: form.get("visible") === "on",
+      updatedAt: new Date().toISOString(),
+    };
     await saveUploadedResourceToBackend(uploaded);
-    savedToBackend = true;
+    setFormMessage("#adminUploadMessage", editId ? "✅ Upload changes saved." : "✅ Upload saved.", true);
+    resetAdminForm();
+    renderAdminDashboard();
   } catch (error) {
     console.warn("Uploaded resource backend save failed", error);
+    setFormMessage("#adminUploadMessage", `❌ Save Failed — ${error.message || "please try again."}`, false);
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = document.querySelector('#uploadForm [name="id"]')?.value ? "Save Changes" : originalLabel;
+    }
   }
-  if (!savedToBackend) {
-    const savedUploads = uploadedResources();
-    const updatedUploads = editId
-      ? savedUploads.map((item) => item.id === editId ? uploaded : item)
-      : [...savedUploads, uploaded];
-    saveUploadedResources(updatedUploads);
-  }
-  resetAdminForm();
-  renderAdminDashboard();
 });
 
 document.querySelectorAll(".support-form").forEach((form) => {
