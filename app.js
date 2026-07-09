@@ -18203,14 +18203,14 @@ async function toggleLessonPlanVisibility(id) {
       const current = (nextContent.customLessonPlans || []).find((item) => item.id === id);
       if (current) {
         nextContent.customLessonPlans = nextContent.customLessonPlans.map((item) => (
-          item.id === id ? { ...item, visible: nextVisible, archived: false, updatedAt: now } : item
+          item.id === id ? { ...item, visible: nextVisible, archived: false, featured: nextVisible ? item.featured === true : false, updatedAt: now } : item
         ));
         await saveAdminSiteContent(nextContent);
       }
     } else {
       await updateLessonOverrides((lessonPlans) => {
         const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
-        lessonPlans[id] = { ...current, id, visible: nextVisible, archived: false, updatedAt: now };
+        lessonPlans[id] = { ...current, id, visible: nextVisible, archived: false, featured: nextVisible ? current.featured === true : false, updatedAt: now };
       });
     }
   } finally {
@@ -19159,6 +19159,7 @@ async function duplicateAdminManagedCollectionItem(type, id) {
     title: `${source.title || config.singular} Copy`,
     visible: false,
     archived: false,
+    featured: false,
     updatedAt: new Date().toISOString(),
   };
   const nextContent = nextSiteContentDraft();
