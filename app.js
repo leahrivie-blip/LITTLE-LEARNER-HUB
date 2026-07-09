@@ -3186,7 +3186,9 @@ const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","a
 // so new upload categories can be managed without a code change.
 const lessonPlanResourceCategories = ["Coloring Pages", "Tracing Activities", "Counting Activities", "Matching Activities", "Crafts", "Teacher Resources", "Activity Photos", "General"];
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "dashboard";
+// Settings → Homepage was removed; Site Editor is the only homepage editor. Redirect old preference.
 let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabRaw) ? adminActiveSectionTabRaw : "dashboard";
+if (adminActiveSectionTab === "homepage") adminActiveSectionTab = "images";
 
 // ─── Admin 2.0 Navigation Groups ─────────────────────────────────────────────
 const adminGroups = [
@@ -3194,7 +3196,7 @@ const adminGroups = [
   { id: "content",   icon: "📚", label: "Content",    tabs: ["lesson-plans", "activities", "forms", "printables", "reviews", "founder", "resources"], defaultTab: "lesson-plans" },
   { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
   { id: "users",     icon: "👥", label: "Users",      tabs: ["users", "stripe-backfill"], defaultTab: "users" },
-  { id: "settings",  icon: "⚙️", label: "Settings",   tabs: ["homepage", "images"], defaultTab: "homepage" },
+  { id: "settings",  icon: "⚙️", label: "Settings",   tabs: ["images"], defaultTab: "images" },
   { id: "site-editor", icon: "✏️", label: "Site Editor", tabs: ["hero", "trust", "journey", "reviews-cta", "founding", "pricing", "faqs", "announcement", "upgrade-msg"], defaultTab: "hero" },
   { id: "ai",        icon: "🤖", label: "AI",         tabs: ["prompts", "settings", "usage", "ai-testing"], defaultTab: "prompts" },
 ];
@@ -19223,9 +19225,11 @@ const adminSectionTabs = [
 ];
 
 function setAdminSectionTab(tabId) {
-  adminActiveSectionTab = tabId;
-  adminActiveGroup = adminGroupForTab[tabId] || "dashboard";
-  localStorage.setItem("llhAdminActiveSection", tabId);
+  // Settings → Homepage removed; keep Images as the Settings landing tab.
+  const resolvedTabId = tabId === "homepage" ? "images" : tabId;
+  adminActiveSectionTab = resolvedTabId;
+  adminActiveGroup = adminGroupForTab[resolvedTabId] || "dashboard";
+  localStorage.setItem("llhAdminActiveSection", resolvedTabId);
   renderAdminSectionNav();
   applyAdminSectionVisibility();
 }
@@ -20061,6 +20065,13 @@ function renderAdminHeroSection() {
           </div>
         </div>
       </details>
+      <details class="se-accordion">
+        <summary class="se-accordion-summary">Hero Image</summary>
+        <div class="se-accordion-body">
+          <label>Hero preview image URL<input name="heroImageUrl" value="${escapeHtml(homepage.heroImageUrl || "")}" placeholder="https://..." /></label>
+          <label>Upload hero preview image<input name="heroImageFile" type="file" accept="image/*" /></label>
+        </div>
+      </details>
       <div class="se-form-actions">
         <div class="se-action-buttons">
           <button class="ghost-button" type="button" data-se-restore="hero">Restore Defaults</button>
@@ -20080,6 +20091,9 @@ async function saveAdminHeroForm(form) {
       const formData = new FormData(form);
       const nextContent = nextSiteContentDraft();
       const heroBenefits = normalizedMultilineText(formData.get("heroBenefits")).split("\n").map((s) => s.trim()).filter(Boolean);
+      console.log("[SAVE] Upload started → heroImageFile (hero)");
+      const heroImage = await fileToImageDataUrlSafe(formData.get("heroImageFile"));
+      console.log("[SAVE] Upload completed");
       nextContent.homepage = {
         ...(nextContent.homepage || {}),
         heroBadge: normalizedShortText(formData.get("heroBadge")),
@@ -20089,6 +20103,7 @@ async function saveAdminHeroForm(form) {
         heroCtaText: normalizedShortText(formData.get("heroCtaText")),
         heroSecondaryCtaText: normalizedShortText(formData.get("heroSecondaryCtaText")),
         heroBenefits,
+        heroImageUrl: heroImage || sanitizedImageSource(formData.get("heroImageUrl")) || (nextContent.homepage?.heroImageUrl || ""),
       };
       console.log("[SAVE] Database save started");
       await saveAdminSiteContent(nextContent);
@@ -20135,6 +20150,8 @@ function renderAdminTrustSection() {
               <input type="hidden" name="previewCardId:${index}" value="${escapeHtml(card.id || `preview-${index + 1}`)}" />
               <label>Title<input name="previewCardTitle:${index}" value="${escapeHtml(card.title || "")}" /></label>
               <label>Description<textarea name="previewCardText:${index}" rows="2">${escapeHtml(card.text || "")}</textarea></label>
+              <label>Image URL<input name="previewCardImage:${index}" value="${escapeHtml(card.imageUrl || "")}" placeholder="https://..." /></label>
+              <label>Upload image<input name="previewCardImageFile:${index}" type="file" accept="image/*" /></label>
             </fieldset>
           `).join("")}
         </div>
@@ -20164,11 +20181,16 @@ async function saveAdminTrustForm(form) {
         title: normalizedShortText(formData.get(`featureCardTitle:${index}`)),
         text: normalizedMultilineText(formData.get(`featureCardText:${index}`)),
       }));
-      const previewCards = (existingHomepage.previewCards || []).map((card, index) => ({
+      const basePreviewCards = existingHomepage.previewCards || [];
+      console.log("[SAVE] Upload started → previewCardImageFile (trust)");
+      const uploadedPreviewImages = await Promise.all(basePreviewCards.map((_, index) => fileToImageDataUrlSafe(formData.get(`previewCardImageFile:${index}`))));
+      console.log("[SAVE] Upload completed");
+      const previewCards = basePreviewCards.map((card, index) => ({
         ...card,
         id: normalizedShortText(formData.get(`previewCardId:${index}`)) || card.id,
         title: normalizedShortText(formData.get(`previewCardTitle:${index}`)),
         text: normalizedMultilineText(formData.get(`previewCardText:${index}`)),
+        imageUrl: uploadedPreviewImages[index] || sanitizedImageSource(formData.get(`previewCardImage:${index}`)) || card.imageUrl || "",
       }));
       nextContent.homepage = {
         ...existingHomepage,
@@ -20804,6 +20826,7 @@ async function handleSiteEditorRestore(section) {
       heroCtaText: def.heroCtaText,
       heroSecondaryCtaText: def.heroSecondaryCtaText,
       heroBenefits: def.heroBenefits,
+      heroImageUrl: def.heroImageUrl || "",
     };
     await saveAdminSiteContent(nextContent);
     renderManagedHomeContent();
