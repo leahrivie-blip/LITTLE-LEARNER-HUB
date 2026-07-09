@@ -3885,6 +3885,7 @@ function handleAdminAnalytics(request, response, url) {
 function handlePublicSiteContent(request, response) {
   const store = readStore();
   const content = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  const defaults = normalizedSiteContent(defaultSiteContentStore());
   const publicLessonPlans = Object.fromEntries(
     Object.entries(content.lessonPlans).filter(([, plan]) => plan.visible === true && plan.archived !== true)
   );
@@ -3892,6 +3893,17 @@ function handlePublicSiteContent(request, response) {
   const publicActivities = (content.activities || []).filter((a) => a.visible === true && a.archived !== true);
   const publicForms = (content.forms || []).filter((item) => item.visible === true && item.archived !== true);
   const publicPrintables = (content.printables || []).filter((item) => item.visible === true && item.archived !== true);
+  const publicReviews = (content.reviews || []).filter((item) => item.visible !== false);
+  const publicFaqs = (content.faqs || []).filter((item) => item.visible !== false);
+  // Draft/hidden marketing copy must not ship on the public API. Admin GET keeps full content.
+  const publicPricing = content.pricing?._draft === true ? defaults.pricing : content.pricing;
+  const publicFounding = content.founding?._draft === true ? defaults.founding : content.founding;
+  const publicAnnouncementContent = (content.announcement?._draft === true || content.announcement?.visible !== true)
+    ? defaults.announcement
+    : content.announcement;
+  const publicUpgradeMessaging = content.upgradeMessaging?._draft === true
+    ? defaults.upgradeMessaging
+    : content.upgradeMessaging;
   jsonResponse(response, 200, {
     siteContent: {
       ...content,
@@ -3900,6 +3912,12 @@ function handlePublicSiteContent(request, response) {
       activities: publicActivities,
       forms: publicForms,
       printables: publicPrintables,
+      reviews: publicReviews,
+      faqs: publicFaqs,
+      pricing: publicPricing,
+      founding: publicFounding,
+      announcement: publicAnnouncementContent,
+      upgradeMessaging: publicUpgradeMessaging,
     },
   });
 }
