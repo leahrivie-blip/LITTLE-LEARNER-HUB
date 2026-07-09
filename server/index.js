@@ -4186,7 +4186,13 @@ async function handleAdminUploadedResourcesMigrate(request, response) {
   const before = dedupeUploadedResources(existing, MAX_UPLOADED_RESOURCES).length;
   const after = merged.length;
   store.uploadedResources = merged;
-  writeStore(store);
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    console.error("Admin upload migration failed:", error.message);
+    jsonResponse(response, 503, { error: "Uploads could not be saved to the database. Please try again." });
+    return;
+  }
   jsonResponse(response, 200, {
     uploads: uploadedResourcesForResponse(merged, { admin: true }),
     migration: {
@@ -4212,7 +4218,13 @@ async function handleAdminUploadedResourceUpsert(request, response) {
   upload.updatedAt = new Date().toISOString();
   const store = readStore();
   store.uploadedResources = mergeUploadedResources(store.uploadedResources || [], [upload]);
-  writeStore(store);
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    console.error("Admin upload upsert failed:", error.message);
+    jsonResponse(response, 503, { error: "Upload could not be saved to the database. Please try again." });
+    return;
+  }
   jsonResponse(response, 200, {
     upload,
     uploads: uploadedResourcesForResponse(store.uploadedResources, { admin: true }),
@@ -4233,7 +4245,13 @@ async function handleAdminUploadedResourceDelete(request, response) {
   const store = readStore();
   const existing = dedupeUploadedResources(store.uploadedResources || [], MAX_UPLOADED_RESOURCES);
   store.uploadedResources = existing.filter((item) => item.id !== id);
-  writeStore(store);
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    console.error("Admin upload delete failed:", error.message);
+    jsonResponse(response, 503, { error: "Upload could not be deleted from the database. Please try again." });
+    return;
+  }
   jsonResponse(response, 200, { uploads: uploadedResourcesForResponse(store.uploadedResources, { admin: true }) });
 }
 
