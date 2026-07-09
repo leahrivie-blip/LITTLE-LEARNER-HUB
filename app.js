@@ -2400,6 +2400,39 @@ async function runAdminSave({ messageSelector, form, saveFn, successMsg, onCompl
   }
 }
 
+// Thin wrapper for Publish / Hide / Feature / Archive / Delete card actions.
+// Re-queries the message element after onComplete so re-renders do not wipe feedback.
+async function runAdminAction({ messageSelector, actionFn, successMsg, onComplete } = {}) {
+  const resolveMsgEl = () => (
+    messageSelector
+      ? (typeof messageSelector === "string" ? document.querySelector(messageSelector) : messageSelector)
+      : null
+  );
+  let msgEl = resolveMsgEl();
+  try {
+    if (msgEl) setFormMessage(msgEl, "Saving… Please wait.", true);
+    console.log("[ACTION] Started →", (typeof successMsg === "string" ? successMsg : null) || messageSelector || "(unknown)");
+    await actionFn();
+    if (onComplete) onComplete();
+    msgEl = resolveMsgEl();
+    const msg = (typeof successMsg === "function" ? successMsg() : successMsg) || "";
+    if (msgEl && msg) {
+      setFormMessage(msgEl, msg, true);
+      msgEl.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+    }
+    console.log("[ACTION] Completed →", msg || "ok");
+  } catch (err) {
+    if (onComplete) onComplete();
+    msgEl = resolveMsgEl();
+    const errDetail = err?.message || "Unknown error";
+    console.error("[ACTION] Failed →", errDetail, err);
+    if (msgEl) {
+      setFormMessage(msgEl, `❌ Action Failed — ${errDetail}. Please try again.`, false);
+      msgEl.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+    }
+  }
+}
+
 function friendlyAuthError(error) {
   const code = error?.code || "";
   if (code.includes("invalid-email")) return "Please enter a valid email address.";
@@ -18158,31 +18191,40 @@ async function resetLessonPlanOverride(id) {
   adminLessonEditorId = id;
 }
 
-async function toggleLessonPlanVisibility(id) {
+async function toggleLessonPlanVisibility(id, { messageSelector = "#adminLessonPlanMessage" } = {}) {
   if (adminLessonTogglingId) return; // prevent concurrent toggles
   const record = allLessonPlansForAdmin().find((item) => item.id === id);
   if (!record) return;
+  const nextVisible = record.visible !== true;
   adminLessonTogglingId = id;
   renderAdminContentManager();
   try {
-    const now = new Date().toISOString();
-    // Determine new visibility: if currently visible (visible===true), hide it; otherwise show it
-    const nextVisible = record.visible !== true;
-    if (record.isCustom) {
-      const nextContent = nextSiteContentDraft();
-      const current = (nextContent.customLessonPlans || []).find((item) => item.id === id);
-      if (current) {
-        nextContent.customLessonPlans = nextContent.customLessonPlans.map((item) => (
-          item.id === id ? { ...item, visible: nextVisible, archived: false, featured: nextVisible ? item.featured === true : false, updatedAt: now } : item
-        ));
-        await saveAdminSiteContent(nextContent);
-      }
-    } else {
-      await updateLessonOverrides((lessonPlans) => {
-        const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
-        lessonPlans[id] = { ...current, id, visible: nextVisible, archived: false, featured: nextVisible ? current.featured === true : false, updatedAt: now };
-      });
-    }
+    await runAdminAction({
+      messageSelector,
+      actionFn: async () => {
+        const now = new Date().toISOString();
+        if (record.isCustom) {
+          const nextContent = nextSiteContentDraft();
+          const current = (nextContent.customLessonPlans || []).find((item) => item.id === id);
+          if (current) {
+            nextContent.customLessonPlans = nextContent.customLessonPlans.map((item) => (
+              item.id === id ? { ...item, visible: nextVisible, archived: false, featured: nextVisible ? item.featured === true : false, updatedAt: now } : item
+            ));
+            await saveAdminSiteContent(nextContent);
+          }
+        } else {
+          await updateLessonOverrides((lessonPlans) => {
+            const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
+            lessonPlans[id] = { ...current, id, visible: nextVisible, archived: false, featured: nextVisible ? current.featured === true : false, updatedAt: now };
+          });
+        }
+      },
+      successMsg: nextVisible ? "✅ Lesson plan published." : "✅ Lesson plan saved as draft.",
+      onComplete: () => {
+        adminLessonTogglingId = "";
+        renderAdminContentManager();
+      },
+    });
   } finally {
     adminLessonTogglingId = "";
   }
@@ -18191,31 +18233,38 @@ async function toggleLessonPlanVisibility(id) {
 async function applyLessonPlanBulkAction(action) {
   const ids = Array.from(adminLessonSelection);
   if (!ids.length) return;
-  const now = new Date().toISOString();
-  const nextContent = nextSiteContentDraft();
-  const byId = new Map(allLessonPlansForAdmin().map((item) => [item.id, item]));
-  const customIds = new Set((nextContent.customLessonPlans || []).map((item) => item.id));
-  const applyBulkFields = (item) => {
-    if (action === "hide") return { ...item, visible: false, archived: false, featured: false, updatedAt: now };
-    if (action === "unhide") return { ...item, visible: true, archived: false, updatedAt: now };
-    if (action === "feature") return { ...item, visible: true, archived: false, featured: true, updatedAt: now };
-    if (action === "archive") return { ...item, visible: false, archived: true, featured: false, updatedAt: now };
-    if (action === "free") return { ...item, plan: "Free", updatedAt: now };
-    if (action === "pro") return { ...item, plan: "Pro", updatedAt: now };
-    return item;
-  };
-  nextContent.customLessonPlans = (nextContent.customLessonPlans || []).map((item) => (
-    ids.includes(item.id) ? applyBulkFields(item) : item
-  ));
-  nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
-  ids.forEach((id) => {
-    if (customIds.has(id)) return;
-    const record = byId.get(id);
-    if (!record) return;
-    const current = nextContent.lessonPlans[id] || lessonPlanDefaults(record.resource);
-    nextContent.lessonPlans[id] = applyBulkFields({ ...current, id });
+  await runAdminAction({
+    messageSelector: "#adminLessonPlanMessage",
+    actionFn: async () => {
+      const now = new Date().toISOString();
+      const nextContent = nextSiteContentDraft();
+      const byId = new Map(allLessonPlansForAdmin().map((item) => [item.id, item]));
+      const customIds = new Set((nextContent.customLessonPlans || []).map((item) => item.id));
+      const applyBulkFields = (item) => {
+        if (action === "hide") return { ...item, visible: false, archived: false, featured: false, updatedAt: now };
+        if (action === "unhide") return { ...item, visible: true, archived: false, updatedAt: now };
+        if (action === "feature") return { ...item, visible: true, archived: false, featured: true, updatedAt: now };
+        if (action === "archive") return { ...item, visible: false, archived: true, featured: false, updatedAt: now };
+        if (action === "free") return { ...item, plan: "Free", updatedAt: now };
+        if (action === "pro") return { ...item, plan: "Pro", updatedAt: now };
+        return item;
+      };
+      nextContent.customLessonPlans = (nextContent.customLessonPlans || []).map((item) => (
+        ids.includes(item.id) ? applyBulkFields(item) : item
+      ));
+      nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
+      ids.forEach((id) => {
+        if (customIds.has(id)) return;
+        const record = byId.get(id);
+        if (!record) return;
+        const current = nextContent.lessonPlans[id] || lessonPlanDefaults(record.resource);
+        nextContent.lessonPlans[id] = applyBulkFields({ ...current, id });
+      });
+      await saveAdminSiteContent(nextContent);
+    },
+    successMsg: "✅ Bulk lesson plan update saved.",
+    onComplete: () => renderAdminContentManager(),
   });
-  await saveAdminSiteContent(nextContent);
 }
 
 async function createAdminLessonPlan() {
@@ -18251,14 +18300,22 @@ async function createAdminLessonPlan() {
     },
     resources: [],
   };
-  const nextContent = nextSiteContentDraft();
-  nextContent.customLessonPlans = [...(nextContent.customLessonPlans || []), entry];
-  await saveAdminSiteContent(nextContent);
-  adminLessonEditorId = id;
-  adminLessonResourcesDraft = [];
-  adminLessonResourcesDraftId = id;
-  renderAdminContentManager();
-  openAdminLessonEditor(id, { scroll: true, focusTitle: true });
+  await runAdminAction({
+    messageSelector: "#adminLessonPlanMessage",
+    actionFn: async () => {
+      const nextContent = nextSiteContentDraft();
+      nextContent.customLessonPlans = [...(nextContent.customLessonPlans || []), entry];
+      await saveAdminSiteContent(nextContent);
+      adminLessonEditorId = id;
+      adminLessonResourcesDraft = [];
+      adminLessonResourcesDraftId = id;
+    },
+    successMsg: "✅ Lesson plan created.",
+    onComplete: () => {
+      renderAdminContentManager();
+      if (adminLessonEditorId === id) openAdminLessonEditor(id, { scroll: true, focusTitle: true });
+    },
+  });
 }
 
 async function duplicateAdminLessonPlan(id) {
@@ -18299,43 +18356,65 @@ async function duplicateAdminLessonPlan(id) {
     },
     resources: Array.isArray(record.resources) ? cloneJson(record.resources, []) : [],
   };
-  nextContent.customLessonPlans = [...(nextContent.customLessonPlans || []), entry];
-  await saveAdminSiteContent(nextContent);
-  adminLessonEditorId = duplicateId;
-  renderAdminContentManager();
-  openAdminLessonEditor(duplicateId, { scroll: true, focusTitle: true });
+  await runAdminAction({
+    messageSelector: "#adminLessonPlanMessage",
+    actionFn: async () => {
+      nextContent.customLessonPlans = [...(nextContent.customLessonPlans || []), entry];
+      await saveAdminSiteContent(nextContent);
+      adminLessonEditorId = duplicateId;
+    },
+    successMsg: "✅ Lesson plan duplicated.",
+    onComplete: () => {
+      renderAdminContentManager();
+      if (adminLessonEditorId === duplicateId) openAdminLessonEditor(duplicateId, { scroll: true, focusTitle: true });
+    },
+  });
 }
 
 async function archiveAdminLessonPlan(id) {
   const record = allLessonPlansForAdmin().find((item) => item.id === id);
   if (!record) return;
-  const now = new Date().toISOString();
-  if (record.isCustom) {
-    const nextContent = nextSiteContentDraft();
-    nextContent.customLessonPlans = (nextContent.customLessonPlans || []).map((item) => (
-      item.id === id ? { ...item, visible: false, archived: true, featured: false, updatedAt: now } : item
-    ));
-    await saveAdminSiteContent(nextContent);
-  } else {
-    await updateLessonOverrides((lessonPlans) => {
-      const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
-      lessonPlans[id] = { ...current, id, visible: false, archived: true, featured: false, updatedAt: now };
-    });
-  }
-  renderAdminContentManager();
+  await runAdminAction({
+    messageSelector: "#adminLessonPlanMessage",
+    actionFn: async () => {
+      const now = new Date().toISOString();
+      if (record.isCustom) {
+        const nextContent = nextSiteContentDraft();
+        nextContent.customLessonPlans = (nextContent.customLessonPlans || []).map((item) => (
+          item.id === id ? { ...item, visible: false, archived: true, featured: false, updatedAt: now } : item
+        ));
+        await saveAdminSiteContent(nextContent);
+      } else {
+        await updateLessonOverrides((lessonPlans) => {
+          const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
+          lessonPlans[id] = { ...current, id, visible: false, archived: true, featured: false, updatedAt: now };
+        });
+      }
+    },
+    successMsg: "✅ Lesson plan archived.",
+    onComplete: () => renderAdminContentManager(),
+  });
 }
 
 async function deleteAdminLessonPlan(id) {
   const record = allLessonPlansForAdmin().find((item) => item.id === id);
   if (!record || !window.confirm("Delete this lesson plan?")) return;
-  if (record.isCustom) {
-    const nextContent = nextSiteContentDraft();
-    nextContent.customLessonPlans = (nextContent.customLessonPlans || []).filter((item) => item.id !== id);
-    await saveAdminSiteContent(nextContent);
-  } else {
+  if (!record.isCustom) {
     await archiveAdminLessonPlan(id);
+    if (adminLessonEditorId === id) adminLessonEditorId = "";
+    return;
   }
-  if (adminLessonEditorId === id) adminLessonEditorId = "";
+  await runAdminAction({
+    messageSelector: "#adminLessonPlanMessage",
+    actionFn: async () => {
+      const nextContent = nextSiteContentDraft();
+      nextContent.customLessonPlans = (nextContent.customLessonPlans || []).filter((item) => item.id !== id);
+      await saveAdminSiteContent(nextContent);
+      if (adminLessonEditorId === id) adminLessonEditorId = "";
+    },
+    successMsg: "✅ Lesson plan deleted.",
+    onComplete: () => renderAdminContentManager(),
+  });
 }
 
 async function showOnlyFiftyLessonPlansPerAge() {
@@ -18363,7 +18442,14 @@ async function showOnlyFiftyLessonPlansPerAge() {
         }
       });
   });
-  await saveAdminSiteContent(nextContent);
+  await runAdminAction({
+    messageSelector: "#adminLessonPlanMessage",
+    actionFn: async () => {
+      await saveAdminSiteContent(nextContent);
+    },
+    successMsg: "✅ Lesson plan visibility updated.",
+    onComplete: () => renderAdminContentManager(),
+  });
 }
 
 async function hideAllLessonPlans() {
@@ -18379,7 +18465,14 @@ async function hideAllLessonPlans() {
     const current = nextContent.lessonPlans[item.id] || lessonPlanDefaults(item.resource);
     nextContent.lessonPlans[item.id] = { ...current, id: item.id, visible: false, updatedAt: now };
   });
-  await saveAdminSiteContent(nextContent);
+  await runAdminAction({
+    messageSelector: "#adminLessonPlanMessage",
+    actionFn: async () => {
+      await saveAdminSiteContent(nextContent);
+    },
+    successMsg: "✅ All lesson plans hidden.",
+    onComplete: () => renderAdminContentManager(),
+  });
 }
 
 function exportAllLessonPlansJson() {
@@ -18438,27 +18531,40 @@ async function archiveAllLessonPlans() {
     const current = nextContent.lessonPlans[item.id] || lessonPlanDefaults(item.resource);
     nextContent.lessonPlans[item.id] = { ...current, id: item.id, visible: false, archived: true, featured: false, updatedAt: now };
   });
-  await saveAdminSiteContent(nextContent);
-  renderAdminContentManager();
+  await runAdminAction({
+    messageSelector: "#adminLessonPlanMessage",
+    actionFn: async () => {
+      await saveAdminSiteContent(nextContent);
+    },
+    successMsg: "✅ All lesson plans archived.",
+    onComplete: () => renderAdminContentManager(),
+  });
 }
 
 async function setLessonPlanStatus(id, status) {
   const record = allLessonPlansForAdmin().find((item) => item.id === id);
   if (!record) return;
   const fields = contentStatusFields(status);
-  if (record.isCustom) {
-    const nextContent = nextSiteContentDraft();
-    nextContent.customLessonPlans = (nextContent.customLessonPlans || []).map((item) => (
-      item.id === id ? { ...item, ...fields } : item
-    ));
-    await saveAdminSiteContent(nextContent);
-  } else {
-    await updateLessonOverrides((lessonPlans) => {
-      const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
-      lessonPlans[id] = { ...current, id, ...fields };
-    });
-  }
-  renderAdminContentManager();
+  const statusLabel = { draft: "draft", approved: "published", featured: "featured", archived: "archived" }[status] || status;
+  await runAdminAction({
+    messageSelector: "#adminLessonPlanMessage",
+    actionFn: async () => {
+      if (record.isCustom) {
+        const nextContent = nextSiteContentDraft();
+        nextContent.customLessonPlans = (nextContent.customLessonPlans || []).map((item) => (
+          item.id === id ? { ...item, ...fields } : item
+        ));
+        await saveAdminSiteContent(nextContent);
+      } else {
+        await updateLessonOverrides((lessonPlans) => {
+          const current = lessonPlans[id] || lessonPlanDefaults(record.resource);
+          lessonPlans[id] = { ...current, id, ...fields };
+        });
+      }
+    },
+    successMsg: `✅ Lesson plan marked ${statusLabel}.`,
+    onComplete: () => renderAdminContentManager(),
+  });
 }
 
 async function saveAdminReviewForm(form) {
@@ -18500,22 +18606,34 @@ async function updateReviewCollection(updater) {
 }
 
 async function toggleReviewVisibility(id) {
-  await updateReviewCollection((reviews) => {
-    const index = reviews.findIndex((item) => item.id === id);
-    if (index >= 0) {
-      const currentlyVisible = reviews[index].visible !== false;
-      reviews[index] = { ...reviews[index], visible: !currentlyVisible };
-    }
+  await runAdminAction({
+    messageSelector: "#adminReviewMessage",
+    actionFn: async () => {
+      await updateReviewCollection((reviews) => {
+        const index = reviews.findIndex((item) => item.id === id);
+        if (index >= 0) {
+          const currentlyVisible = reviews[index].visible !== false;
+          reviews[index] = { ...reviews[index], visible: !currentlyVisible };
+        }
+      });
+    },
+    successMsg: "✅ Review visibility updated.",
   });
 }
 
 async function deleteReviewEntry(id) {
-  await updateReviewCollection((reviews) => {
-    const filtered = reviews.filter((item) => item.id !== id);
-    reviews.length = 0;
-    reviews.push(...filtered);
+  await runAdminAction({
+    messageSelector: "#adminReviewMessage",
+    actionFn: async () => {
+      await updateReviewCollection((reviews) => {
+        const filtered = reviews.filter((item) => item.id !== id);
+        reviews.length = 0;
+        reviews.push(...filtered);
+      });
+      adminReviewEditorId = "";
+    },
+    successMsg: "✅ Review deleted.",
   });
-  adminReviewEditorId = "";
 }
 
 async function saveAdminFounderForm(form) {
@@ -18943,16 +19061,28 @@ async function saveAdminManagedCollectionForm(type, form) {
 }
 
 
+function adminManagedMessageSelector(type) {
+  return `#admin${type[0].toUpperCase()}${type.slice(1)}Message`;
+}
+
 async function setAdminManagedCollectionItemStatus(type, id, status) {
   const config = adminManagedContentConfig[type];
+  if (!config) return;
   const fields = contentStatusFields(status);
-  const nextContent = nextSiteContentDraft();
-  nextContent[config.contentKey] = (nextContent[config.contentKey] || []).map((item) => (
-    item.id === id ? { ...item, ...fields } : item
-  ));
-  await saveAdminSiteContent(nextContent);
-  syncSiteManagedResources();
-  renderAdminManagedCollection(type);
+  const statusLabel = { draft: "draft", approved: "published", featured: "featured", archived: "archived" }[status] || status;
+  await runAdminAction({
+    messageSelector: adminManagedMessageSelector(type),
+    actionFn: async () => {
+      const nextContent = nextSiteContentDraft();
+      nextContent[config.contentKey] = (nextContent[config.contentKey] || []).map((item) => (
+        item.id === id ? { ...item, ...fields } : item
+      ));
+      await saveAdminSiteContent(nextContent);
+      syncSiteManagedResources();
+    },
+    successMsg: `✅ ${config.singular} marked ${statusLabel}.`,
+    onComplete: () => renderAdminManagedCollection(type),
+  });
 }
 
 async function toggleAdminManagedCollectionVisibility(type, id) {
@@ -18971,7 +19101,7 @@ async function archiveAdminManagedCollectionItem(type, id) {
 async function duplicateAdminManagedCollectionItem(type, id) {
   const config = adminManagedContentConfig[type];
   const source = adminManagedItems(type).find((item) => item.id === id);
-  if (!source) return;
+  if (!config || !source) return;
   const duplicate = {
     ...cloneJson(source, {}),
     id: `${type}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
@@ -18981,23 +19111,35 @@ async function duplicateAdminManagedCollectionItem(type, id) {
     featured: false,
     updatedAt: new Date().toISOString(),
   };
-  const nextContent = nextSiteContentDraft();
-  nextContent[config.contentKey] = [...(nextContent[config.contentKey] || []), duplicate];
-  await saveAdminSiteContent(nextContent);
-  syncSiteManagedResources();
-  setAdminManagedEditorId(type, duplicate.id);
-  renderAdminManagedCollection(type);
+  await runAdminAction({
+    messageSelector: adminManagedMessageSelector(type),
+    actionFn: async () => {
+      const nextContent = nextSiteContentDraft();
+      nextContent[config.contentKey] = [...(nextContent[config.contentKey] || []), duplicate];
+      await saveAdminSiteContent(nextContent);
+      syncSiteManagedResources();
+      setAdminManagedEditorId(type, duplicate.id);
+    },
+    successMsg: `✅ ${config.singular} duplicated.`,
+    onComplete: () => renderAdminManagedCollection(type),
+  });
 }
 
 async function deleteAdminManagedCollectionItem(type, id) {
   const config = adminManagedContentConfig[type];
-  if (!window.confirm(`Delete this ${config.singular.toLowerCase()}?`)) return;
-  const nextContent = nextSiteContentDraft();
-  nextContent[config.contentKey] = (nextContent[config.contentKey] || []).filter((item) => item.id !== id);
-  await saveAdminSiteContent(nextContent);
-  syncSiteManagedResources();
-  if (adminManagedEditorId(type) === id) setAdminManagedEditorId(type, "");
-  renderAdminManagedCollection(type);
+  if (!config || !window.confirm(`Delete this ${config.singular.toLowerCase()}?`)) return;
+  await runAdminAction({
+    messageSelector: adminManagedMessageSelector(type),
+    actionFn: async () => {
+      const nextContent = nextSiteContentDraft();
+      nextContent[config.contentKey] = (nextContent[config.contentKey] || []).filter((item) => item.id !== id);
+      await saveAdminSiteContent(nextContent);
+      syncSiteManagedResources();
+      if (adminManagedEditorId(type) === id) setAdminManagedEditorId(type, "");
+    },
+    successMsg: `✅ ${config.singular} deleted.`,
+    onComplete: () => renderAdminManagedCollection(type),
+  });
 }
 
 // ─── Admin Section Navigation ─────────────────────────────────────────────────
@@ -19194,32 +19336,61 @@ function adminVisibilityEntries() {
 }
 
 async function setVisibilityDashboardCollection(type, visible) {
-  if (type === "lesson-plans") {
-    const nextContent = nextSiteContentDraft();
-    const now = new Date().toISOString();
-    nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
-    nextContent.customLessonPlans = (nextContent.customLessonPlans || []).map((item) => ({ ...item, visible, archived: false, updatedAt: now }));
-    allLessonPlansForAdmin().forEach((item) => {
-      if (item.isCustom) return;
-      const current = nextContent.lessonPlans[item.id] || lessonPlanDefaults(item.resource);
-      nextContent.lessonPlans[item.id] = { ...current, id: item.id, visible, archived: false, updatedAt: now };
-    });
-    await saveAdminSiteContent(nextContent);
-  } else {
-    const config = adminManagedContentConfig[type];
-    const nextContent = nextSiteContentDraft();
-    nextContent[config.contentKey] = (nextContent[config.contentKey] || []).map((item) => ({ ...item, visible, archived: false, updatedAt: new Date().toISOString() }));
-    await saveAdminSiteContent(nextContent);
-  }
-  syncSiteManagedResources();
+  await runAdminAction({
+    messageSelector: "#adminVisibilityMessage",
+    actionFn: async () => {
+      if (type === "lesson-plans") {
+        const nextContent = nextSiteContentDraft();
+        const now = new Date().toISOString();
+        nextContent.lessonPlans = { ...(nextContent.lessonPlans || {}) };
+        nextContent.customLessonPlans = (nextContent.customLessonPlans || []).map((item) => ({ ...item, visible, archived: false, updatedAt: now }));
+        allLessonPlansForAdmin().forEach((item) => {
+          if (item.isCustom) return;
+          const current = nextContent.lessonPlans[item.id] || lessonPlanDefaults(item.resource);
+          nextContent.lessonPlans[item.id] = { ...current, id: item.id, visible, archived: false, updatedAt: now };
+        });
+        await saveAdminSiteContent(nextContent);
+      } else {
+        const config = adminManagedContentConfig[type];
+        if (!config) return;
+        const nextContent = nextSiteContentDraft();
+        nextContent[config.contentKey] = (nextContent[config.contentKey] || []).map((item) => ({ ...item, visible, archived: false, updatedAt: new Date().toISOString() }));
+        await saveAdminSiteContent(nextContent);
+      }
+      syncSiteManagedResources();
+    },
+    successMsg: visible ? "✅ Collection shown." : "✅ Collection hidden.",
+    onComplete: () => renderAdminVisibilityDashboard(),
+  });
 }
 
 async function toggleVisibilityDashboardItem(type, id) {
   if (type === "lesson-plans") {
-    await toggleLessonPlanVisibility(id);
+    await toggleLessonPlanVisibility(id, { messageSelector: "#adminVisibilityMessage" });
     return;
   }
-  await toggleAdminManagedCollectionVisibility(type, id);
+  // Route through status setter with visibility-dashboard message target.
+  const items = adminManagedItems(type);
+  const item = items.find((i) => i.id === id);
+  if (!item) return;
+  const currentStatus = contentItemStatus(item);
+  const nextStatus = (currentStatus === "approved" || currentStatus === "featured") ? "draft" : "approved";
+  const config = adminManagedContentConfig[type];
+  if (!config) return;
+  const fields = contentStatusFields(nextStatus);
+  await runAdminAction({
+    messageSelector: "#adminVisibilityMessage",
+    actionFn: async () => {
+      const nextContent = nextSiteContentDraft();
+      nextContent[config.contentKey] = (nextContent[config.contentKey] || []).map((entry) => (
+        entry.id === id ? { ...entry, ...fields } : entry
+      ));
+      await saveAdminSiteContent(nextContent);
+      syncSiteManagedResources();
+    },
+    successMsg: nextStatus === "draft" ? "✅ Item hidden." : "✅ Item shown.",
+    onComplete: () => renderAdminVisibilityDashboard(),
+  });
 }
 
 function editVisibilityDashboardItem(type, id) {
@@ -19277,6 +19448,7 @@ function renderAdminVisibilityDashboard() {
     <div class="section-heading">
       <div><p class="eyebrow">Visibility Dashboard</p><h3>Manage what's visible on the public site</h3></div>
     </div>
+    <span class="form-message" id="adminVisibilityMessage"></span>
     <div class="admin-visibility-summary-grid">
       ${[
         ["Lesson Plans", summary.lessons],
@@ -27831,16 +28003,14 @@ document.addEventListener("click", async (event) => {
     const [type, action] = (visibilityBulkBtn.dataset.adminVisibilityBulk || "").split(":");
     const visible = action === "show";
     if (type === "all") {
-      await Promise.all([
-        setVisibilityDashboardCollection("lesson-plans", visible),
-        setVisibilityDashboardCollection("activities", visible),
-        setVisibilityDashboardCollection("forms", visible),
-        setVisibilityDashboardCollection("printables", visible),
-      ]);
+      // Run sequentially so each action can show clear success/error feedback.
+      await setVisibilityDashboardCollection("lesson-plans", visible);
+      await setVisibilityDashboardCollection("activities", visible);
+      await setVisibilityDashboardCollection("forms", visible);
+      await setVisibilityDashboardCollection("printables", visible);
     } else if (type) {
       await setVisibilityDashboardCollection(type, visible);
     }
-    renderAdminVisibilityDashboard();
     return;
   }
   // Visibility Dashboard — open lesson in Content Manager editor
