@@ -840,6 +840,18 @@ function normalizedSiteContent(value) {
   };
 }
 
+// Keeps existing top-level siteContent keys when the incoming payload omits them
+// (undefined / missing). Explicit [] or {} from the client is preserved as intentional.
+function mergeSiteContentKeepMissingKeys(existingContent, incomingContent) {
+  const existing = existingContent && typeof existingContent === "object" ? existingContent : {};
+  const incoming = incomingContent && typeof incomingContent === "object" ? incomingContent : {};
+  const merged = { ...existing };
+  Object.keys(incoming).forEach((key) => {
+    if (incoming[key] !== undefined) merged[key] = incoming[key];
+  });
+  return merged;
+}
+
 function uploadedResourcesForResponse(items = [], { admin = false } = {}) {
   const normalized = dedupeUploadedResources(items, MAX_UPLOADED_RESOURCES);
   if (admin) return normalized;
@@ -2653,7 +2665,23 @@ async function handleAdminSiteContentSave(request, response) {
     return;
   }
   console.log("[DIAG] handleAdminSiteContentSave: token valid");
-  const incomingLessonPlans = (body.siteContent?.lessonPlans) || {};
+  const store = readStore();
+  const existingContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  const incomingRaw = body.siteContent && typeof body.siteContent === "object" ? body.siteContent : {};
+  const existingUpdatedAt = normalizedShortText(existingContent.updatedAt, 80);
+  const incomingUpdatedAt = normalizedShortText(incomingRaw.updatedAt, 80);
+  // First save (empty existing updatedAt) is allowed. After that, client must send the
+  // same updatedAt it last loaded, or we reject to avoid stale full-document overwrites.
+  if (existingUpdatedAt && incomingUpdatedAt !== existingUpdatedAt) {
+    console.error("[DIAG] handleAdminSiteContentSave: CONFLICT — incoming updatedAt =", JSON.stringify(incomingUpdatedAt), "| existing =", JSON.stringify(existingUpdatedAt));
+    jsonResponse(response, 409, {
+      error: "Content was updated elsewhere. Reload admin content and try again.",
+      conflict: true,
+      siteContent: existingContent,
+    });
+    return;
+  }
+  const incomingLessonPlans = incomingRaw.lessonPlans || {};
   const incomingIds = Object.keys(incomingLessonPlans);
   console.log("[DIAG] handleAdminSiteContentSave: incoming lessonPlan overrides count =", incomingIds.length, "| ids (first 5) =", incomingIds.slice(0, 5));
   if (incomingIds.length > 0) {
@@ -2662,8 +2690,8 @@ async function handleAdminSiteContentSave(request, response) {
     console.log("[DIAG] handleAdminSiteContentSave: last lessonPlan entry (", lastIncomingId, ") fields =", Object.keys(lastIncomingLesson || {}));
     console.log("[DIAG] handleAdminSiteContentSave: last lessonPlan entry title =", JSON.stringify(lastIncomingLesson?.title), "| visible =", lastIncomingLesson?.visible, "| plan =", JSON.stringify(lastIncomingLesson?.plan));
   }
-  const store = readStore();
-  const nextContent = normalizedSiteContent(body.siteContent || defaultSiteContentStore());
+  const mergedIncoming = mergeSiteContentKeepMissingKeys(existingContent, incomingRaw);
+  const nextContent = normalizedSiteContent(mergedIncoming);
   const normalizedIds = Object.keys(nextContent.lessonPlans || {});
   console.log("[DIAG] handleAdminSiteContentSave: after normalizedSiteContent, lessonPlan count =", normalizedIds.length);
   if (normalizedIds.length > 0) {

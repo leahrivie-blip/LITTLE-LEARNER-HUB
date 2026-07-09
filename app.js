@@ -3114,6 +3114,20 @@ async function saveAdminSiteContent(nextContent) {
   console.log("[DIAG] saveAdminSiteContent: response status =", response.status, response.statusText);
   const data = await response.json();
   console.log("[DIAG] saveAdminSiteContent: response body keys =", Object.keys(data || {}), "| error =", data?.error || "(none)");
+  if (response.status === 409 || data?.conflict === true) {
+    console.error("[DIAG] saveAdminSiteContent: CONFLICT — reloading admin content");
+    if (data?.siteContent) {
+      siteContentState = data.siteContent;
+    } else {
+      try {
+        await loadAdminSiteContent();
+      } catch (reloadError) {
+        console.warn("Could not reload admin content after conflict", reloadError);
+      }
+    }
+    rerenderActiveContent();
+    throw new Error(data?.error || "Content was updated elsewhere. Reload admin content and try again.");
+  }
   if (!response.ok) {
     console.error("[DIAG] saveAdminSiteContent: SERVER RETURNED ERROR →", data?.error);
     throw new Error(data?.error || "Could not save content changes.");
