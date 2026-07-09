@@ -3180,15 +3180,15 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","activities","forms","printables","reviews","homepage","founder","images","analytics","support","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","activities","forms","printables","reviews","founder","images","analytics","support","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding"]);
 // FUTURE ADMIN BUILD: lessonPlanResourceCategories is currently hardcoded.
 // A future admin section should allow adding, renaming, and reordering these category labels
 // so new upload categories can be managed without a code change.
 const lessonPlanResourceCategories = ["Coloring Pages", "Tracing Activities", "Counting Activities", "Matching Activities", "Crafts", "Teacher Resources", "Activity Photos", "General"];
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "dashboard";
-// Settings → Homepage was removed; Site Editor is the only homepage editor. Redirect old preference.
-let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabRaw) ? adminActiveSectionTabRaw : "dashboard";
-if (adminActiveSectionTab === "homepage") adminActiveSectionTab = "images";
+// Old Settings → Homepage tab removed; Site Editor is the only homepage editor. Redirect stale preference.
+const adminActiveSectionTabNormalized = adminActiveSectionTabRaw === "homepage" ? "images" : adminActiveSectionTabRaw;
+let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabNormalized) ? adminActiveSectionTabNormalized : "dashboard";
 
 // ─── Admin 2.0 Navigation Groups ─────────────────────────────────────────────
 const adminGroups = [
@@ -3214,7 +3214,6 @@ const adminGroupForTab = {
   "visibility":  "visibility",
   "users":       "users",
   "stripe-backfill": "users",
-  "homepage":    "settings",
   "images":      "settings",
   "pricing":     "site-editor",
   "faqs":        "site-editor",
@@ -3236,15 +3235,14 @@ const adminTabLabels = {
   "support":     "Support",
   "lesson-plans":"Lesson Plans",
   "activities":  "Activities",
-  "forms":       "Forms",
-  "printables":  "Printables",
+  "forms":       "Forms Library (not legacy uploads)",
+  "printables":  "Printables Library (not legacy uploads)",
   "reviews":     "Reviews",
   "founder":     "Founder",
-  "resources":   "Uploads",
+  "resources":   "Legacy File Uploads",
   "visibility":  "Visibility",
   "users":       "Users",
   "stripe-backfill": "Stripe Backfill",
-  "homepage":    "Homepage",
   "images":      "Images",
   "pricing":     "Pricing",
   "faqs":        "FAQs",
@@ -3572,8 +3570,8 @@ function renderAdminLessonResourcesSection() {
 
   return `
     <fieldset class="admin-fieldset lp-resources-fieldset">
-      <legend>📎 Printables &amp; Resources</legend>
-      <p class="admin-generator-note">Attach printables, coloring pages, PDFs, and activity sheets to this lesson plan. Changes here are a draft until you click Save lesson plan — refreshing before save will lose them. After save, they are visible to providers viewing this plan.</p>
+      <legend>📎 Lesson Attachments (this lesson only)</legend>
+      <p class="admin-generator-note">These attachments belong only to this lesson plan and are not added to the Forms, Printables, Activities, or Uploads libraries. Changes here are a draft until you click Save lesson plan — refreshing before save will lose them.</p>
       <div id="adminLessonResourceCategories">${categorySections}</div>
       <details class="lp-add-resource-panel" id="adminAddResourcePanel">
         <summary>+ Add Resource</summary>
@@ -17738,7 +17736,6 @@ function renderAdminContentManager() {
     order: reviews.length + 1,
   };
   const founder = content.founder || {};
-  const homepage = content.homepage || {};
   const images = Array.isArray(content.images) ? content.images : [];
   const imageRecord = images.find((item) => item.id === adminImageEditorId) || images[0] || { id: "", label: "", group: "", imageUrl: "" };
   const curLessonVisFilter = document.querySelector("#adminLessonVisibilityFilter")?.value || "all";
@@ -17899,53 +17896,6 @@ function renderAdminContentManager() {
             <button class="primary-button" type="submit">Save founder section</button>
           </div>
           <span class="form-message" id="adminFounderMessage"></span>
-        </form>
-      </section>
-
-      <section class="admin-manager-section" data-admin-cm-section="homepage">
-        <div class="section-heading">
-          <div><p class="eyebrow">Homepage Content</p><h3>Edit public homepage text and images</h3></div>
-        </div>
-        <form id="adminHomepageForm" class="panel-form admin-stacked-form">
-          <label>Hero headline<input name="heroHeadline" value="${escapeHtml(homepage.heroHeadline || "")}" /></label>
-          <label>Hero subheadline<textarea name="heroSubheadline" rows="3">${escapeHtml(homepage.heroSubheadline || "")}</textarea></label>
-          <div class="form-grid-two">
-            <label>Hero CTA text<input name="heroCtaText" value="${escapeHtml(homepage.heroCtaText || "")}" /></label>
-            <label>Secondary CTA text<input name="heroSecondaryCtaText" value="${escapeHtml(homepage.heroSecondaryCtaText || "")}" /></label>
-          </div>
-          <label>Hero preview image URL<input name="heroImageUrl" value="${escapeHtml(homepage.heroImageUrl || "")}" placeholder="https://..." /></label>
-          <label>Upload hero preview image<input name="heroImageFile" type="file" accept="image/*" /></label>
-          ${homepage.featureCards?.map((card, index) => `
-            <fieldset class="admin-fieldset">
-              <legend>Feature card ${index + 1}</legend>
-              <input type="hidden" name="featureCardId:${index}" value="${escapeHtml(card.id || `feature-${index + 1}`)}" />
-              <label>Title<input name="featureCardTitle:${index}" value="${escapeHtml(card.title || "")}" /></label>
-              <label>Text<textarea name="featureCardText:${index}" rows="2">${escapeHtml(card.text || "")}</textarea></label>
-            </fieldset>
-          `).join("") || ""}
-          ${homepage.howItWorks?.map((card, index) => `
-            <label>How It Works step ${index + 1}<input name="howTitle:${index}" value="${escapeHtml(card.title || "")}" /></label>
-          `).join("") || ""}
-          ${homepage.comingSoon?.map((card, index) => `
-            <label>Coming Soon item ${index + 1}<input name="soonTitle:${index}" value="${escapeHtml(card.title || "")}" /></label>
-          `).join("") || ""}
-          ${homepage.previewCards?.map((card, index) => `
-            <fieldset class="admin-fieldset">
-              <legend>Preview card ${index + 1}</legend>
-              <input type="hidden" name="previewCardId:${index}" value="${escapeHtml(card.id || `preview-${index + 1}`)}" />
-              <label>Title<input name="previewCardTitle:${index}" value="${escapeHtml(card.title || "")}" /></label>
-              <label>Text<textarea name="previewCardText:${index}" rows="2">${escapeHtml(card.text || "")}</textarea></label>
-              <label>Image URL<input name="previewCardImage:${index}" value="${escapeHtml(card.imageUrl || "")}" placeholder="https://..." /></label>
-              <label>Upload image<input name="previewCardImageFile:${index}" type="file" accept="image/*" /></label>
-            </fieldset>
-          `).join("") || ""}
-          <label>Final CTA headline<input name="finalCtaHeadline" value="${escapeHtml(homepage.finalCtaHeadline || "")}" /></label>
-          <label>Final CTA text<textarea name="finalCtaText" rows="3">${escapeHtml(homepage.finalCtaText || "")}</textarea></label>
-          <label>Final CTA button text<input name="finalCtaButtonText" value="${escapeHtml(homepage.finalCtaButtonText || "")}" /></label>
-          <div class="form-actions">
-            <button class="primary-button" type="submit">Save homepage content</button>
-          </div>
-          <span class="form-message" id="adminHomepageMessage"></span>
         </form>
       </section>
 
@@ -18598,63 +18548,6 @@ async function saveAdminFounderForm(form) {
   });
 }
 
-async function saveAdminHomepageForm(form) {
-  await runAdminSave({
-    messageSelector: "#adminHomepageMessage",
-    form,
-    saveFn: async () => {
-      const formData = new FormData(form);
-      const nextContent = nextSiteContentDraft();
-      const existingHomepage = nextContent.homepage || {};
-      console.log("[SAVE] Upload started → heroImageFile (homepage)");
-      const heroImage = await fileToImageDataUrlSafe(formData.get("heroImageFile"));
-      const basePreviewCards = existingHomepage.previewCards || [];
-      const uploadedPreviewImages = await Promise.all(basePreviewCards.map((_, index) => fileToImageDataUrlSafe(formData.get(`previewCardImageFile:${index}`))));
-      console.log("[SAVE] Upload completed");
-      const featureCards = (existingHomepage.featureCards || []).map((card, index) => ({
-        ...card,
-        id: normalizedShortText(formData.get(`featureCardId:${index}`)) || card.id,
-        title: normalizedShortText(formData.get(`featureCardTitle:${index}`)),
-        text: normalizedMultilineText(formData.get(`featureCardText:${index}`)),
-      }));
-      const howItWorks = (existingHomepage.howItWorks || []).map((card, index) => ({
-        ...card,
-        title: normalizedShortText(formData.get(`howTitle:${index}`)),
-      }));
-      const comingSoon = (existingHomepage.comingSoon || []).map((card, index) => ({
-        ...card,
-        title: normalizedShortText(formData.get(`soonTitle:${index}`)),
-      }));
-      const previewCards = basePreviewCards.map((card, index) => ({
-        ...card,
-        id: normalizedShortText(formData.get(`previewCardId:${index}`)) || card?.id,
-        title: normalizedShortText(formData.get(`previewCardTitle:${index}`)),
-        text: normalizedMultilineText(formData.get(`previewCardText:${index}`)),
-        imageUrl: uploadedPreviewImages[index] || sanitizedImageSource(formData.get(`previewCardImage:${index}`)),
-      }));
-      nextContent.homepage = {
-        ...existingHomepage,
-        heroHeadline: normalizedShortText(formData.get("heroHeadline")),
-        heroSubheadline: normalizedMultilineText(formData.get("heroSubheadline")),
-        heroCtaText: normalizedShortText(formData.get("heroCtaText")),
-        heroSecondaryCtaText: normalizedShortText(formData.get("heroSecondaryCtaText")),
-        heroImageUrl: heroImage || sanitizedImageSource(formData.get("heroImageUrl")),
-        featureCards,
-        howItWorks,
-        comingSoon,
-        previewCards,
-        finalCtaHeadline: normalizedShortText(formData.get("finalCtaHeadline")),
-        finalCtaText: normalizedMultilineText(formData.get("finalCtaText")),
-        finalCtaButtonText: normalizedShortText(formData.get("finalCtaButtonText")),
-      };
-      console.log("[SAVE] Database save started");
-      await saveAdminSiteContent(nextContent);
-      console.log("[SAVE] Database saved");
-    },
-    successMsg: "✅ Homepage content saved.",
-  });
-}
-
 async function saveAdminImageAssetForm(form) {
   await runAdminSave({
     messageSelector: "#adminImageMessage",
@@ -18731,7 +18624,7 @@ const adminManagedContentConfig = {
     singular: "Form",
     plural: "Forms",
     icon: "📝",
-    title: "Forms Manager",
+    title: "Forms Library (not legacy uploads)",
     subtitle: "Manage editable forms and family paperwork from your phone.",
     primaryField: "formCategory",
     primaryLabel: "Category",
@@ -18752,7 +18645,7 @@ const adminManagedContentConfig = {
     singular: "Printable",
     plural: "Printables",
     icon: "🖨️",
-    title: "Printables Manager",
+    title: "Printables Library (not legacy uploads)",
     subtitle: "Manage worksheets, take-home pages, and print-ready files.",
     primaryField: "printableType",
     primaryLabel: "Printable Type",
@@ -19113,13 +19006,12 @@ async function deleteAdminManagedCollectionItem(type, id) {
 // the actual navigation is now driven by adminGroups defined earlier.
 const adminSectionTabs = [
   { id: "dashboard",   label: "Dashboard" },
-  { id: "resources",   label: "Resources" },
+  { id: "resources",   label: "Legacy File Uploads" },
   { id: "lesson-plans", label: "Lesson Plans" },
   { id: "activities",  label: "Activities" },
-  { id: "forms",       label: "Forms" },
-  { id: "printables",  label: "Printables" },
+  { id: "forms",       label: "Forms Library (not legacy uploads)" },
+  { id: "printables",  label: "Printables Library (not legacy uploads)" },
   { id: "reviews",     label: "Reviews" },
-  { id: "homepage",    label: "Homepage" },
   { id: "founder",     label: "Founder" },
   { id: "images",      label: "Images" },
   { id: "analytics",   label: "Analytics" },
@@ -19176,7 +19068,7 @@ function renderAdminSectionNav() {
   `;
 }
 
-const adminCmSectionIds = ["lesson-plans", "activities", "forms", "printables", "reviews", "founder", "homepage", "images"];
+const adminCmSectionIds = ["lesson-plans", "activities", "forms", "printables", "reviews", "founder", "images"];
 
 function applyAdminSectionVisibility() {
   const tab = adminActiveSectionTab;
@@ -20984,14 +20876,14 @@ function renderAdminDashboard() {
     .map((name) => `<span>${name}: <strong>${uploads.filter((item) => item.category === name).length}</strong></span>`)
     .join("");
   summary.innerHTML = `
-    <div><strong>${uploads.length}</strong><span>uploaded resources</span></div>
+    <div><strong>${uploads.length}</strong><span>legacy uploads</span></div>
     <div><strong>${filtered.length}</strong><span>showing now</span></div>
     <div class="admin-category-counts">${categoryCounts}</div>
   `;
   table.innerHTML = filtered.length ? filtered.map(adminRow).join("") : `
     <tr>
       <td colspan="6">
-        <div class="empty-state">No uploaded content yet. Add your first lesson plan, observation, form, activity, menu, or printable.</div>
+        <div class="empty-state">No legacy uploads yet. Use Forms, Printables, Activities, and Lesson Plans managers for new content.</div>
       </td>
     </tr>
   `;
@@ -27686,11 +27578,6 @@ document.addEventListener("submit", async (event) => {
   if (event.target.matches("#adminFounderForm")) {
     event.preventDefault();
     await saveAdminFounderForm(event.target);
-    return;
-  }
-  if (event.target.matches("#adminHomepageForm")) {
-    event.preventDefault();
-    await saveAdminHomepageForm(event.target);
     return;
   }
   if (event.target.matches("#adminImageAssetForm")) {
