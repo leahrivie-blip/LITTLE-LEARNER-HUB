@@ -3223,6 +3223,14 @@ let adminAnalyticsLoading = false;
 let adminLessonEditorId = "";
 let adminCurriculumLessonEditorId = "";
 let adminCurriculumResourceEditorId = "";
+let adminCurriculumActivityViewerId = "";
+let adminCurriculumActivityFilters = {
+  query: "",
+  category: "",
+  status: "",
+  age: "",
+  lessonPlanId: "",
+};
 let adminCurriculumLessonSaving = false;
 let adminCurriculumLessonImportDraft = null;
 let adminCurriculumLessonImportTextCache = "";
@@ -3239,7 +3247,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","curriculum-lesson-plans","curriculum-resources","activities","forms","printables","reviews","founder","images","analytics","support","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","curriculum-lesson-plans","curriculum-activities","curriculum-resources","activities","forms","printables","reviews","founder","images","analytics","support","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding"]);
 // FUTURE ADMIN BUILD: lessonPlanResourceCategories is currently hardcoded.
 // A future admin section should allow adding, renaming, and reordering these category labels
 // so new upload categories can be managed without a code change.
@@ -3252,7 +3260,7 @@ let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabNorma
 // ─── Admin 2.0 Navigation Groups ─────────────────────────────────────────────
 const adminGroups = [
   { id: "dashboard", icon: "🏠", label: "Dashboard",  tabs: ["dashboard", "analytics", "support"], defaultTab: "dashboard" },
-  { id: "content",   icon: "📚", label: "Content",    tabs: ["lesson-plans", "curriculum-lesson-plans", "curriculum-resources", "activities", "forms", "printables", "reviews", "founder", "resources"], defaultTab: "lesson-plans" },
+  { id: "content",   icon: "📚", label: "Content",    tabs: ["lesson-plans", "curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "activities", "forms", "printables", "reviews", "founder", "resources"], defaultTab: "lesson-plans" },
   { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
   { id: "users",     icon: "👥", label: "Users",      tabs: ["users", "stripe-backfill"], defaultTab: "users" },
   { id: "settings",  icon: "⚙️", label: "Settings",   tabs: ["images"], defaultTab: "images" },
@@ -3265,6 +3273,7 @@ const adminGroupForTab = {
   "support":     "dashboard",
   "lesson-plans":"content",
   "curriculum-lesson-plans": "content",
+  "curriculum-activities": "content",
   "curriculum-resources": "content",
   "activities":  "content",
   "forms":       "content",
@@ -3296,6 +3305,7 @@ const adminTabLabels = {
   "support":     "Support",
   "lesson-plans":"Lesson Plans",
   "curriculum-lesson-plans": "Play-Based Lessons (Beta)",
+  "curriculum-activities": "Curriculum Activities (Beta)",
   "curriculum-resources": "Curriculum Resources (Beta)",
   "activities":  "Activities",
   "forms":       "Forms Library (not legacy uploads)",
@@ -3779,6 +3789,188 @@ function curriculumLessonPlansForAdmin() {
   return effectiveCurriculum().lessonPlans.slice().sort((a, b) => (
     String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))
   ));
+}
+
+function curriculumActivityStatusLabel(status) {
+  const labels = {
+    draft: "🟡 Draft",
+    published: "🟢 Published",
+    archived: "📦 Archived",
+  };
+  return labels[status] || status || "draft";
+}
+
+function curriculumActivitiesForAdmin() {
+  return effectiveCurriculum().activities.slice().sort((a, b) => (
+    String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))
+    || String(a.title || "").localeCompare(String(b.title || ""))
+  ));
+}
+
+function curriculumActivityParentLesson(activity) {
+  const lessonPlanId = String(activity?.lessonPlanId || "").trim();
+  if (!lessonPlanId) return null;
+  return curriculumLessonPlanById(lessonPlanId);
+}
+
+function filteredCurriculumActivitiesForAdmin() {
+  const filters = adminCurriculumActivityFilters || {};
+  const query = String(filters.query || "").trim().toLowerCase();
+  return curriculumActivitiesForAdmin().filter((activity) => {
+    const parent = curriculumActivityParentLesson(activity);
+    if (filters.category && activity.activityCategory !== filters.category) return false;
+    if (filters.status && (activity.status || "draft") !== filters.status) return false;
+    if (filters.age && (parent?.age || "") !== filters.age) return false;
+    if (filters.lessonPlanId && activity.lessonPlanId !== filters.lessonPlanId) return false;
+    if (!query) return true;
+    const haystack = [
+      activity.title,
+      activity.activityCategory,
+      activity.dayOfWeek,
+      activity.status,
+      activity.lessonPlanId,
+      parent?.title,
+      parent?.age,
+      parent?.theme,
+    ].map((value) => String(value || "").toLowerCase()).join(" ");
+    return haystack.includes(query);
+  });
+}
+
+function curriculumActivityAdminCardHtml(activity) {
+  const parent = curriculumActivityParentLesson(activity);
+  const dayLabel = activity.dayOfWeek
+    ? String(activity.dayOfWeek).charAt(0).toUpperCase() + String(activity.dayOfWeek).slice(1)
+    : "—";
+  return `
+    <article class="admin-content-card is-${escapeHtml(activity.status || "draft")}">
+      <div class="admin-mobile-card-body">
+        <div>
+          <strong>${escapeHtml(activity.title || "Untitled Activity")}</strong>
+          <div class="tag-row" style="margin:2px 0 4px">
+            <span class="tag">${curriculumActivityStatusLabel(activity.status || "draft")}</span>
+            <span class="tag">${escapeHtml(activity.activityCategory || "Play")}</span>
+            <span class="tag">${escapeHtml(dayLabel)}</span>
+          </div>
+          <small>Parent lesson: ${escapeHtml(parent?.title || "(missing lesson)")}</small>
+          <small>lessonPlanId: ${escapeHtml(activity.lessonPlanId || "")}</small>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="ghost-button" type="button" data-curriculum-activity-view="${escapeHtml(activity.id)}">View</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderAdminCurriculumActivityDetail(activity) {
+  const parent = curriculumActivityParentLesson(activity);
+  const goals = Array.isArray(activity.learningGoals) ? activity.learningGoals.filter(Boolean) : [];
+  const dayLabel = activity.dayOfWeek
+    ? String(activity.dayOfWeek).charAt(0).toUpperCase() + String(activity.dayOfWeek).slice(1)
+    : "—";
+  return `
+    <div class="panel-form admin-stacked-form" id="adminCurriculumActivityDetail">
+      <h4>${escapeHtml(activity.title || "Untitled Activity")}</h4>
+      <p class="muted-copy">Read-only synced activity. Edit the parent lesson plan to change this content.</p>
+      <div class="tag-row" style="margin:0 0 12px">
+        <span class="tag">${curriculumActivityStatusLabel(activity.status || "draft")}</span>
+        <span class="tag">${escapeHtml(activity.activityCategory || "Play")}</span>
+        <span class="tag">${escapeHtml(dayLabel)}</span>
+      </div>
+      <p><strong>Parent lesson:</strong> ${escapeHtml(parent?.title || "(missing lesson)")}</p>
+      <p><strong>lessonPlanId:</strong> <code>${escapeHtml(activity.lessonPlanId || "")}</code></p>
+      <p><strong>sourceKey:</strong> <code>${escapeHtml(activity.sourceKey || "")}</code></p>
+      <label>Description<textarea rows="3" readonly>${escapeHtml(activity.description || "")}</textarea></label>
+      <label>Materials<textarea rows="3" readonly>${escapeHtml(activity.materials || "")}</textarea></label>
+      <label>Steps<textarea rows="5" readonly>${escapeHtml(activity.steps || "")}</textarea></label>
+      <label>Learning goals<textarea rows="3" readonly>${escapeHtml(goals.join("\n"))}</textarea></label>
+      <div class="form-actions">
+        <button class="ghost-button" type="button" data-curriculum-activity-back>Back to list</button>
+        ${activity.lessonPlanId
+          ? `<button class="primary-button" type="button" data-curriculum-activity-open-lesson="${escapeHtml(activity.lessonPlanId)}">Open parent lesson</button>`
+          : ""}
+      </div>
+    </div>
+  `;
+}
+
+function renderAdminCurriculumActivityBrowser() {
+  const target = document.querySelector("#adminCurriculumActivityApp");
+  if (!target) return;
+  const filters = adminCurriculumActivityFilters || {
+    query: "",
+    category: "",
+    status: "",
+    age: "",
+    lessonPlanId: "",
+  };
+  const activities = filteredCurriculumActivitiesForAdmin();
+  const viewingId = adminCurriculumActivityViewerId;
+  const viewing = viewingId ? curriculumActivityById(viewingId) : null;
+  const parentLessons = curriculumLessonPlansForAdmin();
+  const ages = [...new Set(parentLessons.map((plan) => plan.age).filter(Boolean))].sort();
+  target.innerHTML = `
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Play-Based Curriculum (Beta)</p>
+        <h3>Curriculum activities</h3>
+        <p class="muted-copy">Read-only browser of activities synced from lesson plans. Lesson plans remain the source of truth.</p>
+      </div>
+    </div>
+    <div class="admin-mobile-toolbar curriculum-activity-filters">
+      <label>Search
+        <input type="search" id="adminCurriculumActivitySearch" value="${escapeHtml(filters.query || "")}" placeholder="Title, lesson, category…" />
+      </label>
+      <label>Category
+        <select id="adminCurriculumActivityCategoryFilter">
+          <option value="">All categories</option>
+          ${PLAY_ACTIVITY_CATEGORIES.map((category) => `
+            <option value="${escapeHtml(category)}"${filters.category === category ? " selected" : ""}>${escapeHtml(category)}</option>
+          `).join("")}
+        </select>
+      </label>
+      <label>Status
+        <select id="adminCurriculumActivityStatusFilter">
+          <option value="">All statuses</option>
+          ${["draft", "published", "archived"].map((status) => `
+            <option value="${status}"${filters.status === status ? " selected" : ""}>${curriculumActivityStatusLabel(status)}</option>
+          `).join("")}
+        </select>
+      </label>
+      <label>Age group
+        <select id="adminCurriculumActivityAgeFilter">
+          <option value="">All ages</option>
+          ${ages.map((age) => `
+            <option value="${escapeHtml(age)}"${filters.age === age ? " selected" : ""}>${escapeHtml(age)}</option>
+          `).join("")}
+        </select>
+      </label>
+      <label>Parent lesson
+        <select id="adminCurriculumActivityLessonFilter">
+          <option value="">All lessons</option>
+          ${parentLessons.map((plan) => `
+            <option value="${escapeHtml(plan.id)}"${filters.lessonPlanId === plan.id ? " selected" : ""}>${escapeHtml(plan.title || plan.id)}</option>
+          `).join("")}
+        </select>
+      </label>
+    </div>
+    <p class="muted-copy">${activities.length} ${activities.length === 1 ? "activity" : "activities"} shown</p>
+    <div class="admin-mobile-list" id="adminCurriculumActivityList">
+      ${activities.map(curriculumActivityAdminCardHtml).join("") || `<div class="empty-state">No curriculum activities yet. Save a play-based lesson plan to sync activities.</div>`}
+    </div>
+    ${viewing ? renderAdminCurriculumActivityDetail(viewing) : ""}
+  `;
+}
+
+function readAdminCurriculumActivityFiltersFromDom() {
+  adminCurriculumActivityFilters = {
+    query: document.querySelector("#adminCurriculumActivitySearch")?.value || "",
+    category: document.querySelector("#adminCurriculumActivityCategoryFilter")?.value || "",
+    status: document.querySelector("#adminCurriculumActivityStatusFilter")?.value || "",
+    age: document.querySelector("#adminCurriculumActivityAgeFilter")?.value || "",
+    lessonPlanId: document.querySelector("#adminCurriculumActivityLessonFilter")?.value || "",
+  };
 }
 
 function openAdminCurriculumLessonEditor(id, { scroll = false } = {}) {
@@ -19673,6 +19865,9 @@ function renderAdminContentManager() {
       <section class="admin-manager-section" data-admin-cm-section="curriculum-lesson-plans">
         <div id="adminCurriculumLessonPlanApp"></div>
       </section>
+      <section class="admin-manager-section" data-admin-cm-section="curriculum-activities">
+        <div id="adminCurriculumActivityApp"></div>
+      </section>
       <section class="admin-manager-section" data-admin-cm-section="curriculum-resources">
         <div id="adminCurriculumResourceApp"></div>
       </section>
@@ -19689,6 +19884,7 @@ function renderAdminContentManager() {
   `;
   setAdminLessonFormCleanState();
   if (adminActiveSectionTab === "curriculum-lesson-plans") renderAdminCurriculumLessonPlanManager();
+  if (adminActiveSectionTab === "curriculum-activities") renderAdminCurriculumActivityBrowser();
   if (adminActiveSectionTab === "curriculum-resources") renderAdminCurriculumResourceManager();
   if (adminActiveSectionTab === "activities") renderAdminActivitiesManager();
   if (adminActiveSectionTab === "forms") renderAdminFormsManager();
@@ -21023,7 +21219,7 @@ function renderAdminSectionNav() {
   `;
 }
 
-const adminCmSectionIds = ["lesson-plans", "curriculum-lesson-plans", "curriculum-resources", "activities", "forms", "printables", "reviews", "founder", "images"];
+const adminCmSectionIds = ["lesson-plans", "curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "activities", "forms", "printables", "reviews", "founder", "images"];
 
 function applyAdminSectionVisibility() {
   const tab = adminActiveSectionTab;
@@ -21058,6 +21254,7 @@ function applyAdminSectionVisibility() {
       el.hidden = el.dataset.adminCmSection !== tab;
     });
     if (tab === "curriculum-lesson-plans") renderAdminCurriculumLessonPlanManager();
+    if (tab === "curriculum-activities") renderAdminCurriculumActivityBrowser();
     if (tab === "curriculum-resources") renderAdminCurriculumResourceManager();
     if (tab === "activities") renderAdminActivitiesManager();
     if (tab === "forms") renderAdminFormsManager();
@@ -29805,6 +30002,23 @@ document.addEventListener("click", async (event) => {
     createAdminCurriculumResource();
     return;
   }
+  const curriculumActivityViewButton = event.target.closest("[data-curriculum-activity-view]");
+  if (curriculumActivityViewButton) {
+    adminCurriculumActivityViewerId = curriculumActivityViewButton.dataset.curriculumActivityView || "";
+    renderAdminCurriculumActivityBrowser();
+    document.querySelector("#adminCurriculumActivityDetail")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  if (event.target.closest("[data-curriculum-activity-back]")) {
+    adminCurriculumActivityViewerId = "";
+    renderAdminCurriculumActivityBrowser();
+    return;
+  }
+  const curriculumActivityOpenLessonButton = event.target.closest("[data-curriculum-activity-open-lesson]");
+  if (curriculumActivityOpenLessonButton) {
+    openAdminCurriculumLessonEditor(curriculumActivityOpenLessonButton.dataset.curriculumActivityOpenLesson, { scroll: true });
+    return;
+  }
   const curriculumResourceEditButton = event.target.closest("[data-curriculum-resource-edit]");
   if (curriculumResourceEditButton) {
     openAdminCurriculumResourceEditor(curriculumResourceEditButton.dataset.curriculumResourceEdit, { scroll: true });
@@ -31126,6 +31340,25 @@ document.addEventListener("input", (event) => {
       form.querySelector('[name="signatureTitle"]')?.value || ""
     );
   }
+});
+
+document.addEventListener("input", (event) => {
+  if (event.target.id !== "adminCurriculumActivitySearch") return;
+  readAdminCurriculumActivityFiltersFromDom();
+  adminCurriculumActivityViewerId = "";
+  renderAdminCurriculumActivityBrowser();
+});
+
+document.addEventListener("change", (event) => {
+  if (![
+    "adminCurriculumActivityCategoryFilter",
+    "adminCurriculumActivityStatusFilter",
+    "adminCurriculumActivityAgeFilter",
+    "adminCurriculumActivityLessonFilter",
+  ].includes(event.target.id)) return;
+  readAdminCurriculumActivityFiltersFromDom();
+  adminCurriculumActivityViewerId = "";
+  renderAdminCurriculumActivityBrowser();
 });
 
 document.addEventListener("change", (event) => {
