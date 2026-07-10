@@ -950,6 +950,106 @@ function validateCurriculumIntegrity(curriculum) {
   return { valid: errors.length === 0, errors };
 }
 
+function generateCurriculumLessonPlanId() {
+  return `cur-lp-${crypto.randomBytes(8).toString("hex")}`;
+}
+
+function curriculumActivityIdFromItemId(itemId) {
+  const normalized = normalizedShortText(itemId, 120);
+  if (!normalized) return "";
+  const suffix = normalized.startsWith("item-") ? normalized.slice(5) : normalized;
+  return `cur-act-${suffix}`;
+}
+
+function curriculumActivityStatusFromLessonPlan(lessonPlanStatus) {
+  const status = normalizedShortText(lessonPlanStatus, 20);
+  if (status === "archived") return "archived";
+  if (status === "published" || status === "featured") return "published";
+  return "draft";
+}
+
+function flattenCurriculumDailyItems(dailyPlans) {
+  const items = [];
+  const days = dailyPlans && typeof dailyPlans === "object" ? dailyPlans : {};
+  CURRICULUM_WEEKDAYS.forEach((day) => {
+    const dayItems = Array.isArray(days[day]?.items) ? days[day].items : [];
+    dayItems.forEach((item) => {
+      items.push({ ...item, dayOfWeek: day });
+    });
+  });
+  return items;
+}
+
+function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
+  const now = new Date().toISOString();
+  const store = normalizedCurriculumStore(curriculum);
+  const plan = normalizedCurriculumLessonPlan(lessonPlanInput);
+  if (!plan) return null;
+
+  const activityStatus = curriculumActivityStatusFromLessonPlan(plan.status);
+  const dailyItems = flattenCurriculumDailyItems(plan.dailyPlans);
+  const activeSourceKeys = new Set(dailyItems.map((item) => item.sourceKey).filter(Boolean));
+  const activitiesBySourceKey = new Map();
+  store.activities.forEach((activity) => {
+    if (activity.lessonPlanId === plan.id && activity.sourceKey) {
+      activitiesBySourceKey.set(activity.sourceKey, activity);
+    }
+  });
+
+  const syncedForPlan = [];
+  dailyItems.forEach((item) => {
+    const sourceKey = item.sourceKey || curriculumActivitySourceKey(plan.id, item.itemId);
+    const existing = activitiesBySourceKey.get(sourceKey);
+    syncedForPlan.push(normalizedCurriculumActivity({
+      id: existing?.id || curriculumActivityIdFromItemId(item.itemId),
+      lessonPlanId: plan.id,
+      itemId: item.itemId,
+      sourceKey,
+      dayOfWeek: item.dayOfWeek,
+      activityCategory: item.activityCategory,
+      title: item.title,
+      description: item.description,
+      materials: item.materials,
+      steps: item.steps,
+      learningGoals: item.learningGoals,
+      status: activityStatus,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+    }));
+  });
+
+  store.activities.forEach((activity) => {
+    if (activity.lessonPlanId !== plan.id) return;
+    if (activeSourceKeys.has(activity.sourceKey)) return;
+    syncedForPlan.push(normalizedCurriculumActivity({
+      ...activity,
+      status: "archived",
+      updatedAt: now,
+    }));
+  });
+
+  const normalizedSynced = syncedForPlan.filter(Boolean);
+  const activityIds = normalizedSynced
+    .filter((activity) => activity.status !== "archived")
+    .map((activity) => activity.id);
+  const updatedPlan = normalizedCurriculumLessonPlan({
+    ...plan,
+    activityIds,
+    updatedAt: now,
+  });
+  if (!updatedPlan) return null;
+
+  const otherPlans = store.lessonPlans.filter((item) => item.id !== plan.id);
+  const otherActivities = store.activities.filter((activity) => activity.lessonPlanId !== plan.id);
+
+  return normalizedCurriculumStore({
+    lessonPlans: [...otherPlans, updatedPlan],
+    activities: [...otherActivities, ...normalizedSynced],
+    resources: store.resources,
+    updatedAt: now,
+  });
+}
+
 function normalizedSiteContent(value) {
   const input = value && typeof value === "object" ? value : {};
   const lessonPlansInput = input.lessonPlans && typeof input.lessonPlans === "object" ? input.lessonPlans : {};
@@ -4500,6 +4600,60 @@ function handleAdminCurriculumBackup(request, response, url) {
   jsonResponse(response, 200, buildCurriculumBackupPayload(store));
 }
 
+async function handleAdminCurriculumLessonPlanSave(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to save curriculum lesson plans." });
+    return;
+  }
+  const incomingPlan = body.lessonPlan && typeof body.lessonPlan === "object" ? body.lessonPlan : null;
+  if (!incomingPlan) {
+    jsonResponse(response, 400, { error: "A lesson plan payload is required." });
+    return;
+  }
+
+  const incomingId = normalizedShortText(incomingPlan.id, 160);
+  const id = incomingId || generateCurriculumLessonPlanId();
+  const now = new Date().toISOString();
+  const store = readStore();
+  const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  const existingCurriculum = siteContent.curriculum || defaultCurriculumStore();
+  const existingPlan = existingCurriculum.lessonPlans.find((item) => item.id === id);
+  const planInput = {
+    ...incomingPlan,
+    id,
+    createdAt: existingPlan?.createdAt || normalizedShortText(incomingPlan.createdAt, 80) || now,
+    updatedAt: now,
+  };
+
+  const syncedCurriculum = syncCurriculumActivitiesForLessonPlan(existingCurriculum, planInput);
+  if (!syncedCurriculum) {
+    jsonResponse(response, 400, { error: "Lesson plan could not be normalized." });
+    return;
+  }
+
+  const savedPlan = syncedCurriculum.lessonPlans.find((item) => item.id === id);
+  const savedActivities = syncedCurriculum.activities.filter((activity) => activity.lessonPlanId === id);
+  store.siteContent = {
+    ...siteContent,
+    curriculum: syncedCurriculum,
+  };
+
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    console.error("Curriculum lesson plan save failed:", error.message);
+    jsonResponse(response, 503, { error: "Curriculum could not be saved. Please try again." });
+    return;
+  }
+
+  jsonResponse(response, 200, {
+    lessonPlan: savedPlan,
+    activities: savedActivities,
+    curriculum: syncedCurriculum,
+  });
+}
+
 function handleUploadedResourcesList(request, response, url) {
   const adminToken = url.searchParams.get("adminToken") || "";
   const admin = validAdminToken(adminToken);
@@ -5587,6 +5741,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/release-notes") return handleReleaseNotesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/release-notes") return handleReleaseNotesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/backup") return handleAdminCurriculumBackup(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans") return await handleAdminCurriculumLessonPlanSave(request, response);
     if (request.method === "GET" && url.pathname === "/api/uploads") return handleUploadedResourcesList(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/migrate") return await handleAdminUploadedResourcesMigrate(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/upsert") return await handleAdminUploadedResourceUpsert(request, response);
