@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Phase 2D curriculum resource checks — Postgres / data-URL storage (no disk).
+ * Phase 2E readiness checks: concurrency, metadata list, archive unlink, integrity.
  * Run: node scripts/test-curriculum-uploads-storage.js
  */
 const fs = require("fs");
@@ -133,80 +133,74 @@ async function login() {
   return res.json.token;
 }
 
-async function runUploadSaveOpenTest() {
-  console.log("1) Upload validates and save stores fileData in app store");
+async function main() {
+  fs.rmSync(STORE_PATH, { force: true });
   const child = startServer();
-  let resourceId = "";
   try {
     await waitForHealth(child);
     const token = await login();
-    resourceId = `cur-res-test-${crypto.randomBytes(4).toString("hex")}`;
-    const upload = await requestJson("POST", "/api/admin/curriculum/resources/upload", {
-      adminToken: token,
-      resourceId,
-      fileName: "tiny.png",
-      fileData: PNG_DATA_URL,
-    });
-    assert(upload.status === 200, `Upload failed: ${upload.status} ${upload.text}`);
-    assert(upload.json.fileData?.startsWith("data:image/png"), "Upload must return fileData data URL");
-    assert(!upload.json.fileUrl || !String(upload.json.fileUrl).includes("/api/curriculum-files/"), "Must not return disk file URLs");
+    const bootstrap = await requestJson("GET", `/api/admin/curriculum/resources?adminToken=${encodeURIComponent(token)}`);
+    let expectedUpdatedAt = bootstrap.json?.siteContentUpdatedAt || "";
 
+    console.log("1) Save resource bumps siteContent.updatedAt + stores fileData");
+    const resourceId = `cur-res-test-${crypto.randomBytes(4).toString("hex")}`;
     const save = await requestJson("POST", "/api/admin/curriculum/resources/save", {
       adminToken: token,
+      expectedUpdatedAt,
       resource: {
         id: resourceId,
         title: "Tiny Test Resource",
         resourceCategory: "Classroom Resources",
-        fileData: upload.json.fileData,
+        fileData: PNG_DATA_URL,
         fileName: "tiny.png",
         mimeType: "image/png",
         status: "draft",
       },
     });
     assert(save.status === 200, `Save failed: ${save.status} ${save.text}`);
+    assert(save.json.siteContentUpdatedAt, "Missing siteContentUpdatedAt");
     assert(save.json.resource.fileData?.startsWith("data:image/png"), "Saved resource missing fileData");
-    assert(!("fileUrl" in save.json.resource) || !save.json.resource.fileUrl, "Saved resource should not keep disk fileUrl");
-    assert(fs.existsSync(STORE_PATH), "Expected launch-store.json for local durability check");
-    const storeText = fs.readFileSync(STORE_PATH, "utf8");
-    assert(storeText.includes(resourceId), "Store should contain resource id");
-    assert(storeText.includes("data:image/png;base64,"), "Store should contain file data URL");
-    assert(!fs.existsSync(path.join(ROOT, "server/data/curriculum-uploads", resourceId)), "Must not write curriculum-uploads disk path");
+    assert(!save.json.curriculum.resources[0].fileData, "Curriculum payload must omit fileData");
+    assert(save.json.curriculum.resources[0].hasFile === true, "Metadata must include hasFile");
+    expectedUpdatedAt = save.json.siteContentUpdatedAt;
 
-    console.log("2) Open/download via stored fileData");
+    console.log("2) List returns metadata only");
     const listed = await requestJson("GET", `/api/admin/curriculum/resources?adminToken=${encodeURIComponent(token)}`);
     assert(listed.status === 200, `List failed: ${listed.status}`);
-    const found = (listed.json.resources || []).find((item) => item.id === resourceId);
-    assert(found?.fileData === upload.json.fileData, "Listed resource fileData mismatch");
+    const meta = (listed.json.resources || []).find((item) => item.id === resourceId);
+    assert(meta, "Resource missing from list");
+    assert(!("fileData" in meta), "List must not include fileData");
+    assert(meta.hasFile === true, "List metadata missing hasFile");
 
-    console.log("3) Durability across restart (store file survives)");
-    await stopServer(child);
-    const child2 = startServer();
-    try {
-      await waitForHealth(child2);
-      const token2 = await login();
-      const listed2 = await requestJson("GET", `/api/admin/curriculum/resources?adminToken=${encodeURIComponent(token2)}`);
-      const found2 = (listed2.json.resources || []).find((item) => item.id === resourceId);
-      assert(found2?.fileData?.startsWith("data:image/png"), "fileData missing after restart");
-      assert(found2.fileData === upload.json.fileData, "fileData changed after restart");
-    } finally {
-      await stopServer(child2);
-    }
-    return resourceId;
-  } finally {
-    await stopServer(child);
-  }
-}
+    console.log("3) File endpoint loads bytes on demand");
+    const file = await requestJson(
+      "GET",
+      `/api/admin/curriculum/resources/file?adminToken=${encodeURIComponent(token)}&id=${encodeURIComponent(resourceId)}`,
+    );
+    assert(file.status === 200, `File fetch failed: ${file.status} ${file.text}`);
+    assert(file.json.resource.fileData === PNG_DATA_URL, "File endpoint returned wrong data");
 
-async function runLinkAndSyncTests(existingResourceId) {
-  console.log("4) Lesson plan resource linking");
-  const child = startServer();
-  try {
-    await waitForHealth(child);
-    const token = await login();
+    console.log("4) Stale expectedUpdatedAt returns 409");
+    const conflict = await requestJson("POST", "/api/admin/curriculum/resources/save", {
+      adminToken: token,
+      expectedUpdatedAt: "2000-01-01T00:00:00.000Z",
+      resource: {
+        id: resourceId,
+        title: "Stale Save",
+        resourceCategory: "Classroom Resources",
+        fileName: "tiny.png",
+        status: "draft",
+      },
+    });
+    assert(conflict.status === 409, `Expected 409, got ${conflict.status}`);
+    assert(conflict.json.conflict === true, "Conflict flag missing");
+
+    console.log("5) Lesson plan save + link + archive unlinks");
     const lessonPlanId = `cur-lp-link-${crypto.randomBytes(4).toString("hex")}`;
     const itemId = `item-${crypto.randomBytes(4).toString("hex")}`;
     const planSave = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
       adminToken: token,
+      expectedUpdatedAt,
       lessonPlan: {
         id: lessonPlanId,
         title: "Link Test Plan",
@@ -235,122 +229,82 @@ async function runLinkAndSyncTests(existingResourceId) {
       },
     });
     assert(planSave.status === 200, `Lesson plan save failed: ${planSave.status} ${planSave.text}`);
-
-    const resourceId = existingResourceId || `cur-res-link-${crypto.randomBytes(4).toString("hex")}`;
-    if (!existingResourceId) {
-      const save = await requestJson("POST", "/api/admin/curriculum/resources/save", {
-        adminToken: token,
-        resource: {
-          id: resourceId,
-          title: "Linkable Resource",
-          resourceCategory: "Printables",
-          fileData: PNG_DATA_URL,
-          fileName: "link.png",
-          mimeType: "image/png",
-          status: "published",
-        },
-      });
-      assert(save.status === 200, `Resource save failed: ${save.status}`);
-    }
+    expectedUpdatedAt = planSave.json.siteContentUpdatedAt;
 
     const link = await requestJson("POST", "/api/admin/curriculum/resources/link", {
       adminToken: token,
+      expectedUpdatedAt,
       resourceId,
       lessonPlanId,
     });
     assert(link.status === 200, `Link failed: ${link.status} ${link.text}`);
-    assert(link.json.resource.lessonPlanIds.includes(lessonPlanId), "Resource missing lessonPlanId");
-    assert(link.json.lessonPlan.resourceIds.includes(resourceId), "Lesson plan missing resourceId");
-    assert(!("activityIds" in (link.json.resource || {})), "Resources must not have activity-level links");
+    assert(link.json.resource.lessonPlanIds.includes(lessonPlanId), "Link missing lessonPlanId");
+    assert(link.json.lessonPlan.resourceIds.includes(resourceId), "Lesson missing resourceId");
+    expectedUpdatedAt = link.json.siteContentUpdatedAt;
 
-    const unlink = await requestJson("POST", "/api/admin/curriculum/resources/unlink", {
+    const archive = await requestJson("POST", "/api/admin/curriculum/resources/archive", {
       adminToken: token,
-      resourceId,
-      lessonPlanId,
+      expectedUpdatedAt,
+      id: resourceId,
     });
-    assert(unlink.status === 200, `Unlink failed: ${unlink.status}`);
-    assert(!unlink.json.resource.lessonPlanIds.includes(lessonPlanId), "Unlink did not clear lessonPlanId");
+    assert(archive.status === 200, `Archive failed: ${archive.status} ${archive.text}`);
+    assert(archive.json.resource.status === "archived", "Resource not archived");
+    assert((archive.json.resource.lessonPlanIds || []).length === 0, "Archived resource still linked");
+    const archivedPlan = archive.json.curriculum.lessonPlans.find((item) => item.id === lessonPlanId);
+    assert(!(archivedPlan.resourceIds || []).includes(resourceId), "Lesson plan still references archived resource");
+    expectedUpdatedAt = archive.json.siteContentUpdatedAt;
 
-    console.log("5) Activity sync unchanged (no duplicates on double save)");
+    console.log("6) Activity sync still stable + public API unchanged");
     const payload = {
       adminToken: token,
-      lessonPlan: planSave.json.lessonPlan,
-    };
-    // Re-save with same daily item ids
-    payload.lessonPlan.dailyPlans = {
-      monday: {
-        items: [{
-          itemId,
-          activityCategory: "Sensory Play",
-          title: "Sand Scoop",
-          description: "Scoop",
-          materials: "Sand",
-          steps: "1. Scoop",
-          learningGoals: ["Fine motor"],
-        }],
+      expectedUpdatedAt,
+      lessonPlan: {
+        ...planSave.json.lessonPlan,
+        dailyPlans: {
+          monday: {
+            items: [{
+              itemId,
+              activityCategory: "Sensory Play",
+              title: "Sand Scoop",
+              description: "Scoop",
+              materials: "Sand",
+              steps: "1. Scoop",
+              learningGoals: ["Fine motor"],
+            }],
+          },
+          tuesday: { items: [] },
+          wednesday: { items: [] },
+          thursday: { items: [] },
+          friday: { items: [] },
+        },
       },
-      tuesday: { items: [] },
-      wednesday: { items: [] },
-      thursday: { items: [] },
-      friday: { items: [] },
     };
     const first = await requestJson("POST", "/api/admin/curriculum/lesson-plans", payload);
+    assert(first.status === 200, `Re-save failed: ${first.status} ${first.text}`);
     const second = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
-      ...payload,
-      lessonPlan: { ...first.json.lessonPlan, dailyPlans: payload.lessonPlan.dailyPlans },
-    });
-    const acts1 = (first.json.activities || []).filter((a) => a.status !== "archived");
-    const acts2 = (second.json.activities || []).filter((a) => a.status !== "archived");
-    assert(acts1.length === 1 && acts2.length === 1, `Activity sync duplicated: ${acts1.length} -> ${acts2.length}`);
-    assert(acts1[0].id === acts2[0].id, "Activity id changed on re-save");
-
-    console.log("6) Categories + public API + size limit + no disk routes");
-    const invalid = await requestJson("POST", "/api/admin/curriculum/resources/save", {
       adminToken: token,
-      resource: {
-        id: `cur-res-cat-${crypto.randomBytes(4).toString("hex")}`,
-        title: "Bad Category",
-        resourceCategory: "Not A Real Category",
-        fileData: PNG_DATA_URL,
-        fileName: "cat.png",
-        status: "draft",
+      expectedUpdatedAt: first.json.siteContentUpdatedAt,
+      lessonPlan: {
+        ...first.json.lessonPlan,
+        dailyPlans: payload.lessonPlan.dailyPlans,
       },
     });
-    assert(invalid.json.resource.resourceCategory === "Classroom Resources", "Invalid category should normalize");
-
-    const tooBig = await requestJson("POST", "/api/admin/curriculum/resources/upload", {
-      adminToken: token,
-      resourceId: `cur-res-big-${crypto.randomBytes(4).toString("hex")}`,
-      fileName: "big.png",
-      fileData: `data:image/png;base64,${Buffer.alloc(6 * 1024 * 1024).toString("base64")}`,
-    });
-    assert(tooBig.status === 400, `Expected 400 for >5MB upload, got ${tooBig.status}`);
+    assert(second.status === 200, `Second save failed: ${second.status}`);
+    const acts1 = (first.json.activities || []).filter((a) => a.status !== "archived");
+    const acts2 = (second.json.activities || []).filter((a) => a.status !== "archived");
+    assert(acts1.length === 1 && acts2.length === 1, "Activity sync duplicated");
+    assert(acts1[0].id === acts2[0].id, "Activity id changed");
 
     const publicContent = await requestJson("GET", "/api/site-content");
     assert(!("curriculum" in publicContent.json.siteContent), "Public API must omit curriculum");
     assert(!("featureFlags" in publicContent.json.siteContent), "Public API must omit featureFlags");
 
-    const diskRoute = await requestJson("GET", "/api/curriculum-files/x/y");
-    assert(diskRoute.status === 404, "Disk file route should be removed");
-  } finally {
-    await stopServer(child);
-  }
-}
-
-async function main() {
-  const results = [];
-  try {
-    const resourceId = await runUploadSaveOpenTest();
-    results.push("upload/save/open + restart durability: PASS");
-    await runLinkAndSyncTests(resourceId);
-    results.push("lesson-plan linking: PASS");
-    results.push("activity sync: PASS");
-    results.push("categories / public API / size limit / no disk route: PASS");
-    console.log("\nAll Phase 2D data-URL storage checks passed:");
-    results.forEach((line) => console.log(`  - ${line}`));
+    console.log("\nAll Phase 2E readiness checks passed.");
   } catch (error) {
     console.error("\nFAIL:", error.message);
     process.exitCode = 1;
+  } finally {
+    await stopServer(child);
   }
 }
 

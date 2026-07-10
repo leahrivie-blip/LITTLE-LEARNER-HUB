@@ -1872,6 +1872,7 @@ const curriculumLessonPlanConfig = {
 };
 const curriculumResourceConfig = {
   listEndpoint: "/api/admin/curriculum/resources",
+  fileEndpoint: "/api/admin/curriculum/resources/file",
   uploadEndpoint: "/api/admin/curriculum/resources/upload",
   saveEndpoint: "/api/admin/curriculum/resources/save",
   archiveEndpoint: "/api/admin/curriculum/resources/archive",
@@ -4180,14 +4181,20 @@ async function saveAdminCurriculumLessonPlanForm(form) {
     const response = await fetch(curriculumLessonPlanConfig.endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ adminToken: token, lessonPlan }),
+      body: JSON.stringify({
+        adminToken: token,
+        expectedUpdatedAt: curriculumExpectedUpdatedAt(),
+        lessonPlan,
+      }),
     });
     const data = await response.json();
+    if (response.status === 409 && await handleCurriculumSaveConflict(data)) {
+      throw new Error(data?.error || "Content was updated elsewhere. Reload and try again.");
+    }
     if (!response.ok) throw new Error(data?.error || "Could not save curriculum lesson plan.");
-    siteContentState = {
-      ...effectiveSiteContent(),
-      curriculum: data.curriculum || effectiveCurriculum(),
-    };
+    applyCurriculumState(data.curriculum || effectiveCurriculum(), {
+      siteContentUpdatedAt: data.siteContentUpdatedAt,
+    });
     adminCurriculumLessonEditorId = data.lessonPlan?.id || lessonPlan.id;
     adminCurriculumLessonImportDraft = null;
     setFormMessage("#adminCurriculumLessonPlanMessage", `✅ Saved. ${(data.activities || []).filter((item) => item.status !== "archived").length} linked activities synced.`, true);
@@ -4244,14 +4251,60 @@ function curriculumResourceFileHref(resource) {
   return "";
 }
 
-function applyCurriculumState(curriculum) {
+function curriculumResourceHasFile(resource) {
+  if (!resource) return false;
+  if (resource.hasFile === true) return true;
+  return Boolean(curriculumResourceFileHref(resource));
+}
+
+function applyCurriculumState(curriculum, { siteContentUpdatedAt } = {}) {
   siteContentState = {
     ...effectiveSiteContent(),
     curriculum: curriculum || effectiveCurriculum(),
+    ...(siteContentUpdatedAt ? { updatedAt: siteContentUpdatedAt } : {}),
   };
 }
 
+function curriculumExpectedUpdatedAt() {
+  return normalizedShortText(effectiveSiteContent().updatedAt || "");
+}
+
+async function handleCurriculumSaveConflict(data) {
+  if (!data?.conflict) return false;
+  if (data.siteContentUpdatedAt || data.curriculum) {
+    applyCurriculumState(data.curriculum || effectiveCurriculum(), {
+      siteContentUpdatedAt: data.siteContentUpdatedAt,
+    });
+  }
+  try {
+    await loadAdminSiteContent();
+  } catch {
+    // Keep conflict payload if reload fails.
+  }
+  return true;
+}
+
 const CURRICULUM_UPLOAD_MAX_MB = 5;
+
+async function fetchCurriculumResourceFile(resourceId) {
+  const token = adminSession()?.token || "";
+  if (!token || !resourceId) throw new Error("Admin login and resource id are required.");
+  const params = new URLSearchParams({
+    adminToken: token,
+    id: resourceId,
+  });
+  const response = await fetch(`${curriculumResourceConfig.fileEndpoint}?${params.toString()}`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.error || "Could not open resource file.");
+  const href = curriculumResourceFileHref(data.resource);
+  if (!href) throw new Error("Resource file data is not available.");
+  return href;
+}
+
+async function openCurriculumResourceFile(resourceId) {
+  const href = await fetchCurriculumResourceFile(resourceId);
+  window.open(href, "_blank", "noopener");
+}
 
 async function uploadCurriculumResourceFile({ resourceId, file }) {
   const token = adminSession()?.token || "";
@@ -4275,7 +4328,7 @@ async function uploadCurriculumResourceFile({ resourceId, file }) {
 
 function curriculumResourceAdminCardHtml(resource) {
   const linkedCount = Array.isArray(resource.lessonPlanIds) ? resource.lessonPlanIds.length : 0;
-  const openHref = curriculumResourceFileHref(resource);
+  const canOpen = curriculumResourceHasFile(resource);
   return `
     <article class="admin-content-card is-${escapeHtml(resource.status || "draft")}">
       <div class="admin-mobile-card-body">
@@ -4285,14 +4338,14 @@ function curriculumResourceAdminCardHtml(resource) {
             <span class="tag">${curriculumResourceStatusLabel(resource.status || "draft")}</span>
             <span class="tag">${escapeHtml(resource.resourceCategory || "Classroom Resources")}</span>
           </div>
-          <small>${escapeHtml(resource.fileName || (resource.fileData?.startsWith("https://") ? resource.fileData : "") || "No file")}</small>
+          <small>${escapeHtml(resource.fileName || "No file")}</small>
           <small>${linkedCount} linked ${linkedCount === 1 ? "lesson plan" : "lesson plans"}</small>
           <small>Updated: ${escapeHtml(adminLessonUpdatedLabel(resource.updatedAt))}</small>
         </div>
       </div>
       <div class="form-actions">
         <button class="ghost-button" type="button" data-curriculum-resource-edit="${escapeHtml(resource.id)}">Edit</button>
-        ${openHref ? `<a class="ghost-button" href="${escapeHtml(openHref)}" target="_blank" rel="noopener">Open file</a>` : ""}
+        ${canOpen ? `<button class="ghost-button" type="button" data-curriculum-resource-open="${escapeHtml(resource.id)}">Open file</button>` : ""}
         ${resource.status !== "archived"
           ? `<button class="ghost-button" type="button" data-curriculum-resource-archive="${escapeHtml(resource.id)}">📦 Archive</button>`
           : ""
@@ -4312,7 +4365,7 @@ function renderAdminCurriculumResourceForm(resource) {
     mimeType: "",
     status: "draft",
   };
-  const openHref = curriculumResourceFileHref(record);
+  const openHref = curriculumResourceHasFile(record);
   const httpsValue = record.fileData?.startsWith("https://") ? record.fileData : "";
   return `
     <form id="adminCurriculumResourceForm" class="panel-form admin-stacked-form">
@@ -4334,7 +4387,7 @@ function renderAdminCurriculumResourceForm(resource) {
       </label>
       <label>Upload file (PDF or image, max ${CURRICULUM_UPLOAD_MAX_MB} MB)<input name="file" type="file" accept=".pdf,image/*" /></label>
       <label>Or external HTTPS URL<input name="fileUrl" value="${escapeHtml(httpsValue)}" placeholder="https://..." /></label>
-      ${openHref ? `<p class="muted-copy">Current file: <a href="${escapeHtml(openHref)}" target="_blank" rel="noopener">${escapeHtml(record.fileName || "Open file")}</a></p>` : ""}
+      ${openHref ? `<p class="muted-copy">Current file: <button class="ghost-button" type="button" data-curriculum-resource-open="${escapeHtml(record.id)}">${escapeHtml(record.fileName || "Open file")}</button></p>` : ""}
       <div class="form-actions">
         <button class="primary-button" type="submit" ${adminCurriculumResourceSaving ? "disabled" : ""}>${adminCurriculumResourceSaving ? "Saving…" : "💾 Save resource"}</button>
         <button class="ghost-button" type="button" data-curriculum-resource-back>Back to list</button>
@@ -4387,7 +4440,7 @@ function renderCurriculumLessonLinkedResourcesSection(plan) {
       <div class="curriculum-linked-resource-list">
         ${linked.length
           ? linked.map((resource) => {
-            const openHref = curriculumResourceFileHref(resource);
+            const canOpen = curriculumResourceHasFile(resource);
             return `
             <div class="curriculum-linked-resource-row">
               <div>
@@ -4395,7 +4448,7 @@ function renderCurriculumLessonLinkedResourcesSection(plan) {
                 <small>${escapeHtml(resource.resourceCategory || "Classroom Resources")} · ${escapeHtml(resource.fileName || "")}</small>
               </div>
               <div class="form-actions">
-                ${openHref ? `<a class="ghost-button" href="${escapeHtml(openHref)}" target="_blank" rel="noopener">Open</a>` : ""}
+                ${canOpen ? `<button class="ghost-button" type="button" data-curriculum-resource-open="${escapeHtml(resource.id)}">Open</button>` : ""}
                 <button class="ghost-button" type="button" data-curriculum-resource-unlink="${escapeHtml(resource.id)}" data-curriculum-lesson-id="${escapeHtml(lessonPlanId)}">Unlink</button>
               </div>
             </div>
@@ -4435,7 +4488,7 @@ async function saveAdminCurriculumResourceForm(form) {
     const formData = new FormData(form);
     const id = normalizedShortText(formData.get("id")) || `cur-res-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
     const existing = curriculumResourceById(id);
-    let fileData = existing?.fileData || "";
+    let fileData = "";
     let fileName = existing?.fileName || "";
     let mimeType = existing?.mimeType || "";
     const httpsUrl = sanitizedUrl(formData.get("fileUrl"));
@@ -4450,17 +4503,20 @@ async function saveAdminCurriculumResourceForm(form) {
       fileName = uploaded.fileName || file.name || fileName;
       mimeType = uploaded.mimeType || mimeType;
     }
-    if (!fileData) throw new Error(`Upload a PDF/image (max ${CURRICULUM_UPLOAD_MAX_MB} MB) or provide an HTTPS URL.`);
+    if (!fileData && !curriculumResourceHasFile(existing)) {
+      throw new Error(`Upload a PDF/image (max ${CURRICULUM_UPLOAD_MAX_MB} MB) or provide an HTTPS URL.`);
+    }
     const response = await fetch(curriculumResourceConfig.saveEndpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         adminToken: token,
+        expectedUpdatedAt: curriculumExpectedUpdatedAt(),
         resource: {
           id,
           title: normalizedShortText(formData.get("title")) || "Resource",
           resourceCategory: normalizedShortText(formData.get("resourceCategory")) || "Classroom Resources",
-          fileData,
+          ...(fileData ? { fileData } : {}),
           fileName,
           mimeType,
           status: ["draft", "published"].includes(formData.get("status")) ? formData.get("status") : "draft",
@@ -4469,8 +4525,11 @@ async function saveAdminCurriculumResourceForm(form) {
       }),
     });
     const data = await response.json();
+    if (response.status === 409 && await handleCurriculumSaveConflict(data)) {
+      throw new Error(data?.error || "Content was updated elsewhere. Reload and try again.");
+    }
     if (!response.ok) throw new Error(data?.error || "Could not save resource.");
-    applyCurriculumState(data.curriculum);
+    applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
     adminCurriculumResourceEditorId = data.resource?.id || id;
     setFormMessage("#adminCurriculumResourceMessage", "✅ Resource saved.", true);
     renderAdminCurriculumResourceManager();
@@ -4493,11 +4552,18 @@ async function archiveAdminCurriculumResource(id) {
       const response = await fetch(curriculumResourceConfig.archiveEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ adminToken: token, id }),
+        body: JSON.stringify({
+          adminToken: token,
+          expectedUpdatedAt: curriculumExpectedUpdatedAt(),
+          id,
+        }),
       });
       const data = await response.json();
+      if (response.status === 409 && await handleCurriculumSaveConflict(data)) {
+        throw new Error(data?.error || "Content was updated elsewhere. Reload and try again.");
+      }
       if (!response.ok) throw new Error(data?.error || "Could not archive resource.");
-      applyCurriculumState(data.curriculum);
+      applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
     },
     successMsg: "✅ Resource archived.",
     onComplete: () => {
@@ -4515,11 +4581,19 @@ async function linkCurriculumResourceToLesson(resourceId, lessonPlanId) {
   const response = await fetch(curriculumResourceConfig.linkEndpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminToken: token, resourceId, lessonPlanId }),
+    body: JSON.stringify({
+      adminToken: token,
+      expectedUpdatedAt: curriculumExpectedUpdatedAt(),
+      resourceId,
+      lessonPlanId,
+    }),
   });
   const data = await response.json();
+  if (response.status === 409 && await handleCurriculumSaveConflict(data)) {
+    throw new Error(data?.error || "Content was updated elsewhere. Reload and try again.");
+  }
   if (!response.ok) throw new Error(data?.error || "Could not link resource.");
-  applyCurriculumState(data.curriculum);
+  applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
   return data;
 }
 
@@ -4529,11 +4603,19 @@ async function unlinkCurriculumResourceFromLesson(resourceId, lessonPlanId) {
   const response = await fetch(curriculumResourceConfig.unlinkEndpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminToken: token, resourceId, lessonPlanId }),
+    body: JSON.stringify({
+      adminToken: token,
+      expectedUpdatedAt: curriculumExpectedUpdatedAt(),
+      resourceId,
+      lessonPlanId,
+    }),
   });
   const data = await response.json();
+  if (response.status === 409 && await handleCurriculumSaveConflict(data)) {
+    throw new Error(data?.error || "Content was updated elsewhere. Reload and try again.");
+  }
   if (!response.ok) throw new Error(data?.error || "Could not unlink resource.");
-  applyCurriculumState(data.curriculum);
+  applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
   return data;
 }
 
@@ -29231,6 +29313,19 @@ document.addEventListener("click", async (event) => {
   const curriculumResourceEditButton = event.target.closest("[data-curriculum-resource-edit]");
   if (curriculumResourceEditButton) {
     openAdminCurriculumResourceEditor(curriculumResourceEditButton.dataset.curriculumResourceEdit, { scroll: true });
+    return;
+  }
+  const curriculumResourceOpenButton = event.target.closest("[data-curriculum-resource-open]");
+  if (curriculumResourceOpenButton) {
+    try {
+      await openCurriculumResourceFile(curriculumResourceOpenButton.dataset.curriculumResourceOpen);
+    } catch (error) {
+      setFormMessage(
+        "#adminCurriculumResourceMessage",
+        `❌ ${error.message || "Could not open resource file."}`,
+        false,
+      );
+    }
     return;
   }
   if (event.target.closest("[data-curriculum-resource-back]")) {
