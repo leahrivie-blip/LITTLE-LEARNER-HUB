@@ -254,7 +254,7 @@ async function main() {
     assert(!(archivedPlan.resourceIds || []).includes(resourceId), "Lesson plan still references archived resource");
     expectedUpdatedAt = archive.json.siteContentUpdatedAt;
 
-    console.log("6) Activity sync still stable + public API omits full curriculum when flag OFF");
+    console.log("6) Activity sync still stable + public API omits full curriculum blob");
     const payload = {
       adminToken: token,
       expectedUpdatedAt,
@@ -296,17 +296,18 @@ async function main() {
     assert(acts1[0].id === acts2[0].id, "Activity id changed");
     expectedUpdatedAt = second.json.siteContentUpdatedAt;
 
-    const publicOff = await requestJson("GET", "/api/site-content");
-    assert(publicOff.status === 200, "Public site-content failed");
-    assert(!("curriculum" in publicOff.json.siteContent), "Public API must omit curriculum");
-    assert(!("featureFlags" in publicOff.json.siteContent), "Public API must omit featureFlags");
-    assert(publicOff.json.siteContent.playBasedCurriculum === false, "Flag should be false publicly when OFF");
-    assert(!("curriculumLibrary" in publicOff.json.siteContent), "curriculumLibrary must be absent when flag OFF");
+    const publicDraft = await requestJson("GET", "/api/site-content");
+    assert(publicDraft.status === 200, "Public site-content failed");
+    assert(!("curriculum" in publicDraft.json.siteContent), "Public API must omit curriculum");
+    assert(!("featureFlags" in publicDraft.json.siteContent), "Public API must omit featureFlags");
+    assert(publicDraft.json.siteContent.playBasedCurriculum === true, "Play-based curriculum is permanently on");
+    assert(Array.isArray(publicDraft.json.siteContent.curriculumLibrary?.lessonPlans), "curriculumLibrary required");
+    assert(!(publicDraft.json.siteContent.curriculumLibrary.lessonPlans || []).some((p) => p.id === lessonPlanId), "Draft lesson must not appear in public library");
 
-    const fileOff = await requestJson("GET", `/api/curriculum/resources/file?id=${encodeURIComponent(resourceId)}`);
-    assert(fileOff.status === 404, "Public file endpoint must 404 when flag OFF");
+    const fileDraftLesson = await requestJson("GET", `/api/curriculum/resources/file?id=${encodeURIComponent(resourceId)}`);
+    assert(fileDraftLesson.status === 404, "Public file endpoint must 404 for unpublished/unlinked resources");
 
-    console.log("7) Flag ON exposes published curriculumLibrary only (no fileData, no drafts)");
+    console.log("7) Published curriculumLibrary exposes published content only (no fileData, no drafts)");
     // Publish lesson + recreate a published linked resource for library DTO tests.
     const publishedResourceId = `cur-res-pub-${crypto.randomBytes(4).toString("hex")}`;
     const pubResource = await requestJson("POST", "/api/admin/curriculum/resources/save", {
@@ -376,25 +377,16 @@ async function main() {
     expectedUpdatedAt = linkDraft.json.siteContentUpdatedAt;
 
     const reloadForFlag = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(token)}`);
-    assert(reloadForFlag.status === 200, "Reload before flag enable failed");
-    const flagOk = await requestJson("POST", "/api/admin/site-content", {
-      adminToken: token,
-      siteContent: {
-        ...reloadForFlag.json.siteContent,
-        featureFlags: { playBasedCurriculum: true },
-        updatedAt: reloadForFlag.json.siteContent.updatedAt,
-      },
-    });
-    assert(flagOk.status === 200, `Enable flag failed: ${flagOk.status} ${flagOk.text}`);
-    assert(flagOk.json.siteContent.featureFlags?.playBasedCurriculum === true, "Flag not persisted");
+    assert(reloadForFlag.status === 200, "Reload before status check failed");
+    assert(reloadForFlag.json.siteContent.featureFlags?.playBasedCurriculum === true, "Play-based flag must stay on");
 
     const publicOn = await requestJson("GET", "/api/site-content");
-    assert(publicOn.status === 200, "Public site-content failed with flag ON");
+    assert(publicOn.status === 200, "Public site-content failed");
     assert(publicOn.json.siteContent.playBasedCurriculum === true, "Public flag should be true");
     assert(!("curriculum" in publicOn.json.siteContent), "Public API must still omit full curriculum");
     assert(!("featureFlags" in publicOn.json.siteContent), "Public API must still omit featureFlags object");
     const library = publicOn.json.siteContent.curriculumLibrary;
-    assert(library, "curriculumLibrary missing when flag ON");
+    assert(library, "curriculumLibrary missing");
     assert(Array.isArray(library.lessonPlans) && library.lessonPlans.some((p) => p.id === lessonPlanId), "Published lesson missing from library DTO");
     assert(library.lessonPlans.every((p) => p.status === "published" || p.status === "featured"), "Draft lessons leaked");
     assert(Array.isArray(library.activities) && library.activities.some((a) => a.id === publishedActivity.id), "Published activity missing");
