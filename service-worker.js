@@ -1,9 +1,9 @@
-const CACHE_NAME = "llh-shell-v4-curriculum-save-race-fix";
+const CACHE_NAME = "llh-shell-v5-curriculum-activities-browser";
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/styles.css?v=20260710-curriculum-save-race-fix",
-  "/app.js?v=20260710-curriculum-save-race-fix",
+  "/styles.css?v=20260710-curriculum-activities-browser",
+  "/app.js?v=20260710-curriculum-activities-browser",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
