@@ -1,183 +1,213 @@
-===TITLE===
+TITLE:
 Preschool Garden Scientists
 
-===AGE_GROUP===
+AGE GROUP:
 Preschool
 
-===THEME===
+THEME:
 Garden Scientists
 
-===PLAN===
+PLAN:
 Pro
 
-===STATUS===
+STATUS:
 draft
 
-===LEARNING_DOMAINS===
+LEARNING DOMAINS:
 Science, Math, Language & Literacy, Physical Development
 
-===WEEKLY_OVERVIEW===
+WEEKLY OVERVIEW:
 Preschoolers investigate soil, seeds, leaves, and garden helpers through hands-on science play, measurement, and outdoor-style movement indoors or outside.
 
-===OBJECTIVES===
+LEARNING OBJECTIVES:
 Children will observe and describe plant or soil changes using science words.
 Children will count, compare, and sort garden materials.
 Children will cooperate during shared garden investigations.
 
-===FAMILY_CONNECTION===
-Ask families to send a leaf, seed packet photo, or garden story from home for the Friday scientist share circle.
-
-===WEEKLY_MATERIALS===
+WEEKLY MATERIALS:
 Soil trays, seeds, magnifying glasses, measuring cups, spray bottles, paper, crayons, sorting trays, pretend gardening tools, plant picture cards
 
-===VOCABULARY===
+VOCABULARY:
 seed, soil, sprout, root, observe, measure, compare, moisture, garden
 
-===OBSERVATIONS===
-Listen for science vocabulary, note careful tool use, and document how children explain predictions vs. observations.
-
-===ADAPTATIONS===
-Provide pre-moistened soil for children avoiding dry dust. Offer visual sequence cards for multi-step planting. Pair peers for shared tool turns.
-
-===BOOKS===
+BOOKS:
 The Tiny Seed | Eric Carle | Life cycle discussion
 Up in the Garden and Down in the Dirt | Kate Messner | Garden layers and helpers
 
-===SONGS===
+SONGS:
 Oats Peas Beans and Barley Grow | Planting circle song
 The Farmer Plants the Seeds | Action song for planting sequence
 
-===MONDAY===
----ACTIVITY---
-Category: Sensory Play
-Title: Soil Scientists Tray
-Description: Children explore moist soil with hands and tools, describing texture.
-Materials: Soil trays, scoops, magnifying glasses, smocks
-Steps:
+FAMILY CONNECTION:
+Ask families to send a leaf, seed packet photo, or garden story from home for the Friday scientist share circle.
+
+OBSERVATION OPPORTUNITIES:
+Listen for science vocabulary, note careful tool use, and document how children explain predictions vs. observations.
+
+ADAPTATIONS:
+Provide pre-moistened soil for children avoiding dry dust. Offer visual sequence cards for multi-step planting. Pair peers for shared tool turns.
+
+MONDAY:
+ACTIVITY NAME:
+Soil Scientists Tray
+CATEGORY:
+Sensory Play
+MATERIALS:
+Soil trays, scoops, magnifying glasses, smocks
+SETUP:
+Children explore moist soil with hands and tools, describing texture.
+DIRECTIONS:
 1. Invite children to feel and scoop soil.
 2. Ask what they notice: wet, dry, bumpy.
 3. Record one group observation on a chart.
-Learning Goals:
-- Observe and describe soil properties
-- Use science talk with peers
+LEARNING GOAL:
+Observe and describe soil properties
+Use science talk with peers
 
----ACTIVITY---
-Category: Fine Motor
-Title: Seed Sort Lab
-Description: Children sort seeds by size or type onto trays.
-Materials: Mixed seeds, sorting trays, tweezers optional
-Steps:
+ACTIVITY NAME:
+Seed Sort Lab
+CATEGORY:
+Fine Motor
+MATERIALS:
+Mixed seeds, sorting trays, tweezers optional
+SETUP:
+Children sort seeds by size or type onto trays.
+DIRECTIONS:
 1. Show two seed types and name them.
 2. Sort seeds into trays.
 3. Count how many are in each tray.
-Learning Goals:
-- Sort by attribute
-- Strengthen fine-motor control
+LEARNING GOAL:
+Sort by attribute
+Strengthen fine-motor control
 
-===TUESDAY===
----ACTIVITY---
-Category: Dramatic Play
-Title: Garden Center Shop
-Description: Children pretend to sell seeds, pots, and tools in a garden shop.
-Materials: Seed packets, pots, play money, baskets
-Steps:
+TUESDAY:
+ACTIVITY NAME:
+Garden Center Shop
+CATEGORY:
+Dramatic Play
+MATERIALS:
+Seed packets, pots, play money, baskets
+SETUP:
+Children pretend to sell seeds, pots, and tools in a garden shop.
+DIRECTIONS:
 1. Set roles: gardener and shopkeeper.
 2. Request and gather garden supplies.
 3. Use polite customer language.
-Learning Goals:
-- Practice cooperative pretend roles
-- Use garden vocabulary in context
+LEARNING GOAL:
+Practice cooperative pretend roles
+Use garden vocabulary in context
 
----ACTIVITY---
-Category: Gross Motor
-Title: Watering Can Walk
-Description: Children carry lightweight watering cans along a path without spilling.
-Materials: Lightweight watering cans, small water amount, path markers
-Steps:
+ACTIVITY NAME:
+Watering Can Walk
+CATEGORY:
+Gross Motor
+MATERIALS:
+Lightweight watering cans, small water amount, path markers
+SETUP:
+Children carry lightweight watering cans along a path without spilling.
+DIRECTIONS:
 1. Fill cans with a small amount of water.
 2. Walk the path carefully.
 3. Water a pretend plant bed at the end.
-Learning Goals:
-- Coordinate careful carrying
-- Control body movement with a tool
+LEARNING GOAL:
+Coordinate careful carrying
+Control body movement with a tool
 
-===WEDNESDAY===
----ACTIVITY---
-Category: Open-Ended Exploration
-Title: Sprout Prediction Journal
-Description: Children draw predictions about what seeds need to grow.
-Materials: Paper, crayons, seed picture cards
-Steps:
+WEDNESDAY:
+ACTIVITY NAME:
+Sprout Prediction Journal
+CATEGORY:
+Open-Ended Exploration
+MATERIALS:
+Paper, crayons, seed picture cards
+SETUP:
+Children draw predictions about what seeds need to grow.
+DIRECTIONS:
 1. Look at seed cards together.
 2. Ask what seeds might need.
 3. Draw or dictate a prediction.
-Learning Goals:
-- Make a simple scientific prediction
-- Represent ideas through drawing
+LEARNING GOAL:
+Make a simple scientific prediction
+Represent ideas through drawing
 
----ACTIVITY---
-Category: Music & Movement
-Title: Seed to Sprout Dance
-Description: Children curl like seeds then slowly rise like sprouts to music.
-Materials: Music speaker
-Steps:
+ACTIVITY NAME:
+Seed to Sprout Dance
+CATEGORY:
+Music & Movement
+MATERIALS:
+Music speaker
+SETUP:
+Children curl like seeds then slowly rise like sprouts to music.
+DIRECTIONS:
 1. Curl small on the floor like a seed.
 2. Add rain and sun motions.
 3. Rise slowly into a sprout stretch.
-Learning Goals:
-- Represent a life cycle through movement
-- Follow multi-step movement cues
+LEARNING GOAL:
+Represent a life cycle through movement
+Follow multi-step movement cues
 
-===THURSDAY===
----ACTIVITY---
-Category: Sensory Play
-Title: Mist and Moisture Test
-Description: Children mist soil and compare damp vs. dry samples.
-Materials: Spray bottles, soil cups, observation chart
-Steps:
+THURSDAY:
+ACTIVITY NAME:
+Mist and Moisture Test
+CATEGORY:
+Sensory Play
+MATERIALS:
+Spray bottles, soil cups, observation chart
+SETUP:
+Children mist soil and compare damp vs. dry samples.
+DIRECTIONS:
 1. Feel a dry soil cup.
 2. Mist a second cup lightly.
 3. Compare and describe the difference.
-Learning Goals:
-- Compare moisture levels
-- Practice careful tool use
+LEARNING GOAL:
+Compare moisture levels
+Practice careful tool use
 
----ACTIVITY---
-Category: Fine Motor
-Title: Leaf Rubbing Collectors
-Description: Children make crayon rubbings of leaves and compare shapes.
-Materials: Leaves, paper, crayons
-Steps:
+ACTIVITY NAME:
+Leaf Rubbing Collectors
+CATEGORY:
+Fine Motor
+MATERIALS:
+Leaves, paper, crayons
+SETUP:
+Children make crayon rubbings of leaves and compare shapes.
+DIRECTIONS:
 1. Place a leaf under paper.
 2. Rub with the side of a crayon.
 3. Compare leaf shapes and sizes.
-Learning Goals:
-- Notice natural details
-- Strengthen hand control
+LEARNING GOAL:
+Notice natural details
+Strengthen hand control
 
-===FRIDAY===
----ACTIVITY---
-Category: Open-Ended Exploration
-Title: Scientist Share Circle
-Description: Children share a garden item or drawing and one observation.
-Materials: Family contributions, drawings, talking piece
-Steps:
+FRIDAY:
+ACTIVITY NAME:
+Scientist Share Circle
+CATEGORY:
+Open-Ended Exploration
+MATERIALS:
+Family contributions, drawings, talking piece
+SETUP:
+Children share a garden item or drawing and one observation.
+DIRECTIONS:
 1. Sit in a circle with a talking piece.
 2. Each child shares one observation.
 3. Group thanks each scientist.
-Learning Goals:
-- Communicate an observation to peers
-- Practice listening and turn-taking
+LEARNING GOAL:
+Communicate an observation to peers
+Practice listening and turn-taking
 
----ACTIVITY---
-Category: Gross Motor
-Title: Garden Relay Reset
-Description: Teams carry tools back to labeled spots to close the week.
-Materials: Tools, labeled baskets
-Steps:
+ACTIVITY NAME:
+Garden Relay Reset
+CATEGORY:
+Gross Motor
+MATERIALS:
+Tools, labeled baskets
+SETUP:
+Teams carry tools back to labeled spots to close the week.
+DIRECTIONS:
 1. Assign a tool to return.
 2. Walk carefully to the matching label.
 3. Check the garden center is ready.
-Learning Goals:
-- Follow clean-up systems
-- Move safely with classroom tools
+LEARNING GOAL:
+Follow clean-up systems
+Move safely with classroom tools

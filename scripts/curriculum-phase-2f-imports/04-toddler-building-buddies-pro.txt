@@ -1,170 +1,197 @@
-===TITLE===
+TITLE:
 Toddler Building Buddies
 
-===AGE_GROUP===
+AGE GROUP:
 Toddler
 
-===THEME===
+THEME:
 Building Buddies
 
-===PLAN===
+PLAN:
 Pro
 
-===STATUS===
+STATUS:
 draft
 
-===LEARNING_DOMAINS===
+LEARNING DOMAINS:
 Physical Development, Social Emotional, Math, Creative Arts
 
-===WEEKLY_OVERVIEW===
+WEEKLY OVERVIEW:
 Toddlers build with blocks, soft materials, and recycled boxes while practicing sharing space, stacking, knocking down, and rebuilding with friends.
 
-===OBJECTIVES===
+LEARNING OBJECTIVES:
 Toddlers will stack at least two to three items with intention.
 Toddlers will practice waiting or trading materials with support.
 Toddlers will describe builds using simple size and place words.
 
-===FAMILY_CONNECTION===
-Invite families to send a clean recycled box or tube for the Friday build museum, labeled with the child's name if they like.
-
-===WEEKLY_MATERIALS===
+WEEKLY MATERIALS:
 Unit blocks, soft blocks, cardboard boxes, masking tape, toy people/animals, baskets, music for clean-up, paper and crayons for build sketches
 
-===VOCABULARY===
+VOCABULARY:
 stack, tall, short, balance, share, rebuild, next to, under, tower
 
-===OBSERVATIONS===
-Note stacking persistence, peer negotiation language, and how children recover after a tower falls.
-
-===ADAPTATIONS===
-Provide wider bases for children needing more success. Offer one-on-one coaching for turn-taking. Allow solo build zones for children who need less crowding.
-
-===BOOKS===
+BOOKS:
 Changes Changes | Pat Hutchins | Wordless building story
 Block City | Robert Louis Stevenson / Daniel Kirk | Celebrate building ideas
 
-===SONGS===
+SONGS:
 London Bridge | Connect to building and rebuilding
 Clean Up Song | Use during block reset
 
-===MONDAY===
----ACTIVITY---
-Category: Fine Motor
-Title: Soft Block Stack Challenge
-Description: Toddlers stack soft blocks and notice height.
-Materials: Soft blocks, clear floor space
-Steps:
+FAMILY CONNECTION:
+Invite families to send a clean recycled box or tube for the Friday build museum, labeled with the child's name if they like.
+
+OBSERVATION OPPORTUNITIES:
+Note stacking persistence, peer negotiation language, and how children recover after a tower falls.
+
+ADAPTATIONS:
+Provide wider bases for children needing more success. Offer one-on-one coaching for turn-taking. Allow solo build zones for children who need less crowding.
+
+MONDAY:
+ACTIVITY NAME:
+Soft Block Stack Challenge
+CATEGORY:
+Fine Motor
+MATERIALS:
+Soft blocks, clear floor space
+SETUP:
+Toddlers stack soft blocks and notice height.
+DIRECTIONS:
 1. Model stacking two blocks.
 2. Invite children to stack their own.
 3. Count blocks together when a tower stands.
-Learning Goals:
-- Practice controlled placement
-- Explore tall and short
+LEARNING GOAL:
+Practice controlled placement
+Explore tall and short
 
----ACTIVITY---
-Category: Gross Motor
-Title: Carry and Deliver Blocks
-Description: Toddlers carry blocks along a short path to a build zone.
-Materials: Soft blocks, tape path
-Steps:
+ACTIVITY NAME:
+Carry and Deliver Blocks
+CATEGORY:
+Gross Motor
+MATERIALS:
+Soft blocks, tape path
+SETUP:
+Toddlers carry blocks along a short path to a build zone.
+DIRECTIONS:
 1. Show the path to the build zone.
 2. Carry one block at a time.
 3. Place it gently in the basket or stack.
-Learning Goals:
-- Coordinate carrying and walking
-- Follow a simple pathway
+LEARNING GOAL:
+Coordinate carrying and walking
+Follow a simple pathway
 
-===TUESDAY===
----ACTIVITY---
-Category: Dramatic Play
-Title: Block Town Friends
-Description: Toddlers add toy people and animals to block roads and homes.
-Materials: Blocks, toy figures
-Steps:
+TUESDAY:
+ACTIVITY NAME:
+Block Town Friends
+CATEGORY:
+Dramatic Play
+MATERIALS:
+Blocks, toy figures
+SETUP:
+Toddlers add toy people and animals to block roads and homes.
+DIRECTIONS:
 1. Build a simple road or house together.
 2. Invite figures to visit the build.
 3. Narrate greetings and short stories.
-Learning Goals:
-- Combine building with pretend stories
-- Practice social language
+LEARNING GOAL:
+Combine building with pretend stories
+Practice social language
 
----ACTIVITY---
-Category: Sensory Play
-Title: Tape Stick Construction
-Description: Toddlers press masking tape pieces onto boxes to connect parts.
-Materials: Cardboard boxes, masking tape strips
-Steps:
+ACTIVITY NAME:
+Tape Stick Construction
+CATEGORY:
+Sensory Play
+MATERIALS:
+Cardboard boxes, masking tape strips
+SETUP:
+Toddlers press masking tape pieces onto boxes to connect parts.
+DIRECTIONS:
 1. Offer short pre-torn tape pieces.
 2. Model sticking two box edges.
 3. Let children press and smooth tape.
-Learning Goals:
-- Strengthen finger pressure
-- Explore joining materials
+LEARNING GOAL:
+Strengthen finger pressure
+Explore joining materials
 
-===WEDNESDAY===
----ACTIVITY---
-Category: Open-Ended Exploration
-Title: Knock Down and Rebuild
-Description: Children intentionally knock down towers and rebuild.
-Materials: Soft blocks
-Steps:
+WEDNESDAY:
+ACTIVITY NAME:
+Knock Down and Rebuild
+CATEGORY:
+Open-Ended Exploration
+MATERIALS:
+Soft blocks
+SETUP:
+Children intentionally knock down towers and rebuild.
+DIRECTIONS:
 1. Build a tower together.
 2. Invite a gentle knock-down.
 3. Rebuild with a new idea.
-Learning Goals:
-- Accept change and try again
-- Explore cause and effect
+LEARNING GOAL:
+Accept change and try again
+Explore cause and effect
 
----ACTIVITY---
-Category: Music & Movement
-Title: Hammer Dance Beat
-Description: Toddlers tap soft mallets or hands to a building beat.
-Materials: Soft mallets or hands, rhythm music
-Steps:
+ACTIVITY NAME:
+Hammer Dance Beat
+CATEGORY:
+Music & Movement
+MATERIALS:
+Soft mallets or hands, rhythm music
+SETUP:
+Toddlers tap soft mallets or hands to a building beat.
+DIRECTIONS:
 1. Tap a slow beat together.
 2. Pretend to hammer in time.
 3. Freeze when the music stops.
-Learning Goals:
-- Match movement to rhythm
-- Practice stop-and-start control
+LEARNING GOAL:
+Match movement to rhythm
+Practice stop-and-start control
 
-===THURSDAY===
----ACTIVITY---
-Category: Fine Motor
-Title: People on Top Placement
-Description: Toddlers carefully place figures on block surfaces.
-Materials: Blocks, small figures
-Steps:
+THURSDAY:
+ACTIVITY NAME:
+People on Top Placement
+CATEGORY:
+Fine Motor
+MATERIALS:
+Blocks, small figures
+SETUP:
+Toddlers carefully place figures on block surfaces.
+DIRECTIONS:
 1. Stack a sturdy base.
 2. Model gentle figure placement.
 3. Talk about on top and next to.
-Learning Goals:
-- Use precise hand control
-- Practice position words
+LEARNING GOAL:
+Use precise hand control
+Practice position words
 
-===FRIDAY===
----ACTIVITY---
-Category: Open-Ended Exploration
-Title: Build Museum Sketch
-Description: Toddlers make simple marks about a favorite build before photos or display.
-Materials: Paper, crayons, finished builds
-Steps:
+FRIDAY:
+ACTIVITY NAME:
+Build Museum Sketch
+CATEGORY:
+Open-Ended Exploration
+MATERIALS:
+Paper, crayons, finished builds
+SETUP:
+Toddlers make simple marks about a favorite build before photos or display.
+DIRECTIONS:
 1. Look at a favorite build together.
 2. Invite marks or shapes on paper.
 3. Dictate a short label if the child wants.
-Learning Goals:
-- Represent an idea on paper
-- Reflect on weekly building work
+LEARNING GOAL:
+Represent an idea on paper
+Reflect on weekly building work
 
----ACTIVITY---
-Category: Gross Motor
-Title: Buddy Block Parade
-Description: Children parade a small build or block to music, then reset the area.
-Materials: Soft blocks, music
-Steps:
+ACTIVITY NAME:
+Buddy Block Parade
+CATEGORY:
+Gross Motor
+MATERIALS:
+Soft blocks, music
+SETUP:
+Children parade a small build or block to music, then reset the area.
+DIRECTIONS:
 1. Choose one block or small build to carry.
 2. Parade carefully around the rug.
 3. Return materials and sing clean-up.
-Learning Goals:
-- Move carefully with materials
-- Practice group clean-up routines
+LEARNING GOAL:
+Move carefully with materials
+Practice group clean-up routines

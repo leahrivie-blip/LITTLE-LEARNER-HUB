@@ -733,11 +733,16 @@ const CURRICULUM_LEARNING_DOMAINS = new Set([
   "Creative Arts",
 ]);
 const PLAY_ACTIVITY_CATEGORIES = new Set([
+  "Circle Time",
+  "Literacy",
   "Sensory Play",
-  "Gross Motor",
   "Fine Motor",
+  "Gross Motor",
   "Music & Movement",
+  "Art",
+  "STEM/Discovery",
   "Dramatic Play",
+  "Outdoor Play",
   "Open-Ended Exploration",
 ]);
 const CURRICULUM_LESSON_STATUSES = new Set(["draft", "published", "featured", "archived"]);
@@ -820,6 +825,7 @@ function normalizedCurriculumDailyPlanItem(value) {
     title,
     description: normalizedMultilineText(entry.description, 4000),
     materials: normalizedMultilineText(entry.materials, 2000),
+    setup: normalizedMultilineText(entry.setup, 4000),
     steps: normalizedMultilineText(entry.steps, 4000),
     learningGoals: normalizedList(entry.learningGoals, 12, (item) => normalizedShortText(item, 120)).filter(Boolean),
   };
@@ -901,6 +907,7 @@ function normalizedCurriculumActivity(value) {
     title: normalizedShortText(entry.title, 180) || "Activity",
     description: normalizedMultilineText(entry.description, 4000),
     materials: normalizedMultilineText(entry.materials, 2000),
+    setup: normalizedMultilineText(entry.setup, 4000),
     steps: normalizedMultilineText(entry.steps, 4000),
     learningGoals: normalizedList(entry.learningGoals, 12, (item) => normalizedShortText(item, 120)).filter(Boolean),
     status: CURRICULUM_ITEM_STATUSES.has(status) ? status : "draft",
@@ -1310,6 +1317,7 @@ function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
       title: item.title,
       description: item.description,
       materials: item.materials,
+      setup: item.setup,
       steps: item.steps,
       learningGoals: item.learningGoals,
       status: activityStatus,
