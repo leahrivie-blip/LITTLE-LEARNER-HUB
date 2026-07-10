@@ -5082,13 +5082,21 @@ function handleAdminCurriculumBackupNew(request, response, url) {
 }
 
 async function handleAdminCurriculumWipe(request, response) {
+  const startedAt = Date.now();
   try {
     const body = await readJson(request);
     if (!validAdminToken(body.adminToken || "")) {
+      console.warn("[curriculum-wipe] rejected unauthorized wipe attempt", {
+        hasToken: Boolean(body?.adminToken),
+        ip: request.socket?.remoteAddress || "",
+      });
       jsonResponse(response, 401, { error: "Admin access is required to wipe curriculum content." });
       return;
     }
     if (body.confirm !== "WIPE_CURRICULUM") {
+      console.warn("[curriculum-wipe] rejected missing/invalid confirm phrase", {
+        confirmPresent: typeof body?.confirm === "string",
+      });
       jsonResponse(response, 400, {
         error: "Confirmation required. Send confirm: \"WIPE_CURRICULUM\" after taking a backup.",
       });
@@ -5099,6 +5107,21 @@ async function handleAdminCurriculumWipe(request, response) {
       ? store.siteContent
       : defaultSiteContentStore();
     const before = normalizedCurriculumStore(siteContent.curriculum);
+    const beforeLegacy = {
+      lessonPlanOverrides: Object.keys(siteContent.lessonPlans || {}).length,
+      customLessonPlans: Array.isArray(siteContent.customLessonPlans) ? siteContent.customLessonPlans.length : 0,
+      cmsActivities: Array.isArray(siteContent.activities) ? siteContent.activities.length : 0,
+    };
+    console.log("[curriculum-wipe] starting authorized wipe", {
+      before: {
+        curriculumLessonPlans: before.lessonPlans.length,
+        curriculumActivities: before.activities.length,
+        curriculumResources: before.resources.length,
+        ...beforeLegacy,
+      },
+      // Scope guard: wipe only touches curriculum + legacy lesson/activity CMS fields.
+      untouched: ["forms", "printables", "users", "billing", "observations", "uploadedResources", "reviews"],
+    });
     const now = new Date().toISOString();
     const empty = defaultCurriculumStore();
     empty.updatedAt = now;
@@ -5112,6 +5135,24 @@ async function handleAdminCurriculumWipe(request, response) {
     siteContent.updatedAt = now;
     store.siteContent = siteContent;
     await writeStoreAsync(store);
+    console.log("[curriculum-wipe] completed", {
+      wipedAt: now,
+      durationMs: Date.now() - startedAt,
+      before: {
+        curriculumLessonPlans: before.lessonPlans.length,
+        curriculumActivities: before.activities.length,
+        curriculumResources: before.resources.length,
+        ...beforeLegacy,
+      },
+      after: {
+        curriculumLessonPlans: 0,
+        curriculumActivities: 0,
+        curriculumResources: 0,
+        legacyLessonOverrides: 0,
+        legacyCustomLessonPlans: 0,
+        legacyCmsActivities: 0,
+      },
+    });
     jsonResponse(response, 200, {
       ok: true,
       wipedAt: now,
@@ -5119,6 +5160,7 @@ async function handleAdminCurriculumWipe(request, response) {
         curriculumLessonPlans: before.lessonPlans.length,
         curriculumActivities: before.activities.length,
         curriculumResources: before.resources.length,
+        ...beforeLegacy,
       },
       after: {
         curriculumLessonPlans: 0,
@@ -5130,7 +5172,7 @@ async function handleAdminCurriculumWipe(request, response) {
       },
     });
   } catch (error) {
-    console.error("Curriculum wipe failed:", error.message);
+    console.error("[curriculum-wipe] failed", { error: error.message, durationMs: Date.now() - startedAt });
     jsonResponse(response, 503, { error: "Curriculum wipe failed. Please try again." });
   }
 }
