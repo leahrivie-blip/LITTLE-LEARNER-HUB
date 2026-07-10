@@ -742,6 +742,24 @@ const PLAY_ACTIVITY_CATEGORIES = new Set([
 const CURRICULUM_LESSON_STATUSES = new Set(["draft", "published", "featured", "archived"]);
 const CURRICULUM_ITEM_STATUSES = new Set(["draft", "published", "archived"]);
 const CURRICULUM_WEEKDAYS = new Set(["monday", "tuesday", "wednesday", "thursday", "friday"]);
+const CURRICULUM_RESOURCE_CATEGORIES = new Set([
+  "Coloring Pages",
+  "Tracing Activities",
+  "Counting Activities",
+  "Matching Activities",
+  "Crafts",
+  "Teacher Resources",
+  "Activity Photos",
+  "General",
+]);
+const MAX_CURRICULUM_UPLOAD_BYTES = 15 * 1024 * 1024;
+const CURRICULUM_UPLOAD_MIME_TYPES = new Set([
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+]);
 
 function defaultCurriculumStore() {
   return {
@@ -894,18 +912,27 @@ function normalizedCurriculumActivity(value) {
   };
 }
 
+function sanitizedCurriculumFileUrl(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (text.startsWith("/api/curriculum-files/")) return text.slice(0, 400);
+  return sanitizedUrl(text);
+}
+
 function normalizedCurriculumResource(value) {
   const entry = value && typeof value === "object" ? value : {};
   const id = normalizedShortText(entry.id, 160);
   if (!id) return null;
   const status = normalizedShortText(entry.status, 20);
-  const fileUrl = sanitizedResourceUrl(entry.fileUrl) || sanitizedUrl(entry.fileUrl);
+  const category = normalizedShortText(entry.resourceCategory, 80);
+  const fileUrl = sanitizedCurriculumFileUrl(entry.fileUrl);
   return {
     id,
     title: normalizedShortText(entry.title, 180) || "Resource",
-    resourceCategory: normalizedShortText(entry.resourceCategory, 80) || "General",
+    resourceCategory: CURRICULUM_RESOURCE_CATEGORIES.has(category) ? category : "General",
     fileUrl,
     mimeType: normalizedShortText(entry.mimeType, 80),
+    fileName: normalizedShortText(entry.fileName, 180),
     lessonPlanIds: normalizedList(entry.lessonPlanIds, 50, (item) => normalizedShortText(item, 160)).filter(Boolean),
     status: CURRICULUM_ITEM_STATUSES.has(status) ? status : "draft",
     createdAt: normalizedShortText(entry.createdAt, 80),
@@ -956,6 +983,117 @@ function validateCurriculumIntegrity(curriculum) {
 
 function generateCurriculumLessonPlanId() {
   return `cur-lp-${crypto.randomBytes(8).toString("hex")}`;
+}
+
+function generateCurriculumResourceId() {
+  return `cur-res-${crypto.randomBytes(8).toString("hex")}`;
+}
+
+function curriculumUploadsDir() {
+  return path.join(dataDir, "curriculum-uploads");
+}
+
+function sanitizeCurriculumUploadFileName(value) {
+  return String(value || "file")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120) || "file";
+}
+
+function curriculumStoredFilePath(resourceId, fileName) {
+  const safeId = normalizedShortText(resourceId, 160);
+  const safeName = sanitizeCurriculumUploadFileName(fileName);
+  if (!safeId || !safeName) return "";
+  const dir = path.join(curriculumUploadsDir(), safeId);
+  const filePath = path.join(dir, safeName);
+  if (!filePath.startsWith(curriculumUploadsDir())) return "";
+  return filePath;
+}
+
+function curriculumStoredFileUrl(resourceId, fileName) {
+  const safeId = encodeURIComponent(normalizedShortText(resourceId, 160));
+  const safeName = encodeURIComponent(sanitizeCurriculumUploadFileName(fileName));
+  if (!safeId || !safeName) return "";
+  return `/api/curriculum-files/${safeId}/${safeName}`;
+}
+
+function parseCurriculumUploadDataUrl(value) {
+  const text = String(value || "").trim();
+  const match = text.match(/^data:([^;]+);base64,([a-z0-9+/=\s]+)$/i);
+  if (!match) return null;
+  const mimeType = normalizedShortText(match[1], 80).toLowerCase();
+  if (!CURRICULUM_UPLOAD_MIME_TYPES.has(mimeType)) return null;
+  const buffer = Buffer.from(match[2].replace(/\s+/g, ""), "base64");
+  if (!buffer.length || buffer.length > MAX_CURRICULUM_UPLOAD_BYTES) return null;
+  return { mimeType, buffer };
+}
+
+function ensureCurriculumUploadsDir(resourceId) {
+  const dir = path.join(curriculumUploadsDir(), normalizedShortText(resourceId, 160));
+  if (!dir.startsWith(curriculumUploadsDir())) return "";
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function readSiteCurriculum(store) {
+  const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  return siteContent.curriculum || defaultCurriculumStore();
+}
+
+function writeSiteCurriculum(store, curriculum) {
+  const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  store.siteContent = {
+    ...siteContent,
+    curriculum: normalizedCurriculumStore(curriculum),
+  };
+}
+
+function linkCurriculumResourceToLessonPlan(curriculum, resourceId, lessonPlanId) {
+  const now = new Date().toISOString();
+  const store = normalizedCurriculumStore(curriculum);
+  const targetResourceId = normalizedShortText(resourceId, 160);
+  const targetLessonPlanId = normalizedShortText(lessonPlanId, 160);
+  if (!targetResourceId || !targetLessonPlanId) return null;
+  const resource = store.resources.find((item) => item.id === targetResourceId);
+  const lessonPlan = store.lessonPlans.find((item) => item.id === targetLessonPlanId);
+  if (!resource || !lessonPlan) return null;
+
+  const lessonPlanIds = [...new Set([...resource.lessonPlanIds, targetLessonPlanId])];
+  const resourceIds = [...new Set([...lessonPlan.resourceIds, targetResourceId])];
+  return normalizedCurriculumStore({
+    ...store,
+    resources: store.resources.map((item) => (
+      item.id === targetResourceId ? { ...item, lessonPlanIds, updatedAt: now } : item
+    )),
+    lessonPlans: store.lessonPlans.map((item) => (
+      item.id === targetLessonPlanId ? { ...item, resourceIds, updatedAt: now } : item
+    )),
+    updatedAt: now,
+  });
+}
+
+function unlinkCurriculumResourceFromLessonPlan(curriculum, resourceId, lessonPlanId) {
+  const now = new Date().toISOString();
+  const store = normalizedCurriculumStore(curriculum);
+  const targetResourceId = normalizedShortText(resourceId, 160);
+  const targetLessonPlanId = normalizedShortText(lessonPlanId, 160);
+  if (!targetResourceId || !targetLessonPlanId) return null;
+
+  return normalizedCurriculumStore({
+    ...store,
+    resources: store.resources.map((item) => (
+      item.id === targetResourceId
+        ? { ...item, lessonPlanIds: item.lessonPlanIds.filter((id) => id !== targetLessonPlanId), updatedAt: now }
+        : item
+    )),
+    lessonPlans: store.lessonPlans.map((item) => (
+      item.id === targetLessonPlanId
+        ? { ...item, resourceIds: item.resourceIds.filter((id) => id !== targetResourceId), updatedAt: now }
+        : item
+    )),
+    updatedAt: now,
+  });
 }
 
 function curriculumActivityIdFromItemId(itemId) {
@@ -4658,6 +4796,255 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
   });
 }
 
+function handleAdminCurriculumResourcesList(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required to list curriculum resources." });
+    return;
+  }
+  const store = readStore();
+  const curriculum = readSiteCurriculum(store);
+  jsonResponse(response, 200, {
+    resources: curriculum.resources || [],
+    curriculum,
+  });
+}
+
+async function handleAdminCurriculumResourceUpload(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to upload curriculum resources." });
+    return;
+  }
+  const resourceId = normalizedShortText(body.resourceId, 160) || generateCurriculumResourceId();
+  const fileName = sanitizeCurriculumUploadFileName(body.fileName);
+  const parsed = parseCurriculumUploadDataUrl(body.fileData);
+  if (!parsed) {
+    jsonResponse(response, 400, { error: "A valid PDF or image upload is required (max 15 MB)." });
+    return;
+  }
+  if (!ensureCurriculumUploadsDir(resourceId)) {
+    jsonResponse(response, 400, { error: "Upload path could not be created." });
+    return;
+  }
+  const filePath = curriculumStoredFilePath(resourceId, fileName);
+  if (!filePath) {
+    jsonResponse(response, 400, { error: "Upload path is invalid." });
+    return;
+  }
+  try {
+    fs.writeFileSync(filePath, parsed.buffer);
+  } catch (error) {
+    console.error("Curriculum upload write failed:", error.message);
+    jsonResponse(response, 503, { error: "Upload could not be saved to disk." });
+    return;
+  }
+  jsonResponse(response, 200, {
+    resourceId,
+    fileName,
+    mimeType: parsed.mimeType,
+    fileUrl: curriculumStoredFileUrl(resourceId, fileName),
+  });
+}
+
+async function handleAdminCurriculumResourceSave(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to save curriculum resources." });
+    return;
+  }
+  const incoming = body.resource && typeof body.resource === "object" ? body.resource : null;
+  if (!incoming) {
+    jsonResponse(response, 400, { error: "A resource payload is required." });
+    return;
+  }
+  const now = new Date().toISOString();
+  const store = readStore();
+  const curriculum = readSiteCurriculum(store);
+  const incomingId = normalizedShortText(incoming.id, 160);
+  const id = incomingId || generateCurriculumResourceId();
+  const existing = curriculum.resources.find((item) => item.id === id);
+  const fileUrl = sanitizedCurriculumFileUrl(incoming.fileUrl) || existing?.fileUrl || "";
+  if (!fileUrl) {
+    jsonResponse(response, 400, { error: "A file URL or uploaded file reference is required." });
+    return;
+  }
+  const resource = normalizedCurriculumResource({
+    ...existing,
+    ...incoming,
+    id,
+    fileUrl,
+    fileName: normalizedShortText(incoming.fileName, 180) || existing?.fileName || "",
+    lessonPlanIds: existing?.lessonPlanIds || incoming.lessonPlanIds || [],
+    createdAt: existing?.createdAt || normalizedShortText(incoming.createdAt, 80) || now,
+    updatedAt: now,
+  });
+  if (!resource) {
+    jsonResponse(response, 400, { error: "Resource could not be normalized." });
+    return;
+  }
+  const nextResources = [...curriculum.resources.filter((item) => item.id !== id), resource];
+  const nextCurriculum = normalizedCurriculumStore({
+    ...curriculum,
+    resources: nextResources,
+    updatedAt: now,
+  });
+  writeSiteCurriculum(store, nextCurriculum);
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    console.error("Curriculum resource save failed:", error.message);
+    jsonResponse(response, 503, { error: "Resource could not be saved." });
+    return;
+  }
+  jsonResponse(response, 200, { resource, curriculum: nextCurriculum });
+}
+
+async function handleAdminCurriculumResourceArchive(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to archive curriculum resources." });
+    return;
+  }
+  const id = normalizedShortText(body.id, 160);
+  if (!id) {
+    jsonResponse(response, 400, { error: "Resource id is required." });
+    return;
+  }
+  const now = new Date().toISOString();
+  const store = readStore();
+  const curriculum = readSiteCurriculum(store);
+  const existing = curriculum.resources.find((item) => item.id === id);
+  if (!existing) {
+    jsonResponse(response, 404, { error: "Resource not found." });
+    return;
+  }
+  const resource = normalizedCurriculumResource({
+    ...existing,
+    status: "archived",
+    updatedAt: now,
+  });
+  const nextCurriculum = normalizedCurriculumStore({
+    ...curriculum,
+    resources: curriculum.resources.map((item) => (item.id === id ? resource : item)),
+    updatedAt: now,
+  });
+  writeSiteCurriculum(store, nextCurriculum);
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    jsonResponse(response, 503, { error: "Resource could not be archived." });
+    return;
+  }
+  jsonResponse(response, 200, { resource, curriculum: nextCurriculum });
+}
+
+async function handleAdminCurriculumResourceLink(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to link curriculum resources." });
+    return;
+  }
+  const resourceId = normalizedShortText(body.resourceId, 160);
+  const lessonPlanId = normalizedShortText(body.lessonPlanId, 160);
+  if (!resourceId || !lessonPlanId) {
+    jsonResponse(response, 400, { error: "resourceId and lessonPlanId are required." });
+    return;
+  }
+  const store = readStore();
+  const curriculum = readSiteCurriculum(store);
+  const nextCurriculum = linkCurriculumResourceToLessonPlan(curriculum, resourceId, lessonPlanId);
+  if (!nextCurriculum) {
+    jsonResponse(response, 404, { error: "Resource or lesson plan not found." });
+    return;
+  }
+  writeSiteCurriculum(store, nextCurriculum);
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    jsonResponse(response, 503, { error: "Resource could not be linked." });
+    return;
+  }
+  jsonResponse(response, 200, {
+    resource: nextCurriculum.resources.find((item) => item.id === resourceId),
+    lessonPlan: nextCurriculum.lessonPlans.find((item) => item.id === lessonPlanId),
+    curriculum: nextCurriculum,
+  });
+}
+
+async function handleAdminCurriculumResourceUnlink(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to unlink curriculum resources." });
+    return;
+  }
+  const resourceId = normalizedShortText(body.resourceId, 160);
+  const lessonPlanId = normalizedShortText(body.lessonPlanId, 160);
+  if (!resourceId || !lessonPlanId) {
+    jsonResponse(response, 400, { error: "resourceId and lessonPlanId are required." });
+    return;
+  }
+  const store = readStore();
+  const curriculum = readSiteCurriculum(store);
+  const nextCurriculum = unlinkCurriculumResourceFromLessonPlan(curriculum, resourceId, lessonPlanId);
+  if (!nextCurriculum) {
+    jsonResponse(response, 404, { error: "Resource or lesson plan not found." });
+    return;
+  }
+  writeSiteCurriculum(store, nextCurriculum);
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    jsonResponse(response, 503, { error: "Resource could not be unlinked." });
+    return;
+  }
+  jsonResponse(response, 200, {
+    resource: nextCurriculum.resources.find((item) => item.id === resourceId),
+    lessonPlan: nextCurriculum.lessonPlans.find((item) => item.id === lessonPlanId),
+    curriculum: nextCurriculum,
+  });
+}
+
+function handleCurriculumFileServe(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required to download curriculum files." });
+    return;
+  }
+  const parts = url.pathname.split("/").filter(Boolean);
+  if (parts.length < 3 || parts[0] !== "api" || parts[1] !== "curriculum-files") {
+    jsonResponse(response, 404, { error: "File not found." });
+    return;
+  }
+  const resourceId = decodeURIComponent(parts[2] || "");
+  const fileName = decodeURIComponent(parts.slice(3).join("/") || "");
+  const filePath = curriculumStoredFilePath(resourceId, fileName);
+  if (!filePath || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+    jsonResponse(response, 404, { error: "File not found." });
+    return;
+  }
+  const ext = path.extname(filePath).toLowerCase();
+  const contentType = {
+    ".pdf": "application/pdf",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+  }[ext] || "application/octet-stream";
+  response.writeHead(200, { "Content-Type": contentType });
+  if (request.method === "HEAD") {
+    response.end();
+    return;
+  }
+  const stream = fs.createReadStream(filePath);
+  stream.on("error", (error) => {
+    console.error(error);
+    if (!response.headersSent) textResponse(response, 500, "Server error.");
+  });
+  stream.pipe(response);
+}
+
 function handleUploadedResourcesList(request, response, url) {
   const adminToken = url.searchParams.get("adminToken") || "";
   const admin = validAdminToken(adminToken);
@@ -5746,6 +6133,13 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/release-notes") return handleReleaseNotesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/backup") return handleAdminCurriculumBackup(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans") return await handleAdminCurriculumLessonPlanSave(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources") return handleAdminCurriculumResourcesList(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/upload") return await handleAdminCurriculumResourceUpload(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/save") return await handleAdminCurriculumResourceSave(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/archive") return await handleAdminCurriculumResourceArchive(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/link") return await handleAdminCurriculumResourceLink(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/unlink") return await handleAdminCurriculumResourceUnlink(request, response);
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/curriculum-files/")) return handleCurriculumFileServe(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/uploads") return handleUploadedResourcesList(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/migrate") return await handleAdminUploadedResourcesMigrate(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/upsert") return await handleAdminUploadedResourceUpsert(request, response);

@@ -3099,6 +3099,31 @@ body.home-view .topbar .search-wrap {
   font-size: 13px;
 }
 
+.curriculum-linked-resources {
+  margin-top: 8px;
+}
+
+.curriculum-linked-resource-list {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.curriculum-linked-resource-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.curriculum-link-resource-row {
+  align-items: end;
+}
+
 .admin-mobile-list {
   display: grid;
   gap: 12px;
