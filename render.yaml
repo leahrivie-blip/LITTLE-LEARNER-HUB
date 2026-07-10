@@ -6,11 +6,23 @@ services:
     buildCommand: "npm install"
     startCommand: "node server/index.js"
     healthCheckPath: /api/health
+    # Persistent disk for Phase 2D curriculum resource uploads.
+    # IMPORTANT: Blueprint disk config does NOT automatically attach a disk to an
+    # already-running Render service. Complete the manual Dashboard steps in
+    # README.md ("Curriculum uploads persistent disk") and verify the mount
+    # before relying on uploads in production. Until the disk is attached and
+    # verified, files under this path remain ephemeral across deploys/restarts.
+    disk:
+      name: curriculum-uploads
+      mountPath: /opt/render/project/src/server/data/curriculum-uploads
+      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
       - key: SITE_URL
         sync: false
+      - key: CURRICULUM_UPLOADS_DIR
+        value: /opt/render/project/src/server/data/curriculum-uploads
       - key: STRIPE_PUBLISHABLE_KEY
         sync: false
       - key: STRIPE_SECRET_KEY

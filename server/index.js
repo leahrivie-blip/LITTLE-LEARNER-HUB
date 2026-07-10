@@ -985,7 +985,16 @@ function generateCurriculumResourceId() {
 }
 
 function curriculumUploadsDir() {
-  return path.join(dataDir, "curriculum-uploads");
+  const configured = String(process.env.CURRICULUM_UPLOADS_DIR || "").trim();
+  if (configured) return path.resolve(configured);
+  // Local/dev fallback: server/data/curriculum-uploads (ephemeral on Render unless a disk is mounted here)
+  return path.resolve(dataDir, "curriculum-uploads");
+}
+
+function isInsideCurriculumUploadsDir(candidatePath) {
+  const root = curriculumUploadsDir();
+  const resolved = path.resolve(candidatePath);
+  return resolved === root || resolved.startsWith(`${root}${path.sep}`);
 }
 
 function sanitizeCurriculumUploadFileName(value) {
@@ -1001,8 +1010,8 @@ function curriculumStoredFilePath(resourceId, fileName) {
   const safeName = sanitizeCurriculumUploadFileName(fileName);
   if (!safeId || !safeName) return "";
   const dir = path.join(curriculumUploadsDir(), safeId);
-  const filePath = path.join(dir, safeName);
-  if (!filePath.startsWith(curriculumUploadsDir())) return "";
+  const filePath = path.resolve(dir, safeName);
+  if (!isInsideCurriculumUploadsDir(filePath)) return "";
   return filePath;
 }
 
@@ -1025,8 +1034,8 @@ function parseCurriculumUploadDataUrl(value) {
 }
 
 function ensureCurriculumUploadsDir(resourceId) {
-  const dir = path.join(curriculumUploadsDir(), normalizedShortText(resourceId, 160));
-  if (!dir.startsWith(curriculumUploadsDir())) return "";
+  const dir = path.resolve(curriculumUploadsDir(), normalizedShortText(resourceId, 160));
+  if (!isInsideCurriculumUploadsDir(dir)) return "";
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
