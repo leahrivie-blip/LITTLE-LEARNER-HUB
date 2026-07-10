@@ -3416,12 +3416,82 @@ function emptySiteContent() {
     featureFlags: {
       playBasedCurriculum: false,
     },
+    curriculum: emptyCurriculum(),
     updatedAt: "",
   };
 }
 
 function isPlayBasedCurriculumEnabled() {
   return effectiveSiteContent().featureFlags?.playBasedCurriculum === true;
+}
+
+const CURRICULUM_LEARNING_DOMAINS = Object.freeze([
+  "Social Emotional",
+  "Language & Literacy",
+  "Math",
+  "Science",
+  "Physical Development",
+  "Creative Arts",
+]);
+const PLAY_ACTIVITY_CATEGORIES = Object.freeze([
+  "Sensory Play",
+  "Gross Motor",
+  "Fine Motor",
+  "Music & Movement",
+  "Dramatic Play",
+  "Open-Ended Exploration",
+]);
+
+function emptyCurriculum() {
+  return {
+    lessonPlans: [],
+    activities: [],
+    resources: [],
+    updatedAt: "",
+  };
+}
+
+function effectiveCurriculum() {
+  const curriculum = effectiveSiteContent().curriculum;
+  if (!curriculum || typeof curriculum !== "object") return emptyCurriculum();
+  return {
+    lessonPlans: Array.isArray(curriculum.lessonPlans) ? curriculum.lessonPlans : [],
+    activities: Array.isArray(curriculum.activities) ? curriculum.activities : [],
+    resources: Array.isArray(curriculum.resources) ? curriculum.resources : [],
+    updatedAt: curriculum.updatedAt || "",
+  };
+}
+
+function curriculumLessonPlanById(id) {
+  const targetId = String(id || "").trim();
+  if (!targetId) return null;
+  return effectiveCurriculum().lessonPlans.find((item) => item.id === targetId) || null;
+}
+
+function curriculumActivityById(id) {
+  const targetId = String(id || "").trim();
+  if (!targetId) return null;
+  return effectiveCurriculum().activities.find((item) => item.id === targetId) || null;
+}
+
+function curriculumResourceById(id) {
+  const targetId = String(id || "").trim();
+  if (!targetId) return null;
+  return effectiveCurriculum().resources.find((item) => item.id === targetId) || null;
+}
+
+function curriculumActivitiesForLesson(lessonPlanId) {
+  const targetId = String(lessonPlanId || "").trim();
+  if (!targetId) return [];
+  return effectiveCurriculum().activities.filter((item) => item.lessonPlanId === targetId);
+}
+
+function curriculumResourcesForLesson(lessonPlanId) {
+  const targetId = String(lessonPlanId || "").trim();
+  if (!targetId) return [];
+  return effectiveCurriculum().resources.filter((item) => (
+    Array.isArray(item.lessonPlanIds) && item.lessonPlanIds.includes(targetId)
+  ));
 }
 
 function cloneJson(value, fallback) {
@@ -3874,6 +3944,14 @@ function effectiveSiteContent() {
     featureFlags: {
       playBasedCurriculum: overrides.featureFlags?.playBasedCurriculum === true,
     },
+    curriculum: overrides.curriculum && typeof overrides.curriculum === "object"
+      ? {
+        lessonPlans: Array.isArray(overrides.curriculum.lessonPlans) ? overrides.curriculum.lessonPlans : [],
+        activities: Array.isArray(overrides.curriculum.activities) ? overrides.curriculum.activities : [],
+        resources: Array.isArray(overrides.curriculum.resources) ? overrides.curriculum.resources : [],
+        updatedAt: overrides.curriculum.updatedAt || "",
+      }
+      : emptyCurriculum(),
     updatedAt: overrides.updatedAt || base.updatedAt || "",
   };
 }

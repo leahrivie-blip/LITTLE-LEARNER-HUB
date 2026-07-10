@@ -357,6 +357,7 @@ function defaultSiteContentStore() {
     upgradeMessaging: {},
     images: [],
     featureFlags: defaultFeatureFlags(),
+    curriculum: defaultCurriculumStore(),
     updatedAt: "",
   };
 }
@@ -722,6 +723,204 @@ function normalizedSimpleCard(value, fallbackId = "") {
   };
 }
 
+const CURRICULUM_LEARNING_DOMAINS = new Set([
+  "Social Emotional",
+  "Language & Literacy",
+  "Math",
+  "Science",
+  "Physical Development",
+  "Creative Arts",
+]);
+const PLAY_ACTIVITY_CATEGORIES = new Set([
+  "Sensory Play",
+  "Gross Motor",
+  "Fine Motor",
+  "Music & Movement",
+  "Dramatic Play",
+  "Open-Ended Exploration",
+]);
+const CURRICULUM_LESSON_STATUSES = new Set(["draft", "published", "featured", "archived"]);
+const CURRICULUM_ITEM_STATUSES = new Set(["draft", "published", "archived"]);
+const CURRICULUM_WEEKDAYS = new Set(["monday", "tuesday", "wednesday", "thursday", "friday"]);
+
+function defaultCurriculumStore() {
+  return {
+    lessonPlans: [],
+    activities: [],
+    resources: [],
+    updatedAt: "",
+  };
+}
+
+function normalizedCurriculumLearningDomains(value) {
+  const items = Array.isArray(value) ? value : [];
+  return items
+    .map((item) => normalizedShortText(item, 80))
+    .filter((item) => CURRICULUM_LEARNING_DOMAINS.has(item))
+    .slice(0, 6);
+}
+
+function normalizedCurriculumBookEntry(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const title = normalizedShortText(entry.title, 180);
+  if (!title) return null;
+  return {
+    title,
+    author: normalizedShortText(entry.author, 120),
+    notes: normalizedMultilineText(entry.notes, 1000),
+  };
+}
+
+function normalizedCurriculumSongEntry(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const title = normalizedShortText(entry.title, 180);
+  if (!title) return null;
+  return {
+    title,
+    notes: normalizedMultilineText(entry.notes, 1000),
+  };
+}
+
+function normalizedCurriculumDailyPlanItem(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const title = normalizedShortText(entry.title, 180);
+  if (!title) return null;
+  const category = normalizedShortText(entry.activityCategory, 80);
+  return {
+    sourceKey: normalizedShortText(entry.sourceKey, 200),
+    activityCategory: PLAY_ACTIVITY_CATEGORIES.has(category) ? category : "Open-Ended Exploration",
+    title,
+    description: normalizedMultilineText(entry.description, 4000),
+    materials: normalizedMultilineText(entry.materials, 2000),
+    steps: normalizedMultilineText(entry.steps, 4000),
+    learningGoals: normalizedList(entry.learningGoals, 12, (item) => normalizedShortText(item, 120)).filter(Boolean),
+  };
+}
+
+function normalizedCurriculumDailyPlans(value) {
+  const input = value && typeof value === "object" ? value : {};
+  const days = {};
+  CURRICULUM_WEEKDAYS.forEach((day) => {
+    const dayInput = input[day] && typeof input[day] === "object" ? input[day] : {};
+    days[day] = {
+      items: normalizedList(dayInput.items, 30, normalizedCurriculumDailyPlanItem),
+    };
+  });
+  return days;
+}
+
+function normalizedCurriculumLessonPlan(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const id = normalizedShortText(entry.id, 160);
+  if (!id) return null;
+  const status = normalizedShortText(entry.status, 20);
+  const plan = normalizedShortText(entry.plan, 20);
+  return {
+    id,
+    title: normalizedShortText(entry.title, 180) || "Untitled Lesson Plan",
+    age: normalizedShortText(entry.age, 40) || "Preschool",
+    theme: normalizedShortText(entry.theme, 120),
+    plan: plan === "Pro" ? "Pro" : "Free",
+    status: CURRICULUM_LESSON_STATUSES.has(status) ? status : "draft",
+    learningDomains: normalizedCurriculumLearningDomains(entry.learningDomains),
+    weeklyOverview: normalizedMultilineText(entry.weeklyOverview, 4000),
+    objectives: normalizedMultilineText(entry.objectives, 4000),
+    books: normalizedList(entry.books, 20, normalizedCurriculumBookEntry),
+    songs: normalizedList(entry.songs, 20, normalizedCurriculumSongEntry),
+    familyConnection: normalizedMultilineText(entry.familyConnection, 4000),
+    dailyPlans: normalizedCurriculumDailyPlans(entry.dailyPlans),
+    activityIds: normalizedList(entry.activityIds, 200, (item) => normalizedShortText(item, 160)).filter(Boolean),
+    resourceIds: normalizedList(entry.resourceIds, 200, (item) => normalizedShortText(item, 160)).filter(Boolean),
+    createdAt: normalizedShortText(entry.createdAt, 80),
+    updatedAt: normalizedShortText(entry.updatedAt, 80),
+  };
+}
+
+function normalizedCurriculumActivity(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const id = normalizedShortText(entry.id, 160);
+  const lessonPlanId = normalizedShortText(entry.lessonPlanId, 160);
+  if (!id || !lessonPlanId) return null;
+  const status = normalizedShortText(entry.status, 20);
+  const category = normalizedShortText(entry.activityCategory, 80);
+  const dayOfWeek = normalizedShortText(entry.dayOfWeek, 20).toLowerCase();
+  return {
+    id,
+    lessonPlanId,
+    sourceKey: normalizedShortText(entry.sourceKey, 200),
+    dayOfWeek: CURRICULUM_WEEKDAYS.has(dayOfWeek) ? dayOfWeek : "",
+    activityCategory: PLAY_ACTIVITY_CATEGORIES.has(category) ? category : "Open-Ended Exploration",
+    title: normalizedShortText(entry.title, 180) || "Activity",
+    description: normalizedMultilineText(entry.description, 4000),
+    materials: normalizedMultilineText(entry.materials, 2000),
+    steps: normalizedMultilineText(entry.steps, 4000),
+    learningGoals: normalizedList(entry.learningGoals, 12, (item) => normalizedShortText(item, 120)).filter(Boolean),
+    status: CURRICULUM_ITEM_STATUSES.has(status) ? status : "draft",
+    createdAt: normalizedShortText(entry.createdAt, 80),
+    updatedAt: normalizedShortText(entry.updatedAt, 80),
+  };
+}
+
+function normalizedCurriculumResource(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const id = normalizedShortText(entry.id, 160);
+  if (!id) return null;
+  const status = normalizedShortText(entry.status, 20);
+  const fileUrl = sanitizedResourceUrl(entry.fileUrl) || sanitizedUrl(entry.fileUrl);
+  return {
+    id,
+    title: normalizedShortText(entry.title, 180) || "Resource",
+    resourceCategory: normalizedShortText(entry.resourceCategory, 80) || "General",
+    fileUrl,
+    mimeType: normalizedShortText(entry.mimeType, 80),
+    lessonPlanIds: normalizedList(entry.lessonPlanIds, 50, (item) => normalizedShortText(item, 160)).filter(Boolean),
+    status: CURRICULUM_ITEM_STATUSES.has(status) ? status : "draft",
+    createdAt: normalizedShortText(entry.createdAt, 80),
+    updatedAt: normalizedShortText(entry.updatedAt, 80),
+  };
+}
+
+function normalizedCurriculumStore(value) {
+  const input = value && typeof value === "object" ? value : {};
+  return {
+    lessonPlans: normalizedList(input.lessonPlans, 500, normalizedCurriculumLessonPlan),
+    activities: normalizedList(input.activities, 3000, normalizedCurriculumActivity),
+    resources: normalizedList(input.resources, 3000, normalizedCurriculumResource),
+    updatedAt: normalizedShortText(input.updatedAt, 80),
+  };
+}
+
+function validateCurriculumIntegrity(curriculum) {
+  const store = normalizedCurriculumStore(curriculum);
+  const lessonPlanIds = new Set(store.lessonPlans.map((item) => item.id));
+  const errors = [];
+  store.activities.forEach((activity) => {
+    if (!lessonPlanIds.has(activity.lessonPlanId)) {
+      errors.push(`Activity ${activity.id} references missing lesson plan ${activity.lessonPlanId}.`);
+    }
+  });
+  store.resources.forEach((resource) => {
+    resource.lessonPlanIds.forEach((lessonPlanId) => {
+      if (!lessonPlanIds.has(lessonPlanId)) {
+        errors.push(`Resource ${resource.id} references missing lesson plan ${lessonPlanId}.`);
+      }
+    });
+  });
+  store.lessonPlans.forEach((lessonPlan) => {
+    lessonPlan.activityIds.forEach((activityId) => {
+      if (!store.activities.some((activity) => activity.id === activityId)) {
+        errors.push(`Lesson plan ${lessonPlan.id} references missing activity ${activityId}.`);
+      }
+    });
+    lessonPlan.resourceIds.forEach((resourceId) => {
+      if (!store.resources.some((resource) => resource.id === resourceId)) {
+        errors.push(`Lesson plan ${lessonPlan.id} references missing resource ${resourceId}.`);
+      }
+    });
+  });
+  return { valid: errors.length === 0, errors };
+}
+
 function normalizedSiteContent(value) {
   const input = value && typeof value === "object" ? value : {};
   const lessonPlansInput = input.lessonPlans && typeof input.lessonPlans === "object" ? input.lessonPlans : {};
@@ -851,6 +1050,7 @@ function normalizedSiteContent(value) {
       _draft: input.founding?._draft === true,
     },
     featureFlags: normalizedFeatureFlags(input.featureFlags),
+    curriculum: normalizedCurriculumStore(input.curriculum),
     updatedAt: normalizedShortText(input.updatedAt, 80),
   };
 }
@@ -3919,7 +4119,7 @@ function handlePublicSiteContent(request, response) {
   const publicUpgradeMessaging = content.upgradeMessaging?._draft === true
     ? defaults.upgradeMessaging
     : content.upgradeMessaging;
-  const { featureFlags, ...publicSiteContent } = content;
+  const { featureFlags, curriculum, ...publicSiteContent } = content;
   jsonResponse(response, 200, {
     siteContent: {
       ...publicSiteContent,
