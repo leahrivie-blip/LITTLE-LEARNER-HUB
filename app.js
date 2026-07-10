@@ -3463,14 +3463,9 @@ const PLAY_ACTIVITY_CATEGORIES = Object.freeze([
   "Open-Ended Exploration",
 ]);
 const CURRICULUM_RESOURCE_CATEGORIES = Object.freeze([
-  "Coloring Pages",
-  "Tracing Activities",
-  "Counting Activities",
-  "Matching Activities",
-  "Crafts",
-  "Teacher Resources",
-  "Activity Photos",
-  "General",
+  "Classroom Resources",
+  "Behavior & Social Emotional",
+  "Printables",
 ]);
 
 function emptyCurriculum() {
@@ -4287,7 +4282,7 @@ function curriculumResourceAdminCardHtml(resource) {
           <strong>${escapeHtml(resource.title || "Untitled Resource")}</strong>
           <div class="tag-row" style="margin:2px 0 4px">
             <span class="tag">${curriculumResourceStatusLabel(resource.status || "draft")}</span>
-            <span class="tag">${escapeHtml(resource.resourceCategory || "General")}</span>
+            <span class="tag">${escapeHtml(resource.resourceCategory || "Classroom Resources")}</span>
           </div>
           <small>${escapeHtml(resource.fileName || resource.fileUrl || "No file")}</small>
           <small>${linkedCount} linked ${linkedCount === 1 ? "lesson plan" : "lesson plans"}</small>
@@ -4310,7 +4305,7 @@ function renderAdminCurriculumResourceForm(resource) {
   const record = resource || {
     id: adminCurriculumResourceEditorId || "",
     title: "",
-    resourceCategory: "General",
+    resourceCategory: "Classroom Resources",
     fileUrl: "",
     fileName: "",
     mimeType: "",
@@ -4354,7 +4349,7 @@ function renderAdminCurriculumResourceManager() {
     ? (curriculumResourceById(editingId) || {
       id: editingId,
       title: "",
-      resourceCategory: "General",
+      resourceCategory: "Classroom Resources",
       fileUrl: "",
       fileName: "",
       status: "draft",
@@ -4391,7 +4386,7 @@ function renderCurriculumLessonLinkedResourcesSection(plan) {
             <div class="curriculum-linked-resource-row">
               <div>
                 <strong>${escapeHtml(resource.title || "Resource")}</strong>
-                <small>${escapeHtml(resource.resourceCategory || "General")} · ${escapeHtml(resource.fileName || resource.fileUrl || "")}</small>
+                <small>${escapeHtml(resource.resourceCategory || "Classroom Resources")} · ${escapeHtml(resource.fileName || resource.fileUrl || "")}</small>
               </div>
               <div class="form-actions">
                 ${resource.fileUrl ? `<a class="ghost-button" href="${escapeHtml(curriculumResourceFileHref(resource.fileUrl))}" target="_blank" rel="noopener">Open</a>` : ""}
@@ -4452,7 +4447,7 @@ async function saveAdminCurriculumResourceForm(form) {
         resource: {
           id,
           title: normalizedShortText(formData.get("title")) || "Resource",
-          resourceCategory: normalizedShortText(formData.get("resourceCategory")) || "General",
+          resourceCategory: normalizedShortText(formData.get("resourceCategory")) || "Classroom Resources",
           fileUrl,
           fileName,
           mimeType,

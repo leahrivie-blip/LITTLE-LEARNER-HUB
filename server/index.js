@@ -743,14 +743,9 @@ const CURRICULUM_LESSON_STATUSES = new Set(["draft", "published", "featured", "a
 const CURRICULUM_ITEM_STATUSES = new Set(["draft", "published", "archived"]);
 const CURRICULUM_WEEKDAYS = new Set(["monday", "tuesday", "wednesday", "thursday", "friday"]);
 const CURRICULUM_RESOURCE_CATEGORIES = new Set([
-  "Coloring Pages",
-  "Tracing Activities",
-  "Counting Activities",
-  "Matching Activities",
-  "Crafts",
-  "Teacher Resources",
-  "Activity Photos",
-  "General",
+  "Classroom Resources",
+  "Behavior & Social Emotional",
+  "Printables",
 ]);
 const MAX_CURRICULUM_UPLOAD_BYTES = 15 * 1024 * 1024;
 const CURRICULUM_UPLOAD_MIME_TYPES = new Set([
@@ -929,7 +924,7 @@ function normalizedCurriculumResource(value) {
   return {
     id,
     title: normalizedShortText(entry.title, 180) || "Resource",
-    resourceCategory: CURRICULUM_RESOURCE_CATEGORIES.has(category) ? category : "General",
+    resourceCategory: CURRICULUM_RESOURCE_CATEGORIES.has(category) ? category : "Classroom Resources",
     fileUrl,
     mimeType: normalizedShortText(entry.mimeType, 80),
     fileName: normalizedShortText(entry.fileName, 180),
