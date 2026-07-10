@@ -97,6 +97,8 @@ async function main() {
     ADMIN_EMAIL: "phase2h@test.local",
     ADMIN_PASSWORD: "phase2h-verify-pass",
     ADMIN_ACCESS_CODE: "phase2h",
+    // Local verify only — production keeps this unset/false so wipe stays disabled.
+    ALLOW_CURRICULUM_WIPE: "true",
   };
   const proc = spawn("node", ["server/index.js"], { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"] });
   let serverLog = "";
