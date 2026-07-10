@@ -3210,6 +3210,8 @@ let adminAnalyticsLoading = false;
 let adminLessonEditorId = "";
 let adminCurriculumLessonEditorId = "";
 let adminCurriculumLessonSaving = false;
+let adminCurriculumLessonImportDraft = null;
+let adminCurriculumLessonImportTextCache = "";
 let adminReviewEditorId = "";
 let adminImageEditorId = "";
 let adminLessonSelection = new Set();
@@ -3531,6 +3533,7 @@ function curriculumLessonPlansForAdmin() {
 }
 
 function openAdminCurriculumLessonEditor(id, { scroll = false } = {}) {
+  if (adminCurriculumLessonEditorId !== id) adminCurriculumLessonImportDraft = null;
   adminCurriculumLessonEditorId = id;
   if (adminActiveSectionTab !== "curriculum-lesson-plans") setAdminSectionTab("curriculum-lesson-plans");
   renderAdminCurriculumLessonPlanManager();
@@ -3541,7 +3544,380 @@ function openAdminCurriculumLessonEditor(id, { scroll = false } = {}) {
 
 function createAdminCurriculumLessonPlan() {
   const id = `cur-lp-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
+  adminCurriculumLessonImportDraft = null;
   openAdminCurriculumLessonEditor(id, { scroll: true });
+}
+
+const CURRICULUM_LESSON_IMPORT_TEMPLATE = `===TITLE===
+Preschool Farm Friends
+
+===AGE_GROUP===
+Preschool
+
+===THEME===
+Farm Animals
+
+===PLAN===
+Free
+
+===STATUS===
+draft
+
+===LEARNING_DOMAINS===
+Social Emotional, Math, Science
+
+===WEEKLY_OVERVIEW===
+This week children explore farm life through sensory and movement play.
+
+===OBJECTIVES===
+Children will identify common farm animals and practice cooperative play.
+
+===FAMILY_CONNECTION===
+Ask families to name animals they see in their neighborhood.
+
+===WEEKLY_MATERIALS===
+Bins, scoops, toy animals, paper plates, crayons, music speaker
+
+===VOCABULARY===
+farm, cow, chicken, harvest, gentle
+
+===OBSERVATIONS===
+Note peer interactions during cooperative play and animal naming.
+
+===ADAPTATIONS===
+Offer larger grips for fine-motor challenges; provide visual animal cards.
+
+===BOOKS===
+Big Red Barn | Margaret Wise Brown | Read before Monday sensory play
+Farm Sounds | Jane Doe | Optional circle-time book
+
+===SONGS===
+Old MacDonald | Use animal puppets during chorus
+The Wheels on the Bus | Friday transition song
+
+===MONDAY===
+---ACTIVITY---
+Category: Sensory Play
+Title: Corn Kernel Bin
+Description: Children scoop, pour, and bury toy animals in corn kernels.
+Materials: Bin, corn kernels, scoops, toy animals, smocks
+Steps:
+1. Invite children to explore the bin freely.
+2. Model gentle scooping and pouring.
+3. Hide animals and let children find them.
+Learning Goals:
+- Explore texture through scooping and pouring
+- Name animals found in the bin
+
+---ACTIVITY---
+Category: Gross Motor
+Title: Barnyard Movement Parade
+Description: Children move like farm animals around the room.
+Materials: Open space, animal picture cards
+Steps:
+1. Show an animal card and model the movement.
+2. Invite children to copy the movement.
+3. Rotate through 4-5 animals.
+Learning Goals:
+- Practice balance and coordination
+- Follow simple movement cues
+
+===TUESDAY===
+---ACTIVITY---
+Category: Fine Motor
+Title: Chicken Feather Collage
+Description: Children glue feathers and paper shapes to make a chicken.
+Materials: Paper, feathers, glue sticks, crayons
+Steps:
+1. Demonstrate placing feathers on paper.
+2. Children create their own chicken collage.
+Learning Goals:
+- Strengthen pincer grasp
+- Create with mixed materials
+
+===WEDNESDAY===
+===THURSDAY===
+===FRIDAY===
+`;
+
+function curriculumLessonEditorRecord() {
+  const editingId = adminCurriculumLessonEditorId;
+  if (!editingId) return null;
+  const saved = curriculumLessonPlanById(editingId);
+  const base = saved || {
+    id: editingId,
+    title: "",
+    age: "Preschool",
+    theme: "",
+    plan: "Free",
+    status: "draft",
+    learningDomains: [],
+    weeklyOverview: "",
+    objectives: "",
+    familyConnection: "",
+    weeklyMaterials: "",
+    vocabularyWords: "",
+    observationOpportunities: "",
+    adaptations: "",
+    books: [],
+    songs: [],
+    dailyPlans: emptyCurriculumDailyPlans(),
+  };
+  return adminCurriculumLessonImportDraft
+    ? { ...base, ...adminCurriculumLessonImportDraft, id: editingId }
+    : base;
+}
+
+function snapshotCurriculumDailyItemIds(form) {
+  const map = new Map();
+  if (!form) return map;
+  CURRICULUM_WEEKDAYS.forEach((day) => {
+    form.querySelectorAll(`.curriculum-daily-item-row[data-curriculum-day="${day}"]`).forEach((row) => {
+      const title = normalizedShortText(row.querySelector("[data-curriculum-title]")?.value).toLowerCase();
+      const itemId = normalizedShortText(row.querySelector("[data-curriculum-item-id]")?.value);
+      if (title && itemId) map.set(`${day}:${title}`, itemId);
+    });
+  });
+  return map;
+}
+
+function parseCurriculumImportActivityBlock(block) {
+  const lines = String(block || "").split(/\r?\n/);
+  const activity = {
+    activityCategory: PLAY_ACTIVITY_CATEGORIES[0],
+    title: "",
+    description: "",
+    materials: "",
+    steps: "",
+    learningGoals: [],
+  };
+  let currentField = "";
+  lines.forEach((rawLine) => {
+    const line = rawLine.trimEnd();
+    const trimmed = line.trim();
+    if (!trimmed) return;
+    const categoryMatch = trimmed.match(/^Category:\s*(.+)$/i);
+    const titleMatch = trimmed.match(/^Title:\s*(.+)$/i);
+    const descriptionMatch = trimmed.match(/^Description:\s*(.+)$/i);
+    const materialsMatch = trimmed.match(/^Materials:\s*(.+)$/i);
+    const stepsMatch = trimmed.match(/^Steps:\s*$/i);
+    const goalsMatch = trimmed.match(/^Learning Goals:\s*$/i);
+    if (categoryMatch) {
+      currentField = "category";
+      activity.activityCategory = normalizedShortText(categoryMatch[1]) || activity.activityCategory;
+      return;
+    }
+    if (titleMatch) {
+      currentField = "title";
+      activity.title = normalizedShortText(titleMatch[1]);
+      return;
+    }
+    if (descriptionMatch) {
+      currentField = "description";
+      activity.description = normalizedMultilineText(descriptionMatch[1]);
+      return;
+    }
+    if (materialsMatch) {
+      currentField = "materials";
+      activity.materials = normalizedMultilineText(materialsMatch[1]);
+      return;
+    }
+    if (stepsMatch) {
+      currentField = "steps";
+      return;
+    }
+    if (goalsMatch) {
+      currentField = "learningGoals";
+      return;
+    }
+    if (currentField === "steps") {
+      activity.steps = [activity.steps, trimmed.replace(/^\d+\.\s*/, "")].filter(Boolean).join("\n");
+      return;
+    }
+    if (currentField === "learningGoals") {
+      const goal = trimmed.replace(/^[-*•]\s*/, "").trim();
+      if (goal) activity.learningGoals.push(goal);
+      return;
+    }
+    if (currentField === "description") activity.description = [activity.description, trimmed].filter(Boolean).join("\n");
+    if (currentField === "materials") activity.materials = [activity.materials, trimmed].filter(Boolean).join("\n");
+  });
+  if (!PLAY_ACTIVITY_CATEGORIES.includes(activity.activityCategory)) {
+    activity.activityCategory = "Open-Ended Exploration";
+  }
+  return activity;
+}
+
+function parseCurriculumImportListLines(text, { parts = 2 } = {}) {
+  return String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.replace(/^[-*•]\s*/, "").split("|").map((part) => part.trim()))
+    .map((chunks) => {
+      if (parts === 3) {
+        const [title, author, notes] = chunks;
+        return title ? { title, author: author || "", notes: notes || "" } : null;
+      }
+      const [title, notes] = chunks;
+      return title ? { title, notes: notes || "" } : null;
+    })
+    .filter(Boolean);
+}
+
+function parseCurriculumLessonPlanImport(text, { existingItemIds = new Map() } = {}) {
+  const errors = [];
+  const warnings = [];
+  const sections = {};
+  const parts = String(text || "").split(/===([A-Z_]+)===/);
+  for (let i = 1; i < parts.length; i += 2) {
+    const key = parts[i].trim().toUpperCase();
+    const content = (parts[i + 1] || "").trim();
+    if (key) sections[key] = content;
+  }
+
+  const title = normalizedShortText(sections.TITLE);
+  if (!title) errors.push("Missing required section: ===TITLE===");
+
+  const ageRaw = normalizedShortText(sections.AGE_GROUP);
+  const age = ["Infant", "Toddler", "Preschool"].includes(ageRaw) ? ageRaw : "";
+  if (!age) warnings.push("AGE_GROUP missing or invalid. Expected Infant, Toddler, or Preschool.");
+
+  const theme = normalizedShortText(sections.THEME);
+  if (!theme) warnings.push("THEME is empty.");
+
+  const planRaw = normalizedShortText(sections.PLAN);
+  const plan = planRaw === "Pro" ? "Pro" : "Free";
+
+  const statusRaw = normalizedShortText(sections.STATUS).toLowerCase();
+  const status = CURRICULUM_LESSON_STATUSES.includes(statusRaw) ? statusRaw : "draft";
+  if (sections.STATUS && !CURRICULUM_LESSON_STATUSES.includes(statusRaw)) {
+    warnings.push("STATUS invalid. Use draft, published, featured, or archived.");
+  }
+
+  const learningDomains = String(sections.LEARNING_DOMAINS || "")
+    .split(/[,;\n]/)
+    .map((item) => normalizedShortText(item))
+    .filter((item) => CURRICULUM_LEARNING_DOMAINS.includes(item));
+
+  const dailyPlans = emptyCurriculumDailyPlans();
+  let activityCount = 0;
+  CURRICULUM_WEEKDAYS.forEach((day) => {
+    const dayKey = day.toUpperCase();
+    const dayContent = sections[dayKey] || "";
+    if (!dayContent) return;
+    const blocks = dayContent.split(/---ACTIVITY---/i).map((block) => block.trim()).filter(Boolean);
+    blocks.forEach((block) => {
+      const activity = parseCurriculumImportActivityBlock(block);
+      if (!activity.title) {
+        warnings.push(`${dayKey}: activity block missing Title (skipped).`);
+        return;
+      }
+      const itemKey = `${day}:${activity.title.toLowerCase()}`;
+      const itemId = existingItemIds.get(itemKey) || generateCurriculumItemIdClient();
+      dailyPlans[day].items.push({ ...activity, itemId });
+      activityCount += 1;
+    });
+  });
+  if (!activityCount) errors.push("At least one ---ACTIVITY--- with a Title is required under a weekday section.");
+
+  return {
+    ok: errors.length === 0,
+    errors,
+    warnings,
+    data: {
+      title: title || "Untitled Lesson Plan",
+      age: age || "Preschool",
+      theme,
+      plan,
+      status,
+      learningDomains,
+      weeklyOverview: normalizedMultilineText(sections.WEEKLY_OVERVIEW),
+      objectives: normalizedMultilineText(sections.OBJECTIVES),
+      familyConnection: normalizedMultilineText(sections.FAMILY_CONNECTION),
+      weeklyMaterials: normalizedMultilineText(sections.WEEKLY_MATERIALS),
+      vocabularyWords: normalizedMultilineText(sections.VOCABULARY),
+      observationOpportunities: normalizedMultilineText(sections.OBSERVATIONS),
+      adaptations: normalizedMultilineText(sections.ADAPTATIONS),
+      books: parseCurriculumImportListLines(sections.BOOKS, { parts: 3 }),
+      songs: parseCurriculumImportListLines(sections.SONGS, { parts: 2 }),
+      dailyPlans,
+    },
+  };
+}
+
+function curriculumBooksToText(books = []) {
+  return books.map((book) => [book.title, book.author, book.notes].filter(Boolean).join(" | ")).join("\n");
+}
+
+function curriculumSongsToText(songs = []) {
+  return songs.map((song) => [song.title, song.notes].filter(Boolean).join(" | ")).join("\n");
+}
+
+function parseCurriculumBooksFromText(text) {
+  return parseCurriculumImportListLines(text, { parts: 3 });
+}
+
+function parseCurriculumSongsFromText(text) {
+  return parseCurriculumImportListLines(text, { parts: 2 });
+}
+
+function applyCurriculumLessonPlanImport() {
+  const textarea = document.querySelector("#adminCurriculumLessonImportText");
+  const messageEl = document.querySelector("#adminCurriculumLessonImportMessage");
+  const form = document.querySelector("#adminCurriculumLessonPlanForm");
+  const text = textarea?.value || "";
+  if (!text.trim()) {
+    if (messageEl) {
+      messageEl.textContent = "Paste a complete lesson plan before parsing.";
+      messageEl.classList.remove("success");
+    }
+    return;
+  }
+  const existingItemIds = snapshotCurriculumDailyItemIds(form);
+  const parsed = parseCurriculumLessonPlanImport(text, { existingItemIds });
+  const lines = [];
+  if (parsed.errors.length) lines.push(`Errors: ${parsed.errors.join(" ")}`);
+  if (parsed.warnings.length) lines.push(`Warnings: ${parsed.warnings.join(" ")}`);
+  if (!parsed.ok) {
+    if (messageEl) {
+      messageEl.textContent = lines.join(" ");
+      messageEl.classList.remove("success");
+    }
+    return;
+  }
+  adminCurriculumLessonImportDraft = parsed.data;
+  adminCurriculumLessonImportTextCache = text;
+  renderAdminCurriculumLessonPlanManager();
+  applyAdminSectionVisibility();
+  if (messageEl) {
+    const activityCount = CURRICULUM_WEEKDAYS.reduce((count, day) => count + (parsed.data.dailyPlans[day]?.items?.length || 0), 0);
+    messageEl.textContent = [
+      `✅ Parsed ${activityCount} ${activityCount === 1 ? "activity" : "activities"}. Review the form and click Save when ready.`,
+      ...parsed.warnings,
+    ].filter(Boolean).join(" ");
+    messageEl.classList.add("success");
+  }
+}
+
+function renderCurriculumLessonImportPanel() {
+  return `
+    <fieldset class="admin-fieldset curriculum-import-panel">
+      <legend>Complete Lesson Plan Importer</legend>
+      <p class="muted-copy">Paste one formatted lesson plan, click Parse Lesson Plan, review the fields below, then Save. Import does not save automatically.</p>
+      <details class="curriculum-import-format-details">
+        <summary>View required import format</summary>
+        <pre class="curriculum-import-template">${escapeHtml(CURRICULUM_LESSON_IMPORT_TEMPLATE)}</pre>
+      </details>
+      <label>Paste complete lesson plan
+        <textarea id="adminCurriculumLessonImportText" rows="14" placeholder="Paste using ===SECTION=== and ---ACTIVITY--- blocks">${escapeHtml(adminCurriculumLessonImportTextCache || "")}</textarea>
+      </label>
+      <div class="form-actions">
+        <button class="ghost-button" type="button" id="adminCurriculumLessonParseButton">Parse Lesson Plan</button>
+      </div>
+      <span class="form-message" id="adminCurriculumLessonImportMessage"></span>
+    </fieldset>
+  `;
 }
 
 function curriculumDailyItemRowHtml(day, item = {}) {
@@ -3557,6 +3933,9 @@ function curriculumDailyItemRowHtml(day, item = {}) {
       </label>
       <label>Title<input value="${escapeHtml(item.title || "")}" data-curriculum-title placeholder="Activity title" /></label>
       <label>Description<textarea rows="2" data-curriculum-description>${escapeHtml(item.description || "")}</textarea></label>
+      <label>Materials<textarea rows="2" data-curriculum-materials>${escapeHtml(item.materials || "")}</textarea></label>
+      <label>Steps<textarea rows="3" data-curriculum-steps>${escapeHtml(item.steps || "")}</textarea></label>
+      <label>Learning goals<textarea rows="2" data-curriculum-learning-goals placeholder="One goal per line">${escapeHtml((item.learningGoals || []).join("\n"))}</textarea></label>
       <button class="ghost-button curriculum-daily-remove" type="button" data-curriculum-remove-row>Remove</button>
     </div>
   `;
@@ -3582,7 +3961,7 @@ function renderCurriculumDailyPlanEditor(dailyPlans = emptyCurriculumDailyPlans(
 }
 
 function renderAdminCurriculumLessonPlanForm(plan) {
-  const record = plan || {
+  const record = plan || curriculumLessonEditorRecord() || {
     id: adminCurriculumLessonEditorId || "",
     title: "",
     age: "Preschool",
@@ -3593,6 +3972,12 @@ function renderAdminCurriculumLessonPlanForm(plan) {
     weeklyOverview: "",
     objectives: "",
     familyConnection: "",
+    weeklyMaterials: "",
+    vocabularyWords: "",
+    observationOpportunities: "",
+    adaptations: "",
+    books: [],
+    songs: [],
     dailyPlans: emptyCurriculumDailyPlans(),
   };
   const selectedDomains = new Set(record.learningDomains || []);
@@ -3601,6 +3986,7 @@ function renderAdminCurriculumLessonPlanForm(plan) {
       <input type="hidden" name="id" value="${escapeHtml(record.id || "")}" />
       <h4>Editing: ${escapeHtml(record.title || "New Lesson Plan")}</h4>
       <p class="muted-copy">${curriculumLessonPlanStatusLabel(record.status || "draft")} · Linked activities regenerate automatically on save.</p>
+      ${renderCurriculumLessonImportPanel()}
       <div class="form-grid-two">
         <label>Title<input name="title" value="${escapeHtml(record.title || "")}" required /></label>
         <label>Age group
@@ -3635,7 +4021,13 @@ function renderAdminCurriculumLessonPlanForm(plan) {
       </fieldset>
       <label>Weekly overview<textarea name="weeklyOverview" rows="3">${escapeHtml(record.weeklyOverview || "")}</textarea></label>
       <label>Objectives<textarea name="objectives" rows="3">${escapeHtml(record.objectives || "")}</textarea></label>
+      <label>Weekly materials list<textarea name="weeklyMaterials" rows="3">${escapeHtml(record.weeklyMaterials || "")}</textarea></label>
+      <label>Vocabulary words<textarea name="vocabularyWords" rows="2">${escapeHtml(record.vocabularyWords || "")}</textarea></label>
+      <label>Observation opportunities<textarea name="observationOpportunities" rows="3">${escapeHtml(record.observationOpportunities || "")}</textarea></label>
+      <label>Adaptations / individualization<textarea name="adaptations" rows="3">${escapeHtml(record.adaptations || "")}</textarea></label>
       <label>Family connection<textarea name="familyConnection" rows="2">${escapeHtml(record.familyConnection || "")}</textarea></label>
+      <label>Books <span class="muted-copy">(one per line: Title | Author | Notes)</span><textarea name="booksText" rows="3">${escapeHtml(curriculumBooksToText(record.books))}</textarea></label>
+      <label>Songs / fingerplays <span class="muted-copy">(one per line: Title | Notes)</span><textarea name="songsText" rows="3">${escapeHtml(curriculumSongsToText(record.songs))}</textarea></label>
       <div class="curriculum-daily-editor">
         <h4>Daily activities (Mon–Fri)</h4>
         ${renderCurriculumDailyPlanEditor(record.dailyPlans)}
@@ -3678,21 +4070,7 @@ function renderAdminCurriculumLessonPlanManager() {
   if (!target) return;
   const plans = curriculumLessonPlansForAdmin();
   const editingId = adminCurriculumLessonEditorId;
-  const editingPlan = editingId
-    ? (curriculumLessonPlanById(editingId) || {
-      id: editingId,
-      title: "",
-      age: "Preschool",
-      theme: "",
-      plan: "Free",
-      status: "draft",
-      learningDomains: [],
-      weeklyOverview: "",
-      objectives: "",
-      familyConnection: "",
-      dailyPlans: emptyCurriculumDailyPlans(),
-    })
-    : null;
+  const editingPlan = editingId ? curriculumLessonEditorRecord() : null;
   target.innerHTML = `
     <div class="section-heading">
       <div>
@@ -3720,14 +4098,18 @@ function collectCurriculumLessonPlanFromForm(form) {
       const title = normalizedShortText(row.querySelector("[data-curriculum-title]")?.value);
       if (!title) return;
       const itemId = normalizedShortText(row.querySelector("[data-curriculum-item-id]")?.value) || generateCurriculumItemIdClient();
+      const learningGoals = normalizedMultilineText(row.querySelector("[data-curriculum-learning-goals]")?.value)
+        .split(/\r?\n/)
+        .map((goal) => normalizedShortText(goal))
+        .filter(Boolean);
       items.push({
         itemId,
         activityCategory: normalizedShortText(row.querySelector("[data-curriculum-category]")?.value) || PLAY_ACTIVITY_CATEGORIES[0],
         title,
         description: normalizedMultilineText(row.querySelector("[data-curriculum-description]")?.value),
-        materials: "",
-        steps: "",
-        learningGoals: [],
+        materials: normalizedMultilineText(row.querySelector("[data-curriculum-materials]")?.value),
+        steps: normalizedMultilineText(row.querySelector("[data-curriculum-steps]")?.value),
+        learningGoals,
       });
     });
     dailyPlans[day] = { items };
@@ -3744,10 +4126,14 @@ function collectCurriculumLessonPlanFromForm(form) {
     learningDomains: formData.getAll("learningDomains").map((item) => normalizedShortText(item)).filter(Boolean),
     weeklyOverview: normalizedMultilineText(formData.get("weeklyOverview")),
     objectives: normalizedMultilineText(formData.get("objectives")),
+    weeklyMaterials: normalizedMultilineText(formData.get("weeklyMaterials")),
+    vocabularyWords: normalizedMultilineText(formData.get("vocabularyWords")),
+    observationOpportunities: normalizedMultilineText(formData.get("observationOpportunities")),
+    adaptations: normalizedMultilineText(formData.get("adaptations")),
     familyConnection: normalizedMultilineText(formData.get("familyConnection")),
+    books: parseCurriculumBooksFromText(formData.get("booksText")),
+    songs: parseCurriculumSongsFromText(formData.get("songsText")),
     dailyPlans,
-    books: existing?.books || [],
-    songs: existing?.songs || [],
     resourceIds: existing?.resourceIds || [],
     activityIds: existing?.activityIds || [],
     createdAt: existing?.createdAt || "",
@@ -3782,6 +4168,7 @@ async function saveAdminCurriculumLessonPlanForm(form) {
       curriculum: data.curriculum || effectiveCurriculum(),
     };
     adminCurriculumLessonEditorId = data.lessonPlan?.id || lessonPlan.id;
+    adminCurriculumLessonImportDraft = null;
     setFormMessage("#adminCurriculumLessonPlanMessage", `✅ Saved. ${(data.activities || []).filter((item) => item.status !== "archived").length} linked activities synced.`, true);
     renderAdminCurriculumLessonPlanManager();
     applyAdminSectionVisibility();
@@ -28480,8 +28867,14 @@ document.addEventListener("click", async (event) => {
     openAdminCurriculumLessonEditor(curriculumLessonEditButton.dataset.curriculumLessonEdit, { scroll: true });
     return;
   }
+  if (event.target.closest("#adminCurriculumLessonParseButton")) {
+    applyCurriculumLessonPlanImport();
+    return;
+  }
   if (event.target.closest("[data-curriculum-lesson-back]")) {
     adminCurriculumLessonEditorId = "";
+    adminCurriculumLessonImportDraft = null;
+    adminCurriculumLessonImportTextCache = "";
     renderAdminCurriculumLessonPlanManager();
     return;
   }
