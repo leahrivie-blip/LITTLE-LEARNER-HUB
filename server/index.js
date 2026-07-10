@@ -4211,6 +4211,50 @@ function handleSupportTicketsList(request, response, url) {
   jsonResponse(response, 200, { tickets: tickets.slice(0, 100).map(publicTicket) });
 }
 
+// Hardcoded seed count from app.js buildLessonPlans(): 3 ages × 10 learning areas × 30 themes.
+const HARDCODED_LESSON_PLAN_SEED_COUNT = 900;
+
+function buildCurriculumBackupPayload(store) {
+  const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  const allUploads = dedupeUploadedResources(store.uploadedResources || [], MAX_UPLOADED_RESOURCES);
+  const legacyCurriculumUploads = allUploads.filter(
+    (item) => item.category === "Lesson Plans" || item.category === "Activity Center",
+  );
+  const lessonPlanOverrides = siteContent.lessonPlans || {};
+  const customLessonPlans = siteContent.customLessonPlans || [];
+  const cmsActivities = siteContent.activities || [];
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    purpose: "legacy-curriculum-backup-before-play-based-rebuild",
+    counts: {
+      hardcodedSeedCount: HARDCODED_LESSON_PLAN_SEED_COUNT,
+      lessonPlanOverrides: Object.keys(lessonPlanOverrides).length,
+      customLessonPlans: customLessonPlans.length,
+      cmsActivities: cmsActivities.length,
+      legacyCurriculumUploads: legacyCurriculumUploads.length,
+      totalUploadedResources: allUploads.length,
+    },
+    siteContent: {
+      lessonPlans: lessonPlanOverrides,
+      customLessonPlans,
+      activities: cmsActivities,
+    },
+    uploadedResources: legacyCurriculumUploads,
+  };
+  const checksum = crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+  return { ...payload, checksum };
+}
+
+function handleAdminCurriculumBackup(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required to export the curriculum backup." });
+    return;
+  }
+  const store = readStore();
+  jsonResponse(response, 200, buildCurriculumBackupPayload(store));
+}
+
 function handleUploadedResourcesList(request, response, url) {
   const adminToken = url.searchParams.get("adminToken") || "";
   const admin = validAdminToken(adminToken);
@@ -5297,6 +5341,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/release-note-update") return await handleReleaseNoteUpdate(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/release-notes") return handleReleaseNotesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/release-notes") return handleReleaseNotesList(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/curriculum/backup") return handleAdminCurriculumBackup(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/uploads") return handleUploadedResourcesList(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/migrate") return await handleAdminUploadedResourcesMigrate(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/upsert") return await handleAdminUploadedResourceUpsert(request, response);

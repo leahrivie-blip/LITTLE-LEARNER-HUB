@@ -1864,6 +1864,9 @@ const uploadedResourcesConfig = {
   upsertEndpoint: "/api/admin/uploads/upsert",
   deleteEndpoint: "/api/admin/uploads/delete",
 };
+const curriculumBackupConfig = {
+  endpoint: "/api/admin/curriculum/backup",
+};
 const billingPlans = {
   Free: {
     name: "Free",
@@ -17800,9 +17803,11 @@ function renderAdminContentManager() {
           <button class="ghost-button" type="button" data-admin-bulk="free">Bulk Mark Free</button>
           <button class="ghost-button" type="button" data-admin-bulk="pro">Bulk Mark Pro</button>
           <button class="ghost-button" type="button" id="adminExportLessonPlansButton">💾 Export Backup</button>
+          <button class="ghost-button" type="button" id="adminCurriculumBackupButton">💾 Legacy Curriculum Backup</button>
           <button class="ghost-button" type="button" id="adminShowOnly50Button">Show only 50 per age group</button>
           <button class="danger-button" type="button" id="adminArchiveAllLessonPlansButton">📦 Archive ALL Lesson Plans</button>
         </div>
+        <span class="form-message" id="adminCurriculumBackupMessage"></span>
         <div class="admin-mobile-list" id="adminLessonPlanList">${lessons.map(lessonPlanAdminCardHtml).join("") || `<div class="empty-state">No lesson plans match these filters.</div>`}</div>
         ${lessonRecord ? `
           <form id="adminLessonPlanForm" class="panel-form admin-stacked-form" data-importer-updated-title-theme="${lessonRecord.titleThemeImporterUpdated ? "true" : "false"}">
@@ -18473,6 +18478,50 @@ async function hideAllLessonPlans() {
     successMsg: "✅ All lesson plans hidden.",
     onComplete: () => renderAdminContentManager(),
   });
+}
+
+function downloadCurriculumBackupJson(data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `legacy-curriculum-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function exportCurriculumBackup() {
+  const token = adminSession()?.token || "";
+  if (!canUseLaunchBackend() || !isAdminUnlocked() || !token) {
+    window.alert("Backend server and admin login are required to export the curriculum backup.");
+    return;
+  }
+  const msgEl = document.querySelector("#adminCurriculumBackupMessage");
+  if (msgEl) {
+    msgEl.textContent = "Preparing backup…";
+    msgEl.classList.remove("success");
+  }
+  try {
+    const params = new URLSearchParams({ adminToken: token, t: String(Date.now()) });
+    const response = await fetch(`${curriculumBackupConfig.endpoint}?${params.toString()}`, { cache: "no-store" });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error || "Could not export curriculum backup.");
+    downloadCurriculumBackupJson(data);
+    if (msgEl) {
+      msgEl.textContent = `✅ Backup downloaded. Checksum: ${data.checksum || "n/a"}`;
+      msgEl.classList.add("success");
+    }
+  } catch (error) {
+    const detail = error.message || "please try again.";
+    if (msgEl) {
+      msgEl.textContent = `❌ Backup failed — ${detail}`;
+      msgEl.classList.remove("success");
+    } else {
+      window.alert(`Backup failed: ${detail}`);
+    }
+  }
 }
 
 function exportAllLessonPlansJson() {
@@ -28038,6 +28087,10 @@ document.addEventListener("click", async (event) => {
   }
   if (event.target.closest("#adminExportLessonPlansButton")) {
     exportAllLessonPlansJson();
+    return;
+  }
+  if (event.target.closest("#adminCurriculumBackupButton")) {
+    await exportCurriculumBackup();
     return;
   }
   if (event.target.closest("#adminArchiveAllLessonPlansButton")) {
