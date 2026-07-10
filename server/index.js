@@ -1170,10 +1170,14 @@ function readSiteCurriculum(store) {
 }
 
 function writeSiteCurriculum(store, curriculum, { updatedAt } = {}) {
-  const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  // Avoid full normalizedSiteContent() here — production siteContent can embed
+  // multi-MB lesson-plan resource data URLs. Curriculum saves only touch curriculum + stamp.
+  const existing = store.siteContent && typeof store.siteContent === "object"
+    ? store.siteContent
+    : defaultSiteContentStore();
   const stamp = normalizedShortText(updatedAt, 80) || new Date().toISOString();
   store.siteContent = {
-    ...siteContent,
+    ...existing,
     curriculum: normalizedCurriculumStore(curriculum),
     updatedAt: stamp,
   };
@@ -1563,6 +1567,10 @@ function readStore() {
 const POSTGRES_UPSERT_STORE = "INSERT INTO llh_store (id, data, updated_at) VALUES ($1, $2::jsonb, NOW()) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()";
 const POSTGRES_WRITE_CHAIN_WAIT_MS = 20000;
 const POSTGRES_QUERY_TIMEOUT_MS = 45000;
+// Monotonic generation so a stale write queued behind a newer write cannot clobber it.
+// Production bug: analytics/adminSession writeStore(readStore()) captured an old clone and
+// overwrote a successful curriculum writeStoreAsync on the Postgres chain.
+let postgresWriteGeneration = 0;
 
 function withTimeout(promise, timeoutMs, label = "Operation") {
   return new Promise((resolve, reject) => {
@@ -1582,20 +1590,74 @@ function withTimeout(promise, timeoutMs, label = "Operation") {
   });
 }
 
-function writeStore(store) {
-  storeCache = store;
-  if (usePostgresStore()) {
-    const payload = JSON.stringify(store);
-    postgresWriteChain = postgresWriteChain
-      .then(() => postgresPool.query(POSTGRES_UPSERT_STORE, [storeRecordId, payload]))
-      .catch((error) => {
-        databaseReady = false;
-        console.error("Could not persist launch store to Postgres:", error.message);
+// Persist the latest in-memory storeCache. Stale generations are skipped so concurrent
+// fire-and-forget writeStore() callers cannot erase a newer writeStoreAsync() result.
+function enqueuePostgresStoreWrite() {
+  const writeGeneration = ++postgresWriteGeneration;
+  const writePromise = (async () => {
+    try {
+      await withTimeout(
+        postgresWriteChain.catch((error) => {
+          console.error("Pending write chain error before async write:", error.message);
+        }),
+        POSTGRES_WRITE_CHAIN_WAIT_MS,
+        "Pending Postgres write chain",
+      );
+    } catch (error) {
+      console.error(error.message);
+      // Break a stuck chain so the latest full-state write can proceed.
+      postgresWriteChain = Promise.resolve();
+    }
+    if (writeGeneration !== postgresWriteGeneration) {
+      console.log("[store-write] skip stale generation", {
+        writeGeneration,
+        latest: postgresWriteGeneration,
       });
+      return;
+    }
+    const payload = JSON.stringify(storeCache);
+    await withTimeout(
+      postgresPool.query(POSTGRES_UPSERT_STORE, [storeRecordId, payload]),
+      POSTGRES_QUERY_TIMEOUT_MS,
+      "Postgres store upsert",
+    );
+  })();
+  postgresWriteChain = writePromise.catch((error) => {
+    databaseReady = false;
+    console.error("Could not persist launch store to Postgres:", error.message);
+  });
+  return { writeGeneration, writePromise };
+}
+
+// Analytics/adminSession/etc. often do readStore() → mutate → writeStore().
+// If a curriculum/site-content write landed in between, the stale clone would wipe
+// siteContent (including curriculum). Keep the newer siteContent by updatedAt stamp.
+function mergeStorePreferNewerSiteContent(incomingStore) {
+  if (!storeCache || !incomingStore || typeof incomingStore !== "object") return incomingStore;
+  const incomingStamp = normalizedShortText(incomingStore.siteContent?.updatedAt, 80);
+  const cachedStamp = normalizedShortText(storeCache.siteContent?.updatedAt, 80);
+  if (cachedStamp && (!incomingStamp || cachedStamp > incomingStamp)) {
+    console.log("[store-write] preserve newer siteContent", {
+      incomingStamp: incomingStamp || "(empty)",
+      cachedStamp,
+    });
+    return {
+      ...incomingStore,
+      siteContent: storeCache.siteContent,
+    };
+  }
+  return incomingStore;
+}
+
+function writeStore(store) {
+  const nextStore = mergeStorePreferNewerSiteContent(store);
+  storeCache = nextStore;
+  if (usePostgresStore()) {
+    enqueuePostgresStoreWrite().writePromise.catch(() => {});
     return;
   }
   ensureStore();
-  fs.writeFileSync(storePath, JSON.stringify(store, null, 2));
+  fs.writeFileSync(storePath, JSON.stringify(nextStore, null, 2));
 }
 
 // Writes the store and waits for the Postgres write to complete before returning.
@@ -1603,35 +1665,17 @@ function writeStore(store) {
 // instead of reporting a false success. Use this for admin writes where persistence must
 // be confirmed before responding (e.g. lesson plan visibility changes, site content saves).
 async function writeStoreAsync(store) {
+  // Intentional full-state writes (curriculum / site-content) may carry a newer stamp.
+  // Do not merge-prefer the cache here — the caller already built the next siteContent.
   storeCache = store;
   if (usePostgresStore()) {
-    const payload = JSON.stringify(store);
-    // Serialize behind the shared chain, but never wait forever on a stuck prior write.
-    const writePromise = (async () => {
-      try {
-        await withTimeout(
-          postgresWriteChain.catch((error) => {
-            console.error("Pending write chain error before async write:", error.message);
-          }),
-          POSTGRES_WRITE_CHAIN_WAIT_MS,
-          "Pending Postgres write chain",
-        );
-      } catch (error) {
-        console.error(error.message);
-        // Break a stuck chain so the latest full-state write can proceed.
-        postgresWriteChain = Promise.resolve();
-      }
-      await withTimeout(
-        postgresPool.query(POSTGRES_UPSERT_STORE, [storeRecordId, payload]),
-        POSTGRES_QUERY_TIMEOUT_MS,
-        "Postgres store upsert",
-      );
-    })();
-    postgresWriteChain = writePromise.catch((error) => {
-      databaseReady = false;
-      console.error("Could not persist launch store to Postgres:", error.message);
-    });
+    const { writeGeneration, writePromise } = enqueuePostgresStoreWrite();
     await writePromise;
+    // If a newer write superseded us while we waited, wait for that newer persist too
+    // so the caller does not return success before the latest state is durable.
+    if (writeGeneration !== postgresWriteGeneration) {
+      await postgresWriteChain.catch(() => {});
+    }
     return;
   }
   ensureStore();
@@ -4989,76 +5033,97 @@ function handleAdminCurriculumBackup(request, response, url) {
 
 async function handleAdminCurriculumLessonPlanSave(request, response) {
   const startedAt = Date.now();
+  let step = "received";
   console.log("[curriculum-lesson-save] request received");
-  const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
-    jsonResponse(response, 401, { error: "Admin access is required to save curriculum lesson plans." });
-    return;
-  }
-  const incomingPlan = body.lessonPlan && typeof body.lessonPlan === "object" ? body.lessonPlan : null;
-  if (!incomingPlan) {
-    jsonResponse(response, 400, { error: "A lesson plan payload is required." });
-    return;
-  }
-
-  const incomingId = normalizedShortText(incomingPlan.id, 160);
-  const id = incomingId || generateCurriculumLessonPlanId();
-  const now = new Date().toISOString();
-  const store = readStore();
-  const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
-  if (curriculumConcurrencyConflict(siteContent, body.expectedUpdatedAt)) {
-    console.log("[curriculum-lesson-save] conflict 409", {
-      id,
-      expectedUpdatedAt: normalizedShortText(body.expectedUpdatedAt, 80),
-      siteContentUpdatedAt: normalizedShortText(siteContent.updatedAt, 80),
-    });
-    curriculumConflictResponse(response, siteContent);
-    return;
-  }
-  const existingCurriculum = siteContent.curriculum || defaultCurriculumStore();
-  const existingPlan = existingCurriculum.lessonPlans.find((item) => item.id === id);
-  const planInput = {
-    ...incomingPlan,
-    id,
-    createdAt: existingPlan?.createdAt || normalizedShortText(incomingPlan.createdAt, 80) || now,
-    updatedAt: now,
-  };
-
-  const syncedCurriculum = syncCurriculumActivitiesForLessonPlan(existingCurriculum, planInput);
-  if (!syncedCurriculum) {
-    jsonResponse(response, 400, { error: "Lesson plan could not be normalized." });
-    return;
-  }
-  const integrityError = assertCurriculumIntegrityOrError(syncedCurriculum);
-  if (integrityError) {
-    console.error("[curriculum-lesson-save] integrity failed", integrityError.details?.slice?.(0, 5) || integrityError);
-    jsonResponse(response, 400, integrityError);
-    return;
-  }
-
-  const savedPlan = syncedCurriculum.lessonPlans.find((item) => item.id === id);
-  const savedActivities = syncedCurriculum.activities.filter((activity) => activity.lessonPlanId === id);
-  const siteContentUpdatedAt = writeSiteCurriculum(store, syncedCurriculum, { updatedAt: now });
-
   try {
-    await writeStoreAsync(store);
-  } catch (error) {
-    console.error("Curriculum lesson plan save failed:", error.message);
-    jsonResponse(response, 503, { error: "Curriculum could not be saved. Please try again." });
-    return;
-  }
+    step = "readJson";
+    const body = await readJson(request);
+    step = "auth";
+    if (!validAdminToken(body.adminToken || "")) {
+      jsonResponse(response, 401, { error: "Admin access is required to save curriculum lesson plans." });
+      return;
+    }
+    const incomingPlan = body.lessonPlan && typeof body.lessonPlan === "object" ? body.lessonPlan : null;
+    if (!incomingPlan) {
+      jsonResponse(response, 400, { error: "A lesson plan payload is required." });
+      return;
+    }
 
-  console.log("[curriculum-lesson-save] ok", {
-    id,
-    activities: savedActivities.filter((item) => item.status !== "archived").length,
-    ms: Date.now() - startedAt,
-  });
-  jsonResponse(response, 200, {
-    lessonPlan: savedPlan,
-    activities: savedActivities,
-    curriculum: curriculumWithoutFileData(syncedCurriculum),
-    siteContentUpdatedAt,
-  });
+    const incomingId = normalizedShortText(incomingPlan.id, 160);
+    const id = incomingId || generateCurriculumLessonPlanId();
+    const now = new Date().toISOString();
+    step = "readStore";
+    const store = readStore();
+    // Read stamp/curriculum without re-normalizing the entire siteContent blob
+    // (production lessonPlans can embed multi-MB data URLs).
+    const siteContent = store.siteContent && typeof store.siteContent === "object"
+      ? store.siteContent
+      : defaultSiteContentStore();
+    step = "concurrency";
+    if (curriculumConcurrencyConflict(siteContent, body.expectedUpdatedAt)) {
+      console.log("[curriculum-lesson-save] conflict 409", {
+        id,
+        expectedUpdatedAt: normalizedShortText(body.expectedUpdatedAt, 80),
+        siteContentUpdatedAt: normalizedShortText(siteContent.updatedAt, 80),
+      });
+      curriculumConflictResponse(response, siteContent);
+      return;
+    }
+    const existingCurriculum = siteContent.curriculum || defaultCurriculumStore();
+    const existingPlan = (existingCurriculum.lessonPlans || []).find((item) => item.id === id);
+    const planInput = {
+      ...incomingPlan,
+      id,
+      createdAt: existingPlan?.createdAt || normalizedShortText(incomingPlan.createdAt, 80) || now,
+      updatedAt: now,
+    };
+
+    step = "syncActivities";
+    const syncedCurriculum = syncCurriculumActivitiesForLessonPlan(existingCurriculum, planInput);
+    if (!syncedCurriculum) {
+      jsonResponse(response, 400, { error: "Lesson plan could not be normalized." });
+      return;
+    }
+    step = "integrity";
+    const integrityError = assertCurriculumIntegrityOrError(syncedCurriculum);
+    if (integrityError) {
+      console.error("[curriculum-lesson-save] integrity failed", integrityError.details?.slice?.(0, 5) || integrityError);
+      jsonResponse(response, 400, integrityError);
+      return;
+    }
+
+    const savedPlan = syncedCurriculum.lessonPlans.find((item) => item.id === id);
+    const savedActivities = syncedCurriculum.activities.filter((activity) => activity.lessonPlanId === id);
+    step = "writeSiteCurriculum";
+    const siteContentUpdatedAt = writeSiteCurriculum(store, syncedCurriculum, { updatedAt: now });
+
+    step = "writeStoreAsync";
+    try {
+      await writeStoreAsync(store);
+    } catch (error) {
+      console.error("Curriculum lesson plan save failed:", error.message, { step });
+      jsonResponse(response, 503, { error: "Curriculum could not be saved. Please try again.", step });
+      return;
+    }
+
+    console.log("[curriculum-lesson-save] ok", {
+      id,
+      activities: savedActivities.filter((item) => item.status !== "archived").length,
+      ms: Date.now() - startedAt,
+    });
+    jsonResponse(response, 200, {
+      lessonPlan: savedPlan,
+      activities: savedActivities,
+      curriculum: curriculumWithoutFileData(syncedCurriculum),
+      siteContentUpdatedAt,
+    });
+  } catch (error) {
+    console.error("[curriculum-lesson-save] failed at step", step, error);
+    jsonResponse(response, 500, {
+      error: error.message || "Curriculum lesson plan save failed.",
+      step,
+    });
+  }
 }
 
 function handleAdminCurriculumResourcesList(request, response, url) {
