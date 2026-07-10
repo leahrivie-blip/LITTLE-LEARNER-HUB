@@ -951,6 +951,8 @@ function normalizedCurriculumStore(value) {
 function validateCurriculumIntegrity(curriculum) {
   const store = normalizedCurriculumStore(curriculum);
   const lessonPlanIds = new Set(store.lessonPlans.map((item) => item.id));
+  const activityIds = new Set(store.activities.map((item) => item.id));
+  const resourceIds = new Set(store.resources.map((item) => item.id));
   const errors = [];
   store.activities.forEach((activity) => {
     if (!lessonPlanIds.has(activity.lessonPlanId)) {
@@ -966,17 +968,70 @@ function validateCurriculumIntegrity(curriculum) {
   });
   store.lessonPlans.forEach((lessonPlan) => {
     lessonPlan.activityIds.forEach((activityId) => {
-      if (!store.activities.some((activity) => activity.id === activityId)) {
+      if (!activityIds.has(activityId)) {
         errors.push(`Lesson plan ${lessonPlan.id} references missing activity ${activityId}.`);
       }
     });
     lessonPlan.resourceIds.forEach((resourceId) => {
-      if (!store.resources.some((resource) => resource.id === resourceId)) {
+      if (!resourceIds.has(resourceId)) {
         errors.push(`Lesson plan ${lessonPlan.id} references missing resource ${resourceId}.`);
       }
     });
   });
   return { valid: errors.length === 0, errors };
+}
+
+function curriculumResourceMetadata(resource) {
+  const entry = normalizedCurriculumResource(resource);
+  if (!entry) return null;
+  return {
+    id: entry.id,
+    title: entry.title,
+    resourceCategory: entry.resourceCategory,
+    mimeType: entry.mimeType,
+    fileName: entry.fileName,
+    lessonPlanIds: entry.lessonPlanIds,
+    status: entry.status,
+    createdAt: entry.createdAt,
+    updatedAt: entry.updatedAt,
+    hasFile: Boolean(entry.fileData),
+  };
+}
+
+function curriculumWithoutFileData(curriculum) {
+  const store = normalizedCurriculumStore(curriculum);
+  return {
+    ...store,
+    resources: store.resources.map((item) => curriculumResourceMetadata(item)).filter(Boolean),
+  };
+}
+
+function assertCurriculumIntegrityOrError(curriculum) {
+  const integrity = validateCurriculumIntegrity(curriculum);
+  if (integrity.valid) return null;
+  return {
+    error: "Curriculum integrity check failed.",
+    details: integrity.errors.slice(0, 20),
+  };
+}
+
+function curriculumConcurrencyConflict(siteContent, expectedUpdatedAt) {
+  const existingUpdatedAt = normalizedShortText(siteContent?.updatedAt, 80);
+  const incomingUpdatedAt = normalizedShortText(expectedUpdatedAt, 80);
+  // Same rule as handleAdminSiteContentSave: once stamped, client must send the current value.
+  if (existingUpdatedAt && incomingUpdatedAt !== existingUpdatedAt) {
+    return true;
+  }
+  return false;
+}
+
+function curriculumConflictResponse(response, siteContent) {
+  jsonResponse(response, 409, {
+    error: "Content was updated elsewhere. Reload admin content and try again.",
+    conflict: true,
+    siteContentUpdatedAt: normalizedShortText(siteContent?.updatedAt, 80),
+    curriculum: curriculumWithoutFileData(siteContent?.curriculum || defaultCurriculumStore()),
+  });
 }
 
 function generateCurriculumLessonPlanId() {
@@ -1014,12 +1069,40 @@ function readSiteCurriculum(store) {
   return siteContent.curriculum || defaultCurriculumStore();
 }
 
-function writeSiteCurriculum(store, curriculum) {
+function writeSiteCurriculum(store, curriculum, { updatedAt } = {}) {
   const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  const stamp = normalizedShortText(updatedAt, 80) || new Date().toISOString();
   store.siteContent = {
     ...siteContent,
     curriculum: normalizedCurriculumStore(curriculum),
+    updatedAt: stamp,
   };
+  return stamp;
+}
+
+function unlinkCurriculumResourceFromAllLessonPlans(curriculum, resourceId) {
+  const now = new Date().toISOString();
+  const store = normalizedCurriculumStore(curriculum);
+  const targetResourceId = normalizedShortText(resourceId, 160);
+  if (!targetResourceId) return null;
+  return normalizedCurriculumStore({
+    ...store,
+    resources: store.resources.map((item) => (
+      item.id === targetResourceId
+        ? { ...item, lessonPlanIds: [], updatedAt: now }
+        : item
+    )),
+    lessonPlans: store.lessonPlans.map((item) => (
+      item.resourceIds.includes(targetResourceId)
+        ? {
+          ...item,
+          resourceIds: item.resourceIds.filter((id) => id !== targetResourceId),
+          updatedAt: now,
+        }
+        : item
+    )),
+    updatedAt: now,
+  });
 }
 
 function linkCurriculumResourceToLessonPlan(curriculum, resourceId, lessonPlanId) {
@@ -4732,6 +4815,10 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
   const now = new Date().toISOString();
   const store = readStore();
   const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  if (curriculumConcurrencyConflict(siteContent, body.expectedUpdatedAt)) {
+    curriculumConflictResponse(response, siteContent);
+    return;
+  }
   const existingCurriculum = siteContent.curriculum || defaultCurriculumStore();
   const existingPlan = existingCurriculum.lessonPlans.find((item) => item.id === id);
   const planInput = {
@@ -4746,13 +4833,15 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
     jsonResponse(response, 400, { error: "Lesson plan could not be normalized." });
     return;
   }
+  const integrityError = assertCurriculumIntegrityOrError(syncedCurriculum);
+  if (integrityError) {
+    jsonResponse(response, 400, integrityError);
+    return;
+  }
 
   const savedPlan = syncedCurriculum.lessonPlans.find((item) => item.id === id);
   const savedActivities = syncedCurriculum.activities.filter((activity) => activity.lessonPlanId === id);
-  store.siteContent = {
-    ...siteContent,
-    curriculum: syncedCurriculum,
-  };
+  const siteContentUpdatedAt = writeSiteCurriculum(store, syncedCurriculum, { updatedAt: now });
 
   try {
     await writeStoreAsync(store);
@@ -4765,7 +4854,8 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
   jsonResponse(response, 200, {
     lessonPlan: savedPlan,
     activities: savedActivities,
-    curriculum: syncedCurriculum,
+    curriculum: curriculumWithoutFileData(syncedCurriculum),
+    siteContentUpdatedAt,
   });
 }
 
@@ -4776,11 +4866,38 @@ function handleAdminCurriculumResourcesList(request, response, url) {
     return;
   }
   const store = readStore();
-  const curriculum = readSiteCurriculum(store);
+  const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  const curriculum = siteContent.curriculum || defaultCurriculumStore();
   jsonResponse(response, 200, {
-    resources: curriculum.resources || [],
-    curriculum,
+    resources: (curriculum.resources || []).map((item) => curriculumResourceMetadata(item)).filter(Boolean),
+    curriculum: curriculumWithoutFileData(curriculum),
+    siteContentUpdatedAt: normalizedShortText(siteContent.updatedAt, 80),
   });
+}
+
+function handleAdminCurriculumResourceFile(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required to open curriculum resource files." });
+    return;
+  }
+  const id = normalizedShortText(url.searchParams.get("id"), 160);
+  if (!id) {
+    jsonResponse(response, 400, { error: "Resource id is required." });
+    return;
+  }
+  const store = readStore();
+  const curriculum = readSiteCurriculum(store);
+  const resource = curriculum.resources.find((item) => item.id === id);
+  if (!resource) {
+    jsonResponse(response, 404, { error: "Resource not found." });
+    return;
+  }
+  if (!resource.fileData) {
+    jsonResponse(response, 404, { error: "Resource file data is not available." });
+    return;
+  }
+  jsonResponse(response, 200, { resource });
 }
 
 async function handleAdminCurriculumResourceUpload(request, response) {
@@ -4820,7 +4937,12 @@ async function handleAdminCurriculumResourceSave(request, response) {
   }
   const now = new Date().toISOString();
   const store = readStore();
-  const curriculum = readSiteCurriculum(store);
+  const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  if (curriculumConcurrencyConflict(siteContent, body.expectedUpdatedAt)) {
+    curriculumConflictResponse(response, siteContent);
+    return;
+  }
+  const curriculum = siteContent.curriculum || defaultCurriculumStore();
   const incomingId = normalizedShortText(incoming.id, 160);
   const id = incomingId || generateCurriculumResourceId();
   const existing = curriculum.resources.find((item) => item.id === id);
@@ -4861,7 +4983,12 @@ async function handleAdminCurriculumResourceSave(request, response) {
     resources: nextResources,
     updatedAt: now,
   });
-  writeSiteCurriculum(store, nextCurriculum);
+  const integrityError = assertCurriculumIntegrityOrError(nextCurriculum);
+  if (integrityError) {
+    jsonResponse(response, 400, integrityError);
+    return;
+  }
+  const siteContentUpdatedAt = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
   try {
     await writeStoreAsync(store);
   } catch (error) {
@@ -4869,7 +4996,11 @@ async function handleAdminCurriculumResourceSave(request, response) {
     jsonResponse(response, 503, { error: "Resource could not be saved." });
     return;
   }
-  jsonResponse(response, 200, { resource, curriculum: nextCurriculum });
+  jsonResponse(response, 200, {
+    resource,
+    curriculum: curriculumWithoutFileData(nextCurriculum),
+    siteContentUpdatedAt,
+  });
 }
 
 async function handleAdminCurriculumResourceArchive(request, response) {
@@ -4885,30 +5016,50 @@ async function handleAdminCurriculumResourceArchive(request, response) {
   }
   const now = new Date().toISOString();
   const store = readStore();
-  const curriculum = readSiteCurriculum(store);
+  const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  if (curriculumConcurrencyConflict(siteContent, body.expectedUpdatedAt)) {
+    curriculumConflictResponse(response, siteContent);
+    return;
+  }
+  const curriculum = siteContent.curriculum || defaultCurriculumStore();
   const existing = curriculum.resources.find((item) => item.id === id);
   if (!existing) {
     jsonResponse(response, 404, { error: "Resource not found." });
     return;
   }
+  const unlinked = unlinkCurriculumResourceFromAllLessonPlans(curriculum, id);
+  if (!unlinked) {
+    jsonResponse(response, 400, { error: "Resource could not be unlinked from lesson plans." });
+    return;
+  }
   const resource = normalizedCurriculumResource({
-    ...existing,
+    ...(unlinked.resources.find((item) => item.id === id) || existing),
     status: "archived",
+    lessonPlanIds: [],
     updatedAt: now,
   });
   const nextCurriculum = normalizedCurriculumStore({
-    ...curriculum,
-    resources: curriculum.resources.map((item) => (item.id === id ? resource : item)),
+    ...unlinked,
+    resources: unlinked.resources.map((item) => (item.id === id ? resource : item)),
     updatedAt: now,
   });
-  writeSiteCurriculum(store, nextCurriculum);
+  const integrityError = assertCurriculumIntegrityOrError(nextCurriculum);
+  if (integrityError) {
+    jsonResponse(response, 400, integrityError);
+    return;
+  }
+  const siteContentUpdatedAt = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
   try {
     await writeStoreAsync(store);
   } catch (error) {
     jsonResponse(response, 503, { error: "Resource could not be archived." });
     return;
   }
-  jsonResponse(response, 200, { resource, curriculum: nextCurriculum });
+  jsonResponse(response, 200, {
+    resource: curriculumResourceMetadata(resource),
+    curriculum: curriculumWithoutFileData(nextCurriculum),
+    siteContentUpdatedAt,
+  });
 }
 
 async function handleAdminCurriculumResourceLink(request, response) {
@@ -4924,13 +5075,24 @@ async function handleAdminCurriculumResourceLink(request, response) {
     return;
   }
   const store = readStore();
-  const curriculum = readSiteCurriculum(store);
+  const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  if (curriculumConcurrencyConflict(siteContent, body.expectedUpdatedAt)) {
+    curriculumConflictResponse(response, siteContent);
+    return;
+  }
+  const curriculum = siteContent.curriculum || defaultCurriculumStore();
   const nextCurriculum = linkCurriculumResourceToLessonPlan(curriculum, resourceId, lessonPlanId);
   if (!nextCurriculum) {
     jsonResponse(response, 404, { error: "Resource or lesson plan not found." });
     return;
   }
-  writeSiteCurriculum(store, nextCurriculum);
+  const integrityError = assertCurriculumIntegrityOrError(nextCurriculum);
+  if (integrityError) {
+    jsonResponse(response, 400, integrityError);
+    return;
+  }
+  const now = new Date().toISOString();
+  const siteContentUpdatedAt = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
   try {
     await writeStoreAsync(store);
   } catch (error) {
@@ -4938,9 +5100,10 @@ async function handleAdminCurriculumResourceLink(request, response) {
     return;
   }
   jsonResponse(response, 200, {
-    resource: nextCurriculum.resources.find((item) => item.id === resourceId),
+    resource: curriculumResourceMetadata(nextCurriculum.resources.find((item) => item.id === resourceId)),
     lessonPlan: nextCurriculum.lessonPlans.find((item) => item.id === lessonPlanId),
-    curriculum: nextCurriculum,
+    curriculum: curriculumWithoutFileData(nextCurriculum),
+    siteContentUpdatedAt,
   });
 }
 
@@ -4957,13 +5120,24 @@ async function handleAdminCurriculumResourceUnlink(request, response) {
     return;
   }
   const store = readStore();
-  const curriculum = readSiteCurriculum(store);
+  const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  if (curriculumConcurrencyConflict(siteContent, body.expectedUpdatedAt)) {
+    curriculumConflictResponse(response, siteContent);
+    return;
+  }
+  const curriculum = siteContent.curriculum || defaultCurriculumStore();
   const nextCurriculum = unlinkCurriculumResourceFromLessonPlan(curriculum, resourceId, lessonPlanId);
   if (!nextCurriculum) {
     jsonResponse(response, 404, { error: "Resource or lesson plan not found." });
     return;
   }
-  writeSiteCurriculum(store, nextCurriculum);
+  const integrityError = assertCurriculumIntegrityOrError(nextCurriculum);
+  if (integrityError) {
+    jsonResponse(response, 400, integrityError);
+    return;
+  }
+  const now = new Date().toISOString();
+  const siteContentUpdatedAt = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
   try {
     await writeStoreAsync(store);
   } catch (error) {
@@ -4971,9 +5145,10 @@ async function handleAdminCurriculumResourceUnlink(request, response) {
     return;
   }
   jsonResponse(response, 200, {
-    resource: nextCurriculum.resources.find((item) => item.id === resourceId),
+    resource: curriculumResourceMetadata(nextCurriculum.resources.find((item) => item.id === resourceId)),
     lessonPlan: nextCurriculum.lessonPlans.find((item) => item.id === lessonPlanId),
-    curriculum: nextCurriculum,
+    curriculum: curriculumWithoutFileData(nextCurriculum),
+    siteContentUpdatedAt,
   });
 }
 
@@ -6066,6 +6241,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/backup") return handleAdminCurriculumBackup(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans") return await handleAdminCurriculumLessonPlanSave(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources") return handleAdminCurriculumResourcesList(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources/file") return handleAdminCurriculumResourceFile(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/upload") return await handleAdminCurriculumResourceUpload(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/save") return await handleAdminCurriculumResourceSave(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/archive") return await handleAdminCurriculumResourceArchive(request, response);
