@@ -1006,6 +1006,106 @@ function curriculumWithoutFileData(curriculum) {
   };
 }
 
+function isCurriculumLessonPublic(status) {
+  return status === "published" || status === "featured";
+}
+
+function isCurriculumResourcePublic(status) {
+  return status === "published";
+}
+
+function publicCurriculumLessonPlanDto(plan) {
+  const entry = normalizedCurriculumLessonPlan(plan);
+  if (!entry || !isCurriculumLessonPublic(entry.status)) return null;
+  // Text fields for the existing viewer; never include resource file bytes.
+  return {
+    id: entry.id,
+    title: entry.title,
+    age: entry.age,
+    theme: entry.theme,
+    plan: entry.plan,
+    status: entry.status,
+    learningDomains: entry.learningDomains,
+    weeklyOverview: entry.weeklyOverview,
+    objectives: entry.objectives,
+    books: entry.books,
+    songs: entry.songs,
+    weeklyMaterials: entry.weeklyMaterials,
+    vocabularyWords: entry.vocabularyWords,
+    observationOpportunities: entry.observationOpportunities,
+    adaptations: entry.adaptations,
+    familyConnection: entry.familyConnection,
+    dailyPlans: entry.dailyPlans,
+    activityIds: entry.activityIds,
+    resourceIds: entry.resourceIds,
+    createdAt: entry.createdAt,
+    updatedAt: entry.updatedAt,
+  };
+}
+
+function publicCurriculumActivityDto(activity, parentPlan) {
+  const entry = normalizedCurriculumActivity(activity);
+  if (!entry || entry.status !== "published") return null;
+  if (!parentPlan || !isCurriculumLessonPublic(parentPlan.status)) return null;
+  return {
+    id: entry.id,
+    lessonPlanId: entry.lessonPlanId,
+    itemId: entry.itemId,
+    sourceKey: entry.sourceKey,
+    dayOfWeek: entry.dayOfWeek,
+    activityCategory: entry.activityCategory,
+    title: entry.title,
+    description: entry.description,
+    materials: entry.materials,
+    steps: entry.steps,
+    learningGoals: entry.learningGoals,
+    status: entry.status,
+    parentTitle: parentPlan.title,
+    parentAge: parentPlan.age,
+    parentPlan: parentPlan.plan,
+    parentStatus: parentPlan.status,
+    createdAt: entry.createdAt,
+    updatedAt: entry.updatedAt,
+  };
+}
+
+function publicCurriculumLibraryDto(siteContent) {
+  const flags = normalizedFeatureFlags(siteContent?.featureFlags);
+  if (!flags.playBasedCurriculum) {
+    return null;
+  }
+  const store = normalizedCurriculumStore(siteContent?.curriculum);
+  const lessonPlans = store.lessonPlans
+    .map((plan) => publicCurriculumLessonPlanDto(plan))
+    .filter(Boolean)
+    .sort((a, b) => {
+      const featuredDelta = (b.status === "featured" ? 1 : 0) - (a.status === "featured" ? 1 : 0);
+      if (featuredDelta) return featuredDelta;
+      return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
+    });
+  const lessonById = new Map(lessonPlans.map((plan) => [plan.id, plan]));
+  const publicLessonIds = new Set(lessonById.keys());
+  const activities = store.activities
+    .map((activity) => publicCurriculumActivityDto(activity, lessonById.get(activity.lessonPlanId)))
+    .filter(Boolean)
+    .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
+  const resources = store.resources
+    .map((resource) => {
+      const meta = curriculumResourceMetadata(resource);
+      if (!meta || !isCurriculumResourcePublic(meta.status)) return null;
+      const linkedToPublicLesson = (meta.lessonPlanIds || []).some((id) => publicLessonIds.has(id));
+      if (!linkedToPublicLesson) return null;
+      return meta;
+    })
+    .filter(Boolean);
+  return {
+    lessonPlans,
+    activities,
+    resources,
+    updatedAt: store.updatedAt || "",
+  };
+}
+
 function assertCurriculumIntegrityOrError(curriculum) {
   const integrity = validateCurriculumIntegrity(curriculum);
   if (integrity.valid) return null;
@@ -4447,6 +4547,8 @@ function handlePublicSiteContent(request, response) {
     ? defaults.upgradeMessaging
     : content.upgradeMessaging;
   const { featureFlags, curriculum, ...publicSiteContent } = content;
+  const playBasedCurriculum = normalizedFeatureFlags(featureFlags).playBasedCurriculum === true;
+  const curriculumLibrary = publicCurriculumLibraryDto(content);
   jsonResponse(response, 200, {
     siteContent: {
       ...publicSiteContent,
@@ -4461,6 +4563,56 @@ function handlePublicSiteContent(request, response) {
       founding: publicFounding,
       announcement: publicAnnouncementContent,
       upgradeMessaging: publicUpgradeMessaging,
+      // Minimal public cutover signal — full featureFlags object stays admin-only.
+      playBasedCurriculum,
+      ...(curriculumLibrary ? { curriculumLibrary } : {}),
+    },
+  });
+}
+
+function handlePublicCurriculumResourceFile(request, response, url) {
+  const store = readStore();
+  const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  if (!normalizedFeatureFlags(siteContent.featureFlags).playBasedCurriculum) {
+    jsonResponse(response, 404, { error: "Curriculum library is not enabled." });
+    return;
+  }
+  const id = normalizedShortText(url.searchParams.get("id"), 160);
+  if (!id) {
+    jsonResponse(response, 400, { error: "Resource id is required." });
+    return;
+  }
+  const curriculum = readSiteCurriculum(store);
+  const resource = curriculum.resources.find((item) => item.id === id);
+  if (!resource || !isCurriculumResourcePublic(resource.status)) {
+    jsonResponse(response, 404, { error: "Resource not found." });
+    return;
+  }
+  const publicLessonIds = new Set(
+    curriculum.lessonPlans
+      .filter((plan) => isCurriculumLessonPublic(plan.status))
+      .map((plan) => plan.id),
+  );
+  const linkedToPublicLesson = (resource.lessonPlanIds || []).some((lessonPlanId) => publicLessonIds.has(lessonPlanId));
+  if (!linkedToPublicLesson) {
+    jsonResponse(response, 404, { error: "Resource not found." });
+    return;
+  }
+  if (!resource.fileData) {
+    jsonResponse(response, 404, { error: "Resource file data is not available." });
+    return;
+  }
+  jsonResponse(response, 200, {
+    resource: {
+      id: resource.id,
+      title: resource.title,
+      resourceCategory: resource.resourceCategory,
+      mimeType: resource.mimeType,
+      fileName: resource.fileName,
+      lessonPlanIds: resource.lessonPlanIds,
+      status: resource.status,
+      fileData: resource.fileData,
+      hasFile: true,
     },
   });
 }
@@ -6242,6 +6394,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans") return await handleAdminCurriculumLessonPlanSave(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources") return handleAdminCurriculumResourcesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources/file") return handleAdminCurriculumResourceFile(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/curriculum/resources/file") return handlePublicCurriculumResourceFile(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/upload") return await handleAdminCurriculumResourceUpload(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/save") return await handleAdminCurriculumResourceSave(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/archive") return await handleAdminCurriculumResourceArchive(request, response);

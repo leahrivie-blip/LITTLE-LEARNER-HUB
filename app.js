@@ -1873,12 +1873,16 @@ const curriculumLessonPlanConfig = {
 const curriculumResourceConfig = {
   listEndpoint: "/api/admin/curriculum/resources",
   fileEndpoint: "/api/admin/curriculum/resources/file",
+  publicFileEndpoint: "/api/curriculum/resources/file",
   uploadEndpoint: "/api/admin/curriculum/resources/upload",
   saveEndpoint: "/api/admin/curriculum/resources/save",
   archiveEndpoint: "/api/admin/curriculum/resources/archive",
   linkEndpoint: "/api/admin/curriculum/resources/link",
   unlinkEndpoint: "/api/admin/curriculum/resources/unlink",
 };
+// Temporary testing switch: set true to force legacy lesson/activity libraries
+// even when playBasedCurriculum is ON. Does not delete or migrate legacy data.
+const CURRICULUM_LIBRARY_FALLBACK_TO_LEGACY = false;
 const billingPlans = {
   Free: {
     name: "Free",
@@ -3438,13 +3442,31 @@ function emptySiteContent() {
     featureFlags: {
       playBasedCurriculum: false,
     },
+    playBasedCurriculum: false,
+    curriculumLibrary: emptyCurriculumLibrary(),
     curriculum: emptyCurriculum(),
     updatedAt: "",
   };
 }
 
+function emptyCurriculumLibrary() {
+  return {
+    lessonPlans: [],
+    activities: [],
+    resources: [],
+    updatedAt: "",
+  };
+}
+
 function isPlayBasedCurriculumEnabled() {
-  return effectiveSiteContent().featureFlags?.playBasedCurriculum === true;
+  const content = effectiveSiteContent();
+  return content.featureFlags?.playBasedCurriculum === true
+    || content.playBasedCurriculum === true;
+}
+
+function useCurriculumLibrarySources() {
+  // Flag ON → curriculum libraries by default; fallback constant reverts to legacy quickly.
+  return isPlayBasedCurriculumEnabled() && !CURRICULUM_LIBRARY_FALLBACK_TO_LEGACY;
 }
 
 const CURRICULUM_LEARNING_DOMAINS = Object.freeze([
@@ -3519,6 +3541,214 @@ function curriculumResourcesForLesson(lessonPlanId) {
   return effectiveCurriculum().resources.filter((item) => (
     Array.isArray(item.lessonPlanIds) && item.lessonPlanIds.includes(targetId)
   ));
+}
+
+function effectiveCurriculumLibrary() {
+  const content = effectiveSiteContent();
+  const fromPublic = content.curriculumLibrary;
+  if (fromPublic && typeof fromPublic === "object") {
+    return {
+      lessonPlans: Array.isArray(fromPublic.lessonPlans) ? fromPublic.lessonPlans : [],
+      activities: Array.isArray(fromPublic.activities) ? fromPublic.activities : [],
+      resources: Array.isArray(fromPublic.resources) ? fromPublic.resources : [],
+      updatedAt: fromPublic.updatedAt || "",
+    };
+  }
+  // Admin sessions load full curriculum; derive the same published-only library view.
+  const curriculum = effectiveCurriculum();
+  const lessonPlans = curriculum.lessonPlans
+    .filter((plan) => plan.status === "published" || plan.status === "featured")
+    .slice()
+    .sort((a, b) => {
+      const featuredDelta = (b.status === "featured" ? 1 : 0) - (a.status === "featured" ? 1 : 0);
+      if (featuredDelta) return featuredDelta;
+      return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
+    });
+  const publicLessonIds = new Set(lessonPlans.map((plan) => plan.id));
+  const activities = curriculum.activities.filter((activity) => (
+    activity.status === "published" && publicLessonIds.has(activity.lessonPlanId)
+  ));
+  const resources = curriculum.resources
+    .filter((resource) => resource.status === "published")
+    .filter((resource) => (resource.lessonPlanIds || []).some((id) => publicLessonIds.has(id)))
+    .map((resource) => ({
+      id: resource.id,
+      title: resource.title,
+      resourceCategory: resource.resourceCategory,
+      mimeType: resource.mimeType,
+      fileName: resource.fileName,
+      lessonPlanIds: resource.lessonPlanIds || [],
+      status: resource.status,
+      hasFile: Boolean(resource.fileData || resource.hasFile),
+      updatedAt: resource.updatedAt || "",
+    }));
+  return {
+    lessonPlans,
+    activities: activities.map((activity) => {
+      const parent = lessonPlans.find((plan) => plan.id === activity.lessonPlanId);
+      return {
+        ...activity,
+        parentTitle: parent?.title || "",
+        parentAge: parent?.age || "Preschool",
+        parentPlan: parent?.plan || "Free",
+        parentStatus: parent?.status || "",
+      };
+    }),
+    resources,
+    updatedAt: curriculum.updatedAt || "",
+  };
+}
+
+function curriculumLibraryResourceById(id) {
+  const targetId = String(id || "").trim();
+  if (!targetId) return null;
+  return effectiveCurriculumLibrary().resources.find((item) => item.id === targetId) || null;
+}
+
+function buildLessonPlanTextFromCurriculum(plan) {
+  const entry = plan && typeof plan === "object" ? plan : {};
+  const daySections = CURRICULUM_WEEKDAYS.map((day) => {
+    const items = Array.isArray(entry.dailyPlans?.[day]?.items) ? entry.dailyPlans[day].items : [];
+    if (!items.length) return "";
+    const body = items.map((item, index) => {
+      const goals = Array.isArray(item.learningGoals) ? item.learningGoals.filter(Boolean).join("; ") : "";
+      return [
+        `${index + 1}. ${item.title || "Activity"} (${item.activityCategory || "Play"})`,
+        item.description ? `Description: ${item.description}` : "",
+        item.materials ? `Materials: ${item.materials}` : "",
+        item.steps ? `Steps:\n${item.steps}` : "",
+        goals ? `Learning Goals: ${goals}` : "",
+      ].filter(Boolean).join("\n");
+    }).join("\n\n");
+    return `${day.charAt(0).toUpperCase()}${day.slice(1)}\n${body}`;
+  }).filter(Boolean).join("\n\n");
+  const books = Array.isArray(entry.books)
+    ? entry.books.map((book) => `- ${book.title || "Book"}${book.author ? ` by ${book.author}` : ""}`).join("\n")
+    : "";
+  const songs = Array.isArray(entry.songs)
+    ? entry.songs.map((song) => `- ${song.title || "Song"}`).join("\n")
+    : "";
+  const domains = Array.isArray(entry.learningDomains) ? entry.learningDomains.join(", ") : "";
+  return `Weekly Lesson Plan
+Title: ${entry.title || "Untitled Lesson Plan"}
+Theme: ${entry.theme || ""}
+Age Group: ${entry.age || ""}
+Developmental Focus: ${domains || "Play-Based Learning"}
+Plan Access: ${entry.plan || "Free"}
+
+Weekly Overview
+${entry.weeklyOverview || ""}
+
+Weekly Learning Objectives
+${entry.objectives || ""}
+
+Complete Materials List
+${entry.weeklyMaterials || ""}
+
+Vocabulary Words
+${entry.vocabularyWords || ""}
+
+Books
+${books || "None listed"}
+
+Songs
+${songs || "None listed"}
+
+Monday Through Friday
+${daySections || "Daily play plans to be added."}
+
+Observation Opportunities
+${entry.observationOpportunities || ""}
+
+Adaptations for Different Abilities
+${entry.adaptations || ""}
+
+Family Connection Idea
+${entry.familyConnection || ""}`;
+}
+
+function buildActivityTextFromCurriculum(activity) {
+  const entry = activity && typeof activity === "object" ? activity : {};
+  const goals = Array.isArray(entry.learningGoals) ? entry.learningGoals.filter(Boolean).map((goal) => `- ${goal}`).join("\n") : "";
+  return `Activity
+Title: ${entry.title || "Activity"}
+Parent Lesson Plan: ${entry.parentTitle || entry.lessonPlanId || ""}
+Day: ${entry.dayOfWeek || ""}
+Category: ${entry.activityCategory || "Open-Ended Exploration"}
+Age Group: ${entry.parentAge || "All Ages"}
+
+Short Description
+${entry.description || ""}
+
+Materials
+${entry.materials || ""}
+
+Steps
+${entry.steps || ""}
+
+Learning Goals
+${goals || "None listed"}`;
+}
+
+function loadCurriculumManagedLessonPlans() {
+  return effectiveCurriculumLibrary().lessonPlans
+    .filter((item) => item.id && item.title)
+    .map((item) => ({
+      id: item.id,
+      category: "Lesson Plans",
+      title: item.title,
+      age: item.age || "Preschool",
+      plan: item.plan || "Free",
+      month: "",
+      tags: [
+        ...(Array.isArray(item.learningDomains) ? item.learningDomains : []),
+        item.theme,
+      ].filter(Boolean),
+      format: "Play-Based Lesson",
+      description: item.weeklyOverview || item.theme || "",
+      theme: item.theme || "",
+      developmentalArea: (Array.isArray(item.learningDomains) && item.learningDomains[0]) || "Approaches to Learning",
+      holiday: "",
+      activityFocus: "",
+      weeklyOverview: item.weeklyOverview || "",
+      materials: item.weeklyMaterials || "",
+      previewData: "",
+      visible: true,
+      archived: false,
+      featured: item.status === "featured",
+      customContent: buildLessonPlanTextFromCurriculum(item),
+      _curriculumManaged: true,
+      _curriculumResourceIds: Array.isArray(item.resourceIds) ? item.resourceIds : [],
+      _curriculumLessonPlan: item,
+    }));
+}
+
+function loadCurriculumManagedActivities() {
+  return effectiveCurriculumLibrary().activities
+    .filter((item) => item.id && item.title && item.lessonPlanId)
+    .map((item) => ({
+      id: item.id,
+      category: "Activity Center",
+      title: item.title,
+      age: item.parentAge || "All Ages",
+      plan: item.parentPlan || "Free",
+      description: item.description || "",
+      theme: item.activityCategory || "",
+      tags: [item.activityCategory, item.dayOfWeek, item.parentTitle].filter(Boolean),
+      previewData: "",
+      fileData: "",
+      customContent: buildActivityTextFromCurriculum(item),
+      downloadUrl: "",
+      format: "Play-Based Activity",
+      visible: true,
+      archived: false,
+      updatedAt: item.updatedAt || "",
+      activityCategory: item.activityCategory || "Open-Ended Exploration",
+      lessonPlanId: item.lessonPlanId,
+      _curriculumManaged: true,
+      _curriculumLessonPlanId: item.lessonPlanId,
+      _curriculumParentTitle: item.parentTitle || "",
+    }));
 }
 
 const CURRICULUM_WEEKDAYS = Object.freeze(["monday", "tuesday", "wednesday", "thursday", "friday"]);
@@ -5297,6 +5527,24 @@ function allLessonPlansForAdmin() {
 function loadResources() {
   const saved = uploadedResources();
   const starterWithoutOldGenerated = starterResources.filter((resource) => !["Observation Hub", "Lesson Plans"].includes(resource.category));
+
+  if (useCurriculumLibrarySources()) {
+    // Curriculum feeds Lesson Plans + Activity Center only. Other categories stay legacy.
+    // Legacy lesson/activity data remains in storage for flag-OFF rollback / FALLBACK switch.
+    const legacySupportingLibrary = applyLessonPlanOverrides(
+      libraryResources.filter((resource) => resource.category !== "Lesson Plans" && resource.category !== "Activity Center"),
+    );
+    return applyObservationEdits([
+      ...starterWithoutOldGenerated.filter((resource) => resource.category !== "Activity Center"),
+      ...legacySupportingLibrary,
+      ...loadCurriculumManagedLessonPlans(),
+      ...loadCurriculumManagedActivities(),
+      ...loadAdminManagedForms(),
+      ...loadAdminManagedPrintables(),
+      ...saved,
+    ]);
+  }
+
   const mergedLibrary = applyLessonPlanOverrides(libraryResources);
   const adminActivities = loadAdminManagedActivities();
   const adminForms = loadAdminManagedForms();
@@ -8234,7 +8482,12 @@ function resourcePrintableHtml(resource) {
 function lessonPlanAttachedResourcesHtml(resource) {
   if (resource.category !== "Lesson Plans") return "";
   const override = resource.lessonPlanOverride || lessonPlanOverrideFor(resource.id) || null;
-  const attachedResources = Array.isArray(override?.resources) ? override.resources : [];
+  let attachedResources = Array.isArray(override?.resources) ? override.resources : [];
+  if (!attachedResources.length && resource._curriculumManaged) {
+    attachedResources = Array.isArray(resource._curriculumAttachedResources)
+      ? resource._curriculumAttachedResources
+      : [];
+  }
   if (!attachedResources.length) return "";
 
   // Group by category and sort within each group
@@ -8246,10 +8499,10 @@ function lessonPlanAttachedResourcesHtml(resource) {
     const itemsHtml = items.map((r) => {
       const isImage = r.mimeType && r.mimeType.startsWith("image/");
       const isPdf = r.mimeType === "application/pdf";
-      const isExternal = r.url && r.url.startsWith("http");
+      const isExternal = r.url && (r.url.startsWith("http") || r.url.startsWith("data:"));
       return `
         <div class="lp-resource-viewer-item">
-          ${isImage ? `<img class="lp-resource-viewer-img" src="${escapeHtml(r.url)}" alt="${escapeHtml(r.title)}" />` : ""}
+          ${isImage && r.url ? `<img class="lp-resource-viewer-img" src="${escapeHtml(r.url)}" alt="${escapeHtml(r.title)}" />` : ""}
           <div class="lp-resource-viewer-meta">
             <strong>${escapeHtml(r.title)}</strong>
             ${isPdf || isExternal ? `<a class="ghost-button lp-resource-open-btn" href="${escapeHtml(r.url)}" target="_blank" rel="noopener noreferrer">${isPdf ? "Open PDF" : "Open Resource"}</a>` : ""}
@@ -8272,6 +8525,54 @@ function lessonPlanAttachedResourcesHtml(resource) {
       ${categorySections}
     </section>
   `;
+}
+
+async function fetchPublishedCurriculumResourceFile(resourceId) {
+  const id = String(resourceId || "").trim();
+  if (!id || !curriculumResourceConfig.publicFileEndpoint) return null;
+  const params = new URLSearchParams({ id, t: String(Date.now()) });
+  const response = await fetch(`${curriculumResourceConfig.publicFileEndpoint}?${params.toString()}`, { cache: "no-store" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Could not open curriculum resource file.");
+  return data.resource || null;
+}
+
+async function withHydratedCurriculumAttachments(resource) {
+  if (!resource?._curriculumManaged || resource.category !== "Lesson Plans") return resource;
+  const ids = Array.isArray(resource._curriculumResourceIds) ? resource._curriculumResourceIds : [];
+  if (!ids.length) return resource;
+  const attached = [];
+  for (const resourceId of ids) {
+    const meta = curriculumLibraryResourceById(resourceId) || curriculumResourceById(resourceId);
+    if (!meta || meta.status === "archived" || meta.status === "draft") continue;
+    let url = "";
+    const existingData = String(meta.fileData || "").trim();
+    if (existingData.startsWith("data:") || /^https:\/\//i.test(existingData)) {
+      url = existingData;
+    } else if (meta.hasFile !== false) {
+      try {
+        const file = await fetchPublishedCurriculumResourceFile(resourceId);
+        url = String(file?.fileData || "").trim();
+      } catch (error) {
+        console.warn(error);
+      }
+    }
+    attached.push({
+      title: meta.title || "Resource",
+      category: meta.resourceCategory || "Classroom Resources",
+      mimeType: meta.mimeType || "",
+      url,
+      order: attached.length,
+    });
+  }
+  return {
+    ...resource,
+    _curriculumAttachedResources: attached,
+    lessonPlanOverride: {
+      ...(resource.lessonPlanOverride || {}),
+      resources: attached,
+    },
+  };
 }
 
 function decodedTextFileData(resource) {
@@ -10304,7 +10605,7 @@ function openLockedResourcePreview(resource, triggerEl = null) {
   featurePreviewTitle.focus();
 }
 
-function openResourceViewer(resourceId) {
+async function openResourceViewer(resourceId) {
   const resource = resources.find((item) => item.id === resourceId);
   if (!resource) return;
   if (!isResourceVisibleToCurrentUser(resource)) {
@@ -10324,25 +10625,46 @@ function openResourceViewer(resourceId) {
     pdfButton.hidden = !hasResourcePdf(resource);
     pdfButton.dataset.pdfResource = hasResourcePdf(resource) ? resource.id : "";
   }
+  const parentLessonLabel = resource._curriculumLessonPlanId
+    ? `From lesson: ${resource._curriculumParentTitle || resource._curriculumLessonPlanId}`
+    : "";
   document.querySelector("#resourceViewerTags").innerHTML = [
     resource.age,
     resource.plan,
     resource.format || "In-app resource",
+    parentLessonLabel,
     ...resource.tags.slice(0, 4),
-  ].map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
+  ].filter(Boolean).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
   const body = document.querySelector("#resourceViewerBody");
-  if (resource.fileData && resource.fileData.startsWith("data:image")) {
+  body.innerHTML = `<p class="admin-generator-note">Loading resource…</p>`;
+  let viewerResource = resource;
+  try {
+    viewerResource = await withHydratedCurriculumAttachments(resource);
+  } catch (error) {
+    console.warn(error);
+  }
+  if (viewerResource.fileData && viewerResource.fileData.startsWith("data:image")) {
     body.innerHTML = `
       <article class="printable-resource-page">
         <section class="print-section print-cover">
-          <h3>${escapeHtml(resource.title)}</h3>
-          <p>${escapeHtml(resource.description || "Printable uploaded resource.")}</p>
+          <h3>${escapeHtml(viewerResource.title)}</h3>
+          <p>${escapeHtml(viewerResource.description || "Printable uploaded resource.")}</p>
         </section>
-        <img class="resource-viewer-image" src="${resource.fileData}" alt="${escapeHtml(resource.title)}" />
+        <img class="resource-viewer-image" src="${viewerResource.fileData}" alt="${escapeHtml(viewerResource.title)}" />
       </article>
     `;
   } else {
-    body.innerHTML = resourcePrintableHtml(resource);
+    body.innerHTML = resourcePrintableHtml(viewerResource);
+  }
+  if (viewerResource._curriculumLessonPlanId) {
+    const parentActions = document.createElement("div");
+    parentActions.className = "print-section";
+    parentActions.innerHTML = `
+      <button class="ghost-button" type="button" data-view-resource="${escapeHtml(viewerResource._curriculumLessonPlanId)}">
+        Open parent lesson plan
+      </button>
+    `;
+    body.querySelector("article")?.appendChild(parentActions);
   }
   if (!savedDownloads.includes(resource.id)) {
     savedDownloads = [...savedDownloads, resource.id];
@@ -19730,10 +20052,13 @@ function downloadCurriculumBackupJson(data) {
 
 function playBasedCurriculumFlagHtml() {
   const enabled = isPlayBasedCurriculumEnabled();
+  const fallbackNote = CURRICULUM_LIBRARY_FALLBACK_TO_LEGACY
+    ? " Testing fallback is ON in code (CURRICULUM_LIBRARY_FALLBACK_TO_LEGACY), so libraries still use legacy sources."
+    : "";
   return `
     <fieldset class="admin-fieldset">
       <legend>Play-Based Curriculum (Beta)</legend>
-      <p class="admin-generator-note">Default is OFF. The public lesson and activity libraries stay on the legacy system until a later cutover phase wires this flag into user-facing reads.</p>
+      <p class="admin-generator-note">Default is OFF. When enabled, the Lesson Plan Library and Activity Library show published/featured curriculum content (activities stay generated from lesson plans). Legacy lesson/activity data is kept for rollback.${fallbackNote}</p>
       <label class="admin-inline-toggle">
         <input type="checkbox" id="adminPlayBasedCurriculumFlag" ${enabled ? "checked" : ""} />
         <span>Enable play-based curriculum system</span>
@@ -19755,9 +20080,14 @@ async function savePlayBasedCurriculumFeatureFlag(enabled) {
       await saveAdminSiteContent(nextContent);
     },
     successMsg: enabled
-      ? "✅ Play-based curriculum flag enabled. Public library unchanged until cutover."
-      : "✅ Play-based curriculum flag disabled.",
-    onComplete: () => renderAdminContentManager(),
+      ? (CURRICULUM_LIBRARY_FALLBACK_TO_LEGACY
+        ? "✅ Flag enabled, but code fallback still forces legacy libraries."
+        : "✅ Play-based curriculum flag enabled. Published curriculum feeds Lesson Plan and Activity libraries.")
+      : "✅ Play-based curriculum flag disabled. Libraries use legacy lesson plans and activities.",
+    onComplete: () => {
+      syncSiteManagedResources();
+      renderAdminContentManager();
+    },
   });
 }
 

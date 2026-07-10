@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Phase 2E readiness checks: concurrency, metadata list, archive unlink, integrity.
+ * Curriculum readiness + Phase 2E public library cutover checks.
  * Run: node scripts/test-curriculum-uploads-storage.js
  */
 const fs = require("fs");
@@ -254,7 +254,7 @@ async function main() {
     assert(!(archivedPlan.resourceIds || []).includes(resourceId), "Lesson plan still references archived resource");
     expectedUpdatedAt = archive.json.siteContentUpdatedAt;
 
-    console.log("6) Activity sync still stable + public API unchanged");
+    console.log("6) Activity sync still stable + public API omits full curriculum when flag OFF");
     const payload = {
       adminToken: token,
       expectedUpdatedAt,
@@ -294,12 +294,131 @@ async function main() {
     const acts2 = (second.json.activities || []).filter((a) => a.status !== "archived");
     assert(acts1.length === 1 && acts2.length === 1, "Activity sync duplicated");
     assert(acts1[0].id === acts2[0].id, "Activity id changed");
+    expectedUpdatedAt = second.json.siteContentUpdatedAt;
 
-    const publicContent = await requestJson("GET", "/api/site-content");
-    assert(!("curriculum" in publicContent.json.siteContent), "Public API must omit curriculum");
-    assert(!("featureFlags" in publicContent.json.siteContent), "Public API must omit featureFlags");
+    const publicOff = await requestJson("GET", "/api/site-content");
+    assert(publicOff.status === 200, "Public site-content failed");
+    assert(!("curriculum" in publicOff.json.siteContent), "Public API must omit curriculum");
+    assert(!("featureFlags" in publicOff.json.siteContent), "Public API must omit featureFlags");
+    assert(publicOff.json.siteContent.playBasedCurriculum === false, "Flag should be false publicly when OFF");
+    assert(!("curriculumLibrary" in publicOff.json.siteContent), "curriculumLibrary must be absent when flag OFF");
 
-    console.log("\nAll Phase 2E readiness checks passed.");
+    const fileOff = await requestJson("GET", `/api/curriculum/resources/file?id=${encodeURIComponent(resourceId)}`);
+    assert(fileOff.status === 404, "Public file endpoint must 404 when flag OFF");
+
+    console.log("7) Flag ON exposes published curriculumLibrary only (no fileData, no drafts)");
+    // Publish lesson + recreate a published linked resource for library DTO tests.
+    const publishedResourceId = `cur-res-pub-${crypto.randomBytes(4).toString("hex")}`;
+    const pubResource = await requestJson("POST", "/api/admin/curriculum/resources/save", {
+      adminToken: token,
+      expectedUpdatedAt,
+      resource: {
+        id: publishedResourceId,
+        title: "Published Tiny Resource",
+        resourceCategory: "Printables",
+        fileData: PNG_DATA_URL,
+        fileName: "tiny-pub.png",
+        mimeType: "image/png",
+        status: "published",
+      },
+    });
+    assert(pubResource.status === 200, `Published resource save failed: ${pubResource.status} ${pubResource.text}`);
+    expectedUpdatedAt = pubResource.json.siteContentUpdatedAt;
+
+    const draftResourceId = `cur-res-draft-${crypto.randomBytes(4).toString("hex")}`;
+    const draftResource = await requestJson("POST", "/api/admin/curriculum/resources/save", {
+      adminToken: token,
+      expectedUpdatedAt,
+      resource: {
+        id: draftResourceId,
+        title: "Draft Hidden Resource",
+        resourceCategory: "Classroom Resources",
+        fileData: PNG_DATA_URL,
+        fileName: "draft.png",
+        mimeType: "image/png",
+        status: "draft",
+      },
+    });
+    assert(draftResource.status === 200, `Draft resource save failed: ${draftResource.status}`);
+    expectedUpdatedAt = draftResource.json.siteContentUpdatedAt;
+
+    const publishPlan = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+      adminToken: token,
+      expectedUpdatedAt,
+      lessonPlan: {
+        ...second.json.lessonPlan,
+        status: "published",
+        dailyPlans: payload.lessonPlan.dailyPlans,
+      },
+    });
+    assert(publishPlan.status === 200, `Publish lesson failed: ${publishPlan.status} ${publishPlan.text}`);
+    expectedUpdatedAt = publishPlan.json.siteContentUpdatedAt;
+    const publishedActivity = (publishPlan.json.activities || []).find((item) => item.status === "published");
+    assert(publishedActivity, "Publishing lesson should publish synced activities");
+    assert(publishedActivity.lessonPlanId === lessonPlanId, "Activity must link to parent lesson plan");
+
+    const linkPub = await requestJson("POST", "/api/admin/curriculum/resources/link", {
+      adminToken: token,
+      expectedUpdatedAt,
+      resourceId: publishedResourceId,
+      lessonPlanId,
+    });
+    assert(linkPub.status === 200, `Link published resource failed: ${linkPub.status} ${linkPub.text}`);
+    expectedUpdatedAt = linkPub.json.siteContentUpdatedAt;
+
+    const linkDraft = await requestJson("POST", "/api/admin/curriculum/resources/link", {
+      adminToken: token,
+      expectedUpdatedAt,
+      resourceId: draftResourceId,
+      lessonPlanId,
+    });
+    assert(linkDraft.status === 200, `Link draft resource failed: ${linkDraft.status}`);
+    expectedUpdatedAt = linkDraft.json.siteContentUpdatedAt;
+
+    const reloadForFlag = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(token)}`);
+    assert(reloadForFlag.status === 200, "Reload before flag enable failed");
+    const flagOk = await requestJson("POST", "/api/admin/site-content", {
+      adminToken: token,
+      siteContent: {
+        ...reloadForFlag.json.siteContent,
+        featureFlags: { playBasedCurriculum: true },
+        updatedAt: reloadForFlag.json.siteContent.updatedAt,
+      },
+    });
+    assert(flagOk.status === 200, `Enable flag failed: ${flagOk.status} ${flagOk.text}`);
+    assert(flagOk.json.siteContent.featureFlags?.playBasedCurriculum === true, "Flag not persisted");
+
+    const publicOn = await requestJson("GET", "/api/site-content");
+    assert(publicOn.status === 200, "Public site-content failed with flag ON");
+    assert(publicOn.json.siteContent.playBasedCurriculum === true, "Public flag should be true");
+    assert(!("curriculum" in publicOn.json.siteContent), "Public API must still omit full curriculum");
+    assert(!("featureFlags" in publicOn.json.siteContent), "Public API must still omit featureFlags object");
+    const library = publicOn.json.siteContent.curriculumLibrary;
+    assert(library, "curriculumLibrary missing when flag ON");
+    assert(Array.isArray(library.lessonPlans) && library.lessonPlans.some((p) => p.id === lessonPlanId), "Published lesson missing from library DTO");
+    assert(library.lessonPlans.every((p) => p.status === "published" || p.status === "featured"), "Draft lessons leaked");
+    assert(Array.isArray(library.activities) && library.activities.some((a) => a.id === publishedActivity.id), "Published activity missing");
+    assert(library.activities.every((a) => a.status === "published" && a.lessonPlanId), "Activities must be published and parent-linked");
+    assert(library.resources.some((r) => r.id === publishedResourceId), "Published linked resource missing");
+    assert(!library.resources.some((r) => r.id === draftResourceId), "Draft resource leaked into public library");
+    assert(library.resources.every((r) => !("fileData" in r)), "Public library resources must not include fileData");
+    assert(library.resources.every((r) => r.hasFile === true || r.hasFile === false), "Public resources should expose hasFile");
+
+    console.log("8) Public file endpoint serves published linked files only");
+    const pubFile = await requestJson(
+      "GET",
+      `/api/curriculum/resources/file?id=${encodeURIComponent(publishedResourceId)}`,
+    );
+    assert(pubFile.status === 200, `Public file fetch failed: ${pubFile.status} ${pubFile.text}`);
+    assert(pubFile.json.resource.fileData === PNG_DATA_URL, "Public file payload mismatch");
+
+    const draftFile = await requestJson(
+      "GET",
+      `/api/curriculum/resources/file?id=${encodeURIComponent(draftResourceId)}`,
+    );
+    assert(draftFile.status === 404, "Draft resource file must not be publicly readable");
+
+    console.log("\nAll Phase 2E curriculum library checks passed.");
   } catch (error) {
     console.error("\nFAIL:", error.message);
     process.exitCode = 1;
