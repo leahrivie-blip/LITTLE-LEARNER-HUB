@@ -3226,6 +3226,7 @@ let adminCurriculumResourceEditorId = "";
 let adminCurriculumLessonSaving = false;
 let adminCurriculumLessonImportDraft = null;
 let adminCurriculumLessonImportTextCache = "";
+let adminCurriculumLessonSaveBanner = { text: "", isSuccess: false };
 let adminCurriculumResourceSaving = false;
 let adminReviewEditorId = "";
 let adminImageEditorId = "";
@@ -4139,6 +4140,7 @@ function applyCurriculumLessonPlanImport() {
   }
   adminCurriculumLessonImportDraft = parsed.data;
   adminCurriculumLessonImportTextCache = text;
+  setAdminCurriculumLessonSaveBanner("", false);
   renderAdminCurriculumLessonPlanManager();
   applyAdminSectionVisibility();
   if (messageEl) {
@@ -4322,6 +4324,9 @@ function renderAdminCurriculumLessonPlanManager() {
   const plans = curriculumLessonPlansForAdmin();
   const editingId = adminCurriculumLessonEditorId;
   const editingPlan = editingId ? curriculumLessonEditorRecord() : null;
+  const banner = adminCurriculumLessonSaveBanner?.text
+    ? `<div class="form-message ${adminCurriculumLessonSaveBanner.isSuccess ? "success" : ""}" id="adminCurriculumLessonPlanBanner" role="status">${escapeHtml(adminCurriculumLessonSaveBanner.text)}</div>`
+    : `<div class="form-message" id="adminCurriculumLessonPlanBanner" role="status"></div>`;
   target.innerHTML = `
     <div class="section-heading">
       <div>
@@ -4331,12 +4336,26 @@ function renderAdminCurriculumLessonPlanManager() {
       </div>
       <button class="ghost-button" type="button" id="adminCreateCurriculumLessonPlanButton">+ Create lesson plan</button>
     </div>
+    ${banner}
     ${renderCurriculumLessonImportPanel()}
     <div class="admin-mobile-list" id="adminCurriculumLessonPlanList">
       ${plans.map(curriculumLessonPlanAdminCardHtml).join("") || `<div class="empty-state">No play-based lesson plans yet.</div>`}
     </div>
     ${editingPlan ? renderAdminCurriculumLessonPlanForm(editingPlan) : ""}
   `;
+}
+
+function countCurriculumDailyPlanItems(dailyPlans) {
+  return CURRICULUM_WEEKDAYS.reduce((count, day) => (
+    count + (Array.isArray(dailyPlans?.[day]?.items) ? dailyPlans[day].items.length : 0)
+  ), 0);
+}
+
+function setAdminCurriculumLessonSaveBanner(text, isSuccess = false) {
+  adminCurriculumLessonSaveBanner = {
+    text: String(text || ""),
+    isSuccess: Boolean(isSuccess),
+  };
 }
 
 function collectCurriculumLessonPlanFromForm(form) {
@@ -4395,33 +4414,62 @@ function collectCurriculumLessonPlanFromForm(form) {
 
 async function saveAdminCurriculumLessonPlanForm(form) {
   if (adminCurriculumLessonSaving) {
-    setFormMessage("#adminCurriculumLessonPlanMessage", "Already saving — please wait. If this persists, refresh the page and try again.", false);
+    setAdminCurriculumLessonSaveBanner("Already saving — please wait. If this persists, refresh the page and try again.", false);
+    renderAdminCurriculumLessonPlanManager();
+    document.querySelector("#adminCurriculumLessonPlanBanner")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     return;
   }
   const token = adminSession()?.token || "";
   if (!curriculumLessonPlanConfig.endpoint || !canUseLaunchBackend() || !token) {
-    setFormMessage("#adminCurriculumLessonPlanMessage", "Backend server and admin login are required.", false);
+    setAdminCurriculumLessonSaveBanner("Backend server and admin login are required.", false);
+    renderAdminCurriculumLessonPlanManager();
+    return;
+  }
+
+  // Collect from the live submitted form BEFORE any re-render. Re-rendering first
+  // detaches the form and can produce an empty payload (silent no-op saves).
+  let lessonPlan;
+  try {
+    lessonPlan = collectCurriculumLessonPlanFromForm(form);
+  } catch (error) {
+    setAdminCurriculumLessonSaveBanner(`❌ Could not read lesson form: ${error.message || "unknown error"}`, false);
+    renderAdminCurriculumLessonPlanManager();
+    return;
+  }
+  if (!lessonPlan.id) {
+    lessonPlan.id = adminCurriculumLessonEditorId || `cur-lp-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
+  }
+  adminCurriculumLessonEditorId = lessonPlan.id;
+  const activityCount = countCurriculumDailyPlanItems(lessonPlan.dailyPlans);
+  if (!activityCount) {
+    setAdminCurriculumLessonSaveBanner("❌ No activities found in the form. Click Parse Lesson Plan again, then Save.", false);
+    renderAdminCurriculumLessonPlanManager();
+    document.querySelector("#adminCurriculumLessonPlanBanner")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     return;
   }
 
   adminCurriculumLessonSaving = true;
+  setAdminCurriculumLessonSaveBanner(`Saving “${lessonPlan.title}” with ${activityCount} activities…`, true);
   renderAdminCurriculumLessonPlanManager();
-  applyAdminSectionVisibility();
 
   let successMessage = "";
   let errorMessage = "";
   const controllers = [];
   try {
-    const lessonPlan = collectCurriculumLessonPlanFromForm(form);
-    // Concurrency token must match siteContent.updatedAt; refresh if the client never received one.
+    console.log("[curriculum-lesson-save] start", {
+      id: lessonPlan.id,
+      title: lessonPlan.title,
+      activities: activityCount,
+      expectedUpdatedAt: curriculumExpectedUpdatedAt() || "(empty)",
+    });
     if (!curriculumExpectedUpdatedAt()) {
       try {
         await Promise.race([
           loadAdminSiteContent(),
           new Promise((_, reject) => setTimeout(() => reject(new Error("Timed out refreshing admin content.")), 15000)),
         ]);
-      } catch {
-        // Continue; server will return 409 if a stamp already exists.
+      } catch (error) {
+        console.warn("[curriculum-lesson-save] updatedAt refresh skipped", error.message || error);
       }
     }
 
@@ -4446,6 +4494,13 @@ async function saveAdminCurriculumLessonPlanForm(form) {
         } catch {
           data = null;
         }
+        console.log("[curriculum-lesson-save] response", {
+          status: response.status,
+          ok: response.ok,
+          hasLesson: Boolean(data?.lessonPlan?.id),
+          activities: Array.isArray(data?.activities) ? data.activities.length : 0,
+          error: data?.error || null,
+        });
         return { response, data };
       } finally {
         clearTimeout(timeoutId);
@@ -4466,14 +4521,18 @@ async function saveAdminCurriculumLessonPlanForm(form) {
         : "";
       throw new Error(`${data?.error || `Could not save curriculum lesson plan (${response.status}).`}${detail}`);
     }
+    if (!data?.lessonPlan?.id) {
+      throw new Error("Save returned an empty lesson plan. Please refresh and try again.");
+    }
     applyCurriculumState(data.curriculum || effectiveCurriculum(), {
       siteContentUpdatedAt: data.siteContentUpdatedAt,
     });
-    adminCurriculumLessonEditorId = data.lessonPlan?.id || lessonPlan.id;
+    adminCurriculumLessonEditorId = data.lessonPlan.id;
     adminCurriculumLessonImportDraft = null;
     const syncedCount = (data.activities || []).filter((item) => item.status !== "archived").length;
-    successMessage = `✅ Saved. ${syncedCount} linked activities synced.`;
+    successMessage = `✅ Saved “${data.lessonPlan.title || lessonPlan.title}”. ${syncedCount} linked activities synced.`;
   } catch (error) {
+    console.error("[curriculum-lesson-save] failed", error);
     if (error?.name === "AbortError") {
       errorMessage = "❌ Save timed out. Please refresh and try again.";
     } else {
@@ -4484,8 +4543,11 @@ async function saveAdminCurriculumLessonPlanForm(form) {
       try { controller.abort(); } catch { /* ignore */ }
     });
     adminCurriculumLessonSaving = false;
+    setAdminCurriculumLessonSaveBanner(successMessage || errorMessage || "❌ Save ended without a result. Check the browser console.", Boolean(successMessage));
     renderAdminCurriculumLessonPlanManager();
-    applyAdminSectionVisibility();
+    const bannerEl = document.querySelector("#adminCurriculumLessonPlanBanner");
+    bannerEl?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    // Keep the in-form message in sync when the editor is open.
     if (successMessage) setFormMessage("#adminCurriculumLessonPlanMessage", successMessage, true);
     if (errorMessage) setFormMessage("#adminCurriculumLessonPlanMessage", errorMessage, false);
   }
