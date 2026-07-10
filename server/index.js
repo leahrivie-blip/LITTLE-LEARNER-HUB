@@ -5083,6 +5083,12 @@ function handleAdminCurriculumBackupNew(request, response, url) {
 
 async function handleAdminCurriculumWipe(request, response) {
   const startedAt = Date.now();
+  // Phase 2H: wipe is one-time / emergency only. Disabled unless explicitly enabled.
+  if (String(process.env.ALLOW_CURRICULUM_WIPE || "").trim().toLowerCase() !== "true") {
+    console.warn("[curriculum-wipe] rejected — endpoint disabled (ALLOW_CURRICULUM_WIPE!=true)");
+    jsonResponse(response, 404, { error: "Curriculum wipe endpoint is disabled." });
+    return;
+  }
   try {
     const body = await readJson(request);
     if (!validAdminToken(body.adminToken || "")) {
@@ -6654,7 +6660,10 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/backup") return handleAdminCurriculumBackup(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/backup/new") return handleAdminCurriculumBackupNew(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/backup/full") return handleAdminCurriculumBackupFull(request, response, url);
-    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/wipe") return await handleAdminCurriculumWipe(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/wipe") {
+      // Kept behind ALLOW_CURRICULUM_WIPE=true; returns 404 when disabled.
+      return await handleAdminCurriculumWipe(request, response);
+    }
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans") return await handleAdminCurriculumLessonPlanSave(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources") return handleAdminCurriculumResourcesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources/file") return handleAdminCurriculumResourceFile(request, response, url);
