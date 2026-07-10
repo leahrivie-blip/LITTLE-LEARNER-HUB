@@ -3044,6 +3044,40 @@ body.home-view .topbar .search-wrap {
   font-size: 13px;
 }
 
+.curriculum-daily-editor {
+  display: grid;
+  gap: 14px;
+}
+
+.curriculum-daily-day {
+  margin: 0;
+}
+
+.curriculum-daily-items {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.curriculum-daily-item-row {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.curriculum-domain-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.curriculum-daily-remove {
+  justify-self: start;
+}
+
 .admin-mobile-list {
   display: grid;
   gap: 12px;

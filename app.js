@@ -1864,6 +1864,12 @@ const uploadedResourcesConfig = {
   upsertEndpoint: "/api/admin/uploads/upsert",
   deleteEndpoint: "/api/admin/uploads/delete",
 };
+const curriculumBackupConfig = {
+  endpoint: "/api/admin/curriculum/backup",
+};
+const curriculumLessonPlanConfig = {
+  endpoint: "/api/admin/curriculum/lesson-plans",
+};
 const billingPlans = {
   Free: {
     name: "Free",
@@ -3202,6 +3208,8 @@ let checkoutPromoCode = localStorage.getItem("llhCheckoutPromoCode") || "";
 let adminAnalyticsCache = null;
 let adminAnalyticsLoading = false;
 let adminLessonEditorId = "";
+let adminCurriculumLessonEditorId = "";
+let adminCurriculumLessonSaving = false;
 let adminReviewEditorId = "";
 let adminImageEditorId = "";
 let adminLessonSelection = new Set();
@@ -3213,7 +3221,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","activities","forms","printables","reviews","founder","images","analytics","support","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","curriculum-lesson-plans","activities","forms","printables","reviews","founder","images","analytics","support","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding"]);
 // FUTURE ADMIN BUILD: lessonPlanResourceCategories is currently hardcoded.
 // A future admin section should allow adding, renaming, and reordering these category labels
 // so new upload categories can be managed without a code change.
@@ -3226,7 +3234,7 @@ let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabNorma
 // ─── Admin 2.0 Navigation Groups ─────────────────────────────────────────────
 const adminGroups = [
   { id: "dashboard", icon: "🏠", label: "Dashboard",  tabs: ["dashboard", "analytics", "support"], defaultTab: "dashboard" },
-  { id: "content",   icon: "📚", label: "Content",    tabs: ["lesson-plans", "activities", "forms", "printables", "reviews", "founder", "resources"], defaultTab: "lesson-plans" },
+  { id: "content",   icon: "📚", label: "Content",    tabs: ["lesson-plans", "curriculum-lesson-plans", "activities", "forms", "printables", "reviews", "founder", "resources"], defaultTab: "lesson-plans" },
   { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
   { id: "users",     icon: "👥", label: "Users",      tabs: ["users", "stripe-backfill"], defaultTab: "users" },
   { id: "settings",  icon: "⚙️", label: "Settings",   tabs: ["images"], defaultTab: "images" },
@@ -3238,6 +3246,7 @@ const adminGroupForTab = {
   "analytics":   "dashboard",
   "support":     "dashboard",
   "lesson-plans":"content",
+  "curriculum-lesson-plans": "content",
   "activities":  "content",
   "forms":       "content",
   "printables":  "content",
@@ -3267,6 +3276,7 @@ const adminTabLabels = {
   "analytics":   "Analytics",
   "support":     "Support",
   "lesson-plans":"Lesson Plans",
+  "curriculum-lesson-plans": "Play-Based Lessons (Beta)",
   "activities":  "Activities",
   "forms":       "Forms Library (not legacy uploads)",
   "printables":  "Printables Library (not legacy uploads)",
@@ -3410,8 +3420,396 @@ function emptySiteContent() {
     upgradeMessaging: {},
     founding: {},
     images: [],
+    featureFlags: {
+      playBasedCurriculum: false,
+    },
+    curriculum: emptyCurriculum(),
     updatedAt: "",
   };
+}
+
+function isPlayBasedCurriculumEnabled() {
+  return effectiveSiteContent().featureFlags?.playBasedCurriculum === true;
+}
+
+const CURRICULUM_LEARNING_DOMAINS = Object.freeze([
+  "Social Emotional",
+  "Language & Literacy",
+  "Math",
+  "Science",
+  "Physical Development",
+  "Creative Arts",
+]);
+const PLAY_ACTIVITY_CATEGORIES = Object.freeze([
+  "Sensory Play",
+  "Gross Motor",
+  "Fine Motor",
+  "Music & Movement",
+  "Dramatic Play",
+  "Open-Ended Exploration",
+]);
+
+function emptyCurriculum() {
+  return {
+    lessonPlans: [],
+    activities: [],
+    resources: [],
+    updatedAt: "",
+  };
+}
+
+function effectiveCurriculum() {
+  const curriculum = effectiveSiteContent().curriculum;
+  if (!curriculum || typeof curriculum !== "object") return emptyCurriculum();
+  return {
+    lessonPlans: Array.isArray(curriculum.lessonPlans) ? curriculum.lessonPlans : [],
+    activities: Array.isArray(curriculum.activities) ? curriculum.activities : [],
+    resources: Array.isArray(curriculum.resources) ? curriculum.resources : [],
+    updatedAt: curriculum.updatedAt || "",
+  };
+}
+
+function curriculumLessonPlanById(id) {
+  const targetId = String(id || "").trim();
+  if (!targetId) return null;
+  return effectiveCurriculum().lessonPlans.find((item) => item.id === targetId) || null;
+}
+
+function curriculumActivityById(id) {
+  const targetId = String(id || "").trim();
+  if (!targetId) return null;
+  return effectiveCurriculum().activities.find((item) => item.id === targetId) || null;
+}
+
+function curriculumResourceById(id) {
+  const targetId = String(id || "").trim();
+  if (!targetId) return null;
+  return effectiveCurriculum().resources.find((item) => item.id === targetId) || null;
+}
+
+function curriculumActivitiesForLesson(lessonPlanId) {
+  const targetId = String(lessonPlanId || "").trim();
+  if (!targetId) return [];
+  return effectiveCurriculum().activities.filter((item) => item.lessonPlanId === targetId);
+}
+
+function curriculumResourcesForLesson(lessonPlanId) {
+  const targetId = String(lessonPlanId || "").trim();
+  if (!targetId) return [];
+  return effectiveCurriculum().resources.filter((item) => (
+    Array.isArray(item.lessonPlanIds) && item.lessonPlanIds.includes(targetId)
+  ));
+}
+
+const CURRICULUM_WEEKDAYS = Object.freeze(["monday", "tuesday", "wednesday", "thursday", "friday"]);
+const CURRICULUM_LESSON_STATUSES = Object.freeze(["draft", "published", "featured", "archived"]);
+
+function generateCurriculumItemIdClient() {
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  return `item-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function curriculumLessonPlanStatusLabel(status) {
+  const labels = {
+    draft: "🟡 Draft",
+    published: "🟢 Published",
+    featured: "⭐ Featured",
+    archived: "📦 Archived",
+  };
+  return labels[status] || status;
+}
+
+function emptyCurriculumDailyPlans() {
+  return Object.fromEntries(CURRICULUM_WEEKDAYS.map((day) => [day, { items: [] }]));
+}
+
+function curriculumLessonPlansForAdmin() {
+  return effectiveCurriculum().lessonPlans.slice().sort((a, b) => (
+    String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))
+  ));
+}
+
+function openAdminCurriculumLessonEditor(id, { scroll = false } = {}) {
+  adminCurriculumLessonEditorId = id;
+  if (adminActiveSectionTab !== "curriculum-lesson-plans") setAdminSectionTab("curriculum-lesson-plans");
+  renderAdminCurriculumLessonPlanManager();
+  applyAdminSectionVisibility();
+  const form = document.querySelector("#adminCurriculumLessonPlanForm");
+  if (form && scroll) form.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function createAdminCurriculumLessonPlan() {
+  const id = `cur-lp-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
+  openAdminCurriculumLessonEditor(id, { scroll: true });
+}
+
+function curriculumDailyItemRowHtml(day, item = {}) {
+  const itemId = item.itemId || "";
+  const category = item.activityCategory || PLAY_ACTIVITY_CATEGORIES[0];
+  return `
+    <div class="curriculum-daily-item-row" data-curriculum-day="${escapeHtml(day)}">
+      <input type="hidden" value="${escapeHtml(itemId)}" data-curriculum-item-id />
+      <label>Category
+        <select data-curriculum-category>
+          ${PLAY_ACTIVITY_CATEGORIES.map((option) => `<option value="${escapeHtml(option)}"${option === category ? " selected" : ""}>${escapeHtml(option)}</option>`).join("")}
+        </select>
+      </label>
+      <label>Title<input value="${escapeHtml(item.title || "")}" data-curriculum-title placeholder="Activity title" /></label>
+      <label>Description<textarea rows="2" data-curriculum-description>${escapeHtml(item.description || "")}</textarea></label>
+      <button class="ghost-button curriculum-daily-remove" type="button" data-curriculum-remove-row>Remove</button>
+    </div>
+  `;
+}
+
+function renderCurriculumDailyPlanEditor(dailyPlans = emptyCurriculumDailyPlans()) {
+  return CURRICULUM_WEEKDAYS.map((day) => {
+    const items = Array.isArray(dailyPlans?.[day]?.items) ? dailyPlans[day].items : [];
+    const dayLabel = day.charAt(0).toUpperCase() + day.slice(1);
+    return `
+      <fieldset class="admin-fieldset curriculum-daily-day" data-curriculum-day-panel="${day}">
+        <legend>${dayLabel}</legend>
+        <div class="curriculum-daily-items" data-curriculum-day-items="${day}">
+          ${items.length
+            ? items.map((item) => curriculumDailyItemRowHtml(day, item)).join("")
+            : `<p class="muted-copy curriculum-daily-empty">No activities yet.</p>`
+          }
+        </div>
+        <button class="ghost-button" type="button" data-curriculum-add-row="${day}">+ Add ${dayLabel} activity</button>
+      </fieldset>
+    `;
+  }).join("");
+}
+
+function renderAdminCurriculumLessonPlanForm(plan) {
+  const record = plan || {
+    id: adminCurriculumLessonEditorId || "",
+    title: "",
+    age: "Preschool",
+    theme: "",
+    plan: "Free",
+    status: "draft",
+    learningDomains: [],
+    weeklyOverview: "",
+    objectives: "",
+    familyConnection: "",
+    dailyPlans: emptyCurriculumDailyPlans(),
+  };
+  const selectedDomains = new Set(record.learningDomains || []);
+  return `
+    <form id="adminCurriculumLessonPlanForm" class="panel-form admin-stacked-form">
+      <input type="hidden" name="id" value="${escapeHtml(record.id || "")}" />
+      <h4>Editing: ${escapeHtml(record.title || "New Lesson Plan")}</h4>
+      <p class="muted-copy">${curriculumLessonPlanStatusLabel(record.status || "draft")} · Linked activities regenerate automatically on save.</p>
+      <div class="form-grid-two">
+        <label>Title<input name="title" value="${escapeHtml(record.title || "")}" required /></label>
+        <label>Age group
+          <select name="age">
+            ${["Infant", "Toddler", "Preschool"].map((age) => `<option${record.age === age ? " selected" : ""}>${age}</option>`).join("")}
+          </select>
+        </label>
+      </div>
+      <div class="form-grid-two">
+        <label>Theme<input name="theme" value="${escapeHtml(record.theme || "")}" /></label>
+        <label>Free / Pro
+          <select name="plan">
+            ${["Free", "Pro"].map((tier) => `<option${record.plan === tier ? " selected" : ""}>${tier}</option>`).join("")}
+          </select>
+        </label>
+      </div>
+      <label>Status
+        <select name="status">
+          ${CURRICULUM_LESSON_STATUSES.map((status) => `<option value="${status}"${record.status === status ? " selected" : ""}>${curriculumLessonPlanStatusLabel(status)}</option>`).join("")}
+        </select>
+      </label>
+      <fieldset class="admin-fieldset">
+        <legend>Learning domains</legend>
+        <div class="curriculum-domain-grid">
+          ${CURRICULUM_LEARNING_DOMAINS.map((domain) => `
+            <label class="admin-inline-toggle">
+              <input type="checkbox" name="learningDomains" value="${escapeHtml(domain)}" ${selectedDomains.has(domain) ? "checked" : ""} />
+              <span>${escapeHtml(domain)}</span>
+            </label>
+          `).join("")}
+        </div>
+      </fieldset>
+      <label>Weekly overview<textarea name="weeklyOverview" rows="3">${escapeHtml(record.weeklyOverview || "")}</textarea></label>
+      <label>Objectives<textarea name="objectives" rows="3">${escapeHtml(record.objectives || "")}</textarea></label>
+      <label>Family connection<textarea name="familyConnection" rows="2">${escapeHtml(record.familyConnection || "")}</textarea></label>
+      <div class="curriculum-daily-editor">
+        <h4>Daily activities (Mon–Fri)</h4>
+        ${renderCurriculumDailyPlanEditor(record.dailyPlans)}
+      </div>
+      <div class="form-actions">
+        <button class="primary-button" type="submit" ${adminCurriculumLessonSaving ? "disabled" : ""}>${adminCurriculumLessonSaving ? "Saving…" : "💾 Save lesson plan"}</button>
+        <button class="ghost-button" type="button" data-curriculum-lesson-back>Back to list</button>
+      </div>
+      <span class="form-message" id="adminCurriculumLessonPlanMessage"></span>
+    </form>
+  `;
+}
+
+function curriculumLessonPlanAdminCardHtml(plan) {
+  const linkedCount = curriculumActivitiesForLesson(plan.id).filter((item) => item.status !== "archived").length;
+  return `
+    <article class="admin-content-card is-${escapeHtml(plan.status || "draft")}">
+      <div class="admin-mobile-card-body">
+        <div>
+          <strong>${escapeHtml(plan.title || "Untitled Lesson Plan")}</strong>
+          <div class="tag-row" style="margin:2px 0 4px">
+            <span class="tag">${curriculumLessonPlanStatusLabel(plan.status || "draft")}</span>
+            <span class="tag">${escapeHtml(plan.age || "Preschool")}</span>
+            <span class="tag">${escapeHtml(plan.plan || "Free")}</span>
+          </div>
+          <small>${escapeHtml(plan.theme || "Theme")}</small>
+          <small>${linkedCount} linked ${linkedCount === 1 ? "activity" : "activities"}</small>
+          <small>Updated: ${escapeHtml(adminLessonUpdatedLabel(plan.updatedAt))}</small>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="ghost-button" type="button" data-curriculum-lesson-edit="${escapeHtml(plan.id)}">Edit</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderAdminCurriculumLessonPlanManager() {
+  const target = document.querySelector("#adminCurriculumLessonPlanApp");
+  if (!target) return;
+  const plans = curriculumLessonPlansForAdmin();
+  const editingId = adminCurriculumLessonEditorId;
+  const editingPlan = editingId
+    ? (curriculumLessonPlanById(editingId) || {
+      id: editingId,
+      title: "",
+      age: "Preschool",
+      theme: "",
+      plan: "Free",
+      status: "draft",
+      learningDomains: [],
+      weeklyOverview: "",
+      objectives: "",
+      familyConnection: "",
+      dailyPlans: emptyCurriculumDailyPlans(),
+    })
+    : null;
+  target.innerHTML = `
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Play-Based Curriculum (Beta)</p>
+        <h3>Curriculum lesson plans</h3>
+        <p class="muted-copy">Lesson plans are the source of truth. Saving regenerates linked activities using stable item IDs.</p>
+      </div>
+      <button class="ghost-button" type="button" id="adminCreateCurriculumLessonPlanButton">+ Create lesson plan</button>
+    </div>
+    <div class="admin-mobile-list" id="adminCurriculumLessonPlanList">
+      ${plans.map(curriculumLessonPlanAdminCardHtml).join("") || `<div class="empty-state">No play-based lesson plans yet.</div>`}
+    </div>
+    ${editingPlan ? renderAdminCurriculumLessonPlanForm(editingPlan) : ""}
+  `;
+}
+
+function collectCurriculumLessonPlanFromForm(form) {
+  const formData = new FormData(form);
+  const id = normalizedShortText(formData.get("id"));
+  const dailyPlans = emptyCurriculumDailyPlans();
+  CURRICULUM_WEEKDAYS.forEach((day) => {
+    const rows = form.querySelectorAll(`.curriculum-daily-item-row[data-curriculum-day="${day}"]`);
+    const items = [];
+    rows.forEach((row) => {
+      const title = normalizedShortText(row.querySelector("[data-curriculum-title]")?.value);
+      if (!title) return;
+      const itemId = normalizedShortText(row.querySelector("[data-curriculum-item-id]")?.value) || generateCurriculumItemIdClient();
+      items.push({
+        itemId,
+        activityCategory: normalizedShortText(row.querySelector("[data-curriculum-category]")?.value) || PLAY_ACTIVITY_CATEGORIES[0],
+        title,
+        description: normalizedMultilineText(row.querySelector("[data-curriculum-description]")?.value),
+        materials: "",
+        steps: "",
+        learningGoals: [],
+      });
+    });
+    dailyPlans[day] = { items };
+  });
+  const existing = id ? curriculumLessonPlanById(id) : null;
+  return {
+    ...(existing || {}),
+    id,
+    title: normalizedShortText(formData.get("title")) || "Untitled Lesson Plan",
+    age: normalizedShortText(formData.get("age")) || "Preschool",
+    theme: normalizedShortText(formData.get("theme")),
+    plan: normalizedShortText(formData.get("plan")) === "Pro" ? "Pro" : "Free",
+    status: CURRICULUM_LESSON_STATUSES.includes(formData.get("status")) ? formData.get("status") : "draft",
+    learningDomains: formData.getAll("learningDomains").map((item) => normalizedShortText(item)).filter(Boolean),
+    weeklyOverview: normalizedMultilineText(formData.get("weeklyOverview")),
+    objectives: normalizedMultilineText(formData.get("objectives")),
+    familyConnection: normalizedMultilineText(formData.get("familyConnection")),
+    dailyPlans,
+    books: existing?.books || [],
+    songs: existing?.songs || [],
+    resourceIds: existing?.resourceIds || [],
+    activityIds: existing?.activityIds || [],
+    createdAt: existing?.createdAt || "",
+    updatedAt: existing?.updatedAt || "",
+  };
+}
+
+async function saveAdminCurriculumLessonPlanForm(form) {
+  if (adminCurriculumLessonSaving) {
+    setFormMessage("#adminCurriculumLessonPlanMessage", "Already saving — please wait.", false);
+    return;
+  }
+  const token = adminSession()?.token || "";
+  if (!curriculumLessonPlanConfig.endpoint || !canUseLaunchBackend() || !token) {
+    setFormMessage("#adminCurriculumLessonPlanMessage", "Backend server and admin login are required.", false);
+    return;
+  }
+  adminCurriculumLessonSaving = true;
+  const lessonPlan = collectCurriculumLessonPlanFromForm(form);
+  renderAdminCurriculumLessonPlanManager();
+  applyAdminSectionVisibility();
+  try {
+    const response = await fetch(curriculumLessonPlanConfig.endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminToken: token, lessonPlan }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error || "Could not save curriculum lesson plan.");
+    siteContentState = {
+      ...effectiveSiteContent(),
+      curriculum: data.curriculum || effectiveCurriculum(),
+    };
+    adminCurriculumLessonEditorId = data.lessonPlan?.id || lessonPlan.id;
+    setFormMessage("#adminCurriculumLessonPlanMessage", `✅ Saved. ${(data.activities || []).filter((item) => item.status !== "archived").length} linked activities synced.`, true);
+    renderAdminCurriculumLessonPlanManager();
+    applyAdminSectionVisibility();
+  } catch (error) {
+    setFormMessage("#adminCurriculumLessonPlanMessage", `❌ ${error.message || "Save failed."}`, false);
+    renderAdminCurriculumLessonPlanManager();
+    applyAdminSectionVisibility();
+  } finally {
+    adminCurriculumLessonSaving = false;
+  }
+}
+
+function addCurriculumDailyPlanRow(day) {
+  const container = document.querySelector(`[data-curriculum-day-items="${day}"]`);
+  if (!container) return;
+  const empty = container.querySelector(".curriculum-daily-empty");
+  if (empty) empty.remove();
+  const rowIndex = container.querySelectorAll(".curriculum-daily-item-row").length;
+  container.insertAdjacentHTML("beforeend", curriculumDailyItemRowHtml(day, { itemId: generateCurriculumItemIdClient() }));
+}
+
+function removeCurriculumDailyPlanRow(button) {
+  const row = button.closest(".curriculum-daily-item-row");
+  const container = row?.closest("[data-curriculum-day-items]");
+  row?.remove();
+  if (container && !container.querySelector(".curriculum-daily-item-row")) {
+    container.innerHTML = `<p class="muted-copy curriculum-daily-empty">No activities yet.</p>`;
+  }
 }
 
 function cloneJson(value, fallback) {
@@ -3861,6 +4259,17 @@ function effectiveSiteContent() {
     announcement: { ...(base.announcement || {}), ...(overrides.announcement || {}) },
     upgradeMessaging: { ...(base.upgradeMessaging || {}), ...(overrides.upgradeMessaging || {}) },
     founding: { ...(base.founding || {}), ...(overrides.founding || {}) },
+    featureFlags: {
+      playBasedCurriculum: overrides.featureFlags?.playBasedCurriculum === true,
+    },
+    curriculum: overrides.curriculum && typeof overrides.curriculum === "object"
+      ? {
+        lessonPlans: Array.isArray(overrides.curriculum.lessonPlans) ? overrides.curriculum.lessonPlans : [],
+        activities: Array.isArray(overrides.curriculum.activities) ? overrides.curriculum.activities : [],
+        resources: Array.isArray(overrides.curriculum.resources) ? overrides.curriculum.resources : [],
+        updatedAt: overrides.curriculum.updatedAt || "",
+      }
+      : emptyCurriculum(),
     updatedAt: overrides.updatedAt || base.updatedAt || "",
   };
 }
@@ -17800,9 +18209,12 @@ function renderAdminContentManager() {
           <button class="ghost-button" type="button" data-admin-bulk="free">Bulk Mark Free</button>
           <button class="ghost-button" type="button" data-admin-bulk="pro">Bulk Mark Pro</button>
           <button class="ghost-button" type="button" id="adminExportLessonPlansButton">💾 Export Backup</button>
+          <button class="ghost-button" type="button" id="adminCurriculumBackupButton">💾 Legacy Curriculum Backup</button>
           <button class="ghost-button" type="button" id="adminShowOnly50Button">Show only 50 per age group</button>
           <button class="danger-button" type="button" id="adminArchiveAllLessonPlansButton">📦 Archive ALL Lesson Plans</button>
         </div>
+        <span class="form-message" id="adminCurriculumBackupMessage"></span>
+        ${playBasedCurriculumFlagHtml()}
         <div class="admin-mobile-list" id="adminLessonPlanList">${lessons.map(lessonPlanAdminCardHtml).join("") || `<div class="empty-state">No lesson plans match these filters.</div>`}</div>
         ${lessonRecord ? `
           <form id="adminLessonPlanForm" class="panel-form admin-stacked-form" data-importer-updated-title-theme="${lessonRecord.titleThemeImporterUpdated ? "true" : "false"}">
@@ -17950,6 +18362,9 @@ function renderAdminContentManager() {
           <span class="form-message" id="adminImageMessage"></span>
         </form>
       </section>
+      <section class="admin-manager-section" data-admin-cm-section="curriculum-lesson-plans">
+        <div id="adminCurriculumLessonPlanApp"></div>
+      </section>
       <section class="admin-manager-section" data-admin-cm-section="activities">
         <div id="adminActivitiesManagerApp"></div>
       </section>
@@ -17962,6 +18377,7 @@ function renderAdminContentManager() {
     </div>
   `;
   setAdminLessonFormCleanState();
+  if (adminActiveSectionTab === "curriculum-lesson-plans") renderAdminCurriculumLessonPlanManager();
   if (adminActiveSectionTab === "activities") renderAdminActivitiesManager();
   if (adminActiveSectionTab === "forms") renderAdminFormsManager();
   if (adminActiveSectionTab === "printables") renderAdminPrintablesManager();
@@ -18473,6 +18889,83 @@ async function hideAllLessonPlans() {
     successMsg: "✅ All lesson plans hidden.",
     onComplete: () => renderAdminContentManager(),
   });
+}
+
+function downloadCurriculumBackupJson(data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `legacy-curriculum-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function playBasedCurriculumFlagHtml() {
+  const enabled = isPlayBasedCurriculumEnabled();
+  return `
+    <fieldset class="admin-fieldset">
+      <legend>Play-Based Curriculum (Beta)</legend>
+      <p class="admin-generator-note">Default is OFF. The public lesson and activity libraries stay on the legacy system until a later cutover phase wires this flag into user-facing reads.</p>
+      <label class="admin-inline-toggle">
+        <input type="checkbox" id="adminPlayBasedCurriculumFlag" ${enabled ? "checked" : ""} />
+        <span>Enable play-based curriculum system</span>
+      </label>
+      <span class="form-message" id="adminPlayBasedCurriculumFlagMessage"></span>
+    </fieldset>
+  `;
+}
+
+async function savePlayBasedCurriculumFeatureFlag(enabled) {
+  await runAdminAction({
+    messageSelector: "#adminPlayBasedCurriculumFlagMessage",
+    actionFn: async () => {
+      const nextContent = nextSiteContentDraft();
+      nextContent.featureFlags = {
+        ...(nextContent.featureFlags || { playBasedCurriculum: false }),
+        playBasedCurriculum: enabled === true,
+      };
+      await saveAdminSiteContent(nextContent);
+    },
+    successMsg: enabled
+      ? "✅ Play-based curriculum flag enabled. Public library unchanged until cutover."
+      : "✅ Play-based curriculum flag disabled.",
+    onComplete: () => renderAdminContentManager(),
+  });
+}
+
+async function exportCurriculumBackup() {
+  const token = adminSession()?.token || "";
+  if (!canUseLaunchBackend() || !isAdminUnlocked() || !token) {
+    window.alert("Backend server and admin login are required to export the curriculum backup.");
+    return;
+  }
+  const msgEl = document.querySelector("#adminCurriculumBackupMessage");
+  if (msgEl) {
+    msgEl.textContent = "Preparing backup…";
+    msgEl.classList.remove("success");
+  }
+  try {
+    const params = new URLSearchParams({ adminToken: token, t: String(Date.now()) });
+    const response = await fetch(`${curriculumBackupConfig.endpoint}?${params.toString()}`, { cache: "no-store" });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error || "Could not export curriculum backup.");
+    downloadCurriculumBackupJson(data);
+    if (msgEl) {
+      msgEl.textContent = `✅ Backup downloaded. Checksum: ${data.checksum || "n/a"}`;
+      msgEl.classList.add("success");
+    }
+  } catch (error) {
+    const detail = error.message || "please try again.";
+    if (msgEl) {
+      msgEl.textContent = `❌ Backup failed — ${detail}`;
+      msgEl.classList.remove("success");
+    } else {
+      window.alert(`Backup failed: ${detail}`);
+    }
+  }
 }
 
 function exportAllLessonPlansJson() {
@@ -19210,7 +19703,7 @@ function renderAdminSectionNav() {
   `;
 }
 
-const adminCmSectionIds = ["lesson-plans", "activities", "forms", "printables", "reviews", "founder", "images"];
+const adminCmSectionIds = ["lesson-plans", "curriculum-lesson-plans", "activities", "forms", "printables", "reviews", "founder", "images"];
 
 function applyAdminSectionVisibility() {
   const tab = adminActiveSectionTab;
@@ -19244,6 +19737,7 @@ function applyAdminSectionVisibility() {
     document.querySelectorAll("[data-admin-cm-section]").forEach((el) => {
       el.hidden = el.dataset.adminCmSection !== tab;
     });
+    if (tab === "curriculum-lesson-plans") renderAdminCurriculumLessonPlanManager();
     if (tab === "activities") renderAdminActivitiesManager();
     if (tab === "forms") renderAdminFormsManager();
     if (tab === "printables") renderAdminPrintablesManager();
@@ -27772,6 +28266,11 @@ document.addEventListener("submit", async (event) => {
     await saveAdminManagedCollectionForm("printables", event.target);
     return;
   }
+  if (event.target.matches("#adminCurriculumLessonPlanForm")) {
+    event.preventDefault();
+    await saveAdminCurriculumLessonPlanForm(event.target);
+    return;
+  }
   if (event.target.matches("#adminLessonImportForm")) {
     event.preventDefault();
     const textarea = document.querySelector("#adminImportTextarea");
@@ -27972,6 +28471,29 @@ document.addEventListener("click", async (event) => {
     await createAdminLessonPlan();
     return;
   }
+  if (event.target.closest("#adminCreateCurriculumLessonPlanButton")) {
+    createAdminCurriculumLessonPlan();
+    return;
+  }
+  const curriculumLessonEditButton = event.target.closest("[data-curriculum-lesson-edit]");
+  if (curriculumLessonEditButton) {
+    openAdminCurriculumLessonEditor(curriculumLessonEditButton.dataset.curriculumLessonEdit, { scroll: true });
+    return;
+  }
+  if (event.target.closest("[data-curriculum-lesson-back]")) {
+    adminCurriculumLessonEditorId = "";
+    renderAdminCurriculumLessonPlanManager();
+    return;
+  }
+  const curriculumAddRowButton = event.target.closest("[data-curriculum-add-row]");
+  if (curriculumAddRowButton) {
+    addCurriculumDailyPlanRow(curriculumAddRowButton.dataset.curriculumAddRow);
+    return;
+  }
+  if (event.target.closest("[data-curriculum-remove-row]")) {
+    removeCurriculumDailyPlanRow(event.target.closest("[data-curriculum-remove-row]"));
+    return;
+  }
 
   // Visibility Dashboard — quick hide/show toggle
   const visToggleBtn = event.target.closest("[data-admin-lesson-visibility-toggle]");
@@ -28038,6 +28560,26 @@ document.addEventListener("click", async (event) => {
   }
   if (event.target.closest("#adminExportLessonPlansButton")) {
     exportAllLessonPlansJson();
+    return;
+  }
+  if (event.target.closest("#adminCurriculumBackupButton")) {
+    await exportCurriculumBackup();
+    return;
+  }
+  if (event.target.matches("#adminPlayBasedCurriculumFlag")) {
+    const checkbox = event.target;
+    const previous = isPlayBasedCurriculumEnabled();
+    const next = checkbox.checked;
+    if (next === previous) return;
+    checkbox.disabled = true;
+    try {
+      await savePlayBasedCurriculumFeatureFlag(next);
+    } catch (error) {
+      checkbox.checked = previous;
+      setFormMessage("#adminPlayBasedCurriculumFlagMessage", `❌ Could not save feature flag — ${error.message || "please try again."}`, false);
+    } finally {
+      checkbox.disabled = false;
+    }
     return;
   }
   if (event.target.closest("#adminArchiveAllLessonPlansButton")) {

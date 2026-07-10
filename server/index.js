@@ -328,6 +328,19 @@ function defaultAiSettings() {
   };
 }
 
+function defaultFeatureFlags() {
+  return {
+    playBasedCurriculum: false,
+  };
+}
+
+function normalizedFeatureFlags(value) {
+  const input = value && typeof value === "object" ? value : {};
+  return {
+    playBasedCurriculum: input.playBasedCurriculum === true,
+  };
+}
+
 function defaultSiteContentStore() {
   return {
     lessonPlans: {},
@@ -343,6 +356,8 @@ function defaultSiteContentStore() {
     announcement: {},
     upgradeMessaging: {},
     images: [],
+    featureFlags: defaultFeatureFlags(),
+    curriculum: defaultCurriculumStore(),
     updatedAt: "",
   };
 }
@@ -708,6 +723,333 @@ function normalizedSimpleCard(value, fallbackId = "") {
   };
 }
 
+const CURRICULUM_LEARNING_DOMAINS = new Set([
+  "Social Emotional",
+  "Language & Literacy",
+  "Math",
+  "Science",
+  "Physical Development",
+  "Creative Arts",
+]);
+const PLAY_ACTIVITY_CATEGORIES = new Set([
+  "Sensory Play",
+  "Gross Motor",
+  "Fine Motor",
+  "Music & Movement",
+  "Dramatic Play",
+  "Open-Ended Exploration",
+]);
+const CURRICULUM_LESSON_STATUSES = new Set(["draft", "published", "featured", "archived"]);
+const CURRICULUM_ITEM_STATUSES = new Set(["draft", "published", "archived"]);
+const CURRICULUM_WEEKDAYS = new Set(["monday", "tuesday", "wednesday", "thursday", "friday"]);
+
+function defaultCurriculumStore() {
+  return {
+    lessonPlans: [],
+    activities: [],
+    resources: [],
+    updatedAt: "",
+  };
+}
+
+function normalizedCurriculumLearningDomains(value) {
+  const items = Array.isArray(value) ? value : [];
+  return items
+    .map((item) => normalizedShortText(item, 80))
+    .filter((item) => CURRICULUM_LEARNING_DOMAINS.has(item))
+    .slice(0, 6);
+}
+
+function normalizedCurriculumBookEntry(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const title = normalizedShortText(entry.title, 180);
+  if (!title) return null;
+  return {
+    title,
+    author: normalizedShortText(entry.author, 120),
+    notes: normalizedMultilineText(entry.notes, 1000),
+  };
+}
+
+function normalizedCurriculumSongEntry(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const title = normalizedShortText(entry.title, 180);
+  if (!title) return null;
+  return {
+    title,
+    notes: normalizedMultilineText(entry.notes, 1000),
+  };
+}
+
+function generateCurriculumItemId() {
+  return `item-${crypto.randomBytes(8).toString("hex")}`;
+}
+
+function curriculumActivitySourceKey(lessonPlanId, itemId) {
+  const planId = normalizedShortText(lessonPlanId, 160);
+  const planItemId = normalizedShortText(itemId, 120);
+  if (!planId || !planItemId) return "";
+  return `${planId}:${planItemId}`;
+}
+
+function normalizedCurriculumDailyPlanItem(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const title = normalizedShortText(entry.title, 180);
+  if (!title) return null;
+  const category = normalizedShortText(entry.activityCategory, 80);
+  let itemId = normalizedShortText(entry.itemId, 120);
+  if (!itemId) itemId = generateCurriculumItemId();
+  return {
+    itemId,
+    activityCategory: PLAY_ACTIVITY_CATEGORIES.has(category) ? category : "Open-Ended Exploration",
+    title,
+    description: normalizedMultilineText(entry.description, 4000),
+    materials: normalizedMultilineText(entry.materials, 2000),
+    steps: normalizedMultilineText(entry.steps, 4000),
+    learningGoals: normalizedList(entry.learningGoals, 12, (item) => normalizedShortText(item, 120)).filter(Boolean),
+  };
+}
+
+function normalizedCurriculumDailyPlans(value, lessonPlanId) {
+  const input = value && typeof value === "object" ? value : {};
+  const days = {};
+  CURRICULUM_WEEKDAYS.forEach((day) => {
+    const dayInput = input[day] && typeof input[day] === "object" ? input[day] : {};
+    days[day] = {
+      items: normalizedList(dayInput.items, 30, normalizedCurriculumDailyPlanItem).map((item) => ({
+        ...item,
+        sourceKey: curriculumActivitySourceKey(lessonPlanId, item.itemId),
+      })),
+    };
+  });
+  return days;
+}
+
+function normalizedCurriculumLessonPlan(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const id = normalizedShortText(entry.id, 160);
+  if (!id) return null;
+  const status = normalizedShortText(entry.status, 20);
+  const plan = normalizedShortText(entry.plan, 20);
+  return {
+    id,
+    title: normalizedShortText(entry.title, 180) || "Untitled Lesson Plan",
+    age: normalizedShortText(entry.age, 40) || "Preschool",
+    theme: normalizedShortText(entry.theme, 120),
+    plan: plan === "Pro" ? "Pro" : "Free",
+    status: CURRICULUM_LESSON_STATUSES.has(status) ? status : "draft",
+    learningDomains: normalizedCurriculumLearningDomains(entry.learningDomains),
+    weeklyOverview: normalizedMultilineText(entry.weeklyOverview, 4000),
+    objectives: normalizedMultilineText(entry.objectives, 4000),
+    books: normalizedList(entry.books, 20, normalizedCurriculumBookEntry),
+    songs: normalizedList(entry.songs, 20, normalizedCurriculumSongEntry),
+    familyConnection: normalizedMultilineText(entry.familyConnection, 4000),
+    dailyPlans: normalizedCurriculumDailyPlans(entry.dailyPlans, id),
+    activityIds: normalizedList(entry.activityIds, 200, (item) => normalizedShortText(item, 160)).filter(Boolean),
+    resourceIds: normalizedList(entry.resourceIds, 200, (item) => normalizedShortText(item, 160)).filter(Boolean),
+    createdAt: normalizedShortText(entry.createdAt, 80),
+    updatedAt: normalizedShortText(entry.updatedAt, 80),
+  };
+}
+
+function normalizedCurriculumActivity(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const id = normalizedShortText(entry.id, 160);
+  const lessonPlanId = normalizedShortText(entry.lessonPlanId, 160);
+  if (!id || !lessonPlanId) return null;
+  const status = normalizedShortText(entry.status, 20);
+  const category = normalizedShortText(entry.activityCategory, 80);
+  const dayOfWeek = normalizedShortText(entry.dayOfWeek, 20).toLowerCase();
+  const incomingItemId = normalizedShortText(entry.itemId, 120);
+  const incomingSourceKey = normalizedShortText(entry.sourceKey, 200);
+  const prefix = `${lessonPlanId}:`;
+  let itemId = incomingItemId;
+  if (!itemId && incomingSourceKey.startsWith(prefix) && incomingSourceKey.length > prefix.length) {
+    itemId = incomingSourceKey.slice(prefix.length);
+  }
+  const sourceKey = itemId
+    ? curriculumActivitySourceKey(lessonPlanId, itemId)
+    : incomingSourceKey.startsWith(prefix)
+      ? incomingSourceKey
+      : "";
+  return {
+    id,
+    lessonPlanId,
+    itemId: itemId || "",
+    sourceKey,
+    dayOfWeek: CURRICULUM_WEEKDAYS.has(dayOfWeek) ? dayOfWeek : "",
+    activityCategory: PLAY_ACTIVITY_CATEGORIES.has(category) ? category : "Open-Ended Exploration",
+    title: normalizedShortText(entry.title, 180) || "Activity",
+    description: normalizedMultilineText(entry.description, 4000),
+    materials: normalizedMultilineText(entry.materials, 2000),
+    steps: normalizedMultilineText(entry.steps, 4000),
+    learningGoals: normalizedList(entry.learningGoals, 12, (item) => normalizedShortText(item, 120)).filter(Boolean),
+    status: CURRICULUM_ITEM_STATUSES.has(status) ? status : "draft",
+    createdAt: normalizedShortText(entry.createdAt, 80),
+    updatedAt: normalizedShortText(entry.updatedAt, 80),
+  };
+}
+
+function normalizedCurriculumResource(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const id = normalizedShortText(entry.id, 160);
+  if (!id) return null;
+  const status = normalizedShortText(entry.status, 20);
+  const fileUrl = sanitizedResourceUrl(entry.fileUrl) || sanitizedUrl(entry.fileUrl);
+  return {
+    id,
+    title: normalizedShortText(entry.title, 180) || "Resource",
+    resourceCategory: normalizedShortText(entry.resourceCategory, 80) || "General",
+    fileUrl,
+    mimeType: normalizedShortText(entry.mimeType, 80),
+    lessonPlanIds: normalizedList(entry.lessonPlanIds, 50, (item) => normalizedShortText(item, 160)).filter(Boolean),
+    status: CURRICULUM_ITEM_STATUSES.has(status) ? status : "draft",
+    createdAt: normalizedShortText(entry.createdAt, 80),
+    updatedAt: normalizedShortText(entry.updatedAt, 80),
+  };
+}
+
+function normalizedCurriculumStore(value) {
+  const input = value && typeof value === "object" ? value : {};
+  return {
+    lessonPlans: normalizedList(input.lessonPlans, 500, normalizedCurriculumLessonPlan),
+    activities: normalizedList(input.activities, 3000, normalizedCurriculumActivity),
+    resources: normalizedList(input.resources, 3000, normalizedCurriculumResource),
+    updatedAt: normalizedShortText(input.updatedAt, 80),
+  };
+}
+
+function validateCurriculumIntegrity(curriculum) {
+  const store = normalizedCurriculumStore(curriculum);
+  const lessonPlanIds = new Set(store.lessonPlans.map((item) => item.id));
+  const errors = [];
+  store.activities.forEach((activity) => {
+    if (!lessonPlanIds.has(activity.lessonPlanId)) {
+      errors.push(`Activity ${activity.id} references missing lesson plan ${activity.lessonPlanId}.`);
+    }
+  });
+  store.resources.forEach((resource) => {
+    resource.lessonPlanIds.forEach((lessonPlanId) => {
+      if (!lessonPlanIds.has(lessonPlanId)) {
+        errors.push(`Resource ${resource.id} references missing lesson plan ${lessonPlanId}.`);
+      }
+    });
+  });
+  store.lessonPlans.forEach((lessonPlan) => {
+    lessonPlan.activityIds.forEach((activityId) => {
+      if (!store.activities.some((activity) => activity.id === activityId)) {
+        errors.push(`Lesson plan ${lessonPlan.id} references missing activity ${activityId}.`);
+      }
+    });
+    lessonPlan.resourceIds.forEach((resourceId) => {
+      if (!store.resources.some((resource) => resource.id === resourceId)) {
+        errors.push(`Lesson plan ${lessonPlan.id} references missing resource ${resourceId}.`);
+      }
+    });
+  });
+  return { valid: errors.length === 0, errors };
+}
+
+function generateCurriculumLessonPlanId() {
+  return `cur-lp-${crypto.randomBytes(8).toString("hex")}`;
+}
+
+function curriculumActivityIdFromItemId(itemId) {
+  const normalized = normalizedShortText(itemId, 120);
+  if (!normalized) return "";
+  const suffix = normalized.startsWith("item-") ? normalized.slice(5) : normalized;
+  return `cur-act-${suffix}`;
+}
+
+function curriculumActivityStatusFromLessonPlan(lessonPlanStatus) {
+  const status = normalizedShortText(lessonPlanStatus, 20);
+  if (status === "archived") return "archived";
+  if (status === "published" || status === "featured") return "published";
+  return "draft";
+}
+
+function flattenCurriculumDailyItems(dailyPlans) {
+  const items = [];
+  const days = dailyPlans && typeof dailyPlans === "object" ? dailyPlans : {};
+  CURRICULUM_WEEKDAYS.forEach((day) => {
+    const dayItems = Array.isArray(days[day]?.items) ? days[day].items : [];
+    dayItems.forEach((item) => {
+      items.push({ ...item, dayOfWeek: day });
+    });
+  });
+  return items;
+}
+
+function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
+  const now = new Date().toISOString();
+  const store = normalizedCurriculumStore(curriculum);
+  const plan = normalizedCurriculumLessonPlan(lessonPlanInput);
+  if (!plan) return null;
+
+  const activityStatus = curriculumActivityStatusFromLessonPlan(plan.status);
+  const dailyItems = flattenCurriculumDailyItems(plan.dailyPlans);
+  const activeSourceKeys = new Set(dailyItems.map((item) => item.sourceKey).filter(Boolean));
+  const activitiesBySourceKey = new Map();
+  store.activities.forEach((activity) => {
+    if (activity.lessonPlanId === plan.id && activity.sourceKey) {
+      activitiesBySourceKey.set(activity.sourceKey, activity);
+    }
+  });
+
+  const syncedForPlan = [];
+  dailyItems.forEach((item) => {
+    const sourceKey = item.sourceKey || curriculumActivitySourceKey(plan.id, item.itemId);
+    const existing = activitiesBySourceKey.get(sourceKey);
+    syncedForPlan.push(normalizedCurriculumActivity({
+      id: existing?.id || curriculumActivityIdFromItemId(item.itemId),
+      lessonPlanId: plan.id,
+      itemId: item.itemId,
+      sourceKey,
+      dayOfWeek: item.dayOfWeek,
+      activityCategory: item.activityCategory,
+      title: item.title,
+      description: item.description,
+      materials: item.materials,
+      steps: item.steps,
+      learningGoals: item.learningGoals,
+      status: activityStatus,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+    }));
+  });
+
+  store.activities.forEach((activity) => {
+    if (activity.lessonPlanId !== plan.id) return;
+    if (activeSourceKeys.has(activity.sourceKey)) return;
+    syncedForPlan.push(normalizedCurriculumActivity({
+      ...activity,
+      status: "archived",
+      updatedAt: now,
+    }));
+  });
+
+  const normalizedSynced = syncedForPlan.filter(Boolean);
+  const activityIds = normalizedSynced
+    .filter((activity) => activity.status !== "archived")
+    .map((activity) => activity.id);
+  const updatedPlan = normalizedCurriculumLessonPlan({
+    ...plan,
+    activityIds,
+    updatedAt: now,
+  });
+  if (!updatedPlan) return null;
+
+  const otherPlans = store.lessonPlans.filter((item) => item.id !== plan.id);
+  const otherActivities = store.activities.filter((activity) => activity.lessonPlanId !== plan.id);
+
+  return normalizedCurriculumStore({
+    lessonPlans: [...otherPlans, updatedPlan],
+    activities: [...otherActivities, ...normalizedSynced],
+    resources: store.resources,
+    updatedAt: now,
+  });
+}
+
 function normalizedSiteContent(value) {
   const input = value && typeof value === "object" ? value : {};
   const lessonPlansInput = input.lessonPlans && typeof input.lessonPlans === "object" ? input.lessonPlans : {};
@@ -836,6 +1178,8 @@ function normalizedSiteContent(value) {
       soldOutCtaText: normalizedShortText(input.founding?.soldOutCtaText, 120),
       _draft: input.founding?._draft === true,
     },
+    featureFlags: normalizedFeatureFlags(input.featureFlags),
+    curriculum: normalizedCurriculumStore(input.curriculum),
     updatedAt: normalizedShortText(input.updatedAt, 80),
   };
 }
@@ -3904,9 +4248,10 @@ function handlePublicSiteContent(request, response) {
   const publicUpgradeMessaging = content.upgradeMessaging?._draft === true
     ? defaults.upgradeMessaging
     : content.upgradeMessaging;
+  const { featureFlags, curriculum, ...publicSiteContent } = content;
   jsonResponse(response, 200, {
     siteContent: {
-      ...content,
+      ...publicSiteContent,
       lessonPlans: publicLessonPlans,
       customLessonPlans: publicCustomLessonPlans,
       activities: publicActivities,
@@ -4209,6 +4554,104 @@ function handleSupportTicketsList(request, response, url) {
     ? allTickets
     : allTickets.filter((ticket) => email && (ticket.email === email || ticket.createdBy === email));
   jsonResponse(response, 200, { tickets: tickets.slice(0, 100).map(publicTicket) });
+}
+
+// Hardcoded seed count from app.js buildLessonPlans(): 3 ages × 10 learning areas × 30 themes.
+const HARDCODED_LESSON_PLAN_SEED_COUNT = 900;
+
+function buildCurriculumBackupPayload(store) {
+  const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  const allUploads = dedupeUploadedResources(store.uploadedResources || [], MAX_UPLOADED_RESOURCES);
+  const legacyCurriculumUploads = allUploads.filter(
+    (item) => item.category === "Lesson Plans" || item.category === "Activity Center",
+  );
+  const lessonPlanOverrides = siteContent.lessonPlans || {};
+  const customLessonPlans = siteContent.customLessonPlans || [];
+  const cmsActivities = siteContent.activities || [];
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    purpose: "legacy-curriculum-backup-before-play-based-rebuild",
+    counts: {
+      hardcodedSeedCount: HARDCODED_LESSON_PLAN_SEED_COUNT,
+      lessonPlanOverrides: Object.keys(lessonPlanOverrides).length,
+      customLessonPlans: customLessonPlans.length,
+      cmsActivities: cmsActivities.length,
+      legacyCurriculumUploads: legacyCurriculumUploads.length,
+      totalUploadedResources: allUploads.length,
+    },
+    siteContent: {
+      lessonPlans: lessonPlanOverrides,
+      customLessonPlans,
+      activities: cmsActivities,
+    },
+    uploadedResources: legacyCurriculumUploads,
+  };
+  const checksum = crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+  return { ...payload, checksum };
+}
+
+function handleAdminCurriculumBackup(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required to export the curriculum backup." });
+    return;
+  }
+  const store = readStore();
+  jsonResponse(response, 200, buildCurriculumBackupPayload(store));
+}
+
+async function handleAdminCurriculumLessonPlanSave(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to save curriculum lesson plans." });
+    return;
+  }
+  const incomingPlan = body.lessonPlan && typeof body.lessonPlan === "object" ? body.lessonPlan : null;
+  if (!incomingPlan) {
+    jsonResponse(response, 400, { error: "A lesson plan payload is required." });
+    return;
+  }
+
+  const incomingId = normalizedShortText(incomingPlan.id, 160);
+  const id = incomingId || generateCurriculumLessonPlanId();
+  const now = new Date().toISOString();
+  const store = readStore();
+  const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  const existingCurriculum = siteContent.curriculum || defaultCurriculumStore();
+  const existingPlan = existingCurriculum.lessonPlans.find((item) => item.id === id);
+  const planInput = {
+    ...incomingPlan,
+    id,
+    createdAt: existingPlan?.createdAt || normalizedShortText(incomingPlan.createdAt, 80) || now,
+    updatedAt: now,
+  };
+
+  const syncedCurriculum = syncCurriculumActivitiesForLessonPlan(existingCurriculum, planInput);
+  if (!syncedCurriculum) {
+    jsonResponse(response, 400, { error: "Lesson plan could not be normalized." });
+    return;
+  }
+
+  const savedPlan = syncedCurriculum.lessonPlans.find((item) => item.id === id);
+  const savedActivities = syncedCurriculum.activities.filter((activity) => activity.lessonPlanId === id);
+  store.siteContent = {
+    ...siteContent,
+    curriculum: syncedCurriculum,
+  };
+
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    console.error("Curriculum lesson plan save failed:", error.message);
+    jsonResponse(response, 503, { error: "Curriculum could not be saved. Please try again." });
+    return;
+  }
+
+  jsonResponse(response, 200, {
+    lessonPlan: savedPlan,
+    activities: savedActivities,
+    curriculum: syncedCurriculum,
+  });
 }
 
 function handleUploadedResourcesList(request, response, url) {
@@ -5297,6 +5740,8 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/release-note-update") return await handleReleaseNoteUpdate(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/release-notes") return handleReleaseNotesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/release-notes") return handleReleaseNotesList(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/curriculum/backup") return handleAdminCurriculumBackup(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans") return await handleAdminCurriculumLessonPlanSave(request, response);
     if (request.method === "GET" && url.pathname === "/api/uploads") return handleUploadedResourcesList(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/migrate") return await handleAdminUploadedResourcesMigrate(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/upsert") return await handleAdminUploadedResourceUpsert(request, response);
