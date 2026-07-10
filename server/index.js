@@ -781,13 +781,26 @@ function normalizedCurriculumSongEntry(value) {
   };
 }
 
+function generateCurriculumItemId() {
+  return `item-${crypto.randomBytes(8).toString("hex")}`;
+}
+
+function curriculumActivitySourceKey(lessonPlanId, itemId) {
+  const planId = normalizedShortText(lessonPlanId, 160);
+  const planItemId = normalizedShortText(itemId, 120);
+  if (!planId || !planItemId) return "";
+  return `${planId}:${planItemId}`;
+}
+
 function normalizedCurriculumDailyPlanItem(value) {
   const entry = value && typeof value === "object" ? value : {};
   const title = normalizedShortText(entry.title, 180);
   if (!title) return null;
   const category = normalizedShortText(entry.activityCategory, 80);
+  let itemId = normalizedShortText(entry.itemId, 120);
+  if (!itemId) itemId = generateCurriculumItemId();
   return {
-    sourceKey: normalizedShortText(entry.sourceKey, 200),
+    itemId,
     activityCategory: PLAY_ACTIVITY_CATEGORIES.has(category) ? category : "Open-Ended Exploration",
     title,
     description: normalizedMultilineText(entry.description, 4000),
@@ -797,13 +810,16 @@ function normalizedCurriculumDailyPlanItem(value) {
   };
 }
 
-function normalizedCurriculumDailyPlans(value) {
+function normalizedCurriculumDailyPlans(value, lessonPlanId) {
   const input = value && typeof value === "object" ? value : {};
   const days = {};
   CURRICULUM_WEEKDAYS.forEach((day) => {
     const dayInput = input[day] && typeof input[day] === "object" ? input[day] : {};
     days[day] = {
-      items: normalizedList(dayInput.items, 30, normalizedCurriculumDailyPlanItem),
+      items: normalizedList(dayInput.items, 30, normalizedCurriculumDailyPlanItem).map((item) => ({
+        ...item,
+        sourceKey: curriculumActivitySourceKey(lessonPlanId, item.itemId),
+      })),
     };
   });
   return days;
@@ -828,7 +844,7 @@ function normalizedCurriculumLessonPlan(value) {
     books: normalizedList(entry.books, 20, normalizedCurriculumBookEntry),
     songs: normalizedList(entry.songs, 20, normalizedCurriculumSongEntry),
     familyConnection: normalizedMultilineText(entry.familyConnection, 4000),
-    dailyPlans: normalizedCurriculumDailyPlans(entry.dailyPlans),
+    dailyPlans: normalizedCurriculumDailyPlans(entry.dailyPlans, id),
     activityIds: normalizedList(entry.activityIds, 200, (item) => normalizedShortText(item, 160)).filter(Boolean),
     resourceIds: normalizedList(entry.resourceIds, 200, (item) => normalizedShortText(item, 160)).filter(Boolean),
     createdAt: normalizedShortText(entry.createdAt, 80),
@@ -844,10 +860,23 @@ function normalizedCurriculumActivity(value) {
   const status = normalizedShortText(entry.status, 20);
   const category = normalizedShortText(entry.activityCategory, 80);
   const dayOfWeek = normalizedShortText(entry.dayOfWeek, 20).toLowerCase();
+  const incomingItemId = normalizedShortText(entry.itemId, 120);
+  const incomingSourceKey = normalizedShortText(entry.sourceKey, 200);
+  const prefix = `${lessonPlanId}:`;
+  let itemId = incomingItemId;
+  if (!itemId && incomingSourceKey.startsWith(prefix) && incomingSourceKey.length > prefix.length) {
+    itemId = incomingSourceKey.slice(prefix.length);
+  }
+  const sourceKey = itemId
+    ? curriculumActivitySourceKey(lessonPlanId, itemId)
+    : incomingSourceKey.startsWith(prefix)
+      ? incomingSourceKey
+      : "";
   return {
     id,
     lessonPlanId,
-    sourceKey: normalizedShortText(entry.sourceKey, 200),
+    itemId: itemId || "",
+    sourceKey,
     dayOfWeek: CURRICULUM_WEEKDAYS.has(dayOfWeek) ? dayOfWeek : "",
     activityCategory: PLAY_ACTIVITY_CATEGORIES.has(category) ? category : "Open-Ended Exploration",
     title: normalizedShortText(entry.title, 180) || "Activity",
