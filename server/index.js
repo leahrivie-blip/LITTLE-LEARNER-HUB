@@ -328,6 +328,19 @@ function defaultAiSettings() {
   };
 }
 
+function defaultFeatureFlags() {
+  return {
+    playBasedCurriculum: false,
+  };
+}
+
+function normalizedFeatureFlags(value) {
+  const input = value && typeof value === "object" ? value : {};
+  return {
+    playBasedCurriculum: input.playBasedCurriculum === true,
+  };
+}
+
 function defaultSiteContentStore() {
   return {
     lessonPlans: {},
@@ -343,6 +356,7 @@ function defaultSiteContentStore() {
     announcement: {},
     upgradeMessaging: {},
     images: [],
+    featureFlags: defaultFeatureFlags(),
     updatedAt: "",
   };
 }
@@ -836,6 +850,7 @@ function normalizedSiteContent(value) {
       soldOutCtaText: normalizedShortText(input.founding?.soldOutCtaText, 120),
       _draft: input.founding?._draft === true,
     },
+    featureFlags: normalizedFeatureFlags(input.featureFlags),
     updatedAt: normalizedShortText(input.updatedAt, 80),
   };
 }
@@ -3904,9 +3919,10 @@ function handlePublicSiteContent(request, response) {
   const publicUpgradeMessaging = content.upgradeMessaging?._draft === true
     ? defaults.upgradeMessaging
     : content.upgradeMessaging;
+  const { featureFlags, ...publicSiteContent } = content;
   jsonResponse(response, 200, {
     siteContent: {
-      ...content,
+      ...publicSiteContent,
       lessonPlans: publicLessonPlans,
       customLessonPlans: publicCustomLessonPlans,
       activities: publicActivities,

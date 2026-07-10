@@ -3413,8 +3413,15 @@ function emptySiteContent() {
     upgradeMessaging: {},
     founding: {},
     images: [],
+    featureFlags: {
+      playBasedCurriculum: false,
+    },
     updatedAt: "",
   };
+}
+
+function isPlayBasedCurriculumEnabled() {
+  return effectiveSiteContent().featureFlags?.playBasedCurriculum === true;
 }
 
 function cloneJson(value, fallback) {
@@ -3864,6 +3871,9 @@ function effectiveSiteContent() {
     announcement: { ...(base.announcement || {}), ...(overrides.announcement || {}) },
     upgradeMessaging: { ...(base.upgradeMessaging || {}), ...(overrides.upgradeMessaging || {}) },
     founding: { ...(base.founding || {}), ...(overrides.founding || {}) },
+    featureFlags: {
+      playBasedCurriculum: overrides.featureFlags?.playBasedCurriculum === true,
+    },
     updatedAt: overrides.updatedAt || base.updatedAt || "",
   };
 }
@@ -17808,6 +17818,7 @@ function renderAdminContentManager() {
           <button class="danger-button" type="button" id="adminArchiveAllLessonPlansButton">📦 Archive ALL Lesson Plans</button>
         </div>
         <span class="form-message" id="adminCurriculumBackupMessage"></span>
+        ${playBasedCurriculumFlagHtml()}
         <div class="admin-mobile-list" id="adminLessonPlanList">${lessons.map(lessonPlanAdminCardHtml).join("") || `<div class="empty-state">No lesson plans match these filters.</div>`}</div>
         ${lessonRecord ? `
           <form id="adminLessonPlanForm" class="panel-form admin-stacked-form" data-importer-updated-title-theme="${lessonRecord.titleThemeImporterUpdated ? "true" : "false"}">
@@ -18490,6 +18501,39 @@ function downloadCurriculumBackupJson(data) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+function playBasedCurriculumFlagHtml() {
+  const enabled = isPlayBasedCurriculumEnabled();
+  return `
+    <fieldset class="admin-fieldset">
+      <legend>Play-Based Curriculum (Beta)</legend>
+      <p class="admin-generator-note">Default is OFF. The public lesson and activity libraries stay on the legacy system until a later cutover phase wires this flag into user-facing reads.</p>
+      <label class="admin-inline-toggle">
+        <input type="checkbox" id="adminPlayBasedCurriculumFlag" ${enabled ? "checked" : ""} />
+        <span>Enable play-based curriculum system</span>
+      </label>
+      <span class="form-message" id="adminPlayBasedCurriculumFlagMessage"></span>
+    </fieldset>
+  `;
+}
+
+async function savePlayBasedCurriculumFeatureFlag(enabled) {
+  await runAdminAction({
+    messageSelector: "#adminPlayBasedCurriculumFlagMessage",
+    actionFn: async () => {
+      const nextContent = nextSiteContentDraft();
+      nextContent.featureFlags = {
+        ...(nextContent.featureFlags || { playBasedCurriculum: false }),
+        playBasedCurriculum: enabled === true,
+      };
+      await saveAdminSiteContent(nextContent);
+    },
+    successMsg: enabled
+      ? "✅ Play-based curriculum flag enabled. Public library unchanged until cutover."
+      : "✅ Play-based curriculum flag disabled.",
+    onComplete: () => renderAdminContentManager(),
+  });
 }
 
 async function exportCurriculumBackup() {
@@ -28091,6 +28135,22 @@ document.addEventListener("click", async (event) => {
   }
   if (event.target.closest("#adminCurriculumBackupButton")) {
     await exportCurriculumBackup();
+    return;
+  }
+  if (event.target.matches("#adminPlayBasedCurriculumFlag")) {
+    const checkbox = event.target;
+    const previous = isPlayBasedCurriculumEnabled();
+    const next = checkbox.checked;
+    if (next === previous) return;
+    checkbox.disabled = true;
+    try {
+      await savePlayBasedCurriculumFeatureFlag(next);
+    } catch (error) {
+      checkbox.checked = previous;
+      setFormMessage("#adminPlayBasedCurriculumFlagMessage", `❌ Could not save feature flag — ${error.message || "please try again."}`, false);
+    } finally {
+      checkbox.disabled = false;
+    }
     return;
   }
   if (event.target.closest("#adminArchiveAllLessonPlansButton")) {
