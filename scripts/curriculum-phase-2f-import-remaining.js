@@ -24,11 +24,16 @@ const IMPORT_DIR = path.join(__dirname, "curriculum-phase-2f-imports");
 const REPORT_PATH = path.join(__dirname, "data/phase-2f-remaining-import-report.json");
 
 const PLAY_ACTIVITY_CATEGORIES = [
+  "Circle Time",
+  "Literacy",
   "Sensory Play",
-  "Gross Motor",
   "Fine Motor",
+  "Gross Motor",
   "Music & Movement",
+  "Art",
+  "STEM/Discovery",
   "Dramatic Play",
+  "Outdoor Play",
   "Open-Ended Exploration",
 ];
 const LEARNING_DOMAINS = [

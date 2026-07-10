@@ -20,11 +20,16 @@ const ADMIN = {
   code: "lesson-save-test-code",
 };
 const PLAY_ACTIVITY_CATEGORIES = [
+  "Circle Time",
+  "Literacy",
   "Sensory Play",
-  "Gross Motor",
   "Fine Motor",
+  "Gross Motor",
   "Music & Movement",
+  "Art",
+  "STEM/Discovery",
   "Dramatic Play",
+  "Outdoor Play",
   "Open-Ended Exploration",
 ];
 const LEARNING_DOMAINS = [

@@ -25,11 +25,16 @@ const ROOT = path.join(__dirname, "..");
 const IMPORT_DIR = path.join(__dirname, "curriculum-phase-2f-imports");
 const STORE_PATH = path.join(ROOT, "server/data/launch-store.json");
 const PLAY_ACTIVITY_CATEGORIES = [
+  "Circle Time",
+  "Literacy",
   "Sensory Play",
-  "Gross Motor",
   "Fine Motor",
+  "Gross Motor",
   "Music & Movement",
+  "Art",
+  "STEM/Discovery",
   "Dramatic Play",
+  "Outdoor Play",
   "Open-Ended Exploration",
 ];
 const LEARNING_DOMAINS = [
