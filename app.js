@@ -3395,92 +3395,28 @@ function curriculumLibraryResourceById(id) {
 }
 
 function buildLessonPlanTextFromCurriculum(plan) {
-  const entry = plan && typeof plan === "object" ? plan : {};
-  const daySections = CURRICULUM_WEEKDAYS.map((day) => {
-    const items = Array.isArray(entry.dailyPlans?.[day]?.items) ? entry.dailyPlans[day].items : [];
-    if (!items.length) return "";
-    const body = items.map((item, index) => {
-      const goals = Array.isArray(item.learningGoals) ? item.learningGoals.filter(Boolean).join("; ") : "";
-      return [
-        `${index + 1}. ${item.title || "Activity"} (${item.activityCategory || "Play"})`,
-        item.description ? `Description: ${item.description}` : "",
-        item.materials ? `Materials: ${item.materials}` : "",
-        item.setup ? `Setup: ${item.setup}` : "",
-        item.steps ? `Directions:\n${item.steps}` : "",
-        goals ? `Learning Goals: ${goals}` : "",
-      ].filter(Boolean).join("\n");
-    }).join("\n\n");
-    return `${day.charAt(0).toUpperCase()}${day.slice(1)}\n${body}`;
-  }).filter(Boolean).join("\n\n");
-  const books = Array.isArray(entry.books)
-    ? entry.books.map((book) => `- ${book.title || "Book"}${book.author ? ` by ${book.author}` : ""}`).join("\n")
-    : "";
-  const songs = Array.isArray(entry.songs)
-    ? entry.songs.map((song) => `- ${song.title || "Song"}`).join("\n")
-    : "";
-  const domains = Array.isArray(entry.learningDomains) ? entry.learningDomains.join(", ") : "";
-  return `Weekly Lesson Plan
-Title: ${entry.title || "Untitled Lesson Plan"}
-Theme: ${entry.theme || ""}
-Age Group: ${entry.age || ""}
-Developmental Focus: ${domains || "Play-Based Learning"}
-Plan Access: ${entry.plan || "Free"}
-
-Weekly Overview
-${entry.weeklyOverview || ""}
-
-Weekly Learning Objectives
-${entry.objectives || ""}
-
-Complete Materials List
-${entry.weeklyMaterials || ""}
-
-Vocabulary Words
-${entry.vocabularyWords || ""}
-
-Books
-${books || "None listed"}
-
-Songs
-${songs || "None listed"}
-
-Monday Through Friday
-${daySections || "Daily play plans to be added."}
-
-Observation Opportunities
-${entry.observationOpportunities || ""}
-
-Adaptations for Different Abilities
-${entry.adaptations || ""}
-
-Family Connection Idea
-${entry.familyConnection || ""}`;
+  return formatCurriculumLessonPlanImportText(plan);
 }
 
 function buildActivityTextFromCurriculum(activity) {
   const entry = activity && typeof activity === "object" ? activity : {};
-  const goals = Array.isArray(entry.learningGoals) ? entry.learningGoals.filter(Boolean).map((goal) => `- ${goal}`).join("\n") : "";
-  return `Activity
-Title: ${entry.title || "Activity"}
-Parent Lesson Plan: ${entry.parentTitle || entry.lessonPlanId || ""}
-Day: ${entry.dayOfWeek || ""}
-Category: ${entry.activityCategory || "Open-Ended Exploration"}
-Age Group: ${entry.parentAge || "All Ages"}
-
-Short Description
-${entry.description || ""}
-
-Materials
-${entry.materials || ""}
-
-Setup
-${entry.setup || ""}
-
-Directions
-${entry.steps || ""}
-
-Learning Goal
-${goals || "None listed"}`;
+  const dayLabel = entry.dayOfWeek
+    ? String(entry.dayOfWeek).charAt(0).toUpperCase() + String(entry.dayOfWeek).slice(1)
+    : "Monday";
+  return [
+    `Parent Lesson: ${entry.parentTitle || entry.lessonPlanId || ""}`,
+    `Day: ${dayLabel}`,
+    "",
+    formatCurriculumImportActivity({
+      title: entry.title,
+      activityCategory: entry.activityCategory,
+      description: entry.description,
+      materials: entry.materials,
+      setup: entry.setup,
+      steps: entry.steps,
+      learningGoals: entry.learningGoals,
+    }),
+  ].join("\n");
 }
 
 function loadCurriculumManagedLessonPlans() {
@@ -3949,10 +3885,8 @@ function parseCurriculumImportBlockSections(text) {
 function extractCurriculumImportSections(text) {
   const raw = String(text || "").trim();
   if (!raw) return {};
-  const hasBlockMarkers = /===([A-Z_]+)===/.test(raw);
-  const hasColonMarkers = /^(TITLE|AGE GROUP|AGE_GROUP):/im.test(raw);
-  if (hasColonMarkers) return parseCurriculumImportColonSections(raw);
-  if (hasBlockMarkers) return parseCurriculumImportBlockSections(raw);
+  if (/^===([A-Z_]+)===/m.test(raw)) return parseCurriculumImportBlockSections(raw);
+  if (/^TITLE:\s*$/m.test(raw)) return parseCurriculumImportColonSections(raw);
   const colonSections = parseCurriculumImportColonSections(raw);
   if (colonSections.TITLE || colonSections.AGE_GROUP) return colonSections;
   return parseCurriculumImportBlockSections(raw);
@@ -4119,6 +4053,7 @@ function parseCurriculumImportActivityBlock(block) {
     if (currentField === "materials") activity.materials = [activity.materials, trimmed].filter(Boolean).join("\n");
     if (currentField === "setup") activity.setup = [activity.setup, trimmed].filter(Boolean).join("\n");
   });
+  if (!activity.setup && activity.description) activity.setup = activity.description;
   if (!PLAY_ACTIVITY_CATEGORIES.includes(activity.activityCategory)) {
     activity.activityCategory = "Open-Ended Exploration";
   }
@@ -4217,6 +4152,69 @@ function parseCurriculumLessonPlanImport(text, { existingItemIds = new Map() } =
       dailyPlans,
     },
   };
+}
+
+function formatCurriculumImportSection(header, content = "") {
+  return `${header}:\n${String(content || "").trim()}\n`;
+}
+
+function formatCurriculumImportActivity(activity = {}) {
+  const setup = activity.setup || activity.description || "";
+  const goals = Array.isArray(activity.learningGoals) ? activity.learningGoals.filter(Boolean) : [];
+  const directions = String(activity.steps || "").trim();
+  const numberedDirections = directions
+    ? directions.split(/\r?\n/).map((line, index) => {
+      const trimmed = line.trim();
+      if (!trimmed) return "";
+      return /^\d+\.\s/.test(trimmed) ? trimmed : `${index + 1}. ${trimmed}`;
+    }).filter(Boolean).join("\n")
+    : "";
+  return [
+    "ACTIVITY NAME:",
+    activity.title || "",
+    "CATEGORY:",
+    activity.activityCategory || "Open-Ended Exploration",
+    "MATERIALS:",
+    activity.materials || "",
+    "SETUP:",
+    setup,
+    "DIRECTIONS:",
+    numberedDirections,
+    "LEARNING GOAL:",
+    goals.join("\n"),
+  ].join("\n");
+}
+
+function formatCurriculumLessonPlanImportText(plan = {}) {
+  const entry = plan && typeof plan === "object" ? plan : {};
+  const sections = [
+    formatCurriculumImportSection("TITLE", entry.title),
+    formatCurriculumImportSection("AGE GROUP", entry.age),
+    formatCurriculumImportSection("THEME", entry.theme),
+  ];
+  if (entry.plan) sections.push(formatCurriculumImportSection("PLAN", entry.plan));
+  if (entry.status) sections.push(formatCurriculumImportSection("STATUS", entry.status));
+  if (Array.isArray(entry.learningDomains) && entry.learningDomains.length) {
+    sections.push(formatCurriculumImportSection("LEARNING DOMAINS", entry.learningDomains.join(", ")));
+  }
+  sections.push(
+    formatCurriculumImportSection("WEEKLY OVERVIEW", entry.weeklyOverview),
+    formatCurriculumImportSection("LEARNING OBJECTIVES", entry.objectives),
+    formatCurriculumImportSection("WEEKLY MATERIALS", entry.weeklyMaterials),
+    formatCurriculumImportSection("VOCABULARY", entry.vocabularyWords),
+    formatCurriculumImportSection("BOOKS", (entry.books || []).map((book) => [book.title, book.author, book.notes].filter(Boolean).join(" | ")).join("\n")),
+    formatCurriculumImportSection("SONGS", (entry.songs || []).map((song) => [song.title, song.notes].filter(Boolean).join(" | ")).join("\n")),
+    formatCurriculumImportSection("FAMILY CONNECTION", entry.familyConnection),
+    formatCurriculumImportSection("OBSERVATION OPPORTUNITIES", entry.observationOpportunities),
+    formatCurriculumImportSection("ADAPTATIONS", entry.adaptations),
+  );
+  ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"].forEach((dayKey) => {
+    const day = dayKey.toLowerCase();
+    const items = Array.isArray(entry.dailyPlans?.[day]?.items) ? entry.dailyPlans[day].items : [];
+    const dayBody = items.length ? items.map((item) => formatCurriculumImportActivity(item)).join("\n\n") : "";
+    sections.push(formatCurriculumImportSection(dayKey, dayBody));
+  });
+  return `${sections.join("\n").trim()}\n`;
 }
 
 function curriculumBooksToText(books = []) {
@@ -24613,43 +24611,41 @@ function generateFromPrompt(prompt) {
 }
 
 function generateLessonPlan(data) {
- const rawAge = normalizeAiAgeGroup(data.age || "Preschool");
- const profile = ageGroupProfile(rawAge);
- const theme = data.theme || "Farm";
- const planLength = data.planLength || "Weekly";
- const parsedDays = Number(data.days);
- const days = Number.isFinite(parsedDays) && parsedDays > 0 ? Math.min(parsedDays, 10) : 5;
- const focus = data.focus || profile.learningFocus;
- const materials = data.materials || profile.lessonMaterials;
- const programName = data.programName || "";
- const daily = Array.from({ length: days }, (_, index) => {
-   const dayName = index < 5
-     ? ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"][index]
-     : `Day ${index + 1}`;
-   const [title, ...steps] = profile.lessonPlanDays[index % profile.lessonPlanDays.length];
-   return `${dayName}: ${theme} ${title}
-${steps.join("\n")}
-- Learning Goal: Children will build ${focus} through developmentally appropriate play and interaction.`;
- }).join("\n\n");
- return `${planLength} Lesson Plan Overview
-${programName ? `Program Name: ${programName}\n` : ""}Age Group: ${rawAge}
-Theme: ${theme}
-Learning Focus: ${focus}
-
-Materials List
-${materials}
-
-Learning Objectives
-${profile.lessonObjectives.map((objective) => `- ${objective}`).join("\n")}
-
-Daily Plans
-${daily}
-
-Books and Songs
-${profile.lessonBooks}
-
-Provider Note
-Adjust timing, materials, and supervision to fit your group size, ages, individual children's needs, and state childcare requirements.`;
+  const rawAge = normalizeAiAgeGroup(data.age || "Preschool");
+  const profile = ageGroupProfile(rawAge);
+  const theme = data.theme || "Farm";
+  const materials = data.materials || profile.lessonMaterials;
+  const categories = ["Circle Time", "Literacy", "Sensory Play", "Fine Motor", "Gross Motor", "Music & Movement", "Art", "STEM/Discovery", "Dramatic Play", "Outdoor Play", "Open-Ended Exploration"];
+  const dailyPlans = emptyCurriculumDailyPlans();
+  CURRICULUM_WEEKDAYS.forEach((day, index) => {
+    const [title, ...stepLines] = profile.lessonPlanDays[index % profile.lessonPlanDays.length];
+    const steps = stepLines.map((line) => line.replace(/^-\s*/, "").trim()).filter(Boolean).join("\n");
+    dailyPlans[day].items.push({
+      itemId: "",
+      activityCategory: categories[index % categories.length],
+      title: `${theme} ${title}`,
+      description: "",
+      materials: "See weekly materials list",
+      setup: `Prepare a calm, age-appropriate space for ${rawAge.toLowerCase()} learners.`,
+      steps,
+      learningGoals: [profile.lessonObjectives[index % profile.lessonObjectives.length] || `Explore ${theme} through play.`],
+    });
+  });
+  return formatCurriculumLessonPlanImportText({
+    title: `${rawAge} ${theme} Lesson Plan`,
+    age: rawAge,
+    theme,
+    weeklyOverview: `This week children explore ${theme} through play-based learning experiences designed for ${rawAge.toLowerCase()} learners.`,
+    objectives: profile.lessonObjectives.join("\n"),
+    weeklyMaterials: materials,
+    vocabularyWords: "",
+    books: [],
+    songs: [],
+    familyConnection: "Share one simple theme-connected activity families can repeat at home.",
+    observationOpportunities: "Note engagement, emerging skills, and peer interactions during play.",
+    adaptations: `Adjust materials, pacing, and support for individual ${rawAge.toLowerCase()} needs.`,
+    dailyPlans,
+  });
 }
 function generateObservation(data) {
  const note = data.note || "Child counted to 10 and identified colors.";

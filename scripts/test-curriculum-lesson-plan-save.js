@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Regression: curriculum lesson plan save for Phase 2F Infant Soft Sounds import.
- * Covers activity sync, idempotent re-save, and 409 retry with refreshed updatedAt.
+ * Covers activity sync, idempotent re-save, 409 retry, and legacy import compatibility.
  * Run: node scripts/test-curriculum-lesson-plan-save.js
  */
 const fs = require("fs");
@@ -9,37 +9,18 @@ const path = require("path");
 const http = require("http");
 const { spawn } = require("child_process");
 const crypto = require("crypto");
+const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-parser.js");
 
 const ROOT = path.join(__dirname, "..");
 const PORT = 4530 + Math.floor(Math.random() * 200);
 const STORE_PATH = path.join(ROOT, "server/data/launch-store.json");
 const IMPORT_PATH = path.join(ROOT, "scripts/curriculum-phase-2f-imports/01-infant-soft-sounds-free.txt");
+const LEGACY_IMPORT_PATH = path.join(ROOT, "scripts/curriculum-phase-2f-imports/legacy-backward-compat-sample.txt");
 const ADMIN = {
   email: "lesson-save-test@example.com",
   password: "lesson-save-test-pass",
   code: "lesson-save-test-code",
 };
-const PLAY_ACTIVITY_CATEGORIES = [
-  "Circle Time",
-  "Literacy",
-  "Sensory Play",
-  "Fine Motor",
-  "Gross Motor",
-  "Music & Movement",
-  "Art",
-  "STEM/Discovery",
-  "Dramatic Play",
-  "Outdoor Play",
-  "Open-Ended Exploration",
-];
-const LEARNING_DOMAINS = [
-  "Social Emotional",
-  "Language & Literacy",
-  "Math",
-  "Science",
-  "Physical Development",
-  "Creative Arts",
-];
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -143,134 +124,10 @@ async function stopServer(child) {
   });
 }
 
-function normalizedShortText(value, max = 240) {
-  return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
-}
-
-function normalizedMultilineText(value, max = 12000) {
-  return String(value || "").replace(/\r\n?/g, "\n").trim().slice(0, max);
-}
-
-function parseActivityBlock(block) {
-  const lines = String(block || "").split(/\r?\n/);
-  const activity = {
-    activityCategory: "Open-Ended Exploration",
-    title: "",
-    description: "",
-    materials: "",
-    steps: "",
-    learningGoals: [],
-  };
-  let currentField = "";
-  lines.forEach((rawLine) => {
-    const trimmed = rawLine.trim();
-    if (!trimmed) return;
-    const categoryMatch = trimmed.match(/^Category:\s*(.+)$/i);
-    const titleMatch = trimmed.match(/^Title:\s*(.+)$/i);
-    const descriptionMatch = trimmed.match(/^Description:\s*(.+)$/i);
-    const materialsMatch = trimmed.match(/^Materials:\s*(.+)$/i);
-    const stepsMatch = trimmed.match(/^Steps:\s*$/i);
-    const goalsMatch = trimmed.match(/^Learning Goals:\s*$/i);
-    if (categoryMatch) {
-      currentField = "category";
-      activity.activityCategory = normalizedShortText(categoryMatch[1]);
-      return;
-    }
-    if (titleMatch) {
-      currentField = "title";
-      activity.title = normalizedShortText(titleMatch[1]);
-      return;
-    }
-    if (descriptionMatch) {
-      currentField = "description";
-      activity.description = normalizedMultilineText(descriptionMatch[1]);
-      return;
-    }
-    if (materialsMatch) {
-      currentField = "materials";
-      activity.materials = normalizedMultilineText(materialsMatch[1]);
-      return;
-    }
-    if (stepsMatch) {
-      currentField = "steps";
-      return;
-    }
-    if (goalsMatch) {
-      currentField = "learningGoals";
-      return;
-    }
-    if (currentField === "steps") {
-      activity.steps = [activity.steps, trimmed.replace(/^\d+\.\s*/, "")].filter(Boolean).join("\n");
-      return;
-    }
-    if (currentField === "learningGoals") {
-      const goal = trimmed.replace(/^[-*•]\s*/, "").trim();
-      if (goal) activity.learningGoals.push(goal);
-    }
-  });
-  if (!PLAY_ACTIVITY_CATEGORIES.includes(activity.activityCategory)) {
-    throw new Error(`Invalid category ${activity.activityCategory}`);
-  }
-  return activity.title ? activity : null;
-}
-
-function parseImportList(text, parts = 2) {
-  return String(text || "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => line.replace(/^[-*•]\s*/, "").split("|").map((part) => part.trim()))
-    .map((chunks) => {
-      if (parts === 3) {
-        const [title, author, notes] = chunks;
-        return title ? { title, author: author || "", notes: notes || "" } : null;
-      }
-      const [title, notes] = chunks;
-      return title ? { title, notes: notes || "" } : null;
-    })
-    .filter(Boolean);
-}
-
 function parseLessonImport(text) {
-  const sections = {};
-  const parts = String(text || "").split(/===([A-Z_]+)===/);
-  for (let i = 1; i < parts.length; i += 2) {
-    const key = parts[i].trim().toUpperCase();
-    if (key) sections[key] = (parts[i + 1] || "").trim();
-  }
-  const dailyPlans = {};
-  let activityCount = 0;
-  ["monday", "tuesday", "wednesday", "thursday", "friday"].forEach((day) => {
-    const blocks = String(sections[day.toUpperCase()] || "").split(/---ACTIVITY---/i).slice(1);
-    const items = blocks.map((block) => parseActivityBlock(block)).filter(Boolean).map((item) => ({
-      ...item,
-      itemId: `item-${crypto.randomBytes(6).toString("hex")}`,
-    }));
-    activityCount += items.length;
-    dailyPlans[day] = { items };
-  });
-  return {
-    title: normalizedShortText(sections.TITLE),
-    age: normalizedShortText(sections.AGE_GROUP),
-    theme: normalizedShortText(sections.THEME),
-    plan: "Free",
-    status: "draft",
-    learningDomains: String(sections.LEARNING_DOMAINS || "")
-      .split(/[,;\n]/)
-      .map((item) => normalizedShortText(item))
-      .filter((item) => LEARNING_DOMAINS.includes(item)),
-    weeklyOverview: normalizedMultilineText(sections.WEEKLY_OVERVIEW),
-    objectives: normalizedMultilineText(sections.OBJECTIVES),
-    familyConnection: normalizedMultilineText(sections.FAMILY_CONNECTION),
-    weeklyMaterials: normalizedMultilineText(sections.WEEKLY_MATERIALS),
-    vocabularyWords: normalizedMultilineText(sections.VOCABULARY),
-    observationOpportunities: normalizedMultilineText(sections.OBSERVATIONS),
-    adaptations: normalizedMultilineText(sections.ADAPTATIONS),
-    books: parseImportList(sections.BOOKS, 3),
-    songs: parseImportList(sections.SONGS, 2),
-    dailyPlans,
-    _activityCount: activityCount,
-  };
+  const parsed = parseCurriculumLessonPlanImport(text);
+  assert(parsed.ok, parsed.errors.join(" "));
+  return parsed.data;
 }
 
 async function main() {
@@ -281,7 +138,11 @@ async function main() {
     assert(login.status === 200 && login.json?.token, "Login failed");
     const token = login.json.token;
 
-    // Stamp siteContent.updatedAt the way production already has after prior saves.
+    const legacyParsed = parseCurriculumLessonPlanImport(fs.readFileSync(LEGACY_IMPORT_PATH, "utf8"));
+    assert(legacyParsed.ok, `Legacy import should still parse: ${legacyParsed.errors.join(" ")}`);
+    assert(legacyParsed.data._activityCount === 8, `Legacy activity count mismatch: ${legacyParsed.data._activityCount}`);
+    console.log("0) Legacy ===SECTION=== import format still parses");
+
     const bootstrap = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(token)}`);
     const touch = await requestJson("POST", "/api/admin/site-content", {
       adminToken: token,

@@ -1,170 +1,197 @@
-===TITLE===
+TITLE:
 Infant Gentle Water Play
 
-===AGE_GROUP===
+AGE GROUP:
 Infant
 
-===THEME===
+THEME:
 Gentle Water Discovery
 
-===PLAN===
+PLAN:
 Pro
 
-===STATUS===
+STATUS:
 draft
 
-===LEARNING_DOMAINS===
+LEARNING DOMAINS:
 Science, Physical Development, Social Emotional, Language & Literacy
 
-===WEEKLY_OVERVIEW===
+WEEKLY OVERVIEW:
 Infants explore safe water play through supervised splash trays, wet cloths, and calm pouring. Keep water shallow, stay within arm's reach, and dry babies promptly.
 
-===OBJECTIVES===
+LEARNING OBJECTIVES:
 Infants will notice wet and dry textures with caregiver support.
 Infants will practice reaching, patting, and early pouring motions.
 Infants will stay regulated during short sensory water moments.
 
-===FAMILY_CONNECTION===
-Invite families to describe bath-time preferences (warmth, songs, comfort cues) so classroom water play can feel familiar and safe.
-
-===WEEKLY_MATERIALS===
+WEEKLY MATERIALS:
 Shallow sensory trays, warm water, washcloths, soft sponges, cups, towels, waterproof smocks, non-slip mats, soft ducks
 
-===VOCABULARY===
+VOCABULARY:
 wet, dry, splash, drip, warm, wipe, pour, soft
 
-===OBSERVATIONS===
-Watch for enjoyment vs. startle responses, reaching into water, and calming strategies that help each infant stay regulated.
-
-===ADAPTATIONS===
-Offer a damp cloth only for babies who dislike open water trays. Support seated infants with rolled towels. Keep sessions very short for sensitive babies.
-
-===BOOKS===
+BOOKS:
 Splash! | Ann Jonas | Short water-themed looking time
 Time for a Bath | Phaidon / Baby board book | Connect to caregiving routines
 
-===SONGS===
+SONGS:
 Row Row Row Your Boat | Gentle rocking version
 Rain Is Falling Down | Soft finger taps on tray
 
-===MONDAY===
----ACTIVITY---
-Category: Sensory Play
-Title: Warm Washcloth Explore
-Description: Infants feel warm damp washcloths on hands and arms with caregiver support.
-Materials: Warm washcloths, towels
-Steps:
+FAMILY CONNECTION:
+Invite families to describe bath-time preferences (warmth, songs, comfort cues) so classroom water play can feel familiar and safe.
+
+OBSERVATION OPPORTUNITIES:
+Watch for enjoyment vs. startle responses, reaching into water, and calming strategies that help each infant stay regulated.
+
+ADAPTATIONS:
+Offer a damp cloth only for babies who dislike open water trays. Support seated infants with rolled towels. Keep sessions very short for sensitive babies.
+
+MONDAY:
+ACTIVITY NAME:
+Warm Washcloth Explore
+CATEGORY:
+Sensory Play
+MATERIALS:
+Warm washcloths, towels
+SETUP:
+Infants feel warm damp washcloths on hands and arms with caregiver support.
+DIRECTIONS:
 1. Offer a warm damp cloth for touching.
 2. Gently wipe hands while naming wet and warm.
 3. Switch to a dry towel and name dry.
-Learning Goals:
-- Notice wet and dry contrasts
-- Stay calm during sensory caregiving
+LEARNING GOAL:
+Notice wet and dry contrasts
+Stay calm during sensory caregiving
 
----ACTIVITY---
-Category: Music & Movement
-Title: Boat Rock Lullaby
-Description: Caregiver rocks with infant while singing a soft boat song.
-Materials: Calm seating space
-Steps:
+ACTIVITY NAME:
+Boat Rock Lullaby
+CATEGORY:
+Music & Movement
+MATERIALS:
+Calm seating space
+SETUP:
+Caregiver rocks with infant while singing a soft boat song.
+DIRECTIONS:
 1. Hold infant securely.
 2. Rock gently and sing slowly.
 3. Pause if the baby needs stillness.
-Learning Goals:
-- Connect rhythm with calming movement
-- Build trust through predictable care
+LEARNING GOAL:
+Connect rhythm with calming movement
+Build trust through predictable care
 
-===TUESDAY===
----ACTIVITY---
-Category: Sensory Play
-Title: Shallow Splash Tray
-Description: Supervised fingertip and hand exploration in a shallow warm water tray.
-Materials: Shallow tray, warm water, towels, smocks
-Steps:
+TUESDAY:
+ACTIVITY NAME:
+Shallow Splash Tray
+CATEGORY:
+Sensory Play
+MATERIALS:
+Shallow tray, warm water, towels, smocks
+SETUP:
+Supervised fingertip and hand exploration in a shallow warm water tray.
+DIRECTIONS:
 1. Seat infant safely with caregiver support.
 2. Invite hand dips and soft pats on water.
 3. Dry promptly and narrate splash words.
-Learning Goals:
-- Explore water with hands
-- Hear simple science words
+LEARNING GOAL:
+Explore water with hands
+Hear simple science words
 
----ACTIVITY---
-Category: Fine Motor
-Title: Soft Sponge Squeeze
-Description: Infants squeeze soft wet sponges with help.
-Materials: Soft sponges, tray, towels
-Steps:
+ACTIVITY NAME:
+Soft Sponge Squeeze
+CATEGORY:
+Fine Motor
+MATERIALS:
+Soft sponges, tray, towels
+SETUP:
+Infants squeeze soft wet sponges with help.
+DIRECTIONS:
 1. Show a gentle squeeze over the tray.
 2. Support the infant's hands as needed.
 3. Celebrate drips and squeezes.
-Learning Goals:
-- Strengthen early grasp
-- Notice cause and effect with drips
+LEARNING GOAL:
+Strengthen early grasp
+Notice cause and effect with drips
 
-===WEDNESDAY===
----ACTIVITY---
-Category: Gross Motor
-Title: Kick and Splash Toes
-Description: Supported infants kick toes in a shallow tray.
-Materials: Shallow tray, warm water, towels, non-slip mat
-Steps:
+WEDNESDAY:
+ACTIVITY NAME:
+Kick and Splash Toes
+CATEGORY:
+Gross Motor
+MATERIALS:
+Shallow tray, warm water, towels, non-slip mat
+SETUP:
+Supported infants kick toes in a shallow tray.
+DIRECTIONS:
 1. Support infant in a safe seated or reclined position.
 2. Bring toes to the water surface.
 3. Mirror kicks and smile with the baby.
-Learning Goals:
-- Practice leg movement
-- Enjoy shared water play
+LEARNING GOAL:
+Practice leg movement
+Enjoy shared water play
 
-===THURSDAY===
----ACTIVITY---
-Category: Open-Ended Exploration
-Title: Floating Duck Watch
-Description: Infants watch and reach toward soft floating toys.
-Materials: Soft ducks, shallow tray, towels
-Steps:
+THURSDAY:
+ACTIVITY NAME:
+Floating Duck Watch
+CATEGORY:
+Open-Ended Exploration
+MATERIALS:
+Soft ducks, shallow tray, towels
+SETUP:
+Infants watch and reach toward soft floating toys.
+DIRECTIONS:
 1. Float one toy in shallow water.
 2. Move it slowly for visual tracking.
 3. Allow reaching or batting.
-Learning Goals:
-- Track moving objects
-- Reach toward interesting toys
+LEARNING GOAL:
+Track moving objects
+Reach toward interesting toys
 
----ACTIVITY---
-Category: Open-Ended Exploration
-Title: Water Word Talk
-Description: Caregiver narrates water actions with simple repeated words.
-Materials: Washcloth or tray already in use
-Steps:
+ACTIVITY NAME:
+Water Word Talk
+CATEGORY:
+Open-Ended Exploration
+MATERIALS:
+Washcloth or tray already in use
+SETUP:
+Caregiver narrates water actions with simple repeated words.
+DIRECTIONS:
 1. Choose two words such as drip and splash.
 2. Repeat them during play.
 3. Pause for infant vocalizations.
-Learning Goals:
-- Hear repeated water vocabulary
-- Practice early turn-taking sounds
+LEARNING GOAL:
+Hear repeated water vocabulary
+Practice early turn-taking sounds
 
-===FRIDAY===
----ACTIVITY---
-Category: Dramatic Play
-Title: Bath Time Care Doll
-Description: Caregiver models gentle doll washing with a damp cloth.
-Materials: Soft doll, washcloth, towel
-Steps:
+FRIDAY:
+ACTIVITY NAME:
+Bath Time Care Doll
+CATEGORY:
+Dramatic Play
+MATERIALS:
+Soft doll, washcloth, towel
+SETUP:
+Caregiver models gentle doll washing with a damp cloth.
+DIRECTIONS:
 1. Show wiping the doll gently.
 2. Invite the infant to touch the cloth or doll.
 3. Dry the doll and wrap in a towel.
-Learning Goals:
-- Observe caregiving routines
-- Explore gentle pretend care
+LEARNING GOAL:
+Observe caregiving routines
+Explore gentle pretend care
 
----ACTIVITY---
-Category: Music & Movement
-Title: Dry and Dance Fingers
-Description: After drying, wiggle fingers to a short goodbye rhyme.
-Materials: Dry towels, calm space
-Steps:
+ACTIVITY NAME:
+Dry and Dance Fingers
+CATEGORY:
+Music & Movement
+MATERIALS:
+Dry towels, calm space
+SETUP:
+After drying, wiggle fingers to a short goodbye rhyme.
+DIRECTIONS:
 1. Dry hands thoroughly.
 2. Wiggle fingers to a short rhyme.
 3. End with a calm cuddle or smile.
-Learning Goals:
-- Transition from wet play to dry calm
-- Enjoy closing rhythm play
+LEARNING GOAL:
+Transition from wet play to dry calm
+Enjoy closing rhythm play

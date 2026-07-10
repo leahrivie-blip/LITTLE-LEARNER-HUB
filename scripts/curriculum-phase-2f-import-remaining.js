@@ -18,24 +18,12 @@ const https = require("https");
 const { spawn } = require("child_process");
 const crypto = require("crypto");
 const { URL } = require("url");
+const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-parser.js");
 
 const ROOT = path.join(__dirname, "..");
 const IMPORT_DIR = path.join(__dirname, "curriculum-phase-2f-imports");
 const REPORT_PATH = path.join(__dirname, "data/phase-2f-remaining-import-report.json");
 
-const PLAY_ACTIVITY_CATEGORIES = [
-  "Circle Time",
-  "Literacy",
-  "Sensory Play",
-  "Fine Motor",
-  "Gross Motor",
-  "Music & Movement",
-  "Art",
-  "STEM/Discovery",
-  "Dramatic Play",
-  "Outdoor Play",
-  "Open-Ended Exploration",
-];
 const LEARNING_DOMAINS = [
   "Social Emotional",
   "Language & Literacy",
@@ -73,14 +61,6 @@ const ADMIN = useRemote
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
-}
-
-function normalizedShortText(value, max = 240) {
-  return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
-}
-
-function normalizedMultilineText(value, max = 12000) {
-  return String(value || "").replace(/\r\n?/g, "\n").trim().slice(0, max);
 }
 
 function requestJson(method, urlPath, body) {
@@ -190,135 +170,26 @@ async function stopServer(child) {
   });
 }
 
-function parseActivityBlock(block) {
-  const lines = String(block || "").split(/\r?\n/);
-  const activity = {
-    activityCategory: "Open-Ended Exploration",
-    title: "",
-    description: "",
-    materials: "",
-    steps: "",
-    learningGoals: [],
-  };
-  let currentField = "";
-  lines.forEach((rawLine) => {
-    const trimmed = rawLine.trim();
-    if (!trimmed) return;
-    const categoryMatch = trimmed.match(/^Category:\s*(.+)$/i);
-    const titleMatch = trimmed.match(/^Title:\s*(.+)$/i);
-    const descriptionMatch = trimmed.match(/^Description:\s*(.+)$/i);
-    const materialsMatch = trimmed.match(/^Materials:\s*(.+)$/i);
-    const stepsMatch = trimmed.match(/^Steps:\s*$/i);
-    const goalsMatch = trimmed.match(/^Learning Goals:\s*$/i);
-    if (categoryMatch) {
-      currentField = "category";
-      activity.activityCategory = normalizedShortText(categoryMatch[1]);
-      return;
-    }
-    if (titleMatch) {
-      currentField = "title";
-      activity.title = normalizedShortText(titleMatch[1]);
-      return;
-    }
-    if (descriptionMatch) {
-      currentField = "description";
-      activity.description = normalizedMultilineText(descriptionMatch[1]);
-      return;
-    }
-    if (materialsMatch) {
-      currentField = "materials";
-      activity.materials = normalizedMultilineText(materialsMatch[1]);
-      return;
-    }
-    if (stepsMatch) {
-      currentField = "steps";
-      return;
-    }
-    if (goalsMatch) {
-      currentField = "learningGoals";
-      return;
-    }
-    if (currentField === "steps") {
-      activity.steps = [activity.steps, trimmed.replace(/^\d+\.\s*/, "")].filter(Boolean).join("\n");
-      return;
-    }
-    if (currentField === "learningGoals") {
-      const goal = trimmed.replace(/^[-*•]\s*/, "").trim();
-      if (goal) activity.learningGoals.push(goal);
-      return;
-    }
-    if (currentField === "description") activity.description = [activity.description, trimmed].filter(Boolean).join("\n");
-    if (currentField === "materials") activity.materials = [activity.materials, trimmed].filter(Boolean).join("\n");
-  });
-  if (!PLAY_ACTIVITY_CATEGORIES.includes(activity.activityCategory)) {
-    throw new Error(`Invalid activity category "${activity.activityCategory}" in "${activity.title || "untitled"}"`);
-  }
-  if (!activity.title) return null;
-  return activity;
-}
-
-function parseImportList(text, parts = 2) {
-  return String(text || "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => line.replace(/^[-*•]\s*/, "").split("|").map((part) => part.trim()))
-    .map((chunks) => {
-      if (parts === 3) {
-        const [title, author, notes] = chunks;
-        return title ? { title, author: author || "", notes: notes || "" } : null;
-      }
-      const [title, notes] = chunks;
-      return title ? { title, notes: notes || "" } : null;
-    })
-    .filter(Boolean);
-}
-
 function parseLessonImport(text, { itemIdPrefix = "item" } = {}) {
-  const sections = {};
-  const parts = String(text || "").split(/===([A-Z_]+)===/);
-  for (let i = 1; i < parts.length; i += 2) {
-    const key = parts[i].trim().toUpperCase();
-    const content = (parts[i + 1] || "").trim();
-    if (key) sections[key] = content;
-  }
-  const title = normalizedShortText(sections.TITLE);
-  assert(title, "Missing ===TITLE===");
-  const age = normalizedShortText(sections.AGE_GROUP);
-  assert(AGES.includes(age), `Invalid age "${age}" for ${title}`);
-  const learningDomains = String(sections.LEARNING_DOMAINS || "")
-    .split(/[,;\n]/)
-    .map((item) => normalizedShortText(item))
-    .filter((item) => LEARNING_DOMAINS.includes(item));
-  assert(learningDomains.length > 0, `${title}: need learning domains`);
+  const parsed = parseCurriculumLessonPlanImport(text);
+  const data = parsed.data || {};
+  assert(parsed.ok, parsed.errors.join(" "));
+  assert(data.title, "Missing TITLE:");
+  assert(AGES.includes(data.age), `Invalid age "${data.age}" for ${data.title}`);
+  assert((data.learningDomains || []).length > 0, `${data.title}: need learning domains`);
   const weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday"];
   const dailyPlans = {};
   let activityCount = 0;
   weekdays.forEach((day) => {
-    const section = sections[day.toUpperCase()] || "";
-    const blocks = section.split(/---ACTIVITY---/i).slice(1);
-    const items = blocks.map((block) => parseActivityBlock(block)).filter(Boolean).map((item, index) => ({
+    const items = (data.dailyPlans?.[day]?.items || []).map((item, index) => ({
       ...item,
-      // Stable per-lesson item IDs so re-import does not duplicate or collide across plans.
       itemId: `${itemIdPrefix}-${day}-${index + 1}`,
     }));
     activityCount += items.length;
     dailyPlans[day] = { items };
   });
   return {
-    title,
-    age,
-    theme: normalizedShortText(sections.THEME),
-    learningDomains,
-    weeklyOverview: normalizedMultilineText(sections.WEEKLY_OVERVIEW),
-    objectives: normalizedMultilineText(sections.OBJECTIVES),
-    familyConnection: normalizedMultilineText(sections.FAMILY_CONNECTION),
-    weeklyMaterials: normalizedMultilineText(sections.WEEKLY_MATERIALS),
-    vocabularyWords: normalizedMultilineText(sections.VOCABULARY),
-    observationOpportunities: normalizedMultilineText(sections.OBSERVATIONS),
-    adaptations: normalizedMultilineText(sections.ADAPTATIONS),
-    books: parseImportList(sections.BOOKS, 3),
-    songs: parseImportList(sections.SONGS, 2),
+    ...data,
     dailyPlans,
     _activityCount: activityCount,
   };
