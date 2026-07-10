@@ -28,6 +28,17 @@ Health check path: /api/health
 
 Set `SITE_URL` to the HTTPS URL Render gives you after the first deploy. Add the Stripe, OpenAI, admin, and database environment values in Render's dashboard rather than committing `.env`.
 
+### Curriculum resource uploads (Phase 2D)
+
+Curriculum resources reuse the same durable storage pattern as Forms, Printables, legacy Uploads, and lesson plan attachments:
+
+- File bytes are stored as **data URLs** (or HTTPS URLs) in `siteContent.curriculum.resources[].fileData`
+- Persistence is through the existing app store (**Postgres** in production)
+- **No local disk**, **no Render persistent disk**, and **no `CURRICULUM_UPLOADS_DIR`**
+- Max upload size: **5 MB** per file (PDF or image), sized for the existing data-URL / JSON store architecture
+
+Resources link to lesson plans only. Approved categories: Classroom Resources, Behavior & Social Emotional, Printables.
+
 ## Ad-Ready Routes
 
 These routes are mapped inside the app for ad traffic and analytics:

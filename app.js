@@ -1870,6 +1870,14 @@ const curriculumBackupConfig = {
 const curriculumLessonPlanConfig = {
   endpoint: "/api/admin/curriculum/lesson-plans",
 };
+const curriculumResourceConfig = {
+  listEndpoint: "/api/admin/curriculum/resources",
+  uploadEndpoint: "/api/admin/curriculum/resources/upload",
+  saveEndpoint: "/api/admin/curriculum/resources/save",
+  archiveEndpoint: "/api/admin/curriculum/resources/archive",
+  linkEndpoint: "/api/admin/curriculum/resources/link",
+  unlinkEndpoint: "/api/admin/curriculum/resources/unlink",
+};
 const billingPlans = {
   Free: {
     name: "Free",
@@ -3209,9 +3217,11 @@ let adminAnalyticsCache = null;
 let adminAnalyticsLoading = false;
 let adminLessonEditorId = "";
 let adminCurriculumLessonEditorId = "";
+let adminCurriculumResourceEditorId = "";
 let adminCurriculumLessonSaving = false;
 let adminCurriculumLessonImportDraft = null;
 let adminCurriculumLessonImportTextCache = "";
+let adminCurriculumResourceSaving = false;
 let adminReviewEditorId = "";
 let adminImageEditorId = "";
 let adminLessonSelection = new Set();
@@ -3223,7 +3233,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","curriculum-lesson-plans","activities","forms","printables","reviews","founder","images","analytics","support","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","curriculum-lesson-plans","curriculum-resources","activities","forms","printables","reviews","founder","images","analytics","support","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding"]);
 // FUTURE ADMIN BUILD: lessonPlanResourceCategories is currently hardcoded.
 // A future admin section should allow adding, renaming, and reordering these category labels
 // so new upload categories can be managed without a code change.
@@ -3236,7 +3246,7 @@ let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabNorma
 // ─── Admin 2.0 Navigation Groups ─────────────────────────────────────────────
 const adminGroups = [
   { id: "dashboard", icon: "🏠", label: "Dashboard",  tabs: ["dashboard", "analytics", "support"], defaultTab: "dashboard" },
-  { id: "content",   icon: "📚", label: "Content",    tabs: ["lesson-plans", "curriculum-lesson-plans", "activities", "forms", "printables", "reviews", "founder", "resources"], defaultTab: "lesson-plans" },
+  { id: "content",   icon: "📚", label: "Content",    tabs: ["lesson-plans", "curriculum-lesson-plans", "curriculum-resources", "activities", "forms", "printables", "reviews", "founder", "resources"], defaultTab: "lesson-plans" },
   { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
   { id: "users",     icon: "👥", label: "Users",      tabs: ["users", "stripe-backfill"], defaultTab: "users" },
   { id: "settings",  icon: "⚙️", label: "Settings",   tabs: ["images"], defaultTab: "images" },
@@ -3249,6 +3259,7 @@ const adminGroupForTab = {
   "support":     "dashboard",
   "lesson-plans":"content",
   "curriculum-lesson-plans": "content",
+  "curriculum-resources": "content",
   "activities":  "content",
   "forms":       "content",
   "printables":  "content",
@@ -3279,6 +3290,7 @@ const adminTabLabels = {
   "support":     "Support",
   "lesson-plans":"Lesson Plans",
   "curriculum-lesson-plans": "Play-Based Lessons (Beta)",
+  "curriculum-resources": "Curriculum Resources (Beta)",
   "activities":  "Activities",
   "forms":       "Forms Library (not legacy uploads)",
   "printables":  "Printables Library (not legacy uploads)",
@@ -3449,6 +3461,11 @@ const PLAY_ACTIVITY_CATEGORIES = Object.freeze([
   "Music & Movement",
   "Dramatic Play",
   "Open-Ended Exploration",
+]);
+const CURRICULUM_RESOURCE_CATEGORIES = Object.freeze([
+  "Classroom Resources",
+  "Behavior & Social Emotional",
+  "Printables",
 ]);
 
 function emptyCurriculum() {
@@ -4034,6 +4051,7 @@ function renderAdminCurriculumLessonPlanForm(plan) {
         <h4>Daily activities (Mon–Fri)</h4>
         ${renderCurriculumDailyPlanEditor(record.dailyPlans)}
       </div>
+      ${renderCurriculumLessonLinkedResourcesSection(record)}
       <div class="form-actions">
         <button class="primary-button" type="submit" ${adminCurriculumLessonSaving ? "disabled" : ""}>${adminCurriculumLessonSaving ? "Saving…" : "💾 Save lesson plan"}</button>
         <button class="ghost-button" type="button" data-curriculum-lesson-back>Back to list</button>
@@ -4200,6 +4218,337 @@ function removeCurriculumDailyPlanRow(button) {
   if (container && !container.querySelector(".curriculum-daily-item-row")) {
     container.innerHTML = `<p class="muted-copy curriculum-daily-empty">No activities yet.</p>`;
   }
+}
+
+function curriculumResourcesForAdmin({ includeArchived = false } = {}) {
+  return effectiveCurriculum().resources
+    .filter((item) => includeArchived || item.status !== "archived")
+    .slice()
+    .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
+}
+
+function curriculumResourceStatusLabel(status) {
+  const labels = {
+    draft: "🟡 Draft",
+    published: "🟢 Published",
+    archived: "📦 Archived",
+  };
+  return labels[status] || status;
+}
+
+function curriculumResourceFileHref(resource) {
+  const fileData = String(resource?.fileData || resource?.fileUrl || "").trim();
+  if (!fileData) return "";
+  // Data URLs and HTTPS URLs open directly (same pattern as Forms / Printables / legacy Uploads).
+  if (fileData.startsWith("data:") || /^https:\/\//i.test(fileData)) return fileData;
+  return "";
+}
+
+function applyCurriculumState(curriculum) {
+  siteContentState = {
+    ...effectiveSiteContent(),
+    curriculum: curriculum || effectiveCurriculum(),
+  };
+}
+
+const CURRICULUM_UPLOAD_MAX_MB = 5;
+
+async function uploadCurriculumResourceFile({ resourceId, file }) {
+  const token = adminSession()?.token || "";
+  if (!token || !file) throw new Error("Admin login and a file are required.");
+  const fileData = await fileToDataUrlSafe(file, { maxMb: CURRICULUM_UPLOAD_MAX_MB });
+  if (!fileData) throw new Error("Could not read the selected file.");
+  const response = await fetch(curriculumResourceConfig.uploadEndpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      adminToken: token,
+      resourceId: resourceId || "",
+      fileName: file.name || "upload",
+      fileData,
+    }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.error || "Upload failed.");
+  return data;
+}
+
+function curriculumResourceAdminCardHtml(resource) {
+  const linkedCount = Array.isArray(resource.lessonPlanIds) ? resource.lessonPlanIds.length : 0;
+  const openHref = curriculumResourceFileHref(resource);
+  return `
+    <article class="admin-content-card is-${escapeHtml(resource.status || "draft")}">
+      <div class="admin-mobile-card-body">
+        <div>
+          <strong>${escapeHtml(resource.title || "Untitled Resource")}</strong>
+          <div class="tag-row" style="margin:2px 0 4px">
+            <span class="tag">${curriculumResourceStatusLabel(resource.status || "draft")}</span>
+            <span class="tag">${escapeHtml(resource.resourceCategory || "Classroom Resources")}</span>
+          </div>
+          <small>${escapeHtml(resource.fileName || (resource.fileData?.startsWith("https://") ? resource.fileData : "") || "No file")}</small>
+          <small>${linkedCount} linked ${linkedCount === 1 ? "lesson plan" : "lesson plans"}</small>
+          <small>Updated: ${escapeHtml(adminLessonUpdatedLabel(resource.updatedAt))}</small>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="ghost-button" type="button" data-curriculum-resource-edit="${escapeHtml(resource.id)}">Edit</button>
+        ${openHref ? `<a class="ghost-button" href="${escapeHtml(openHref)}" target="_blank" rel="noopener">Open file</a>` : ""}
+        ${resource.status !== "archived"
+          ? `<button class="ghost-button" type="button" data-curriculum-resource-archive="${escapeHtml(resource.id)}">📦 Archive</button>`
+          : ""
+        }
+      </div>
+    </article>
+  `;
+}
+
+function renderAdminCurriculumResourceForm(resource) {
+  const record = resource || {
+    id: adminCurriculumResourceEditorId || "",
+    title: "",
+    resourceCategory: "Classroom Resources",
+    fileData: "",
+    fileName: "",
+    mimeType: "",
+    status: "draft",
+  };
+  const openHref = curriculumResourceFileHref(record);
+  const httpsValue = record.fileData?.startsWith("https://") ? record.fileData : "";
+  return `
+    <form id="adminCurriculumResourceForm" class="panel-form admin-stacked-form">
+      <input type="hidden" name="id" value="${escapeHtml(record.id || "")}" />
+      <h4>${record.id ? `Editing: ${escapeHtml(record.title || "Resource")}` : "New curriculum resource"}</h4>
+      <p class="muted-copy">PDF or image up to ${CURRICULUM_UPLOAD_MAX_MB} MB. Files are stored in the app database (same durable pattern as Forms and Printables).</p>
+      <div class="form-grid-two">
+        <label>Title<input name="title" value="${escapeHtml(record.title || "")}" required /></label>
+        <label>Category
+          <select name="resourceCategory">
+            ${CURRICULUM_RESOURCE_CATEGORIES.map((category) => `<option${record.resourceCategory === category ? " selected" : ""}>${escapeHtml(category)}</option>`).join("")}
+          </select>
+        </label>
+      </div>
+      <label>Status
+        <select name="status">
+          ${["draft", "published"].map((status) => `<option value="${status}"${record.status === status ? " selected" : ""}>${curriculumResourceStatusLabel(status)}</option>`).join("")}
+        </select>
+      </label>
+      <label>Upload file (PDF or image, max ${CURRICULUM_UPLOAD_MAX_MB} MB)<input name="file" type="file" accept=".pdf,image/*" /></label>
+      <label>Or external HTTPS URL<input name="fileUrl" value="${escapeHtml(httpsValue)}" placeholder="https://..." /></label>
+      ${openHref ? `<p class="muted-copy">Current file: <a href="${escapeHtml(openHref)}" target="_blank" rel="noopener">${escapeHtml(record.fileName || "Open file")}</a></p>` : ""}
+      <div class="form-actions">
+        <button class="primary-button" type="submit" ${adminCurriculumResourceSaving ? "disabled" : ""}>${adminCurriculumResourceSaving ? "Saving…" : "💾 Save resource"}</button>
+        <button class="ghost-button" type="button" data-curriculum-resource-back>Back to list</button>
+      </div>
+      <span class="form-message" id="adminCurriculumResourceMessage"></span>
+    </form>
+  `;
+}
+
+function renderAdminCurriculumResourceManager() {
+  const target = document.querySelector("#adminCurriculumResourceApp");
+  if (!target) return;
+  const resources = curriculumResourcesForAdmin();
+  const editingId = adminCurriculumResourceEditorId;
+  const editingResource = editingId
+    ? (curriculumResourceById(editingId) || {
+      id: editingId,
+      title: "",
+      resourceCategory: "Classroom Resources",
+      fileData: "",
+      fileName: "",
+      status: "draft",
+    })
+    : null;
+  target.innerHTML = `
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Play-Based Curriculum (Beta)</p>
+        <h3>Curriculum resources</h3>
+        <p class="muted-copy">Files are stored in Postgres as data URLs (same durable pattern as Forms and Printables). Max ${CURRICULUM_UPLOAD_MAX_MB} MB per file.</p>
+      </div>
+      <button class="ghost-button" type="button" id="adminCreateCurriculumResourceButton">+ Upload resource</button>
+    </div>
+    <div class="admin-mobile-list">
+      ${resources.map(curriculumResourceAdminCardHtml).join("") || `<div class="empty-state">No curriculum resources yet.</div>`}
+    </div>
+    ${editingResource ? renderAdminCurriculumResourceForm(editingResource) : ""}
+  `;
+}
+
+function renderCurriculumLessonLinkedResourcesSection(plan) {
+  const lessonPlanId = plan?.id || "";
+  if (!lessonPlanId) return "";
+  const linked = curriculumResourcesForLesson(lessonPlanId).filter((item) => item.status !== "archived");
+  const available = curriculumResourcesForAdmin().filter((item) => !linked.some((linkedItem) => linkedItem.id === item.id));
+  return `
+    <fieldset class="admin-fieldset curriculum-linked-resources">
+      <legend>Linked resources</legend>
+      <p class="muted-copy">Resources link to this lesson plan only (not individual activities).</p>
+      <div class="curriculum-linked-resource-list">
+        ${linked.length
+          ? linked.map((resource) => {
+            const openHref = curriculumResourceFileHref(resource);
+            return `
+            <div class="curriculum-linked-resource-row">
+              <div>
+                <strong>${escapeHtml(resource.title || "Resource")}</strong>
+                <small>${escapeHtml(resource.resourceCategory || "Classroom Resources")} · ${escapeHtml(resource.fileName || "")}</small>
+              </div>
+              <div class="form-actions">
+                ${openHref ? `<a class="ghost-button" href="${escapeHtml(openHref)}" target="_blank" rel="noopener">Open</a>` : ""}
+                <button class="ghost-button" type="button" data-curriculum-resource-unlink="${escapeHtml(resource.id)}" data-curriculum-lesson-id="${escapeHtml(lessonPlanId)}">Unlink</button>
+              </div>
+            </div>
+          `;
+          }).join("")
+          : `<p class="muted-copy">No resources linked yet.</p>`
+        }
+      </div>
+      ${available.length ? `
+        <div class="form-grid-two curriculum-link-resource-row">
+          <label>Link existing resource
+            <select id="adminCurriculumLinkResourceSelect">
+              <option value="">Select a resource…</option>
+              ${available.map((resource) => `<option value="${escapeHtml(resource.id)}">${escapeHtml(resource.title || resource.id)}</option>`).join("")}
+            </select>
+          </label>
+          <div class="form-actions">
+            <button class="ghost-button" type="button" id="adminCurriculumLinkResourceButton" data-curriculum-lesson-id="${escapeHtml(lessonPlanId)}">Link resource</button>
+          </div>
+        </div>
+      ` : `<p class="muted-copy">Upload resources in Curriculum Resources (Beta) to link them here.</p>`}
+    </fieldset>
+  `;
+}
+
+async function saveAdminCurriculumResourceForm(form) {
+  if (adminCurriculumResourceSaving) return;
+  const token = adminSession()?.token || "";
+  if (!canUseLaunchBackend() || !token) {
+    setFormMessage("#adminCurriculumResourceMessage", "Backend server and admin login are required.", false);
+    return;
+  }
+  adminCurriculumResourceSaving = true;
+  renderAdminCurriculumResourceManager();
+  applyAdminSectionVisibility();
+  try {
+    const formData = new FormData(form);
+    const id = normalizedShortText(formData.get("id")) || `cur-res-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
+    const existing = curriculumResourceById(id);
+    let fileData = existing?.fileData || "";
+    let fileName = existing?.fileName || "";
+    let mimeType = existing?.mimeType || "";
+    const httpsUrl = sanitizedUrl(formData.get("fileUrl"));
+    if (httpsUrl && /^https:\/\//i.test(httpsUrl)) {
+      fileData = httpsUrl;
+      fileName = fileName || httpsUrl.split("/").pop() || "link";
+    }
+    const file = formData.get("file");
+    if (file && file.size) {
+      const uploaded = await uploadCurriculumResourceFile({ resourceId: id, file });
+      fileData = uploaded.fileData || fileData;
+      fileName = uploaded.fileName || file.name || fileName;
+      mimeType = uploaded.mimeType || mimeType;
+    }
+    if (!fileData) throw new Error(`Upload a PDF/image (max ${CURRICULUM_UPLOAD_MAX_MB} MB) or provide an HTTPS URL.`);
+    const response = await fetch(curriculumResourceConfig.saveEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        adminToken: token,
+        resource: {
+          id,
+          title: normalizedShortText(formData.get("title")) || "Resource",
+          resourceCategory: normalizedShortText(formData.get("resourceCategory")) || "Classroom Resources",
+          fileData,
+          fileName,
+          mimeType,
+          status: ["draft", "published"].includes(formData.get("status")) ? formData.get("status") : "draft",
+          lessonPlanIds: existing?.lessonPlanIds || [],
+        },
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error || "Could not save resource.");
+    applyCurriculumState(data.curriculum);
+    adminCurriculumResourceEditorId = data.resource?.id || id;
+    setFormMessage("#adminCurriculumResourceMessage", "✅ Resource saved.", true);
+    renderAdminCurriculumResourceManager();
+    applyAdminSectionVisibility();
+  } catch (error) {
+    setFormMessage("#adminCurriculumResourceMessage", `❌ ${error.message || "Save failed."}`, false);
+    renderAdminCurriculumResourceManager();
+    applyAdminSectionVisibility();
+  } finally {
+    adminCurriculumResourceSaving = false;
+  }
+}
+
+async function archiveAdminCurriculumResource(id) {
+  const token = adminSession()?.token || "";
+  if (!canUseLaunchBackend() || !token) return;
+  await runAdminAction({
+    messageSelector: "#adminCurriculumResourceMessage",
+    actionFn: async () => {
+      const response = await fetch(curriculumResourceConfig.archiveEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminToken: token, id }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || "Could not archive resource.");
+      applyCurriculumState(data.curriculum);
+    },
+    successMsg: "✅ Resource archived.",
+    onComplete: () => {
+      renderAdminCurriculumResourceManager();
+      if (adminCurriculumLessonEditorId) {
+        renderAdminCurriculumLessonPlanManager();
+      }
+    },
+  });
+}
+
+async function linkCurriculumResourceToLesson(resourceId, lessonPlanId) {
+  const token = adminSession()?.token || "";
+  if (!canUseLaunchBackend() || !token || !resourceId || !lessonPlanId) return;
+  const response = await fetch(curriculumResourceConfig.linkEndpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminToken: token, resourceId, lessonPlanId }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.error || "Could not link resource.");
+  applyCurriculumState(data.curriculum);
+  return data;
+}
+
+async function unlinkCurriculumResourceFromLesson(resourceId, lessonPlanId) {
+  const token = adminSession()?.token || "";
+  if (!canUseLaunchBackend() || !token || !resourceId || !lessonPlanId) return;
+  const response = await fetch(curriculumResourceConfig.unlinkEndpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminToken: token, resourceId, lessonPlanId }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.error || "Could not unlink resource.");
+  applyCurriculumState(data.curriculum);
+  return data;
+}
+
+function openAdminCurriculumResourceEditor(id, { scroll = false } = {}) {
+  adminCurriculumResourceEditorId = id;
+  if (adminActiveSectionTab !== "curriculum-resources") setAdminSectionTab("curriculum-resources");
+  renderAdminCurriculumResourceManager();
+  applyAdminSectionVisibility();
+  const form = document.querySelector("#adminCurriculumResourceForm");
+  if (form && scroll) form.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function createAdminCurriculumResource() {
+  const id = `cur-res-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
+  openAdminCurriculumResourceEditor(id, { scroll: true });
 }
 
 function cloneJson(value, fallback) {
@@ -18755,6 +19104,9 @@ function renderAdminContentManager() {
       <section class="admin-manager-section" data-admin-cm-section="curriculum-lesson-plans">
         <div id="adminCurriculumLessonPlanApp"></div>
       </section>
+      <section class="admin-manager-section" data-admin-cm-section="curriculum-resources">
+        <div id="adminCurriculumResourceApp"></div>
+      </section>
       <section class="admin-manager-section" data-admin-cm-section="activities">
         <div id="adminActivitiesManagerApp"></div>
       </section>
@@ -18768,6 +19120,7 @@ function renderAdminContentManager() {
   `;
   setAdminLessonFormCleanState();
   if (adminActiveSectionTab === "curriculum-lesson-plans") renderAdminCurriculumLessonPlanManager();
+  if (adminActiveSectionTab === "curriculum-resources") renderAdminCurriculumResourceManager();
   if (adminActiveSectionTab === "activities") renderAdminActivitiesManager();
   if (adminActiveSectionTab === "forms") renderAdminFormsManager();
   if (adminActiveSectionTab === "printables") renderAdminPrintablesManager();
@@ -20093,7 +20446,7 @@ function renderAdminSectionNav() {
   `;
 }
 
-const adminCmSectionIds = ["lesson-plans", "curriculum-lesson-plans", "activities", "forms", "printables", "reviews", "founder", "images"];
+const adminCmSectionIds = ["lesson-plans", "curriculum-lesson-plans", "curriculum-resources", "activities", "forms", "printables", "reviews", "founder", "images"];
 
 function applyAdminSectionVisibility() {
   const tab = adminActiveSectionTab;
@@ -20128,6 +20481,7 @@ function applyAdminSectionVisibility() {
       el.hidden = el.dataset.adminCmSection !== tab;
     });
     if (tab === "curriculum-lesson-plans") renderAdminCurriculumLessonPlanManager();
+    if (tab === "curriculum-resources") renderAdminCurriculumResourceManager();
     if (tab === "activities") renderAdminActivitiesManager();
     if (tab === "forms") renderAdminFormsManager();
     if (tab === "printables") renderAdminPrintablesManager();
@@ -28661,6 +29015,11 @@ document.addEventListener("submit", async (event) => {
     await saveAdminCurriculumLessonPlanForm(event.target);
     return;
   }
+  if (event.target.matches("#adminCurriculumResourceForm")) {
+    event.preventDefault();
+    await saveAdminCurriculumResourceForm(event.target);
+    return;
+  }
   if (event.target.matches("#adminLessonImportForm")) {
     event.preventDefault();
     const textarea = document.querySelector("#adminImportTextarea");
@@ -28863,6 +29222,52 @@ document.addEventListener("click", async (event) => {
   }
   if (event.target.closest("#adminCreateCurriculumLessonPlanButton")) {
     createAdminCurriculumLessonPlan();
+    return;
+  }
+  if (event.target.closest("#adminCreateCurriculumResourceButton")) {
+    createAdminCurriculumResource();
+    return;
+  }
+  const curriculumResourceEditButton = event.target.closest("[data-curriculum-resource-edit]");
+  if (curriculumResourceEditButton) {
+    openAdminCurriculumResourceEditor(curriculumResourceEditButton.dataset.curriculumResourceEdit, { scroll: true });
+    return;
+  }
+  if (event.target.closest("[data-curriculum-resource-back]")) {
+    adminCurriculumResourceEditorId = "";
+    renderAdminCurriculumResourceManager();
+    return;
+  }
+  const curriculumResourceArchiveButton = event.target.closest("[data-curriculum-resource-archive]");
+  if (curriculumResourceArchiveButton) {
+    await archiveAdminCurriculumResource(curriculumResourceArchiveButton.dataset.curriculumResourceArchive);
+    return;
+  }
+  if (event.target.closest("#adminCurriculumLinkResourceButton")) {
+    const lessonPlanId = event.target.closest("#adminCurriculumLinkResourceButton")?.dataset.curriculumLessonId || "";
+    const resourceId = document.querySelector("#adminCurriculumLinkResourceSelect")?.value || "";
+    if (!resourceId || !lessonPlanId) return;
+    try {
+      await linkCurriculumResourceToLesson(resourceId, lessonPlanId);
+      renderAdminCurriculumLessonPlanManager();
+      applyAdminSectionVisibility();
+    } catch (error) {
+      setFormMessage("#adminCurriculumLessonPlanMessage", `❌ ${error.message || "Could not link resource."}`, false);
+    }
+    return;
+  }
+  const curriculumUnlinkButton = event.target.closest("[data-curriculum-resource-unlink]");
+  if (curriculumUnlinkButton) {
+    const resourceId = curriculumUnlinkButton.dataset.curriculumResourceUnlink || "";
+    const lessonPlanId = curriculumUnlinkButton.dataset.curriculumLessonId || "";
+    if (!resourceId || !lessonPlanId) return;
+    try {
+      await unlinkCurriculumResourceFromLesson(resourceId, lessonPlanId);
+      renderAdminCurriculumLessonPlanManager();
+      applyAdminSectionVisibility();
+    } catch (error) {
+      setFormMessage("#adminCurriculumLessonPlanMessage", `❌ ${error.message || "Could not unlink resource."}`, false);
+    }
     return;
   }
   const curriculumLessonEditButton = event.target.closest("[data-curriculum-lesson-edit]");
