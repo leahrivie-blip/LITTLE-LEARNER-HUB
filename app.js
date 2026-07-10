@@ -4395,7 +4395,7 @@ function collectCurriculumLessonPlanFromForm(form) {
 
 async function saveAdminCurriculumLessonPlanForm(form) {
   if (adminCurriculumLessonSaving) {
-    setFormMessage("#adminCurriculumLessonPlanMessage", "Already saving — please wait.", false);
+    setFormMessage("#adminCurriculumLessonPlanMessage", "Already saving — please wait. If this persists, refresh the page and try again.", false);
     return;
   }
   const token = adminSession()?.token || "";
@@ -4403,40 +4403,53 @@ async function saveAdminCurriculumLessonPlanForm(form) {
     setFormMessage("#adminCurriculumLessonPlanMessage", "Backend server and admin login are required.", false);
     return;
   }
+
   adminCurriculumLessonSaving = true;
-  const lessonPlan = collectCurriculumLessonPlanFromForm(form);
   renderAdminCurriculumLessonPlanManager();
   applyAdminSectionVisibility();
 
   let successMessage = "";
   let errorMessage = "";
+  const controllers = [];
   try {
+    const lessonPlan = collectCurriculumLessonPlanFromForm(form);
     // Concurrency token must match siteContent.updatedAt; refresh if the client never received one.
     if (!curriculumExpectedUpdatedAt()) {
       try {
-        await loadAdminSiteContent();
+        await Promise.race([
+          loadAdminSiteContent(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Timed out refreshing admin content.")), 15000)),
+        ]);
       } catch {
         // Continue; server will return 409 if a stamp already exists.
       }
     }
 
     const postLessonPlan = async () => {
-      const response = await fetch(curriculumLessonPlanConfig.endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          adminToken: token,
-          expectedUpdatedAt: curriculumExpectedUpdatedAt(),
-          lessonPlan,
-        }),
-      });
-      let data = null;
+      const controller = new AbortController();
+      controllers.push(controller);
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
       try {
-        data = await response.json();
-      } catch {
-        data = null;
+        const response = await fetch(curriculumLessonPlanConfig.endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            adminToken: token,
+            expectedUpdatedAt: curriculumExpectedUpdatedAt(),
+            lessonPlan,
+          }),
+          signal: controller.signal,
+        });
+        let data = null;
+        try {
+          data = await response.json();
+        } catch {
+          data = null;
+        }
+        return { response, data };
+      } finally {
+        clearTimeout(timeoutId);
       }
-      return { response, data };
     };
 
     let { response, data } = await postLessonPlan();
@@ -4461,8 +4474,15 @@ async function saveAdminCurriculumLessonPlanForm(form) {
     const syncedCount = (data.activities || []).filter((item) => item.status !== "archived").length;
     successMessage = `✅ Saved. ${syncedCount} linked activities synced.`;
   } catch (error) {
-    errorMessage = `❌ ${error.message || "Save failed."}`;
+    if (error?.name === "AbortError") {
+      errorMessage = "❌ Save timed out. Please refresh and try again.";
+    } else {
+      errorMessage = `❌ ${error.message || "Save failed."}`;
+    }
   } finally {
+    controllers.forEach((controller) => {
+      try { controller.abort(); } catch { /* ignore */ }
+    });
     adminCurriculumLessonSaving = false;
     renderAdminCurriculumLessonPlanManager();
     applyAdminSectionVisibility();
@@ -4538,10 +4558,14 @@ async function handleCurriculumSaveConflict(data) {
       siteContentUpdatedAt: data.siteContentUpdatedAt,
     });
   }
-  try {
-    await loadAdminSiteContent();
-  } catch {
-    // Keep conflict payload if reload fails.
+  // Curriculum conflict payloads already include siteContentUpdatedAt. Avoid a full admin
+  // site-content reload here — it can be huge (embedded fileData) and block save retries.
+  if (!data?.siteContentUpdatedAt) {
+    try {
+      await loadAdminSiteContent();
+    } catch {
+      // Keep conflict payload if reload fails.
+    }
   }
   return true;
 }
