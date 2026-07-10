@@ -682,6 +682,22 @@ const freeFormGroups = new Set([
   "Program Planning Forms",
 ]);
 const activityTypes = ["Fine Motor", "Gross Motor", "Sensory", "Art", "Science", "STEM", "Literacy", "Math", "Outdoor Play", "Circle Time"];
+const curriculumActivityFilterCategories = Object.freeze([
+  "Sensory Play",
+  "Fine Motor",
+  "Gross Motor & Movement",
+  "Music & Movement",
+  "Dramatic Play",
+  "Open-Ended Exploration",
+]);
+const CURRICULUM_ACTIVITY_CATEGORY_FILTER_ALIASES = Object.freeze({
+  "Sensory Play": ["Sensory Play", "Sensory"],
+  "Fine Motor": ["Fine Motor"],
+  "Gross Motor & Movement": ["Gross Motor & Movement", "Gross Motor", "Outdoor Play"],
+  "Music & Movement": ["Music & Movement", "Circle Time"],
+  "Dramatic Play": ["Dramatic Play"],
+  "Open-Ended Exploration": ["Open-Ended Exploration", "Art", "Literacy", "STEM/Discovery"],
+});
 const printableTypes = ["Infant Activity Guide", "Tracing Worksheets", "Coloring Pages", "Alphabet Practice", "Number Practice", "Shape Practice", "Name Writing", "Cutting Practice", "Matching Activities", "Seasonal Worksheets", "Holiday Worksheets"];
 const professionalPrintableTypes = ["Infant Activity Guide", "Tracing Worksheets", "Coloring Pages", "Alphabet Practice", "Number Practice", "Shape Practice", "Name Writing", "Cutting Practice", "Matching Activities", "Assessment Forms", "Seasonal Worksheets", "Holiday Worksheets"];
 const printableQualityBlockedTerms = ["placeholder", "draw here", "blank box", "coming soon", "lorem ipsum", "unfinished", "ai draft", "ai-generated"];
@@ -2994,6 +3010,7 @@ let activeGeneratedPdfResource = null;
 let currentPlan = localStorage.getItem("llhPlan") || "Free";
 let currentUser = localStorage.getItem("llhUser") || "";
 let activeFilter = "All";
+let activeActivityLessonPlanId = "";
 let currentAuthMode = "login";
 let checkoutPromoCode = localStorage.getItem("llhCheckoutPromoCode") || "";
 let adminAnalyticsCache = null;
@@ -3332,6 +3349,222 @@ function curriculumResourcesForLesson(lessonPlanId) {
   ));
 }
 
+function curriculumActivityIdForItemId(itemId) {
+  const normalized = String(itemId || "").trim();
+  if (!normalized) return "";
+  const suffix = normalized.startsWith("item-") ? normalized.slice(5) : normalized;
+  return `cur-act-${suffix}`;
+}
+
+function curriculumActivityCountForLesson(lessonPlanId) {
+  const targetId = String(lessonPlanId || "").trim();
+  if (!targetId) return 0;
+  return effectiveCurriculumLibrary().activities.filter((item) => item.lessonPlanId === targetId).length;
+}
+
+function activityMatchesCurriculumCategoryFilter(activityCategory, filter) {
+  if (!filter || filter === "All") return true;
+  const aliases = CURRICULUM_ACTIVITY_CATEGORY_FILTER_ALIASES[filter];
+  const category = String(activityCategory || "").trim();
+  if (!aliases) return category === filter;
+  return aliases.includes(category);
+}
+
+function curriculumMultilineSectionHtml(text) {
+  const lines = String(text || "").split("\n").map((line) => line.trimEnd()).filter((line) => line.length);
+  return printableLinesHtml(lines);
+}
+
+function curriculumBooksSectionHtml(books) {
+  if (!Array.isArray(books) || !books.length) return "";
+  return books.map((book) => `
+    <div class="curriculum-book-entry">
+      <strong>${escapeHtml(book.title || "")}</strong>
+      ${book.author ? `<span class="curriculum-book-author">by ${escapeHtml(book.author)}</span>` : ""}
+      ${book.notes ? `<p>${escapeHtml(book.notes)}</p>` : ""}
+    </div>
+  `).join("");
+}
+
+function curriculumSongsSectionHtml(songs) {
+  if (!Array.isArray(songs) || !songs.length) return "";
+  return songs.map((song) => `
+    <div class="curriculum-song-entry">
+      <strong>${escapeHtml(song.title || "")}</strong>
+      ${song.notes ? `<p>${escapeHtml(song.notes)}</p>` : ""}
+    </div>
+  `).join("");
+}
+
+function curriculumLessonWeeklySectionsHtml(plan) {
+  const sections = [];
+  const addText = (id, label, value) => {
+    if (!String(value || "").trim()) return;
+    sections.push({ id, label, html: curriculumMultilineSectionHtml(value) });
+  };
+  addText("weekly-overview", "Weekly Overview", plan.weeklyOverview);
+  addText("objectives", "Learning Objectives", plan.objectives);
+  addText("weekly-materials", "Weekly Materials", plan.weeklyMaterials);
+  addText("vocabulary", "Vocabulary", plan.vocabularyWords);
+  if (Array.isArray(plan.books) && plan.books.length) {
+    sections.push({ id: "books", label: "Books", html: curriculumBooksSectionHtml(plan.books) });
+  }
+  if (Array.isArray(plan.songs) && plan.songs.length) {
+    sections.push({ id: "songs", label: "Songs", html: curriculumSongsSectionHtml(plan.songs) });
+  }
+  addText("family-connection", "Family Connection", plan.familyConnection);
+  addText("observation-opportunities", "Observation Opportunities", plan.observationOpportunities);
+  addText("adaptations", "Adaptations", plan.adaptations);
+  if (!sections.length) return "";
+  return sections.map((section, index) => `
+    <details class="curriculum-lesson-section"${index < 2 ? " open" : ""}>
+      <summary>${escapeHtml(section.label)}</summary>
+      <div class="curriculum-lesson-section-body">${section.html}</div>
+    </details>
+  `).join("");
+}
+
+function curriculumLessonDayActivityCard(lessonPlanId, item) {
+  const activityId = curriculumActivityIdForItemId(item.itemId);
+  const goals = Array.isArray(item.learningGoals) ? item.learningGoals.filter(Boolean) : [];
+  return `
+    <article class="curriculum-activity-card">
+      <div class="curriculum-activity-card-head">
+        <h4>${escapeHtml(item.title || "Activity")}</h4>
+        ${item.activityCategory ? `<span class="tag">${escapeHtml(item.activityCategory)}</span>` : ""}
+      </div>
+      ${item.materials ? `<div class="curriculum-activity-field"><strong>Materials</strong>${curriculumMultilineSectionHtml(item.materials)}</div>` : ""}
+      ${item.setup ? `<div class="curriculum-activity-field"><strong>Setup</strong>${curriculumMultilineSectionHtml(item.setup)}</div>` : ""}
+      ${item.steps ? `<div class="curriculum-activity-field"><strong>Directions</strong>${curriculumMultilineSectionHtml(item.steps)}</div>` : ""}
+      ${goals.length ? `<div class="curriculum-activity-field"><strong>Learning Goal</strong><ul class="curriculum-goal-list">${goals.map((goal) => `<li>${escapeHtml(goal)}</li>`).join("")}</ul></div>` : ""}
+      ${activityId ? `<button class="ghost-button" type="button" data-open-curriculum-activity="${escapeHtml(activityId)}">Open Activity</button>` : ""}
+    </article>
+  `;
+}
+
+function curriculumLessonDailyPlansHtml(plan) {
+  const dailyPlans = plan.dailyPlans && typeof plan.dailyPlans === "object" ? plan.dailyPlans : {};
+  const dayLabels = {
+    monday: "Monday",
+    tuesday: "Tuesday",
+    wednesday: "Wednesday",
+    thursday: "Thursday",
+    friday: "Friday",
+  };
+  const tabs = CURRICULUM_WEEKDAYS.map((day, index) => `
+    <button class="curriculum-day-tab${index === 0 ? " is-active" : ""}" type="button" data-curriculum-lesson-day="${day}">${dayLabels[day]}</button>
+  `).join("");
+  const panels = CURRICULUM_WEEKDAYS.map((day, index) => {
+    const items = Array.isArray(dailyPlans[day]?.items) ? dailyPlans[day].items : [];
+    const cards = items.length
+      ? items.map((item) => curriculumLessonDayActivityCard(plan.id, item)).join("")
+      : `<p class="muted-copy">No activities scheduled for this day.</p>`;
+    return `<div class="curriculum-day-panel${index === 0 ? " is-active" : ""}" data-curriculum-lesson-day-panel="${day}">${cards}</div>`;
+  }).join("");
+  return `
+    <div class="curriculum-lesson-daily">
+      <div class="curriculum-day-tabs" role="tablist">${tabs}</div>
+      <div class="curriculum-day-panels">${panels}</div>
+    </div>
+  `;
+}
+
+function structuredCurriculumLessonPlanHtml(resource) {
+  const plan = resource?._curriculumLessonPlan;
+  if (!plan) return "";
+  const domains = (Array.isArray(plan.learningDomains) ? plan.learningDomains : [])
+    .map((domain) => `<span class="tag">${escapeHtml(domain)}</span>`)
+    .join("");
+  return `
+    <header class="curriculum-lesson-header">
+      <h3>${escapeHtml(plan.title || resource.title)}</h3>
+      <div class="tag-row">
+        <span class="tag">${escapeHtml(plan.age || resource.age || "Preschool")}</span>
+        ${plan.theme ? `<span class="tag">${escapeHtml(plan.theme)}</span>` : ""}
+        <span class="tag access-tag">${escapeHtml(plan.plan || resource.plan || "Free")}</span>
+      </div>
+      ${domains ? `<div class="tag-row curriculum-lesson-domains">${domains}</div>` : ""}
+    </header>
+    ${curriculumLessonWeeklySectionsHtml(plan) ? `<section class="curriculum-lesson-weekly">${curriculumLessonWeeklySectionsHtml(plan)}</section>` : ""}
+    <section class="curriculum-lesson-daily-section">
+      <h3>Daily Plans</h3>
+      ${curriculumLessonDailyPlansHtml(plan)}
+    </section>
+  `;
+}
+
+function structuredCurriculumActivityHtml(resource) {
+  const activity = resource?._curriculumActivity || effectiveCurriculumLibrary().activities.find((item) => item.id === resource.id) || null;
+  const goals = Array.isArray(activity?.learningGoals) ? activity.learningGoals.filter(Boolean) : [];
+  const category = activity?.activityCategory || resource.theme || resource.activityCategory || "";
+  const parentTitle = resource._curriculumParentTitle || activity?.parentTitle || "";
+  const lessonId = resource.lessonPlanId || resource._curriculumLessonPlanId || "";
+  return `
+    <header class="curriculum-activity-header">
+      ${category ? `<span class="tag">${escapeHtml(category)}</span>` : ""}
+      ${parentTitle ? `<p class="curriculum-activity-parent">Parent lesson: <strong>${escapeHtml(parentTitle)}</strong></p>` : ""}
+    </header>
+    <section class="curriculum-activity-body">
+      ${activity?.materials ? `<div class="curriculum-activity-field"><h4>Materials</h4>${curriculumMultilineSectionHtml(activity.materials)}</div>` : ""}
+      ${activity?.setup ? `<div class="curriculum-activity-field"><h4>Setup</h4>${curriculumMultilineSectionHtml(activity.setup)}</div>` : ""}
+      ${activity?.steps ? `<div class="curriculum-activity-field"><h4>Directions</h4>${curriculumMultilineSectionHtml(activity.steps)}</div>` : ""}
+      ${goals.length ? `<div class="curriculum-activity-field"><h4>Learning Goal</h4><ul class="curriculum-goal-list">${goals.map((goal) => `<li>${escapeHtml(goal)}</li>`).join("")}</ul></div>` : ""}
+    </section>
+    ${lessonId ? `
+      <div class="curriculum-activity-actions">
+        <button class="ghost-button" type="button" data-view-resource="${escapeHtml(lessonId)}">Open Parent Lesson</button>
+      </div>
+    ` : ""}
+  `;
+}
+
+function resourceSearchHaystack(resource) {
+  const parts = [
+    resource.title,
+    resource.category,
+    resource.age,
+    resource.plan,
+    resource.description,
+    resource.theme,
+    resource.weeklyOverview,
+    resource.keywords,
+    resource.month,
+    resource.holiday,
+    resource.activityFocus,
+    ...(Array.isArray(resource.tags) ? resource.tags : []),
+  ];
+  if (resource._curriculumManaged && resource.category === "Lesson Plans" && resource._curriculumLessonPlan) {
+    const plan = resource._curriculumLessonPlan;
+    parts.push(
+      plan.theme,
+      plan.weeklyOverview,
+      plan.objectives,
+      plan.weeklyMaterials,
+      plan.vocabularyWords,
+      plan.familyConnection,
+      plan.adaptations,
+      plan.observationOpportunities,
+      ...(Array.isArray(plan.learningDomains) ? plan.learningDomains : []),
+      ...(Array.isArray(plan.books) ? plan.books.flatMap((book) => [book.title, book.author, book.notes]) : []),
+      ...(Array.isArray(plan.songs) ? plan.songs.flatMap((song) => [song.title, song.notes]) : []),
+    );
+    CURRICULUM_WEEKDAYS.forEach((day) => {
+      const items = Array.isArray(plan.dailyPlans?.[day]?.items) ? plan.dailyPlans[day].items : [];
+      items.forEach((item) => {
+        parts.push(
+          item.title,
+          item.activityCategory,
+          item.materials,
+          item.setup,
+          item.steps,
+          ...(Array.isArray(item.learningGoals) ? item.learningGoals : []),
+        );
+      });
+    });
+  }
+  return parts.filter(Boolean).join(" ").toLowerCase();
+}
+
 function effectiveCurriculumLibrary() {
   const content = effectiveSiteContent();
   const fromPublic = content.curriculumLibrary;
@@ -3474,9 +3707,14 @@ function loadCurriculumManagedActivities() {
       updatedAt: item.updatedAt || "",
       activityCategory: item.activityCategory || "Open-Ended Exploration",
       lessonPlanId: item.lessonPlanId,
+      materials: item.materials || "",
+      setup: item.setup || "",
+      steps: item.steps || "",
+      learningGoals: Array.isArray(item.learningGoals) ? item.learningGoals : [],
       _curriculumManaged: true,
       _curriculumLessonPlanId: item.lessonPlanId,
       _curriculumParentTitle: item.parentTitle || "",
+      _curriculumActivity: item,
     }));
 }
 
@@ -6904,21 +7142,15 @@ function categoryResources(category) {
     const normalizedAge = normalizeAgeGroup(resource.age) || resource.age;
     const matchesFilter = category === "Lesson Plans"
       ? lessonFilter === "All" || normalizedAge === lessonFilter
-      : activeFilter === "All" || resource.age === activeFilter || resource.tags.includes(activeFilter);
-    const haystack = [
-      resource.title,
-      resource.category,
-      resource.age,
-      resource.plan,
-      resource.description,
-      resource.theme,
-      resource.weeklyOverview,
-      resource.keywords,
-      resource.month,
-      resource.holiday,
-      resource.activityFocus,
-      ...resource.tags,
-    ].join(" ").toLowerCase();
+      : activeFilter === "All" || resource.age === activeFilter
+        || (category === "Activity Center" && resource._curriculumManaged
+          ? activityMatchesCurriculumCategoryFilter(resource.activityCategory || resource.theme, activeFilter)
+          : resource.tags.includes(activeFilter));
+    if (category === "Activity Center" && activeActivityLessonPlanId) {
+      const lessonId = resource.lessonPlanId || resource._curriculumLessonPlanId || "";
+      if (lessonId !== activeActivityLessonPlanId) return false;
+    }
+    const haystack = resourceSearchHaystack(resource);
     return matchesCategory && matchesFilter && haystack.includes(query);
   });
 }
@@ -6931,16 +7163,7 @@ function searchedResources() {
   return resources.filter((resource) => {
     if (!isResourceVisibleToCurrentUser(resource)) return false;
     if (!isProUser() && !canAccess(resource) && !supportsLockedResourcePreview(resource)) return false;
-    const haystack = [
-      resource.title,
-      resource.category,
-      resource.age,
-      resource.plan,
-      resource.description,
-      resource.theme,
-      resource.keywords,
-      ...resource.tags,
-    ].join(" ").toLowerCase();
+    const haystack = resourceSearchHaystack(resource);
     return haystack.includes(query);
   });
 }
@@ -6952,6 +7175,9 @@ function resourceCard(resource) {
   const favoriteText = !isProUser() ? "Pro Save" : favorite ? "Saved" : "Save";
   const accessText = locked ? "Pro" : isProUser() ? "Included" : "Free Sample";
   const lessonContext = resource._childRecommendation || null;
+  const activityCount = resource._curriculumManaged && resource.category === "Lesson Plans"
+    ? curriculumActivityCountForLesson(resource.id)
+    : 0;
   return `
     <article class="resource-card ${locked ? "locked" : ""}">
       ${resource.previewData ? `<img class="resource-preview" src="${resource.previewData}" alt="${resource.title} preview" />` : ""}
@@ -6971,6 +7197,7 @@ function resourceCard(resource) {
           <span><b>Age Group:</b> ${escapeHtml(resource.age || "Age Group")}</span>
           <span><b>Theme:</b> ${escapeHtml(resource.theme || resource.tags?.[0] || "Theme")}</span>
           <span><b>Development Area:</b> ${escapeHtml(displayDevelopmentArea(resource.developmentalArea || lessonContext?.goalMatch || resource.tags?.find((tag) => normalizeObservationArea(tag)) || "Developmental Area"))}</span>
+          ${activityCount ? `<span><b>Activities:</b> ${activityCount}</span>` : ""}
           ${lessonContext?.supportArea ? `<span><b>Support Area Match:</b> ${escapeHtml(lessonContext.supportArea)}</span>` : ""}
           ${lessonContext ? `<p><b>Why this helps:</b> ${escapeHtml(lessonContext.why)}</p>` : ""}
         </div>
@@ -6978,7 +7205,7 @@ function resourceCard(resource) {
       <div class="resource-actions">
         <button class="favorite-button ${!isProUser() ? "disabled-control" : ""}" ${!isProUser() ? `data-pro-feature="favorites"` : `data-favorite="${resource.id}"`} type="button">${favoriteText}</button>
         ${resource.category === "Lesson Plans" && !locked ? `<button class="ghost-button" data-customize-lesson-ai="${resource.id}" type="button">Customize AI</button>` : ""}
-        ${resource.category === "Lesson Plans" && !locked ? `<button class="ghost-button" data-find-lesson-activities="${resource.id}" type="button">Find Activities</button>` : ""}
+        ${resource.category === "Lesson Plans" && !locked ? `<button class="ghost-button" data-find-lesson-activities="${resource.id}" type="button">View Activities</button>` : ""}
         ${resource.category === "Lesson Plans" && !locked ? `<button class="ghost-button" data-add-lesson-support="${resource.id}" type="button">Add Support</button>` : ""}
         ${resource.category === "Observation Hub" && !locked ? `<button class="ghost-button" data-edit-observation="${resource.id}" type="button">Edit</button>` : ""}
         ${resource.category === "Observation Hub" && !locked ? `<button class="ghost-button" data-add-observation-child="${resource.id}" type="button">Add to Child</button>` : ""}
@@ -8584,6 +8811,13 @@ function printableCartoonPreviewHtml(resource) {
 }
 
 function resourcePrintableHtml(resource) {
+  if (resource._curriculumManaged && resource.category === "Lesson Plans" && resource._curriculumLessonPlan) {
+    const resourcesHtml = lessonPlanAttachedResourcesHtml(resource);
+    return `<article class="printable-resource-page curriculum-lesson-viewer">${structuredCurriculumLessonPlanHtml(resource)}${resourcesHtml}</article>`;
+  }
+  if (resource._curriculumManaged && resource.category === "Activity Center") {
+    return `<article class="printable-resource-page curriculum-activity-viewer">${structuredCurriculumActivityHtml(resource)}</article>`;
+  }
   const text = resourceDocumentText(resource);
   const headingPattern = /^(Short Description|What Is Included|Who It Is For|How To Use It|Materials \/ Information Needed|ELG \/ Early Learning Standard Connections|Full Resource Content|Weekly Lesson Plan|Weekly Overview|Age Group Teaching Approach|Learning Objectives|Weekly Learning Objectives|Complete Materials List|Materials|Vocabulary|Vocabulary Words|Teacher Language Guide|Questions to Ask Children|Monday Through Friday|Monday — Introduce and Explore|Monday — Introduce the Theme|Tuesday — Songs and Vocabulary|Tuesday — Build Vocabulary and Concepts|Wednesday — Hands-On Exploration|Wednesday — Hands-On .+ Practice|Thursday — Art and Movement|Thursday — Creative Expression and Child Choice|Friday — Review and Share|Friday — Review, Document, and Connect Home|Art Activity|Sensory Activity|Fine Motor Activity|Gross Motor Activity|Social-Emotional Connection|Adaptations for Different Abilities|Extensions|Assessment and Observation Notes|Family Connection Idea|Related Activities|Differentiation and Supports|Child Support Connection|Provider Reflection|Provider Notes|Observation Resource|Professional Observation Wording|What to Look For|Learning Standard Category|Evidence To Add|Next Steps|Editable Note|Follow-Up Planning|Purpose|Provider Instructions|Details \/ Notes|Weekly Daycare Menu|Shopping List|Provider Reminder|Setup|Steps|Learning Objective|Extension|Teacher Directions|Child Directions|Activity Ideas|Learning Goal|Provider Note|Printable Planning Notes|Daily Notes|Printable Observation Record|Additional Write-In Space|Checklist|Menu Notes|Shopping Notes|Activity Prep Sheet|Printable Resource|Printable Type|Theme \/ Skill|Printable Page|Tracing Practice|Warm-Up Paths|Letter And Word Tracing|Portfolio Work Sample|Printable Picture Space|Independent Practice|Count And Show|Shape Builder|Child Work Space|Coloring Page|Picture Checklist|Color Key|Talk About It|Alphabet Practice Page|Find The Letter|Trace The Letter|Beginning Sound Words|Number Practice Page|Trace The Number|Count And Mark|Compare|Shape Practice Page|Trace The Shapes|Shape Hunt|Teacher Check|Name Writing Page|My Name|Trace My Name|Try My Name|Name Hunt|Cutting Practice Page|Provider Safety Check|Cutting Lines|Cut And Sort|Teacher Note|Matching Activity Page|Draw Lines To Match|Match Here|Make Your Own Match|Seasonal Worksheet Page|Weather Check|Seasonal Words|I Notice|Count And Color|Seasonal Work Sample|Holiday Worksheet Page|Holiday Vocabulary|Trace And Write|Count The Holiday Items|Teacher Notes|Printable Worksheet Page|Try It|Reflection \/ Teacher Note)$/;
   const blocks = text.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
@@ -10780,7 +11014,7 @@ async function openResourceViewer(resourceId) {
   } else {
     body.innerHTML = resourcePrintableHtml(viewerResource);
   }
-  if (viewerResource._curriculumLessonPlanId) {
+  if (viewerResource._curriculumLessonPlanId && !(viewerResource._curriculumManaged && viewerResource.category === "Activity Center")) {
     const parentActions = document.createElement("div");
     parentActions.className = "print-section";
     parentActions.innerHTML = `
@@ -10841,9 +11075,10 @@ function renderCategoryPage(view) {
       ${renderLessonPlanLibraryNotice()}
       <div class="lesson-plan-search-bar">
         <label class="lesson-plan-search-label" for="lessonPlanSearch">Search lesson plans</label>
-        <input id="lessonPlanSearch" type="search" placeholder="Search by title, theme, age group, or keyword" value="${escapeHtml(searchInput.value)}" autocomplete="off" />
+        <input id="lessonPlanSearch" type="search" placeholder="Search by title, theme, materials, vocabulary, objectives, or books" value="${escapeHtml(searchInput.value)}" autocomplete="off" />
       </div>
     ` : ""}
+    ${category === "Activity Center" && activeActivityLessonPlanId ? renderActivityLessonFilterBanner() : ""}
     <div class="filter-row">
       ${filters.map((filter) => `<button class="${activeFilter === filter ? "active-filter" : ""}" data-filter="${filter}">${filter}</button>`).join("")}
     </div>
@@ -10877,6 +11112,19 @@ function renderPrintablesRefreshNotice() {
       <strong>Professional print-ready resources.</strong>
       Worksheets use structured classroom layouts, PDF-ready pages, dotted tracing or cutting practice when appropriate, and quality checks for placeholder or unfinished content before printing.
     </div>
+  `;
+}
+
+function renderActivityLessonFilterBanner() {
+  const lesson = resources.find((item) => item.id === activeActivityLessonPlanId);
+  const title = lesson?.title || activeActivityLessonPlanId;
+  return `
+    <section class="access-notice activity-lesson-filter-banner" role="status">
+      <div>
+        <strong>Showing activities from:</strong> ${escapeHtml(title)}
+      </div>
+      <button class="ghost-button" type="button" data-clear-activity-lesson-filter>View all activities</button>
+    </section>
   `;
 }
 
@@ -10944,7 +11192,7 @@ function categoryFilters(category) {
     "Observation Hub": [...shared, ...learningAreas],
     "Forms Library": ["All", "All Ages", ...Object.keys(formGroups), "Editable", "PDF"],
     "Menu Center": ["All", "All Ages", "Infant", "Toddler", "Preschool", "52 Weeks of Menus", "Breakfast", "Lunch", "Snack", "Shopping List"],
-    "Activity Center": [...shared, ...activityTypes],
+    "Activity Center": [...shared, ...curriculumActivityFilterCategories],
     "Printables": ["All", "Toddler", "Preschool", ...printableTypes.slice(0, 8), "Seasonal", "Holiday"],
   };
   return map[category] || shared;
@@ -10955,7 +11203,7 @@ function categoryIntro(category) {
     "Lesson Plans": "Search and browse lesson plans by age group or keyword.",
     "Observation Hub": "Search infant, toddler, and preschool observation wording by developmental area, what to look for, standards, and next steps.",
     "Forms Library": "View editable childcare paperwork like parent handbooks, enrollment forms, emergency contacts, reports, trackers, and receipts inside Little Learner Hub.",
-    "Activity Center": "Find a large bank of activities by age, theme, skill, and materials with quick steps and learning goals.",
+    "Activity Center": "Browse play-based activities synced from lesson plans. Filter by age or activity type.",
     "Menu Center": "Browse 52 weeks of daycare menus, infant/toddler/preschool meal ideas, shopping lists, and CACFP-style inspiration.",
     "Printables": "View tracing pages, coloring pages, alphabet, numbers, shapes, cutting, matching, seasonal, and holiday worksheet concepts inside Little Learner Hub.",
   };
@@ -27179,6 +27427,9 @@ document.addEventListener("click", async (event) => {
   const viewButton = event.target.closest("[data-view]");
   if (viewButton) {
     activeFilter = "All";
+    if (viewButton.dataset.view !== "activities") {
+      activeActivityLessonPlanId = "";
+    }
     if (searchInput) searchInput.value = "";
     if (viewButton.dataset.quickDocType) {
       pendingAiDocType = viewButton.dataset.quickDocType;
@@ -28157,10 +28408,41 @@ document.addEventListener("click", async (event) => {
   if (findLessonActivitiesButton) {
     const resource = resources.find((item) => item.id === findLessonActivitiesButton.dataset.findLessonActivities);
     if (resource) {
-      activeFilter = activityTypes.includes(resource.activityFocus) ? resource.activityFocus : "All";
-      searchInput.value = lessonThemes.slice(0, 12).includes(resource.theme) ? resource.theme : "";
+      activeActivityLessonPlanId = resource.id;
+      activeFilter = "All";
+      searchInput.value = "";
+      setView("activities");
     }
+    return;
+  }
+
+  const clearActivityLessonFilterButton = event.target.closest("[data-clear-activity-lesson-filter]");
+  if (clearActivityLessonFilterButton) {
+    activeActivityLessonPlanId = "";
     setView("activities");
+    return;
+  }
+
+  const curriculumLessonDayTab = event.target.closest("[data-curriculum-lesson-day]");
+  if (curriculumLessonDayTab) {
+    const day = curriculumLessonDayTab.dataset.curriculumLessonDay;
+    const container = curriculumLessonDayTab.closest(".curriculum-lesson-daily");
+    if (container && day) {
+      container.querySelectorAll("[data-curriculum-lesson-day]").forEach((tab) => {
+        tab.classList.toggle("is-active", tab.dataset.curriculumLessonDay === day);
+      });
+      container.querySelectorAll("[data-curriculum-lesson-day-panel]").forEach((panel) => {
+        panel.classList.toggle("is-active", panel.dataset.curriculumLessonDayPanel === day);
+      });
+    }
+    return;
+  }
+
+  const openCurriculumActivityButton = event.target.closest("[data-open-curriculum-activity]");
+  if (openCurriculumActivityButton) {
+    const activityId = openCurriculumActivityButton.dataset.openCurriculumActivity;
+    if (activityId) openResourceViewer(activityId);
+    return;
   }
 
   const addLessonSupportButton = event.target.closest("[data-add-lesson-support]");

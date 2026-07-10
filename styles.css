@@ -12780,6 +12780,170 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   .lp-resource-viewer-img { max-width: 100%; height: auto; }
 }
 
+@media print {
+  .lp-resource-category-viewer > summary::before { display: none; }
+  .lp-resource-viewer-img { max-width: 100%; height: auto; }
+}
+
+/* ─── Curriculum Lesson & Activity Viewers ─────────────────────────────────── */
+.curriculum-lesson-viewer,
+.curriculum-activity-viewer {
+  display: grid;
+  gap: 20px;
+}
+
+.curriculum-lesson-header h3,
+.curriculum-lesson-daily-section > h3 {
+  margin: 0 0 10px;
+}
+
+.curriculum-lesson-domains {
+  margin-top: 8px;
+}
+
+.curriculum-lesson-section {
+  border: 1px solid var(--border, #e8e2dc);
+  border-radius: 10px;
+  background: #fff;
+  margin-bottom: 10px;
+}
+
+.curriculum-lesson-section > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 12px 14px;
+  list-style: none;
+}
+
+.curriculum-lesson-section > summary::-webkit-details-marker { display: none; }
+
+.curriculum-lesson-section > summary::before {
+  content: "▶";
+  display: inline-block;
+  margin-right: 8px;
+  font-size: 0.7rem;
+  transition: transform 0.2s;
+}
+
+.curriculum-lesson-section[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.curriculum-lesson-section-body {
+  padding: 0 14px 14px;
+}
+
+.curriculum-lesson-daily {
+  display: grid;
+  gap: 14px;
+}
+
+.curriculum-day-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.curriculum-day-tab {
+  border: 1px solid var(--border, #e8e2dc);
+  background: #faf8f6;
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.curriculum-day-tab.is-active {
+  background: var(--accent, #c97b63);
+  border-color: var(--accent, #c97b63);
+  color: #fff;
+}
+
+.curriculum-day-panel {
+  display: none;
+  gap: 12px;
+}
+
+.curriculum-day-panel.is-active {
+  display: grid;
+}
+
+.curriculum-activity-card {
+  border: 1px solid var(--border, #e8e2dc);
+  border-radius: 12px;
+  padding: 14px;
+  background: #fff;
+  display: grid;
+  gap: 10px;
+}
+
+.curriculum-activity-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.curriculum-activity-card-head h4 {
+  margin: 0;
+  flex: 1 1 180px;
+}
+
+.curriculum-activity-field strong,
+.curriculum-activity-field h4 {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 0.92rem;
+}
+
+.curriculum-goal-list {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.curriculum-book-entry,
+.curriculum-song-entry {
+  margin-bottom: 10px;
+}
+
+.curriculum-book-author {
+  margin-left: 6px;
+  color: #6d645c;
+}
+
+.curriculum-activity-header {
+  display: grid;
+  gap: 8px;
+}
+
+.curriculum-activity-parent {
+  margin: 0;
+}
+
+.curriculum-activity-body {
+  display: grid;
+  gap: 16px;
+}
+
+.curriculum-activity-actions {
+  margin-top: 8px;
+}
+
+.activity-lesson-filter-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+@media print {
+  .curriculum-day-panel { display: grid !important; }
+  .curriculum-day-tabs { display: none; }
+  .curriculum-lesson-section { break-inside: avoid; }
+}
+
 /* ─── Site Announcement Banner ───────────────────────────────────────────── */
 .site-announcement-banner {
   display: flex;

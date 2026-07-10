@@ -1065,6 +1065,7 @@ function publicCurriculumActivityDto(activity, parentPlan) {
     title: entry.title,
     description: entry.description,
     materials: entry.materials,
+    setup: entry.setup,
     steps: entry.steps,
     learningGoals: entry.learningGoals,
     status: entry.status,
