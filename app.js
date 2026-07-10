@@ -3874,6 +3874,9 @@ function applyCurriculumLessonPlanImport() {
     }
     return;
   }
+  if (!adminCurriculumLessonEditorId) {
+    adminCurriculumLessonEditorId = `cur-lp-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
+  }
   const existingItemIds = snapshotCurriculumDailyItemIds(form);
   const parsed = parseCurriculumLessonPlanImport(text, { existingItemIds });
   const lines = [];
@@ -3986,7 +3989,6 @@ function renderAdminCurriculumLessonPlanForm(plan) {
       <input type="hidden" name="id" value="${escapeHtml(record.id || "")}" />
       <h4>Editing: ${escapeHtml(record.title || "New Lesson Plan")}</h4>
       <p class="muted-copy">${curriculumLessonPlanStatusLabel(record.status || "draft")} · Linked activities regenerate automatically on save.</p>
-      ${renderCurriculumLessonImportPanel()}
       <div class="form-grid-two">
         <label>Title<input name="title" value="${escapeHtml(record.title || "")}" required /></label>
         <label>Age group
@@ -4080,6 +4082,7 @@ function renderAdminCurriculumLessonPlanManager() {
       </div>
       <button class="ghost-button" type="button" id="adminCreateCurriculumLessonPlanButton">+ Create lesson plan</button>
     </div>
+    ${renderCurriculumLessonImportPanel()}
     <div class="admin-mobile-list" id="adminCurriculumLessonPlanList">
       ${plans.map(curriculumLessonPlanAdminCardHtml).join("") || `<div class="empty-state">No play-based lesson plans yet.</div>`}
     </div>
