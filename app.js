@@ -4236,14 +4236,12 @@ function curriculumResourceStatusLabel(status) {
   return labels[status] || status;
 }
 
-function curriculumResourceFileHref(fileUrl) {
-  const url = String(fileUrl || "").trim();
-  if (!url) return "";
-  if (!url.startsWith("/api/curriculum-files/")) return url;
-  const token = adminSession()?.token || "";
-  if (!token) return url;
-  const joiner = url.includes("?") ? "&" : "?";
-  return `${url}${joiner}adminToken=${encodeURIComponent(token)}`;
+function curriculumResourceFileHref(resource) {
+  const fileData = String(resource?.fileData || resource?.fileUrl || "").trim();
+  if (!fileData) return "";
+  // Data URLs and HTTPS URLs open directly (same pattern as Forms / Printables / legacy Uploads).
+  if (fileData.startsWith("data:") || /^https:\/\//i.test(fileData)) return fileData;
+  return "";
 }
 
 function applyCurriculumState(curriculum) {
@@ -4253,10 +4251,12 @@ function applyCurriculumState(curriculum) {
   };
 }
 
+const CURRICULUM_UPLOAD_MAX_MB = 5;
+
 async function uploadCurriculumResourceFile({ resourceId, file }) {
   const token = adminSession()?.token || "";
   if (!token || !file) throw new Error("Admin login and a file are required.");
-  const fileData = await fileToDataUrlSafe(file, { maxMb: 15 });
+  const fileData = await fileToDataUrlSafe(file, { maxMb: CURRICULUM_UPLOAD_MAX_MB });
   if (!fileData) throw new Error("Could not read the selected file.");
   const response = await fetch(curriculumResourceConfig.uploadEndpoint, {
     method: "POST",
@@ -4275,6 +4275,7 @@ async function uploadCurriculumResourceFile({ resourceId, file }) {
 
 function curriculumResourceAdminCardHtml(resource) {
   const linkedCount = Array.isArray(resource.lessonPlanIds) ? resource.lessonPlanIds.length : 0;
+  const openHref = curriculumResourceFileHref(resource);
   return `
     <article class="admin-content-card is-${escapeHtml(resource.status || "draft")}">
       <div class="admin-mobile-card-body">
@@ -4284,14 +4285,14 @@ function curriculumResourceAdminCardHtml(resource) {
             <span class="tag">${curriculumResourceStatusLabel(resource.status || "draft")}</span>
             <span class="tag">${escapeHtml(resource.resourceCategory || "Classroom Resources")}</span>
           </div>
-          <small>${escapeHtml(resource.fileName || resource.fileUrl || "No file")}</small>
+          <small>${escapeHtml(resource.fileName || (resource.fileData?.startsWith("https://") ? resource.fileData : "") || "No file")}</small>
           <small>${linkedCount} linked ${linkedCount === 1 ? "lesson plan" : "lesson plans"}</small>
           <small>Updated: ${escapeHtml(adminLessonUpdatedLabel(resource.updatedAt))}</small>
         </div>
       </div>
       <div class="form-actions">
         <button class="ghost-button" type="button" data-curriculum-resource-edit="${escapeHtml(resource.id)}">Edit</button>
-        ${resource.fileUrl ? `<a class="ghost-button" href="${escapeHtml(curriculumResourceFileHref(resource.fileUrl))}" target="_blank" rel="noopener">Open file</a>` : ""}
+        ${openHref ? `<a class="ghost-button" href="${escapeHtml(openHref)}" target="_blank" rel="noopener">Open file</a>` : ""}
         ${resource.status !== "archived"
           ? `<button class="ghost-button" type="button" data-curriculum-resource-archive="${escapeHtml(resource.id)}">📦 Archive</button>`
           : ""
@@ -4306,15 +4307,18 @@ function renderAdminCurriculumResourceForm(resource) {
     id: adminCurriculumResourceEditorId || "",
     title: "",
     resourceCategory: "Classroom Resources",
-    fileUrl: "",
+    fileData: "",
     fileName: "",
     mimeType: "",
     status: "draft",
   };
+  const openHref = curriculumResourceFileHref(record);
+  const httpsValue = record.fileData?.startsWith("https://") ? record.fileData : "";
   return `
     <form id="adminCurriculumResourceForm" class="panel-form admin-stacked-form">
       <input type="hidden" name="id" value="${escapeHtml(record.id || "")}" />
       <h4>${record.id ? `Editing: ${escapeHtml(record.title || "Resource")}` : "New curriculum resource"}</h4>
+      <p class="muted-copy">PDF or image up to ${CURRICULUM_UPLOAD_MAX_MB} MB. Files are stored in the app database (same durable pattern as Forms and Printables).</p>
       <div class="form-grid-two">
         <label>Title<input name="title" value="${escapeHtml(record.title || "")}" required /></label>
         <label>Category
@@ -4328,9 +4332,9 @@ function renderAdminCurriculumResourceForm(resource) {
           ${["draft", "published"].map((status) => `<option value="${status}"${record.status === status ? " selected" : ""}>${curriculumResourceStatusLabel(status)}</option>`).join("")}
         </select>
       </label>
-      <label>Upload file (PDF or image)<input name="file" type="file" accept=".pdf,image/*" /></label>
-      <label>Or external HTTPS URL<input name="fileUrl" value="${escapeHtml(record.fileUrl?.startsWith("https://") ? record.fileUrl : "")}" placeholder="https://..." /></label>
-      ${record.fileUrl ? `<p class="muted-copy">Current file: <a href="${escapeHtml(curriculumResourceFileHref(record.fileUrl))}" target="_blank" rel="noopener">${escapeHtml(record.fileName || record.fileUrl)}</a></p>` : ""}
+      <label>Upload file (PDF or image, max ${CURRICULUM_UPLOAD_MAX_MB} MB)<input name="file" type="file" accept=".pdf,image/*" /></label>
+      <label>Or external HTTPS URL<input name="fileUrl" value="${escapeHtml(httpsValue)}" placeholder="https://..." /></label>
+      ${openHref ? `<p class="muted-copy">Current file: <a href="${escapeHtml(openHref)}" target="_blank" rel="noopener">${escapeHtml(record.fileName || "Open file")}</a></p>` : ""}
       <div class="form-actions">
         <button class="primary-button" type="submit" ${adminCurriculumResourceSaving ? "disabled" : ""}>${adminCurriculumResourceSaving ? "Saving…" : "💾 Save resource"}</button>
         <button class="ghost-button" type="button" data-curriculum-resource-back>Back to list</button>
@@ -4350,7 +4354,7 @@ function renderAdminCurriculumResourceManager() {
       id: editingId,
       title: "",
       resourceCategory: "Classroom Resources",
-      fileUrl: "",
+      fileData: "",
       fileName: "",
       status: "draft",
     })
@@ -4360,7 +4364,7 @@ function renderAdminCurriculumResourceManager() {
       <div>
         <p class="eyebrow">Play-Based Curriculum (Beta)</p>
         <h3>Curriculum resources</h3>
-        <p class="muted-copy">Files are stored on disk; siteContent keeps URLs and metadata only.</p>
+        <p class="muted-copy">Files are stored in Postgres as data URLs (same durable pattern as Forms and Printables). Max ${CURRICULUM_UPLOAD_MAX_MB} MB per file.</p>
       </div>
       <button class="ghost-button" type="button" id="adminCreateCurriculumResourceButton">+ Upload resource</button>
     </div>
@@ -4382,18 +4386,21 @@ function renderCurriculumLessonLinkedResourcesSection(plan) {
       <p class="muted-copy">Resources link to this lesson plan only (not individual activities).</p>
       <div class="curriculum-linked-resource-list">
         ${linked.length
-          ? linked.map((resource) => `
+          ? linked.map((resource) => {
+            const openHref = curriculumResourceFileHref(resource);
+            return `
             <div class="curriculum-linked-resource-row">
               <div>
                 <strong>${escapeHtml(resource.title || "Resource")}</strong>
-                <small>${escapeHtml(resource.resourceCategory || "Classroom Resources")} · ${escapeHtml(resource.fileName || resource.fileUrl || "")}</small>
+                <small>${escapeHtml(resource.resourceCategory || "Classroom Resources")} · ${escapeHtml(resource.fileName || "")}</small>
               </div>
               <div class="form-actions">
-                ${resource.fileUrl ? `<a class="ghost-button" href="${escapeHtml(curriculumResourceFileHref(resource.fileUrl))}" target="_blank" rel="noopener">Open</a>` : ""}
+                ${openHref ? `<a class="ghost-button" href="${escapeHtml(openHref)}" target="_blank" rel="noopener">Open</a>` : ""}
                 <button class="ghost-button" type="button" data-curriculum-resource-unlink="${escapeHtml(resource.id)}" data-curriculum-lesson-id="${escapeHtml(lessonPlanId)}">Unlink</button>
               </div>
             </div>
-          `).join("")
+          `;
+          }).join("")
           : `<p class="muted-copy">No resources linked yet.</p>`
         }
       </div>
@@ -4428,17 +4435,22 @@ async function saveAdminCurriculumResourceForm(form) {
     const formData = new FormData(form);
     const id = normalizedShortText(formData.get("id")) || `cur-res-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
     const existing = curriculumResourceById(id);
-    let fileUrl = sanitizedUrl(formData.get("fileUrl")) || existing?.fileUrl || "";
+    let fileData = existing?.fileData || "";
     let fileName = existing?.fileName || "";
     let mimeType = existing?.mimeType || "";
+    const httpsUrl = sanitizedUrl(formData.get("fileUrl"));
+    if (httpsUrl && /^https:\/\//i.test(httpsUrl)) {
+      fileData = httpsUrl;
+      fileName = fileName || httpsUrl.split("/").pop() || "link";
+    }
     const file = formData.get("file");
     if (file && file.size) {
       const uploaded = await uploadCurriculumResourceFile({ resourceId: id, file });
-      fileUrl = uploaded.fileUrl || fileUrl;
+      fileData = uploaded.fileData || fileData;
       fileName = uploaded.fileName || file.name || fileName;
       mimeType = uploaded.mimeType || mimeType;
     }
-    if (!fileUrl) throw new Error("Upload a file or provide an HTTPS URL.");
+    if (!fileData) throw new Error(`Upload a PDF/image (max ${CURRICULUM_UPLOAD_MAX_MB} MB) or provide an HTTPS URL.`);
     const response = await fetch(curriculumResourceConfig.saveEndpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -4448,7 +4460,7 @@ async function saveAdminCurriculumResourceForm(form) {
           id,
           title: normalizedShortText(formData.get("title")) || "Resource",
           resourceCategory: normalizedShortText(formData.get("resourceCategory")) || "Classroom Resources",
-          fileUrl,
+          fileData,
           fileName,
           mimeType,
           status: ["draft", "published"].includes(formData.get("status")) ? formData.get("status") : "draft",

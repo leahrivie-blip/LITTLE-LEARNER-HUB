@@ -747,7 +747,8 @@ const CURRICULUM_RESOURCE_CATEGORIES = new Set([
   "Behavior & Social Emotional",
   "Printables",
 ]);
-const MAX_CURRICULUM_UPLOAD_BYTES = 15 * 1024 * 1024;
+const MAX_CURRICULUM_UPLOAD_BYTES = 5 * 1024 * 1024;
+const MAX_CURRICULUM_UPLOAD_MB = 5;
 const CURRICULUM_UPLOAD_MIME_TYPES = new Set([
   "application/pdf",
   "image/png",
@@ -907,11 +908,10 @@ function normalizedCurriculumActivity(value) {
   };
 }
 
-function sanitizedCurriculumFileUrl(value) {
-  const text = String(value || "").trim();
-  if (!text) return "";
-  if (text.startsWith("/api/curriculum-files/")) return text.slice(0, 400);
-  return sanitizedUrl(text);
+function sanitizedCurriculumFileData(value) {
+  // Same durable pattern as Forms / Printables / legacy Uploads / lesson attachments:
+  // PDF/image data URLs or HTTPS URLs stored in the Postgres JSON store.
+  return sanitizedResourceUrl(value);
 }
 
 function normalizedCurriculumResource(value) {
@@ -920,12 +920,15 @@ function normalizedCurriculumResource(value) {
   if (!id) return null;
   const status = normalizedShortText(entry.status, 20);
   const category = normalizedShortText(entry.resourceCategory, 80);
-  const fileUrl = sanitizedCurriculumFileUrl(entry.fileUrl);
+  // Prefer fileData; accept legacy fileUrl only when it is an HTTPS URL (not disk paths).
+  const legacyUrl = String(entry.fileUrl || "").trim();
+  const legacyHttps = /^https:\/\//i.test(legacyUrl) ? sanitizedCurriculumFileData(legacyUrl) : "";
+  const fileData = sanitizedCurriculumFileData(entry.fileData) || legacyHttps;
   return {
     id,
     title: normalizedShortText(entry.title, 180) || "Resource",
     resourceCategory: CURRICULUM_RESOURCE_CATEGORIES.has(category) ? category : "Classroom Resources",
-    fileUrl,
+    fileData,
     mimeType: normalizedShortText(entry.mimeType, 80),
     fileName: normalizedShortText(entry.fileName, 180),
     lessonPlanIds: normalizedList(entry.lessonPlanIds, 50, (item) => normalizedShortText(item, 160)).filter(Boolean),
@@ -984,42 +987,12 @@ function generateCurriculumResourceId() {
   return `cur-res-${crypto.randomBytes(8).toString("hex")}`;
 }
 
-function curriculumUploadsDir() {
-  const configured = String(process.env.CURRICULUM_UPLOADS_DIR || "").trim();
-  if (configured) return path.resolve(configured);
-  // Local/dev fallback: server/data/curriculum-uploads (ephemeral on Render unless a disk is mounted here)
-  return path.resolve(dataDir, "curriculum-uploads");
-}
-
-function isInsideCurriculumUploadsDir(candidatePath) {
-  const root = curriculumUploadsDir();
-  const resolved = path.resolve(candidatePath);
-  return resolved === root || resolved.startsWith(`${root}${path.sep}`);
-}
-
 function sanitizeCurriculumUploadFileName(value) {
   return String(value || "file")
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 120) || "file";
-}
-
-function curriculumStoredFilePath(resourceId, fileName) {
-  const safeId = normalizedShortText(resourceId, 160);
-  const safeName = sanitizeCurriculumUploadFileName(fileName);
-  if (!safeId || !safeName) return "";
-  const dir = path.join(curriculumUploadsDir(), safeId);
-  const filePath = path.resolve(dir, safeName);
-  if (!isInsideCurriculumUploadsDir(filePath)) return "";
-  return filePath;
-}
-
-function curriculumStoredFileUrl(resourceId, fileName) {
-  const safeId = encodeURIComponent(normalizedShortText(resourceId, 160));
-  const safeName = encodeURIComponent(sanitizeCurriculumUploadFileName(fileName));
-  if (!safeId || !safeName) return "";
-  return `/api/curriculum-files/${safeId}/${safeName}`;
 }
 
 function parseCurriculumUploadDataUrl(value) {
@@ -1030,14 +1003,10 @@ function parseCurriculumUploadDataUrl(value) {
   if (!CURRICULUM_UPLOAD_MIME_TYPES.has(mimeType)) return null;
   const buffer = Buffer.from(match[2].replace(/\s+/g, ""), "base64");
   if (!buffer.length || buffer.length > MAX_CURRICULUM_UPLOAD_BYTES) return null;
-  return { mimeType, buffer };
-}
-
-function ensureCurriculumUploadsDir(resourceId) {
-  const dir = path.resolve(curriculumUploadsDir(), normalizedShortText(resourceId, 160));
-  if (!isInsideCurriculumUploadsDir(dir)) return "";
-  fs.mkdirSync(dir, { recursive: true });
-  return dir;
+  // Keep the original data URL, but enforce the shared sanitizer length/format rules.
+  const fileData = sanitizedCurriculumFileData(text);
+  if (!fileData.startsWith("data:")) return null;
+  return { mimeType, buffer, fileData };
 }
 
 function readSiteCurriculum(store) {
@@ -4824,30 +4793,17 @@ async function handleAdminCurriculumResourceUpload(request, response) {
   const fileName = sanitizeCurriculumUploadFileName(body.fileName);
   const parsed = parseCurriculumUploadDataUrl(body.fileData);
   if (!parsed) {
-    jsonResponse(response, 400, { error: "A valid PDF or image upload is required (max 15 MB)." });
+    jsonResponse(response, 400, {
+      error: `A valid PDF or image upload is required (max ${MAX_CURRICULUM_UPLOAD_MB} MB).`,
+    });
     return;
   }
-  if (!ensureCurriculumUploadsDir(resourceId)) {
-    jsonResponse(response, 400, { error: "Upload path could not be created." });
-    return;
-  }
-  const filePath = curriculumStoredFilePath(resourceId, fileName);
-  if (!filePath) {
-    jsonResponse(response, 400, { error: "Upload path is invalid." });
-    return;
-  }
-  try {
-    fs.writeFileSync(filePath, parsed.buffer);
-  } catch (error) {
-    console.error("Curriculum upload write failed:", error.message);
-    jsonResponse(response, 503, { error: "Upload could not be saved to disk." });
-    return;
-  }
+  // Validate only — durable bytes are saved with the resource metadata in Postgres.
   jsonResponse(response, 200, {
     resourceId,
     fileName,
     mimeType: parsed.mimeType,
-    fileUrl: curriculumStoredFileUrl(resourceId, fileName),
+    fileData: parsed.fileData,
   });
 }
 
@@ -4868,17 +4824,29 @@ async function handleAdminCurriculumResourceSave(request, response) {
   const incomingId = normalizedShortText(incoming.id, 160);
   const id = incomingId || generateCurriculumResourceId();
   const existing = curriculum.resources.find((item) => item.id === id);
-  const fileUrl = sanitizedCurriculumFileUrl(incoming.fileUrl) || existing?.fileUrl || "";
-  if (!fileUrl) {
-    jsonResponse(response, 400, { error: "A file URL or uploaded file reference is required." });
+  const incomingFileData = sanitizedCurriculumFileData(incoming.fileData)
+    || sanitizedCurriculumFileData(incoming.fileUrl);
+  const fileData = incomingFileData || existing?.fileData || "";
+  if (!fileData) {
+    jsonResponse(response, 400, { error: "A file upload or HTTPS URL is required." });
     return;
+  }
+  if (fileData.startsWith("data:")) {
+    const parsed = parseCurriculumUploadDataUrl(fileData);
+    if (!parsed) {
+      jsonResponse(response, 400, {
+        error: `Uploaded file must be a PDF or image under ${MAX_CURRICULUM_UPLOAD_MB} MB.`,
+      });
+      return;
+    }
   }
   const resource = normalizedCurriculumResource({
     ...existing,
     ...incoming,
     id,
-    fileUrl,
+    fileData,
     fileName: normalizedShortText(incoming.fileName, 180) || existing?.fileName || "",
+    mimeType: normalizedShortText(incoming.mimeType, 80) || existing?.mimeType || "",
     lessonPlanIds: existing?.lessonPlanIds || incoming.lessonPlanIds || [],
     createdAt: existing?.createdAt || normalizedShortText(incoming.createdAt, 80) || now,
     updatedAt: now,
@@ -5007,46 +4975,6 @@ async function handleAdminCurriculumResourceUnlink(request, response) {
     lessonPlan: nextCurriculum.lessonPlans.find((item) => item.id === lessonPlanId),
     curriculum: nextCurriculum,
   });
-}
-
-function handleCurriculumFileServe(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
-  if (!validAdminToken(adminToken)) {
-    jsonResponse(response, 401, { error: "Admin access is required to download curriculum files." });
-    return;
-  }
-  const parts = url.pathname.split("/").filter(Boolean);
-  if (parts.length < 3 || parts[0] !== "api" || parts[1] !== "curriculum-files") {
-    jsonResponse(response, 404, { error: "File not found." });
-    return;
-  }
-  const resourceId = decodeURIComponent(parts[2] || "");
-  const fileName = decodeURIComponent(parts.slice(3).join("/") || "");
-  const filePath = curriculumStoredFilePath(resourceId, fileName);
-  if (!filePath || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
-    jsonResponse(response, 404, { error: "File not found." });
-    return;
-  }
-  const ext = path.extname(filePath).toLowerCase();
-  const contentType = {
-    ".pdf": "application/pdf",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".webp": "image/webp",
-    ".gif": "image/gif",
-  }[ext] || "application/octet-stream";
-  response.writeHead(200, { "Content-Type": contentType });
-  if (request.method === "HEAD") {
-    response.end();
-    return;
-  }
-  const stream = fs.createReadStream(filePath);
-  stream.on("error", (error) => {
-    console.error(error);
-    if (!response.headersSent) textResponse(response, 500, "Server error.");
-  });
-  stream.pipe(response);
 }
 
 function handleUploadedResourcesList(request, response, url) {
@@ -6143,7 +6071,6 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/archive") return await handleAdminCurriculumResourceArchive(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/link") return await handleAdminCurriculumResourceLink(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/unlink") return await handleAdminCurriculumResourceUnlink(request, response);
-    if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/curriculum-files/")) return handleCurriculumFileServe(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/uploads") return handleUploadedResourcesList(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/migrate") return await handleAdminUploadedResourcesMigrate(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/upsert") return await handleAdminUploadedResourceUpsert(request, response);
