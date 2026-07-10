@@ -4407,35 +4407,67 @@ async function saveAdminCurriculumLessonPlanForm(form) {
   const lessonPlan = collectCurriculumLessonPlanFromForm(form);
   renderAdminCurriculumLessonPlanManager();
   applyAdminSectionVisibility();
+
+  let successMessage = "";
+  let errorMessage = "";
   try {
-    const response = await fetch(curriculumLessonPlanConfig.endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        adminToken: token,
-        expectedUpdatedAt: curriculumExpectedUpdatedAt(),
-        lessonPlan,
-      }),
-    });
-    const data = await response.json();
-    if (response.status === 409 && await handleCurriculumSaveConflict(data)) {
-      throw new Error(data?.error || "Content was updated elsewhere. Reload and try again.");
+    // Concurrency token must match siteContent.updatedAt; refresh if the client never received one.
+    if (!curriculumExpectedUpdatedAt()) {
+      try {
+        await loadAdminSiteContent();
+      } catch {
+        // Continue; server will return 409 if a stamp already exists.
+      }
     }
-    if (!response.ok) throw new Error(data?.error || "Could not save curriculum lesson plan.");
+
+    const postLessonPlan = async () => {
+      const response = await fetch(curriculumLessonPlanConfig.endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminToken: token,
+          expectedUpdatedAt: curriculumExpectedUpdatedAt(),
+          lessonPlan,
+        }),
+      });
+      let data = null;
+      try {
+        data = await response.json();
+      } catch {
+        data = null;
+      }
+      return { response, data };
+    };
+
+    let { response, data } = await postLessonPlan();
+    if (response.status === 409) {
+      await handleCurriculumSaveConflict(data || {});
+      ({ response, data } = await postLessonPlan());
+    }
+    if (response.status === 409) {
+      throw new Error(data?.error || "Content was updated elsewhere. Reload admin content and try again.");
+    }
+    if (!response.ok) {
+      const detail = Array.isArray(data?.details) && data.details.length
+        ? ` ${data.details.slice(0, 3).join(" ")}`
+        : "";
+      throw new Error(`${data?.error || `Could not save curriculum lesson plan (${response.status}).`}${detail}`);
+    }
     applyCurriculumState(data.curriculum || effectiveCurriculum(), {
       siteContentUpdatedAt: data.siteContentUpdatedAt,
     });
     adminCurriculumLessonEditorId = data.lessonPlan?.id || lessonPlan.id;
     adminCurriculumLessonImportDraft = null;
-    setFormMessage("#adminCurriculumLessonPlanMessage", `✅ Saved. ${(data.activities || []).filter((item) => item.status !== "archived").length} linked activities synced.`, true);
-    renderAdminCurriculumLessonPlanManager();
-    applyAdminSectionVisibility();
+    const syncedCount = (data.activities || []).filter((item) => item.status !== "archived").length;
+    successMessage = `✅ Saved. ${syncedCount} linked activities synced.`;
   } catch (error) {
-    setFormMessage("#adminCurriculumLessonPlanMessage", `❌ ${error.message || "Save failed."}`, false);
-    renderAdminCurriculumLessonPlanManager();
-    applyAdminSectionVisibility();
+    errorMessage = `❌ ${error.message || "Save failed."}`;
   } finally {
     adminCurriculumLessonSaving = false;
+    renderAdminCurriculumLessonPlanManager();
+    applyAdminSectionVisibility();
+    if (successMessage) setFormMessage("#adminCurriculumLessonPlanMessage", successMessage, true);
+    if (errorMessage) setFormMessage("#adminCurriculumLessonPlanMessage", errorMessage, false);
   }
 }
 
@@ -4714,7 +4746,16 @@ async function saveAdminCurriculumResourceForm(form) {
   adminCurriculumResourceSaving = true;
   renderAdminCurriculumResourceManager();
   applyAdminSectionVisibility();
+  let successMessage = "";
+  let errorMessage = "";
   try {
+    if (!curriculumExpectedUpdatedAt()) {
+      try {
+        await loadAdminSiteContent();
+      } catch {
+        // Continue; server will return 409 if a stamp already exists.
+      }
+    }
     const formData = new FormData(form);
     const id = normalizedShortText(formData.get("id")) || `cur-res-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
     const existing = curriculumResourceById(id);
@@ -4736,40 +4777,58 @@ async function saveAdminCurriculumResourceForm(form) {
     if (!fileData && !curriculumResourceHasFile(existing)) {
       throw new Error(`Upload a PDF/image (max ${CURRICULUM_UPLOAD_MAX_MB} MB) or provide an HTTPS URL.`);
     }
-    const response = await fetch(curriculumResourceConfig.saveEndpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        adminToken: token,
-        expectedUpdatedAt: curriculumExpectedUpdatedAt(),
-        resource: {
-          id,
-          title: normalizedShortText(formData.get("title")) || "Resource",
-          resourceCategory: normalizedShortText(formData.get("resourceCategory")) || "Classroom Resources",
-          ...(fileData ? { fileData } : {}),
-          fileName,
-          mimeType,
-          status: ["draft", "published"].includes(formData.get("status")) ? formData.get("status") : "draft",
-          lessonPlanIds: existing?.lessonPlanIds || [],
-        },
-      }),
-    });
-    const data = await response.json();
-    if (response.status === 409 && await handleCurriculumSaveConflict(data)) {
-      throw new Error(data?.error || "Content was updated elsewhere. Reload and try again.");
+    const postResource = async () => {
+      const response = await fetch(curriculumResourceConfig.saveEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminToken: token,
+          expectedUpdatedAt: curriculumExpectedUpdatedAt(),
+          resource: {
+            id,
+            title: normalizedShortText(formData.get("title")) || "Resource",
+            resourceCategory: normalizedShortText(formData.get("resourceCategory")) || "Classroom Resources",
+            ...(fileData ? { fileData } : {}),
+            fileName,
+            mimeType,
+            status: ["draft", "published"].includes(formData.get("status")) ? formData.get("status") : "draft",
+            lessonPlanIds: existing?.lessonPlanIds || [],
+          },
+        }),
+      });
+      let data = null;
+      try {
+        data = await response.json();
+      } catch {
+        data = null;
+      }
+      return { response, data };
+    };
+    let { response, data } = await postResource();
+    if (response.status === 409) {
+      await handleCurriculumSaveConflict(data || {});
+      ({ response, data } = await postResource());
     }
-    if (!response.ok) throw new Error(data?.error || "Could not save resource.");
+    if (response.status === 409) {
+      throw new Error(data?.error || "Content was updated elsewhere. Reload admin content and try again.");
+    }
+    if (!response.ok) {
+      const detail = Array.isArray(data?.details) && data.details.length
+        ? ` ${data.details.slice(0, 3).join(" ")}`
+        : "";
+      throw new Error(`${data?.error || `Could not save resource (${response.status}).`}${detail}`);
+    }
     applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
     adminCurriculumResourceEditorId = data.resource?.id || id;
-    setFormMessage("#adminCurriculumResourceMessage", "✅ Resource saved.", true);
-    renderAdminCurriculumResourceManager();
-    applyAdminSectionVisibility();
+    successMessage = "✅ Resource saved.";
   } catch (error) {
-    setFormMessage("#adminCurriculumResourceMessage", `❌ ${error.message || "Save failed."}`, false);
-    renderAdminCurriculumResourceManager();
-    applyAdminSectionVisibility();
+    errorMessage = `❌ ${error.message || "Save failed."}`;
   } finally {
     adminCurriculumResourceSaving = false;
+    renderAdminCurriculumResourceManager();
+    applyAdminSectionVisibility();
+    if (successMessage) setFormMessage("#adminCurriculumResourceMessage", successMessage, true);
+    if (errorMessage) setFormMessage("#adminCurriculumResourceMessage", errorMessage, false);
   }
 }
 
