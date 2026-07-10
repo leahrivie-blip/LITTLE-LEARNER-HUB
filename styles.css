@@ -3078,6 +3078,27 @@ body.home-view .topbar .search-wrap {
   justify-self: start;
 }
 
+.curriculum-import-template {
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(248, 248, 250, 0.95);
+  overflow: auto;
+  max-height: 320px;
+}
+
+.curriculum-import-format-details {
+  margin-bottom: 10px;
+}
+
+.curriculum-import-panel textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+}
+
 .admin-mobile-list {
   display: grid;
   gap: 12px;
