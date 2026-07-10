@@ -4450,11 +4450,22 @@ async function saveAdminCurriculumLessonPlanForm(form) {
 
   adminCurriculumLessonSaving = true;
   setAdminCurriculumLessonSaveBanner(`Saving “${lessonPlan.title}” with ${activityCount} activities…`, true);
-  renderAdminCurriculumLessonPlanManager();
+  // Update banner/button in place — do not destroy the form while the request is in flight.
+  const liveBanner = document.querySelector("#adminCurriculumLessonPlanBanner");
+  if (liveBanner) {
+    liveBanner.className = `form-message ${adminCurriculumLessonSaveBanner.isSuccess ? "success" : ""}`;
+    liveBanner.textContent = adminCurriculumLessonSaveBanner.text;
+  }
+  const liveSubmit = form.querySelector("button[type='submit']");
+  if (liveSubmit) {
+    liveSubmit.disabled = true;
+    liveSubmit.textContent = "Saving…";
+  }
 
+  const SAVE_TIMEOUT_MS = 30000;
   let successMessage = "";
   let errorMessage = "";
-  const controllers = [];
+  let abortController = null;
   try {
     console.log("[curriculum-lesson-save] start", {
       id: lessonPlan.id,
@@ -4473,56 +4484,56 @@ async function saveAdminCurriculumLessonPlanForm(form) {
       }
     }
 
-    const postLessonPlan = async () => {
-      const controller = new AbortController();
-      controllers.push(controller);
-      const timeoutId = setTimeout(() => controller.abort(), 60000);
+    abortController = new AbortController();
+    const timeoutId = setTimeout(() => abortController.abort(), SAVE_TIMEOUT_MS);
+    let response;
+    let data = null;
+    let rawText = "";
+    try {
+      response = await fetch(curriculumLessonPlanConfig.endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminToken: token,
+          expectedUpdatedAt: curriculumExpectedUpdatedAt(),
+          lessonPlan,
+        }),
+        signal: abortController.signal,
+      });
+      rawText = await response.text();
       try {
-        const response = await fetch(curriculumLessonPlanConfig.endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            adminToken: token,
-            expectedUpdatedAt: curriculumExpectedUpdatedAt(),
-            lessonPlan,
-          }),
-          signal: controller.signal,
-        });
-        let data = null;
-        try {
-          data = await response.json();
-        } catch {
-          data = null;
-        }
-        console.log("[curriculum-lesson-save] response", {
-          status: response.status,
-          ok: response.ok,
-          hasLesson: Boolean(data?.lessonPlan?.id),
-          activities: Array.isArray(data?.activities) ? data.activities.length : 0,
-          error: data?.error || null,
-        });
-        return { response, data };
-      } finally {
-        clearTimeout(timeoutId);
+        data = rawText ? JSON.parse(rawText) : null;
+      } catch {
+        data = null;
       }
-    };
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
-    let { response, data } = await postLessonPlan();
+    console.log("[curriculum-lesson-save] response", {
+      status: response.status,
+      ok: response.ok,
+      hasLesson: Boolean(data?.lessonPlan?.id),
+      activities: Array.isArray(data?.activities) ? data.activities.length : 0,
+      error: data?.error || null,
+    });
+
+    // On conflict: refresh the stamp from the response and ask the user to click Save
+    // again. Do not auto-retry (avoids masking failures / duplicate blind posts).
     if (response.status === 409) {
       await handleCurriculumSaveConflict(data || {});
-      ({ response, data } = await postLessonPlan());
-    }
-    if (response.status === 409) {
-      throw new Error(data?.error || "Content was updated elsewhere. Reload admin content and try again.");
+      const detail = data?.error || "Content was updated elsewhere.";
+      throw new Error(`HTTP ${response.status}: ${detail} Stamp refreshed — click Save again.`);
     }
     if (!response.ok) {
       const detail = Array.isArray(data?.details) && data.details.length
         ? ` ${data.details.slice(0, 3).join(" ")}`
         : "";
-      throw new Error(`${data?.error || `Could not save curriculum lesson plan (${response.status}).`}${detail}`);
+      const serverError = data?.error || (rawText ? rawText.slice(0, 300) : "Save failed.");
+      throw new Error(`HTTP ${response.status}: ${serverError}${detail}`);
     }
     if (!data?.lessonPlan?.id) {
-      throw new Error("Save returned an empty lesson plan. Please refresh and try again.");
+      throw new Error(`HTTP ${response.status}: Save returned an empty lesson plan. Please refresh and try again.`);
     }
     applyCurriculumState(data.curriculum || effectiveCurriculum(), {
       siteContentUpdatedAt: data.siteContentUpdatedAt,
@@ -4534,17 +4545,26 @@ async function saveAdminCurriculumLessonPlanForm(form) {
   } catch (error) {
     console.error("[curriculum-lesson-save] failed", error);
     if (error?.name === "AbortError") {
-      errorMessage = "❌ Save timed out. Please refresh and try again.";
+      errorMessage = `❌ Save timed out after ${SAVE_TIMEOUT_MS / 1000}s. The request was aborted — check Network for the POST status, then try again.`;
     } else {
       errorMessage = `❌ ${error.message || "Save failed."}`;
     }
   } finally {
-    controllers.forEach((controller) => {
-      try { controller.abort(); } catch { /* ignore */ }
-    });
+    if (abortController) {
+      try { abortController.abort(); } catch { /* ignore */ }
+    }
     adminCurriculumLessonSaving = false;
     setAdminCurriculumLessonSaveBanner(successMessage || errorMessage || "❌ Save ended without a result. Check the browser console.", Boolean(successMessage));
-    renderAdminCurriculumLessonPlanManager();
+    try {
+      renderAdminCurriculumLessonPlanManager();
+    } catch (renderError) {
+      console.error("[curriculum-lesson-save] render failed after save", renderError);
+      const fallbackBanner = document.querySelector("#adminCurriculumLessonPlanBanner");
+      if (fallbackBanner) {
+        fallbackBanner.className = `form-message ${successMessage ? "success" : ""}`;
+        fallbackBanner.textContent = successMessage || errorMessage || "Save finished but the panel could not refresh. Reload the page.";
+      }
+    }
     const bannerEl = document.querySelector("#adminCurriculumLessonPlanBanner");
     bannerEl?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     // Keep the in-form message in sync when the editor is open.

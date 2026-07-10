@@ -1,9 +1,9 @@
-const CACHE_NAME = "llh-shell-v3-admin-lesson-save-fix";
+const CACHE_NAME = "llh-shell-v4-curriculum-save-race-fix";
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/styles.css?v=20260708-admin-lesson-save-fix",
-  "/app.js?v=20260708-admin-lesson-save-fix",
+  "/styles.css?v=20260710-curriculum-save-race-fix",
+  "/app.js?v=20260710-curriculum-save-race-fix",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
