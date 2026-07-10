@@ -1561,6 +1561,26 @@ function readStore() {
 }
 
 const POSTGRES_UPSERT_STORE = "INSERT INTO llh_store (id, data, updated_at) VALUES ($1, $2::jsonb, NOW()) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()";
+const POSTGRES_WRITE_CHAIN_WAIT_MS = 20000;
+const POSTGRES_QUERY_TIMEOUT_MS = 45000;
+
+function withTimeout(promise, timeoutMs, label = "Operation") {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${timeoutMs}ms.`));
+    }, timeoutMs);
+    Promise.resolve(promise).then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
 
 function writeStore(store) {
   storeCache = store;
@@ -1586,15 +1606,32 @@ async function writeStoreAsync(store) {
   storeCache = store;
   if (usePostgresStore()) {
     const payload = JSON.stringify(store);
-    // Wait for any in-flight fire-and-forget writes to settle before issuing our own,
-    // so we don't race against them and produce an out-of-order result.
-    // Log (but do not rethrow) chain errors — they are already logged by writeStore's .catch handler.
-    // It is safe to proceed even if a previous chain write failed: every write sends the
-    // complete store state (not a delta), so the latest write always supersedes older ones.
-    await postgresWriteChain.catch((error) => {
-      console.error("Pending write chain error before async write:", error.message);
+    // Serialize behind the shared chain, but never wait forever on a stuck prior write.
+    const writePromise = (async () => {
+      try {
+        await withTimeout(
+          postgresWriteChain.catch((error) => {
+            console.error("Pending write chain error before async write:", error.message);
+          }),
+          POSTGRES_WRITE_CHAIN_WAIT_MS,
+          "Pending Postgres write chain",
+        );
+      } catch (error) {
+        console.error(error.message);
+        // Break a stuck chain so the latest full-state write can proceed.
+        postgresWriteChain = Promise.resolve();
+      }
+      await withTimeout(
+        postgresPool.query(POSTGRES_UPSERT_STORE, [storeRecordId, payload]),
+        POSTGRES_QUERY_TIMEOUT_MS,
+        "Postgres store upsert",
+      );
+    })();
+    postgresWriteChain = writePromise.catch((error) => {
+      databaseReady = false;
+      console.error("Could not persist launch store to Postgres:", error.message);
     });
-    await postgresPool.query(POSTGRES_UPSERT_STORE, [storeRecordId, payload]);
+    await writePromise;
     return;
   }
   ensureStore();
@@ -4951,6 +4988,8 @@ function handleAdminCurriculumBackup(request, response, url) {
 }
 
 async function handleAdminCurriculumLessonPlanSave(request, response) {
+  const startedAt = Date.now();
+  console.log("[curriculum-lesson-save] request received");
   const body = await readJson(request);
   if (!validAdminToken(body.adminToken || "")) {
     jsonResponse(response, 401, { error: "Admin access is required to save curriculum lesson plans." });
@@ -4968,6 +5007,11 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
   const store = readStore();
   const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
   if (curriculumConcurrencyConflict(siteContent, body.expectedUpdatedAt)) {
+    console.log("[curriculum-lesson-save] conflict 409", {
+      id,
+      expectedUpdatedAt: normalizedShortText(body.expectedUpdatedAt, 80),
+      siteContentUpdatedAt: normalizedShortText(siteContent.updatedAt, 80),
+    });
     curriculumConflictResponse(response, siteContent);
     return;
   }
@@ -4987,6 +5031,7 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
   }
   const integrityError = assertCurriculumIntegrityOrError(syncedCurriculum);
   if (integrityError) {
+    console.error("[curriculum-lesson-save] integrity failed", integrityError.details?.slice?.(0, 5) || integrityError);
     jsonResponse(response, 400, integrityError);
     return;
   }
@@ -5003,6 +5048,11 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
     return;
   }
 
+  console.log("[curriculum-lesson-save] ok", {
+    id,
+    activities: savedActivities.filter((item) => item.status !== "archived").length,
+    ms: Date.now() - startedAt,
+  });
   jsonResponse(response, 200, {
     lessonPlan: savedPlan,
     activities: savedActivities,
