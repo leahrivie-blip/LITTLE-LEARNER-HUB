@@ -513,36 +513,6 @@ const futureTools = [
 
 const starterResources = [
   {
-    id: "lesson-toddler-farm",
-    category: "Lesson Plans",
-    title: "Toddler Farm Week Lesson Plan",
-    age: "Toddler",
-    plan: "Free",
-    month: "June",
-    tags: ["Farm", "Fine motor", "Animals"],
-    description: "Weekly theme, Monday-Friday activities, materials, circle time, art, sensory, movement, books, and goals.",
-  },
-  {
-    id: "lesson-infant-sensory",
-    category: "Lesson Plans",
-    title: "Infant Sensory Month Plan",
-    age: "Infant",
-    plan: "Pro",
-    month: "June",
-    tags: ["Sensory", "Routines", "Language"],
-    description: "Four weeks of soft, safe infant activities with simple directions and learning goals.",
-  },
-  {
-    id: "lesson-preschool-ocean-sample",
-    category: "Lesson Plans",
-    title: "Preschool Ocean Theme Week",
-    age: "Preschool",
-    plan: "Pro",
-    month: "June",
-    tags: ["Ocean", "Science", "Art"],
-    description: "Circle time, art, sensory, fine motor, gross motor, books, songs, and printable options.",
-  },
-  {
     id: "obs-blocks-colors",
     category: "Observation Hub",
     title: "Stacking Blocks and Naming Colors",
@@ -603,26 +573,6 @@ const starterResources = [
     format: "In-App Printable + PDF",
     description: "A complete home daycare forms packet with enrollment, tuition, parent agreements, emergency, medical, daily report, communication, and business forms.",
     customContent: homeDaycareFormsMegaBundleContent(),
-  },
-  {
-    id: "activity-ocean-fine-motor",
-    category: "Activity Center",
-    title: "Preschool Ocean Fine Motor Tray",
-    age: "Preschool",
-    plan: "Pro",
-    month: "June",
-    tags: ["Ocean", "Fine motor", "Low prep"],
-    description: "Materials, steps, learning goal, and age group for a quick themed activity.",
-  },
-  {
-    id: "activity-toddler-feelings",
-    category: "Activity Center",
-    title: "Toddler Feelings Mirror Game",
-    age: "Toddler",
-    plan: "Free",
-    month: "June",
-    tags: ["Feelings", "Language", "Social emotional"],
-    description: "A short activity for naming emotions, copying facial expressions, and building vocabulary.",
   },
   {
     id: "menu-cacfp-week",
@@ -740,127 +690,8 @@ const printablePdfLimit = Number.POSITIVE_INFINITY;
 // Admins always retain full access. Flip back to false to re-enable for users.
 const PRINTABLES_HIDDEN = false;
 
-// Temporary user-facing lesson plan visibility limits while updates are in progress.
-// Admins always retain full access and can continue editing all plans.
-const LESSON_PLAN_VISIBILITY_LIMITS = Object.freeze({
-  Infant: 40,
-  Toddler: 30,
-  Preschool: 30,
-});
-
-// Old developmental domain label strings. Any Infant, Toddler, or Preschool lesson plan whose
-// content contains one of these labels is automatically hidden from users until updated and approved.
-// Admins always retain full access and can unhide plans after updates are completed.
-const OLD_DEVELOPMENTAL_DOMAIN_LABELS = Object.freeze([
-  "Social Emotional Development",
-  "Social-Emotional Development",
-  "Cognitive Development",
-  "Physical Development",
-  "Language Development",
-  "Language and Literacy Development",
-  "Language & Literacy Development",
-  "Mathematics Development",
-  "Math Development",
-  "Science Development",
-  "Creative Arts Development",
-  "Approaches to Learning",
-]);
-
-// Old skill/area label strings checked specifically against lesson plan titles.
-// Any Infant, Toddler, or Preschool lesson plan whose title contains one of these labels
-// (as a whole word or phrase) is hidden from users until updated and approved.
-const OLD_TITLE_DOMAIN_LABELS = Object.freeze([
-  "Social Emotional",
-  "Social-Emotional",
-  "Fine Motor",
-  "Gross Motor",
-  "Cognitive",
-  "Language",
-  "Literacy",
-  "Math",
-  "Mathematics",
-  "Science",
-  "Creative Arts",
-  "Physical Development",
-  "Approaches to Learning",
-]);
-
-// Returns true when `text` contains `label` as a whole-word/phrase match (case-insensitive).
-// The label must not be immediately preceded or followed by another letter, preventing
-// partial-word false positives (e.g. "Languages" should not match "Language").
-function textContainsLabel(text, label) {
-  const lower = label.toLowerCase();
-  let start = 0;
-  while (start < text.length) {
-    const idx = text.indexOf(lower, start);
-    if (idx === -1) return false;
-    const charBefore = idx > 0 ? text[idx - 1] : "";
-    const charAfter = text[idx + lower.length] || "";
-    if (!/[a-z]/.test(charBefore) && !/[a-z]/.test(charAfter)) return true;
-    start = idx + 1;
-  }
-  return false;
-}
-
 function isPrintablesUpgradeModeActive() {
   return PRINTABLES_HIDDEN && !hasAdminFullAccess();
-}
-
-function lessonPlanNumber(resource) {
-  if (!resource || resource.category !== "Lesson Plans") return null;
-  const explicit = Number(resource.lessonNumber);
-  if (Number.isFinite(explicit) && explicit > 0) return explicit;
-  const idMatch = String(resource.id || "").match(/-(\d+)$/);
-  if (!idMatch) return null;
-  const parsed = Number(idMatch[1]);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-}
-
-// Returns true if any old developmental domain label appears in the lesson plan title or body content.
-// Title is checked against OLD_TITLE_DOMAIN_LABELS; description and override fields are checked
-// against OLD_DEVELOPMENTAL_DOMAIN_LABELS. All matching is case-insensitive and whole-phrase.
-function lessonPlanHasOldDomainLabel(resource) {
-  if (!resource || resource.category !== "Lesson Plans") return false;
-  const age = normalizeAgeGroup(resource.age) || resource.age;
-  if (!["Infant", "Toddler", "Preschool"].includes(age)) return false;
-  const titleText = (resource.title || "").toLowerCase();
-  if (OLD_TITLE_DOMAIN_LABELS.some((label) => textContainsLabel(titleText, label))) return true;
-  const override = resource.lessonPlanOverride || null;
-  const fullText = [
-    resource.description,
-    resource.weeklyOverview,
-    override ? override.weeklyOverview : "",
-    override ? override.objectives : "",
-    override ? override.materials : "",
-    override ? override.teacherLanguage : "",
-    override ? override.elgConnections : "",
-    override ? override.familyConnection : "",
-    override ? override.reflectionNotes : "",
-    override && override.dailyActivities ? Object.values(override.dailyActivities).join(" ") : "",
-  ].filter(Boolean).join(" ").toLowerCase();
-  return OLD_DEVELOPMENTAL_DOMAIN_LABELS.some((label) => textContainsLabel(fullText, label));
-}
-
-function lessonPlanTemporaryHiddenReason(resource) {
-  if (!resource || resource.category !== "Lesson Plans") return "";
-  // If admin has explicitly published this plan, it is never temporarily hidden regardless of label content
-  const override = resource.lessonPlanOverride || lessonPlanOverrideFor(resource.id);
-  if (override?.visible === true) return "";
-  if (lessonPlanHasOldDomainLabel(resource)) return "Old skill/domain label in title";
-  const age = normalizeAgeGroup(resource.age) || resource.age;
-  const limit = LESSON_PLAN_VISIBILITY_LIMITS[age];
-  if (!Number.isFinite(limit)) return "";
-  const number = lessonPlanNumber(resource);
-  if (!Number.isFinite(number)) return "";
-  return number > limit ? "Needs lesson plan update" : "";
-}
-
-function isLessonPlanTemporarilyHidden(resource) {
-  if (!resource || resource.category !== "Lesson Plans" || hasAdminFullAccess()) return false;
-  // If admin has explicitly published this plan, respect that decision
-  const override = resource.lessonPlanOverride || lessonPlanOverrideFor(resource.id);
-  if (override?.visible === true) return false;
-  return Boolean(lessonPlanTemporaryHiddenReason(resource));
 }
 
 // ─── 4-Status Content System ──────────────────────────────────────────────────
@@ -895,7 +726,6 @@ function isResourceVisibleToCurrentUser(resource) {
   if (resource.archived === true && !hasAdminFullAccess()) return false;
   if (resource.visible === false && !hasAdminFullAccess()) return false;
   if (resource.category === "Printables" && isPrintablesUpgradeModeActive()) return false;
-  if (isLessonPlanTemporarilyHidden(resource)) return false;
   return true;
 }
 
@@ -911,47 +741,11 @@ function slug(value) {
 
 function buildResourceLibrary() {
   return [
-    ...buildLessonPlans(),
     ...buildObservationLibrary(),
     ...buildFormsLibrary(),
     ...buildMenuLibrary(),
-    ...buildActivityLibrary(),
     ...buildPrintableLibrary(),
   ];
-}
-
-function buildLessonPlans() {
-  const lessonThemeSet = lessonThemes.slice(0, 30);
-  return ages.flatMap((age) => learningAreas.flatMap((area, areaIndex) => lessonThemeSet.map((theme, index) => {
-    const month = months[(index + areaIndex) % months.length];
-    const holiday = holidays.includes(theme) ? "Holiday" : "Non-Holiday";
-    const sequence = areaIndex * lessonThemeSet.length + index + 1;
-    const activityFocus = activityTypes[(index + areaIndex) % activityTypes.length];
-    return {
-      id: `lesson-${slug(age)}-${slug(area)}-${sequence}`,
-      category: "Lesson Plans",
-      title: `${age} ${theme} ${area} Lesson Plan ${index + 1}`,
-      age,
-      plan: sequence === 1 ? "Free" : "Pro",
-      month,
-      tags: [theme, area, month, holiday, activityFocus, "Weekly Plan", "ELG Standards"],
-      format: "PDF + Editable",
-      description: `Pre-made ${age.toLowerCase()} ${theme.toLowerCase()} lesson plan focused on ${area.toLowerCase()} development. Includes weekly overview, daily activities, materials, objectives, step-by-step instructions, ELG standards, printable ideas, and related ${activityFocus.toLowerCase()} activity support.`,
-      theme,
-      developmentalArea: area,
-      lessonNumber: sequence,
-      holiday,
-      activityFocus,
-      weeklyOverview: `${age} learners explore ${theme.toLowerCase()} through ${area.toLowerCase()} experiences, play-based routines, guided conversation, and hands-on practice.`,
-      learningObjectives: [
-        `Support ${area.toLowerCase()} development through ${theme.toLowerCase()} activities.`,
-        `Build confidence, participation, and engagement during daily routines.`,
-        `Connect learning to books, songs, sensory play, movement, and child-led exploration.`,
-      ],
-      materials: "Books, picture cards, music, art supplies, sensory materials, blocks, manipulatives, outdoor/play space, and simple printable pages.",
-      relatedActivities: [`${activityFocus} activity`, `${theme} circle time`, `${area} small group support`],
-    };
-  })));
 }
 
 // FUTURE ADMIN BUILD: Observation Packs (buildObservationLibrary) are currently hardcoded.
@@ -1805,20 +1599,6 @@ function buildMenuLibrary() {
   return [...weeklyMenus, ...ageMenus];
 }
 
-function buildActivityLibrary() {
-  return ages.flatMap((age) => activityTypes.flatMap((type) => lessonThemes.slice(0, 12).map((theme, index) => ({
-    id: `activity-${slug(age)}-${slug(type)}-${slug(theme)}`,
-    category: "Activity Center",
-    title: `${age} ${theme} ${type} Activity`,
-    age,
-    plan: index === 0 ? "Free" : "Pro",
-    month: months[index % months.length],
-    tags: [type, theme, "Materials", "Instructions", "Learning Objective"],
-    format: "PDF + Editable",
-    description: `${type} activity for ${age.toLowerCase()} learners with materials, instructions, learning objective, and developmental area.`,
-  }))));
-}
-
 function buildPrintableLibrary() {
   return printableTypes.flatMap((type, typeIndex) => lessonThemes.map((theme, index) => {
     const printableNumber = (typeIndex * lessonThemes.length) + index + 1;
@@ -1866,6 +1646,7 @@ const uploadedResourcesConfig = {
 };
 const curriculumBackupConfig = {
   endpoint: "/api/admin/curriculum/backup",
+  fullEndpoint: "/api/admin/curriculum/backup/full",
 };
 const curriculumLessonPlanConfig = {
   endpoint: "/api/admin/curriculum/lesson-plans",
@@ -1880,9 +1661,6 @@ const curriculumResourceConfig = {
   linkEndpoint: "/api/admin/curriculum/resources/link",
   unlinkEndpoint: "/api/admin/curriculum/resources/unlink",
 };
-// Temporary testing switch: set true to force legacy lesson/activity libraries
-// even when playBasedCurriculum is ON. Does not delete or migrate legacy data.
-const CURRICULUM_LIBRARY_FALLBACK_TO_LEGACY = false;
 const billingPlans = {
   Free: {
     name: "Free",
@@ -3247,7 +3025,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","lesson-plans","curriculum-lesson-plans","curriculum-activities","curriculum-resources","activities","forms","printables","reviews","founder","images","analytics","support","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","reviews","founder","images","analytics","support","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding"]);
 // FUTURE ADMIN BUILD: lessonPlanResourceCategories is currently hardcoded.
 // A future admin section should allow adding, renaming, and reordering these category labels
 // so new upload categories can be managed without a code change.
@@ -3256,11 +3034,13 @@ const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") |
 // Old Settings → Homepage tab removed; Site Editor is the only homepage editor. Redirect stale preference.
 const adminActiveSectionTabNormalized = adminActiveSectionTabRaw === "homepage" ? "images" : adminActiveSectionTabRaw;
 let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabNormalized) ? adminActiveSectionTabNormalized : "dashboard";
+if (adminActiveSectionTab === "lesson-plans") adminActiveSectionTab = "curriculum-lesson-plans";
+if (adminActiveSectionTab === "activities") adminActiveSectionTab = "curriculum-activities";
 
 // ─── Admin 2.0 Navigation Groups ─────────────────────────────────────────────
 const adminGroups = [
   { id: "dashboard", icon: "🏠", label: "Dashboard",  tabs: ["dashboard", "analytics", "support"], defaultTab: "dashboard" },
-  { id: "content",   icon: "📚", label: "Content",    tabs: ["lesson-plans", "curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "activities", "forms", "printables", "reviews", "founder", "resources"], defaultTab: "lesson-plans" },
+  { id: "content",   icon: "📚", label: "Content",    tabs: ["curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "printables", "reviews", "founder", "resources"], defaultTab: "curriculum-lesson-plans" },
   { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
   { id: "users",     icon: "👥", label: "Users",      tabs: ["users", "stripe-backfill"], defaultTab: "users" },
   { id: "settings",  icon: "⚙️", label: "Settings",   tabs: ["images"], defaultTab: "images" },
@@ -3271,11 +3051,9 @@ const adminGroupForTab = {
   "dashboard":   "dashboard",
   "analytics":   "dashboard",
   "support":     "dashboard",
-  "lesson-plans":"content",
   "curriculum-lesson-plans": "content",
   "curriculum-activities": "content",
   "curriculum-resources": "content",
-  "activities":  "content",
   "forms":       "content",
   "printables":  "content",
   "reviews":     "content",
@@ -3303,11 +3081,9 @@ const adminTabLabels = {
   "dashboard":   "Overview",
   "analytics":   "Analytics",
   "support":     "Support",
-  "lesson-plans":"Lesson Plans",
-  "curriculum-lesson-plans": "Play-Based Lessons (Beta)",
-  "curriculum-activities": "Curriculum Activities (Beta)",
-  "curriculum-resources": "Curriculum Resources (Beta)",
-  "activities":  "Activities",
+  "curriculum-lesson-plans": "Play-Based Lessons",
+  "curriculum-activities": "Curriculum Activities",
+  "curriculum-resources": "Curriculum Resources",
   "forms":       "Forms Library (not legacy uploads)",
   "printables":  "Printables Library (not legacy uploads)",
   "reviews":     "Reviews",
@@ -3451,9 +3227,9 @@ function emptySiteContent() {
     founding: {},
     images: [],
     featureFlags: {
-      playBasedCurriculum: false,
+      playBasedCurriculum: true,
     },
-    playBasedCurriculum: false,
+    playBasedCurriculum: true,
     curriculumLibrary: emptyCurriculumLibrary(),
     curriculum: emptyCurriculum(),
     updatedAt: "",
@@ -3470,14 +3246,11 @@ function emptyCurriculumLibrary() {
 }
 
 function isPlayBasedCurriculumEnabled() {
-  const content = effectiveSiteContent();
-  return content.featureFlags?.playBasedCurriculum === true
-    || content.playBasedCurriculum === true;
+  return true;
 }
 
 function useCurriculumLibrarySources() {
-  // Flag ON → curriculum libraries by default; fallback constant reverts to legacy quickly.
-  return isPlayBasedCurriculumEnabled() && !CURRICULUM_LIBRARY_FALLBACK_TO_LEGACY;
+  return true;
 }
 
 const CURRICULUM_LEARNING_DOMAINS = Object.freeze([
@@ -4520,9 +4293,12 @@ function renderAdminCurriculumLessonPlanManager() {
     ? `<div class="form-message ${adminCurriculumLessonSaveBanner.isSuccess ? "success" : ""}" id="adminCurriculumLessonPlanBanner" role="status">${escapeHtml(adminCurriculumLessonSaveBanner.text)}</div>`
     : `<div class="form-message" id="adminCurriculumLessonPlanBanner" role="status"></div>`;
   target.innerHTML = `
+    <div class="access-notice" role="status" style="margin-bottom:1rem;">
+      <strong>Play-Based Curriculum is the active lesson and activity system.</strong>
+    </div>
     <div class="section-heading">
       <div>
-        <p class="eyebrow">Play-Based Curriculum (Beta)</p>
+        <p class="eyebrow">Play-Based Curriculum</p>
         <h3>Curriculum lesson plans</h3>
         <p class="muted-copy">Lesson plans are the source of truth. Saving regenerates linked activities using stable item IDs.</p>
       </div>
@@ -5668,8 +5444,9 @@ function effectiveSiteContent() {
     upgradeMessaging: { ...(base.upgradeMessaging || {}), ...(overrides.upgradeMessaging || {}) },
     founding: { ...(base.founding || {}), ...(overrides.founding || {}) },
     featureFlags: {
-      playBasedCurriculum: overrides.featureFlags?.playBasedCurriculum === true,
+      playBasedCurriculum: true,
     },
+    playBasedCurriculum: true,
     curriculum: overrides.curriculum && typeof overrides.curriculum === "object"
       ? {
         lessonPlans: Array.isArray(overrides.curriculum.lessonPlans) ? overrides.curriculum.lessonPlans : [],
@@ -5794,196 +5571,27 @@ function applyLessonPlanOverrides(items, includeHidden = false) {
 }
 
 function allLessonPlansForAdmin() {
-  const basePlans = applyLessonPlanOverrides(libraryResources.filter((resource) => resource.category === "Lesson Plans"), true)
-    .map((resource) => {
-      const defaults = lessonPlanDefaults(resource);
-      const override = lessonPlanOverrideFor(resource.id) || {};
-      const manuallyVisible = override.visible === true;
-      const temporaryHiddenReason = manuallyVisible ? lessonPlanTemporaryHiddenReason({ ...resource, ...override }) : "";
-      const archived = override.archived === true;
-      const featured = override.featured === true;
-      const hiddenReason = !manuallyVisible
-        ? (override?.visible === false ? "Manually hidden by admin" : "Not yet published")
-        : temporaryHiddenReason;
-      const hiddenForUsers = archived || !manuallyVisible;
-      return {
-        ...defaults,
-        ...override,
-        id: resource.id,
-        title: override.title || resource.title,
-        age: override.age || resource.age,
-        theme: override.theme || resource.theme || resourceTheme(resource),
-        plan: override.plan || resource.plan,
-        visible: manuallyVisible,
-        userVisible: !hiddenForUsers,
-        archived,
-        featured,
-        isCustom: false,
-        hiddenReason,
-        thumbnailUrl: override.thumbnailUrl || resource.previewData || "",
-        resources: Array.isArray(override.resources) ? override.resources : [],
-        resource,
-      };
-    });
-  const customPlans = (effectiveSiteContent().customLessonPlans || []).map((item) => {
-    const archived = item.archived === true;
-    const featured = item.featured === true;
-    const visible = item.visible === true && !archived;
-    const resource = {
-      id: item.id,
-      category: "Lesson Plans",
-      title: item.title || "Untitled Lesson Plan",
-      age: item.age || "Infant",
-      plan: item.plan || "Free",
-      month: item.month || "",
-      holiday: item.holiday || "",
-      tags: Array.isArray(item.tags) ? item.tags : [],
-      theme: item.theme || "",
-      description: item.description || item.weeklyOverview || "",
-      weeklyOverview: item.weeklyOverview || "",
-      materials: item.materials || "",
-      developmentalArea: item.developmentalArea || item.tags?.find((tag) => learningAreas.includes(tag)) || "Approaches to Learning",
-      activityFocus: item.activityFocus || item.tags?.[0] || "",
-      previewData: item.thumbnailUrl || "",
-      lessonPlanOverride: item,
-      customContent: buildLessonPlanTextFromOverride({
-        id: item.id,
-        title: item.title || "Untitled Lesson Plan",
-        category: "Lesson Plans",
-        month: item.month || "",
-        age: item.age || "Infant",
-        holiday: item.holiday || "",
-        theme: item.theme || "",
-        tags: Array.isArray(item.tags) ? item.tags : [],
-        developmentalArea: item.developmentalArea || "Approaches to Learning",
-        activityFocus: item.activityFocus || "",
-      }, item),
-    };
-    return {
-      ...lessonPlanDefaults(resource),
-      ...item,
-      id: item.id,
-      title: item.title || "Untitled Lesson Plan",
-      age: item.age || "Infant",
-      theme: item.theme || "",
-      plan: item.plan || "Free",
-      visible,
-      userVisible: visible,
-      archived,
-      featured,
-      isCustom: true,
-      hiddenReason: archived ? "Archived by admin" : (visible ? "" : "Hidden by admin"),
-      thumbnailUrl: item.thumbnailUrl || "",
-      resources: Array.isArray(item.resources) ? item.resources : [],
-      resource,
-    };
-  });
-  return [...customPlans, ...basePlans];
+  // Phase 2H: legacy hardcoded lesson shells and CMS overrides are retired.
+  // Play-based curriculum lesson plans are managed via curriculumLessonPlansForAdmin().
+  return [];
 }
 
 function loadResources() {
   const saved = uploadedResources();
-  const starterWithoutOldGenerated = starterResources.filter((resource) => !["Observation Hub", "Lesson Plans"].includes(resource.category));
-
-  if (useCurriculumLibrarySources()) {
-    // Curriculum feeds Lesson Plans + Activity Center only. Other categories stay legacy.
-    // Legacy lesson/activity data remains in storage for flag-OFF rollback / FALLBACK switch.
-    const legacySupportingLibrary = applyLessonPlanOverrides(
-      libraryResources.filter((resource) => resource.category !== "Lesson Plans" && resource.category !== "Activity Center"),
-    );
-    return applyObservationEdits([
-      ...starterWithoutOldGenerated.filter((resource) => resource.category !== "Activity Center"),
-      ...legacySupportingLibrary,
-      ...loadCurriculumManagedLessonPlans(),
-      ...loadCurriculumManagedActivities(),
-      ...loadAdminManagedForms(),
-      ...loadAdminManagedPrintables(),
-      ...saved,
-    ]);
-  }
-
-  const mergedLibrary = applyLessonPlanOverrides(libraryResources);
-  const adminActivities = loadAdminManagedActivities();
-  const adminForms = loadAdminManagedForms();
-  const adminPrintables = loadAdminManagedPrintables();
-  const adminLessons = loadAdminManagedLessonPlans();
+  const starterWithoutOldGenerated = starterResources.filter((resource) => !["Observation Hub", "Lesson Plans", "Activity Center"].includes(resource.category));
+  // Curriculum is the only Lesson Plans + Activity Center source. Other categories stay library/admin-managed.
+  const supportingLibrary = libraryResources.filter(
+    (resource) => resource.category !== "Lesson Plans" && resource.category !== "Activity Center",
+  );
   return applyObservationEdits([
     ...starterWithoutOldGenerated,
-    ...mergedLibrary,
-    ...adminLessons,
-    ...adminActivities,
-    ...adminForms,
-    ...adminPrintables,
+    ...supportingLibrary,
+    ...loadCurriculumManagedLessonPlans(),
+    ...loadCurriculumManagedActivities(),
+    ...loadAdminManagedForms(),
+    ...loadAdminManagedPrintables(),
     ...saved,
   ]);
-}
-
-function loadAdminManagedActivities() {
-  const all = effectiveSiteContent().activities || [];
-  return all
-    .filter((item) => item.id && item.title)
-    .filter((item) => (item.visible === true && item.archived !== true) || hasAdminFullAccess())
-    .map((item) => ({
-      id: item.id,
-      category: "Activity Center",
-      title: item.title,
-      age: item.age || "All Ages",
-      plan: item.plan || "Free",
-      description: item.description || "",
-      theme: item.theme || item.activityCategory || "",
-      tags: Array.isArray(item.tags) ? item.tags : [],
-      previewData: sanitizedImageSource(item.previewData || item.thumbnailUrl || ""),
-      fileData: item.fileData || item.printableUrl || "",
-      customContent: item.customContent || "",
-      downloadUrl: item.printableUrl || "",
-      format: item.format || (item.printableUrl ? "Printable PDF" : "Activity"),
-      visible: item.visible === true && item.archived !== true,
-      archived: item.archived === true,
-      updatedAt: item.updatedAt || "",
-      activityCategory: item.activityCategory || "General",
-      _adminManaged: true,
-    }));
-}
-
-function loadAdminManagedLessonPlans() {
-  const all = effectiveSiteContent().customLessonPlans || [];
-  return all
-    .filter((item) => item.id && item.title)
-    .filter((item) => ((item.visible === true) && item.archived !== true) || hasAdminFullAccess())
-    .map((item) => ({
-      id: item.id,
-      category: "Lesson Plans",
-      title: item.title,
-      age: item.age || "Infant",
-      plan: item.plan || "Free",
-      month: item.month || "",
-      tags: Array.isArray(item.tags) ? item.tags : [],
-      format: "PDF + Editable",
-      description: item.description || item.weeklyOverview || "",
-      theme: item.theme || "",
-      developmentalArea: item.developmentalArea || item.tags?.find((tag) => learningAreas.includes(tag)) || "Approaches to Learning",
-      holiday: item.holiday || "",
-      activityFocus: item.activityFocus || "",
-      weeklyOverview: item.weeklyOverview || "",
-      materials: item.materials || "",
-      previewData: sanitizedImageSource(item.thumbnailUrl || ""),
-      visible: item.visible === true && item.archived !== true,
-      archived: item.archived === true,
-      lessonPlanOverride: item,
-      customContent: buildLessonPlanTextFromOverride({
-        id: item.id,
-        title: item.title,
-        category: "Lesson Plans",
-        month: item.month || "",
-        age: item.age || "Infant",
-        holiday: item.holiday || "",
-        theme: item.theme || "",
-        tags: Array.isArray(item.tags) ? item.tags : [],
-        developmentalArea: item.developmentalArea || "Approaches to Learning",
-        activityFocus: item.activityFocus || "",
-      }, item),
-      _adminManaged: true,
-    }));
 }
 
 function loadAdminManagedForms() {
@@ -11082,7 +10690,7 @@ function renderCategoryPage(view) {
     </div>
     ${category === "Observation Hub" ? renderObservationEditor() : ""}
     <div class="resource-grid">
-      ${items.length ? items.map(resourceCard).join("") : `<div class="empty-state">${isLessonPlanCategory ? "No lesson plans found. Try another search or filter." : "No resources found. Try another search or filter."}</div>`}
+      ${items.length ? items.map(resourceCard).join("") : `<div class="empty-state">${isLessonPlanCategory ? "New play-based lesson plans are being added." : (category === "Activity Center" ? "Activities will appear automatically when lesson plans are published." : "No resources found. Try another search or filter.")}</div>`}
     </div>
   `;
 }
@@ -11117,11 +10725,8 @@ function renderLessonPlanLibraryNotice() {
   return `
     <section class="access-notice lesson-library-notice" role="status" aria-live="polite">
       <div class="lesson-update-notice-copy">
-        <h3>Lesson Plan Library Updates</h3>
-        <p>We are currently reviewing and updating our lesson plans to improve quality, add additional resources, and enhance the overall experience. Thank you for your patience while improvements are being made.</p>
-      </div>
-      <div class="lesson-library-notice-actions">
-        <button class="primary-button lesson-helper-reminder-btn" data-view="ai" data-quick-doc-type="lesson" type="button">Open Document Helper</button>
+        <h3>Play-Based Lesson Plans</h3>
+        <p>Browse published play-based lesson plans by age group. New plans are added as they are published.</p>
       </div>
     </section>
   `;
@@ -13068,36 +12673,43 @@ function suggestedActivitiesForArea(area, child = null) {
 }
 
 function suggestedLessonPlansForArea(area) {
-  const normalizedArea = normalizeObservationArea(area) || area || "Approaches to Learning";
-  const keywords = Array.from(new Set([
-    normalizedArea,
-    displayDevelopmentArea(normalizedArea),
-    ...recommendationKeywordsForArea(normalizedArea),
-  ].map((item) => String(item || "").toLowerCase()).filter((item) => item.length > 2)));
-  const matches = resources
-    .filter((resource) => resource.category === "Lesson Plans")
-    .filter((resource) => isResourceVisibleToCurrentUser(resource))
-    .map((resource) => {
-      const primaryText = [
-        resource.developmentalArea,
-        resource.title,
-        resource.theme,
-      ].join(" ").toLowerCase();
-      const secondaryText = [
-        resource.description,
-        resource.weeklyOverview,
-        resource.month,
-        resource.holiday,
-        ...(resource.tags || []),
-      ].join(" ").toLowerCase();
-      let score = 0;
-      if (keywords.some((keyword) => primaryText.includes(keyword))) score += 3;
-      if (keywords.some((keyword) => secondaryText.includes(keyword))) score += 1;
-      return { resource, score };
-    })
-    .filter((item) => item.score > 0)
-    .sort((a, b) => b.score - a.score || a.resource.title.localeCompare(b.resource.title));
-  return Array.from(new Set(matches.map((item) => item.resource.title)));
+  try {
+    const list = Array.isArray(resources) ? resources : [];
+    if (!list.length) return [];
+    const normalizedArea = normalizeObservationArea(area) || area || "Approaches to Learning";
+    const keywords = Array.from(new Set([
+      normalizedArea,
+      displayDevelopmentArea(normalizedArea),
+      ...recommendationKeywordsForArea(normalizedArea),
+    ].map((item) => String(item || "").toLowerCase()).filter((item) => item.length > 2)));
+    if (!keywords.length) return [];
+    const matches = list
+      .filter((resource) => resource && resource.category === "Lesson Plans")
+      .filter((resource) => isResourceVisibleToCurrentUser(resource))
+      .map((resource) => {
+        const primaryText = [
+          resource.developmentalArea,
+          resource.title,
+          resource.theme,
+        ].join(" ").toLowerCase();
+        const secondaryText = [
+          resource.description,
+          resource.weeklyOverview,
+          resource.month,
+          resource.holiday,
+          ...(resource.tags || []),
+        ].join(" ").toLowerCase();
+        let score = 0;
+        if (keywords.some((keyword) => primaryText.includes(keyword))) score += 3;
+        if (keywords.some((keyword) => secondaryText.includes(keyword))) score += 1;
+        return { resource, score };
+      })
+      .filter((item) => item.score > 0)
+      .sort((a, b) => b.score - a.score || String(a.resource.title || "").localeCompare(String(b.resource.title || "")));
+    return Array.from(new Set(matches.map((item) => item.resource.title).filter(Boolean)));
+  } catch (_) {
+    return [];
+  }
 }
 
 function supportCenterCategories() {
@@ -19536,13 +19148,9 @@ function focusAdminLessonTitleInput() {
 }
 
 function openAdminLessonEditor(id, { scroll = false, focusTitle = false } = {}) {
-  adminLessonEditorId = id;
-  if (adminActiveSectionTab !== "lesson-plans") setAdminSectionTab("lesson-plans");
-  renderAdminContentManager();
-  applyAdminSectionVisibility();
-  const form = document.querySelector("#adminLessonPlanForm");
-  if (form && scroll) form.scrollIntoView({ behavior: "smooth", block: "start" });
-  if (focusTitle) window.setTimeout(focusAdminLessonTitleInput, scroll ? 240 : 0);
+  // Legacy lesson editor retired — route to play-based curriculum manager.
+  if (id) openAdminCurriculumLessonEditor(id, { scroll });
+  else setAdminSectionTab("curriculum-lesson-plans");
 }
 
 function scrollToAdminLessonList() {
@@ -19652,21 +19260,6 @@ function renderAdminContentManager() {
   const target = document.querySelector("#adminContentManagerApp");
   if (!target || !isAdminUnlocked()) return;
   const content = effectiveSiteContent();
-  const allLessons = allLessonPlansForAdmin();
-  const lessons = filteredAdminLessonPlans();
-  const statusCounts = {
-    all: allLessons.length,
-    draft: allLessons.filter((item) => contentItemStatus(item) === "draft").length,
-    approved: allLessons.filter((item) => contentItemStatus(item) === "approved").length,
-    featured: allLessons.filter((item) => contentItemStatus(item) === "featured").length,
-    archived: allLessons.filter((item) => contentItemStatus(item) === "archived").length,
-  };
-  const lessonRecord = allLessons.find((item) => item.id === adminLessonEditorId)
-    || lessons[0]
-    || allLessons[0];
-  if (lessonRecord && !adminLessonEditorId) adminLessonEditorId = lessonRecord.id;
-  // Initialize resource draft when switching to a different lesson plan
-  initAdminLessonResourcesDraft(lessonRecord);
   const reviews = (content.reviews || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
   const reviewRecord = reviews.find((item) => item.id === adminReviewEditorId) || reviews[0] || {
     id: "",
@@ -19680,111 +19273,18 @@ function renderAdminContentManager() {
   const founder = content.founder || {};
   const images = Array.isArray(content.images) ? content.images : [];
   const imageRecord = images.find((item) => item.id === adminImageEditorId) || images[0] || { id: "", label: "", group: "", imageUrl: "" };
-  const curLessonVisFilter = document.querySelector("#adminLessonVisibilityFilter")?.value || "all";
   target.innerHTML = `
     <div class="admin-manager-grid">
       <section class="admin-manager-section" data-admin-cm-section="lesson-plans">
         <div class="section-heading">
-          <div><p class="eyebrow">Lesson Plan Manager</p><h3>Edit library lesson plans</h3></div>
-          <button class="ghost-button" type="button" id="adminCreateLessonPlanButton">+ Create Lesson Plan</button>
+          <div>
+            <p class="eyebrow">Legacy Lesson Plans</p>
+            <h3>This manager has been retired</h3>
+            <p class="muted-copy">Use <strong>Play-Based Lessons</strong> for the active lesson and activity system.</p>
+          </div>
+          <button class="primary-button" type="button" data-admin-section-tab="curriculum-lesson-plans">Open Play-Based Lessons</button>
         </div>
-        <div class="admin-mobile-toolbar">
-          <label><span>Search</span><input id="adminLessonSearch" type="search" placeholder="Search lesson plans" value="${escapeHtml(document.querySelector("#adminLessonSearch")?.value || "")}" /></label>
-          <label><span>Age group</span><select id="adminLessonAgeFilter"><option${(document.querySelector("#adminLessonAgeFilter")?.value || "All Ages") === "All Ages" ? " selected" : ""}>All Ages</option>${["Infant", "Toddler", "Preschool"].map((age) => `<option${(document.querySelector("#adminLessonAgeFilter")?.value || "") === age ? " selected" : ""}>${age}</option>`).join("")}</select></label>
-          <label><span>Status</span><select id="adminLessonVisibilityFilter">${[["all", "All"], ["draft", "🟡 Draft"], ["approved", "🟢 Approved"], ["featured", "⭐ Featured"], ["archived", "📦 Archived"]].map(([value, label]) => `<option value="${value}"${curLessonVisFilter === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
-          <label><span>Plan</span><select id="adminLessonPlanFilter">${[["all", "All"], ["free", "Free"], ["pro", "Pro"]].map(([value, label]) => `<option value="${value}"${(document.querySelector("#adminLessonPlanFilter")?.value || "all") === value ? " selected" : ""}>${label}</option>`).join("")}</select></label>
-        </div>
-        <div class="admin-mobile-stats">
-          <div><strong>${statusCounts.all}</strong><span>All</span></div>
-          <div><strong>${statusCounts.draft}</strong><span>🟡 Draft</span></div>
-          <div><strong>${statusCounts.approved}</strong><span>🟢 Approved</span></div>
-          <div><strong>${statusCounts.featured}</strong><span>⭐ Featured</span></div>
-          <div><strong>${statusCounts.archived}</strong><span>📦 Archived</span></div>
-        </div>
-        <div class="form-actions">
-          <button class="ghost-button" type="button" data-admin-bulk="hide">🟡 Draft Selected</button>
-          <button class="ghost-button" type="button" data-admin-bulk="unhide">🟢 Publish Selected</button>
-          <button class="ghost-button" type="button" data-admin-bulk="feature">⭐ Feature Selected</button>
-          <button class="ghost-button" type="button" data-admin-bulk="archive">📦 Archive Selected</button>
-          <button class="ghost-button" type="button" data-admin-bulk="free">Bulk Mark Free</button>
-          <button class="ghost-button" type="button" data-admin-bulk="pro">Bulk Mark Pro</button>
-          <button class="ghost-button" type="button" id="adminExportLessonPlansButton">💾 Export Backup</button>
-          <button class="ghost-button" type="button" id="adminCurriculumBackupButton">💾 Legacy Curriculum Backup</button>
-          <button class="ghost-button" type="button" id="adminShowOnly50Button">Show only 50 per age group</button>
-          <button class="danger-button" type="button" id="adminArchiveAllLessonPlansButton">📦 Archive ALL Lesson Plans</button>
-        </div>
-        <span class="form-message" id="adminCurriculumBackupMessage"></span>
         ${playBasedCurriculumFlagHtml()}
-        <div class="admin-mobile-list" id="adminLessonPlanList">${lessons.map(lessonPlanAdminCardHtml).join("") || `<div class="empty-state">No lesson plans match these filters.</div>`}</div>
-        ${lessonRecord ? `
-          <form id="adminLessonPlanForm" class="panel-form admin-stacked-form" data-importer-updated-title-theme="${lessonRecord.titleThemeImporterUpdated ? "true" : "false"}">
-            <input type="hidden" name="id" value="${escapeHtml(lessonRecord.id)}" />
-            <h4 class="admin-lesson-editing-heading" id="adminLessonEditorHeading">Editing: ${escapeHtml(lessonRecord.title || "Untitled Lesson Plan")}</h4>
-            <p class="muted-copy">
-              ${contentStatusHtml(lessonRecord)} ·
-              Last updated: ${escapeHtml(adminLessonUpdatedLabel(lessonRecord.updatedAt))} ·
-              Title/theme importer updated: ${lessonRecord.titleThemeImporterUpdated ? "Yes" : "No"}
-            </p>
-            <div class="form-grid-two">
-              <label>Title<input id="adminLessonTitleInput" name="title" value="${escapeHtml(lessonRecord.title)}" /></label>
-              <label>Age group<select name="age">${["Infant", "Toddler", "Preschool"].map((age) => `<option${lessonRecord.age === age ? " selected" : ""}>${age}</option>`).join("")}</select></label>
-            </div>
-            <div class="form-grid-two">
-              <label>Theme / Category<input name="theme" value="${escapeHtml(lessonRecord.theme || "")}" data-lesson-theme-original="${escapeHtml(lessonRecord.theme || "")}" /></label>
-              <label>Free / Pro<select name="plan">${["Free", "Pro"].map((plan) => `<option${lessonRecord.plan === plan ? " selected" : ""}>${plan}</option>`).join("")}</select></label>
-            </div>
-            <label class="admin-inline-toggle"><input type="checkbox" name="visible" ${lessonRecord.visible === true ? "checked" : ""} /> <span>Visible on public site</span></label>
-            <label class="admin-inline-toggle"><input type="checkbox" name="featured" ${lessonRecord.featured === true ? "checked" : ""} /> <span>⭐ Featured (prioritized in searches and recommendations)</span></label>
-            <fieldset class="admin-fieldset admin-lesson-generator">
-              <legend>✨ AI Lesson Plan Generator</legend>
-              <p class="admin-generator-note">Fill in Age Group and Theme above, then click Generate to populate all fields automatically. Review and edit before saving.</p>
-              <label>Lesson Plan Number <span class="admin-generator-optional">(optional — helps generate a unique plan)</span><input name="generatorLessonNumber" placeholder="e.g. 1, 2, 3" /></label>
-              <div class="form-actions">
-                <button class="primary-button" type="button" id="adminLessonGenerateBtn">✨ Generate Lesson Plan</button>
-                <button class="ghost-button" type="button" id="adminLessonImportBtn">📋 Import Structured Lesson Plan</button>
-                <button class="ghost-button" type="button" id="adminLessonPreviewBtn">👁️ View Live</button>
-              </div>
-              <div id="adminLessonOverwriteConfirm" class="admin-overwrite-confirm" hidden>
-                <p><strong>This will replace the current lesson plan content. Continue?</strong></p>
-                <div class="form-actions">
-                  <button class="primary-button" type="button" data-admin-lesson-overwrite="all">Replace Everything</button>
-                  <button class="ghost-button" type="button" data-admin-lesson-overwrite="empty">Fill Empty Fields Only</button>
-                  <button class="ghost-button" type="button" data-admin-lesson-overwrite="cancel">Cancel</button>
-                </div>
-              </div>
-              <div id="adminThemeChangeConfirm" class="admin-overwrite-confirm" hidden>
-                <p><strong>The theme has changed. Would you like to regenerate the lesson plan?</strong></p>
-                <div class="form-actions">
-                  <button class="primary-button" type="button" data-admin-theme-action="regenerate-all">Regenerate Everything</button>
-                  <button class="ghost-button" type="button" data-admin-theme-action="regenerate-empty">Regenerate Empty Fields</button>
-                  <button class="ghost-button" type="button" data-admin-theme-action="keep">Keep Current Content</button>
-                </div>
-              </div>
-              <span class="form-message" id="adminLessonGenerateMessage"></span>
-            </fieldset>
-            <label>Overview<textarea name="weeklyOverview" rows="3">${escapeHtml(lessonRecord.weeklyOverview || "")}</textarea></label>
-            <label>Materials<textarea name="materials" rows="3">${escapeHtml(lessonRecord.materials || "")}</textarea></label>
-            <label>Objectives<textarea name="objectives" rows="4">${escapeHtml(lessonRecord.objectives || "")}</textarea></label>
-            <label>Teacher language<textarea name="teacherLanguage" rows="4">${escapeHtml(lessonRecord.teacherLanguage || "")}</textarea></label>
-            <label>Monday<textarea name="monday" rows="4">${escapeHtml(lessonRecord.dailyActivities?.monday || "")}</textarea></label>
-            <label>Tuesday<textarea name="tuesday" rows="4">${escapeHtml(lessonRecord.dailyActivities?.tuesday || "")}</textarea></label>
-            <label>Wednesday<textarea name="wednesday" rows="4">${escapeHtml(lessonRecord.dailyActivities?.wednesday || "")}</textarea></label>
-            <label>Thursday<textarea name="thursday" rows="4">${escapeHtml(lessonRecord.dailyActivities?.thursday || "")}</textarea></label>
-            <label>Friday<textarea name="friday" rows="4">${escapeHtml(lessonRecord.dailyActivities?.friday || "")}</textarea></label>
-            <label>ELG connections<textarea name="elgConnections" rows="3">${escapeHtml(lessonRecord.elgConnections || "")}</textarea></label>
-            <label>Family connection<textarea name="familyConnection" rows="3">${escapeHtml(lessonRecord.familyConnection || "")}</textarea></label>
-            <label>Reflection notes<textarea name="reflectionNotes" rows="3">${escapeHtml(lessonRecord.reflectionNotes || "")}</textarea></label>
-            <label>Thumbnail image URL<input name="thumbnailUrl" value="${escapeHtml(lessonRecord.thumbnailUrl || "")}" placeholder="https://..." /></label>
-            <label>Upload thumbnail<input name="thumbnailFile" type="file" accept="image/*" /></label>
-            ${renderAdminLessonResourcesSection()}
-            <div class="form-actions">
-              <button class="primary-button" type="submit">💾 Save lesson plan</button>
-              <button class="ghost-button" type="button" data-admin-lesson-back="true">Back to Lesson Plans</button>
-              <button class="ghost-button" type="button" data-admin-lesson-reset="${escapeHtml(lessonRecord.id)}">Reset lesson to default</button>
-            </div>
-            <span class="form-message" id="adminLessonPlanMessage"></span>
-          </form>
-        ` : ""}
       </section>
 
       <section class="admin-manager-section" data-admin-cm-section="reviews">
@@ -19882,11 +19382,9 @@ function renderAdminContentManager() {
       </section>
     </div>
   `;
-  setAdminLessonFormCleanState();
   if (adminActiveSectionTab === "curriculum-lesson-plans") renderAdminCurriculumLessonPlanManager();
   if (adminActiveSectionTab === "curriculum-activities") renderAdminCurriculumActivityBrowser();
   if (adminActiveSectionTab === "curriculum-resources") renderAdminCurriculumResourceManager();
-  if (adminActiveSectionTab === "activities") renderAdminActivitiesManager();
   if (adminActiveSectionTab === "forms") renderAdminFormsManager();
   if (adminActiveSectionTab === "printables") renderAdminPrintablesManager();
 }
@@ -20404,7 +19902,7 @@ function downloadCurriculumBackupJson(data) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `legacy-curriculum-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `curriculum-backup-${new Date().toISOString().slice(0, 10)}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -20412,44 +19910,26 @@ function downloadCurriculumBackupJson(data) {
 }
 
 function playBasedCurriculumFlagHtml() {
-  const enabled = isPlayBasedCurriculumEnabled();
-  const fallbackNote = CURRICULUM_LIBRARY_FALLBACK_TO_LEGACY
-    ? " Testing fallback is ON in code (CURRICULUM_LIBRARY_FALLBACK_TO_LEGACY), so libraries still use legacy sources."
-    : "";
   return `
-    <fieldset class="admin-fieldset">
-      <legend>Play-Based Curriculum (Beta)</legend>
-      <p class="admin-generator-note">Default is OFF. When enabled, the Lesson Plan Library and Activity Library show published/featured curriculum content (activities stay generated from lesson plans). Legacy lesson/activity data is kept for rollback.${fallbackNote}</p>
-      <label class="admin-inline-toggle">
-        <input type="checkbox" id="adminPlayBasedCurriculumFlag" ${enabled ? "checked" : ""} />
-        <span>Enable play-based curriculum system</span>
-      </label>
-      <span class="form-message" id="adminPlayBasedCurriculumFlagMessage"></span>
-    </fieldset>
+    <div class="access-notice" role="status">
+      <strong>Play-Based Curriculum is the active lesson and activity system.</strong>
+    </div>
   `;
 }
 
-async function savePlayBasedCurriculumFeatureFlag(enabled) {
-  await runAdminAction({
-    messageSelector: "#adminPlayBasedCurriculumFlagMessage",
-    actionFn: async () => {
-      const nextContent = nextSiteContentDraft();
-      nextContent.featureFlags = {
-        ...(nextContent.featureFlags || { playBasedCurriculum: false }),
-        playBasedCurriculum: enabled === true,
-      };
-      await saveAdminSiteContent(nextContent);
-    },
-    successMsg: enabled
-      ? (CURRICULUM_LIBRARY_FALLBACK_TO_LEGACY
-        ? "✅ Flag enabled, but code fallback still forces legacy libraries."
-        : "✅ Play-based curriculum flag enabled. Published curriculum feeds Lesson Plan and Activity libraries.")
-      : "✅ Play-based curriculum flag disabled. Libraries use legacy lesson plans and activities.",
-    onComplete: () => {
-      syncSiteManagedResources();
-      renderAdminContentManager();
-    },
-  });
+async function savePlayBasedCurriculumFeatureFlag() {
+  // Play-based curriculum is permanent; keep the flag enabled if called.
+  const nextContent = nextSiteContentDraft();
+  nextContent.featureFlags = {
+    ...(nextContent.featureFlags || {}),
+    playBasedCurriculum: true,
+  };
+  nextContent.playBasedCurriculum = true;
+  try {
+    await saveAdminSiteContent(nextContent);
+  } catch (_) {
+    // no-op: curriculum remains enabled in the client regardless
+  }
 }
 
 async function exportCurriculumBackup() {
@@ -20465,7 +19945,10 @@ async function exportCurriculumBackup() {
   }
   try {
     const params = new URLSearchParams({ adminToken: token, t: String(Date.now()) });
-    const response = await fetch(`${curriculumBackupConfig.endpoint}?${params.toString()}`, { cache: "no-store" });
+    let response = await fetch(`${curriculumBackupConfig.fullEndpoint}?${params.toString()}`, { cache: "no-store" });
+    if (response.status === 404) {
+      response = await fetch(`${curriculumBackupConfig.endpoint}?${params.toString()}`, { cache: "no-store" });
+    }
     const data = await response.json();
     if (!response.ok) throw new Error(data?.error || "Could not export curriculum backup.");
     downloadCurriculumBackupJson(data);
@@ -20726,23 +20209,6 @@ function isAdminManagedFormDirty(type) { return _adminManagedFormDirty.has(type)
 function isAnyAdminManagedFormDirty() { return _adminManagedFormDirty.size > 0; }
 
 const adminManagedContentConfig = {
-  activities: {
-    appId: "#adminActivitiesManagerApp",
-    contentKey: "activities",
-    sectionKey: "activities",
-    category: "Activity Center",
-    singular: "Activity",
-    plural: "Activities",
-    icon: "🎯",
-    title: "Activity Manager",
-    subtitle: "Create and manage activity cards, files, and visibility.",
-    primaryField: "activityCategory",
-    primaryLabel: "Theme / Category",
-    primaryOptions: () => ["Math", "Literacy", "Science", "Art", "Sensory", "Fine Motor", "Gross Motor", "Social Emotional", "Music", "Outdoor", "Seasonal", "Holiday", "General"],
-    ageOptions: () => ["All Ages", "Infant", "Toddler", "Preschool"],
-    formatPlaceholder: "Activity or Printable PDF",
-    searchPlaceholder: "Search title, theme, or tags",
-  },
   forms: {
     appId: "#adminFormsManagerApp",
     contentKey: "forms",
@@ -20983,7 +20449,18 @@ function renderAdminManagedCollection(type) {
 }
 
 function renderAdminActivitiesManager() {
-  renderAdminManagedCollection("activities");
+  const target = document.querySelector("#adminActivitiesManagerApp");
+  if (!target || !isAdminUnlocked()) return;
+  target.innerHTML = `
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Legacy Activities</p>
+        <h3>This manager has been retired</h3>
+        <p class="muted-copy">Use <strong>Curriculum Activities</strong> for play-based activities generated from lesson plans.</p>
+      </div>
+      <button class="primary-button" type="button" data-admin-section-tab="curriculum-activities">Open Curriculum Activities</button>
+    </div>
+  `;
 }
 
 function renderAdminFormsManager() {
@@ -20995,6 +20472,10 @@ function renderAdminPrintablesManager() {
 }
 
 async function saveAdminManagedCollectionForm(type, form) {
+  if (type === "activities" || !adminManagedContentConfig[type]) {
+    setFormMessage(`#admin${type[0].toUpperCase()}${type.slice(1)}Message`, "Legacy activity manager is retired. Use Curriculum Activities.", false);
+    return;
+  }
   const config = adminManagedContentConfig[type];
   const msgKey = `#admin${type[0].toUpperCase()}${type.slice(1)}Message`;
   let savedEntry = null;
@@ -21158,8 +20639,9 @@ async function deleteAdminManagedCollectionItem(type, id) {
 const adminSectionTabs = [
   { id: "dashboard",   label: "Dashboard" },
   { id: "resources",   label: "Legacy File Uploads" },
-  { id: "lesson-plans", label: "Lesson Plans" },
-  { id: "activities",  label: "Activities" },
+  { id: "curriculum-lesson-plans", label: "Play-Based Lessons" },
+  { id: "curriculum-activities", label: "Curriculum Activities" },
+  { id: "curriculum-resources", label: "Curriculum Resources" },
   { id: "forms",       label: "Forms Library (not legacy uploads)" },
   { id: "printables",  label: "Printables Library (not legacy uploads)" },
   { id: "reviews",     label: "Reviews" },
@@ -21175,7 +20657,9 @@ const adminSectionTabs = [
 
 function setAdminSectionTab(tabId) {
   // Settings → Homepage removed; keep Images as the Settings landing tab.
-  const resolvedTabId = tabId === "homepage" ? "images" : tabId;
+  let resolvedTabId = tabId === "homepage" ? "images" : tabId;
+  if (resolvedTabId === "lesson-plans") resolvedTabId = "curriculum-lesson-plans";
+  if (resolvedTabId === "activities") resolvedTabId = "curriculum-activities";
   adminActiveSectionTab = resolvedTabId;
   adminActiveGroup = adminGroupForTab[resolvedTabId] || "dashboard";
   localStorage.setItem("llhAdminActiveSection", resolvedTabId);
@@ -21219,7 +20703,7 @@ function renderAdminSectionNav() {
   `;
 }
 
-const adminCmSectionIds = ["lesson-plans", "curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "activities", "forms", "printables", "reviews", "founder", "images"];
+const adminCmSectionIds = ["curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "printables", "reviews", "founder", "images"];
 
 function applyAdminSectionVisibility() {
   const tab = adminActiveSectionTab;
@@ -21256,7 +20740,6 @@ function applyAdminSectionVisibility() {
     if (tab === "curriculum-lesson-plans") renderAdminCurriculumLessonPlanManager();
     if (tab === "curriculum-activities") renderAdminCurriculumActivityBrowser();
     if (tab === "curriculum-resources") renderAdminCurriculumResourceManager();
-    if (tab === "activities") renderAdminActivitiesManager();
     if (tab === "forms") renderAdminFormsManager();
     if (tab === "printables") renderAdminPrintablesManager();
   } else if (tab === "dashboard") {
@@ -21318,19 +20801,9 @@ function applyAdminSectionVisibility() {
 // ─── Admin 2.0 Visibility Dashboard ──────────────────────────────────────────
 
 function adminVisibilityEntries() {
-  const lessonEntries = allLessonPlansForAdmin().map((item) => ({
-    id: item.id,
-    type: "lesson-plans",
-    label: "Lesson Plans",
-    title: item.title || "Untitled Lesson Plan",
-    age: item.age || "All Ages",
-    plan: item.plan || "Free",
-    updatedAt: item.updatedAt || "",
-    status: item.archived ? "archived" : item.userVisible ? "visible" : "hidden",
-    previewId: item.id,
-  }));
+  // Lesson/activity visibility is managed in Play-Based Lessons / Curriculum Activities.
+  // This dashboard lists forms + printables only.
   const collectionEntries = [
-    ["activities", "Activities"],
     ["forms", "Forms"],
     ["printables", "Printables"],
   ].flatMap(([type, label]) => adminManagedItems(type).map((item) => ({
@@ -21344,7 +20817,7 @@ function adminVisibilityEntries() {
     status: item.archived === true ? "archived" : item.visible === true ? "visible" : "hidden",
     previewId: item.id,
   })));
-  return [...lessonEntries, ...collectionEntries];
+  return collectionEntries;
 }
 
 async function setVisibilityDashboardCollection(type, visible) {
@@ -21407,12 +20880,15 @@ async function toggleVisibilityDashboardItem(type, id) {
 
 function editVisibilityDashboardItem(type, id) {
   if (type === "lesson-plans") {
-    openAdminLessonEditor(id, { scroll: true, focusTitle: true });
+    openAdminCurriculumLessonEditor(id, { scroll: true });
+    return;
+  }
+  if (type === "activities") {
+    setAdminSectionTab("curriculum-activities");
     return;
   }
   setAdminSectionTab(type);
   setAdminManagedEditorId(type, id);
-  if (type === "activities") renderAdminActivitiesManager();
   if (type === "forms") renderAdminFormsManager();
   if (type === "printables") renderAdminPrintablesManager();
 }
@@ -21424,9 +20900,19 @@ function renderAdminVisibilityDashboard() {
   const visible = items.filter((item) => item.status === "visible");
   const hidden = items.filter((item) => item.status === "hidden");
   const archived = items.filter((item) => item.status === "archived");
+  const curriculumLessons = curriculumLessonPlansForAdmin().map((item) => ({
+    visible: item.status === "published" || item.status === "featured",
+    userVisible: item.status === "published" || item.status === "featured",
+    archived: item.status === "archived",
+  }));
+  const curriculumActivities = curriculumActivitiesForAdmin().map((item) => ({
+    visible: item.status === "published",
+    userVisible: item.status === "published",
+    archived: item.status === "archived",
+  }));
   const summary = {
-    lessons: allLessonPlansForAdmin(),
-    activities: adminManagedItems("activities"),
+    lessons: curriculumLessons,
+    activities: curriculumActivities,
     forms: adminManagedItems("forms"),
     printables: adminManagedItems("printables"),
   };
@@ -21461,10 +20947,11 @@ function renderAdminVisibilityDashboard() {
       <div><p class="eyebrow">Visibility Dashboard</p><h3>Manage what's visible on the public site</h3></div>
     </div>
     <span class="form-message" id="adminVisibilityMessage"></span>
+    <p class="muted-copy">Lesson plan and activity visibility is managed in <strong>Play-Based Lessons</strong> and <strong>Curriculum Activities</strong>.</p>
     <div class="admin-visibility-summary-grid">
       ${[
-        ["Lesson Plans", summary.lessons],
-        ["Activities", summary.activities],
+        ["Play-Based Lessons", summary.lessons],
+        ["Curriculum Activities", summary.activities],
         ["Forms", summary.forms],
         ["Printables", summary.printables],
       ].map(([label, collection]) => {
@@ -21475,12 +20962,8 @@ function renderAdminVisibilityDashboard() {
       }).join("")}
     </div>
     <div class="form-actions admin-visibility-bulk-actions">
-      <button class="primary-button" type="button" data-admin-visibility-bulk="all:hide">Hide All</button>
-      <button class="ghost-button" type="button" data-admin-visibility-bulk="all:show">Show All</button>
-      <button class="ghost-button" type="button" data-admin-visibility-bulk="lesson-plans:hide">Hide Lesson Plans</button>
-      <button class="ghost-button" type="button" data-admin-visibility-bulk="lesson-plans:show">Show Lesson Plans</button>
-      <button class="ghost-button" type="button" data-admin-visibility-bulk="activities:hide">Hide Activities</button>
-      <button class="ghost-button" type="button" data-admin-visibility-bulk="activities:show">Show Activities</button>
+      <button class="primary-button" type="button" data-admin-visibility-bulk="all:hide">Hide All Forms &amp; Printables</button>
+      <button class="ghost-button" type="button" data-admin-visibility-bulk="all:show">Show All Forms &amp; Printables</button>
       <button class="ghost-button" type="button" data-admin-visibility-bulk="forms:hide">Hide Forms</button>
       <button class="ghost-button" type="button" data-admin-visibility-bulk="forms:show">Show Forms</button>
       <button class="ghost-button" type="button" data-admin-visibility-bulk="printables:hide">Hide Printables</button>
@@ -26168,9 +25651,12 @@ function renderFavorites() {
     return;
   }
   const saved = resources.filter((resource) => favorites.includes(resource.id) && isResourceVisibleToCurrentUser(resource));
+  const retiredNote = favorites.some((id) => !resources.some((resource) => resource.id === id))
+    ? `<p class="muted-copy">Some previously saved lesson plans or activities were retired and are no longer available.</p>`
+    : "";
   target.innerHTML = saved.length
-    ? saved.slice(0, 5).map(compactItem).join("")
-    : `<div class="empty-state">Save resources you want to come back to later.</div>`;
+    ? `${saved.slice(0, 5).map(compactItem).join("")}${retiredNote}`
+    : `<div class="empty-state">${retiredNote || "Save resources you want to come back to later."}</div>`;
 }
 
 function sampleResources(category, count) {
@@ -26594,6 +26080,10 @@ function renderFavoritesPage() {
   }
   const favoriteIds = new Set(favorites);
   const savedFavoriteResources = resources.filter((resource) => favoriteIds.has(resource.id) && isResourceVisibleToCurrentUser(resource));
+  const hasRetiredFavorites = favorites.some((id) => !resources.some((resource) => resource.id === id));
+  const retiredFavoritesNote = hasRetiredFavorites
+    ? `<p class="muted-copy">Some previously saved lesson plans or activities were retired and are no longer available.</p>`
+    : "";
   section.innerHTML = `
     <button class="ghost-button back-button" data-view="home" type="button">← Back to Home</button>
     <div class="page-title">
@@ -26602,10 +26092,11 @@ function renderFavoritesPage() {
       <p>Your saved resources in one place.</p>
     </div>
     <section class="section-block">
+      ${retiredFavoritesNote}
       <div class="resource-list compact">
         ${savedFavoriteResources.length
     ? savedFavoriteResources.slice(0, favoritesPageLimit).map(accountListItem).join("")
-    : `<div class="empty-state">No saved favorites yet.</div>`}
+    : `<div class="empty-state">${hasRetiredFavorites ? "No current favorites available." : "No saved favorites yet."}</div>`}
       </div>
     </section>
   `;
@@ -26710,9 +26201,13 @@ function renderAccountPage() {
 
   const savedFavoriteResources = resources.filter((resource) => favorites.includes(resource.id) && isResourceVisibleToCurrentUser(resource));
   const downloadedResources = resources.filter((resource) => savedDownloads.includes(resource.id) && isResourceVisibleToCurrentUser(resource));
+  const hasRetiredFavorites = favorites.some((id) => !resources.some((resource) => resource.id === id));
+  const retiredFavoritesNote = hasRetiredFavorites
+    ? `<p class="muted-copy">Some previously saved lesson plans or activities were retired and are no longer available.</p>`
+    : "";
   favoritesTarget.innerHTML = savedFavoriteResources.length
-    ? savedFavoriteResources.slice(0, 10).map(accountListItem).join("")
-    : `<div class="empty-state">${isProUser() ? "No saved favorites yet." : "Saved favorites are included with Pro."}</div>`;
+    ? `${retiredFavoritesNote}${savedFavoriteResources.slice(0, 10).map(accountListItem).join("")}`
+    : `${retiredFavoritesNote}<div class="empty-state">${isProUser() ? (hasRetiredFavorites ? "No current favorites available." : "No saved favorites yet.") : "Saved favorites are included with Pro."}</div>`;
   downloadsTarget.innerHTML = downloadedResources.length
     ? downloadedResources.slice(0, 10).map(accountListItem).join("")
     : `<div class="empty-state">${isProUser() ? "No viewed resources yet." : "Viewed resources are included with your account."}</div>`;
@@ -29990,10 +29485,6 @@ document.addEventListener("click", async (event) => {
     await deleteAdminLessonPlan(lessonDeleteButton.dataset.adminLessonDelete);
     return;
   }
-  if (event.target.closest("#adminCreateLessonPlanButton")) {
-    await createAdminLessonPlan();
-    return;
-  }
   if (event.target.closest("#adminCreateCurriculumLessonPlanButton")) {
     createAdminCurriculumLessonPlan();
     return;
@@ -30130,11 +29621,10 @@ document.addEventListener("click", async (event) => {
     const [type, action] = (visibilityBulkBtn.dataset.adminVisibilityBulk || "").split(":");
     const visible = action === "show";
     if (type === "all") {
-      // Run sequentially so each action can show clear success/error feedback.
-      await setVisibilityDashboardCollection("lesson-plans", visible);
-      await setVisibilityDashboardCollection("activities", visible);
       await setVisibilityDashboardCollection("forms", visible);
       await setVisibilityDashboardCollection("printables", visible);
+    } else if (type === "lesson-plans" || type === "activities") {
+      setFormMessage("#adminVisibilityMessage", "Lesson and activity visibility is managed in Play-Based Lessons / Curriculum Activities.", false);
     } else if (type) {
       await setVisibilityDashboardCollection(type, visible);
     }
@@ -30163,36 +29653,8 @@ document.addEventListener("click", async (event) => {
     await applyLessonPlanBulkAction(bulkButton.dataset.adminBulk);
     return;
   }
-  if (event.target.closest("#adminExportLessonPlansButton")) {
-    exportAllLessonPlansJson();
-    return;
-  }
   if (event.target.closest("#adminCurriculumBackupButton")) {
     await exportCurriculumBackup();
-    return;
-  }
-  if (event.target.matches("#adminPlayBasedCurriculumFlag")) {
-    const checkbox = event.target;
-    const previous = isPlayBasedCurriculumEnabled();
-    const next = checkbox.checked;
-    if (next === previous) return;
-    checkbox.disabled = true;
-    try {
-      await savePlayBasedCurriculumFeatureFlag(next);
-    } catch (error) {
-      checkbox.checked = previous;
-      setFormMessage("#adminPlayBasedCurriculumFlagMessage", `❌ Could not save feature flag — ${error.message || "please try again."}`, false);
-    } finally {
-      checkbox.disabled = false;
-    }
-    return;
-  }
-  if (event.target.closest("#adminArchiveAllLessonPlansButton")) {
-    await archiveAllLessonPlans();
-    return;
-  }
-  if (event.target.closest("#adminShowOnly50Button")) {
-    await showOnlyFiftyLessonPlansPerAge();
     return;
   }
   if (event.target.closest("#adminHideAllLessonPlansButton")) {

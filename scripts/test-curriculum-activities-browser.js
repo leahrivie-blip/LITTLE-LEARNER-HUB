@@ -111,7 +111,7 @@ async function main() {
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   console.log("1) Admin Curriculum Activities browser wiring present");
   assert(appJs.includes('curriculum-activities'), "Missing curriculum-activities tab id");
-  assert(appJs.includes("Curriculum Activities (Beta)"), "Missing tab label");
+  assert(appJs.includes("Curriculum Activities"), "Missing tab label");
   assert(appJs.includes("function renderAdminCurriculumActivityBrowser"), "Missing browser renderer");
   assert(appJs.includes("adminCurriculumActivityApp"), "Missing browser mount");
   assert(appJs.includes("data-curriculum-activity-view"), "Missing view action");

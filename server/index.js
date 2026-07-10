@@ -329,15 +329,16 @@ function defaultAiSettings() {
 }
 
 function defaultFeatureFlags() {
+  // Phase 2H: play-based curriculum is the permanent lesson/activity system.
   return {
-    playBasedCurriculum: false,
+    playBasedCurriculum: true,
   };
 }
 
 function normalizedFeatureFlags(value) {
-  const input = value && typeof value === "object" ? value : {};
+  // Phase 2H: play-based curriculum is permanently active.
   return {
-    playBasedCurriculum: input.playBasedCurriculum === true,
+    playBasedCurriculum: true,
   };
 }
 
@@ -1070,10 +1071,7 @@ function publicCurriculumActivityDto(activity, parentPlan) {
 }
 
 function publicCurriculumLibraryDto(siteContent) {
-  const flags = normalizedFeatureFlags(siteContent?.featureFlags);
-  if (!flags.playBasedCurriculum) {
-    return null;
-  }
+  // Phase 2H: curriculum library is always the public lesson/activity source.
   const store = normalizedCurriculumStore(siteContent?.curriculum);
   const lessonPlans = store.lessonPlans
     .map((plan) => publicCurriculumLessonPlanDto(plan))
@@ -4609,11 +4607,6 @@ function handlePublicSiteContent(request, response) {
   const store = readStore();
   const content = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
   const defaults = normalizedSiteContent(defaultSiteContentStore());
-  const publicLessonPlans = Object.fromEntries(
-    Object.entries(content.lessonPlans).filter(([, plan]) => plan.visible === true && plan.archived !== true)
-  );
-  const publicCustomLessonPlans = (content.customLessonPlans || []).filter((item) => item.visible === true && item.archived !== true);
-  const publicActivities = (content.activities || []).filter((a) => a.visible === true && a.archived !== true);
   const publicForms = (content.forms || []).filter((item) => item.visible === true && item.archived !== true);
   const publicPrintables = (content.printables || []).filter((item) => item.visible === true && item.archived !== true);
   const publicReviews = (content.reviews || []).filter((item) => item.visible !== false);
@@ -4627,15 +4620,20 @@ function handlePublicSiteContent(request, response) {
   const publicUpgradeMessaging = content.upgradeMessaging?._draft === true
     ? defaults.upgradeMessaging
     : content.upgradeMessaging;
-  const { featureFlags, curriculum, ...publicSiteContent } = content;
-  const playBasedCurriculum = normalizedFeatureFlags(featureFlags).playBasedCurriculum === true;
-  const curriculumLibrary = publicCurriculumLibraryDto(content);
+  const { featureFlags, curriculum, lessonPlans, customLessonPlans, activities, ...publicSiteContent } = content;
+  const curriculumLibrary = publicCurriculumLibraryDto(content) || {
+    lessonPlans: [],
+    activities: [],
+    resources: [],
+    updatedAt: "",
+  };
   jsonResponse(response, 200, {
     siteContent: {
       ...publicSiteContent,
-      lessonPlans: publicLessonPlans,
-      customLessonPlans: publicCustomLessonPlans,
-      activities: publicActivities,
+      // Phase 2H: legacy lesson/activity CMS fields are retired from the public API.
+      lessonPlans: {},
+      customLessonPlans: [],
+      activities: [],
       forms: publicForms,
       printables: publicPrintables,
       reviews: publicReviews,
@@ -4644,20 +4642,14 @@ function handlePublicSiteContent(request, response) {
       founding: publicFounding,
       announcement: publicAnnouncementContent,
       upgradeMessaging: publicUpgradeMessaging,
-      // Minimal public cutover signal — full featureFlags object stays admin-only.
-      playBasedCurriculum,
-      ...(curriculumLibrary ? { curriculumLibrary } : {}),
+      playBasedCurriculum: true,
+      curriculumLibrary,
     },
   });
 }
 
 function handlePublicCurriculumResourceFile(request, response, url) {
   const store = readStore();
-  const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
-  if (!normalizedFeatureFlags(siteContent.featureFlags).playBasedCurriculum) {
-    jsonResponse(response, 404, { error: "Curriculum library is not enabled." });
-    return;
-  }
   const id = normalizedShortText(url.searchParams.get("id"), 160);
   if (!id) {
     jsonResponse(response, 400, { error: "Resource id is required." });
@@ -4987,7 +4979,7 @@ function handleSupportTicketsList(request, response, url) {
   jsonResponse(response, 200, { tickets: tickets.slice(0, 100).map(publicTicket) });
 }
 
-// Hardcoded seed count from app.js buildLessonPlans(): 3 ages × 10 learning areas × 30 themes.
+// Legacy hardcoded seed count (removed from client in Phase 2H; retained for backup metadata only).
 const HARDCODED_LESSON_PLAN_SEED_COUNT = 900;
 
 function buildCurriculumBackupPayload(store) {
@@ -5021,6 +5013,44 @@ function buildCurriculumBackupPayload(store) {
   return { ...payload, checksum };
 }
 
+function buildNewCurriculumBackupPayload(store) {
+  const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  const curriculum = normalizedCurriculumStore(siteContent.curriculum);
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    purpose: "phase-2h-new-curriculum-backup",
+    counts: {
+      curriculumLessonPlans: curriculum.lessonPlans.length,
+      curriculumActivities: curriculum.activities.length,
+      curriculumResources: curriculum.resources.length,
+    },
+    siteContent: {
+      curriculum,
+      featureFlags: normalizedFeatureFlags(siteContent.featureFlags),
+      playBasedCurriculum: true,
+    },
+  };
+  const checksum = crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+  return { ...payload, checksum };
+}
+
+function buildFullCurriculumBackupPayload(store) {
+  const legacy = buildCurriculumBackupPayload(store);
+  const next = buildNewCurriculumBackupPayload(store);
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    purpose: "phase-2h-full-curriculum-backup",
+    legacy,
+    curriculum: next,
+    counts: {
+      ...legacy.counts,
+      ...next.counts,
+    },
+  };
+  const checksum = crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+  return { ...payload, checksum };
+}
+
 function handleAdminCurriculumBackup(request, response, url) {
   const adminToken = url.searchParams.get("adminToken") || "";
   if (!validAdminToken(adminToken)) {
@@ -5029,6 +5059,80 @@ function handleAdminCurriculumBackup(request, response, url) {
   }
   const store = readStore();
   jsonResponse(response, 200, buildCurriculumBackupPayload(store));
+}
+
+function handleAdminCurriculumBackupFull(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required to export the curriculum backup." });
+    return;
+  }
+  const store = readStore();
+  jsonResponse(response, 200, buildFullCurriculumBackupPayload(store));
+}
+
+function handleAdminCurriculumBackupNew(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required to export the curriculum backup." });
+    return;
+  }
+  const store = readStore();
+  jsonResponse(response, 200, buildNewCurriculumBackupPayload(store));
+}
+
+async function handleAdminCurriculumWipe(request, response) {
+  try {
+    const body = await readJson(request);
+    if (!validAdminToken(body.adminToken || "")) {
+      jsonResponse(response, 401, { error: "Admin access is required to wipe curriculum content." });
+      return;
+    }
+    if (body.confirm !== "WIPE_CURRICULUM") {
+      jsonResponse(response, 400, {
+        error: "Confirmation required. Send confirm: \"WIPE_CURRICULUM\" after taking a backup.",
+      });
+      return;
+    }
+    const store = readStore();
+    const siteContent = store.siteContent && typeof store.siteContent === "object"
+      ? store.siteContent
+      : defaultSiteContentStore();
+    const before = normalizedCurriculumStore(siteContent.curriculum);
+    const now = new Date().toISOString();
+    const empty = defaultCurriculumStore();
+    empty.updatedAt = now;
+    // Also clear obsolete legacy lesson/activity CMS storage.
+    siteContent.lessonPlans = {};
+    siteContent.customLessonPlans = [];
+    siteContent.activities = [];
+    siteContent.curriculum = empty;
+    siteContent.featureFlags = { ...(siteContent.featureFlags || {}), playBasedCurriculum: true };
+    siteContent.playBasedCurriculum = true;
+    siteContent.updatedAt = now;
+    store.siteContent = siteContent;
+    await writeStoreAsync(store);
+    jsonResponse(response, 200, {
+      ok: true,
+      wipedAt: now,
+      before: {
+        curriculumLessonPlans: before.lessonPlans.length,
+        curriculumActivities: before.activities.length,
+        curriculumResources: before.resources.length,
+      },
+      after: {
+        curriculumLessonPlans: 0,
+        curriculumActivities: 0,
+        curriculumResources: 0,
+        legacyLessonOverrides: 0,
+        legacyCustomLessonPlans: 0,
+        legacyCmsActivities: 0,
+      },
+    });
+  } catch (error) {
+    console.error("Curriculum wipe failed:", error.message);
+    jsonResponse(response, 503, { error: "Curriculum wipe failed. Please try again." });
+  }
 }
 
 async function handleAdminCurriculumLessonPlanSave(request, response) {
@@ -6506,6 +6610,9 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/release-notes") return handleReleaseNotesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/release-notes") return handleReleaseNotesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/backup") return handleAdminCurriculumBackup(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/curriculum/backup/new") return handleAdminCurriculumBackupNew(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/curriculum/backup/full") return handleAdminCurriculumBackupFull(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/wipe") return await handleAdminCurriculumWipe(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans") return await handleAdminCurriculumLessonPlanSave(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources") return handleAdminCurriculumResourcesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources/file") return handleAdminCurriculumResourceFile(request, response, url);
@@ -6531,7 +6638,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/ai-settings") return handleAdminAiSettings(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-settings") return await handleAdminAiSettingsSave(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/ai-usage") return handleAdminAiUsage(request, response, url);
-    if (request.method === "POST" && url.pathname === "/api/admin/generate-lesson-plan") return await handleAdminGenerateLessonPlan(request, response);
+    // Phase 2H: legacy /api/admin/generate-lesson-plan removed.
     if (request.method === "POST" && url.pathname === "/api/admin/stripe-backfill") return await handleAdminStripeBackfill(request, response);
     if (request.method === "GET" && url.pathname === "/api/founding-status") return handleFoundingStatus(request, response);
     if (request.method === "GET" && url.pathname === "/api/stripe-readiness") return handleStripeReadiness(request, response);
