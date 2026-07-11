@@ -2902,6 +2902,27 @@ function rerenderActiveContent() {
   renderManagedAnnouncementBanner();
 }
 
+async function refreshPublicCurriculumLibrary() {
+  if (!siteContentConfig.publicEndpoint || !canUseLaunchBackend()) return effectiveSiteContent();
+  try {
+    const response = await fetch(`${siteContentConfig.publicEndpoint}?t=${Date.now()}`, { cache: "no-store" });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error || "Could not refresh curriculum library.");
+    const incoming = data.siteContent || emptySiteContent();
+    siteContentState = {
+      ...effectiveSiteContent(),
+      curriculumLibrary: incoming.curriculumLibrary || emptyCurriculumLibrary(),
+      playBasedCurriculum: incoming.playBasedCurriculum !== false,
+      updatedAt: incoming.updatedAt || effectiveSiteContent().updatedAt,
+    };
+    syncSiteManagedResources();
+    return effectiveSiteContent();
+  } catch (error) {
+    console.warn(error);
+    return effectiveSiteContent();
+  }
+}
+
 async function loadSiteContentFromBackend() {
   if (!siteContentConfig.publicEndpoint || !canUseLaunchBackend()) {
     rerenderActiveContent();
@@ -2917,7 +2938,7 @@ async function loadSiteContentFromBackend() {
     }
   }
   try {
-    const response = await fetch(siteContentConfig.publicEndpoint);
+    const response = await fetch(`${siteContentConfig.publicEndpoint}?t=${Date.now()}`, { cache: "no-store" });
     const data = await response.json();
     if (!response.ok) throw new Error(data?.error || "Could not load site content.");
     siteContentState = data.siteContent || emptySiteContent();
@@ -3584,15 +3605,17 @@ function resourceSearchHaystack(resource) {
 function effectiveCurriculumLibrary() {
   const content = effectiveSiteContent();
   const fromPublic = content.curriculumLibrary;
-  if (fromPublic && typeof fromPublic === "object") {
+  const publicPlans = Array.isArray(fromPublic?.lessonPlans) ? fromPublic.lessonPlans : [];
+  const hasLoadedPublicLibrary = Boolean(fromPublic?.updatedAt) || publicPlans.length > 0;
+  if (fromPublic && typeof fromPublic === "object" && hasLoadedPublicLibrary) {
     return {
-      lessonPlans: Array.isArray(fromPublic.lessonPlans) ? fromPublic.lessonPlans : [],
+      lessonPlans: publicPlans,
       activities: Array.isArray(fromPublic.activities) ? fromPublic.activities : [],
       resources: Array.isArray(fromPublic.resources) ? fromPublic.resources : [],
       updatedAt: fromPublic.updatedAt || "",
     };
   }
-  // Admin sessions load full curriculum; derive the same published-only library view.
+  // Admin sessions and fresh saves use full curriculum; derive the published library view.
   const curriculum = effectiveCurriculum();
   const lessonPlans = curriculum.lessonPlans
     .filter((plan) => plan.status === "published" || plan.status === "featured")
@@ -5003,11 +5026,15 @@ function curriculumResourceHasFile(resource) {
 }
 
 function applyCurriculumState(curriculum, { siteContentUpdatedAt } = {}) {
-  siteContentState = {
+  const next = {
     ...effectiveSiteContent(),
     curriculum: curriculum || effectiveCurriculum(),
     ...(siteContentUpdatedAt ? { updatedAt: siteContentUpdatedAt } : {}),
   };
+  // Drop stale public-library cache so user-facing views derive from the saved curriculum.
+  delete next.curriculumLibrary;
+  siteContentState = next;
+  syncSiteManagedResources();
 }
 
 function curriculumExpectedUpdatedAt() {
@@ -6672,6 +6699,14 @@ function setView(view) {
     button.classList.toggle("active", button.dataset.view === requestedView);
   });
   if (viewMap[resolvedView]) renderCategoryPage(resolvedView);
+  if ((resolvedView === "lessons" || resolvedView === "activities") && canUseLaunchBackend() && isLoggedIn()) {
+    refreshPublicCurriculumLibrary()
+      .catch(() => {})
+      .then(() => {
+        const active = document.querySelector(".active-view")?.id.replace("view-", "");
+        if (active === resolvedView && viewMap[resolvedView]) renderCategoryPage(resolvedView);
+      });
+  }
   if (resolvedView === "home") renderHome();
   if (resolvedView === "admin") {
     localStorage.setItem("llhAdminLastView", "admin");
