@@ -1,7 +1,7 @@
 const { test, expect } = require("../fixtures/test-base");
 const { setUserPersona } = require("../helpers/auth");
 const { seedPublishedLesson, archiveLessonPlan } = require("../helpers/api");
-const { openLessonLibrary, openActivityCenter, searchLessonLibrary } = require("../helpers/navigation");
+const { openLessonLibrary, openActivityCenter, searchLessonLibrary, waitForAppReady } = require("../helpers/navigation");
 const { uniqueE2eId, buildE2eLessonImportText } = require("../helpers/lesson-data");
 
 test.describe("Lesson and activity connections", () => {
@@ -23,7 +23,8 @@ test.describe("Lesson and activity connections", () => {
 
   test.beforeEach(async ({ page }) => {
     await setUserPersona(page, "pro");
-    await page.goto("/index.html", { waitUntil: "networkidle" });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await waitForAppReady(page);
   });
 
   test("View Activities filters to lesson activities only", async ({ page }) => {

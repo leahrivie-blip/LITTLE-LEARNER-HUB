@@ -1,4 +1,16 @@
 /**
+ * Wait until the SPA shell is loaded (do not require topbar search — it is hidden on home).
+ * @param {import('@playwright/test').Page} page
+ */
+async function waitForAppReady(page) {
+  await page.waitForSelector("#view-home", { timeout: 30000 });
+  await page.waitForResponse(
+    (response) => response.url().includes("/api/site-content") && response.status() === 200,
+    { timeout: 45000 },
+  ).catch(() => {});
+}
+
+/**
  * @param {import('@playwright/test').Page} page
  * @param {string} view
  */
@@ -14,8 +26,10 @@ async function goToView(page, view) {
  * @param {import('@playwright/test').Page} page
  */
 async function openLessonLibrary(page) {
-  await goToView(page, "lessons");
-  await page.waitForSelector("#lessonPlanSearch", { timeout: 30000 });
+  await page.evaluate((targetView) => {
+    if (typeof setView === "function") setView(targetView);
+  }, "lessons");
+  await page.waitForSelector("#lessonPlanSearch", { state: "visible", timeout: 30000 });
 }
 
 /**
@@ -43,6 +57,7 @@ async function expectLessonCardCount(page, title, count) {
  * @param {string} title
  */
 async function openLessonByTitle(page, title) {
+  await openLessonLibrary(page);
   await searchLessonLibrary(page, title);
   const card = page.locator("#view-lessons .resource-card").filter({ hasText: title }).first();
   await card.locator("button[data-view-resource]").click();
@@ -54,14 +69,20 @@ async function openLessonByTitle(page, title) {
  */
 async function closeResourceViewer(page) {
   await page.click("#closeResourceViewer");
-  await page.waitForSelector("#resourceViewerModal:not(.open)", { timeout: 10000 });
+  await page.waitForFunction(
+    () => !document.querySelector("#resourceViewerModal")?.classList.contains("open"),
+    { timeout: 10000 },
+  );
 }
 
 /**
  * @param {import('@playwright/test').Page} page
  */
 async function openActivityCenter(page) {
-  await goToView(page, "activities");
+  await page.evaluate((targetView) => {
+    if (typeof setView === "function") setView(targetView);
+  }, "activities");
+  await page.waitForSelector("#view-activities.active-view", { timeout: 30000 });
   await page.waitForSelector("#view-activities .resource-grid, #view-activities .empty-state", { timeout: 30000 });
 }
 
@@ -108,6 +129,7 @@ async function assertNoHorizontalScroll(page) {
 }
 
 module.exports = {
+  waitForAppReady,
   goToView,
   openLessonLibrary,
   searchLessonLibrary,

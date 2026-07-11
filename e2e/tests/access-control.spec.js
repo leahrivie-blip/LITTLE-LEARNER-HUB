@@ -1,7 +1,7 @@
 const { test, expect } = require("../fixtures/test-base");
 const { setUserPersona } = require("../helpers/auth");
 const { seedPublishedLesson, archiveLessonPlan } = require("../helpers/api");
-const { openLessonLibrary, openLessonByTitle } = require("../helpers/navigation");
+const { openLessonLibrary, waitForAppReady } = require("../helpers/navigation");
 const { uniqueE2eId, buildE2eLessonImportText, buildProLessonImportText } = require("../helpers/lesson-data");
 
 test.describe("Access control", () => {
@@ -34,18 +34,29 @@ test.describe("Access control", () => {
     }
   });
 
-  const personas = [
-    { name: "logged-out user", persona: "logged-out", freeAccess: true, proAccess: false },
+  test("logged-out user is prompted to log in for lesson library", async ({ page }) => {
+    await setUserPersona(page, "logged-out");
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await waitForAppReady(page);
+    await page.evaluate(() => {
+      if (typeof setView === "function") setView("lessons");
+    });
+    await expect(page.locator("body")).toHaveClass(/auth-modal-open/);
+    await expect(page.locator("#authModal")).toBeVisible();
+  });
+
+  const signedInPersonas = [
     { name: "free user", persona: "free", freeAccess: true, proAccess: false },
     { name: "trial user", persona: "trial", freeAccess: true, proAccess: true },
     { name: "pro user", persona: "pro", freeAccess: true, proAccess: true },
     { name: "founding user", persona: "founding", freeAccess: true, proAccess: true },
   ];
 
-  for (const { name, persona, freeAccess, proAccess } of personas) {
+  for (const { name, persona, freeAccess, proAccess } of signedInPersonas) {
     test(`${name} receives intended lesson access`, async ({ page }) => {
       await setUserPersona(page, persona);
-      await page.goto("/index.html", { waitUntil: "networkidle" });
+      await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+      await waitForAppReady(page);
       await openLessonLibrary(page);
       await page.fill("#lessonPlanSearch", freeTitle);
       await page.waitForTimeout(400);
@@ -62,7 +73,7 @@ test.describe("Access control", () => {
       if (proAccess) {
         await expect(proCard).toHaveCount(1);
         await expect(proCard.locator(".locked")).toHaveCount(0);
-      } else if (persona === "logged-out" || persona === "free") {
+      } else if (persona === "free") {
         await expect(proCard.first()).toHaveClass(/locked/);
       }
     });
@@ -70,7 +81,8 @@ test.describe("Access control", () => {
 
   test("pro lesson locks preview for free user and upgrade CTA appears", async ({ page }) => {
     await setUserPersona(page, "free");
-    await page.goto("/index.html", { waitUntil: "networkidle" });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await waitForAppReady(page);
     await openLessonLibrary(page);
     await page.fill("#lessonPlanSearch", proTitle);
     await page.waitForTimeout(400);
@@ -86,7 +98,8 @@ test.describe("Access control", () => {
 
   test("activity links do not bypass pro lesson lock for free users", async ({ page }) => {
     await setUserPersona(page, "free");
-    await page.goto("/index.html", { waitUntil: "networkidle" });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await waitForAppReady(page);
     await openLessonLibrary(page);
     await page.fill("#lessonPlanSearch", proTitle);
     const proCard = page.locator("#view-lessons .resource-card").filter({ hasText: proTitle }).first();
@@ -96,7 +109,8 @@ test.describe("Access control", () => {
 
   test("access follows lesson plan field not list order", async ({ page }) => {
     await setUserPersona(page, "free");
-    await page.goto("/index.html", { waitUntil: "networkidle" });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await waitForAppReady(page);
     await openLessonLibrary(page);
     await page.fill("#lessonPlanSearch", "");
     await page.waitForTimeout(400);

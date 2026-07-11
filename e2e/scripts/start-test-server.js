@@ -27,9 +27,10 @@ fs.writeFileSync(
   JSON.stringify({ port: PORT, storePath: STORE_PATH, adminEmail: ADMIN.email }, null, 2),
 );
 
-if (!fs.existsSync(STORE_PATH)) {
-  fs.writeFileSync(STORE_PATH, JSON.stringify({ siteContent: {}, adminSessions: {} }, null, 2));
+if (fs.existsSync(STORE_PATH)) {
+  fs.unlinkSync(STORE_PATH);
 }
+fs.writeFileSync(STORE_PATH, JSON.stringify({ siteContent: {}, adminSessions: {} }, null, 2));
 
 let shuttingDown = false;
 let child = null;
@@ -69,10 +70,9 @@ function startChild() {
       process.exit(code ?? 0);
       return;
     }
-    console.error(`E2E test server exited (code=${code}, signal=${signal}). Restarting…`);
+    console.error(`E2E test server exited unexpectedly (code=${code}, signal=${signal}).`);
     console.error(output.slice(-2000));
-    output = "";
-    setTimeout(startChild, 500);
+    process.exit(code || 1);
   });
 }
 

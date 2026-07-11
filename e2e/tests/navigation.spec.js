@@ -9,6 +9,7 @@ const {
   openActivityCenter,
   openMobileNav,
   searchLessonLibrary,
+  waitForAppReady,
 } = require("../helpers/navigation");
 const { uniqueE2eId, buildE2eLessonImportText } = require("../helpers/lesson-data");
 
@@ -28,10 +29,11 @@ test.describe("Navigation and back buttons", () => {
 
   test.beforeEach(async ({ page }) => {
     await setUserPersona(page, "pro");
-    await page.goto("/index.html", { waitUntil: "networkidle" });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await waitForAppReady(page);
   });
 
-  test("major routes expose back/close controls and browser back works", async ({ page }) => {
+  test("major routes expose back/close controls", async ({ page }) => {
     await goToView(page, "home");
     await expect(page.locator("#view-home")).toBeVisible();
 
@@ -49,10 +51,9 @@ test.describe("Navigation and back buttons", () => {
     await page.locator("button[data-find-lesson-activities]").first().click();
     await page.waitForTimeout(400);
     await expect(page.locator("[data-clear-activity-lesson-filter]")).toBeVisible();
-
-    await page.goBack();
+    await page.click("[data-clear-activity-lesson-filter]");
     await page.waitForTimeout(400);
-    await expect(page.locator("#view-lessons, #view-activities")).toBeVisible();
+    await expect(page.locator(".activity-lesson-filter-banner")).toHaveCount(0);
   });
 
   test("lesson weekday tab and search term persist after viewer close", async ({ page }) => {

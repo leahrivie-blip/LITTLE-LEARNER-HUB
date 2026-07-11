@@ -1,7 +1,7 @@
 const { test, expect } = require("../fixtures/test-base");
 const { setUserPersona } = require("../helpers/auth");
 const { seedPublishedLesson, archiveLessonPlan } = require("../helpers/api");
-const { openLessonByTitle, closeResourceViewer } = require("../helpers/navigation");
+const { openLessonByTitle, closeResourceViewer, waitForAppReady } = require("../helpers/navigation");
 const { uniqueE2eId, buildE2eLessonImportText } = require("../helpers/lesson-data");
 
 test.describe("Lesson plan viewer", () => {
@@ -23,7 +23,8 @@ test.describe("Lesson plan viewer", () => {
 
   test.beforeEach(async ({ page }) => {
     await setUserPersona(page, "free");
-    await page.goto("/index.html", { waitUntil: "networkidle" });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await waitForAppReady(page);
   });
 
   test("shows header fields and weekly sections", async ({ page }) => {
@@ -57,7 +58,7 @@ test.describe("Lesson plan viewer", () => {
       for (const activity of day.activities) {
         await expect(panel).toContainText(activity);
       }
-      const titles = await cards.locator("h4, h3, strong").allTextContents();
+      const titles = await cards.locator("h4").allTextContents();
       const unique = new Set(titles.map((t) => t.trim()).filter(Boolean));
       expect(unique.size).toBe(day.count);
     }

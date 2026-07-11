@@ -1,57 +1,51 @@
-# E2E work handoff (2026-07-11)
+# Work handoff (saved 2026-07-11 night)
 
 Branch: `cursor/playwright-e2e-1b07`
 
-## What is done
+## Decision for next session
 
-- Playwright `@playwright/test` suite scaffolded (isolated server on port 4180, temp store)
-- npm scripts: `test:e2e`, `test:e2e:headed`, `test:e2e:debug`, `test:e2e:report`, `test:e2e:blocker`
-- 8 spec files written (admin publish, viewer, connections, search, access, navigation, errors, responsive)
-- GitHub Actions workflow drafted (`.github/workflows/e2e.yml` — blocker only on PRs)
-- **No `app.js` or production code changes** — test-only diff
+**Pause the large Playwright suite.** Prefer the existing fast local Node QA scripts for verifying curriculum works.
 
-## Verified before save
+## QA progress (local isolated server — no production)
 
-- `npm run check` — passes
-- `npm run test:curriculum-publish` — passes (existing Node QA script)
+| Step | Status | Result |
+|------|--------|--------|
+| 1. Boot + sanity (`npm run check` + isolated server) | **Done** | Pass |
+| 2. Admin → Publish → Public (`npm run test:curriculum-publish`) | **Done** | **14/14 pass** |
+| 3. Curriculum UX (`npm run test:curriculum-ux`) | **Done** | **All areas A–H pass** |
+| 4. Gap audit (Free/Pro, featured, nav/back, empty states) | **Not started** | — |
+| 5. Final QA report | **Not started** | — |
 
-## Not finished
+### Bugs found so far in Steps 1–3
+**None.** Publish flow, draft/public visibility, edit/unpublish/republish, resource linking, activity sync, search haystack, category aliases, and desktop+mobile browser UX checks all passed.
 
-- Full Playwright suite not confirmed green end-to-end (port conflicts / flaky save waits were being fixed)
-- Work not split into smaller PRs yet
-- No PR opened yet
-
-## Resume on another device
+## Resume tomorrow
 
 ```bash
 git fetch origin
 git checkout cursor/playwright-e2e-1b07
 npm install
-npx playwright install chromium
 
-# Kill stale test servers if port busy:
-fuser -k 4180/tcp 2>/dev/null || lsof -ti:4180 | xargs kill -9
+# Fast checks (preferred):
+npm run check
+npm run test:curriculum-publish
+npm run test:curriculum-ux
 
-npm run test:e2e:blocker -- --project=desktop-chrome
-npm run test:e2e -- --project=desktop-chrome
+# Then continue Step 4 gap audit from the QA plan.
 ```
 
-## Planned smaller PR split
+## Playwright WIP (paused — not the priority)
 
-1. **PR A — Infra + blocker + CI**  
-   `playwright.config.js`, `e2e/scripts/`, `e2e/helpers/`, `e2e/fixtures/`, `e2e/reporters/`, `admin-publish.spec.js`, `package.json`, `.gitignore`, `.env.e2e.example`, `.github/workflows/e2e.yml`, `e2e/README.md`
+Scaffold + stability fixes are on this branch but **not fully green** and **not needed** for the current QA approach. Do not merge Playwright until explicitly resumed.
 
-2. **PR B — Viewer + connections**  
-   `lesson-viewer.spec.js`, `activity-connections.spec.js`
+Uncommitted Playwright fixes that were saved in this commit:
+- `free-port.js`, fresh store per run
+- `waitForAppReady` (don’t wait on hidden home search)
+- logged-out access test expects login modal
+- stress lesson import format fix
+- navigation/back assertions adjusted for SPA
 
-3. **PR C — Search + access**  
-   `search-filters.spec.js`, `access-control.spec.js`
+## Test credentials (isolated only)
 
-4. **PR D — Navigation + errors + responsive**  
-   `navigation.spec.js`, `error-states.spec.js`, `responsive.spec.js`
-
-## Test credentials (isolated store only)
-
-- `E2E_ADMIN_EMAIL=e2e-admin@test.local`
-- `E2E_ADMIN_PASSWORD=e2e-admin-pass-1b07`
-- `E2E_ADMIN_ACCESS_CODE=e2e-admin-code-1b07`
+- Admin: `e2e-admin@test.local` / `e2e-admin-pass-1b07` / `e2e-admin-code-1b07`
+- Never use production credentials for these checks

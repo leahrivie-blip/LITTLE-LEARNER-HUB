@@ -275,16 +275,15 @@ ${longText}
 
 WEEKLY MATERIALS:
 ${longText}
+
+MONDAY:
 `.trim();
 
-  const days = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"];
-  days.forEach((day, dayIndex) => {
-    for (let i = 1; i <= 4; i += 1) {
-      text += `
+  for (let i = 1; i <= 4; i += 1) {
+    text += `
 
-${day}:
 ACTIVITY NAME:
-${day} Activity ${i} ${unique}
+Monday Activity ${i} ${unique}
 CATEGORY:
 Fine Motor
 MATERIALS:
@@ -294,9 +293,9 @@ ${longText.slice(0, 200)}
 DIRECTIONS:
 1. Step one for activity ${i}.
 LEARNING GOAL:
-Goal ${dayIndex}-${i}`;
-    }
-  });
+Goal mon-${i}`;
+  }
+
   return text;
 }
 

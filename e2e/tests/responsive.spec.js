@@ -1,7 +1,7 @@
 const { test, expect } = require("../fixtures/test-base");
 const { setUserPersona } = require("../helpers/auth");
 const { seedPublishedLesson, archiveLessonPlan } = require("../helpers/api");
-const { openLessonLibrary, openLessonByTitle, assertNoHorizontalScroll } = require("../helpers/navigation");
+const { openLessonLibrary, openLessonByTitle, assertNoHorizontalScroll, waitForAppReady } = require("../helpers/navigation");
 const { uniqueE2eId, buildE2eLessonImportText } = require("../helpers/lesson-data");
 
 test.describe("Responsive layout @core", () => {
@@ -20,7 +20,8 @@ test.describe("Responsive layout @core", () => {
 
   test.beforeEach(async ({ page }) => {
     await setUserPersona(page, "pro");
-    await page.goto("/index.html", { waitUntil: "networkidle" });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await waitForAppReady(page);
   });
 
   test("lesson library and viewer fit viewport without horizontal scroll", async ({ page }) => {

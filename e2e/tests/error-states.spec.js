@@ -1,7 +1,7 @@
 const { test, expect } = require("../fixtures/test-base");
 const { setUserPersona } = require("../helpers/auth");
 const { seedPublishedLesson, archiveLessonPlan } = require("../helpers/api");
-const { openLessonLibrary, openLessonByTitle } = require("../helpers/navigation");
+const { openLessonLibrary, openLessonByTitle, waitForAppReady } = require("../helpers/navigation");
 const {
   uniqueE2eId,
   buildMinimalLessonImportText,
@@ -33,7 +33,8 @@ test.describe("Error and empty states", () => {
 
   test.beforeEach(async ({ page }) => {
     await setUserPersona(page, "pro");
-    await page.goto("/index.html", { waitUntil: "networkidle" });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await waitForAppReady(page);
   });
 
   test("missing optional lesson fields still render structured viewer", async ({ page }) => {

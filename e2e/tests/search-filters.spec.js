@@ -1,7 +1,7 @@
 const { test, expect } = require("../fixtures/test-base");
 const { setUserPersona } = require("../helpers/auth");
 const { seedPublishedLesson, archiveLessonPlan } = require("../helpers/api");
-const { openLessonLibrary, openActivityCenter, searchLessonLibrary } = require("../helpers/navigation");
+const { openLessonLibrary, openActivityCenter, searchLessonLibrary, waitForAppReady } = require("../helpers/navigation");
 const { uniqueE2eId, buildE2eLessonImportText } = require("../helpers/lesson-data");
 
 test.describe("Search and filters", () => {
@@ -23,8 +23,16 @@ test.describe("Search and filters", () => {
 
   test.beforeEach(async ({ page }) => {
     await setUserPersona(page, "pro");
-    await page.goto("/index.html", { waitUntil: "networkidle" });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await waitForAppReady(page);
   });
+
+  async function openFilteredActivitiesForLesson(page) {
+    await openLessonLibrary(page);
+    await searchLessonLibrary(page, lessonTitle);
+    await page.locator("button[data-find-lesson-activities]").first().click();
+    await page.waitForSelector(".activity-lesson-filter-banner", { timeout: 15000 });
+  }
 
   const lessonSearchCases = [
     { label: "lesson title", query: () => lessonTitle },
@@ -51,7 +59,7 @@ test.describe("Search and filters", () => {
   });
 
   test("activity center search by activity name", async ({ page }) => {
-    await openActivityCenter(page);
+    await openFilteredActivitiesForLesson(page);
     await page.fill("#searchInput", "Rainbow Sensory Bin");
     await page.waitForTimeout(500);
     await expect(page.locator("#view-activities .resource-card").filter({ hasText: "Rainbow Sensory Bin" })).toHaveCount(1);
@@ -67,7 +75,7 @@ test.describe("Search and filters", () => {
 
   for (const { filter, activity } of activityFilters) {
     test(`activity filter ${filter} maps aliases correctly`, async ({ page }) => {
-      await openActivityCenter(page);
+      await openFilteredActivitiesForLesson(page);
       await page.locator(`#view-activities [data-filter="${filter}"]`).click();
       await page.waitForTimeout(400);
       await expect(page.locator("#view-activities .resource-card").filter({ hasText: activity })).toHaveCount(1);
