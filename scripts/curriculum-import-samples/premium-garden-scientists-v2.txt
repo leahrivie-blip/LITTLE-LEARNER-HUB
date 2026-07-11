@@ -1,0 +1,148 @@
+@LESSON_PLAN_START@
+
+TITLE:
+Garden Scientists
+
+AGE_GROUP:
+Preschool
+
+THEME:
+Garden Scientists
+
+PLAN:
+Pro
+
+STATUS:
+draft
+
+@WEEKLY_START@
+LEARNING_DOMAINS:
+Science, Math, Language & Literacy
+
+WEEKLY_OVERVIEW:
+Preschoolers investigate soil, seeds, leaves, and garden helpers through hands-on science play.
+
+WEEKLY_OBJECTIVES:
+Children will observe and describe plant or soil changes using science words.
+Children will count, compare, and sort garden materials.
+
+WEEKLY_MATERIALS:
+Soil trays, seeds, magnifying glasses, measuring cups
+
+WEEKLY_VOCABULARY:
+seed, soil, sprout, observe, measure
+
+@WEEKLY_BOOKS_START@
+The Tiny Seed | Eric Carle | Life cycle discussion
+@WEEKLY_BOOKS_END@
+
+@WEEKLY_SONGS_START@
+Oats Peas Beans and Barley Grow | Planting circle song
+@WEEKLY_SONGS_END@
+
+FAMILY_CONNECTION:
+Ask families to send a leaf or garden photo for Friday share.
+
+OBSERVATION_OPPORTUNITIES:
+Listen for science vocabulary and careful tool use.
+
+ADAPTATIONS:
+Offer pre-moistened soil for children avoiding dry dust.
+@WEEKLY_END@
+
+@MONDAY_START@
+DAILY_THEME:
+Soil and Seeds Monday
+
+DAILY_OBJECTIVES:
+Children will describe soil texture and sort seeds by size.
+
+@MONDAY_BOOKS_START@
+Planting a Rainbow | Lois Ehlert | Color vocabulary
+@MONDAY_BOOKS_END@
+
+@MONDAY_SONGS_START@
+The Farmer Plants the Seeds | Action planting song
+@MONDAY_SONGS_END@
+
+@MONDAY_CIRCLE_TIME_START@
+Show a seed tray and ask what might be inside a seed.
+@MONDAY_CIRCLE_TIME_END@
+
+@ACTIVITY_START@
+ACTIVITY_NAME:
+Soil Scientists Tray
+CATEGORY:
+Sensory Play
+MATERIALS:
+Soil trays, scoops, magnifying glasses, smocks
+SETUP:
+Place one tray per pair on low tables with smocks nearby.
+DIRECTIONS:
+1. Invite children to scoop and feel the soil.
+2. Ask what they notice: wet, dry, bumpy.
+3. Record one group observation on the chart.
+TEACHER_ROLE:
+Narrate texture words and model gentle scooping.
+TEACHER_LANGUAGE:
+"I notice the soil feels damp when I squeeze it."
+LEARNING_GOAL:
+Observe and describe soil properties
+VOCABULARY:
+soil, texture, scoop
+SAFETY_NOTES:
+Supervise mouthing; use pasteurized soil only.
+@ACTIVITY_END@
+
+@ACTIVITY_START@
+ACTIVITY_NAME:
+Seed Sort Lab
+CATEGORY:
+Fine Motor
+MATERIALS:
+Mixed seeds, sorting trays, tweezers optional
+SETUP:
+Place mixed seeds in shallow bowls at each tray.
+DIRECTIONS:
+1. Show two seed types and name them.
+2. Sort seeds into trays.
+3. Count how many are in each tray.
+LEARNING_GOAL:
+Sort by attribute and strengthen fine-motor control
+@ACTIVITY_END@
+
+@MONDAY_TRANSITIONS_START@
+Sing a two-line cleanup song while carrying trays to the bin.
+@MONDAY_TRANSITIONS_END@
+
+OUTDOOR_PLAY:
+Carry lightweight watering cans along a marked path.
+
+@MONDAY_OBSERVATIONS_START@
+Document sorting strategy: by color, size, or tool use.
+@MONDAY_OBSERVATIONS_END@
+
+SAFETY_NOTES:
+Monitor water spills on the floor near outdoor play.
+@MONDAY_END@
+
+@TUESDAY_START@
+@ACTIVITY_START@
+ACTIVITY_NAME:
+Garden Center Shop
+CATEGORY:
+Dramatic Play
+MATERIALS:
+Seed packets, pots, play money
+SETUP:
+Set up a pretend garden shop.
+DIRECTIONS:
+1. Set roles: gardener and shopkeeper.
+2. Request and gather garden supplies.
+3. Use polite customer language.
+LEARNING_GOAL:
+Practice cooperative pretend roles
+@ACTIVITY_END@
+@TUESDAY_END@
+
+@LESSON_PLAN_END@
