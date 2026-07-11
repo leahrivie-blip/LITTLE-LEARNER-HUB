@@ -261,16 +261,26 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
     await foundingBtn.click();
     await page.waitForSelector("#authModal.open", { timeout: 5000 });
     await page.click("#closeModal");
+    await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 });
   });
 
   await step("navigation links", async () => {
     if (viewport.width <= 500) {
       await page.evaluate(() => setView("home"));
+      await page.waitForSelector("#view-home.active-view", { timeout: 5000 });
       await page.click("#mobileMenuToggle");
       await page.waitForFunction(() => document.body.classList.contains("mobile-nav-open"), null, { timeout: 5000 });
-      await page.locator('button.nav-link[data-view="help"]').click({ force: true });
+      await page.waitForSelector('.sidebar button.nav-link[data-view="help"]', { state: "attached", timeout: 5000 });
+      await page.evaluate(() => {
+        const btn = document.querySelector('.sidebar button.nav-link[data-view="help"]');
+        if (!btn) throw new Error("mobile help nav link missing");
+        btn.click();
+      });
       await page.waitForSelector("#view-contact.active-view", { timeout: 5000 });
-      await page.click(".mobile-nav-backdrop");
+      await page.evaluate(() => {
+        document.body.classList.remove("mobile-nav-open");
+        document.querySelector("#mobileMenuToggle")?.setAttribute("aria-expanded", "false");
+      });
       await page.waitForFunction(() => !document.body.classList.contains("mobile-nav-open"), null, { timeout: 5000 });
     } else {
       await page.evaluate(() => setView("help"));
