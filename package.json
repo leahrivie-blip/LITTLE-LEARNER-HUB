@@ -22,6 +22,7 @@
     "test:curriculum-import-preview": "node scripts/test-curriculum-import-preview.js",
     "test:curriculum-viewer-print": "node scripts/test-curriculum-viewer-print.js",
     "test:curriculum-gap": "node scripts/test-curriculum-gap.js",
+    "test:curriculum-access-security": "node scripts/test-curriculum-access-security.js",
     "test:curriculum-ux": "node scripts/test-curriculum-ux-qa.js",
     "test:curriculum-publish": "node scripts/test-curriculum-admin-publish-flow.js",
     "test:billing-membership": "node scripts/test-billing-membership-qa.js"

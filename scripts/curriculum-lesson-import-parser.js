@@ -4,6 +4,7 @@
  *
  * v2 policy: preserve wording exactly; never regenerate; unmapped content is reported, not dropped silently.
  */
+(function curriculumLessonImportParserModule() {
 let nodeCrypto = null;
 try {
   nodeCrypto = require("crypto");
@@ -1171,3 +1172,4 @@ if (typeof module !== "undefined" && module.exports) {
 if (typeof globalThis !== "undefined") {
   globalThis.CurriculumLessonImportParser = api;
 }
+})();

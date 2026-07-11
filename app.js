@@ -1677,6 +1677,11 @@ const curriculumResourceConfig = {
   linkEndpoint: "/api/admin/curriculum/resources/link",
   unlinkEndpoint: "/api/admin/curriculum/resources/unlink",
 };
+const curriculumAccessConfig = {
+  lessonPlanEndpoint: "/api/curriculum/lesson-plans",
+  activityEndpoint: "/api/curriculum/activities",
+};
+const curriculumAuthorizedContentCache = new Map();
 const billingPlans = {
   Free: {
     name: "Free",
@@ -8913,10 +8918,12 @@ function printableCartoonPreviewHtml(resource) {
   `);
 }
 
-function resourcePrintableHtml(resource) {
+function resourcePrintableHtml(resource, options = {}) {
+  const mode = options.mode || "screen";
   if (resource._curriculumManaged && resource.category === "Lesson Plans" && resource._curriculumLessonPlan) {
     const resourcesHtml = lessonPlanAttachedResourcesHtml(resource);
-    return `<article class="printable-resource-page curriculum-lesson-viewer curriculum-lesson-print">${structuredCurriculumLessonPlanHtml(resource, { mode: "print" })}${resourcesHtml}</article>`;
+    const printClass = mode === "print" ? " curriculum-lesson-print" : "";
+    return `<article class="printable-resource-page curriculum-lesson-viewer${printClass}">${structuredCurriculumLessonPlanHtml(resource, { mode })}${resourcesHtml}</article>`;
   }
   if (resource._curriculumManaged && resource.category === "Activity Center") {
     return `<article class="printable-resource-page curriculum-activity-viewer">${structuredCurriculumActivityHtml(resource)}</article>`;
@@ -8988,11 +8995,92 @@ function lessonPlanAttachedResourcesHtml(resource) {
   `;
 }
 
+async function fetchAuthorizedCurriculumLessonPlan(planId) {
+  const targetId = String(planId || "").trim();
+  if (!targetId || !canUseLaunchBackend()) return null;
+  const cacheKey = `plan:${targetId}`;
+  if (curriculumAuthorizedContentCache.has(cacheKey)) return curriculumAuthorizedContentCache.get(cacheKey);
+  const headers = await firebaseAuthHeaders();
+  const response = await fetch(`${curriculumAccessConfig.lessonPlanEndpoint}/${encodeURIComponent(targetId)}`, {
+    headers: headers || {},
+    cache: "no-store",
+  });
+  if (!response.ok) return null;
+  const data = await response.json().catch(() => ({}));
+  const lessonPlan = data?.lessonPlan || null;
+  if (lessonPlan) curriculumAuthorizedContentCache.set(cacheKey, lessonPlan);
+  return lessonPlan;
+}
+
+async function fetchAuthorizedCurriculumActivity(activityId) {
+  const targetId = String(activityId || "").trim();
+  if (!targetId || !canUseLaunchBackend()) return null;
+  const cacheKey = `activity:${targetId}`;
+  if (curriculumAuthorizedContentCache.has(cacheKey)) return curriculumAuthorizedContentCache.get(cacheKey);
+  const headers = await firebaseAuthHeaders();
+  const response = await fetch(`${curriculumAccessConfig.activityEndpoint}/${encodeURIComponent(targetId)}`, {
+    headers: headers || {},
+    cache: "no-store",
+  });
+  if (!response.ok) return null;
+  const data = await response.json().catch(() => ({}));
+  const activity = data?.activity || null;
+  if (activity) curriculumAuthorizedContentCache.set(cacheKey, activity);
+  return activity;
+}
+
+async function withHydratedCurriculumLessonContent(resource) {
+  if (!resource?._curriculumManaged || resource.category !== "Lesson Plans") return resource;
+  if (hasAdminFullAccess()) return resource;
+  if (resource.plan !== "Pro" || !isProUser()) return resource;
+  const fullPlan = await fetchAuthorizedCurriculumLessonPlan(resource.id);
+  if (!fullPlan) return resource;
+  return {
+    ...resource,
+    weeklyOverview: fullPlan.weeklyOverview || resource.weeklyOverview,
+    materials: fullPlan.weeklyMaterials || resource.materials,
+    description: fullPlan.weeklyOverview || resource.description,
+    _curriculumResourceIds: Array.isArray(fullPlan.resourceIds) ? fullPlan.resourceIds : resource._curriculumResourceIds,
+    _curriculumLessonPlan: fullPlan,
+    customContent: buildLessonPlanTextFromCurriculum(fullPlan),
+  };
+}
+
+async function withHydratedCurriculumActivityContent(resource) {
+  if (!resource?._curriculumManaged || resource.category !== "Activity Center") return resource;
+  if (hasAdminFullAccess()) return resource;
+  if (resource.plan !== "Pro" || !isProUser()) return resource;
+  const fullActivity = await fetchAuthorizedCurriculumActivity(resource.id);
+  if (!fullActivity) return resource;
+  return {
+    ...resource,
+    description: fullActivity.description || resource.description,
+    materials: fullActivity.materials || "",
+    setup: fullActivity.setup || "",
+    steps: fullActivity.steps || "",
+    learningGoals: Array.isArray(fullActivity.learningGoals) ? fullActivity.learningGoals : [],
+    learningDomains: Array.isArray(fullActivity.learningDomains) ? fullActivity.learningDomains : [],
+    teacherRole: fullActivity.teacherRole || "",
+    teacherLanguage: fullActivity.teacherLanguage || "",
+    vocabulary: fullActivity.vocabulary || "",
+    extensions: fullActivity.extensions || "",
+    adaptations: fullActivity.adaptations || "",
+    safetyNotes: fullActivity.safetyNotes || "",
+    ageModifications: fullActivity.ageModifications || "",
+    customContent: buildActivityTextFromCurriculum(fullActivity),
+    _curriculumActivity: fullActivity,
+  };
+}
+
 async function fetchPublishedCurriculumResourceFile(resourceId) {
   const id = String(resourceId || "").trim();
   if (!id || !curriculumResourceConfig.publicFileEndpoint) return null;
   const params = new URLSearchParams({ id, t: String(Date.now()) });
-  const response = await fetch(`${curriculumResourceConfig.publicFileEndpoint}?${params.toString()}`, { cache: "no-store" });
+  const headers = await firebaseAuthHeaders();
+  const response = await fetch(`${curriculumResourceConfig.publicFileEndpoint}?${params.toString()}`, {
+    headers: headers || {},
+    cache: "no-store",
+  });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data?.error || "Could not open curriculum resource file.");
   return data.resource || null;
@@ -11147,7 +11235,9 @@ async function openResourceViewer(resourceId, options = {}) {
   body.innerHTML = `<p class="admin-generator-note">Loading resource…</p>`;
   let viewerResource = resource;
   try {
-    viewerResource = await withHydratedCurriculumAttachments(resource);
+    viewerResource = await withHydratedCurriculumLessonContent(resource);
+    viewerResource = await withHydratedCurriculumActivityContent(viewerResource);
+    viewerResource = await withHydratedCurriculumAttachments(viewerResource);
   } catch (error) {
     console.warn(error);
   }

@@ -246,9 +246,17 @@ async function testServerVisibility(child) {
   assert(freePlan.dailyPlans.monday.books[0].title === "Planting a Rainbow", "public GET returns monday books");
   assert(freePlan.dailyPlans.tuesday.songs[0].title === "Rain Song", "public GET returns tuesday songs");
 
+  const proPlan = plans.find((item) => item.id === publishedProId);
+  assert(proPlan?.locked === true, "pro plan public preview is locked");
+  assert(!proPlan?.dailyPlans, "pro plan public preview omits dailyPlans");
+  assert(!JSON.stringify(proPlan).includes("Invite children to scoop"), "pro plan public preview hides directions");
+
   const activities = publicLib.json.siteContent?.curriculumLibrary?.activities || [];
   const soilActivity = activities.find((item) => item.lessonPlanId === publishedFreeId);
-  assert(soilActivity?.teacherLanguage?.includes("damp"), "public activity includes premium fields");
+  assert(soilActivity?.teacherLanguage?.includes("damp"), "public free activity includes premium fields");
+  const proActivity = activities.find((item) => item.parentTitle === "Viewer Pro Garden");
+  assert(proActivity?.locked === true, "pro activity public preview is locked");
+  assert(!String(proActivity?.teacherLanguage || "").includes("damp"), "pro activity public preview hides teacher language");
 }
 
 async function testMobileLayout() {

@@ -1068,10 +1068,69 @@ function isCurriculumResourcePublic(status) {
   return status === "published";
 }
 
-function publicCurriculumLessonPlanDto(plan) {
+function curriculumTextExcerpt(text, maxWords = 40) {
+  const words = String(text || "").trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "";
+  return words.slice(0, maxWords).join(" ");
+}
+
+function isCurriculumProLesson(plan) {
+  return normalizedCurriculumLessonPlan(plan)?.plan === "Pro";
+}
+
+function authorizedCurriculumDailyPlanItemDto(item) {
+  if (!item || typeof item !== "object") return null;
+  return {
+    activityCategory: item.activityCategory,
+    title: item.title,
+    description: item.description,
+    learningDomains: item.learningDomains,
+    materials: item.materials,
+    setup: item.setup,
+    steps: item.steps,
+    teacherRole: item.teacherRole,
+    teacherLanguage: item.teacherLanguage,
+    learningGoals: item.learningGoals,
+    vocabulary: item.vocabulary,
+    extensions: item.extensions,
+    adaptations: item.adaptations,
+    safetyNotes: item.safetyNotes,
+    ageModifications: item.ageModifications,
+    itemId: item.itemId || "",
+  };
+}
+
+function authorizedCurriculumDailyPlansDto(dailyPlans) {
+  const input = dailyPlans && typeof dailyPlans === "object" ? dailyPlans : {};
+  const days = {};
+  CURRICULUM_WEEKDAYS.forEach((day) => {
+    const dayInput = input[day] && typeof input[day] === "object" ? input[day] : {};
+    days[day] = {
+      theme: dayInput.theme || "",
+      objectives: dayInput.objectives || "",
+      learningDomains: dayInput.learningDomains || [],
+      materials: dayInput.materials || "",
+      vocabulary: dayInput.vocabulary || "",
+      books: dayInput.books || [],
+      songs: dayInput.songs || [],
+      circleTime: dayInput.circleTime || [],
+      transitions: dayInput.transitions || [],
+      outdoorPlay: dayInput.outdoorPlay || "",
+      familyConnection: dayInput.familyConnection || "",
+      observations: dayInput.observations || [],
+      adaptations: dayInput.adaptations || "",
+      safetyNotes: dayInput.safetyNotes || "",
+      items: (Array.isArray(dayInput.items) ? dayInput.items : [])
+        .map((item) => authorizedCurriculumDailyPlanItemDto(item))
+        .filter(Boolean),
+    };
+  });
+  return days;
+}
+
+function publicCurriculumLessonPlanPreviewDto(plan) {
   const entry = normalizedCurriculumLessonPlan(plan);
-  if (!entry || !isCurriculumLessonPublic(entry.status)) return null;
-  // Text fields for the existing viewer; never include resource file bytes.
+  if (!entry || !isCurriculumLessonPublic(entry.status) || entry.plan !== "Pro") return null;
   return {
     id: entry.id,
     title: entry.title,
@@ -1079,6 +1138,24 @@ function publicCurriculumLessonPlanDto(plan) {
     theme: entry.theme,
     plan: entry.plan,
     status: entry.status,
+    locked: true,
+    learningDomains: entry.learningDomains.slice(0, 3),
+    weeklyOverview: curriculumTextExcerpt(entry.weeklyOverview, 40),
+    updatedAt: entry.updatedAt,
+  };
+}
+
+function publicCurriculumLessonPlanFreeDto(plan) {
+  const entry = normalizedCurriculumLessonPlan(plan);
+  if (!entry || !isCurriculumLessonPublic(entry.status) || entry.plan !== "Free") return null;
+  return {
+    id: entry.id,
+    title: entry.title,
+    age: entry.age,
+    theme: entry.theme,
+    plan: entry.plan,
+    status: entry.status,
+    locked: false,
     learningDomains: entry.learningDomains,
     weeklyOverview: entry.weeklyOverview,
     objectives: entry.objectives,
@@ -1089,23 +1166,106 @@ function publicCurriculumLessonPlanDto(plan) {
     observationOpportunities: entry.observationOpportunities,
     adaptations: entry.adaptations,
     familyConnection: entry.familyConnection,
-    dailyPlans: entry.dailyPlans,
-    activityIds: entry.activityIds,
+    dailyPlans: authorizedCurriculumDailyPlansDto(entry.dailyPlans),
     resourceIds: entry.resourceIds,
-    createdAt: entry.createdAt,
     updatedAt: entry.updatedAt,
   };
 }
 
-function publicCurriculumActivityDto(activity, parentPlan) {
+function authorizedCurriculumLessonPlanDto(plan) {
+  const entry = normalizedCurriculumLessonPlan(plan);
+  if (!entry || !isCurriculumLessonPublic(entry.status)) return null;
+  return {
+    id: entry.id,
+    title: entry.title,
+    age: entry.age,
+    theme: entry.theme,
+    plan: entry.plan,
+    status: entry.status,
+    locked: false,
+    learningDomains: entry.learningDomains,
+    weeklyOverview: entry.weeklyOverview,
+    objectives: entry.objectives,
+    books: entry.books,
+    songs: entry.songs,
+    weeklyMaterials: entry.weeklyMaterials,
+    vocabularyWords: entry.vocabularyWords,
+    observationOpportunities: entry.observationOpportunities,
+    adaptations: entry.adaptations,
+    familyConnection: entry.familyConnection,
+    dailyPlans: authorizedCurriculumDailyPlansDto(entry.dailyPlans),
+    activityIds: entry.activityIds,
+    resourceIds: entry.resourceIds,
+    updatedAt: entry.updatedAt,
+  };
+}
+
+function publicCurriculumLessonPlanDto(plan) {
+  const entry = normalizedCurriculumLessonPlan(plan);
+  if (!entry || !isCurriculumLessonPublic(entry.status)) return null;
+  if (entry.plan === "Pro") return publicCurriculumLessonPlanPreviewDto(plan);
+  return publicCurriculumLessonPlanFreeDto(plan);
+}
+
+function publicCurriculumActivityPreviewDto(activity, parentPlan) {
+  const entry = normalizedCurriculumActivity(activity);
+  if (!entry || entry.status !== "published") return null;
+  if (!parentPlan || !isCurriculumLessonPublic(parentPlan.status) || parentPlan.plan !== "Pro") return null;
+  return {
+    id: entry.id,
+    title: entry.title,
+    activityCategory: entry.activityCategory,
+    dayOfWeek: entry.dayOfWeek,
+    plan: parentPlan.plan,
+    locked: true,
+    description: curriculumTextExcerpt(entry.description, 40),
+    learningDomains: entry.learningDomains.slice(0, 3),
+    parentTitle: parentPlan.title,
+    parentAge: parentPlan.age,
+    parentPlan: parentPlan.plan,
+    updatedAt: entry.updatedAt,
+  };
+}
+
+function publicCurriculumActivityFreeDto(activity, parentPlan) {
+  const entry = normalizedCurriculumActivity(activity);
+  if (!entry || entry.status !== "published") return null;
+  if (!parentPlan || !isCurriculumLessonPublic(parentPlan.status) || parentPlan.plan !== "Free") return null;
+  return {
+    id: entry.id,
+    lessonPlanId: entry.lessonPlanId,
+    title: entry.title,
+    activityCategory: entry.activityCategory,
+    dayOfWeek: entry.dayOfWeek,
+    plan: parentPlan.plan,
+    locked: false,
+    description: entry.description,
+    materials: entry.materials,
+    setup: entry.setup,
+    steps: entry.steps,
+    teacherRole: entry.teacherRole,
+    teacherLanguage: entry.teacherLanguage,
+    vocabulary: entry.vocabulary,
+    extensions: entry.extensions,
+    adaptations: entry.adaptations,
+    safetyNotes: entry.safetyNotes,
+    ageModifications: entry.ageModifications,
+    learningDomains: entry.learningDomains,
+    learningGoals: entry.learningGoals,
+    parentTitle: parentPlan.title,
+    parentAge: parentPlan.age,
+    parentPlan: parentPlan.plan,
+    updatedAt: entry.updatedAt,
+  };
+}
+
+function authorizedCurriculumActivityDto(activity, parentPlan) {
   const entry = normalizedCurriculumActivity(activity);
   if (!entry || entry.status !== "published") return null;
   if (!parentPlan || !isCurriculumLessonPublic(parentPlan.status)) return null;
   return {
     id: entry.id,
     lessonPlanId: entry.lessonPlanId,
-    itemId: entry.itemId,
-    sourceKey: entry.sourceKey,
     dayOfWeek: entry.dayOfWeek,
     activityCategory: entry.activityCategory,
     title: entry.title,
@@ -1122,13 +1282,32 @@ function publicCurriculumActivityDto(activity, parentPlan) {
     ageModifications: entry.ageModifications,
     learningDomains: entry.learningDomains,
     learningGoals: entry.learningGoals,
-    status: entry.status,
+    plan: parentPlan.plan,
+    locked: false,
     parentTitle: parentPlan.title,
     parentAge: parentPlan.age,
     parentPlan: parentPlan.plan,
-    parentStatus: parentPlan.status,
-    createdAt: entry.createdAt,
     updatedAt: entry.updatedAt,
+  };
+}
+
+function publicCurriculumActivityDto(activity, parentPlan) {
+  const entry = normalizedCurriculumActivity(activity);
+  if (!entry || entry.status !== "published") return null;
+  if (!parentPlan || !isCurriculumLessonPublic(parentPlan.status)) return null;
+  if (parentPlan.plan === "Pro") return publicCurriculumActivityPreviewDto(activity, parentPlan);
+  return publicCurriculumActivityFreeDto(activity, parentPlan);
+}
+
+function curriculumParentPlanMeta(plan) {
+  const entry = normalizedCurriculumLessonPlan(plan);
+  if (!entry || !isCurriculumLessonPublic(entry.status)) return null;
+  return {
+    id: entry.id,
+    title: entry.title,
+    age: entry.age,
+    plan: entry.plan,
+    status: entry.status,
   };
 }
 
@@ -1143,10 +1322,15 @@ function publicCurriculumLibraryDto(siteContent) {
       if (featuredDelta) return featuredDelta;
       return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
     });
-  const lessonById = new Map(lessonPlans.map((plan) => [plan.id, plan]));
-  const publicLessonIds = new Set(lessonById.keys());
+  const parentPlanById = new Map(
+    store.lessonPlans
+      .map((plan) => curriculumParentPlanMeta(plan))
+      .filter(Boolean)
+      .map((plan) => [plan.id, plan]),
+  );
+  const publicLessonIds = new Set(lessonPlans.map((plan) => plan.id));
   const activities = store.activities
-    .map((activity) => publicCurriculumActivityDto(activity, lessonById.get(activity.lessonPlanId)))
+    .map((activity) => publicCurriculumActivityDto(activity, parentPlanById.get(activity.lessonPlanId)))
     .filter(Boolean)
     .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
   const resources = store.resources
@@ -1850,6 +2034,39 @@ async function verifyFirebaseUser(request) {
   return {
     uid: String(payload.sub),
     email: normalizeEmail(payload.email || ""),
+  };
+}
+
+async function resolveCurriculumAccessUser(request, url) {
+  const adminToken = String(url?.searchParams?.get("adminToken") || "").trim();
+  if (adminToken && validAdminToken(adminToken)) {
+    return { authorized: true, email: "", user: null, source: "admin" };
+  }
+  let identity = null;
+  if (firebaseConfigStatus().ready) {
+    try {
+      identity = await verifyFirebaseUser(request);
+    } catch {
+      identity = null;
+    }
+  }
+  if (!identity && process.env.NODE_ENV === "test") {
+    const authHeader = String(request.headers.authorization || "");
+    if (authHeader.startsWith("Bearer test:")) {
+      const email = normalizeEmail(authHeader.slice("Bearer test:".length).trim());
+      if (email) identity = { uid: `test-${email}`, email };
+    }
+  }
+  if (!identity?.email) {
+    return { authorized: false, email: "", user: null, source: "anonymous" };
+  }
+  const store = readStore();
+  const user = store.users?.[identity.email] || { email: identity.email };
+  return {
+    authorized: membershipHasProAccess(user),
+    email: identity.email,
+    user,
+    source: "user",
   };
 }
 
@@ -4941,7 +5158,72 @@ function handlePublicSiteContent(request, response) {
   });
 }
 
-function handlePublicCurriculumResourceFile(request, response, url) {
+async function handleCurriculumLessonPlanDetail(request, response, url, planId) {
+  const cleanId = normalizedShortText(planId, 160);
+  if (!cleanId) {
+    jsonResponse(response, 400, { error: "Lesson plan id is required." });
+    return;
+  }
+  const store = readStore();
+  const curriculum = readSiteCurriculum(store);
+  const rawPlan = curriculum.lessonPlans.find((item) => item.id === cleanId);
+  const plan = normalizedCurriculumLessonPlan(rawPlan);
+  if (!plan || !isCurriculumLessonPublic(plan.status)) {
+    jsonResponse(response, 404, { error: "Lesson plan not found." });
+    return;
+  }
+  if (plan.plan !== "Pro") {
+    jsonResponse(response, 200, { lessonPlan: publicCurriculumLessonPlanFreeDto(rawPlan) });
+    return;
+  }
+  const access = await resolveCurriculumAccessUser(request, url);
+  if (!access.authorized) {
+    jsonResponse(response, 403, { error: "Pro access is required for this lesson plan." });
+    return;
+  }
+  jsonResponse(response, 200, { lessonPlan: authorizedCurriculumLessonPlanDto(rawPlan) });
+}
+
+async function handleCurriculumActivityDetail(request, response, url, activityId) {
+  const cleanId = normalizedShortText(activityId, 160);
+  if (!cleanId) {
+    jsonResponse(response, 400, { error: "Activity id is required." });
+    return;
+  }
+  const store = readStore();
+  const curriculum = readSiteCurriculum(store);
+  const candidates = curriculum.activities.filter((item) => item.id === cleanId && item.status === "published");
+  if (!candidates.length) {
+    jsonResponse(response, 404, { error: "Activity not found." });
+    return;
+  }
+  const entries = candidates.map((rawActivity) => {
+    const rawParent = curriculum.lessonPlans.find((item) => item.id === rawActivity.lessonPlanId);
+    return {
+      rawActivity,
+      parentMeta: curriculumParentPlanMeta(rawParent),
+    };
+  }).filter((entry) => entry.parentMeta);
+  if (!entries.length) {
+    jsonResponse(response, 404, { error: "Activity not found." });
+    return;
+  }
+  const requiresPro = entries.some((entry) => entry.parentMeta.plan === "Pro");
+  if (requiresPro) {
+    const access = await resolveCurriculumAccessUser(request, url);
+    if (!access.authorized) {
+      jsonResponse(response, 403, { error: "Pro access is required for this activity." });
+      return;
+    }
+    const proEntry = entries.find((entry) => entry.parentMeta.plan === "Pro") || entries[0];
+    jsonResponse(response, 200, { activity: authorizedCurriculumActivityDto(proEntry.rawActivity, proEntry.parentMeta) });
+    return;
+  }
+  const freeEntry = entries.find((entry) => entry.parentMeta.plan === "Free") || entries[0];
+  jsonResponse(response, 200, { activity: publicCurriculumActivityFreeDto(freeEntry.rawActivity, freeEntry.parentMeta) });
+}
+
+async function handlePublicCurriculumResourceFile(request, response, url) {
   const store = readStore();
   const id = normalizedShortText(url.searchParams.get("id"), 160);
   if (!id) {
@@ -4954,15 +5236,23 @@ function handlePublicCurriculumResourceFile(request, response, url) {
     jsonResponse(response, 404, { error: "Resource not found." });
     return;
   }
-  const publicLessonIds = new Set(
-    curriculum.lessonPlans
-      .filter((plan) => isCurriculumLessonPublic(plan.status))
-      .map((plan) => plan.id),
-  );
-  const linkedToPublicLesson = (resource.lessonPlanIds || []).some((lessonPlanId) => publicLessonIds.has(lessonPlanId));
+  const publicLessons = curriculum.lessonPlans
+    .map((plan) => curriculumParentPlanMeta(plan))
+    .filter(Boolean);
+  const publicLessonIds = new Set(publicLessons.map((plan) => plan.id));
+  const linkedLessons = publicLessons.filter((plan) => (resource.lessonPlanIds || []).includes(plan.id));
+  const linkedToPublicLesson = linkedLessons.length > 0;
   if (!linkedToPublicLesson) {
     jsonResponse(response, 404, { error: "Resource not found." });
     return;
+  }
+  const requiresProAccess = linkedLessons.some((plan) => plan.plan === "Pro");
+  if (requiresProAccess) {
+    const access = await resolveCurriculumAccessUser(request, url);
+    if (!access.authorized) {
+      jsonResponse(response, 403, { error: "Pro access is required for this resource." });
+      return;
+    }
   }
   if (!resource.fileData) {
     jsonResponse(response, 404, { error: "Resource file data is not available." });
@@ -4975,7 +5265,6 @@ function handlePublicCurriculumResourceFile(request, response, url) {
       resourceCategory: resource.resourceCategory,
       mimeType: resource.mimeType,
       fileName: resource.fileName,
-      lessonPlanIds: resource.lessonPlanIds,
       status: resource.status,
       fileData: resource.fileData,
       hasFile: true,
@@ -6922,6 +7211,14 @@ const server = http.createServer(async (request, response) => {
   try {
     if (request.method === "POST" && url.pathname === "/api/admin/login") return await handleAdminLogin(request, response);
     if (request.method === "GET" && url.pathname === "/api/site-content") return handlePublicSiteContent(request, response);
+    if (request.method === "GET" && url.pathname.startsWith("/api/curriculum/lesson-plans/")) {
+      const planId = decodeURIComponent(url.pathname.slice("/api/curriculum/lesson-plans/".length));
+      return await handleCurriculumLessonPlanDetail(request, response, url, planId);
+    }
+    if (request.method === "GET" && url.pathname.startsWith("/api/curriculum/activities/")) {
+      const activityId = decodeURIComponent(url.pathname.slice("/api/curriculum/activities/".length));
+      return await handleCurriculumActivityDetail(request, response, url, activityId);
+    }
     if (request.method === "GET" && url.pathname === "/api/admin/site-content") return handleAdminSiteContent(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/site-content") return await handleAdminSiteContentSave(request, response);
     if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/validate-promo-code") return await handlePromoValidation(request, response, url);
@@ -6969,7 +7266,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans") return await handleAdminCurriculumLessonPlanSave(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources") return handleAdminCurriculumResourcesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources/file") return handleAdminCurriculumResourceFile(request, response, url);
-    if (request.method === "GET" && url.pathname === "/api/curriculum/resources/file") return handlePublicCurriculumResourceFile(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/curriculum/resources/file") return await handlePublicCurriculumResourceFile(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/upload") return await handleAdminCurriculumResourceUpload(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/save") return await handleAdminCurriculumResourceSave(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/archive") return await handleAdminCurriculumResourceArchive(request, response);

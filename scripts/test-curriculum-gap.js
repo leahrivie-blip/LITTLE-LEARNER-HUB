@@ -97,13 +97,17 @@ async function main() {
 
     const publicLib = await requestJson("GET", "/api/site-content");
     const plan = (publicLib.json.siteContent?.curriculumLibrary?.lessonPlans || []).find((item) => item.id === planId);
-    assert(plan, "published plan in public library");
+    assert(plan, "published free plan in public library");
     const monday = plan.dailyPlans.monday;
     assert(Array.isArray(monday.books), "daily books array present");
     assert(Array.isArray(monday.circleTime), "circle time array present");
-    assert(monday.items[0].teacherLanguage.includes("damp"), "premium activity field in public DTO");
+    assert(monday.items[0].teacherLanguage.includes("damp"), "premium activity field in public free DTO");
+    assert(!monday.items[0].importKey, "public free DTO omits importKey");
+    assert(!monday.items[0].sourceKey, "public free DTO omits sourceKey");
     const activity = (publicLib.json.siteContent?.curriculumLibrary?.activities || []).find((item) => item.lessonPlanId === planId);
-    assert(activity?.teacherLanguage?.includes("damp"), "activity library premium field in public DTO");
+    assert(activity?.teacherLanguage?.includes("damp"), "activity library premium field in public free DTO");
+    assert(!activity?.sourceKey, "public activity DTO omits sourceKey");
+    assert(!activity?.itemId, "public activity DTO omits itemId");
 
     console.log("Curriculum public DTO gap checks passed.");
   } catch (error) {

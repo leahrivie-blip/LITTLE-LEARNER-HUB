@@ -3,6 +3,7 @@
  * Browser: globalThis.CurriculumLessonViewerRender
  * Node: module.exports
  */
+(function curriculumLessonViewerRenderModule() {
 const CURRICULUM_WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
 const DAY_LABELS = {
   monday: "Monday",
@@ -343,3 +344,4 @@ if (typeof module !== "undefined" && module.exports) {
 if (typeof globalThis !== "undefined") {
   globalThis.CurriculumLessonViewerRender = api;
 }
+})();
