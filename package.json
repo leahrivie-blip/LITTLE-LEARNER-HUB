@@ -27,6 +27,7 @@
     "test:curriculum-publish": "node scripts/test-curriculum-admin-publish-flow.js",
     "test:curriculum-admin-editor": "node scripts/test-curriculum-admin-editor-phase-e.js",
     "test:curriculum-planner": "node scripts/test-curriculum-planner-phase-f1.js",
+    "test:curriculum-planner-notes": "node scripts/test-curriculum-planner-phase-f2.js",
     "test:billing-membership": "node scripts/test-billing-membership-qa.js",
     "test:homepage-smoke": "node scripts/test-homepage-smoke.js"
   },
