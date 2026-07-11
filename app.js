@@ -2500,6 +2500,7 @@ function accountHasPaidBilling(account = currentAccount()) {
 }
 
 function billingPlanLabel(plan = currentPlan, account = plan === currentPlan ? currentAccount() : null) {
+  if (account && accountIsInTrial(account)) return "Trial";
   const normalizedPlan = normalizeBillingPlan(plan, account);
   if (normalizedPlan === "Founding") return "Founding Member";
   if (normalizedPlan === "Pro") return "Pro";
@@ -2658,6 +2659,28 @@ function isStripeStatusActive(subscription) {
     || status.includes("paid");
 }
 
+function isFoundingSubscription(subscription) {
+  if (!subscription) return false;
+  const serverPlan = String(subscription.plan || "").trim().toLowerCase();
+  const pendingPlan = String(subscription.pendingPlan || "").trim().toLowerCase();
+  if (Boolean(subscription.foundingMember)) return true;
+  if (serverPlan === "founding") return true;
+  if (pendingPlan === "founding") return true;
+  return false;
+}
+
+function accountIsInTrial(account = null) {
+  const target = account || currentAccount();
+  if (!target) return false;
+  if (isFoundingSubscription(target)) return false;
+  const trialStatus = String(target.trialStatus || "").toLowerCase();
+  if (trialStatus.includes("in trial")) return true;
+  const status = String(target.subscriptionStatus || "").toLowerCase();
+  if (status.includes("day free trial") || status.includes("trialing")) return true;
+  if (status.includes("trial") && !status.includes("trial ended") && !status.includes("no trial")) return true;
+  return false;
+}
+
 function subscriptionToAccountUpdates(subscription) {
   if (!subscription) return null;
   if (!isStripeStatusActive(subscription)) {
@@ -2675,14 +2698,9 @@ function subscriptionToAccountUpdates(subscription) {
       promoRedemptions: accountPromoRedemptions(subscription),
     };
   }
-  const pendingPlan = String(subscription.pendingPlan || "").toLowerCase();
-  const serverPlan = String(subscription.plan || "").toLowerCase();
-  const isFounding = Boolean(subscription.foundingMember)
-    || serverPlan === "founding"
-    || pendingPlan === "founding"
-    || String(subscription.priceLock || "").toLowerCase() === "lifetime"
-    || String(subscription.monthlyPrice || "").includes("9.99");
+  const isFounding = isFoundingSubscription(subscription);
   const plan = isFounding ? "Founding" : "Pro";
+  const defaultPrice = subscription.subscriptionCadence === "annual" ? "$199/year" : "$19.99/month";
   return {
     plan,
     subscriptionCadence: subscription.subscriptionCadence || (plan === "Founding" ? "monthly" : ""),
@@ -2691,7 +2709,7 @@ function subscriptionToAccountUpdates(subscription) {
     foundingMember: isFounding,
     foundingMemberNumber: subscription.foundingMemberNumber || null,
     priceLock: isFounding ? "Lifetime" : subscription.priceLock || "",
-    monthlyPrice: isFounding ? "$9.99/month" : subscription.monthlyPrice || "$19.99/month",
+    monthlyPrice: isFounding ? "$9.99/month" : subscription.monthlyPrice || defaultPrice,
     stripeCustomerId: subscription.stripeCustomerId || "",
     stripeSubscriptionId: subscription.stripeSubscriptionId || "",
     paymentMethod: subscription.paymentMethod || "Managed in Stripe",
@@ -26969,22 +26987,21 @@ async function startProTrial() {
   if (!requireBillingAccount()) return;
   closeProFeatureModal();
   await syncFoundingStatus({ render: false });
-  const remaining = foundingSpotsRemaining();
-  const checkoutType = remaining > 0 ? "founding" : "monthly";
+  const checkoutType = "monthly";
   const amount = checkoutAmount(checkoutType);
   const pending = {
     type: checkoutType,
     amount,
     email: currentUser,
     startedAt: new Date().toISOString(),
-    foundingEligible: checkoutType === "founding",
+    foundingEligible: false,
     promoCode: "",
     trialDays: 7,
     promoLabel: "7-Day Pro Trial",
   };
   localStorage.setItem("llhPendingCheckout", JSON.stringify(pending));
   trackEvent("checkout_start", { type: checkoutType, amount, promoCode: "", trial7day: true });
-  addBillingHistory("Checkout Started", `${checkoutType === "founding" ? "Founding Member" : "Monthly"} Pro trial checkout started (7-day trial)`, amount);
+  addBillingHistory("Checkout Started", "Monthly Pro trial checkout started (7-day trial)", amount);
 
   if (stripeCheckoutConfig.checkoutEndpoint && canUseStripeBackend()) {
     try {
@@ -27041,8 +27058,9 @@ function completeCheckout() {
   let priceLock = "";
   let monthlyPrice = type === "annual" ? "$199/year" : "$19.99/month";
   let status = type === "annual" ? "Pro Annual Subscription Active" : "Pro Monthly Subscription Active";
-  if (pending.promoCode && pending.trialDays) {
-    status = `${status} - ${pending.trialDays} Day Free Trial`;
+  const trialDays = Number(pending.trialDays || 0);
+  if (trialDays > 0) {
+    status = `${status} - ${trialDays} Day Free Trial`;
   }
 
   if (type === "founding" || currentAccount()?.foundingMember) {
@@ -27053,7 +27071,9 @@ function completeCheckout() {
       foundingMemberNumber = claim.memberNumber || currentAccount()?.foundingMemberNumber;
       priceLock = "Lifetime";
       monthlyPrice = "$9.99/month";
-      status = pending.promoCode && pending.trialDays ? `Founding Member Subscription Active - ${pending.trialDays} Day Free Trial` : "Founding Member Subscription Active";
+      status = trialDays > 0
+        ? `Founding Member Subscription Active - ${trialDays} Day Free Trial`
+        : "Founding Member Subscription Active";
       cadence = "monthly";
     }
   }
@@ -27071,10 +27091,15 @@ function completeCheckout() {
     stripeSubscriptionId: currentAccount()?.stripeSubscriptionId || `sub_test_${Date.now()}`,
     paymentMethod: "Visa ending in 4242",
     promoCode: pending.promoCode || "",
-    trialDays: pending.trialDays || 0,
+    trialDays: trialDays || 0,
+    ...(trialDays > 0 ? {
+      trialStatus: "In Trial",
+      trialStart: new Date().toISOString(),
+      trialEnd: new Date(Date.now() + trialDays * 86400000).toISOString(),
+    } : {}),
   });
-  if (pending.promoCode && pending.trialDays) {
-    markCheckoutPromoRedeemed(pending.promoCode, { trialDays: pending.trialDays, label: pending.promoLabel });
+  if (pending.promoCode && trialDays > 0) {
+    markCheckoutPromoRedeemed(pending.promoCode, { trialDays, label: pending.promoLabel });
   }
   addBillingHistory("Payment Succeeded", `${billingPlanLabel(plan)} subscription activated${pending.promoCode ? " with promo trial" : ""}`, monthlyPrice);
   trackEvent("checkout_success", { plan, monthlyPrice, attribution: currentAttribution() });

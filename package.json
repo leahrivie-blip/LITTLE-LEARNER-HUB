@@ -18,7 +18,8 @@
     "launch:check": "node server/launch-check.js",
     "billing:check": "node server/billing-check.js",
     "test:curriculum-ux": "node scripts/test-curriculum-ux-qa.js",
-    "test:curriculum-publish": "node scripts/test-curriculum-admin-publish-flow.js"
+    "test:curriculum-publish": "node scripts/test-curriculum-admin-publish-flow.js",
+    "test:billing-membership": "node scripts/test-billing-membership-qa.js"
   },
   "devDependencies": {
     "playwright": "^1.49.1"
