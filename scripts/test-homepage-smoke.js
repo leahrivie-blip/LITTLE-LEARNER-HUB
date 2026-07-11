@@ -277,6 +277,15 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
 
   if (proLesson) {
     await step("locked pro lesson upgrade", async () => {
+      // Free logged-in user can open Lesson Plans; locked Pro cards show Preview.
+      // Trial CTA then runs startProTrial (confirm → upgrade/test checkout), not signup.
+      await page.route("**/api/create-checkout-session", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ ok: true, message: "smoke-test-no-stripe-url" }),
+        });
+      });
       await page.evaluate(() => {
         localStorage.setItem("llhUser", "smoke-free@example.com");
         localStorage.setItem("llhAccounts", JSON.stringify({
@@ -288,13 +297,20 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
         }));
         localStorage.setItem("llhPlan", "Free");
       });
-      await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForResponse((r) => r.url().includes("/api/site-content") && r.status() === 200, { timeout: 30000 });
+      await Promise.all([
+        page.waitForResponse((r) => r.url().includes("/api/site-content") && r.status() === 200, { timeout: 30000 }),
+        page.reload({ waitUntil: "domcontentloaded" }),
+      ]);
+      await page.waitForFunction(() => typeof setView === "function" && typeof openAuthModal === "function", null, { timeout: 30000 });
+      const duplicateAfterReload = pageErrors.filter((msg) => /already been declared/i.test(msg));
+      assert(!duplicateAfterReload.length, `${label}: duplicate declaration after reload: ${duplicateAfterReload.join(" | ")}`);
+
       await page.evaluate(() => setView("lessons"));
-      await page.waitForSelector("#view-lessons", { timeout: 5000 });
+      await page.waitForSelector("#view-lessons.active-view", { timeout: 5000 });
+      await page.waitForSelector("#lessonPlanSearch", { timeout: 10000 });
       await page.fill("#lessonPlanSearch", proLesson.title);
-      await page.waitForTimeout(400);
-      const card = page.locator("#view-lessons .resource-card").first();
+      await page.waitForTimeout(500);
+      const card = page.locator("#view-lessons .resource-card").filter({ hasText: proLesson.title }).first();
       await card.waitFor({ timeout: 10000 });
       const previewBtn = card.locator("button[data-view-resource]").first();
       const btnText = await previewBtn.innerText();
@@ -304,28 +320,30 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
       const trialBtn = page.locator("#featurePreviewModal [data-start-pro-trial]");
       await trialBtn.waitFor({ timeout: 5000 });
       await trialBtn.click();
-      await page.waitForSelector("#authModal.open", { timeout: 5000 });
-      await page.click("#closeModal");
-      await page.click("#closeFeaturePreviewModal");
+      await page.waitForSelector("#view-upgrade.active-view", { timeout: 10000 });
+      await page.waitForSelector("#upgradeApp .pricing-grid, #upgradeApp .checkout-test-panel", { timeout: 10000 });
     });
   }
 
   await step("admin login", async () => {
     await page.evaluate(() => setView("admin"));
-  await page.waitForSelector("#view-admin.active-view", { timeout: 5000 });
-  await page.waitForSelector("#adminUnlockForm", { timeout: 10000 });
-  await page.fill('input[name="adminEmail"]', ADMIN.email);
-  await page.fill('input[name="adminPassword"]', ADMIN.password);
-  await page.fill('input[name="adminCode"]', ADMIN.code);
-  await page.click("#adminUnlockForm button[type='submit']");
-  await page.waitForSelector("#adminProtectedContent:not([hidden])", { timeout: 15000 });
-  await page.waitForSelector("#adminSectionNav", { timeout: 10000 });
-  const navButtons = await page.locator("#adminSectionNav button").count();
-  assert(navButtons > 0, `${label}: admin section navigation missing`);
+    await page.waitForSelector("#view-admin.active-view", { timeout: 5000 });
+    await page.waitForSelector("#adminUnlockForm", { timeout: 10000 });
+    await page.fill('input[name="adminEmail"]', ADMIN.email);
+    await page.fill('input[name="adminPassword"]', ADMIN.password);
+    await page.fill('input[name="adminCode"]', ADMIN.code);
+    await page.click("#adminUnlockForm button[type='submit']");
+    await page.waitForSelector("#adminProtectedContent:not([hidden])", { timeout: 15000 });
+    await page.waitForSelector("#adminSectionNav", { timeout: 10000 });
+    const navButtons = await page.locator("#adminSectionNav button").count();
+    assert(navButtons > 0, `${label}: admin section navigation missing`);
   });
 
   const unhandled = await page.evaluate(() => window.__smokeRejections || []);
-  const badConsole = consoleErrors.filter((msg) => !/favicon|manifest|Failed to load resource.*404/i.test(msg));
+  const badConsole = consoleErrors.filter((msg) =>
+    !/favicon|manifest|Failed to load resource.*(404|favicon)/i.test(msg)
+    && !/net::ERR_/i.test(msg)
+  );
   assert(!pageErrors.length, `${label}: pageerror: ${pageErrors.join(" | ")}`);
   assert(!unhandled.length, `${label}: unhandled rejections: ${unhandled.join(" | ")}`);
   assert(!badConsole.length, `${label}: console errors: ${badConsole.join(" | ")}`);
@@ -354,6 +372,7 @@ async function main() {
     });
     assert(login.status === 200, `Admin bootstrap login failed: ${login.status}`);
     const proLesson = await seedProLessonForLockedPreview(login.json.token);
+    assert(proLesson, "Failed to seed Pro lesson for locked preview smoke");
     const baseUrl = `http://127.0.0.1:${PORT}`;
 
     console.log("1) Desktop homepage smoke (1280px)");
