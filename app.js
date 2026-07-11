@@ -3133,6 +3133,10 @@ let adminCurriculumLessonImportPreviewText = "";
 let adminCurriculumLessonImportStep = "paste";
 let adminCurriculumLessonSaveBanner = { text: "", isSuccess: false };
 let adminCurriculumResourceSaving = false;
+let curriculumPlannerSelectedWeek = "";
+let curriculumPlannerAssignResourceId = "";
+let curriculumPlannerMessage = { text: "", isSuccess: false };
+let curriculumPlannerBusy = false;
 let adminReviewEditorId = "";
 let adminImageEditorId = "";
 let adminLessonSelection = new Set();
@@ -7120,6 +7124,7 @@ function setView(view) {
   if (resolvedView === "children") renderChildManagement();
   if (resolvedView === "support-center") renderSupportCenterPage();
   if (resolvedView === "planner") renderWeeklyPlanner();
+  if (resolvedView === "curriculum-planner") renderCurriculumPlanner();
   if (resolvedView === "dashboard-tasks") renderDashboardTasksPage();
   if (resolvedView === "favorites") renderFavoritesPage();
   if (resolvedView === "reports") renderReportsPage();
@@ -7653,6 +7658,7 @@ function resourceCard(resource) {
         <button class="favorite-button ${!isProUser() ? "disabled-control" : ""}" ${!isProUser() ? `data-pro-feature="favorites"` : `data-favorite="${resource.id}"`} type="button">${favoriteText}</button>
         ${resource.category === "Lesson Plans" && !locked ? `<button class="ghost-button" data-customize-lesson-ai="${resource.id}" type="button">Customize AI</button>` : ""}
         ${resource.category === "Lesson Plans" && !locked ? `<button class="ghost-button" data-find-lesson-activities="${resource.id}" type="button">View Activities</button>` : ""}
+        ${resource.category === "Lesson Plans" && resource._curriculumManaged && !locked ? `<button class="ghost-button" data-curriculum-assign-week="${resource.id}" type="button">Assign to Week</button>` : ""}
         ${resource.category === "Lesson Plans" && !locked ? `<button class="ghost-button" data-add-lesson-support="${resource.id}" type="button">Add Support</button>` : ""}
         ${resource.category === "Observation Hub" && !locked ? `<button class="ghost-button" data-edit-observation="${resource.id}" type="button">Edit</button>` : ""}
         ${resource.category === "Observation Hub" && !locked ? `<button class="ghost-button" data-add-observation-child="${resource.id}" type="button">Add to Child</button>` : ""}
@@ -11603,6 +11609,17 @@ async function openResourceViewer(resourceId, options = {}) {
     `;
     body.querySelector("article")?.appendChild(parentActions);
   }
+  if (viewerResource._curriculumManaged && viewerResource.category === "Lesson Plans" && canAccess(viewerResource)) {
+    const assignActions = document.createElement("div");
+    assignActions.className = "print-section curriculum-planner-viewer-actions";
+    assignActions.innerHTML = `
+      <button class="primary-button" type="button" data-curriculum-assign-week="${escapeHtml(viewerResource.id)}">
+        Use This Lesson Plan
+      </button>
+      <p class="muted-copy">Assign this Monday–Friday plan to a week in Curriculum Planner.</p>
+    `;
+    body.querySelector("article")?.appendChild(assignActions);
+  }
   if (!savedDownloads.includes(resource.id)) {
     savedDownloads = [...savedDownloads, resource.id];
     saveDownloads();
@@ -12184,6 +12201,7 @@ function renderUserDashboard() {
           <div class="quick-action-list" style="margin-top:16px;">
             <button class="primary-button" data-view="child-tools-daily-logs" type="button">Open Daily Logs</button>
             <button class="ghost-button" data-view="children" type="button">View Children</button>
+            <button class="ghost-button" data-view="curriculum-planner" type="button">Curriculum Planner</button>
             <button class="ghost-button" data-view="planner" type="button">Weekly Planner</button>
           </div>
         </section>
@@ -12191,14 +12209,12 @@ function renderUserDashboard() {
         <section class="section-block dashboard-calendar">
           <div class="dashboard-panel-heading">
             <div>
-              <p class="eyebrow">Calendar</p>
-              <h3>This Week</h3>
+              <p class="eyebrow">Curriculum</p>
+              <h3>This Week&rsquo;s Curriculum</h3>
             </div>
-            <button class="ghost-button" data-view="planner" type="button">Open Planner</button>
+            <button class="ghost-button" data-view="curriculum-planner" type="button">Open Curriculum Planner</button>
           </div>
-          <div class="dashboard-calendar-list">
-            ${dashboardCalendarMarkup(planner, weekday)}
-          </div>
+          ${dashboardCurriculumWeekMarkup()}
         </section>
       </div>
 
@@ -12568,6 +12584,513 @@ ${plannerDays.map((day) => {
 - Rest/Routine: ${entry.rest || ""}
 - Child Support: ${entry.support || ""}`;
 }).join("\n\n")}`;
+}
+
+/* ─── Phase F1: Curriculum Planner (assign lesson plans to weeks) ───
+ * Parent Calendar (later): include Classroom Events such as Water Day,
+ * Pajama Day, Field Trip, Picture Day, Grandparents Day, Holiday Parties,
+ * Special Visitors, Items to Bring, School Closures, Important Reminders.
+ */
+function curriculumPlannerWeekStartIso(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(`${String(value || "").slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return isoDateFromLocalDate(weekStartDate(new Date()));
+  return isoDateFromLocalDate(weekStartDate(date));
+}
+
+function curriculumPlannerWeekEndIso(weekStart) {
+  const start = new Date(`${curriculumPlannerWeekStartIso(weekStart)}T12:00:00`);
+  start.setDate(start.getDate() + 4);
+  return isoDateFromLocalDate(start);
+}
+
+function curriculumPlannerWeekdayLabel(dayKey) {
+  const key = String(dayKey || "").toLowerCase();
+  return key ? key.charAt(0).toUpperCase() + key.slice(1) : "";
+}
+
+function curriculumPlannerDateForDay(weekStart, dayKey) {
+  const index = CURRICULUM_WEEKDAYS.indexOf(String(dayKey || "").toLowerCase());
+  if (index < 0) return "";
+  const date = new Date(`${curriculumPlannerWeekStartIso(weekStart)}T12:00:00`);
+  date.setDate(date.getDate() + index);
+  return isoDateFromLocalDate(date);
+}
+
+function curriculumAssignmentsStoreKey() {
+  return currentUser ? `llhCurriculumAssignments:${currentUser}` : "llhCurriculumAssignments:guest";
+}
+
+function loadCurriculumWeekAssignments() {
+  const list = readSavedJson(curriculumAssignmentsStoreKey(), []);
+  return Array.isArray(list) ? list : [];
+}
+
+function saveCurriculumWeekAssignments(list) {
+  localStorage.setItem(curriculumAssignmentsStoreKey(), JSON.stringify(Array.isArray(list) ? list : []));
+}
+
+function curriculumAssignmentForWeek(weekStartDate) {
+  const week = curriculumPlannerWeekStartIso(weekStartDate);
+  return loadCurriculumWeekAssignments().find((item) => item.weekStartDate === week) || null;
+}
+
+function generateCurriculumAssignmentId() {
+  const bytes = new Uint8Array(6);
+  crypto.getRandomValues(bytes);
+  return `cwa-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function snapshotCurriculumBook(book = {}) {
+  return {
+    title: String(book?.title || "").trim(),
+    author: String(book?.author || "").trim(),
+    notes: String(book?.notes || "").trim(),
+  };
+}
+
+function snapshotCurriculumSong(song = {}) {
+  return {
+    title: String(song?.title || "").trim(),
+    notes: String(song?.notes || "").trim(),
+  };
+}
+
+function snapshotCurriculumDailyItem(item = {}) {
+  return {
+    itemId: String(item?.itemId || "").trim(),
+    activityCategory: String(item?.activityCategory || "").trim(),
+    title: String(item?.title || "").trim(),
+    description: String(item?.description || "").trim(),
+    learningDomains: Array.isArray(item?.learningDomains) ? item.learningDomains.map((entry) => String(entry || "").trim()).filter(Boolean) : [],
+    materials: String(item?.materials || "").trim(),
+    setup: String(item?.setup || "").trim(),
+    steps: String(item?.steps || item?.directions || "").trim(),
+    teacherRole: String(item?.teacherRole || "").trim(),
+    teacherLanguage: String(item?.teacherLanguage || "").trim(),
+    learningGoals: Array.isArray(item?.learningGoals) ? item.learningGoals.map((entry) => String(entry || "").trim()).filter(Boolean) : [],
+    vocabulary: String(item?.vocabulary || "").trim(),
+    extensions: String(item?.extensions || "").trim(),
+    adaptations: String(item?.adaptations || "").trim(),
+    safetyNotes: String(item?.safetyNotes || "").trim(),
+    ageModifications: String(item?.ageModifications || "").trim(),
+  };
+}
+
+function snapshotCurriculumDailyDay(dayPlan = {}) {
+  return {
+    theme: String(dayPlan?.theme || "").trim(),
+    objectives: String(dayPlan?.objectives || "").trim(),
+    learningDomains: Array.isArray(dayPlan?.learningDomains) ? dayPlan.learningDomains.map((entry) => String(entry || "").trim()).filter(Boolean) : [],
+    materials: String(dayPlan?.materials || "").trim(),
+    vocabulary: String(dayPlan?.vocabulary || "").trim(),
+    books: (Array.isArray(dayPlan?.books) ? dayPlan.books : []).map(snapshotCurriculumBook).filter((book) => book.title),
+    songs: (Array.isArray(dayPlan?.songs) ? dayPlan.songs : []).map(snapshotCurriculumSong).filter((song) => song.title),
+    circleTime: (Array.isArray(dayPlan?.circleTime) ? dayPlan.circleTime : []).map((entry) => String(entry || "").trim()).filter(Boolean),
+    transitions: (Array.isArray(dayPlan?.transitions) ? dayPlan.transitions : []).map((entry) => String(entry || "").trim()).filter(Boolean),
+    outdoorPlay: String(dayPlan?.outdoorPlay || "").trim(),
+    familyConnection: String(dayPlan?.familyConnection || "").trim(),
+    observations: (Array.isArray(dayPlan?.observations) ? dayPlan.observations : []).map((entry) => String(entry || "").trim()).filter(Boolean),
+    adaptations: String(dayPlan?.adaptations || "").trim(),
+    safetyNotes: String(dayPlan?.safetyNotes || "").trim(),
+    items: (Array.isArray(dayPlan?.items) ? dayPlan.items : []).map(snapshotCurriculumDailyItem).filter((item) => item.title),
+  };
+}
+
+function buildCurriculumLessonPlanSnapshot(plan = {}) {
+  const dailyPlans = {};
+  CURRICULUM_WEEKDAYS.forEach((day) => {
+    dailyPlans[day] = snapshotCurriculumDailyDay(plan?.dailyPlans?.[day] || {});
+  });
+  return {
+    title: String(plan?.title || "").trim(),
+    age: String(plan?.age || "").trim(),
+    theme: String(plan?.theme || "").trim(),
+    plan: String(plan?.plan || "Free").trim() === "Pro" ? "Pro" : "Free",
+    learningDomains: Array.isArray(plan?.learningDomains) ? plan.learningDomains.map((entry) => String(entry || "").trim()).filter(Boolean) : [],
+    weeklyOverview: String(plan?.weeklyOverview || "").trim(),
+    objectives: String(plan?.objectives || "").trim(),
+    weeklyMaterials: String(plan?.weeklyMaterials || "").trim(),
+    vocabularyWords: String(plan?.vocabularyWords || "").trim(),
+    observationOpportunities: String(plan?.observationOpportunities || "").trim(),
+    adaptations: String(plan?.adaptations || "").trim(),
+    familyConnection: String(plan?.familyConnection || "").trim(),
+    books: (Array.isArray(plan?.books) ? plan.books : []).map(snapshotCurriculumBook).filter((book) => book.title),
+    songs: (Array.isArray(plan?.songs) ? plan.songs : []).map(snapshotCurriculumSong).filter((song) => song.title),
+    dailyPlans,
+    updatedAt: String(plan?.updatedAt || "").trim(),
+  };
+}
+
+function curriculumAssignableLessonResources() {
+  return resources.filter((resource) => {
+    if (resource?.category !== "Lesson Plans" || !resource?._curriculumManaged) return false;
+    if (!canAccess(resource)) return false;
+    const status = String(resource?._curriculumLessonPlan?.status || "published");
+    return status !== "draft" && status !== "archived";
+  });
+}
+
+async function resolveCurriculumPlanForAssignment(resourceOrId) {
+  const resource = typeof resourceOrId === "string"
+    ? resources.find((item) => item.id === resourceOrId)
+    : resourceOrId;
+  if (!resource || resource.category !== "Lesson Plans" || !resource._curriculumManaged) {
+    throw new Error("Choose a play-based lesson plan from the library.");
+  }
+  if (!canAccess(resource)) {
+    throw new Error("Upgrade to Pro to assign this premium lesson plan.");
+  }
+  const status = String(resource._curriculumLessonPlan?.status || resource.status || "published");
+  if (status === "draft" || status === "archived") {
+    throw new Error("Draft and archived lesson plans cannot be assigned.");
+  }
+  let plan = resource._curriculumLessonPlan || null;
+  if (resource.plan === "Pro") {
+    if (!isProUser() && !hasAdminFullAccess()) {
+      throw new Error("Upgrade to Pro to assign this premium lesson plan.");
+    }
+    const fullPlan = await fetchAuthorizedCurriculumLessonPlan(resource.id);
+    if (fullPlan) plan = fullPlan;
+  }
+  if (!plan || typeof plan !== "object") {
+    throw new Error("Lesson plan content could not be loaded for assignment.");
+  }
+  const hasDays = CURRICULUM_WEEKDAYS.some((day) => Array.isArray(plan.dailyPlans?.[day]?.items) && plan.dailyPlans[day].items.length);
+  if (!hasDays && !String(plan.weeklyOverview || "").trim()) {
+    throw new Error("This lesson plan does not include weekly content to assign.");
+  }
+  return { resource, plan };
+}
+
+function upsertCurriculumWeekAssignment(assignment) {
+  const list = loadCurriculumWeekAssignments().filter((item) => item.weekStartDate !== assignment.weekStartDate);
+  list.unshift(assignment);
+  list.sort((a, b) => String(b.weekStartDate || "").localeCompare(String(a.weekStartDate || "")));
+  saveCurriculumWeekAssignments(list);
+  return assignment;
+}
+
+async function assignCurriculumLessonPlanToWeek({
+  resourceId,
+  weekStartDate,
+  ageGroup,
+  classroomLabel = "",
+  replaceExisting = false,
+} = {}) {
+  if (!isLoggedIn() && !hasAdminFullAccess()) {
+    openAuthModal("login");
+    throw new Error("Log in to assign a lesson plan to your week.");
+  }
+  const week = curriculumPlannerWeekStartIso(weekStartDate || curriculumPlannerSelectedWeek || new Date());
+  const existing = curriculumAssignmentForWeek(week);
+  if (existing && !replaceExisting) {
+    const error = new Error("This week already has a lesson plan assigned.");
+    error.code = "replace-required";
+    error.existing = existing;
+    throw error;
+  }
+  const { resource, plan } = await resolveCurriculumPlanForAssignment(resourceId);
+  const snapshot = buildCurriculumLessonPlanSnapshot(plan);
+  const now = new Date().toISOString();
+  const assignment = {
+    id: existing?.id || generateCurriculumAssignmentId(),
+    weekStartDate: week,
+    ageGroup: String(ageGroup || snapshot.age || "Preschool").trim() || "Preschool",
+    classroomLabel: String(classroomLabel || "").trim(),
+    lessonPlanId: resource.id,
+    lessonPlanTitle: snapshot.title || resource.title || "Untitled Lesson Plan",
+    lessonPlanPlan: snapshot.plan,
+    lessonPlanUpdatedAt: snapshot.updatedAt || "",
+    snapshot,
+    organizationId: null,
+    classroomId: null,
+    assignedBy: currentUser || "",
+    createdAt: existing?.createdAt || now,
+    updatedAt: now,
+  };
+  upsertCurriculumWeekAssignment(assignment);
+  curriculumPlannerSelectedWeek = week;
+  curriculumPlannerAssignResourceId = "";
+  curriculumPlannerMessage = {
+    text: `Assigned “${assignment.lessonPlanTitle}” to the week of ${assignment.weekStartDate}.`,
+    isSuccess: true,
+  };
+  trackEvent("curriculum_planner_assign", {
+    weekStartDate: assignment.weekStartDate,
+    lessonPlanId: assignment.lessonPlanId,
+    plan: assignment.lessonPlanPlan,
+    replaced: Boolean(existing),
+  });
+  return assignment;
+}
+
+function removeCurriculumWeekAssignment(weekStartDate) {
+  const week = curriculumPlannerWeekStartIso(weekStartDate);
+  saveCurriculumWeekAssignments(loadCurriculumWeekAssignments().filter((item) => item.weekStartDate !== week));
+  curriculumPlannerMessage = { text: "Removed the lesson plan assignment for this week.", isSuccess: true };
+}
+
+function setCurriculumPlannerMessage(text, isSuccess = false) {
+  curriculumPlannerMessage = { text: String(text || ""), isSuccess: Boolean(isSuccess) };
+}
+
+function curriculumPlannerAssignableOptionsHtml(selectedId = "") {
+  const plans = curriculumAssignableLessonResources()
+    .slice()
+    .sort((a, b) => String(a.title || "").localeCompare(String(b.title || "")));
+  if (!plans.length) {
+    return `<option value="">No accessible lesson plans available</option>`;
+  }
+  return [
+    `<option value="">Select a lesson plan</option>`,
+    ...plans.map((plan) => `
+      <option value="${escapeHtml(plan.id)}"${plan.id === selectedId ? " selected" : ""}>
+        ${escapeHtml(plan.title || "Untitled")} · ${escapeHtml(plan.age || "")} · ${escapeHtml(plan.plan || "Free")}
+      </option>
+    `),
+  ].join("");
+}
+
+function curriculumPlannerDayCardHtml(assignment, dayKey) {
+  const day = assignment?.snapshot?.dailyPlans?.[dayKey] || snapshotCurriculumDailyDay();
+  const dateLabel = curriculumPlannerDateForDay(assignment.weekStartDate, dayKey);
+  const activities = (day.items || []).slice(0, 6);
+  return `
+    <article class="curriculum-planner-day-card" data-curriculum-planner-day="${escapeHtml(dayKey)}">
+      <header class="curriculum-planner-day-header">
+        <div>
+          <strong>${escapeHtml(curriculumPlannerWeekdayLabel(dayKey))}</strong>
+          <small>${escapeHtml(dateLabel || "")}</small>
+        </div>
+        <span class="tag">${escapeHtml(day.theme || assignment?.snapshot?.theme || "Daily focus")}</span>
+      </header>
+      <p class="muted-copy"><strong>${escapeHtml(assignment.lessonPlanTitle)}</strong> · ${escapeHtml(assignment.ageGroup || "")}${assignment.classroomLabel ? ` · ${escapeHtml(assignment.classroomLabel)}` : ""}</p>
+      ${activities.length ? `
+        <ul class="curriculum-planner-activity-list">
+          ${activities.map((item) => `<li><strong>${escapeHtml(item.title)}</strong>${item.activityCategory ? ` <span class="muted-copy">(${escapeHtml(item.activityCategory)})</span>` : ""}</li>`).join("")}
+        </ul>
+      ` : `<p class="muted-copy">No activities on this day in the assigned snapshot.</p>`}
+      ${(day.books || []).length ? `<p><strong>Books:</strong> ${escapeHtml(day.books.map((book) => book.title).join(", "))}</p>` : ""}
+      ${(day.songs || []).length ? `<p><strong>Songs:</strong> ${escapeHtml(day.songs.map((song) => song.title).join(", "))}</p>` : ""}
+      ${(day.circleTime || []).length ? `<p><strong>Circle time:</strong> ${escapeHtml(day.circleTime[0])}${(day.circleTime.length > 1) ? "…" : ""}</p>` : ""}
+      ${day.materials ? `<p><strong>Materials:</strong> ${escapeHtml(day.materials.slice(0, 140))}${day.materials.length > 140 ? "…" : ""}</p>` : ""}
+    </article>
+  `;
+}
+
+function curriculumPlannerEmptyStateHtml(weekStart) {
+  return `
+    <section class="section-block curriculum-planner-empty">
+      <h3>No lesson plan assigned for this week</h3>
+      <p class="muted-copy">Choose a complete Monday–Friday lesson plan below. Monday content maps to Monday, Tuesday to Tuesday, and so on.</p>
+      <div class="form-actions">
+        <button class="ghost-button" type="button" data-view="lessons">Browse Lesson Plan Library</button>
+      </div>
+      <p class="form-note">Week of ${escapeHtml(weekStart)} – ${escapeHtml(curriculumPlannerWeekEndIso(weekStart))}</p>
+    </section>
+  `;
+}
+
+function renderCurriculumPlanner() {
+  const app = document.querySelector("#curriculumPlannerApp");
+  if (!app) return;
+  if (!curriculumPlannerSelectedWeek) {
+    curriculumPlannerSelectedWeek = curriculumPlannerWeekStartIso(new Date());
+  } else {
+    curriculumPlannerSelectedWeek = curriculumPlannerWeekStartIso(curriculumPlannerSelectedWeek);
+  }
+  const weekStart = curriculumPlannerSelectedWeek;
+  const assignment = curriculumAssignmentForWeek(weekStart);
+  const pendingResourceId = curriculumPlannerAssignResourceId
+    || assignment?.lessonPlanId
+    || "";
+  const pendingResource = resources.find((item) => item.id === pendingResourceId);
+  const defaultAge = assignment?.ageGroup
+    || pendingResource?.age
+    || pendingResource?._curriculumLessonPlan?.age
+    || "Preschool";
+  const message = curriculumPlannerMessage?.text
+    ? `<div class="form-message ${curriculumPlannerMessage.isSuccess ? "success" : ""}" role="status">${escapeHtml(curriculumPlannerMessage.text)}</div>`
+    : "";
+  app.innerHTML = `
+    <div class="curriculum-planner-shell">
+      ${message}
+      <section class="section-block curriculum-planner-setup">
+        <div class="dashboard-panel-heading">
+          <div>
+            <p class="eyebrow">This Week</p>
+            <h3>${escapeHtml(weekStart)} – ${escapeHtml(curriculumPlannerWeekEndIso(weekStart))}</h3>
+            <p class="muted-copy">Assign one full play-based lesson plan. Content is saved as a snapshot so Admin edits will not silently change your week.</p>
+          </div>
+          <button class="ghost-button" type="button" data-view="home">Back to Dashboard</button>
+        </div>
+        <form id="curriculumPlannerAssignForm" class="panel-form admin-stacked-form curriculum-planner-assign-form">
+          <div class="form-grid-two">
+            <label>Week of
+              <input name="weekStartDate" type="date" value="${escapeHtml(weekStart)}" required />
+            </label>
+            <label>Age group
+              <select name="ageGroup" required>
+                ${["Infant", "Toddler", "Preschool", "Mixed Ages"].map((age) => `
+                  <option value="${escapeHtml(age)}"${age === defaultAge ? " selected" : ""}>${escapeHtml(age)}</option>
+                `).join("")}
+              </select>
+            </label>
+          </div>
+          <label>Classroom label <span class="muted-copy">(optional)</span>
+            <input name="classroomLabel" value="${escapeHtml(assignment?.classroomLabel || "")}" placeholder="Blue Room, Toddlers, Home daycare" />
+          </label>
+          <label>Lesson plan
+            <select name="lessonPlanId" required>
+              ${curriculumPlannerAssignableOptionsHtml(pendingResourceId)}
+            </select>
+          </label>
+          ${assignment ? `
+            <p class="form-note">This week already has “${escapeHtml(assignment.lessonPlanTitle)}”. Saving will update the assignment and refresh the snapshot.</p>
+          ` : ""}
+          <div class="form-actions">
+            <button class="primary-button" type="submit" ${curriculumPlannerBusy ? "disabled" : ""}>
+              ${curriculumPlannerBusy ? "Assigning…" : (assignment ? "Update Assignment" : "Assign to Week")}
+            </button>
+            ${assignment ? `<button class="danger-button" type="button" data-curriculum-planner-remove-week="${escapeHtml(weekStart)}">Remove Assignment</button>` : ""}
+            <button class="ghost-button" type="button" data-view="lessons">Browse Library</button>
+          </div>
+        </form>
+      </section>
+
+      ${assignment ? `
+        <section class="section-block curriculum-planner-week-summary">
+          <div class="dashboard-panel-heading">
+            <div>
+              <p class="eyebrow">Assigned Lesson Plan</p>
+              <h3>${escapeHtml(assignment.lessonPlanTitle)}</h3>
+              <p class="muted-copy">
+                ${escapeHtml(assignment.snapshot?.theme || "Theme")} · ${escapeHtml(assignment.ageGroup)}
+                ${assignment.classroomLabel ? ` · ${escapeHtml(assignment.classroomLabel)}` : ""}
+                · ${escapeHtml(assignment.lessonPlanPlan || "Free")}
+              </p>
+            </div>
+            <div class="form-actions">
+              <button class="ghost-button" type="button" data-view-resource="${escapeHtml(assignment.lessonPlanId)}">Open Lesson Plan</button>
+            </div>
+          </div>
+          ${assignment.snapshot?.weeklyOverview ? `<p>${escapeHtml(assignment.snapshot.weeklyOverview.slice(0, 280))}${assignment.snapshot.weeklyOverview.length > 280 ? "…" : ""}</p>` : ""}
+          <p class="form-note">Snapshot saved ${escapeHtml((assignment.updatedAt || "").slice(0, 10) || "today")}. Later Admin library edits will not change this week unless you re-assign.</p>
+        </section>
+        <section class="curriculum-planner-day-board" aria-label="Monday to Friday assigned content">
+          ${CURRICULUM_WEEKDAYS.map((day) => curriculumPlannerDayCardHtml(assignment, day)).join("")}
+        </section>
+      ` : curriculumPlannerEmptyStateHtml(weekStart)}
+    </div>
+  `;
+}
+
+function dashboardCurriculumWeekMarkup() {
+  const weekStart = curriculumPlannerWeekStartIso(new Date());
+  const assignment = curriculumAssignmentForWeek(weekStart);
+  const weekdayKeys = CURRICULUM_WEEKDAYS;
+  const today = new Date();
+  const todayKey = weekdayKeys[(today.getDay() + 6) % 7] || "";
+  if (!assignment) {
+    return `
+      <div class="dashboard-curriculum-empty">
+        <p class="muted-copy">No lesson plan assigned for this week yet.</p>
+        <div class="form-actions">
+          <button class="primary-button" type="button" data-view="curriculum-planner">Open Curriculum Planner</button>
+          <button class="ghost-button" type="button" data-view="lessons">Browse Lesson Plans</button>
+        </div>
+      </div>
+    `;
+  }
+  const todayPlan = assignment.snapshot?.dailyPlans?.[todayKey] || {};
+  const todayActivities = (todayPlan.items || []).slice(0, 3);
+  return `
+    <div class="dashboard-curriculum-assigned">
+      <div class="dashboard-curriculum-meta">
+        <strong>${escapeHtml(assignment.lessonPlanTitle)}</strong>
+        <small>${escapeHtml(assignment.snapshot?.theme || "Theme")} · ${escapeHtml(assignment.ageGroup || "")}${assignment.classroomLabel ? ` · ${escapeHtml(assignment.classroomLabel)}` : ""}</small>
+        <small>Week of ${escapeHtml(weekStart)}</small>
+      </div>
+      <div class="dashboard-curriculum-today">
+        <p class="eyebrow">Today · ${escapeHtml(curriculumPlannerWeekdayLabel(todayKey) || "Weekend")}</p>
+        <p>${escapeHtml(todayPlan.theme || assignment.snapshot?.theme || "No daily theme")}</p>
+        ${todayActivities.length
+          ? `<ul class="curriculum-planner-activity-list">${todayActivities.map((item) => `<li>${escapeHtml(item.title)}</li>`).join("")}</ul>`
+          : `<p class="muted-copy">${todayKey ? "No activities listed for today in this snapshot." : "Weekend — open the planner to review this week."}</p>`
+        }
+      </div>
+      <div class="form-actions">
+        <button class="primary-button" type="button" data-view="curriculum-planner">Open Curriculum Planner</button>
+        <button class="ghost-button" type="button" data-view-resource="${escapeHtml(assignment.lessonPlanId)}">View Lesson Plan</button>
+      </div>
+    </div>
+  `;
+}
+
+async function openCurriculumPlannerAssignFlow(resourceId, options = {}) {
+  if (!isLoggedIn() && !hasAdminFullAccess()) {
+    openAuthModal("login");
+    return;
+  }
+  const resource = resources.find((item) => item.id === resourceId);
+  if (!resource) {
+    setCurriculumPlannerMessage("Lesson plan not found.", false);
+    setView("curriculum-planner");
+    return;
+  }
+  if (!canAccess(resource)) {
+    openLockedResourcePreview(resource);
+    return;
+  }
+  curriculumPlannerAssignResourceId = resourceId;
+  if (options.weekStartDate) {
+    curriculumPlannerSelectedWeek = curriculumPlannerWeekStartIso(options.weekStartDate);
+  } else if (!curriculumPlannerSelectedWeek) {
+    curriculumPlannerSelectedWeek = curriculumPlannerWeekStartIso(new Date());
+  }
+  setCurriculumPlannerMessage(`Select the week and age group, then assign “${resource.title || "this lesson plan"}”.`, true);
+  setView("curriculum-planner");
+}
+
+async function handleCurriculumPlannerAssignSubmit(form) {
+  if (!form || curriculumPlannerBusy) return;
+  const formData = new FormData(form);
+  const weekStartDate = curriculumPlannerWeekStartIso(formData.get("weekStartDate"));
+  const ageGroup = String(formData.get("ageGroup") || "Preschool").trim();
+  const classroomLabel = String(formData.get("classroomLabel") || "").trim();
+  const lessonPlanId = String(formData.get("lessonPlanId") || "").trim();
+  const replaceExisting = true; // Form submit always writes the chosen plan for the selected week.
+  if (!lessonPlanId) {
+    setCurriculumPlannerMessage("Choose a lesson plan to assign.", false);
+    renderCurriculumPlanner();
+    return;
+  }
+  const existing = curriculumAssignmentForWeek(weekStartDate);
+  if (existing && existing.lessonPlanId !== lessonPlanId) {
+    const confirmed = window.confirm(`Replace “${existing.lessonPlanTitle}” with the selected lesson plan for this week?`);
+    if (!confirmed) {
+      setCurriculumPlannerMessage("Assignment cancelled. Existing week was left unchanged.", false);
+      renderCurriculumPlanner();
+      return;
+    }
+  }
+  curriculumPlannerBusy = true;
+  curriculumPlannerSelectedWeek = weekStartDate;
+  renderCurriculumPlanner();
+  try {
+    await assignCurriculumLessonPlanToWeek({
+      resourceId: lessonPlanId,
+      weekStartDate,
+      ageGroup,
+      classroomLabel,
+      replaceExisting,
+    });
+  } catch (error) {
+    setCurriculumPlannerMessage(error.message || "Could not assign lesson plan.", false);
+  } finally {
+    curriculumPlannerBusy = false;
+    renderCurriculumPlanner();
+  }
 }
 
 function renderAiPage() {
@@ -29288,6 +29811,27 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const curriculumAssignWeekButton = event.target.closest("[data-curriculum-assign-week]");
+  if (curriculumAssignWeekButton) {
+    event.preventDefault();
+    const resourceId = curriculumAssignWeekButton.dataset.curriculumAssignWeek;
+    if (document.querySelector("#resourceViewerModal.open")) {
+      document.querySelector("#resourceViewerModal")?.classList.remove("open");
+      document.querySelector("#resourceViewerModal")?.setAttribute("aria-hidden", "true");
+    }
+    await openCurriculumPlannerAssignFlow(resourceId);
+    return;
+  }
+
+  if (event.target.closest("[data-curriculum-planner-remove-week]")) {
+    const week = event.target.closest("[data-curriculum-planner-remove-week]").dataset.curriculumPlannerRemoveWeek;
+    if (week && window.confirm("Remove the lesson plan assignment for this week?")) {
+      removeCurriculumWeekAssignment(week);
+      renderCurriculumPlanner();
+    }
+    return;
+  }
+
   const clearActivityLessonFilterButton = event.target.closest("[data-clear-activity-lesson-filter]");
   if (clearActivityLessonFilterButton) {
     activeActivityLessonPlanId = "";
@@ -31603,6 +32147,18 @@ document.addEventListener("submit", (event) => {
   const planner = collectPlannerData(event.target);
   saveWeeklyPlanner(planner);
   renderWeeklyPlanner();
+});
+
+document.addEventListener("submit", async (event) => {
+  if (!event.target.matches("#curriculumPlannerAssignForm")) return;
+  event.preventDefault();
+  await handleCurriculumPlannerAssignSubmit(event.target);
+});
+
+document.addEventListener("change", (event) => {
+  if (!event.target.matches('#curriculumPlannerAssignForm [name="weekStartDate"]')) return;
+  curriculumPlannerSelectedWeek = curriculumPlannerWeekStartIso(event.target.value);
+  renderCurriculumPlanner();
 });
 
 document.addEventListener("submit", (event) => {

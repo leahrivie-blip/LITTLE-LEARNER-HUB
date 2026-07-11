@@ -5236,6 +5236,108 @@ body.home-view .topbar .search-wrap {
   top: 92px;
 }
 
+.curriculum-planner-shell {
+  display: grid;
+  gap: 18px;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.curriculum-planner-setup,
+.curriculum-planner-week-summary,
+.curriculum-planner-empty,
+.dashboard-curriculum-assigned,
+.dashboard-curriculum-empty {
+  display: grid;
+  gap: 12px;
+}
+
+.curriculum-planner-assign-form {
+  margin-top: 12px;
+}
+
+.curriculum-planner-day-board {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  max-width: 100%;
+}
+
+.curriculum-planner-day-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+  min-width: 0;
+}
+
+.curriculum-planner-day-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.curriculum-planner-day-header strong {
+  display: block;
+}
+
+.curriculum-planner-activity-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
+.dashboard-curriculum-meta,
+.dashboard-curriculum-today {
+  display: grid;
+  gap: 4px;
+}
+
+.curriculum-planner-viewer-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+@media (max-width: 820px) {
+  .curriculum-planner-day-board {
+    grid-template-columns: 1fr;
+  }
+
+  .curriculum-planner-day-header,
+  .curriculum-planner-setup .dashboard-panel-heading,
+  .curriculum-planner-week-summary .dashboard-panel-heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .curriculum-planner-shell .form-actions,
+  .dashboard-curriculum-empty .form-actions,
+  .dashboard-curriculum-assigned .form-actions {
+    display: grid;
+    gap: 8px;
+  }
+
+  .curriculum-planner-shell .form-actions button,
+  .dashboard-curriculum-empty .form-actions button,
+  .dashboard-curriculum-assigned .form-actions button {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .curriculum-planner-shell,
+  .curriculum-planner-day-card,
+  .curriculum-planner-day-board {
+    overflow-x: hidden;
+  }
+}
+
 .child-dashboard,
 .child-layout,
 .child-profile-grid {
