@@ -3139,6 +3139,9 @@ let curriculumPlannerMessage = { text: "", isSuccess: false };
 let curriculumPlannerBusy = false;
 let curriculumPlannerEditingObservationId = "";
 let curriculumPlannerObservationPresetDay = "";
+let curriculumPlannerEditingEventId = "";
+let curriculumPlannerEventPresetDay = "";
+let curriculumPlannerShowParentPreview = false;
 let adminReviewEditorId = "";
 let adminImageEditorId = "";
 let adminLessonSelection = new Set();
@@ -12588,13 +12591,27 @@ ${plannerDays.map((day) => {
 }).join("\n\n")}`;
 }
 
-/* ─── Phase F1/F2: Curriculum Planner ───
- * Parent Calendar (later): include Classroom Events such as Water Day,
- * Pajama Day, Field Trip, Picture Day, Grandparents Day, Holiday Parties,
+/* ─── Phase F1/F2/F3: Curriculum Planner ───
+ * F3 Parent Calendar: Classroom Events such as Water Day, Pajama Day,
+ * Field Trip, Picture Day, Grandparents Day, Holiday Parties,
  * Special Visitors, Items to Bring, School Closures, Important Reminders.
- * F2: teacherNotes / dailyTeacherNotes / observations are PRIVATE and must
+ * F2 teacherNotes / dailyTeacherNotes / observations are PRIVATE and must
  * never appear in parentCalendar DTOs, previews, printouts, or exports.
  */
+
+const CURRICULUM_CLASSROOM_EVENT_TYPES = [
+  "Water Day",
+  "Pajama Day",
+  "Field Trip",
+  "Picture Day",
+  "Grandparents Day",
+  "Holiday Party",
+  "Special Visitor",
+  "Items to Bring",
+  "School Closure",
+  "Important Reminder",
+  "Other",
+];
 function curriculumPlannerWeekStartIso(value = new Date()) {
   const date = value instanceof Date ? value : new Date(`${String(value || "").slice(0, 10)}T12:00:00`);
   if (Number.isNaN(date.getTime())) return isoDateFromLocalDate(weekStartDate(new Date()));
@@ -12634,6 +12651,54 @@ function generateCurriculumPlannerObservationId() {
   return `cpo-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
 }
 
+function generateCurriculumPlannerClassroomEventId() {
+  const bytes = new Uint8Array(6);
+  crypto.getRandomValues(bytes);
+  return `cce-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function normalizeCurriculumPlannerClassroomEvent(entry = {}, options = {}) {
+  const dayOfWeek = CURRICULUM_WEEKDAYS.includes(String(entry.dayOfWeek || "").toLowerCase())
+    ? String(entry.dayOfWeek).toLowerCase()
+    : "";
+  const eventType = CURRICULUM_CLASSROOM_EVENT_TYPES.includes(String(entry.eventType || "").trim())
+    ? String(entry.eventType).trim()
+    : (String(entry.eventType || "").trim() || "Other");
+  const title = String(entry.title || eventType || "").trim() || eventType || "Classroom Event";
+  return {
+    id: String(entry.id || "").trim() || generateCurriculumPlannerClassroomEventId(),
+    title,
+    eventType,
+    date: String(entry.date || options.weekStartDate || "").trim().slice(0, 10),
+    dayOfWeek,
+    description: String(entry.description || "").trim(),
+    itemsToBring: String(entry.itemsToBring || "").trim(),
+    createdAt: String(entry.createdAt || "").trim() || new Date().toISOString(),
+    updatedAt: String(entry.updatedAt || "").trim() || new Date().toISOString(),
+  };
+}
+
+function emptyCurriculumParentCalendar() {
+  return {
+    classroomEvents: [],
+    parentMessage: "",
+    updatedAt: "",
+  };
+}
+
+function normalizeCurriculumParentCalendar(raw = null, options = {}) {
+  if (!raw || typeof raw !== "object") return emptyCurriculumParentCalendar();
+  const events = (Array.isArray(raw.classroomEvents) ? raw.classroomEvents : [])
+    .map((entry) => normalizeCurriculumPlannerClassroomEvent(entry, options))
+    .filter((item) => item.title);
+  events.sort((a, b) => `${a.date} ${a.title}`.localeCompare(`${b.date} ${b.title}`));
+  return {
+    classroomEvents: events,
+    parentMessage: String(raw.parentMessage || "").trim(),
+    updatedAt: String(raw.updatedAt || "").trim(),
+  };
+}
+
 function normalizeCurriculumPlannerObservation(entry = {}) {
   const dayOfWeek = CURRICULUM_WEEKDAYS.includes(String(entry.dayOfWeek || "").toLowerCase())
     ? String(entry.dayOfWeek).toLowerCase()
@@ -12669,8 +12734,10 @@ function normalizeCurriculumWeekAssignment(raw = {}) {
     observations: (Array.isArray(raw.observations) ? raw.observations : [])
       .map(normalizeCurriculumPlannerObservation)
       .filter((item) => item.note),
-    // Reserved for Phase F3 Parent Calendar — keep empty/private-separated.
-    parentCalendar: raw.parentCalendar && typeof raw.parentCalendar === "object" ? raw.parentCalendar : null,
+    // Phase F3 Parent Calendar — separate from teacher-private notes/observations.
+    parentCalendar: normalizeCurriculumParentCalendar(raw.parentCalendar, {
+      weekStartDate: String(raw.weekStartDate || "").trim(),
+    }),
   };
 }
 
@@ -12697,35 +12764,52 @@ function generateCurriculumAssignmentId() {
   return `cwa-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
 }
 
-/** Parent-safe DTO helper (F3 foundation). Strips all teacher-private fields. */
+/** Parent-safe DTO helper (F3). Strips all teacher-private fields. */
 function buildCurriculumPlannerParentSafeDto(assignment) {
   if (!assignment) return null;
   const snapshot = assignment.snapshot || {};
+  const parentCalendar = normalizeCurriculumParentCalendar(assignment.parentCalendar, {
+    weekStartDate: assignment.weekStartDate,
+  });
+  const classroomEvents = parentCalendar.classroomEvents.map((event) => ({
+    id: event.id,
+    title: event.title,
+    eventType: event.eventType,
+    date: event.date,
+    dayOfWeek: event.dayOfWeek,
+    description: event.description,
+    itemsToBring: event.itemsToBring,
+  }));
   const daily = {};
   CURRICULUM_WEEKDAYS.forEach((day) => {
     const dayPlan = snapshot.dailyPlans?.[day] || {};
+    const dayEvents = classroomEvents.filter((event) => event.dayOfWeek === day);
     daily[day] = {
       theme: dayPlan.theme || "",
       books: (dayPlan.books || []).map((book) => ({ title: book.title || "", author: book.author || "" })),
       songs: (dayPlan.songs || []).map((song) => ({ title: song.title || "" })),
       activities: (dayPlan.items || []).map((item) => ({ title: item.title || "", activityCategory: item.activityCategory || "" })),
       familyConnection: dayPlan.familyConnection || "",
+      classroomEvents: dayEvents,
     };
   });
   return {
     weekStartDate: assignment.weekStartDate || "",
+    weekEndDate: curriculumPlannerWeekEndIso(assignment.weekStartDate),
     ageGroup: assignment.ageGroup || "",
     classroomLabel: assignment.classroomLabel || "",
     lessonPlanTitle: assignment.lessonPlanTitle || snapshot.title || "",
     theme: snapshot.theme || "",
     familyConnection: snapshot.familyConnection || "",
+    parentMessage: parentCalendar.parentMessage || "",
     books: (snapshot.books || []).map((book) => ({ title: book.title || "", author: book.author || "" })),
     songs: (snapshot.songs || []).map((song) => ({ title: song.title || "" })),
     daily,
-    parentCalendar: assignment.parentCalendar || null,
-    classroomEvents: Array.isArray(assignment.parentCalendar?.classroomEvents)
-      ? assignment.parentCalendar.classroomEvents
-      : [],
+    classroomEvents,
+    parentCalendar: {
+      parentMessage: parentCalendar.parentMessage || "",
+      classroomEvents,
+    },
   };
 }
 
@@ -12785,7 +12869,9 @@ function preserveCurriculumPlannerPrivateFields(existing = {}) {
     preparationNotes: normalized.preparationNotes || "",
     dailyTeacherNotes: { ...normalized.dailyTeacherNotes },
     observations: [...(normalized.observations || [])],
-    parentCalendar: normalized.parentCalendar || null,
+    parentCalendar: normalizeCurriculumParentCalendar(normalized.parentCalendar, {
+      weekStartDate: normalized.weekStartDate,
+    }),
   };
 }
 
@@ -13156,6 +13242,146 @@ function printCurriculumPlannerTeacherWeek(weekStartDate) {
   }
 }
 
+function saveCurriculumPlannerParentMessageFromForm(form) {
+  if (!form) return;
+  const formData = new FormData(form);
+  const weekStartDate = curriculumPlannerWeekStartIso(formData.get("weekStartDate") || curriculumPlannerSelectedWeek);
+  const assignment = curriculumAssignmentForWeek(weekStartDate);
+  if (!assignment) throw new Error("Assign a lesson plan before saving the parent calendar.");
+  const parentCalendar = normalizeCurriculumParentCalendar({
+    ...assignment.parentCalendar,
+    parentMessage: String(formData.get("parentMessage") || "").trim(),
+    updatedAt: new Date().toISOString(),
+  }, { weekStartDate });
+  updateCurriculumWeekAssignmentFields(weekStartDate, { parentCalendar });
+  setCurriculumPlannerMessage("Parent calendar message saved. Visible to parents — not a teacher note.", true);
+  renderCurriculumPlanner();
+}
+
+function saveCurriculumPlannerClassroomEventFromForm(form) {
+  if (!form) return;
+  const formData = new FormData(form);
+  const weekStartDate = curriculumPlannerWeekStartIso(formData.get("weekStartDate") || curriculumPlannerSelectedWeek);
+  const assignment = curriculumAssignmentForWeek(weekStartDate);
+  if (!assignment) throw new Error("Assign a lesson plan before adding classroom events.");
+  const eventId = String(formData.get("eventId") || "").trim() || generateCurriculumPlannerClassroomEventId();
+  const dayOfWeek = String(formData.get("dayOfWeek") || "").toLowerCase();
+  const now = new Date().toISOString();
+  const existingEvents = assignment.parentCalendar?.classroomEvents || [];
+  const existing = existingEvents.find((item) => item.id === eventId);
+  const event = normalizeCurriculumPlannerClassroomEvent({
+    id: eventId,
+    title: String(formData.get("title") || "").trim(),
+    eventType: String(formData.get("eventType") || "").trim(),
+    date: String(formData.get("date") || curriculumPlannerDateForDay(weekStartDate, dayOfWeek) || weekStartDate).slice(0, 10),
+    dayOfWeek: CURRICULUM_WEEKDAYS.includes(dayOfWeek) ? dayOfWeek : "",
+    description: String(formData.get("description") || "").trim(),
+    itemsToBring: String(formData.get("itemsToBring") || "").trim(),
+    createdAt: existing?.createdAt || now,
+    updatedAt: now,
+  }, { weekStartDate });
+  if (!event.title) throw new Error("Enter an event title before saving.");
+  const classroomEvents = [
+    ...existingEvents.filter((item) => item.id !== eventId),
+    event,
+  ];
+  const parentCalendar = normalizeCurriculumParentCalendar({
+    ...assignment.parentCalendar,
+    classroomEvents,
+    updatedAt: now,
+  }, { weekStartDate });
+  updateCurriculumWeekAssignmentFields(weekStartDate, { parentCalendar });
+  curriculumPlannerEditingEventId = "";
+  curriculumPlannerEventPresetDay = "";
+  setCurriculumPlannerMessage("Classroom event saved to the Parent Calendar.", true);
+  renderCurriculumPlanner();
+}
+
+function deleteCurriculumPlannerClassroomEvent(weekStartDate, eventId) {
+  const assignment = curriculumAssignmentForWeek(weekStartDate);
+  if (!assignment) return;
+  const parentCalendar = normalizeCurriculumParentCalendar({
+    ...assignment.parentCalendar,
+    classroomEvents: (assignment.parentCalendar?.classroomEvents || []).filter((item) => item.id !== eventId),
+    updatedAt: new Date().toISOString(),
+  }, { weekStartDate });
+  updateCurriculumWeekAssignmentFields(weekStartDate, { parentCalendar });
+  if (curriculumPlannerEditingEventId === eventId) curriculumPlannerEditingEventId = "";
+  setCurriculumPlannerMessage("Classroom event deleted from the Parent Calendar.", true);
+  renderCurriculumPlanner();
+}
+
+function buildCurriculumPlannerParentPrintText(assignment) {
+  const dto = buildCurriculumPlannerParentSafeDto(assignment);
+  if (!dto) return "";
+  const lines = [
+    "Little Learner Hub — Parent Calendar",
+    `Week of: ${dto.weekStartDate} – ${dto.weekEndDate}`,
+    `Classroom: ${dto.classroomLabel || "—"}`,
+    `Age Group: ${dto.ageGroup || ""}`,
+    `Theme: ${dto.theme || ""}`,
+    "",
+  ];
+  if (dto.parentMessage) {
+    lines.push("Message for Families");
+    lines.push(dto.parentMessage);
+    lines.push("");
+  }
+  lines.push("Classroom Events");
+  if (!dto.classroomEvents.length) {
+    lines.push("(none this week)");
+  } else {
+    dto.classroomEvents.forEach((event) => {
+      lines.push(`- ${event.date || ""} ${curriculumPlannerWeekdayLabel(event.dayOfWeek) || ""} · ${event.title} (${event.eventType})`);
+      if (event.description) lines.push(`  ${event.description}`);
+      if (event.itemsToBring) lines.push(`  Please bring: ${event.itemsToBring}`);
+    });
+  }
+  lines.push("");
+  lines.push("This Week’s Curriculum (Family View)");
+  lines.push(`Lesson: ${dto.lessonPlanTitle || ""}`);
+  if (dto.familyConnection) {
+    lines.push(`Family connection: ${dto.familyConnection}`);
+  }
+  lines.push("");
+  CURRICULUM_WEEKDAYS.forEach((day) => {
+    const dayData = dto.daily[day] || {};
+    lines.push(`${curriculumPlannerWeekdayLabel(day)} (${curriculumPlannerDateForDay(dto.weekStartDate, day)})`);
+    lines.push(`Focus: ${dayData.theme || dto.theme || ""}`);
+    if ((dayData.classroomEvents || []).length) {
+      lines.push(`Events: ${dayData.classroomEvents.map((event) => event.title).join("; ")}`);
+    }
+    lines.push(`Activities: ${(dayData.activities || []).map((item) => item.title).filter(Boolean).join("; ") || "(none)"}`);
+    if ((dayData.books || []).length) {
+      lines.push(`Books: ${dayData.books.map((book) => book.title).join("; ")}`);
+    }
+    if ((dayData.songs || []).length) {
+      lines.push(`Songs: ${dayData.songs.map((song) => song.title).join("; ")}`);
+    }
+    if (dayData.familyConnection) lines.push(`Family: ${dayData.familyConnection}`);
+    lines.push("");
+  });
+  lines.push("Teacher planning notes and observations are not included in this parent calendar.");
+  return lines.join("\n");
+}
+
+function printCurriculumPlannerParentWeek(weekStartDate) {
+  const assignment = curriculumAssignmentForWeek(weekStartDate);
+  if (!assignment) {
+    setCurriculumPlannerMessage("Assign a lesson plan before printing the parent calendar.", false);
+    renderCurriculumPlanner();
+    return;
+  }
+  const text = buildCurriculumPlannerParentPrintText(assignment);
+  if (typeof printTextDocument === "function") {
+    printTextDocument("Parent Calendar", text);
+  } else {
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+  }
+}
+
 function curriculumPlannerChildOptionsHtml(selectedId = "") {
   const children = getActiveChildren(childRecords());
   if (!children.length) {
@@ -13175,6 +13401,7 @@ function curriculumPlannerDayCardHtml(assignment, dayKey) {
   const activities = (day.items || []).slice(0, 6);
   const dailyNote = assignment?.dailyTeacherNotes?.[dayKey] || "";
   const dayObservations = (assignment?.observations || []).filter((item) => item.dayOfWeek === dayKey);
+  const dayEvents = (assignment?.parentCalendar?.classroomEvents || []).filter((item) => item.dayOfWeek === dayKey);
   return `
     <details class="curriculum-planner-day-card" data-curriculum-planner-day="${escapeHtml(dayKey)}" ${dayKey === CURRICULUM_WEEKDAYS[0] ? "open" : ""}>
       <summary class="curriculum-planner-day-header">
@@ -13186,6 +13413,14 @@ function curriculumPlannerDayCardHtml(assignment, dayKey) {
       </summary>
       <div class="curriculum-planner-day-body">
         <p class="muted-copy"><strong>${escapeHtml(assignment.lessonPlanTitle)}</strong> · ${escapeHtml(assignment.ageGroup || "")}${assignment.classroomLabel ? ` · ${escapeHtml(assignment.classroomLabel)}` : ""}</p>
+        ${dayEvents.length ? `
+          <div class="curriculum-planner-day-events">
+            <p class="eyebrow">Classroom Events</p>
+            <ul class="curriculum-planner-event-chip-list">
+              ${dayEvents.map((event) => `<li><span class="tag">${escapeHtml(event.title)}</span></li>`).join("")}
+            </ul>
+          </div>
+        ` : ""}
         ${activities.length ? `
           <ul class="curriculum-planner-activity-list">
             ${activities.map((item) => `<li><strong>${escapeHtml(item.title)}</strong>${item.activityCategory ? ` <span class="muted-copy">(${escapeHtml(item.activityCategory)})</span>` : ""}</li>`).join("")}
@@ -13199,9 +13434,10 @@ function curriculumPlannerDayCardHtml(assignment, dayKey) {
           <textarea name="dailyNote-${dayKey}" rows="3" form="curriculumPlannerNotesForm" placeholder="Move activity, gather materials, weather backup…">${escapeHtml(dailyNote)}</textarea>
         </label>
         <div class="form-actions">
+          <button class="ghost-button" type="button" data-curriculum-planner-add-event="${escapeHtml(dayKey)}">Add classroom event</button>
           <button class="ghost-button" type="button" data-curriculum-planner-add-observation="${escapeHtml(dayKey)}">Add observation</button>
         </div>
-        ${dayObservations.length ? `<p class="form-note">${dayObservations.length} observation${dayObservations.length === 1 ? "" : "s"} linked to this day</p>` : ""}
+        ${dayObservations.length ? `<p class="form-note">${dayObservations.length} observation${dayObservations.length === 1 ? "" : "s"} linked to this day (teacher-only)</p>` : ""}
       </div>
     </details>
   `;
@@ -13282,6 +13518,122 @@ function curriculumPlannerObservationFormHtml(assignment, editingObservation = n
   `;
 }
 
+function curriculumPlannerClassroomEventCardHtml(event) {
+  return `
+    <article class="curriculum-planner-event-card" data-curriculum-event-id="${escapeHtml(event.id)}">
+      <div class="curriculum-planner-observation-meta">
+        <strong>${escapeHtml(event.date || "No date")}</strong>
+        <span class="tag">${escapeHtml(curriculumPlannerWeekdayLabel(event.dayOfWeek) || "Week")}</span>
+        <span class="tag">${escapeHtml(event.eventType || "Event")}</span>
+      </div>
+      <p class="curriculum-planner-observation-note"><strong>${escapeHtml(event.title)}</strong></p>
+      ${event.description ? `<p>${escapeHtml(event.description).replace(/\n/g, "<br>")}</p>` : ""}
+      ${event.itemsToBring ? `<p class="muted-copy">Please bring: ${escapeHtml(event.itemsToBring)}</p>` : ""}
+      <div class="form-actions">
+        <button class="ghost-button" type="button" data-curriculum-planner-edit-event="${escapeHtml(event.id)}">Edit</button>
+        <button class="danger-button" type="button" data-curriculum-planner-delete-event="${escapeHtml(event.id)}">Delete</button>
+      </div>
+    </article>
+  `;
+}
+
+function curriculumPlannerClassroomEventFormHtml(assignment, editingEvent = null, presetDay = "") {
+  const event = editingEvent || {
+    id: "",
+    title: "",
+    eventType: "Important Reminder",
+    date: curriculumPlannerDateForDay(assignment.weekStartDate, presetDay || CURRICULUM_WEEKDAYS[0]),
+    dayOfWeek: presetDay || "",
+    description: "",
+    itemsToBring: "",
+  };
+  return `
+    <form id="curriculumPlannerEventForm" class="panel-form admin-stacked-form curriculum-planner-event-form">
+      <input type="hidden" name="weekStartDate" value="${escapeHtml(assignment.weekStartDate)}" />
+      <input type="hidden" name="eventId" value="${escapeHtml(event.id || "")}" />
+      <div class="form-grid-two">
+        <label>Event type
+          <select name="eventType" required>
+            ${CURRICULUM_CLASSROOM_EVENT_TYPES.map((type) => `
+              <option value="${escapeHtml(type)}"${event.eventType === type ? " selected" : ""}>${escapeHtml(type)}</option>
+            `).join("")}
+          </select>
+        </label>
+        <label>Title
+          <input name="title" value="${escapeHtml(event.title || "")}" placeholder="Water Day, Field Trip to the farm…" required />
+        </label>
+      </div>
+      <div class="form-grid-two">
+        <label>Date<input name="date" type="date" value="${escapeHtml(event.date || "")}" required /></label>
+        <label>Weekday
+          <select name="dayOfWeek">
+            <option value="">Whole week</option>
+            ${CURRICULUM_WEEKDAYS.map((day) => `
+              <option value="${escapeHtml(day)}"${event.dayOfWeek === day ? " selected" : ""}>${escapeHtml(curriculumPlannerWeekdayLabel(day))}</option>
+            `).join("")}
+          </select>
+        </label>
+      </div>
+      <label>Details for families
+        <textarea name="description" rows="3" placeholder="What parents should know…">${escapeHtml(event.description || "")}</textarea>
+      </label>
+      <label>Items to bring <span class="muted-copy">(optional)</span>
+        <input name="itemsToBring" value="${escapeHtml(event.itemsToBring || "")}" placeholder="Towel, swimsuit, labeled water bottle…" />
+      </label>
+      <p class="form-note">Parent-facing. This appears on the Parent Calendar, not in private teacher notes.</p>
+      <div class="form-actions">
+        <button class="primary-button" type="submit">${event.id ? "Save Classroom Event" : "Add Classroom Event"}</button>
+        ${event.id ? `<button class="ghost-button" type="button" data-curriculum-planner-cancel-event>Cancel</button>` : ""}
+      </div>
+    </form>
+  `;
+}
+
+function curriculumPlannerParentPreviewHtml(assignment) {
+  const dto = buildCurriculumPlannerParentSafeDto(assignment);
+  if (!dto) return "";
+  return `
+    <div class="curriculum-planner-parent-preview" id="curriculumPlannerParentPreview">
+      <div class="dashboard-panel-heading">
+        <div>
+          <p class="eyebrow">Parent Preview</p>
+          <h3>What families will see</h3>
+          <p class="muted-copy">Teacher notes and observations are excluded from this preview.</p>
+        </div>
+      </div>
+      ${dto.parentMessage ? `<p class="curriculum-planner-parent-message">${escapeHtml(dto.parentMessage).replace(/\n/g, "<br>")}</p>` : ""}
+      <p><strong>${escapeHtml(dto.lessonPlanTitle || "This week")}</strong> · ${escapeHtml(dto.theme || "")}</p>
+      ${(dto.classroomEvents || []).length ? `
+        <div class="curriculum-planner-preview-events">
+          <p class="eyebrow">Classroom Events</p>
+          <ul>
+            ${dto.classroomEvents.map((event) => `
+              <li>
+                <strong>${escapeHtml(event.title)}</strong>
+                <span class="muted-copy">${escapeHtml(event.date || "")}${event.dayOfWeek ? ` · ${escapeHtml(curriculumPlannerWeekdayLabel(event.dayOfWeek))}` : ""}</span>
+                ${event.itemsToBring ? `<br><span class="muted-copy">Bring: ${escapeHtml(event.itemsToBring)}</span>` : ""}
+              </li>
+            `).join("")}
+          </ul>
+        </div>
+      ` : `<p class="muted-copy">No classroom events this week.</p>`}
+      <div class="curriculum-planner-preview-days">
+        ${CURRICULUM_WEEKDAYS.map((day) => {
+          const dayData = dto.daily[day] || {};
+          return `
+            <div class="curriculum-planner-preview-day">
+              <strong>${escapeHtml(curriculumPlannerWeekdayLabel(day))}</strong>
+              <small>${escapeHtml(curriculumPlannerDateForDay(dto.weekStartDate, day))}</small>
+              <p>${escapeHtml(dayData.theme || dto.theme || "")}</p>
+              <p class="muted-copy">${(dayData.activities || []).map((item) => item.title).filter(Boolean).slice(0, 3).join(" · ") || "No activities listed"}</p>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `;
+}
+
 function curriculumPlannerEmptyStateHtml(weekStart) {
   return `
     <section class="section-block curriculum-planner-empty">
@@ -13318,6 +13670,9 @@ function renderCurriculumPlanner() {
     : "";
   const editingObservation = assignment?.observations?.find((item) => item.id === curriculumPlannerEditingObservationId) || null;
   const observationPresetDay = curriculumPlannerObservationPresetDay || "";
+  const editingEvent = assignment?.parentCalendar?.classroomEvents?.find((item) => item.id === curriculumPlannerEditingEventId) || null;
+  const eventPresetDay = curriculumPlannerEventPresetDay || "";
+  const parentEvents = assignment?.parentCalendar?.classroomEvents || [];
   app.innerHTML = `
     <div class="curriculum-planner-shell">
       ${message}
@@ -13379,14 +13734,51 @@ function renderCurriculumPlanner() {
             <div class="form-actions">
               <button class="ghost-button" type="button" data-view-resource="${escapeHtml(assignment.lessonPlanId)}">Open Lesson Plan</button>
               <button class="ghost-button" type="button" data-curriculum-planner-print-teacher="${escapeHtml(weekStart)}">Print Teacher Week</button>
+              <button class="ghost-button" type="button" data-curriculum-planner-print-parent="${escapeHtml(weekStart)}">Print Parent Calendar</button>
+              <button class="ghost-button" type="button" data-curriculum-planner-toggle-parent-preview="${escapeHtml(weekStart)}">
+                ${curriculumPlannerShowParentPreview ? "Hide Parent Preview" : "Show Parent Preview"}
+              </button>
             </div>
           </div>
           ${assignment.snapshot?.weeklyOverview ? `<p>${escapeHtml(assignment.snapshot.weeklyOverview.slice(0, 280))}${assignment.snapshot.weeklyOverview.length > 280 ? "…" : ""}</p>` : ""}
           <p class="form-note">Snapshot saved ${escapeHtml((assignment.updatedAt || "").slice(0, 10) || "today")}. Teacher notes stay private.</p>
+          ${curriculumPlannerShowParentPreview ? curriculumPlannerParentPreviewHtml(assignment) : ""}
         </section>
 
         <section class="curriculum-planner-day-board" aria-label="Monday to Friday assigned content">
           ${CURRICULUM_WEEKDAYS.map((day) => curriculumPlannerDayCardHtml(assignment, day)).join("")}
+        </section>
+
+        <section class="section-block curriculum-planner-parent-calendar-section">
+          <div class="dashboard-panel-heading">
+            <div>
+              <p class="eyebrow">Parent Calendar</p>
+              <h3>Classroom Events</h3>
+              <p class="muted-copy">Parent-facing events and reminders for this week. Separate from private teacher notes.</p>
+            </div>
+            <button class="ghost-button" type="button" data-curriculum-planner-add-event="">Add Classroom Event</button>
+          </div>
+          <form id="curriculumPlannerParentMessageForm" class="panel-form admin-stacked-form">
+            <input type="hidden" name="weekStartDate" value="${escapeHtml(weekStart)}" />
+            <label>Weekly message for families <span class="muted-copy">(optional)</span>
+              <textarea name="parentMessage" rows="3" placeholder="Hello families — this week we are exploring gardens. Friday is Water Day!">${escapeHtml(assignment.parentCalendar?.parentMessage || "")}</textarea>
+            </label>
+            <div class="form-actions">
+              <button class="primary-button" type="submit">Save Parent Message</button>
+            </div>
+          </form>
+          <details class="curriculum-planner-events-panel" ${editingEvent || eventPresetDay || !parentEvents.length ? "open" : ""}>
+            <summary>${editingEvent || eventPresetDay ? "Classroom event form · tap to collapse" : "Add or edit classroom event · tap to expand"}</summary>
+            <div class="curriculum-planner-events-body">
+              ${curriculumPlannerClassroomEventFormHtml(assignment, editingEvent, eventPresetDay)}
+            </div>
+          </details>
+          <div class="curriculum-planner-event-list">
+            ${parentEvents.length
+              ? parentEvents.map((event) => curriculumPlannerClassroomEventCardHtml(event)).join("")
+              : `<p class="muted-copy">No classroom events yet. Add Water Day, Field Trip, Items to Bring, and other family reminders here.</p>`
+            }
+          </div>
         </section>
 
         <section class="section-block curriculum-planner-notes-section">
@@ -30284,8 +30676,53 @@ document.addEventListener("click", async (event) => {
       removeCurriculumWeekAssignment(week);
       curriculumPlannerEditingObservationId = "";
       curriculumPlannerObservationPresetDay = "";
+      curriculumPlannerEditingEventId = "";
+      curriculumPlannerEventPresetDay = "";
+      curriculumPlannerShowParentPreview = false;
       renderCurriculumPlanner();
     }
+    return;
+  }
+
+  const addEventButton = event.target.closest("[data-curriculum-planner-add-event]");
+  if (addEventButton) {
+    curriculumPlannerEditingEventId = "";
+    curriculumPlannerEventPresetDay = addEventButton.dataset.curriculumPlannerAddEvent || "";
+    setCurriculumPlannerMessage("Add a parent-facing classroom event below.", true);
+    renderCurriculumPlanner();
+    document.querySelector("#curriculumPlannerEventForm")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    return;
+  }
+
+  const plannerEditEventButton = event.target.closest("[data-curriculum-planner-edit-event]");
+  if (plannerEditEventButton) {
+    curriculumPlannerEditingEventId = plannerEditEventButton.dataset.curriculumPlannerEditEvent || "";
+    curriculumPlannerEventPresetDay = "";
+    renderCurriculumPlanner();
+    document.querySelector("#curriculumPlannerEventForm")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    return;
+  }
+
+  const plannerDeleteEventButton = event.target.closest("[data-curriculum-planner-delete-event]");
+  if (plannerDeleteEventButton) {
+    const eventId = plannerDeleteEventButton.dataset.curriculumPlannerDeleteEvent;
+    if (eventId && window.confirm("Delete this classroom event from the Parent Calendar?")) {
+      deleteCurriculumPlannerClassroomEvent(curriculumPlannerSelectedWeek, eventId);
+    }
+    return;
+  }
+
+  if (event.target.closest("[data-curriculum-planner-cancel-event]")) {
+    curriculumPlannerEditingEventId = "";
+    curriculumPlannerEventPresetDay = "";
+    renderCurriculumPlanner();
+    return;
+  }
+
+  const toggleParentPreviewButton = event.target.closest("[data-curriculum-planner-toggle-parent-preview]");
+  if (toggleParentPreviewButton) {
+    curriculumPlannerShowParentPreview = !curriculumPlannerShowParentPreview;
+    renderCurriculumPlanner();
     return;
   }
 
@@ -30336,6 +30773,12 @@ document.addEventListener("click", async (event) => {
   const printTeacherButton = event.target.closest("[data-curriculum-planner-print-teacher]");
   if (printTeacherButton) {
     printCurriculumPlannerTeacherWeek(printTeacherButton.dataset.curriculumPlannerPrintTeacher);
+    return;
+  }
+
+  const printParentButton = event.target.closest("[data-curriculum-planner-print-parent]");
+  if (printParentButton) {
+    printCurriculumPlannerParentWeek(printParentButton.dataset.curriculumPlannerPrintParent);
     return;
   }
 
@@ -32684,11 +33127,36 @@ document.addEventListener("submit", (event) => {
   }
 });
 
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("#curriculumPlannerParentMessageForm")) return;
+  event.preventDefault();
+  try {
+    saveCurriculumPlannerParentMessageFromForm(event.target);
+  } catch (error) {
+    setCurriculumPlannerMessage(error.message || "Could not save parent message.", false);
+    renderCurriculumPlanner();
+  }
+});
+
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("#curriculumPlannerEventForm")) return;
+  event.preventDefault();
+  try {
+    saveCurriculumPlannerClassroomEventFromForm(event.target);
+  } catch (error) {
+    setCurriculumPlannerMessage(error.message || "Could not save classroom event.", false);
+    renderCurriculumPlanner();
+  }
+});
+
 document.addEventListener("change", (event) => {
   if (!event.target.matches('#curriculumPlannerAssignForm [name="weekStartDate"]')) return;
   curriculumPlannerSelectedWeek = curriculumPlannerWeekStartIso(event.target.value);
   curriculumPlannerEditingObservationId = "";
   curriculumPlannerObservationPresetDay = "";
+  curriculumPlannerEditingEventId = "";
+  curriculumPlannerEventPresetDay = "";
+  curriculumPlannerShowParentPreview = false;
   renderCurriculumPlanner();
 });
 
