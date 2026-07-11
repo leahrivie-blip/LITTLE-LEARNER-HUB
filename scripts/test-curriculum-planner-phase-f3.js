@@ -204,6 +204,8 @@ async function main() {
     await page.click('#curriculumPlannerParentMessageForm button[type="submit"]');
     await page.waitForFunction(() => /Parent calendar message saved/i.test(document.querySelector(".form-message")?.textContent || ""), null, { timeout: 5000 });
 
+    // Open Friday accordion, then add a classroom event linked to that weekday.
+    await page.locator('[data-curriculum-planner-day="friday"]').evaluate((el) => { el.open = true; });
     await page.click('[data-curriculum-planner-add-event="friday"]');
     await page.waitForSelector("#curriculumPlannerEventForm", { timeout: 5000 });
     await page.selectOption('#curriculumPlannerEventForm [name="eventType"]', "Water Day");
