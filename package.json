@@ -17,7 +17,7 @@
     "stripe:check": "node server/stripe-check.js",
     "launch:check": "node server/launch-check.js",
     "billing:check": "node server/billing-check.js",
-    "test:curriculum-ux": "node scripts/test-curriculum-ux-qa.js",
+    "test:curriculum-import": "node scripts/test-curriculum-import-parser.js",
     "test:curriculum-publish": "node scripts/test-curriculum-admin-publish-flow.js",
     "test:billing-membership": "node scripts/test-billing-membership-qa.js"
   },
