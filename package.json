@@ -16,6 +16,10 @@
     "check": "node --check server/index.js && node --check app.js && node --check server/launch-check.js && node --check server/billing-check.js",
     "stripe:check": "node server/stripe-check.js",
     "launch:check": "node server/launch-check.js",
-    "billing:check": "node server/billing-check.js"
+    "billing:check": "node server/billing-check.js",
+    "test:curriculum-ux": "node scripts/test-curriculum-ux-qa.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.1"
   }
 }

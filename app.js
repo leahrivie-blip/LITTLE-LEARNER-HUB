@@ -3011,6 +3011,8 @@ let currentPlan = localStorage.getItem("llhPlan") || "Free";
 let currentUser = localStorage.getItem("llhUser") || "";
 let activeFilter = "All";
 let activeActivityLessonPlanId = "";
+let activeViewerResourceId = "";
+let resourceViewerReturnToId = "";
 let currentAuthMode = "login";
 let checkoutPromoCode = localStorage.getItem("llhCheckoutPromoCode") || "";
 let adminAnalyticsCache = null;
@@ -3561,6 +3563,20 @@ function resourceSearchHaystack(resource) {
         );
       });
     });
+  }
+  if (resource._curriculumManaged && resource.category === "Activity Center") {
+    const activity = resource._curriculumActivity || null;
+    parts.push(
+      resource.materials,
+      resource.setup,
+      resource.steps,
+      resource._curriculumParentTitle,
+      resource.lessonPlanId,
+      activity?.dayOfWeek,
+      activity?.description,
+      ...(Array.isArray(resource.learningGoals) ? resource.learningGoals : []),
+      ...(Array.isArray(activity?.learningGoals) ? activity.learningGoals : []),
+    );
   }
   return parts.filter(Boolean).join(" ").toLowerCase();
 }
@@ -6694,12 +6710,16 @@ function setView(view) {
   if (resolvedView === "reports") renderReportsPage();
   trackEvent("page_view", { view: resolvedView, nav: requestedView });
   updateSidebarDashboard();
+  setMobileNavOpen(false);
   if (!isMobileLayout()) window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function canAccess(resource) {
   if (hasAdminFullAccess()) return true;
   if (accessRank[effectiveAccessPlan()] >= accessRank.Pro) return true;
+  if (resource?._curriculumManaged) {
+    return String(resource.plan || "Free").trim() !== "Pro";
+  }
   return freeResourceIds(resource.category).has(resource.id);
 }
 
@@ -7178,11 +7198,16 @@ function resourceCard(resource) {
   const activityCount = resource._curriculumManaged && resource.category === "Lesson Plans"
     ? curriculumActivityCountForLesson(resource.id)
     : 0;
+  const activityDayLabel = resource._curriculumActivity?.dayOfWeek
+    ? String(resource._curriculumActivity.dayOfWeek).charAt(0).toUpperCase() + String(resource._curriculumActivity.dayOfWeek).slice(1)
+    : "";
+  const parentLessonTitle = resource._curriculumParentTitle || "";
   return `
     <article class="resource-card ${locked ? "locked" : ""}">
       ${resource.previewData ? `<img class="resource-preview" src="${resource.previewData}" alt="${resource.title} preview" />` : ""}
       <div class="tag-row">
         <span class="tag">${resource.age}</span>
+        ${resource.featured ? `<span class="tag">Featured</span>` : ""}
         ${resource.tags.slice(0, 3).map((tag) => `<span class="tag">${tag}</span>`).join("")}
         ${resource.format ? `<span class="tag">${resource.format}</span>` : ""}
         <span class="tag access-tag">${accessText}</span>
@@ -7200,6 +7225,13 @@ function resourceCard(resource) {
           ${activityCount ? `<span><b>Activities:</b> ${activityCount}</span>` : ""}
           ${lessonContext?.supportArea ? `<span><b>Support Area Match:</b> ${escapeHtml(lessonContext.supportArea)}</span>` : ""}
           ${lessonContext ? `<p><b>Why this helps:</b> ${escapeHtml(lessonContext.why)}</p>` : ""}
+        </div>
+      ` : ""}
+      ${resource.category === "Activity Center" && resource._curriculumManaged ? `
+        <div class="lesson-card-context">
+          <span><b>Category:</b> ${escapeHtml(resource.activityCategory || resource.theme || "Activity")}</span>
+          ${activityDayLabel ? `<span><b>Day:</b> ${escapeHtml(activityDayLabel)}</span>` : ""}
+          ${parentLessonTitle ? `<span><b>Parent Lesson:</b> ${escapeHtml(parentLessonTitle)}</span>` : ""}
         </div>
       ` : ""}
       <div class="resource-actions">
@@ -10061,6 +10093,7 @@ function ensureResourceViewer() {
         <h2 id="resourceViewerTitle">Resource</h2>
         <div class="tag-row" id="resourceViewerTags"></div>
         <div class="resource-viewer-toolbar">
+          <button class="ghost-button" id="resourceViewerBackButton" type="button" hidden>← Back</button>
           <button class="primary-button" id="downloadPdfButton" type="button" hidden>Download PDF</button>
           <button class="primary-button" id="printResourceButton" type="button">Print / Save PDF</button>
         </div>
@@ -10069,6 +10102,7 @@ function ensureResourceViewer() {
     </div>
   `);
   document.querySelector("#closeResourceViewer")?.addEventListener("click", closeResourceViewer);
+  document.querySelector("#resourceViewerBackButton")?.addEventListener("click", resourceViewerBack);
   document.querySelector("#downloadPdfButton")?.addEventListener("click", downloadActiveResourcePdf);
   document.querySelector("#printResourceButton")?.addEventListener("click", printResourceViewer);
   document.querySelector("#resourceViewerModal")?.addEventListener("click", (event) => {
@@ -10083,6 +10117,35 @@ function closeResourceViewer() {
   viewer.setAttribute("aria-hidden", "true");
   document.body.classList.remove("printing-resource");
   activeGeneratedPdfResource = null;
+  activeViewerResourceId = "";
+  resourceViewerReturnToId = "";
+  updateResourceViewerBackButton();
+}
+
+function updateResourceViewerBackButton() {
+  const backButton = document.querySelector("#resourceViewerBackButton");
+  if (!backButton) return;
+  if (resourceViewerReturnToId) {
+    backButton.hidden = false;
+    backButton.textContent = "← Back to lesson plan";
+    return;
+  }
+  if (activeViewerResourceId) {
+    backButton.hidden = false;
+    backButton.textContent = "← Close";
+    return;
+  }
+  backButton.hidden = true;
+}
+
+function resourceViewerBack() {
+  if (resourceViewerReturnToId) {
+    const returnId = resourceViewerReturnToId;
+    resourceViewerReturnToId = "";
+    openResourceViewer(returnId);
+    return;
+  }
+  closeResourceViewer();
 }
 
 function printResourceViewer() {
@@ -10906,9 +10969,9 @@ function lockedResourcePreviewBenefits(resource) {
     ];
   }
   if (resource.category === "Activity Center") {
-    const activityType = resource.tags?.find((tag) => activityTypes.includes(tag)) || "hands-on";
+    const activityType = resource.activityCategory || resource.theme || "hands-on";
     return [
-      `Builds engagement through ${activityType.toLowerCase()} practice.`,
+      `Builds engagement through ${String(activityType).toLowerCase()} practice.`,
       `Gives providers quick materials, instructions, and learning goals for ${String(resource.age || "young").toLowerCase()} learners.`,
     ];
   }
@@ -10963,7 +11026,7 @@ function openLockedResourcePreview(resource, triggerEl = null) {
   featurePreviewTitle.focus();
 }
 
-async function openResourceViewer(resourceId) {
+async function openResourceViewer(resourceId, options = {}) {
   const resource = resources.find((item) => item.id === resourceId);
   if (!resource) return;
   if (!isResourceVisibleToCurrentUser(resource)) {
@@ -10975,6 +11038,7 @@ async function openResourceViewer(resourceId) {
     return;
   }
   ensureResourceViewer();
+  if (options.returnTo) resourceViewerReturnToId = options.returnTo;
   activeGeneratedPdfResource = null;
   document.querySelector("#resourceViewerCategory").textContent = resource.category;
   document.querySelector("#resourceViewerTitle").textContent = resource.title;
@@ -11032,6 +11096,8 @@ async function openResourceViewer(resourceId) {
   const viewer = document.querySelector("#resourceViewerModal");
   viewer.classList.add("open");
   viewer.setAttribute("aria-hidden", "false");
+  activeViewerResourceId = resource.id;
+  updateResourceViewerBackButton();
   trackEvent("resource_view", { resourceId, title: resource.title, category: resource.category, age: resource.age, access: resource.plan, plan: currentPlan });
 }
 
@@ -11084,7 +11150,7 @@ function renderCategoryPage(view) {
     </div>
     ${category === "Observation Hub" ? renderObservationEditor() : ""}
     <div class="resource-grid">
-      ${items.length ? items.map(resourceCard).join("") : `<div class="empty-state">${isLessonPlanCategory ? "New play-based lesson plans are being added." : (category === "Activity Center" ? "Activities will appear automatically when lesson plans are published." : "No resources found. Try another search or filter.")}</div>`}
+      ${items.length ? items.map(resourceCard).join("") : `<div class="empty-state">${isLessonPlanCategory ? "New play-based lesson plans are being added." : (category === "Activity Center" ? `No activities match your search or filter. Activities appear automatically when lesson plans are published. <button class="inline-link" data-view="lessons" type="button">Browse lesson plans</button>` : "No resources found. Try another search or filter.")}</div>`}
     </div>
   `;
 }
@@ -27426,11 +27492,14 @@ document.addEventListener("click", async (event) => {
 
   const viewButton = event.target.closest("[data-view]");
   if (viewButton) {
-    activeFilter = "All";
-    if (viewButton.dataset.view !== "activities") {
+    const nextView = viewButton.dataset.view || "";
+    if (!["lessons", "activities"].includes(nextView)) {
+      activeFilter = "All";
+      if (searchInput) searchInput.value = "";
+    }
+    if (nextView !== "activities") {
       activeActivityLessonPlanId = "";
     }
-    if (searchInput) searchInput.value = "";
     if (viewButton.dataset.quickDocType) {
       pendingAiDocType = viewButton.dataset.quickDocType;
     }
@@ -27503,7 +27572,10 @@ document.addEventListener("click", async (event) => {
   const viewResourceButton = event.target.closest("[data-view-resource]");
   if (viewResourceButton) {
     event.preventDefault();
-    openResourceViewer(viewResourceButton.dataset.viewResource);
+    const resourceId = viewResourceButton.dataset.viewResource;
+    const current = activeViewerResourceId ? resources.find((item) => item.id === activeViewerResourceId) : null;
+    const returnTo = current?.category === "Activity Center" ? activeViewerResourceId : "";
+    openResourceViewer(resourceId, { returnTo });
     return;
   }
 
@@ -28441,7 +28513,13 @@ document.addEventListener("click", async (event) => {
   const openCurriculumActivityButton = event.target.closest("[data-open-curriculum-activity]");
   if (openCurriculumActivityButton) {
     const activityId = openCurriculumActivityButton.dataset.openCurriculumActivity;
-    if (activityId) openResourceViewer(activityId);
+    if (activityId) {
+      const returnTo = activeViewerResourceId
+        && resources.find((item) => item.id === activeViewerResourceId)?.category === "Lesson Plans"
+        ? activeViewerResourceId
+        : "";
+      openResourceViewer(activityId, { returnTo });
+    }
     return;
   }
 

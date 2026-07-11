@@ -391,9 +391,16 @@ button {
 
 .resource-viewer-toolbar {
   display: flex;
-  justify-content: flex-end;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-items: center;
   gap: 10px;
   margin-top: 14px;
+}
+
+.resource-viewer-toolbar .ghost-button,
+.resource-viewer-toolbar .primary-button {
+  min-height: 44px;
 }
 
 .resource-viewer-body {
@@ -12773,6 +12780,19 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 .lp-resource-open-btn {
   font-size: 0.8rem;
   padding: 4px 10px;
+}
+
+@media (max-width: 640px) {
+  .curriculum-day-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .curriculum-day-tab {
+    flex: 0 0 auto;
+  }
 }
 
 @media print {
