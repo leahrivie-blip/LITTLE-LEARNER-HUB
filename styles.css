@@ -5314,31 +5314,38 @@ body.home-view .topbar .search-wrap {
 
 .curriculum-planner-notes-section,
 .curriculum-planner-observations-section,
+.curriculum-planner-parent-calendar-section,
 .curriculum-planner-observations-body,
-.curriculum-planner-observation-list {
+.curriculum-planner-events-body,
+.curriculum-planner-observation-list,
+.curriculum-planner-event-list {
   display: grid;
   gap: 12px;
 }
 
-.curriculum-planner-observations-panel {
+.curriculum-planner-observations-panel,
+.curriculum-planner-events-panel {
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 12px;
   background: rgba(255, 255, 255, 0.92);
 }
 
-.curriculum-planner-observations-panel > summary {
+.curriculum-planner-observations-panel > summary,
+.curriculum-planner-events-panel > summary {
   cursor: pointer;
   font-weight: 700;
 }
 
-.curriculum-planner-observation-card {
+.curriculum-planner-observation-card,
+.curriculum-planner-event-card {
   display: grid;
   gap: 8px;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: rgba(248, 248, 250, 0.95);
+  min-width: 0;
 }
 
 .curriculum-planner-observation-meta {
@@ -5355,6 +5362,49 @@ body.home-view .topbar .search-wrap {
 
 .curriculum-planner-activity-warning {
   color: #9a3412;
+}
+
+.curriculum-planner-day-events,
+.curriculum-planner-preview-events {
+  display: grid;
+  gap: 6px;
+}
+
+.curriculum-planner-event-chip-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.curriculum-planner-parent-preview {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.75);
+  max-width: 100%;
+}
+
+.curriculum-planner-parent-message {
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+.curriculum-planner-preview-days {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.curriculum-planner-preview-day {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
 }
 
 .dashboard-curriculum-meta,
@@ -5378,7 +5428,8 @@ body.home-view .topbar .search-wrap {
   .curriculum-planner-setup .dashboard-panel-heading,
   .curriculum-planner-week-summary .dashboard-panel-heading,
   .curriculum-planner-notes-section .dashboard-panel-heading,
-  .curriculum-planner-observations-section .dashboard-panel-heading {
+  .curriculum-planner-observations-section .dashboard-panel-heading,
+  .curriculum-planner-parent-calendar-section .dashboard-panel-heading {
     flex-direction: column;
     align-items: stretch;
   }
@@ -5386,7 +5437,8 @@ body.home-view .topbar .search-wrap {
   .curriculum-planner-shell .form-actions,
   .dashboard-curriculum-empty .form-actions,
   .dashboard-curriculum-assigned .form-actions,
-  .curriculum-planner-observation-card .form-actions {
+  .curriculum-planner-observation-card .form-actions,
+  .curriculum-planner-event-card .form-actions {
     display: grid;
     gap: 8px;
   }
@@ -5394,7 +5446,8 @@ body.home-view .topbar .search-wrap {
   .curriculum-planner-shell .form-actions button,
   .dashboard-curriculum-empty .form-actions button,
   .dashboard-curriculum-assigned .form-actions button,
-  .curriculum-planner-observation-card .form-actions button {
+  .curriculum-planner-observation-card .form-actions button,
+  .curriculum-planner-event-card .form-actions button {
     width: 100%;
     min-height: 44px;
   }
@@ -5404,7 +5457,9 @@ body.home-view .topbar .search-wrap {
   .curriculum-planner-shell,
   .curriculum-planner-day-card,
   .curriculum-planner-day-board,
-  .curriculum-planner-observation-card {
+  .curriculum-planner-observation-card,
+  .curriculum-planner-event-card,
+  .curriculum-planner-parent-preview {
     overflow-x: hidden;
   }
 }
