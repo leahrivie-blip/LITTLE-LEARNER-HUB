@@ -264,7 +264,7 @@ async function runBrowserQa(baseUrl, created) {
 
   async function exercise(viewport, label) {
     const page = await browser.newPage({ viewport });
-    await page.goto(`${baseUrl}/index.html`, { waitUntil: "networkidle" });
+    await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
 
     await page.evaluate(() => {
       localStorage.setItem("llhUser", "qa-free@example.com");
@@ -277,8 +277,9 @@ async function runBrowserQa(baseUrl, created) {
       }));
       localStorage.setItem("llhPlan", "Free");
     });
-    await page.reload({ waitUntil: "networkidle" });
-    await page.waitForTimeout(1500);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForResponse((response) => response.url().includes("/api/site-content") && response.status() === 200, { timeout: 30000 });
+    await page.waitForFunction(() => typeof loadResources === "function" && Array.isArray(resources) && resources.some((item) => item.category === "Lesson Plans"), null, { timeout: 30000 });
 
     await navigateTo(page, "lessons", label === "mobile");
     await page.waitForSelector("#view-lessons .resource-card", { timeout: 20000 });
@@ -311,14 +312,16 @@ async function runBrowserQa(baseUrl, created) {
     assert(!viewerHtml.includes("TITLE:"), `${label}: raw importer text leaked`);
     assert(viewerHtml.includes("Printables") || viewerHtml.includes("Resources") || viewerHtml.includes("QA Helpers Badge"), `${label}: linked resources missing`);
 
-    await page.click('[data-curriculum-lesson-day="tuesday"]');
+    await page.locator('[data-curriculum-lesson-day="tuesday"]').scrollIntoViewIfNeeded();
+    await page.locator('[data-curriculum-lesson-day="tuesday"]').click({ force: true });
     await page.waitForTimeout(200);
     const tuesdayPanel = page.locator('[data-curriculum-lesson-day-panel="tuesday"].is-active');
     assert(await tuesdayPanel.count() === 1, `${label}: tuesday tab not active`);
 
     const mondayItems = flattenDailyItems(featured.lessonPlan).filter((item) => item.dayOfWeek === "monday");
     assert(mondayItems.length >= 2, "fixture expects multiple Monday activities");
-    await page.click('[data-curriculum-lesson-day="monday"]');
+    await page.locator('[data-curriculum-lesson-day="monday"]').scrollIntoViewIfNeeded();
+    await page.locator('[data-curriculum-lesson-day="monday"]').click({ force: true });
     const mondayCards = await page.locator('[data-curriculum-lesson-day-panel="monday"] .curriculum-activity-card').count();
     assert(mondayCards === mondayItems.length, `${label}: monday activity count mismatch`);
 
@@ -403,6 +406,10 @@ async function main() {
     const publicSeeded = library.lessonPlans.filter((p) => seededIds.has(p.id));
     assert(publicSeeded.length === 6, `Expected 6 seeded public plans, got ${publicSeeded.length}`);
     assert(!publicSeeded.some((p) => p.status === "draft"), "Draft plan leaked to public API");
+
+    const proPublic = publicSeeded.find((p) => p.plan === "Pro");
+    assert(proPublic?.locked === true, "Pro plan public preview must be locked");
+    assert(!proPublic?.dailyPlans, "Pro plan public preview must omit dailyPlans");
 
     const featured = created.find((p) => p.status === "featured");
     const publicFeatured = publicSeeded.find((p) => p.id === featured.id);

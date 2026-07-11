@@ -13124,6 +13124,75 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   .curriculum-day-panel { display: grid !important; }
   .curriculum-day-tabs { display: none; }
   .curriculum-lesson-section { break-inside: avoid; }
+  .curriculum-activity-card,
+  .curriculum-print-day,
+  .curriculum-day-panel-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .curriculum-lesson-print .curriculum-open-activity-button,
+  .curriculum-lesson-print .curriculum-activity-actions,
+  .curriculum-lesson-print .ghost-button {
+    display: none !important;
+  }
+  .curriculum-lesson-overview-lead {
+    margin-top: 10px;
+  }
+}
+
+.curriculum-lesson-overview-lead {
+  margin-top: 12px;
+  line-height: 1.55;
+}
+
+.curriculum-day-panel-section {
+  display: grid;
+  gap: 12px;
+}
+
+.curriculum-print-day {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border, #e8e2dc);
+}
+
+.curriculum-print-day h4 {
+  margin: 0 0 10px;
+}
+
+.curriculum-numbered-line {
+  margin: 0 0 6px;
+}
+
+@media (max-width: 480px) {
+  .curriculum-lesson-viewer,
+  .curriculum-activity-viewer,
+  .curriculum-import-preview {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .curriculum-activity-field,
+  .curriculum-import-preview-text,
+  .curriculum-activity-card {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .curriculum-day-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+  }
+
+  .curriculum-day-tab {
+    min-height: 44px;
+  }
+
+  .curriculum-open-activity-button {
+    width: 100%;
+    min-height: 44px;
+  }
 }
 
 /* ─── Site Announcement Banner ───────────────────────────────────────────── */

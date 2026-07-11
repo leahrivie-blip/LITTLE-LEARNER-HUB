@@ -2,6 +2,7 @@
  * Phase C: curriculum lesson plan import preview model (read-only).
  * Used by browser (global CurriculumImportPreview) and Node tests.
  */
+(function curriculumImportPreviewModule() {
 const CURRICULUM_WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
 const CURRICULUM_PREMIUM_TEXT_LIMIT = 12000;
 const CURRICULUM_ITEM_TEXT_LIMITS = {
@@ -396,3 +397,4 @@ if (typeof module !== "undefined" && module.exports) {
 if (typeof globalThis !== "undefined") {
   globalThis.CurriculumImportPreview = api;
 }
+})();
