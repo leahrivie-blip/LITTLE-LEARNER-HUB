@@ -13073,6 +13073,7 @@ function saveCurriculumPlannerObservationFromForm(form) {
   ].sort((a, b) => `${b.date} ${b.updatedAt}`.localeCompare(`${a.date} ${a.updatedAt}`));
   updateCurriculumWeekAssignmentFields(weekStartDate, { observations });
   curriculumPlannerEditingObservationId = "";
+  curriculumPlannerObservationPresetDay = "";
   setCurriculumPlannerMessage("Observation saved. Teacher-only — not shared with parents.", true);
   renderCurriculumPlanner();
 }
@@ -13422,17 +13423,17 @@ function renderCurriculumPlanner() {
             <button class="ghost-button" type="button" data-curriculum-planner-add-observation="">Add Observation</button>
           </div>
           <details class="curriculum-planner-observations-panel" ${editingObservation || observationPresetDay || !(assignment.observations || []).length ? "open" : ""}>
-            <summary>${(assignment.observations || []).length} observation${(assignment.observations || []).length === 1 ? "" : "s"} · tap to expand</summary>
+            <summary>${editingObservation || observationPresetDay ? "Observation form · tap to collapse" : "Add or edit observation form · tap to expand"}</summary>
             <div class="curriculum-planner-observations-body">
               ${curriculumPlannerObservationFormHtml(assignment, editingObservation, observationPresetDay)}
-              <div class="curriculum-planner-observation-list">
-                ${(assignment.observations || []).length
-                  ? (assignment.observations || []).map((obs) => curriculumPlannerObservationCardHtml(assignment, obs)).join("")
-                  : `<p class="muted-copy">No observations yet for this week.</p>`
-                }
-              </div>
             </div>
           </details>
+          <div class="curriculum-planner-observation-list">
+            ${(assignment.observations || []).length
+              ? (assignment.observations || []).map((obs) => curriculumPlannerObservationCardHtml(assignment, obs)).join("")
+              : `<p class="muted-copy">No observations yet for this week.</p>`
+            }
+          </div>
         </section>
       ` : curriculumPlannerEmptyStateHtml(weekStart)}
     </div>

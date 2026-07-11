@@ -204,7 +204,10 @@ async function main() {
 
     await page.fill('#curriculumPlannerNotesForm [name="teacherNotes"]', "Weekly note line 1\nWeekly note line 2");
     await page.fill('#curriculumPlannerNotesForm [name="preparationNotes"]', "Buy soil and cups");
+    // Day cards use <details>; ensure the weekday is open before editing its private note.
+    await page.locator('[data-curriculum-planner-day="monday"]').evaluate((el) => { el.open = true; });
     await page.fill('textarea[name="dailyNote-monday"]', "Move sensory to afternoon");
+    await page.locator('[data-curriculum-planner-day="tuesday"]').evaluate((el) => { el.open = true; });
     await page.fill('textarea[name="dailyNote-tuesday"]', "Gather paint before lunch");
     await page.click('#curriculumPlannerNotesForm button[type="submit"]');
     await page.waitForFunction(() => /Teacher notes saved/i.test(document.querySelector(".form-message")?.textContent || ""), null, { timeout: 5000 });
@@ -240,7 +243,11 @@ async function main() {
     assert(!assignments[0].observations[0].childId, "Child should remain optional/empty");
 
     await page.click(`[data-curriculum-planner-edit-observation="${obsId}"]`);
-    await page.waitForSelector('#curriculumPlannerObservationForm [name="observationId"]', { timeout: 5000 });
+    await page.waitForFunction((id) => {
+      const form = document.querySelector("#curriculumPlannerObservationForm");
+      const panel = document.querySelector(".curriculum-planner-observations-panel");
+      return Boolean(form && panel?.open && form.querySelector('[name="observationId"]')?.value === id);
+    }, obsId, { timeout: 5000 });
     await page.fill('#curriculumPlannerObservationForm [name="note"]', "Edited observation: sorting improved with support.");
     await page.click('#curriculumPlannerObservationForm button[type="submit"]');
     await page.waitForFunction(() => /Observation saved/i.test(document.querySelector(".form-message")?.textContent || ""), null, { timeout: 5000 });
