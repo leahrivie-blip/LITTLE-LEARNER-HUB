@@ -29,6 +29,7 @@
     "test:curriculum-planner": "node scripts/test-curriculum-planner-phase-f1.js",
     "test:curriculum-planner-notes": "node scripts/test-curriculum-planner-phase-f2.js",
     "test:curriculum-planner-calendar": "node scripts/test-curriculum-planner-phase-f3.js",
+    "test:curriculum-planner-e2e": "node scripts/test-curriculum-planner-e2e-verify.js",
     "test:billing-membership": "node scripts/test-billing-membership-qa.js",
     "test:homepage-smoke": "node scripts/test-homepage-smoke.js"
   },
