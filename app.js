@@ -4586,12 +4586,136 @@ function renderCurriculumLessonImportPanel() {
   `;
 }
 
+function curriculumDomainCheckboxGridHtml(selected = [], { name = "", dataAttr = "" } = {}) {
+  const selectedSet = new Set(selected || []);
+  const nameAttr = name ? ` name="${escapeHtml(name)}"` : "";
+  const dataName = dataAttr ? ` ${dataAttr}` : "";
+  return `
+    <div class="curriculum-domain-grid"${dataName}>
+      ${CURRICULUM_LEARNING_DOMAINS.map((domain) => `
+        <label class="admin-inline-toggle">
+          <input type="checkbox"${nameAttr} value="${escapeHtml(domain)}" ${selectedSet.has(domain) ? "checked" : ""} data-curriculum-domain-option />
+          <span>${escapeHtml(domain)}</span>
+        </label>
+      `).join("")}
+    </div>
+  `;
+}
+
+function curriculumBookRowHtml(book = {}, { scope = "weekly" } = {}) {
+  return `
+    <div class="curriculum-book-row" data-curriculum-book-row data-curriculum-list-scope="${escapeHtml(scope)}">
+      <label>Title<input value="${escapeHtml(book.title || "")}" data-curriculum-book-title placeholder="Book title" /></label>
+      <label>Author<input value="${escapeHtml(book.author || "")}" data-curriculum-book-author placeholder="Author" /></label>
+      <label>Notes<textarea rows="2" data-curriculum-book-notes placeholder="Notes">${escapeHtml(book.notes || "")}</textarea></label>
+      <div class="curriculum-list-row-actions">
+        <button class="ghost-button" type="button" data-curriculum-list-move="up" aria-label="Move book up">↑</button>
+        <button class="ghost-button" type="button" data-curriculum-list-move="down" aria-label="Move book down">↓</button>
+        <button class="ghost-button" type="button" data-curriculum-list-remove aria-label="Remove book">Remove</button>
+      </div>
+    </div>
+  `;
+}
+
+function curriculumSongRowHtml(song = {}, { scope = "weekly" } = {}) {
+  return `
+    <div class="curriculum-song-row" data-curriculum-song-row data-curriculum-list-scope="${escapeHtml(scope)}">
+      <label>Title<input value="${escapeHtml(song.title || "")}" data-curriculum-song-title placeholder="Song title" /></label>
+      <label>Notes<textarea rows="2" data-curriculum-song-notes placeholder="Notes">${escapeHtml(song.notes || "")}</textarea></label>
+      <div class="curriculum-list-row-actions">
+        <button class="ghost-button" type="button" data-curriculum-list-move="up" aria-label="Move song up">↑</button>
+        <button class="ghost-button" type="button" data-curriculum-list-move="down" aria-label="Move song down">↓</button>
+        <button class="ghost-button" type="button" data-curriculum-list-remove aria-label="Remove song">Remove</button>
+      </div>
+    </div>
+  `;
+}
+
+function curriculumTextListRowHtml(value = "", { field = "circleTime" } = {}) {
+  return `
+    <div class="curriculum-text-list-row" data-curriculum-text-list-row data-curriculum-text-list-field="${escapeHtml(field)}">
+      <label class="curriculum-text-list-label"><span class="visually-hidden">Item</span>
+        <textarea rows="2" data-curriculum-text-list-value placeholder="Add item">${escapeHtml(value || "")}</textarea>
+      </label>
+      <div class="curriculum-list-row-actions">
+        <button class="ghost-button" type="button" data-curriculum-list-move="up" aria-label="Move item up">↑</button>
+        <button class="ghost-button" type="button" data-curriculum-list-move="down" aria-label="Move item down">↓</button>
+        <button class="ghost-button" type="button" data-curriculum-list-remove aria-label="Remove item">Remove</button>
+      </div>
+    </div>
+  `;
+}
+
+function curriculumBooksEditorHtml(books = [], { scope = "weekly", addLabel = "Add book" } = {}) {
+  const rows = Array.isArray(books) ? books : [];
+  return `
+    <div class="curriculum-list-editor" data-curriculum-books-editor="${escapeHtml(scope)}">
+      <div class="curriculum-list-rows" data-curriculum-books-rows>
+        ${rows.length
+          ? rows.map((book) => curriculumBookRowHtml(book, { scope })).join("")
+          : `<p class="muted-copy curriculum-list-empty">No books yet.</p>`}
+      </div>
+      <button class="ghost-button" type="button" data-curriculum-add-book="${escapeHtml(scope)}">${escapeHtml(addLabel)}</button>
+    </div>
+  `;
+}
+
+function curriculumSongsEditorHtml(songs = [], { scope = "weekly", addLabel = "Add song" } = {}) {
+  const rows = Array.isArray(songs) ? songs : [];
+  return `
+    <div class="curriculum-list-editor" data-curriculum-songs-editor="${escapeHtml(scope)}">
+      <div class="curriculum-list-rows" data-curriculum-songs-rows>
+        ${rows.length
+          ? rows.map((song) => curriculumSongRowHtml(song, { scope })).join("")
+          : `<p class="muted-copy curriculum-list-empty">No songs yet.</p>`}
+      </div>
+      <button class="ghost-button" type="button" data-curriculum-add-song="${escapeHtml(scope)}">${escapeHtml(addLabel)}</button>
+    </div>
+  `;
+}
+
+function curriculumTextListEditorHtml(items = [], { field = "circleTime", addLabel = "Add item" } = {}) {
+  const rows = Array.isArray(items) ? items : [];
+  return `
+    <div class="curriculum-list-editor" data-curriculum-text-list-editor="${escapeHtml(field)}">
+      <div class="curriculum-list-rows" data-curriculum-text-list-rows>
+        ${rows.length
+          ? rows.map((item) => curriculumTextListRowHtml(item, { field })).join("")
+          : `<p class="muted-copy curriculum-list-empty">No items yet.</p>`}
+      </div>
+      <button class="ghost-button" type="button" data-curriculum-add-text-list="${escapeHtml(field)}">${escapeHtml(addLabel)}</button>
+    </div>
+  `;
+}
+
+function curriculumWeekdayMoveOptionsHtml(currentDay) {
+  return CURRICULUM_WEEKDAYS.map((day) => {
+    const label = day.charAt(0).toUpperCase() + day.slice(1);
+    return `<option value="${escapeHtml(day)}"${day === currentDay ? " selected" : ""}>${escapeHtml(label)}</option>`;
+  }).join("");
+}
+
 function curriculumDailyItemRowHtml(day, item = {}) {
   const itemId = item.itemId || "";
   const category = item.activityCategory || PLAY_ACTIVITY_CATEGORIES[0];
+  const selectedDomains = Array.isArray(item.learningDomains) ? item.learningDomains : [];
   return `
-    <div class="curriculum-daily-item-row" data-curriculum-day="${escapeHtml(day)}">
+    <div class="curriculum-daily-item-row" data-curriculum-day="${escapeHtml(day)}" data-curriculum-activity-row>
       <input type="hidden" value="${escapeHtml(itemId)}" data-curriculum-item-id />
+      <div class="curriculum-activity-toolbar">
+        <strong class="curriculum-activity-toolbar-label">Activity</strong>
+        <div class="curriculum-list-row-actions">
+          <button class="ghost-button" type="button" data-curriculum-activity-move="up" aria-label="Move activity up">↑</button>
+          <button class="ghost-button" type="button" data-curriculum-activity-move="down" aria-label="Move activity down">↓</button>
+          <button class="ghost-button" type="button" data-curriculum-activity-duplicate>Duplicate</button>
+          <button class="ghost-button curriculum-daily-remove" type="button" data-curriculum-remove-row>Delete</button>
+        </div>
+      </div>
+      <label>Move to weekday
+        <select data-curriculum-activity-move-day>
+          ${curriculumWeekdayMoveOptionsHtml(day)}
+        </select>
+      </label>
       <label>Category
         <select data-curriculum-category>
           ${PLAY_ACTIVITY_CATEGORIES.map((option) => `<option value="${escapeHtml(option)}"${option === category ? " selected" : ""}>${escapeHtml(option)}</option>`).join("")}
@@ -4599,32 +4723,84 @@ function curriculumDailyItemRowHtml(day, item = {}) {
       </label>
       <label>Activity name<input value="${escapeHtml(item.title || "")}" data-curriculum-title placeholder="Activity name" /></label>
       <label>Description<textarea rows="2" data-curriculum-description>${escapeHtml(item.description || "")}</textarea></label>
+      <fieldset class="admin-fieldset curriculum-activity-domains">
+        <legend>Learning domains</legend>
+        ${curriculumDomainCheckboxGridHtml(selectedDomains, { dataAttr: 'data-curriculum-activity-domains="true"' })}
+      </fieldset>
       <label>Materials<textarea rows="2" data-curriculum-materials>${escapeHtml(item.materials || "")}</textarea></label>
       <label>Setup<textarea rows="2" data-curriculum-setup>${escapeHtml(item.setup || "")}</textarea></label>
       <label>Directions<textarea rows="3" data-curriculum-steps>${escapeHtml(item.steps || "")}</textarea></label>
-      <label>Learning goal<textarea rows="2" data-curriculum-learning-goals placeholder="One goal per line">${escapeHtml((item.learningGoals || []).join("\n"))}</textarea></label>
-      <button class="ghost-button curriculum-daily-remove" type="button" data-curriculum-remove-row>Remove</button>
+      <label>Teacher role<textarea rows="2" data-curriculum-teacher-role>${escapeHtml(item.teacherRole || "")}</textarea></label>
+      <label>Teacher language<textarea rows="3" data-curriculum-teacher-language>${escapeHtml(item.teacherLanguage || "")}</textarea></label>
+      <label>Learning goals<textarea rows="2" data-curriculum-learning-goals placeholder="One goal per line">${escapeHtml((item.learningGoals || []).join("\n"))}</textarea></label>
+      <label>Vocabulary<textarea rows="2" data-curriculum-vocabulary>${escapeHtml(item.vocabulary || "")}</textarea></label>
+      <label>Extensions<textarea rows="2" data-curriculum-extensions>${escapeHtml(item.extensions || "")}</textarea></label>
+      <label>Adaptations<textarea rows="2" data-curriculum-adaptations>${escapeHtml(item.adaptations || "")}</textarea></label>
+      <label>Safety notes<textarea rows="2" data-curriculum-safety-notes>${escapeHtml(item.safetyNotes || "")}</textarea></label>
+      <label>Age modifications<textarea rows="2" data-curriculum-age-modifications>${escapeHtml(item.ageModifications || "")}</textarea></label>
     </div>
   `;
 }
 
-function renderCurriculumDailyPlanEditor(dailyPlans = emptyCurriculumDailyPlans()) {
-  return CURRICULUM_WEEKDAYS.map((day) => {
-    const items = Array.isArray(dailyPlans?.[day]?.items) ? dailyPlans[day].items : [];
-    const dayLabel = day.charAt(0).toUpperCase() + day.slice(1);
-    return `
-      <fieldset class="admin-fieldset curriculum-daily-day" data-curriculum-day-panel="${day}">
-        <legend>${dayLabel}</legend>
+function renderCurriculumDailyDayEditor(day, dayPlan = {}) {
+  const plan = dayPlan && typeof dayPlan === "object" ? dayPlan : emptyCurriculumDailyPlanDay();
+  const items = Array.isArray(plan.items) ? plan.items : [];
+  const dayLabel = day.charAt(0).toUpperCase() + day.slice(1);
+  const selectedDomains = Array.isArray(plan.learningDomains) ? plan.learningDomains : [];
+  return `
+    <details class="admin-fieldset curriculum-daily-day" data-curriculum-day-panel="${day}" ${items.length ? "open" : ""}>
+      <summary class="curriculum-daily-day-summary">
+        <span>${dayLabel}</span>
+        <span class="muted-copy">${items.length} ${items.length === 1 ? "activity" : "activities"}</span>
+      </summary>
+      <div class="curriculum-daily-day-body">
+        <label>Daily theme<input data-curriculum-day-theme value="${escapeHtml(plan.theme || "")}" placeholder="${dayLabel} theme" /></label>
+        <label>Daily objectives<textarea rows="2" data-curriculum-day-objectives>${escapeHtml(plan.objectives || "")}</textarea></label>
+        <fieldset class="admin-fieldset">
+          <legend>Daily learning domains</legend>
+          ${curriculumDomainCheckboxGridHtml(selectedDomains, { dataAttr: 'data-curriculum-day-domains="true"' })}
+        </fieldset>
+        <label>Daily materials<textarea rows="2" data-curriculum-day-materials>${escapeHtml(plan.materials || "")}</textarea></label>
+        <label>Daily vocabulary<textarea rows="2" data-curriculum-day-vocabulary>${escapeHtml(plan.vocabulary || "")}</textarea></label>
+        <div class="curriculum-day-list-block">
+          <h5>Books</h5>
+          ${curriculumBooksEditorHtml(plan.books || [], { scope: `day:${day}`, addLabel: `+ Add ${dayLabel} book` })}
+        </div>
+        <div class="curriculum-day-list-block">
+          <h5>Songs</h5>
+          ${curriculumSongsEditorHtml(plan.songs || [], { scope: `day:${day}`, addLabel: `+ Add ${dayLabel} song` })}
+        </div>
+        <div class="curriculum-day-list-block">
+          <h5>Circle-time ideas</h5>
+          ${curriculumTextListEditorHtml(plan.circleTime || [], { field: `day:${day}:circleTime`, addLabel: "+ Add circle-time idea" })}
+        </div>
+        <div class="curriculum-day-list-block">
+          <h5>Transition ideas</h5>
+          ${curriculumTextListEditorHtml(plan.transitions || [], { field: `day:${day}:transitions`, addLabel: "+ Add transition idea" })}
+        </div>
+        <label>Outdoor play<textarea rows="2" data-curriculum-day-outdoor>${escapeHtml(plan.outdoorPlay || "")}</textarea></label>
+        <label>Family connection<textarea rows="2" data-curriculum-day-family>${escapeHtml(plan.familyConnection || "")}</textarea></label>
+        <div class="curriculum-day-list-block">
+          <h5>Observation opportunities</h5>
+          ${curriculumTextListEditorHtml(plan.observations || [], { field: `day:${day}:observations`, addLabel: "+ Add observation" })}
+        </div>
+        <label>Adaptations<textarea rows="2" data-curriculum-day-adaptations>${escapeHtml(plan.adaptations || "")}</textarea></label>
+        <label>Safety notes<textarea rows="2" data-curriculum-day-safety>${escapeHtml(plan.safetyNotes || "")}</textarea></label>
         <div class="curriculum-daily-items" data-curriculum-day-items="${day}">
+          <h5>${dayLabel} activities</h5>
           ${items.length
             ? items.map((item) => curriculumDailyItemRowHtml(day, item)).join("")
             : `<p class="muted-copy curriculum-daily-empty">No activities yet.</p>`
           }
         </div>
         <button class="ghost-button" type="button" data-curriculum-add-row="${day}">+ Add ${dayLabel} activity</button>
-      </fieldset>
-    `;
-  }).join("");
+      </div>
+    </details>
+  `;
+}
+
+function renderCurriculumDailyPlanEditor(dailyPlans = emptyCurriculumDailyPlans()) {
+  return CURRICULUM_WEEKDAYS.map((day) => renderCurriculumDailyDayEditor(day, dailyPlans?.[day] || emptyCurriculumDailyPlanDay())).join("");
 }
 
 function renderAdminCurriculumLessonPlanForm(plan) {
@@ -4649,10 +4825,13 @@ function renderAdminCurriculumLessonPlanForm(plan) {
   };
   const selectedDomains = new Set(record.learningDomains || []);
   return `
-    <form id="adminCurriculumLessonPlanForm" class="panel-form admin-stacked-form">
+    <form id="adminCurriculumLessonPlanForm" class="panel-form admin-stacked-form curriculum-premium-editor">
       <input type="hidden" name="id" value="${escapeHtml(record.id || "")}" />
       <h4>Editing: ${escapeHtml(record.title || "New Lesson Plan")}</h4>
-      <p class="muted-copy">${curriculumLessonPlanStatusLabel(record.status || "draft")} · Linked activities regenerate automatically on save.</p>
+      <p class="muted-copy">${curriculumLessonPlanStatusLabel(record.status || "draft")} · Premium weekly, daily, and activity fields edit here.</p>
+      <div class="access-notice curriculum-activity-sync-notice" role="status">
+        Changes to lesson-plan activities will update linked Activity Library entries when saved.
+      </div>
       <div class="form-grid-two">
         <label>Title<input name="title" value="${escapeHtml(record.title || "")}" required /></label>
         <label>Age group
@@ -4685,17 +4864,27 @@ function renderAdminCurriculumLessonPlanForm(plan) {
           `).join("")}
         </div>
       </fieldset>
-      <label>Weekly overview<textarea name="weeklyOverview" rows="3">${escapeHtml(record.weeklyOverview || "")}</textarea></label>
-      <label>Learning objectives<textarea name="objectives" rows="3">${escapeHtml(record.objectives || "")}</textarea></label>
-      <label>Weekly materials<textarea name="weeklyMaterials" rows="3">${escapeHtml(record.weeklyMaterials || "")}</textarea></label>
-      <label>Vocabulary words<textarea name="vocabularyWords" rows="2">${escapeHtml(record.vocabularyWords || "")}</textarea></label>
-      <label>Observation opportunities<textarea name="observationOpportunities" rows="3">${escapeHtml(record.observationOpportunities || "")}</textarea></label>
-      <label>Adaptations / individualization<textarea name="adaptations" rows="3">${escapeHtml(record.adaptations || "")}</textarea></label>
-      <label>Family connection<textarea name="familyConnection" rows="2">${escapeHtml(record.familyConnection || "")}</textarea></label>
-      <label>Books <span class="muted-copy">(one per line: Title | Author | Notes)</span><textarea name="booksText" rows="3">${escapeHtml(curriculumBooksToText(record.books))}</textarea></label>
-      <label>Songs / fingerplays <span class="muted-copy">(one per line: Title | Notes)</span><textarea name="songsText" rows="3">${escapeHtml(curriculumSongsToText(record.songs))}</textarea></label>
+      <fieldset class="admin-fieldset curriculum-weekly-editor">
+        <legend>Weekly section</legend>
+        <label>Weekly overview<textarea name="weeklyOverview" rows="3">${escapeHtml(record.weeklyOverview || "")}</textarea></label>
+        <label>Weekly objectives<textarea name="objectives" rows="3">${escapeHtml(record.objectives || "")}</textarea></label>
+        <label>Weekly materials<textarea name="weeklyMaterials" rows="3">${escapeHtml(record.weeklyMaterials || "")}</textarea></label>
+        <label>Weekly vocabulary<textarea name="vocabularyWords" rows="2">${escapeHtml(record.vocabularyWords || "")}</textarea></label>
+        <div class="curriculum-day-list-block">
+          <h5>Weekly books</h5>
+          ${curriculumBooksEditorHtml(record.books || [], { scope: "weekly", addLabel: "+ Add book" })}
+        </div>
+        <div class="curriculum-day-list-block">
+          <h5>Weekly songs</h5>
+          ${curriculumSongsEditorHtml(record.songs || [], { scope: "weekly", addLabel: "+ Add song" })}
+        </div>
+        <label>Family connection<textarea name="familyConnection" rows="2">${escapeHtml(record.familyConnection || "")}</textarea></label>
+        <label>Observation opportunities<textarea name="observationOpportunities" rows="3">${escapeHtml(record.observationOpportunities || "")}</textarea></label>
+        <label>Adaptations<textarea name="adaptations" rows="3">${escapeHtml(record.adaptations || "")}</textarea></label>
+      </fieldset>
       <div class="curriculum-daily-editor">
-        <h4>Daily activities (Mon–Fri)</h4>
+        <h4>Monday–Friday daily sections</h4>
+        <p class="muted-copy">Edit each weekday’s theme, materials, books, songs, routines, and activities. itemId stays stable when you edit existing activities.</p>
         ${renderCurriculumDailyPlanEditor(record.dailyPlans)}
       </div>
       ${renderCurriculumLessonLinkedResourcesSection(record)}
@@ -4749,7 +4938,7 @@ function renderAdminCurriculumLessonPlanManager() {
       <div>
         <p class="eyebrow">Play-Based Curriculum</p>
         <h3>Curriculum lesson plans</h3>
-        <p class="muted-copy">Lesson plans are the source of truth. Saving regenerates linked activities using stable item IDs.</p>
+        <p class="muted-copy">Lesson plans are the source of truth. Edit weekly, daily, and activity fields here. Saving updates linked Activity Library entries using stable item IDs.</p>
       </div>
       <button class="ghost-button" type="button" id="adminCreateCurriculumLessonPlanButton">+ Create lesson plan</button>
     </div>
@@ -4775,11 +4964,44 @@ function setAdminCurriculumLessonSaveBanner(text, isSuccess = false) {
   };
 }
 
+function collectCurriculumBooksFromEditor(root) {
+  if (!root) return [];
+  return [...root.querySelectorAll("[data-curriculum-book-row]")].map((row) => ({
+    title: normalizedShortText(row.querySelector("[data-curriculum-book-title]")?.value),
+    author: normalizedShortText(row.querySelector("[data-curriculum-book-author]")?.value),
+    notes: normalizedMultilineText(row.querySelector("[data-curriculum-book-notes]")?.value),
+  })).filter((book) => book.title);
+}
+
+function collectCurriculumSongsFromEditor(root) {
+  if (!root) return [];
+  return [...root.querySelectorAll("[data-curriculum-song-row]")].map((row) => ({
+    title: normalizedShortText(row.querySelector("[data-curriculum-song-title]")?.value),
+    notes: normalizedMultilineText(row.querySelector("[data-curriculum-song-notes]")?.value),
+  })).filter((song) => song.title);
+}
+
+function collectCurriculumTextListFromEditor(root) {
+  if (!root) return [];
+  return [...root.querySelectorAll("[data-curriculum-text-list-row]")].map((row) => (
+    normalizedMultilineText(row.querySelector("[data-curriculum-text-list-value]")?.value)
+  )).filter(Boolean);
+}
+
+function collectCurriculumDomainChecks(root) {
+  if (!root) return [];
+  return [...root.querySelectorAll("input[data-curriculum-domain-option]:checked")]
+    .map((input) => normalizedShortText(input.value))
+    .filter(Boolean);
+}
+
 function collectCurriculumLessonPlanFromForm(form) {
   const formData = new FormData(form);
   const id = normalizedShortText(formData.get("id"));
   const existing = id ? curriculumLessonEditorRecord() : null;
   const preservedDaily = existing?.dailyPlans || {};
+  const weeklyBooksEditor = form.querySelector('[data-curriculum-books-editor="weekly"]');
+  const weeklySongsEditor = form.querySelector('[data-curriculum-songs-editor="weekly"]');
   const dailyPlans = emptyCurriculumDailyPlans();
   CURRICULUM_WEEKDAYS.forEach((day) => {
     const preservedDay = preservedDaily[day] && typeof preservedDaily[day] === "object"
@@ -4790,6 +5012,7 @@ function collectCurriculumLessonPlanFromForm(form) {
         .filter((item) => item?.itemId)
         .map((item) => [item.itemId, item]),
     );
+    const dayPanel = form.querySelector(`[data-curriculum-day-panel="${day}"]`);
     const rows = form.querySelectorAll(`.curriculum-daily-item-row[data-curriculum-day="${day}"]`);
     const items = [];
     rows.forEach((row) => {
@@ -4801,33 +5024,44 @@ function collectCurriculumLessonPlanFromForm(form) {
         .split(/\r?\n/)
         .map((goal) => goal.trim())
         .filter(Boolean);
+      const domainsRoot = row.querySelector("[data-curriculum-activity-domains]");
       items.push({
         ...preservedItem,
         itemId,
         activityCategory: normalizedShortText(row.querySelector("[data-curriculum-category]")?.value) || preservedItem.activityCategory || PLAY_ACTIVITY_CATEGORIES[0],
         title,
         description: normalizedMultilineText(row.querySelector("[data-curriculum-description]")?.value),
+        learningDomains: collectCurriculumDomainChecks(domainsRoot),
         materials: normalizedMultilineText(row.querySelector("[data-curriculum-materials]")?.value),
         setup: normalizedMultilineText(row.querySelector("[data-curriculum-setup]")?.value),
         steps: normalizedMultilineText(row.querySelector("[data-curriculum-steps]")?.value),
+        teacherRole: normalizedMultilineText(row.querySelector("[data-curriculum-teacher-role]")?.value),
+        teacherLanguage: normalizedMultilineText(row.querySelector("[data-curriculum-teacher-language]")?.value),
         learningGoals,
+        vocabulary: normalizedMultilineText(row.querySelector("[data-curriculum-vocabulary]")?.value),
+        extensions: normalizedMultilineText(row.querySelector("[data-curriculum-extensions]")?.value),
+        adaptations: normalizedMultilineText(row.querySelector("[data-curriculum-adaptations]")?.value),
+        safetyNotes: normalizedMultilineText(row.querySelector("[data-curriculum-safety-notes]")?.value),
+        ageModifications: normalizedMultilineText(row.querySelector("[data-curriculum-age-modifications]")?.value),
       });
     });
+    const dayBooksEditor = dayPanel?.querySelector(`[data-curriculum-books-editor="day:${day}"]`);
+    const daySongsEditor = dayPanel?.querySelector(`[data-curriculum-songs-editor="day:${day}"]`);
     dailyPlans[day] = {
-      theme: preservedDay.theme || "",
-      objectives: preservedDay.objectives || "",
-      learningDomains: Array.isArray(preservedDay.learningDomains) ? [...preservedDay.learningDomains] : [],
-      materials: preservedDay.materials || "",
-      vocabulary: preservedDay.vocabulary || "",
-      books: Array.isArray(preservedDay.books) ? preservedDay.books.map((book) => ({ ...book })) : [],
-      songs: Array.isArray(preservedDay.songs) ? preservedDay.songs.map((song) => ({ ...song })) : [],
-      circleTime: Array.isArray(preservedDay.circleTime) ? [...preservedDay.circleTime] : [],
-      transitions: Array.isArray(preservedDay.transitions) ? [...preservedDay.transitions] : [],
-      outdoorPlay: preservedDay.outdoorPlay || "",
-      familyConnection: preservedDay.familyConnection || "",
-      observations: Array.isArray(preservedDay.observations) ? [...preservedDay.observations] : [],
-      adaptations: preservedDay.adaptations || "",
-      safetyNotes: preservedDay.safetyNotes || "",
+      theme: normalizedShortText(dayPanel?.querySelector("[data-curriculum-day-theme]")?.value),
+      objectives: normalizedMultilineText(dayPanel?.querySelector("[data-curriculum-day-objectives]")?.value),
+      learningDomains: collectCurriculumDomainChecks(dayPanel?.querySelector("[data-curriculum-day-domains]")),
+      materials: normalizedMultilineText(dayPanel?.querySelector("[data-curriculum-day-materials]")?.value),
+      vocabulary: normalizedMultilineText(dayPanel?.querySelector("[data-curriculum-day-vocabulary]")?.value),
+      books: collectCurriculumBooksFromEditor(dayBooksEditor),
+      songs: collectCurriculumSongsFromEditor(daySongsEditor),
+      circleTime: collectCurriculumTextListFromEditor(dayPanel?.querySelector(`[data-curriculum-text-list-editor="day:${day}:circleTime"]`)),
+      transitions: collectCurriculumTextListFromEditor(dayPanel?.querySelector(`[data-curriculum-text-list-editor="day:${day}:transitions"]`)),
+      outdoorPlay: normalizedMultilineText(dayPanel?.querySelector("[data-curriculum-day-outdoor]")?.value),
+      familyConnection: normalizedMultilineText(dayPanel?.querySelector("[data-curriculum-day-family]")?.value),
+      observations: collectCurriculumTextListFromEditor(dayPanel?.querySelector(`[data-curriculum-text-list-editor="day:${day}:observations"]`)),
+      adaptations: normalizedMultilineText(dayPanel?.querySelector("[data-curriculum-day-adaptations]")?.value),
+      safetyNotes: normalizedMultilineText(dayPanel?.querySelector("[data-curriculum-day-safety]")?.value),
       items,
     };
   });
@@ -4847,8 +5081,8 @@ function collectCurriculumLessonPlanFromForm(form) {
     observationOpportunities: normalizedMultilineText(formData.get("observationOpportunities")),
     adaptations: normalizedMultilineText(formData.get("adaptations")),
     familyConnection: normalizedMultilineText(formData.get("familyConnection")),
-    books: parseCurriculumBooksFromText(formData.get("booksText")),
-    songs: parseCurriculumSongsFromText(formData.get("songsText")),
+    books: collectCurriculumBooksFromEditor(weeklyBooksEditor),
+    songs: collectCurriculumSongsFromEditor(weeklySongsEditor),
     dailyPlans,
     resourceIds: existing?.resourceIds || [],
     activityIds: existing?.activityIds || [],
@@ -5018,13 +5252,63 @@ async function saveAdminCurriculumLessonPlanForm(form) {
   }
 }
 
+function ensureCurriculumListRowsContainer(container, emptyText) {
+  if (!container) return null;
+  const empty = container.querySelector(".curriculum-list-empty, .curriculum-daily-empty");
+  if (empty) empty.remove();
+  return container;
+}
+
+function moveCurriculumListRow(row, direction) {
+  if (!row) return;
+  const parent = row.parentElement;
+  if (!parent) return;
+  if (direction === "up") {
+    const previous = row.previousElementSibling;
+    if (previous) parent.insertBefore(row, previous);
+    return;
+  }
+  const next = row.nextElementSibling;
+  if (next) parent.insertBefore(next, row);
+}
+
+function removeCurriculumListRow(row, emptyHtml) {
+  const container = row?.parentElement;
+  row?.remove();
+  if (container && !container.querySelector("[data-curriculum-book-row], [data-curriculum-song-row], [data-curriculum-text-list-row], .curriculum-daily-item-row")) {
+    container.innerHTML = emptyHtml;
+  }
+}
+
+function addCurriculumBookRow(scope) {
+  const editor = document.querySelector(`[data-curriculum-books-editor="${scope}"]`);
+  const container = ensureCurriculumListRowsContainer(editor?.querySelector("[data-curriculum-books-rows]"));
+  if (!container) return;
+  container.insertAdjacentHTML("beforeend", curriculumBookRowHtml({}, { scope }));
+}
+
+function addCurriculumSongRow(scope) {
+  const editor = document.querySelector(`[data-curriculum-songs-editor="${scope}"]`);
+  const container = ensureCurriculumListRowsContainer(editor?.querySelector("[data-curriculum-songs-rows]"));
+  if (!container) return;
+  container.insertAdjacentHTML("beforeend", curriculumSongRowHtml({}, { scope }));
+}
+
+function addCurriculumTextListRow(field) {
+  const editor = document.querySelector(`[data-curriculum-text-list-editor="${field}"]`);
+  const container = ensureCurriculumListRowsContainer(editor?.querySelector("[data-curriculum-text-list-rows]"));
+  if (!container) return;
+  container.insertAdjacentHTML("beforeend", curriculumTextListRowHtml("", { field }));
+}
+
 function addCurriculumDailyPlanRow(day) {
   const container = document.querySelector(`[data-curriculum-day-items="${day}"]`);
   if (!container) return;
   const empty = container.querySelector(".curriculum-daily-empty");
   if (empty) empty.remove();
-  const rowIndex = container.querySelectorAll(".curriculum-daily-item-row").length;
   container.insertAdjacentHTML("beforeend", curriculumDailyItemRowHtml(day, { itemId: generateCurriculumItemIdClient() }));
+  const panel = document.querySelector(`[data-curriculum-day-panel="${day}"]`);
+  if (panel && "open" in panel) panel.open = true;
 }
 
 function removeCurriculumDailyPlanRow(button) {
@@ -5032,8 +5316,63 @@ function removeCurriculumDailyPlanRow(button) {
   const container = row?.closest("[data-curriculum-day-items]");
   row?.remove();
   if (container && !container.querySelector(".curriculum-daily-item-row")) {
-    container.innerHTML = `<p class="muted-copy curriculum-daily-empty">No activities yet.</p>`;
+    const heading = container.querySelector("h5");
+    container.innerHTML = `${heading ? heading.outerHTML : ""}<p class="muted-copy curriculum-daily-empty">No activities yet.</p>`;
   }
+}
+
+function duplicateCurriculumDailyPlanRow(button) {
+  const row = button.closest(".curriculum-daily-item-row");
+  if (!row) return;
+  const day = row.getAttribute("data-curriculum-day") || "";
+  const clone = row.cloneNode(true);
+  const idInput = clone.querySelector("[data-curriculum-item-id]");
+  if (idInput) idInput.value = generateCurriculumItemIdClient();
+  const titleInput = clone.querySelector("[data-curriculum-title]");
+  if (titleInput && titleInput.value) titleInput.value = `${titleInput.value} (copy)`;
+  row.insertAdjacentElement("afterend", clone);
+  if (day) {
+    const panel = document.querySelector(`[data-curriculum-day-panel="${day}"]`);
+    if (panel && "open" in panel) panel.open = true;
+  }
+}
+
+function moveCurriculumDailyPlanRow(button, direction) {
+  const row = button.closest(".curriculum-daily-item-row");
+  if (!row) return;
+  const siblings = [...(row.parentElement?.querySelectorAll(".curriculum-daily-item-row") || [])];
+  const index = siblings.indexOf(row);
+  if (index < 0) return;
+  if (direction === "up") {
+    if (index === 0) return;
+    const previous = siblings[index - 1];
+    row.parentElement.insertBefore(row, previous);
+    return;
+  }
+  if (index >= siblings.length - 1) return;
+  const next = siblings[index + 1];
+  row.parentElement.insertBefore(next, row);
+}
+
+function moveCurriculumDailyPlanRowToDay(row, targetDay) {
+  if (!row || !CURRICULUM_WEEKDAYS.includes(targetDay)) return;
+  const currentDay = row.getAttribute("data-curriculum-day");
+  if (currentDay === targetDay) return;
+  const sourceContainer = row.closest("[data-curriculum-day-items]");
+  const targetContainer = document.querySelector(`[data-curriculum-day-items="${targetDay}"]`);
+  if (!targetContainer) return;
+  const empty = targetContainer.querySelector(".curriculum-daily-empty");
+  if (empty) empty.remove();
+  row.setAttribute("data-curriculum-day", targetDay);
+  const moveSelect = row.querySelector("[data-curriculum-activity-move-day]");
+  if (moveSelect) moveSelect.value = targetDay;
+  targetContainer.appendChild(row);
+  if (sourceContainer && !sourceContainer.querySelector(".curriculum-daily-item-row")) {
+    const heading = sourceContainer.querySelector("h5");
+    sourceContainer.innerHTML = `${heading ? heading.outerHTML : ""}<p class="muted-copy curriculum-daily-empty">No activities yet.</p>`;
+  }
+  const panel = document.querySelector(`[data-curriculum-day-panel="${targetDay}"]`);
+  if (panel && "open" in panel) panel.open = true;
 }
 
 function curriculumResourcesForAdmin({ includeArchived = false } = {}) {
@@ -30337,6 +30676,11 @@ document.addEventListener("submit", async (event) => {
 });
 
 document.addEventListener("change", (event) => {
+  if (event.target.matches("[data-curriculum-activity-move-day]")) {
+    const row = event.target.closest(".curriculum-daily-item-row");
+    moveCurriculumDailyPlanRowToDay(row, event.target.value);
+    return;
+  }
   if (event.target.matches("#adminFounderPhotoFile")) {
     const file = event.target.files?.[0];
     const preview = document.querySelector("#adminFounderPhotoPreview");
@@ -30588,6 +30932,42 @@ document.addEventListener("click", async (event) => {
   }
   if (event.target.closest("[data-curriculum-remove-row]")) {
     removeCurriculumDailyPlanRow(event.target.closest("[data-curriculum-remove-row]"));
+    return;
+  }
+  const curriculumAddBookButton = event.target.closest("[data-curriculum-add-book]");
+  if (curriculumAddBookButton) {
+    addCurriculumBookRow(curriculumAddBookButton.dataset.curriculumAddBook || "weekly");
+    return;
+  }
+  const curriculumAddSongButton = event.target.closest("[data-curriculum-add-song]");
+  if (curriculumAddSongButton) {
+    addCurriculumSongRow(curriculumAddSongButton.dataset.curriculumAddSong || "weekly");
+    return;
+  }
+  const curriculumAddTextListButton = event.target.closest("[data-curriculum-add-text-list]");
+  if (curriculumAddTextListButton) {
+    addCurriculumTextListRow(curriculumAddTextListButton.dataset.curriculumAddTextList || "");
+    return;
+  }
+  const curriculumListRemoveButton = event.target.closest("[data-curriculum-list-remove]");
+  if (curriculumListRemoveButton) {
+    const row = curriculumListRemoveButton.closest("[data-curriculum-book-row], [data-curriculum-song-row], [data-curriculum-text-list-row]");
+    removeCurriculumListRow(row, `<p class="muted-copy curriculum-list-empty">No items yet.</p>`);
+    return;
+  }
+  const curriculumListMoveButton = event.target.closest("[data-curriculum-list-move]");
+  if (curriculumListMoveButton) {
+    const row = curriculumListMoveButton.closest("[data-curriculum-book-row], [data-curriculum-song-row], [data-curriculum-text-list-row]");
+    moveCurriculumListRow(row, curriculumListMoveButton.dataset.curriculumListMove);
+    return;
+  }
+  const curriculumActivityMoveButton = event.target.closest("[data-curriculum-activity-move]");
+  if (curriculumActivityMoveButton) {
+    moveCurriculumDailyPlanRow(curriculumActivityMoveButton, curriculumActivityMoveButton.dataset.curriculumActivityMove);
+    return;
+  }
+  if (event.target.closest("[data-curriculum-activity-duplicate]")) {
+    duplicateCurriculumDailyPlanRow(event.target.closest("[data-curriculum-activity-duplicate]"));
     return;
   }
 

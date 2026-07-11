@@ -3054,18 +3054,70 @@ body.home-view .topbar .search-wrap {
 .curriculum-daily-editor {
   display: grid;
   gap: 14px;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
+.curriculum-premium-editor,
+.curriculum-weekly-editor,
+.curriculum-daily-day-body,
+.curriculum-list-editor,
+.curriculum-daily-item-row {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.curriculum-activity-sync-notice {
+  margin: 0 0 12px;
+}
+
+.curriculum-weekly-editor,
 .curriculum-daily-day {
   margin: 0;
 }
 
+.curriculum-daily-day-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 700;
+}
+
+.curriculum-daily-day-summary::-webkit-details-marker {
+  display: none;
+}
+
+.curriculum-daily-day-body {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.curriculum-day-list-block {
+  display: grid;
+  gap: 8px;
+}
+
+.curriculum-day-list-block h5,
+.curriculum-daily-items h5 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.curriculum-list-editor,
+.curriculum-list-rows,
 .curriculum-daily-items {
   display: grid;
   gap: 12px;
   margin-bottom: 10px;
 }
 
+.curriculum-book-row,
+.curriculum-song-row,
+.curriculum-text-list-row,
 .curriculum-daily-item-row {
   display: grid;
   gap: 10px;
@@ -3075,14 +3127,90 @@ body.home-view .topbar .search-wrap {
   background: rgba(255, 255, 255, 0.9);
 }
 
+.curriculum-list-row-actions,
+.curriculum-activity-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.curriculum-activity-toolbar {
+  justify-content: space-between;
+}
+
+.curriculum-activity-toolbar-label {
+  font-size: 13px;
+}
+
+.curriculum-list-row-actions .ghost-button,
+.curriculum-activity-toolbar .ghost-button {
+  min-height: 40px;
+  min-width: 40px;
+}
+
 .curriculum-domain-grid {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
 .curriculum-daily-remove {
   justify-self: start;
+}
+
+.curriculum-premium-editor input,
+.curriculum-premium-editor textarea,
+.curriculum-premium-editor select {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 480px) {
+  .curriculum-premium-editor,
+  .curriculum-daily-editor,
+  .curriculum-daily-day-body,
+  .curriculum-book-row,
+  .curriculum-song-row,
+  .curriculum-text-list-row,
+  .curriculum-daily-item-row {
+    overflow-x: hidden;
+  }
+
+  .curriculum-daily-day-summary,
+  .curriculum-activity-toolbar,
+  .curriculum-list-row-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .curriculum-list-row-actions .ghost-button,
+  .curriculum-activity-toolbar .ghost-button,
+  .curriculum-premium-editor .form-actions button,
+  .curriculum-premium-editor [data-curriculum-add-book],
+  .curriculum-premium-editor [data-curriculum-add-song],
+  .curriculum-premium-editor [data-curriculum-add-text-list],
+  .curriculum-premium-editor [data-curriculum-add-row] {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .curriculum-domain-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .curriculum-import-template {
