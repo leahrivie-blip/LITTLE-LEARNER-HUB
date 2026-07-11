@@ -1,10 +1,10 @@
-# Work handoff (saved 2026-07-11 night)
+# Work handoff (updated 2026-07-11)
 
 Branch: `cursor/playwright-e2e-1b07`
 
-## Decision for next session
+## Decision
 
-**Pause the large Playwright suite.** Prefer the existing fast local Node QA scripts for verifying curriculum works.
+**Playwright E2E paused** — user may skip entirely. Use fast local Node QA scripts for curriculum verification.
 
 ## QA progress (local isolated server — no production)
 
@@ -13,39 +13,44 @@ Branch: `cursor/playwright-e2e-1b07`
 | 1. Boot + sanity (`npm run check` + isolated server) | **Done** | Pass |
 | 2. Admin → Publish → Public (`npm run test:curriculum-publish`) | **Done** | **14/14 pass** |
 | 3. Curriculum UX (`npm run test:curriculum-ux`) | **Done** | **All areas A–H pass** |
-| 4. Gap audit (Free/Pro, featured, nav/back, empty states) | **Not started** | — |
-| 5. Final QA report | **Not started** | — |
+| 4. Gap audit (`npm run test:curriculum-gap`) | **Done** | **Pass** |
+| 5. Final QA report | **Done** | See below |
 
-### Bugs found so far in Steps 1–3
-**None.** Publish flow, draft/public visibility, edit/unpublish/republish, resource linking, activity sync, search haystack, category aliases, and desktop+mobile browser UX checks all passed.
+### Step 4 coverage (`scripts/test-curriculum-gap-qa.js`)
 
-## Resume tomorrow
+- Archived lessons hidden from public API
+- Broken resource file returns 404/400
+- Activity sync count integrity
+- Logged-out users blocked from lessons (login modal)
+- Pro / Trial unlock Pro lessons; Free cannot bypass via View Activities
+- Viewer open/close and lesson library back navigation
+- Mobile nav (412px) + horizontal overflow check
+- Static checks: guest access, activity filter banner controls
+
+### Bugs found
+
+| Severity | Issue | Location | Fix now? |
+|----------|-------|----------|----------|
+| **Medium** | Pro subscribers with `$19.99/month` billing can be misclassified as **Founding** because `monthlyPrice.includes("9.99")` matches the substring in `19.99` | `app.js` → `subscriptionToAccountUpdates()` ~line 2684 | Yes — use exact price/plan match, not substring |
+
+**No Critical or High bugs** in publish, UX, or gap flows. Curriculum publish → public → viewer → activities → search → access gating all work on isolated QA.
+
+### QA test note (not a product bug)
+
+Browser persona tests must **seed server-side subscription records** (`store.users`) before page load. Analytics creates a Free server user on first visit; `syncSubscriptionFromBackend` then overwrites local Pro accounts unless the server already has an active subscription. Gap script handles this via `seedServerPersonas()` + isolated `LLH_STORE_PATH`.
+
+## Fast verification commands
 
 ```bash
-git fetch origin
 git checkout cursor/playwright-e2e-1b07
 npm install
 
-# Fast checks (preferred):
 npm run check
 npm run test:curriculum-publish
 npm run test:curriculum-ux
-
-# Then continue Step 4 gap audit from the QA plan.
+npm run test:curriculum-gap
 ```
 
-## Playwright WIP (paused — not the priority)
+## Playwright WIP (paused)
 
-Scaffold + stability fixes are on this branch but **not fully green** and **not needed** for the current QA approach. Do not merge Playwright until explicitly resumed.
-
-Uncommitted Playwright fixes that were saved in this commit:
-- `free-port.js`, fresh store per run
-- `waitForAppReady` (don’t wait on hidden home search)
-- logged-out access test expects login modal
-- stress lesson import format fix
-- navigation/back assertions adjusted for SPA
-
-## Test credentials (isolated only)
-
-- Admin: `e2e-admin@test.local` / `e2e-admin-pass-1b07` / `e2e-admin-code-1b07`
-- Never use production credentials for these checks
+Scaffold on branch; blocker spec passed alone; full suite not green. Do not merge unless explicitly resumed.

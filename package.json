@@ -19,6 +19,7 @@
     "billing:check": "node server/billing-check.js",
     "test:curriculum-ux": "node scripts/test-curriculum-ux-qa.js",
     "test:curriculum-publish": "node scripts/test-curriculum-admin-publish-flow.js",
+    "test:curriculum-gap": "node scripts/test-curriculum-gap-qa.js",
     "test:e2e": "node e2e/scripts/free-port.js && playwright test",
     "test:e2e:headed": "node e2e/scripts/free-port.js && playwright test --headed",
     "test:e2e:debug": "node e2e/scripts/free-port.js && PWDEBUG=1 playwright test --headed --workers=1",
