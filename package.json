@@ -19,6 +19,7 @@
     "billing:check": "node server/billing-check.js",
     "test:curriculum-import": "node scripts/test-curriculum-import-parser.js",
     "test:curriculum-schema": "node scripts/test-curriculum-schema.js",
+    "test:curriculum-import-preview": "node scripts/test-curriculum-import-preview.js",
     "test:curriculum-publish": "node scripts/test-curriculum-admin-publish-flow.js",
     "test:billing-membership": "node scripts/test-billing-membership-qa.js"
   },
