@@ -5278,10 +5278,31 @@ body.home-view .topbar .search-wrap {
   justify-content: space-between;
   gap: 10px;
   align-items: flex-start;
+  cursor: pointer;
+  list-style: none;
+}
+
+.curriculum-planner-day-header::-webkit-details-marker {
+  display: none;
 }
 
 .curriculum-planner-day-header strong {
   display: block;
+}
+
+.curriculum-planner-day-body {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.curriculum-planner-daily-note-label textarea,
+.curriculum-planner-notes-section textarea,
+.curriculum-planner-observation-form textarea {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  white-space: pre-wrap;
 }
 
 .curriculum-planner-activity-list {
@@ -5289,6 +5310,51 @@ body.home-view .topbar .search-wrap {
   padding-left: 18px;
   display: grid;
   gap: 4px;
+}
+
+.curriculum-planner-notes-section,
+.curriculum-planner-observations-section,
+.curriculum-planner-observations-body,
+.curriculum-planner-observation-list {
+  display: grid;
+  gap: 12px;
+}
+
+.curriculum-planner-observations-panel {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.curriculum-planner-observations-panel > summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.curriculum-planner-observation-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(248, 248, 250, 0.95);
+}
+
+.curriculum-planner-observation-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.curriculum-planner-observation-note {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.curriculum-planner-activity-warning {
+  color: #9a3412;
 }
 
 .dashboard-curriculum-meta,
@@ -5310,21 +5376,25 @@ body.home-view .topbar .search-wrap {
 
   .curriculum-planner-day-header,
   .curriculum-planner-setup .dashboard-panel-heading,
-  .curriculum-planner-week-summary .dashboard-panel-heading {
+  .curriculum-planner-week-summary .dashboard-panel-heading,
+  .curriculum-planner-notes-section .dashboard-panel-heading,
+  .curriculum-planner-observations-section .dashboard-panel-heading {
     flex-direction: column;
     align-items: stretch;
   }
 
   .curriculum-planner-shell .form-actions,
   .dashboard-curriculum-empty .form-actions,
-  .dashboard-curriculum-assigned .form-actions {
+  .dashboard-curriculum-assigned .form-actions,
+  .curriculum-planner-observation-card .form-actions {
     display: grid;
     gap: 8px;
   }
 
   .curriculum-planner-shell .form-actions button,
   .dashboard-curriculum-empty .form-actions button,
-  .dashboard-curriculum-assigned .form-actions button {
+  .dashboard-curriculum-assigned .form-actions button,
+  .curriculum-planner-observation-card .form-actions button {
     width: 100%;
     min-height: 44px;
   }
@@ -5333,7 +5403,8 @@ body.home-view .topbar .search-wrap {
 @media (max-width: 480px) {
   .curriculum-planner-shell,
   .curriculum-planner-day-card,
-  .curriculum-planner-day-board {
+  .curriculum-planner-day-board,
+  .curriculum-planner-observation-card {
     overflow-x: hidden;
   }
 }
