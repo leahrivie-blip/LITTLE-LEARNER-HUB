@@ -3106,6 +3106,168 @@ body.home-view .topbar .search-wrap {
   font-size: 13px;
 }
 
+.curriculum-import-preview {
+  display: grid;
+  gap: 16px;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.curriculum-import-preview-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.curriculum-import-format-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.curriculum-import-preview-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  gap: 10px;
+}
+
+.curriculum-import-preview-summary > div {
+  display: grid;
+  gap: 2px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(248, 248, 250, 0.95);
+  text-align: center;
+}
+
+.curriculum-import-preview-summary strong {
+  font-size: 18px;
+}
+
+.curriculum-import-preview-summary span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.curriculum-import-preview-section,
+.curriculum-import-preview-day,
+.curriculum-import-preview-activity,
+.curriculum-import-duplicate-title {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+  background: #fff;
+  max-width: 100%;
+}
+
+.curriculum-import-preview-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.curriculum-import-preview-field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.curriculum-import-preview-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.curriculum-import-preview-text,
+.curriculum-import-preview-list,
+.curriculum-import-issue-list {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+.curriculum-import-preview-text {
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.curriculum-import-preview-list,
+.curriculum-import-issue-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.curriculum-import-preview-activities {
+  display: grid;
+  gap: 12px;
+}
+
+.curriculum-import-preview-day > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.curriculum-import-preview-day-body {
+  margin-top: 12px;
+}
+
+.curriculum-import-issue-list.is-error strong {
+  color: #b42318;
+}
+
+.curriculum-import-issue-list.is-warning strong {
+  color: #b54708;
+}
+
+.curriculum-import-issue-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.curriculum-import-preview-actions {
+  position: sticky;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.96);
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.curriculum-import-confirm-message {
+  margin: 0;
+  font-weight: 600;
+}
+
+@media (max-width: 480px) {
+  .curriculum-import-preview-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .curriculum-import-preview-actions {
+    display: grid;
+    gap: 8px;
+  }
+
+  .curriculum-import-preview-actions .primary-button,
+  .curriculum-import-preview-actions .ghost-button {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
 .curriculum-linked-resources {
   margin-top: 8px;
 }

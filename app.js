@@ -3123,6 +3123,9 @@ let adminCurriculumActivityFilters = {
 let adminCurriculumLessonSaving = false;
 let adminCurriculumLessonImportDraft = null;
 let adminCurriculumLessonImportTextCache = "";
+let adminCurriculumLessonImportPreview = null;
+let adminCurriculumLessonImportPreviewText = "";
+let adminCurriculumLessonImportStep = "paste";
 let adminCurriculumLessonSaveBanner = { text: "", isSuccess: false };
 let adminCurriculumResourceSaving = false;
 let adminReviewEditorId = "";
@@ -4267,25 +4270,242 @@ function snapshotCurriculumDailyItemIds(form) {
   return map;
 }
 
-function applyCurriculumLessonPlanImport() {
+function curriculumImportPreviewApi() {
+  return globalThis.CurriculumImportPreview || null;
+}
+
+function resetCurriculumLessonImportPreviewState() {
+  adminCurriculumLessonImportPreview = null;
+  adminCurriculumLessonImportPreviewText = "";
+  adminCurriculumLessonImportStep = "paste";
+}
+
+function renderCurriculumImportPreviewText(value) {
+  const text = String(value || "").trim();
+  if (!text) return `<span class="muted-copy">—</span>`;
+  return `<div class="curriculum-import-preview-text">${escapeHtml(text)}</div>`;
+}
+
+function renderCurriculumImportPreviewList(items, formatter) {
+  if (!Array.isArray(items) || !items.length) return `<span class="muted-copy">—</span>`;
+  return `<ul class="curriculum-import-preview-list">${items.map((item) => `<li>${formatter(item)}</li>`).join("")}</ul>`;
+}
+
+function renderCurriculumImportIssueList(items, className) {
+  if (!items?.length) return `<p class="muted-copy">None.</p>`;
+  return `<ul class="curriculum-import-issue-list ${className}" role="list">${items.map((item) => `
+    <li>
+      <strong>${escapeHtml(item.message)}</strong>
+      <div class="curriculum-import-issue-meta">
+        ${item.section ? `<span>Section: ${escapeHtml(item.section)}</span>` : ""}
+        ${item.weekday ? `<span>Weekday: ${escapeHtml(item.weekday)}</span>` : ""}
+        ${item.activityName ? `<span>Activity: ${escapeHtml(item.activityName)}</span>` : ""}
+        ${item.line ? `<span>Line: ${escapeHtml(String(item.line))}</span>` : ""}
+      </div>
+    </li>`).join("")}</ul>`;
+}
+
+function renderCurriculumImportPreviewActivity(activity = {}) {
+  const fields = [
+    ["Import key", activity.importKey],
+    ["Category", activity.activityCategory],
+    ["Learning domains", (activity.learningDomains || []).join(", ")],
+    ["Materials", activity.materials],
+    ["Setup", activity.setup],
+    ["Directions", activity.steps],
+    ["Teacher role", activity.teacherRole],
+    ["Teacher language", activity.teacherLanguage],
+    ["Learning goals", (activity.learningGoals || []).join("\n")],
+    ["Vocabulary", activity.vocabulary],
+    ["Extensions", activity.extensions],
+    ["Adaptations", activity.adaptations],
+    ["Safety notes", activity.safetyNotes],
+    ["Age modifications", activity.ageModifications],
+  ];
+  return `
+    <article class="curriculum-import-preview-activity">
+      <h5>${escapeHtml(activity.title || "Untitled activity")}</h5>
+      ${fields.map(([label, value]) => `
+        <div class="curriculum-import-preview-field">
+          <span class="curriculum-import-preview-label">${escapeHtml(label)}</span>
+          ${Array.isArray(value)
+    ? renderCurriculumImportPreviewList(value, (item) => escapeHtml(item))
+    : renderCurriculumImportPreviewText(value)}
+        </div>`).join("")}
+    </article>
+  `;
+}
+
+function renderCurriculumImportPreviewDay(day, dayPlan = {}) {
+  const label = day.charAt(0).toUpperCase() + day.slice(1);
+  const books = renderCurriculumImportPreviewList(dayPlan.books || [], (book) => escapeHtml([book.title, book.author, book.notes].filter(Boolean).join(" | ")));
+  const songs = renderCurriculumImportPreviewList(dayPlan.songs || [], (song) => escapeHtml([song.title, song.notes].filter(Boolean).join(" | ")));
+  const activities = (dayPlan.items || []).map((item) => renderCurriculumImportPreviewActivity(item)).join("") || `<p class="muted-copy">No activities.</p>`;
+  return `
+    <details class="curriculum-import-preview-day" open>
+      <summary><strong>${label}</strong> · ${(dayPlan.items || []).length} ${(dayPlan.items || []).length === 1 ? "activity" : "activities"}</summary>
+      <div class="curriculum-import-preview-day-body">
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Daily theme</span>${renderCurriculumImportPreviewText(dayPlan.theme)}</div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Daily objectives</span>${renderCurriculumImportPreviewText(dayPlan.objectives)}</div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Daily learning domains</span>${renderCurriculumImportPreviewText((dayPlan.learningDomains || []).join(", "))}</div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Daily materials</span>${renderCurriculumImportPreviewText(dayPlan.materials)}</div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Daily vocabulary</span>${renderCurriculumImportPreviewText(dayPlan.vocabulary)}</div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Books</span>${books}</div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Songs</span>${songs}</div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Circle-time ideas</span>${renderCurriculumImportPreviewList(dayPlan.circleTime || [], (item) => escapeHtml(item))}</div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Activities</span><div class="curriculum-import-preview-activities">${activities}</div></div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Transition ideas</span>${renderCurriculumImportPreviewList(dayPlan.transitions || [], (item) => escapeHtml(item))}</div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Outdoor play</span>${renderCurriculumImportPreviewText(dayPlan.outdoorPlay)}</div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Family connection</span>${renderCurriculumImportPreviewText(dayPlan.familyConnection)}</div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Observation opportunities</span>${renderCurriculumImportPreviewList(dayPlan.observations || [], (item) => escapeHtml(item))}</div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Adaptations</span>${renderCurriculumImportPreviewText(dayPlan.adaptations)}</div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Safety notes</span>${renderCurriculumImportPreviewText(dayPlan.safetyNotes)}</div>
+      </div>
+    </details>
+  `;
+}
+
+function renderCurriculumLessonImportPreviewPanel(previewState) {
+  const preview = previewState?.preview;
+  const data = preview?.data;
+  if (!preview || !data) return "";
+  const summary = preview.summary;
+  const sync = preview.activitySync;
+  const duplicate = preview.duplicateTitle;
+  return `
+    <section class="curriculum-import-preview" aria-labelledby="curriculumImportPreviewHeading">
+      <div class="curriculum-import-preview-header">
+        <div>
+          <h4 id="curriculumImportPreviewHeading">Import preview (not saved yet)</h4>
+          <p class="muted-copy">Review exactly how the parser understood this lesson plan before confirming.</p>
+        </div>
+        <span class="curriculum-import-format-badge">${escapeHtml(summary.formatLabel)}</span>
+      </div>
+      <div class="curriculum-import-preview-summary" role="status">
+        <div><strong>${summary.lessonPlanCount}</strong><span>lesson plan</span></div>
+        <div><strong>${summary.weekdaysDetected}</strong><span>weekdays</span></div>
+        <div><strong>${summary.activityCount}</strong><span>activities</span></div>
+        <div><strong>${summary.bookCount}</strong><span>books</span></div>
+        <div><strong>${summary.songCount}</strong><span>songs</span></div>
+        <div><strong>${summary.activityLibraryEntries}</strong><span>library sync entries</span></div>
+        <div><strong>${summary.errorCount}</strong><span>errors</span></div>
+        <div><strong>${summary.warningCount}</strong><span>warnings</span></div>
+        <div><strong>${summary.unmappedCount}</strong><span>unmapped</span></div>
+      </div>
+      <div class="curriculum-import-preview-counts muted-copy">
+        ${CURRICULUM_WEEKDAYS.map((day) => `${day.charAt(0).toUpperCase() + day.slice(1)}: ${summary.activityCountByDay[day] || 0}`).join(" · ")}
+      </div>
+      <div class="curriculum-import-preview-section">
+        <h5>Errors ${summary.errorCount ? `(${summary.errorCount})` : ""}</h5>
+        ${renderCurriculumImportIssueList(preview.errors, "is-error")}
+      </div>
+      <div class="curriculum-import-preview-section">
+        <h5>Warnings ${summary.warningCount ? `(${summary.warningCount})` : ""}</h5>
+        ${renderCurriculumImportIssueList(preview.warnings, "is-warning")}
+      </div>
+      <div class="curriculum-import-preview-section">
+        <h5>Unmapped content ${summary.unmappedCount ? `(${summary.unmappedCount})` : ""}</h5>
+        ${preview.unmapped.length
+    ? `<ul class="curriculum-import-issue-list is-unmapped" role="list">${preview.unmapped.map((entry) => `
+            <li>
+              <div class="curriculum-import-preview-text">${escapeHtml(entry.text || "")}</div>
+              <div class="curriculum-import-issue-meta">
+                <span>Reason: ${escapeHtml(entry.reason || "unknown")}</span>
+                ${entry.context ? `<span>Context: ${escapeHtml(entry.context)}</span>` : ""}
+                ${entry.line ? `<span>Line: ${escapeHtml(String(entry.line))}</span>` : ""}
+              </div>
+            </li>`).join("")}</ul>`
+    : `<p class="muted-copy">None.</p>`}
+      </div>
+      <div class="curriculum-import-preview-section">
+        <h5>Activity Library sync preview (read-only)</h5>
+        <ul class="curriculum-import-preview-list">
+          <li>${sync.newEntries} new ${sync.newEntries === 1 ? "entry" : "entries"}</li>
+          <li>${sync.updatedEntries} existing linked ${sync.updatedEntries === 1 ? "entry" : "entries"} to update</li>
+          <li>${sync.archivedEntries} ${sync.archivedEntries === 1 ? "entry" : "entries"} may be archived if removed from the plan</li>
+          <li>${sync.duplicateTitleGroups.length} duplicate-title group(s) with different item IDs</li>
+          <li>${sync.missingStableIds} activities missing stable item IDs</li>
+          <li>${sync.missingImportKeys} activities without optional import keys</li>
+        </ul>
+      </div>
+      ${duplicate.status === "duplicate" ? `
+      <div class="curriculum-import-duplicate-title" role="region" aria-label="Duplicate lesson title">
+        <p><strong>Duplicate title:</strong> "${escapeHtml(data.title)}" already exists as "${escapeHtml(duplicate.existingPlan?.title || "")}".</p>
+        <div class="form-actions">
+          <button class="ghost-button" type="button" data-import-title-action="open-existing">Open existing lesson</button>
+          <button class="ghost-button" type="button" data-import-title-action="new-copy">Import as new copy</button>
+        </div>
+      </div>` : ""}
+      <div class="curriculum-import-preview-section">
+        <h5>Lesson information</h5>
+        <div class="curriculum-import-preview-grid">
+          <div><span class="curriculum-import-preview-label">Title</span>${renderCurriculumImportPreviewText(data.title)}</div>
+          <div><span class="curriculum-import-preview-label">Age group</span>${renderCurriculumImportPreviewText(data.age)}</div>
+          <div><span class="curriculum-import-preview-label">Theme</span>${renderCurriculumImportPreviewText(data.theme)}</div>
+          <div><span class="curriculum-import-preview-label">Plan</span>${renderCurriculumImportPreviewText(data.plan)}</div>
+          <div><span class="curriculum-import-preview-label">Status</span>${renderCurriculumImportPreviewText(data.status)}</div>
+          <div><span class="curriculum-import-preview-label">Learning domains</span>${renderCurriculumImportPreviewText((data.learningDomains || []).join(", "))}</div>
+        </div>
+      </div>
+      <div class="curriculum-import-preview-section">
+        <h5>Weekly information</h5>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Weekly overview</span>${renderCurriculumImportPreviewText(data.weeklyOverview)}</div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Weekly objectives</span>${renderCurriculumImportPreviewText(data.objectives)}</div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Weekly materials</span>${renderCurriculumImportPreviewText(data.weeklyMaterials)}</div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Weekly vocabulary</span>${renderCurriculumImportPreviewText(data.vocabularyWords)}</div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Weekly books</span>${renderCurriculumImportPreviewList(data.books || [], (book) => escapeHtml([book.title, book.author, book.notes].filter(Boolean).join(" | ")))}</div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Weekly songs</span>${renderCurriculumImportPreviewList(data.songs || [], (song) => escapeHtml([song.title, song.notes].filter(Boolean).join(" | ")))}</div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Family connection</span>${renderCurriculumImportPreviewText(data.familyConnection)}</div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Observation opportunities</span>${renderCurriculumImportPreviewText(data.observationOpportunities)}</div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Adaptations</span>${renderCurriculumImportPreviewText(data.adaptations)}</div>
+      </div>
+      <div class="curriculum-import-preview-section">
+        <h5>Monday through Friday</h5>
+        ${CURRICULUM_WEEKDAYS.map((day) => renderCurriculumImportPreviewDay(day, data.dailyPlans?.[day] || {})).join("")}
+      </div>
+      <p class="curriculum-import-confirm-message" id="adminCurriculumLessonImportConfirmMessage">${escapeHtml(preview.confirmMessage)}</p>
+      <div class="form-actions curriculum-import-preview-actions">
+        <button class="ghost-button" type="button" id="adminCurriculumLessonReturnToPasteButton">Return to Edit Paste</button>
+        <button class="ghost-button" type="button" id="adminCurriculumLessonCancelImportButton">Cancel Import</button>
+        <button class="primary-button" type="button" id="adminCurriculumLessonConfirmImportButton" ${preview.canConfirm ? "" : "disabled"}>Confirm Import</button>
+      </div>
+    </section>
+  `;
+}
+
+function buildAdminCurriculumImportPreview(text) {
+  const previewApi = curriculumImportPreviewApi();
+  if (!previewApi) throw new Error("CurriculumImportPreview is not loaded.");
+  const form = document.querySelector("#adminCurriculumLessonPlanForm");
+  const existingItemIds = snapshotCurriculumDailyItemIds(form);
+  const parsed = parseCurriculumLessonPlanImport(text, { existingItemIds });
+  const formatVersion = curriculumImportApi()?.detectImportFormat(text) === "v2" ? 2 : 1;
+  const editingId = adminCurriculumLessonEditorId || "";
+  const proposedLessonPlanId = editingId || `cur-lp-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
+  const preview = previewApi.buildCurriculumImportPreview(parsed, {
+    formatVersion,
+    existingPlans: curriculumLessonPlansForAdmin(),
+    editingLessonPlanId: editingId,
+    existingActivities: effectiveCurriculum().activities || [],
+    proposedLessonPlanId,
+  });
+  return { preview, proposedLessonPlanId };
+}
+
+function previewCurriculumLessonPlanImport() {
   const textarea = document.querySelector("#adminCurriculumLessonImportText");
   const messageEl = document.querySelector("#adminCurriculumLessonImportMessage");
-  const form = document.querySelector("#adminCurriculumLessonPlanForm");
   const text = textarea?.value || "";
   if (!text.trim()) {
     if (messageEl) {
-      messageEl.textContent = "Paste a complete lesson plan before parsing.";
+      messageEl.textContent = "Paste a complete lesson plan before previewing.";
       messageEl.classList.remove("success");
     }
     return;
   }
-  if (!adminCurriculumLessonEditorId) {
-    adminCurriculumLessonEditorId = `cur-lp-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
-  }
-  const existingItemIds = snapshotCurriculumDailyItemIds(form);
-  let parsed;
+  let built;
   try {
-    parsed = parseCurriculumLessonPlanImport(text, { existingItemIds });
+    built = buildAdminCurriculumImportPreview(text);
   } catch (error) {
     if (messageEl) {
       messageEl.textContent = error.message || "Lesson plan parser is not available.";
@@ -4293,51 +4513,97 @@ function applyCurriculumLessonPlanImport() {
     }
     return;
   }
-  const lines = [];
-  if (parsed.errors?.length) lines.push(`Errors: ${parsed.errors.join(" ")}`);
-  if (parsed.warnings?.length) lines.push(`Warnings: ${parsed.warnings.join(" ")}`);
-  if (parsed.unmapped?.length) {
-    const unmappedPreview = parsed.unmapped.slice(0, 3).map((entry) => {
-      const snippet = String(entry.text || "").trim().slice(0, 80);
-      const reason = entry.reason ? ` (${entry.reason})` : "";
-      return snippet ? `"${snippet}"${reason}` : entry.reason || "unmapped content";
-    });
-    const suffix = parsed.unmapped.length > 3 ? "…" : "";
-    lines.push(`Unmapped (${parsed.unmapped.length}): ${unmappedPreview.join("; ")}${suffix}`);
-  }
-  if (!parsed.ok) {
-    if (messageEl) {
-      messageEl.textContent = lines.join(" ");
-      messageEl.classList.remove("success");
-    }
-    return;
-  }
-  adminCurriculumLessonImportDraft = curriculumImportDraftFromParsed(parsed.data);
-  adminCurriculumLessonImportTextCache = text;
-  setAdminCurriculumLessonSaveBanner("", false);
+  adminCurriculumLessonImportPreview = built;
+  adminCurriculumLessonImportPreviewText = text;
+  adminCurriculumLessonImportStep = "preview";
+  adminCurriculumLessonImportDraft = null;
   renderAdminCurriculumLessonPlanManager();
   applyAdminSectionVisibility();
   if (messageEl) {
-    const report = parsed.parseReport || {};
-    const activityCount = report.activityCount ?? CURRICULUM_WEEKDAYS.reduce(
-      (count, day) => count + (parsed.data.dailyPlans?.[day]?.items?.length || 0),
-      0,
-    );
-    const formatLabel = report.formatVersion === 2 ? "v2 strict markers" : "v1 colon sections";
-    messageEl.textContent = [
-      `✅ Parsed ${activityCount} ${activityCount === 1 ? "activity" : "activities"} (${formatLabel}). Review the form and click Save when ready.`,
-      ...parsed.warnings,
-      parsed.unmapped?.length ? `${parsed.unmapped.length} unmapped line(s) were reported above.` : "",
-    ].filter(Boolean).join(" ");
-    messageEl.classList.add("success");
+    messageEl.textContent = built.preview.canConfirm
+      ? "Preview ready. Review every section, then click Confirm Import."
+      : "Preview ready with blocking issues. Resolve errors or unmapped curriculum content before confirming.";
+    messageEl.classList.toggle("success", built.preview.canConfirm);
   }
 }
 
+function confirmCurriculumLessonPlanImport() {
+  const state = adminCurriculumLessonImportPreview;
+  const preview = state?.preview;
+  if (!preview?.canConfirm || !preview.data) return;
+  if (!adminCurriculumLessonEditorId) {
+    adminCurriculumLessonEditorId = state.proposedLessonPlanId;
+  }
+  adminCurriculumLessonImportDraft = curriculumImportDraftFromParsed(preview.data);
+  adminCurriculumLessonImportTextCache = adminCurriculumLessonImportPreviewText;
+  resetCurriculumLessonImportPreviewState();
+  setAdminCurriculumLessonSaveBanner("Import confirmed. Review the form below, then click Save when ready. Nothing has been published yet.", true);
+  renderAdminCurriculumLessonPlanManager();
+  applyAdminSectionVisibility();
+}
+
+function cancelCurriculumLessonPlanImport() {
+  resetCurriculumLessonImportPreviewState();
+  adminCurriculumLessonImportDraft = null;
+  renderAdminCurriculumLessonPlanManager();
+  applyAdminSectionVisibility();
+}
+
+function clearCurriculumLessonImportPaste() {
+  adminCurriculumLessonImportTextCache = "";
+  resetCurriculumLessonImportPreviewState();
+  adminCurriculumLessonImportDraft = null;
+  renderAdminCurriculumLessonPlanManager();
+  applyAdminSectionVisibility();
+}
+
+function returnCurriculumLessonImportToPaste() {
+  adminCurriculumLessonImportTextCache = adminCurriculumLessonImportPreviewText || adminCurriculumLessonImportTextCache;
+  resetCurriculumLessonImportPreviewState();
+  renderAdminCurriculumLessonPlanManager();
+  applyAdminSectionVisibility();
+}
+
+function handleCurriculumImportDuplicateTitleAction(action) {
+  const state = adminCurriculumLessonImportPreview;
+  const previewApi = curriculumImportPreviewApi();
+  if (!state?.preview || !previewApi) return;
+  if (action === "open-existing" && state.preview.duplicateTitle?.existingPlan?.id) {
+    const existingId = state.preview.duplicateTitle.existingPlan.id;
+    resetCurriculumLessonImportPreviewState();
+    adminCurriculumLessonImportDraft = null;
+    openAdminCurriculumLessonEditor(existingId, { scroll: true });
+    return;
+  }
+  if (action === "new-copy") {
+    const updated = previewApi.applyImportTitleAction(state.preview, "new-copy");
+    adminCurriculumLessonImportPreview = {
+      ...state,
+      preview: updated,
+    };
+    renderAdminCurriculumLessonPlanManager();
+    applyAdminSectionVisibility();
+  }
+}
+
+function applyCurriculumLessonPlanImport() {
+  previewCurriculumLessonPlanImport();
+}
+
 function renderCurriculumLessonImportPanel() {
+  if (adminCurriculumLessonImportStep === "preview" && adminCurriculumLessonImportPreview) {
+    return `
+      <fieldset class="admin-fieldset curriculum-import-panel">
+        <legend>Complete Lesson Plan Importer</legend>
+        ${renderCurriculumLessonImportPreviewPanel(adminCurriculumLessonImportPreview)}
+        <span class="form-message" id="adminCurriculumLessonImportMessage"></span>
+      </fieldset>
+    `;
+  }
   return `
     <fieldset class="admin-fieldset curriculum-import-panel">
       <legend>Complete Lesson Plan Importer</legend>
-      <p class="muted-copy">Paste one formatted lesson plan, click Parse Lesson Plan, review the fields below, then Save. Import does not save automatically.</p>
+      <p class="muted-copy">Paste one formatted lesson plan, preview how it was understood, then confirm import to load it into the editor. Nothing is saved until you click Save.</p>
       <details class="curriculum-import-format-details">
         <summary>View required import format (v1 colon sections)</summary>
         <pre class="curriculum-import-template">${escapeHtml(CURRICULUM_LESSON_IMPORT_TEMPLATE)}</pre>
@@ -4348,10 +4614,11 @@ function renderCurriculumLessonImportPanel() {
         <pre class="curriculum-import-template">${escapeHtml(curriculumImportV2Template())}</pre>
       </details>` : ""}
       <label>Paste complete lesson plan
-        <textarea id="adminCurriculumLessonImportText" rows="14" placeholder="Paste using TITLE:, AGE GROUP:, THEME:, weekday sections, and ACTIVITY NAME blocks">${escapeHtml(adminCurriculumLessonImportTextCache || "")}</textarea>
+        <textarea id="adminCurriculumLessonImportText" rows="14" placeholder="Paste a v2 premium lesson plan or legacy v1 colon-section plan">${escapeHtml(adminCurriculumLessonImportTextCache || "")}</textarea>
       </label>
       <div class="form-actions">
-        <button class="ghost-button" type="button" id="adminCurriculumLessonParseButton">Parse Lesson Plan</button>
+        <button class="ghost-button" type="button" id="adminCurriculumLessonClearImportButton">Clear</button>
+        <button class="primary-button" type="button" id="adminCurriculumLessonParseButton">Preview Lesson Plan</button>
       </div>
       <span class="form-message" id="adminCurriculumLessonImportMessage"></span>
     </fieldset>
@@ -30221,13 +30488,35 @@ document.addEventListener("click", async (event) => {
     return;
   }
   if (event.target.closest("#adminCurriculumLessonParseButton")) {
-    applyCurriculumLessonPlanImport();
+    previewCurriculumLessonPlanImport();
+    return;
+  }
+  if (event.target.closest("#adminCurriculumLessonClearImportButton")) {
+    clearCurriculumLessonImportPaste();
+    return;
+  }
+  if (event.target.closest("#adminCurriculumLessonConfirmImportButton")) {
+    confirmCurriculumLessonPlanImport();
+    return;
+  }
+  if (event.target.closest("#adminCurriculumLessonCancelImportButton")) {
+    cancelCurriculumLessonPlanImport();
+    return;
+  }
+  if (event.target.closest("#adminCurriculumLessonReturnToPasteButton")) {
+    returnCurriculumLessonImportToPaste();
+    return;
+  }
+  const importTitleActionButton = event.target.closest("[data-import-title-action]");
+  if (importTitleActionButton) {
+    handleCurriculumImportDuplicateTitleAction(importTitleActionButton.dataset.importTitleAction || "");
     return;
   }
   if (event.target.closest("[data-curriculum-lesson-back]")) {
     adminCurriculumLessonEditorId = "";
     adminCurriculumLessonImportDraft = null;
     adminCurriculumLessonImportTextCache = "";
+    resetCurriculumLessonImportPreviewState();
     renderAdminCurriculumLessonPlanManager();
     return;
   }
