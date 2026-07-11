@@ -814,6 +814,33 @@ function curriculumActivitySourceKey(lessonPlanId, itemId) {
   return `${planId}:${planItemId}`;
 }
 
+const CURRICULUM_PREMIUM_TEXT_LIMIT = 12000;
+
+function normalizedCurriculumTextList(value, maxItems = 30, maxItemLength = 4000) {
+  return normalizedList(value, maxItems, (item) => normalizedMultilineText(item, maxItemLength)).filter(Boolean);
+}
+
+function normalizedCurriculumDailyPlanDay(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  return {
+    theme: normalizedMultilineText(entry.theme, 2000),
+    objectives: normalizedMultilineText(entry.objectives, 4000),
+    learningDomains: normalizedCurriculumLearningDomains(entry.learningDomains),
+    materials: normalizedMultilineText(entry.materials, 4000),
+    vocabulary: normalizedMultilineText(entry.vocabulary, 2000),
+    books: normalizedList(entry.books, 20, normalizedCurriculumBookEntry),
+    songs: normalizedList(entry.songs, 20, normalizedCurriculumSongEntry),
+    circleTime: normalizedCurriculumTextList(entry.circleTime, 20, 4000),
+    transitions: normalizedCurriculumTextList(entry.transitions, 20, 4000),
+    outdoorPlay: normalizedMultilineText(entry.outdoorPlay, 4000),
+    familyConnection: normalizedMultilineText(entry.familyConnection, 4000),
+    observations: normalizedCurriculumTextList(entry.observations, 20, 4000),
+    adaptations: normalizedMultilineText(entry.adaptations, 4000),
+    safetyNotes: normalizedMultilineText(entry.safetyNotes, 4000),
+    items: [],
+  };
+}
+
 function normalizedCurriculumDailyPlanItem(value) {
   const entry = value && typeof value === "object" ? value : {};
   const title = normalizedShortText(entry.title, 180);
@@ -823,13 +850,22 @@ function normalizedCurriculumDailyPlanItem(value) {
   if (!itemId) itemId = generateCurriculumItemId();
   return {
     itemId,
+    importKey: normalizedShortText(entry.importKey, 160),
     activityCategory: PLAY_ACTIVITY_CATEGORIES.has(category) ? category : "Open-Ended Exploration",
     title,
     description: normalizedMultilineText(entry.description, 4000),
-    materials: normalizedMultilineText(entry.materials, 2000),
-    setup: normalizedMultilineText(entry.setup, 4000),
-    steps: normalizedMultilineText(entry.steps, 4000),
-    learningGoals: normalizedList(entry.learningGoals, 12, (item) => normalizedShortText(item, 120)).filter(Boolean),
+    learningDomains: normalizedCurriculumLearningDomains(entry.learningDomains),
+    materials: normalizedMultilineText(entry.materials, 4000),
+    setup: normalizedMultilineText(entry.setup, CURRICULUM_PREMIUM_TEXT_LIMIT),
+    steps: normalizedMultilineText(entry.steps || entry.directions, CURRICULUM_PREMIUM_TEXT_LIMIT),
+    teacherRole: normalizedMultilineText(entry.teacherRole, 4000),
+    teacherLanguage: normalizedMultilineText(entry.teacherLanguage, CURRICULUM_PREMIUM_TEXT_LIMIT),
+    learningGoals: normalizedList(entry.learningGoals, 20, (item) => normalizedMultilineText(item, 500)).filter(Boolean),
+    vocabulary: normalizedMultilineText(entry.vocabulary, 4000),
+    extensions: normalizedMultilineText(entry.extensions, 4000),
+    adaptations: normalizedMultilineText(entry.adaptations, 4000),
+    safetyNotes: normalizedMultilineText(entry.safetyNotes, 4000),
+    ageModifications: normalizedMultilineText(entry.ageModifications, 4000),
   };
 }
 
@@ -838,12 +874,12 @@ function normalizedCurriculumDailyPlans(value, lessonPlanId) {
   const days = {};
   CURRICULUM_WEEKDAYS.forEach((day) => {
     const dayInput = input[day] && typeof input[day] === "object" ? input[day] : {};
-    days[day] = {
-      items: normalizedList(dayInput.items, 30, normalizedCurriculumDailyPlanItem).map((item) => ({
-        ...item,
-        sourceKey: curriculumActivitySourceKey(lessonPlanId, item.itemId),
-      })),
-    };
+    const normalizedDay = normalizedCurriculumDailyPlanDay(dayInput);
+    normalizedDay.items = normalizedList(dayInput.items, 30, normalizedCurriculumDailyPlanItem).map((item) => ({
+      ...item,
+      sourceKey: curriculumActivitySourceKey(lessonPlanId, item.itemId),
+    }));
+    days[day] = normalizedDay;
   });
   return days;
 }
@@ -908,10 +944,18 @@ function normalizedCurriculumActivity(value) {
     activityCategory: PLAY_ACTIVITY_CATEGORIES.has(category) ? category : "Open-Ended Exploration",
     title: normalizedShortText(entry.title, 180) || "Activity",
     description: normalizedMultilineText(entry.description, 4000),
-    materials: normalizedMultilineText(entry.materials, 2000),
-    setup: normalizedMultilineText(entry.setup, 4000),
-    steps: normalizedMultilineText(entry.steps, 4000),
-    learningGoals: normalizedList(entry.learningGoals, 12, (item) => normalizedShortText(item, 120)).filter(Boolean),
+    learningDomains: normalizedCurriculumLearningDomains(entry.learningDomains),
+    materials: normalizedMultilineText(entry.materials, 4000),
+    setup: normalizedMultilineText(entry.setup, CURRICULUM_PREMIUM_TEXT_LIMIT),
+    steps: normalizedMultilineText(entry.steps || entry.directions, CURRICULUM_PREMIUM_TEXT_LIMIT),
+    teacherRole: normalizedMultilineText(entry.teacherRole, 4000),
+    teacherLanguage: normalizedMultilineText(entry.teacherLanguage, CURRICULUM_PREMIUM_TEXT_LIMIT),
+    learningGoals: normalizedList(entry.learningGoals, 20, (item) => normalizedMultilineText(item, 500)).filter(Boolean),
+    vocabulary: normalizedMultilineText(entry.vocabulary, 4000),
+    extensions: normalizedMultilineText(entry.extensions, 4000),
+    adaptations: normalizedMultilineText(entry.adaptations, 4000),
+    safetyNotes: normalizedMultilineText(entry.safetyNotes, 4000),
+    ageModifications: normalizedMultilineText(entry.ageModifications, 4000),
     status: CURRICULUM_ITEM_STATUSES.has(status) ? status : "draft",
     createdAt: normalizedShortText(entry.createdAt, 80),
     updatedAt: normalizedShortText(entry.updatedAt, 80),
@@ -1319,10 +1363,18 @@ function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
       activityCategory: item.activityCategory,
       title: item.title,
       description: item.description,
+      learningDomains: item.learningDomains,
       materials: item.materials,
       setup: item.setup,
       steps: item.steps,
+      teacherRole: item.teacherRole,
+      teacherLanguage: item.teacherLanguage,
       learningGoals: item.learningGoals,
+      vocabulary: item.vocabulary,
+      extensions: item.extensions,
+      adaptations: item.adaptations,
+      safetyNotes: item.safetyNotes,
+      ageModifications: item.ageModifications,
       status: activityStatus,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
