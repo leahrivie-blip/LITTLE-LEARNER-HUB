@@ -179,9 +179,13 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
   const js404 = scriptResponses.filter((entry) => entry.status === 404 || entry.failed);
   assert(!js404.length, `${label}: JavaScript 404/failed loads: ${js404.map((e) => e.url).join(", ")}`);
 
-  // Sign Up
+  // Sign Up / Log In (topbar Sign up is hidden on narrow home view)
   await step("signup button", async () => {
-    await page.click("#signupButton");
+    if (viewport.width <= 600) {
+      await page.locator(".lp-hero-actions [data-action='start-free']").click();
+    } else {
+      await page.click("#signupButton");
+    }
     await page.waitForSelector("#authModal.open", { timeout: 5000 });
     assert((await page.locator("#authTitle").innerText()).toLowerCase().includes("create"), `${label}: signup modal title`);
     await page.click("#closeModal");
@@ -189,10 +193,11 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
   });
 
   await step("login button", async () => {
-    await page.click("#signinButton");
+    await page.locator("#signinButton").click();
     await page.waitForSelector("#authModal.open", { timeout: 5000 });
     assert((await page.locator("#authTitle").innerText()).toLowerCase().includes("log in"), `${label}: login modal title`);
     await page.click("#closeModal");
+    await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 });
   });
 
   await step("upgrade trial button", async () => {
@@ -200,12 +205,15 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
     await page.click(".lp-pro-card [data-action='upgrade-trial']");
     await page.waitForSelector("#authModal.open", { timeout: 5000 });
     await page.click("#closeModal");
+    await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 });
   });
 
   await step("start free button", async () => {
+    await page.locator(".lp-hero-actions [data-action='start-free']").scrollIntoViewIfNeeded();
     await page.click(".lp-hero-actions [data-action='start-free']");
     await page.waitForSelector("#authModal.open", { timeout: 5000 });
     await page.click("#closeModal");
+    await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 });
   });
 
   await step("pricing navigation", async () => {
