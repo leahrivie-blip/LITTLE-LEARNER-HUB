@@ -43,7 +43,7 @@ const DATABASE_SSL = process.env.DATABASE_SSL || "";
 
 const publicDir = path.join(__dirname, "..");
 const dataDir = path.join(__dirname, "data");
-const storePath = path.join(dataDir, "launch-store.json");
+const storePath = process.env.LLH_STORE_PATH || path.join(dataDir, "launch-store.json");
 const storeRecordId = "launch-store";
 const spaRoutePaths = new Set([
   "/admin",
