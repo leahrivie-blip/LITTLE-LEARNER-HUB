@@ -3848,7 +3848,15 @@ function curriculumLessonPlanStatusLabel(status) {
 }
 
 function emptyCurriculumDailyPlans() {
+  const api = curriculumImportApi();
+  if (api?.emptyCurriculumDailyPlans) return api.emptyCurriculumDailyPlans();
   return Object.fromEntries(CURRICULUM_WEEKDAYS.map((day) => [day, { items: [] }]));
+}
+
+function emptyCurriculumDailyPlanDay() {
+  const api = curriculumImportApi();
+  if (api?.emptyCurriculumDailyPlanDay) return api.emptyCurriculumDailyPlanDay();
+  return { items: [] };
 }
 
 function curriculumLessonPlansForAdmin() {
@@ -4157,10 +4165,10 @@ function curriculumImportV2Template() {
 function curriculumImportDraftFromParsed(parsedData) {
   if (!parsedData || typeof parsedData !== "object") return parsedData;
   const draft = { ...parsedData };
-  if (draft.dailyPlansCompat) {
+  if (!draft.dailyPlans && draft.dailyPlansCompat) {
     draft.dailyPlans = draft.dailyPlansCompat;
-    delete draft.dailyPlansCompat;
   }
+  delete draft.dailyPlansCompat;
   delete draft._formatVersion;
   delete draft._activityCount;
   return draft;
@@ -4542,21 +4550,33 @@ function setAdminCurriculumLessonSaveBanner(text, isSuccess = false) {
 function collectCurriculumLessonPlanFromForm(form) {
   const formData = new FormData(form);
   const id = normalizedShortText(formData.get("id"));
+  const existing = id ? curriculumLessonEditorRecord() : null;
+  const preservedDaily = existing?.dailyPlans || {};
   const dailyPlans = emptyCurriculumDailyPlans();
   CURRICULUM_WEEKDAYS.forEach((day) => {
+    const preservedDay = preservedDaily[day] && typeof preservedDaily[day] === "object"
+      ? preservedDaily[day]
+      : emptyCurriculumDailyPlanDay();
+    const preservedItemsById = new Map(
+      (Array.isArray(preservedDay.items) ? preservedDay.items : [])
+        .filter((item) => item?.itemId)
+        .map((item) => [item.itemId, item]),
+    );
     const rows = form.querySelectorAll(`.curriculum-daily-item-row[data-curriculum-day="${day}"]`);
     const items = [];
     rows.forEach((row) => {
       const title = normalizedShortText(row.querySelector("[data-curriculum-title]")?.value);
       if (!title) return;
       const itemId = normalizedShortText(row.querySelector("[data-curriculum-item-id]")?.value) || generateCurriculumItemIdClient();
+      const preservedItem = preservedItemsById.get(itemId) || {};
       const learningGoals = normalizedMultilineText(row.querySelector("[data-curriculum-learning-goals]")?.value)
         .split(/\r?\n/)
-        .map((goal) => normalizedShortText(goal))
+        .map((goal) => goal.trim())
         .filter(Boolean);
       items.push({
+        ...preservedItem,
         itemId,
-        activityCategory: normalizedShortText(row.querySelector("[data-curriculum-category]")?.value) || PLAY_ACTIVITY_CATEGORIES[0],
+        activityCategory: normalizedShortText(row.querySelector("[data-curriculum-category]")?.value) || preservedItem.activityCategory || PLAY_ACTIVITY_CATEGORIES[0],
         title,
         description: normalizedMultilineText(row.querySelector("[data-curriculum-description]")?.value),
         materials: normalizedMultilineText(row.querySelector("[data-curriculum-materials]")?.value),
@@ -4565,9 +4585,24 @@ function collectCurriculumLessonPlanFromForm(form) {
         learningGoals,
       });
     });
-    dailyPlans[day] = { items };
+    dailyPlans[day] = {
+      theme: preservedDay.theme || "",
+      objectives: preservedDay.objectives || "",
+      learningDomains: Array.isArray(preservedDay.learningDomains) ? [...preservedDay.learningDomains] : [],
+      materials: preservedDay.materials || "",
+      vocabulary: preservedDay.vocabulary || "",
+      books: Array.isArray(preservedDay.books) ? preservedDay.books.map((book) => ({ ...book })) : [],
+      songs: Array.isArray(preservedDay.songs) ? preservedDay.songs.map((song) => ({ ...song })) : [],
+      circleTime: Array.isArray(preservedDay.circleTime) ? [...preservedDay.circleTime] : [],
+      transitions: Array.isArray(preservedDay.transitions) ? [...preservedDay.transitions] : [],
+      outdoorPlay: preservedDay.outdoorPlay || "",
+      familyConnection: preservedDay.familyConnection || "",
+      observations: Array.isArray(preservedDay.observations) ? [...preservedDay.observations] : [],
+      adaptations: preservedDay.adaptations || "",
+      safetyNotes: preservedDay.safetyNotes || "",
+      items,
+    };
   });
-  const existing = id ? curriculumLessonPlanById(id) : null;
   return {
     ...(existing || {}),
     id,
