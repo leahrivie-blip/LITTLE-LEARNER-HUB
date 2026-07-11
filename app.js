@@ -1710,6 +1710,7 @@ const billingPlans = {
 const stripeCheckoutConfig = {
   checkoutEndpoint: "/api/create-checkout-session",
   customerPortalEndpoint: "/api/create-customer-portal-session",
+  cancelSubscriptionEndpoint: "/api/cancel-subscription",
   subscriptionStatusEndpoint: "/api/subscription-status",
   checkoutStatusEndpoint: "/api/checkout-status",
   foundingStatusEndpoint: "/api/founding-status",
@@ -2465,38 +2466,66 @@ function closeProFeatureModal() {
   modal.setAttribute("aria-hidden", "true");
 }
 
-function billingStatusIndicatesFree(status = "") {
+function billingStatusIndicatesFree(status = "", account = null) {
   const cleanStatus = String(status || "").toLowerCase();
-  return cleanStatus.includes("free plan")
-    || cleanStatus.includes("cancel")
-    || cleanStatus.includes("failed");
+  if (cleanStatus.includes("free plan") || cleanStatus.includes("failed")) return true;
+  if (cleanStatus.includes("ended") && !cleanStatus.includes("access ends")) return true;
+  if (account && accountHasRemainingPaidAccess(account)) return false;
+  if (cleanStatus.includes("cancel") && !(account && accountHasRemainingPaidAccess(account))) return true;
+  return false;
 }
 
-function billingStatusIndicatesPaid(status = "") {
+function accountAccessEndMs(account = null) {
+  const target = account || currentAccount();
+  if (!target) return null;
+  const raw = target.accessEndsAt || target.currentPeriodEnd || target.trialEnd;
+  if (!raw) return null;
+  const ms = new Date(raw).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function accountHasRemainingPaidAccess(account = null) {
+  const target = account || currentAccount();
+  if (!target) return false;
+  if (target.internalAccessOverride) return true;
+  const endMs = accountAccessEndMs(target);
+  const stripeStatus = String(target.stripeSubscriptionStatus || "").toLowerCase();
+  if (stripeStatus === "active" || stripeStatus === "trialing") return true;
+  if (endMs !== null && endMs > Date.now()) return true;
+  const status = String(target.subscriptionStatus || "").toLowerCase();
+  if (status.includes("access ends") && endMs !== null && endMs > Date.now()) return true;
+  return false;
+}
+
+function billingStatusIndicatesPaid(status = "", account = null) {
+  if (account && accountHasRemainingPaidAccess(account)) return true;
   const cleanStatus = String(status || "").toLowerCase();
   return cleanStatus.includes("active")
     || cleanStatus.includes("trial")
-    || cleanStatus.includes("paid");
+    || cleanStatus.includes("paid")
+    || cleanStatus.includes("access ends");
 }
 
 function normalizeBillingPlan(plan = currentPlan, account = null) {
   const rawPlan = String(account?.plan || plan || "Free").trim();
   const lowerPlan = rawPlan.toLowerCase();
   const status = String(account?.subscriptionStatus || "");
-  if (account && billingStatusIndicatesFree(status)) return "Free";
-  if (rawPlan === "Founding" || (account?.foundingMember && billingStatusIndicatesPaid(status))) return "Founding";
+  if (account && billingStatusIndicatesFree(status, account)) return "Free";
+  if ((rawPlan === "Founding" || account?.foundingMemberActive) && accountHasRemainingPaidAccess(account)) return "Founding";
   if (rawPlan === "Pro" || rawPlan === "Premium" || lowerPlan.includes("pro")) {
-    return account && status && !billingStatusIndicatesPaid(status) ? "Free" : "Pro";
+    return account && status && !billingStatusIndicatesPaid(status, account) ? "Free" : "Pro";
   }
   return "Free";
 }
 
 function accountHasPaidBilling(account = currentAccount()) {
   if (!account) return false;
+  if (account.internalAccessOverride) return true;
+  if (accountHasRemainingPaidAccess(account)) return true;
   const plan = normalizeBillingPlan(account.plan || currentPlan, account);
   if (plan === "Free") return false;
   const status = String(account.subscriptionStatus || "");
-  return billingStatusIndicatesPaid(status) || Boolean(account.stripeSubscriptionId || account.subscriptionStartedAt);
+  return billingStatusIndicatesPaid(status, account);
 }
 
 function billingPlanLabel(plan = currentPlan, account = plan === currentPlan ? currentAccount() : null) {
@@ -2510,7 +2539,7 @@ function billingPlanLabel(plan = currentPlan, account = plan === currentPlan ? c
 function billingPriceLabel(account = currentAccount()) {
   const plan = normalizeBillingPlan(account?.plan || currentPlan, account);
   if (account && !accountHasPaidBilling(account)) return "$0/month";
-  if (plan === "Founding" || (account?.foundingMember && accountHasPaidBilling(account))) return "$9.99/month";
+  if (plan === "Founding" || (account?.foundingMemberActive && accountHasPaidBilling(account))) return "$9.99/month";
   if (account?.subscriptionCadence === "annual") return "$199/year";
   if (plan === "Pro") return "$19.99/month";
   return "$0/month";
@@ -2652,20 +2681,27 @@ function updateCurrentAccountBilling(updates) {
 }
 
 function isStripeStatusActive(subscription) {
+  if (!subscription) return false;
+  if (accountHasRemainingPaidAccess(subscription)) return true;
   const status = String(subscription?.subscriptionStatus || "").toLowerCase();
-  if (status.includes("cancel") || status.includes("free plan") || status.includes("failed")) return false;
+  if (status.includes("payment failed") || status.includes("failed")) return false;
+  if (status.includes("free plan")) return false;
+  if (status.includes("ended") && !status.includes("access ends")) return false;
+  const stripeStatus = String(subscription.stripeSubscriptionStatus || "").toLowerCase();
+  if (stripeStatus === "active" || stripeStatus === "trialing") return true;
   return status.includes("active")
     || status.includes("trial")
-    || status.includes("paid");
+    || status.includes("paid")
+    || status.includes("access ends");
 }
 
 function isFoundingSubscription(subscription) {
   if (!subscription) return false;
+  if (Boolean(subscription.foundingMemberActive)) return true;
   const serverPlan = String(subscription.plan || "").trim().toLowerCase();
   const pendingPlan = String(subscription.pendingPlan || "").trim().toLowerCase();
-  if (Boolean(subscription.foundingMember)) return true;
-  if (serverPlan === "founding") return true;
-  if (pendingPlan === "founding") return true;
+  if (serverPlan === "founding" && accountHasRemainingPaidAccess(subscription)) return true;
+  if (pendingPlan === "founding" && accountHasRemainingPaidAccess(subscription)) return true;
   return false;
 }
 
@@ -2684,18 +2720,27 @@ function accountIsInTrial(account = null) {
 function subscriptionToAccountUpdates(subscription) {
   if (!subscription) return null;
   if (!isStripeStatusActive(subscription)) {
+    const wasFounding = Boolean(subscription.foundingMemberHistorical || subscription.foundingMember);
     return {
       plan: "Free",
       subscriptionCadence: "",
-      subscriptionStatus: subscription.subscriptionStatus || "Free Plan",
-      foundingMember: Boolean(subscription.foundingMember),
+      subscriptionStatus: subscription.subscriptionStatus || "Canceled and Ended",
+      foundingMemberActive: false,
+      foundingMemberHistorical: wasFounding,
+      foundingMember: wasFounding,
       foundingMemberNumber: subscription.foundingMemberNumber || null,
-      priceLock: subscription.foundingMember ? "Lifetime" : "",
+      priceLock: wasFounding ? "Lifetime" : "",
       monthlyPrice: "$0/month",
       stripeCustomerId: subscription.stripeCustomerId || "",
       stripeSubscriptionId: subscription.stripeSubscriptionId || "",
+      stripeSubscriptionStatus: subscription.stripeSubscriptionStatus || "",
+      currentPeriodEnd: subscription.currentPeriodEnd || "",
+      accessEndsAt: subscription.accessEndsAt || "",
+      cancelAtPeriodEnd: Boolean(subscription.cancelAtPeriodEnd),
+      lastStripeSyncAt: subscription.lastStripeSyncAt || subscription.updatedAt || "",
       paymentMethod: subscription.paymentMethod || "Managed in Stripe",
       promoRedemptions: accountPromoRedemptions(subscription),
+      internalAccessOverride: Boolean(subscription.internalAccessOverride),
     };
   }
   const isFounding = isFoundingSubscription(subscription);
@@ -2706,17 +2751,25 @@ function subscriptionToAccountUpdates(subscription) {
     subscriptionCadence: subscription.subscriptionCadence || (plan === "Founding" ? "monthly" : ""),
     subscriptionStatus: subscription.subscriptionStatus || `${billingPlanLabel(plan)} Subscription Active`,
     subscriptionStartedAt: subscription.subscriptionStartedAt || new Date().toISOString(),
-    foundingMember: isFounding,
+    foundingMemberActive: isFounding,
+    foundingMemberHistorical: Boolean(subscription.foundingMemberHistorical || subscription.foundingMember || isFounding),
+    foundingMember: Boolean(subscription.foundingMemberHistorical || subscription.foundingMember || isFounding),
     foundingMemberNumber: subscription.foundingMemberNumber || null,
     priceLock: isFounding ? "Lifetime" : subscription.priceLock || "",
     monthlyPrice: isFounding ? "$9.99/month" : subscription.monthlyPrice || defaultPrice,
     stripeCustomerId: subscription.stripeCustomerId || "",
     stripeSubscriptionId: subscription.stripeSubscriptionId || "",
+    stripeSubscriptionStatus: subscription.stripeSubscriptionStatus || "",
+    currentPeriodEnd: subscription.currentPeriodEnd || "",
+    accessEndsAt: subscription.accessEndsAt || subscription.currentPeriodEnd || "",
+    cancelAtPeriodEnd: Boolean(subscription.cancelAtPeriodEnd),
+    lastStripeSyncAt: subscription.lastStripeSyncAt || subscription.updatedAt || "",
     paymentMethod: subscription.paymentMethod || "Managed in Stripe",
     promoRedemptions: accountPromoRedemptions(subscription),
     trialStatus: subscription.trialStatus || undefined,
     trialStart: subscription.trialStart || undefined,
     trialEnd: subscription.trialEnd || undefined,
+    internalAccessOverride: Boolean(subscription.internalAccessOverride),
   };
 }
 
@@ -21531,12 +21584,25 @@ function renderAdminVisibilityDashboard() {
 
 function adminMembershipHasProAccess(account) {
   if (!account) return false;
-  const status = String(account.subscriptionStatus || account.membershipStatus || "").toLowerCase();
-  if (status.includes("cancel") || status.includes("free plan") || status.includes("failed")) return false;
   if (typeof account.hasProAccess === "boolean") return account.hasProAccess;
-  if (String(account.trialStatus || "").toLowerCase().includes("in trial")) return true;
-  if (status.includes("trialing") || (status.includes("trial") && !status.includes("trial ended"))) return true;
-  return ["Pro", "Founding"].includes(account.plan) && (status.includes("active") || status.includes("paid"));
+  if (account.internalAccessOverride) return true;
+  const stripeStatus = String(account.stripeSubscriptionStatus || "").toLowerCase();
+  if (stripeStatus === "active" || stripeStatus === "trialing") return true;
+  const endMs = account.accessEndsAt || account.currentPeriodEnd || account.trialEnd;
+  if (endMs && new Date(endMs).getTime() > Date.now()) return true;
+  const status = String(account.subscriptionStatus || "").toLowerCase();
+  if (status.includes("payment failed") || status.includes("failed")) return false;
+  if (status.includes("access ends") && endMs && new Date(endMs).getTime() > Date.now()) return true;
+  if (status.includes("ended") || status.includes("free plan")) return false;
+  return ["Pro", "Founding"].includes(account.plan) && (status.includes("active") || status.includes("trialing") || status.includes("trial"));
+}
+
+function adminMembershipFoundingActive(account) {
+  return Boolean(account?.foundingMemberActive) && adminMembershipHasProAccess(account);
+}
+
+function adminMembershipFoundingHistorical(account) {
+  return Boolean(account?.foundingMemberHistorical || account?.foundingMember || account?.foundingMemberNumber);
 }
 
 function adminMembershipInTrial(account) {
@@ -21552,19 +21618,28 @@ function adminMembershipPlanLabel(account) {
   if (account?.membershipPlan) return account.membershipPlan;
   if (!adminMembershipHasProAccess(account)) return "Free";
   if (adminMembershipInTrial(account)) return "Trial";
-  if (account.plan === "Founding" || account.foundingMember) return "Founding Member";
+  if (adminMembershipFoundingActive(account)) return "Founding Member";
   if (account.subscriptionCadence === "annual") return "Pro Annual";
   return "Pro Monthly";
 }
 
 function adminMembershipStatusLabel(account) {
   if (account?.membershipStatus) return account.membershipStatus;
-  const status = String(account.subscriptionStatus || "").toLowerCase();
-  if (status.includes("failed")) return "Payment Failed";
-  if (status.includes("past due")) return "Past Due";
-  if (status.includes("cancel")) return "Canceled";
-  if (adminMembershipInTrial(account)) return "In Trial";
-  if (adminMembershipHasProAccess(account)) return "Active";
+  if (account?.internalAccessOverride) return "Internal Access Override";
+  const stripeStatus = String(account?.stripeSubscriptionStatus || "").toLowerCase();
+  const status = String(account?.subscriptionStatus || "").toLowerCase();
+  if (status.includes("payment failed") || stripeStatus === "unpaid") return "Payment Failed";
+  if (status.includes("past due") || stripeStatus === "past_due") return "Past Due";
+  const hasAccess = adminMembershipHasProAccess(account);
+  const cancelScheduled = Boolean(account?.cancelAtPeriodEnd) || status.includes("access ends");
+  if (!hasAccess && (status.includes("ended") || status.includes("free plan") || stripeStatus === "canceled")) {
+    return "Canceled and Ended";
+  }
+  if (cancelScheduled && hasAccess) {
+    return adminMembershipInTrial(account) ? "Trialing — Cancels at Trial End" : "Canceling at Period End";
+  }
+  if (adminMembershipInTrial(account)) return "Trialing";
+  if (hasAccess) return "Active";
   return "Free";
 }
 
@@ -21588,9 +21663,13 @@ function adminUserPlanBadge(account) {
 
 function adminUserStatusBadge(account) {
   const label = adminMembershipStatusLabel(account);
-  if (label === "Canceled") return `<span class="aup-status aup-status--canceled">Canceled</span>`;
-  if (label === "In Trial") return `<span class="aup-status aup-status--trial">In Trial</span>`;
+  if (label === "Canceled and Ended") return `<span class="aup-status aup-status--canceled">Canceled and Ended</span>`;
+  if (label === "Canceling at Period End" || label === "Trialing — Cancels at Trial End") {
+    return `<span class="aup-status aup-status--trial">${escapeHtml(label)}</span>`;
+  }
+  if (label === "Trialing") return `<span class="aup-status aup-status--trial">Trialing</span>`;
   if (label === "Payment Failed" || label === "Past Due") return `<span class="aup-status aup-status--canceled">${escapeHtml(label)}</span>`;
+  if (label === "Internal Access Override") return `<span class="aup-status aup-status--active">Internal Override</span>`;
   if (label === "Active") return `<span class="aup-status aup-status--active">Active</span>`;
   return `<span class="aup-status aup-status--free">${escapeHtml(label)}</span>`;
 }
@@ -21659,8 +21738,12 @@ function renderAdminUsersDashboard() {
     const label = adminMembershipPlanLabel(a);
     return label === "Pro Monthly" || label === "Pro Annual";
   });
-  const founding = allAccounts.filter((a) => adminMembershipPlanLabel(a) === "Founding Member" || (a.foundingMember && adminMembershipHasProAccess(a)));
-  const canceled = allAccounts.filter((a) => adminMembershipStatusLabel(a) === "Canceled");
+  const founding = allAccounts.filter((a) => adminMembershipFoundingActive(a));
+  const canceling = allAccounts.filter((a) => {
+    const s = adminMembershipStatusLabel(a);
+    return s === "Canceling at Period End" || s === "Trialing — Cancels at Trial End";
+  });
+  const canceled = allAccounts.filter((a) => adminMembershipStatusLabel(a) === "Canceled and Ended");
   const pastDue = allAccounts.filter((a) => {
     const s = adminMembershipStatusLabel(a);
     return s === "Payment Failed" || s === "Past Due";
@@ -21709,6 +21792,10 @@ function renderAdminUsersDashboard() {
         <strong>${Number(founding.length)}</strong>
         <span>Founding</span>
       </div>
+      <div class="aup-insight-card aup-insight--trial">
+        <strong>${Number(canceling.length)}</strong>
+        <span>Canceling</span>
+      </div>
       <div class="aup-insight-card aup-insight--canceled">
         <strong>${Number(canceled.length)}</strong>
         <span>Canceled</span>
@@ -21728,6 +21815,7 @@ function renderAdminUsersDashboard() {
       <button class="admin-sub-tab"        id="adminUserTabTrial"    type="button">Trial (${Number(trial.length)})</button>
       <button class="admin-sub-tab"        id="adminUserTabPro"      type="button">Pro (${Number(pro.length)})</button>
       <button class="admin-sub-tab"        id="adminUserTabFounding" type="button">Founding (${Number(founding.length)})</button>
+      <button class="admin-sub-tab"        id="adminUserTabCanceling" type="button">Canceling (${Number(canceling.length)})</button>
       <button class="admin-sub-tab"        id="adminUserTabCanceled" type="button">Canceled (${Number(canceled.length)})</button>
       <button class="admin-sub-tab"        id="adminUserTabPastDue"  type="button">Past Due (${Number(pastDue.length)})</button>
     </div>
@@ -21743,6 +21831,7 @@ function renderAdminUsersDashboard() {
     { id: "adminUserTabTrial",    items: trial },
     { id: "adminUserTabPro",      items: pro },
     { id: "adminUserTabFounding", items: founding },
+    { id: "adminUserTabCanceling", items: canceling },
     { id: "adminUserTabCanceled", items: canceled },
     { id: "adminUserTabPastDue",  items: pastDue },
   ];
@@ -21794,10 +21883,19 @@ function openAdminUserProfile(email, startTab) {
 
   const plan   = account.plan || "Free";
   const status = account.subscriptionStatus || "Free Plan";
-  const isTrial    = String(status).toLowerCase().includes("trial");
-  const isCanceled = String(status).toLowerCase().includes("cancel");
-  const isFounding = account.plan === "Founding" || Boolean(account.foundingMember);
-  const isPro      = account.plan === "Pro";
+  const statusLabel = adminMembershipStatusLabel(account);
+  const isTrial    = adminMembershipInTrial(account);
+  const isCanceling = statusLabel === "Canceling at Period End" || statusLabel === "Trialing — Cancels at Trial End";
+  const isEnded = statusLabel === "Canceled and Ended" || statusLabel === "Free";
+  const isFoundingActive = adminMembershipFoundingActive(account);
+  const isFoundingHistorical = adminMembershipFoundingHistorical(account);
+  const isFounding = isFoundingActive || isFoundingHistorical;
+  const isPro      = account.plan === "Pro" && adminMembershipHasProAccess(account);
+  const accessEndDate = account.accessEndsAt || account.currentPeriodEnd || account.trialEnd || "";
+  const nextRenewal = account.nextRenewalDate || (account.cancelAtPeriodEnd ? "" : account.currentPeriodEnd || "");
+  const foundingEligibility = account.foundingEligibilityLabel
+    || (isFoundingActive ? "Active Founding Member" : isFoundingHistorical ? "Historical Founding Member (no auto $9.99)" : "Not a Founding Member");
+  const auditLog = account.membershipAuditRecent || [];
 
   const joined     = account.createdAt    ? new Date(account.createdAt).toLocaleDateString()    : "—";
   const lastLogin  = account.lastLoginAt  ? new Date(account.lastLoginAt).toLocaleString()      : "Not tracked";
@@ -21847,23 +21945,30 @@ function openAdminUserProfile(email, startTab) {
           <div><span>Name</span><strong>${escapeHtml(displayUserName(account))}</strong></div>
           <div><span>Email</span><strong>${escapeHtml(email)}</strong></div>
           <div><span>Membership Plan</span><strong>${escapeHtml(adminMembershipPlanLabel(account))}</strong></div>
-          <div><span>Membership Status</span><strong>${escapeHtml(adminMembershipStatusLabel(account))}</strong></div>
+          <div><span>Membership Status</span><strong>${escapeHtml(statusLabel)}</strong></div>
           <div><span>Pro Access Now</span><strong>${adminMembershipHasProAccess(account) ? "Yes" : "No"}</strong></div>
           <div><span>Display Price</span><strong>${escapeHtml(adminMembershipDisplayPrice(account))}</strong></div>
           ${account.businessName ? `<div><span>Business</span><strong>${escapeHtml(account.businessName)}</strong></div>` : ""}
           <div><span>Plan (stored)</span><strong>${escapeHtml(plan)}</strong></div>
           <div><span>Status (stored)</span><strong>${escapeHtml(status)}</strong></div>
+          <div><span>Stripe Subscription Status</span><strong>${escapeHtml(account.stripeSubscriptionStatus || "—")}</strong></div>
+          <div><span>Internal Override</span><strong>${account.internalAccessOverride ? "Yes" : "No"}</strong></div>
+          <div><span>Scheduled Cancellation</span><strong>${account.cancelAtPeriodEnd || isCanceling ? "Yes" : "No"}</strong></div>
+          <div><span>Access Ends</span><strong>${accessEndDate ? escapeHtml(new Date(accessEndDate).toLocaleString()) : "—"}</strong></div>
+          <div><span>Current Period End</span><strong>${account.currentPeriodEnd ? escapeHtml(new Date(account.currentPeriodEnd).toLocaleString()) : "—"}</strong></div>
+          <div><span>Next Renewal</span><strong>${nextRenewal ? escapeHtml(new Date(nextRenewal).toLocaleString()) : "None scheduled"}</strong></div>
           <div><span>Signed Up</span><strong>${escapeHtml(joined)}</strong></div>
           <div><span>Last Login</span><strong>${escapeHtml(lastLogin)}</strong></div>
           <div><span>Last Active</span><strong>${escapeHtml(lastActive)}</strong></div>
           ${account.authProvider ? `<div><span>Auth Provider</span><strong>${escapeHtml(account.authProvider)}</strong></div>` : ""}
           ${account.priceLock || account.foundingPriceLock ? `<div><span>Price Lock</span><strong>${escapeHtml(account.priceLock || account.foundingPriceLock)}</strong></div>` : ""}
-          ${account.foundingMember ? `<div><span>Founding Member</span><strong>Yes${account.foundingMemberNumber ? ` (#${account.foundingMemberNumber})` : ""}</strong></div>` : ""}
+          ${isFoundingHistorical ? `<div><span>Founding Member #</span><strong>${account.foundingMemberNumber ? `#${escapeHtml(String(account.foundingMemberNumber))}` : "—"}</strong></div>` : ""}
+          ${isFounding ? `<div><span>Founding Eligibility</span><strong>${escapeHtml(foundingEligibility)}</strong></div>` : ""}
           ${account.trialStart ? `<div><span>Trial Start</span><strong>${escapeHtml(new Date(account.trialStart).toLocaleDateString())}</strong></div>` : ""}
           ${account.trialEnd ? `<div><span>Trial End</span><strong>${escapeHtml(new Date(account.trialEnd).toLocaleDateString())}</strong></div>` : ""}
-          ${account.canceledAt ? `<div><span>Access Ended</span><strong>${escapeHtml(new Date(account.canceledAt).toLocaleDateString())}</strong></div>` : ""}
+          ${account.canceledAt ? `<div><span>Subscription Ended</span><strong>${escapeHtml(new Date(account.canceledAt).toLocaleDateString())}</strong></div>` : ""}
           ${account.stripeCustomerRef || account.stripeCustomerId ? `<div><span>Stripe Customer</span><strong>${escapeHtml(account.stripeCustomerRef || `…${String(account.stripeCustomerId).slice(-8)}`)}</strong></div>` : ""}
-          ${account.lastMembershipSyncAt || account.updatedAt ? `<div><span>Last Sync</span><strong>${escapeHtml(new Date(account.lastMembershipSyncAt || account.updatedAt).toLocaleString())}</strong></div>` : ""}
+          ${account.lastStripeSyncAt || account.lastMembershipSyncAt || account.updatedAt ? `<div><span>Last Stripe Sync</span><strong>${escapeHtml(new Date(account.lastStripeSyncAt || account.lastMembershipSyncAt || account.updatedAt).toLocaleString())}</strong></div>` : ""}
         </div>
       </fieldset>
 
@@ -21871,11 +21976,11 @@ function openAdminUserProfile(email, startTab) {
       <fieldset class="admin-fieldset aup-founding-fieldset">
         <legend>⭐ Founding Member</legend>
         <div class="aup-info-grid">
-          <div><span>Founding Member</span><strong>Yes</strong></div>
+          <div><span>Founding Eligibility</span><strong>${escapeHtml(foundingEligibility)}</strong></div>
           ${account.foundingMemberNumber ? `<div><span>Member #</span><strong>${escapeHtml(String(account.foundingMemberNumber))}</strong></div>` : ""}
           <div><span>Original Join Date</span><strong>${escapeHtml(joined)}</strong></div>
-          <div><span>Founding Status</span><strong>${isCanceled ? "Canceled" : "Active"}</strong></div>
-          <div><span>Price Lock</span><strong>Lifetime Founding Pricing</strong></div>
+          <div><span>Active Founding Pricing</span><strong>${isFoundingActive ? "Yes ($9.99/month)" : "No"}</strong></div>
+          <div><span>Spot Retained</span><strong>${isFoundingHistorical ? "Yes — numbered spot kept; access ends on cancel" : "—"}</strong></div>
         </div>
       </fieldset>
       ` : ""}
@@ -21902,17 +22007,19 @@ function openAdminUserProfile(email, startTab) {
       <fieldset class="admin-fieldset">
         <legend>💳 Subscription Management</legend>
         <div class="aup-info-grid">
-          <div><span>Current Plan</span><strong>${escapeHtml(plan)}</strong></div>
-          <div><span>Status</span><strong>${isCanceled ? "Canceled" : "Active"}</strong></div>
+          <div><span>Current Plan</span><strong>${escapeHtml(adminMembershipPlanLabel(account))}</strong></div>
+          <div><span>Status</span><strong>${escapeHtml(statusLabel)}</strong></div>
           ${account.subscriptionCadence ? `<div><span>Billing Cadence</span><strong>${escapeHtml(account.subscriptionCadence)}</strong></div>` : ""}
-          ${account.monthlyPrice ? `<div><span>Monthly Price</span><strong>${escapeHtml(account.monthlyPrice)}</strong></div>` : ""}
+          ${account.monthlyPrice ? `<div><span>Price</span><strong>${escapeHtml(account.monthlyPrice)}</strong></div>` : ""}
+          ${accessEndDate ? `<div><span>Access Ends</span><strong>${escapeHtml(new Date(accessEndDate).toLocaleString())}</strong></div>` : ""}
           ${account.stripeSubscriptionId ? `<div><span>Stripe Sub ID</span><strong><small>${escapeHtml(account.stripeSubscriptionId)}</small></strong></div>` : ""}
         </div>
         <div class="aup-action-row" style="margin-top:12px;">
-          ${!isPro && !isFounding ? `<button class="primary-button aup-action-btn" type="button" data-aup-action="upgrade"    data-aup-email="${escapeHtml(email)}">Upgrade to Pro</button>` : ""}
-          ${(isPro || isFounding) && !isCanceled ? `<button class="ghost-button aup-action-btn" type="button" data-aup-action="downgrade"  data-aup-email="${escapeHtml(email)}">Downgrade to Free</button>` : ""}
-          ${!isCanceled ? `<button class="ghost-button aup-action-btn aup-btn--danger" type="button" data-aup-action="cancel"     data-aup-email="${escapeHtml(email)}">Cancel</button>` : ""}
-          ${isCanceled  ? `<button class="primary-button aup-action-btn" type="button" data-aup-action="reactivate" data-aup-email="${escapeHtml(email)}">Reactivate</button>` : ""}
+          ${!adminMembershipHasProAccess(account) ? `<button class="primary-button aup-action-btn" type="button" data-aup-action="upgrade"    data-aup-email="${escapeHtml(email)}">Upgrade to Pro</button>` : ""}
+          ${adminMembershipHasProAccess(account) ? `<button class="ghost-button aup-action-btn" type="button" data-aup-action="downgrade"  data-aup-email="${escapeHtml(email)}">Downgrade to Free</button>` : ""}
+          ${adminMembershipHasProAccess(account) && !isCanceling ? `<button class="ghost-button aup-action-btn aup-btn--danger" type="button" data-aup-action="cancel"     data-aup-email="${escapeHtml(email)}">Schedule Cancel at Period End</button>` : ""}
+          ${isEnded && !adminMembershipHasProAccess(account) ? `<button class="primary-button aup-action-btn" type="button" data-aup-action="reactivate" data-aup-email="${escapeHtml(email)}">Reactivate (Internal)</button>` : ""}
+          ${isFoundingHistorical && !isFoundingActive ? `<button class="primary-button aup-action-btn" type="button" data-aup-action="restore-founding" data-aup-email="${escapeHtml(email)}">Restore Founding $9.99 (Admin)</button>` : ""}
         </div>
         <p id="aupSubMsg" class="form-message" style="margin-top:8px;"></p>
       </fieldset>
@@ -21921,12 +22028,25 @@ function openAdminUserProfile(email, startTab) {
       <fieldset class="admin-fieldset aup-founding-fieldset">
         <legend>⭐ Founding Member Management</legend>
         <div class="aup-info-grid">
-          <div><span>Founding Status</span><strong>${isCanceled ? "Canceled" : "Active"}</strong></div>
+          <div><span>Founding Eligibility</span><strong>${escapeHtml(foundingEligibility)}</strong></div>
+          <div><span>Active $9.99 Pricing</span><strong>${isFoundingActive ? "Yes" : "No"}</strong></div>
           <div><span>Original Join Date</span><strong>${escapeHtml(joined)}</strong></div>
-          <div><span>Founding Price Lock</span><strong>Protected — Lifetime Pricing</strong></div>
           ${account.foundingMemberNumber ? `<div><span>Founding Member #</span><strong>${escapeHtml(String(account.foundingMemberNumber))}</strong></div>` : ""}
         </div>
-        <p class="aup-founding-note">Founding Member history is preserved after cancel, but paid Pro access ends when the subscription ends. Returning at $9.99/month is only available if the account still has an active founding entitlement — not guaranteed after cancel unless policy allows reactivation at founding price.</p>
+        <p class="aup-founding-note">Founding pricing ($9.99/month) applies only while continuously active. Historical founding status does not auto-grant paid access or Stripe founding checkout. Numbered spots are retained by the original 50 accounts — canceling ends access but does not release the spot. Restore $9.99 only via intentional Admin override.</p>
+      </fieldset>
+      ` : ""}
+
+      ${auditLog.length ? `
+      <fieldset class="admin-fieldset">
+        <legend>📋 Membership Audit Log</legend>
+        ${auditLog.map((entry) => `
+          <div class="aup-billing-row">
+            <span>${escapeHtml(entry.action || "update")}</span>
+            <small>${escapeHtml(entry.adminEmail || "admin")} · ${escapeHtml(entry.createdAt ? new Date(entry.createdAt).toLocaleString() : "")}</small>
+            ${entry.note ? `<em>${escapeHtml(entry.note)}</em>` : ""}
+          </div>
+        `).join("")}
       </fieldset>
       ` : ""}
     </div>
@@ -22040,7 +22160,7 @@ function handleAdminUserAction(action, email, modal) {
   }
   if (action === "end-trial") {
     if (!confirm(`End trial for ${displayUserName(account)} (${email})? This is an internal admin override and does not cancel Stripe automatically.`)) return;
-    const updates = { subscriptionStatus: "Free Plan", plan: "Free", trialEnd: new Date().toISOString(), trialStatus: "Trial Ended", monthlyPrice: "$0/month" };
+    const updates = { subscriptionStatus: "Free Plan", plan: "Free", trialEnd: new Date().toISOString(), trialStatus: "Trial Ended", monthlyPrice: "$0/month", foundingMemberActive: false, internalAccessOverride: true };
     adminUpdateMembershipOnServer(email, updates, action).then((result) => {
       if (!result.ok && !result.localOnly) { showMsg(result.error || "Server update failed.", false); return; }
       updateAccount(email, updates);
@@ -22052,7 +22172,7 @@ function handleAdminUserAction(action, email, modal) {
   }
   if (action === "convert-pro") {
     if (!confirm(`Convert ${displayUserName(account)} (${email}) to Pro Monthly? Internal override only — confirm separately in Stripe if billing should change.`)) return;
-    const updates = { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", trialEnd: null, monthlyPrice: "$19.99/month", subscriptionCadence: "monthly" };
+    const updates = { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", trialEnd: null, monthlyPrice: "$19.99/month", subscriptionCadence: "monthly", foundingMemberActive: false, internalAccessOverride: true };
     adminUpdateMembershipOnServer(email, updates, action).then((result) => {
       if (!result.ok && !result.localOnly) { showMsg(result.error || "Server update failed.", false); return; }
       updateAccount(email, updates);
@@ -22064,7 +22184,7 @@ function handleAdminUserAction(action, email, modal) {
   }
   if (action === "upgrade") {
     if (!confirm(`Upgrade ${displayUserName(account)} (${email}) to Pro Monthly? Internal override only — does not create a Stripe charge.`)) return;
-    const updates = { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", monthlyPrice: "$19.99/month", subscriptionCadence: "monthly" };
+    const updates = { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", monthlyPrice: "$19.99/month", subscriptionCadence: "monthly", foundingMemberActive: false, internalAccessOverride: true };
     adminUpdateMembershipOnServer(email, updates, action).then((result) => {
       if (!result.ok && !result.localOnly) { showMsg(result.error || "Server update failed.", false); return; }
       updateAccount(email, updates);
@@ -22076,7 +22196,7 @@ function handleAdminUserAction(action, email, modal) {
   }
   if (action === "downgrade") {
     if (!confirm(`Downgrade ${displayUserName(account)} (${email}) to Free? This removes Pro access immediately (internal override).`)) return;
-    const updates = { plan: "Free", subscriptionStatus: "Free Plan", monthlyPrice: "$0/month" };
+    const updates = { plan: "Free", subscriptionStatus: "Free Plan", monthlyPrice: "$0/month", foundingMemberActive: false, cancelAtPeriodEnd: false, internalAccessOverride: true };
     adminUpdateMembershipOnServer(email, updates, action).then((result) => {
       if (!result.ok && !result.localOnly) { showMsg(result.error || "Server update failed.", false); return; }
       updateAccount(email, updates);
@@ -22087,20 +22207,53 @@ function handleAdminUserAction(action, email, modal) {
     return;
   }
   if (action === "cancel") {
-    if (!confirm(`Mark subscription canceled for ${displayUserName(account)} (${email})? Paid access ends now in-app. Cancel in Stripe separately for billing.`)) return;
-    const updates = { subscriptionStatus: "Canceled - Free Plan Active", plan: "Free", monthlyPrice: "$0/month", canceledAt: new Date().toISOString() };
-    adminUpdateMembershipOnServer(email, updates, action).then((result) => {
+    if (!confirm(`Schedule cancellation at period end for ${displayUserName(account)} (${email})? Paid access continues until the access-end date. This updates the internal record only — confirm separately in Stripe if billing should change.`)) return;
+    const endIso = account.accessEndsAt || account.currentPeriodEnd || account.trialEnd || new Date(Date.now() + 30 * 86400000).toISOString();
+    const endLabel = new Date(endIso).toLocaleDateString();
+    const inTrial = adminMembershipInTrial(account);
+    const updates = {
+      cancelAtPeriodEnd: true,
+      accessEndsAt: endIso,
+      currentPeriodEnd: account.currentPeriodEnd || endIso,
+      subscriptionStatus: inTrial
+        ? `Canceled — Access Ends ${endLabel} (Trial — no future charge)`
+        : `Canceled — Access Ends ${endLabel}`,
+    };
+    adminUpdateMembershipOnServer(email, updates, action, "Scheduled cancel at period end — internal record; does not charge or alter Stripe automatically.").then((result) => {
       if (!result.ok && !result.localOnly) { showMsg(result.error || "Server update failed.", false); return; }
       updateAccount(email, updates);
-      showMsg("Subscription marked canceled. User on Free Plan.");
+      showMsg("Cancellation scheduled at period end. Access continues until the access-end date.");
+      renderAdminUsersDashboard();
+      openAdminUserProfile(email, "manage");
+    });
+    return;
+  }
+  if (action === "restore-founding") {
+    if (!confirm(`Restore Founding Member pricing ($9.99/month) for ${displayUserName(account)} (${email})? This is an intentional admin override and does not create a Stripe charge.`)) return;
+    const updates = {
+      plan: "Founding",
+      foundingMemberActive: true,
+      foundingMemberHistorical: true,
+      foundingMember: true,
+      restoreFoundingPrice: true,
+      monthlyPrice: "$9.99/month",
+      subscriptionCadence: "monthly",
+      subscriptionStatus: "Founding Member Subscription Active",
+      priceLock: "Lifetime",
+      internalAccessOverride: true,
+    };
+    adminUpdateMembershipOnServer(email, updates, action, "Admin restored founding $9.99 pricing — internal override only.").then((result) => {
+      if (!result.ok && !result.localOnly) { showMsg(result.error || "Server update failed.", false); return; }
+      updateAccount(email, { ...updates, foundingMemberNumber: result.user?.foundingMemberNumber || account.foundingMemberNumber });
+      showMsg("Founding pricing restored via admin override.");
       renderAdminUsersDashboard();
       openAdminUserProfile(email, "manage");
     });
     return;
   }
   if (action === "reactivate") {
-    if (!confirm(`Reactivate Pro for ${displayUserName(account)} (${email})? Internal override only.`)) return;
-    const updates = { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", monthlyPrice: "$19.99/month" };
+    if (!confirm(`Reactivate Pro for ${displayUserName(account)} (${email})? Internal override only — does not charge Stripe.`)) return;
+    const updates = { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", monthlyPrice: "$19.99/month", cancelAtPeriodEnd: false, internalAccessOverride: true };
     adminUpdateMembershipOnServer(email, updates, action).then((result) => {
       if (!result.ok && !result.localOnly) { showMsg(result.error || "Server update failed.", false); return; }
       updateAccount(email, updates);
@@ -27208,12 +27361,12 @@ function completeCheckout() {
     status = `${status} - ${trialDays} Day Free Trial`;
   }
 
-  if (type === "founding" || currentAccount()?.foundingMember) {
+  if (type === "founding") {
     const claim = claimFoundingMembership(currentUser);
-    if (claim.claimed || currentAccount()?.foundingMember) {
+    if (claim.claimed) {
       plan = "Founding";
       foundingMember = true;
-      foundingMemberNumber = claim.memberNumber || currentAccount()?.foundingMemberNumber;
+      foundingMemberNumber = claim.memberNumber;
       priceLock = "Lifetime";
       monthlyPrice = "$9.99/month";
       status = trialDays > 0
@@ -27228,12 +27381,17 @@ function completeCheckout() {
     subscriptionCadence: cadence,
     subscriptionStatus: status,
     subscriptionStartedAt: currentAccount()?.subscriptionStartedAt || new Date().toISOString(),
-    foundingMember,
+    foundingMemberActive: plan === "Founding",
+    foundingMemberHistorical: plan === "Founding" || Boolean(currentAccount()?.foundingMemberHistorical || currentAccount()?.foundingMember),
+    foundingMember: plan === "Founding" || Boolean(currentAccount()?.foundingMemberHistorical || currentAccount()?.foundingMember),
     foundingMemberNumber,
     priceLock,
     monthlyPrice,
     stripeCustomerId: currentAccount()?.stripeCustomerId || `cus_test_${Date.now()}`,
     stripeSubscriptionId: currentAccount()?.stripeSubscriptionId || `sub_test_${Date.now()}`,
+    stripeSubscriptionStatus: trialDays > 0 ? "trialing" : "active",
+    currentPeriodEnd: new Date(Date.now() + (trialDays > 0 ? trialDays : 30) * 86400000).toISOString(),
+    accessEndsAt: new Date(Date.now() + (trialDays > 0 ? trialDays : 30) * 86400000).toISOString(),
     paymentMethod: "Visa ending in 4242",
     promoCode: pending.promoCode || "",
     trialDays: trialDays || 0,
@@ -27329,27 +27487,55 @@ function failCheckout() {
   setView("payment-failed");
 }
 
-function cancelSubscription() {
+async function cancelSubscription() {
   if (!currentUser) return;
   const account = currentAccount();
-  currentPlan = "Free";
-  favorites = [];
-  savedDownloads = [];
-  localStorage.setItem("llhPlan", currentPlan);
-  localStorage.setItem("llhFavorites", JSON.stringify(favorites));
-  localStorage.setItem("llhDownloads", JSON.stringify(savedDownloads));
+  if (!accountHasPaidBilling(account)) return;
+  if (!window.confirm("Cancel your subscription? You will keep Pro access until the end of your current billing period (or trial end if trialing). No future charges after that date.")) return;
+
+  if (stripeCheckoutConfig.cancelSubscriptionEndpoint && canUseStripeBackend()) {
+    try {
+      const response = await fetch(stripeCheckoutConfig.cancelSubscriptionEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: currentUser }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || "Could not cancel subscription.");
+      await syncSubscriptionFromBackend(currentUser, { renderBilling: true, renderAccount: true });
+      addBillingHistory("Subscription Canceled", "Cancellation scheduled at period end. Access continues until the access-end date.", billingPriceLabel());
+      trackEvent("subscription_canceled", { email: currentUser, previousPlan: account?.plan || "Pro", scheduled: true });
+      saveCurrentAccountState();
+      updateAuthButtons();
+      updatePlanLabel();
+      renderBillingPage();
+      renderSubscriptionPage();
+      setView("subscription");
+      return;
+    } catch (error) {
+      addBillingHistory("Stripe Cancel Error", error.message || "Could not schedule cancellation.", billingPriceLabel());
+    }
+  }
+
+  const endIso = account.accessEndsAt || account.currentPeriodEnd || account.trialEnd || new Date(Date.now() + 30 * 86400000).toISOString();
+  const endLabel = new Date(endIso).toLocaleDateString();
+  const inTrial = accountIsInTrial(account);
   updateCurrentAccountBilling({
-    plan: "Free",
-    subscriptionCadence: "",
-    subscriptionStatus: "Canceled - Free Plan Active",
-    monthlyPrice: "$0/month",
-    priceLock: account?.foundingMember ? "Lifetime" : "",
+    cancelAtPeriodEnd: true,
+    accessEndsAt: endIso,
+    currentPeriodEnd: account.currentPeriodEnd || endIso,
+    subscriptionStatus: inTrial
+      ? `Canceled — Access Ends ${endLabel} (Trial — no future charge)`
+      : `Canceled — Access Ends ${endLabel}`,
+    stripeSubscriptionStatus: account.stripeSubscriptionStatus || (inTrial ? "trialing" : "active"),
   });
-  addBillingHistory("Subscription Canceled", "Pro permissions removed and Free limits restored.", "$0");
-  trackEvent("subscription_canceled", { email: currentUser, previousPlan: account?.plan || "Pro", previousPrice: account?.monthlyPrice || "" });
+  addBillingHistory("Subscription Canceled", "Cancellation scheduled at period end. Access continues until the access-end date.", billingPriceLabel());
+  trackEvent("subscription_canceled", { email: currentUser, previousPlan: account?.plan || "Pro", scheduled: true });
   saveCurrentAccountState();
   updateAuthButtons();
   updatePlanLabel();
+  renderBillingPage();
+  renderSubscriptionPage();
   setView("subscription");
 }
 

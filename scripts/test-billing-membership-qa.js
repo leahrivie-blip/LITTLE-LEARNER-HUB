@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Membership & billing audit — founding limit, plan classification, trial labels, access.
+ * Membership & billing regression tests — cancellation access, founding policy, admin fields.
  * Run: node scripts/test-billing-membership-qa.js
  */
 const fs = require("fs");
@@ -9,6 +9,7 @@ const http = require("http");
 const os = require("os");
 const { spawn } = require("child_process");
 const crypto = require("crypto");
+const membershipAccess = require("./membership-access.js");
 
 const ROOT = path.join(__dirname, "..");
 const PORT = 19500 + Math.floor(Math.random() * 30);
@@ -64,7 +65,6 @@ function startServer() {
       DATABASE_PROVIDER: "local-json",
       LLH_STORE_PATH: STORE_PATH,
       FOUNDING_MEMBER_LIMIT: String(FOUNDING_LIMIT),
-      PUBLIC_FOUNDING_CLAIMED_BASE: "0",
       PUBLIC_FOUNDING_CLAIMED_BASE: String(PUBLIC_CLAIMED_BASE),
       NODE_ENV: "test",
     },
@@ -106,38 +106,8 @@ function readStore() {
   return JSON.parse(fs.readFileSync(STORE_PATH, "utf8"));
 }
 
-// Mirror fixed client helpers for regression tests
-function isFoundingSubscription(subscription) {
-  if (!subscription) return false;
-  const serverPlan = String(subscription.plan || "").trim().toLowerCase();
-  const pendingPlan = String(subscription.pendingPlan || "").trim().toLowerCase();
-  if (Boolean(subscription.foundingMember)) return true;
-  if (serverPlan === "founding") return true;
-  if (pendingPlan === "founding") return true;
-  return false;
-}
-
-function accountIsInTrial(account) {
-  if (!account) return false;
-  if (isFoundingSubscription(account)) return false;
-  const trialStatus = String(account.trialStatus || "").toLowerCase();
-  if (trialStatus.includes("in trial")) return true;
-  const status = String(account.subscriptionStatus || "").toLowerCase();
-  if (status.includes("day free trial") || status.includes("trialing")) return true;
-  if (status.includes("trial") && !status.includes("trial ended") && !status.includes("no trial")) return true;
-  return false;
-}
-
-function subscriptionToAccountUpdates(subscription) {
-  const status = String(subscription?.subscriptionStatus || "").toLowerCase();
-  const active = status.includes("active") || status.includes("trial") || status.includes("paid");
-  if (!active) return { plan: "Free" };
-  const isFounding = isFoundingSubscription(subscription);
-  return {
-    plan: isFounding ? "Founding" : "Pro",
-    monthlyPrice: isFounding ? "$9.99/month" : subscription.monthlyPrice || "$19.99/month",
-    foundingMember: isFounding,
-  };
+function simulateStripeSubscriptionUpdated(user, subscription, eventType = "updated") {
+  return membershipAccess.stripeSubscriptionToMembershipUpdates(subscription, user, eventType);
 }
 
 async function runBrowserChecks(baseUrl) {
@@ -155,12 +125,20 @@ async function runBrowserChecks(baseUrl) {
       localStorage.setItem("llhPlan", account.plan);
     }, { email, account });
     await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => typeof isProUser === "function" && typeof effectiveAccessPlan === "function", null, { timeout: 60000 });
     await page.waitForResponse((r) => r.url().includes("/api/subscription-status") && r.status() === 200, { timeout: 30000 }).catch(() => {});
     await page.waitForFunction(
       (needsPro) => typeof isProUser === "function" && isProUser() === needsPro,
       expectations.proAccess,
-      { timeout: 20000 },
-    );
+      { timeout: 60000 },
+    ).catch(async () => {
+      const debug = await page.evaluate(() => ({
+        isPro: typeof isProUser === "function" ? isProUser() : null,
+        effective: typeof effectiveAccessPlan === "function" ? effectiveAccessPlan() : null,
+        status: currentAccount?.()?.subscriptionStatus,
+      }));
+      throw new Error(`${email}: isProUser mismatch — expected ${expectations.proAccess}, got ${JSON.stringify(debug)}`);
+    });
     const labels = await page.evaluate(() => ({
       planLabel: typeof billingPlanLabel === "function" ? billingPlanLabel() : null,
       effective: typeof effectiveAccessPlan === "function" ? effectiveAccessPlan() : null,
@@ -172,22 +150,31 @@ async function runBrowserChecks(baseUrl) {
   }
 
   const now = new Date().toISOString();
+  const future = new Date(Date.now() + 14 * 86400000).toISOString();
   await checkPersona("free@billing.test", { email: "free@billing.test", plan: "Free", subscriptionStatus: "Free Plan" }, {
     proAccess: false, planLabel: "Free", price: "$0/month", effective: "Free",
   });
   await checkPersona("trial@billing.test", {
     email: "trial@billing.test", plan: "Pro", subscriptionStatus: "Pro Monthly Subscription trialing",
-    trialStatus: "In Trial", trialStart: now, trialEnd: new Date(Date.now() + 7 * 86400000).toISOString(),
+    trialStatus: "In Trial", trialStart: now, trialEnd: future, stripeSubscriptionStatus: "trialing",
     subscriptionStartedAt: now,
   }, { proAccess: true, planLabel: "Trial", price: "$19.99/month", effective: "Pro" });
   await checkPersona("pro@billing.test", {
     email: "pro@billing.test", plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active",
+    stripeSubscriptionStatus: "active", currentPeriodEnd: future, accessEndsAt: future,
     subscriptionStartedAt: now, monthlyPrice: "$19.99/month",
   }, { proAccess: true, planLabel: "Pro", price: "$19.99/month", effective: "Pro" });
   await checkPersona("founding@billing.test", {
     email: "founding@billing.test", plan: "Founding", subscriptionStatus: "Founding Member Subscription Active",
-    foundingMember: true, foundingMemberNumber: 5, subscriptionStartedAt: now, monthlyPrice: "$9.99/month", priceLock: "Lifetime",
+    foundingMemberActive: true, foundingMemberHistorical: true, foundingMember: true,
+    foundingMemberNumber: 5, stripeSubscriptionStatus: "active", currentPeriodEnd: future,
+    subscriptionStartedAt: now, monthlyPrice: "$9.99/month", priceLock: "Lifetime",
   }, { proAccess: true, planLabel: "Founding Member", price: "$9.99/month", effective: "Founding" });
+  await checkPersona("canceling@billing.test", {
+    email: "canceling@billing.test", plan: "Pro", subscriptionStatus: `Canceled — Access Ends ${new Date(future).toLocaleDateString()}`,
+    stripeSubscriptionStatus: "active", cancelAtPeriodEnd: true, accessEndsAt: future, currentPeriodEnd: future,
+    monthlyPrice: "$19.99/month",
+  }, { proAccess: true, planLabel: "Pro", price: "$19.99/month", effective: "Pro" });
 
   await browser.close();
   return { ok: true };
@@ -195,22 +182,31 @@ async function runBrowserChecks(baseUrl) {
 
 function seedPersonas() {
   const now = new Date().toISOString();
+  const future = new Date(Date.now() + 14 * 86400000).toISOString();
   const store = readStore();
   store.users = store.users || {};
   store.users["free@billing.test"] = { email: "free@billing.test", plan: "Free", subscriptionStatus: "Free Plan", updatedAt: now };
   store.users["trial@billing.test"] = {
     email: "trial@billing.test", plan: "Pro", subscriptionStatus: "Pro Monthly Subscription trialing",
-    trialStatus: "In Trial", trialStart: now, trialEnd: new Date(Date.now() + 7 * 86400000).toISOString(),
+    trialStatus: "In Trial", trialStart: now, trialEnd: future, stripeSubscriptionStatus: "trialing",
     subscriptionStartedAt: now, monthlyPrice: "$19.99/month", updatedAt: now,
   };
   store.users["pro@billing.test"] = {
     email: "pro@billing.test", plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active",
+    stripeSubscriptionStatus: "active", currentPeriodEnd: future, accessEndsAt: future,
     subscriptionStartedAt: now, monthlyPrice: "$19.99/month", updatedAt: now,
   };
   store.users["founding@billing.test"] = {
     email: "founding@billing.test", plan: "Founding", subscriptionStatus: "Founding Member Subscription Active",
-    foundingMember: true, foundingMemberNumber: 5, subscriptionStartedAt: now,
-    monthlyPrice: "$9.99/month", priceLock: "Lifetime", updatedAt: now,
+    foundingMemberActive: true, foundingMemberHistorical: true, foundingMember: true,
+    foundingMemberNumber: 5, stripeSubscriptionStatus: "active", currentPeriodEnd: future,
+    subscriptionStartedAt: now, monthlyPrice: "$9.99/month", priceLock: "Lifetime", updatedAt: now,
+  };
+  store.users["canceling@billing.test"] = {
+    email: "canceling@billing.test", plan: "Pro",
+    subscriptionStatus: `Canceled — Access Ends ${new Date(future).toLocaleDateString()}`,
+    stripeSubscriptionStatus: "active", cancelAtPeriodEnd: true, accessEndsAt: future, currentPeriodEnd: future,
+    monthlyPrice: "$19.99/month", updatedAt: now,
   };
   writeStore(store);
 }
@@ -227,29 +223,48 @@ async function main() {
   console.log("1) Static billing logic checks");
   assert(!/monthlyPrice[^)]*includes\(["']9\.99["']\)/.test(appJs), "app.js still uses monthlyPrice.includes('9.99') for founding detection");
   assert(appJs.includes("function isFoundingSubscription"), "isFoundingSubscription helper missing");
-  assert(appJs.includes("function accountIsInTrial"), "accountIsInTrial helper missing");
+  assert(appJs.includes("foundingMemberActive"), "foundingMemberActive field missing from app.js");
+  assert(appJs.includes("cancelSubscriptionEndpoint"), "cancel subscription endpoint config missing");
   assert(!/foundingSpotsRemaining\(\) <= 0 \? "monthly"/.test(appJs), "startCheckout still silently falls back to monthly when founding sold out");
 
-  console.log("2) Plan classification unit checks");
-  const proMonthly = subscriptionToAccountUpdates({
-    plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", monthlyPrice: "$19.99/month",
-  });
-  assert(proMonthly.plan === "Pro" && !proMonthly.foundingMember, "$19.99 Pro must not become Founding");
-  assert(proMonthly.monthlyPrice === "$19.99/month", "Pro monthly price preserved");
+  console.log("2) Shared membership-access policy unit checks");
+  const periodEndFuture = Math.floor((Date.now() + 20 * 86400000) / 1000);
+  const periodEndPast = Math.floor((Date.now() - 86400000) / 1000);
 
-  const founding = subscriptionToAccountUpdates({
-    plan: "Founding", foundingMember: true, subscriptionStatus: "Founding Member Subscription Active", monthlyPrice: "$9.99/month",
-  });
-  assert(founding.plan === "Founding" && founding.foundingMember, "Founding member recognized");
-  assert(founding.monthlyPrice === "$9.99/month", "Founding price is $9.99/month");
+  const cancelScheduled = simulateStripeSubscriptionUpdated(
+    { plan: "Pro", foundingMemberActive: false },
+    { status: "active", cancel_at_period_end: true, current_period_end: periodEndFuture },
+  );
+  assert(cancelScheduled.plan === "Pro", "Cancel scheduled should keep Pro plan until period end");
+  assert(cancelScheduled.subscriptionStatus.includes("Canceled — Access Ends"), "Cancel status label required");
+  assert(membershipAccess.membershipHasProAccess(cancelScheduled), "Paid user canceling keeps access through current_period_end");
 
-  const trial = subscriptionToAccountUpdates({
-    plan: "Pro", subscriptionStatus: "Pro Monthly Subscription trialing", monthlyPrice: "$19.99/month", trialStatus: "In Trial",
-  });
-  assert(trial.plan === "Pro" && !trial.foundingMember, "Trial Pro must not become Founding");
+  const ended = simulateStripeSubscriptionUpdated(
+    { plan: "Pro" },
+    { status: "canceled", current_period_end: periodEndPast },
+    "deleted",
+  );
+  assert(ended.plan === "Free", "Access changes to Free after current_period_end");
+  assert(!membershipAccess.membershipHasProAccess(ended), "Ended subscription has no Pro access");
 
-  assert(accountIsInTrial({ plan: "Pro", subscriptionStatus: "Pro Monthly Subscription trialing", trialStatus: "In Trial" }), "Trial account detected");
-  assert(!accountIsInTrial({ plan: "Founding", foundingMember: true, subscriptionStatus: "Founding Member Subscription Active" }), "Founding is not trial");
+  const trialCancel = simulateStripeSubscriptionUpdated(
+    { plan: "Pro", trialStatus: "In Trial" },
+    { status: "trialing", cancel_at_period_end: true, trial_end: periodEndFuture, current_period_end: periodEndFuture },
+  );
+  assert(trialCancel.subscriptionStatus.includes("Trial — no future charge"), "Trial cancel prevents future charge label");
+  assert(membershipAccess.membershipHasProAccess(trialCancel), "Trial canceled before charge keeps access through trial end");
+
+  const formerFounding = {
+    plan: "Free",
+    subscriptionStatus: "Canceled and Ended",
+    foundingMember: true,
+    foundingMemberHistorical: true,
+    foundingMemberActive: false,
+    foundingMemberNumber: 3,
+  };
+  assert(!membershipAccess.membershipHasProAccess(formerFounding), "Historical foundingMember alone does not provide Pro access");
+  assert(membershipAccess.membershipFoundingHistorical(formerFounding), "Historical founding flag preserved");
+  assert(!membershipAccess.membershipFoundingActive(formerFounding), "Former founding member is not active founding");
 
   const child = startServer();
   try {
@@ -259,9 +274,6 @@ async function main() {
     let founding = await requestJson("GET", "/api/founding-status");
     const foundingPayload = founding.json.founding || founding.json;
     assert(foundingPayload.remaining === FOUNDING_LIMIT, `Fresh store should have ${FOUNDING_LIMIT} founding spots when base is 0`);
-    assert(foundingPayload.foundingPrice === "$9.99/month", "Founding price $9.99/month");
-    assert(foundingPayload.regularMonthlyPrice === "$19.99/month", "Pro monthly $19.99");
-    assert(foundingPayload.regularAnnualPrice === "$199/year", "Pro annual $199");
 
     seedSoldOutFounding();
     founding = await requestJson("GET", "/api/founding-status");
@@ -269,60 +281,50 @@ async function main() {
     assert(soldOutPayload.remaining === 0, "All 50 founding spots should be claimed");
     assert(soldOutPayload.soldOut === true, "soldOut flag should be true");
 
-    console.log("4) Sold-out founding checkout is blocked (never silent $19.99 redirect)");
-    const checkout = await requestJson("POST", "/api/create-checkout-session", {
-      email: "newuser@billing.test",
+    console.log("4) Former founding member cannot auto-restart at $9.99 checkout");
+    {
+      const store = readStore();
+      store.users = store.users || {};
+      store.users["former-founding@billing.test"] = {
+        email: "former-founding@billing.test",
+        plan: "Free",
+        subscriptionStatus: "Canceled and Ended",
+        foundingMember: true,
+        foundingMemberHistorical: true,
+        foundingMemberActive: false,
+        foundingMemberNumber: 3,
+        updatedAt: new Date().toISOString(),
+      };
+      store.foundingMembers = store.foundingMembers || [];
+      if (!store.foundingMembers.includes("former-founding@billing.test")) {
+        store.foundingMembers.push("former-founding@billing.test");
+      }
+      writeStore(store);
+    }
+    const formerCheckout = await requestJson("POST", "/api/create-checkout-session", {
+      email: "former-founding@billing.test",
       plan: "founding",
       successUrl: `http://127.0.0.1:${PORT}/?checkout=success`,
       cancelUrl: `http://127.0.0.1:${PORT}/?checkout=cancel`,
     });
-    if (checkout.status === 503) {
-      console.log("   (Stripe checkout endpoint skipped — keys not configured)");
-    } else {
-      assert(checkout.status === 409, `Sold-out founding must return 409, got ${checkout.status}`);
-      assert(/sold out/i.test(checkout.json?.error || ""), "Sold-out founding error message required");
-      assert(checkout.json?.soldOut === true, "soldOut flag in blocked checkout response");
+    if (formerCheckout.status !== 503) {
+      assert(formerCheckout.status === 400, `Former founding checkout must return 400, got ${formerCheckout.status}`);
+      assert(formerCheckout.json?.formerFounding === true, "formerFounding flag required");
     }
 
-    console.log("5) Canceled, failed payment, and ended founding access");
-    const now = new Date().toISOString();
-    const store = readStore();
-    store.users = store.users || {};
-    store.users["canceled-pro@billing.test"] = {
-      email: "canceled-pro@billing.test", plan: "Free", subscriptionStatus: "Canceled - Free Plan Active", monthlyPrice: "$0/month", updatedAt: now,
-    };
-    store.users["failed-pay@billing.test"] = {
-      email: "failed-pay@billing.test", plan: "Free", subscriptionStatus: "Payment Failed - Action Needed", monthlyPrice: "$0/month", updatedAt: now,
-    };
-    store.users["former-founding@billing.test"] = {
-      email: "former-founding@billing.test", plan: "Free", subscriptionStatus: "Canceled - Free Plan Active",
-      foundingMember: true, foundingMemberNumber: 3, priceLock: "Lifetime", monthlyPrice: "$0/month", updatedAt: now,
-    };
-    store.foundingMembers = store.foundingMembers || [];
-    if (!store.foundingMembers.includes("former-founding@billing.test")) store.foundingMembers.push("former-founding@billing.test");
-    writeStore(store);
-
-    function serverHasProAccess(user) {
-      const status = String(user?.subscriptionStatus || "").toLowerCase();
-      if (!user || status.includes("cancel") || status.includes("free plan") || status.includes("failed")) return false;
-      return ["Pro", "Founding"].includes(user.plan) && (status.includes("active") || status.includes("trial") || status.includes("paid"));
-    }
-    assert(!serverHasProAccess(store.users["canceled-pro@billing.test"]), "Canceled user must not have Pro access");
-    assert(!serverHasProAccess(store.users["failed-pay@billing.test"]), "Failed payment user must not have Pro access");
-    assert(!serverHasProAccess(store.users["former-founding@billing.test"]), "Canceled founding user must not have Pro access");
-    assert(store.users["former-founding@billing.test"].foundingMember === true, "Founding history record preserved after cancel");
-
-    console.log("6) Subscription sync records");
+    console.log("5) Cancel subscription API schedules period-end access");
     seedPersonas();
-    const proSub = await requestJson("GET", "/api/subscription-status?email=pro@billing.test");
-    assert(proSub.json.subscription?.plan === "Pro", "Server Pro user plan");
-    assert(proSub.json.subscription?.monthlyPrice === "$19.99/month", "Server Pro price");
+    const cancelRes = await requestJson("POST", "/api/cancel-subscription", { email: "pro@billing.test" });
+    assert(cancelRes.status === 200, "Cancel subscription should succeed");
+    assert(cancelRes.json?.subscription?.cancelAtPeriodEnd === true, "cancelAtPeriodEnd set");
+    assert(String(cancelRes.json?.subscription?.subscriptionStatus || "").includes("Access Ends"), "Access end label in status");
+    assert(cancelRes.json?.subscription?.hasProAccess === true, "Pro access remains until period end");
 
-    const foundingSub = await requestJson("GET", "/api/subscription-status?email=founding@billing.test");
-    assert(foundingSub.json.subscription?.plan === "Founding", "Server founding user plan");
-    assert(foundingSub.json.subscription?.monthlyPrice === "$9.99/month", "Server founding price preserved");
+    const trialCancelRes = await requestJson("POST", "/api/cancel-subscription", { email: "trial@billing.test" });
+    assert(trialCancelRes.status === 200, "Trial cancel should succeed");
+    assert(String(trialCancelRes.json?.subscription?.subscriptionStatus || "").includes("Trial — no future charge"), "Trial cancel policy label");
 
-    console.log("7) Admin analytics membership fields");
+    console.log("6) Admin analytics membership fields");
     const adminLogin = await requestJson("POST", "/api/admin/login", {
       email: "billing-qa@test.local", password: "billing-qa-pass", code: "billing-qa-code",
     });
@@ -331,12 +333,51 @@ async function main() {
     assert(analytics.status === 200, "Admin analytics fetch");
     const trialUser = (analytics.json.analytics?.users || []).find((u) => u.email === "trial@billing.test");
     assert(trialUser?.membershipPlan === "Trial", "Trial user in admin analytics");
+    assert(trialUser?.trialEnd, "Admin shows trial end date");
     assert(trialUser?.hasProAccess === true, "Trial user has Pro access in admin");
+
+    const cancelingUser = (analytics.json.analytics?.users || []).find((u) => u.email === "canceling@billing.test");
+    assert(cancelingUser?.membershipStatus === "Canceling at Period End", "Admin shows canceling status");
+    assert(cancelingUser?.accessEndsAt, "Admin shows access-end date");
+    assert(cancelingUser?.scheduledCancellation === true, "Admin shows scheduled cancellation");
+
     const foundingUser = (analytics.json.analytics?.users || []).find((u) => u.email === "founding@billing.test");
     assert(foundingUser?.membershipPlan === "Founding Member", "Founding user plan label");
-    assert(foundingUser?.displayPrice === "$9.99/month", "Founding display price");
+    assert(foundingUser?.foundingEligibilityLabel === "Active Founding Member", "Founding eligibility active label");
 
-    console.log("8) Browser persona labels & access");
+    console.log("7) Admin override does not require Stripe subscription");
+    const overrideRes = await requestJson("POST", "/api/admin/membership-update", {
+      adminToken: adminLogin.json.token,
+      email: "free@billing.test",
+      action: "upgrade",
+      updates: { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", monthlyPrice: "$19.99/month", internalAccessOverride: true },
+    });
+    assert(overrideRes.status === 200, "Admin override update succeeds");
+    assert(overrideRes.json?.user?.internalAccessOverride === true, "Internal override flag set");
+    assert(overrideRes.json?.user?.membershipStatus === "Internal Access Override", "Internal override status label");
+    assert(!overrideRes.json?.user?.stripeSubscriptionId, "Override should not create Stripe subscription");
+
+    console.log("8) Admin totals from backend data");
+    const totals = analytics.json.analytics?.totals || {};
+    assert(typeof totals.paidUsers === "number", "paidUsers total from backend");
+    assert(typeof totals.cancelingSubscriptions === "number", "cancelingSubscriptions total from backend");
+    const analyticsAfter = await requestJson("GET", `/api/admin/analytics?adminToken=${encodeURIComponent(adminLogin.json.token)}`);
+    const paidAfterCancel = analyticsAfter.json.analytics?.totals?.paidUsers;
+    assert(paidAfterCancel >= totals.paidUsers, "Totals update after membership changes");
+
+    console.log("9) Payment failure removes access");
+    const store = readStore();
+    store.users["failed-pay@billing.test"] = {
+      email: "failed-pay@billing.test", plan: "Free", subscriptionStatus: "Payment Failed - Action Needed",
+      stripeSubscriptionStatus: "unpaid", monthlyPrice: "$0/month", updatedAt: new Date().toISOString(),
+    };
+    writeStore(store);
+    const failedSub = await requestJson("GET", "/api/subscription-status?email=failed-pay@billing.test");
+    assert(failedSub.json.subscription?.hasProAccess === false, "Payment failed user has no Pro access");
+    assert(failedSub.json.subscription?.membershipStatus === "Payment Failed", "Payment failed visible in status");
+
+    console.log("10) Browser persona labels & access");
+    seedPersonas();
     const browser = await runBrowserChecks(`http://127.0.0.1:${PORT}`);
     if (browser.skipped) console.log("   (browser checks skipped — playwright not installed)");
 

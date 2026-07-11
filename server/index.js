@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
 const { URL } = require("node:url");
+const membershipAccess = require("../scripts/membership-access.js");
 
 loadEnvFile(path.join(__dirname, "..", ".env"));
 
@@ -1876,7 +1877,6 @@ function planKeyFromStripe(subscription, user = {}) {
   if (planConfig[pricePlan]) return pricePlan;
   const pendingPlan = String(user.pendingPlan || "").trim().toLowerCase();
   if (planConfig[pendingPlan]) return pendingPlan;
-  if (user.foundingMember || user.plan === "Founding") return "founding";
   if (user.subscriptionCadence === "annual") return "annual";
   return "monthly";
 }
@@ -3501,6 +3501,16 @@ async function handleCheckout(request, response) {
     });
     return;
   }
+  const existingUser = store.users?.[email] || {};
+  if (requestedPlan === "founding"
+    && membershipAccess.membershipFoundingHistorical(existingUser)
+    && !membershipAccess.membershipFoundingActive(existingUser)) {
+    jsonResponse(response, 400, {
+      error: "Former Founding Members are not automatically eligible for $9.99 pricing. Choose Pro Monthly or Pro Annual, or contact support for an intentional admin review.",
+      formerFounding: true,
+    });
+    return;
+  }
   const planKey = requestedPlan;
   const price = getPriceId(planKey);
   if (!email) {
@@ -3881,70 +3891,72 @@ function paidStripeSubscription(subscription) {
 }
 
 function storedSubscriptionActive(subscription) {
-  const status = String(subscription?.subscriptionStatus || "").toLowerCase();
-  if (!subscription || status.includes("cancel") || status.includes("free plan") || status.includes("failed")) return false;
-  return ["Pro", "Founding"].includes(subscription.plan) && (
-    status.includes("active") || status.includes("trial") || status.includes("paid")
-  );
+  return membershipAccess.membershipHasProAccess(subscription);
 }
 
 function resolvedPlanForUser(user) {
-  if (!user || !storedSubscriptionActive(user)) return "Free";
+  if (!membershipAccess.membershipHasProAccess(user)) return "Free";
+  if (membershipAccess.membershipFoundingActive(user)) return "Founding";
   return ["Pro", "Founding"].includes(user.plan) ? user.plan : "Pro";
 }
 
 function membershipUserInTrial(user) {
-  if (!user) return false;
-  const trialStatus = String(user.trialStatus || "").toLowerCase();
-  if (trialStatus.includes("in trial")) return true;
-  const status = String(user.subscriptionStatus || "").toLowerCase();
-  return status.includes("trialing")
-    || (status.includes("trial") && !status.includes("trial ended") && !status.includes("no trial"));
+  return membershipAccess.membershipUserInTrial(user);
 }
 
 function membershipUserIsFounding(user) {
-  return user?.plan === "Founding" || Boolean(user?.foundingMember);
+  return membershipAccess.membershipFoundingActive(user);
 }
 
 function membershipHasProAccess(user) {
-  return storedSubscriptionActive(user);
+  return membershipAccess.membershipHasProAccess(user);
 }
 
 function membershipPlanDisplay(user) {
-  if (!membershipHasProAccess(user)) return "Free";
-  if (membershipUserInTrial(user)) return "Trial";
-  if (membershipUserIsFounding(user)) return "Founding Member";
-  if (user?.subscriptionCadence === "annual") return "Pro Annual";
-  return "Pro Monthly";
+  return membershipAccess.membershipPlanDisplay(user);
 }
 
 function membershipStatusDisplay(user) {
-  const status = String(user?.subscriptionStatus || "").toLowerCase();
-  if (status.includes("failed")) return "Payment Failed";
-  if (status.includes("past due")) return "Past Due";
-  if (status.includes("cancel")) return "Canceled";
-  if (membershipUserInTrial(user)) return "In Trial";
-  if (membershipHasProAccess(user)) return "Active";
-  return "Free";
+  return membershipAccess.membershipStatusDisplay(user);
 }
 
 function membershipSummaryForUser(user) {
-  const price = String(user?.monthlyPrice || "");
+  const store = readStore();
+  const audits = (store.membershipAudit || []).filter((entry) => entry.email === user?.email).slice(0, 5);
+  const endMs = membershipAccess.accessEndMs(user);
   return {
     membershipPlan: membershipPlanDisplay(user),
     membershipStatus: membershipStatusDisplay(user),
     hasProAccess: membershipHasProAccess(user),
-    foundingMember: membershipUserIsFounding(user),
-    foundingPriceLock: user?.foundingMember ? (user?.priceLock || "Lifetime") : "",
+    foundingMemberHistorical: membershipAccess.membershipFoundingHistorical(user),
+    foundingMemberActive: membershipAccess.membershipFoundingActive(user),
+    foundingEligibilityLabel: membershipAccess.membershipFoundingActive(user)
+      ? "Active Founding Member"
+      : membershipAccess.membershipFoundingHistorical(user)
+        ? "Historical Founding Member (no auto $9.99)"
+        : "Not a Founding Member",
+    foundingPriceLock: user?.foundingMemberActive ? (user?.priceLock || "Lifetime") : "",
     displayPrice: membershipHasProAccess(user)
       ? (membershipUserIsFounding(user) ? "$9.99/month" : user?.subscriptionCadence === "annual" ? "$199/year" : "$19.99/month")
       : "$0/month",
     subscriptionStartedAt: user?.subscriptionStartedAt || "",
     trialStart: user?.trialStart || "",
     trialEnd: user?.trialEnd || "",
-    canceledAt: String(user?.subscriptionStatus || "").toLowerCase().includes("cancel") ? (user?.updatedAt || "") : "",
-    lastMembershipSyncAt: user?.updatedAt || "",
+    currentPeriodEnd: user?.currentPeriodEnd || "",
+    accessEndsAt: user?.accessEndsAt || "",
+    nextRenewalDate: user?.cancelAtPeriodEnd ? "" : (user?.currentPeriodEnd || ""),
+    cancelAtPeriodEnd: Boolean(user?.cancelAtPeriodEnd),
+    scheduledCancellation: Boolean(user?.cancelAtPeriodEnd),
+    accessEndLabel: endMs ? new Date(endMs).toLocaleDateString() : "",
+    canceledAt: !membershipHasProAccess(user) && String(user?.subscriptionStatus || "").toLowerCase().includes("ended")
+      ? (user?.accessEndsAt || user?.updatedAt || "")
+      : "",
+    lastMembershipSyncAt: user?.lastStripeSyncAt || user?.updatedAt || "",
+    lastStripeSyncAt: user?.lastStripeSyncAt || user?.updatedAt || "",
+    stripeSubscriptionStatus: user?.stripeSubscriptionStatus || "",
     stripeCustomerRef: user?.stripeCustomerId ? `cus_…${String(user.stripeCustomerId).slice(-6)}` : "",
+    internalAccessOverride: Boolean(user?.internalAccessOverride),
+    membershipAuditRecent: audits,
   };
 }
 
@@ -3952,19 +3964,19 @@ function upsertStripeSubscription(email, customerId, subscription) {
   const cleanEmail = normalizeEmail(email);
   const store = readStore();
   const user = store.users?.[cleanEmail] || {};
-  const planKey = planKeyFromStripe(subscription, user);
-  const founding = planKey === "founding"
-    ? claimFoundingSpot(cleanEmail)
-    : { foundingMember: Boolean(user.foundingMember), foundingMemberNumber: user.foundingMemberNumber || null };
+  const updates = membershipAccess.stripeSubscriptionToMembershipUpdates(subscription, user, "updated");
+  if (updates.foundingMemberActive && !user.foundingMemberNumber) {
+    const claim = claimFoundingSpot(cleanEmail);
+    updates.foundingMemberNumber = claim.foundingMemberNumber;
+  } else if (user.foundingMemberNumber) {
+    updates.foundingMemberNumber = user.foundingMemberNumber;
+  }
   return upsertUser(cleanEmail, {
-    ...statusForPlan(planKey, subscription.id, subscription.status === "active" ? "Active" : subscription.status),
+    ...updates,
     stripeCustomerId: customerId || subscription.customer || user.stripeCustomerId || "",
-    foundingMember: founding.foundingMember,
-    foundingMemberNumber: founding.foundingMemberNumber,
     subscriptionStartedAt: user.subscriptionStartedAt || new Date().toISOString(),
     paymentMethod: "Managed in Stripe",
     pendingPlan: "",
-    stripeSubscriptionId: subscription.id,
   });
 }
 
@@ -4001,7 +4013,9 @@ async function handleCheckoutStatus(request, response, url) {
       upsertUser(email, {
         ...statusForPlan(planKey, session.subscription, "Active"),
         stripeCustomerId: session.customer,
-        foundingMember: founding.foundingMember,
+        foundingMember: planKey === "founding" || founding.foundingMember,
+        foundingMemberActive: planKey === "founding",
+        foundingMemberHistorical: planKey === "founding" || founding.foundingMember,
         foundingMemberNumber: founding.foundingMemberNumber,
         subscriptionStartedAt: new Date().toISOString(),
         paymentMethod: "Managed in Stripe",
@@ -4089,7 +4103,9 @@ async function handleStripeWebhook(request, response) {
         ...statusForPlan(planKey, session.subscription, promoTrialDays > 0 ? "trialing" : "Active"),
         ...checkoutTrialUpdates,
         stripeCustomerId: session.customer,
-        foundingMember: founding.foundingMember,
+        foundingMember: planKey === "founding" || founding.foundingMember,
+        foundingMemberActive: planKey === "founding",
+        foundingMemberHistorical: planKey === "founding" || founding.foundingMember,
         foundingMemberNumber: founding.foundingMemberNumber,
         subscriptionStartedAt: new Date().toISOString(),
         paymentMethod: "Managed in Stripe",
@@ -4113,50 +4129,34 @@ async function handleStripeWebhook(request, response) {
     const userEntry = Object.entries(store.users || {}).find(([, user]) => user.stripeCustomerId === subscription.customer);
     if (userEntry) {
       const [email, user] = userEntry;
-      const canceled = event.type === "customer.subscription.deleted" || subscription.status === "canceled";
-      const planKey = planKeyFromStripe(subscription, user);
-      const founding = !canceled && planKey === "founding"
-        ? claimFoundingSpot(email)
-        : { foundingMember: Boolean(user.foundingMember), foundingMemberNumber: user.foundingMemberNumber || null };
-      const trialUpdates = {};
-      if (!canceled && subscription.trial_start) {
-        trialUpdates.trialStart = new Date(subscription.trial_start * 1000).toISOString();
+      const eventType = event.type === "customer.subscription.deleted" ? "deleted" : "updated";
+      const updates = membershipAccess.stripeSubscriptionToMembershipUpdates(subscription, user, eventType);
+      if (updates.foundingMemberActive && !user.foundingMemberNumber) {
+        const claim = claimFoundingSpot(email);
+        updates.foundingMemberNumber = claim.foundingMemberNumber;
+        updates.foundingMemberHistorical = true;
+        updates.foundingMember = true;
+      } else if (user.foundingMemberNumber) {
+        updates.foundingMemberNumber = user.foundingMemberNumber;
+        updates.foundingMemberHistorical = true;
+        updates.foundingMember = true;
       }
-      if (!canceled && subscription.trial_end) {
-        trialUpdates.trialEnd = new Date(subscription.trial_end * 1000).toISOString();
-      }
-      if (!canceled && subscription.status === "trialing") {
-        trialUpdates.trialStatus = "In Trial";
-      } else if (!canceled && subscription.status === "active" && user.trialStatus === "In Trial") {
-        trialUpdates.trialStatus = "Trial Ended";
-      }
-      upsertUser(email, canceled ? {
-        plan: "Free",
-        subscriptionCadence: "",
-        subscriptionStatus: "Canceled - Free Plan Active",
-        monthlyPrice: "$0/month",
-        stripeSubscriptionId: subscription.id,
-        foundingMember: founding.foundingMember,
-        foundingMemberNumber: founding.foundingMemberNumber,
-        priceLock: founding.foundingMember ? "Lifetime" : "",
-      } : {
-        ...statusForPlan(planKey, subscription.id, subscription.status === "active" ? "Active" : subscription.status),
-        ...trialUpdates,
-        foundingMember: founding.foundingMember,
-        foundingMemberNumber: founding.foundingMemberNumber,
-        paymentMethod: "Managed in Stripe",
+      upsertUser(email, {
+        ...updates,
+        paymentMethod: updates.plan === "Free" ? user.paymentMethod || "Managed in Stripe" : "Managed in Stripe",
         pendingPlan: "",
-        stripeSubscriptionId: subscription.id,
       });
       const subscriptionPromoCode = normalizePromoCode(subscription.metadata?.promoCode || user.pendingPromoCode || "");
-      if (!canceled && subscriptionPromoCode) {
+      if (membershipAccess.membershipHasProAccess({ ...user, ...updates }) && subscriptionPromoCode) {
         markPromoRedeemed(email, subscriptionPromoCode, {
           label: subscription.metadata?.promoLabel || user.pendingPromoLabel || "",
           trialDays: Number(subscription.metadata?.promoTrialDays || user.pendingTrialDays || 0),
           stripeSubscriptionId: subscription.id,
         });
       }
-      if (canceled) appendBillingEvent(email, "subscription_canceled", planKey, "$0");
+      if (!membershipAccess.membershipHasProAccess({ ...user, ...updates })) {
+        appendBillingEvent(email, "subscription_canceled", planKeyFromStripe(subscription, user), "$0");
+      }
     }
   }
 
@@ -4168,10 +4168,14 @@ async function handleStripeWebhook(request, response) {
       upsertUser(userEntry[0], {
         plan: "Free",
         subscriptionStatus: "Payment Failed - Action Needed",
+        stripeSubscriptionStatus: "unpaid",
         monthlyPrice: "$0/month",
-        foundingMember: Boolean(userEntry[1]?.foundingMember),
+        foundingMemberActive: false,
+        foundingMemberHistorical: Boolean(userEntry[1]?.foundingMemberHistorical || userEntry[1]?.foundingMember),
+        foundingMember: Boolean(userEntry[1]?.foundingMemberHistorical || userEntry[1]?.foundingMember),
         foundingMemberNumber: userEntry[1]?.foundingMemberNumber || null,
-        priceLock: userEntry[1]?.foundingMember ? "Lifetime" : "",
+        priceLock: userEntry[1]?.foundingMemberHistorical || userEntry[1]?.foundingMember ? "Lifetime" : "",
+        lastStripeSyncAt: new Date().toISOString(),
       });
     }
   }
@@ -4236,6 +4240,65 @@ async function handleAiGenerate(request, response) {
   }
 }
 
+function scheduleSubscriptionCancelLocal(user) {
+  const inTrial = membershipUserInTrial(user);
+  const periodEndIso = user.accessEndsAt || user.currentPeriodEnd || user.trialEnd
+    || new Date(Date.now() + 30 * 86400000).toISOString();
+  const endLabel = new Date(periodEndIso).toLocaleDateString();
+  return {
+    cancelAtPeriodEnd: true,
+    accessEndsAt: periodEndIso,
+    currentPeriodEnd: user.currentPeriodEnd || periodEndIso,
+    subscriptionStatus: inTrial
+      ? `Canceled — Access Ends ${endLabel} (Trial — no future charge)`
+      : `Canceled — Access Ends ${endLabel}`,
+    lastStripeSyncAt: new Date().toISOString(),
+  };
+}
+
+async function handleCancelSubscription(request, response) {
+  const body = await readJson(request);
+  const email = normalizeEmail(body.email);
+  if (!email) {
+    jsonResponse(response, 400, { error: "email is required." });
+    return;
+  }
+  const store = readStore();
+  const user = store.users?.[email];
+  if (!user) {
+    jsonResponse(response, 404, { error: "User not found." });
+    return;
+  }
+  if (!membershipHasProAccess(user)) {
+    jsonResponse(response, 400, { error: "No active paid subscription to cancel." });
+    return;
+  }
+  try {
+    let subscription;
+    if (user.stripeSubscriptionId && isConfiguredValue(STRIPE_SECRET_KEY)) {
+      const stripeSub = await stripeRequest(`subscriptions/${user.stripeSubscriptionId}`, {
+        cancel_at_period_end: "true",
+      });
+      const updates = membershipAccess.stripeSubscriptionToMembershipUpdates(stripeSub, user, "updated");
+      if (user.foundingMemberNumber) {
+        updates.foundingMemberNumber = user.foundingMemberNumber;
+        updates.foundingMemberHistorical = true;
+        updates.foundingMember = true;
+      }
+      subscription = upsertUser(email, updates);
+    } else {
+      subscription = upsertUser(email, scheduleSubscriptionCancelLocal(user));
+    }
+    appendBillingEvent(email, "subscription_cancel_scheduled", resolvedPlanForUser(user), user.monthlyPrice || "");
+    jsonResponse(response, 200, {
+      ok: true,
+      subscription: { ...subscription, ...membershipSummaryForUser(subscription) },
+    });
+  } catch (error) {
+    jsonResponse(response, 500, { error: error.message || "Could not cancel subscription." });
+  }
+}
+
 async function handleSubscriptionStatus(request, response, url) {
   const email = normalizeEmail(url.searchParams.get("email"));
   const store = readStore();
@@ -4254,7 +4317,7 @@ async function handleSubscriptionStatus(request, response, url) {
   }
   jsonResponse(response, 200, {
     email,
-    subscription,
+    subscription: subscription ? { ...subscription, ...membershipSummaryForUser(subscription) } : null,
     recoveredFromStripe,
     aiUsage: email ? canUseServerAi(email, subscription?.plan || "Free") : null,
     founding: foundingStatusPayload(readStore()),
@@ -4594,8 +4657,12 @@ function analyticsSummary(store) {
     visitorDays[id].add(analyticsDateKey(event.createdAt));
   });
   const returningVisitors = Object.values(visitorDays).filter((days) => days.size > 1).length;
-  const paidUsers = users.filter((user) => ["Pro", "Founding"].includes(user.plan));
-  const canceledUsers = users.filter((user) => String(user.subscriptionStatus || "").toLowerCase().includes("cancel"));
+  const paidUsers = users.filter((user) => membershipHasProAccess(user));
+  const canceledUsers = users.filter((user) => membershipStatusDisplay(user) === "Canceled and Ended");
+  const cancelingUsers = users.filter((user) => {
+    const status = membershipStatusDisplay(user);
+    return status === "Canceling at Period End" || status === "Trialing — Cancels at Trial End";
+  });
   const revenueItems = [
     ...paidEvents,
     ...billingEvents.filter((event) => !String(event.type || "").toLowerCase().includes("cancel")),
@@ -4645,11 +4712,12 @@ function analyticsSummary(store) {
       uniqueVisitors: uniqueVisitors.size,
       signups: Math.max(signups.length, users.length),
       totalRegisteredUsers: users.length,
-      freeUsers: users.filter((user) => !["Pro", "Founding"].includes(user.plan)).length,
-      proUsers: users.filter((user) => user.plan === "Pro").length,
-      foundingMembers: users.filter((user) => user.plan === "Founding" || user.foundingMember).length,
+      freeUsers: users.filter((user) => !membershipHasProAccess(user)).length,
+      proUsers: users.filter((user) => membershipHasProAccess(user) && membershipPlanDisplay(user) !== "Founding Member" && membershipPlanDisplay(user) !== "Trial").length,
+      foundingMembers: users.filter((user) => membershipAccess.membershipFoundingActive(user)).length,
       paidUsers: paidUsers.length,
-      activeSubscriptions: paidUsers.filter((user) => !String(user.subscriptionStatus || "").toLowerCase().includes("cancel")).length,
+      activeSubscriptions: paidUsers.filter((user) => !user.cancelAtPeriodEnd).length,
+      cancelingSubscriptions: cancelingUsers.length,
       canceledSubscriptions: canceledUsers.length,
       returningVisitors,
       visitorToSignupRate: rate(Math.max(signups.length, users.length), Math.max(uniqueVisitors.size, visits.length)),
@@ -4703,16 +4771,18 @@ async function handleAdminMembershipUpdate(request, response) {
     jsonResponse(response, 400, { error: "email and updates are required." });
     return;
   }
-  if (updates.plan === "Founding" && !updates.foundingMember) {
+  if (updates.plan === "Founding" && !updates.foundingMember && !updates.foundingMemberActive && !updates.restoreFoundingPrice) {
     jsonResponse(response, 400, {
-      error: "Founding Member can only be assigned to users who legitimately claimed a founding spot or with an explicit foundingMember override.",
+      error: "Founding Member can only be assigned with an explicit foundingMemberActive or restoreFoundingPrice admin override.",
     });
     return;
   }
   const store = readStore();
   const existing = store.users?.[email] || { email };
-  if (updates.plan === "Founding" && !existing.foundingMember && foundingSpotsRemaining(store) <= 0) {
-    jsonResponse(response, 409, { error: "All 50 Founding Member spots are claimed. Cannot assign Founding to a new user." });
+  const restoringFounding = updates.restoreFoundingPrice === true || (updates.foundingMemberActive === true && membershipAccess.membershipFoundingHistorical(existing));
+  const assigningNewFounding = (updates.plan === "Founding" || updates.foundingMemberActive) && !existing.foundingMemberNumber && !(store.foundingMembers || []).includes(email);
+  if (assigningNewFounding && foundingSpotsRemaining(store) <= 0) {
+    jsonResponse(response, 409, { error: "All 50 Founding Member spots are claimed. Cannot assign a new founding spot." });
     return;
   }
   const auditEntry = {
@@ -4728,9 +4798,33 @@ async function handleAdminMembershipUpdate(request, response) {
   store.membershipAudit.unshift(auditEntry);
   store.membershipAudit = store.membershipAudit.slice(0, 500);
   const merged = { ...existing, ...updates, email, updatedAt: new Date().toISOString() };
-  if (merged.plan === "Founding" && merged.foundingMember) {
+  if (updates.internalAccessOverride === true) {
+    merged.internalAccessOverride = true;
+  }
+  if (restoringFounding || updates.foundingMemberActive === true) {
+    merged.foundingMemberActive = true;
+    merged.foundingMemberHistorical = true;
+    merged.foundingMember = true;
+    merged.plan = "Founding";
+    merged.monthlyPrice = "$9.99/month";
+    merged.priceLock = "Lifetime";
+    merged.subscriptionCadence = "monthly";
+    if (existing.foundingMemberNumber || (store.foundingMembers || []).includes(email)) {
+      const idx = (store.foundingMembers || []).indexOf(email);
+      merged.foundingMemberNumber = existing.foundingMemberNumber
+        || (idx >= 0 ? PUBLIC_FOUNDING_CLAIMED_BASE + idx + 1 : null);
+    } else if (assigningNewFounding) {
+      const claim = claimFoundingSpot(email);
+      merged.foundingMemberNumber = claim.foundingMemberNumber || merged.foundingMemberNumber;
+    }
+  } else if (merged.plan === "Founding" && merged.foundingMember) {
     const claim = claimFoundingSpot(email);
     merged.foundingMemberNumber = claim.foundingMemberNumber || merged.foundingMemberNumber;
+    merged.foundingMemberActive = true;
+    merged.foundingMemberHistorical = true;
+  }
+  if (merged.plan === "Free" && !restoringFounding) {
+    merged.foundingMemberActive = false;
   }
   store.users = store.users || {};
   store.users[email] = merged;
@@ -5854,16 +5948,24 @@ function handleBillingReadiness(request, response) {
     plan: "Pro",
     subscriptionStatus: "Pro Monthly Subscription Active",
   });
+  const cancelAtPeriodEndStillActive = storedSubscriptionActive({
+    plan: "Pro",
+    subscriptionStatus: "Canceled — Access Ends Dec 31, 2027",
+    cancelAtPeriodEnd: true,
+    accessEndsAt: new Date(Date.now() + 86400000).toISOString(),
+    stripeSubscriptionStatus: "active",
+  });
   const canceledDowngradesToFree = !storedSubscriptionActive({
     plan: "Free",
-    subscriptionStatus: "Canceled - Free Plan Active",
+    subscriptionStatus: "Canceled and Ended",
+    stripeSubscriptionStatus: "canceled",
   });
   const trialingRecognized = storedSubscriptionActive({
     plan: "Pro",
     subscriptionStatus: "Pro Monthly Subscription trialing",
   });
   const permissionsCorrect = freeLimit === 10 && proLimit === 250 && foundingLimit === 250
-    && activeProRecognized && canceledDowngradesToFree && trialingRecognized;
+    && activeProRecognized && canceledDowngradesToFree && trialingRecognized && cancelAtPeriodEndStillActive;
   const subscriptionPermissions = {
     ready: permissionsCorrect,
     freeAiLimit: freeLimit,
@@ -5871,6 +5973,7 @@ function handleBillingReadiness(request, response) {
     foundingAiLimit: foundingLimit,
     activeProRecognized,
     trialingRecognized,
+    cancelAtPeriodEndStillActive,
     canceledDowngradesToFree,
     note: permissionsCorrect
       ? "Plan → permission mapping is correct. Free: 10 AI/month, Pro/Founding: 250 AI/month."
@@ -5906,14 +6009,14 @@ function handleBillingReadiness(request, response) {
   // 5. Cancellations work
   const mockCanceledUser = {
     plan: "Free",
-    subscriptionStatus: "Canceled - Free Plan Active",
+    subscriptionStatus: "Canceled and Ended",
     subscriptionCadence: "",
     monthlyPrice: "$0/month",
-    priceLock: "",
+    stripeSubscriptionStatus: "canceled",
   };
   const cancelStillInactive = !storedSubscriptionActive(mockCanceledUser);
   const cancelStatusCorrect = mockCanceledUser.plan === "Free"
-    && mockCanceledUser.subscriptionStatus === "Canceled - Free Plan Active";
+    && mockCanceledUser.subscriptionStatus === "Canceled and Ended";
   const cancellationsWork = {
     ready: cancelStillInactive && cancelStatusCorrect,
     webhookEvent: "customer.subscription.deleted",
@@ -6818,6 +6921,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/delete") return await handleAdminUploadedResourceDelete(request, response);
     if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/child-data") return await handleChildData(request, response);
     if (request.method === "GET" && url.pathname === "/api/checkout-status") return await handleCheckoutStatus(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/cancel-subscription") return await handleCancelSubscription(request, response);
     if (request.method === "GET" && url.pathname === "/api/subscription-status") return await handleSubscriptionStatus(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/user/ai-usage") return handleUserAiUsage(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/analytics") return handleAdminAnalytics(request, response, url);
