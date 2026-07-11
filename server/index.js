@@ -17,7 +17,8 @@ const PROMO_FREE_TRIAL_EXPIRES_LABEL = process.env.PROMO_FREE_TRIAL_EXPIRES_LABE
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o";
 const FOUNDING_LIMIT = Number(process.env.FOUNDING_MEMBER_LIMIT || 50);
-const PUBLIC_FOUNDING_CLAIMED_BASE = Number(process.env.PUBLIC_FOUNDING_CLAIMED_BASE || 4);
+// Optional marketing offset only — defaults to 0 so claimed counts reflect real foundingMembers[].
+const PUBLIC_FOUNDING_CLAIMED_BASE = Number(process.env.PUBLIC_FOUNDING_CLAIMED_BASE || 0);
 const ADMIN_EMAIL = normalizeEmail(process.env.ADMIN_EMAIL || "");
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 const ADMIN_ACCESS_CODE = process.env.ADMIN_ACCESS_CODE || "";
@@ -3492,7 +3493,15 @@ async function handleCheckout(request, response) {
   const email = normalizeEmail(body.email);
   const store = readStore();
   const requestedPlan = body.plan || "monthly";
-  const planKey = requestedPlan === "founding" && foundingSpotsRemaining(store) <= 0 ? "monthly" : requestedPlan;
+  if (requestedPlan === "founding" && foundingSpotsRemaining(store) <= 0) {
+    jsonResponse(response, 409, {
+      error: "Founding Membership is sold out. All 50 lifetime spots have been claimed. Choose Pro Monthly ($19.99/month) or Pro Annual ($199/year) instead.",
+      founding: foundingStatusPayload(store),
+      soldOut: true,
+    });
+    return;
+  }
+  const planKey = requestedPlan;
   const price = getPriceId(planKey);
   if (!email) {
     jsonResponse(response, 400, { error: "Email is required before checkout." });
@@ -3884,6 +3893,61 @@ function resolvedPlanForUser(user) {
   return ["Pro", "Founding"].includes(user.plan) ? user.plan : "Pro";
 }
 
+function membershipUserInTrial(user) {
+  if (!user) return false;
+  const trialStatus = String(user.trialStatus || "").toLowerCase();
+  if (trialStatus.includes("in trial")) return true;
+  const status = String(user.subscriptionStatus || "").toLowerCase();
+  return status.includes("trialing")
+    || (status.includes("trial") && !status.includes("trial ended") && !status.includes("no trial"));
+}
+
+function membershipUserIsFounding(user) {
+  return user?.plan === "Founding" || Boolean(user?.foundingMember);
+}
+
+function membershipHasProAccess(user) {
+  return storedSubscriptionActive(user);
+}
+
+function membershipPlanDisplay(user) {
+  if (!membershipHasProAccess(user)) return "Free";
+  if (membershipUserInTrial(user)) return "Trial";
+  if (membershipUserIsFounding(user)) return "Founding Member";
+  if (user?.subscriptionCadence === "annual") return "Pro Annual";
+  return "Pro Monthly";
+}
+
+function membershipStatusDisplay(user) {
+  const status = String(user?.subscriptionStatus || "").toLowerCase();
+  if (status.includes("failed")) return "Payment Failed";
+  if (status.includes("past due")) return "Past Due";
+  if (status.includes("cancel")) return "Canceled";
+  if (membershipUserInTrial(user)) return "In Trial";
+  if (membershipHasProAccess(user)) return "Active";
+  return "Free";
+}
+
+function membershipSummaryForUser(user) {
+  const price = String(user?.monthlyPrice || "");
+  return {
+    membershipPlan: membershipPlanDisplay(user),
+    membershipStatus: membershipStatusDisplay(user),
+    hasProAccess: membershipHasProAccess(user),
+    foundingMember: membershipUserIsFounding(user),
+    foundingPriceLock: user?.foundingMember ? (user?.priceLock || "Lifetime") : "",
+    displayPrice: membershipHasProAccess(user)
+      ? (membershipUserIsFounding(user) ? "$9.99/month" : user?.subscriptionCadence === "annual" ? "$199/year" : "$19.99/month")
+      : "$0/month",
+    subscriptionStartedAt: user?.subscriptionStartedAt || "",
+    trialStart: user?.trialStart || "",
+    trialEnd: user?.trialEnd || "",
+    canceledAt: String(user?.subscriptionStatus || "").toLowerCase().includes("cancel") ? (user?.updatedAt || "") : "",
+    lastMembershipSyncAt: user?.updatedAt || "",
+    stripeCustomerRef: user?.stripeCustomerId ? `cus_…${String(user.stripeCustomerId).slice(-6)}` : "",
+  };
+}
+
 function upsertStripeSubscription(email, customerId, subscription) {
   const cleanEmail = normalizeEmail(email);
   const store = readStore();
@@ -4051,7 +4115,7 @@ async function handleStripeWebhook(request, response) {
       const [email, user] = userEntry;
       const canceled = event.type === "customer.subscription.deleted" || subscription.status === "canceled";
       const planKey = planKeyFromStripe(subscription, user);
-      const founding = planKey === "founding"
+      const founding = !canceled && planKey === "founding"
         ? claimFoundingSpot(email)
         : { foundingMember: Boolean(user.foundingMember), foundingMemberNumber: user.foundingMemberNumber || null };
       const trialUpdates = {};
@@ -4100,7 +4164,16 @@ async function handleStripeWebhook(request, response) {
     const invoice = event.data.object;
     const store = readStore();
     const userEntry = Object.entries(store.users || {}).find(([, user]) => user.stripeCustomerId === invoice.customer);
-    if (userEntry) upsertUser(userEntry[0], { subscriptionStatus: "Payment Failed - Action Needed" });
+    if (userEntry) {
+      upsertUser(userEntry[0], {
+        plan: "Free",
+        subscriptionStatus: "Payment Failed - Action Needed",
+        monthlyPrice: "$0/month",
+        foundingMember: Boolean(userEntry[1]?.foundingMember),
+        foundingMemberNumber: userEntry[1]?.foundingMemberNumber || null,
+        priceLock: userEntry[1]?.foundingMember ? "Lifetime" : "",
+      });
+    }
   }
 
   jsonResponse(response, 200, { received: true });
@@ -4556,6 +4629,11 @@ function analyticsSummary(store) {
         foundingMemberNumber: user.foundingMemberNumber || null,
         featureUseCount: userEvents.length || Object.values(user.featureUsage || {}).reduce((total, value) => total + Number(value || 0), 0),
         topFeatures: topFeaturePairs(userEvents),
+        businessName: user.businessName || user.daycareName || user.programName || "",
+        subscriptionCadence: user.subscriptionCadence || "",
+        subscriptionStartedAt: user.subscriptionStartedAt || "",
+        priceLock: user.priceLock || "",
+        ...membershipSummaryForUser(user),
       };
     })
     .sort((a, b) => new Date(b.lastSeenAt || b.signupAt || 0) - new Date(a.lastSeenAt || a.signupAt || 0));
@@ -4610,6 +4688,58 @@ function handleAdminAnalytics(request, response, url) {
     return;
   }
   jsonResponse(response, 200, { analytics: analyticsSummary(readStore()) });
+}
+
+async function handleAdminMembershipUpdate(request, response) {
+  const body = await readJson(request);
+  const token = body.adminToken || "";
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const email = normalizeEmail(body.email);
+  const updates = body.updates && typeof body.updates === "object" ? body.updates : null;
+  if (!email || !updates) {
+    jsonResponse(response, 400, { error: "email and updates are required." });
+    return;
+  }
+  if (updates.plan === "Founding" && !updates.foundingMember) {
+    jsonResponse(response, 400, {
+      error: "Founding Member can only be assigned to users who legitimately claimed a founding spot or with an explicit foundingMember override.",
+    });
+    return;
+  }
+  const store = readStore();
+  const existing = store.users?.[email] || { email };
+  if (updates.plan === "Founding" && !existing.foundingMember && foundingSpotsRemaining(store) <= 0) {
+    jsonResponse(response, 409, { error: "All 50 Founding Member spots are claimed. Cannot assign Founding to a new user." });
+    return;
+  }
+  const auditEntry = {
+    id: `mem_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
+    email,
+    action: body.action || "admin_membership_update",
+    updates,
+    adminEmail: body.adminEmail || ADMIN_EMAIL || "admin",
+    note: String(body.note || "Internal admin access override — does not change Stripe billing automatically."),
+    createdAt: new Date().toISOString(),
+  };
+  store.membershipAudit = store.membershipAudit || [];
+  store.membershipAudit.unshift(auditEntry);
+  store.membershipAudit = store.membershipAudit.slice(0, 500);
+  const merged = { ...existing, ...updates, email, updatedAt: new Date().toISOString() };
+  if (merged.plan === "Founding" && merged.foundingMember) {
+    const claim = claimFoundingSpot(email);
+    merged.foundingMemberNumber = claim.foundingMemberNumber || merged.foundingMemberNumber;
+  }
+  store.users = store.users || {};
+  store.users[email] = merged;
+  writeStore(store);
+  jsonResponse(response, 200, {
+    ok: true,
+    user: { ...merged, ...membershipSummaryForUser(merged) },
+    audit: auditEntry,
+  });
 }
 
 function handlePublicSiteContent(request, response) {
@@ -6691,6 +6821,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/subscription-status") return await handleSubscriptionStatus(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/user/ai-usage") return handleUserAiUsage(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/analytics") return handleAdminAnalytics(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/membership-update") return await handleAdminMembershipUpdate(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-test") return await handleAdminAiTest(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/ai-prompts") return handleAdminAiPrompts(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-prompts") return await handleAdminAiPromptsSave(request, response);

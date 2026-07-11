@@ -14,7 +14,7 @@ const ROOT = path.join(__dirname, "..");
 const PORT = 19500 + Math.floor(Math.random() * 30);
 const STORE_PATH = path.join(os.tmpdir(), `llh-billing-qa-${crypto.randomBytes(4).toString("hex")}.json`);
 const FOUNDING_LIMIT = 50;
-const PUBLIC_CLAIMED_BASE = 4;
+const PUBLIC_CLAIMED_BASE = 0;
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -64,6 +64,7 @@ function startServer() {
       DATABASE_PROVIDER: "local-json",
       LLH_STORE_PATH: STORE_PATH,
       FOUNDING_MEMBER_LIMIT: String(FOUNDING_LIMIT),
+      PUBLIC_FOUNDING_CLAIMED_BASE: "0",
       PUBLIC_FOUNDING_CLAIMED_BASE: String(PUBLIC_CLAIMED_BASE),
       NODE_ENV: "test",
     },
@@ -227,7 +228,7 @@ async function main() {
   assert(!/monthlyPrice[^)]*includes\(["']9\.99["']\)/.test(appJs), "app.js still uses monthlyPrice.includes('9.99') for founding detection");
   assert(appJs.includes("function isFoundingSubscription"), "isFoundingSubscription helper missing");
   assert(appJs.includes("function accountIsInTrial"), "accountIsInTrial helper missing");
-  assert(!/startProTrial[\s\S]{0,400}remaining > 0 \? "founding"/.test(appJs), "startProTrial still routes trial to founding checkout");
+  assert(!/foundingSpotsRemaining\(\) <= 0 \? "monthly"/.test(appJs), "startCheckout still silently falls back to monthly when founding sold out");
 
   console.log("2) Plan classification unit checks");
   const proMonthly = subscriptionToAccountUpdates({
@@ -257,7 +258,7 @@ async function main() {
     console.log("3) Founding limit & sold-out API");
     let founding = await requestJson("GET", "/api/founding-status");
     const foundingPayload = founding.json.founding || founding.json;
-    assert(foundingPayload.remaining > 0, "Fresh store should have founding spots");
+    assert(foundingPayload.remaining === FOUNDING_LIMIT, `Fresh store should have ${FOUNDING_LIMIT} founding spots when base is 0`);
     assert(foundingPayload.foundingPrice === "$9.99/month", "Founding price $9.99/month");
     assert(foundingPayload.regularMonthlyPrice === "$19.99/month", "Pro monthly $19.99");
     assert(foundingPayload.regularAnnualPrice === "$199/year", "Pro annual $199");
@@ -268,7 +269,7 @@ async function main() {
     assert(soldOutPayload.remaining === 0, "All 50 founding spots should be claimed");
     assert(soldOutPayload.soldOut === true, "soldOut flag should be true");
 
-    console.log("4) Checkout blocks founding when sold out");
+    console.log("4) Sold-out founding checkout is blocked (never silent $19.99 redirect)");
     const checkout = await requestJson("POST", "/api/create-checkout-session", {
       email: "newuser@billing.test",
       plan: "founding",
@@ -276,13 +277,42 @@ async function main() {
       cancelUrl: `http://127.0.0.1:${PORT}/?checkout=cancel`,
     });
     if (checkout.status === 503) {
-      console.log("   (checkout skipped — Stripe not configured in test env)");
+      console.log("   (Stripe checkout endpoint skipped — keys not configured)");
     } else {
-      assert(checkout.status === 200, `Checkout failed: ${checkout.status} ${checkout.text}`);
-      assert(checkout.json.plan === "monthly", "Sold-out founding checkout must fall back to monthly Pro");
+      assert(checkout.status === 409, `Sold-out founding must return 409, got ${checkout.status}`);
+      assert(/sold out/i.test(checkout.json?.error || ""), "Sold-out founding error message required");
+      assert(checkout.json?.soldOut === true, "soldOut flag in blocked checkout response");
     }
 
-    console.log("5) Subscription sync records");
+    console.log("5) Canceled, failed payment, and ended founding access");
+    const now = new Date().toISOString();
+    const store = readStore();
+    store.users = store.users || {};
+    store.users["canceled-pro@billing.test"] = {
+      email: "canceled-pro@billing.test", plan: "Free", subscriptionStatus: "Canceled - Free Plan Active", monthlyPrice: "$0/month", updatedAt: now,
+    };
+    store.users["failed-pay@billing.test"] = {
+      email: "failed-pay@billing.test", plan: "Free", subscriptionStatus: "Payment Failed - Action Needed", monthlyPrice: "$0/month", updatedAt: now,
+    };
+    store.users["former-founding@billing.test"] = {
+      email: "former-founding@billing.test", plan: "Free", subscriptionStatus: "Canceled - Free Plan Active",
+      foundingMember: true, foundingMemberNumber: 3, priceLock: "Lifetime", monthlyPrice: "$0/month", updatedAt: now,
+    };
+    store.foundingMembers = store.foundingMembers || [];
+    if (!store.foundingMembers.includes("former-founding@billing.test")) store.foundingMembers.push("former-founding@billing.test");
+    writeStore(store);
+
+    function serverHasProAccess(user) {
+      const status = String(user?.subscriptionStatus || "").toLowerCase();
+      if (!user || status.includes("cancel") || status.includes("free plan") || status.includes("failed")) return false;
+      return ["Pro", "Founding"].includes(user.plan) && (status.includes("active") || status.includes("trial") || status.includes("paid"));
+    }
+    assert(!serverHasProAccess(store.users["canceled-pro@billing.test"]), "Canceled user must not have Pro access");
+    assert(!serverHasProAccess(store.users["failed-pay@billing.test"]), "Failed payment user must not have Pro access");
+    assert(!serverHasProAccess(store.users["former-founding@billing.test"]), "Canceled founding user must not have Pro access");
+    assert(store.users["former-founding@billing.test"].foundingMember === true, "Founding history record preserved after cancel");
+
+    console.log("6) Subscription sync records");
     seedPersonas();
     const proSub = await requestJson("GET", "/api/subscription-status?email=pro@billing.test");
     assert(proSub.json.subscription?.plan === "Pro", "Server Pro user plan");
@@ -292,7 +322,21 @@ async function main() {
     assert(foundingSub.json.subscription?.plan === "Founding", "Server founding user plan");
     assert(foundingSub.json.subscription?.monthlyPrice === "$9.99/month", "Server founding price preserved");
 
-    console.log("6) Browser persona labels & access");
+    console.log("7) Admin analytics membership fields");
+    const adminLogin = await requestJson("POST", "/api/admin/login", {
+      email: "billing-qa@test.local", password: "billing-qa-pass", code: "billing-qa-code",
+    });
+    assert(adminLogin.status === 200 && adminLogin.json?.token, "Admin login for analytics test");
+    const analytics = await requestJson("GET", `/api/admin/analytics?adminToken=${encodeURIComponent(adminLogin.json.token)}`);
+    assert(analytics.status === 200, "Admin analytics fetch");
+    const trialUser = (analytics.json.analytics?.users || []).find((u) => u.email === "trial@billing.test");
+    assert(trialUser?.membershipPlan === "Trial", "Trial user in admin analytics");
+    assert(trialUser?.hasProAccess === true, "Trial user has Pro access in admin");
+    const foundingUser = (analytics.json.analytics?.users || []).find((u) => u.email === "founding@billing.test");
+    assert(foundingUser?.membershipPlan === "Founding Member", "Founding user plan label");
+    assert(foundingUser?.displayPrice === "$9.99/month", "Founding display price");
+
+    console.log("8) Browser persona labels & access");
     const browser = await runBrowserChecks(`http://127.0.0.1:${PORT}`);
     if (browser.skipped) console.log("   (browser checks skipped — playwright not installed)");
 
