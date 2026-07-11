@@ -3467,12 +3467,31 @@ function activityMatchesCurriculumCategoryFilter(activityCategory, filter) {
   return aliases.includes(category);
 }
 
+function curriculumViewerRenderApi() {
+  return globalThis.CurriculumLessonViewerRender || null;
+}
+
+function resolvePublishedCurriculumActivityId(lessonPlanId, item) {
+  if (!item?.itemId) return "";
+  const activityId = curriculumActivityIdForItemId(item.itemId);
+  if (hasAdminFullAccess()) {
+    const activity = curriculumActivityById(activityId);
+    return activity && activity.status !== "archived" ? activityId : "";
+  }
+  const activity = effectiveCurriculumLibrary().activities.find((entry) => entry.id === activityId);
+  return activity ? activityId : "";
+}
+
 function curriculumMultilineSectionHtml(text) {
+  const api = curriculumViewerRenderApi();
+  if (api) return api.curriculumMultilineSectionHtml(text);
   const lines = String(text || "").split("\n").map((line) => line.trimEnd()).filter((line) => line.length);
   return printableLinesHtml(lines);
 }
 
 function curriculumBooksSectionHtml(books) {
+  const api = curriculumViewerRenderApi();
+  if (api) return api.curriculumBooksSectionHtml?.(books) || "";
   if (!Array.isArray(books) || !books.length) return "";
   return books.map((book) => `
     <div class="curriculum-book-entry">
@@ -3484,6 +3503,8 @@ function curriculumBooksSectionHtml(books) {
 }
 
 function curriculumSongsSectionHtml(songs) {
+  const api = curriculumViewerRenderApi();
+  if (api) return api.curriculumSongsSectionHtml?.(songs) || "";
   if (!Array.isArray(songs) || !songs.length) return "";
   return songs.map((song) => `
     <div class="curriculum-song-entry">
@@ -3494,125 +3515,52 @@ function curriculumSongsSectionHtml(songs) {
 }
 
 function curriculumLessonWeeklySectionsHtml(plan) {
-  const sections = [];
-  const addText = (id, label, value) => {
-    if (!String(value || "").trim()) return;
-    sections.push({ id, label, html: curriculumMultilineSectionHtml(value) });
-  };
-  addText("weekly-overview", "Weekly Overview", plan.weeklyOverview);
-  addText("objectives", "Learning Objectives", plan.objectives);
-  addText("weekly-materials", "Weekly Materials", plan.weeklyMaterials);
-  addText("vocabulary", "Vocabulary", plan.vocabularyWords);
-  if (Array.isArray(plan.books) && plan.books.length) {
-    sections.push({ id: "books", label: "Books", html: curriculumBooksSectionHtml(plan.books) });
-  }
-  if (Array.isArray(plan.songs) && plan.songs.length) {
-    sections.push({ id: "songs", label: "Songs", html: curriculumSongsSectionHtml(plan.songs) });
-  }
-  addText("family-connection", "Family Connection", plan.familyConnection);
-  addText("observation-opportunities", "Observation Opportunities", plan.observationOpportunities);
-  addText("adaptations", "Adaptations", plan.adaptations);
-  if (!sections.length) return "";
-  return sections.map((section, index) => `
-    <details class="curriculum-lesson-section"${index < 2 ? " open" : ""}>
-      <summary>${escapeHtml(section.label)}</summary>
-      <div class="curriculum-lesson-section-body">${section.html}</div>
-    </details>
-  `).join("");
+  const api = curriculumViewerRenderApi();
+  if (api) return api.curriculumLessonWeeklySectionsHtml(plan);
+  return "";
 }
 
 function curriculumLessonDayActivityCard(lessonPlanId, item) {
-  const activityId = curriculumActivityIdForItemId(item.itemId);
-  const goals = Array.isArray(item.learningGoals) ? item.learningGoals.filter(Boolean) : [];
-  return `
-    <article class="curriculum-activity-card">
-      <div class="curriculum-activity-card-head">
-        <h4>${escapeHtml(item.title || "Activity")}</h4>
-        ${item.activityCategory ? `<span class="tag">${escapeHtml(item.activityCategory)}</span>` : ""}
-      </div>
-      ${item.materials ? `<div class="curriculum-activity-field"><strong>Materials</strong>${curriculumMultilineSectionHtml(item.materials)}</div>` : ""}
-      ${item.setup ? `<div class="curriculum-activity-field"><strong>Setup</strong>${curriculumMultilineSectionHtml(item.setup)}</div>` : ""}
-      ${item.steps ? `<div class="curriculum-activity-field"><strong>Directions</strong>${curriculumMultilineSectionHtml(item.steps)}</div>` : ""}
-      ${goals.length ? `<div class="curriculum-activity-field"><strong>Learning Goal</strong><ul class="curriculum-goal-list">${goals.map((goal) => `<li>${escapeHtml(goal)}</li>`).join("")}</ul></div>` : ""}
-      ${activityId ? `<button class="ghost-button" type="button" data-open-curriculum-activity="${escapeHtml(activityId)}">Open Activity</button>` : ""}
-    </article>
-  `;
+  const api = curriculumViewerRenderApi();
+  if (api) {
+    return api.curriculumLessonDayActivityCardHtml(lessonPlanId, item, {
+      resolveActivityId: resolvePublishedCurriculumActivityId,
+    });
+  }
+  return "";
 }
 
-function curriculumLessonDailyPlansHtml(plan) {
-  const dailyPlans = plan.dailyPlans && typeof plan.dailyPlans === "object" ? plan.dailyPlans : {};
-  const dayLabels = {
-    monday: "Monday",
-    tuesday: "Tuesday",
-    wednesday: "Wednesday",
-    thursday: "Thursday",
-    friday: "Friday",
-  };
-  const tabs = CURRICULUM_WEEKDAYS.map((day, index) => `
-    <button class="curriculum-day-tab${index === 0 ? " is-active" : ""}" type="button" data-curriculum-lesson-day="${day}">${dayLabels[day]}</button>
-  `).join("");
-  const panels = CURRICULUM_WEEKDAYS.map((day, index) => {
-    const items = Array.isArray(dailyPlans[day]?.items) ? dailyPlans[day].items : [];
-    const cards = items.length
-      ? items.map((item) => curriculumLessonDayActivityCard(plan.id, item)).join("")
-      : `<p class="muted-copy">No activities scheduled for this day.</p>`;
-    return `<div class="curriculum-day-panel${index === 0 ? " is-active" : ""}" data-curriculum-lesson-day-panel="${day}">${cards}</div>`;
-  }).join("");
-  return `
-    <div class="curriculum-lesson-daily">
-      <div class="curriculum-day-tabs" role="tablist">${tabs}</div>
-      <div class="curriculum-day-panels">${panels}</div>
-    </div>
-  `;
+function curriculumLessonDailyPlansHtml(plan, options = {}) {
+  const api = curriculumViewerRenderApi();
+  if (api) {
+    return api.curriculumLessonDailyPlansHtml(plan, {
+      ...options,
+      resolveActivityId: resolvePublishedCurriculumActivityId,
+    });
+  }
+  return "";
 }
 
-function structuredCurriculumLessonPlanHtml(resource) {
+function structuredCurriculumLessonPlanHtml(resource, options = {}) {
   const plan = resource?._curriculumLessonPlan;
   if (!plan) return "";
-  const domains = (Array.isArray(plan.learningDomains) ? plan.learningDomains : [])
-    .map((domain) => `<span class="tag">${escapeHtml(domain)}</span>`)
-    .join("");
-  return `
-    <header class="curriculum-lesson-header">
-      <h3>${escapeHtml(plan.title || resource.title)}</h3>
-      <div class="tag-row">
-        <span class="tag">${escapeHtml(plan.age || resource.age || "Preschool")}</span>
-        ${plan.theme ? `<span class="tag">${escapeHtml(plan.theme)}</span>` : ""}
-        <span class="tag access-tag">${escapeHtml(plan.plan || resource.plan || "Free")}</span>
-      </div>
-      ${domains ? `<div class="tag-row curriculum-lesson-domains">${domains}</div>` : ""}
-    </header>
-    ${curriculumLessonWeeklySectionsHtml(plan) ? `<section class="curriculum-lesson-weekly">${curriculumLessonWeeklySectionsHtml(plan)}</section>` : ""}
-    <section class="curriculum-lesson-daily-section">
-      <h3>Daily Plans</h3>
-      ${curriculumLessonDailyPlansHtml(plan)}
-    </section>
-  `;
+  const api = curriculumViewerRenderApi();
+  if (!api) return "";
+  return api.renderCurriculumLessonPlanHtml(plan, {
+    ...options,
+    showAdminStatus: hasAdminFullAccess(),
+    resolveActivityId: resolvePublishedCurriculumActivityId,
+  });
 }
 
 function structuredCurriculumActivityHtml(resource) {
   const activity = resource?._curriculumActivity || effectiveCurriculumLibrary().activities.find((item) => item.id === resource.id) || null;
-  const goals = Array.isArray(activity?.learningGoals) ? activity.learningGoals.filter(Boolean) : [];
-  const category = activity?.activityCategory || resource.theme || resource.activityCategory || "";
-  const parentTitle = resource._curriculumParentTitle || activity?.parentTitle || "";
-  const lessonId = resource.lessonPlanId || resource._curriculumLessonPlanId || "";
-  return `
-    <header class="curriculum-activity-header">
-      ${category ? `<span class="tag">${escapeHtml(category)}</span>` : ""}
-      ${parentTitle ? `<p class="curriculum-activity-parent">Parent lesson: <strong>${escapeHtml(parentTitle)}</strong></p>` : ""}
-    </header>
-    <section class="curriculum-activity-body">
-      ${activity?.materials ? `<div class="curriculum-activity-field"><h4>Materials</h4>${curriculumMultilineSectionHtml(activity.materials)}</div>` : ""}
-      ${activity?.setup ? `<div class="curriculum-activity-field"><h4>Setup</h4>${curriculumMultilineSectionHtml(activity.setup)}</div>` : ""}
-      ${activity?.steps ? `<div class="curriculum-activity-field"><h4>Directions</h4>${curriculumMultilineSectionHtml(activity.steps)}</div>` : ""}
-      ${goals.length ? `<div class="curriculum-activity-field"><h4>Learning Goal</h4><ul class="curriculum-goal-list">${goals.map((goal) => `<li>${escapeHtml(goal)}</li>`).join("")}</ul></div>` : ""}
-    </section>
-    ${lessonId ? `
-      <div class="curriculum-activity-actions">
-        <button class="ghost-button" type="button" data-view-resource="${escapeHtml(lessonId)}">Open Parent Lesson</button>
-      </div>
-    ` : ""}
-  `;
+  const api = curriculumViewerRenderApi();
+  if (!api || !activity) return "";
+  return api.renderCurriculumActivityHtml(activity, {
+    parentTitle: resource._curriculumParentTitle || activity.parentTitle || "",
+    lessonPlanId: resource.lessonPlanId || resource._curriculumLessonPlanId || activity.lessonPlanId || "",
+  });
 }
 
 function resourceSearchHaystack(resource) {
@@ -3824,6 +3772,14 @@ function loadCurriculumManagedActivities() {
       setup: item.setup || "",
       steps: item.steps || "",
       learningGoals: Array.isArray(item.learningGoals) ? item.learningGoals : [],
+      learningDomains: Array.isArray(item.learningDomains) ? item.learningDomains : [],
+      teacherRole: item.teacherRole || "",
+      teacherLanguage: item.teacherLanguage || "",
+      vocabulary: item.vocabulary || "",
+      extensions: item.extensions || "",
+      adaptations: item.adaptations || "",
+      safetyNotes: item.safetyNotes || "",
+      ageModifications: item.ageModifications || "",
       _curriculumManaged: true,
       _curriculumLessonPlanId: item.lessonPlanId,
       _curriculumParentTitle: item.parentTitle || "",
@@ -8960,7 +8916,7 @@ function printableCartoonPreviewHtml(resource) {
 function resourcePrintableHtml(resource) {
   if (resource._curriculumManaged && resource.category === "Lesson Plans" && resource._curriculumLessonPlan) {
     const resourcesHtml = lessonPlanAttachedResourcesHtml(resource);
-    return `<article class="printable-resource-page curriculum-lesson-viewer">${structuredCurriculumLessonPlanHtml(resource)}${resourcesHtml}</article>`;
+    return `<article class="printable-resource-page curriculum-lesson-viewer curriculum-lesson-print">${structuredCurriculumLessonPlanHtml(resource, { mode: "print" })}${resourcesHtml}</article>`;
   }
   if (resource._curriculumManaged && resource.category === "Activity Center") {
     return `<article class="printable-resource-page curriculum-activity-viewer">${structuredCurriculumActivityHtml(resource)}</article>`;
@@ -11120,7 +11076,22 @@ function openLockedResourcePreview(resource, triggerEl = null) {
   featurePreviewTrigger = triggerEl || document.activeElement || null;
   featurePreviewEyebrow.textContent = "Pro Resource Preview";
   featurePreviewTitle.textContent = resource.title;
-  featurePreviewBody.innerHTML = `
+  const lockedCurriculum = resource._curriculumManaged && resource.category === "Lesson Plans"
+    ? curriculumViewerRenderApi()?.lockedCurriculumLessonPreviewHtml(resource)
+    : null;
+  featurePreviewBody.innerHTML = lockedCurriculum ? `
+    <section class="section-block" style="margin:0;">
+      ${lockedCurriculum.html}
+      <div class="fp-field">
+        <label>What this helps with</label>
+        <div class="fp-field-value"><ul class="md-ul">${benefits}</ul></div>
+      </div>
+      <div class="pro-modal-actions" style="margin-top:20px;justify-content:flex-start;">
+        <button class="primary-button" data-start-pro-trial type="button">Start Your 7-Day Free Pro Trial</button>
+      </div>
+      <p><small>${escapeHtml(proTrialUpgradeSummary)}</small></p>
+    </section>
+  ` : `
     <section class="section-block" style="margin:0;">
       <p>${escapeHtml(resource.description || "Unlock the full resource with Pro.")}</p>
       <div class="fp-field"><label>Age Group</label><div class="fp-field-value">${escapeHtml(normalizeAgeGroup(resource.age) || resource.age || "All Ages")}</div></div>
