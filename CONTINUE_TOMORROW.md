@@ -1,6 +1,16 @@
 # Little Learner Hub - Continue Tomorrow
 
-Last updated: June 14, 2026
+Last updated: July 11, 2026
+
+## Curriculum Calendar (parked)
+
+Calendar project is **complete through F3**. Future calendar work is documented in:
+
+**[`CURRICULUM_CALENDAR_ROADMAP.md`](./CURRICULUM_CALENDAR_ROADMAP.md)**
+
+Resume order when ready: cloud planner storage → Family Hub → F4 parent sharing. Do not start F4 until approved.
+
+---
 
 ## Current Local Preview
 
