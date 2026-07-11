@@ -399,12 +399,16 @@ async function main() {
 
     const publicActivities = (publicLibrary.activities || []).filter((a) => a.lessonPlanId === lessonId);
     assert(publicActivities.length === activityCount, "Public activity count mismatch");
-    assert(publicActivities.every((a) => a.status === "published"), "Public activities must be published");
+    // Public curriculumLibrary activity DTOs intentionally omit status after Phase D access protection.
+    assert(publicActivities.every((a) => a.title && a.lessonPlanId === lessonId), "Public activities missing titles/linkage");
 
     console.log("6) Admin reload still Published");
     const adminReload = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(token)}`);
     const adminPlan = (adminReload.json.siteContent?.curriculum?.lessonPlans || []).find((p) => p.id === lessonId);
     assert(adminPlan?.status === "published", "Admin reload lost published status");
+    const adminActivities = (adminReload.json.siteContent?.curriculum?.activities || []).filter((a) => a.lessonPlanId === lessonId && a.status !== "archived");
+    assert(adminActivities.length === activityCount, "Admin activity count mismatch after publish");
+    assert(adminActivities.every((a) => a.status === "published"), "Admin activities must be published after lesson publish");
 
     console.log("7) Persisted to store file (not memory only)");
     assert(fs.existsSync(STORE_PATH), "Isolated store file missing");

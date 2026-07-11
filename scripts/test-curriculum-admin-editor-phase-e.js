@@ -245,13 +245,13 @@ async function runBrowserEditorFlow(planId, seededItemId) {
   await monday.locator('[data-curriculum-songs-editor="day:monday"] [data-curriculum-song-row]').last()
     .locator("[data-curriculum-song-title]").fill("Monday Day Song");
   await monday.locator('[data-curriculum-add-text-list="day:monday:circleTime"]').click();
-  await monday.locator('[data-curriculum-text-list-editor="day:monday:circleTime"] [data-curriculum-text-list-value"]').last()
+  await monday.locator('[data-curriculum-text-list-editor="day:monday:circleTime"] [data-curriculum-text-list-value]').last()
     .fill("Circle: weather and seeds");
   await monday.locator('[data-curriculum-add-text-list="day:monday:transitions"]').click();
-  await monday.locator('[data-curriculum-text-list-editor="day:monday:transitions"] [data-curriculum-text-list-value"]').last()
+  await monday.locator('[data-curriculum-text-list-editor="day:monday:transitions"] [data-curriculum-text-list-value]').last()
     .fill("Transition: clean-up song");
   await monday.locator('[data-curriculum-add-text-list="day:monday:observations"]').click();
-  await monday.locator('[data-curriculum-text-list-editor="day:monday:observations"] [data-curriculum-text-list-value"]').last()
+  await monday.locator('[data-curriculum-text-list-editor="day:monday:observations"] [data-curriculum-text-list-value]').last()
     .fill("Observe curiosity with soil");
 
   console.log("6) Activity edit / add / duplicate / reorder / move");
