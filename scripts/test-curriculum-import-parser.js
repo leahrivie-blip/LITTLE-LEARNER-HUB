@@ -10,6 +10,7 @@ const {
   parseCurriculumLessonPlanImport,
   parseCurriculumLessonPlanImportV1,
   parseCurriculumLessonPlanImportV2,
+  parseCurriculumLessonPlanImportV3,
   parseCurriculumLessonPlanBulkImport,
   APPROVED_V2_ACTIVITY_CATEGORIES,
 } = require("./curriculum-lesson-import-parser.js");
@@ -18,6 +19,7 @@ const ROOT = path.join(__dirname, "..");
 const V1_SAMPLE = path.join(ROOT, "scripts/curriculum-phase-2f-imports/05-preschool-garden-scientists-pro.txt");
 const V1_LEGACY = path.join(ROOT, "scripts/curriculum-phase-2f-imports/legacy-backward-compat-sample.txt");
 const V2_SAMPLE = path.join(ROOT, "scripts/curriculum-import-samples/premium-garden-scientists-v2.txt");
+const V3_SAMPLE = path.join(ROOT, "scripts/curriculum-import-samples/label-only-garden-scientists-v3.txt");
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -27,6 +29,7 @@ function main() {
   console.log("1) Format detection");
   assert(detectImportFormat(fs.readFileSync(V1_SAMPLE, "utf8")) === "v1", "Phase 2F file should be v1");
   assert(detectImportFormat(fs.readFileSync(V2_SAMPLE, "utf8")) === "v2", "Premium sample should be v2");
+  assert(detectImportFormat(fs.readFileSync(V3_SAMPLE, "utf8")) === "v3", "Label-only sample should be v3");
 
   console.log("2) v1 backward compatibility");
   const v1 = parseCurriculumLessonPlanImportV1(fs.readFileSync(V1_SAMPLE, "utf8"));
@@ -99,6 +102,49 @@ function main() {
   console.log("9) Approved v2 categories list is fixed to six play-based categories");
   assert(APPROVED_V2_ACTIVITY_CATEGORIES.length === 6, "six approved categories");
   assert(!APPROVED_V2_ACTIVITY_CATEGORIES.includes("Circle Time"), "Circle Time is not a v2 activity category");
+
+  console.log("10) v3 label-only format parses lesson and activity fields");
+  const v3Text = fs.readFileSync(V3_SAMPLE, "utf8");
+  const v3 = parseCurriculumLessonPlanImportV3(v3Text);
+  if (!v3.ok) throw new Error(v3.errors.join(" | "));
+  assert(v3.data.title === "Garden Scientists", "v3 title");
+  assert(v3.data.plan === "Pro", "v3 plan preserved");
+  assert(v3.data.status === "draft", "v3 status preserved");
+  assert(v3.data.age === "Preschool", "v3 age");
+  assert(v3.parseReport.activityCount === 4, `Expected 4 activities, got ${v3.parseReport.activityCount}`);
+  assert(v3.parseReport.daysPresent.length === 3, "Expected 3 weekdays with activities");
+  assert(v3.data.books.length === 2, "v3 weekly books");
+  assert(v3.data.songs.length === 2, "v3 weekly songs");
+  assert(v3.data.dailyPlans.monday.items.length === 2, "Monday should have 2 activities");
+  assert(
+    v3.data.dailyPlans.monday.items[0].steps.includes("Invite children to scoop and feel the soil."),
+    "Directions preserved exactly",
+  );
+  assert(
+    v3.data.dailyPlans.monday.items[0].description.includes("explore soil texture"),
+    "OBJECTIVE maps to description",
+  );
+  assert(
+    v3.data.dailyPlans.monday.items[0].extensions.includes("vocabulary children use"),
+    "OBSERVATION_OPPORTUNITIES captured",
+  );
+  assert(v3.data.dailyPlans.monday.items[0].activityCategory === "Sensory Play", "v3 accepts editor categories");
+
+  console.log("11) v3 missing required fields produce clear errors");
+  const noTitle = parseCurriculumLessonPlanImportV3("AGE_GROUP:\nPreschool\n\nMONDAY:\n\nACTIVITY_NAME:\nTest\nCATEGORY:\nArt\nOBJECTIVE:\nTest\nMATERIALS:\nM\nSETUP:\nS\nTEACHER_ROLE:\nT\nDIRECTIONS:\n1. Go\nLEARNING_GOALS:\nG\nOBSERVATION_OPPORTUNITIES:\nO\n");
+  assert(!noTitle.ok, "missing TITLE should fail");
+  assert(noTitle.errors.some((err) => /TITLE/i.test(err)), "TITLE error message");
+
+  console.log("12) v3 invalid category is an error");
+  const badV3Category = v3Text.replace("CATEGORY:\nSensory Play", "CATEGORY:\nNot A Real Category");
+  const badV3 = parseCurriculumLessonPlanImportV3(badV3Category);
+  assert(!badV3.ok, "Invalid v3 category should fail");
+  assert(badV3.errors.some((err) => /invalid CATEGORY/i.test(err)), "Invalid category error message");
+
+  console.log("13) Auto-routing uses v3 for label-only paste");
+  const routed = parseCurriculumLessonPlanImport(v3Text);
+  assert(routed.ok, routed.errors.join(" "));
+  assert(routed.parseReport.formatVersion === 3, "routed format version");
 
   console.log("\nAll curriculum import parser Phase A checks passed.");
 }

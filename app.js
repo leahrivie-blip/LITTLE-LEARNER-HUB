@@ -4135,6 +4135,10 @@ function curriculumImportV2Template() {
   return curriculumImportApi()?.CURRICULUM_LESSON_IMPORT_V2_TEMPLATE || "";
 }
 
+function curriculumImportV3Template() {
+  return curriculumImportApi()?.CURRICULUM_LESSON_IMPORT_V3_TEMPLATE || "";
+}
+
 function curriculumImportDraftFromParsed(parsedData) {
   if (!parsedData || typeof parsedData !== "object") return parsedData;
   const draft = { ...parsedData };
@@ -4279,6 +4283,7 @@ function renderCurriculumImportPreviewActivity(activity = {}) {
   const fields = [
     ["Import key", activity.importKey],
     ["Category", activity.activityCategory],
+    ["Objective", activity.description],
     ["Learning domains", (activity.learningDomains || []).join(", ")],
     ["Materials", activity.materials],
     ["Setup", activity.setup],
@@ -4286,6 +4291,7 @@ function renderCurriculumImportPreviewActivity(activity = {}) {
     ["Teacher role", activity.teacherRole],
     ["Teacher language", activity.teacherLanguage],
     ["Learning goals", (activity.learningGoals || []).join("\n")],
+    ["Observation opportunities", activity.extensions],
     ["Vocabulary", activity.vocabulary],
     ["Extensions", activity.extensions],
     ["Adaptations", activity.adaptations],
@@ -4449,7 +4455,8 @@ function buildAdminCurriculumImportPreview(text) {
   const form = document.querySelector("#adminCurriculumLessonPlanForm");
   const existingItemIds = snapshotCurriculumDailyItemIds(form);
   const parsed = parseCurriculumLessonPlanImport(text, { existingItemIds });
-  const formatVersion = curriculumImportApi()?.detectImportFormat(text) === "v2" ? 2 : 1;
+  const detectedFormat = curriculumImportApi()?.detectImportFormat(text) || "v1";
+  const formatVersion = detectedFormat === "v3" ? 3 : detectedFormat === "v2" ? 2 : 1;
   const editingId = adminCurriculumLessonEditorId || "";
   const proposedLessonPlanId = editingId || `cur-lp-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
   const preview = previewApi.buildCurriculumImportPreview(parsed, {
@@ -4573,18 +4580,22 @@ function renderCurriculumLessonImportPanel() {
   return `
     <fieldset class="admin-fieldset curriculum-import-panel">
       <legend>Complete Lesson Plan Importer</legend>
-      <p class="muted-copy">Paste one formatted lesson plan, preview how it was understood, then confirm import to load it into the editor. Nothing is saved until you click Save.</p>
-      <details class="curriculum-import-format-details">
-        <summary>View required import format (v1 colon sections)</summary>
-        <pre class="curriculum-import-template">${escapeHtml(CURRICULUM_LESSON_IMPORT_TEMPLATE)}</pre>
+      <p class="muted-copy">Paste one complete lesson plan into the box below. The importer reads field labels only — no special markers required. Preview how it was understood, then confirm import to load it into the editor. Nothing is saved until you click Save.</p>
+      <details class="curriculum-import-format-details" open>
+        <summary>View required import format</summary>
+        <pre class="curriculum-import-template">${escapeHtml(curriculumImportV3Template() || CURRICULUM_LESSON_IMPORT_TEMPLATE)}</pre>
       </details>
       ${curriculumImportV2Template() ? `
       <details class="curriculum-import-format-details">
-        <summary>View v2 strict marker format</summary>
+        <summary>View legacy v2 strict marker format</summary>
         <pre class="curriculum-import-template">${escapeHtml(curriculumImportV2Template())}</pre>
       </details>` : ""}
+      <details class="curriculum-import-format-details">
+        <summary>View legacy v1 colon-section format</summary>
+        <pre class="curriculum-import-template">${escapeHtml(CURRICULUM_LESSON_IMPORT_TEMPLATE)}</pre>
+      </details>
       <label>Paste complete lesson plan
-        <textarea id="adminCurriculumLessonImportText" rows="14" placeholder="Paste a v2 premium lesson plan or legacy v1 colon-section plan">${escapeHtml(adminCurriculumLessonImportTextCache || "")}</textarea>
+        <textarea id="adminCurriculumLessonImportText" rows="14" placeholder="Paste a complete lesson plan using TITLE:, AGE_GROUP:, MONDAY:, ACTIVITY_NAME:, and other field labels">${escapeHtml(adminCurriculumLessonImportTextCache || "")}</textarea>
       </label>
       <div class="form-actions">
         <button class="ghost-button" type="button" id="adminCurriculumLessonClearImportButton">Clear</button>

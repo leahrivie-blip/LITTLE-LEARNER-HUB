@@ -1475,7 +1475,7 @@
         <button class="close-button" id="closeAdminImportModal" type="button" aria-label="Close import modal">&times;</button>
         <p class="eyebrow">Admin Tool</p>
         <h2 id="adminImportTitle" tabindex="-1">📋 Import Structured Lesson Plan (Retired)</h2>
-        <p style="font-size:14px;color:var(--muted);margin:8px 0 12px">This legacy importer is retired. Use <strong>Admin → Content → Play-Based Lessons</strong> and paste your plan into the <strong>Complete Lesson Plan Importer</strong> using the <code>TITLE:</code> / <code>ACTIVITY NAME:</code> format.</p>
+        <p style="font-size:14px;color:var(--muted);margin:8px 0 12px">This legacy importer is retired. Use <strong>Admin → Content → Play-Based Lessons</strong> and paste your plan into the <strong>Complete Lesson Plan Importer</strong> using field labels such as <code>TITLE:</code>, <code>AGE_GROUP:</code>, <code>MONDAY:</code>, and <code>ACTIVITY_NAME:</code>.</p>
         <form id="adminLessonImportForm">
           <textarea id="adminImportTextarea" class="admin-import-textarea" placeholder="TITLE:&#10;Preschool Farm Friends&#10;&#10;AGE GROUP:&#10;Preschool&#10;&#10;THEME:&#10;Farm Animals&#10;&#10;WEEKLY OVERVIEW:&#10;...&#10;&#10;MONDAY:&#10;ACTIVITY NAME:&#10;Corn Kernel Bin&#10;CATEGORY:&#10;Sensory Play&#10;..."></textarea>
           <p class="admin-import-hint">Required order: TITLE, AGE GROUP, THEME, WEEKLY OVERVIEW, LEARNING OBJECTIVES, WEEKLY MATERIALS, VOCABULARY, BOOKS, SONGS, FAMILY CONNECTION, OBSERVATION OPPORTUNITIES, ADAPTATIONS, then MONDAY–FRIDAY with ACTIVITY NAME blocks (CATEGORY, MATERIALS, SETUP, DIRECTIONS, LEARNING GOAL). Legacy <code>===SECTION===</code> files still parse for backward compatibility.</p>
@@ -1496,8 +1496,8 @@
       </div>
     </div>
 
-    <script src="scripts/curriculum-lesson-import-parser.js?v=20260711-phase-d" defer></script>
-    <script src="scripts/curriculum-import-preview.js?v=20260711-phase-d" defer></script>
+    <script src="scripts/curriculum-lesson-import-parser.js?v=20260712-label-import" defer></script>
+    <script src="scripts/curriculum-import-preview.js?v=20260712-label-import" defer></script>
     <script src="scripts/curriculum-lesson-viewer-render.js?v=20260711-phase-d" defer></script>
     <script src="app.js?v=20260711-phase-d" defer></script>
   </body>

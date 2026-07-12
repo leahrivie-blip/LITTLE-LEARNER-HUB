@@ -1,8 +1,8 @@
 /**
- * Shared Play-Based Curriculum lesson plan import parser (v1 colon + v2 strict markers).
+ * Shared Play-Based Curriculum lesson plan import parser (v1 colon + v2 strict markers + v3 label-only).
  * Used by browser (global CurriculumLessonImportParser), Node tests, and seed scripts.
  *
- * v2 policy: preserve wording exactly; never regenerate; unmapped content is reported, not dropped silently.
+ * v2/v3 policy: preserve wording exactly; never regenerate; unmapped content is reported, not dropped silently.
  */
 (function curriculumLessonImportParserModule() {
 let nodeCrypto = null;
@@ -106,6 +106,38 @@ const V2_ACTIVITY_FIELDS = new Set([
   "AGE_MODIFICATIONS",
   "IMPORT_KEY",
 ]);
+
+const V3_LESSON_FIELDS = new Set([
+  "TITLE",
+  "AGE_GROUP",
+  "THEME",
+  "PLAN",
+  "STATUS",
+  "LEARNING_DOMAINS",
+  "WEEKLY_OVERVIEW",
+  "LEARNING_OBJECTIVES",
+  "WEEKLY_MATERIALS",
+  "VOCABULARY",
+  "BOOKS",
+  "SONGS",
+  "FAMILY_CONNECTION",
+  "OBSERVATION_OPPORTUNITIES",
+  "ADAPTATIONS",
+]);
+
+const V3_ACTIVITY_FIELDS = new Set([
+  "ACTIVITY_NAME",
+  "CATEGORY",
+  "OBJECTIVE",
+  "MATERIALS",
+  "SETUP",
+  "TEACHER_ROLE",
+  "DIRECTIONS",
+  "LEARNING_GOALS",
+  "OBSERVATION_OPPORTUNITIES",
+]);
+
+const V3_WEEKDAY_HEADERS = new Set(["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]);
 
 const CURRICULUM_IMPORT_COLON_SECTION_KEYS = {
   TITLE: "TITLE",
@@ -231,8 +263,19 @@ function parseTextListItems(text) {
     .filter(Boolean);
 }
 
+function isV3LabelOnlyFormat(text) {
+  const raw = String(text || "");
+  if (/@LESSON_PLAN_START@/i.test(raw)) return false;
+  if (/^ACTIVITY_NAME:\s*$/im.test(raw)) return true;
+  if (/^AGE_GROUP:\s*$/im.test(raw) && /^LEARNING_OBJECTIVES:\s*$/im.test(raw) && !/^ACTIVITY NAME:\s*$/im.test(raw)) {
+    return true;
+  }
+  return false;
+}
+
 function detectImportFormat(text) {
   if (/@LESSON_PLAN_START@/i.test(String(text || ""))) return "v2";
+  if (isV3LabelOnlyFormat(text)) return "v3";
   return "v1";
 }
 
@@ -926,8 +969,276 @@ function parseCurriculumLessonPlanImportV1(text, { existingItemIds = new Map(), 
   };
 }
 
+function splitV3WeekdaySections(text) {
+  const lines = String(text || "").split(/\r?\n/);
+  const lessonLines = [];
+  const daySections = Object.fromEntries(CURRICULUM_WEEKDAYS.map((day) => [day, []]));
+  let currentDay = "";
+  let lineOffset = 1;
+
+  lines.forEach((line, index) => {
+    const trimmed = line.trim();
+    const weekdayMatch = trimmed.match(/^(MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY):\s*$/i);
+    if (weekdayMatch) {
+      currentDay = weekdayMatch[1].toLowerCase();
+      return;
+    }
+    if (currentDay && daySections[currentDay]) {
+      daySections[currentDay].push({ line: lineOffset + index, text: line });
+    } else {
+      lessonLines.push({ line: lineOffset + index, text: line });
+    }
+  });
+
+  return {
+    lessonBody: lessonLines.map((entry) => entry.text).join("\n"),
+    lessonLineEntries: lessonLines,
+    daySections: Object.fromEntries(
+      CURRICULUM_WEEKDAYS.map((day) => [day, daySections[day].map((entry) => entry.text).join("\n")]),
+    ),
+    dayLineOffsets: Object.fromEntries(
+      CURRICULUM_WEEKDAYS.map((day) => {
+        const first = daySections[day][0];
+        return [day, first ? first.line : null];
+      }),
+    ),
+  };
+}
+
+function splitV3DayActivities(dayContent) {
+  const content = String(dayContent || "");
+  if (!content.trim()) return [];
+  const blocks = content.split(/(?=^ACTIVITY_NAME:\s*$)/im).map((block) => block.trim()).filter(Boolean);
+  return blocks.filter((block) => /^ACTIVITY_NAME:\s*$/im.test(block.split(/\r?\n/)[0]?.trim() || block));
+}
+
+function parseV3ActivityBlock(block, { dayKey, lineOffset = 1, existingItemIds = new Map(), generateItemId = generateCurriculumItemId } = {}) {
+  const errors = [];
+  const warnings = [];
+  const { fields, unmapped } = parseFieldBlock(block, V3_ACTIVITY_FIELDS, {
+    lineOffset,
+    context: `${dayKey}:activity`,
+  });
+
+  const title = normalizedShortText(fields.ACTIVITY_NAME);
+  if (!title) {
+    errors.push(`${dayKey}: activity block missing ACTIVITY_NAME.`);
+    return { activity: null, errors, warnings, unmapped };
+  }
+
+  const category = normalizedShortText(fields.CATEGORY);
+  if (!category) {
+    errors.push(`${dayKey}: "${title}" is missing CATEGORY.`);
+  } else if (!PLAY_ACTIVITY_CATEGORIES_V1.includes(category)) {
+    errors.push(`${dayKey}: "${title}" has invalid CATEGORY "${category}". Use one of: ${PLAY_ACTIVITY_CATEGORIES_V1.join(", ")}.`);
+  }
+
+  if (!preserveMultilineText(fields.DIRECTIONS)) {
+    errors.push(`${dayKey}: "${title}" is missing DIRECTIONS.`);
+  }
+
+  if (!preserveMultilineText(fields.OBJECTIVE)) {
+    warnings.push(`${dayKey}: "${title}" is missing OBJECTIVE.`);
+  }
+
+  const itemKey = `${dayKey}:${title.toLowerCase()}`;
+  const itemId = existingItemIds.get(itemKey) || generateItemId();
+
+  const observationText = preserveMultilineText(fields.OBSERVATION_OPPORTUNITIES);
+  const activity = {
+    itemId,
+    importKey: "",
+    activityCategory: category || "",
+    title,
+    description: preserveMultilineText(fields.OBJECTIVE),
+    learningDomains: [],
+    materials: preserveMultilineText(fields.MATERIALS),
+    setup: preserveMultilineText(fields.SETUP),
+    steps: preserveMultilineText(fields.DIRECTIONS),
+    teacherRole: preserveMultilineText(fields.TEACHER_ROLE),
+    teacherLanguage: "",
+    learningGoals: parseActivityGoals(fields.LEARNING_GOALS),
+    vocabulary: "",
+    extensions: observationText,
+    adaptations: "",
+    safetyNotes: "",
+    ageModifications: "",
+  };
+
+  return { activity, errors, warnings, unmapped };
+}
+
+function parseCurriculumLessonPlanImportV3(text, { existingItemIds = new Map(), generateItemId = generateCurriculumItemId, existingTitles = [] } = {}) {
+  const errors = [];
+  const warnings = [];
+  const unmapped = [];
+  const sectionsDetected = [];
+  const raw = String(text || "").trim();
+
+  if (!raw) {
+    return {
+      ok: false,
+      errors: ["Paste is empty. Include a complete lesson plan with TITLE, AGE_GROUP, weekday sections, and activities."],
+      warnings,
+      unmapped,
+      parseReport: { formatVersion: 3, sectionsDetected: [], activityCount: 0, activityLibraryEntries: 0, daysPresent: [] },
+      data: null,
+    };
+  }
+
+  const { lessonBody, daySections, dayLineOffsets } = splitV3WeekdaySections(raw);
+  const { fields: lessonFields, unmapped: lessonUnmapped } = parseFieldBlock(lessonBody, V3_LESSON_FIELDS, {
+    context: "lesson",
+  });
+  unmapped.push(...lessonUnmapped);
+
+  const title = normalizedShortText(lessonFields.TITLE);
+  if (!title) errors.push("Missing required field: TITLE:");
+  else sectionsDetected.push("TITLE");
+
+  const age = normalizeCurriculumImportAge(lessonFields.AGE_GROUP);
+  if (!age) errors.push("Missing required field: AGE_GROUP (expected Infant, Toddler, or Preschool).");
+  else sectionsDetected.push("AGE_GROUP");
+
+  const theme = normalizedShortText(lessonFields.THEME);
+  if (!theme) warnings.push("THEME is empty.");
+  else sectionsDetected.push("THEME");
+
+  const planRaw = normalizedShortText(lessonFields.PLAN);
+  let plan = "Free";
+  if (planRaw) {
+    if (planRaw === "Pro" || planRaw === "Free") plan = planRaw;
+    else errors.push(`PLAN must be Free or Pro (got "${planRaw}").`);
+    sectionsDetected.push("PLAN");
+  } else {
+    warnings.push("PLAN is empty. Defaulting to Free.");
+  }
+
+  const statusRaw = normalizedShortText(lessonFields.STATUS).toLowerCase();
+  let status = "draft";
+  if (statusRaw) {
+    if (CURRICULUM_LESSON_STATUSES.includes(statusRaw)) status = statusRaw;
+    else errors.push(`STATUS must be draft, published, featured, or archived (got "${lessonFields.STATUS}").`);
+    sectionsDetected.push("STATUS");
+  } else {
+    warnings.push("STATUS is empty. Defaulting to draft.");
+  }
+
+  if (title && existingTitles.map((item) => String(item).trim().toLowerCase()).includes(title.toLowerCase())) {
+    warnings.push(`Duplicate lesson plan title "${title}" detected.`);
+  }
+
+  if (lessonFields.LEARNING_DOMAINS) sectionsDetected.push("LEARNING_DOMAINS");
+  if (lessonFields.WEEKLY_OVERVIEW) sectionsDetected.push("WEEKLY_OVERVIEW");
+  if (lessonFields.LEARNING_OBJECTIVES) sectionsDetected.push("LEARNING_OBJECTIVES");
+  if (lessonFields.WEEKLY_MATERIALS) sectionsDetected.push("WEEKLY_MATERIALS");
+  if (lessonFields.VOCABULARY) sectionsDetected.push("VOCABULARY");
+  if (lessonFields.BOOKS) sectionsDetected.push("BOOKS");
+  if (lessonFields.SONGS) sectionsDetected.push("SONGS");
+  if (lessonFields.FAMILY_CONNECTION) sectionsDetected.push("FAMILY_CONNECTION");
+  if (lessonFields.OBSERVATION_OPPORTUNITIES) sectionsDetected.push("OBSERVATION_OPPORTUNITIES");
+  if (lessonFields.ADAPTATIONS) sectionsDetected.push("ADAPTATIONS");
+
+  const books = parseCurriculumImportListLines(lessonFields.BOOKS, { parts: 3 });
+  const songs = parseCurriculumImportListLines(lessonFields.SONGS, { parts: 2 });
+
+  const dailyPlans = emptyCurriculumDailyPlans();
+  let activityCount = 0;
+  const daysPresent = [];
+
+  CURRICULUM_WEEKDAYS.forEach((dayKey) => {
+    const dayContent = daySections[dayKey] || "";
+    if (!dayContent.trim()) return;
+    sectionsDetected.push(dayKey.toUpperCase());
+    daysPresent.push(dayKey);
+
+    const activityBlocks = splitV3DayActivities(dayContent);
+    if (!activityBlocks.length) {
+      const trimmed = dayContent.trim();
+      if (trimmed) {
+        unmapped.push({
+          line: dayLineOffsets[dayKey],
+          text: trimmed.split(/\r?\n/)[0],
+          reason: "unrecognized_line",
+          context: `${dayKey}:daily`,
+        });
+        warnings.push(`${dayKey}: weekday section has content but no ACTIVITY_NAME blocks.`);
+      }
+      return;
+    }
+
+    activityBlocks.forEach((block) => {
+      const parsedActivity = parseV3ActivityBlock(block, {
+        dayKey,
+        lineOffset: dayLineOffsets[dayKey] || 1,
+        existingItemIds,
+        generateItemId,
+      });
+      errors.push(...parsedActivity.errors);
+      warnings.push(...parsedActivity.warnings);
+      unmapped.push(...parsedActivity.unmapped);
+      if (parsedActivity.activity) {
+        dailyPlans[dayKey].items.push(parsedActivity.activity);
+        activityCount += 1;
+      }
+    });
+  });
+
+  if (!activityCount) {
+    errors.push("At least one ACTIVITY_NAME block under a weekday section (MONDAY–FRIDAY) is required.");
+  }
+
+  const data = {
+    _formatVersion: 3,
+    title: title || "Untitled Lesson Plan",
+    age: age || "",
+    theme,
+    plan,
+    status,
+    learningDomains: parseLearningDomainsList(lessonFields.LEARNING_DOMAINS),
+    weeklyOverview: preserveMultilineText(lessonFields.WEEKLY_OVERVIEW),
+    objectives: preserveMultilineText(lessonFields.LEARNING_OBJECTIVES),
+    weeklyMaterials: preserveMultilineText(lessonFields.WEEKLY_MATERIALS),
+    vocabularyWords: preserveMultilineText(lessonFields.VOCABULARY),
+    familyConnection: preserveMultilineText(lessonFields.FAMILY_CONNECTION),
+    observationOpportunities: preserveMultilineText(lessonFields.OBSERVATION_OPPORTUNITIES),
+    adaptations: preserveMultilineText(lessonFields.ADAPTATIONS),
+    books,
+    songs,
+    dailyPlans,
+    dailyPlansCompat: flattenDailyPlansForV1Compat(dailyPlans),
+    _activityCount: activityCount,
+  };
+
+  const parseReport = {
+    formatVersion: 3,
+    title: data.title,
+    age: data.age,
+    theme: data.theme,
+    plan: data.plan,
+    status: data.status,
+    activityCount,
+    activityLibraryEntries: activityCount,
+    daysPresent,
+    sectionsDetected,
+    weeklyBookCount: books.length,
+    weeklySongCount: songs.length,
+    unmappedLineCount: unmapped.length,
+  };
+
+  return {
+    ok: errors.length === 0,
+    errors,
+    warnings,
+    unmapped,
+    parseReport,
+    data,
+  };
+}
+
 function parseCurriculumLessonPlanImport(text, options = {}) {
-  if (detectImportFormat(text) === "v2") {
+  const format = detectImportFormat(text);
+  if (format === "v2") {
     const blocks = extractAllMarkedRegions(text, V2_MARKERS.LESSON_PLAN_START, V2_MARKERS.LESSON_PLAN_END);
     if (blocks.length > 1) {
       return {
@@ -940,6 +1251,9 @@ function parseCurriculumLessonPlanImport(text, options = {}) {
       };
     }
     return parseCurriculumLessonPlanImportV2(text, options);
+  }
+  if (format === "v3") {
+    return parseCurriculumLessonPlanImportV3(text, options);
   }
   return parseCurriculumLessonPlanImportV1(text, options);
 }
@@ -1147,13 +1461,194 @@ Goal one
 @LESSON_PLAN_END@
 `;
 
+const CURRICULUM_LESSON_IMPORT_V3_TEMPLATE = `TITLE:
+Your Lesson Plan Title
+
+AGE_GROUP:
+Preschool
+
+THEME:
+Your Theme
+
+PLAN:
+Pro
+
+STATUS:
+draft
+
+LEARNING_DOMAINS:
+Science, Language & Literacy
+
+WEEKLY_OVERVIEW:
+Write the weekly overview here.
+
+LEARNING_OBJECTIVES:
+Objective one
+Objective two
+
+WEEKLY_MATERIALS:
+Material one, material two
+
+VOCABULARY:
+word one, word two
+
+BOOKS:
+Book Title | Author | Notes
+
+SONGS:
+Song Title | Notes
+
+FAMILY_CONNECTION:
+Weekly family connection text.
+
+OBSERVATION_OPPORTUNITIES:
+Weekly observation notes.
+
+ADAPTATIONS:
+Weekly adaptations.
+
+MONDAY:
+
+ACTIVITY_NAME:
+Sample Activity
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Children will explore textures through hands-on play.
+MATERIALS:
+Materials list
+SETUP:
+Setup text
+TEACHER_ROLE:
+Observe and narrate children's discoveries.
+DIRECTIONS:
+1. Step one
+2. Step two
+LEARNING_GOALS:
+Goal one
+OBSERVATION_OPPORTUNITIES:
+Note how children describe textures.
+
+ACTIVITY_NAME:
+Second Monday Activity
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Children practice pinching and placing small objects.
+MATERIALS:
+Tongs, pom-poms, bowls
+SETUP:
+Place materials at a low table.
+TEACHER_ROLE:
+Model tong use and offer vocabulary.
+DIRECTIONS:
+1. Demonstrate picking up one pom-pom.
+2. Invite children to fill a bowl.
+LEARNING_GOALS:
+Strengthen pincer grasp
+OBSERVATION_OPPORTUNITIES:
+Watch for hand preference and grip changes.
+
+TUESDAY:
+
+ACTIVITY_NAME:
+Tuesday Activity
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Children move to rhythm and follow simple directions.
+MATERIALS:
+Shakers, scarves
+SETUP:
+Clear open space with materials in a basket.
+TEACHER_ROLE:
+Lead movement and pause for listening.
+DIRECTIONS:
+1. Shake to the beat.
+2. Freeze when the music stops.
+LEARNING_GOALS:
+Follow two-step directions
+OBSERVATION_OPPORTUNITIES:
+Note balance and coordination during movement.
+
+WEDNESDAY:
+
+THURSDAY:
+
+FRIDAY:
+`;
+
+function formatCurriculumLessonPlanImportV3(plan = {}) {
+  const entry = plan && typeof plan === "object" ? plan : {};
+  const sections = [
+    formatImportSection("TITLE", entry.title),
+    formatImportSection("AGE_GROUP", entry.age),
+    formatImportSection("THEME", entry.theme),
+  ];
+  if (entry.plan) sections.push(formatImportSection("PLAN", entry.plan));
+  if (entry.status) sections.push(formatImportSection("STATUS", entry.status));
+  if (Array.isArray(entry.learningDomains) && entry.learningDomains.length) {
+    sections.push(formatImportSection("LEARNING_DOMAINS", entry.learningDomains.join(", ")));
+  }
+  sections.push(
+    formatImportSection("WEEKLY_OVERVIEW", entry.weeklyOverview),
+    formatImportSection("LEARNING_OBJECTIVES", entry.objectives),
+    formatImportSection("WEEKLY_MATERIALS", entry.weeklyMaterials),
+    formatImportSection("VOCABULARY", entry.vocabularyWords),
+    formatImportSection("BOOKS", (entry.books || []).map((book) => [book.title, book.author, book.notes].filter(Boolean).join(" | ")).join("\n")),
+    formatImportSection("SONGS", (entry.songs || []).map((song) => [song.title, song.notes].filter(Boolean).join(" | ")).join("\n")),
+    formatImportSection("FAMILY_CONNECTION", entry.familyConnection),
+    formatImportSection("OBSERVATION_OPPORTUNITIES", entry.observationOpportunities),
+    formatImportSection("ADAPTATIONS", entry.adaptations),
+  );
+  ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"].forEach((dayKey) => {
+    const day = dayKey.toLowerCase();
+    const items = Array.isArray(entry.dailyPlans?.[day]?.items) ? entry.dailyPlans[day].items : [];
+    const activityBlocks = items.map((item) => {
+      const goals = Array.isArray(item.learningGoals) ? item.learningGoals.filter(Boolean) : [];
+      const directions = String(item.steps || "").trim();
+      const numberedDirections = directions
+        ? directions.split(/\r?\n/).map((line, index) => {
+          const trimmed = line.trim();
+          if (!trimmed) return "";
+          return /^\d+\.\s/.test(trimmed) ? trimmed : `${index + 1}. ${trimmed}`;
+        }).filter(Boolean).join("\n")
+        : "";
+      return [
+        "ACTIVITY_NAME:",
+        item.title || "",
+        "CATEGORY:",
+        item.activityCategory || "Open-Ended Exploration",
+        "OBJECTIVE:",
+        item.description || "",
+        "MATERIALS:",
+        item.materials || "",
+        "SETUP:",
+        item.setup || "",
+        "TEACHER_ROLE:",
+        item.teacherRole || "",
+        "DIRECTIONS:",
+        numberedDirections,
+        "LEARNING_GOALS:",
+        goals.join("\n"),
+        "OBSERVATION_OPPORTUNITIES:",
+        item.extensions || "",
+      ].join("\n");
+    });
+    sections.push(formatImportSection(dayKey, activityBlocks.join("\n\n")));
+  });
+  return `${sections.join("\n").trim()}\n`;
+}
+
 const api = {
   PLAY_ACTIVITY_CATEGORIES: PLAY_ACTIVITY_CATEGORIES_V1,
   APPROVED_V2_ACTIVITY_CATEGORIES,
   CURRICULUM_LEARNING_DOMAINS,
   CURRICULUM_WEEKDAYS,
   CURRICULUM_LESSON_IMPORT_V2_TEMPLATE,
+  CURRICULUM_LESSON_IMPORT_V3_TEMPLATE,
   detectImportFormat,
+  isV3LabelOnlyFormat,
   emptyCurriculumDailyPlans,
   emptyCurriculumDailyPlanDay,
   generateCurriculumItemId,
@@ -1161,8 +1656,10 @@ const api = {
   parseCurriculumLessonPlanImport,
   parseCurriculumLessonPlanImportV1,
   parseCurriculumLessonPlanImportV2,
+  parseCurriculumLessonPlanImportV3,
   parseCurriculumLessonPlanBulkImport,
   formatCurriculumLessonPlanImport,
+  formatCurriculumLessonPlanImportV3,
   formatImportActivity,
 };
 

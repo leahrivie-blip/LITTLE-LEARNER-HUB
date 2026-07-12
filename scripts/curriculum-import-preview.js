@@ -137,8 +137,9 @@ function duplicateTitleWarnings(data) {
   return warnings;
 }
 
-function emptyWeekdayWarnings(data) {
+function emptyWeekdayWarnings(data, formatVersion = 1) {
   const warnings = [];
+  const skipDayMediaWarnings = formatVersion === 3;
   CURRICULUM_WEEKDAYS.forEach((day) => {
     const dayPlan = data.dailyPlans?.[day];
     if (!dayPlan) return;
@@ -159,7 +160,7 @@ function emptyWeekdayWarnings(data) {
         line: null,
       });
     }
-    if ((dayPlan.items || []).length && !(dayPlan.books || []).length) {
+    if ((dayPlan.items || []).length && !(dayPlan.books || []).length && !skipDayMediaWarnings) {
       warnings.push({
         severity: "warning",
         message: `No books entered for ${day}.`,
@@ -169,7 +170,7 @@ function emptyWeekdayWarnings(data) {
         line: null,
       });
     }
-    if ((dayPlan.items || []).length && !(dayPlan.songs || []).length) {
+    if ((dayPlan.items || []).length && !(dayPlan.songs || []).length && !skipDayMediaWarnings) {
       warnings.push({
         severity: "warning",
         message: `No songs entered for ${day}.`,
@@ -289,12 +290,22 @@ function buildCurriculumImportPreview(parsed, options = {}) {
   const structuredWarnings = [
   ...(parsed?.warnings || []).map((message) => parseImportMessage(message, "warning")),
   ...duplicateTitleWarnings(data || {}),
-  ...emptyWeekdayWarnings(data || {}),
+  ...emptyWeekdayWarnings(data || {}, formatVersion),
   ];
   if (formatVersion === 1) {
     structuredWarnings.unshift({
       severity: "warning",
-      message: "Legacy v1 colon-section format detected. v2 strict-marker format is recommended for premium lesson plans.",
+      message: "Legacy v1 colon-section format detected. The label-only import format is recommended for new lesson plans.",
+      section: "format",
+      weekday: "",
+      activityName: "",
+      line: null,
+    });
+  }
+  if (formatVersion === 2) {
+    structuredWarnings.unshift({
+      severity: "warning",
+      message: "Legacy v2 strict-marker format detected. The label-only import format is recommended for new lesson plans.",
       section: "format",
       weekday: "",
       activityName: "",
@@ -343,7 +354,11 @@ function buildCurriculumImportPreview(parsed, options = {}) {
     unmappedCount: unmapped.length,
     blockingUnmappedCount: blockingUnmapped.length,
     formatVersion,
-    formatLabel: formatVersion === 2 ? "v2 premium strict-marker format" : "v1 legacy colon-section format",
+    formatLabel: formatVersion === 3
+      ? "label-only import format"
+      : formatVersion === 2
+        ? "v2 premium strict-marker format"
+        : "v1 legacy colon-section format",
   };
   return {
     ok: Boolean(parsed?.ok) && structuredErrors.length === 0,
