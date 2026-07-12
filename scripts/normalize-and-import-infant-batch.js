@@ -20,9 +20,15 @@ const { URL } = require("url");
 const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-parser.js");
 
 const ROOT = path.join(__dirname, "..");
-const RAW_PATH = path.join(__dirname, "curriculum-import-samples/infant-batch-jul2026/raw-paste.txt");
-const OUT_DIR = path.join(__dirname, "curriculum-import-samples/infant-batch-jul2026");
-const REPORT_PATH = path.join(__dirname, "data/infant-batch-jul2026-import-report.json");
+const BATCH_SLUG = String(process.env.BATCH_SLUG || "infant-batch-jul2026").trim();
+const BATCH_ID_PREFIX = String(process.env.BATCH_ID_PREFIX || (
+  BATCH_SLUG.startsWith("toddler") ? "cur-lp-toddler"
+    : BATCH_SLUG.startsWith("preschool") ? "cur-lp-preschool"
+      : "cur-lp-infant"
+)).trim();
+const RAW_PATH = path.join(__dirname, `curriculum-import-samples/${BATCH_SLUG}/raw-paste.txt`);
+const OUT_DIR = path.join(__dirname, `curriculum-import-samples/${BATCH_SLUG}`);
+const REPORT_PATH = path.join(__dirname, `data/${BATCH_SLUG}-import-report.json`);
 
 const VALID_CATEGORIES = new Set([
   "Circle Time",
@@ -46,6 +52,9 @@ const CATEGORY_ALIASES = {
   "creative arts": "Art",
   "language & literacy": "Literacy",
   "language and literacy": "Literacy",
+  "science discovery": "STEM/Discovery",
+  "practical life": "Open-Ended Exploration",
+  "dramatic play": "Dramatic Play",
 };
 
 const DOMAIN_ALIASES = {
@@ -56,6 +65,8 @@ const DOMAIN_ALIASES = {
   "language & literacy": "Language & Literacy",
   "physical development": "Physical Development",
   "creative arts": "Creative Arts",
+  "science discovery": "Science",
+  "dramatic play": "Creative Arts",
 };
 
 const remoteUrl = String(process.env.SITE_URL || "").trim();
@@ -401,7 +412,7 @@ async function main() {
 
     for (const lesson of lessons) {
       const parsed = parseCurriculumLessonPlanImport(lesson.text, { existingItemIds: new Map() });
-      const stableId = `cur-lp-infant-${slugify(lesson.title)}`;
+      const stableId = `${BATCH_ID_PREFIX}-${slugify(lesson.title)}`;
       const plan = {
         ...parsed.data,
         id: stableId,
