@@ -1,5 +1,5 @@
 /**
- * Startup seed: ensure 10 preschool Free/published lesson plans exist in the store.
+ * Startup seed: ensure preschool Free and Pro published lesson plans exist in the store.
  * Idempotent — only imports plans whose stable IDs are missing.
  */
 const {

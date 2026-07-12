@@ -5,19 +5,38 @@ const fs = require("fs");
 const path = require("path");
 const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-parser.js");
 
-const IMPORT_DIR = path.join(__dirname, "curriculum-preschool-free-imports");
+const FREE_IMPORT_DIR = path.join(__dirname, "curriculum-preschool-free-imports");
+const PRO_IMPORT_DIR = path.join(__dirname, "curriculum-preschool-pro-imports");
+
+const PRESCHOOL_FREE_IMPORT_TARGETS = [
+  { file: "01-preschool-colors-everywhere-free.txt", stableId: "cur-lp-preschool-colors-everywhere", plan: "Free", importDir: FREE_IMPORT_DIR },
+  { file: "02-preschool-all-about-me-free.txt", stableId: "cur-lp-preschool-all-about-me", plan: "Free", importDir: FREE_IMPORT_DIR },
+  { file: "03-preschool-letters-and-sounds-free.txt", stableId: "cur-lp-preschool-letters-and-sounds", plan: "Free", importDir: FREE_IMPORT_DIR },
+  { file: "04-preschool-numbers-everywhere-free.txt", stableId: "cur-lp-preschool-numbers-everywhere", plan: "Free", importDir: FREE_IMPORT_DIR },
+  { file: "05-preschool-feelings-and-emotions-free.txt", stableId: "cur-lp-preschool-feelings-and-emotions", plan: "Free", importDir: FREE_IMPORT_DIR },
+  { file: "06-preschool-community-helpers-free.txt", stableId: "cur-lp-preschool-community-helpers", plan: "Free", importDir: FREE_IMPORT_DIR },
+  { file: "07-preschool-shapes-around-us-free.txt", stableId: "cur-lp-preschool-shapes-around-us", plan: "Free", importDir: FREE_IMPORT_DIR },
+  { file: "08-preschool-weather-watchers-free.txt", stableId: "cur-lp-preschool-weather-watchers", plan: "Free", importDir: FREE_IMPORT_DIR },
+  { file: "09-preschool-farm-animals-free.txt", stableId: "cur-lp-preschool-farm-animals", plan: "Free", importDir: FREE_IMPORT_DIR },
+  { file: "10-preschool-five-senses-free.txt", stableId: "cur-lp-preschool-five-senses", plan: "Free", importDir: FREE_IMPORT_DIR },
+];
+
+const PRESCHOOL_PRO_IMPORT_TARGETS = [
+  { file: "01-preschool-fairy-tale-adventures-pro.txt", stableId: "cur-lp-preschool-fairy-tale-adventures", plan: "Pro", importDir: PRO_IMPORT_DIR },
+  { file: "02-preschool-dinosaur-discovery-pro.txt", stableId: "cur-lp-preschool-dinosaur-discovery", plan: "Pro", importDir: PRO_IMPORT_DIR },
+  { file: "03-preschool-space-adventure-pro.txt", stableId: "cur-lp-preschool-space-adventure", plan: "Pro", importDir: PRO_IMPORT_DIR },
+  { file: "04-preschool-stem-explorers-pro.txt", stableId: "cur-lp-preschool-stem-explorers", plan: "Pro", importDir: PRO_IMPORT_DIR },
+  { file: "05-preschool-transportation-adventures-pro.txt", stableId: "cur-lp-preschool-transportation-adventures", plan: "Pro", importDir: PRO_IMPORT_DIR },
+  { file: "06-preschool-healthy-habits-pro.txt", stableId: "cur-lp-preschool-healthy-habits", plan: "Pro", importDir: PRO_IMPORT_DIR },
+  { file: "07-preschool-around-the-world-pro.txt", stableId: "cur-lp-preschool-around-the-world", plan: "Pro", importDir: PRO_IMPORT_DIR },
+  { file: "08-preschool-ocean-explorers-pro.txt", stableId: "cur-lp-preschool-ocean-explorers", plan: "Pro", importDir: PRO_IMPORT_DIR },
+  { file: "09-preschool-seasons-of-the-year-pro.txt", stableId: "cur-lp-preschool-seasons-of-the-year", plan: "Pro", importDir: PRO_IMPORT_DIR },
+  { file: "10-preschool-kindergarten-readiness-pro.txt", stableId: "cur-lp-preschool-kindergarten-readiness", plan: "Pro", importDir: PRO_IMPORT_DIR },
+];
 
 const PRESCHOOL_IMPORT_TARGETS = [
-  { file: "01-preschool-colors-everywhere-free.txt", stableId: "cur-lp-preschool-colors-everywhere" },
-  { file: "02-preschool-all-about-me-free.txt", stableId: "cur-lp-preschool-all-about-me" },
-  { file: "03-preschool-letters-and-sounds-free.txt", stableId: "cur-lp-preschool-letters-and-sounds" },
-  { file: "04-preschool-numbers-everywhere-free.txt", stableId: "cur-lp-preschool-numbers-everywhere" },
-  { file: "05-preschool-feelings-and-emotions-free.txt", stableId: "cur-lp-preschool-feelings-and-emotions" },
-  { file: "06-preschool-community-helpers-free.txt", stableId: "cur-lp-preschool-community-helpers" },
-  { file: "07-preschool-shapes-around-us-free.txt", stableId: "cur-lp-preschool-shapes-around-us" },
-  { file: "08-preschool-weather-watchers-free.txt", stableId: "cur-lp-preschool-weather-watchers" },
-  { file: "09-preschool-farm-animals-free.txt", stableId: "cur-lp-preschool-farm-animals" },
-  { file: "10-preschool-five-senses-free.txt", stableId: "cur-lp-preschool-five-senses" },
+  ...PRESCHOOL_FREE_IMPORT_TARGETS,
+  ...PRESCHOOL_PRO_IMPORT_TARGETS,
 ];
 
 function parsePreschoolLessonImport(text, { itemIdPrefix = "item" } = {}) {
@@ -45,25 +64,29 @@ function parsePreschoolLessonImport(text, { itemIdPrefix = "item" } = {}) {
 }
 
 function readPreschoolImportTarget(target) {
-  const filePath = path.join(IMPORT_DIR, target.file);
+  const importDir = target.importDir || FREE_IMPORT_DIR;
+  const filePath = path.join(importDir, target.file);
   const text = fs.readFileSync(filePath, "utf8");
   const prefix = target.stableId.replace(/^cur-lp-/, "");
   const parsed = parsePreschoolLessonImport(text, { itemIdPrefix: `item-${prefix}` });
   return {
     ...parsed,
     id: target.stableId,
-    plan: "Free",
+    plan: target.plan || "Free",
     status: "published",
   };
 }
 
-function preschoolPlansMissing(curriculum) {
+function preschoolPlansMissing(curriculum, targets = PRESCHOOL_IMPORT_TARGETS) {
   const plans = curriculum?.lessonPlans || [];
-  return PRESCHOOL_IMPORT_TARGETS.filter((target) => !plans.some((plan) => plan.id === target.stableId));
+  return targets.filter((target) => !plans.some((plan) => plan.id === target.stableId));
 }
 
 module.exports = {
-  IMPORT_DIR,
+  FREE_IMPORT_DIR,
+  PRO_IMPORT_DIR,
+  PRESCHOOL_FREE_IMPORT_TARGETS,
+  PRESCHOOL_PRO_IMPORT_TARGETS,
   PRESCHOOL_IMPORT_TARGETS,
   parsePreschoolLessonImport,
   readPreschoolImportTarget,
