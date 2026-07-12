@@ -4,6 +4,7 @@
  * Node: module.exports
  */
 (function curriculumLessonViewerRenderModule() {
+const safeApi = typeof globalThis !== "undefined" ? globalThis.CurriculumSafeValues : null;
 const CURRICULUM_WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
 const DAY_LABELS = {
   monday: "Monday",
@@ -12,6 +13,23 @@ const DAY_LABELS = {
   thursday: "Thursday",
   friday: "Friday",
 };
+
+function asStringArray(value) {
+  if (safeApi?.curriculumAsStringArray) return safeApi.curriculumAsStringArray(value);
+  if (Array.isArray(value)) return value.map((entry) => String(entry ?? "").trim()).filter(Boolean);
+  const text = String(value ?? "").trim();
+  return text ? text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean) : [];
+}
+
+function normalizePlanForRender(plan = {}) {
+  if (safeApi?.normalizeCurriculumLessonPlanForRender) return safeApi.normalizeCurriculumLessonPlanForRender(plan);
+  return plan && typeof plan === "object" ? plan : {};
+}
+
+function normalizeActivityForRender(activity = {}) {
+  if (safeApi?.normalizeCurriculumDailyItemForRender) return safeApi.normalizeCurriculumDailyItemForRender(activity);
+  return activity && typeof activity === "object" ? activity : {};
+}
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -102,68 +120,71 @@ function curriculumActivityFieldHtml(label, value) {
 }
 
 function curriculumLessonDayActivityCardHtml(lessonPlanId, item, options = {}) {
+  const activity = normalizeActivityForRender(item);
   const resolveActivityId = options.resolveActivityId || (() => "");
-  const activityId = resolveActivityId(lessonPlanId, item);
-  const goals = Array.isArray(item.learningGoals) ? item.learningGoals.filter(Boolean) : [];
-  const domains = Array.isArray(item.learningDomains) ? item.learningDomains.filter(Boolean) : [];
+  const activityId = resolveActivityId(lessonPlanId, activity);
+  const goals = asStringArray(activity.learningGoals);
+  const domains = asStringArray(activity.learningDomains);
   return `
     <article class="curriculum-activity-card">
       <div class="curriculum-activity-card-head">
-        <h4>${escapeHtml(item.title || "Activity")}</h4>
-        ${item.activityCategory ? `<span class="tag">${escapeHtml(item.activityCategory)}</span>` : ""}
+        <h4>${escapeHtml(activity.title || "Activity")}</h4>
+        ${activity.activityCategory ? `<span class="tag">${escapeHtml(activity.activityCategory)}</span>` : ""}
       </div>
-      ${curriculumActivityFieldHtml("Objective", item.objective)}
-      ${curriculumActivityFieldHtml("Description", item.description)}
-      ${curriculumActivityFieldHtml("Materials", item.materials)}
-      ${curriculumActivityFieldHtml("Setup", item.setup)}
-      ${curriculumActivityFieldHtml("Directions", item.steps)}
-      ${curriculumActivityFieldHtml("Teacher role", item.teacherRole)}
+      ${curriculumActivityFieldHtml("Objective", activity.objective)}
+      ${curriculumActivityFieldHtml("Description", activity.description)}
+      ${curriculumActivityFieldHtml("Materials", activity.materials)}
+      ${curriculumActivityFieldHtml("Setup", activity.setup)}
+      ${curriculumActivityFieldHtml("Directions", activity.steps)}
+      ${curriculumActivityFieldHtml("Teacher role", activity.teacherRole)}
       ${goals.length ? curriculumActivityFieldHtml("Learning goals", goals) : ""}
-      ${curriculumActivityFieldHtml("Observation opportunities", item.observationOpportunities)}
+      ${curriculumActivityFieldHtml("Observation opportunities", activity.observationOpportunities)}
       ${domains.length ? curriculumActivityFieldHtml("Learning domains", domains) : ""}
-      ${curriculumActivityFieldHtml("Suggested teacher language", item.teacherLanguage)}
-      ${curriculumActivityFieldHtml("Vocabulary", item.vocabulary)}
-      ${curriculumActivityFieldHtml("Extensions", item.extensions)}
-      ${curriculumActivityFieldHtml("Adaptations", item.adaptations)}
-      ${curriculumActivityFieldHtml("Safety notes", item.safetyNotes)}
-      ${curriculumActivityFieldHtml("Age modifications", item.ageModifications)}
+      ${curriculumActivityFieldHtml("Suggested teacher language", activity.teacherLanguage)}
+      ${curriculumActivityFieldHtml("Vocabulary", activity.vocabulary)}
+      ${curriculumActivityFieldHtml("Extensions", activity.extensions)}
+      ${curriculumActivityFieldHtml("Adaptations", activity.adaptations)}
+      ${curriculumActivityFieldHtml("Safety notes", activity.safetyNotes)}
+      ${curriculumActivityFieldHtml("Age modifications", activity.ageModifications)}
       ${activityId ? `<button class="ghost-button curriculum-open-activity-button" type="button" data-open-curriculum-activity="${escapeHtml(activityId)}">Open Activity</button>` : ""}
     </article>
   `;
 }
 
 function curriculumLessonDayDetailsHtml(dayPlan = {}) {
+  const plan = dayPlan && typeof dayPlan === "object" ? dayPlan : {};
   const blocks = [];
   const addText = (label, value) => {
     if (!hasText(value)) return;
     blocks.push(`<div class="curriculum-activity-field"><strong>${escapeHtml(label)}</strong>${curriculumMultilineSectionHtml(value)}</div>`);
   };
-  addText("Daily theme", dayPlan.theme);
-  addText("Daily objectives", dayPlan.objectives);
-  if (Array.isArray(dayPlan.learningDomains) && dayPlan.learningDomains.length) {
-    blocks.push(curriculumActivityFieldHtml("Daily learning domains", dayPlan.learningDomains));
+  addText("Daily theme", plan.theme);
+  addText("Daily objectives", plan.objectives);
+  const dayDomains = asStringArray(plan.learningDomains);
+  if (dayDomains.length) {
+    blocks.push(curriculumActivityFieldHtml("Daily learning domains", dayDomains));
   }
-  addText("Daily materials", dayPlan.materials);
-  addText("Daily vocabulary", dayPlan.vocabulary);
-  if (Array.isArray(dayPlan.books) && dayPlan.books.length) {
-    blocks.push(`<div class="curriculum-activity-field"><strong>Books</strong>${curriculumBooksSectionHtml(dayPlan.books)}</div>`);
+  addText("Daily materials", plan.materials);
+  addText("Daily vocabulary", plan.vocabulary);
+  if (Array.isArray(plan.books) && plan.books.length) {
+    blocks.push(`<div class="curriculum-activity-field"><strong>Books</strong>${curriculumBooksSectionHtml(plan.books)}</div>`);
   }
-  if (Array.isArray(dayPlan.songs) && dayPlan.songs.length) {
-    blocks.push(`<div class="curriculum-activity-field"><strong>Songs and fingerplays</strong>${curriculumSongsSectionHtml(dayPlan.songs)}</div>`);
+  if (Array.isArray(plan.songs) && plan.songs.length) {
+    blocks.push(`<div class="curriculum-activity-field"><strong>Songs and fingerplays</strong>${curriculumSongsSectionHtml(plan.songs)}</div>`);
   }
-  if (Array.isArray(dayPlan.circleTime) && dayPlan.circleTime.length) {
-    blocks.push(`<div class="curriculum-activity-field"><strong>Circle-time ideas</strong>${curriculumTextListSectionHtml(dayPlan.circleTime)}</div>`);
+  if (Array.isArray(plan.circleTime) && plan.circleTime.length) {
+    blocks.push(`<div class="curriculum-activity-field"><strong>Circle-time ideas</strong>${curriculumTextListSectionHtml(plan.circleTime)}</div>`);
   }
-  if (Array.isArray(dayPlan.transitions) && dayPlan.transitions.length) {
-    blocks.push(`<div class="curriculum-activity-field"><strong>Transition ideas</strong>${curriculumTextListSectionHtml(dayPlan.transitions)}</div>`);
+  if (Array.isArray(plan.transitions) && plan.transitions.length) {
+    blocks.push(`<div class="curriculum-activity-field"><strong>Transition ideas</strong>${curriculumTextListSectionHtml(plan.transitions)}</div>`);
   }
-  addText("Outdoor play", dayPlan.outdoorPlay);
-  addText("Family connection", dayPlan.familyConnection);
-  if (Array.isArray(dayPlan.observations) && dayPlan.observations.length) {
-    blocks.push(`<div class="curriculum-activity-field"><strong>Observation opportunities</strong>${curriculumTextListSectionHtml(dayPlan.observations)}</div>`);
+  addText("Outdoor play", plan.outdoorPlay);
+  addText("Family connection", plan.familyConnection);
+  if (Array.isArray(plan.observations) && plan.observations.length) {
+    blocks.push(`<div class="curriculum-activity-field"><strong>Observation opportunities</strong>${curriculumTextListSectionHtml(plan.observations)}</div>`);
   }
-  addText("Adaptations", dayPlan.adaptations);
-  addText("Safety notes", dayPlan.safetyNotes);
+  addText("Adaptations", plan.adaptations);
+  addText("Safety notes", plan.safetyNotes);
   return blocks.join("");
 }
 
@@ -185,30 +206,32 @@ function curriculumLessonDayPanelHtml(day, dayPlan = {}, lessonPlanId, options =
 }
 
 function curriculumLessonWeeklySectionsHtml(plan = {}) {
+  const normalized = normalizePlanForRender(plan);
   const sections = [];
   const addText = (label, value) => {
     if (!hasText(value)) return;
     sections.push({ label, html: curriculumMultilineSectionHtml(value) });
   };
-  addText("Weekly Overview", plan.weeklyOverview);
-  if (Array.isArray(plan.learningDomains) && plan.learningDomains.length) {
+  addText("Weekly Overview", normalized.weeklyOverview);
+  const domains = asStringArray(normalized.learningDomains);
+  if (domains.length) {
     sections.push({
       label: "Learning Domains",
-      html: `<div class="tag-row">${plan.learningDomains.map((domain) => `<span class="tag">${escapeHtml(domain)}</span>`).join("")}</div>`,
+      html: `<div class="tag-row">${domains.map((domain) => `<span class="tag">${escapeHtml(domain)}</span>`).join("")}</div>`,
     });
   }
-  addText("Learning Objectives", plan.objectives);
-  addText("Weekly Materials", plan.weeklyMaterials);
-  addText("Vocabulary", plan.vocabularyWords);
-  if (Array.isArray(plan.books) && plan.books.length) {
-    sections.push({ label: "Books", html: curriculumBooksSectionHtml(plan.books) });
+  addText("Learning Objectives", normalized.objectives);
+  addText("Weekly Materials", normalized.weeklyMaterials);
+  addText("Vocabulary", normalized.vocabularyWords);
+  if (Array.isArray(normalized.books) && normalized.books.length) {
+    sections.push({ label: "Books", html: curriculumBooksSectionHtml(normalized.books) });
   }
-  if (Array.isArray(plan.songs) && plan.songs.length) {
-    sections.push({ label: "Songs and Fingerplays", html: curriculumSongsSectionHtml(plan.songs) });
+  if (Array.isArray(normalized.songs) && normalized.songs.length) {
+    sections.push({ label: "Songs and Fingerplays", html: curriculumSongsSectionHtml(normalized.songs) });
   }
-  addText("Family Connection", plan.familyConnection);
-  addText("Observation Opportunities", plan.observationOpportunities);
-  addText("Adaptations", plan.adaptations);
+  addText("Family Connection", normalized.familyConnection);
+  addText("Observation Opportunities", normalized.observationOpportunities);
+  addText("Adaptations", normalized.adaptations);
   if (!sections.length) return "";
   return sections.map((section, index) => `
     <details class="curriculum-lesson-section"${index < 2 ? " open" : ""}>
@@ -251,38 +274,37 @@ function curriculumLessonDailyPlansHtml(plan = {}, options = {}) {
 }
 
 function renderCurriculumLessonPlanHtml(plan = {}, options = {}) {
+  const normalized = normalizePlanForRender(plan);
   const showAdminStatus = Boolean(options.showAdminStatus);
-  const domains = (Array.isArray(plan.learningDomains) ? plan.learningDomains : [])
-    .map((domain) => `<span class="tag">${escapeHtml(domain)}</span>`)
-    .join("");
   return `
     <header class="curriculum-lesson-header">
-      <h3>${escapeHtml(plan.title || "Lesson Plan")}</h3>
+      <h3>${escapeHtml(normalized.title || "Lesson Plan")}</h3>
       <div class="tag-row">
-        <span class="tag">${escapeHtml(plan.age || "Preschool")}</span>
-        ${plan.theme ? `<span class="tag">${escapeHtml(plan.theme)}</span>` : ""}
-        <span class="tag access-tag">${escapeHtml(plan.plan || "Free")}</span>
-        ${showAdminStatus && plan.status ? `<span class="tag">${escapeHtml(plan.status)}</span>` : ""}
+        <span class="tag">${escapeHtml(normalized.age || "Preschool")}</span>
+        ${normalized.theme ? `<span class="tag">${escapeHtml(normalized.theme)}</span>` : ""}
+        <span class="tag access-tag">${escapeHtml(normalized.plan || "Free")}</span>
+        ${showAdminStatus && normalized.status ? `<span class="tag">${escapeHtml(normalized.status)}</span>` : ""}
       </div>
-      ${curriculumLessonWeeklySectionsHtml(plan) ? `<section class="curriculum-lesson-weekly">${curriculumLessonWeeklySectionsHtml(plan)}</section>` : ""}
+      ${curriculumLessonWeeklySectionsHtml(normalized) ? `<section class="curriculum-lesson-weekly">${curriculumLessonWeeklySectionsHtml(normalized)}</section>` : ""}
     </header>
     <section class="curriculum-lesson-daily-section">
       <h3>Daily Plans</h3>
-      ${curriculumLessonDailyPlansHtml(plan, options)}
+      ${curriculumLessonDailyPlansHtml(normalized, options)}
     </section>
   `;
 }
 
 function renderCurriculumActivityHtml(activity = {}, options = {}) {
-  const goals = Array.isArray(activity.learningGoals) ? activity.learningGoals.filter(Boolean) : [];
-  const domains = Array.isArray(activity.learningDomains) ? activity.learningDomains.filter(Boolean) : [];
-  const category = activity.activityCategory || "";
+  const normalized = normalizeActivityForRender(activity);
+  const goals = asStringArray(normalized.learningGoals);
+  const domains = asStringArray(normalized.learningDomains);
+  const category = normalized.activityCategory || "";
   const parentTitle = options.parentTitle || activity.parentTitle || "";
   const parentAge = options.parentAge || activity.parentAge || "";
   const lessonId = options.lessonPlanId || activity.lessonPlanId || "";
   return `
     <header class="curriculum-activity-header">
-      <h3>${escapeHtml(activity.title || "Activity")}</h3>
+      <h3>${escapeHtml(normalized.title || "Activity")}</h3>
       <div class="tag-row">
         ${category ? `<span class="tag">${escapeHtml(category)}</span>` : ""}
         ${parentAge ? `<span class="tag">${escapeHtml(parentAge)}</span>` : ""}
@@ -290,21 +312,21 @@ function renderCurriculumActivityHtml(activity = {}, options = {}) {
       ${parentTitle ? `<p class="curriculum-activity-parent">Parent lesson: <strong>${escapeHtml(parentTitle)}</strong></p>` : ""}
     </header>
     <section class="curriculum-activity-body">
-      ${curriculumActivityFieldHtml("Objective", activity.objective)}
-      ${curriculumActivityFieldHtml("Description", activity.description)}
-      ${curriculumActivityFieldHtml("Materials", activity.materials)}
-      ${curriculumActivityFieldHtml("Setup", activity.setup)}
-      ${curriculumActivityFieldHtml("Directions", activity.steps)}
-      ${curriculumActivityFieldHtml("Teacher role", activity.teacherRole)}
+      ${curriculumActivityFieldHtml("Objective", normalized.objective)}
+      ${curriculumActivityFieldHtml("Description", normalized.description)}
+      ${curriculumActivityFieldHtml("Materials", normalized.materials)}
+      ${curriculumActivityFieldHtml("Setup", normalized.setup)}
+      ${curriculumActivityFieldHtml("Directions", normalized.steps)}
+      ${curriculumActivityFieldHtml("Teacher role", normalized.teacherRole)}
       ${goals.length ? curriculumActivityFieldHtml("Learning goals", goals) : ""}
-      ${curriculumActivityFieldHtml("Observation opportunities", activity.observationOpportunities)}
-      ${curriculumActivityFieldHtml("Learning domains", domains)}
-      ${curriculumActivityFieldHtml("Suggested teacher language", activity.teacherLanguage)}
-      ${curriculumActivityFieldHtml("Vocabulary", activity.vocabulary)}
-      ${curriculumActivityFieldHtml("Extensions", activity.extensions)}
-      ${curriculumActivityFieldHtml("Adaptations", activity.adaptations)}
-      ${curriculumActivityFieldHtml("Safety notes", activity.safetyNotes)}
-      ${curriculumActivityFieldHtml("Age modifications", activity.ageModifications)}
+      ${curriculumActivityFieldHtml("Observation opportunities", normalized.observationOpportunities)}
+      ${domains.length ? curriculumActivityFieldHtml("Learning domains", domains) : ""}
+      ${curriculumActivityFieldHtml("Suggested teacher language", normalized.teacherLanguage)}
+      ${curriculumActivityFieldHtml("Vocabulary", normalized.vocabulary)}
+      ${curriculumActivityFieldHtml("Extensions", normalized.extensions)}
+      ${curriculumActivityFieldHtml("Adaptations", normalized.adaptations)}
+      ${curriculumActivityFieldHtml("Safety notes", normalized.safetyNotes)}
+      ${curriculumActivityFieldHtml("Age modifications", normalized.ageModifications)}
     </section>
     ${lessonId ? `
       <div class="curriculum-activity-actions">
@@ -315,11 +337,11 @@ function renderCurriculumActivityHtml(activity = {}, options = {}) {
 }
 
 function lockedCurriculumLessonPreviewHtml(resource = {}) {
-  const plan = resource._curriculumLessonPlan || {};
+  const plan = normalizePlanForRender(resource._curriculumLessonPlan || {});
   const overview = String(plan.weeklyOverview || resource.description || "").trim();
   const words = overview.split(/\s+/).filter(Boolean);
   const excerpt = words.slice(0, 40).join(" ");
-  const domains = (Array.isArray(plan.learningDomains) ? plan.learningDomains : [])
+  const domains = asStringArray(plan.learningDomains)
     .slice(0, 3)
     .map((domain) => `<span class="tag">${escapeHtml(domain)}</span>`)
     .join("");

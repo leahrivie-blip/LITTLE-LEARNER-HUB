@@ -3486,6 +3486,39 @@ function curriculumViewerRenderApi() {
   return globalThis.CurriculumLessonViewerRender || null;
 }
 
+function curriculumSafeValuesApi() {
+  return globalThis.CurriculumSafeValues || null;
+}
+
+function curriculumAsString(value) {
+  const api = curriculumSafeValuesApi();
+  if (api) return api.curriculumAsString(value);
+  return String(value ?? "").trim();
+}
+
+function curriculumAsStringArray(value) {
+  const api = curriculumSafeValuesApi();
+  if (api) return api.curriculumAsStringArray(value);
+  if (Array.isArray(value)) return value.map((entry) => String(entry ?? "").trim()).filter(Boolean);
+  const text = String(value ?? "").trim();
+  return text ? text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean) : [];
+}
+
+function normalizeCurriculumLessonPlanForRender(plan) {
+  const api = curriculumSafeValuesApi();
+  if (api) return api.normalizeCurriculumLessonPlanForRender(plan);
+  return plan && typeof plan === "object" ? plan : {};
+}
+
+function curriculumAgeSelectOptions(selectedAge = "") {
+  const api = curriculumSafeValuesApi();
+  if (api) return api.curriculumAgeSelectOptions(selectedAge);
+  const age = curriculumAsString(selectedAge) || "Preschool";
+  const base = ["Infant", "Toddler", "Preschool"];
+  const options = base.includes(age) ? base : [...base, age];
+  return options.map((option) => ({ value: option, selected: option === age }));
+}
+
 function resolvePublishedCurriculumActivityId(lessonPlanId, item) {
   if (!item?.itemId) return "";
   const activityId = curriculumActivityIdForItemId(item.itemId);
@@ -3557,8 +3590,8 @@ function curriculumLessonDailyPlansHtml(plan, options = {}) {
 }
 
 function structuredCurriculumLessonPlanHtml(resource, options = {}) {
-  const plan = resource?._curriculumLessonPlan;
-  if (!plan) return "";
+  const plan = normalizeCurriculumLessonPlanForRender(resource?._curriculumLessonPlan);
+  if (!plan?.id && !plan?.title) return "";
   const api = curriculumViewerRenderApi();
   if (!api) return "";
   return api.renderCurriculumLessonPlanHtml(plan, {
@@ -3739,36 +3772,42 @@ function buildActivityTextFromCurriculum(activity) {
 }
 
 function loadCurriculumManagedLessonPlans() {
-  return effectiveCurriculumLibrary().lessonPlans
+  const sourcePlans = hasAdminFullAccess()
+    ? effectiveCurriculum().lessonPlans
+    : effectiveCurriculumLibrary().lessonPlans;
+  return sourcePlans
     .filter((item) => item.id && item.title)
-    .map((item) => ({
-      id: item.id,
+    .map((item) => {
+      const plan = normalizeCurriculumLessonPlanForRender(item);
+      return {
+      id: plan.id,
       category: "Lesson Plans",
-      title: item.title,
-      age: item.age || "Preschool",
-      plan: item.plan || "Free",
+      title: plan.title,
+      age: plan.age || "Preschool",
+      plan: plan.plan || "Free",
       month: "",
       tags: [
-        ...(Array.isArray(item.learningDomains) ? item.learningDomains : []),
-        item.theme,
+        ...curriculumAsStringArray(plan.learningDomains),
+        plan.theme,
       ].filter(Boolean),
       format: "Play-Based Lesson",
-      description: item.weeklyOverview || item.theme || "",
-      theme: item.theme || "",
-      developmentalArea: (Array.isArray(item.learningDomains) && item.learningDomains[0]) || "Approaches to Learning",
+      description: plan.weeklyOverview || plan.theme || "",
+      theme: plan.theme || "",
+      developmentalArea: curriculumAsStringArray(plan.learningDomains)[0] || "Approaches to Learning",
       holiday: "",
       activityFocus: "",
-      weeklyOverview: item.weeklyOverview || "",
-      materials: item.weeklyMaterials || "",
+      weeklyOverview: plan.weeklyOverview || "",
+      materials: plan.weeklyMaterials || "",
       previewData: "",
       visible: true,
       archived: false,
-      featured: item.status === "featured",
-      customContent: buildLessonPlanTextFromCurriculum(item),
+      featured: plan.status === "featured",
+      customContent: buildLessonPlanTextFromCurriculum(plan),
       _curriculumManaged: true,
-      _curriculumResourceIds: Array.isArray(item.resourceIds) ? item.resourceIds : [],
-      _curriculumLessonPlan: item,
-    }));
+      _curriculumResourceIds: curriculumAsStringArray(plan.resourceIds),
+      _curriculumLessonPlan: plan,
+    };
+    });
 }
 
 function loadCurriculumManagedActivities() {
@@ -3925,7 +3964,7 @@ function curriculumActivityAdminCardHtml(activity) {
 
 function renderAdminCurriculumActivityDetail(activity) {
   const parent = curriculumActivityParentLesson(activity);
-  const goals = Array.isArray(activity.learningGoals) ? activity.learningGoals.filter(Boolean) : [];
+  const goals = curriculumAsStringArray(activity.learningGoals);
   const dayLabel = activity.dayOfWeek
     ? String(activity.dayOfWeek).charAt(0).toUpperCase() + String(activity.dayOfWeek).slice(1)
     : "—";
@@ -4157,9 +4196,9 @@ function curriculumImportV3Template() {
 
 function curriculumImportDraftFromParsed(parsedData) {
   if (!parsedData || typeof parsedData !== "object") return parsedData;
-  const draft = { ...parsedData };
-  if (!draft.dailyPlans && draft.dailyPlansCompat) {
-    draft.dailyPlans = draft.dailyPlansCompat;
+  const draft = normalizeCurriculumLessonPlanForRender(parsedData);
+  if (!draft.dailyPlans && parsedData.dailyPlansCompat) {
+    draft.dailyPlans = parsedData.dailyPlansCompat;
   }
   delete draft.dailyPlansCompat;
   delete draft._formatVersion;
@@ -4244,8 +4283,8 @@ function curriculumLessonEditorRecord() {
     dailyPlans: emptyCurriculumDailyPlans(),
   };
   return adminCurriculumLessonImportDraft
-    ? { ...base, ...adminCurriculumLessonImportDraft, id: editingId }
-    : base;
+    ? normalizeCurriculumLessonPlanForRender({ ...base, ...adminCurriculumLessonImportDraft, id: editingId })
+    : normalizeCurriculumLessonPlanForRender(base);
 }
 
 function snapshotCurriculumDailyItemIds(form) {
@@ -4297,7 +4336,7 @@ function renderCurriculumImportIssueList(items, className) {
 }
 
 function renderCurriculumImportPreviewActivity(activity = {}, day = "") {
-  const goals = Array.isArray(activity.learningGoals) ? activity.learningGoals.filter(Boolean) : [];
+  const goals = curriculumAsStringArray(activity.learningGoals);
   const directionSteps = String(activity.steps || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   const checks = [
     ["Objective", activity.objective],
@@ -4344,7 +4383,7 @@ function renderCurriculumImportPreviewDay(day, dayPlan = {}) {
       <div class="curriculum-import-preview-day-body">
         <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Daily theme</span>${renderCurriculumImportPreviewText(dayPlan.theme)}</div>
         <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Daily objectives</span>${renderCurriculumImportPreviewText(dayPlan.objectives)}</div>
-        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Daily learning domains</span>${renderCurriculumImportPreviewText((dayPlan.learningDomains || []).join(", "))}</div>
+        <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Daily learning domains</span>${renderCurriculumImportPreviewText(curriculumAsStringArray(dayPlan.learningDomains).join(", "))}</div>
         <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Daily materials</span>${renderCurriculumImportPreviewText(dayPlan.materials)}</div>
         <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Daily vocabulary</span>${renderCurriculumImportPreviewText(dayPlan.vocabulary)}</div>
         <div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Books</span>${books}</div>
@@ -4367,8 +4406,17 @@ function renderCurriculumLessonImportPreviewPanel(previewState) {
   const data = preview?.data;
   if (!preview || !data) return "";
   const summary = preview.summary;
-  const sync = preview.activitySync;
-  const duplicate = preview.duplicateTitle;
+  const sync = preview.activitySync || {
+    newEntries: 0,
+    updatedEntries: 0,
+    archivedEntries: 0,
+    duplicateTitleGroups: [],
+    missingStableIds: 0,
+    missingImportKeys: 0,
+  };
+  const unmapped = Array.isArray(preview.unmapped) ? preview.unmapped : [];
+  const duplicate = preview.duplicateTitle || { status: "ok" };
+  const learningDomains = curriculumAsStringArray(data.learningDomains);
   return `
     <section class="curriculum-import-preview" aria-labelledby="curriculumImportPreviewHeading">
       <div class="curriculum-import-preview-header">
@@ -4385,7 +4433,7 @@ function renderCurriculumLessonImportPreviewPanel(previewState) {
         <div><strong>${escapeHtml(data.theme || "—")}</strong><span>theme</span></div>
         <div><strong>${escapeHtml(data.plan || "—")}</strong><span>plan</span></div>
         <div><strong>${escapeHtml(data.status || "—")}</strong><span>status</span></div>
-        <div><strong>${(data.learningDomains || []).length}</strong><span>learning domains</span></div>
+        <div><strong>${learningDomains.length}</strong><span>learning domains</span></div>
         <div><strong>${summary.weekdaysDetected}</strong><span>weekdays</span></div>
         <div><strong>${summary.activityCount}</strong><span>activities</span></div>
         <div><strong>${summary.bookCount}</strong><span>books</span></div>
@@ -4407,8 +4455,8 @@ function renderCurriculumLessonImportPreviewPanel(previewState) {
       </div>
       <div class="curriculum-import-preview-section">
         <h5>Unmapped content ${summary.unmappedCount ? `(${summary.unmappedCount})` : ""}</h5>
-        ${preview.unmapped.length
-    ? `<ul class="curriculum-import-issue-list is-unmapped" role="list">${preview.unmapped.map((entry) => `
+        ${unmapped.length
+    ? `<ul class="curriculum-import-issue-list is-unmapped" role="list">${unmapped.map((entry) => `
             <li>
               <div class="curriculum-import-preview-text">${escapeHtml(entry.text || "")}</div>
               <div class="curriculum-import-issue-meta">
@@ -4425,7 +4473,7 @@ function renderCurriculumLessonImportPreviewPanel(previewState) {
           <li>${sync.newEntries} new ${sync.newEntries === 1 ? "entry" : "entries"}</li>
           <li>${sync.updatedEntries} existing linked ${sync.updatedEntries === 1 ? "entry" : "entries"} to update</li>
           <li>${sync.archivedEntries} ${sync.archivedEntries === 1 ? "entry" : "entries"} may be archived if removed from the plan</li>
-          <li>${sync.duplicateTitleGroups.length} duplicate-title group(s) with different item IDs</li>
+          <li>${(sync.duplicateTitleGroups || []).length} duplicate-title group(s) with different item IDs</li>
           <li>${sync.missingStableIds} activities missing stable item IDs</li>
           <li>${sync.missingImportKeys} activities without optional import keys</li>
         </ul>
@@ -4446,7 +4494,7 @@ function renderCurriculumLessonImportPreviewPanel(previewState) {
           <div><span class="curriculum-import-preview-label">Theme</span>${renderCurriculumImportPreviewText(data.theme)}</div>
           <div><span class="curriculum-import-preview-label">Plan</span>${renderCurriculumImportPreviewText(data.plan)}</div>
           <div><span class="curriculum-import-preview-label">Status</span>${renderCurriculumImportPreviewText(data.status)}</div>
-          <div><span class="curriculum-import-preview-label">Learning domains</span>${renderCurriculumImportPreviewText((data.learningDomains || []).join(", "))}</div>
+          <div><span class="curriculum-import-preview-label">Learning domains</span>${renderCurriculumImportPreviewText(learningDomains.join(", "))}</div>
         </div>
       </div>
       <div class="curriculum-import-preview-section">
@@ -4744,7 +4792,7 @@ function curriculumWeekdayMoveOptionsHtml(currentDay) {
 function curriculumDailyItemRowHtml(day, item = {}) {
   const itemId = item.itemId || "";
   const category = item.activityCategory || PLAY_ACTIVITY_CATEGORIES[0];
-  const selectedDomains = Array.isArray(item.learningDomains) ? item.learningDomains : [];
+  const selectedDomains = curriculumAsStringArray(item.learningDomains);
   return `
     <div class="curriculum-daily-item-row" data-curriculum-day="${escapeHtml(day)}" data-curriculum-activity-row>
       <input type="hidden" value="${escapeHtml(itemId)}" data-curriculum-item-id />
@@ -4779,7 +4827,7 @@ function curriculumDailyItemRowHtml(day, item = {}) {
       <label>Directions<textarea rows="3" data-curriculum-steps>${escapeHtml(item.steps || "")}</textarea></label>
       <label>Teacher role<textarea rows="2" data-curriculum-teacher-role>${escapeHtml(item.teacherRole || "")}</textarea></label>
       <label>Teacher language<textarea rows="3" data-curriculum-teacher-language>${escapeHtml(item.teacherLanguage || "")}</textarea></label>
-      <label>Learning goals<textarea rows="2" data-curriculum-learning-goals placeholder="One goal per line">${escapeHtml((item.learningGoals || []).join("\n"))}</textarea></label>
+      <label>Learning goals<textarea rows="2" data-curriculum-learning-goals placeholder="One goal per line">${escapeHtml(curriculumAsStringArray(item.learningGoals).join("\n"))}</textarea></label>
       <label>Observation opportunities<textarea rows="2" data-curriculum-observation-opportunities placeholder="Behaviors or skills to observe">${escapeHtml(item.observationOpportunities || "")}</textarea></label>
       <label>Vocabulary<textarea rows="2" data-curriculum-vocabulary>${escapeHtml(item.vocabulary || "")}</textarea></label>
       <label>Extensions<textarea rows="2" data-curriculum-extensions>${escapeHtml(item.extensions || "")}</textarea></label>
@@ -4852,7 +4900,7 @@ function renderCurriculumDailyPlanEditor(dailyPlans = emptyCurriculumDailyPlans(
 }
 
 function renderAdminCurriculumLessonPlanForm(plan) {
-  const record = plan || curriculumLessonEditorRecord() || {
+  const record = normalizeCurriculumLessonPlanForRender(plan || curriculumLessonEditorRecord() || {
     id: adminCurriculumLessonEditorId || "",
     title: "",
     age: "Preschool",
@@ -4870,8 +4918,8 @@ function renderAdminCurriculumLessonPlanForm(plan) {
     books: [],
     songs: [],
     dailyPlans: emptyCurriculumDailyPlans(),
-  };
-  const selectedDomains = new Set(record.learningDomains || []);
+  });
+  const selectedDomains = new Set(curriculumAsStringArray(record.learningDomains));
   return `
     <form id="adminCurriculumLessonPlanForm" class="panel-form admin-stacked-form curriculum-premium-editor">
       <input type="hidden" name="id" value="${escapeHtml(record.id || "")}" />
@@ -4884,7 +4932,7 @@ function renderAdminCurriculumLessonPlanForm(plan) {
         <label>Title<input name="title" value="${escapeHtml(record.title || "")}" required /></label>
         <label>Age group
           <select name="age">
-            ${["Infant", "Toddler", "Preschool"].map((age) => `<option${record.age === age ? " selected" : ""}>${age}</option>`).join("")}
+            ${curriculumAgeSelectOptions(record.age).map(({ value, selected }) => `<option${selected ? " selected" : ""}>${escapeHtml(value)}</option>`).join("")}
           </select>
         </label>
       </div>

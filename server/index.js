@@ -480,7 +480,12 @@ function sanitizedUrl(value) {
 }
 
 function normalizedList(items, limit, mapper) {
-  return Array.isArray(items) ? items.slice(0, limit).map(mapper).filter(Boolean) : [];
+  const source = Array.isArray(items)
+    ? items
+    : typeof items === "string" && items.trim()
+      ? items.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean)
+      : [];
+  return source.slice(0, limit).map(mapper).filter(Boolean);
 }
 
 function normalizedLessonPlanOverride(id, value) {
