@@ -17,6 +17,7 @@ const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-
 
 const ROOT = path.join(__dirname, "..");
 const V2_SAMPLE = path.join(ROOT, "scripts/curriculum-import-samples/premium-garden-scientists-v2.txt");
+const V3_SAMPLE = path.join(ROOT, "scripts/curriculum-import-samples/label-only-garden-scientists-v3.txt");
 const V1_SAMPLE = path.join(ROOT, "scripts/curriculum-phase-2f-imports/01-infant-soft-sounds-free.txt");
 const PORT = 4550 + Math.floor(Math.random() * 200);
 const STORE_PATH = path.join(ROOT, "server/data/launch-store.json");
@@ -216,6 +217,20 @@ async function testPreviewModel() {
   const v1Preview = buildCurriculumImportPreview(v1Parsed, { formatVersion: 1 });
   assert(v1Preview.canConfirm, v1Preview.errors.map((entry) => entry.message).join(" | "));
   assert(v1Preview.warnings.some((entry) => /legacy v1/i.test(entry.message)), "v1 deprecation warning");
+
+  console.log("9b) v3 label-only preview summary includes title, age, theme, counts");
+  const v3Parsed = parseCurriculumLessonPlanImport(fs.readFileSync(V3_SAMPLE, "utf8"));
+  const v3Preview = buildCurriculumImportPreview(v3Parsed, { formatVersion: 3 });
+  assert(v3Preview.canConfirm, v3Preview.errors.map((entry) => entry.message).join(" | "));
+  assert(v3Preview.summary.formatLabel === "label-only import format", "v3 format label");
+  assert(v3Preview.data.title === "Garden Scientists", "v3 preview title");
+  assert(v3Preview.data.age === "Preschool", "v3 preview age");
+  assert(v3Preview.data.theme === "Garden Scientists", "v3 preview theme");
+  assert(v3Preview.summary.weekdaysDetected === 3, "v3 weekday count");
+  assert(v3Preview.summary.activityCount === 4, "v3 activity count");
+  assert(v3Preview.summary.bookCount === 2, "v3 books count");
+  assert(v3Preview.summary.songCount === 2, "v3 songs count");
+  assert(!v3Preview.warnings.some((entry) => /No books entered for monday/i.test(entry.message)), "v3 skips day-level book warnings");
 
   console.log("10) Confirm import draft keeps complete v2 structure");
   const draft = draftFromParsed(preview.data);

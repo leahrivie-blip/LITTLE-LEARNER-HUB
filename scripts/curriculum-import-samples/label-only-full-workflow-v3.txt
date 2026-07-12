@@ -1,0 +1,430 @@
+TITLE:
+V3 Full Workflow Sample
+
+AGE_GROUP:
+Preschool 3–4 Years
+
+THEME:
+Discovery Week
+
+PLAN:
+Free
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Science, Language & Literacy, Creative Arts
+
+WEEKLY_OVERVIEW:
+A complete sample week used to verify the v3 import workflow end to end.
+
+LEARNING_OBJECTIVES:
+- Explore materials with curiosity
+- Use descriptive language
+- Practice cooperation
+
+WEEKLY_MATERIALS:
+Bins, scoops, paper, crayons, blocks, books, songs chart
+
+VOCABULARY:
+explore, compare, share, observe, create
+
+BOOKS:
+Book One | Author One | Morning read aloud
+Book Two | Author Two | Small group
+Book Three | Author Three | Closing circle
+
+SONGS:
+Song One | Welcome song
+Song Two | Transition song
+Song Three | Goodbye song
+
+FAMILY_CONNECTION:
+Ask families to send one object related to the theme.
+
+OBSERVATION_OPPORTUNITIES:
+Note language, cooperation, and persistence across the week.
+
+ADAPTATIONS:
+Offer larger grips and visual supports as needed.
+
+MONDAY:
+ACTIVITY_NAME:
+Monday Activity 1
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Children will practice skill 1 through guided play.
+DESCRIPTION:
+Teachers invite children to explore activity 1 in small groups.
+MATERIALS:
+Material A1, Material B1, basket 1
+SETUP:
+Prepare station 1 before children arrive.
+TEACHER_ROLE:
+Observe, narrate, and ask open-ended questions during activity 1.
+DIRECTIONS:
+1. Introduce activity 1.
+2. Model the first step.
+3. Invite children to try.
+4. Reflect together.
+LEARNING_GOALS:
+Goal 1a
+Goal 1b
+OBSERVATION_OPPORTUNITIES:
+Watch for engagement and language during activity 1.
+
+ACTIVITY_NAME:
+Monday Activity 2
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Children will practice skill 2 through guided play.
+DESCRIPTION:
+Teachers invite children to explore activity 2 in small groups.
+MATERIALS:
+Material A2, Material B2, basket 2
+SETUP:
+Prepare station 2 before children arrive.
+TEACHER_ROLE:
+Observe, narrate, and ask open-ended questions during activity 2.
+DIRECTIONS:
+1. Introduce activity 2.
+2. Model the first step.
+3. Invite children to try.
+4. Reflect together.
+LEARNING_GOALS:
+Goal 2a
+Goal 2b
+OBSERVATION_OPPORTUNITIES:
+Watch for engagement and language during activity 2.
+
+ACTIVITY_NAME:
+Monday Activity 3
+CATEGORY:
+Literacy
+OBJECTIVE:
+Children will practice skill 3 through guided play.
+DESCRIPTION:
+Teachers invite children to explore activity 3 in small groups.
+MATERIALS:
+Material A3, Material B3, basket 3
+SETUP:
+Prepare station 3 before children arrive.
+TEACHER_ROLE:
+Observe, narrate, and ask open-ended questions during activity 3.
+DIRECTIONS:
+1. Introduce activity 3.
+2. Model the first step.
+3. Invite children to try.
+4. Reflect together.
+LEARNING_GOALS:
+Goal 3a
+Goal 3b
+OBSERVATION_OPPORTUNITIES:
+Watch for engagement and language during activity 3.
+
+TUESDAY:
+ACTIVITY_NAME:
+Tuesday Activity 1
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Children will practice skill 4 through guided play.
+DESCRIPTION:
+Teachers invite children to explore activity 4 in small groups.
+MATERIALS:
+Material A4, Material B4, basket 4
+SETUP:
+Prepare station 4 before children arrive.
+TEACHER_ROLE:
+Observe, narrate, and ask open-ended questions during activity 4.
+DIRECTIONS:
+1. Introduce activity 4.
+2. Model the first step.
+3. Invite children to try.
+4. Reflect together.
+LEARNING_GOALS:
+Goal 4a
+Goal 4b
+OBSERVATION_OPPORTUNITIES:
+Watch for engagement and language during activity 4.
+
+ACTIVITY_NAME:
+Tuesday Activity 2
+CATEGORY:
+Art
+OBJECTIVE:
+Children will practice skill 5 through guided play.
+DESCRIPTION:
+Teachers invite children to explore activity 5 in small groups.
+MATERIALS:
+Material A5, Material B5, basket 5
+SETUP:
+Prepare station 5 before children arrive.
+TEACHER_ROLE:
+Observe, narrate, and ask open-ended questions during activity 5.
+DIRECTIONS:
+1. Introduce activity 5.
+2. Model the first step.
+3. Invite children to try.
+4. Reflect together.
+LEARNING_GOALS:
+Goal 5a
+Goal 5b
+OBSERVATION_OPPORTUNITIES:
+Watch for engagement and language during activity 5.
+
+ACTIVITY_NAME:
+Tuesday Activity 3
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Children will practice skill 6 through guided play.
+DESCRIPTION:
+Teachers invite children to explore activity 6 in small groups.
+MATERIALS:
+Material A6, Material B6, basket 6
+SETUP:
+Prepare station 6 before children arrive.
+TEACHER_ROLE:
+Observe, narrate, and ask open-ended questions during activity 6.
+DIRECTIONS:
+1. Introduce activity 6.
+2. Model the first step.
+3. Invite children to try.
+4. Reflect together.
+LEARNING_GOALS:
+Goal 6a
+Goal 6b
+OBSERVATION_OPPORTUNITIES:
+Watch for engagement and language during activity 6.
+
+WEDNESDAY:
+ACTIVITY_NAME:
+Wednesday Activity 1
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Children will practice skill 7 through guided play.
+DESCRIPTION:
+Teachers invite children to explore activity 7 in small groups.
+MATERIALS:
+Material A7, Material B7, basket 7
+SETUP:
+Prepare station 7 before children arrive.
+TEACHER_ROLE:
+Observe, narrate, and ask open-ended questions during activity 7.
+DIRECTIONS:
+1. Introduce activity 7.
+2. Model the first step.
+3. Invite children to try.
+4. Reflect together.
+LEARNING_GOALS:
+Goal 7a
+Goal 7b
+OBSERVATION_OPPORTUNITIES:
+Watch for engagement and language during activity 7.
+
+ACTIVITY_NAME:
+Wednesday Activity 2
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Children will practice skill 8 through guided play.
+DESCRIPTION:
+Teachers invite children to explore activity 8 in small groups.
+MATERIALS:
+Material A8, Material B8, basket 8
+SETUP:
+Prepare station 8 before children arrive.
+TEACHER_ROLE:
+Observe, narrate, and ask open-ended questions during activity 8.
+DIRECTIONS:
+1. Introduce activity 8.
+2. Model the first step.
+3. Invite children to try.
+4. Reflect together.
+LEARNING_GOALS:
+Goal 8a
+Goal 8b
+OBSERVATION_OPPORTUNITIES:
+Watch for engagement and language during activity 8.
+
+ACTIVITY_NAME:
+Wednesday Activity 3
+CATEGORY:
+Literacy
+OBJECTIVE:
+Children will practice skill 9 through guided play.
+DESCRIPTION:
+Teachers invite children to explore activity 9 in small groups.
+MATERIALS:
+Material A9, Material B9, basket 9
+SETUP:
+Prepare station 9 before children arrive.
+TEACHER_ROLE:
+Observe, narrate, and ask open-ended questions during activity 9.
+DIRECTIONS:
+1. Introduce activity 9.
+2. Model the first step.
+3. Invite children to try.
+4. Reflect together.
+LEARNING_GOALS:
+Goal 9a
+Goal 9b
+OBSERVATION_OPPORTUNITIES:
+Watch for engagement and language during activity 9.
+
+THURSDAY:
+ACTIVITY_NAME:
+Thursday Activity 1
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Children will practice skill 10 through guided play.
+DESCRIPTION:
+Teachers invite children to explore activity 10 in small groups.
+MATERIALS:
+Material A10, Material B10, basket 10
+SETUP:
+Prepare station 10 before children arrive.
+TEACHER_ROLE:
+Observe, narrate, and ask open-ended questions during activity 10.
+DIRECTIONS:
+1. Introduce activity 10.
+2. Model the first step.
+3. Invite children to try.
+4. Reflect together.
+LEARNING_GOALS:
+Goal 10a
+Goal 10b
+OBSERVATION_OPPORTUNITIES:
+Watch for engagement and language during activity 10.
+
+ACTIVITY_NAME:
+Thursday Activity 2
+CATEGORY:
+Art
+OBJECTIVE:
+Children will practice skill 11 through guided play.
+DESCRIPTION:
+Teachers invite children to explore activity 11 in small groups.
+MATERIALS:
+Material A11, Material B11, basket 11
+SETUP:
+Prepare station 11 before children arrive.
+TEACHER_ROLE:
+Observe, narrate, and ask open-ended questions during activity 11.
+DIRECTIONS:
+1. Introduce activity 11.
+2. Model the first step.
+3. Invite children to try.
+4. Reflect together.
+LEARNING_GOALS:
+Goal 11a
+Goal 11b
+OBSERVATION_OPPORTUNITIES:
+Watch for engagement and language during activity 11.
+
+ACTIVITY_NAME:
+Thursday Activity 3
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Children will practice skill 12 through guided play.
+DESCRIPTION:
+Teachers invite children to explore activity 12 in small groups.
+MATERIALS:
+Material A12, Material B12, basket 12
+SETUP:
+Prepare station 12 before children arrive.
+TEACHER_ROLE:
+Observe, narrate, and ask open-ended questions during activity 12.
+DIRECTIONS:
+1. Introduce activity 12.
+2. Model the first step.
+3. Invite children to try.
+4. Reflect together.
+LEARNING_GOALS:
+Goal 12a
+Goal 12b
+OBSERVATION_OPPORTUNITIES:
+Watch for engagement and language during activity 12.
+
+FRIDAY:
+ACTIVITY_NAME:
+Friday Activity 1
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Children will practice skill 13 through guided play.
+DESCRIPTION:
+Teachers invite children to explore activity 13 in small groups.
+MATERIALS:
+Material A13, Material B13, basket 13
+SETUP:
+Prepare station 13 before children arrive.
+TEACHER_ROLE:
+Observe, narrate, and ask open-ended questions during activity 13.
+DIRECTIONS:
+1. Introduce activity 13.
+2. Model the first step.
+3. Invite children to try.
+4. Reflect together.
+LEARNING_GOALS:
+Goal 13a
+Goal 13b
+OBSERVATION_OPPORTUNITIES:
+Watch for engagement and language during activity 13.
+
+ACTIVITY_NAME:
+Friday Activity 2
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Children will practice skill 14 through guided play.
+DESCRIPTION:
+Teachers invite children to explore activity 14 in small groups.
+MATERIALS:
+Material A14, Material B14, basket 14
+SETUP:
+Prepare station 14 before children arrive.
+TEACHER_ROLE:
+Observe, narrate, and ask open-ended questions during activity 14.
+DIRECTIONS:
+1. Introduce activity 14.
+2. Model the first step.
+3. Invite children to try.
+4. Reflect together.
+LEARNING_GOALS:
+Goal 14a
+Goal 14b
+OBSERVATION_OPPORTUNITIES:
+Watch for engagement and language during activity 14.
+
+ACTIVITY_NAME:
+Friday Activity 3
+CATEGORY:
+Literacy
+OBJECTIVE:
+Children will practice skill 15 through guided play.
+DESCRIPTION:
+Teachers invite children to explore activity 15 in small groups.
+MATERIALS:
+Material A15, Material B15, basket 15
+SETUP:
+Prepare station 15 before children arrive.
+TEACHER_ROLE:
+Observe, narrate, and ask open-ended questions during activity 15.
+DIRECTIONS:
+1. Introduce activity 15.
+2. Model the first step.
+3. Invite children to try.
+4. Reflect together.
+LEARNING_GOALS:
+Goal 15a
+Goal 15b
+OBSERVATION_OPPORTUNITIES:
+Watch for engagement and language during activity 15.
