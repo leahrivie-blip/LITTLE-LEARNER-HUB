@@ -15,24 +15,15 @@ const { spawn } = require("child_process");
 const { URL } = require("url");
 const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-parser.js");
 
+const { PRESCHOOL_IMPORT_TARGETS, parsePreschoolLessonImport } = require("./curriculum-preschool-import-targets.js");
+
 const ROOT = path.join(__dirname, "..");
 const IMPORT_DIR = path.join(__dirname, "curriculum-preschool-free-imports");
 const REPORT_PATH = path.join(__dirname, "data/preschool-free-import-report.json");
 
 const AGES = ["Infant", "Toddler", "Preschool"];
 
-const IMPORT_TARGETS = [
-  { file: "01-preschool-colors-everywhere-free.txt", stableId: "cur-lp-preschool-colors-everywhere" },
-  { file: "02-preschool-all-about-me-free.txt", stableId: "cur-lp-preschool-all-about-me" },
-  { file: "03-preschool-letters-and-sounds-free.txt", stableId: "cur-lp-preschool-letters-and-sounds" },
-  { file: "04-preschool-numbers-everywhere-free.txt", stableId: "cur-lp-preschool-numbers-everywhere" },
-  { file: "05-preschool-feelings-and-emotions-free.txt", stableId: "cur-lp-preschool-feelings-and-emotions" },
-  { file: "06-preschool-community-helpers-free.txt", stableId: "cur-lp-preschool-community-helpers" },
-  { file: "07-preschool-shapes-around-us-free.txt", stableId: "cur-lp-preschool-shapes-around-us" },
-  { file: "08-preschool-weather-watchers-free.txt", stableId: "cur-lp-preschool-weather-watchers" },
-  { file: "09-preschool-farm-animals-free.txt", stableId: "cur-lp-preschool-farm-animals" },
-  { file: "10-preschool-five-senses-free.txt", stableId: "cur-lp-preschool-five-senses" },
-];
+const IMPORT_TARGETS = PRESCHOOL_IMPORT_TARGETS;
 
 const remoteUrl = String(process.env.SITE_URL || "").trim();
 const useRemote = Boolean(remoteUrl && process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD && process.env.ADMIN_ACCESS_CODE);
@@ -161,9 +152,7 @@ async function stopServer(child) {
 }
 
 function parseLessonImport(text, { itemIdPrefix = "item" } = {}) {
-  const parsed = parseCurriculumLessonPlanImport(text);
-  const data = parsed.data || {};
-  assert(parsed.ok, parsed.errors.join(" "));
+  const data = parsePreschoolLessonImport(text, { itemIdPrefix });
   assert(data.title, "Missing TITLE:");
   assert(AGES.includes(data.age), `Invalid age "${data.age}" for ${data.title}`);
   assert((data.learningDomains || []).length > 0, `${data.title}: need learning domains`);
@@ -176,24 +165,8 @@ function parseLessonImport(text, { itemIdPrefix = "item" } = {}) {
   assert(data.adaptations, `${data.title}: missing adaptations`);
   assert((data.books || []).length > 0, `${data.title}: need books`);
   assert((data.songs || []).length > 0, `${data.title}: need songs`);
-
-  const weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday"];
-  const dailyPlans = {};
-  let activityCount = 0;
-  weekdays.forEach((day) => {
-    const items = (data.dailyPlans?.[day]?.items || []).map((item, index) => ({
-      ...item,
-      itemId: `${itemIdPrefix}-${day}-${index + 1}`,
-    }));
-    activityCount += items.length;
-    dailyPlans[day] = { items };
-  });
-  assert(activityCount === 15, `${data.title}: expected 15 activities, found ${activityCount}`);
-  return {
-    ...data,
-    dailyPlans,
-    _activityCount: activityCount,
-  };
+  assert(data._activityCount === 15, `${data.title}: expected 15 activities, found ${data._activityCount || 0}`);
+  return data;
 }
 
 async function login() {

@@ -1814,11 +1814,25 @@ async function initializePostgresStore() {
 async function initializeStorage() {
   if (usePostgresStore()) {
     await initializePostgresStore();
-    return;
+  } else {
+    ensureStore();
+    storeCache = JSON.parse(fs.readFileSync(storePath, "utf8"));
+    databaseReady = false;
   }
-  ensureStore();
-  storeCache = JSON.parse(fs.readFileSync(storePath, "utf8"));
-  databaseReady = false;
+  try {
+    const { ensurePreschoolCurriculumSeeded } = require("./curriculum-preschool-seed.js");
+    await ensurePreschoolCurriculumSeeded({
+      readStore,
+      writeStoreAsync,
+      writeSiteCurriculum,
+      syncCurriculumActivitiesForLessonPlan,
+      assertCurriculumIntegrityOrError,
+      defaultSiteContentStore,
+      defaultCurriculumStore,
+    });
+  } catch (error) {
+    console.error("[curriculum-preschool-seed] startup seed failed:", error.message);
+  }
 }
 
 function ensureStore() {
