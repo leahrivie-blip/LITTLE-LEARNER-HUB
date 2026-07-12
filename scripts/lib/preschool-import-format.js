@@ -8,8 +8,10 @@ const DOMAIN_MAP = {
   "Creative Arts": "Creative Arts",
   "Social Emotional Development": "Social Emotional",
   "Science Exploration": "Science",
+  "Science & Discovery": "Science",
   "Cognitive Development": "Math",
   "Math Development": "Math",
+  "Mathematics": "Math",
 };
 
 const CATEGORY_MAP = {
@@ -17,11 +19,15 @@ const CATEGORY_MAP = {
   "Creative Arts": "Art",
   "Music & Movement": "Music & Movement",
   "Science Exploration": "STEM/Discovery",
+  "Science & Discovery": "STEM/Discovery",
   "Physical Development": "Gross Motor",
+  "Gross Motor": "Gross Motor",
   "Language & Literacy": "Literacy",
   "Fine Motor": "Fine Motor",
   "Dramatic Play": "Dramatic Play",
+  "Sensory Play": "Sensory Play",
   "Math Development": "Open-Ended Exploration",
+  "Mathematics": "Open-Ended Exploration",
 };
 
 const DRAMATIC_PLAY_NAMES = new Set([
@@ -100,8 +106,15 @@ function formatActivity(activity) {
   const directions = Array.isArray(activity.directions)
     ? activity.directions.map((d, i) => `${i + 1}. ${String(d).replace(/^\d+\.\s*/, "")}`).join("\n")
     : String(activity.directions || "");
-  const goals = (activity.goals || []).map((g) => String(g).replace(/^[-*•\t]+\s*/, "")).join("\n");
-  const observations = (activity.observations || []).map((o) => String(o).replace(/^[-*•\t]+\s*/, "")).join("\n");
+  const description = activity.description || activity.objective || activity.name;
+  const goalsList = (activity.goals && activity.goals.length)
+    ? activity.goals
+    : [activity.objective || `Participate in ${activity.name}`];
+  const goals = goalsList.map((g) => String(g).replace(/^[-*•\t]+\s*/, "")).join("\n");
+  const observationsList = (activity.observations && activity.observations.length)
+    ? activity.observations
+    : ["Observe participation, engagement, and skill development during this activity."];
+  const observations = observationsList.map((o) => String(o).replace(/^[-*•\t]+\s*/, "")).join("\n");
 
   return [
     "ACTIVITY_NAME:",
@@ -111,7 +124,7 @@ function formatActivity(activity) {
     "OBJECTIVE:",
     activity.objective,
     "DESCRIPTION:",
-    activity.description,
+    description,
     "MATERIALS:",
     activity.materials,
     "SETUP:",
@@ -127,29 +140,32 @@ function formatActivity(activity) {
   ].join("\n");
 }
 
-function formatLessonPlan(plan) {
+function formatLessonPlan(plan, { planTier = "Free", status = "published", ageGroup = "Preschool" } = {}) {
   const domains = mapLearningDomains(plan.learningDomains);
   const books = (plan.books || []).map(formatBookLine).filter(Boolean).join("\n");
   const songs = formatList(plan.songs);
   const objectives = formatList(plan.objectives);
   const materials = formatList(plan.materials);
   const vocabulary = formatList(plan.vocabulary);
+  const tier = plan.plan || planTier;
+  const publishStatus = plan.status || status;
+  const age = plan.ageGroup || ageGroup;
 
   const sections = [
     "TITLE:",
     plan.title,
     "",
     "AGE_GROUP:",
-    "Preschool",
+    age,
     "",
     "THEME:",
     plan.theme,
     "",
     "PLAN:",
-    "Free",
+    tier,
     "",
     "STATUS:",
-    "published",
+    publishStatus,
     "",
     "LEARNING_DOMAINS:",
     domains.join("\n"),

@@ -1,0 +1,552 @@
+TITLE:
+Seasons of the Year
+
+AGE_GROUP:
+Preschool 3-5 Years
+
+THEME:
+Seasons
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Language & Literacy
+Social Emotional
+Physical Development
+Creative Arts
+Science
+Math
+
+WEEKLY_OVERVIEW:
+Children will explore the four seasons through hands-on investigations, sensory experiences, art, dramatic play, movement activities, and nature exploration. Throughout the week, children will discover how weather, plants, animals, clothing, and activities change throughout the year while building observation skills and scientific thinking.
+
+LEARNING_OBJECTIVES:
+Identify the four seasons
+Observe seasonal changes in nature
+Compare weather patterns
+Develop vocabulary related to seasons and weather
+Strengthen sorting and classification skills
+Explore seasonal clothing and activities
+Develop fine and gross motor skills
+Foster curiosity about the natural world
+
+WEEKLY_MATERIALS:
+Season picture cards
+Weather charts
+Leaves
+Artificial flowers
+Cotton balls
+Toy animals
+Paint
+Markers
+Construction paper
+Glue
+Scissors
+Sensory bin materials
+Blocks
+Dress-up clothing
+Books
+Music player
+
+VOCABULARY:
+Season
+Spring
+Summer
+Fall
+Winter
+Weather
+Rain
+Snow
+Sunshine
+Leaves
+Bloom
+Temperature
+Wind
+Nature
+
+BOOKS:
+The Reasons for Seasons | Gail Gibbons
+Tree: A Peek-Through Picture Book | Britta Teckentrup
+Goodbye Summer, Hello Autumn | Kenard Pak
+
+SONGS:
+The Seasons Song
+Winter, Spring, Summer, Fall
+Mr. Sun
+
+FAMILY_CONNECTION:
+Encourage families to discuss seasonal changes they notice outside. Take walks together and observe weather, plants, animals, and clothing choices that relate to the current season.
+
+OBSERVATION_OPPORTUNITIES:
+Observe children's understanding of seasonal changes, ability to sort and classify items, use of seasonal vocabulary, participation in discussions, and curiosity during investigations.
+
+ADAPTATIONS:
+Provide visual supports and seasonal picture cards. Offer adaptive tools when needed. Allow children to participate through movement, discussion, art, or hands-on exploration.
+
+MONDAY:
+
+ACTIVITY_NAME:
+Four Seasons Sensory Bin
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Explore seasonal materials through sensory play.
+DESCRIPTION:
+Explore seasonal materials through sensory play.
+MATERIALS:
+Leaves
+Cotton balls
+Flowers
+Sand
+SETUP:
+Create sections representing each season.
+TEACHER_ROLE:
+Introduce seasonal vocabulary and encourage observations.
+DIRECTIONS:
+1. Explore materials from each season.
+2. Discuss similarities and differences.
+3. Sort items by season.
+LEARNING_GOALS:
+Explore seasonal materials through sensory play.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Seasons Sorting Challenge
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Develop classification skills.
+DESCRIPTION:
+Develop classification skills.
+MATERIALS:
+Season picture cards
+SETUP:
+Arrange sorting mats.
+TEACHER_ROLE:
+Guide discussion and critical thinking.
+DIRECTIONS:
+1. Sort pictures into spring, summer, fall, and winter categories.
+LEARNING_GOALS:
+Develop classification skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Four Seasons Tree Craft
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Develop creativity and fine motor skills.
+DESCRIPTION:
+Develop creativity and fine motor skills.
+MATERIALS:
+Tree template
+Paint
+Paper
+SETUP:
+Prepare craft materials.
+TEACHER_ROLE:
+Encourage creativity and discussion.
+DIRECTIONS:
+1. Decorate sections of the tree to represent each season.
+LEARNING_GOALS:
+Develop creativity and fine motor skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Seasons Movement Game
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Develop gross motor skills and listening.
+DESCRIPTION:
+Develop gross motor skills and listening.
+MATERIALS:
+Music player
+SETUP:
+Open movement area.
+TEACHER_ROLE:
+Model movements and encourage participation.
+DIRECTIONS:
+1. Move like blowing leaves, falling snow, blooming flowers, and summer sunshine.
+LEARNING_GOALS:
+Develop gross motor skills and listening.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+TUESDAY:
+
+ACTIVITY_NAME:
+Spring Garden Exploration
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Learn about plant growth in spring.
+DESCRIPTION:
+Learn about plant growth in spring.
+MATERIALS:
+Seeds
+Soil
+Cups
+SETUP:
+Prepare planting station.
+TEACHER_ROLE:
+Encourage observation and predictions.
+DIRECTIONS:
+1. Plant seeds and discuss what plants need to grow.
+LEARNING_GOALS:
+Learn about plant growth in spring.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Flower Shop Dramatic Play
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Encourage imaginative play and communication.
+DESCRIPTION:
+Encourage imaginative play and communication.
+MATERIALS:
+Artificial flowers
+Play money
+SETUP:
+Create flower shop center.
+TEACHER_ROLE:
+Support role-playing and conversation.
+DIRECTIONS:
+1. Buy and sell flowers.
+2. Create bouquets.
+LEARNING_GOALS:
+Encourage imaginative play and communication.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Flower Painting
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Strengthen hand-eye coordination.
+DESCRIPTION:
+Strengthen hand-eye coordination.
+MATERIALS:
+Paint
+Paper
+Brushes
+SETUP:
+Prepare art station.
+TEACHER_ROLE:
+Encourage artistic expression.
+DIRECTIONS:
+1. Paint colorful spring flowers.
+LEARNING_GOALS:
+Strengthen hand-eye coordination.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Rain Puddle Jump
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Develop balance and coordination.
+DESCRIPTION:
+Develop balance and coordination.
+MATERIALS:
+Floor markers
+SETUP:
+Create puddle path.
+TEACHER_ROLE:
+Promote safe movement.
+DIRECTIONS:
+1. Jump from puddle to puddle.
+LEARNING_GOALS:
+Develop balance and coordination.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+WEDNESDAY:
+
+ACTIVITY_NAME:
+Summer Beach Sensory Bin
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Explore summer-themed materials.
+DESCRIPTION:
+Explore summer-themed materials.
+MATERIALS:
+Sand
+Shells
+Scoops
+SETUP:
+Create beach sensory area.
+TEACHER_ROLE:
+Encourage descriptive language.
+DIRECTIONS:
+1. Dig, scoop, and explore beach materials.
+LEARNING_GOALS:
+Explore summer-themed materials.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Ice Melt Investigation
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Explore temperature and change.
+DESCRIPTION:
+Explore temperature and change.
+MATERIALS:
+Ice cubes
+Water
+Droppers
+SETUP:
+Prepare science station.
+TEACHER_ROLE:
+Encourage scientific thinking.
+DIRECTIONS:
+1. Observe ice melting.
+2. Discuss changes.
+LEARNING_GOALS:
+Explore temperature and change.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Sunshine Craft
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Develop creativity.
+DESCRIPTION:
+Develop creativity.
+MATERIALS:
+Paper plates
+Yellow paint
+Glue
+SETUP:
+Prepare art supplies.
+TEACHER_ROLE:
+Support creativity.
+DIRECTIONS:
+1. Create bright sunshine artwork.
+LEARNING_GOALS:
+Develop creativity.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Summer Games
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Promote active play.
+DESCRIPTION:
+Promote active play.
+MATERIALS:
+Balls
+Cones
+SETUP:
+Create activity area.
+TEACHER_ROLE:
+Encourage teamwork.
+DIRECTIONS:
+1. Participate in simple outdoor-style games.
+LEARNING_GOALS:
+Promote active play.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+THURSDAY:
+
+ACTIVITY_NAME:
+Fall Leaf Investigation
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Observe and compare leaves.
+DESCRIPTION:
+Observe and compare leaves.
+MATERIALS:
+Leaves
+Magnifying glasses
+SETUP:
+Arrange leaves for observation.
+TEACHER_ROLE:
+Guide observations.
+DIRECTIONS:
+1. Compare colors, shapes, and sizes.
+LEARNING_GOALS:
+Observe and compare leaves.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Pumpkin Patch Dramatic Play
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Encourage imaginative play.
+DESCRIPTION:
+Encourage imaginative play.
+MATERIALS:
+Pumpkin props
+Baskets
+SETUP:
+Create pumpkin patch.
+TEACHER_ROLE:
+Support social interaction.
+DIRECTIONS:
+1. Pick and sell pumpkins.
+LEARNING_GOALS:
+Encourage imaginative play.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Leaf Rubbing Art
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Strengthen fine motor skills.
+DESCRIPTION:
+Strengthen fine motor skills.
+MATERIALS:
+Leaves
+Crayons
+Paper
+SETUP:
+Prepare rubbing station.
+TEACHER_ROLE:
+Demonstrate technique.
+DIRECTIONS:
+1. Create leaf rubbings using crayons.
+LEARNING_GOALS:
+Strengthen fine motor skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Falling Leaves Dance
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Develop body awareness.
+DESCRIPTION:
+Develop body awareness.
+MATERIALS:
+Music player
+SETUP:
+Open movement space.
+TEACHER_ROLE:
+Lead movement activities.
+DIRECTIONS:
+1. Move like leaves falling from trees.
+LEARNING_GOALS:
+Develop body awareness.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+FRIDAY:
+
+ACTIVITY_NAME:
+Winter Snow Sensory Bin
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Explore winter-themed materials.
+DESCRIPTION:
+Explore winter-themed materials.
+MATERIALS:
+Fake snow
+Scoops
+Winter animals
+SETUP:
+Create winter sensory station.
+TEACHER_ROLE:
+Encourage conversation.
+DIRECTIONS:
+1. Explore and create winter scenes.
+LEARNING_GOALS:
+Explore winter-themed materials.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Winter Clothing Sort
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Identify winter clothing.
+DESCRIPTION:
+Identify winter clothing.
+MATERIALS:
+Clothing pictures
+SETUP:
+Prepare sorting area.
+TEACHER_ROLE:
+Support classification skills.
+DIRECTIONS:
+1. Sort winter and non-winter clothing.
+LEARNING_GOALS:
+Identify winter clothing.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Snowflake Craft
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Develop creativity and cutting skills.
+DESCRIPTION:
+Develop creativity and cutting skills.
+MATERIALS:
+Paper
+Scissors
+Glue
+SETUP:
+Prepare materials.
+TEACHER_ROLE:
+Assist as needed.
+DIRECTIONS:
+1. Create unique snowflakes.
+LEARNING_GOALS:
+Develop creativity and cutting skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Seasons Celebration Parade
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Celebrate learning about the seasons.
+DESCRIPTION:
+Celebrate learning about the seasons.
+MATERIALS:
+Season props
+Music player
+SETUP:
+Create parade route.
+TEACHER_ROLE:
+Celebrate participation and learning.
+
+
+
+Next
+DIRECTIONS:
+1. Dress up for favorite seasons and parade around the classroom.
+LEARNING_GOALS:
+Celebrate learning about the seasons.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.

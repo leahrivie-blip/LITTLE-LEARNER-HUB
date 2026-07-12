@@ -1,0 +1,523 @@
+TITLE:
+Kindergarten Readiness
+
+AGE_GROUP:
+Preschool 3-5 Years
+
+THEME:
+Kindergarten Readiness
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Language & Literacy
+Social Emotional
+Physical Development
+Math
+Science
+Creative Arts
+
+WEEKLY_OVERVIEW:
+Children will strengthen the foundational skills needed for kindergarten success through engaging, play-based learning experiences. Throughout the week, children will practice independence, communication, early literacy, math concepts, problem-solving, classroom routines, social skills, and confidence-building activities designed to support a successful transition into kindergarten.
+
+LEARNING_OBJECTIVES:
+Strengthen letter and name recognition
+Develop early math and counting skills
+Practice following multi-step directions
+Build independence and self-help skills
+Strengthen social and emotional readiness
+Encourage problem-solving and critical thinking
+Develop fine and gross motor coordination
+Build confidence in classroom participation
+
+WEEKLY_MATERIALS:
+Alphabet cards
+Name cards
+Counting manipulatives
+Books
+Pencils
+Crayons
+Paper
+Scissors
+Glue
+Building blocks
+Sensory materials
+Clipboards
+Timers
+Picture schedules
+Music player
+
+VOCABULARY:
+Kindergarten
+Ready
+Independent
+Routine
+Schedule
+Classroom
+Letter
+Number
+Count
+Pattern
+Friendship
+Responsibility
+Problem-Solving
+Confidence
+
+BOOKS:
+The King of Kindergarten | Derrick Barnes
+Miss Bindergarten Gets Ready for Kindergarten | Joseph Slate
+Kindergarten, Here I Come! | D.J. Steinberg
+
+SONGS:
+The Alphabet Song
+Days of the Week Song
+If You're Ready for Kindergarten
+
+FAMILY_CONNECTION:
+Encourage children to practice independence skills at home such as cleaning up toys, putting on shoes, washing hands, and following simple routines. Talk positively about kindergarten and new learning opportunities.
+
+OBSERVATION_OPPORTUNITIES:
+Observe children's independence, ability to follow directions, letter recognition, counting skills, social interactions, problem-solving abilities, and confidence during group activities.
+
+ADAPTATIONS:
+Provide visual schedules and picture supports. Offer adaptive writing tools when needed. Allow children multiple ways to demonstrate learning through movement, discussion, art, and hands-on exploration.
+
+MONDAY:
+
+ACTIVITY_NAME:
+All About Me Name Practice
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Strengthen name recognition and writing skills.
+DESCRIPTION:
+Strengthen name recognition and writing skills.
+MATERIALS:
+Name cards
+Markers
+Paper
+SETUP:
+Place name cards at each seat.
+TEACHER_ROLE:
+Support letter formation and encourage confidence.
+DIRECTIONS:
+1. Trace and practice writing names.
+2. Decorate name cards.
+3. Share names with classmates.
+LEARNING_GOALS:
+Strengthen name recognition and writing skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Classroom Routine Exploration
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Learn classroom expectations and routines.
+DESCRIPTION:
+Learn classroom expectations and routines.
+MATERIALS:
+Picture schedule
+Classroom materials
+SETUP:
+Display visual schedule.
+TEACHER_ROLE:
+Model routines and expectations.
+DIRECTIONS:
+1. Practice daily routines.
+2. Role-play classroom situations.
+LEARNING_GOALS:
+Learn classroom expectations and routines.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Counting Collections
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Develop counting and number recognition.
+DESCRIPTION:
+Develop counting and number recognition.
+MATERIALS:
+Manipulatives
+Number cards
+SETUP:
+Create counting stations.
+TEACHER_ROLE:
+Support one-to-one correspondence.
+DIRECTIONS:
+1. Count objects and match to numbers.
+LEARNING_GOALS:
+Develop counting and number recognition.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Follow the Leader Challenge
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Practice listening and following directions.
+DESCRIPTION:
+Practice listening and following directions.
+MATERIALS:
+Open space
+SETUP:
+Create movement area.
+TEACHER_ROLE:
+Lead activities and encourage participation.
+DIRECTIONS:
+1. Follow multi-step movement directions.
+LEARNING_GOALS:
+Practice listening and following directions.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+TUESDAY:
+
+ACTIVITY_NAME:
+Alphabet Treasure Hunt
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Strengthen letter recognition.
+DESCRIPTION:
+Strengthen letter recognition.
+MATERIALS:
+Alphabet cards
+SETUP:
+Hide cards around classroom.
+TEACHER_ROLE:
+Support letter identification.
+DIRECTIONS:
+1. Search for letters.
+2. Name letters found.
+3. Match letters to chart.
+LEARNING_GOALS:
+Strengthen letter recognition.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+School Dramatic Play Center
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Build confidence about kindergarten.
+DESCRIPTION:
+Build confidence about kindergarten.
+MATERIALS:
+Teacher props
+Books
+Clipboards
+SETUP:
+Create pretend classroom.
+TEACHER_ROLE:
+Support positive role-playing.
+DIRECTIONS:
+1. Take turns being teacher and student.
+LEARNING_GOALS:
+Build confidence about kindergarten.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+School Bus Craft
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Develop cutting and gluing skills.
+DESCRIPTION:
+Develop cutting and gluing skills.
+MATERIALS:
+Bus templates
+Glue
+Crayons
+SETUP:
+Prepare craft materials.
+TEACHER_ROLE:
+Assist and encourage creativity.
+DIRECTIONS:
+1. Create and decorate school buses.
+LEARNING_GOALS:
+Develop cutting and gluing skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Kindergarten Obstacle Course
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Develop coordination and confidence.
+DESCRIPTION:
+Develop coordination and confidence.
+MATERIALS:
+Cones
+Balance beam
+SETUP:
+Create obstacle course.
+TEACHER_ROLE:
+Encourage persistence and effort.
+DIRECTIONS:
+1. Complete movement challenges.
+LEARNING_GOALS:
+Develop coordination and confidence.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+WEDNESDAY:
+
+ACTIVITY_NAME:
+Pattern Builders
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Develop early math skills.
+DESCRIPTION:
+Develop early math skills.
+MATERIALS:
+Pattern blocks
+Manipulatives
+SETUP:
+Create pattern station.
+TEACHER_ROLE:
+Introduce pattern vocabulary.
+DIRECTIONS:
+1. Create and extend patterns.
+LEARNING_GOALS:
+Develop early math skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Friendship Role Play
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Build social-emotional skills.
+DESCRIPTION:
+Build social-emotional skills.
+MATERIALS:
+Emotion cards
+Puppets
+SETUP:
+Prepare role-play area.
+TEACHER_ROLE:
+Model positive interactions.
+DIRECTIONS:
+1. Practice sharing, kindness, and problem-solving.
+LEARNING_GOALS:
+Build social-emotional skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Scissor Skills Practice
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Strengthen hand muscles and coordination.
+DESCRIPTION:
+Strengthen hand muscles and coordination.
+MATERIALS:
+Scissors
+Paper strips
+SETUP:
+Prepare cutting station.
+TEACHER_ROLE:
+Support proper scissor use.
+DIRECTIONS:
+1. Practice cutting along lines and shapes.
+LEARNING_GOALS:
+Strengthen hand muscles and coordination.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Movement and Number Hop
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Combine movement with number recognition.
+DESCRIPTION:
+Combine movement with number recognition.
+MATERIALS:
+Number cards
+SETUP:
+Place numbers on floor.
+TEACHER_ROLE:
+Encourage participation and counting.
+DIRECTIONS:
+1. Hop to numbers as called out.
+LEARNING_GOALS:
+Combine movement with number recognition.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+THURSDAY:
+
+ACTIVITY_NAME:
+STEM Building Challenge
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Develop problem-solving and engineering skills.
+DESCRIPTION:
+Develop problem-solving and engineering skills.
+MATERIALS:
+Blocks
+Building materials
+SETUP:
+Create building area.
+TEACHER_ROLE:
+Ask open-ended questions and support thinking.
+DIRECTIONS:
+1. Build a structure that can stand independently.
+LEARNING_GOALS:
+Develop problem-solving and engineering skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Responsibility Helpers
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Learn classroom responsibilities.
+DESCRIPTION:
+Learn classroom responsibilities.
+MATERIALS:
+Helper badges
+Classroom tools
+SETUP:
+Assign classroom jobs.
+TEACHER_ROLE:
+Model responsibility and leadership.
+DIRECTIONS:
+1. Practice classroom helper roles.
+LEARNING_GOALS:
+Learn classroom responsibilities.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Kindergarten Journal Drawing
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Encourage early writing and expression.
+DESCRIPTION:
+Encourage early writing and expression.
+MATERIALS:
+Paper
+Crayons
+Markers
+SETUP:
+Prepare journals.
+TEACHER_ROLE:
+Record children's ideas and encourage storytelling.
+DIRECTIONS:
+1. Draw and dictate what kindergarten might be like.
+LEARNING_GOALS:
+Encourage early writing and expression.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Cooperative Team Games
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Develop teamwork skills.
+DESCRIPTION:
+Develop teamwork skills.
+MATERIALS:
+Balls
+Parachute
+SETUP:
+Create group game area.
+TEACHER_ROLE:
+Encourage cooperation and communication.
+DIRECTIONS:
+1. Work together to complete challenges.
+LEARNING_GOALS:
+Develop teamwork skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+FRIDAY:
+
+ACTIVITY_NAME:
+Kindergarten Readiness Centers
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Review skills learned throughout the week.
+DESCRIPTION:
+Review skills learned throughout the week.
+MATERIALS:
+Alphabet materials
+Counting tools
+Patterns
+SETUP:
+Create learning centers.
+TEACHER_ROLE:
+Observe and support learning.
+DIRECTIONS:
+1. Rotate through readiness stations.
+LEARNING_GOALS:
+Review skills learned throughout the week.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Future Kindergarten Student Celebration
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Celebrate growth and readiness.
+DESCRIPTION:
+Celebrate growth and readiness.
+MATERIALS:
+Certificates
+Caps
+Props
+SETUP:
+Create celebration area.
+TEACHER_ROLE:
+Celebrate accomplishments and build confidence.
+DIRECTIONS:
+1. Share favorite learning experiences.
+2. Receive readiness certificates.
+LEARNING_GOALS:
+Celebrate growth and readiness.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Kindergarten Dance Party
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Celebrate learning and movement.
+DESCRIPTION:
+Celebrate learning and movement.
+MATERIALS:
+Music player
+SETUP:
+Open movement area.
+TEACHER_ROLE:
+Encourage participation and excitement.
+DIRECTIONS:
+1. Dance and celebrate readiness for new adventures.
+LEARNING_GOALS:
+Celebrate learning and movement.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.

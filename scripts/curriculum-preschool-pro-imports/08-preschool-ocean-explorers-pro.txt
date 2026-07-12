@@ -1,0 +1,535 @@
+TITLE:
+Ocean Explorers
+
+AGE_GROUP:
+Preschool 3-5 Years
+
+THEME:
+Ocean
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Language & Literacy
+Social Emotional
+Physical Development
+Creative Arts
+Science
+Math
+
+WEEKLY_OVERVIEW:
+Children will dive into an exciting underwater adventure as they explore ocean animals, habitats, waves, coral reefs, and ocean conservation. Through hands-on investigations, sensory experiences, dramatic play, art projects, and STEM challenges, children will discover the wonders of the ocean while developing curiosity, creativity, and critical thinking skills.
+
+LEARNING_OBJECTIVES:
+Identify common ocean animals and habitats
+Develop scientific observation skills
+Explore floating and sinking concepts
+Strengthen vocabulary related to ocean life
+Practice sorting, counting, and comparing
+Develop fine and gross motor skills
+Encourage imaginative play and storytelling
+Foster appreciation for ocean conservation
+
+WEEKLY_MATERIALS:
+Toy ocean animals
+Shells
+Blue water beads
+Sand
+Water table
+Fishing nets
+Magnifying glasses
+Paint
+Markers
+Construction paper
+Glue
+Blocks
+Plastic containers
+Measuring cups
+Books
+Music player
+
+VOCABULARY:
+Ocean
+Wave
+Coral
+Reef
+Fish
+Shark
+Whale
+Dolphin
+Octopus
+Jellyfish
+Habitat
+Shell
+Float
+Sink
+
+BOOKS:
+Commotion in the Ocean | Giles Andreae
+The Rainbow Fish | Marcus Pfister
+Mister Seahorse | Eric Carle
+
+SONGS:
+Baby Shark
+A Sailor Went to Sea
+Down By The Bay
+
+FAMILY_CONNECTION:
+Encourage families to talk about ocean animals and water habitats. Visit a library to explore ocean-themed books and discuss ways to help keep oceans clean.
+
+OBSERVATION_OPPORTUNITIES:
+Observe children's curiosity during investigations, use of ocean vocabulary, ability to classify animals, participation in cooperative play, and understanding of ocean habitats.
+
+ADAPTATIONS:
+Provide visual supports and picture cards. Offer adaptive tools when needed. Allow children multiple ways to participate through art, discussion, movement, and sensory exploration.
+
+MONDAY:
+
+ACTIVITY_NAME:
+Ocean Sensory Bin
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Explore ocean animals through sensory experiences.
+DESCRIPTION:
+Explore ocean animals through sensory experiences.
+MATERIALS:
+Blue water beads
+Ocean animals
+Shells
+Scoops
+SETUP:
+Create an ocean-themed sensory bin.
+TEACHER_ROLE:
+Encourage descriptive language and observation.
+DIRECTIONS:
+1. Search for ocean animals hidden in the bin.
+2. Explore textures and materials.
+3. Discuss discoveries.
+LEARNING_GOALS:
+Explore ocean animals through sensory experiences.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Ocean Animal Movements
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Develop gross motor skills and body awareness.
+DESCRIPTION:
+Develop gross motor skills and body awareness.
+MATERIALS:
+Music player
+SETUP:
+Open movement space.
+TEACHER_ROLE:
+Model movements and encourage participation.
+DIRECTIONS:
+1. Move like different ocean animals.
+2. Swim like fish.
+3. Glide like stingrays.
+4. Wiggle like octopuses.
+LEARNING_GOALS:
+Develop gross motor skills and body awareness.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Ocean Animal Painting
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Strengthen creativity and hand control.
+DESCRIPTION:
+Strengthen creativity and hand control.
+MATERIALS:
+Paint
+Paper
+Brushes
+SETUP:
+Prepare painting station.
+TEACHER_ROLE:
+Encourage creativity and conversation.
+DIRECTIONS:
+1. Paint favorite ocean animals.
+2. Discuss colors and features.
+LEARNING_GOALS:
+Strengthen creativity and hand control.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Build an Ocean Habitat
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Develop creativity and problem-solving.
+DESCRIPTION:
+Develop creativity and problem-solving.
+MATERIALS:
+Blocks
+Ocean animals
+Blue fabric
+SETUP:
+Arrange building materials.
+TEACHER_ROLE:
+Support planning and critical thinking.
+DIRECTIONS:
+1. Create homes for ocean animals.
+2. Discuss habitat needs.
+LEARNING_GOALS:
+Develop creativity and problem-solving.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+TUESDAY:
+
+ACTIVITY_NAME:
+Float or Sink Investigation
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Explore basic science concepts.
+DESCRIPTION:
+Explore basic science concepts.
+MATERIALS:
+Water tub
+Various objects
+SETUP:
+Fill tub with water.
+TEACHER_ROLE:
+Encourage scientific thinking.
+DIRECTIONS:
+1. Predict whether objects will float or sink.
+2. Test each item.
+3. Discuss results.
+LEARNING_GOALS:
+Explore basic science concepts.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Shell Sorting Center
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Develop classification skills.
+DESCRIPTION:
+Develop classification skills.
+MATERIALS:
+Shell collection
+Sorting trays
+SETUP:
+Arrange shells for sorting.
+TEACHER_ROLE:
+Support mathematical thinking.
+DIRECTIONS:
+1. Sort by size, color, or shape.
+2. Count each group.
+LEARNING_GOALS:
+Develop classification skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Jellyfish Craft
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Develop creativity and fine motor skills.
+DESCRIPTION:
+Develop creativity and fine motor skills.
+MATERIALS:
+Paper plates
+Ribbon
+Glue
+SETUP:
+Prepare craft supplies.
+TEACHER_ROLE:
+Assist and encourage creativity.
+DIRECTIONS:
+1. Create jellyfish using ribbons and paper plates.
+LEARNING_GOALS:
+Develop creativity and fine motor skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Ocean Rescue Center
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Develop empathy and teamwork.
+DESCRIPTION:
+Develop empathy and teamwork.
+MATERIALS:
+Ocean animals
+Rescue props
+SETUP:
+Create rescue station.
+TEACHER_ROLE:
+Encourage cooperation and communication.
+DIRECTIONS:
+1. Rescue and care for ocean animals.
+2. Work together to solve problems.
+LEARNING_GOALS:
+Develop empathy and teamwork.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+WEDNESDAY:
+
+ACTIVITY_NAME:
+Coral Reef Discovery
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Explore ocean habitats.
+DESCRIPTION:
+Explore ocean habitats.
+MATERIALS:
+Colored pasta
+Ocean animals
+Containers
+SETUP:
+Create coral reef sensory station.
+TEACHER_ROLE:
+Introduce habitat vocabulary.
+DIRECTIONS:
+1. Explore reef materials.
+2. Create ocean scenes.
+LEARNING_GOALS:
+Explore ocean habitats.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Shark Measurement Station
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Practice measurement skills.
+DESCRIPTION:
+Practice measurement skills.
+MATERIALS:
+Measuring tape
+Shark pictures
+SETUP:
+Place shark images around room.
+TEACHER_ROLE:
+Introduce measurement vocabulary.
+DIRECTIONS:
+1. Measure sharks.
+2. Compare lengths.
+LEARNING_GOALS:
+Practice measurement skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Fish Weaving Craft
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Strengthen hand-eye coordination.
+DESCRIPTION:
+Strengthen hand-eye coordination.
+MATERIALS:
+Paper fish
+Construction paper strips
+SETUP:
+Prepare weaving materials.
+TEACHER_ROLE:
+Assist as needed.
+DIRECTIONS:
+1. Weave strips through fish templates.
+LEARNING_GOALS:
+Strengthen hand-eye coordination.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Shark Freeze Dance
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Develop listening skills and coordination.
+DESCRIPTION:
+Develop listening skills and coordination.
+MATERIALS:
+Music player
+SETUP:
+Create movement area.
+TEACHER_ROLE:
+Lead movement activities.
+DIRECTIONS:
+1. Dance like ocean animals.
+2. Freeze when music stops.
+LEARNING_GOALS:
+Develop listening skills and coordination.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+THURSDAY:
+
+ACTIVITY_NAME:
+Ocean Animal Sorting Challenge
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Develop classification skills.
+DESCRIPTION:
+Develop classification skills.
+MATERIALS:
+Ocean animal figures
+SETUP:
+Prepare sorting trays.
+TEACHER_ROLE:
+Support critical thinking.
+DIRECTIONS:
+1. Sort animals by habitat, size, or type.
+LEARNING_GOALS:
+Develop classification skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Deep Sea Submarine
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Encourage imagination and storytelling.
+DESCRIPTION:
+Encourage imagination and storytelling.
+MATERIALS:
+Large box
+Ocean props
+SETUP:
+Create submarine center.
+TEACHER_ROLE:
+Support imaginative play.
+DIRECTIONS:
+1. Explore the deep ocean.
+2. Discover sea creatures.
+LEARNING_GOALS:
+Encourage imagination and storytelling.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Starfish Art
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Develop creativity and hand control.
+DESCRIPTION:
+Develop creativity and hand control.
+MATERIALS:
+Starfish templates
+Paint
+Glue
+SETUP:
+Prepare art station.
+TEACHER_ROLE:
+Encourage artistic expression.
+DIRECTIONS:
+1. Decorate starfish using various materials.
+LEARNING_GOALS:
+Develop creativity and hand control.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Ocean Obstacle Course
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Develop balance and coordination.
+DESCRIPTION:
+Develop balance and coordination.
+MATERIALS:
+Cones
+Tunnels
+SETUP:
+Create ocean-themed course.
+TEACHER_ROLE:
+Encourage safe participation.
+DIRECTIONS:
+1. Swim, jump waves, and crawl through underwater caves.
+LEARNING_GOALS:
+Develop balance and coordination.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+FRIDAY:
+
+ACTIVITY_NAME:
+Ocean Museum
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Build confidence and communication.
+DESCRIPTION:
+Build confidence and communication.
+MATERIALS:
+Projects from the week
+SETUP:
+Create museum displays.
+TEACHER_ROLE:
+Encourage speaking and listening.
+DIRECTIONS:
+1. Share favorite ocean discoveries.
+LEARNING_GOALS:
+Build confidence and communication.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Ocean Exploration Stations
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Review concepts from the week.
+DESCRIPTION:
+Review concepts from the week.
+MATERIALS:
+Materials from previous activities
+SETUP:
+Create exploration centers.
+TEACHER_ROLE:
+Encourage reflection and discussion.
+DIRECTIONS:
+1. Visit stations and revisit favorite activities.
+LEARNING_GOALS:
+Review concepts from the week.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Ocean Celebration Dance
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Celebrate learning through movement.
+DESCRIPTION:
+Celebrate learning through movement.
+MATERIALS:
+Music player
+SETUP:
+Open movement area.
+TEACHER_ROLE:
+Celebrate participation and learning.
+
+
+Next
+DIRECTIONS:
+1. Dance and move like favorite ocean animals.
+LEARNING_GOALS:
+Celebrate learning through movement.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.

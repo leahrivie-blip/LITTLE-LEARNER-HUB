@@ -1,0 +1,561 @@
+TITLE:
+Dinosaur Discovery
+
+AGE_GROUP:
+Preschool 3-5 Years
+
+THEME:
+Dinosaurs
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Language & Literacy
+Social Emotional
+Physical Development
+Creative Arts
+Science
+Math
+
+WEEKLY_OVERVIEW:
+Children will travel back to prehistoric times as they investigate dinosaurs through hands-on exploration, dramatic play, sensory experiences, STEM challenges, art, movement, and early literacy activities. Throughout the week, children will become paleontologists, discover fossils, compare dinosaur sizes, explore volcanoes, and strengthen kindergarten readiness skills through engaging dinosaur-themed learning.
+
+LEARNING_OBJECTIVES:
+Develop curiosity about prehistoric animals
+Strengthen observation and investigation skills
+Build vocabulary related to dinosaurs and fossils
+Practice counting, sorting, and measuring
+Encourage imaginative dramatic play
+Strengthen fine and gross motor development
+Promote problem-solving and critical thinking
+Foster cooperation through group activities
+
+WEEKLY_MATERIALS:
+Toy dinosaurs
+Dinosaur books
+Play dough
+Kinetic sand
+Measuring tape
+Blocks
+Paint
+Markers
+Crayons
+Construction paper
+Sensory bin fillers
+Plastic eggs
+Small rocks
+Magnifying glasses
+Dinosaur figures
+Cardboard boxes
+Music player
+
+VOCABULARY:
+Dinosaur
+Fossil
+Paleontologist
+Volcano
+Extinct
+Footprint
+Egg
+Bones
+Prehistoric
+Triceratops
+Tyrannosaurus Rex
+Stegosaurus
+Excavate
+Discover
+
+BOOKS:
+How Do Dinosaurs Say Goodnight? | Jane Yolen
+National Geographic Little Kids First Big Book of Dinosaurs | Catherine Hughes
+Danny and the Dinosaur | Syd Hoff
+
+SONGS:
+We're Marching with the Dinosaurs
+Dinosaur Stomp
+If You're a Dinosaur and You Know It
+
+FAMILY_CONNECTION:
+Invite your child to share their favorite dinosaur at home. Visit the library to explore dinosaur books together. Encourage children to compare the size of dinosaurs to familiar objects around the house.
+
+OBSERVATION_OPPORTUNITIES:
+Observe children's use of dinosaur vocabulary, participation in dramatic play, counting abilities, problem-solving during STEM activities, curiosity during investigations, and social interactions with peers.
+
+ADAPTATIONS:
+Provide larger materials for children needing additional fine motor support. Offer visual aids and picture cards. Simplify instructions when needed and allow children multiple ways to participate.
+
+MONDAY:
+
+ACTIVITY_NAME:
+Dinosaur Discovery Bin
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Encourage sensory exploration and scientific curiosity.
+DESCRIPTION:
+Encourage sensory exploration and scientific curiosity.
+MATERIALS:
+Kinetic sand
+Toy dinosaurs
+Small rocks
+Brushes
+SETUP:
+Hide dinosaurs throughout the sensory bin.
+TEACHER_ROLE:
+Encourage observation and descriptive language.
+DIRECTIONS:
+1. Invite children to search for hidden dinosaurs.
+2. Discuss dinosaur names and characteristics.
+3. Compare discoveries with friends.
+LEARNING_GOALS:
+Encourage sensory exploration and scientific curiosity.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Dinosaur Stomp Parade
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Develop gross motor skills and body awareness.
+DESCRIPTION:
+Develop gross motor skills and body awareness.
+MATERIALS:
+Music player
+SETUP:
+Clear an open movement space.
+TEACHER_ROLE:
+Model movements and encourage participation.
+DIRECTIONS:
+1. Play dinosaur music.
+2. Encourage children to stomp, march, and move like different dinosaurs.
+3. Practice moving fast and slow.
+LEARNING_GOALS:
+Develop gross motor skills and body awareness.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Dinosaur Footprint Art
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Strengthen creativity and fine motor control.
+DESCRIPTION:
+Strengthen creativity and fine motor control.
+MATERIALS:
+Paint
+Toy dinosaur feet
+Paper
+SETUP:
+Prepare painting stations.
+TEACHER_ROLE:
+Encourage observation and creativity.
+DIRECTIONS:
+1. Dip dinosaur feet into paint.
+2. Stamp footprints onto paper.
+3. Compare different footprint shapes.
+LEARNING_GOALS:
+Strengthen creativity and fine motor control.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Dinosaur Habitat Building
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Develop creativity and problem-solving.
+DESCRIPTION:
+Develop creativity and problem-solving.
+MATERIALS:
+Blocks
+Artificial plants
+Toy dinosaurs
+SETUP:
+Arrange materials on a building table.
+TEACHER_ROLE:
+Ask open-ended questions and support planning.
+DIRECTIONS:
+1. Create homes for dinosaurs.
+2. Discuss what dinosaurs may need to survive.
+3. Compare different habitats.
+LEARNING_GOALS:
+Develop creativity and problem-solving.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+TUESDAY:
+
+ACTIVITY_NAME:
+Fossil Excavation Dig
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Develop investigation skills.
+DESCRIPTION:
+Develop investigation skills.
+MATERIALS:
+Sand
+Toy bones
+Brushes
+Magnifying glasses
+SETUP:
+Bury bones in a sensory bin.
+TEACHER_ROLE:
+Introduce paleontologist vocabulary.
+DIRECTIONS:
+1. Excavate fossils carefully.
+2. Observe discoveries using magnifying glasses.
+3. Discuss findings.
+LEARNING_GOALS:
+Develop investigation skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Dinosaur Egg Hunt
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Promote movement and exploration.
+DESCRIPTION:
+Promote movement and exploration.
+MATERIALS:
+Plastic eggs
+Toy dinosaurs
+SETUP:
+Hide eggs around the room.
+TEACHER_ROLE:
+Encourage counting and teamwork.
+DIRECTIONS:
+1. Search for dinosaur eggs.
+2. Count collected eggs.
+3. Open eggs to discover dinosaurs.
+LEARNING_GOALS:
+Promote movement and exploration.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Fossil Impressions
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Strengthen hand muscles and observation skills.
+DESCRIPTION:
+Strengthen hand muscles and observation skills.
+MATERIALS:
+Play dough
+Toy dinosaurs
+SETUP:
+Provide play dough to each child.
+TEACHER_ROLE:
+Guide scientific discussions.
+DIRECTIONS:
+1. Press dinosaurs into dough.
+2. Examine fossil impressions.
+3. Compare patterns.
+LEARNING_GOALS:
+Strengthen hand muscles and observation skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Dinosaur Story Theater
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Build language and storytelling skills.
+DESCRIPTION:
+Build language and storytelling skills.
+MATERIALS:
+Dinosaur puppets
+Props
+SETUP:
+Create a storytelling area.
+TEACHER_ROLE:
+Expand vocabulary and storytelling.
+DIRECTIONS:
+1. Create dinosaur adventures.
+2. Act out stories with friends.
+3. Share ideas with the group.
+LEARNING_GOALS:
+Build language and storytelling skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+WEDNESDAY:
+
+ACTIVITY_NAME:
+Volcano Eruption Experiment
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Introduce simple science concepts.
+DESCRIPTION:
+Introduce simple science concepts.
+MATERIALS:
+Baking soda
+Vinegar
+Food coloring
+Small volcano model
+SETUP:
+Prepare volcano materials.
+TEACHER_ROLE:
+Encourage scientific thinking.
+DIRECTIONS:
+1. Predict what will happen.
+2. Add ingredients.
+3. Observe the eruption.
+LEARNING_GOALS:
+Introduce simple science concepts.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Dinosaur Measurement Station
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Explore measurement concepts.
+DESCRIPTION:
+Explore measurement concepts.
+MATERIALS:
+Measuring tape
+Dinosaur pictures
+SETUP:
+Place dinosaur pictures around the room.
+TEACHER_ROLE:
+Introduce math vocabulary.
+DIRECTIONS:
+1. Measure dinosaur lengths.
+2. Compare sizes.
+3. Discuss longest and shortest.
+LEARNING_GOALS:
+Explore measurement concepts.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Dinosaur Skeleton Craft
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Develop cutting and gluing skills.
+DESCRIPTION:
+Develop cutting and gluing skills.
+MATERIALS:
+Black paper
+Cotton swabs
+Glue
+SETUP:
+Prepare craft materials.
+TEACHER_ROLE:
+Assist as needed.
+DIRECTIONS:
+1. Create dinosaur skeletons.
+2. Arrange bones on paper.
+3. Discuss skeleton structure.
+LEARNING_GOALS:
+Develop cutting and gluing skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+T-Rex Freeze Dance
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Strengthen listening skills.
+DESCRIPTION:
+Strengthen listening skills.
+MATERIALS:
+Music player
+SETUP:
+Open movement area.
+TEACHER_ROLE:
+Lead movement activities.
+DIRECTIONS:
+1. Dance like dinosaurs.
+2. Freeze when music stops.
+3. Practice self-control.
+LEARNING_GOALS:
+Strengthen listening skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+THURSDAY:
+
+ACTIVITY_NAME:
+Dinosaur Sorting Center
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Develop classification skills.
+DESCRIPTION:
+Develop classification skills.
+MATERIALS:
+Toy dinosaurs
+SETUP:
+Provide sorting trays.
+TEACHER_ROLE:
+Support mathematical thinking.
+DIRECTIONS:
+1. Sort dinosaurs by color, size, or type.
+2. Compare groups.
+3. Count each category.
+LEARNING_GOALS:
+Develop classification skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Dinosaur Nest Builders
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Encourage engineering and creativity.
+DESCRIPTION:
+Encourage engineering and creativity.
+MATERIALS:
+Straw
+Paper
+Natural materials
+SETUP:
+Provide building materials.
+TEACHER_ROLE:
+Encourage problem-solving.
+DIRECTIONS:
+1. Build nests for dinosaur eggs.
+2. Test nest strength.
+3. Discuss design choices.
+LEARNING_GOALS:
+Encourage engineering and creativity.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Dinosaur Egg Painting
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Strengthen creativity and hand control.
+DESCRIPTION:
+Strengthen creativity and hand control.
+MATERIALS:
+Paper egg templates
+Paint
+SETUP:
+Prepare painting stations.
+TEACHER_ROLE:
+Encourage artistic expression.
+DIRECTIONS:
+1. Decorate dinosaur eggs.
+2. Create unique patterns.
+LEARNING_GOALS:
+Strengthen creativity and hand control.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Dinosaur Rescue Mission
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Develop cooperation and imagination.
+DESCRIPTION:
+Develop cooperation and imagination.
+MATERIALS:
+Toy dinosaurs
+Props
+SETUP:
+Create rescue scenarios.
+TEACHER_ROLE:
+Support teamwork and communication.
+DIRECTIONS:
+1. Work together to rescue dinosaurs.
+2. Create solutions to challenges.
+LEARNING_GOALS:
+Develop cooperation and imagination.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+FRIDAY:
+
+ACTIVITY_NAME:
+Dinosaur Museum
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Build confidence and communication skills.
+DESCRIPTION:
+Build confidence and communication skills.
+MATERIALS:
+Week's projects
+Toy dinosaurs
+SETUP:
+Create museum displays.
+TEACHER_ROLE:
+Encourage speaking and listening.
+DIRECTIONS:
+1. Display dinosaur creations.
+2. Give museum tours.
+3. Share favorite discoveries.
+LEARNING_GOALS:
+Build confidence and communication skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Dinosaur Sensory Adventure
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Review dinosaur concepts through play.
+DESCRIPTION:
+Review dinosaur concepts through play.
+MATERIALS:
+Sensory materials
+Dinosaurs
+Fossils
+SETUP:
+Create sensory stations.
+TEACHER_ROLE:
+Encourage reflection and vocabulary.
+DIRECTIONS:
+1. Explore stations.
+2. Discuss favorite discoveries.
+LEARNING_GOALS:
+Review dinosaur concepts through play.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Dinosaur Celebration Stomp
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Celebrate learning through movement.
+DESCRIPTION:
+Celebrate learning through movement.
+MATERIALS:
+Music player
+SETUP:
+Clear movement space.
+TEACHER_ROLE:
+Celebrate participation and learning.
+
+
+Next
+DIRECTIONS:
+1. Dance and stomp like favorite dinosaurs.
+2. Share favorite parts of the week.
+LEARNING_GOALS:
+Celebrate learning through movement.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.

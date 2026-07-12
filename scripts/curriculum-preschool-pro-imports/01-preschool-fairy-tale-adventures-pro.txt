@@ -1,0 +1,548 @@
+TITLE:
+Fairy Tale Adventures
+
+AGE_GROUP:
+Preschool 3-5 Years
+
+THEME:
+Fairy Tales
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Language & Literacy
+Social Emotional
+Physical Development
+Creative Arts
+Science
+Math
+
+WEEKLY_OVERVIEW:
+Children will enter a magical world of fairy tales as they explore castles, dragons, princes, princesses, giants, and enchanted forests through hands-on play. Throughout the week, children will retell stories, build castles, create fairy tale art, solve problems, engage in dramatic play, and strengthen early literacy and math skills while bringing beloved fairy tales to life.
+
+LEARNING_OBJECTIVES:
+Develop storytelling and story retelling skills
+Strengthen vocabulary and communication
+Encourage imaginative and dramatic play
+Explore building and engineering concepts
+Practice counting, sorting, and measuring
+Strengthen fine and gross motor skills
+Build social skills through cooperative play
+Foster creativity and problem-solving
+
+WEEKLY_MATERIALS:
+Fairy tale books
+Blocks
+Cardboard boxes
+Crowns
+Capes
+Scarves
+Puppets
+Toy dragons
+Toy animals
+Craft sticks
+Paint
+Markers
+Crayons
+Glue
+Construction paper
+Gem stickers
+Play dough
+Sensory bin materials
+Building materials
+Music player
+
+VOCABULARY:
+Castle
+Dragon
+Knight
+Princess
+Prince
+Giant
+Fairy
+Magic
+Kingdom
+Tower
+Bridge
+Adventure
+Brave
+Royal
+
+BOOKS:
+The Three Little Pigs | James Marshall
+Jack and the Beanstalk | Steven Kellogg
+Goldilocks and the Three Bears | Jan Brett
+
+SONGS:
+I'm a Little Knight
+The Princess Dance
+Castle Builders Song
+
+FAMILY_CONNECTION:
+Invite your child to retell a favorite fairy tale at home. Ask questions about the characters, setting, and events in the story. Encourage your child to create a new ending to a familiar fairy tale and share it with family members.
+
+OBSERVATION_OPPORTUNITIES:
+Observe children's ability to retell stories, engage in dramatic play, cooperate with peers, solve building challenges, use new vocabulary, and demonstrate creativity during open-ended activities.
+
+ADAPTATIONS:
+Provide visual story cards for children needing additional support. Offer adaptive art tools as needed. Simplify directions into smaller steps and provide one-on-one guidance when appropriate.
+
+MONDAY:
+
+ACTIVITY_NAME:
+Fairy Tale Dress-Up Kingdom
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Encourage imaginative play and social interaction.
+DESCRIPTION:
+Encourage imaginative play and social interaction.
+MATERIALS:
+Crowns
+Capes
+Scarves
+Dress-up accessories
+Mirror
+SETUP:
+Arrange dress-up materials in the dramatic play area.
+TEACHER_ROLE:
+Model imaginative play and encourage storytelling language.
+DIRECTIONS:
+1. Invite children to choose a fairy tale character.
+2. Encourage children to interact with peers while acting out roles.
+3. Discuss each character's traits and adventures.
+LEARNING_GOALS:
+Encourage imaginative play and social interaction.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Castle Builders
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Develop engineering and problem-solving skills.
+DESCRIPTION:
+Develop engineering and problem-solving skills.
+MATERIALS:
+Blocks
+Cardboard tubes
+Small boxes
+SETUP:
+Place building materials in a large construction area.
+TEACHER_ROLE:
+Ask open-ended questions and support problem-solving.
+DIRECTIONS:
+1. Show pictures of castles.
+2. Invite children to build their own castles.
+3. Discuss towers, walls, and bridges.
+LEARNING_GOALS:
+Develop engineering and problem-solving skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Royal Crown Creations
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Strengthen fine motor skills and creativity.
+DESCRIPTION:
+Strengthen fine motor skills and creativity.
+MATERIALS:
+Paper crown templates
+Gem stickers
+Crayons
+Glue
+SETUP:
+Prepare art supplies at tables.
+TEACHER_ROLE:
+Support cutting, gluing, and creative expression.
+DIRECTIONS:
+1. Allow children to decorate crowns.
+2. Encourage unique designs and color choices.
+3. Wear crowns during circle time.
+LEARNING_GOALS:
+Strengthen fine motor skills and creativity.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Knights and Dragons Dance
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Develop gross motor skills and listening abilities.
+DESCRIPTION:
+Develop gross motor skills and listening abilities.
+MATERIALS:
+Music player
+SETUP:
+Create an open movement space.
+TEACHER_ROLE:
+Lead movement and encourage participation.
+DIRECTIONS:
+1. Play music.
+2. Call out "knight" or "dragon."
+3. Children move like the character.
+4. Freeze when music stops.
+LEARNING_GOALS:
+Develop gross motor skills and listening abilities.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+TUESDAY:
+
+ACTIVITY_NAME:
+Three Little Pigs Story Retelling
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Strengthen sequencing and language development.
+DESCRIPTION:
+Strengthen sequencing and language development.
+MATERIALS:
+Story props
+Puppets
+Straw
+Sticks
+Blocks
+SETUP:
+Prepare story materials in a circle area.
+TEACHER_ROLE:
+Support comprehension and sequencing.
+DIRECTIONS:
+1. Read the story.
+2. Invite children to act out each part.
+3. Discuss beginning, middle, and end.
+LEARNING_GOALS:
+Strengthen sequencing and language development.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Build the Strongest House
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Explore engineering and problem-solving.
+DESCRIPTION:
+Explore engineering and problem-solving.
+MATERIALS:
+Straws
+Craft sticks
+Blocks
+SETUP:
+Place materials in small group stations.
+TEACHER_ROLE:
+Encourage predictions and observations.
+DIRECTIONS:
+1. Challenge children to build houses.
+2. Test which house stays standing.
+3. Compare materials used.
+LEARNING_GOALS:
+Explore engineering and problem-solving.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Pig House Painting
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Develop creativity and hand control.
+DESCRIPTION:
+Develop creativity and hand control.
+MATERIALS:
+Paper
+Paint
+Brushes
+SETUP:
+Prepare painting stations.
+TEACHER_ROLE:
+Encourage creativity and conversation.
+DIRECTIONS:
+1. Paint houses from the story.
+2. Discuss colors and details.
+LEARNING_GOALS:
+Develop creativity and hand control.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Wolf Movement Game
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Develop balance and coordination.
+DESCRIPTION:
+Develop balance and coordination.
+MATERIALS:
+Cones
+Open space
+SETUP:
+Create a movement course.
+TEACHER_ROLE:
+Model safe movement.
+DIRECTIONS:
+1. Children move like sneaky wolves.
+2. Follow obstacle paths.
+3. Practice stopping and starting.
+LEARNING_GOALS:
+Develop balance and coordination.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+WEDNESDAY:
+
+ACTIVITY_NAME:
+Jack and the Beanstalk Adventure
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Encourage storytelling and imagination.
+DESCRIPTION:
+Encourage storytelling and imagination.
+MATERIALS:
+Green streamers
+Beanstalk props
+SETUP:
+Create a giant beanstalk area.
+TEACHER_ROLE:
+Expand vocabulary and imagination.
+DIRECTIONS:
+1. Pretend to climb the beanstalk.
+2. Meet giant characters.
+3. Create adventure stories.
+LEARNING_GOALS:
+Encourage storytelling and imagination.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Giant Footprint Measuring
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Introduce measuring concepts.
+DESCRIPTION:
+Introduce measuring concepts.
+MATERIALS:
+Large paper footprints
+Measuring tape
+SETUP:
+Place footprints around the room.
+TEACHER_ROLE:
+Introduce math vocabulary.
+DIRECTIONS:
+1. Measure giant footprints.
+2. Compare sizes.
+3. Discuss bigger and smaller.
+LEARNING_GOALS:
+Introduce measuring concepts.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Beanstalk Collage
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Strengthen cutting and gluing skills.
+DESCRIPTION:
+Strengthen cutting and gluing skills.
+MATERIALS:
+Green paper
+Glue
+Scissors
+SETUP:
+Prepare collage materials.
+TEACHER_ROLE:
+Assist as needed.
+DIRECTIONS:
+1. Create giant beanstalks.
+2. Add leaves and clouds.
+LEARNING_GOALS:
+Strengthen cutting and gluing skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Giant Steps Movement
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Develop body awareness and coordination.
+DESCRIPTION:
+Develop body awareness and coordination.
+MATERIALS:
+Music player
+SETUP:
+Open floor space.
+TEACHER_ROLE:
+Lead movement activities.
+DIRECTIONS:
+1. Take giant steps.
+2. Take tiny steps.
+3. Follow movement directions.
+LEARNING_GOALS:
+Develop body awareness and coordination.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+THURSDAY:
+
+ACTIVITY_NAME:
+Goldilocks and the Three Bears House
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Develop story comprehension.
+DESCRIPTION:
+Develop story comprehension.
+MATERIALS:
+Bowls
+Chairs
+Bear props
+SETUP:
+Create a bear cottage area.
+TEACHER_ROLE:
+Encourage sequencing and discussion.
+DIRECTIONS:
+1. Act out the story.
+2. Compare sizes of objects.
+LEARNING_GOALS:
+Develop story comprehension.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Too Big, Too Small, Just Right
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Explore comparison concepts.
+DESCRIPTION:
+Explore comparison concepts.
+MATERIALS:
+Sorting objects
+SETUP:
+Prepare sorting trays.
+TEACHER_ROLE:
+Introduce comparison vocabulary.
+DIRECTIONS:
+1. Sort items by size.
+2. Discuss comparisons.
+LEARNING_GOALS:
+Explore comparison concepts.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Bear Mask Craft
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Develop creativity and fine motor skills.
+DESCRIPTION:
+Develop creativity and fine motor skills.
+MATERIALS:
+Bear mask templates
+Crayons
+Glue
+SETUP:
+Prepare craft stations.
+TEACHER_ROLE:
+Support creativity.
+DIRECTIONS:
+1. Decorate masks.
+2. Wear during dramatic play.
+LEARNING_GOALS:
+Develop creativity and fine motor skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+FRIDAY:
+
+ACTIVITY_NAME:
+Fairy Tale Puppet Theater
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Encourage storytelling and confidence.
+DESCRIPTION:
+Encourage storytelling and confidence.
+MATERIALS:
+Puppets
+Stage area
+SETUP:
+Create puppet theater.
+TEACHER_ROLE:
+Support storytelling and participation.
+DIRECTIONS:
+1. Choose favorite fairy tale characters.
+2. Create original stories.
+3. Perform for classmates.
+LEARNING_GOALS:
+Encourage storytelling and confidence.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Enchanted Forest Sensory Bin
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Encourage sensory exploration and imaginative play.
+DESCRIPTION:
+Encourage sensory exploration and imaginative play.
+MATERIALS:
+Green rice
+Toy animals
+Trees
+Gems
+SETUP:
+Prepare sensory bin.
+TEACHER_ROLE:
+Encourage descriptive language.
+DIRECTIONS:
+1. Explore materials.
+2. Create fairy tale scenes.
+3. Tell stories about discoveries.
+LEARNING_GOALS:
+Encourage sensory exploration and imaginative play.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Fairy Tale Celebration Parade
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Celebrate learning through movement and expression.
+DESCRIPTION:
+Celebrate learning through movement and expression.
+MATERIALS:
+Crowns
+Music
+Costumes
+SETUP:
+Prepare parade route.
+TEACHER_ROLE:
+Celebrate participation and learning.
+
+
+
+Next
+DIRECTIONS:
+1. Dress as favorite characters.
+2. March around the classroom.
+3. Share favorite fairy tale moments.
+LEARNING_GOALS:
+Celebrate learning through movement and expression.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.

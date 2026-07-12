@@ -1,0 +1,535 @@
+TITLE:
+Healthy Habits
+
+AGE_GROUP:
+Preschool 3-5 Years
+
+THEME:
+Healthy Habits
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Social Emotional
+Physical Development
+Language & Literacy
+Science
+Math
+Creative Arts
+
+WEEKLY_OVERVIEW:
+Children will learn how healthy choices help their bodies grow strong. Throughout the week, children will explore nutrition, exercise, hygiene, sleep, dental health, and self-care through hands-on activities, movement games, dramatic play, experiments, and creative experiences. Children will build lifelong healthy habits while strengthening social, physical, and cognitive skills.
+
+LEARNING_OBJECTIVES:
+Identify healthy foods and healthy habits
+Learn the importance of exercise and movement
+Understand proper handwashing techniques
+Explore dental health and hygiene routines
+Develop self-care skills and independence
+Practice healthy decision-making
+Strengthen fine and gross motor skills
+Build vocabulary related to health and wellness
+
+WEEKLY_MATERIALS:
+Play food
+Food pictures
+Toothbrushes
+Toy doctor kit
+Mirrors
+Paper
+Markers
+Paint
+Glue
+Scissors
+Hula hoops
+Cones
+Water bottles
+Books
+Music player
+
+VOCABULARY:
+Healthy
+Exercise
+Nutrition
+Vegetables
+Fruits
+Strong
+Hygiene
+Toothbrush
+Doctor
+Sleep
+Water
+Body
+Germs
+Clean
+
+BOOKS:
+The Berenstain Bears and Too Much Junk Food | Stan and Jan Berenstain
+Brush, Brush, Brush! | Alicia Padron
+I Can Eat a Rainbow | Annabel Karmel
+
+SONGS:
+Brush Your Teeth
+Head, Shoulders, Knees and Toes
+The Healthy Food Song
+
+FAMILY_CONNECTION:
+Encourage families to involve children in healthy daily routines. Talk about healthy foods, handwashing, exercise, and bedtime habits at home. Invite children to share healthy choices they make with their families.
+
+OBSERVATION_OPPORTUNITIES:
+Observe children's understanding of healthy choices, participation in self-care routines, ability to identify healthy foods, gross motor development during exercise activities, and communication during discussions.
+
+ADAPTATIONS:
+Provide visual supports for routines. Offer adaptive tools when needed. Break activities into smaller steps and allow children multiple ways to participate.
+
+MONDAY:
+
+ACTIVITY_NAME:
+Healthy Food Sorting
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Identify healthy and less healthy food choices.
+DESCRIPTION:
+Identify healthy and less healthy food choices.
+MATERIALS:
+Food pictures
+Sorting mats
+SETUP:
+Place food pictures in a basket.
+TEACHER_ROLE:
+Guide discussions and encourage critical thinking.
+DIRECTIONS:
+1. Sort foods into healthy and sometimes foods.
+2. Discuss food choices.
+3. Compare categories.
+LEARNING_GOALS:
+Identify healthy and less healthy food choices.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Fruit and Vegetable Sensory Bin
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Explore healthy foods through sensory play.
+DESCRIPTION:
+Explore healthy foods through sensory play.
+MATERIALS:
+Plastic fruits
+Plastic vegetables
+Rice
+Scoops
+SETUP:
+Create sensory bin.
+TEACHER_ROLE:
+Model vocabulary and encourage conversation.
+DIRECTIONS:
+1. Search for fruits and vegetables.
+2. Name each item discovered.
+3. Sort by color.
+LEARNING_GOALS:
+Explore healthy foods through sensory play.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+My Healthy Plate Craft
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Learn about balanced meals.
+DESCRIPTION:
+Learn about balanced meals.
+MATERIALS:
+Paper plates
+Food pictures
+Glue
+Scissors
+SETUP:
+Prepare materials.
+TEACHER_ROLE:
+Support cutting and healthy food discussions.
+DIRECTIONS:
+1. Create a healthy meal plate.
+2. Discuss food groups.
+LEARNING_GOALS:
+Learn about balanced meals.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Fitness Fun Circuit
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Promote exercise and movement.
+DESCRIPTION:
+Promote exercise and movement.
+MATERIALS:
+Cones
+Hula hoops
+SETUP:
+Create movement stations.
+TEACHER_ROLE:
+Encourage participation and safe movement.
+DIRECTIONS:
+1. Jump, hop, crawl, and balance through stations.
+LEARNING_GOALS:
+Promote exercise and movement.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+TUESDAY:
+
+ACTIVITY_NAME:
+Handwashing Science
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Understand the importance of handwashing.
+DESCRIPTION:
+Understand the importance of handwashing.
+MATERIALS:
+Glitter
+Soap
+Water
+SETUP:
+Place glitter on children's hands.
+TEACHER_ROLE:
+Explain hygiene concepts.
+DIRECTIONS:
+1. Pretend glitter is germs.
+2. Wash hands with and without soap.
+3. Compare results.
+LEARNING_GOALS:
+Understand the importance of handwashing.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Doctor's Office Dramatic Play
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Explore health care roles.
+DESCRIPTION:
+Explore health care roles.
+MATERIALS:
+Doctor kit
+Bandages
+Clipboards
+SETUP:
+Create doctor's office.
+TEACHER_ROLE:
+Support role-playing and communication.
+DIRECTIONS:
+1. Take turns being doctors and patients.
+2. Discuss healthy habits.
+LEARNING_GOALS:
+Explore health care roles.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Germ Monster Art
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Develop creativity and understanding of germs.
+DESCRIPTION:
+Develop creativity and understanding of germs.
+MATERIALS:
+Paint
+Paper
+Markers
+SETUP:
+Prepare art station.
+TEACHER_ROLE:
+Connect art to hygiene lessons.
+DIRECTIONS:
+1. Create silly germ monsters.
+2. Discuss how to keep germs away.
+LEARNING_GOALS:
+Develop creativity and understanding of germs.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Healthy Habits Movement Game
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Practice healthy routines through movement.
+DESCRIPTION:
+Practice healthy routines through movement.
+MATERIALS:
+Music player
+SETUP:
+Open movement space.
+TEACHER_ROLE:
+Lead movements and discussions.
+DIRECTIONS:
+1. Act out brushing teeth, exercising, sleeping, and washing hands.
+LEARNING_GOALS:
+Practice healthy routines through movement.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+WEDNESDAY:
+
+ACTIVITY_NAME:
+Toothbrush Investigation
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Learn about dental health.
+DESCRIPTION:
+Learn about dental health.
+MATERIALS:
+Toothbrushes
+Model teeth
+SETUP:
+Prepare demonstration area.
+TEACHER_ROLE:
+Model proper brushing.
+DIRECTIONS:
+1. Practice brushing techniques.
+2. Discuss caring for teeth.
+LEARNING_GOALS:
+Learn about dental health.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Dentist Office Dramatic Play
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Build confidence around dental care.
+DESCRIPTION:
+Build confidence around dental care.
+MATERIALS:
+Dental props
+Mirrors
+SETUP:
+Create dental office.
+TEACHER_ROLE:
+Support role-play and reduce fears.
+DIRECTIONS:
+1. Pretend to examine and clean teeth.
+LEARNING_GOALS:
+Build confidence around dental care.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Tooth Craft
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Strengthen fine motor skills.
+DESCRIPTION:
+Strengthen fine motor skills.
+MATERIALS:
+Tooth templates
+Cotton balls
+Glue
+SETUP:
+Prepare craft supplies.
+TEACHER_ROLE:
+Encourage creativity and conversation.
+DIRECTIONS:
+1. Decorate healthy teeth.
+2. Discuss dental care.
+LEARNING_GOALS:
+Strengthen fine motor skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Strong Body Exercise Time
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Develop strength and coordination.
+DESCRIPTION:
+Develop strength and coordination.
+MATERIALS:
+Exercise cards
+SETUP:
+Create movement area.
+TEACHER_ROLE:
+Encourage effort and participation.
+DIRECTIONS:
+1. Complete exercise challenges.
+LEARNING_GOALS:
+Develop strength and coordination.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+THURSDAY:
+
+ACTIVITY_NAME:
+Healthy Choices Sorting Game
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Practice making healthy choices.
+DESCRIPTION:
+Practice making healthy choices.
+MATERIALS:
+Picture cards
+SETUP:
+Prepare sorting mats.
+TEACHER_ROLE:
+Guide discussions.
+DIRECTIONS:
+1. Sort healthy and unhealthy choices.
+2. Discuss reasoning.
+LEARNING_GOALS:
+Practice making healthy choices.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Self-Care Station
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Practice independence skills.
+DESCRIPTION:
+Practice independence skills.
+MATERIALS:
+Brushes
+Washcloths
+Mirrors
+SETUP:
+Create self-care center.
+TEACHER_ROLE:
+Model self-care skills.
+DIRECTIONS:
+1. Practice grooming routines.
+LEARNING_GOALS:
+Practice independence skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Water Bottle Decorating
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Promote hydration awareness.
+DESCRIPTION:
+Promote hydration awareness.
+MATERIALS:
+Water bottles
+Stickers
+SETUP:
+Prepare decorating station.
+TEACHER_ROLE:
+Discuss drinking water benefits.
+DIRECTIONS:
+1. Decorate personal water bottles.
+LEARNING_GOALS:
+Promote hydration awareness.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Healthy Habits Relay
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Promote active play.
+DESCRIPTION:
+Promote active play.
+MATERIALS:
+Cones
+SETUP:
+Create relay course.
+TEACHER_ROLE:
+Encourage teamwork.
+DIRECTIONS:
+1. Complete healthy habit challenges.
+LEARNING_GOALS:
+Promote active play.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+FRIDAY:
+
+ACTIVITY_NAME:
+Healthy Habits Review Stations
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Review concepts learned during the week.
+DESCRIPTION:
+Review concepts learned during the week.
+MATERIALS:
+Materials from the week
+SETUP:
+Create review centers.
+TEACHER_ROLE:
+Encourage reflection.
+DIRECTIONS:
+1. Visit stations and discuss learning.
+LEARNING_GOALS:
+Review concepts learned during the week.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Healthy Hero Celebration
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Celebrate healthy choices.
+DESCRIPTION:
+Celebrate healthy choices.
+MATERIALS:
+Certificates
+Props
+SETUP:
+Create celebration area.
+TEACHER_ROLE:
+Celebrate learning and participation.
+DIRECTIONS:
+1. Share favorite healthy habits.
+2. Receive Healthy Hero recognition.
+LEARNING_GOALS:
+Celebrate healthy choices.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Healthy Dance Party
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Celebrate movement and exercise.
+DESCRIPTION:
+Celebrate movement and exercise.
+MATERIALS:
+Music player
+SETUP:
+Open movement area.
+TEACHER_ROLE:
+Encourage joyful movement.
+
+
+Next
+DIRECTIONS:
+1. Dance and move with friends.
+2. Practice favorite exercises.
+LEARNING_GOALS:
+Celebrate movement and exercise.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.

@@ -1,0 +1,537 @@
+TITLE:
+STEM Explorers
+
+AGE_GROUP:
+Preschool 3-5 Years
+
+THEME:
+STEM
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Science
+Math
+Language & Literacy
+Physical Development
+Social Emotional
+Creative Arts
+
+WEEKLY_OVERVIEW:
+Children will become young scientists, engineers, mathematicians, and inventors as they explore hands-on STEM activities. Throughout the week, children will investigate, build, test, predict, measure, sort, and solve problems while developing critical thinking skills through engaging experiments and challenges.
+
+LEARNING_OBJECTIVES:
+Develop scientific observation skills
+Practice predicting and testing outcomes
+Strengthen counting and measuring skills
+Encourage problem-solving and critical thinking
+Build engineering and design skills
+Develop communication and teamwork
+Explore cause and effect relationships
+Foster curiosity and creativity
+
+WEEKLY_MATERIALS:
+Building blocks
+Magnifying glasses
+Measuring cups
+Funnels
+Water table
+Pipettes
+Craft sticks
+Paper cups
+Tape
+Play dough
+Toy animals
+Rulers
+Dominoes
+Marbles
+Plastic containers
+Books
+
+VOCABULARY:
+Science
+Engineer
+Predict
+Observe
+Experiment
+Measure
+Build
+Design
+Test
+Problem
+Solution
+Investigate
+Compare
+Discover
+
+BOOKS:
+Rosie Revere, Engineer | Andrea Beaty
+Ada Twist, Scientist | Andrea Beaty
+What Do You Do With An Idea? | Kobi Yamada
+
+SONGS:
+The Science Song
+Count and Move
+Build It Up
+
+FAMILY_CONNECTION:
+Encourage your child to ask questions and investigate the world around them. Invite them to make predictions during everyday activities and discuss what happened afterward.
+
+OBSERVATION_OPPORTUNITIES:
+Observe problem-solving skills, persistence, cooperation, measuring abilities, scientific thinking, communication, and curiosity during investigations.
+
+ADAPTATIONS:
+Provide visual supports and step-by-step picture directions. Offer larger materials when needed and allow extra time for exploration and problem-solving.
+
+MONDAY:
+
+ACTIVITY_NAME:
+Scientist Investigation Station
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Develop observation and investigation skills.
+DESCRIPTION:
+Develop observation and investigation skills.
+MATERIALS:
+Magnifying glasses
+Natural objects
+Observation trays
+SETUP:
+Arrange items on trays for exploration.
+TEACHER_ROLE:
+Encourage questioning and observation.
+DIRECTIONS:
+1. Observe objects closely.
+2. Describe colors, textures, and shapes.
+3. Compare discoveries.
+LEARNING_GOALS:
+Develop observation and investigation skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Build the Tallest Tower
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Develop engineering and problem-solving skills.
+DESCRIPTION:
+Develop engineering and problem-solving skills.
+MATERIALS:
+Blocks
+SETUP:
+Provide building materials.
+TEACHER_ROLE:
+Encourage planning and persistence.
+DIRECTIONS:
+1. Build the tallest tower possible.
+2. Test stability.
+3. Improve designs.
+LEARNING_GOALS:
+Develop engineering and problem-solving skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Measuring Fun
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Introduce measuring concepts.
+DESCRIPTION:
+Introduce measuring concepts.
+MATERIALS:
+Rulers
+Blocks
+Classroom objects
+SETUP:
+Create measuring stations.
+TEACHER_ROLE:
+Introduce measurement vocabulary.
+DIRECTIONS:
+1. Measure classroom items.
+2. Compare lengths.
+3. Discuss results.
+LEARNING_GOALS:
+Introduce measuring concepts.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+STEM Movement Challenge
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Develop listening and body control.
+DESCRIPTION:
+Develop listening and body control.
+MATERIALS:
+Movement cards
+SETUP:
+Create movement space.
+TEACHER_ROLE:
+Lead activities and encourage participation.
+DIRECTIONS:
+1. Complete movement challenges.
+2. Jump, balance, crawl, and stretch.
+LEARNING_GOALS:
+Develop listening and body control.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+TUESDAY:
+
+ACTIVITY_NAME:
+Sink or Float Experiment
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Explore scientific investigation.
+DESCRIPTION:
+Explore scientific investigation.
+MATERIALS:
+Water tub
+Various objects
+SETUP:
+Fill container with water.
+TEACHER_ROLE:
+Guide scientific discussions.
+DIRECTIONS:
+1. Predict what will happen.
+2. Test each object.
+3. Record observations.
+LEARNING_GOALS:
+Explore scientific investigation.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Bridge Builders
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Develop engineering skills.
+DESCRIPTION:
+Develop engineering skills.
+MATERIALS:
+Craft sticks
+Blocks
+Paper cups
+SETUP:
+Provide building materials.
+TEACHER_ROLE:
+Support problem-solving.
+DIRECTIONS:
+1. Build a bridge.
+2. Test strength.
+3. Make improvements.
+LEARNING_GOALS:
+Develop engineering skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Pattern Creation
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Develop mathematical thinking.
+DESCRIPTION:
+Develop mathematical thinking.
+MATERIALS:
+Colored manipulatives
+SETUP:
+Create pattern stations.
+TEACHER_ROLE:
+Introduce pattern vocabulary.
+DIRECTIONS:
+1. Create repeating patterns.
+2. Extend patterns.
+LEARNING_GOALS:
+Develop mathematical thinking.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Inventor Dramatic Play
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Encourage creativity and communication.
+DESCRIPTION:
+Encourage creativity and communication.
+MATERIALS:
+Tool props
+Clipboards
+SETUP:
+Create invention workshop.
+TEACHER_ROLE:
+Encourage imaginative thinking.
+DIRECTIONS:
+1. Design inventions.
+2. Explain how they work.
+LEARNING_GOALS:
+Encourage creativity and communication.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+WEDNESDAY:
+
+ACTIVITY_NAME:
+Ramp Testing
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Investigate motion and speed.
+DESCRIPTION:
+Investigate motion and speed.
+MATERIALS:
+Ramps
+Toy cars
+SETUP:
+Create testing stations.
+TEACHER_ROLE:
+Guide experimentation.
+DIRECTIONS:
+1. Test different ramps.
+2. Observe results.
+3. Compare speeds.
+LEARNING_GOALS:
+Investigate motion and speed.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Domino Engineering
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Develop planning skills.
+DESCRIPTION:
+Develop planning skills.
+MATERIALS:
+Dominoes
+SETUP:
+Arrange building area.
+TEACHER_ROLE:
+Support persistence.
+DIRECTIONS:
+1. Create domino paths.
+2. Test chain reactions.
+LEARNING_GOALS:
+Develop planning skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Blueprint Drawing
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Develop planning and creativity.
+DESCRIPTION:
+Develop planning and creativity.
+MATERIALS:
+Paper
+Markers
+SETUP:
+Provide drawing supplies.
+TEACHER_ROLE:
+Encourage detailed thinking.
+DIRECTIONS:
+1. Draw building plans.
+2. Explain designs.
+LEARNING_GOALS:
+Develop planning and creativity.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Robot Movement Game
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Develop body awareness.
+DESCRIPTION:
+Develop body awareness.
+MATERIALS:
+Music
+SETUP:
+Open floor space.
+TEACHER_ROLE:
+Lead movement activities.
+DIRECTIONS:
+1. Move like robots.
+2. Follow movement commands.
+LEARNING_GOALS:
+Develop body awareness.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+THURSDAY:
+
+ACTIVITY_NAME:
+Marble Run Challenge
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Explore engineering concepts.
+DESCRIPTION:
+Explore engineering concepts.
+MATERIALS:
+Tubes
+Marbles
+Tape
+SETUP:
+Provide materials.
+TEACHER_ROLE:
+Support experimentation.
+DIRECTIONS:
+1. Build marble runs.
+2. Test and redesign.
+LEARNING_GOALS:
+Explore engineering concepts.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Sorting Scientists
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Develop classification skills.
+DESCRIPTION:
+Develop classification skills.
+MATERIALS:
+Various objects
+SETUP:
+Create sorting trays.
+TEACHER_ROLE:
+Introduce comparison vocabulary.
+DIRECTIONS:
+1. Sort by different attributes.
+2. Discuss categories.
+LEARNING_GOALS:
+Develop classification skills.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+STEM Journal Drawing
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Record observations.
+DESCRIPTION:
+Record observations.
+MATERIALS:
+Paper
+Crayons
+SETUP:
+Prepare journals.
+TEACHER_ROLE:
+Encourage reflection.
+DIRECTIONS:
+1. Draw favorite investigations.
+2. Share observations.
+LEARNING_GOALS:
+Record observations.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Team Builder Challenge
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Develop teamwork.
+DESCRIPTION:
+Develop teamwork.
+MATERIALS:
+Building materials
+SETUP:
+Small group stations.
+TEACHER_ROLE:
+Encourage cooperation.
+DIRECTIONS:
+1. Work together to complete challenges.
+LEARNING_GOALS:
+Develop teamwork.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+FRIDAY:
+
+ACTIVITY_NAME:
+STEM Exploration Stations
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Review weekly STEM concepts.
+DESCRIPTION:
+Review weekly STEM concepts.
+MATERIALS:
+Favorite materials from the week
+SETUP:
+Create exploration centers.
+TEACHER_ROLE:
+Encourage discussion.
+DIRECTIONS:
+1. Visit each station.
+2. Explore and investigate.
+LEARNING_GOALS:
+Review weekly STEM concepts.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+Engineer Showcase
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Build confidence and communication.
+DESCRIPTION:
+Build confidence and communication.
+MATERIALS:
+Completed projects
+SETUP:
+Display projects.
+TEACHER_ROLE:
+Support presentations.
+DIRECTIONS:
+1. Share creations.
+2. Explain designs.
+LEARNING_GOALS:
+Build confidence and communication.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
+
+ACTIVITY_NAME:
+STEM Celebration Dance
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Celebrate learning through movement.
+DESCRIPTION:
+Celebrate learning through movement.
+MATERIALS:
+Music player
+SETUP:
+Open movement area.
+TEACHER_ROLE:
+Encourage participation and reflection.
+
+
+Next
+DIRECTIONS:
+1. Dance and move.
+2. Celebrate discoveries.
+LEARNING_GOALS:
+Celebrate learning through movement.
+OBSERVATION_OPPORTUNITIES:
+Observe participation and engagement.
