@@ -7,11 +7,14 @@ const CURRICULUM_WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "frid
 const CURRICULUM_PREMIUM_TEXT_LIMIT = 12000;
 const CURRICULUM_ITEM_TEXT_LIMITS = {
   title: 180,
+  objective: 4000,
+  description: 4000,
   materials: 4000,
   setup: CURRICULUM_PREMIUM_TEXT_LIMIT,
   steps: CURRICULUM_PREMIUM_TEXT_LIMIT,
   teacherRole: 4000,
   teacherLanguage: CURRICULUM_PREMIUM_TEXT_LIMIT,
+  observationOpportunities: 4000,
   vocabulary: 4000,
   extensions: 4000,
   adaptations: 4000,

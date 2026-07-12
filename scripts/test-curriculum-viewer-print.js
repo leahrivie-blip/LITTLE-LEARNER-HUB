@@ -126,7 +126,7 @@ function testRenderModel() {
   const plan = premiumPlan();
   const screenHtml = renderCurriculumLessonPlanHtml(plan, { mode: "screen" });
   assert(screenHtml.includes("Weekly Overview"), "weekly overview section");
-  assert(screenHtml.includes("Weekly Learning Objectives"), "weekly objectives");
+  assert(screenHtml.includes("Learning Objectives"), "weekly objectives");
   assert(screenHtml.includes("The Tiny Seed"), "weekly book");
 
   console.log("2) Monday books remain under Monday; Tuesday songs under Tuesday");

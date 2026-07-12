@@ -129,6 +129,7 @@ const V3_ACTIVITY_FIELDS = new Set([
   "ACTIVITY_NAME",
   "CATEGORY",
   "OBJECTIVE",
+  "DESCRIPTION",
   "MATERIALS",
   "SETUP",
   "TEACHER_ROLE",
@@ -138,6 +139,19 @@ const V3_ACTIVITY_FIELDS = new Set([
 ]);
 
 const V3_WEEKDAY_HEADERS = new Set(["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]);
+
+const V3_FIELD_ALIASES = {
+  "LEARNING GOALS": "LEARNING_GOALS",
+  "LEARNING OBJECTIVES": "LEARNING_OBJECTIVES",
+  "AGE GROUP": "AGE_GROUP",
+  "ACTIVITY NAME": "ACTIVITY_NAME",
+  "WEEKLY OVERVIEW": "WEEKLY_OVERVIEW",
+  "WEEKLY MATERIALS": "WEEKLY_MATERIALS",
+  "FAMILY CONNECTION": "FAMILY_CONNECTION",
+  "OBSERVATION OPPORTUNITIES": "OBSERVATION_OPPORTUNITIES",
+  "LEARNING DOMAINS": "LEARNING_DOMAINS",
+  "TEACHER ROLE": "TEACHER_ROLE",
+};
 
 const CURRICULUM_IMPORT_COLON_SECTION_KEYS = {
   TITLE: "TITLE",
@@ -221,9 +235,47 @@ function emptyCurriculumDailyPlans() {
 }
 
 function normalizeCurriculumImportAge(ageRaw) {
+  return parseCurriculumImportAgeValue(ageRaw).display;
+}
+
+function curriculumAgeBucket(ageRaw) {
+  return parseCurriculumImportAgeValue(ageRaw).bucket;
+}
+
+function parseCurriculumImportAgeValue(ageRaw) {
   const raw = normalizedShortText(ageRaw);
-  if (["Infant", "Toddler", "Preschool"].includes(raw)) return raw;
-  const lower = raw.toLowerCase();
+  if (!raw) return { display: "", bucket: "" };
+  const accepted = [
+    "Infant 0–6 Months",
+    "Infant 0-6 Months",
+    "Infant 6–12 Months",
+    "Infant 6-12 Months",
+    "Infant",
+    "Toddler 12–24 Months",
+    "Toddler 12-24 Months",
+    "Toddler 24–36 Months",
+    "Toddler 24-36 Months",
+    "Toddler",
+    "Preschool 3–4 Years",
+    "Preschool 3-4 Years",
+    "Preschool 4–5 Years",
+    "Preschool 4-5 Years",
+    "Preschool",
+  ];
+  const normalizedInput = raw.replace(/\s+/g, " ").trim();
+  const exact = accepted.find((entry) => entry.toLowerCase() === normalizedInput.toLowerCase());
+  if (exact) {
+    return { display: exact.replace(/-/g, "–"), bucket: curriculumAgeBucketFromText(exact) };
+  }
+  const lower = normalizedInput.toLowerCase();
+  if (lower.includes("infant")) return { display: normalizedInput, bucket: "Infant" };
+  if (lower.includes("toddler")) return { display: normalizedInput, bucket: "Toddler" };
+  if (lower.includes("preschool")) return { display: normalizedInput, bucket: "Preschool" };
+  return { display: "", bucket: "" };
+}
+
+function curriculumAgeBucketFromText(value) {
+  const lower = String(value || "").toLowerCase();
   if (lower.includes("infant")) return "Infant";
   if (lower.includes("toddler")) return "Toddler";
   if (lower.includes("preschool")) return "Preschool";
@@ -331,7 +383,16 @@ function extractAllMarkedRegions(text, startMarker, endMarker) {
   return regions;
 }
 
-function parseFieldBlock(text, allowedFields, { lineOffset = 1, context = "" } = {}) {
+function canonicalV3FieldName(name, allowedFields = null) {
+  const upper = String(name || "").trim().toUpperCase().replace(/\s+/g, " ");
+  const underscored = upper.replace(/ /g, "_");
+  const alias = V3_FIELD_ALIASES[upper] || V3_FIELD_ALIASES[underscored];
+  const canonical = alias || underscored;
+  if (allowedFields && !allowedFields.has(canonical)) return "";
+  return canonical;
+}
+
+function parseFieldBlock(text, allowedFields, { lineOffset = 1, context = "", fieldAliases = null } = {}) {
   const fields = {};
   const unmapped = [];
   const lines = String(text || "").split(/\r?\n/);
@@ -357,11 +418,16 @@ function parseFieldBlock(text, allowedFields, { lineOffset = 1, context = "" } =
       });
       return;
     }
-    const fieldMatch = trimmed.match(/^([A-Z][A-Z0-9_]*):\s*$/);
-    if (fieldMatch && allowedFields.has(fieldMatch[1])) {
-      flush();
-      currentField = fieldMatch[1];
-      return;
+    const fieldMatch = trimmed.match(/^([A-Za-z][A-Za-z0-9_/ ]*):\s*$/);
+    if (fieldMatch) {
+      const canonical = fieldAliases
+        ? canonicalV3FieldName(fieldMatch[1], allowedFields)
+        : fieldMatch[1].toUpperCase().replace(/ /g, "_");
+      if (allowedFields.has(canonical)) {
+        flush();
+        currentField = canonical;
+        return;
+      }
     }
     if (currentField) {
       currentLines.push(line);
@@ -1009,7 +1075,7 @@ function splitV3DayActivities(dayContent) {
   const content = String(dayContent || "");
   if (!content.trim()) return [];
   const blocks = content.split(/(?=^ACTIVITY_NAME:\s*$)/im).map((block) => block.trim()).filter(Boolean);
-  return blocks.filter((block) => /^ACTIVITY_NAME:\s*$/im.test(block.split(/\r?\n/)[0]?.trim() || block));
+  return blocks.filter((block) => /^ACTIVITY_NAME:\s*$/im.test((block.split(/\r?\n/)[0] || "").trim()));
 }
 
 function parseV3ActivityBlock(block, { dayKey, lineOffset = 1, existingItemIds = new Map(), generateItemId = generateCurriculumItemId } = {}) {
@@ -1018,6 +1084,7 @@ function parseV3ActivityBlock(block, { dayKey, lineOffset = 1, existingItemIds =
   const { fields, unmapped } = parseFieldBlock(block, V3_ACTIVITY_FIELDS, {
     lineOffset,
     context: `${dayKey}:activity`,
+    fieldAliases: V3_FIELD_ALIASES,
   });
 
   const title = normalizedShortText(fields.ACTIVITY_NAME);
@@ -1033,33 +1100,59 @@ function parseV3ActivityBlock(block, { dayKey, lineOffset = 1, existingItemIds =
     errors.push(`${dayKey}: "${title}" has invalid CATEGORY "${category}". Use one of: ${PLAY_ACTIVITY_CATEGORIES_V1.join(", ")}.`);
   }
 
+  if (!preserveMultilineText(fields.DESCRIPTION)) {
+    errors.push(`${dayKey}: "${title}" is missing DESCRIPTION.`);
+  }
+
+  if (!preserveMultilineText(fields.MATERIALS)) {
+    errors.push(`${dayKey}: "${title}" is missing MATERIALS.`);
+  }
+
   if (!preserveMultilineText(fields.DIRECTIONS)) {
     errors.push(`${dayKey}: "${title}" is missing DIRECTIONS.`);
   }
 
+  if (!preserveMultilineText(fields.TEACHER_ROLE)) {
+    errors.push(`${dayKey}: "${title}" is missing TEACHER_ROLE.`);
+  }
+
+  const learningGoals = parseActivityGoals(fields.LEARNING_GOALS);
+  if (!learningGoals.length) {
+    errors.push(`${dayKey}: "${title}" is missing LEARNING_GOALS.`);
+  }
+
   if (!preserveMultilineText(fields.OBJECTIVE)) {
-    warnings.push(`${dayKey}: "${title}" is missing OBJECTIVE.`);
+    warnings.push(`${dayKey}: "${title}" is missing OBJECTIVE (recommended).`);
+  }
+
+  if (!preserveMultilineText(fields.SETUP)) {
+    warnings.push(`${dayKey}: "${title}" is missing SETUP (recommended).`);
+  }
+
+  if (!preserveMultilineText(fields.OBSERVATION_OPPORTUNITIES)) {
+    warnings.push(`${dayKey}: "${title}" is missing OBSERVATION_OPPORTUNITIES (recommended).`);
   }
 
   const itemKey = `${dayKey}:${title.toLowerCase()}`;
   const itemId = existingItemIds.get(itemKey) || generateItemId();
 
-  const observationText = preserveMultilineText(fields.OBSERVATION_OPPORTUNITIES);
   const activity = {
     itemId,
     importKey: "",
     activityCategory: category || "",
     title,
-    description: preserveMultilineText(fields.OBJECTIVE),
+    objective: preserveMultilineText(fields.OBJECTIVE),
+    description: preserveMultilineText(fields.DESCRIPTION),
     learningDomains: [],
     materials: preserveMultilineText(fields.MATERIALS),
     setup: preserveMultilineText(fields.SETUP),
     steps: preserveMultilineText(fields.DIRECTIONS),
     teacherRole: preserveMultilineText(fields.TEACHER_ROLE),
     teacherLanguage: "",
-    learningGoals: parseActivityGoals(fields.LEARNING_GOALS),
+    learningGoals,
+    observationOpportunities: preserveMultilineText(fields.OBSERVATION_OPPORTUNITIES),
     vocabulary: "",
-    extensions: observationText,
+    extensions: "",
     adaptations: "",
     safetyNotes: "",
     ageModifications: "",
@@ -1089,6 +1182,7 @@ function parseCurriculumLessonPlanImportV3(text, { existingItemIds = new Map(), 
   const { lessonBody, daySections, dayLineOffsets } = splitV3WeekdaySections(raw);
   const { fields: lessonFields, unmapped: lessonUnmapped } = parseFieldBlock(lessonBody, V3_LESSON_FIELDS, {
     context: "lesson",
+    fieldAliases: V3_FIELD_ALIASES,
   });
   unmapped.push(...lessonUnmapped);
 
@@ -1096,32 +1190,40 @@ function parseCurriculumLessonPlanImportV3(text, { existingItemIds = new Map(), 
   if (!title) errors.push("Missing required field: TITLE:");
   else sectionsDetected.push("TITLE");
 
-  const age = normalizeCurriculumImportAge(lessonFields.AGE_GROUP);
-  if (!age) errors.push("Missing required field: AGE_GROUP (expected Infant, Toddler, or Preschool).");
+  const ageValue = parseCurriculumImportAgeValue(lessonFields.AGE_GROUP);
+  if (!ageValue.display) errors.push("Missing required field: AGE_GROUP.");
   else sectionsDetected.push("AGE_GROUP");
 
   const theme = normalizedShortText(lessonFields.THEME);
-  if (!theme) warnings.push("THEME is empty.");
+  if (!theme) errors.push("Missing required field: THEME:");
   else sectionsDetected.push("THEME");
 
   const planRaw = normalizedShortText(lessonFields.PLAN);
-  let plan = "Free";
-  if (planRaw) {
-    if (planRaw === "Pro" || planRaw === "Free") plan = planRaw;
-    else errors.push(`PLAN must be Free or Pro (got "${planRaw}").`);
+  let plan = "";
+  if (!planRaw) {
+    errors.push("Missing required field: PLAN (Free or Pro).");
+  } else if (planRaw === "Pro" || planRaw === "Free") {
+    plan = planRaw;
     sectionsDetected.push("PLAN");
   } else {
-    warnings.push("PLAN is empty. Defaulting to Free.");
+    errors.push(`PLAN must be Free or Pro (got "${planRaw}").`);
   }
 
   const statusRaw = normalizedShortText(lessonFields.STATUS).toLowerCase();
-  let status = "draft";
-  if (statusRaw) {
-    if (CURRICULUM_LESSON_STATUSES.includes(statusRaw)) status = statusRaw;
-    else errors.push(`STATUS must be draft, published, featured, or archived (got "${lessonFields.STATUS}").`);
+  let status = "";
+  if (!statusRaw) {
+    errors.push("Missing required field: STATUS (draft, published, featured, or archived).");
+  } else if (CURRICULUM_LESSON_STATUSES.includes(statusRaw)) {
+    status = statusRaw;
     sectionsDetected.push("STATUS");
   } else {
-    warnings.push("STATUS is empty. Defaulting to draft.");
+    errors.push(`STATUS must be draft, published, featured, or archived (got "${lessonFields.STATUS}").`);
+  }
+
+  if (!preserveMultilineText(lessonFields.WEEKLY_OVERVIEW)) {
+    errors.push("Missing required field: WEEKLY_OVERVIEW:");
+  } else {
+    sectionsDetected.push("WEEKLY_OVERVIEW");
   }
 
   if (title && existingTitles.map((item) => String(item).trim().toLowerCase()).includes(title.toLowerCase())) {
@@ -1191,10 +1293,11 @@ function parseCurriculumLessonPlanImportV3(text, { existingItemIds = new Map(), 
   const data = {
     _formatVersion: 3,
     title: title || "Untitled Lesson Plan",
-    age: age || "",
+    age: ageValue.display || "",
+    ageBucket: ageValue.bucket || "",
     theme,
-    plan,
-    status,
+    plan: plan || "Free",
+    status: status || "draft",
     learningDomains: parseLearningDomainsList(lessonFields.LEARNING_DOMAINS),
     weeklyOverview: preserveMultilineText(lessonFields.WEEKLY_OVERVIEW),
     objectives: preserveMultilineText(lessonFields.LEARNING_OBJECTIVES),
@@ -1515,6 +1618,8 @@ CATEGORY:
 Sensory Play
 OBJECTIVE:
 Children will explore textures through hands-on play.
+DESCRIPTION:
+Children scoop, pour, and compare soil textures at a sensory table.
 MATERIALS:
 Materials list
 SETUP:
@@ -1535,6 +1640,8 @@ CATEGORY:
 Fine Motor
 OBJECTIVE:
 Children practice pinching and placing small objects.
+DESCRIPTION:
+Children use tongs to sort pom-poms into color bowls.
 MATERIALS:
 Tongs, pom-poms, bowls
 SETUP:
@@ -1557,6 +1664,8 @@ CATEGORY:
 Music & Movement
 OBJECTIVE:
 Children move to rhythm and follow simple directions.
+DESCRIPTION:
+Children shake instruments and move to a simple stop-and-go song.
 MATERIALS:
 Shakers, scarves
 SETUP:
@@ -1620,6 +1729,8 @@ function formatCurriculumLessonPlanImportV3(plan = {}) {
         "CATEGORY:",
         item.activityCategory || "Open-Ended Exploration",
         "OBJECTIVE:",
+        item.objective || "",
+        "DESCRIPTION:",
         item.description || "",
         "MATERIALS:",
         item.materials || "",
@@ -1632,7 +1743,7 @@ function formatCurriculumLessonPlanImportV3(plan = {}) {
         "LEARNING_GOALS:",
         goals.join("\n"),
         "OBSERVATION_OPPORTUNITIES:",
-        item.extensions || "",
+        item.observationOpportunities || "",
       ].join("\n");
     });
     sections.push(formatImportSection(dayKey, activityBlocks.join("\n\n")));
@@ -1649,6 +1760,8 @@ const api = {
   CURRICULUM_LESSON_IMPORT_V3_TEMPLATE,
   detectImportFormat,
   isV3LabelOnlyFormat,
+  parseCurriculumImportAgeValue,
+  curriculumAgeBucket,
   emptyCurriculumDailyPlans,
   emptyCurriculumDailyPlanDay,
   generateCurriculumItemId,

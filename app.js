@@ -3104,6 +3104,7 @@ let resources = loadResources();
 let favorites = readSavedJson("llhFavorites", []);
 let savedDownloads = readSavedJson("llhDownloads", []);
 let activeGeneratedPdfResource = null;
+let activeResourceViewerResource = null;
 let currentPlan = localStorage.getItem("llhPlan") || "Free";
 let currentUser = localStorage.getItem("llhUser") || "";
 let activeFilter = "All";
@@ -3573,6 +3574,7 @@ function structuredCurriculumActivityHtml(resource) {
   if (!api || !activity) return "";
   return api.renderCurriculumActivityHtml(activity, {
     parentTitle: resource._curriculumParentTitle || activity.parentTitle || "",
+    parentAge: resource.age || activity.parentAge || "",
     lessonPlanId: resource.lessonPlanId || resource._curriculumLessonPlanId || activity.lessonPlanId || "",
   });
 }
@@ -3715,15 +3717,24 @@ function buildActivityTextFromCurriculum(activity) {
     `Parent Lesson: ${entry.parentTitle || entry.lessonPlanId || ""}`,
     `Day: ${dayLabel}`,
     "",
-    formatCurriculumImportActivity({
-      title: entry.title,
-      activityCategory: entry.activityCategory,
-      description: entry.description,
-      materials: entry.materials,
-      setup: entry.setup,
-      steps: entry.steps,
-      learningGoals: entry.learningGoals,
-    }),
+    `Activity: ${entry.title || ""}`,
+    `Category: ${entry.activityCategory || ""}`,
+    "",
+    `Objective:\n${entry.objective || ""}`,
+    "",
+    `Description:\n${entry.description || ""}`,
+    "",
+    `Materials:\n${entry.materials || ""}`,
+    "",
+    `Setup:\n${entry.setup || ""}`,
+    "",
+    `Directions:\n${entry.steps || ""}`,
+    "",
+    `Teacher Role:\n${entry.teacherRole || ""}`,
+    "",
+    `Learning Goals:\n${(Array.isArray(entry.learningGoals) ? entry.learningGoals : []).join("\n")}`,
+    "",
+    `Observation Opportunities:\n${entry.observationOpportunities || ""}`,
   ].join("\n");
 }
 
@@ -3782,6 +3793,7 @@ function loadCurriculumManagedActivities() {
       updatedAt: item.updatedAt || "",
       activityCategory: item.activityCategory || "Open-Ended Exploration",
       lessonPlanId: item.lessonPlanId,
+      objective: item.objective || "",
       materials: item.materials || "",
       setup: item.setup || "",
       steps: item.steps || "",
@@ -3789,6 +3801,7 @@ function loadCurriculumManagedActivities() {
       learningDomains: Array.isArray(item.learningDomains) ? item.learningDomains : [],
       teacherRole: item.teacherRole || "",
       teacherLanguage: item.teacherLanguage || "",
+      observationOpportunities: item.observationOpportunities || "",
       vocabulary: item.vocabulary || "",
       extensions: item.extensions || "",
       adaptations: item.adaptations || "",
@@ -3929,10 +3942,13 @@ function renderAdminCurriculumActivityDetail(activity) {
       <p><strong>lessonPlanId:</strong> <code>${escapeHtml(activity.lessonPlanId || "")}</code></p>
       <p><strong>sourceKey:</strong> <code>${escapeHtml(activity.sourceKey || "")}</code></p>
       <label>Description<textarea rows="3" readonly>${escapeHtml(activity.description || "")}</textarea></label>
+      <label>Objective<textarea rows="3" readonly>${escapeHtml(activity.objective || "")}</textarea></label>
       <label>Materials<textarea rows="3" readonly>${escapeHtml(activity.materials || "")}</textarea></label>
       <label>Setup<textarea rows="3" readonly>${escapeHtml(activity.setup || "")}</textarea></label>
       <label>Directions<textarea rows="5" readonly>${escapeHtml(activity.steps || "")}</textarea></label>
-      <label>Learning goal<textarea rows="3" readonly>${escapeHtml(goals.join("\n"))}</textarea></label>
+      <label>Teacher role<textarea rows="3" readonly>${escapeHtml(activity.teacherRole || "")}</textarea></label>
+      <label>Learning goals<textarea rows="3" readonly>${escapeHtml(goals.join("\n"))}</textarea></label>
+      <label>Observation opportunities<textarea rows="3" readonly>${escapeHtml(activity.observationOpportunities || "")}</textarea></label>
       <div class="form-actions">
         <button class="ghost-button" type="button" data-curriculum-activity-back>Back to list</button>
         ${activity.lessonPlanId
@@ -4148,6 +4164,7 @@ function curriculumImportDraftFromParsed(parsedData) {
   delete draft.dailyPlansCompat;
   delete draft._formatVersion;
   delete draft._activityCount;
+  delete draft.ageBucket;
   return draft;
 }
 
@@ -4279,44 +4296,48 @@ function renderCurriculumImportIssueList(items, className) {
     </li>`).join("")}</ul>`;
 }
 
-function renderCurriculumImportPreviewActivity(activity = {}) {
-  const fields = [
-    ["Import key", activity.importKey],
-    ["Category", activity.activityCategory],
-    ["Objective", activity.description],
-    ["Learning domains", (activity.learningDomains || []).join(", ")],
+function renderCurriculumImportPreviewActivity(activity = {}, day = "") {
+  const goals = Array.isArray(activity.learningGoals) ? activity.learningGoals.filter(Boolean) : [];
+  const directionSteps = String(activity.steps || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const checks = [
+    ["Objective", activity.objective],
+    ["Description", activity.description],
     ["Materials", activity.materials],
     ["Setup", activity.setup],
-    ["Directions", activity.steps],
     ["Teacher role", activity.teacherRole],
-    ["Teacher language", activity.teacherLanguage],
-    ["Learning goals", (activity.learningGoals || []).join("\n")],
-    ["Observation opportunities", activity.extensions],
-    ["Vocabulary", activity.vocabulary],
-    ["Extensions", activity.extensions],
-    ["Adaptations", activity.adaptations],
-    ["Safety notes", activity.safetyNotes],
-    ["Age modifications", activity.ageModifications],
+    ["Observation opportunities", activity.observationOpportunities],
   ];
   return `
     <article class="curriculum-import-preview-activity">
-      <h5>${escapeHtml(activity.title || "Untitled activity")}</h5>
-      ${fields.map(([label, value]) => `
+      <h5>${escapeHtml(day ? `${day.charAt(0).toUpperCase() + day.slice(1)} · ` : "")}${escapeHtml(activity.title || "Untitled activity")}</h5>
+      <div class="curriculum-import-preview-grid">
+        <div><span class="curriculum-import-preview-label">Category</span>${renderCurriculumImportPreviewText(activity.activityCategory)}</div>
+        <div><span class="curriculum-import-preview-label">Direction steps</span>${renderCurriculumImportPreviewText(String(directionSteps.length))}</div>
+        <div><span class="curriculum-import-preview-label">Learning goals</span>${renderCurriculumImportPreviewText(String(goals.length))}</div>
+      </div>
+      <ul class="curriculum-import-preview-checklist">
+        ${checks.map(([label, value]) => `<li>${hasCurriculumImportPreviewText(value) ? "✓" : "—"} ${escapeHtml(label)}</li>`).join("")}
+      </ul>
+      ${checks.filter(([, value]) => hasCurriculumImportPreviewText(value)).map(([label, value]) => `
         <div class="curriculum-import-preview-field">
           <span class="curriculum-import-preview-label">${escapeHtml(label)}</span>
-          ${Array.isArray(value)
-    ? renderCurriculumImportPreviewList(value, (item) => escapeHtml(item))
-    : renderCurriculumImportPreviewText(value)}
+          ${renderCurriculumImportPreviewText(value)}
         </div>`).join("")}
+      ${goals.length ? `<div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Learning goals</span>${renderCurriculumImportPreviewList(goals, (item) => escapeHtml(item))}</div>` : ""}
+      ${directionSteps.length ? `<div class="curriculum-import-preview-field"><span class="curriculum-import-preview-label">Directions</span>${renderCurriculumImportPreviewText(activity.steps)}</div>` : ""}
     </article>
   `;
+}
+
+function hasCurriculumImportPreviewText(value) {
+  return Boolean(String(value || "").trim()) || (Array.isArray(value) && value.some((item) => String(item || "").trim()));
 }
 
 function renderCurriculumImportPreviewDay(day, dayPlan = {}) {
   const label = day.charAt(0).toUpperCase() + day.slice(1);
   const books = renderCurriculumImportPreviewList(dayPlan.books || [], (book) => escapeHtml([book.title, book.author, book.notes].filter(Boolean).join(" | ")));
   const songs = renderCurriculumImportPreviewList(dayPlan.songs || [], (song) => escapeHtml([song.title, song.notes].filter(Boolean).join(" | ")));
-  const activities = (dayPlan.items || []).map((item) => renderCurriculumImportPreviewActivity(item)).join("") || `<p class="muted-copy">No activities.</p>`;
+  const activities = (dayPlan.items || []).map((item) => renderCurriculumImportPreviewActivity(item, day)).join("") || `<p class="muted-copy">No activities.</p>`;
   return `
     <details class="curriculum-import-preview-day" open>
       <summary><strong>${label}</strong> · ${(dayPlan.items || []).length} ${(dayPlan.items || []).length === 1 ? "activity" : "activities"}</summary>
@@ -4359,11 +4380,16 @@ function renderCurriculumLessonImportPreviewPanel(previewState) {
       </div>
       <div class="curriculum-import-preview-summary" role="status">
         <div><strong>${summary.lessonPlanCount}</strong><span>lesson plan</span></div>
+        <div><strong>${escapeHtml(data.title || "—")}</strong><span>title</span></div>
+        <div><strong>${escapeHtml(data.age || "—")}</strong><span>age group</span></div>
+        <div><strong>${escapeHtml(data.theme || "—")}</strong><span>theme</span></div>
+        <div><strong>${escapeHtml(data.plan || "—")}</strong><span>plan</span></div>
+        <div><strong>${escapeHtml(data.status || "—")}</strong><span>status</span></div>
+        <div><strong>${(data.learningDomains || []).length}</strong><span>learning domains</span></div>
         <div><strong>${summary.weekdaysDetected}</strong><span>weekdays</span></div>
         <div><strong>${summary.activityCount}</strong><span>activities</span></div>
         <div><strong>${summary.bookCount}</strong><span>books</span></div>
         <div><strong>${summary.songCount}</strong><span>songs</span></div>
-        <div><strong>${summary.activityLibraryEntries}</strong><span>library sync entries</span></div>
         <div><strong>${summary.errorCount}</strong><span>errors</span></div>
         <div><strong>${summary.warningCount}</strong><span>warnings</span></div>
         <div><strong>${summary.unmappedCount}</strong><span>unmapped</span></div>
@@ -4742,7 +4768,8 @@ function curriculumDailyItemRowHtml(day, item = {}) {
         </select>
       </label>
       <label>Activity name<input value="${escapeHtml(item.title || "")}" data-curriculum-title placeholder="Activity name" /></label>
-      <label>Description<textarea rows="2" data-curriculum-description>${escapeHtml(item.description || "")}</textarea></label>
+      <label>Objective<textarea rows="2" data-curriculum-objective placeholder="What the child is expected to practice or experience">${escapeHtml(item.objective || "")}</textarea></label>
+      <label>Description<textarea rows="2" data-curriculum-description placeholder="Short teacher-friendly explanation of the activity">${escapeHtml(item.description || "")}</textarea></label>
       <fieldset class="admin-fieldset curriculum-activity-domains">
         <legend>Learning domains</legend>
         ${curriculumDomainCheckboxGridHtml(selectedDomains, { dataAttr: 'data-curriculum-activity-domains="true"' })}
@@ -4753,6 +4780,7 @@ function curriculumDailyItemRowHtml(day, item = {}) {
       <label>Teacher role<textarea rows="2" data-curriculum-teacher-role>${escapeHtml(item.teacherRole || "")}</textarea></label>
       <label>Teacher language<textarea rows="3" data-curriculum-teacher-language>${escapeHtml(item.teacherLanguage || "")}</textarea></label>
       <label>Learning goals<textarea rows="2" data-curriculum-learning-goals placeholder="One goal per line">${escapeHtml((item.learningGoals || []).join("\n"))}</textarea></label>
+      <label>Observation opportunities<textarea rows="2" data-curriculum-observation-opportunities placeholder="Behaviors or skills to observe">${escapeHtml(item.observationOpportunities || "")}</textarea></label>
       <label>Vocabulary<textarea rows="2" data-curriculum-vocabulary>${escapeHtml(item.vocabulary || "")}</textarea></label>
       <label>Extensions<textarea rows="2" data-curriculum-extensions>${escapeHtml(item.extensions || "")}</textarea></label>
       <label>Adaptations<textarea rows="2" data-curriculum-adaptations>${escapeHtml(item.adaptations || "")}</textarea></label>
@@ -5050,6 +5078,7 @@ function collectCurriculumLessonPlanFromForm(form) {
         itemId,
         activityCategory: normalizedShortText(row.querySelector("[data-curriculum-category]")?.value) || preservedItem.activityCategory || PLAY_ACTIVITY_CATEGORIES[0],
         title,
+        objective: normalizedMultilineText(row.querySelector("[data-curriculum-objective]")?.value),
         description: normalizedMultilineText(row.querySelector("[data-curriculum-description]")?.value),
         learningDomains: collectCurriculumDomainChecks(domainsRoot),
         materials: normalizedMultilineText(row.querySelector("[data-curriculum-materials]")?.value),
@@ -5058,6 +5087,7 @@ function collectCurriculumLessonPlanFromForm(form) {
         teacherRole: normalizedMultilineText(row.querySelector("[data-curriculum-teacher-role]")?.value),
         teacherLanguage: normalizedMultilineText(row.querySelector("[data-curriculum-teacher-language]")?.value),
         learningGoals,
+        observationOpportunities: normalizedMultilineText(row.querySelector("[data-curriculum-observation-opportunities]")?.value),
         vocabulary: normalizedMultilineText(row.querySelector("[data-curriculum-vocabulary]")?.value),
         extensions: normalizedMultilineText(row.querySelector("[data-curriculum-extensions]")?.value),
         adaptations: normalizedMultilineText(row.querySelector("[data-curriculum-adaptations]")?.value),
@@ -10637,6 +10667,7 @@ function closeResourceViewer() {
   viewer.setAttribute("aria-hidden", "true");
   document.body.classList.remove("printing-resource");
   activeGeneratedPdfResource = null;
+  activeResourceViewerResource = null;
   activeViewerResourceId = "";
   resourceViewerReturnToId = "";
   updateResourceViewerBackButton();
@@ -10671,12 +10702,19 @@ function resourceViewerBack() {
 function printResourceViewer() {
   const viewer = document.querySelector("#resourceViewerModal");
   if (!viewer?.classList.contains("open")) return;
+  const viewerResource = activeResourceViewerResource;
+  const body = document.querySelector("#resourceViewerBody");
+  const previousHtml = body?.innerHTML || "";
+  if (viewerResource?._curriculumManaged && viewerResource.category === "Lesson Plans" && body) {
+    body.innerHTML = resourcePrintableHtml(viewerResource, { mode: "print" });
+  }
   trackEvent("resource_print", {
     title: document.querySelector("#resourceViewerTitle")?.textContent || "Resource",
     category: document.querySelector("#resourceViewerCategory")?.textContent || "Resource",
   });
   document.body.classList.add("printing-resource");
   const cleanup = () => {
+    if (body && previousHtml) body.innerHTML = previousHtml;
     document.body.classList.remove("printing-resource");
     window.removeEventListener("afterprint", cleanup);
   };
@@ -11615,6 +11653,7 @@ async function openResourceViewer(resourceId, options = {}) {
   } else {
     body.innerHTML = resourcePrintableHtml(viewerResource);
   }
+  activeResourceViewerResource = viewerResource;
   if (viewerResource._curriculumLessonPlanId && !(viewerResource._curriculumManaged && viewerResource.category === "Activity Center")) {
     const parentActions = document.createElement("div");
     parentActions.className = "print-section";
@@ -12906,6 +12945,7 @@ function snapshotCurriculumDailyItem(item = {}) {
     itemId: String(item?.itemId || "").trim(),
     activityCategory: String(item?.activityCategory || "").trim(),
     title: String(item?.title || "").trim(),
+    objective: String(item?.objective || "").trim(),
     description: String(item?.description || "").trim(),
     learningDomains: Array.isArray(item?.learningDomains) ? item.learningDomains.map((entry) => String(entry || "").trim()).filter(Boolean) : [],
     materials: String(item?.materials || "").trim(),
@@ -12914,6 +12954,7 @@ function snapshotCurriculumDailyItem(item = {}) {
     teacherRole: String(item?.teacherRole || "").trim(),
     teacherLanguage: String(item?.teacherLanguage || "").trim(),
     learningGoals: Array.isArray(item?.learningGoals) ? item.learningGoals.map((entry) => String(entry || "").trim()).filter(Boolean) : [],
+    observationOpportunities: String(item?.observationOpportunities || "").trim(),
     vocabulary: String(item?.vocabulary || "").trim(),
     extensions: String(item?.extensions || "").trim(),
     adaptations: String(item?.adaptations || "").trim(),

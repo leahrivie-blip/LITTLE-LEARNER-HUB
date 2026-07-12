@@ -16,6 +16,7 @@ const PORT = 4530 + Math.floor(Math.random() * 200);
 const STORE_PATH = path.join(ROOT, "server/data/launch-store.json");
 const IMPORT_PATH = path.join(ROOT, "scripts/curriculum-phase-2f-imports/01-infant-soft-sounds-free.txt");
 const LEGACY_IMPORT_PATH = path.join(ROOT, "scripts/curriculum-phase-2f-imports/legacy-backward-compat-sample.txt");
+const V3_FULL_SAMPLE = path.join(ROOT, "scripts/curriculum-import-samples/label-only-full-workflow-v3.txt");
 const ADMIN = {
   email: "lesson-save-test@example.com",
   password: "lesson-save-test-pass",
@@ -213,6 +214,39 @@ async function main() {
     );
     assert(storedPlan, "Lesson missing after reload");
     assert(storedActs.length === 8, `Expected 8 stored activities, got ${storedActs.length}`);
+
+    console.log("5) v3 import saves 15 activities with objective/description/observation fields");
+    const v3Parsed = parseLessonImport(fs.readFileSync(V3_FULL_SAMPLE, "utf8"));
+    assert(v3Parsed._activityCount === 15, "v3 activity count");
+    const v3LessonId = `cur-lp-v3-save-${crypto.randomBytes(4).toString("hex")}`;
+    const v3Plan = { ...v3Parsed, id: v3LessonId };
+    delete v3Plan._formatVersion;
+    delete v3Plan._activityCount;
+    delete v3Plan.dailyPlansCompat;
+    delete v3Plan.ageBucket;
+    const v3Save = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+      adminToken: token,
+      expectedUpdatedAt: reload.json.siteContent.updatedAt,
+      lessonPlan: v3Plan,
+    });
+    assert(v3Save.status === 200, `v3 save failed: ${v3Save.status} ${v3Save.text}`);
+    const v3Acts = (v3Save.json.activities || []).filter((item) => item.lessonPlanId === v3LessonId && item.status !== "archived");
+    assert(v3Acts.length === 15, `Expected 15 v3 activities, got ${v3Acts.length}`);
+    v3Acts.forEach((activity) => {
+      assert(activity.objective, `${activity.title} missing objective after save`);
+      assert(activity.description, `${activity.title} missing description after save`);
+      assert(activity.observationOpportunities, `${activity.title} missing observationOpportunities after save`);
+    });
+    const v3FirstIds = v3Acts.map((item) => item.id).sort();
+    const v3Again = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+      adminToken: token,
+      expectedUpdatedAt: v3Save.json.siteContentUpdatedAt,
+      lessonPlan: { ...v3Save.json.lessonPlan, dailyPlans: v3Plan.dailyPlans },
+    });
+    assert(v3Again.status === 200, `v3 re-save failed: ${v3Again.status}`);
+    const v3AgainActs = (v3Again.json.activities || []).filter((item) => item.lessonPlanId === v3LessonId && item.status !== "archived");
+    assert(v3AgainActs.length === 15, "v3 re-save activity count");
+    assert(JSON.stringify(v3FirstIds) === JSON.stringify(v3AgainActs.map((item) => item.id).sort()), "v3 activity IDs changed on re-save");
 
     console.log("\nAll curriculum lesson plan save checks passed.");
   } catch (error) {

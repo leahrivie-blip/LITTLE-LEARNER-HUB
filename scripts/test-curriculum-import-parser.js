@@ -121,17 +121,21 @@ function main() {
     "Directions preserved exactly",
   );
   assert(
-    v3.data.dailyPlans.monday.items[0].description.includes("explore soil texture"),
-    "OBJECTIVE maps to description",
+    v3.data.dailyPlans.monday.items[0].objective.includes("explore soil texture"),
+    "OBJECTIVE stored separately",
   );
   assert(
-    v3.data.dailyPlans.monday.items[0].extensions.includes("vocabulary children use"),
+    v3.data.dailyPlans.monday.items[0].description.includes("scoops and magnifying glasses"),
+    "DESCRIPTION stored separately",
+  );
+  assert(
+    v3.data.dailyPlans.monday.items[0].observationOpportunities.includes("vocabulary children use"),
     "OBSERVATION_OPPORTUNITIES captured",
   );
   assert(v3.data.dailyPlans.monday.items[0].activityCategory === "Sensory Play", "v3 accepts editor categories");
 
   console.log("11) v3 missing required fields produce clear errors");
-  const noTitle = parseCurriculumLessonPlanImportV3("AGE_GROUP:\nPreschool\n\nMONDAY:\n\nACTIVITY_NAME:\nTest\nCATEGORY:\nArt\nOBJECTIVE:\nTest\nMATERIALS:\nM\nSETUP:\nS\nTEACHER_ROLE:\nT\nDIRECTIONS:\n1. Go\nLEARNING_GOALS:\nG\nOBSERVATION_OPPORTUNITIES:\nO\n");
+  const noTitle = parseCurriculumLessonPlanImportV3("AGE_GROUP:\nPreschool\nTHEME:\nTheme\nPLAN:\nFree\nSTATUS:\ndraft\nWEEKLY_OVERVIEW:\nOverview\n\nMONDAY:\n\nACTIVITY_NAME:\nTest\nCATEGORY:\nArt\nOBJECTIVE:\nObj\nDESCRIPTION:\nDesc\nMATERIALS:\nM\nSETUP:\nS\nTEACHER_ROLE:\nT\nDIRECTIONS:\n1. Go\nLEARNING_GOALS:\nG\nOBSERVATION_OPPORTUNITIES:\nO\n");
   assert(!noTitle.ok, "missing TITLE should fail");
   assert(noTitle.errors.some((err) => /TITLE/i.test(err)), "TITLE error message");
 

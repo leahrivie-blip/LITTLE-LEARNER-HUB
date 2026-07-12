@@ -55,6 +55,8 @@ CATEGORY:
 Sensory Play
 OBJECTIVE:
 Children explore soil texture using hands and tools while building descriptive vocabulary.
+DESCRIPTION:
+Children use scoops and magnifying glasses to explore soil at a sensory table.
 MATERIALS:
 Bin of potting soil, scoops, small pots, smocks
 SETUP:
@@ -77,6 +79,8 @@ CATEGORY:
 Fine Motor
 OBJECTIVE:
 Children sort seeds by size and color while strengthening pinching skills.
+DESCRIPTION:
+Children use tweezers to sort mixed seeds into trays by color or size.
 MATERIALS:
 Mixed seeds, sorting trays, tweezers
 SETUP:
@@ -101,6 +105,8 @@ CATEGORY:
 STEM/Discovery
 OBJECTIVE:
 Children plant seeds and predict what will happen as they grow.
+DESCRIPTION:
+Children fill pots, plant seeds, water gently, and label their plants.
 MATERIALS:
 Small pots, soil, seeds, watering cans, plant labels
 SETUP:
@@ -111,7 +117,7 @@ DIRECTIONS:
 Fill a pot with soil.
 Push a seed into the soil.
 Water gently and place a label on the pot.
-LEARNING GOALS:
+LEARNING_GOALS:
 Follow multi-step directions
 Make simple predictions about growth
 OBSERVATION_OPPORTUNITIES:
@@ -125,6 +131,8 @@ CATEGORY:
 Dramatic Play
 OBJECTIVE:
 Children role-play caring for a garden using props and cooperative language.
+DESCRIPTION:
+Children choose garden roles and practice caring for pretend plants and vegetables.
 MATERIALS:
 Garden hats, pretend tools, baskets, play vegetables
 SETUP:

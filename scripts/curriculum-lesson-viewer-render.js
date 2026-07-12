@@ -112,13 +112,16 @@ function curriculumLessonDayActivityCardHtml(lessonPlanId, item, options = {}) {
         <h4>${escapeHtml(item.title || "Activity")}</h4>
         ${item.activityCategory ? `<span class="tag">${escapeHtml(item.activityCategory)}</span>` : ""}
       </div>
-      ${domains.length ? curriculumActivityFieldHtml("Learning domains", domains) : ""}
+      ${curriculumActivityFieldHtml("Objective", item.objective)}
+      ${curriculumActivityFieldHtml("Description", item.description)}
       ${curriculumActivityFieldHtml("Materials", item.materials)}
       ${curriculumActivityFieldHtml("Setup", item.setup)}
       ${curriculumActivityFieldHtml("Directions", item.steps)}
       ${curriculumActivityFieldHtml("Teacher role", item.teacherRole)}
-      ${curriculumActivityFieldHtml("Suggested teacher language", item.teacherLanguage)}
       ${goals.length ? curriculumActivityFieldHtml("Learning goals", goals) : ""}
+      ${curriculumActivityFieldHtml("Observation opportunities", item.observationOpportunities)}
+      ${domains.length ? curriculumActivityFieldHtml("Learning domains", domains) : ""}
+      ${curriculumActivityFieldHtml("Suggested teacher language", item.teacherLanguage)}
       ${curriculumActivityFieldHtml("Vocabulary", item.vocabulary)}
       ${curriculumActivityFieldHtml("Extensions", item.extensions)}
       ${curriculumActivityFieldHtml("Adaptations", item.adaptations)}
@@ -188,14 +191,20 @@ function curriculumLessonWeeklySectionsHtml(plan = {}) {
     sections.push({ label, html: curriculumMultilineSectionHtml(value) });
   };
   addText("Weekly Overview", plan.weeklyOverview);
-  addText("Weekly Learning Objectives", plan.objectives);
+  if (Array.isArray(plan.learningDomains) && plan.learningDomains.length) {
+    sections.push({
+      label: "Learning Domains",
+      html: `<div class="tag-row">${plan.learningDomains.map((domain) => `<span class="tag">${escapeHtml(domain)}</span>`).join("")}</div>`,
+    });
+  }
+  addText("Learning Objectives", plan.objectives);
   addText("Weekly Materials", plan.weeklyMaterials);
-  addText("Weekly Vocabulary", plan.vocabularyWords);
+  addText("Vocabulary", plan.vocabularyWords);
   if (Array.isArray(plan.books) && plan.books.length) {
-    sections.push({ label: "Weekly Books", html: curriculumBooksSectionHtml(plan.books) });
+    sections.push({ label: "Books", html: curriculumBooksSectionHtml(plan.books) });
   }
   if (Array.isArray(plan.songs) && plan.songs.length) {
-    sections.push({ label: "Weekly Songs and Fingerplays", html: curriculumSongsSectionHtml(plan.songs) });
+    sections.push({ label: "Songs and Fingerplays", html: curriculumSongsSectionHtml(plan.songs) });
   }
   addText("Family Connection", plan.familyConnection);
   addText("Observation Opportunities", plan.observationOpportunities);
@@ -246,9 +255,6 @@ function renderCurriculumLessonPlanHtml(plan = {}, options = {}) {
   const domains = (Array.isArray(plan.learningDomains) ? plan.learningDomains : [])
     .map((domain) => `<span class="tag">${escapeHtml(domain)}</span>`)
     .join("");
-  const weeklyOverviewInline = hasText(plan.weeklyOverview)
-    ? `<div class="curriculum-lesson-overview-lead">${curriculumMultilineSectionHtml(plan.weeklyOverview)}</div>`
-    : "";
   return `
     <header class="curriculum-lesson-header">
       <h3>${escapeHtml(plan.title || "Lesson Plan")}</h3>
@@ -258,10 +264,8 @@ function renderCurriculumLessonPlanHtml(plan = {}, options = {}) {
         <span class="tag access-tag">${escapeHtml(plan.plan || "Free")}</span>
         ${showAdminStatus && plan.status ? `<span class="tag">${escapeHtml(plan.status)}</span>` : ""}
       </div>
-      ${domains ? `<div class="tag-row curriculum-lesson-domains">${domains}</div>` : ""}
-      ${weeklyOverviewInline}
+      ${curriculumLessonWeeklySectionsHtml(plan) ? `<section class="curriculum-lesson-weekly">${curriculumLessonWeeklySectionsHtml(plan)}</section>` : ""}
     </header>
-    ${curriculumLessonWeeklySectionsHtml(plan) ? `<section class="curriculum-lesson-weekly">${curriculumLessonWeeklySectionsHtml(plan)}</section>` : ""}
     <section class="curriculum-lesson-daily-section">
       <h3>Daily Plans</h3>
       ${curriculumLessonDailyPlansHtml(plan, options)}
@@ -274,20 +278,28 @@ function renderCurriculumActivityHtml(activity = {}, options = {}) {
   const domains = Array.isArray(activity.learningDomains) ? activity.learningDomains.filter(Boolean) : [];
   const category = activity.activityCategory || "";
   const parentTitle = options.parentTitle || activity.parentTitle || "";
+  const parentAge = options.parentAge || activity.parentAge || "";
   const lessonId = options.lessonPlanId || activity.lessonPlanId || "";
   return `
     <header class="curriculum-activity-header">
-      ${category ? `<span class="tag">${escapeHtml(category)}</span>` : ""}
+      <h3>${escapeHtml(activity.title || "Activity")}</h3>
+      <div class="tag-row">
+        ${category ? `<span class="tag">${escapeHtml(category)}</span>` : ""}
+        ${parentAge ? `<span class="tag">${escapeHtml(parentAge)}</span>` : ""}
+      </div>
       ${parentTitle ? `<p class="curriculum-activity-parent">Parent lesson: <strong>${escapeHtml(parentTitle)}</strong></p>` : ""}
     </header>
     <section class="curriculum-activity-body">
-      ${curriculumActivityFieldHtml("Learning domains", domains)}
+      ${curriculumActivityFieldHtml("Objective", activity.objective)}
+      ${curriculumActivityFieldHtml("Description", activity.description)}
       ${curriculumActivityFieldHtml("Materials", activity.materials)}
       ${curriculumActivityFieldHtml("Setup", activity.setup)}
       ${curriculumActivityFieldHtml("Directions", activity.steps)}
       ${curriculumActivityFieldHtml("Teacher role", activity.teacherRole)}
-      ${curriculumActivityFieldHtml("Suggested teacher language", activity.teacherLanguage)}
       ${goals.length ? curriculumActivityFieldHtml("Learning goals", goals) : ""}
+      ${curriculumActivityFieldHtml("Observation opportunities", activity.observationOpportunities)}
+      ${curriculumActivityFieldHtml("Learning domains", domains)}
+      ${curriculumActivityFieldHtml("Suggested teacher language", activity.teacherLanguage)}
       ${curriculumActivityFieldHtml("Vocabulary", activity.vocabulary)}
       ${curriculumActivityFieldHtml("Extensions", activity.extensions)}
       ${curriculumActivityFieldHtml("Adaptations", activity.adaptations)}
