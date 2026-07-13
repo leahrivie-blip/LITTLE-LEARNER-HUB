@@ -14483,9 +14483,38 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 }
 
 .lesson-workspace-action-sheet-panel .ghost-button,
-.lesson-workspace-action-sheet-panel .link-button {
+.lesson-workspace-action-sheet-panel .link-button,
+.lesson-workspace-action-sheet-panel .primary-button {
   min-height: 44px;
   width: 100%;
+}
+
+.lesson-workspace-action-sheet-note {
+  margin: 0 0 8px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.lesson-workspace-main-calendar-form {
+  display: grid;
+  gap: 10px;
+}
+
+.lesson-workspace-main-calendar-form label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.92rem;
+}
+
+.lesson-workspace-main-calendar-form input,
+.lesson-workspace-main-calendar-form select {
+  min-height: 44px;
+}
+
+.lesson-workspace-action-sheet-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 @media (min-width: 640px) {

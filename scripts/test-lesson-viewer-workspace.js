@@ -224,7 +224,9 @@ async function main() {
     await page.click("[data-lesson-use-this-plan]");
     await page.waitForSelector(".lesson-workspace-action-sheet:not([hidden])", { timeout: 3000 });
     const sheetItems = await page.evaluate(() => [...document.querySelectorAll(".lesson-workspace-action-sheet-panel button")].map((el) => el.textContent.trim()));
-    assert(sheetItems.some((label) => label.includes("Assign to Week")), "Assign to Week missing from action sheet");
+    assert(sheetItems.some((label) => label.includes("Assign to a Week")), "Assign to a Week missing from action sheet");
+    assert(sheetItems.some((label) => label.includes("Add to Main Calendar")), "Add to Main Calendar missing from action sheet");
+    assert(sheetItems.some((label) => label.includes("View in Curriculum Planner")), "View in Curriculum Planner missing from action sheet");
     assert(sheetItems.some((label) => label.includes("Print Weekly Plan")), "Print Weekly Plan missing from action sheet");
     await page.click("[data-lesson-workspace-action-sheet-dismiss]");
     await page.waitForFunction(() => document.querySelector(".lesson-workspace-action-sheet")?.hidden === true, null, { timeout: 3000 });

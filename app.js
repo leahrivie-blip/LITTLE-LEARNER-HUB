@@ -11070,11 +11070,175 @@ function refreshLessonWorkspaceSaveButton() {
   btn.setAttribute("aria-pressed", favorite ? "true" : "false");
 }
 
+let lessonWorkspaceActionSheetPanel = "menu";
+
 function toggleLessonWorkspaceActionSheet(open) {
   const sheet = document.querySelector(".lesson-workspace-action-sheet");
   if (!sheet) return;
   sheet.hidden = !open;
   sheet.setAttribute("aria-hidden", open ? "false" : "true");
+  if (open) setLessonWorkspaceActionSheetPanel("menu");
+}
+
+function setLessonWorkspaceActionSheetPanel(panel = "menu") {
+  lessonWorkspaceActionSheetPanel = panel;
+  document.querySelectorAll("[data-lesson-workspace-action-panel]").forEach((section) => {
+    const active = section.dataset.lessonWorkspaceActionPanel === panel;
+    section.hidden = !active;
+    section.setAttribute("aria-hidden", active ? "false" : "true");
+  });
+}
+
+const LESSON_WORKSPACE_PLANNER_AGE_GROUPS = ["Infant", "Toddler", "Preschool", "Mixed Ages"];
+
+function lessonWorkspaceDefaultAgeGroup(resource, plan) {
+  const raw = String(resource?.age || plan?.age || "Preschool").trim();
+  if (LESSON_WORKSPACE_PLANNER_AGE_GROUPS.includes(raw)) return raw;
+  if (/infant/i.test(raw)) return "Infant";
+  if (/toddler/i.test(raw)) return "Toddler";
+  if (/mixed/i.test(raw)) return "Mixed Ages";
+  return "Preschool";
+}
+
+function lessonWorkspacePlannerAgeGroupOptions(selected = "Preschool") {
+  const value = lessonWorkspaceDefaultAgeGroup({ age: selected }, { age: selected });
+  return LESSON_WORKSPACE_PLANNER_AGE_GROUPS.map((age) => (
+    `<option value="${escapeHtml(age)}"${age === value ? " selected" : ""}>${escapeHtml(age)}</option>`
+  )).join("");
+}
+
+function curriculumDayToPlannerDay(dayKey) {
+  const index = CURRICULUM_WEEKDAYS.indexOf(String(dayKey || "").toLowerCase());
+  return index >= 0 ? plannerDays[index] : "";
+}
+
+function weeklyPlannerSummariesFromCurriculumPlan(plan) {
+  const normalized = normalizeCurriculumLessonPlanForRender(plan);
+  const days = {};
+  CURRICULUM_WEEKDAYS.forEach((dayKey) => {
+    const plannerDay = curriculumDayToPlannerDay(dayKey);
+    if (!plannerDay) return;
+    const dayPlan = normalized.dailyPlans?.[dayKey] || {};
+    const circleParts = (Array.isArray(dayPlan.circleTime) ? dayPlan.circleTime : [])
+      .map((entry) => String(entry || "").trim())
+      .filter(Boolean);
+    const activityTitles = (Array.isArray(dayPlan.items) ? dayPlan.items : [])
+      .map((item) => String(item.title || "").trim())
+      .filter(Boolean);
+    days[plannerDay] = {
+      circle: circleParts.join("; "),
+      activity: activityTitles.join("; "),
+    };
+  });
+  return days;
+}
+
+function applyCurriculumLessonToWeeklyPlanner({ resource, plan, weekStartDate, ageGroup } = {}) {
+  const week = curriculumPlannerWeekStartIso(weekStartDate);
+  const normalized = normalizeCurriculumLessonPlanForRender(plan);
+  const summaries = weeklyPlannerSummariesFromCurriculumPlan(normalized);
+  const existing = weeklyPlanner();
+  const theme = String(resource?.title || normalized.theme || normalized.title || "").trim() || "Untitled Week";
+  const planner = {
+    ...existing,
+    weekOf: week,
+    theme,
+    ageGroup: String(ageGroup || lessonWorkspaceDefaultAgeGroup(resource, normalized)).trim() || "Preschool",
+    resourceId: resource?.id || existing.resourceId || "",
+    focus: plannerFocusForTheme(theme),
+    days: { ...existing.days },
+  };
+  plannerDays.forEach((plannerDay) => {
+    const summary = summaries[plannerDay] || {};
+    const prior = existing.days?.[plannerDay] || {};
+    planner.days[plannerDay] = {
+      circle: summary.circle || prior.circle || "",
+      activity: summary.activity || prior.activity || "",
+      meal: prior.meal || "",
+      rest: prior.rest || "",
+      support: prior.support || "",
+    };
+  });
+  saveWeeklyPlanner(planner);
+  return planner;
+}
+
+async function addCurriculumLessonPlanToMainCalendar({ resourceId, weekStartDate, ageGroup } = {}) {
+  if (!isLoggedIn() && !hasAdminFullAccess()) {
+    openAuthModal("login");
+    throw new Error("Log in to add this plan to your calendar.");
+  }
+  const week = curriculumPlannerWeekStartIso(weekStartDate);
+  const existing = curriculumAssignmentForWeek(week);
+  if (existing && existing.lessonPlanId !== resourceId) {
+    const confirmed = window.confirm(
+      `Replace “${existing.lessonPlanTitle}” with this lesson plan for the week of ${week}?`,
+    );
+    if (!confirmed) {
+      const error = new Error("Calendar update cancelled. Existing week was left unchanged.");
+      error.code = "cancelled";
+      throw error;
+    }
+  }
+  const assignment = await assignCurriculumLessonPlanToWeek({
+    resourceId,
+    weekStartDate: week,
+    ageGroup,
+    replaceExisting: Boolean(existing),
+  });
+  const { resource, plan } = await resolveCurriculumPlanForAssignment(resourceId);
+  applyCurriculumLessonToWeeklyPlanner({
+    resource,
+    plan,
+    weekStartDate: week,
+    ageGroup: assignment.ageGroup,
+  });
+  return assignment;
+}
+
+function showLessonWorkspaceMainCalendarSuccess(assignment) {
+  const message = document.querySelector("[data-lesson-workspace-success-message]");
+  const week = assignment?.weekStartDate || curriculumPlannerSelectedWeek || "";
+  if (message) {
+    message.textContent = week
+      ? `“${assignment.lessonPlanTitle || "This lesson plan"}” is assigned to the week of ${week}. Weekly Planner day text was updated from the plan snapshot.`
+      : "Lesson plan added to your calendar.";
+  }
+  document.querySelectorAll("[data-lesson-open-curriculum-planner]").forEach((button) => {
+    if (week) button.dataset.lessonPlannerWeek = week;
+  });
+  setLessonWorkspaceActionSheetPanel("success");
+}
+
+function viewLessonPlanInCurriculumPlanner(resourceId, options = {}) {
+  if (!isLoggedIn() && !hasAdminFullAccess()) {
+    openAuthModal("login");
+    return;
+  }
+  const resource = resources.find((item) => item.id === resourceId);
+  if (!resource) {
+    setCurriculumPlannerMessage("Lesson plan not found.", false);
+    toggleLessonWorkspaceActionSheet(false);
+    setView("curriculum-planner");
+    return;
+  }
+  if (!canAccess(resource)) {
+    openLockedResourcePreview(resource);
+    return;
+  }
+  curriculumPlannerAssignResourceId = resourceId;
+  if (options.weekStartDate) {
+    curriculumPlannerSelectedWeek = curriculumPlannerWeekStartIso(options.weekStartDate);
+  } else if (!curriculumPlannerSelectedWeek) {
+    curriculumPlannerSelectedWeek = curriculumPlannerWeekStartIso(new Date());
+  }
+  toggleLessonWorkspaceActionSheet(false);
+  const modal = document.querySelector("#resourceViewerModal");
+  if (modal?.classList.contains("open")) {
+    modal.classList.remove("open");
+    modal.setAttribute("aria-hidden", "true");
+  }
+  setView("curriculum-planner");
 }
 
 function toggleLessonWorkspaceMoreMenu(open) {
@@ -11244,11 +11408,40 @@ function lessonWorkspaceChromeHtml(resource) {
       <div class="lesson-workspace-action-sheet" hidden aria-hidden="true">
         <button type="button" class="lesson-workspace-action-sheet-backdrop" data-lesson-workspace-action-sheet-dismiss aria-label="Close"></button>
         <div class="lesson-workspace-action-sheet-panel" role="dialog" aria-label="Use this plan">
-          <p class="lesson-workspace-action-sheet-title">Use This Plan</p>
-          <button type="button" class="ghost-button" data-curriculum-assign-week="${escapeHtml(resource.id)}">Assign to Week</button>
-          <button type="button" class="ghost-button" data-lesson-workspace-print-week>Print Weekly Plan</button>
-          ${hasResourcePdf(resource) ? `<button type="button" class="ghost-button" data-download-pdf="${escapeHtml(resource.id)}">Download PDF</button>` : ""}
-          <button type="button" class="link-button" data-lesson-workspace-action-sheet-dismiss>Cancel</button>
+          <div data-lesson-workspace-action-panel="menu">
+            <p class="lesson-workspace-action-sheet-title">Use This Plan</p>
+            <button type="button" class="ghost-button" data-curriculum-assign-week="${escapeHtml(resource.id)}">Assign to a Week</button>
+            <button type="button" class="ghost-button" data-lesson-add-to-main-calendar="${escapeHtml(resource.id)}">Add to Main Calendar</button>
+            <button type="button" class="ghost-button" data-lesson-view-in-curriculum-planner="${escapeHtml(resource.id)}">View in Curriculum Planner</button>
+            <button type="button" class="ghost-button" data-lesson-workspace-print-week>Print Weekly Plan</button>
+            ${hasResourcePdf(resource) ? `<button type="button" class="ghost-button" data-download-pdf="${escapeHtml(resource.id)}">Download Lesson Plan PDF</button>` : ""}
+            <button type="button" class="link-button" data-lesson-workspace-action-sheet-dismiss>Cancel</button>
+          </div>
+          <div data-lesson-workspace-action-panel="main-calendar" hidden aria-hidden="true">
+            <p class="lesson-workspace-action-sheet-title">Add to Main Calendar</p>
+            <p class="muted-copy lesson-workspace-action-sheet-note">Pick the Monday that starts your teaching week. Curriculum assignments are the source of truth; Weekly Planner day text is filled from circle-time ideas and activity titles (no timed schedule blocks).</p>
+            <form class="lesson-workspace-main-calendar-form" data-lesson-main-calendar-form>
+              <input type="hidden" name="resourceId" value="${escapeHtml(resource.id)}" />
+              <label>Week starting (Monday)
+                <input name="weekStartDate" type="date" value="${escapeHtml(curriculumPlannerWeekStartIso(new Date()))}" required />
+              </label>
+              <label>Age Group
+                <select name="ageGroup">${lessonWorkspacePlannerAgeGroupOptions(lessonWorkspaceDefaultAgeGroup(resource, plan))}</select>
+              </label>
+              <div class="lesson-workspace-action-sheet-actions">
+                <button type="submit" class="primary-button">Add to Calendar</button>
+                <button type="button" class="ghost-button" data-lesson-workspace-action-back>Back</button>
+              </div>
+            </form>
+          </div>
+          <div data-lesson-workspace-action-panel="success" hidden aria-hidden="true">
+            <p class="lesson-workspace-action-sheet-title">Added to your calendar</p>
+            <p class="muted-copy" data-lesson-workspace-success-message></p>
+            <p class="muted-copy lesson-workspace-action-sheet-note">Daily activity display is limited to Weekly Planner day text and the Curriculum Planner week board — there is no separate timed day calendar yet.</p>
+            <button type="button" class="primary-button" data-lesson-open-curriculum-planner>Open Curriculum Planner</button>
+            <button type="button" class="ghost-button" data-lesson-open-weekly-planner>Open Weekly Planner</button>
+            <button type="button" class="link-button" data-lesson-workspace-action-sheet-dismiss>Done</button>
+          </div>
         </div>
       </div>
     </div>
@@ -31472,6 +31665,66 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const lessonAddToMainCalendar = event.target.closest("[data-lesson-add-to-main-calendar]");
+  if (lessonAddToMainCalendar) {
+    event.preventDefault();
+    const resourceId = lessonAddToMainCalendar.dataset.lessonAddToMainCalendar;
+    const resource = resources.find((item) => item.id === resourceId);
+    if (!resource) return;
+    if (!isLoggedIn() && !hasAdminFullAccess()) {
+      openAuthModal("login");
+      return;
+    }
+    if (!canAccess(resource)) {
+      openLockedResourcePreview(resource);
+      return;
+    }
+    setLessonWorkspaceActionSheetPanel("main-calendar");
+    return;
+  }
+
+  const lessonWorkspaceActionBack = event.target.closest("[data-lesson-workspace-action-back]");
+  if (lessonWorkspaceActionBack) {
+    event.preventDefault();
+    setLessonWorkspaceActionSheetPanel("menu");
+    return;
+  }
+
+  const lessonViewInCurriculumPlanner = event.target.closest("[data-lesson-view-in-curriculum-planner]");
+  if (lessonViewInCurriculumPlanner) {
+    event.preventDefault();
+    viewLessonPlanInCurriculumPlanner(lessonViewInCurriculumPlanner.dataset.lessonViewInCurriculumPlanner || "");
+    return;
+  }
+
+  const lessonOpenCurriculumPlanner = event.target.closest("[data-lesson-open-curriculum-planner]");
+  if (lessonOpenCurriculumPlanner) {
+    event.preventDefault();
+    const week = lessonOpenCurriculumPlanner.dataset.lessonPlannerWeek || "";
+    const resourceId = activeResourceViewerResource?.id || activeViewerResourceId || "";
+    toggleLessonWorkspaceActionSheet(false);
+    const modal = document.querySelector("#resourceViewerModal");
+    if (modal?.classList.contains("open")) {
+      modal.classList.remove("open");
+      modal.setAttribute("aria-hidden", "true");
+    }
+    viewLessonPlanInCurriculumPlanner(resourceId, week ? { weekStartDate: week } : {});
+    return;
+  }
+
+  const lessonOpenWeeklyPlanner = event.target.closest("[data-lesson-open-weekly-planner]");
+  if (lessonOpenWeeklyPlanner) {
+    event.preventDefault();
+    toggleLessonWorkspaceActionSheet(false);
+    const modal = document.querySelector("#resourceViewerModal");
+    if (modal?.classList.contains("open")) {
+      modal.classList.remove("open");
+      modal.setAttribute("aria-hidden", "true");
+    }
+    setView("planner");
+    return;
+  }
+
   const lessonWorkspaceActionDismiss = event.target.closest("[data-lesson-workspace-action-sheet-dismiss]");
   if (lessonWorkspaceActionDismiss) {
     event.preventDefault();
@@ -31620,6 +31873,7 @@ document.addEventListener("click", async (event) => {
   if (curriculumAssignWeekButton) {
     event.preventDefault();
     const resourceId = curriculumAssignWeekButton.dataset.curriculumAssignWeek;
+    toggleLessonWorkspaceActionSheet(false);
     if (document.querySelector("#resourceViewerModal.open")) {
       document.querySelector("#resourceViewerModal")?.classList.remove("open");
       document.querySelector("#resourceViewerModal")?.setAttribute("aria-hidden", "true");
@@ -34078,6 +34332,33 @@ document.addEventListener("submit", (event) => {
   const planner = collectPlannerData(event.target);
   saveWeeklyPlanner(planner);
   renderWeeklyPlanner();
+});
+
+document.addEventListener("submit", async (event) => {
+  if (!event.target.matches("[data-lesson-main-calendar-form]")) return;
+  event.preventDefault();
+  const form = event.target;
+  const submitButton = form.querySelector("button[type='submit']");
+  const formData = new FormData(form);
+  const resourceId = String(formData.get("resourceId") || "").trim();
+  const weekStartDate = String(formData.get("weekStartDate") || "").trim();
+  const ageGroup = String(formData.get("ageGroup") || "").trim();
+  if (!resourceId || !weekStartDate) return;
+  if (submitButton) submitButton.disabled = true;
+  try {
+    const assignment = await addCurriculumLessonPlanToMainCalendar({ resourceId, weekStartDate, ageGroup });
+    showLessonWorkspaceMainCalendarSuccess(assignment);
+    trackEvent("lesson_use_this_plan_main_calendar", {
+      lessonPlanId: resourceId,
+      weekStartDate: assignment.weekStartDate,
+    });
+  } catch (error) {
+    if (error?.code !== "cancelled") {
+      window.alert(error.message || "Could not add this plan to your calendar.");
+    }
+  } finally {
+    if (submitButton) submitButton.disabled = false;
+  }
 });
 
 document.addEventListener("submit", async (event) => {
