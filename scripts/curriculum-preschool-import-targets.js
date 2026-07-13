@@ -7,6 +7,7 @@ const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-
 
 const FREE_IMPORT_DIR = path.join(__dirname, "curriculum-preschool-free-imports");
 const PRO_IMPORT_DIR = path.join(__dirname, "curriculum-preschool-pro-imports");
+const PRO_BATCH2_IMPORT_DIR = path.join(__dirname, "curriculum-preschool-pro-batch2-imports");
 
 const PRESCHOOL_FREE_IMPORT_TARGETS = [
   { file: "01-preschool-colors-everywhere-free.txt", stableId: "cur-lp-preschool-colors-everywhere", plan: "Free", importDir: FREE_IMPORT_DIR },
@@ -34,9 +35,23 @@ const PRESCHOOL_PRO_IMPORT_TARGETS = [
   { file: "10-preschool-kindergarten-readiness-pro.txt", stableId: "cur-lp-preschool-kindergarten-readiness", plan: "Pro", importDir: PRO_IMPORT_DIR },
 ];
 
+const PRESCHOOL_PRO_BATCH2_IMPORT_TARGETS = [
+  { file: "11-preschool-animal-habitats-pro.txt", stableId: "cur-lp-preschool-animal-habitats", plan: "Pro", importDir: PRO_BATCH2_IMPORT_DIR },
+  { file: "12-preschool-construction-zone-pro.txt", stableId: "cur-lp-preschool-construction-zone", plan: "Pro", importDir: PRO_BATCH2_IMPORT_DIR },
+  { file: "13-preschool-camping-adventure-pro.txt", stableId: "cur-lp-preschool-camping-adventure", plan: "Pro", importDir: PRO_BATCH2_IMPORT_DIR },
+  { file: "14-preschool-little-scientists-pro.txt", stableId: "cur-lp-preschool-little-scientists", plan: "Pro", importDir: PRO_BATCH2_IMPORT_DIR },
+  { file: "15-preschool-amazing-insects-pro.txt", stableId: "cur-lp-preschool-amazing-insects", plan: "Pro", importDir: PRO_BATCH2_IMPORT_DIR },
+  { file: "16-preschool-inventors-workshop-pro.txt", stableId: "cur-lp-preschool-inventors-workshop", plan: "Pro", importDir: PRO_BATCH2_IMPORT_DIR },
+  { file: "17-preschool-archaeology-adventure-pro.txt", stableId: "cur-lp-preschool-archaeology-adventure", plan: "Pro", importDir: PRO_BATCH2_IMPORT_DIR },
+  { file: "18-preschool-gardening-plant-life-pro.txt", stableId: "cur-lp-preschool-gardening-plant-life", plan: "Pro", importDir: PRO_BATCH2_IMPORT_DIR },
+  { file: "19-preschool-pet-pals-pro.txt", stableId: "cur-lp-preschool-pet-pals", plan: "Pro", importDir: PRO_BATCH2_IMPORT_DIR },
+  { file: "20-preschool-zoo-adventure-pro.txt", stableId: "cur-lp-preschool-zoo-adventure", plan: "Pro", importDir: PRO_BATCH2_IMPORT_DIR },
+];
+
 const PRESCHOOL_IMPORT_TARGETS = [
   ...PRESCHOOL_FREE_IMPORT_TARGETS,
   ...PRESCHOOL_PRO_IMPORT_TARGETS,
+  ...PRESCHOOL_PRO_BATCH2_IMPORT_TARGETS,
 ];
 
 function parsePreschoolLessonImport(text, { itemIdPrefix = "item" } = {}) {
@@ -85,8 +100,10 @@ function preschoolPlansMissing(curriculum, targets = PRESCHOOL_IMPORT_TARGETS) {
 module.exports = {
   FREE_IMPORT_DIR,
   PRO_IMPORT_DIR,
+  PRO_BATCH2_IMPORT_DIR,
   PRESCHOOL_FREE_IMPORT_TARGETS,
   PRESCHOOL_PRO_IMPORT_TARGETS,
+  PRESCHOOL_PRO_BATCH2_IMPORT_TARGETS,
   PRESCHOOL_IMPORT_TARGETS,
   parsePreschoolLessonImport,
   readPreschoolImportTarget,

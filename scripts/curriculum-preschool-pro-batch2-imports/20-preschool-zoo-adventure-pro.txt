@@ -1,0 +1,734 @@
+TITLE:
+Zoo Adventure
+
+AGE_GROUP:
+Preschool 3-5 Years
+
+THEME:
+Zoo Adventure
+
+PLAN:
+Pro
+
+STATUS:
+published
+LEARNING_DOMAINS:
+Language & Literacy
+Science
+Social Emotional
+Physical Development
+Math
+Creative Arts
+
+
+WEEKLY_OVERVIEW:
+Children will become zoo explorers as they investigate animals from around the world. Through hands-on discovery, dramatic play, movement activities, sensory experiences, art projects, and STEM challenges, children will learn about animal habitats, diets, behaviors, and the important role zoos play in conservation and animal care.
+
+LEARNING_OBJECTIVES:
+Identify a variety of zoo animals
+Explore animal habitats and needs
+Learn about animal care and conservation
+Develop observation and classification skills
+Practice counting, sorting, and comparing
+Strengthen fine and gross motor skills
+Build vocabulary related to animals and habitats
+Foster curiosity and respect for wildlife
+
+
+WEEKLY_MATERIALS:
+Zoo animal figures
+Animal habitat pictures
+Blocks
+Magnifying glasses
+Binoculars
+Toy veterinarian kit
+Animal masks
+Paint
+Markers
+Construction paper
+Glue
+Scissors
+Sensory bin materials
+Books
+Music player
+
+
+VOCABULARY:
+Zoo
+Habitat
+Conservation
+Keeper
+Veterinarian
+Mammal
+Reptile
+Bird
+Exhibit
+Safari
+Wildlife
+Endangered
+Species
+Animal Care
+
+
+BOOKS:
+Dear Zoo | Rod Campbell
+Put Me in the Zoo | Robert Lopshire
+If I Ran the Zoo | Dr. Seuss
+
+
+SONGS:
+We're Going to the Zoo
+Animal Boogie
+Walking Through the Zoo
+
+FAMILY_CONNECTION:
+Encourage families to visit a zoo, nature center, or wildlife park if possible. Discuss favorite animals and how people can help protect wildlife and habitats.
+
+OBSERVATION_OPPORTUNITIES:
+Observe children's ability to identify animals, classify animals by habitat or type, use new vocabulary, participate in dramatic play, and demonstrate curiosity during investigations.
+
+ADAPTATIONS:
+Provide animal picture cards and visual supports. Offer larger manipulatives when needed. Allow children to participate through movement, art, dramatic play, sensory exploration, or discussion.
+
+MONDAY:
+
+ACTIVITY_NAME:
+Zoo Discovery Sensory Bin
+
+CATEGORY:
+Sensory Play
+
+OBJECTIVE:
+Explore zoo animals through sensory investigation.
+
+MATERIALS:
+Animal figures
+Rice
+Scoops
+Binoculars
+
+SETUP:
+Hide zoo animals throughout the sensory bin.
+
+DIRECTIONS:
+Search for animals.
+Identify each animal found.
+Discuss animal features.
+
+TEACHER_ROLE:
+Introduce zoo vocabulary and encourage exploration.
+
+DESCRIPTION:
+Explore zoo animals through sensory investigation.
+
+LEARNING_GOALS:
+Explore zoo animals through sensory investigation.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Animal Classification Center
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Develop sorting and classification skills.
+
+MATERIALS:
+Animal cards
+Sorting mats
+
+SETUP:
+Arrange sorting materials.
+
+DIRECTIONS:
+Sort animals by type or habitat.
+
+TEACHER_ROLE:
+Guide observations and discussions.
+
+DESCRIPTION:
+Develop sorting and classification skills.
+
+LEARNING_GOALS:
+Develop sorting and classification skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Favorite Zoo Animal Art
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Develop creativity and fine motor control.
+
+MATERIALS:
+Paper
+Markers
+Crayons
+
+SETUP:
+Prepare art station.
+
+DIRECTIONS:
+Draw and decorate a favorite zoo animal.
+
+TEACHER_ROLE:
+Encourage creativity and conversation.
+
+DESCRIPTION:
+Develop creativity and fine motor control.
+
+LEARNING_GOALS:
+Develop creativity and fine motor control.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Animal Movement Safari
+
+CATEGORY:
+Music & Movement
+
+OBJECTIVE:
+Develop gross motor skills.
+
+MATERIALS:
+Music player
+
+SETUP:
+Open movement area.
+
+DIRECTIONS:
+Move like zoo animals.
+Stomp like elephants.
+Swing like monkeys.
+Stretch like giraffes.
+
+TEACHER_ROLE:
+Model movements and encourage participation.
+
+DESCRIPTION:
+Develop gross motor skills.
+
+LEARNING_GOALS:
+Develop gross motor skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+TUESDAY:
+
+ACTIVITY_NAME:
+Habitat Match Investigation
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Learn about animal habitats.
+
+MATERIALS:
+Habitat pictures
+Animal figures
+
+SETUP:
+Arrange habitat mats.
+
+DIRECTIONS:
+Match animals to habitats.
+
+TEACHER_ROLE:
+Support critical thinking and discussion.
+
+DESCRIPTION:
+Learn about animal habitats.
+
+LEARNING_GOALS:
+Learn about animal habitats.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Zoo Keeper Station
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Explore animal care responsibilities.
+
+MATERIALS:
+Animal figures
+Food props
+Keeper badges
+
+SETUP:
+Create zoo keeper center.
+
+DIRECTIONS:
+Feed and care for zoo animals.
+
+TEACHER_ROLE:
+Discuss animal needs and responsibilities.
+
+DESCRIPTION:
+Explore animal care responsibilities.
+
+LEARNING_GOALS:
+Explore animal care responsibilities.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Giraffe Spot Painting
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Develop hand-eye coordination.
+
+MATERIALS:
+Paint
+Paper
+Cotton swabs
+
+SETUP:
+Prepare art station.
+
+DIRECTIONS:
+Create giraffe patterns using paint.
+
+TEACHER_ROLE:
+Encourage creativity.
+
+DESCRIPTION:
+Develop hand-eye coordination.
+
+LEARNING_GOALS:
+Develop hand-eye coordination.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Safari Obstacle Course
+
+CATEGORY:
+Gross Motor
+
+OBJECTIVE:
+Develop coordination and balance.
+
+MATERIALS:
+Cones
+Tunnels
+
+SETUP:
+Create safari trail.
+
+DIRECTIONS:
+Travel through animal habitats.
+
+TEACHER_ROLE:
+Promote safe movement.
+
+DESCRIPTION:
+Develop coordination and balance.
+
+LEARNING_GOALS:
+Develop coordination and balance.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+WEDNESDAY:
+
+ACTIVITY_NAME:
+Animal Diet Investigation
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Learn what animals eat.
+
+MATERIALS:
+Animal cards
+Food picture cards
+
+SETUP:
+Arrange matching materials.
+
+DIRECTIONS:
+Match foods to animals.
+
+TEACHER_ROLE:
+Introduce herbivore and carnivore concepts.
+
+DESCRIPTION:
+Learn what animals eat.
+
+LEARNING_GOALS:
+Learn what animals eat.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Zoo Veterinary Clinic
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Develop empathy and communication.
+
+MATERIALS:
+Veterinary kit
+Stuffed animals
+
+SETUP:
+Create veterinary clinic.
+
+DIRECTIONS:
+Care for and examine animals.
+
+TEACHER_ROLE:
+Support compassionate interactions.
+
+DESCRIPTION:
+Develop empathy and communication.
+
+LEARNING_GOALS:
+Develop empathy and communication.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Lion Mane Craft
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Strengthen fine motor skills.
+
+MATERIALS:
+Paper plates
+Construction paper
+Glue
+
+SETUP:
+Prepare craft materials.
+
+DIRECTIONS:
+Create lion faces with colorful manes.
+
+TEACHER_ROLE:
+Encourage artistic expression.
+
+DESCRIPTION:
+Strengthen fine motor skills.
+
+LEARNING_GOALS:
+Strengthen fine motor skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Jungle Animal Dance
+
+CATEGORY:
+Music & Movement
+
+OBJECTIVE:
+Develop body awareness.
+
+MATERIALS:
+Music player
+
+SETUP:
+Open movement area.
+
+DIRECTIONS:
+Move like jungle animals.
+
+TEACHER_ROLE:
+Lead movement activities.
+
+DESCRIPTION:
+Develop body awareness.
+
+LEARNING_GOALS:
+Develop body awareness.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+THURSDAY:
+
+ACTIVITY_NAME:
+Endangered Animal Exploration
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Introduce conservation concepts.
+
+MATERIALS:
+Animal photographs
+Books
+
+SETUP:
+Create exploration station.
+
+DIRECTIONS:
+Learn about animals that need protection.
+
+TEACHER_ROLE:
+Discuss caring for wildlife.
+
+DESCRIPTION:
+Introduce conservation concepts.
+
+LEARNING_GOALS:
+Introduce conservation concepts.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Safari Adventure Camp
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Encourage imaginative exploration.
+
+MATERIALS:
+Binoculars
+Maps
+Explorer hats
+
+SETUP:
+Create safari camp.
+
+DIRECTIONS:
+Search for animals and record discoveries.
+
+TEACHER_ROLE:
+Support storytelling and observation.
+
+DESCRIPTION:
+Encourage imaginative exploration.
+
+LEARNING_GOALS:
+Encourage imaginative exploration.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Zebra Stripe Art
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Develop pattern recognition.
+
+MATERIALS:
+Paper
+Paint
+Markers
+
+SETUP:
+Prepare art station.
+
+DIRECTIONS:
+Create zebra stripe patterns.
+
+TEACHER_ROLE:
+Encourage creativity and observation.
+
+DESCRIPTION:
+Develop pattern recognition.
+
+LEARNING_GOALS:
+Develop pattern recognition.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Animal Relay Challenge
+
+CATEGORY:
+Gross Motor
+
+OBJECTIVE:
+Develop teamwork and coordination.
+
+MATERIALS:
+Cones
+Animal cards
+
+SETUP:
+Create relay course.
+
+DIRECTIONS:
+Complete animal-themed movement challenges.
+
+TEACHER_ROLE:
+Encourage participation and teamwork.
+
+DESCRIPTION:
+Develop teamwork and coordination.
+
+LEARNING_GOALS:
+Develop teamwork and coordination.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+FRIDAY:
+
+ACTIVITY_NAME:
+Zoo Showcase
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Build confidence and communication.
+
+MATERIALS:
+Projects from the week
+
+SETUP:
+Create zoo exhibit displays.
+
+DIRECTIONS:
+Share favorite animals and discoveries.
+
+TEACHER_ROLE:
+Encourage reflection and discussion.
+
+DESCRIPTION:
+Build confidence and communication.
+
+LEARNING_GOALS:
+Build confidence and communication.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Zoo Exploration Centers
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Review zoo concepts.
+
+MATERIALS:
+Favorite materials from the week
+
+SETUP:
+Create exploration stations.
+
+DIRECTIONS:
+Revisit favorite zoo activities.
+
+TEACHER_ROLE:
+Observe and support learning.
+
+DESCRIPTION:
+Review zoo concepts.
+
+LEARNING_GOALS:
+Review zoo concepts.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Wild About Animals Celebration
+
+CATEGORY:
+Music & Movement
+
+OBJECTIVE:
+Celebrate learning and animal discovery.
+
+MATERIALS:
+Music player
+
+SETUP:
+Open movement area.
+
+DIRECTIONS:
+Dance and celebrate a week of zoo adventures.
+
+TEACHER_ROLE:
+Celebrate participation and accomplishments.
+
+DESCRIPTION:
+Celebrate learning and animal discovery.
+
+LEARNING_GOALS:
+Celebrate learning and animal discovery.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.

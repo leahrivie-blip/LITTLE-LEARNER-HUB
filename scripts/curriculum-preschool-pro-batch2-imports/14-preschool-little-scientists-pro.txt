@@ -1,0 +1,736 @@
+TITLE:
+Little Scientists
+
+AGE_GROUP:
+Preschool 3-5 Years
+
+THEME:
+Little Scientists
+
+PLAN:
+Pro
+
+STATUS:
+published
+LEARNING_DOMAINS:
+Science
+Language & Literacy
+Math
+Physical Development
+Social Emotional
+Creative Arts
+
+
+WEEKLY_OVERVIEW:
+Children will become scientists as they ask questions, make predictions, conduct experiments, observe results, and explore the world around them. Throughout the week, children will investigate colors, magnets, water, plants, and simple chemical reactions while building critical thinking, observation, and problem-solving skills through hands-on discovery.
+
+LEARNING_OBJECTIVES:
+Develop scientific observation skills
+Learn how to make predictions
+Explore cause and effect relationships
+Practice comparing and classifying objects
+Strengthen vocabulary related to science
+Build problem-solving and critical thinking skills
+Encourage curiosity and questioning
+Develop fine and gross motor skills
+
+
+WEEKLY_MATERIALS:
+Magnifying glasses
+Science goggles
+Pipettes
+Water tubs
+Food coloring
+Magnets
+Paper towels
+Plants
+Seeds
+Measuring cups
+Droppers
+Paper
+Markers
+Clipboards
+Books
+Music player
+
+
+VOCABULARY:
+Scientist
+Experiment
+Observe
+Predict
+Investigate
+Discover
+Compare
+Test
+Results
+Magnify
+Measure
+Hypothesis
+Explore
+Reaction
+
+
+BOOKS:
+Ada Twist, Scientist | Andrea Beaty
+What Is Science? | Rebecca Kai Dotlich
+The Most Magnificent Thing | Ashley Spires
+
+
+SONGS:
+The Science Song
+I'm a Little Scientist
+Five Little Scientists
+
+FAMILY_CONNECTION:
+Encourage children to ask questions about the world around them. Explore simple science concepts at home by observing weather, plants, animals, and everyday changes.
+
+OBSERVATION_OPPORTUNITIES:
+Observe children's curiosity, ability to make predictions, problem-solving skills, scientific vocabulary usage, participation in experiments, and ability to discuss observations.
+
+ADAPTATIONS:
+Provide visual supports and picture cards. Offer hands-on materials for all learners. Allow children to participate through observation, discussion, drawing, movement, or experimentation.
+
+MONDAY:
+
+ACTIVITY_NAME:
+Scientist Exploration Lab
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Introduce scientific tools and observation skills.
+
+MATERIALS:
+Magnifying glasses
+Natural objects
+Clipboards
+
+SETUP:
+Arrange materials at science tables.
+
+DIRECTIONS:
+Explore objects using magnifying glasses.
+Discuss observations.
+Record discoveries through drawings.
+
+TEACHER_ROLE:
+Model observation skills and scientific vocabulary.
+
+DESCRIPTION:
+Introduce scientific tools and observation skills.
+
+LEARNING_GOALS:
+Introduce scientific tools and observation skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Color Mixing Discovery
+
+CATEGORY:
+Sensory Play
+
+OBJECTIVE:
+Explore color combinations and cause and effect.
+
+MATERIALS:
+Water
+Food coloring
+Clear cups
+
+SETUP:
+Prepare color stations.
+
+DIRECTIONS:
+Mix colors together.
+Observe changes.
+Predict new colors before mixing.
+
+TEACHER_ROLE:
+Encourage predictions and observations.
+
+DESCRIPTION:
+Explore color combinations and cause and effect.
+
+LEARNING_GOALS:
+Explore color combinations and cause and effect.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Scientist Badge Craft
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Develop creativity and fine motor skills.
+
+MATERIALS:
+Paper badges
+Markers
+Stickers
+
+SETUP:
+Prepare craft station.
+
+DIRECTIONS:
+Create personalized scientist badges.
+
+TEACHER_ROLE:
+Encourage creativity and ownership.
+
+DESCRIPTION:
+Develop creativity and fine motor skills.
+
+LEARNING_GOALS:
+Develop creativity and fine motor skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Science Movement Challenge
+
+CATEGORY:
+Music & Movement
+
+OBJECTIVE:
+Develop listening and body awareness.
+
+MATERIALS:
+Movement cards
+
+SETUP:
+Open movement area.
+
+DIRECTIONS:
+Move like bouncing molecules, growing plants, and spinning planets.
+
+TEACHER_ROLE:
+Lead movement activities.
+
+DESCRIPTION:
+Develop listening and body awareness.
+
+LEARNING_GOALS:
+Develop listening and body awareness.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+TUESDAY:
+
+ACTIVITY_NAME:
+Magnet Investigation
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Explore magnetism.
+
+MATERIALS:
+Magnets
+Metal and non-metal objects
+
+SETUP:
+Arrange testing materials.
+
+DIRECTIONS:
+Test objects with magnets.
+Sort items into magnetic and non-magnetic groups.
+
+TEACHER_ROLE:
+Guide exploration and discussion.
+
+DESCRIPTION:
+Explore magnetism.
+
+LEARNING_GOALS:
+Explore magnetism.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Science Lab Dramatic Play
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Encourage imaginative scientific exploration.
+
+MATERIALS:
+Lab coats
+Goggles
+Clipboards
+
+SETUP:
+Create science laboratory.
+
+DIRECTIONS:
+Conduct pretend experiments and record findings.
+
+TEACHER_ROLE:
+Support role-playing and vocabulary development.
+
+DESCRIPTION:
+Encourage imaginative scientific exploration.
+
+LEARNING_GOALS:
+Encourage imaginative scientific exploration.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Magnet Art
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Combine science and creativity.
+
+MATERIALS:
+Magnets
+Paint
+Paper clips
+Paint trays
+
+SETUP:
+Prepare art station.
+
+DIRECTIONS:
+Use magnets to move paint-covered paper clips across paper.
+
+TEACHER_ROLE:
+Encourage observation of movement.
+
+DESCRIPTION:
+Combine science and creativity.
+
+LEARNING_GOALS:
+Combine science and creativity.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Discovery Dance
+
+CATEGORY:
+Music & Movement
+
+OBJECTIVE:
+Celebrate exploration through movement.
+
+MATERIALS:
+Music player
+
+SETUP:
+Open movement area.
+
+DIRECTIONS:
+Move in response to scientific discoveries and observations.
+
+TEACHER_ROLE:
+Encourage participation and creativity.
+
+DESCRIPTION:
+Celebrate exploration through movement.
+
+LEARNING_GOALS:
+Celebrate exploration through movement.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+WEDNESDAY:
+
+ACTIVITY_NAME:
+Sink or Float Investigation
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Explore buoyancy concepts.
+
+MATERIALS:
+Water tub
+Various objects
+
+SETUP:
+Prepare testing station.
+
+DIRECTIONS:
+Predict whether objects will sink or float.
+Test and compare results.
+
+TEACHER_ROLE:
+Encourage scientific thinking.
+
+DESCRIPTION:
+Explore buoyancy concepts.
+
+LEARNING_GOALS:
+Explore buoyancy concepts.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Water Exploration Center
+
+CATEGORY:
+Sensory Play
+
+OBJECTIVE:
+Explore water properties.
+
+MATERIALS:
+Funnels
+Cups
+Droppers
+
+SETUP:
+Prepare water table.
+
+DIRECTIONS:
+Pour, transfer, and investigate water.
+
+TEACHER_ROLE:
+Support experimentation.
+
+DESCRIPTION:
+Explore water properties.
+
+LEARNING_GOALS:
+Explore water properties.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Observation Journal Drawing
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Record scientific observations.
+
+MATERIALS:
+Paper
+Crayons
+Markers
+
+SETUP:
+Prepare journal station.
+
+DIRECTIONS:
+Draw discoveries from experiments.
+
+TEACHER_ROLE:
+Encourage reflection.
+
+DESCRIPTION:
+Record scientific observations.
+
+LEARNING_GOALS:
+Record scientific observations.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Scientist Says
+
+CATEGORY:
+Music & Movement
+
+OBJECTIVE:
+Develop listening skills.
+
+MATERIALS:
+None
+
+SETUP:
+Open movement area.
+
+DIRECTIONS:
+Play a science-themed version of Simon Says.
+
+TEACHER_ROLE:
+Lead directions and encourage participation.
+
+DESCRIPTION:
+Develop listening skills.
+
+LEARNING_GOALS:
+Develop listening skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+THURSDAY:
+
+ACTIVITY_NAME:
+Growing Plants Investigation
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Learn about plant growth.
+
+MATERIALS:
+Seeds
+Soil
+Cups
+
+SETUP:
+Prepare planting station.
+
+DIRECTIONS:
+Plant seeds and discuss growth needs.
+
+TEACHER_ROLE:
+Guide observations and predictions.
+
+DESCRIPTION:
+Learn about plant growth.
+
+LEARNING_GOALS:
+Learn about plant growth.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Nature Scientist Station
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Encourage observation and exploration.
+
+MATERIALS:
+Magnifying glasses
+Nature items
+
+SETUP:
+Create outdoor investigation center.
+
+DIRECTIONS:
+Observe and classify natural objects.
+
+TEACHER_ROLE:
+Support scientific discussions.
+
+DESCRIPTION:
+Encourage observation and exploration.
+
+LEARNING_GOALS:
+Encourage observation and exploration.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Plant Growth Craft
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Demonstrate understanding of plant life cycles.
+
+MATERIALS:
+Paper
+Markers
+Glue
+
+SETUP:
+Prepare art materials.
+
+DIRECTIONS:
+Create plant growth sequence artwork.
+
+TEACHER_ROLE:
+Support creativity and sequencing.
+
+DESCRIPTION:
+Demonstrate understanding of plant life cycles.
+
+LEARNING_GOALS:
+Demonstrate understanding of plant life cycles.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Growing Like a Plant
+
+CATEGORY:
+Gross Motor
+
+OBJECTIVE:
+Develop body awareness.
+
+MATERIALS:
+Music player
+
+SETUP:
+Open movement area.
+
+DIRECTIONS:
+Pretend to grow from a seed into a plant.
+
+TEACHER_ROLE:
+Model movements.
+
+DESCRIPTION:
+Develop body awareness.
+
+LEARNING_GOALS:
+Develop body awareness.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+FRIDAY:
+
+ACTIVITY_NAME:
+Science Fair Showcase
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Build confidence and communication skills.
+
+MATERIALS:
+Projects from the week
+
+SETUP:
+Create science fair displays.
+
+DIRECTIONS:
+Share favorite discoveries and experiments.
+
+TEACHER_ROLE:
+Encourage reflection and presentation skills.
+
+DESCRIPTION:
+Build confidence and communication skills.
+
+LEARNING_GOALS:
+Build confidence and communication skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Scientist Discovery Centers
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Review scientific concepts.
+
+MATERIALS:
+Favorite materials from the week
+
+SETUP:
+Create exploration stations.
+
+DIRECTIONS:
+Revisit favorite investigations and experiments.
+
+TEACHER_ROLE:
+Observe and support learning.
+
+DESCRIPTION:
+Review scientific concepts.
+
+LEARNING_GOALS:
+Review scientific concepts.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Little Scientist Celebration
+
+CATEGORY:
+Music & Movement
+
+OBJECTIVE:
+Celebrate learning and discovery.
+
+MATERIALS:
+Music player
+
+SETUP:
+Open movement area.
+
+DIRECTIONS:
+Dance and celebrate a week of scientific exploration.
+
+TEACHER_ROLE:
+Celebrate participation and accomplishments.
+
+DESCRIPTION:
+Celebrate learning and discovery.
+
+LEARNING_GOALS:
+Celebrate learning and discovery.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.

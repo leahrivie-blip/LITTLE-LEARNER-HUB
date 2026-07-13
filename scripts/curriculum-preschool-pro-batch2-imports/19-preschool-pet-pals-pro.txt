@@ -1,0 +1,736 @@
+TITLE:
+Pet Pals
+
+AGE_GROUP:
+Preschool 3-5 Years
+
+THEME:
+Pet Pals
+
+PLAN:
+Pro
+
+STATUS:
+published
+LEARNING_DOMAINS:
+Language & Literacy
+Social Emotional
+Science
+Physical Development
+Creative Arts
+Math
+
+
+WEEKLY_OVERVIEW:
+Children will explore the wonderful world of pets while learning about responsibility, kindness, animal care, and pet habitats. Through hands-on investigations, dramatic play, sensory experiences, art projects, movement activities, and early science concepts, children will discover how pets depend on people for food, shelter, love, and care.
+
+LEARNING_OBJECTIVES:
+Identify common household pets
+Learn how to care for animals responsibly
+Develop empathy and kindness toward living things
+Explore pet needs and habitats
+Strengthen observation and classification skills
+Build vocabulary related to animals and pet care
+Develop fine and gross motor skills
+Foster responsibility and cooperation
+
+
+WEEKLY_MATERIALS:
+Stuffed animals
+Pet figures
+Pet care supplies
+Animal books
+Pet habitat pictures
+Food bowls
+Leashes
+Toy veterinary kit
+Paint
+Markers
+Construction paper
+Glue
+Scissors
+Sensory bin materials
+Blocks
+Music player
+
+
+VOCABULARY:
+Pet
+Veterinarian
+Care
+Responsibility
+Habitat
+Shelter
+Food
+Water
+Exercise
+Groom
+Adopt
+Companion
+Healthy
+Kindness
+
+
+BOOKS:
+Harry the Dirty Dog | Gene Zion
+Pete the Cat: I Love My White Shoes | Eric Litwin
+May I Pet Your Dog? | Stephanie Calmenson
+
+
+SONGS:
+B-I-N-G-O
+Old MacDonald Had a Farm
+The Pet Care Song
+
+FAMILY_CONNECTION:
+Encourage families to talk about pets at home or pets they know. Discuss how animals need food, water, exercise, love, and proper care to stay healthy and happy.
+
+OBSERVATION_OPPORTUNITIES:
+Observe children's empathy toward animals, understanding of pet care, participation in dramatic play, vocabulary development, and ability to classify and compare pets.
+
+ADAPTATIONS:
+Provide visual supports and pet photographs. Offer larger materials when needed. Allow children to participate through art, discussion, dramatic play, sensory experiences, or movement activities.
+
+MONDAY:
+
+ACTIVITY_NAME:
+Pet Discovery Sensory Bin
+
+CATEGORY:
+Sensory Play
+
+OBJECTIVE:
+Explore pet-related materials through sensory play.
+
+MATERIALS:
+Pet figures
+Shredded paper
+Scoops
+Pet bowls
+
+SETUP:
+Create pet-themed sensory bin.
+
+DIRECTIONS:
+Search for hidden pets.
+Sort pets into groups.
+Discuss favorite animals.
+
+TEACHER_ROLE:
+Introduce pet vocabulary and encourage exploration.
+
+DESCRIPTION:
+Explore pet-related materials through sensory play.
+
+LEARNING_GOALS:
+Explore pet-related materials through sensory play.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Pet Sorting Center
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Develop classification skills.
+
+MATERIALS:
+Pet picture cards
+Sorting mats
+
+SETUP:
+Arrange pet cards.
+
+DIRECTIONS:
+Sort pets by type, size, or habitat.
+
+TEACHER_ROLE:
+Support observation and comparison.
+
+DESCRIPTION:
+Develop classification skills.
+
+LEARNING_GOALS:
+Develop classification skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+My Favorite Pet Drawing
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Develop creativity and fine motor control.
+
+MATERIALS:
+Paper
+Markers
+Crayons
+
+SETUP:
+Prepare art station.
+
+DIRECTIONS:
+Draw a favorite pet.
+Discuss what makes it special.
+
+TEACHER_ROLE:
+Encourage creativity and conversation.
+
+DESCRIPTION:
+Develop creativity and fine motor control.
+
+LEARNING_GOALS:
+Develop creativity and fine motor control.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Pet Movement Parade
+
+CATEGORY:
+Music & Movement
+
+OBJECTIVE:
+Develop gross motor skills.
+
+MATERIALS:
+Music player
+
+SETUP:
+Open movement area.
+
+DIRECTIONS:
+Move like puppies, kittens, rabbits, and birds.
+
+TEACHER_ROLE:
+Model movements and encourage participation.
+
+DESCRIPTION:
+Develop gross motor skills.
+
+LEARNING_GOALS:
+Develop gross motor skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+TUESDAY:
+
+ACTIVITY_NAME:
+What Pets Need Investigation
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Learn about pet care needs.
+
+MATERIALS:
+Pet care pictures
+Food bowls
+Water dishes
+
+SETUP:
+Create investigation center.
+
+DIRECTIONS:
+Match pet needs to different animals.
+
+TEACHER_ROLE:
+Guide discussion about responsibility.
+
+DESCRIPTION:
+Learn about pet care needs.
+
+LEARNING_GOALS:
+Learn about pet care needs.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Pet Store Dramatic Play
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Encourage imaginative play and communication.
+
+MATERIALS:
+Stuffed animals
+Pet supplies
+Cash register
+
+SETUP:
+Create pet store.
+
+DIRECTIONS:
+Adopt, buy, and care for pets.
+
+TEACHER_ROLE:
+Support role-playing and conversation.
+
+DESCRIPTION:
+Encourage imaginative play and communication.
+
+LEARNING_GOALS:
+Encourage imaginative play and communication.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Pet Collar Craft
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Develop creativity and fine motor skills.
+
+MATERIALS:
+Paper strips
+Markers
+Stickers
+
+SETUP:
+Prepare craft materials.
+
+DIRECTIONS:
+Create pet collars with names and decorations.
+
+TEACHER_ROLE:
+Encourage creativity.
+
+DESCRIPTION:
+Develop creativity and fine motor skills.
+
+LEARNING_GOALS:
+Develop creativity and fine motor skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Puppy Training Course
+
+CATEGORY:
+Gross Motor
+
+OBJECTIVE:
+Develop coordination and listening skills.
+
+MATERIALS:
+Cones
+Hoops
+
+SETUP:
+Create obstacle course.
+
+DIRECTIONS:
+Complete puppy training challenges.
+
+TEACHER_ROLE:
+Encourage participation and teamwork.
+
+DESCRIPTION:
+Develop coordination and listening skills.
+
+LEARNING_GOALS:
+Develop coordination and listening skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+WEDNESDAY:
+
+ACTIVITY_NAME:
+Veterinarian Investigation
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Learn about animal health care.
+
+MATERIALS:
+Veterinary kit
+Animal pictures
+
+SETUP:
+Create investigation station.
+
+DIRECTIONS:
+Examine animals and discuss healthy habits.
+
+TEACHER_ROLE:
+Introduce veterinarian vocabulary.
+
+DESCRIPTION:
+Learn about animal health care.
+
+LEARNING_GOALS:
+Learn about animal health care.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Veterinary Clinic
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Develop empathy and communication.
+
+MATERIALS:
+Veterinary tools
+Stuffed animals
+
+SETUP:
+Create clinic center.
+
+DIRECTIONS:
+Care for sick pets and help them feel better.
+
+TEACHER_ROLE:
+Support compassionate interactions.
+
+DESCRIPTION:
+Develop empathy and communication.
+
+LEARNING_GOALS:
+Develop empathy and communication.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Pet Paw Print Art
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Develop creativity and hand control.
+
+MATERIALS:
+Paint
+Paper
+Paw print templates
+
+SETUP:
+Prepare art station.
+
+DIRECTIONS:
+Create colorful pet paw print artwork.
+
+TEACHER_ROLE:
+Encourage artistic expression.
+
+DESCRIPTION:
+Develop creativity and hand control.
+
+LEARNING_GOALS:
+Develop creativity and hand control.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Animal Action Game
+
+CATEGORY:
+Music & Movement
+
+OBJECTIVE:
+Develop body awareness.
+
+MATERIALS:
+Music player
+
+SETUP:
+Open movement area.
+
+DIRECTIONS:
+Move like different pets.
+Follow movement directions.
+
+TEACHER_ROLE:
+Lead movement activities.
+
+DESCRIPTION:
+Develop body awareness.
+
+LEARNING_GOALS:
+Develop body awareness.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+THURSDAY:
+
+ACTIVITY_NAME:
+Pet Habitat Builders
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Develop engineering and problem-solving skills.
+
+MATERIALS:
+Blocks
+Pet figures
+Habitat pictures
+
+SETUP:
+Create building center.
+
+DIRECTIONS:
+Build homes for different pets.
+
+TEACHER_ROLE:
+Support planning and creativity.
+
+DESCRIPTION:
+Develop engineering and problem-solving skills.
+
+LEARNING_GOALS:
+Develop engineering and problem-solving skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Pet Grooming Station
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Practice caring for animals.
+
+MATERIALS:
+Brushes
+Stuffed animals
+
+SETUP:
+Create grooming center.
+
+DIRECTIONS:
+Brush and care for pets.
+
+TEACHER_ROLE:
+Model gentle pet care.
+
+DESCRIPTION:
+Practice caring for animals.
+
+LEARNING_GOALS:
+Practice caring for animals.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Pet House Craft
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Develop creativity and construction skills.
+
+MATERIALS:
+Paper
+Markers
+Glue
+
+SETUP:
+Prepare craft station.
+
+DIRECTIONS:
+Design and decorate pet homes.
+
+TEACHER_ROLE:
+Encourage creativity.
+
+DESCRIPTION:
+Develop creativity and construction skills.
+
+LEARNING_GOALS:
+Develop creativity and construction skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Fetch Relay Race
+
+CATEGORY:
+Gross Motor
+
+OBJECTIVE:
+Develop teamwork and coordination.
+
+MATERIALS:
+Balls
+Buckets
+
+SETUP:
+Create relay course.
+
+DIRECTIONS:
+Complete pet-themed relay challenges.
+
+TEACHER_ROLE:
+Encourage participation.
+
+DESCRIPTION:
+Develop teamwork and coordination.
+
+LEARNING_GOALS:
+Develop teamwork and coordination.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+FRIDAY:
+
+ACTIVITY_NAME:
+Pet Adoption Fair
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Build confidence and communication skills.
+
+MATERIALS:
+Stuffed animals
+Adoption certificates
+
+SETUP:
+Create adoption center.
+
+DIRECTIONS:
+Introduce pets and discuss how to care for them.
+
+TEACHER_ROLE:
+Support reflection and communication.
+
+DESCRIPTION:
+Build confidence and communication skills.
+
+LEARNING_GOALS:
+Build confidence and communication skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Pet Care Centers
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Review pet care concepts.
+
+MATERIALS:
+Favorite materials from the week
+
+SETUP:
+Create learning centers.
+
+DIRECTIONS:
+Revisit favorite pet activities.
+
+TEACHER_ROLE:
+Observe and support learning.
+
+DESCRIPTION:
+Review pet care concepts.
+
+LEARNING_GOALS:
+Review pet care concepts.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Pet Pals Celebration
+
+CATEGORY:
+Music & Movement
+
+OBJECTIVE:
+Celebrate learning and friendship.
+
+MATERIALS:
+Music player
+
+SETUP:
+Open movement area.
+
+DIRECTIONS:
+Dance and celebrate a week of pet adventures.
+
+TEACHER_ROLE:
+Celebrate participation and accomplishments.
+
+DESCRIPTION:
+Celebrate learning and friendship.
+
+LEARNING_GOALS:
+Celebrate learning and friendship.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.

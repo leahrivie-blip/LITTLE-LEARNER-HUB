@@ -1,0 +1,732 @@
+TITLE:
+Archaeology Adventure
+
+AGE_GROUP:
+Preschool 3-5 Years
+
+THEME:
+Archaeology Adventure
+
+PLAN:
+Pro
+
+STATUS:
+published
+LEARNING_DOMAINS:
+Science
+Language & Literacy
+Math
+Physical Development
+Social Emotional
+Creative Arts
+
+
+WEEKLY_OVERVIEW:
+Children will become archaeologists as they dig for artifacts, uncover fossils, investigate ancient discoveries, and explore how people learn about the past. Through hands-on excavation activities, dramatic play, sensory exploration, art projects, and STEM challenges, children will develop curiosity, observation skills, and a love for discovery.
+
+LEARNING_OBJECTIVES:
+Learn what archaeologists do
+Explore fossils and artifacts
+Develop observation and investigation skills
+Practice sorting, classifying, and measuring
+Strengthen fine and gross motor skills
+Build vocabulary related to archaeology
+Encourage problem-solving and critical thinking
+Foster curiosity about history and discovery
+
+
+WEEKLY_MATERIALS:
+Sand
+Kinetic sand
+Toy fossils
+Dinosaur bones
+Brushes
+Magnifying glasses
+Measuring tape
+Artifact picture cards
+Play dough
+Blocks
+Paint
+Markers
+Construction paper
+Clipboards
+Books
+Music player
+
+
+VOCABULARY:
+Archaeologist
+Artifact
+Fossil
+Excavate
+Discovery
+Ancient
+Dig
+Investigate
+Evidence
+History
+Skeleton
+Bones
+Museum
+Treasure
+
+
+BOOKS:
+Archaeologists Dig for Clues | Kate Duke
+Dinosaur Bones | Bob Barner
+Fossils Tell of Long Ago | Aliki
+
+
+SONGS:
+We're Going on a Fossil Hunt
+The Discovery Song
+Dig Dig Dig
+
+FAMILY_CONNECTION:
+Encourage children to look for interesting rocks, shells, and natural objects outdoors. Discuss how people learn about the past by studying clues and discoveries.
+
+OBSERVATION_OPPORTUNITIES:
+Observe children's investigation skills, curiosity, ability to classify artifacts, use of vocabulary, participation in dramatic play, and problem-solving during excavation activities.
+
+ADAPTATIONS:
+Provide larger excavation tools when needed. Use visual supports and photographs. Allow children to participate through digging, sorting, art, dramatic play, or discussion.
+
+MONDAY:
+
+ACTIVITY_NAME:
+Fossil Dig Sensory Bin
+
+CATEGORY:
+Sensory Play
+
+OBJECTIVE:
+Explore excavation through sensory play.
+
+MATERIALS:
+Sand
+Toy fossils
+Brushes
+Scoops
+
+SETUP:
+Bury fossils in a sensory bin.
+
+DIRECTIONS:
+Excavate fossils carefully.
+Observe discoveries.
+Discuss findings.
+
+TEACHER_ROLE:
+Introduce archaeology vocabulary and encourage observation.
+
+DESCRIPTION:
+Explore excavation through sensory play.
+
+LEARNING_GOALS:
+Explore excavation through sensory play.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Archaeologist Tool Exploration
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Learn about excavation tools.
+
+MATERIALS:
+Brushes
+Magnifying glasses
+Tool cards
+
+SETUP:
+Arrange tools for exploration.
+
+DIRECTIONS:
+Examine tools and discuss how archaeologists use them.
+
+TEACHER_ROLE:
+Guide discussion and questioning.
+
+DESCRIPTION:
+Learn about excavation tools.
+
+LEARNING_GOALS:
+Learn about excavation tools.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Fossil Rubbing Art
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Develop hand-eye coordination.
+
+MATERIALS:
+Fossil templates
+Crayons
+Paper
+
+SETUP:
+Prepare rubbing station.
+
+DIRECTIONS:
+Create fossil rubbings and compare patterns.
+
+TEACHER_ROLE:
+Encourage observation and creativity.
+
+DESCRIPTION:
+Develop hand-eye coordination.
+
+LEARNING_GOALS:
+Develop hand-eye coordination.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Dinosaur Explorer Movement
+
+CATEGORY:
+Music & Movement
+
+OBJECTIVE:
+Develop gross motor skills.
+
+MATERIALS:
+Music player
+
+SETUP:
+Open movement area.
+
+DIRECTIONS:
+Walk, stomp, and move like prehistoric creatures.
+
+TEACHER_ROLE:
+Lead movement activities.
+
+DESCRIPTION:
+Develop gross motor skills.
+
+LEARNING_GOALS:
+Develop gross motor skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+TUESDAY:
+
+ACTIVITY_NAME:
+Artifact Sorting Station
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Develop classification skills.
+
+MATERIALS:
+Artifact pictures
+Sorting trays
+
+SETUP:
+Arrange artifacts for sorting.
+
+DIRECTIONS:
+Sort artifacts by size, type, or material.
+
+TEACHER_ROLE:
+Support critical thinking.
+
+DESCRIPTION:
+Develop classification skills.
+
+LEARNING_GOALS:
+Develop classification skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Archaeology Camp
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Encourage imaginative exploration.
+
+MATERIALS:
+Explorer hats
+Clipboards
+Brushes
+
+SETUP:
+Create archaeology camp.
+
+DIRECTIONS:
+Search for discoveries and record findings.
+
+TEACHER_ROLE:
+Support storytelling and investigation.
+
+DESCRIPTION:
+Encourage imaginative exploration.
+
+LEARNING_GOALS:
+Encourage imaginative exploration.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Ancient Pottery Craft
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Develop creativity and fine motor control.
+
+MATERIALS:
+Paper bowls
+Paint
+Markers
+
+SETUP:
+Prepare art station.
+
+DIRECTIONS:
+Decorate pottery inspired by ancient discoveries.
+
+TEACHER_ROLE:
+Encourage creativity.
+
+DESCRIPTION:
+Develop creativity and fine motor control.
+
+LEARNING_GOALS:
+Develop creativity and fine motor control.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Explorer Obstacle Course
+
+CATEGORY:
+Gross Motor
+
+OBJECTIVE:
+Develop coordination and balance.
+
+MATERIALS:
+Cones
+Tunnels
+
+SETUP:
+Create excavation trail.
+
+DIRECTIONS:
+Navigate obstacles to reach dig sites.
+
+TEACHER_ROLE:
+Promote safe movement.
+
+DESCRIPTION:
+Develop coordination and balance.
+
+LEARNING_GOALS:
+Develop coordination and balance.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+WEDNESDAY:
+
+ACTIVITY_NAME:
+Bone Investigation Center
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Explore skeletal structures.
+
+MATERIALS:
+Plastic bones
+Skeleton pictures
+
+SETUP:
+Create investigation station.
+
+DIRECTIONS:
+Compare bones and skeleton images.
+
+TEACHER_ROLE:
+Guide observations.
+
+DESCRIPTION:
+Explore skeletal structures.
+
+LEARNING_GOALS:
+Explore skeletal structures.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Museum Curator Center
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Develop communication and organization skills.
+
+MATERIALS:
+Artifacts
+Display shelves
+
+SETUP:
+Create museum center.
+
+DIRECTIONS:
+Organize discoveries and create exhibits.
+
+TEACHER_ROLE:
+Support communication.
+
+DESCRIPTION:
+Develop communication and organization skills.
+
+LEARNING_GOALS:
+Develop communication and organization skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Skeleton Craft
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Strengthen fine motor skills.
+
+MATERIALS:
+Black paper
+Cotton swabs
+Glue
+
+SETUP:
+Prepare craft materials.
+
+DIRECTIONS:
+Create skeleton pictures using cotton swabs.
+
+TEACHER_ROLE:
+Assist and encourage creativity.
+
+DESCRIPTION:
+Strengthen fine motor skills.
+
+LEARNING_GOALS:
+Strengthen fine motor skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Fossil Freeze Dance
+
+CATEGORY:
+Music & Movement
+
+OBJECTIVE:
+Develop listening skills.
+
+MATERIALS:
+Music player
+
+SETUP:
+Open movement area.
+
+DIRECTIONS:
+Dance and freeze like fossils when music stops.
+
+TEACHER_ROLE:
+Lead activity.
+
+DESCRIPTION:
+Develop listening skills.
+
+LEARNING_GOALS:
+Develop listening skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+THURSDAY:
+
+ACTIVITY_NAME:
+Treasure Excavation Challenge
+
+CATEGORY:
+Sensory Play
+
+OBJECTIVE:
+Develop investigation skills.
+
+MATERIALS:
+Sand
+Hidden treasures
+Brushes
+
+SETUP:
+Bury treasures in excavation bin.
+
+DIRECTIONS:
+Excavate and record discoveries.
+
+TEACHER_ROLE:
+Encourage careful observation.
+
+DESCRIPTION:
+Develop investigation skills.
+
+LEARNING_GOALS:
+Develop investigation skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Ancient Village Builders
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Develop engineering and creativity.
+
+MATERIALS:
+Blocks
+Natural materials
+
+SETUP:
+Create building area.
+
+DIRECTIONS:
+Build an ancient village.
+
+TEACHER_ROLE:
+Support planning and design.
+
+DESCRIPTION:
+Develop engineering and creativity.
+
+LEARNING_GOALS:
+Develop engineering and creativity.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Artifact Sketchbook
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Develop observation and drawing skills.
+
+MATERIALS:
+Paper
+Pencils
+Clipboards
+
+SETUP:
+Prepare sketching area.
+
+DIRECTIONS:
+Draw discovered artifacts.
+
+TEACHER_ROLE:
+Encourage detailed observation.
+
+DESCRIPTION:
+Develop observation and drawing skills.
+
+LEARNING_GOALS:
+Develop observation and drawing skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Explorer Adventure Walk
+
+CATEGORY:
+Gross Motor
+
+OBJECTIVE:
+Develop coordination and movement.
+
+MATERIALS:
+Explorer maps
+
+SETUP:
+Create adventure path.
+
+DIRECTIONS:
+Follow maps to discovery locations.
+
+TEACHER_ROLE:
+Lead exploration.
+
+DESCRIPTION:
+Develop coordination and movement.
+
+LEARNING_GOALS:
+Develop coordination and movement.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+FRIDAY:
+
+ACTIVITY_NAME:
+Archaeology Museum Showcase
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Build confidence and communication.
+
+MATERIALS:
+Projects from the week
+
+SETUP:
+Create museum displays.
+
+DIRECTIONS:
+Share discoveries and explain exhibits.
+
+TEACHER_ROLE:
+Encourage reflection and presentation.
+
+DESCRIPTION:
+Build confidence and communication.
+
+LEARNING_GOALS:
+Build confidence and communication.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Discovery Exploration Centers
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Review archaeology concepts.
+
+MATERIALS:
+Favorite materials from the week
+
+SETUP:
+Create exploration stations.
+
+DIRECTIONS:
+Revisit favorite investigations and discoveries.
+
+TEACHER_ROLE:
+Observe and support learning.
+
+DESCRIPTION:
+Review archaeology concepts.
+
+LEARNING_GOALS:
+Review archaeology concepts.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Explorer Celebration
+
+CATEGORY:
+Music & Movement
+
+OBJECTIVE:
+Celebrate learning and discovery.
+
+MATERIALS:
+Music player
+
+SETUP:
+Open movement area.
+
+DIRECTIONS:
+Dance and celebrate a week of archaeological adventures.
+
+TEACHER_ROLE:
+Celebrate participation and accomplishments.
+
+DESCRIPTION:
+Celebrate learning and discovery.
+
+LEARNING_GOALS:
+Celebrate learning and discovery.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.

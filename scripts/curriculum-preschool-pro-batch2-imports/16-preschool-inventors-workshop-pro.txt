@@ -1,0 +1,732 @@
+TITLE:
+Inventors Workshop
+
+AGE_GROUP:
+Preschool 3-5 Years
+
+THEME:
+Inventors Workshop
+
+PLAN:
+Pro
+
+STATUS:
+published
+LEARNING_DOMAINS:
+Science
+Math
+Language & Literacy
+Physical Development
+Social Emotional
+Creative Arts
+
+
+WEEKLY_OVERVIEW:
+Children will become inventors, engineers, and creators as they design, build, test, and improve their own inventions. Throughout the week, children will solve problems, explore simple machines, experiment with materials, create prototypes, and develop critical thinking skills while learning that mistakes help inventors learn and grow.
+
+LEARNING_OBJECTIVES:
+Develop creative problem-solving skills
+Learn about inventors and inventions
+Practice planning, testing, and improving designs
+Strengthen engineering and building skills
+Build confidence in sharing ideas
+Develop teamwork and cooperation
+Strengthen fine and gross motor skills
+Encourage innovation and creativity
+
+
+WEEKLY_MATERIALS:
+Cardboard boxes
+Paper tubes
+Craft sticks
+Tape
+Glue
+Blocks
+Recyclable materials
+Buttons
+String
+Plastic lids
+Paper
+Markers
+Scissors
+Clipboards
+Books
+Music player
+
+
+VOCABULARY:
+Inventor
+Invention
+Create
+Design
+Build
+Prototype
+Problem
+Solution
+Engineer
+Improve
+Test
+Blueprint
+Imagine
+Discover
+
+
+BOOKS:
+Rosie Revere, Engineer | Andrea Beaty
+What Do You Do With an Idea? | Kobi Yamada
+The Most Magnificent Thing | Ashley Spires
+
+
+SONGS:
+The Inventor Song
+Build It Up
+If I Were an Inventor
+
+FAMILY_CONNECTION:
+Encourage children to look around their homes and identify inventions that help people every day. Discuss how inventors solve problems and improve lives.
+
+OBSERVATION_OPPORTUNITIES:
+Observe children's creativity, persistence, communication skills, problem-solving abilities, teamwork, and willingness to test and improve ideas.
+
+ADAPTATIONS:
+Provide visual examples and simple design ideas. Offer larger building materials when needed. Allow children to explain ideas through drawing, building, discussion, or dramatic play.
+
+MONDAY:
+
+ACTIVITY_NAME:
+Inventor Discovery Bin
+
+CATEGORY:
+Sensory Play
+
+OBJECTIVE:
+Explore invention materials through sensory investigation.
+
+MATERIALS:
+Buttons
+Lids
+Craft materials
+Scoops
+
+SETUP:
+Place materials in a sensory bin.
+
+DIRECTIONS:
+Explore materials.
+Discuss how items might be used in inventions.
+
+TEACHER_ROLE:
+Encourage creativity and curiosity.
+
+DESCRIPTION:
+Explore invention materials through sensory investigation.
+
+LEARNING_GOALS:
+Explore invention materials through sensory investigation.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+What Problem Can We Solve?
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Develop problem-solving skills.
+
+MATERIALS:
+Picture cards
+Clipboards
+
+SETUP:
+Display simple everyday problems.
+
+DIRECTIONS:
+Discuss problems and brainstorm solutions.
+
+TEACHER_ROLE:
+Guide discussions and encourage ideas.
+
+DESCRIPTION:
+Develop problem-solving skills.
+
+LEARNING_GOALS:
+Develop problem-solving skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Inventor Badge Creation
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Develop creativity and fine motor skills.
+
+MATERIALS:
+Paper badges
+Markers
+Stickers
+
+SETUP:
+Prepare craft station.
+
+DIRECTIONS:
+Create inventor badges.
+
+TEACHER_ROLE:
+Encourage self-expression.
+
+DESCRIPTION:
+Develop creativity and fine motor skills.
+
+LEARNING_GOALS:
+Develop creativity and fine motor skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Inventor Movement Challenge
+
+CATEGORY:
+Music & Movement
+
+OBJECTIVE:
+Develop body awareness and listening skills.
+
+MATERIALS:
+Movement cards
+
+SETUP:
+Open movement area.
+
+DIRECTIONS:
+Move like robots, machines, and inventions.
+
+TEACHER_ROLE:
+Lead movement activities.
+
+DESCRIPTION:
+Develop body awareness and listening skills.
+
+LEARNING_GOALS:
+Develop body awareness and listening skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+TUESDAY:
+
+ACTIVITY_NAME:
+Blueprint Drawing Station
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Introduce planning and design concepts.
+
+MATERIALS:
+Paper
+Rulers
+Markers
+
+SETUP:
+Prepare drawing area.
+
+DIRECTIONS:
+Draw invention ideas and explain designs.
+
+TEACHER_ROLE:
+Encourage planning and communication.
+
+DESCRIPTION:
+Introduce planning and design concepts.
+
+LEARNING_GOALS:
+Introduce planning and design concepts.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Inventor's Workshop
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Encourage imaginative invention creation.
+
+MATERIALS:
+Tool props
+Safety goggles
+Clipboards
+
+SETUP:
+Create workshop area.
+
+DIRECTIONS:
+Design and build pretend inventions.
+
+TEACHER_ROLE:
+Support creativity and collaboration.
+
+DESCRIPTION:
+Encourage imaginative invention creation.
+
+LEARNING_GOALS:
+Encourage imaginative invention creation.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Design Your Robot
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Develop creativity and hand control.
+
+MATERIALS:
+Paper
+Shapes
+Glue
+
+SETUP:
+Prepare art station.
+
+DIRECTIONS:
+Create robot designs using shapes.
+
+TEACHER_ROLE:
+Encourage creative thinking.
+
+DESCRIPTION:
+Develop creativity and hand control.
+
+LEARNING_GOALS:
+Develop creativity and hand control.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Robot Builders Dance
+
+CATEGORY:
+Music & Movement
+
+OBJECTIVE:
+Develop coordination and body control.
+
+MATERIALS:
+Music player
+
+SETUP:
+Open movement space.
+
+DIRECTIONS:
+Move like different robots and machines.
+
+TEACHER_ROLE:
+Lead movement activities.
+
+DESCRIPTION:
+Develop coordination and body control.
+
+LEARNING_GOALS:
+Develop coordination and body control.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+WEDNESDAY:
+
+ACTIVITY_NAME:
+Build a Better Bridge
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Develop engineering skills.
+
+MATERIALS:
+Craft sticks
+Blocks
+Paper cups
+
+SETUP:
+Provide building materials.
+
+DIRECTIONS:
+Build bridges and test strength.
+
+TEACHER_ROLE:
+Encourage experimentation and problem-solving.
+
+DESCRIPTION:
+Develop engineering skills.
+
+LEARNING_GOALS:
+Develop engineering skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Engineering Team Challenge
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Develop teamwork and communication.
+
+MATERIALS:
+Building materials
+Hard hats
+
+SETUP:
+Create engineering center.
+
+DIRECTIONS:
+Work together to complete a building challenge.
+
+TEACHER_ROLE:
+Support collaboration.
+
+DESCRIPTION:
+Develop teamwork and communication.
+
+LEARNING_GOALS:
+Develop teamwork and communication.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Inventor Notebook
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Record invention ideas.
+
+MATERIALS:
+Paper
+Markers
+
+SETUP:
+Prepare notebook station.
+
+DIRECTIONS:
+Draw invention ideas and explain how they work.
+
+TEACHER_ROLE:
+Encourage creative thinking.
+
+DESCRIPTION:
+Record invention ideas.
+
+LEARNING_GOALS:
+Record invention ideas.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Machine Movement Game
+
+CATEGORY:
+Gross Motor
+
+OBJECTIVE:
+Develop coordination.
+
+MATERIALS:
+Movement cards
+
+SETUP:
+Create movement area.
+
+DIRECTIONS:
+Move like gears, levers, and machines.
+
+TEACHER_ROLE:
+Lead activities.
+
+DESCRIPTION:
+Develop coordination.
+
+LEARNING_GOALS:
+Develop coordination.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+THURSDAY:
+
+ACTIVITY_NAME:
+Prototype Building Challenge
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Create and test inventions.
+
+MATERIALS:
+Boxes
+Tubes
+Tape
+
+SETUP:
+Provide construction materials.
+
+DIRECTIONS:
+Build a prototype invention.
+Test and improve it.
+
+TEACHER_ROLE:
+Encourage persistence and redesign.
+
+DESCRIPTION:
+Create and test inventions.
+
+LEARNING_GOALS:
+Create and test inventions.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Inventor Presentation Center
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Build confidence and communication.
+
+MATERIALS:
+Microphone prop
+Projects
+
+SETUP:
+Create presentation area.
+
+DIRECTIONS:
+Present inventions to classmates.
+
+TEACHER_ROLE:
+Support public speaking.
+
+DESCRIPTION:
+Build confidence and communication.
+
+LEARNING_GOALS:
+Build confidence and communication.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Invention Advertisement Poster
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Develop creativity and communication.
+
+MATERIALS:
+Paper
+Markers
+Stickers
+
+SETUP:
+Prepare art station.
+
+DIRECTIONS:
+Create posters advertising inventions.
+
+TEACHER_ROLE:
+Encourage creativity.
+
+DESCRIPTION:
+Develop creativity and communication.
+
+LEARNING_GOALS:
+Develop creativity and communication.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Builder Relay Race
+
+CATEGORY:
+Gross Motor
+
+OBJECTIVE:
+Develop teamwork and coordination.
+
+MATERIALS:
+Blocks
+Buckets
+
+SETUP:
+Create relay course.
+
+DIRECTIONS:
+Transport building materials and complete challenges.
+
+TEACHER_ROLE:
+Promote teamwork.
+
+DESCRIPTION:
+Develop teamwork and coordination.
+
+LEARNING_GOALS:
+Develop teamwork and coordination.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+FRIDAY:
+
+ACTIVITY_NAME:
+Inventors Fair
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Celebrate inventions and learning.
+
+MATERIALS:
+Projects from the week
+
+SETUP:
+Create invention displays.
+
+DIRECTIONS:
+Share inventions and explain designs.
+
+TEACHER_ROLE:
+Encourage confidence and reflection.
+
+DESCRIPTION:
+Celebrate inventions and learning.
+
+LEARNING_GOALS:
+Celebrate inventions and learning.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Innovation Exploration Centers
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Review invention concepts.
+
+MATERIALS:
+Favorite materials from the week
+
+SETUP:
+Create exploration stations.
+
+DIRECTIONS:
+Revisit favorite building and invention activities.
+
+TEACHER_ROLE:
+Observe and support learning.
+
+DESCRIPTION:
+Review invention concepts.
+
+LEARNING_GOALS:
+Review invention concepts.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Inventor Celebration Dance
+
+CATEGORY:
+Music & Movement
+
+OBJECTIVE:
+Celebrate creativity and learning.
+
+MATERIALS:
+Music player
+
+SETUP:
+Open movement area.
+
+DIRECTIONS:
+Dance and celebrate a week of inventing and creating.
+
+TEACHER_ROLE:
+Celebrate participation and accomplishments.
+
+DESCRIPTION:
+Celebrate creativity and learning.
+
+LEARNING_GOALS:
+Celebrate creativity and learning.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
