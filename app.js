@@ -3279,6 +3279,7 @@ let scheduleDocCache = null;
 let scheduleSyncPromise = null;
 let weeklyPlannerActiveDay = "";
 let weeklyPlannerNotesOpen = false;
+let weeklyPlannerFocusWeek = "";
 let calendarEventModalOpen = false;
 let adminReviewEditorId = "";
 let adminImageEditorId = "";
@@ -7398,9 +7399,15 @@ function setView(view, options = {}) {
   if (resolvedView === "children") renderChildManagement();
   if (resolvedView === "support-center") renderSupportCenterPage();
   if (resolvedView === "planner") {
+    // Honor an explicit target week (e.g. from a future-week assign or Calendar's
+    // week detail) so Weekly Planner opens on that week instead of always "this
+    // week." Plain nav (no weekStartDate) resets to the current teaching week.
+    weeklyPlannerFocusWeek = options.weekStartDate ? curriculumPlannerWeekStartIso(options.weekStartDate) : "";
     // Paint shell immediately so mobile/desktop never sit on an empty planner while schedule syncs.
     renderWeeklyPlanner();
     ensureScheduleLoaded().then(() => renderWeeklyPlanner()).catch(() => renderWeeklyPlanner());
+  } else {
+    weeklyPlannerFocusWeek = "";
   }
   if (resolvedView === "calendar") {
     // Paint Calendar shell immediately; refresh once ScheduleItem sync settles.
@@ -11508,6 +11515,9 @@ function showLessonWorkspaceMainCalendarSuccess(assignment) {
   document.querySelectorAll("[data-lesson-open-weekly-planner]").forEach((button) => {
     if (week) button.dataset.lessonPlannerWeek = week;
   });
+  document.querySelectorAll(".lesson-workspace-action-sheet-panel [data-view='calendar']").forEach((button) => {
+    if (week) button.dataset.dashSelectWeek = week;
+  });
   setLessonWorkspaceActionSheetPanel("success");
 }
 
@@ -13399,6 +13409,14 @@ async function openResourceViewer(resourceId, options = {}) {
   activeResourceViewerResource = viewerResource;
   if (isLessonWorkspaceResource(viewerResource)) {
     applyLessonWorkspaceChrome(viewerResource);
+    if (options.openPlanThisWeek) {
+      toggleLessonWorkspaceActionSheet(true);
+      setLessonWorkspaceActionSheetPanel("main-calendar");
+      if (options.weekStartDate) {
+        const weekInput = document.querySelector("[data-lesson-main-calendar-form] [name='weekStartDate']");
+        if (weekInput) weekInput.value = curriculumPlannerWeekStartIso(options.weekStartDate);
+      }
+    }
   } else {
     restoreDefaultResourceViewerChrome();
     const printButton = document.querySelector("#printResourceButton");
@@ -14399,8 +14417,9 @@ function renderWeeklyPlanner() {
   const app = document.querySelector("#weeklyPlannerApp");
   if (!app) return;
   const api = getScheduleApi();
-  const weekStart = curriculumPlannerWeekStartIso(new Date());
+  const weekStart = curriculumPlannerWeekStartIso(weeklyPlannerFocusWeek || new Date());
   const weekEnd = curriculumPlannerWeekEndIso(weekStart);
+  const isFocusedOtherWeek = Boolean(weeklyPlannerFocusWeek) && weekStart !== curriculumPlannerWeekStartIso(new Date());
   const doc = scheduleDocCache || (api ? api.readCache(scheduleApiEmail()) : null);
   const scheduleItem = api && doc ? api.lessonForWeek(doc, weekStart) : null;
   if (scheduleItem) syncWeeklyPlannerFromScheduleItem(scheduleItem);
@@ -14419,11 +14438,12 @@ function renderWeeklyPlanner() {
       <div class="llh-week-classroom llh-week-classroom-empty">
         <section class="llh-ds-card">
           <p class="eyebrow">Weekly Classroom View</p>
-          <h3>No lesson plan this week</h3>
+          <h3>No lesson plan for ${isFocusedOtherWeek ? `the week of ${escapeHtml(weekStart)}` : "this week"}</h3>
           <p class="muted-copy">Assign a plan from Calendar first. This planner runs the week — it does not create a second schedule.</p>
           <div class="form-actions">
-            <button class="primary-button" type="button" data-view="calendar">Open Calendar</button>
+            <button class="primary-button" type="button" data-view="calendar"${isFocusedOtherWeek ? ` data-dash-select-week="${escapeHtml(weekStart)}"` : ""}>Open Calendar</button>
             <button class="ghost-button" type="button" data-view="lessons">Browse Lesson Library</button>
+            ${isFocusedOtherWeek ? `<button class="ghost-button" type="button" data-view="planner">Back to This Week</button>` : ""}
           </div>
         </section>
       </div>
@@ -14502,13 +14522,14 @@ function renderWeeklyPlanner() {
     <div class="llh-week-classroom">
       <section class="llh-week-classroom-hero">
         <div>
-          <p class="eyebrow">This week’s classroom</p>
+          <p class="eyebrow">${isFocusedOtherWeek ? "Week of" : "This week’s classroom"}</p>
           <h3>${escapeHtml(scheduleItem.lessonPlanTitle)}</h3>
           <p class="muted-copy">${escapeHtml(scheduleItem.ageGroup || "")} · ${escapeHtml(weekStart)} – ${escapeHtml(weekEnd)} · ${escapeHtml(room)}</p>
         </div>
         <div class="form-actions llh-week-hero-actions">
           ${selectedResource ? `<button class="ghost-button" type="button" data-view-resource="${escapeHtml(selectedResource.id)}">Open lesson plan</button>` : ""}
-          <button class="ghost-button" type="button" data-view="calendar">Calendar</button>
+          ${isFocusedOtherWeek ? `<button class="ghost-button" type="button" data-view="planner">Back to This Week</button>` : ""}
+          <button class="ghost-button" type="button" data-view="calendar"${isFocusedOtherWeek ? ` data-dash-select-week="${escapeHtml(weekStart)}"` : ""}>Calendar</button>
           <button class="primary-button" type="button" data-schedule-save-execution="${escapeHtml(scheduleItem.id)}">Save Notes</button>
         </div>
       </section>
@@ -16334,7 +16355,7 @@ function renderMainCalendar() {
               <p class="muted-copy">${escapeHtml(selectedWeek)} – ${escapeHtml(api.weekEndFromStart(selectedWeek))} · ${escapeHtml(scheduleClassroomName(doc))}</p>
             </div>
             <div class="form-actions">
-              <button type="button" class="primary-button" data-view="planner">Open Weekly Planner</button>
+              <button type="button" class="primary-button" data-view="planner" data-planner-focus-week="${escapeHtml(selectedWeek)}">Open Weekly Planner</button>
               <button type="button" class="ghost-button" data-view="lessons">Change Plan</button>
             </div>
           ` : `
@@ -16455,7 +16476,10 @@ async function openCurriculumPlannerAssignFlow(resourceId, options = {}) {
     pendingCurriculumPlannerRetirementNotice = true;
     // Prefer Lesson Library assign sheet if a resource is in play; otherwise Calendar.
     if (resourceId && typeof openResourceViewer === "function") {
-      openResourceViewer(resourceId);
+      openResourceViewer(resourceId, {
+        openPlanThisWeek: true,
+        weekStartDate: options.weekStartDate || "",
+      });
       return;
     }
     setView("calendar");
@@ -32358,7 +32382,12 @@ document.addEventListener("click", async (event) => {
       activePortfolioChildId = "";
     }
     setMobileNavOpen(false);
-    setView(viewButton.dataset.view, requestedLessonLibraryMode ? { lessonLibraryMode: requestedLessonLibraryMode } : {});
+    const navOptions = {};
+    if (requestedLessonLibraryMode) navOptions.lessonLibraryMode = requestedLessonLibraryMode;
+    if (nextView === "planner" && viewButton.dataset.plannerFocusWeek) {
+      navOptions.weekStartDate = viewButton.dataset.plannerFocusWeek;
+    }
+    setView(viewButton.dataset.view, navOptions);
     return;
   }
 
@@ -33395,11 +33424,12 @@ document.addEventListener("click", async (event) => {
   const lessonOpenWeeklyPlanner = event.target.closest("[data-lesson-open-weekly-planner]");
   if (lessonOpenWeeklyPlanner) {
     event.preventDefault();
+    const week = lessonOpenWeeklyPlanner.dataset.lessonPlannerWeek || "";
     const originContext = lessonWorkspaceReturnContext();
     if (originContext) setViewReturnContext("planner", originContext);
     toggleLessonWorkspaceActionSheet(false);
     dismissResourceViewerForNavigation();
-    setView("planner");
+    setView("planner", week ? { weekStartDate: week } : {});
     return;
   }
 
