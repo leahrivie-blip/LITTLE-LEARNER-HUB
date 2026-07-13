@@ -1984,14 +1984,9 @@ function curriculumLessonPlanAccessStats() {
 }
 
 function freeLessonPlanMarketingLabel() {
-  const { freeTotal, freeByAge } = curriculumLessonPlanAccessStats();
-  if (!freeTotal) return "Free Lesson Plans";
-  const counts = freePlanAgeGroups.map((age) => freeByAge[age] || 0).filter((count) => count > 0);
-  if (counts.length >= 2) {
-    const minPerAge = Math.min(...counts);
-    return `${minPerAge}+ Free Lesson Plans per Age Group`;
-  }
-  return `${freeTotal}+ Free Lesson Plans`;
+  const { freeTotal } = curriculumLessonPlanAccessStats();
+  const total = freeTotal || 30;
+  return `${total} Total Free Lesson Plans`;
 }
 
 function freePlanFeatureList() {
