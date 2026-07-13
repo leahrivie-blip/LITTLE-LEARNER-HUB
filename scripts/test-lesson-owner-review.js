@@ -290,7 +290,11 @@ async function main() {
     assert(!weekAndPrint.hasTopPrint && !weekAndPrint.hasTopDownload, "Week tab should not show top print/download buttons");
     assert(weekAndPrint.html.includes("lesson-week-day-stack"), "weekly print HTML missing day stack");
     assert(weekAndPrint.html.includes("Weekly Snapshot"), "weekly print HTML missing Weekly Snapshot");
+    assert(weekAndPrint.html.includes("Teacher Prep This Week"), "weekly print HTML missing Teacher Prep");
+    assert(weekAndPrint.html.includes("Weekly Materials"), "weekly print HTML missing Weekly Materials");
     assert(weekAndPrint.html.includes("Teacher Notes"), "weekly print HTML missing Teacher Notes");
+    assert(weekAndPrint.html.includes("lesson-week-brand-logo"), "weekly print HTML missing LLH logo");
+    assert(weekAndPrint.html.includes("lesson-week-print-footer"), "weekly print HTML missing footer");
     assert(weekAndPrint.html.includes("lesson-week-activity-card"), "weekly print HTML missing activity cards");
     assert(weekAndPrint.html.includes("Materials:"), "weekly print HTML missing per-activity materials");
     assert(weekAndPrint.html.includes("extended classroom-ready title"), "weekly print HTML should keep long activity titles");

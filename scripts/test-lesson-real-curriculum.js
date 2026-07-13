@@ -308,8 +308,12 @@ async function main() {
       });
       assert(printProof.weekHtml.includes("Monday–Friday Plan") || printProof.weekHtml.includes("Monday-Friday Plan"), `${plan.key} weekly schedule heading missing`);
       assert(printProof.weekHtml.includes("Weekly Snapshot"), `${plan.key} weekly snapshot missing`);
+      assert(printProof.weekHtml.includes("Teacher Prep This Week"), `${plan.key} teacher prep missing`);
+      assert(printProof.weekHtml.includes("Weekly Materials"), `${plan.key} weekly materials missing`);
       assert(printProof.weekHtml.includes("Weekly Resources"), `${plan.key} weekly resources missing`);
       assert(printProof.weekHtml.includes("Teacher Notes"), `${plan.key} teacher notes missing`);
+      assert(printProof.weekHtml.includes("lesson-week-brand-logo"), `${plan.key} LLH logo missing`);
+      assert(printProof.weekHtml.includes("lesson-week-print-footer"), `${plan.key} print footer missing`);
       assert(printProof.weekHtml.includes("lesson-week-activity-card"), `${plan.key} weekly activity cards missing`);
       assert(printProof.weekHtml.includes("Materials:"), `${plan.key} weekly activity materials missing`);
       assert(!/Teacher Role|Learning Goals|DIRECTIONS|Steps:/i.test(printProof.weekHtml), `${plan.key} weekly print should not dump full activity directions`);
@@ -330,6 +334,37 @@ async function main() {
     assert(sheet[3] === "Cancel", `Cancel last: ${sheet.join(" | ")}`);
     assert(sheet.length === 4, `extra Use This Plan actions: ${sheet.join(" | ")}`);
     await page.click("[data-lesson-workspace-action-sheet-dismiss]");
+
+    console.log("2b) Week Of auto-populates from Curriculum Planner assignment");
+    const assignedWeek = await page.evaluate((planId) => {
+      const weekStartDate = curriculumPlannerWeekStartIso("2026-07-13");
+      const assignments = [{
+        id: "cwa-owner-review-week",
+        lessonPlanId: planId,
+        weekStartDate,
+        ageGroup: "Preschool",
+        teacherNotes: "",
+        preparationNotes: "",
+        dailyTeacherNotes: {},
+        observations: [],
+        parentCalendar: {},
+      }];
+      localStorage.setItem(`llhCurriculumAssignments:${localStorage.getItem("llhUser")}`, JSON.stringify(assignments));
+      const html = resourcePrintableHtml(
+        resources.find((item) => item.id === planId),
+        { mode: "print", printVariant: "week" },
+      );
+      return {
+        weekStartDate,
+        label: formatLessonWeekOfLabel(weekStartDate),
+        html,
+        fromHelper: lessonPlanAssignedWeekStart(planId),
+      };
+    }, primary.id);
+    assert(assignedWeek.fromHelper === assignedWeek.weekStartDate, `assigned week helper wrong: ${assignedWeek.fromHelper}`);
+    assert(Boolean(assignedWeek.label), "week of label should format");
+    assert(assignedWeek.html.includes(assignedWeek.label), `weekly HTML missing Week Of label ${assignedWeek.label}`);
+    assert(!assignedWeek.html.includes("________________"), "assigned weekly HTML should not show blank Week Of line");
 
     console.log("3) Navigation: Library → Lesson → Activity → Back → Saved → Back → Lesson → Print path");
     await page.click('[data-lesson-workspace-tab="activities"]');

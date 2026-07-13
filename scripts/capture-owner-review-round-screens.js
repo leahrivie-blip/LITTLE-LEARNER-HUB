@@ -232,13 +232,32 @@ async function main() {
     await capture(page, "05-use-this-plan-final-actions", "#resourceViewerModal");
     await page.click("[data-lesson-workspace-action-sheet-dismiss]");
 
-    const weeklyHtml = await page.evaluate(() => resourcePrintableHtml(activeResourceViewerResource, { mode: "print", printVariant: "week" }));
+    await page.evaluate((planId) => {
+      const weekStartDate = curriculumPlannerWeekStartIso("2026-07-13");
+      localStorage.setItem(`llhCurriculumAssignments:${localStorage.getItem("llhUser")}`, JSON.stringify([{
+        id: "cwa-owner-round-week",
+        lessonPlanId: planId,
+        weekStartDate,
+        ageGroup: "Preschool",
+        teacherNotes: "",
+        preparationNotes: "",
+        dailyTeacherNotes: {},
+        observations: [],
+        parentCalendar: {},
+      }]));
+    }, helpers.id);
+
+    const weeklyHtml = await page.evaluate((planId) => resourcePrintableHtml(
+      resources.find((item) => item.id === planId),
+      { mode: "print", printVariant: "week" },
+    ), helpers.id);
     const printPage = await browser.newPage({ viewport: { width: 900, height: 1600 }, deviceScaleFactor: 1 });
     await printPage.setContent(`
       <!doctype html>
       <html>
         <head>
           <meta charset="utf-8" />
+          <base href="http://127.0.0.1:${PORT}/" />
           <link rel="stylesheet" href="http://127.0.0.1:${PORT}/styles.css" />
           <style>
             body { margin: 24px; background: #eef2f6; }
@@ -251,6 +270,17 @@ async function main() {
     await capture(printPage, "06-weekly-schedule-community-helpers", ".lesson-week-schedule-print");
     await printPage.screenshot({ path: path.join(OUT_DIR, "06b-weekly-schedule-fullpage.png"), fullPage: true });
     console.log(path.join(OUT_DIR, "06b-weekly-schedule-fullpage.png"));
+    const pdfPath = path.join(OUT_DIR, "06c-weekly-schedule-print.pdf");
+    await printPage.pdf({
+      path: pdfPath,
+      format: "Letter",
+      printBackground: true,
+      margin: { top: "0.55in", right: "0.55in", bottom: "0.7in", left: "0.55in" },
+      displayHeaderFooter: true,
+      headerTemplate: "<span></span>",
+      footerTemplate: `<div style="font-size:8pt;width:100%;padding:0 0.55in;color:#667487;display:flex;justify-content:space-between;"><span>Little Learner Hub</span><span>Page <span class="pageNumber"></span></span></div>`,
+    });
+    console.log(pdfPath);
     await printPage.close();
     await closeViewer(page);
 
