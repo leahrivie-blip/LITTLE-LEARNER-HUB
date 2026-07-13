@@ -32,6 +32,7 @@
     "test:curriculum-planner-notes": "node scripts/test-curriculum-planner-phase-f2.js",
     "test:curriculum-planner-calendar": "node scripts/test-curriculum-planner-phase-f3.js",
     "test:curriculum-planner-e2e": "node scripts/test-curriculum-planner-e2e-verify.js",
+    "test:schedule-foundation": "node scripts/test-schedule-foundation.js",
     "test:billing-membership": "node scripts/test-billing-membership-qa.js",
     "test:homepage-smoke": "node scripts/test-homepage-smoke.js",
     "test:lesson-library-header": "node scripts/test-lesson-library-header.js",
@@ -42,7 +43,8 @@
     "test:lesson-library-mobile-qa": "node scripts/test-lesson-library-mobile-qa.js",
     "test:lesson-owner-review": "node scripts/test-lesson-owner-review.js",
     "test:lesson-real-curriculum": "node scripts/test-lesson-real-curriculum.js",
-    "test:prod-e2e-pr161": "node scripts/prod-e2e-post-merge-161.js"
+    "test:prod-e2e-pr161": "node scripts/prod-e2e-post-merge-161.js",
+    "test:scheduling-owner-audit": "node scripts/owner-audit-scheduling.js"
   },
   "devDependencies": {
     "playwright": "^1.61.1"

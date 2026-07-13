@@ -1,0 +1,324 @@
+{
+  "score": 100,
+  "checks": [
+    {
+      "name": "Dashboard empty state visible",
+      "ok": true,
+      "detail": "Expected empty THIS WEEK copy"
+    },
+    {
+      "name": "Calendar no horizontal overflow (iPhone)",
+      "ok": true,
+      "detail": "{\"scrollWidth\":390,\"clientWidth\":390,\"overflowX\":false}"
+    },
+    {
+      "name": "Weekly Planner empty guidance",
+      "ok": true,
+      "detail": "Need clear empty path"
+    },
+    {
+      "name": "Curriculum Planner redirects to Calendar when retired",
+      "ok": true,
+      "detail": "view-calendar"
+    },
+    {
+      "name": "Curriculum Planner nav hidden after retirement",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Curriculum Planner rollback flag restores Legacy view",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Plan This Week action exists",
+      "ok": true,
+      "detail": "Use This Plan sheet"
+    },
+    {
+      "name": "Assign success message",
+      "ok": true,
+      "detail": "“Community Helpers Audit Week” assigned to Main Classroom for 2026-07-13–2026-07-17."
+    },
+    {
+      "name": "ScheduleItem written on assign",
+      "ok": true,
+      "detail": "[\"Community Helpers Audit Week\"]"
+    },
+    {
+      "name": "Curriculum Planner dual-write on assign",
+      "ok": true,
+      "detail": "legacy count 1"
+    },
+    {
+      "name": "Weekly Planner synced on assign",
+      "ok": true,
+      "detail": "Community Helpers Audit Week"
+    },
+    {
+      "name": "Cloud schedule has lesson after assign",
+      "ok": true,
+      "detail": "status 200"
+    },
+    {
+      "name": "Weekly Planner shows assigned theme",
+      "ok": true,
+      "detail": "← Back to Lesson Plan\n\nCLASSROOM EXECUTION\n\nWeekly Planner\n\nTHIS WEEK’S CLASSROOM\n\nCommunity Helpers Audit Week\n\nPreschool · 2026-07-13 – 2026-07-17 · Main Classroom\n\nOpen lesson p"
+    },
+    {
+      "name": "Weekly Planner shows execution checklist",
+      "ok": true,
+      "detail": "checklist missing"
+    },
+    {
+      "name": "Weekly Planner classroom day cards present",
+      "ok": true,
+      "detail": "cards=5"
+    },
+    {
+      "name": "Weekly Planner mobile day tabs present",
+      "ok": true,
+      "detail": "day tabs missing"
+    },
+    {
+      "name": "Weekly Planner shows one active day on mobile",
+      "ok": true,
+      "detail": "expected single active day card"
+    },
+    {
+      "name": "Weekly Planner has Activities + Materials + Notes",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Weekly Planner legacy form removed",
+      "ok": true,
+      "detail": "legacy form copy still visible"
+    },
+    {
+      "name": "Weekly Planner keeps notes out of day cards by default",
+      "ok": true,
+      "detail": "notes should open in side panel"
+    },
+    {
+      "name": "Global search hidden on Weekly Planner",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Weekly Planner no page-level horizontal overflow (iPhone)",
+      "ok": true,
+      "detail": "{\"pageOverflow\":false,\"scrollWidth\":390,\"clientWidth\":390}"
+    },
+    {
+      "name": "Dashboard shows THIS WEEK assignment",
+      "ok": true,
+      "detail": "Good evening, sched-audit-teacher\n\nMonday, July 13\n\nTHIS WEEK\n\nWeek of 2026-07-13\n\nLesson: Community Helpers Audit Week\n\nOpen Calendar\nMON\n13\nTUE\n14\nWED\n15\nTHU\n16\nFRI\n17\nLesson\nEvent\nClosure\nReminder\n"
+    },
+    {
+      "name": "Dashboard has Open Weekly Planner",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Dashboard has Open Calendar / Upcoming",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Dashboard primary order Today → This Week → Upcoming",
+      "ok": true,
+      "detail": "Primary workflow order missing"
+    },
+    {
+      "name": "Dashboard puts secondary tools below fold",
+      "ok": true,
+      "detail": "More tools details missing"
+    },
+    {
+      "name": "Dashboard week strip calendar present",
+      "ok": true,
+      "detail": "compact week calendar missing"
+    },
+    {
+      "name": "Dashboard week strip has five weekday cells",
+      "ok": true,
+      "detail": "expected Mon–Fri strip"
+    },
+    {
+      "name": "Calendar shows week bar / assigned title",
+      "ok": true,
+      "detail": "← Back to Dashboard\n\nPLANNING HOME\n\nCalendar\n\nPLANNING HOME\n\nJuly 2026\nPrev\nToday\nNext\nAssign Lesson Plan\nMon\nTue\nWed\nThu\nFri\n1\n2\n3\n6\n7\n10\n13\nCommunity Helpers "
+    },
+    {
+      "name": "Calendar week bar rendered",
+      "ok": true,
+      "detail": "bars=1"
+    },
+    {
+      "name": "Future week planning assign works",
+      "ok": true,
+      "detail": "Transportation Audit Week"
+    },
+    {
+      "name": "Future week present in ScheduleItem store",
+      "ok": true,
+      "detail": "[\"2026-07-13\",\"2026-07-20\"]"
+    },
+    {
+      "name": "Future week dual-written to Curriculum Planner",
+      "ok": true,
+      "detail": "[\"2026-07-20\",\"2026-07-13\"]"
+    },
+    {
+      "name": "Change lesson plan (replace) works",
+      "ok": true,
+      "detail": "Transportation Audit Week"
+    },
+    {
+      "name": "Dashboard updates after change",
+      "ok": true,
+      "detail": "Good evening, sched-audit-teacher\n\nMonday, July 13\n\nTHIS WEEK\n\nWeek of 2026-07-13\n\nLesson: Transportation Audit Week\n\nOpen Calendar\nMON\n13\nTUE\n14\nWED\n15\nTHU\n16\n"
+    },
+    {
+      "name": "Weekly Planner updates after change",
+      "ok": true,
+      "detail": "← Back\n\nCLASSROOM EXECUTION\n\nWeekly Planner\n\nTHIS WEEK’S CLASSROOM\n\nTransportation Audit Week\n\nPreschool · 2026-07-13 – 2026-07-17 · Main Classroom\n\nOpen lesson"
+    },
+    {
+      "name": "Remove lesson plan works",
+      "ok": true,
+      "detail": "sch-b1cfcfe4d995"
+    },
+    {
+      "name": "Dashboard clears after remove",
+      "ok": true,
+      "detail": "Good evening, sched-audit-teacher\n\nMonday, July 13\n\nTHIS WEEK\n\nWeek of 2026-07-13\n\nNo lesson plan or events yet — open Calendar to plan.\n\nOpen Calendar\nMON\n13\nT"
+    },
+    {
+      "name": "Calendar has back button",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Calendar back returns to a safe view",
+      "ok": true,
+      "detail": "view-home"
+    },
+    {
+      "name": "Calendar shows Saving… busy state hook",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Add Event uses modal (no prompt)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Schedule cache merge guards empty remote overwrite",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Force reload keeps local items when remote is empty",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Force reload does not wipe ScheduleItem cache",
+      "ok": true,
+      "detail": "{\"countBefore\":2,\"countAfter\":2}"
+    },
+    {
+      "name": "Android calendar no overflow",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Desktop Weekly Planner shows five day cards",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Desktop Weekly Planner uses horizontal week board",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Desktop calendar uses weekday planning grid",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Global search hidden on Calendar",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Desktop Add Event opens modal",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Add Event modal opens without prompt",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "findings": [
+    {
+      "severity": "low",
+      "area": "navigation",
+      "message": "Curriculum Planner soft-retired from nav; rollback via llhCurriculumPlannerLegacy=1",
+      "detail": "",
+      "soakOnly": true
+    },
+    {
+      "severity": "low",
+      "area": "loading",
+      "message": "No dedicated skeleton UI while schedule loads — brief empty flash still possible",
+      "detail": "",
+      "soakOnly": true
+    },
+    {
+      "severity": "low",
+      "area": "calendar",
+      "message": "No multi-month agenda list yet — directors planning far ahead use month paging",
+      "detail": "",
+      "soakOnly": true
+    }
+  ],
+  "screenshots": [
+    "01-iphone-dashboard-empty.png",
+    "02-iphone-calendar-empty.png",
+    "03-iphone-weekly-planner-empty.png",
+    "04-iphone-curriculum-planner-redirect.png",
+    "05-iphone-lesson-library.png",
+    "06-iphone-lesson-workspace.png",
+    "07-iphone-use-this-plan-sheet.png",
+    "08-iphone-plan-this-week-form.png",
+    "09-iphone-assign-success.png",
+    "10-iphone-weekly-planner-assigned.png",
+    "11-iphone-dashboard-assigned.png",
+    "12-iphone-calendar-assigned.png",
+    "13-iphone-calendar-future-week.png",
+    "14-iphone-dashboard-after-change.png",
+    "15-iphone-planner-after-change.png",
+    "16-iphone-calendar-after-change.png",
+    "17-iphone-dashboard-after-remove.png",
+    "18-android-dashboard.png",
+    "19-android-calendar.png",
+    "20-android-weekly-planner.png",
+    "21-android-lesson-library.png",
+    "22-android-calendar-after-legacy-redirect.png",
+    "23-desktop-dashboard.png",
+    "24-desktop-calendar.png",
+    "25-desktop-weekly-planner.png",
+    "26-desktop-lesson-library.png",
+    "27-desktop-calendar-post-retirement.png",
+    "28-desktop-calendar-week-detail.png",
+    "29-desktop-add-event-modal.png"
+  ]
+}

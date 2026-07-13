@@ -718,8 +718,17 @@ button {
   box-shadow: 0 0 0 4px rgba(91, 155, 213, 0.16);
 }
 
-body.home-view .topbar .search-wrap {
+body.home-view:not(.user-authenticated) .topbar .search-wrap {
   display: none;
+}
+
+/* Scheduling surfaces open into content — no global “What do you need today?” bar */
+body.scheduling-focus .topbar .search-wrap {
+  display: none !important;
+}
+
+body.scheduling-focus .main {
+  overflow-x: clip;
 }
 
 /* Lesson Plan Library: reclaim topbar space for search/filters/results */
@@ -15010,5 +15019,983 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   .resource-viewer-modal.lesson-workspace-mode .resource-viewer-card {
     max-height: 100dvh;
     border-radius: 12px;
+  }
+}
+
+/* ========== Unified Schedule + Design System surfaces ========== */
+.llh-schedule-page-title h2 {
+  font-family: var(--llh-font-display, Georgia, serif);
+  color: var(--llh-ink, #2a2a35);
+}
+
+.llh-ds-card {
+  background: var(--llh-surface, #fff);
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: var(--llh-radius-md, 12px);
+  box-shadow: var(--llh-shadow-soft, 0 8px 24px rgba(42, 42, 53, 0.06));
+  padding: var(--llh-space-5, 24px);
+}
+
+.llh-main-calendar,
+.llh-weekly-execution,
+.llh-dash-week-card {
+  max-width: 1100px;
+}
+
+.llh-calendar-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.llh-calendar-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.llh-calendar-month {
+  margin: 0;
+  font-family: var(--llh-font-display, Georgia, serif);
+  font-size: clamp(1.4rem, 2vw + 1rem, 2rem);
+  color: var(--llh-ink, #2a2a35);
+}
+
+.llh-calendar-layout {
+  display: grid;
+  grid-template-columns: 1.45fr 0.9fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.llh-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--llh-line, #e4e1ea);
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.llh-cal-head {
+  background: var(--llh-primary-soft, #ede8f7);
+  color: var(--llh-primary-deep, #5a4d8a);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px;
+  text-align: center;
+}
+
+.llh-cal-cell {
+  background: #fff;
+  min-height: 92px;
+  border: 0;
+  text-align: left;
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font: inherit;
+  color: inherit;
+}
+
+.llh-cal-cell.is-empty {
+  background: #faf9fc;
+  cursor: default;
+}
+
+.llh-cal-cell.is-selected {
+  outline: 2px solid var(--llh-primary, #7b6bb5);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.llh-cal-daynum {
+  font-size: 12px;
+  color: var(--llh-muted, #6b6b7b);
+}
+
+.llh-cal-weekbar {
+  display: block;
+  background: var(--llh-primary-soft, #ede8f7);
+  color: var(--llh-primary-deep, #5a4d8a);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.llh-cal-chip {
+  display: inline-block;
+  width: fit-content;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.llh-cal-chip-reminder,
+.llh-cal-chip-classroom_event {
+  background: var(--llh-accent-soft, #fbece3);
+  color: #9a5a38;
+}
+
+.llh-cal-chip-closure {
+  background: var(--llh-danger-soft, #f8e8e8);
+  color: var(--llh-danger, #c56b6b);
+}
+
+.llh-calendar-detail h3 {
+  margin: 0 0 6px;
+  font-family: var(--llh-font-display, Georgia, serif);
+}
+
+.llh-calendar-detail-events {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--llh-line, #e4e1ea);
+}
+
+.llh-dash-week-card {
+  margin-bottom: 16px;
+}
+
+.llh-dash-upcoming-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  line-height: 1.7;
+  color: var(--llh-muted, #6b6b7b);
+}
+
+.llh-execution-day {
+  padding: 12px 0;
+  border-top: 1px solid var(--llh-line, #e4e1ea);
+}
+
+.llh-execution-day:first-of-type {
+  border-top: 0;
+}
+
+.llh-check-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 6px 0;
+  font-size: 14px;
+}
+
+.llh-execution-notes {
+  margin-top: 16px;
+}
+
+@media (max-width: 860px) {
+  .llh-calendar-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .llh-cal-cell {
+    min-height: 72px;
+  }
+
+  .llh-calendar-toolbar .form-actions {
+    width: 100%;
+  }
+
+  .llh-calendar-toolbar .form-actions .primary-button,
+  .llh-calendar-toolbar .form-actions .ghost-button {
+    flex: 1 1 auto;
+  }
+}
+
+.brand-mark.brand-mark-hub {
+  display: grid;
+  place-items: center;
+  background: var(--llh-primary-soft, #ede8f7);
+  border: 1px solid var(--llh-line, #e4e1ea);
+}
+
+.brand-mark.brand-mark-hub span { display: none; }
+
+/* ========== Teacher experience pass: Weekly Classroom + Dashboard ========== */
+.llh-dashboard-clean .llh-dash-primary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.llh-dash-weekstrip {
+  margin-bottom: 16px;
+  padding: 16px 18px;
+}
+
+.llh-dash-weekstrip-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.llh-dash-weekstrip-head h3 {
+  margin: 0 0 4px;
+  font-family: var(--llh-font-display, Georgia, serif);
+  font-size: 1.2rem;
+}
+
+.llh-dash-weekstrip-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.llh-dash-weekstrip-day {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  padding: 10px 6px 8px;
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  min-height: 76px;
+}
+
+.llh-dash-weekstrip-day:hover {
+  border-color: color-mix(in srgb, var(--llh-primary, #7b6bb5) 40%, white);
+}
+
+.llh-dash-weekstrip-day.is-today {
+  outline: 2px solid var(--llh-primary, #7b6bb5);
+  outline-offset: -1px;
+  background: var(--llh-primary-soft, #ede8f7);
+}
+
+.llh-dash-weekstrip-day.has-lesson {
+  background: linear-gradient(180deg, #f7f4fc 0%, #fff 55%);
+}
+
+.llh-dash-weekstrip-dow {
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--llh-primary-deep, #5a4d8a);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.llh-dash-weekstrip-num {
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-family: var(--llh-font-display, Georgia, serif);
+  line-height: 1;
+}
+
+.llh-dash-weekstrip-marks {
+  display: flex;
+  gap: 3px;
+  min-height: 8px;
+  align-items: center;
+}
+
+.llh-dash-mark {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.llh-dash-mark-lesson { background: var(--llh-primary, #7b6bb5); }
+.llh-dash-mark-event { background: var(--llh-accent, #e8a07a); }
+.llh-dash-mark-closure { background: var(--llh-danger, #c56b6b); }
+.llh-dash-mark-reminder { background: var(--llh-secondary, #7ba8c9); }
+.llh-dash-mark-birthday { background: var(--llh-highlight, #e8c96a); }
+
+.llh-dash-weekstrip-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--llh-muted, #6b6b7b);
+}
+
+.llh-dash-weekstrip-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.llh-dash-primary .llh-ds-card h3 {
+  font-family: var(--llh-font-display, Georgia, serif);
+  margin: 0 0 8px;
+  font-size: 1.35rem;
+}
+
+.llh-dashboard-more {
+  margin-top: 8px;
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: 12px;
+  background: var(--llh-surface, #fff);
+  padding: 0;
+}
+
+.llh-dashboard-more > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 14px 18px;
+  font-weight: 600;
+  color: var(--llh-primary-deep, #5a4d8a);
+}
+
+.llh-dashboard-more > summary::-webkit-details-marker { display: none; }
+
+.llh-dashboard-more-body {
+  padding: 0 18px 18px;
+  display: grid;
+  gap: 16px;
+}
+
+.llh-week-classroom {
+  display: grid;
+  gap: 14px;
+  max-width: 1180px;
+  min-width: 0;
+}
+
+.llh-week-board-wrap {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.llh-week-classroom-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  padding: 4px 2px 2px;
+}
+
+.llh-week-classroom-hero h3 {
+  margin: 0 0 4px;
+  font-family: var(--llh-font-display, Georgia, serif);
+  font-size: clamp(1.25rem, 1.2vw + 1rem, 1.7rem);
+}
+
+.llh-week-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.llh-week-workspace:has(.llh-week-notes-panel.is-open) {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
+}
+
+.llh-week-day-tabs {
+  display: none;
+}
+
+.llh-week-day-board {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  align-items: stretch;
+}
+
+.llh-day-card {
+  background: var(--llh-surface, #fff);
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-top: 3px solid var(--llh-primary, #7b6bb5);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: var(--llh-shadow-soft, 0 8px 24px rgba(42,42,53,.06));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  cursor: pointer;
+}
+
+.llh-day-card.is-active {
+  outline: 2px solid var(--llh-primary, #7b6bb5);
+  outline-offset: -1px;
+}
+
+.llh-day-card-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-family: var(--llh-font-display, Georgia, serif);
+  line-height: 1.25;
+}
+
+.llh-day-card-section .eyebrow {
+  margin-bottom: 4px;
+}
+
+.llh-day-activity-list {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.llh-day-activity-list .llh-check-row {
+  margin: 2px 0;
+  font-size: 13px;
+}
+
+.llh-day-materials-line,
+.llh-day-more-count {
+  margin: 0;
+  font-size: 12px;
+  color: var(--llh-muted, #6b6b7b);
+  line-height: 1.35;
+}
+
+.llh-day-notes-btn {
+  margin-top: auto;
+  width: 100%;
+  justify-content: center;
+  min-height: 36px;
+  font-size: 12px;
+}
+
+.llh-day-notes-btn.has-notes {
+  background: var(--llh-primary-soft, #ede8f7);
+  border-color: color-mix(in srgb, var(--llh-primary, #7b6bb5) 30%, white);
+  color: var(--llh-primary-deep, #5a4d8a);
+}
+
+.llh-week-notes-panel {
+  background: var(--llh-surface, #fff);
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: 14px;
+  padding: 14px;
+  display: none;
+  gap: 12px;
+  box-shadow: var(--llh-shadow-soft, 0 8px 24px rgba(42,42,53,.06));
+  position: sticky;
+  top: 12px;
+}
+
+.llh-week-notes-panel.is-open {
+  display: grid;
+}
+
+.llh-week-notes-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: start;
+}
+
+.llh-week-notes-head h3 {
+  margin: 0;
+  font-family: var(--llh-font-display, Georgia, serif);
+  font-size: 1.15rem;
+}
+
+.llh-week-notes-day {
+  display: none;
+  gap: 10px;
+}
+
+.llh-week-notes-day.is-active {
+  display: grid;
+}
+
+.llh-day-note-label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--llh-muted, #6b6b7b);
+}
+
+.llh-day-note-label textarea {
+  width: 100%;
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  resize: vertical;
+  min-height: 88px;
+  background: var(--llh-bg, #f7f6f9);
+  line-height: 1.45;
+}
+
+.llh-week-classroom-empty .llh-ds-card {
+  padding: 28px;
+  max-width: 520px;
+}
+
+.llh-schedule-page-title {
+  margin-bottom: 10px;
+}
+
+.llh-schedule-page-title h2 {
+  margin: 0;
+}
+
+.llh-schedule-page-title p:not(.eyebrow) {
+  display: none;
+}
+
+.llh-dashboard-clean .dashboard-welcome {
+  margin-bottom: 4px;
+}
+
+.llh-dashboard-clean .dashboard-welcome h2 {
+  font-family: var(--llh-font-display, Georgia, serif);
+  font-size: clamp(1.45rem, 1.2vw + 1rem, 1.85rem);
+  margin: 0 0 2px;
+}
+
+@media (max-width: 980px) {
+  .llh-week-workspace:has(.llh-week-notes-panel.is-open),
+  .llh-week-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .llh-week-day-tabs {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    padding: 6px 0;
+    background: color-mix(in srgb, var(--llh-bg, #f7f6f9) 90%, white);
+  }
+
+  .llh-week-day-tab {
+    border: 1px solid var(--llh-line, #e4e1ea);
+    background: #fff;
+    border-radius: 999px;
+    min-height: 40px;
+    font-weight: 600;
+    color: var(--llh-muted, #6b6b7b);
+  }
+
+  .llh-week-day-tab.is-active {
+    background: var(--llh-primary-soft, #ede8f7);
+    color: var(--llh-primary-deep, #5a4d8a);
+    border-color: var(--llh-primary, #7b6bb5);
+  }
+
+  .llh-week-day-board {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(82%, 320px);
+    grid-template-columns: none;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: 12px;
+    padding-bottom: 8px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .llh-day-card {
+    scroll-snap-align: center;
+    min-height: auto;
+    max-height: none;
+  }
+
+  .llh-day-card:not(.is-active) {
+    opacity: 0.72;
+  }
+
+  .llh-week-notes-panel {
+    position: static;
+  }
+
+  .llh-week-notes-panel.is-open {
+    border-radius: 16px 16px 0 0;
+  }
+}
+
+.llh-schedule-event-modal {
+  max-width: 420px;
+  width: calc(100% - 24px);
+  margin: 10vh auto;
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.llh-schedule-event-modal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 12px;
+}
+
+#scheduleEventModal.open {
+  display: grid;
+  place-items: start center;
+  background: rgba(42, 42, 53, 0.45);
+}
+
+@media (max-width: 980px) {
+  .llh-dashboard-clean .llh-dash-primary {
+    grid-template-columns: 1fr;
+  }
+
+  .llh-dash-weekstrip-day {
+    min-height: 68px;
+    padding: 8px 4px;
+  }
+
+  .llh-dash-weekstrip-legend {
+    gap: 8px 10px;
+  }
+
+  .llh-calendar-grid .llh-cal-head:nth-child(6),
+  .llh-calendar-grid .llh-cal-head:nth-child(7),
+  .llh-calendar-grid .llh-cal-cell:nth-child(7n+6),
+  .llh-calendar-grid .llh-cal-cell:nth-child(7n) {
+    display: none;
+  }
+
+  .llh-calendar-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+.llh-calendar-grid-weekdays {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.nav-legacy-tag {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--llh-muted, #6b6b7b);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+body.curriculum-planner-retired .nav-link[data-view="curriculum-planner"] {
+  display: none !important;
+}
+
+.llh-calendar-retire-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--llh-highlight-soft, #fbf5de);
+  border: 1px solid color-mix(in srgb, var(--llh-highlight, #e8c96a) 40%, white);
+}
+
+.llh-calendar-retire-banner p {
+  margin: 0;
+  max-width: 62ch;
+}
+
+/* ========== Phase 1 polish pass ========== */
+.llh-calendar-toolbar-hint {
+  margin: 4px 0 0;
+  max-width: 36ch;
+  font-size: 0.92rem;
+}
+
+.llh-calendar-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.llh-calendar-month-nav {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: 999px;
+  background: var(--llh-surface, #fff);
+}
+
+.llh-calendar-month-nav .ghost-button {
+  min-width: 40px;
+  border: 0;
+  box-shadow: none;
+}
+
+.llh-calendar-empty-banner {
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--llh-highlight-soft, #fbf5de);
+  border: 1px solid color-mix(in srgb, var(--llh-highlight, #e8c96a) 35%, white);
+  color: var(--llh-ink, #2a2a35);
+}
+
+.llh-calendar-empty-banner p { margin: 0; }
+
+.llh-cal-cell.has-lesson {
+  background: linear-gradient(180deg, #f7f4fc 0%, #fff 48%);
+}
+
+.llh-cal-cell.is-today .llh-cal-daynum {
+  color: var(--llh-primary-deep, #5a4d8a);
+  font-weight: 700;
+}
+
+.llh-cal-today-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: var(--llh-primary, #7b6bb5);
+  vertical-align: middle;
+}
+
+.llh-cal-weekbar {
+  background: var(--llh-primary, #7b6bb5);
+  color: #fff;
+  border-radius: 6px;
+  padding: 4px 7px;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.25;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.llh-cal-lesson-stripe {
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--llh-primary, #7b6bb5);
+  opacity: 0.55;
+  margin: 2px 0 4px;
+}
+
+.llh-cal-chip {
+  display: flex;
+  gap: 4px;
+  align-items: baseline;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.llh-cal-chip-type {
+  opacity: 0.75;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 9px;
+}
+
+.llh-cal-chip-reminder {
+  background: var(--llh-secondary-soft, #e5f1f8);
+  color: #3f6f8c;
+}
+
+.llh-cal-chip-classroom_event {
+  background: var(--llh-accent-soft, #fbece3);
+  color: #9a5a38;
+}
+
+.llh-cal-more {
+  font-size: 10px;
+  color: var(--llh-muted, #6b6b7b);
+}
+
+.llh-calendar-lesson-block,
+.llh-calendar-empty-week {
+  margin-bottom: 12px;
+}
+
+.llh-calendar-lesson-block {
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--llh-primary-soft, #ede8f7);
+}
+
+.llh-cal-event-list {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 14px;
+}
+
+.llh-cal-event-card {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--llh-line, #e4e1ea);
+  background: #fff;
+}
+
+.llh-cal-event-card .eyebrow { margin: 0; }
+.llh-cal-event-card strong { font-size: 0.95rem; }
+.llh-cal-event-card small { color: var(--llh-muted, #6b6b7b); }
+
+.llh-cal-event-card-closure {
+  background: var(--llh-danger-soft, #f8e8e8);
+  border-color: color-mix(in srgb, var(--llh-danger, #c56b6b) 25%, white);
+}
+
+.llh-cal-event-card-reminder {
+  background: var(--llh-secondary-soft, #e5f1f8);
+}
+
+.llh-cal-event-card-classroom_event {
+  background: var(--llh-accent-soft, #fbece3);
+}
+
+.llh-dashboard-clean .llh-dash-primary {
+  gap: 18px;
+  padding: 4px 0 8px;
+}
+
+.llh-dash-primary .llh-ds-card {
+  padding: 18px;
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #fff 0%, #fbfafe 100%);
+  box-shadow: none;
+}
+
+.llh-dash-today {
+  border-top: 3px solid var(--llh-primary, #7b6bb5);
+}
+
+.llh-dash-week {
+  border-top: 3px solid var(--llh-secondary, #7ba8c9);
+}
+
+.llh-dash-upcoming {
+  border-top: 3px solid var(--llh-accent, #e8a07a);
+}
+
+.llh-dash-theme {
+  margin: 0 0 10px;
+  color: var(--llh-muted, #6b6b7b);
+}
+
+.llh-dash-activity-list {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  color: var(--llh-ink, #2a2a35);
+}
+
+.llh-dash-today-meta {
+  display: grid;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--llh-line, #e4e1ea);
+}
+
+.llh-dash-meta-line {
+  margin: 0;
+  font-size: 0.92rem;
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 8px;
+}
+
+.llh-dash-meta-line span {
+  font-weight: 650;
+  color: var(--llh-ink, #2a2a35);
+}
+
+.llh-dash-upcoming-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: grid;
+  gap: 10px;
+}
+
+.llh-dash-upcoming-list li {
+  display: grid;
+  gap: 2px;
+}
+
+.llh-dash-upcoming-list small {
+  color: var(--llh-muted, #6b6b7b);
+}
+
+.llh-dashboard-more {
+  border-style: dashed;
+  background: transparent;
+}
+
+.llh-dashboard-more > summary {
+  color: var(--llh-muted, #6b6b7b);
+  font-weight: 500;
+}
+
+@media (max-width: 980px) {
+  .llh-calendar-toolbar-hint { display: none; }
+
+  .llh-calendar-toolbar-actions {
+    width: 100%;
+  }
+
+  .llh-calendar-toolbar-actions .primary-button {
+    flex: 1 1 100%;
+  }
+
+  .llh-calendar-month-nav {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .llh-cal-cell {
+    min-height: 78px;
+    padding: 6px;
+  }
+
+  .llh-cal-weekbar {
+    font-size: 10px;
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .llh-cal-chip-type { display: none; }
+
+  .llh-day-card {
+    padding: 14px;
+    gap: 10px;
+  }
+
+  .llh-day-card-head h3 {
+    font-size: 1.05rem;
+  }
+
+  .llh-dash-meta-line {
+    grid-template-columns: 1fr;
+    gap: 2px;
   }
 }

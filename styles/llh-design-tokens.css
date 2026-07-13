@@ -1,0 +1,229 @@
+/**
+ * Little Learner Hub — Design Tokens
+ * ----------------------------------
+ * Source of truth for future UI work.
+ * Import or copy into the app shell before restyling surfaces.
+ *
+ * Brand feel: soft educational warmth + modern SaaS clarity
+ * Primary chrome: soft lavender (NOT corporate blue)
+ *
+ * Do not add one-off hex values in features — extend this file.
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap");
+
+:root {
+  /* ---------- Brand color ---------- */
+  --llh-primary: #7b6bb5;
+  --llh-primary-soft: #ede8f7;
+  --llh-primary-deep: #5a4d8a;
+
+  --llh-secondary: #7ba8c9;
+  --llh-secondary-soft: #e5f1f8;
+
+  --llh-success: #5db89a;
+  --llh-success-soft: #e3f6ef;
+
+  --llh-accent: #e8a07a;
+  --llh-accent-soft: #fbece3;
+
+  --llh-highlight: #e8c96a;
+  --llh-highlight-soft: #fbf5de;
+
+  --llh-danger: #c56b6b;
+  --llh-danger-soft: #f8e8e8;
+
+  /* ---------- Neutrals ---------- */
+  --llh-bg: #f7f6f9;
+  --llh-surface: #ffffff;
+  --llh-ink: #2a2a35;
+  --llh-muted: #6b6b7b;
+  --llh-line: #e4e1ea;
+  --llh-white: #ffffff;
+
+  /* ---------- Focus / elevation ---------- */
+  --llh-focus-ring: rgba(123, 107, 181, 0.35);
+  --llh-shadow-soft: 0 8px 24px rgba(42, 42, 53, 0.06);
+  --llh-shadow-modal: 0 18px 48px rgba(42, 42, 53, 0.12);
+
+  /* ---------- Space ---------- */
+  --llh-space-1: 4px;
+  --llh-space-2: 8px;
+  --llh-space-3: 12px;
+  --llh-space-4: 16px;
+  --llh-space-5: 24px;
+  --llh-space-6: 32px;
+  --llh-space-7: 48px;
+
+  /* ---------- Radius ---------- */
+  --llh-radius-sm: 8px;
+  --llh-radius-md: 12px;
+  --llh-radius-lg: 16px;
+
+  /* ---------- Type ---------- */
+  --llh-font-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", serif;
+  --llh-font-body: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+
+  --llh-text-display: clamp(1.75rem, 2vw + 1rem, 2.5rem);
+  --llh-text-title: clamp(1.25rem, 1vw + 1rem, 1.75rem);
+  --llh-text-subtitle: 1.125rem;
+  --llh-text-body: 0.975rem;
+  --llh-text-small: 0.8125rem;
+  --llh-text-eyebrow: 0.72rem;
+
+  /* ---------- Compatibility aliases ----------
+   * Bridge for gradual adoption alongside legacy :root in styles.css.
+   * New scheduling UI should prefer --llh-* names.
+   */
+  --llh-compat-primary: var(--llh-primary);
+  --llh-compat-accent: var(--llh-accent);
+}
+
+/* Optional utility primitives for new surfaces / showcase */
+.llh-ds-page {
+  background: var(--llh-bg);
+  color: var(--llh-ink);
+  font-family: var(--llh-font-body);
+  font-size: var(--llh-text-body);
+  line-height: 1.5;
+}
+
+.llh-ds-display {
+  font-family: var(--llh-font-display);
+  font-size: var(--llh-text-display);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.llh-ds-title {
+  font-family: var(--llh-font-display);
+  font-size: var(--llh-text-title);
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.llh-ds-eyebrow {
+  font-family: var(--llh-font-body);
+  font-size: var(--llh-text-eyebrow);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--llh-muted);
+  margin: 0 0 var(--llh-space-2);
+}
+
+.llh-ds-muted {
+  color: var(--llh-muted);
+}
+
+.llh-ds-card {
+  background: var(--llh-surface);
+  border: 1px solid var(--llh-line);
+  border-radius: var(--llh-radius-md);
+  box-shadow: var(--llh-shadow-soft);
+  padding: var(--llh-space-5);
+}
+
+.llh-ds-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--llh-space-2);
+  min-height: 44px;
+  padding: 0 var(--llh-space-4);
+  border-radius: var(--llh-radius-sm);
+  border: 1px solid transparent;
+  font-family: var(--llh-font-body);
+  font-size: var(--llh-text-small);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.llh-ds-btn:focus-visible {
+  outline: 3px solid var(--llh-focus-ring);
+  outline-offset: 2px;
+}
+
+.llh-ds-btn--primary {
+  background: var(--llh-primary);
+  color: var(--llh-white);
+}
+
+.llh-ds-btn--primary:hover {
+  background: var(--llh-primary-deep);
+}
+
+.llh-ds-btn--secondary {
+  background: var(--llh-surface);
+  color: var(--llh-primary-deep);
+  border-color: var(--llh-primary);
+}
+
+.llh-ds-btn--soft {
+  background: var(--llh-primary-soft);
+  color: var(--llh-primary-deep);
+}
+
+.llh-ds-btn--ghost {
+  background: transparent;
+  color: var(--llh-muted);
+  border-color: transparent;
+}
+
+.llh-ds-field {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--llh-space-3);
+  border: 1px solid var(--llh-line);
+  border-radius: var(--llh-radius-sm);
+  background: var(--llh-surface);
+  color: var(--llh-ink);
+  font-family: var(--llh-font-body);
+  font-size: var(--llh-text-body);
+}
+
+.llh-ds-field:focus {
+  outline: none;
+  border-color: var(--llh-primary);
+  box-shadow: 0 0 0 3px var(--llh-focus-ring);
+}
+
+.llh-ds-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.llh-ds-chip--primary {
+  background: var(--llh-primary-soft);
+  color: var(--llh-primary-deep);
+}
+
+.llh-ds-chip--secondary {
+  background: var(--llh-secondary-soft);
+  color: #3f6f8c;
+}
+
+.llh-ds-chip--success {
+  background: var(--llh-success-soft);
+  color: #2f7a64;
+}
+
+.llh-ds-chip--accent {
+  background: var(--llh-accent-soft);
+  color: #9a5a38;
+}
+
+.llh-ds-chip--highlight {
+  background: var(--llh-highlight-soft);
+  color: #8a6f20;
+}
