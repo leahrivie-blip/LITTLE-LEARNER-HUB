@@ -149,7 +149,7 @@
     {
       "name": "Calendar shows week bar / assigned title",
       "ok": true,
-      "detail": "← Back to Dashboard\n\nPLANNING HOME\n\nCalendar\n\nPLANNING HOME\n\nJuly 2026\nPrev\nToday\nNext\nAssign Lesson Plan\nMon\nTue\nWed\nThu\nFri\n1\n2\n3\n6\n7\n10\n13\nCommunity Helpers "
+      "detail": "← Back to Dashboard\n\nPLANNING HOME\n\nCalendar\n\nPLANNING HOME\n\nJuly 2026\n‹ Prev\nMONTH\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember"
     },
     {
       "name": "Calendar week bar rendered",
@@ -189,7 +189,7 @@
     {
       "name": "Remove lesson plan works",
       "ok": true,
-      "detail": "sch-b1cfcfe4d995"
+      "detail": "sch-15f0638e4dfa"
     },
     {
       "name": "Dashboard clears after remove",
@@ -247,7 +247,7 @@
       "detail": ""
     },
     {
-      "name": "Desktop calendar uses weekday planning grid",
+      "name": "Desktop calendar uses Sun-Sat planning grid",
       "ok": true,
       "detail": ""
     },
