@@ -10,10 +10,9 @@
 2. **Weekly Planner is a horizontal week board** — desktop Mon–Fri side-by-side; mobile swipe/snap day cards; notes open in a side panel when needed (not stacked into a tall document).
 3. **Calendar is the planning home** — compact “Planning home” chrome; Weekly Planner back goes to Calendar; empty states push Open Calendar first.
 4. **Dashboard stays TODAY → THIS WEEK → UPCOMING** with everything else under More Tools; empty week CTA is Open Calendar.
-5. **Compact week calendar strip on Dashboard** — Mon–Fri preview with lesson / event / closure / reminder / birthday marks; taps open Calendar for the current week.
-6. **Weekly Planner stays lightweight** — activities, materials, checkoffs, notes/observations only; full lesson opens via “Open lesson plan”.
-7. **Lavender design system retained** as the LLH visual standard.
-8. **Director/Classroom architecture** remains docs-only — not built.
+5. **Weekly Planner stays lightweight** — activities, materials, checkoffs, notes/observations only; full lesson opens via “Open lesson plan”.
+6. **Lavender design system retained** as the LLH visual standard.
+7. **Director/Classroom architecture** remains docs-only — not built.
 
 ## Screenshots
 

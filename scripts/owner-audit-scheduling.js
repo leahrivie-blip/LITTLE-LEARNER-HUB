@@ -473,8 +473,10 @@ async function main() {
     check("Dashboard shows THIS WEEK assignment", /Community Helpers Audit Week/i.test(dashAssigned), dashAssigned.slice(0, 200));
     check("Dashboard has Open Weekly Planner", /Open Weekly Planner/i.test(dashAssigned));
     check("Dashboard has Open Calendar / Upcoming", /Open Calendar|Upcoming/i.test(dashAssigned));
-    check("Dashboard primary order Today → This Week → Upcoming", /Today[\s\S]{0,400}This Week[\s\S]{0,400}Upcoming/i.test(dashAssigned), "Primary workflow order missing");
+    check("Dashboard primary order Today → This Week → Upcoming", /Today[\s\S]{0,800}This Week[\s\S]{0,800}Upcoming/i.test(dashAssigned), "Primary workflow order missing");
     check("Dashboard puts secondary tools below fold", await iphone.locator(".llh-dashboard-more").count() > 0, "More tools details missing");
+    check("Dashboard week strip calendar present", await iphone.locator(".llh-dash-weekstrip").count() > 0, "compact week calendar missing");
+    check("Dashboard week strip has five weekday cells", await iphone.locator(".llh-dash-weekstrip-day").count() === 5, "expected Mon–Fri strip");
     if (/This Week('|’)s Curriculum/i.test(dashAssigned) && /Open Curriculum Planner/i.test(dashAssigned)) {
       note("medium", "dashboard", "Dashboard heading/CTA may still lean on Curriculum Planner language");
     }

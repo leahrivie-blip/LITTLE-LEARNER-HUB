@@ -15961,6 +15961,108 @@ function renderCurriculumPlanner() {
   `;
 }
 
+function dashboardBirthdaysThisWeek(weekStart) {
+  const records = typeof childRecords === "function" ? childRecords() : { children: [] };
+  const children = typeof getActiveChildren === "function" ? getActiveChildren(records) : (records.children || []);
+  const birthdays = [];
+  CURRICULUM_WEEKDAYS.forEach((day) => {
+    const iso = curriculumPlannerDateForDay(weekStart, day);
+    if (!iso) return;
+    const [, month, date] = iso.split("-");
+    children.forEach((child) => {
+      const dob = String(child.dob || "");
+      if (dob.length < 10) return;
+      const [, dobMonth, dobDay] = dob.split("-");
+      if (dobMonth === month && dobDay === date) {
+        birthdays.push({
+          date: iso,
+          dayOfWeek: day,
+          name: child.name || "Child",
+        });
+      }
+    });
+  });
+  return birthdays;
+}
+
+function dashboardWeekStripMarkup({
+  weekStart,
+  weekEnd,
+  doc,
+  assignment,
+  todayKey,
+} = {}) {
+  const todayIso = isoDateFromLocalDate(new Date());
+  const weekItems = (doc?.items || []).filter((item) => {
+    if (item.type === "lesson_plan") {
+      return item.weekStartDate === weekStart;
+    }
+    return item.startDate >= weekStart && item.startDate <= weekEnd;
+  });
+  const birthdays = dashboardBirthdaysThisWeek(weekStart);
+  const dayCells = CURRICULUM_WEEKDAYS.map((day) => {
+    const iso = curriculumPlannerDateForDay(weekStart, day);
+    const isToday = iso === todayIso || day === todayKey;
+    const dayEvents = weekItems.filter((item) => item.type !== "lesson_plan" && item.startDate === iso);
+    const dayBirthdays = birthdays.filter((item) => item.date === iso);
+    const hasLesson = Boolean(assignment);
+    const marks = [];
+    if (hasLesson) marks.push({ kind: "lesson", label: "Lesson" });
+    dayEvents.forEach((event) => {
+      marks.push({
+        kind: event.type === "closure" ? "closure" : event.type === "reminder" ? "reminder" : "event",
+        label: event.title || calendarEventTypeLabel(event.type),
+      });
+    });
+    dayBirthdays.forEach((bday) => {
+      marks.push({ kind: "birthday", label: `${bday.name}'s birthday` });
+    });
+    const dayNum = iso ? Number(iso.slice(8, 10)) : "";
+    return `
+      <button type="button" class="llh-dash-weekstrip-day ${isToday ? "is-today" : ""} ${hasLesson ? "has-lesson" : ""}" data-view="calendar" data-dash-select-week="${escapeHtml(weekStart)}" title="${escapeHtml(curriculumPlannerWeekdayLabel(day))}${marks.length ? ` · ${marks.map((m) => m.label).join(", ")}` : ""}">
+        <span class="llh-dash-weekstrip-dow">${escapeHtml(curriculumPlannerWeekdayLabel(day).slice(0, 3))}</span>
+        <span class="llh-dash-weekstrip-num">${dayNum}</span>
+        <span class="llh-dash-weekstrip-marks" aria-hidden="true">
+          ${marks.slice(0, 3).map((mark) => `<i class="llh-dash-mark llh-dash-mark-${escapeHtml(mark.kind)}"></i>`).join("")}
+        </span>
+      </button>
+    `;
+  }).join("");
+
+  const legendBits = [];
+  if (assignment) legendBits.push(`Lesson: ${assignment.lessonPlanTitle}`);
+  const closures = weekItems.filter((item) => item.type === "closure");
+  const events = weekItems.filter((item) => item.type === "classroom_event");
+  const reminders = weekItems.filter((item) => item.type === "reminder");
+  if (closures.length) legendBits.push(`${closures.length} closure${closures.length === 1 ? "" : "s"}`);
+  if (events.length) legendBits.push(`${events.length} event${events.length === 1 ? "" : "s"}`);
+  if (reminders.length) legendBits.push(`${reminders.length} reminder${reminders.length === 1 ? "" : "s"}`);
+  if (birthdays.length) legendBits.push(`${birthdays.length} birthday${birthdays.length === 1 ? "" : "s"}`);
+
+  return `
+    <section class="llh-ds-card llh-dash-weekstrip" aria-label="This week at a glance">
+      <div class="llh-dash-weekstrip-head">
+        <div>
+          <p class="eyebrow">This week</p>
+          <h3>Week of ${escapeHtml(weekStart)}</h3>
+          <p class="muted-copy">${legendBits.length ? escapeHtml(legendBits.join(" · ")) : "No lesson plan or events yet — open Calendar to plan."}</p>
+        </div>
+        <button type="button" class="ghost-button" data-view="calendar" data-dash-select-week="${escapeHtml(weekStart)}">Open Calendar</button>
+      </div>
+      <div class="llh-dash-weekstrip-grid" role="group" aria-label="Monday to Friday">
+        ${dayCells}
+      </div>
+      <div class="llh-dash-weekstrip-legend" aria-hidden="true">
+        <span><i class="llh-dash-mark llh-dash-mark-lesson"></i> Lesson</span>
+        <span><i class="llh-dash-mark llh-dash-mark-event"></i> Event</span>
+        <span><i class="llh-dash-mark llh-dash-mark-closure"></i> Closure</span>
+        <span><i class="llh-dash-mark llh-dash-mark-reminder"></i> Reminder</span>
+        <span><i class="llh-dash-mark llh-dash-mark-birthday"></i> Birthday</span>
+      </div>
+    </section>
+  `;
+}
+
 function dashboardScheduleOverviewMarkup() {
   const api = getScheduleApi();
   const weekStart = curriculumPlannerWeekStartIso(new Date());
@@ -15999,6 +16101,8 @@ function dashboardScheduleOverviewMarkup() {
     : "Weekend — review the week in Weekly Planner.";
 
   return `
+    ${dashboardWeekStripMarkup({ weekStart, weekEnd, doc, assignment, todayKey })}
+
     <section class="llh-dash-primary">
       <div class="llh-ds-card llh-dash-today">
         <p class="eyebrow">Today</p>
@@ -32104,6 +32208,9 @@ document.addEventListener("click", async (event) => {
   const viewButton = event.target.closest("[data-view]");
   if (viewButton) {
     const nextView = viewButton.dataset.view || "";
+    if (viewButton.dataset.dashSelectWeek) {
+      mainCalendarSelectedWeek = viewButton.dataset.dashSelectWeek;
+    }
     if (["activities", "planner", "curriculum-planner", "children", "generators"].includes(nextView)) {
       clearViewReturnContext(nextView);
     }

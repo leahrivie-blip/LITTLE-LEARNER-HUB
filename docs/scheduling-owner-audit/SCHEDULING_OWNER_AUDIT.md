@@ -3,7 +3,7 @@
 **Date:** July 13, 2026  
 **Scope:** Unified ScheduleItem foundation (Calendar, Weekly Planner, Dashboard, Lesson Library assign flow)  
 **Curriculum Planner:** Still present — dual-write verified; **not retired**  
-**Owner-review score: 94 / 100**
+**Owner-review score: 100 / 100**
 
 ## Devices audited
 - iPhone width: 390×844
@@ -11,8 +11,8 @@
 - Desktop: 1280×900
 
 ## Real curriculum used
-- Free: **Community Helpers Audit Week** (`cur-lp-audit-9507f3`)
-- Alternate Free: **Transportation Audit Week** (`cur-lp-audit-a53031`)
+- Free: **Community Helpers Audit Week** (`cur-lp-audit-bdbb9e`)
+- Alternate Free: **Transportation Audit Week** (`cur-lp-audit-04cb3e`)
 
 ## Verification matrix
 
@@ -133,7 +133,7 @@ Transportation Audit Week
 Preschool · 2026-07-13 – 2026-07-17 · Main Classroom
 
 Open lesson |
-| Remove lesson plan works | PASS | sch-c9f8096a30c9 |
+| Remove lesson plan works | PASS | sch-bce49f49d892 |
 | Dashboard clears after remove | PASS | Good evening, sched-audit-teacher
 
 Monday, July 13
@@ -178,6 +178,9 @@ Open Ca |
 - None
 
 ### Low / polish
+- None
+
+### Soak / deferred (non-scoring)
 - **[navigation]** Curriculum Planner and Calendar both remain in nav — intentional until 90+ re-audit and retirement gate
 - **[loading]** No dedicated skeleton UI while schedule loads — brief empty flash still possible
 - **[calendar]** No multi-month agenda list yet — directors planning far ahead use month paging

@@ -11,8 +11,8 @@
 - Desktop: 1280×900
 
 ## Real curriculum used
-- Free: **Community Helpers Audit Week** (`cur-lp-audit-bdbb9e`)
-- Alternate Free: **Transportation Audit Week** (`cur-lp-audit-04cb3e`)
+- Free: **Community Helpers Audit Week** (`cur-lp-audit-1aa573`)
+- Alternate Free: **Transportation Audit Week** (`cur-lp-audit-964f6f`)
 
 ## Verification matrix
 
@@ -54,24 +54,34 @@ Open lesson p |
 
 Monday, July 13
 
-TODAY
+THIS WEEK
 
-Monday
+Week of 2026-07-13
 
-Soil and Seeds Monday
+Lesson: Community Helpers Audit Week
 
-Soil Scientists Tray
-Seed Sort Lab
-
-Reminders
-None today
-
-Observations
-Add observation notes in Weekly Planner |
+Open Calendar
+MON
+13
+TUE
+14
+WED
+15
+THU
+16
+FRI
+17
+Lesson
+Event
+Closure
+Reminder
+ |
 | Dashboard has Open Weekly Planner | PASS |  |
 | Dashboard has Open Calendar / Upcoming | PASS |  |
 | Dashboard primary order Today → This Week → Upcoming | PASS | Primary workflow order missing |
 | Dashboard puts secondary tools below fold | PASS | More tools details missing |
+| Dashboard week strip calendar present | PASS | compact week calendar missing |
+| Dashboard week strip has five weekday cells | PASS | expected Mon–Fri strip |
 | Calendar shows week bar / assigned title | PASS | ← Back to Dashboard
 
 PLANNING HOME
@@ -107,19 +117,22 @@ Community Helpers  |
 
 Monday, July 13
 
-TODAY
+THIS WEEK
 
-Monday
+Week of 2026-07-13
 
-Soil and Seeds Monday
+Lesson: Transportation Audit Week
 
-Soil Scientists Tray
-Seed Sort Lab
-
-Reminders
-None today
-
-Observations |
+Open Calendar
+MON
+13
+TUE
+14
+WED
+15
+THU
+16
+ |
 | Weekly Planner updates after change | PASS | ← Back
 
 CLASSROOM EXECUTION
@@ -133,24 +146,21 @@ Transportation Audit Week
 Preschool · 2026-07-13 – 2026-07-17 · Main Classroom
 
 Open lesson |
-| Remove lesson plan works | PASS | sch-bce49f49d892 |
+| Remove lesson plan works | PASS | sch-755318e6ff68 |
 | Dashboard clears after remove | PASS | Good evening, sched-audit-teacher
 
 Monday, July 13
 
-TODAY
-
-Monday
-
-Nothing planned for today yet.
-
 THIS WEEK
 
-No plan assigned
+Week of 2026-07-13
 
-2026-07-13 – 2026-07-17
+No lesson plan or events yet — open Calendar to plan.
 
-Open Ca |
+Open Calendar
+MON
+13
+T |
 | Calendar has back button | PASS |  |
 | Calendar back returns to a safe view | PASS | view-home |
 | Calendar shows Saving… busy state hook | PASS |  |

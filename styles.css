@@ -15229,6 +15229,110 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   margin-bottom: 20px;
 }
 
+.llh-dash-weekstrip {
+  margin-bottom: 16px;
+  padding: 16px 18px;
+}
+
+.llh-dash-weekstrip-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.llh-dash-weekstrip-head h3 {
+  margin: 0 0 4px;
+  font-family: var(--llh-font-display, Georgia, serif);
+  font-size: 1.2rem;
+}
+
+.llh-dash-weekstrip-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.llh-dash-weekstrip-day {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  padding: 10px 6px 8px;
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  min-height: 76px;
+}
+
+.llh-dash-weekstrip-day:hover {
+  border-color: color-mix(in srgb, var(--llh-primary, #7b6bb5) 40%, white);
+}
+
+.llh-dash-weekstrip-day.is-today {
+  outline: 2px solid var(--llh-primary, #7b6bb5);
+  outline-offset: -1px;
+  background: var(--llh-primary-soft, #ede8f7);
+}
+
+.llh-dash-weekstrip-day.has-lesson {
+  background: linear-gradient(180deg, #f7f4fc 0%, #fff 55%);
+}
+
+.llh-dash-weekstrip-dow {
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--llh-primary-deep, #5a4d8a);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.llh-dash-weekstrip-num {
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-family: var(--llh-font-display, Georgia, serif);
+  line-height: 1;
+}
+
+.llh-dash-weekstrip-marks {
+  display: flex;
+  gap: 3px;
+  min-height: 8px;
+  align-items: center;
+}
+
+.llh-dash-mark {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.llh-dash-mark-lesson { background: var(--llh-primary, #7b6bb5); }
+.llh-dash-mark-event { background: var(--llh-accent, #e8a07a); }
+.llh-dash-mark-closure { background: var(--llh-danger, #c56b6b); }
+.llh-dash-mark-reminder { background: var(--llh-secondary, #7ba8c9); }
+.llh-dash-mark-birthday { background: var(--llh-highlight, #e8c96a); }
+
+.llh-dash-weekstrip-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--llh-muted, #6b6b7b);
+}
+
+.llh-dash-weekstrip-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
 .llh-dash-primary .llh-ds-card h3 {
   font-family: var(--llh-font-display, Georgia, serif);
   margin: 0 0 8px;
@@ -15547,6 +15651,15 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 @media (max-width: 980px) {
   .llh-dashboard-clean .llh-dash-primary {
     grid-template-columns: 1fr;
+  }
+
+  .llh-dash-weekstrip-day {
+    min-height: 68px;
+    padding: 8px 4px;
+  }
+
+  .llh-dash-weekstrip-legend {
+    gap: 8px 10px;
   }
 
   .llh-calendar-grid .llh-cal-head:nth-child(6),

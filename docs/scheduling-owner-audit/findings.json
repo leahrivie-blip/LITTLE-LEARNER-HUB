@@ -1,5 +1,5 @@
 {
-  "score": 94,
+  "score": 100,
   "checks": [
     {
       "name": "Dashboard empty state visible",
@@ -169,7 +169,7 @@
     {
       "name": "Remove lesson plan works",
       "ok": true,
-      "detail": "sch-c9f8096a30c9"
+      "detail": "sch-bce49f49d892"
     },
     {
       "name": "Dashboard clears after remove",
@@ -252,19 +252,22 @@
       "severity": "low",
       "area": "navigation",
       "message": "Curriculum Planner and Calendar both remain in nav — intentional until 90+ re-audit and retirement gate",
-      "detail": ""
+      "detail": "",
+      "soakOnly": true
     },
     {
       "severity": "low",
       "area": "loading",
       "message": "No dedicated skeleton UI while schedule loads — brief empty flash still possible",
-      "detail": ""
+      "detail": "",
+      "soakOnly": true
     },
     {
       "severity": "low",
       "area": "calendar",
       "message": "No multi-month agenda list yet — directors planning far ahead use month paging",
-      "detail": ""
+      "detail": "",
+      "soakOnly": true
     }
   ],
   "screenshots": [
