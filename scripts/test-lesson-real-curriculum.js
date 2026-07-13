@@ -306,8 +306,13 @@ async function main() {
         const fullHtml = resourcePrintableHtml(activeResourceViewerResource, { mode: "print", printVariant: "full" });
         return { weekHtml, fullHtml };
       });
-      assert(printProof.weekHtml.includes("Monday–Friday Classroom Schedule") || printProof.weekHtml.includes("Monday-Friday Classroom Schedule"), `${plan.key} weekly schedule heading missing`);
-      assert(printProof.weekHtml.includes("Classroom Support Notes"), `${plan.key} weekly support notes missing`);
+      assert(printProof.weekHtml.includes("Monday–Friday Plan") || printProof.weekHtml.includes("Monday-Friday Plan"), `${plan.key} weekly schedule heading missing`);
+      assert(printProof.weekHtml.includes("Weekly Snapshot"), `${plan.key} weekly snapshot missing`);
+      assert(printProof.weekHtml.includes("Weekly Resources"), `${plan.key} weekly resources missing`);
+      assert(printProof.weekHtml.includes("Teacher Notes"), `${plan.key} teacher notes missing`);
+      assert(printProof.weekHtml.includes("lesson-week-activity-card"), `${plan.key} weekly activity cards missing`);
+      assert(printProof.weekHtml.includes("Materials:"), `${plan.key} weekly activity materials missing`);
+      assert(!/Teacher Role|Learning Goals|DIRECTIONS|Steps:/i.test(printProof.weekHtml), `${plan.key} weekly print should not dump full activity directions`);
       assert(printProof.weekHtml.includes("Vocabulary"), `${plan.key} weekly print missing Vocabulary`);
       assert(printProof.fullHtml.includes("Vocabulary") || printProof.fullHtml.includes("vocabulary"), `${plan.key} full print missing Vocabulary`);
       await closeViewer(page);

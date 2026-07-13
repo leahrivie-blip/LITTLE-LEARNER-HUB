@@ -69,3 +69,6 @@ Short report for future native/PWA packaging. Based on current website code as o
 ## Bottom line
 
 The site is **PWA-scaffold ready**, not **app-release ready**. Install-to-home-screen can be improved quickly with final icons and cache hygiene. Offline curriculum and push notifications are later phases and should not block Lesson Library merge.
+
+## Logo integration note
+Current icons are SVG placeholders under `images/icons/`. Before public install campaigns, replace with the new Little Learner Hub logo as PNG 192 / 512 + maskable, then update `site.webmanifest` and `apple-touch-icon`.

@@ -233,18 +233,24 @@ async function main() {
     await page.click("[data-lesson-workspace-action-sheet-dismiss]");
 
     const weeklyHtml = await page.evaluate(() => resourcePrintableHtml(activeResourceViewerResource, { mode: "print", printVariant: "week" }));
-    const printPage = await browser.newPage({ viewport: { width: 1100, height: 1400 }, deviceScaleFactor: 1 });
+    const printPage = await browser.newPage({ viewport: { width: 900, height: 1600 }, deviceScaleFactor: 1 });
     await printPage.setContent(`
       <!doctype html>
       <html>
         <head>
           <meta charset="utf-8" />
           <link rel="stylesheet" href="http://127.0.0.1:${PORT}/styles.css" />
+          <style>
+            body { margin: 24px; background: #eef2f6; }
+            .lesson-week-schedule-print { max-width: 820px; margin: 0 auto; background: #fff; padding: 8px; }
+          </style>
         </head>
         <body class="printing-resource">${weeklyHtml}</body>
       </html>
     `, { waitUntil: "networkidle" });
     await capture(printPage, "06-weekly-schedule-community-helpers", ".lesson-week-schedule-print");
+    await printPage.screenshot({ path: path.join(OUT_DIR, "06b-weekly-schedule-fullpage.png"), fullPage: true });
+    console.log(path.join(OUT_DIR, "06b-weekly-schedule-fullpage.png"));
     await printPage.close();
     await closeViewer(page);
 

@@ -288,8 +288,11 @@ async function main() {
       };
     }, primary.activityCount);
     assert(!weekAndPrint.hasTopPrint && !weekAndPrint.hasTopDownload, "Week tab should not show top print/download buttons");
-    assert(weekAndPrint.html.includes("lesson-week-schedule-grid"), "weekly print HTML missing schedule grid");
-    assert(weekAndPrint.html.includes("Classroom Support Notes"), "weekly print HTML missing classroom support notes");
+    assert(weekAndPrint.html.includes("lesson-week-day-stack"), "weekly print HTML missing day stack");
+    assert(weekAndPrint.html.includes("Weekly Snapshot"), "weekly print HTML missing Weekly Snapshot");
+    assert(weekAndPrint.html.includes("Teacher Notes"), "weekly print HTML missing Teacher Notes");
+    assert(weekAndPrint.html.includes("lesson-week-activity-card"), "weekly print HTML missing activity cards");
+    assert(weekAndPrint.html.includes("Materials:"), "weekly print HTML missing per-activity materials");
     assert(weekAndPrint.html.includes("extended classroom-ready title"), "weekly print HTML should keep long activity titles");
     assert(weekAndPrint.activityRows >= primary.activityCount, `viewer should show many activities (${weekAndPrint.activityRows}/${primary.activityCount})`);
 

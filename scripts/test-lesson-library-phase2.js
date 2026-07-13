@@ -267,7 +267,11 @@ async function main() {
     console.log("E) Weekly print variant uses professional schedule grid");
     await openLessonWorkspace(page, primary.title);
     const weeklyHtml = await page.evaluate(() => resourcePrintableHtml(activeResourceViewerResource, { mode: "print", printVariant: "week" }));
-    assert(weeklyHtml.includes("lesson-week-schedule-grid"), "weekly print HTML missing schedule grid class");
+    assert(weeklyHtml.includes("lesson-week-day-stack"), "weekly print HTML missing day stack class");
+    assert(weeklyHtml.includes("Weekly Snapshot"), "weekly print HTML missing Weekly Snapshot");
+    assert(weeklyHtml.includes("Weekly Resources"), "weekly print HTML missing Weekly Resources");
+    assert(weeklyHtml.includes("Teacher Notes"), "weekly print HTML missing Teacher Notes");
+    assert(weeklyHtml.includes("lesson-week-activity-card"), "weekly print HTML missing activity cards");
     ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].forEach((day) => {
       assert(weeklyHtml.includes(day), `weekly print HTML missing ${day}`);
     });
