@@ -35,7 +35,8 @@
     "test:billing-membership": "node scripts/test-billing-membership-qa.js",
     "test:homepage-smoke": "node scripts/test-homepage-smoke.js",
     "test:lesson-library-header": "node scripts/test-lesson-library-header.js",
-    "test:lesson-library-cards": "node scripts/test-lesson-library-cards.js"
+    "test:lesson-library-cards": "node scripts/test-lesson-library-cards.js",
+    "test:lesson-viewer-workspace": "node scripts/test-lesson-viewer-workspace.js"
   },
   "devDependencies": {
     "playwright": "^1.61.1"
