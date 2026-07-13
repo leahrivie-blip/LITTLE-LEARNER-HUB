@@ -7398,9 +7398,13 @@ function setView(view, options = {}) {
   if (resolvedView === "children") renderChildManagement();
   if (resolvedView === "support-center") renderSupportCenterPage();
   if (resolvedView === "planner") {
+    // Paint shell immediately so mobile/desktop never sit on an empty planner while schedule syncs.
+    renderWeeklyPlanner();
     ensureScheduleLoaded().then(() => renderWeeklyPlanner()).catch(() => renderWeeklyPlanner());
   }
   if (resolvedView === "calendar") {
+    // Paint Calendar shell immediately; refresh once ScheduleItem sync settles.
+    renderMainCalendar();
     ensureScheduleLoaded().then(() => renderMainCalendar()).catch(() => renderMainCalendar());
   }
   if (resolvedView === "curriculum-planner") renderCurriculumPlanner();
