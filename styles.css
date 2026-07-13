@@ -15211,3 +15211,213 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 }
 
 .brand-mark.brand-mark-hub span { display: none; }
+
+/* ========== Teacher experience pass: Weekly Classroom + Dashboard ========== */
+.llh-dashboard-clean .llh-dash-primary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.llh-dash-primary .llh-ds-card h3 {
+  font-family: var(--llh-font-display, Georgia, serif);
+  margin: 0 0 8px;
+  font-size: 1.35rem;
+}
+
+.llh-dashboard-more {
+  margin-top: 8px;
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: 12px;
+  background: var(--llh-surface, #fff);
+  padding: 0;
+}
+
+.llh-dashboard-more > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 14px 18px;
+  font-weight: 600;
+  color: var(--llh-primary-deep, #5a4d8a);
+}
+
+.llh-dashboard-more > summary::-webkit-details-marker { display: none; }
+
+.llh-dashboard-more-body {
+  padding: 0 18px 18px;
+  display: grid;
+  gap: 16px;
+}
+
+.llh-week-classroom {
+  display: grid;
+  gap: 16px;
+  max-width: 1180px;
+}
+
+.llh-week-classroom-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.llh-week-classroom-hero h3 {
+  margin: 0 0 6px;
+  font-family: var(--llh-font-display, Georgia, serif);
+  font-size: clamp(1.4rem, 1.5vw + 1rem, 2rem);
+}
+
+.llh-week-day-tabs {
+  display: none;
+}
+
+.llh-week-day-board {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+
+.llh-day-card {
+  background: var(--llh-surface, #fff);
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: var(--llh-shadow-soft, 0 8px 24px rgba(42,42,53,.06));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.llh-day-card-head h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-family: var(--llh-font-display, Georgia, serif);
+}
+
+.llh-day-card-section .eyebrow {
+  margin-bottom: 6px;
+}
+
+.llh-day-activity-list,
+.llh-day-materials {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.llh-day-materials li {
+  font-size: 13px;
+  color: var(--llh-muted, #6b6b7b);
+}
+
+.llh-day-note-label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--llh-muted, #6b6b7b);
+}
+
+.llh-day-note-label textarea {
+  width: 100%;
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  resize: vertical;
+  min-height: 72px;
+}
+
+.llh-week-mobile-nav {
+  display: none;
+}
+
+.llh-schedule-event-modal {
+  max-width: 420px;
+  width: calc(100% - 24px);
+  margin: 10vh auto;
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.llh-schedule-event-modal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 12px;
+}
+
+#scheduleEventModal.open {
+  display: grid;
+  place-items: start center;
+  background: rgba(42, 42, 53, 0.45);
+}
+
+@media (max-width: 980px) {
+  .llh-dashboard-clean .llh-dash-primary {
+    grid-template-columns: 1fr;
+  }
+
+  .llh-week-day-tabs {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .llh-week-day-tab {
+    border: 1px solid var(--llh-line, #e4e1ea);
+    background: #fff;
+    border-radius: 999px;
+    min-height: 40px;
+    font-weight: 600;
+    color: var(--llh-muted, #6b6b7b);
+  }
+
+  .llh-week-day-tab.is-active {
+    background: var(--llh-primary-soft, #ede8f7);
+    color: var(--llh-primary-deep, #5a4d8a);
+    border-color: var(--llh-primary, #7b6bb5);
+  }
+
+  .llh-week-day-board {
+    grid-template-columns: 1fr;
+  }
+
+  .llh-day-card { display: none; }
+  .llh-day-card.is-active { display: flex; }
+
+  .llh-week-mobile-nav { display: flex; }
+
+  .llh-calendar-grid .llh-cal-head:nth-child(6),
+  .llh-calendar-grid .llh-cal-head:nth-child(7),
+  .llh-calendar-grid .llh-cal-cell:nth-child(7n+6),
+  .llh-calendar-grid .llh-cal-cell:nth-child(7n) {
+    display: none;
+  }
+
+  .llh-calendar-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+.llh-calendar-grid-weekdays {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.nav-legacy-tag {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--llh-muted, #6b6b7b);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

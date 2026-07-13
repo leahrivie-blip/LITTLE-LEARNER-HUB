@@ -154,9 +154,35 @@
     };
   }
 
+  function mergeScheduleDocs(local = {}, remote = {}) {
+    const byId = new Map();
+    (Array.isArray(local.items) ? local.items : []).forEach((item) => {
+      if (item?.id) byId.set(item.id, item);
+    });
+    (Array.isArray(remote.items) ? remote.items : []).forEach((item) => {
+      if (!item?.id) return;
+      const existing = byId.get(item.id);
+      if (!existing || String(item.updatedAt || "") >= String(existing.updatedAt || "")) {
+        byId.set(item.id, item);
+      }
+    });
+    const items = Array.from(byId.values()).sort((a, b) =>
+      `${a.startDate}-${a.type}-${a.title}`.localeCompare(`${b.startDate}-${b.type}-${b.title}`),
+    );
+    return {
+      classrooms: (remote.classrooms && remote.classrooms.length)
+        ? remote.classrooms
+        : (local.classrooms && local.classrooms.length ? local.classrooms : emptyDoc().classrooms),
+      items,
+      updatedAt: String(remote.updatedAt || local.updatedAt || ""),
+      schemaVersion: 1,
+    };
+  }
+
   async function fetchSchedule(getFirebaseHeaders, email, query = {}) {
+    const local = readCache(email);
     const headers = await authHeaders(getFirebaseHeaders, email);
-    if (!headers) return readCache(email);
+    if (!headers) return local;
     const params = new URLSearchParams();
     if (query.from) params.set("from", query.from);
     if (query.to) params.set("to", query.to);
@@ -165,18 +191,27 @@
     const qs = params.toString();
     try {
       const response = await fetch(`/api/schedule${qs ? `?${qs}` : ""}`, { headers });
-      if (!response.ok) return readCache(email);
+      if (!response.ok) return local;
       const remote = await response.json();
-      const doc = {
+      const remoteDoc = {
         classrooms: remote.classrooms?.length ? remote.classrooms : emptyDoc().classrooms,
         items: Array.isArray(remote.items) ? remote.items : [],
         updatedAt: remote.updatedAt || "",
         schemaVersion: 1,
       };
-      writeCache(email, doc);
-      return doc;
+      // Filtered queries should not overwrite the full cache with a subset.
+      if (query.from || query.to || query.classroomId || query.types) {
+        return mergeScheduleDocs(local, remoteDoc);
+      }
+      const merged = mergeScheduleDocs(local, remoteDoc);
+      // Never replace a richer local cache with an empty/stale remote payload.
+      if ((local.items || []).length > 0 && (merged.items || []).length === 0) {
+        return local;
+      }
+      writeCache(email, merged);
+      return merged;
     } catch {
-      return readCache(email);
+      return local;
     }
   }
 
@@ -441,6 +476,7 @@
     writeCache,
     lessonForWeek,
     itemsInRange,
+    mergeScheduleDocs,
     fetchSchedule,
     saveSchedule,
     upsertItem,

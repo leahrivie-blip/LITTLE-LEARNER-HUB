@@ -3277,6 +3277,8 @@ let mainCalendarSelectedWeek = "";
 let mainCalendarBusy = false;
 let scheduleDocCache = null;
 let scheduleSyncPromise = null;
+let weeklyPlannerActiveDay = "";
+let calendarEventModalOpen = false;
 let adminReviewEditorId = "";
 let adminImageEditorId = "";
 let adminLessonSelection = new Set();
@@ -12275,7 +12277,7 @@ function lessonWorkspaceChromeHtml(resource) {
           </div>
           <div data-lesson-workspace-action-panel="main-calendar" hidden aria-hidden="true">
             <p class="lesson-workspace-action-sheet-title">Plan This Week</p>
-            <p class="muted-copy lesson-workspace-action-sheet-note">Pick the Monday that starts your teaching week. Curriculum Planner assignments are the source of truth; Weekly Planner day text is filled from circle-time ideas and activity titles (no timed schedule blocks).</p>
+            <p class="muted-copy lesson-workspace-action-sheet-note">Pick the Monday that starts your teaching week. This assigns one ScheduleItem for Calendar, Weekly Planner, and Dashboard.</p>
             <form class="lesson-workspace-main-calendar-form" data-lesson-main-calendar-form>
               <input type="hidden" name="resourceId" value="${escapeHtml(resource.id)}" />
               <label>Week starting (Monday)
@@ -12293,10 +12295,9 @@ function lessonWorkspaceChromeHtml(resource) {
           <div data-lesson-workspace-action-panel="success" hidden aria-hidden="true">
             <p class="lesson-workspace-action-sheet-title">Saved to This Week</p>
             <p class="muted-copy" data-lesson-workspace-success-message></p>
-            <p class="muted-copy lesson-workspace-action-sheet-note">Daily activity display is limited to Weekly Planner day text and the Curriculum Planner week board — there is no separate timed day calendar yet.</p>
+            <p class="muted-copy lesson-workspace-action-sheet-note">Open Weekly Planner to run the week, or Calendar to plan future weeks.</p>
             <button type="button" class="primary-button" data-lesson-open-weekly-planner>Open Weekly Planner</button>
             <button type="button" class="ghost-button" data-view="calendar">View Calendar</button>
-            <button type="button" class="ghost-button" data-lesson-open-curriculum-planner>Open Curriculum Planner</button>
             <button type="button" class="link-button" data-lesson-workspace-action-sheet-dismiss>Done</button>
           </div>
         </div>
@@ -14036,13 +14037,9 @@ function renderUserDashboard() {
   const now = new Date();
   const hour = now.getHours();
   let greeting;
-  if (hour < 12) {
-    greeting = "Good morning";
-  } else if (hour < 17) {
-    greeting = "Good afternoon";
-  } else {
-    greeting = "Good evening";
-  }
+  if (hour < 12) greeting = "Good morning";
+  else if (hour < 17) greeting = "Good afternoon";
+  else greeting = "Good evening";
   const today = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
   const accountName = currentAccount()?.name || currentUser?.split("@")[0] || "Provider";
   const programSettings = getProgramSettings();
@@ -14053,25 +14050,13 @@ function renderUserDashboard() {
   const activeGoals = records.goals.filter((goal) => goalProgressPercent(goal.progress) < 100).length;
   const childCount = records.children.length;
   const observationsDue = Math.max(stats.totalNeeded - stats.completed, 0);
-
-  const planner = weeklyPlanner();
-  const weekday = now.toLocaleDateString("en-US", { weekday: "long" });
-  const dayPlan = planner.days?.[weekday] || {};
-  const plannedTasks = Object.values(dayPlan).filter((item) => String(item || "").trim());
-
-  const recentObservations = [...(records.observations || [])].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 3);
   const childById = Object.fromEntries((records.children || []).map((c) => [c.id, c]));
   const recentActivity = dashboardRecentActivity(records, childById);
+  const recentObservations = [...(records.observations || [])].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 3);
   const reminders = dashboardReminderMarkup(records, stats);
   const dashboardTeasers = !isProUser() ? `
     <section class="section-block dashboard-teasers">
-      <div class="dashboard-panel-heading">
-        <div>
-          <p class="eyebrow">Pro previews</p>
-          <h3>Spend less time on paperwork</h3>
-        </div>
-      </div>
-      <p class="dashboard-teaser-copy">Preview the parent-facing tools that save time once your free observation note is saved.</p>
+      <div class="dashboard-panel-heading"><div><p class="eyebrow">Pro previews</p><h3>Spend less time on paperwork</h3></div></div>
       <div class="dashboard-teaser-grid">
         ${lockedFeatureCard("Parent Message Generator", "Turn one quick note into a family-ready update without rewriting it later.", "daily-log-parent-messages")}
         ${lockedFeatureCard("Daily Report Generator", "Bundle attendance, meals, and classroom highlights into one polished report.", "daily-log-reports")}
@@ -14081,96 +14066,56 @@ function renderUserDashboard() {
   ` : "";
 
   homeSection.innerHTML = `
-    <div class="user-dashboard">
+    <div class="user-dashboard llh-dashboard-clean">
       <div class="dashboard-welcome">
         <div class="dashboard-welcome-text">
-          <h2>${escapeHtml(greeting)}, ${escapeHtml(accountName)}! 👋</h2>
+          <h2>${escapeHtml(greeting)}, ${escapeHtml(accountName)}</h2>
           <p class="dashboard-date">${escapeHtml(today)}${programName ? ` · ${escapeHtml(programName)}` : ""}</p>
         </div>
       </div>
 
-      ${dashboardInstallCardMarkup()}
+      ${dashboardScheduleOverviewMarkup()}
 
-      <section class="section-block dashboard-quick-doc">
-        <div class="dashboard-quick-doc-header">
-          <div>
-            <p class="eyebrow">Quick Documentation</p>
-            <h3>Type one quick note. Use it everywhere.</h3>
-            <p class="dashboard-quick-doc-sub">Enter a quick note and turn it into an observation, parent message, incident report, behavior note, daily report, or activity update.</p>
-          </div>
-        </div>
-        <div class="dashboard-quick-doc-actions">
-          <button class="primary-button" data-view="ai" data-quick-doc-type="observation" type="button">📝 Observation</button>
-          <button class="ghost-button" data-view="ai" data-quick-doc-type="parent-message" type="button">💬 Parent Message</button>
-          <button class="ghost-button" data-view="ai" data-quick-doc-type="incident-report" type="button">⚠️ Incident Report</button>
-          <button class="ghost-button" data-view="ai" data-quick-doc-type="behavior-note" type="button">📌 Behavior Note</button>
-          <button class="ghost-button" data-view="ai" data-quick-doc-type="daily-log" type="button">📓 Daily Report</button>
-          <button class="ghost-button" data-view="ai" data-quick-doc-type="activity-idea" type="button">🎨 Activity Update</button>
-        </div>
-      </section>
-
-      ${dashboardTeasers}
-
-      <div class="dashboard-grid">
-        <section class="section-block dashboard-today">
-          <h3>Today&rsquo;s To-Do List</h3>
-          <div class="analytics-row">
-            <span>Children enrolled</span><strong>${childCount}</strong>
-          </div>
-          <div class="analytics-row">
-            <span>Observations still needed this week</span><strong class="${observationsDue > 0 ? "dashboard-stat-alert" : ""}">${observationsDue}</strong>
-          </div>
-          <div class="analytics-row">
-            <span>Weekly observation progress</span><strong>${stats.percent}%</strong>
-          </div>
-          <div class="analytics-row">
-            <span>Active goals</span><strong>${activeGoals}</strong>
-          </div>
-          ${plannedTasks.length ? `<div class="analytics-row"><span>${escapeHtml(weekday)} planner tasks</span><strong>${plannedTasks.length}</strong></div>` : ""}
-          <div class="quick-action-list" style="margin-top:16px;">
-            <button class="primary-button" data-view="child-tools-daily-logs" type="button">Open Daily Logs</button>
-            <button class="ghost-button" data-view="children" type="button">View Children</button>
-            <button class="ghost-button" data-view="curriculum-planner" type="button">Curriculum Planner</button>
-            <button class="ghost-button" data-view="planner" type="button">Weekly Planner</button>
-          </div>
-        </section>
-
-        <section class="section-block dashboard-calendar">
-          <div class="dashboard-panel-heading">
-            <div>
-              <p class="eyebrow">Curriculum</p>
-              <h3>This Week&rsquo;s Curriculum</h3>
+      <details class="llh-dashboard-more">
+        <summary>More tools</summary>
+        <div class="llh-dashboard-more-body">
+          ${dashboardInstallCardMarkup()}
+          <section class="section-block dashboard-quick-doc">
+            <div class="dashboard-quick-doc-header"><div><p class="eyebrow">Quick Documentation</p><h3>Type one quick note. Use it everywhere.</h3></div></div>
+            <div class="dashboard-quick-doc-actions">
+              <button class="primary-button" data-view="ai" data-quick-doc-type="observation" type="button">Observation</button>
+              <button class="ghost-button" data-view="ai" data-quick-doc-type="parent-message" type="button">Parent Message</button>
+              <button class="ghost-button" data-view="ai" data-quick-doc-type="incident-report" type="button">Incident Report</button>
+              <button class="ghost-button" data-view="ai" data-quick-doc-type="behavior-note" type="button">Behavior Note</button>
+              <button class="ghost-button" data-view="ai" data-quick-doc-type="daily-log" type="button">Daily Report</button>
+              <button class="ghost-button" data-view="ai" data-quick-doc-type="activity-idea" type="button">Activity Update</button>
             </div>
-            <button class="ghost-button" data-view="curriculum-planner" type="button">Open Curriculum Planner</button>
-          </div>
-          ${dashboardCurriculumWeekMarkup()}
-        </section>
-      </div>
-
-      <div class="dashboard-grid dashboard-grid-secondary">
-        <section class="section-block dashboard-recent">
-          <div class="dashboard-panel-heading">
-            <div>
-              <p class="eyebrow">Recent Activity</p>
-              <h3>Latest updates</h3>
-            </div>
-            <button class="ghost-button" data-view="children" type="button">Open Children</button>
-          </div>
-          ${recentActivity.length
+          </section>
+          ${dashboardTeasers}
+          <div class="dashboard-grid">
+            <section class="section-block dashboard-today">
+              <h3>Classroom snapshot</h3>
+              <div class="analytics-row"><span>Children enrolled</span><strong>${childCount}</strong></div>
+              <div class="analytics-row"><span>Observations still needed this week</span><strong class="${observationsDue > 0 ? "dashboard-stat-alert" : ""}">${observationsDue}</strong></div>
+              <div class="analytics-row"><span>Weekly observation progress</span><strong>${stats.percent}%</strong></div>
+              <div class="analytics-row"><span>Active goals</span><strong>${activeGoals}</strong></div>
+              <div class="quick-action-list" style="margin-top:16px;">
+                <button class="primary-button" data-view="child-tools-daily-logs" type="button">Open Daily Logs</button>
+                <button class="ghost-button" data-view="children" type="button">View Children</button>
+              </div>
+            </section>
+            <section class="section-block dashboard-recent">
+              <div class="dashboard-panel-heading"><div><p class="eyebrow">Recent Activity</p><h3>Latest updates</h3></div>
+                <button class="ghost-button" data-view="children" type="button">Open Children</button>
+              </div>
+              ${recentActivity.length
     ? recentActivity.map((entry) => {
       const child = childById[entry.childId];
       const nameParts = (child?.name || "").trim().split(/\s+/).filter(Boolean);
       const initials = nameParts.length > 1
         ? (nameParts[0].charAt(0) + nameParts[nameParts.length - 1].charAt(0)).toUpperCase()
         : (nameParts[0]?.charAt(0) || "?").toUpperCase();
-      return `
-              <div class="dashboard-obs-row">
-                <span class="dashboard-obs-avatar">${escapeHtml(initials)}</span>
-                <div>
-                  <strong>${escapeHtml(child?.name || "Unknown")} — ${escapeHtml(entry.title || entry.type || "Update")}</strong>
-                  <small>${escapeHtml(entry.detail || "Saved in Little Learner Hub")} · ${escapeHtml(entry.date || "")}</small>
-                </div>
-              </div>`;
+      return `<div class="dashboard-obs-row"><span class="dashboard-obs-avatar">${escapeHtml(initials)}</span><div><strong>${escapeHtml(child?.name || "Unknown")} — ${escapeHtml(entry.title || entry.type || "Update")}</strong><small>${escapeHtml(entry.detail || "Saved in Little Learner Hub")} · ${escapeHtml(entry.date || "")}</small></div></div>`;
     }).join("")
     : recentObservations.length
       ? recentObservations.map((obs) => {
@@ -14179,43 +14124,30 @@ function renderUserDashboard() {
         const initials = nameParts.length > 1
           ? (nameParts[0].charAt(0) + nameParts[nameParts.length - 1].charAt(0)).toUpperCase()
           : (nameParts[0]?.charAt(0) || "?").toUpperCase();
-        return `
-              <div class="dashboard-obs-row">
-                <span class="dashboard-obs-avatar">${escapeHtml(initials)}</span>
-                <div>
-                  <strong>${escapeHtml(child?.name || "Unknown")} — ${escapeHtml(obs.area || "Observation")}</strong>
-                  <small>${escapeHtml((obs.note || obs.text || "").slice(0, 80))}${(obs.note || obs.text || "").length > 80 ? "…" : ""}</small>
-                </div>
-              </div>`;
+        return `<div class="dashboard-obs-row"><span class="dashboard-obs-avatar">${escapeHtml(initials)}</span><div><strong>${escapeHtml(child?.name || "Unknown")} — ${escapeHtml(obs.area || "Observation")}</strong><small>${escapeHtml((obs.note || obs.text || "").slice(0, 80))}${(obs.note || obs.text || "").length > 80 ? "…" : ""}</small></div></div>`;
       }).join("")
       : `<div class="empty-state">No activity yet. <button class="link-button" data-view="ai" type="button">Create your first update</button></div>`}
-        </section>
-
-        <section class="section-block dashboard-reminders">
-          <div class="dashboard-panel-heading">
-            <div>
-              <p class="eyebrow">Reminders</p>
-              <h3>Documentation to finish</h3>
-            </div>
+            </section>
           </div>
-          <div class="dashboard-reminder-group">
-            <strong>Observation reminders</strong>
-            ${reminders.observationChildren.length
+          <section class="section-block dashboard-reminders">
+            <div class="dashboard-panel-heading"><div><p class="eyebrow">Documentation</p><h3>Reminders</h3></div></div>
+            <div class="dashboard-reminder-group"><strong>Observation reminders</strong>
+              ${reminders.observationChildren.length
     ? reminders.observationChildren.map((child) => `<div class="dashboard-reminder-row"><span>${escapeHtml(child.name)}</span><small>Needs ${weeklyObservationsPerChild - (stats.byChild.get(child.id) || 0)} more this week</small></div>`).join("")
     : `<div class="dashboard-reminder-row"><span>All set</span><small>Every child is on track for observations this week.</small></div>`}
-          </div>
-          <div class="dashboard-reminder-group">
-            <strong>Daily Log reminders</strong>
-            ${reminders.dailyLogNeeds.length
+            </div>
+            <div class="dashboard-reminder-group"><strong>Daily Log reminders</strong>
+              ${reminders.dailyLogNeeds.length
     ? reminders.dailyLogNeeds.map(({ child, status }) => `<div class="dashboard-reminder-row"><span>${escapeHtml(child.name)}</span><small>${escapeHtml(status === "not-started" ? "Daily log not started today" : "Daily log still in progress today")}</small></div>`).join("")
     : `<div class="dashboard-reminder-row"><span>All set</span><small>Today&rsquo;s daily logs are complete.</small></div>`}
-          </div>
-          <div class="quick-action-list" style="margin-top:16px;">
-            <button class="primary-button" data-view="resource-observations" type="button">Open Observations</button>
-            <button class="ghost-button" data-view="child-tools-daily-logs" type="button">Open Daily Logs</button>
-          </div>
-        </section>
-      </div>
+            </div>
+            <div class="quick-action-list" style="margin-top:16px;">
+              <button class="primary-button" data-view="resource-observations" type="button">Open Observations</button>
+              <button class="ghost-button" data-view="child-tools-daily-logs" type="button">Open Daily Logs</button>
+            </div>
+          </section>
+        </div>
+      </details>
     </div>
   `;
 }
@@ -14381,137 +14313,152 @@ function plannerResourceOptions(planner) {
   ].join("");
 }
 
+function weeklyPlannerDayKeyFromDate(date = new Date()) {
+  const key = CURRICULUM_WEEKDAYS[(date.getDay() + 6) % 7] || "monday";
+  return key;
+}
+
+function setWeeklyPlannerActiveDay(day) {
+  const next = CURRICULUM_WEEKDAYS.includes(day) ? day : "monday";
+  weeklyPlannerActiveDay = next;
+  const app = document.querySelector("#weeklyPlannerApp");
+  if (!app) return;
+  app.querySelectorAll("[data-week-day-tab]").forEach((tab) => {
+    const active = tab.dataset.weekDayTab === next;
+    tab.classList.toggle("is-active", active);
+    tab.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  app.querySelectorAll("[data-week-day-card]").forEach((card) => {
+    card.classList.toggle("is-active", card.dataset.weekDayCard === next);
+  });
+}
+
+function weeklyPlannerMaterialsForDay(planDay = {}, snapshot = {}) {
+  const fromItems = (Array.isArray(planDay.items) ? planDay.items : [])
+    .map((item) => String(item.materials || item.material || "").trim())
+    .filter(Boolean);
+  if (fromItems.length) return [...new Set(fromItems)].slice(0, 6);
+  const weekly = String(snapshot.weeklyMaterials || "").trim();
+  if (!weekly) return [];
+  return weekly.split(/[\n,;]+/).map((part) => part.trim()).filter(Boolean).slice(0, 6);
+}
+
 function renderWeeklyPlanner() {
   const app = document.querySelector("#weeklyPlannerApp");
   if (!app) return;
   const api = getScheduleApi();
   const weekStart = curriculumPlannerWeekStartIso(new Date());
+  const weekEnd = curriculumPlannerWeekEndIso(weekStart);
   const doc = scheduleDocCache || (api ? api.readCache(scheduleApiEmail()) : null);
   const scheduleItem = api && doc ? api.lessonForWeek(doc, weekStart) : null;
   if (scheduleItem) syncWeeklyPlannerFromScheduleItem(scheduleItem);
-  const planner = weeklyPlanner();
-  const selectedResource = resources.find((item) => item.id === planner.resourceId && isResourceVisibleToCurrentUser(item));
-  const thisWeek = defaultPlanner();
-  const isCurrentWeek = planner.weekOf === thisWeek.weekOf;
-  const suggestions = plannerSuggestions(planner);
-  const filledDayCount = plannerDays.filter((day) => {
-    const entry = planner.days[day] || {};
-    return Object.values(entry).some(Boolean);
-  }).length;
-  const snapshotDays = scheduleItem?.snapshot?.dailyPlans || null;
-  app.innerHTML = `
-    <div class="planner-dashboard llh-weekly-execution">
-      <section class="planner-summary section-block llh-ds-card">
-        <div>
-          <p class="eyebrow">Weekly Planner · Execution</p>
-          <h3>${escapeHtml(scheduleItem?.lessonPlanTitle || planner.theme || "Untitled Week")}</h3>
-          <p>${escapeHtml(scheduleItem?.ageGroup || planner.ageGroup || "")} · ${escapeHtml(planner.weekOf || weekStart)}</p>
-          ${scheduleItem
-            ? `<p class="muted-copy">Generated from Calendar assignment · ${escapeHtml(scheduleClassroomName(doc))}</p>`
-            : `<p class="muted-copy">No ScheduleItem for this week yet. Assign a lesson plan from the Library or Calendar.</p>`
+  if (!weeklyPlannerActiveDay || !CURRICULUM_WEEKDAYS.includes(weeklyPlannerActiveDay)) {
+    weeklyPlannerActiveDay = weeklyPlannerDayKeyFromDate(new Date());
+  }
+  const snapshot = scheduleItem?.snapshot || {};
+  const snapshotDays = snapshot.dailyPlans || {};
+  const selectedResource = scheduleItem?.lessonPlanId
+    ? resources.find((item) => item.id === scheduleItem.lessonPlanId && isResourceVisibleToCurrentUser(item))
+    : null;
+  const room = scheduleClassroomName(doc);
+
+  if (!scheduleItem) {
+    app.innerHTML = `
+      <div class="llh-week-classroom llh-week-classroom-empty">
+        <section class="llh-ds-card">
+          <p class="eyebrow">Weekly Classroom View</p>
+          <h3>No lesson plan this week</h3>
+          <p class="muted-copy">Assign a plan from the Calendar or Lesson Library. This planner runs the assigned week — it does not create a second schedule.</p>
+          <div class="form-actions">
+            <button class="primary-button" type="button" data-view="lessons">Assign from Library</button>
+            <button class="ghost-button" type="button" data-view="calendar">Open Calendar</button>
+          </div>
+        </section>
+      </div>
+    `;
+    return;
+  }
+
+  const dayCards = CURRICULUM_WEEKDAYS.map((day) => {
+    const planDay = snapshotDays[day] || {};
+    const activities = Array.isArray(planDay.items) ? planDay.items : [];
+    const materials = weeklyPlannerMaterialsForDay(planDay, snapshot);
+    const checked = new Set(scheduleItem.execution?.dailyOps?.[day]?.checked || []);
+    const dayNote = scheduleItem.execution?.dailyTeacherNotes?.[day] || "";
+    const dayObs = (scheduleItem.execution?.observations || [])
+      .filter((obs) => obs.dayOfWeek === day || (!obs.dayOfWeek && obs.date === curriculumPlannerDateForDay(weekStart, day)))
+      .map((obs) => obs.note)
+      .filter(Boolean)
+      .join("\n");
+    return `
+      <article class="llh-day-card ${weeklyPlannerActiveDay === day ? "is-active" : ""}" data-week-day-card="${escapeHtml(day)}">
+        <header class="llh-day-card-head">
+          <div>
+            <p class="eyebrow">${escapeHtml(curriculumPlannerWeekdayLabel(day))}</p>
+            <h3>${escapeHtml(planDay.theme || snapshot.theme || scheduleItem.lessonPlanTitle)}</h3>
+            <p class="muted-copy">${escapeHtml(curriculumPlannerDateForDay(weekStart, day))}</p>
+          </div>
+        </header>
+        <div class="llh-day-card-section">
+          <p class="eyebrow">Activities</p>
+          ${activities.length
+            ? `<ul class="llh-day-activity-list">${activities.map((item) => {
+              const id = item.id || item.title;
+              return `<li><label class="llh-check-row"><input type="checkbox" data-schedule-check="${escapeHtml(scheduleItem.id)}" data-schedule-day="${escapeHtml(day)}" data-schedule-activity="${escapeHtml(id)}" ${checked.has(id) ? "checked" : ""}/> <span>${escapeHtml(item.title || "Activity")}${item.category ? ` <small class="muted-copy">· ${escapeHtml(item.category)}</small>` : ""}</span></label></li>`;
+            }).join("")}</ul>`
+            : `<p class="muted-copy">No activities listed for this day.</p>`
           }
+        </div>
+        <div class="llh-day-card-section">
+          <p class="eyebrow">Materials</p>
+          ${materials.length
+            ? `<ul class="llh-day-materials">${materials.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+            : `<p class="muted-copy">No materials listed.</p>`
+          }
+        </div>
+        <div class="llh-day-card-section">
+          <label class="llh-day-note-label">Teacher notes
+            <textarea rows="3" data-schedule-day-note="${escapeHtml(day)}" placeholder="Prep, transitions, what worked…">${escapeHtml(dayNote)}</textarea>
+          </label>
+        </div>
+        <div class="llh-day-card-section">
+          <label class="llh-day-note-label">Observation notes
+            <textarea rows="3" data-schedule-day-obs="${escapeHtml(day)}" placeholder="What to watch for today…">${escapeHtml(dayObs)}</textarea>
+          </label>
+        </div>
+      </article>
+    `;
+  }).join("");
+
+  app.innerHTML = `
+    <div class="llh-week-classroom">
+      <section class="llh-week-classroom-hero llh-ds-card">
+        <div>
+          <p class="eyebrow">Weekly Classroom View</p>
+          <h3>${escapeHtml(scheduleItem.lessonPlanTitle)}</h3>
+          <p class="muted-copy">${escapeHtml(scheduleItem.ageGroup || "")} · ${escapeHtml(weekStart)} – ${escapeHtml(weekEnd)} · ${escapeHtml(room)}</p>
         </div>
         <div class="form-actions">
           ${selectedResource ? `<button class="ghost-button" type="button" data-view-resource="${escapeHtml(selectedResource.id)}" data-lesson-download-variant="week">Print Weekly Schedule</button>` : ""}
-          <button class="ghost-button" type="button" data-view="calendar">Change on Calendar</button>
-          ${!scheduleItem ? `<button class="primary-button" type="button" data-view="lessons">Assign from Library</button>` : ""}
-          <div class="planner-metrics">
-            <div><strong>${filledDayCount}/5</strong><span>days planned</span></div>
-            <div><strong>${suggestions.length}</strong><span>matched resources</span></div>
-          </div>
+          <button class="ghost-button" type="button" data-view="calendar">Open Calendar</button>
+          <button class="primary-button" type="button" data-schedule-save-execution="${escapeHtml(scheduleItem.id)}">Save Notes</button>
         </div>
       </section>
-      ${scheduleItem && snapshotDays ? `
-        <section class="llh-ds-card llh-execution-checklist section-block">
-          <p class="eyebrow">Daily activities</p>
-          ${CURRICULUM_WEEKDAYS.map((day) => {
-            const planDay = snapshotDays[day] || {};
-            const items = Array.isArray(planDay.items) ? planDay.items : [];
-            const checked = new Set(scheduleItem.execution?.dailyOps?.[day]?.checked || []);
-            return `
-              <div class="llh-execution-day">
-                <h3>${escapeHtml(curriculumPlannerWeekdayLabel(day))}</h3>
-                ${items.length
-                  ? items.map((item) => {
-                    const id = item.id || item.title;
-                    return `<label class="llh-check-row"><input type="checkbox" data-schedule-check="${escapeHtml(scheduleItem.id)}" data-schedule-day="${escapeHtml(day)}" data-schedule-activity="${escapeHtml(id)}" ${checked.has(id) ? "checked" : ""}/> ${escapeHtml(item.title || "Activity")}</label>`;
-                  }).join("")
-                  : `<p class="muted-copy">No activities listed.</p>`
-                }
-              </div>
-            `;
-          }).join("")}
-          <div class="llh-execution-notes form-grid-two">
-            <label>Teacher Notes<textarea data-schedule-notes="teacherNotes" rows="4">${escapeHtml(scheduleItem.execution?.teacherNotes || planner.notes || "")}</textarea></label>
-            <label>Observation Notes<textarea data-schedule-notes="observationPad" rows="4">${escapeHtml((scheduleItem.execution?.observations || []).map((o) => o.note).filter(Boolean).join("\n"))}</textarea></label>
-          </div>
-          <div class="form-actions">
-            <button type="button" class="primary-button" data-schedule-save-execution="${escapeHtml(scheduleItem.id)}">Save Notes</button>
-          </div>
-        </section>
-      ` : ""}
 
-      <form id="weeklyPlannerForm" class="planner-form">
-        <section class="panel-form">
-          <p class="eyebrow">Week Setup</p>
-          <div class="form-grid-two">
-            <label>Week Of<input name="weekOf" type="date" value="${planner.weekOf || ""}" /></label>
-            <label>Age Group<select name="ageGroup">${["Infant", "Toddler", "Preschool", "Mixed Ages"].map((age) => `<option ${planner.ageGroup === age ? "selected" : ""}>${age}</option>`).join("")}</select></label>
-          </div>
-          <label>Theme<input name="theme" value="${planner.theme || ""}" placeholder="${escapeHtml(thisWeek.theme)}" /></label>
-          <label>Learning Focus<input name="focus" value="${planner.focus || ""}" placeholder="language, fine motor, social emotional" /></label>
-          <label>Library Resource<select name="resourceId">${plannerResourceOptions(planner)}</select></label>
-          ${selectedResource
-    ? `<div class="form-actions">
-              <button class="ghost-button" type="button" data-view-resource="${escapeHtml(selectedResource.id)}">${selectedResource.category === "Lesson Plans" ? "Open Selected Lesson Plan" : "Open Selected Resource"}</button>
-            </div>`
-    : ""}
-          <label>Provider Notes<textarea name="notes" rows="3" placeholder="Reminders, materials, family notes, prep list">${planner.notes || ""}</textarea></label>
-          <div class="form-actions">
-            <button class="primary-button" type="submit">Save Week</button>
-            <button class="ghost-button" type="button" id="useCurrentWeekButton">${isCurrentWeek ? "Use Suggested Theme" : "Start This Week"}</button>
-            <button class="ghost-button" type="button" id="copyPlannerButton">Copy Plan</button>
-            <button class="ghost-button" type="button" id="downloadPlannerButton">Print / Save PDF</button>
-            <button class="danger-button" type="button" id="clearPlannerButton">Clear</button>
-          </div>
-        </section>
+      <div class="llh-week-day-tabs" role="tablist" aria-label="Week days">
+        ${CURRICULUM_WEEKDAYS.map((day) => `
+          <button type="button" class="llh-week-day-tab ${weeklyPlannerActiveDay === day ? "is-active" : ""}" role="tab" aria-selected="${weeklyPlannerActiveDay === day ? "true" : "false"}" data-week-day-tab="${escapeHtml(day)}">${escapeHtml(curriculumPlannerWeekdayLabel(day).slice(0, 3))}</button>
+        `).join("")}
+      </div>
 
-        <section class="planner-board">
-          ${plannerDays.map((day) => {
-            const entry = planner.days[day] || {};
-            return `
-              <article class="planner-day">
-                <h3>${day}</h3>
-                <label>Circle Time<textarea name="${day}-circle" rows="2" placeholder="Song, book, vocabulary">${entry.circle || ""}</textarea></label>
-                <label>Main Activity<textarea name="${day}-activity" rows="3" placeholder="Hands-on activity and materials">${entry.activity || ""}</textarea></label>
-                <label>Meals/Snack<input name="${day}-meal" value="${entry.meal || ""}" placeholder="Breakfast, lunch, snack notes" /></label>
-                <label>Rest/Routine<input name="${day}-rest" value="${entry.rest || ""}" placeholder="Nap, outdoor, transition notes" /></label>
-                <label>Child Support<textarea name="${day}-support" rows="2" placeholder="Adaptations, small group, individual help">${entry.support || ""}</textarea></label>
-              </article>
-            `;
-          }).join("")}
-        </section>
-      </form>
+      <div class="llh-week-day-board" data-week-day-board>
+        ${dayCards}
+      </div>
 
-      <aside class="planner-suggestions section-block">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Library Match</p>
-            <h3>Suggested resources</h3>
-          </div>
-        </div>
-        <div class="resource-list compact">
-          ${suggestions.length ? suggestions.map((resource) => `
-            <div class="compact-item">
-              <div>
-                <strong>${resource.title}</strong>
-                <span>${resource.category} · ${resource.age} · ${resource.plan}</span>
-              </div>
-              <button class="ghost-button" data-planner-resource="${resource.id}" type="button">Use</button>
-            </div>
-          `).join("") : `<div class="empty-state">Add a theme or focus to see matching resources.</div>`}
-        </div>
-      </aside>
+      <div class="llh-week-mobile-nav form-actions">
+        <button type="button" class="ghost-button" data-week-day-prev>Previous day</button>
+        <button type="button" class="ghost-button" data-week-day-next>Next day</button>
+      </div>
     </div>
   `;
 }
@@ -14632,15 +14579,30 @@ async function ensureScheduleLoaded(options = {}) {
       scheduleDocCache = api.emptyDoc();
       return scheduleDocCache;
     }
-    // One-time migrate from Curriculum Planner localStorage into ScheduleItem store.
-    const legacy = loadCurriculumWeekAssignments();
-    const planner = typeof weeklyPlanner === "function" ? weeklyPlanner() : null;
-    await api.migrateFromLegacy(firebaseAuthHeaders, email, {
-      curriculumAssignments: legacy,
-      weeklyPlanner: planner,
-      force: Boolean(options.forceMigrate),
-    });
-    scheduleDocCache = await api.fetchSchedule(firebaseAuthHeaders, email);
+    const localBefore = api.readCache(email);
+    // Migrate at most once unless explicitly forced.
+    const migratedFlag = localStorage.getItem(`llhScheduleMigrated:${email}`);
+    if (!migratedFlag || options.forceMigrate) {
+      const legacy = loadCurriculumWeekAssignments();
+      const planner = typeof weeklyPlanner === "function" ? weeklyPlanner() : null;
+      await api.migrateFromLegacy(firebaseAuthHeaders, email, {
+        curriculumAssignments: legacy,
+        weeklyPlanner: planner,
+        force: Boolean(options.forceMigrate),
+      });
+    }
+    const fetched = await api.fetchSchedule(firebaseAuthHeaders, email);
+    const merged = api.mergeScheduleDocs
+      ? api.mergeScheduleDocs(localBefore, fetched || api.emptyDoc())
+      : (fetched || localBefore);
+    // Guard: never drop local items on refresh.
+    if ((localBefore.items || []).length > (merged.items || []).length) {
+      scheduleDocCache = api.mergeScheduleDocs(merged, localBefore);
+      api.writeCache(email, scheduleDocCache);
+    } else {
+      scheduleDocCache = merged;
+      api.writeCache(email, scheduleDocCache);
+    }
     return scheduleDocCache;
   })().finally(() => {
     scheduleSyncPromise = null;
@@ -15949,7 +15911,7 @@ function renderCurriculumPlanner() {
   `;
 }
 
-function dashboardCurriculumWeekMarkup() {
+function dashboardScheduleOverviewMarkup() {
   const api = getScheduleApi();
   const weekStart = curriculumPlannerWeekStartIso(new Date());
   const weekEnd = curriculumPlannerWeekEndIso(weekStart);
@@ -15962,67 +15924,92 @@ function dashboardCurriculumWeekMarkup() {
       ageGroup: scheduleItem.ageGroup,
       classroomLabel: scheduleClassroomName(doc),
       snapshot: scheduleItem.snapshot,
+      execution: scheduleItem.execution,
     }
-    : curriculumAssignmentForWeek(weekStart);
-  const weekdayKeys = CURRICULUM_WEEKDAYS;
-  const today = new Date();
-  const todayKey = weekdayKeys[(today.getDay() + 6) % 7] || "";
-  if (!assignment) {
-    return `
-      <div class="dashboard-curriculum-empty llh-dash-week-card">
-        <p class="muted-copy">No lesson plan assigned for this week yet.</p>
-        <div class="form-actions">
-          <button class="primary-button" type="button" data-view="lessons">Browse Lesson Plans</button>
-          <button class="ghost-button" type="button" data-view="calendar">Open Calendar</button>
-        </div>
-      </div>
-    `;
-  }
-  const todayPlan = assignment.snapshot?.dailyPlans?.[todayKey] || {};
-  const todayActivities = (todayPlan.items || []).slice(0, 3);
+    : (() => {
+      const legacy = curriculumAssignmentForWeek(weekStart);
+      return legacy ? { ...legacy, classroomLabel: legacy.classroomLabel || "" } : null;
+    })();
+  const todayKey = CURRICULUM_WEEKDAYS[(new Date().getDay() + 6) % 7] || "";
+  const todayPlan = assignment?.snapshot?.dailyPlans?.[todayKey] || {};
+  const todayActivities = (todayPlan.items || []).slice(0, 4);
+  const todayReminders = (doc?.items || [])
+    .filter((item) => ["reminder", "closure", "classroom_event"].includes(item.type) && item.startDate === curriculumPlannerDateForDay(weekStart, todayKey))
+    .slice(0, 3);
   const upcomingLessons = (doc?.items || [])
     .filter((item) => item.type === "lesson_plan" && item.weekStartDate > weekStart)
     .sort((a, b) => a.weekStartDate.localeCompare(b.weekStartDate))
     .slice(0, 2);
   const upcomingEvents = (doc?.items || [])
-    .filter((item) => ["classroom_event", "closure", "reminder"].includes(item.type) && item.startDate >= weekStart)
+    .filter((item) => ["classroom_event", "closure", "reminder"].includes(item.type) && item.startDate > curriculumPlannerDateForDay(weekStart, todayKey || "friday"))
     .sort((a, b) => a.startDate.localeCompare(b.startDate))
-    .slice(0, 3);
+    .slice(0, 4);
+  const obsDueNote = todayKey
+    ? (assignment?.execution?.dailyTeacherNotes?.[todayKey] ? "Teacher notes started for today." : "Add observation notes in Weekly Planner.")
+    : "Weekend — review the week in Weekly Planner.";
+
   return `
-    <div class="dashboard-curriculum-assigned llh-dash-week-card">
-      <div class="dashboard-curriculum-meta">
+    <section class="llh-dash-primary">
+      <div class="llh-ds-card llh-dash-today">
+        <p class="eyebrow">Today</p>
+        <h3>${escapeHtml(curriculumPlannerWeekdayLabel(todayKey) || "Weekend")}</h3>
+        ${assignment
+          ? `<p class="muted-copy">${escapeHtml(todayPlan.theme || assignment.snapshot?.theme || assignment.lessonPlanTitle)}</p>
+            <p class="eyebrow">Activities</p>
+            ${todayActivities.length
+              ? `<ul class="curriculum-planner-activity-list">${todayActivities.map((item) => `<li>${escapeHtml(item.title)}</li>`).join("")}</ul>`
+              : `<p class="muted-copy">${todayKey ? "No activities listed for today." : "Open Weekly Planner to review this week."}</p>`
+            }
+            <div class="llh-dash-today-meta">
+              <p class="eyebrow">Reminders</p>
+              ${todayReminders.length
+                ? `<ul class="llh-dash-upcoming-list">${todayReminders.map((item) => `<li>${escapeHtml(item.title)} <small>(${escapeHtml(item.type)})</small></li>`).join("")}</ul>`
+                : `<p class="muted-copy">No reminders for today.</p>`
+              }
+              <p class="eyebrow">Observations</p>
+              <p class="muted-copy">${escapeHtml(obsDueNote)}</p>
+            </div>`
+          : `<p class="muted-copy">No lesson plan assigned for this week yet.</p>`
+        }
+      </div>
+
+      <div class="llh-ds-card llh-dash-week">
         <p class="eyebrow">This Week</p>
-        <strong>${escapeHtml(assignment.lessonPlanTitle)}</strong>
-        <small>${escapeHtml(weekStart)} – ${escapeHtml(weekEnd)}${assignment.classroomLabel ? ` · ${escapeHtml(assignment.classroomLabel)}` : ""}</small>
-      </div>
-      <div class="dashboard-curriculum-today">
-        <p class="eyebrow">Today · ${escapeHtml(curriculumPlannerWeekdayLabel(todayKey) || "Weekend")}</p>
-        <p>${escapeHtml(todayPlan.theme || assignment.snapshot?.theme || "No daily theme")}</p>
-        ${todayActivities.length
-          ? `<ul class="curriculum-planner-activity-list">${todayActivities.map((item) => `<li>${escapeHtml(item.title)}</li>`).join("")}</ul>`
-          : `<p class="muted-copy">${todayKey ? "No activities listed for today." : "Weekend — open the planner to review this week."}</p>`
+        ${assignment
+          ? `<h3>${escapeHtml(assignment.lessonPlanTitle)}</h3>
+             <p class="muted-copy">${escapeHtml(weekStart)} – ${escapeHtml(weekEnd)}${assignment.classroomLabel ? ` · ${escapeHtml(assignment.classroomLabel)}` : ""}</p>
+             <div class="form-actions">
+               <button class="primary-button" type="button" data-view="planner">Open Weekly Planner</button>
+               <button class="ghost-button" type="button" data-view="calendar">Open Calendar</button>
+             </div>`
+          : `<h3>No plan assigned</h3>
+             <p class="muted-copy">${escapeHtml(weekStart)} – ${escapeHtml(weekEnd)}</p>
+             <div class="form-actions">
+               <button class="primary-button" type="button" data-view="lessons">Browse Lesson Plans</button>
+               <button class="ghost-button" type="button" data-view="calendar">Open Calendar</button>
+             </div>`
         }
       </div>
-      <div class="form-actions">
-        <button class="primary-button" type="button" data-view="planner">Open Weekly Planner</button>
-        <button class="ghost-button" type="button" data-view-resource="${escapeHtml(assignment.lessonPlanId)}" data-lesson-print-variant="week">Print Weekly Schedule</button>
-        <button class="ghost-button" type="button" data-view="lessons">Change Lesson Plan</button>
+
+      <div class="llh-ds-card llh-dash-upcoming">
+        <p class="eyebrow">Upcoming</p>
+        <ul class="llh-dash-upcoming-list">
+          ${upcomingLessons.length
+            ? upcomingLessons.map((item) => `<li><strong>Next plan:</strong> ${escapeHtml(item.lessonPlanTitle)} · ${escapeHtml(item.weekStartDate)}</li>`).join("")
+            : "<li class=\"muted-copy\">No upcoming lesson plans yet.</li>"
+          }
+          ${upcomingEvents.map((item) => `<li>${escapeHtml(item.startDate)} — ${escapeHtml(item.title || item.type)}</li>`).join("")}
+        </ul>
+        <div class="form-actions">
+          <button class="ghost-button" type="button" data-view="calendar">Open Calendar</button>
+        </div>
       </div>
-    </div>
-    <div class="llh-dash-upcoming llh-dash-week-card">
-      <p class="eyebrow">Upcoming</p>
-      <ul class="llh-dash-upcoming-list">
-        ${upcomingLessons.length
-          ? upcomingLessons.map((item) => `<li><strong>Next:</strong> ${escapeHtml(item.lessonPlanTitle)} · ${escapeHtml(item.weekStartDate)}</li>`).join("")
-          : "<li class=\"muted-copy\">No upcoming lesson plans yet.</li>"
-        }
-        ${upcomingEvents.map((item) => `<li>${escapeHtml(item.startDate)} — ${escapeHtml(item.title || item.type)}</li>`).join("")}
-      </ul>
-      <div class="form-actions">
-        <button class="ghost-button" type="button" data-view="calendar">Open Calendar</button>
-      </div>
-    </div>
+    </section>
   `;
+}
+
+function dashboardCurriculumWeekMarkup() {
+  return dashboardScheduleOverviewMarkup();
 }
 
 function mainCalendarMonthLabel(date) {
@@ -16052,22 +16039,27 @@ function renderMainCalendar() {
   const startOffset = firstDow === 0 ? 6 : firstDow - 1; // Monday-first
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const cells = [];
-  for (let i = 0; i < startOffset; i += 1) cells.push({ day: null });
+  for (let i = 0; i < startOffset; i += 1) cells.push({ day: null, weekend: false });
   for (let day = 1; day <= daysInMonth; day += 1) {
     const date = new Date(year, month, day);
     const iso = isoDateFromLocalDate(date);
     const week = curriculumPlannerWeekStartIso(date);
+    const dow = date.getDay();
     const lesson = api ? api.lessonForWeek(doc, week) : null;
     const dayEvents = items.filter((item) => item.type !== "lesson_plan" && item.startDate === iso);
-    cells.push({ day, iso, week, lesson, dayEvents });
+    cells.push({ day, iso, week, lesson, dayEvents, weekend: dow === 0 || dow === 6 });
   }
-  while (cells.length % 7 !== 0) cells.push({ day: null });
+  while (cells.length % 7 !== 0) cells.push({ day: null, weekend: false });
+  const weekdayCells = cells.filter((cell, index) => {
+    const col = index % 7;
+    return col < 5; // Mon-Fri planning surface
+  });
 
   app.innerHTML = `
     <div class="llh-calendar-shell">
       <div class="llh-calendar-toolbar">
         <div>
-          <p class="eyebrow">Main Calendar</p>
+          <p class="eyebrow">Planning</p>
           <h3 class="llh-calendar-month">${escapeHtml(mainCalendarMonthLabel(cursor))}</h3>
         </div>
         <div class="form-actions">
@@ -16078,9 +16070,9 @@ function renderMainCalendar() {
         </div>
       </div>
       <div class="llh-calendar-layout">
-        <div class="llh-calendar-grid" role="grid" aria-label="${escapeHtml(mainCalendarMonthLabel(cursor))}">
-          ${["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label) => `<div class="llh-cal-head">${label}</div>`).join("")}
-          ${cells.map((cell) => {
+        <div class="llh-calendar-grid llh-calendar-grid-weekdays" role="grid" aria-label="${escapeHtml(mainCalendarMonthLabel(cursor))}">
+          ${["Mon", "Tue", "Wed", "Thu", "Fri"].map((label) => `<div class="llh-cal-head">${label}</div>`).join("")}
+          ${weekdayCells.map((cell) => {
             if (!cell.day) return `<div class="llh-cal-cell is-empty"></div>`;
             const isSelected = cell.week === selectedWeek;
             const showWeekBar = cell.lesson && curriculumPlannerWeekStartIso(cell.iso) === cell.week
@@ -16116,7 +16108,7 @@ function renderMainCalendar() {
               ? `<ul>${selectedEvents.map((event) => `<li><strong>${escapeHtml(event.startDate)}</strong> ${escapeHtml(event.title)}</li>`).join("")}</ul>`
               : `<p class="muted-copy">No classroom events, closures, or reminders this week.</p>`
             }
-            <button type="button" class="ghost-button" data-calendar-add-item>Add Event / Reminder / Closure</button>
+            <button type="button" class="ghost-button" data-calendar-add-item>Add Event</button>
           </div>
         </aside>
       </div>
@@ -16131,19 +16123,49 @@ async function openCalendarAddItemDialog() {
     openAuthModal("login");
     return;
   }
-  const type = window.prompt("Type: event, reminder, or closure", "reminder");
-  if (!type) return;
-  const normalizedType = String(type).trim().toLowerCase();
-  const scheduleType = normalizedType.startsWith("clos")
-    ? "closure"
-    : normalizedType.startsWith("rem")
-      ? "reminder"
-      : "classroom_event";
-  const title = window.prompt("Title", scheduleType === "closure" ? "Center Closure" : "Reminder") || "";
-  if (!title.trim()) return;
-  const date = window.prompt("Date (YYYY-MM-DD)", mainCalendarSelectedWeek || curriculumPlannerWeekStartIso(new Date())) || "";
-  if (!api.isoDateOnly(date)) {
-    window.alert("Please enter a valid date as YYYY-MM-DD.");
+  const modal = document.querySelector("#scheduleEventModal");
+  if (!modal) return;
+  const form = modal.querySelector("#scheduleEventForm");
+  const dateInput = form?.querySelector('[name="eventDate"]');
+  if (dateInput) {
+    dateInput.value = mainCalendarSelectedWeek || curriculumPlannerWeekStartIso(new Date());
+  }
+  const typeInput = form?.querySelector('[name="eventType"]');
+  if (typeInput) typeInput.value = "reminder";
+  const titleInput = form?.querySelector('[name="eventTitle"]');
+  if (titleInput) titleInput.value = "";
+  const errorEl = modal.querySelector("[data-schedule-event-error]");
+  if (errorEl) {
+    errorEl.hidden = true;
+    errorEl.textContent = "";
+  }
+  calendarEventModalOpen = true;
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+  titleInput?.focus();
+}
+
+function closeCalendarAddItemDialog() {
+  const modal = document.querySelector("#scheduleEventModal");
+  if (!modal) return;
+  calendarEventModalOpen = false;
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+async function submitCalendarAddItemForm(form) {
+  const api = getScheduleApi();
+  if (!api || !form) return;
+  const data = new FormData(form);
+  const scheduleType = String(data.get("eventType") || "reminder");
+  const title = String(data.get("eventTitle") || "").trim();
+  const date = api.isoDateOnly(data.get("eventDate"));
+  const errorEl = document.querySelector("[data-schedule-event-error]");
+  if (!title || !date) {
+    if (errorEl) {
+      errorEl.hidden = false;
+      errorEl.textContent = "Add a title and a valid date.";
+    }
     return;
   }
   mainCalendarBusy = true;
@@ -16152,13 +16174,19 @@ async function openCalendarAddItemDialog() {
     await ensureScheduleLoaded();
     await api.upsertItem(firebaseAuthHeaders, scheduleApiEmail(), {
       type: scheduleType,
-      title: title.trim(),
-      startDate: api.isoDateOnly(date),
-      endDate: api.isoDateOnly(date),
+      title,
+      startDate: date,
+      endDate: date,
       weekStartDate: api.weekStartMonday(date),
       classroomId: (scheduleDocCache || api.readCache(scheduleApiEmail())).classrooms?.[0]?.id || "classroom-main",
     });
     scheduleDocCache = api.readCache(scheduleApiEmail());
+    closeCalendarAddItemDialog();
+  } catch (error) {
+    if (errorEl) {
+      errorEl.hidden = false;
+      errorEl.textContent = error.message || "Could not save this calendar item.";
+    }
   } finally {
     mainCalendarBusy = false;
     renderMainCalendar();
@@ -33152,19 +33180,24 @@ document.addEventListener("click", async (event) => {
     const doc = scheduleDocCache || api.readCache(scheduleApiEmail());
     const item = (doc.items || []).find((entry) => entry.id === itemId);
     if (!item) return;
-    const teacherNotes = document.querySelector("[data-schedule-notes='teacherNotes']")?.value || "";
-    const observationPad = document.querySelector("[data-schedule-notes='observationPad']")?.value || "";
-    const observations = observationPad
-      .split(/\n+/)
-      .map((note) => note.trim())
-      .filter(Boolean)
-      .map((note) => ({
+    const dailyTeacherNotes = { ...(item.execution?.dailyTeacherNotes || {}) };
+    document.querySelectorAll("[data-schedule-day-note]").forEach((input) => {
+      dailyTeacherNotes[input.dataset.scheduleDayNote] = String(input.value || "").trim();
+    });
+    const observations = [];
+    document.querySelectorAll("[data-schedule-day-obs]").forEach((input) => {
+      const day = input.dataset.scheduleDayObs;
+      const note = String(input.value || "").trim();
+      if (!note) return;
+      observations.push({
         id: api.randomId("obs"),
         note,
-        date: item.weekStartDate,
+        dayOfWeek: day,
+        date: curriculumPlannerDateForDay(item.weekStartDate, day),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      }));
+      });
+    });
     const checkedByDay = {};
     document.querySelectorAll(`[data-schedule-check="${CSS.escape(itemId)}"]`).forEach((input) => {
       const day = input.dataset.scheduleDay;
@@ -33175,7 +33208,8 @@ document.addEventListener("click", async (event) => {
     });
     const execution = {
       ...(item.execution || {}),
-      teacherNotes,
+      teacherNotes: Object.values(dailyTeacherNotes).filter(Boolean).join("\n\n"),
+      dailyTeacherNotes,
       observations,
       dailyOps: { ...(item.execution?.dailyOps || {}) },
     };
@@ -33190,6 +33224,35 @@ document.addEventListener("click", async (event) => {
       dualWriteLegacyAssignmentsFromSchedule(scheduleDocCache);
       renderWeeklyPlanner();
     });
+    return;
+  }
+
+  const weekDayTab = event.target.closest("[data-week-day-tab]");
+  if (weekDayTab) {
+    event.preventDefault();
+    setWeeklyPlannerActiveDay(weekDayTab.dataset.weekDayTab || "monday");
+    return;
+  }
+
+  const weekDayPrev = event.target.closest("[data-week-day-prev]");
+  if (weekDayPrev) {
+    event.preventDefault();
+    const idx = Math.max(0, CURRICULUM_WEEKDAYS.indexOf(weeklyPlannerActiveDay || "monday") - 1);
+    setWeeklyPlannerActiveDay(CURRICULUM_WEEKDAYS[idx]);
+    return;
+  }
+
+  const weekDayNext = event.target.closest("[data-week-day-next]");
+  if (weekDayNext) {
+    event.preventDefault();
+    const idx = Math.min(CURRICULUM_WEEKDAYS.length - 1, CURRICULUM_WEEKDAYS.indexOf(weeklyPlannerActiveDay || "monday") + 1);
+    setWeeklyPlannerActiveDay(CURRICULUM_WEEKDAYS[idx]);
+    return;
+  }
+
+  if (event.target.closest("[data-close-schedule-event-modal]")) {
+    event.preventDefault();
+    closeCalendarAddItemDialog();
     return;
   }
 
@@ -35829,6 +35892,36 @@ document.addEventListener("submit", (event) => {
   renderWeeklyPlanner();
 });
 
+
+let llhWeekSwipeBound = false;
+function bindWeeklyPlannerSwipe() {
+  if (llhWeekSwipeBound) return;
+  llhWeekSwipeBound = true;
+  let startX = 0;
+  document.addEventListener("touchstart", (event) => {
+    const board = event.target.closest("[data-week-day-board]");
+    if (!board) return;
+    startX = event.changedTouches?.[0]?.clientX || 0;
+  }, { passive: true });
+  document.addEventListener("touchend", (event) => {
+    const board = event.target.closest("[data-week-day-board]");
+    if (!board) return;
+    const endX = event.changedTouches?.[0]?.clientX || 0;
+    const delta = endX - startX;
+    if (Math.abs(delta) < 50) return;
+    const idx = CURRICULUM_WEEKDAYS.indexOf(weeklyPlannerActiveDay || "monday");
+    if (delta < 0) setWeeklyPlannerActiveDay(CURRICULUM_WEEKDAYS[Math.min(CURRICULUM_WEEKDAYS.length - 1, idx + 1)]);
+    else setWeeklyPlannerActiveDay(CURRICULUM_WEEKDAYS[Math.max(0, idx - 1)]);
+  }, { passive: true });
+}
+bindWeeklyPlannerSwipe();
+
+document.addEventListener("submit", async (event) => {
+  if (!event.target.matches("#scheduleEventForm")) return;
+  event.preventDefault();
+  await submitCalendarAddItemForm(event.target);
+});
+
 document.addEventListener("submit", async (event) => {
   if (!event.target.matches("[data-lesson-main-calendar-form]")) return;
   event.preventDefault();
@@ -35849,7 +35942,9 @@ document.addEventListener("submit", async (event) => {
     });
   } catch (error) {
     if (error?.code !== "cancelled") {
-      window.alert(error.message || "Could not add this plan to This Week’s Plan.");
+      const note = form.querySelector(".lesson-workspace-action-sheet-note")
+        || form.closest("[data-lesson-workspace-action-panel]")?.querySelector(".lesson-workspace-action-sheet-note");
+      if (note) note.textContent = error.message || "Could not add this plan to This Week’s Plan.";
     }
   } finally {
     if (submitButton) submitButton.disabled = false;
