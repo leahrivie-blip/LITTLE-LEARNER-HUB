@@ -4,6 +4,7 @@ const http = require("node:http");
 const path = require("node:path");
 const { URL } = require("node:url");
 const membershipAccess = require("../scripts/membership-access.js");
+const scheduleLib = require("./schedule-lib.js");
 
 loadEnvFile(path.join(__dirname, "..", ".env"));
 
@@ -311,6 +312,7 @@ function defaultStore() {
     leads: [],
     promoRedemptions: [],
     siteContent: defaultSiteContentStore(),
+    scheduleByUser: {},
   };
 }
 
@@ -4861,6 +4863,273 @@ function appendBillingEvent(email, type, planKey, amount) {
   writeStore(store);
 }
 
+async function resolveScheduleIdentity(request) {
+  const authHeader = String(request.headers.authorization || "");
+  if (process.env.NODE_ENV === "test" && authHeader.startsWith("Bearer test:")) {
+    const email = normalizeEmail(authHeader.slice("Bearer test:".length).trim());
+    if (!email) throw new Error("Please log in before using the schedule.");
+    return { uid: `test-${email}`, email, source: "test" };
+  }
+  if (firebaseConfigStatus().ready) {
+    try {
+      const identity = await verifyFirebaseUser(request);
+      if (identity?.uid) return { ...identity, source: "firebase" };
+    } catch (error) {
+      // Fall through to email auth when Firebase token is missing/invalid and Firebase-less mode is allowed.
+      if (authHeader.startsWith("Bearer ") && !authHeader.startsWith("Bearer test:")) {
+        throw error;
+      }
+    }
+  }
+  // Local / email-session bridge: used when Firebase Auth is not configured.
+  // Production with Firebase ready requires a verified Bearer token above.
+  if (!firebaseConfigStatus().ready || process.env.ALLOW_EMAIL_SCHEDULE_AUTH === "true" || process.env.NODE_ENV === "test") {
+    const email = normalizeEmail(
+      request.headers["x-llh-user-email"]
+      || "",
+    );
+    if (email) return { uid: `email-${email}`, email, source: "email" };
+  }
+  throw new Error("Please log in before using the schedule.");
+}
+
+function emptyScheduleRecord(identity) {
+  const doc = scheduleLib.normalizeScheduleDocument({
+    classrooms: [{ id: "classroom-main", name: "Main Classroom" }],
+    items: [],
+    updatedAt: "",
+  });
+  return {
+    uid: identity.uid,
+    email: identity.email,
+    ...doc,
+  };
+}
+
+function readScheduleRecord(store, identity) {
+  store.scheduleByUser = store.scheduleByUser || {};
+  const existing = store.scheduleByUser[identity.uid];
+  if (existing) {
+    const doc = scheduleLib.normalizeScheduleDocument(existing);
+    return {
+      uid: identity.uid,
+      email: identity.email || existing.email || "",
+      ...doc,
+    };
+  }
+  return emptyScheduleRecord(identity);
+}
+
+function writeScheduleRecord(store, identity, doc) {
+  store.scheduleByUser = store.scheduleByUser || {};
+  const normalized = scheduleLib.normalizeScheduleDocument(doc);
+  store.scheduleByUser[identity.uid] = {
+    uid: identity.uid,
+    email: identity.email,
+    classrooms: normalized.classrooms,
+    items: normalized.items,
+    updatedAt: normalized.updatedAt || new Date().toISOString(),
+    schemaVersion: 1,
+  };
+  return store.scheduleByUser[identity.uid];
+}
+
+async function handleScheduleGet(request, response, url) {
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before using the schedule." });
+    return;
+  }
+  const store = readStore();
+  const record = readScheduleRecord(store, identity);
+  const filtered = scheduleLib.filterScheduleItems(record.items, {
+    from: url.searchParams.get("from") || "",
+    to: url.searchParams.get("to") || "",
+    classroomId: url.searchParams.get("classroomId") || "",
+    types: url.searchParams.get("types") || "",
+  });
+  jsonResponse(response, 200, {
+    uid: record.uid,
+    email: record.email,
+    classrooms: record.classrooms,
+    items: filtered,
+    updatedAt: record.updatedAt || "",
+    schemaVersion: 1,
+  });
+}
+
+async function handleSchedulePut(request, response) {
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before using the schedule." });
+    return;
+  }
+  try {
+    const body = await readJson(request);
+    const store = readStore();
+    const saved = writeScheduleRecord(store, identity, {
+      classrooms: body.classrooms,
+      items: body.items,
+      updatedAt: new Date().toISOString(),
+    });
+    writeStore(store);
+    jsonResponse(response, 200, {
+      ok: true,
+      uid: saved.uid,
+      email: saved.email,
+      classrooms: saved.classrooms,
+      items: saved.items,
+      updatedAt: saved.updatedAt,
+      schemaVersion: 1,
+    });
+  } catch (error) {
+    jsonResponse(response, 400, { error: error.message || "Could not save schedule." });
+  }
+}
+
+async function handleScheduleItemUpsert(request, response, itemId) {
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before using the schedule." });
+    return;
+  }
+  try {
+    const body = await readJson(request);
+    const store = readStore();
+    const current = readScheduleRecord(store, identity);
+    const { doc, item } = scheduleLib.upsertScheduleItem(current, {
+      ...body,
+      id: itemId || body.id,
+    });
+    const saved = writeScheduleRecord(store, identity, doc);
+    writeStore(store);
+    jsonResponse(response, 200, { ok: true, item, updatedAt: saved.updatedAt, classrooms: saved.classrooms });
+  } catch (error) {
+    jsonResponse(response, 400, { error: error.message || "Could not save schedule item." });
+  }
+}
+
+async function handleScheduleItemDelete(request, response, itemId) {
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before using the schedule." });
+    return;
+  }
+  const store = readStore();
+  const current = readScheduleRecord(store, identity);
+  const doc = scheduleLib.deleteScheduleItem(current, itemId);
+  const saved = writeScheduleRecord(store, identity, doc);
+  writeStore(store);
+  jsonResponse(response, 200, { ok: true, updatedAt: saved.updatedAt });
+}
+
+async function handleScheduleWeekAssign(request, response, weekStartParam) {
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before using the schedule." });
+    return;
+  }
+  try {
+    const body = await readJson(request);
+    const weekStart = scheduleLib.isoDateOnly(weekStartParam || body.weekStartDate);
+    if (!weekStart) {
+      jsonResponse(response, 400, { error: "weekStartDate is required (YYYY-MM-DD Monday)." });
+      return;
+    }
+    const store = readStore();
+    const current = readScheduleRecord(store, identity);
+    const classroomId = String(body.classroomId || current.classrooms[0]?.id || "classroom-main").trim();
+    const item = scheduleLib.normalizeScheduleItem({
+      ...body,
+      type: "lesson_plan",
+      weekStartDate: weekStart,
+      startDate: weekStart,
+      endDate: scheduleLib.weekEndFromStart(weekStart),
+      classroomId,
+      assignedBy: identity.email,
+    });
+    const { doc, item: savedItem } = scheduleLib.upsertScheduleItem(current, item);
+    const saved = writeScheduleRecord(store, identity, doc);
+    writeStore(store);
+    jsonResponse(response, 200, {
+      ok: true,
+      item: savedItem,
+      updatedAt: saved.updatedAt,
+      classrooms: saved.classrooms,
+    });
+  } catch (error) {
+    jsonResponse(response, 400, { error: error.message || "Could not assign lesson plan to week." });
+  }
+}
+
+async function handleScheduleMigrate(request, response) {
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before using the schedule." });
+    return;
+  }
+  try {
+    const body = await readJson(request);
+    const store = readStore();
+    const current = readScheduleRecord(store, identity);
+    const migrated = scheduleLib.migrateCurriculumAssignmentsToSchedule({
+      curriculumAssignments: body.curriculumAssignments || [],
+      weeklyPlanner: body.weeklyPlanner || null,
+      classroomLabel: body.classroomLabel || "",
+      classrooms: body.classrooms || current.classrooms,
+    });
+    // Prefer existing cloud items; fill gaps from migration.
+    const byId = new Map();
+    current.items.forEach((item) => byId.set(item.id, item));
+    migrated.items.forEach((item) => {
+      if (!byId.has(item.id)) byId.set(item.id, item);
+    });
+    // Also avoid duplicate lesson_plan weeks from migration when cloud already has that week.
+    const cloudLessonWeeks = new Set(
+      current.items
+        .filter((item) => item.type === "lesson_plan")
+        .map((item) => `${item.classroomId}:${item.weekStartDate}`),
+    );
+    const mergedItems = [];
+    byId.forEach((item) => {
+      if (item.type === "lesson_plan") {
+        const key = `${item.classroomId}:${item.weekStartDate}`;
+        const fromCloud = current.items.find((entry) => entry.id === item.id);
+        if (!fromCloud && cloudLessonWeeks.has(key)) return;
+      }
+      mergedItems.push(item);
+    });
+    const saved = writeScheduleRecord(store, identity, {
+      classrooms: migrated.classrooms.length ? migrated.classrooms : current.classrooms,
+      items: mergedItems,
+      updatedAt: new Date().toISOString(),
+    });
+    writeStore(store);
+    jsonResponse(response, 200, {
+      ok: true,
+      migratedCount: migrated.items.length,
+      itemCount: saved.items.length,
+      classrooms: saved.classrooms,
+      items: saved.items,
+      updatedAt: saved.updatedAt,
+    });
+  } catch (error) {
+    jsonResponse(response, 400, { error: error.message || "Could not migrate schedule data." });
+  }
+}
+
 const childDataKeys = [
   "Profiles",
   "Observations",
@@ -7308,6 +7577,21 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/upsert") return await handleAdminUploadedResourceUpsert(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/delete") return await handleAdminUploadedResourceDelete(request, response);
     if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/child-data") return await handleChildData(request, response);
+    if (request.method === "GET" && url.pathname === "/api/schedule") return await handleScheduleGet(request, response, url);
+    if (request.method === "PUT" && url.pathname === "/api/schedule") return await handleSchedulePut(request, response);
+    if (request.method === "POST" && url.pathname === "/api/schedule/migrate") return await handleScheduleMigrate(request, response);
+    if (request.method === "PUT" && url.pathname.startsWith("/api/schedule/weeks/")) {
+      const weekStart = decodeURIComponent(url.pathname.slice("/api/schedule/weeks/".length));
+      return await handleScheduleWeekAssign(request, response, weekStart);
+    }
+    if (request.method === "PUT" && url.pathname.startsWith("/api/schedule/items/")) {
+      const itemId = decodeURIComponent(url.pathname.slice("/api/schedule/items/".length));
+      return await handleScheduleItemUpsert(request, response, itemId);
+    }
+    if (request.method === "DELETE" && url.pathname.startsWith("/api/schedule/items/")) {
+      const itemId = decodeURIComponent(url.pathname.slice("/api/schedule/items/".length));
+      return await handleScheduleItemDelete(request, response, itemId);
+    }
     if (request.method === "GET" && url.pathname === "/api/checkout-status") return await handleCheckoutStatus(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/cancel-subscription") return await handleCancelSubscription(request, response);
     if (request.method === "GET" && url.pathname === "/api/subscription-status") return await handleSubscriptionStatus(request, response, url);

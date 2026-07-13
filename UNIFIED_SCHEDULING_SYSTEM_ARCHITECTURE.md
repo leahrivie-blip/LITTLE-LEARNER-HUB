@@ -1,20 +1,20 @@
 # Unified Calendar, Weekly Planner & Curriculum System
 
-**Status:** Architecture **APPROVED** (Option A) · Design system **created** · **No scheduling implementation until design system visually confirmed**  
+**Status:** Architecture **APPROVED** · Design system **APPROVED** · ScheduleItem foundation **IN PROGRESS / SHIPPING**  
 **Date:** July 13, 2026  
 **Approved direction:** Cloud-backed `ScheduleItem` source of truth (Option A).  
 **Design system:** [`docs/design-system/LLH_DESIGN_SYSTEM.md`](./docs/design-system/LLH_DESIGN_SYSTEM.md) · tokens [`styles/llh-design-tokens.css`](./styles/llh-design-tokens.css)  
 **Wireframes:** [`docs/wireframes/README.md`](./docs/wireframes/README.md)  
-**Rule:** Curriculum Planner must **not** be deleted until migration + retirement steps below are completed.
+**Rule:** Curriculum Planner must **not** be deleted until migration soak is complete (dual-write active).
 
 ### Locked build order
 
-1. **Design system** (lavender-led LLH tokens + layout language)  
-2. **Cloud ScheduleItem foundation**  
-3. **Migrate** Main Calendar → Weekly Planner → Dashboard → Lesson Library  
-4. **Retire** Curriculum Planner after the unified system works  
+1. Design system ✅  
+2. Cloud ScheduleItem foundation ✅ (this PR)  
+3. Continue hardening Calendar / Weekly Planner / Dashboard / Library on ScheduleItem  
+4. Retire Curriculum Planner after soak  
 
-Do not rush feature UI ahead of the foundation.
+Lavender stays primary. Keep whitespace. Mobile-first. Do not crowd screens.
 
 ---
 

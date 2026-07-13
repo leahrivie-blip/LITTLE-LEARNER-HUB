@@ -15012,3 +15012,202 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
     border-radius: 12px;
   }
 }
+
+/* ========== Unified Schedule + Design System surfaces ========== */
+.llh-schedule-page-title h2 {
+  font-family: var(--llh-font-display, Georgia, serif);
+  color: var(--llh-ink, #2a2a35);
+}
+
+.llh-ds-card {
+  background: var(--llh-surface, #fff);
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: var(--llh-radius-md, 12px);
+  box-shadow: var(--llh-shadow-soft, 0 8px 24px rgba(42, 42, 53, 0.06));
+  padding: var(--llh-space-5, 24px);
+}
+
+.llh-main-calendar,
+.llh-weekly-execution,
+.llh-dash-week-card {
+  max-width: 1100px;
+}
+
+.llh-calendar-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.llh-calendar-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.llh-calendar-month {
+  margin: 0;
+  font-family: var(--llh-font-display, Georgia, serif);
+  font-size: clamp(1.4rem, 2vw + 1rem, 2rem);
+  color: var(--llh-ink, #2a2a35);
+}
+
+.llh-calendar-layout {
+  display: grid;
+  grid-template-columns: 1.45fr 0.9fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.llh-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--llh-line, #e4e1ea);
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.llh-cal-head {
+  background: var(--llh-primary-soft, #ede8f7);
+  color: var(--llh-primary-deep, #5a4d8a);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px;
+  text-align: center;
+}
+
+.llh-cal-cell {
+  background: #fff;
+  min-height: 92px;
+  border: 0;
+  text-align: left;
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font: inherit;
+  color: inherit;
+}
+
+.llh-cal-cell.is-empty {
+  background: #faf9fc;
+  cursor: default;
+}
+
+.llh-cal-cell.is-selected {
+  outline: 2px solid var(--llh-primary, #7b6bb5);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.llh-cal-daynum {
+  font-size: 12px;
+  color: var(--llh-muted, #6b6b7b);
+}
+
+.llh-cal-weekbar {
+  display: block;
+  background: var(--llh-primary-soft, #ede8f7);
+  color: var(--llh-primary-deep, #5a4d8a);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.llh-cal-chip {
+  display: inline-block;
+  width: fit-content;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.llh-cal-chip-reminder,
+.llh-cal-chip-classroom_event {
+  background: var(--llh-accent-soft, #fbece3);
+  color: #9a5a38;
+}
+
+.llh-cal-chip-closure {
+  background: var(--llh-danger-soft, #f8e8e8);
+  color: var(--llh-danger, #c56b6b);
+}
+
+.llh-calendar-detail h3 {
+  margin: 0 0 6px;
+  font-family: var(--llh-font-display, Georgia, serif);
+}
+
+.llh-calendar-detail-events {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--llh-line, #e4e1ea);
+}
+
+.llh-dash-week-card {
+  margin-bottom: 16px;
+}
+
+.llh-dash-upcoming-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  line-height: 1.7;
+  color: var(--llh-muted, #6b6b7b);
+}
+
+.llh-execution-day {
+  padding: 12px 0;
+  border-top: 1px solid var(--llh-line, #e4e1ea);
+}
+
+.llh-execution-day:first-of-type {
+  border-top: 0;
+}
+
+.llh-check-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 6px 0;
+  font-size: 14px;
+}
+
+.llh-execution-notes {
+  margin-top: 16px;
+}
+
+@media (max-width: 860px) {
+  .llh-calendar-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .llh-cal-cell {
+    min-height: 72px;
+  }
+
+  .llh-calendar-toolbar .form-actions {
+    width: 100%;
+  }
+
+  .llh-calendar-toolbar .form-actions .primary-button,
+  .llh-calendar-toolbar .form-actions .ghost-button {
+    flex: 1 1 auto;
+  }
+}
+
+.brand-mark.brand-mark-hub {
+  display: grid;
+  place-items: center;
+  background: var(--llh-primary-soft, #ede8f7);
+  border: 1px solid var(--llh-line, #e4e1ea);
+}
+
+.brand-mark.brand-mark-hub span { display: none; }
