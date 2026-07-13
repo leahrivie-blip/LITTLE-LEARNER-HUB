@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LLH Scheduling Wireframes — Clickable Prototype</title>
+  <style>
+    :root {
+      --ink: #1c2a33;
+      --muted: #5c6b75;
+      --line: #c9d2d8;
+      --bg: #eef2f4;
+      --panel: #ffffff;
+      --accent: #2a5f7a;
+      --accent-soft: #d9e8ef;
+      --lesson: #3d6b5a;
+      --lesson-soft: #dceae3;
+      --warn: #8a5a2b;
+      --warn-soft: #f3e6d4;
+      --closure: #7a3b3b;
+      --closure-soft: #f0dede;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    .proto-banner {
+      background: var(--ink);
+      color: #fff;
+      padding: 10px 18px;
+      font-size: 13px;
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .proto-banner strong { font-weight: 600; }
+    .proto-banner span { opacity: 0.85; }
+    .shell {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      min-height: calc(100vh - 42px);
+    }
+    nav.side {
+      background: #f7f9fa;
+      border-right: 1px solid var(--line);
+      padding: 20px 12px;
+    }
+    nav.side .brand {
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 8px 16px;
+    }
+    nav.side button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: 0;
+      background: transparent;
+      padding: 10px 12px;
+      border-radius: 8px;
+      color: var(--ink);
+      font-size: 14px;
+      cursor: pointer;
+      margin-bottom: 4px;
+    }
+    nav.side button:hover { background: #e8eef1; }
+    nav.side button.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    nav.side .soon {
+      opacity: 0.45;
+      pointer-events: none;
+      font-size: 12px;
+      padding-left: 12px;
+      margin-top: 18px;
+    }
+    main {
+      padding: 24px 28px 40px;
+      max-width: 1100px;
+    }
+    .screen { display: none; }
+    .screen.active { display: block; }
+    .eyebrow {
+      margin: 0 0 4px;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    h1 { margin: 0 0 6px; font-size: 28px; font-weight: 650; }
+    .sub { margin: 0 0 20px; color: var(--muted); font-size: 14px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 20px; }
+    button.btn, a.btn {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      padding: 9px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+    }
+    button.btn.primary, a.btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    button.btn.ghost { background: transparent; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .panel h2 { margin: 0 0 8px; font-size: 18px; }
+    .panel h3 { margin: 0 0 8px; font-size: 15px; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 16px;
+    }
+    @media (max-width: 860px) {
+      .shell { grid-template-columns: 1fr; }
+      nav.side { display: flex; gap: 6px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+      nav.side .brand, nav.side .soon { display: none; }
+      nav.side button { white-space: nowrap; width: auto; }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    /* Calendar */
+    .cal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 1px;
+      background: var(--line);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .cal-cell {
+      background: #fff;
+      min-height: 88px;
+      padding: 8px;
+      font-size: 12px;
+    }
+    .cal-cell.head {
+      min-height: 0;
+      background: #f4f7f8;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .cal-cell.mute { background: #f7f9fa; color: #9aa6ae; }
+    .week-bar {
+      display: block;
+      margin-top: 6px;
+      background: var(--lesson-soft);
+      color: var(--lesson);
+      border-radius: 4px;
+      padding: 3px 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 0;
+      width: 100%;
+      text-align: left;
+    }
+    .chip {
+      display: inline-block;
+      margin-top: 4px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .chip.reminder { background: var(--warn-soft); color: var(--warn); }
+    .chip.closure { background: var(--closure-soft); color: var(--closure); }
+    .chip.event { background: var(--accent-soft); color: var(--accent); }
+    .week-detail strong { display: block; font-size: 16px; margin-bottom: 4px; }
+
+    /* Weekly planner */
+    .day-block { border-top: 1px solid var(--line); padding: 12px 0; }
+    .day-block:first-of-type { border-top: 0; }
+    .day-block label {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin: 6px 0;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .notes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 8px;
+    }
+    textarea {
+      width: 100%;
+      min-height: 88px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      font: inherit;
+      resize: vertical;
+    }
+
+    /* Library / assign */
+    .lesson-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+      background: #fff;
+      max-width: 420px;
+    }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(20, 30, 40, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 20;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: #fff;
+      border-radius: 14px;
+      padding: 22px;
+      width: min(420px, 100%);
+      border: 1px solid var(--line);
+    }
+    .modal h2 { margin: 0 0 8px; font-size: 18px; }
+    .modal label { display: block; font-size: 13px; margin: 12px 0 4px; color: var(--muted); }
+    .modal select, .modal input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      font: inherit;
+    }
+    .flow-note {
+      background: var(--accent-soft);
+      border-left: 3px solid var(--accent);
+      padding: 10px 12px;
+      font-size: 13px;
+      margin: 16px 0;
+      border-radius: 0 8px 8px 0;
+    }
+    .toast {
+      display: none;
+      margin: 12px 0;
+      padding: 12px 14px;
+      background: var(--lesson-soft);
+      color: var(--lesson);
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .toast.show { display: block; }
+  </style>
+</head>
+<body>
+  <div class="proto-banner">
+    <strong>Wireframe prototype only</strong>
+    <span>Not product code · Option A approved · Click screens to walk the flow</span>
+    <span id="flowHint">Start: Dashboard → Open Weekly Planner</span>
+  </div>
+
+  <div class="shell">
+    <nav class="side" aria-label="App navigation">
+      <p class="brand">Little Learner Hub</p>
+      <button type="button" data-go="dashboard" class="active">Dashboard</button>
+      <button type="button" data-go="calendar">Calendar</button>
+      <button type="button" data-go="planner">Weekly Planner</button>
+      <button type="button" data-go="library">Lesson Library</button>
+      <p class="soon">Curriculum Planner (legacy — keep until migration)</p>
+    </nav>
+
+    <main>
+      <!-- DASHBOARD -->
+      <section class="screen active" id="screen-dashboard" aria-label="Dashboard">
+        <p class="eyebrow">Overview · reads ScheduleItem only · stores nothing</p>
+        <h1>Dashboard</h1>
+        <p class="sub">Quick glance at this week and what’s coming.</p>
+
+        <div class="grid-2">
+          <div class="panel">
+            <p class="eyebrow">This Week</p>
+            <h2>Community Helpers</h2>
+            <p class="muted">July 13–17 · Preschool Room</p>
+            <div class="actions">
+              <button class="btn primary" type="button" data-go="planner">Open Weekly Planner</button>
+              <button class="btn" type="button" data-toast="Opens Weekly Schedule PDF (existing printable).">Print Weekly Schedule</button>
+              <button class="btn ghost" type="button" data-go="library">Change Lesson Plan</button>
+            </div>
+          </div>
+          <div class="panel">
+            <p class="eyebrow">Upcoming</p>
+            <ul class="muted" style="margin:0; padding-left:18px; line-height:1.7;">
+              <li><strong style="color:var(--ink)">Next week:</strong> Transportation · July 20–24</li>
+              <li>Fri — Center Closure</li>
+              <li>Tue — Picture Day</li>
+            </ul>
+            <div class="actions">
+              <button class="btn primary" type="button" data-go="calendar">Open Calendar</button>
+            </div>
+          </div>
+        </div>
+        <div class="flow-note">Dashboard never writes ScheduleItems. Every button jumps to Calendar, Weekly Planner, Library, or PDF.</div>
+      </section>
+
+      <!-- CALENDAR -->
+      <section class="screen" id="screen-calendar" aria-label="Main Calendar">
+        <p class="eyebrow">Planning tool · official schedule</p>
+        <div class="cal-head">
+          <div>
+            <h1>Calendar</h1>
+            <p class="sub" style="margin:0">August 2026 · lesson plans, events, closures, reminders</p>
+          </div>
+          <div class="actions" style="margin:0">
+            <button class="btn" type="button">Today</button>
+            <button class="btn primary" type="button" data-open-add>Add</button>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <div class="cal-grid" aria-hidden="false">
+              <div class="cal-cell head">Sun</div>
+              <div class="cal-cell head">Mon</div>
+              <div class="cal-cell head">Tue</div>
+              <div class="cal-cell head">Wed</div>
+              <div class="cal-cell head">Thu</div>
+              <div class="cal-cell head">Fri</div>
+              <div class="cal-cell head">Sat</div>
+
+              <div class="cal-cell mute">2</div>
+              <div class="cal-cell">
+                3
+                <button class="week-bar" type="button" data-select-week="helpers">Community Helpers</button>
+              </div>
+              <div class="cal-cell">
+                4
+                <span class="chip reminder">Reminder</span>
+              </div>
+              <div class="cal-cell">5</div>
+              <div class="cal-cell">6</div>
+              <div class="cal-cell">7</div>
+              <div class="cal-cell mute">8</div>
+
+              <div class="cal-cell mute">9</div>
+              <div class="cal-cell">
+                10
+                <button class="week-bar" type="button" data-select-week="transport">Transportation</button>
+              </div>
+              <div class="cal-cell">11</div>
+              <div class="cal-cell">12</div>
+              <div class="cal-cell">13</div>
+              <div class="cal-cell">14</div>
+              <div class="cal-cell mute">15</div>
+
+              <div class="cal-cell mute">16</div>
+              <div class="cal-cell">
+                17
+                <button class="week-bar" type="button" data-select-week="school">Back to School</button>
+              </div>
+              <div class="cal-cell">18</div>
+              <div class="cal-cell">19</div>
+              <div class="cal-cell">20</div>
+              <div class="cal-cell">
+                21
+                <span class="chip closure">Closure</span>
+              </div>
+              <div class="cal-cell mute">22</div>
+            </div>
+          </div>
+
+          <div class="panel week-detail" id="weekDetail">
+            <p class="eyebrow">Week detail</p>
+            <strong id="weekTitle">Community Helpers</strong>
+            <p class="muted" id="weekMeta">Aug 3–7 · Preschool Room</p>
+            <p class="muted" style="margin-top:10px">ScheduleItem type: <code>lesson_plan</code></p>
+            <div class="actions">
+              <button class="btn primary" type="button" data-go="planner">Open Weekly Planner</button>
+              <button class="btn" type="button" data-go="library">Change Lesson Plan</button>
+              <button class="btn ghost" type="button" data-open-add>Add Event</button>
+            </div>
+          </div>
+        </div>
+        <div class="flow-note">Main Calendar is where future weeks are planned. Execution happens in Weekly Planner.</div>
+      </section>
+
+      <!-- WEEKLY PLANNER -->
+      <section class="screen" id="screen-planner" aria-label="Weekly Planner">
+        <p class="eyebrow">Execution tool · generated from ScheduleItem</p>
+        <h1>Community Helpers</h1>
+        <p class="sub">July 13–17 · Preschool Room</p>
+        <div class="actions">
+          <button class="btn primary" type="button" data-toast="Keeps the existing Weekly Schedule PDF (binder / clipboard / wall).">Print Weekly Schedule</button>
+          <button class="btn" type="button" data-go="calendar">Change on Calendar</button>
+        </div>
+
+        <div class="panel">
+          <div class="day-block">
+            <h3>Monday</h3>
+            <label><input type="checkbox" /> Firefighter Dramatic Play</label>
+            <label><input type="checkbox" /> Community Helper Matching</label>
+          </div>
+          <div class="day-block">
+            <h3>Tuesday</h3>
+            <label><input type="checkbox" /> Mail Carrier Relay</label>
+            <label><input type="checkbox" /> Helper Sorting</label>
+          </div>
+          <div class="day-block">
+            <h3>Wednesday</h3>
+            <label><input type="checkbox" /> Doctor Checkup Dramatic Play</label>
+          </div>
+          <div class="notes-grid">
+            <div>
+              <h3>Teacher Notes</h3>
+              <textarea placeholder="Private classroom notes for this week…"></textarea>
+            </div>
+            <div>
+              <h3>Observation Notes</h3>
+              <textarea placeholder="What to watch for this week…"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="flow-note">Weekly Planner does not own assignment. Changing the plan returns you to Calendar / Library — one ScheduleItem write.</div>
+      </section>
+
+      <!-- LIBRARY -->
+      <section class="screen" id="screen-library" aria-label="Lesson Library">
+        <p class="eyebrow">Catalog · one assign path</p>
+        <h1>Lesson Plan Library</h1>
+        <p class="sub">Browse plans. Assign once. Everything updates.</p>
+
+        <div class="lesson-card">
+          <p class="eyebrow">Preschool · Free</p>
+          <h2 style="margin:0 0 6px; font-size:20px;">Community Helpers</h2>
+          <p class="muted">Dramatic play, matching, community roles.</p>
+          <div class="actions">
+            <button class="btn primary" type="button" data-open-workspace>Use This Plan</button>
+            <button class="btn ghost" type="button">Preview</button>
+          </div>
+        </div>
+
+        <div class="toast" id="assignToast" role="status"></div>
+        <div class="flow-note">
+          Target flow: Use This Plan → Plan This Week → Save ScheduleItem → Open Weekly Planner.<br />
+          No separate “Add to Weekly Planner” or “Add to Main Calendar”.
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Assignment modal -->
+  <div class="modal-backdrop" id="assignModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-labelledby="assignTitle">
+      <p class="eyebrow">Use This Plan</p>
+      <h2 id="assignTitle">Plan This Week</h2>
+      <p class="muted">Creates one ScheduleItem. Calendar, Weekly Planner, and Dashboard all update.</p>
+      <label for="weekSelect">Week</label>
+      <select id="weekSelect">
+        <option>July 13–17 (This week)</option>
+        <option>July 20–24 (Next week)</option>
+        <option>Aug 3–7</option>
+      </select>
+      <p class="muted" style="margin-top:10px">Classroom picker hidden — single default classroom (home daycare).</p>
+      <div class="actions">
+        <button class="btn primary" type="button" id="saveAssign">Save</button>
+        <button class="btn ghost" type="button" data-close-modal>Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Success modal -->
+  <div class="modal-backdrop" id="successModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-labelledby="successTitle">
+      <p class="eyebrow">Assigned</p>
+      <h2 id="successTitle">Community Helpers assigned to Preschool Room for July 13–17.</h2>
+      <p class="muted">One write. Calendar · Weekly Planner · Dashboard updated.</p>
+      <div class="actions">
+        <button class="btn primary" type="button" data-go="planner" data-close-modal>Open Weekly Planner</button>
+        <button class="btn" type="button" data-go="calendar" data-close-modal>View Calendar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add item modal -->
+  <div class="modal-backdrop" id="addModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-labelledby="addTitle">
+      <h2 id="addTitle">Add to Calendar</h2>
+      <p class="muted">Phase 1 types only</p>
+      <label for="itemType">Type</label>
+      <select id="itemType">
+        <option>Classroom Event</option>
+        <option>Closure</option>
+        <option>Reminder</option>
+        <option>Lesson Plan (assign week)…</option>
+      </select>
+      <div class="actions">
+        <button class="btn primary" type="button" data-close-modal data-toast="Would create a ScheduleItem of the selected type.">Save</button>
+        <button class="btn ghost" type="button" data-close-modal>Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const screens = {
+      dashboard: document.getElementById("screen-dashboard"),
+      calendar: document.getElementById("screen-calendar"),
+      planner: document.getElementById("screen-planner"),
+      library: document.getElementById("screen-library"),
+    };
+    const navButtons = document.querySelectorAll("nav.side [data-go]");
+    const hint = document.getElementById("flowHint");
+    const hints = {
+      dashboard: "Dashboard → Open Weekly Planner or Open Calendar",
+      calendar: "Calendar → select a week → Open Weekly Planner",
+      planner: "Weekly Planner → Change on Calendar to reassign",
+      library: "Library → Use This Plan → Plan This Week → Save",
+    };
+    const weekCopy = {
+      helpers: { title: "Community Helpers", meta: "Aug 3–7 · Preschool Room" },
+      transport: { title: "Transportation", meta: "Aug 10–14 · Preschool Room" },
+      school: { title: "Back to School", meta: "Aug 17–21 · Preschool Room" },
+    };
+
+    function go(name) {
+      Object.entries(screens).forEach(([key, el]) => {
+        el.classList.toggle("active", key === name);
+      });
+      navButtons.forEach((btn) => {
+        btn.classList.toggle("active", btn.getAttribute("data-go") === name);
+      });
+      hint.textContent = hints[name] || "";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function openModal(id) {
+      const el = document.getElementById(id);
+      el.classList.add("open");
+      el.setAttribute("aria-hidden", "false");
+    }
+    function closeModals() {
+      document.querySelectorAll(".modal-backdrop").forEach((el) => {
+        el.classList.remove("open");
+        el.setAttribute("aria-hidden", "true");
+      });
+    }
+
+    document.body.addEventListener("click", (event) => {
+      const goBtn = event.target.closest("[data-go]");
+      if (goBtn) {
+        go(goBtn.getAttribute("data-go"));
+        if (goBtn.hasAttribute("data-close-modal")) closeModals();
+        return;
+      }
+      if (event.target.closest("[data-open-workspace]")) {
+        openModal("assignModal");
+        return;
+      }
+      if (event.target.closest("#saveAssign")) {
+        closeModals();
+        openModal("successModal");
+        return;
+      }
+      if (event.target.closest("[data-open-add]")) {
+        openModal("addModal");
+        return;
+      }
+      if (event.target.closest("[data-close-modal]")) {
+        closeModals();
+        return;
+      }
+      const weekBtn = event.target.closest("[data-select-week]");
+      if (weekBtn) {
+        const key = weekBtn.getAttribute("data-select-week");
+        const copy = weekCopy[key];
+        document.getElementById("weekTitle").textContent = copy.title;
+        document.getElementById("weekMeta").textContent = copy.meta;
+        go("calendar");
+        return;
+      }
+      const toastBtn = event.target.closest("[data-toast]");
+      if (toastBtn) {
+        const toast = document.getElementById("assignToast");
+        toast.textContent = toastBtn.getAttribute("data-toast");
+        toast.classList.add("show");
+        setTimeout(() => toast.classList.remove("show"), 2800);
+      }
+      if (event.target.classList.contains("modal-backdrop")) closeModals();
+    });
+  </script>
+</body>
+</html>

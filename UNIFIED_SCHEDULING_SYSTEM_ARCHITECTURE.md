@@ -1,9 +1,10 @@
 # Unified Calendar, Weekly Planner & Curriculum System
 
-**Status:** Audit + Architecture complete — **awaiting approval before implementation**  
+**Status:** Architecture **APPROVED** (Option A) — wireframes in progress; **no implementation until wireframes approved**  
 **Date:** July 13, 2026  
-**Scope:** Architecture only. No product code changes in this deliverable.  
-**Rule:** Curriculum Planner must **not** be deleted until migration + retirement steps below are approved and completed.
+**Approved direction:** Cloud-backed `ScheduleItem` source of truth first (no new client-only planner).  
+**Wireframes:** [`docs/wireframes/README.md`](./docs/wireframes/README.md) · [`docs/wireframes/interactive.html`](./docs/wireframes/interactive.html)  
+**Rule:** Curriculum Planner must **not** be deleted until migration + retirement steps below are completed.
 
 ---
 
@@ -13,10 +14,25 @@
 |-------|---------|---------|
 | **1** | [Current State Audit](#phase-1--current-state-audit) | What exists today |
 | **2** | [Unified Architecture Plan](#phase-2--unified-architecture-plan) | Recommended source of truth + models |
-| **3** | [UX Concepts](#phase-3--ux-concepts) | How surfaces connect (no visual redesign yet) |
+| **3** | [UX Concepts](#phase-3--ux-concepts) | Conceptual connections (superseded by visual wireframes) |
+| **3b** | [`docs/wireframes/`](./docs/wireframes/README.md) | **Visual wireframes + clickable prototype (current)** |
 | **4** | [Implementation Plan](#phase-4--implementation-plan) | Build order, migration, tests, risks |
 
-**Related docs:** `CURRICULUM_CALENDAR_ROADMAP.md` (F1–F3 complete; cloud migration parked), `LESSON_LIBRARY_UX_IMPLEMENTATION_MAP.md`.
+**Related docs:** `CURRICULUM_CALENDAR_ROADMAP.md` (F1–F3 complete), `LESSON_LIBRARY_UX_IMPLEMENTATION_MAP.md`, `docs/wireframes/README.md`.
+
+### Owner approval record (July 13, 2026)
+
+| Decision | Status |
+|----------|--------|
+| One source of truth | Approved |
+| Main Calendar = planning | Approved |
+| Weekly Planner = execution | Approved |
+| Dashboard = overview (stores nothing) | Approved |
+| Lesson Library = catalog; one assign write | Approved |
+| Option A — cloud ScheduleItem first | Approved |
+| Phase 1 types: lesson plans, classroom events, closures, reminders | Approved |
+| Defer: multi-center, director/staff perms, parent calendar, staff events, birthdays, form deadlines | Approved (design for later, do not build) |
+| Visual wireframes before implementation | **Current gate** |
 
 ---
 
@@ -715,17 +731,20 @@ Highest risk workstream: **cloud ScheduleItem + migration** (data integrity). Hi
 
 ---
 
-## 4.6 Approval checklist (required before coding)
+## 4.6 Approval checklist
 
-- [ ] Approve **ScheduleItem** as shared source of truth
-- [ ] Approve **Main Calendar = planning** / **Weekly Planner = execution** split
-- [ ] Approve **Phase 1 item types:** lesson plans, classroom events, closures, reminders
-- [ ] Approve **cloud migration into unified schedule** (not Curriculum-Planner-only backend)
-- [ ] Approve **Curriculum Planner remains until R5**
-- [ ] Approve **Parent newsletter out of scope**
-- [ ] Choose first build slice after approval: **(A)** cloud ScheduleItem + unify writes, or **(B)** client-only unify writes first (faster UX fix, still device-local)
+- [x] Approve **ScheduleItem** as shared source of truth
+- [x] Approve **Main Calendar = planning** / **Weekly Planner = execution** split
+- [x] Approve **Phase 1 item types:** lesson plans, classroom events, closures, reminders
+- [x] Approve **cloud migration into unified schedule** — **Option A chosen**
+- [x] Approve **Curriculum Planner remains until R5**
+- [x] Approve **Parent newsletter out of scope**
+- [x] Choose first build slice: **(A) cloud ScheduleItem + unify writes**
+- [ ] **Approve visual wireframes** (`docs/wireframes/`) ← current gate before coding
 
-**Recommendation:** Prefer **(A)** if Family Hub / multi-device is near-term; prefer **(B)** only as a short bridge with an explicit follow-up cloud step.
+**Chosen path:** Option A — cloud-backed ScheduleItem foundation first. Do not build another client-only planner.
+
+**Next:** Owner reviews wireframes → then implementation begins with ScheduleItem API + migrate path.
 
 ---
 
