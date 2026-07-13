@@ -122,10 +122,10 @@ function staticChecks() {
     "renderCurriculumPlanner",
     "assignCurriculumLessonPlanToWeek",
     "buildCurriculumLessonPlanSnapshot",
-    "data-curriculum-assign-week",
     "This Week&rsquo;s Curriculum",
-    "Use This Lesson Plan",
-    "Assign to Week",
+    "data-lesson-add-to-main-calendar",
+    "Plan This Week",
+    "Save to This Week",
     "llhCurriculumAssignments:",
     "Classroom Events",
   ].forEach((needle) => assert(appJs.includes(needle), `Missing app.js: ${needle}`));
@@ -226,23 +226,22 @@ async function runBrowserFlow(freePlan, proPlan) {
   const titleAfter = await page.locator(".curriculum-planner-week-summary h3").innerText();
   assert(titleAfter.includes(freePlan.title) || titleAfter.length > 0, "Assigned title missing after render");
 
-  console.log("6) Library Assign to Week + viewer Use This Lesson Plan");
+  console.log("6) Library viewer exposes Plan This Week entry");
   await page.evaluate(() => setView("lessons"));
   await page.waitForSelector("#view-lessons.active-view", { timeout: 10000 });
   await page.fill("#lessonPlanSearch", freePlan.title);
   await page.waitForTimeout(400);
-  const assignBtn = page.locator(`[data-curriculum-assign-week="${freePlan.id}"]`).first();
-  await assignBtn.waitFor({ timeout: 10000 });
-  await assignBtn.click();
-  await page.waitForSelector("#curriculumPlannerAssignForm", { timeout: 10000 });
-  assert((await page.locator('#curriculumPlannerAssignForm [name="lessonPlanId"]').inputValue()) === freePlan.id, "Assign flow did not preselect lesson");
-
   await page.evaluate((id) => {
     if (typeof openResourceViewer === "function") openResourceViewer(id);
   }, freePlan.id);
-  await page.waitForSelector("#resourceViewerModal.open", { timeout: 10000 });
-  assert(await page.locator('#resourceViewerModal [data-curriculum-assign-week]').count(), "Viewer Use This Lesson Plan missing");
-  await page.click("#closeResourceViewer");
+  await page.waitForSelector("#resourceViewerModal.lesson-workspace-mode.open", { timeout: 10000 });
+  await page.click("[data-lesson-use-this-plan]");
+  await page.waitForSelector(".lesson-workspace-action-sheet:not([hidden])", { timeout: 5000 });
+  assert(await page.locator(`#resourceViewerModal [data-lesson-add-to-main-calendar="${freePlan.id}"]`).count(), "Viewer Plan This Week missing");
+  await page.click(`[data-lesson-add-to-main-calendar="${freePlan.id}"]`);
+  await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
+  await page.click("[data-lesson-workspace-action-sheet-dismiss]");
+  await page.click("[data-lesson-workspace-back]");
 
   console.log("7) Pro lesson blocked for Free user");
   const proOptionCount = await page.locator(`#curriculumPlannerAssignForm [name="lessonPlanId"] option[value="${proPlan.id}"]`).count();

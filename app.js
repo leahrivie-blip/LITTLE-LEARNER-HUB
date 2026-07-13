@@ -3225,7 +3225,7 @@ syncFreePlanMarketingCopy();
 let activeFilter = "All";
 let lessonLibraryReturnView = "home";
 let lessonLibraryInfoOpen = false;
-let lessonLibraryShowSavedOnly = false;
+let lessonLibraryMode = "browse"; // browse | saved
 let lessonLibraryShowAssignedOnly = false;
 let lessonLibraryPlanFilter = "All"; // All | Free | Pro
 let lessonLibrarySort = "recommended"; // recommended | newest | az | recent
@@ -7303,8 +7303,26 @@ function setView(view, options = {}) {
   if (resolvedView === "lessons" && activeView && activeView !== "lessons") {
     lessonLibraryReturnView = activeView;
   }
+  if (resolvedView === "lessons") {
+    const requestedLessonLibraryMode = options.lessonLibraryMode || "";
+    if (requestedLessonLibraryMode === "browse" || requestedLessonLibraryMode === "saved") {
+      lessonLibraryMode = requestedLessonLibraryMode;
+    } else if (activeView !== "lessons") {
+      lessonLibraryMode = "browse";
+    }
+    if (lessonLibraryMode === "saved") {
+      lessonLibraryFiltersOpen = false;
+      lessonLibraryShowAssignedOnly = false;
+      lessonLibraryPlanFilter = "All";
+      lessonLibrarySort = "recommended";
+      activeFilter = "All";
+    }
+  }
   if (resolvedView === "lessons" && activeView !== "lessons" && !options.skipHistory) {
-    pushLessonNavHistory({ type: "lessons" });
+    pushLessonNavHistory({
+      type: "lessons",
+      mode: lessonLibraryMode === "saved" ? "saved" : "browse",
+    });
   }
   document.querySelectorAll(".view").forEach((section) => section.classList.remove("active-view"));
   document.querySelector(`#view-${resolvedView}`)?.classList.add("active-view");
@@ -7938,7 +7956,7 @@ function categoryResources(category) {
     const lessonFilter = lessonPlanPublicFilters.includes(activeFilter) ? activeFilter : "All";
     const normalizedAge = normalizeAgeGroup(resource.age) || resource.age;
     const matchesFilter = category === "Lesson Plans"
-      ? lessonFilter === "All" || normalizedAge === lessonFilter
+      ? lessonLibraryMode === "saved" || lessonFilter === "All" || normalizedAge === lessonFilter
       : activeFilter === "All" || resource.age === activeFilter
         || (category === "Activity Center" && resource._curriculumManaged
           ? activityMatchesCurriculumCategoryFilter(resource.activityCategory || resource.theme, activeFilter)
@@ -7948,7 +7966,7 @@ function categoryResources(category) {
       if (lessonId !== activeActivityLessonPlanId) return false;
     }
     if (category === "Lesson Plans") {
-      if (lessonLibraryShowSavedOnly && !favorites.includes(resource.id)) return false;
+      if (lessonLibraryMode === "saved" && (!isProUser() || !favorites.includes(resource.id))) return false;
       if (lessonLibraryShowAssignedOnly && !lessonPlanIsAssigned(resource.id)) return false;
       if (lessonLibraryPlanFilter === "Free" && String(resource.plan || "Free").trim() === "Pro") return false;
       if (lessonLibraryPlanFilter === "Pro" && String(resource.plan || "Free").trim() !== "Pro") return false;
@@ -11048,6 +11066,9 @@ function lessonNavStatesMatch(a, b) {
   if (a.type === "lesson" || a.type === "activity") {
     return String(a.resourceId || "") === String(b.resourceId || "");
   }
+  if (a.type === "lessons") {
+    return (a.mode || "browse") === (b.mode || "browse");
+  }
   return true;
 }
 
@@ -11088,7 +11109,9 @@ function currentLessonNavViewerState() {
     return { type: "lesson", resourceId: activeViewerResourceId };
   }
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
-  if (!viewer && activeView === "lessons") return { type: "lessons" };
+  if (!viewer && activeView === "lessons") {
+    return { type: "lessons", mode: lessonLibraryMode === "saved" ? "saved" : "browse" };
+  }
   return null;
 }
 
@@ -11126,6 +11149,13 @@ function handleLessonNavPopState(event) {
 
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
   if (activeView === "lessons") {
+    if (lessonLibraryMode === "saved") {
+      lessonNavRunSilent(() => {
+        lessonLibraryMode = "browse";
+        renderCategoryPage("lessons");
+      });
+      return;
+    }
     lessonNavRunSilent(() => setView(resolveLessonLibraryBackView(), { skipHistory: true }));
   }
 }
@@ -11387,7 +11417,7 @@ function applyCurriculumLessonToWeeklyPlanner({ resource, plan, weekStartDate, a
 async function addCurriculumLessonPlanToMainCalendar({ resourceId, weekStartDate, ageGroup } = {}) {
   if (!isLoggedIn() && !hasAdminFullAccess()) {
     openAuthModal("login");
-    throw new Error("Log in to add this plan to This Week’s Plan.");
+    throw new Error("Log in to plan this week.");
   }
   const week = curriculumPlannerWeekStartIso(weekStartDate);
   const existing = curriculumAssignmentForWeek(week);
@@ -11423,7 +11453,7 @@ function showLessonWorkspaceMainCalendarSuccess(assignment) {
   if (message) {
     message.textContent = week
       ? `“${assignment.lessonPlanTitle || "This lesson plan"}” is assigned to the week of ${week}. Weekly Planner day text was updated from the plan snapshot.`
-      : "Lesson plan added to This Week’s Plan.";
+      : "Lesson plan saved to This Week.";
   }
   document.querySelectorAll("[data-lesson-open-curriculum-planner]").forEach((button) => {
     if (week) button.dataset.lessonPlannerWeek = week;
@@ -11502,10 +11532,6 @@ function lessonWorkspaceWeekGlanceHtml(plan, lessonPlanId) {
   }).join("");
   return `
     <div class="lesson-workspace-week-glance">
-      <div class="lesson-workspace-week-actions">
-        <button type="button" class="ghost-button" data-lesson-print-variant="week">Print Week at a Glance</button>
-        <button type="button" class="ghost-button" data-lesson-download-variant="week">Download Weekly Schedule PDF</button>
-      </div>
       <div class="lesson-workspace-day-tabs" role="tablist" aria-label="Week days">${dayTabs}</div>
       <div class="lesson-workspace-day-panels">${dayPanels}</div>
     </div>
@@ -11629,8 +11655,8 @@ function lessonPlanWeeklyScheduleHtml(resource, plan) {
   const normalized = normalizeCurriculumLessonPlanForRender(plan);
   const theme = normalized.theme || resource?.theme || "";
   const days = lessonPlanWeeklyScheduleDays(normalized);
-  const materials = compactLessonPlanSummaryText(normalized.weeklyMaterials, 360);
-  const vocabulary = compactLessonPlanSummaryText(normalized.vocabularyWords, 220);
+  const materials = String(normalized.weeklyMaterials || "").trim();
+  const vocabulary = String(normalized.vocabularyWords || "").trim();
   return `
     <article class="printable-resource-page curriculum-lesson-viewer lesson-print-variant lesson-week-schedule-print">
       <header class="lesson-week-schedule-header">
@@ -11794,26 +11820,30 @@ function buildLessonPlanWeeklySchedulePdfBlob(resource) {
     text(day.label, x + 8, y + boxHeight - 18, 10, "F2", "0.14 0.30 0.30");
     let cursor = y + boxHeight - 46;
     const activities = day.activities.length ? day.activities : [{ title: "Open exploration", category: "Daily plan" }];
-    activities.slice(0, 4).forEach((activity) => {
-      wrapped(activity.title, x + 8, cursor, 18, 8.5, "F2", "0.08 0.08 0.08", 2);
-      cursor -= 26;
+    activities.slice(0, 5).forEach((activity) => {
+      const titleHeight = wrapped(activity.title, x + 8, cursor, 18, 8.2, "F2", "0.08 0.08 0.08", 3);
+      cursor -= Math.max(22, titleHeight + 6);
       wrapped(activity.category, x + 8, cursor, 18, 8, "F1", "0.35 0.35 0.35", 1);
       cursor -= 18;
       line(x + 8, cursor + 7, x + boxWidth - 8, cursor + 7, 0.5, "0.86 0.86 0.86");
     });
+    if (activities.length > 5) {
+      text(`+ ${activities.length - 5} more on page 2`, x + 8, y + 12, 7.5, "F1", "0.35 0.35 0.35");
+    }
   });
-  text("Summary only: activity titles and categories are shown for classroom scheduling. Open the full lesson plan for setup, steps, and teaching notes.", 50, 286, 8, "F1", "0.35 0.35 0.35");
+  text("Schedule grid: activity titles and categories are shown for classroom planning. Long plans continue on page 2.", 50, 286, 8, "F1", "0.35 0.35 0.35");
   text("Generated by Little Learner Hub. Review and customize for your program before use.", 50, 38, 8, "F1", "0.35 0.35 0.35");
   pages.push(page);
 
-  const materials = compactLessonPlanSummaryText(plan.weeklyMaterials, 900);
-  const vocabulary = compactLessonPlanSummaryText(plan.vocabularyWords, 500);
+  const materials = String(plan.weeklyMaterials || "").trim();
+  const vocabulary = String(plan.vocabularyWords || "").trim();
+  const hasContinuation = days.some((day) => day.activities.length > 5);
   const hasMaterialsPage = Boolean(materials || vocabulary || (Array.isArray(plan.books) && plan.books.length) || (Array.isArray(plan.songs) && plan.songs.length));
-  if (hasMaterialsPage) {
+  if (hasMaterialsPage || hasContinuation) {
     page = [];
     fillRect(36, 734, 540, 30, "0.20 0.38 0.38");
     text("Little Learner Hub", 50, 744, 12, "F2", "1 1 1");
-    text("Materials Summary", 50, 704, 16, "F2", "0.12 0.20 0.25");
+    text(hasContinuation ? "Schedule Continuation + Materials" : "Materials Summary", 50, 704, 16, "F2", "0.12 0.20 0.25");
     line(50, 686, 544, 686, 1, "0.76 0.84 0.82");
     let y = 656;
     const addSection = (label, value, maxChars = 92, maxLines = 9) => {
@@ -11822,8 +11852,29 @@ function buildLessonPlanWeeklySchedulePdfBlob(resource) {
       y -= 18;
       y -= wrapped(value, 58, y, maxChars, 9, "F1", "0.08 0.08 0.08", maxLines) + 12;
     };
-    addSection("Weekly materials", materials);
-    addSection("Vocabulary", vocabulary, 92, 5);
+    if (hasContinuation) {
+      text("Complete activity titles by day", 50, y, 12, "F2", "0.20 0.38 0.38");
+      y -= 18;
+      days.forEach((day) => {
+        if (y < 190) return;
+        const activities = day.activities.length ? day.activities : [{ title: "Open exploration", category: "Daily plan" }];
+        text(day.label, 58, y, 10, "F2", "0.14 0.30 0.30");
+        y -= 14;
+        activities.forEach((activity) => {
+          if (y < 120) return;
+          const titleHeight = wrapped(`- ${activity.title}`, 66, y, 88, 8.2, "F1", "0.08 0.08 0.08", 3);
+          y -= Math.max(11, titleHeight);
+          if (activity.category && y >= 120) {
+            y -= wrapped(`  ${activity.category}`, 72, y, 82, 7.5, "F1", "0.35 0.35 0.35", 1);
+          }
+          y -= 4;
+        });
+        y -= 6;
+      });
+      y -= 4;
+    }
+    addSection("Weekly materials", materials, 92, 7);
+    addSection("Vocabulary", vocabulary, 92, 4);
     if (Array.isArray(plan.books) && plan.books.length) {
       addSection("Books", plan.books.map((book) => `${book.title || book}${book.author ? ` by ${book.author}` : ""}`).join("; "), 92, 5);
     }
@@ -11892,7 +11943,7 @@ function lessonWorkspaceChromeHtml(resource) {
   const age = resource.age || plan.age || "Preschool";
   const planLabel = resource.plan || plan.plan || "Free";
   const pdfDownloadBtn = hasResourcePdf(resource)
-    ? `<button type="button" class="ghost-button" data-download-pdf="${escapeHtml(resource.id)}">Download Full Lesson Plan PDF</button>`
+    ? `<button type="button" class="ghost-button" data-download-pdf="${escapeHtml(resource.id)}">Download PDF</button>`
     : "";
   const tabs = [
     ["week", "Week"],
@@ -11944,15 +11995,13 @@ function lessonWorkspaceChromeHtml(resource) {
         <div class="lesson-workspace-action-sheet-panel" role="dialog" aria-label="Use this plan">
           <div data-lesson-workspace-action-panel="menu">
             <p class="lesson-workspace-action-sheet-title">Use This Plan</p>
-            <button type="button" class="ghost-button" data-curriculum-assign-week="${escapeHtml(resource.id)}">Assign to a Week</button>
-            <button type="button" class="ghost-button" data-lesson-add-to-main-calendar="${escapeHtml(resource.id)}">Add to This Week’s Plan</button>
-            <button type="button" class="ghost-button" data-lesson-print-variant="full">Print Full Lesson Plan</button>
+            <button type="button" class="ghost-button" data-lesson-add-to-main-calendar="${escapeHtml(resource.id)}">Plan This Week</button>
+            <button type="button" class="ghost-button" data-lesson-print-variant="full">Print Lesson Plan</button>
             ${pdfDownloadBtn}
-            <button type="button" class="ghost-button" data-lesson-view-in-curriculum-planner="${escapeHtml(resource.id)}">View in Curriculum Planner</button>
             <button type="button" class="link-button" data-lesson-workspace-action-sheet-dismiss>Cancel</button>
           </div>
           <div data-lesson-workspace-action-panel="main-calendar" hidden aria-hidden="true">
-            <p class="lesson-workspace-action-sheet-title">Add to This Week’s Plan</p>
+            <p class="lesson-workspace-action-sheet-title">Plan This Week</p>
             <p class="muted-copy lesson-workspace-action-sheet-note">Pick the Monday that starts your teaching week. Curriculum Planner assignments are the source of truth; Weekly Planner day text is filled from circle-time ideas and activity titles (no timed schedule blocks).</p>
             <form class="lesson-workspace-main-calendar-form" data-lesson-main-calendar-form>
               <input type="hidden" name="resourceId" value="${escapeHtml(resource.id)}" />
@@ -11963,13 +12012,13 @@ function lessonWorkspaceChromeHtml(resource) {
                 <select name="ageGroup">${lessonWorkspacePlannerAgeGroupOptions(lessonWorkspaceDefaultAgeGroup(resource, plan))}</select>
               </label>
               <div class="lesson-workspace-action-sheet-actions">
-                <button type="submit" class="primary-button">Add to Weekly Plan</button>
+                <button type="submit" class="primary-button">Save to This Week</button>
                 <button type="button" class="ghost-button" data-lesson-workspace-action-back>Back</button>
               </div>
             </form>
           </div>
           <div data-lesson-workspace-action-panel="success" hidden aria-hidden="true">
-            <p class="lesson-workspace-action-sheet-title">Added to This Week’s Plan</p>
+            <p class="lesson-workspace-action-sheet-title">Saved to This Week</p>
             <p class="muted-copy" data-lesson-workspace-success-message></p>
             <p class="muted-copy lesson-workspace-action-sheet-note">Daily activity display is limited to Weekly Planner day text and the Curriculum Planner week board — there is no separate timed day calendar yet.</p>
             <button type="button" class="primary-button" data-lesson-open-curriculum-planner>Open Curriculum Planner</button>
@@ -13095,6 +13144,17 @@ function lessonLibraryBackLabel(backView) {
 
 function renderLessonPlanLibraryHeader() {
   const backView = resolveLessonLibraryBackView();
+  if (lessonLibraryMode === "saved") {
+    return `
+      <header class="lesson-library-header">
+        <button class="ghost-button back-button lesson-library-back" data-lesson-library-mode="browse" type="button" aria-label="Back to Lesson Plans">← Back to Lesson Plans</button>
+        <div class="lesson-library-title-row">
+          <h2 class="lesson-library-title">Saved Lesson Plans</h2>
+        </div>
+        <p class="muted-copy lesson-library-subtitle">Plans you saved for quick access.</p>
+      </header>
+    `;
+  }
   return `
     <header class="lesson-library-header">
       <button class="ghost-button back-button lesson-library-back" data-view="${escapeHtml(backView)}" type="button" aria-label="Back">${lessonLibraryBackLabel(backView)}</button>
@@ -13112,20 +13172,19 @@ function renderLessonPlanLibraryHeader() {
 
 function renderLessonLibrarySecondaryControls() {
   const activeChips = [];
-  if (lessonLibraryShowSavedOnly) activeChips.push({ key: "saved", label: "Saved Plans" });
   if (lessonLibraryShowAssignedOnly) activeChips.push({ key: "assigned", label: "Assigned" });
   if (lessonLibraryPlanFilter !== "All") activeChips.push({ key: "plan", label: lessonLibraryPlanFilter });
   if (lessonLibrarySort !== "recommended") {
-    const sortLabels = { newest: "Newest", az: "A–Z", recent: "Recently viewed" };
+    const sortLabels = { newest: "Newest", az: "A-Z", recent: "Recently viewed" };
     activeChips.push({ key: "sort", label: sortLabels[lessonLibrarySort] || "Sorted" });
   }
   return `
     <div class="lesson-library-secondary-row">
-      <button class="ghost-button lesson-library-filters-btn" type="button" data-lesson-library-filters-toggle aria-expanded="${lessonLibraryFiltersOpen ? "true" : "false"}" aria-controls="lessonLibraryFilterDrawer">
-        Filters${activeChips.length ? ` (${activeChips.length})` : ""}
+      <button class="primary-button lesson-library-saved-link" type="button" data-lesson-library-mode="saved">
+        Saved Plans
       </button>
-      <button class="ghost-button ${lessonLibraryShowSavedOnly ? "active-filter" : ""}" type="button" data-lesson-library-saved-toggle aria-pressed="${lessonLibraryShowSavedOnly ? "true" : "false"}">
-        Saved
+      <button class="ghost-button lesson-library-filters-btn" type="button" data-lesson-library-filters-toggle aria-expanded="${lessonLibraryFiltersOpen ? "true" : "false"}" aria-controls="lessonLibraryFilterDrawer">
+        More filters${activeChips.length ? ` (${activeChips.length})` : ""}
       </button>
     </div>
     ${activeChips.length ? `
@@ -13147,7 +13206,6 @@ function renderLessonLibrarySecondaryControls() {
         <div class="lesson-library-filter-group">
           <p class="eyebrow">Collections</p>
           <div class="filter-row">
-            <button type="button" class="${lessonLibraryShowSavedOnly ? "active-filter" : ""}" data-lesson-library-saved-toggle aria-pressed="${lessonLibraryShowSavedOnly ? "true" : "false"}">Saved Plans</button>
             <button type="button" class="${lessonLibraryShowAssignedOnly ? "active-filter" : ""}" data-lesson-library-assigned-toggle aria-pressed="${lessonLibraryShowAssignedOnly ? "true" : "false"}">Assigned</button>
           </div>
         </div>
@@ -13174,8 +13232,11 @@ function renderLessonLibrarySecondaryControls() {
 }
 
 function lessonLibraryEmptyStateHtml(itemsQueried) {
-  if (lessonLibraryShowSavedOnly) {
-    return `<div class="empty-state">No saved plans yet. Open a plan and tap Save, or clear the Saved filter. <button class="inline-link" type="button" data-clear-all-lesson-filters>Clear Filters</button></div>`;
+  if (lessonLibraryMode === "saved") {
+    if (!isProUser()) {
+      return `<div class="empty-state"><strong>Saved lesson plans are included with Pro.</strong><br />Upgrade to save plans for quick access. You can still browse Free lesson plans in the library.</div>`;
+    }
+    return `<div class="empty-state">No saved lesson plans yet. Open a plan and tap Save.</div>`;
   }
   if (searchInput.value.trim() || activeFilter !== "All" || lessonLibraryPlanFilter !== "All" || lessonLibraryShowAssignedOnly) {
     return `<div class="empty-state">No plans match your filters. <button class="inline-link" type="button" data-clear-all-lesson-filters>Clear Filters</button></div>`;
@@ -13184,7 +13245,6 @@ function lessonLibraryEmptyStateHtml(itemsQueried) {
 }
 
 function clearLessonLibraryAdvancedFilters() {
-  lessonLibraryShowSavedOnly = false;
   lessonLibraryShowAssignedOnly = false;
   lessonLibraryPlanFilter = "All";
   lessonLibrarySort = "recommended";
@@ -13212,16 +13272,17 @@ function renderCategoryPage(view) {
     ? `<div class="empty-state">No activities match your search or filter. Activities appear automatically when lesson plans are published. <button class="inline-link" data-view="lessons" type="button">Browse lesson plans</button></div>`
     : `<div class="empty-state">No resources found. Try another search or filter.</div>`;
   if (isLessonPlanCategory) {
+    const isSavedLessonMode = lessonLibraryMode === "saved";
     section.innerHTML = `
       ${renderLessonPlanLibraryHeader()}
       <div class="lesson-plan-search-bar">
         <label class="lesson-plan-search-label visually-hidden" for="lessonPlanSearch">Search lesson plans</label>
-        <input id="lessonPlanSearch" type="search" placeholder="Search lesson plans..." value="${escapeHtml(searchInput.value)}" autocomplete="off" />
+        <input id="lessonPlanSearch" type="search" placeholder="${isSavedLessonMode ? "Search saved plans..." : "Search lesson plans..."}" value="${escapeHtml(searchInput.value)}" autocomplete="off" />
       </div>
-      <div class="filter-row lesson-library-age-filters" role="group" aria-label="Age group filters">
+      ${isSavedLessonMode ? "" : `<div class="filter-row lesson-library-age-filters" role="group" aria-label="Age group filters">
         ${filters.map((filter) => `<button class="${activeFilter === filter ? "active-filter" : ""}" data-filter="${filter}" type="button" aria-pressed="${activeFilter === filter ? "true" : "false"}">${filter}</button>`).join("")}
-      </div>
-      ${renderLessonLibrarySecondaryControls()}
+      </div>`}
+      ${isSavedLessonMode ? "" : renderLessonLibrarySecondaryControls()}
       <div class="resource-grid lesson-library-grid">
         ${items.length ? items.map(lessonPlanCard).join("") : lessonLibraryEmptyStateHtml()}
       </div>
@@ -30287,6 +30348,9 @@ function renderFavoritesPage() {
       <p>Your saved resources in one place.</p>
     </div>
     <section class="section-block">
+      <div class="form-actions">
+        <button class="ghost-button" type="button" data-view="lessons" data-lesson-library-mode="saved">View Saved Lesson Plans</button>
+      </div>
       ${retiredFavoritesNote}
       <div class="resource-list compact">
         ${savedFavoriteResources.length
@@ -31303,6 +31367,7 @@ document.addEventListener("click", async (event) => {
     if (nextView !== "activities") {
       activeActivityLessonPlanId = "";
     }
+    const requestedLessonLibraryMode = viewButton.dataset.lessonLibraryMode || "";
     if (viewButton.dataset.quickDocType) {
       pendingAiDocType = viewButton.dataset.quickDocType;
     }
@@ -31361,7 +31426,7 @@ document.addEventListener("click", async (event) => {
       activePortfolioChildId = "";
     }
     setMobileNavOpen(false);
-    setView(viewButton.dataset.view);
+    setView(viewButton.dataset.view, requestedLessonLibraryMode ? { lessonLibraryMode: requestedLessonLibraryMode } : {});
     return;
   }
 
@@ -32235,10 +32300,26 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const lessonLibrarySavedToggle = event.target.closest("[data-lesson-library-saved-toggle]");
-  if (lessonLibrarySavedToggle) {
+  const lessonLibraryModeButton = event.target.closest("[data-lesson-library-mode]");
+  if (lessonLibraryModeButton) {
     event.preventDefault();
-    lessonLibraryShowSavedOnly = !lessonLibraryShowSavedOnly;
+    const mode = lessonLibraryModeButton.dataset.lessonLibraryMode === "saved" ? "saved" : "browse";
+    if (mode === "browse" && lessonLibraryMode === "saved" && shouldUseLessonNavHistoryBack()) {
+      window.history.back();
+      return;
+    }
+    const previousMode = lessonLibraryMode;
+    lessonLibraryMode = mode;
+    if (mode === "saved") {
+      lessonLibraryFiltersOpen = false;
+      lessonLibraryShowAssignedOnly = false;
+      lessonLibraryPlanFilter = "All";
+      lessonLibrarySort = "recommended";
+      activeFilter = "All";
+      if (previousMode !== "saved") {
+        pushLessonNavHistory({ type: "lessons", mode: "saved" });
+      }
+    }
     renderCategoryPage("lessons");
     return;
   }
@@ -32271,7 +32352,6 @@ document.addEventListener("click", async (event) => {
   if (clearLessonChipButton) {
     event.preventDefault();
     const key = clearLessonChipButton.dataset.clearLessonChip;
-    if (key === "saved") lessonLibraryShowSavedOnly = false;
     if (key === "assigned") lessonLibraryShowAssignedOnly = false;
     if (key === "plan") lessonLibraryPlanFilter = "All";
     if (key === "sort") lessonLibrarySort = "recommended";

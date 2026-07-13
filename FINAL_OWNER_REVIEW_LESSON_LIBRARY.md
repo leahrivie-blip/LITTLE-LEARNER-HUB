@@ -1,147 +1,72 @@
 # Final Owner Review — Lesson Plan Library
-**Handoff for tomorrow · Do not merge yet**
+**Status: implemented on draft branch · Do not merge yet**
 
-## Current state (saved)
+## Current state
 
 | Item | Value |
 |------|--------|
 | Branch | `cursor/lesson-library-phase2-693d` |
-| Latest commit | `47c1695` — Complete lesson library phase 2 |
 | Draft PR | https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/161 |
-| Base | Includes Batches 1–8 + Phase 2 on top of prior draft work |
-| Merge status | **Not merged. Do not merge until this review passes.** |
+| Base | Batches 1–8 + Phase 2 + Final Owner Review UX pass |
+| Merge status | **Not merged. Awaiting owner approval.** |
 | Superseded drafts | Prefer #161 over #156–#160 |
 
-### What Phase 2 already delivered
-- Compact library + hidden global “What do you need today?” on lessons
-- Lesson workspace tabs + Use This Plan sheet
-- Browser history for Library → Lesson → Activity
-- Renamed calendar action: **Add to This Week’s Plan**
-- Weekly schedule print/PDF (schedule layout; up to 2 pages)
-- Global search compact cards for Lesson Plan hits
-- Automated tests: `test:lesson-library-phase2` + prior lesson-library scripts
+### What this Final Owner Review pass delivered
+- **Browse chrome simplified:** search + age filters + **Saved Plans** destination + **More filters** drawer (Assigned / Free·Pro / sort). Saved is no longer a filter chip.
+- **Saved Lesson Plans page:** own title, subtitle, back to browse, search-only chrome; lists favorites only (Pro).
+- **Use This Plan minimum actions:** **Plan This Week** (combined week assign + weekly planner fill) + Print + Download PDF. Removed Assign / Add to This Week’s Plan / View in Curriculum Planner duplicates. Success CTAs open Curriculum Planner or Weekly Planner.
+- **Week tab cleanup:** no top Print/Download buttons (those stay under More).
+- **Device Back:** Saved → browse → prior view; lesson/activity history unchanged.
+- **Weekly schedule print polish:** denser wrapping, page-break guards for large 15–20+ activity plans.
+- **Tests:** `npm run test:lesson-owner-review` plus updated phase2 / use-this-plan / cards / viewer / mobile-qa.
+- **Screenshots:** `/opt/cursor/artifacts/lesson-library-owner-review/`
 
-### Artifacts already captured
-- `/opt/cursor/artifacts/lesson-library-ux/`
-- `/opt/cursor/artifacts/lesson-library-phase2-plan/`
-- `/opt/cursor/artifacts/lesson-library-phase2-complete/`
-- Plan docs: `LESSON_LIBRARY_UX_IMPLEMENTATION_MAP.md`, `LESSON_LIBRARY_PHASE2_COMPLETION_PLAN.md`
+### Explicit product decisions preserved
+- Calendar **Option B**: rename/consolidate only — still **not** a true month calendar
+- Weekly PDF may use up to 2 pages
+- No new large branch family; stacked on #161
 
-### Production readiness (end of Phase 2)
-**~84/100** — staging/review ready, not auto-merge ready.
+### Production readiness (after Final Owner Review)
+**~90/100** — ready for owner visual sign-off; still **do not merge** without approval.
 
----
-
-## Tomorrow’s work: Final Owner Review
-
-Goal: one final **UX simplification + real curriculum proof** pass.  
-Not a redesign. Not a new calendar. Not unrelated features.
-
-### 1. Lesson Library still feels too busy
-Review the full flow and remove/consolidate anything not essential.
-
-Current clutter to challenge:
-- Search
-- Age filters
-- Filters
-- Saved
-- Use This Plan / Save / More
-- Tabs
-- Print buttons
-
-**Goal:** daycare provider can find and use a lesson in seconds.  
-**North star:** “Find lesson → Use lesson” — not “figure out which of 15 buttons to press.”
-
-### 2. Saved needs redesign
-Saved must not remain a small filter chip.  
-Make **Saved Lesson Plans** its own destination/page so teachers instantly find saved plans.
-
-### 3. Use This Plan — remove duplicates
-Current sheet:
-- Assign to a Week
-- Add to This Week’s Plan
-- Print Full Lesson Plan
-- Download Full Lesson Plan PDF
-- View in Curriculum Planner
-
-Review for near-duplicates. Keep the **minimum** actions. Combine if two do nearly the same thing (especially Assign vs Add to This Week’s Plan).
-
-### 4. Weekly Schedule PDF — classroom-ready, not demo
-Verify with real teacher conditions:
-- iPhone Safari print
-- Android print
-- Desktop print
-- PDF download
-- Fits normal printer paper
-- Looks good with **15–20+ activities**, long names, large materials lists
-- No cut-off text, overlaps, missing activities, bad page breaks
-- Feels binder/clipboard/wall-ready
-
-### 5. Lesson Viewer back/navigation safety
-Every screen:
-- Visible Back
-- Device Back works
-- No dead ends
-- No modal traps
-
-### 6. Mobile QA
-Devices/browsers:
-- iPhone Safari
-- Chrome Mobile
-- Small phones
-- Large phones
-
-Check scrolling, overflow, clipped buttons, hidden text, modal behavior, PDF actions.
-
-### 7. Real curriculum testing (mandatory)
-**Do not use placeholder/demo plans for proof.**
-
-Test actual Little Learner Hub published plans:
-- Infant
-- Toddler
-- Preschool
-
-Especially:
-- multiple activities per day
-- long activity names
-- large materials lists
-- long weekly objectives
-- premium plans where relevant
-
-### 8. Final UX simplification pass
-Reduce clicks and button clutter across library + viewer.  
-If a control isn’t needed for the core path, hide it, move it, or merge it.
-
-### 9. Monday–Friday printable must be production ready
-Before merge approval, provide screenshots generated from **actual** LLH curriculum (not import-sample placeholders), proving:
-- Real Infant / Toddler / Preschool plans
-- Large lesson plans (15–20+ activities)
-- Teacher-friendly layout (title, theme, age, Mon–Fri, activities by day)
-- Print + PDF quality on mobile and desktop
+Remaining for owner eyes (not blocked by automation):
+- Confirm browse chrome feels calm enough on a real phone
+- Confirm weekly Mon–Fri print looks binder-ready when printed from iPhone Safari / Android / desktop
+- Optional: hide or demote any leftover secondary control that still feels noisy in live use
 
 ---
 
-## Suggested start order tomorrow
+## How to verify
 
-1. Pull/checkout `cursor/lesson-library-phase2-693d`
-2. Audit current button inventory (library + viewer + Use This Plan) with screenshots
-3. Propose consolidation (Saved page, Use This Plan merge, hide secondary print/filters)
-4. Implement small UX simplification commits
-5. Run real curriculum print/PDF proof with published Infant/Toddler/Preschool plans
-6. Mobile QA + screenshots
-7. Update #161 with findings; **still do not merge** until owner approval
+```bash
+git checkout cursor/lesson-library-phase2-693d
+npm run test:lesson-owner-review
+npm run test:lesson-library-phase2
+npm run test:lesson-use-this-plan
+npm run test:lesson-library-mobile-qa
+node scripts/capture-owner-review-screens.js
+```
 
-## Explicitly out of scope tomorrow
+Artifact folder: `/opt/cursor/artifacts/lesson-library-owner-review/`
+- `01-browse-library-clean.png`
+- `02-saved-lesson-plans.png`
+- `03-viewer-week-no-top-print.png`
+- `04-use-this-plan-minimal-sheet.png`
+- `05-weekly-print-large-plan.png`
+- `06-infant|toddler|preschool-viewer.png`
+- `07-overflow-390|412|430.png`
+
+## Explicitly out of scope
 - Building a true month calendar
-- Restarting the project on a new branch family
+- Restarting on a new branch family
 - Unrelated homepage/admin redesign
 - Merging without owner sign-off
 
-## Acceptance for merge (tomorrow+)
-Owner can approve merge only when:
+## Acceptance for merge
+Owner can approve merge when:
 - Core path feels “Find → Use” with minimal clutter
 - Saved is a clear destination
 - Use This Plan has no duplicate actions
 - Weekly schedule print/PDF proven with real, large curriculum
 - Back/device-back safe on mobile
-- Screenshots from actual LLH Infant/Toddler/Preschool plans attached
+- Screenshots from Infant / Toddler / Preschool plans reviewed

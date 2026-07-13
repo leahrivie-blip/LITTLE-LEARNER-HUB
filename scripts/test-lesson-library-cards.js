@@ -185,14 +185,16 @@ async function main() {
         maxHeight: heights.length ? Math.max(...heights) : 0,
         actionStacks,
         hasFiltersBtn: Boolean(document.querySelector("[data-lesson-library-filters-toggle]")),
-        hasSavedBtn: Boolean(document.querySelector("[data-lesson-library-saved-toggle]")),
+        hasSavedDestination: Boolean(document.querySelector('[data-lesson-library-mode="saved"]')),
+        hasSavedFilterToggle: Boolean(document.querySelector("[data-lesson-library-saved-toggle]")),
         overflow,
         hasOldButtons: match ? /Customize AI|Assign to Week|Add Support|Download PDF/.test(match.textContent) : false,
       };
     }, freeLesson.title);
 
     assert(cardStats.matched, "seeded free lesson card missing");
-    assert(cardStats.hasFiltersBtn && cardStats.hasSavedBtn, "Filters and Saved controls missing");
+    assert(cardStats.hasFiltersBtn && cardStats.hasSavedDestination, "More filters and Saved Plans controls missing");
+    assert(!cardStats.hasSavedFilterToggle, "Saved filter toggle should not render");
     assert(cardStats.actionStacks === 0, "compact cards should not show the old action button stack");
     assert(!cardStats.hasOldButtons, "old card action labels should be removed from lesson cards");
     assert(cardStats.maxHeight < 320, `cards too tall: max ${cardStats.maxHeight}px`);

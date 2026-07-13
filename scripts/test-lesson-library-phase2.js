@@ -210,7 +210,30 @@ async function main() {
     await page.waitForSelector("#view-lessons.active-view", { timeout: 10000 });
     await page.waitForFunction(() => !document.querySelector("#resourceViewerModal.open"), null, { timeout: 5000 });
 
-    console.log("B) Use This Plan sheet action order and renamed weekly plan action");
+    console.log("B) Library browse has Saved Plans destination and no Saved filter chip");
+    await gotoLessons(page);
+    const libraryChrome = await page.evaluate(() => ({
+      hasSavedDestination: Boolean(document.querySelector('[data-lesson-library-mode="saved"]')),
+      hasSavedToggle: Boolean(document.querySelector("[data-lesson-library-saved-toggle]")),
+      hasMoreFilters: /More filters/i.test(document.querySelector("[data-lesson-library-filters-toggle]")?.textContent || ""),
+    }));
+    assert(libraryChrome.hasSavedDestination, "Saved Plans destination missing from browse");
+    assert(!libraryChrome.hasSavedToggle, "Saved filter toggle should not render in browse");
+    assert(libraryChrome.hasMoreFilters, "More filters control missing");
+    await page.click('[data-lesson-library-mode="saved"]');
+    await page.waitForSelector("#view-lessons:has-text('Saved Lesson Plans')", { timeout: 5000 });
+    const savedMode = await page.evaluate(() => ({
+      title: document.querySelector(".lesson-library-title")?.textContent.trim() || "",
+      hasAgeFilters: Boolean(document.querySelector(".lesson-library-age-filters")),
+      empty: document.querySelector(".lesson-library-grid")?.textContent || "",
+    }));
+    assert(savedMode.title === "Saved Lesson Plans", `saved page title wrong: ${savedMode.title}`);
+    assert(!savedMode.hasAgeFilters, "saved page should not show age filters");
+    assert(/No saved lesson plans yet|Saved lesson plans are included with Pro/i.test(savedMode.empty), "saved page empty/helpful copy missing");
+    await page.click('[data-lesson-library-mode="browse"]');
+    await page.waitForSelector("#view-lessons:has-text('Lesson Plan Library')", { timeout: 5000 });
+
+    console.log("C) Use This Plan sheet action order and renamed weekly plan action");
     await openLessonWorkspace(page, primary.title);
     await page.click("[data-lesson-use-this-plan]");
     await page.waitForSelector(".lesson-workspace-action-sheet:not([hidden])", { timeout: 5000 });
@@ -218,15 +241,13 @@ async function main() {
       [...document.querySelectorAll('[data-lesson-workspace-action-panel="menu"] button')]
         .map((el) => el.textContent.trim())
     ));
-    assert(sheetLabels[0] === "Assign to a Week", `first sheet action wrong: ${sheetLabels.join(" | ")}`);
-    assert(sheetLabels[1] === "Add to This Week’s Plan", `weekly plan action wrong: ${sheetLabels.join(" | ")}`);
-    assert(sheetLabels[2] === "Print Full Lesson Plan", `full print action wrong: ${sheetLabels.join(" | ")}`);
-    assert(sheetLabels[3] === "Download Full Lesson Plan PDF", `full PDF action wrong: ${sheetLabels.join(" | ")}`);
-    assert(sheetLabels[4] === "View in Curriculum Planner", `planner action wrong: ${sheetLabels.join(" | ")}`);
-    assert(sheetLabels[5] === "Cancel", `cancel action wrong: ${sheetLabels.join(" | ")}`);
+    assert(sheetLabels[0] === "Plan This Week", `first sheet action wrong: ${sheetLabels.join(" | ")}`);
+    assert(sheetLabels[1] === "Print Lesson Plan", `print action wrong: ${sheetLabels.join(" | ")}`);
+    assert(sheetLabels.includes("Cancel"), `cancel action missing: ${sheetLabels.join(" | ")}`);
+    assert(!sheetLabels.some((label) => /Assign to a Week|Add to This Week|View in Curriculum Planner/i.test(label)), `old sheet action still present: ${sheetLabels.join(" | ")}`);
     await page.click("[data-lesson-workspace-action-sheet-dismiss]");
 
-    console.log("C) Global search renders lesson plan compact cards");
+    console.log("D) Global search renders lesson plan compact cards");
     await closeViewerProgrammatically(page);
     await page.evaluate((query) => {
       setView("home");
@@ -243,7 +264,7 @@ async function main() {
     assert(searchState.hasSearchGrid, "global search grid should support compact lesson cards");
     assert(searchState.hasBack, "global search should include Back to Home/Dashboard");
 
-    console.log("D) Weekly print variant uses professional schedule grid");
+    console.log("E) Weekly print variant uses professional schedule grid");
     await openLessonWorkspace(page, primary.title);
     const weeklyHtml = await page.evaluate(() => resourcePrintableHtml(activeResourceViewerResource, { mode: "print", printVariant: "week" }));
     assert(weeklyHtml.includes("lesson-week-schedule-grid"), "weekly print HTML missing schedule grid class");
@@ -251,7 +272,7 @@ async function main() {
       assert(weeklyHtml.includes(day), `weekly print HTML missing ${day}`);
     });
 
-    console.log("E) Real-ish Free plans open by age with tabs and weekday activity");
+    console.log("F) Real-ish Free plans open by age with tabs and weekday activity");
     for (const plan of seeded) {
       await closeViewerProgrammatically(page);
       await openLessonWorkspace(page, plan.title);

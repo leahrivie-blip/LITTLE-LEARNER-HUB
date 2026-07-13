@@ -193,7 +193,7 @@ async function main() {
     ]);
     await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
 
-    console.log("1) Action sheet exposes Batch 5 options");
+    console.log("1) Action sheet exposes minimum owner-review options");
     await openLessonWorkspace(page, lessonA.title);
     await page.click("[data-lesson-use-this-plan]");
     await page.waitForSelector(".lesson-workspace-action-sheet:not([hidden])", { timeout: 5000 });
@@ -201,15 +201,20 @@ async function main() {
       [...document.querySelectorAll('[data-lesson-workspace-action-panel="menu"] button')]
         .map((el) => el.textContent.trim())
     ));
-    assert(menuLabels.some((label) => label.includes("Assign to a Week")), "Assign to a Week missing");
-    assert(menuLabels.some((label) => label.includes("Add to This Week’s Plan")), "Add to This Week’s Plan missing");
-    assert(menuLabels.some((label) => label.includes("Print Full Lesson Plan")), "Print Full Lesson Plan missing");
-    assert(menuLabels.some((label) => label.includes("Download Full Lesson Plan PDF")), "Download Full Lesson Plan PDF missing");
-    assert(menuLabels.some((label) => label.includes("View in Curriculum Planner")), "View in Curriculum Planner missing");
+    assert(menuLabels[0] === "Plan This Week", `Plan This Week should be first: ${menuLabels.join(" | ")}`);
+    assert(menuLabels.some((label) => label.includes("Print Lesson Plan")), "Print Lesson Plan missing");
+    assert(menuLabels.some((label) => label.includes("Cancel")), "Cancel missing");
+    assert(!menuLabels.some((label) => /Assign to a Week|Add to This Week|View in Curriculum Planner/i.test(label)), `Old duplicate actions still present: ${menuLabels.join(" | ")}`);
 
-    console.log("2) Add to This Week’s Plan assigns curriculum + updates weekly planner");
+    console.log("2) Plan This Week assigns curriculum + updates weekly planner");
     await page.click(`[data-lesson-add-to-main-calendar="${lessonA.planId}"]`);
     await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
+    const formCopy = await page.evaluate(() => ({
+      title: document.querySelector('[data-lesson-workspace-action-panel="main-calendar"] .lesson-workspace-action-sheet-title')?.textContent.trim() || "",
+      submit: document.querySelector('[data-lesson-main-calendar-form] button[type="submit"]')?.textContent.trim() || "",
+    }));
+    assert(formCopy.title === "Plan This Week", `form title wrong: ${formCopy.title}`);
+    assert(formCopy.submit === "Save to This Week", `submit copy wrong: ${formCopy.submit}`);
     await page.fill('[data-lesson-main-calendar-form] [name="weekStartDate"]', weekStart);
     await page.selectOption('[data-lesson-main-calendar-form] [name="ageGroup"]', "Preschool");
     await page.click('[data-lesson-main-calendar-form] button[type="submit"]');
@@ -222,6 +227,7 @@ async function main() {
       return {
         assignment,
         planner,
+        successTitle: document.querySelector('[data-lesson-workspace-action-panel="success"] .lesson-workspace-action-sheet-title')?.textContent.trim() || "",
         successText: document.querySelector("[data-lesson-workspace-success-message]")?.textContent || "",
       };
     }, { email: USER_EMAIL, week: weekStart, planId: lessonA.planId });
@@ -232,6 +238,7 @@ async function main() {
     assert(afterFirst.planner?.resourceId === lessonA.planId, "Weekly planner resourceId not linked");
     assert(String(afterFirst.planner?.theme || "").includes("Use Plan Alpha"), "Weekly planner theme should use lesson title");
     assert(String(afterFirst.planner?.days?.Monday?.activity || "").includes("Monday Activity"), "Monday activity summary missing");
+    assert(afterFirst.successTitle === "Saved to This Week", `success title wrong: ${afterFirst.successTitle}`);
     assert(afterFirst.successText.includes(weekStart), "Success message should mention assigned week");
 
     console.log("3) Replacement warning when assigning different plan to same week");
@@ -266,17 +273,6 @@ async function main() {
 
     assert(afterReplace.assignment?.lessonPlanId === lessonB.planId, "Week assignment should be replaced with lesson B");
     assert(afterReplace.planner?.resourceId === lessonB.planId, "Weekly planner should point to lesson B after replace");
-
-    console.log("4) Assign to a Week opens Curriculum Planner assign flow");
-    await page.click("[data-lesson-workspace-action-sheet-dismiss]");
-    await page.click("[data-lesson-workspace-back]");
-    await openLessonWorkspace(page, lessonA.title);
-    await page.click("[data-lesson-use-this-plan]");
-    await page.click(`[data-curriculum-assign-week="${lessonA.planId}"]`);
-    await page.waitForSelector("#view-curriculum-planner.active-view", { timeout: 10000 });
-    await page.waitForSelector("#curriculumPlannerAssignForm", { timeout: 10000 });
-    const preselected = await page.locator('#curriculumPlannerAssignForm [name="lessonPlanId"]').inputValue();
-    assert(preselected === lessonA.planId, "Assign to a Week should preselect lesson in planner");
 
     console.log("Lesson Use This Plan weekly plan checks passed.");
     await browser.close();

@@ -233,6 +233,14 @@ async function main() {
     assert(!libraryA.overflow, "lesson library has horizontal overflow at 412px");
     assert(libraryA.cardTop < 420, `lesson cards sit too low on mobile (${libraryA.cardTop}px)`);
     assert(libraryA.maxHeight < 320, `lesson cards are too tall on mobile (${libraryA.maxHeight}px)`);
+    const simplifiedBrowse = await page.evaluate(() => ({
+      savedDestination: Boolean(document.querySelector('[data-lesson-library-mode="saved"]')),
+      savedFilterToggle: Boolean(document.querySelector("[data-lesson-library-saved-toggle]")),
+      moreFilters: /More filters/i.test(document.querySelector("[data-lesson-library-filters-toggle]")?.textContent || ""),
+    }));
+    assert(simplifiedBrowse.savedDestination, "Saved Plans destination missing on mobile");
+    assert(!simplifiedBrowse.savedFilterToggle, "Saved filter chip should be removed on mobile");
+    assert(simplifiedBrowse.moreFilters, "More filters control missing on mobile");
 
     await page.click('button[data-filter="Preschool"]');
     await page.waitForTimeout(200);
@@ -288,19 +296,28 @@ async function main() {
     await page.waitForSelector("#resourceViewerModal.lesson-workspace-mode.open", { timeout: 10000 });
     assert(await page.locator(".lesson-workspace-title").innerText() === freeLesson.title, "activity library back should reopen the originating lesson");
 
-    console.log("4) Escape closes transient lesson UI and assign flow returns");
+    console.log("4) Escape closes transient lesson UI and Plan This Week panel works");
     await page.click("[data-lesson-use-this-plan]");
     await page.waitForSelector(".lesson-workspace-action-sheet:not([hidden])", { timeout: 3000 });
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => document.querySelector(".lesson-workspace-action-sheet")?.hidden === true, null, { timeout: 5000 });
     assert(await page.locator("#resourceViewerModal.lesson-workspace-mode.open").count(), "Escape should close the action sheet before closing the lesson");
     await page.click("[data-lesson-use-this-plan]");
-    await page.click(`[data-curriculum-assign-week="${freeLesson.planId}"]`);
-    await page.waitForSelector("#view-curriculum-planner.active-view", { timeout: 10000 });
-    const curriculumBack = await page.locator('[data-contextual-back="curriculum-planner"]').innerText();
-    assert(/Lesson Plan/i.test(curriculumBack), `curriculum planner should point back to lesson plan, got: ${curriculumBack}`);
-    await page.click('[data-contextual-back="curriculum-planner"]');
-    await page.waitForSelector("#resourceViewerModal.lesson-workspace-mode.open", { timeout: 10000 });
+    await page.click(`[data-lesson-add-to-main-calendar="${freeLesson.planId}"]`);
+    await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
+    const planPanelCopy = await page.evaluate(() => ({
+      title: document.querySelector('[data-lesson-workspace-action-panel="main-calendar"] .lesson-workspace-action-sheet-title')?.textContent.trim() || "",
+      submit: document.querySelector('[data-lesson-main-calendar-form] button[type="submit"]')?.textContent.trim() || "",
+    }));
+    assert(planPanelCopy.title === "Plan This Week", `Plan This Week panel title wrong: ${planPanelCopy.title}`);
+    assert(planPanelCopy.submit === "Save to This Week", `Plan This Week submit copy wrong: ${planPanelCopy.submit}`);
+    await page.click("[data-lesson-workspace-action-back]");
+    await page.waitForSelector('[data-lesson-workspace-action-panel="menu"]:not([hidden])', { timeout: 3000 });
+    const sheetLabels = await page.evaluate(() => [...document.querySelectorAll('[data-lesson-workspace-action-panel="menu"] button')].map((el) => el.textContent.trim()));
+    assert(sheetLabels[0] === "Plan This Week", `Plan This Week should be first: ${sheetLabels.join(" | ")}`);
+    assert(!sheetLabels.some((label) => /Assign to a Week|Add to This Week|View in Curriculum Planner/i.test(label)), `old duplicate sheet action present: ${sheetLabels.join(" | ")}`);
+    await page.click("[data-lesson-workspace-action-sheet-dismiss]");
+    await page.waitForFunction(() => document.querySelector(".lesson-workspace-action-sheet")?.hidden === true, null, { timeout: 5000 });
 
     console.log("5) Weekly planner can reopen its linked lesson");
     await page.click("[data-lesson-use-this-plan]");
