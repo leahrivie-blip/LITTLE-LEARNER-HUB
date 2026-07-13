@@ -219,7 +219,7 @@ async function main() {
     assert(moreItems.includes("Customize with AI"), "Customize with AI missing from More menu");
     assert(moreItems.includes("Add Support"), "Add Support missing from More menu");
     assert(moreItems.includes("View Linked Activities"), "View Linked Activities missing from More menu");
-    assert(!moreItems.includes("Print Lesson Plan"), "Print Lesson Plan should live in Use This Plan sheet");
+    assert(!moreItems.includes("Print Full Lesson Plan") && !moreItems.includes("Print Lesson Plan"), "Print Full Lesson Plan should live in Use This Plan sheet");
     assert(!moreItems.includes("Download PDF"), "Full PDF download should live in Use This Plan sheet");
     assert(moreItems.includes("Print Week at a Glance"), "Print Week at a Glance missing from More menu");
     assert(moreItems.includes("Download Weekly Schedule PDF"), "Download Weekly Schedule PDF missing from More menu");
@@ -234,7 +234,7 @@ async function main() {
     await page.waitForSelector(".lesson-workspace-action-sheet:not([hidden])", { timeout: 3000 });
     const sheetItems = await page.evaluate(() => [...document.querySelectorAll(".lesson-workspace-action-sheet-panel button")].map((el) => el.textContent.trim()));
     assert(sheetItems.some((label) => label.includes("Plan This Week")), "Plan This Week missing from action sheet");
-    assert(sheetItems.some((label) => label.includes("Print Lesson Plan")), "Print Lesson Plan missing from action sheet");
+    assert(sheetItems.some((label) => label.includes("Print Full Lesson Plan") || label.includes("Print Lesson Plan")), "Print Full Lesson Plan missing from action sheet");
     assert(!sheetItems.some((label) => /Assign to a Week|Add to This Week|View in Curriculum Planner/i.test(label)), `old action still present: ${sheetItems.join(" | ")}`);
     await page.click("[data-lesson-workspace-action-sheet-dismiss]");
     await page.waitForFunction(() => document.querySelector(".lesson-workspace-action-sheet")?.hidden === true, null, { timeout: 3000 });

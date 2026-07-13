@@ -29,6 +29,8 @@
 ### Production readiness (after Final Owner Review)
 **~90/100** — ready for owner visual sign-off; still **do not merge** without approval.
 
+See **Final Owner Review Round** updates in `FINAL_OWNER_REVIEW_ROUND.md` (real curriculum proof, weekly PDF polish, app conversion report).
+
 Remaining for owner eyes (not blocked by automation):
 - Confirm browse chrome feels calm enough on a real phone
 - Confirm weekly Mon–Fri print looks binder-ready when printed from iPhone Safari / Android / desktop

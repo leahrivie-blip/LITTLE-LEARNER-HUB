@@ -269,7 +269,8 @@ async function main() {
     await page.waitForSelector(".lesson-workspace-action-sheet:not([hidden])", { timeout: 5000 });
     const sheet = await page.evaluate(() => [...document.querySelectorAll('[data-lesson-workspace-action-panel="menu"] button')].map((el) => el.textContent.trim()));
     assert(sheet[0] === "Plan This Week", `Plan This Week should be first: ${sheet.join(" | ")}`);
-    assert(sheet.includes("Print Lesson Plan"), `Print Lesson Plan missing: ${sheet.join(" | ")}`);
+    assert(sheet.includes("Print Full Lesson Plan"), `Print Full Lesson Plan missing: ${sheet.join(" | ")}`);
+    assert(sheet.includes("Download PDF"), `Download PDF missing: ${sheet.join(" | ")}`);
     assert(sheet.includes("Cancel"), `Cancel missing: ${sheet.join(" | ")}`);
     assert(!sheet.some((label) => /Assign to a Week|Add to This Week|View in Curriculum Planner/i.test(label)), `old duplicate actions present: ${sheet.join(" | ")}`);
     await page.click("[data-lesson-workspace-action-sheet-dismiss]");
@@ -288,7 +289,7 @@ async function main() {
     }, primary.activityCount);
     assert(!weekAndPrint.hasTopPrint && !weekAndPrint.hasTopDownload, "Week tab should not show top print/download buttons");
     assert(weekAndPrint.html.includes("lesson-week-schedule-grid"), "weekly print HTML missing schedule grid");
-    assert(weekAndPrint.html.includes("Materials Summary"), "weekly print HTML missing materials summary");
+    assert(weekAndPrint.html.includes("Classroom Support Notes"), "weekly print HTML missing classroom support notes");
     assert(weekAndPrint.html.includes("extended classroom-ready title"), "weekly print HTML should keep long activity titles");
     assert(weekAndPrint.activityRows >= primary.activityCount, `viewer should show many activities (${weekAndPrint.activityRows}/${primary.activityCount})`);
 

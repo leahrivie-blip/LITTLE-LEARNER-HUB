@@ -11538,11 +11538,47 @@ function lessonWorkspaceWeekGlanceHtml(plan, lessonPlanId) {
   `;
 }
 
+function lessonWorkspaceWeeklySectionsHtml(plan = {}) {
+  const normalized = normalizeCurriculumLessonPlanForRender(plan);
+  const sections = [];
+  const addText = (label, value) => {
+    if (!String(value || "").trim()) return;
+    sections.push({ label, html: curriculumMultilineSectionHtml(value) });
+  };
+  addText("Weekly Overview", normalized.weeklyOverview);
+  const domains = curriculumAsStringArray(normalized.learningDomains);
+  if (domains.length) {
+    sections.push({
+      label: "Learning Domains",
+      html: `<div class="tag-row">${domains.map((domain) => `<span class="tag">${escapeHtml(domain)}</span>`).join("")}</div>`,
+    });
+  }
+  addText("Learning Objectives", normalized.objectives);
+  addText("Weekly Materials", normalized.weeklyMaterials);
+  addText("Vocabulary", normalized.vocabularyWords);
+  if (Array.isArray(normalized.books) && normalized.books.length) {
+    sections.push({ label: "Books", html: curriculumBooksSectionHtml(normalized.books) });
+  }
+  if (Array.isArray(normalized.songs) && normalized.songs.length) {
+    sections.push({ label: "Songs and Fingerplays", html: curriculumSongsSectionHtml(normalized.songs) });
+  }
+  addText("Family Connection", normalized.familyConnection);
+  addText("Observation Opportunities", normalized.observationOpportunities);
+  addText("Adaptations", normalized.adaptations);
+  if (!sections.length) return "";
+  return sections.map((section) => `
+    <section class="lesson-workspace-plan-section" data-lesson-plan-section="${escapeHtml(section.label)}">
+      <h3>${escapeHtml(section.label)}</h3>
+      <div class="lesson-workspace-plan-section-body">${section.html}</div>
+    </section>
+  `).join("");
+}
+
 function lessonWorkspacePlanTabHtml(plan) {
-  const weekly = curriculumLessonWeeklySectionsHtml(plan);
+  const weekly = lessonWorkspaceWeeklySectionsHtml(plan);
   const daily = curriculumLessonDailyPlansHtml(plan, { mode: "screen" });
   return `
-    ${weekly ? `<section class="curriculum-lesson-weekly">${weekly}</section>` : ""}
+    ${weekly ? `<section class="curriculum-lesson-weekly lesson-workspace-plan-weekly">${weekly}</section>` : ""}
     <section class="curriculum-lesson-daily-section">
       <h3 class="visually-hidden">Daily Plans</h3>
       ${daily}
@@ -11651,29 +11687,52 @@ function lessonPlanWeeklyScheduleDays(plan) {
   });
 }
 
+function lessonPlanWeeklyScheduleSupportLines(plan) {
+  const normalized = normalizeCurriculumLessonPlanForRender(plan);
+  const books = Array.isArray(normalized.books) ? normalized.books.map((book) => book.title || book).filter(Boolean) : [];
+  const songs = Array.isArray(normalized.songs) ? normalized.songs.map((song) => song.title || song).filter(Boolean) : [];
+  return {
+    materials: String(normalized.weeklyMaterials || "").trim(),
+    vocabulary: String(normalized.vocabularyWords || "").trim(),
+    books: books.join("; "),
+    songs: songs.join("; "),
+    familyConnection: String(normalized.familyConnection || "").trim(),
+    observationOpportunities: String(normalized.observationOpportunities || "").trim(),
+    adaptations: String(normalized.adaptations || "").trim(),
+  };
+}
+
 function lessonPlanWeeklyScheduleHtml(resource, plan) {
   const normalized = normalizeCurriculumLessonPlanForRender(plan);
   const theme = normalized.theme || resource?.theme || "";
   const days = lessonPlanWeeklyScheduleDays(normalized);
-  const materials = String(normalized.weeklyMaterials || "").trim();
-  const vocabulary = String(normalized.vocabularyWords || "").trim();
+  const support = lessonPlanWeeklyScheduleSupportLines(normalized);
+  const supportRows = [
+    ["Weekly materials", support.materials],
+    ["Vocabulary", support.vocabulary],
+    ["Books", support.books],
+    ["Songs", support.songs],
+    ["Family Connection", support.familyConnection],
+    ["Observation Opportunities", support.observationOpportunities],
+    ["Adaptations", support.adaptations],
+  ].filter(([, value]) => value);
   return `
     <article class="printable-resource-page curriculum-lesson-viewer lesson-print-variant lesson-week-schedule-print">
       <header class="lesson-week-schedule-header">
-        <p class="eyebrow">Little Learner Hub</p>
+        <p class="eyebrow">Little Learner Hub · Classroom Schedule</p>
         <h3>${escapeHtml(resource?.title || normalized.title || "Weekly Lesson Plan")}</h3>
         <div class="tag-row">
           <span class="tag">${escapeHtml(resource?.age || normalized.age || "Preschool")}</span>
           ${theme ? `<span class="tag">${escapeHtml(theme)}</span>` : ""}
         </div>
-        ${normalized.weeklyOverview ? `<p class="curriculum-lesson-overview-lead">${escapeHtml(compactLessonPlanSummaryText(normalized.weeklyOverview, 240))}</p>` : ""}
+        ${normalized.weeklyOverview ? `<p class="curriculum-lesson-overview-lead">${escapeHtml(compactLessonPlanSummaryText(normalized.weeklyOverview, 220))}</p>` : ""}
       </header>
       <section class="lesson-week-schedule-section">
-        <h3>Monday-Friday Classroom Schedule</h3>
+        <h3>Monday–Friday Classroom Schedule</h3>
         <div class="lesson-week-schedule-grid" aria-label="Monday through Friday lesson schedule">
           ${days.map((day) => `
             <section class="lesson-week-schedule-day lesson-week-schedule-day-${escapeHtml(day.day)}">
-              <h4>${escapeHtml(day.label)}</h4>
+              <h4><span>${escapeHtml(day.label)}</span></h4>
               ${day.theme ? `<p class="lesson-week-schedule-theme">${escapeHtml(day.theme)}</p>` : ""}
               <ul>
                 ${day.activities.length ? day.activities.map((activity) => `
@@ -11688,10 +11747,10 @@ function lessonPlanWeeklyScheduleHtml(resource, plan) {
         </div>
       </section>
       <section class="lesson-week-materials-summary">
-        <h3>Materials Summary</h3>
-        ${materials ? `<p><strong>Weekly materials:</strong> ${escapeHtml(materials)}</p>` : ""}
-        ${vocabulary ? `<p><strong>Vocabulary:</strong> ${escapeHtml(vocabulary)}</p>` : ""}
-        ${!materials && !vocabulary ? `<p>No weekly materials or vocabulary listed for this plan.</p>` : ""}
+        <h3>Classroom Support Notes</h3>
+        ${supportRows.length
+          ? supportRows.map(([label, value]) => `<p><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</p>`).join("")
+          : "<p>No weekly support notes listed for this plan.</p>"}
       </section>
     </article>
   `;
@@ -11837,13 +11896,24 @@ function buildLessonPlanWeeklySchedulePdfBlob(resource) {
 
   const materials = String(plan.weeklyMaterials || "").trim();
   const vocabulary = String(plan.vocabularyWords || "").trim();
+  const familyConnection = String(plan.familyConnection || "").trim();
+  const observationOpportunities = String(plan.observationOpportunities || "").trim();
+  const adaptations = String(plan.adaptations || "").trim();
   const hasContinuation = days.some((day) => day.activities.length > 5);
-  const hasMaterialsPage = Boolean(materials || vocabulary || (Array.isArray(plan.books) && plan.books.length) || (Array.isArray(plan.songs) && plan.songs.length));
+  const hasMaterialsPage = Boolean(
+    materials
+    || vocabulary
+    || familyConnection
+    || observationOpportunities
+    || adaptations
+    || (Array.isArray(plan.books) && plan.books.length)
+    || (Array.isArray(plan.songs) && plan.songs.length),
+  );
   if (hasMaterialsPage || hasContinuation) {
     page = [];
     fillRect(36, 734, 540, 30, "0.20 0.38 0.38");
     text("Little Learner Hub", 50, 744, 12, "F2", "1 1 1");
-    text(hasContinuation ? "Schedule Continuation + Materials" : "Materials Summary", 50, 704, 16, "F2", "0.12 0.20 0.25");
+    text(hasContinuation ? "Schedule Continuation + Support Notes" : "Classroom Support Notes", 50, 704, 15, "F2", "0.12 0.20 0.25");
     line(50, 686, 544, 686, 1, "0.76 0.84 0.82");
     let y = 656;
     const addSection = (label, value, maxChars = 92, maxLines = 9) => {
@@ -11873,14 +11943,17 @@ function buildLessonPlanWeeklySchedulePdfBlob(resource) {
       });
       y -= 4;
     }
-    addSection("Weekly materials", materials, 92, 7);
-    addSection("Vocabulary", vocabulary, 92, 4);
+    addSection("Weekly materials", materials, 92, 6);
+    addSection("Vocabulary", vocabulary, 92, 3);
     if (Array.isArray(plan.books) && plan.books.length) {
-      addSection("Books", plan.books.map((book) => `${book.title || book}${book.author ? ` by ${book.author}` : ""}`).join("; "), 92, 5);
+      addSection("Books", plan.books.map((book) => `${book.title || book}${book.author ? ` by ${book.author}` : ""}`).join("; "), 92, 4);
     }
     if (Array.isArray(plan.songs) && plan.songs.length) {
-      addSection("Songs and fingerplays", plan.songs.map((song) => song.title || song).join("; "), 92, 5);
+      addSection("Songs and fingerplays", plan.songs.map((song) => song.title || song).join("; "), 92, 3);
     }
+    addSection("Family Connection", familyConnection, 92, 3);
+    addSection("Observation Opportunities", observationOpportunities, 92, 3);
+    addSection("Adaptations", adaptations, 92, 3);
     text("Generated by Little Learner Hub. Review and customize for your program before use.", 50, 38, 8, "F1", "0.35 0.35 0.35");
     pages.push(page);
   }
@@ -11942,9 +12015,7 @@ function lessonWorkspaceChromeHtml(resource) {
   const plan = normalizeCurriculumLessonPlanForRender(resource._curriculumLessonPlan);
   const age = resource.age || plan.age || "Preschool";
   const planLabel = resource.plan || plan.plan || "Free";
-  const pdfDownloadBtn = hasResourcePdf(resource)
-    ? `<button type="button" class="ghost-button" data-download-pdf="${escapeHtml(resource.id)}">Download PDF</button>`
-    : "";
+  const pdfDownloadBtn = `<button type="button" class="ghost-button" data-download-pdf="${escapeHtml(resource.id)}">Download PDF</button>`;
   const tabs = [
     ["week", "Week"],
     ["plan", "Plan"],
@@ -11996,7 +12067,7 @@ function lessonWorkspaceChromeHtml(resource) {
           <div data-lesson-workspace-action-panel="menu">
             <p class="lesson-workspace-action-sheet-title">Use This Plan</p>
             <button type="button" class="ghost-button" data-lesson-add-to-main-calendar="${escapeHtml(resource.id)}">Plan This Week</button>
-            <button type="button" class="ghost-button" data-lesson-print-variant="full">Print Lesson Plan</button>
+            <button type="button" class="ghost-button" data-lesson-print-variant="full">Print Full Lesson Plan</button>
             ${pdfDownloadBtn}
             <button type="button" class="link-button" data-lesson-workspace-action-sheet-dismiss>Cancel</button>
           </div>

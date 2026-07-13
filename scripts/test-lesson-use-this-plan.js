@@ -202,7 +202,7 @@ async function main() {
         .map((el) => el.textContent.trim())
     ));
     assert(menuLabels[0] === "Plan This Week", `Plan This Week should be first: ${menuLabels.join(" | ")}`);
-    assert(menuLabels.some((label) => label.includes("Print Lesson Plan")), "Print Lesson Plan missing");
+    assert(menuLabels.some((label) => label.includes("Print Full Lesson Plan") || label.includes("Print Lesson Plan")), "Print Full Lesson Plan missing");
     assert(menuLabels.some((label) => label.includes("Cancel")), "Cancel missing");
     assert(!menuLabels.some((label) => /Assign to a Week|Add to This Week|View in Curriculum Planner/i.test(label)), `Old duplicate actions still present: ${menuLabels.join(" | ")}`);
 

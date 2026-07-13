@@ -242,7 +242,7 @@ async function main() {
         .map((el) => el.textContent.trim())
     ));
     assert(sheetLabels[0] === "Plan This Week", `first sheet action wrong: ${sheetLabels.join(" | ")}`);
-    assert(sheetLabels[1] === "Print Lesson Plan", `print action wrong: ${sheetLabels.join(" | ")}`);
+    assert(sheetLabels[1] === "Print Full Lesson Plan", `print action wrong: ${sheetLabels.join(" | ")}`);
     assert(sheetLabels.includes("Cancel"), `cancel action missing: ${sheetLabels.join(" | ")}`);
     assert(!sheetLabels.some((label) => /Assign to a Week|Add to This Week|View in Curriculum Planner/i.test(label)), `old sheet action still present: ${sheetLabels.join(" | ")}`);
     await page.click("[data-lesson-workspace-action-sheet-dismiss]");
