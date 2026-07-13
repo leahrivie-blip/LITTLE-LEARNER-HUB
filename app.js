@@ -1688,7 +1688,16 @@ const billingPlans = {
     price: "$0",
     interval: "",
     stripePriceKey: "",
-    features: ["5 Lesson Plans", "10 Observations", "6 Forms", "8 Activity Ideas", "6 Printables", "10 Document Creations Per Month", "Up to 3 Child Profiles", "Weekly Observation Tracker"],
+    features: [
+      "Free Lesson Plans",
+      "10 Observations",
+      "6 Forms",
+      "8 Activity Ideas",
+      "6 Printables",
+      "10 Document Creations Per Month",
+      "Up to 3 Child Profiles",
+      "Weekly Observation Tracker",
+    ],
   },
   Founding: {
     name: "Founding Member",
@@ -1934,6 +1943,8 @@ const firebaseAuthConfig = {
 const firebaseAuthEnabled = Boolean(firebaseAuthConfig.apiKey && firebaseAuthConfig.authDomain && firebaseAuthConfig.projectId && firebaseAuthConfig.appId);
 const authProviderName = firebaseAuthEnabled ? "Firebase Authentication" : "Local demo authentication";
 let firebaseAuthClient = null;
+// Numeric caps apply to legacy library resources only. Curriculum lesson plans and activities
+// use Free/Pro tier access in canAccess() — all published Free-tier curriculum items unlock for Free users.
 const freeAccessLimits = {
   "Lesson Plans": 5,
   "Observation Hub": 10,
@@ -1942,6 +1953,114 @@ const freeAccessLimits = {
   "Activity Center": 8,
   "Printables": 6,
 };
+const freePlanBaseFeatures = [
+  "10 Observations",
+  "6 Forms",
+  "8 Activity Ideas",
+  "6 Printables",
+  "10 Document Creations Per Month",
+  "Up to 3 Child Profiles",
+  "Weekly Observation Tracker",
+];
+const freePlanAgeGroups = Object.freeze(["Infant", "Toddler", "Preschool"]);
+
+function curriculumLessonPlanAccessStats() {
+  const plans = effectiveCurriculumLibrary().lessonPlans || [];
+  const freeByAge = {};
+  const proByAge = {};
+  let freeTotal = 0;
+  let proTotal = 0;
+  plans.forEach((plan) => {
+    const age = normalizeAgeGroup(plan.age) || plan.age || "Other";
+    if (String(plan.plan || "Free").trim() === "Pro") {
+      proTotal += 1;
+      proByAge[age] = (proByAge[age] || 0) + 1;
+      return;
+    }
+    freeTotal += 1;
+    freeByAge[age] = (freeByAge[age] || 0) + 1;
+  });
+  return { freeTotal, proTotal, freeByAge, proByAge };
+}
+
+function freeLessonPlanMarketingLabel() {
+  const { freeTotal, freeByAge } = curriculumLessonPlanAccessStats();
+  if (!freeTotal) return "Free Lesson Plans";
+  const counts = freePlanAgeGroups.map((age) => freeByAge[age] || 0).filter((count) => count > 0);
+  if (counts.length >= 2) {
+    const minPerAge = Math.min(...counts);
+    return `${minPerAge}+ Free Lesson Plans per Age Group`;
+  }
+  return `${freeTotal}+ Free Lesson Plans`;
+}
+
+function freePlanFeatureList() {
+  return [freeLessonPlanMarketingLabel(), ...freePlanBaseFeatures];
+}
+
+function freePlanAccessSummaryText() {
+  const lessonLabel = freeLessonPlanMarketingLabel().toLowerCase();
+  return `Free: 3 profiles, 10 observations, ${lessonLabel}, 6 forms, 8 activity ideas, 6 printables, and 10 document creations. Upgrade anytime to start a 7-Day Free Pro Trial.`;
+}
+
+function formatLessonPlanAgeBreakdown(byAge) {
+  return freePlanAgeGroups
+    .filter((age) => byAge[age])
+    .map((age) => `${byAge[age]} ${age}`)
+    .join(", ");
+}
+
+function refreshFreePlanFeatureLines(features) {
+  const lessonLine = `✓ ${freeLessonPlanMarketingLabel()}`;
+  const lessonPlanPattern = /lesson plan/i;
+  if (!Array.isArray(features) || !features.length) {
+    return freePlanFeatureList().map((feature) => (feature.startsWith("✓") ? feature : `✓ ${feature}`));
+  }
+  let replaced = false;
+  const updated = features.map((line) => {
+    if (!lessonPlanPattern.test(line)) return line;
+    replaced = true;
+    return lessonLine;
+  });
+  if (!replaced) {
+    const observationIndex = updated.findIndex((line) => /observation/i.test(line));
+    updated.splice(observationIndex >= 0 ? observationIndex + 1 : 2, 0, lessonLine);
+  }
+  return updated;
+}
+
+function refreshFreePlanFaqAnswer(answer) {
+  const lessonLabel = freeLessonPlanMarketingLabel();
+  if (!answer) {
+    return [
+      "3 Child Profiles",
+      "10 Observations Per Month",
+      lessonLabel,
+      "8 Activity Ideas",
+      "6 Forms",
+      "6 Printables",
+      "10 AI Generations",
+      "No Credit Card Required",
+    ].join(", ");
+  }
+  if (!/lesson plan/i.test(answer)) return answer;
+  return answer
+    .split(/,\s*/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => (/lesson plan/i.test(part) ? lessonLabel : part))
+    .join(", ");
+}
+
+function syncFreePlanMarketingCopy() {
+  billingPlans.Free.features = freePlanFeatureList();
+  const summary = document.querySelector("#planAccessSummary");
+  if (summary && !isProUser()) summary.textContent = freePlanAccessSummaryText();
+  const freeList = document.querySelector(".lp-free-card .lp-price-features");
+  if (freeList && !effectiveSiteContent().pricing?.freePlanFeatures?.length) {
+    freeList.innerHTML = refreshFreePlanFeatureLines([]).map((feature) => `<li>${escapeHtml(feature)}</li>`).join("");
+  }
+}
 const freeAiMonthlyLimit = 10;
 const paidAiMonthlyLimit = 250;
 // Server-provided usage values, populated on login/page-load via /api/subscription-status.
@@ -2963,6 +3082,7 @@ function canUseLaunchBackend() {
 
 function syncSiteManagedResources() {
   resources = loadResources();
+  syncFreePlanMarketingCopy();
 }
 
 function rerenderActiveContent() {
@@ -3101,6 +3221,7 @@ const homeViewTemplate = document.querySelector("#view-home").innerHTML;
 const defaultSiteContentState = captureDefaultSiteContent();
 let siteContentState = emptySiteContent();
 let resources = loadResources();
+syncFreePlanMarketingCopy();
 let favorites = readSavedJson("llhFavorites", []);
 let savedDownloads = readSavedJson("llhDownloads", []);
 let activeGeneratedPdfResource = null;
@@ -11830,11 +11951,18 @@ function renderActivityLessonFilterBanner() {
 }
 
 function renderLessonPlanLibraryNotice() {
+  const stats = curriculumLessonPlanAccessStats();
+  const ageBreakdown = formatLessonPlanAgeBreakdown(stats.freeByAge);
+  const accessCopy = isProUser()
+    ? `Pro is active: full access to all ${stats.freeTotal + stats.proTotal} published lesson plans.`
+    : stats.freeTotal
+      ? `Free plan unlocks all ${stats.freeTotal} published Free-tier lesson plans${ageBreakdown ? ` (${ageBreakdown})` : ""}. Pro unlocks ${stats.proTotal} premium lesson plans.`
+      : "Browse published play-based lesson plans by age group. New plans are added as they are published.";
   return `
     <section class="access-notice lesson-library-notice" role="status" aria-live="polite">
       <div class="lesson-update-notice-copy">
         <h3>Play-Based Lesson Plans</h3>
-        <p>Browse published play-based lesson plans by age group. New plans are added as they are published.</p>
+        <p>${escapeHtml(accessCopy)}</p>
       </div>
     </section>
   `;
@@ -12093,7 +12221,12 @@ function renderManagedPricingText() {
 
   if (pricing.freePlanFeatures?.length) {
     const freeList = document.querySelector(".lp-free-card .lp-price-features");
-    if (freeList) freeList.innerHTML = pricing.freePlanFeatures.map((f) => `<li>${escapeHtml(f)}</li>`).join("");
+    if (freeList) {
+      freeList.innerHTML = refreshFreePlanFeatureLines(pricing.freePlanFeatures).map((f) => `<li>${escapeHtml(f)}</li>`).join("");
+    }
+  } else {
+    const freeList = document.querySelector(".lp-free-card .lp-price-features");
+    if (freeList) freeList.innerHTML = refreshFreePlanFeatureLines([]).map((f) => `<li>${escapeHtml(f)}</li>`).join("");
   }
   if (pricing.proPlanFeatures?.length) {
     const proList = document.querySelector(".lp-pro-card .lp-price-features");
@@ -12116,12 +12249,17 @@ function renderManagedFaqContent() {
     }
     return;
   }
-  target.innerHTML = faqs.map((f) => `
+  target.innerHTML = faqs.map((f) => {
+    const answer = /what is included in the free plan/i.test(f.question || "")
+      ? refreshFreePlanFaqAnswer(f.answer)
+      : f.answer;
+    return `
     <article class="faq-item">
       <h3>${escapeHtml(f.question)}</h3>
-      <p>${escapeHtml(f.answer)}</p>
+      <p>${escapeHtml(answer)}</p>
     </article>
-  `).join("");
+  `;
+  }).join("");
 }
 
 function renderManagedAnnouncementBanner() {
@@ -28466,6 +28604,11 @@ function renderHomeFoundingOffer() {
   `;
 }
 
+function billingPlanFeatures(planKey) {
+  if (planKey === "Free") return freePlanFeatureList();
+  return billingPlans[planKey]?.features || [];
+}
+
 function pricingCard(planKey, options = {}) {
   const plan = billingPlans[planKey];
   const buttonClass = options.primary ? "primary-button" : "ghost-button";
@@ -28475,7 +28618,7 @@ function pricingCard(planKey, options = {}) {
       ${options.eyebrow ? `<p class="eyebrow">${escapeHtml(options.eyebrow)}</p>` : ""}
       <h3>${escapeHtml(plan.name)}</h3>
       <p class="price">${plan.price}<span>${plan.interval}</span></p>
-      ${featureListHtml(plan.features)}
+      ${featureListHtml(billingPlanFeatures(planKey))}
       <button class="${buttonClass}" ${options.free ? `data-plan="Free"` : `data-checkout-plan="${options.checkoutType}"`} type="button">${escapeHtml(buttonText)}</button>
       ${options.free ? "" : `<p class="muted-copy">${escapeHtml(proTrialUpgradeSummary)}</p>`}
     </article>
@@ -29013,7 +29156,7 @@ function updatePlanLabel() {
   if (summary) {
     summary.textContent = isProUser()
       ? `${billingPlanLabel()} active: ${billingPriceLabel()} with full library access and ${aiUsageRemaining()} document creations left this month.`
-      : `Free plan: limited library access, up to 3 child profiles, and ${aiUsageRemaining()} document creations left this month.`;
+      : freePlanAccessSummaryText().replace("and 10 document creations.", `and ${aiUsageRemaining()} document creations left this month.`);
   }
   updateSidebarDashboard();
 }
