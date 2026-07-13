@@ -29,6 +29,10 @@
 - Optional loading skeleton still deferred
 - Multi-month agenda list deferred to Phase 2 planning
 
+## Future enhancement (not in scope now)
+
+**Dashboard day quick-preview:** tapping a week-strip day could open a lightweight preview of that day’s lesson theme, events, reminders, and materials before jumping to Calendar / Weekly Planner. Owner approved current strip without this; park for a later polish pass.
+
 ## Retirement stance
 
 Do **not** retire Curriculum Planner until soak testing confirms teachers use Calendar → Weekly Planner as the primary path. See `docs/CURRICULUM_PLANNER_RETIREMENT_PLAN.md`.
