@@ -1689,7 +1689,7 @@ const billingPlans = {
     interval: "",
     stripePriceKey: "",
     features: [
-      "Free Lesson Plans",
+      "30 Total Free Lesson Plans",
       "10 Observations",
       "6 Forms",
       "8 Activity Ideas",
@@ -2049,12 +2049,11 @@ function refreshFreePlanFaqAnswer(answer) {
 
 function syncFreePlanMarketingCopy() {
   billingPlans.Free.features = freePlanFeatureList();
-  const summary = document.querySelector("#planAccessSummary");
-  if (summary && !isProUser()) summary.textContent = freePlanAccessSummaryText();
   const freeList = document.querySelector(".lp-free-card .lp-price-features");
   if (freeList && !effectiveSiteContent().pricing?.freePlanFeatures?.length) {
     freeList.innerHTML = refreshFreePlanFeatureLines([]).map((feature) => `<li>${escapeHtml(feature)}</li>`).join("");
   }
+  if (currentUser && !isProUser()) updatePlanLabel();
 }
 const freeAiMonthlyLimit = 10;
 const paidAiMonthlyLimit = 250;
