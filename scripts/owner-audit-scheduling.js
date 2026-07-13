@@ -332,8 +332,9 @@ async function main() {
     const calOverflow = await countOverflow(iphone);
     check("Calendar no horizontal overflow (iPhone)", !calOverflow.overflowX, JSON.stringify(calOverflow));
     if (calOverflow.overflowX) note("high", "mobile", "Calendar overflows horizontally on iPhone width", JSON.stringify(calOverflow));
-    const calButtons = await buttonDensity(iphone, "#view-calendar");
-    if (calButtons.total > 18) note("medium", "calendar", "Calendar chrome feels button-heavy on mobile", `${calButtons.total} visible buttons`);
+    const calButtons = await buttonDensity(iphone, "#view-calendar .llh-calendar-toolbar, #view-calendar .llh-calendar-detail");
+    if (calButtons.total > 14) note("medium", "calendar", "Calendar chrome feels button-heavy on mobile", `${calButtons.total} visible buttons`);
+    // Day cells are intentional planning targets; do not count them as chrome clutter.
 
     // Empty weekly planner
     await iphone.evaluate(() => setView("planner"));
