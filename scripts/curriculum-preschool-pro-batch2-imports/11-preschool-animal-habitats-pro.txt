@@ -12,497 +12,739 @@ Pro
 
 STATUS:
 published
-
 LEARNING_DOMAINS:
 Language & Literacy
 Social Emotional
 Physical Development
-Creative Arts
 Science
 Math
+Creative Arts
+
 
 WEEKLY_OVERVIEW:
-Children will explore where animals live as they investigate forests, oceans, deserts, and grasslands through sensory play, habitat building, dramatic play, and hands-on science. Throughout the week, children will sort animals by habitat, compare needs for food and shelter, and use new vocabulary while caring for pretend wildlife.
+Children will become wildlife explorers as they investigate where animals live and why habitats help animals survive. Throughout the week, children will explore forests, oceans, deserts, arctic regions, and jungles through hands-on sensory experiences, dramatic play, STEM building challenges, movement activities, and creative projects. Children will learn how animals adapt to their environments while developing observation, problem-solving, and critical thinking skills.
 
 LEARNING_OBJECTIVES:
-Identify common animal habitats
-Sort animals by where they live
-Describe basic animal needs
-Use habitat vocabulary in play and discussion
-Build cooperative habitat models
-Strengthen observation and comparison skills
+Identify different animal habitats
+Match animals to their habitats
+Explore how habitats meet animal needs
+Develop scientific observation skills
+Strengthen classification and sorting abilities
+Build vocabulary related to animals and habitats
+Develop fine and gross motor skills
+Foster curiosity and respect for wildlife
+
 
 WEEKLY_MATERIALS:
-Plastic animal figures
-Habitat sorting mats
+Animal figures
+Habitat picture cards
+Blocks
+Artificial plants
+Cotton balls
+Sand
+Blue fabric
 Sensory bin fillers
-Blocks and cardboard
-Blue and green felt
-Sand and rocks
-Tree and plant props
+Paint
+Markers
+Crayons
+Construction paper
+Glue
+Scissors
 Magnifying glasses
-Animal picture cards
-Paint and paper
-Binoculars prop
-Books about habitats
+Books
+Music player
+
 
 VOCABULARY:
 Habitat
-Shelter
 Forest
 Ocean
 Desert
-Grassland
+Arctic
+Jungle
+Shelter
+Survive
+Animal
+Environment
 Adapt
-Wildlife
-Nest
-Burrow
+Camouflage
+Predator
+Prey
+
 
 BOOKS:
-Over in the Grasslands | Marianne Berkes
 A House for Hermit Crab | Eric Carle
-Welcome Home, Bear | Il Sung Na
+Over in the Jungle | Marianne Berkes
+Who Lives Here? | Deborah Hodge
+
 
 SONGS:
-Animals in Their Homes
-Habitat Hokey Pokey
-Where Do You Live?
+We're Going on a Habitat Hunt
+Animal Action Song
+Down in the Jungle
 
 FAMILY_CONNECTION:
-Talk about animals you see near home and where they live. Visit a library to explore habitat books together.
+Encourage families to discuss where different animals live. Take a nature walk and observe habitats near home. Talk about how people and animals both need food, water, and shelter.
 
 OBSERVATION_OPPORTUNITIES:
-Observe habitat sorting, use of vocabulary, cooperative building, curiosity during investigations, and dramatic play roles.
+Observe children's ability to match animals to habitats, use habitat vocabulary, classify animals, participate in discussions, solve building challenges, and demonstrate curiosity about wildlife.
 
 ADAPTATIONS:
-Use real photos alongside toy animals. Offer one habitat focus at a time for children who need simpler choices.
+Provide visual habitat cards and animal photographs. Offer larger manipulatives when needed. Allow children to demonstrate understanding through movement, art, dramatic play, or verbal discussion.
 
 MONDAY:
 
 ACTIVITY_NAME:
-Habitat Discovery Bin
+Habitat Discovery Sensory Bin
+
 CATEGORY:
 Sensory Play
+
 OBJECTIVE:
-Explore habitat materials through touch and talk.
-DESCRIPTION:
-Explore habitat materials through touch and talk.
+Explore different habitat materials through sensory investigation.
+
 MATERIALS:
-Plastic animal figures
-Habitat sorting mats
-Sensory bin fillers
-Blocks and cardboard
+Sand
+Artificial grass
+Cotton balls
+Small rocks
+Animal figures
+
 SETUP:
-Prepare materials for Habitat Discovery Bin.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Create sections representing different habitats.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Explore habitat materials.
+Match animals to appropriate habitats.
+Discuss observations.
+
+TEACHER_ROLE:
+Introduce habitat vocabulary and encourage scientific thinking.
+
+DESCRIPTION:
+Explore different habitat materials through sensory investigation.
+
 LEARNING_GOALS:
-Explore habitat materials through touch and talk.
+Explore different habitat materials through sensory investigation.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
 
+
+
 ACTIVITY_NAME:
-Animal Home Stomp
+Animal Habitat Sorting
+
 CATEGORY:
-Music & Movement
+Open-Ended Exploration
+
 OBJECTIVE:
-Move like animals in different habitats.
-DESCRIPTION:
-Move like animals in different habitats.
+Develop classification skills.
+
 MATERIALS:
-Plastic animal figures
-Habitat sorting mats
-Sensory bin fillers
-Blocks and cardboard
+Animal cards
+Habitat mats
+
 SETUP:
-Prepare materials for Animal Home Stomp.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Place habitat mats around the table.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Sort animals into the habitats where they live.
+Discuss reasons for choices.
+
+TEACHER_ROLE:
+Support critical thinking and classification.
+
+DESCRIPTION:
+Develop classification skills.
+
 LEARNING_GOALS:
-Move like animals in different habitats.
+Develop classification skills.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
 
+
+
 ACTIVITY_NAME:
-Habitat Collage
+Forest Animal Craft
+
 CATEGORY:
 Fine Motor
+
 OBJECTIVE:
-Create a collage showing one animal habitat.
-DESCRIPTION:
-Create a collage showing one animal habitat.
+Develop creativity and fine motor skills.
+
 MATERIALS:
-Plastic animal figures
-Habitat sorting mats
-Sensory bin fillers
-Blocks and cardboard
+Paper
+Crayons
+Glue
+Forest animal templates
+
 SETUP:
-Prepare materials for Habitat Collage.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Prepare art materials.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Create favorite forest animals.
+Add habitat details.
+
+TEACHER_ROLE:
+Encourage creativity and discussion.
+
+DESCRIPTION:
+Develop creativity and fine motor skills.
+
 LEARNING_GOALS:
-Create a collage showing one animal habitat.
+Develop creativity and fine motor skills.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Habitat Animal Movements
+
+CATEGORY:
+Music & Movement
+
+OBJECTIVE:
+Develop gross motor skills and body awareness.
+
+MATERIALS:
+Music player
+
+SETUP:
+Create open movement space.
+
+DIRECTIONS:
+Move like animals from different habitats.
+Hop like rabbits.
+Slither like snakes.
+Swing like monkeys.
+
+TEACHER_ROLE:
+Model movements and encourage participation.
+
+DESCRIPTION:
+Develop gross motor skills and body awareness.
+
+LEARNING_GOALS:
+Develop gross motor skills and body awareness.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
 
 TUESDAY:
 
 ACTIVITY_NAME:
-Wildlife Ranger Station
+Forest Explorer Investigation
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Learn about forest habitats.
+
+MATERIALS:
+Magnifying glasses
+Leaves
+Animal figures
+
+SETUP:
+Create forest exploration station.
+
+DIRECTIONS:
+Observe forest materials.
+Identify forest animals.
+Discuss habitat features.
+
+TEACHER_ROLE:
+Guide observations and discussions.
+
+DESCRIPTION:
+Learn about forest habitats.
+
+LEARNING_GOALS:
+Learn about forest habitats.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Woodland Ranger Station
+
 CATEGORY:
 Dramatic Play
+
 OBJECTIVE:
-Pretend to care for animals in different habitats.
-DESCRIPTION:
-Pretend to care for animals in different habitats.
+Encourage imaginative play and problem-solving.
+
 MATERIALS:
-Plastic animal figures
-Habitat sorting mats
-Sensory bin fillers
-Blocks and cardboard
+Binoculars
+Animal figures
+Explorer hats
+
 SETUP:
-Prepare materials for Wildlife Ranger Station.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Create ranger station.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Search for forest animals.
+Record discoveries.
+
+TEACHER_ROLE:
+Support storytelling and exploration.
+
+DESCRIPTION:
+Encourage imaginative play and problem-solving.
+
 LEARNING_GOALS:
-Pretend to care for animals in different habitats.
+Encourage imaginative play and problem-solving.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
 
+
+
 ACTIVITY_NAME:
-Build a Mini Habitat
+Tree Texture Art
+
 CATEGORY:
-STEM/Discovery
+Fine Motor
+
 OBJECTIVE:
-Construct a habitat that meets an animal's needs.
-DESCRIPTION:
-Construct a habitat that meets an animal's needs.
+Strengthen hand-eye coordination.
+
 MATERIALS:
-Plastic animal figures
-Habitat sorting mats
-Sensory bin fillers
-Blocks and cardboard
+Paper
+Crayons
+Tree bark rubbings
+
 SETUP:
-Prepare materials for Build a Mini Habitat.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Prepare art station.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Create bark rubbings and forest artwork.
+
+TEACHER_ROLE:
+Encourage observation and creativity.
+
+DESCRIPTION:
+Strengthen hand-eye coordination.
+
 LEARNING_GOALS:
-Construct a habitat that meets an animal's needs.
+Strengthen hand-eye coordination.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
 
+
+
 ACTIVITY_NAME:
-Habitat Story Circle
+Forest Obstacle Trail
+
 CATEGORY:
-Literacy
+Gross Motor
+
 OBJECTIVE:
-Retell stories about where animals live.
-DESCRIPTION:
-Retell stories about where animals live.
+Develop coordination and balance.
+
 MATERIALS:
-Plastic animal figures
-Habitat sorting mats
-Sensory bin fillers
-Blocks and cardboard
+Cones
+Logs (pretend)
+
 SETUP:
-Prepare materials for Habitat Story Circle.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Create forest trail.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Navigate through the forest trail.
+Avoid obstacles.
+
+TEACHER_ROLE:
+Promote safe movement.
+
+DESCRIPTION:
+Develop coordination and balance.
+
 LEARNING_GOALS:
-Retell stories about where animals live.
+Develop coordination and balance.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+
+
 
 WEDNESDAY:
 
 ACTIVITY_NAME:
-Habitat Obstacle Trail
+Ocean Habitat Investigation
+
 CATEGORY:
-Gross Motor
+Sensory Play
+
 OBJECTIVE:
-Travel through pretend forest, river, and desert zones.
-DESCRIPTION:
-Travel through pretend forest, river, and desert zones.
+Explore ocean environments.
+
 MATERIALS:
-Plastic animal figures
-Habitat sorting mats
-Sensory bin fillers
-Blocks and cardboard
+Water beads
+Ocean animals
+Shells
+
 SETUP:
-Prepare materials for Habitat Obstacle Trail.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Create ocean sensory station.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Explore ocean materials.
+Match animals to ocean habitat.
+
+TEACHER_ROLE:
+Introduce ocean vocabulary.
+
+DESCRIPTION:
+Explore ocean environments.
+
 LEARNING_GOALS:
-Travel through pretend forest, river, and desert zones.
+Explore ocean environments.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
 
-ACTIVITY_NAME:
-Animal Home Painting
-CATEGORY:
-Art
-OBJECTIVE:
-Paint an animal inside its home.
-DESCRIPTION:
-Paint an animal inside its home.
-MATERIALS:
-Plastic animal figures
-Habitat sorting mats
-Sensory bin fillers
-Blocks and cardboard
-SETUP:
-Prepare materials for Animal Home Painting.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
-DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
-LEARNING_GOALS:
-Paint an animal inside its home.
-OBSERVATION_OPPORTUNITIES:
-Observe participation, engagement, and use of theme vocabulary.
+
 
 ACTIVITY_NAME:
-Animal Habitat Sort
+Coral Reef Builders
+
 CATEGORY:
 Open-Ended Exploration
+
 OBJECTIVE:
-Sort animals onto habitat mats and count each group.
-DESCRIPTION:
-Sort animals onto habitat mats and count each group.
+Develop engineering and creativity.
+
 MATERIALS:
-Plastic animal figures
-Habitat sorting mats
-Sensory bin fillers
-Blocks and cardboard
+Blocks
+Ocean animals
+Blue fabric
+
 SETUP:
-Prepare materials for Animal Habitat Sort.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Create building station.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Build coral reefs and ocean homes.
+
+TEACHER_ROLE:
+Encourage planning and problem-solving.
+
+DESCRIPTION:
+Develop engineering and creativity.
+
 LEARNING_GOALS:
-Sort animals onto habitat mats and count each group.
+Develop engineering and creativity.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Ocean Animal Painting
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Develop creativity.
+
+MATERIALS:
+Paint
+Paper
+Brushes
+
+SETUP:
+Prepare painting area.
+
+DIRECTIONS:
+Paint favorite ocean animals.
+
+TEACHER_ROLE:
+Support artistic expression.
+
+DESCRIPTION:
+Develop creativity.
+
+LEARNING_GOALS:
+Develop creativity.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Swim Like Sea Animals
+
+CATEGORY:
+Music & Movement
+
+OBJECTIVE:
+Develop gross motor coordination.
+
+MATERIALS:
+Music player
+
+SETUP:
+Open movement area.
+
+DIRECTIONS:
+Move like dolphins, sharks, and sea turtles.
+
+TEACHER_ROLE:
+Lead movement activities.
+
+DESCRIPTION:
+Develop gross motor coordination.
+
+LEARNING_GOALS:
+Develop gross motor coordination.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
 
 THURSDAY:
 
 ACTIVITY_NAME:
-What Animals Need
+Arctic Habitat Exploration
+
 CATEGORY:
-STEM/Discovery
+Sensory Play
+
 OBJECTIVE:
-Investigate food, water, and shelter for animals.
-DESCRIPTION:
-Investigate food, water, and shelter for animals.
+Explore cold-weather habitats.
+
 MATERIALS:
-Plastic animal figures
-Habitat sorting mats
-Sensory bin fillers
-Blocks and cardboard
+Cotton balls
+Ice cubes
+Arctic animals
+
 SETUP:
-Prepare materials for What Animals Need.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Create arctic sensory area.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Explore cold habitat materials.
+Match animals to habitat.
+
+TEACHER_ROLE:
+Discuss animal adaptations.
+
+DESCRIPTION:
+Explore cold-weather habitats.
+
 LEARNING_GOALS:
-Investigate food, water, and shelter for animals.
+Explore cold-weather habitats.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
 
+
+
 ACTIVITY_NAME:
-Protect the Habitat
+Polar Rescue Mission
+
 CATEGORY:
-Circle Time
+Dramatic Play
+
 OBJECTIVE:
-Practice caring for shared habitat materials.
-DESCRIPTION:
-Practice caring for shared habitat materials.
+Encourage teamwork and imagination.
+
 MATERIALS:
-Plastic animal figures
-Habitat sorting mats
-Sensory bin fillers
-Blocks and cardboard
+Arctic animals
+Rescue props
+
 SETUP:
-Prepare materials for Protect the Habitat.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Create rescue center.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Help animals find shelter and food.
+
+TEACHER_ROLE:
+Support cooperation and problem-solving.
+
+DESCRIPTION:
+Encourage teamwork and imagination.
+
 LEARNING_GOALS:
-Practice caring for shared habitat materials.
+Encourage teamwork and imagination.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
 
+
+
 ACTIVITY_NAME:
-Habitat Block World
+Polar Bear Craft
+
 CATEGORY:
-Open-Ended Exploration
+Fine Motor
+
 OBJECTIVE:
-Design habitats using blocks and loose parts.
-DESCRIPTION:
-Design habitats using blocks and loose parts.
+Strengthen fine motor development.
+
 MATERIALS:
-Plastic animal figures
-Habitat sorting mats
-Sensory bin fillers
-Blocks and cardboard
+Polar bear templates
+Cotton balls
+Glue
+
 SETUP:
-Prepare materials for Habitat Block World.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Prepare art station.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Create fluffy polar bears.
+
+TEACHER_ROLE:
+Assist as needed.
+
+DESCRIPTION:
+Strengthen fine motor development.
+
 LEARNING_GOALS:
-Design habitats using blocks and loose parts.
+Strengthen fine motor development.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Penguin Waddle Race
+
+CATEGORY:
+Gross Motor
+
+OBJECTIVE:
+Develop balance and coordination.
+
+MATERIALS:
+Cones
+
+SETUP:
+Create race course.
+
+DIRECTIONS:
+Waddle like penguins through the course.
+
+TEACHER_ROLE:
+Encourage participation.
+
+DESCRIPTION:
+Develop balance and coordination.
+
+LEARNING_GOALS:
+Develop balance and coordination.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
 
 FRIDAY:
 
 ACTIVITY_NAME:
-Habitat Guessing Game
+Habitat Museum
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Review habitat concepts and build confidence.
+
+MATERIALS:
+Projects from the week
+Animal figures
+
+SETUP:
+Create museum displays.
+
+DIRECTIONS:
+Share habitat discoveries with classmates.
+
+TEACHER_ROLE:
+Encourage communication and reflection.
+
+DESCRIPTION:
+Review habitat concepts and build confidence.
+
+LEARNING_GOALS:
+Review habitat concepts and build confidence.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Habitat Exploration Centers
+
 CATEGORY:
 Open-Ended Exploration
+
 OBJECTIVE:
-Guess an animal from clues about its habitat.
-DESCRIPTION:
-Guess an animal from clues about its habitat.
+Review habitat knowledge.
+
 MATERIALS:
-Plastic animal figures
-Habitat sorting mats
-Sensory bin fillers
-Blocks and cardboard
+Materials from previous activities
+
 SETUP:
-Prepare materials for Habitat Guessing Game.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Create habitat stations.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Visit and explore each habitat center.
+
+TEACHER_ROLE:
+Observe and support learning.
+
+DESCRIPTION:
+Review habitat knowledge.
+
 LEARNING_GOALS:
-Guess an animal from clues about its habitat.
+Review habitat knowledge.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
 
+
+
 ACTIVITY_NAME:
-Habitat Parade
+Wild Animal Celebration
+
 CATEGORY:
 Music & Movement
-OBJECTIVE:
-Celebrate the week with animal habitat movements.
-DESCRIPTION:
-Celebrate the week with animal habitat movements.
-MATERIALS:
-Plastic animal figures
-Habitat sorting mats
-Sensory bin fillers
-Blocks and cardboard
-SETUP:
-Prepare materials for Habitat Parade.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
-DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
-LEARNING_GOALS:
-Celebrate the week with animal habitat movements.
-OBSERVATION_OPPORTUNITIES:
-Observe participation, engagement, and use of theme vocabulary.
 
-ACTIVITY_NAME:
-Class Habitat Mural
-CATEGORY:
-Art
 OBJECTIVE:
-Add animals and plants to a group habitat mural.
-DESCRIPTION:
-Add animals and plants to a group habitat mural.
+Celebrate learning through movement.
+
 MATERIALS:
-Plastic animal figures
-Habitat sorting mats
-Sensory bin fillers
-Blocks and cardboard
+Music player
+
 SETUP:
-Prepare materials for Class Habitat Mural.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Open movement area.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Move like favorite habitat animals.
+Share favorite discoveries.
+
+TEACHER_ROLE:
+Celebrate participation and learning.
+
+DESCRIPTION:
+Celebrate learning through movement.
+
 LEARNING_GOALS:
-Add animals and plants to a group habitat mural.
+Celebrate learning through movement.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.

@@ -5,504 +5,741 @@ AGE_GROUP:
 Preschool 3-5 Years
 
 THEME:
-Camping
+Camping Adventure
 
 PLAN:
 Pro
 
 STATUS:
 published
-
 LEARNING_DOMAINS:
 Language & Literacy
 Social Emotional
 Physical Development
-Creative Arts
 Science
 Math
+Creative Arts
+
 
 WEEKLY_OVERVIEW:
-Children pack for a pretend camping trip as they explore nature, camp routines, outdoor safety, and nighttime sounds. Sensory play, trail games, campfire dramatic play, and nature art help children build vocabulary and confidence in outdoor-themed learning.
+Children will become outdoor adventurers as they explore the exciting world of camping through hands-on investigations, dramatic play, nature exploration, storytelling, STEM challenges, and creative activities. Throughout the week, children will learn about camping equipment, wildlife, outdoor safety, nature observation, and teamwork while building confidence and curiosity about the natural world.
 
 LEARNING_OBJECTIVES:
-Learn camping and nature vocabulary
-Practice outdoor safety routines
-Explore nature materials with senses
-Retell camping stories and songs
-Cooperate during trail and camp games
-Strengthen gross and fine motor skills
+Explore camping and outdoor adventure concepts
+Learn basic outdoor safety skills
+Develop observation and investigation abilities
+Strengthen problem-solving and teamwork skills
+Practice counting, sorting, and measuring
+Build vocabulary related to nature and camping
+Strengthen fine and gross motor development
+Encourage imaginative and dramatic play
+
 
 WEEKLY_MATERIALS:
+Play tent
 Flashlights
-Sleeping bags or blankets
-Pretend campfire
 Binoculars
-Compass prop
 Nature items
-Trail mix ingredients
-Animal track cards
-Tents or fort materials
-Maps
-Art paper
-Camping books
+Artificial campfire
+Sleeping bags
+Toy animals
+Magnifying glasses
+Blocks
+Paint
+Markers
+Construction paper
+Glue
+Scissors
+Books
+Music player
+
 
 VOCABULARY:
-Campfire
+Camping
 Tent
-Trail
-Compass
-Wilderness
+Campfire
 Lantern
-Shelter
-Stargazing
-Nature
+Trail
+Forest
+Adventure
 Explore
+Wildlife
+Hiking
+Nature
+Backpack
+Campsite
+Ranger
+
 
 BOOKS:
-Curious George Goes Camping | Margret Rey
-Camping Day | Patricia Lakin
-When We Go Camping | Margriet Ruurs
+Llama Llama Loves Camping | Anna Dewdney
+Pete the Cat Goes Camping | James Dean
+Maisy Goes Camping | Lucy Cousins
+
 
 SONGS:
-Campfire Song
-The Ants Go Marching
-Twinkle Twinkle Little Star
+Going on a Bear Hunt
+The Campfire Song
+If You're Going Camping
 
 FAMILY_CONNECTION:
-Plan a backyard or living room campout. Pack a small bag together and talk about what campers need.
+Encourage families to spend time outdoors together. Take a nature walk, observe wildlife, collect leaves, or talk about outdoor adventures and camping experiences.
 
 OBSERVATION_OPPORTUNITIES:
-Observe nature vocabulary, safety awareness, cooperative fort building, storytelling, and sensory exploration.
+Observe children's cooperation during dramatic play, problem-solving skills, nature observations, vocabulary development, and ability to follow safety guidelines.
 
 ADAPTATIONS:
-Use visual camp routine cards. Offer quiet nature exploration for children who prefer calm activities.
+Provide visual supports and nature photographs. Allow children multiple ways to participate through movement, art, sensory experiences, dramatic play, or discussion.
 
 MONDAY:
 
 ACTIVITY_NAME:
-Campground Sensory Bin
+Camping Sensory Bin
+
 CATEGORY:
 Sensory Play
+
 OBJECTIVE:
-Explore pine, rocks, and nature textures.
-DESCRIPTION:
-Explore pine, rocks, and nature textures.
+Explore camping materials through sensory play.
+
 MATERIALS:
-Flashlights
-Sleeping bags or blankets
-Pretend campfire
-Binoculars
+Pinecones
+Sticks
+Artificial leaves
+Toy animals
+
 SETUP:
-Prepare materials for Campground Sensory Bin.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Create a camping-themed sensory bin.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Explore natural materials.
+Search for hidden woodland animals.
+Discuss camping discoveries.
+
+TEACHER_ROLE:
+Introduce camping vocabulary and encourage exploration.
+
+DESCRIPTION:
+Explore camping materials through sensory play.
+
 LEARNING_GOALS:
-Explore pine, rocks, and nature textures.
+Explore camping materials through sensory play.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
 
+
+
 ACTIVITY_NAME:
-Trail Hike Moves
+Build a Campsite
+
 CATEGORY:
-Music & Movement
+Open-Ended Exploration
+
 OBJECTIVE:
-Hike, climb, and balance on a pretend trail.
-DESCRIPTION:
-Hike, climb, and balance on a pretend trail.
+Develop planning and problem-solving skills.
+
 MATERIALS:
-Flashlights
-Sleeping bags or blankets
-Pretend campfire
-Binoculars
+Blocks
+Toy tents
+Nature materials
+
 SETUP:
-Prepare materials for Trail Hike Moves.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Create campsite building area.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Design and build a campsite.
+Discuss what campers need.
+
+TEACHER_ROLE:
+Support planning and teamwork.
+
+DESCRIPTION:
+Develop planning and problem-solving skills.
+
 LEARNING_GOALS:
-Hike, climb, and balance on a pretend trail.
+Develop planning and problem-solving skills.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
 
+
+
 ACTIVITY_NAME:
-Campfire Art
+Camping Hat Craft
+
 CATEGORY:
 Fine Motor
+
 OBJECTIVE:
-Create a campfire scene with tissue paper flames.
-DESCRIPTION:
-Create a campfire scene with tissue paper flames.
+Strengthen creativity and fine motor skills.
+
 MATERIALS:
-Flashlights
-Sleeping bags or blankets
-Pretend campfire
-Binoculars
+Paper hats
+Markers
+Stickers
+
 SETUP:
-Prepare materials for Campfire Art.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Prepare art station.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Decorate camping hats.
+Wear during the week's adventures.
+
+TEACHER_ROLE:
+Encourage creativity and self-expression.
+
+DESCRIPTION:
+Strengthen creativity and fine motor skills.
+
 LEARNING_GOALS:
-Create a campfire scene with tissue paper flames.
+Strengthen creativity and fine motor skills.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Hiking Trail Adventure
+
+CATEGORY:
+Gross Motor
+
+OBJECTIVE:
+Develop coordination and balance.
+
+MATERIALS:
+Cones
+Floor markers
+
+SETUP:
+Create hiking trail.
+
+DIRECTIONS:
+Follow the trail through the classroom.
+Step over logs and around obstacles.
+
+TEACHER_ROLE:
+Encourage safe movement.
+
+DESCRIPTION:
+Develop coordination and balance.
+
+LEARNING_GOALS:
+Develop coordination and balance.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
 
 TUESDAY:
 
 ACTIVITY_NAME:
-Camping Tent Center
+Nature Investigation Station
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Develop observation skills.
+
+MATERIALS:
+Magnifying glasses
+Leaves
+Rocks
+Pinecones
+
+SETUP:
+Arrange nature items for observation.
+
+DIRECTIONS:
+Examine objects closely.
+Compare textures, colors, and shapes.
+
+TEACHER_ROLE:
+Guide scientific observations.
+
+DESCRIPTION:
+Develop observation skills.
+
+LEARNING_GOALS:
+Develop observation skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Camp Ranger Station
+
 CATEGORY:
 Dramatic Play
+
 OBJECTIVE:
-Pretend to set up camp and cook outdoors.
-DESCRIPTION:
-Pretend to set up camp and cook outdoors.
+Encourage imaginative play and communication.
+
 MATERIALS:
-Flashlights
-Sleeping bags or blankets
-Pretend campfire
 Binoculars
+Maps
+Explorer hats
+
 SETUP:
-Prepare materials for Camping Tent Center.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Create ranger station.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Search for wildlife.
+Record nature discoveries.
+
+TEACHER_ROLE:
+Support storytelling and exploration.
+
+DESCRIPTION:
+Encourage imaginative play and communication.
+
 LEARNING_GOALS:
-Pretend to set up camp and cook outdoors.
+Encourage imaginative play and communication.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
 
+
+
 ACTIVITY_NAME:
-Lantern Light Test
+Nature Collage
+
 CATEGORY:
-STEM/Discovery
+Fine Motor
+
 OBJECTIVE:
-Explore how flashlights help in the dark.
-DESCRIPTION:
-Explore how flashlights help in the dark.
+Develop creativity and observation.
+
 MATERIALS:
-Flashlights
-Sleeping bags or blankets
-Pretend campfire
-Binoculars
+Nature items
+Paper
+Glue
+
 SETUP:
-Prepare materials for Lantern Light Test.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Prepare collage station.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Create artwork using natural materials.
+
+TEACHER_ROLE:
+Encourage creativity and discussion.
+
+DESCRIPTION:
+Develop creativity and observation.
+
 LEARNING_GOALS:
-Explore how flashlights help in the dark.
+Develop creativity and observation.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
 
+
+
 ACTIVITY_NAME:
-Camping Story Time
+Wildlife Movement Game
+
 CATEGORY:
-Literacy
+Music & Movement
+
 OBJECTIVE:
-Listen to and retell camping adventures.
-DESCRIPTION:
-Listen to and retell camping adventures.
+Develop gross motor skills.
+
 MATERIALS:
-Flashlights
-Sleeping bags or blankets
-Pretend campfire
-Binoculars
+Music player
+
 SETUP:
-Prepare materials for Camping Story Time.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Open movement area.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Move like forest animals.
+Hop like rabbits.
+Stomp like bears.
+
+TEACHER_ROLE:
+Lead movement activities.
+
+DESCRIPTION:
+Develop gross motor skills.
+
 LEARNING_GOALS:
-Listen to and retell camping adventures.
+Develop gross motor skills.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+
+
 
 WEDNESDAY:
 
 ACTIVITY_NAME:
-Obstacle Trail Hike
+Campfire Story Circle
+
 CATEGORY:
-Gross Motor
+Dramatic Play
+
 OBJECTIVE:
-Navigate a simple outdoor-style obstacle path.
-DESCRIPTION:
-Navigate a simple outdoor-style obstacle path.
+Develop listening and storytelling skills.
+
 MATERIALS:
-Flashlights
-Sleeping bags or blankets
-Pretend campfire
-Binoculars
+Artificial campfire
+Pillows
+
 SETUP:
-Prepare materials for Obstacle Trail Hike.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Create campfire circle.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Share stories and adventures around the campfire.
+
+TEACHER_ROLE:
+Encourage storytelling and participation.
+
+DESCRIPTION:
+Develop listening and storytelling skills.
+
 LEARNING_GOALS:
-Navigate a simple outdoor-style obstacle path.
+Develop listening and storytelling skills.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
 
-ACTIVITY_NAME:
-Nature Rubbing Art
-CATEGORY:
-Art
-OBJECTIVE:
-Make rubbings of leaves and bark.
-DESCRIPTION:
-Make rubbings of leaves and bark.
-MATERIALS:
-Flashlights
-Sleeping bags or blankets
-Pretend campfire
-Binoculars
-SETUP:
-Prepare materials for Nature Rubbing Art.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
-DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
-LEARNING_GOALS:
-Make rubbings of leaves and bark.
-OBSERVATION_OPPORTUNITIES:
-Observe participation, engagement, and use of theme vocabulary.
+
 
 ACTIVITY_NAME:
-Trail Marker Count
+Flashlight Exploration
+
 CATEGORY:
 Open-Ended Exploration
+
 OBJECTIVE:
-Count markers placed along a pretend trail.
-DESCRIPTION:
-Count markers placed along a pretend trail.
+Investigate light and shadows.
+
 MATERIALS:
 Flashlights
-Sleeping bags or blankets
-Pretend campfire
-Binoculars
+Objects
+
 SETUP:
-Prepare materials for Trail Marker Count.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Dim lights in exploration area.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Explore shadows and light patterns.
+
+TEACHER_ROLE:
+Guide scientific discovery.
+
+DESCRIPTION:
+Investigate light and shadows.
+
 LEARNING_GOALS:
-Count markers placed along a pretend trail.
+Investigate light and shadows.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Campfire Craft
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Strengthen hand-eye coordination.
+
+MATERIALS:
+Paper
+Tissue paper
+Glue
+
+SETUP:
+Prepare art station.
+
+DIRECTIONS:
+Create a paper campfire.
+
+TEACHER_ROLE:
+Support creativity.
+
+DESCRIPTION:
+Strengthen hand-eye coordination.
+
+LEARNING_GOALS:
+Strengthen hand-eye coordination.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Campfire Dance Party
+
+CATEGORY:
+Music & Movement
+
+OBJECTIVE:
+Develop rhythm and movement skills.
+
+MATERIALS:
+Music player
+
+SETUP:
+Open movement area.
+
+DIRECTIONS:
+Dance around the pretend campfire.
+
+TEACHER_ROLE:
+Encourage participation.
+
+DESCRIPTION:
+Develop rhythm and movement skills.
+
+LEARNING_GOALS:
+Develop rhythm and movement skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
 
 THURSDAY:
 
 ACTIVITY_NAME:
-Animal Track Match
-CATEGORY:
-STEM/Discovery
-OBJECTIVE:
-Match animal tracks to forest animals.
-DESCRIPTION:
-Match animal tracks to forest animals.
-MATERIALS:
-Flashlights
-Sleeping bags or blankets
-Pretend campfire
-Binoculars
-SETUP:
-Prepare materials for Animal Track Match.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
-DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
-LEARNING_GOALS:
-Match animal tracks to forest animals.
-OBSERVATION_OPPORTUNITIES:
-Observe participation, engagement, and use of theme vocabulary.
+Animal Track Investigation
 
-ACTIVITY_NAME:
-Camp Crew Helpers
-CATEGORY:
-Circle Time
-OBJECTIVE:
-Take turns packing and caring for camp gear.
-DESCRIPTION:
-Take turns packing and caring for camp gear.
-MATERIALS:
-Flashlights
-Sleeping bags or blankets
-Pretend campfire
-Binoculars
-SETUP:
-Prepare materials for Camp Crew Helpers.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
-DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
-LEARNING_GOALS:
-Take turns packing and caring for camp gear.
-OBSERVATION_OPPORTUNITIES:
-Observe participation, engagement, and use of theme vocabulary.
-
-ACTIVITY_NAME:
-Nature Discovery Table
 CATEGORY:
 Open-Ended Exploration
+
 OBJECTIVE:
-Freely explore nature items with magnifiers.
-DESCRIPTION:
-Freely explore nature items with magnifiers.
+Learn about wildlife through observation.
+
 MATERIALS:
-Flashlights
-Sleeping bags or blankets
-Pretend campfire
-Binoculars
+Animal track cards
+Play dough
+
 SETUP:
-Prepare materials for Nature Discovery Table.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Prepare investigation center.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Match tracks to animals.
+Create animal footprints in play dough.
+
+TEACHER_ROLE:
+Encourage critical thinking.
+
+DESCRIPTION:
+Learn about wildlife through observation.
+
 LEARNING_GOALS:
-Freely explore nature items with magnifiers.
+Learn about wildlife through observation.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Tent Camping Center
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Practice cooperation and imaginative play.
+
+MATERIALS:
+Tent
+Sleeping bags
+Camping props
+
+SETUP:
+Create campsite.
+
+DIRECTIONS:
+Pretend to camp overnight.
+Plan camping activities.
+
+TEACHER_ROLE:
+Support social interaction.
+
+DESCRIPTION:
+Practice cooperation and imaginative play.
+
+LEARNING_GOALS:
+Practice cooperation and imaginative play.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Woodland Animal Masks
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Develop creativity and fine motor control.
+
+MATERIALS:
+Animal mask templates
+Markers
+Glue
+
+SETUP:
+Prepare craft station.
+
+DIRECTIONS:
+Create favorite woodland animals.
+
+TEACHER_ROLE:
+Encourage creativity.
+
+DESCRIPTION:
+Develop creativity and fine motor control.
+
+LEARNING_GOALS:
+Develop creativity and fine motor control.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Forest Adventure Obstacle Course
+
+CATEGORY:
+Gross Motor
+
+OBJECTIVE:
+Develop balance and coordination.
+
+MATERIALS:
+Cones
+Tunnels
+Balance beam
+
+SETUP:
+Create forest obstacle course.
+
+DIRECTIONS:
+Complete outdoor adventure challenges.
+
+TEACHER_ROLE:
+Promote safe movement.
+
+DESCRIPTION:
+Develop balance and coordination.
+
+LEARNING_GOALS:
+Develop balance and coordination.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
 
 FRIDAY:
 
 ACTIVITY_NAME:
-Camping Gear Guessing
+Camping Adventure Showcase
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Build confidence and communication.
+
+MATERIALS:
+Projects from the week
+
+SETUP:
+Create display area.
+
+DIRECTIONS:
+Share favorite camping experiences and discoveries.
+
+TEACHER_ROLE:
+Encourage reflection and discussion.
+
+DESCRIPTION:
+Build confidence and communication.
+
+LEARNING_GOALS:
+Build confidence and communication.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Nature Exploration Centers
+
 CATEGORY:
 Open-Ended Exploration
+
 OBJECTIVE:
-Guess camp items from short clues.
-DESCRIPTION:
-Guess camp items from short clues.
+Review camping and nature concepts.
+
 MATERIALS:
-Flashlights
-Sleeping bags or blankets
-Pretend campfire
-Binoculars
+Materials from previous activities
+
 SETUP:
-Prepare materials for Camping Gear Guessing.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Create exploration stations.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Visit and revisit favorite activities.
+
+TEACHER_ROLE:
+Observe and support learning.
+
+DESCRIPTION:
+Review camping and nature concepts.
+
 LEARNING_GOALS:
-Guess camp items from short clues.
+Review camping and nature concepts.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
 
+
+
 ACTIVITY_NAME:
-Campfire Circle Dance
+Happy Camper Celebration
+
 CATEGORY:
 Music & Movement
-OBJECTIVE:
-Celebrate with songs around the pretend fire.
-DESCRIPTION:
-Celebrate with songs around the pretend fire.
-MATERIALS:
-Flashlights
-Sleeping bags or blankets
-Pretend campfire
-Binoculars
-SETUP:
-Prepare materials for Campfire Circle Dance.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
-DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
-LEARNING_GOALS:
-Celebrate with songs around the pretend fire.
-OBSERVATION_OPPORTUNITIES:
-Observe participation, engagement, and use of theme vocabulary.
 
-ACTIVITY_NAME:
-Class Campsite Mural
-CATEGORY:
-Art
 OBJECTIVE:
-Build a group campsite picture with tents and stars.
-DESCRIPTION:
-Build a group campsite picture with tents and stars.
+Celebrate learning and friendship.
+
 MATERIALS:
-Flashlights
-Sleeping bags or blankets
-Pretend campfire
-Binoculars
+Music player
+
 SETUP:
-Prepare materials for Class Campsite Mural.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Open movement area.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Dance, sing, and celebrate a successful camping adventure week.
+
+TEACHER_ROLE:
+Celebrate participation and accomplishments.
+
+DESCRIPTION:
+Celebrate learning and friendship.
+
 LEARNING_GOALS:
-Build a group campsite picture with tents and stars.
+Celebrate learning and friendship.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.

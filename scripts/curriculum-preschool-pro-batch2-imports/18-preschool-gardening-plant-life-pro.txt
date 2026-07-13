@@ -5,504 +5,729 @@ AGE_GROUP:
 Preschool 3-5 Years
 
 THEME:
-Gardening
+Gardening & Plant Life
 
 PLAN:
 Pro
 
 STATUS:
 published
-
 LEARNING_DOMAINS:
-Language & Literacy
-Social Emotional
-Physical Development
-Creative Arts
 Science
+Language & Literacy
 Math
+Physical Development
+Social Emotional
+Creative Arts
+
 
 WEEKLY_OVERVIEW:
-Children explore seeds, soil, sun, and water as they learn how plants grow. Planting activities, garden dramatic play, sensory exploration, and observation journals help children connect to nature and understand plant life cycles.
+Children will become gardeners and plant scientists as they explore seeds, flowers, vegetables, insects, plant life cycles, and the needs of living things. Through hands-on planting experiences, sensory exploration, dramatic play, art, STEM investigations, and nature observations, children will discover how plants grow and why gardens are important.
 
 LEARNING_OBJECTIVES:
-Describe what plants need to grow
-Observe seeds and seedlings
-Use gardening vocabulary
-Sort seeds and plant parts
-Care for plants responsibly
-Record plant observations
+Identify the parts of a plant
+Explore plant life cycles
+Learn what plants need to grow
+Develop observation and investigation skills
+Practice counting, sorting, and measuring
+Strengthen fine and gross motor skills
+Build vocabulary related to gardening
+Foster responsibility through plant care
+
 
 WEEKLY_MATERIALS:
-Potting soil
 Seeds
-Small pots
+Soil
+Plant pots
 Watering cans
-Gardening gloves
-Trowels
-Seed picture cards
-Flower and vegetable pictures
+Flowers
+Vegetables
 Magnifying glasses
-Art paper
-Garden books
-Spray bottles
+Gardening gloves
+Artificial plants
+Paint
+Markers
+Construction paper
+Glue
+Scissors
+Books
+Music player
+
 
 VOCABULARY:
 Seed
-Soil
-Sprout
-Root
+Plant
+Flower
 Stem
+Roots
 Leaf
-Sunlight
-Water
-Harvest
 Garden
+Soil
+Water
+Sunlight
+Grow
+Sprout
+Vegetable
+Harvest
+
 
 BOOKS:
-Planting a Rainbow | Lois Ehlert
+From Seed to Plant | Gail Gibbons
 The Tiny Seed | Eric Carle
-Lola Plants a Garden | Anna McQuinn
+Planting a Rainbow | Lois Ehlert
+
 
 SONGS:
-Plant a Seed Song
-Growing Growing
-Garden Helper Chant
+The Garden Song
+I'm a Little Seed
+Roots, Stem, Leaves and Flower
 
 FAMILY_CONNECTION:
-Plant a seed at home or visit a garden center. Water together and watch for changes.
+Encourage families to plant flowers, herbs, or vegetables together. Observe plants growing around your home and discuss what helps them stay healthy.
 
 OBSERVATION_OPPORTUNITIES:
-Observe planting steps, care routines, plant part naming, sorting, and journal drawings.
+Observe children's ability to identify plant parts, describe plant growth, care for living things, use scientific vocabulary, and participate in gardening activities.
 
 ADAPTATIONS:
-Use fast-sprouting seeds. Provide visual planting sequence cards.
+Provide larger gardening tools when needed. Use visual plant life cycle cards. Allow children to participate through planting, observation, art, dramatic play, or discussion.
 
 MONDAY:
 
 ACTIVITY_NAME:
-Soil and Seed Bin
+Garden Sensory Bin
+
 CATEGORY:
 Sensory Play
+
 OBJECTIVE:
-Explore soil, seeds, and roots by touch.
-DESCRIPTION:
-Explore soil, seeds, and roots by touch.
+Explore gardening materials through sensory play.
+
 MATERIALS:
-Potting soil
+Soil
 Seeds
-Small pots
-Watering cans
+Artificial flowers
+Scoops
+
 SETUP:
-Prepare materials for Soil and Seed Bin.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Create a garden-themed sensory bin.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Explore soil and seeds.
+Discuss what plants need to grow.
+
+TEACHER_ROLE:
+Introduce gardening vocabulary and encourage exploration.
+
+DESCRIPTION:
+Explore gardening materials through sensory play.
+
 LEARNING_GOALS:
-Explore soil, seeds, and roots by touch.
+Explore gardening materials through sensory play.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
 
+
+
 ACTIVITY_NAME:
-Growing Plant Dance
+Seed Sorting Center
+
 CATEGORY:
-Music & Movement
+Open-Ended Exploration
+
 OBJECTIVE:
-Move from seed to sprout to flower.
-DESCRIPTION:
-Move from seed to sprout to flower.
+Develop classification skills.
+
 MATERIALS:
-Potting soil
-Seeds
-Small pots
-Watering cans
+Various seeds
+Sorting trays
+
 SETUP:
-Prepare materials for Growing Plant Dance.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Arrange seeds for sorting.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Sort seeds by size, shape, or color.
+
+TEACHER_ROLE:
+Support observation and comparison skills.
+
+DESCRIPTION:
+Develop classification skills.
+
 LEARNING_GOALS:
-Move from seed to sprout to flower.
+Develop classification skills.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+
+
 
 ACTIVITY_NAME:
 Flower Garden Painting
+
 CATEGORY:
 Fine Motor
+
 OBJECTIVE:
-Paint a colorful garden scene.
-DESCRIPTION:
-Paint a colorful garden scene.
+Develop creativity and hand control.
+
 MATERIALS:
-Potting soil
-Seeds
-Small pots
-Watering cans
+Paint
+Paper
+Brushes
+
 SETUP:
-Prepare materials for Flower Garden Painting.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Prepare painting station.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Paint colorful flower gardens.
+
+TEACHER_ROLE:
+Encourage artistic expression.
+
+DESCRIPTION:
+Develop creativity and hand control.
+
 LEARNING_GOALS:
-Paint a colorful garden scene.
+Develop creativity and hand control.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Growing Like a Plant
+
+CATEGORY:
+Music & Movement
+
+OBJECTIVE:
+Develop body awareness.
+
+MATERIALS:
+Music player
+
+SETUP:
+Open movement space.
+
+DIRECTIONS:
+Pretend to grow from tiny seeds into tall plants.
+
+TEACHER_ROLE:
+Lead movement activities.
+
+DESCRIPTION:
+Develop body awareness.
+
+LEARNING_GOALS:
+Develop body awareness.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
 
 TUESDAY:
 
 ACTIVITY_NAME:
-Garden Shop Center
+Planting Seeds Investigation
+
+CATEGORY:
+Open-Ended Exploration
+
+OBJECTIVE:
+Learn about plant growth.
+
+MATERIALS:
+Seeds
+Soil
+Cups
+
+SETUP:
+Prepare planting station.
+
+DIRECTIONS:
+Plant seeds and water them.
+Predict what will happen.
+
+TEACHER_ROLE:
+Guide scientific thinking and observation.
+
+DESCRIPTION:
+Learn about plant growth.
+
+LEARNING_GOALS:
+Learn about plant growth.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Garden Center Dramatic Play
+
 CATEGORY:
 Dramatic Play
+
 OBJECTIVE:
-Pretend to sell plants and garden tools.
-DESCRIPTION:
-Pretend to sell plants and garden tools.
+Encourage imaginative play and communication.
+
 MATERIALS:
-Potting soil
-Seeds
-Small pots
-Watering cans
+Flowers
+Gardening tools
+Play money
+
 SETUP:
-Prepare materials for Garden Shop Center.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Create garden shop.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Buy, sell, and care for plants.
+
+TEACHER_ROLE:
+Support role-play and vocabulary.
+
+DESCRIPTION:
+Encourage imaginative play and communication.
+
 LEARNING_GOALS:
-Pretend to sell plants and garden tools.
+Encourage imaginative play and communication.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
 
+
+
 ACTIVITY_NAME:
-Seed Germination Tray
+Seed Packet Craft
+
 CATEGORY:
-STEM/Discovery
+Fine Motor
+
 OBJECTIVE:
-Plant seeds and predict sprouting time.
-DESCRIPTION:
-Plant seeds and predict sprouting time.
+Strengthen fine motor development.
+
 MATERIALS:
-Potting soil
-Seeds
-Small pots
-Watering cans
+Paper
+Markers
+Stickers
+
 SETUP:
-Prepare materials for Seed Germination Tray.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Prepare craft station.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Create and decorate seed packets.
+
+TEACHER_ROLE:
+Encourage creativity.
+
+DESCRIPTION:
+Strengthen fine motor development.
+
 LEARNING_GOALS:
-Plant seeds and predict sprouting time.
+Strengthen fine motor development.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
 
+
+
 ACTIVITY_NAME:
-Plant Life Stories
+Watering Relay
+
 CATEGORY:
-Literacy
+Gross Motor
+
 OBJECTIVE:
-Read and retell plant growth stories.
-DESCRIPTION:
-Read and retell plant growth stories.
+Develop coordination and teamwork.
+
 MATERIALS:
-Potting soil
-Seeds
-Small pots
 Watering cans
+Buckets
+
 SETUP:
-Prepare materials for Plant Life Stories.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Create relay course.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Carry water to garden plants.
+
+TEACHER_ROLE:
+Promote teamwork and participation.
+
+DESCRIPTION:
+Develop coordination and teamwork.
+
 LEARNING_GOALS:
-Read and retell plant growth stories.
+Develop coordination and teamwork.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+
+
 
 WEDNESDAY:
 
 ACTIVITY_NAME:
-Watering Can Relay
-CATEGORY:
-Gross Motor
-OBJECTIVE:
-Carry watering cans carefully across the room.
-DESCRIPTION:
-Carry watering cans carefully across the room.
-MATERIALS:
-Potting soil
-Seeds
-Small pots
-Watering cans
-SETUP:
-Prepare materials for Watering Can Relay.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
-DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
-LEARNING_GOALS:
-Carry watering cans carefully across the room.
-OBSERVATION_OPPORTUNITIES:
-Observe participation, engagement, and use of theme vocabulary.
+Plant Parts Investigation
 
-ACTIVITY_NAME:
-Seed Collage
-CATEGORY:
-Art
-OBJECTIVE:
-Glue seeds into plant shape collages.
-DESCRIPTION:
-Glue seeds into plant shape collages.
-MATERIALS:
-Potting soil
-Seeds
-Small pots
-Watering cans
-SETUP:
-Prepare materials for Seed Collage.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
-DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
-LEARNING_GOALS:
-Glue seeds into plant shape collages.
-OBSERVATION_OPPORTUNITIES:
-Observe participation, engagement, and use of theme vocabulary.
-
-ACTIVITY_NAME:
-Seed Sort and Count
 CATEGORY:
 Open-Ended Exploration
+
 OBJECTIVE:
-Sort seeds by size or type and count.
-DESCRIPTION:
-Sort seeds by size or type and count.
+Identify parts of a plant.
+
 MATERIALS:
-Potting soil
-Seeds
-Small pots
-Watering cans
+Real plants
+Magnifying glasses
+
 SETUP:
-Prepare materials for Seed Sort and Count.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Arrange plants for observation.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Examine roots, stems, leaves, and flowers.
+
+TEACHER_ROLE:
+Introduce plant vocabulary.
+
+DESCRIPTION:
+Identify parts of a plant.
+
 LEARNING_GOALS:
-Sort seeds by size or type and count.
+Identify parts of a plant.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Garden Helper Center
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Practice caring for living things.
+
+MATERIALS:
+Gardening tools
+Plants
+
+SETUP:
+Create garden care station.
+
+DIRECTIONS:
+Care for plants and complete garden jobs.
+
+TEACHER_ROLE:
+Model responsibility.
+
+DESCRIPTION:
+Practice caring for living things.
+
+LEARNING_GOALS:
+Practice caring for living things.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Plant Life Cycle Craft
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Understand plant growth stages.
+
+MATERIALS:
+Life cycle templates
+Glue
+Markers
+
+SETUP:
+Prepare art materials.
+
+DIRECTIONS:
+Create a plant life cycle sequence.
+
+TEACHER_ROLE:
+Support sequencing skills.
+
+DESCRIPTION:
+Understand plant growth stages.
+
+LEARNING_GOALS:
+Understand plant growth stages.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Garden Yoga
+
+CATEGORY:
+Music & Movement
+
+OBJECTIVE:
+Develop flexibility and body awareness.
+
+MATERIALS:
+Music player
+
+SETUP:
+Open movement area.
+
+DIRECTIONS:
+Move like flowers, trees, and growing plants.
+
+TEACHER_ROLE:
+Guide movement activities.
+
+DESCRIPTION:
+Develop flexibility and body awareness.
+
+LEARNING_GOALS:
+Develop flexibility and body awareness.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
 
 THURSDAY:
 
 ACTIVITY_NAME:
-Plant Part Match
-CATEGORY:
-STEM/Discovery
-OBJECTIVE:
-Match roots, stems, leaves, and flowers.
-DESCRIPTION:
-Match roots, stems, leaves, and flowers.
-MATERIALS:
-Potting soil
-Seeds
-Small pots
-Watering cans
-SETUP:
-Prepare materials for Plant Part Match.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
-DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
-LEARNING_GOALS:
-Match roots, stems, leaves, and flowers.
-OBSERVATION_OPPORTUNITIES:
-Observe participation, engagement, and use of theme vocabulary.
+Vegetable Investigation
 
-ACTIVITY_NAME:
-Garden Care Helpers
-CATEGORY:
-Circle Time
-OBJECTIVE:
-Take turns watering classroom plants.
-DESCRIPTION:
-Take turns watering classroom plants.
-MATERIALS:
-Potting soil
-Seeds
-Small pots
-Watering cans
-SETUP:
-Prepare materials for Garden Care Helpers.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
-DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
-LEARNING_GOALS:
-Take turns watering classroom plants.
-OBSERVATION_OPPORTUNITIES:
-Observe participation, engagement, and use of theme vocabulary.
-
-ACTIVITY_NAME:
-Garden Discovery Table
 CATEGORY:
 Open-Ended Exploration
+
 OBJECTIVE:
-Freely explore seeds, soil, and tools.
-DESCRIPTION:
-Freely explore seeds, soil, and tools.
+Explore vegetables and healthy foods.
+
 MATERIALS:
-Potting soil
-Seeds
-Small pots
-Watering cans
+Vegetables
+Magnifying glasses
+
 SETUP:
-Prepare materials for Garden Discovery Table.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Arrange vegetables for observation.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Observe and compare vegetables.
+
+TEACHER_ROLE:
+Encourage scientific observation.
+
+DESCRIPTION:
+Explore vegetables and healthy foods.
+
 LEARNING_GOALS:
-Freely explore seeds, soil, and tools.
+Explore vegetables and healthy foods.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Farmer's Market
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Develop communication and social skills.
+
+MATERIALS:
+Play vegetables
+Cash register
+Baskets
+
+SETUP:
+Create market center.
+
+DIRECTIONS:
+Buy and sell vegetables.
+
+TEACHER_ROLE:
+Support role-playing.
+
+DESCRIPTION:
+Develop communication and social skills.
+
+LEARNING_GOALS:
+Develop communication and social skills.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Vegetable Printing Art
+
+CATEGORY:
+Fine Motor
+
+OBJECTIVE:
+Explore textures and creativity.
+
+MATERIALS:
+Cut vegetables
+Paint
+Paper
+
+SETUP:
+Prepare printing station.
+
+DIRECTIONS:
+Use vegetables to create prints.
+
+TEACHER_ROLE:
+Encourage experimentation.
+
+DESCRIPTION:
+Explore textures and creativity.
+
+LEARNING_GOALS:
+Explore textures and creativity.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Harvest Helpers Race
+
+CATEGORY:
+Gross Motor
+
+OBJECTIVE:
+Develop coordination and teamwork.
+
+MATERIALS:
+Baskets
+Play vegetables
+
+SETUP:
+Create harvesting course.
+
+DIRECTIONS:
+Collect and deliver vegetables.
+
+TEACHER_ROLE:
+Encourage participation.
+
+DESCRIPTION:
+Develop coordination and teamwork.
+
+LEARNING_GOALS:
+Develop coordination and teamwork.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
 
 FRIDAY:
 
 ACTIVITY_NAME:
-Plant Needs Game
+Garden Showcase
+
+CATEGORY:
+Dramatic Play
+
+OBJECTIVE:
+Build confidence and communication.
+
+MATERIALS:
+Projects from the week
+
+SETUP:
+Create display area.
+
+DIRECTIONS:
+Share gardening discoveries and projects.
+
+TEACHER_ROLE:
+Encourage reflection and discussion.
+
+DESCRIPTION:
+Build confidence and communication.
+
+LEARNING_GOALS:
+Build confidence and communication.
+
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+
+
+ACTIVITY_NAME:
+Garden Exploration Centers
+
 CATEGORY:
 Open-Ended Exploration
+
 OBJECTIVE:
-Sort pictures of what plants need.
-DESCRIPTION:
-Sort pictures of what plants need.
+Review gardening concepts.
+
 MATERIALS:
-Potting soil
-Seeds
-Small pots
-Watering cans
+Favorite materials from the week
+
 SETUP:
-Prepare materials for Plant Needs Game.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Create exploration stations.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Revisit favorite gardening activities.
+
+TEACHER_ROLE:
+Observe and support learning.
+
+DESCRIPTION:
+Review gardening concepts.
+
 LEARNING_GOALS:
-Sort pictures of what plants need.
+Review gardening concepts.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
 
+
+
 ACTIVITY_NAME:
-Garden Celebration Song
+Garden Celebration Dance
+
 CATEGORY:
 Music & Movement
-OBJECTIVE:
-Sing and move like growing plants.
-DESCRIPTION:
-Sing and move like growing plants.
-MATERIALS:
-Potting soil
-Seeds
-Small pots
-Watering cans
-SETUP:
-Prepare materials for Garden Celebration Song.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
-DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
-LEARNING_GOALS:
-Sing and move like growing plants.
-OBSERVATION_OPPORTUNITIES:
-Observe participation, engagement, and use of theme vocabulary.
 
-ACTIVITY_NAME:
-Class Garden Journal
-CATEGORY:
-Art
 OBJECTIVE:
-Add group drawings to a garden journal.
-DESCRIPTION:
-Add group drawings to a garden journal.
+Celebrate learning and growth.
+
 MATERIALS:
-Potting soil
-Seeds
-Small pots
-Watering cans
+Music player
+
 SETUP:
-Prepare materials for Class Garden Journal.
-TEACHER_ROLE:
-Model vocabulary, ask open questions, and support safe participation.
+Open movement area.
+
 DIRECTIONS:
-1. Introduce the activity and materials.
-2. Demonstrate one example if helpful.
-3. Invite children to participate and explore.
-4. Ask children to describe what they notice or create.
-5. Clean up together and reflect briefly.
+Dance and celebrate a successful week of gardening adventures.
+
+TEACHER_ROLE:
+Celebrate participation and accomplishments.
+
+DESCRIPTION:
+Celebrate learning and growth.
+
 LEARNING_GOALS:
-Add group drawings to a garden journal.
+Celebrate learning and growth.
+
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
