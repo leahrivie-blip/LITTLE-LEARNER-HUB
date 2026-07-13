@@ -3,9 +3,21 @@
  * Cloud-backed source of truth with local cache + Curriculum Planner dual-write bridge.
  */
 (function (global) {
-  const SCHEDULE_ITEM_TYPES = ["lesson_plan", "classroom_event", "closure", "reminder"];
+  const SCHEDULE_ITEM_TYPES = ["lesson_plan", "classroom_event", "closure", "reminder", "director_event", "family_event"];
+  const SCHEDULE_ITEM_CATEGORIES = {
+    lesson_plan: "curriculum",
+    classroom_event: "classroom",
+    reminder: "classroom",
+    closure: "family",
+    director_event: "director",
+    family_event: "family",
+  };
   const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
   const PLANNER_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+
+  function scheduleItemCategory(type) {
+    return SCHEDULE_ITEM_CATEGORIES[String(type || "").trim()] || "classroom";
+  }
 
   function clamp(value, max = 2000) {
     return String(value || "").trim().slice(0, max);
@@ -266,6 +278,40 @@
     return saved;
   }
 
+  function deleteLocalItem(doc, itemId) {
+    const next = {
+      classrooms: doc.classrooms?.length ? doc.classrooms : emptyDoc().classrooms,
+      items: (doc.items || []).filter((entry) => entry.id !== itemId),
+      updatedAt: new Date().toISOString(),
+      schemaVersion: 1,
+    };
+    return next;
+  }
+
+  async function deleteItem(getFirebaseHeaders, email, itemId) {
+    const current = readCache(email);
+    const next = deleteLocalItem(current, itemId);
+    writeCache(email, next);
+    const headers = await authHeaders(getFirebaseHeaders, email);
+    if (!headers) return { ok: true, doc: next };
+    try {
+      const response = await fetch(`/api/schedule/items/${encodeURIComponent(itemId)}`, {
+        method: "DELETE",
+        headers,
+      });
+      if (!response.ok) return { ok: true, doc: next };
+      const remote = await response.json();
+      writeCache(email, {
+        ...next,
+        updatedAt: remote.updatedAt || next.updatedAt,
+        classrooms: remote.classrooms || next.classrooms,
+      });
+    } catch {
+      /* local cache already updated */
+    }
+    return { ok: true, doc: readCache(email) };
+  }
+
   async function assignLessonPlanToWeek(getFirebaseHeaders, email, payload = {}) {
     const weekStart = weekStartMonday(payload.weekStartDate || new Date());
     const current = readCache(email);
@@ -465,8 +511,10 @@
 
   global.LLHSchedule = {
     SCHEDULE_ITEM_TYPES,
+    SCHEDULE_ITEM_CATEGORIES,
     WEEKDAYS,
     PLANNER_DAYS,
+    scheduleItemCategory,
     weekStartMonday,
     weekEndFromStart,
     isoDateOnly,
@@ -480,6 +528,7 @@
     fetchSchedule,
     saveSchedule,
     upsertItem,
+    deleteItem,
     assignLessonPlanToWeek,
     migrateFromLegacy,
     scheduleItemToLegacyAssignment,

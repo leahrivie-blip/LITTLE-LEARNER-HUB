@@ -15080,6 +15080,11 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   overflow: hidden;
 }
 
+/* Sun-Sat month grid with a leading "View Week" gutter column. */
+.llh-calendar-grid-7 {
+  grid-template-columns: 30px repeat(7, minmax(0, 1fr));
+}
+
 .llh-cal-head {
   background: var(--llh-primary-soft, #ede8f7);
   color: var(--llh-primary-deep, #5a4d8a);
@@ -15087,6 +15092,40 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   font-weight: 600;
   padding: 8px;
   text-align: center;
+}
+
+.llh-cal-head-gutter {
+  background: var(--llh-surface, #fff);
+}
+
+.llh-cal-head.is-weekend-head {
+  background: color-mix(in srgb, var(--llh-primary-soft, #ede8f7) 60%, var(--llh-surface, #fff));
+}
+
+.llh-cal-week-jump {
+  background: var(--llh-surface, #fff);
+  border: 0;
+  border-right: 1px solid var(--llh-line, #e4e1ea);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font: inherit;
+  color: var(--llh-primary-deep, #5a4d8a);
+  padding: 2px;
+}
+
+.llh-cal-week-jump:disabled {
+  visibility: hidden;
+}
+
+.llh-cal-week-jump-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .llh-cal-cell {
@@ -15112,6 +15151,26 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   outline: 2px solid var(--llh-primary, #7b6bb5);
   outline-offset: -2px;
   z-index: 1;
+}
+
+/* Weekends stay fully clickable and never look disabled — a distinct tint
+   plus a visible "Weekend" text label (not color alone) signal that lesson
+   plans don't auto-populate here, while manual events remain fully usable. */
+.llh-cal-cell.is-weekend {
+  background: color-mix(in srgb, var(--llh-primary-soft, #ede8f7) 35%, #fff);
+}
+
+.llh-cal-cell.is-weekend:hover,
+.llh-cal-cell.is-weekend:focus-visible {
+  background: color-mix(in srgb, var(--llh-primary-soft, #ede8f7) 55%, #fff);
+}
+
+.llh-cal-weekend-tag {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--llh-primary-deep, #5a4d8a);
 }
 
 .llh-cal-daynum {
@@ -15200,6 +15259,37 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 
   .llh-cal-cell {
     min-height: 72px;
+    padding: 4px;
+  }
+
+  .llh-calendar-grid-7 {
+    grid-template-columns: 18px repeat(7, minmax(0, 1fr));
+  }
+
+  .llh-cal-week-jump-label {
+    display: none;
+  }
+
+  .llh-cal-weekend-tag {
+    font-size: 8px;
+  }
+
+  .llh-cal-week-strip {
+    grid-template-columns: repeat(7, minmax(56px, 1fr));
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .llh-cal-day-item {
+    flex-direction: column;
+  }
+
+  .llh-cal-day-item-actions {
+    width: 100%;
+  }
+
+  .llh-cal-day-item-actions .ghost-button {
+    flex: 1 1 auto;
   }
 
   .llh-calendar-toolbar .form-actions {
@@ -15661,19 +15751,11 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   .llh-dash-weekstrip-legend {
     gap: 8px 10px;
   }
-
-  .llh-calendar-grid .llh-cal-head:nth-child(6),
-  .llh-calendar-grid .llh-cal-head:nth-child(7),
-  .llh-calendar-grid .llh-cal-cell:nth-child(7n+6),
-  .llh-calendar-grid .llh-cal-cell:nth-child(7n) {
-    display: none;
-  }
-
-  .llh-calendar-grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
 }
 
+/* Legacy 5-column Mon-Fri override — no longer used by renderMainCalendar
+   (Phase A restored the full Sun-Sat grid), kept only in case any older
+   cached markup still references it. */
 .llh-calendar-grid-weekdays {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
@@ -15826,6 +15908,191 @@ body.curriculum-planner-retired .nav-link[data-view="curriculum-planner"] {
   color: var(--llh-muted, #6b6b7b);
 }
 
+/* ========== Calendar category colors (filters, chips, day-view items) ========== */
+.llh-cal-chip-curriculum,
+.llh-cal-day-item-curriculum {
+  background: var(--llh-primary-soft, #ede8f7);
+  color: var(--llh-primary-deep, #5a4d8a);
+}
+
+.llh-cal-chip-child,
+.llh-cal-day-item-child {
+  background: #fde6ef;
+  color: #a8386b;
+}
+
+.llh-cal-chip-classroom,
+.llh-cal-day-item-classroom {
+  background: var(--llh-accent-soft, #fbece3);
+  color: #9a5a38;
+}
+
+.llh-cal-chip-director,
+.llh-cal-day-item-director {
+  background: var(--llh-secondary-soft, #e5f1f8);
+  color: #2f6685;
+}
+
+.llh-cal-chip-family,
+.llh-cal-day-item-family {
+  background: var(--llh-danger-soft, #f8e8e8);
+  color: var(--llh-danger, #c56b6b);
+}
+
+/* ========== Calendar filter bar ========== */
+.llh-cal-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.llh-cal-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  min-height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--llh-line, #e4e1ea);
+  background: var(--llh-surface, #fff);
+  color: var(--llh-muted, #6b6b7b);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.llh-cal-filter-chip.is-active {
+  background: var(--llh-primary-soft, #ede8f7);
+  color: var(--llh-primary-deep, #5a4d8a);
+  border-color: var(--llh-primary, #7b6bb5);
+}
+
+.llh-cal-filter-chip[aria-pressed="false"] {
+  text-decoration: line-through;
+  opacity: 0.75;
+}
+
+/* ========== Month/Year jump ========== */
+.llh-cal-jump-label {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--llh-muted, #6b6b7b);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.llh-cal-jump-label select {
+  min-height: 40px;
+  border-radius: 8px;
+  border: 1px solid var(--llh-line, #e4e1ea);
+  padding: 4px 8px;
+  font: inherit;
+  color: var(--llh-ink, #2a2a35);
+  background: var(--llh-surface, #fff);
+}
+
+/* ========== Day View ========== */
+.llh-cal-day-body {
+  display: grid;
+  gap: 16px;
+}
+
+.llh-cal-day-item-list {
+  display: grid;
+  gap: 10px;
+  margin: 10px 0 14px;
+}
+
+.llh-cal-day-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--llh-line, #e4e1ea);
+}
+
+.llh-cal-day-item p.eyebrow {
+  margin: 0 0 4px;
+}
+
+.llh-cal-day-item-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.llh-day-activity-list {
+  margin: 8px 0;
+  padding-left: 18px;
+}
+
+/* ========== Week View ========== */
+.llh-cal-week-lesson {
+  background: var(--llh-primary-soft, #ede8f7);
+}
+
+.llh-cal-week-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.llh-cal-week-day {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+  min-height: 110px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--llh-line, #e4e1ea);
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+.llh-cal-week-day.is-weekend {
+  background: color-mix(in srgb, var(--llh-primary-soft, #ede8f7) 35%, #fff);
+}
+
+.llh-cal-week-day.is-today {
+  outline: 2px solid var(--llh-primary, #7b6bb5);
+  outline-offset: -2px;
+}
+
+.llh-cal-week-day .llh-cal-chip {
+  max-width: 100%;
+}
+
+/* ========== Add/Edit event modal ========== */
+.llh-schedule-event-allday {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-direction: row;
+}
+
+.llh-schedule-event-time-fields {
+  display: flex;
+  gap: 10px;
+}
+
+.llh-schedule-event-time-fields label {
+  flex: 1;
+}
+
+.llh-schedule-event-delete {
+  color: var(--llh-danger, #c56b6b);
+  border-color: color-mix(in srgb, var(--llh-danger, #c56b6b) 40%, white);
+}
+
 .llh-calendar-lesson-block,
 .llh-calendar-empty-week {
   margin-bottom: 12px;
@@ -15967,7 +16234,18 @@ body.curriculum-planner-retired .nav-link[data-view="curriculum-planner"] {
 
   .llh-calendar-month-nav {
     width: 100%;
-    justify-content: space-between;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .llh-cal-jump-label select {
+    min-height: 40px;
+    font-size: 0.85rem;
+  }
+
+  .llh-cal-filter-chip {
+    font-size: 0.8rem;
+    padding: 6px 10px;
   }
 
   .llh-cal-cell {

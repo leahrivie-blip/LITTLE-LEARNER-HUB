@@ -11,8 +11,8 @@
 - Desktop: 1280×900
 
 ## Real curriculum used
-- Free: **Community Helpers Audit Week** (`cur-lp-audit-2d620c`)
-- Alternate Free: **Transportation Audit Week** (`cur-lp-audit-6593f5`)
+- Free: **Community Helpers Audit Week** (`cur-lp-audit-4be79e`)
+- Alternate Free: **Transportation Audit Week** (`cur-lp-audit-658b5a`)
 
 ## Verification matrix
 
@@ -93,23 +93,19 @@ Calendar
 PLANNING HOME
 
 July 2026
-Prev
-Today
-Next
-Assign Lesson Plan
-Mon
-Tue
-Wed
-Thu
-Fri
-1
-2
-3
-6
-7
-10
-13
-Community Helpers  |
+‹ Prev
+MONTH
+January
+February
+March
+April
+May
+June
+July
+August
+September
+October
+November |
 | Calendar week bar rendered | PASS | bars=1 |
 | Future week planning assign works | PASS | Transportation Audit Week |
 | Future week present in ScheduleItem store | PASS | ["2026-07-13","2026-07-20"] |
@@ -148,7 +144,7 @@ Transportation Audit Week
 Preschool · 2026-07-13 – 2026-07-17 · Main Classroom
 
 Open lesson |
-| Remove lesson plan works | PASS | sch-b1cfcfe4d995 |
+| Remove lesson plan works | PASS | sch-15f0638e4dfa |
 | Dashboard clears after remove | PASS | Good evening, sched-audit-teacher
 
 Monday, July 13
@@ -173,7 +169,7 @@ T |
 | Android calendar no overflow | PASS |  |
 | Desktop Weekly Planner shows five day cards | PASS |  |
 | Desktop Weekly Planner uses horizontal week board | PASS |  |
-| Desktop calendar uses weekday planning grid | PASS |  |
+| Desktop calendar uses Sun-Sat planning grid | PASS |  |
 | Global search hidden on Calendar | PASS |  |
 | Desktop Add Event opens modal | PASS |  |
 | Add Event modal opens without prompt | PASS |  |
