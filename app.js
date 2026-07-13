@@ -3215,14 +3215,16 @@ const homeViewTemplate = document.querySelector("#view-home").innerHTML;
 const defaultSiteContentState = captureDefaultSiteContent();
 let siteContentState = emptySiteContent();
 let resources = loadResources();
-syncFreePlanMarketingCopy();
 let favorites = readSavedJson("llhFavorites", []);
 let savedDownloads = readSavedJson("llhDownloads", []);
 let activeGeneratedPdfResource = null;
 let activeResourceViewerResource = null;
 let currentPlan = localStorage.getItem("llhPlan") || "Free";
 let currentUser = localStorage.getItem("llhUser") || "";
+syncFreePlanMarketingCopy();
 let activeFilter = "All";
+let lessonLibraryReturnView = "home";
+let lessonLibraryInfoOpen = false;
 let activeActivityLessonPlanId = "";
 let activeViewerResourceId = "";
 let resourceViewerReturnToId = "";
@@ -7285,9 +7287,13 @@ function setView(view) {
     showProFeatureModal(`${label} is a Pro feature. Upgrade to unlock all Pro tools.`);
     return;
   }
+  if (resolvedView === "lessons" && activeView && activeView !== "lessons") {
+    lessonLibraryReturnView = activeView;
+  }
   document.querySelectorAll(".view").forEach((section) => section.classList.remove("active-view"));
   document.querySelector(`#view-${resolvedView}`)?.classList.add("active-view");
   document.body.classList.toggle("home-view", resolvedView === "home");
+  document.body.classList.toggle("lessons-view", resolvedView === "lessons");
   document.querySelectorAll(".nav-link").forEach((button) => {
     button.classList.toggle("active", button.dataset.view === requestedView);
   });
@@ -11851,6 +11857,39 @@ async function openResourceViewer(resourceId, options = {}) {
   trackEvent("resource_view", { resourceId, title: resource.title, category: resource.category, age: resource.age, access: resource.plan, plan: currentPlan });
 }
 
+function resolveLessonLibraryBackView() {
+  const candidate = String(lessonLibraryReturnView || "home").trim() || "home";
+  if (candidate === "lessons") return "home";
+  if (document.querySelector(`#view-${candidate}`)) return candidate;
+  return "home";
+}
+
+function lessonLibraryBackLabel(backView) {
+  if (backView === "home") return "← Back";
+  if (backView === "curriculum-planner") return "← Back to Curriculum Planner";
+  if (backView === "activities") return "← Back to Activities";
+  if (backView === "planner") return "← Back to Calendar";
+  if (viewMap[backView]) return `← Back to ${viewMap[backView]}`;
+  return "← Back";
+}
+
+function renderLessonPlanLibraryHeader() {
+  const backView = resolveLessonLibraryBackView();
+  return `
+    <header class="lesson-library-header">
+      <button class="ghost-button back-button lesson-library-back" data-view="${escapeHtml(backView)}" type="button" aria-label="Back">${lessonLibraryBackLabel(backView)}</button>
+      <div class="lesson-library-title-row">
+        <h2 class="lesson-library-title">Lesson Plan Library</h2>
+        <button class="ghost-button lesson-library-info-toggle" type="button" data-lesson-library-info-toggle aria-expanded="${lessonLibraryInfoOpen ? "true" : "false"}" aria-controls="lessonLibraryInfoPanel" title="About lesson plans">
+          <span class="visually-hidden">About lesson plans</span>
+          <span aria-hidden="true">ℹ</span>
+        </button>
+      </div>
+      ${lessonLibraryInfoOpen ? renderLessonPlanLibraryNotice() : ""}
+    </header>
+  `;
+}
+
 function renderCategoryPage(view) {
   const category = viewMap[view];
   const section = document.querySelector(`#view-${view}`);
@@ -11868,6 +11907,25 @@ function renderCategoryPage(view) {
   const filters = categoryFilters(category);
   if (isLessonPlanCategory && !filters.includes(activeFilter)) activeFilter = "All";
   const displayTitle = view === "lessons" ? "Lesson Plan Library" : category;
+  const emptyStateHtml = category === "Activity Center"
+    ? `<div class="empty-state">No activities match your search or filter. Activities appear automatically when lesson plans are published. <button class="inline-link" data-view="lessons" type="button">Browse lesson plans</button></div>`
+    : `<div class="empty-state">No resources found. Try another search or filter.</div>`;
+  if (isLessonPlanCategory) {
+    section.innerHTML = `
+      ${renderLessonPlanLibraryHeader()}
+      <div class="lesson-plan-search-bar">
+        <label class="lesson-plan-search-label visually-hidden" for="lessonPlanSearch">Search lesson plans</label>
+        <input id="lessonPlanSearch" type="search" placeholder="Search lesson plans..." value="${escapeHtml(searchInput.value)}" autocomplete="off" />
+      </div>
+      <div class="filter-row lesson-library-age-filters" role="group" aria-label="Age group filters">
+        ${filters.map((filter) => `<button class="${activeFilter === filter ? "active-filter" : ""}" data-filter="${filter}" type="button" aria-pressed="${activeFilter === filter ? "true" : "false"}">${filter}</button>`).join("")}
+      </div>
+      <div class="resource-grid lesson-library-grid">
+        ${items.length ? items.map(resourceCard).join("") : `<div class="empty-state">New play-based lesson plans are being added.</div>`}
+      </div>
+    `;
+    return;
+  }
   section.innerHTML = `
     <button class="ghost-button back-button" data-view="home" type="button">← Back to Home</button>
     <div class="page-title">
@@ -11875,32 +11933,25 @@ function renderCategoryPage(view) {
       <h2>${displayTitle}</h2>
       <p>${categoryIntro(category)}</p>
     </div>
-    ${isLessonPlanCategory ? "" : `<div class="library-stats">
+    <div class="library-stats">
       <div><strong>${accessCounts.total}</strong><span>ready-made resources</span></div>
       <div><strong>${accessCounts.freeLimit}</strong><span>Free access</span></div>
       <div><strong>${accessCounts.proOnly}</strong><span>Pro unlocks</span></div>
-    </div>`}
-    ${isLessonPlanCategory ? "" : `<div class="access-notice ${isProUser() ? "pro" : ""}">
+    </div>
+    <div class="access-notice ${isProUser() ? "pro" : ""}">
       ${isProUser()
         ? `Pro is active: full in-app library access, saved favorites, viewed resources, and ${aiUsageRemaining()} document creations left this month.`
         : `Free plan: ${accessCounts.freeLimit} ${displayTitle.toLowerCase()} resources are unlocked here. Upgrade to Pro for all ${accessCounts.total}.`}
-    </div>`}
+    </div>
     ${searchedChild ? renderChildLessonSearchContext(searchedChild) : ""}
     ${category === "Printables" ? renderPrintablesRefreshNotice() : ""}
-    ${category === "Lesson Plans" ? `
-      ${renderLessonPlanLibraryNotice()}
-      <div class="lesson-plan-search-bar">
-        <label class="lesson-plan-search-label" for="lessonPlanSearch">Search lesson plans</label>
-        <input id="lessonPlanSearch" type="search" placeholder="Search by title, theme, materials, vocabulary, objectives, or books" value="${escapeHtml(searchInput.value)}" autocomplete="off" />
-      </div>
-    ` : ""}
     ${category === "Activity Center" && activeActivityLessonPlanId ? renderActivityLessonFilterBanner() : ""}
     <div class="filter-row">
       ${filters.map((filter) => `<button class="${activeFilter === filter ? "active-filter" : ""}" data-filter="${filter}">${filter}</button>`).join("")}
     </div>
     ${category === "Observation Hub" ? renderObservationEditor() : ""}
     <div class="resource-grid">
-      ${items.length ? items.map(resourceCard).join("") : `<div class="empty-state">${isLessonPlanCategory ? "New play-based lesson plans are being added." : (category === "Activity Center" ? `No activities match your search or filter. Activities appear automatically when lesson plans are published. <button class="inline-link" data-view="lessons" type="button">Browse lesson plans</button>` : "No resources found. Try another search or filter.")}</div>`}
+      ${items.length ? items.map(resourceCard).join("") : emptyStateHtml}
     </div>
   `;
 }
@@ -11953,9 +12004,8 @@ function renderLessonPlanLibraryNotice() {
       ? `Free plan unlocks all ${stats.freeTotal} published Free-tier lesson plans${ageBreakdown ? ` (${ageBreakdown})` : ""}. Pro unlocks ${stats.proTotal} premium lesson plans.`
       : "Browse published play-based lesson plans by age group. New plans are added as they are published.";
   return `
-    <section class="access-notice lesson-library-notice" role="status" aria-live="polite">
+    <section id="lessonLibraryInfoPanel" class="access-notice lesson-library-notice lesson-library-notice-compact" role="status" aria-live="polite">
       <div class="lesson-update-notice-copy">
-        <h3>Play-Based Lesson Plans</h3>
         <p>${escapeHtml(accessCopy)}</p>
       </div>
     </section>
@@ -30822,6 +30872,13 @@ document.addEventListener("click", async (event) => {
     if (viewMap[activeView]) renderCategoryPage(activeView);
   }
 
+  const lessonLibraryInfoToggle = event.target.closest("[data-lesson-library-info-toggle]");
+  if (lessonLibraryInfoToggle) {
+    lessonLibraryInfoOpen = !lessonLibraryInfoOpen;
+    renderCategoryPage("lessons");
+    return;
+  }
+
   const editObservationButton = event.target.closest("[data-edit-observation]");
   if (editObservationButton) {
     activeObservationEditId = editObservationButton.dataset.editObservation;
@@ -31571,9 +31628,21 @@ searchInput.addEventListener("input", () => {
 
 document.addEventListener("input", (event) => {
   if (event.target.matches("#lessonPlanSearch")) {
-    searchInput.value = event.target.value;
+    const query = event.target.value;
+    const selectionStart = event.target.selectionStart;
+    const selectionEnd = event.target.selectionEnd;
+    searchInput.value = query;
     const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
     if (viewMap[activeView]) renderCategoryPage(activeView);
+    const restored = document.querySelector("#lessonPlanSearch");
+    if (restored) {
+      restored.focus();
+      try {
+        restored.setSelectionRange(selectionStart, selectionEnd);
+      } catch {
+        /* ignore selection restore failures on unsupported input types */
+      }
+    }
   }
   if (event.target.matches("#adminLessonPlanForm [name='title']")) {
     updateAdminLessonEditorHeading();
