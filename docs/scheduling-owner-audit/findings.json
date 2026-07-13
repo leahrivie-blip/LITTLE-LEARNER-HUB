@@ -1,0 +1,249 @@
+{
+  "score": 67,
+  "checks": [
+    {
+      "name": "Dashboard empty state visible",
+      "ok": true,
+      "detail": "Expected empty THIS WEEK copy"
+    },
+    {
+      "name": "Calendar no horizontal overflow (iPhone)",
+      "ok": true,
+      "detail": "{\"scrollWidth\":390,\"clientWidth\":390,\"overflowX\":false}"
+    },
+    {
+      "name": "Weekly Planner empty guidance",
+      "ok": true,
+      "detail": "Need clear empty path"
+    },
+    {
+      "name": "Curriculum Planner still available",
+      "ok": true,
+      "detail": "Must not be retired yet"
+    },
+    {
+      "name": "Plan This Week action exists",
+      "ok": true,
+      "detail": "Use This Plan sheet"
+    },
+    {
+      "name": "Assign success message",
+      "ok": true,
+      "detail": "“Community Helpers Audit Week” assigned to Main Classroom for 2026-07-13–2026-07-17."
+    },
+    {
+      "name": "ScheduleItem written on assign",
+      "ok": true,
+      "detail": "[\"Community Helpers Audit Week\"]"
+    },
+    {
+      "name": "Curriculum Planner dual-write on assign",
+      "ok": true,
+      "detail": "legacy count 1"
+    },
+    {
+      "name": "Weekly Planner synced on assign",
+      "ok": true,
+      "detail": "Community Helpers Audit Week"
+    },
+    {
+      "name": "Cloud schedule has lesson after assign",
+      "ok": true,
+      "detail": "status 200"
+    },
+    {
+      "name": "Weekly Planner shows assigned theme",
+      "ok": true,
+      "detail": "← Back to Lesson Plan\n\nEXECUTION\n\nWeekly Planner\n\nRun this week’s assigned lesson plan — activities, notes, and print.\n\nWEEKLY PLANNER · EXECUTION\n\nCommunity Helpers Audit Week\n\nPr"
+    },
+    {
+      "name": "Weekly Planner shows execution checklist",
+      "ok": true,
+      "detail": "checklist missing"
+    },
+    {
+      "name": "Weekly Planner no horizontal overflow (iPhone)",
+      "ok": true,
+      "detail": "{\"scrollWidth\":390,\"clientWidth\":390,\"overflowX\":false}"
+    },
+    {
+      "name": "Dashboard shows THIS WEEK assignment",
+      "ok": true,
+      "detail": "Good afternoon, sched-audit-teacher! 👋\n\nMonday, July 13\n\n📱 INSTALL LITTLE LEARNER HUB\n\nAdd Little Learner Hub to your Home Screen\n\nAdd Little Learner Hub to your Home Screen for faster access. It wo"
+    },
+    {
+      "name": "Dashboard has Open Weekly Planner",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Dashboard has Open Calendar / Upcoming",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Calendar shows week bar / assigned title",
+      "ok": true,
+      "detail": "← Back to Dashboard\n\nPLANNING\n\nCalendar\n\nPlan future weeks, lesson plans, classroom events, closures, and reminders.\n\nMAIN CALENDAR\n\nJuly 2026\nPrevious\nToday\nNe"
+    },
+    {
+      "name": "Calendar week bar rendered",
+      "ok": true,
+      "detail": "bars=1"
+    },
+    {
+      "name": "Future week planning assign works",
+      "ok": true,
+      "detail": "Transportation Audit Week"
+    },
+    {
+      "name": "Future week present in ScheduleItem store",
+      "ok": false,
+      "detail": "[]"
+    },
+    {
+      "name": "Future week dual-written to Curriculum Planner",
+      "ok": true,
+      "detail": "[\"2026-07-20\",\"2026-07-13\"]"
+    },
+    {
+      "name": "Change lesson plan (replace) works",
+      "ok": true,
+      "detail": "Transportation Audit Week"
+    },
+    {
+      "name": "Dashboard updates after change",
+      "ok": true,
+      "detail": "Good afternoon, sched-audit-teacher! 👋\n\nMonday, July 13\n\n📱 INSTALL LITTLE LEARNER HUB\n\nAdd Little Learner Hub to your Home Screen\n\nAdd Little Learner Hub to y"
+    },
+    {
+      "name": "Weekly Planner updates after change",
+      "ok": true,
+      "detail": "← Back to Dashboard\n\nEXECUTION\n\nWeekly Planner\n\nRun this week’s assigned lesson plan — activities, notes, and print.\n\nWEEKLY PLANNER · EXECUTION\n\nTransportation"
+    },
+    {
+      "name": "Remove lesson plan works",
+      "ok": true,
+      "detail": "sch-89ae6184b89c"
+    },
+    {
+      "name": "Dashboard clears after remove",
+      "ok": true,
+      "detail": "Good afternoon, sched-audit-teacher! 👋\n\nMonday, July 13\n\n📱 INSTALL LITTLE LEARNER HUB\n\nAdd Little Learner Hub to your Home Screen\n\nAdd Little Learner Hub to y"
+    },
+    {
+      "name": "Calendar has back button",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Calendar back returns to a safe view",
+      "ok": true,
+      "detail": "view-home"
+    },
+    {
+      "name": "Calendar shows Saving… busy state hook",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Android calendar no overflow",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "area": "calendar",
+      "message": "Calendar chrome feels button-heavy on mobile",
+      "detail": "38 visible buttons"
+    },
+    {
+      "severity": "high",
+      "area": "weekly-planner",
+      "message": "Execution view and legacy planner form are both on one screen — redundant systems feeling",
+      "detail": "Teachers see two ways to edit the same week"
+    },
+    {
+      "severity": "medium",
+      "area": "dashboard",
+      "message": "Dashboard heading/CTA may still lean on Curriculum Planner language",
+      "detail": ""
+    },
+    {
+      "severity": "medium",
+      "area": "dashboard",
+      "message": "Logged-in dashboard still has many competing buttons outside THIS WEEK",
+      "detail": "27"
+    },
+    {
+      "severity": "fail",
+      "area": "verification",
+      "message": "Future week present in ScheduleItem store",
+      "detail": "[]"
+    },
+    {
+      "severity": "medium",
+      "area": "loading",
+      "message": "No dedicated skeleton/loading UI on Calendar/Dashboard while ensureScheduleLoaded runs — brief empty flash possible",
+      "detail": ""
+    },
+    {
+      "severity": "medium",
+      "area": "errors",
+      "message": "Add Event uses window.prompt/alert — not production-ready mobile UX",
+      "detail": ""
+    },
+    {
+      "severity": "low",
+      "area": "navigation",
+      "message": "Curriculum Planner and Calendar both remain in nav — intentional during soak, but can feel like two planners",
+      "detail": ""
+    },
+    {
+      "severity": "medium",
+      "area": "calendar",
+      "message": "No multi-month agenda list — directors planning far ahead only get month grid paging",
+      "detail": ""
+    },
+    {
+      "severity": "low",
+      "area": "calendar",
+      "message": "Weekend columns shown but lesson bars are Mon-start only — fine, but empty weekends add noise on mobile",
+      "detail": ""
+    }
+  ],
+  "screenshots": [
+    "01-iphone-dashboard-empty.png",
+    "02-iphone-calendar-empty.png",
+    "03-iphone-weekly-planner-empty.png",
+    "04-iphone-curriculum-planner-legacy.png",
+    "05-iphone-lesson-library.png",
+    "06-iphone-lesson-workspace.png",
+    "07-iphone-use-this-plan-sheet.png",
+    "08-iphone-plan-this-week-form.png",
+    "09-iphone-assign-success.png",
+    "10-iphone-weekly-planner-assigned.png",
+    "11-iphone-dashboard-assigned.png",
+    "12-iphone-calendar-assigned.png",
+    "13-iphone-calendar-future-week.png",
+    "14-iphone-dashboard-after-change.png",
+    "15-iphone-planner-after-change.png",
+    "16-iphone-calendar-after-change.png",
+    "17-iphone-dashboard-after-remove.png",
+    "18-android-dashboard.png",
+    "19-android-calendar.png",
+    "20-android-weekly-planner.png",
+    "21-android-lesson-library.png",
+    "22-android-curriculum-planner.png",
+    "23-desktop-dashboard.png",
+    "24-desktop-calendar.png",
+    "25-desktop-weekly-planner.png",
+    "26-desktop-lesson-library.png",
+    "27-desktop-curriculum-planner.png",
+    "28-desktop-calendar-week-detail.png"
+  ],
+  "ownerScoreRefined": 67,
+  "note": "Score refined after visual screenshot review; see docs/SCHEDULING_OWNER_AUDIT.md"
+}
