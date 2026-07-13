@@ -2,7 +2,7 @@
 
 **Date:** July 13, 2026  
 **Scope:** Unified ScheduleItem foundation (Calendar, Weekly Planner, Dashboard, Lesson Library assign flow)  
-**Curriculum Planner:** Still present — dual-write verified; **not retired**  
+**Curriculum Planner:** Soft-retired — hidden from nav; redirects to Calendar  
 **Owner-review score: 100 / 100**
 
 ## Devices audited
@@ -11,8 +11,8 @@
 - Desktop: 1280×900
 
 ## Real curriculum used
-- Free: **Community Helpers Audit Week** (`cur-lp-audit-1aa573`)
-- Alternate Free: **Transportation Audit Week** (`cur-lp-audit-964f6f`)
+- Free: **Community Helpers Audit Week** (`cur-lp-audit-2d620c`)
+- Alternate Free: **Transportation Audit Week** (`cur-lp-audit-6593f5`)
 
 ## Verification matrix
 
@@ -21,7 +21,9 @@
 | Dashboard empty state visible | PASS | Expected empty THIS WEEK copy |
 | Calendar no horizontal overflow (iPhone) | PASS | {"scrollWidth":390,"clientWidth":390,"overflowX":false} |
 | Weekly Planner empty guidance | PASS | Need clear empty path |
-| Curriculum Planner still available | PASS | Must not be retired yet |
+| Curriculum Planner redirects to Calendar when retired | PASS | view-calendar |
+| Curriculum Planner nav hidden after retirement | PASS |  |
+| Curriculum Planner rollback flag restores Legacy view | PASS |  |
 | Plan This Week action exists | PASS | Use This Plan sheet |
 | Assign success message | PASS | “Community Helpers Audit Week” assigned to Main Classroom for 2026-07-13–2026-07-17. |
 | ScheduleItem written on assign | PASS | ["Community Helpers Audit Week"] |
@@ -146,7 +148,7 @@ Transportation Audit Week
 Preschool · 2026-07-13 – 2026-07-17 · Main Classroom
 
 Open lesson |
-| Remove lesson plan works | PASS | sch-755318e6ff68 |
+| Remove lesson plan works | PASS | sch-b1cfcfe4d995 |
 | Dashboard clears after remove | PASS | Good evening, sched-audit-teacher
 
 Monday, July 13
@@ -191,7 +193,7 @@ T |
 - None
 
 ### Soak / deferred (non-scoring)
-- **[navigation]** Curriculum Planner and Calendar both remain in nav — intentional until 90+ re-audit and retirement gate
+- **[navigation]** Curriculum Planner soft-retired from nav; rollback via llhCurriculumPlannerLegacy=1
 - **[loading]** No dedicated skeleton UI while schedule loads — brief empty flash still possible
 - **[calendar]** No multi-month agenda list yet — directors planning far ahead use month paging
 
@@ -200,7 +202,7 @@ T |
 - `01-iphone-dashboard-empty.png`
 - `02-iphone-calendar-empty.png`
 - `03-iphone-weekly-planner-empty.png`
-- `04-iphone-curriculum-planner-legacy.png`
+- `04-iphone-curriculum-planner-redirect.png`
 - `05-iphone-lesson-library.png`
 - `06-iphone-lesson-workspace.png`
 - `07-iphone-use-this-plan-sheet.png`
@@ -218,12 +220,12 @@ T |
 - `19-android-calendar.png`
 - `20-android-weekly-planner.png`
 - `21-android-lesson-library.png`
-- `22-android-curriculum-planner.png`
+- `22-android-calendar-after-legacy-redirect.png`
 - `23-desktop-dashboard.png`
 - `24-desktop-calendar.png`
 - `25-desktop-weekly-planner.png`
 - `26-desktop-lesson-library.png`
-- `27-desktop-curriculum-planner.png`
+- `27-desktop-calendar-post-retirement.png`
 - `28-desktop-calendar-week-detail.png`
 - `29-desktop-add-event-modal.png`
 
@@ -231,7 +233,7 @@ Artifacts also copied under `/opt/cursor/artifacts/scheduling-owner-audit/`.
 
 ## Score rationale
 Starts at 100. Deducts for failed verification checks and severity-weighted punch-list items.  
-**Do not merge as “Curriculum Planner retired.”** Score reflects production readiness of the new scheduling surfaces while legacy planner still coexists.
+**Do not treat dual-write as a second planner.** Soft retirement hides Curriculum Planner; ScheduleItem + Calendar + Weekly Planner are the primary path. Rollback flag remains for one release.
 
 ## Recommendation
-Teacher UX pass meets the 90+ gate for soak; keep Curriculum Planner until a final retirement re-audit.
+Curriculum Planner soft retirement is ready. Keep dual-write briefly; hard-delete code after production confidence.

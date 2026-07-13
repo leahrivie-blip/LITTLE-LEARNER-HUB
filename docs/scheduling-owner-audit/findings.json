@@ -17,9 +17,19 @@
       "detail": "Need clear empty path"
     },
     {
-      "name": "Curriculum Planner still available",
+      "name": "Curriculum Planner redirects to Calendar when retired",
       "ok": true,
-      "detail": "Must not be retired yet"
+      "detail": "view-calendar"
+    },
+    {
+      "name": "Curriculum Planner nav hidden after retirement",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Curriculum Planner rollback flag restores Legacy view",
+      "ok": true,
+      "detail": ""
     },
     {
       "name": "Plan This Week action exists",
@@ -179,7 +189,7 @@
     {
       "name": "Remove lesson plan works",
       "ok": true,
-      "detail": "sch-755318e6ff68"
+      "detail": "sch-b1cfcfe4d995"
     },
     {
       "name": "Dashboard clears after remove",
@@ -261,7 +271,7 @@
     {
       "severity": "low",
       "area": "navigation",
-      "message": "Curriculum Planner and Calendar both remain in nav — intentional until 90+ re-audit and retirement gate",
+      "message": "Curriculum Planner soft-retired from nav; rollback via llhCurriculumPlannerLegacy=1",
       "detail": "",
       "soakOnly": true
     },
@@ -284,7 +294,7 @@
     "01-iphone-dashboard-empty.png",
     "02-iphone-calendar-empty.png",
     "03-iphone-weekly-planner-empty.png",
-    "04-iphone-curriculum-planner-legacy.png",
+    "04-iphone-curriculum-planner-redirect.png",
     "05-iphone-lesson-library.png",
     "06-iphone-lesson-workspace.png",
     "07-iphone-use-this-plan-sheet.png",
@@ -302,12 +312,12 @@
     "19-android-calendar.png",
     "20-android-weekly-planner.png",
     "21-android-lesson-library.png",
-    "22-android-curriculum-planner.png",
+    "22-android-calendar-after-legacy-redirect.png",
     "23-desktop-dashboard.png",
     "24-desktop-calendar.png",
     "25-desktop-weekly-planner.png",
     "26-desktop-lesson-library.png",
-    "27-desktop-curriculum-planner.png",
+    "27-desktop-calendar-post-retirement.png",
     "28-desktop-calendar-week-detail.png",
     "29-desktop-add-event-modal.png"
   ]

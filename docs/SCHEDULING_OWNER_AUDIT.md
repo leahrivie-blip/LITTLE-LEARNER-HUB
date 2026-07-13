@@ -11,8 +11,8 @@
 - Desktop: 1280×900
 
 ## Real curriculum used
-- Free: **Community Helpers Audit Week** (`cur-lp-audit-2d620c`)
-- Alternate Free: **Transportation Audit Week** (`cur-lp-audit-6593f5`)
+- Free: **Community Helpers Audit Week** (`cur-lp-audit-8ef3a6`)
+- Alternate Free: **Transportation Audit Week** (`cur-lp-audit-bb7656`)
 
 ## Verification matrix
 
@@ -148,7 +148,7 @@ Transportation Audit Week
 Preschool · 2026-07-13 – 2026-07-17 · Main Classroom
 
 Open lesson |
-| Remove lesson plan works | PASS | sch-b1cfcfe4d995 |
+| Remove lesson plan works | PASS | sch-7b596c1ae2bc |
 | Dashboard clears after remove | PASS | Good evening, sched-audit-teacher
 
 Monday, July 13
