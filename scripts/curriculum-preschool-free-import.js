@@ -15,7 +15,7 @@ const { spawn } = require("child_process");
 const { URL } = require("url");
 const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-parser.js");
 
-const { PRESCHOOL_IMPORT_TARGETS, parsePreschoolLessonImport } = require("./curriculum-preschool-import-targets.js");
+const { PRESCHOOL_FREE_IMPORT_TARGETS, parsePreschoolLessonImport } = require("./curriculum-preschool-import-targets.js");
 
 const ROOT = path.join(__dirname, "..");
 const IMPORT_DIR = path.join(__dirname, "curriculum-preschool-free-imports");
@@ -23,7 +23,7 @@ const REPORT_PATH = path.join(__dirname, "data/preschool-free-import-report.json
 
 const AGES = ["Infant", "Toddler", "Preschool"];
 
-const IMPORT_TARGETS = PRESCHOOL_IMPORT_TARGETS;
+const IMPORT_TARGETS = PRESCHOOL_FREE_IMPORT_TARGETS;
 
 const remoteUrl = String(process.env.SITE_URL || "").trim();
 const useRemote = Boolean(remoteUrl && process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD && process.env.ADMIN_ACCESS_CODE);
