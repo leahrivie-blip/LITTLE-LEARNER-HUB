@@ -104,7 +104,7 @@
     {
       "name": "Dashboard shows THIS WEEK assignment",
       "ok": true,
-      "detail": "Good evening, sched-audit-teacher\n\nMonday, July 13\n\nTODAY\n\nMonday\n\nSoil and Seeds Monday\n\nSoil Scientists Tray\nSeed Sort Lab\n\nReminders\nNone today\n\nObservations\nAdd observation notes in Weekly Planner"
+      "detail": "Good evening, sched-audit-teacher\n\nMonday, July 13\n\nTHIS WEEK\n\nWeek of 2026-07-13\n\nLesson: Community Helpers Audit Week\n\nOpen Calendar\nMON\n13\nTUE\n14\nWED\n15\nTHU\n16\nFRI\n17\nLesson\nEvent\nClosure\nReminder\n"
     },
     {
       "name": "Dashboard has Open Weekly Planner",
@@ -125,6 +125,16 @@
       "name": "Dashboard puts secondary tools below fold",
       "ok": true,
       "detail": "More tools details missing"
+    },
+    {
+      "name": "Dashboard week strip calendar present",
+      "ok": true,
+      "detail": "compact week calendar missing"
+    },
+    {
+      "name": "Dashboard week strip has five weekday cells",
+      "ok": true,
+      "detail": "expected Mon–Fri strip"
     },
     {
       "name": "Calendar shows week bar / assigned title",
@@ -159,7 +169,7 @@
     {
       "name": "Dashboard updates after change",
       "ok": true,
-      "detail": "Good evening, sched-audit-teacher\n\nMonday, July 13\n\nTODAY\n\nMonday\n\nSoil and Seeds Monday\n\nSoil Scientists Tray\nSeed Sort Lab\n\nReminders\nNone today\n\nObservations"
+      "detail": "Good evening, sched-audit-teacher\n\nMonday, July 13\n\nTHIS WEEK\n\nWeek of 2026-07-13\n\nLesson: Transportation Audit Week\n\nOpen Calendar\nMON\n13\nTUE\n14\nWED\n15\nTHU\n16\n"
     },
     {
       "name": "Weekly Planner updates after change",
@@ -169,12 +179,12 @@
     {
       "name": "Remove lesson plan works",
       "ok": true,
-      "detail": "sch-bce49f49d892"
+      "detail": "sch-755318e6ff68"
     },
     {
       "name": "Dashboard clears after remove",
       "ok": true,
-      "detail": "Good evening, sched-audit-teacher\n\nMonday, July 13\n\nTODAY\n\nMonday\n\nNothing planned for today yet.\n\nTHIS WEEK\n\nNo plan assigned\n\n2026-07-13 – 2026-07-17\n\nOpen Ca"
+      "detail": "Good evening, sched-audit-teacher\n\nMonday, July 13\n\nTHIS WEEK\n\nWeek of 2026-07-13\n\nNo lesson plan or events yet — open Calendar to plan.\n\nOpen Calendar\nMON\n13\nT"
     },
     {
       "name": "Calendar has back button",

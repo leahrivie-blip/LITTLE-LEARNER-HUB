@@ -228,7 +228,7 @@ function writeReport({ score, screenshots, plans }) {
 
 **Date:** July 13, 2026  
 **Scope:** Unified ScheduleItem foundation (Calendar, Weekly Planner, Dashboard, Lesson Library assign flow)  
-**Curriculum Planner:** Still present — dual-write verified; **not retired**  
+**Curriculum Planner:** Soft-retired — hidden from nav; redirects to Calendar  
 **Owner-review score: ${score} / 100**
 
 ## Devices audited
@@ -271,16 +271,14 @@ Artifacts also copied under \`/opt/cursor/artifacts/scheduling-owner-audit/\`.
 
 ## Score rationale
 Starts at 100. Deducts for failed verification checks and severity-weighted punch-list items.  
-**Do not merge as “Curriculum Planner retired.”** Score reflects production readiness of the new scheduling surfaces while legacy planner still coexists.
+**Do not treat dual-write as a second planner.** Soft retirement hides Curriculum Planner; ScheduleItem + Calendar + Weekly Planner are the primary path. Rollback flag remains for one release.
 
 ## Recommendation
 ${score >= 90
-    ? "Teacher UX pass meets the 90+ gate for soak; keep Curriculum Planner until a final retirement re-audit."
-    : score >= 85
-      ? "Ready for controlled soak with Curriculum Planner still available."
-      : score >= 70
-        ? "Usable foundation, but fix High/Medium punch-list items before treating this as production-ready."
-        : "Not production-ready yet — address Blockers/High items before broader rollout."}
+    ? "Curriculum Planner soft retirement is ready. Keep dual-write briefly; hard-delete code after production confidence."
+    : score >= 70
+      ? "Usable foundation, but fix High/Medium punch-list items before treating this as production-ready."
+      : "Not production-ready yet — address Blockers/High items before broader rollout."}
 `;
   fs.writeFileSync(path.join(DOCS_DIR, "SCHEDULING_OWNER_AUDIT.md"), md);
   fs.writeFileSync(path.join(OUT_DIR, "findings.json"), JSON.stringify({ score, checks, findings, screenshots }, null, 2));
@@ -352,11 +350,33 @@ async function main() {
       note("high", "weekly-planner", "Empty Weekly Planner still shows dense legacy form controls", `${plannerButtonsEmpty.total} buttons/controls visible`);
     }
 
-    // Curriculum Planner still present
+    // Curriculum Planner soft-retired (hidden unless rollback flag)
+    await iphone.evaluate(() => setView("curriculum-planner"));
+    await iphone.waitForTimeout(500);
+    const afterLegacyRedirect = await iphone.evaluate(() => document.querySelector(".active-view")?.id || "");
+    check("Curriculum Planner redirects to Calendar when retired", afterLegacyRedirect === "view-calendar", afterLegacyRedirect);
+    const legacyNavHidden = await iphone.evaluate(() => {
+      const btn = document.querySelector('[data-view="curriculum-planner"]');
+      if (!btn) return true;
+      const style = window.getComputedStyle(btn);
+      return btn.hidden || style.display === "none";
+    });
+    check("Curriculum Planner nav hidden after retirement", legacyNavHidden);
+    screenshots.push(path.basename(await shot(iphone, "04-iphone-curriculum-planner-redirect", "#view-calendar")));
+    // Rollback path still works for support
+    await iphone.evaluate(() => {
+      localStorage.setItem("llhCurriculumPlannerLegacy", "1");
+      if (typeof syncCurriculumPlannerNavVisibility === "function") syncCurriculumPlannerNavVisibility();
+    });
     await iphone.evaluate(() => setView("curriculum-planner"));
     await iphone.waitForSelector("#view-curriculum-planner.active-view", { timeout: 10000 });
-    screenshots.push(path.basename(await shot(iphone, "04-iphone-curriculum-planner-legacy", "#view-curriculum-planner")));
-    check("Curriculum Planner still available", await iphone.locator("#curriculumPlannerApp").count() > 0, "Must not be retired yet");
+    check("Curriculum Planner rollback flag restores Legacy view", await iphone.locator("#curriculumPlannerApp").count() > 0);
+    await iphone.evaluate(() => {
+      localStorage.removeItem("llhCurriculumPlannerLegacy");
+      if (typeof syncCurriculumPlannerNavVisibility === "function") syncCurriculumPlannerNavVisibility();
+    });
+    await iphone.evaluate(() => setView("calendar"));
+    await iphone.waitForTimeout(300);
 
     // Lesson library + assign flow
     await iphone.evaluate(() => setView("lessons"));
@@ -627,7 +647,7 @@ async function main() {
     }, USER_EMAIL);
     check("Force reload does not wipe ScheduleItem cache", cacheGuard.countAfter >= cacheGuard.countBefore && cacheGuard.countBefore > 0, JSON.stringify(cacheGuard));
 
-    note("low", "navigation", "Curriculum Planner and Calendar both remain in nav — intentional until 90+ re-audit and retirement gate", "", { soakOnly: true });
+    note("low", "navigation", "Curriculum Planner soft-retired from nav; rollback via llhCurriculumPlannerLegacy=1", "", { soakOnly: true });
     note("low", "loading", "No dedicated skeleton UI while schedule loads — brief empty flash still possible", "", { soakOnly: true });
 
     // Android screenshots of key screens
@@ -642,7 +662,7 @@ async function main() {
       ["calendar", "19-android-calendar"],
       ["planner", "20-android-weekly-planner"],
       ["lessons", "21-android-lesson-library"],
-      ["curriculum-planner", "22-android-curriculum-planner"],
+      ["calendar", "22-android-calendar-after-legacy-redirect"],
     ]) {
       await android.evaluate((v) => setView(v), view);
       await android.waitForTimeout(700);
@@ -669,7 +689,7 @@ async function main() {
       ["calendar", "24-desktop-calendar"],
       ["planner", "25-desktop-weekly-planner"],
       ["lessons", "26-desktop-lesson-library"],
-      ["curriculum-planner", "27-desktop-curriculum-planner"],
+      ["calendar", "27-desktop-calendar-post-retirement"],
     ]) {
       await desktop.evaluate((v) => setView(v), view);
       await desktop.waitForTimeout(700);

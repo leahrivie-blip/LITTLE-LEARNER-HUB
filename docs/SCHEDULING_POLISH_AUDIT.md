@@ -1,38 +1,25 @@
-# Scheduling Phase 1 — Owner 100 Pass
+# Scheduling Phase 1 — Owner Approved + Curriculum Planner Soft Retirement
 
 **Date:** July 13, 2026  
-**Owner-review score: 100 / 100** (49/49 checks)  
-**Curriculum Planner:** Still **Legacy** — not retired
+**Owner-review score: 100 / 100**  
+**Curriculum Planner:** Soft-retired (nav hidden; redirects to Calendar)
 
-## Owner-requested fixes shipped
+## Primary workflow (locked)
 
-1. **Removed “What do you need today?”** from Calendar, Weekly Planner, Lesson Library, and Curriculum Planner (Legacy). Search remains on Dashboard / Documentation Helper / AI tools.
-2. **Weekly Planner is a horizontal week board** — desktop Mon–Fri side-by-side; mobile swipe/snap day cards; notes open in a side panel when needed (not stacked into a tall document).
-3. **Calendar is the planning home** — compact “Planning home” chrome; Weekly Planner back goes to Calendar; empty states push Open Calendar first.
-4. **Dashboard stays TODAY → THIS WEEK → UPCOMING** with everything else under More Tools; empty week CTA is Open Calendar.
-5. **Compact week calendar strip on Dashboard** — Mon–Fri preview with lesson / event / closure / reminder / birthday marks; taps open Calendar for the current week.
-6. **Weekly Planner stays lightweight** — activities, materials, checkoffs, notes/observations only; full lesson opens via “Open lesson plan”.
-7. **Lavender design system retained** as the LLH visual standard.
-8. **Director/Classroom architecture** remains docs-only — not built.
+1. **Dashboard** — week strip + TODAY → THIS WEEK → UPCOMING  
+2. **Calendar** — planning home (assign plans, events, closures, reminders)  
+3. **Weekly Planner** — classroom execution  
+4. **Lesson Library** — assignment source  
 
-## Screenshots
+## Soft retirement
 
-`docs/scheduling-polish-audit/`
+- Legacy Curriculum Planner removed from default nav  
+- Deep links redirect to Calendar with a “moved” banner  
+- Rollback: `localStorage.setItem('llhCurriculumPlannerLegacy','1')`  
+- Dual-write retained briefly for safety  
 
-- Desktop: dashboard, calendar, weekly planner
-- iPhone / Android: dashboard, calendar, weekly planner
-- Empty calendar + Add Event modal
+See `docs/CURRICULUM_PLANNER_RETIREMENT_PLAN.md`.
 
-## Soak notes (non-scoring)
+## Future enhancement (parked)
 
-- Curriculum Planner remains in nav during soak
-- Optional loading skeleton still deferred
-- Multi-month agenda list deferred to Phase 2 planning
-
-## Future enhancement (not in scope now)
-
-**Dashboard day quick-preview:** tapping a week-strip day could open a lightweight preview of that day’s lesson theme, events, reminders, and materials before jumping to Calendar / Weekly Planner. Owner approved current strip without this; park for a later polish pass.
-
-## Retirement stance
-
-Do **not** retire Curriculum Planner until soak testing confirms teachers use Calendar → Weekly Planner as the primary path. See `docs/CURRICULUM_PLANNER_RETIREMENT_PLAN.md`.
+Dashboard day-tap quick preview of lessons/events/materials — not required now.

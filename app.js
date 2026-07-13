@@ -7265,10 +7265,21 @@ function canSeeAdminNav() {
 
 function setView(view, options = {}) {
   const requestedView = view;
+  let resolvedRequested = resolveSidebarView(view);
+  // Soft-retire Curriculum Planner: redirect to Calendar unless rollback flag is on.
+  if (resolvedRequested === "curriculum-planner" && !isCurriculumPlannerLegacyEnabled()) {
+    pendingCurriculumPlannerRetirementNotice = true;
+    if (options.weekStartDate) {
+      mainCalendarSelectedWeek = curriculumPlannerWeekStartIso(options.weekStartDate);
+    } else if (curriculumPlannerSelectedWeek) {
+      mainCalendarSelectedWeek = curriculumPlannerWeekStartIso(curriculumPlannerSelectedWeek);
+    }
+    return setView("calendar", { ...options, fromCurriculumPlannerRetirement: true });
+  }
   const requestedChildToolTab = childToolTabFromView(view);
   const requestedFutureTool = sidebarFutureToolTargets[requestedView] || "";
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
-  const resolvedView = resolveSidebarView(view);
+  const resolvedView = resolvedRequested;
   if (activeView && activeView !== resolvedView) clearViewReturnContext(activeView);
   if (activeView === "admin" && resolvedView !== "admin" && !confirmDiscardAdminLessonChanges()) return;
   if (requestedChildToolTab === "daily-logs") {
@@ -7340,6 +7351,8 @@ function setView(view, options = {}) {
     "scheduling-focus",
     ["calendar", "planner", "curriculum-planner", "lessons"].includes(resolvedView),
   );
+  document.body.classList.toggle("curriculum-planner-retired", !isCurriculumPlannerLegacyEnabled());
+  syncCurriculumPlannerNavVisibility();
   document.querySelectorAll(".nav-link").forEach((button) => {
     button.classList.toggle("active", button.dataset.view === requestedView);
   });
@@ -11499,6 +11512,17 @@ function viewLessonPlanInCurriculumPlanner(resourceId, options = {}) {
     openAuthModal("login");
     return;
   }
+  // Retired path: assign from Lesson Library / Calendar instead.
+  if (!isCurriculumPlannerLegacyEnabled()) {
+    toggleLessonWorkspaceActionSheet(false);
+    dismissResourceViewerForNavigation();
+    if (options.weekStartDate) {
+      mainCalendarSelectedWeek = curriculumPlannerWeekStartIso(options.weekStartDate);
+    }
+    pendingCurriculumPlannerRetirementNotice = true;
+    setView("calendar");
+    return;
+  }
   const resource = resources.find((item) => item.id === resourceId);
   if (!resource) {
     setCurriculumPlannerMessage("Lesson plan not found.", false);
@@ -14618,6 +14642,39 @@ function getScheduleApi() {
   return window.LLHSchedule || null;
 }
 
+/** Rollback: localStorage.setItem('llhCurriculumPlannerLegacy','1') then reload */
+function isCurriculumPlannerLegacyEnabled() {
+  try {
+    return localStorage.getItem("llhCurriculumPlannerLegacy") === "1";
+  } catch {
+    return false;
+  }
+}
+
+let pendingCurriculumPlannerRetirementNotice = false;
+
+function syncCurriculumPlannerNavVisibility() {
+  const showLegacy = isCurriculumPlannerLegacyEnabled();
+  document.querySelectorAll('[data-view="curriculum-planner"]').forEach((button) => {
+    button.hidden = !showLegacy;
+    button.setAttribute("aria-hidden", showLegacy ? "false" : "true");
+    if (showLegacy) button.removeAttribute("tabindex");
+    else button.setAttribute("tabindex", "-1");
+  });
+  document.body.classList.toggle("curriculum-planner-retired", !showLegacy);
+}
+
+function curriculumPlannerRetirementBannerHtml() {
+  if (!pendingCurriculumPlannerRetirementNotice) return "";
+  pendingCurriculumPlannerRetirementNotice = false;
+  return `
+    <div class="llh-calendar-retire-banner" role="status">
+      <p><strong>Curriculum Planner has moved.</strong> Plan weeks and assign lesson plans here in Calendar. Run the week in Weekly Planner.</p>
+      <button type="button" class="ghost-button" data-view="planner">Open Weekly Planner</button>
+    </div>
+  `;
+}
+
 async function ensureScheduleLoaded(options = {}) {
   const api = getScheduleApi();
   if (!api) return null;
@@ -16219,6 +16276,7 @@ function renderMainCalendar() {
 
   app.innerHTML = `
     <div class="llh-calendar-shell">
+      ${curriculumPlannerRetirementBannerHtml()}
       <div class="llh-calendar-toolbar">
         <div>
           <p class="eyebrow">Planning home</p>
@@ -16384,6 +16442,19 @@ async function submitCalendarAddItemForm(form) {
 async function openCurriculumPlannerAssignFlow(resourceId, options = {}) {
   if (!isLoggedIn() && !hasAdminFullAccess()) {
     openAuthModal("login");
+    return;
+  }
+  if (!isCurriculumPlannerLegacyEnabled()) {
+    if (options.weekStartDate) {
+      mainCalendarSelectedWeek = curriculumPlannerWeekStartIso(options.weekStartDate);
+    }
+    pendingCurriculumPlannerRetirementNotice = true;
+    // Prefer Lesson Library assign sheet if a resource is in play; otherwise Calendar.
+    if (resourceId && typeof openResourceViewer === "function") {
+      openResourceViewer(resourceId);
+      return;
+    }
+    setView("calendar");
     return;
   }
   const resource = resources.find((item) => item.id === resourceId);
@@ -36880,6 +36951,7 @@ if (currentUser) {
 }
 updateInstallSettingsPanel();
 document.body.classList.add("home-view");
+syncCurriculumPlannerNavVisibility();
 renderHome();
 loadSiteContentFromBackend().catch(() => {});
 loadUploadedResourcesFromBackend({ admin: isAdminUnlocked(), migrateLocal: isAdminUnlocked() }).catch(() => {});

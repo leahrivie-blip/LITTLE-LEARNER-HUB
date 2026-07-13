@@ -1,11 +1,11 @@
-const CACHE_NAME = "llh-shell-v10-dash-weekstrip";
+const CACHE_NAME = "llh-shell-v11-cp-retire";
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/styles.css?v=20260713-dash-weekstrip",
+  "/styles.css?v=20260713-cp-retire",
   "/styles/llh-design-tokens.css?v=20260713-ds",
-  "/scripts/llh-schedule.js?v=20260713-dash-weekstrip",
-  "/app.js?v=20260713-dash-weekstrip",
+  "/scripts/llh-schedule.js?v=20260713-cp-retire",
+  "/app.js?v=20260713-cp-retire",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",

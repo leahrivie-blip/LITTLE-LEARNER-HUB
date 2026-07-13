@@ -15687,6 +15687,27 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   letter-spacing: 0.04em;
 }
 
+body.curriculum-planner-retired .nav-link[data-view="curriculum-planner"] {
+  display: none !important;
+}
+
+.llh-calendar-retire-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--llh-highlight-soft, #fbf5de);
+  border: 1px solid color-mix(in srgb, var(--llh-highlight, #e8c96a) 40%, white);
+}
+
+.llh-calendar-retire-banner p {
+  margin: 0;
+  max-width: 62ch;
+}
+
 /* ========== Phase 1 polish pass ========== */
 .llh-calendar-toolbar-hint {
   margin: 4px 0 0;
