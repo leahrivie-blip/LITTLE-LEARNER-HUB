@@ -1,9 +1,9 @@
-const CACHE_NAME = "llh-shell-v5-phase-2h";
+const CACHE_NAME = "llh-shell-v6-lesson-library-phase2";
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/styles.css?v=20260710-curriculum-activities-browser",
-  "/app.js?v=20260710-phase-2h",
+  "/styles.css?v=20260713-lesson-library-phase2",
+  "/app.js?v=20260713-lesson-library-phase2",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
