@@ -14077,7 +14077,7 @@ function renderUserDashboard() {
       ${dashboardScheduleOverviewMarkup()}
 
       <details class="llh-dashboard-more">
-        <summary>More tools</summary>
+        <summary>More tools — documentation, children, and classroom extras</summary>
         <div class="llh-dashboard-more-body">
           ${dashboardInstallCardMarkup()}
           <section class="section-block dashboard-quick-doc">
@@ -14390,6 +14390,9 @@ function renderWeeklyPlanner() {
       .map((obs) => obs.note)
       .filter(Boolean)
       .join("\n");
+    const visibleActivities = activities.slice(0, 5);
+    const hiddenCount = Math.max(0, activities.length - visibleActivities.length);
+    const notesOpen = Boolean(dayNote || dayObs) || weeklyPlannerActiveDay === day;
     return `
       <article class="llh-day-card ${weeklyPlannerActiveDay === day ? "is-active" : ""}" data-week-day-card="${escapeHtml(day)}">
         <header class="llh-day-card-head">
@@ -14398,14 +14401,18 @@ function renderWeeklyPlanner() {
             <h3>${escapeHtml(planDay.theme || snapshot.theme || scheduleItem.lessonPlanTitle)}</h3>
             <p class="muted-copy">${escapeHtml(curriculumPlannerDateForDay(weekStart, day))}</p>
           </div>
+          <span class="llh-day-card-count">${activities.length} activit${activities.length === 1 ? "y" : "ies"}</span>
         </header>
         <div class="llh-day-card-section">
           <p class="eyebrow">Activities</p>
           ${activities.length
-            ? `<ul class="llh-day-activity-list">${activities.map((item) => {
+            ? `<ul class="llh-day-activity-list">${visibleActivities.map((item) => {
               const id = item.id || item.title;
               return `<li><label class="llh-check-row"><input type="checkbox" data-schedule-check="${escapeHtml(scheduleItem.id)}" data-schedule-day="${escapeHtml(day)}" data-schedule-activity="${escapeHtml(id)}" ${checked.has(id) ? "checked" : ""}/> <span>${escapeHtml(item.title || "Activity")}${item.category ? ` <small class="muted-copy">· ${escapeHtml(item.category)}</small>` : ""}</span></label></li>`;
-            }).join("")}</ul>`
+            }).join("")}</ul>${hiddenCount ? `<details class="llh-day-more"><summary>+${hiddenCount} more activities</summary><ul class="llh-day-activity-list">${activities.slice(5).map((item) => {
+              const id = item.id || item.title;
+              return `<li><label class="llh-check-row"><input type="checkbox" data-schedule-check="${escapeHtml(scheduleItem.id)}" data-schedule-day="${escapeHtml(day)}" data-schedule-activity="${escapeHtml(id)}" ${checked.has(id) ? "checked" : ""}/> <span>${escapeHtml(item.title || "Activity")}</span></label></li>`;
+            }).join("")}</ul></details>` : ""}`
             : `<p class="muted-copy">No activities listed for this day.</p>`
           }
         </div>
@@ -14416,16 +14423,17 @@ function renderWeeklyPlanner() {
             : `<p class="muted-copy">No materials listed.</p>`
           }
         </div>
-        <div class="llh-day-card-section">
-          <label class="llh-day-note-label">Teacher notes
-            <textarea rows="3" data-schedule-day-note="${escapeHtml(day)}" placeholder="Prep, transitions, what worked…">${escapeHtml(dayNote)}</textarea>
-          </label>
-        </div>
-        <div class="llh-day-card-section">
-          <label class="llh-day-note-label">Observation notes
-            <textarea rows="3" data-schedule-day-obs="${escapeHtml(day)}" placeholder="What to watch for today…">${escapeHtml(dayObs)}</textarea>
-          </label>
-        </div>
+        <details class="llh-day-notes" ${notesOpen ? "open" : ""}>
+          <summary>${dayNote || dayObs ? "Notes & observations · saved" : "Notes & observations"}</summary>
+          <div class="llh-day-notes-body">
+            <label class="llh-day-note-label">Teacher notes
+              <textarea rows="3" data-schedule-day-note="${escapeHtml(day)}" placeholder="Prep, transitions, what worked…">${escapeHtml(dayNote)}</textarea>
+            </label>
+            <label class="llh-day-note-label">Observation focus
+              <textarea rows="3" data-schedule-day-obs="${escapeHtml(day)}" placeholder="What to watch for today…">${escapeHtml(dayObs)}</textarea>
+            </label>
+          </div>
+        </details>
       </article>
     `;
   }).join("");
@@ -14438,9 +14446,9 @@ function renderWeeklyPlanner() {
           <h3>${escapeHtml(scheduleItem.lessonPlanTitle)}</h3>
           <p class="muted-copy">${escapeHtml(scheduleItem.ageGroup || "")} · ${escapeHtml(weekStart)} – ${escapeHtml(weekEnd)} · ${escapeHtml(room)}</p>
         </div>
-        <div class="form-actions">
-          ${selectedResource ? `<button class="ghost-button" type="button" data-view-resource="${escapeHtml(selectedResource.id)}" data-lesson-download-variant="week">Print Weekly Schedule</button>` : ""}
-          <button class="ghost-button" type="button" data-view="calendar">Open Calendar</button>
+        <div class="form-actions llh-week-hero-actions">
+          ${selectedResource ? `<button class="ghost-button" type="button" data-view-resource="${escapeHtml(selectedResource.id)}" data-lesson-download-variant="week">Print</button>` : ""}
+          <button class="ghost-button" type="button" data-view="calendar">Calendar</button>
           <button class="primary-button" type="button" data-schedule-save-execution="${escapeHtml(scheduleItem.id)}">Save Notes</button>
         </div>
       </section>
@@ -15954,22 +15962,22 @@ function dashboardScheduleOverviewMarkup() {
         <p class="eyebrow">Today</p>
         <h3>${escapeHtml(curriculumPlannerWeekdayLabel(todayKey) || "Weekend")}</h3>
         ${assignment
-          ? `<p class="muted-copy">${escapeHtml(todayPlan.theme || assignment.snapshot?.theme || assignment.lessonPlanTitle)}</p>
-            <p class="eyebrow">Activities</p>
+          ? `<p class="llh-dash-theme">${escapeHtml(todayPlan.theme || assignment.snapshot?.theme || assignment.lessonPlanTitle)}</p>
             ${todayActivities.length
-              ? `<ul class="curriculum-planner-activity-list">${todayActivities.map((item) => `<li>${escapeHtml(item.title)}</li>`).join("")}</ul>`
+              ? `<ul class="llh-dash-activity-list">${todayActivities.map((item) => `<li>${escapeHtml(item.title)}</li>`).join("")}</ul>`
               : `<p class="muted-copy">${todayKey ? "No activities listed for today." : "Open Weekly Planner to review this week."}</p>`
             }
             <div class="llh-dash-today-meta">
-              <p class="eyebrow">Reminders</p>
               ${todayReminders.length
-                ? `<ul class="llh-dash-upcoming-list">${todayReminders.map((item) => `<li>${escapeHtml(item.title)} <small>(${escapeHtml(item.type)})</small></li>`).join("")}</ul>`
-                : `<p class="muted-copy">No reminders for today.</p>`
+                ? `<p class="llh-dash-meta-line"><span>Reminders</span> ${todayReminders.map((item) => escapeHtml(item.title)).join(", ")}</p>`
+                : `<p class="llh-dash-meta-line muted-copy"><span>Reminders</span> None today</p>`
               }
-              <p class="eyebrow">Observations</p>
-              <p class="muted-copy">${escapeHtml(obsDueNote)}</p>
+              <p class="llh-dash-meta-line muted-copy"><span>Observations</span> ${escapeHtml(obsDueNote)}</p>
             </div>`
-          : `<p class="muted-copy">No lesson plan assigned for this week yet.</p>`
+          : `<p class="muted-copy">No lesson plan assigned for this week yet.</p>
+             <div class="form-actions">
+               <button class="primary-button" type="button" data-view="lessons">Browse Lesson Plans</button>
+             </div>`
         }
       </div>
 
@@ -15985,7 +15993,6 @@ function dashboardScheduleOverviewMarkup() {
           : `<h3>No plan assigned</h3>
              <p class="muted-copy">${escapeHtml(weekStart)} – ${escapeHtml(weekEnd)}</p>
              <div class="form-actions">
-               <button class="primary-button" type="button" data-view="lessons">Browse Lesson Plans</button>
                <button class="ghost-button" type="button" data-view="calendar">Open Calendar</button>
              </div>`
         }
@@ -15993,16 +16000,13 @@ function dashboardScheduleOverviewMarkup() {
 
       <div class="llh-ds-card llh-dash-upcoming">
         <p class="eyebrow">Upcoming</p>
-        <ul class="llh-dash-upcoming-list">
-          ${upcomingLessons.length
-            ? upcomingLessons.map((item) => `<li><strong>Next plan:</strong> ${escapeHtml(item.lessonPlanTitle)} · ${escapeHtml(item.weekStartDate)}</li>`).join("")
-            : "<li class=\"muted-copy\">No upcoming lesson plans yet.</li>"
-          }
-          ${upcomingEvents.map((item) => `<li>${escapeHtml(item.startDate)} — ${escapeHtml(item.title || item.type)}</li>`).join("")}
-        </ul>
-        <div class="form-actions">
-          <button class="ghost-button" type="button" data-view="calendar">Open Calendar</button>
-        </div>
+        ${upcomingLessons.length || upcomingEvents.length
+          ? `<ul class="llh-dash-upcoming-list">
+              ${upcomingLessons.map((item) => `<li><strong>${escapeHtml(item.lessonPlanTitle)}</strong><small>${escapeHtml(item.weekStartDate)}</small></li>`).join("")}
+              ${upcomingEvents.map((item) => `<li>${escapeHtml(item.title || item.type)}<small>${escapeHtml(item.startDate)}</small></li>`).join("")}
+            </ul>`
+          : `<p class="muted-copy">Nothing upcoming yet. Plan the next week from Calendar.</p>`
+        }
       </div>
     </section>
   `;
@@ -16014,6 +16018,13 @@ function dashboardCurriculumWeekMarkup() {
 
 function mainCalendarMonthLabel(date) {
   return date.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+}
+
+function calendarEventTypeLabel(type) {
+  if (type === "closure") return "Closure";
+  if (type === "classroom_event") return "Event";
+  if (type === "reminder") return "Reminder";
+  return "Item";
 }
 
 function renderMainCalendar() {
@@ -16034,6 +16045,8 @@ function renderMainCalendar() {
       && item.startDate >= selectedWeek
       && item.startDate <= (api?.weekEndFromStart(selectedWeek) || selectedWeek),
   );
+  const todayIso = isoDateFromLocalDate(new Date());
+  const monthHasLessons = items.some((item) => item.type === "lesson_plan");
 
   const firstDow = new Date(year, month, 1).getDay();
   const startOffset = firstDow === 0 ? 6 : firstDow - 1; // Monday-first
@@ -16047,7 +16060,7 @@ function renderMainCalendar() {
     const dow = date.getDay();
     const lesson = api ? api.lessonForWeek(doc, week) : null;
     const dayEvents = items.filter((item) => item.type !== "lesson_plan" && item.startDate === iso);
-    cells.push({ day, iso, week, lesson, dayEvents, weekend: dow === 0 || dow === 6 });
+    cells.push({ day, iso, week, lesson, dayEvents, weekend: dow === 0 || dow === 6, dow });
   }
   while (cells.length % 7 !== 0) cells.push({ day: null, weekend: false });
   const weekdayCells = cells.filter((cell, index) => {
@@ -16061,43 +16074,63 @@ function renderMainCalendar() {
         <div>
           <p class="eyebrow">Planning</p>
           <h3 class="llh-calendar-month">${escapeHtml(mainCalendarMonthLabel(cursor))}</h3>
+          <p class="muted-copy llh-calendar-toolbar-hint">Select a week to assign a lesson plan, or add events and closures.</p>
         </div>
-        <div class="form-actions">
-          <button type="button" class="ghost-button" data-calendar-nav="-1">Previous</button>
-          <button type="button" class="ghost-button" data-calendar-nav="today">Today</button>
-          <button type="button" class="ghost-button" data-calendar-nav="1">Next</button>
+        <div class="llh-calendar-toolbar-actions">
+          <div class="llh-calendar-month-nav" role="group" aria-label="Month">
+            <button type="button" class="ghost-button" data-calendar-nav="-1">Prev</button>
+            <button type="button" class="ghost-button" data-calendar-nav="today">Today</button>
+            <button type="button" class="ghost-button" data-calendar-nav="1">Next</button>
+          </div>
           <button type="button" class="primary-button" data-view="lessons">Assign Lesson Plan</button>
         </div>
       </div>
+      ${!monthHasLessons ? `
+        <div class="llh-calendar-empty-banner">
+          <p><strong>No lesson plans this month yet.</strong> Pick a week, then assign a plan from the Lesson Library.</p>
+        </div>
+      ` : ""}
       <div class="llh-calendar-layout">
         <div class="llh-calendar-grid llh-calendar-grid-weekdays" role="grid" aria-label="${escapeHtml(mainCalendarMonthLabel(cursor))}">
           ${["Mon", "Tue", "Wed", "Thu", "Fri"].map((label) => `<div class="llh-cal-head">${label}</div>`).join("")}
           ${weekdayCells.map((cell) => {
             if (!cell.day) return `<div class="llh-cal-cell is-empty"></div>`;
             const isSelected = cell.week === selectedWeek;
-            const showWeekBar = cell.lesson && curriculumPlannerWeekStartIso(cell.iso) === cell.week
-              && new Date(`${cell.iso}T12:00:00`).getDay() === 1;
+            const isToday = cell.iso === todayIso;
+            const hasLesson = Boolean(cell.lesson);
+            const isMonday = cell.dow === 1;
+            const visibleEvents = cell.dayEvents.slice(0, 2);
+            const extraEvents = Math.max(0, cell.dayEvents.length - visibleEvents.length);
+            const title = cell.lesson?.lessonPlanTitle || "";
+            const shortTitle = title.length > 28 ? `${title.slice(0, 26)}…` : title;
             return `
-              <button type="button" class="llh-cal-cell ${isSelected ? "is-selected" : ""}" data-calendar-select-week="${escapeHtml(cell.week)}">
-                <span class="llh-cal-daynum">${cell.day}</span>
-                ${showWeekBar ? `<span class="llh-cal-weekbar">${escapeHtml(cell.lesson.lessonPlanTitle)}</span>` : ""}
-                ${cell.dayEvents.map((event) => `<span class="llh-cal-chip llh-cal-chip-${escapeHtml(event.type)}">${escapeHtml(event.title || event.type)}</span>`).join("")}
+              <button type="button" class="llh-cal-cell ${isSelected ? "is-selected" : ""} ${hasLesson ? "has-lesson" : ""} ${isToday ? "is-today" : ""}" data-calendar-select-week="${escapeHtml(cell.week)}">
+                <span class="llh-cal-daynum">${cell.day}${isToday ? '<span class="llh-cal-today-dot" aria-hidden="true"></span>' : ""}</span>
+                ${hasLesson && isMonday ? `<span class="llh-cal-weekbar" title="${escapeHtml(title)}">${escapeHtml(shortTitle)}</span>` : ""}
+                ${hasLesson && !isMonday ? `<span class="llh-cal-lesson-stripe" title="${escapeHtml(title)}" aria-hidden="true"></span>` : ""}
+                ${visibleEvents.map((event) => `<span class="llh-cal-chip llh-cal-chip-${escapeHtml(event.type)}"><span class="llh-cal-chip-type">${escapeHtml(calendarEventTypeLabel(event.type))}</span> ${escapeHtml(event.title || event.type)}</span>`).join("")}
+                ${extraEvents ? `<span class="llh-cal-more">+${extraEvents} more</span>` : ""}
               </button>
             `;
           }).join("")}
         </div>
         <aside class="llh-calendar-detail llh-ds-card">
-          <p class="eyebrow">Week detail</p>
+          <p class="eyebrow">Selected week</p>
           ${selectedLesson ? `
-            <h3>${escapeHtml(selectedLesson.lessonPlanTitle)}</h3>
-            <p class="muted-copy">${escapeHtml(selectedWeek)} – ${escapeHtml(api.weekEndFromStart(selectedWeek))} · ${escapeHtml(scheduleClassroomName(doc))}</p>
+            <div class="llh-calendar-lesson-block">
+              <p class="eyebrow">Lesson plan</p>
+              <h3>${escapeHtml(selectedLesson.lessonPlanTitle)}</h3>
+              <p class="muted-copy">${escapeHtml(selectedWeek)} – ${escapeHtml(api.weekEndFromStart(selectedWeek))} · ${escapeHtml(scheduleClassroomName(doc))}</p>
+            </div>
             <div class="form-actions">
               <button type="button" class="primary-button" data-view="planner">Open Weekly Planner</button>
-              <button type="button" class="ghost-button" data-view="lessons">Change Lesson Plan</button>
+              <button type="button" class="ghost-button" data-view="lessons">Change Plan</button>
             </div>
           ` : `
-            <h3>No lesson plan</h3>
-            <p class="muted-copy">Week of ${escapeHtml(selectedWeek)}. Assign a plan from the Lesson Library.</p>
+            <div class="llh-calendar-empty-week">
+              <h3>No lesson plan</h3>
+              <p class="muted-copy">Week of ${escapeHtml(selectedWeek)}. Assign one plan for the whole classroom week.</p>
+            </div>
             <div class="form-actions">
               <button type="button" class="primary-button" data-view="lessons">Browse Lesson Plans</button>
             </div>
@@ -16105,14 +16138,20 @@ function renderMainCalendar() {
           <div class="llh-calendar-detail-events">
             <p class="eyebrow">This week’s events</p>
             ${selectedEvents.length
-              ? `<ul>${selectedEvents.map((event) => `<li><strong>${escapeHtml(event.startDate)}</strong> ${escapeHtml(event.title)}</li>`).join("")}</ul>`
-              : `<p class="muted-copy">No classroom events, closures, or reminders this week.</p>`
+              ? `<div class="llh-cal-event-list">${selectedEvents.map((event) => `
+                  <article class="llh-cal-event-card llh-cal-event-card-${escapeHtml(event.type)}">
+                    <p class="eyebrow">${escapeHtml(calendarEventTypeLabel(event.type))}</p>
+                    <strong>${escapeHtml(event.title || event.type)}</strong>
+                    <small>${escapeHtml(event.startDate)}</small>
+                  </article>
+                `).join("")}</div>`
+              : `<p class="muted-copy llh-calendar-events-empty">No events, closures, or reminders this week.</p>`
             }
             <button type="button" class="ghost-button" data-calendar-add-item>Add Event</button>
           </div>
         </aside>
       </div>
-      ${mainCalendarBusy ? `<p class="muted-copy">Saving…</p>` : ""}
+      ${mainCalendarBusy ? `<p class="muted-copy llh-calendar-busy">Saving…</p>` : ""}
     </div>
   `;
 }

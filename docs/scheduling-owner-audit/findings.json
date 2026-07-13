@@ -1,5 +1,5 @@
 {
-  "score": 90,
+  "score": 88,
   "checks": [
     {
       "name": "Dashboard empty state visible",
@@ -78,7 +78,7 @@
     },
     {
       "name": "Weekly Planner has Activities + Materials + Notes",
-      "ok": true,
+      "ok": false,
       "detail": ""
     },
     {
@@ -94,7 +94,7 @@
     {
       "name": "Dashboard shows THIS WEEK assignment",
       "ok": true,
-      "detail": "Good afternoon, sched-audit-teacher\n\nMonday, July 13\n\nTODAY\n\nMonday\n\nSoil and Seeds Monday\n\nACTIVITIES\n\nSoil Scientists Tray\nSeed Sort Lab\n\nREMINDERS\n\nNo reminders for today.\n\nOBSERVATIONS\n\nAdd observ"
+      "detail": "Good evening, sched-audit-teacher\n\nMonday, July 13\n\nTODAY\n\nMonday\n\nSoil and Seeds Monday\n\nSoil Scientists Tray\nSeed Sort Lab\n\nReminders\nNone today\n\nObservations\nAdd observation notes in Weekly Planner"
     },
     {
       "name": "Dashboard has Open Weekly Planner",
@@ -119,7 +119,7 @@
     {
       "name": "Calendar shows week bar / assigned title",
       "ok": true,
-      "detail": "← Back to Dashboard\n\nPLANNING\n\nCalendar\n\nPlan future weeks, lesson plans, classroom events, closures, and reminders.\n\nPLANNING\n\nJuly 2026\nPrevious\nToday\nNext\nAs"
+      "detail": "← Back to Dashboard\n\nPLANNING\n\nCalendar\n\nPlan future weeks, lesson plans, classroom events, closures, and reminders.\n\nPLANNING\n\nJuly 2026\nPrev\nToday\nNext\nAssign"
     },
     {
       "name": "Calendar week bar rendered",
@@ -149,7 +149,7 @@
     {
       "name": "Dashboard updates after change",
       "ok": true,
-      "detail": "Good afternoon, sched-audit-teacher\n\nMonday, July 13\n\nTODAY\n\nMonday\n\nSoil and Seeds Monday\n\nACTIVITIES\n\nSoil Scientists Tray\nSeed Sort Lab\n\nREMINDERS\n\nNo remind"
+      "detail": "Good evening, sched-audit-teacher\n\nMonday, July 13\n\nTODAY\n\nMonday\n\nSoil and Seeds Monday\n\nSoil Scientists Tray\nSeed Sort Lab\n\nReminders\nNone today\n\nObservations"
     },
     {
       "name": "Weekly Planner updates after change",
@@ -159,12 +159,12 @@
     {
       "name": "Remove lesson plan works",
       "ok": true,
-      "detail": "sch-2f78977624d4"
+      "detail": "sch-867aa3a988e5"
     },
     {
       "name": "Dashboard clears after remove",
       "ok": true,
-      "detail": "Good afternoon, sched-audit-teacher\n\nMonday, July 13\n\nTODAY\n\nMonday\n\nNo lesson plan assigned for this week yet.\n\nTHIS WEEK\n\nNo plan assigned\n\n2026-07-13 – 2026-"
+      "detail": "Good evening, sched-audit-teacher\n\nMonday, July 13\n\nTODAY\n\nMonday\n\nNo lesson plan assigned for this week yet.\n\nBrowse Lesson Plans\n\nTHIS WEEK\n\nNo plan assigned\n"
     },
     {
       "name": "Calendar has back button",
@@ -229,10 +229,10 @@
   ],
   "findings": [
     {
-      "severity": "medium",
-      "area": "calendar",
-      "message": "Calendar chrome feels button-heavy on mobile",
-      "detail": "24 visible buttons"
+      "severity": "fail",
+      "area": "verification",
+      "message": "Weekly Planner has Activities + Materials + Notes",
+      "detail": ""
     },
     {
       "severity": "low",

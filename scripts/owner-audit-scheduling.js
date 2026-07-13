@@ -434,7 +434,7 @@ async function main() {
     check("Weekly Planner classroom day cards present", await iphone.locator(".llh-day-card").count() === 5, `cards=${await iphone.locator(".llh-day-card").count()}`);
     check("Weekly Planner mobile day tabs present", await iphone.locator(".llh-week-day-tab").count() === 5, "day tabs missing");
     check("Weekly Planner shows one active day on mobile", await iphone.locator(".llh-day-card.is-active").count() === 1, "expected single active day card");
-    check("Weekly Planner has Activities + Materials + Notes", /Activities/i.test(plannerAssigned) && /Materials/i.test(plannerAssigned) && /Teacher notes|Observation notes/i.test(plannerAssigned));
+    check("Weekly Planner has Activities + Materials + Notes", /Activities/i.test(plannerAssigned) && /Materials/i.test(plannerAssigned) && /Notes & observations|Teacher notes|Observation/i.test(plannerAssigned));
     check("Weekly Planner legacy form removed", !/Week Setup|matched resources|Clear Week/i.test(plannerAssigned), "legacy form copy still visible");
     const plannerOverflow = await countOverflow(iphone);
     check("Weekly Planner no horizontal overflow (iPhone)", !plannerOverflow.overflowX, JSON.stringify(plannerOverflow));

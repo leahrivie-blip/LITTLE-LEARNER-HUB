@@ -11,8 +11,8 @@
 - Desktop: 1280×900
 
 ## Real curriculum used
-- Free: **Community Helpers Audit Week** (`cur-lp-audit-a02e7b`)
-- Alternate Free: **Transportation Audit Week** (`cur-lp-audit-d003d7`)
+- Free: **Community Helpers Audit Week** (`cur-lp-audit-999e5c`)
+- Alternate Free: **Transportation Audit Week** (`cur-lp-audit-cae9b5`)
 
 ## Verification matrix
 
@@ -48,7 +48,7 @@ Presch |
 | Weekly Planner has Activities + Materials + Notes | PASS |  |
 | Weekly Planner legacy form removed | PASS | legacy form copy still visible |
 | Weekly Planner no horizontal overflow (iPhone) | PASS | {"scrollWidth":390,"clientWidth":390,"overflowX":false} |
-| Dashboard shows THIS WEEK assignment | PASS | Good afternoon, sched-audit-teacher
+| Dashboard shows THIS WEEK assignment | PASS | Good evening, sched-audit-teacher
 
 Monday, July 13
 
@@ -58,18 +58,14 @@ Monday
 
 Soil and Seeds Monday
 
-ACTIVITIES
-
 Soil Scientists Tray
 Seed Sort Lab
 
-REMINDERS
+Reminders
+None today
 
-No reminders for today.
-
-OBSERVATIONS
-
-Add observ |
+Observations
+Add observation notes in Weekly Planner |
 | Dashboard has Open Weekly Planner | PASS |  |
 | Dashboard has Open Calendar / Upcoming | PASS |  |
 | Dashboard primary order Today → This Week → Upcoming | PASS | Primary workflow order missing |
@@ -85,16 +81,16 @@ Plan future weeks, lesson plans, classroom events, closures, and reminders.
 PLANNING
 
 July 2026
-Previous
+Prev
 Today
 Next
-As |
+Assign |
 | Calendar week bar rendered | PASS | bars=1 |
 | Future week planning assign works | PASS | Transportation Audit Week |
 | Future week present in ScheduleItem store | PASS | ["2026-07-13","2026-07-20"] |
 | Future week dual-written to Curriculum Planner | PASS | ["2026-07-20","2026-07-13"] |
 | Change lesson plan (replace) works | PASS | Transportation Audit Week |
-| Dashboard updates after change | PASS | Good afternoon, sched-audit-teacher
+| Dashboard updates after change | PASS | Good evening, sched-audit-teacher
 
 Monday, July 13
 
@@ -104,14 +100,13 @@ Monday
 
 Soil and Seeds Monday
 
-ACTIVITIES
-
 Soil Scientists Tray
 Seed Sort Lab
 
-REMINDERS
+Reminders
+None today
 
-No remind |
+Observations |
 | Weekly Planner updates after change | PASS | ← Back to Dashboard
 
 EXECUTION
@@ -123,8 +118,8 @@ Your classroom week — activities, materials, notes, and observations.
 WEEKLY CLASSROOM VIEW
 
 Transportation Aud |
-| Remove lesson plan works | PASS | sch-b35eede39981 |
-| Dashboard clears after remove | PASS | Good afternoon, sched-audit-teacher
+| Remove lesson plan works | PASS | sch-c3325449600e |
+| Dashboard clears after remove | PASS | Good evening, sched-audit-teacher
 
 Monday, July 13
 
@@ -134,11 +129,12 @@ Monday
 
 No lesson plan assigned for this week yet.
 
+Browse Lesson Plans
+
 THIS WEEK
 
 No plan assigned
-
-2026-07-13 – 2026- |
+ |
 | Calendar has back button | PASS |  |
 | Calendar back returns to a safe view | PASS | view-home |
 | Calendar shows Saving… busy state hook | PASS |  |

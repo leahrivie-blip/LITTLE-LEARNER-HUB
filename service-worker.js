@@ -1,11 +1,11 @@
-const CACHE_NAME = "llh-shell-v7-teacher-ux";
+const CACHE_NAME = "llh-shell-v8-polish";
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/styles.css?v=20260713-teacher-ux",
+  "/styles.css?v=20260713-polish",
   "/styles/llh-design-tokens.css?v=20260713-ds",
-  "/scripts/llh-schedule.js?v=20260713-teacher-ux",
-  "/app.js?v=20260713-teacher-ux",
+  "/scripts/llh-schedule.js?v=20260713-polish",
+  "/app.js?v=20260713-polish",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",

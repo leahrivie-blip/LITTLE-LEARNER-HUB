@@ -3,7 +3,7 @@
 **Date:** July 13, 2026  
 **Scope:** Unified ScheduleItem foundation (Calendar, Weekly Planner, Dashboard, Lesson Library assign flow)  
 **Curriculum Planner:** Still present — dual-write verified; **not retired**  
-**Owner-review score: 90 / 100**
+**Owner-review score: 88 / 100**
 
 ## Devices audited
 - iPhone width: 390×844
@@ -11,8 +11,8 @@
 - Desktop: 1280×900
 
 ## Real curriculum used
-- Free: **Community Helpers Audit Week** (`cur-lp-audit-d7596f`)
-- Alternate Free: **Transportation Audit Week** (`cur-lp-audit-588b5a`)
+- Free: **Community Helpers Audit Week** (`cur-lp-audit-7fa89c`)
+- Alternate Free: **Transportation Audit Week** (`cur-lp-audit-bbacb6`)
 
 ## Verification matrix
 
@@ -45,10 +45,10 @@ Presch |
 | Weekly Planner classroom day cards present | PASS | cards=5 |
 | Weekly Planner mobile day tabs present | PASS | day tabs missing |
 | Weekly Planner shows one active day on mobile | PASS | expected single active day card |
-| Weekly Planner has Activities + Materials + Notes | PASS |  |
+| Weekly Planner has Activities + Materials + Notes | FAIL |  |
 | Weekly Planner legacy form removed | PASS | legacy form copy still visible |
 | Weekly Planner no horizontal overflow (iPhone) | PASS | {"scrollWidth":390,"clientWidth":390,"overflowX":false} |
-| Dashboard shows THIS WEEK assignment | PASS | Good afternoon, sched-audit-teacher
+| Dashboard shows THIS WEEK assignment | PASS | Good evening, sched-audit-teacher
 
 Monday, July 13
 
@@ -58,18 +58,14 @@ Monday
 
 Soil and Seeds Monday
 
-ACTIVITIES
-
 Soil Scientists Tray
 Seed Sort Lab
 
-REMINDERS
+Reminders
+None today
 
-No reminders for today.
-
-OBSERVATIONS
-
-Add observ |
+Observations
+Add observation notes in Weekly Planner |
 | Dashboard has Open Weekly Planner | PASS |  |
 | Dashboard has Open Calendar / Upcoming | PASS |  |
 | Dashboard primary order Today → This Week → Upcoming | PASS | Primary workflow order missing |
@@ -85,16 +81,16 @@ Plan future weeks, lesson plans, classroom events, closures, and reminders.
 PLANNING
 
 July 2026
-Previous
+Prev
 Today
 Next
-As |
+Assign |
 | Calendar week bar rendered | PASS | bars=1 |
 | Future week planning assign works | PASS | Transportation Audit Week |
 | Future week present in ScheduleItem store | PASS | ["2026-07-13","2026-07-20"] |
 | Future week dual-written to Curriculum Planner | PASS | ["2026-07-20","2026-07-13"] |
 | Change lesson plan (replace) works | PASS | Transportation Audit Week |
-| Dashboard updates after change | PASS | Good afternoon, sched-audit-teacher
+| Dashboard updates after change | PASS | Good evening, sched-audit-teacher
 
 Monday, July 13
 
@@ -104,14 +100,13 @@ Monday
 
 Soil and Seeds Monday
 
-ACTIVITIES
-
 Soil Scientists Tray
 Seed Sort Lab
 
-REMINDERS
+Reminders
+None today
 
-No remind |
+Observations |
 | Weekly Planner updates after change | PASS | ← Back to Dashboard
 
 EXECUTION
@@ -123,8 +118,8 @@ Your classroom week — activities, materials, notes, and observations.
 WEEKLY CLASSROOM VIEW
 
 Transportation Aud |
-| Remove lesson plan works | PASS | sch-2f78977624d4 |
-| Dashboard clears after remove | PASS | Good afternoon, sched-audit-teacher
+| Remove lesson plan works | PASS | sch-867aa3a988e5 |
+| Dashboard clears after remove | PASS | Good evening, sched-audit-teacher
 
 Monday, July 13
 
@@ -134,11 +129,12 @@ Monday
 
 No lesson plan assigned for this week yet.
 
+Browse Lesson Plans
+
 THIS WEEK
 
 No plan assigned
-
-2026-07-13 – 2026- |
+ |
 | Calendar has back button | PASS |  |
 | Calendar back returns to a safe view | PASS | view-home |
 | Calendar shows Saving… busy state hook | PASS |  |
@@ -161,7 +157,7 @@ No plan assigned
 - None
 
 ### Medium
-- **[calendar]** Calendar chrome feels button-heavy on mobile — 24 visible buttons
+- None
 
 ### Low / polish
 - **[navigation]** Curriculum Planner and Calendar both remain in nav — intentional until 90+ re-audit and retirement gate
@@ -207,4 +203,4 @@ Starts at 100. Deducts for failed verification checks and severity-weighted punc
 **Do not merge as “Curriculum Planner retired.”** Score reflects production readiness of the new scheduling surfaces while legacy planner still coexists.
 
 ## Recommendation
-Teacher UX pass meets the 90+ gate for soak; keep Curriculum Planner until a final retirement re-audit.
+Ready for controlled soak with Curriculum Planner still available.
