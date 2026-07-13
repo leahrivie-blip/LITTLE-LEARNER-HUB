@@ -1,11 +1,11 @@
-const CACHE_NAME = "llh-shell-v11-cp-retire";
+const CACHE_NAME = "llh-shell-v12-calendar-paint";
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/styles.css?v=20260713-cp-retire",
+  "/styles.css?v=20260713-calendar-paint",
   "/styles/llh-design-tokens.css?v=20260713-ds",
-  "/scripts/llh-schedule.js?v=20260713-cp-retire",
-  "/app.js?v=20260713-cp-retire",
+  "/scripts/llh-schedule.js?v=20260713-calendar-paint",
+  "/app.js?v=20260713-calendar-paint",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
