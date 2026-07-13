@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LLH Design System Showcase</title>
+  <link rel="stylesheet" href="../../styles/llh-design-tokens.css" />
+  <style>
+    body { margin: 0; }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 20px 64px; }
+    .hero {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 24px;
+      align-items: center;
+      margin-bottom: 48px;
+    }
+    @media (max-width: 800px) {
+      .hero { grid-template-columns: 1fr; }
+    }
+    .hero p.lead { color: var(--llh-muted); font-size: 1.05rem; max-width: 36rem; }
+    .logo-mark {
+      width: 160px; height: 160px; margin: 0 auto;
+      display: grid; place-items: center;
+      background: var(--llh-surface);
+      border: 1px solid var(--llh-line);
+      border-radius: 28px;
+      box-shadow: var(--llh-shadow-soft);
+    }
+    .logo-mark svg { width: 112px; height: 112px; }
+    .section { margin-bottom: 48px; }
+    .swatches {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 12px;
+    }
+    .swatch {
+      border: 1px solid var(--llh-line);
+      border-radius: var(--llh-radius-md);
+      overflow: hidden;
+      background: var(--llh-surface);
+    }
+    .swatch .chip { height: 72px; }
+    .swatch .meta { padding: 10px 12px; font-size: 12px; }
+    .swatch code { color: var(--llh-muted); }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0; }
+    .type-sample { margin: 8px 0; }
+    .preview-grid {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 800px) {
+      .preview-grid { grid-template-columns: 1fr; }
+    }
+    .cal-mini {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 1px;
+      background: var(--llh-line);
+      border: 1px solid var(--llh-line);
+      border-radius: var(--llh-radius-md);
+      overflow: hidden;
+    }
+    .cal-mini div {
+      background: var(--llh-surface);
+      min-height: 64px;
+      padding: 6px;
+      font-size: 11px;
+    }
+    .cal-mini .h { background: var(--llh-primary-soft); color: var(--llh-primary-deep); font-weight: 600; min-height: 0; }
+    .week-bar {
+      margin-top: 6px;
+      background: var(--llh-primary-soft);
+      color: var(--llh-primary-deep);
+      border-radius: 4px;
+      padding: 3px 5px;
+      font-weight: 600;
+      font-size: 10px;
+    }
+    .chip-sm {
+      display: inline-block;
+      margin-top: 4px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 9px;
+      font-weight: 600;
+      background: var(--llh-highlight-soft);
+      color: #8a6f20;
+    }
+    .chip-closure {
+      background: var(--llh-danger-soft);
+      color: var(--llh-danger);
+    }
+    label.field-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--llh-muted);
+      margin-bottom: 6px;
+    }
+    .do-dont {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 700px) { .do-dont { grid-template-columns: 1fr; } }
+    .do, .dont {
+      border-radius: var(--llh-radius-md);
+      padding: 16px;
+      border: 1px solid var(--llh-line);
+      background: var(--llh-surface);
+    }
+    .do h3 { color: #2f7a64; margin-top: 0; }
+    .dont h3 { color: var(--llh-danger); margin-top: 0; }
+    .banner {
+      background: var(--llh-primary-deep);
+      color: white;
+      padding: 10px 16px;
+      font-size: 13px;
+    }
+    .banner a { color: #f3eefc; }
+  </style>
+</head>
+<body class="llh-ds-page">
+  <div class="banner">
+    Design system showcase · not live product chrome ·
+    <a href="../wireframes/interactive.html">Scheduling wireframes</a> ·
+    <a href="./LLH_DESIGN_SYSTEM.md">Full spec</a>
+  </div>
+
+  <div class="wrap">
+    <header class="hero">
+      <div>
+        <p class="llh-ds-eyebrow">Little Learner Hub</p>
+        <h1 class="llh-ds-display">Design system</h1>
+        <p class="lead">
+          Professional childcare software with modern SaaS clarity and warm early childhood education.
+          Lavender-led chrome — not corporate blue.
+        </p>
+        <div class="row" style="margin-top:20px">
+          <button class="llh-ds-btn llh-ds-btn--primary" type="button">Primary action</button>
+          <button class="llh-ds-btn llh-ds-btn--secondary" type="button">Secondary</button>
+          <button class="llh-ds-btn llh-ds-btn--soft" type="button">Soft</button>
+          <button class="llh-ds-btn llh-ds-btn--ghost" type="button">Ghost</button>
+        </div>
+      </div>
+      <div class="logo-mark" aria-label="Connected Learning Hub logo direction">
+        <!-- Connected dots flower/star -->
+        <svg viewBox="0 0 100 100" role="img" aria-label="Connected Learning Hub mark">
+          <defs>
+            <style>
+              .c { stroke-width: 2.2; fill: none; stroke-linecap: round; }
+            </style>
+          </defs>
+          <g class="c">
+            <line x1="50" y1="50" x2="50" y2="22" stroke="#7B6BB5" />
+            <line x1="50" y1="50" x2="76" y2="34" stroke="#7BA8C9" />
+            <line x1="50" y1="50" x2="76" y2="66" stroke="#5DB89A" />
+            <line x1="50" y1="50" x2="50" y2="78" stroke="#E8A07A" />
+            <line x1="50" y1="50" x2="24" y2="66" stroke="#E8C96A" />
+            <line x1="50" y1="50" x2="24" y2="34" stroke="#7B6BB5" />
+          </g>
+          <circle cx="50" cy="50" r="7" fill="#7B6BB5" />
+          <circle cx="50" cy="22" r="6" fill="#7B6BB5" />
+          <circle cx="76" cy="34" r="6" fill="#7BA8C9" />
+          <circle cx="76" cy="66" r="6" fill="#5DB89A" />
+          <circle cx="50" cy="78" r="6" fill="#E8A07A" />
+          <circle cx="24" cy="66" r="6" fill="#E8C96A" />
+          <circle cx="24" cy="34" r="6" fill="#A78BC9" />
+        </svg>
+      </div>
+    </header>
+
+    <section class="section">
+      <p class="llh-ds-eyebrow">Color</p>
+      <h2 class="llh-ds-title">Palette</h2>
+      <p class="llh-ds-muted">Soft washes for surfaces. Stronger tokens for text, icons, and primary actions only.</p>
+      <div class="swatches" style="margin-top:16px">
+        <div class="swatch"><div class="chip" style="background:#7B6BB5"></div><div class="meta"><strong>Primary</strong><br /><code>#7B6BB5</code></div></div>
+        <div class="swatch"><div class="chip" style="background:#7BA8C9"></div><div class="meta"><strong>Secondary</strong><br /><code>#7BA8C9</code></div></div>
+        <div class="swatch"><div class="chip" style="background:#5DB89A"></div><div class="meta"><strong>Success</strong><br /><code>#5DB89A</code></div></div>
+        <div class="swatch"><div class="chip" style="background:#E8A07A"></div><div class="meta"><strong>Accent</strong><br /><code>#E8A07A</code></div></div>
+        <div class="swatch"><div class="chip" style="background:#E8C96A"></div><div class="meta"><strong>Highlight</strong><br /><code>#E8C96A</code></div></div>
+        <div class="swatch"><div class="chip" style="background:#F7F6F9;border-bottom:1px solid #E4E1EA"></div><div class="meta"><strong>Background</strong><br /><code>#F7F6F9</code></div></div>
+        <div class="swatch"><div class="chip" style="background:#EDE8F7"></div><div class="meta"><strong>Primary soft</strong><br /><code>#EDE8F7</code></div></div>
+        <div class="swatch"><div class="chip" style="background:#2A2A35"></div><div class="meta"><strong>Ink</strong><br /><code>#2A2A35</code></div></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <p class="llh-ds-eyebrow">Typography</p>
+      <h2 class="llh-ds-title">Fraunces + Plus Jakarta Sans</h2>
+      <div class="llh-ds-card" style="margin-top:16px">
+        <p class="type-sample llh-ds-display">August Calendar</p>
+        <p class="type-sample llh-ds-title">Community Helpers</p>
+        <p class="type-sample">Body — Teachers plan weeks ahead and run the classroom from one connected schedule.</p>
+        <p class="type-sample llh-ds-eyebrow">This week · preschool room</p>
+        <p class="type-sample" style="font-size:var(--llh-text-small);color:var(--llh-muted)">Small — July 13–17 · Generated from ScheduleItem</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <p class="llh-ds-eyebrow">Components</p>
+      <h2 class="llh-ds-title">Starter kit</h2>
+      <div class="preview-grid" style="margin-top:16px">
+        <div class="llh-ds-card">
+          <p class="llh-ds-eyebrow">Buttons & chips</p>
+          <div class="row">
+            <button class="llh-ds-btn llh-ds-btn--primary" type="button">Open Weekly Planner</button>
+            <button class="llh-ds-btn llh-ds-btn--secondary" type="button">Print Schedule</button>
+            <button class="llh-ds-btn llh-ds-btn--ghost" type="button">Change Plan</button>
+          </div>
+          <div class="row">
+            <span class="llh-ds-chip llh-ds-chip--primary">Lesson plan</span>
+            <span class="llh-ds-chip llh-ds-chip--secondary">Event</span>
+            <span class="llh-ds-chip llh-ds-chip--success">Complete</span>
+            <span class="llh-ds-chip llh-ds-chip--accent">Reminder</span>
+            <span class="llh-ds-chip llh-ds-chip--highlight">Today</span>
+          </div>
+          <div style="margin-top:16px">
+            <label class="field-label" for="week">Week</label>
+            <select id="week" class="llh-ds-field">
+              <option>July 13–17 (This week)</option>
+              <option>July 20–24</option>
+            </select>
+          </div>
+        </div>
+        <div class="llh-ds-card">
+          <p class="llh-ds-eyebrow">This week</p>
+          <h3 class="llh-ds-title" style="font-size:1.35rem">Community Helpers</h3>
+          <p class="llh-ds-muted">July 13–17 · Preschool Room</p>
+          <div class="row" style="margin-top:16px">
+            <button class="llh-ds-btn llh-ds-btn--primary" type="button">Open Weekly Planner</button>
+            <button class="llh-ds-btn llh-ds-btn--soft" type="button">Print</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <p class="llh-ds-eyebrow">Visual reference</p>
+      <h2 class="llh-ds-title">Calendar layout language</h2>
+      <p class="llh-ds-muted">Same spacing and hierarchy as the approved mockups — with LLH palette, not corporate blue.</p>
+      <div class="llh-ds-card" style="margin-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:end;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+          <div>
+            <p class="llh-ds-eyebrow">Planning</p>
+            <h3 class="llh-ds-title" style="font-size:1.5rem">August 2026</h3>
+          </div>
+          <div class="row" style="margin:0">
+            <button class="llh-ds-btn llh-ds-btn--soft" type="button">Today</button>
+            <button class="llh-ds-btn llh-ds-btn--primary" type="button">Add</button>
+          </div>
+        </div>
+        <div class="cal-mini">
+          <div class="h">Sun</div><div class="h">Mon</div><div class="h">Tue</div><div class="h">Wed</div><div class="h">Thu</div><div class="h">Fri</div><div class="h">Sat</div>
+          <div style="color:var(--llh-muted)">2</div>
+          <div>3<div class="week-bar">Community Helpers</div></div>
+          <div>4<span class="chip-sm">Reminder</span></div>
+          <div>5</div><div>6</div><div>7</div>
+          <div style="color:var(--llh-muted)">8</div>
+          <div style="color:var(--llh-muted)">9</div>
+          <div>10<div class="week-bar">Transportation</div></div>
+          <div>11</div><div>12</div><div>13</div>
+          <div>14<span class="chip-sm chip-closure">Closure</span></div>
+          <div style="color:var(--llh-muted)">15</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <p class="llh-ds-eyebrow">Guardrails</p>
+      <h2 class="llh-ds-title">Do / Don’t</h2>
+      <div class="do-dont" style="margin-top:16px">
+        <div class="do">
+          <h3>Do</h3>
+          <ul>
+            <li>Use lavender as primary chrome</li>
+            <li>Keep large headers and whitespace</li>
+            <li>One primary button per region</li>
+            <li>Soft washes for status chips</li>
+            <li>Reuse tokens — no one-off hex</li>
+          </ul>
+        </div>
+        <div class="dont">
+          <h3>Don’t</h3>
+          <ul>
+            <li>Ship all-blue corporate SaaS UI</li>
+            <li>Rainbow every card a new color</li>
+            <li>Heavy gradients as the main look</li>
+            <li>Button piles and crowded sections</li>
+            <li>Parallel assignment systems</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <p class="llh-ds-eyebrow">Next</p>
+      <h2 class="llh-ds-title">Build sequence</h2>
+      <ol>
+        <li>Approve this design system visually</li>
+        <li>Implement cloud ScheduleItem foundation</li>
+        <li>Build Calendar / Weekly Planner / Dashboard / Library on tokens + ScheduleItem</li>
+        <li>Retire Curriculum Planner after migration</li>
+      </ol>
+    </section>
+  </div>
+</body>
+</html>

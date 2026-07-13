@@ -1,8 +1,11 @@
 # Unified Scheduling — Visual Wireframes (Phase 1)
 
-**Status:** Architecture approved (Option A). Wireframes only — **no implementation code.**  
+**Status:** Architecture approved (Option A). Wireframes delivered.  
+**Design system:** See [`../design-system/`](../design-system/LLH_DESIGN_SYSTEM.md) — lavender primary, warm educational SaaS.  
 **Date:** July 13, 2026  
-**Audience:** Owner review before build  
+**Audience:** Owner review  
+
+> Layout/IA in these wireframes stays approved. **Visual color chrome** for build should follow the design system (lavender-led), not the earlier blue-leaning mockups.  
 
 ## Approved principles (locked)
 

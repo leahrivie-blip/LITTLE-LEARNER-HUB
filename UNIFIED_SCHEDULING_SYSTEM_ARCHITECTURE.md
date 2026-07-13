@@ -1,10 +1,20 @@
 # Unified Calendar, Weekly Planner & Curriculum System
 
-**Status:** Architecture **APPROVED** (Option A) — wireframes in progress; **no implementation until wireframes approved**  
+**Status:** Architecture **APPROVED** (Option A) · Design system **created** · **No scheduling implementation until design system visually confirmed**  
 **Date:** July 13, 2026  
-**Approved direction:** Cloud-backed `ScheduleItem` source of truth first (no new client-only planner).  
-**Wireframes:** [`docs/wireframes/README.md`](./docs/wireframes/README.md) · [`docs/wireframes/interactive.html`](./docs/wireframes/interactive.html)  
+**Approved direction:** Cloud-backed `ScheduleItem` source of truth (Option A).  
+**Design system:** [`docs/design-system/LLH_DESIGN_SYSTEM.md`](./docs/design-system/LLH_DESIGN_SYSTEM.md) · tokens [`styles/llh-design-tokens.css`](./styles/llh-design-tokens.css)  
+**Wireframes:** [`docs/wireframes/README.md`](./docs/wireframes/README.md)  
 **Rule:** Curriculum Planner must **not** be deleted until migration + retirement steps below are completed.
+
+### Locked build order
+
+1. **Design system** (lavender-led LLH tokens + layout language)  
+2. **Cloud ScheduleItem foundation**  
+3. **Migrate** Main Calendar → Weekly Planner → Dashboard → Lesson Library  
+4. **Retire** Curriculum Planner after the unified system works  
+
+Do not rush feature UI ahead of the foundation.
 
 ---
 
@@ -31,8 +41,9 @@
 | Lesson Library = catalog; one assign write | Approved |
 | Option A — cloud ScheduleItem first | Approved |
 | Phase 1 types: lesson plans, classroom events, closures, reminders | Approved |
-| Defer: multi-center, director/staff perms, parent calendar, staff events, birthdays, form deadlines | Approved (design for later, do not build) |
-| Visual wireframes before implementation | **Current gate** |
+| Defer: multi-center UI, director/staff perms UI, parent calendar, staff events, birthdays, form deadlines | Approved (schema hooks only) |
+| LLH design system first (lavender primary, warm educational SaaS) | **Created — visual confirmation gate** |
+| Then ScheduleItem foundation implementation | Waiting on design-system OK |
 
 ---
 
@@ -740,11 +751,14 @@ Highest risk workstream: **cloud ScheduleItem + migration** (data integrity). Hi
 - [x] Approve **Curriculum Planner remains until R5**
 - [x] Approve **Parent newsletter out of scope**
 - [x] Choose first build slice: **(A) cloud ScheduleItem + unify writes**
-- [ ] **Approve visual wireframes** (`docs/wireframes/`) ← current gate before coding
+- [x] Visual wireframes delivered (`docs/wireframes/`)
+- [ ] **Approve LLH design system** (`docs/design-system/`) ← current gate before coding
+- [ ] Then implement ScheduleItem API + migrate path
 
-**Chosen path:** Option A — cloud-backed ScheduleItem foundation first. Do not build another client-only planner.
+**Chosen path:** Option A — cloud-backed ScheduleItem foundation.  
+**Visual path:** Design system first (lavender primary — not corporate blue), then foundation, then surface migration.
 
-**Next:** Owner reviews wireframes → then implementation begins with ScheduleItem API + migrate path.
+**Next:** Owner confirms design system visuals → implementation begins with ScheduleItem API.
 
 ---
 

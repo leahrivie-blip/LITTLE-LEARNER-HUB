@@ -4,28 +4,32 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>LLH Scheduling Wireframes — Clickable Prototype</title>
+  <link rel="stylesheet" href="../../styles/llh-design-tokens.css" />
   <style>
     :root {
-      --ink: #1c2a33;
-      --muted: #5c6b75;
-      --line: #c9d2d8;
-      --bg: #eef2f4;
-      --panel: #ffffff;
-      --accent: #2a5f7a;
-      --accent-soft: #d9e8ef;
-      --lesson: #3d6b5a;
-      --lesson-soft: #dceae3;
-      --warn: #8a5a2b;
-      --warn-soft: #f3e6d4;
-      --closure: #7a3b3b;
-      --closure-soft: #f0dede;
+      --ink: var(--llh-ink);
+      --muted: var(--llh-muted);
+      --line: var(--llh-line);
+      --bg: var(--llh-bg);
+      --panel: var(--llh-surface);
+      --accent: var(--llh-primary);
+      --accent-soft: var(--llh-primary-soft);
+      --lesson: var(--llh-primary-deep);
+      --lesson-soft: var(--llh-primary-soft);
+      --warn: #9a5a38;
+      --warn-soft: var(--llh-accent-soft);
+      --closure: var(--llh-danger);
+      --closure-soft: var(--llh-danger-soft);
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      font-family: var(--llh-font-body);
       color: var(--ink);
       background: var(--bg);
+    }
+    h1, h2, .week-detail strong {
+      font-family: var(--llh-font-display);
     }
     .proto-banner {
       background: var(--ink);
