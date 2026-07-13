@@ -332,7 +332,7 @@ async function main() {
     console.log("6) Print/download menu fires distinct workflows");
     await page.click('#weeklyPlannerApp [data-view-resource]');
     await page.waitForSelector("#resourceViewerModal.lesson-workspace-mode.open", { timeout: 10000 });
-    const expectOutputRequest = async (selector, expected) => {
+    const expectMoreOutputRequest = async (selector, expected) => {
       await page.click("[data-lesson-workspace-more-toggle]");
       await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 3000 });
       await page.locator(`.lesson-workspace-more-menu:not([hidden]) ${selector}`).first().click();
@@ -342,11 +342,21 @@ async function main() {
       assert(request.mode === expected.mode, `${selector} mode mismatch: ${JSON.stringify(request)}`);
       assert(request.printVariant === expected.printVariant, `${selector} variant mismatch: ${JSON.stringify(request)}`);
     };
-    await expectOutputRequest('[data-lesson-print-variant="full"]', { mode: "print", printVariant: "full" });
-    await expectOutputRequest('[data-download-pdf]', { mode: "download", printVariant: "full" });
-    await expectOutputRequest('[data-lesson-print-variant="week"]', { mode: "print", printVariant: "week" });
-    await expectOutputRequest('[data-lesson-download-variant="week"]', { mode: "download", printVariant: "week" });
-    await expectOutputRequest('[data-lesson-print-variant="materials"]', { mode: "print", printVariant: "materials" });
+    const expectSheetOutputRequest = async (selector, expected) => {
+      await page.click("[data-lesson-use-this-plan]");
+      await page.waitForSelector(".lesson-workspace-action-sheet:not([hidden])", { timeout: 3000 });
+      await page.locator(`.lesson-workspace-action-sheet:not([hidden]) ${selector}`).first().click();
+      await page.waitForTimeout(50);
+      const request = await page.evaluate(() => window.__llhLastResourceOutputRequest || null);
+      assert(request, `missing resource output request after ${selector}`);
+      assert(request.mode === expected.mode, `${selector} mode mismatch: ${JSON.stringify(request)}`);
+      assert(request.printVariant === expected.printVariant, `${selector} variant mismatch: ${JSON.stringify(request)}`);
+    };
+    await expectSheetOutputRequest('[data-lesson-print-variant="full"]', { mode: "print", printVariant: "full" });
+    await expectSheetOutputRequest('[data-download-pdf]', { mode: "download", printVariant: "full" });
+    await expectMoreOutputRequest('[data-lesson-print-variant="week"]', { mode: "print", printVariant: "week" });
+    await expectMoreOutputRequest('[data-lesson-download-variant="week"]', { mode: "download", printVariant: "week" });
+    await expectMoreOutputRequest('[data-lesson-print-variant="materials"]', { mode: "print", printVariant: "materials" });
 
     console.log("7) Locked Pro preview closes with Escape");
     await closeLessonViewer(page);

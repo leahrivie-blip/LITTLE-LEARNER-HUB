@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Lesson workspace "Use This Plan" → main calendar integration (Batch 5).
+ * Lesson workspace "Use This Plan" → weekly plan integration (Batch 5).
  * Run: npm run test:lesson-use-this-plan
  */
 const fs = require("fs");
@@ -202,10 +202,12 @@ async function main() {
         .map((el) => el.textContent.trim())
     ));
     assert(menuLabels.some((label) => label.includes("Assign to a Week")), "Assign to a Week missing");
-    assert(menuLabels.some((label) => label.includes("Add to Main Calendar")), "Add to Main Calendar missing");
+    assert(menuLabels.some((label) => label.includes("Add to This Week’s Plan")), "Add to This Week’s Plan missing");
+    assert(menuLabels.some((label) => label.includes("Print Full Lesson Plan")), "Print Full Lesson Plan missing");
+    assert(menuLabels.some((label) => label.includes("Download Full Lesson Plan PDF")), "Download Full Lesson Plan PDF missing");
     assert(menuLabels.some((label) => label.includes("View in Curriculum Planner")), "View in Curriculum Planner missing");
 
-    console.log("2) Add to Main Calendar assigns curriculum + updates weekly planner");
+    console.log("2) Add to This Week’s Plan assigns curriculum + updates weekly planner");
     await page.click(`[data-lesson-add-to-main-calendar="${lessonA.planId}"]`);
     await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
     await page.fill('[data-lesson-main-calendar-form] [name="weekStartDate"]', weekStart);
@@ -276,7 +278,7 @@ async function main() {
     const preselected = await page.locator('#curriculumPlannerAssignForm [name="lessonPlanId"]').inputValue();
     assert(preselected === lessonA.planId, "Assign to a Week should preselect lesson in planner");
 
-    console.log("Lesson Use This Plan calendar checks passed.");
+    console.log("Lesson Use This Plan weekly plan checks passed.");
     await browser.close();
   } catch (error) {
     console.error("FAIL:", error.message);

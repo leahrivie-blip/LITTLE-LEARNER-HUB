@@ -14471,6 +14471,104 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   gap: 12px;
 }
 
+.lesson-week-schedule-print {
+  display: grid;
+  gap: 16px;
+}
+
+.lesson-week-schedule-header {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #f8fbff;
+}
+
+.lesson-week-schedule-header h3 {
+  margin: 4px 0 10px;
+  color: var(--ink);
+}
+
+.lesson-week-schedule-section,
+.lesson-week-materials-summary {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--white, #fff);
+}
+
+.lesson-week-schedule-section h3,
+.lesson-week-materials-summary h3 {
+  margin: 0 0 12px;
+  color: #3a7abf;
+}
+
+.lesson-week-schedule-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.lesson-week-schedule-day {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbf9f5;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.lesson-week-schedule-day h4,
+.lesson-week-schedule-day ul,
+.lesson-week-schedule-day li,
+.lesson-week-schedule-theme,
+.lesson-week-materials-summary p {
+  margin: 0;
+}
+
+.lesson-week-schedule-day h4 {
+  color: #234f70;
+}
+
+.lesson-week-schedule-theme {
+  color: var(--muted, #6b6560);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.lesson-week-schedule-day ul {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.lesson-week-schedule-day li {
+  display: grid;
+  gap: 2px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(55, 70, 90, 0.12);
+  font-size: 0.9rem;
+}
+
+.lesson-week-schedule-day li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.lesson-week-schedule-day li span {
+  color: var(--muted, #6b6560);
+  font-size: 0.82rem;
+}
+
+.lesson-week-materials-summary {
+  display: grid;
+  gap: 8px;
+}
+
 .lesson-workspace-action-sheet {
   position: fixed;
   inset: 0;
@@ -14557,6 +14655,51 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
     width: min(380px, calc(100% - 32px));
     border-radius: var(--radius);
     padding-bottom: 16px;
+  }
+}
+
+@media (max-width: 760px) {
+  .lesson-week-schedule-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  body.printing-resource .lesson-week-schedule-print {
+    gap: 10pt;
+  }
+
+  body.printing-resource .lesson-week-schedule-header,
+  body.printing-resource .lesson-week-schedule-section,
+  body.printing-resource .lesson-week-materials-summary,
+  body.printing-resource .lesson-week-schedule-day {
+    color: #111 !important;
+    background: #fff !important;
+    border-color: #bbb !important;
+    box-shadow: none !important;
+  }
+
+  body.printing-resource .lesson-week-schedule-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 6pt !important;
+  }
+
+  body.printing-resource .lesson-week-schedule-day {
+    padding: 7pt !important;
+    border-radius: 0 !important;
+  }
+
+  body.printing-resource .lesson-week-schedule-day li {
+    padding-top: 5pt !important;
+    font-size: 8.5pt !important;
+    line-height: 1.25 !important;
+  }
+
+  body.printing-resource .lesson-week-schedule-day li span,
+  body.printing-resource .lesson-week-schedule-theme,
+  body.printing-resource .lesson-week-materials-summary p {
+    font-size: 8pt !important;
+    line-height: 1.3 !important;
   }
 }
 
