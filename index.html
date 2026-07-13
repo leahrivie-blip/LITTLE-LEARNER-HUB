@@ -1442,11 +1442,13 @@
         </div>
         <form id="scheduleEventForm" class="panel-form">
           <p class="muted-copy" data-schedule-event-error hidden></p>
-          <label>Type
+          <label>Category
             <select name="eventType" required>
+              <option value="classroom_event">Classroom Event (Pajama Day, Water Day, Show and Tell…)</option>
               <option value="reminder">Reminder</option>
-              <option value="classroom_event">Classroom Event</option>
-              <option value="closure">Closure</option>
+              <option value="closure">Closure / Center Closed</option>
+              <option value="director_event">Director / Compliance (staff meeting, drill, deadline…)</option>
+              <option value="family_event">Family / Center Event (conference, Picture Day, field trip…)</option>
             </select>
           </label>
           <label>Title
@@ -1455,9 +1457,37 @@
           <label>Date
             <input name="eventDate" type="date" required />
           </label>
+          <label class="llh-schedule-event-allday">
+            <input name="eventAllDay" type="checkbox" checked />
+            All day
+          </label>
+          <div class="llh-schedule-event-time-fields" data-schedule-event-time-fields hidden>
+            <label>Start time
+              <input name="eventStartTime" type="time" />
+            </label>
+            <label>End time
+              <input name="eventEndTime" type="time" />
+            </label>
+          </div>
+          <label>Age group (optional)
+            <select name="eventAgeGroup">
+              <option value="">All ages</option>
+              <option value="Infant">Infant</option>
+              <option value="Toddler">Toddler</option>
+              <option value="Preschool">Preschool</option>
+              <option value="Mixed Ages">Mixed Ages</option>
+            </select>
+          </label>
+          <label>Items to bring (optional)
+            <input name="eventItemsToBring" type="text" maxlength="200" placeholder="Pajamas, a favorite stuffed animal…" />
+          </label>
+          <label>Notes (optional)
+            <textarea name="eventNotes" rows="3" maxlength="2000" placeholder="Any extra details for this item…"></textarea>
+          </label>
           <div class="form-actions">
             <button class="primary-button" type="submit">Save</button>
             <button class="ghost-button" type="button" data-close-schedule-event-modal>Cancel</button>
+            <button class="ghost-button llh-schedule-event-delete" type="button" data-schedule-event-delete hidden>Delete</button>
           </div>
         </form>
       </div>

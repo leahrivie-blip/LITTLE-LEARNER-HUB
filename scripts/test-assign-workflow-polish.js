@@ -270,10 +270,10 @@ async function runAssignWorkflowChecks(browser, { viewport, label }) {
     mainCalendarMonthCursor = new Date(`${week}T12:00:00`);
     renderMainCalendar();
   }, futureWeek);
-  await page.waitForSelector(`[data-calendar-select-week="${futureWeek}"]`, { timeout: 10000 });
-  await page.click(`[data-calendar-select-week="${futureWeek}"]`);
+  await page.waitForSelector(`[data-calendar-select-day="${futureWeek}"]`, { timeout: 10000 });
+  await page.click(`[data-calendar-select-day="${futureWeek}"]`);
   await page.waitForTimeout(300);
-  const calendarOpenPlannerBtn = page.locator('.llh-calendar-detail [data-view="planner"]');
+  const calendarOpenPlannerBtn = page.locator('#mainCalendarApp [data-view="planner"]');
   const calendarOpenPlannerFocusWeek = await calendarOpenPlannerBtn.getAttribute("data-planner-focus-week");
   check("Calendar's Open Weekly Planner is tagged with the selected week", calendarOpenPlannerFocusWeek === futureWeek, calendarOpenPlannerFocusWeek);
   await calendarOpenPlannerBtn.click();
@@ -299,7 +299,7 @@ async function runAssignWorkflowChecks(browser, { viewport, label }) {
   await page.click(".lesson-workspace-action-sheet-panel [data-view='calendar']");
   await page.waitForSelector("#view-calendar.active-view", { timeout: 10000 });
   await page.waitForTimeout(400);
-  const calendarAfterViewText = await page.locator(".llh-calendar-detail").innerText();
+  const calendarAfterViewText = await page.locator("#mainCalendarApp").innerText();
   check(
     "View Calendar (from success) jumps straight to the assigned future week",
     calendarAfterViewText.includes(lessonFuture.title),

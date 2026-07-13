@@ -3274,7 +3274,11 @@ let curriculumPlannerEventPresetDay = "";
 let curriculumPlannerShowParentPreview = false;
 let mainCalendarMonthCursor = null;
 let mainCalendarSelectedWeek = "";
+let mainCalendarSelectedDay = "";
+let mainCalendarSubView = "month"; // "month" | "day" | "week"
 let mainCalendarBusy = false;
+let mainCalendarActiveFilters = null;
+let mainCalendarEditingItemId = "";
 let scheduleDocCache = null;
 let scheduleSyncPromise = null;
 let weeklyPlannerActiveDay = "";
@@ -7272,8 +7276,10 @@ function setView(view, options = {}) {
     pendingCurriculumPlannerRetirementNotice = true;
     if (options.weekStartDate) {
       mainCalendarSelectedWeek = curriculumPlannerWeekStartIso(options.weekStartDate);
+      mainCalendarSubView = "week";
     } else if (curriculumPlannerSelectedWeek) {
       mainCalendarSelectedWeek = curriculumPlannerWeekStartIso(curriculumPlannerSelectedWeek);
+      mainCalendarSubView = "week";
     }
     return setView("calendar", { ...options, fromCurriculumPlannerRetirement: true });
   }
@@ -7410,6 +7416,15 @@ function setView(view, options = {}) {
     weeklyPlannerFocusWeek = "";
   }
   if (resolvedView === "calendar") {
+    // Honor an explicit target week (Dashboard, Weekly Planner, or a lesson
+    // assign success screen) by landing on Week View for that week. Plain nav
+    // (bottom nav "Calendar" tap, no explicit week) resets to Month View.
+    if (options.weekStartDate) {
+      mainCalendarSelectedWeek = curriculumPlannerWeekStartIso(options.weekStartDate);
+      mainCalendarSubView = "week";
+    } else if (!options.fromCurriculumPlannerRetirement) {
+      mainCalendarSubView = "month";
+    }
     // Paint Calendar shell immediately; refresh once ScheduleItem sync settles.
     renderMainCalendar();
     ensureScheduleLoaded().then(() => renderMainCalendar()).catch(() => renderMainCalendar());
@@ -11530,11 +11545,8 @@ function viewLessonPlanInCurriculumPlanner(resourceId, options = {}) {
   if (!isCurriculumPlannerLegacyEnabled()) {
     toggleLessonWorkspaceActionSheet(false);
     dismissResourceViewerForNavigation();
-    if (options.weekStartDate) {
-      mainCalendarSelectedWeek = curriculumPlannerWeekStartIso(options.weekStartDate);
-    }
     pendingCurriculumPlannerRetirementNotice = true;
-    setView("calendar");
+    setView("calendar", options.weekStartDate ? { weekStartDate: options.weekStartDate } : {});
     return;
   }
   const resource = resources.find((item) => item.id === resourceId);
@@ -14271,6 +14283,35 @@ function isoDateFromLocalDate(date) {
   return `${year}-${month}-${day}`;
 }
 
+function addDaysToIso(iso, days) {
+  const date = new Date(`${String(iso || "").slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return "";
+  date.setDate(date.getDate() + Number(days || 0));
+  return isoDateFromLocalDate(date);
+}
+
+function isoWeekdayIndex(iso) {
+  const date = new Date(`${String(iso || "").slice(0, 10)}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? -1 : date.getDay();
+}
+
+function isoIsWeekend(iso) {
+  const dow = isoWeekdayIndex(iso);
+  return dow === 0 || dow === 6;
+}
+
+function calendarLongDateLabel(iso) {
+  const date = new Date(`${String(iso || "").slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return iso || "";
+  return date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+}
+
+function curriculumDayKeyForIso(iso) {
+  const dow = isoWeekdayIndex(iso);
+  const index = dow - 1; // Mon=1 -> 0 ... Fri=5 -> 4
+  return index >= 0 && index < CURRICULUM_WEEKDAYS.length ? CURRICULUM_WEEKDAYS[index] : "";
+}
+
 function plannerWeekIndex(weekOf) {
   const [year, month, day] = String(weekOf || "").split("-").map(Number);
   if (!year || !month || !day) return 0;
@@ -16251,16 +16292,277 @@ function mainCalendarMonthLabel(date) {
   return date.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 }
 
+const CALENDAR_MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+const CALENDAR_FILTER_CATEGORIES = [
+  { key: "curriculum", label: "Lesson Plans", icon: "📘" },
+  { key: "child", label: "Birthdays & Child", icon: "🎂" },
+  { key: "classroom", label: "Classroom", icon: "🎨" },
+  { key: "director", label: "Director/Compliance", icon: "🛡️" },
+  { key: "family", label: "Family/Center", icon: "🏫" },
+];
+
+function loadCalendarFilters() {
+  if (mainCalendarActiveFilters) return mainCalendarActiveFilters;
+  let parsed = null;
+  try {
+    parsed = JSON.parse(localStorage.getItem("llhCalendarFilters") || "null");
+  } catch {
+    parsed = null;
+  }
+  mainCalendarActiveFilters = CALENDAR_FILTER_CATEGORIES.reduce((acc, cat) => {
+    acc[cat.key] = parsed && typeof parsed[cat.key] === "boolean" ? parsed[cat.key] : true;
+    return acc;
+  }, {});
+  return mainCalendarActiveFilters;
+}
+
+function saveCalendarFilters() {
+  try {
+    localStorage.setItem("llhCalendarFilters", JSON.stringify(loadCalendarFilters()));
+  } catch {
+    /* ignore persistence failures */
+  }
+}
+
+function toggleCalendarFilter(key) {
+  const filters = loadCalendarFilters();
+  if (!(key in filters)) return;
+  filters[key] = !filters[key];
+  saveCalendarFilters();
+}
+
+function isCalendarCategoryVisible(category) {
+  return loadCalendarFilters()[category] !== false;
+}
+
+function calendarItemCategory(type) {
+  if (type === "birthday" || type === "enrollment_anniversary" || type === "observation_reminder") return "child";
+  const api = getScheduleApi();
+  if (api?.scheduleItemCategory) return api.scheduleItemCategory(type);
+  if (type === "lesson_plan") return "curriculum";
+  if (type === "closure" || type === "family_event") return "family";
+  if (type === "director_event") return "director";
+  return "classroom";
+}
+
+function calendarCategoryLabel(category) {
+  return (CALENDAR_FILTER_CATEGORIES.find((cat) => cat.key === category) || {}).label || "Item";
+}
+
 function calendarEventTypeLabel(type) {
-  if (type === "closure") return "Closure";
-  if (type === "classroom_event") return "Event";
-  if (type === "reminder") return "Reminder";
-  return "Item";
+  const labels = {
+    closure: "Closure",
+    classroom_event: "Classroom Event",
+    reminder: "Reminder",
+    director_event: "Director",
+    family_event: "Family/Center",
+    birthday: "Birthday",
+    enrollment_anniversary: "Anniversary",
+    observation_reminder: "Observation",
+  };
+  return labels[type] || "Item";
+}
+
+function calendarFilterBarHtml() {
+  const filters = loadCalendarFilters();
+  return `
+    <div class="llh-cal-filter-bar" role="group" aria-label="Show or hide calendar categories">
+      ${CALENDAR_FILTER_CATEGORIES.map((cat) => `
+        <button type="button" class="llh-cal-filter-chip ${filters[cat.key] !== false ? "is-active" : ""}" data-calendar-toggle-filter="${cat.key}" aria-pressed="${filters[cat.key] !== false ? "true" : "false"}">
+          <span aria-hidden="true">${cat.icon}</span> ${escapeHtml(cat.label)}
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function calendarMonthOptionsHtml(selectedMonthIndex) {
+  return CALENDAR_MONTH_NAMES.map((name, index) => `<option value="${index}" ${index === selectedMonthIndex ? "selected" : ""}>${name}</option>`).join("");
+}
+
+function calendarYearOptionsHtml(selectedYear) {
+  const base = new Date().getFullYear();
+  const years = new Set();
+  for (let y = base - 4; y <= base + 4; y += 1) years.add(y);
+  years.add(selectedYear);
+  return Array.from(years).sort((a, b) => a - b)
+    .map((y) => `<option value="${y}" ${y === selectedYear ? "selected" : ""}>${y}</option>`)
+    .join("");
+}
+
+function calendarEachDateIso(fromIso, toIso, callback) {
+  const cursorDate = new Date(`${String(fromIso || "").slice(0, 10)}T12:00:00`);
+  const endDate = new Date(`${String(toIso || "").slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(cursorDate.getTime()) || Number.isNaN(endDate.getTime())) return;
+  let guard = 0;
+  while (cursorDate.getTime() <= endDate.getTime() && guard < 400) {
+    callback(isoDateFromLocalDate(cursorDate));
+    cursorDate.setDate(cursorDate.getDate() + 1);
+    guard += 1;
+  }
+}
+
+// Phase B — childcare calendar content. These are computed at render time from
+// the Children module (dob / enrollmentDate / observation goals) and are never
+// written to the ScheduleItem store, so there is no duplicate birthday data and
+// no risk of drifting from a child's real profile.
+function calendarBirthdayItemsInRange(fromIso, toIso) {
+  if (typeof childRecords !== "function") return [];
+  const records = childRecords();
+  const children = typeof getActiveChildren === "function" ? getActiveChildren(records) : (records.children || []);
+  const items = [];
+  calendarEachDateIso(fromIso, toIso, (iso) => {
+    const [, month, day] = iso.split("-");
+    (children || []).forEach((child) => {
+      const dob = String(child.dob || "");
+      if (dob.length < 10) return;
+      const [, dobMonth, dobDay] = dob.split("-");
+      if (dobMonth === month && dobDay === day) {
+        items.push({
+          id: `virtual-birthday-${child.id}-${iso}`,
+          type: "birthday",
+          category: "child",
+          title: `${child.name || "Child"}’s Birthday`,
+          startDate: iso,
+          endDate: iso,
+          allDay: true,
+          isVirtual: true,
+        });
+      }
+    });
+  });
+  return items;
+}
+
+function calendarEnrollmentAnniversaryItemsInRange(fromIso, toIso) {
+  if (typeof childRecords !== "function") return [];
+  const records = childRecords();
+  const children = typeof getActiveChildren === "function" ? getActiveChildren(records) : (records.children || []);
+  const items = [];
+  calendarEachDateIso(fromIso, toIso, (iso) => {
+    const [year, month, day] = iso.split("-");
+    (children || []).forEach((child) => {
+      const enrolled = String(child.enrollmentDate || "");
+      if (enrolled.length < 10) return;
+      const [enrollYear, enrollMonth, enrollDay] = enrolled.split("-");
+      if (enrollMonth === month && enrollDay === day && Number(year) > Number(enrollYear)) {
+        const years = Number(year) - Number(enrollYear);
+        items.push({
+          id: `virtual-enrollment-${child.id}-${iso}`,
+          type: "enrollment_anniversary",
+          category: "child",
+          title: `${child.name || "Child"} — ${years} yr${years === 1 ? "" : "s"} enrolled`,
+          startDate: iso,
+          endDate: iso,
+          allDay: true,
+          isVirtual: true,
+        });
+      }
+    });
+  });
+  return items;
+}
+
+function calendarObservationReminderItemsInRange(fromIso, toIso) {
+  if (typeof childRecords !== "function" || typeof monthlyObservationSummary !== "function") return [];
+  const records = childRecords();
+  const children = typeof getActiveChildren === "function" ? getActiveChildren(records) : (records.children || []);
+  const observations = records.observations || [];
+  const items = [];
+  try {
+    calendarEachDateIso(fromIso, toIso, (iso) => {
+      const date = new Date(`${iso}T12:00:00`);
+      const nextDay = new Date(date);
+      nextDay.setDate(nextDay.getDate() + 1);
+      const isLastDayOfMonth = nextDay.getMonth() !== date.getMonth();
+      if (!isLastDayOfMonth) return;
+      if (typeof isObservationInCurrentMonth === "function" && !isObservationInCurrentMonth(iso)) return;
+      (children || []).forEach((child) => {
+        const summary = monthlyObservationSummary(child, observations);
+        if (summary.remaining > 0) {
+          items.push({
+            id: `virtual-observation-${child.id}-${iso}`,
+            type: "observation_reminder",
+            category: "child",
+            title: `${child.name || "Child"}: ${summary.remaining} observation${summary.remaining === 1 ? "" : "s"} due this month`,
+            startDate: iso,
+            endDate: iso,
+            allDay: true,
+            isVirtual: true,
+          });
+        }
+      });
+    });
+  } catch {
+    return [];
+  }
+  return items;
+}
+
+function calendarDerivedChildItemsInRange(fromIso, toIso) {
+  return [
+    ...calendarBirthdayItemsInRange(fromIso, toIso),
+    ...calendarEnrollmentAnniversaryItemsInRange(fromIso, toIso),
+    ...calendarObservationReminderItemsInRange(fromIso, toIso),
+  ];
+}
+
+function calendarVisibleItemsForDate(realItems, derivedItems, iso) {
+  const real = (realItems || []).filter(
+    (item) => item.type !== "lesson_plan" && item.startDate === iso && isCalendarCategoryVisible(calendarItemCategory(item.type)),
+  );
+  const derived = isCalendarCategoryVisible("child") ? (derivedItems || []).filter((item) => item.startDate === iso) : [];
+  return [...real, ...derived];
+}
+
+function calendarItemById(itemId) {
+  const api = getScheduleApi();
+  const doc = scheduleDocCache || (api ? api.readCache(scheduleApiEmail()) : null);
+  return (doc?.items || []).find((item) => item.id === itemId) || null;
+}
+
+function calendarDayItemCardHtml(item) {
+  const category = item.category || calendarItemCategory(item.type);
+  const timeLabel = !item.isVirtual && !item.allDay && item.startTime
+    ? `${escapeHtml(item.startTime)}${item.endTime ? `–${escapeHtml(item.endTime)}` : ""}`
+    : "";
+  return `
+    <article class="llh-cal-day-item llh-cal-day-item-${escapeHtml(category)}">
+      <div>
+        <p class="eyebrow">${escapeHtml(calendarCategoryLabel(category))}${timeLabel ? ` · ${timeLabel}` : ""}</p>
+        <strong>${escapeHtml(item.title || calendarEventTypeLabel(item.type))}</strong>
+        ${item.itemsToBring ? `<p class="muted-copy">Bring: ${escapeHtml(item.itemsToBring)}</p>` : ""}
+        ${item.notes ? `<p class="muted-copy">${escapeHtml(item.notes)}</p>` : ""}
+      </div>
+      ${!item.isVirtual ? `
+        <div class="llh-cal-day-item-actions">
+          <button type="button" class="ghost-button" data-calendar-edit-item="${escapeHtml(item.id)}">Edit</button>
+          <button type="button" class="ghost-button" data-calendar-delete-item="${escapeHtml(item.id)}">Delete</button>
+        </div>
+      ` : ""}
+    </article>
+  `;
 }
 
 function renderMainCalendar() {
   const app = document.querySelector("#mainCalendarApp");
   if (!app) return;
+  loadCalendarFilters();
+  if (mainCalendarSubView === "day" && mainCalendarSelectedDay) {
+    renderCalendarDayView(app);
+  } else if (mainCalendarSubView === "week" && mainCalendarSelectedWeek) {
+    renderCalendarWeekView(app);
+  } else {
+    mainCalendarSubView = "month";
+    renderCalendarMonthView(app);
+  }
+}
+
+function renderCalendarMonthView(app) {
   const api = getScheduleApi();
   if (!mainCalendarMonthCursor) mainCalendarMonthCursor = new Date();
   const cursor = new Date(mainCalendarMonthCursor.getFullYear(), mainCalendarMonthCursor.getMonth(), 1);
@@ -16269,35 +16571,29 @@ function renderMainCalendar() {
   const bounds = api ? api.monthBounds(year, month) : { from: "", to: "" };
   const doc = scheduleDocCache || (api ? api.readCache(scheduleApiEmail()) : null) || { items: [], classrooms: [] };
   const items = api ? api.itemsInRange(doc, bounds.from, bounds.to) : [];
-  const selectedWeek = mainCalendarSelectedWeek || curriculumPlannerWeekStartIso(new Date());
-  const selectedLesson = api ? api.lessonForWeek(doc, selectedWeek) : null;
-  const selectedEvents = items.filter(
-    (item) => item.type !== "lesson_plan"
-      && item.startDate >= selectedWeek
-      && item.startDate <= (api?.weekEndFromStart(selectedWeek) || selectedWeek),
-  );
+  const monthFrom = bounds.from || `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  const monthTo = bounds.to || isoDateFromLocalDate(new Date(year, month + 1, 0));
+  const derivedChildItems = calendarDerivedChildItemsInRange(monthFrom, monthTo);
   const todayIso = isoDateFromLocalDate(new Date());
   const monthHasLessons = items.some((item) => item.type === "lesson_plan");
 
-  const firstDow = new Date(year, month, 1).getDay();
-  const startOffset = firstDow === 0 ? 6 : firstDow - 1; // Monday-first
+  const firstDow = new Date(year, month, 1).getDay(); // Sunday-first — matches Sun..Sat columns directly
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const cells = [];
-  for (let i = 0; i < startOffset; i += 1) cells.push({ day: null, weekend: false });
+  for (let i = 0; i < firstDow; i += 1) cells.push({ day: null });
   for (let day = 1; day <= daysInMonth; day += 1) {
     const date = new Date(year, month, day);
     const iso = isoDateFromLocalDate(date);
     const week = curriculumPlannerWeekStartIso(date);
     const dow = date.getDay();
     const lesson = api ? api.lessonForWeek(doc, week) : null;
-    const dayEvents = items.filter((item) => item.type !== "lesson_plan" && item.startDate === iso);
-    cells.push({ day, iso, week, lesson, dayEvents, weekend: dow === 0 || dow === 6, dow });
+    const dayItems = calendarVisibleItemsForDate(items, derivedChildItems, iso);
+    cells.push({ day, iso, week, lesson, dayItems, weekend: dow === 0 || dow === 6, dow });
   }
-  while (cells.length % 7 !== 0) cells.push({ day: null, weekend: false });
-  const weekdayCells = cells.filter((cell, index) => {
-    const col = index % 7;
-    return col < 5; // Mon-Fri planning surface
-  });
+  while (cells.length % 7 !== 0) cells.push({ day: null });
+  const weekRows = [];
+  for (let i = 0; i < cells.length; i += 7) weekRows.push(cells.slice(i, i + 7));
+  const weekdayHeadLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   app.innerHTML = `
     <div class="llh-calendar-shell">
@@ -16306,89 +16602,201 @@ function renderMainCalendar() {
         <div>
           <p class="eyebrow">Planning home</p>
           <h3 class="llh-calendar-month">${escapeHtml(mainCalendarMonthLabel(cursor))}</h3>
-          <p class="muted-copy llh-calendar-toolbar-hint">Assign lesson plans, events, closures, and reminders. Select a week to open Weekly Planner.</p>
+          <p class="muted-copy llh-calendar-toolbar-hint">Tap any day to open it. Weekends are available for manual events — lesson plans still run Monday–Friday.</p>
         </div>
         <div class="llh-calendar-toolbar-actions">
-          <div class="llh-calendar-month-nav" role="group" aria-label="Month">
-            <button type="button" class="ghost-button" data-calendar-nav="-1">Prev</button>
+          <div class="llh-calendar-month-nav" role="group" aria-label="Month and year navigation">
+            <button type="button" class="ghost-button" data-calendar-nav="-1" aria-label="Previous month">‹ Prev</button>
+            <label class="llh-cal-jump-label">Month
+              <select data-calendar-jump-month aria-label="Jump to month">${calendarMonthOptionsHtml(month)}</select>
+            </label>
+            <label class="llh-cal-jump-label">Year
+              <select data-calendar-jump-year aria-label="Jump to year">${calendarYearOptionsHtml(year)}</select>
+            </label>
+            <button type="button" class="ghost-button" data-calendar-nav="1" aria-label="Next month">Next ›</button>
             <button type="button" class="ghost-button" data-calendar-nav="today">Today</button>
-            <button type="button" class="ghost-button" data-calendar-nav="1">Next</button>
           </div>
           <button type="button" class="primary-button" data-view="lessons">Assign Lesson Plan</button>
         </div>
       </div>
+      ${calendarFilterBarHtml()}
       ${!monthHasLessons ? `
         <div class="llh-calendar-empty-banner">
           <p><strong>No lesson plans this month yet.</strong> Pick a week, then assign a plan from the Lesson Library.</p>
         </div>
       ` : ""}
-      <div class="llh-calendar-layout">
-        <div class="llh-calendar-grid llh-calendar-grid-weekdays" role="grid" aria-label="${escapeHtml(mainCalendarMonthLabel(cursor))}">
-          ${["Mon", "Tue", "Wed", "Thu", "Fri"].map((label) => `<div class="llh-cal-head">${label}</div>`).join("")}
-          ${weekdayCells.map((cell) => {
-            if (!cell.day) return `<div class="llh-cal-cell is-empty"></div>`;
-            const isSelected = cell.week === selectedWeek;
-            const isToday = cell.iso === todayIso;
-            const hasLesson = Boolean(cell.lesson);
-            const isMonday = cell.dow === 1;
-            const visibleEvents = cell.dayEvents.slice(0, 2);
-            const extraEvents = Math.max(0, cell.dayEvents.length - visibleEvents.length);
-            const title = cell.lesson?.lessonPlanTitle || "";
-            const shortTitle = title.length > 28 ? `${title.slice(0, 26)}…` : title;
-            return `
-              <button type="button" class="llh-cal-cell ${isSelected ? "is-selected" : ""} ${hasLesson ? "has-lesson" : ""} ${isToday ? "is-today" : ""}" data-calendar-select-week="${escapeHtml(cell.week)}">
-                <span class="llh-cal-daynum">${cell.day}${isToday ? '<span class="llh-cal-today-dot" aria-hidden="true"></span>' : ""}</span>
-                ${hasLesson && isMonday ? `<span class="llh-cal-weekbar" title="${escapeHtml(title)}">${escapeHtml(shortTitle)}</span>` : ""}
-                ${hasLesson && !isMonday ? `<span class="llh-cal-lesson-stripe" title="${escapeHtml(title)}" aria-hidden="true"></span>` : ""}
-                ${visibleEvents.map((event) => `<span class="llh-cal-chip llh-cal-chip-${escapeHtml(event.type)}"><span class="llh-cal-chip-type">${escapeHtml(calendarEventTypeLabel(event.type))}</span> ${escapeHtml(event.title || event.type)}</span>`).join("")}
-                ${extraEvents ? `<span class="llh-cal-more">+${extraEvents} more</span>` : ""}
-              </button>
-            `;
-          }).join("")}
-        </div>
-        <aside class="llh-calendar-detail llh-ds-card">
-          <p class="eyebrow">Selected week</p>
-          ${selectedLesson ? `
-            <div class="llh-calendar-lesson-block">
-              <p class="eyebrow">Lesson plan</p>
-              <h3>${escapeHtml(selectedLesson.lessonPlanTitle)}</h3>
-              <p class="muted-copy">${escapeHtml(selectedWeek)} – ${escapeHtml(api.weekEndFromStart(selectedWeek))} · ${escapeHtml(scheduleClassroomName(doc))}</p>
-            </div>
-            <div class="form-actions">
-              <button type="button" class="primary-button" data-view="planner" data-planner-focus-week="${escapeHtml(selectedWeek)}">Open Weekly Planner</button>
-              <button type="button" class="ghost-button" data-view="lessons">Change Plan</button>
-            </div>
-          ` : `
-            <div class="llh-calendar-empty-week">
-              <h3>No lesson plan</h3>
-              <p class="muted-copy">Week of ${escapeHtml(selectedWeek)}. Assign one plan for the whole classroom week.</p>
-            </div>
-            <div class="form-actions">
-              <button type="button" class="primary-button" data-view="lessons">Browse Lesson Plans</button>
-            </div>
-          `}
-          <div class="llh-calendar-detail-events">
-            <p class="eyebrow">This week’s events</p>
-            ${selectedEvents.length
-              ? `<div class="llh-cal-event-list">${selectedEvents.map((event) => `
-                  <article class="llh-cal-event-card llh-cal-event-card-${escapeHtml(event.type)}">
-                    <p class="eyebrow">${escapeHtml(calendarEventTypeLabel(event.type))}</p>
-                    <strong>${escapeHtml(event.title || event.type)}</strong>
-                    <small>${escapeHtml(event.startDate)}</small>
-                  </article>
-                `).join("")}</div>`
-              : `<p class="muted-copy llh-calendar-events-empty">No events, closures, or reminders this week.</p>`
-            }
-            <button type="button" class="ghost-button" data-calendar-add-item>Add Event</button>
-          </div>
-        </aside>
+      <div class="llh-calendar-grid llh-calendar-grid-7" role="grid" aria-label="${escapeHtml(mainCalendarMonthLabel(cursor))}">
+        <div class="llh-cal-head llh-cal-head-gutter" aria-hidden="true"></div>
+        ${weekdayHeadLabels.map((label, i) => `<div class="llh-cal-head ${i === 0 || i === 6 ? "is-weekend-head" : ""}">${label}</div>`).join("")}
+        ${weekRows.map((row) => {
+          const weekMonday = row.find((cell) => cell.week)?.week || "";
+          return `
+            <button type="button" class="llh-cal-week-jump" data-calendar-view-week="${escapeHtml(weekMonday)}" aria-label="View the week of ${escapeHtml(weekMonday)}" ${weekMonday ? "" : "disabled"}>
+              <span aria-hidden="true">▸</span><span class="llh-cal-week-jump-label">Wk</span>
+            </button>
+            ${row.map((cell) => {
+              if (!cell.day) return `<div class="llh-cal-cell is-empty"></div>`;
+              const isToday = cell.iso === todayIso;
+              const hasLesson = Boolean(cell.lesson);
+              const isMonday = cell.dow === 1;
+              const visibleItems = cell.dayItems.slice(0, 2);
+              const extraItems = Math.max(0, cell.dayItems.length - visibleItems.length);
+              const title = cell.lesson?.lessonPlanTitle || "";
+              const shortTitle = title.length > 24 ? `${title.slice(0, 22)}…` : title;
+              const ariaLabel = `${calendarLongDateLabel(cell.iso)}${cell.weekend ? ", weekend" : ""}${hasLesson ? `, lesson plan: ${title}` : ""}${cell.dayItems.length ? `, ${cell.dayItems.length} item${cell.dayItems.length === 1 ? "" : "s"}` : ""}`;
+              return `
+                <button type="button" class="llh-cal-cell ${cell.weekend ? "is-weekend" : ""} ${hasLesson ? "has-lesson" : ""} ${isToday ? "is-today" : ""}" data-calendar-select-day="${escapeHtml(cell.iso)}" aria-label="${escapeHtml(ariaLabel)}">
+                  <span class="llh-cal-daynum">${cell.day}${isToday ? '<span class="llh-cal-today-dot" aria-hidden="true"></span>' : ""}</span>
+                  ${cell.weekend ? `<span class="llh-cal-weekend-tag">Weekend</span>` : ""}
+                  ${hasLesson && isMonday ? `<span class="llh-cal-weekbar" title="${escapeHtml(title)}">${escapeHtml(shortTitle)}</span>` : ""}
+                  ${hasLesson && !isMonday && !cell.weekend ? `<span class="llh-cal-lesson-stripe" title="${escapeHtml(title)}" aria-hidden="true"></span>` : ""}
+                  ${visibleItems.map((item) => `<span class="llh-cal-chip llh-cal-chip-${escapeHtml(calendarItemCategory(item.type))}" title="${escapeHtml(item.title)}">${escapeHtml(calendarEventTypeLabel(item.type))}: ${escapeHtml(item.title || item.type)}</span>`).join("")}
+                  ${extraItems ? `<span class="llh-cal-more">+${extraItems} more</span>` : ""}
+                </button>
+              `;
+            }).join("")}
+          `;
+        }).join("")}
+      </div>
+      <div class="form-actions llh-calendar-add-row">
+        <button type="button" class="ghost-button" data-calendar-add-item>Add Event / Reminder</button>
       </div>
       ${mainCalendarBusy ? `<p class="muted-copy llh-calendar-busy">Saving…</p>` : ""}
     </div>
   `;
 }
 
-async function openCalendarAddItemDialog() {
+function renderCalendarWeekView(app) {
+  const api = getScheduleApi();
+  const week = mainCalendarSelectedWeek || curriculumPlannerWeekStartIso(new Date());
+  const sunday = addDaysToIso(week, -1);
+  const saturday = addDaysToIso(week, 5);
+  const doc = scheduleDocCache || (api ? api.readCache(scheduleApiEmail()) : null) || { items: [], classrooms: [] };
+  const lesson = api ? api.lessonForWeek(doc, week) : null;
+  const realItems = api ? api.itemsInRange(doc, sunday, saturday) : [];
+  const derivedItems = calendarDerivedChildItemsInRange(sunday, saturday);
+  const todayIso = isoDateFromLocalDate(new Date());
+  const room = scheduleClassroomName(doc);
+  const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const dayCells = [];
+  for (let i = 0; i < 7; i += 1) {
+    const iso = addDaysToIso(sunday, i);
+    const dow = isoWeekdayIndex(iso);
+    const dayKey = curriculumDayKeyForIso(iso);
+    const dayItems = calendarVisibleItemsForDate(realItems, derivedItems, iso);
+    dayCells.push({ iso, dow, dayKey, dayItems, weekend: dow === 0 || dow === 6, isToday: iso === todayIso });
+  }
+
+  app.innerHTML = `
+    <div class="llh-calendar-shell llh-calendar-week-view">
+      <div class="llh-calendar-toolbar">
+        <div>
+          <button type="button" class="ghost-button" data-calendar-back-to-month>← Back to Calendar</button>
+          <p class="eyebrow">Week view</p>
+          <h3 class="llh-calendar-month">${escapeHtml(mainCalendarMonthLabel(new Date(`${sunday}T12:00:00`)))} · ${escapeHtml(sunday)} – ${escapeHtml(saturday)}</h3>
+        </div>
+      </div>
+      ${calendarFilterBarHtml()}
+      ${lesson ? `
+        <section class="llh-ds-card llh-cal-week-lesson">
+          <p class="eyebrow">Lesson Plan (Monday–Friday)</p>
+          <h3>${escapeHtml(lesson.lessonPlanTitle)}</h3>
+          <p class="muted-copy">${escapeHtml(lesson.ageGroup || "")} · ${escapeHtml(room)}</p>
+          <div class="form-actions">
+            <button type="button" class="primary-button" data-view="planner" data-planner-focus-week="${escapeHtml(week)}">Open Weekly Planner</button>
+            <button type="button" class="ghost-button" data-view="lessons">Change Plan</button>
+          </div>
+        </section>
+      ` : `
+        <section class="llh-ds-card llh-cal-week-lesson">
+          <p class="eyebrow">Lesson Plan (Monday–Friday)</p>
+          <h3>No lesson plan this week</h3>
+          <div class="form-actions">
+            <button type="button" class="primary-button" data-view="lessons">Browse Lesson Plans</button>
+          </div>
+        </section>
+      `}
+      <div class="llh-cal-week-strip">
+        ${dayCells.map((cell) => `
+          <button type="button" class="llh-cal-week-day ${cell.weekend ? "is-weekend" : ""} ${cell.isToday ? "is-today" : ""}" data-calendar-select-day="${escapeHtml(cell.iso)}" aria-label="${escapeHtml(calendarLongDateLabel(cell.iso))}${cell.weekend ? ", weekend" : ""}">
+            <span class="eyebrow">${dayLabels[cell.dow]}${cell.weekend ? " · Weekend" : ""}</span>
+            <strong>${escapeHtml(cell.iso.slice(8, 10))}</strong>
+            ${cell.dayKey && lesson ? `<span class="llh-cal-lesson-stripe" aria-hidden="true"></span>` : ""}
+            ${cell.dayItems.slice(0, 3).map((item) => `<span class="llh-cal-chip llh-cal-chip-${escapeHtml(calendarItemCategory(item.type))}">${escapeHtml(item.title || item.type)}</span>`).join("")}
+            ${cell.dayItems.length > 3 ? `<span class="llh-cal-more">+${cell.dayItems.length - 3} more</span>` : ""}
+          </button>
+        `).join("")}
+      </div>
+      <div class="form-actions llh-calendar-add-row">
+        <button type="button" class="ghost-button" data-calendar-add-item data-calendar-add-item-date="${escapeHtml(mainCalendarSelectedDay || week)}">Add Item to This Week</button>
+      </div>
+      ${mainCalendarBusy ? `<p class="muted-copy llh-calendar-busy">Saving…</p>` : ""}
+    </div>
+  `;
+}
+
+function renderCalendarDayView(app) {
+  const api = getScheduleApi();
+  const iso = mainCalendarSelectedDay;
+  const week = curriculumPlannerWeekStartIso(iso);
+  const doc = scheduleDocCache || (api ? api.readCache(scheduleApiEmail()) : null) || { items: [], classrooms: [] };
+  const lesson = api ? api.lessonForWeek(doc, week) : null;
+  const dayKey = curriculumDayKeyForIso(iso);
+  const weekend = isoIsWeekend(iso);
+  const realItems = api ? api.itemsInRange(doc, iso, iso) : [];
+  const derivedItems = calendarDerivedChildItemsInRange(iso, iso);
+  const visibleItems = calendarVisibleItemsForDate(realItems, derivedItems, iso);
+  const room = scheduleClassroomName(doc);
+  const planDay = dayKey ? lesson?.snapshot?.dailyPlans?.[dayKey] : null;
+  const activities = Array.isArray(planDay?.items) ? planDay.items : [];
+
+  app.innerHTML = `
+    <div class="llh-calendar-shell llh-calendar-day-view">
+      <div class="llh-calendar-toolbar">
+        <div>
+          <button type="button" class="ghost-button" data-calendar-back-to-month>← Back to Calendar</button>
+          <p class="eyebrow">${weekend ? "Weekend day" : "Day view"}</p>
+          <h3 class="llh-calendar-month">${escapeHtml(calendarLongDateLabel(iso))}</h3>
+        </div>
+        <div class="llh-calendar-toolbar-actions">
+          <button type="button" class="primary-button" data-calendar-view-week="${escapeHtml(week)}">View Week</button>
+        </div>
+      </div>
+      ${calendarFilterBarHtml()}
+      <div class="llh-cal-day-body">
+        <section class="llh-ds-card">
+          <p class="eyebrow">Lesson Plan · ${escapeHtml(room)}</p>
+          ${lesson && dayKey ? `
+            <h3>${escapeHtml(lesson.lessonPlanTitle)}</h3>
+            <p class="muted-copy">${escapeHtml(lesson.ageGroup || "")}</p>
+            ${activities.length ? `<ul class="llh-day-activity-list">${activities.slice(0, 6).map((activity) => `<li>${escapeHtml(activity.title || "Activity")}</li>`).join("")}</ul>` : ""}
+            <div class="form-actions">
+              <button type="button" class="ghost-button" data-view="planner" data-planner-focus-week="${escapeHtml(week)}">Open Weekly Planner</button>
+            </div>
+          ` : `
+            <p class="muted-copy">${weekend
+              ? "Lesson plans run Monday–Friday. This weekend day has no automatic lesson-plan content — add a manual event below if your program runs weekends."
+              : "No lesson plan assigned for this week yet."}</p>
+            <div class="form-actions"><button type="button" class="ghost-button" data-view="lessons">Browse Lesson Plans</button></div>
+          `}
+        </section>
+        <section class="llh-ds-card">
+          <p class="eyebrow">Events, birthdays & reminders</p>
+          ${visibleItems.length ? `<div class="llh-cal-day-item-list">${visibleItems.map(calendarDayItemCardHtml).join("")}</div>` : `<p class="muted-copy">Nothing scheduled for this day.</p>`}
+          <button type="button" class="primary-button" data-calendar-add-item data-calendar-add-item-date="${escapeHtml(iso)}">Add Item</button>
+        </section>
+      </div>
+      ${mainCalendarBusy ? `<p class="muted-copy llh-calendar-busy">Saving…</p>` : ""}
+    </div>
+  `;
+}
+
+function toggleCalendarEventTimeFields(form, allDay) {
+  const timeWrap = form?.querySelector("[data-schedule-event-time-fields]");
+  if (timeWrap) timeWrap.hidden = Boolean(allDay);
+}
+
+async function openCalendarAddItemDialog(options = {}) {
   const api = getScheduleApi();
   if (!api || !isLoggedIn()) {
     openAuthModal("login");
@@ -16397,14 +16805,30 @@ async function openCalendarAddItemDialog() {
   const modal = document.querySelector("#scheduleEventModal");
   if (!modal) return;
   const form = modal.querySelector("#scheduleEventForm");
-  const dateInput = form?.querySelector('[name="eventDate"]');
-  if (dateInput) {
-    dateInput.value = mainCalendarSelectedWeek || curriculumPlannerWeekStartIso(new Date());
-  }
-  const typeInput = form?.querySelector('[name="eventType"]');
-  if (typeInput) typeInput.value = "reminder";
-  const titleInput = form?.querySelector('[name="eventTitle"]');
-  if (titleInput) titleInput.value = "";
+  const editingItem = options.itemId ? calendarItemById(options.itemId) : null;
+  mainCalendarEditingItemId = editingItem ? editingItem.id : "";
+  const setVal = (name, value) => {
+    const el = form?.querySelector(`[name="${name}"]`);
+    if (el) el.value = value ?? "";
+  };
+  setVal("eventType", editingItem?.type || "reminder");
+  setVal("eventTitle", editingItem?.title || "");
+  setVal("eventDate", editingItem?.startDate || options.date || mainCalendarSelectedDay || mainCalendarSelectedWeek || curriculumPlannerWeekStartIso(new Date()));
+  setVal("eventNotes", editingItem?.notes || "");
+  setVal("eventAgeGroup", editingItem?.ageGroup || "");
+  setVal("eventItemsToBring", editingItem?.itemsToBring || "");
+  setVal("eventStartTime", editingItem?.startTime || "");
+  setVal("eventEndTime", editingItem?.endTime || "");
+  const allDayInput = form?.querySelector('[name="eventAllDay"]');
+  const allDay = editingItem ? Boolean(editingItem.allDay) : true;
+  if (allDayInput) allDayInput.checked = allDay;
+  toggleCalendarEventTimeFields(form, allDay);
+  const titleEl = modal.querySelector("#scheduleEventTitle");
+  if (titleEl) titleEl.textContent = editingItem ? "Edit Calendar Item" : "Add to Calendar";
+  const submitBtn = form?.querySelector('button[type="submit"]');
+  if (submitBtn) submitBtn.textContent = editingItem ? "Save Changes" : "Save";
+  const deleteBtn = modal.querySelector("[data-schedule-event-delete]");
+  if (deleteBtn) deleteBtn.hidden = !editingItem;
   const errorEl = modal.querySelector("[data-schedule-event-error]");
   if (errorEl) {
     errorEl.hidden = true;
@@ -16413,13 +16837,14 @@ async function openCalendarAddItemDialog() {
   calendarEventModalOpen = true;
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
-  titleInput?.focus();
+  form?.querySelector('[name="eventTitle"]')?.focus();
 }
 
 function closeCalendarAddItemDialog() {
   const modal = document.querySelector("#scheduleEventModal");
   if (!modal) return;
   calendarEventModalOpen = false;
+  mainCalendarEditingItemId = "";
   modal.classList.remove("open");
   modal.setAttribute("aria-hidden", "true");
 }
@@ -16431,6 +16856,12 @@ async function submitCalendarAddItemForm(form) {
   const scheduleType = String(data.get("eventType") || "reminder");
   const title = String(data.get("eventTitle") || "").trim();
   const date = api.isoDateOnly(data.get("eventDate"));
+  const allDay = Boolean(data.get("eventAllDay"));
+  const startTime = allDay ? "" : String(data.get("eventStartTime") || "").trim();
+  const endTime = allDay ? "" : String(data.get("eventEndTime") || "").trim();
+  const notes = String(data.get("eventNotes") || "").trim();
+  const ageGroup = String(data.get("eventAgeGroup") || "").trim();
+  const itemsToBring = String(data.get("eventItemsToBring") || "").trim();
   const errorEl = document.querySelector("[data-schedule-event-error]");
   if (!title || !date) {
     if (errorEl) {
@@ -16443,12 +16874,20 @@ async function submitCalendarAddItemForm(form) {
   renderMainCalendar();
   try {
     await ensureScheduleLoaded();
+    const editingId = mainCalendarEditingItemId;
     await api.upsertItem(firebaseAuthHeaders, scheduleApiEmail(), {
+      ...(editingId ? { id: editingId } : {}),
       type: scheduleType,
       title,
       startDate: date,
       endDate: date,
       weekStartDate: api.weekStartMonday(date),
+      allDay,
+      startTime,
+      endTime,
+      notes,
+      ageGroup,
+      itemsToBring,
       classroomId: (scheduleDocCache || api.readCache(scheduleApiEmail())).classrooms?.[0]?.id || "classroom-main",
     });
     scheduleDocCache = api.readCache(scheduleApiEmail());
@@ -16464,15 +16903,32 @@ async function submitCalendarAddItemForm(form) {
   }
 }
 
+async function deleteCalendarItem(itemId) {
+  if (!itemId) return;
+  const api = getScheduleApi();
+  if (!api || !api.deleteItem) return;
+  if (!window.confirm("Delete this calendar item? This cannot be undone.")) return;
+  mainCalendarBusy = true;
+  renderMainCalendar();
+  try {
+    await ensureScheduleLoaded();
+    await api.deleteItem(firebaseAuthHeaders, scheduleApiEmail(), itemId);
+    scheduleDocCache = api.readCache(scheduleApiEmail());
+    closeCalendarAddItemDialog();
+  } catch (error) {
+    console.warn(error);
+  } finally {
+    mainCalendarBusy = false;
+    renderMainCalendar();
+  }
+}
+
 async function openCurriculumPlannerAssignFlow(resourceId, options = {}) {
   if (!isLoggedIn() && !hasAdminFullAccess()) {
     openAuthModal("login");
     return;
   }
   if (!isCurriculumPlannerLegacyEnabled()) {
-    if (options.weekStartDate) {
-      mainCalendarSelectedWeek = curriculumPlannerWeekStartIso(options.weekStartDate);
-    }
     pendingCurriculumPlannerRetirementNotice = true;
     // Prefer Lesson Library assign sheet if a resource is in play; otherwise Calendar.
     if (resourceId && typeof openResourceViewer === "function") {
@@ -16482,7 +16938,7 @@ async function openCurriculumPlannerAssignFlow(resourceId, options = {}) {
       });
       return;
     }
-    setView("calendar");
+    setView("calendar", options.weekStartDate ? { weekStartDate: options.weekStartDate } : {});
     return;
   }
   const resource = resources.find((item) => item.id === resourceId);
@@ -32387,6 +32843,9 @@ document.addEventListener("click", async (event) => {
     if (nextView === "planner" && viewButton.dataset.plannerFocusWeek) {
       navOptions.weekStartDate = viewButton.dataset.plannerFocusWeek;
     }
+    if (nextView === "calendar" && viewButton.dataset.dashSelectWeek) {
+      navOptions.weekStartDate = viewButton.dataset.dashSelectWeek;
+    }
     setView(viewButton.dataset.view, navOptions);
     return;
   }
@@ -33448,22 +33907,77 @@ document.addEventListener("click", async (event) => {
         1,
       );
     }
+    mainCalendarSubView = "month";
     renderMainCalendar();
     return;
   }
 
-  const calendarSelectWeek = event.target.closest("[data-calendar-select-week]");
-  if (calendarSelectWeek) {
+  const calendarSelectDay = event.target.closest("[data-calendar-select-day]");
+  if (calendarSelectDay) {
     event.preventDefault();
-    mainCalendarSelectedWeek = calendarSelectWeek.dataset.calendarSelectWeek || "";
+    const iso = calendarSelectDay.dataset.calendarSelectDay || "";
+    if (iso) {
+      mainCalendarSelectedDay = iso;
+      mainCalendarSelectedWeek = curriculumPlannerWeekStartIso(iso);
+      mainCalendarSubView = "day";
+      renderMainCalendar();
+    }
+    return;
+  }
+
+  const calendarViewWeek = event.target.closest("[data-calendar-view-week]");
+  if (calendarViewWeek) {
+    event.preventDefault();
+    const week = calendarViewWeek.dataset.calendarViewWeek || "";
+    if (week) {
+      mainCalendarSelectedWeek = week;
+      mainCalendarSubView = "week";
+      renderMainCalendar();
+    }
+    return;
+  }
+
+  const calendarBackToMonth = event.target.closest("[data-calendar-back-to-month]");
+  if (calendarBackToMonth) {
+    event.preventDefault();
+    mainCalendarSubView = "month";
     renderMainCalendar();
+    return;
+  }
+
+  const calendarToggleFilter = event.target.closest("[data-calendar-toggle-filter]");
+  if (calendarToggleFilter) {
+    event.preventDefault();
+    toggleCalendarFilter(calendarToggleFilter.dataset.calendarToggleFilter || "");
+    renderMainCalendar();
+    return;
+  }
+
+  const calendarEditItem = event.target.closest("[data-calendar-edit-item]");
+  if (calendarEditItem) {
+    event.preventDefault();
+    openCalendarAddItemDialog({ itemId: calendarEditItem.dataset.calendarEditItem || "" });
+    return;
+  }
+
+  const calendarDeleteItem = event.target.closest("[data-calendar-delete-item]");
+  if (calendarDeleteItem) {
+    event.preventDefault();
+    deleteCalendarItem(calendarDeleteItem.dataset.calendarDeleteItem || "");
+    return;
+  }
+
+  const scheduleEventDelete = event.target.closest("[data-schedule-event-delete]");
+  if (scheduleEventDelete) {
+    event.preventDefault();
+    deleteCalendarItem(mainCalendarEditingItemId);
     return;
   }
 
   const calendarAddItem = event.target.closest("[data-calendar-add-item]");
   if (calendarAddItem) {
     event.preventDefault();
-    openCalendarAddItemDialog();
+    openCalendarAddItemDialog({ date: calendarAddItem.dataset.calendarAddItemDate || "" });
     return;
   }
 
@@ -34511,6 +35025,24 @@ document.addEventListener("input", (event) => {
     const childId = event.target.dataset.dlcSummaryInput;
     const today = dlcDashboardDate || new Date().toISOString().slice(0, 10);
     setDailyLogParentSummaryDraft(childId, today, event.target.value || "");
+  }
+});
+
+document.addEventListener("change", (event) => {
+  if (event.target.matches("[data-calendar-jump-month], [data-calendar-jump-year]")) {
+    const monthSelect = document.querySelector("[data-calendar-jump-month]");
+    const yearSelect = document.querySelector("[data-calendar-jump-year]");
+    const monthIndex = Number(monthSelect?.value ?? mainCalendarMonthCursor?.getMonth() ?? new Date().getMonth());
+    const year = Number(yearSelect?.value ?? mainCalendarMonthCursor?.getFullYear() ?? new Date().getFullYear());
+    mainCalendarMonthCursor = new Date(year, monthIndex, 1);
+    mainCalendarSubView = "month";
+    renderMainCalendar();
+    return;
+  }
+  if (event.target.matches('#scheduleEventForm [name="eventAllDay"]')) {
+    const form = event.target.closest("#scheduleEventForm");
+    toggleCalendarEventTimeFields(form, event.target.checked);
+    return;
   }
 });
 

@@ -512,7 +512,9 @@ async function main() {
     await iphone.waitForTimeout(700);
     screenshots.push(path.basename(await shot(iphone, "12-iphone-calendar-assigned", "#view-calendar")));
     const calAssigned = await iphone.locator("#view-calendar").innerText();
-    check("Calendar shows week bar / assigned title", /Community Helpers Audit Week|No lesson plan/i.test(calAssigned), calAssigned.slice(0, 160));
+    // Month-view week-bar chips truncate long titles to fit the narrower
+    // 7-day (Sun-Sat) grid columns, so match a prefix that survives truncation.
+    check("Calendar shows week bar / assigned title", /Community Helpers|No lesson plan/i.test(calAssigned), calAssigned.slice(0, 160));
     const weekBarCount = await iphone.locator(".llh-cal-weekbar").count();
     check("Calendar week bar rendered", weekBarCount >= 1, `bars=${weekBarCount}`);
 
@@ -716,7 +718,9 @@ async function main() {
       const visibleCards = [...board.querySelectorAll(".llh-day-card")].filter((card) => window.getComputedStyle(card).display !== "none").length;
       return visibleCards === 5 && (colCount >= 5 || style.display === "grid");
     }));
-    check("Desktop calendar uses weekday planning grid", await desktop.locator(".llh-calendar-grid-weekdays").count() > 0);
+    // Calendar rebuild: Month View now shows a full Sun-Sat planning grid
+    // (with a "View Week" gutter column) instead of the old Mon-Fri-only grid.
+    check("Desktop calendar uses Sun-Sat planning grid", await desktop.locator(".llh-calendar-grid-7").count() > 0);
     await desktop.evaluate(() => setView("calendar"));
     await desktop.waitForTimeout(400);
     const searchHiddenOnCalendar = await desktop.evaluate(() => {

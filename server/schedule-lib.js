@@ -1,6 +1,6 @@
 /**
  * Unified ScheduleItem helpers (server + shared semantics).
- * Phase 1 types: lesson_plan, classroom_event, closure, reminder.
+ * Types: lesson_plan, classroom_event, closure, reminder, director_event, family_event.
  * Org/center/classroom IDs are schema-ready but optional for home daycare.
  */
 
@@ -9,7 +9,31 @@ const SCHEDULE_ITEM_TYPES = Object.freeze([
   "classroom_event",
   "closure",
   "reminder",
+  "director_event",
+  "family_event",
 ]);
+
+// Filter/category grouping for the Calendar's show/hide filters. Purely a
+// display grouping — does not change storage, lookup, or write behavior.
+const SCHEDULE_ITEM_CATEGORIES = Object.freeze({
+  lesson_plan: "curriculum",
+  classroom_event: "classroom",
+  reminder: "classroom",
+  closure: "family",
+  director_event: "director",
+  family_event: "family",
+});
+
+function scheduleItemCategory(type) {
+  return SCHEDULE_ITEM_CATEGORIES[String(type || "").trim()] || "classroom";
+}
+
+const SCHEDULE_TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+function clampTime(value) {
+  const raw = String(value || "").trim().slice(0, 5);
+  return SCHEDULE_TIME_PATTERN.test(raw) ? raw : "";
+}
 
 const SCHEDULE_WEEKDAYS = Object.freeze([
   "monday",
@@ -140,9 +164,11 @@ function normalizeScheduleItem(raw = {}) {
   const startDate = isoDateOnly(raw.startDate) || weekStartDate;
   const endDate = isoDateOnly(raw.endDate) || (type === "lesson_plan" ? weekEndFromStart(weekStartDate || startDate) : startDate);
   const now = new Date().toISOString();
+  const allDay = raw.allDay !== false;
   const base = {
     id: clampString(raw.id, 80) || scheduleRandomId("sch"),
     type,
+    category: scheduleItemCategory(type),
     organizationId: raw.organizationId ? clampString(raw.organizationId, 80) : null,
     centerId: raw.centerId ? clampString(raw.centerId, 80) : null,
     classroomId: clampString(raw.classroomId, 80) || "classroom-main",
@@ -150,8 +176,13 @@ function normalizeScheduleItem(raw = {}) {
     startDate,
     endDate,
     weekStartDate: weekStartDate || startDate,
-    allDay: raw.allDay !== false,
+    allDay,
+    // Optional timed-block fields (schema-ready; Phase A UI only surfaces these
+    // for day-scoped manual items, never for lesson_plan week assignments).
+    startTime: allDay ? "" : clampTime(raw.startTime),
+    endTime: allDay ? "" : clampTime(raw.endTime),
     notes: clampString(raw.notes, 4000),
+    colorTag: clampString(raw.colorTag, 40),
     createdAt: clampString(raw.createdAt, 40) || now,
     updatedAt: clampString(raw.updatedAt, 40) || now,
     assignedBy: clampString(raw.assignedBy, 200),
@@ -174,12 +205,21 @@ function normalizeScheduleItem(raw = {}) {
     };
   }
 
+  const nonLessonTitleFallback = {
+    closure: "Closure",
+    reminder: "Reminder",
+    director_event: "Director Item",
+    family_event: "Family Event",
+  };
   return {
     ...base,
-    title: base.title || (type === "closure" ? "Closure" : type === "reminder" ? "Reminder" : "Classroom Event"),
+    title: base.title || nonLessonTitleFallback[type] || "Classroom Event",
     eventType: clampString(raw.eventType, 80),
     description: clampString(raw.description || raw.notes, 4000),
     itemsToBring: clampString(raw.itemsToBring, 2000),
+    // Optional on non-lesson items (e.g. an "Infant nap training" director item,
+    // or "Preschool Picture Day"); empty means "applies to everyone."
+    ageGroup: clampString(raw.ageGroup, 40),
   };
 }
 
@@ -408,7 +448,9 @@ function scheduleItemToLegacyAssignment(item) {
 
 module.exports = {
   SCHEDULE_ITEM_TYPES,
+  SCHEDULE_ITEM_CATEGORIES,
   SCHEDULE_WEEKDAYS,
+  scheduleItemCategory,
   scheduleRandomId,
   weekEndFromStart,
   isoDateOnly,
