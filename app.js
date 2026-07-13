@@ -3225,6 +3225,14 @@ syncFreePlanMarketingCopy();
 let activeFilter = "All";
 let lessonLibraryReturnView = "home";
 let lessonLibraryInfoOpen = false;
+let lessonLibraryShowSavedOnly = false;
+let lessonLibraryShowAssignedOnly = false;
+let lessonLibraryPlanFilter = "All"; // All | Free | Pro
+let lessonLibrarySort = "recommended"; // recommended | newest | az | recent
+let lessonLibraryFiltersOpen = false;
+let lessonLibraryScrollY = 0;
+let lessonLibraryFocusResourceId = "";
+let lessonRecentlyViewed = readSavedJson("llhLessonRecentlyViewed", []);
 let activeActivityLessonPlanId = "";
 let activeViewerResourceId = "";
 let resourceViewerReturnToId = "";
@@ -7785,11 +7793,136 @@ function childFromSearchQuery(query = "", records = childRecords()) {
   }) || null;
 }
 
+function lessonPlanLearningDomains(resource) {
+  const fromPlan = curriculumAsStringArray(resource?._curriculumLessonPlan?.learningDomains);
+  if (fromPlan.length) return fromPlan;
+  const ignore = new Set([resource?.theme, resource?.format, resource?.age].filter(Boolean));
+  return (Array.isArray(resource?.tags) ? resource.tags : []).filter((tag) => tag && !ignore.has(tag));
+}
+
+function lessonPlanIsAssigned(resourceId) {
+  try {
+    return loadCurriculumWeekAssignments().some((item) => item.lessonPlanId === resourceId);
+  } catch {
+    return false;
+  }
+}
+
+function rememberLessonRecentlyViewed(resourceId) {
+  if (!resourceId) return;
+  const next = [resourceId, ...lessonRecentlyViewed.filter((id) => id !== resourceId)].slice(0, 40);
+  lessonRecentlyViewed = next;
+  localStorage.setItem("llhLessonRecentlyViewed", JSON.stringify(lessonRecentlyViewed));
+}
+
+function captureLessonLibraryBrowseState(focusResourceId = "") {
+  const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
+  if (activeView !== "lessons") return;
+  lessonLibraryScrollY = window.scrollY || window.pageYOffset || 0;
+  lessonLibraryFocusResourceId = focusResourceId || "";
+}
+
+function restoreLessonLibraryBrowseState() {
+  const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
+  if (activeView !== "lessons") return;
+  const y = Number(lessonLibraryScrollY) || 0;
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: y, behavior: "auto" });
+    if (lessonLibraryFocusResourceId) {
+      const card = document.querySelector(`[data-lesson-card="${CSS.escape(lessonLibraryFocusResourceId)}"]`);
+      card?.focus?.();
+    }
+  });
+}
+
+function sortLessonPlanResources(items) {
+  const list = [...items];
+  if (lessonLibrarySort === "az") {
+    return list.sort((a, b) => String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" }));
+  }
+  if (lessonLibrarySort === "newest") {
+    return list.sort((a, b) => {
+      const aTime = Date.parse(a._curriculumLessonPlan?.updatedAt || a.updatedAt || a._curriculumLessonPlan?.createdAt || "") || 0;
+      const bTime = Date.parse(b._curriculumLessonPlan?.updatedAt || b.updatedAt || b._curriculumLessonPlan?.createdAt || "") || 0;
+      return bTime - aTime || String(a.title || "").localeCompare(String(b.title || ""));
+    });
+  }
+  if (lessonLibrarySort === "recent") {
+    const rank = new Map(lessonRecentlyViewed.map((id, index) => [id, index]));
+    return list.sort((a, b) => {
+      const aRank = rank.has(a.id) ? rank.get(a.id) : Number.MAX_SAFE_INTEGER;
+      const bRank = rank.has(b.id) ? rank.get(b.id) : Number.MAX_SAFE_INTEGER;
+      return aRank - bRank || String(a.title || "").localeCompare(String(b.title || ""));
+    });
+  }
+  // recommended: featured, then Free samples for free users, then title
+  return list.sort((a, b) => {
+    const aFeatured = a.featured ? 0 : 1;
+    const bFeatured = b.featured ? 0 : 1;
+    if (aFeatured !== bFeatured) return aFeatured - bFeatured;
+    const aFree = String(a.plan || "Free") !== "Pro" ? 0 : 1;
+    const bFree = String(b.plan || "Free") !== "Pro" ? 0 : 1;
+    if (aFree !== bFree) return aFree - bFree;
+    return String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" });
+  });
+}
+
+function truncateLessonOverview(text, maxChars = 140) {
+  const clean = String(text || "").replace(/\s+/g, " ").trim();
+  if (clean.length <= maxChars) return clean;
+  return `${clean.slice(0, maxChars - 1).trim()}…`;
+}
+
+function lessonPlanCard(resource) {
+  const locked = !canAccess(resource);
+  const favorite = favorites.includes(resource.id);
+  const planBadge = locked || String(resource.plan || "").trim() === "Pro" ? "Pro" : "Free";
+  const domains = lessonPlanLearningDomains(resource).slice(0, 3);
+  const theme = resource.theme || resource.tags?.[0] || "";
+  const overview = truncateLessonOverview(resource.weeklyOverview || resource.description || "");
+  const assigned = lessonPlanIsAssigned(resource.id);
+  const favoriteLabel = !isProUser() ? "Save is a Pro feature" : favorite ? "Remove from Saved Plans" : "Save plan";
+  const openLabel = locked ? `Preview ${resource.title}` : `Open ${resource.title}`;
+  return `
+    <article
+      class="resource-card lesson-plan-card ${locked ? "locked" : ""}"
+      data-lesson-card="${escapeHtml(resource.id)}"
+      data-view-resource="${escapeHtml(resource.id)}"
+      role="button"
+      tabindex="0"
+      aria-label="${escapeHtml(openLabel)}"
+    >
+      <div class="lesson-plan-card-top">
+        <div class="lesson-plan-card-heading">
+          <h3>${escapeHtml(resource.title)}</h3>
+          <div class="lesson-plan-card-meta">
+            <span class="tag">${escapeHtml(resource.age || "Age Group")}</span>
+            <span class="tag access-tag ${planBadge === "Pro" ? "pro-badge" : "free-badge"}">${planBadge}</span>
+            ${assigned ? `<span class="tag assigned-tag">Assigned</span>` : ""}
+          </div>
+        </div>
+        <button
+          class="lesson-plan-save-btn ${favorite ? "is-saved" : ""} ${!isProUser() ? "disabled-control" : ""}"
+          type="button"
+          ${!isProUser() ? `data-pro-feature="favorites"` : `data-favorite="${escapeHtml(resource.id)}"`}
+          aria-label="${escapeHtml(favoriteLabel)}"
+          aria-pressed="${favorite ? "true" : "false"}"
+          title="${escapeHtml(favoriteLabel)}"
+        >${favorite ? "★" : "☆"}</button>
+      </div>
+      ${theme ? `<p class="lesson-plan-card-theme">${escapeHtml(theme)}</p>` : ""}
+      ${domains.length ? `<div class="lesson-plan-card-domains" aria-label="Learning domains">${domains.map((domain) => `<span class="tag">${escapeHtml(domain)}</span>`).join("")}</div>` : ""}
+      ${overview ? `<p class="lesson-plan-card-overview">${escapeHtml(overview)}</p>` : ""}
+      <p class="lesson-plan-card-hint">${locked ? "Tap to preview →" : "Tap to open →"}</p>
+    </article>
+  `;
+}
+
 function categoryResources(category) {
   const query = searchInput.value.trim().toLowerCase();
   const searchedChild = category === "Lesson Plans" ? childFromSearchQuery(query) : null;
   if (searchedChild) return childLessonRecommendations(searchedChild, childRecords(), 12);
-  return resources.filter((resource) => {
+  const filtered = resources.filter((resource) => {
     if (!isResourceVisibleToCurrentUser(resource)) return false;
     if (!isProUser() && !canAccess(resource) && !supportsLockedResourcePreview(resource)) return false;
     const matchesCategory = resource.category === category;
@@ -7805,9 +7938,17 @@ function categoryResources(category) {
       const lessonId = resource.lessonPlanId || resource._curriculumLessonPlanId || "";
       if (lessonId !== activeActivityLessonPlanId) return false;
     }
+    if (category === "Lesson Plans") {
+      if (lessonLibraryShowSavedOnly && !favorites.includes(resource.id)) return false;
+      if (lessonLibraryShowAssignedOnly && !lessonPlanIsAssigned(resource.id)) return false;
+      if (lessonLibraryPlanFilter === "Free" && String(resource.plan || "Free").trim() === "Pro") return false;
+      if (lessonLibraryPlanFilter === "Pro" && String(resource.plan || "Free").trim() !== "Pro") return false;
+    }
     const haystack = resourceSearchHaystack(resource);
     return matchesCategory && matchesFilter && haystack.includes(query);
   });
+  if (category === "Lesson Plans") return sortLessonPlanResources(filtered);
+  return filtered;
 }
 
 function searchedResources() {
@@ -10832,6 +10973,7 @@ function ensureResourceViewer() {
 function closeResourceViewer() {
   const viewer = document.querySelector("#resourceViewerModal");
   if (!viewer) return;
+  const wasOpen = viewer.classList.contains("open");
   viewer.classList.remove("open");
   viewer.setAttribute("aria-hidden", "true");
   document.body.classList.remove("printing-resource");
@@ -10840,6 +10982,7 @@ function closeResourceViewer() {
   activeViewerResourceId = "";
   resourceViewerReturnToId = "";
   updateResourceViewerBackButton();
+  if (wasOpen) restoreLessonLibraryBrowseState();
 }
 
 function updateResourceViewerBackButton() {
@@ -11776,9 +11919,12 @@ async function openResourceViewer(resourceId, options = {}) {
     return;
   }
   if (!canAccess(resource)) {
+    captureLessonLibraryBrowseState(resourceId);
     openLockedResourcePreview(resource);
     return;
   }
+  captureLessonLibraryBrowseState(resourceId);
+  if (resource.category === "Lesson Plans") rememberLessonRecentlyViewed(resourceId);
   ensureResourceViewer();
   if (options.returnTo) resourceViewerReturnToId = options.returnTo;
   activeGeneratedPdfResource = null;
@@ -11890,6 +12036,88 @@ function renderLessonPlanLibraryHeader() {
   `;
 }
 
+function renderLessonLibrarySecondaryControls() {
+  const activeChips = [];
+  if (lessonLibraryShowSavedOnly) activeChips.push({ key: "saved", label: "Saved Plans" });
+  if (lessonLibraryShowAssignedOnly) activeChips.push({ key: "assigned", label: "Assigned" });
+  if (lessonLibraryPlanFilter !== "All") activeChips.push({ key: "plan", label: lessonLibraryPlanFilter });
+  if (lessonLibrarySort !== "recommended") {
+    const sortLabels = { newest: "Newest", az: "A–Z", recent: "Recently viewed" };
+    activeChips.push({ key: "sort", label: sortLabels[lessonLibrarySort] || "Sorted" });
+  }
+  return `
+    <div class="lesson-library-secondary-row">
+      <button class="ghost-button lesson-library-filters-btn" type="button" data-lesson-library-filters-toggle aria-expanded="${lessonLibraryFiltersOpen ? "true" : "false"}" aria-controls="lessonLibraryFilterDrawer">
+        Filters${activeChips.length ? ` (${activeChips.length})` : ""}
+      </button>
+      <button class="ghost-button ${lessonLibraryShowSavedOnly ? "active-filter" : ""}" type="button" data-lesson-library-saved-toggle aria-pressed="${lessonLibraryShowSavedOnly ? "true" : "false"}">
+        Saved
+      </button>
+    </div>
+    ${activeChips.length ? `
+      <div class="lesson-library-active-chips" aria-label="Active filters">
+        ${activeChips.map((chip) => `<button class="lesson-filter-chip" type="button" data-clear-lesson-chip="${chip.key}" aria-label="Clear ${escapeHtml(chip.label)} filter">${escapeHtml(chip.label)} ×</button>`).join("")}
+        <button class="link-button" type="button" data-clear-all-lesson-filters>Clear all</button>
+      </div>
+    ` : ""}
+    ${lessonLibraryFiltersOpen ? `
+      <section id="lessonLibraryFilterDrawer" class="lesson-library-filter-drawer" role="dialog" aria-label="Lesson plan filters">
+        <div class="lesson-library-filter-group">
+          <p class="eyebrow">Access</p>
+          <div class="filter-row">
+            ${["All", "Free", "Pro"].map((plan) => `
+              <button type="button" class="${lessonLibraryPlanFilter === plan ? "active-filter" : ""}" data-lesson-plan-filter="${plan}" aria-pressed="${lessonLibraryPlanFilter === plan ? "true" : "false"}">${plan}</button>
+            `).join("")}
+          </div>
+        </div>
+        <div class="lesson-library-filter-group">
+          <p class="eyebrow">Collections</p>
+          <div class="filter-row">
+            <button type="button" class="${lessonLibraryShowSavedOnly ? "active-filter" : ""}" data-lesson-library-saved-toggle aria-pressed="${lessonLibraryShowSavedOnly ? "true" : "false"}">Saved Plans</button>
+            <button type="button" class="${lessonLibraryShowAssignedOnly ? "active-filter" : ""}" data-lesson-library-assigned-toggle aria-pressed="${lessonLibraryShowAssignedOnly ? "true" : "false"}">Assigned</button>
+          </div>
+        </div>
+        <div class="lesson-library-filter-group">
+          <p class="eyebrow">Sort</p>
+          <div class="filter-row">
+            ${[
+              ["recommended", "Recommended"],
+              ["newest", "Newest"],
+              ["az", "A–Z"],
+              ["recent", "Recently viewed"],
+            ].map(([value, label]) => `
+              <button type="button" class="${lessonLibrarySort === value ? "active-filter" : ""}" data-lesson-library-sort="${value}" aria-pressed="${lessonLibrarySort === value ? "true" : "false"}">${label}</button>
+            `).join("")}
+          </div>
+        </div>
+        <div class="lesson-library-filter-actions">
+          <button class="ghost-button" type="button" data-clear-all-lesson-filters>Clear all</button>
+          <button class="primary-button" type="button" data-lesson-library-filters-toggle>Done</button>
+        </div>
+      </section>
+    ` : ""}
+  `;
+}
+
+function lessonLibraryEmptyStateHtml(itemsQueried) {
+  if (lessonLibraryShowSavedOnly) {
+    return `<div class="empty-state">No saved plans yet. Open a plan and tap Save, or clear the Saved filter. <button class="inline-link" type="button" data-clear-all-lesson-filters>Clear Filters</button></div>`;
+  }
+  if (searchInput.value.trim() || activeFilter !== "All" || lessonLibraryPlanFilter !== "All" || lessonLibraryShowAssignedOnly) {
+    return `<div class="empty-state">No plans match your filters. <button class="inline-link" type="button" data-clear-all-lesson-filters>Clear Filters</button></div>`;
+  }
+  return `<div class="empty-state">New play-based lesson plans are being added.</div>`;
+}
+
+function clearLessonLibraryAdvancedFilters() {
+  lessonLibraryShowSavedOnly = false;
+  lessonLibraryShowAssignedOnly = false;
+  lessonLibraryPlanFilter = "All";
+  lessonLibrarySort = "recommended";
+  activeFilter = "All";
+  if (searchInput) searchInput.value = "";
+}
+
 function renderCategoryPage(view) {
   const category = viewMap[view];
   const section = document.querySelector(`#view-${view}`);
@@ -11902,7 +12130,6 @@ function renderCategoryPage(view) {
 
   const searchedChild = !isLessonPlanCategory ? childFromSearchQuery(searchInput.value.trim(), childRecords()) : null;
   const items = categoryResources(category);
-  const allCategoryItems = resources.filter((resource) => resource.category === category);
   const accessCounts = isLessonPlanCategory ? null : categoryAccessCounts(category);
   const filters = categoryFilters(category);
   if (isLessonPlanCategory && !filters.includes(activeFilter)) activeFilter = "All";
@@ -11920,8 +12147,9 @@ function renderCategoryPage(view) {
       <div class="filter-row lesson-library-age-filters" role="group" aria-label="Age group filters">
         ${filters.map((filter) => `<button class="${activeFilter === filter ? "active-filter" : ""}" data-filter="${filter}" type="button" aria-pressed="${activeFilter === filter ? "true" : "false"}">${filter}</button>`).join("")}
       </div>
+      ${renderLessonLibrarySecondaryControls()}
       <div class="resource-grid lesson-library-grid">
-        ${items.length ? items.map(resourceCard).join("") : `<div class="empty-state">New play-based lesson plans are being added.</div>`}
+        ${items.length ? items.map(lessonPlanCard).join("") : lessonLibraryEmptyStateHtml()}
       </div>
     `;
     return;
@@ -30028,6 +30256,7 @@ document.addEventListener("click", async (event) => {
 
   const viewResourceButton = event.target.closest("[data-view-resource]");
   if (viewResourceButton) {
+    if (event.target.closest("[data-favorite], [data-pro-feature], .lesson-plan-save-btn")) return;
     event.preventDefault();
     const resourceId = viewResourceButton.dataset.viewResource;
     const current = activeViewerResourceId ? resources.find((item) => item.id === activeViewerResourceId) : null;
@@ -30850,7 +31079,73 @@ document.addEventListener("click", async (event) => {
   }
 
   const favoriteButton = event.target.closest("[data-favorite]");
-  if (favoriteButton) toggleFavorite(favoriteButton.dataset.favorite);
+  if (favoriteButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    toggleFavorite(favoriteButton.dataset.favorite);
+    return;
+  }
+
+  const lessonLibraryFiltersToggle = event.target.closest("[data-lesson-library-filters-toggle]");
+  if (lessonLibraryFiltersToggle) {
+    event.preventDefault();
+    lessonLibraryFiltersOpen = !lessonLibraryFiltersOpen;
+    renderCategoryPage("lessons");
+    return;
+  }
+
+  const lessonLibrarySavedToggle = event.target.closest("[data-lesson-library-saved-toggle]");
+  if (lessonLibrarySavedToggle) {
+    event.preventDefault();
+    lessonLibraryShowSavedOnly = !lessonLibraryShowSavedOnly;
+    renderCategoryPage("lessons");
+    return;
+  }
+
+  const lessonLibraryAssignedToggle = event.target.closest("[data-lesson-library-assigned-toggle]");
+  if (lessonLibraryAssignedToggle) {
+    event.preventDefault();
+    lessonLibraryShowAssignedOnly = !lessonLibraryShowAssignedOnly;
+    renderCategoryPage("lessons");
+    return;
+  }
+
+  const lessonPlanFilterButton = event.target.closest("[data-lesson-plan-filter]");
+  if (lessonPlanFilterButton) {
+    event.preventDefault();
+    lessonLibraryPlanFilter = lessonPlanFilterButton.dataset.lessonPlanFilter || "All";
+    renderCategoryPage("lessons");
+    return;
+  }
+
+  const lessonLibrarySortButton = event.target.closest("[data-lesson-library-sort]");
+  if (lessonLibrarySortButton) {
+    event.preventDefault();
+    lessonLibrarySort = lessonLibrarySortButton.dataset.lessonLibrarySort || "recommended";
+    renderCategoryPage("lessons");
+    return;
+  }
+
+  const clearLessonChipButton = event.target.closest("[data-clear-lesson-chip]");
+  if (clearLessonChipButton) {
+    event.preventDefault();
+    const key = clearLessonChipButton.dataset.clearLessonChip;
+    if (key === "saved") lessonLibraryShowSavedOnly = false;
+    if (key === "assigned") lessonLibraryShowAssignedOnly = false;
+    if (key === "plan") lessonLibraryPlanFilter = "All";
+    if (key === "sort") lessonLibrarySort = "recommended";
+    renderCategoryPage("lessons");
+    return;
+  }
+
+  const clearAllLessonFiltersButton = event.target.closest("[data-clear-all-lesson-filters]");
+  if (clearAllLessonFiltersButton) {
+    event.preventDefault();
+    clearLessonLibraryAdvancedFilters();
+    lessonLibraryFiltersOpen = false;
+    renderCategoryPage("lessons");
+    return;
+  }
 
   const downloadButton = event.target.closest("[data-download]");
   if (downloadButton && isProUser()) {
@@ -31611,6 +31906,15 @@ document.addEventListener("keydown", (event) => {
   closeProFeatureModal();
 });
 
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const card = event.target.closest("[data-lesson-card][data-view-resource]");
+  if (!card || event.target.closest("button, a, input, select, textarea")) return;
+  if (event.target !== card) return;
+  event.preventDefault();
+  openResourceViewer(card.dataset.viewResource);
+});
+
 window.addEventListener("beforeunload", (event) => {
   if (!adminLessonHasUnsavedChanges() && !isAnyAdminManagedFormDirty()) return;
   event.preventDefault();
@@ -32181,6 +32485,7 @@ function openFeaturePreview(previewId, triggerEl = null) {
 
 function closeFeaturePreview() {
   if (!featurePreviewModal) return;
+  const wasOpen = featurePreviewModal.classList.contains("open");
   featurePreviewModal.classList.remove("open");
   featurePreviewModal.setAttribute("aria-hidden", "true");
   document.body.classList.remove("auth-modal-open");
@@ -32189,6 +32494,7 @@ function closeFeaturePreview() {
     featurePreviewTrigger.focus();
   }
   featurePreviewTrigger = null;
+  if (wasOpen) restoreLessonLibraryBrowseState();
 }
 
 closeFeaturePreviewButton?.addEventListener("click", closeFeaturePreview);

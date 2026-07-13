@@ -34,7 +34,8 @@
     "test:curriculum-planner-e2e": "node scripts/test-curriculum-planner-e2e-verify.js",
     "test:billing-membership": "node scripts/test-billing-membership-qa.js",
     "test:homepage-smoke": "node scripts/test-homepage-smoke.js",
-    "test:lesson-library-header": "node scripts/test-lesson-library-header.js"
+    "test:lesson-library-header": "node scripts/test-lesson-library-header.js",
+    "test:lesson-library-cards": "node scripts/test-lesson-library-cards.js"
   },
   "devDependencies": {
     "playwright": "^1.61.1"
