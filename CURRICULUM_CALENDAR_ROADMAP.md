@@ -1,10 +1,15 @@
 # Curriculum Calendar Roadmap
 
 **Status:** Calendar project **complete through F3** (verified and on `main`).  
-**Last updated:** July 11, 2026  
+**Last updated:** July 13, 2026  
 **Do not start F4 until explicitly approved.**
 
-This document parks the calendar plan for a later day so future work can resume without re-deriving context.
+> **Superseding architecture (July 13, 2026):** See  
+> [`UNIFIED_SCHEDULING_SYSTEM_ARCHITECTURE.md`](./UNIFIED_SCHEDULING_SYSTEM_ARCHITECTURE.md)  
+> for the audit + phased plan that unifies Main Calendar, Weekly Planner, Dashboard, and Lesson Library around one scheduling source of truth.  
+> **Do not implement that plan until owner approval.** Do **not** delete Curriculum Planner yet.
+
+This document parks the F1–F3 calendar plan for context so future work can resume without re-deriving history.
 
 ---
 
@@ -51,9 +56,11 @@ These are **not** unfinished F3 bugs. Revisit when ready:
 
 ## Recommended order when calendar work resumes
 
-Agreed business-value order (do **not** jump to F4 on localStorage alone):
+**Prefer the unified plan** in `UNIFIED_SCHEDULING_SYSTEM_ARCHITECTURE.md` (ScheduleItem source of truth, Main Calendar = planning, Weekly Planner = execution).
 
-1. **Cloud / backend Curriculum Planner migration** (B1–B4 from the approved migration plan)
+Legacy F-series order (do **not** jump to F4 on localStorage alone) if staying on the old track:
+
+1. **Cloud / backend Curriculum Planner migration** (B1–B4 from the approved migration plan) — or, preferably, migrate into the unified Schedule store instead
 2. **Family Hub foundation** (parent-safe APIs only)
 3. **F4 Parent sharing / export**
 4. Styled print / PDF polish (can pair with F4)
@@ -97,4 +104,4 @@ When picking calendar back up:
 
 ## One-line memory
 
-> **Calendar F1–F3 done. Next calendar investment = cloud storage, then Family Hub, then F4 sharing. Everything else deferred.**
+> **Calendar F1–F3 done. Next investment = unified scheduling architecture (see UNIFIED_SCHEDULING_SYSTEM_ARCHITECTURE.md) after approval — cloud ScheduleItem store, then Family Hub / F4. Do not delete Curriculum Planner yet.**
