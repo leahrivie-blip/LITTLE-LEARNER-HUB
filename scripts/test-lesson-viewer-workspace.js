@@ -216,7 +216,11 @@ async function main() {
     assert(moreItems.includes("Customize with AI"), "Customize with AI missing from More menu");
     assert(moreItems.includes("Add Support"), "Add Support missing from More menu");
     assert(moreItems.includes("View Linked Activities"), "View Linked Activities missing from More menu");
-    assert(moreItems.includes("Print"), "Print missing from More menu");
+    assert(moreItems.includes("Print Full Lesson Plan"), "Print Full Lesson Plan missing from More menu");
+    assert(moreItems.includes("Download Full Lesson Plan PDF"), "Download Full Lesson Plan PDF missing from More menu");
+    assert(moreItems.includes("Print Week at a Glance"), "Print Week at a Glance missing from More menu");
+    assert(moreItems.includes("Download Weekly Schedule PDF"), "Download Weekly Schedule PDF missing from More menu");
+    assert(moreItems.includes("Print Materials List"), "Print Materials List missing from More menu");
 
     await page.click("[data-lesson-workspace-tab='plan']");
     await page.waitForSelector('[data-lesson-workspace-panel="plan"].is-active', { timeout: 3000 });
@@ -227,7 +231,6 @@ async function main() {
     assert(sheetItems.some((label) => label.includes("Assign to a Week")), "Assign to a Week missing from action sheet");
     assert(sheetItems.some((label) => label.includes("Add to Main Calendar")), "Add to Main Calendar missing from action sheet");
     assert(sheetItems.some((label) => label.includes("View in Curriculum Planner")), "View in Curriculum Planner missing from action sheet");
-    assert(sheetItems.some((label) => label.includes("Print Weekly Plan")), "Print Weekly Plan missing from action sheet");
     await page.click("[data-lesson-workspace-action-sheet-dismiss]");
     await page.waitForFunction(() => document.querySelector(".lesson-workspace-action-sheet")?.hidden === true, null, { timeout: 3000 });
 

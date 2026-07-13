@@ -13742,7 +13742,9 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   .curriculum-lesson-section { break-inside: avoid; }
   .curriculum-activity-card,
   .curriculum-print-day,
-  .curriculum-day-panel-section {
+  .curriculum-day-panel-section,
+  .lesson-workspace-materials-block,
+  .lesson-print-variant-section {
     break-inside: avoid;
     page-break-inside: avoid;
   }
@@ -14253,6 +14255,21 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   box-shadow: 0 10px 28px rgba(40, 52, 71, 0.14);
 }
 
+.lesson-workspace-more-group + .lesson-workspace-more-group {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+.lesson-workspace-more-label {
+  margin: 4px 8px 2px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted, #6b6560);
+}
+
 .lesson-workspace-more-menu button {
   min-height: 44px;
   width: 100%;
@@ -14443,6 +14460,15 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 
 .lesson-workspace-materials-sub {
   margin-top: 10px;
+}
+
+.lesson-print-variant-header {
+  margin-bottom: 16px;
+}
+
+.lesson-print-variant-section {
+  display: grid;
+  gap: 12px;
 }
 
 .lesson-workspace-action-sheet {

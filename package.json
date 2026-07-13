@@ -37,7 +37,8 @@
     "test:lesson-library-header": "node scripts/test-lesson-library-header.js",
     "test:lesson-library-cards": "node scripts/test-lesson-library-cards.js",
     "test:lesson-viewer-workspace": "node scripts/test-lesson-viewer-workspace.js",
-    "test:lesson-use-this-plan": "node scripts/test-lesson-use-this-plan.js"
+    "test:lesson-use-this-plan": "node scripts/test-lesson-use-this-plan.js",
+    "test:lesson-library-mobile-qa": "node scripts/test-lesson-library-mobile-qa.js"
   },
   "devDependencies": {
     "playwright": "^1.61.1"
