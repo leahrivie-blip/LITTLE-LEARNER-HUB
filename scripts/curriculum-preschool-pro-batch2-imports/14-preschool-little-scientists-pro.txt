@@ -1,0 +1,508 @@
+TITLE:
+Little Scientists
+
+AGE_GROUP:
+Preschool 3-5 Years
+
+THEME:
+Science
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Language & Literacy
+Social Emotional
+Physical Development
+Creative Arts
+Science
+Math
+
+WEEKLY_OVERVIEW:
+Children become little scientists as they ask questions, make predictions, test ideas, and record discoveries. Hands-on experiments, observation trays, and science talk build curiosity, vocabulary, and critical thinking across the week.
+
+LEARNING_OBJECTIVES:
+Use science words such as observe, predict, and test
+Conduct simple investigations
+Record discoveries with drawings
+Compare and describe results
+Work cooperatively during experiments
+Develop curiosity about how things work
+
+WEEKLY_MATERIALS:
+Magnifying glasses
+Eyedroppers
+Trays and cups
+Water and vinegar
+Baking soda
+Objects to sink and float
+Magnets
+Rulers
+Clipboards
+Crayons
+Science books
+Safety goggles
+
+VOCABULARY:
+Observe
+Predict
+Experiment
+Hypothesis
+Compare
+Record
+Investigate
+Discovery
+Measure
+Test
+
+BOOKS:
+What Do You Do with an Idea? | Kobi Yamada
+Ada Twist, Scientist | Andrea Beaty
+What Is Science? | Rebecca Kai Dotlich
+
+SONGS:
+The Scientist Song
+Question Time Chant
+Discovery Dance
+
+FAMILY_CONNECTION:
+Try a simple home experiment such as sink-or-float in the bathtub. Ask what your child predicts will happen.
+
+OBSERVATION_OPPORTUNITIES:
+Observe questioning, prediction language, persistence during tests, recording attempts, and peer discussion.
+
+ADAPTATIONS:
+Use picture prediction cards. Offer one-step experiments with adult support as needed.
+
+MONDAY:
+
+ACTIVITY_NAME:
+Discovery Touch Trays
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Explore mystery materials using senses.
+DESCRIPTION:
+Explore mystery materials using senses.
+MATERIALS:
+Magnifying glasses
+Eyedroppers
+Trays and cups
+Water and vinegar
+SETUP:
+Prepare materials for Discovery Touch Trays.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Explore mystery materials using senses.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Molecule Movement Game
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Move fast and slow like changing states.
+DESCRIPTION:
+Move fast and slow like changing states.
+MATERIALS:
+Magnifying glasses
+Eyedroppers
+Trays and cups
+Water and vinegar
+SETUP:
+Prepare materials for Molecule Movement Game.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Move fast and slow like changing states.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+My Scientist Portrait
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Draw yourself as a scientist at work.
+DESCRIPTION:
+Draw yourself as a scientist at work.
+MATERIALS:
+Magnifying glasses
+Eyedroppers
+Trays and cups
+Water and vinegar
+SETUP:
+Prepare materials for My Scientist Portrait.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Draw yourself as a scientist at work.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+TUESDAY:
+
+ACTIVITY_NAME:
+Science Lab Center
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Pretend to work in a busy science lab.
+DESCRIPTION:
+Pretend to work in a busy science lab.
+MATERIALS:
+Magnifying glasses
+Eyedroppers
+Trays and cups
+Water and vinegar
+SETUP:
+Prepare materials for Science Lab Center.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Pretend to work in a busy science lab.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Fizz and Bubble Test
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Mix safe ingredients and observe reactions.
+DESCRIPTION:
+Mix safe ingredients and observe reactions.
+MATERIALS:
+Magnifying glasses
+Eyedroppers
+Trays and cups
+Water and vinegar
+SETUP:
+Prepare materials for Fizz and Bubble Test.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Mix safe ingredients and observe reactions.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Question of the Day
+CATEGORY:
+Literacy
+OBJECTIVE:
+Listen to science questions and share ideas.
+DESCRIPTION:
+Listen to science questions and share ideas.
+MATERIALS:
+Magnifying glasses
+Eyedroppers
+Trays and cups
+Water and vinegar
+SETUP:
+Prepare materials for Question of the Day.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Listen to science questions and share ideas.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+WEDNESDAY:
+
+ACTIVITY_NAME:
+Balance Beam Experiment
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Test balance while moving across a beam.
+DESCRIPTION:
+Test balance while moving across a beam.
+MATERIALS:
+Magnifying glasses
+Eyedroppers
+Trays and cups
+Water and vinegar
+SETUP:
+Prepare materials for Balance Beam Experiment.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Test balance while moving across a beam.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Discovery Journal Covers
+CATEGORY:
+Art
+OBJECTIVE:
+Decorate a science observation journal.
+DESCRIPTION:
+Decorate a science observation journal.
+MATERIALS:
+Magnifying glasses
+Eyedroppers
+Trays and cups
+Water and vinegar
+SETUP:
+Prepare materials for Discovery Journal Covers.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Decorate a science observation journal.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Measure and Graph
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Measure objects and compare lengths.
+DESCRIPTION:
+Measure objects and compare lengths.
+MATERIALS:
+Magnifying glasses
+Eyedroppers
+Trays and cups
+Water and vinegar
+SETUP:
+Prepare materials for Measure and Graph.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Measure objects and compare lengths.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+THURSDAY:
+
+ACTIVITY_NAME:
+Magnet Hunt
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Test which classroom items magnets attract.
+DESCRIPTION:
+Test which classroom items magnets attract.
+MATERIALS:
+Magnifying glasses
+Eyedroppers
+Trays and cups
+Water and vinegar
+SETUP:
+Prepare materials for Magnet Hunt.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Test which classroom items magnets attract.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Partner Predictions
+CATEGORY:
+Circle Time
+OBJECTIVE:
+Make and share predictions with a friend.
+DESCRIPTION:
+Make and share predictions with a friend.
+MATERIALS:
+Magnifying glasses
+Eyedroppers
+Trays and cups
+Water and vinegar
+SETUP:
+Prepare materials for Partner Predictions.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Make and share predictions with a friend.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Wonder Table
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Freely explore science tools and objects.
+DESCRIPTION:
+Freely explore science tools and objects.
+MATERIALS:
+Magnifying glasses
+Eyedroppers
+Trays and cups
+Water and vinegar
+SETUP:
+Prepare materials for Wonder Table.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Freely explore science tools and objects.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+FRIDAY:
+
+ACTIVITY_NAME:
+Favorite Discovery Share
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Share one favorite investigation from the week.
+DESCRIPTION:
+Share one favorite investigation from the week.
+MATERIALS:
+Magnifying glasses
+Eyedroppers
+Trays and cups
+Water and vinegar
+SETUP:
+Prepare materials for Favorite Discovery Share.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Share one favorite investigation from the week.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Scientist Celebration March
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+March wearing pretend lab gear.
+DESCRIPTION:
+March wearing pretend lab gear.
+MATERIALS:
+Magnifying glasses
+Eyedroppers
+Trays and cups
+Water and vinegar
+SETUP:
+Prepare materials for Scientist Celebration March.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+March wearing pretend lab gear.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Class Discovery Board
+CATEGORY:
+Art
+OBJECTIVE:
+Post drawings of weekly science discoveries.
+DESCRIPTION:
+Post drawings of weekly science discoveries.
+MATERIALS:
+Magnifying glasses
+Eyedroppers
+Trays and cups
+Water and vinegar
+SETUP:
+Prepare materials for Class Discovery Board.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Post drawings of weekly science discoveries.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.

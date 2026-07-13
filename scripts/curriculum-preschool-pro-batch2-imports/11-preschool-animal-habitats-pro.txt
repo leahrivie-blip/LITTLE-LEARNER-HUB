@@ -1,0 +1,508 @@
+TITLE:
+Animal Habitats
+
+AGE_GROUP:
+Preschool 3-5 Years
+
+THEME:
+Animal Habitats
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Language & Literacy
+Social Emotional
+Physical Development
+Creative Arts
+Science
+Math
+
+WEEKLY_OVERVIEW:
+Children will explore where animals live as they investigate forests, oceans, deserts, and grasslands through sensory play, habitat building, dramatic play, and hands-on science. Throughout the week, children will sort animals by habitat, compare needs for food and shelter, and use new vocabulary while caring for pretend wildlife.
+
+LEARNING_OBJECTIVES:
+Identify common animal habitats
+Sort animals by where they live
+Describe basic animal needs
+Use habitat vocabulary in play and discussion
+Build cooperative habitat models
+Strengthen observation and comparison skills
+
+WEEKLY_MATERIALS:
+Plastic animal figures
+Habitat sorting mats
+Sensory bin fillers
+Blocks and cardboard
+Blue and green felt
+Sand and rocks
+Tree and plant props
+Magnifying glasses
+Animal picture cards
+Paint and paper
+Binoculars prop
+Books about habitats
+
+VOCABULARY:
+Habitat
+Shelter
+Forest
+Ocean
+Desert
+Grassland
+Adapt
+Wildlife
+Nest
+Burrow
+
+BOOKS:
+Over in the Grasslands | Marianne Berkes
+A House for Hermit Crab | Eric Carle
+Welcome Home, Bear | Il Sung Na
+
+SONGS:
+Animals in Their Homes
+Habitat Hokey Pokey
+Where Do You Live?
+
+FAMILY_CONNECTION:
+Talk about animals you see near home and where they live. Visit a library to explore habitat books together.
+
+OBSERVATION_OPPORTUNITIES:
+Observe habitat sorting, use of vocabulary, cooperative building, curiosity during investigations, and dramatic play roles.
+
+ADAPTATIONS:
+Use real photos alongside toy animals. Offer one habitat focus at a time for children who need simpler choices.
+
+MONDAY:
+
+ACTIVITY_NAME:
+Habitat Discovery Bin
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Explore habitat materials through touch and talk.
+DESCRIPTION:
+Explore habitat materials through touch and talk.
+MATERIALS:
+Plastic animal figures
+Habitat sorting mats
+Sensory bin fillers
+Blocks and cardboard
+SETUP:
+Prepare materials for Habitat Discovery Bin.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Explore habitat materials through touch and talk.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Animal Home Stomp
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Move like animals in different habitats.
+DESCRIPTION:
+Move like animals in different habitats.
+MATERIALS:
+Plastic animal figures
+Habitat sorting mats
+Sensory bin fillers
+Blocks and cardboard
+SETUP:
+Prepare materials for Animal Home Stomp.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Move like animals in different habitats.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Habitat Collage
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Create a collage showing one animal habitat.
+DESCRIPTION:
+Create a collage showing one animal habitat.
+MATERIALS:
+Plastic animal figures
+Habitat sorting mats
+Sensory bin fillers
+Blocks and cardboard
+SETUP:
+Prepare materials for Habitat Collage.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Create a collage showing one animal habitat.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+TUESDAY:
+
+ACTIVITY_NAME:
+Wildlife Ranger Station
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Pretend to care for animals in different habitats.
+DESCRIPTION:
+Pretend to care for animals in different habitats.
+MATERIALS:
+Plastic animal figures
+Habitat sorting mats
+Sensory bin fillers
+Blocks and cardboard
+SETUP:
+Prepare materials for Wildlife Ranger Station.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Pretend to care for animals in different habitats.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Build a Mini Habitat
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Construct a habitat that meets an animal's needs.
+DESCRIPTION:
+Construct a habitat that meets an animal's needs.
+MATERIALS:
+Plastic animal figures
+Habitat sorting mats
+Sensory bin fillers
+Blocks and cardboard
+SETUP:
+Prepare materials for Build a Mini Habitat.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Construct a habitat that meets an animal's needs.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Habitat Story Circle
+CATEGORY:
+Literacy
+OBJECTIVE:
+Retell stories about where animals live.
+DESCRIPTION:
+Retell stories about where animals live.
+MATERIALS:
+Plastic animal figures
+Habitat sorting mats
+Sensory bin fillers
+Blocks and cardboard
+SETUP:
+Prepare materials for Habitat Story Circle.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Retell stories about where animals live.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+WEDNESDAY:
+
+ACTIVITY_NAME:
+Habitat Obstacle Trail
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Travel through pretend forest, river, and desert zones.
+DESCRIPTION:
+Travel through pretend forest, river, and desert zones.
+MATERIALS:
+Plastic animal figures
+Habitat sorting mats
+Sensory bin fillers
+Blocks and cardboard
+SETUP:
+Prepare materials for Habitat Obstacle Trail.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Travel through pretend forest, river, and desert zones.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Animal Home Painting
+CATEGORY:
+Art
+OBJECTIVE:
+Paint an animal inside its home.
+DESCRIPTION:
+Paint an animal inside its home.
+MATERIALS:
+Plastic animal figures
+Habitat sorting mats
+Sensory bin fillers
+Blocks and cardboard
+SETUP:
+Prepare materials for Animal Home Painting.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Paint an animal inside its home.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Animal Habitat Sort
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Sort animals onto habitat mats and count each group.
+DESCRIPTION:
+Sort animals onto habitat mats and count each group.
+MATERIALS:
+Plastic animal figures
+Habitat sorting mats
+Sensory bin fillers
+Blocks and cardboard
+SETUP:
+Prepare materials for Animal Habitat Sort.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Sort animals onto habitat mats and count each group.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+THURSDAY:
+
+ACTIVITY_NAME:
+What Animals Need
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Investigate food, water, and shelter for animals.
+DESCRIPTION:
+Investigate food, water, and shelter for animals.
+MATERIALS:
+Plastic animal figures
+Habitat sorting mats
+Sensory bin fillers
+Blocks and cardboard
+SETUP:
+Prepare materials for What Animals Need.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Investigate food, water, and shelter for animals.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Protect the Habitat
+CATEGORY:
+Circle Time
+OBJECTIVE:
+Practice caring for shared habitat materials.
+DESCRIPTION:
+Practice caring for shared habitat materials.
+MATERIALS:
+Plastic animal figures
+Habitat sorting mats
+Sensory bin fillers
+Blocks and cardboard
+SETUP:
+Prepare materials for Protect the Habitat.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Practice caring for shared habitat materials.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Habitat Block World
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Design habitats using blocks and loose parts.
+DESCRIPTION:
+Design habitats using blocks and loose parts.
+MATERIALS:
+Plastic animal figures
+Habitat sorting mats
+Sensory bin fillers
+Blocks and cardboard
+SETUP:
+Prepare materials for Habitat Block World.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Design habitats using blocks and loose parts.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+FRIDAY:
+
+ACTIVITY_NAME:
+Habitat Guessing Game
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Guess an animal from clues about its habitat.
+DESCRIPTION:
+Guess an animal from clues about its habitat.
+MATERIALS:
+Plastic animal figures
+Habitat sorting mats
+Sensory bin fillers
+Blocks and cardboard
+SETUP:
+Prepare materials for Habitat Guessing Game.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Guess an animal from clues about its habitat.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Habitat Parade
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Celebrate the week with animal habitat movements.
+DESCRIPTION:
+Celebrate the week with animal habitat movements.
+MATERIALS:
+Plastic animal figures
+Habitat sorting mats
+Sensory bin fillers
+Blocks and cardboard
+SETUP:
+Prepare materials for Habitat Parade.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Celebrate the week with animal habitat movements.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Class Habitat Mural
+CATEGORY:
+Art
+OBJECTIVE:
+Add animals and plants to a group habitat mural.
+DESCRIPTION:
+Add animals and plants to a group habitat mural.
+MATERIALS:
+Plastic animal figures
+Habitat sorting mats
+Sensory bin fillers
+Blocks and cardboard
+SETUP:
+Prepare materials for Class Habitat Mural.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Add animals and plants to a group habitat mural.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.

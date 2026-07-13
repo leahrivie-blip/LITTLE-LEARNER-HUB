@@ -1,0 +1,508 @@
+TITLE:
+Gardening & Plant Life
+
+AGE_GROUP:
+Preschool 3-5 Years
+
+THEME:
+Gardening
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Language & Literacy
+Social Emotional
+Physical Development
+Creative Arts
+Science
+Math
+
+WEEKLY_OVERVIEW:
+Children explore seeds, soil, sun, and water as they learn how plants grow. Planting activities, garden dramatic play, sensory exploration, and observation journals help children connect to nature and understand plant life cycles.
+
+LEARNING_OBJECTIVES:
+Describe what plants need to grow
+Observe seeds and seedlings
+Use gardening vocabulary
+Sort seeds and plant parts
+Care for plants responsibly
+Record plant observations
+
+WEEKLY_MATERIALS:
+Potting soil
+Seeds
+Small pots
+Watering cans
+Gardening gloves
+Trowels
+Seed picture cards
+Flower and vegetable pictures
+Magnifying glasses
+Art paper
+Garden books
+Spray bottles
+
+VOCABULARY:
+Seed
+Soil
+Sprout
+Root
+Stem
+Leaf
+Sunlight
+Water
+Harvest
+Garden
+
+BOOKS:
+Planting a Rainbow | Lois Ehlert
+The Tiny Seed | Eric Carle
+Lola Plants a Garden | Anna McQuinn
+
+SONGS:
+Plant a Seed Song
+Growing Growing
+Garden Helper Chant
+
+FAMILY_CONNECTION:
+Plant a seed at home or visit a garden center. Water together and watch for changes.
+
+OBSERVATION_OPPORTUNITIES:
+Observe planting steps, care routines, plant part naming, sorting, and journal drawings.
+
+ADAPTATIONS:
+Use fast-sprouting seeds. Provide visual planting sequence cards.
+
+MONDAY:
+
+ACTIVITY_NAME:
+Soil and Seed Bin
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Explore soil, seeds, and roots by touch.
+DESCRIPTION:
+Explore soil, seeds, and roots by touch.
+MATERIALS:
+Potting soil
+Seeds
+Small pots
+Watering cans
+SETUP:
+Prepare materials for Soil and Seed Bin.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Explore soil, seeds, and roots by touch.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Growing Plant Dance
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Move from seed to sprout to flower.
+DESCRIPTION:
+Move from seed to sprout to flower.
+MATERIALS:
+Potting soil
+Seeds
+Small pots
+Watering cans
+SETUP:
+Prepare materials for Growing Plant Dance.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Move from seed to sprout to flower.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Flower Garden Painting
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Paint a colorful garden scene.
+DESCRIPTION:
+Paint a colorful garden scene.
+MATERIALS:
+Potting soil
+Seeds
+Small pots
+Watering cans
+SETUP:
+Prepare materials for Flower Garden Painting.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Paint a colorful garden scene.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+TUESDAY:
+
+ACTIVITY_NAME:
+Garden Shop Center
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Pretend to sell plants and garden tools.
+DESCRIPTION:
+Pretend to sell plants and garden tools.
+MATERIALS:
+Potting soil
+Seeds
+Small pots
+Watering cans
+SETUP:
+Prepare materials for Garden Shop Center.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Pretend to sell plants and garden tools.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Seed Germination Tray
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Plant seeds and predict sprouting time.
+DESCRIPTION:
+Plant seeds and predict sprouting time.
+MATERIALS:
+Potting soil
+Seeds
+Small pots
+Watering cans
+SETUP:
+Prepare materials for Seed Germination Tray.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Plant seeds and predict sprouting time.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Plant Life Stories
+CATEGORY:
+Literacy
+OBJECTIVE:
+Read and retell plant growth stories.
+DESCRIPTION:
+Read and retell plant growth stories.
+MATERIALS:
+Potting soil
+Seeds
+Small pots
+Watering cans
+SETUP:
+Prepare materials for Plant Life Stories.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Read and retell plant growth stories.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+WEDNESDAY:
+
+ACTIVITY_NAME:
+Watering Can Relay
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Carry watering cans carefully across the room.
+DESCRIPTION:
+Carry watering cans carefully across the room.
+MATERIALS:
+Potting soil
+Seeds
+Small pots
+Watering cans
+SETUP:
+Prepare materials for Watering Can Relay.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Carry watering cans carefully across the room.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Seed Collage
+CATEGORY:
+Art
+OBJECTIVE:
+Glue seeds into plant shape collages.
+DESCRIPTION:
+Glue seeds into plant shape collages.
+MATERIALS:
+Potting soil
+Seeds
+Small pots
+Watering cans
+SETUP:
+Prepare materials for Seed Collage.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Glue seeds into plant shape collages.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Seed Sort and Count
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Sort seeds by size or type and count.
+DESCRIPTION:
+Sort seeds by size or type and count.
+MATERIALS:
+Potting soil
+Seeds
+Small pots
+Watering cans
+SETUP:
+Prepare materials for Seed Sort and Count.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Sort seeds by size or type and count.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+THURSDAY:
+
+ACTIVITY_NAME:
+Plant Part Match
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Match roots, stems, leaves, and flowers.
+DESCRIPTION:
+Match roots, stems, leaves, and flowers.
+MATERIALS:
+Potting soil
+Seeds
+Small pots
+Watering cans
+SETUP:
+Prepare materials for Plant Part Match.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Match roots, stems, leaves, and flowers.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Garden Care Helpers
+CATEGORY:
+Circle Time
+OBJECTIVE:
+Take turns watering classroom plants.
+DESCRIPTION:
+Take turns watering classroom plants.
+MATERIALS:
+Potting soil
+Seeds
+Small pots
+Watering cans
+SETUP:
+Prepare materials for Garden Care Helpers.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Take turns watering classroom plants.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Garden Discovery Table
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Freely explore seeds, soil, and tools.
+DESCRIPTION:
+Freely explore seeds, soil, and tools.
+MATERIALS:
+Potting soil
+Seeds
+Small pots
+Watering cans
+SETUP:
+Prepare materials for Garden Discovery Table.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Freely explore seeds, soil, and tools.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+FRIDAY:
+
+ACTIVITY_NAME:
+Plant Needs Game
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Sort pictures of what plants need.
+DESCRIPTION:
+Sort pictures of what plants need.
+MATERIALS:
+Potting soil
+Seeds
+Small pots
+Watering cans
+SETUP:
+Prepare materials for Plant Needs Game.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Sort pictures of what plants need.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Garden Celebration Song
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Sing and move like growing plants.
+DESCRIPTION:
+Sing and move like growing plants.
+MATERIALS:
+Potting soil
+Seeds
+Small pots
+Watering cans
+SETUP:
+Prepare materials for Garden Celebration Song.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Sing and move like growing plants.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Class Garden Journal
+CATEGORY:
+Art
+OBJECTIVE:
+Add group drawings to a garden journal.
+DESCRIPTION:
+Add group drawings to a garden journal.
+MATERIALS:
+Potting soil
+Seeds
+Small pots
+Watering cans
+SETUP:
+Prepare materials for Class Garden Journal.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Add group drawings to a garden journal.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.

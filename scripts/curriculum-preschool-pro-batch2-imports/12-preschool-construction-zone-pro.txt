@@ -1,0 +1,508 @@
+TITLE:
+Construction Zone
+
+AGE_GROUP:
+Preschool 3-5 Years
+
+THEME:
+Construction
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Language & Literacy
+Social Emotional
+Physical Development
+Creative Arts
+Science
+Math
+
+WEEKLY_OVERVIEW:
+Children become builders and engineers as they explore tools, blueprints, structures, and teamwork in a busy construction zone. Through block building, measuring, dramatic play, and design challenges, children strengthen problem-solving, math, and motor skills.
+
+LEARNING_OBJECTIVES:
+Explore building materials and tools safely
+Practice measuring and comparing sizes
+Design and test simple structures
+Use construction vocabulary
+Cooperate on group building projects
+Strengthen fine and gross motor skills
+
+WEEKLY_MATERIALS:
+Unit blocks
+Cardboard tubes
+Plastic hard hats
+Toy tools
+Measuring tapes
+Blueprints
+Recycled materials
+Glue and tape
+Paint
+Road signs
+Small vehicles
+Building picture cards
+
+VOCABULARY:
+Blueprint
+Structure
+Engineer
+Foundation
+Balance
+Measure
+Sturdy
+Design
+Tool
+Build
+
+BOOKS:
+Goodnight, Goodnight, Construction Site | Sherri Duskey Rinker
+Rosie Revere, Engineer | Andrea Beaty
+Build It! | Jennifer Kemmeter
+
+SONGS:
+We're Building a Bridge
+Hammer and Saw Song
+Construction Site March
+
+FAMILY_CONNECTION:
+Look for buildings and construction near home. Count windows, compare heights, and talk about what builders might need.
+
+OBSERVATION_OPPORTUNITIES:
+Observe planning before building, tool use, measurement attempts, persistence with structures, and peer cooperation.
+
+ADAPTATIONS:
+Offer larger blocks and pre-cut materials. Use picture steps for multi-part builds.
+
+MONDAY:
+
+ACTIVITY_NAME:
+Construction Sensory Site
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Dig, pour, and build in a construction sensory bin.
+DESCRIPTION:
+Dig, pour, and build in a construction sensory bin.
+MATERIALS:
+Unit blocks
+Cardboard tubes
+Plastic hard hats
+Toy tools
+SETUP:
+Prepare materials for Construction Sensory Site.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Dig, pour, and build in a construction sensory bin.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Builder Stretch and Stomp
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Move like heavy machines and careful builders.
+DESCRIPTION:
+Move like heavy machines and careful builders.
+MATERIALS:
+Unit blocks
+Cardboard tubes
+Plastic hard hats
+Toy tools
+SETUP:
+Prepare materials for Builder Stretch and Stomp.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Move like heavy machines and careful builders.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Blueprint Drawing
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Draw a plan before building a structure.
+DESCRIPTION:
+Draw a plan before building a structure.
+MATERIALS:
+Unit blocks
+Cardboard tubes
+Plastic hard hats
+Toy tools
+SETUP:
+Prepare materials for Blueprint Drawing.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Draw a plan before building a structure.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+TUESDAY:
+
+ACTIVITY_NAME:
+Construction Crew Center
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Pretend to operate a busy building site.
+DESCRIPTION:
+Pretend to operate a busy building site.
+MATERIALS:
+Unit blocks
+Cardboard tubes
+Plastic hard hats
+Toy tools
+SETUP:
+Prepare materials for Construction Crew Center.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Pretend to operate a busy building site.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Tower Challenge
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Build the tallest stable tower possible.
+DESCRIPTION:
+Build the tallest stable tower possible.
+MATERIALS:
+Unit blocks
+Cardboard tubes
+Plastic hard hats
+Toy tools
+SETUP:
+Prepare materials for Tower Challenge.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Build the tallest stable tower possible.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Tool and Truck Stories
+CATEGORY:
+Literacy
+OBJECTIVE:
+Read and discuss construction stories.
+DESCRIPTION:
+Read and discuss construction stories.
+MATERIALS:
+Unit blocks
+Cardboard tubes
+Plastic hard hats
+Toy tools
+SETUP:
+Prepare materials for Tool and Truck Stories.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Read and discuss construction stories.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+WEDNESDAY:
+
+ACTIVITY_NAME:
+Material Relay Build
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Carry materials safely to a group building area.
+DESCRIPTION:
+Carry materials safely to a group building area.
+MATERIALS:
+Unit blocks
+Cardboard tubes
+Plastic hard hats
+Toy tools
+SETUP:
+Prepare materials for Material Relay Build.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Carry materials safely to a group building area.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Recycled Structure Art
+CATEGORY:
+Art
+OBJECTIVE:
+Create a sculpture from recycled materials.
+DESCRIPTION:
+Create a sculpture from recycled materials.
+MATERIALS:
+Unit blocks
+Cardboard tubes
+Plastic hard hats
+Toy tools
+SETUP:
+Prepare materials for Recycled Structure Art.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Create a sculpture from recycled materials.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Measure and Compare
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Measure structures and compare lengths.
+DESCRIPTION:
+Measure structures and compare lengths.
+MATERIALS:
+Unit blocks
+Cardboard tubes
+Plastic hard hats
+Toy tools
+SETUP:
+Prepare materials for Measure and Compare.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Measure structures and compare lengths.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+THURSDAY:
+
+ACTIVITY_NAME:
+Strong Shape Test
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Test which shapes make stronger bases.
+DESCRIPTION:
+Test which shapes make stronger bases.
+MATERIALS:
+Unit blocks
+Cardboard tubes
+Plastic hard hats
+Toy tools
+SETUP:
+Prepare materials for Strong Shape Test.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Test which shapes make stronger bases.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Team Build Planning
+CATEGORY:
+Circle Time
+OBJECTIVE:
+Plan one shared structure with a partner.
+DESCRIPTION:
+Plan one shared structure with a partner.
+MATERIALS:
+Unit blocks
+Cardboard tubes
+Plastic hard hats
+Toy tools
+SETUP:
+Prepare materials for Team Build Planning.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Plan one shared structure with a partner.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Open Construction Yard
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Freely explore blocks, tubes, and tools.
+DESCRIPTION:
+Freely explore blocks, tubes, and tools.
+MATERIALS:
+Unit blocks
+Cardboard tubes
+Plastic hard hats
+Toy tools
+SETUP:
+Prepare materials for Open Construction Yard.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Freely explore blocks, tubes, and tools.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+FRIDAY:
+
+ACTIVITY_NAME:
+Structure Show and Tell
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Share favorite builds from the week.
+DESCRIPTION:
+Share favorite builds from the week.
+MATERIALS:
+Unit blocks
+Cardboard tubes
+Plastic hard hats
+Toy tools
+SETUP:
+Prepare materials for Structure Show and Tell.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Share favorite builds from the week.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Construction Parade
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+March with hard hats and celebrate building.
+DESCRIPTION:
+March with hard hats and celebrate building.
+MATERIALS:
+Unit blocks
+Cardboard tubes
+Plastic hard hats
+Toy tools
+SETUP:
+Prepare materials for Construction Parade.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+March with hard hats and celebrate building.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Class City Build
+CATEGORY:
+Art
+OBJECTIVE:
+Add roads and buildings to a class city model.
+DESCRIPTION:
+Add roads and buildings to a class city model.
+MATERIALS:
+Unit blocks
+Cardboard tubes
+Plastic hard hats
+Toy tools
+SETUP:
+Prepare materials for Class City Build.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Add roads and buildings to a class city model.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.

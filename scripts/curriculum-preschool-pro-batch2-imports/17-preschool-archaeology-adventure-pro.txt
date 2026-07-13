@@ -1,0 +1,508 @@
+TITLE:
+Archaeology Adventure
+
+AGE_GROUP:
+Preschool 3-5 Years
+
+THEME:
+Archaeology
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Language & Literacy
+Social Emotional
+Physical Development
+Creative Arts
+Science
+Math
+
+WEEKLY_OVERVIEW:
+Children become junior archaeologists as they dig for pretend artifacts, brush away sand, map discoveries, and learn how people study the past. Sensory excavation, mapping, and storytelling build patience, observation, and history curiosity.
+
+LEARNING_OBJECTIVES:
+Learn archaeology and fossil vocabulary
+Practice careful digging and brushing
+Sort artifacts by type or size
+Record discoveries with drawings
+Retell stories about the past
+Cooperate during excavation play
+
+WEEKLY_MATERIALS:
+Kinetic sand or rice
+Small brushes
+Plastic bones and artifacts
+Magnifying glasses
+Mapping paper
+Clipboard
+Paint
+Blocks
+Measuring tools
+Artifact picture cards
+Hats or vests
+Archaeology books
+
+VOCABULARY:
+Archaeology
+Artifact
+Excavate
+Fossil
+Dig
+Brush
+Ancient
+Discover
+Map
+Preserve
+
+BOOKS:
+Archaeologists Dig for Clues | Kate Duke
+Fossils Tell of Long Ago | Aliki
+Stone Girl Bone Girl | Laurence Anholt
+
+SONGS:
+Dig Dig Dig
+Brush Away the Sand
+Discovery Song
+
+FAMILY_CONNECTION:
+Look at old photos or objects at home and wonder what they tell us about the past.
+
+OBSERVATION_OPPORTUNITIES:
+Observe careful tool use, sorting, mapping attempts, vocabulary use, and cooperative digging.
+
+ADAPTATIONS:
+Use larger artifacts for easier finding. Offer picture maps for recording discoveries.
+
+MONDAY:
+
+ACTIVITY_NAME:
+Excavation Dig Bin
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Brush and dig carefully to find hidden artifacts.
+DESCRIPTION:
+Brush and dig carefully to find hidden artifacts.
+MATERIALS:
+Kinetic sand or rice
+Small brushes
+Plastic bones and artifacts
+Magnifying glasses
+SETUP:
+Prepare materials for Excavation Dig Bin.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Brush and dig carefully to find hidden artifacts.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Careful Explorer Walk
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Move slowly and carefully like field archaeologists.
+DESCRIPTION:
+Move slowly and carefully like field archaeologists.
+MATERIALS:
+Kinetic sand or rice
+Small brushes
+Plastic bones and artifacts
+Magnifying glasses
+SETUP:
+Prepare materials for Careful Explorer Walk.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Move slowly and carefully like field archaeologists.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Artifact Rubbing
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Make rubbings of textured artifact models.
+DESCRIPTION:
+Make rubbings of textured artifact models.
+MATERIALS:
+Kinetic sand or rice
+Small brushes
+Plastic bones and artifacts
+Magnifying glasses
+SETUP:
+Prepare materials for Artifact Rubbing.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Make rubbings of textured artifact models.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+TUESDAY:
+
+ACTIVITY_NAME:
+Archaeology Site Center
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Pretend to run a dig site with tools.
+DESCRIPTION:
+Pretend to run a dig site with tools.
+MATERIALS:
+Kinetic sand or rice
+Small brushes
+Plastic bones and artifacts
+Magnifying glasses
+SETUP:
+Prepare materials for Archaeology Site Center.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Pretend to run a dig site with tools.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Layer Discovery Tray
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Explore how items can be found in layers.
+DESCRIPTION:
+Explore how items can be found in layers.
+MATERIALS:
+Kinetic sand or rice
+Small brushes
+Plastic bones and artifacts
+Magnifying glasses
+SETUP:
+Prepare materials for Layer Discovery Tray.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Explore how items can be found in layers.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Past and Present Stories
+CATEGORY:
+Literacy
+OBJECTIVE:
+Compare old and new object stories.
+DESCRIPTION:
+Compare old and new object stories.
+MATERIALS:
+Kinetic sand or rice
+Small brushes
+Plastic bones and artifacts
+Magnifying glasses
+SETUP:
+Prepare materials for Past and Present Stories.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Compare old and new object stories.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+WEDNESDAY:
+
+ACTIVITY_NAME:
+Site Grid Search
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Search marked grid squares for hidden items.
+DESCRIPTION:
+Search marked grid squares for hidden items.
+MATERIALS:
+Kinetic sand or rice
+Small brushes
+Plastic bones and artifacts
+Magnifying glasses
+SETUP:
+Prepare materials for Site Grid Search.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Search marked grid squares for hidden items.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Draw My Discovery
+CATEGORY:
+Art
+OBJECTIVE:
+Draw an artifact and label its features.
+DESCRIPTION:
+Draw an artifact and label its features.
+MATERIALS:
+Kinetic sand or rice
+Small brushes
+Plastic bones and artifacts
+Magnifying glasses
+SETUP:
+Prepare materials for Draw My Discovery.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Draw an artifact and label its features.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Artifact Sort and Count
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Sort artifacts and count each category.
+DESCRIPTION:
+Sort artifacts and count each category.
+MATERIALS:
+Kinetic sand or rice
+Small brushes
+Plastic bones and artifacts
+Magnifying glasses
+SETUP:
+Prepare materials for Artifact Sort and Count.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Sort artifacts and count each category.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+THURSDAY:
+
+ACTIVITY_NAME:
+Tool Match Game
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Match tools to archaeology jobs.
+DESCRIPTION:
+Match tools to archaeology jobs.
+MATERIALS:
+Kinetic sand or rice
+Small brushes
+Plastic bones and artifacts
+Magnifying glasses
+SETUP:
+Prepare materials for Tool Match Game.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Match tools to archaeology jobs.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Team Excavation
+CATEGORY:
+Circle Time
+OBJECTIVE:
+Take turns digging and recording finds.
+DESCRIPTION:
+Take turns digging and recording finds.
+MATERIALS:
+Kinetic sand or rice
+Small brushes
+Plastic bones and artifacts
+Magnifying glasses
+SETUP:
+Prepare materials for Team Excavation.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Take turns digging and recording finds.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Discovery Table
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Freely explore brushes, sand, and artifacts.
+DESCRIPTION:
+Freely explore brushes, sand, and artifacts.
+MATERIALS:
+Kinetic sand or rice
+Small brushes
+Plastic bones and artifacts
+Magnifying glasses
+SETUP:
+Prepare materials for Discovery Table.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Freely explore brushes, sand, and artifacts.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+FRIDAY:
+
+ACTIVITY_NAME:
+Artifact Mystery Box
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Guess artifacts from touch clues.
+DESCRIPTION:
+Guess artifacts from touch clues.
+MATERIALS:
+Kinetic sand or rice
+Small brushes
+Plastic bones and artifacts
+Magnifying glasses
+SETUP:
+Prepare materials for Artifact Mystery Box.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Guess artifacts from touch clues.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Archaeology Celebration Dig
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Celebrate discoveries with a final group dig.
+DESCRIPTION:
+Celebrate discoveries with a final group dig.
+MATERIALS:
+Kinetic sand or rice
+Small brushes
+Plastic bones and artifacts
+Magnifying glasses
+SETUP:
+Prepare materials for Archaeology Celebration Dig.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Celebrate discoveries with a final group dig.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Class Site Map
+CATEGORY:
+Art
+OBJECTIVE:
+Create a map showing where artifacts were found.
+DESCRIPTION:
+Create a map showing where artifacts were found.
+MATERIALS:
+Kinetic sand or rice
+Small brushes
+Plastic bones and artifacts
+Magnifying glasses
+SETUP:
+Prepare materials for Class Site Map.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Create a map showing where artifacts were found.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.

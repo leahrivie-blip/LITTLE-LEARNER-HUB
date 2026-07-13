@@ -1,0 +1,508 @@
+TITLE:
+Amazing Insects
+
+AGE_GROUP:
+Preschool 3-5 Years
+
+THEME:
+Bugs & Insects
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Language & Literacy
+Social Emotional
+Physical Development
+Creative Arts
+Science
+Math
+
+WEEKLY_OVERVIEW:
+Children investigate the amazing world of insects through bug hunts, life cycle models, sensory play, and art. They learn insect body parts, habitats, and roles in nature while building observation skills and respectful curiosity.
+
+LEARNING_OBJECTIVES:
+Name common insects and body parts
+Describe insect habitats and behaviors
+Sort insects by attributes
+Use insect vocabulary in play
+Create insect-themed art
+Practice gentle observation skills
+
+WEEKLY_MATERIALS:
+Plastic bug figures
+Bug viewer containers
+Magnifying glasses
+Leaf rubbings
+Pipe cleaners
+Black and yellow paint
+Bug picture cards
+Life cycle cards
+Sensory bin filler
+Tweezers
+Art paper
+Insect books
+
+VOCABULARY:
+Insect
+Antennae
+Wings
+Metamorphosis
+Larva
+Pollinate
+Colony
+Camouflage
+Hive
+Crawl
+
+BOOKS:
+The Very Hungry Caterpillar | Eric Carle
+Bugs! Bugs! Bugs! | Bob Barner
+Waiting for Wings | Lois Ehlert
+
+SONGS:
+The Insect Song
+Fly Like a Butterfly
+Busy Bee Buzz
+
+FAMILY_CONNECTION:
+Look for insects outside together. Observe quietly and talk about where insects live.
+
+OBSERVATION_OPPORTUNITIES:
+Observe insect naming, sorting choices, gentle handling, life cycle talk, and art details.
+
+ADAPTATIONS:
+Use photo cards for children uncomfortable with toy bugs. Offer larger tweezers for fine motor support.
+
+MONDAY:
+
+ACTIVITY_NAME:
+Bug Garden Bin
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Search for hidden insects in sensory materials.
+DESCRIPTION:
+Search for hidden insects in sensory materials.
+MATERIALS:
+Plastic bug figures
+Bug viewer containers
+Magnifying glasses
+Leaf rubbings
+SETUP:
+Prepare materials for Bug Garden Bin.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Search for hidden insects in sensory materials.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Insect Movement Parade
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Crawl, flutter, and buzz like insects.
+DESCRIPTION:
+Crawl, flutter, and buzz like insects.
+MATERIALS:
+Plastic bug figures
+Bug viewer containers
+Magnifying glasses
+Leaf rubbings
+SETUP:
+Prepare materials for Insect Movement Parade.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Crawl, flutter, and buzz like insects.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Symmetry Butterfly Paint
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Create butterfly art using folded paint prints.
+DESCRIPTION:
+Create butterfly art using folded paint prints.
+MATERIALS:
+Plastic bug figures
+Bug viewer containers
+Magnifying glasses
+Leaf rubbings
+SETUP:
+Prepare materials for Symmetry Butterfly Paint.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Create butterfly art using folded paint prints.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+TUESDAY:
+
+ACTIVITY_NAME:
+Bug Research Lab
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Pretend to study insects with tools.
+DESCRIPTION:
+Pretend to study insects with tools.
+MATERIALS:
+Plastic bug figures
+Bug viewer containers
+Magnifying glasses
+Leaf rubbings
+SETUP:
+Prepare materials for Bug Research Lab.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Pretend to study insects with tools.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Life Cycle Sequence
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Order insect life cycle stages.
+DESCRIPTION:
+Order insect life cycle stages.
+MATERIALS:
+Plastic bug figures
+Bug viewer containers
+Magnifying glasses
+Leaf rubbings
+SETUP:
+Prepare materials for Life Cycle Sequence.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Order insect life cycle stages.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Insect Fact Cards
+CATEGORY:
+Literacy
+OBJECTIVE:
+Learn and share short insect facts.
+DESCRIPTION:
+Learn and share short insect facts.
+MATERIALS:
+Plastic bug figures
+Bug viewer containers
+Magnifying glasses
+Leaf rubbings
+SETUP:
+Prepare materials for Insect Fact Cards.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Learn and share short insect facts.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+WEDNESDAY:
+
+ACTIVITY_NAME:
+Bug Hunt Obstacle Path
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Search for picture bugs around the room.
+DESCRIPTION:
+Search for picture bugs around the room.
+MATERIALS:
+Plastic bug figures
+Bug viewer containers
+Magnifying glasses
+Leaf rubbings
+SETUP:
+Prepare materials for Bug Hunt Obstacle Path.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Search for picture bugs around the room.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Pipe Cleaner Antennas
+CATEGORY:
+Art
+OBJECTIVE:
+Build insect models with craft materials.
+DESCRIPTION:
+Build insect models with craft materials.
+MATERIALS:
+Plastic bug figures
+Bug viewer containers
+Magnifying glasses
+Leaf rubbings
+SETUP:
+Prepare materials for Pipe Cleaner Antennas.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Build insect models with craft materials.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Insect Sort and Count
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Sort insects by color or type and count.
+DESCRIPTION:
+Sort insects by color or type and count.
+MATERIALS:
+Plastic bug figures
+Bug viewer containers
+Magnifying glasses
+Leaf rubbings
+SETUP:
+Prepare materials for Insect Sort and Count.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Sort insects by color or type and count.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+THURSDAY:
+
+ACTIVITY_NAME:
+Body Part Match
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Match insect pictures to body part labels.
+DESCRIPTION:
+Match insect pictures to body part labels.
+MATERIALS:
+Plastic bug figures
+Bug viewer containers
+Magnifying glasses
+Leaf rubbings
+SETUP:
+Prepare materials for Body Part Match.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Match insect pictures to body part labels.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Gentle Observer Pledge
+CATEGORY:
+Circle Time
+OBJECTIVE:
+Practice caring for living things.
+DESCRIPTION:
+Practice caring for living things.
+MATERIALS:
+Plastic bug figures
+Bug viewer containers
+Magnifying glasses
+Leaf rubbings
+SETUP:
+Prepare materials for Gentle Observer Pledge.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Practice caring for living things.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Bug Discovery Table
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Freely explore insect models and viewers.
+DESCRIPTION:
+Freely explore insect models and viewers.
+MATERIALS:
+Plastic bug figures
+Bug viewer containers
+Magnifying glasses
+Leaf rubbings
+SETUP:
+Prepare materials for Bug Discovery Table.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Freely explore insect models and viewers.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+FRIDAY:
+
+ACTIVITY_NAME:
+Insect Guessing Game
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Guess insects from movement clues.
+DESCRIPTION:
+Guess insects from movement clues.
+MATERIALS:
+Plastic bug figures
+Bug viewer containers
+Magnifying glasses
+Leaf rubbings
+SETUP:
+Prepare materials for Insect Guessing Game.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Guess insects from movement clues.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Amazing Insect Dance
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Celebrate insects through music and motion.
+DESCRIPTION:
+Celebrate insects through music and motion.
+MATERIALS:
+Plastic bug figures
+Bug viewer containers
+Magnifying glasses
+Leaf rubbings
+SETUP:
+Prepare materials for Amazing Insect Dance.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Celebrate insects through music and motion.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Class Bug Garden Mural
+CATEGORY:
+Art
+OBJECTIVE:
+Add insects and plants to a group mural.
+DESCRIPTION:
+Add insects and plants to a group mural.
+MATERIALS:
+Plastic bug figures
+Bug viewer containers
+Magnifying glasses
+Leaf rubbings
+SETUP:
+Prepare materials for Class Bug Garden Mural.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Add insects and plants to a group mural.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.

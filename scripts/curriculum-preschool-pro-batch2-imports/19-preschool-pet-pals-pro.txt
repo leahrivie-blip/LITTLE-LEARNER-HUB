@@ -1,0 +1,508 @@
+TITLE:
+Pet Pals
+
+AGE_GROUP:
+Preschool 3-5 Years
+
+THEME:
+Pets
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Language & Literacy
+Social Emotional
+Physical Development
+Creative Arts
+Science
+Math
+
+WEEKLY_OVERVIEW:
+Children learn about caring for pets through vet dramatic play, grooming routines, feeding schedules, and friendship activities. They build empathy, responsibility vocabulary, and social skills while exploring dogs, cats, and other beloved animals.
+
+LEARNING_OBJECTIVES:
+Name common pets and their needs
+Practice gentle care routines
+Use pet care vocabulary
+Sort pet items by animal
+Demonstrate empathy in play
+Retell stories about animal friends
+
+WEEKLY_MATERIALS:
+Stuffed animals
+Pet care props
+Bowls and brushes
+Leashes
+Pet picture cards
+Stethoscope prop
+Carrier box
+Blankets
+Art supplies
+Pet books
+Collars
+Treat props
+
+VOCABULARY:
+Veterinarian
+Groom
+Feed
+Shelter
+Adopt
+Care
+Gentle
+Leash
+Bowl
+Comfort
+
+BOOKS:
+Harry the Dirty Dog | Gene Zion
+Can I Be Your Dog? | Troy Cummings
+Pet Show! | Ezra Jack Keats
+
+SONGS:
+B-I-N-G-O
+How Much Is That Doggie?
+Pet Care Song
+
+FAMILY_CONNECTION:
+Talk about how your family cares for pets or animals nearby. Practice gentle touch together.
+
+OBSERVATION_OPPORTUNITIES:
+Observe gentle handling, care role-play, vocabulary use, sorting, and empathy language.
+
+ADAPTATIONS:
+Use photo cards for children unsure around stuffed animals. Model gentle care steps clearly.
+
+MONDAY:
+
+ACTIVITY_NAME:
+Pet Grooming Bin
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Brush and care for pretend pet fur textures.
+DESCRIPTION:
+Brush and care for pretend pet fur textures.
+MATERIALS:
+Stuffed animals
+Pet care props
+Bowls and brushes
+Leashes
+SETUP:
+Prepare materials for Pet Grooming Bin.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Brush and care for pretend pet fur textures.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Puppy and Kitten Moves
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Move like playful pets with safe body control.
+DESCRIPTION:
+Move like playful pets with safe body control.
+MATERIALS:
+Stuffed animals
+Pet care props
+Bowls and brushes
+Leashes
+SETUP:
+Prepare materials for Puppy and Kitten Moves.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Move like playful pets with safe body control.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+My Pet Portrait
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Draw or paint a favorite pet or stuffed friend.
+DESCRIPTION:
+Draw or paint a favorite pet or stuffed friend.
+MATERIALS:
+Stuffed animals
+Pet care props
+Bowls and brushes
+Leashes
+SETUP:
+Prepare materials for My Pet Portrait.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Draw or paint a favorite pet or stuffed friend.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+TUESDAY:
+
+ACTIVITY_NAME:
+Veterinarian Clinic
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Pretend to examine and care for pets.
+DESCRIPTION:
+Pretend to examine and care for pets.
+MATERIALS:
+Stuffed animals
+Pet care props
+Bowls and brushes
+Leashes
+SETUP:
+Prepare materials for Veterinarian Clinic.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Pretend to examine and care for pets.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Pet Food Sort
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Sort pet foods and items by animal type.
+DESCRIPTION:
+Sort pet foods and items by animal type.
+MATERIALS:
+Stuffed animals
+Pet care props
+Bowls and brushes
+Leashes
+SETUP:
+Prepare materials for Pet Food Sort.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Sort pet foods and items by animal type.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Pet Story Circle
+CATEGORY:
+Literacy
+OBJECTIVE:
+Share stories about caring for animals.
+DESCRIPTION:
+Share stories about caring for animals.
+MATERIALS:
+Stuffed animals
+Pet care props
+Bowls and brushes
+Leashes
+SETUP:
+Prepare materials for Pet Story Circle.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Share stories about caring for animals.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+WEDNESDAY:
+
+ACTIVITY_NAME:
+Obedience Course Walk
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Guide stuffed pets through a simple course.
+DESCRIPTION:
+Guide stuffed pets through a simple course.
+MATERIALS:
+Stuffed animals
+Pet care props
+Bowls and brushes
+Leashes
+SETUP:
+Prepare materials for Obedience Course Walk.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Guide stuffed pets through a simple course.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Pet Collar Design
+CATEGORY:
+Art
+OBJECTIVE:
+Decorate paper collars for pretend pets.
+DESCRIPTION:
+Decorate paper collars for pretend pets.
+MATERIALS:
+Stuffed animals
+Pet care props
+Bowls and brushes
+Leashes
+SETUP:
+Prepare materials for Pet Collar Design.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Decorate paper collars for pretend pets.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Count the Pet Supplies
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Count bowls, brushes, and beds.
+DESCRIPTION:
+Count bowls, brushes, and beds.
+MATERIALS:
+Stuffed animals
+Pet care props
+Bowls and brushes
+Leashes
+SETUP:
+Prepare materials for Count the Pet Supplies.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Count bowls, brushes, and beds.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+THURSDAY:
+
+ACTIVITY_NAME:
+What Pets Need
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Match pets to food, water, and shelter needs.
+DESCRIPTION:
+Match pets to food, water, and shelter needs.
+MATERIALS:
+Stuffed animals
+Pet care props
+Bowls and brushes
+Leashes
+SETUP:
+Prepare materials for What Pets Need.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Match pets to food, water, and shelter needs.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Gentle Pet Care
+CATEGORY:
+Circle Time
+OBJECTIVE:
+Practice gentle words and touch with peers.
+DESCRIPTION:
+Practice gentle words and touch with peers.
+MATERIALS:
+Stuffed animals
+Pet care props
+Bowls and brushes
+Leashes
+SETUP:
+Prepare materials for Gentle Pet Care.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Practice gentle words and touch with peers.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Pet Pal Corner
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Freely explore pet care props and animals.
+DESCRIPTION:
+Freely explore pet care props and animals.
+MATERIALS:
+Stuffed animals
+Pet care props
+Bowls and brushes
+Leashes
+SETUP:
+Prepare materials for Pet Pal Corner.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Freely explore pet care props and animals.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+FRIDAY:
+
+ACTIVITY_NAME:
+Pet Care Guessing Game
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Guess pet care items from clues.
+DESCRIPTION:
+Guess pet care items from clues.
+MATERIALS:
+Stuffed animals
+Pet care props
+Bowls and brushes
+Leashes
+SETUP:
+Prepare materials for Pet Care Guessing Game.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Guess pet care items from clues.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Pet Pal Parade
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Parade with stuffed pets and care props.
+DESCRIPTION:
+Parade with stuffed pets and care props.
+MATERIALS:
+Stuffed animals
+Pet care props
+Bowls and brushes
+Leashes
+SETUP:
+Prepare materials for Pet Pal Parade.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Parade with stuffed pets and care props.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+
+ACTIVITY_NAME:
+Adoption Poster
+CATEGORY:
+Art
+OBJECTIVE:
+Create a poster showing how to care for a pet.
+DESCRIPTION:
+Create a poster showing how to care for a pet.
+MATERIALS:
+Stuffed animals
+Pet care props
+Bowls and brushes
+Leashes
+SETUP:
+Prepare materials for Adoption Poster.
+TEACHER_ROLE:
+Model vocabulary, ask open questions, and support safe participation.
+DIRECTIONS:
+1. Introduce the activity and materials.
+2. Demonstrate one example if helpful.
+3. Invite children to participate and explore.
+4. Ask children to describe what they notice or create.
+5. Clean up together and reflect briefly.
+LEARNING_GOALS:
+Create a poster showing how to care for a pet.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
