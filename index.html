@@ -23,7 +23,7 @@
     <link rel="apple-touch-icon" href="images/icons/icon-192.svg" />
     <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
-  <link rel="stylesheet" href="styles.css?v=20260713-polish" />
+  <link rel="stylesheet" href="styles.css?v=20260713-owner-100" />
   </head>
   <body>
     <div class="app-shell">
@@ -668,19 +668,17 @@
         <section id="view-calendar" class="view">
           <button class="ghost-button back-button" data-contextual-back="calendar" data-fallback-view="home" data-always-visible="true" type="button">← Back to Dashboard</button>
           <div class="page-title llh-schedule-page-title">
-            <p class="eyebrow">Planning</p>
+            <p class="eyebrow">Planning home</p>
             <h2>Calendar</h2>
-            <p>Plan future weeks, lesson plans, classroom events, closures, and reminders.</p>
           </div>
           <div id="mainCalendarApp" class="llh-main-calendar"></div>
         </section>
 
         <section id="view-planner" class="view">
-          <button class="ghost-button back-button" data-contextual-back="planner" data-fallback-view="home" data-always-visible="true" type="button">← Back to Dashboard</button>
+          <button class="ghost-button back-button" data-contextual-back="planner" data-fallback-view="calendar" data-always-visible="true" type="button">← Back to Calendar</button>
           <div class="page-title llh-schedule-page-title">
-            <p class="eyebrow">Execution</p>
+            <p class="eyebrow">Classroom execution</p>
             <h2>Weekly Planner</h2>
-            <p>Your classroom week — activities, materials, notes, and observations.</p>
           </div>
           <div id="weeklyPlannerApp"></div>
         </section>
@@ -1569,7 +1567,7 @@
     <script src="scripts/curriculum-lesson-import-parser.js?v=20260712-v3-final" defer></script>
     <script src="scripts/curriculum-import-preview.js?v=20260712-v3-final" defer></script>
     <script src="scripts/curriculum-lesson-viewer-render.js?v=20260711-phase-d" defer></script>
-    <script src="scripts/llh-schedule.js?v=20260713-polish" defer></script>
-    <script src="app.js?v=20260713-polish" defer></script>
+    <script src="scripts/llh-schedule.js?v=20260713-owner-100" defer></script>
+    <script src="app.js?v=20260713-owner-100" defer></script>
   </body>
 </html>

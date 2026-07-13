@@ -718,8 +718,17 @@ button {
   box-shadow: 0 0 0 4px rgba(91, 155, 213, 0.16);
 }
 
-body.home-view .topbar .search-wrap {
+body.home-view:not(.user-authenticated) .topbar .search-wrap {
   display: none;
+}
+
+/* Scheduling surfaces open into content — no global “What do you need today?” bar */
+body.scheduling-focus .topbar .search-wrap {
+  display: none !important;
+}
+
+body.scheduling-focus .main {
+  overflow-x: clip;
 }
 
 /* Lesson Plan Library: reclaim topbar space for search/filters/results */
@@ -15252,22 +15261,40 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 
 .llh-week-classroom {
   display: grid;
-  gap: 16px;
+  gap: 14px;
   max-width: 1180px;
+  min-width: 0;
+}
+
+.llh-week-board-wrap {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .llh-week-classroom-hero {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   align-items: flex-end;
   flex-wrap: wrap;
+  padding: 4px 2px 2px;
 }
 
 .llh-week-classroom-hero h3 {
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   font-family: var(--llh-font-display, Georgia, serif);
-  font-size: clamp(1.4rem, 1.5vw + 1rem, 2rem);
+  font-size: clamp(1.25rem, 1.2vw + 1rem, 1.7rem);
+}
+
+.llh-week-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.llh-week-workspace:has(.llh-week-notes-panel.is-open) {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
 }
 
 .llh-week-day-tabs {
@@ -15277,44 +15304,111 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 .llh-week-day-board {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
   align-items: stretch;
 }
 
 .llh-day-card {
   background: var(--llh-surface, #fff);
   border: 1px solid var(--llh-line, #e4e1ea);
+  border-top: 3px solid var(--llh-primary, #7b6bb5);
   border-radius: 12px;
-  padding: 14px;
+  padding: 12px;
   box-shadow: var(--llh-shadow-soft, 0 8px 24px rgba(42,42,53,.06));
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   min-height: 0;
+  cursor: pointer;
+}
+
+.llh-day-card.is-active {
+  outline: 2px solid var(--llh-primary, #7b6bb5);
+  outline-offset: -1px;
 }
 
 .llh-day-card-head h3 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-family: var(--llh-font-display, Georgia, serif);
+  line-height: 1.25;
 }
 
 .llh-day-card-section .eyebrow {
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
-.llh-day-activity-list,
-.llh-day-materials {
+.llh-day-activity-list {
   margin: 0;
   padding-left: 0;
   list-style: none;
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
-.llh-day-materials li {
+.llh-day-activity-list .llh-check-row {
+  margin: 2px 0;
   font-size: 13px;
+}
+
+.llh-day-materials-line,
+.llh-day-more-count {
+  margin: 0;
+  font-size: 12px;
   color: var(--llh-muted, #6b6b7b);
+  line-height: 1.35;
+}
+
+.llh-day-notes-btn {
+  margin-top: auto;
+  width: 100%;
+  justify-content: center;
+  min-height: 36px;
+  font-size: 12px;
+}
+
+.llh-day-notes-btn.has-notes {
+  background: var(--llh-primary-soft, #ede8f7);
+  border-color: color-mix(in srgb, var(--llh-primary, #7b6bb5) 30%, white);
+  color: var(--llh-primary-deep, #5a4d8a);
+}
+
+.llh-week-notes-panel {
+  background: var(--llh-surface, #fff);
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: 14px;
+  padding: 14px;
+  display: none;
+  gap: 12px;
+  box-shadow: var(--llh-shadow-soft, 0 8px 24px rgba(42,42,53,.06));
+  position: sticky;
+  top: 12px;
+}
+
+.llh-week-notes-panel.is-open {
+  display: grid;
+}
+
+.llh-week-notes-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: start;
+}
+
+.llh-week-notes-head h3 {
+  margin: 0;
+  font-family: var(--llh-font-display, Georgia, serif);
+  font-size: 1.15rem;
+}
+
+.llh-week-notes-day {
+  display: none;
+  gap: 10px;
+}
+
+.llh-week-notes-day.is-active {
+  display: grid;
 }
 
 .llh-day-note-label {
@@ -15332,11 +15426,99 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   padding: 8px 10px;
   font: inherit;
   resize: vertical;
-  min-height: 72px;
+  min-height: 88px;
+  background: var(--llh-bg, #f7f6f9);
+  line-height: 1.45;
 }
 
-.llh-week-mobile-nav {
+.llh-week-classroom-empty .llh-ds-card {
+  padding: 28px;
+  max-width: 520px;
+}
+
+.llh-schedule-page-title {
+  margin-bottom: 10px;
+}
+
+.llh-schedule-page-title h2 {
+  margin: 0;
+}
+
+.llh-schedule-page-title p:not(.eyebrow) {
   display: none;
+}
+
+.llh-dashboard-clean .dashboard-welcome {
+  margin-bottom: 4px;
+}
+
+.llh-dashboard-clean .dashboard-welcome h2 {
+  font-family: var(--llh-font-display, Georgia, serif);
+  font-size: clamp(1.45rem, 1.2vw + 1rem, 1.85rem);
+  margin: 0 0 2px;
+}
+
+@media (max-width: 980px) {
+  .llh-week-workspace:has(.llh-week-notes-panel.is-open),
+  .llh-week-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .llh-week-day-tabs {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    padding: 6px 0;
+    background: color-mix(in srgb, var(--llh-bg, #f7f6f9) 90%, white);
+  }
+
+  .llh-week-day-tab {
+    border: 1px solid var(--llh-line, #e4e1ea);
+    background: #fff;
+    border-radius: 999px;
+    min-height: 40px;
+    font-weight: 600;
+    color: var(--llh-muted, #6b6b7b);
+  }
+
+  .llh-week-day-tab.is-active {
+    background: var(--llh-primary-soft, #ede8f7);
+    color: var(--llh-primary-deep, #5a4d8a);
+    border-color: var(--llh-primary, #7b6bb5);
+  }
+
+  .llh-week-day-board {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(82%, 320px);
+    grid-template-columns: none;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: 12px;
+    padding-bottom: 8px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .llh-day-card {
+    scroll-snap-align: center;
+    min-height: auto;
+    max-height: none;
+  }
+
+  .llh-day-card:not(.is-active) {
+    opacity: 0.72;
+  }
+
+  .llh-week-notes-panel {
+    position: static;
+  }
+
+  .llh-week-notes-panel.is-open {
+    border-radius: 16px 16px 0 0;
+  }
 }
 
 .llh-schedule-event-modal {
@@ -15366,36 +15548,6 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   .llh-dashboard-clean .llh-dash-primary {
     grid-template-columns: 1fr;
   }
-
-  .llh-week-day-tabs {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 6px;
-  }
-
-  .llh-week-day-tab {
-    border: 1px solid var(--llh-line, #e4e1ea);
-    background: #fff;
-    border-radius: 999px;
-    min-height: 40px;
-    font-weight: 600;
-    color: var(--llh-muted, #6b6b7b);
-  }
-
-  .llh-week-day-tab.is-active {
-    background: var(--llh-primary-soft, #ede8f7);
-    color: var(--llh-primary-deep, #5a4d8a);
-    border-color: var(--llh-primary, #7b6bb5);
-  }
-
-  .llh-week-day-board {
-    grid-template-columns: 1fr;
-  }
-
-  .llh-day-card { display: none; }
-  .llh-day-card.is-active { display: flex; }
-
-  .llh-week-mobile-nav { display: flex; }
 
   .llh-calendar-grid .llh-cal-head:nth-child(6),
   .llh-calendar-grid .llh-cal-head:nth-child(7),
@@ -15583,81 +15735,6 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   background: var(--llh-accent-soft, #fbece3);
 }
 
-.llh-day-card {
-  border-top: 3px solid var(--llh-primary, #7b6bb5);
-  gap: 14px;
-  padding: 16px;
-}
-
-.llh-day-card-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  align-items: flex-start;
-}
-
-.llh-day-card-count {
-  flex: 0 0 auto;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--llh-primary-deep, #5a4d8a);
-  background: var(--llh-primary-soft, #ede8f7);
-  border-radius: 999px;
-  padding: 4px 8px;
-}
-
-.llh-day-more,
-.llh-day-notes {
-  border-top: 1px solid var(--llh-line, #e4e1ea);
-  padding-top: 10px;
-}
-
-.llh-day-more > summary,
-.llh-day-notes > summary {
-  cursor: pointer;
-  list-style: none;
-  font-size: 12px;
-  font-weight: 650;
-  color: var(--llh-primary-deep, #5a4d8a);
-}
-
-.llh-day-more > summary::-webkit-details-marker,
-.llh-day-notes > summary::-webkit-details-marker { display: none; }
-
-.llh-day-notes-body {
-  display: grid;
-  gap: 10px;
-  margin-top: 10px;
-  padding: 10px;
-  border-radius: 10px;
-  background: var(--llh-bg, #f7f6f9);
-}
-
-.llh-day-note-label textarea {
-  background: #fff;
-  min-height: 84px;
-  line-height: 1.45;
-}
-
-.llh-day-activity-list .llh-check-row span {
-  line-height: 1.35;
-}
-
-.llh-week-classroom-empty .llh-ds-card {
-  padding: 28px;
-  max-width: 520px;
-}
-
-.llh-dashboard-clean .dashboard-welcome {
-  margin-bottom: 8px;
-}
-
-.llh-dashboard-clean .dashboard-welcome h2 {
-  font-family: var(--llh-font-display, Georgia, serif);
-  font-size: clamp(1.6rem, 1.5vw + 1.1rem, 2.1rem);
-  margin: 0 0 4px;
-}
-
 .llh-dashboard-clean .llh-dash-primary {
   gap: 18px;
   padding: 4px 0 8px;
@@ -15775,27 +15852,12 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   .llh-cal-chip-type { display: none; }
 
   .llh-day-card {
-    padding: 18px 16px 20px;
-    gap: 16px;
-    min-height: 70vh;
+    padding: 14px;
+    gap: 10px;
   }
 
   .llh-day-card-head h3 {
-    font-size: 1.15rem;
-  }
-
-  .llh-week-day-tabs {
-    position: sticky;
-    top: 0;
-    z-index: 3;
-    padding: 8px 0;
-    background: color-mix(in srgb, var(--llh-bg, #f7f6f9) 88%, white);
-  }
-
-  .llh-week-mobile-nav {
-    justify-content: space-between;
-    gap: 8px;
-    margin-top: 4px;
+    font-size: 1.05rem;
   }
 
   .llh-dash-meta-line {

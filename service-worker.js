@@ -1,11 +1,11 @@
-const CACHE_NAME = "llh-shell-v8-polish";
+const CACHE_NAME = "llh-shell-v9-owner-100";
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/styles.css?v=20260713-polish",
+  "/styles.css?v=20260713-owner-100",
   "/styles/llh-design-tokens.css?v=20260713-ds",
-  "/scripts/llh-schedule.js?v=20260713-polish",
-  "/app.js?v=20260713-polish",
+  "/scripts/llh-schedule.js?v=20260713-owner-100",
+  "/app.js?v=20260713-owner-100",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",

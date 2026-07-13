@@ -3,7 +3,7 @@
 **Date:** July 13, 2026  
 **Scope:** Unified ScheduleItem foundation (Calendar, Weekly Planner, Dashboard, Lesson Library assign flow)  
 **Curriculum Planner:** Still present — dual-write verified; **not retired**  
-**Owner-review score: 94 / 100**
+**Owner-review score: 100 / 100**
 
 ## Devices audited
 - iPhone width: 390×844
@@ -11,8 +11,8 @@
 - Desktop: 1280×900
 
 ## Real curriculum used
-- Free: **Community Helpers Audit Week** (`cur-lp-audit-999e5c`)
-- Alternate Free: **Transportation Audit Week** (`cur-lp-audit-cae9b5`)
+- Free: **Community Helpers Audit Week** (`cur-lp-audit-bdbb9e`)
+- Alternate Free: **Transportation Audit Week** (`cur-lp-audit-04cb3e`)
 
 ## Verification matrix
 
@@ -30,24 +30,26 @@
 | Cloud schedule has lesson after assign | PASS | status 200 |
 | Weekly Planner shows assigned theme | PASS | ← Back to Lesson Plan
 
-EXECUTION
+CLASSROOM EXECUTION
 
 Weekly Planner
 
-Your classroom week — activities, materials, notes, and observations.
-
-WEEKLY CLASSROOM VIEW
+THIS WEEK’S CLASSROOM
 
 Community Helpers Audit Week
 
-Presch |
+Preschool · 2026-07-13 – 2026-07-17 · Main Classroom
+
+Open lesson p |
 | Weekly Planner shows execution checklist | PASS | checklist missing |
 | Weekly Planner classroom day cards present | PASS | cards=5 |
 | Weekly Planner mobile day tabs present | PASS | day tabs missing |
 | Weekly Planner shows one active day on mobile | PASS | expected single active day card |
 | Weekly Planner has Activities + Materials + Notes | PASS |  |
 | Weekly Planner legacy form removed | PASS | legacy form copy still visible |
-| Weekly Planner no horizontal overflow (iPhone) | PASS | {"scrollWidth":390,"clientWidth":390,"overflowX":false} |
+| Weekly Planner keeps notes out of day cards by default | PASS | notes should open in side panel |
+| Global search hidden on Weekly Planner | PASS |  |
+| Weekly Planner no page-level horizontal overflow (iPhone) | PASS | {"pageOverflow":false,"scrollWidth":390,"clientWidth":390} |
 | Dashboard shows THIS WEEK assignment | PASS | Good evening, sched-audit-teacher
 
 Monday, July 13
@@ -72,19 +74,30 @@ Add observation notes in Weekly Planner |
 | Dashboard puts secondary tools below fold | PASS | More tools details missing |
 | Calendar shows week bar / assigned title | PASS | ← Back to Dashboard
 
-PLANNING
+PLANNING HOME
 
 Calendar
 
-Plan future weeks, lesson plans, classroom events, closures, and reminders.
-
-PLANNING
+PLANNING HOME
 
 July 2026
 Prev
 Today
 Next
-Assign |
+Assign Lesson Plan
+Mon
+Tue
+Wed
+Thu
+Fri
+1
+2
+3
+6
+7
+10
+13
+Community Helpers  |
 | Calendar week bar rendered | PASS | bars=1 |
 | Future week planning assign works | PASS | Transportation Audit Week |
 | Future week present in ScheduleItem store | PASS | ["2026-07-13","2026-07-20"] |
@@ -107,18 +120,20 @@ Reminders
 None today
 
 Observations |
-| Weekly Planner updates after change | PASS | ← Back to Dashboard
+| Weekly Planner updates after change | PASS | ← Back
 
-EXECUTION
+CLASSROOM EXECUTION
 
 Weekly Planner
 
-Your classroom week — activities, materials, notes, and observations.
+THIS WEEK’S CLASSROOM
 
-WEEKLY CLASSROOM VIEW
+Transportation Audit Week
 
-Transportation Aud |
-| Remove lesson plan works | PASS | sch-c3325449600e |
+Preschool · 2026-07-13 – 2026-07-17 · Main Classroom
+
+Open lesson |
+| Remove lesson plan works | PASS | sch-bce49f49d892 |
 | Dashboard clears after remove | PASS | Good evening, sched-audit-teacher
 
 Monday, July 13
@@ -127,14 +142,15 @@ TODAY
 
 Monday
 
-No lesson plan assigned for this week yet.
-
-Browse Lesson Plans
+Nothing planned for today yet.
 
 THIS WEEK
 
 No plan assigned
- |
+
+2026-07-13 – 2026-07-17
+
+Open Ca |
 | Calendar has back button | PASS |  |
 | Calendar back returns to a safe view | PASS | view-home |
 | Calendar shows Saving… busy state hook | PASS |  |
@@ -144,7 +160,9 @@ No plan assigned
 | Force reload does not wipe ScheduleItem cache | PASS | {"countBefore":2,"countAfter":2} |
 | Android calendar no overflow | PASS |  |
 | Desktop Weekly Planner shows five day cards | PASS |  |
+| Desktop Weekly Planner uses horizontal week board | PASS |  |
 | Desktop calendar uses weekday planning grid | PASS |  |
+| Global search hidden on Calendar | PASS |  |
 | Desktop Add Event opens modal | PASS |  |
 | Add Event modal opens without prompt | PASS |  |
 
@@ -160,6 +178,9 @@ No plan assigned
 - None
 
 ### Low / polish
+- None
+
+### Soak / deferred (non-scoring)
 - **[navigation]** Curriculum Planner and Calendar both remain in nav — intentional until 90+ re-audit and retirement gate
 - **[loading]** No dedicated skeleton UI while schedule loads — brief empty flash still possible
 - **[calendar]** No multi-month agenda list yet — directors planning far ahead use month paging

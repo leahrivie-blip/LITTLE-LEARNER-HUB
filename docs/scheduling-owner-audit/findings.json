@@ -1,5 +1,5 @@
 {
-  "score": 88,
+  "score": 94,
   "checks": [
     {
       "name": "Dashboard empty state visible",
@@ -54,7 +54,7 @@
     {
       "name": "Weekly Planner shows assigned theme",
       "ok": true,
-      "detail": "← Back to Lesson Plan\n\nEXECUTION\n\nWeekly Planner\n\nYour classroom week — activities, materials, notes, and observations.\n\nWEEKLY CLASSROOM VIEW\n\nCommunity Helpers Audit Week\n\nPresch"
+      "detail": "← Back to Lesson Plan\n\nCLASSROOM EXECUTION\n\nWeekly Planner\n\nTHIS WEEK’S CLASSROOM\n\nCommunity Helpers Audit Week\n\nPreschool · 2026-07-13 – 2026-07-17 · Main Classroom\n\nOpen lesson p"
     },
     {
       "name": "Weekly Planner shows execution checklist",
@@ -78,7 +78,7 @@
     },
     {
       "name": "Weekly Planner has Activities + Materials + Notes",
-      "ok": false,
+      "ok": true,
       "detail": ""
     },
     {
@@ -87,9 +87,19 @@
       "detail": "legacy form copy still visible"
     },
     {
-      "name": "Weekly Planner no horizontal overflow (iPhone)",
+      "name": "Weekly Planner keeps notes out of day cards by default",
       "ok": true,
-      "detail": "{\"scrollWidth\":390,\"clientWidth\":390,\"overflowX\":false}"
+      "detail": "notes should open in side panel"
+    },
+    {
+      "name": "Global search hidden on Weekly Planner",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Weekly Planner no page-level horizontal overflow (iPhone)",
+      "ok": true,
+      "detail": "{\"pageOverflow\":false,\"scrollWidth\":390,\"clientWidth\":390}"
     },
     {
       "name": "Dashboard shows THIS WEEK assignment",
@@ -119,7 +129,7 @@
     {
       "name": "Calendar shows week bar / assigned title",
       "ok": true,
-      "detail": "← Back to Dashboard\n\nPLANNING\n\nCalendar\n\nPlan future weeks, lesson plans, classroom events, closures, and reminders.\n\nPLANNING\n\nJuly 2026\nPrev\nToday\nNext\nAssign"
+      "detail": "← Back to Dashboard\n\nPLANNING HOME\n\nCalendar\n\nPLANNING HOME\n\nJuly 2026\nPrev\nToday\nNext\nAssign Lesson Plan\nMon\nTue\nWed\nThu\nFri\n1\n2\n3\n6\n7\n10\n13\nCommunity Helpers "
     },
     {
       "name": "Calendar week bar rendered",
@@ -154,17 +164,17 @@
     {
       "name": "Weekly Planner updates after change",
       "ok": true,
-      "detail": "← Back to Dashboard\n\nEXECUTION\n\nWeekly Planner\n\nYour classroom week — activities, materials, notes, and observations.\n\nWEEKLY CLASSROOM VIEW\n\nTransportation Aud"
+      "detail": "← Back\n\nCLASSROOM EXECUTION\n\nWeekly Planner\n\nTHIS WEEK’S CLASSROOM\n\nTransportation Audit Week\n\nPreschool · 2026-07-13 – 2026-07-17 · Main Classroom\n\nOpen lesson"
     },
     {
       "name": "Remove lesson plan works",
       "ok": true,
-      "detail": "sch-867aa3a988e5"
+      "detail": "sch-c9f8096a30c9"
     },
     {
       "name": "Dashboard clears after remove",
       "ok": true,
-      "detail": "Good evening, sched-audit-teacher\n\nMonday, July 13\n\nTODAY\n\nMonday\n\nNo lesson plan assigned for this week yet.\n\nBrowse Lesson Plans\n\nTHIS WEEK\n\nNo plan assigned\n"
+      "detail": "Good evening, sched-audit-teacher\n\nMonday, July 13\n\nTODAY\n\nMonday\n\nNothing planned for today yet.\n\nTHIS WEEK\n\nNo plan assigned\n\n2026-07-13 – 2026-07-17\n\nOpen Ca"
     },
     {
       "name": "Calendar has back button",
@@ -212,7 +222,17 @@
       "detail": ""
     },
     {
+      "name": "Desktop Weekly Planner uses horizontal week board",
+      "ok": true,
+      "detail": ""
+    },
+    {
       "name": "Desktop calendar uses weekday planning grid",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Global search hidden on Calendar",
       "ok": true,
       "detail": ""
     },
@@ -228,12 +248,6 @@
     }
   ],
   "findings": [
-    {
-      "severity": "fail",
-      "area": "verification",
-      "message": "Weekly Planner has Activities + Materials + Notes",
-      "detail": ""
-    },
     {
       "severity": "low",
       "area": "navigation",
