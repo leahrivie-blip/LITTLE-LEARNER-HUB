@@ -10514,6 +10514,52 @@ body.lessons-view .mobile-brand {
   margin-top: 28px;
 }
 
+.lp-mid-cta {
+  margin-top: 8px;
+  padding: 28px 24px;
+  background:
+    linear-gradient(135deg, rgba(219, 234, 247, 0.72), rgba(255, 255, 255, 0.96)),
+    radial-gradient(circle at top right, rgba(91, 155, 213, 0.16), transparent 48%);
+  border: 1px solid rgba(91, 155, 213, 0.22);
+  border-radius: 24px;
+  text-align: center;
+}
+
+.lp-mid-cta-inner {
+  max-width: 640px;
+  margin: 0 auto;
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+}
+
+.lp-mid-cta h2 {
+  margin: 0;
+  font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+  color: var(--ink);
+}
+
+.lp-mid-cta p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.55;
+  max-width: 46ch;
+}
+
+.lp-mid-cta .lp-btn-primary {
+  margin-top: 4px;
+  min-width: min(100%, 320px);
+}
+
+/* Hide landing signup CTAs once the visitor is already signed in */
+body.user-authenticated .lp-hero-actions [data-action="start-free"],
+body.user-authenticated .lp-hero-cta-note,
+body.user-authenticated .lp-mid-cta,
+body.user-authenticated .lp-final-cta [data-action="start-free"] {
+  display: none;
+}
+
 /* --- Landing page buttons ----------------------------------- */
 .lp-btn-primary {
   min-height: 50px;
@@ -10673,8 +10719,15 @@ body.lessons-view .mobile-brand {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 28px;
+  margin-bottom: 12px;
   align-items: center;
+}
+
+.lp-hero-cta-note {
+  margin: 0 0 24px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #3a7abf;
 }
 
 .lp-social-proof {
@@ -12280,22 +12333,45 @@ body.lessons-view .mobile-brand {
   body.home-view .account-actions {
     width: auto;
     flex-wrap: nowrap;
+    gap: 8px;
   }
 
+  /* Keep Sign Up visible above the fold on mobile — this was previously hidden */
   body.home-view #signupButton {
-    display: none;
+    display: inline-flex;
+    font-weight: 800;
+    min-width: 96px;
+    box-shadow: 0 6px 16px rgba(91, 155, 213, 0.28);
+  }
+
+  body.home-view #signinButton {
+    min-width: 72px;
+    padding-inline: 12px;
   }
 
   body.home-view .account-actions button {
     flex: 0 0 auto;
-    min-width: 88px;
     min-height: 42px;
     padding: 10px 14px;
+  }
+
+  .lp-hero-cta-note {
+    text-align: center;
+  }
+
+  .lp-mid-cta {
+    padding: 24px 16px;
+    border-radius: 18px;
+  }
+
+  .lp-mid-cta .lp-btn-primary {
+    width: 100%;
   }
 
   .lp-hero,
   .lp-trust-section,
   .lp-hero-testimonials,
+  .lp-mid-cta,
   .lp-feature-showcase,
   .lp-home-journey,
   .lp-pricing-section,

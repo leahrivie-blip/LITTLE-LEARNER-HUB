@@ -7989,7 +7989,7 @@ function updateAuthButtons() {
   } else {
     signIn.textContent = "Log in";
     delete signIn.dataset.view;
-    signUp.textContent = "Sign up";
+    signUp.textContent = "Sign Up";
     delete signUp.dataset.view;
   }
   updateAdminNavVisibility();

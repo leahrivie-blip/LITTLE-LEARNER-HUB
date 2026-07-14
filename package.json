@@ -47,6 +47,7 @@
     "test:child-profile-redesign": "node scripts/test-child-profile-redesign.js",
     "test:prod-load-admin-fix": "node scripts/test-prod-load-admin-fix.js",
     "test:domain-dns-fix": "node scripts/test-domain-dns-fix.js",
+    "test:homepage-signup-cta": "node scripts/test-homepage-signup-cta.js",
     "test:settings-hub": "node scripts/test-settings-hub.js",
     "test:homepage-smoke": "node scripts/test-homepage-smoke.js",
     "test:lesson-library-header": "node scripts/test-lesson-library-header.js",
