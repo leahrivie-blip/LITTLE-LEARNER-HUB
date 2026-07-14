@@ -23,7 +23,7 @@
     <link rel="apple-touch-icon" href="images/icons/icon-192.svg" />
     <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
-  <link rel="stylesheet" href="styles.css?v=20260714-admin-analytics-root" />
+  <link rel="stylesheet" href="styles.css?v=20260714-signup-flow" />
   </head>
   <body>
     <div class="app-shell">
@@ -1540,56 +1540,90 @@
     </div>
 
     <div class="modal" id="authModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="authTitle">
-      <div class="modal-card">
+      <div class="modal-card auth-modal-card">
         <button class="close-button" id="closeModal" type="button" aria-label="Close">&times;</button>
         <h2 id="authTitle">Log in to Little Learner Hub</h2>
+        <div id="signupWizardProgress" class="signup-wizard-progress hidden-field" aria-hidden="true">
+          <div class="signup-wizard-steps" role="list">
+            <span class="signup-wizard-step is-active" data-signup-step-indicator="1" role="listitem">1. Account</span>
+            <span class="signup-wizard-step" data-signup-step-indicator="2" role="listitem">2. Program</span>
+            <span class="signup-wizard-step" data-signup-step-indicator="3" role="listitem">3. Plan</span>
+          </div>
+        </div>
         <form class="panel-form" id="authForm" novalidate>
-          <label>
-            Email
-            <input type="email" id="emailInput" name="email" required autocomplete="email" placeholder="you@example.com" />
-          </label>
-          <div id="authNameFields" class="hidden-field" aria-hidden="true">
+          <div id="signupStepAccount" data-signup-step-panel="1">
+            <div id="authNameFields" class="hidden-field" aria-hidden="true">
+              <label>
+                Name
+                <input type="text" id="fullNameInput" name="fullName" autocomplete="name" placeholder="Jane Smith" required />
+              </label>
+              <input type="hidden" id="firstNameInput" name="firstName" />
+              <input type="hidden" id="lastNameInput" name="lastName" />
+            </div>
             <label>
-              First Name
-              <input type="text" id="firstNameInput" name="firstName" autocomplete="given-name" placeholder="Jane" required />
+              Email
+              <input type="email" id="emailInput" name="email" required autocomplete="email" placeholder="you@example.com" />
             </label>
-            <label>
-              Last Name
-              <input type="text" id="lastNameInput" name="lastName" autocomplete="family-name" placeholder="Smith" required />
+            <div id="authBusinessFields" class="hidden-field" aria-hidden="true">
+              <label>
+                Daycare / Center Name
+                <input type="text" id="businessNameInput" name="businessName" autocomplete="organization" placeholder="Sunshine Home Daycare" />
+              </label>
+              <label>
+                Account Type
+                <select id="accountTypeInput" name="accountType">
+                  <option value="">Select account type</option>
+                  <option value="home_daycare">Home Daycare</option>
+                  <option value="center">Childcare Center</option>
+                  <option value="single_provider">Single Provider</option>
+                </select>
+              </label>
+              <label>
+                Your Role
+                <select id="userRoleInput" name="userRole">
+                  <option value="">Select your role</option>
+                  <option value="owner">Director / Owner</option>
+                  <option value="teacher">Lead Teacher</option>
+                  <option value="assistant">Assistant / Staff</option>
+                </select>
+              </label>
+            </div>
+            <label id="authPhoneField" class="hidden-field" aria-hidden="true">
+              Phone (optional)
+              <input type="tel" id="phoneInput" name="phone" autocomplete="tel" placeholder="(555) 123-4567" />
+            </label>
+            <label id="authPasswordField">
+              Password
+              <input type="password" id="passwordInput" name="password" required autocomplete="current-password" placeholder="Password" minlength="8" />
             </label>
           </div>
-          <div id="authBusinessFields" class="hidden-field" aria-hidden="true">
-            <label>
-              Daycare / Center Name
-              <input type="text" id="businessNameInput" name="businessName" autocomplete="organization" placeholder="Sunshine Home Daycare" required />
-            </label>
-            <label>
-              Account Type
-              <select id="accountTypeInput" name="accountType" required>
-                <option value="">Select account type</option>
-                <option value="home_daycare">Home Daycare</option>
-                <option value="center">Childcare Center</option>
-                <option value="single_provider">Single Provider</option>
-              </select>
-            </label>
-            <label>
-              Your Role
-              <select id="userRoleInput" name="userRole" required>
-                <option value="">Select your role</option>
-                <option value="owner">Director / Owner</option>
-                <option value="teacher">Lead Teacher</option>
-                <option value="assistant">Assistant / Staff</option>
-              </select>
+          <div id="signupStepProgram" class="hidden-field" data-signup-step-panel="2" aria-hidden="true">
+            <p class="signup-step-lede">We’ll use this to personalize your workspace.</p>
+            <div class="signup-persona-grid" role="radiogroup" aria-label="What best describes you?">
+              <button type="button" class="signup-persona-card" data-signup-persona="home_daycare" aria-pressed="false">
+                <span class="signup-persona-icon" aria-hidden="true">🏠</span>
+                <strong>Home Daycare</strong>
+                <span>Family childcare in a home setting</span>
+              </button>
+              <button type="button" class="signup-persona-card" data-signup-persona="center" aria-pressed="false">
+                <span class="signup-persona-icon" aria-hidden="true">🏢</span>
+                <strong>Childcare Center</strong>
+                <span>Center or preschool program</span>
+              </button>
+              <button type="button" class="signup-persona-card" data-signup-persona="teacher_staff" aria-pressed="false">
+                <span class="signup-persona-icon" aria-hidden="true">👩‍🏫</span>
+                <strong>Teacher / Staff</strong>
+                <span>Lead teacher, assistant, or staff</span>
+              </button>
+            </div>
+            <label class="signup-program-name-field">
+              Program or workplace name <span class="muted-copy">(optional)</span>
+              <input type="text" id="signupProgramNameInput" name="signupProgramName" autocomplete="organization" placeholder="Sunshine Home Daycare" />
             </label>
           </div>
-          <label id="authPhoneField" class="hidden-field" aria-hidden="true">
-            Phone (optional)
-            <input type="tel" id="phoneInput" name="phone" autocomplete="tel" placeholder="(555) 123-4567" />
-          </label>
-          <label>
-            Password
-            <input type="password" id="passwordInput" name="password" required autocomplete="current-password" placeholder="Password" minlength="8" />
-          </label>
+          <div id="signupStepPlan" class="hidden-field" data-signup-step-panel="3" aria-hidden="true">
+            <div id="signupPlanChooser"></div>
+          </div>
           <button class="primary-button" id="authSubmitButton" type="submit">Log In</button>
           <span class="form-message" id="authMessage" aria-live="polite"></span>
         </form>
@@ -1718,6 +1752,6 @@
     <script src="scripts/curriculum-lesson-viewer-render.js?v=20260711-phase-d" defer></script>
     <script src="scripts/llh-schedule.js?v=20260714-prod-priority-fixes" defer></script>
     <script src="scripts/llh-lesson-docx.js?v=20260714-lesson-docx" defer></script>
-    <script src="app.js?v=20260714-admin-analytics-root" defer></script>
+    <script src="app.js?v=20260714-signup-flow" defer></script>
   </body>
 </html>
