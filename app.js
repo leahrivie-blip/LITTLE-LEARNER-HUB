@@ -35838,6 +35838,7 @@ document.addEventListener("click", async (event) => {
   const calendarEditItem = event.target.closest("[data-calendar-edit-item]");
   if (calendarEditItem) {
     event.preventDefault();
+    closeAllItemActionMenus();
     openCalendarAddItemDialog({ itemId: calendarEditItem.dataset.calendarEditItem || "" });
     return;
   }
@@ -35845,6 +35846,7 @@ document.addEventListener("click", async (event) => {
   const calendarDeleteItem = event.target.closest("[data-calendar-delete-item]");
   if (calendarDeleteItem) {
     event.preventDefault();
+    closeAllItemActionMenus();
     deleteCalendarItem(calendarDeleteItem.dataset.calendarDeleteItem || "");
     return;
   }
