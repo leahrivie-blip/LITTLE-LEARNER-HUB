@@ -727,14 +727,25 @@
               <div>
                 <p class="eyebrow" id="docHelperResultLabel">Result</p>
                 <h3 id="docHelperResultTitle" style="margin:0;">Documentation Ready</h3>
+                <p class="muted-copy" id="docHelperNextStepHint" style="margin:6px 0 0;">Review the draft, edit if needed, then save it to the child profile or copy it for parents.</p>
               </div>
-              <div class="output-actions">
-                <button class="ghost-button" id="docHelperEditBtn" type="button">Edit</button>
+              <div class="output-actions doc-helper-result-actions">
+                <button class="ghost-button" id="docHelperEditBtn" type="button">Edit Generated Content</button>
                 <button class="ghost-button" id="docHelperCopyBtn" type="button">Copy</button>
-                <button class="primary-button" id="docHelperSaveBtn" type="button">Save</button>
+                <button class="primary-button" id="docHelperSaveBtn" type="button">Save to Child Profile</button>
+                <button class="ghost-button" id="docHelperCreateAnotherBtn" type="button">Create Another</button>
               </div>
             </div>
             <div id="docHelperOutput" class="ai-output-rendered" contenteditable="false" spellcheck="true"></div>
+            <div id="docHelperPostSavePanel" class="section-block" hidden style="margin-top:16px;">
+              <p class="eyebrow">Saved</p>
+              <strong id="docHelperPostSaveTitle">Saved to child profile</strong>
+              <p class="muted-copy" id="docHelperPostSaveDetail">Your documentation is stored on the child file.</p>
+              <div class="account-actions-row" style="margin-top:12px;">
+                <button class="primary-button" id="docHelperOpenChildBtn" type="button">Open Child Profile</button>
+                <button class="ghost-button" id="docHelperCreateAnotherBtn2" type="button">Create Another</button>
+              </div>
+            </div>
             <div id="docHelperDebugPanel" class="section-block" hidden></div>
           </div>
 
