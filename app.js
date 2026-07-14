@@ -8371,10 +8371,24 @@ function updateAdminNavVisibility() {
   });
 }
 
+function isSignedInPlatformOwner() {
+  const email = String(currentUser || "").trim().toLowerCase();
+  if (!email) return false;
+  const ownerEmail = String(adminOwnerAccount?.email || "").trim().toLowerCase();
+  const sessionEmail = String(adminSession()?.email || "").trim().toLowerCase();
+  return Boolean(
+    (ownerEmail && email === ownerEmail)
+    || (sessionEmail && email === sessionEmail),
+  );
+}
+
 function canSeeAdminNav() {
   // While simulating Free/Pro/Founding, hide Admin nav so the sidebar matches that account.
   // The floating preview badge still provides Return to Admin.
-  return isAdminUnlocked() && !isAdminPreviewSimulating();
+  if (isAdminPreviewSimulating()) return false;
+  // Keep Admin reachable when unlocked, awaiting re-auth, or signed in as the platform owner.
+  // The unlock form still protects private admin tools.
+  return isAdminUnlocked() || adminSessionInvalidOnServer || isSignedInPlatformOwner();
 }
 
 function setView(view, options = {}) {
@@ -28790,7 +28804,7 @@ function renderAdminAccessShell() {
             <input name="adminCode" type="password" required placeholder="Enter owner code" autocomplete="off" />
           </label>
           <button class="primary-button" type="submit">Unlock Admin</button>
-          <p class="form-note">Admin credentials are checked by the backend server. Localhost preview allows testing only on this computer.</p>
+          <p class="form-note">Admin credentials are checked by the backend server. If the Admin link is missing from the sidebar, open <code>/admin</code> directly, then unlock here.</p>
           <span id="adminUnlockMessage" class="form-message"></span>
         </form>
         ${canUseSignedInOwnerAdmin() ? `
@@ -40633,13 +40647,17 @@ document.addEventListener("click", async (event) => {
   if (adminReunlockButton) {
     event.preventDefault();
     clearAdminSession();
+    updateAdminNavVisibility();
+    setView("admin");
     renderAdminDashboard();
-    document.querySelector("#adminUnlockForm")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    const message = document.querySelector("#adminUnlockMessage");
-    if (message) {
-      message.textContent = "Enter owner email, password, and access code to restore live Admin access.";
-      message.classList.add("success");
-    }
+    requestAnimationFrame(() => {
+      document.querySelector("#adminUnlockForm")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const message = document.querySelector("#adminUnlockMessage");
+      if (message) {
+        message.textContent = "Enter owner email, password, and access code to restore live Admin access.";
+        message.classList.add("success");
+      }
+    });
     return;
   }
 

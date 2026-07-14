@@ -51,11 +51,18 @@ test("client detects expired admin server session and offers re-unlock", () => {
 test("cache bust versions stay aligned for admin auth fix", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260714-admin-auth-fix");
-  assert.equal(indexJs, "20260714-admin-auth-fix");
-  assert.match(sw, /styles\.css\?v=20260714-admin-auth-fix/);
-  assert.match(sw, /app\.js\?v=20260714-admin-auth-fix/);
-  assert.match(sw, /llh-shell-v30-admin-auth-fix/);
+  assert.equal(indexCss, "20260714-admin-nav-fix");
+  assert.equal(indexJs, "20260714-admin-nav-fix");
+  assert.match(sw, /styles\.css\?v=20260714-admin-nav-fix/);
+  assert.match(sw, /app\.js\?v=20260714-admin-nav-fix/);
+  assert.match(sw, /llh-shell-v31-admin-nav-fix/);
+});
+
+test("owner can always see Admin nav to reach unlock form", () => {
+  assert.match(appJs, /function isSignedInPlatformOwner\(/);
+  assert.match(appJs, /isAdminUnlocked\(\) \|\| adminSessionInvalidOnServer \|\| isSignedInPlatformOwner\(\)/);
+  assert.match(appJs, /setView\("admin"\)/);
+  assert.match(appJs, /open <code>\/admin<\/code> directly/);
 });
 
 if (!process.exitCode) {
