@@ -82,11 +82,15 @@ function weekEndFromStart(weekStart) {
 }
 
 function normalizeClassroom(entry = {}, index = 0) {
+  const ageGroupDefault = clampString(entry.ageGroupDefault || entry.ageGroup || "", 40);
   return {
     id: clampString(entry.id, 80) || (index === 0 ? "classroom-main" : scheduleRandomId("classroom")),
     name: clampString(entry.name, 120) || "Main Classroom",
     organizationId: entry.organizationId ? clampString(entry.organizationId, 80) : null,
     centerId: entry.centerId ? clampString(entry.centerId, 80) : null,
+    ageGroupDefault: ageGroupDefault || "",
+    archived: Boolean(entry.archived),
+    notes: clampString(entry.notes, 500),
   };
 }
 
