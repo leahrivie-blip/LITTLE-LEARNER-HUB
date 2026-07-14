@@ -1,11 +1,12 @@
-const CACHE_NAME = "llh-shell-v22-lesson-mobile-header";
+const CACHE_NAME = "llh-shell-v23-lesson-docx";
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/styles.css?v=20260714-lesson-mobile-header",
+  "/styles.css?v=20260714-lesson-docx",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/scripts/llh-schedule.js?v=20260714-calendar-day-notes",
-  "/app.js?v=20260714-lesson-mobile-header",
+  "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
+  "/app.js?v=20260714-lesson-docx",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
