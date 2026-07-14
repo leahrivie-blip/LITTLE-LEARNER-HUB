@@ -3279,6 +3279,7 @@ let mainCalendarSubView = "month"; // "month" | "day" | "week"
 let mainCalendarBusy = false;
 let mainCalendarActiveFilters = null;
 let mainCalendarEditingItemId = "";
+let pendingCalendarAssignNotice = "";
 let scheduleDocCache = null;
 let scheduleSyncPromise = null;
 let weeklyPlannerActiveDay = "";
@@ -8107,9 +8108,9 @@ function resourceCard(resource) {
       ` : ""}
       <div class="resource-actions">
         <button class="favorite-button ${!isProUser() ? "disabled-control" : ""}" ${!isProUser() ? `data-pro-feature="favorites"` : `data-favorite="${resource.id}"`} type="button">${favoriteText}</button>
-        ${resource.category === "Lesson Plans" && !locked ? `<button class="ghost-button" data-customize-lesson-ai="${resource.id}" type="button">Customize AI</button>` : ""}
+        ${resource.category === "Lesson Plans" && !locked ? `<button class="ghost-button" data-customize-lesson-ai="${resource.id}" type="button">Customize Plan</button>` : ""}
         ${resource.category === "Lesson Plans" && !locked ? `<button class="ghost-button" data-find-lesson-activities="${resource.id}" type="button">View Activities</button>` : ""}
-        ${resource.category === "Lesson Plans" && resource._curriculumManaged && !locked ? `<button class="ghost-button" data-curriculum-assign-week="${resource.id}" type="button">Assign to Week</button>` : ""}
+        ${resource.category === "Lesson Plans" && resource._curriculumManaged && !locked ? `<button class="ghost-button" data-curriculum-assign-week="${resource.id}" type="button">Add to Calendar</button>` : ""}
         ${resource.category === "Lesson Plans" && !locked ? `<button class="ghost-button" data-add-lesson-support="${resource.id}" type="button">Add Support</button>` : ""}
         ${resource.category === "Observation Hub" && !locked ? `<button class="ghost-button" data-edit-observation="${resource.id}" type="button">Edit</button>` : ""}
         ${resource.category === "Observation Hub" && !locked ? `<button class="ghost-button" data-add-observation-child="${resource.id}" type="button">Add to Child</button>` : ""}
@@ -11521,8 +11522,8 @@ function showLessonWorkspaceMainCalendarSuccess(assignment) {
   const end = getScheduleApi()?.weekEndFromStart(week) || curriculumPlannerWeekEndIso(week);
   if (message) {
     message.textContent = week
-      ? `“${title}” assigned to ${room} for ${week}–${end}.`
-      : "Lesson plan saved to This Week.";
+      ? `“${title}” is on your Calendar for ${week}–${end}${room ? ` · ${room}` : ""}.`
+      : "Lesson plan added to Calendar.";
   }
   document.querySelectorAll("[data-lesson-open-curriculum-planner]").forEach((button) => {
     if (week) button.dataset.lessonPlannerWeek = week;
@@ -11530,9 +11531,14 @@ function showLessonWorkspaceMainCalendarSuccess(assignment) {
   document.querySelectorAll("[data-lesson-open-weekly-planner]").forEach((button) => {
     if (week) button.dataset.lessonPlannerWeek = week;
   });
-  document.querySelectorAll(".lesson-workspace-action-sheet-panel [data-view='calendar']").forEach((button) => {
+  document.querySelectorAll(
+    ".lesson-workspace-action-sheet-panel [data-lesson-open-calendar]",
+  ).forEach((button) => {
     if (week) button.dataset.dashSelectWeek = week;
   });
+  pendingCalendarAssignNotice = week
+    ? `Added “${title}” to the week of ${week}. Customize days, notes, and events below.`
+    : `Added “${title}” to your Calendar.`;
   setLessonWorkspaceActionSheetPanel("success");
 }
 
@@ -12291,14 +12297,16 @@ function lessonWorkspaceChromeHtml(resource) {
         </div>
       </header>
       <div class="lesson-workspace-primary-actions">
-        <button type="button" class="primary-button" data-lesson-use-this-plan>Use This Plan</button>
+        <button type="button" class="primary-button" data-lesson-use-this-plan>Add to Calendar</button>
+        <button type="button" class="ghost-button" data-customize-lesson-ai="${escapeHtml(resource.id)}">Customize Plan</button>
+        <button type="button" class="ghost-button" data-lesson-print-download>Print / Download</button>
         ${lessonWorkspaceSaveButtonHtml(resource.id)}
         <button type="button" class="ghost-button lesson-workspace-more-btn" data-lesson-workspace-more-toggle aria-expanded="false" aria-haspopup="true">More</button>
       </div>
       <div class="lesson-workspace-more-menu" hidden>
         <div class="lesson-workspace-more-group">
           <p class="lesson-workspace-more-label">Plan tools</p>
-          <button type="button" data-customize-lesson-ai="${escapeHtml(resource.id)}">Customize with AI</button>
+          <button type="button" data-customize-lesson-ai="${escapeHtml(resource.id)}">Customize Plan</button>
           <button type="button" data-add-lesson-support="${escapeHtml(resource.id)}">Add Support</button>
           <button type="button" data-find-lesson-activities="${escapeHtml(resource.id)}">View Linked Activities</button>
         </div>
@@ -12307,6 +12315,8 @@ function lessonWorkspaceChromeHtml(resource) {
           <button type="button" data-lesson-print-variant="week">Print Week at a Glance</button>
           <button type="button" data-lesson-download-variant="week">Download Weekly Schedule PDF</button>
           <button type="button" data-lesson-print-variant="materials">Print Materials List</button>
+          <button type="button" data-lesson-print-variant="full">Print Full Lesson Plan</button>
+          ${pdfDownloadBtn}
         </div>
       </div>
       <nav class="lesson-workspace-tabs" role="tablist" aria-label="Lesson plan sections">
@@ -12322,17 +12332,17 @@ function lessonWorkspaceChromeHtml(resource) {
       </div>
       <div class="lesson-workspace-action-sheet" hidden aria-hidden="true">
         <button type="button" class="lesson-workspace-action-sheet-backdrop" data-lesson-workspace-action-sheet-dismiss aria-label="Close"></button>
-        <div class="lesson-workspace-action-sheet-panel" role="dialog" aria-label="Use this plan">
+        <div class="lesson-workspace-action-sheet-panel" role="dialog" aria-label="Add to Calendar">
           <div data-lesson-workspace-action-panel="menu">
-            <p class="lesson-workspace-action-sheet-title">Use This Plan</p>
-            <button type="button" class="ghost-button" data-lesson-add-to-main-calendar="${escapeHtml(resource.id)}">Plan This Week</button>
+            <p class="lesson-workspace-action-sheet-title">Add to Calendar</p>
+            <button type="button" class="primary-button" data-lesson-add-to-main-calendar="${escapeHtml(resource.id)}">Pick a Week</button>
             <button type="button" class="ghost-button" data-lesson-print-variant="full">Print Full Lesson Plan</button>
             ${pdfDownloadBtn}
             <button type="button" class="link-button" data-lesson-workspace-action-sheet-dismiss>Cancel</button>
           </div>
           <div data-lesson-workspace-action-panel="main-calendar" hidden aria-hidden="true">
-            <p class="lesson-workspace-action-sheet-title">Plan This Week</p>
-            <p class="muted-copy lesson-workspace-action-sheet-note">Pick the Monday that starts your teaching week. This assigns one ScheduleItem for Calendar, Weekly Planner, and Dashboard.</p>
+            <p class="lesson-workspace-action-sheet-title">Add to Calendar</p>
+            <p class="muted-copy lesson-workspace-action-sheet-note">Pick the Monday that starts your teaching week. We’ll add this plan to Calendar, Weekly Planner, and your dashboard — nothing else is auto-filled.</p>
             <form class="lesson-workspace-main-calendar-form" data-lesson-main-calendar-form>
               <input type="hidden" name="resourceId" value="${escapeHtml(resource.id)}" />
               <label>Week starting (Monday)
@@ -12342,17 +12352,18 @@ function lessonWorkspaceChromeHtml(resource) {
                 <select name="ageGroup">${lessonWorkspacePlannerAgeGroupOptions(lessonWorkspaceDefaultAgeGroup(resource, plan))}</select>
               </label>
               <div class="lesson-workspace-action-sheet-actions">
-                <button type="submit" class="primary-button">Save to This Week</button>
+                <button type="submit" class="primary-button">Add to Calendar</button>
                 <button type="button" class="ghost-button" data-lesson-workspace-action-back>Back</button>
               </div>
             </form>
           </div>
           <div data-lesson-workspace-action-panel="success" hidden aria-hidden="true">
-            <p class="lesson-workspace-action-sheet-title">Saved to This Week</p>
+            <p class="lesson-workspace-action-sheet-title">Added to Calendar</p>
             <p class="muted-copy" data-lesson-workspace-success-message></p>
-            <p class="muted-copy lesson-workspace-action-sheet-note">Open Weekly Planner to run the week, or Calendar to plan future weeks.</p>
-            <button type="button" class="primary-button" data-lesson-open-weekly-planner>Open Weekly Planner</button>
-            <button type="button" class="ghost-button" data-view="calendar">View Calendar</button>
+            <p class="muted-copy lesson-workspace-action-sheet-note">Your week is ready — open Calendar to customize days, notes, and events, or jump into Weekly Planner.</p>
+            <button type="button" class="primary-button" data-lesson-open-calendar>Open Calendar</button>
+            <button type="button" class="ghost-button" data-lesson-open-weekly-planner>Open Weekly Planner</button>
+            <button type="button" class="ghost-button" data-customize-lesson-ai="${escapeHtml(resource.id)}">Customize Plan</button>
             <button type="button" class="link-button" data-lesson-workspace-action-sheet-dismiss>Done</button>
           </div>
         </div>
@@ -16607,6 +16618,7 @@ function renderCalendarMonthView(app) {
 
   app.innerHTML = `
     <div class="llh-calendar-shell">
+      ${calendarAssignNoticeHtml()}
       ${curriculumPlannerRetirementBannerHtml()}
       <div class="llh-calendar-toolbar">
         <div>
@@ -16626,7 +16638,7 @@ function renderCalendarMonthView(app) {
             <button type="button" class="ghost-button" data-calendar-nav="1" aria-label="Next month">Next ›</button>
             <button type="button" class="ghost-button" data-calendar-nav="today">Today</button>
           </div>
-          <button type="button" class="primary-button" data-view="lessons">Assign Lesson Plan</button>
+          <button type="button" class="primary-button" data-view="lessons">Add Lesson Plan</button>
         </div>
       </div>
       ${calendarFilterBarHtml()}
@@ -16804,6 +16816,22 @@ function printCalendarWeekSchedule(weekStart) {
   }
 }
 
+function calendarAssignNoticeHtml() {
+  const notice = String(pendingCalendarAssignNotice || "").trim();
+  if (!notice) return "";
+  return `
+    <div class="llh-calendar-assign-notice" role="status" data-calendar-assign-notice>
+      <p>${escapeHtml(notice)}</p>
+      <button type="button" class="ghost-button" data-calendar-dismiss-assign-notice aria-label="Dismiss">Dismiss</button>
+    </div>
+  `;
+}
+
+function dismissCalendarAssignNotice() {
+  pendingCalendarAssignNotice = "";
+  renderMainCalendar();
+}
+
 function renderCalendarWeekView(app) {
   const api = getScheduleApi();
   const week = mainCalendarSelectedWeek || curriculumPlannerWeekStartIso(new Date());
@@ -16841,6 +16869,7 @@ function renderCalendarWeekView(app) {
 
   app.innerHTML = `
     <div class="llh-calendar-shell llh-calendar-week-view">
+      ${calendarAssignNoticeHtml()}
       <div class="llh-calendar-toolbar">
         <div>
           <button type="button" class="ghost-button" data-calendar-back-to-month>← Back to Calendar</button>
@@ -34056,6 +34085,16 @@ document.addEventListener("click", async (event) => {
     event.preventDefault();
     toggleLessonWorkspaceMoreMenu(false);
     toggleLessonWorkspaceActionSheet(true);
+    // Skip the intermediate menu — go straight to pick-a-week.
+    setLessonWorkspaceActionSheetPanel("main-calendar");
+    return;
+  }
+
+  const lessonPrintDownload = event.target.closest("[data-lesson-print-download]");
+  if (lessonPrintDownload) {
+    event.preventDefault();
+    toggleLessonWorkspaceActionSheet(false);
+    toggleLessonWorkspaceMoreMenu(true);
     return;
   }
 
@@ -34113,6 +34152,20 @@ document.addEventListener("click", async (event) => {
     toggleLessonWorkspaceActionSheet(false);
     dismissResourceViewerForNavigation();
     setView("planner", week ? { weekStartDate: week } : {});
+    return;
+  }
+
+  const lessonOpenCalendar = event.target.closest("[data-lesson-open-calendar]");
+  if (lessonOpenCalendar) {
+    event.preventDefault();
+    const week = lessonOpenCalendar.dataset.dashSelectWeek
+      || lessonOpenCalendar.dataset.lessonPlannerWeek
+      || "";
+    const originContext = lessonWorkspaceReturnContext();
+    if (originContext) setViewReturnContext("calendar", originContext);
+    toggleLessonWorkspaceActionSheet(false);
+    dismissResourceViewerForNavigation();
+    setView("calendar", week ? { weekStartDate: week } : {});
     return;
   }
 
@@ -34210,6 +34263,13 @@ document.addEventListener("click", async (event) => {
     event.preventDefault();
     if (calendarPrintWeek.disabled) return;
     printCalendarWeekSchedule(calendarPrintWeek.dataset.calendarPrintWeek || mainCalendarSelectedWeek);
+    return;
+  }
+
+  const calendarDismissAssignNotice = event.target.closest("[data-calendar-dismiss-assign-notice]");
+  if (calendarDismissAssignNotice) {
+    event.preventDefault();
+    dismissCalendarAssignNotice();
     return;
   }
 

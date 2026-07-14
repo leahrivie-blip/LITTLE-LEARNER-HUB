@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Assign workflow polish — Use This Plan → Plan This Week → Calendar → Weekly Planner.
+ * Assign workflow polish — Add to Calendar → pick week → Calendar → Weekly Planner.
  * Verifies future-week assigns no longer dead-end Weekly Planner, Calendar's
  * "Open Weekly Planner" honors the selected week, and the Lesson Library
- * "Assign to Week" shortcut jumps straight to the Plan This Week form.
+ * "Assign to Week" shortcut jumps straight to the Add to Calendar form.
  *
  * Run: node scripts/test-assign-workflow-polish.js
  */
@@ -197,7 +197,7 @@ async function runAssignWorkflowChecks(browser, { viewport, label }) {
   // ---- 1) Plan This Week for the CURRENT week: Open Weekly Planner shows it ----
   await openLessonWorkspace(page, lessonThisWeek.title);
   await page.click("[data-lesson-use-this-plan]");
-  await page.click(`[data-lesson-add-to-main-calendar="${lessonThisWeek.planId}"]`);
+  await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 10000 });
   await page.fill('[data-lesson-main-calendar-form] [name="weekStartDate"]', currentWeek);
   await page.click('[data-lesson-main-calendar-form] button[type="submit"]');
   await page.waitForSelector('[data-lesson-workspace-action-panel="success"]:not([hidden])', { timeout: 15000 });
@@ -215,7 +215,7 @@ async function runAssignWorkflowChecks(browser, { viewport, label }) {
   await page.evaluate(() => setView("lessons"));
   await openLessonWorkspace(page, lessonFuture.title);
   await page.click("[data-lesson-use-this-plan]");
-  await page.click(`[data-lesson-add-to-main-calendar="${lessonFuture.planId}"]`);
+  await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 10000 });
   await page.fill('[data-lesson-main-calendar-form] [name="weekStartDate"]', futureWeek);
   await page.click('[data-lesson-main-calendar-form] button[type="submit"]');
   await page.waitForSelector('[data-lesson-workspace-action-panel="success"]:not([hidden])', { timeout: 15000 });
@@ -286,23 +286,28 @@ async function runAssignWorkflowChecks(browser, { viewport, label }) {
     calendarToPlannerText.slice(0, 160),
   );
 
-  // ---- 6) View Calendar from success panel jumps to the assigned week ----
+  // ---- 6) Open Calendar from success panel jumps to the assigned week ----
   await page.evaluate(() => { mainCalendarSelectedWeek = ""; });
   await openLessonWorkspace(page, lessonFuture.title);
   await page.click("[data-lesson-use-this-plan]");
-  await page.click(`[data-lesson-add-to-main-calendar="${lessonFuture.planId}"]`);
+  await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 10000 });
   await page.fill('[data-lesson-main-calendar-form] [name="weekStartDate"]', futureWeek);
   await page.click('[data-lesson-main-calendar-form] button[type="submit"]');
   await page.waitForSelector('[data-lesson-workspace-action-panel="success"]:not([hidden])', { timeout: 15000 });
-  const viewCalendarWeekAttr = await page.locator(".lesson-workspace-action-sheet-panel [data-view='calendar']").getAttribute("data-dash-select-week");
-  check("Success panel's View Calendar is tagged with the assigned week", viewCalendarWeekAttr === futureWeek, viewCalendarWeekAttr);
-  await page.click(".lesson-workspace-action-sheet-panel [data-view='calendar']");
+  const viewCalendarWeekAttr = await page.locator("[data-lesson-open-calendar]").getAttribute("data-dash-select-week");
+  check("Success panel's Open Calendar is tagged with the assigned week", viewCalendarWeekAttr === futureWeek, viewCalendarWeekAttr);
+  await page.click("[data-lesson-open-calendar]");
   await page.waitForSelector("#view-calendar.active-view", { timeout: 10000 });
   await page.waitForTimeout(400);
   const calendarAfterViewText = await page.locator("#mainCalendarApp").innerText();
   check(
-    "View Calendar (from success) jumps straight to the assigned future week",
+    "Open Calendar (from success) jumps straight to the assigned future week",
     calendarAfterViewText.includes(lessonFuture.title),
+    calendarAfterViewText.slice(0, 160),
+  );
+  check(
+    "Calendar shows an assign confirmation notice",
+    /Added/i.test(calendarAfterViewText) && await page.locator("[data-calendar-assign-notice]").count() > 0,
     calendarAfterViewText.slice(0, 160),
   );
 
@@ -319,7 +324,7 @@ async function runAssignWorkflowChecks(browser, { viewport, label }) {
     const panel = document.querySelector('[data-lesson-workspace-action-panel="main-calendar"]');
     return Boolean(panel && !panel.hidden);
   });
-  check("openCurriculumPlannerAssignFlow jumps straight to the Plan This Week form (skips the menu)", mainCalendarPanelVisible);
+  check("openCurriculumPlannerAssignFlow jumps straight to the Add to Calendar form (skips the menu)", mainCalendarPanelVisible);
 
   // ---- Layout sanity: no horizontal overflow on this viewport ----
   const overflow = await page.evaluate(() => {

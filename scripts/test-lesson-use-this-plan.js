@@ -193,28 +193,24 @@ async function main() {
     ]);
     await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
 
-    console.log("1) Action sheet exposes minimum owner-review options");
+    console.log("1) Add to Calendar opens pick-week form directly");
     await openLessonWorkspace(page, lessonA.title);
     await page.click("[data-lesson-use-this-plan]");
-    await page.waitForSelector(".lesson-workspace-action-sheet:not([hidden])", { timeout: 5000 });
-    const menuLabels = await page.evaluate(() => (
-      [...document.querySelectorAll('[data-lesson-workspace-action-panel="menu"] button')]
-        .map((el) => el.textContent.trim())
-    ));
-    assert(menuLabels[0] === "Plan This Week", `Plan This Week should be first: ${menuLabels.join(" | ")}`);
-    assert(menuLabels.some((label) => label.includes("Print Full Lesson Plan") || label.includes("Print Lesson Plan")), "Print Full Lesson Plan missing");
-    assert(menuLabels.some((label) => label.includes("Cancel")), "Cancel missing");
-    assert(!menuLabels.some((label) => /Assign to a Week|Add to This Week|View in Curriculum Planner/i.test(label)), `Old duplicate actions still present: ${menuLabels.join(" | ")}`);
-
-    console.log("2) Plan This Week assigns curriculum + updates weekly planner");
-    await page.click(`[data-lesson-add-to-main-calendar="${lessonA.planId}"]`);
     await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
     const formCopy = await page.evaluate(() => ({
       title: document.querySelector('[data-lesson-workspace-action-panel="main-calendar"] .lesson-workspace-action-sheet-title')?.textContent.trim() || "",
       submit: document.querySelector('[data-lesson-main-calendar-form] button[type="submit"]')?.textContent.trim() || "",
+      primaryLabel: document.querySelector("[data-lesson-use-this-plan]")?.textContent.trim() || "",
+      customizeLabel: document.querySelector('.lesson-workspace-primary-actions [data-customize-lesson-ai]')?.textContent.trim() || "",
+      printLabel: document.querySelector("[data-lesson-print-download]")?.textContent.trim() || "",
     }));
-    assert(formCopy.title === "Plan This Week", `form title wrong: ${formCopy.title}`);
-    assert(formCopy.submit === "Save to This Week", `submit copy wrong: ${formCopy.submit}`);
+    assert(formCopy.primaryLabel === "Add to Calendar", `primary CTA wrong: ${formCopy.primaryLabel}`);
+    assert(formCopy.customizeLabel === "Customize Plan", `customize CTA wrong: ${formCopy.customizeLabel}`);
+    assert(formCopy.printLabel === "Print / Download", `print CTA wrong: ${formCopy.printLabel}`);
+    assert(formCopy.title === "Add to Calendar", `form title wrong: ${formCopy.title}`);
+    assert(formCopy.submit === "Add to Calendar", `submit copy wrong: ${formCopy.submit}`);
+
+    console.log("2) Add to Calendar assigns curriculum + updates weekly planner");
     await page.fill('[data-lesson-main-calendar-form] [name="weekStartDate"]', weekStart);
     await page.selectOption('[data-lesson-main-calendar-form] [name="ageGroup"]', "Preschool");
     await page.click('[data-lesson-main-calendar-form] button[type="submit"]');
@@ -229,6 +225,7 @@ async function main() {
         planner,
         successTitle: document.querySelector('[data-lesson-workspace-action-panel="success"] .lesson-workspace-action-sheet-title')?.textContent.trim() || "",
         successText: document.querySelector("[data-lesson-workspace-success-message]")?.textContent || "",
+        openCalendar: Boolean(document.querySelector("[data-lesson-open-calendar]")),
       };
     }, { email: USER_EMAIL, week: weekStart, planId: lessonA.planId });
 
@@ -238,8 +235,9 @@ async function main() {
     assert(afterFirst.planner?.resourceId === lessonA.planId, "Weekly planner resourceId not linked");
     assert(String(afterFirst.planner?.theme || "").includes("Use Plan Alpha"), "Weekly planner theme should use lesson title");
     assert(String(afterFirst.planner?.days?.Monday?.activity || "").includes("Monday Activity"), "Monday activity summary missing");
-    assert(afterFirst.successTitle === "Saved to This Week", `success title wrong: ${afterFirst.successTitle}`);
+    assert(afterFirst.successTitle === "Added to Calendar", `success title wrong: ${afterFirst.successTitle}`);
     assert(afterFirst.successText.includes(weekStart), "Success message should mention assigned week");
+    assert(afterFirst.openCalendar, "Open Calendar success CTA missing");
 
     console.log("3) Replacement warning when assigning different plan to same week");
     await page.click("[data-lesson-workspace-action-sheet-dismiss]");
@@ -255,7 +253,7 @@ async function main() {
 
     await openLessonWorkspace(page, lessonB.title);
     await page.click("[data-lesson-use-this-plan]");
-    await page.click(`[data-lesson-add-to-main-calendar="${lessonB.planId}"]`);
+    await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
     await page.fill('[data-lesson-main-calendar-form] [name="weekStartDate"]', weekStart);
     await page.click('[data-lesson-main-calendar-form] button[type="submit"]');
     await page.waitForSelector('[data-lesson-workspace-action-panel="success"]:not([hidden])', { timeout: 15000 });
@@ -274,7 +272,7 @@ async function main() {
     assert(afterReplace.assignment?.lessonPlanId === lessonB.planId, "Week assignment should be replaced with lesson B");
     assert(afterReplace.planner?.resourceId === lessonB.planId, "Weekly planner should point to lesson B after replace");
 
-    console.log("Lesson Use This Plan weekly plan checks passed.");
+    console.log("Lesson Add to Calendar weekly plan checks passed.");
     await browser.close();
   } catch (error) {
     console.error("FAIL:", error.message);
