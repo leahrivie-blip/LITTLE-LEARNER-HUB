@@ -343,16 +343,22 @@ async function main() {
     await page.waitForSelector("#view-planner.active-view", { timeout: 10000 });
     await page.click('#weeklyPlannerApp [data-view-resource]');
     await page.waitForSelector("#resourceViewerModal.lesson-workspace-mode.open", { timeout: 10000 });
-    const plannerBack = await page.locator("[data-lesson-workspace-back]").innerText();
+    const plannerBack = await page.locator(".lesson-workspace-back[data-lesson-workspace-back]").innerText();
     assert(/Calendar/i.test(plannerBack), `weekly planner lesson back should point to calendar, got: ${plannerBack}`);
-    await page.click("[data-lesson-workspace-back]");
+    await page.click(".lesson-workspace-back[data-lesson-workspace-back]");
     await page.waitForSelector("#view-planner.active-view", { timeout: 5000 });
 
     console.log("6) Print/download action bar fires distinct workflows");
     await page.click('#weeklyPlannerApp [data-view-resource]');
     await page.waitForSelector("#resourceViewerModal.lesson-workspace-mode.open", { timeout: 10000 });
-    const expectBarOutputRequest = async (selector, expected) => {
-      await page.locator(`[data-lesson-action-bars="top"] ${selector}`).first().click();
+    const expectBarOutputRequest = async (selector, expected, { openMore = false } = {}) => {
+      if (openMore) {
+        await page.locator("[data-lesson-workspace-more-toggle]").click();
+        await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 5000 });
+        await page.locator(`.lesson-workspace-more-menu ${selector}`).first().click();
+      } else {
+        await page.locator(`[data-lesson-action-bars="top"] ${selector}`).first().click();
+      }
       await page.waitForTimeout(50);
       const request = await page.evaluate(() => window.__llhLastResourceOutputRequest || null);
       assert(request, `missing resource output request after ${selector}`);
@@ -360,8 +366,8 @@ async function main() {
       assert(request.printVariant === expected.printVariant, `${selector} variant mismatch: ${JSON.stringify(request)}`);
     };
     await expectBarOutputRequest('[data-lesson-print-variant="week"]', { mode: "print", printVariant: "week" });
-    await expectBarOutputRequest('[data-lesson-download-variant="week"]', { mode: "download", printVariant: "week" });
-    await expectBarOutputRequest('[data-lesson-download-variant="full"]', { mode: "download", printVariant: "full" });
+    await expectBarOutputRequest('[data-lesson-download-variant="week"]', { mode: "download", printVariant: "week" }, { openMore: true });
+    await expectBarOutputRequest('[data-lesson-download-variant="full"]', { mode: "download", printVariant: "full" }, { openMore: true });
     await expectBarOutputRequest('[data-download-pdf]', { mode: "download", printVariant: "full" });
 
     console.log("7) Locked Pro preview closes with Escape");

@@ -188,6 +188,7 @@ async function main() {
         hasPrintWeekly: Boolean(document.querySelector('[data-lesson-action-bars="top"] [data-lesson-print-variant="week"]')),
         hasDownloadWeekly: Boolean(document.querySelector('[data-lesson-action-bars="top"] [data-lesson-download-variant="week"]')),
         hasBottomBar: Boolean(document.querySelector('[data-lesson-action-bars="bottom"]')),
+        actionBarCount: document.querySelectorAll(".lesson-workspace-action-bars").length,
         hasMore: Boolean(document.querySelector("[data-lesson-workspace-more-toggle]")),
         tabs,
         dayTabs,
@@ -205,8 +206,9 @@ async function main() {
     assert(workspace.hasBack, "workspace back button missing");
     assert(workspace.hasAddToCalendar && workspace.hasAddToMyWeek && workspace.hasEdit, "primary actions missing");
     assert(workspace.hasPrintWeekly && workspace.hasDownloadWeekly, "print/download weekly actions missing");
-    assert(workspace.hasBottomBar, "bottom action bar missing");
-    assert(!workspace.hasMore, "legacy More menu should be removed");
+    assert(!workspace.hasBottomBar, "duplicate bottom action bar should be removed");
+    assert(workspace.actionBarCount === 1, "exactly one action bar should render");
+    assert(workspace.hasMore, "More actions menu should be present");
     assert(workspace.toolbarHidden, "duplicate toolbar should be hidden for lessons");
     assert(workspace.tabs.join(",") === "Week,Plan,Activities,Materials", `unexpected tabs: ${workspace.tabs.join(",")}`);
     assert(workspace.weekPanelActive, "Week tab should be active by default");

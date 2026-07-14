@@ -2662,6 +2662,22 @@ function billingPriceLabel(account = currentAccount()) {
   return "$0/month";
 }
 
+function repairFoundingMemberPricing(account = null) {
+  if (!account) return account;
+  const foundingActive = Boolean(account.foundingMemberActive)
+    || (normalizeBillingPlan(account.plan, account) === "Founding" && accountHasPaidBilling(account));
+  if (!foundingActive || !accountHasPaidBilling(account)) return account;
+  return {
+    ...account,
+    plan: "Founding",
+    monthlyPrice: "$9.99/month",
+    priceLock: "Lifetime",
+    foundingMemberActive: true,
+    foundingMemberHistorical: true,
+    foundingMember: true,
+  };
+}
+
 function foundingMembers() {
   return readSavedJson("llhFoundingMembers", []);
 }
@@ -2819,6 +2835,8 @@ function isFoundingSubscription(subscription) {
   const pendingPlan = String(subscription.pendingPlan || "").trim().toLowerCase();
   if (serverPlan === "founding" && accountHasRemainingPaidAccess(subscription)) return true;
   if (pendingPlan === "founding" && accountHasRemainingPaidAccess(subscription)) return true;
+  const status = String(subscription.subscriptionStatus || "").toLowerCase();
+  if (status.includes("founding") && accountHasRemainingPaidAccess(subscription)) return true;
   return false;
 }
 
@@ -2907,7 +2925,15 @@ async function syncSubscriptionFromBackend(email, options = {}) {
       if (options.renderFounding) refreshFoundingDisplays();
       return data;
     }
+    // Preserve / adopt accountType + role from server when present.
+    if (data?.subscription?.accountType) {
+      updates.accountType = normalizeAccountType(data.subscription.accountType);
+    }
+    if (data?.subscription?.role) {
+      updates.role = normalizeUserRole(data.subscription.role);
+    }
     updateAccount(cleanEmail, updates);
+    ensureAccountAccessMigrated(cleanEmail);
     if (cleanEmail === currentUser) {
       currentPlan = updates.plan;
       localStorage.setItem("llhPlan", currentPlan);
@@ -3411,11 +3437,12 @@ const sidebarViewAliases = {
   "documentation-daily-reports": "children",
   "documentation-newsletters": "ai",
   "documentation-contracts": "forms",
-  "resource-search": "home",
+  "resource-search": "calendar",
   portfolio: "children",
   membership: "billing",
-  settings: "account",
   help: "contact",
+  "support-licensing": "resources",
+  "provider-resources": "resources",
 };
 
 const sidebarFutureToolTargets = {
@@ -7327,6 +7354,205 @@ function currentAccount() {
   return accounts()[currentUser] || null;
 }
 
+// ─── Account Type + User Role (mirrors scripts/account-access.js) ───────────
+// Account Type (home_daycare | center) is separate from User Role
+// (owner | director | teacher | assistant). Subscription/plan checks stay separate.
+const ACCOUNT_TYPES = Object.freeze({
+  HOME_DAYCARE: "home_daycare",
+  CENTER: "center",
+});
+
+/** Reserved — see docs/FUTURE_ONBOARDING_PRICING.md (not active yet). */
+const FUTURE_ACCOUNT_TYPES = Object.freeze({
+  CURRICULUM_ONLY: "curriculum_only",
+});
+
+const USER_ROLES = Object.freeze({
+  OWNER: "owner",
+  DIRECTOR: "director",
+  TEACHER: "teacher",
+  ASSISTANT: "assistant",
+});
+
+const PLATFORM_CAPABILITIES = Object.freeze([
+  "calendar",
+  "lesson_plans",
+  "daily_logs",
+  "child_profiles",
+  "activity_library",
+  "documentation_helpers",
+  "forms",
+  "reports",
+  "resources",
+  "settings",
+  "staff_management",
+  "billing",
+  "permissions",
+  "classrooms",
+  "families",
+  "enrollment",
+]);
+
+const ACCOUNT_TYPE_ALIASES = Object.freeze({
+  home_daycare: ACCOUNT_TYPES.HOME_DAYCARE,
+  "home daycare": ACCOUNT_TYPES.HOME_DAYCARE,
+  homedaycare: ACCOUNT_TYPES.HOME_DAYCARE,
+  "family childcare": ACCOUNT_TYPES.HOME_DAYCARE,
+  "family child care": ACCOUNT_TYPES.HOME_DAYCARE,
+  family_childcare: ACCOUNT_TYPES.HOME_DAYCARE,
+  center: ACCOUNT_TYPES.CENTER,
+  "childcare center": ACCOUNT_TYPES.CENTER,
+  "child care center": ACCOUNT_TYPES.CENTER,
+  childcare_center: ACCOUNT_TYPES.CENTER,
+  preschool: ACCOUNT_TYPES.CENTER,
+  "preschool classroom": ACCOUNT_TYPES.CENTER,
+  "after school program": ACCOUNT_TYPES.CENTER,
+  after_school: ACCOUNT_TYPES.CENTER,
+  other: ACCOUNT_TYPES.HOME_DAYCARE,
+});
+
+const USER_ROLE_ALIASES = Object.freeze({
+  owner: USER_ROLES.OWNER,
+  director: USER_ROLES.DIRECTOR,
+  teacher: USER_ROLES.TEACHER,
+  "lead teacher": USER_ROLES.TEACHER,
+  lead_teacher: USER_ROLES.TEACHER,
+  assistant: USER_ROLES.ASSISTANT,
+  "co-teacher": USER_ROLES.TEACHER,
+  coteacher: USER_ROLES.TEACHER,
+  "family helper": USER_ROLES.ASSISTANT,
+  substitute: USER_ROLES.ASSISTANT,
+});
+
+function normalizeAccountType(value, fallback = ACCOUNT_TYPES.HOME_DAYCARE) {
+  const key = String(value || "").trim().toLowerCase();
+  if (!key) return fallback;
+  return ACCOUNT_TYPE_ALIASES[key] || fallback;
+}
+
+function normalizeUserRole(value, fallback = USER_ROLES.OWNER) {
+  const key = String(value || "").trim().toLowerCase();
+  if (!key) return fallback;
+  return USER_ROLE_ALIASES[key] || fallback;
+}
+
+function mapProgramTypeToAccountType(programType) {
+  return normalizeAccountType(programType, ACCOUNT_TYPES.HOME_DAYCARE);
+}
+
+function resolveAccountType(account = {}) {
+  if (account?.accountType) return normalizeAccountType(account.accountType);
+  const programType = account?.programSettings?.programType;
+  if (programType) return mapProgramTypeToAccountType(programType);
+  return ACCOUNT_TYPES.HOME_DAYCARE;
+}
+
+function resolveUserRole(account = {}) {
+  if (account?.role) return normalizeUserRole(account.role);
+  if (account?.userRole) return normalizeUserRole(account.userRole);
+  return USER_ROLES.OWNER;
+}
+
+function roleAllowsCapability(role, capability) {
+  const r = normalizeUserRole(role);
+  switch (capability) {
+    case "calendar":
+    case "lesson_plans":
+    case "daily_logs":
+    case "child_profiles":
+    case "activity_library":
+    case "documentation_helpers":
+    case "forms":
+    case "reports":
+    case "resources":
+    case "settings":
+      return true;
+    case "staff_management":
+    case "permissions":
+      return r === USER_ROLES.OWNER || r === USER_ROLES.DIRECTOR;
+    case "billing":
+      return r === USER_ROLES.OWNER;
+    case "classrooms":
+    case "families":
+    case "enrollment":
+      return r === USER_ROLES.OWNER || r === USER_ROLES.DIRECTOR;
+    default:
+      return false;
+  }
+}
+
+function accountTypeAllowsCapability(accountType, capability) {
+  const type = normalizeAccountType(accountType);
+  if (capability === "classrooms" || capability === "families" || capability === "enrollment") {
+    return type === ACCOUNT_TYPES.CENTER;
+  }
+  return true;
+}
+
+function canAccessCapability(account, capability, options = {}) {
+  if (!capability || !PLATFORM_CAPABILITIES.includes(capability)) return false;
+  if (options.adminOverride === true) return true;
+  if (!account) return false;
+  const accountType = resolveAccountType(account);
+  const role = resolveUserRole(account);
+  if (!accountTypeAllowsCapability(accountType, capability)) return false;
+  if (!roleAllowsCapability(role, capability)) return false;
+  return true;
+}
+
+function migrateAccountAccessFields(account = {}) {
+  const accountType = resolveAccountType(account);
+  const role = resolveUserRole(account);
+  const changed = account.accountType !== accountType || account.role !== role;
+  return {
+    accountType,
+    role,
+    changed,
+    updates: changed ? { accountType, role } : {},
+  };
+}
+
+function defaultAccountAccessFields() {
+  return {
+    accountType: ACCOUNT_TYPES.HOME_DAYCARE,
+    role: USER_ROLES.OWNER,
+  };
+}
+
+/** Current session account type. Guests default to home_daycare. */
+function getAccountType(account = currentAccount()) {
+  if (!account) return ACCOUNT_TYPES.HOME_DAYCARE;
+  return resolveAccountType(account);
+}
+
+/** Current session user role. Guests default to owner for read-only marketing paths. */
+function getUserRole(account = currentAccount()) {
+  if (!account) return USER_ROLES.OWNER;
+  return resolveUserRole(account);
+}
+
+/**
+ * Platform feature gate (roles + account type).
+ * Distinct from canAccess(resource) which gates Free vs Pro library content.
+ */
+function canAccessPlatformFeature(capability, account = currentAccount()) {
+  return canAccessCapability(account, capability, {
+    adminOverride: typeof hasAdminFullAccess === "function" && hasAdminFullAccess(),
+  });
+}
+
+function ensureAccountAccessMigrated(email = currentUser) {
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  if (!cleanEmail) return null;
+  const account = ensureAccount(cleanEmail);
+  if (!account) return null;
+  const migration = migrateAccountAccessFields(account);
+  if (migration.changed) {
+    return updateAccount(cleanEmail, migration.updates);
+  }
+  return account;
+}
+
 function ensureAccount(email) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail) return null;
@@ -7351,6 +7577,7 @@ function ensureAccount(email) {
       authProvider: authProviderName,
       emailVerified: !firebaseAuthEnabled,
       passwordHash: "",
+      ...defaultAccountAccessFields(),
       createdAt: new Date().toISOString(),
     };
     saveAccounts(allAccounts);
@@ -7363,11 +7590,11 @@ function updateAccount(email, updates) {
   if (!cleanEmail) return null;
   const allAccounts = accounts();
   const account = allAccounts[cleanEmail] || ensureAccount(cleanEmail);
-  allAccounts[cleanEmail] = {
+  allAccounts[cleanEmail] = repairFoundingMemberPricing({
     ...account,
     ...updates,
     updatedAt: new Date().toISOString(),
-  };
+  });
   saveAccounts(allAccounts);
   return allAccounts[cleanEmail];
 }
@@ -7379,14 +7606,33 @@ function getProgramSettings() {
 
 function saveProgramSettings(data) {
   if (!currentUser) return;
-  updateAccount(currentUser, { programSettings: data });
+  const account = currentAccount() || ensureAccount(currentUser);
+  const nextSettings = data && typeof data === "object" ? data : {};
+  const updates = { programSettings: nextSettings };
+  // Keep accountType in sync with Program Settings programType when present.
+  // Explicit accountType already set to center/home_daycare still follows programType on save
+  // so providers who update Program Type get the matching account type.
+  if (nextSettings.programType) {
+    updates.accountType = mapProgramTypeToAccountType(nextSettings.programType);
+  }
+  const migration = migrateAccountAccessFields({ ...account, ...updates });
+  if (!updates.accountType) updates.accountType = migration.accountType;
+  if (!account?.role) updates.role = migration.role;
+  updateAccount(currentUser, updates);
 }
 
 function loadAccountState(email) {
   const account = ensureAccount(email);
   if (!account) return;
   currentUser = account.email;
-  currentPlan = normalizeBillingPlan(account.plan || (account.foundingMember ? "Founding" : "Free"), account);
+  // Backfill accountType + role for existing accounts (defaults: home_daycare / owner).
+  ensureAccountAccessMigrated(account.email);
+  // Repair stale $19.99 on continuously active founding members.
+  const repaired = repairFoundingMemberPricing(account);
+  if (repaired && (repaired.monthlyPrice !== account.monthlyPrice || repaired.plan !== account.plan)) {
+    updateAccount(account.email, repaired);
+  }
+  currentPlan = normalizeBillingPlan((repaired || account).plan || (account.foundingMember ? "Founding" : "Free"), repaired || account);
   if (currentPlan === "Free" && (account.plan !== "Free" || account.monthlyPrice !== "$0/month")) {
     updateAccount(account.email, {
       plan: "Free",
@@ -7395,9 +7641,10 @@ function loadAccountState(email) {
       priceLock: "",
     });
   }
-  favorites = account.favorites || [];
-  savedDownloads = account.downloads || [];
-  localStorage.setItem("llhGeneratedOutputs", JSON.stringify(account.generatedOutputs || []));
+  const refreshed = accounts()[account.email] || repaired || account;
+  favorites = refreshed.favorites || [];
+  savedDownloads = refreshed.downloads || [];
+  localStorage.setItem("llhGeneratedOutputs", JSON.stringify(refreshed.generatedOutputs || []));
   localStorage.setItem("llhUser", currentUser);
   localStorage.setItem("llhPlan", currentPlan);
   localStorage.setItem("llhFavorites", JSON.stringify(favorites));
@@ -7429,8 +7676,10 @@ function saveCurrentAccountState() {
       ? account?.subscriptionStatus || `${billingPlanLabel(normalizedPlan)} Subscription Active`
       : "Free Plan",
     subscriptionCadence: paidBilling ? account?.subscriptionCadence || "" : "",
-    monthlyPrice: paidBilling ? account?.monthlyPrice || billingPriceLabel({ ...account, plan: normalizedPlan }) : "$0/month",
-    priceLock: paidBilling ? account?.priceLock || "" : "",
+    monthlyPrice: paidBilling ? billingPriceLabel({ ...account, plan: normalizedPlan }) : "$0/month",
+    priceLock: paidBilling
+      ? (normalizedPlan === "Founding" || account?.foundingMemberActive ? "Lifetime" : (account?.priceLock || ""))
+      : "",
     favorites,
     downloads: savedDownloads,
     generatedOutputs: generatedOutputs(),
@@ -7613,7 +7862,7 @@ function updateAuthButtons() {
   if (!signIn || !signUp) return;
   if (currentUser) {
     signIn.textContent = "Account";
-    signIn.dataset.view = "account";
+    signIn.dataset.view = "settings";
     signUp.textContent = isProUser() ? `${billingPlanLabel()} Active` : "Upgrade";
     signUp.dataset.view = isProUser() ? "billing" : "plans";
   } else {
@@ -7623,7 +7872,71 @@ function updateAuthButtons() {
     delete signUp.dataset.view;
   }
   updateAdminNavVisibility();
+  syncPlatformNavVisibility();
   updateBodyAuthClass();
+}
+
+/** Map SPA views to platform capabilities for role/account-type guards. */
+const viewCapabilityRequirements = Object.freeze({
+  staff: "staff_management",
+  classrooms: "classrooms",
+  families: "families",
+  enrollment: "enrollment",
+  billing: "billing",
+  subscription: "billing",
+  "billing-history": "billing",
+  "cancel-subscription": "billing",
+});
+
+function capabilityRequiredForView(view) {
+  return viewCapabilityRequirements[resolveSidebarView(view)] || viewCapabilityRequirements[view] || "";
+}
+
+function canOpenViewForCurrentAccess(view) {
+  const capability = capabilityRequiredForView(view);
+  if (!capability) return true;
+  return canAccessPlatformFeature(capability);
+}
+
+/**
+ * Show/hide sidebar items from accountType + role capabilities.
+ * No separate Director Tools section — items appear only when allowed.
+ */
+function syncPlatformNavVisibility() {
+  const account = currentAccount();
+  document.querySelectorAll("[data-nav-capability]").forEach((button) => {
+    const capability = button.getAttribute("data-nav-capability");
+    const allowed = !capability || canAccessCapability(account, capability, {
+      adminOverride: typeof hasAdminFullAccess === "function" && hasAdminFullAccess(),
+    });
+    button.hidden = !allowed;
+    button.setAttribute("aria-hidden", allowed ? "false" : "true");
+    if (allowed) button.removeAttribute("tabindex");
+    else button.setAttribute("tabindex", "-1");
+  });
+  document.querySelectorAll("[data-nav-section]").forEach((section) => {
+    const hasVisibleLink = Array.from(section.querySelectorAll(".nav-link")).some((link) => !link.hidden);
+    section.hidden = !hasVisibleLink;
+  });
+  syncCurriculumPlannerNavVisibility();
+}
+
+function isPlatformNavActive(buttonView, requestedView, resolvedView) {
+  if (!buttonView) return false;
+  if (buttonView === requestedView) return true;
+  if (buttonView === resolvedView) return true;
+  if (buttonView === "resources" && ["resources", "support-center", "menus", "observations"].includes(resolvedView)) {
+    return true;
+  }
+  if (
+    buttonView === "settings"
+    && ["settings", "account", "program-settings", "forms-settings", "curriculum-settings", "billing", "subscription", "billing-history", "contact", "faq", "plans", "upgrade", "staff", "cancel-subscription"].includes(resolvedView)
+  ) {
+    return true;
+  }
+  if (buttonView === "calendar" && resolvedView === "planner") return true;
+  if (buttonView === "ai" && resolvedView === "generators") return true;
+  return false;
 }
 
 function installPromptState() {
@@ -7925,6 +8238,15 @@ function setView(view, options = {}) {
     openAuthModal("login");
     return;
   }
+  // Role / account-type guard for management surfaces.
+  if (
+    isLoggedIn()
+    && !options.skipAccessRedirect
+    && !canOpenViewForCurrentAccess(resolvedView)
+    && !canOpenViewForCurrentAccess(requestedView)
+  ) {
+    return setView("calendar", { ...options, skipAccessRedirect: true });
+  }
   const proViews = {
     tools: "Provider business tools",
     favorites: "Saved Favorites",
@@ -7970,9 +8292,10 @@ function setView(view, options = {}) {
   document.body.classList.toggle("lesson-editor-view", resolvedView === "lesson-editor");
   document.body.classList.toggle("curriculum-planner-retired", !isCurriculumPlannerLegacyEnabled());
   syncCurriculumPlannerNavVisibility();
+  syncPlatformNavVisibility();
   requestAnimationFrame(() => syncTopbarMetrics());
   document.querySelectorAll(".nav-link").forEach((button) => {
-    button.classList.toggle("active", button.dataset.view === requestedView);
+    button.classList.toggle("active", isPlatformNavActive(button.dataset.view, requestedView, resolvedView));
   });
   if (viewMap[resolvedView]) renderCategoryPage(resolvedView);
   if ((resolvedView === "lessons" || resolvedView === "activities") && canUseLaunchBackend() && isLoggedIn()) {
@@ -8025,6 +8348,14 @@ function setView(view, options = {}) {
   if (resolvedView === "tools") renderFutureTools(requestedFutureTool || undefined);
   if (resolvedView === "children") renderChildManagement();
   if (resolvedView === "support-center") renderSupportCenterPage();
+  if (resolvedView === "resources") renderResourcesHubPage();
+  if (resolvedView === "settings") renderSettingsHubPage();
+  if (resolvedView === "forms-settings") renderFormsSettingsPage();
+  if (resolvedView === "curriculum-settings") renderCurriculumSettingsPage();
+  if (resolvedView === "staff") renderStaffPlaceholderPage();
+  if (resolvedView === "classrooms") renderCenterPlaceholderPage("classrooms");
+  if (resolvedView === "families") renderCenterPlaceholderPage("families");
+  if (resolvedView === "enrollment") renderCenterPlaceholderPage("enrollment");
   if (resolvedView === "planner") {
     // Honor an explicit target week (e.g. from a future-week assign or Calendar's
     // week detail) so Weekly Planner opens on that week instead of always "this
@@ -8432,51 +8763,236 @@ function quickActionTime() {
   return new Date().toTimeString().slice(0, 5);
 }
 
-function saveDailyLogQuickAction(actionId, childId) {
+/** Prefer the Daily Logs dashboard date when logging from that workspace. */
+function dlcActiveDate() {
+  return dlcDashboardDate || new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * Attendance state for one child on a date.
+ * "not_arrived" | "checked_in" | "checked_out" | "absent"
+ */
+function getChildAttendanceState(child, records, today = dlcActiveDate()) {
+  const attendance = (records.attendance || [])
+    .filter((item) => item.childId === child.id && item.date === today)
+    .slice(-1)[0];
+  if (!attendance) return "not_arrived";
+  if (String(attendance.status || "").toLowerCase() === "absent") return "absent";
+  if (attendance.pickup) return "checked_out";
+  if (attendance.dropoff || String(attendance.status || "").toLowerCase() === "present") return "checked_in";
+  return "not_arrived";
+}
+
+function getChildAttendanceRecord(child, records, today = dlcActiveDate()) {
+  return (records.attendance || [])
+    .filter((item) => item.childId === child.id && item.date === today)
+    .slice(-1)[0] || null;
+}
+
+function formatDlcClock(value) {
+  if (!value) return "";
+  return dlcFormatTime(value) || String(value);
+}
+
+function saveDailyLogQuickAction(actionId, childId, options = {}) {
   const child = childRecords().children.find((item) => item.id === childId);
   if (!child) return;
-  const today = new Date().toISOString().slice(0, 10);
-  const time = quickActionTime();
+  const today = options.date || dlcActiveDate();
+  const time = options.time || quickActionTime();
   if (actionId === "check-in") {
-    appendChildRecord("Attendance", { childId, date: today, status: "Present", dropoff: time, title: `Attendance | ${today}`, summary: `Present at ${time}`, shareWithFamily: false });
+    const attendance = childStore("Attendance");
+    const existing = attendance.slice().reverse().find((item) => item.childId === childId && item.date === today);
+    if (existing) {
+      saveChildStore("Attendance", attendance.map((item) => (
+        item.id === existing.id
+          ? {
+              ...item,
+              status: "Present",
+              dropoff: item.dropoff || time,
+              pickup: "",
+              summary: `Present at ${item.dropoff || time}`,
+            }
+          : item
+      )));
+      return;
+    }
+    appendChildRecord("Attendance", {
+      childId,
+      date: today,
+      status: "Present",
+      dropoff: time,
+      title: `Attendance | ${today}`,
+      summary: `Present at ${time}`,
+      shareWithFamily: false,
+    });
     return;
   }
   if (actionId === "check-out") {
     const attendance = childStore("Attendance");
     const existing = attendance.slice().reverse().find((item) => item.childId === childId && item.date === today);
     if (existing) {
-      saveChildStore("Attendance", attendance.map((item) => item.id === existing.id ? { ...item, pickup: time, summary: item.status ? `${item.status} until ${time}` : `Checked out at ${time}` } : item));
+      saveChildStore("Attendance", attendance.map((item) => (
+        item.id === existing.id
+          ? {
+              ...item,
+              status: item.status === "Absent" ? "Present" : (item.status || "Present"),
+              pickup: time,
+              summary: item.dropoff ? `Present ${item.dropoff}–${time}` : `Checked out at ${time}`,
+            }
+          : item
+      )));
       return;
     }
-    appendChildRecord("Attendance", { childId, date: today, status: "Present", pickup: time, title: `Attendance | ${today}`, summary: `Checked out at ${time}`, shareWithFamily: false });
+    appendChildRecord("Attendance", {
+      childId,
+      date: today,
+      status: "Present",
+      pickup: time,
+      title: `Attendance | ${today}`,
+      summary: `Checked out at ${time}`,
+      shareWithFamily: false,
+    });
+    return;
+  }
+  if (actionId === "absent") {
+    const attendance = childStore("Attendance");
+    const existing = attendance.slice().reverse().find((item) => item.childId === childId && item.date === today);
+    if (existing) {
+      saveChildStore("Attendance", attendance.map((item) => (
+        item.id === existing.id
+          ? {
+              ...item,
+              status: "Absent",
+              dropoff: "",
+              pickup: "",
+              summary: "Absent",
+            }
+          : item
+      )));
+      return;
+    }
+    appendChildRecord("Attendance", {
+      childId,
+      date: today,
+      status: "Absent",
+      title: `Attendance | ${today}`,
+      summary: "Absent",
+      shareWithFamily: false,
+    });
     return;
   }
   if (actionId === "ate-all" || actionId === "ate-most") {
     appendChildRecord("Meals", { childId, date: today, lunch: actionId === "ate-all" ? "Ate all" : "Ate most", title: `Meals | ${today}`, summary: actionId === "ate-all" ? "Lunch: Ate all" : "Lunch: Ate most", shareWithFamily: true });
     return;
   }
-  if (actionId === "bottle") {
-    appendChildRecord("Meals", { childId, date: today, time, type: "Bottle", amount: "Logged", title: `Bottle | ${today} at ${time}`, summary: "Bottle logged", shareWithFamily: true });
-    return;
-  }
-  if (["wet-diaper", "bm", "potty"].includes(actionId)) {
-    const typeMap = { "wet-diaper": "Wet", bm: "Dirty", potty: "Potty - Success" };
-    appendChildRecord("Diapers", { childId, date: today, time, type: typeMap[actionId], title: `${typeMap[actionId]} | ${today} at ${time}`, summary: typeMap[actionId], shareWithFamily: true });
-    return;
-  }
-  if (actionId === "nap-started" || actionId === "nap-ended") {
-    appendChildRecord("Naps", {
+  if (actionId === "meal" || actionId === "breakfast" || actionId === "snack") {
+    const mealField = actionId === "breakfast" ? "breakfast" : actionId === "snack" ? "snack" : "lunch";
+    appendChildRecord("Meals", {
       childId,
       date: today,
-      ...(actionId === "nap-started" ? { napStart: time } : { napEnd: time }),
-      title: `Nap | ${today}`,
-      summary: actionId === "nap-started" ? `Nap started at ${time}` : `Nap ended at ${time}`,
+      time,
+      [mealField]: "Logged",
+      title: `Meals | ${today}`,
+      summary: `${mealField[0].toUpperCase()}${mealField.slice(1)} logged`,
       shareWithFamily: true,
     });
     return;
   }
-  if (actionId === "happy" || actionId === "tired") {
+  if (actionId === "bottle") {
+    appendChildRecord("Meals", { childId, date: today, time, type: "Bottle", amount: "Logged", title: `Bottle | ${today} at ${time}`, summary: "Bottle logged", shareWithFamily: true });
+    return;
+  }
+  if (["wet-diaper", "bm", "potty", "diaper"].includes(actionId)) {
+    const typeMap = { "wet-diaper": "Wet", bm: "Dirty", potty: "Potty - Success", diaper: "Diaper Change" };
+    appendChildRecord("Diapers", { childId, date: today, time, type: typeMap[actionId], title: `${typeMap[actionId]} | ${today} at ${time}`, summary: typeMap[actionId], shareWithFamily: true });
+    return;
+  }
+  if (actionId === "nap-started" || actionId === "nap-ended" || actionId === "nap") {
+    appendChildRecord("Naps", {
+      childId,
+      date: today,
+      ...(actionId === "nap-ended" ? { napEnd: time } : { napStart: time }),
+      title: `Nap | ${today}`,
+      summary: actionId === "nap-ended" ? `Nap ended at ${time}` : `Nap started at ${time}`,
+      shareWithFamily: true,
+    });
+    return;
+  }
+  if (actionId === "happy" || actionId === "tired" || actionId === "observation") {
+    if (actionId === "observation") {
+      appendChildRecord("Observations", {
+        childId,
+        date: today,
+        text: "Observation noted from Daily Logs",
+        title: `Observation | ${today}`,
+        summary: "Observation noted",
+        shareWithFamily: false,
+      });
+      return;
+    }
     appendChildRecord("Communications", { childId, date: today, type: "Mood Note", mood: actionId === "happy" ? "Happy" : "Tired", title: `Mood | ${today}`, summary: actionId === "happy" ? "Happy" : "Tired", shareWithFamily: true });
+    return;
+  }
+  if (actionId === "incident") {
+    appendChildRecord("Communications", {
+      childId,
+      date: today,
+      time,
+      type: "Incident Report",
+      title: `Incident Report | ${today}`,
+      summary: "Incident noted — open to add details",
+      shareWithFamily: false,
+    });
+    return;
+  }
+  if (actionId === "parent-message") {
+    appendChildRecord("Communications", {
+      childId,
+      date: today,
+      time,
+      type: "Parent Message",
+      title: `Parent Message | ${today}`,
+      summary: "Parent message draft started",
+      message: "",
+      shareWithFamily: true,
+    });
+    return;
+  }
+  if (actionId === "photo") {
+    appendChildRecord("Photos", {
+      childId,
+      date: today,
+      time,
+      caption: "Photo moment",
+      title: `Photo | ${today}`,
+      summary: "Photo placeholder — add image from Photos tab",
+      shareWithFamily: true,
+    });
+    return;
+  }
+  if (actionId === "activity" || actionId === "daily-log") {
+    if (actionId === "daily-log") {
+      appendChildRecord("Communications", {
+        childId,
+        date: today,
+        time,
+        type: "Teacher Note",
+        title: `Daily Log | ${today}`,
+        summary: "Daily note started",
+        message: "",
+        shareWithFamily: false,
+      });
+      return;
+    }
+    appendChildRecord("ActivityLogs", {
+      childId,
+      date: today,
+      time,
+      activity: "Activity",
+      title: `Activity | ${today}`,
+      summary: "Activity logged",
+      shareWithFamily: true,
+    });
     return;
   }
   const activityMap = {
@@ -13013,25 +13529,40 @@ function downloadLessonPlanVariant(printVariant = "week", options = {}) {
   });
 }
 
-function lessonWorkspaceActionBarsHtml(resource, position = "top") {
+function lessonWorkspaceActionBarsHtml(resource) {
   const id = escapeHtml(resource.id);
   const isUserCopy = Boolean(resource._userLessonCopy);
   return `
-    <div class="lesson-workspace-action-bars" data-lesson-action-bars="${escapeHtml(position)}">
+    <div class="lesson-workspace-action-bars" data-lesson-action-bars="top">
       <div class="lesson-workspace-primary-actions" aria-label="Lesson plan actions">
-        <button type="button" class="primary-button" data-edit-lesson-plan="${id}">Edit Lesson Plan</button>
+        <button type="button" class="primary-button" data-lesson-add-to-my-week>Add to My Week</button>
         <button type="button" class="ghost-button" data-lesson-use-this-plan>Add to Calendar</button>
-        <button type="button" class="ghost-button" data-lesson-add-to-my-week>Add to My Week</button>
         <button type="button" class="ghost-button" data-lesson-print-variant="week">Print Weekly Calendar</button>
-        <button type="button" class="ghost-button" data-lesson-download-variant="week">Download Weekly Calendar</button>
-        <button type="button" class="ghost-button" data-lesson-download-variant="full">Download Full Lesson Plan</button>
         <button type="button" class="ghost-button" data-download-pdf="${id}">Download PDF</button>
-      </div>
-      <div class="lesson-workspace-secondary-actions" aria-label="More lesson plan actions">
-        <button type="button" class="ghost-button" data-lesson-duplicate="${id}">Duplicate</button>
-        ${isUserCopy ? `<button type="button" class="ghost-button" data-lesson-archive="${id}">Archive</button>` : ""}
-        ${isUserCopy ? `<button type="button" class="ghost-button lesson-workspace-danger" data-lesson-delete="${id}">Delete Permanently</button>` : ""}
-        <button type="button" class="ghost-button" data-lesson-workspace-back>Back to Library</button>
+        <div class="lesson-workspace-more-wrap">
+          <button type="button" class="ghost-button lesson-workspace-more-btn" data-lesson-workspace-more-toggle aria-expanded="false" aria-haspopup="true">More</button>
+          <div class="lesson-workspace-more-menu" hidden>
+            <div class="lesson-workspace-more-group">
+              <p class="lesson-workspace-more-label">Plan</p>
+              <button type="button" data-edit-lesson-plan="${id}">Edit Lesson Plan</button>
+              <button type="button" data-lesson-duplicate="${id}">Duplicate</button>
+            </div>
+            <div class="lesson-workspace-more-group">
+              <p class="lesson-workspace-more-label">Downloads</p>
+              <button type="button" data-lesson-download-variant="week">Download Weekly Calendar</button>
+              <button type="button" data-lesson-download-variant="full">Download Full Lesson Plan</button>
+            </div>
+            ${isUserCopy ? `
+            <div class="lesson-workspace-more-group">
+              <p class="lesson-workspace-more-label">Manage copy</p>
+              <button type="button" data-lesson-archive="${id}">Archive</button>
+              <button type="button" class="lesson-workspace-danger" data-lesson-delete="${id}">Delete Permanently</button>
+            </div>` : ""}
+            <div class="lesson-workspace-more-group">
+              <button type="button" data-lesson-workspace-back>Back to Library</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   `;
@@ -13129,7 +13660,7 @@ function lessonWorkspaceChromeHtml(resource) {
           <p class="lesson-workspace-meta">${escapeHtml(age)} · ${escapeHtml(planLabel)}</p>
         </div>
       </header>
-      ${lessonWorkspaceActionBarsHtml(resource, "top")}
+      ${lessonWorkspaceActionBarsHtml(resource)}
       <nav class="lesson-workspace-tabs" role="tablist" aria-label="Lesson plan sections">
         ${tabs.map(([id, label]) => `
           <button type="button" role="tab" class="lesson-workspace-tab${lessonWorkspaceTab === id ? " is-active" : ""}" data-lesson-workspace-tab="${id}" aria-selected="${lessonWorkspaceTab === id ? "true" : "false"}">${label}</button>
@@ -13141,7 +13672,6 @@ function lessonWorkspaceChromeHtml(resource) {
         <div class="lesson-workspace-panel${lessonWorkspaceTab === "activities" ? " is-active" : ""}" data-lesson-workspace-panel="activities">${lessonWorkspaceActivitiesTabHtml(plan, resource.id)}</div>
         <div class="lesson-workspace-panel${lessonWorkspaceTab === "materials" ? " is-active" : ""}" data-lesson-workspace-panel="materials">${lessonWorkspaceMaterialsTabHtml(plan, resource)}</div>
       </div>
-      ${lessonWorkspaceActionBarsHtml(resource, "bottom")}
       <div class="lesson-workspace-action-sheet" hidden aria-hidden="true">
         <button type="button" class="lesson-workspace-action-sheet-backdrop" data-lesson-workspace-action-sheet-dismiss aria-label="Close"></button>
         <div class="lesson-workspace-action-sheet-panel" role="dialog" aria-label="Add to Calendar">
@@ -19753,14 +20283,304 @@ function renderSupportCenterPage() {
   section.innerHTML = category ? renderSupportCategoryPage(category) : renderSupportHomePage(records);
 }
 
+function renderResourcesHubPage() {
+  const section = document.querySelector("#view-resources");
+  if (!section) return;
+  section.innerHTML = `
+    <section class="resources-hub-page">
+      <div class="page-title">
+        <p class="eyebrow">Resources</p>
+        <h2>Learn &amp; get help</h2>
+        <p>Behavior guidance, licensing help, and provider support — without cluttering your daily workflow.</p>
+      </div>
+      <div class="resources-hub-grid">
+        <article class="resources-hub-card">
+          <p class="eyebrow">Behavior &amp; Social Emotional</p>
+          <h3>Support strategies for big feelings</h3>
+          <p>Behavior support, emotional regulation, challenging behavior, calm-down ideas, and SEL resources.</p>
+          <div class="resources-hub-actions">
+            <button class="primary-button" type="button" data-view="support-center" data-support-category="behavior-emotions">Open Behavior Support</button>
+            <button class="ghost-button" type="button" data-view="support-center" data-support-category="social-development">Social Development</button>
+          </div>
+        </article>
+        <article class="resources-hub-card">
+          <p class="eyebrow">Licensing Resources</p>
+          <h3>Stay organized for compliance</h3>
+          <p>Build a state licensing checklist customized for your program type and ages served.</p>
+          <div class="resources-hub-actions">
+            <button class="primary-button" type="button" data-future-tool="licensing">Licensing Checklist</button>
+          </div>
+        </article>
+        <article class="resources-hub-card">
+          <p class="eyebrow">Support Resources</p>
+          <h3>Everyday classroom help</h3>
+          <p>Daily routines, developmental support, and quick answers for common childcare challenges.</p>
+          <div class="resources-hub-actions">
+            <button class="primary-button" type="button" data-view="support-center">Open Support Center</button>
+            <button class="ghost-button" type="button" data-view="support-center" data-support-category="daily-routines">Daily Routines</button>
+          </div>
+        </article>
+        <article class="resources-hub-card">
+          <p class="eyebrow">Provider Resources</p>
+          <h3>Menus and classroom extras</h3>
+          <p>Menu planning and other provider tools live here so they stay out of your main daily navigation.</p>
+          <div class="resources-hub-actions">
+            <button class="ghost-button" type="button" data-view="menus">Menu Center</button>
+            <button class="ghost-button" type="button" data-view="observations">Observation Library</button>
+          </div>
+        </article>
+      </div>
+    </section>
+  `;
+}
+
+function renderSettingsHubPage() {
+  const section = document.querySelector("#view-settings");
+  if (!section) return;
+  const canBilling = canAccessPlatformFeature("billing");
+  const canStaff = canAccessPlatformFeature("staff_management");
+  const account = currentAccount();
+  const accountTypeLabel = getAccountType(account) === "center" ? "Center" : "Home Daycare";
+  const roleLabel = String(getUserRole(account) || "owner").replace(/_/g, " ");
+  const groups = [
+    {
+      title: "Account",
+      detail: "Profile, security, and notifications",
+      cards: [
+        { view: "account", title: "Profile & Security", detail: "Email, phone, password, and sign-out" },
+        { view: "account", title: "Notifications", detail: "Choose how Little Learner Hub reminds you", hash: "notifications" },
+      ],
+    },
+    {
+      title: "Membership & Billing",
+      detail: canBilling ? "Plan, payments, and Founding Member status" : "Only account owners manage billing",
+      cards: canBilling
+        ? [
+            { view: "billing", title: "Current Plan & Payment Methods", detail: "Upgrade, downgrade, and payment method" },
+            { view: "subscription", title: "Subscription Status", detail: "Active, trial, or canceling status" },
+            { view: "billing-history", title: "Billing History", detail: "Invoices and payment events" },
+            { view: "plans", title: "Upgrade / Change Plan", detail: "Compare Free, Pro, and Founding options" },
+          ]
+        : [
+            { view: "", title: "Billing managed by owner", detail: "Ask your program owner for plan or payment changes", disabled: true },
+          ],
+    },
+    {
+      title: "Program Settings",
+      detail: "Business information and classroom defaults",
+      cards: [
+        { view: "program-settings", title: "Business Information & Logo", detail: "Program name, contact, hours, ages, and branding" },
+      ],
+    },
+    {
+      title: "Staff & Permissions",
+      detail: canStaff ? "Invite staff and control access" : "Owners and directors manage staff",
+      cards: canStaff
+        ? [
+            { view: "staff", title: "Staff Accounts & Roles", detail: "Invite assistants, teachers, and co-teachers" },
+          ]
+        : [
+            { view: "", title: "Staff tools unavailable", detail: "Your role does not include staff management", disabled: true },
+          ],
+    },
+    {
+      title: "Forms Settings",
+      detail: "Enrollment and paperwork defaults",
+      cards: [
+        { view: "forms-settings", title: "Enrollment & Form Templates", detail: "Digital signatures and paperwork preferences" },
+      ],
+    },
+    {
+      title: "Curriculum Settings",
+      detail: "Calendar and lesson plan defaults",
+      cards: [
+        { view: "curriculum-settings", title: "Calendar & Lesson Plan Defaults", detail: "Week start day and planning preferences" },
+      ],
+    },
+    {
+      title: "Support",
+      detail: "Help without leaving Settings",
+      cards: [
+        { view: "contact", title: "Help Center & Contact Support", detail: "Ask a question or send a feature request" },
+        { view: "faq", title: "Release Notes & FAQ", detail: "Common questions and product updates" },
+        { view: "resources", title: "Provider Resources", detail: "Behavior, licensing, and classroom help" },
+      ],
+    },
+  ];
+  section.innerHTML = `
+    <section class="settings-hub-page">
+      <div class="page-title">
+        <p class="eyebrow">Settings</p>
+        <h2>Configuration &amp; account</h2>
+        <p>Manage your account, program, billing, and support here. Daily work stays in Calendar, Daily Logs, Lesson Plans, and Child Profiles.</p>
+        <p class="settings-hub-identity muted-copy">${escapeHtml(accountTypeLabel)} · ${escapeHtml(roleLabel)}</p>
+      </div>
+      <div class="settings-hub-groups">
+        ${groups.map((group) => `
+          <section class="settings-hub-group">
+            <div class="settings-hub-group-header">
+              <h3>${escapeHtml(group.title)}</h3>
+              <p>${escapeHtml(group.detail)}</p>
+            </div>
+            <div class="settings-hub-grid">
+              ${group.cards.map((card) => card.disabled
+                ? `<div class="settings-hub-card settings-hub-card-disabled"><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></div>`
+                : `<button class="settings-hub-card" type="button" data-view="${escapeHtml(card.view)}"${card.hash ? ` data-settings-anchor="${escapeHtml(card.hash)}"` : ""}><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></button>`
+              ).join("")}
+            </div>
+          </section>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderFormsSettingsPage() {
+  const section = document.querySelector("#view-forms-settings");
+  if (!section) return;
+  const settings = getProgramSettings();
+  section.innerHTML = `
+    <section class="settings-subpage">
+      <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
+      <div class="page-title">
+        <p class="eyebrow">Forms Settings</p>
+        <h2>Enrollment &amp; paperwork defaults</h2>
+        <p>Configure how forms and enrollment paperwork behave for your program.</p>
+      </div>
+      <form id="formsSettingsForm" class="panel-form settings-subpage-form">
+        <label class="settings-check-label"><input type="checkbox" name="digitalSignatures" ${settings.digitalSignatures ? "checked" : ""} /> Enable digital signature fields on forms</label>
+        <label class="settings-check-label"><input type="checkbox" name="enrollmentReminders" ${settings.enrollmentReminders !== false ? "checked" : ""} /> Remind me about incomplete enrollment paperwork</label>
+        <label>Default enrollment packet note
+          <textarea name="enrollmentPacketNote" rows="3" placeholder="Optional note shown when preparing enrollment forms">${escapeHtml(settings.enrollmentPacketNote || "")}</textarea>
+        </label>
+        <label>Preferred form templates
+          <select name="formTemplateFocus">
+            <option value="">No preference</option>
+            <option ${settings.formTemplateFocus === "Enrollment" ? "selected" : ""}>Enrollment</option>
+            <option ${settings.formTemplateFocus === "Daily Operations" ? "selected" : ""}>Daily Operations</option>
+            <option ${settings.formTemplateFocus === "Incident & Safety" ? "selected" : ""}>Incident &amp; Safety</option>
+            <option ${settings.formTemplateFocus === "Parent Communication" ? "selected" : ""}>Parent Communication</option>
+          </select>
+        </label>
+        <div class="account-actions-row">
+          <button class="primary-button" type="submit">Save Forms Settings</button>
+          <button class="ghost-button" data-view="forms" type="button">Open Forms &amp; Paperwork</button>
+        </div>
+        <span class="form-message" id="formsSettingsMessage" aria-live="polite"></span>
+      </form>
+    </section>
+  `;
+}
+
+function renderCurriculumSettingsPage() {
+  const section = document.querySelector("#view-curriculum-settings");
+  if (!section) return;
+  const settings = getProgramSettings();
+  section.innerHTML = `
+    <section class="settings-subpage">
+      <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
+      <div class="page-title">
+        <p class="eyebrow">Curriculum Settings</p>
+        <h2>Calendar &amp; lesson plan defaults</h2>
+        <p>Set planning preferences used by Calendar and Lesson Plans.</p>
+      </div>
+      <form id="curriculumSettingsForm" class="panel-form settings-subpage-form">
+        <label>Week start day
+          <select name="weekStartDay">
+            <option value="monday" ${settings.weekStartDay !== "sunday" ? "selected" : ""}>Monday</option>
+            <option value="sunday" ${settings.weekStartDay === "sunday" ? "selected" : ""}>Sunday</option>
+          </select>
+        </label>
+        <label>Default lesson plan age group
+          <select name="defaultLessonAgeGroup">
+            <option value="">Use child/classroom age when available</option>
+            ${["Infant", "Toddler", "Preschool", "School Age", "Mixed Ages"].map((age) => `
+              <option value="${age}" ${settings.defaultLessonAgeGroup === age ? "selected" : ""}>${age}</option>
+            `).join("")}
+          </select>
+        </label>
+        <label class="settings-check-label"><input type="checkbox" name="showHolidaysOnCalendar" ${settings.showHolidaysOnCalendar !== false ? "checked" : ""} /> Show holiday reminders on Calendar</label>
+        <label class="settings-check-label"><input type="checkbox" name="preferWeeklyPlanner" ${settings.preferWeeklyPlanner ? "checked" : ""} /> Prefer Weekly Planner after assigning a lesson plan</label>
+        <div class="account-actions-row">
+          <button class="primary-button" type="submit">Save Curriculum Settings</button>
+          <button class="ghost-button" data-view="calendar" type="button">Open Calendar</button>
+          <button class="ghost-button" data-view="lessons" type="button">Open Lesson Plans</button>
+        </div>
+        <span class="form-message" id="curriculumSettingsMessage" aria-live="polite"></span>
+      </form>
+    </section>
+  `;
+}
+
+function renderStaffPlaceholderPage() {
+  const section = document.querySelector("#view-staff");
+  if (!section) return;
+  section.innerHTML = `
+    <section class="platform-placeholder-page">
+      <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
+      <div class="page-title">
+        <p class="eyebrow">Staff &amp; Permissions</p>
+        <h2>Staff management</h2>
+        <p>Invite assistants, co-teachers, family helpers, and substitutes. Full invite flow lands next — Home Daycare and Center owners can both add staff.</p>
+      </div>
+      <div class="platform-placeholder-card">
+        <p>Coming next: invite staff by email, assign roles (Owner, Director, Teacher, Assistant), and control classroom assignments and permissions.</p>
+        <div class="resources-hub-actions">
+          <button class="ghost-button" type="button" data-view="settings">Back to Settings</button>
+          <button class="ghost-button" type="button" data-view="program-settings">Program Settings</button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderCenterPlaceholderPage(kind = "classrooms") {
+  const section = document.querySelector(`#view-${kind}`);
+  if (!section) return;
+  const copy = {
+    classrooms: {
+      eyebrow: "Classrooms",
+      title: "Classroom management",
+      detail: "Centers can organize multiple classrooms, assignments, and room-level schedules here.",
+    },
+    families: {
+      eyebrow: "Families",
+      title: "Family management",
+      detail: "Centers can manage family contacts and household relationships here.",
+    },
+    enrollment: {
+      eyebrow: "Enrollment",
+      title: "Enrollment management",
+      detail: "Centers can track inquiries, enrollment paperwork, and classroom placement here.",
+    },
+  }[kind] || { eyebrow: "Center", title: "Center tools", detail: "Center management tools are coming soon." };
+  section.innerHTML = `
+    <section class="platform-placeholder-page">
+      <div class="page-title">
+        <p class="eyebrow">${escapeHtml(copy.eyebrow)}</p>
+        <h2>${escapeHtml(copy.title)}</h2>
+        <p>${escapeHtml(copy.detail)}</p>
+      </div>
+      <div class="platform-placeholder-card">
+        <p>These Center tools appear only for Center accounts with Owner or Director access. Home Daycare programs keep the core workflow without this extra navigation.</p>
+        <div class="resources-hub-actions">
+          <button class="primary-button" type="button" data-view="calendar">Open Calendar</button>
+          <button class="ghost-button" type="button" data-view="settings">Settings</button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
 function renderSupportHomePage(records = childRecords()) {
   const currentChild = selectedChild(records);
   const childSupportAreas = currentChild ? childSelectedSupportAreas(currentChild).slice(0, 3) : [];
   const searchResults = supportSearchResults(supportCenterSearch);
   return `
     <section class="support-center-page">
+      <button class="ghost-button back-button" data-view="resources" type="button">← Back to Resources</button>
       <div class="page-title support-center-title">
-        <p class="eyebrow">Support Center</p>
+        <p class="eyebrow">Support Resources</p>
         <h2>Quick help for common childcare challenges.</h2>
         <p>Pick one area, then open only the details you need.</p>
       </div>
@@ -19806,9 +20626,9 @@ function renderSupportHomePage(records = childRecords()) {
 function renderSupportCategoryPage(category) {
   return `
     <section class="support-center-page">
-      <button class="ghost-button back-button" data-support-home type="button">← Back to Support Center</button>
+      <button class="ghost-button back-button" data-support-home type="button">← Back to Support Resources</button>
       <div class="page-title support-center-title">
-        <p class="eyebrow">Support Center</p>
+        <p class="eyebrow">Support Resources</p>
         <h2>${escapeHtml(category.title)}</h2>
         <p>${escapeHtml(category.detail)}</p>
       </div>
@@ -22113,62 +22933,86 @@ function getDailyLogStatus(child, records, today) {
   return "in-progress";
 }
 
-// Render a child status card for the Daily Logs dashboard
+function attendanceStateMeta(state) {
+  return {
+    not_arrived: { label: "Not checked in", badge: "⚪", className: "dlc-att-not-arrived", statusText: "Waiting" },
+    checked_in: { label: "Checked In", badge: "🟢", className: "dlc-att-checked-in", statusText: "Present" },
+    checked_out: { label: "Checked Out", badge: "⚪", className: "dlc-att-checked-out", statusText: "Checked Out" },
+    absent: { label: "Absent", badge: "🔴", className: "dlc-att-absent", statusText: "Absent" },
+  }[state] || { label: "Not checked in", badge: "⚪", className: "dlc-att-not-arrived", statusText: "Waiting" };
+}
+
+// Render a child status card for the Daily Logs dashboard (attendance-first)
 function renderDlcChildStatusCard(child, records, today) {
-  const status = getDailyLogStatus(child, records, today);
-  const statusLabel = { "not-started": "Not Started", "in-progress": "In Progress", complete: "Complete" }[status];
-  const statusClass = { "not-started": "dlc-status-not-started", "in-progress": "dlc-status-in-progress", complete: "dlc-status-complete" }[status];
-  const attendance = records.attendance.find((r) => r.childId === child.id && r.date === today);
-  const arrivalInfo = attendance?.dropoff ? `Arrived ${attendance.dropoff}` : attendance?.status === "Present" ? "Present" : attendance?.status === "Absent" ? "Absent" : "Not checked in";
+  const state = getChildAttendanceState(child, records, today);
+  const meta = attendanceStateMeta(state);
+  const attendance = getChildAttendanceRecord(child, records, today);
+  const detail = state === "checked_in" && attendance?.dropoff
+    ? `Checked In ${formatDlcClock(attendance.dropoff)}`
+    : state === "checked_out" && attendance?.pickup
+      ? `Checked Out ${formatDlcClock(attendance.pickup)}${attendance.dropoff ? ` · In ${formatDlcClock(attendance.dropoff)}` : ""}`
+      : state === "absent"
+        ? "Marked Absent"
+        : "Not checked in yet";
+  const primaryAction = state === "checked_in"
+    ? `<button class="primary-button dlc-att-primary" data-dlc-quick-action="check-out" data-dlc-quick-child="${child.id}" type="button">Check Out</button>`
+    : state === "absent"
+      ? `<button class="primary-button dlc-att-primary" data-dlc-quick-action="check-in" data-dlc-quick-child="${child.id}" type="button">Check In</button>`
+      : `<button class="primary-button dlc-att-primary" data-dlc-quick-action="check-in" data-dlc-quick-child="${child.id}" type="button">Check In</button>`;
   return `
-    <div class="dlc-child-card">
-      <div class="dlc-child-card-top">
-        ${renderChildAvatar(child, "small")}
+    <article class="dlc-child-card dlc-att-card ${meta.className}">
+      <button class="dlc-att-card-main" data-dlc-open-child="${child.id}" data-dlc-quick-tab="overview" type="button">
+        <span class="dlc-att-badge" aria-hidden="true">${meta.badge}</span>
         <div class="dlc-child-card-info">
           <h4>${escapeHtml(child.name)}</h4>
           <span class="dlc-child-card-age">${escapeHtml(childAgeLabel(child))}</span>
-          <span class="dlc-child-card-arrival">${escapeHtml(arrivalInfo)}</span>
+          <span class="dlc-child-card-arrival">${escapeHtml(detail)}</span>
         </div>
-        <span class="dlc-status-badge ${statusClass}">${statusLabel}</span>
+        <span class="dlc-status-badge ${meta.className}">${escapeHtml(meta.statusText)}</span>
+      </button>
+      <div class="dlc-child-card-actions dlc-att-card-actions">
+        ${primaryAction}
+        ${state !== "absent" ? `<button class="ghost-button" data-dlc-quick-action="absent" data-dlc-quick-child="${child.id}" type="button">Absent</button>` : ""}
+        <button class="ghost-button" data-dlc-open-child="${child.id}" data-dlc-quick-tab="overview" type="button">Open Day</button>
       </div>
-      <div class="dlc-child-card-actions">
-        <button class="dlc-quick-btn" data-dlc-open-child="${child.id}" data-dlc-quick-tab="attendance" type="button">Check In</button>
-        <button class="dlc-quick-btn" data-dlc-open-child="${child.id}" data-dlc-quick-tab="meals" type="button">+ Meal</button>
-        <button class="dlc-quick-btn" data-dlc-open-child="${child.id}" data-dlc-quick-tab="naps" type="button">+ Nap</button>
-        <button class="dlc-quick-btn" data-dlc-open-child="${child.id}" data-dlc-quick-tab="diapers" type="button">+ Diaper</button>
-        <button class="dlc-quick-btn" data-dlc-open-child="${child.id}" data-dlc-quick-tab="notes" type="button">+ Note</button>
-        <button class="dlc-quick-btn dlc-quick-btn-primary" data-dlc-open-child="${child.id}" data-dlc-quick-tab="overview" type="button">Open Log</button>
-      </div>
-    </div>
+    </article>
   `;
 }
 
-// Render the classroom overview stats row
+function renderDlcAttendanceSection(title, children, records, today, emptyLabel) {
+  return `
+    <section class="dlc-att-section">
+      <div class="dlc-att-section-header">
+        <h3>${escapeHtml(title)}</h3>
+        <span class="dlc-att-count">${children.length}</span>
+      </div>
+      ${children.length ? `
+        <div class="dlc-child-cards-grid dlc-att-grid">
+          ${children.map((child) => renderDlcChildStatusCard(child, records, today)).join("")}
+        </div>
+      ` : `<p class="dlc-att-empty">${escapeHtml(emptyLabel)}</p>`}
+    </section>
+  `;
+}
+
+// Render the classroom overview stats row (attendance-centered)
 function renderDlcClassroomOverview(activeChildren, records, today) {
-  const total = activeChildren.length;
-  const present = activeChildren.filter((c) => records.attendance.some((r) => r.childId === c.id && r.date === today && r.status === "Present")).length;
-  const notStarted = activeChildren.filter((c) => getDailyLogStatus(c, records, today) === "not-started").length;
-  const inProgress = activeChildren.filter((c) => getDailyLogStatus(c, records, today) === "in-progress").length;
-  const complete = activeChildren.filter((c) => getDailyLogStatus(c, records, today) === "complete").length;
-  const hasMedication = activeChildren.some((c) => {
-    const meds = childStore("Medications") || [];
-    return meds.some((m) => m.childId === c.id);
-  });
+  const present = activeChildren.filter((c) => getChildAttendanceState(c, records, today) === "checked_in").length;
+  const checkedOut = activeChildren.filter((c) => getChildAttendanceState(c, records, today) === "checked_out").length;
+  const absent = activeChildren.filter((c) => getChildAttendanceState(c, records, today) === "absent").length;
+  const waiting = activeChildren.filter((c) => getChildAttendanceState(c, records, today) === "not_arrived").length;
   const stats = [
-    { label: "Children Active", value: total, icon: "👶" },
-    { label: "Present Today", value: present, icon: "✅" },
-    { label: "Logs Not Started", value: notStarted, icon: "⬜", highlight: notStarted > 0 },
-    { label: "In Progress", value: inProgress, icon: "🔄" },
-    { label: "Complete", value: complete, icon: "✅", success: complete > 0 },
+    { label: "Present", value: present, className: "dlc-stat-success" },
+    { label: "Checked Out", value: checkedOut, className: "" },
+    { label: "Absent", value: absent, className: absent ? "dlc-stat-warn" : "" },
+    { label: "Not Arrived", value: waiting, className: waiting ? "dlc-stat-warn" : "" },
   ];
-  if (hasMedication) stats.push({ label: "Med Reminders", value: "⚠️", icon: "💊", warning: true });
   return `
     <div class="dlc-classroom-overview">
-      <h3 class="dlc-overview-heading">Today's Classroom</h3>
+      <h3 class="dlc-overview-heading">Who's here today</h3>
       <div class="dlc-stat-row">
-        ${stats.map(({ label, value, icon, highlight, success, warning }) => `
-          <div class="dlc-stat-card${highlight ? " dlc-stat-warn" : ""}${success ? " dlc-stat-success" : ""}${warning ? " dlc-stat-warning" : ""}">
-            <span class="dlc-stat-icon">${icon}</span>
+        ${stats.map(({ label, value, className }) => `
+          <div class="dlc-stat-card ${className}">
             <strong class="dlc-stat-value">${value}</strong>
             <span class="dlc-stat-label">${label}</span>
           </div>
@@ -22178,175 +23022,77 @@ function renderDlcClassroomOverview(activeChildren, records, today) {
   `;
 }
 
-// The main Daily Logs Dashboard – shown when provider first opens Daily Logs
+// The main Daily Logs Dashboard – attendance-first daily workspace
 function renderDlcDashboard(records) {
   const today = dlcDashboardDate || new Date().toISOString().slice(0, 10);
   const dateLabel = new Date(`${today}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
   const activeChildren = getActiveChildren(records);
   const hiddenChildren = getHiddenChildren(records);
-  const nextChildForUpdates = activeChildren.find((child) => getDailyLogStatus(child, records, today) !== "complete") || activeChildren[0] || null;
-  const nextChildForReports = activeChildren.find((child) => dailyLogCompletionState(child, records, today).percent > 0) || nextChildForUpdates;
-  const completionValues = activeChildren.map((child) => dailyLogCompletionState(child, records, today).percent);
-  const classroomCompletion = completionValues.length
-    ? Math.round(completionValues.reduce((sum, value) => sum + value, 0) / completionValues.length)
-    : 0;
-  const workflowSteps = [
-    {
-      number: 1,
-      title: "Classroom Meals",
-      detail: "Use the classroom meal flow first to capture breakfast, lunch, and snack updates for multiple children.",
-      actionHtml: `<button class="primary-button" data-dlc-dashboard-flow="meals" type="button">Open Classroom Meals</button>`,
-    },
-    {
-      number: 2,
-      title: "Classroom Activities",
-      detail: "Log shared activities next so the room's learning highlights are recorded in one place.",
-      actionHtml: `<button class="ghost-button" data-dlc-dashboard-flow="activities" type="button">Open Classroom Activities</button>`,
-    },
-    {
-      number: 3,
-      title: "Classroom Notes",
-      detail: "Capture classroom-wide notes and quick documentation before moving into child-specific follow-up.",
-      actionHtml: `<button class="ghost-button" data-daily-logs-section="quick" type="button">Open Classroom Notes</button>`,
-    },
-    {
-      number: 4,
-      title: "Quick Child Updates",
-      detail: activeChildren.length
-        ? `Finish individual updates for ${escapeHtml(nextChildForUpdates.name)} and the rest of the class below.`
-        : "Add a child profile to open individual daily log workspaces.",
-      actionHtml: nextChildForUpdates
-        ? `<button class="ghost-button" data-dlc-open-child="${nextChildForUpdates.id}" data-dlc-quick-tab="overview" type="button">Open Next Child</button>`
-        : `<button class="ghost-button" data-child-view="add" type="button">Add Child Profile</button>`,
-    },
-    {
-      number: 5,
-      title: "Generate Daily Reports",
-      detail: nextChildForReports
-        ? `Generate reports one child at a time for now, starting with ${escapeHtml(nextChildForReports.name)}.`
-        : "Daily reports stay inside each child's workspace. Batch report generation is not part of this step.",
-      actionHtml: nextChildForReports
-        ? `<button class="ghost-button" data-dlc-open-child="${nextChildForReports.id}" data-dlc-quick-tab="daily-report" type="button">Open Daily Report</button>`
-        : `<span class="dlc-workflow-pill">Per-child reports only</span>`,
-    },
-    {
-      number: 6,
-      title: "Print All Reports",
-      detail: activeChildren.length
-        ? `Print daily log reports for all ${activeChildren.length} active ${activeChildren.length === 1 ? "child" : "children"} for ${escapeHtml(dateLabel)} in one document.`
-        : "Add active children to enable batch printing.",
-      actionHtml: activeChildren.length
-        ? `<button class="primary-button" data-dlc-print-all type="button">Print All Reports</button>`
-        : `<span class="dlc-workflow-pill">No active children</span>`,
-    },
-  ];
+  const presentChildren = activeChildren.filter((c) => getChildAttendanceState(c, records, today) === "checked_in");
+  const checkedOutChildren = activeChildren.filter((c) => getChildAttendanceState(c, records, today) === "checked_out");
+  const absentChildren = activeChildren.filter((c) => getChildAttendanceState(c, records, today) === "absent");
+  const waitingChildren = activeChildren.filter((c) => getChildAttendanceState(c, records, today) === "not_arrived");
 
   return `
-    <div class="dlc-dashboard">
+    <div class="dlc-dashboard dlc-dashboard-attendance">
       <div class="dlc-dashboard-date-row">
-        <span class="dlc-dashboard-date-label">${escapeHtml(dateLabel)}</span>
+        <div>
+          <p class="eyebrow">Daily Logs</p>
+          <h3 class="dlc-dashboard-date-label">${escapeHtml(dateLabel)}</h3>
+          <p class="dlc-sub">Check children in, log the day, and open any child for their timeline.</p>
+        </div>
         <div class="dlc-dashboard-date-picker">
           <label class="dlc-date-picker-label" for="dlcDashboardDateInput">Date</label>
           <input id="dlcDashboardDateInput" class="dlc-date-input" type="date" value="${today}" data-dlc-dashboard-date />
         </div>
       </div>
 
-      <div class="dlc-plan-banner section-block">
-        <div>
-          <strong>Daily Logs Access</strong>
-          <p class="dlc-sub">${isProUser()
-            ? "Pro includes unlimited history, photos, AI daily reports, family messaging, observations, and classroom-wide updates."
-            : `Free includes attendance, meals, bottles, diapers, naps, activities, mood, teacher notes, quick documentation, print/save PDF, ${freeDailyLogPhotoLimit} photos per child each day, and ${freeDailyLogHistoryDays} days of history.`}</p>
-        </div>
-        ${dailyLogFeatureLabelHtml()}
-      </div>
-
       ${renderDlcClassroomOverview(activeChildren, records, today)}
 
-      <section class="section-block dlc-classroom-progress">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Today's Documentation</p>
-            <h4>Classroom completion</h4>
-          </div>
-        </div>
-        ${dailyLogProgressBar(classroomCompletion)}
-      </section>
-
-      <section class="section-block dlc-workflow-section">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Primary Workspace</p>
-            <h4>Follow today's Daily Logs workflow in order</h4>
-            <p class="muted-copy">Use this workspace for classroom-first updates, then finish child-specific logs, reports, and printing steps in sequence.</p>
-          </div>
-        </div>
-        <div class="dlc-workflow-list">
-          ${workflowSteps.map((step) => `
-            <article class="dlc-workflow-card${step.future ? " dlc-workflow-card-future" : ""}">
-              <div class="dlc-workflow-card-top">
-                <span class="dlc-workflow-step-number">Step ${step.number}</span>
-                ${step.future ? `<span class="dlc-workflow-step-tag">Later Phase</span>` : ""}
-              </div>
-              <strong class="dlc-workflow-title">${step.title}</strong>
-              <p class="dlc-sub">${step.detail}</p>
-              <div class="dlc-workflow-action">${step.actionHtml}</div>
-            </article>
-          `).join("")}
-        </div>
-      </section>
-
-      <div class="dlc-quick-doc-box section-block">
-        <div class="dlc-quick-doc-header">
-          <strong class="dlc-quick-doc-title">What happened today?</strong>
-          <p class="dlc-sub">Type a quick note, use voice input, or upload photos. AI will organize it — you review before saving.</p>
-        </div>
-        <div class="dlc-template-row">
-          ${dailyLogTemplates.map((template) => `<button class="ghost-button dlc-template-btn" data-dlc-template="${template.id}" type="button">${escapeHtml(template.label)}</button>`).join("")}
-        </div>
-        <div class="dlc-quick-doc-input-row">
-          <textarea id="dlcDashboardNote" class="dlc-dashboard-textarea" rows="3" placeholder="e.g. Everyone ate breakfast, painted, played outside. Oakley napped 12:15–2:00 and ate half of lunch."></textarea>
-        </div>
-        ${renderDlcOutputOptions("dlcDashOutput")}
-        <div class="dlc-quick-doc-controls">
-          <div class="dlc-quick-doc-children">
-            <label class="dlc-quick-doc-for-label">
-              For:
-              <select id="dlcDashboardNoteChild" class="dlc-inline-select">
-                <option value="all">All children</option>
-                ${activeChildren.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}
-              </select>
-            </label>
-          </div>
-          <div class="dlc-quick-doc-btns">
-            <button class="ghost-button dlc-speak-dash-btn" id="dlcSpeakDashBtn" type="button" aria-label="Voice input">🎤 Speak</button>
-            <button class="primary-button" id="dlcDashOrganizeBtn" type="button">✨ Organize with AI</button>
-          </div>
-        </div>
-        <div id="dlcDashboardNoteOutput" class="dlc-dash-output" style="display:none;"></div>
-      </div>
-      <div class="dlc-dashboard-actions-row">
-        <strong class="dlc-section-title">Other Daily Logs Tools</strong>
-        <div class="dlc-dashboard-action-btns">
-          <button class="ghost-button" ${isProUser() ? `data-daily-logs-section="group"` : `data-preview="daily-log-group-updates" data-pro-feature="daily-log-group-updates"`} type="button">📋 Group Update ${!isProUser() ? `<span class="mini-pro-label">Pro</span>` : ""}</button>
-          <button class="ghost-button" data-dlc-child-sel="multiple" data-dlc-from-dashboard type="button">👥 Select Children</button>
-        </div>
+      <div class="dlc-home-toolbar">
+        <button class="primary-button" data-daily-logs-section="group" type="button">Group Log</button>
+        <button class="ghost-button" data-dlc-dashboard-flow="activities" type="button">Group Activity</button>
+        <button class="ghost-button" data-dlc-dashboard-flow="meals" type="button">Group Meal</button>
+        <button class="ghost-button" data-dlc-print-all type="button">Print All Reports</button>
       </div>
 
-      <div class="dlc-children-section">
-        <div class="dlc-children-section-header">
-          <strong class="dlc-section-title">Active Children (${activeChildren.length})</strong>
+      ${activeChildren.length ? `
+        ${renderDlcAttendanceSection("Present", presentChildren, records, today, "No children checked in yet.")}
+        ${renderDlcAttendanceSection("Checked Out", checkedOutChildren, records, today, "No children checked out yet.")}
+        ${renderDlcAttendanceSection("Absent", absentChildren, records, today, "No absences marked.")}
+        ${renderDlcAttendanceSection("Not Arrived", waitingChildren, records, today, "Everyone has an attendance status.")}
+      ` : `
+        <div class="section-block empty-state">
+          <p>No active children. <button class="inline-link" data-child-view="add" type="button">Add a child profile</button> to start today's logs.</p>
         </div>
-        ${activeChildren.length ? `
-          <div class="dlc-child-cards-grid">
-            ${activeChildren.map((child) => renderDlcChildStatusCard(child, records, today)).join("")}
+      `}
+
+      <details class="dlc-optional-ai section-block">
+        <summary>Optional: Organize a note with AI</summary>
+        <div class="dlc-quick-doc-box">
+          <p class="dlc-sub">AI is optional. Type what happened, then review before saving.</p>
+          <div class="dlc-quick-doc-input-row">
+            <textarea id="dlcDashboardNote" class="dlc-dashboard-textarea" rows="3" placeholder="e.g. Everyone painted with watercolors and read Brown Bear."></textarea>
           </div>
-        ` : `
-          <div class="section-block empty-state">
-            <p>No active children. <button class="inline-link" data-child-view="add" type="button">Add a child profile</button> to get started.</p>
+          ${renderDlcOutputOptions("dlcDashOutput")}
+          <div class="dlc-quick-doc-controls">
+            <div class="dlc-quick-doc-children">
+              <label class="dlc-quick-doc-for-label">
+                For:
+                <select id="dlcDashboardNoteChild" class="dlc-inline-select">
+                  <option value="all">All children</option>
+                  ${activeChildren.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}
+                </select>
+              </label>
+            </div>
+            <div class="dlc-quick-doc-btns">
+              <button class="ghost-button" id="dlcSpeakDashBtn" type="button" aria-label="Voice input">Speak</button>
+              <button class="ghost-button" id="dlcDashOrganizeBtn" type="button">✨ Organize with AI</button>
+            </div>
           </div>
-        `}
-      </div>
+          <div id="dlcDashboardNoteOutput" class="dlc-dash-output" style="display:none;"></div>
+        </div>
+      </details>
 
       ${hiddenChildren.length ? `
         <details class="dlc-hidden-section">
@@ -22373,7 +23119,7 @@ function renderDailyLogsCenter(records) {
       <div class="child-page-header">
         <div>
           <h2>Daily Logs</h2>
-          <p>Track meals, naps, activities, and more throughout the day.</p>
+          <p>See who's here, check children in and out, and log the day as it happens.</p>
         </div>
         ${backTarget ? `<button class="ghost-button back-button" data-dlc-back="${backTarget}" type="button">← Back</button>` : ""}
       </div>
@@ -22396,7 +23142,7 @@ function renderDlcContent(records) {
   if (dailyLogsSection === "group") return renderDailyLogsGroupUpdate(records);
   if (dailyLogsSection === "individual") {
     const child = selectedChild(records);
-    return renderDailyLogsIndividual(child, records, new Date().toISOString().slice(0, 10));
+    return renderDailyLogsIndividual(child, records, dlcActiveDate());
   }
   if (dailyLogsSection === "quick") return renderDailyLogsQuickDoc(records);
   // "home" — show dashboard or step-by-step update flow
@@ -22978,8 +23724,12 @@ function buildDailyLogTimelineEntries(child, records, today) {
   const snapshot = dlcChildDaySnapshot(child, records, today);
   const entries = [];
   snapshot.attendance.forEach((item) => {
-    if (item.dropoff) entries.push({ time: item.dropoff, title: "Arrived", detail: item.status || "Present", shared: item.shareWithFamily !== false });
-    if (item.pickup) entries.push({ time: item.pickup, title: "Picked Up", detail: "", shared: item.shareWithFamily !== false });
+    if (String(item.status || "").toLowerCase() === "absent") {
+      entries.push({ time: dlcRecordTime(item) || "08:00", title: "Absent", detail: "", shared: item.shareWithFamily !== false });
+      return;
+    }
+    if (item.dropoff) entries.push({ time: item.dropoff, title: "Checked In", detail: item.status || "Present", shared: item.shareWithFamily !== false });
+    if (item.pickup) entries.push({ time: item.pickup, title: "Checked Out", detail: "", shared: item.shareWithFamily !== false });
   });
   snapshot.meals.forEach((item) => {
     const baseTime = dlcRecordTime(item);
@@ -23001,9 +23751,17 @@ function buildDailyLogTimelineEntries(child, records, today) {
   });
   snapshot.communications.forEach((item) => {
     const type = String(item.type || "");
-    if (["Behavior Note", "Mood Note", "Incident Report", "Parent Summary"].includes(type)) {
+    if (["Behavior Note", "Mood Note", "Incident Report", "Parent Summary", "Parent Message", "Teacher Note", "General Note", "Daily Log"].includes(type)) {
       entries.push({ time: dlcRecordTime(item), title: type, detail: item.summary || item.message || "", shared: item.shareWithFamily !== false });
     }
+  });
+  snapshot.observations.forEach((item) => {
+    entries.push({
+      time: dlcRecordTime(item),
+      title: "Observation",
+      detail: item.text || item.summary || item.developmentArea || "",
+      shared: item.shareWithFamily !== false,
+    });
   });
   snapshot.photos.forEach((item) => {
     entries.push({ time: dlcRecordTime(item), title: "Photo Added", detail: item.caption || "Photo saved to daily log", shared: item.shareWithFamily !== false });
@@ -23552,24 +24310,24 @@ function renderDailyLogsGroupUpdate(records) {
     return `
       <section class="section-block empty-state">
         <h3>No active child profiles.</h3>
-        <p>Add a child profile first to use Group Update.</p>
+        <p>Add a child profile first to use Group Log.</p>
         <button class="primary-button" data-child-view="add" type="button">Add Child</button>
       </section>
     `;
   }
   const groupActions = [
+    { id: "breakfast", label: "Add Breakfast", emoji: "🥣", description: "Log breakfast for selected children." },
     { id: "meals", label: "Add Lunch", emoji: "🍽️", description: "Log lunch for selected children." },
     { id: "snacks", label: "Add Snack", emoji: "🍎", description: "Log a snack for selected children." },
-    { id: "breakfast", label: "Add Breakfast", emoji: "🥣", description: "Log breakfast for selected children." },
-    { id: "activities", label: "Add Activity", emoji: "🎨", description: "Log a group activity for selected children." },
+    { id: "activities", label: "Add Activity", emoji: "🎨", description: "Log one activity once for multiple children." },
     { id: "announcement", label: "Add Announcement", emoji: "📢", description: "Save a parent announcement for selected children." },
     { id: "reminder", label: "Add Reminder", emoji: "🔔", description: "Save a parent reminder for selected children." },
   ];
   if (!dailyLogsGroupAction) {
     return `
       <div class="dlc-section">
-        <h3>Group Update</h3>
-        <p class="dlc-sub">Select an action to apply to multiple children at once.</p>
+        <h3>Group Log</h3>
+        <p class="dlc-sub">Write once, apply to multiple children. Perfect for shared meals and activities.</p>
         <div class="dlc-group-actions">
           ${groupActions.map((action) => `
             <button class="dlc-group-action-btn" data-dlc-group-action="${action.id}" type="button">
@@ -23583,19 +24341,19 @@ function renderDailyLogsGroupUpdate(records) {
     `;
   }
   const action = groupActions.find((a) => a.id === dailyLogsGroupAction) || groupActions[0];
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dlcActiveDate();
   return `
     <div class="dlc-section">
       <div class="dlc-section-header">
         <h3>${action.emoji} ${action.label}</h3>
         <button class="ghost-button" data-dlc-group-action="" type="button">← All Actions</button>
       </div>
-      <p class="dlc-sub">${action.description} Select which children to include.</p>
+      <p class="dlc-sub">${action.description} Select which children to include, then save once.</p>
       <form id="groupUpdateForm" class="dlc-group-form" data-group-action="${action.id}">
         <input name="date" type="hidden" value="${today}" />
         <input name="action" type="hidden" value="${action.id}" />
         <fieldset class="dlc-children-select">
-          <legend>Select Children</legend>
+          <legend>Apply to</legend>
           <div class="dlc-children-grid">
             ${children.map((child) => `
               <label class="dlc-child-check">
@@ -23747,117 +24505,94 @@ function renderDailyLogsChildTabContent(child, records, today) {
 }
 
 function renderDailyLogsOverviewTab(child, records, today) {
-  const attendance = records.attendance.filter((item) => item.childId === child.id && item.date === today).slice(-1)[0];
-  const meal = records.meals.filter((item) => item.childId === child.id && item.date === today).slice(-1)[0];
-  const nap = records.naps.filter((item) => item.childId === child.id && item.date === today).slice(-1)[0];
-  const diaper = records.diapers.filter((item) => item.childId === child.id && item.date === today).slice(-1)[0];
-  const activities = records.activityLogs.filter((item) => item.childId === child.id && item.date === today);
-  const notes = records.communications.filter((item) => item.childId === child.id && item.date === today && ["Teacher Note", "General Note", "Mood Note", "Behavior Note"].includes(item.type));
-  const messages = records.communications.filter((item) => item.childId === child.id && item.date === today && item.type !== "Behavior Note");
-  const reports = records.reports.filter((item) => item.childId === child.id && item.date === today);
+  const attendance = getChildAttendanceRecord(child, records, today);
+  const state = getChildAttendanceState(child, records, today);
+  const meta = attendanceStateMeta(state);
   const timelineEntries = buildDailyLogTimelineEntries(child, records, today);
   const reminders = buildDailyLogReminders(child, records, today);
   const parentSummary = getDailyLogParentSummaryDraft(child, records, today);
-  const completion = dailyLogCompletionState(child, records, today);
-  const summaryItems = [
-    { label: "Attendance", value: attendance ? `${attendance.status}` : null, tab: "attendance", icon: "📋" },
-    { label: "Meals", value: meal ? `Breakfast: ${meal.breakfast || "—"} | Lunch: ${meal.lunch || "—"} | Snack: ${meal.snack || "—"}` : null, tab: "meals", icon: "🍽️" },
-    { label: "Nap", value: nap ? `${nap.napStart || ""}${nap.napEnd ? " – " + nap.napEnd : ""}`.trim() || "Logged" : null, tab: "naps", icon: "😴" },
-    { label: "Diaper/Potty", value: diaper ? `${diaper.type || "Logged"}` : null, tab: "diapers", icon: "🚿" },
-    { label: "Activities", value: activities.length ? `${activities.length} logged` : null, tab: "activities", icon: "🎨" },
-    { label: "Notes", value: notes.length ? `${notes.length} note${notes.length > 1 ? "s" : ""}` : null, tab: "notes", icon: "📝" },
-    { label: "Parent Message", value: messages.length ? `${messages.length} message${messages.length > 1 ? "s" : ""}` : null, tab: "parent-message", icon: "💬" },
-    { label: "Daily Report", value: reports.length ? "Generated" : null, tab: "daily-report", icon: "📄" },
-  ];
   const dateLabel = new Date(`${today}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  const checkInLabel = attendance?.dropoff ? formatDlcClock(attendance.dropoff) : "—";
+  const checkOutLabel = attendance?.pickup ? formatDlcClock(attendance.pickup) : "—";
+  const quickActions = [
+    { id: "daily-log", label: "Daily Log", tab: "notes" },
+    { id: "observation", label: "Observation", tab: "notes" },
+    { id: "incident", label: "Incident Report", tab: "notes" },
+    { id: "parent-message", label: "Parent Message", tab: "parent-message" },
+    { id: "photo", label: "Photo", tab: "photos" },
+    { id: "meal", label: "Meal", tab: "meals" },
+    { id: "nap", label: "Nap", tab: "naps" },
+    { id: "diaper", label: "Diaper / Potty", tab: "diapers" },
+    { id: "activity", label: "Activity", tab: "activities" },
+  ];
   return `
-    <div class="dlc-overview">
-      <p class="dlc-overview-date">${dateLabel}</p>
-      <section class="section-block dlc-completion-card">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Today's Documentation</p>
-            <h4>${escapeHtml(child.name)}'s completion meter</h4>
-          </div>
-          ${dailyLogFeatureLabelHtml()}
+    <div class="dlc-overview dlc-day-workspace">
+      <div class="dlc-day-header">
+        <div>
+          <p class="dlc-overview-date">${dateLabel}</p>
+          <h3>${escapeHtml(child.name)}</h3>
+          <p class="dlc-sub">${escapeHtml(meta.label)}</p>
         </div>
-        ${dailyLogProgressBar(completion.percent)}
-        <div class="chip-list">${completion.items.map((item) => `<span class="chip ${item.done ? "chip-success" : ""}">${escapeHtml(item.label)}${item.done ? " ✓" : ""}</span>`).join("")}</div>
-      </section>
-      <div class="dlc-overview-grid">
-        ${summaryItems.map(({ label, value, tab, icon }) => `
-          <button class="dlc-overview-card ${value ? "dlc-overview-card--filled" : ""}" data-dlc-child-tab="${tab}" type="button">
-            <span class="dlc-overview-icon">${icon}</span>
-            <strong>${label}</strong>
-            <span>${value || "Not logged yet"}</span>
-          </button>
-        `).join("")}
-      </div>
-      <div class="dlc-quick-actions">
-        <strong>Quick Add</strong>
-        <div class="dlc-quick-btns">
-          <button class="ghost-button" data-dlc-quick-action="check-in" data-dlc-quick-child="${child.id}" type="button">Check In</button>
-          <button class="ghost-button" data-dlc-quick-action="check-out" data-dlc-quick-child="${child.id}" type="button">Check Out</button>
-          <button class="ghost-button" data-dlc-quick-action="ate-all" data-dlc-quick-child="${child.id}" type="button">Ate All</button>
-          <button class="ghost-button" data-dlc-quick-action="bottle" data-dlc-quick-child="${child.id}" type="button">Bottle</button>
-          <button class="ghost-button" data-dlc-quick-action="wet-diaper" data-dlc-quick-child="${child.id}" type="button">Wet Diaper</button>
-          <button class="ghost-button" data-dlc-quick-action="nap-started" data-dlc-quick-child="${child.id}" type="button">Nap Started</button>
-          <button class="ghost-button" data-dlc-quick-action="happy" data-dlc-quick-child="${child.id}" type="button">Happy</button>
-          <button class="ghost-button" data-dlc-quick-action="story-time" data-dlc-quick-child="${child.id}" type="button">Story Time</button>
+        <div class="dlc-day-times">
+          <div><span>Check-In</span><strong>${escapeHtml(checkInLabel)}</strong></div>
+          <div><span>Check-Out</span><strong>${escapeHtml(checkOutLabel)}</strong></div>
         </div>
       </div>
-      <div class="dlc-favorites-row">
-        <strong>Favorite activities</strong>
-        <div class="chip-list">${dailyLogFavorites().map((activity) => `<button class="chip chip-button" data-dlc-favorite-activity="${escapeHtml(activity)}" data-dlc-favorite-child="${child.id}" type="button">${escapeHtml(activity)}</button>`).join("")}</div>
-      </div>
-      <div class="quick-action-list">
-        <button class="ghost-button" data-dlc-child-tab="meals" type="button">+ Meal</button>
-        <button class="ghost-button" data-dlc-child-tab="naps" type="button">+ Nap</button>
-        <button class="ghost-button" data-dlc-child-tab="activities" type="button">+ Activity</button>
-        <button class="ghost-button" data-dlc-child-tab="notes" type="button">+ Note</button>
+      <div class="dlc-day-attendance-actions">
+        ${state === "checked_in"
+          ? `<button class="primary-button" data-dlc-quick-action="check-out" data-dlc-quick-child="${child.id}" type="button">Check Out</button>`
+          : `<button class="primary-button" data-dlc-quick-action="check-in" data-dlc-quick-child="${child.id}" type="button">Check In</button>`}
+        ${state !== "absent" ? `<button class="ghost-button" data-dlc-quick-action="absent" data-dlc-quick-child="${child.id}" type="button">Mark Absent</button>` : ""}
         <button class="ghost-button" data-print-daily-log="${child.id}" type="button">Print / Save PDF</button>
       </div>
-      <div class="dlc-overview-lower">
-        <section class="section-block dlc-timeline-card">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Timeline</p>
-              <h4>${escapeHtml(child.name)}'s Day</h4>
-            </div>
+      <section class="section-block dlc-quick-actions dlc-day-quick-actions">
+        <strong>Quick Actions</strong>
+        <div class="dlc-quick-btns">
+          ${quickActions.map((action) => `
+            <button class="ghost-button" data-dlc-quick-action="${action.id}" data-dlc-quick-child="${child.id}" data-dlc-after-tab="${action.tab}" type="button">+ ${escapeHtml(action.label)}</button>
+          `).join("")}
+        </div>
+        <details class="dlc-optional-ai-inline">
+          <summary>Optional AI helpers</summary>
+          <div class="dlc-quick-btns">
+            <button class="ghost-button" data-view="ai" data-quick-doc-type="observation" type="button">✨ Generate Observation</button>
+            <button class="ghost-button" data-view="ai" data-quick-doc-type="parent-message" type="button">✨ Generate Parent Message</button>
+            <button class="ghost-button" data-dlc-child-tab="daily-report" type="button">✨ End-of-Day Summary</button>
           </div>
-          ${timelineEntries.length ? `
-            <div class="dlc-timeline-list">
-              ${timelineEntries.map((entry) => `
-                <div class="dlc-timeline-item">
-                  <span class="dlc-timeline-time">${escapeHtml(entry.displayTime)}</span>
-                  <div class="dlc-timeline-content">
-                    <strong>${escapeHtml(entry.title)}</strong>
-                    <span>${escapeHtml(entry.detail || dlcVisibilityLabel(normalizeDlcShareValue(entry.shared)))}</span>
-                  </div>
-                </div>
-              `).join("")}
-            </div>
-          ` : `<p class="muted-copy">The timeline will update automatically as entries are added.</p>`}
-        </section>
-        <section class="section-block dlc-reminders-card">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Smart Reminders</p>
-              <h4>Gentle check-in</h4>
-            </div>
-          </div>
-          ${reminders.length ? `<div class="chip-list">${reminders.map((item) => `<span class="chip">${escapeHtml(item)}</span>`).join("")}</div>` : `<p class="muted-copy">Everything important looks covered so far.</p>`}
-        </section>
-      </div>
-      <section class="section-block dlc-parent-summary-card">
+        </details>
+      </section>
+      <section class="section-block dlc-timeline-card dlc-day-timeline">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Parent Summary</p>
-            <h4>Ready to review</h4>
-            <p class="muted-copy">AI drafts the family-friendly summary. Providers can edit before saving or sharing.</p>
+            <p class="eyebrow">Timeline</p>
+            <h4>${escapeHtml(child.name)}'s day</h4>
+            <p class="muted-copy">Everything appears chronologically as you log it.</p>
           </div>
         </div>
-        <textarea class="dlc-parent-summary-input" data-dlc-summary-input="${child.id}" rows="5">${escapeHtml(parentSummary)}</textarea>
+        ${timelineEntries.length ? `
+          <div class="dlc-timeline-list">
+            ${timelineEntries.map((entry) => `
+              <div class="dlc-timeline-item">
+                <span class="dlc-timeline-time">${escapeHtml(entry.displayTime)}</span>
+                <div class="dlc-timeline-content">
+                  <strong>${escapeHtml(entry.title)}</strong>
+                  <span>${escapeHtml(entry.detail || "")}</span>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        ` : `<p class="muted-copy">No entries yet. Check in or use a quick action to start the timeline.</p>`}
+      </section>
+      ${reminders.length ? `
+        <section class="section-block dlc-reminders-card">
+          <div class="section-heading"><div><p class="eyebrow">Reminders</p><h4>Still open</h4></div></div>
+          <div class="chip-list">${reminders.map((item) => `<span class="chip">${escapeHtml(item)}</span>`).join("")}</div>
+        </section>
+      ` : ""}
+      <details class="section-block dlc-parent-summary-card dlc-optional-ai">
+        <summary>Optional: Parent summary</summary>
+        <p class="muted-copy">Review and edit before saving. AI is optional — you stay in control.</p>
+        <textarea class="dlc-parent-summary-input" data-dlc-summary-input="${child.id}" rows="4">${escapeHtml(parentSummary)}</textarea>
         <div class="dlc-parent-summary-actions">
           <label class="dlc-check-label">
             <input type="checkbox" data-dlc-summary-share="${child.id}" checked />
@@ -23865,7 +24600,7 @@ function renderDailyLogsOverviewTab(child, records, today) {
           </label>
           <button class="primary-button" data-dlc-save-summary="${child.id}" type="button">Save Parent Summary</button>
         </div>
-      </section>
+      </details>
     </div>
   `;
 }
@@ -25660,7 +26395,11 @@ function renderAdminOwnerOverview() {
           <div class="analytics-row stacked">
             <span><strong>${escapeHtml(displayUserName(account))}</strong> &mdash; ${escapeHtml(account.email)}</span>
             <strong>${escapeHtml(account.plan || "Free")}</strong>
-            <small>${escapeHtml(account.subscriptionStatus || "Free Plan")} · ${escapeHtml(account.monthlyPrice || "$0")}</small>
+            <small>${escapeHtml(account.subscriptionStatus || "Free Plan")} · ${escapeHtml(
+              (account.foundingMemberActive || account.plan === "Founding") && String(account.subscriptionStatus || "").toLowerCase() !== "free plan"
+                ? "$9.99/month"
+                : (account.monthlyPrice || "$0")
+            )}</small>
           </div>
         `).join("") : `<div class="empty-state">No accounts yet.</div>`}
       </article>
@@ -33265,7 +34004,7 @@ function renderPricingPage() {
       ${pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Choose Pro Annual" })}
     </div>
     <section class="section-block billing-links">
-      <button class="ghost-button back-button" data-view="account" type="button">← Back to Account</button>
+      <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
       <button class="ghost-button" data-view="upgrade" type="button">Upgrade Page</button>
       <button class="ghost-button" data-view="billing" type="button">Billing Management</button>
       <button class="ghost-button" data-view="subscription" type="button">Subscription Status</button>
@@ -33290,7 +34029,7 @@ function renderUpgradePage() {
       ${pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Checkout Annual" })}
     </div>
     <section class="section-block">
-      <button class="ghost-button back-button" data-view="account" type="button">← Back to Account</button>
+      <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
       <p class="eyebrow">Stripe Checkout</p>
       <h3>Secure payment handoff</h3>
       <p class="muted-copy">In production, these buttons create a Stripe Checkout Session on your server. In this local file, they run a safe test checkout simulation so billing permissions can be verified.</p>
@@ -33311,7 +34050,7 @@ function subscriptionSummaryHtml() {
     <div class="billing-summary-grid">
       <div><span>Current Plan</span><strong>${escapeHtml(planLabel)}</strong></div>
       <div><span>Monthly Price</span><strong>${escapeHtml(billingPriceLabel(account))}</strong></div>
-      <div><span>Price Lock</span><strong>${paidBilling ? account?.foundingMember ? "Lifetime" : "Regular Pro pricing" : "None"}</strong></div>
+      <div><span>Price Lock</span><strong>${paidBilling ? (account?.foundingMemberActive || normalizeBillingPlan(account?.plan, account) === "Founding" || account?.foundingMember ? "Lifetime" : "Regular Pro pricing") : "None"}</strong></div>
       <div><span>Status</span><strong>${escapeHtml(statusLabel)}</strong></div>
       <div><span>AI Usage</span><strong>${serverAiUsed !== null ? serverAiUsed : aiUsageCount()} / ${serverAiLimit !== null ? serverAiLimit : aiMonthlyLimit()}</strong></div>
       <div><span>AI Reset</span><strong>${escapeHtml(aiResetLabel())}</strong></div>
@@ -33331,7 +34070,7 @@ function renderBillingPage() {
         <h3>${escapeHtml(currentUser || "Guest")}</h3>
         ${subscriptionSummaryHtml()}
         <div class="account-actions-row">
-          <button class="ghost-button back-button" data-view="account" type="button">← Back to Account</button>
+          <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
           <button class="primary-button" data-view="upgrade" type="button">${paidBilling ? "Change Plan" : "Upgrade to Pro"}</button>
           ${paidBilling ? `<button class="ghost-button" data-update-payment type="button">Update Payment Method</button>` : ""}
           <button class="ghost-button" data-view="billing-history" type="button">View Billing History</button>
@@ -33355,8 +34094,8 @@ function renderSubscriptionPage() {
     <section class="section-block">
       ${subscriptionSummaryHtml()}
       <div class="account-actions-row">
-        <button class="ghost-button back-button" data-view="account" type="button">← Back to Account</button>
-        <button class="ghost-button" data-view="plans" type="button">Pricing Page</button>
+      <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
+      <button class="ghost-button" data-view="plans" type="button">Pricing Page</button>
         <button class="ghost-button" data-view="billing" type="button">Billing Management</button>
         <button class="ghost-button" data-view="account" type="button">Account Page</button>
       </div>
@@ -33408,8 +34147,8 @@ function renderPaymentSuccessPage() {
       <h3>${escapeHtml(billingPlanLabel())} is active</h3>
       ${subscriptionSummaryHtml()}
       <div class="account-actions-row">
-        <button class="ghost-button back-button" data-view="account" type="button">← Back to Account</button>
-        <button class="primary-button" data-view="account" type="button">View Account</button>
+        <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
+        <button class="primary-button" data-view="settings" type="button">Open Settings</button>
         <button class="ghost-button" data-view="billing" type="button">Billing Management</button>
       </div>
     </section>
@@ -33596,6 +34335,15 @@ function renderAccountPage() {
   const signOutButton = document.querySelector("#signOutButton");
   if (!emailLabel || !planLabel || !statusLabel || !detailLabel || !favoritesTarget || !downloadsTarget) return;
 
+  const canBilling = canAccessPlatformFeature("billing");
+  const settings = getProgramSettings();
+  const notifyDaily = document.querySelector("#notifyDailyLogs");
+  const notifyObs = document.querySelector("#notifyObservations");
+  const notifyBilling = document.querySelector("#notifyBilling");
+  if (notifyDaily) notifyDaily.checked = settings.notifyDailyLogs !== false;
+  if (notifyObs) notifyObs.checked = settings.notifyObservations !== false;
+  if (notifyBilling) notifyBilling.checked = Boolean(settings.notifyBilling);
+
   if (!currentUser) {
     emailLabel.textContent = "Guest";
     planLabel.textContent = "Create a Free account or log in to save your work.";
@@ -33607,7 +34355,7 @@ function renderAccountPage() {
     }
     if (phoneInput) phoneInput.value = "";
     if (demoButton) demoButton.style.display = "inline-flex";
-    if (upgradeButton) upgradeButton.textContent = "Create Account First";
+    if (upgradeButton) upgradeButton.style.display = "none";
     if (resendButton) resendButton.style.display = "none";
     if (cancelButton) cancelButton.style.display = "none";
     if (signOutButton) signOutButton.style.display = "none";
@@ -33621,7 +34369,7 @@ function renderAccountPage() {
   const account = currentAccount();
   const paidBilling = accountHasPaidBilling(account);
   emailLabel.textContent = currentUser;
-  planLabel.textContent = `${billingPlanLabel(currentPlan, account)} account`;
+  planLabel.textContent = `${billingPlanLabel(currentPlan, account)} · ${getAccountType(account) === "center" ? "Center" : "Home Daycare"} · ${String(getUserRole(account)).replace(/_/g, " ")}`;
   if (verificationLabel) {
     verificationLabel.textContent = account?.emailVerified
       ? `Email verified through ${account?.authProvider || authProviderName}.`
@@ -33630,17 +34378,24 @@ function renderAccountPage() {
   }
   if (phoneInput) phoneInput.value = account?.phone || "";
   statusLabel.textContent = paidBilling ? account?.subscriptionStatus || `${billingPlanLabel(currentPlan, account)} Subscription Active` : "Free Plan";
-  detailLabel.innerHTML = paidBilling
-    ? `Current Plan: ${escapeHtml(billingPlanLabel(currentPlan, account))}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${account?.foundingMember ? "Lifetime" : "Regular Pro pricing"}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>Helper Usage: ${aiUsageCount()} of ${paidAiMonthlyLimit} used this billing month. Resets ${escapeHtml(aiResetLabel())}.<br>Your account has full in-app resources, menus, child profiles, portfolios, tracking tools, provider tools, future premium features, and ${paidAiMonthlyLimit} document creations per month.`
-    : `Your Free account includes 5 lesson plans, 10 observations, 6 forms, 8 activity ideas, ${freeAiMonthlyLimit} document creations per month, up to 3 child profiles, and the weekly observation tracker. Upgrade to Pro to spend less time on paperwork with parent messages, daily reports, portfolios, and faster documentation workflows. Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}. Helper Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`;
+  detailLabel.innerHTML = canBilling
+    ? (paidBilling
+      ? `Current Plan: ${escapeHtml(billingPlanLabel(currentPlan, account))}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${account?.foundingMember ? "Lifetime" : "Regular Pro pricing"}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>Helper Usage: ${aiUsageCount()} of ${paidAiMonthlyLimit} used this billing month. Resets ${escapeHtml(aiResetLabel())}.`
+      : `Your Free account includes core tools with Free limits. Manage upgrades in Settings → Membership &amp; Billing. Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}. Helper Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`)
+    : `Plan access on this account: ${escapeHtml(billingPlanLabel(currentPlan, account))}. Billing and subscription changes are managed by the program owner.`;
   if (demoButton) demoButton.style.display = "none";
   if (upgradeButton) {
-    upgradeButton.textContent = paidBilling ? "Manage Billing" : "Upgrade to Pro";
-    upgradeButton.disabled = false;
-    upgradeButton.classList.remove("disabled-control");
+    if (canBilling) {
+      upgradeButton.style.display = "inline-flex";
+      upgradeButton.textContent = paidBilling ? "Manage Billing" : "Upgrade to Pro";
+      upgradeButton.disabled = false;
+      upgradeButton.classList.remove("disabled-control");
+    } else {
+      upgradeButton.style.display = "none";
+    }
   }
   if (resendButton) resendButton.style.display = account?.emailVerified ? "none" : "inline-flex";
-  if (cancelButton) cancelButton.style.display = paidBilling ? "inline-flex" : "none";
+  if (cancelButton) cancelButton.style.display = canBilling && paidBilling ? "inline-flex" : "none";
   if (signOutButton) signOutButton.style.display = "inline-flex";
 
   const savedFavoriteResources = resources.filter((resource) => favorites.includes(resource.id) && isResourceVisibleToCurrentUser(resource));
@@ -33678,7 +34433,7 @@ function renderProgramSettingsPage() {
   // Populate plain text/select/url/tel inputs
   const simpleFields = [
     "programName", "providerName", "contactEmail", "contactPhone",
-    "website", "address", "stateLocation", "licenseNumber", "programType",
+    "website", "address", "stateLocation", "licenseNumber", "hoursOpen", "hoursClose", "programType",
     "curriculumUsed", "customCurriculumName", "teachingPhilosophy",
     "signatureName", "signatureTitle",
     "defaultWritingStyle", "defaultTone",
@@ -34622,6 +35377,11 @@ document.addEventListener("click", async (event) => {
       navOptions.weekStartDate = viewButton.dataset.dashSelectWeek;
     }
     setView(viewButton.dataset.view, navOptions);
+    if (viewButton.dataset.settingsAnchor === "notifications") {
+      requestAnimationFrame(() => {
+        document.querySelector("#accountNotifications")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
     return;
   }
 
@@ -34682,6 +35442,7 @@ document.addEventListener("click", async (event) => {
       showProFeatureModal("Provider business tools are Pro features.");
       return;
     }
+    setView("tools");
     renderFutureTools(futureToolButton.dataset.futureTool);
     document.querySelector("#futureToolWorkspace")?.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
@@ -34960,6 +35721,41 @@ document.addEventListener("click", async (event) => {
     dailyLogsSection = "individual";
     dailyLogsChildTab = tab;
     childManagementMode = "daily-logs";
+    renderChildManagement();
+    return;
+  }
+
+  // One-tap attendance / timeline quick actions
+  const dlcQuickActionBtn = event.target.closest("[data-dlc-quick-action]");
+  if (dlcQuickActionBtn) {
+    event.preventDefault();
+    const actionId = dlcQuickActionBtn.dataset.dlcQuickAction || "";
+    const childId = dlcQuickActionBtn.dataset.dlcQuickChild || selectedChildId;
+    if (!actionId || !childId) return;
+    saveDailyLogQuickAction(actionId, childId, { date: dlcActiveDate() });
+    const afterTab = dlcQuickActionBtn.dataset.dlcAfterTab || "";
+    if (afterTab && !["check-in", "check-out", "absent"].includes(actionId)) {
+      selectedChildId = childId;
+      localStorage.setItem("llhSelectedChild", selectedChildId);
+      dailyLogsSection = "individual";
+      dailyLogsChildTab = afterTab;
+      childManagementMode = "daily-logs";
+    }
+    const labels = {
+      "check-in": "Checked in",
+      "check-out": "Checked out",
+      absent: "Marked absent",
+      "daily-log": "Daily note started",
+      observation: "Observation started",
+      incident: "Incident report started",
+      "parent-message": "Parent message started",
+      photo: "Photo entry started",
+      meal: "Meal logged",
+      nap: "Nap logged",
+      diaper: "Diaper / potty logged",
+      activity: "Activity logged",
+    };
+    showActionFeedback(labels[actionId] || "Saved.");
     renderChildManagement();
     return;
   }
@@ -35827,6 +36623,7 @@ document.addEventListener("click", async (event) => {
   const lessonDuplicate = event.target.closest("[data-lesson-duplicate]");
   if (lessonDuplicate) {
     event.preventDefault();
+    toggleLessonWorkspaceMoreMenu(false);
     const copy = duplicateLessonWorkspacePlan(lessonDuplicate.dataset.lessonDuplicate);
     if (!copy) return;
     dismissResourceViewerForNavigation();
@@ -35837,6 +36634,7 @@ document.addEventListener("click", async (event) => {
   const lessonArchive = event.target.closest("[data-lesson-archive]");
   if (lessonArchive) {
     event.preventDefault();
+    toggleLessonWorkspaceMoreMenu(false);
     if (!archiveLessonWorkspacePlan(lessonArchive.dataset.lessonArchive)) return;
     dismissResourceViewerForNavigation();
     if (document.querySelector("#view-lessons.active-view")) renderCategoryPage("lessons");
@@ -35846,6 +36644,7 @@ document.addEventListener("click", async (event) => {
   const lessonDelete = event.target.closest("[data-lesson-delete]");
   if (lessonDelete) {
     event.preventDefault();
+    toggleLessonWorkspaceMoreMenu(false);
     deleteLessonWorkspacePlan(lessonDelete.dataset.lessonDelete).then((deleted) => {
       if (!deleted) return;
       dismissResourceViewerForNavigation();
@@ -36413,6 +37212,7 @@ document.addEventListener("click", async (event) => {
   if (editLessonPlanButton) {
     const resourceId = editLessonPlanButton.dataset.editLessonPlan;
     if (!resourceId) return;
+    toggleLessonWorkspaceMoreMenu(false);
     await openLessonPlanEditor(resourceId);
     return;
   }
@@ -38732,6 +39532,10 @@ document.querySelector("#accountUpgradeButton")?.addEventListener("click", () =>
     openAuthModal("signup");
     return;
   }
+  if (!canAccessPlatformFeature("billing")) {
+    setView("settings");
+    return;
+  }
   setView(isProUser() ? "billing" : "upgrade");
 });
 
@@ -39445,19 +40249,20 @@ document.addEventListener("submit", (event) => {
 document.addEventListener("submit", (event) => {
   if (!event.target.matches("#groupUpdateForm")) return;
   event.preventDefault();
-  if (!isProUser()) {
-    showProFeatureModal("Group Update is a Pro feature.");
-    return;
-  }
   const form = event.target;
   const data = collectFormData(form);
   const actionId = data.action || "";
+  // Announcements / reminders remain Pro; core group meals & activities are part of Daily Logs.
+  if (["announcement", "reminder"].includes(actionId) && !isProUser()) {
+    showProFeatureModal("Parent announcements and reminders are Pro features.");
+    return;
+  }
   const formData = new FormData(form);
   const childIds = formData.getAll("childIds");
   const shareWithFamily = dlcFormShareFlag(form, actionId === "announcement" || actionId === "reminder");
   if (!childIds.length) return;
   childIds.forEach((childId) => {
-    const today = data.date || new Date().toISOString().slice(0, 10);
+    const today = data.date || dlcActiveDate();
     if (actionId === "meals" || actionId === "lunch") {
       appendChildRecord("Meals", { childId, date: today, lunch: data.content, notes: data.notes || "", title: `Meals | ${today}`, summary: `Lunch: ${data.content}`, shareWithFamily });
     } else if (actionId === "snacks") {
@@ -39472,7 +40277,7 @@ document.addEventListener("submit", (event) => {
   });
   dailyLogsGroupAction = "";
   renderChildManagement();
-  showActionFeedback("Group update saved.");
+  showActionFeedback("Group log saved to selected children.");
 });
 
 // ─── New Daily Log Accordion Form Handlers ──────────────────────────────────
@@ -39694,6 +40499,76 @@ installMobileNavigation();
 registerPwaSupport();
 
 // ─── Program Settings Form Submit ──────────────────────────────────────────
+
+document.querySelector("#notificationSettingsForm")?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const messageEl = document.querySelector("#notificationSettingsMessage");
+  if (!currentUser) {
+    if (messageEl) messageEl.textContent = "Please log in to save notifications.";
+    return;
+  }
+  const form = event.target;
+  const next = {
+    ...getProgramSettings(),
+    notifyDailyLogs: Boolean(form.notifyDailyLogs?.checked),
+    notifyObservations: Boolean(form.notifyObservations?.checked),
+    notifyBilling: Boolean(form.notifyBilling?.checked),
+  };
+  saveProgramSettings(next);
+  if (messageEl) {
+    messageEl.textContent = "Notification preferences saved.";
+    messageEl.classList.add("success");
+    setTimeout(() => { if (messageEl) messageEl.textContent = ""; }, PROGRAM_SETTINGS_MESSAGE_TIMEOUT_MS);
+  }
+});
+
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("#formsSettingsForm")) return;
+  event.preventDefault();
+  const form = event.target;
+  const messageEl = document.querySelector("#formsSettingsMessage");
+  if (!currentUser) {
+    if (messageEl) messageEl.textContent = "Please log in to save Forms Settings.";
+    return;
+  }
+  const next = {
+    ...getProgramSettings(),
+    digitalSignatures: Boolean(form.digitalSignatures?.checked),
+    enrollmentReminders: Boolean(form.enrollmentReminders?.checked),
+    enrollmentPacketNote: String(form.enrollmentPacketNote?.value || "").trim(),
+    formTemplateFocus: String(form.formTemplateFocus?.value || "").trim(),
+  };
+  saveProgramSettings(next);
+  if (messageEl) {
+    messageEl.textContent = "Forms settings saved.";
+    messageEl.classList.add("success");
+    setTimeout(() => { if (messageEl) messageEl.textContent = ""; }, PROGRAM_SETTINGS_MESSAGE_TIMEOUT_MS);
+  }
+});
+
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("#curriculumSettingsForm")) return;
+  event.preventDefault();
+  const form = event.target;
+  const messageEl = document.querySelector("#curriculumSettingsMessage");
+  if (!currentUser) {
+    if (messageEl) messageEl.textContent = "Please log in to save Curriculum Settings.";
+    return;
+  }
+  const next = {
+    ...getProgramSettings(),
+    weekStartDay: String(form.weekStartDay?.value || "monday"),
+    defaultLessonAgeGroup: String(form.defaultLessonAgeGroup?.value || "").trim(),
+    showHolidaysOnCalendar: Boolean(form.showHolidaysOnCalendar?.checked),
+    preferWeeklyPlanner: Boolean(form.preferWeeklyPlanner?.checked),
+  };
+  saveProgramSettings(next);
+  if (messageEl) {
+    messageEl.textContent = "Curriculum settings saved.";
+    messageEl.classList.add("success");
+    setTimeout(() => { if (messageEl) messageEl.textContent = ""; }, PROGRAM_SETTINGS_MESSAGE_TIMEOUT_MS);
+  }
+});
 
 document.querySelector("#programSettingsForm")?.addEventListener("submit", (event) => {
   event.preventDefault();

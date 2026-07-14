@@ -220,13 +220,17 @@ async function main() {
     check("Print weekly renders day board", printState.hasBoard && printState.dayCount === 5, JSON.stringify(printState));
     check("Print request variant is week", printState.request?.printVariant === "week");
 
+    await page.locator("[data-lesson-workspace-more-toggle]").click();
+    await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 5000 });
     const weekDownload = page.waitForEvent("download", { timeout: 10000 });
-    await page.locator('[data-lesson-action-bars="top"] [data-lesson-download-variant="week"]').click();
+    await page.locator('.lesson-workspace-more-menu [data-lesson-download-variant="week"]').click();
     const weekFile = await weekDownload;
     check("Download weekly is DOCX", /\.docx$/i.test(weekFile.suggestedFilename()), weekFile.suggestedFilename());
 
+    await page.locator("[data-lesson-workspace-more-toggle]").click();
+    await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 5000 });
     const fullDownload = page.waitForEvent("download", { timeout: 10000 });
-    await page.locator('[data-lesson-action-bars="top"] [data-lesson-download-variant="full"]').click();
+    await page.locator('.lesson-workspace-more-menu [data-lesson-download-variant="full"]').click();
     const fullFile = await fullDownload;
     check("Download full is DOCX", /\.docx$/i.test(fullFile.suggestedFilename()), fullFile.suggestedFilename());
 

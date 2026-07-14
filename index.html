@@ -52,125 +52,77 @@
           </div>
         </div>
 
-        <nav class="nav-list">
-          <div class="nav-section">
-            <p>🏠 Dashboard</p>
-            <button class="nav-link active" data-view="home">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-5v-6h-5v6h-5A1.5 1.5 0 0 1 3 19.5z"/></svg></span>
-              Dashboard
-            </button>
-          </div>
-
-          <div class="nav-section">
-            <p>📋 Quick Documentation</p>
-            <button class="nav-link" data-view="ai">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 1.6 4.7L18 9l-4.4 1.3L12 15l-1.6-4.7L6 9l4.4-1.3zM19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8zM6 14l.8 2.2L9 17l-2.2.8L6 20l-.8-2.2L3 17l2.2-.8z"/></svg></span>
-              Documentation Helper
-            </button>
-            <button class="nav-link" data-view="resource-observations">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4M11 8v3l2 2"/></svg></span>
-              Observation Library
-            </button>
-            <button class="nav-link" data-view="forms">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg></span>
-              Forms Library
-            </button>
-          </div>
-
-          <div class="nav-section">
-            <p>👶 Children</p>
-            <button class="nav-link" data-view="children">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7.5 0"/></svg></span>
-              Children
-            </button>
-          </div>
-
-          <div class="nav-section">
-            <p>📓 Daily Logs</p>
-            <button class="nav-link" data-view="child-tools-daily-logs">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6M9 11h6M9 15h4"/><circle cx="7" cy="7" r="1" fill="currentColor"/><circle cx="7" cy="11" r="1" fill="currentColor"/><circle cx="7" cy="15" r="1" fill="currentColor"/></svg></span>
-              Daily Logs
-            </button>
-          </div>
-
-          <div class="nav-section">
-            <p>📚 Lesson Plans</p>
-            <button class="nav-link" data-view="lessons">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 0 4 22z"/><path d="M4 5.5V22M8 7h8M8 11h7"/></svg></span>
-              Lesson Plan Library
-            </button>
-            <button class="nav-link" data-view="calendar">
+        <nav class="nav-list" id="platformNav">
+          <div class="nav-section nav-section-core">
+            <button class="nav-link" data-view="calendar" data-nav-capability="calendar">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>
               Calendar
             </button>
-            <button class="nav-link" data-view="planner">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M8 14h3M13 14h3M8 17h3"/></svg></span>
-              Weekly Planner
+            <button class="nav-link" data-view="lessons" data-nav-capability="lesson_plans">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 0 4 22z"/><path d="M4 5.5V22M8 7h8M8 11h7"/></svg></span>
+              Lesson Plans
             </button>
-            <button class="nav-link" data-view="curriculum-planner">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M7 14h4M13 14h4M7 17h2"/></svg></span>
-              Curriculum Planner <small class="nav-legacy-tag">Legacy</small>
+            <button class="nav-link" data-view="child-tools-daily-logs" data-nav-capability="daily_logs">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6M9 11h6M9 15h4"/><circle cx="7" cy="7" r="1" fill="currentColor"/><circle cx="7" cy="11" r="1" fill="currentColor"/><circle cx="7" cy="15" r="1" fill="currentColor"/></svg></span>
+              Daily Logs
             </button>
-          </div>
-
-          <div class="nav-section">
-            <p>🎨 Resources</p>
-            <button class="nav-link" data-view="activities">
+            <button class="nav-link" data-view="children" data-nav-capability="child_profiles">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7.5 0"/></svg></span>
+              Child Profiles
+            </button>
+            <button class="nav-link" data-view="activities" data-nav-capability="activity_library">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6v5h5v6h-5v7H9v-7H4V8h5z"/></svg></span>
-              Activity Center
+              Activity Library
             </button>
-            <button class="nav-link" data-view="menus">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3v18M10 3v18M6 10h4M16 3v8a3 3 0 0 0 3 3v7"/></svg></span>
-              Menu Center
+            <button class="nav-link" data-view="ai" data-nav-capability="documentation_helpers">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 1.6 4.7L18 9l-4.4 1.3L12 15l-1.6-4.7L6 9l4.4-1.3zM19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8zM6 14l.8 2.2L9 17l-2.2.8L6 20l-.8-2.2L3 17l2.2-.8z"/></svg></span>
+              Documentation Helpers
             </button>
-            <button class="nav-link" data-view="support-center">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3a7 7 0 0 0-7 7c0 4 4 5 4 8h6c0-3 4-4 4-8a7 7 0 0 0-7-7z"/><path d="M9 21h6M10 10h4M12 8v4"/></svg></span>
-              Support &amp; Licensing
+            <button class="nav-link" data-view="forms" data-nav-capability="forms">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg></span>
+              Forms &amp; Paperwork
             </button>
-          </div>
-
-          <div class="nav-section">
-            <p>👨‍👩‍👧 Family Hub</p>
-            <button class="nav-link nav-link-coming-soon" disabled type="button" aria-disabled="true">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 12c3.3 0 6-2.7 6-6S15.3 0 12 0 6 2.7 6 6s2.7 6 6 6zm0 2c-4 0-12 2-12 4v2h24v-2c0-2-8-4-12-4z"/></svg></span>
-              Family Hub
-              <span class="nav-pill">Soon</span>
-            </button>
-          </div>
-
-          <div class="nav-section">
-            <p>📊 Reports</p>
-            <button class="nav-link" data-view="reports" data-pro-nav>
+            <button class="nav-link" data-view="reports" data-nav-capability="reports" data-pro-nav>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16M7 17V9M12 17V5M17 17v-6"/></svg></span>
-              Reports &amp; Analytics
+              Reports
             </button>
-            <button class="nav-link" data-view="favorites" data-pro-nav>
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 2.7 5.5 6 .9-4.4 4.2 1 6-5.3-2.8-5.3 2.8 1-6-4.4-4.2 6-.9z"/></svg></span>
-              Favorites
+            <button class="nav-link" data-view="resources" data-nav-capability="resources">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 0 4 22z"/><path d="M4 5.5V22M8 7h8M8 11h7"/></svg></span>
+              Resources
             </button>
           </div>
 
-          <div class="nav-section">
-            <p>⚙️ Account</p>
-            <button class="nav-link" data-view="membership">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg></span>
-              Membership/Billing
+          <div class="nav-section nav-section-manage" data-nav-section="manage">
+            <button class="nav-link" data-view="classrooms" data-nav-capability="classrooms" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21V7l9-4 9 4v14"/><path d="M7 21v-8h4v8M13 21v-5h4v5"/></svg></span>
+              Classrooms
             </button>
-            <button class="nav-link" data-view="program-settings">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7h18M3 12h12M3 17h8"/><circle cx="19" cy="15" r="3"/><path d="M21.5 17.5 20 16"/></svg></span>
-              Program Settings
+            <button class="nav-link" data-view="families" data-nav-capability="families" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7.5 0"/></svg></span>
+              Families
             </button>
-            <button class="nav-link" data-view="settings">
+            <button class="nav-link" data-view="enrollment" data-nav-capability="enrollment" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4"/><rect x="4" y="15" width="16" height="6" rx="1"/></svg></span>
+              Enrollment
+            </button>
+            <button class="nav-link" data-view="staff" data-nav-capability="staff_management" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7.5 0"/></svg></span>
+              Staff
+            </button>
+          </div>
+
+          <div class="nav-section nav-section-account">
+            <button class="nav-link" data-view="settings" data-nav-capability="settings">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5l-.3 3.1a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.3 3.1h5l.3-3.1a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5a7 7 0 0 0 .1-1z"/></svg></span>
-              Account Settings
-            </button>
-            <button class="nav-link" data-view="help">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.7 2.7 0 0 1 5.1 1.3c0 2-2.6 2.1-2.6 4M12 18h.1"/></svg></span>
-              Help Center
+              Settings
             </button>
             <button class="nav-link" data-view="admin" data-admin-nav hidden>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.3 8 8 9 4.7-1 8-4 8-9V6z"/><path d="M9 12l2 2 4-5"/></svg></span>
               Admin Dashboard
+            </button>
+            <button class="nav-link" data-view="curriculum-planner" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M7 14h4M13 14h4M7 17h2"/></svg></span>
+              Curriculum Planner <small class="nav-legacy-tag">Legacy</small>
             </button>
           </div>
         </nav>
@@ -190,7 +142,7 @@
             <div><span>Active Goals</span><strong id="sidebarActiveGoals">0</strong></div>
             <div><span>This Week&rsquo;s Plans</span><strong id="sidebarWeekPlans">0</strong></div>
           </div>
-          <button class="small-button" data-view="home">Dashboard</button>
+          <button class="small-button" data-view="calendar">Open Calendar</button>
         </div>
       </aside>
 
@@ -694,6 +646,14 @@
         <section id="view-lessons" class="view"></section>
         <section id="view-lesson-editor" class="view"></section>
         <section id="view-support-center" class="view"></section>
+        <section id="view-resources" class="view"></section>
+        <section id="view-settings" class="view"></section>
+        <section id="view-forms-settings" class="view"></section>
+        <section id="view-curriculum-settings" class="view"></section>
+        <section id="view-staff" class="view"></section>
+        <section id="view-classrooms" class="view"></section>
+        <section id="view-families" class="view"></section>
+        <section id="view-enrollment" class="view"></section>
         <section id="view-observations" class="view"></section>
         <section id="view-forms" class="view"></section>
         <section id="view-activities" class="view"></section>
@@ -944,10 +904,11 @@
         </section>
 
         <section id="view-billing" class="view">
+          <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
           <div class="page-title">
-            <p class="eyebrow">Billing Management</p>
+            <p class="eyebrow">Membership &amp; Billing</p>
             <h2>Manage subscription, payment method, and invoices.</h2>
-            <p>Review current billing status, update payment details, cancel, or return to checkout.</p>
+            <p>Review current billing status, update payment details, cancel, or return to checkout. Owner access only.</p>
           </div>
           <div id="billingApp"></div>
         </section>
@@ -1024,20 +985,21 @@
         </section>
 
         <section id="view-children" class="view">
-          <button class="ghost-button back-button" data-contextual-back="children" data-fallback-view="home" data-always-visible="true" type="button">← Back to Dashboard</button>
+          <button class="ghost-button back-button" data-contextual-back="children" data-fallback-view="calendar" data-always-visible="true" type="button">← Back</button>
           <div class="page-title">
-            <p class="eyebrow">Children</p>
-            <h2>Children</h2>
-            <p>Select a child to open their workspace. Track observations, goals, attendance, daily logs, reports, and parent communication all in one place.</p>
+            <p class="eyebrow">Child Profiles</p>
+            <h2>Child Profiles</h2>
+            <p>Select a child to open their profile. Track observations, goals, attendance, daily logs, reports, and parent communication in one place.</p>
           </div>
           <div id="childManagementApp"></div>
         </section>
 
         <section id="view-account" class="view">
+          <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
           <div class="page-title">
             <p class="eyebrow">Account</p>
-            <h2>User Account</h2>
-            <p>Manage account access, email verification, password recovery, billing status, saved favorites, and saved downloads.</p>
+            <h2>Profile &amp; security</h2>
+            <p>Manage profile, recovery settings, notifications, and account access. Billing lives under Settings → Membership &amp; Billing for owners.</p>
           </div>
           <div class="account-layout">
             <section class="account-panel">
@@ -1085,6 +1047,18 @@
             </div>
             <div id="onboardingChecklist"></div>
           </section>
+          <section class="section-block account-security-panel" id="accountNotifications">
+            <div class="section-heading">
+              <div><p class="eyebrow">Notifications</p><h3>Reminders and alerts</h3></div>
+            </div>
+            <form id="notificationSettingsForm" class="panel-form">
+              <label class="settings-check-label"><input type="checkbox" name="notifyDailyLogs" id="notifyDailyLogs" /> Remind me to finish Daily Logs</label>
+              <label class="settings-check-label"><input type="checkbox" name="notifyObservations" id="notifyObservations" /> Remind me about weekly observations</label>
+              <label class="settings-check-label"><input type="checkbox" name="notifyBilling" id="notifyBilling" /> Email me about billing and plan changes</label>
+              <button class="primary-button" type="submit">Save Notifications</button>
+              <span class="form-message" id="notificationSettingsMessage" aria-live="polite"></span>
+            </form>
+          </section>
           <section class="section-block account-install-panel">
             <div class="section-heading">
               <div><p class="eyebrow">📱 Install App</p><h3>Add Little Learner Hub to your Home Screen</h3></div>
@@ -1108,11 +1082,11 @@
         </section>
 
         <section id="view-program-settings" class="view">
-          <button class="ghost-button back-button" data-view="account" type="button">← Back to Account</button>
+          <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
           <div class="page-title">
             <p class="eyebrow">Program Settings</p>
-            <h2>Program Settings</h2>
-            <p>Add as much or as little as you&rsquo;d like. Little Learner Hub uses this information to personalize reports, parent communication, and AI-generated documents automatically.</p>
+            <h2>Business information &amp; branding</h2>
+            <p>Add as much or as little as you&rsquo;d like. Little Learner Hub uses this information to personalize reports, parent communication, and documents.</p>
           </div>
           <form id="programSettingsForm" novalidate>
             <!-- Section 1: Basic Program Information -->
@@ -1134,6 +1108,8 @@
                 <label>Address<input type="text" name="address" placeholder="123 Main St, City, State 12345" autocomplete="street-address" /></label>
                 <label>State<input type="text" name="stateLocation" placeholder="State" /></label>
                 <label>License Number<input type="text" name="licenseNumber" placeholder="License number (optional)" /></label>
+                <label>Opening Time<input type="time" name="hoursOpen" /></label>
+                <label>Closing Time<input type="time" name="hoursClose" /></label>
                 <label>Program Type
                   <select name="programType">
                     <option value="">Select program type (optional)</option>

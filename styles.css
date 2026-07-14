@@ -14282,12 +14282,11 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 .lesson-workspace-action-bars {
   display: grid;
   gap: 8px;
-  padding: 0 2px 12px;
+  padding: 0 2px 10px;
   flex-shrink: 0;
 }
 
-.lesson-workspace-primary-actions,
-.lesson-workspace-secondary-actions {
+.lesson-workspace-primary-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -14295,21 +14294,22 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 }
 
 .lesson-workspace-primary-actions .primary-button,
-.lesson-workspace-primary-actions .ghost-button,
-.lesson-workspace-secondary-actions .ghost-button {
+.lesson-workspace-primary-actions .ghost-button {
   min-height: 44px;
   flex: 1 1 calc(50% - 4px);
   margin: 0;
 }
 
-.lesson-workspace-secondary-actions {
-  padding-top: 2px;
-  border-top: 1px solid rgba(213, 227, 240, 0.9);
+.lesson-workspace-more-wrap {
+  position: relative;
+  flex: 1 1 calc(50% - 4px);
+  display: flex;
 }
 
-.lesson-workspace-secondary-actions .lesson-workspace-danger {
-  color: #9b3b3b;
-  border-color: #e2b4b4;
+.lesson-workspace-more-wrap > .lesson-workspace-more-btn {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
 }
 
 .lesson-workspace-more-btn {
@@ -14317,25 +14317,20 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   min-width: 72px;
 }
 
-[data-lesson-action-bars="bottom"] {
-  margin-top: 8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
-}
-
-.lesson-workspace-save-btn.is-saved {
-  border-color: #c9a227;
-  color: #8a6d12;
+.lesson-workspace-more-menu .lesson-workspace-danger {
+  color: #9b3b3b;
 }
 
 .lesson-workspace-more-menu {
   position: absolute;
   top: calc(100% + 4px);
-  right: 2px;
+  right: 0;
+  left: auto;
   z-index: 12;
   display: grid;
   gap: 2px;
-  min-width: min(260px, calc(100vw - 32px));
+  min-width: min(280px, calc(100vw - 32px));
+  max-width: min(320px, calc(100vw - 24px));
   padding: 6px;
   background: var(--white, #fff);
   border: 1px solid var(--line);
@@ -14374,6 +14369,28 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 .lesson-workspace-more-menu button:hover,
 .lesson-workspace-more-menu button:focus-visible {
   background: var(--cream-2, #f5f1ec);
+}
+
+@media (min-width: 760px) {
+  .lesson-workspace-primary-actions .primary-button,
+  .lesson-workspace-primary-actions .ghost-button {
+    flex: 0 1 auto;
+    min-width: 140px;
+  }
+
+  .lesson-workspace-more-wrap {
+    flex: 0 0 auto;
+  }
+
+  .lesson-workspace-more-wrap > .lesson-workspace-more-btn {
+    width: auto;
+    min-width: 88px;
+  }
+}
+
+.lesson-workspace-save-btn.is-saved {
+  border-color: #c9a227;
+  color: #8a6d12;
 }
 
 .lesson-workspace-tabs {
@@ -14912,12 +14929,6 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 }
 
 @media (min-width: 640px) {
-  .lesson-workspace-primary-actions .primary-button,
-  .lesson-workspace-primary-actions .ghost-button,
-  .lesson-workspace-secondary-actions .ghost-button {
-    flex: 1 1 100%;
-  }
-
   .lesson-workspace-action-sheet {
     align-items: center;
     justify-items: center;
@@ -17086,4 +17097,309 @@ body.lesson-editor-view .main {
 
 .dlc-timeline-item .llh-item-menu {
   margin-left: auto;
+}
+
+/* Platform nav + Resources / Settings hubs (Phase 2) */
+.nav-section-core,
+.nav-section-manage,
+.nav-section-account {
+  padding-top: 4px;
+}
+
+.nav-section-manage:not([hidden]) {
+  border-top: 1px solid rgba(123, 107, 181, 0.12);
+  margin-top: 8px;
+  padding-top: 12px;
+}
+
+.nav-section-account {
+  border-top: 1px solid rgba(123, 107, 181, 0.12);
+  margin-top: 8px;
+  padding-top: 12px;
+}
+
+.resources-hub-page,
+.settings-hub-page,
+.platform-placeholder-page {
+  display: grid;
+  gap: 20px;
+}
+
+.resources-hub-grid,
+.settings-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.resources-hub-card,
+.settings-hub-card,
+.platform-placeholder-card {
+  border: 1px solid rgba(90, 110, 140, 0.16);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);
+  padding: 18px;
+  text-align: left;
+  box-shadow: 0 8px 24px rgba(40, 60, 90, 0.04);
+}
+
+.resources-hub-card h3,
+.settings-hub-card strong {
+  margin: 4px 0 8px;
+  font-size: 1.1rem;
+  color: #2f3a4a;
+}
+
+.resources-hub-card p,
+.settings-hub-card span,
+.platform-placeholder-card p {
+  margin: 0;
+  color: #5b6675;
+  line-height: 1.45;
+}
+
+.resources-hub-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.settings-hub-card {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.settings-hub-card:hover,
+.settings-hub-card:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(40, 60, 90, 0.08);
+  outline: none;
+}
+
+.settings-hub-card strong {
+  display: block;
+}
+
+@media (max-width: 720px) {
+  .resources-hub-grid,
+  .settings-hub-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Daily Logs attendance-first workspace (Phase 4) */
+.dlc-dashboard-attendance {
+  display: grid;
+  gap: 20px;
+}
+
+.dlc-home-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.dlc-att-section {
+  display: grid;
+  gap: 12px;
+}
+
+.dlc-att-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dlc-att-section-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.dlc-att-count {
+  min-width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef3f8;
+  color: #3d4b5c;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.dlc-att-empty {
+  margin: 0;
+  color: #6b7785;
+}
+
+.dlc-att-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(90, 110, 140, 0.16);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.dlc-att-card-main {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+
+.dlc-att-badge {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.dlc-att-card.dlc-att-checked-in {
+  border-color: rgba(46, 160, 110, 0.35);
+  background: linear-gradient(180deg, #f4fbf7 0%, #ffffff 70%);
+}
+
+.dlc-att-card.dlc-att-absent {
+  border-color: rgba(200, 90, 90, 0.28);
+  background: linear-gradient(180deg, #fff7f7 0%, #ffffff 70%);
+}
+
+.dlc-att-card.dlc-att-checked-out {
+  opacity: 0.92;
+}
+
+.dlc-att-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dlc-att-primary {
+  min-height: 44px;
+  min-width: 120px;
+}
+
+.dlc-day-workspace {
+  display: grid;
+  gap: 16px;
+}
+
+.dlc-day-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.dlc-day-header h3 {
+  margin: 4px 0;
+}
+
+.dlc-day-times {
+  display: flex;
+  gap: 18px;
+}
+
+.dlc-day-times div {
+  display: grid;
+  gap: 4px;
+  min-width: 90px;
+}
+
+.dlc-day-times span {
+  color: #6b7785;
+  font-size: 0.85rem;
+}
+
+.dlc-day-times strong {
+  font-size: 1.15rem;
+}
+
+.dlc-day-attendance-actions,
+.dlc-day-quick-actions .dlc-quick-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dlc-optional-ai,
+.dlc-optional-ai-inline {
+  border-radius: 14px;
+  border: 1px dashed rgba(90, 110, 140, 0.25);
+  padding: 12px 14px;
+  background: #fafbfc;
+}
+
+.dlc-optional-ai > summary,
+.dlc-optional-ai-inline > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #3d4b5c;
+}
+
+.dlc-day-timeline .dlc-timeline-list {
+  display: grid;
+  gap: 10px;
+}
+
+@media (max-width: 720px) {
+  .dlc-att-card-main {
+    grid-template-columns: auto 1fr;
+  }
+
+  .dlc-att-card-main .dlc-status-badge {
+    grid-column: 2;
+  }
+
+  .dlc-day-times {
+    width: 100%;
+  }
+}
+
+/* Settings hub groups (Phase 5) */
+.settings-hub-identity {
+  margin-top: 6px;
+  text-transform: capitalize;
+}
+
+.settings-hub-groups {
+  display: grid;
+  gap: 24px;
+}
+
+.settings-hub-group-header h3 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+}
+
+.settings-hub-group-header p {
+  margin: 0 0 12px;
+  color: #6b7785;
+}
+
+.settings-hub-card-disabled {
+  opacity: 0.72;
+  cursor: default;
+}
+
+.settings-subpage,
+.settings-subpage-form {
+  display: grid;
+  gap: 14px;
+  max-width: 720px;
+}
+
+.settings-subpage-form .settings-check-label {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
 }

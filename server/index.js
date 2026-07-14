@@ -4,6 +4,7 @@ const http = require("node:http");
 const path = require("node:path");
 const { URL } = require("node:url");
 const membershipAccess = require("../scripts/membership-access.js");
+const accountAccess = require("../scripts/account-access.js");
 const scheduleLib = require("./schedule-lib.js");
 
 loadEnvFile(path.join(__dirname, "..", ".env"));
@@ -2187,20 +2188,61 @@ function planKeyFromStripe(subscription, user = {}) {
   if (planConfig[pricePlan]) return pricePlan;
   const pendingPlan = String(user.pendingPlan || "").trim().toLowerCase();
   if (planConfig[pendingPlan]) return pendingPlan;
+  if (user.foundingMemberActive || String(user.plan || "").trim() === "Founding") return "founding";
   if (user.subscriptionCadence === "annual") return "annual";
   return "monthly";
+}
+
+function stripePriceIdToPlanKeyMap() {
+  const map = {};
+  Object.keys(planConfig).forEach((planKey) => {
+    const priceId = String(getPriceId(planKey) || "").trim();
+    if (priceId) map[priceId] = planKey;
+  });
+  return map;
+}
+
+function membershipUpdatesFromStripeSubscription(subscription, user = {}, eventType = "updated") {
+  return membershipAccess.stripeSubscriptionToMembershipUpdates(
+    subscription,
+    { ...user, __priceIdToPlanKey: stripePriceIdToPlanKeyMap() },
+    eventType,
+  );
+}
+
+function repairFoundingMemberPricing(user = {}) {
+  if (!user || !membershipAccess.membershipFoundingActive(user)) return user;
+  if (user.monthlyPrice === "$9.99/month" && user.plan === "Founding" && user.priceLock === "Lifetime") {
+    return user;
+  }
+  return {
+    ...user,
+    plan: "Founding",
+    monthlyPrice: "$9.99/month",
+    priceLock: "Lifetime",
+    foundingMemberActive: true,
+    foundingMemberHistorical: true,
+    foundingMember: true,
+  };
 }
 
 function upsertUser(email, updates) {
   const store = readStore();
   store.users = store.users || {};
   const existing = store.users[email] || { email };
-  store.users[email] = {
+  let merged = {
     ...existing,
     ...updates,
     email,
     updatedAt: new Date().toISOString(),
   };
+  // Persist normalized accountType + role (defaults: home_daycare / owner).
+  const accessFields = accountAccess.migrateAccountAccessFields(merged);
+  merged.accountType = accessFields.accountType;
+  merged.role = accessFields.role;
+  // Keep active founding members on the locked $9.99 price in stored billing fields.
+  merged = repairFoundingMemberPricing(merged);
+  store.users[email] = merged;
   writeStore(store);
   return store.users[email];
 }
@@ -4234,7 +4276,11 @@ function membershipSummaryForUser(user) {
   const store = readStore();
   const audits = (store.membershipAudit || []).filter((entry) => entry.email === user?.email).slice(0, 5);
   const endMs = membershipAccess.accessEndMs(user);
+  const access = accountAccess.summarizeAccountAccess(user || {});
   return {
+    accountType: access.accountType,
+    role: access.role,
+    capabilities: access.capabilities,
     membershipPlan: membershipPlanDisplay(user),
     membershipStatus: membershipStatusDisplay(user),
     hasProAccess: membershipHasProAccess(user),
@@ -4274,7 +4320,7 @@ function upsertStripeSubscription(email, customerId, subscription) {
   const cleanEmail = normalizeEmail(email);
   const store = readStore();
   const user = store.users?.[cleanEmail] || {};
-  const updates = membershipAccess.stripeSubscriptionToMembershipUpdates(subscription, user, "updated");
+  const updates = membershipUpdatesFromStripeSubscription(subscription, user, "updated");
   if (updates.foundingMemberActive && !user.foundingMemberNumber) {
     const claim = claimFoundingSpot(cleanEmail);
     updates.foundingMemberNumber = claim.foundingMemberNumber;
@@ -4440,7 +4486,7 @@ async function handleStripeWebhook(request, response) {
     if (userEntry) {
       const [email, user] = userEntry;
       const eventType = event.type === "customer.subscription.deleted" ? "deleted" : "updated";
-      const updates = membershipAccess.stripeSubscriptionToMembershipUpdates(subscription, user, eventType);
+      const updates = membershipUpdatesFromStripeSubscription(subscription, user, eventType);
       if (updates.foundingMemberActive && !user.foundingMemberNumber) {
         const claim = claimFoundingSpot(email);
         updates.foundingMemberNumber = claim.foundingMemberNumber;
@@ -4589,7 +4635,7 @@ async function handleCancelSubscription(request, response) {
       const stripeSub = await stripeRequest(`subscriptions/${user.stripeSubscriptionId}`, {
         cancel_at_period_end: "true",
       });
-      const updates = membershipAccess.stripeSubscriptionToMembershipUpdates(stripeSub, user, "updated");
+      const updates = membershipUpdatesFromStripeSubscription(stripeSub, user, "updated");
       if (user.foundingMemberNumber) {
         updates.foundingMemberNumber = user.foundingMemberNumber;
         updates.foundingMemberHistorical = true;
@@ -4623,6 +4669,14 @@ async function handleSubscriptionStatus(request, response, url) {
       }
     } catch (error) {
       console.warn(`Could not recover Stripe subscription for ${email}:`, error.message);
+    }
+  }
+  if (subscription && membershipAccess.membershipFoundingActive(subscription)) {
+    const repaired = repairFoundingMemberPricing(subscription);
+    if (repaired.monthlyPrice !== subscription.monthlyPrice || repaired.plan !== subscription.plan) {
+      subscription = upsertUser(email, repaired);
+    } else {
+      subscription = repaired;
     }
   }
   jsonResponse(response, 200, {
@@ -5403,6 +5457,9 @@ async function handleAdminMembershipUpdate(request, response) {
   if (merged.plan === "Free" && !restoringFounding) {
     merged.foundingMemberActive = false;
   }
+  const accessFields = accountAccess.migrateAccountAccessFields(merged);
+  merged.accountType = accessFields.accountType;
+  merged.role = accessFields.role;
   store.users = store.users || {};
   store.users[email] = merged;
   writeStore(store);

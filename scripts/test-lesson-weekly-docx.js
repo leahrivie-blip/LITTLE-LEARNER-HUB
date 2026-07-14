@@ -183,8 +183,10 @@ async function main() {
     await page.locator("#view-lessons .lesson-plan-card").first().click();
     await page.waitForSelector("#resourceViewerModal.lesson-workspace-mode.open", { timeout: 10000 });
 
+    await page.locator("[data-lesson-workspace-more-toggle]").click();
+    await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 5000 });
     const weekDownload = page.waitForEvent("download", { timeout: 10000 });
-    await page.locator('[data-lesson-action-bars="top"] [data-lesson-download-variant="week"]').click();
+    await page.locator('.lesson-workspace-more-menu [data-lesson-download-variant="week"]').click();
     const weekFile = await weekDownload;
     const weekName = weekFile.suggestedFilename();
     check("Weekly download filename ends with .docx", /\.docx$/i.test(weekName), weekName);
@@ -194,8 +196,10 @@ async function main() {
     check("Weekly DOCX is a ZIP package", weekBuf.readUInt32LE(0) === 0x04034b50);
     check("Weekly DOCX has meaningful size", weekBuf.length > 800, `bytes=${weekBuf.length}`);
 
+    await page.locator("[data-lesson-workspace-more-toggle]").click();
+    await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 5000 });
     const fullDownload = page.waitForEvent("download", { timeout: 10000 });
-    await page.locator('[data-lesson-action-bars="top"] [data-lesson-download-variant="full"]').click();
+    await page.locator('.lesson-workspace-more-menu [data-lesson-download-variant="full"]').click();
     const fullFile = await fullDownload;
     const fullName = fullFile.suggestedFilename();
     check("Full download filename ends with .docx", /\.docx$/i.test(fullName), fullName);
