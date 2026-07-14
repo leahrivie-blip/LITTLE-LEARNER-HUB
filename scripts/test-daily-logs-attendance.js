@@ -66,6 +66,19 @@ test("app.js includes attendance-first Daily Logs markers", () => {
   assert.match(appJs, /Group Log/);
   assert.match(appJs, /Quick Actions/);
   assert.match(appJs, /Checked In/);
+  assert.match(appJs, /function dailyLogCompletionChips/);
+  assert.match(appJs, /dlc-completion-chips/);
+  assert.match(appJs, /formOnlyActions/);
+  assert.match(appJs, /const today = dlcActiveDate\(\)/);
+});
+
+test("server child-data keys sync naps/diapers/activities/photos", () => {
+  const server = fs.readFileSync(path.join(__dirname, "..", "server", "index.js"), "utf8");
+  assert.match(server, /"Naps"/);
+  assert.match(server, /"Diapers"/);
+  assert.match(server, /"ActivityLogs"/);
+  assert.match(server, /"Photos"/);
+  assert.match(server, /"MealPresets"/);
 });
 
 if (!process.exitCode) {

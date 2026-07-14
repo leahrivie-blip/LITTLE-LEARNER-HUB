@@ -5295,8 +5295,13 @@ const childDataKeys = [
   "Differentiations",
   "Attendance",
   "Meals",
+  "MealPresets",
   "Reports",
   "Communications",
+  "Naps",
+  "Diapers",
+  "ActivityLogs",
+  "Photos",
   "Documents",
 ];
 
