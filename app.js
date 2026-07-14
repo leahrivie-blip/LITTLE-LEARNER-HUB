@@ -2662,6 +2662,22 @@ function billingPriceLabel(account = currentAccount()) {
   return "$0/month";
 }
 
+function repairFoundingMemberPricing(account = null) {
+  if (!account) return account;
+  const foundingActive = Boolean(account.foundingMemberActive)
+    || (normalizeBillingPlan(account.plan, account) === "Founding" && accountHasPaidBilling(account));
+  if (!foundingActive || !accountHasPaidBilling(account)) return account;
+  return {
+    ...account,
+    plan: "Founding",
+    monthlyPrice: "$9.99/month",
+    priceLock: "Lifetime",
+    foundingMemberActive: true,
+    foundingMemberHistorical: true,
+    foundingMember: true,
+  };
+}
+
 function foundingMembers() {
   return readSavedJson("llhFoundingMembers", []);
 }
@@ -2819,6 +2835,8 @@ function isFoundingSubscription(subscription) {
   const pendingPlan = String(subscription.pendingPlan || "").trim().toLowerCase();
   if (serverPlan === "founding" && accountHasRemainingPaidAccess(subscription)) return true;
   if (pendingPlan === "founding" && accountHasRemainingPaidAccess(subscription)) return true;
+  const status = String(subscription.subscriptionStatus || "").toLowerCase();
+  if (status.includes("founding") && accountHasRemainingPaidAccess(subscription)) return true;
   return false;
 }
 
@@ -7572,11 +7590,11 @@ function updateAccount(email, updates) {
   if (!cleanEmail) return null;
   const allAccounts = accounts();
   const account = allAccounts[cleanEmail] || ensureAccount(cleanEmail);
-  allAccounts[cleanEmail] = {
+  allAccounts[cleanEmail] = repairFoundingMemberPricing({
     ...account,
     ...updates,
     updatedAt: new Date().toISOString(),
-  };
+  });
   saveAccounts(allAccounts);
   return allAccounts[cleanEmail];
 }
@@ -7609,7 +7627,12 @@ function loadAccountState(email) {
   currentUser = account.email;
   // Backfill accountType + role for existing accounts (defaults: home_daycare / owner).
   ensureAccountAccessMigrated(account.email);
-  currentPlan = normalizeBillingPlan(account.plan || (account.foundingMember ? "Founding" : "Free"), account);
+  // Repair stale $19.99 on continuously active founding members.
+  const repaired = repairFoundingMemberPricing(account);
+  if (repaired && (repaired.monthlyPrice !== account.monthlyPrice || repaired.plan !== account.plan)) {
+    updateAccount(account.email, repaired);
+  }
+  currentPlan = normalizeBillingPlan((repaired || account).plan || (account.foundingMember ? "Founding" : "Free"), repaired || account);
   if (currentPlan === "Free" && (account.plan !== "Free" || account.monthlyPrice !== "$0/month")) {
     updateAccount(account.email, {
       plan: "Free",
@@ -7618,9 +7641,10 @@ function loadAccountState(email) {
       priceLock: "",
     });
   }
-  favorites = account.favorites || [];
-  savedDownloads = account.downloads || [];
-  localStorage.setItem("llhGeneratedOutputs", JSON.stringify(account.generatedOutputs || []));
+  const refreshed = accounts()[account.email] || repaired || account;
+  favorites = refreshed.favorites || [];
+  savedDownloads = refreshed.downloads || [];
+  localStorage.setItem("llhGeneratedOutputs", JSON.stringify(refreshed.generatedOutputs || []));
   localStorage.setItem("llhUser", currentUser);
   localStorage.setItem("llhPlan", currentPlan);
   localStorage.setItem("llhFavorites", JSON.stringify(favorites));
@@ -7652,8 +7676,10 @@ function saveCurrentAccountState() {
       ? account?.subscriptionStatus || `${billingPlanLabel(normalizedPlan)} Subscription Active`
       : "Free Plan",
     subscriptionCadence: paidBilling ? account?.subscriptionCadence || "" : "",
-    monthlyPrice: paidBilling ? account?.monthlyPrice || billingPriceLabel({ ...account, plan: normalizedPlan }) : "$0/month",
-    priceLock: paidBilling ? account?.priceLock || "" : "",
+    monthlyPrice: paidBilling ? billingPriceLabel({ ...account, plan: normalizedPlan }) : "$0/month",
+    priceLock: paidBilling
+      ? (normalizedPlan === "Founding" || account?.foundingMemberActive ? "Lifetime" : (account?.priceLock || ""))
+      : "",
     favorites,
     downloads: savedDownloads,
     generatedOutputs: generatedOutputs(),
@@ -26355,7 +26381,11 @@ function renderAdminOwnerOverview() {
           <div class="analytics-row stacked">
             <span><strong>${escapeHtml(displayUserName(account))}</strong> &mdash; ${escapeHtml(account.email)}</span>
             <strong>${escapeHtml(account.plan || "Free")}</strong>
-            <small>${escapeHtml(account.subscriptionStatus || "Free Plan")} · ${escapeHtml(account.monthlyPrice || "$0")}</small>
+            <small>${escapeHtml(account.subscriptionStatus || "Free Plan")} · ${escapeHtml(
+              (account.foundingMemberActive || account.plan === "Founding") && String(account.subscriptionStatus || "").toLowerCase() !== "free plan"
+                ? "$9.99/month"
+                : (account.monthlyPrice || "$0")
+            )}</small>
           </div>
         `).join("") : `<div class="empty-state">No accounts yet.</div>`}
       </article>
@@ -34006,7 +34036,7 @@ function subscriptionSummaryHtml() {
     <div class="billing-summary-grid">
       <div><span>Current Plan</span><strong>${escapeHtml(planLabel)}</strong></div>
       <div><span>Monthly Price</span><strong>${escapeHtml(billingPriceLabel(account))}</strong></div>
-      <div><span>Price Lock</span><strong>${paidBilling ? account?.foundingMember ? "Lifetime" : "Regular Pro pricing" : "None"}</strong></div>
+      <div><span>Price Lock</span><strong>${paidBilling ? (account?.foundingMemberActive || normalizeBillingPlan(account?.plan, account) === "Founding" || account?.foundingMember ? "Lifetime" : "Regular Pro pricing") : "None"}</strong></div>
       <div><span>Status</span><strong>${escapeHtml(statusLabel)}</strong></div>
       <div><span>AI Usage</span><strong>${serverAiUsed !== null ? serverAiUsed : aiUsageCount()} / ${serverAiLimit !== null ? serverAiLimit : aiMonthlyLimit()}</strong></div>
       <div><span>AI Reset</span><strong>${escapeHtml(aiResetLabel())}</strong></div>

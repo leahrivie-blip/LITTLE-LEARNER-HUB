@@ -266,6 +266,48 @@ async function main() {
   assert(membershipAccess.membershipFoundingHistorical(formerFounding), "Historical founding flag preserved");
   assert(!membershipAccess.membershipFoundingActive(formerFounding), "Former founding member is not active founding");
 
+  const foundingPreserved = simulateStripeSubscriptionUpdated(
+    {
+      plan: "Founding",
+      foundingMemberActive: true,
+      foundingMemberHistorical: true,
+      foundingMemberNumber: 7,
+      monthlyPrice: "$9.99/month",
+    },
+    { status: "active", cancel_at_period_end: false, current_period_end: periodEndFuture },
+  );
+  assert(foundingPreserved.plan === "Founding", "Ambiguous Stripe sync must not demote active founding to Pro");
+  assert(foundingPreserved.foundingMemberActive === true, "Ambiguous Stripe sync must keep foundingMemberActive");
+  assert(foundingPreserved.monthlyPrice === "$9.99/month", "Ambiguous Stripe sync must keep founding price at $9.99/month");
+
+  const foundingFromAmount = simulateStripeSubscriptionUpdated(
+    { plan: "Pro", foundingMemberActive: false },
+    {
+      status: "active",
+      current_period_end: periodEndFuture,
+      items: { data: [{ price: { id: "price_unknown", unit_amount: 999, nickname: "Founding Monthly" } }] },
+    },
+  );
+  assert(foundingFromAmount.plan === "Founding", "Stripe $9.99 unit_amount should resolve to Founding");
+  assert(foundingFromAmount.monthlyPrice === "$9.99/month", "Stripe $9.99 unit_amount should set $9.99/month");
+
+  const explicitMonthlyUpgrade = simulateStripeSubscriptionUpdated(
+    {
+      plan: "Founding",
+      foundingMemberActive: true,
+      foundingMemberHistorical: true,
+      monthlyPrice: "$9.99/month",
+    },
+    {
+      status: "active",
+      metadata: { plan: "monthly" },
+      current_period_end: periodEndFuture,
+    },
+  );
+  assert(explicitMonthlyUpgrade.plan === "Pro", "Explicit monthly metadata may upgrade founding off $9.99");
+  assert(explicitMonthlyUpgrade.monthlyPrice === "$19.99/month", "Explicit monthly metadata should charge $19.99/month");
+  assert(explicitMonthlyUpgrade.foundingMemberActive === false, "Explicit monthly upgrade clears active founding pricing");
+
   const child = startServer();
   try {
     await waitForBoot(child);
