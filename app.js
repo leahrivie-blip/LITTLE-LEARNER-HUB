@@ -352,7 +352,7 @@ const observationCategories = [
 ];
 const developmentalAreas = observationCategories;
 const weeklyObservationsPerChild = 3;
-const childDataKeys = ["Profiles", "Observations", "SupportPlans", "Goals", "Differentiations", "Attendance", "Meals", "MealPresets", "Reports", "Communications", "Naps", "Diapers", "ActivityLogs"];
+const childDataKeys = ["Profiles", "Observations", "SupportPlans", "Goals", "Differentiations", "Attendance", "Meals", "MealPresets", "Reports", "Communications", "Naps", "Diapers", "ActivityLogs", "Photos"];
 const diaperAgeGroups = new Set(["Infant", "Toddler", "Young Toddler", "Older Toddler"]);
 const plannerDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const docHelperToolMap = {
@@ -430,8 +430,11 @@ let lessonPlanWorkflowState = {
   improveRequest: "",
 };
 let activeChildObservationEditId = "";
+let activeGoalEditId = "";
 let activeChildProfileEditId = "";
 let pendingObservationArea = "";
+let confirmActionResolver = null;
+let childRecordEditResolver = null;
 let activeObservationChildLock = "";
 let pendingGoalArea = "";
 let activeSupportCategoryId = "";
@@ -13023,7 +13026,7 @@ function lessonWorkspaceActionBarsHtml(resource, position = "top") {
       <div class="lesson-workspace-secondary-actions" aria-label="More lesson plan actions">
         <button type="button" class="ghost-button" data-lesson-duplicate="${id}">Duplicate</button>
         ${isUserCopy ? `<button type="button" class="ghost-button" data-lesson-archive="${id}">Archive</button>` : ""}
-        ${isUserCopy ? `<button type="button" class="ghost-button lesson-workspace-danger" data-lesson-delete="${id}">Delete</button>` : ""}
+        ${isUserCopy ? `<button type="button" class="ghost-button lesson-workspace-danger" data-lesson-delete="${id}">Delete Permanently</button>` : ""}
         <button type="button" class="ghost-button" data-lesson-workspace-back>Back to Library</button>
       </div>
     </div>
@@ -13069,14 +13072,19 @@ function archiveLessonWorkspacePlan(resourceId) {
   return true;
 }
 
-function deleteLessonWorkspacePlan(resourceId) {
+async function deleteLessonWorkspacePlan(resourceId) {
   const uploads = uploadedResources();
   const target = uploads.find((item) => item.id === resourceId && item._userLessonCopy);
   if (!target) {
     window.alert("Only your editable lesson plan copies can be deleted.");
     return false;
   }
-  const confirmed = window.confirm(`Delete “${target.title || "this lesson plan"}”? This cannot be undone.`);
+  const confirmed = await confirmAction({
+    title: "Delete lesson plan permanently?",
+    message: `Delete “${target.title || "this lesson plan"}” permanently? Archive is preferred when you may need it again. This cannot be undone.`,
+    confirmLabel: "Delete Permanently",
+    danger: true,
+  });
   if (!confirmed) return false;
   saveUploadedResources(uploads.filter((item) => item.id !== resourceId));
   resources = loadResources();
@@ -17541,6 +17549,9 @@ function calendarDayItemCardHtml(item) {
   const timeLabel = !item.isVirtual && !item.allDay && item.startTime
     ? `${escapeHtml(item.startTime)}${item.endTime ? `–${escapeHtml(item.endTime)}` : ""}`
     : "";
+  const isPlacement = item.type === "lesson_plan";
+  const removeLabel = isPlacement ? "Remove From Calendar" : "Delete Permanently";
+  const menuId = `cal-item-${item.id}`;
   return `
     <article class="llh-cal-day-item llh-cal-day-item-${escapeHtml(category)}">
       <div>
@@ -17552,7 +17563,10 @@ function calendarDayItemCardHtml(item) {
       ${!item.isVirtual ? `
         <div class="llh-cal-day-item-actions">
           <button type="button" class="ghost-button" data-calendar-edit-item="${escapeHtml(item.id)}">Edit</button>
-          <button type="button" class="ghost-button" data-calendar-delete-item="${escapeHtml(item.id)}">Delete</button>
+          ${itemActionMenuHtml(menuId, [
+            { label: "Open / Edit", attr: `data-calendar-edit-item="${escapeHtml(item.id)}"` },
+            { label: removeLabel, attr: `data-calendar-delete-item="${escapeHtml(item.id)}"`, danger: true },
+          ])}
         </div>
       ` : ""}
     </article>
@@ -18120,7 +18134,12 @@ async function openCalendarAddItemDialog(options = {}) {
   const submitBtn = form?.querySelector('button[type="submit"]');
   if (submitBtn) submitBtn.textContent = editingItem ? "Save Changes" : "Save";
   const deleteBtn = modal.querySelector("[data-schedule-event-delete]");
-  if (deleteBtn) deleteBtn.hidden = !editingItem;
+  if (deleteBtn) {
+    deleteBtn.hidden = !editingItem;
+    if (editingItem) {
+      deleteBtn.textContent = editingItem.type === "lesson_plan" ? "Remove From Calendar" : "Delete Permanently";
+    }
+  }
   const errorEl = modal.querySelector("[data-schedule-event-error]");
   if (errorEl) {
     errorEl.hidden = true;
@@ -18199,7 +18218,17 @@ async function deleteCalendarItem(itemId) {
   if (!itemId) return;
   const api = getScheduleApi();
   if (!api || !api.deleteItem) return;
-  if (!window.confirm("Delete this calendar item? This cannot be undone.")) return;
+  const item = calendarItemById(itemId);
+  const isPlacement = item?.type === "lesson_plan";
+  const confirmed = await confirmAction({
+    title: isPlacement ? "Remove from calendar?" : "Delete permanently?",
+    message: isPlacement
+      ? "This removes the lesson plan from the calendar only. The original lesson plan will not be deleted."
+      : `Delete “${item?.title || "this calendar item"}” permanently? This cannot be undone.`,
+    confirmLabel: isPlacement ? "Remove From Calendar" : "Delete Permanently",
+    danger: !isPlacement,
+  });
+  if (!confirmed) return;
   mainCalendarBusy = true;
   renderMainCalendar();
   try {
@@ -18207,6 +18236,7 @@ async function deleteCalendarItem(itemId) {
     await api.deleteItem(firebaseAuthHeaders, scheduleApiEmail(), itemId);
     scheduleDocCache = api.readCache(scheduleApiEmail());
     closeCalendarAddItemDialog();
+    showActionFeedback(isPlacement ? "Removed from calendar." : "Calendar item deleted.");
   } catch (error) {
     console.warn(error);
   } finally {
@@ -18273,7 +18303,13 @@ async function saveCalendarDayNote(iso, options = {}) {
 }
 
 async function clearCalendarDayNote(iso) {
-  if (!window.confirm("Clear the notes for this day?")) return;
+  const confirmed = await confirmAction({
+    title: "Clear day notes?",
+    message: "This removes the notes for this day only. Other calendar items stay in place.",
+    confirmLabel: "Clear Notes",
+    danger: false,
+  });
+  if (!confirmed) return;
   await saveCalendarDayNote(iso, { clear: true });
 }
 
@@ -20547,7 +20583,7 @@ function renderChildPortfolioPage(childId) {
   activePortfolioChildId = childId;
   const summary = childProgressSummary(childId, records);
   const activeGoals = portfolio.goals.filter((goal) => goalProgressPercent(goal.progress) < 100);
-  const completedGoals = portfolio.goals.filter((goal) => goalProgressPercent(goal.progress) >= 100);
+  const completedGoals = portfolio.goals.filter((goal) => !goal.archived && goalProgressPercent(goal.progress) >= 100);
   const recommendedActivities = childRecommendationAreas(child, portfolio.goals, portfolio.observations)
     .flatMap((area) => suggestedActivitiesForArea(area, child))
     .slice(0, 8);
@@ -20735,7 +20771,7 @@ function childActiveGoals(child, records = childRecords()) {
     return selectedMatch || inferAreasFromGoalText(goalText)[0] || "Approaches to Learning";
   };
   const savedGoals = records.goals
-    .filter((goal) => goal.childId === child.id && goalProgressPercent(goal.progress) < 100)
+    .filter((goal) => goal.childId === child.id && !goal.archived && goalProgressPercent(goal.progress) < 100)
     .map((goal) => ({ ...goal, source: goal.source || "saved" }));
   const profileAreaKeys = new Set(savedGoals.map(areaKey).filter(Boolean));
   const typedGoals = child.activeGoals
@@ -20833,14 +20869,14 @@ function renderChildProfileCard(child, records) {
     ? `${summary.remaining} observation${summary.remaining === 1 ? "" : "s"} needed`
     : supportAreas.length ? supportAreas[0] : activeGoalCount ? "Active goal support" : "On track";
   return `
-    <article class="simple-child-card${child.hiddenFromActive ? " child-card-hidden" : ""}">
+    <article class="simple-child-card${child.hiddenFromActive || child.archived ? " child-card-hidden" : ""}">
       <div class="simple-child-card-head">
         ${renderChildAvatar(child, "small")}
         <div>
           <h3>${escapeHtml(child.name)}</h3>
           <p>${escapeHtml(childAgeLabel(child))} - ${escapeHtml(childRoomAgeLabel(child))}</p>
         </div>
-        <span class="attention-tag">${child.hiddenFromActive ? "Hidden from Daily Logs" : escapeHtml(attention)}</span>
+        <span class="attention-tag">${child.archived || child.hiddenFromActive ? "Archived" : escapeHtml(attention)}</span>
       </div>
       <div class="child-card-section">
         <span>Monthly observations</span>
@@ -20857,10 +20893,14 @@ function renderChildProfileCard(child, records) {
       <div class="child-card-actions">
         <button class="ghost-button" data-view-child-profile="${child.id}" type="button">View Profile</button>
         <button class="primary-button" data-quick-add-observation="${child.id}" type="button">Quick Add Observation</button>
-        ${child.hiddenFromActive
-          ? `<button class="ghost-button" data-dlc-unhide-child="${child.id}" type="button">Show in Daily Logs</button>`
-          : `<button class="ghost-button" data-dlc-hide-child="${child.id}" type="button">Hide from Daily Logs</button>`
-        }
+        ${itemActionMenuHtml(`child-${child.id}`, [
+          { label: "Edit Profile", attr: `data-edit-child-profile="${child.id}"` },
+          child.archived || child.hiddenFromActive
+            ? { label: "Reactivate Child", attr: `data-reactivate-child="${child.id}"` }
+            : { label: "Archive Child", attr: `data-archive-child="${child.id}"` },
+          { divider: true },
+          { label: "Delete Child Permanently", attr: `data-delete-child="${child.id}"`, danger: true },
+        ])}
       </div>
     </article>
   `;
@@ -21321,6 +21361,15 @@ function renderSimpleGoalCard(child, goal, records) {
         <button class="ghost-button" data-generate-goal-support="${escapeHtml(goal?.id || "")}" data-child-id="${escapeHtml(child.id)}" type="button">Generate Support Ideas</button>
         ${isSavedGoal ? `<button class="ghost-button" data-update-goal-progress="${goal.id}" type="button">Update Progress</button>` : `<button class="ghost-button" data-view-child-profile="${child.id}" data-open-child-tab="goals" type="button">Update Progress</button>`}
         <button class="ghost-button" ${isProUser() ? `data-open-portfolio="${child.id}"` : `data-pro-feature="child-portfolios"`} type="button">View Portfolio</button>
+        ${isSavedGoal ? itemActionMenuHtml(`goal-card-${goal.id}`, [
+          { label: "Edit", attr: `data-edit-goal="${goal.id}"` },
+          progress < 100 ? { label: "Mark Complete", attr: `data-complete-goal="${goal.id}"` } : null,
+          goal.archived
+            ? { label: "Reactivate", attr: `data-archive-goal="${goal.id}" data-archive-state="0"` }
+            : { label: "Archive", attr: `data-archive-goal="${goal.id}" data-archive-state="1"` },
+          { divider: true },
+          { label: "Delete Permanently", attr: `data-delete-goal="${goal.id}"`, danger: true },
+        ].filter(Boolean)) : ""}
       </div>
       <div class="goal-ai-output" id="goalSupportIdeas-${safeId}" aria-live="polite"></div>
     </article>
@@ -21505,6 +21554,13 @@ function renderSimpleChildProfile(child, records) {
         </div>
         <div class="profile-hero-actions">
           <button class="ghost-button" data-edit-child-profile="${child.id}" type="button">Edit Profile</button>
+          ${itemActionMenuHtml(`child-profile-${child.id}`, [
+            child.archived || child.hiddenFromActive
+              ? { label: "Reactivate Child", attr: `data-reactivate-child="${child.id}"` }
+              : { label: "Archive Child", attr: `data-archive-child="${child.id}"` },
+            { divider: true },
+            { label: "Delete Child Permanently", attr: `data-delete-child="${child.id}"`, danger: true },
+          ])}
         </div>
       </section>
 
@@ -21549,20 +21605,20 @@ function renderChildProfileTabContent(child, records) {
   if (childProfileTab === "goals") return renderChildGoalsTab(child, goals, activeGoals, observations, records);
   if (childProfileTab === "attendance") {
     const attendance = records.attendance.filter((item) => item.childId === child.id);
-    return renderChildSimpleRecordTab("Attendance", "Attendance information for this child only.", attendanceForm(child.id), filterDailyLogHistory(attendance));
+    return renderChildSimpleRecordTab("Attendance", "Attendance information for this child only.", attendanceForm(child.id), filterDailyLogHistory(attendance), "Attendance");
   }
   if (childProfileTab === "photos") {
     const photos = (records.photos || []).filter((item) => item.childId === child.id);
-    return renderChildSimpleRecordTab("Photos", "Saved photo moments for this child.", renderDlcPhotoSection(records), filterDailyLogHistory(photos));
+    return renderChildSimpleRecordTab("Photos", "Saved photo moments for this child.", renderDlcPhotoSection(records), filterDailyLogHistory(photos), "Photos");
   }
   if (childProfileTab === "notes") {
     const notes = records.communications.filter((item) => item.childId === child.id && ["Teacher Note", "General Note", "Mood Note", "Behavior Note"].includes(item.type));
-    return renderChildSimpleRecordTab("Notes", "Provider notes and mood history for this child.", renderDlcAccordionForm("notes", records), filterDailyLogHistory(notes));
+    return renderChildSimpleRecordTab("Notes", "Provider notes and mood history for this child.", renderDlcAccordionForm("notes", records), filterDailyLogHistory(notes), "Communications");
   }
   if (childProfileTab === "reports") return renderChildReportsTab(child, records, observations, goals, supportPlans, differentiations);
   if (childProfileTab === "family") {
     const comms = records.communications.filter((item) => item.childId === child.id);
-    return renderChildSimpleRecordTab("Parent Messages", "Parent notes and communication records for this child only.", isProUser() ? communicationForm(child.id) : lockedFeatureCard("Parent Communication Tools", "Preview family messaging here and upgrade only when you need it.", "daily-log-parent-messages"), filterDailyLogHistory(comms));
+    return renderChildSimpleRecordTab("Parent Messages", "Parent notes and communication records for this child only.", isProUser() ? communicationForm(child.id) : lockedFeatureCard("Parent Communication Tools", "Preview family messaging here and upgrade only when you need it.", "daily-log-parent-messages"), filterDailyLogHistory(comms), "Communications");
   }
   return renderChildOverviewTab(child, summary, records);
 }
@@ -21622,22 +21678,22 @@ function renderChildDailyLogTab(child, records) {
         <div class="daily-log-section">
           <h4>🍽️ Meals</h4>
           ${mealTrackingForm(child.id)}
-          <div class="resource-list compact">${todayMeals.length ? todayMeals.slice(-4).reverse().map(simpleRecordItem).join("") : `<p class="muted-copy">No meals logged today.</p>`}</div>
+          <div class="resource-list compact">${todayMeals.length ? todayMeals.slice(-4).reverse().map((item) => simpleRecordItem(item, { storeKey: "Meals" })).join("") : `<p class="muted-copy">No meals logged today.</p>`}</div>
         </div>
         <div class="daily-log-section">
           <h4>😴 Naps</h4>
           ${napTrackingForm(child.id)}
-          <div class="resource-list compact">${todayNaps.length ? todayNaps.slice(-4).reverse().map(simpleRecordItem).join("") : `<p class="muted-copy">No naps logged today.</p>`}</div>
+          <div class="resource-list compact">${todayNaps.length ? todayNaps.slice(-4).reverse().map((item) => simpleRecordItem(item, { storeKey: "Naps" })).join("") : `<p class="muted-copy">No naps logged today.</p>`}</div>
         </div>
         <div class="daily-log-section">
           <h4>🚽 Diaper / Potty</h4>
           ${diaperTrackingForm(child.id)}
-          <div class="resource-list compact">${todayDiapers.length ? todayDiapers.slice(-4).reverse().map(simpleRecordItem).join("") : `<p class="muted-copy">No diaper entries today.</p>`}</div>
+          <div class="resource-list compact">${todayDiapers.length ? todayDiapers.slice(-4).reverse().map((item) => simpleRecordItem(item, { storeKey: "Diapers" })).join("") : `<p class="muted-copy">No diaper entries today.</p>`}</div>
         </div>
         <div class="daily-log-section">
           <h4>🎨 Activities</h4>
           ${activityLogForm(child.id)}
-          <div class="resource-list compact">${todayActivities.length ? todayActivities.slice(-4).reverse().map(simpleRecordItem).join("") : `<p class="muted-copy">No activities logged today.</p>`}</div>
+          <div class="resource-list compact">${todayActivities.length ? todayActivities.slice(-4).reverse().map((item) => simpleRecordItem(item, { storeKey: "ActivityLogs" })).join("") : `<p class="muted-copy">No activities logged today.</p>`}</div>
         </div>
       </div>
     </section>
@@ -21664,7 +21720,7 @@ function renderChildReportsTab(child, records, observations, goals, supportPlans
           <p class="dlc-sub">Add a short note and Little Learner Hub will transform it into a complete, family-ready daily report. Meals, nap, activities, and other logged information will be included automatically.</p>
           <button class="primary-button" data-build-daily-report="${child.id}" type="button">Generate Daily Report</button>
         </div>` : lockedFeatureCard("Daily Reports")}
-      <div class="resource-list compact">${reports.length ? reports.slice(-8).reverse().map(simpleRecordItem).join("") : `<div class="empty-state">No daily reports yet.</div>`}</div>
+      <div class="resource-list compact">${reports.length ? reports.slice(-8).reverse().map((item) => simpleRecordItem(item, { storeKey: "Reports" })).join("") : `<div class="empty-state">No daily reports yet.</div>`}</div>
       <div class="portfolio-summary-block">
         <p class="eyebrow">Portfolio</p>
         <h4>Progress Record</h4>
@@ -21923,14 +21979,14 @@ function renderChildPortfolioTab(child, observations, goals, supportPlans, diffe
   `;
 }
 
-function renderChildSimpleRecordTab(title, detail, formHtml, records) {
+function renderChildSimpleRecordTab(title, detail, formHtml, records, storeKey = "") {
   return `
     <section class="section-block">
       <p class="eyebrow">${escapeHtml(title)}</p>
       <h3>${escapeHtml(title)}</h3>
       <p class="muted-copy">${escapeHtml(detail)}</p>
       ${formHtml}
-      <div class="resource-list compact">${records.length ? records.slice(-8).reverse().map(simpleRecordItem).join("") : `<div class="empty-state">No ${escapeHtml(title.toLowerCase())} records yet.</div>`}</div>
+      <div class="resource-list compact">${records.length ? records.slice(-8).reverse().map((item) => simpleRecordItem(item, { storeKey })).join("") : `<div class="empty-state">No ${escapeHtml(title.toLowerCase())} records yet.</div>`}</div>
     </section>
   `;
 }
@@ -22011,7 +22067,7 @@ function renderChildToolsContent(child, records) {
   const reports = records.reports.filter((item) => item.childId === child.id);
   const comms = records.communications.filter((item) => item.childId === child.id);
   if (childToolsTab === "meals") {
-    return renderChildSimpleRecordTab("Meals", "Track only meal notes for this child.", mealTrackingForm(child.id), filterDailyLogHistory(meals));
+    return renderChildSimpleRecordTab("Meals", "Track only meal notes for this child.", mealTrackingForm(child.id), filterDailyLogHistory(meals), "Meals");
   }
   if (childToolsTab === "reports") {
     return renderChildSimpleRecordTab("Daily Reports", "Create simple parent-ready daily reports for this child.", isProUser() ? `
@@ -22022,24 +22078,24 @@ function renderChildToolsContent(child, records) {
         </label>
         <p class="dlc-sub">Add a short note and Little Learner Hub will transform it into a complete, family-ready daily report.</p>
         <button class="primary-button" data-build-daily-report="${child.id}" type="button">Generate Daily Report</button>
-      </div>` : lockedFeatureCard("Daily Reports", "Preview family-ready reports here and upgrade only when you need unlimited automation.", "daily-log-reports"), filterDailyLogHistory(reports));
+      </div>` : lockedFeatureCard("Daily Reports", "Preview family-ready reports here and upgrade only when you need unlimited automation.", "daily-log-reports"), filterDailyLogHistory(reports), "Reports");
   }
   if (childToolsTab === "communication") {
-    return renderChildSimpleRecordTab("Parent Communication", "Keep parent notes and communication records for this child.", isProUser() ? communicationForm(child.id) : lockedFeatureCard("Parent Communication Tools", "Preview family communication here. Sending polished parent messages unlocks with Pro.", "daily-log-parent-messages"), filterDailyLogHistory(comms));
+    return renderChildSimpleRecordTab("Parent Communication", "Keep parent notes and communication records for this child.", isProUser() ? communicationForm(child.id) : lockedFeatureCard("Parent Communication Tools", "Preview family communication here. Sending polished parent messages unlocks with Pro.", "daily-log-parent-messages"), filterDailyLogHistory(comms), "Communications");
   }
-  return renderChildSimpleRecordTab("Attendance", "Track only attendance information for this child.", attendanceForm(child.id), filterDailyLogHistory(attendance));
+  return renderChildSimpleRecordTab("Attendance", "Track only attendance information for this child.", attendanceForm(child.id), filterDailyLogHistory(attendance), "Attendance");
 }
 
 // ─── Daily Logs Center ──────────────────────────────────────────────────────
 
-// Returns children not hidden from active daily workflows
+// Returns children not hidden/archived from active daily workflows
 function getActiveChildren(records) {
-  return (records.children || []).filter((c) => !c.hiddenFromActive);
+  return (records.children || []).filter((c) => !c.hiddenFromActive && !c.archived);
 }
 
-// Returns hidden children (hidden from active daily workflows)
+// Returns hidden/archived children
 function getHiddenChildren(records) {
-  return (records.children || []).filter((c) => c.hiddenFromActive);
+  return (records.children || []).filter((c) => c.hiddenFromActive || c.archived);
 }
 
 // Derive daily log status for one child on a given date
@@ -22295,13 +22351,13 @@ function renderDlcDashboard(records) {
 
       ${hiddenChildren.length ? `
         <details class="dlc-hidden-section">
-          <summary class="dlc-hidden-summary">Hidden Children (${hiddenChildren.length})</summary>
+          <summary class="dlc-hidden-summary">Archived Children (${hiddenChildren.length})</summary>
           <div class="dlc-hidden-list">
             ${hiddenChildren.map((child) => `
               <div class="dlc-hidden-child-row">
                 ${renderChildAvatar(child, "small")}
                 <span>${escapeHtml(child.name)}</span>
-                <button class="ghost-button dlc-unhide-btn" data-dlc-unhide-child="${child.id}" type="button">Restore to Active</button>
+                <button class="ghost-button dlc-unhide-btn" data-reactivate-child="${child.id}" type="button">Reactivate Child</button>
               </div>
             `).join("")}
           </div>
@@ -23646,35 +23702,35 @@ function renderDailyLogsChildTabContent(child, records, today) {
   if (dailyLogsChildTab === "overview") return renderDailyLogsOverviewTab(child, records, today);
   if (dailyLogsChildTab === "attendance") {
     const attendance = records.attendance.filter((item) => item.childId === child.id);
-    return renderChildSimpleRecordTab("Attendance", "Daily check-in for " + escapeHtml(child.name) + ".", attendanceForm(child.id), filterDailyLogHistory(attendance));
+    return renderChildSimpleRecordTab("Attendance", "Daily check-in for " + escapeHtml(child.name) + ".", attendanceForm(child.id), filterDailyLogHistory(attendance), "Attendance");
   }
   if (dailyLogsChildTab === "meals") {
     const meals = records.meals.filter((item) => item.childId === child.id);
-    return renderChildSimpleRecordTab("Meals", "Meal tracking for " + escapeHtml(child.name) + ".", mealTrackingForm(child.id), filterDailyLogHistory(meals));
+    return renderChildSimpleRecordTab("Meals", "Meal tracking for " + escapeHtml(child.name) + ".", mealTrackingForm(child.id), filterDailyLogHistory(meals), "Meals");
   }
   if (dailyLogsChildTab === "naps") {
     const naps = records.naps.filter((item) => item.childId === child.id);
-    return renderChildSimpleRecordTab("Nap Tracking", "Log nap and rest times for " + escapeHtml(child.name) + ".", napTrackingForm(child.id), filterDailyLogHistory(naps));
+    return renderChildSimpleRecordTab("Nap Tracking", "Log nap and rest times for " + escapeHtml(child.name) + ".", napTrackingForm(child.id), filterDailyLogHistory(naps), "Naps");
   }
   if (dailyLogsChildTab === "diapers") {
     const diapers = records.diapers.filter((item) => item.childId === child.id);
-    return renderChildSimpleRecordTab("Diaper / Potty", "Log diaper changes and potty attempts for " + escapeHtml(child.name) + ".", diaperTrackingForm(child.id), filterDailyLogHistory(diapers));
+    return renderChildSimpleRecordTab("Diaper / Potty", "Log diaper changes and potty attempts for " + escapeHtml(child.name) + ".", diaperTrackingForm(child.id), filterDailyLogHistory(diapers), "Diapers");
   }
   if (dailyLogsChildTab === "activities") {
     const activityLogs = records.activityLogs.filter((item) => item.childId === child.id);
-    return renderChildSimpleRecordTab("Activities", "Log daily activities for " + escapeHtml(child.name) + ".", activityLogForm(child.id), filterDailyLogHistory(activityLogs));
+    return renderChildSimpleRecordTab("Activities", "Log daily activities for " + escapeHtml(child.name) + ".", activityLogForm(child.id), filterDailyLogHistory(activityLogs), "ActivityLogs");
   }
   if (dailyLogsChildTab === "photos") {
     const photos = (records.photos || []).filter((item) => item.childId === child.id);
-    return renderChildSimpleRecordTab("Photos", "Save photo moments for " + escapeHtml(child.name) + ".", renderDlcPhotoSection(records), filterDailyLogHistory(photos));
+    return renderChildSimpleRecordTab("Photos", "Save photo moments for " + escapeHtml(child.name) + ".", renderDlcPhotoSection(records), filterDailyLogHistory(photos), "Photos");
   }
   if (dailyLogsChildTab === "notes") {
     const teacherNotes = records.communications.filter((item) => item.childId === child.id && ["Teacher Note", "General Note", "Mood Note"].includes(item.type));
-    return renderChildSimpleRecordTab("Teacher Notes", "Save provider-facing notes for " + escapeHtml(child.name) + ".", renderDlcAccordionForm("notes", records), filterDailyLogHistory(teacherNotes));
+    return renderChildSimpleRecordTab("Teacher Notes", "Save provider-facing notes for " + escapeHtml(child.name) + ".", renderDlcAccordionForm("notes", records), filterDailyLogHistory(teacherNotes), "Communications");
   }
   if (dailyLogsChildTab === "parent-message") {
     const comms = records.communications.filter((item) => item.childId === child.id && item.type !== "Behavior Note");
-    return renderChildSimpleRecordTab("Parent Message", "Save parent notes and communication for " + escapeHtml(child.name) + ".", isProUser() ? communicationForm(child.id) : lockedFeatureCard("Parent Communication", "Parent messaging stays visible so providers can preview the Pro workflow before upgrading.", "daily-log-parent-messages"), filterDailyLogHistory(comms));
+    return renderChildSimpleRecordTab("Parent Message", "Save parent notes and communication for " + escapeHtml(child.name) + ".", isProUser() ? communicationForm(child.id) : lockedFeatureCard("Parent Communication", "Parent messaging stays visible so providers can preview the Pro workflow before upgrading.", "daily-log-parent-messages"), filterDailyLogHistory(comms), "Communications");
   }
   if (dailyLogsChildTab === "daily-report") {
     const reports = records.reports.filter((item) => item.childId === child.id);
@@ -23686,7 +23742,7 @@ function renderDailyLogsChildTabContent(child, records, today) {
         </label>
         <p class="dlc-sub">Add a short note and Little Learner Hub will transform it into a complete, family-ready daily report. Meals, nap, activities, and other logged information will be included automatically.</p>
         <button class="primary-button" data-build-daily-report="${child.id}" type="button">Generate Daily Report</button>
-      </div>` : lockedFeatureCard("Daily Reports", "AI family-ready daily reports unlock with Pro, but Free users can still print and save today's log.", "daily-log-reports"), filterDailyLogHistory(reports));
+      </div>` : lockedFeatureCard("Daily Reports", "AI family-ready daily reports unlock with Pro, but Free users can still print and save today's log.", "daily-log-reports"), filterDailyLogHistory(reports), "Reports");
   }
   return "";
 }
@@ -24183,11 +24239,13 @@ function renderObservationScreen(records) {
 function renderChildObservationCard(item, child) {
   const analysis = observationAnalysis(item, child);
   const supportMatches = analysis.supportAreaMatches || [];
+  const menuId = `obs-${item.id}`;
   return `
-    <article class="simple-observation-card">
+    <article class="simple-observation-card${item.archived ? " is-archived" : ""}">
       <div>
         <strong>${escapeHtml(item.childName || child.name)} | ${escapeHtml(formatDateLabel(item.date))}</strong>
         <span class="tag">${escapeHtml(analysis.developmentArea)}</span>
+        ${item.archived ? `<span class="tag">Archived</span>` : ""}
       </div>
       <p>${escapeHtml(item.text || "Observation note")}</p>
       <p><b>Next step:</b> ${escapeHtml(analysis.nextSteps)}</p>
@@ -24195,8 +24253,15 @@ function renderChildObservationCard(item, child) {
       ${supportMatches.length ? `<div class="observation-support-match"><strong>Support area match</strong>${renderChipList(supportMatches)}</div>` : ""}
       <div class="observation-card-actions">
         <button class="ghost-button" data-edit-child-observation="${item.id}" type="button">Edit</button>
-        <button class="ghost-button" data-duplicate-child-observation="${item.id}" type="button">Duplicate</button>
-        <button class="ghost-button danger-link" data-delete-child-observation="${item.id}" type="button">Delete</button>
+        ${itemActionMenuHtml(menuId, [
+          { label: "Edit", attr: `data-edit-child-observation="${item.id}"` },
+          { label: "Duplicate", attr: `data-duplicate-child-observation="${item.id}"` },
+          item.archived
+            ? { label: "Reactivate", attr: `data-archive-child-observation="${item.id}" data-archive-state="0"` }
+            : { label: "Archive", attr: `data-archive-child-observation="${item.id}" data-archive-state="1"` },
+          { divider: true },
+          { label: "Delete Permanently", attr: `data-delete-child-observation="${item.id}"`, danger: true },
+        ])}
       </div>
     </article>
   `;
@@ -24218,19 +24283,26 @@ function supportForm(childId) {
 }
 
 function goalForm(childId) {
-  const selectedArea = pendingGoalArea || normalizeObservationArea(pendingGoalArea) || "";
+  const editing = activeGoalEditId ? childStore("Goals").find((goal) => goal.id === activeGoalEditId) : null;
+  const selectedArea = editing?.area || pendingGoalArea || normalizeObservationArea(pendingGoalArea) || "";
   const child = childRecords().children.find((item) => item.id === childId);
   const placeholder = goalExampleForArea(selectedArea || "Approaches to Learning", child);
   return `
     <form id="childGoalForm" class="mini-form">
       <input name="childId" type="hidden" value="${childId}" />
+      ${editing ? `<input name="goalId" type="hidden" value="${escapeHtml(editing.id)}" />` : ""}
       <label>What needs help?<select name="area">${goalAreaOptions(selectedArea)}</select></label>
-      <label>Goal<input name="goal" placeholder="${escapeHtml(placeholder)}" /></label>
-      <label>Target Date<input name="targetDate" type="date" /></label>
-      <label>Progress<select name="progress"><option>0%</option><option>25%</option><option>50%</option><option>75%</option><option>100%</option></select></label>
-      <label>Notes<textarea name="notes" rows="2" placeholder="Progress notes"></textarea></label>
+      <label>Goal<input name="goal" value="${escapeHtml(editing?.goal || "")}" placeholder="${escapeHtml(placeholder)}" /></label>
+      <label>Target Date<input name="targetDate" type="date" value="${escapeHtml(editing?.targetDate || "")}" /></label>
+      <label>Progress<select name="progress">
+        ${["0%", "25%", "50%", "75%", "100%"].map((value) => `<option ${String(editing?.progress || "0%") === value ? "selected" : ""}>${value}</option>`).join("")}
+      </select></label>
+      <label>Notes<textarea name="notes" rows="2" placeholder="Progress notes">${escapeHtml(editing?.notes || "")}</textarea></label>
       <p class="form-note">Related observations, activities, and lesson plan topics will connect automatically by developmental area.</p>
-      <button class="primary-button" type="submit">Add Goal</button>
+      <div class="form-actions">
+        <button class="primary-button" type="submit">${editing ? "Save Goal Changes" : "Add Goal"}</button>
+        ${editing ? `<button class="ghost-button" type="button" data-cancel-goal-edit>Cancel Edit</button>` : ""}
+      </div>
     </form>
   `;
 }
@@ -24323,15 +24395,22 @@ function observationItem(item) {
   `;
 }
 
-function simpleRecordItem(item) {
+function simpleRecordItem(item, options = {}) {
+  const storeKey = options.storeKey || item._storeKey || "";
   const title = item.title || item.type || item.area || item.status || item.date || "Record";
   const detail = item.summary || item.message || item.goal || item.activity || item.notes || item.text || item.support || `${item.date || ""} ${item.status || ""}`.trim();
+  const canAct = Boolean(storeKey && item.id);
+  const menuId = canAct ? `record-${storeKey}-${item.id}` : "";
   return `
     <div class="compact-item">
       <div>
-        <strong>${title}</strong>
-        <span>${detail || "Saved record"}</span>
+        <strong>${escapeHtml(String(title))}</strong>
+        <span>${escapeHtml(String(detail || "Saved record"))}</span>
       </div>
+      ${canAct ? itemActionMenuHtml(menuId, [
+        { label: "Edit", attr: `data-edit-child-record="${escapeHtml(item.id)}" data-store-key="${escapeHtml(storeKey)}"` },
+        { label: "Delete Permanently", attr: `data-delete-child-record="${escapeHtml(item.id)}" data-store-key="${escapeHtml(storeKey)}"`, danger: true },
+      ]) : ""}
     </div>
   `;
 }
@@ -24342,10 +24421,20 @@ function goalItem(item, child = {}) {
   const connectedObservations = connectedObservationsForGoal(item);
   const activities = suggestedActivitiesForArea(area, child).slice(0, 4);
   const lessonPlans = suggestedLessonPlansForArea(area).slice(0, 3);
+  const isTyped = String(item.source || "") === "typed" || String(item.id || "").includes("-typed-goal-");
+  const menuActions = isTyped ? [] : [
+    { label: "Edit", attr: `data-edit-goal="${item.id}"` },
+    progress < 100 ? { label: "Mark Complete", attr: `data-complete-goal="${item.id}"` } : null,
+    item.archived
+      ? { label: "Reactivate", attr: `data-archive-goal="${item.id}" data-archive-state="0"` }
+      : { label: "Archive", attr: `data-archive-goal="${item.id}" data-archive-state="1"` },
+    { divider: true },
+    { label: "Delete Permanently", attr: `data-delete-goal="${item.id}"`, danger: true },
+  ].filter(Boolean);
   return `
-    <div class="compact-item">
+    <div class="compact-item${item.archived ? " is-archived" : ""}">
       <div>
-        <strong>${escapeHtml(area)} | ${progress}% progress</strong>
+        <strong>${escapeHtml(area)} | ${progress}% progress${item.archived ? " · Archived" : ""}</strong>
         <div class="mini-progress"><span style="width:${progress}%"></span></div>
         <span>${escapeHtml(item.goal)}${item.targetDate ? ` | Target: ${escapeHtml(item.targetDate)}` : ""}</span>
         <span><b>Connected Observations:</b> ${connectedObservations.length}</span>
@@ -24353,7 +24442,10 @@ function goalItem(item, child = {}) {
         <span><b>Lesson Plan Topics:</b> ${escapeHtml(lessonPlans.join(", "))}</span>
         ${item.notes ? `<span><b>Progress Notes:</b> ${escapeHtml(item.notes)}</span>` : ""}
       </div>
-      ${progress < 100 ? `<button class="ghost-button" data-complete-goal="${item.id}" type="button">Mark 100%</button>` : `<span class="tag">Complete</span>`}
+      <div class="goal-card-actions">
+        ${progress < 100 && !item.archived ? `<button class="ghost-button" data-complete-goal="${item.id}" type="button">Mark Complete</button>` : `<span class="tag">${item.archived ? "Archived" : "Complete"}</span>`}
+        ${menuActions.length ? itemActionMenuHtml(`goal-${item.id}`, menuActions) : ""}
+      </div>
     </div>
   `;
 }
@@ -24369,6 +24461,252 @@ function appendChildRecord(key, record) {
 }
 
 let afterActionPromptTimeout = null;
+
+function confirmActionDialogHtml() {
+  return `
+    <div class="llh-confirm-dialog" data-llh-confirm-dialog hidden>
+      <button type="button" class="llh-confirm-backdrop" data-llh-confirm-cancel aria-label="Dismiss confirmation"></button>
+      <div class="llh-confirm-panel" role="dialog" aria-modal="true" aria-labelledby="llhConfirmTitle">
+        <h3 id="llhConfirmTitle" data-llh-confirm-title>Confirm</h3>
+        <p class="muted-copy" data-llh-confirm-message></p>
+        <div class="llh-confirm-actions">
+          <button type="button" class="primary-button" data-llh-confirm-ok>Confirm</button>
+          <button type="button" class="ghost-button" data-llh-confirm-cancel>Cancel</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function ensureConfirmActionDialog() {
+  let dialog = document.querySelector("[data-llh-confirm-dialog]");
+  if (!dialog) {
+    document.body.insertAdjacentHTML("beforeend", confirmActionDialogHtml());
+    dialog = document.querySelector("[data-llh-confirm-dialog]");
+  }
+  return dialog;
+}
+
+function closeConfirmActionDialog(result = false) {
+  const dialog = document.querySelector("[data-llh-confirm-dialog]");
+  if (dialog) dialog.hidden = true;
+  const resolve = confirmActionResolver;
+  confirmActionResolver = null;
+  if (resolve) resolve(Boolean(result));
+}
+
+/**
+ * Shared confirm dialog. Prefer clear Remove vs Delete language in title/message/confirmLabel.
+ * @param {{ title?: string, message?: string, confirmLabel?: string, cancelLabel?: string, danger?: boolean }} options
+ * @returns {Promise<boolean>}
+ */
+function confirmAction(options = {}) {
+  if (confirmActionResolver) {
+    const previous = confirmActionResolver;
+    confirmActionResolver = null;
+    previous(false);
+  }
+  const dialog = ensureConfirmActionDialog();
+  const fallbackMessage = [options.title, options.message].filter(Boolean).join("\n\n") || "Are you sure?";
+  if (!dialog) return Promise.resolve(window.confirm(fallbackMessage));
+  const titleEl = dialog.querySelector("[data-llh-confirm-title]");
+  const messageEl = dialog.querySelector("[data-llh-confirm-message]");
+  const okBtn = dialog.querySelector("[data-llh-confirm-ok]");
+  const cancelBtns = dialog.querySelectorAll("[data-llh-confirm-cancel]");
+  if (titleEl) titleEl.textContent = options.title || "Confirm";
+  if (messageEl) messageEl.textContent = options.message || "Are you sure?";
+  if (okBtn) {
+    okBtn.textContent = options.confirmLabel || "Confirm";
+    okBtn.classList.toggle("danger-button", Boolean(options.danger));
+    okBtn.classList.toggle("primary-button", !options.danger);
+  }
+  cancelBtns.forEach((btn) => {
+    if (btn.classList.contains("llh-confirm-backdrop")) return;
+    btn.textContent = options.cancelLabel || "Cancel";
+  });
+  dialog.hidden = false;
+  okBtn?.focus();
+  return new Promise((resolve) => {
+    confirmActionResolver = resolve;
+  });
+}
+
+function itemActionMenuHtml(menuId, actions = []) {
+  const safeId = escapeHtml(String(menuId || ""));
+  const buttons = (actions || []).filter(Boolean).map((action) => {
+    if (action.divider) return `<div class="llh-item-menu-divider" role="separator"></div>`;
+    const dangerClass = action.danger ? " llh-item-menu-danger" : "";
+    return `<button type="button" class="llh-item-menu-action${dangerClass}" role="menuitem" ${action.attr || ""}>${escapeHtml(action.label || "Action")}</button>`;
+  }).join("");
+  return `
+    <div class="llh-item-menu">
+      <button type="button" class="ghost-button llh-item-menu-toggle" data-llh-item-menu-toggle="${safeId}" aria-label="More actions" aria-haspopup="menu" aria-expanded="false">⋮</button>
+      <div class="llh-item-menu-panel" data-llh-item-menu="${safeId}" hidden role="menu">${buttons}</div>
+    </div>
+  `;
+}
+
+function closeAllItemActionMenus(exceptId = "") {
+  document.querySelectorAll("[data-llh-item-menu]").forEach((panel) => {
+    const id = panel.getAttribute("data-llh-item-menu") || "";
+    if (exceptId && id === exceptId) return;
+    panel.hidden = true;
+  });
+  document.querySelectorAll("[data-llh-item-menu-toggle]").forEach((btn) => {
+    const id = btn.getAttribute("data-llh-item-menu-toggle") || "";
+    if (exceptId && id === exceptId) return;
+    btn.setAttribute("aria-expanded", "false");
+  });
+}
+
+function toggleItemActionMenu(menuId, forceOpen) {
+  const panel = document.querySelector(`[data-llh-item-menu="${menuId}"]`);
+  const toggle = document.querySelector(`[data-llh-item-menu-toggle="${menuId}"]`);
+  if (!panel) return;
+  const willOpen = forceOpen === undefined ? panel.hidden : Boolean(forceOpen);
+  closeAllItemActionMenus(willOpen ? menuId : "");
+  panel.hidden = !willOpen;
+  if (toggle) toggle.setAttribute("aria-expanded", willOpen ? "true" : "false");
+}
+
+function childRecordEditDialogHtml() {
+  return `
+    <div class="llh-confirm-dialog" data-llh-record-edit-dialog hidden>
+      <button type="button" class="llh-confirm-backdrop" data-llh-record-edit-cancel aria-label="Dismiss edit dialog"></button>
+      <div class="llh-confirm-panel" role="dialog" aria-modal="true" aria-labelledby="llhRecordEditTitle">
+        <h3 id="llhRecordEditTitle">Edit record</h3>
+        <form class="mini-form" data-llh-record-edit-form>
+          <input type="hidden" name="storeKey" value="" />
+          <input type="hidden" name="recordId" value="" />
+          <label>Date<input name="date" type="date" /></label>
+          <label>Details<textarea name="details" rows="4" placeholder="Update this entry"></textarea></label>
+          <div class="llh-confirm-actions">
+            <button type="submit" class="primary-button">Save Changes</button>
+            <button type="button" class="ghost-button" data-llh-record-edit-cancel>Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
+function ensureChildRecordEditDialog() {
+  let dialog = document.querySelector("[data-llh-record-edit-dialog]");
+  if (!dialog) {
+    document.body.insertAdjacentHTML("beforeend", childRecordEditDialogHtml());
+    dialog = document.querySelector("[data-llh-record-edit-dialog]");
+  }
+  return dialog;
+}
+
+function closeChildRecordEditDialog(saved = false) {
+  const dialog = document.querySelector("[data-llh-record-edit-dialog]");
+  if (dialog) dialog.hidden = true;
+  const resolve = childRecordEditResolver;
+  childRecordEditResolver = null;
+  if (resolve) resolve(Boolean(saved));
+}
+
+function primaryChildRecordDetail(item = {}) {
+  if (item.message != null && item.message !== "") return { key: "message", value: item.message };
+  if (item.notes != null && item.notes !== "") return { key: "notes", value: item.notes };
+  if (item.text != null && item.text !== "") return { key: "text", value: item.text };
+  if (item.activity != null && item.activity !== "") return { key: "activity", value: item.activity };
+  if (item.support != null && item.support !== "") return { key: "support", value: item.support };
+  if (item.goal != null && item.goal !== "") return { key: "goal", value: item.goal };
+  if (item.summary != null) return { key: "summary", value: item.summary };
+  return { key: "summary", value: "" };
+}
+
+function openChildRecordEditDialog(storeKey, recordId) {
+  const items = childStore(storeKey);
+  const item = items.find((entry) => entry.id === recordId);
+  if (!item) return Promise.resolve(false);
+  if (childRecordEditResolver) {
+    const previous = childRecordEditResolver;
+    childRecordEditResolver = null;
+    previous(false);
+  }
+  const dialog = ensureChildRecordEditDialog();
+  if (!dialog) return Promise.resolve(false);
+  const form = dialog.querySelector("[data-llh-record-edit-form]");
+  const detail = primaryChildRecordDetail(item);
+  form.storeKey.value = storeKey;
+  form.recordId.value = recordId;
+  form.date.value = item.date || "";
+  form.details.value = detail.value || "";
+  form.dataset.detailKey = detail.key;
+  dialog.hidden = false;
+  form.details.focus();
+  return new Promise((resolve) => {
+    childRecordEditResolver = resolve;
+  });
+}
+
+async function deleteChildRecordPermanently(storeKey, recordId) {
+  if (!storeKey || !recordId) return false;
+  const confirmed = await confirmAction({
+    title: "Delete permanently?",
+    message: "This permanently deletes this entry. This cannot be undone.",
+    confirmLabel: "Delete Permanently",
+    danger: true,
+  });
+  if (!confirmed) return false;
+  saveChildStore(storeKey, childStore(storeKey).filter((item) => item.id !== recordId));
+  showActionFeedback("Entry deleted.");
+  renderChildManagement();
+  return true;
+}
+
+async function archiveChildProfile(childId) {
+  if (!childId) return;
+  const confirmed = await confirmAction({
+    title: "Archive child?",
+    message: "Archiving hides this child from Daily Logs and active lists. You can reactivate them later. Their records are kept.",
+    confirmLabel: "Archive Child",
+  });
+  if (!confirmed) return;
+  const profiles = childStore("Profiles");
+  saveChildStore("Profiles", profiles.map((child) => (
+    child.id === childId ? { ...child, archived: true, hiddenFromActive: true } : child
+  )));
+  showActionFeedback("Child archived.");
+  renderChildManagement();
+}
+
+async function reactivateChildProfile(childId) {
+  if (!childId) return;
+  const profiles = childStore("Profiles");
+  saveChildStore("Profiles", profiles.map((child) => (
+    child.id === childId ? { ...child, archived: false, hiddenFromActive: false } : child
+  )));
+  showActionFeedback("Child reactivated.");
+  renderChildManagement();
+}
+
+async function deleteChildProfilePermanently(childId) {
+  if (!childId) return;
+  const child = childStore("Profiles").find((item) => item.id === childId);
+  const confirmed = await confirmAction({
+    title: "Delete child permanently?",
+    message: `Delete “${child?.name || "this child"}” and all of their logs, observations, goals, and related records permanently? Archive is preferred. This cannot be undone.`,
+    confirmLabel: "Delete Child Permanently",
+    danger: true,
+  });
+  if (!confirmed) return;
+  const relatedKeys = childDataKeys.filter((key) => key !== "Profiles" && key !== "MealPresets");
+  relatedKeys.forEach((key) => {
+    saveChildStore(key, childStore(key).filter((item) => item.childId !== childId));
+  });
+  saveChildStore("Profiles", childStore("Profiles").filter((item) => item.id !== childId));
+  if (selectedChildId === childId) {
+    selectedChildId = childStore("Profiles")[0]?.id || "";
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+  }
+  showActionFeedback("Child deleted permanently.");
+  childManagementMode = "list";
+  renderChildManagement();
+}
 
 /**
  * Show a transient feedback banner at the bottom of the screen.
@@ -34536,27 +34874,31 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  // Hide child from active daily log list
-  const dlcHideChildBtn = event.target.closest("[data-dlc-hide-child]");
+  // Hide child from active daily log list (legacy + archive alias)
+  const dlcHideChildBtn = event.target.closest("[data-dlc-hide-child], [data-archive-child]");
   if (dlcHideChildBtn) {
     event.preventDefault();
-    const childId = dlcHideChildBtn.dataset.dlcHideChild;
-    const profiles = childStore("Profiles");
-    saveChildStore("Profiles", profiles.map((c) => c.id === childId ? { ...c, hiddenFromActive: true } : c));
-    // Stay in current mode — works from both Children list and Daily Logs
-    renderChildManagement();
+    const childId = dlcHideChildBtn.dataset.archiveChild || dlcHideChildBtn.dataset.dlcHideChild;
+    closeAllItemActionMenus();
+    archiveChildProfile(childId);
     return;
   }
 
   // Unhide / restore child to active list
-  const dlcUnhideChildBtn = event.target.closest("[data-dlc-unhide-child]");
+  const dlcUnhideChildBtn = event.target.closest("[data-dlc-unhide-child], [data-reactivate-child]");
   if (dlcUnhideChildBtn) {
     event.preventDefault();
-    const childId = dlcUnhideChildBtn.dataset.dlcUnhideChild;
-    const profiles = childStore("Profiles");
-    saveChildStore("Profiles", profiles.map((c) => c.id === childId ? { ...c, hiddenFromActive: false } : c));
-    // Stay in current mode — works from both Children list and Daily Logs
-    renderChildManagement();
+    const childId = dlcUnhideChildBtn.dataset.reactivateChild || dlcUnhideChildBtn.dataset.dlcUnhideChild;
+    closeAllItemActionMenus();
+    reactivateChildProfile(childId);
+    return;
+  }
+
+  const deleteChildBtn = event.target.closest("[data-delete-child]");
+  if (deleteChildBtn) {
+    event.preventDefault();
+    closeAllItemActionMenus();
+    deleteChildProfilePermanently(deleteChildBtn.dataset.deleteChild);
     return;
   }
 
@@ -34955,10 +35297,155 @@ document.addEventListener("click", async (event) => {
   const deleteChildObservationButton = event.target.closest("[data-delete-child-observation]");
   if (deleteChildObservationButton) {
     event.preventDefault();
-    if (!window.confirm("Delete this observation?")) return;
-    saveChildStore("Observations", childStore("Observations").filter((item) => item.id !== deleteChildObservationButton.dataset.deleteChildObservation));
+    closeAllItemActionMenus();
+    const observationId = deleteChildObservationButton.dataset.deleteChildObservation;
+    confirmAction({
+      title: "Delete observation permanently?",
+      message: "This permanently deletes the observation. Archive is preferred if you may need it later. This cannot be undone.",
+      confirmLabel: "Delete Permanently",
+      danger: true,
+    }).then((confirmed) => {
+      if (!confirmed) return;
+      saveChildStore("Observations", childStore("Observations").filter((item) => item.id !== observationId));
+      showActionFeedback("Observation deleted.");
+      renderChildManagement();
+    });
+    return;
+  }
+
+  const archiveChildObservationButton = event.target.closest("[data-archive-child-observation]");
+  if (archiveChildObservationButton) {
+    event.preventDefault();
+    closeAllItemActionMenus();
+    const observationId = archiveChildObservationButton.dataset.archiveChildObservation;
+    const shouldArchive = archiveChildObservationButton.dataset.archiveState !== "0";
+    saveChildStore("Observations", childStore("Observations").map((item) => (
+      item.id === observationId ? { ...item, archived: shouldArchive } : item
+    )));
+    showActionFeedback(shouldArchive ? "Observation archived." : "Observation reactivated.");
     renderChildManagement();
     return;
+  }
+
+  const editChildRecordButton = event.target.closest("[data-edit-child-record]");
+  if (editChildRecordButton) {
+    event.preventDefault();
+    closeAllItemActionMenus();
+    openChildRecordEditDialog(
+      editChildRecordButton.dataset.storeKey || "",
+      editChildRecordButton.dataset.editChildRecord || "",
+    );
+    return;
+  }
+
+  const deleteChildRecordButton = event.target.closest("[data-delete-child-record]");
+  if (deleteChildRecordButton) {
+    event.preventDefault();
+    closeAllItemActionMenus();
+    deleteChildRecordPermanently(
+      deleteChildRecordButton.dataset.storeKey || "",
+      deleteChildRecordButton.dataset.deleteChildRecord || "",
+    );
+    return;
+  }
+
+  const editGoalButton = event.target.closest("[data-edit-goal]");
+  if (editGoalButton) {
+    event.preventDefault();
+    closeAllItemActionMenus();
+    activeGoalEditId = editGoalButton.dataset.editGoal || "";
+    const goal = childStore("Goals").find((item) => item.id === activeGoalEditId);
+    if (goal?.childId) {
+      selectedChildId = goal.childId;
+      localStorage.setItem("llhSelectedChild", selectedChildId);
+    }
+    childManagementMode = "profile";
+    childProfileTab = "goals";
+    renderChildManagement();
+    document.querySelector("#childGoalForm")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  const cancelGoalEditButton = event.target.closest("[data-cancel-goal-edit]");
+  if (cancelGoalEditButton) {
+    event.preventDefault();
+    activeGoalEditId = "";
+    renderChildManagement();
+    return;
+  }
+
+  const archiveGoalButton = event.target.closest("[data-archive-goal]");
+  if (archiveGoalButton) {
+    event.preventDefault();
+    closeAllItemActionMenus();
+    if (!isProUser()) {
+      showProFeatureModal("Development goal tracking is a Pro feature.");
+      return;
+    }
+    const goalId = archiveGoalButton.dataset.archiveGoal;
+    const shouldArchive = archiveGoalButton.dataset.archiveState !== "0";
+    saveChildStore("Goals", childStore("Goals").map((goal) => (
+      goal.id === goalId ? { ...goal, archived: shouldArchive } : goal
+    )));
+    showActionFeedback(shouldArchive ? "Goal archived." : "Goal reactivated.");
+    renderChildManagement();
+    return;
+  }
+
+  const deleteGoalButton = event.target.closest("[data-delete-goal]");
+  if (deleteGoalButton) {
+    event.preventDefault();
+    closeAllItemActionMenus();
+    if (!isProUser()) {
+      showProFeatureModal("Development goal tracking is a Pro feature.");
+      return;
+    }
+    const goalId = deleteGoalButton.dataset.deleteGoal;
+    confirmAction({
+      title: "Delete goal permanently?",
+      message: "This permanently deletes the goal. Archive is preferred if you may need it later. This cannot be undone.",
+      confirmLabel: "Delete Permanently",
+      danger: true,
+    }).then((confirmed) => {
+      if (!confirmed) return;
+      saveChildStore("Goals", childStore("Goals").filter((goal) => goal.id !== goalId));
+      if (activeGoalEditId === goalId) activeGoalEditId = "";
+      showActionFeedback("Goal deleted.");
+      renderChildManagement();
+    });
+    return;
+  }
+
+  const confirmOkButton = event.target.closest("[data-llh-confirm-ok]");
+  if (confirmOkButton) {
+    event.preventDefault();
+    closeConfirmActionDialog(true);
+    return;
+  }
+
+  const confirmCancelButton = event.target.closest("[data-llh-confirm-cancel]");
+  if (confirmCancelButton) {
+    event.preventDefault();
+    closeConfirmActionDialog(false);
+    return;
+  }
+
+  const recordEditCancelButton = event.target.closest("[data-llh-record-edit-cancel]");
+  if (recordEditCancelButton) {
+    event.preventDefault();
+    closeChildRecordEditDialog(false);
+    return;
+  }
+
+  const itemMenuToggle = event.target.closest("[data-llh-item-menu-toggle]");
+  if (itemMenuToggle) {
+    event.preventDefault();
+    toggleItemActionMenu(itemMenuToggle.dataset.llhItemMenuToggle || "");
+    return;
+  }
+
+  if (!event.target.closest(".llh-item-menu")) {
+    closeAllItemActionMenus();
   }
 
   const generateObservationIdeasButton = event.target.closest("[data-generate-observation-ideas]");
@@ -35233,9 +35720,11 @@ document.addEventListener("click", async (event) => {
   const lessonDelete = event.target.closest("[data-lesson-delete]");
   if (lessonDelete) {
     event.preventDefault();
-    if (!deleteLessonWorkspacePlan(lessonDelete.dataset.lessonDelete)) return;
-    dismissResourceViewerForNavigation();
-    if (document.querySelector("#view-lessons.active-view")) renderCategoryPage("lessons");
+    deleteLessonWorkspacePlan(lessonDelete.dataset.lessonDelete).then((deleted) => {
+      if (!deleted) return;
+      dismissResourceViewerForNavigation();
+      if (document.querySelector("#view-lessons.active-view")) renderCategoryPage("lessons");
+    });
     return;
   }
 
@@ -35349,6 +35838,7 @@ document.addEventListener("click", async (event) => {
   const calendarEditItem = event.target.closest("[data-calendar-edit-item]");
   if (calendarEditItem) {
     event.preventDefault();
+    closeAllItemActionMenus();
     openCalendarAddItemDialog({ itemId: calendarEditItem.dataset.calendarEditItem || "" });
     return;
   }
@@ -35356,6 +35846,7 @@ document.addEventListener("click", async (event) => {
   const calendarDeleteItem = event.target.closest("[data-calendar-delete-item]");
   if (calendarDeleteItem) {
     event.preventDefault();
+    closeAllItemActionMenus();
     deleteCalendarItem(calendarDeleteItem.dataset.calendarDeleteItem || "");
     return;
   }
@@ -38638,7 +39129,55 @@ document.addEventListener("submit", (event) => {
   const data = collectFormData(event.target);
   childProfileTab = "goals";
   pendingGoalArea = "";
+  const goalId = data.goalId || activeGoalEditId;
+  if (goalId) {
+    saveChildStore("Goals", childStore("Goals").map((goal) => (
+      goal.id === goalId
+        ? {
+          ...goal,
+          ...data,
+          id: goalId,
+          title: `${data.area} Goal`,
+          summary: `${data.goal} | ${data.progress}`,
+          updatedAt: new Date().toISOString(),
+        }
+        : goal
+    )));
+    activeGoalEditId = "";
+    showActionFeedback("Goal updated.");
+    renderChildManagement();
+    return;
+  }
   appendChildRecord("Goals", { ...data, title: `${data.area} Goal`, summary: `${data.goal} | ${data.progress}` });
+});
+
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("[data-llh-record-edit-form]")) return;
+  event.preventDefault();
+  const form = event.target;
+  const storeKey = form.storeKey?.value || "";
+  const recordId = form.recordId?.value || "";
+  const detailKey = form.dataset.detailKey || "summary";
+  if (!storeKey || !recordId) {
+    closeChildRecordEditDialog(false);
+    return;
+  }
+  const date = form.date?.value || "";
+  const details = form.details?.value || "";
+  saveChildStore(storeKey, childStore(storeKey).map((item) => {
+    if (item.id !== recordId) return item;
+    const next = { ...item, updatedAt: new Date().toISOString() };
+    if (date) next.date = date;
+    next[detailKey] = details;
+    if (detailKey !== "summary" && !next.summary) next.summary = details;
+    if (date && next.title && String(next.title).includes("|")) {
+      next.title = String(next.title).replace(/\d{4}-\d{2}-\d{2}/, date);
+    }
+    return next;
+  }));
+  closeChildRecordEditDialog(true);
+  showActionFeedback("Entry updated.");
+  renderChildManagement();
 });
 
 document.addEventListener("submit", (event) => {
