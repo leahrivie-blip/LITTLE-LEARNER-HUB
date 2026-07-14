@@ -24,6 +24,9 @@ const ADMIN = {
 const PROTECTED_STRINGS = [
   "Invite children to scoop and feel the soil.",
   "I notice the soil feels damp",
+];
+
+const PREVIEW_SAFE_STRINGS = [
   "Planting a Rainbow",
   "pasteurized soil",
 ];
@@ -247,6 +250,9 @@ async function main() {
     assert(proPublic, "pro lesson listed publicly as preview");
     assert(proPublic.locked === true, "pro lesson marked locked");
     assert(!proPublic.dailyPlans, "pro public plan has no dailyPlans");
+    assert(Array.isArray(proPublic.dailyActivityPreview?.monday) || Object.keys(proPublic.dailyActivityPreview || {}).length > 0, "pro preview should include locked activity titles by day");
+    assert(Number(proPublic.activityCount || 0) > 0, "pro preview should include activity count");
+    assert(proPublic.weeklyMaterials || proPublic.objectives || (proPublic.books || []).length, "pro preview should include teaser metadata");
     assertNoProtectedStrings(proPublic, "logged-out pro lesson public DTO");
     assert(freePublic?.dailyPlans?.monday?.books?.[0]?.title === "Planting a Rainbow", "free lesson still has full public content");
 
@@ -295,6 +301,7 @@ async function main() {
     console.log("6) Premium linked activity cannot be retrieved by Free or logged-out users");
     const proActivityPublic = (publicLoggedOut.json.siteContent?.curriculumLibrary?.activities || []).find((item) => item.id === ids.proActivityId);
     assert(proActivityPublic?.locked === true, "pro activity public preview locked");
+    assert(proActivityPublic?.lessonPlanId === ids.proId, "pro activity public preview must include lessonPlanId");
     assertNoProtectedStrings(proActivityPublic, "logged-out pro activity public DTO");
     const freeActivityDenied = await requestJson("GET", `/api/curriculum/activities/${encodeURIComponent(ids.proActivityId)}`, null, {
       headers: authHeader("free@security.test"),

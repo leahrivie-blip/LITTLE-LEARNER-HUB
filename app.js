@@ -3661,6 +3661,8 @@ function curriculumResourceById(id) {
 function curriculumActivitiesForLesson(lessonPlanId) {
   const targetId = String(lessonPlanId || "").trim();
   if (!targetId) return [];
+  const fromLibrary = effectiveCurriculumLibrary().activities.filter((item) => item.lessonPlanId === targetId);
+  if (fromLibrary.length) return fromLibrary;
   return effectiveCurriculum().activities.filter((item) => item.lessonPlanId === targetId);
 }
 
@@ -10936,19 +10938,59 @@ function lessonPlanAttachedResourcesHtml(resource) {
 
 async function fetchAuthorizedCurriculumLessonPlan(planId) {
   const targetId = String(planId || "").trim();
-  if (!targetId || !canUseLaunchBackend()) return null;
+  if (!targetId || !canUseLaunchBackend()) {
+    return { ok: false, reason: !targetId ? "missing-id" : "backend-unavailable", lessonPlan: null };
+  }
   const cacheKey = `plan:${targetId}`;
-  if (curriculumAuthorizedContentCache.has(cacheKey)) return curriculumAuthorizedContentCache.get(cacheKey);
+  if (curriculumAuthorizedContentCache.has(cacheKey)) {
+    return { ok: true, reason: "cache", lessonPlan: curriculumAuthorizedContentCache.get(cacheKey) };
+  }
   const headers = await firebaseAuthHeaders();
+  if (!headers) {
+    return { ok: false, reason: "auth-required", lessonPlan: null, status: 401 };
+  }
   const response = await fetch(`${curriculumAccessConfig.lessonPlanEndpoint}/${encodeURIComponent(targetId)}`, {
-    headers: headers || {},
+    headers,
     cache: "no-store",
   });
-  if (!response.ok) return null;
+  if (!response.ok) {
+    return { ok: false, reason: response.status === 403 ? "forbidden" : "fetch-failed", lessonPlan: null, status: response.status };
+  }
   const data = await response.json().catch(() => ({}));
   const lessonPlan = data?.lessonPlan || null;
-  if (lessonPlan) curriculumAuthorizedContentCache.set(cacheKey, lessonPlan);
-  return lessonPlan;
+  if (!lessonPlan) return { ok: false, reason: "empty", lessonPlan: null, status: response.status };
+  curriculumAuthorizedContentCache.set(cacheKey, lessonPlan);
+  return { ok: true, reason: "ok", lessonPlan };
+}
+
+async function withHydratedCurriculumLessonContent(resource) {
+  if (!resource?._curriculumManaged || resource.category !== "Lesson Plans") {
+    return { resource, hydrated: true, reason: "not-managed" };
+  }
+  if (hasAdminFullAccess()) return { resource, hydrated: true, reason: "admin" };
+  if (resource.plan !== "Pro" || !isProUser()) return { resource, hydrated: true, reason: "not-pro-required" };
+  const existingDays = resource._curriculumLessonPlan?.dailyPlans || {};
+  const hasFullDays = Object.values(existingDays).some((day) => Array.isArray(day?.items) && day.items.length);
+  if (hasFullDays) return { resource, hydrated: true, reason: "already-full" };
+  const result = await fetchAuthorizedCurriculumLessonPlan(resource.id);
+  if (!result.ok || !result.lessonPlan) {
+    return { resource, hydrated: false, reason: result.reason || "fetch-failed", status: result.status };
+  }
+  const fullPlan = result.lessonPlan;
+  return {
+    resource: {
+      ...resource,
+      weeklyOverview: fullPlan.weeklyOverview || resource.weeklyOverview,
+      materials: fullPlan.weeklyMaterials || resource.materials,
+      description: fullPlan.weeklyOverview || resource.description,
+      theme: fullPlan.theme || resource.theme,
+      _curriculumLessonPlan: fullPlan,
+      _curriculumResourceIds: curriculumAsStringArray(fullPlan.resourceIds),
+      customContent: buildLessonPlanTextFromCurriculum(fullPlan),
+    },
+    hydrated: true,
+    reason: "authorized",
+  };
 }
 
 async function fetchAuthorizedCurriculumActivity(activityId) {
@@ -10966,23 +11008,6 @@ async function fetchAuthorizedCurriculumActivity(activityId) {
   const activity = data?.activity || null;
   if (activity) curriculumAuthorizedContentCache.set(cacheKey, activity);
   return activity;
-}
-
-async function withHydratedCurriculumLessonContent(resource) {
-  if (!resource?._curriculumManaged || resource.category !== "Lesson Plans") return resource;
-  if (hasAdminFullAccess()) return resource;
-  if (resource.plan !== "Pro" || !isProUser()) return resource;
-  const fullPlan = await fetchAuthorizedCurriculumLessonPlan(resource.id);
-  if (!fullPlan) return resource;
-  return {
-    ...resource,
-    weeklyOverview: fullPlan.weeklyOverview || resource.weeklyOverview,
-    materials: fullPlan.weeklyMaterials || resource.materials,
-    description: fullPlan.weeklyOverview || resource.description,
-    _curriculumResourceIds: Array.isArray(fullPlan.resourceIds) ? fullPlan.resourceIds : resource._curriculumResourceIds,
-    _curriculumLessonPlan: fullPlan,
-    customContent: buildLessonPlanTextFromCurriculum(fullPlan),
-  };
 }
 
 async function withHydratedCurriculumActivityContent(resource) {
@@ -14667,8 +14692,11 @@ function openLockedResourcePreview(resource, triggerEl = null) {
   featurePreviewTrigger = triggerEl || document.activeElement || null;
   featurePreviewEyebrow.textContent = "Pro Resource Preview";
   featurePreviewTitle.textContent = resource.title;
+  const lockedActivities = resource._curriculumManaged && resource.category === "Lesson Plans"
+    ? curriculumActivitiesForLesson(resource.id)
+    : [];
   const lockedCurriculum = resource._curriculumManaged && resource.category === "Lesson Plans"
-    ? curriculumViewerRenderApi()?.lockedCurriculumLessonPreviewHtml(resource)
+    ? curriculumViewerRenderApi()?.lockedCurriculumLessonPreviewHtml(resource, { activities: lockedActivities })
     : null;
   featurePreviewBody.innerHTML = lockedCurriculum ? `
     <section class="section-block" style="margin:0;">
@@ -14740,12 +14768,45 @@ async function openResourceViewer(resourceId, options = {}) {
   const body = document.querySelector("#resourceViewerBody");
   body.innerHTML = `<p class="admin-generator-note">Loading resource…</p>`;
   let viewerResource = resource;
+  let hydration = { hydrated: true, reason: "default" };
   try {
-    viewerResource = await withHydratedCurriculumLessonContent(resource);
+    hydration = await withHydratedCurriculumLessonContent(resource);
+    viewerResource = hydration.resource || resource;
     viewerResource = await withHydratedCurriculumActivityContent(viewerResource);
     viewerResource = await withHydratedCurriculumAttachments(viewerResource);
   } catch (error) {
     console.warn(error);
+    hydration = { hydrated: false, reason: "error", resource };
+  }
+  if (
+    viewerResource?._curriculumManaged
+    && viewerResource.category === "Lesson Plans"
+    && viewerResource.plan === "Pro"
+    && isProUser()
+    && !hasAdminFullAccess()
+    && hydration.hydrated === false
+  ) {
+    body.innerHTML = `
+      <article class="printable-resource-page">
+        <section class="print-section">
+          <h3>${escapeHtml(viewerResource.title || "Pro Lesson Plan")}</h3>
+          <p>We couldn’t load the full Pro lesson content for this account yet.</p>
+          <p class="muted-copy">If you just started a trial or redeemed a promo, wait a moment and try again, or refresh after signing in. Your membership access may still be syncing.</p>
+          <div class="account-actions-row">
+            <button class="primary-button" type="button" data-retry-pro-lesson-hydrate="${escapeHtml(viewerResource.id)}">Try Again</button>
+            <button class="ghost-button" type="button" data-view="billing">Check Membership</button>
+            <button class="ghost-button" type="button" id="closeResourceViewerInline">Close</button>
+          </div>
+        </section>
+      </article>
+    `;
+    activeResourceViewerResource = viewerResource;
+    restoreDefaultResourceViewerChrome();
+    const modal = document.querySelector("#resourceViewerModal");
+    modal?.classList.add("open");
+    modal?.setAttribute("aria-hidden", "false");
+    document.body.classList.add("resource-viewer-open");
+    return;
   }
   if (viewerResource.fileData && viewerResource.fileData.startsWith("data:image")) {
     body.innerHTML = `
@@ -16771,8 +16832,9 @@ async function resolveCurriculumPlanForAssignment(resourceOrId) {
     if (!isProUser() && !hasAdminFullAccess()) {
       throw new Error("Upgrade to Pro to assign this premium lesson plan.");
     }
-    const fullPlan = await fetchAuthorizedCurriculumLessonPlan(resource.id);
-    if (fullPlan) plan = fullPlan;
+    const fetched = await fetchAuthorizedCurriculumLessonPlan(resource.id);
+    if (fetched?.ok && fetched.lessonPlan) plan = fetched.lessonPlan;
+    else if (fetched && !fetched.ok && fetched.lessonPlan) plan = fetched.lessonPlan;
   }
   if (!plan || typeof plan !== "object") {
     throw new Error("Lesson plan content could not be loaded for assignment.");
@@ -36539,6 +36601,24 @@ document.addEventListener("click", async (event) => {
     if (key === "plan") lessonLibraryPlanFilter = "All";
     if (key === "sort") lessonLibrarySort = "recommended";
     renderCategoryPage("lessons");
+    return;
+  }
+
+  const retryProLessonHydrate = event.target.closest("[data-retry-pro-lesson-hydrate]");
+  if (retryProLessonHydrate) {
+    event.preventDefault();
+    const planId = retryProLessonHydrate.dataset.retryProLessonHydrate || "";
+    if (planId) {
+      curriculumAuthorizedContentCache.delete(`plan:${planId}`);
+      openResourceViewer(planId);
+    }
+    return;
+  }
+
+  const closeResourceViewerInline = event.target.closest("#closeResourceViewerInline");
+  if (closeResourceViewerInline) {
+    event.preventDefault();
+    requestResourceViewerClose();
     return;
   }
 
