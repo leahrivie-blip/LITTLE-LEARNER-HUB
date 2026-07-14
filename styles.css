@@ -17285,6 +17285,70 @@ body.lesson-editor-view .main {
   margin-top: 14px;
 }
 
+.platform-manage-page,
+.platform-placeholder-page {
+  display: grid;
+  gap: 20px;
+}
+
+.platform-manage-actions {
+  margin-top: 0;
+}
+
+.platform-manage-card h3 {
+  margin: 0 0 12px;
+  font-size: 1.05rem;
+  color: #2f3a4a;
+}
+
+.platform-manage-list {
+  display: grid;
+  gap: 10px;
+}
+
+.platform-manage-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border: 1px solid rgba(90, 110, 140, 0.14);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.platform-manage-row-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.platform-manage-row p,
+.platform-manage-card .muted-copy {
+  margin: 4px 0 0;
+  color: #5b6675;
+  line-height: 1.4;
+}
+
+.platform-manage-row-actions,
+.platform-family-children {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.platform-manage-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.platform-enrollment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
 .settings-hub-card {
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;

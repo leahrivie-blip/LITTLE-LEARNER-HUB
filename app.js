@@ -8354,10 +8354,10 @@ function setView(view, options = {}) {
   if (resolvedView === "settings") renderSettingsHubPage();
   if (resolvedView === "forms-settings") renderFormsSettingsPage();
   if (resolvedView === "curriculum-settings") renderCurriculumSettingsPage();
-  if (resolvedView === "staff") renderStaffPlaceholderPage();
-  if (resolvedView === "classrooms") renderCenterPlaceholderPage("classrooms");
-  if (resolvedView === "families") renderCenterPlaceholderPage("families");
-  if (resolvedView === "enrollment") renderCenterPlaceholderPage("enrollment");
+  if (resolvedView === "staff") renderStaffManagementPage();
+  if (resolvedView === "classrooms") renderClassroomsPage();
+  if (resolvedView === "families") renderFamiliesPage();
+  if (resolvedView === "enrollment") renderEnrollmentPage();
   if (resolvedView === "planner") {
     // Honor an explicit target week (e.g. from a future-week assign or Calendar's
     // week detail) so Weekly Planner opens on that week instead of always "this
@@ -20878,64 +20878,410 @@ function renderCurriculumSettingsPage() {
   `;
 }
 
-function renderStaffPlaceholderPage() {
-  const section = document.querySelector("#view-staff");
-  if (!section) return;
-  section.innerHTML = `
-    <section class="platform-placeholder-page">
-      <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
+function centerProgramData() {
+  const account = currentAccount() || {};
+  const data = account.centerProgramData && typeof account.centerProgramData === "object"
+    ? account.centerProgramData
+    : {};
+  return {
+    enrollmentLeads: Array.isArray(data.enrollmentLeads) ? data.enrollmentLeads : [],
+    staffInvites: Array.isArray(data.staffInvites) ? data.staffInvites : [],
+  };
+}
+
+function saveCenterProgramData(patch = {}) {
+  if (!currentUser) return centerProgramData();
+  const current = centerProgramData();
+  const next = {
+    enrollmentLeads: Array.isArray(patch.enrollmentLeads) ? patch.enrollmentLeads : current.enrollmentLeads,
+    staffInvites: Array.isArray(patch.staffInvites) ? patch.staffInvites : current.staffInvites,
+  };
+  updateAccount(currentUser, { centerProgramData: next });
+  return next;
+}
+
+function activeScheduleClassrooms(doc = scheduleDocCache) {
+  const rooms = Array.isArray(doc?.classrooms) ? doc.classrooms : [];
+  return rooms.filter((room) => room && room.id && !room.archived);
+}
+
+async function persistScheduleClassrooms(nextClassrooms) {
+  const api = getScheduleApi();
+  if (!api) throw new Error("Schedule layer is not available.");
+  if (!isLoggedIn() && !hasAdminFullAccess()) {
+    openAuthModal("login");
+    throw new Error("Log in to manage classrooms.");
+  }
+  await ensureScheduleLoaded();
+  const doc = scheduleDocCache || api.readCache(scheduleApiEmail()) || api.emptyDoc();
+  const nextDoc = {
+    ...doc,
+    classrooms: nextClassrooms.length
+      ? nextClassrooms
+      : [{ id: "classroom-main", name: "Main Classroom", organizationId: null, centerId: null }],
+    updatedAt: new Date().toISOString(),
+  };
+  scheduleDocCache = await api.saveSchedule(firebaseAuthHeaders, scheduleApiEmail(), nextDoc);
+  return scheduleDocCache;
+}
+
+function familyHouseholdKey(child = {}) {
+  const parent = String(child.parentInfo || "").trim().toLowerCase();
+  if (parent) return `parent:${parent}`;
+  return `child:${child.id || child.name || "unknown"}`;
+}
+
+function familyHouseholdLabel(child = {}) {
+  const parent = String(child.parentInfo || "").trim();
+  if (parent) return parent;
+  return `Family of ${child.name || "Child"}`;
+}
+
+function buildFamilyHouseholds(records = childRecords()) {
+  const map = new Map();
+  getActiveChildren(records).forEach((child) => {
+    const key = familyHouseholdKey(child);
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        label: familyHouseholdLabel(child),
+        parentInfo: String(child.parentInfo || "").trim(),
+        children: [],
+      });
+    }
+    map.get(key).children.push(child);
+  });
+  return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function renderManageSurfaceShell({ eyebrow, title, detail, actionsHtml = "", bodyHtml = "" }) {
+  return `
+    <section class="platform-manage-page">
       <div class="page-title">
-        <p class="eyebrow">Staff &amp; Permissions</p>
-        <h2>Staff management</h2>
-        <p>Invite assistants, co-teachers, family helpers, and substitutes. Full invite flow lands next — Home Daycare and Center owners can both add staff.</p>
+        <p class="eyebrow">${escapeHtml(eyebrow)}</p>
+        <h2>${escapeHtml(title)}</h2>
+        <p>${escapeHtml(detail)}</p>
       </div>
-      <div class="platform-placeholder-card">
-        <p>Coming next: invite staff by email, assign roles (Owner, Director, Teacher, Assistant), and control classroom assignments and permissions.</p>
-        <div class="resources-hub-actions">
-          <button class="ghost-button" type="button" data-view="settings">Back to Settings</button>
-          <button class="ghost-button" type="button" data-view="program-settings">Program Settings</button>
-        </div>
-      </div>
+      ${actionsHtml ? `<div class="resources-hub-actions platform-manage-actions">${actionsHtml}</div>` : ""}
+      ${bodyHtml}
     </section>
   `;
 }
 
-function renderCenterPlaceholderPage(kind = "classrooms") {
-  const section = document.querySelector(`#view-${kind}`);
+function renderStaffManagementPage() {
+  const section = document.querySelector("#view-staff");
   if (!section) return;
-  const copy = {
-    classrooms: {
+  if (!canAccessPlatformFeature("staff_management")) {
+    section.innerHTML = renderManageSurfaceShell({
+      eyebrow: "Staff & Permissions",
+      title: "Staff management",
+      detail: "Only owners and directors can manage staff invites.",
+      actionsHtml: `<button class="ghost-button" type="button" data-view="settings">Back to Settings</button>`,
+    });
+    return;
+  }
+  const data = centerProgramData();
+  const invites = data.staffInvites;
+  const ownerEmail = currentUser || "";
+  section.innerHTML = renderManageSurfaceShell({
+    eyebrow: "Staff & Permissions",
+    title: "Staff management",
+    detail: "Invite assistants, teachers, and directors. Email delivery lands next — invites are saved on this account for now.",
+    actionsHtml: `
+      <button class="ghost-button" type="button" data-view="settings">Back to Settings</button>
+      <button class="ghost-button" type="button" data-view="program-settings">Program Settings</button>
+    `,
+    bodyHtml: `
+      <section class="section-block platform-manage-card">
+        <h3>Current access</h3>
+        <div class="platform-manage-list">
+          <article class="platform-manage-row">
+            <div>
+              <strong>${escapeHtml(ownerEmail || "Owner")}</strong>
+              <p class="muted-copy">Owner · Active on this device</p>
+            </div>
+            <span class="tag">Owner</span>
+          </article>
+          ${invites.map((invite) => `
+            <article class="platform-manage-row">
+              <div>
+                <strong>${escapeHtml(invite.email || "Invite")}</strong>
+                <p class="muted-copy">${escapeHtml(invite.role || "teacher")} · ${escapeHtml(invite.status || "pending")}${invite.invitedAt ? ` · ${escapeHtml(String(invite.invitedAt).slice(0, 10))}` : ""}</p>
+              </div>
+              <button class="ghost-button" type="button" data-staff-invite-remove="${escapeHtml(invite.id)}">Remove</button>
+            </article>
+          `).join("") || `<p class="muted-copy">No staff invites yet.</p>`}
+        </div>
+      </section>
+      <section class="section-block platform-manage-card">
+        <h3>Invite staff</h3>
+        <form id="staffInviteForm" class="mini-form platform-manage-form">
+          <label>Email<input name="email" type="email" required placeholder="teacher@example.com" /></label>
+          <label>Role
+            <select name="role" required>
+              <option value="teacher">Teacher</option>
+              <option value="assistant">Assistant</option>
+              <option value="director">Director</option>
+              <option value="owner">Owner</option>
+            </select>
+          </label>
+          <button class="primary-button" type="submit">Save invite</button>
+          <p class="form-note">Invite emails are not sent yet. This stores a pending invite for the upcoming staff flow.</p>
+        </form>
+      </section>
+    `,
+  });
+}
+
+function renderClassroomsPage() {
+  const section = document.querySelector("#view-classrooms");
+  if (!section) return;
+  if (!canAccessPlatformFeature("classrooms")) {
+    section.innerHTML = renderManageSurfaceShell({
       eyebrow: "Classrooms",
       title: "Classroom management",
-      detail: "Centers can organize multiple classrooms, assignments, and room-level schedules here.",
-    },
-    families: {
-      eyebrow: "Families",
-      title: "Family management",
-      detail: "Centers can manage family contacts and household relationships here.",
-    },
-    enrollment: {
-      eyebrow: "Enrollment",
-      title: "Enrollment management",
-      detail: "Centers can track inquiries, enrollment paperwork, and classroom placement here.",
-    },
-  }[kind] || { eyebrow: "Center", title: "Center tools", detail: "Center management tools are coming soon." };
-  section.innerHTML = `
-    <section class="platform-placeholder-page">
-      <div class="page-title">
-        <p class="eyebrow">${escapeHtml(copy.eyebrow)}</p>
-        <h2>${escapeHtml(copy.title)}</h2>
-        <p>${escapeHtml(copy.detail)}</p>
-      </div>
-      <div class="platform-placeholder-card">
-        <p>These Center tools appear only for Center accounts with Owner or Director access. Home Daycare programs keep the core workflow without this extra navigation.</p>
-        <div class="resources-hub-actions">
-          <button class="primary-button" type="button" data-view="calendar">Open Calendar</button>
-          <button class="ghost-button" type="button" data-view="settings">Settings</button>
-        </div>
+      detail: "Classroom tools are available on Center accounts for owners and directors.",
+      actionsHtml: `<button class="ghost-button" type="button" data-view="calendar">Open Calendar</button>`,
+    });
+    return;
+  }
+  section.innerHTML = renderManageSurfaceShell({
+    eyebrow: "Classrooms",
+    title: "Classroom management",
+    detail: "Organize rooms for your center. Active classrooms sync with Calendar lesson assignment.",
+    actionsHtml: `
+      <button class="primary-button" type="button" data-view="calendar">Open Calendar</button>
+      <button class="ghost-button" type="button" data-view="children">Child Profiles</button>
+    `,
+    bodyHtml: `<div id="classroomsManageApp"><p class="muted-copy">Loading classrooms…</p></div>`,
+  });
+  ensureScheduleLoaded()
+    .then(() => paintClassroomsManageApp())
+    .catch((error) => {
+      const app = document.querySelector("#classroomsManageApp");
+      if (app) app.innerHTML = `<p class="form-message error">${escapeHtml(error.message || "Could not load classrooms.")}</p>`;
+    });
+}
+
+function paintClassroomsManageApp() {
+  const app = document.querySelector("#classroomsManageApp");
+  if (!app) return;
+  const api = getScheduleApi();
+  const doc = scheduleDocCache || api?.readCache(scheduleApiEmail()) || api?.emptyDoc() || { classrooms: [] };
+  const rooms = Array.isArray(doc.classrooms) ? doc.classrooms : [];
+  const active = rooms.filter((room) => !room.archived);
+  const archived = rooms.filter((room) => room.archived);
+  app.innerHTML = `
+    <section class="section-block platform-manage-card">
+      <h3>Active classrooms (${active.length})</h3>
+      <div class="platform-manage-list">
+        ${active.map((room) => `
+          <article class="platform-manage-row">
+            <div>
+              <strong>${escapeHtml(room.name || "Classroom")}</strong>
+              <p class="muted-copy">${escapeHtml(room.ageGroupDefault || "Age group not set")}${room.notes ? ` · ${escapeHtml(room.notes)}` : ""}</p>
+            </div>
+            <div class="platform-manage-row-actions">
+              <button class="ghost-button" type="button" data-classroom-edit="${escapeHtml(room.id)}">Edit</button>
+              ${rooms.length > 1 ? `<button class="ghost-button" type="button" data-classroom-archive="${escapeHtml(room.id)}">Archive</button>` : ""}
+            </div>
+          </article>
+        `).join("") || `<p class="muted-copy">No active classrooms yet.</p>`}
       </div>
     </section>
+    <section class="section-block platform-manage-card">
+      <h3>Add classroom</h3>
+      <form id="classroomCreateForm" class="mini-form platform-manage-form">
+        <label>Classroom name<input name="name" required maxlength="120" placeholder="Toddler Room" /></label>
+        <label>Default age group
+          <select name="ageGroupDefault">
+            <option value="">Select age group</option>
+            ${["Infant", "Toddler", "Preschool", "Mixed Ages", "School Age"].map((age) => `<option value="${age}">${age}</option>`).join("")}
+          </select>
+        </label>
+        <label>Notes<textarea name="notes" rows="2" maxlength="500" placeholder="Optional room notes"></textarea></label>
+        <button class="primary-button" type="submit">Add Classroom</button>
+      </form>
+    </section>
+    ${archived.length ? `
+      <section class="section-block platform-manage-card">
+        <h3>Archived (${archived.length})</h3>
+        <div class="platform-manage-list">
+          ${archived.map((room) => `
+            <article class="platform-manage-row">
+              <div>
+                <strong>${escapeHtml(room.name || "Classroom")}</strong>
+                <p class="muted-copy">Archived</p>
+              </div>
+              <button class="ghost-button" type="button" data-classroom-restore="${escapeHtml(room.id)}">Restore</button>
+            </article>
+          `).join("")}
+        </div>
+      </section>
+    ` : ""}
   `;
+}
+
+function renderFamiliesPage() {
+  const section = document.querySelector("#view-families");
+  if (!section) return;
+  if (!canAccessPlatformFeature("families")) {
+    section.innerHTML = renderManageSurfaceShell({
+      eyebrow: "Families",
+      title: "Family management",
+      detail: "Family tools are available on Center accounts for owners and directors.",
+      actionsHtml: `<button class="ghost-button" type="button" data-view="children">Child Profiles</button>`,
+    });
+    return;
+  }
+  const records = childRecords();
+  const households = buildFamilyHouseholds(records);
+  section.innerHTML = renderManageSurfaceShell({
+    eyebrow: "Families",
+    title: "Family management",
+    detail: "Households are grouped from Child Profiles. Add a parent/guardian on a child’s profile to combine siblings.",
+    actionsHtml: `
+      <button class="primary-button" type="button" data-view="children">Open Child Profiles</button>
+      <button class="ghost-button" type="button" data-view="enrollment">Enrollment</button>
+    `,
+    bodyHtml: `
+      <section class="section-block platform-manage-card">
+        <h3>${households.length} household${households.length === 1 ? "" : "s"}</h3>
+        <div class="platform-manage-list">
+          ${households.map((house) => `
+            <article class="platform-manage-row platform-manage-row-stack">
+              <div>
+                <strong>${escapeHtml(house.label)}</strong>
+                <p class="muted-copy">${house.children.length} child${house.children.length === 1 ? "" : "ren"}${house.parentInfo ? "" : " · add parent/guardian on the child profile"}</p>
+              </div>
+              <div class="platform-family-children">
+                ${house.children.map((child) => `
+                  <button class="ghost-button" type="button" data-open-child-profile="${escapeHtml(child.id)}">${escapeHtml(child.name || "Child")}${child.classroom ? ` · ${escapeHtml(child.classroom)}` : ""}</button>
+                `).join("")}
+              </div>
+              <form class="mini-form platform-manage-form" data-family-parent-form="${escapeHtml(house.key)}">
+                <label>Parent / guardian
+                  <input name="parentInfo" value="${escapeHtml(house.parentInfo)}" placeholder="Parent or guardian name" />
+                </label>
+                <input type="hidden" name="childIds" value="${escapeHtml(house.children.map((child) => child.id).join(","))}" />
+                <button class="ghost-button" type="submit">Save household contact</button>
+              </form>
+            </article>
+          `).join("") || `<p class="muted-copy">No active children yet. Add Child Profiles first.</p>`}
+        </div>
+      </section>
+    `,
+  });
+}
+
+function renderEnrollmentPage() {
+  const section = document.querySelector("#view-enrollment");
+  if (!section) return;
+  if (!canAccessPlatformFeature("enrollment")) {
+    section.innerHTML = renderManageSurfaceShell({
+      eyebrow: "Enrollment",
+      title: "Enrollment management",
+      detail: "Enrollment tools are available on Center accounts for owners and directors.",
+      actionsHtml: `<button class="ghost-button" type="button" data-view="children">Child Profiles</button>`,
+    });
+    return;
+  }
+  const records = childRecords();
+  const children = getActiveChildren(records);
+  const enrolled = children.filter((child) => String(child.enrollmentDate || "").trim());
+  const notEnrolled = children.filter((child) => !String(child.enrollmentDate || "").trim());
+  const leads = centerProgramData().enrollmentLeads.filter((lead) => lead && lead.status !== "enrolled");
+  const rooms = activeScheduleClassrooms(scheduleDocCache || getScheduleApi()?.readCache(scheduleApiEmail()));
+  section.innerHTML = renderManageSurfaceShell({
+    eyebrow: "Enrollment",
+    title: "Enrollment management",
+    detail: "Track inquiries, waitlist children, and enrolled profiles. Full paperwork automation comes later.",
+    actionsHtml: `
+      <button class="primary-button" type="button" data-view="forms">Forms &amp; Paperwork</button>
+      <button class="ghost-button" type="button" data-view="families">Families</button>
+    `,
+    bodyHtml: `
+      <div class="platform-enrollment-grid">
+        <section class="section-block platform-manage-card">
+          <h3>Inquiries / Waitlist (${leads.length})</h3>
+          <div class="platform-manage-list">
+            ${leads.map((lead) => `
+              <article class="platform-manage-row">
+                <div>
+                  <strong>${escapeHtml(lead.childName || "Inquiry")}</strong>
+                  <p class="muted-copy">${escapeHtml(lead.parentName || "No parent listed")}${lead.desiredRoom ? ` · ${escapeHtml(lead.desiredRoom)}` : ""}${lead.notes ? ` · ${escapeHtml(lead.notes)}` : ""}</p>
+                </div>
+                <div class="platform-manage-row-actions">
+                  <button class="ghost-button" type="button" data-enrollment-lead-convert="${escapeHtml(lead.id)}">Mark ready</button>
+                  <button class="ghost-button" type="button" data-enrollment-lead-remove="${escapeHtml(lead.id)}">Remove</button>
+                </div>
+              </article>
+            `).join("") || `<p class="muted-copy">No open inquiries.</p>`}
+          </div>
+          <form id="enrollmentLeadForm" class="mini-form platform-manage-form" style="margin-top:14px;">
+            <label>Child name<input name="childName" required placeholder="Child name" /></label>
+            <label>Parent / guardian<input name="parentName" placeholder="Parent name" /></label>
+            <label>Desired room
+              <select name="desiredRoom">
+                <option value="">Any / undecided</option>
+                ${rooms.map((room) => `<option value="${escapeHtml(room.name)}">${escapeHtml(room.name)}</option>`).join("")}
+              </select>
+            </label>
+            <label>Notes<textarea name="notes" rows="2" placeholder="Tour date, start preference, etc."></textarea></label>
+            <button class="primary-button" type="submit">Add inquiry</button>
+          </form>
+        </section>
+        <section class="section-block platform-manage-card">
+          <h3>Not yet enrolled (${notEnrolled.length})</h3>
+          <div class="platform-manage-list">
+            ${notEnrolled.map((child) => `
+              <article class="platform-manage-row">
+                <div>
+                  <strong>${escapeHtml(child.name || "Child")}</strong>
+                  <p class="muted-copy">${escapeHtml(child.classroom || child.ageGroup || "No classroom set")}</p>
+                </div>
+                <button class="ghost-button" type="button" data-enrollment-mark-enrolled="${escapeHtml(child.id)}">Mark enrolled</button>
+              </article>
+            `).join("") || `<p class="muted-copy">Every active child has an enrollment date.</p>`}
+          </div>
+        </section>
+        <section class="section-block platform-manage-card">
+          <h3>Enrolled (${enrolled.length})</h3>
+          <div class="platform-manage-list">
+            ${enrolled.map((child) => `
+              <article class="platform-manage-row">
+                <div>
+                  <strong>${escapeHtml(child.name || "Child")}</strong>
+                  <p class="muted-copy">Enrolled ${escapeHtml(child.enrollmentDate)}${child.classroom ? ` · ${escapeHtml(child.classroom)}` : ""}</p>
+                </div>
+                <button class="ghost-button" type="button" data-open-child-profile="${escapeHtml(child.id)}">Open profile</button>
+              </article>
+            `).join("") || `<p class="muted-copy">No enrolled children yet.</p>`}
+          </div>
+        </section>
+      </div>
+    `,
+  });
+}
+
+function renderStaffPlaceholderPage() {
+  renderStaffManagementPage();
+}
+
+function renderCenterPlaceholderPage(kind = "classrooms") {
+  if (kind === "classrooms") return renderClassroomsPage();
+  if (kind === "families") return renderFamiliesPage();
+  if (kind === "enrollment") return renderEnrollmentPage();
+  renderClassroomsPage();
+}
+
+function openChildProfileFromManage(childId) {
+  const id = String(childId || "").trim();
+  if (!id) return;
+  selectedChildId = id;
+  localStorage.setItem("llhSelectedChild", selectedChildId);
+  childManagementMode = "profile";
+  setView("children");
 }
 
 function renderSupportHomePage(records = childRecords()) {
@@ -22664,6 +23010,7 @@ function renderChildProfileFormScreen(child = null) {
             </select>
           </label>
           <label>Classroom / Room<input name="classroom" value="${escapeHtml(child?.classroom || "")}" placeholder="Blue Room, Toddlers, Preschool" /></label>
+          <label>Parent / Guardian<input name="parentInfo" value="${escapeHtml(child?.parentInfo || "")}" placeholder="Parent or guardian name" /></label>
           <label>Enrollment Date<input name="enrollmentDate" type="date" value="${escapeHtml(child?.enrollmentDate || "")}" /></label>
           <label>Observations Required Per Month
             <select id="monthlyObservationGoalSelect" name="monthlyObservationGoal">
@@ -35943,6 +36290,142 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const openChildProfileManage = event.target.closest("[data-open-child-profile]");
+  if (openChildProfileManage) {
+    event.preventDefault();
+    openChildProfileFromManage(openChildProfileManage.dataset.openChildProfile);
+    return;
+  }
+
+  const classroomEditBtn = event.target.closest("[data-classroom-edit]");
+  if (classroomEditBtn) {
+    event.preventDefault();
+    const roomId = classroomEditBtn.dataset.classroomEdit;
+    const api = getScheduleApi();
+    const doc = scheduleDocCache || api?.readCache(scheduleApiEmail());
+    const room = (doc?.classrooms || []).find((item) => item.id === roomId);
+    if (!room) return;
+    const name = window.prompt("Classroom name", room.name || "");
+    if (name === null) return;
+    const ageGroupDefault = window.prompt("Default age group (Infant, Toddler, Preschool…)", room.ageGroupDefault || "") || "";
+    persistScheduleClassrooms((doc.classrooms || []).map((item) => (
+      item.id === roomId
+        ? { ...item, name: String(name).trim() || item.name, ageGroupDefault: String(ageGroupDefault).trim() }
+        : item
+    ))).then(() => {
+      paintClassroomsManageApp();
+      showActionFeedback("Classroom updated.");
+    }).catch((error) => window.alert(error.message || "Could not update classroom."));
+    return;
+  }
+
+  const classroomArchiveBtn = event.target.closest("[data-classroom-archive]");
+  if (classroomArchiveBtn) {
+    event.preventDefault();
+    const roomId = classroomArchiveBtn.dataset.classroomArchive;
+    const api = getScheduleApi();
+    const doc = scheduleDocCache || api?.readCache(scheduleApiEmail());
+    const rooms = doc?.classrooms || [];
+    if (rooms.filter((room) => !room.archived).length <= 1) {
+      window.alert("Keep at least one active classroom.");
+      return;
+    }
+    persistScheduleClassrooms(rooms.map((room) => (
+      room.id === roomId ? { ...room, archived: true } : room
+    ))).then(() => {
+      paintClassroomsManageApp();
+      showActionFeedback("Classroom archived.");
+    }).catch((error) => window.alert(error.message || "Could not archive classroom."));
+    return;
+  }
+
+  const classroomRestoreBtn = event.target.closest("[data-classroom-restore]");
+  if (classroomRestoreBtn) {
+    event.preventDefault();
+    const roomId = classroomRestoreBtn.dataset.classroomRestore;
+    const api = getScheduleApi();
+    const doc = scheduleDocCache || api?.readCache(scheduleApiEmail());
+    persistScheduleClassrooms((doc?.classrooms || []).map((room) => (
+      room.id === roomId ? { ...room, archived: false } : room
+    ))).then(() => {
+      paintClassroomsManageApp();
+      showActionFeedback("Classroom restored.");
+    }).catch((error) => window.alert(error.message || "Could not restore classroom."));
+    return;
+  }
+
+  const staffInviteRemove = event.target.closest("[data-staff-invite-remove]");
+  if (staffInviteRemove) {
+    event.preventDefault();
+    const inviteId = staffInviteRemove.dataset.staffInviteRemove;
+    const data = centerProgramData();
+    saveCenterProgramData({
+      staffInvites: data.staffInvites.filter((invite) => invite.id !== inviteId),
+    });
+    renderStaffManagementPage();
+    showActionFeedback("Staff invite removed.");
+    return;
+  }
+
+  const enrollmentLeadRemove = event.target.closest("[data-enrollment-lead-remove]");
+  if (enrollmentLeadRemove) {
+    event.preventDefault();
+    const leadId = enrollmentLeadRemove.dataset.enrollmentLeadRemove;
+    const data = centerProgramData();
+    saveCenterProgramData({
+      enrollmentLeads: data.enrollmentLeads.filter((lead) => lead.id !== leadId),
+    });
+    renderEnrollmentPage();
+    showActionFeedback("Inquiry removed.");
+    return;
+  }
+
+  const enrollmentLeadConvert = event.target.closest("[data-enrollment-lead-convert]");
+  if (enrollmentLeadConvert) {
+    event.preventDefault();
+    const leadId = enrollmentLeadConvert.dataset.enrollmentLeadConvert;
+    const data = centerProgramData();
+    const lead = data.enrollmentLeads.find((item) => item.id === leadId);
+    if (!lead) return;
+    const children = childStore("Profiles");
+    const child = {
+      id: `child-${Date.now()}`,
+      name: lead.childName || "New Child",
+      parentInfo: lead.parentName || "",
+      classroom: lead.desiredRoom || "",
+      ageGroup: "Preschool",
+      enrollmentDate: "",
+      notes: lead.notes || "",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    saveChildStore("Profiles", [...children, child]);
+    saveCenterProgramData({
+      enrollmentLeads: data.enrollmentLeads.filter((item) => item.id !== leadId),
+    });
+    selectedChildId = child.id;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+    renderEnrollmentPage();
+    showActionFeedback(`${child.name} added to Child Profiles. Add an enrollment date when ready.`);
+    return;
+  }
+
+  const enrollmentMarkEnrolled = event.target.closest("[data-enrollment-mark-enrolled]");
+  if (enrollmentMarkEnrolled) {
+    event.preventDefault();
+    const childId = enrollmentMarkEnrolled.dataset.enrollmentMarkEnrolled;
+    const today = new Date().toISOString().slice(0, 10);
+    const children = childStore("Profiles");
+    saveChildStore("Profiles", children.map((child) => (
+      child.id === childId
+        ? { ...child, enrollmentDate: child.enrollmentDate || today, updatedAt: new Date().toISOString() }
+        : child
+    )));
+    renderEnrollmentPage();
+    showActionFeedback("Child marked as enrolled.");
+    return;
+  }
+
   const openChildToolsButton = event.target.closest("[data-open-child-tools]");
   if (openChildToolsButton) {
     event.preventDefault();
@@ -41024,6 +41507,106 @@ document.querySelector("#programSettingsForm")?.addEventListener("submit", (even
     reader.readAsDataURL(logoFile);
   } else {
     finalize(undefined);
+  }
+});
+
+document.addEventListener("submit", async (event) => {
+  if (event.target?.id === "classroomCreateForm") {
+    event.preventDefault();
+    const form = event.target;
+    const data = collectFormData(form);
+    const api = getScheduleApi();
+    try {
+      await ensureScheduleLoaded();
+      const doc = scheduleDocCache || api.readCache(scheduleApiEmail()) || api.emptyDoc();
+      const nextRoom = {
+        id: api.randomId ? api.randomId("classroom") : `classroom-${Date.now().toString(36)}`,
+        name: String(data.name || "").trim() || "Classroom",
+        ageGroupDefault: String(data.ageGroupDefault || "").trim(),
+        notes: String(data.notes || "").trim(),
+        organizationId: null,
+        centerId: null,
+        archived: false,
+      };
+      await persistScheduleClassrooms([...(doc.classrooms || []), nextRoom]);
+      form.reset();
+      paintClassroomsManageApp();
+      showActionFeedback(`${nextRoom.name} added.`);
+    } catch (error) {
+      window.alert(error.message || "Could not add classroom.");
+    }
+    return;
+  }
+
+  if (event.target?.id === "staffInviteForm") {
+    event.preventDefault();
+    if (!canAccessPlatformFeature("staff_management")) return;
+    const data = collectFormData(event.target);
+    const email = String(data.email || "").trim().toLowerCase();
+    if (!email) return;
+    const current = centerProgramData();
+    if (current.staffInvites.some((invite) => String(invite.email || "").toLowerCase() === email)) {
+      window.alert("That email already has a pending invite.");
+      return;
+    }
+    saveCenterProgramData({
+      staffInvites: [
+        ...current.staffInvites,
+        {
+          id: `invite-${Date.now().toString(36)}`,
+          email,
+          role: String(data.role || "teacher").trim() || "teacher",
+          status: "pending",
+          invitedAt: new Date().toISOString(),
+        },
+      ],
+    });
+    event.target.reset();
+    renderStaffManagementPage();
+    showActionFeedback("Staff invite saved.");
+    return;
+  }
+
+  if (event.target?.id === "enrollmentLeadForm") {
+    event.preventDefault();
+    if (!canAccessPlatformFeature("enrollment")) return;
+    const data = collectFormData(event.target);
+    const current = centerProgramData();
+    saveCenterProgramData({
+      enrollmentLeads: [
+        ...current.enrollmentLeads,
+        {
+          id: `lead-${Date.now().toString(36)}`,
+          childName: String(data.childName || "").trim(),
+          parentName: String(data.parentName || "").trim(),
+          desiredRoom: String(data.desiredRoom || "").trim(),
+          notes: String(data.notes || "").trim(),
+          status: "inquiry",
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    });
+    event.target.reset();
+    renderEnrollmentPage();
+    showActionFeedback("Inquiry added.");
+    return;
+  }
+
+  if (event.target?.matches?.("[data-family-parent-form]")) {
+    event.preventDefault();
+    if (!canAccessPlatformFeature("families")) return;
+    const form = event.target;
+    const data = collectFormData(form);
+    const parentInfo = String(data.parentInfo || "").trim();
+    const childIds = String(data.childIds || "").split(",").map((id) => id.trim()).filter(Boolean);
+    const children = childStore("Profiles");
+    saveChildStore("Profiles", children.map((child) => (
+      childIds.includes(child.id)
+        ? { ...child, parentInfo, updatedAt: new Date().toISOString() }
+        : child
+    )));
+    renderFamiliesPage();
+    showActionFeedback("Household contact saved.");
   }
 });
 
