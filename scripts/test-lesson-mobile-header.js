@@ -178,6 +178,9 @@ async function main() {
     const viewportMeta = await page.evaluate(() => document.querySelector('meta[name="viewport"]')?.getAttribute("content") || "");
     check("viewport-fit=cover present", /viewport-fit\s*=\s*cover/i.test(viewportMeta));
 
+    await page.evaluate(() => setView("lessons"));
+    await page.waitForSelector("#view-lessons.active-view", { timeout: 8000 });
+    await page.waitForFunction((title) => resources.some((item) => item.title === title), lesson.title, { timeout: 15000 });
     await page.evaluate((id) => openLessonPlanEditor(id), lesson.planId);
     await page.waitForSelector("#view-lesson-editor.active-view [data-lesson-editor-sticky]", { timeout: 10000 });
     await page.waitForTimeout(200);
@@ -231,20 +234,28 @@ async function main() {
     const workspaceMetrics = await page.evaluate(() => {
       const header = document.querySelector(".lesson-workspace-header");
       const back = document.querySelector(".lesson-workspace-back");
+      const panels = document.querySelector(".lesson-workspace-panels");
       const headerStyle = header ? getComputedStyle(header) : null;
+      const workspace = document.querySelector(".lesson-workspace");
+      const modalCard = document.querySelector("#resourceViewerModal.lesson-workspace-mode .resource-viewer-card");
       return {
-        overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
-          || (document.querySelector(".lesson-workspace")?.scrollWidth || 0)
-            > (document.querySelector(".lesson-workspace")?.clientWidth || 0) + 1,
-        stickyHeader: headerStyle?.position === "sticky",
+        docOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+        modalOverflow: (modalCard?.scrollWidth || 0) > (modalCard?.clientWidth || 0) + 2,
+        workspaceBleed: (workspace?.scrollWidth || 0) > (workspace?.clientWidth || 0) + 2,
+        headerPinned: headerStyle?.flexShrink === "0",
+        panelsScroll: panels ? getComputedStyle(panels).overflowY === "auto" || getComputedStyle(panels).overflow === "auto" : false,
         backWidthRatio: back && header
           ? back.getBoundingClientRect().width / Math.max(1, header.getBoundingClientRect().width)
           : 0,
         backHeight: back?.getBoundingClientRect().height || 0,
       };
     });
-    check("no horizontal overflow on workspace", !workspaceMetrics.overflow);
-    check("workspace header sticky on mobile", workspaceMetrics.stickyHeader);
+    check(
+      "no horizontal overflow on workspace",
+      !workspaceMetrics.docOverflow && !workspaceMetrics.modalOverflow && !workspaceMetrics.workspaceBleed,
+      JSON.stringify(workspaceMetrics),
+    );
+    check("workspace header stays pinned above panels", workspaceMetrics.headerPinned && workspaceMetrics.panelsScroll);
     check("workspace Back is full-width", workspaceMetrics.backWidthRatio > 0.9, `ratio=${workspaceMetrics.backWidthRatio}`);
     check("workspace Back tap target >= 44px", workspaceMetrics.backHeight >= 44, `h=${workspaceMetrics.backHeight}`);
 

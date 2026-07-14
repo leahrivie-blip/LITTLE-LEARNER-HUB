@@ -14242,9 +14242,9 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   flex: 1;
   gap: 0;
   overflow: hidden;
-  overflow-x: clip;
   width: 100%;
   max-width: 100%;
+  min-width: 0;
 }
 
 .lesson-workspace-header {
@@ -15069,40 +15069,30 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   .resource-viewer-modal.lesson-workspace-mode .resource-viewer-card {
     max-height: 100dvh;
     border-radius: 12px;
-    overflow-x: clip;
+    overflow-x: hidden;
     width: 100%;
+    max-width: 100%;
   }
 
   .resource-viewer-modal.lesson-workspace-mode .resource-viewer-body,
   .lesson-workspace-article,
   .lesson-workspace {
-    overflow-x: clip;
     max-width: 100%;
+    min-width: 0;
   }
 
+  /* Header/tabs stay pinned via flex chrome (outside .lesson-workspace-panels). */
   .lesson-workspace-header {
-    position: sticky;
-    top: 0;
-    z-index: 6;
+    position: relative;
+    z-index: 2;
     padding-top: 2px;
-    margin: 0 -2px;
-    padding-left: 2px;
-    padding-right: 2px;
     border-bottom: 1px solid rgba(213, 227, 240, 0.85);
-    backdrop-filter: blur(10px);
   }
 
   .lesson-workspace-back {
     width: 100%;
     justify-self: stretch;
     justify-content: center;
-  }
-
-  .lesson-workspace-primary-actions .primary-button,
-  .lesson-workspace-primary-actions .ghost-button,
-  .lesson-workspace-secondary-actions .ghost-button {
-    flex: 1 1 100%;
-    width: 100%;
   }
 }
 
