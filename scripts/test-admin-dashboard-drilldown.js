@@ -77,11 +77,11 @@ test("activity helpers prefer lastSeenAt and match analytics windows", () => {
 test("cache bust versions stay aligned for drilldown", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260714-admin-auth-fix");
-  assert.equal(indexJs, "20260714-admin-auth-fix");
-  assert.match(sw, /styles\.css\?v=20260714-admin-auth-fix/);
-  assert.match(sw, /app\.js\?v=20260714-admin-auth-fix/);
-  assert.match(sw, /llh-shell-v30-admin-auth-fix/);
+  assert.equal(indexCss, "20260714-admin-nav-fix");
+  assert.equal(indexJs, "20260714-admin-nav-fix");
+  assert.match(sw, /styles\.css\?v=20260714-admin-nav-fix/);
+  assert.match(sw, /app\.js\?v=20260714-admin-nav-fix/);
+  assert.match(sw, /llh-shell-v31-admin-nav-fix/);
 });
 
 if (!process.exitCode) {
