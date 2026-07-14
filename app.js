@@ -8232,7 +8232,6 @@ function setView(view, options = {}) {
   if (requestedView === "behavior-support") {
     activeSupportCategoryId = "behavior-emotions";
     activeSupportTopicId = "";
-    activeSupportArticleId = "";
   }
   if (requestedChildToolTab === "daily-logs") {
     childManagementMode = "daily-logs";
