@@ -351,7 +351,7 @@ const observationCategories = [
 ];
 const developmentalAreas = observationCategories;
 const weeklyObservationsPerChild = 3;
-const childDataKeys = ["Profiles", "Observations", "SupportPlans", "Goals", "Differentiations", "Attendance", "Meals", "MealPresets", "Reports", "Communications", "Naps", "Diapers", "ActivityLogs", "Photos"];
+const childDataKeys = ["Profiles", "Observations", "SupportPlans", "Goals", "Differentiations", "Attendance", "Meals", "MealPresets", "Reports", "Communications", "Naps", "Diapers", "ActivityLogs", "Photos", "Documents"];
 const diaperAgeGroups = new Set(["Infant", "Toddler", "Young Toddler", "Older Toddler"]);
 const plannerDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const docHelperToolMap = {
@@ -20045,6 +20045,7 @@ function childRecords() {
     diapers: childStore("Diapers"),
     activityLogs: childStore("ActivityLogs"),
     photos: childStore("Photos"),
+    documents: childStore("Documents"),
   };
 }
 
@@ -23430,15 +23431,12 @@ function renderSimpleChildProfile(child, records) {
 function renderChildProfileTabs() {
   const tabs = [
     ["overview", "Overview"],
-    ["timeline", "Timeline"],
-    ["daily-log", "Daily Log"],
     ["observations", "Observations"],
+    ["goals", "Goals"],
+    ["reports", "Daily Reports"],
     ["photos", "Photos"],
-    ["notes", "Notes"],
-    ["attendance", "Attendance"],
-    ["goals", "Goals & Progress"],
-    ["reports", "Reports"],
-    ["family", "Parent Messages"],
+    ["documents", "Documents & Forms"],
+    ["timeline", "Timeline"],
   ];
   return `
     <div class="simple-profile-tabs" aria-label="Child profile sections">
@@ -23454,28 +23452,83 @@ function renderChildProfileTabContent(child, records) {
   const activeGoals = childActiveGoals(child, records);
   const differentiations = records.differentiations.filter((item) => item.childId === child.id);
   const summary = monthlyObservationSummary(child, records.observations);
-  if (childProfileTab === "daily-log") return renderChildDailyLogTab(child, records);
   if (childProfileTab === "observations") return renderChildObservationsTab(child, observations, summary);
   if (childProfileTab === "timeline") return renderChildTimelineTab(child, records);
   if (childProfileTab === "goals") return renderChildGoalsTab(child, goals, activeGoals, observations, records);
-  if (childProfileTab === "attendance") {
-    const attendance = records.attendance.filter((item) => item.childId === child.id);
-    return renderChildSimpleRecordTab("Attendance", "Attendance information for this child only.", attendanceForm(child.id), filterDailyLogHistory(attendance), "Attendance");
-  }
   if (childProfileTab === "photos") {
     const photos = (records.photos || []).filter((item) => item.childId === child.id);
     return renderChildSimpleRecordTab("Photos", "Saved photo moments for this child.", renderDlcPhotoSection(records), filterDailyLogHistory(photos), "Photos");
+  }
+  if (childProfileTab === "reports") return renderChildReportsTab(child, records, observations, goals, supportPlans, differentiations);
+  if (childProfileTab === "documents") return renderChildDocumentsTab(child, records);
+  if (childProfileTab === "daily-log") return renderChildDailyLogTab(child, records);
+  if (childProfileTab === "attendance") {
+    const attendance = records.attendance.filter((item) => item.childId === child.id);
+    return renderChildSimpleRecordTab("Attendance", "Attendance information for this child only.", attendanceForm(child.id), filterDailyLogHistory(attendance), "Attendance");
   }
   if (childProfileTab === "notes") {
     const notes = records.communications.filter((item) => item.childId === child.id && ["Teacher Note", "General Note", "Mood Note", "Behavior Note"].includes(item.type));
     return renderChildSimpleRecordTab("Notes", "Provider notes and mood history for this child.", renderDlcAccordionForm("notes", records), filterDailyLogHistory(notes), "Communications");
   }
-  if (childProfileTab === "reports") return renderChildReportsTab(child, records, observations, goals, supportPlans, differentiations);
   if (childProfileTab === "family") {
     const comms = records.communications.filter((item) => item.childId === child.id);
     return renderChildSimpleRecordTab("Parent Messages", "Parent notes and communication records for this child only.", isProUser() ? communicationForm(child.id) : lockedFeatureCard("Parent Communication Tools", "Preview family messaging here and upgrade only when you need it.", "daily-log-parent-messages"), filterDailyLogHistory(comms), "Communications");
   }
   return renderChildOverviewTab(child, summary, records);
+}
+
+function renderChildDocumentsTab(child, records) {
+  const documents = (records.documents || []).filter((item) => item.childId === child.id);
+  const sorted = [...documents].sort((a, b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || "")));
+  return `
+    <section class="section-block child-documents-tab">
+      <div class="child-page-header" style="margin-bottom:12px;">
+        <div>
+          <p class="eyebrow">Documents &amp; Forms</p>
+          <h3>Child file for ${escapeHtml(child.name)}</h3>
+          <p class="muted-copy">Enrollment paperwork, signed forms, and uploaded documents for this child will live here. You can start from the Forms Library today and attach items as the Documents system expands.</p>
+        </div>
+      </div>
+      <div class="account-actions-row" style="margin-bottom:16px;">
+        <button class="primary-button" type="button" data-view="forms">Browse Forms Library</button>
+        <button class="ghost-button" type="button" data-child-tab="overview">Back to Overview</button>
+      </div>
+      <form id="childDocumentStubForm" class="panel-form" data-child-document-form="${escapeHtml(child.id)}">
+        <p class="eyebrow">Add a document placeholder</p>
+        <div class="form-grid-two">
+          <label>Document title
+            <input name="title" required maxlength="120" placeholder="Enrollment packet, allergy form, handbook receipt…" />
+          </label>
+          <label>Status
+            <select name="status">
+              <option value="needed">Needed</option>
+              <option value="requested">Requested from family</option>
+              <option value="received">Received</option>
+              <option value="signed">Signed / complete</option>
+            </select>
+          </label>
+        </div>
+        <label>Notes
+          <textarea name="notes" rows="3" maxlength="800" placeholder="Optional note — due date, who signed, where the paper copy is stored…"></textarea>
+        </label>
+        <button class="primary-button" type="submit">Save to Child File</button>
+        <p class="form-note">Full upload, e-signature, and parent-facing forms ship in the Documents &amp; Forms system. This tab is ready so nothing is lost in the meantime.</p>
+      </form>
+      <div class="resource-list compact" style="margin-top:16px;">
+        ${sorted.length
+          ? sorted.map((item) => `
+            <article class="resource-row">
+              <div>
+                <strong>${escapeHtml(item.title || "Document")}</strong>
+                <p class="muted-copy">${escapeHtml(item.statusLabel || item.status || "Needed")}${item.date ? ` · ${escapeHtml(item.date)}` : ""}${item.notes ? ` — ${escapeHtml(String(item.notes).slice(0, 120))}` : ""}</p>
+              </div>
+              <button class="ghost-button" type="button" data-delete-child-document="${escapeHtml(item.id)}">Remove</button>
+            </article>
+          `).join("")
+          : `<div class="empty-state">No documents linked yet. Add a placeholder above or open the Forms Library to start enrollment paperwork.</div>`}
+      </div>
+    </section>
+  `;
 }
 
 function renderChildAiQuickEntry(child) {
@@ -42458,6 +42511,36 @@ document.addEventListener("submit", async (event) => {
         }
       }
     })();
+    return;
+  }
+
+  if (event.target?.matches?.("[data-child-document-form]")) {
+    event.preventDefault();
+    const childId = event.target.getAttribute("data-child-document-form") || selectedChildId;
+    if (!childId) return;
+    const data = collectFormData(event.target);
+    const title = String(data.title || "").trim();
+    if (!title) return;
+    const status = String(data.status || "needed").trim();
+    const statusLabels = {
+      needed: "Needed",
+      requested: "Requested from family",
+      received: "Received",
+      signed: "Signed / complete",
+    };
+    appendChildRecord("Documents", {
+      childId,
+      title,
+      status,
+      statusLabel: statusLabels[status] || status,
+      notes: String(data.notes || "").trim(),
+      date: new Date().toISOString().slice(0, 10),
+      updatedAt: new Date().toISOString(),
+    });
+    childProfileTab = "documents";
+    childManagementMode = "profile";
+    event.target.reset();
+    showActionFeedback("Document saved to child file.");
     return;
   }
 
