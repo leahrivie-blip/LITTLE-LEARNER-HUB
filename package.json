@@ -39,6 +39,7 @@
     "test:platform-nav": "node scripts/test-platform-nav.js",
     "test:documentation-helpers-phase6": "node scripts/test-documentation-helpers-phase6.js",
     "test:center-surfaces-phase7": "node scripts/test-center-surfaces-phase7.js",
+    "test:staff-invite-flow": "NODE_ENV=test node scripts/test-staff-invite-flow.js",
     "test:daily-logs-attendance": "node scripts/test-daily-logs-attendance.js",
     "test:settings-hub": "node scripts/test-settings-hub.js",
     "test:homepage-smoke": "node scripts/test-homepage-smoke.js",

@@ -5288,6 +5288,359 @@ async function handleChildData(request, response) {
   }
 }
 
+const STAFF_INVITE_ROLES = new Set(["teacher", "assistant", "director", "owner"]);
+const STAFF_INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
+
+function publicStaffInvite(invite = {}) {
+  return {
+    id: invite.id || "",
+    email: invite.email || "",
+    role: invite.role || "teacher",
+    classroomId: invite.classroomId || "",
+    classroomName: invite.classroomName || "",
+    status: invite.status || "pending",
+    invitedAt: invite.invitedAt || "",
+    invitedByEmail: invite.invitedByEmail || "",
+    acceptedAt: invite.acceptedAt || "",
+    expiresAt: invite.expiresAt || "",
+    emailSent: Boolean(invite.emailSent),
+    programName: invite.programName || "Little Learner Hub program",
+  };
+}
+
+function staffInviteIsExpired(invite, nowMs = Date.now()) {
+  const exp = Date.parse(invite?.expiresAt || "");
+  if (Number.isFinite(exp)) return exp <= nowMs;
+  const created = Date.parse(invite?.invitedAt || "");
+  if (!Number.isFinite(created)) return false;
+  return created + STAFF_INVITE_TTL_MS <= nowMs;
+}
+
+function ensureStaffInviteCollections(store) {
+  store.staffInvites = store.staffInvites && typeof store.staffInvites === "object" ? store.staffInvites : {};
+  store.programMembers = store.programMembers && typeof store.programMembers === "object" ? store.programMembers : {};
+  return store;
+}
+
+function programOwnerKey(email) {
+  return normalizeEmail(email);
+}
+
+function listProgramInvites(store, ownerEmail) {
+  const key = programOwnerKey(ownerEmail);
+  return Object.values(store.staffInvites || {})
+    .filter((invite) => programOwnerKey(invite.invitedByEmail) === key)
+    .sort((a, b) => String(b.invitedAt || "").localeCompare(String(a.invitedAt || "")));
+}
+
+function listProgramMembers(store, ownerEmail) {
+  const key = programOwnerKey(ownerEmail);
+  const members = Array.isArray(store.programMembers?.[key]) ? store.programMembers[key] : [];
+  return members.slice().sort((a, b) => String(a.email || "").localeCompare(String(b.email || "")));
+}
+
+function canManageStaffInvites(user = {}) {
+  const role = String(user.role || "owner").trim().toLowerCase();
+  return role === "owner" || role === "director" || !user.role;
+}
+
+async function resolveStaffIdentity(request) {
+  return resolveScheduleIdentity(request);
+}
+
+async function handleStaffInvitesList(request, response) {
+  let identity;
+  try {
+    identity = await resolveStaffIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before managing staff." });
+    return;
+  }
+  const store = ensureStaffInviteCollections(readStore());
+  const user = store.users?.[identity.email] || { email: identity.email, role: "owner" };
+  if (!canManageStaffInvites(user)) {
+    jsonResponse(response, 403, { error: "Only owners and directors can manage staff invites." });
+    return;
+  }
+  const ownerEmail = user.linkedProgramOwnerEmail || identity.email;
+  jsonResponse(response, 200, {
+    ok: true,
+    invites: listProgramInvites(store, ownerEmail).map(publicStaffInvite),
+    members: listProgramMembers(store, ownerEmail),
+    emailDeliveryReady: supportEmailConfigStatus().ready,
+  });
+}
+
+async function handleStaffInviteCreate(request, response) {
+  let identity;
+  try {
+    identity = await resolveStaffIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before inviting staff." });
+    return;
+  }
+  const store = ensureStaffInviteCollections(readStore());
+  const inviter = store.users?.[identity.email] || { email: identity.email, role: "owner", accountType: "home_daycare" };
+  if (!canManageStaffInvites(inviter)) {
+    jsonResponse(response, 403, { error: "Only owners and directors can invite staff." });
+    return;
+  }
+  let body;
+  try {
+    body = await readJson(request);
+  } catch {
+    jsonResponse(response, 400, { error: "Invalid invite payload." });
+    return;
+  }
+  const email = normalizeEmail(body.email || "");
+  const role = String(body.role || "teacher").trim().toLowerCase();
+  if (!email) {
+    jsonResponse(response, 400, { error: "Enter the staff member's email address." });
+    return;
+  }
+  if (!STAFF_INVITE_ROLES.has(role)) {
+    jsonResponse(response, 400, { error: "Choose a valid staff role." });
+    return;
+  }
+  if (email === identity.email) {
+    jsonResponse(response, 400, { error: "You cannot invite your own account." });
+    return;
+  }
+  const ownerEmail = normalizeEmail(inviter.linkedProgramOwnerEmail || identity.email);
+  const existing = listProgramInvites(store, ownerEmail).find(
+    (invite) => invite.email === email && invite.status === "pending" && !staffInviteIsExpired(invite),
+  );
+  if (existing) {
+    jsonResponse(response, 409, { error: "That email already has a pending invite.", invite: publicStaffInvite(existing) });
+    return;
+  }
+  const token = crypto.randomBytes(24).toString("hex");
+  const now = new Date();
+  const invite = {
+    id: `invite-${Date.now().toString(36)}`,
+    token,
+    email,
+    role,
+    classroomId: String(body.classroomId || "").trim(),
+    classroomName: String(body.classroomName || "").trim(),
+    status: "pending",
+    invitedAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + STAFF_INVITE_TTL_MS).toISOString(),
+    invitedByEmail: identity.email,
+    invitedByUid: identity.uid,
+    ownerEmail,
+    accountType: inviter.accountType || "home_daycare",
+    programName: String(body.programName || inviter.programSettings?.programName || "Little Learner Hub program").trim(),
+    emailSent: false,
+  };
+  store.staffInvites[token] = invite;
+  writeStore(store);
+
+  const origin = String(body.appOrigin || "").replace(/\/$/, "") || "https://little-learner-hub.onrender.com";
+  const acceptUrl = `${origin}/?staffInvite=${encodeURIComponent(token)}`;
+  const roleLabel = role.replace(/_/g, " ");
+  let emailResult = { sent: false, configured: supportEmailConfigStatus().ready };
+  try {
+    emailResult = await sendEmail({
+      to: email,
+      replyTo: identity.email,
+      subject: `You're invited to join ${invite.programName} on Little Learner Hub`,
+      text: [
+        `Hi,`,
+        ``,
+        `${identity.email} invited you to join ${invite.programName} as a ${roleLabel}.`,
+        invite.classroomName ? `Classroom: ${invite.classroomName}` : "",
+        ``,
+        `Accept your invite:`,
+        acceptUrl,
+        ``,
+        `This invite expires on ${invite.expiresAt.slice(0, 10)}.`,
+        ``,
+        `— Little Learner Hub`,
+      ].filter(Boolean).join("\n"),
+      html: `
+        <p>Hi,</p>
+        <p><strong>${htmlEscape(identity.email)}</strong> invited you to join <strong>${htmlEscape(invite.programName)}</strong> as a <strong>${htmlEscape(roleLabel)}</strong>.</p>
+        ${invite.classroomName ? `<p>Classroom: ${htmlEscape(invite.classroomName)}</p>` : ""}
+        <p><a href="${htmlEscape(acceptUrl)}">Accept your invite</a></p>
+        <p>This invite expires on ${htmlEscape(invite.expiresAt.slice(0, 10))}.</p>
+        <p>— Little Learner Hub</p>
+      `,
+    });
+  } catch (error) {
+    emailResult = { sent: false, configured: supportEmailConfigStatus().ready, error: error.message };
+  }
+  invite.emailSent = Boolean(emailResult.sent);
+  invite.emailError = emailResult.error || "";
+  store.staffInvites[token] = invite;
+  writeStore(store);
+
+  jsonResponse(response, 200, {
+    ok: true,
+    invite: publicStaffInvite(invite),
+    acceptUrl,
+    email: emailResult,
+    message: emailResult.sent
+      ? "Invite created and email sent."
+      : (emailResult.configured
+        ? "Invite created, but the email could not be sent. Share the accept link manually."
+        : "Invite created. Email delivery is not configured yet — share the accept link with your staff member."),
+  });
+}
+
+async function handleStaffInviteRevoke(request, response, inviteId) {
+  let identity;
+  try {
+    identity = await resolveStaffIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before managing staff." });
+    return;
+  }
+  const store = ensureStaffInviteCollections(readStore());
+  const inviter = store.users?.[identity.email] || { email: identity.email, role: "owner" };
+  if (!canManageStaffInvites(inviter)) {
+    jsonResponse(response, 403, { error: "Only owners and directors can remove staff invites." });
+    return;
+  }
+  const ownerEmail = normalizeEmail(inviter.linkedProgramOwnerEmail || identity.email);
+  const match = Object.entries(store.staffInvites).find(([, invite]) => invite.id === inviteId && programOwnerKey(invite.ownerEmail || invite.invitedByEmail) === programOwnerKey(ownerEmail));
+  if (!match) {
+    jsonResponse(response, 404, { error: "Invite not found." });
+    return;
+  }
+  const [token, invite] = match;
+  invite.status = "revoked";
+  invite.revokedAt = new Date().toISOString();
+  store.staffInvites[token] = invite;
+  writeStore(store);
+  jsonResponse(response, 200, { ok: true, invite: publicStaffInvite(invite) });
+}
+
+function handleStaffInvitePeek(request, response, url) {
+  const token = String(url.searchParams.get("token") || "").trim();
+  if (!token) {
+    jsonResponse(response, 400, { error: "Missing invite token." });
+    return;
+  }
+  const store = ensureStaffInviteCollections(readStore());
+  const invite = store.staffInvites[token];
+  if (!invite) {
+    jsonResponse(response, 404, { error: "This invite link is invalid or has already been removed." });
+    return;
+  }
+  if (invite.status === "revoked") {
+    jsonResponse(response, 410, { error: "This invite was revoked by the program owner.", invite: publicStaffInvite(invite) });
+    return;
+  }
+  if (invite.status === "accepted") {
+    jsonResponse(response, 200, { ok: true, invite: publicStaffInvite(invite), alreadyAccepted: true });
+    return;
+  }
+  if (staffInviteIsExpired(invite)) {
+    invite.status = "expired";
+    store.staffInvites[token] = invite;
+    writeStore(store);
+    jsonResponse(response, 410, { error: "This invite has expired. Ask the owner to send a new one.", invite: publicStaffInvite(invite) });
+    return;
+  }
+  jsonResponse(response, 200, { ok: true, invite: publicStaffInvite(invite) });
+}
+
+async function handleStaffInviteAccept(request, response) {
+  let identity;
+  try {
+    identity = await resolveStaffIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Log in or create an account to accept this invite." });
+    return;
+  }
+  let body;
+  try {
+    body = await readJson(request);
+  } catch {
+    jsonResponse(response, 400, { error: "Invalid accept payload." });
+    return;
+  }
+  const token = String(body.token || "").trim();
+  if (!token) {
+    jsonResponse(response, 400, { error: "Missing invite token." });
+    return;
+  }
+  const store = ensureStaffInviteCollections(readStore());
+  const invite = store.staffInvites[token];
+  if (!invite) {
+    jsonResponse(response, 404, { error: "This invite link is invalid or has already been removed." });
+    return;
+  }
+  if (invite.status === "revoked") {
+    jsonResponse(response, 410, { error: "This invite was revoked by the program owner." });
+    return;
+  }
+  if (staffInviteIsExpired(invite)) {
+    invite.status = "expired";
+    store.staffInvites[token] = invite;
+    writeStore(store);
+    jsonResponse(response, 410, { error: "This invite has expired. Ask the owner to send a new one." });
+    return;
+  }
+  if (normalizeEmail(identity.email) !== normalizeEmail(invite.email)) {
+    jsonResponse(response, 403, {
+      error: `Sign in as ${invite.email} to accept this invite. You are currently signed in as ${identity.email}.`,
+      requiredEmail: invite.email,
+    });
+    return;
+  }
+  const ownerEmail = normalizeEmail(invite.ownerEmail || invite.invitedByEmail);
+  const owner = store.users?.[ownerEmail] || { email: ownerEmail };
+  const ownerHasPro = membershipHasProAccess(owner);
+  const now = new Date().toISOString();
+  const memberRecord = {
+    email: identity.email,
+    uid: identity.uid,
+    role: invite.role,
+    classroomId: invite.classroomId || "",
+    classroomName: invite.classroomName || "",
+    status: "active",
+    joinedAt: now,
+    inviteId: invite.id,
+  };
+  const existingMembers = listProgramMembers(store, ownerEmail).filter((member) => normalizeEmail(member.email) !== identity.email);
+  store.programMembers[programOwnerKey(ownerEmail)] = [...existingMembers, memberRecord];
+  invite.status = "accepted";
+  invite.acceptedAt = now;
+  invite.acceptedByUid = identity.uid;
+  store.staffInvites[token] = invite;
+  store.users = store.users || {};
+  store.users[identity.email] = {
+    ...(store.users[identity.email] || { email: identity.email }),
+    email: identity.email,
+    role: invite.role,
+    accountType: invite.accountType || owner.accountType || "home_daycare",
+    linkedProgramOwnerEmail: ownerEmail,
+    classroomIds: invite.classroomId ? [invite.classroomId] : [],
+    classroomName: invite.classroomName || "",
+    programAccessViaOwner: ownerHasPro,
+    staffInviteAcceptedAt: now,
+    updatedAt: now,
+  };
+  writeStore(store);
+  jsonResponse(response, 200, {
+    ok: true,
+    invite: publicStaffInvite(invite),
+    member: memberRecord,
+    account: {
+      email: identity.email,
+      role: invite.role,
+      accountType: invite.accountType || owner.accountType || "home_daycare",
+      linkedProgramOwnerEmail: ownerEmail,
+      classroomIds: invite.classroomId ? [invite.classroomId] : [],
+      classroomName: invite.classroomName || "",
+      programAccessViaOwner: ownerHasPro,
+    },
+  });
+}
+
+
 async function handleAnalyticsEvent(request, response) {
   const body = await readJson(request);
   const event = sanitizeAnalyticsEvent(body, request);
@@ -7666,6 +8019,14 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/upsert") return await handleAdminUploadedResourceUpsert(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/delete") return await handleAdminUploadedResourceDelete(request, response);
     if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/child-data") return await handleChildData(request, response);
+    if (request.method === "GET" && url.pathname === "/api/staff/invites") return await handleStaffInvitesList(request, response);
+    if (request.method === "POST" && url.pathname === "/api/staff/invites") return await handleStaffInviteCreate(request, response);
+    if (request.method === "GET" && url.pathname === "/api/staff/invites/peek") return handleStaffInvitePeek(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/staff/invites/accept") return await handleStaffInviteAccept(request, response);
+    if (request.method === "DELETE" && url.pathname.startsWith("/api/staff/invites/")) {
+      const inviteId = decodeURIComponent(url.pathname.slice("/api/staff/invites/".length));
+      return await handleStaffInviteRevoke(request, response, inviteId);
+    }
     if (request.method === "GET" && url.pathname === "/api/schedule") return await handleScheduleGet(request, response, url);
     if (request.method === "PUT" && url.pathname === "/api/schedule") return await handleSchedulePut(request, response);
     if (request.method === "POST" && url.pathname === "/api/schedule/migrate") return await handleScheduleMigrate(request, response);

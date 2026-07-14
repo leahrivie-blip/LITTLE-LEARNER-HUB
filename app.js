@@ -8409,7 +8409,9 @@ function canAccess(resource) {
 }
 
 function isProUser() {
-  return hasAdminFullAccess() || accessRank[effectiveAccessPlan()] >= accessRank.Pro;
+  if (hasAdminFullAccess()) return true;
+  if (currentAccount()?.programAccessViaOwner) return true;
+  return accessRank[effectiveAccessPlan()] >= accessRank.Pro;
 }
 
 // Single source-of-truth for "is a real user session active?"
@@ -20968,7 +20970,47 @@ function renderManageSurfaceShell({ eyebrow, title, detail, actionsHtml = "", bo
   `;
 }
 
-function renderStaffManagementPage() {
+let staffInviteRemoteCache = { invites: [], members: [], emailDeliveryReady: false, loadedAt: 0 };
+
+async function staffAuthHeaders() {
+  const headers = await firebaseAuthHeaders();
+  if (headers) return headers;
+  if (!currentUser) return null;
+  return {
+    "Content-Type": "application/json",
+    "X-LLH-User-Email": currentUser,
+    Authorization: `Bearer test:${currentUser}`,
+  };
+}
+
+async function refreshStaffInvitesFromBackend() {
+  const headers = await staffAuthHeaders();
+  if (!headers || !canUseLaunchBackend()) {
+    const local = centerProgramData();
+    staffInviteRemoteCache = {
+      invites: local.staffInvites,
+      members: [],
+      emailDeliveryReady: false,
+      loadedAt: Date.now(),
+      localOnly: true,
+    };
+    return staffInviteRemoteCache;
+  }
+  const response = await fetch("/api/staff/invites", { headers, cache: "no-store" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Could not load staff invites.");
+  staffInviteRemoteCache = {
+    invites: Array.isArray(data.invites) ? data.invites : [],
+    members: Array.isArray(data.members) ? data.members : [],
+    emailDeliveryReady: Boolean(data.emailDeliveryReady),
+    loadedAt: Date.now(),
+  };
+  saveCenterProgramData({ staffInvites: staffInviteRemoteCache.invites });
+  return staffInviteRemoteCache;
+}
+
+function renderStaffManagementPage(options = {}) {
+  const shouldRefresh = options.refresh !== false;
   const section = document.querySelector("#view-staff");
   if (!section) return;
   if (!canAccessPlatformFeature("staff_management")) {
@@ -20980,16 +21022,21 @@ function renderStaffManagementPage() {
     });
     return;
   }
-  const data = centerProgramData();
-  const invites = data.staffInvites;
+  const cache = staffInviteRemoteCache;
+  const invites = cache.invites?.length ? cache.invites : centerProgramData().staffInvites;
+  const members = Array.isArray(cache.members) ? cache.members : [];
+  const classrooms = activeScheduleClassrooms();
   const ownerEmail = currentUser || "";
+  const emailNote = cache.emailDeliveryReady
+    ? "Invite emails send automatically when delivery is configured."
+    : "If email delivery is not configured on the server, you will still get a shareable accept link.";
   section.innerHTML = renderManageSurfaceShell({
     eyebrow: "Staff & Permissions",
     title: "Staff management",
-    detail: "Invite assistants, teachers, and directors. Email delivery lands next — invites are saved on this account for now.",
+    detail: "Invite assistants, teachers, and directors. They accept by email link, join your program, and receive the role and classroom you assign.",
     actionsHtml: `
       <button class="ghost-button" type="button" data-view="settings">Back to Settings</button>
-      <button class="ghost-button" type="button" data-view="program-settings">Program Settings</button>
+      <button class="ghost-button" type="button" data-refresh-staff-invites>Refresh</button>
     `,
     bodyHtml: `
       <section class="section-block platform-manage-card">
@@ -21002,15 +21049,24 @@ function renderStaffManagementPage() {
             </div>
             <span class="tag">Owner</span>
           </article>
-          ${invites.map((invite) => `
+          ${members.map((member) => `
+            <article class="platform-manage-row">
+              <div>
+                <strong>${escapeHtml(member.email || "Staff")}</strong>
+                <p class="muted-copy">${escapeHtml(member.role || "teacher")} · active${member.classroomName ? ` · ${escapeHtml(member.classroomName)}` : ""}${member.joinedAt ? ` · joined ${escapeHtml(String(member.joinedAt).slice(0, 10))}` : ""}</p>
+              </div>
+              <span class="tag">Active</span>
+            </article>
+          `).join("")}
+          ${invites.filter((invite) => invite.status === "pending").map((invite) => `
             <article class="platform-manage-row">
               <div>
                 <strong>${escapeHtml(invite.email || "Invite")}</strong>
-                <p class="muted-copy">${escapeHtml(invite.role || "teacher")} · ${escapeHtml(invite.status || "pending")}${invite.invitedAt ? ` · ${escapeHtml(String(invite.invitedAt).slice(0, 10))}` : ""}</p>
+                <p class="muted-copy">${escapeHtml(invite.role || "teacher")} · pending${invite.classroomName ? ` · ${escapeHtml(invite.classroomName)}` : ""}${invite.invitedAt ? ` · ${escapeHtml(String(invite.invitedAt).slice(0, 10))}` : ""}${invite.emailSent ? " · email sent" : " · link ready"}</p>
               </div>
-              <button class="ghost-button" type="button" data-staff-invite-remove="${escapeHtml(invite.id)}">Remove</button>
+              <button class="ghost-button" type="button" data-staff-invite-remove="${escapeHtml(invite.id)}">Revoke</button>
             </article>
-          `).join("") || `<p class="muted-copy">No staff invites yet.</p>`}
+          `).join("") || (members.length ? "" : `<p class="muted-copy">No staff invites yet.</p>`)}
         </div>
       </section>
       <section class="section-block platform-manage-card">
@@ -21019,18 +21075,101 @@ function renderStaffManagementPage() {
           <label>Email<input name="email" type="email" required placeholder="teacher@example.com" /></label>
           <label>Role
             <select name="role" required>
-              <option value="teacher">Teacher</option>
-              <option value="assistant">Assistant</option>
+              <option value="teacher">Lead Teacher</option>
+              <option value="assistant">Assistant / Staff</option>
               <option value="director">Director</option>
-              <option value="owner">Owner</option>
             </select>
           </label>
-          <button class="primary-button" type="submit">Save invite</button>
-          <p class="form-note">Invite emails are not sent yet. This stores a pending invite for the upcoming staff flow.</p>
+          <label>Classroom (optional)
+            <select name="classroomId">
+              <option value="">No classroom assigned yet</option>
+              ${classrooms.map((room) => `<option value="${escapeHtml(room.id)}">${escapeHtml(room.name || room.id)}</option>`).join("")}
+            </select>
+          </label>
+          <button class="primary-button" type="submit">Send Invite</button>
+          <p class="form-note">${escapeHtml(emailNote)}</p>
+          <span class="form-message" id="staffInviteMessage" aria-live="polite"></span>
         </form>
       </section>
     `,
   });
+  if (!shouldRefresh) return;
+  refreshStaffInvitesFromBackend()
+    .then(() => {
+      if (document.querySelector(".active-view")?.id !== "view-staff") return;
+      renderStaffManagementPage({ refresh: false });
+    })
+    .catch((error) => {
+      const message = document.querySelector("#staffInviteMessage");
+      if (message) message.textContent = error.message || "Could not refresh staff invites.";
+    });
+}
+
+async function acceptStaffInviteToken(token) {
+  const cleanToken = String(token || "").trim();
+  if (!cleanToken) throw new Error("Missing invite token.");
+  const headers = await staffAuthHeaders();
+  if (!headers) {
+    openAuthModal("login");
+    throw new Error("Log in or create an account with the invited email to accept.");
+  }
+  const response = await fetch("/api/staff/invites/accept", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ token: cleanToken }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Could not accept invite.");
+  if (data.account && currentUser) {
+    updateAccount(currentUser, {
+      role: data.account.role,
+      accountType: data.account.accountType,
+      linkedProgramOwnerEmail: data.account.linkedProgramOwnerEmail,
+      classroomIds: data.account.classroomIds || [],
+      classroomName: data.account.classroomName || "",
+      programAccessViaOwner: Boolean(data.account.programAccessViaOwner),
+    });
+    ensureAccountAccessMigrated(currentUser);
+    updateAuthButtons();
+    updatePlanLabel();
+    syncPlatformNavVisibility();
+  }
+  return data;
+}
+
+async function maybeHandleStaffInviteFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const token = String(params.get("staffInvite") || "").trim();
+  if (!token) return false;
+  const peek = await fetch(`/api/staff/invites/peek?token=${encodeURIComponent(token)}`).then((r) => r.json()).catch(() => ({}));
+  const invite = peek?.invite;
+  const panel = document.createElement("div");
+  panel.className = "section-block";
+  panel.id = "staffInviteAcceptPanel";
+  panel.style.cssText = "max-width:640px;margin:24px auto;padding:20px;";
+  const mount = () => {
+    const home = document.querySelector("#view-home") || document.querySelector("main") || document.body;
+    document.querySelector("#staffInviteAcceptPanel")?.remove();
+    home.prepend(panel);
+  };
+  if (!peek?.ok && !invite) {
+    panel.innerHTML = `<h3>Staff invite</h3><p>${escapeHtml(peek?.error || "This invite link is not valid.")}</p>`;
+    mount();
+    return true;
+  }
+  panel.innerHTML = `
+    <p class="eyebrow">Staff invite</p>
+    <h3>Join ${escapeHtml(invite.programName || "this program")}</h3>
+    <p>You were invited as <strong>${escapeHtml(invite.role || "teacher")}</strong>${invite.classroomName ? ` for <strong>${escapeHtml(invite.classroomName)}</strong>` : ""}.</p>
+    <p class="muted-copy">Sign in with <strong>${escapeHtml(invite.email)}</strong> to accept.</p>
+    <div class="account-actions-row">
+      <button class="primary-button" type="button" data-accept-staff-invite="${escapeHtml(token)}">Accept Invite</button>
+      <button class="ghost-button" type="button" data-dismiss-staff-invite>Not now</button>
+    </div>
+    <p class="form-message" id="staffInviteAcceptMessage" aria-live="polite"></p>
+  `;
+  mount();
+  return true;
 }
 
 function renderClassroomsPage() {
@@ -36358,12 +36497,71 @@ document.addEventListener("click", async (event) => {
   if (staffInviteRemove) {
     event.preventDefault();
     const inviteId = staffInviteRemove.dataset.staffInviteRemove;
-    const data = centerProgramData();
-    saveCenterProgramData({
-      staffInvites: data.staffInvites.filter((invite) => invite.id !== inviteId),
-    });
-    renderStaffManagementPage();
-    showActionFeedback("Staff invite removed.");
+    (async () => {
+      try {
+        const headers = await staffAuthHeaders();
+        if (headers && canUseLaunchBackend()) {
+          const response = await fetch(`/api/staff/invites/${encodeURIComponent(inviteId)}`, {
+            method: "DELETE",
+            headers,
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(result?.error || "Could not revoke invite.");
+          await refreshStaffInvitesFromBackend();
+        } else {
+          const data = centerProgramData();
+          saveCenterProgramData({
+            staffInvites: data.staffInvites.filter((invite) => invite.id !== inviteId),
+          });
+        }
+        renderStaffManagementPage({ refresh: false });
+        showActionFeedback("Staff invite revoked.");
+      } catch (error) {
+        window.alert(error.message || "Could not revoke invite.");
+      }
+    })();
+    return;
+  }
+
+  const refreshStaffInvitesBtn = event.target.closest("[data-refresh-staff-invites]");
+  if (refreshStaffInvitesBtn) {
+    event.preventDefault();
+    renderStaffManagementPage({ refresh: true });
+    return;
+  }
+
+  const acceptStaffInviteBtn = event.target.closest("[data-accept-staff-invite]");
+  if (acceptStaffInviteBtn) {
+    event.preventDefault();
+    const token = acceptStaffInviteBtn.dataset.acceptStaffInvite;
+    const message = document.querySelector("#staffInviteAcceptMessage");
+    acceptStaffInviteBtn.disabled = true;
+    acceptStaffInviteToken(token)
+      .then((result) => {
+        if (message) message.textContent = `Welcome! You're joined as ${result.account?.role || "staff"}.`;
+        showActionFeedback("Staff invite accepted.");
+        const url = new URL(window.location.href);
+        url.searchParams.delete("staffInvite");
+        window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+        setView("home");
+      })
+      .catch((error) => {
+        if (message) message.textContent = error.message || "Could not accept invite.";
+        else window.alert(error.message || "Could not accept invite.");
+      })
+      .finally(() => {
+        acceptStaffInviteBtn.disabled = false;
+      });
+    return;
+  }
+
+  const dismissStaffInviteBtn = event.target.closest("[data-dismiss-staff-invite]");
+  if (dismissStaffInviteBtn) {
+    event.preventDefault();
+    document.querySelector("#staffInviteAcceptPanel")?.remove();
+    const url = new URL(window.location.href);
+    url.searchParams.delete("staffInvite");
+    window.history.replaceState({}, "", url.pathname + url.search + url.hash);
     return;
   }
 
@@ -41541,29 +41739,84 @@ document.addEventListener("submit", async (event) => {
   if (event.target?.id === "staffInviteForm") {
     event.preventDefault();
     if (!canAccessPlatformFeature("staff_management")) return;
-    const data = collectFormData(event.target);
+    const form = event.target;
+    const message = document.querySelector("#staffInviteMessage");
+    const data = collectFormData(form);
     const email = String(data.email || "").trim().toLowerCase();
     if (!email) return;
-    const current = centerProgramData();
-    if (current.staffInvites.some((invite) => String(invite.email || "").toLowerCase() === email)) {
-      window.alert("That email already has a pending invite.");
-      return;
+    const classroomId = String(data.classroomId || "").trim();
+    const classroomName = activeScheduleClassrooms().find((room) => room.id === classroomId)?.name || "";
+    const submitBtn = form.querySelector("button[type='submit']");
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Sending…";
     }
-    saveCenterProgramData({
-      staffInvites: [
-        ...current.staffInvites,
-        {
-          id: `invite-${Date.now().toString(36)}`,
-          email,
-          role: String(data.role || "teacher").trim() || "teacher",
-          status: "pending",
-          invitedAt: new Date().toISOString(),
-        },
-      ],
-    });
-    event.target.reset();
-    renderStaffManagementPage();
-    showActionFeedback("Staff invite saved.");
+    (async () => {
+      try {
+        const headers = await staffAuthHeaders();
+        if (!headers || !canUseLaunchBackend()) {
+          // Offline/local fallback
+          const current = centerProgramData();
+          if (current.staffInvites.some((invite) => String(invite.email || "").toLowerCase() === email && invite.status !== "revoked")) {
+            throw new Error("That email already has a pending invite.");
+          }
+          saveCenterProgramData({
+            staffInvites: [
+              ...current.staffInvites,
+              {
+                id: `invite-${Date.now().toString(36)}`,
+                email,
+                role: String(data.role || "teacher").trim() || "teacher",
+                classroomId,
+                classroomName,
+                status: "pending",
+                invitedAt: new Date().toISOString(),
+              },
+            ],
+          });
+          form.reset();
+          renderStaffManagementPage({ refresh: false });
+          showActionFeedback("Staff invite saved locally.");
+          return;
+        }
+        const settings = getProgramSettings();
+        const response = await fetch("/api/staff/invites", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            email,
+            role: String(data.role || "teacher").trim() || "teacher",
+            classroomId,
+            classroomName,
+            programName: settings.programName || "",
+            appOrigin: window.location.origin,
+          }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result?.error || "Could not send invite.");
+        await refreshStaffInvitesFromBackend();
+        form.reset();
+        renderStaffManagementPage({ refresh: false });
+        if (message) message.textContent = result.message || "Invite sent.";
+        if (result.acceptUrl) {
+          showActionFeedback(result.email?.sent ? "Invite email sent." : `Invite ready: ${result.acceptUrl}`);
+        } else {
+          showActionFeedback("Staff invite created.");
+        }
+      } catch (error) {
+        if (message) {
+          message.textContent = error.message || "Could not send invite.";
+          message.classList.remove("success");
+        } else {
+          window.alert(error.message || "Could not send invite.");
+        }
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Send Invite";
+        }
+      }
+    })();
     return;
   }
 
@@ -41696,6 +41949,7 @@ async function initializeAppView() {
     loadUserAiUsage(currentUser).catch(() => {});
   }
   await syncFoundingStatus({ render: true });
+  await maybeHandleStaffInviteFromUrl().catch(() => {});
   const initialView = initialViewFromLocation();
   const lessonEditId = lessonPlanEditRouteIdFromLocation();
   if (!currentAttribution()?.firstSeenAt) {
