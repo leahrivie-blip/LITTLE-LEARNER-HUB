@@ -75,7 +75,7 @@
               Activity Library
             </button>
             <button class="nav-link" data-view="ai" data-nav-capability="documentation_helpers">
-              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 1.6 4.7L18 9l-4.4 1.3L12 15l-1.6-4.7L6 9l4.4-1.3zM19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8zM6 14l.8 2.2L9 17l-2.2.8L6 20l-.8-2.2L3 17l2.2-.8z"/></svg></span>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 12h6M9 16h6M9 8h2"/></svg></span>
               Documentation Helpers
             </button>
             <button class="nav-link" data-view="forms" data-nav-capability="forms">
@@ -240,7 +240,7 @@
                         </div>
                       </div>
                     </div>
-                    <div class="lp-dash-ai-banner">✨ Writing support tools for observations, reports &amp; more</div>
+                    <div class="lp-dash-ai-banner">Documentation helpers for observations, reports &amp; more</div>
                   </main>
                 </div>
               </div>
@@ -430,10 +430,10 @@
                 </div>
               </div>
 
-              <!-- Card 6: AI Tools -->
+              <!-- Card 6: Documentation Helpers -->
               <div class="lp-showcase-card" data-preview="ai-tools" role="button" tabindex="0" aria-haspopup="dialog">
                 <div class="lp-showcase-screen" aria-hidden="true">
-                  <div class="lp-sc-bar"><span class="lp-sc-dot"></span><span class="lp-sc-dot"></span><span class="lp-sc-dot"></span><span class="lp-sc-title">AI Childcare Tools</span></div>
+                  <div class="lp-sc-bar"><span class="lp-sc-dot"></span><span class="lp-sc-dot"></span><span class="lp-sc-dot"></span><span class="lp-sc-title">Documentation Helpers</span></div>
                   <div class="lp-sc-body">
                     <div class="lp-sc-stat-row">
                       <div class="lp-sc-stat"><strong>10+</strong><span>Doc Helpers</span></div>
@@ -441,20 +441,20 @@
                       <div class="lp-sc-stat"><strong>3</strong><span>Remaining</span></div>
                     </div>
                     <div class="lp-sc-card">
-                      <div class="lp-sc-card-title">Generate Observation Note</div>
+                      <div class="lp-sc-card-title">Observation Note</div>
                       <div class="lp-sc-field"><label>Child</label><span>Emma — Age 3</span></div>
                       <div class="lp-sc-field"><label>Area</label><span>Fine Motor</span></div>
                       <div class="lp-sc-field"><label>What did you notice?</label><span>Emma threaded 6 beads without help today.</span></div>
                     </div>
                     <div class="lp-sc-card lp-sc-card-detail lp-sc-ai-output">
-                      <div class="lp-sc-card-title">✨ AI Generated Output</div>
+                      <div class="lp-sc-card-title">Ready to review</div>
                       <p>During a structured fine motor activity, Emma demonstrated focused concentration as she independently threaded six beads. This highlights her growing hand-eye coordination. Next steps: introduce smaller beads or lacing cards.</p>
                     </div>
                   </div>
                 </div>
                 <div class="lp-showcase-info">
-                  <h3>AI Childcare Tools</h3>
-                  <p>Generate observations, lesson plans, reports, newsletters, and documentation support in minutes.</p>
+                  <h3>Documentation Helpers</h3>
+                  <p>Turn one quick classroom note into observations, reports, parent messages, and more — then review and save where they belong.</p>
                   <button class="lp-showcase-btn" type="button">View Example</button>
                 </div>
               </div>
@@ -540,7 +540,7 @@
                   <li>✓ 30 Total Free Lesson Plans</li>
                   <li>✓ 8 Activity Ideas</li>
                   <li>✓ 6 Forms</li>
-                  <li>✓ 10 AI Generations</li>
+                  <li>✓ 10 Document Creations</li>
                   <li>✓ No Credit Card Required</li>
                 </ul>
                 <button class="lp-btn-outline" data-plan="Free" type="button">Start Free</button>
@@ -555,7 +555,7 @@
                   <li>✓ Unlimited Child Profiles</li>
                   <li>✓ Unlimited Observations</li>
                   <li>✓ Unlimited Lesson Plans</li>
-                  <li>✓ Unlimited AI Generations</li>
+                  <li>✓ Unlimited Document Creations</li>
                   <li>✓ Portfolio Builder</li>
                   <li>✓ Premium Resources</li>
                   <li>✓ Documentation Helpers</li>
@@ -662,15 +662,26 @@
         <section id="view-ai" class="view">
           <button class="ghost-button back-button" data-contextual-back="ai" data-fallback-view="home" data-always-visible="true" type="button">← Back to Home</button>
           <div class="page-title">
-            <p class="eyebrow">Documentation Helper</p>
-            <h2>Documentation Helper</h2>
-            <p>Type one quick note and Little Learner Hub will help turn it into professional childcare documentation.</p>
-            <p>You're busy caring for children—not paperwork. Simply choose a child, tell us what happened, and Little Learner Hub will help create observations, daily logs, parent messages, lesson plans, behavior notes, incident reports, activity ideas, and more. Review the results, make changes if you'd like, then save them directly where they belong.</p>
+            <p class="eyebrow">Documentation Helpers</p>
+            <h2>Documentation Helpers</h2>
+            <p>Turn one quick classroom note into professional childcare documentation. Review everything before you save — writing help is optional and you stay in control.</p>
           </div>
 
           <div id="aiUsagePanel"></div>
 
-          <form id="docHelperForm" class="panel-form" style="margin-top:24px;">
+          <section class="section-block doc-helpers-hub-intro" aria-label="What you can create">
+            <div class="doc-helpers-type-grid">
+              <button class="doc-helpers-type-chip" type="button" data-quick-doc-type="observation" data-view="ai">Observation</button>
+              <button class="doc-helpers-type-chip" type="button" data-quick-doc-type="daily-log" data-view="ai">Daily Log</button>
+              <button class="doc-helpers-type-chip" type="button" data-quick-doc-type="parent-message" data-view="ai">Parent Message</button>
+              <button class="doc-helpers-type-chip" type="button" data-quick-doc-type="behavior-note" data-view="ai">Behavior Note</button>
+              <button class="doc-helpers-type-chip" type="button" data-quick-doc-type="incident-report" data-view="ai">Incident Report</button>
+              <button class="doc-helpers-type-chip" type="button" data-quick-doc-type="lesson-plan" data-view="ai">Lesson Plan</button>
+              <button class="doc-helpers-type-chip" type="button" data-quick-doc-type="activity-idea" data-view="ai">Activity Idea</button>
+            </div>
+          </section>
+
+          <form id="docHelperForm" class="panel-form doc-helpers-form" style="margin-top:16px;">
             <div>
               <p class="eyebrow" style="margin-bottom:6px;">Step 1</p>
               <h3 style="margin:0 0 12px;">Who is this for?</h3>
@@ -701,13 +712,14 @@
               <label>Your note
                 <textarea name="note" id="docHelperNote" rows="4" placeholder="Liam counted to ten while building with blocks."></textarea>
               </label>
-              <p class="form-note">Keep it simple. One or two sentences are enough. Little Learner Hub will create the rest.</p>
+              <p class="form-note">Keep it simple. One or two sentences are enough. You can edit the result before saving.</p>
             </div>
             <label class="settings-check-label ai-debug-toggle">
               <input type="checkbox" data-ai-debug-toggle />
               Debug mode
             </label>
-            <button class="primary-button" type="submit">Generate Documentation</button>
+            <button class="primary-button" type="submit">Create Documentation</button>
+            <p class="form-note doc-helpers-optional-note">Optional writing help uses your monthly document creations. You can always rewrite or start from a blank note.</p>
           </form>
 
           <div id="docHelperResults" class="section-block" hidden style="margin-top:24px;">
@@ -725,6 +737,12 @@
             <div id="docHelperOutput" class="ai-output-rendered" contenteditable="false" spellcheck="true"></div>
             <div id="docHelperDebugPanel" class="section-block" hidden></div>
           </div>
+
+          <details class="section-block doc-helpers-more-tools">
+            <summary>More documentation tools</summary>
+            <p class="form-note">Need a newsletter, handbook, menu, contract, or another specialized document? Open the full helper set.</p>
+            <button class="ghost-button" data-view="generators" type="button">Browse more helpers</button>
+          </details>
         </section>
         <section id="view-admin" class="view">
           <div class="page-title">
@@ -959,16 +977,16 @@
         </section>
 
         <section id="view-generators" class="view">
-          <button class="ghost-button back-button" data-contextual-back="generators" data-fallback-view="home" data-always-visible="true" type="button">← Back to Dashboard</button>
+          <button class="ghost-button back-button" data-contextual-back="generators" data-fallback-view="ai" data-always-visible="true" type="button">← Back to Documentation Helpers</button>
           <div class="page-title">
             <p class="eyebrow">Documentation Helpers</p>
-            <h2>Childcare generators</h2>
-            <p>Choose a tool, fill in the details, and create ready-to-edit childcare content.</p>
+            <h2>More documentation tools</h2>
+            <p>Choose a helper, fill in the details, and create ready-to-edit childcare documents. Review and edit before you save.</p>
           </div>
           <div class="generator-workspace" id="generatorWorkspace"></div>
           <section class="section-block generated-history-block">
             <div class="section-heading">
-              <div><p class="eyebrow">Saved AI Work</p><h3>Generated content history</h3></div>
+              <div><p class="eyebrow">Your history</p><h3>Saved documentation</h3></div>
             </div>
             <div class="resource-list compact" id="generatedHistory"></div>
           </section>
@@ -1212,13 +1230,13 @@
               </div>
             </details>
 
-            <!-- Section 5: AI Preferences -->
+            <!-- Section 5: Documentation Preferences -->
             <details class="settings-card">
               <summary class="settings-card-header">
                 <div class="settings-card-header-text">
                   <p class="eyebrow">Section 5</p>
-                  <h3>AI Preferences</h3>
-                  <p class="form-note">These settings will be used automatically but can still be changed when generating individual documents.</p>
+                  <h3>Documentation Preferences</h3>
+                  <p class="form-note">These defaults help Documentation Helpers match your voice. You can still change them for any single document.</p>
                 </div>
                 <span class="settings-card-toggle" aria-hidden="true">▾</span>
               </summary>
@@ -1330,13 +1348,13 @@
           <!-- Default FAQ content (hidden; used as baseline for site content capture) -->
           <section id="defaultFaqList" hidden aria-hidden="true">
             <article class="faq-item"><h3>What is Little Learner Hub?</h3><p>Little Learner Hub helps childcare providers organize observations, lesson plans, child goals, forms, incident reports, and paperwork in one place so documentation takes minutes instead of hours.</p></article>
-            <article class="faq-item"><h3>Is there a free plan?</h3><p>Yes. Little Learner Hub offers a Free Plan with published Free-tier lesson plans for Infant, Toddler, and Preschool, plus limited access to observations, forms, and AI tools before upgrading.</p></article>
-            <article class="faq-item"><h3>What is included in the Free Plan?</h3><ul><li>3 Child Profiles</li><li>10 Observations Per Month</li><li>30 Total Free Lesson Plans</li><li>8 Activity Ideas</li><li>6 Forms</li><li>10 AI Generations</li><li>No Credit Card Required</li></ul></article>
+            <article class="faq-item"><h3>Is there a free plan?</h3><p>Yes. Little Learner Hub offers a Free Plan with published Free-tier lesson plans for Infant, Toddler, and Preschool, plus limited access to observations, forms, and Documentation Helpers before upgrading.</p></article>
+            <article class="faq-item"><h3>What is included in the Free Plan?</h3><ul><li>3 Child Profiles</li><li>10 Observations Per Month</li><li>30 Total Free Lesson Plans</li><li>8 Activity Ideas</li><li>6 Forms</li><li>10 Document Creations</li><li>No Credit Card Required</li></ul></article>
             <article class="faq-item"><h3>What is included in the Pro Plan?</h3><p>The Pro Plan includes unlimited access to resources, downloads, child management features, and 250 document creations per month.</p></article>
             <article class="faq-item"><h3>Can I cancel my subscription?</h3><p>Yes. You may cancel your subscription at any time through your account settings.</p></article>
             <article class="faq-item"><h3>Do I need to enter payment information for the Free Plan?</h3><p>No. The Free Plan is available without a paid subscription.</p></article>
             <article class="faq-item"><h3>What ages are supported?</h3><ul><li>Infants</li><li>Toddlers</li><li>Preschoolers</li></ul></article>
-            <article class="faq-item"><h3>What AI tools are included?</h3><ul><li>Observation Generator</li><li>Lesson Plan Generator</li><li>Daily Report Generator</li><li>Parent Newsletter Generator</li><li>Parent Handbook Generator</li><li>Contract Generator</li></ul></article>
+            <article class="faq-item"><h3>What Documentation Helpers are included?</h3><ul><li>Observation Helper</li><li>Lesson Plan Helper</li><li>Daily Report Helper</li><li>Parent Newsletter Helper</li><li>Parent Handbook Helper</li><li>Contract Helper</li></ul></article>
             <article class="faq-item"><h3>How do I contact support?</h3><p>Visit the Contact Us page or submit a support request through the Help Center.</p></article>
           </section>
         </section>
@@ -1346,7 +1364,7 @@
           <div class="page-title">
             <p class="eyebrow">Contact Us</p>
             <h2>Need help? We&rsquo;re here for you.</h2>
-            <p>If you have questions about your account, resources, subscriptions, AI tools, or any feature inside Little Learner Hub, please contact our support team.</p>
+            <p>If you have questions about your account, resources, subscriptions, Documentation Helpers, or any feature inside Little Learner Hub, please contact our support team.</p>
           </div>
           <section class="section-block contact-intro">
             <div>
