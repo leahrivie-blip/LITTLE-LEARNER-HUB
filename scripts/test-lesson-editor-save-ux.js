@@ -175,6 +175,9 @@ async function main() {
     ]);
     await page.waitForFunction(() => typeof openLessonPlanEditor === "function", null, { timeout: 30000 });
 
+    await page.evaluate(() => setView("lessons"));
+    await page.waitForSelector("#view-lessons.active-view", { timeout: 8000 });
+    await page.waitForFunction((title) => resources.some((item) => item.title === title), lesson.title, { timeout: 15000 });
     await page.evaluate((id) => openLessonPlanEditor(id), lesson.planId);
     await page.waitForSelector("#view-lesson-editor.active-view #userLessonPlanEditorForm", { timeout: 10000 });
 
