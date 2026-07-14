@@ -213,9 +213,14 @@ async function main() {
 
     await page.fill('#userLessonPlanEditorForm input[name="theme"]', "Edited Colors Theme");
     await page.click('button[form="userLessonPlanEditorForm"], #userLessonPlanEditorForm button[type="submit"]');
-    await page.waitForTimeout(600);
+    await page.waitForSelector("[data-lesson-editor-success]", { timeout: 5000 });
     const statusText = await page.locator("[data-lesson-editor-save-status]").innerText();
     check("Save status updates after save", /saved|Saving/i.test(statusText));
+    check("After-save success panel appears", await page.locator("[data-lesson-editor-success]").count() > 0);
+    check(
+      "After-save offers Continue Editing",
+      await page.locator("[data-lesson-editor-continue]").count() > 0,
+    );
 
     const stored = await page.evaluate(() => {
       try {
@@ -228,6 +233,8 @@ async function main() {
     check("Personal editable copy created", Boolean(copy), `uploads=${stored.length}`);
     check("Saved theme persisted on copy", copy?._curriculumLessonPlan?.theme === "Edited Colors Theme");
 
+    await page.click("[data-lesson-editor-continue]");
+    await page.waitForSelector("#userLessonPlanEditorForm", { timeout: 5000 });
     await page.click("[data-lesson-editor-back]");
     await page.waitForSelector("#view-lessons.active-view", { timeout: 8000 });
     check("Back returns to library", await page.locator("#view-lessons.active-view").count() > 0);
