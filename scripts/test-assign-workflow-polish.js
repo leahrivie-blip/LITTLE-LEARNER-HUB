@@ -273,7 +273,7 @@ async function runAssignWorkflowChecks(browser, { viewport, label }) {
   await page.waitForSelector(`[data-calendar-select-day="${futureWeek}"]`, { timeout: 10000 });
   await page.click(`[data-calendar-select-day="${futureWeek}"]`);
   await page.waitForTimeout(300);
-  const calendarOpenPlannerBtn = page.locator('#mainCalendarApp [data-view="planner"]');
+  const calendarOpenPlannerBtn = page.locator('#mainCalendarApp [data-view="planner"][data-planner-focus-week]:has-text("Open Weekly Planner")');
   const calendarOpenPlannerFocusWeek = await calendarOpenPlannerBtn.getAttribute("data-planner-focus-week");
   check("Calendar's Open Weekly Planner is tagged with the selected week", calendarOpenPlannerFocusWeek === futureWeek, calendarOpenPlannerFocusWeek);
   await calendarOpenPlannerBtn.click();
