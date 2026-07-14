@@ -4950,21 +4950,45 @@ body.lessons-view .mobile-brand {
   margin-top: 22px;
 }
 
+.pricing-grid--founding-open {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pricing-grid--founding-open > :only-child {
+  max-width: 420px;
+  margin-inline: auto;
+  width: 100%;
+}
+
+.pricing-grid--sold-out {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
 .founding-banner {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 190px;
-  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) 160px;
+  gap: 12px;
   align-items: center;
-  margin-top: 22px;
-  padding: 22px;
-  background: linear-gradient(135deg, var(--white), rgba(237, 232, 255, 0.45), rgba(219, 234, 247, 0.40));
-  border: 1px solid rgba(139, 107, 232, 0.22);
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, var(--white), rgba(237, 232, 255, 0.35), rgba(219, 234, 247, 0.32));
+  border: 1px solid rgba(139, 107, 232, 0.2);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  box-shadow: 0 6px 14px rgba(26, 43, 74, 0.05);
+}
+
+.founding-banner--compact h3 {
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+
+.founding-banner--compact p:not(.eyebrow) {
+  margin-top: 4px;
+  font-size: 0.9rem;
 }
 
 .home-founding-banner {
-  grid-template-columns: minmax(0, 1fr) 190px auto;
+  grid-template-columns: minmax(0, 1fr) 160px auto;
   margin-top: 0;
 }
 
@@ -18361,5 +18385,288 @@ body.admin-preview-simulating .sidebar .brand h1::after {
     right: 12px;
     bottom: calc(12px + env(safe-area-inset-bottom, 0px));
     justify-content: space-between;
+  }
+}
+
+/* ── Signup conversion wizard ───────────────────────────────────────── */
+#authModal .auth-modal-card {
+  width: min(460px, 100%);
+}
+
+#authModal .auth-modal-card--plans {
+  width: min(980px, 100%);
+  max-height: min(92vh, 920px);
+  overflow: auto;
+}
+
+.signup-wizard-progress {
+  margin: 0 0 14px;
+}
+
+.signup-wizard-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.signup-wizard-step {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #f7f4ef;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.signup-wizard-step.is-active,
+.signup-wizard-step.is-done {
+  border-color: #5b9bd5;
+  color: #245f8f;
+  background: #eef6fc;
+}
+
+.signup-step-lede {
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+
+.signup-persona-grid {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.signup-persona-card {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--white);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.signup-persona-card strong {
+  font-size: 1.05rem;
+}
+
+.signup-persona-card span:last-child {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.signup-persona-card.is-selected,
+.signup-persona-card:hover,
+.signup-persona-card:focus-visible {
+  border-color: #5b9bd5;
+  box-shadow: 0 0 0 2px rgba(91, 155, 213, 0.18);
+  outline: none;
+}
+
+.signup-persona-icon {
+  font-size: 1.35rem;
+}
+
+.signup-program-name-field {
+  margin-top: 4px;
+}
+
+.signup-plan-intro {
+  margin: 0 0 10px;
+  text-align: center;
+  font-weight: 600;
+  color: #3d4f66;
+}
+
+.signup-founding-urgency {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 0 14px;
+  padding: 8px 12px;
+  border: 1px solid rgba(196, 92, 62, 0.35);
+  border-radius: 10px;
+  background: #fff7f2;
+  color: #7a3a24;
+  font-size: 0.92rem;
+}
+
+.signup-founding-urgency strong {
+  white-space: nowrap;
+}
+
+.signup-founding-urgency.is-sold-out {
+  border-color: var(--line);
+  background: #f6f7f9;
+  color: var(--muted);
+}
+
+.signup-plan-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.25fr) minmax(0, 0.9fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.signup-plan-grid--founding-open {
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.2fr);
+}
+
+.signup-plan-grid--sold-out {
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.2fr);
+}
+
+.signup-plan-card--pro-featured {
+  border: 2px solid #5b9bd5;
+  box-shadow: 0 14px 28px rgba(47, 95, 134, 0.12);
+}
+
+.signup-plan-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--white);
+}
+
+.signup-plan-card h3,
+.signup-plan-card p {
+  margin: 0;
+}
+
+.signup-plan-subtitle {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.signup-plan-price {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 4px !important;
+}
+
+.signup-plan-price strong {
+  font-size: 1.7rem;
+  color: #2f5f86;
+  line-height: 1;
+}
+
+.signup-plan-price span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.signup-plan-price-compare {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.signup-plan-price--founding strong {
+  color: #8a4b28;
+  font-size: 1.9rem;
+}
+
+.signup-plan-card--founding {
+  border: 2px solid #c45c3e;
+  background: linear-gradient(180deg, #fffaf6 0%, #ffffff 42%);
+  box-shadow: 0 14px 28px rgba(122, 58, 36, 0.12);
+  transform: scale(1.02);
+  z-index: 1;
+}
+
+.signup-plan-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #c45c3e;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.signup-plan-lock,
+.signup-plan-spots,
+.signup-plan-provider-note {
+  color: #5a4638;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.signup-plan-includes,
+.signup-plan-excludes {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 5px;
+  font-size: 0.88rem;
+}
+
+.signup-plan-includes li::before {
+  content: "✅ ";
+}
+
+.signup-plan-excludes li {
+  color: var(--muted);
+}
+
+.signup-plan-excludes li::before {
+  content: "❌ ";
+}
+
+.signup-plan-card .primary-button,
+.signup-plan-card .ghost-button {
+  margin-top: auto;
+  width: 100%;
+  justify-content: center;
+}
+
+.signup-plan-card--free {
+  background: #fbfbfa;
+}
+
+@media (max-width: 900px) {
+  #authModal .auth-modal-card--plans {
+    width: min(560px, 100%);
+  }
+
+  .signup-plan-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .signup-plan-card--founding {
+    order: -1;
+    transform: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .founding-banner,
+  .home-founding-banner {
+    grid-template-columns: 1fr;
+    padding: 10px 12px;
+  }
+
+  .signup-founding-urgency {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

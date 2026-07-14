@@ -2445,16 +2445,253 @@ async function localPasswordHash(password) {
 }
 
 function openAuthModal(mode = "login") {
+  if (mode === "signup") {
+    signupWizardStep = 1;
+    signupPersonaChoice = "";
+  }
   setAuthMode(mode);
   document.body.classList.add("auth-modal-open");
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
+  if (mode === "signup") renderSignupWizardStep();
 }
 
 function closeAuthModal() {
   document.body.classList.remove("auth-modal-open");
   modal.classList.remove("open");
   modal.setAttribute("aria-hidden", "true");
+  signupWizardStep = 1;
+  signupPersonaChoice = "";
+  modal?.querySelector(".auth-modal-card")?.classList.remove("auth-modal-card--plans");
+}
+
+function splitFullName(fullName) {
+  const parts = String(fullName || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return { firstName: "", lastName: "" };
+  if (parts.length === 1) return { firstName: parts[0], lastName: "" };
+  return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+}
+
+function syncNameHiddenFieldsFromFullName() {
+  const full = document.querySelector("#fullNameInput")?.value || "";
+  const { firstName, lastName } = splitFullName(full);
+  const firstInput = document.querySelector("#firstNameInput");
+  const lastInput = document.querySelector("#lastNameInput");
+  if (firstInput) firstInput.value = firstName;
+  if (lastInput) lastInput.value = lastName;
+  return { firstName, lastName, fullName: [firstName, lastName].filter(Boolean).join(" ") };
+}
+
+function mapSignupPersona(persona) {
+  if (persona === "center") {
+    return {
+      accountType: ACCOUNT_TYPES.CENTER,
+      role: USER_ROLES.OWNER,
+      programType: "Childcare Center",
+      label: "Childcare Center",
+    };
+  }
+  if (persona === "teacher_staff") {
+    return {
+      accountType: ACCOUNT_TYPES.CENTER,
+      role: USER_ROLES.TEACHER,
+      programType: "Childcare Center",
+      label: "Teacher / Staff",
+    };
+  }
+  return {
+    accountType: ACCOUNT_TYPES.HOME_DAYCARE,
+    role: USER_ROLES.OWNER,
+    programType: "Home Daycare",
+    label: "Home Daycare",
+  };
+}
+
+function renderSignupWizardStep() {
+  const progress = document.querySelector("#signupWizardProgress");
+  const stepAccount = document.querySelector("#signupStepAccount");
+  const stepProgram = document.querySelector("#signupStepProgram");
+  const stepPlan = document.querySelector("#signupStepPlan");
+  const submitButton = document.querySelector("#authSubmitButton");
+  const title = document.querySelector("#authTitle");
+  const card = document.querySelector("#authModal .auth-modal-card");
+  const secondary = document.querySelector(".auth-secondary-actions");
+  const help = document.querySelector(".auth-help-links");
+  if (!stepAccount || !submitButton || !title) return;
+
+  const inWizard = currentAuthMode === "signup";
+  progress?.classList.toggle("hidden-field", !inWizard);
+  progress?.setAttribute("aria-hidden", inWizard ? "false" : "true");
+  document.querySelectorAll("[data-signup-step-indicator]").forEach((el) => {
+    const step = Number(el.dataset.signupStepIndicator || 0);
+    el.classList.toggle("is-active", step === signupWizardStep);
+    el.classList.toggle("is-done", step < signupWizardStep);
+  });
+
+  const showAccount = !inWizard || signupWizardStep === 1;
+  const showProgram = inWizard && signupWizardStep === 2;
+  const showPlan = inWizard && signupWizardStep === 3;
+
+  stepAccount.classList.toggle("hidden-field", !showAccount);
+  stepAccount.setAttribute("aria-hidden", showAccount ? "false" : "true");
+  stepProgram?.classList.toggle("hidden-field", !showProgram);
+  stepProgram?.setAttribute("aria-hidden", showProgram ? "false" : "true");
+  stepPlan?.classList.toggle("hidden-field", !showPlan);
+  stepPlan?.setAttribute("aria-hidden", showPlan ? "false" : "true");
+  card?.classList.toggle("auth-modal-card--plans", showPlan);
+  if (secondary) secondary.hidden = showProgram || showPlan;
+  if (help) help.hidden = showProgram || showPlan;
+
+  if (!inWizard) {
+    submitButton.textContent = currentAuthMode === "forgot" ? "Send Reset Email" : "Log In";
+    return;
+  }
+
+  if (signupWizardStep === 1) {
+    title.textContent = "Create Your Free Little Learner Hub Account";
+    submitButton.textContent = "Continue";
+    submitButton.hidden = false;
+  } else if (signupWizardStep === 2) {
+    title.textContent = "What best describes you?";
+    submitButton.textContent = "Continue";
+    submitButton.hidden = false;
+    document.querySelectorAll("[data-signup-persona]").forEach((btn) => {
+      const selected = btn.dataset.signupPersona === signupPersonaChoice;
+      btn.classList.toggle("is-selected", selected);
+      btn.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
+  } else {
+    title.textContent = "Choose Your Plan";
+    submitButton.hidden = true;
+    renderSignupPlanChooser();
+  }
+}
+
+function renderSignupPlanChooser() {
+  const target = document.querySelector("#signupPlanChooser");
+  if (!target) return;
+  const remaining = foundingSpotsRemaining();
+  const soldOut = remaining <= 0;
+  syncFoundingStatus({ render: false }).catch(() => {});
+  target.innerHTML = `
+    <p class="signup-plan-intro">Created by a Childcare Provider. Built for Childcare Providers.</p>
+    ${!soldOut ? `
+      <p class="signup-founding-urgency" role="status">
+        <span>Founding Member pricing ends forever once all spots are claimed</span>
+        <strong>Founding Spots Remaining: ${remaining}</strong>
+      </p>
+    ` : `
+      <p class="signup-founding-urgency is-sold-out" role="status">
+        <span>Founding spots are filled. Pro is available at the regular rate.</span>
+      </p>
+    `}
+    <div class="signup-plan-grid ${soldOut ? "signup-plan-grid--sold-out" : "signup-plan-grid--founding-open"}">
+      <article class="signup-plan-card signup-plan-card--free">
+        <h3>Free Plan</h3>
+        <p class="signup-plan-subtitle">A great way to explore Little Learner Hub</p>
+        <p class="signup-plan-price"><strong>$0</strong><span>/month</span></p>
+        <ul class="signup-plan-includes">
+          <li>Access to explore the platform</li>
+          <li>Limited lesson plans</li>
+          <li>Limited activities</li>
+          <li>Basic planning tools</li>
+          <li>Try core features before upgrading</li>
+        </ul>
+        <ul class="signup-plan-excludes">
+          <li>Premium lesson plans</li>
+          <li>Full curriculum library</li>
+          <li>AI tools</li>
+          <li>Documentation Helpers</li>
+          <li>Advanced planning features</li>
+          <li>Future premium releases</li>
+        </ul>
+        <button class="ghost-button" type="button" data-signup-choose-plan="free">Start Free</button>
+      </article>
+      ${!soldOut ? `
+        <article class="signup-plan-card signup-plan-card--founding">
+          <span class="signup-plan-badge">Most Popular</span>
+          <h3>Founding Member</h3>
+          <p class="signup-plan-subtitle">Lock in lifetime pricing before it’s gone</p>
+          <p class="signup-plan-price-compare"><s>$19.99/month</s></p>
+          <p class="signup-plan-price signup-plan-price--founding"><strong>$9.99</strong><span>/month FOR LIFE</span></p>
+          <p class="signup-plan-lock">You’re not just getting today’s features. Everything we build and release in the future is included at your locked-in founding price. Never pay more.</p>
+          <ul class="signup-plan-includes">
+            <li>Full lesson plan library</li>
+            <li>Premium curriculum</li>
+            <li>Calendar &amp; planning tools</li>
+            <li>Child Profiles</li>
+            <li>Goals &amp; Observations</li>
+            <li>Documentation Helpers</li>
+            <li>AI Tools</li>
+            <li>New features automatically included</li>
+            <li>Founder badge</li>
+            <li>Priority feedback access</li>
+            <li>Lock in pricing forever</li>
+          </ul>
+          <p class="signup-plan-spots">Only available to the first 50 founding members. <strong>${remaining} spots remaining.</strong></p>
+          <p class="signup-plan-provider-note">Lock in your founding rate today and get every future feature we release without paying more.</p>
+          <button class="primary-button" type="button" data-signup-choose-plan="founding">Claim My Founding Spot</button>
+        </article>
+      ` : `
+        <article class="signup-plan-card signup-plan-card--pro signup-plan-card--pro-featured">
+          <span class="signup-plan-badge">Available Now</span>
+          <h3>Pro Membership</h3>
+          <p class="signup-plan-subtitle">Full access at the regular membership rate.</p>
+          <p class="signup-plan-price"><strong>$19.99</strong><span>/month</span></p>
+          <ul class="signup-plan-includes">
+            <li>Full lesson plan library</li>
+            <li>Premium curriculum</li>
+            <li>Calendar &amp; planning tools</li>
+            <li>Child Profiles</li>
+            <li>Goals &amp; Observations</li>
+            <li>Documentation Helpers</li>
+            <li>AI Tools</li>
+            <li>New features as they release</li>
+          </ul>
+          <ul class="signup-plan-excludes">
+            <li>No lifetime founding price lock</li>
+          </ul>
+          <button class="primary-button" type="button" data-signup-choose-plan="monthly">Continue with Pro</button>
+        </article>
+      `}
+    </div>
+  `;
+}
+
+async function finishSignupWithPlan(planChoice) {
+  const email = currentUser || document.querySelector("#emailInput")?.value || "";
+  if (!email) {
+    setFormMessage("#authMessage", "Please finish creating your account first.");
+    return;
+  }
+  trackEvent("signup_plan_selected", { email, plan: planChoice, persona: signupPersonaChoice });
+  updateAccount(email, {
+    selectedPlanAtSignup: planChoice === "founding" ? "Founding" : planChoice === "monthly" ? "Pro" : "Free",
+    onboardingPersona: signupPersonaChoice || "",
+  });
+  closeAuthModal();
+  if (planChoice === "free") {
+    trackEvent("free_plan_selected");
+    currentPlan = "Free";
+    localStorage.setItem("llhPlan", currentPlan);
+    updateCurrentAccountBilling({
+      plan: "Free",
+      subscriptionCadence: "",
+      subscriptionStatus: "Free Plan",
+      monthlyPrice: "$0/month",
+    });
+    addBillingHistory("Plan Changed", "Free plan selected during signup", "$0");
+    saveCurrentAccountState();
+    updateAuthButtons();
+    updatePlanLabel();
+    setView("home");
+    return;
+  }
+  if (planChoice === "founding") {
+    await startCheckout("founding");
+    return;
+  }
+  await startCheckout("monthly");
 }
 
 function analyticsEvents() {
@@ -3306,6 +3543,8 @@ let resourceViewerReturnToId = "";
 let viewReturnContexts = Object.create(null);
 let lessonNavHistorySilent = false;
 let currentAuthMode = "login";
+let signupWizardStep = 1;
+let signupPersonaChoice = "";
 let checkoutPromoCode = localStorage.getItem("llhCheckoutPromoCode") || "";
 let adminAnalyticsCache = null;
 let adminAnalyticsLoading = false;
@@ -7835,40 +8074,48 @@ function setAuthMode(mode) {
   setFormMessage("#authMessage", "");
   if (!title || !phoneField || !passwordField || !submitButton || !forgotButton || !switchButton) return;
   const isSignup = mode === "signup";
+  if (!isSignup) {
+    signupWizardStep = 1;
+    signupPersonaChoice = "";
+  }
+  // Step 1 signup: name + email + password only (no business/role yet).
   if (nameFields) {
     nameFields.classList.toggle("hidden-field", !isSignup);
     nameFields.setAttribute("aria-hidden", isSignup ? "false" : "true");
-    nameFields.querySelectorAll("input").forEach((input) => {
-      input.required = isSignup;
-    });
+    const fullNameInput = nameFields.querySelector("#fullNameInput");
+    if (fullNameInput) fullNameInput.required = isSignup;
   }
   if (businessFields) {
-    businessFields.classList.toggle("hidden-field", !isSignup);
-    businessFields.setAttribute("aria-hidden", isSignup ? "false" : "true");
+    businessFields.classList.add("hidden-field");
+    businessFields.setAttribute("aria-hidden", "true");
     businessFields.querySelectorAll("input, select").forEach((input) => {
-      input.required = isSignup;
+      input.required = false;
     });
   }
-  phoneField.classList.toggle("hidden-field", !isSignup);
-  phoneField.setAttribute("aria-hidden", isSignup ? "false" : "true");
+  phoneField.classList.add("hidden-field");
+  phoneField.setAttribute("aria-hidden", "true");
   passwordField.required = mode !== "forgot";
   passwordField.autocomplete = mode === "signup" ? "new-password" : "current-password";
   passwordField.closest("label")?.classList.toggle("hidden-field", mode === "forgot");
+  submitButton.hidden = false;
   if (mode === "signup") {
-    title.textContent = "Create your Little Learner Hub account";
-    submitButton.textContent = "Create Account";
+    title.textContent = "Create Your Free Little Learner Hub Account";
+    submitButton.textContent = "Continue";
     forgotButton.style.display = "none";
     switchButton.textContent = "Already have an account? Log in";
+    renderSignupWizardStep();
   } else if (mode === "forgot") {
     title.textContent = "Reset your password";
     submitButton.textContent = "Send Reset Email";
     forgotButton.style.display = "none";
     switchButton.textContent = "Back to login";
+    renderSignupWizardStep();
   } else {
     title.textContent = "Log in to Little Learner Hub";
     submitButton.textContent = "Log In";
     forgotButton.style.display = "inline-flex";
     switchButton.textContent = "Create account";
+    renderSignupWizardStep();
   }
 }
 
@@ -36374,11 +36621,11 @@ function foundingStatusCard() {
   const claimed = foundingSpotsClaimed();
   const soldOut = remaining <= 0;
   return `
-    <section class="founding-banner ${soldOut ? "founding-sold-out" : ""}">
+    <section class="founding-banner founding-banner--compact ${soldOut ? "founding-sold-out" : ""}">
       <div>
         <p class="eyebrow">${soldOut ? "Regular Pro Pricing" : "Founding Member Special"}</p>
-        <h3>${soldOut ? "Founding spots are filled. Pro is now $19.99/month." : "First 50 Members: $9.99/month for life"}</h3>
-        <p>${soldOut ? "The founding price-lock offer is closed. New members can join Pro Monthly for $19.99/month or Pro Annual for $199/year." : `${claimed} spots are filled, ${remaining} remain, and regular pricing begins when all ${foundingStatusCache.limit || foundingMemberLimit} are claimed.`}</p>
+        <h3>${soldOut ? "Founding spots are filled" : `$9.99/month for life · ${remaining} spots left`}</h3>
+        <p>${soldOut ? "Pro is $19.99/month or $199/year." : `${claimed} of ${foundingStatusCache.limit || foundingMemberLimit} claimed.`}</p>
       </div>
       ${foundingMeterHtml()}
     </section>
@@ -36461,15 +36708,16 @@ function renderPricingPage() {
   const target = document.querySelector("#pricingApp");
   if (!target) return;
   const remaining = foundingSpotsRemaining();
+  const soldOut = remaining <= 0;
   target.innerHTML = `
     ${foundingStatusCard()}
     ${promoCodePanel()}
-    <div class="pricing-grid">
+    <div class="pricing-grid ${soldOut ? "pricing-grid--sold-out" : "pricing-grid--founding-open"}">
       ${pricingCard("Free", { free: true, buttonText: "Use Free" })}
-      ${remaining > 0
+      ${!soldOut
         ? pricingCard("Founding", { featured: true, primary: true, eyebrow: "First 50 Members", checkoutType: "founding", buttonText: "Claim Founding Spot" })
         : pricingCard("ProMonthly", { featured: true, primary: true, eyebrow: "Main Paid Plan", checkoutType: "monthly", buttonText: "Choose Pro Monthly" })}
-      ${pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Choose Pro Annual" })}
+      ${soldOut ? pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Choose Pro Annual" }) : ""}
     </div>
     <section class="section-block billing-links">
       <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
@@ -36489,12 +36737,11 @@ function renderUpgradePage() {
   target.innerHTML = `
     ${foundingStatusCard()}
     ${promoCodePanel()}
-    <div class="pricing-grid">
+    <div class="pricing-grid ${soldOut ? "pricing-grid--sold-out" : "pricing-grid--founding-open"}">
       ${!soldOut
         ? pricingCard("Founding", { featured: true, primary: true, eyebrow: "Best Launch Offer", checkoutType: "founding", buttonText: "Checkout for $9.99/month" })
         : pricingCard("ProMonthly", { featured: true, primary: true, eyebrow: "Pro", checkoutType: "monthly", buttonText: "Checkout for $19.99/month" })}
-      ${!soldOut ? pricingCard("ProMonthly", { checkoutType: "monthly", buttonText: "Checkout Monthly" }) : ""}
-      ${pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Checkout Annual" })}
+      ${soldOut ? pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Checkout Annual" }) : ""}
     </div>
     <section class="section-block">
       <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
@@ -41128,6 +41375,23 @@ document.querySelector("#switchAuthModeButton")?.addEventListener("click", () =>
   setAuthMode(currentAuthMode === "signup" ? "login" : "signup");
 });
 
+document.addEventListener("click", (event) => {
+  const personaBtn = event.target.closest("[data-signup-persona]");
+  if (personaBtn && currentAuthMode === "signup" && signupWizardStep === 2) {
+    event.preventDefault();
+    signupPersonaChoice = personaBtn.dataset.signupPersona || "";
+    renderSignupWizardStep();
+    return;
+  }
+  const planBtn = event.target.closest("[data-signup-choose-plan]");
+  if (planBtn && currentAuthMode === "signup" && signupWizardStep === 3) {
+    event.preventDefault();
+    finishSignupWithPlan(planBtn.dataset.signupChoosePlan || "free").catch((error) => {
+      setFormMessage("#authMessage", friendlyAuthError(error));
+    });
+  }
+});
+
 document.querySelector("#closeProModal")?.addEventListener("click", closeProFeatureModal);
 
 // -------------------------------------------------------
@@ -41589,9 +41853,7 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
   event.preventDefault();
   const email = document.querySelector("#emailInput").value;
   const password = document.querySelector("#passwordInput").value;
-  const phone = document.querySelector("#phoneInput").value;
-  const firstName = (document.querySelector("#firstNameInput")?.value || "").trim();
-  const lastName  = (document.querySelector("#lastNameInput")?.value || "").trim();
+  const phone = document.querySelector("#phoneInput")?.value || "";
   const submitButton = document.querySelector("#authSubmitButton");
   submitButton.disabled = true;
   setFormMessage("#authMessage", "Working...", true);
@@ -41605,73 +41867,99 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
       return;
     }
     if (currentAuthMode === "signup") {
-      const businessName = (document.querySelector("#businessNameInput")?.value || "").trim();
-      const accountType = (document.querySelector("#accountTypeInput")?.value || "").trim();
-      const userRole = (document.querySelector("#userRoleInput")?.value || "").trim();
-      if (!firstName || !lastName) throw new Error("Please enter your first and last name.");
-      if (!businessName) throw new Error("Please enter your daycare or center name.");
-      if (!accountType) throw new Error("Please select an account type.");
-      if (!userRole) throw new Error("Please select your role.");
-      const result = await signUpWithProvider(email, password, phone, firstName, lastName);
-      loadAccountState(result.email);
-      updateAccount(result.email, {
-        signupAt: new Date().toISOString(),
-        lastLoginAt: new Date().toISOString(),
-        selectedPlanAtSignup: currentPlan,
-        firstName,
-        lastName,
-        name: [firstName, lastName].filter(Boolean).join(" "),
-        businessName,
-        daycareName: businessName,
-        programName: businessName,
-        accountType: normalizeAccountType(accountType),
-        role: normalizeUserRole(userRole),
-        programSettings: {
-          ...(currentAccount()?.programSettings || {}),
-          programName: businessName,
-          providerName: [firstName, lastName].filter(Boolean).join(" "),
-          programType: accountType === "center" ? "Childcare Center" : accountType === "single_provider" ? "Single Provider" : "Home Daycare",
-        },
-      });
-      await syncAccountProfileToBackend(result.email, {
-        firstName,
-        lastName,
-        businessName,
-        accountType,
-        role: userRole,
-        phone,
-      }, { signup: true, lastLogin: true });
-      await syncSubscriptionFromBackend(result.email);
-      await syncChildDataFromBackend();
-      loadUserAiUsage(result.email).catch(() => {});
-      trackEvent("account_signup_complete", {
-        email: result.email,
-        plan: currentPlan,
-        source: trafficSource(),
-        firstName,
-        lastName,
-        businessName,
-        accountType,
-        role: userRole,
-      });
-      setFormMessage("#authMessage", result.message || "Account created.", true);
-    } else {
-      const result = await loginWithProvider(email, password);
-      loadAccountState(result.email);
-      markAccountLogin(result.email);
-      await syncAccountProfileToBackend(result.email, {
-        firstName: currentAccount()?.firstName || "",
-        lastName: currentAccount()?.lastName || "",
-        businessName: currentAccount()?.businessName || currentAccount()?.programSettings?.programName || "",
-        accountType: currentAccount()?.accountType || "",
-        role: currentAccount()?.role || "",
-        phone: currentAccount()?.phone || "",
-      }, { lastLogin: true });
-      await syncSubscriptionFromBackend(result.email);
-      await syncChildDataFromBackend();
-      loadUserAiUsage(result.email).catch(() => {});
-      trackEvent("account_login_complete", { email: result.email, plan: currentPlan });
+      if (signupWizardStep === 1) {
+        const { firstName, lastName } = syncNameHiddenFieldsFromFullName();
+        if (!firstName) throw new Error("Please enter your name.");
+        const result = await signUpWithProvider(email, password, phone, firstName, lastName);
+        loadAccountState(result.email);
+        updateAccount(result.email, {
+          signupAt: new Date().toISOString(),
+          lastLoginAt: new Date().toISOString(),
+          selectedPlanAtSignup: "Free",
+          firstName,
+          lastName,
+          name: [firstName, lastName].filter(Boolean).join(" "),
+        });
+        await syncAccountProfileToBackend(result.email, {
+          firstName,
+          lastName,
+          businessName: "",
+          accountType: "",
+          role: "",
+          phone,
+        }, { signup: true, lastLogin: true });
+        await syncSubscriptionFromBackend(result.email);
+        await syncChildDataFromBackend();
+        loadUserAiUsage(result.email).catch(() => {});
+        trackEvent("account_signup_complete", {
+          email: result.email,
+          plan: "Free",
+          source: trafficSource(),
+          firstName,
+          lastName,
+          signupFlow: "wizard-step-1",
+        });
+        signupWizardStep = 2;
+        setFormMessage("#authMessage", "");
+        renderSignupWizardStep();
+        return;
+      }
+      if (signupWizardStep === 2) {
+        if (!signupPersonaChoice) throw new Error("Please choose what best describes you.");
+        const mapped = mapSignupPersona(signupPersonaChoice);
+        const programName = (document.querySelector("#signupProgramNameInput")?.value || "").trim();
+        const account = currentAccount() || {};
+        updateAccount(currentUser, {
+          businessName: programName || account.businessName || "",
+          daycareName: programName || account.daycareName || "",
+          programName: programName || account.programName || "",
+          accountType: mapped.accountType,
+          role: mapped.role,
+          onboardingPersona: signupPersonaChoice,
+          programSettings: {
+            ...(account.programSettings || {}),
+            programName: programName || account.programSettings?.programName || "",
+            providerName: displayUserName(account),
+            programType: mapped.programType,
+          },
+        });
+        await syncAccountProfileToBackend(currentUser, {
+          firstName: account.firstName || "",
+          lastName: account.lastName || "",
+          businessName: programName || "",
+          accountType: mapped.accountType,
+          role: mapped.role,
+          phone: account.phone || "",
+        }, { lastLogin: false });
+        trackEvent("signup_persona_selected", {
+          email: currentUser,
+          persona: signupPersonaChoice,
+          accountType: mapped.accountType,
+          role: mapped.role,
+        });
+        signupWizardStep = 3;
+        setFormMessage("#authMessage", "");
+        await syncFoundingStatus({ render: false }).catch(() => {});
+        renderSignupWizardStep();
+        return;
+      }
+      return;
     }
+    const result = await loginWithProvider(email, password);
+    loadAccountState(result.email);
+    markAccountLogin(result.email);
+    await syncAccountProfileToBackend(result.email, {
+      firstName: currentAccount()?.firstName || "",
+      lastName: currentAccount()?.lastName || "",
+      businessName: currentAccount()?.businessName || currentAccount()?.programSettings?.programName || "",
+      accountType: currentAccount()?.accountType || "",
+      role: currentAccount()?.role || "",
+      phone: currentAccount()?.phone || "",
+    }, { lastLogin: true });
+    await syncSubscriptionFromBackend(result.email);
+    await syncChildDataFromBackend();
+    loadUserAiUsage(result.email).catch(() => {});
+    trackEvent("account_login_complete", { email: result.email, plan: currentPlan });
     closeAuthModal();
     setView("home");
   } catch (error) {

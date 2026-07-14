@@ -238,12 +238,20 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
     await page.evaluate(() => setView("upgrade"));
     await page.waitForSelector("#view-upgrade.active-view", { timeout: 5000 });
     await page.waitForSelector("#upgradeApp .pricing-grid", { timeout: 10000 });
+    const upgradeFounding = page.locator('#upgradeApp [data-checkout-plan="founding"]');
     const upgradeAnnual = page.locator('#upgradeApp [data-checkout-plan="annual"]').first();
-    await upgradeAnnual.waitFor({ timeout: 5000 });
-    await upgradeAnnual.click();
+    const upgradeMonthly = page.locator('#upgradeApp [data-checkout-plan="monthly"]');
+    // Pro plans stay hidden while founding spots remain; click what is visible.
+    if (await upgradeFounding.count()) {
+      await upgradeFounding.first().click();
+    } else if (await upgradeAnnual.count()) {
+      await upgradeAnnual.click();
+    } else {
+      await upgradeMonthly.first().waitFor({ timeout: 5000 });
+      await upgradeMonthly.first().click();
+    }
     await page.waitForSelector("#authModal.open", { timeout: 5000 });
     await page.click("#closeModal");
-    const upgradeMonthly = page.locator('#upgradeApp [data-checkout-plan="monthly"]');
     if (await upgradeMonthly.count()) {
       await upgradeMonthly.first().click();
       await page.waitForSelector("#authModal.open", { timeout: 5000 });
