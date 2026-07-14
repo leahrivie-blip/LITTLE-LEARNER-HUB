@@ -16510,3 +16510,163 @@ body.curriculum-planner-retired .nav-link[data-view="curriculum-planner"] {
     gap: 2px;
   }
 }
+
+
+/* ── Lesson Plan Editor (Create vs Edit separation) ── */
+body.lesson-editor-view .topbar .search-wrap,
+body.lesson-editor-view .topbar .account-actions {
+  display: none;
+}
+
+body.lesson-editor-view .topbar {
+  min-height: 56px;
+}
+
+.lesson-editor-shell {
+  display: grid;
+  gap: 12px;
+  padding: 8px 0 96px;
+  max-width: 920px;
+}
+
+body.lesson-editor-view .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+}
+
+.lesson-editor-sticky-bar {
+  position: sticky;
+  top: 64px;
+  z-index: 24;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin: 0 -4px 8px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px rgba(40, 52, 71, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+.lesson-editor-sticky-bar .ghost-button,
+.lesson-editor-sticky-bar .primary-button {
+  min-height: 44px;
+}
+
+.lesson-editor-save-status {
+  flex: 1 1 140px;
+  font-size: 0.92rem;
+  color: var(--muted, #6b6560);
+}
+
+.lesson-editor-form {
+  display: grid;
+  gap: 16px;
+}
+
+.lesson-editor-header h2 {
+  margin: 4px 0 8px;
+  font-size: 1.45rem;
+  line-height: 1.25;
+}
+
+.lesson-editor-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.lesson-editor-meta span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  background: #f7fafc;
+}
+
+.lesson-editor-jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 0 4px;
+}
+
+.lesson-editor-jump-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  text-decoration: none;
+  color: var(--ink, #2f2a25);
+  background: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.lesson-editor-jump-link:hover,
+.lesson-editor-jump-link:focus-visible {
+  border-color: #7BA8C9;
+  outline: none;
+}
+
+#lesson-editor-weekly,
+[id^="lesson-editor-day-"] {
+  scroll-margin-top: 96px;
+}
+
+.lesson-editor-inline-actions {
+  padding-bottom: 24px;
+}
+
+@media (max-width: 900px) {
+  body.lesson-editor-view .main {
+    padding-top: 0;
+  }
+
+  .lesson-editor-shell {
+    padding: 4px 0 calc(112px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .lesson-editor-sticky-bar {
+    top: env(safe-area-inset-top, 0px);
+    margin: 0 0 10px;
+    border-radius: 12px;
+  }
+
+  .lesson-editor-sticky-bar .ghost-button,
+  .lesson-editor-sticky-bar .primary-button {
+    flex: 1 1 calc(50% - 4px);
+  }
+
+  .lesson-editor-save-status {
+    flex: 1 1 100%;
+    order: -1;
+  }
+
+  .lesson-editor-jump-link {
+    flex: 1 1 calc(50% - 4px);
+    justify-content: center;
+  }
+
+  .lesson-editor-form .form-grid-two {
+    grid-template-columns: 1fr;
+  }
+
+  .lesson-editor-form input,
+  .lesson-editor-form select,
+  .lesson-editor-form textarea,
+  .lesson-editor-form button {
+    width: 100%;
+    max-width: 100%;
+  }
+}

@@ -3287,6 +3287,13 @@ let weeklyPlannerNotesOpen = false;
 let weeklyPlannerFocusWeek = "";
 let weeklyPlannerEditDay = "";
 let weeklyPlannerEditBusy = false;
+let userLessonEditorResourceId = "";
+let userLessonEditorMode = ""; // "personal-copy" | "admin-curriculum"
+let userLessonEditorDirty = false;
+let userLessonEditorSaving = false;
+let userLessonEditorLastSavedAt = "";
+let userLessonEditorReturnView = "lessons";
+let userLessonEditorSnapshot = "";
 let calendarEventModalOpen = false;
 let adminReviewEditorId = "";
 let adminImageEditorId = "";
@@ -5044,6 +5051,404 @@ function renderCurriculumDailyPlanEditor(dailyPlans = emptyCurriculumDailyPlans(
   return CURRICULUM_WEEKDAYS.map((day) => renderCurriculumDailyDayEditor(day, dailyPlans?.[day] || emptyCurriculumDailyPlanDay())).join("");
 }
 
+function lessonPlanEditRouteIdFromLocation() {
+  const candidates = [
+    window.location.pathname || "",
+    String(window.location.hash || "").replace(/^#/, ""),
+  ];
+  for (const raw of candidates) {
+    const match = String(raw).match(/^\/?lesson-plans\/([^/?#]+)\/edit\/?$/i);
+    if (match?.[1]) {
+      try {
+        return decodeURIComponent(match[1]);
+      } catch {
+        return match[1];
+      }
+    }
+  }
+  return "";
+}
+
+function pushLessonPlanEditorRoute(lessonPlanId) {
+  if (!lessonPlanId || !window.history?.pushState) return;
+  const nextHash = `#/lesson-plans/${encodeURIComponent(lessonPlanId)}/edit`;
+  if (window.location.hash === nextHash) return;
+  window.history.pushState({ llhLessonEditor: lessonPlanId }, "", nextHash);
+}
+
+function clearLessonPlanEditorRoute() {
+  if (!window.history?.replaceState) return;
+  if (!/^#\/lesson-plans\/[^/]+\/edit/i.test(window.location.hash || "")) return;
+  window.history.replaceState({}, "", `${window.location.pathname || "/"}${window.location.search || ""}`);
+}
+
+function findUserLessonCopyForSource(sourceId) {
+  if (!sourceId) return null;
+  return uploadedResources().find((item) => (
+    item?._userLessonCopy
+    && item.category === "Lesson Plans"
+    && String(item._sourceLessonPlanId || "") === String(sourceId)
+  )) || null;
+}
+
+function buildUserLessonCopyResource(sourceResource) {
+  const sourcePlan = normalizeCurriculumLessonPlanForRender(sourceResource?._curriculumLessonPlan || sourceResource || {});
+  const copyId = `user-lp-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
+  const copyPlan = normalizeCurriculumLessonPlanForRender({
+    ...sourcePlan,
+    id: copyId,
+    status: sourcePlan.status === "published" || sourcePlan.status === "featured" ? "draft" : (sourcePlan.status || "draft"),
+    updatedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+  });
+  return {
+    id: copyId,
+    category: "Lesson Plans",
+    title: copyPlan.title || sourceResource.title || "Untitled Lesson Plan",
+    age: copyPlan.age || sourceResource.age || "Preschool",
+    plan: copyPlan.plan || sourceResource.plan || "Free",
+    month: sourceResource.month || "",
+    tags: [
+      ...curriculumAsStringArray(copyPlan.learningDomains),
+      copyPlan.theme,
+      "My Lesson Plan",
+    ].filter(Boolean),
+    format: "Editable Lesson Plan",
+    description: copyPlan.weeklyOverview || copyPlan.theme || sourceResource.description || "",
+    theme: copyPlan.theme || "",
+    developmentalArea: curriculumAsStringArray(copyPlan.learningDomains)[0] || sourceResource.developmentalArea || "",
+    materials: copyPlan.weeklyMaterials || sourceResource.materials || "",
+    weeklyOverview: copyPlan.weeklyOverview || "",
+    customContent: buildLessonPlanTextFromCurriculum(copyPlan),
+    visible: true,
+    archived: false,
+    featured: false,
+    _userLessonCopy: true,
+    _sourceLessonPlanId: sourceResource.id,
+    _curriculumLessonPlan: copyPlan,
+  };
+}
+
+function ensureEditableLessonResource(sourceResource) {
+  if (!sourceResource) return null;
+  if (sourceResource._userLessonCopy && sourceResource._curriculumLessonPlan) {
+    return resources.find((item) => item.id === sourceResource.id) || sourceResource;
+  }
+  const sourceId = sourceResource.id;
+  const existingCopy = findUserLessonCopyForSource(sourceId);
+  if (existingCopy) {
+    resources = loadResources();
+    return resources.find((item) => item.id === existingCopy.id) || existingCopy;
+  }
+  if (!sourceResource._curriculumLessonPlan) return null;
+  const copy = buildUserLessonCopyResource(sourceResource);
+  saveUploadedResources([copy, ...uploadedResources()]);
+  resources = loadResources();
+  return resources.find((item) => item.id === copy.id) || copy;
+}
+
+function userLessonEditorRecord() {
+  const resource = resources.find((item) => item.id === userLessonEditorResourceId);
+  if (!resource?._curriculumLessonPlan) return null;
+  return normalizeCurriculumLessonPlanForRender(resource._curriculumLessonPlan);
+}
+
+function userLessonEditorSaveStatusText() {
+  if (userLessonEditorSaving) return "Saving...";
+  if (userLessonEditorDirty) return "Unsaved changes";
+  if (userLessonEditorLastSavedAt) {
+    const savedAt = Date.parse(userLessonEditorLastSavedAt);
+    if (Number.isFinite(savedAt)) {
+      const minutes = Math.max(0, Math.round((Date.now() - savedAt) / 60000));
+      if (minutes <= 0) return "Saved just now";
+      if (minutes === 1) return "Last saved 1 minute ago";
+      return `Last saved ${minutes} minutes ago`;
+    }
+  }
+  return "Ready to edit";
+}
+
+function markUserLessonEditorDirty() {
+  if (!userLessonEditorResourceId) return;
+  userLessonEditorDirty = true;
+  const status = document.querySelector("[data-lesson-editor-save-status]");
+  if (status) status.textContent = userLessonEditorSaveStatusText();
+}
+
+function confirmDiscardUserLessonEditorChanges() {
+  if (!userLessonEditorDirty || userLessonEditorSaving) return true;
+  return window.confirm("You have unsaved changes. Leave without saving?");
+}
+
+function lessonEditorJumpNavHtml() {
+  const dayLinks = CURRICULUM_WEEKDAYS.map((day) => {
+    const label = day.charAt(0).toUpperCase() + day.slice(1);
+    return `<a class="lesson-editor-jump-link" href="#lesson-editor-day-${day}">${escapeHtml(label)}</a>`;
+  }).join("");
+  return `
+    <nav class="lesson-editor-jump" aria-label="Jump to lesson plan sections">
+      <a class="lesson-editor-jump-link" href="#lesson-editor-weekly">Weekly Info</a>
+      ${dayLinks}
+    </nav>
+  `;
+}
+
+function renderUserLessonPlanEditorForm(plan) {
+  const record = normalizeCurriculumLessonPlanForRender(plan || userLessonEditorRecord() || {
+    id: userLessonEditorResourceId || "",
+    title: "",
+    age: "Preschool",
+    theme: "",
+    plan: "Free",
+    status: "draft",
+    learningDomains: [],
+    weeklyOverview: "",
+    objectives: "",
+    familyConnection: "",
+    weeklyMaterials: "",
+    vocabularyWords: "",
+    observationOpportunities: "",
+    adaptations: "",
+    books: [],
+    songs: [],
+    dailyPlans: emptyCurriculumDailyPlans(),
+  });
+  const selectedDomains = new Set(curriculumAsStringArray(record.learningDomains));
+  const dayEditors = CURRICULUM_WEEKDAYS.map((day) => {
+    const dayHtml = renderCurriculumDailyDayEditor(day, record.dailyPlans?.[day] || emptyCurriculumDailyPlanDay());
+    return dayHtml.replace(
+      `<details class="admin-fieldset curriculum-daily-day" data-curriculum-day-panel="${day}"`,
+      `<details id="lesson-editor-day-${day}" class="admin-fieldset curriculum-daily-day" data-curriculum-day-panel="${day}"`,
+    );
+  }).join("");
+  return `
+    <form id="userLessonPlanEditorForm" class="panel-form curriculum-premium-editor lesson-editor-form" data-lesson-editor-form>
+      <input type="hidden" name="id" value="${escapeHtml(record.id || "")}" />
+      ${lessonEditorJumpNavHtml()}
+      <header class="lesson-editor-header" id="lesson-editor-header">
+        <p class="eyebrow">Lesson Plan Editor</p>
+        <h2>${escapeHtml(record.title || "Untitled Lesson Plan")}</h2>
+        <p class="lesson-editor-meta">
+          <span>${escapeHtml(record.age || "Preschool")}</span>
+          <span>${escapeHtml(record.theme || "Theme")}</span>
+          <span>${escapeHtml(record.plan || "Free")}</span>
+          <span>${escapeHtml(curriculumLessonPlanStatusLabel(record.status || "draft"))}</span>
+        </p>
+        <p class="muted-copy">Edit this lesson plan directly. No generators or helper tools here.</p>
+      </header>
+      <div class="form-grid-two">
+        <label>Title<input name="title" value="${escapeHtml(record.title || "")}" required /></label>
+        <label>Age group
+          <select name="age">
+            ${curriculumAgeSelectOptions(record.age).map(({ value, selected }) => `<option${selected ? " selected" : ""}>${escapeHtml(value)}</option>`).join("")}
+          </select>
+        </label>
+      </div>
+      <div class="form-grid-two">
+        <label>Theme<input name="theme" value="${escapeHtml(record.theme || "")}" /></label>
+        <label>Free / Pro
+          <select name="plan">
+            ${["Free", "Pro"].map((tier) => `<option${record.plan === tier ? " selected" : ""}>${tier}</option>`).join("")}
+          </select>
+        </label>
+      </div>
+      <label>Status
+        <select name="status">
+          ${CURRICULUM_LESSON_STATUSES.map((status) => `<option value="${status}"${record.status === status ? " selected" : ""}>${curriculumLessonPlanStatusLabel(status)}</option>`).join("")}
+        </select>
+      </label>
+      <fieldset class="admin-fieldset">
+        <legend>Learning domains</legend>
+        <div class="curriculum-domain-grid">
+          ${CURRICULUM_LEARNING_DOMAINS.map((domain) => `
+            <label class="admin-inline-toggle">
+              <input type="checkbox" name="learningDomains" value="${escapeHtml(domain)}" ${selectedDomains.has(domain) ? "checked" : ""} />
+              <span>${escapeHtml(domain)}</span>
+            </label>
+          `).join("")}
+        </div>
+      </fieldset>
+      <fieldset class="admin-fieldset curriculum-weekly-editor" id="lesson-editor-weekly">
+        <legend>Weekly information</legend>
+        <label>Weekly overview<textarea name="weeklyOverview" rows="3">${escapeHtml(record.weeklyOverview || "")}</textarea></label>
+        <label>Learning objectives<textarea name="objectives" rows="3">${escapeHtml(record.objectives || "")}</textarea></label>
+        <label>Weekly materials<textarea name="weeklyMaterials" rows="3">${escapeHtml(record.weeklyMaterials || "")}</textarea></label>
+        <label>Vocabulary<textarea name="vocabularyWords" rows="2">${escapeHtml(record.vocabularyWords || "")}</textarea></label>
+        <div class="curriculum-day-list-block">
+          <h5>Books</h5>
+          ${curriculumBooksEditorHtml(record.books || [], { scope: "weekly", addLabel: "+ Add book" })}
+        </div>
+        <div class="curriculum-day-list-block">
+          <h5>Songs</h5>
+          ${curriculumSongsEditorHtml(record.songs || [], { scope: "weekly", addLabel: "+ Add song" })}
+        </div>
+        <label>Family connection<textarea name="familyConnection" rows="2">${escapeHtml(record.familyConnection || "")}</textarea></label>
+        <label>Observation opportunities<textarea name="observationOpportunities" rows="3">${escapeHtml(record.observationOpportunities || "")}</textarea></label>
+        <label>Adaptations<textarea name="adaptations" rows="3">${escapeHtml(record.adaptations || "")}</textarea></label>
+      </fieldset>
+      <div class="curriculum-daily-editor">
+        <h3>Daily sections</h3>
+        <p class="muted-copy">Collapse or expand each weekday. Jump links above skip the scroll.</p>
+        ${dayEditors}
+      </div>
+      <div class="form-actions lesson-editor-inline-actions">
+        <button class="primary-button" type="submit" ${userLessonEditorSaving ? "disabled" : ""}>${userLessonEditorSaving ? "Saving…" : "Save Lesson Plan"}</button>
+      </div>
+    </form>
+  `;
+}
+
+function renderUserLessonEditor() {
+  const target = document.querySelector("#view-lesson-editor");
+  if (!target) return;
+  const resource = resources.find((item) => item.id === userLessonEditorResourceId);
+  if (!resource?._curriculumLessonPlan) {
+    target.innerHTML = `
+      <div class="lesson-editor-shell">
+        <button type="button" class="ghost-button back-button" data-lesson-editor-back>← Back to Library</button>
+        <div class="page-title">
+          <h2>Lesson plan not found</h2>
+          <p>This lesson plan could not be opened for editing.</p>
+        </div>
+      </div>
+    `;
+    return;
+  }
+  const plan = normalizeCurriculumLessonPlanForRender(resource._curriculumLessonPlan);
+  target.innerHTML = `
+    <div class="lesson-editor-shell">
+      <div class="lesson-editor-sticky-bar" data-lesson-editor-sticky>
+        <button type="button" class="ghost-button" data-lesson-editor-back>← Back</button>
+        <span class="lesson-editor-save-status" data-lesson-editor-save-status>${escapeHtml(userLessonEditorSaveStatusText())}</span>
+        <button type="submit" class="primary-button" form="userLessonPlanEditorForm" ${userLessonEditorSaving ? "disabled" : ""}>${userLessonEditorSaving ? "Saving…" : "Save"}</button>
+      </div>
+      ${renderUserLessonPlanEditorForm(plan)}
+    </div>
+  `;
+  userLessonEditorSnapshot = JSON.stringify(collectCurriculumLessonPlanFromForm(
+    target.querySelector("#userLessonPlanEditorForm"),
+    plan,
+  ));
+  userLessonEditorDirty = false;
+}
+
+async function openLessonPlanEditor(resourceId, options = {}) {
+  const source = resources.find((item) => item.id === resourceId);
+  if (!source) {
+    window.alert("Lesson plan not found.");
+    return null;
+  }
+  if (!(source._curriculumLessonPlan || source._curriculumManaged || source._userLessonCopy)) {
+    window.alert("This lesson plan does not have editable structured content yet.");
+    return null;
+  }
+  const editable = ensureEditableLessonResource(source);
+  if (!editable) {
+    window.alert("This lesson plan does not have editable structured content yet.");
+    return null;
+  }
+  userLessonEditorResourceId = editable.id;
+  userLessonEditorMode = "personal-copy";
+  userLessonEditorDirty = false;
+  userLessonEditorSaving = false;
+  userLessonEditorLastSavedAt = editable._curriculumLessonPlan?.updatedAt || editable.updatedAt || "";
+  const activeViewName = document.querySelector(".active-view")?.id.replace("view-", "") || "lessons";
+  userLessonEditorReturnView = options.returnView
+    || (activeViewName === "lesson-editor" ? (userLessonEditorReturnView || "lessons") : activeViewName);
+  if (userLessonEditorReturnView === "lesson-editor") userLessonEditorReturnView = "lessons";
+  dismissResourceViewerForNavigation();
+  pushLessonPlanEditorRoute(editable.id);
+  setView("lesson-editor", { skipEditorRoute: true, ...options });
+  return editable;
+}
+
+async function saveUserLessonEditorForm(form) {
+  if (!form || userLessonEditorSaving) return;
+  const existing = userLessonEditorRecord();
+  let lessonPlan;
+  try {
+    lessonPlan = collectCurriculumLessonPlanFromForm(form, existing);
+  } catch (error) {
+    window.alert(`Could not read lesson form: ${error.message || "unknown error"}`);
+    return;
+  }
+  if (!lessonPlan.id) lessonPlan.id = userLessonEditorResourceId;
+  userLessonEditorSaving = true;
+  userLessonEditorDirty = true;
+  const statusEl = document.querySelector("[data-lesson-editor-save-status]");
+  if (statusEl) statusEl.textContent = "Saving...";
+  form.querySelectorAll('button[type="submit"]').forEach((button) => {
+    button.disabled = true;
+    button.textContent = "Saving…";
+  });
+  document.querySelectorAll('button[form="userLessonPlanEditorForm"]').forEach((button) => {
+    button.disabled = true;
+    button.textContent = "Saving…";
+  });
+
+  try {
+    const resource = resources.find((item) => item.id === userLessonEditorResourceId) || {};
+    const savedAt = new Date().toISOString();
+    const nextPlan = normalizeCurriculumLessonPlanForRender({
+      ...lessonPlan,
+      id: userLessonEditorResourceId,
+      updatedAt: savedAt,
+    });
+    const nextResource = {
+      ...resource,
+      id: userLessonEditorResourceId,
+      category: "Lesson Plans",
+      title: nextPlan.title,
+      age: nextPlan.age,
+      plan: nextPlan.plan,
+      theme: nextPlan.theme,
+      description: nextPlan.weeklyOverview || nextPlan.theme || resource.description || "",
+      materials: nextPlan.weeklyMaterials || "",
+      weeklyOverview: nextPlan.weeklyOverview || "",
+      tags: [
+        ...curriculumAsStringArray(nextPlan.learningDomains),
+        nextPlan.theme,
+        "My Lesson Plan",
+      ].filter(Boolean),
+      format: "Editable Lesson Plan",
+      customContent: buildLessonPlanTextFromCurriculum(nextPlan),
+      updatedAt: savedAt,
+      visible: true,
+      archived: false,
+      _userLessonCopy: true,
+      _sourceLessonPlanId: resource._sourceLessonPlanId || "",
+      _curriculumLessonPlan: nextPlan,
+    };
+    const others = uploadedResources().filter((item) => item.id !== userLessonEditorResourceId);
+    saveUploadedResources([nextResource, ...others]);
+    resources = loadResources();
+    userLessonEditorLastSavedAt = savedAt;
+    userLessonEditorDirty = false;
+    userLessonEditorSnapshot = JSON.stringify(nextPlan);
+    userLessonEditorSaving = false;
+    renderUserLessonEditor();
+    const status = document.querySelector("[data-lesson-editor-save-status]");
+    if (status) status.textContent = "Saved just now";
+  } catch (error) {
+    window.alert(error.message || "Could not save lesson plan.");
+    userLessonEditorSaving = false;
+    renderUserLessonEditor();
+  }
+}
+
+function closeUserLessonEditor({ force = false } = {}) {
+  if (!force && !confirmDiscardUserLessonEditorChanges()) return false;
+  const returnView = userLessonEditorReturnView || "lessons";
+  userLessonEditorResourceId = "";
+  userLessonEditorMode = "";
+  userLessonEditorDirty = false;
+  userLessonEditorSaving = false;
+  userLessonEditorSnapshot = "";
+  clearLessonPlanEditorRoute();
+  setView(returnView === "lesson-editor" ? "lessons" : returnView);
+  return true;
+}
+
 function renderAdminCurriculumLessonPlanForm(plan) {
   const record = normalizeCurriculumLessonPlanForRender(plan || curriculumLessonEditorRecord() || {
     id: adminCurriculumLessonEditorId || "",
@@ -5236,10 +5641,12 @@ function collectCurriculumDomainChecks(root) {
     .filter(Boolean);
 }
 
-function collectCurriculumLessonPlanFromForm(form) {
+function collectCurriculumLessonPlanFromForm(form, existingOverride = null) {
   const formData = new FormData(form);
   const id = normalizedShortText(formData.get("id"));
-  const existing = id ? curriculumLessonEditorRecord() : null;
+  const existing = existingOverride
+    || (id ? curriculumLessonEditorRecord() : null)
+    || (id ? normalizeCurriculumLessonPlanForRender(resources.find((item) => item.id === id)?._curriculumLessonPlan || null) : null);
   const preservedDaily = existing?.dailyPlans || {};
   const weeklyBooksEditor = form.querySelector('[data-curriculum-books-editor="weekly"]');
   const weeklySongsEditor = form.querySelector('[data-curriculum-songs-editor="weekly"]');
@@ -5524,33 +5931,43 @@ function removeCurriculumListRow(row, emptyHtml) {
 }
 
 function addCurriculumBookRow(scope) {
-  const editor = document.querySelector(`[data-curriculum-books-editor="${scope}"]`);
+  const root = activeCurriculumLessonEditorRoot();
+  const editor = root.querySelector(`[data-curriculum-books-editor="${scope}"]`);
   const container = ensureCurriculumListRowsContainer(editor?.querySelector("[data-curriculum-books-rows]"));
   if (!container) return;
   container.insertAdjacentHTML("beforeend", curriculumBookRowHtml({}, { scope }));
 }
 
 function addCurriculumSongRow(scope) {
-  const editor = document.querySelector(`[data-curriculum-songs-editor="${scope}"]`);
+  const root = activeCurriculumLessonEditorRoot();
+  const editor = root.querySelector(`[data-curriculum-songs-editor="${scope}"]`);
   const container = ensureCurriculumListRowsContainer(editor?.querySelector("[data-curriculum-songs-rows]"));
   if (!container) return;
   container.insertAdjacentHTML("beforeend", curriculumSongRowHtml({}, { scope }));
 }
 
 function addCurriculumTextListRow(field) {
-  const editor = document.querySelector(`[data-curriculum-text-list-editor="${field}"]`);
+  const root = activeCurriculumLessonEditorRoot();
+  const editor = root.querySelector(`[data-curriculum-text-list-editor="${field}"]`);
   const container = ensureCurriculumListRowsContainer(editor?.querySelector("[data-curriculum-text-list-rows]"));
   if (!container) return;
   container.insertAdjacentHTML("beforeend", curriculumTextListRowHtml("", { field }));
 }
 
+function activeCurriculumLessonEditorRoot() {
+  return document.querySelector("#view-lesson-editor.active-view #userLessonPlanEditorForm")
+    || document.querySelector("#adminCurriculumLessonPlanForm")
+    || document;
+}
+
 function addCurriculumDailyPlanRow(day) {
-  const container = document.querySelector(`[data-curriculum-day-items="${day}"]`);
+  const root = activeCurriculumLessonEditorRoot();
+  const container = root.querySelector(`[data-curriculum-day-items="${day}"]`);
   if (!container) return;
   const empty = container.querySelector(".curriculum-daily-empty");
   if (empty) empty.remove();
   container.insertAdjacentHTML("beforeend", curriculumDailyItemRowHtml(day, { itemId: generateCurriculumItemIdClient() }));
-  const panel = document.querySelector(`[data-curriculum-day-panel="${day}"]`);
+  const panel = root.querySelector(`[data-curriculum-day-panel="${day}"]`);
   if (panel && "open" in panel) panel.open = true;
 }
 
@@ -7292,6 +7709,7 @@ function setView(view, options = {}) {
   const resolvedView = resolvedRequested;
   if (activeView && activeView !== resolvedView) clearViewReturnContext(activeView);
   if (activeView === "admin" && resolvedView !== "admin" && !confirmDiscardAdminLessonChanges()) return;
+  if (activeView === "lesson-editor" && resolvedView !== "lesson-editor" && !confirmDiscardUserLessonEditorChanges()) return;
   if (requestedChildToolTab === "daily-logs") {
     childManagementMode = "daily-logs";
     dailyLogsSection = "home";
@@ -7359,8 +7777,9 @@ function setView(view, options = {}) {
   document.body.classList.toggle("lessons-view", resolvedView === "lessons");
   document.body.classList.toggle(
     "scheduling-focus",
-    ["calendar", "planner", "curriculum-planner", "lessons"].includes(resolvedView),
+    ["calendar", "planner", "curriculum-planner", "lessons", "lesson-editor"].includes(resolvedView),
   );
+  document.body.classList.toggle("lesson-editor-view", resolvedView === "lesson-editor");
   document.body.classList.toggle("curriculum-planner-retired", !isCurriculumPlannerLegacyEnabled());
   syncCurriculumPlannerNavVisibility();
   document.querySelectorAll(".nav-link").forEach((button) => {
@@ -7403,6 +7822,14 @@ function setView(view, options = {}) {
   if (resolvedView === "reset-password") renderResetPasswordPage();
   if (resolvedView === "contact") renderContactPage();
   if (resolvedView === "ai") renderAiPage();
+  if (resolvedView === "lesson-editor") {
+    if (!options.skipEditorRoute && userLessonEditorResourceId) {
+      pushLessonPlanEditorRoute(userLessonEditorResourceId);
+    }
+    renderUserLessonEditor();
+  } else if (activeView === "lesson-editor" && resolvedView !== "lesson-editor") {
+    clearLessonPlanEditorRoute();
+  }
   if (resolvedView === "generators") renderGeneratorWorkspace("lesson");
   if (resolvedView === "tools") renderFutureTools(requestedFutureTool || undefined);
   if (resolvedView === "children") renderChildManagement();
@@ -8110,7 +8537,7 @@ function resourceCard(resource) {
       ` : ""}
       <div class="resource-actions">
         <button class="favorite-button ${!isProUser() ? "disabled-control" : ""}" ${!isProUser() ? `data-pro-feature="favorites"` : `data-favorite="${resource.id}"`} type="button">${favoriteText}</button>
-        ${resource.category === "Lesson Plans" && !locked ? `<button class="ghost-button" data-customize-lesson-ai="${resource.id}" type="button">Customize Plan</button>` : ""}
+        ${resource.category === "Lesson Plans" && !locked ? `<button class="ghost-button" data-edit-lesson-plan="${resource.id}" type="button">Edit Lesson Plan</button>` : ""}
         ${resource.category === "Lesson Plans" && !locked ? `<button class="ghost-button" data-find-lesson-activities="${resource.id}" type="button">View Activities</button>` : ""}
         ${resource.category === "Lesson Plans" && resource._curriculumManaged && !locked ? `<button class="ghost-button" data-curriculum-assign-week="${resource.id}" type="button">Add to Calendar</button>` : ""}
         ${resource.category === "Lesson Plans" && !locked ? `<button class="ghost-button" data-add-lesson-support="${resource.id}" type="button">Add Support</button>` : ""}
@@ -11120,7 +11547,13 @@ const LESSON_WORKSPACE_DAY_LONG = {
 };
 
 function isLessonWorkspaceResource(resource) {
-  return Boolean(resource?._curriculumManaged && resource.category === "Lesson Plans" && canAccess(resource));
+  return Boolean(
+    resource
+    && resource.category === "Lesson Plans"
+    && canAccess(resource)
+    && resource._curriculumLessonPlan
+    && (resource._curriculumManaged || resource._userLessonCopy),
+  );
 }
 
 function resetLessonWorkspaceState() {
@@ -12300,7 +12733,7 @@ function lessonWorkspaceChromeHtml(resource) {
       </header>
       <div class="lesson-workspace-primary-actions">
         <button type="button" class="primary-button" data-lesson-use-this-plan>Add to Calendar</button>
-        <button type="button" class="ghost-button" data-customize-lesson-ai="${escapeHtml(resource.id)}">Customize Plan</button>
+        <button type="button" class="ghost-button" data-edit-lesson-plan="${escapeHtml(resource.id)}">Edit Lesson Plan</button>
         <button type="button" class="ghost-button" data-lesson-print-download>Print / Download</button>
         ${lessonWorkspaceSaveButtonHtml(resource.id)}
         <button type="button" class="ghost-button lesson-workspace-more-btn" data-lesson-workspace-more-toggle aria-expanded="false" aria-haspopup="true">More</button>
@@ -12308,7 +12741,7 @@ function lessonWorkspaceChromeHtml(resource) {
       <div class="lesson-workspace-more-menu" hidden>
         <div class="lesson-workspace-more-group">
           <p class="lesson-workspace-more-label">Plan tools</p>
-          <button type="button" data-customize-lesson-ai="${escapeHtml(resource.id)}">Customize Plan</button>
+          <button type="button" data-edit-lesson-plan="${escapeHtml(resource.id)}">Edit Lesson Plan</button>
           <button type="button" data-add-lesson-support="${escapeHtml(resource.id)}">Add Support</button>
           <button type="button" data-find-lesson-activities="${escapeHtml(resource.id)}">View Linked Activities</button>
         </div>
@@ -12365,7 +12798,7 @@ function lessonWorkspaceChromeHtml(resource) {
             <p class="muted-copy lesson-workspace-action-sheet-note">Your week is ready — open Calendar to customize days, notes, and events, or jump into Weekly Planner.</p>
             <button type="button" class="primary-button" data-lesson-open-calendar>Open Calendar</button>
             <button type="button" class="ghost-button" data-lesson-open-weekly-planner>Open Weekly Planner</button>
-            <button type="button" class="ghost-button" data-customize-lesson-ai="${escapeHtml(resource.id)}">Customize Plan</button>
+            <button type="button" class="ghost-button" data-edit-lesson-plan="${escapeHtml(resource.id)}">Edit Lesson Plan</button>
             <button type="button" class="link-button" data-lesson-workspace-action-sheet-dismiss>Done</button>
           </div>
         </div>
@@ -34886,35 +35319,26 @@ document.addEventListener("click", async (event) => {
     setView("children");
   }
 
+  if (event.target.closest("[data-lesson-editor-back]")) {
+    event.preventDefault();
+    closeUserLessonEditor();
+    return;
+  }
+
+  const editLessonPlanButton = event.target.closest("[data-edit-lesson-plan]");
+  if (editLessonPlanButton) {
+    const resourceId = editLessonPlanButton.dataset.editLessonPlan;
+    if (!resourceId) return;
+    await openLessonPlanEditor(resourceId);
+    return;
+  }
+  // Legacy Customize Plan attribute — always open the true editor, never the Helper.
   const customizeLessonButton = event.target.closest("[data-customize-lesson-ai]");
   if (customizeLessonButton) {
-    const resource = resources.find((item) => item.id === customizeLessonButton.dataset.customizeLessonAi);
-    if (!resource) return;
-    const originContext = lessonWorkspaceReturnContext();
-    if (originContext) setViewReturnContext("generators", originContext);
-    lessonPlanWorkflowState.step = 1;
-    lessonPlanWorkflowState.generating = false;
-    lessonPlanWorkflowState.step1 = {
-      programName: "",
-      age: resource.age,
-      planLength: "Weekly",
-      theme: resourceTheme(resource),
-      childCount: "",
-      developmentalFocus: resourceFocus(resource),
-      materials: resource.materials || "",
-      environment: "Both",
-      timeAvailable: "",
-      specialRequests: "",
-    };
-    lessonPlanWorkflowState.step2 = {
-      options: [],
-      accommodations: "",
-    };
-    lessonPlanWorkflowState.sectionRegenerate = "Full lesson plan";
-    lessonPlanWorkflowState.improveRequest = "";
-    dismissResourceViewerForNavigation();
-    setView("generators");
-    renderGeneratorWorkspace("lesson");
+    const resourceId = customizeLessonButton.dataset.customizeLessonAi;
+    if (!resourceId) return;
+    await openLessonPlanEditor(resourceId);
+    return;
   }
 
   const findLessonActivitiesButton = event.target.closest("[data-find-lesson-activities]");
@@ -35623,9 +36047,11 @@ document.addEventListener("keydown", (event) => {
 window.addEventListener("popstate", handleLessonNavPopState);
 
 window.addEventListener("beforeunload", (event) => {
-  if (!adminLessonHasUnsavedChanges() && !isAnyAdminManagedFormDirty()) return;
+  if (!adminLessonHasUnsavedChanges() && !isAnyAdminManagedFormDirty() && !userLessonEditorDirty) return;
   event.preventDefault();
-  event.returnValue = adminLessonUnsavedWarning;
+  event.returnValue = userLessonEditorDirty
+    ? "You have unsaved changes. Save before leaving?"
+    : adminLessonUnsavedWarning;
 });
 
 searchInput.addEventListener("keydown", (event) => {
@@ -35637,7 +36063,16 @@ searchInput.addEventListener("input", () => {
   if (viewMap[activeView]) renderCategoryPage(activeView);
 });
 
+document.addEventListener("change", (event) => {
+  if (event.target.closest("#userLessonPlanEditorForm")) {
+    markUserLessonEditorDirty();
+  }
+});
+
 document.addEventListener("input", (event) => {
+  if (event.target.closest("#userLessonPlanEditorForm")) {
+    markUserLessonEditorDirty();
+  }
   if (event.target.matches("#lessonPlanSearch")) {
     const query = event.target.value;
     const selectionStart = event.target.selectionStart;
@@ -36425,6 +36860,11 @@ document.addEventListener("submit", async (event) => {
   if (event.target.matches("#adminPrintablesForm")) {
     event.preventDefault();
     await saveAdminManagedCollectionForm("printables", event.target);
+    return;
+  }
+  if (event.target.matches("#userLessonPlanEditorForm")) {
+    event.preventDefault();
+    await saveUserLessonEditorForm(event.target);
     return;
   }
   if (event.target.matches("#adminCurriculumLessonPlanForm")) {
@@ -38215,6 +38655,7 @@ loadUploadedResourcesFromBackend({ admin: isAdminUnlocked(), migrateLocal: isAdm
 function initialViewFromLocation() {
   const params = new URLSearchParams(window.location.search);
   if (params.get("mode") === "resetPassword") return "reset-password";
+  if (lessonPlanEditRouteIdFromLocation()) return "lesson-editor";
   const pathView = adRouteMap[window.location.pathname];
   const hashView = adRouteMap[window.location.hash];
   return pathView || hashView || "home";
@@ -38230,11 +38671,23 @@ async function initializeAppView() {
   }
   await syncFoundingStatus({ render: true });
   const initialView = initialViewFromLocation();
+  const lessonEditId = lessonPlanEditRouteIdFromLocation();
   if (!currentAttribution()?.firstSeenAt) {
     saveAttribution({ route: window.location.pathname || window.location.hash || "home", view: initialView, source: trafficSource() });
   }
   trackEvent("website_visit", { view: initialView, source: trafficSource() });
   if (initialView === "home") trackEvent("page_view", { view: "home" });
+  if (lessonEditId) {
+    const route = window.location.pathname || window.location.hash;
+    saveAttribution({ route, view: "lesson-editor" });
+    trackEvent("ad_route_visit", { route, view: "lesson-editor" });
+    if (isLoggedIn() || hasAdminFullAccess()) {
+      await openLessonPlanEditor(lessonEditId, { returnView: "lessons", skipEditorRoute: true });
+    } else {
+      openAuthModal("login");
+    }
+    return;
+  }
   if (initialView !== "home") {
     const route = window.location.pathname || window.location.hash;
     saveAttribution({ route, view: initialView });
