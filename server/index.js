@@ -5297,6 +5297,7 @@ const childDataKeys = [
   "Meals",
   "Reports",
   "Communications",
+  "Documents",
 ];
 
 function sanitizeChildDataPayload(data = {}) {
