@@ -40,6 +40,7 @@
     "test:documentation-helpers-phase6": "node scripts/test-documentation-helpers-phase6.js",
     "test:center-surfaces-phase7": "node scripts/test-center-surfaces-phase7.js",
     "test:daily-logs-attendance": "node scripts/test-daily-logs-attendance.js",
+    "test:child-data-sync": "node scripts/test-child-data-sync.js",
     "test:settings-hub": "node scripts/test-settings-hub.js",
     "test:homepage-smoke": "node scripts/test-homepage-smoke.js",
     "test:lesson-library-header": "node scripts/test-lesson-library-header.js",
