@@ -8735,51 +8735,236 @@ function quickActionTime() {
   return new Date().toTimeString().slice(0, 5);
 }
 
-function saveDailyLogQuickAction(actionId, childId) {
+/** Prefer the Daily Logs dashboard date when logging from that workspace. */
+function dlcActiveDate() {
+  return dlcDashboardDate || new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * Attendance state for one child on a date.
+ * "not_arrived" | "checked_in" | "checked_out" | "absent"
+ */
+function getChildAttendanceState(child, records, today = dlcActiveDate()) {
+  const attendance = (records.attendance || [])
+    .filter((item) => item.childId === child.id && item.date === today)
+    .slice(-1)[0];
+  if (!attendance) return "not_arrived";
+  if (String(attendance.status || "").toLowerCase() === "absent") return "absent";
+  if (attendance.pickup) return "checked_out";
+  if (attendance.dropoff || String(attendance.status || "").toLowerCase() === "present") return "checked_in";
+  return "not_arrived";
+}
+
+function getChildAttendanceRecord(child, records, today = dlcActiveDate()) {
+  return (records.attendance || [])
+    .filter((item) => item.childId === child.id && item.date === today)
+    .slice(-1)[0] || null;
+}
+
+function formatDlcClock(value) {
+  if (!value) return "";
+  return dlcFormatTime(value) || String(value);
+}
+
+function saveDailyLogQuickAction(actionId, childId, options = {}) {
   const child = childRecords().children.find((item) => item.id === childId);
   if (!child) return;
-  const today = new Date().toISOString().slice(0, 10);
-  const time = quickActionTime();
+  const today = options.date || dlcActiveDate();
+  const time = options.time || quickActionTime();
   if (actionId === "check-in") {
-    appendChildRecord("Attendance", { childId, date: today, status: "Present", dropoff: time, title: `Attendance | ${today}`, summary: `Present at ${time}`, shareWithFamily: false });
+    const attendance = childStore("Attendance");
+    const existing = attendance.slice().reverse().find((item) => item.childId === childId && item.date === today);
+    if (existing) {
+      saveChildStore("Attendance", attendance.map((item) => (
+        item.id === existing.id
+          ? {
+              ...item,
+              status: "Present",
+              dropoff: item.dropoff || time,
+              pickup: "",
+              summary: `Present at ${item.dropoff || time}`,
+            }
+          : item
+      )));
+      return;
+    }
+    appendChildRecord("Attendance", {
+      childId,
+      date: today,
+      status: "Present",
+      dropoff: time,
+      title: `Attendance | ${today}`,
+      summary: `Present at ${time}`,
+      shareWithFamily: false,
+    });
     return;
   }
   if (actionId === "check-out") {
     const attendance = childStore("Attendance");
     const existing = attendance.slice().reverse().find((item) => item.childId === childId && item.date === today);
     if (existing) {
-      saveChildStore("Attendance", attendance.map((item) => item.id === existing.id ? { ...item, pickup: time, summary: item.status ? `${item.status} until ${time}` : `Checked out at ${time}` } : item));
+      saveChildStore("Attendance", attendance.map((item) => (
+        item.id === existing.id
+          ? {
+              ...item,
+              status: item.status === "Absent" ? "Present" : (item.status || "Present"),
+              pickup: time,
+              summary: item.dropoff ? `Present ${item.dropoff}–${time}` : `Checked out at ${time}`,
+            }
+          : item
+      )));
       return;
     }
-    appendChildRecord("Attendance", { childId, date: today, status: "Present", pickup: time, title: `Attendance | ${today}`, summary: `Checked out at ${time}`, shareWithFamily: false });
+    appendChildRecord("Attendance", {
+      childId,
+      date: today,
+      status: "Present",
+      pickup: time,
+      title: `Attendance | ${today}`,
+      summary: `Checked out at ${time}`,
+      shareWithFamily: false,
+    });
+    return;
+  }
+  if (actionId === "absent") {
+    const attendance = childStore("Attendance");
+    const existing = attendance.slice().reverse().find((item) => item.childId === childId && item.date === today);
+    if (existing) {
+      saveChildStore("Attendance", attendance.map((item) => (
+        item.id === existing.id
+          ? {
+              ...item,
+              status: "Absent",
+              dropoff: "",
+              pickup: "",
+              summary: "Absent",
+            }
+          : item
+      )));
+      return;
+    }
+    appendChildRecord("Attendance", {
+      childId,
+      date: today,
+      status: "Absent",
+      title: `Attendance | ${today}`,
+      summary: "Absent",
+      shareWithFamily: false,
+    });
     return;
   }
   if (actionId === "ate-all" || actionId === "ate-most") {
     appendChildRecord("Meals", { childId, date: today, lunch: actionId === "ate-all" ? "Ate all" : "Ate most", title: `Meals | ${today}`, summary: actionId === "ate-all" ? "Lunch: Ate all" : "Lunch: Ate most", shareWithFamily: true });
     return;
   }
-  if (actionId === "bottle") {
-    appendChildRecord("Meals", { childId, date: today, time, type: "Bottle", amount: "Logged", title: `Bottle | ${today} at ${time}`, summary: "Bottle logged", shareWithFamily: true });
-    return;
-  }
-  if (["wet-diaper", "bm", "potty"].includes(actionId)) {
-    const typeMap = { "wet-diaper": "Wet", bm: "Dirty", potty: "Potty - Success" };
-    appendChildRecord("Diapers", { childId, date: today, time, type: typeMap[actionId], title: `${typeMap[actionId]} | ${today} at ${time}`, summary: typeMap[actionId], shareWithFamily: true });
-    return;
-  }
-  if (actionId === "nap-started" || actionId === "nap-ended") {
-    appendChildRecord("Naps", {
+  if (actionId === "meal" || actionId === "breakfast" || actionId === "snack") {
+    const mealField = actionId === "breakfast" ? "breakfast" : actionId === "snack" ? "snack" : "lunch";
+    appendChildRecord("Meals", {
       childId,
       date: today,
-      ...(actionId === "nap-started" ? { napStart: time } : { napEnd: time }),
-      title: `Nap | ${today}`,
-      summary: actionId === "nap-started" ? `Nap started at ${time}` : `Nap ended at ${time}`,
+      time,
+      [mealField]: "Logged",
+      title: `Meals | ${today}`,
+      summary: `${mealField[0].toUpperCase()}${mealField.slice(1)} logged`,
       shareWithFamily: true,
     });
     return;
   }
-  if (actionId === "happy" || actionId === "tired") {
+  if (actionId === "bottle") {
+    appendChildRecord("Meals", { childId, date: today, time, type: "Bottle", amount: "Logged", title: `Bottle | ${today} at ${time}`, summary: "Bottle logged", shareWithFamily: true });
+    return;
+  }
+  if (["wet-diaper", "bm", "potty", "diaper"].includes(actionId)) {
+    const typeMap = { "wet-diaper": "Wet", bm: "Dirty", potty: "Potty - Success", diaper: "Diaper Change" };
+    appendChildRecord("Diapers", { childId, date: today, time, type: typeMap[actionId], title: `${typeMap[actionId]} | ${today} at ${time}`, summary: typeMap[actionId], shareWithFamily: true });
+    return;
+  }
+  if (actionId === "nap-started" || actionId === "nap-ended" || actionId === "nap") {
+    appendChildRecord("Naps", {
+      childId,
+      date: today,
+      ...(actionId === "nap-ended" ? { napEnd: time } : { napStart: time }),
+      title: `Nap | ${today}`,
+      summary: actionId === "nap-ended" ? `Nap ended at ${time}` : `Nap started at ${time}`,
+      shareWithFamily: true,
+    });
+    return;
+  }
+  if (actionId === "happy" || actionId === "tired" || actionId === "observation") {
+    if (actionId === "observation") {
+      appendChildRecord("Observations", {
+        childId,
+        date: today,
+        text: "Observation noted from Daily Logs",
+        title: `Observation | ${today}`,
+        summary: "Observation noted",
+        shareWithFamily: false,
+      });
+      return;
+    }
     appendChildRecord("Communications", { childId, date: today, type: "Mood Note", mood: actionId === "happy" ? "Happy" : "Tired", title: `Mood | ${today}`, summary: actionId === "happy" ? "Happy" : "Tired", shareWithFamily: true });
+    return;
+  }
+  if (actionId === "incident") {
+    appendChildRecord("Communications", {
+      childId,
+      date: today,
+      time,
+      type: "Incident Report",
+      title: `Incident Report | ${today}`,
+      summary: "Incident noted — open to add details",
+      shareWithFamily: false,
+    });
+    return;
+  }
+  if (actionId === "parent-message") {
+    appendChildRecord("Communications", {
+      childId,
+      date: today,
+      time,
+      type: "Parent Message",
+      title: `Parent Message | ${today}`,
+      summary: "Parent message draft started",
+      message: "",
+      shareWithFamily: true,
+    });
+    return;
+  }
+  if (actionId === "photo") {
+    appendChildRecord("Photos", {
+      childId,
+      date: today,
+      time,
+      caption: "Photo moment",
+      title: `Photo | ${today}`,
+      summary: "Photo placeholder — add image from Photos tab",
+      shareWithFamily: true,
+    });
+    return;
+  }
+  if (actionId === "activity" || actionId === "daily-log") {
+    if (actionId === "daily-log") {
+      appendChildRecord("Communications", {
+        childId,
+        date: today,
+        time,
+        type: "Teacher Note",
+        title: `Daily Log | ${today}`,
+        summary: "Daily note started",
+        message: "",
+        shareWithFamily: false,
+      });
+      return;
+    }
+    appendChildRecord("ActivityLogs", {
+      childId,
+      date: today,
+      time,
+      activity: "Activity",
+      title: `Activity | ${today}`,
+      summary: "Activity logged",
+      shareWithFamily: true,
+    });
     return;
   }
   const activityMap = {
@@ -22573,62 +22758,86 @@ function getDailyLogStatus(child, records, today) {
   return "in-progress";
 }
 
-// Render a child status card for the Daily Logs dashboard
+function attendanceStateMeta(state) {
+  return {
+    not_arrived: { label: "Not checked in", badge: "⚪", className: "dlc-att-not-arrived", statusText: "Waiting" },
+    checked_in: { label: "Checked In", badge: "🟢", className: "dlc-att-checked-in", statusText: "Present" },
+    checked_out: { label: "Checked Out", badge: "⚪", className: "dlc-att-checked-out", statusText: "Checked Out" },
+    absent: { label: "Absent", badge: "🔴", className: "dlc-att-absent", statusText: "Absent" },
+  }[state] || { label: "Not checked in", badge: "⚪", className: "dlc-att-not-arrived", statusText: "Waiting" };
+}
+
+// Render a child status card for the Daily Logs dashboard (attendance-first)
 function renderDlcChildStatusCard(child, records, today) {
-  const status = getDailyLogStatus(child, records, today);
-  const statusLabel = { "not-started": "Not Started", "in-progress": "In Progress", complete: "Complete" }[status];
-  const statusClass = { "not-started": "dlc-status-not-started", "in-progress": "dlc-status-in-progress", complete: "dlc-status-complete" }[status];
-  const attendance = records.attendance.find((r) => r.childId === child.id && r.date === today);
-  const arrivalInfo = attendance?.dropoff ? `Arrived ${attendance.dropoff}` : attendance?.status === "Present" ? "Present" : attendance?.status === "Absent" ? "Absent" : "Not checked in";
+  const state = getChildAttendanceState(child, records, today);
+  const meta = attendanceStateMeta(state);
+  const attendance = getChildAttendanceRecord(child, records, today);
+  const detail = state === "checked_in" && attendance?.dropoff
+    ? `Checked In ${formatDlcClock(attendance.dropoff)}`
+    : state === "checked_out" && attendance?.pickup
+      ? `Checked Out ${formatDlcClock(attendance.pickup)}${attendance.dropoff ? ` · In ${formatDlcClock(attendance.dropoff)}` : ""}`
+      : state === "absent"
+        ? "Marked Absent"
+        : "Not checked in yet";
+  const primaryAction = state === "checked_in"
+    ? `<button class="primary-button dlc-att-primary" data-dlc-quick-action="check-out" data-dlc-quick-child="${child.id}" type="button">Check Out</button>`
+    : state === "absent"
+      ? `<button class="primary-button dlc-att-primary" data-dlc-quick-action="check-in" data-dlc-quick-child="${child.id}" type="button">Check In</button>`
+      : `<button class="primary-button dlc-att-primary" data-dlc-quick-action="check-in" data-dlc-quick-child="${child.id}" type="button">Check In</button>`;
   return `
-    <div class="dlc-child-card">
-      <div class="dlc-child-card-top">
-        ${renderChildAvatar(child, "small")}
+    <article class="dlc-child-card dlc-att-card ${meta.className}">
+      <button class="dlc-att-card-main" data-dlc-open-child="${child.id}" data-dlc-quick-tab="overview" type="button">
+        <span class="dlc-att-badge" aria-hidden="true">${meta.badge}</span>
         <div class="dlc-child-card-info">
           <h4>${escapeHtml(child.name)}</h4>
           <span class="dlc-child-card-age">${escapeHtml(childAgeLabel(child))}</span>
-          <span class="dlc-child-card-arrival">${escapeHtml(arrivalInfo)}</span>
+          <span class="dlc-child-card-arrival">${escapeHtml(detail)}</span>
         </div>
-        <span class="dlc-status-badge ${statusClass}">${statusLabel}</span>
+        <span class="dlc-status-badge ${meta.className}">${escapeHtml(meta.statusText)}</span>
+      </button>
+      <div class="dlc-child-card-actions dlc-att-card-actions">
+        ${primaryAction}
+        ${state !== "absent" ? `<button class="ghost-button" data-dlc-quick-action="absent" data-dlc-quick-child="${child.id}" type="button">Absent</button>` : ""}
+        <button class="ghost-button" data-dlc-open-child="${child.id}" data-dlc-quick-tab="overview" type="button">Open Day</button>
       </div>
-      <div class="dlc-child-card-actions">
-        <button class="dlc-quick-btn" data-dlc-open-child="${child.id}" data-dlc-quick-tab="attendance" type="button">Check In</button>
-        <button class="dlc-quick-btn" data-dlc-open-child="${child.id}" data-dlc-quick-tab="meals" type="button">+ Meal</button>
-        <button class="dlc-quick-btn" data-dlc-open-child="${child.id}" data-dlc-quick-tab="naps" type="button">+ Nap</button>
-        <button class="dlc-quick-btn" data-dlc-open-child="${child.id}" data-dlc-quick-tab="diapers" type="button">+ Diaper</button>
-        <button class="dlc-quick-btn" data-dlc-open-child="${child.id}" data-dlc-quick-tab="notes" type="button">+ Note</button>
-        <button class="dlc-quick-btn dlc-quick-btn-primary" data-dlc-open-child="${child.id}" data-dlc-quick-tab="overview" type="button">Open Log</button>
-      </div>
-    </div>
+    </article>
   `;
 }
 
-// Render the classroom overview stats row
+function renderDlcAttendanceSection(title, children, records, today, emptyLabel) {
+  return `
+    <section class="dlc-att-section">
+      <div class="dlc-att-section-header">
+        <h3>${escapeHtml(title)}</h3>
+        <span class="dlc-att-count">${children.length}</span>
+      </div>
+      ${children.length ? `
+        <div class="dlc-child-cards-grid dlc-att-grid">
+          ${children.map((child) => renderDlcChildStatusCard(child, records, today)).join("")}
+        </div>
+      ` : `<p class="dlc-att-empty">${escapeHtml(emptyLabel)}</p>`}
+    </section>
+  `;
+}
+
+// Render the classroom overview stats row (attendance-centered)
 function renderDlcClassroomOverview(activeChildren, records, today) {
-  const total = activeChildren.length;
-  const present = activeChildren.filter((c) => records.attendance.some((r) => r.childId === c.id && r.date === today && r.status === "Present")).length;
-  const notStarted = activeChildren.filter((c) => getDailyLogStatus(c, records, today) === "not-started").length;
-  const inProgress = activeChildren.filter((c) => getDailyLogStatus(c, records, today) === "in-progress").length;
-  const complete = activeChildren.filter((c) => getDailyLogStatus(c, records, today) === "complete").length;
-  const hasMedication = activeChildren.some((c) => {
-    const meds = childStore("Medications") || [];
-    return meds.some((m) => m.childId === c.id);
-  });
+  const present = activeChildren.filter((c) => getChildAttendanceState(c, records, today) === "checked_in").length;
+  const checkedOut = activeChildren.filter((c) => getChildAttendanceState(c, records, today) === "checked_out").length;
+  const absent = activeChildren.filter((c) => getChildAttendanceState(c, records, today) === "absent").length;
+  const waiting = activeChildren.filter((c) => getChildAttendanceState(c, records, today) === "not_arrived").length;
   const stats = [
-    { label: "Children Active", value: total, icon: "👶" },
-    { label: "Present Today", value: present, icon: "✅" },
-    { label: "Logs Not Started", value: notStarted, icon: "⬜", highlight: notStarted > 0 },
-    { label: "In Progress", value: inProgress, icon: "🔄" },
-    { label: "Complete", value: complete, icon: "✅", success: complete > 0 },
+    { label: "Present", value: present, className: "dlc-stat-success" },
+    { label: "Checked Out", value: checkedOut, className: "" },
+    { label: "Absent", value: absent, className: absent ? "dlc-stat-warn" : "" },
+    { label: "Not Arrived", value: waiting, className: waiting ? "dlc-stat-warn" : "" },
   ];
-  if (hasMedication) stats.push({ label: "Med Reminders", value: "⚠️", icon: "💊", warning: true });
   return `
     <div class="dlc-classroom-overview">
-      <h3 class="dlc-overview-heading">Today's Classroom</h3>
+      <h3 class="dlc-overview-heading">Who's here today</h3>
       <div class="dlc-stat-row">
-        ${stats.map(({ label, value, icon, highlight, success, warning }) => `
-          <div class="dlc-stat-card${highlight ? " dlc-stat-warn" : ""}${success ? " dlc-stat-success" : ""}${warning ? " dlc-stat-warning" : ""}">
-            <span class="dlc-stat-icon">${icon}</span>
+        ${stats.map(({ label, value, className }) => `
+          <div class="dlc-stat-card ${className}">
             <strong class="dlc-stat-value">${value}</strong>
             <span class="dlc-stat-label">${label}</span>
           </div>
@@ -22638,175 +22847,77 @@ function renderDlcClassroomOverview(activeChildren, records, today) {
   `;
 }
 
-// The main Daily Logs Dashboard – shown when provider first opens Daily Logs
+// The main Daily Logs Dashboard – attendance-first daily workspace
 function renderDlcDashboard(records) {
   const today = dlcDashboardDate || new Date().toISOString().slice(0, 10);
   const dateLabel = new Date(`${today}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
   const activeChildren = getActiveChildren(records);
   const hiddenChildren = getHiddenChildren(records);
-  const nextChildForUpdates = activeChildren.find((child) => getDailyLogStatus(child, records, today) !== "complete") || activeChildren[0] || null;
-  const nextChildForReports = activeChildren.find((child) => dailyLogCompletionState(child, records, today).percent > 0) || nextChildForUpdates;
-  const completionValues = activeChildren.map((child) => dailyLogCompletionState(child, records, today).percent);
-  const classroomCompletion = completionValues.length
-    ? Math.round(completionValues.reduce((sum, value) => sum + value, 0) / completionValues.length)
-    : 0;
-  const workflowSteps = [
-    {
-      number: 1,
-      title: "Classroom Meals",
-      detail: "Use the classroom meal flow first to capture breakfast, lunch, and snack updates for multiple children.",
-      actionHtml: `<button class="primary-button" data-dlc-dashboard-flow="meals" type="button">Open Classroom Meals</button>`,
-    },
-    {
-      number: 2,
-      title: "Classroom Activities",
-      detail: "Log shared activities next so the room's learning highlights are recorded in one place.",
-      actionHtml: `<button class="ghost-button" data-dlc-dashboard-flow="activities" type="button">Open Classroom Activities</button>`,
-    },
-    {
-      number: 3,
-      title: "Classroom Notes",
-      detail: "Capture classroom-wide notes and quick documentation before moving into child-specific follow-up.",
-      actionHtml: `<button class="ghost-button" data-daily-logs-section="quick" type="button">Open Classroom Notes</button>`,
-    },
-    {
-      number: 4,
-      title: "Quick Child Updates",
-      detail: activeChildren.length
-        ? `Finish individual updates for ${escapeHtml(nextChildForUpdates.name)} and the rest of the class below.`
-        : "Add a child profile to open individual daily log workspaces.",
-      actionHtml: nextChildForUpdates
-        ? `<button class="ghost-button" data-dlc-open-child="${nextChildForUpdates.id}" data-dlc-quick-tab="overview" type="button">Open Next Child</button>`
-        : `<button class="ghost-button" data-child-view="add" type="button">Add Child Profile</button>`,
-    },
-    {
-      number: 5,
-      title: "Generate Daily Reports",
-      detail: nextChildForReports
-        ? `Generate reports one child at a time for now, starting with ${escapeHtml(nextChildForReports.name)}.`
-        : "Daily reports stay inside each child's workspace. Batch report generation is not part of this step.",
-      actionHtml: nextChildForReports
-        ? `<button class="ghost-button" data-dlc-open-child="${nextChildForReports.id}" data-dlc-quick-tab="daily-report" type="button">Open Daily Report</button>`
-        : `<span class="dlc-workflow-pill">Per-child reports only</span>`,
-    },
-    {
-      number: 6,
-      title: "Print All Reports",
-      detail: activeChildren.length
-        ? `Print daily log reports for all ${activeChildren.length} active ${activeChildren.length === 1 ? "child" : "children"} for ${escapeHtml(dateLabel)} in one document.`
-        : "Add active children to enable batch printing.",
-      actionHtml: activeChildren.length
-        ? `<button class="primary-button" data-dlc-print-all type="button">Print All Reports</button>`
-        : `<span class="dlc-workflow-pill">No active children</span>`,
-    },
-  ];
+  const presentChildren = activeChildren.filter((c) => getChildAttendanceState(c, records, today) === "checked_in");
+  const checkedOutChildren = activeChildren.filter((c) => getChildAttendanceState(c, records, today) === "checked_out");
+  const absentChildren = activeChildren.filter((c) => getChildAttendanceState(c, records, today) === "absent");
+  const waitingChildren = activeChildren.filter((c) => getChildAttendanceState(c, records, today) === "not_arrived");
 
   return `
-    <div class="dlc-dashboard">
+    <div class="dlc-dashboard dlc-dashboard-attendance">
       <div class="dlc-dashboard-date-row">
-        <span class="dlc-dashboard-date-label">${escapeHtml(dateLabel)}</span>
+        <div>
+          <p class="eyebrow">Daily Logs</p>
+          <h3 class="dlc-dashboard-date-label">${escapeHtml(dateLabel)}</h3>
+          <p class="dlc-sub">Check children in, log the day, and open any child for their timeline.</p>
+        </div>
         <div class="dlc-dashboard-date-picker">
           <label class="dlc-date-picker-label" for="dlcDashboardDateInput">Date</label>
           <input id="dlcDashboardDateInput" class="dlc-date-input" type="date" value="${today}" data-dlc-dashboard-date />
         </div>
       </div>
 
-      <div class="dlc-plan-banner section-block">
-        <div>
-          <strong>Daily Logs Access</strong>
-          <p class="dlc-sub">${isProUser()
-            ? "Pro includes unlimited history, photos, AI daily reports, family messaging, observations, and classroom-wide updates."
-            : `Free includes attendance, meals, bottles, diapers, naps, activities, mood, teacher notes, quick documentation, print/save PDF, ${freeDailyLogPhotoLimit} photos per child each day, and ${freeDailyLogHistoryDays} days of history.`}</p>
-        </div>
-        ${dailyLogFeatureLabelHtml()}
-      </div>
-
       ${renderDlcClassroomOverview(activeChildren, records, today)}
 
-      <section class="section-block dlc-classroom-progress">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Today's Documentation</p>
-            <h4>Classroom completion</h4>
-          </div>
-        </div>
-        ${dailyLogProgressBar(classroomCompletion)}
-      </section>
-
-      <section class="section-block dlc-workflow-section">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Primary Workspace</p>
-            <h4>Follow today's Daily Logs workflow in order</h4>
-            <p class="muted-copy">Use this workspace for classroom-first updates, then finish child-specific logs, reports, and printing steps in sequence.</p>
-          </div>
-        </div>
-        <div class="dlc-workflow-list">
-          ${workflowSteps.map((step) => `
-            <article class="dlc-workflow-card${step.future ? " dlc-workflow-card-future" : ""}">
-              <div class="dlc-workflow-card-top">
-                <span class="dlc-workflow-step-number">Step ${step.number}</span>
-                ${step.future ? `<span class="dlc-workflow-step-tag">Later Phase</span>` : ""}
-              </div>
-              <strong class="dlc-workflow-title">${step.title}</strong>
-              <p class="dlc-sub">${step.detail}</p>
-              <div class="dlc-workflow-action">${step.actionHtml}</div>
-            </article>
-          `).join("")}
-        </div>
-      </section>
-
-      <div class="dlc-quick-doc-box section-block">
-        <div class="dlc-quick-doc-header">
-          <strong class="dlc-quick-doc-title">What happened today?</strong>
-          <p class="dlc-sub">Type a quick note, use voice input, or upload photos. AI will organize it — you review before saving.</p>
-        </div>
-        <div class="dlc-template-row">
-          ${dailyLogTemplates.map((template) => `<button class="ghost-button dlc-template-btn" data-dlc-template="${template.id}" type="button">${escapeHtml(template.label)}</button>`).join("")}
-        </div>
-        <div class="dlc-quick-doc-input-row">
-          <textarea id="dlcDashboardNote" class="dlc-dashboard-textarea" rows="3" placeholder="e.g. Everyone ate breakfast, painted, played outside. Oakley napped 12:15–2:00 and ate half of lunch."></textarea>
-        </div>
-        ${renderDlcOutputOptions("dlcDashOutput")}
-        <div class="dlc-quick-doc-controls">
-          <div class="dlc-quick-doc-children">
-            <label class="dlc-quick-doc-for-label">
-              For:
-              <select id="dlcDashboardNoteChild" class="dlc-inline-select">
-                <option value="all">All children</option>
-                ${activeChildren.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}
-              </select>
-            </label>
-          </div>
-          <div class="dlc-quick-doc-btns">
-            <button class="ghost-button dlc-speak-dash-btn" id="dlcSpeakDashBtn" type="button" aria-label="Voice input">🎤 Speak</button>
-            <button class="primary-button" id="dlcDashOrganizeBtn" type="button">✨ Organize with AI</button>
-          </div>
-        </div>
-        <div id="dlcDashboardNoteOutput" class="dlc-dash-output" style="display:none;"></div>
-      </div>
-      <div class="dlc-dashboard-actions-row">
-        <strong class="dlc-section-title">Other Daily Logs Tools</strong>
-        <div class="dlc-dashboard-action-btns">
-          <button class="ghost-button" ${isProUser() ? `data-daily-logs-section="group"` : `data-preview="daily-log-group-updates" data-pro-feature="daily-log-group-updates"`} type="button">📋 Group Update ${!isProUser() ? `<span class="mini-pro-label">Pro</span>` : ""}</button>
-          <button class="ghost-button" data-dlc-child-sel="multiple" data-dlc-from-dashboard type="button">👥 Select Children</button>
-        </div>
+      <div class="dlc-home-toolbar">
+        <button class="primary-button" data-daily-logs-section="group" type="button">Group Log</button>
+        <button class="ghost-button" data-dlc-dashboard-flow="activities" type="button">Group Activity</button>
+        <button class="ghost-button" data-dlc-dashboard-flow="meals" type="button">Group Meal</button>
+        <button class="ghost-button" data-dlc-print-all type="button">Print All Reports</button>
       </div>
 
-      <div class="dlc-children-section">
-        <div class="dlc-children-section-header">
-          <strong class="dlc-section-title">Active Children (${activeChildren.length})</strong>
+      ${activeChildren.length ? `
+        ${renderDlcAttendanceSection("Present", presentChildren, records, today, "No children checked in yet.")}
+        ${renderDlcAttendanceSection("Checked Out", checkedOutChildren, records, today, "No children checked out yet.")}
+        ${renderDlcAttendanceSection("Absent", absentChildren, records, today, "No absences marked.")}
+        ${renderDlcAttendanceSection("Not Arrived", waitingChildren, records, today, "Everyone has an attendance status.")}
+      ` : `
+        <div class="section-block empty-state">
+          <p>No active children. <button class="inline-link" data-child-view="add" type="button">Add a child profile</button> to start today's logs.</p>
         </div>
-        ${activeChildren.length ? `
-          <div class="dlc-child-cards-grid">
-            ${activeChildren.map((child) => renderDlcChildStatusCard(child, records, today)).join("")}
+      `}
+
+      <details class="dlc-optional-ai section-block">
+        <summary>Optional: Organize a note with AI</summary>
+        <div class="dlc-quick-doc-box">
+          <p class="dlc-sub">AI is optional. Type what happened, then review before saving.</p>
+          <div class="dlc-quick-doc-input-row">
+            <textarea id="dlcDashboardNote" class="dlc-dashboard-textarea" rows="3" placeholder="e.g. Everyone painted with watercolors and read Brown Bear."></textarea>
           </div>
-        ` : `
-          <div class="section-block empty-state">
-            <p>No active children. <button class="inline-link" data-child-view="add" type="button">Add a child profile</button> to get started.</p>
+          ${renderDlcOutputOptions("dlcDashOutput")}
+          <div class="dlc-quick-doc-controls">
+            <div class="dlc-quick-doc-children">
+              <label class="dlc-quick-doc-for-label">
+                For:
+                <select id="dlcDashboardNoteChild" class="dlc-inline-select">
+                  <option value="all">All children</option>
+                  ${activeChildren.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}
+                </select>
+              </label>
+            </div>
+            <div class="dlc-quick-doc-btns">
+              <button class="ghost-button" id="dlcSpeakDashBtn" type="button" aria-label="Voice input">Speak</button>
+              <button class="ghost-button" id="dlcDashOrganizeBtn" type="button">✨ Organize with AI</button>
+            </div>
           </div>
-        `}
-      </div>
+          <div id="dlcDashboardNoteOutput" class="dlc-dash-output" style="display:none;"></div>
+        </div>
+      </details>
 
       ${hiddenChildren.length ? `
         <details class="dlc-hidden-section">
@@ -22833,7 +22944,7 @@ function renderDailyLogsCenter(records) {
       <div class="child-page-header">
         <div>
           <h2>Daily Logs</h2>
-          <p>Track meals, naps, activities, and more throughout the day.</p>
+          <p>See who's here, check children in and out, and log the day as it happens.</p>
         </div>
         ${backTarget ? `<button class="ghost-button back-button" data-dlc-back="${backTarget}" type="button">← Back</button>` : ""}
       </div>
@@ -22856,7 +22967,7 @@ function renderDlcContent(records) {
   if (dailyLogsSection === "group") return renderDailyLogsGroupUpdate(records);
   if (dailyLogsSection === "individual") {
     const child = selectedChild(records);
-    return renderDailyLogsIndividual(child, records, new Date().toISOString().slice(0, 10));
+    return renderDailyLogsIndividual(child, records, dlcActiveDate());
   }
   if (dailyLogsSection === "quick") return renderDailyLogsQuickDoc(records);
   // "home" — show dashboard or step-by-step update flow
@@ -23438,8 +23549,12 @@ function buildDailyLogTimelineEntries(child, records, today) {
   const snapshot = dlcChildDaySnapshot(child, records, today);
   const entries = [];
   snapshot.attendance.forEach((item) => {
-    if (item.dropoff) entries.push({ time: item.dropoff, title: "Arrived", detail: item.status || "Present", shared: item.shareWithFamily !== false });
-    if (item.pickup) entries.push({ time: item.pickup, title: "Picked Up", detail: "", shared: item.shareWithFamily !== false });
+    if (String(item.status || "").toLowerCase() === "absent") {
+      entries.push({ time: dlcRecordTime(item) || "08:00", title: "Absent", detail: "", shared: item.shareWithFamily !== false });
+      return;
+    }
+    if (item.dropoff) entries.push({ time: item.dropoff, title: "Checked In", detail: item.status || "Present", shared: item.shareWithFamily !== false });
+    if (item.pickup) entries.push({ time: item.pickup, title: "Checked Out", detail: "", shared: item.shareWithFamily !== false });
   });
   snapshot.meals.forEach((item) => {
     const baseTime = dlcRecordTime(item);
@@ -23461,9 +23576,17 @@ function buildDailyLogTimelineEntries(child, records, today) {
   });
   snapshot.communications.forEach((item) => {
     const type = String(item.type || "");
-    if (["Behavior Note", "Mood Note", "Incident Report", "Parent Summary"].includes(type)) {
+    if (["Behavior Note", "Mood Note", "Incident Report", "Parent Summary", "Parent Message", "Teacher Note", "General Note", "Daily Log"].includes(type)) {
       entries.push({ time: dlcRecordTime(item), title: type, detail: item.summary || item.message || "", shared: item.shareWithFamily !== false });
     }
+  });
+  snapshot.observations.forEach((item) => {
+    entries.push({
+      time: dlcRecordTime(item),
+      title: "Observation",
+      detail: item.text || item.summary || item.developmentArea || "",
+      shared: item.shareWithFamily !== false,
+    });
   });
   snapshot.photos.forEach((item) => {
     entries.push({ time: dlcRecordTime(item), title: "Photo Added", detail: item.caption || "Photo saved to daily log", shared: item.shareWithFamily !== false });
@@ -24012,24 +24135,24 @@ function renderDailyLogsGroupUpdate(records) {
     return `
       <section class="section-block empty-state">
         <h3>No active child profiles.</h3>
-        <p>Add a child profile first to use Group Update.</p>
+        <p>Add a child profile first to use Group Log.</p>
         <button class="primary-button" data-child-view="add" type="button">Add Child</button>
       </section>
     `;
   }
   const groupActions = [
+    { id: "breakfast", label: "Add Breakfast", emoji: "🥣", description: "Log breakfast for selected children." },
     { id: "meals", label: "Add Lunch", emoji: "🍽️", description: "Log lunch for selected children." },
     { id: "snacks", label: "Add Snack", emoji: "🍎", description: "Log a snack for selected children." },
-    { id: "breakfast", label: "Add Breakfast", emoji: "🥣", description: "Log breakfast for selected children." },
-    { id: "activities", label: "Add Activity", emoji: "🎨", description: "Log a group activity for selected children." },
+    { id: "activities", label: "Add Activity", emoji: "🎨", description: "Log one activity once for multiple children." },
     { id: "announcement", label: "Add Announcement", emoji: "📢", description: "Save a parent announcement for selected children." },
     { id: "reminder", label: "Add Reminder", emoji: "🔔", description: "Save a parent reminder for selected children." },
   ];
   if (!dailyLogsGroupAction) {
     return `
       <div class="dlc-section">
-        <h3>Group Update</h3>
-        <p class="dlc-sub">Select an action to apply to multiple children at once.</p>
+        <h3>Group Log</h3>
+        <p class="dlc-sub">Write once, apply to multiple children. Perfect for shared meals and activities.</p>
         <div class="dlc-group-actions">
           ${groupActions.map((action) => `
             <button class="dlc-group-action-btn" data-dlc-group-action="${action.id}" type="button">
@@ -24043,19 +24166,19 @@ function renderDailyLogsGroupUpdate(records) {
     `;
   }
   const action = groupActions.find((a) => a.id === dailyLogsGroupAction) || groupActions[0];
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dlcActiveDate();
   return `
     <div class="dlc-section">
       <div class="dlc-section-header">
         <h3>${action.emoji} ${action.label}</h3>
         <button class="ghost-button" data-dlc-group-action="" type="button">← All Actions</button>
       </div>
-      <p class="dlc-sub">${action.description} Select which children to include.</p>
+      <p class="dlc-sub">${action.description} Select which children to include, then save once.</p>
       <form id="groupUpdateForm" class="dlc-group-form" data-group-action="${action.id}">
         <input name="date" type="hidden" value="${today}" />
         <input name="action" type="hidden" value="${action.id}" />
         <fieldset class="dlc-children-select">
-          <legend>Select Children</legend>
+          <legend>Apply to</legend>
           <div class="dlc-children-grid">
             ${children.map((child) => `
               <label class="dlc-child-check">
@@ -24207,117 +24330,94 @@ function renderDailyLogsChildTabContent(child, records, today) {
 }
 
 function renderDailyLogsOverviewTab(child, records, today) {
-  const attendance = records.attendance.filter((item) => item.childId === child.id && item.date === today).slice(-1)[0];
-  const meal = records.meals.filter((item) => item.childId === child.id && item.date === today).slice(-1)[0];
-  const nap = records.naps.filter((item) => item.childId === child.id && item.date === today).slice(-1)[0];
-  const diaper = records.diapers.filter((item) => item.childId === child.id && item.date === today).slice(-1)[0];
-  const activities = records.activityLogs.filter((item) => item.childId === child.id && item.date === today);
-  const notes = records.communications.filter((item) => item.childId === child.id && item.date === today && ["Teacher Note", "General Note", "Mood Note", "Behavior Note"].includes(item.type));
-  const messages = records.communications.filter((item) => item.childId === child.id && item.date === today && item.type !== "Behavior Note");
-  const reports = records.reports.filter((item) => item.childId === child.id && item.date === today);
+  const attendance = getChildAttendanceRecord(child, records, today);
+  const state = getChildAttendanceState(child, records, today);
+  const meta = attendanceStateMeta(state);
   const timelineEntries = buildDailyLogTimelineEntries(child, records, today);
   const reminders = buildDailyLogReminders(child, records, today);
   const parentSummary = getDailyLogParentSummaryDraft(child, records, today);
-  const completion = dailyLogCompletionState(child, records, today);
-  const summaryItems = [
-    { label: "Attendance", value: attendance ? `${attendance.status}` : null, tab: "attendance", icon: "📋" },
-    { label: "Meals", value: meal ? `Breakfast: ${meal.breakfast || "—"} | Lunch: ${meal.lunch || "—"} | Snack: ${meal.snack || "—"}` : null, tab: "meals", icon: "🍽️" },
-    { label: "Nap", value: nap ? `${nap.napStart || ""}${nap.napEnd ? " – " + nap.napEnd : ""}`.trim() || "Logged" : null, tab: "naps", icon: "😴" },
-    { label: "Diaper/Potty", value: diaper ? `${diaper.type || "Logged"}` : null, tab: "diapers", icon: "🚿" },
-    { label: "Activities", value: activities.length ? `${activities.length} logged` : null, tab: "activities", icon: "🎨" },
-    { label: "Notes", value: notes.length ? `${notes.length} note${notes.length > 1 ? "s" : ""}` : null, tab: "notes", icon: "📝" },
-    { label: "Parent Message", value: messages.length ? `${messages.length} message${messages.length > 1 ? "s" : ""}` : null, tab: "parent-message", icon: "💬" },
-    { label: "Daily Report", value: reports.length ? "Generated" : null, tab: "daily-report", icon: "📄" },
-  ];
   const dateLabel = new Date(`${today}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  const checkInLabel = attendance?.dropoff ? formatDlcClock(attendance.dropoff) : "—";
+  const checkOutLabel = attendance?.pickup ? formatDlcClock(attendance.pickup) : "—";
+  const quickActions = [
+    { id: "daily-log", label: "Daily Log", tab: "notes" },
+    { id: "observation", label: "Observation", tab: "notes" },
+    { id: "incident", label: "Incident Report", tab: "notes" },
+    { id: "parent-message", label: "Parent Message", tab: "parent-message" },
+    { id: "photo", label: "Photo", tab: "photos" },
+    { id: "meal", label: "Meal", tab: "meals" },
+    { id: "nap", label: "Nap", tab: "naps" },
+    { id: "diaper", label: "Diaper / Potty", tab: "diapers" },
+    { id: "activity", label: "Activity", tab: "activities" },
+  ];
   return `
-    <div class="dlc-overview">
-      <p class="dlc-overview-date">${dateLabel}</p>
-      <section class="section-block dlc-completion-card">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Today's Documentation</p>
-            <h4>${escapeHtml(child.name)}'s completion meter</h4>
-          </div>
-          ${dailyLogFeatureLabelHtml()}
+    <div class="dlc-overview dlc-day-workspace">
+      <div class="dlc-day-header">
+        <div>
+          <p class="dlc-overview-date">${dateLabel}</p>
+          <h3>${escapeHtml(child.name)}</h3>
+          <p class="dlc-sub">${escapeHtml(meta.label)}</p>
         </div>
-        ${dailyLogProgressBar(completion.percent)}
-        <div class="chip-list">${completion.items.map((item) => `<span class="chip ${item.done ? "chip-success" : ""}">${escapeHtml(item.label)}${item.done ? " ✓" : ""}</span>`).join("")}</div>
-      </section>
-      <div class="dlc-overview-grid">
-        ${summaryItems.map(({ label, value, tab, icon }) => `
-          <button class="dlc-overview-card ${value ? "dlc-overview-card--filled" : ""}" data-dlc-child-tab="${tab}" type="button">
-            <span class="dlc-overview-icon">${icon}</span>
-            <strong>${label}</strong>
-            <span>${value || "Not logged yet"}</span>
-          </button>
-        `).join("")}
-      </div>
-      <div class="dlc-quick-actions">
-        <strong>Quick Add</strong>
-        <div class="dlc-quick-btns">
-          <button class="ghost-button" data-dlc-quick-action="check-in" data-dlc-quick-child="${child.id}" type="button">Check In</button>
-          <button class="ghost-button" data-dlc-quick-action="check-out" data-dlc-quick-child="${child.id}" type="button">Check Out</button>
-          <button class="ghost-button" data-dlc-quick-action="ate-all" data-dlc-quick-child="${child.id}" type="button">Ate All</button>
-          <button class="ghost-button" data-dlc-quick-action="bottle" data-dlc-quick-child="${child.id}" type="button">Bottle</button>
-          <button class="ghost-button" data-dlc-quick-action="wet-diaper" data-dlc-quick-child="${child.id}" type="button">Wet Diaper</button>
-          <button class="ghost-button" data-dlc-quick-action="nap-started" data-dlc-quick-child="${child.id}" type="button">Nap Started</button>
-          <button class="ghost-button" data-dlc-quick-action="happy" data-dlc-quick-child="${child.id}" type="button">Happy</button>
-          <button class="ghost-button" data-dlc-quick-action="story-time" data-dlc-quick-child="${child.id}" type="button">Story Time</button>
+        <div class="dlc-day-times">
+          <div><span>Check-In</span><strong>${escapeHtml(checkInLabel)}</strong></div>
+          <div><span>Check-Out</span><strong>${escapeHtml(checkOutLabel)}</strong></div>
         </div>
       </div>
-      <div class="dlc-favorites-row">
-        <strong>Favorite activities</strong>
-        <div class="chip-list">${dailyLogFavorites().map((activity) => `<button class="chip chip-button" data-dlc-favorite-activity="${escapeHtml(activity)}" data-dlc-favorite-child="${child.id}" type="button">${escapeHtml(activity)}</button>`).join("")}</div>
-      </div>
-      <div class="quick-action-list">
-        <button class="ghost-button" data-dlc-child-tab="meals" type="button">+ Meal</button>
-        <button class="ghost-button" data-dlc-child-tab="naps" type="button">+ Nap</button>
-        <button class="ghost-button" data-dlc-child-tab="activities" type="button">+ Activity</button>
-        <button class="ghost-button" data-dlc-child-tab="notes" type="button">+ Note</button>
+      <div class="dlc-day-attendance-actions">
+        ${state === "checked_in"
+          ? `<button class="primary-button" data-dlc-quick-action="check-out" data-dlc-quick-child="${child.id}" type="button">Check Out</button>`
+          : `<button class="primary-button" data-dlc-quick-action="check-in" data-dlc-quick-child="${child.id}" type="button">Check In</button>`}
+        ${state !== "absent" ? `<button class="ghost-button" data-dlc-quick-action="absent" data-dlc-quick-child="${child.id}" type="button">Mark Absent</button>` : ""}
         <button class="ghost-button" data-print-daily-log="${child.id}" type="button">Print / Save PDF</button>
       </div>
-      <div class="dlc-overview-lower">
-        <section class="section-block dlc-timeline-card">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Timeline</p>
-              <h4>${escapeHtml(child.name)}'s Day</h4>
-            </div>
+      <section class="section-block dlc-quick-actions dlc-day-quick-actions">
+        <strong>Quick Actions</strong>
+        <div class="dlc-quick-btns">
+          ${quickActions.map((action) => `
+            <button class="ghost-button" data-dlc-quick-action="${action.id}" data-dlc-quick-child="${child.id}" data-dlc-after-tab="${action.tab}" type="button">+ ${escapeHtml(action.label)}</button>
+          `).join("")}
+        </div>
+        <details class="dlc-optional-ai-inline">
+          <summary>Optional AI helpers</summary>
+          <div class="dlc-quick-btns">
+            <button class="ghost-button" data-view="ai" data-quick-doc-type="observation" type="button">✨ Generate Observation</button>
+            <button class="ghost-button" data-view="ai" data-quick-doc-type="parent-message" type="button">✨ Generate Parent Message</button>
+            <button class="ghost-button" data-dlc-child-tab="daily-report" type="button">✨ End-of-Day Summary</button>
           </div>
-          ${timelineEntries.length ? `
-            <div class="dlc-timeline-list">
-              ${timelineEntries.map((entry) => `
-                <div class="dlc-timeline-item">
-                  <span class="dlc-timeline-time">${escapeHtml(entry.displayTime)}</span>
-                  <div class="dlc-timeline-content">
-                    <strong>${escapeHtml(entry.title)}</strong>
-                    <span>${escapeHtml(entry.detail || dlcVisibilityLabel(normalizeDlcShareValue(entry.shared)))}</span>
-                  </div>
-                </div>
-              `).join("")}
-            </div>
-          ` : `<p class="muted-copy">The timeline will update automatically as entries are added.</p>`}
-        </section>
-        <section class="section-block dlc-reminders-card">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Smart Reminders</p>
-              <h4>Gentle check-in</h4>
-            </div>
-          </div>
-          ${reminders.length ? `<div class="chip-list">${reminders.map((item) => `<span class="chip">${escapeHtml(item)}</span>`).join("")}</div>` : `<p class="muted-copy">Everything important looks covered so far.</p>`}
-        </section>
-      </div>
-      <section class="section-block dlc-parent-summary-card">
+        </details>
+      </section>
+      <section class="section-block dlc-timeline-card dlc-day-timeline">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Parent Summary</p>
-            <h4>Ready to review</h4>
-            <p class="muted-copy">AI drafts the family-friendly summary. Providers can edit before saving or sharing.</p>
+            <p class="eyebrow">Timeline</p>
+            <h4>${escapeHtml(child.name)}'s day</h4>
+            <p class="muted-copy">Everything appears chronologically as you log it.</p>
           </div>
         </div>
-        <textarea class="dlc-parent-summary-input" data-dlc-summary-input="${child.id}" rows="5">${escapeHtml(parentSummary)}</textarea>
+        ${timelineEntries.length ? `
+          <div class="dlc-timeline-list">
+            ${timelineEntries.map((entry) => `
+              <div class="dlc-timeline-item">
+                <span class="dlc-timeline-time">${escapeHtml(entry.displayTime)}</span>
+                <div class="dlc-timeline-content">
+                  <strong>${escapeHtml(entry.title)}</strong>
+                  <span>${escapeHtml(entry.detail || "")}</span>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        ` : `<p class="muted-copy">No entries yet. Check in or use a quick action to start the timeline.</p>`}
+      </section>
+      ${reminders.length ? `
+        <section class="section-block dlc-reminders-card">
+          <div class="section-heading"><div><p class="eyebrow">Reminders</p><h4>Still open</h4></div></div>
+          <div class="chip-list">${reminders.map((item) => `<span class="chip">${escapeHtml(item)}</span>`).join("")}</div>
+        </section>
+      ` : ""}
+      <details class="section-block dlc-parent-summary-card dlc-optional-ai">
+        <summary>Optional: Parent summary</summary>
+        <p class="muted-copy">Review and edit before saving. AI is optional — you stay in control.</p>
+        <textarea class="dlc-parent-summary-input" data-dlc-summary-input="${child.id}" rows="4">${escapeHtml(parentSummary)}</textarea>
         <div class="dlc-parent-summary-actions">
           <label class="dlc-check-label">
             <input type="checkbox" data-dlc-summary-share="${child.id}" checked />
@@ -24325,7 +24425,7 @@ function renderDailyLogsOverviewTab(child, records, today) {
           </label>
           <button class="primary-button" data-dlc-save-summary="${child.id}" type="button">Save Parent Summary</button>
         </div>
-      </section>
+      </details>
     </div>
   `;
 }
@@ -35421,6 +35521,41 @@ document.addEventListener("click", async (event) => {
     dailyLogsSection = "individual";
     dailyLogsChildTab = tab;
     childManagementMode = "daily-logs";
+    renderChildManagement();
+    return;
+  }
+
+  // One-tap attendance / timeline quick actions
+  const dlcQuickActionBtn = event.target.closest("[data-dlc-quick-action]");
+  if (dlcQuickActionBtn) {
+    event.preventDefault();
+    const actionId = dlcQuickActionBtn.dataset.dlcQuickAction || "";
+    const childId = dlcQuickActionBtn.dataset.dlcQuickChild || selectedChildId;
+    if (!actionId || !childId) return;
+    saveDailyLogQuickAction(actionId, childId, { date: dlcActiveDate() });
+    const afterTab = dlcQuickActionBtn.dataset.dlcAfterTab || "";
+    if (afterTab && !["check-in", "check-out", "absent"].includes(actionId)) {
+      selectedChildId = childId;
+      localStorage.setItem("llhSelectedChild", selectedChildId);
+      dailyLogsSection = "individual";
+      dailyLogsChildTab = afterTab;
+      childManagementMode = "daily-logs";
+    }
+    const labels = {
+      "check-in": "Checked in",
+      "check-out": "Checked out",
+      absent: "Marked absent",
+      "daily-log": "Daily note started",
+      observation: "Observation started",
+      incident: "Incident report started",
+      "parent-message": "Parent message started",
+      photo: "Photo entry started",
+      meal: "Meal logged",
+      nap: "Nap logged",
+      diaper: "Diaper / potty logged",
+      activity: "Activity logged",
+    };
+    showActionFeedback(labels[actionId] || "Saved.");
     renderChildManagement();
     return;
   }
