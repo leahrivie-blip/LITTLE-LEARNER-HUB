@@ -17077,3 +17077,13 @@ body.lesson-editor-view .main {
     left: 0;
   }
 }
+
+.dlc-timeline-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.dlc-timeline-item .llh-item-menu {
+  margin-left: auto;
+}

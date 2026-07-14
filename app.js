@@ -4990,7 +4990,7 @@ function curriculumDailyItemRowHtml(day, item = {}) {
           <button class="ghost-button" type="button" data-curriculum-activity-move="up" aria-label="Move activity up">↑</button>
           <button class="ghost-button" type="button" data-curriculum-activity-move="down" aria-label="Move activity down">↓</button>
           <button class="ghost-button" type="button" data-curriculum-activity-duplicate>Duplicate</button>
-          <button class="ghost-button curriculum-daily-remove" type="button" data-curriculum-remove-row>Delete</button>
+          <button class="ghost-button curriculum-daily-remove" type="button" data-curriculum-remove-row>Remove From Lesson Plan</button>
         </div>
       </div>
       <label>Move to weekday
@@ -6152,7 +6152,13 @@ function addCurriculumDailyPlanRow(day) {
   if (panel && "open" in panel) panel.open = true;
 }
 
-function removeCurriculumDailyPlanRow(button) {
+async function removeCurriculumDailyPlanRow(button) {
+  const confirmed = await confirmAction({
+    title: "Remove from lesson plan?",
+    message: "This removes the activity from this lesson plan only. When you save, the linked Activity Library entry is archived — not deleted permanently. The lesson plan itself is not deleted.",
+    confirmLabel: "Remove From Lesson Plan",
+  });
+  if (!confirmed) return;
   const row = button.closest(".curriculum-daily-item-row");
   const container = row?.closest("[data-curriculum-day-items]");
   row?.remove();
@@ -8366,10 +8372,14 @@ function dailyLogFeatureLabelHtml() {
 
 function childTimelineEntries(child, records) {
   const entries = [];
-  const addEntries = (items = [], titleBuilder, detailBuilder, type, timeBuilder = (item) => item.time || item.dropoff || item.pickup || "") => {
+  const addEntries = (items = [], titleBuilder, detailBuilder, type, storeKey, timeBuilder = (item) => item.time || item.dropoff || item.pickup || "") => {
     items.filter((item) => item.childId === child.id).forEach((item) => {
       entries.push({
         id: item.id || `${type}-${item.date || ""}-${item.createdAt || ""}`,
+        recordId: item.id || "",
+        storeKey: storeKey || "",
+        shareWithFamily: item.shareWithFamily,
+        archived: item.archived === true,
         childId: child.id,
         childName: child.name,
         date: item.date || String(item.createdAt || "").slice(0, 10),
@@ -8381,15 +8391,15 @@ function childTimelineEntries(child, records) {
       });
     });
   };
-  addEntries(records.attendance, (item) => item.pickup ? "Checked Out" : "Checked In", (item) => item.status || "Attendance saved", "Attendance", (item) => item.pickup || item.dropoff || item.time || "");
-  addEntries(records.meals, (item) => item.title || "Meal Logged", (item) => item.summary || item.notes || "Meal saved", "Daily Logs");
-  addEntries(records.naps, () => "Nap Logged", (item) => item.summary || item.notes || "Nap saved", "Daily Logs", (item) => item.napStart || item.napEnd || item.time || "");
-  addEntries(records.diapers, (item) => item.type || "Diaper / Potty", (item) => item.summary || item.notes || "Entry saved", "Daily Logs");
-  addEntries(records.activityLogs, (item) => item.activity || "Activity Logged", (item) => item.notes || item.area || "Activity saved", "Activities");
-  addEntries(records.observations, () => "Observation Created", (item) => item.text || item.summary || "Observation saved", "Observations");
-  addEntries(records.reports, (item) => item.type || item.title || "Report Generated", (item) => item.summary || item.message || "Report saved", "Reports");
-  addEntries(records.photos || [], () => "Photo Added", (item) => item.caption || item.summary || "Photo saved", "Photos");
-  addEntries(records.communications, (item) => item.type || "Note Saved", (item) => item.message || item.summary || "Communication saved", "Notes");
+  addEntries(records.attendance, (item) => item.pickup ? "Checked Out" : "Checked In", (item) => item.status || "Attendance saved", "Attendance", "Attendance", (item) => item.pickup || item.dropoff || item.time || "");
+  addEntries(records.meals, (item) => item.title || "Meal Logged", (item) => item.summary || item.notes || "Meal saved", "Daily Logs", "Meals");
+  addEntries(records.naps, () => "Nap Logged", (item) => item.summary || item.notes || "Nap saved", "Daily Logs", "Naps", (item) => item.napStart || item.napEnd || item.time || "");
+  addEntries(records.diapers, (item) => item.type || "Diaper / Potty", (item) => item.summary || item.notes || "Entry saved", "Daily Logs", "Diapers");
+  addEntries(records.activityLogs, (item) => item.activity || "Activity Logged", (item) => item.notes || item.area || "Activity saved", "Activities", "ActivityLogs");
+  addEntries(records.observations, () => "Observation Created", (item) => item.text || item.summary || "Observation saved", "Observations", "Observations");
+  addEntries(records.reports, (item) => item.type || item.title || "Report Generated", (item) => item.summary || item.message || "Report saved", "Reports", "Reports");
+  addEntries(records.photos || [], () => "Photo Added", (item) => item.caption || item.summary || "Photo saved", "Photos", "Photos");
+  addEntries(records.communications, (item) => item.type || "Note Saved", (item) => item.message || item.summary || "Communication saved", "Notes", "Communications");
   return filterDailyLogHistory(entries)
     .filter((item) => item.date)
     .sort((a, b) => `${b.date} ${b.time || ""}`.localeCompare(`${a.date} ${a.time || ""}`));
@@ -16720,7 +16730,7 @@ function curriculumPlannerObservationCardHtml(assignment, observation) {
       <small class="muted-copy">Updated ${(observation.updatedAt || "").slice(0, 10) || "—"}</small>
       <div class="form-actions">
         <button class="ghost-button" type="button" data-curriculum-planner-edit-observation="${escapeHtml(observation.id)}">Edit</button>
-        <button class="danger-button" type="button" data-curriculum-planner-delete-observation="${escapeHtml(observation.id)}">Delete</button>
+        <button class="danger-button" type="button" data-curriculum-planner-delete-observation="${escapeHtml(observation.id)}">Delete Permanently</button>
       </div>
     </article>
   `;
@@ -16793,7 +16803,7 @@ function curriculumPlannerClassroomEventCardHtml(event) {
       ${event.itemsToBring ? `<p class="muted-copy">Please bring: ${escapeHtml(event.itemsToBring)}</p>` : ""}
       <div class="form-actions">
         <button class="ghost-button" type="button" data-curriculum-planner-edit-event="${escapeHtml(event.id)}">Edit</button>
-        <button class="danger-button" type="button" data-curriculum-planner-delete-event="${escapeHtml(event.id)}">Delete</button>
+        <button class="danger-button" type="button" data-curriculum-planner-delete-event="${escapeHtml(event.id)}">Delete Permanently</button>
       </div>
     </article>
   `;
@@ -16974,7 +16984,7 @@ function renderCurriculumPlanner() {
             <button class="primary-button" type="submit" ${curriculumPlannerBusy ? "disabled" : ""}>
               ${curriculumPlannerBusy ? "Assigning…" : (assignment ? "Update Assignment" : "Assign to Week")}
             </button>
-            ${assignment ? `<button class="danger-button" type="button" data-curriculum-planner-remove-week="${escapeHtml(weekStart)}">Remove Assignment</button>` : ""}
+            ${assignment ? `<button class="danger-button" type="button" data-curriculum-planner-remove-week="${escapeHtml(weekStart)}">Remove From Week</button>` : ""}
             <button class="ghost-button" type="button" data-view="lessons">Browse Library</button>
           </div>
         </form>
@@ -20663,7 +20673,7 @@ function renderChildPortfolioPage(childId) {
         <div class="portfolio-two-column">
           ${portfolio.differentiations.length ? `<div>
             <h4>Activities Completed</h4>
-            <div class="resource-list compact">${portfolio.differentiations.map(simpleRecordItem).join("")}</div>
+            <div class="resource-list compact">${portfolio.differentiations.map((item) => simpleRecordItem(item, { storeKey: "Differentiations" })).join("")}</div>
           </div>` : ""}
           ${recommendedActivities.length ? `<div>
             <h4>Recommended Activities</h4>
@@ -20697,7 +20707,7 @@ function renderChildPortfolioPage(childId) {
           </div>
           <button class="ghost-button" data-build-daily-report="${child.id}" type="button">Generate Progress Report</button>
         </div>
-        <div class="resource-list compact">${portfolio.reports.map(simpleRecordItem).join("")}</div>
+        <div class="resource-list compact">${portfolio.reports.map((item) => simpleRecordItem(item, { storeKey: "Reports" })).join("")}</div>
       </section>` : ""}
 
     </section>
@@ -21847,13 +21857,18 @@ function renderChildTimelineTab(child, records) {
       </div>
       <div class="dlc-timeline-list child-timeline-list">
         ${entries.length ? entries.map((entry) => `
-          <article class="dlc-timeline-item">
+          <article class="dlc-timeline-item${entry.archived ? " is-archived" : ""}">
             <span class="dlc-timeline-time">${escapeHtml(entry.date)} · ${escapeHtml(entry.displayTime)}</span>
             <div class="dlc-timeline-content">
               <strong>${escapeHtml(entry.title)}</strong>
               <span>${escapeHtml(entry.detail || entry.type)}</span>
-              <small>${escapeHtml(entry.type)}</small>
+              <small>${escapeHtml(entry.type)}${entry.shareWithFamily === true ? " · Shared with Family" : ""}${entry.archived ? " · Archived" : ""}</small>
             </div>
+            ${entry.recordId && entry.storeKey ? itemActionMenuHtml(`timeline-${entry.storeKey}-${entry.recordId}`, childRecordActionMenuItems({
+              id: entry.recordId,
+              archived: entry.archived,
+              shareWithFamily: entry.shareWithFamily,
+            }, entry.storeKey)) : ""}
           </article>
         `).join("") : `<div class="empty-state">No matching timeline entries yet.</div>`}
       </div>
@@ -21937,7 +21952,7 @@ function renderChildLessonsTab(child, records, observations, goals, differentiat
           ${renderChipList(activities)}
         </div>
       </div>
-      <div class="resource-list compact">${differentiations.length ? differentiations.map(simpleRecordItem).join("") : `<div class="empty-state">No lesson plan supports saved yet.</div>`}</div>
+      <div class="resource-list compact">${differentiations.length ? differentiations.map((item) => simpleRecordItem(item, { storeKey: "Differentiations" })).join("") : `<div class="empty-state">No lesson plan supports saved yet.</div>`}</div>
     </section>
   `;
 }
@@ -24395,22 +24410,44 @@ function observationItem(item) {
   `;
 }
 
+function childRecordActionMenuItems(item, storeKey) {
+  if (!storeKey || !item?.id) return [];
+  const id = escapeHtml(item.id);
+  const key = escapeHtml(storeKey);
+  const actions = [
+    { label: "Edit", attr: `data-edit-child-record="${id}" data-store-key="${key}"` },
+  ];
+  if (item.archived) {
+    actions.push({ label: "Reactivate", attr: `data-archive-child-record="${id}" data-store-key="${key}" data-archive-state="0"` });
+  } else {
+    actions.push({ label: "Archive", attr: `data-archive-child-record="${id}" data-store-key="${key}" data-archive-state="1"` });
+  }
+  if (item.shareWithFamily === true) {
+    actions.push({ label: storeKey === "Photos" ? "Remove From Parent View" : "Stop Sharing With Family", attr: `data-stop-family-share="${id}" data-store-key="${key}"` });
+  } else if (item.shareWithFamily === false || storeKey === "Photos" || storeKey === "Communications" || storeKey === "Reports") {
+    actions.push({ label: "Share With Family Hub", attr: `data-start-family-share="${id}" data-store-key="${key}"` });
+  }
+  actions.push({ divider: true });
+  actions.push({ label: "Delete Permanently", attr: `data-delete-child-record="${id}" data-store-key="${key}"`, danger: true });
+  return actions;
+}
+
 function simpleRecordItem(item, options = {}) {
   const storeKey = options.storeKey || item._storeKey || "";
   const title = item.title || item.type || item.area || item.status || item.date || "Record";
   const detail = item.summary || item.message || item.goal || item.activity || item.notes || item.text || item.support || `${item.date || ""} ${item.status || ""}`.trim();
   const canAct = Boolean(storeKey && item.id);
   const menuId = canAct ? `record-${storeKey}-${item.id}` : "";
+  const shareTag = item.shareWithFamily === true ? `<span class="tag">Shared with Family</span>` : "";
+  const archivedTag = item.archived ? `<span class="tag">Archived</span>` : "";
   return `
-    <div class="compact-item">
+    <div class="compact-item${item.archived ? " is-archived" : ""}">
       <div>
         <strong>${escapeHtml(String(title))}</strong>
         <span>${escapeHtml(String(detail || "Saved record"))}</span>
+        ${shareTag}${archivedTag}
       </div>
-      ${canAct ? itemActionMenuHtml(menuId, [
-        { label: "Edit", attr: `data-edit-child-record="${escapeHtml(item.id)}" data-store-key="${escapeHtml(storeKey)}"` },
-        { label: "Delete Permanently", attr: `data-delete-child-record="${escapeHtml(item.id)}" data-store-key="${escapeHtml(storeKey)}"`, danger: true },
-      ]) : ""}
+      ${canAct ? itemActionMenuHtml(menuId, childRecordActionMenuItems(item, storeKey)) : ""}
     </div>
   `;
 }
@@ -24654,6 +24691,36 @@ async function deleteChildRecordPermanently(storeKey, recordId) {
   if (!confirmed) return false;
   saveChildStore(storeKey, childStore(storeKey).filter((item) => item.id !== recordId));
   showActionFeedback("Entry deleted.");
+  renderChildManagement();
+  return true;
+}
+
+async function archiveChildRecord(storeKey, recordId, shouldArchive = true) {
+  if (!storeKey || !recordId) return false;
+  saveChildStore(storeKey, childStore(storeKey).map((item) => (
+    item.id === recordId ? { ...item, archived: shouldArchive, updatedAt: new Date().toISOString() } : item
+  )));
+  showActionFeedback(shouldArchive ? "Entry archived." : "Entry reactivated.");
+  renderChildManagement();
+  return true;
+}
+
+async function setChildRecordFamilyShare(storeKey, recordId, shared) {
+  if (!storeKey || !recordId) return false;
+  if (!shared) {
+    const confirmed = await confirmAction({
+      title: storeKey === "Photos" ? "Remove from parent view?" : "Stop sharing with Family Hub?",
+      message: storeKey === "Photos"
+        ? "This removes the photo from parent/Family Hub view only. The photo stays in your child records."
+        : "This stops sharing with Family Hub. The original record stays in your logs.",
+      confirmLabel: storeKey === "Photos" ? "Remove From Parent View" : "Stop Sharing",
+    });
+    if (!confirmed) return false;
+  }
+  saveChildStore(storeKey, childStore(storeKey).map((item) => (
+    item.id === recordId ? { ...item, shareWithFamily: Boolean(shared), updatedAt: new Date().toISOString() } : item
+  )));
+  showActionFeedback(shared ? "Shared with Family Hub." : (storeKey === "Photos" ? "Removed from parent view." : "Stopped sharing with Family Hub."));
   renderChildManagement();
   return true;
 }
@@ -25056,10 +25123,17 @@ function renderGeneratedHistory() {
     ? items.map((item) => `
       <div class="compact-item generated-item">
         <div>
-          <strong>${item.title}</strong>
-          <span>${item.date} · ${item.text.slice(0, 92)}${item.text.length > 92 ? "..." : ""}</span>
+          <strong>${escapeHtml(item.title)}</strong>
+          <span>${escapeHtml(item.date)} · ${escapeHtml(item.text.slice(0, 92))}${item.text.length > 92 ? "..." : ""}</span>
         </div>
-        <button class="ghost-button" data-load-output="${item.id}" type="button">Open</button>
+        <div class="goal-card-actions">
+          <button class="ghost-button" data-load-output="${escapeHtml(item.id)}" type="button">Open</button>
+          ${itemActionMenuHtml(`generated-${item.id}`, [
+            { label: "Open", attr: `data-load-output="${escapeHtml(item.id)}"` },
+            { divider: true },
+            { label: "Delete Permanently", attr: `data-delete-generated-output="${escapeHtml(item.id)}"`, danger: true },
+          ])}
+        </div>
       </div>
     `).join("")
     : `<div class="empty-state">Generated AI results you save will show up here for quick reuse.</div>`;
@@ -26326,7 +26400,7 @@ function lessonPlanAdminCardHtml(plan) {
           ? `<button class="ghost-button" type="button" data-admin-lesson-archive="${plan.id}">📦 Archive</button>`
           : ""
         }
-        <button class="danger-button" type="button" data-admin-lesson-delete="${plan.id}">Delete</button>
+        <button class="danger-button" type="button" data-admin-lesson-delete="${plan.id}">Delete Permanently</button>
       </div>
     </article>
   `;
@@ -26937,12 +27011,25 @@ async function archiveAdminLessonPlan(id) {
 
 async function deleteAdminLessonPlan(id) {
   const record = allLessonPlansForAdmin().find((item) => item.id === id);
-  if (!record || !window.confirm("Delete this lesson plan?")) return;
+  if (!record) return;
   if (!record.isCustom) {
+    const confirmedArchive = await confirmAction({
+      title: "Archive built-in lesson plan?",
+      message: "Built-in lesson plans cannot be permanently deleted. Archive hides this plan from the public library. You can restore it later.",
+      confirmLabel: "Archive Lesson Plan",
+    });
+    if (!confirmedArchive) return;
     await archiveAdminLessonPlan(id);
     if (adminLessonEditorId === id) adminLessonEditorId = "";
     return;
   }
+  const confirmed = await confirmAction({
+    title: "Delete lesson plan permanently?",
+    message: "Delete this custom lesson plan permanently? Archive is preferred if you may need it later. This cannot be undone.",
+    confirmLabel: "Delete Permanently",
+    danger: true,
+  });
+  if (!confirmed) return;
   await runAdminAction({
     messageSelector: "#adminLessonPlanMessage",
     actionFn: async () => {
@@ -26951,7 +27038,7 @@ async function deleteAdminLessonPlan(id) {
       await saveAdminSiteContent(nextContent);
       if (adminLessonEditorId === id) adminLessonEditorId = "";
     },
-    successMsg: "✅ Lesson plan deleted.",
+    successMsg: "✅ Lesson plan deleted permanently.",
     onComplete: () => renderAdminContentManager(),
   });
 }
@@ -27462,7 +27549,7 @@ function adminManagedCardHtml(type, item) {
           ? `<button class="ghost-button" type="button" data-admin-managed-archive="${type}:${item.id}">📦 Archive</button>`
           : ""
         }
-        <button class="danger-button" type="button" data-admin-managed-delete="${type}:${item.id}">Delete</button>
+        <button class="danger-button" type="button" data-admin-managed-delete="${type}:${item.id}">Delete Permanently</button>
       </div>
     </article>
   `;
@@ -27734,7 +27821,14 @@ async function duplicateAdminManagedCollectionItem(type, id) {
 
 async function deleteAdminManagedCollectionItem(type, id) {
   const config = adminManagedContentConfig[type];
-  if (!config || !window.confirm(`Delete this ${config.singular.toLowerCase()}?`)) return;
+  if (!config) return;
+  const confirmed = await confirmAction({
+    title: `Delete ${config.singular.toLowerCase()} permanently?`,
+    message: `Delete this ${config.singular.toLowerCase()} permanently? Archive is preferred if you may need it later. This cannot be undone.`,
+    confirmLabel: "Delete Permanently",
+    danger: true,
+  });
+  if (!confirmed) return;
   await runAdminAction({
     messageSelector: adminManagedMessageSelector(type),
     actionFn: async () => {
@@ -27744,7 +27838,7 @@ async function deleteAdminManagedCollectionItem(type, id) {
       syncSiteManagedResources();
       if (adminManagedEditorId(type) === id) setAdminManagedEditorId(type, "");
     },
-    successMsg: `✅ ${config.singular} deleted.`,
+    successMsg: `✅ ${config.singular} deleted permanently.`,
     onComplete: () => renderAdminManagedCollection(type),
   });
 }
@@ -29930,7 +30024,7 @@ function adminRow(item) {
         <div class="table-actions">
           <button class="ghost-button" data-admin-edit="${item.id}">Edit</button>
           <button class="ghost-button" data-admin-toggle-visibility="${item.id}">${isHidden ? "Unhide" : "Hide"}</button>
-          <button class="danger-button" data-admin-delete="${item.id}">Delete</button>
+          <button class="danger-button" data-admin-delete="${item.id}">Delete Permanently</button>
         </div>
       </td>
     </tr>
@@ -29965,11 +30059,18 @@ function fillAdminForm(id) {
 }
 
 async function deleteAdminResource(id) {
+  const confirmed = await confirmAction({
+    title: "Delete upload permanently?",
+    message: "Delete this legacy upload permanently? This cannot be undone.",
+    confirmLabel: "Delete Permanently",
+    danger: true,
+  });
+  if (!confirmed) return;
   try {
     await deleteUploadedResourceFromBackend(id);
     favorites = favorites.filter((favorite) => favorite !== id);
     saveFavorites();
-    setFormMessage("#adminUploadMessage", "✅ Upload deleted.", true);
+    setFormMessage("#adminUploadMessage", "✅ Upload deleted permanently.", true);
     renderAdminDashboard();
   } catch (error) {
     console.warn("Uploaded resource backend delete failed", error);
@@ -34853,9 +34954,16 @@ document.addEventListener("click", async (event) => {
     const presetId = form?.querySelector("[data-meal-preset-select]")?.value || "";
     const preset = mealPresets().find((item) => item.id === presetId);
     if (!preset) return;
-    if (!window.confirm(`Delete preset "${preset.name}"?`)) return;
-    deleteMealPreset(presetId);
-    renderChildManagement();
+    confirmAction({
+      title: "Delete meal preset permanently?",
+      message: `Delete preset “${preset.name || "this preset"}” permanently? This cannot be undone.`,
+      confirmLabel: "Delete Permanently",
+      danger: true,
+    }).then((confirmed) => {
+      if (!confirmed) return;
+      deleteMealPreset(presetId);
+      renderChildManagement();
+    });
     return;
   }
 
@@ -35345,6 +35453,42 @@ document.addEventListener("click", async (event) => {
     deleteChildRecordPermanently(
       deleteChildRecordButton.dataset.storeKey || "",
       deleteChildRecordButton.dataset.deleteChildRecord || "",
+    );
+    return;
+  }
+
+  const archiveChildRecordButton = event.target.closest("[data-archive-child-record]");
+  if (archiveChildRecordButton) {
+    event.preventDefault();
+    closeAllItemActionMenus();
+    archiveChildRecord(
+      archiveChildRecordButton.dataset.storeKey || "",
+      archiveChildRecordButton.dataset.archiveChildRecord || "",
+      archiveChildRecordButton.dataset.archiveState !== "0",
+    );
+    return;
+  }
+
+  const stopFamilyShareButton = event.target.closest("[data-stop-family-share]");
+  if (stopFamilyShareButton) {
+    event.preventDefault();
+    closeAllItemActionMenus();
+    setChildRecordFamilyShare(
+      stopFamilyShareButton.dataset.storeKey || "",
+      stopFamilyShareButton.dataset.stopFamilyShare || "",
+      false,
+    );
+    return;
+  }
+
+  const startFamilyShareButton = event.target.closest("[data-start-family-share]");
+  if (startFamilyShareButton) {
+    event.preventDefault();
+    closeAllItemActionMenus();
+    setChildRecordFamilyShare(
+      startFamilyShareButton.dataset.storeKey || "",
+      startFamilyShareButton.dataset.startFamilyShare || "",
+      true,
     );
     return;
   }
@@ -36331,7 +36475,13 @@ document.addEventListener("click", async (event) => {
 
   if (event.target.closest("[data-curriculum-planner-remove-week]")) {
     const week = event.target.closest("[data-curriculum-planner-remove-week]").dataset.curriculumPlannerRemoveWeek;
-    if (week && window.confirm("Remove the lesson plan assignment for this week?")) {
+    if (!week) return;
+    confirmAction({
+      title: "Remove assignment from week?",
+      message: "This removes the lesson plan from this week only. The original lesson plan will not be deleted.",
+      confirmLabel: "Remove From Week",
+    }).then((confirmed) => {
+      if (!confirmed) return;
       removeCurriculumWeekAssignment(week);
       curriculumPlannerEditingObservationId = "";
       curriculumPlannerObservationPresetDay = "";
@@ -36339,7 +36489,7 @@ document.addEventListener("click", async (event) => {
       curriculumPlannerEventPresetDay = "";
       curriculumPlannerShowParentPreview = false;
       renderCurriculumPlanner();
-    }
+    });
     return;
   }
 
@@ -36365,9 +36515,16 @@ document.addEventListener("click", async (event) => {
   const plannerDeleteEventButton = event.target.closest("[data-curriculum-planner-delete-event]");
   if (plannerDeleteEventButton) {
     const eventId = plannerDeleteEventButton.dataset.curriculumPlannerDeleteEvent;
-    if (eventId && window.confirm("Delete this classroom event from the Parent Calendar?")) {
+    if (!eventId) return;
+    confirmAction({
+      title: "Delete classroom event permanently?",
+      message: "Delete this classroom event from the Parent Calendar permanently? This cannot be undone.",
+      confirmLabel: "Delete Permanently",
+      danger: true,
+    }).then((confirmed) => {
+      if (!confirmed) return;
       deleteCurriculumPlannerClassroomEvent(curriculumPlannerSelectedWeek, eventId);
-    }
+    });
     return;
   }
 
@@ -36407,9 +36564,16 @@ document.addEventListener("click", async (event) => {
   const plannerDeleteObservationButton = event.target.closest("[data-curriculum-planner-delete-observation]");
   if (plannerDeleteObservationButton) {
     const observationId = plannerDeleteObservationButton.dataset.curriculumPlannerDeleteObservation;
-    if (observationId && window.confirm("Delete this teacher observation?")) {
+    if (!observationId) return;
+    confirmAction({
+      title: "Delete observation permanently?",
+      message: "Delete this teacher observation permanently? This cannot be undone.",
+      confirmLabel: "Delete Permanently",
+      danger: true,
+    }).then((confirmed) => {
+      if (!confirmed) return;
       deleteCurriculumPlannerObservation(curriculumPlannerSelectedWeek, observationId);
-    }
+    });
     return;
   }
 
@@ -36423,9 +36587,15 @@ document.addEventListener("click", async (event) => {
   const clearNotesButton = event.target.closest("[data-curriculum-planner-clear-notes]");
   if (clearNotesButton) {
     const week = clearNotesButton.dataset.curriculumPlannerClearNotes;
-    if (week && window.confirm("Clear weekly and daily teacher notes for this week? Observations will stay.")) {
+    if (!week) return;
+    confirmAction({
+      title: "Clear week notes?",
+      message: "Clear weekly and daily teacher notes for this week? Observations will stay.",
+      confirmLabel: "Clear Notes",
+    }).then((confirmed) => {
+      if (!confirmed) return;
       clearCurriculumPlannerTeacherNotes(week);
-    }
+    });
     return;
   }
 
@@ -36689,6 +36859,7 @@ document.addEventListener("click", async (event) => {
 
   const loadOutputButton = event.target.closest("[data-load-output]");
   if (loadOutputButton) {
+    closeAllItemActionMenus();
     const item = generatedOutputs().find((saved) => saved.id === loadOutputButton.dataset.loadOutput);
     if (!item) return;
     document.querySelector("#outputTitle").textContent = item.title;
@@ -36698,6 +36869,26 @@ document.addEventListener("click", async (event) => {
       outputEl.dataset.rawMarkdown = item.text;
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+
+  const deleteGeneratedOutputButton = event.target.closest("[data-delete-generated-output]");
+  if (deleteGeneratedOutputButton) {
+    event.preventDefault();
+    closeAllItemActionMenus();
+    const outputId = deleteGeneratedOutputButton.dataset.deleteGeneratedOutput || "";
+    confirmAction({
+      title: "Delete generated result permanently?",
+      message: "Delete this saved AI result permanently? This cannot be undone.",
+      confirmLabel: "Delete Permanently",
+      danger: true,
+    }).then((confirmed) => {
+      if (!confirmed) return;
+      saveGeneratedOutputs(generatedOutputs().filter((item) => item.id !== outputId));
+      renderGeneratedHistory();
+      showActionFeedback("Generated result deleted.");
+    });
+    return;
   }
 
   const copyFutureButton = event.target.closest("#copyFutureOutputButton");
