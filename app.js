@@ -2907,7 +2907,15 @@ async function syncSubscriptionFromBackend(email, options = {}) {
       if (options.renderFounding) refreshFoundingDisplays();
       return data;
     }
+    // Preserve / adopt accountType + role from server when present.
+    if (data?.subscription?.accountType) {
+      updates.accountType = normalizeAccountType(data.subscription.accountType);
+    }
+    if (data?.subscription?.role) {
+      updates.role = normalizeUserRole(data.subscription.role);
+    }
     updateAccount(cleanEmail, updates);
+    ensureAccountAccessMigrated(cleanEmail);
     if (cleanEmail === currentUser) {
       currentPlan = updates.plan;
       localStorage.setItem("llhPlan", currentPlan);
@@ -7327,6 +7335,200 @@ function currentAccount() {
   return accounts()[currentUser] || null;
 }
 
+// ─── Account Type + User Role (mirrors scripts/account-access.js) ───────────
+// Account Type (home_daycare | center) is separate from User Role
+// (owner | director | teacher | assistant). Subscription/plan checks stay separate.
+const ACCOUNT_TYPES = Object.freeze({
+  HOME_DAYCARE: "home_daycare",
+  CENTER: "center",
+});
+
+const USER_ROLES = Object.freeze({
+  OWNER: "owner",
+  DIRECTOR: "director",
+  TEACHER: "teacher",
+  ASSISTANT: "assistant",
+});
+
+const PLATFORM_CAPABILITIES = Object.freeze([
+  "calendar",
+  "lesson_plans",
+  "daily_logs",
+  "child_profiles",
+  "activity_library",
+  "documentation_helpers",
+  "forms",
+  "reports",
+  "resources",
+  "settings",
+  "staff_management",
+  "billing",
+  "permissions",
+  "classrooms",
+  "families",
+  "enrollment",
+]);
+
+const ACCOUNT_TYPE_ALIASES = Object.freeze({
+  home_daycare: ACCOUNT_TYPES.HOME_DAYCARE,
+  "home daycare": ACCOUNT_TYPES.HOME_DAYCARE,
+  homedaycare: ACCOUNT_TYPES.HOME_DAYCARE,
+  "family childcare": ACCOUNT_TYPES.HOME_DAYCARE,
+  "family child care": ACCOUNT_TYPES.HOME_DAYCARE,
+  family_childcare: ACCOUNT_TYPES.HOME_DAYCARE,
+  center: ACCOUNT_TYPES.CENTER,
+  "childcare center": ACCOUNT_TYPES.CENTER,
+  "child care center": ACCOUNT_TYPES.CENTER,
+  childcare_center: ACCOUNT_TYPES.CENTER,
+  preschool: ACCOUNT_TYPES.CENTER,
+  "preschool classroom": ACCOUNT_TYPES.CENTER,
+  "after school program": ACCOUNT_TYPES.CENTER,
+  after_school: ACCOUNT_TYPES.CENTER,
+  other: ACCOUNT_TYPES.HOME_DAYCARE,
+});
+
+const USER_ROLE_ALIASES = Object.freeze({
+  owner: USER_ROLES.OWNER,
+  director: USER_ROLES.DIRECTOR,
+  teacher: USER_ROLES.TEACHER,
+  "lead teacher": USER_ROLES.TEACHER,
+  lead_teacher: USER_ROLES.TEACHER,
+  assistant: USER_ROLES.ASSISTANT,
+  "co-teacher": USER_ROLES.TEACHER,
+  coteacher: USER_ROLES.TEACHER,
+  "family helper": USER_ROLES.ASSISTANT,
+  substitute: USER_ROLES.ASSISTANT,
+});
+
+function normalizeAccountType(value, fallback = ACCOUNT_TYPES.HOME_DAYCARE) {
+  const key = String(value || "").trim().toLowerCase();
+  if (!key) return fallback;
+  return ACCOUNT_TYPE_ALIASES[key] || fallback;
+}
+
+function normalizeUserRole(value, fallback = USER_ROLES.OWNER) {
+  const key = String(value || "").trim().toLowerCase();
+  if (!key) return fallback;
+  return USER_ROLE_ALIASES[key] || fallback;
+}
+
+function mapProgramTypeToAccountType(programType) {
+  return normalizeAccountType(programType, ACCOUNT_TYPES.HOME_DAYCARE);
+}
+
+function resolveAccountType(account = {}) {
+  if (account?.accountType) return normalizeAccountType(account.accountType);
+  const programType = account?.programSettings?.programType;
+  if (programType) return mapProgramTypeToAccountType(programType);
+  return ACCOUNT_TYPES.HOME_DAYCARE;
+}
+
+function resolveUserRole(account = {}) {
+  if (account?.role) return normalizeUserRole(account.role);
+  if (account?.userRole) return normalizeUserRole(account.userRole);
+  return USER_ROLES.OWNER;
+}
+
+function roleAllowsCapability(role, capability) {
+  const r = normalizeUserRole(role);
+  switch (capability) {
+    case "calendar":
+    case "lesson_plans":
+    case "daily_logs":
+    case "child_profiles":
+    case "activity_library":
+    case "documentation_helpers":
+    case "forms":
+    case "reports":
+    case "resources":
+    case "settings":
+      return true;
+    case "staff_management":
+    case "permissions":
+      return r === USER_ROLES.OWNER || r === USER_ROLES.DIRECTOR;
+    case "billing":
+      return r === USER_ROLES.OWNER;
+    case "classrooms":
+    case "families":
+    case "enrollment":
+      return r === USER_ROLES.OWNER || r === USER_ROLES.DIRECTOR;
+    default:
+      return false;
+  }
+}
+
+function accountTypeAllowsCapability(accountType, capability) {
+  const type = normalizeAccountType(accountType);
+  if (capability === "classrooms" || capability === "families" || capability === "enrollment") {
+    return type === ACCOUNT_TYPES.CENTER;
+  }
+  return true;
+}
+
+function canAccessCapability(account, capability, options = {}) {
+  if (!capability || !PLATFORM_CAPABILITIES.includes(capability)) return false;
+  if (options.adminOverride === true) return true;
+  if (!account) return false;
+  const accountType = resolveAccountType(account);
+  const role = resolveUserRole(account);
+  if (!accountTypeAllowsCapability(accountType, capability)) return false;
+  if (!roleAllowsCapability(role, capability)) return false;
+  return true;
+}
+
+function migrateAccountAccessFields(account = {}) {
+  const accountType = resolveAccountType(account);
+  const role = resolveUserRole(account);
+  const changed = account.accountType !== accountType || account.role !== role;
+  return {
+    accountType,
+    role,
+    changed,
+    updates: changed ? { accountType, role } : {},
+  };
+}
+
+function defaultAccountAccessFields() {
+  return {
+    accountType: ACCOUNT_TYPES.HOME_DAYCARE,
+    role: USER_ROLES.OWNER,
+  };
+}
+
+/** Current session account type. Guests default to home_daycare. */
+function getAccountType(account = currentAccount()) {
+  if (!account) return ACCOUNT_TYPES.HOME_DAYCARE;
+  return resolveAccountType(account);
+}
+
+/** Current session user role. Guests default to owner for read-only marketing paths. */
+function getUserRole(account = currentAccount()) {
+  if (!account) return USER_ROLES.OWNER;
+  return resolveUserRole(account);
+}
+
+/**
+ * Platform feature gate (roles + account type).
+ * Distinct from canAccess(resource) which gates Free vs Pro library content.
+ */
+function canAccessPlatformFeature(capability, account = currentAccount()) {
+  return canAccessCapability(account, capability, {
+    adminOverride: typeof hasAdminFullAccess === "function" && hasAdminFullAccess(),
+  });
+}
+
+function ensureAccountAccessMigrated(email = currentUser) {
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  if (!cleanEmail) return null;
+  const account = ensureAccount(cleanEmail);
+  if (!account) return null;
+  const migration = migrateAccountAccessFields(account);
+  if (migration.changed) {
+    return updateAccount(cleanEmail, migration.updates);
+  }
+  return account;
+}
+
 function ensureAccount(email) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail) return null;
@@ -7351,6 +7553,7 @@ function ensureAccount(email) {
       authProvider: authProviderName,
       emailVerified: !firebaseAuthEnabled,
       passwordHash: "",
+      ...defaultAccountAccessFields(),
       createdAt: new Date().toISOString(),
     };
     saveAccounts(allAccounts);
@@ -7379,13 +7582,27 @@ function getProgramSettings() {
 
 function saveProgramSettings(data) {
   if (!currentUser) return;
-  updateAccount(currentUser, { programSettings: data });
+  const account = currentAccount() || ensureAccount(currentUser);
+  const nextSettings = data && typeof data === "object" ? data : {};
+  const updates = { programSettings: nextSettings };
+  // Keep accountType in sync with Program Settings programType when present.
+  // Explicit accountType already set to center/home_daycare still follows programType on save
+  // so providers who update Program Type get the matching account type.
+  if (nextSettings.programType) {
+    updates.accountType = mapProgramTypeToAccountType(nextSettings.programType);
+  }
+  const migration = migrateAccountAccessFields({ ...account, ...updates });
+  if (!updates.accountType) updates.accountType = migration.accountType;
+  if (!account?.role) updates.role = migration.role;
+  updateAccount(currentUser, updates);
 }
 
 function loadAccountState(email) {
   const account = ensureAccount(email);
   if (!account) return;
   currentUser = account.email;
+  // Backfill accountType + role for existing accounts (defaults: home_daycare / owner).
+  ensureAccountAccessMigrated(account.email);
   currentPlan = normalizeBillingPlan(account.plan || (account.foundingMember ? "Founding" : "Free"), account);
   if (currentPlan === "Free" && (account.plan !== "Free" || account.monthlyPrice !== "$0/month")) {
     updateAccount(account.email, {

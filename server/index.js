@@ -4,6 +4,7 @@ const http = require("node:http");
 const path = require("node:path");
 const { URL } = require("node:url");
 const membershipAccess = require("../scripts/membership-access.js");
+const accountAccess = require("../scripts/account-access.js");
 const scheduleLib = require("./schedule-lib.js");
 
 loadEnvFile(path.join(__dirname, "..", ".env"));
@@ -2195,12 +2196,17 @@ function upsertUser(email, updates) {
   const store = readStore();
   store.users = store.users || {};
   const existing = store.users[email] || { email };
-  store.users[email] = {
+  const merged = {
     ...existing,
     ...updates,
     email,
     updatedAt: new Date().toISOString(),
   };
+  // Persist normalized accountType + role (defaults: home_daycare / owner).
+  const accessFields = accountAccess.migrateAccountAccessFields(merged);
+  merged.accountType = accessFields.accountType;
+  merged.role = accessFields.role;
+  store.users[email] = merged;
   writeStore(store);
   return store.users[email];
 }
@@ -4234,7 +4240,11 @@ function membershipSummaryForUser(user) {
   const store = readStore();
   const audits = (store.membershipAudit || []).filter((entry) => entry.email === user?.email).slice(0, 5);
   const endMs = membershipAccess.accessEndMs(user);
+  const access = accountAccess.summarizeAccountAccess(user || {});
   return {
+    accountType: access.accountType,
+    role: access.role,
+    capabilities: access.capabilities,
     membershipPlan: membershipPlanDisplay(user),
     membershipStatus: membershipStatusDisplay(user),
     hasProAccess: membershipHasProAccess(user),
@@ -5403,6 +5413,9 @@ async function handleAdminMembershipUpdate(request, response) {
   if (merged.plan === "Free" && !restoringFounding) {
     merged.foundingMemberActive = false;
   }
+  const accessFields = accountAccess.migrateAccountAccessFields(merged);
+  merged.accountType = accessFields.accountType;
+  merged.role = accessFields.role;
   store.users = store.users || {};
   store.users[email] = merged;
   writeStore(store);
