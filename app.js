@@ -3309,6 +3309,8 @@ let currentAuthMode = "login";
 let checkoutPromoCode = localStorage.getItem("llhCheckoutPromoCode") || "";
 let adminAnalyticsCache = null;
 let adminAnalyticsLoading = false;
+let adminAnalyticsLastError = "";
+let adminAnalyticsLoadPromise = null;
 let adminLessonEditorId = "";
 let adminCurriculumLessonEditorId = "";
 let adminCurriculumResourceEditorId = "";
@@ -8276,8 +8278,28 @@ function deferInstallPrompt() {
 function registerPwaSupport() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("/service-worker.js").catch((error) => {
+      navigator.serviceWorker.register("/service-worker.js").then((registration) => {
+        // Force activation of a waiting worker so cache-bust deploys reach users.
+        if (registration.waiting) {
+          registration.waiting.postMessage({ type: "SKIP_WAITING" });
+        }
+        registration.addEventListener("updatefound", () => {
+          const installing = registration.installing;
+          if (!installing) return;
+          installing.addEventListener("statechange", () => {
+            if (installing.state === "installed" && navigator.serviceWorker.controller) {
+              installing.postMessage({ type: "SKIP_WAITING" });
+            }
+          });
+        });
+      }).catch((error) => {
         console.warn("Service worker registration failed", error);
+      });
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
       });
     });
   }
@@ -19942,7 +19964,10 @@ async function firebaseAuthHeaders() {
   // Without this, page refresh / early login sync often runs with no currentUser yet.
   if (typeof client.auth.authStateReady === "function") {
     try {
-      await client.auth.authStateReady();
+      await Promise.race([
+        client.auth.authStateReady(),
+        delayMs(4000),
+      ]);
     } catch (error) {
       console.warn("Firebase authStateReady did not complete", error);
     }
@@ -27747,7 +27772,11 @@ function renderAdminOwnerOverview() {
   const recentEvents = (adminAnalyticsCache?.recentEvents || analyticsEvents()).slice(0, 8);
   const loadingNote = adminAnalyticsCache
     ? "Live production data from the server store + Stripe membership fields."
-    : (adminAnalyticsLoading ? "Loading live production data…" : "Server analytics not loaded yet. Unlock Admin on production or click Refresh Analytics.");
+    : (adminAnalyticsLoading
+      ? "Loading live production data…"
+      : (adminAnalyticsLastError
+        ? `Server analytics failed to load: ${adminAnalyticsLastError}`
+        : "Server analytics not loaded yet. Unlock Admin on production or click Refresh Data."));
   target.innerHTML = `
     <div class="admin-owner-header">
       <div>
@@ -27756,7 +27785,7 @@ function renderAdminOwnerOverview() {
         <p>Signed in as ${escapeHtml(adminSession()?.email || adminOwnerAccount.email)}. ${escapeHtml(loadingNote)}</p>
       </div>
       <div class="account-actions-row">
-        <button class="ghost-button" type="button" id="adminRefreshAnalyticsButton">Refresh Data</button>
+        <button class="ghost-button" type="button" id="adminRefreshAnalyticsButton">${adminAnalyticsLoading ? "Refreshing…" : "Refresh Data"}</button>
         <button class="ghost-button" type="button" id="adminLockButton">Lock Admin</button>
       </div>
     </div>
@@ -27843,8 +27872,9 @@ function renderAdminOwnerOverview() {
   `;
   target.querySelector("#adminRefreshAnalyticsButton")?.addEventListener("click", async () => {
     adminAnalyticsCache = null;
-    await loadAdminAnalyticsFromBackend();
+    await loadAdminAnalyticsFromBackend({ force: true });
     renderAdminFeedbackCenter();
+    renderAdminUsersDashboard();
   });
 }
 
@@ -28194,24 +28224,50 @@ function localAnalyticsSummary() {
   };
 }
 
-async function loadAdminAnalyticsFromBackend() {
+async function loadAdminAnalyticsFromBackend(options = {}) {
   const token = adminSession()?.token;
-  if (!analyticsConfig.adminEndpoint || !canUseLaunchBackend() || !token || adminAnalyticsLoading) return;
-  adminAnalyticsLoading = true;
-  try {
-    const response = await fetch(`${analyticsConfig.adminEndpoint}?adminToken=${encodeURIComponent(token)}&t=${Date.now()}`, { cache: "no-store" });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data?.error || "Could not load admin analytics.");
-    adminAnalyticsCache = data.analytics || data;
-    renderAdminAnalytics();
-    renderAdminOwnerOverview();
-    renderAdminUsersDashboard();
-    renderAdminFeedbackCenter();
-  } catch (error) {
-    console.warn("Admin analytics backend load failed", error);
-  } finally {
-    adminAnalyticsLoading = false;
+  if (!analyticsConfig.adminEndpoint || !canUseLaunchBackend() || !token) return null;
+  if (adminAnalyticsLoadPromise) {
+    if (!options.force) return adminAnalyticsLoadPromise;
+    try {
+      await adminAnalyticsLoadPromise;
+    } catch {
+      /* continue into a forced refresh */
+    }
   }
+
+  adminAnalyticsLoading = true;
+  adminAnalyticsLastError = "";
+  if (options.renderLoading !== false) {
+    renderAdminOwnerOverview();
+    renderAdminAnalytics();
+  }
+
+  adminAnalyticsLoadPromise = (async () => {
+    try {
+      const response = await fetch(`${analyticsConfig.adminEndpoint}?adminToken=${encodeURIComponent(token)}&t=${Date.now()}`, { cache: "no-store" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || "Could not load admin analytics.");
+      adminAnalyticsCache = data.analytics || data;
+      adminAnalyticsLastError = "";
+      renderAdminAnalytics();
+      renderAdminOwnerOverview();
+      renderAdminUsersDashboard();
+      renderAdminFeedbackCenter();
+      return adminAnalyticsCache;
+    } catch (error) {
+      adminAnalyticsLastError = error?.message || "Could not load admin analytics.";
+      console.warn("Admin analytics backend load failed", error);
+      renderAdminOwnerOverview();
+      renderAdminAnalytics();
+      return null;
+    } finally {
+      adminAnalyticsLoading = false;
+      adminAnalyticsLoadPromise = null;
+    }
+  })();
+
+  return adminAnalyticsLoadPromise;
 }
 
 function analyticsRowsHtml(rows = [], emptyText = "No data yet.") {
@@ -28345,7 +28401,9 @@ function renderAdminAnalytics() {
     </article>
     <p class="muted-copy">Server analytics are stored historically in the launch store and are only visible with Admin access. If the backend is unavailable, this dashboard shows local browser history until the server responds.</p>
   `;
-  if (!adminAnalyticsCache && !adminAnalyticsLoading) loadAdminAnalyticsFromBackend();
+  if (!adminAnalyticsCache && !adminAnalyticsLoading && !adminAnalyticsLastError) {
+    loadAdminAnalyticsFromBackend();
+  }
 }
 
 function readinessItem(label, status, detail) {
@@ -39657,10 +39715,14 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const refreshAnalyticsButton = event.target.closest("#refreshAnalyticsButton, [data-refresh-analytics]");
+  const refreshAnalyticsButton = event.target.closest("#refreshAnalyticsButton, [data-refresh-analytics], #adminRefreshAnalyticsButton");
   if (refreshAnalyticsButton) {
+    event.preventDefault();
     adminAnalyticsCache = null;
-    loadAdminAnalyticsFromBackend();
+    loadAdminAnalyticsFromBackend({ force: true }).then(() => {
+      renderAdminDashboard();
+    });
+    renderAdminOwnerOverview();
     renderAdminAnalytics();
     return;
   }
@@ -40657,8 +40719,8 @@ document.addEventListener("submit", async (event) => {
     await loadUploadedResourcesFromBackend({ admin: true, migrateLocal: true }).catch(() => {});
     adminAnalyticsCache = null;
     renderAdminDashboard();
-    await loadAdminAnalyticsFromBackend();
-    renderAdminFeedbackCenter();
+    await loadAdminAnalyticsFromBackend({ force: true });
+    renderAdminDashboard();
     return;
   } catch (error) {
     if (message) {
@@ -42838,43 +42900,59 @@ function initialViewFromLocation() {
 }
 
 async function initializeAppView() {
-  const handledCheckoutReturn = await verifyStripeReturnIfNeeded();
-  if (handledCheckoutReturn) return;
-  if (currentUser) {
-    await syncSubscriptionFromBackend(currentUser, { renderFounding: true });
-    await syncChildDataFromBackend({ render: true });
-    loadUserAiUsage(currentUser).catch(() => {});
-  }
-  await syncFoundingStatus({ render: true });
-  await maybeHandleStaffInviteFromUrl().catch(() => {});
-  const initialView = initialViewFromLocation();
-  const lessonEditId = lessonPlanEditRouteIdFromLocation();
-  if (!currentAttribution()?.firstSeenAt) {
-    saveAttribution({ route: window.location.pathname || window.location.hash || "home", view: initialView, source: trafficSource() });
-  }
-  trackEvent("website_visit", { view: initialView, source: trafficSource() });
-  if (initialView === "home") trackEvent("page_view", { view: "home" });
-  if (lessonEditId) {
-    const route = window.location.pathname || window.location.hash;
-    saveAttribution({ route, view: "lesson-editor" });
-    trackEvent("ad_route_visit", { route, view: "lesson-editor" });
-    if (isLoggedIn() || hasAdminFullAccess()) {
-      await openLessonPlanEditor(lessonEditId, { returnView: "lessons", skipEditorRoute: true });
-    } else {
-      openAuthModal("login");
-    }
-    return;
-  }
-  if (initialView !== "home") {
-    const route = window.location.pathname || window.location.hash;
-    saveAttribution({ route, view: initialView });
-    trackEvent("ad_route_visit", { route, view: initialView });
-    setView(initialView);
-    return;
-  }
-  // If admin was previously in the admin area, restore the admin view on refresh.
-  if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") {
-    setView("admin");
+  try {
+    await Promise.race([
+      (async () => {
+        const handledCheckoutReturn = await verifyStripeReturnIfNeeded();
+        if (handledCheckoutReturn) return;
+        if (currentUser) {
+          await syncSubscriptionFromBackend(currentUser, { renderFounding: true }).catch((error) => {
+            console.warn("Subscription sync during boot failed", error);
+          });
+          await syncChildDataFromBackend({ render: true }).catch((error) => {
+            console.warn("Child data sync during boot failed", error);
+          });
+          loadUserAiUsage(currentUser).catch(() => {});
+        }
+        await syncFoundingStatus({ render: true }).catch(() => {});
+        await maybeHandleStaffInviteFromUrl().catch(() => {});
+        const initialView = initialViewFromLocation();
+        const lessonEditId = lessonPlanEditRouteIdFromLocation();
+        if (!currentAttribution()?.firstSeenAt) {
+          saveAttribution({ route: window.location.pathname || window.location.hash || "home", view: initialView, source: trafficSource() });
+        }
+        trackEvent("website_visit", { view: initialView, source: trafficSource() });
+        if (initialView === "home") trackEvent("page_view", { view: "home" });
+        if (lessonEditId) {
+          const route = window.location.pathname || window.location.hash;
+          saveAttribution({ route, view: "lesson-editor" });
+          trackEvent("ad_route_visit", { route, view: "lesson-editor" });
+          if (isLoggedIn() || hasAdminFullAccess()) {
+            await openLessonPlanEditor(lessonEditId, { returnView: "lessons", skipEditorRoute: true });
+          } else {
+            openAuthModal("login");
+          }
+          return;
+        }
+        if (initialView !== "home") {
+          const route = window.location.pathname || window.location.hash;
+          saveAttribution({ route, view: initialView });
+          trackEvent("ad_route_visit", { route, view: initialView });
+          setView(initialView);
+          return;
+        }
+        // If admin was previously in the admin area, restore the admin view on refresh.
+        if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") {
+          setView("admin");
+          loadAdminAnalyticsFromBackend({ force: true }).catch(() => {});
+        }
+      })(),
+      delayMs(12000).then(() => {
+        console.warn("App boot timed out — continuing with local UI");
+      }),
+    ]);
+  } catch (error) {
+    console.warn("App boot failed", error);
   }
 }
 

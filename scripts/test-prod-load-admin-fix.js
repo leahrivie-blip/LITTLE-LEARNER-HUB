@@ -1,0 +1,63 @@
+#!/usr/bin/env node
+/**
+ * Production load + Admin analytics hardening markers.
+ * Run: node scripts/test-prod-load-admin-fix.js
+ */
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+
+function test(name, fn) {
+  try {
+    fn();
+    console.log(`PASS  ${name}`);
+  } catch (error) {
+    console.error(`FAIL  ${name}`);
+    console.error(error);
+    process.exitCode = 1;
+  }
+}
+
+const root = path.join(__dirname, "..");
+const sw = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
+const appJs = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
+
+test("service worker cache bumped and network-first for JS/CSS", () => {
+  assert.match(sw, /llh-shell-v24-prod-load-fix/);
+  assert.match(sw, /isNetworkFirstRequest/);
+  assert.match(sw, /path\.endsWith\("\.js"\) \|\| path\.endsWith\("\.css"\)/);
+  assert.match(sw, /SKIP_WAITING/);
+  assert.match(sw, /shell precache incomplete/);
+});
+
+test("index and SW share the same app/styles cache bust", () => {
+  assert.match(indexHtml, /styles\.css\?v=20260714-prod-load-fix/);
+  assert.match(indexHtml, /app\.js\?v=20260714-prod-load-fix/);
+  assert.match(sw, /styles\.css\?v=20260714-prod-load-fix/);
+  assert.match(sw, /app\.js\?v=20260714-prod-load-fix/);
+});
+
+test("PWA registration forces waiting worker activation", () => {
+  assert.match(appJs, /postMessage\(\{ type: "SKIP_WAITING" \}\)/);
+  assert.match(appJs, /controllerchange/);
+  assert.match(appJs, /window\.location\.reload\(\)/);
+});
+
+test("Admin analytics load coalesces and supports force refresh", () => {
+  assert.match(appJs, /adminAnalyticsLoadPromise/);
+  assert.match(appJs, /adminAnalyticsLastError/);
+  assert.match(appJs, /async function loadAdminAnalyticsFromBackend\(options = \{\}\)/);
+  assert.match(appJs, /loadAdminAnalyticsFromBackend\(\{ force: true \}\)/);
+  assert.match(appJs, /await loadAdminAnalyticsFromBackend\(\{ force: true \}\)/);
+});
+
+test("boot path has a timeout so hang cannot blank the site forever", () => {
+  assert.match(appJs, /App boot timed out/);
+  assert.match(appJs, /delayMs\(12000\)/);
+  assert.match(appJs, /Promise\.race\(\[\s*client\.auth\.authStateReady\(\)/);
+});
+
+if (!process.exitCode) {
+  console.log("\nAll prod load / admin fix tests passed.");
+}
