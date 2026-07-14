@@ -35,6 +35,7 @@
     "test:schedule-foundation": "node scripts/test-schedule-foundation.js",
     "test:billing-membership": "node scripts/test-billing-membership-qa.js",
     "test:account-access": "node scripts/test-account-access.js",
+    "test:platform-nav": "node scripts/test-platform-nav.js",
     "test:homepage-smoke": "node scripts/test-homepage-smoke.js",
     "test:lesson-library-header": "node scripts/test-lesson-library-header.js",
     "test:lesson-library-cards": "node scripts/test-lesson-library-cards.js",

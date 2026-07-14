@@ -17087,3 +17087,92 @@ body.lesson-editor-view .main {
 .dlc-timeline-item .llh-item-menu {
   margin-left: auto;
 }
+
+/* Platform nav + Resources / Settings hubs (Phase 2) */
+.nav-section-core,
+.nav-section-manage,
+.nav-section-account {
+  padding-top: 4px;
+}
+
+.nav-section-manage:not([hidden]) {
+  border-top: 1px solid rgba(123, 107, 181, 0.12);
+  margin-top: 8px;
+  padding-top: 12px;
+}
+
+.nav-section-account {
+  border-top: 1px solid rgba(123, 107, 181, 0.12);
+  margin-top: 8px;
+  padding-top: 12px;
+}
+
+.resources-hub-page,
+.settings-hub-page,
+.platform-placeholder-page {
+  display: grid;
+  gap: 20px;
+}
+
+.resources-hub-grid,
+.settings-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.resources-hub-card,
+.settings-hub-card,
+.platform-placeholder-card {
+  border: 1px solid rgba(90, 110, 140, 0.16);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);
+  padding: 18px;
+  text-align: left;
+  box-shadow: 0 8px 24px rgba(40, 60, 90, 0.04);
+}
+
+.resources-hub-card h3,
+.settings-hub-card strong {
+  margin: 4px 0 8px;
+  font-size: 1.1rem;
+  color: #2f3a4a;
+}
+
+.resources-hub-card p,
+.settings-hub-card span,
+.platform-placeholder-card p {
+  margin: 0;
+  color: #5b6675;
+  line-height: 1.45;
+}
+
+.resources-hub-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.settings-hub-card {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.settings-hub-card:hover,
+.settings-hub-card:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(40, 60, 90, 0.08);
+  outline: none;
+}
+
+.settings-hub-card strong {
+  display: block;
+}
+
+@media (max-width: 720px) {
+  .resources-hub-grid,
+  .settings-hub-grid {
+    grid-template-columns: 1fr;
+  }
+}

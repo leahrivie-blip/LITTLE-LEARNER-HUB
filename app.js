@@ -3419,11 +3419,12 @@ const sidebarViewAliases = {
   "documentation-daily-reports": "children",
   "documentation-newsletters": "ai",
   "documentation-contracts": "forms",
-  "resource-search": "home",
+  "resource-search": "calendar",
   portfolio: "children",
   membership: "billing",
-  settings: "account",
   help: "contact",
+  "support-licensing": "resources",
+  "provider-resources": "resources",
 };
 
 const sidebarFutureToolTargets = {
@@ -7835,7 +7836,7 @@ function updateAuthButtons() {
   if (!signIn || !signUp) return;
   if (currentUser) {
     signIn.textContent = "Account";
-    signIn.dataset.view = "account";
+    signIn.dataset.view = "settings";
     signUp.textContent = isProUser() ? `${billingPlanLabel()} Active` : "Upgrade";
     signUp.dataset.view = isProUser() ? "billing" : "plans";
   } else {
@@ -7845,7 +7846,71 @@ function updateAuthButtons() {
     delete signUp.dataset.view;
   }
   updateAdminNavVisibility();
+  syncPlatformNavVisibility();
   updateBodyAuthClass();
+}
+
+/** Map SPA views to platform capabilities for role/account-type guards. */
+const viewCapabilityRequirements = Object.freeze({
+  staff: "staff_management",
+  classrooms: "classrooms",
+  families: "families",
+  enrollment: "enrollment",
+  billing: "billing",
+  subscription: "billing",
+  "billing-history": "billing",
+  "cancel-subscription": "billing",
+});
+
+function capabilityRequiredForView(view) {
+  return viewCapabilityRequirements[resolveSidebarView(view)] || viewCapabilityRequirements[view] || "";
+}
+
+function canOpenViewForCurrentAccess(view) {
+  const capability = capabilityRequiredForView(view);
+  if (!capability) return true;
+  return canAccessPlatformFeature(capability);
+}
+
+/**
+ * Show/hide sidebar items from accountType + role capabilities.
+ * No separate Director Tools section — items appear only when allowed.
+ */
+function syncPlatformNavVisibility() {
+  const account = currentAccount();
+  document.querySelectorAll("[data-nav-capability]").forEach((button) => {
+    const capability = button.getAttribute("data-nav-capability");
+    const allowed = !capability || canAccessCapability(account, capability, {
+      adminOverride: typeof hasAdminFullAccess === "function" && hasAdminFullAccess(),
+    });
+    button.hidden = !allowed;
+    button.setAttribute("aria-hidden", allowed ? "false" : "true");
+    if (allowed) button.removeAttribute("tabindex");
+    else button.setAttribute("tabindex", "-1");
+  });
+  document.querySelectorAll("[data-nav-section]").forEach((section) => {
+    const hasVisibleLink = Array.from(section.querySelectorAll(".nav-link")).some((link) => !link.hidden);
+    section.hidden = !hasVisibleLink;
+  });
+  syncCurriculumPlannerNavVisibility();
+}
+
+function isPlatformNavActive(buttonView, requestedView, resolvedView) {
+  if (!buttonView) return false;
+  if (buttonView === requestedView) return true;
+  if (buttonView === resolvedView) return true;
+  if (buttonView === "resources" && ["resources", "support-center", "menus", "observations"].includes(resolvedView)) {
+    return true;
+  }
+  if (
+    buttonView === "settings"
+    && ["settings", "account", "program-settings", "billing", "subscription", "billing-history", "contact", "faq", "plans", "upgrade"].includes(resolvedView)
+  ) {
+    return true;
+  }
+  if (buttonView === "calendar" && resolvedView === "planner") return true;
+  if (buttonView === "ai" && resolvedView === "generators") return true;
+  return false;
 }
 
 function installPromptState() {
@@ -8147,6 +8212,15 @@ function setView(view, options = {}) {
     openAuthModal("login");
     return;
   }
+  // Role / account-type guard for management surfaces.
+  if (
+    isLoggedIn()
+    && !options.skipAccessRedirect
+    && !canOpenViewForCurrentAccess(resolvedView)
+    && !canOpenViewForCurrentAccess(requestedView)
+  ) {
+    return setView("calendar", { ...options, skipAccessRedirect: true });
+  }
   const proViews = {
     tools: "Provider business tools",
     favorites: "Saved Favorites",
@@ -8192,9 +8266,10 @@ function setView(view, options = {}) {
   document.body.classList.toggle("lesson-editor-view", resolvedView === "lesson-editor");
   document.body.classList.toggle("curriculum-planner-retired", !isCurriculumPlannerLegacyEnabled());
   syncCurriculumPlannerNavVisibility();
+  syncPlatformNavVisibility();
   requestAnimationFrame(() => syncTopbarMetrics());
   document.querySelectorAll(".nav-link").forEach((button) => {
-    button.classList.toggle("active", button.dataset.view === requestedView);
+    button.classList.toggle("active", isPlatformNavActive(button.dataset.view, requestedView, resolvedView));
   });
   if (viewMap[resolvedView]) renderCategoryPage(resolvedView);
   if ((resolvedView === "lessons" || resolvedView === "activities") && canUseLaunchBackend() && isLoggedIn()) {
@@ -8247,6 +8322,12 @@ function setView(view, options = {}) {
   if (resolvedView === "tools") renderFutureTools(requestedFutureTool || undefined);
   if (resolvedView === "children") renderChildManagement();
   if (resolvedView === "support-center") renderSupportCenterPage();
+  if (resolvedView === "resources") renderResourcesHubPage();
+  if (resolvedView === "settings") renderSettingsHubPage();
+  if (resolvedView === "staff") renderStaffPlaceholderPage();
+  if (resolvedView === "classrooms") renderCenterPlaceholderPage("classrooms");
+  if (resolvedView === "families") renderCenterPlaceholderPage("families");
+  if (resolvedView === "enrollment") renderCenterPlaceholderPage("enrollment");
   if (resolvedView === "planner") {
     // Honor an explicit target week (e.g. from a future-week assign or Calendar's
     // week detail) so Weekly Planner opens on that week instead of always "this
@@ -19975,14 +20056,171 @@ function renderSupportCenterPage() {
   section.innerHTML = category ? renderSupportCategoryPage(category) : renderSupportHomePage(records);
 }
 
+function renderResourcesHubPage() {
+  const section = document.querySelector("#view-resources");
+  if (!section) return;
+  section.innerHTML = `
+    <section class="resources-hub-page">
+      <div class="page-title">
+        <p class="eyebrow">Resources</p>
+        <h2>Learn &amp; get help</h2>
+        <p>Behavior guidance, licensing help, and provider support — without cluttering your daily workflow.</p>
+      </div>
+      <div class="resources-hub-grid">
+        <article class="resources-hub-card">
+          <p class="eyebrow">Behavior &amp; Social Emotional</p>
+          <h3>Support strategies for big feelings</h3>
+          <p>Behavior support, emotional regulation, challenging behavior, calm-down ideas, and SEL resources.</p>
+          <div class="resources-hub-actions">
+            <button class="primary-button" type="button" data-view="support-center" data-support-category="behavior-emotions">Open Behavior Support</button>
+            <button class="ghost-button" type="button" data-view="support-center" data-support-category="social-development">Social Development</button>
+          </div>
+        </article>
+        <article class="resources-hub-card">
+          <p class="eyebrow">Licensing Resources</p>
+          <h3>Stay organized for compliance</h3>
+          <p>Build a state licensing checklist customized for your program type and ages served.</p>
+          <div class="resources-hub-actions">
+            <button class="primary-button" type="button" data-future-tool="licensing">Licensing Checklist</button>
+          </div>
+        </article>
+        <article class="resources-hub-card">
+          <p class="eyebrow">Support Resources</p>
+          <h3>Everyday classroom help</h3>
+          <p>Daily routines, developmental support, and quick answers for common childcare challenges.</p>
+          <div class="resources-hub-actions">
+            <button class="primary-button" type="button" data-view="support-center">Open Support Center</button>
+            <button class="ghost-button" type="button" data-view="support-center" data-support-category="daily-routines">Daily Routines</button>
+          </div>
+        </article>
+        <article class="resources-hub-card">
+          <p class="eyebrow">Provider Resources</p>
+          <h3>Menus and classroom extras</h3>
+          <p>Menu planning and other provider tools live here so they stay out of your main daily navigation.</p>
+          <div class="resources-hub-actions">
+            <button class="ghost-button" type="button" data-view="menus">Menu Center</button>
+            <button class="ghost-button" type="button" data-view="observations">Observation Library</button>
+          </div>
+        </article>
+      </div>
+    </section>
+  `;
+}
+
+function renderSettingsHubPage() {
+  const section = document.querySelector("#view-settings");
+  if (!section) return;
+  const canBilling = canAccessPlatformFeature("billing");
+  const canStaff = canAccessPlatformFeature("staff_management");
+  section.innerHTML = `
+    <section class="settings-hub-page">
+      <div class="page-title">
+        <p class="eyebrow">Settings</p>
+        <h2>Account, program &amp; support</h2>
+        <p>Configure your profile, program details, billing, and get help — without competing with Calendar, Daily Logs, and Lesson Plans.</p>
+      </div>
+      <div class="settings-hub-grid">
+        <button class="settings-hub-card" type="button" data-view="account">
+          <strong>Account</strong>
+          <span>Profile, security, and notification preferences</span>
+        </button>
+        <button class="settings-hub-card" type="button" data-view="program-settings">
+          <strong>Program Settings</strong>
+          <span>Business information, ages, branding, and curriculum preferences</span>
+        </button>
+        ${canBilling ? `
+          <button class="settings-hub-card" type="button" data-view="billing">
+            <strong>Membership &amp; Billing</strong>
+            <span>Current plan, payment methods, and subscription status</span>
+          </button>
+        ` : ""}
+        ${canStaff ? `
+          <button class="settings-hub-card" type="button" data-view="staff">
+            <strong>Staff &amp; Permissions</strong>
+            <span>Staff accounts, roles, and classroom assignments</span>
+          </button>
+        ` : ""}
+        <button class="settings-hub-card" type="button" data-view="contact">
+          <strong>Help &amp; Support</strong>
+          <span>Help Center, contact support, and feature requests</span>
+        </button>
+        <button class="settings-hub-card" type="button" data-view="faq">
+          <strong>Release Notes &amp; FAQ</strong>
+          <span>Common questions and product updates</span>
+        </button>
+      </div>
+    </section>
+  `;
+}
+
+function renderStaffPlaceholderPage() {
+  const section = document.querySelector("#view-staff");
+  if (!section) return;
+  section.innerHTML = `
+    <section class="platform-placeholder-page">
+      <div class="page-title">
+        <p class="eyebrow">Staff</p>
+        <h2>Staff management</h2>
+        <p>Invite assistants, co-teachers, and substitutes. Full staff invites and permissions land in a later step — Home Daycare and Center owners will both be able to add staff.</p>
+      </div>
+      <div class="platform-placeholder-card">
+        <p>Coming next: invite staff by email, assign roles (Owner, Director, Teacher, Assistant), and control what each person can see.</p>
+        <div class="resources-hub-actions">
+          <button class="ghost-button" type="button" data-view="settings">Back to Settings</button>
+          <button class="ghost-button" type="button" data-view="program-settings">Program Settings</button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderCenterPlaceholderPage(kind = "classrooms") {
+  const section = document.querySelector(`#view-${kind}`);
+  if (!section) return;
+  const copy = {
+    classrooms: {
+      eyebrow: "Classrooms",
+      title: "Classroom management",
+      detail: "Centers can organize multiple classrooms, assignments, and room-level schedules here.",
+    },
+    families: {
+      eyebrow: "Families",
+      title: "Family management",
+      detail: "Centers can manage family contacts and household relationships here.",
+    },
+    enrollment: {
+      eyebrow: "Enrollment",
+      title: "Enrollment management",
+      detail: "Centers can track inquiries, enrollment paperwork, and classroom placement here.",
+    },
+  }[kind] || { eyebrow: "Center", title: "Center tools", detail: "Center management tools are coming soon." };
+  section.innerHTML = `
+    <section class="platform-placeholder-page">
+      <div class="page-title">
+        <p class="eyebrow">${escapeHtml(copy.eyebrow)}</p>
+        <h2>${escapeHtml(copy.title)}</h2>
+        <p>${escapeHtml(copy.detail)}</p>
+      </div>
+      <div class="platform-placeholder-card">
+        <p>These Center tools appear only for Center accounts with Owner or Director access. Home Daycare programs keep the core workflow without this extra navigation.</p>
+        <div class="resources-hub-actions">
+          <button class="primary-button" type="button" data-view="calendar">Open Calendar</button>
+          <button class="ghost-button" type="button" data-view="settings">Settings</button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
 function renderSupportHomePage(records = childRecords()) {
   const currentChild = selectedChild(records);
   const childSupportAreas = currentChild ? childSelectedSupportAreas(currentChild).slice(0, 3) : [];
   const searchResults = supportSearchResults(supportCenterSearch);
   return `
     <section class="support-center-page">
+      <button class="ghost-button back-button" data-view="resources" type="button">← Back to Resources</button>
       <div class="page-title support-center-title">
-        <p class="eyebrow">Support Center</p>
+        <p class="eyebrow">Support Resources</p>
         <h2>Quick help for common childcare challenges.</h2>
         <p>Pick one area, then open only the details you need.</p>
       </div>
@@ -20028,9 +20266,9 @@ function renderSupportHomePage(records = childRecords()) {
 function renderSupportCategoryPage(category) {
   return `
     <section class="support-center-page">
-      <button class="ghost-button back-button" data-support-home type="button">← Back to Support Center</button>
+      <button class="ghost-button back-button" data-support-home type="button">← Back to Support Resources</button>
       <div class="page-title support-center-title">
-        <p class="eyebrow">Support Center</p>
+        <p class="eyebrow">Support Resources</p>
         <h2>${escapeHtml(category.title)}</h2>
         <p>${escapeHtml(category.detail)}</p>
       </div>
@@ -34904,6 +35142,7 @@ document.addEventListener("click", async (event) => {
       showProFeatureModal("Provider business tools are Pro features.");
       return;
     }
+    setView("tools");
     renderFutureTools(futureToolButton.dataset.futureTool);
     document.querySelector("#futureToolWorkspace")?.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
