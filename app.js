@@ -3314,6 +3314,22 @@ let adminAnalyticsLoadPromise = null;
 let adminAnalyticsAbortController = null;
 const ADMIN_ANALYTICS_TIMEOUT_MS = 25000;
 const LOCAL_ADMIN_TOKENS = new Set(["local-preview-admin", "local-owner-account"]);
+let adminOwnerDrilldown = {
+  metricKey: "",
+  query: "",
+  planFilter: "all",
+  statusFilter: "all",
+  sort: "newest-signup",
+};
+const adminOwnerMobileDefaultCollapsed = typeof window !== "undefined"
+  && typeof window.matchMedia === "function"
+  && window.matchMedia("(max-width: 820px)").matches;
+let adminOwnerSectionsOpen = {
+  inventory: true,
+  billing: !adminOwnerMobileDefaultCollapsed,
+  usage: !adminOwnerMobileDefaultCollapsed,
+  recent: !adminOwnerMobileDefaultCollapsed,
+};
 let adminLessonEditorId = "";
 let adminCurriculumLessonEditorId = "";
 let adminCurriculumResourceEditorId = "";
@@ -28048,24 +28064,349 @@ function accountDisplayFirstName(account = currentAccount()) {
   return full.split(/\s+/)[0] || "Provider";
 }
 
-function adminMetric(label, value, detail = "") {
+function adminIsWithinDays(iso, days) {
+  if (!iso) return false;
+  const ms = new Date(iso).getTime();
+  if (!Number.isFinite(ms)) return false;
+  return Date.now() - ms <= days * 24 * 60 * 60 * 1000;
+}
+
+function adminIsSameUtcDay(iso, now = new Date()) {
+  if (!iso) return false;
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return false;
+  return d.getUTCFullYear() === now.getUTCFullYear()
+    && d.getUTCMonth() === now.getUTCMonth()
+    && d.getUTCDate() === now.getUTCDate();
+}
+
+function adminOwnerAccountRows() {
+  const serverUsers = (adminAnalyticsCache?.users || []);
+  const serverEmails = new Set(serverUsers.map((u) => u.email).filter(Boolean));
+  const localOnlyAccounts = allAccountsList().filter((a) => a.email && !serverEmails.has(a.email));
+  return [...serverUsers, ...localOnlyAccounts];
+}
+
+function adminOwnerAccountTypeKey(account) {
+  if (account?.accountType) return normalizeAccountType(account.accountType);
+  const label = String(account?.accountTypeLabel || "").toLowerCase();
+  if (label.includes("center")) return ACCOUNT_TYPES.CENTER;
+  if (label.includes("single")) return ACCOUNT_TYPES.SINGLE_PROVIDER;
+  if (label.includes("home")) return ACCOUNT_TYPES.HOME_DAYCARE;
+  return resolveAccountType(account || {});
+}
+
+function adminDrilldownStatusBucket(account) {
+  const status = adminMembershipStatusLabel(account);
+  if (status === "Canceled and Ended") return "Canceled";
+  if (status === "Canceling at Period End" || status === "Trialing — Cancels at Trial End") return "Canceling";
+  if (status === "Payment Failed" || status === "Past Due") return "Past Due";
+  if (status === "Trialing" || adminMembershipInTrial(account)) return "Trial";
+  if (status === "Active") return "Active";
+  if (status === "Free") return "Free";
+  return status || "Free";
+}
+
+function adminDrilldownPlanBucket(account) {
+  const plan = adminMembershipPlanLabel(account);
+  if (plan === "Founding Member") return "Founding";
+  if (plan === "Trial") return "Trial";
+  if (plan === "Pro Monthly" || plan === "Pro Annual") return "Pro";
+  return "Free";
+}
+
+const ADMIN_OWNER_METRIC_TITLES = {
+  "total-users": "Total Users",
+  "free-users": "Free Users",
+  "trial-users": "Trial Users",
+  "pro-users": "Pro Users",
+  "founding-users": "Founding Members",
+  "home-daycare": "Home Daycare Accounts",
+  "centers": "Center Accounts",
+  "single-provider": "Single Provider Accounts",
+  "billing-active": "Active Subscriptions",
+  "billing-trial": "Trial Subscriptions",
+  "billing-founding": "Founding Members",
+  "billing-canceling": "Canceling Subscriptions",
+  "billing-canceled": "Canceled Subscriptions",
+  "billing-past-due": "Past Due / Failed Payment",
+  "active-today": "Active Today",
+  "active-week": "Active This Week",
+  "active-month": "Active This Month",
+  "new-users-week": "New Users This Week",
+  "new-users-month": "New Users This Month",
+  "new-founding": "New Founding Members (30d)",
+};
+
+function adminOwnerMetricMatches(account, metricKey) {
+  if (!account || !metricKey) return false;
+  const status = adminMembershipStatusLabel(account);
+  const plan = adminMembershipPlanLabel(account);
+  const lastActiveAt = account.lastSeenAt || account.lastLoginAt || "";
+  const signupAt = account.signupAt || account.createdAt || "";
+  switch (metricKey) {
+    case "total-users":
+      return true;
+    case "free-users":
+      return !adminMembershipHasProAccess(account);
+    case "trial-users":
+    case "billing-trial":
+      return plan === "Trial" || String(status || "").toLowerCase().includes("trial");
+    case "pro-users":
+      return adminMembershipHasProAccess(account) && plan !== "Founding Member" && plan !== "Trial";
+    case "founding-users":
+    case "billing-founding":
+      return adminMembershipFoundingActive(account);
+    case "home-daycare":
+      return adminOwnerAccountTypeKey(account) === ACCOUNT_TYPES.HOME_DAYCARE;
+    case "centers":
+      return adminOwnerAccountTypeKey(account) === ACCOUNT_TYPES.CENTER;
+    case "single-provider":
+      return adminOwnerAccountTypeKey(account) === ACCOUNT_TYPES.SINGLE_PROVIDER;
+    case "billing-active":
+      return adminMembershipHasProAccess(account)
+        && String(account.accountStatus || "Active") !== "Disabled"
+        && !account.cancelAtPeriodEnd;
+    case "billing-canceling":
+      return status === "Canceling at Period End" || status === "Trialing — Cancels at Trial End";
+    case "billing-canceled":
+      return status === "Canceled and Ended";
+    case "billing-past-due":
+      return status === "Payment Failed" || status === "Past Due";
+    case "active-today":
+      return adminIsSameUtcDay(lastActiveAt);
+    case "active-week":
+      return adminIsWithinDays(lastActiveAt, 7);
+    case "active-month":
+      return adminIsWithinDays(lastActiveAt, 30);
+    case "new-users-week":
+      return adminIsWithinDays(signupAt, 7);
+    case "new-users-month":
+      return adminIsWithinDays(signupAt, 30);
+    case "new-founding":
+      return adminMembershipFoundingActive(account)
+        && adminIsWithinDays(account.subscriptionStartedAt || signupAt, 30);
+    default:
+      return false;
+  }
+}
+
+function adminOwnerUsersForMetric(metricKey) {
+  if (!metricKey || !ADMIN_OWNER_METRIC_TITLES[metricKey]) return [];
+  return adminOwnerAccountRows().filter((account) => adminOwnerMetricMatches(account, metricKey));
+}
+
+function adminOwnerFilterDrilldownUsers(users) {
+  const query = String(adminOwnerDrilldown.query || "").trim().toLowerCase();
+  const planFilter = adminOwnerDrilldown.planFilter || "all";
+  const statusFilter = adminOwnerDrilldown.statusFilter || "all";
+  const sort = adminOwnerDrilldown.sort || "newest-signup";
+  let rows = users.slice();
+  if (query) {
+    rows = rows.filter((account) => {
+      const name = String(displayUserName(account) || "").toLowerCase();
+      const email = String(account.email || "").toLowerCase();
+      return name.includes(query) || email.includes(query);
+    });
+  }
+  if (planFilter !== "all") {
+    rows = rows.filter((account) => adminDrilldownPlanBucket(account) === planFilter);
+  }
+  if (statusFilter !== "all") {
+    rows = rows.filter((account) => adminDrilldownStatusBucket(account) === statusFilter);
+  }
+  rows.sort((a, b) => {
+    const signupA = new Date(a.signupAt || a.createdAt || 0).getTime();
+    const signupB = new Date(b.signupAt || b.createdAt || 0).getTime();
+    const activeA = new Date(a.lastSeenAt || a.lastLoginAt || 0).getTime();
+    const activeB = new Date(b.lastSeenAt || b.lastLoginAt || 0).getTime();
+    if (sort === "oldest-signup") return signupA - signupB;
+    if (sort === "recent-active") return activeB - activeA;
+    return signupB - signupA;
+  });
+  return rows;
+}
+
+function adminDrilldownUserRow(account) {
+  const email = account.email || "";
+  const joined = account.signupAt || account.createdAt
+    ? new Date(account.signupAt || account.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    : "—";
+  const lastActive = adminUserLastActiveLabel(account);
+  const plan = adminMembershipPlanLabel(account);
+  const status = adminDrilldownStatusBucket(account);
   return `
-    <div>
-      <strong>${escapeHtml(value)}</strong>
+    <article class="admin-drilldown-row" data-admin-drilldown-email="${escapeHtml(email)}">
+      <div class="admin-drilldown-identity">
+        <strong>${escapeHtml(displayUserName(account))}</strong>
+        <span>${escapeHtml(email)}</span>
+      </div>
+      <div class="admin-drilldown-meta">
+        <span><em>Plan</em> ${escapeHtml(plan)}</span>
+        <span><em>Status</em> ${escapeHtml(status)}</span>
+        <span><em>Signup</em> ${escapeHtml(joined)}</span>
+        <span><em>Last Active</em> ${escapeHtml(lastActive)}</span>
+      </div>
+      <div class="admin-drilldown-actions">
+        <button class="ghost-button aup-btn" type="button" data-aup-view="${escapeHtml(email)}">View</button>
+        <button class="primary-button aup-btn" type="button" data-aup-manage="${escapeHtml(email)}">Manage</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderAdminOwnerDrilldownPanel() {
+  const metricKey = adminOwnerDrilldown.metricKey;
+  if (!metricKey || !ADMIN_OWNER_METRIC_TITLES[metricKey]) return "";
+  const title = ADMIN_OWNER_METRIC_TITLES[metricKey];
+  const baseUsers = adminOwnerUsersForMetric(metricKey);
+  const filtered = adminOwnerFilterDrilldownUsers(baseUsers);
+  return `
+    <section class="admin-owner-drilldown" id="adminOwnerDrilldown" data-admin-owner-drilldown aria-live="polite">
+      <div class="admin-owner-drilldown-header">
+        <div>
+          <p class="eyebrow">Drill-down</p>
+          <h3>${escapeHtml(title)}</h3>
+          <p class="muted-copy">${filtered.length} of ${baseUsers.length} users shown</p>
+        </div>
+        <button type="button" class="ghost-button" data-admin-drilldown-close>Close</button>
+      </div>
+      <div class="admin-owner-drilldown-filters">
+        <label class="admin-owner-filter-field">
+          <span>Search name or email</span>
+          <input type="search" id="adminOwnerDrilldownSearch" value="${escapeHtml(adminOwnerDrilldown.query || "")}" placeholder="Search by name or email…" autocomplete="off" />
+        </label>
+        <label class="admin-owner-filter-field">
+          <span>Plan</span>
+          <select id="adminOwnerDrilldownPlan">
+            ${[["all", "All plans"], ["Free", "Free"], ["Trial", "Trial"], ["Pro", "Pro"], ["Founding", "Founding"]].map(([value, label]) => `
+              <option value="${value}" ${adminOwnerDrilldown.planFilter === value ? "selected" : ""}>${label}</option>
+            `).join("")}
+          </select>
+        </label>
+        <label class="admin-owner-filter-field">
+          <span>Status</span>
+          <select id="adminOwnerDrilldownStatus">
+            ${[["all", "All statuses"], ["Active", "Active"], ["Trial", "Trial"], ["Canceling", "Canceling"], ["Canceled", "Canceled"], ["Past Due", "Past Due"], ["Free", "Free"]].map(([value, label]) => `
+              <option value="${value}" ${adminOwnerDrilldown.statusFilter === value ? "selected" : ""}>${label}</option>
+            `).join("")}
+          </select>
+        </label>
+        <label class="admin-owner-filter-field">
+          <span>Sort</span>
+          <select id="adminOwnerDrilldownSort">
+            ${[["newest-signup", "Newest signup"], ["oldest-signup", "Oldest signup"], ["recent-active", "Most recently active"]].map(([value, label]) => `
+              <option value="${value}" ${adminOwnerDrilldown.sort === value ? "selected" : ""}>${label}</option>
+            `).join("")}
+          </select>
+        </label>
+      </div>
+      <div class="admin-owner-drilldown-list" id="adminOwnerDrilldownList">
+        ${filtered.length ? filtered.map(adminDrilldownUserRow).join("") : `<div class="empty-state">No users match this metric and filter.</div>`}
+      </div>
+    </section>
+  `;
+}
+
+function bindAdminOwnerDrilldownControls(target) {
+  const searchEl = target.querySelector("#adminOwnerDrilldownSearch");
+  const planEl = target.querySelector("#adminOwnerDrilldownPlan");
+  const statusEl = target.querySelector("#adminOwnerDrilldownStatus");
+  const sortEl = target.querySelector("#adminOwnerDrilldownSort");
+  const listEl = target.querySelector("#adminOwnerDrilldownList");
+  const rerenderList = () => {
+    if (!listEl) return;
+    const filtered = adminOwnerFilterDrilldownUsers(adminOwnerUsersForMetric(adminOwnerDrilldown.metricKey));
+    listEl.innerHTML = filtered.length
+      ? filtered.map(adminDrilldownUserRow).join("")
+      : `<div class="empty-state">No users match this metric and filter.</div>`;
+    const countEl = target.querySelector(".admin-owner-drilldown-header .muted-copy");
+    if (countEl) {
+      const total = adminOwnerUsersForMetric(adminOwnerDrilldown.metricKey).length;
+      countEl.textContent = `${filtered.length} of ${total} users shown`;
+    }
+  };
+  searchEl?.addEventListener("input", () => {
+    adminOwnerDrilldown.query = searchEl.value || "";
+    rerenderList();
+  });
+  planEl?.addEventListener("change", () => {
+    adminOwnerDrilldown.planFilter = planEl.value || "all";
+    rerenderList();
+  });
+  statusEl?.addEventListener("change", () => {
+    adminOwnerDrilldown.statusFilter = statusEl.value || "all";
+    rerenderList();
+  });
+  sortEl?.addEventListener("change", () => {
+    adminOwnerDrilldown.sort = sortEl.value || "newest-signup";
+    rerenderList();
+  });
+  listEl?.addEventListener("click", (event) => {
+    const viewEmail = event.target.closest("[data-aup-view]")?.dataset?.aupView;
+    const manageEmail = event.target.closest("[data-aup-manage]")?.dataset?.aupManage;
+    if (viewEmail) openAdminUserProfile(viewEmail, "view");
+    if (manageEmail) openAdminUserProfile(manageEmail, "manage");
+  });
+  target.querySelectorAll("[data-admin-owner-section]").forEach((detailsEl) => {
+    const key = detailsEl.dataset.adminOwnerSection;
+    if (!key) return;
+    detailsEl.addEventListener("toggle", () => {
+      adminOwnerSectionsOpen[key] = detailsEl.open;
+    });
+  });
+}
+
+function openAdminOwnerMetricDrilldown(metricKey) {
+  if (metricKey === "open-support") {
+    setAdminSectionTab("support");
+    return;
+  }
+  if (metricKey === "open-feedback") {
+    setAdminSectionTab("feedback");
+    return;
+  }
+  if (!ADMIN_OWNER_METRIC_TITLES[metricKey]) return;
+  adminOwnerDrilldown = {
+    metricKey,
+    query: "",
+    planFilter: "all",
+    statusFilter: "all",
+    sort: "newest-signup",
+  };
+  if (metricKey.startsWith("billing-") || metricKey === "trial-users") {
+    adminOwnerSectionsOpen.billing = true;
+  } else if (metricKey.startsWith("active-") || metricKey.startsWith("new-")) {
+    adminOwnerSectionsOpen.usage = true;
+  } else {
+    adminOwnerSectionsOpen.inventory = true;
+  }
+  renderAdminOwnerOverview();
+  requestAnimationFrame(() => {
+    document.querySelector("#adminOwnerDrilldown")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+function adminMetric(label, value, detail = "", metricKey = "") {
+  const clickable = Boolean(metricKey);
+  const tag = clickable ? "button" : "div";
+  const attrs = clickable
+    ? `type="button" class="admin-metric admin-metric--clickable${adminOwnerDrilldown.metricKey === metricKey ? " is-active" : ""}" data-admin-metric="${escapeHtml(metricKey)}" aria-label="View ${escapeHtml(label)} users"`
+    : `class="admin-metric"`;
+  return `
+    <${tag} ${attrs}>
+      <strong>${escapeHtml(String(value))}</strong>
       <span>${escapeHtml(label)}</span>
       ${detail ? `<small>${escapeHtml(detail)}</small>` : ""}
-    </div>
+      ${clickable ? `<small class="admin-metric-hint">Tap to view users</small>` : ""}
+    </${tag}>
   `;
 }
 
 function renderAdminOwnerOverview() {
   const target = document.querySelector("#adminOwnerOverview");
   if (!target || !isAdminUnlocked()) return;
-  const serverUsers = (adminAnalyticsCache?.users || []);
-  const serverEmails = new Set(serverUsers.map((u) => u.email).filter(Boolean));
-  const localAccounts = allAccountsList();
-  const localOnlyAccounts = localAccounts.filter((a) => a.email && !serverEmails.has(a.email));
-  const accountRows = [...serverUsers, ...localOnlyAccounts];
+  const accountRows = adminOwnerAccountRows();
   const totals = adminAnalyticsCache?.totals || {};
   const ticketRows = supportTickets();
   const openTickets = ticketRows.filter((ticket) => ticket.status !== "Complete");
@@ -28077,13 +28418,14 @@ function renderAdminOwnerOverview() {
     .slice(0, 8);
   const recentEvents = (adminAnalyticsCache?.recentEvents || analyticsEvents()).slice(0, 8);
   const loadingNote = adminAnalyticsCache
-    ? "Live production data from the server store + Stripe membership fields."
+    ? "Live production data from the server store + Stripe membership fields. Tap any metric card to drill into the users behind it."
     : (adminAnalyticsLoading
       ? "Loading live production data…"
       : (adminAnalyticsLastError
         ? `Server analytics failed to load: ${adminAnalyticsLastError}`
         : "Server analytics not loaded yet. Unlock Admin on production or click Refresh Data."));
   const previewMode = adminPreviewMode() || "Admin";
+  const sectionOpen = (key) => adminOwnerSectionsOpen[key] !== false;
   target.innerHTML = `
     <div class="admin-owner-header">
       <div>
@@ -28134,74 +28476,116 @@ function renderAdminOwnerOverview() {
       </p>
     </div>
     ${renderAccessDebugPanel()}
-    <div class="section-heading"><div><p class="eyebrow">Users</p><h3>Account inventory</h3></div></div>
-    <div class="admin-owner-grid">
-      ${adminMetric("Total Users", totals.totalRegisteredUsers ?? accountRows.length)}
-      ${adminMetric("Free", totals.freeUsers ?? "—")}
-      ${adminMetric("Trial", totals.trialUsers ?? "—")}
-      ${adminMetric("Pro", totals.proUsers ?? "—")}
-      ${adminMetric("Founding", totals.foundingMembers ?? "—", `${foundingSpotsRemaining()} spots left`)}
-      ${adminMetric("Home Daycare", totals.homeDaycareAccounts ?? "—")}
-      ${adminMetric("Centers", totals.centerAccounts ?? "—")}
-      ${adminMetric("Single Provider", totals.singleProviderAccounts ?? "—")}
-    </div>
-    <div class="section-heading"><div><p class="eyebrow">Subscriptions</p><h3>Billing health</h3></div></div>
-    <div class="admin-owner-grid">
-      ${adminMetric("Active", totals.activeSubscriptions ?? totals.paidUsers ?? "—")}
-      ${adminMetric("Trial", totals.trialUsers ?? "—")}
-      ${adminMetric("Founding", totals.foundingMembers ?? "—")}
-      ${adminMetric("Canceling", totals.cancelingSubscriptions ?? "—")}
-      ${adminMetric("Canceled", totals.canceledSubscriptions ?? "—")}
-      ${adminMetric("Past Due", totals.pastDueUsers ?? "—")}
-      ${adminMetric("Failed Payment", totals.failedPayments ?? "—")}
-      ${adminMetric("Open Support", totals.openSupportTickets ?? openTickets.length)}
-    </div>
-    <div class="section-heading"><div><p class="eyebrow">Activity &amp; Growth</p><h3>How people are using Little Learner Hub</h3></div></div>
-    <div class="admin-owner-grid">
-      ${adminMetric("Active Today", totals.activeUsersToday ?? "—")}
-      ${adminMetric("Active This Week", totals.activeUsersWeek ?? "—")}
-      ${adminMetric("Active This Month", totals.activeUsersMonth ?? "—")}
-      ${adminMetric("New Users Week", totals.newUsersWeek ?? "—")}
-      ${adminMetric("New Users Month", totals.newUsersMonth ?? "—")}
-      ${adminMetric("New Founding (30d)", totals.newFoundingMembers ?? "—")}
-      ${adminMetric("Lesson Views", totals.lessonPlansViewed ?? "—")}
-      ${adminMetric("Added to Calendar", totals.lessonPlansAddedToCalendar ?? "—")}
-      ${adminMetric("Observations", totals.observationsCreated ?? "—")}
-      ${adminMetric("Daily Logs", totals.dailyLogsCreated ?? "—")}
-      ${adminMetric("Incident Reports", totals.incidentReportsCreated ?? "—")}
-      ${adminMetric("Parent Messages", totals.parentMessagesGenerated ?? "—")}
-      ${adminMetric("Forms Submitted", totals.formsSubmitted ?? "—")}
-      ${adminMetric("Open Feedback", totals.openFeedback ?? openFeedback)}
-    </div>
+    <nav class="admin-owner-jump" aria-label="Jump to dashboard sections">
+      <a href="#adminOwnerInventory" data-admin-owner-jump="inventory">Account Inventory</a>
+      <a href="#adminOwnerBilling" data-admin-owner-jump="billing">Billing Health</a>
+      <a href="#adminOwnerUsage" data-admin-owner-jump="usage">Platform Usage</a>
+      <a href="#adminOwnerRecent" data-admin-owner-jump="recent">Recent</a>
+      ${adminOwnerDrilldown.metricKey ? `<a href="#adminOwnerDrilldown" data-admin-owner-jump="drilldown">Open Drill-down</a>` : ""}
+    </nav>
+    ${renderAdminOwnerDrilldownPanel()}
+    <details class="admin-owner-collapse" id="adminOwnerInventory" data-admin-owner-section="inventory" ${sectionOpen("inventory") ? "open" : ""}>
+      <summary class="admin-owner-collapse-summary">
+        <div>
+          <p class="eyebrow">Users</p>
+          <h3>Account inventory</h3>
+        </div>
+        <span class="admin-owner-collapse-hint">Tap to expand or collapse</span>
+      </summary>
+      <div class="admin-owner-grid">
+        ${adminMetric("Total Users", totals.totalRegisteredUsers ?? accountRows.length, "", "total-users")}
+        ${adminMetric("Free", totals.freeUsers ?? "—", "", "free-users")}
+        ${adminMetric("Trial", totals.trialUsers ?? "—", "", "trial-users")}
+        ${adminMetric("Pro", totals.proUsers ?? "—", "", "pro-users")}
+        ${adminMetric("Founding", totals.foundingMembers ?? "—", `${foundingSpotsRemaining()} spots left`, "founding-users")}
+        ${adminMetric("Home Daycare", totals.homeDaycareAccounts ?? "—", "", "home-daycare")}
+        ${adminMetric("Centers", totals.centerAccounts ?? "—", "", "centers")}
+        ${adminMetric("Single Provider", totals.singleProviderAccounts ?? "—", "", "single-provider")}
+      </div>
+    </details>
+    <details class="admin-owner-collapse" id="adminOwnerBilling" data-admin-owner-section="billing" ${sectionOpen("billing") ? "open" : ""}>
+      <summary class="admin-owner-collapse-summary">
+        <div>
+          <p class="eyebrow">Subscriptions</p>
+          <h3>Billing health</h3>
+        </div>
+        <span class="admin-owner-collapse-hint">Tap to expand or collapse</span>
+      </summary>
+      <div class="admin-owner-grid">
+        ${adminMetric("Active", totals.activeSubscriptions ?? totals.paidUsers ?? "—", "", "billing-active")}
+        ${adminMetric("Trial", totals.trialUsers ?? "—", "", "billing-trial")}
+        ${adminMetric("Founding", totals.foundingMembers ?? "—", "", "billing-founding")}
+        ${adminMetric("Canceling", totals.cancelingSubscriptions ?? "—", "", "billing-canceling")}
+        ${adminMetric("Canceled", totals.canceledSubscriptions ?? "—", "", "billing-canceled")}
+        ${adminMetric("Past Due", totals.pastDueUsers ?? "—", "", "billing-past-due")}
+        ${adminMetric("Failed Payment", totals.failedPayments ?? "—", "", "billing-past-due")}
+        ${adminMetric("Open Support", totals.openSupportTickets ?? openTickets.length, "Opens Support tab", "open-support")}
+      </div>
+    </details>
+    <details class="admin-owner-collapse" id="adminOwnerUsage" data-admin-owner-section="usage" ${sectionOpen("usage") ? "open" : ""}>
+      <summary class="admin-owner-collapse-summary">
+        <div>
+          <p class="eyebrow">Activity &amp; Growth</p>
+          <h3>How people are using Little Learner Hub</h3>
+        </div>
+        <span class="admin-owner-collapse-hint">Tap to expand or collapse</span>
+      </summary>
+      <div class="admin-owner-grid">
+        ${adminMetric("Active Today", totals.activeUsersToday ?? "—", "", "active-today")}
+        ${adminMetric("Active This Week", totals.activeUsersWeek ?? "—", "", "active-week")}
+        ${adminMetric("Active This Month", totals.activeUsersMonth ?? "—", "", "active-month")}
+        ${adminMetric("New Users Week", totals.newUsersWeek ?? "—", "", "new-users-week")}
+        ${adminMetric("New Users Month", totals.newUsersMonth ?? "—", "", "new-users-month")}
+        ${adminMetric("New Founding (30d)", totals.newFoundingMembers ?? "—", "", "new-founding")}
+        ${adminMetric("Lesson Views", totals.lessonPlansViewed ?? "—")}
+        ${adminMetric("Added to Calendar", totals.lessonPlansAddedToCalendar ?? "—")}
+        ${adminMetric("Observations", totals.observationsCreated ?? "—")}
+        ${adminMetric("Daily Logs", totals.dailyLogsCreated ?? "—")}
+        ${adminMetric("Incident Reports", totals.incidentReportsCreated ?? "—")}
+        ${adminMetric("Parent Messages", totals.parentMessagesGenerated ?? "—")}
+        ${adminMetric("Forms Submitted", totals.formsSubmitted ?? "—")}
+        ${adminMetric("Open Feedback", totals.openFeedback ?? openFeedback, "Opens Feedback tab", "open-feedback")}
+      </div>
+    </details>
     ${!adminAnalyticsCache && !adminAnalyticsLoading ? `
       <div class="empty-state admin-empty-callout">
         Live user counts are empty until server analytics load. On production, use <strong>Users → Stripe Backfill</strong> if Stripe has customers that are missing from Admin.
       </div>
     ` : ""}
-    <div class="admin-owner-lists">
-      <article class="analytics-card">
-        <h4>Recent Accounts</h4>
-        ${recentAccounts.length ? recentAccounts.map((account) => `
-          <div class="analytics-row stacked">
-            <span><strong>${escapeHtml(displayUserName(account))}</strong> &mdash; ${escapeHtml(account.email)}</span>
-            <strong>${escapeHtml(account.membershipPlan || account.plan || "Free")}</strong>
-            <small>${escapeHtml(accountTypeDisplayLabel(account))} · ${escapeHtml(roleDisplayLabel(account))} · ${escapeHtml(account.businessName || account.daycareName || "No business name")}</small>
-          </div>
-        `).join("") : `<div class="empty-state">No accounts yet.</div>`}
-      </article>
-      <article class="analytics-card">
-        <h4>Recent Activity</h4>
-        ${recentEvents.length ? recentEvents.map((event) => `
-          <div class="analytics-row stacked">
-            <span>${escapeHtml(event.name)}</span>
-            <strong>${escapeHtml(event.user || event.detail?.view || event.detail?.type || event.detail?.plan || "activity")}</strong>
-            <small>${new Date(event.createdAt).toLocaleString()}</small>
-          </div>
-        `).join("") : `<div class="empty-state">No activity tracked yet.</div>`}
-      </article>
-    </div>
+    <details class="admin-owner-collapse" id="adminOwnerRecent" data-admin-owner-section="recent" ${sectionOpen("recent") ? "open" : ""}>
+      <summary class="admin-owner-collapse-summary">
+        <div>
+          <p class="eyebrow">Recent</p>
+          <h3>Accounts &amp; activity</h3>
+        </div>
+        <span class="admin-owner-collapse-hint">Tap to expand or collapse</span>
+      </summary>
+      <div class="admin-owner-lists">
+        <article class="analytics-card">
+          <h4>Recent Accounts</h4>
+          ${recentAccounts.length ? recentAccounts.map((account) => `
+            <div class="analytics-row stacked">
+              <span><strong>${escapeHtml(displayUserName(account))}</strong> &mdash; ${escapeHtml(account.email)}</span>
+              <strong>${escapeHtml(account.membershipPlan || account.plan || "Free")}</strong>
+              <small>${escapeHtml(accountTypeDisplayLabel(account))} · ${escapeHtml(roleDisplayLabel(account))} · ${escapeHtml(account.businessName || account.daycareName || "No business name")}</small>
+            </div>
+          `).join("") : `<div class="empty-state">No accounts yet.</div>`}
+        </article>
+        <article class="analytics-card">
+          <h4>Recent Activity</h4>
+          ${recentEvents.length ? recentEvents.map((event) => `
+            <div class="analytics-row stacked">
+              <span>${escapeHtml(event.name)}</span>
+              <strong>${escapeHtml(event.user || event.detail?.view || event.detail?.type || event.detail?.plan || "activity")}</strong>
+              <small>${new Date(event.createdAt).toLocaleString()}</small>
+            </div>
+          `).join("") : `<div class="empty-state">No activity tracked yet.</div>`}
+        </article>
+      </div>
+    </details>
     ${renderContentHealthDashboard()}
   `;
+  bindAdminOwnerDrilldownControls(target);
 }
 
 function renderContentHealthDashboard() {
@@ -30896,7 +31280,7 @@ function adminUserStatusBadge(account) {
 }
 
 function adminUserLastActiveLabel(account) {
-  const ts = account.lastLoginAt || account.updatedAt || account.createdAt || "";
+  const ts = account.lastSeenAt || account.lastLoginAt || account.updatedAt || account.createdAt || "";
   if (!ts) return "Not tracked";
   const d = new Date(ts);
   const now = new Date();
@@ -37031,6 +37415,35 @@ document.addEventListener("click", async (event) => {
       checkoutPlan: clickedButton.dataset.checkoutPlan || "",
       action: clickedButton.id || clickedButton.dataset.view || clickedButton.dataset.checkoutPlan || clickedButton.dataset.proFeature || "button",
     });
+  }
+
+  const adminMetricButton = event.target.closest("[data-admin-metric]");
+  if (adminMetricButton) {
+    event.preventDefault();
+    openAdminOwnerMetricDrilldown(adminMetricButton.dataset.adminMetric || "");
+    return;
+  }
+
+  const adminDrilldownClose = event.target.closest("[data-admin-drilldown-close]");
+  if (adminDrilldownClose) {
+    event.preventDefault();
+    adminOwnerDrilldown.metricKey = "";
+    adminOwnerDrilldown.query = "";
+    adminOwnerDrilldown.planFilter = "all";
+    adminOwnerDrilldown.statusFilter = "all";
+    adminOwnerDrilldown.sort = "newest-signup";
+    renderAdminOwnerOverview();
+    return;
+  }
+
+  const adminOwnerJump = event.target.closest("[data-admin-owner-jump]");
+  if (adminOwnerJump) {
+    const sectionKey = adminOwnerJump.dataset.adminOwnerJump;
+    if (sectionKey && sectionKey !== "drilldown" && Object.prototype.hasOwnProperty.call(adminOwnerSectionsOpen, sectionKey)) {
+      adminOwnerSectionsOpen[sectionKey] = true;
+      const detailsEl = document.querySelector(`[data-admin-owner-section="${sectionKey}"]`);
+      if (detailsEl) detailsEl.open = true;
+    }
   }
 
   const adminPreviewButton = event.target.closest("[data-admin-preview]");
