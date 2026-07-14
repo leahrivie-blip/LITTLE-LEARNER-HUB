@@ -11539,7 +11539,7 @@ function showLessonWorkspaceMainCalendarSuccess(assignment) {
     if (week) button.dataset.dashSelectWeek = week;
   });
   pendingCalendarAssignNotice = week
-    ? `Added “${title}” to the week of ${week}. Customize days, notes, and events below.`
+    ? `Added “${title}” to the week of ${week}. Customize days, then print your week-at-a-glance.`
     : `Added “${title}” to your Calendar.`;
   setLessonWorkspaceActionSheetPanel("success");
 }
@@ -16918,7 +16918,8 @@ function calendarWeekHeaderActionsHtml(week, options = {}) {
       <button type="button" class="primary-button" data-view="lessons">Add Lesson Plan</button>
       <button type="button" class="ghost-button" data-view="lessons">Browse Library</button>
       <button type="button" class="ghost-button" data-view="ai">AI Ideas</button>
-      <button type="button" class="ghost-button" data-calendar-print-week="${escapeHtml(week)}" ${hasLesson ? "" : "disabled"} title="${hasLesson ? "Download weekly calendar PDF" : "Add a lesson plan before printing"}">Print / Download</button>
+      <button type="button" class="ghost-button" data-calendar-print-week="${escapeHtml(week)}" ${hasLesson ? "" : "disabled"} title="${hasLesson ? "Download week-at-a-glance PDF (classroom copy)" : "Add a lesson plan before printing"}">Print Week PDF</button>
+      <button type="button" class="ghost-button" data-calendar-print-full="${escapeHtml(week)}" ${hasLesson ? "" : "disabled"} title="${hasLesson ? "Print the full classroom lesson plan" : "Add a lesson plan before printing"}">Print Full Plan</button>
     </div>
   `;
 }
@@ -16929,6 +16930,7 @@ function calendarWeekEmptyStateHtml() {
       <p class="eyebrow">This week is empty</p>
       <h3>Nothing planned yet</h3>
       <p class="muted-copy">Empty weeks stay empty until you choose a plan — nothing is auto-filled.</p>
+      <p class="muted-copy llh-cal-week-empty-next">Next: Add a Lesson Plan → customize days → Print Week PDF.</p>
       <div class="form-actions llh-cal-week-empty-actions">
         <button type="button" class="primary-button" data-view="lessons">Add Lesson Plan</button>
         <button type="button" class="ghost-button" data-view="lessons">Browse Library</button>
@@ -16940,9 +16942,10 @@ function calendarWeekEmptyStateHtml() {
 
 function calendarWeekLessonSummaryHtml(lesson, week, room, glance) {
   const themeLabel = glance.theme || lesson.lessonPlanTitle || "Lesson plan";
+  const customized = Boolean(lesson?.snapshot?.snapshotEditedAt);
   return `
     <section class="llh-ds-card llh-cal-week-lesson">
-      <p class="eyebrow">Lesson Plan (Monday–Friday)</p>
+      <p class="eyebrow">Lesson Plan (Monday–Friday)${customized ? " · classroom copy" : ""}</p>
       <h3>${escapeHtml(lesson.lessonPlanTitle)}</h3>
       <p class="muted-copy">${escapeHtml(lesson.ageGroup || "")}${room ? ` · ${escapeHtml(room)}` : ""}</p>
       <p class="llh-cal-week-glance" aria-label="Week at a glance">
@@ -16953,8 +16956,11 @@ function calendarWeekLessonSummaryHtml(lesson, week, room, glance) {
       </p>
       <div class="form-actions">
         <button type="button" class="primary-button" data-view="planner" data-planner-focus-week="${escapeHtml(week)}">Open Weekly Planner</button>
+        <button type="button" class="ghost-button" data-calendar-print-week="${escapeHtml(week)}">Print Week PDF</button>
+        <button type="button" class="ghost-button" data-calendar-print-full="${escapeHtml(week)}">Print Full Plan</button>
         <button type="button" class="ghost-button" data-view="lessons">Change Plan</button>
       </div>
+      <p class="muted-copy llh-cal-print-hint">Prints use your classroom copy${customized ? " (including day edits)" : ""} — not a Google Doc.</p>
     </section>
   `;
 }
@@ -16968,54 +16974,153 @@ function calendarDayActivityCount(lesson, dayKey) {
 function calendarWeekPrintResource(lesson) {
   if (!lesson) return null;
   const planId = String(lesson.lessonPlanId || "").trim();
-  if (planId && typeof resources !== "undefined" && Array.isArray(resources)) {
-    const fromLibrary = resources.find((resource) => resource.id === planId);
-    if (fromLibrary) return fromLibrary;
+  const fromLibrary = planId && typeof resources !== "undefined" && Array.isArray(resources)
+    ? resources.find((resource) => resource.id === planId)
+    : null;
+  // Prefer the classroom snapshot so Print reflects Customize-day edits.
+  if (lesson.snapshot && typeof lesson.snapshot === "object") {
+    return {
+      id: planId || lesson.id || "calendar-week-print",
+      title: lesson.lessonPlanTitle || fromLibrary?.title || lesson.snapshot.title || "Lesson Plan",
+      age: lesson.ageGroup || fromLibrary?.age || lesson.snapshot.age || "Preschool",
+      plan: lesson.lessonPlanPlan || fromLibrary?.plan || lesson.snapshot.plan || "Free",
+      theme: lesson.snapshot.theme || fromLibrary?.theme || "",
+      category: "Lesson Plans",
+      _curriculumManaged: true,
+      _curriculumLessonPlan: lesson.snapshot,
+    };
   }
-  if (!lesson.snapshot || typeof lesson.snapshot !== "object") return null;
-  return {
-    id: planId || lesson.id || "calendar-week-print",
-    title: lesson.lessonPlanTitle || "Lesson Plan",
-    age: lesson.ageGroup || "Preschool",
-    plan: lesson.lessonPlanPlan || "Free",
-    category: "Lesson Plans",
-    _curriculumManaged: true,
-    _curriculumLessonPlan: lesson.snapshot,
-  };
+  if (fromLibrary) return fromLibrary;
+  return null;
 }
 
-function printCalendarWeekSchedule(weekStart) {
+function setCalendarPrintStatus(message, isError = false) {
+  let statusEl = document.querySelector("[data-calendar-print-status]");
+  if (!statusEl) {
+    const shell = document.querySelector("#mainCalendarApp .llh-calendar-shell");
+    if (!shell) return;
+    statusEl = document.createElement("p");
+    statusEl.className = "muted-copy llh-cal-print-status";
+    statusEl.dataset.calendarPrintStatus = "";
+    shell.insertBefore(statusEl, shell.firstChild?.nextSibling || null);
+  }
+  statusEl.hidden = !message;
+  statusEl.textContent = message || "";
+  statusEl.classList.toggle("is-error", Boolean(isError));
+}
+
+function printCalendarHtmlDocument(html) {
+  document.querySelectorAll(".llh-calendar-print-host").forEach((node) => node.remove());
+  const host = document.createElement("div");
+  host.className = "llh-calendar-print-host";
+  host.setAttribute("aria-hidden", "true");
+  host.innerHTML = html;
+  document.body.appendChild(host);
+  document.body.classList.add("printing-resource", "printing-calendar-plan");
+  const cleanup = () => {
+    host.remove();
+    document.body.classList.remove("printing-resource", "printing-calendar-plan");
+    window.removeEventListener("afterprint", cleanup);
+  };
+  window.addEventListener("afterprint", cleanup);
+  window.print();
+  setTimeout(cleanup, 1600);
+}
+
+function printCalendarWeekSchedule(weekStart, options = {}) {
   const api = getScheduleApi();
   if (!api) return;
   const week = api.weekStartMonday(weekStart || mainCalendarSelectedWeek || curriculumPlannerWeekStartIso(new Date()));
   const doc = scheduleDocCache || api.readCache(scheduleApiEmail()) || { items: [] };
   const lesson = api.lessonForWeek(doc, week);
+  const variant = options.variant === "full" ? "full" : "week";
   if (!lesson) {
-    window.alert("Add a lesson plan to this week before printing.");
+    setCalendarPrintStatus("Add a lesson plan to this week before printing.", true);
     return;
   }
   const resource = calendarWeekPrintResource(lesson);
-  if (!resource || typeof buildLessonPlanWeeklySchedulePdfBlob !== "function") {
-    window.alert("Could not build a weekly printout for this plan yet. Open the lesson from the library to print.");
+  if (!resource) {
+    setCalendarPrintStatus("Could not build a printout for this classroom plan yet.", true);
     return;
   }
   try {
+    if (variant === "full") {
+      if (typeof lessonPlanPrintVariantHtml !== "function") {
+        setCalendarPrintStatus("Full lesson plan print is unavailable right now.", true);
+        return;
+      }
+      const html = lessonPlanPrintVariantHtml(resource, {
+        mode: "print",
+        printVariant: "full",
+        weekStartDate: week,
+      });
+      recordResourceOutputRequest({
+        mode: "print",
+        printVariant: "full",
+        resourceId: resource.id,
+        title: resource.title,
+        category: "Lesson Plans",
+        source: "calendar",
+      });
+      trackEvent("resource_print", {
+        title: resource.title,
+        category: "Lesson Plans",
+        mode: "print",
+        printVariant: "full",
+        source: "calendar",
+      });
+      printCalendarHtmlDocument(html);
+      setCalendarPrintStatus("Opening full classroom lesson plan for printing…");
+      return;
+    }
+    if (typeof buildLessonPlanWeeklySchedulePdfBlob !== "function") {
+      setCalendarPrintStatus("Weekly PDF print is unavailable right now.", true);
+      return;
+    }
+    recordResourceOutputRequest({
+      mode: "download",
+      printVariant: "week",
+      resourceId: resource.id,
+      title: resource.title,
+      category: "Lesson Plans",
+      source: "calendar",
+    });
+    trackEvent("resource_pdf_download", {
+      title: resource.title,
+      category: "Lesson Plans",
+      printVariant: "week",
+      source: "calendar",
+    });
     downloadBlob(
       buildLessonPlanWeeklySchedulePdfBlob(resource, { weekStartDate: week }),
       `${slug(resource.title || "lesson-plan")}-weekly-schedule.pdf`,
     );
+    setCalendarPrintStatus(
+      lesson.snapshot?.snapshotEditedAt
+        ? "Downloaded week-at-a-glance PDF (includes your classroom day edits)."
+        : "Downloaded week-at-a-glance PDF.",
+    );
   } catch (error) {
     console.warn(error);
-    window.alert(error.message || "Could not create the weekly PDF.");
+    setCalendarPrintStatus(error.message || "Could not create the printout.", true);
   }
 }
 
-function calendarAssignNoticeHtml() {
+function calendarAssignNoticeHtml(week = "") {
   const notice = String(pendingCalendarAssignNotice || "").trim();
   if (!notice) return "";
+  const weekStart = week || mainCalendarSelectedWeek || "";
   return `
     <div class="llh-calendar-assign-notice" role="status" data-calendar-assign-notice>
-      <p>${escapeHtml(notice)}</p>
+      <div class="llh-calendar-assign-notice-copy">
+        <p>${escapeHtml(notice)}</p>
+        ${weekStart ? `
+          <div class="form-actions llh-calendar-assign-notice-actions">
+            <button type="button" class="ghost-button" data-view="planner" data-planner-focus-week="${escapeHtml(weekStart)}">Customize days</button>
+            <button type="button" class="ghost-button" data-calendar-print-week="${escapeHtml(weekStart)}">Print Week PDF</button>
+          </div>
+        ` : ""}
+      </div>
       <button type="button" class="ghost-button" data-calendar-dismiss-assign-notice aria-label="Dismiss">Dismiss</button>
     </div>
   `;
@@ -17063,7 +17168,8 @@ function renderCalendarWeekView(app) {
 
   app.innerHTML = `
     <div class="llh-calendar-shell llh-calendar-week-view">
-      ${calendarAssignNoticeHtml()}
+      ${calendarAssignNoticeHtml(week)}
+      <p class="muted-copy llh-cal-print-status" data-calendar-print-status hidden></p>
       <div class="llh-calendar-toolbar">
         <div>
           <button type="button" class="ghost-button" data-calendar-back-to-month>← Back to Calendar</button>
@@ -17125,6 +17231,8 @@ function renderCalendarDayView(app) {
 
   app.innerHTML = `
     <div class="llh-calendar-shell llh-calendar-day-view">
+      ${calendarAssignNoticeHtml(week)}
+      <p class="muted-copy llh-cal-print-status" data-calendar-print-status hidden></p>
       <div class="llh-calendar-toolbar">
         <div>
           <button type="button" class="ghost-button" data-calendar-back-to-month>← Back to Calendar</button>
@@ -17133,6 +17241,7 @@ function renderCalendarDayView(app) {
         </div>
         <div class="llh-calendar-toolbar-actions">
           <button type="button" class="primary-button" data-calendar-view-week="${escapeHtml(week)}">View Week</button>
+          ${lesson ? `<button type="button" class="ghost-button" data-calendar-print-week="${escapeHtml(week)}">Print Week PDF</button>` : ""}
         </div>
       </div>
       ${calendarFilterBarHtml()}
@@ -34458,7 +34567,15 @@ document.addEventListener("click", async (event) => {
   if (calendarPrintWeek) {
     event.preventDefault();
     if (calendarPrintWeek.disabled) return;
-    printCalendarWeekSchedule(calendarPrintWeek.dataset.calendarPrintWeek || mainCalendarSelectedWeek);
+    printCalendarWeekSchedule(calendarPrintWeek.dataset.calendarPrintWeek || mainCalendarSelectedWeek, { variant: "week" });
+    return;
+  }
+
+  const calendarPrintFull = event.target.closest("[data-calendar-print-full]");
+  if (calendarPrintFull) {
+    event.preventDefault();
+    if (calendarPrintFull.disabled) return;
+    printCalendarWeekSchedule(calendarPrintFull.dataset.calendarPrintFull || mainCalendarSelectedWeek, { variant: "full" });
     return;
   }
 

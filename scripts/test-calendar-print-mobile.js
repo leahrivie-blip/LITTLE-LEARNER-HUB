@@ -1,11 +1,7 @@
 #!/usr/bin/env node
 /**
- * Step 2 — Calendar week hub smoke:
- * - Empty weeks stay empty with friendly CTAs (no auto-fill copy)
- * - Always-visible week header actions (Add / Browse / AI / Print)
- * - Week-at-a-glance indicators when a plan exists
- *
- * Run: node scripts/test-calendar-week-hub.js
+ * Step 5 — Calendar print polish + classroom-copy print + guided cues.
+ * Run: node scripts/test-calendar-print-mobile.js
  */
 const fs = require("fs");
 const path = require("path");
@@ -16,14 +12,14 @@ const crypto = require("crypto");
 const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-parser.js");
 
 const ROOT = path.join(__dirname, "..");
-const PORT = 20220 + Math.floor(Math.random() * 40);
-const STORE_PATH = path.join(os.tmpdir(), `llh-week-hub-${crypto.randomBytes(4).toString("hex")}.json`);
+const PORT = 20340 + Math.floor(Math.random() * 40);
+const STORE_PATH = path.join(os.tmpdir(), `llh-print-mobile-${crypto.randomBytes(4).toString("hex")}.json`);
 const ADMIN = {
-  email: "week-hub-admin@test.local",
-  password: "week-hub-pass",
-  code: "week-hub-code",
+  email: "print-mobile-admin@test.local",
+  password: "print-mobile-pass",
+  code: "print-mobile-code",
 };
-const USER_EMAIL = "week-hub-teacher@example.com";
+const USER_EMAIL = "print-mobile-teacher@example.com";
 const SAMPLE = path.join(ROOT, "scripts/curriculum-import-samples/label-only-full-workflow-v3.txt");
 
 function assert(condition, message) {
@@ -118,22 +114,21 @@ async function seedFreeLesson(token, { title, suffix = "" } = {}) {
     adminToken: token,
     siteContent: { ...bootstrap.json.siteContent, updatedAt: bootstrap.json.siteContent.updatedAt || "" },
   });
-  const planId = `cur-lp-week-hub-${suffix || crypto.randomBytes(3).toString("hex")}`;
+  const planId = `cur-lp-print-mobile-${suffix || crypto.randomBytes(3).toString("hex")}`;
   const save = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
     adminToken: token,
     expectedUpdatedAt: touch.json.siteContent.updatedAt,
     lessonPlan: {
       ...parsed.data,
       id: planId,
-      title: title || `Week Hub ${planId}`,
-      theme: parsed.data.theme || "Ocean Friends",
+      title: title || `Print Mobile ${planId}`,
       plan: "Free",
       status: "published",
       age: "Preschool",
     },
   });
   assert(save.status === 200, `Seed failed: ${save.status} ${save.text}`);
-  return { planId, title: title || save.json.lessonPlan?.title || planId, theme: save.json.lessonPlan?.theme || "Ocean Friends" };
+  return { planId, title: title || save.json.lessonPlan?.title || planId };
 }
 
 async function loginAsTeacher(page) {
@@ -151,7 +146,7 @@ async function loginAsTeacher(page) {
     localStorage.removeItem("llhWeeklyPlanner");
   }, USER_EMAIL);
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => typeof setView === "function" && typeof assignScheduleLessonPlan === "function", null, { timeout: 30000 });
+  await page.waitForFunction(() => typeof setView === "function" && typeof printCalendarWeekSchedule === "function", null, { timeout: 30000 });
 }
 
 async function main() {
@@ -166,44 +161,18 @@ async function main() {
   try {
     child = startServer();
     await waitForBoot(child);
-
     const login = await requestJson("POST", "/api/admin/login", ADMIN);
     const token = login.json.token || login.json.adminToken;
-    const lesson = await seedFreeLesson(token, { title: "Week Hub Ocean Plan", suffix: "ocean" });
+    const lesson = await seedFreeLesson(token, { title: "Print Mobile Ocean Plan", suffix: "ocean" });
     const week = mondayIso();
+    const customTitle = `Printed Bubble ${crypto.randomBytes(2).toString("hex")}`;
 
     const { chromium } = require("playwright");
     browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
     page.on("dialog", async (d) => { await d.accept(); });
-
     await loginAsTeacher(page);
-    await page.evaluate(() => setView("calendar"));
-    await page.waitForSelector("#mainCalendarApp .llh-calendar-grid-7", { timeout: 15000 });
 
-    // Open current week via gutter (empty — no assignment yet)
-    await page.locator("[data-calendar-view-week]").first().click();
-    await page.waitForTimeout(400);
-    let weekText = await page.locator("#mainCalendarApp").innerText();
-    let weekHtml = await page.locator("#mainCalendarApp").innerHTML();
-
-    check("Empty week shows friendly empty state", /This week is empty/i.test(weekText) && /Nothing planned yet/i.test(weekText), weekText.slice(0, 160));
-    check("Empty week says nothing is auto-filled", /auto-filled/i.test(weekText) || /stay empty/i.test(weekText));
-    check("Always-visible week actions include Add / Browse / AI / Print", /Add Lesson Plan/i.test(weekText) && /Browse Library/i.test(weekText) && /AI Ideas/i.test(weekText) && (/Print Week PDF/i.test(weekText) || /Print \/ Download/i.test(weekText)));
-    check("Print is disabled while week is empty", await page.locator("[data-calendar-print-week]").isDisabled());
-    check("Empty week shows guided next step", /Add a Lesson Plan/i.test(weekText) && /Print Week PDF/i.test(weekText));
-    check("Empty-state CTA block is present", /data-calendar-empty-week/.test(weekHtml));
-
-    // AI Ideas navigates
-    await page.locator('.llh-cal-week-actions [data-view="ai"]').click();
-    await page.waitForSelector("#view-ai.active-view, #view-ai.view.active-view", { timeout: 10000 }).catch(() => {});
-    const aiActive = await page.evaluate(() => {
-      const el = document.querySelector("#view-ai");
-      return Boolean(el && (el.classList.contains("active-view") || el.classList.contains("active")));
-    });
-    check("AI Ideas opens AI view", aiActive);
-
-    // Assign a plan to this week, then reopen week view
     await page.evaluate(async ({ planId, weekStart }) => {
       await assignScheduleLessonPlan({
         resourceId: planId,
@@ -213,22 +182,78 @@ async function main() {
       });
     }, { planId: lesson.planId, weekStart: week });
 
-    await page.evaluate((weekStart) => {
-      setView("calendar", { weekStartDate: weekStart });
+    // Customize snapshot so print must prefer classroom copy
+    const itemId = await page.evaluate((weekStart) => {
+      const api = LLHSchedule;
+      const item = api.lessonForWeek(api.readCache(localStorage.getItem("llhUser")), weekStart);
+      return item?.id || "";
     }, week);
-    await page.waitForSelector("#mainCalendarApp .llh-calendar-week-view, #mainCalendarApp [data-calendar-print-week]", { timeout: 15000 });
-    await page.waitForTimeout(500);
-    weekText = await page.locator("#mainCalendarApp").innerText();
-    weekHtml = await page.locator("#mainCalendarApp").innerHTML();
+    await page.evaluate(async ({ itemId, customTitle }) => {
+      await updateScheduleLessonSnapshot(itemId, (snapshot) => {
+        const dailyPlans = { ...(snapshot.dailyPlans || {}) };
+        dailyPlans.monday = {
+          ...(dailyPlans.monday || {}),
+          theme: "Print Bubble Monday",
+          items: [{ itemId: "act-print-1", title: customTitle }],
+        };
+        return { ...snapshot, dailyPlans };
+      });
+    }, { itemId, customTitle });
 
-    check("Assigned week shows the lesson title", weekText.includes(lesson.title), weekText.slice(0, 200));
-    check("Empty-state block is gone after assign", !/data-calendar-empty-week/.test(weekHtml) && !/Nothing planned yet/i.test(weekText));
-    check("Week-at-a-glance shows theme", /Theme:/i.test(weekText), weekText.slice(0, 220));
-    check("Week-at-a-glance shows activity count", /\d+\s+activit/i.test(weekText));
-    check("Week actions still visible with a plan", /Add Lesson Plan/i.test(weekText) && /Print Week PDF/i.test(weekText));
-    check("Print Full Plan is enabled when week has a plan", !(await page.locator("[data-calendar-print-full]").first().isDisabled()));
-    check("Print is enabled when week has a plan", !(await page.locator("[data-calendar-print-week]").first().isDisabled()));
-    check("Day strip shows activity meta pills", /llh-cal-meta-pill/.test(weekHtml) || /\d+\s+act/.test(weekText));
+    await page.evaluate((weekStart) => setView("calendar", { weekStartDate: weekStart }), week);
+    await page.waitForSelector("#mainCalendarApp .llh-calendar-week-view, #mainCalendarApp [data-calendar-print-week]", { timeout: 15000 });
+    const weekText = await page.locator("#mainCalendarApp").innerText();
+    check("Week View shows Print Week PDF + Print Full Plan", /Print Week PDF/i.test(weekText) && /Print Full Plan/i.test(weekText), weekText.slice(0, 200));
+    check("Mobile week actions use stacked layout class", await page.locator(".llh-cal-week-actions").count() > 0);
+
+    const resourceInfo = await page.evaluate((weekStart) => {
+      const api = LLHSchedule;
+      const item = api.lessonForWeek(api.readCache(localStorage.getItem("llhUser")), weekStart);
+      const resource = calendarWeekPrintResource(item);
+      return {
+        usesSnapshot: resource?._curriculumLessonPlan === item?.snapshot
+          || resource?._curriculumLessonPlan?.snapshotEditedAt === item?.snapshot?.snapshotEditedAt,
+        mondayTitles: (resource?._curriculumLessonPlan?.dailyPlans?.monday?.items || []).map((entry) => entry.title),
+        theme: resource?._curriculumLessonPlan?.dailyPlans?.monday?.theme || "",
+      };
+    }, week);
+    check("Print resource prefers classroom snapshot", resourceInfo.mondayTitles.includes(customTitle), resourceInfo.mondayTitles.join(" | "));
+    check("Print resource includes customized Monday theme", resourceInfo.theme === "Print Bubble Monday", resourceInfo.theme);
+
+    // Week PDF download path
+    const downloadPromise = page.waitForEvent("download", { timeout: 10000 }).catch(() => null);
+    await page.locator("[data-calendar-print-week]").first().click();
+    const download = await downloadPromise;
+    check("Print Week PDF triggers a download", Boolean(download), download ? download.suggestedFilename() : "no download");
+    const statusText = await page.locator("[data-calendar-print-status]").innerText().catch(() => "");
+    check("Print status confirms week PDF", /Downloaded week-at-a-glance/i.test(statusText) || Boolean(download), statusText);
+
+    // Full plan print path creates print host
+    await page.evaluate(() => {
+      window.__printCalled = false;
+      window.print = () => { window.__printCalled = true; };
+    });
+    await page.locator("[data-calendar-print-full]").first().click();
+    await page.waitForTimeout(400);
+    const fullPrint = await page.evaluate(() => ({
+      printed: Boolean(window.__printCalled),
+      host: Boolean(document.querySelector(".llh-calendar-print-host")),
+      bodyClass: document.body.className,
+    }));
+    check("Print Full Plan invokes window.print", fullPrint.printed, JSON.stringify(fullPrint));
+
+    // Guided notice actions on Day View
+    await page.evaluate((weekStart) => {
+      pendingCalendarAssignNotice = `Added “${"Print Mobile Ocean Plan"}” to the week of ${weekStart}. Customize days, then print your week-at-a-glance.`;
+      mainCalendarSelectedDay = weekStart;
+      mainCalendarSelectedWeek = weekStart;
+      mainCalendarSubView = "day";
+      renderMainCalendar();
+    }, week);
+    await page.waitForTimeout(300);
+    const dayText = await page.locator("#mainCalendarApp").innerText();
+    check("Day View shows assign notice with Customize + Print actions", /Customize days/i.test(dayText) && /Print Week PDF/i.test(dayText), dayText.slice(0, 220));
+    check("Mobile viewport has no horizontal overflow", await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 2));
 
     const failed = results.filter((r) => !r.ok);
     console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

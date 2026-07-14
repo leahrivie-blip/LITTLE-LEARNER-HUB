@@ -10044,6 +10044,22 @@ body.lessons-view .mobile-brand {
     display: none !important;
   }
 
+  body.printing-calendar-plan .app-shell,
+  body.printing-calendar-plan .mobile-nav-backdrop,
+  body.printing-calendar-plan .modal {
+    display: none !important;
+  }
+
+  body.printing-calendar-plan .llh-calendar-print-host {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    color: #111 !important;
+    background: #fff !important;
+  }
+
   body.printing-resource #resourceViewerModal {
     position: static !important;
     inset: auto !important;
@@ -16130,6 +16146,39 @@ body.curriculum-planner-retired .nav-link[data-view="curriculum-planner"] {
   min-width: 180px;
 }
 
+.llh-calendar-assign-notice-copy {
+  flex: 1;
+  min-width: 180px;
+}
+
+.llh-calendar-assign-notice-actions {
+  margin-top: 8px;
+}
+
+.llh-cal-week-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.llh-cal-week-empty-next,
+.llh-cal-print-hint {
+  margin-top: 8px;
+}
+
+.llh-cal-print-status {
+  margin: 0 0 10px;
+}
+
+.llh-cal-print-status.is-error {
+  color: var(--llh-danger, #c56b6b);
+}
+
+.llh-calendar-print-host {
+  display: none;
+}
+
 .llh-cal-week-glance {
   display: flex;
   flex-wrap: wrap;
@@ -16368,14 +16417,52 @@ body.curriculum-planner-retired .nav-link[data-view="curriculum-planner"] {
 }
 
 @media (max-width: 980px) {
-  .llh-calendar-toolbar-hint { display: none; }
+  .llh-calendar-toolbar-hint {
+    display: block;
+    font-size: 0.85rem;
+    line-height: 1.35;
+  }
 
   .llh-calendar-toolbar-actions {
     width: 100%;
   }
 
-  .llh-calendar-toolbar-actions .primary-button {
-    flex: 1 1 100%;
+  .llh-calendar-toolbar-actions .primary-button,
+  .llh-calendar-toolbar-actions .ghost-button {
+    flex: 1 1 auto;
+  }
+
+  .llh-cal-week-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .llh-cal-week-actions .primary-button {
+    grid-column: 1 / -1;
+  }
+
+  .llh-cal-week-actions .ghost-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .llh-cal-week-strip {
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .llh-cal-week-day {
+    scroll-snap-align: start;
+  }
+
+  .llh-calendar-assign-notice {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .llh-calendar-assign-notice-actions {
+    flex-wrap: wrap;
   }
 
   .llh-calendar-month-nav {
