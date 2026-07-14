@@ -39,9 +39,11 @@ test("domain DNS fix doc explains Bluehost vs Render", () => {
 });
 
 test("cache bust bumped for redeploy", () => {
-  assert.match(indexHtml, /20260714-domain-dns-fix/);
-  assert.match(sw, /llh-shell-v25-domain-dns-fix/);
-  assert.match(sw, /20260714-domain-dns-fix/);
+  assert.match(indexHtml, /app\.js\?v=/);
+  assert.match(sw, /llh-shell-v2\d-/);
+  const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
+  assert.ok(indexJs);
+  assert.match(sw, new RegExp(`app\\.js\\?v=${indexJs.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
 });
 
 if (!process.exitCode) {
