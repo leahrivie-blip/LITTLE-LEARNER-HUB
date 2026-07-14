@@ -44,8 +44,26 @@ test("plan chooser features Free, Founding featured, and Pro", () => {
   assert.match(appJs, /FOR LIFE/);
   assert.match(appJs, /Founding Spots Remaining/);
   assert.match(appJs, /Created by a Childcare Provider/);
+  assert.match(appJs, /signup-plan-grid--founding-open/);
   assert.match(css, /signup-plan-card--founding/);
   assert.match(css, /signup-founding-urgency/);
+});
+
+test("Pro plan is hidden until founding spots are sold out", () => {
+  const chooser = appJs.slice(appJs.indexOf("function renderSignupPlanChooser"), appJs.indexOf("async function finishSignupWithPlan"));
+  assert.match(chooser, /\$\{!soldOut \? `/);
+  assert.match(chooser, /signup-plan-card--pro signup-plan-card--pro-featured/);
+  assert.match(chooser, /Claim My Founding Spot/);
+  // Pro only appears in the sold-out branch, not alongside Founding in one grid render
+  assert.match(chooser, /` : `\s*\n\s*<article class="signup-plan-card signup-plan-card--pro/);
+
+  const pricing = appJs.slice(appJs.indexOf("function renderPricingPage"), appJs.indexOf("function renderUpgradePage"));
+  assert.match(pricing, /\$\{!soldOut\s*\n\s*\? pricingCard\("Founding"/);
+  assert.match(pricing, /\$\{soldOut \? pricingCard\("ProAnnual"/);
+
+  const upgrade = appJs.slice(appJs.indexOf("function renderUpgradePage"), appJs.indexOf("function subscriptionSummaryHtml"));
+  assert.match(upgrade, /\$\{soldOut \? pricingCard\("ProAnnual"/);
+  assert.doesNotMatch(upgrade, /!soldOut \? pricingCard\("ProMonthly"/);
 });
 
 test("founding banners stay compact", () => {
@@ -55,9 +73,9 @@ test("founding banners stay compact", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260714-signup-flow");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260714-signup-flow");
-  assert.match(sw, /llh-shell-v33-signup-flow/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260714-hide-pro");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260714-hide-pro");
+  assert.match(sw, /llh-shell-v34-hide-pro/);
 });
 
 if (!process.exitCode) {

@@ -2585,7 +2585,7 @@ function renderSignupPlanChooser() {
         <span>Founding spots are filled. Pro is available at the regular rate.</span>
       </p>
     `}
-    <div class="signup-plan-grid">
+    <div class="signup-plan-grid ${soldOut ? "signup-plan-grid--sold-out" : "signup-plan-grid--founding-open"}">
       <article class="signup-plan-card signup-plan-card--free">
         <h3>Free Plan</h3>
         <p class="signup-plan-subtitle">A great way to explore Little Learner Hub</p>
@@ -2632,19 +2632,28 @@ function renderSignupPlanChooser() {
           <p class="signup-plan-provider-note">Lock in your founding rate today and get every future feature we release without paying more.</p>
           <button class="primary-button" type="button" data-signup-choose-plan="founding">Claim My Founding Spot</button>
         </article>
-      ` : ""}
-      <article class="signup-plan-card signup-plan-card--pro">
-        <h3>Pro Membership</h3>
-        <p class="signup-plan-subtitle">For providers who join after founding spots are filled.</p>
-        <p class="signup-plan-price"><strong>$19.99</strong><span>/month</span></p>
-        <ul class="signup-plan-includes">
-          <li>Everything in Founding Member</li>
-        </ul>
-        <ul class="signup-plan-excludes">
-          <li>No lifetime pricing lock</li>
-        </ul>
-        <button class="ghost-button" type="button" data-signup-choose-plan="monthly">Continue with Pro</button>
-      </article>
+      ` : `
+        <article class="signup-plan-card signup-plan-card--pro signup-plan-card--pro-featured">
+          <span class="signup-plan-badge">Available Now</span>
+          <h3>Pro Membership</h3>
+          <p class="signup-plan-subtitle">Full access at the regular membership rate.</p>
+          <p class="signup-plan-price"><strong>$19.99</strong><span>/month</span></p>
+          <ul class="signup-plan-includes">
+            <li>Full lesson plan library</li>
+            <li>Premium curriculum</li>
+            <li>Calendar &amp; planning tools</li>
+            <li>Child Profiles</li>
+            <li>Goals &amp; Observations</li>
+            <li>Documentation Helpers</li>
+            <li>AI Tools</li>
+            <li>New features as they release</li>
+          </ul>
+          <ul class="signup-plan-excludes">
+            <li>No lifetime founding price lock</li>
+          </ul>
+          <button class="primary-button" type="button" data-signup-choose-plan="monthly">Continue with Pro</button>
+        </article>
+      `}
     </div>
   `;
 }
@@ -36699,15 +36708,16 @@ function renderPricingPage() {
   const target = document.querySelector("#pricingApp");
   if (!target) return;
   const remaining = foundingSpotsRemaining();
+  const soldOut = remaining <= 0;
   target.innerHTML = `
     ${foundingStatusCard()}
     ${promoCodePanel()}
-    <div class="pricing-grid">
+    <div class="pricing-grid ${soldOut ? "pricing-grid--sold-out" : "pricing-grid--founding-open"}">
       ${pricingCard("Free", { free: true, buttonText: "Use Free" })}
-      ${remaining > 0
+      ${!soldOut
         ? pricingCard("Founding", { featured: true, primary: true, eyebrow: "First 50 Members", checkoutType: "founding", buttonText: "Claim Founding Spot" })
         : pricingCard("ProMonthly", { featured: true, primary: true, eyebrow: "Main Paid Plan", checkoutType: "monthly", buttonText: "Choose Pro Monthly" })}
-      ${pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Choose Pro Annual" })}
+      ${soldOut ? pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Choose Pro Annual" }) : ""}
     </div>
     <section class="section-block billing-links">
       <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
@@ -36727,12 +36737,11 @@ function renderUpgradePage() {
   target.innerHTML = `
     ${foundingStatusCard()}
     ${promoCodePanel()}
-    <div class="pricing-grid">
+    <div class="pricing-grid ${soldOut ? "pricing-grid--sold-out" : "pricing-grid--founding-open"}">
       ${!soldOut
         ? pricingCard("Founding", { featured: true, primary: true, eyebrow: "Best Launch Offer", checkoutType: "founding", buttonText: "Checkout for $9.99/month" })
         : pricingCard("ProMonthly", { featured: true, primary: true, eyebrow: "Pro", checkoutType: "monthly", buttonText: "Checkout for $19.99/month" })}
-      ${!soldOut ? pricingCard("ProMonthly", { checkoutType: "monthly", buttonText: "Checkout Monthly" }) : ""}
-      ${pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Checkout Annual" })}
+      ${soldOut ? pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Checkout Annual" }) : ""}
     </div>
     <section class="section-block">
       <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>

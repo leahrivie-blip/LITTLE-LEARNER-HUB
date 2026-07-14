@@ -1,4 +1,4 @@
-const CACHE_NAME = "llh-shell-v33-signup-flow";
+const CACHE_NAME = "llh-shell-v34-hide-pro";
 const APP_SHELL = [
   "/",
   "/index.html",

@@ -4950,6 +4950,20 @@ body.lessons-view .mobile-brand {
   margin-top: 22px;
 }
 
+.pricing-grid--founding-open {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pricing-grid--founding-open > :only-child {
+  max-width: 420px;
+  margin-inline: auto;
+  width: 100%;
+}
+
+.pricing-grid--sold-out {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
 .founding-banner {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 160px;
@@ -18501,6 +18515,19 @@ body.admin-preview-simulating .sidebar .brand h1::after {
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.25fr) minmax(0, 0.9fr);
   gap: 12px;
   align-items: stretch;
+}
+
+.signup-plan-grid--founding-open {
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.2fr);
+}
+
+.signup-plan-grid--sold-out {
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.2fr);
+}
+
+.signup-plan-card--pro-featured {
+  border: 2px solid #5b9bd5;
+  box-shadow: 0 14px 28px rgba(47, 95, 134, 0.12);
 }
 
 .signup-plan-card {
