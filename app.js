@@ -7926,13 +7926,19 @@ function syncPlatformNavVisibility() {
 function isPlatformNavActive(buttonView, requestedView, resolvedView) {
   if (!buttonView) return false;
   if (buttonView === requestedView) return true;
+  // Child-tool aliases (Daily Logs, etc.) resolve to the children view, but only the
+  // specific tool link should highlight — not Child Profiles at the same time.
+  if (childToolTabFromView(requestedView)) {
+    return false;
+  }
   if (buttonView === resolvedView) return true;
   if (buttonView === "resources" && ["resources", "support-center", "menus", "observations"].includes(resolvedView)) {
     return true;
   }
+  // Staff has its own sidebar item — do not also mark Settings active.
   if (
     buttonView === "settings"
-    && ["settings", "account", "program-settings", "forms-settings", "curriculum-settings", "billing", "subscription", "billing-history", "contact", "faq", "plans", "upgrade", "staff", "cancel-subscription"].includes(resolvedView)
+    && ["settings", "account", "program-settings", "forms-settings", "curriculum-settings", "billing", "subscription", "billing-history", "contact", "faq", "plans", "upgrade", "cancel-subscription"].includes(resolvedView)
   ) {
     return true;
   }
