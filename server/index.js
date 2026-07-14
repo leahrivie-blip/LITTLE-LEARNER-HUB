@@ -1967,8 +1967,45 @@ function mergeStorePreferNewerSiteContent(incomingStore) {
   return incomingStore;
 }
 
+// Same race class as siteContent: a stale writeStore(readStore()) clone captured before
+// createAdminToken() used to wipe live adminSessions, leaving the browser "unlocked"
+// while every /api/admin/* call returned "Admin access is required."
+function mergeStorePreserveAdminSessions(incomingStore) {
+  if (!incomingStore || typeof incomingStore !== "object") return incomingStore;
+  const cachedSessions = storeCache?.adminSessions || {};
+  const incomingSessions = incomingStore.adminSessions || {};
+  if (!Object.keys(cachedSessions).length && !Object.keys(incomingSessions).length) {
+    return incomingStore;
+  }
+  const mergedSessions = { ...incomingSessions };
+  let preserved = 0;
+  Object.entries(cachedSessions).forEach(([token, session]) => {
+    if (!mergedSessions[token]) {
+      mergedSessions[token] = session;
+      preserved += 1;
+      return;
+    }
+    const cachedMs = Date.parse(session?.createdAt || "") || 0;
+    const incomingMs = Date.parse(mergedSessions[token]?.createdAt || "") || 0;
+    if (cachedMs > incomingMs) {
+      mergedSessions[token] = session;
+      preserved += 1;
+    }
+  });
+  if (preserved) {
+    console.log("[store-write] preserve adminSessions", {
+      preserved,
+      total: Object.keys(mergedSessions).length,
+    });
+  }
+  return {
+    ...incomingStore,
+    adminSessions: mergedSessions,
+  };
+}
+
 function writeStore(store) {
-  const nextStore = mergeStorePreferNewerSiteContent(store);
+  const nextStore = mergeStorePreserveAdminSessions(mergeStorePreferNewerSiteContent(store));
   storeCache = nextStore;
   if (usePostgresStore()) {
     enqueuePostgresStoreWrite().writePromise.catch(() => {});
@@ -1984,8 +2021,9 @@ function writeStore(store) {
 // be confirmed before responding (e.g. lesson plan visibility changes, site content saves).
 async function writeStoreAsync(store) {
   // Intentional full-state writes (curriculum / site-content) may carry a newer stamp.
-  // Do not merge-prefer the cache here — the caller already built the next siteContent.
-  storeCache = store;
+  // Do not merge-prefer siteContent from cache — the caller already built the next siteContent.
+  // Always preserve adminSessions so a concurrent login is not erased mid-save.
+  storeCache = mergeStorePreserveAdminSessions(store);
   if (usePostgresStore()) {
     const { writeGeneration, writePromise } = enqueuePostgresStoreWrite();
     await writePromise;
@@ -1997,7 +2035,7 @@ async function writeStoreAsync(store) {
     return;
   }
   ensureStore();
-  fs.writeFileSync(storePath, JSON.stringify(store, null, 2));
+  fs.writeFileSync(storePath, JSON.stringify(storeCache, null, 2));
 }
 
 function normalizeEmail(email) {
@@ -2137,13 +2175,16 @@ async function resolveCurriculumAccessUser(request, url) {
 
 function createAdminToken(email) {
   const token = `admin_${crypto.randomBytes(24).toString("hex")}`;
-  const store = readStore();
-  store.adminSessions = store.adminSessions || {};
-  store.adminSessions[token] = {
-    email,
+  // Always mutate the live cache (not a stale readStore clone) so concurrent
+  // analytics writeStore(readStore()) calls cannot drop this session.
+  if (!storeCache) readStore();
+  storeCache = storeCache || defaultStore();
+  storeCache.adminSessions = storeCache.adminSessions || {};
+  storeCache.adminSessions[token] = {
+    email: normalizeEmail(email),
     createdAt: new Date().toISOString(),
   };
-  writeStore(store);
+  writeStore(storeCache);
   return token;
 }
 
@@ -3821,10 +3862,12 @@ async function handleAdminLogin(request, response) {
     jsonResponse(response, 401, { error: "The owner email, password, or admin code did not match." });
     return;
   }
+  const token = createAdminToken(email);
   jsonResponse(response, 200, {
-    token: createAdminToken(email),
+    token,
     email,
     name: ADMIN_NAME,
+    mode: "server",
   });
 }
 
@@ -4837,8 +4880,30 @@ function publicTicket(ticket) {
 }
 
 function validAdminToken(token) {
+  const clean = String(token || "").trim();
+  if (!clean) return false;
   const store = readStore();
-  return Boolean(token && store.adminSessions?.[token]);
+  return Boolean(store.adminSessions?.[clean]);
+}
+
+function handleAdminSession(request, response, url) {
+  const token = String(url.searchParams.get("adminToken") || "").trim();
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, {
+      valid: false,
+      code: "admin_session_invalid",
+      error: "Admin access is required.",
+      hint: "Your Admin unlock session is no longer on the server. Unlock Admin again with owner email, password, and access code.",
+    });
+    return;
+  }
+  const session = readStore().adminSessions?.[token] || {};
+  jsonResponse(response, 200, {
+    valid: true,
+    email: session.email || "",
+    createdAt: session.createdAt || "",
+    adminConfigured: adminConfigStatus().ready,
+  });
 }
 
 function analyticsDateKey(value) {
@@ -5984,7 +6049,11 @@ function analyticsSummary(store) {
 function handleAdminAnalytics(request, response, url) {
   const token = url.searchParams.get("adminToken");
   if (!validAdminToken(token)) {
-    jsonResponse(response, 401, { error: "Admin access is required." });
+    jsonResponse(response, 401, {
+      error: "Admin access is required.",
+      code: "admin_session_invalid",
+      hint: "Unlock Admin again with owner email, password, and access code. Browser unlock state can outlive a lost server session after deploy or store sync.",
+    });
     return;
   }
   jsonResponse(response, 200, { analytics: analyticsSummary(readStore()) });
@@ -8216,6 +8285,7 @@ const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, SITE_URL);
   try {
     if (request.method === "POST" && url.pathname === "/api/admin/login") return await handleAdminLogin(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/session") return handleAdminSession(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/site-content") return handlePublicSiteContent(request, response);
     if (request.method === "GET" && url.pathname.startsWith("/api/curriculum/lesson-plans/")) {
       const planId = decodeURIComponent(url.pathname.slice("/api/curriculum/lesson-plans/".length));
