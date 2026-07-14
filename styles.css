@@ -39,6 +39,10 @@
   --mint: #4dd4a8;
   --mint-dark: #2eaf89;
   --mint-soft: #e0f7f1;
+
+  /* Shell chrome metrics (synced by JS when possible) */
+  --llh-topbar-height: 64px;
+  --llh-editor-sticky-height: 56px;
 }
 
 * {
@@ -14238,6 +14242,9 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   flex: 1;
   gap: 0;
   overflow: hidden;
+  overflow-x: clip;
+  width: 100%;
+  max-width: 100%;
 }
 
 .lesson-workspace-header {
@@ -14245,6 +14252,7 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   gap: 8px;
   padding: 0 2px 10px;
   flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.96);
 }
 
 .lesson-workspace-back {
@@ -15055,11 +15063,46 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 @media (max-width: 760px) {
   .resource-viewer-modal.lesson-workspace-mode.open {
     padding: 8px;
+    padding-top: calc(8px + env(safe-area-inset-top, 0px));
   }
 
   .resource-viewer-modal.lesson-workspace-mode .resource-viewer-card {
     max-height: 100dvh;
     border-radius: 12px;
+    overflow-x: clip;
+    width: 100%;
+  }
+
+  .resource-viewer-modal.lesson-workspace-mode .resource-viewer-body,
+  .lesson-workspace-article,
+  .lesson-workspace {
+    overflow-x: clip;
+    max-width: 100%;
+  }
+
+  .lesson-workspace-header {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    padding-top: 2px;
+    margin: 0 -2px;
+    padding-left: 2px;
+    padding-right: 2px;
+    border-bottom: 1px solid rgba(213, 227, 240, 0.85);
+    backdrop-filter: blur(10px);
+  }
+
+  .lesson-workspace-back {
+    width: 100%;
+    justify-self: stretch;
+    justify-content: center;
+  }
+
+  .lesson-workspace-primary-actions .primary-button,
+  .lesson-workspace-primary-actions .ghost-button,
+  .lesson-workspace-secondary-actions .ghost-button {
+    flex: 1 1 100%;
+    width: 100%;
   }
 }
 
@@ -15783,7 +15826,7 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 6px;
     position: sticky;
-    top: 0;
+    top: var(--llh-topbar-height, calc(56px + env(safe-area-inset-top, 0px)));
     z-index: 3;
     padding: 6px 0;
     background: color-mix(in srgb, var(--llh-bg, #f7f6f9) 90%, white);
@@ -16634,11 +16677,24 @@ body.curriculum-planner-retired .nav-link[data-view="curriculum-planner"] {
 
 body.lesson-editor-view .topbar .search-wrap,
 body.lesson-editor-view .topbar .account-actions {
-  display: none;
+  display: none !important;
 }
 
 body.lesson-editor-view .topbar {
-  min-height: 56px;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: var(--llh-topbar-height, 56px);
+  padding: 10px 14px;
+  position: sticky;
+  top: 0;
+  z-index: 25;
+}
+
+body.lesson-editor-view .mobile-brand {
+  display: flex;
+}
+
+body.lesson-editor-view .main {
+  overflow-x: clip;
 }
 
 .lesson-editor-shell {
@@ -16646,22 +16702,19 @@ body.lesson-editor-view .topbar {
   gap: 12px;
   padding: 8px 0 96px;
   max-width: 920px;
-}
-
-body.lesson-editor-view .topbar {
-  position: sticky;
-  top: 0;
-  z-index: 25;
+  overflow-x: clip;
+  width: 100%;
 }
 
 .lesson-editor-sticky-bar {
   position: sticky;
-  top: 64px;
+  top: var(--llh-topbar-height, 64px);
   z-index: 24;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  min-height: var(--llh-editor-sticky-height, 56px);
   padding: 10px 12px;
   margin: 0 -4px 8px;
   background: rgba(255, 255, 255, 0.96);
@@ -16740,7 +16793,11 @@ body.lesson-editor-view .topbar {
 
 #lesson-editor-weekly,
 [id^="lesson-editor-day-"] {
-  scroll-margin-top: 96px;
+  scroll-margin-top: calc(
+    var(--llh-topbar-height, 64px)
+    + var(--llh-editor-sticky-height, 56px)
+    + 12px
+  );
 }
 
 .lesson-editor-inline-actions {
@@ -16748,16 +16805,29 @@ body.lesson-editor-view .topbar {
 }
 
 @media (max-width: 900px) {
+  body.lesson-editor-view .topbar {
+    padding: 8px 12px;
+    padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  }
+
+  body.lesson-editor-view .topbar .mobile-brand strong {
+    font-size: 14px;
+  }
+
   body.lesson-editor-view .main {
     padding-top: 0;
+    overflow-x: clip;
   }
 
   .lesson-editor-shell {
     padding: 4px 0 calc(112px + env(safe-area-inset-bottom, 0px));
+    overflow-x: clip;
   }
 
   .lesson-editor-sticky-bar {
-    top: env(safe-area-inset-top, 0px);
+    /* Measured --llh-topbar-height already includes safe-area top padding when present. */
+    top: var(--llh-topbar-height, calc(56px + env(safe-area-inset-top, 0px)));
+    z-index: 26;
     margin: 0 0 10px;
     border-radius: 12px;
   }
@@ -16765,6 +16835,8 @@ body.lesson-editor-view .topbar {
   .lesson-editor-sticky-bar .ghost-button,
   .lesson-editor-sticky-bar .primary-button {
     flex: 1 1 calc(50% - 4px);
+    width: 100%;
+    max-width: 100%;
   }
 
   .lesson-editor-save-status {
@@ -16787,5 +16859,14 @@ body.lesson-editor-view .topbar {
   .lesson-editor-form button {
     width: 100%;
     max-width: 100%;
+  }
+
+  #lesson-editor-weekly,
+  [id^="lesson-editor-day-"] {
+    scroll-margin-top: calc(
+      var(--llh-topbar-height, calc(56px + env(safe-area-inset-top, 0px)))
+      + var(--llh-editor-sticky-height, 56px)
+      + 12px
+    );
   }
 }
