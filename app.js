@@ -3347,8 +3347,12 @@ let mainCalendarBusy = false;
 let mainCalendarActiveFilters = null;
 let mainCalendarEditingItemId = "";
 let pendingCalendarAssignNotice = "";
+let calendarLessonAssignContext = null; // { weekStartDate, fromCalendar }
 let scheduleDocCache = null;
 let scheduleSyncPromise = null;
+let scheduleSyncState = "idle"; // idle | loading | ready | error
+let scheduleSyncError = "";
+let scheduleSyncSynced = false;
 let weeklyPlannerActiveDay = "";
 let weeklyPlannerNotesOpen = false;
 let weeklyPlannerFocusWeek = "";
@@ -8544,8 +8548,11 @@ function setView(view, options = {}) {
       mainCalendarSubView = "month";
     }
     // Paint Calendar shell immediately; refresh once ScheduleItem sync settles.
+    if (scheduleSyncState !== "ready") scheduleSyncState = "loading";
     renderMainCalendar();
-    ensureScheduleLoaded().then(() => renderMainCalendar()).catch(() => renderMainCalendar());
+    ensureScheduleLoaded({ force: scheduleSyncState === "error", retry: true })
+      .then(() => renderMainCalendar())
+      .catch(() => renderMainCalendar());
   }
   if (resolvedView === "curriculum-planner") renderCurriculumPlanner();
   if (resolvedView === "home" && isLoggedIn()) {
@@ -9287,9 +9294,10 @@ function lessonPlanCard(resource) {
   const assigned = lessonPlanIsAssigned(resource.id);
   const favoriteLabel = !isProUser() ? "Save is a Pro feature" : favorite ? "Remove from Saved Plans" : "Save plan";
   const openLabel = locked ? `Preview ${resource.title}` : `Open ${resource.title}`;
+  const pickingForCalendar = Boolean(calendarLessonAssignContext?.weekStartDate);
   return `
     <article
-      class="resource-card lesson-plan-card ${locked ? "locked" : ""}"
+      class="resource-card lesson-plan-card ${locked ? "locked" : ""} ${pickingForCalendar ? "is-calendar-pick" : ""}"
       data-lesson-card="${escapeHtml(resource.id)}"
       data-view-resource="${escapeHtml(resource.id)}"
       role="button"
@@ -9317,7 +9325,11 @@ function lessonPlanCard(resource) {
       ${theme ? `<p class="lesson-plan-card-theme">${escapeHtml(theme)}</p>` : ""}
       ${domains.length ? `<div class="lesson-plan-card-domains" aria-label="Learning domains">${domains.map((domain) => `<span class="tag">${escapeHtml(domain)}</span>`).join("")}</div>` : ""}
       ${overview ? `<p class="lesson-plan-card-overview">${escapeHtml(overview)}</p>` : ""}
-      <p class="lesson-plan-card-hint">${locked ? "Tap to preview →" : "Tap to open →"}</p>
+      ${!locked ? `
+        <div class="lesson-plan-card-actions" onclick="event.stopPropagation()">
+          <button type="button" class="primary-button" data-lesson-card-use-plan="${escapeHtml(resource.id)}">Use This Plan</button>
+        </div>
+      ` : `<p class="lesson-plan-card-hint">Tap to preview →</p>`}
     </article>
   `;
 }
@@ -12406,6 +12418,7 @@ function closeResourceViewer() {
   viewer.classList.remove("open");
   viewer.setAttribute("aria-hidden", "true");
   document.body.classList.remove("printing-resource");
+  document.body.classList.remove("resource-viewer-open");
   activeGeneratedPdfResource = null;
   activeResourceViewerResource = null;
   activeViewerResourceId = "";
@@ -14201,7 +14214,11 @@ function applyLessonWorkspaceChrome(viewerResource) {
   document.querySelector("#resourceViewerCategory").hidden = true;
   document.querySelector("#resourceViewerTitle").hidden = true;
   document.querySelector("#resourceViewerTags").hidden = true;
-  document.querySelector("#closeResourceViewer").hidden = true;
+  const closeBtn = document.querySelector("#closeResourceViewer");
+  if (closeBtn) {
+    closeBtn.hidden = false;
+    closeBtn.setAttribute("aria-label", "Close lesson plan");
+  }
   const toolbar = document.querySelector(".resource-viewer-toolbar");
   if (toolbar) toolbar.hidden = true;
   const pdfButton = document.querySelector("#downloadPdfButton");
@@ -15291,14 +15308,21 @@ async function openResourceViewer(resourceId, options = {}) {
   activeResourceViewerResource = viewerResource;
   if (isLessonWorkspaceResource(viewerResource)) {
     applyLessonWorkspaceChrome(viewerResource);
-    if (options.openPlanThisWeek) {
+    const assignWeek = options.weekStartDate
+      || calendarLessonAssignContext?.weekStartDate
+      || "";
+    const shouldOpenAssign = Boolean(
+      options.openPlanThisWeek
+      || (calendarLessonAssignContext?.fromCalendar && !options.skipCalendarAssignSheet),
+    );
+    if (shouldOpenAssign) {
       toggleLessonWorkspaceActionSheet(true, {
         intent: options.assignIntent === "my-week" ? "my-week" : "calendar",
         panel: "main-calendar",
       });
-      if (options.weekStartDate) {
+      if (assignWeek) {
         const weekInput = document.querySelector("[data-lesson-main-calendar-form] [name='weekStartDate']");
-        if (weekInput) weekInput.value = curriculumPlannerWeekStartIso(options.weekStartDate);
+        if (weekInput) weekInput.value = curriculumPlannerWeekStartIso(assignWeek);
       }
     }
   } else {
@@ -15489,6 +15513,7 @@ function renderCategoryPage(view) {
     const isSavedLessonMode = lessonLibraryMode === "saved";
     section.innerHTML = `
       ${renderLessonPlanLibraryHeader()}
+      ${calendarLessonAssignBannerHtml()}
       <div class="lesson-plan-search-bar">
         <label class="lesson-plan-search-label visually-hidden" for="lessonPlanSearch">Search lesson plans</label>
         <input id="lessonPlanSearch" type="search" placeholder="${isSavedLessonMode ? "Search saved plans..." : "Search lesson plans..."}" value="${escapeHtml(searchInput.value)}" autocomplete="off" />
@@ -15984,7 +16009,7 @@ function renderUserDashboard() {
   else if (hour < 17) greeting = "Good afternoon";
   else greeting = "Good evening";
   const today = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-  const accountName = currentAccount()?.name || currentUser?.split("@")[0] || "Provider";
+  const accountName = accountDisplayFirstName(currentAccount());
   const programSettings = getProgramSettings();
   const programName = programSettings.programName || "";
 
@@ -16645,43 +16670,144 @@ function curriculumPlannerRetirementBannerHtml() {
 async function ensureScheduleLoaded(options = {}) {
   const api = getScheduleApi();
   if (!api) return null;
-  if (scheduleDocCache && !options.force) return scheduleDocCache;
-  if (scheduleSyncPromise) return scheduleSyncPromise;
+  if (scheduleDocCache && !options.force && scheduleSyncState === "ready") return scheduleDocCache;
+  if (scheduleDocCache && !options.force && scheduleSyncState === "error" && !options.retry) {
+    return scheduleDocCache;
+  }
+  if (scheduleSyncPromise && !options.force) return scheduleSyncPromise;
+  scheduleSyncState = "loading";
+  scheduleSyncError = "";
   scheduleSyncPromise = (async () => {
     const email = scheduleApiEmail();
     if (!email) {
       scheduleDocCache = api.emptyDoc();
+      scheduleSyncState = "ready";
+      scheduleSyncSynced = false;
       return scheduleDocCache;
     }
     const localBefore = api.readCache(email);
-    // Migrate at most once unless explicitly forced.
-    const migratedFlag = localStorage.getItem(`llhScheduleMigrated:${email}`);
-    if (!migratedFlag || options.forceMigrate) {
-      const legacy = loadCurriculumWeekAssignments();
-      const planner = typeof weeklyPlanner === "function" ? weeklyPlanner() : null;
-      await api.migrateFromLegacy(firebaseAuthHeaders, email, {
-        curriculumAssignments: legacy,
-        weeklyPlanner: planner,
-        force: Boolean(options.forceMigrate),
-      });
+    let lastError = "";
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      try {
+        const migratedFlag = localStorage.getItem(`llhScheduleMigrated:${email}`);
+        if (!migratedFlag || options.forceMigrate) {
+          const legacy = loadCurriculumWeekAssignments();
+          const planner = typeof weeklyPlanner === "function" ? weeklyPlanner() : null;
+          await api.migrateFromLegacy(firebaseAuthHeaders, email, {
+            curriculumAssignments: legacy,
+            weeklyPlanner: planner,
+            force: Boolean(options.forceMigrate),
+          });
+        }
+        const fetched = await api.fetchSchedule(firebaseAuthHeaders, email);
+        const merged = api.mergeScheduleDocs
+          ? api.mergeScheduleDocs(localBefore, fetched || api.emptyDoc())
+          : (fetched || localBefore);
+        // Guard: never drop local items on refresh.
+        if ((localBefore.items || []).length > (merged.items || []).length) {
+          scheduleDocCache = api.mergeScheduleDocs(merged, localBefore);
+          api.writeCache(email, scheduleDocCache);
+        } else {
+          scheduleDocCache = {
+            classrooms: merged.classrooms,
+            items: merged.items,
+            updatedAt: merged.updatedAt,
+            schemaVersion: 1,
+          };
+          api.writeCache(email, scheduleDocCache);
+        }
+        const synced = fetched?._synced !== false;
+        scheduleSyncSynced = synced;
+        if (synced) {
+          scheduleSyncState = "ready";
+          scheduleSyncError = "";
+          return scheduleDocCache;
+        }
+        lastError = fetched?._syncError || "Calendar is waking up. Tap Retry in a moment.";
+        if (attempt < 3) await delayMs(400 * (attempt + 1));
+      } catch (error) {
+        lastError = error?.message || "Calendar is waking up. Tap Retry in a moment.";
+        if (attempt < 3) await delayMs(400 * (attempt + 1));
+      }
     }
-    const fetched = await api.fetchSchedule(firebaseAuthHeaders, email);
-    const merged = api.mergeScheduleDocs
-      ? api.mergeScheduleDocs(localBefore, fetched || api.emptyDoc())
-      : (fetched || localBefore);
-    // Guard: never drop local items on refresh.
-    if ((localBefore.items || []).length > (merged.items || []).length) {
-      scheduleDocCache = api.mergeScheduleDocs(merged, localBefore);
-      api.writeCache(email, scheduleDocCache);
-    } else {
-      scheduleDocCache = merged;
-      api.writeCache(email, scheduleDocCache);
-    }
+    scheduleDocCache = api.readCache(email) || localBefore || api.emptyDoc();
+    scheduleSyncState = "error";
+    scheduleSyncError = lastError || "Calendar could not sync. Showing your saved copy.";
+    scheduleSyncSynced = false;
     return scheduleDocCache;
   })().finally(() => {
     scheduleSyncPromise = null;
   });
   return scheduleSyncPromise;
+}
+
+function calendarScheduleStatusHtml() {
+  if (scheduleSyncState === "loading") {
+    return `<div class="llh-calendar-sync-banner is-loading" role="status" data-calendar-sync-banner>
+      <p>Loading your calendar…</p>
+    </div>`;
+  }
+  if (scheduleSyncState === "error" && scheduleSyncError) {
+    return `<div class="llh-calendar-sync-banner is-error" role="alert" data-calendar-sync-banner>
+      <div>
+        <p><strong>Calendar sync paused.</strong> ${escapeHtml(scheduleSyncError)}</p>
+        <p class="muted-copy">Your notes and plans are kept on this device until sync finishes.</p>
+      </div>
+      <button type="button" class="primary-button" data-calendar-retry-sync>Retry</button>
+    </div>`;
+  }
+  return "";
+}
+
+function openCalendarLessonPlanPicker(options = {}) {
+  if (!isLoggedIn() && !hasAdminFullAccess()) {
+    openAuthModal("login");
+    return;
+  }
+  const week = curriculumPlannerWeekStartIso(
+    options.weekStartDate || mainCalendarSelectedWeek || mainCalendarSelectedDay || new Date(),
+  );
+  calendarLessonAssignContext = { weekStartDate: week, fromCalendar: true };
+  lessonLibraryReturnView = "calendar";
+  setViewReturnContext("lessons", {
+    type: "view",
+    view: "calendar",
+    label: "← Back to Calendar",
+    weekStartDate: week,
+  });
+  setView("lessons", { calendarAssignWeek: week });
+}
+
+function clearCalendarLessonAssignContext() {
+  calendarLessonAssignContext = null;
+}
+
+function calendarLessonAssignBannerHtml() {
+  const week = String(calendarLessonAssignContext?.weekStartDate || "").trim();
+  if (!week) return "";
+  return `
+    <div class="llh-calendar-assign-picker-banner" role="status" data-calendar-assign-picker-banner>
+      <div>
+        <p><strong>Choose a play-based lesson plan</strong> for the week of ${escapeHtml(week)}.</p>
+        <p class="muted-copy">Search or browse, open a plan, then confirm the week to add it to your calendar.</p>
+      </div>
+      <button type="button" class="ghost-button" data-calendar-cancel-lesson-assign>Cancel</button>
+    </div>
+  `;
+}
+
+function finishCalendarLessonAssignSuccess(assignment) {
+  const week = assignment?.weekStartDate || calendarLessonAssignContext?.weekStartDate || "";
+  const title = assignment?.lessonPlanTitle || assignment?.title || "Lesson plan";
+  pendingCalendarAssignNotice = week
+    ? `Added “${title}” to the week of ${week}. Customize days, then print your week-at-a-glance.`
+    : `Added “${title}” to your Calendar.`;
+  clearCalendarLessonAssignContext();
+  toggleLessonWorkspaceActionSheet(false);
+  dismissResourceViewerForNavigation();
+  mainCalendarSelectedWeek = week || mainCalendarSelectedWeek;
+  mainCalendarSubView = week ? "week" : "month";
+  setView("calendar", week ? { weekStartDate: week } : {});
 }
 
 function scheduleClassroomName(doc) {
@@ -18689,6 +18815,7 @@ function renderCalendarMonthView(app) {
 
   app.innerHTML = `
     <div class="llh-calendar-shell">
+      ${calendarScheduleStatusHtml()}
       ${calendarAssignNoticeHtml()}
       ${curriculumPlannerRetirementBannerHtml()}
       <div class="llh-calendar-toolbar">
@@ -18709,7 +18836,7 @@ function renderCalendarMonthView(app) {
             <button type="button" class="ghost-button" data-calendar-nav="1" aria-label="Next month">Next ›</button>
             <button type="button" class="ghost-button" data-calendar-nav="today">Today</button>
           </div>
-          <button type="button" class="primary-button" data-view="lessons">Add Lesson Plan</button>
+          <button type="button" class="primary-button" data-calendar-add-lesson-plan>Add Lesson Plan</button>
         </div>
       </div>
       ${calendarFilterBarHtml()}
@@ -18792,7 +18919,7 @@ function calendarWeekHeaderActionsHtml(week, options = {}) {
   const hasLesson = Boolean(options.hasLesson);
   return `
     <div class="llh-cal-week-actions" role="group" aria-label="Week planning actions">
-      <button type="button" class="primary-button" data-view="lessons">Add Lesson Plan</button>
+      <button type="button" class="primary-button" data-calendar-add-lesson-plan data-calendar-add-lesson-week="${escapeHtml(week)}">Add Lesson Plan</button>
       <button type="button" class="ghost-button" data-view="lessons">Browse Library</button>
       <button type="button" class="ghost-button" data-view="ai">Doc Helper</button>
       <button type="button" class="ghost-button" data-calendar-print-week="${escapeHtml(week)}" ${hasLesson ? "" : "disabled"} title="${hasLesson ? "Download week-at-a-glance PDF (classroom copy)" : "Add a lesson plan before printing"}">Print Week PDF</button>
@@ -18809,7 +18936,7 @@ function calendarWeekEmptyStateHtml() {
       <p class="muted-copy">Empty weeks stay empty until you choose a plan — nothing is auto-filled.</p>
       <p class="muted-copy llh-cal-week-empty-next">Next: Add a Lesson Plan → customize days → Print Week PDF.</p>
       <div class="form-actions llh-cal-week-empty-actions">
-        <button type="button" class="primary-button" data-view="lessons">Add Lesson Plan</button>
+        <button type="button" class="primary-button" data-calendar-add-lesson-plan>Add Lesson Plan</button>
         <button type="button" class="ghost-button" data-view="lessons">Browse Library</button>
         <button type="button" class="ghost-button" data-view="ai">Doc Helper</button>
       </div>
@@ -18835,7 +18962,7 @@ function calendarWeekLessonSummaryHtml(lesson, week, room, glance) {
         <button type="button" class="primary-button" data-view="planner" data-planner-focus-week="${escapeHtml(week)}">Open Weekly Planner</button>
         <button type="button" class="ghost-button" data-calendar-print-week="${escapeHtml(week)}">Print Week PDF</button>
         <button type="button" class="ghost-button" data-calendar-print-full="${escapeHtml(week)}">Print Full Plan</button>
-        <button type="button" class="ghost-button" data-view="lessons">Change Plan</button>
+        <button type="button" class="ghost-button" data-calendar-add-lesson-plan data-calendar-add-lesson-week="${escapeHtml(week)}">Change Plan</button>
       </div>
       <p class="muted-copy llh-cal-print-hint">Prints use your classroom copy${customized ? " (including day edits)" : ""} — not a Google Doc.</p>
     </section>
@@ -19045,6 +19172,7 @@ function renderCalendarWeekView(app) {
 
   app.innerHTML = `
     <div class="llh-calendar-shell llh-calendar-week-view">
+      ${calendarScheduleStatusHtml()}
       ${calendarAssignNoticeHtml(week)}
       <p class="muted-copy llh-cal-print-status" data-calendar-print-status hidden></p>
       <div class="llh-calendar-toolbar">
@@ -19108,6 +19236,7 @@ function renderCalendarDayView(app) {
 
   app.innerHTML = `
     <div class="llh-calendar-shell llh-calendar-day-view">
+      ${calendarScheduleStatusHtml()}
       ${calendarAssignNoticeHtml(week)}
       <p class="muted-copy llh-cal-print-status" data-calendar-print-status hidden></p>
       <div class="llh-calendar-toolbar">
@@ -19150,7 +19279,7 @@ function renderCalendarDayView(app) {
             <p class="muted-copy">${weekend
               ? "Lesson plans run Monday–Friday. Add notes or events on this day anytime."
               : "No lesson plan assigned for this week yet."}</p>
-            <div class="form-actions"><button type="button" class="ghost-button" data-view="lessons">Browse Lesson Plans</button></div>
+            <div class="form-actions"><button type="button" class="ghost-button" data-calendar-add-lesson-plan data-calendar-add-lesson-week="${escapeHtml(week)}">Add Lesson Plan</button></div>
           `}
         </section>
         <section class="llh-ds-card">
@@ -19331,16 +19460,16 @@ async function saveCalendarDayNote(iso, options = {}) {
   const input = document.querySelector("[data-calendar-day-note-input]");
   const notes = options.clear ? "" : String(options.notes ?? input?.value ?? "").trim();
   mainCalendarBusy = true;
-  setCalendarDayNoteStatus("Saving…");
+  setCalendarDayNoteStatus("Saving to your account…");
   renderMainCalendar();
   try {
-    await ensureScheduleLoaded();
+    await ensureScheduleLoaded({ force: scheduleSyncState === "error", retry: true });
     const doc = scheduleDocCache || api.readCache(scheduleApiEmail()) || { items: [], classrooms: [] };
     const existing = calendarDayNoteForDate(doc, date);
     const classroomId = doc.classrooms?.[0]?.id || "classroom-main";
     if (!notes) {
       if (existing?.id && api.deleteItem) {
-        await api.deleteItem(firebaseAuthHeaders, scheduleApiEmail(), existing.id);
+        await api.deleteItem(firebaseAuthHeaders, scheduleApiEmail(), existing.id, { requireCloud: true });
       }
     } else {
       await api.upsertItem(firebaseAuthHeaders, scheduleApiEmail(), {
@@ -19353,20 +19482,27 @@ async function saveCalendarDayNote(iso, options = {}) {
         allDay: true,
         notes,
         classroomId,
-      });
+      }, { requireCloud: true });
     }
     scheduleDocCache = api.readCache(scheduleApiEmail());
+    scheduleSyncState = "ready";
+    scheduleSyncError = "";
+    scheduleSyncSynced = true;
   } catch (error) {
     mainCalendarBusy = false;
     renderMainCalendar();
-    setCalendarDayNoteStatus(error.message || "Could not save day notes.", true);
+    const message = error?.message || "Could not save day notes to your account.";
+    setCalendarDayNoteStatus(message, true);
+    showActionFeedback(message);
     const restored = document.querySelector("[data-calendar-day-note-input]");
     if (restored && !options.clear) restored.value = notes;
     return;
   }
   mainCalendarBusy = false;
   renderMainCalendar();
-  setCalendarDayNoteStatus(notes ? "Notes saved." : "Notes cleared.");
+  const successMessage = notes ? "Notes saved to your account." : "Notes cleared from your account.";
+  setCalendarDayNoteStatus(successMessage);
+  showActionFeedback(successMessage);
 }
 
 async function clearCalendarDayNote(iso) {
@@ -27744,8 +27880,23 @@ function allAccountsList() {
 }
 
 function displayUserName(user) {
-  const fromParts = [user?.firstName, user?.lastName].filter(Boolean).join(" ");
-  return fromParts || user?.name || user?.displayName || user?.fullName || user?.email?.split("@")[0] || "Unknown";
+  const first = String(user?.firstName || "").trim();
+  const last = String(user?.lastName || "").trim();
+  const fromParts = [first, last].filter(Boolean).join(" ");
+  const raw = fromParts || user?.name || user?.displayName || user?.fullName || "";
+  const cleaned = String(raw || "").trim();
+  if (!cleaned || /^undefined(\s+undefined)?$/i.test(cleaned)) {
+    const emailLocal = String(user?.email || currentUser || "").split("@")[0].trim();
+    return emailLocal || "Provider";
+  }
+  return cleaned;
+}
+
+function accountDisplayFirstName(account = currentAccount()) {
+  const first = String(account?.firstName || "").trim();
+  if (first && !/^undefined$/i.test(first)) return first;
+  const full = displayUserName(account);
+  return full.split(/\s+/)[0] || "Provider";
 }
 
 function adminMetric(label, value, detail = "") {
@@ -35933,6 +36084,8 @@ function renderAccountPage() {
   const favoritesTarget = document.querySelector("#accountFavoritesList");
   const downloadsTarget = document.querySelector("#accountDownloadsList");
   const phoneInput = document.querySelector("#accountPhoneInput");
+  const firstNameInput = document.querySelector("#accountFirstNameInput");
+  const lastNameInput = document.querySelector("#accountLastNameInput");
   const demoButton = document.querySelector("#demoAccountButton");
   const upgradeButton = document.querySelector("#accountUpgradeButton");
   const resendButton = document.querySelector("#resendVerificationButton");
@@ -35959,6 +36112,8 @@ function renderAccountPage() {
       verificationLabel.classList.remove("verified");
     }
     if (phoneInput) phoneInput.value = "";
+    if (firstNameInput) firstNameInput.value = "";
+    if (lastNameInput) lastNameInput.value = "";
     if (demoButton) demoButton.style.display = "inline-flex";
     if (upgradeButton) upgradeButton.style.display = "none";
     if (resendButton) resendButton.style.display = "none";
@@ -35982,6 +36137,8 @@ function renderAccountPage() {
     verificationLabel.classList.toggle("verified", Boolean(account?.emailVerified));
   }
   if (phoneInput) phoneInput.value = account?.phone || "";
+  if (firstNameInput) firstNameInput.value = account?.firstName || "";
+  if (lastNameInput) lastNameInput.value = account?.lastName || "";
   statusLabel.textContent = paidBilling ? account?.subscriptionStatus || `${billingPlanLabel(currentPlan, account)} Subscription Active` : "Free Plan";
   detailLabel.innerHTML = canBilling
     ? (paidBilling
@@ -36143,7 +36300,7 @@ function updateSidebarDashboard() {
   const plansTarget = document.querySelector("#sidebarWeekPlans");
   if (!dueTarget || !goalsTarget || !plansTarget) return;
   if (nameTarget) {
-    const accountName = currentAccount()?.name || currentUser?.split("@")[0] || "Provider";
+    const accountName = accountDisplayFirstName(currentAccount());
     nameTarget.textContent = `Hi, ${accountName}!`;
   }
   const records = childRecords();
@@ -36587,6 +36744,12 @@ async function signOut() {
   currentPlan = "Free";
   favorites = [];
   savedDownloads = [];
+  scheduleDocCache = null;
+  scheduleSyncPromise = null;
+  scheduleSyncState = "idle";
+  scheduleSyncError = "";
+  scheduleSyncSynced = false;
+  clearCalendarLessonAssignContext();
   localStorage.removeItem("llhUser");
   localStorage.setItem("llhPlan", currentPlan);
   localStorage.setItem("llhFavorites", JSON.stringify(favorites));
@@ -38565,6 +38728,55 @@ document.addEventListener("click", async (event) => {
     toggleLessonWorkspaceActionSheet(false);
     dismissResourceViewerForNavigation();
     setView("calendar", week ? { weekStartDate: week } : {});
+    return;
+  }
+
+  const calendarRetrySync = event.target.closest("[data-calendar-retry-sync]");
+  if (calendarRetrySync) {
+    event.preventDefault();
+    scheduleSyncState = "loading";
+    scheduleSyncError = "";
+    renderMainCalendar();
+    ensureScheduleLoaded({ force: true, retry: true, forceMigrate: true })
+      .then(() => renderMainCalendar())
+      .catch(() => renderMainCalendar());
+    return;
+  }
+
+  const calendarAddLessonPlan = event.target.closest("[data-calendar-add-lesson-plan]");
+  if (calendarAddLessonPlan) {
+    event.preventDefault();
+    const week = calendarAddLessonPlan.dataset.calendarAddLessonWeek
+      || mainCalendarSelectedWeek
+      || mainCalendarSelectedDay
+      || "";
+    openCalendarLessonPlanPicker({ weekStartDate: week });
+    return;
+  }
+
+  const calendarCancelLessonAssign = event.target.closest("[data-calendar-cancel-lesson-assign]");
+  if (calendarCancelLessonAssign) {
+    event.preventDefault();
+    clearCalendarLessonAssignContext();
+    setView("calendar", mainCalendarSelectedWeek ? { weekStartDate: mainCalendarSelectedWeek } : {});
+    return;
+  }
+
+  const lessonCardUsePlan = event.target.closest("[data-lesson-card-use-plan]");
+  if (lessonCardUsePlan) {
+    event.preventDefault();
+    event.stopPropagation();
+    const resourceId = lessonCardUsePlan.dataset.lessonCardUsePlan || "";
+    if (!resourceId) return;
+    if (!isLoggedIn() && !hasAdminFullAccess()) {
+      openAuthModal("login");
+      return;
+    }
+    openResourceViewer(resourceId, {
+      openPlanThisWeek: true,
+      assignIntent: "calendar",
+      weekStartDate: calendarLessonAssignContext?.weekStartDate || mainCalendarSelectedWeek || "",
+    });
     return;
   }
 
@@ -41539,17 +41751,28 @@ document.querySelector("#resendVerificationButton")?.addEventListener("click", a
   }
 });
 
-document.querySelector("#profileSettingsForm")?.addEventListener("submit", (event) => {
+document.querySelector("#profileSettingsForm")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!currentUser) {
     setFormMessage("#profileSettingsMessage", "Please log in before saving account settings.");
     openAuthModal("login");
     return;
   }
-  const phone = new FormData(event.target).get("phone");
-  updateAccount(currentUser, { phone: String(phone || "").trim() });
+  const formData = new FormData(event.target);
+  const firstName = String(formData.get("firstName") || "").trim();
+  const lastName = String(formData.get("lastName") || "").trim();
+  const phone = String(formData.get("phone") || "").trim();
+  if (!firstName || !lastName) {
+    setFormMessage("#profileSettingsMessage", "Please enter your first and last name.");
+    return;
+  }
+  const name = [firstName, lastName].filter(Boolean).join(" ");
+  updateAccount(currentUser, { firstName, lastName, name, phone });
+  setFormMessage("#profileSettingsMessage", "Saving…", true);
+  await syncAccountProfileToBackend(currentUser, { firstName, lastName, phone });
   setFormMessage("#profileSettingsMessage", "Profile saved.", true);
   renderAccountPage();
+  updateSidebarDashboard();
 });
 
 document.querySelector("#changePasswordForm")?.addEventListener("submit", async (event) => {
@@ -41857,12 +42080,16 @@ document.addEventListener("submit", async (event) => {
   if (submitButton) submitButton.disabled = true;
   try {
     const assignment = await addCurriculumLessonPlanToMainCalendar({ resourceId, weekStartDate, ageGroup });
-    showLessonWorkspaceMainCalendarSuccess(assignment, { intent });
     trackEvent(intent === "my-week" ? "lesson_add_to_my_week" : "lesson_use_this_plan_main_calendar", {
       lessonPlanId: resourceId,
       weekStartDate: assignment.weekStartDate,
       intent,
     });
+    if (calendarLessonAssignContext?.fromCalendar) {
+      finishCalendarLessonAssignSuccess(assignment);
+      return;
+    }
+    showLessonWorkspaceMainCalendarSuccess(assignment, { intent });
   } catch (error) {
     if (error?.code !== "cancelled") {
       const note = form.querySelector("[data-lesson-assign-sheet-note]")

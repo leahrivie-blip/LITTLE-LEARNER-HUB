@@ -964,6 +964,22 @@ body.lessons-view .mobile-brand {
   overflow: hidden;
 }
 
+.lesson-plan-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.lesson-plan-card-actions .primary-button {
+  width: 100%;
+  min-height: 44px;
+}
+
+.lesson-plan-card.is-calendar-pick {
+  border-color: rgba(91, 155, 213, 0.45);
+  box-shadow: 0 0 0 1px rgba(91, 155, 213, 0.2);
+}
+
 .lesson-plan-card-hint {
   margin: 2px 0 0;
   color: #6b7c96;
@@ -14622,7 +14638,13 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   overflow: visible;
 }
 
-.resource-viewer-modal.lesson-workspace-mode .close-button,
+.resource-viewer-modal.lesson-workspace-mode .close-button {
+  display: inline-flex !important;
+  z-index: 5;
+  top: 10px;
+  right: 10px;
+}
+
 .resource-viewer-modal.lesson-workspace-mode > .modal-card > .eyebrow,
 .resource-viewer-modal.lesson-workspace-mode > .modal-card > h2#resourceViewerTitle[hidden],
 .resource-viewer-modal.lesson-workspace-mode > .modal-card > .tag-row,

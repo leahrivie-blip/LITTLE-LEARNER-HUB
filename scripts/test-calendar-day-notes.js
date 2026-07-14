@@ -208,7 +208,11 @@ async function main() {
     await page.locator(`[data-calendar-select-day="${selectedIso}"]`).click();
     await page.waitForTimeout(300);
     await page.click("[data-calendar-clear-day-note]");
-    await page.waitForTimeout(800);
+    const confirmOk = page.locator("[data-llh-confirm-ok]");
+    if (await confirmOk.count()) {
+      await confirmOk.click();
+    }
+    await page.waitForTimeout(1000);
     const clearedValue = await page.locator("[data-calendar-day-note-input]").inputValue();
     check("Clear removes the day note", clearedValue.trim() === "", clearedValue);
 
