@@ -50,7 +50,8 @@ test("Admin analytics load coalesces and supports force refresh", () => {
   assert.match(appJs, /adminAnalyticsLastError/);
   assert.match(appJs, /async function loadAdminAnalyticsFromBackend\(options = \{\}\)/);
   assert.match(appJs, /loadAdminAnalyticsFromBackend\(\{ force: true \}\)/);
-  assert.match(appJs, /await loadAdminAnalyticsFromBackend\(\{ force: true \}\)/);
+  assert.match(appJs, /ADMIN_ANALYTICS_TIMEOUT_MS/);
+  assert.match(appJs, /AbortController/);
 });
 
 test("boot path has a timeout so hang cannot blank the site forever", () => {
