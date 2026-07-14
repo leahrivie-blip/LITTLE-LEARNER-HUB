@@ -37138,6 +37138,20 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const deleteChildDocument = event.target.closest("[data-delete-child-document]");
+  if (deleteChildDocument) {
+    event.preventDefault();
+    const docId = deleteChildDocument.dataset.deleteChildDocument;
+    if (!docId) return;
+    const next = childStore("Documents").filter((item) => item.id !== docId);
+    saveChildStore("Documents", next);
+    childProfileTab = "documents";
+    childManagementMode = "profile";
+    renderChildManagement();
+    showActionFeedback("Document removed from child file.");
+    return;
+  }
+
   const enrollmentLeadRemove = event.target.closest("[data-enrollment-lead-remove]");
   if (enrollmentLeadRemove) {
     event.preventDefault();
