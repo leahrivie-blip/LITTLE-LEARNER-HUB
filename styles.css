@@ -14202,7 +14202,7 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   display: flex;
   flex-direction: column;
   padding: 16px 12px 12px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .resource-viewer-modal.lesson-workspace-mode .close-button,
@@ -14222,7 +14222,7 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   border: none;
   border-radius: 0;
   background: transparent;
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   flex-direction: column;
 }
@@ -14241,7 +14241,7 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   min-height: 0;
   flex: 1;
   gap: 0;
-  overflow: hidden;
+  overflow: visible;
   width: 100%;
   max-width: 100%;
   min-width: 0;
@@ -14284,6 +14284,8 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   gap: 8px;
   padding: 0 2px 10px;
   flex-shrink: 0;
+  position: relative;
+  z-index: 30;
 }
 
 .lesson-workspace-primary-actions {
@@ -14326,11 +14328,13 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   top: calc(100% + 4px);
   right: 0;
   left: auto;
-  z-index: 12;
+  z-index: 80;
   display: grid;
   gap: 2px;
   min-width: min(280px, calc(100vw - 32px));
   max-width: min(320px, calc(100vw - 24px));
+  max-height: min(70vh, 420px);
+  overflow: auto;
   padding: 6px;
   background: var(--white, #fff);
   border: 1px solid var(--line);
@@ -14618,11 +14622,41 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   font-weight: 700;
 }
 
-.lesson-week-brand-sub {
+.lesson-week-day-section-label {
+  margin: 0 0 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #3a7abf;
+}
+
+.lesson-week-day-domains,
+.lesson-week-day-materials,
+.lesson-week-day-notes {
+  margin: 6px 0 0;
+  font-size: 0.86rem;
+  line-height: 1.35;
+  color: #3d4b5c;
+}
+
+.lesson-week-calendar-footer-summary {
+  margin-top: 10px;
+  font-size: 0.88rem;
+  color: #3d4b5c;
+}
+
+.lesson-week-planning-lines {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px 12px;
+}
+
+.lesson-week-planning-item,
+.lesson-week-planning-blank {
   margin: 0;
-  color: #5a6b80;
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 0.88rem;
+  line-height: 1.35;
 }
 
 .lesson-week-schedule-header .eyebrow {
@@ -15008,7 +15042,7 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
     font-size: 10pt !important;
   }
 
-  /* Weekly Calendar print matches DOCX board: landscape Mon–Fri columns */
+  /* Weekly Calendar print: landscape Mon–Fri columns */
   @page lesson-week-landscape {
     size: letter landscape;
     margin: 0.4in;
@@ -15025,6 +15059,51 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   body.printing-lesson-week .lesson-week-teacher-notes,
   body.printing-lesson-week .lesson-week-print-footer {
     display: none !important;
+  }
+
+  body.printing-lesson-week .lesson-week-calendar-footer-summary {
+    display: block !important;
+    margin-top: 6pt;
+    font-size: 8pt !important;
+  }
+
+  body.printing-lesson-week .lesson-week-day-domains,
+  body.printing-lesson-week .lesson-week-day-materials,
+  body.printing-lesson-week .lesson-week-day-notes,
+  body.printing-lesson-week .lesson-week-day-section-label {
+    display: block !important;
+    font-size: 7.5pt !important;
+    line-height: 1.25 !important;
+    margin: 2pt 0 !important;
+  }
+
+  body.printing-lesson-detail .lesson-week-day-stack {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 10pt !important;
+  }
+
+  body.printing-lesson-detail .lesson-week-day-block {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  body.printing-lesson-planning .lesson-week-day-stack {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8pt !important;
+  }
+
+  body.printing-lesson-planning .lesson-week-planning-blank {
+    min-height: 28pt;
+    border-bottom: 0.5pt solid #c5d0de;
+    margin: 2pt 0 6pt !important;
+  }
+
+  body.printing-lesson-planning .lesson-week-snapshot-block h4,
+  body.printing-lesson-detail .lesson-week-snapshot-block h4 {
+    margin: 0 0 4pt !important;
+    font-size: 10pt !important;
   }
 
   body.printing-lesson-week .lesson-week-schedule-header {

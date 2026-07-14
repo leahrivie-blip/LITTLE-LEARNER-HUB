@@ -209,10 +209,11 @@ async function main() {
     check("Primary has Add to My Week", bars.primaryVisible.includes("Add to My Week"));
     check("Primary has Add to Calendar", bars.primaryVisible.includes("Add to Calendar"));
     check("Primary has Print Weekly Calendar", bars.primaryVisible.includes("Print Weekly Calendar"));
-    check("Primary has Download PDF", bars.primaryVisible.includes("Download PDF"));
+    check("Primary has Download Weekly Calendar", bars.primaryVisible.includes("Download Weekly Calendar"));
     check("Edit lives in More menu", bars.moreLabels.includes("Edit Lesson Plan") && !bars.primaryVisible.includes("Edit Lesson Plan"));
-    check("Download Weekly lives in More menu", bars.moreLabels.includes("Download Weekly Calendar") && !bars.primaryVisible.includes("Download Weekly Calendar"));
-    check("Download Full lives in More menu", bars.moreLabels.includes("Download Full Lesson Plan") && !bars.primaryVisible.includes("Download Full Lesson Plan"));
+    check("Detailed weekly lives in More menu", bars.moreLabels.some((label) => /Detailed Weekly Lesson Plan/i.test(label)));
+    check("Planning sheet lives in More menu", bars.moreLabels.some((label) => /Classroom Planning Sheet/i.test(label)));
+    check("Full lesson plan lives in More menu", bars.moreLabels.some((label) => /Full Lesson Plan/i.test(label)));
     check("More menu toggle present", bars.hasMore);
     check("No horizontal overflow on mobile", !bars.overflow);
 
