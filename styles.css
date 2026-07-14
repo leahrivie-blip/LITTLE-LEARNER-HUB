@@ -16044,11 +16044,23 @@ body.curriculum-planner-retired .nav-link[data-view="curriculum-planner"] {
 }
 
 /* ========== Week View ========== */
-.llh-cal-week-actions {
+.llh-calendar-assign-notice {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--llh-primary, #7b6bb5) 30%, var(--llh-line, #e4e1ea));
+  background: color-mix(in srgb, var(--llh-primary-soft, #ede8f7) 55%, #fff);
+}
+
+.llh-calendar-assign-notice p {
+  margin: 0;
+  flex: 1;
+  min-width: 180px;
 }
 
 .llh-cal-week-glance {

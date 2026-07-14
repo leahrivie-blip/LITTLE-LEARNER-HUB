@@ -217,12 +217,12 @@ async function runViewportSuite(browser, { viewport, label }) {
   // ==================== 14) Plan This Week (baseline assign, current week) ====================
   await openLessonWorkspace(page, lessonNow.title);
   await page.click("[data-lesson-use-this-plan]");
-  await page.click(`[data-lesson-add-to-main-calendar="${lessonNow.planId}"]`);
+  await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 10000 });
   await page.fill('[data-lesson-main-calendar-form] [name="weekStartDate"]', currentWeek);
   await page.click('[data-lesson-main-calendar-form] button[type="submit"]');
   await page.waitForSelector('[data-lesson-workspace-action-panel="success"]:not([hidden])', { timeout: 15000 });
   const successText = await page.locator("[data-lesson-workspace-success-message]").innerText();
-  check("14) Plan This Week assigns the current week", successText.includes(currentWeek), successText);
+  check("14) Add to Calendar assigns the current week", successText.includes(currentWeek), successText);
 
   // Capture the existing-assignment baseline right after this real assign so
   // we can prove nothing else gets lost later.
@@ -237,7 +237,7 @@ async function runViewportSuite(browser, { viewport, label }) {
   await page.waitForSelector("#view-planner.active-view", { timeout: 10000 });
   await openLessonWorkspace(page, lessonFuture.title);
   await page.click("[data-lesson-use-this-plan]");
-  await page.click(`[data-lesson-add-to-main-calendar="${lessonFuture.planId}"]`);
+  await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 10000 });
   await page.fill('[data-lesson-main-calendar-form] [name="weekStartDate"]', futureWeek);
   await page.click('[data-lesson-main-calendar-form] button[type="submit"]');
   await page.waitForSelector('[data-lesson-workspace-action-panel="success"]:not([hidden])', { timeout: 15000 });
