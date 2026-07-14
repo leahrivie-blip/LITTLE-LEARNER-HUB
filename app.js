@@ -373,14 +373,54 @@ const docTypeLabels = {
   "activity-idea": "Activity Idea",
 };
 const docHelperSaveConfig = {
-  "observation": { key: "Observations", view: "resource-observations" },
-  "daily-log": { key: "Reports", view: "child-tools-daily-logs" },
-  "parent-message": { key: "Communications", view: "documentation-parent-messages" },
-  "lesson-plan": { key: null, view: "lessons" },
-  "behavior-note": { key: "Reports", view: "documentation-behavior-reports" },
-  "incident-report": { key: "Reports", view: "documentation-incident-reports" },
-  "activity-idea": { key: "ActivityLogs", view: "activities" },
+  "observation": { key: "Observations", view: "children", childTab: "observations", label: "observation" },
+  "daily-log": { key: "Reports", view: "children", childTab: "reports", label: "daily report" },
+  "parent-message": { key: "Communications", view: "children", childTab: "family", label: "parent message" },
+  "lesson-plan": { key: null, view: "lessons", childTab: "", label: "lesson plan" },
+  "behavior-note": { key: "Reports", view: "children", childTab: "reports", label: "behavior note" },
+  "incident-report": { key: "Reports", view: "children", childTab: "reports", label: "incident report" },
+  "activity-idea": { key: "ActivityLogs", view: "activities", childTab: "", label: "activity idea" },
 };
+
+function resetDocHelperResultsPanel() {
+  const resultsEl = document.querySelector("#docHelperResults");
+  const outputEl = document.querySelector("#docHelperOutput");
+  const postSave = document.querySelector("#docHelperPostSavePanel");
+  const editBtn = document.querySelector("#docHelperEditBtn");
+  const saveBtn = document.querySelector("#docHelperSaveBtn");
+  const hint = document.querySelector("#docHelperNextStepHint");
+  const note = document.querySelector("#docHelperNote");
+  if (resultsEl) resultsEl.hidden = true;
+  if (postSave) postSave.hidden = true;
+  if (outputEl) {
+    outputEl.innerHTML = "";
+    delete outputEl.dataset.rawMarkdown;
+    outputEl.contentEditable = "false";
+  }
+  if (editBtn) editBtn.textContent = "Edit Generated Content";
+  if (saveBtn) {
+    saveBtn.textContent = "Save to Child Profile";
+    saveBtn.disabled = false;
+  }
+  if (hint) {
+    hint.textContent = "Review the draft, edit if needed, then save it to the child profile or copy it for parents.";
+  }
+  if (note) {
+    note.value = "";
+    note.focus();
+  }
+  document.querySelector("#docHelperDebugPanel")?.setAttribute("hidden", "hidden");
+}
+
+function openDocHelperSavedChild(childId, childTab = "overview") {
+  if (childId) {
+    selectedChildId = childId;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+    childManagementMode = "profile";
+    childProfileTab = childTab || "overview";
+  }
+  setView("children");
+}
 let selectedChildId = localStorage.getItem("llhSelectedChild") || "";
 let pendingAiDocType = "";
 let childObservationSearch = "";
@@ -38809,12 +38849,16 @@ document.addEventListener("click", async (event) => {
       outputEl.contentEditable = "true";
       docHelperEditBtn.textContent = "Done Editing";
       outputEl.focus();
+      const hint = document.querySelector("#docHelperNextStepHint");
+      if (hint) hint.textContent = "Editing mode: change the draft, then press Done Editing.";
     } else {
       const edited = outputEl.textContent.trim();
       outputEl.innerHTML = renderMarkdown(edited);
       outputEl.dataset.rawMarkdown = edited;
       outputEl.contentEditable = "false";
-      docHelperEditBtn.textContent = "Edit";
+      docHelperEditBtn.textContent = "Edit Generated Content";
+      const hint = document.querySelector("#docHelperNextStepHint");
+      if (hint) hint.textContent = "Next: Save to Child Profile, Copy, or Create Another.";
     }
     return;
   }
@@ -38827,6 +38871,8 @@ document.addEventListener("click", async (event) => {
     const finish = () => {
       docHelperCopyBtn.textContent = "Copied!";
       setTimeout(() => { docHelperCopyBtn.textContent = "Copy"; }, 2000);
+      const hint = document.querySelector("#docHelperNextStepHint");
+      if (hint) hint.textContent = "Copied. You can also Save to Child Profile or Create Another.";
     };
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(text).then(finish).catch(() => {
@@ -38839,15 +38885,37 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const docHelperCreateAnotherBtn = event.target.closest("#docHelperCreateAnotherBtn, #docHelperCreateAnotherBtn2");
+  if (docHelperCreateAnotherBtn) {
+    event.preventDefault();
+    resetDocHelperResultsPanel();
+    showActionFeedback("Ready for another document.");
+    return;
+  }
+
+  const docHelperOpenChildBtn = event.target.closest("#docHelperOpenChildBtn");
+  if (docHelperOpenChildBtn) {
+    event.preventDefault();
+    const childId = docHelperOpenChildBtn.dataset.childId || "";
+    const childTab = docHelperOpenChildBtn.dataset.childTab || "overview";
+    openDocHelperSavedChild(childId, childTab);
+    return;
+  }
+
   const docHelperSaveBtn = event.target.closest("#docHelperSaveBtn");
   if (docHelperSaveBtn) {
     const docType = docHelperSaveBtn.dataset.docType || "observation";
-    const childId = docHelperSaveBtn.dataset.childId || "";
+    const childId = docHelperSaveBtn.dataset.childId || document.querySelector("#docHelperChild")?.value || "";
     const outputEl = document.querySelector("#docHelperOutput");
     const text = (outputEl?.dataset.rawMarkdown || outputEl?.textContent || "").trim();
-    if (!text || text === "Generating...") return;
+    if (!text || text === "Generating..." || text === "Creating your document…") return;
+    const config = docHelperSaveConfig[docType] || { key: "Reports", view: "children", childTab: "overview", label: "documentation" };
+    if (config.key && !childId) {
+      window.alert("Choose a child in Step 1 before saving to a child profile.");
+      document.querySelector("#docHelperChild")?.focus();
+      return;
+    }
     const today = new Date().toISOString().slice(0, 10);
-    const config = docHelperSaveConfig[docType] || { key: "Reports", view: "children" };
     const title = `${docTypeLabels[docType] || "Documentation"} | ${today}`;
     if (config.key) {
       appendChildRecord(config.key, {
@@ -38867,8 +38935,31 @@ document.addEventListener("click", async (event) => {
       saveGeneratedOutputs([result, ...generatedOutputs()]);
     }
     docHelperSaveBtn.textContent = "Saved!";
-    setTimeout(() => { docHelperSaveBtn.textContent = "Save"; }, 2000);
-    setView(config.view);
+    docHelperSaveBtn.disabled = true;
+    const childName = childRecords().children.find((c) => c.id === childId)?.name || "child";
+    const postSave = document.querySelector("#docHelperPostSavePanel");
+    const postTitle = document.querySelector("#docHelperPostSaveTitle");
+    const postDetail = document.querySelector("#docHelperPostSaveDetail");
+    const openChildBtn = document.querySelector("#docHelperOpenChildBtn");
+    if (postSave) postSave.hidden = false;
+    if (postTitle) postTitle.textContent = config.key ? `Saved to ${childName}'s profile` : "Saved to your document history";
+    if (postDetail) {
+      postDetail.textContent = config.key
+        ? `Your ${config.label || "documentation"} is on the child file. Open the profile, create another, or copy the text.`
+        : "Your draft is saved in document history. Create another whenever you are ready.";
+    }
+    if (openChildBtn) {
+      openChildBtn.hidden = !childId;
+      openChildBtn.dataset.childId = childId || "";
+      openChildBtn.dataset.childTab = config.childTab || "overview";
+    }
+    const hint = document.querySelector("#docHelperNextStepHint");
+    if (hint) hint.textContent = "Saved. Open the child profile, create another, or copy the text.";
+    setTimeout(() => {
+      docHelperSaveBtn.textContent = childId ? "Save to Child Profile" : "Save";
+      docHelperSaveBtn.disabled = false;
+    }, 2500);
+    showActionFeedback(config.key ? "Saved to child profile." : "Saved to document history.");
     return;
   }
 });
@@ -40636,13 +40727,24 @@ document.addEventListener("submit", async (event) => {
   outputEl.textContent = "Creating your document…";
   delete outputEl.dataset.rawMarkdown;
   outputEl.contentEditable = "false";
-  if (titleEl) titleEl.textContent = label;
+  if (titleEl) titleEl.textContent = `${label} Ready`;
   if (labelEl) labelEl.textContent = "Creating";
+  const postSave = document.querySelector("#docHelperPostSavePanel");
+  if (postSave) postSave.hidden = true;
+  const hint = document.querySelector("#docHelperNextStepHint");
+  if (hint) {
+    hint.textContent = childId
+      ? "Writing your draft… When it is ready, edit, copy, or save it to the child profile."
+      : "Writing your draft… Choose a child before saving to a profile, or copy the text when ready.";
+  }
   if (saveBtn) {
     saveBtn.dataset.docType = docType;
     saveBtn.dataset.childId = childId;
-    saveBtn.textContent = "Save";
+    saveBtn.disabled = false;
+    saveBtn.textContent = childId ? "Save to Child Profile" : "Save";
   }
+  const editBtn = document.querySelector("#docHelperEditBtn");
+  if (editBtn) editBtn.textContent = "Edit Generated Content";
 
   // Disable submit button during generation
   if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Creating…"; }
@@ -40653,6 +40755,11 @@ document.addEventListener("submit", async (event) => {
     outputEl.dataset.rawMarkdown = result.output;
     renderAiDebugPanel("#docHelperDebugPanel", result.debug, result.output);
     if (labelEl) labelEl.textContent = "Result";
+    if (hint) {
+      hint.textContent = childId
+        ? "Next: edit if needed, then Save to Child Profile — or Copy to paste into an email/app."
+        : "Next: pick a child above and regenerate, or Copy this draft to use elsewhere.";
+    }
     recordAiUse(result.used, result.limit);
     renderAiUsagePanel();
     trackEvent("ai_generation_success", { tool: "doc-helper", docType, plan: currentPlan, backendUsed: Boolean(result.backendUsed) });
@@ -40661,8 +40768,9 @@ document.addEventListener("submit", async (event) => {
     outputEl.textContent = error.message || "We couldn't create your document right now. Please try again.";
     delete outputEl.dataset.rawMarkdown;
     if (labelEl) labelEl.textContent = "Error";
+    if (hint) hint.textContent = "Generation failed. Edit your note and try Create Documentation again.";
   } finally {
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Create Document"; }
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Create Documentation"; }
   }
 });
 
