@@ -279,9 +279,18 @@ async function main() {
     await page.waitForSelector("#resourceViewerModal.lesson-workspace-mode.open", { timeout: 10000 });
     await page.waitForSelector('[data-lesson-workspace-panel="activities"].is-active', { timeout: 3000 });
 
-    await page.click("[data-lesson-workspace-more-toggle]");
-    await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 3000 });
-    await page.click('[data-find-lesson-activities]');
+    await page.evaluate((planId) => {
+      const resource = resources.find((item) => item.id === planId);
+      if (!resource) throw new Error("lesson missing");
+      setViewReturnContext("activities", {
+        type: "view",
+        view: "lessons",
+        label: "← Back to Lesson Plans",
+      });
+      activeActivityLessonPlanId = planId;
+      dismissResourceViewerForNavigation();
+      setView("activities");
+    }, freeLesson.planId);
     await page.waitForSelector("#view-activities.active-view", { timeout: 10000 });
     await page.waitForFunction(() => !document.querySelector("#resourceViewerModal.open"), null, { timeout: 5000 });
     const activityLibraryBack = await page.locator('#view-activities [data-contextual-back="activities"]').innerText();
@@ -296,32 +305,25 @@ async function main() {
     await page.waitForSelector("#resourceViewerModal.lesson-workspace-mode.open", { timeout: 10000 });
     assert(await page.locator(".lesson-workspace-title").innerText() === freeLesson.title, "activity library back should reopen the originating lesson");
 
-    console.log("4) Escape closes transient lesson UI and Plan This Week panel works");
+    console.log("4) Escape closes transient lesson UI and Add to Calendar panel works");
     await page.click("[data-lesson-use-this-plan]");
     await page.waitForSelector(".lesson-workspace-action-sheet:not([hidden])", { timeout: 3000 });
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => document.querySelector(".lesson-workspace-action-sheet")?.hidden === true, null, { timeout: 5000 });
     assert(await page.locator("#resourceViewerModal.lesson-workspace-mode.open").count(), "Escape should close the action sheet before closing the lesson");
     await page.click("[data-lesson-use-this-plan]");
-    await page.click(`[data-lesson-add-to-main-calendar="${freeLesson.planId}"]`);
     await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
     const planPanelCopy = await page.evaluate(() => ({
       title: document.querySelector('[data-lesson-workspace-action-panel="main-calendar"] .lesson-workspace-action-sheet-title')?.textContent.trim() || "",
       submit: document.querySelector('[data-lesson-main-calendar-form] button[type="submit"]')?.textContent.trim() || "",
     }));
-    assert(planPanelCopy.title === "Plan This Week", `Plan This Week panel title wrong: ${planPanelCopy.title}`);
-    assert(planPanelCopy.submit === "Save to This Week", `Plan This Week submit copy wrong: ${planPanelCopy.submit}`);
-    await page.click("[data-lesson-workspace-action-back]");
-    await page.waitForSelector('[data-lesson-workspace-action-panel="menu"]:not([hidden])', { timeout: 3000 });
-    const sheetLabels = await page.evaluate(() => [...document.querySelectorAll('[data-lesson-workspace-action-panel="menu"] button')].map((el) => el.textContent.trim()));
-    assert(sheetLabels[0] === "Plan This Week", `Plan This Week should be first: ${sheetLabels.join(" | ")}`);
-    assert(!sheetLabels.some((label) => /Assign to a Week|Add to This Week|View in Curriculum Planner/i.test(label)), `old duplicate sheet action present: ${sheetLabels.join(" | ")}`);
+    assert(planPanelCopy.title === "Add to Calendar", `Add to Calendar panel title wrong: ${planPanelCopy.title}`);
+    assert(planPanelCopy.submit === "Add to Calendar", `Add to Calendar submit copy wrong: ${planPanelCopy.submit}`);
     await page.click("[data-lesson-workspace-action-sheet-dismiss]");
     await page.waitForFunction(() => document.querySelector(".lesson-workspace-action-sheet")?.hidden === true, null, { timeout: 5000 });
 
     console.log("5) Weekly planner can reopen its linked lesson");
     await page.click("[data-lesson-use-this-plan]");
-    await page.click(`[data-lesson-add-to-main-calendar="${freeLesson.planId}"]`);
     await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
     const monday = await page.evaluate(() => {
       const date = new Date();
@@ -346,34 +348,21 @@ async function main() {
     await page.click("[data-lesson-workspace-back]");
     await page.waitForSelector("#view-planner.active-view", { timeout: 5000 });
 
-    console.log("6) Print/download menu fires distinct workflows");
+    console.log("6) Print/download action bar fires distinct workflows");
     await page.click('#weeklyPlannerApp [data-view-resource]');
     await page.waitForSelector("#resourceViewerModal.lesson-workspace-mode.open", { timeout: 10000 });
-    const expectMoreOutputRequest = async (selector, expected) => {
-      await page.click("[data-lesson-workspace-more-toggle]");
-      await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 3000 });
-      await page.locator(`.lesson-workspace-more-menu:not([hidden]) ${selector}`).first().click();
+    const expectBarOutputRequest = async (selector, expected) => {
+      await page.locator(`[data-lesson-action-bars="top"] ${selector}`).first().click();
       await page.waitForTimeout(50);
       const request = await page.evaluate(() => window.__llhLastResourceOutputRequest || null);
       assert(request, `missing resource output request after ${selector}`);
       assert(request.mode === expected.mode, `${selector} mode mismatch: ${JSON.stringify(request)}`);
       assert(request.printVariant === expected.printVariant, `${selector} variant mismatch: ${JSON.stringify(request)}`);
     };
-    const expectSheetOutputRequest = async (selector, expected) => {
-      await page.click("[data-lesson-use-this-plan]");
-      await page.waitForSelector(".lesson-workspace-action-sheet:not([hidden])", { timeout: 3000 });
-      await page.locator(`.lesson-workspace-action-sheet:not([hidden]) ${selector}`).first().click();
-      await page.waitForTimeout(50);
-      const request = await page.evaluate(() => window.__llhLastResourceOutputRequest || null);
-      assert(request, `missing resource output request after ${selector}`);
-      assert(request.mode === expected.mode, `${selector} mode mismatch: ${JSON.stringify(request)}`);
-      assert(request.printVariant === expected.printVariant, `${selector} variant mismatch: ${JSON.stringify(request)}`);
-    };
-    await expectSheetOutputRequest('[data-lesson-print-variant="full"]', { mode: "print", printVariant: "full" });
-    await expectSheetOutputRequest('[data-download-pdf]', { mode: "download", printVariant: "full" });
-    await expectMoreOutputRequest('[data-lesson-print-variant="week"]', { mode: "print", printVariant: "week" });
-    await expectMoreOutputRequest('[data-lesson-download-variant="week"]', { mode: "download", printVariant: "week" });
-    await expectMoreOutputRequest('[data-lesson-print-variant="materials"]', { mode: "print", printVariant: "materials" });
+    await expectBarOutputRequest('[data-lesson-print-variant="week"]', { mode: "print", printVariant: "week" });
+    await expectBarOutputRequest('[data-lesson-download-variant="week"]', { mode: "download", printVariant: "week" });
+    await expectBarOutputRequest('[data-lesson-download-variant="full"]', { mode: "download", printVariant: "full" });
+    await expectBarOutputRequest('[data-download-pdf]', { mode: "download", printVariant: "full" });
 
     console.log("7) Locked Pro preview closes with Escape");
     await closeLessonViewer(page);

@@ -263,16 +263,31 @@ async function main() {
     await page.click('[data-lesson-library-mode="saved"]');
     await page.waitForSelector("#view-lessons:has-text('Saved Lesson Plans')", { timeout: 10000 });
 
-    console.log("3) Use This Plan menu is minimal");
+    console.log("3) Action bar exposes manage actions; assign sheet is pick-week only");
     await openLesson(page, primary.title);
+    const bar = await page.evaluate(() => ({
+      edit: Boolean(document.querySelector('[data-lesson-action-bars="top"] [data-edit-lesson-plan]')),
+      calendar: Boolean(document.querySelector("[data-lesson-use-this-plan]")),
+      myWeek: Boolean(document.querySelector("[data-lesson-add-to-my-week]")),
+      printWeekly: Boolean(document.querySelector('[data-lesson-action-bars="top"] [data-lesson-print-variant="week"]')),
+      downloadWeekly: Boolean(document.querySelector('[data-lesson-action-bars="top"] [data-lesson-download-variant="week"]')),
+      downloadFull: Boolean(document.querySelector('[data-lesson-action-bars="top"] [data-lesson-download-variant="full"]')),
+      downloadPdf: Boolean(document.querySelector('[data-lesson-action-bars="top"] [data-download-pdf]')),
+      bottomBar: Boolean(document.querySelector('[data-lesson-action-bars="bottom"]')),
+    }));
+    assert(bar.edit && bar.calendar && bar.myWeek, "primary manage actions missing");
+    assert(bar.printWeekly && bar.downloadWeekly && bar.downloadFull && bar.downloadPdf, "download/print actions missing");
+    assert(bar.bottomBar, "bottom action bar missing");
     await page.click("[data-lesson-use-this-plan]");
-    await page.waitForSelector(".lesson-workspace-action-sheet:not([hidden])", { timeout: 5000 });
-    const sheet = await page.evaluate(() => [...document.querySelectorAll('[data-lesson-workspace-action-panel="menu"] button')].map((el) => el.textContent.trim()));
-    assert(sheet[0] === "Plan This Week", `Plan This Week should be first: ${sheet.join(" | ")}`);
-    assert(sheet.includes("Print Full Lesson Plan"), `Print Full Lesson Plan missing: ${sheet.join(" | ")}`);
-    assert(sheet.includes("Download PDF"), `Download PDF missing: ${sheet.join(" | ")}`);
-    assert(sheet.includes("Cancel"), `Cancel missing: ${sheet.join(" | ")}`);
-    assert(!sheet.some((label) => /Assign to a Week|Add to This Week|View in Curriculum Planner/i.test(label)), `old duplicate actions present: ${sheet.join(" | ")}`);
+    await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
+    const sheet = await page.evaluate(() => ({
+      title: document.querySelector("[data-lesson-assign-sheet-title]")?.textContent.trim() || "",
+      hasCancel: Boolean(document.querySelector('[data-lesson-workspace-action-panel="main-calendar"] [data-lesson-workspace-action-sheet-dismiss]')),
+      hasPrintInSheet: Boolean(document.querySelector('[data-lesson-workspace-action-panel="main-calendar"] [data-lesson-print-variant]')),
+    }));
+    assert(sheet.title === "Add to Calendar", `assign title wrong: ${sheet.title}`);
+    assert(sheet.hasCancel, "Cancel missing");
+    assert(!sheet.hasPrintInSheet, "assign sheet should not mix print options");
     await page.click("[data-lesson-workspace-action-sheet-dismiss]");
 
     console.log("4) Week tab has no top print/download and weekly print supports large plan");

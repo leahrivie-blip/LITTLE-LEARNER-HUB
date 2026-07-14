@@ -182,11 +182,13 @@ async function main() {
       const activityRows = document.querySelectorAll(".lesson-workspace-activity-row").length;
       return {
         hasBack: Boolean(document.querySelector("[data-lesson-workspace-back]")),
-        hasUseThisPlan: Boolean(document.querySelector("[data-lesson-use-this-plan]")),
-        hasSave: Boolean(document.querySelector(".lesson-workspace-save-btn")),
+        hasAddToCalendar: Boolean(document.querySelector("[data-lesson-use-this-plan]")),
+        hasAddToMyWeek: Boolean(document.querySelector("[data-lesson-add-to-my-week]")),
+        hasEdit: Boolean(document.querySelector("[data-edit-lesson-plan]")),
+        hasPrintWeekly: Boolean(document.querySelector('[data-lesson-action-bars="top"] [data-lesson-print-variant="week"]')),
+        hasDownloadWeekly: Boolean(document.querySelector('[data-lesson-action-bars="top"] [data-lesson-download-variant="week"]')),
+        hasBottomBar: Boolean(document.querySelector('[data-lesson-action-bars="bottom"]')),
         hasMore: Boolean(document.querySelector("[data-lesson-workspace-more-toggle]")),
-        hasWeekTopPrint: Boolean(document.querySelector('[data-lesson-workspace-panel="week"] .lesson-workspace-week-actions [data-lesson-print-variant="week"]')),
-        hasWeekTopDownload: Boolean(document.querySelector('[data-lesson-workspace-panel="week"] .lesson-workspace-week-actions [data-lesson-download-variant="week"]')),
         tabs,
         dayTabs,
         activityRows,
@@ -201,8 +203,10 @@ async function main() {
 
     assert(workspace.modalClass.includes("lesson-workspace-mode"), "lesson workspace mode not applied");
     assert(workspace.hasBack, "workspace back button missing");
-    assert(workspace.hasUseThisPlan && workspace.hasSave && workspace.hasMore, "primary actions missing");
-    assert(!workspace.hasWeekTopPrint && !workspace.hasWeekTopDownload, "Week tab should not show top print/download buttons");
+    assert(workspace.hasAddToCalendar && workspace.hasAddToMyWeek && workspace.hasEdit, "primary actions missing");
+    assert(workspace.hasPrintWeekly && workspace.hasDownloadWeekly, "print/download weekly actions missing");
+    assert(workspace.hasBottomBar, "bottom action bar missing");
+    assert(!workspace.hasMore, "legacy More menu should be removed");
     assert(workspace.toolbarHidden, "duplicate toolbar should be hidden for lessons");
     assert(workspace.tabs.join(",") === "Week,Plan,Activities,Materials", `unexpected tabs: ${workspace.tabs.join(",")}`);
     assert(workspace.weekPanelActive, "Week tab should be active by default");
@@ -213,29 +217,21 @@ async function main() {
     assert(/Preschool/.test(workspace.meta) && /Free/.test(workspace.meta), "workspace meta should show age and plan");
     assert(!workspace.overflow, "horizontal overflow in workspace viewer");
 
-    await page.click("[data-lesson-workspace-more-toggle]");
-    await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 3000 });
-    const moreItems = await page.evaluate(() => [...document.querySelectorAll(".lesson-workspace-more-menu button")].map((el) => el.textContent.trim()));
-    assert(moreItems.includes("Customize with AI"), "Customize with AI missing from More menu");
-    assert(moreItems.includes("Add Support"), "Add Support missing from More menu");
-    assert(moreItems.includes("View Linked Activities"), "View Linked Activities missing from More menu");
-    assert(!moreItems.includes("Print Full Lesson Plan") && !moreItems.includes("Print Lesson Plan"), "Print Full Lesson Plan should live in Use This Plan sheet");
-    assert(!moreItems.includes("Download PDF"), "Full PDF download should live in Use This Plan sheet");
-    assert(moreItems.includes("Print Week at a Glance"), "Print Week at a Glance missing from More menu");
-    assert(moreItems.includes("Download Weekly Schedule PDF"), "Download Weekly Schedule PDF missing from More menu");
-    assert(moreItems.includes("Print Materials List"), "Print Materials List missing from More menu");
-    await page.click("[data-lesson-workspace-more-toggle]");
-    await page.waitForFunction(() => document.querySelector(".lesson-workspace-more-menu")?.hidden === true, null, { timeout: 3000 });
-
     await page.click("[data-lesson-workspace-tab='plan']");
     await page.waitForSelector('[data-lesson-workspace-panel="plan"].is-active', { timeout: 3000 });
 
     await page.click("[data-lesson-use-this-plan]");
-    await page.waitForSelector(".lesson-workspace-action-sheet:not([hidden])", { timeout: 3000 });
-    const sheetItems = await page.evaluate(() => [...document.querySelectorAll(".lesson-workspace-action-sheet-panel button")].map((el) => el.textContent.trim()));
-    assert(sheetItems.some((label) => label.includes("Plan This Week")), "Plan This Week missing from action sheet");
-    assert(sheetItems.some((label) => label.includes("Print Full Lesson Plan") || label.includes("Print Lesson Plan")), "Print Full Lesson Plan missing from action sheet");
-    assert(!sheetItems.some((label) => /Assign to a Week|Add to This Week|View in Curriculum Planner/i.test(label)), `old action still present: ${sheetItems.join(" | ")}`);
+    await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 3000 });
+    const sheetCopy = await page.evaluate(() => ({
+      title: document.querySelector("[data-lesson-assign-sheet-title]")?.textContent.trim() || "",
+      submit: document.querySelector("[data-lesson-assign-submit]")?.textContent.trim() || "",
+      hasCancel: Boolean(document.querySelector("[data-lesson-workspace-action-sheet-dismiss]")),
+      hasPrintInSheet: Boolean(document.querySelector('[data-lesson-workspace-action-panel="main-calendar"] [data-lesson-print-variant]')),
+    }));
+    assert(sheetCopy.title === "Add to Calendar", `sheet title wrong: ${sheetCopy.title}`);
+    assert(sheetCopy.submit === "Add to Calendar", `sheet submit wrong: ${sheetCopy.submit}`);
+    assert(sheetCopy.hasCancel, "Cancel missing from assign sheet");
+    assert(!sheetCopy.hasPrintInSheet, "assign sheet should not mix in print options");
     await page.click("[data-lesson-workspace-action-sheet-dismiss]");
     await page.waitForFunction(() => document.querySelector(".lesson-workspace-action-sheet")?.hidden === true, null, { timeout: 3000 });
 
