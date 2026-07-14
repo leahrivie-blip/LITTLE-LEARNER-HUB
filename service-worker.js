@@ -1,4 +1,4 @@
-const CACHE_NAME = "llh-shell-v34-hide-pro";
+const CACHE_NAME = "llh-shell-v35-founding-banner";
 const APP_SHELL = [
   "/",
   "/index.html",

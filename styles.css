@@ -4987,6 +4987,105 @@ body.lessons-view .mobile-brand {
   font-size: 0.9rem;
 }
 
+.founding-upgrade-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px 20px;
+  align-items: center;
+  margin: 14px 0 18px;
+  padding: 16px 18px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(201, 122, 52, 0.28);
+  background: linear-gradient(135deg, #fff8f1, rgba(255, 248, 240, 0.92), rgba(219, 234, 247, 0.35));
+  box-shadow: 0 8px 20px rgba(26, 43, 74, 0.06);
+}
+
+.founding-upgrade-banner.is-sold-out {
+  border-color: rgba(91, 155, 213, 0.28);
+  background: linear-gradient(135deg, #f7fbff, rgba(219, 234, 247, 0.45));
+}
+
+.founding-upgrade-badge {
+  display: inline-block;
+  margin: 0 0 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #9a4e12;
+  background: rgba(255, 186, 120, 0.35);
+}
+
+.founding-upgrade-banner.is-sold-out .founding-upgrade-badge {
+  color: #2f5f86;
+  background: rgba(91, 155, 213, 0.18);
+}
+
+.founding-upgrade-banner h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1.3;
+  color: var(--ink, #1a2b4a);
+}
+
+.founding-upgrade-body,
+.founding-upgrade-compare,
+.founding-upgrade-spots {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+  font-size: 0.95rem;
+}
+
+.founding-upgrade-price {
+  margin: 10px 0 0;
+  color: #9a4e12;
+  font-size: 1.55rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.founding-upgrade-banner.is-sold-out .founding-upgrade-price {
+  color: #5b9bd5;
+}
+
+.founding-upgrade-price span {
+  margin-left: 4px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.founding-upgrade-price em {
+  font-style: normal;
+  font-weight: 800;
+  color: #9a4e12;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.founding-upgrade-banner-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: min(100%, 240px);
+}
+
+.founding-upgrade-banner-actions .primary-button,
+.founding-upgrade-banner-actions .ghost-button {
+  width: 100%;
+  min-height: 44px;
+  justify-content: center;
+}
+
+.founding-upgrade-banner--library,
+.founding-upgrade-banner--settings,
+.founding-upgrade-banner--billing {
+  margin-top: 12px;
+}
+
 .home-founding-banner {
   grid-template-columns: minmax(0, 1fr) 160px auto;
   margin-top: 0;
@@ -18663,6 +18762,19 @@ body.admin-preview-simulating .sidebar .brand h1::after {
   .home-founding-banner {
     grid-template-columns: 1fr;
     padding: 10px 12px;
+  }
+
+  .founding-upgrade-banner {
+    grid-template-columns: 1fr;
+    padding: 14px;
+  }
+
+  .founding-upgrade-banner-actions {
+    min-width: 0;
+  }
+
+  .founding-upgrade-price {
+    font-size: 1.35rem;
   }
 
   .signup-founding-urgency {

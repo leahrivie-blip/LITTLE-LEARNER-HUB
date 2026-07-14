@@ -2829,26 +2829,42 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
   }
   const um = effectiveSiteContent().upgradeMessaging || {};
   const isDraft = um._draft === true;
-  const upgradePopupBody = (!isDraft && um.upgradePopupBody) ? um.upgradePopupBody : proTrialUpgradeMessage;
-  const proTrialBtnText = (!isDraft && um.proTrialButtonText) ? um.proTrialButtonText : "Start Your 7-Day Free Pro Trial";
+  const offerFounding = canSeePaidUpgradeOffer() && foundingSpotsStillAvailable();
+  const offerPro = canSeePaidUpgradeOffer() && !foundingSpotsStillAvailable();
+  const upgradePopupBody = offerFounding
+    ? "Lock in $9.99/month for life and unlock every feature, lesson plan, and future update."
+    : ((!isDraft && um.upgradePopupBody) ? um.upgradePopupBody : proTrialUpgradeMessage);
+  const proTrialBtnText = offerFounding
+    ? "Claim Founding Member Pricing"
+    : offerPro
+      ? "Choose Pro Monthly"
+      : ((!isDraft && um.proTrialButtonText) ? um.proTrialButtonText : "Start Your 7-Day Free Pro Trial");
   if (type === "limit") {
     const limitHeadline = (!isDraft && um.upgradeLimitHeadline) ? um.upgradeLimitHeadline : "You've reached your Free Plan limit.";
-    if (eyebrow) eyebrow.textContent = "Free Plan Limit Reached";
+    if (eyebrow) eyebrow.textContent = offerFounding ? "Founding Member Offer" : "Free Plan Limit Reached";
     if (title) title.textContent = limitHeadline;
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
       <p>${escapeHtml(upgradePopupBody)}</p>
+      ${offerFounding ? `<p class="founding-upgrade-compare">Regular Price: <s>$19.99/month</s> · Founding: <strong>$9.99/month for life</strong></p>` : ""}
     `;
   } else {
-    const popupHeadline = (!isDraft && um.upgradePopupHeadline) ? um.upgradePopupHeadline : "This is a Pro Feature";
-    if (eyebrow) eyebrow.textContent = "Pro Feature";
+    const popupHeadline = offerFounding
+      ? "Unlock with Founding Member Pricing"
+      : ((!isDraft && um.upgradePopupHeadline) ? um.upgradePopupHeadline : "This is a Pro Feature");
+    if (eyebrow) eyebrow.textContent = offerFounding ? "Founding Member" : "Pro Feature";
     if (title) title.textContent = popupHeadline;
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
       <p>${escapeHtml(upgradePopupBody)}</p>
+      ${offerFounding ? `<p class="founding-upgrade-compare">Regular Price: <s>$19.99/month</s> · Founding: <strong>$9.99/month for life</strong></p>` : ""}
     `;
   }
-  if (upgradeBtn) upgradeBtn.textContent = proTrialBtnText;
+  if (upgradeBtn) {
+    upgradeBtn.textContent = proTrialBtnText;
+    upgradeBtn.dataset.checkoutPlan = offerFounding ? "founding" : (offerPro ? "monthly" : "");
+    upgradeBtn.dataset.upgradeMode = offerFounding ? "founding" : (offerPro ? "monthly" : "trial");
+  }
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
 }
@@ -3031,6 +3047,9 @@ function refreshFoundingDisplays() {
   if (activeView === "billing") renderBillingPage();
   if (activeView === "subscription") renderSubscriptionPage();
   if (activeView === "admin") renderAdminDashboard();
+  if (activeView === "home" && currentUser) renderUserDashboard();
+  if (activeView === "lessons" || activeView === "activities") renderCategoryPage(activeView);
+  if (activeView === "settings") renderSettingsHubPage();
 }
 
 async function syncFoundingStatus(options = {}) {
@@ -15475,6 +15494,12 @@ function openLockedResourcePreview(resource, triggerEl = null) {
   const lockedCurriculum = resource._curriculumManaged && resource.category === "Lesson Plans"
     ? curriculumViewerRenderApi()?.lockedCurriculumLessonPreviewHtml(resource, { activities: lockedActivities })
     : null;
+  const lockedUpgradeCta = canSeePaidUpgradeOffer()
+    ? `<button class="primary-button" data-checkout-plan="${preferredPaidCheckoutPlan()}" type="button">${escapeHtml(preferredPaidCheckoutButtonLabel())}</button>`
+    : `<button class="primary-button" data-start-pro-trial type="button">Start Your 7-Day Free Pro Trial</button>`;
+  const lockedUpgradeNote = canSeePaidUpgradeOffer() && foundingSpotsStillAvailable()
+    ? "Lock in $9.99/month for life. Regular price $19.99/month."
+    : proTrialUpgradeSummary;
   featurePreviewBody.innerHTML = lockedCurriculum ? `
     <section class="section-block" style="margin:0;">
       ${lockedCurriculum.html}
@@ -15483,9 +15508,9 @@ function openLockedResourcePreview(resource, triggerEl = null) {
         <div class="fp-field-value"><ul class="md-ul">${benefits}</ul></div>
       </div>
       <div class="pro-modal-actions" style="margin-top:20px;justify-content:flex-start;">
-        <button class="primary-button" data-start-pro-trial type="button">Start Your 7-Day Free Pro Trial</button>
+        ${lockedUpgradeCta}
       </div>
-      <p><small>${escapeHtml(proTrialUpgradeSummary)}</small></p>
+      <p><small>${escapeHtml(lockedUpgradeNote)}</small></p>
     </section>
   ` : `
     <section class="section-block" style="margin:0;">
@@ -15497,9 +15522,9 @@ function openLockedResourcePreview(resource, triggerEl = null) {
         <div class="fp-field-value"><ul class="md-ul">${benefits}</ul></div>
       </div>
       <div class="pro-modal-actions" style="margin-top:20px;justify-content:flex-start;">
-        <button class="primary-button" data-start-pro-trial type="button">Start Your 7-Day Free Pro Trial</button>
+        ${lockedUpgradeCta}
       </div>
-      <p><small>${escapeHtml(proTrialUpgradeSummary)}</small></p>
+      <p><small>${escapeHtml(lockedUpgradeNote)}</small></p>
     </section>
   `;
   featurePreviewModal.classList.add("open");
@@ -15804,8 +15829,10 @@ function renderCategoryPage(view) {
     : `<div class="empty-state">No resources found. Try another search or filter.</div>`;
   if (isLessonPlanCategory) {
     const isSavedLessonMode = lessonLibraryMode === "saved";
+    const lessonUpgradeBanner = !isProUser() ? foundingUpgradeBannerHtml({ variant: "library", dismissible: true }) : "";
     section.innerHTML = `
       ${renderLessonPlanLibraryHeader()}
+      ${lessonUpgradeBanner}
       ${calendarLessonAssignBannerHtml()}
       <div class="lesson-plan-search-bar">
         <label class="lesson-plan-search-label visually-hidden" for="lessonPlanSearch">Search lesson plans</label>
@@ -15824,6 +15851,16 @@ function renderCategoryPage(view) {
   const categoryBackButton = view === "activities" && activeActivityLessonPlanId
     ? `<button class="ghost-button back-button" data-contextual-back="activities" data-fallback-view="lessons" data-always-visible="true" type="button">${escapeHtml(contextualBackLabel("activities", "lessons"))}</button>`
     : `<button class="ghost-button back-button" data-view="home" type="button">${escapeHtml(fallbackBackLabel("home"))}</button>`;
+  const activityUpgradeBanner = category === "Activity Center" && !isProUser()
+    ? foundingUpgradeBannerHtml({ variant: "library", dismissible: true })
+    : "";
+  const accessNoticeHtml = activityUpgradeBanner
+    ? ""
+    : `<div class="access-notice ${isProUser() ? "pro" : ""}">
+      ${isProUser()
+        ? `Pro is active: full in-app library access, saved favorites, viewed resources, and ${aiUsageRemaining()} document creations left this month.`
+        : `Free plan: ${accessCounts.freeLimit} ${displayTitle.toLowerCase()} resources are unlocked here. Upgrade to Pro for all ${accessCounts.total}.`}
+    </div>`;
   section.innerHTML = `
     ${categoryBackButton}
     <div class="page-title">
@@ -15836,11 +15873,8 @@ function renderCategoryPage(view) {
       <div><strong>${accessCounts.freeLimit}</strong><span>Free access</span></div>
       <div><strong>${accessCounts.proOnly}</strong><span>Pro unlocks</span></div>
     </div>
-    <div class="access-notice ${isProUser() ? "pro" : ""}">
-      ${isProUser()
-        ? `Pro is active: full in-app library access, saved favorites, viewed resources, and ${aiUsageRemaining()} document creations left this month.`
-        : `Free plan: ${accessCounts.freeLimit} ${displayTitle.toLowerCase()} resources are unlocked here. Upgrade to Pro for all ${accessCounts.total}.`}
-    </div>
+    ${activityUpgradeBanner}
+    ${accessNoticeHtml}
     ${searchedChild ? renderChildLessonSearchContext(searchedChild) : ""}
     ${category === "Printables" ? renderPrintablesRefreshNotice() : ""}
     ${category === "Activity Center" && activeActivityLessonPlanId ? renderActivityLessonFilterBanner() : ""}
@@ -16315,13 +16349,15 @@ function renderUserDashboard() {
   const recentActivity = dashboardRecentActivity(records, childById);
   const recentObservations = [...(records.observations || [])].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 3);
   const reminders = dashboardReminderMarkup(records, stats);
+  const upgradeBanner = foundingUpgradeBannerHtml({ variant: "dashboard", dismissible: true });
+  const showTeaserUpgradeCta = !upgradeBanner;
   const dashboardTeasers = !isProUser() ? `
     <section class="section-block dashboard-teasers">
       <div class="dashboard-panel-heading"><div><p class="eyebrow">Pro previews</p><h3>Spend less time on paperwork</h3></div></div>
       <div class="dashboard-teaser-grid">
-        ${lockedFeatureCard("Parent Message Generator", "Turn one quick note into a family-ready update without rewriting it later.", "daily-log-parent-messages")}
-        ${lockedFeatureCard("Daily Report Generator", "Bundle attendance, meals, and classroom highlights into one polished report.", "daily-log-reports")}
-        ${lockedFeatureCard("Portfolio Builder", "Collect observations, photos, and progress notes into shareable portfolio updates.", "portfolio-builder")}
+        ${lockedFeatureCard("Parent Message Generator", "Turn one quick note into a family-ready update without rewriting it later.", "daily-log-parent-messages", { showUpgradeCta: showTeaserUpgradeCta })}
+        ${lockedFeatureCard("Daily Report Generator", "Bundle attendance, meals, and classroom highlights into one polished report.", "daily-log-reports", { showUpgradeCta: showTeaserUpgradeCta })}
+        ${lockedFeatureCard("Portfolio Builder", "Collect observations, photos, and progress notes into shareable portfolio updates.", "portfolio-builder", { showUpgradeCta: showTeaserUpgradeCta })}
       </div>
     </section>
   ` : "";
@@ -16334,6 +16370,8 @@ function renderUserDashboard() {
           <p class="dashboard-date">${escapeHtml(today)}${programName ? ` · ${escapeHtml(programName)}` : ""}</p>
         </div>
       </div>
+
+      ${upgradeBanner}
 
       ${dashboardScheduleOverviewMarkup()}
 
@@ -21428,6 +21466,7 @@ function renderSettingsHubPage() {
         <p>Manage your account, program, billing, and support here. Daily work stays in Calendar, Daily Logs, Lesson Plans, and Child Profiles.</p>
         <p class="settings-hub-identity muted-copy">${escapeHtml(accountTypeLabel)} · ${escapeHtml(roleLabel)}</p>
       </div>
+      ${canBilling && !isProUser() ? foundingUpgradeBannerHtml({ variant: "settings", dismissible: true }) : ""}
       <div class="settings-hub-groups">
         ${groups.map((group) => `
           <section class="settings-hub-group">
@@ -23035,7 +23074,8 @@ function areaOptions(selected = "") {
   return developmentalAreas.map((area) => `<option ${area === selected ? "selected" : ""}>${area}</option>`).join("");
 }
 
-function lockedFeatureCard(title, detail = "Upgrade to Pro to unlock this child management tool.", previewId = "") {
+function lockedFeatureCard(title, detail = "Upgrade to Pro to unlock this child management tool.", previewId = "", options = {}) {
+  const showUpgradeCta = options.showUpgradeCta !== false;
   return `
     <div class="locked-tool">
       <span class="tag access-tag">Included with Pro</span>
@@ -23043,7 +23083,7 @@ function lockedFeatureCard(title, detail = "Upgrade to Pro to unlock this child 
       <p>${escapeHtml(detail)}</p>
       <div class="locked-tool-actions">
         ${previewId ? `<button class="ghost-button" data-preview="${previewId}" type="button">Preview</button>` : ""}
-        <button class="primary-button" data-pro-feature="${slug(title)}" type="button">Upgrade to Pro</button>
+        ${showUpgradeCta ? paidUpgradeCtaButtonHtml({ featureId: slug(title) }) : ""}
       </div>
     </div>
   `;
@@ -36632,6 +36672,114 @@ function foundingStatusCard() {
   `;
 }
 
+const FOUNDING_UPGRADE_DISMISS_KEY = "llhFoundingUpgradeDismissed";
+
+/** Free plan owners who can manage billing — not paid, not staff-only, not real admin mode. */
+function canSeePaidUpgradeOffer(account = currentAccount()) {
+  if (!isLoggedIn()) return false;
+  if (hasAdminFullAccess()) return false;
+  if (isProUser()) return false;
+  if (account?.programAccessViaOwner) return false;
+  if (!canAccessPlatformFeature("billing", account)) return false;
+  const plan = normalizeBillingPlan(account?.plan || currentPlan, account);
+  return plan === "Free";
+}
+
+function foundingSpotsStillAvailable() {
+  return foundingSpotsRemaining() > 0;
+}
+
+function isFoundingUpgradeBannerDismissed() {
+  try {
+    return sessionStorage.getItem(FOUNDING_UPGRADE_DISMISS_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function dismissFoundingUpgradeBanner() {
+  try {
+    sessionStorage.setItem(FOUNDING_UPGRADE_DISMISS_KEY, "1");
+  } catch {
+    /* ignore */
+  }
+  document.querySelectorAll(".founding-upgrade-banner").forEach((node) => node.remove());
+}
+
+/** Preferred paid checkout for eligible Free owners: founding while spots remain, else Pro monthly. */
+function preferredPaidCheckoutPlan() {
+  return foundingSpotsStillAvailable() ? "founding" : "monthly";
+}
+
+function preferredPaidCheckoutButtonLabel() {
+  return foundingSpotsStillAvailable() ? "Claim Founding Member Pricing" : "Choose Pro Monthly";
+}
+
+/**
+ * Conversion banner for Free plan owners.
+ * One clear upgrade message — do not stack with other upgrade banners on the same screen.
+ */
+function foundingUpgradeBannerHtml(options = {}) {
+  const {
+    variant = "default",
+    dismissible = true,
+    force = false,
+  } = options;
+  if (!canSeePaidUpgradeOffer()) return "";
+  if (!force && isFoundingUpgradeBannerDismissed()) return "";
+  const soldOut = !foundingSpotsStillAvailable();
+  const remaining = foundingSpotsRemaining();
+  const checkoutPlan = preferredPaidCheckoutPlan();
+  const ctaLabel = preferredPaidCheckoutButtonLabel();
+  const title = soldOut
+    ? "Pro Membership Available"
+    : "🔥 Founding Member Spots Still Available";
+  const body = soldOut
+    ? "Upgrade to Pro for unlimited access to every feature, every lesson plan, and every future update."
+    : "Lock in $9.99/month for life and get unlimited access to every feature, every lesson plan, and every future update.";
+  const priceBlock = soldOut
+    ? `<p class="founding-upgrade-price"><strong>$19.99</strong><span>/month</span></p>`
+    : `<p class="founding-upgrade-price"><strong>$9.99</strong><span>/month <em>for life</em></span></p>
+       <p class="founding-upgrade-compare">Regular Price: <s>$19.99/month</s></p>
+       <p class="founding-upgrade-spots">${remaining} founding spot${remaining === 1 ? "" : "s"} remaining</p>`;
+  return `
+    <section class="founding-upgrade-banner founding-upgrade-banner--${escapeHtml(variant)}${soldOut ? " is-sold-out" : ""}" role="region" aria-label="${soldOut ? "Pro upgrade offer" : "Founding Member upgrade offer"}">
+      <div class="founding-upgrade-banner-copy">
+        <p class="founding-upgrade-badge">${soldOut ? "Pro" : "Founding Member"}</p>
+        <h3>${title}</h3>
+        <p class="founding-upgrade-body">${body}</p>
+        ${priceBlock}
+      </div>
+      <div class="founding-upgrade-banner-actions">
+        <button class="primary-button founding-upgrade-cta" type="button" data-checkout-plan="${checkoutPlan}">${escapeHtml(ctaLabel)}</button>
+        ${dismissible ? `<button class="ghost-button founding-upgrade-dismiss" type="button" data-dismiss-founding-upgrade>Maybe later</button>` : ""}
+      </div>
+    </section>
+  `;
+}
+
+/** Compact CTA for locked cards / modals — not a second full banner. */
+function paidUpgradeCtaButtonHtml(options = {}) {
+  const className = options.className || "primary-button";
+  if (!canSeePaidUpgradeOffer()) {
+    if (isProUser()) return "";
+    return `<button class="${className}" type="button" data-pro-feature="${escapeHtml(options.featureId || "upgrade")}">Upgrade to Pro</button>`;
+  }
+  return `<button class="${className}" type="button" data-checkout-plan="${preferredPaidCheckoutPlan()}">${escapeHtml(preferredPaidCheckoutButtonLabel())}</button>`;
+}
+
+async function startPreferredPaidCheckout() {
+  if (!canSeePaidUpgradeOffer()) {
+    if (!isLoggedIn()) {
+      openAuthModal("signup");
+      return;
+    }
+    setView("plans");
+    return;
+  }
+  await startCheckout(preferredPaidCheckoutPlan());
+}
+
 function renderHomeFoundingOffer() {
   const target = document.querySelector("#homeFoundingOffer");
   if (!target) return;
@@ -36778,7 +36926,9 @@ function renderBillingPage() {
   if (!target) return;
   const account = currentAccount();
   const paidBilling = currentUser ? accountHasPaidBilling(account) : false;
+  const billingUpgradeBanner = !paidBilling ? foundingUpgradeBannerHtml({ variant: "billing", dismissible: false, force: true }) : "";
   target.innerHTML = `
+    ${billingUpgradeBanner}
     <section class="account-layout">
       <div class="account-panel">
         <p class="eyebrow">Billing Management</p>
@@ -36786,7 +36936,7 @@ function renderBillingPage() {
         ${subscriptionSummaryHtml()}
         <div class="account-actions-row">
           <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
-          <button class="primary-button" data-view="upgrade" type="button">${paidBilling ? "Change Plan" : "Upgrade to Pro"}</button>
+          <button class="primary-button" ${!paidBilling && canSeePaidUpgradeOffer() ? `data-checkout-plan="${preferredPaidCheckoutPlan()}"` : `data-view="upgrade"`} type="button">${paidBilling ? "Change Plan" : (canSeePaidUpgradeOffer() ? preferredPaidCheckoutButtonLabel() : "Upgrade to Pro")}</button>
           ${paidBilling ? `<button class="ghost-button" data-update-payment type="button">Update Payment Method</button>` : ""}
           <button class="ghost-button" data-view="billing-history" type="button">View Billing History</button>
           ${paidBilling ? `<button class="danger-button" data-view="cancel-subscription" type="button">Cancel Subscription</button>` : ""}
@@ -37915,6 +38065,10 @@ document.addEventListener("click", async (event) => {
       return;
     }
     closeFeaturePreview();
+    if (canSeePaidUpgradeOffer()) {
+      await startPreferredPaidCheckout();
+      return;
+    }
     await startProTrial();
     return;
   }
@@ -37949,6 +38103,8 @@ document.addEventListener("click", async (event) => {
   const checkoutButton = event.target.closest("[data-checkout-plan]");
   if (checkoutButton) {
     event.preventDefault();
+    closeFeaturePreview?.();
+    closeProFeatureModal?.();
     startCheckout(checkoutButton.dataset.checkoutPlan);
     return;
   }
@@ -41844,6 +42000,17 @@ document.addEventListener("keydown", (event) => {
 });
 
 document.querySelector("#proModalUpgrade")?.addEventListener("click", () => {
+  const upgradeBtn = document.querySelector("#proModalUpgrade");
+  const mode = upgradeBtn?.dataset.upgradeMode || "trial";
+  closeProFeatureModal();
+  if (mode === "founding") {
+    startCheckout("founding");
+    return;
+  }
+  if (mode === "monthly") {
+    startCheckout("monthly");
+    return;
+  }
   startProTrial();
 });
 
@@ -42679,6 +42846,13 @@ document.addEventListener("click", async (event) => {
     if (banner) banner.hidden = true;
     const text = textEl?.textContent || "";
     if (text) sessionStorage.setItem("llhAnnouncementDismissed", text);
+    return;
+  }
+
+  const foundingUpgradeDismiss = event.target.closest("[data-dismiss-founding-upgrade]");
+  if (foundingUpgradeDismiss) {
+    event.preventDefault();
+    dismissFoundingUpgradeBanner();
     return;
   }
 });

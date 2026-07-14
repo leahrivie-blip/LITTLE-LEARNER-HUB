@@ -343,13 +343,20 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
       assert(/preview/i.test(btnText), `${label}: pro lesson should show Preview`);
       await previewBtn.click({ force: true });
       await page.waitForSelector("#featurePreviewModal.open", { timeout: 10000 });
+      // Free owners see Founding checkout while spots remain; otherwise Pro trial CTA.
+      const foundingBtn = page.locator("#featurePreviewModal [data-checkout-plan='founding']");
       const trialBtn = page.locator("#featurePreviewModal [data-start-pro-trial]");
-      await trialBtn.waitFor({ timeout: 5000 });
-      await trialBtn.click();
-      await page.waitForSelector("#view-upgrade.active-view", { timeout: 10000 });
-      await page.waitForSelector("#upgradeApp .pricing-grid, #upgradeApp .checkout-test-panel", { timeout: 10000 });
-    });
-  }
+      if (await foundingBtn.count()) {
+        await foundingBtn.first().waitFor({ timeout: 5000 });
+        await foundingBtn.first().click();
+        // Confirm dialog is auto-accepted; local/test checkout may land on upgrade or stay put.
+        await page.waitForTimeout(800);
+      } else {
+        await trialBtn.waitFor({ timeout: 5000 });
+        await trialBtn.click();
+        await page.waitForSelector("#view-upgrade.active-view", { timeout: 10000 });
+        await page.waitForSelector("#upgradeApp .pricing-grid, #upgradeApp .checkout-test-panel", { timeout: 10000 });
+      }
 
   await step("admin login", async () => {
     await page.evaluate(() => setView("admin"));
