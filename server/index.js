@@ -3746,6 +3746,65 @@ function handleAdminAiUsage(request, response, url) {
   });
 }
 
+async function handleAccountProfileSync(request, response) {
+  const body = await readJson(request);
+  const email = normalizeEmail(body.email);
+  if (!email) {
+    jsonResponse(response, 400, { error: "Email is required." });
+    return;
+  }
+  const firstName = normalizedShortText(body.firstName, 80);
+  const lastName = normalizedShortText(body.lastName, 80);
+  const businessName = normalizedShortText(body.businessName || body.daycareName || body.programName, 160);
+  const accountType = body.accountType ? accountAccess.normalizeAccountType(body.accountType) : undefined;
+  const role = body.role ? accountAccess.normalizeUserRole(body.role) : undefined;
+  const phone = normalizedShortText(body.phone, 40);
+  const existing = readStore().users?.[email] || {};
+  const name = [firstName || existing.firstName, lastName || existing.lastName].filter(Boolean).join(" ")
+    || existing.name
+    || "";
+  const updates = {
+    firstName: firstName || existing.firstName || "",
+    lastName: lastName || existing.lastName || "",
+    name: name || undefined,
+    displayName: name || existing.displayName || "",
+    phone: phone || existing.phone || "",
+    accountStatus: existing.accountStatus || "Active",
+  };
+  if (businessName) {
+    updates.businessName = businessName;
+    updates.daycareName = businessName;
+    updates.programName = businessName;
+  }
+  if (accountType) updates.accountType = accountType;
+  if (role) updates.role = role;
+  if (body.signup === true && !existing.signupAt) {
+    updates.signupAt = new Date().toISOString();
+    updates.createdAt = existing.createdAt || updates.signupAt;
+    updates.plan = existing.plan || "Free";
+    updates.subscriptionStatus = existing.subscriptionStatus || "Free Plan";
+  }
+  if (body.lastLogin === true) {
+    updates.lastLoginAt = new Date().toISOString();
+    updates.lastSeenAt = updates.lastLoginAt;
+  }
+  const user = upsertUser(email, updates);
+  jsonResponse(response, 200, {
+    ok: true,
+    user: {
+      email: user.email,
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
+      name: user.name || "",
+      businessName: user.businessName || "",
+      accountType: user.accountType || "",
+      role: user.role || "",
+      plan: user.plan || "Free",
+      accountStatus: user.accountStatus || "Active",
+    },
+  });
+}
+
 async function handleAdminLogin(request, response) {
   const body = await readJson(request);
   const email = normalizeEmail(body.email);
@@ -4896,6 +4955,19 @@ function updateAnalyticsUser(store, event) {
     if ((detailFirst || detailLast) && !existing.name) {
       updates.name = [detailFirst, detailLast].filter(Boolean).join(" ");
     }
+    const businessName = normalizedShortText(event.detail?.businessName || event.detail?.daycareName || event.detail?.programName, 160);
+    if (businessName) {
+      updates.businessName = businessName;
+      updates.daycareName = businessName;
+      updates.programName = businessName;
+    }
+    if (event.detail?.accountType) {
+      updates.accountType = accountAccess.normalizeAccountType(event.detail.accountType);
+    }
+    if (event.detail?.role) {
+      updates.role = accountAccess.normalizeUserRole(event.detail.role);
+    }
+    if (event.detail?.phone) updates.phone = normalizedShortText(event.detail.phone, 40);
   }
   if (event.name === "account_login_complete") updates.lastLoginAt = event.createdAt;
   if (event.name === "checkout_success") {
@@ -5302,7 +5374,70 @@ async function handleAnalyticsEvent(request, response) {
   jsonResponse(response, 200, { ok: true });
 }
 
+function countEventsNamed(events, names) {
+  const set = new Set(Array.isArray(names) ? names : [names]);
+  return events.filter((event) => set.has(event.name)).length;
+}
+
+function isWithinDays(iso, days) {
+  if (!iso) return false;
+  const ms = new Date(iso).getTime();
+  if (!Number.isFinite(ms)) return false;
+  return Date.now() - ms <= days * 24 * 60 * 60 * 1000;
+}
+
+function isSameUtcDay(iso, now = new Date()) {
+  if (!iso) return false;
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return false;
+  return d.getUTCFullYear() === now.getUTCFullYear()
+    && d.getUTCMonth() === now.getUTCMonth()
+    && d.getUTCDate() === now.getUTCDate();
+}
+
+function ensureFoundingMemberUserStubs(store) {
+  store.users = store.users || {};
+  store.foundingMembers = store.foundingMembers || [];
+  let changed = false;
+  store.foundingMembers.forEach((email, idx) => {
+    const clean = normalizeEmail(email);
+    if (!clean) return;
+    const existing = store.users[clean];
+    if (!existing) {
+      store.users[clean] = {
+        email: clean,
+        plan: "Founding",
+        planDisplayName: "Founding Member",
+        foundingMember: true,
+        foundingMemberActive: true,
+        foundingMemberHistorical: true,
+        foundingMemberNumber: PUBLIC_FOUNDING_CLAIMED_BASE + idx + 1,
+        monthlyPrice: "$9.99/month",
+        priceLock: "Lifetime",
+        subscriptionCadence: "monthly",
+        subscriptionStatus: "Founding Member Subscription Active",
+        accountStatus: "Active",
+        createdAt: new Date().toISOString(),
+        signupAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      changed = true;
+      return;
+    }
+    if (!existing.foundingMemberNumber) {
+      existing.foundingMemberNumber = PUBLIC_FOUNDING_CLAIMED_BASE + idx + 1;
+      existing.foundingMember = true;
+      existing.foundingMemberHistorical = true;
+      existing.updatedAt = new Date().toISOString();
+      changed = true;
+    }
+  });
+  if (changed) writeStore(store);
+  return changed;
+}
+
 function analyticsSummary(store) {
+  ensureFoundingMemberUserStubs(store);
   const events = (store.analyticsEvents || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   const chronological = events.slice().reverse();
   const users = Object.values(store.users || {});
@@ -5319,20 +5454,66 @@ function analyticsSummary(store) {
     visitorDays[id].add(analyticsDateKey(event.createdAt));
   });
   const returningVisitors = Object.values(visitorDays).filter((days) => days.size > 1).length;
-  const paidUsers = users.filter((user) => membershipHasProAccess(user));
+  const paidUsers = users.filter((user) => membershipHasProAccess(user) && String(user.accountStatus || "Active") !== "Disabled");
   const canceledUsers = users.filter((user) => membershipStatusDisplay(user) === "Canceled and Ended");
   const cancelingUsers = users.filter((user) => {
     const status = membershipStatusDisplay(user);
     return status === "Canceling at Period End" || status === "Trialing — Cancels at Trial End";
   });
+  const trialUsers = users.filter((user) => {
+    const plan = membershipPlanDisplay(user);
+    const status = membershipStatusDisplay(user);
+    return plan === "Trial" || String(status || "").toLowerCase().includes("trial");
+  });
+  const pastDueUsers = users.filter((user) => {
+    const status = membershipStatusDisplay(user);
+    return status === "Payment Failed" || status === "Past Due";
+  });
   const revenueItems = [
     ...paidEvents,
     ...billingEvents.filter((event) => !String(event.type || "").toLowerCase().includes("cancel")),
   ];
+  const now = new Date();
+  const activeUsersToday = users.filter((user) => isSameUtcDay(user.lastSeenAt || user.lastLoginAt, now)).length;
+  const activeUsersWeek = users.filter((user) => isWithinDays(user.lastSeenAt || user.lastLoginAt, 7)).length;
+  const activeUsersMonth = users.filter((user) => isWithinDays(user.lastSeenAt || user.lastLoginAt, 30)).length;
+  const newUsersWeek = users.filter((user) => isWithinDays(user.signupAt || user.createdAt, 7)).length;
+  const newUsersMonth = users.filter((user) => isWithinDays(user.signupAt || user.createdAt, 30)).length;
+  const newFoundingMembers = users.filter((user) => (
+    membershipAccess.membershipFoundingActive(user) && isWithinDays(user.subscriptionStartedAt || user.signupAt || user.createdAt, 30)
+  )).length;
+  const homeDaycareAccounts = users.filter((user) => accountAccess.resolveAccountType(user) === "home_daycare").length;
+  const centerAccounts = users.filter((user) => accountAccess.resolveAccountType(user) === "center").length;
+  const singleProviderAccounts = users.filter((user) => accountAccess.resolveAccountType(user) === "single_provider").length;
+  const lessonPlansViewed = countEventsNamed(events, ["resource_view", "lesson_plan_view", "curriculum_lesson_view"]);
+  const lessonPlansAddedToCalendar = countEventsNamed(events, ["lesson_plan_added_to_calendar", "calendar_lesson_assigned", "add_to_calendar"]);
+  const dailyLogsCreated = countEventsNamed(events, ["daily_log_created", "daily_report_saved"]);
+  const observationsCreated = countEventsNamed(events, ["observation_created", "observation_saved"]);
+  const incidentReportsCreated = countEventsNamed(events, ["incident_report_created", "incident_report_generated"]);
+  const parentMessagesGenerated = countEventsNamed(events, ["parent_message_generated", "ai_generation_success"]);
+  const formsSubmitted = countEventsNamed(events, ["form_submitted", "forms_submitted"]);
+  const feedbackItems = store.feedbackItems || [];
+  const supportTickets = store.supportTickets || [];
+  const openFeedback = feedbackItems.filter((item) => !["Resolved", "Completed", "Archived"].includes(item.status)).length;
+  const openTickets = supportTickets.filter((ticket) => ticket.status !== "Complete").length;
+
   const userRows = users
     .map((user) => {
       const userEvents = events.filter((event) => event.user === user.email);
       const displayName = user.name || user.displayName || [user.firstName, user.lastName].filter(Boolean).join(" ") || "";
+      const featureUsage = user.featureUsage || {};
+      const usage = {
+        lessonPlansViewed: Number(featureUsage.resource_view || featureUsage.lesson_plan_view || 0)
+          + userEvents.filter((e) => ["resource_view", "lesson_plan_view", "curriculum_lesson_view"].includes(e.name)).length,
+        lessonPlansAddedToCalendar: Number(featureUsage.lesson_plan_added_to_calendar || featureUsage.calendar_lesson_assigned || 0)
+          + userEvents.filter((e) => ["lesson_plan_added_to_calendar", "calendar_lesson_assigned", "add_to_calendar"].includes(e.name)).length,
+        observationsCreated: Number(featureUsage.observation_created || featureUsage.observation_saved || 0)
+          + userEvents.filter((e) => ["observation_created", "observation_saved"].includes(e.name)).length,
+        dailyLogsCreated: Number(featureUsage.daily_log_created || featureUsage.daily_report_saved || 0)
+          + userEvents.filter((e) => ["daily_log_created", "daily_report_saved"].includes(e.name)).length,
+        formsSubmitted: Number(featureUsage.form_submitted || featureUsage.forms_submitted || 0)
+          + userEvents.filter((e) => ["form_submitted", "forms_submitted"].includes(e.name)).length,
+      };
       return {
         email: user.email,
         firstName: user.firstName || "",
@@ -5356,13 +5537,17 @@ function analyticsSummary(store) {
         monthlyPrice: user.monthlyPrice || "",
         foundingMember: Boolean(user.foundingMember),
         foundingMemberNumber: user.foundingMemberNumber || null,
-        featureUseCount: userEvents.length || Object.values(user.featureUsage || {}).reduce((total, value) => total + Number(value || 0), 0),
+        featureUseCount: userEvents.length || Object.values(featureUsage).reduce((total, value) => total + Number(value || 0), 0),
         topFeatures: topFeaturePairs(userEvents),
         businessName: user.businessName || user.daycareName || user.programName || "",
+        daycareName: user.daycareName || user.businessName || user.programName || "",
         subscriptionCadence: user.subscriptionCadence || "",
         subscriptionStartedAt: user.subscriptionStartedAt || "",
         priceLock: user.priceLock || "",
+        usage,
         ...membershipSummaryForUser(user),
+        accountTypeLabel: accountAccess.accountTypeLabel(user.accountType || accountAccess.resolveAccountType(user)),
+        roleLabel: accountAccess.roleLabel(user.role || accountAccess.resolveUserRole(user)),
       };
     })
     .sort((a, b) => new Date(b.lastSeenAt || b.signupAt || 0) - new Date(a.lastSeenAt || a.signupAt || 0));
@@ -5375,17 +5560,41 @@ function analyticsSummary(store) {
       signups: Math.max(signups.length, users.length),
       totalRegisteredUsers: users.length,
       freeUsers: users.filter((user) => !membershipHasProAccess(user)).length,
+      trialUsers: trialUsers.length,
       proUsers: users.filter((user) => membershipHasProAccess(user) && membershipPlanDisplay(user) !== "Founding Member" && membershipPlanDisplay(user) !== "Trial").length,
       foundingMembers: users.filter((user) => membershipAccess.membershipFoundingActive(user)).length,
+      homeDaycareAccounts,
+      centerAccounts,
+      singleProviderAccounts,
       paidUsers: paidUsers.length,
       activeSubscriptions: paidUsers.filter((user) => !user.cancelAtPeriodEnd).length,
+      activeUsers: paidUsers.length,
+      activeUsersToday,
+      activeUsersWeek,
+      activeUsersMonth,
       cancelingSubscriptions: cancelingUsers.length,
       canceledSubscriptions: canceledUsers.length,
+      pastDueUsers: pastDueUsers.length,
+      failedPayments: pastDueUsers.length,
       returningVisitors,
       visitorToSignupRate: rate(Math.max(signups.length, users.length), Math.max(uniqueVisitors.size, visits.length)),
       signupToPaidRate: rate(paidUsers.length, Math.max(signups.length, users.length)),
       visitorToPaidRate: rate(paidUsers.length, Math.max(uniqueVisitors.size, visits.length)),
       totalRevenue: Number(revenueItems.reduce((total, event) => total + moneyNumber(event.amount || event.detail?.monthlyPrice || event.detail?.amount), 0).toFixed(2)),
+      newUsersWeek,
+      newUsersMonth,
+      newFoundingMembers,
+      trialConversions: paidEvents.filter((event) => isWithinDays(event.createdAt, 30)).length,
+      subscriptionConversions: paidUsers.filter((user) => isWithinDays(user.subscriptionStartedAt || user.signupAt, 30)).length,
+      lessonPlansViewed,
+      lessonPlansAddedToCalendar,
+      dailyLogsCreated,
+      observationsCreated,
+      incidentReportsCreated,
+      parentMessagesGenerated,
+      formsSubmitted,
+      openFeedback,
+      openSupportTickets: openTickets,
     },
     periods: {
       dailyVisitors: countBy(visits, (event) => analyticsDateKey(event.createdAt)),
@@ -5403,9 +5612,11 @@ function analyticsSummary(store) {
       aiUsage: countBy(events.filter((event) => event.name === "ai_generation_success"), (event) => event.detail?.tool || "Document Helper"),
       resourceViews: countBy(events.filter((event) => event.name === "resource_view"), (event) => event.detail?.category || "Resource"),
       resourcePrints: countBy(events.filter((event) => ["resource_print", "generated_pdf", "generated_print", "provider_tool_pdf"].includes(event.name)), (event) => event.detail?.category || event.detail?.tool || "Printable/PDF"),
-      featureUsage: countBy(events.filter((event) => ["button_click", "ai_generation_success", "resource_view", "resource_print", "generated_pdf", "generated_print", "provider_tool_pdf", "checkout_start", "checkout_success"].includes(event.name)), (event) => event.name),
+      featureUsage: countBy(events.filter((event) => ["button_click", "ai_generation_success", "resource_view", "resource_print", "generated_pdf", "generated_print", "provider_tool_pdf", "checkout_start", "checkout_success", "lesson_plan_added_to_calendar", "observation_created", "daily_log_created", "form_submitted"].includes(event.name)), (event) => event.name),
     },
     users: userRows,
+    feedback: feedbackItems.slice(0, 200),
+    supportTickets: supportTickets.slice(0, 200).map(publicTicket),
     recentEvents: events.slice(0, 25),
     rawEventCount: chronological.length,
   };
@@ -5487,6 +5698,19 @@ async function handleAdminMembershipUpdate(request, response) {
   }
   if (merged.plan === "Free" && !restoringFounding) {
     merged.foundingMemberActive = false;
+  }
+  if (updates.accountStatus === "Disabled" || updates.disabled === true) {
+    merged.accountStatus = "Disabled";
+  } else if (updates.accountStatus === "Active" || updates.disabled === false || updates.reenable === true) {
+    merged.accountStatus = "Active";
+  }
+  if (Number.isFinite(Number(updates.extendTrialDays)) && Number(updates.extendTrialDays) > 0) {
+    const base = merged.trialEnd ? new Date(merged.trialEnd) : new Date();
+    if (!Number.isFinite(base.getTime())) base.setTime(Date.now());
+    base.setUTCDate(base.getUTCDate() + Number(updates.extendTrialDays));
+    merged.trialEnd = base.toISOString();
+    merged.trialStatus = "Trial Active";
+    if (!merged.trialStart) merged.trialStart = new Date().toISOString();
   }
   const accessFields = accountAccess.migrateAccountAccessFields(merged);
   merged.accountType = accessFields.accountType;
@@ -7280,8 +7504,9 @@ function handleFeatureRequestsList(request, response, url) {
 
 const FEEDBACK_TYPES = new Set([
   "General Feedback", "Suggestion", "Idea", "Compliment", "Improvement Request",
+  "Bug", "Problem", "Missing Feature", "Question", "Feature Request", "Support",
 ]);
-const FEEDBACK_STATUSES = new Set(["New", "Reviewed", "Planned", "Completed", "Archived"]);
+const FEEDBACK_STATUSES = new Set(["New", "In Progress", "Reviewed", "Planned", "Resolved", "Completed", "Archived"]);
 
 async function handleFeedbackCreate(request, response) {
   const body = await readJson(request);
@@ -7305,19 +7530,29 @@ async function handleFeedbackCreate(request, response) {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     sourceUrl: String(body.sourceUrl || "").slice(0, 500),
+    accountType: String(body.accountType || "").slice(0, 80),
+    role: String(body.role || "").slice(0, 80),
+    subject: String(body.subject || body.type || "Feedback").slice(0, 200),
+    page: String(body.page || body.sourceUrl || "").slice(0, 500),
   };
   store.feedbackItems.unshift(item);
   store.feedbackItems = store.feedbackItems.slice(0, 1000);
   writeStore(store);
   notifyAdmin({
     kind: "Feedback",
-    title: item.type,
+    title: item.subject || item.type,
     name: item.name,
     email: item.email,
     message: item.message,
     createdAt: item.createdAt,
-    sourceUrl: item.sourceUrl,
-    fields: [["Feedback Type", item.type]],
+    sourceUrl: item.page || item.sourceUrl,
+    fields: [
+      ["Feedback Type", item.type],
+      ["Subject", item.subject],
+      ["Account Type", item.accountType || "—"],
+      ["Role", item.role || "—"],
+      ["Page", item.page || item.sourceUrl || "—"],
+    ],
   }).catch((err) => console.warn("[email] Feedback admin notification failed:", err.message));
   notifyUserAck({ toEmail: item.email, toName: item.name, submissionType: "feedback", topic: item.type }).catch((err) => console.warn("[email] Feedback ack failed:", err.message));
   jsonResponse(response, 200, { feedback: publicFeedback(item), supportEmail: SUPPORT_EMAIL_TO });
@@ -7616,6 +7851,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && (url.pathname === "/api/webhooks/stripe" || url.pathname === "/api/stripe/webhook")) return await handleStripeWebhook(request, response);
     if (request.method === "POST" && url.pathname === "/api/ai-generate") return await handleAiGenerate(request, response);
     if (request.method === "POST" && url.pathname === "/api/analytics/event") return await handleAnalyticsEvent(request, response);
+    if (request.method === "POST" && url.pathname === "/api/account/profile") return await handleAccountProfileSync(request, response);
     if (request.method === "POST" && url.pathname === "/api/support-ticket") return await handleSupportTicketCreate(request, response);
     if (request.method === "POST" && url.pathname === "/api/support-ticket-update") return await handleSupportTicketUpdate(request, response);
     if (request.method === "GET" && url.pathname === "/api/support-tickets") return handleSupportTicketsList(request, response, url);
