@@ -23,11 +23,13 @@ const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const css = fs.readFileSync(path.join(root, "styles.css"), "utf8");
 const appJs = fs.readFileSync(path.join(root, "app.js"), "utf8");
 
-test("hero has Sign Up CTA above benefits", () => {
+test("hero has Start Free / Create Account CTAs above benefits", () => {
   const actionsIdx = html.indexOf('class="lp-hero-actions"');
   const benefitsIdx = html.indexOf('class="lp-hero-benefits"');
   assert.ok(actionsIdx > -1 && benefitsIdx > actionsIdx, "CTA should appear before benefits list");
-  assert.match(html, /Sign Up — It&rsquo;s Free/);
+  assert.match(html, /Start Free/);
+  assert.match(html, /Create Your Account/);
+  assert.match(html, /Founding Spots Still Available/);
   assert.match(html, /data-action="start-free"/);
 });
 
@@ -35,6 +37,7 @@ test("mid-page and final signup CTAs exist", () => {
   assert.match(html, /lp-mid-cta/);
   assert.match(html, /Sign Up — Create Free Account/);
   assert.match(html, /Sign Up — Get Started/);
+  assert.match(html, /lp-mobile-sticky-cta/);
 });
 
 test("mobile no longer hides topbar Sign Up on homepage", () => {

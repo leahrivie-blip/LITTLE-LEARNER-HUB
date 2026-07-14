@@ -23,7 +23,7 @@
     <link rel="apple-touch-icon" href="images/icons/icon-192.svg" />
     <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
-  <link rel="stylesheet" href="styles.css?v=20260714-homepage-signup-cta" />
+  <link rel="stylesheet" href="styles.css?v=20260714-prod-priority-fixes" />
   </head>
   <body>
     <div class="app-shell">
@@ -196,9 +196,10 @@
               <h2 class="lp-hero-headline">Stop Spending Your Evenings on Childcare Paperwork</h2>
               <p class="lp-hero-sub">Track observations, child goals, lesson plans, forms, reports, and documentation in one organized place.</p>
               <div class="lp-hero-actions">
-                <button class="lp-btn-primary" data-action="start-free" type="button">Sign Up — It&rsquo;s Free</button>
-                <button class="lp-btn-secondary" data-scroll-target="homePlatformPreview" type="button">See What&rsquo;s Included</button>
+                <button class="lp-btn-primary" data-action="start-free" type="button">Start Free</button>
+                <button class="lp-btn-secondary" data-action="start-free" type="button">Create Your Account</button>
               </div>
+              <p class="lp-hero-founding-note">Founding Spots Still Available — Claim $9.99/Month for Life</p>
               <p class="lp-hero-cta-note">No credit card needed. Create your account in under a minute.</p>
               <ul class="lp-hero-benefits">
                 <li>✓ Never wonder which children still need observations</li>
@@ -638,6 +639,10 @@
 
           <!-- FOUNDING MEMBER SLOT -->
           <section id="homeFoundingOffer" class="landing-founding-slot"></section>
+
+          <div class="lp-mobile-sticky-cta" aria-label="Create your account">
+            <button class="lp-btn-primary" data-action="start-free" type="button">Start Free</button>
+          </div>
 
         </section>
 
@@ -1094,7 +1099,9 @@
             </div>
             <div class="security-grid">
               <form id="profileSettingsForm" class="panel-form">
-                <p class="form-note">Phone number is optional and used only as account contact information.</p>
+                <p class="form-note">Keep your name up to date so greetings and reports look correct.</p>
+                <label>First Name<input type="text" name="firstName" id="accountFirstNameInput" placeholder="First name" autocomplete="given-name" required /></label>
+                <label>Last Name<input type="text" name="lastName" id="accountLastNameInput" placeholder="Last name" autocomplete="family-name" required /></label>
                 <label>Phone Number<input type="tel" name="phone" id="accountPhoneInput" placeholder="(555) 123-4567" autocomplete="tel" /></label>
                 <button class="primary-button" type="submit">Save Profile</button>
                 <span class="form-message" id="profileSettingsMessage"></span>
@@ -1709,8 +1716,8 @@
     <script src="scripts/curriculum-lesson-import-parser.js?v=20260712-v3-final" defer></script>
     <script src="scripts/curriculum-import-preview.js?v=20260712-v3-final" defer></script>
     <script src="scripts/curriculum-lesson-viewer-render.js?v=20260711-phase-d" defer></script>
-    <script src="scripts/llh-schedule.js?v=20260714-calendar-day-notes" defer></script>
+    <script src="scripts/llh-schedule.js?v=20260714-prod-priority-fixes" defer></script>
     <script src="scripts/llh-lesson-docx.js?v=20260714-lesson-docx" defer></script>
-    <script src="app.js?v=20260714-homepage-signup-cta" defer></script>
+    <script src="app.js?v=20260714-prod-priority-fixes" defer></script>
   </body>
 </html>

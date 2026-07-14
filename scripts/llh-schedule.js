@@ -176,6 +176,45 @@
     };
   }
 
+  function delayMs(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  function isRetryableStatus(status) {
+    return status === 408 || status === 429 || status === 502 || status === 503 || status === 504;
+  }
+
+  async function fetchWithRetry(url, options = {}, retryOptions = {}) {
+    const retries = Number.isFinite(retryOptions.retries) ? retryOptions.retries : 3;
+    const baseDelay = Number.isFinite(retryOptions.baseDelay) ? retryOptions.baseDelay : 450;
+    let lastError = null;
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
+      try {
+        const response = await fetch(url, options);
+        if (isRetryableStatus(response.status) && attempt < retries) {
+          await delayMs(baseDelay * (2 ** attempt));
+          continue;
+        }
+        return response;
+      } catch (error) {
+        lastError = error;
+        if (attempt < retries) {
+          await delayMs(baseDelay * (2 ** attempt));
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw lastError || new Error("Schedule request failed.");
+  }
+
+  function syncError(message, status = 0) {
+    const error = new Error(message || "Could not sync calendar with your account.");
+    error.code = "schedule-sync-failed";
+    error.status = status;
+    return error;
+  }
+
   function mergeScheduleDocs(local = {}, remote = {}) {
     const byId = new Map();
     (Array.isArray(local.items) ? local.items : []).forEach((item) => {
@@ -204,7 +243,12 @@
   async function fetchSchedule(getFirebaseHeaders, email, query = {}) {
     const local = readCache(email);
     const headers = await authHeaders(getFirebaseHeaders, email);
-    if (!headers) return local;
+    if (!headers) {
+      const offline = { ...local };
+      offline._synced = false;
+      offline._syncError = "Sign in to sync your calendar.";
+      return offline;
+    }
     const params = new URLSearchParams();
     if (query.from) params.set("from", query.from);
     if (query.to) params.set("to", query.to);
@@ -212,8 +256,16 @@
     if (query.types) params.set("types", query.types);
     const qs = params.toString();
     try {
-      const response = await fetch(`/api/schedule${qs ? `?${qs}` : ""}`, { headers });
-      if (!response.ok) return local;
+      const response = await fetchWithRetry(`/api/schedule${qs ? `?${qs}` : ""}`, { headers }, { retries: 3 });
+      if (!response.ok) {
+        const failed = { ...local };
+        failed._synced = false;
+        failed._syncStatus = response.status;
+        failed._syncError = isRetryableStatus(response.status)
+          ? "Calendar is waking up. Tap Retry in a moment."
+          : "Could not load calendar from your account.";
+        return failed;
+      }
       const remote = await response.json();
       const remoteDoc = {
         classrooms: remote.classrooms?.length ? remote.classrooms : emptyDoc().classrooms,
@@ -223,17 +275,25 @@
       };
       // Filtered queries should not overwrite the full cache with a subset.
       if (query.from || query.to || query.classroomId || query.types) {
-        return mergeScheduleDocs(local, remoteDoc);
+        const filtered = mergeScheduleDocs(local, remoteDoc);
+        filtered._synced = true;
+        return filtered;
       }
       const merged = mergeScheduleDocs(local, remoteDoc);
       // Never replace a richer local cache with an empty/stale remote payload.
       if ((local.items || []).length > 0 && (merged.items || []).length === 0) {
-        return local;
+        const keepLocal = { ...local };
+        keepLocal._synced = true;
+        return keepLocal;
       }
-      writeCache(email, merged);
-      return merged;
+      const saved = writeCache(email, merged);
+      saved._synced = true;
+      return saved;
     } catch {
-      return local;
+      const failed = { ...local };
+      failed._synced = false;
+      failed._syncError = "Calendar is waking up. Tap Retry in a moment.";
+      return failed;
     }
   }
 
@@ -242,11 +302,11 @@
     const headers = await authHeaders(getFirebaseHeaders, email);
     if (!headers) return local;
     try {
-      const response = await fetch("/api/schedule", {
+      const response = await fetchWithRetry("/api/schedule", {
         method: "PUT",
         headers,
         body: JSON.stringify(local),
-      });
+      }, { retries: 3 });
       if (!response.ok) return local;
       const remote = await response.json();
       return writeCache(email, {
@@ -259,19 +319,33 @@
     }
   }
 
-  async function upsertItem(getFirebaseHeaders, email, item) {
+  async function upsertItem(getFirebaseHeaders, email, item, options = {}) {
+    const requireCloud = Boolean(options.requireCloud);
     const current = readCache(email);
     const { doc, item: saved } = upsertLocalItem(current, item);
     writeCache(email, doc);
     const headers = await authHeaders(getFirebaseHeaders, email);
-    if (!headers) return saved;
+    if (!headers) {
+      if (requireCloud) throw syncError("Log in again to save this to your account.");
+      return saved;
+    }
     try {
-      const response = await fetch(`/api/schedule/items/${encodeURIComponent(saved.id)}`, {
+      const response = await fetchWithRetry(`/api/schedule/items/${encodeURIComponent(saved.id)}`, {
         method: "PUT",
         headers,
         body: JSON.stringify(saved),
-      });
-      if (!response.ok) return saved;
+      }, { retries: 3 });
+      if (!response.ok) {
+        if (requireCloud) {
+          throw syncError(
+            isRetryableStatus(response.status)
+              ? "Calendar is waking up. Please try saving again."
+              : "Could not save to your account. Please try again.",
+            response.status,
+          );
+        }
+        return saved;
+      }
       const remote = await response.json();
       if (remote.item) {
         const merged = upsertLocalItem(readCache(email), remote.item);
@@ -282,7 +356,12 @@
         });
         return remote.item;
       }
-    } catch {
+      if (requireCloud) throw syncError("Could not confirm the save on your account.");
+    } catch (error) {
+      if (requireCloud) {
+        if (error?.code === "schedule-sync-failed") throw error;
+        throw syncError("Calendar is waking up. Please try saving again.");
+      }
       /* local cache already updated */
     }
     return saved;
@@ -298,28 +377,47 @@
     return next;
   }
 
-  async function deleteItem(getFirebaseHeaders, email, itemId) {
+  async function deleteItem(getFirebaseHeaders, email, itemId, options = {}) {
+    const requireCloud = Boolean(options.requireCloud);
     const current = readCache(email);
     const next = deleteLocalItem(current, itemId);
     writeCache(email, next);
     const headers = await authHeaders(getFirebaseHeaders, email);
-    if (!headers) return { ok: true, doc: next };
+    if (!headers) {
+      if (requireCloud) throw syncError("Log in again to update your account.");
+      return { ok: true, doc: next, synced: false };
+    }
     try {
-      const response = await fetch(`/api/schedule/items/${encodeURIComponent(itemId)}`, {
+      const response = await fetchWithRetry(`/api/schedule/items/${encodeURIComponent(itemId)}`, {
         method: "DELETE",
         headers,
-      });
-      if (!response.ok) return { ok: true, doc: next };
+      }, { retries: 3 });
+      if (!response.ok) {
+        if (requireCloud) {
+          throw syncError(
+            isRetryableStatus(response.status)
+              ? "Calendar is waking up. Please try again."
+              : "Could not update your account. Please try again.",
+            response.status,
+          );
+        }
+        return { ok: true, doc: next, synced: false };
+      }
       const remote = await response.json();
       writeCache(email, {
         ...next,
         updatedAt: remote.updatedAt || next.updatedAt,
         classrooms: remote.classrooms || next.classrooms,
       });
-    } catch {
+      return { ok: true, doc: readCache(email), synced: true };
+    } catch (error) {
+      if (requireCloud) {
+        if (error?.code === "schedule-sync-failed") throw error;
+        throw syncError("Calendar is waking up. Please try again.");
+      }
       /* local cache already updated */
     }
-    return { ok: true, doc: readCache(email) };
+    return { ok: true, doc: readCache(email), synced: false };
   }
 
   async function assignLessonPlanToWeek(getFirebaseHeaders, email, payload = {}) {
@@ -365,7 +463,9 @@
       item.parent = existing.parent || item.parent;
       item.createdAt = existing.createdAt || item.createdAt;
     }
-    return upsertItem(getFirebaseHeaders, email, item);
+    return upsertItem(getFirebaseHeaders, email, item, {
+      requireCloud: payload.requireCloud !== false,
+    });
   }
 
   async function migrateFromLegacy(getFirebaseHeaders, email, payload = {}) {
@@ -381,11 +481,11 @@
     };
     if (headers) {
       try {
-        const response = await fetch("/api/schedule/migrate", {
+        const response = await fetchWithRetry("/api/schedule/migrate", {
           method: "POST",
           headers,
           body: JSON.stringify(body),
-        });
+        }, { retries: 3 });
         if (response.ok) {
           const remote = await response.json();
           const doc = writeCache(email, {
@@ -394,13 +494,17 @@
             updatedAt: remote.updatedAt,
           });
           global.localStorage?.setItem(migrateFlagKey(email), "1");
+          doc._synced = true;
           return doc;
         }
+        // Do not mark migrated on 503/failed server migrate — retry next load.
       } catch {
-        /* fall through to local migrate */
+        /* fall through to local merge without marking migrated */
       }
     }
-    // Local fallback migration
+    // Local fallback migration: merge into existing cache so day notes are not wiped.
+    // Do NOT set the migrated flag — server migrate should retry when the API is awake.
+    const existing = readCache(email);
     const items = [];
     (body.curriculumAssignments || []).forEach((assignment) => {
       const weekStart = weekStartMonday(assignment.weekStartDate);
@@ -439,12 +543,17 @@
         },
       });
     });
-    const doc = writeCache(email, {
-      classrooms: [{ id: "classroom-main", name: body.classroomLabel || "Main Classroom", organizationId: null, centerId: null }],
+    const fallbackDoc = {
+      classrooms: existing.classrooms?.length
+        ? existing.classrooms
+        : [{ id: "classroom-main", name: body.classroomLabel || "Main Classroom", organizationId: null, centerId: null }],
       items,
       updatedAt: new Date().toISOString(),
-    });
-    global.localStorage?.setItem(migrateFlagKey(email), "1");
+    };
+    const merged = mergeScheduleDocs(existing, fallbackDoc);
+    const doc = writeCache(email, merged);
+    doc._synced = false;
+    doc._syncError = "Calendar is waking up. Showing your saved copy until sync completes.";
     return doc;
   }
 
