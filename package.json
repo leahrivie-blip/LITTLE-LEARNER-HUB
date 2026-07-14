@@ -40,6 +40,7 @@
     "test:lesson-viewer-workspace": "node scripts/test-lesson-viewer-workspace.js",
     "test:lesson-editor-separation": "node scripts/test-lesson-plan-editor-separation.js",
     "test:lesson-viewer-action-bar": "node scripts/test-lesson-viewer-action-bar.js",
+    "test:lesson-editor-save-ux": "node scripts/test-lesson-editor-save-ux.js",
     "test:lesson-use-this-plan": "node scripts/test-lesson-use-this-plan.js",
     "test:lesson-library-phase2": "node scripts/test-lesson-library-phase2.js",
     "test:lesson-library-mobile-qa": "node scripts/test-lesson-library-mobile-qa.js",

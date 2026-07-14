@@ -16538,6 +16538,100 @@ body.curriculum-planner-retired .nav-link[data-view="curriculum-planner"] {
 
 
 /* ── Lesson Plan Editor (Create vs Edit separation) ── */
+
+.lesson-editor-form-wrap[hidden] {
+  display: none !important;
+}
+
+.lesson-editor-success {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  margin: 0 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, #f7fbf8 0%, #fff 100%);
+}
+
+.lesson-editor-success h3 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.lesson-editor-success-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lesson-editor-success-actions .primary-button,
+.lesson-editor-success-actions .ghost-button {
+  min-height: 44px;
+  flex: 1 1 calc(50% - 4px);
+}
+
+.lesson-editor-leave-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.lesson-editor-leave-dialog[hidden] {
+  display: none !important;
+}
+
+.lesson-editor-leave-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(40, 52, 71, 0.45);
+}
+
+.lesson-editor-leave-panel {
+  position: relative;
+  z-index: 1;
+  width: min(420px, 100%);
+  display: grid;
+  gap: 10px;
+  padding: 18px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(40, 52, 71, 0.18);
+}
+
+.lesson-editor-leave-panel h3 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.lesson-editor-leave-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lesson-editor-leave-actions .primary-button,
+.lesson-editor-leave-actions .ghost-button,
+.lesson-editor-leave-actions .link-button {
+  min-height: 44px;
+  flex: 1 1 calc(33% - 6px);
+}
+
+@media (max-width: 900px) {
+  .lesson-editor-success-actions .primary-button,
+  .lesson-editor-success-actions .ghost-button,
+  .lesson-editor-leave-actions .primary-button,
+  .lesson-editor-leave-actions .ghost-button,
+  .lesson-editor-leave-actions .link-button {
+    flex: 1 1 100%;
+  }
+}
+
+
 body.lesson-editor-view .topbar .search-wrap,
 body.lesson-editor-view .topbar .account-actions {
   display: none;

@@ -1,11 +1,11 @@
-const CACHE_NAME = "llh-shell-v20-lesson-action-bar";
+const CACHE_NAME = "llh-shell-v21-lesson-save-ux";
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/styles.css?v=20260714-lesson-action-bar",
+  "/styles.css?v=20260714-lesson-save-ux",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/scripts/llh-schedule.js?v=20260714-calendar-day-notes",
-  "/app.js?v=20260714-lesson-action-bar",
+  "/app.js?v=20260714-lesson-save-ux",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
