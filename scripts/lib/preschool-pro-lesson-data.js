@@ -1123,7 +1123,7 @@ module.exports = { LESSON_PLANS: [
           "description": "Encourage imagination and teamwork.",
           "materials": "Astronaut helmets\nControl panels\nSpace props",
           "setup": "Create a space station.",
-          "teacherRole": "Support communication and storytelling.\n\n\nNext",
+          "teacherRole": "Support communication and storytelling.",
           "directions": [
             "Work together to complete a space mission.",
             "Explore imaginary planets."
@@ -1136,9 +1136,232 @@ module.exports = { LESSON_PLANS: [
           ]
         }
       ],
-      "wednesday": [],
-      "thursday": [],
-      "friday": []
+      "wednesday": [
+        {
+          "name": "Constellation Flashlight Hunt",
+          "category": "Open-Ended Exploration",
+          "objective": "Explore light, shadows, and patterns.",
+          "description": "Explore light, shadows, and patterns.",
+          "materials": "Flashlights\nGlow stars\nDark paper",
+          "setup": "Dim a corner and place glow stars on paper or walls.",
+          "teacherRole": "Prompt observations and new vocabulary.",
+          "directions": [
+            "Shine flashlights to find star patterns.",
+            "Trace or recreate simple constellations.",
+            "Compare bright and dim light."
+          ],
+          "goals": [
+            "Explore light, shadows, and patterns."
+          ],
+          "observations": [
+            "Observe participation and engagement."
+          ]
+        },
+        {
+          "name": "Planet Size Comparison",
+          "category": "Open-Ended Exploration",
+          "objective": "Build early measurement and comparison skills.",
+          "description": "Build early measurement and comparison skills.",
+          "materials": "Circles of different sizes\nPlanet labels\nYarn",
+          "setup": "Prepare size-sorted planet circles.",
+          "teacherRole": "Introduce comparison words.",
+          "directions": [
+            "Order planets from smallest to largest.",
+            "Measure diameters with yarn.",
+            "Talk about which is biggest and smallest."
+          ],
+          "goals": [
+            "Build early measurement and comparison skills."
+          ],
+          "observations": [
+            "Observe participation and engagement."
+          ]
+        },
+        {
+          "name": "Alien Puppet Craft",
+          "category": "Fine Motor",
+          "objective": "Strengthen cutting, gluing, and creativity.",
+          "description": "Strengthen cutting, gluing, and creativity.",
+          "materials": "Paper bags\nMarkers\nGlue\nScrap paper",
+          "setup": "Prepare puppet craft stations.",
+          "teacherRole": "Encourage unique designs and storytelling.",
+          "directions": [
+            "Decorate paper bag aliens.",
+            "Add eyes, arms, and details.",
+            "Introduce puppets to friends."
+          ],
+          "goals": [
+            "Strengthen cutting, gluing, and creativity."
+          ],
+          "observations": [
+            "Observe participation and engagement."
+          ]
+        },
+        {
+          "name": "Zoom to the Moon Dance",
+          "category": "Music & Movement",
+          "objective": "Practice listening and coordinated movement.",
+          "description": "Practice listening and coordinated movement.",
+          "materials": "Music player",
+          "setup": "Clear a movement space.",
+          "teacherRole": "Lead freeze cues and space movements.",
+          "directions": [
+            "Dance like rockets and astronauts.",
+            "Freeze when the music stops.",
+            "Count down and blast off together."
+          ],
+          "goals": [
+            "Practice listening and coordinated movement."
+          ],
+          "observations": [
+            "Observe participation and engagement."
+          ]
+        }
+      ],
+      "thursday": [
+        {
+          "name": "Meteor Sorting Station",
+          "category": "Open-Ended Exploration",
+          "objective": "Develop classification and counting skills.",
+          "description": "Develop classification and counting skills.",
+          "materials": "Rocks\nButtons\nSorting trays",
+          "setup": "Provide trays and mixed “meteor” materials.",
+          "teacherRole": "Support math talk and sorting rules.",
+          "directions": [
+            "Sort meteors by size, color, or texture.",
+            "Count each group.",
+            "Compare which group has more."
+          ],
+          "goals": [
+            "Develop classification and counting skills."
+          ],
+          "observations": [
+            "Observe participation and engagement."
+          ]
+        },
+        {
+          "name": "Build a Space Station",
+          "category": "Open-Ended Exploration",
+          "objective": "Encourage engineering, teamwork, and creativity.",
+          "description": "Encourage engineering, teamwork, and creativity.",
+          "materials": "Blocks\nCardboard tubes\nFoil\nTape",
+          "setup": "Set out building materials on a large table.",
+          "teacherRole": "Ask design questions and celebrate collaboration.",
+          "directions": [
+            "Plan a space station together.",
+            "Build rooms, rockets, and control panels.",
+            "Test and improve the design."
+          ],
+          "goals": [
+            "Encourage engineering, teamwork, and creativity."
+          ],
+          "observations": [
+            "Observe participation and engagement."
+          ]
+        },
+        {
+          "name": "Galaxy Dough Creations",
+          "category": "Fine Motor",
+          "objective": "Strengthen hand muscles and imaginative play.",
+          "description": "Strengthen hand muscles and imaginative play.",
+          "materials": "Play dough\nGlitter (optional)\nToy astronauts",
+          "setup": "Provide dough and space props at each seat.",
+          "teacherRole": "Model rolling, pinching, and storytelling.",
+          "directions": [
+            "Roll planets and stars from dough.",
+            "Create moon craters and rocket paths.",
+            "Act out a short space story."
+          ],
+          "goals": [
+            "Strengthen hand muscles and imaginative play."
+          ],
+          "observations": [
+            "Observe participation and engagement."
+          ]
+        },
+        {
+          "name": "Mission Control Dramatic Play",
+          "category": "Dramatic Play",
+          "objective": "Build language, roles, and cooperation.",
+          "description": "Build language, roles, and cooperation.",
+          "materials": "Clipboards\nHeadsets\nControl panel props",
+          "setup": "Create a mission control center.",
+          "teacherRole": "Support turn-taking and role language.",
+          "directions": [
+            "Assign roles such as captain and engineer.",
+            "Give and follow mission instructions.",
+            "Celebrate a successful launch."
+          ],
+          "goals": [
+            "Build language, roles, and cooperation."
+          ],
+          "observations": [
+            "Observe participation and engagement."
+          ]
+        }
+      ],
+      "friday": [
+        {
+          "name": "Space Museum Showcase",
+          "category": "Dramatic Play",
+          "objective": "Build confidence and communication skills.",
+          "description": "Build confidence and communication skills.",
+          "materials": "Week's projects\nPlanet pictures",
+          "setup": "Display creations around the room.",
+          "teacherRole": "Encourage speaking and listening.",
+          "directions": [
+            "Arrange space projects for visitors.",
+            "Give short museum tours.",
+            "Share a favorite discovery from the week."
+          ],
+          "goals": [
+            "Build confidence and communication skills."
+          ],
+          "observations": [
+            "Observe participation and engagement."
+          ]
+        },
+        {
+          "name": "Solar System Sensory Review",
+          "category": "Sensory Play",
+          "objective": "Review space concepts through hands-on play.",
+          "description": "Review space concepts through hands-on play.",
+          "materials": "Sensory bin fillers\nGlow stars\nToy astronauts",
+          "setup": "Refresh the space sensory bin.",
+          "teacherRole": "Prompt vocabulary and reflection.",
+          "directions": [
+            "Explore the bin and find familiar objects.",
+            "Name planets, stars, and astronauts.",
+            "Talk about favorite activities from the week."
+          ],
+          "goals": [
+            "Review space concepts through hands-on play."
+          ],
+          "observations": [
+            "Observe participation and engagement."
+          ]
+        },
+        {
+          "name": "Rocket Countdown Parade",
+          "category": "Music & Movement",
+          "objective": "Celebrate learning through movement and counting.",
+          "description": "Celebrate learning through movement and counting.",
+          "materials": "Music player\nPaper rockets",
+          "setup": "Clear a parade path.",
+          "teacherRole": "Lead countdown and celebrate participation.",
+          "directions": [
+            "Count down from 10 together.",
+            "March or dance with paper rockets.",
+            "Share one favorite space memory."
+          ],
+          "goals": [
+            "Celebrate learning through movement and counting."
+          ],
+          "observations": [
+            "Observe participation and engagement."
+          ]
+        }
+      ]
     }
   },
   {

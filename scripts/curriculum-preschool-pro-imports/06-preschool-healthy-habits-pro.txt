@@ -524,8 +524,6 @@ Open movement area.
 TEACHER_ROLE:
 Encourage joyful movement.
 
-
-Next
 DIRECTIONS:
 1. Dance and move with friends.
 2. Practice favorite exercises.

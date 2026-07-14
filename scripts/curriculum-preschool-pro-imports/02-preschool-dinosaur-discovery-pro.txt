@@ -550,8 +550,6 @@ Clear movement space.
 TEACHER_ROLE:
 Celebrate participation and learning.
 
-
-Next
 DIRECTIONS:
 1. Dance and stomp like favorite dinosaurs.
 2. Share favorite parts of the week.
