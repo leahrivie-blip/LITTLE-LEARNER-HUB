@@ -336,23 +336,85 @@ function renderCurriculumActivityHtml(activity = {}, options = {}) {
   `;
 }
 
-function lockedCurriculumLessonPreviewHtml(resource = {}) {
+function lockedCurriculumLessonPreviewHtml(resource = {}, options = {}) {
   const plan = normalizePlanForRender(resource._curriculumLessonPlan || {});
   const overview = String(plan.weeklyOverview || resource.description || "").trim();
   const words = overview.split(/\s+/).filter(Boolean);
-  const excerpt = words.slice(0, 40).join(" ");
+  const excerpt = words.slice(0, 80).join(" ");
   const domains = asStringArray(plan.learningDomains)
-    .slice(0, 3)
+    .slice(0, 6)
     .map((domain) => `<span class="tag">${escapeHtml(domain)}</span>`)
     .join("");
+  const objectives = String(plan.objectives || "").trim();
+  const materials = String(plan.weeklyMaterials || "").trim();
+  const vocabulary = String(plan.vocabularyWords || "").trim();
+  const books = Array.isArray(plan.books) ? plan.books.filter((book) => String(book?.title || "").trim()) : [];
+  const songs = Array.isArray(plan.songs) ? plan.songs.filter((song) => String(song?.title || "").trim()) : [];
+
+  const previewDays = plan.dailyActivityPreview && typeof plan.dailyActivityPreview === "object"
+    ? plan.dailyActivityPreview
+    : null;
+  const linkedActivities = Array.isArray(options.activities) ? options.activities : [];
+  const activitiesByDay = {};
+  if (previewDays) {
+    CURRICULUM_WEEKDAYS.forEach((day) => {
+      const items = Array.isArray(previewDays[day]) ? previewDays[day] : [];
+      activitiesByDay[day] = items
+        .map((item) => String(item?.title || item || "").trim())
+        .filter(Boolean);
+    });
+  } else {
+    linkedActivities.forEach((activity) => {
+      const day = String(activity?.dayOfWeek || "").trim().toLowerCase();
+      const title = String(activity?.title || "").trim();
+      if (!day || !title || !CURRICULUM_WEEKDAYS.includes(day)) return;
+      if (!activitiesByDay[day]) activitiesByDay[day] = [];
+      if (!activitiesByDay[day].includes(title)) activitiesByDay[day].push(title);
+    });
+  }
+  const activityCount = Number(plan.activityCount)
+    || Object.values(activitiesByDay).reduce((sum, list) => sum + list.length, 0)
+    || linkedActivities.length;
+
+  const daySections = CURRICULUM_WEEKDAYS
+    .map((day) => {
+      const titles = activitiesByDay[day] || [];
+      if (!titles.length) return "";
+      return `
+        <div class="fp-locked-day">
+          <strong>${escapeHtml(DAY_LABELS[day] || day)}</strong>
+          <ul class="fp-locked-activity-list">
+            ${titles.map((title) => `<li><span class="fp-lock-icon" aria-hidden="true">🔒</span><span>${escapeHtml(title)}</span></li>`).join("")}
+          </ul>
+        </div>
+      `;
+    })
+    .filter(Boolean)
+    .join("");
+
+  const listHtml = (items) => items.length
+    ? `<ul class="fp-preview-list">${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+    : "";
+
   return {
     title: resource.title || plan.title || "Lesson Plan",
     html: `
       <div class="fp-field"><label>Age Group</label><div class="fp-field-value">${escapeHtml(plan.age || resource.age || "Preschool")}</div></div>
       <div class="fp-field"><label>Theme</label><div class="fp-field-value">${escapeHtml(plan.theme || resource.theme || "—")}</div></div>
       ${domains ? `<div class="fp-field"><label>Learning Domains</label><div class="fp-field-value tag-row">${domains}</div></div>` : ""}
-      ${excerpt ? `<div class="fp-field"><label>Weekly Overview Preview</label><div class="fp-field-value">${escapeHtml(excerpt)}${words.length > 40 ? "…" : ""}</div></div>` : ""}
-      <p class="muted-copy">Full daily plans, activities, books, songs, teacher language, and printable content unlock with Pro.</p>
+      ${excerpt ? `<div class="fp-field"><label>Weekly Overview</label><div class="fp-field-value">${escapeHtml(excerpt)}${words.length > 80 ? "…" : ""}</div></div>` : ""}
+      ${objectives ? `<div class="fp-field"><label>Weekly Objectives</label><div class="fp-field-value">${escapeHtml(objectives)}</div></div>` : ""}
+      ${materials ? `<div class="fp-field"><label>Materials List</label><div class="fp-field-value">${escapeHtml(materials)}</div></div>` : ""}
+      ${vocabulary ? `<div class="fp-field"><label>Vocabulary</label><div class="fp-field-value">${escapeHtml(vocabulary)}</div></div>` : ""}
+      ${books.length ? `<div class="fp-field"><label>Books</label><div class="fp-field-value">${listHtml(books.map((book) => book.author ? `${book.title} — ${book.author}` : book.title))}</div></div>` : ""}
+      ${songs.length ? `<div class="fp-field"><label>Songs</label><div class="fp-field-value">${listHtml(songs.map((song) => song.title || song))}</div></div>` : ""}
+      <div class="fp-field">
+        <label>Daily Activities${activityCount ? ` (${activityCount})` : ""}</label>
+        <div class="fp-field-value">
+          ${daySections || `<p class="muted-copy">Activity names unlock in this preview once the lesson is published with daily plans.</p>`}
+          <p class="muted-copy fp-locked-note">🔒 Full directions, teacher language, learning goals, downloads, and calendar exports unlock with Pro.</p>
+        </div>
+      </div>
     `,
   };
 }

@@ -11670,6 +11670,47 @@ body.lessons-view .mobile-brand {
 
 #featurePreviewBody {
   margin-top: 18px;
+  max-height: min(70vh, 640px);
+  overflow: auto;
+}
+
+.fp-locked-day {
+  margin: 0 0 10px;
+}
+
+.fp-locked-day strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.fp-locked-activity-list,
+.fp-preview-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.fp-locked-activity-list li,
+.fp-preview-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line, #dfe7f0);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  line-height: 1.35;
+}
+
+.fp-lock-icon {
+  flex: 0 0 auto;
+  line-height: 1.35;
+}
+
+.fp-locked-note {
+  margin-top: 10px;
 }
 
 .fp-screen {
