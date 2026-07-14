@@ -3311,6 +3311,9 @@ let adminAnalyticsCache = null;
 let adminAnalyticsLoading = false;
 let adminAnalyticsLastError = "";
 let adminAnalyticsLoadPromise = null;
+let adminAnalyticsAbortController = null;
+const ADMIN_ANALYTICS_TIMEOUT_MS = 25000;
+const LOCAL_ADMIN_TOKENS = new Set(["local-preview-admin", "local-owner-account"]);
 let adminLessonEditorId = "";
 let adminCurriculumLessonEditorId = "";
 let adminCurriculumResourceEditorId = "";
@@ -7985,11 +7988,19 @@ function updateAuthButtons() {
   const signIn = document.querySelector("#signinButton");
   const signUp = document.querySelector("#signupButton");
   if (!signIn || !signUp) return;
-  if (currentUser) {
+  if (currentUser || isAdminUnlocked()) {
     signIn.textContent = "Account";
     signIn.dataset.view = "settings";
-    signUp.textContent = isProUser() ? `${billingPlanLabel()} Active` : "Upgrade";
-    signUp.dataset.view = isProUser() ? "billing" : "plans";
+    if (isAdminPreviewSimulating()) {
+      signUp.textContent = `${previewAwarePlanLabel()} Preview`;
+      signUp.dataset.view = isProUser() ? "billing" : "plans";
+    } else if (currentUser) {
+      signUp.textContent = isProUser() ? `${billingPlanLabel()} Active` : "Upgrade";
+      signUp.dataset.view = isProUser() ? "billing" : "plans";
+    } else {
+      signUp.textContent = "Sign Up";
+      delete signUp.dataset.view;
+    }
   } else {
     signIn.textContent = "Log in";
     delete signIn.dataset.view;
@@ -7999,6 +8010,7 @@ function updateAuthButtons() {
   updateAdminNavVisibility();
   syncPlatformNavVisibility();
   updateBodyAuthClass();
+  refreshAdminPreviewBadge();
 }
 
 /** Map SPA views to platform capabilities for role/account-type guards. */
@@ -8343,7 +8355,9 @@ function updateAdminNavVisibility() {
 }
 
 function canSeeAdminNav() {
-  return isAdminUnlocked();
+  // While simulating Free/Pro/Founding, hide Admin nav so the sidebar matches that account.
+  // The floating preview badge still provides Return to Admin.
+  return isAdminUnlocked() && !isAdminPreviewSimulating();
 }
 
 function setView(view, options = {}) {
@@ -27817,6 +27831,134 @@ function effectiveAccessPlan() {
   return "Free";
 }
 
+/** Plan label shown in UI while Admin preview is active. */
+function previewAwarePlanLabel() {
+  const preview = adminPreviewMode();
+  if (preview === "Free") return "Free";
+  if (preview === "Pro") return "Pro";
+  if (preview === "Founding") return "Founding Member";
+  if (preview === "Admin") return "Admin";
+  return billingPlanLabel();
+}
+
+function previewAwarePriceLabel() {
+  const preview = adminPreviewMode();
+  if (preview === "Free") return "$0/month";
+  if (preview === "Pro") return "$19.99/month";
+  if (preview === "Founding") return "$9.99/month";
+  if (preview === "Admin") return "Full access";
+  return billingPriceLabel();
+}
+
+function isAdminPreviewSimulating() {
+  const preview = adminPreviewMode();
+  return Boolean(preview && preview !== "Admin");
+}
+
+function setAdminPreviewMode(mode) {
+  if (!isAdminUnlocked()) return false;
+  const next = ["Admin", "Free", "Pro", "Founding"].includes(mode) ? mode : "Admin";
+  localStorage.setItem("llhAdminPreviewMode", next);
+  applyAdminPreviewToPlatform();
+  return true;
+}
+
+function applyAdminPreviewToPlatform() {
+  updateAuthButtons();
+  updatePlanLabel();
+  syncPlatformNavVisibility();
+  updateAdminNavVisibility();
+  refreshAdminPreviewBadge();
+  document.body.classList.toggle("admin-preview-simulating", isAdminPreviewSimulating());
+  document.body.dataset.adminPreview = adminPreviewMode() || "";
+
+  // Close open viewers so lock/unlock chrome rebuilds for the simulated plan.
+  if (typeof dismissResourceViewerForNavigation === "function") {
+    dismissResourceViewerForNavigation();
+  }
+
+  const activeView = document.querySelector(".active-view")?.id.replace("view-", "") || "";
+  if (activeView === "home") {
+    renderHome();
+  } else if (activeView === "admin") {
+    renderAdminDashboard();
+  } else if (activeView === "generators") {
+    const tool = document.querySelector("#generatorWorkspace")?.dataset.activeTool || "lesson";
+    renderGeneratorWorkspace(tool);
+  } else if (activeView === "ai") {
+    renderAiPage();
+  } else if (activeView === "children" || childToolTabFromView(activeView)) {
+    renderChildManagement();
+  } else if (activeView === "calendar") {
+    renderMainCalendar();
+  } else if (activeView === "planner") {
+    renderWeeklyPlanner();
+  } else if (activeView === "account") {
+    renderAccountPage();
+  } else if (activeView === "favorites") {
+    renderFavoritesPage();
+  } else if (activeView === "billing" || activeView === "subscription" || activeView === "membership") {
+    renderBillingPage();
+  } else if (activeView === "plans") {
+    renderPricingPage();
+  } else if (activeView === "settings") {
+    renderSettingsHubPage();
+  } else if (activeView === "staff") {
+    renderStaffManagementPage();
+  } else if (activeView === "classrooms") {
+    renderClassroomsPage();
+  } else if (activeView === "families") {
+    renderFamiliesPage();
+  } else if (activeView === "enrollment") {
+    renderEnrollmentPage();
+  } else if (activeView === "support-center") {
+    renderSupportCenterPage();
+  } else if (activeView === "resources") {
+    renderResourcesHubPage();
+  } else if (activeView === "reports") {
+    renderReportsPage();
+  } else if (activeView === "tools") {
+    renderFutureTools();
+  } else if (viewMap[activeView]) {
+    renderCategoryPage(activeView);
+  }
+
+  showActionFeedback(`Preview mode: ${previewAwarePlanLabel()}`);
+  document.dispatchEvent(new CustomEvent("llh:admin-preview-changed", {
+    detail: { mode: adminPreviewMode(), plan: effectiveAccessPlan() },
+  }));
+}
+
+function refreshAdminPreviewBadge() {
+  let badge = document.querySelector("[data-admin-preview-badge]");
+  if (!isAdminUnlocked()) {
+    badge?.remove();
+    document.body.classList.remove("admin-preview-simulating");
+    delete document.body.dataset.adminPreview;
+    return;
+  }
+  const mode = adminPreviewMode() || "Admin";
+  if (!badge) {
+    document.body.insertAdjacentHTML("beforeend", `
+      <div class="admin-preview-badge" data-admin-preview-badge role="status" aria-live="polite">
+        <span data-admin-preview-badge-label></span>
+        <button type="button" class="ghost-button" data-admin-preview="Admin" data-admin-return-admin>Return to Admin</button>
+      </div>
+    `);
+    badge = document.querySelector("[data-admin-preview-badge]");
+  }
+  const label = badge.querySelector("[data-admin-preview-badge-label]");
+  const returnBtn = badge.querySelector("[data-admin-return-admin]");
+  if (label) {
+    label.textContent = mode === "Admin"
+      ? "Admin mode"
+      : `Previewing as ${mode}`;
+  }
+  if (returnBtn) returnBtn.hidden = mode === "Admin";
+  badge.classList.toggle("is-simulating", mode !== "Admin");
+  badge.hidden = false;
+}
+
 function adminSession() {
   return readSavedJson("llhAdminSession", null);
 }
@@ -27835,7 +27977,11 @@ function setAdminSession(sessionDetail) {
   };
   localStorage.setItem("llhAdminSession", JSON.stringify(session));
   localStorage.setItem("llhAdminUnlocked", "true");
+  if (!localStorage.getItem("llhAdminPreviewMode")) {
+    localStorage.setItem("llhAdminPreviewMode", "Admin");
+  }
   updateAdminNavVisibility();
+  refreshAdminPreviewBadge();
   return session;
 }
 
@@ -27844,6 +27990,9 @@ function clearAdminSession() {
   localStorage.removeItem("llhAdminUnlocked");
   localStorage.removeItem("llhAdminPreviewMode");
   updateAdminNavVisibility();
+  refreshAdminPreviewBadge();
+  document.body.classList.remove("admin-preview-simulating");
+  delete document.body.dataset.adminPreview;
 }
 
 function canUseSignedInOwnerAdmin() {
@@ -27934,6 +28083,7 @@ function renderAdminOwnerOverview() {
       : (adminAnalyticsLastError
         ? `Server analytics failed to load: ${adminAnalyticsLastError}`
         : "Server analytics not loaded yet. Unlock Admin on production or click Refresh Data."));
+  const previewMode = adminPreviewMode() || "Admin";
   target.innerHTML = `
     <div class="admin-owner-header">
       <div>
@@ -27942,21 +28092,46 @@ function renderAdminOwnerOverview() {
         <p>Signed in as ${escapeHtml(adminSession()?.email || adminOwnerAccount.email)}. ${escapeHtml(loadingNote)}</p>
       </div>
       <div class="account-actions-row">
-        <button class="ghost-button" type="button" id="adminRefreshAnalyticsButton">${adminAnalyticsLoading ? "Refreshing…" : "Refresh Data"}</button>
+        <button class="ghost-button" type="button" id="adminRefreshAnalyticsButton" ${adminAnalyticsLoading ? "disabled" : ""}>${adminAnalyticsLoading ? "Refreshing…" : "Refresh Data"}</button>
         <button class="ghost-button" type="button" id="adminLockButton">Lock Admin</button>
       </div>
     </div>
+    ${adminAnalyticsLoading && !adminAnalyticsCache ? `
+      <div class="admin-analytics-state is-loading" role="status" data-admin-analytics-state="loading">
+        <p><strong>Loading live production data…</strong></p>
+        <p class="muted-copy">This usually finishes in a few seconds. If it stalls, use Retry.</p>
+      </div>
+    ` : ""}
+    ${!adminAnalyticsLoading && adminAnalyticsLastError ? `
+      <div class="admin-analytics-state is-error" role="alert" data-admin-analytics-state="error">
+        <p><strong>Could not load live analytics.</strong></p>
+        <p class="muted-copy">${escapeHtml(adminAnalyticsLastError)}</p>
+        <button type="button" class="primary-button" data-refresh-analytics>Retry</button>
+      </div>
+    ` : ""}
+    ${adminAnalyticsCache && !adminAnalyticsLoading ? `
+      <div class="admin-analytics-state is-success" role="status" data-admin-analytics-state="success">
+        <p><strong>Live production data loaded.</strong></p>
+      </div>
+    ` : ""}
     <div class="admin-preview-panel">
       <div>
         <p class="eyebrow">Preview Mode</p>
-        <strong>Currently viewing as ${escapeHtml(adminPreviewMode())}</strong>
-        <span>Use this to test Free, Pro, and Founding access while keeping Admin controls available.</span>
+        <strong>Currently viewing as ${escapeHtml(previewMode)}</strong>
+        <span>Switch modes to simulate Free, Pro, Founding, or full Admin. The whole app — sidebar, locks, upgrade prompts, and permissions — updates instantly.</span>
       </div>
-      <div class="account-actions-row">
+      <div class="account-actions-row admin-preview-mode-row" role="group" aria-label="Account preview mode">
         ${["Admin", "Free", "Pro", "Founding"].map((mode) => `
-          <button class="${adminPreviewMode() === mode ? "primary-button" : "ghost-button"}" data-admin-preview="${mode}" type="button">${mode}</button>
+          <button class="${previewMode === mode ? "primary-button" : "ghost-button"}" data-admin-preview="${mode}" type="button" aria-pressed="${previewMode === mode ? "true" : "false"}">${mode}</button>
         `).join("")}
+        ${previewMode !== "Admin" ? `<button type="button" class="ghost-button" data-admin-preview="Admin" data-admin-return-admin>Return to Admin</button>` : ""}
       </div>
+      <p class="admin-preview-active-chip" data-admin-preview-active-chip>
+        Active preview: <strong>${escapeHtml(previewMode)}</strong>
+        · effective plan <strong>${escapeHtml(effectiveAccessPlan())}</strong>
+        · Pro access <strong>${isProUser() ? "yes" : "no"}</strong>
+        · Admin powers <strong>${hasAdminFullAccess() ? "yes" : "no"}</strong>
+      </p>
     </div>
     ${renderAccessDebugPanel()}
     <div class="section-heading"><div><p class="eyebrow">Users</p><h3>Account inventory</h3></div></div>
@@ -28027,12 +28202,6 @@ function renderAdminOwnerOverview() {
     </div>
     ${renderContentHealthDashboard()}
   `;
-  target.querySelector("#adminRefreshAnalyticsButton")?.addEventListener("click", async () => {
-    adminAnalyticsCache = null;
-    await loadAdminAnalyticsFromBackend({ force: true });
-    renderAdminFeedbackCenter();
-    renderAdminUsersDashboard();
-  });
 }
 
 function renderContentHealthDashboard() {
@@ -28383,14 +28552,39 @@ function localAnalyticsSummary() {
 
 async function loadAdminAnalyticsFromBackend(options = {}) {
   const token = adminSession()?.token;
-  if (!analyticsConfig.adminEndpoint || !canUseLaunchBackend() || !token) return null;
-  if (adminAnalyticsLoadPromise) {
-    if (!options.force) return adminAnalyticsLoadPromise;
-    try {
-      await adminAnalyticsLoadPromise;
-    } catch {
-      /* continue into a forced refresh */
+  if (!analyticsConfig.adminEndpoint || !canUseLaunchBackend() || !token) {
+    adminAnalyticsLoading = false;
+    if (!token) {
+      adminAnalyticsLastError = "Admin session token missing. Unlock Admin again.";
+    } else if (!canUseLaunchBackend()) {
+      adminAnalyticsLastError = "Live analytics require the production backend.";
     }
+    if (options.renderLoading !== false) {
+      renderAdminOwnerOverview();
+      renderAdminAnalytics();
+    }
+    return null;
+  }
+
+  if (LOCAL_ADMIN_TOKENS.has(String(token))) {
+    adminAnalyticsLoading = false;
+    adminAnalyticsLastError = "Local preview tokens cannot load live production analytics. Use the production Admin unlock.";
+    if (options.renderLoading !== false) {
+      renderAdminOwnerOverview();
+      renderAdminAnalytics();
+    }
+    return null;
+  }
+
+  if (adminAnalyticsLoadPromise && !options.force) {
+    return adminAnalyticsLoadPromise;
+  }
+
+  // Force refresh: abort any hung in-flight request instead of waiting forever.
+  if (options.force && adminAnalyticsAbortController) {
+    try { adminAnalyticsAbortController.abort(); } catch { /* ignore */ }
+    adminAnalyticsAbortController = null;
+    adminAnalyticsLoadPromise = null;
   }
 
   adminAnalyticsLoading = true;
@@ -28400,9 +28594,18 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
     renderAdminAnalytics();
   }
 
+  const controller = new AbortController();
+  adminAnalyticsAbortController = controller;
+  const timeoutId = setTimeout(() => {
+    try { controller.abort(); } catch { /* ignore */ }
+  }, ADMIN_ANALYTICS_TIMEOUT_MS);
+
   adminAnalyticsLoadPromise = (async () => {
     try {
-      const response = await fetch(`${analyticsConfig.adminEndpoint}?adminToken=${encodeURIComponent(token)}&t=${Date.now()}`, { cache: "no-store" });
+      const response = await fetch(
+        `${analyticsConfig.adminEndpoint}?adminToken=${encodeURIComponent(token)}&t=${Date.now()}`,
+        { cache: "no-store", signal: controller.signal },
+      );
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data?.error || "Could not load admin analytics.");
       adminAnalyticsCache = data.analytics || data;
@@ -28413,12 +28616,19 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
       renderAdminFeedbackCenter();
       return adminAnalyticsCache;
     } catch (error) {
-      adminAnalyticsLastError = error?.message || "Could not load admin analytics.";
+      const aborted = error?.name === "AbortError";
+      adminAnalyticsLastError = aborted
+        ? `Analytics timed out after ${Math.round(ADMIN_ANALYTICS_TIMEOUT_MS / 1000)}s. Tap Retry.`
+        : (error?.message || "Could not load admin analytics.");
       console.warn("Admin analytics backend load failed", error);
       renderAdminOwnerOverview();
       renderAdminAnalytics();
       return null;
     } finally {
+      clearTimeout(timeoutId);
+      if (adminAnalyticsAbortController === controller) {
+        adminAnalyticsAbortController = null;
+      }
       adminAnalyticsLoading = false;
       adminAnalyticsLoadPromise = null;
     }
@@ -28477,10 +28687,15 @@ function renderAdminAnalytics() {
   const counts = summary.counts || {};
   target.innerHTML = `
     <div class="admin-analytics-status">
-      <span>${escapeHtml(summary.mode || "Analytics")}${!isLive && adminAnalyticsLoading ? " — loading backend data…" : ""}</span>
+      <span>${escapeHtml(summary.mode || "Analytics")}${!isLive && adminAnalyticsLoading ? " — loading backend data…" : ""}${!isLive && adminAnalyticsLastError ? " — load failed" : ""}</span>
       <small>Historical events are retained. Existing visits from before this update cannot be backfilled.</small>
-      <button class="ghost-button" type="button" data-refresh-analytics>Refresh Analytics</button>
+      <button class="ghost-button" type="button" data-refresh-analytics>${adminAnalyticsLoading ? "Refreshing…" : (adminAnalyticsLastError ? "Retry" : "Refresh Analytics")}</button>
     </div>
+    ${!isLive && adminAnalyticsLastError ? `
+      <div class="admin-analytics-state is-error" role="alert">
+        <p><strong>Analytics did not load.</strong> ${escapeHtml(adminAnalyticsLastError)}</p>
+      </div>
+    ` : ""}
     <div class="analytics-summary-grid">
       ${adminMetric("total visitors", totals.visitors || 0)}
       ${adminMetric("unique visitors", totals.uniqueVisitors || 0)}
@@ -36275,7 +36490,7 @@ function resourceViewForCategory(category) {
 }
 
 function updatePlanLabel() {
-  if (!currentUser) {
+  if (!currentUser && !isAdminUnlocked()) {
     // Logged-out: sidebar is hidden by CSS, but keep the DOM neutral just in case.
     currentPlanLabel.textContent = "";
     const summary = document.querySelector("#planAccessSummary");
@@ -36283,12 +36498,20 @@ function updatePlanLabel() {
     updateSidebarDashboard();
     return;
   }
-  currentPlanLabel.textContent = billingPlanLabel();
+  const planLabel = isAdminUnlocked() ? previewAwarePlanLabel() : billingPlanLabel();
+  const priceLabel = isAdminUnlocked() ? previewAwarePriceLabel() : billingPriceLabel();
+  currentPlanLabel.textContent = isAdminPreviewSimulating()
+    ? `${planLabel} (preview)`
+    : planLabel;
   const summary = document.querySelector("#planAccessSummary");
   if (summary) {
-    summary.textContent = isProUser()
-      ? `${billingPlanLabel()} active: ${billingPriceLabel()} with full library access and ${aiUsageRemaining()} document creations left this month.`
-      : freePlanAccessSummaryText().replace("and 10 document creations.", `and ${aiUsageRemaining()} document creations left this month.`);
+    if (isAdminPreviewSimulating()) {
+      summary.textContent = `Admin preview: viewing the platform as ${planLabel} (${priceLabel}). Permissions, locks, and upgrade prompts match that account.`;
+    } else {
+      summary.textContent = isProUser()
+        ? `${billingPlanLabel()} active: ${billingPriceLabel()} with full library access and ${aiUsageRemaining()} document creations left this month.`
+        : freePlanAccessSummaryText().replace("and 10 document creations.", `and ${aiUsageRemaining()} document creations left this month.`);
+    }
   }
   updateSidebarDashboard();
 }
@@ -36814,14 +37037,7 @@ document.addEventListener("click", async (event) => {
   if (adminPreviewButton) {
     event.preventDefault();
     if (!isAdminUnlocked()) return;
-    localStorage.setItem("llhAdminPreviewMode", adminPreviewButton.dataset.adminPreview);
-    updateAuthButtons();
-    updatePlanLabel();
-    renderAdminDashboard();
-    const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
-    if (viewMap[activeView]) renderCategoryPage(activeView);
-    if (activeView === "ai") renderAiPage();
-    if (activeView === "children") renderChildManagement();
+    setAdminPreviewMode(adminPreviewButton.dataset.adminPreview || "Admin");
     return;
   }
 
@@ -39936,9 +40152,15 @@ document.addEventListener("click", async (event) => {
   const refreshAnalyticsButton = event.target.closest("#refreshAnalyticsButton, [data-refresh-analytics], #adminRefreshAnalyticsButton");
   if (refreshAnalyticsButton) {
     event.preventDefault();
+    if (adminAnalyticsLoading && !refreshAnalyticsButton.hasAttribute("data-refresh-analytics")) {
+      // Allow Retry from the error banner even while a previous attempt is clearing.
+    }
     adminAnalyticsCache = null;
+    adminAnalyticsLastError = "";
     loadAdminAnalyticsFromBackend({ force: true }).then(() => {
       renderAdminDashboard();
+      renderAdminFeedbackCenter();
+      renderAdminUsersDashboard();
     });
     renderAdminOwnerOverview();
     renderAdminAnalytics();
