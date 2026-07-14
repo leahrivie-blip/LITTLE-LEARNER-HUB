@@ -16044,6 +16044,61 @@ body.curriculum-planner-retired .nav-link[data-view="curriculum-planner"] {
 }
 
 /* ========== Week View ========== */
+.llh-cal-week-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.llh-cal-week-glance {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 10px 0 0;
+  font-size: 0.92rem;
+  color: var(--llh-muted, #6b6b7b);
+}
+
+.llh-cal-week-glance-inline {
+  margin-top: 6px;
+}
+
+.llh-cal-week-empty-hint {
+  margin: 6px 0 0;
+}
+
+.llh-cal-week-empty {
+  border: 1px dashed color-mix(in srgb, var(--llh-primary, #7b6bb5) 35%, var(--llh-line, #e4e1ea));
+  background: color-mix(in srgb, var(--llh-primary-soft, #ede8f7) 45%, #fff);
+}
+
+.llh-cal-week-empty h3 {
+  margin: 4px 0 8px;
+  font-family: var(--llh-font-display, Georgia, serif);
+}
+
+.llh-cal-week-empty-actions {
+  margin-top: 12px;
+}
+
+.llh-cal-week-day-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.llh-cal-meta-pill {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--llh-line, #e4e1ea) 70%, #fff);
+  color: var(--llh-muted, #6b6b7b);
+}
+
 .llh-cal-week-lesson {
   background: var(--llh-primary-soft, #ede8f7);
 }
