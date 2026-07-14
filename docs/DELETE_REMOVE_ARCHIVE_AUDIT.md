@@ -22,8 +22,6 @@ Build once, reuse everywhere:
 - Three-dot overflow menu (`itemActionMenuHtml`)
 - Shared click handlers for menu open/close + confirm
 
-**Pilot:** wire on one surface first, then expand.
-
 ### Step 2 — Daily Logs (biggest gap)
 Entries are append-only today. Add **Edit** + **Delete** for:
 Attendance, Meals, Naps, Potty/Diapers, Activities, Photos, Reports, Parent Messages, Support Plans, Differentiations.
@@ -58,19 +56,38 @@ Checklist per object: Edit? Duplicate? Archive? Remove-from-location? Delete? Cl
 
 ---
 
-## Status (this PR)
+## Status
 
 | Step | Status |
 |------|--------|
-| 1 Shared confirm + action menu | Done |
-| 2 Daily log Edit/Delete | Done |
-| 3 Goals Archive/Delete/Edit | Done |
-| 4 Child Archive/Reactivate/Delete | Done |
-| 5 Calendar Remove vs Delete labels | Done |
-| 6 Observations + Lesson delete labels | Done |
-| 7 Activities remove-from-lesson vs delete | Follow-up |
-| 8 Forms, Printables, Documents, Photos, Messages, Incidents | Follow-up |
-| 9 Family Hub (future) | Follow-up |
-| 10 Full audit pass across every screen | Follow-up |
+| 1 Shared confirm + action menu | Done (#178) |
+| 2 Daily log Edit/Delete | Done (#178) |
+| 3 Goals Archive/Delete/Edit | Done (#178) |
+| 4 Child Archive/Reactivate/Delete | Done (#178) |
+| 5 Calendar Remove vs Delete labels | Done (#178) |
+| 6 Observations + Lesson delete labels | Done (#178) |
+| 7 Activities Remove From Lesson Plan | Done |
+| 8 Forms/Printables/Messages/Incidents/Photos labels + Archive | Done |
+| 9 Family Hub Stop Sharing / Remove From Parent View | Done (interim until Family Hub ships) |
+| 10 Audit pass + timeline/AI history/admin confirms | Done |
 
-Do not mark the full audit complete until Steps 7–10 are done across every major object.
+## Object checklist (major items)
+
+| Object | Edit | Archive | Remove-from-place | Delete Permanently |
+|--------|------|---------|-------------------|--------------------|
+| Daily log entries | ✅ | ✅ | — | ✅ |
+| Goals | ✅ | ✅ | — | ✅ |
+| Child profiles | ✅ | ✅ / Reactivate | Hide from DLC via archive | ✅ |
+| Calendar lesson placement | ✅ | — | ✅ Remove From Calendar | — (original kept) |
+| Calendar events/notes | ✅ | — | — | ✅ |
+| Observations | ✅ | ✅ | — | ✅ |
+| User lesson plans | ✅ | ✅ | — | ✅ |
+| Lesson activity rows | ✅ | (on save) | ✅ Remove From Lesson Plan | — |
+| Forms/Printables (admin) | ✅ | ✅ | — | ✅ |
+| Photos / messages / reports | ✅ | ✅ | ✅ Stop Sharing / Remove From Parent View | ✅ |
+| Timeline entries | via menu | ✅ | ✅ Stop Sharing | ✅ |
+| AI generated history | Open | — | — | ✅ |
+| Curriculum planner week assignment | — | — | ✅ Remove From Week | — |
+| Family Hub parent portal | Coming soon | — | Stop Sharing ready on records | Never deletes originals |
+
+Do not mark product-complete for Family Hub UI until the parent portal ships; sharing controls on source records are in place now.
