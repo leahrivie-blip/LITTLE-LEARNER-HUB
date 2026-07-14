@@ -3285,6 +3285,8 @@ let scheduleSyncPromise = null;
 let weeklyPlannerActiveDay = "";
 let weeklyPlannerNotesOpen = false;
 let weeklyPlannerFocusWeek = "";
+let weeklyPlannerEditDay = "";
+let weeklyPlannerEditBusy = false;
 let calendarEventModalOpen = false;
 let adminReviewEditorId = "";
 let adminImageEditorId = "";
@@ -14424,8 +14426,16 @@ function weeklyPlannerDayKeyFromDate(date = new Date()) {
 function setWeeklyPlannerActiveDay(day, options = {}) {
   const next = CURRICULUM_WEEKDAYS.includes(day) ? day : "monday";
   weeklyPlannerActiveDay = next;
-  if (options.openNotes) weeklyPlannerNotesOpen = true;
+  if (options.openNotes) {
+    weeklyPlannerNotesOpen = true;
+    weeklyPlannerEditDay = "";
+  }
   if (options.closeNotes) weeklyPlannerNotesOpen = false;
+  if (weeklyPlannerEditDay) {
+    weeklyPlannerEditDay = next;
+    renderWeeklyPlanner();
+    return;
+  }
   const app = document.querySelector("#weeklyPlannerApp");
   if (!app) return;
   app.querySelectorAll("[data-week-day-tab]").forEach((tab) => {
@@ -14518,20 +14528,22 @@ function renderWeeklyPlanner() {
     const visibleActivities = activities.slice(0, 4);
     const hiddenCount = Math.max(0, activities.length - visibleActivities.length);
     const materialsLine = materials.slice(0, 3).join(" · ");
+    const isEditedCopy = Boolean(scheduleItem.snapshot?.snapshotEditedAt);
     return `
       <article class="llh-day-card ${weeklyPlannerActiveDay === day ? "is-active" : ""}" data-week-day-card="${escapeHtml(day)}">
         <header class="llh-day-card-head">
           <div>
-            <p class="eyebrow">${escapeHtml(curriculumPlannerWeekdayLabel(day))}</p>
+            <p class="eyebrow">${escapeHtml(curriculumPlannerWeekdayLabel(day))}${isEditedCopy ? " · customized" : ""}</p>
             <h3>${escapeHtml(planDay.theme || snapshot.theme || "Classroom day")}</h3>
             <p class="muted-copy">${escapeHtml(curriculumPlannerDateForDay(weekStart, day))}</p>
           </div>
+          <button type="button" class="ghost-button llh-day-edit-btn" data-week-edit-day="${escapeHtml(day)}">Edit day</button>
         </header>
         <div class="llh-day-card-section">
           <p class="eyebrow">Activities</p>
           ${activities.length
             ? `<ul class="llh-day-activity-list">${visibleActivities.map((item) => {
-              const id = item.id || item.title;
+              const id = classroomCopyActivityKey(item);
               return `<li><label class="llh-check-row"><input type="checkbox" data-schedule-check="${escapeHtml(scheduleItem.id)}" data-schedule-day="${escapeHtml(day)}" data-schedule-activity="${escapeHtml(id)}" ${checked.has(id) ? "checked" : ""}/> <span>${escapeHtml(item.title || "Activity")}</span></label></li>`;
             }).join("")}</ul>${hiddenCount ? `<p class="muted-copy llh-day-more-count">+${hiddenCount} more in lesson plan</p>` : ""}`
             : `<p class="muted-copy">No activities listed.</p>`
@@ -14577,11 +14589,15 @@ function renderWeeklyPlanner() {
           <p class="eyebrow">${isFocusedOtherWeek ? "Week of" : "This week’s classroom"}</p>
           <h3>${escapeHtml(scheduleItem.lessonPlanTitle)}</h3>
           <p class="muted-copy">${escapeHtml(scheduleItem.ageGroup || "")} · ${escapeHtml(weekStart)} – ${escapeHtml(weekEnd)} · ${escapeHtml(room)}</p>
+          <p class="llh-week-copy-banner">${scheduleItem.snapshot?.snapshotEditedAt
+            ? "Classroom copy customized — edits stay on your Calendar, not in the Lesson Library."
+            : "This is your classroom copy for the week. Edit a day anytime — the library original stays unchanged."}</p>
         </div>
         <div class="form-actions llh-week-hero-actions">
-          ${selectedResource ? `<button class="ghost-button" type="button" data-view-resource="${escapeHtml(selectedResource.id)}">Open lesson plan</button>` : ""}
+          ${selectedResource ? `<button class="ghost-button" type="button" data-view-resource="${escapeHtml(selectedResource.id)}">Open library original</button>` : ""}
           ${isFocusedOtherWeek ? `<button class="ghost-button" type="button" data-view="planner">Back to This Week</button>` : ""}
           <button class="ghost-button" type="button" data-view="calendar"${isFocusedOtherWeek ? ` data-dash-select-week="${escapeHtml(weekStart)}"` : ""}>Calendar</button>
+          <button class="ghost-button" type="button" data-week-edit-day="${escapeHtml(weeklyPlannerActiveDay || "monday")}">Customize day</button>
           <button class="primary-button" type="button" data-schedule-save-execution="${escapeHtml(scheduleItem.id)}">Save Notes</button>
         </div>
       </section>
@@ -14598,6 +14614,9 @@ function renderWeeklyPlanner() {
           </div>
         </div>
 
+        ${weeklyPlannerEditDay
+          ? weeklyPlannerDayEditorHtml(scheduleItem, weeklyPlannerEditDay)
+          : `
         <aside class="llh-week-notes-panel ${weeklyPlannerNotesOpen ? "is-open" : ""}" data-week-notes-panel ${weeklyPlannerNotesOpen ? "" : "hidden"}>
           <div class="llh-week-notes-head">
             <div>
@@ -14609,6 +14628,7 @@ function renderWeeklyPlanner() {
           ${notesDays}
           <button class="primary-button" type="button" data-schedule-save-execution="${escapeHtml(scheduleItem.id)}">Save Notes</button>
         </aside>
+        `}
       </div>
     </div>
   `;
@@ -14818,6 +14838,180 @@ function syncWeeklyPlannerFromScheduleItem(item) {
   if (!planner) return null;
   saveWeeklyPlanner({ ...weeklyPlanner(), ...planner, days: { ...weeklyPlanner().days, ...planner.days } });
   return planner;
+}
+
+function classroomCopyActivityKey(item = {}) {
+  return String(item.itemId || item.id || item.title || "").trim();
+}
+
+function ensureClassroomCopyActivityId(item = {}) {
+  const existing = String(item.itemId || item.id || "").trim();
+  if (existing) return existing;
+  const api = getScheduleApi();
+  return api?.randomId ? api.randomId("act") : `act-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+/**
+ * Update the classroom ScheduleItem.snapshot only — never mutates the library
+ * curriculum lesson plan. Keeps Weekly Planner + Calendar in sync via dual-write.
+ */
+async function updateScheduleLessonSnapshot(itemId, patchFn) {
+  const api = getScheduleApi();
+  if (!api || !itemId) return null;
+  if (!isLoggedIn() && !hasAdminFullAccess()) {
+    openAuthModal("login");
+    throw new Error("Log in to customize your classroom copy.");
+  }
+  await ensureScheduleLoaded();
+  const doc = scheduleDocCache || api.readCache(scheduleApiEmail());
+  const item = (doc.items || []).find((entry) => entry.id === itemId);
+  if (!item || item.type !== "lesson_plan") {
+    throw new Error("No classroom lesson plan found for this week.");
+  }
+  const snapshot = JSON.parse(JSON.stringify(item.snapshot || {}));
+  const patched = typeof patchFn === "function" ? (patchFn(snapshot) || snapshot) : snapshot;
+  const dailyPlans = {};
+  CURRICULUM_WEEKDAYS.forEach((day) => {
+    const dayPlan = patched.dailyPlans?.[day] || {};
+    const normalized = snapshotCurriculumDailyDay(dayPlan);
+    normalized.items = (Array.isArray(dayPlan.items) ? dayPlan.items : [])
+      .map((activity) => {
+        const next = snapshotCurriculumDailyItem({
+          ...activity,
+          itemId: ensureClassroomCopyActivityId(activity),
+        });
+        return next;
+      })
+      .filter((activity) => activity.title);
+    dailyPlans[day] = normalized;
+  });
+  const nextSnapshot = {
+    ...patched,
+    dailyPlans,
+    snapshotEditedAt: new Date().toISOString(),
+    snapshotSourceLessonPlanId: item.lessonPlanId || patched.snapshotSourceLessonPlanId || "",
+  };
+  await api.upsertItem(firebaseAuthHeaders, scheduleApiEmail(), {
+    ...item,
+    snapshot: nextSnapshot,
+    lessonPlanTitle: nextSnapshot.title || item.lessonPlanTitle,
+  });
+  scheduleDocCache = api.readCache(scheduleApiEmail());
+  dualWriteLegacyAssignmentsFromSchedule(scheduleDocCache);
+  const latest = (scheduleDocCache.items || []).find((entry) => entry.id === itemId) || item;
+  syncWeeklyPlannerFromScheduleItem(latest);
+  return latest;
+}
+
+function openWeeklyPlannerDayEditor(dayKey, options = {}) {
+  const day = CURRICULUM_WEEKDAYS.includes(dayKey) ? dayKey : weeklyPlannerActiveDay || "monday";
+  weeklyPlannerEditDay = day;
+  weeklyPlannerNotesOpen = false;
+  if (options.weekStartDate) {
+    weeklyPlannerFocusWeek = curriculumPlannerWeekStartIso(options.weekStartDate);
+  }
+  setWeeklyPlannerActiveDay(day);
+  if (document.querySelector("#view-planner.active-view")) {
+    renderWeeklyPlanner();
+  } else {
+    setView("planner", weeklyPlannerFocusWeek ? { weekStartDate: weeklyPlannerFocusWeek } : {});
+  }
+}
+
+function closeWeeklyPlannerDayEditor() {
+  weeklyPlannerEditDay = "";
+  renderWeeklyPlanner();
+}
+
+function weeklyPlannerDayEditorHtml(scheduleItem, day) {
+  const planDay = scheduleItem?.snapshot?.dailyPlans?.[day] || {};
+  const activities = Array.isArray(planDay.items) ? planDay.items : [];
+  const rows = (activities.length ? activities : [{ title: "" }]).map((activity, index) => `
+    <div class="llh-week-edit-activity-row" data-week-edit-activity-row>
+      <input type="hidden" data-week-edit-activity-id value="${escapeHtml(ensureClassroomCopyActivityId(activity))}" />
+      <label class="llh-week-edit-field">Activity ${index + 1}
+        <input type="text" data-week-edit-activity-title value="${escapeHtml(activity.title || "")}" placeholder="Activity title" />
+      </label>
+      <label class="llh-week-edit-field">Materials
+        <input type="text" data-week-edit-activity-materials value="${escapeHtml(activity.materials || "")}" placeholder="Optional materials" />
+      </label>
+      <button type="button" class="ghost-button" data-week-edit-remove-activity aria-label="Remove activity">Remove</button>
+    </div>
+  `).join("");
+  return `
+    <aside class="llh-week-edit-panel is-open" data-week-edit-panel>
+      <div class="llh-week-notes-head">
+        <div>
+          <p class="eyebrow">Classroom copy</p>
+          <h3>Edit ${escapeHtml(curriculumPlannerWeekdayLabel(day))}</h3>
+          <p class="muted-copy">Changes stay on your Calendar week — the Lesson Library original is not changed.</p>
+        </div>
+        <button type="button" class="ghost-button" data-week-edit-cancel>Cancel</button>
+      </div>
+      <label class="llh-week-edit-field">Day theme
+        <input type="text" data-week-edit-day-theme value="${escapeHtml(planDay.theme || "")}" placeholder="Optional day theme" />
+      </label>
+      <div class="llh-week-edit-activities" data-week-edit-activities>
+        ${rows}
+      </div>
+      <div class="form-actions">
+        <button type="button" class="ghost-button" data-week-edit-add-activity>Add activity</button>
+        <button type="button" class="primary-button" data-week-edit-save="${escapeHtml(scheduleItem.id)}" data-week-edit-save-day="${escapeHtml(day)}" ${weeklyPlannerEditBusy ? "disabled" : ""}>${weeklyPlannerEditBusy ? "Saving…" : "Save classroom day"}</button>
+      </div>
+      <p class="muted-copy llh-week-edit-status" data-week-edit-status hidden></p>
+    </aside>
+  `;
+}
+
+async function saveWeeklyPlannerDayEditor(itemId, day) {
+  const panel = document.querySelector("[data-week-edit-panel]");
+  const status = document.querySelector("[data-week-edit-status]");
+  const saveBtn = document.querySelector("[data-week-edit-save]");
+  if (!panel || !itemId || !day) return;
+  const theme = String(panel.querySelector("[data-week-edit-day-theme]")?.value || "").trim();
+  const rows = [...panel.querySelectorAll("[data-week-edit-activity-row]")];
+  const items = rows.map((row) => ({
+    itemId: String(row.querySelector("[data-week-edit-activity-id]")?.value || "").trim(),
+    title: String(row.querySelector("[data-week-edit-activity-title]")?.value || "").trim(),
+    materials: String(row.querySelector("[data-week-edit-activity-materials]")?.value || "").trim(),
+  })).filter((item) => item.title);
+  weeklyPlannerEditBusy = true;
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving…";
+  }
+  if (status) {
+    status.hidden = false;
+    status.textContent = "Saving classroom copy…";
+    status.classList.remove("is-error");
+  }
+  try {
+    await updateScheduleLessonSnapshot(itemId, (snapshot) => {
+      const dailyPlans = { ...(snapshot.dailyPlans || {}) };
+      const current = dailyPlans[day] || {};
+      dailyPlans[day] = {
+        ...current,
+        theme,
+        items,
+      };
+      return { ...snapshot, dailyPlans };
+    });
+    weeklyPlannerEditBusy = false;
+    weeklyPlannerEditDay = "";
+    renderWeeklyPlanner();
+    if (document.querySelector("#view-calendar.active-view")) renderMainCalendar();
+  } catch (error) {
+    weeklyPlannerEditBusy = false;
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Save classroom day";
+    }
+    if (status) {
+      status.hidden = false;
+      status.textContent = error.message || "Could not save classroom day.";
+      status.classList.add("is-error");
+    }
+  }
 }
 
 async function assignScheduleLessonPlan({
@@ -16962,8 +17156,10 @@ function renderCalendarDayView(app) {
             <p class="muted-copy">${escapeHtml(lesson.ageGroup || "")}</p>
             ${activities.length ? `<ul class="llh-day-activity-list">${activities.slice(0, 6).map((activity) => `<li>${escapeHtml(activity.title || "Activity")}</li>`).join("")}</ul>` : ""}
             <div class="form-actions">
+              <button type="button" class="primary-button" data-calendar-customize-day="${escapeHtml(iso)}" data-calendar-customize-day-key="${escapeHtml(dayKey)}">Customize this day</button>
               <button type="button" class="ghost-button" data-view="planner" data-planner-focus-week="${escapeHtml(week)}">Open Weekly Planner</button>
             </div>
+            ${lesson.snapshot?.snapshotEditedAt ? `<p class="muted-copy">Classroom copy customized — library original unchanged.</p>` : `<p class="muted-copy">Edits customize your classroom copy only.</p>`}
           ` : `
             <p class="muted-copy">${weekend
               ? "Lesson plans run Monday–Friday. Add notes or events on this day anytime."
@@ -34353,7 +34549,78 @@ document.addEventListener("click", async (event) => {
   const weekOpenNotes = event.target.closest("[data-week-open-notes]");
   if (weekOpenNotes) {
     event.preventDefault();
+    weeklyPlannerEditDay = "";
     setWeeklyPlannerActiveDay(weekOpenNotes.dataset.weekOpenNotes || "monday", { openNotes: true });
+    return;
+  }
+
+  const weekEditDay = event.target.closest("button[data-week-edit-day]");
+  if (weekEditDay) {
+    event.preventDefault();
+    openWeeklyPlannerDayEditor(weekEditDay.dataset.weekEditDay || weeklyPlannerActiveDay || "monday");
+    return;
+  }
+
+  const weekEditCancel = event.target.closest("[data-week-edit-cancel]");
+  if (weekEditCancel) {
+    event.preventDefault();
+    closeWeeklyPlannerDayEditor();
+    return;
+  }
+
+  const weekEditAddActivity = event.target.closest("[data-week-edit-add-activity]");
+  if (weekEditAddActivity) {
+    event.preventDefault();
+    const list = document.querySelector("[data-week-edit-activities]");
+    if (!list) return;
+    const index = list.querySelectorAll("[data-week-edit-activity-row]").length + 1;
+    const wrap = document.createElement("div");
+    wrap.className = "llh-week-edit-activity-row";
+    wrap.dataset.weekEditActivityRow = "";
+    wrap.innerHTML = `
+      <input type="hidden" data-week-edit-activity-id value="${escapeHtml(ensureClassroomCopyActivityId({}))}" />
+      <label class="llh-week-edit-field">Activity ${index}
+        <input type="text" data-week-edit-activity-title value="" placeholder="Activity title" />
+      </label>
+      <label class="llh-week-edit-field">Materials
+        <input type="text" data-week-edit-activity-materials value="" placeholder="Optional materials" />
+      </label>
+      <button type="button" class="ghost-button" data-week-edit-remove-activity aria-label="Remove activity">Remove</button>
+    `;
+    list.appendChild(wrap);
+    wrap.querySelector("[data-week-edit-activity-title]")?.focus();
+    return;
+  }
+
+  const weekEditRemoveActivity = event.target.closest("[data-week-edit-remove-activity]");
+  if (weekEditRemoveActivity) {
+    event.preventDefault();
+    const row = weekEditRemoveActivity.closest("[data-week-edit-activity-row]");
+    const list = document.querySelector("[data-week-edit-activities]");
+    if (row) row.remove();
+    if (list && !list.querySelector("[data-week-edit-activity-row]")) {
+      document.querySelector("[data-week-edit-add-activity]")?.click();
+    }
+    return;
+  }
+
+  const weekEditSave = event.target.closest("[data-week-edit-save]");
+  if (weekEditSave) {
+    event.preventDefault();
+    await saveWeeklyPlannerDayEditor(
+      weekEditSave.dataset.weekEditSave || "",
+      weekEditSave.dataset.weekEditSaveDay || weeklyPlannerEditDay || "",
+    );
+    return;
+  }
+
+  const calendarCustomizeDay = event.target.closest("[data-calendar-customize-day]");
+  if (calendarCustomizeDay) {
+    event.preventDefault();
+    const iso = calendarCustomizeDay.dataset.calendarCustomizeDay || mainCalendarSelectedDay;
+    const dayKey = calendarCustomizeDay.dataset.calendarCustomizeDayKey || curriculumDayKeyForIso(iso);
+    const week = curriculumPlannerWeekStartIso(iso);
+    openWeeklyPlannerDayEditor(dayKey || "monday", { weekStartDate: week });
     return;
   }
 
