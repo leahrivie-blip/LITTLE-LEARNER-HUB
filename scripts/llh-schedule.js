@@ -3,7 +3,7 @@
  * Cloud-backed source of truth with local cache + Curriculum Planner dual-write bridge.
  */
 (function (global) {
-  const SCHEDULE_ITEM_TYPES = ["lesson_plan", "classroom_event", "closure", "reminder", "director_event", "family_event"];
+  const SCHEDULE_ITEM_TYPES = ["lesson_plan", "classroom_event", "closure", "reminder", "director_event", "family_event", "day_note"];
   const SCHEDULE_ITEM_CATEGORIES = {
     lesson_plan: "curriculum",
     classroom_event: "classroom",
@@ -11,6 +11,7 @@
     closure: "family",
     director_event: "director",
     family_event: "family",
+    day_note: "classroom",
   };
   const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
   const PLANNER_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
@@ -146,6 +147,15 @@
         (entry) => !(
           entry.type === "lesson_plan"
           && entry.weekStartDate === normalized.weekStartDate
+          && entry.classroomId === normalized.classroomId
+        ),
+      );
+    }
+    if (normalized.type === "day_note" && normalized.startDate) {
+      next.items = next.items.filter(
+        (entry) => !(
+          entry.type === "day_note"
+          && entry.startDate === normalized.startDate
           && entry.classroomId === normalized.classroomId
         ),
       );

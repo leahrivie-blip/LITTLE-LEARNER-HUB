@@ -1,11 +1,11 @@
-const CACHE_NAME = "llh-shell-v12-calendar-paint";
+const CACHE_NAME = "llh-shell-v14-calendar-day-notes";
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/styles.css?v=20260713-calendar-paint",
+  "/styles.css?v=20260714-calendar-day-notes",
   "/styles/llh-design-tokens.css?v=20260713-ds",
-  "/scripts/llh-schedule.js?v=20260713-calendar-paint",
-  "/app.js?v=20260713-calendar-paint",
+  "/scripts/llh-schedule.js?v=20260714-calendar-day-notes",
+  "/app.js?v=20260714-calendar-day-notes",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
