@@ -189,14 +189,14 @@ async function main() {
       title: document.querySelector("#lessonEditorLeaveTitle")?.textContent.trim() || "",
       hasSave: Boolean(document.querySelector("[data-lesson-editor-leave-save]")),
       hasDiscard: Boolean(document.querySelector("[data-lesson-editor-leave-discard]")),
-      hasCancel: Boolean(document.querySelector("[data-lesson-editor-leave-cancel]")),
+      hasCancel: Boolean(document.querySelector('[data-lesson-editor-leave-cancel="button"]')),
     }));
     check("Leave dialog title", /unsaved changes/i.test(leaveCopy.title), leaveCopy.title);
     check("Leave dialog has Save", leaveCopy.hasSave);
     check("Leave dialog has Discard", leaveCopy.hasDiscard);
     check("Leave dialog has Cancel", leaveCopy.hasCancel);
 
-    await page.click("[data-lesson-editor-leave-cancel]");
+    await page.click('[data-lesson-editor-leave-cancel="button"]');
     await page.waitForFunction(() => document.querySelector("[data-lesson-editor-leave-dialog]")?.hidden === true, null, { timeout: 5000 });
     check("Cancel keeps editor open", await page.locator("#view-lesson-editor.active-view #userLessonPlanEditorForm").count() > 0);
 

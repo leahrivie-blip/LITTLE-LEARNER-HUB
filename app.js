@@ -5205,14 +5205,14 @@ function markUserLessonEditorDirty() {
 function userLessonEditorLeaveDialogHtml() {
   return `
     <div class="lesson-editor-leave-dialog" data-lesson-editor-leave-dialog hidden>
-      <button type="button" class="lesson-editor-leave-backdrop" data-lesson-editor-leave-cancel aria-label="Cancel"></button>
+      <button type="button" class="lesson-editor-leave-backdrop" data-lesson-editor-leave-cancel="backdrop" aria-label="Dismiss unsaved changes dialog"></button>
       <div class="lesson-editor-leave-panel" role="dialog" aria-modal="true" aria-labelledby="lessonEditorLeaveTitle">
         <h3 id="lessonEditorLeaveTitle">You have unsaved changes</h3>
         <p class="muted-copy">Save before leaving?</p>
         <div class="lesson-editor-leave-actions">
           <button type="button" class="primary-button" data-lesson-editor-leave-save>Save</button>
           <button type="button" class="ghost-button" data-lesson-editor-leave-discard>Discard</button>
-          <button type="button" class="link-button" data-lesson-editor-leave-cancel>Cancel</button>
+          <button type="button" class="link-button" data-lesson-editor-leave-cancel="button">Cancel</button>
         </div>
       </div>
     </div>
