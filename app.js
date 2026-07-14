@@ -16632,7 +16632,7 @@ function renderCalendarMonthView(app) {
       ${calendarFilterBarHtml()}
       ${!monthHasLessons ? `
         <div class="llh-calendar-empty-banner">
-          <p><strong>No lesson plans this month yet.</strong> Pick a week, then assign a plan from the Lesson Library.</p>
+          <p><strong>No lesson plans this month yet.</strong> Weeks stay empty until you add a plan — open a week, then choose from the Lesson Library.</p>
         </div>
       ` : ""}
       <div class="llh-calendar-grid llh-calendar-grid-7" role="grid" aria-label="${escapeHtml(mainCalendarMonthLabel(cursor))}">
@@ -16678,6 +16678,132 @@ function renderCalendarMonthView(app) {
   `;
 }
 
+function calendarWeekGlanceStats(doc, lesson, sunday, saturday, realItems, derivedItems) {
+  const theme = String(lesson?.snapshot?.theme || lesson?.lessonPlanTitle || "").trim();
+  let activityCount = 0;
+  const dailyPlans = lesson?.snapshot?.dailyPlans && typeof lesson.snapshot.dailyPlans === "object"
+    ? lesson.snapshot.dailyPlans
+    : {};
+  Object.values(dailyPlans).forEach((dayPlan) => {
+    activityCount += Array.isArray(dayPlan?.items) ? dayPlan.items.length : 0;
+  });
+  const noteCount = (doc?.items || []).filter(
+    (item) => item.type === "day_note"
+      && item.startDate >= sunday
+      && item.startDate <= saturday
+      && String(item.notes || "").trim(),
+  ).length;
+  const eventCount = (realItems || []).filter(
+    (item) => item.type !== "lesson_plan" && item.type !== "day_note",
+  ).length + (derivedItems || []).length;
+  return {
+    theme,
+    activityCount,
+    noteCount,
+    eventCount,
+    hasLesson: Boolean(lesson),
+  };
+}
+
+function calendarWeekHeaderActionsHtml(week, options = {}) {
+  const hasLesson = Boolean(options.hasLesson);
+  return `
+    <div class="llh-cal-week-actions" role="group" aria-label="Week planning actions">
+      <button type="button" class="primary-button" data-view="lessons">Add Lesson Plan</button>
+      <button type="button" class="ghost-button" data-view="lessons">Browse Library</button>
+      <button type="button" class="ghost-button" data-view="ai">AI Ideas</button>
+      <button type="button" class="ghost-button" data-calendar-print-week="${escapeHtml(week)}" ${hasLesson ? "" : "disabled"} title="${hasLesson ? "Download weekly calendar PDF" : "Add a lesson plan before printing"}">Print / Download</button>
+    </div>
+  `;
+}
+
+function calendarWeekEmptyStateHtml() {
+  return `
+    <section class="llh-ds-card llh-cal-week-empty" data-calendar-empty-week>
+      <p class="eyebrow">This week is empty</p>
+      <h3>Nothing planned yet</h3>
+      <p class="muted-copy">Empty weeks stay empty until you choose a plan — nothing is auto-filled.</p>
+      <div class="form-actions llh-cal-week-empty-actions">
+        <button type="button" class="primary-button" data-view="lessons">Add Lesson Plan</button>
+        <button type="button" class="ghost-button" data-view="lessons">Browse Library</button>
+        <button type="button" class="ghost-button" data-view="ai">AI Ideas</button>
+      </div>
+    </section>
+  `;
+}
+
+function calendarWeekLessonSummaryHtml(lesson, week, room, glance) {
+  const themeLabel = glance.theme || lesson.lessonPlanTitle || "Lesson plan";
+  return `
+    <section class="llh-ds-card llh-cal-week-lesson">
+      <p class="eyebrow">Lesson Plan (Monday–Friday)</p>
+      <h3>${escapeHtml(lesson.lessonPlanTitle)}</h3>
+      <p class="muted-copy">${escapeHtml(lesson.ageGroup || "")}${room ? ` · ${escapeHtml(room)}` : ""}</p>
+      <p class="llh-cal-week-glance" aria-label="Week at a glance">
+        <span><strong>Theme:</strong> ${escapeHtml(themeLabel)}</span>
+        <span><strong>${glance.activityCount}</strong> activit${glance.activityCount === 1 ? "y" : "ies"}</span>
+        <span><strong>${glance.noteCount}</strong> note${glance.noteCount === 1 ? "" : "s"}</span>
+        <span><strong>${glance.eventCount}</strong> event${glance.eventCount === 1 ? "" : "s"}</span>
+      </p>
+      <div class="form-actions">
+        <button type="button" class="primary-button" data-view="planner" data-planner-focus-week="${escapeHtml(week)}">Open Weekly Planner</button>
+        <button type="button" class="ghost-button" data-view="lessons">Change Plan</button>
+      </div>
+    </section>
+  `;
+}
+
+function calendarDayActivityCount(lesson, dayKey) {
+  if (!lesson || !dayKey) return 0;
+  const items = lesson?.snapshot?.dailyPlans?.[dayKey]?.items;
+  return Array.isArray(items) ? items.length : 0;
+}
+
+function calendarWeekPrintResource(lesson) {
+  if (!lesson) return null;
+  const planId = String(lesson.lessonPlanId || "").trim();
+  if (planId && typeof resources !== "undefined" && Array.isArray(resources)) {
+    const fromLibrary = resources.find((resource) => resource.id === planId);
+    if (fromLibrary) return fromLibrary;
+  }
+  if (!lesson.snapshot || typeof lesson.snapshot !== "object") return null;
+  return {
+    id: planId || lesson.id || "calendar-week-print",
+    title: lesson.lessonPlanTitle || "Lesson Plan",
+    age: lesson.ageGroup || "Preschool",
+    plan: lesson.lessonPlanPlan || "Free",
+    category: "Lesson Plans",
+    _curriculumManaged: true,
+    _curriculumLessonPlan: lesson.snapshot,
+  };
+}
+
+function printCalendarWeekSchedule(weekStart) {
+  const api = getScheduleApi();
+  if (!api) return;
+  const week = api.weekStartMonday(weekStart || mainCalendarSelectedWeek || curriculumPlannerWeekStartIso(new Date()));
+  const doc = scheduleDocCache || api.readCache(scheduleApiEmail()) || { items: [] };
+  const lesson = api.lessonForWeek(doc, week);
+  if (!lesson) {
+    window.alert("Add a lesson plan to this week before printing.");
+    return;
+  }
+  const resource = calendarWeekPrintResource(lesson);
+  if (!resource || typeof buildLessonPlanWeeklySchedulePdfBlob !== "function") {
+    window.alert("Could not build a weekly printout for this plan yet. Open the lesson from the library to print.");
+    return;
+  }
+  try {
+    downloadBlob(
+      buildLessonPlanWeeklySchedulePdfBlob(resource, { weekStartDate: week }),
+      `${slug(resource.title || "lesson-plan")}-weekly-schedule.pdf`,
+    );
+  } catch (error) {
+    console.warn(error);
+    window.alert(error.message || "Could not create the weekly PDF.");
+  }
+}
+
 function renderCalendarWeekView(app) {
   const api = getScheduleApi();
   const week = mainCalendarSelectedWeek || curriculumPlannerWeekStartIso(new Date());
@@ -16689,6 +16815,7 @@ function renderCalendarWeekView(app) {
   const derivedItems = calendarDerivedChildItemsInRange(sunday, saturday);
   const todayIso = isoDateFromLocalDate(new Date());
   const room = scheduleClassroomName(doc);
+  const glance = calendarWeekGlanceStats(doc, lesson, sunday, saturday, realItems, derivedItems);
   const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const dayCells = [];
   for (let i = 0; i < 7; i += 1) {
@@ -16696,7 +16823,20 @@ function renderCalendarWeekView(app) {
     const dow = isoWeekdayIndex(iso);
     const dayKey = curriculumDayKeyForIso(iso);
     const dayItems = calendarVisibleItemsForDate(realItems, derivedItems, iso);
-    dayCells.push({ iso, dow, dayKey, dayItems, weekend: dow === 0 || dow === 6, isToday: iso === todayIso });
+    const noteItem = calendarDayNoteForDate(doc, iso);
+    const hasNote = Boolean(String(noteItem?.notes || "").trim());
+    const activityCount = calendarDayActivityCount(lesson, dayKey);
+    dayCells.push({
+      iso,
+      dow,
+      dayKey,
+      dayItems,
+      weekend: dow === 0 || dow === 6,
+      isToday: iso === todayIso,
+      hasNote,
+      activityCount,
+      eventCount: dayItems.length,
+    });
   }
 
   app.innerHTML = `
@@ -16706,47 +16846,37 @@ function renderCalendarWeekView(app) {
           <button type="button" class="ghost-button" data-calendar-back-to-month>← Back to Calendar</button>
           <p class="eyebrow">Week view</p>
           <h3 class="llh-calendar-month">${escapeHtml(mainCalendarMonthLabel(new Date(`${sunday}T12:00:00`)))} · ${escapeHtml(sunday)} – ${escapeHtml(saturday)}</h3>
+          ${glance.hasLesson ? `
+            <p class="llh-cal-week-glance llh-cal-week-glance-inline" aria-label="Week at a glance">
+              <span><strong>Theme:</strong> ${escapeHtml(glance.theme || "—")}</span>
+              <span>${glance.activityCount} activities</span>
+              <span>${glance.noteCount} notes</span>
+              <span>${glance.eventCount} events</span>
+            </p>
+          ` : `<p class="muted-copy llh-cal-week-empty-hint">This week is empty until you add a plan.</p>`}
         </div>
       </div>
+      ${calendarWeekHeaderActionsHtml(week, { hasLesson: Boolean(lesson) })}
       ${calendarFilterBarHtml()}
-      ${lesson ? `
-        <section class="llh-ds-card llh-cal-week-lesson">
-          <p class="eyebrow">Lesson Plan (Monday–Friday)</p>
-          <h3>${escapeHtml(lesson.lessonPlanTitle)}</h3>
-          <p class="muted-copy">${escapeHtml(lesson.ageGroup || "")} · ${escapeHtml(room)}</p>
-          <div class="form-actions">
-            <button type="button" class="primary-button" data-view="planner" data-planner-focus-week="${escapeHtml(week)}">Open Weekly Planner</button>
-            <button type="button" class="ghost-button" data-view="lessons">Change Plan</button>
-          </div>
-        </section>
-      ` : `
-        <section class="llh-ds-card llh-cal-week-lesson">
-          <p class="eyebrow">Lesson Plan (Monday–Friday)</p>
-          <h3>No lesson plan this week</h3>
-          <div class="form-actions">
-            <button type="button" class="primary-button" data-view="lessons">Browse Lesson Plans</button>
-          </div>
-        </section>
-      `}
+      ${lesson ? calendarWeekLessonSummaryHtml(lesson, week, room, glance) : calendarWeekEmptyStateHtml()}
       <div class="llh-cal-week-strip">
         ${dayCells.map((cell) => `
-          <button type="button" class="llh-cal-week-day ${cell.weekend ? "is-weekend" : ""} ${cell.isToday ? "is-today" : ""}" data-calendar-select-day="${escapeHtml(cell.iso)}" aria-label="${escapeHtml(calendarLongDateLabel(cell.iso))}${cell.weekend ? ", weekend" : ""}">
+          <button type="button" class="llh-cal-week-day ${cell.weekend ? "is-weekend" : ""} ${cell.isToday ? "is-today" : ""}" data-calendar-select-day="${escapeHtml(cell.iso)}" aria-label="${escapeHtml(calendarLongDateLabel(cell.iso))}${cell.weekend ? ", weekend" : ""}${cell.hasNote ? ", has note" : ""}">
             <span class="eyebrow">${dayLabels[cell.dow]}</span>
             <strong>${escapeHtml(cell.iso.slice(8, 10))}</strong>
             ${cell.dayKey && lesson ? `<span class="llh-cal-lesson-stripe" aria-hidden="true"></span>` : ""}
-            ${(() => {
-              const noteItem = calendarDayNoteForDate(doc, cell.iso);
-              return String(noteItem?.notes || "").trim()
-                ? `<span class="llh-cal-chip llh-cal-chip-day_note" title="Day note">Note</span>`
-                : "";
-            })()}
-            ${cell.dayItems.slice(0, 3).map((item) => `<span class="llh-cal-chip llh-cal-chip-${escapeHtml(calendarItemCategory(item.type))}">${escapeHtml(item.title || item.type)}</span>`).join("")}
-            ${cell.dayItems.length > 3 ? `<span class="llh-cal-more">+${cell.dayItems.length - 3} more</span>` : ""}
+            <span class="llh-cal-week-day-meta">
+              ${cell.activityCount ? `<span class="llh-cal-meta-pill">${cell.activityCount} act</span>` : ""}
+              ${cell.hasNote ? `<span class="llh-cal-chip llh-cal-chip-day_note" title="Day note">Note</span>` : ""}
+              ${cell.eventCount ? `<span class="llh-cal-meta-pill">${cell.eventCount} evt</span>` : ""}
+            </span>
+            ${cell.dayItems.slice(0, 2).map((item) => `<span class="llh-cal-chip llh-cal-chip-${escapeHtml(calendarItemCategory(item.type))}">${escapeHtml(item.title || item.type)}</span>`).join("")}
+            ${cell.dayItems.length > 2 ? `<span class="llh-cal-more">+${cell.dayItems.length - 2} more</span>` : ""}
           </button>
         `).join("")}
       </div>
       <div class="form-actions llh-calendar-add-row">
-        <button type="button" class="ghost-button" data-calendar-add-item data-calendar-add-item-date="${escapeHtml(mainCalendarSelectedDay || week)}">Add Item to This Week</button>
+        <button type="button" class="ghost-button" data-calendar-add-item data-calendar-add-item-date="${escapeHtml(mainCalendarSelectedDay || week)}">Add Event / Reminder</button>
       </div>
       ${mainCalendarBusy ? `<p class="muted-copy llh-calendar-busy">Saving…</p>` : ""}
     </div>
@@ -34072,6 +34202,14 @@ document.addEventListener("click", async (event) => {
   if (calendarClearDayNote) {
     event.preventDefault();
     clearCalendarDayNote(calendarClearDayNote.dataset.calendarClearDayNoteDate || mainCalendarSelectedDay);
+    return;
+  }
+
+  const calendarPrintWeek = event.target.closest("[data-calendar-print-week]");
+  if (calendarPrintWeek) {
+    event.preventDefault();
+    if (calendarPrintWeek.disabled) return;
+    printCalendarWeekSchedule(calendarPrintWeek.dataset.calendarPrintWeek || mainCalendarSelectedWeek);
     return;
   }
 
