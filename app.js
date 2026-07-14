@@ -7904,7 +7904,7 @@ function isPlatformNavActive(buttonView, requestedView, resolvedView) {
   }
   if (
     buttonView === "settings"
-    && ["settings", "account", "program-settings", "billing", "subscription", "billing-history", "contact", "faq", "plans", "upgrade"].includes(resolvedView)
+    && ["settings", "account", "program-settings", "forms-settings", "curriculum-settings", "billing", "subscription", "billing-history", "contact", "faq", "plans", "upgrade", "staff", "cancel-subscription"].includes(resolvedView)
   ) {
     return true;
   }
@@ -8324,6 +8324,8 @@ function setView(view, options = {}) {
   if (resolvedView === "support-center") renderSupportCenterPage();
   if (resolvedView === "resources") renderResourcesHubPage();
   if (resolvedView === "settings") renderSettingsHubPage();
+  if (resolvedView === "forms-settings") renderFormsSettingsPage();
+  if (resolvedView === "curriculum-settings") renderCurriculumSettingsPage();
   if (resolvedView === "staff") renderStaffPlaceholderPage();
   if (resolvedView === "classrooms") renderCenterPlaceholderPage("classrooms");
   if (resolvedView === "families") renderCenterPlaceholderPage("families");
@@ -20297,43 +20299,175 @@ function renderSettingsHubPage() {
   if (!section) return;
   const canBilling = canAccessPlatformFeature("billing");
   const canStaff = canAccessPlatformFeature("staff_management");
+  const account = currentAccount();
+  const accountTypeLabel = getAccountType(account) === "center" ? "Center" : "Home Daycare";
+  const roleLabel = String(getUserRole(account) || "owner").replace(/_/g, " ");
+  const groups = [
+    {
+      title: "Account",
+      detail: "Profile, security, and notifications",
+      cards: [
+        { view: "account", title: "Profile & Security", detail: "Email, phone, password, and sign-out" },
+        { view: "account", title: "Notifications", detail: "Choose how Little Learner Hub reminds you", hash: "notifications" },
+      ],
+    },
+    {
+      title: "Membership & Billing",
+      detail: canBilling ? "Plan, payments, and Founding Member status" : "Only account owners manage billing",
+      cards: canBilling
+        ? [
+            { view: "billing", title: "Current Plan & Payment Methods", detail: "Upgrade, downgrade, and payment method" },
+            { view: "subscription", title: "Subscription Status", detail: "Active, trial, or canceling status" },
+            { view: "billing-history", title: "Billing History", detail: "Invoices and payment events" },
+            { view: "plans", title: "Upgrade / Change Plan", detail: "Compare Free, Pro, and Founding options" },
+          ]
+        : [
+            { view: "", title: "Billing managed by owner", detail: "Ask your program owner for plan or payment changes", disabled: true },
+          ],
+    },
+    {
+      title: "Program Settings",
+      detail: "Business information and classroom defaults",
+      cards: [
+        { view: "program-settings", title: "Business Information & Logo", detail: "Program name, contact, hours, ages, and branding" },
+      ],
+    },
+    {
+      title: "Staff & Permissions",
+      detail: canStaff ? "Invite staff and control access" : "Owners and directors manage staff",
+      cards: canStaff
+        ? [
+            { view: "staff", title: "Staff Accounts & Roles", detail: "Invite assistants, teachers, and co-teachers" },
+          ]
+        : [
+            { view: "", title: "Staff tools unavailable", detail: "Your role does not include staff management", disabled: true },
+          ],
+    },
+    {
+      title: "Forms Settings",
+      detail: "Enrollment and paperwork defaults",
+      cards: [
+        { view: "forms-settings", title: "Enrollment & Form Templates", detail: "Digital signatures and paperwork preferences" },
+      ],
+    },
+    {
+      title: "Curriculum Settings",
+      detail: "Calendar and lesson plan defaults",
+      cards: [
+        { view: "curriculum-settings", title: "Calendar & Lesson Plan Defaults", detail: "Week start day and planning preferences" },
+      ],
+    },
+    {
+      title: "Support",
+      detail: "Help without leaving Settings",
+      cards: [
+        { view: "contact", title: "Help Center & Contact Support", detail: "Ask a question or send a feature request" },
+        { view: "faq", title: "Release Notes & FAQ", detail: "Common questions and product updates" },
+        { view: "resources", title: "Provider Resources", detail: "Behavior, licensing, and classroom help" },
+      ],
+    },
+  ];
   section.innerHTML = `
     <section class="settings-hub-page">
       <div class="page-title">
         <p class="eyebrow">Settings</p>
-        <h2>Account, program &amp; support</h2>
-        <p>Configure your profile, program details, billing, and get help — without competing with Calendar, Daily Logs, and Lesson Plans.</p>
+        <h2>Configuration &amp; account</h2>
+        <p>Manage your account, program, billing, and support here. Daily work stays in Calendar, Daily Logs, Lesson Plans, and Child Profiles.</p>
+        <p class="settings-hub-identity muted-copy">${escapeHtml(accountTypeLabel)} · ${escapeHtml(roleLabel)}</p>
       </div>
-      <div class="settings-hub-grid">
-        <button class="settings-hub-card" type="button" data-view="account">
-          <strong>Account</strong>
-          <span>Profile, security, and notification preferences</span>
-        </button>
-        <button class="settings-hub-card" type="button" data-view="program-settings">
-          <strong>Program Settings</strong>
-          <span>Business information, ages, branding, and curriculum preferences</span>
-        </button>
-        ${canBilling ? `
-          <button class="settings-hub-card" type="button" data-view="billing">
-            <strong>Membership &amp; Billing</strong>
-            <span>Current plan, payment methods, and subscription status</span>
-          </button>
-        ` : ""}
-        ${canStaff ? `
-          <button class="settings-hub-card" type="button" data-view="staff">
-            <strong>Staff &amp; Permissions</strong>
-            <span>Staff accounts, roles, and classroom assignments</span>
-          </button>
-        ` : ""}
-        <button class="settings-hub-card" type="button" data-view="contact">
-          <strong>Help &amp; Support</strong>
-          <span>Help Center, contact support, and feature requests</span>
-        </button>
-        <button class="settings-hub-card" type="button" data-view="faq">
-          <strong>Release Notes &amp; FAQ</strong>
-          <span>Common questions and product updates</span>
-        </button>
+      <div class="settings-hub-groups">
+        ${groups.map((group) => `
+          <section class="settings-hub-group">
+            <div class="settings-hub-group-header">
+              <h3>${escapeHtml(group.title)}</h3>
+              <p>${escapeHtml(group.detail)}</p>
+            </div>
+            <div class="settings-hub-grid">
+              ${group.cards.map((card) => card.disabled
+                ? `<div class="settings-hub-card settings-hub-card-disabled"><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></div>`
+                : `<button class="settings-hub-card" type="button" data-view="${escapeHtml(card.view)}"${card.hash ? ` data-settings-anchor="${escapeHtml(card.hash)}"` : ""}><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></button>`
+              ).join("")}
+            </div>
+          </section>
+        `).join("")}
       </div>
+    </section>
+  `;
+}
+
+function renderFormsSettingsPage() {
+  const section = document.querySelector("#view-forms-settings");
+  if (!section) return;
+  const settings = getProgramSettings();
+  section.innerHTML = `
+    <section class="settings-subpage">
+      <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
+      <div class="page-title">
+        <p class="eyebrow">Forms Settings</p>
+        <h2>Enrollment &amp; paperwork defaults</h2>
+        <p>Configure how forms and enrollment paperwork behave for your program.</p>
+      </div>
+      <form id="formsSettingsForm" class="panel-form settings-subpage-form">
+        <label class="settings-check-label"><input type="checkbox" name="digitalSignatures" ${settings.digitalSignatures ? "checked" : ""} /> Enable digital signature fields on forms</label>
+        <label class="settings-check-label"><input type="checkbox" name="enrollmentReminders" ${settings.enrollmentReminders !== false ? "checked" : ""} /> Remind me about incomplete enrollment paperwork</label>
+        <label>Default enrollment packet note
+          <textarea name="enrollmentPacketNote" rows="3" placeholder="Optional note shown when preparing enrollment forms">${escapeHtml(settings.enrollmentPacketNote || "")}</textarea>
+        </label>
+        <label>Preferred form templates
+          <select name="formTemplateFocus">
+            <option value="">No preference</option>
+            <option ${settings.formTemplateFocus === "Enrollment" ? "selected" : ""}>Enrollment</option>
+            <option ${settings.formTemplateFocus === "Daily Operations" ? "selected" : ""}>Daily Operations</option>
+            <option ${settings.formTemplateFocus === "Incident & Safety" ? "selected" : ""}>Incident &amp; Safety</option>
+            <option ${settings.formTemplateFocus === "Parent Communication" ? "selected" : ""}>Parent Communication</option>
+          </select>
+        </label>
+        <div class="account-actions-row">
+          <button class="primary-button" type="submit">Save Forms Settings</button>
+          <button class="ghost-button" data-view="forms" type="button">Open Forms &amp; Paperwork</button>
+        </div>
+        <span class="form-message" id="formsSettingsMessage" aria-live="polite"></span>
+      </form>
+    </section>
+  `;
+}
+
+function renderCurriculumSettingsPage() {
+  const section = document.querySelector("#view-curriculum-settings");
+  if (!section) return;
+  const settings = getProgramSettings();
+  section.innerHTML = `
+    <section class="settings-subpage">
+      <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
+      <div class="page-title">
+        <p class="eyebrow">Curriculum Settings</p>
+        <h2>Calendar &amp; lesson plan defaults</h2>
+        <p>Set planning preferences used by Calendar and Lesson Plans.</p>
+      </div>
+      <form id="curriculumSettingsForm" class="panel-form settings-subpage-form">
+        <label>Week start day
+          <select name="weekStartDay">
+            <option value="monday" ${settings.weekStartDay !== "sunday" ? "selected" : ""}>Monday</option>
+            <option value="sunday" ${settings.weekStartDay === "sunday" ? "selected" : ""}>Sunday</option>
+          </select>
+        </label>
+        <label>Default lesson plan age group
+          <select name="defaultLessonAgeGroup">
+            <option value="">Use child/classroom age when available</option>
+            ${["Infant", "Toddler", "Preschool", "School Age", "Mixed Ages"].map((age) => `
+              <option value="${age}" ${settings.defaultLessonAgeGroup === age ? "selected" : ""}>${age}</option>
+            `).join("")}
+          </select>
+        </label>
+        <label class="settings-check-label"><input type="checkbox" name="showHolidaysOnCalendar" ${settings.showHolidaysOnCalendar !== false ? "checked" : ""} /> Show holiday reminders on Calendar</label>
+        <label class="settings-check-label"><input type="checkbox" name="preferWeeklyPlanner" ${settings.preferWeeklyPlanner ? "checked" : ""} /> Prefer Weekly Planner after assigning a lesson plan</label>
+        <div class="account-actions-row">
+          <button class="primary-button" type="submit">Save Curriculum Settings</button>
+          <button class="ghost-button" data-view="calendar" type="button">Open Calendar</button>
+          <button class="ghost-button" data-view="lessons" type="button">Open Lesson Plans</button>
+        </div>
+        <span class="form-message" id="curriculumSettingsMessage" aria-live="polite"></span>
+      </form>
     </section>
   `;
 }
@@ -20343,13 +20477,14 @@ function renderStaffPlaceholderPage() {
   if (!section) return;
   section.innerHTML = `
     <section class="platform-placeholder-page">
+      <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
       <div class="page-title">
-        <p class="eyebrow">Staff</p>
+        <p class="eyebrow">Staff &amp; Permissions</p>
         <h2>Staff management</h2>
-        <p>Invite assistants, co-teachers, and substitutes. Full staff invites and permissions land in a later step — Home Daycare and Center owners will both be able to add staff.</p>
+        <p>Invite assistants, co-teachers, family helpers, and substitutes. Full invite flow lands next — Home Daycare and Center owners can both add staff.</p>
       </div>
       <div class="platform-placeholder-card">
-        <p>Coming next: invite staff by email, assign roles (Owner, Director, Teacher, Assistant), and control what each person can see.</p>
+        <p>Coming next: invite staff by email, assign roles (Owner, Director, Teacher, Assistant), and control classroom assignments and permissions.</p>
         <div class="resources-hub-actions">
           <button class="ghost-button" type="button" data-view="settings">Back to Settings</button>
           <button class="ghost-button" type="button" data-view="program-settings">Program Settings</button>
@@ -33825,7 +33960,7 @@ function renderPricingPage() {
       ${pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Choose Pro Annual" })}
     </div>
     <section class="section-block billing-links">
-      <button class="ghost-button back-button" data-view="account" type="button">← Back to Account</button>
+      <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
       <button class="ghost-button" data-view="upgrade" type="button">Upgrade Page</button>
       <button class="ghost-button" data-view="billing" type="button">Billing Management</button>
       <button class="ghost-button" data-view="subscription" type="button">Subscription Status</button>
@@ -33850,7 +33985,7 @@ function renderUpgradePage() {
       ${pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Checkout Annual" })}
     </div>
     <section class="section-block">
-      <button class="ghost-button back-button" data-view="account" type="button">← Back to Account</button>
+      <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
       <p class="eyebrow">Stripe Checkout</p>
       <h3>Secure payment handoff</h3>
       <p class="muted-copy">In production, these buttons create a Stripe Checkout Session on your server. In this local file, they run a safe test checkout simulation so billing permissions can be verified.</p>
@@ -33891,7 +34026,7 @@ function renderBillingPage() {
         <h3>${escapeHtml(currentUser || "Guest")}</h3>
         ${subscriptionSummaryHtml()}
         <div class="account-actions-row">
-          <button class="ghost-button back-button" data-view="account" type="button">← Back to Account</button>
+          <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
           <button class="primary-button" data-view="upgrade" type="button">${paidBilling ? "Change Plan" : "Upgrade to Pro"}</button>
           ${paidBilling ? `<button class="ghost-button" data-update-payment type="button">Update Payment Method</button>` : ""}
           <button class="ghost-button" data-view="billing-history" type="button">View Billing History</button>
@@ -33915,8 +34050,8 @@ function renderSubscriptionPage() {
     <section class="section-block">
       ${subscriptionSummaryHtml()}
       <div class="account-actions-row">
-        <button class="ghost-button back-button" data-view="account" type="button">← Back to Account</button>
-        <button class="ghost-button" data-view="plans" type="button">Pricing Page</button>
+      <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
+      <button class="ghost-button" data-view="plans" type="button">Pricing Page</button>
         <button class="ghost-button" data-view="billing" type="button">Billing Management</button>
         <button class="ghost-button" data-view="account" type="button">Account Page</button>
       </div>
@@ -33968,8 +34103,8 @@ function renderPaymentSuccessPage() {
       <h3>${escapeHtml(billingPlanLabel())} is active</h3>
       ${subscriptionSummaryHtml()}
       <div class="account-actions-row">
-        <button class="ghost-button back-button" data-view="account" type="button">← Back to Account</button>
-        <button class="primary-button" data-view="account" type="button">View Account</button>
+        <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
+        <button class="primary-button" data-view="settings" type="button">Open Settings</button>
         <button class="ghost-button" data-view="billing" type="button">Billing Management</button>
       </div>
     </section>
@@ -34156,6 +34291,15 @@ function renderAccountPage() {
   const signOutButton = document.querySelector("#signOutButton");
   if (!emailLabel || !planLabel || !statusLabel || !detailLabel || !favoritesTarget || !downloadsTarget) return;
 
+  const canBilling = canAccessPlatformFeature("billing");
+  const settings = getProgramSettings();
+  const notifyDaily = document.querySelector("#notifyDailyLogs");
+  const notifyObs = document.querySelector("#notifyObservations");
+  const notifyBilling = document.querySelector("#notifyBilling");
+  if (notifyDaily) notifyDaily.checked = settings.notifyDailyLogs !== false;
+  if (notifyObs) notifyObs.checked = settings.notifyObservations !== false;
+  if (notifyBilling) notifyBilling.checked = Boolean(settings.notifyBilling);
+
   if (!currentUser) {
     emailLabel.textContent = "Guest";
     planLabel.textContent = "Create a Free account or log in to save your work.";
@@ -34167,7 +34311,7 @@ function renderAccountPage() {
     }
     if (phoneInput) phoneInput.value = "";
     if (demoButton) demoButton.style.display = "inline-flex";
-    if (upgradeButton) upgradeButton.textContent = "Create Account First";
+    if (upgradeButton) upgradeButton.style.display = "none";
     if (resendButton) resendButton.style.display = "none";
     if (cancelButton) cancelButton.style.display = "none";
     if (signOutButton) signOutButton.style.display = "none";
@@ -34181,7 +34325,7 @@ function renderAccountPage() {
   const account = currentAccount();
   const paidBilling = accountHasPaidBilling(account);
   emailLabel.textContent = currentUser;
-  planLabel.textContent = `${billingPlanLabel(currentPlan, account)} account`;
+  planLabel.textContent = `${billingPlanLabel(currentPlan, account)} · ${getAccountType(account) === "center" ? "Center" : "Home Daycare"} · ${String(getUserRole(account)).replace(/_/g, " ")}`;
   if (verificationLabel) {
     verificationLabel.textContent = account?.emailVerified
       ? `Email verified through ${account?.authProvider || authProviderName}.`
@@ -34190,17 +34334,24 @@ function renderAccountPage() {
   }
   if (phoneInput) phoneInput.value = account?.phone || "";
   statusLabel.textContent = paidBilling ? account?.subscriptionStatus || `${billingPlanLabel(currentPlan, account)} Subscription Active` : "Free Plan";
-  detailLabel.innerHTML = paidBilling
-    ? `Current Plan: ${escapeHtml(billingPlanLabel(currentPlan, account))}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${account?.foundingMember ? "Lifetime" : "Regular Pro pricing"}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>Helper Usage: ${aiUsageCount()} of ${paidAiMonthlyLimit} used this billing month. Resets ${escapeHtml(aiResetLabel())}.<br>Your account has full in-app resources, menus, child profiles, portfolios, tracking tools, provider tools, future premium features, and ${paidAiMonthlyLimit} document creations per month.`
-    : `Your Free account includes 5 lesson plans, 10 observations, 6 forms, 8 activity ideas, ${freeAiMonthlyLimit} document creations per month, up to 3 child profiles, and the weekly observation tracker. Upgrade to Pro to spend less time on paperwork with parent messages, daily reports, portfolios, and faster documentation workflows. Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}. Helper Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`;
+  detailLabel.innerHTML = canBilling
+    ? (paidBilling
+      ? `Current Plan: ${escapeHtml(billingPlanLabel(currentPlan, account))}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${account?.foundingMember ? "Lifetime" : "Regular Pro pricing"}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>Helper Usage: ${aiUsageCount()} of ${paidAiMonthlyLimit} used this billing month. Resets ${escapeHtml(aiResetLabel())}.`
+      : `Your Free account includes core tools with Free limits. Manage upgrades in Settings → Membership &amp; Billing. Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}. Helper Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`)
+    : `Plan access on this account: ${escapeHtml(billingPlanLabel(currentPlan, account))}. Billing and subscription changes are managed by the program owner.`;
   if (demoButton) demoButton.style.display = "none";
   if (upgradeButton) {
-    upgradeButton.textContent = paidBilling ? "Manage Billing" : "Upgrade to Pro";
-    upgradeButton.disabled = false;
-    upgradeButton.classList.remove("disabled-control");
+    if (canBilling) {
+      upgradeButton.style.display = "inline-flex";
+      upgradeButton.textContent = paidBilling ? "Manage Billing" : "Upgrade to Pro";
+      upgradeButton.disabled = false;
+      upgradeButton.classList.remove("disabled-control");
+    } else {
+      upgradeButton.style.display = "none";
+    }
   }
   if (resendButton) resendButton.style.display = account?.emailVerified ? "none" : "inline-flex";
-  if (cancelButton) cancelButton.style.display = paidBilling ? "inline-flex" : "none";
+  if (cancelButton) cancelButton.style.display = canBilling && paidBilling ? "inline-flex" : "none";
   if (signOutButton) signOutButton.style.display = "inline-flex";
 
   const savedFavoriteResources = resources.filter((resource) => favorites.includes(resource.id) && isResourceVisibleToCurrentUser(resource));
@@ -34238,7 +34389,7 @@ function renderProgramSettingsPage() {
   // Populate plain text/select/url/tel inputs
   const simpleFields = [
     "programName", "providerName", "contactEmail", "contactPhone",
-    "website", "address", "stateLocation", "licenseNumber", "programType",
+    "website", "address", "stateLocation", "licenseNumber", "hoursOpen", "hoursClose", "programType",
     "curriculumUsed", "customCurriculumName", "teachingPhilosophy",
     "signatureName", "signatureTitle",
     "defaultWritingStyle", "defaultTone",
@@ -35182,6 +35333,11 @@ document.addEventListener("click", async (event) => {
       navOptions.weekStartDate = viewButton.dataset.dashSelectWeek;
     }
     setView(viewButton.dataset.view, navOptions);
+    if (viewButton.dataset.settingsAnchor === "notifications") {
+      requestAnimationFrame(() => {
+        document.querySelector("#accountNotifications")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
     return;
   }
 
@@ -39328,6 +39484,10 @@ document.querySelector("#accountUpgradeButton")?.addEventListener("click", () =>
     openAuthModal("signup");
     return;
   }
+  if (!canAccessPlatformFeature("billing")) {
+    setView("settings");
+    return;
+  }
   setView(isProUser() ? "billing" : "upgrade");
 });
 
@@ -40041,19 +40201,20 @@ document.addEventListener("submit", (event) => {
 document.addEventListener("submit", (event) => {
   if (!event.target.matches("#groupUpdateForm")) return;
   event.preventDefault();
-  if (!isProUser()) {
-    showProFeatureModal("Group Update is a Pro feature.");
-    return;
-  }
   const form = event.target;
   const data = collectFormData(form);
   const actionId = data.action || "";
+  // Announcements / reminders remain Pro; core group meals & activities are part of Daily Logs.
+  if (["announcement", "reminder"].includes(actionId) && !isProUser()) {
+    showProFeatureModal("Parent announcements and reminders are Pro features.");
+    return;
+  }
   const formData = new FormData(form);
   const childIds = formData.getAll("childIds");
   const shareWithFamily = dlcFormShareFlag(form, actionId === "announcement" || actionId === "reminder");
   if (!childIds.length) return;
   childIds.forEach((childId) => {
-    const today = data.date || new Date().toISOString().slice(0, 10);
+    const today = data.date || dlcActiveDate();
     if (actionId === "meals" || actionId === "lunch") {
       appendChildRecord("Meals", { childId, date: today, lunch: data.content, notes: data.notes || "", title: `Meals | ${today}`, summary: `Lunch: ${data.content}`, shareWithFamily });
     } else if (actionId === "snacks") {
@@ -40068,7 +40229,7 @@ document.addEventListener("submit", (event) => {
   });
   dailyLogsGroupAction = "";
   renderChildManagement();
-  showActionFeedback("Group update saved.");
+  showActionFeedback("Group log saved to selected children.");
 });
 
 // ─── New Daily Log Accordion Form Handlers ──────────────────────────────────
@@ -40290,6 +40451,76 @@ installMobileNavigation();
 registerPwaSupport();
 
 // ─── Program Settings Form Submit ──────────────────────────────────────────
+
+document.querySelector("#notificationSettingsForm")?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const messageEl = document.querySelector("#notificationSettingsMessage");
+  if (!currentUser) {
+    if (messageEl) messageEl.textContent = "Please log in to save notifications.";
+    return;
+  }
+  const form = event.target;
+  const next = {
+    ...getProgramSettings(),
+    notifyDailyLogs: Boolean(form.notifyDailyLogs?.checked),
+    notifyObservations: Boolean(form.notifyObservations?.checked),
+    notifyBilling: Boolean(form.notifyBilling?.checked),
+  };
+  saveProgramSettings(next);
+  if (messageEl) {
+    messageEl.textContent = "Notification preferences saved.";
+    messageEl.classList.add("success");
+    setTimeout(() => { if (messageEl) messageEl.textContent = ""; }, PROGRAM_SETTINGS_MESSAGE_TIMEOUT_MS);
+  }
+});
+
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("#formsSettingsForm")) return;
+  event.preventDefault();
+  const form = event.target;
+  const messageEl = document.querySelector("#formsSettingsMessage");
+  if (!currentUser) {
+    if (messageEl) messageEl.textContent = "Please log in to save Forms Settings.";
+    return;
+  }
+  const next = {
+    ...getProgramSettings(),
+    digitalSignatures: Boolean(form.digitalSignatures?.checked),
+    enrollmentReminders: Boolean(form.enrollmentReminders?.checked),
+    enrollmentPacketNote: String(form.enrollmentPacketNote?.value || "").trim(),
+    formTemplateFocus: String(form.formTemplateFocus?.value || "").trim(),
+  };
+  saveProgramSettings(next);
+  if (messageEl) {
+    messageEl.textContent = "Forms settings saved.";
+    messageEl.classList.add("success");
+    setTimeout(() => { if (messageEl) messageEl.textContent = ""; }, PROGRAM_SETTINGS_MESSAGE_TIMEOUT_MS);
+  }
+});
+
+document.addEventListener("submit", (event) => {
+  if (!event.target.matches("#curriculumSettingsForm")) return;
+  event.preventDefault();
+  const form = event.target;
+  const messageEl = document.querySelector("#curriculumSettingsMessage");
+  if (!currentUser) {
+    if (messageEl) messageEl.textContent = "Please log in to save Curriculum Settings.";
+    return;
+  }
+  const next = {
+    ...getProgramSettings(),
+    weekStartDay: String(form.weekStartDay?.value || "monday"),
+    defaultLessonAgeGroup: String(form.defaultLessonAgeGroup?.value || "").trim(),
+    showHolidaysOnCalendar: Boolean(form.showHolidaysOnCalendar?.checked),
+    preferWeeklyPlanner: Boolean(form.preferWeeklyPlanner?.checked),
+  };
+  saveProgramSettings(next);
+  if (messageEl) {
+    messageEl.textContent = "Curriculum settings saved.";
+    messageEl.classList.add("success");
+    setTimeout(() => { if (messageEl) messageEl.textContent = ""; }, PROGRAM_SETTINGS_MESSAGE_TIMEOUT_MS);
+  }
+});
 
 document.querySelector("#programSettingsForm")?.addEventListener("submit", (event) => {
   event.preventDefault();

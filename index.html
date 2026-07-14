@@ -648,6 +648,8 @@
         <section id="view-support-center" class="view"></section>
         <section id="view-resources" class="view"></section>
         <section id="view-settings" class="view"></section>
+        <section id="view-forms-settings" class="view"></section>
+        <section id="view-curriculum-settings" class="view"></section>
         <section id="view-staff" class="view"></section>
         <section id="view-classrooms" class="view"></section>
         <section id="view-families" class="view"></section>
@@ -902,10 +904,11 @@
         </section>
 
         <section id="view-billing" class="view">
+          <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
           <div class="page-title">
-            <p class="eyebrow">Billing Management</p>
+            <p class="eyebrow">Membership &amp; Billing</p>
             <h2>Manage subscription, payment method, and invoices.</h2>
-            <p>Review current billing status, update payment details, cancel, or return to checkout.</p>
+            <p>Review current billing status, update payment details, cancel, or return to checkout. Owner access only.</p>
           </div>
           <div id="billingApp"></div>
         </section>
@@ -992,10 +995,11 @@
         </section>
 
         <section id="view-account" class="view">
+          <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
           <div class="page-title">
             <p class="eyebrow">Account</p>
-            <h2>User Account</h2>
-            <p>Manage account access, email verification, password recovery, billing status, saved favorites, and saved downloads.</p>
+            <h2>Profile &amp; security</h2>
+            <p>Manage profile, recovery settings, notifications, and account access. Billing lives under Settings → Membership &amp; Billing for owners.</p>
           </div>
           <div class="account-layout">
             <section class="account-panel">
@@ -1043,6 +1047,18 @@
             </div>
             <div id="onboardingChecklist"></div>
           </section>
+          <section class="section-block account-security-panel" id="accountNotifications">
+            <div class="section-heading">
+              <div><p class="eyebrow">Notifications</p><h3>Reminders and alerts</h3></div>
+            </div>
+            <form id="notificationSettingsForm" class="panel-form">
+              <label class="settings-check-label"><input type="checkbox" name="notifyDailyLogs" id="notifyDailyLogs" /> Remind me to finish Daily Logs</label>
+              <label class="settings-check-label"><input type="checkbox" name="notifyObservations" id="notifyObservations" /> Remind me about weekly observations</label>
+              <label class="settings-check-label"><input type="checkbox" name="notifyBilling" id="notifyBilling" /> Email me about billing and plan changes</label>
+              <button class="primary-button" type="submit">Save Notifications</button>
+              <span class="form-message" id="notificationSettingsMessage" aria-live="polite"></span>
+            </form>
+          </section>
           <section class="section-block account-install-panel">
             <div class="section-heading">
               <div><p class="eyebrow">📱 Install App</p><h3>Add Little Learner Hub to your Home Screen</h3></div>
@@ -1066,11 +1082,11 @@
         </section>
 
         <section id="view-program-settings" class="view">
-          <button class="ghost-button back-button" data-view="account" type="button">← Back to Account</button>
+          <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
           <div class="page-title">
             <p class="eyebrow">Program Settings</p>
-            <h2>Program Settings</h2>
-            <p>Add as much or as little as you&rsquo;d like. Little Learner Hub uses this information to personalize reports, parent communication, and AI-generated documents automatically.</p>
+            <h2>Business information &amp; branding</h2>
+            <p>Add as much or as little as you&rsquo;d like. Little Learner Hub uses this information to personalize reports, parent communication, and documents.</p>
           </div>
           <form id="programSettingsForm" novalidate>
             <!-- Section 1: Basic Program Information -->
@@ -1092,6 +1108,8 @@
                 <label>Address<input type="text" name="address" placeholder="123 Main St, City, State 12345" autocomplete="street-address" /></label>
                 <label>State<input type="text" name="stateLocation" placeholder="State" /></label>
                 <label>License Number<input type="text" name="licenseNumber" placeholder="License number (optional)" /></label>
+                <label>Opening Time<input type="time" name="hoursOpen" /></label>
+                <label>Closing Time<input type="time" name="hoursClose" /></label>
                 <label>Program Type
                   <select name="programType">
                     <option value="">Select program type (optional)</option>

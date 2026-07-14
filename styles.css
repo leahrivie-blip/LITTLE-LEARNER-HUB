@@ -17353,3 +17353,42 @@ body.lesson-editor-view .main {
     width: 100%;
   }
 }
+
+/* Settings hub groups (Phase 5) */
+.settings-hub-identity {
+  margin-top: 6px;
+  text-transform: capitalize;
+}
+
+.settings-hub-groups {
+  display: grid;
+  gap: 24px;
+}
+
+.settings-hub-group-header h3 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+}
+
+.settings-hub-group-header p {
+  margin: 0 0 12px;
+  color: #6b7785;
+}
+
+.settings-hub-card-disabled {
+  opacity: 0.72;
+  cursor: default;
+}
+
+.settings-subpage,
+.settings-subpage-form {
+  display: grid;
+  gap: 14px;
+  max-width: 720px;
+}
+
+.settings-subpage-form .settings-check-label {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
