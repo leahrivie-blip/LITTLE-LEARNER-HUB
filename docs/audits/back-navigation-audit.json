@@ -1,0 +1,282 @@
+{
+  "generatedAt": "2026-07-14T16:31:30.335Z",
+  "summary": {
+    "checked": 45,
+    "pass": 45,
+    "needsImprovement": 0,
+    "fail": 0
+  },
+  "findings": [
+    {
+      "id": "view-home",
+      "status": "PASS",
+      "detail": "Primary hub / admin — sidebar return is enough",
+      "severity": null
+    },
+    {
+      "id": "view-calendar",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-planner",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-curriculum-planner",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-dashboard-tasks",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-favorites",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-reports",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-lessons",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-lesson-editor",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-support-center",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-resources",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-settings",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-forms-settings",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-curriculum-settings",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-staff",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-classrooms",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-families",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-enrollment",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-observations",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-forms",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-activities",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-menus",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-ai",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-admin",
+      "status": "PASS",
+      "detail": "Primary hub / admin — sidebar return is enough",
+      "severity": null
+    },
+    {
+      "id": "view-plans",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-legal",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-upgrade",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-billing",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-subscription",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-billing-history",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-payment-success",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-payment-failed",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-cancel-subscription",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-generators",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-tools",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-children",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-account",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-program-settings",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-reset-password",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-faq",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "view-contact",
+      "status": "PASS",
+      "detail": "Has back control in markup",
+      "severity": null
+    },
+    {
+      "id": "resource-viewer-back",
+      "status": "PASS",
+      "detail": "Lesson/resource viewer back helpers",
+      "severity": null
+    },
+    {
+      "id": "lesson-workspace-back",
+      "status": "PASS",
+      "detail": "Lesson workspace dedicated back control",
+      "severity": null
+    },
+    {
+      "id": "contextual-back",
+      "status": "PASS",
+      "detail": "Contextual back stack for calendar/children/ai",
+      "severity": null
+    },
+    {
+      "id": "auth-modal-close",
+      "status": "PASS",
+      "detail": "Auth modal dismiss path",
+      "severity": null
+    }
+  ],
+  "deadEnds": []
+}

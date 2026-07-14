@@ -1,0 +1,13 @@
+{
+  "generatedAt": "2026-07-14T16:37:34.353Z",
+  "summary": {
+    "scannedFiles": 37,
+    "completePlans": 37,
+    "incompletePlans": 0,
+    "criticalPlans": 0,
+    "overviewOnlyRisk": 0,
+    "parseFailures": 0
+  },
+  "incomplete": [],
+  "parseFailures": []
+}

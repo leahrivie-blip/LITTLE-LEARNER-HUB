@@ -520,8 +520,6 @@ Open movement area.
 TEACHER_ROLE:
 Celebrate participation and learning.
 
-
-Next
 DIRECTIONS:
 1. Dance and move while celebrating the week's adventures.
 LEARNING_GOALS:

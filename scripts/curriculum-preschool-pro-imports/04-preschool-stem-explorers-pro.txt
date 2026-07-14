@@ -526,8 +526,6 @@ Open movement area.
 TEACHER_ROLE:
 Encourage participation and reflection.
 
-
-Next
 DIRECTIONS:
 1. Dance and move.
 2. Celebrate discoveries.

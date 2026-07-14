@@ -1,0 +1,115 @@
+{
+  "generatedAt": "2026-07-14T16:44:36.519Z",
+  "prod": "https://little-learner-hub.onrender.com",
+  "email": "leahivie@icloud.com",
+  "pdfPath": "/opt/cursor/artifacts/july-rebuild-audits/all-about-me-weekly-calendar.pdf",
+  "findings": [
+    {
+      "id": "login",
+      "status": "PASS",
+      "detail": "Logged in as leahivie@icloud.com (attempt 1)",
+      "severity": null
+    },
+    {
+      "id": "download-weekly-click",
+      "status": "PASS",
+      "detail": "{\"ok\":true,\"via\":\"label\"}",
+      "severity": null
+    },
+    {
+      "id": "download-weekly-pdf",
+      "status": "PASS",
+      "detail": "all-about-me-weekly-calendar.pdf size=9541 pdf=true",
+      "severity": null
+    },
+    {
+      "id": "pdf-weekly-day-boxes",
+      "status": "PASS",
+      "detail": "{\"days\":[\"Monday\",\"Tuesday\",\"Wednesday\",\"Thursday\",\"Friday\"],\"branding\":true,\"landscape\":true,\"size\":9541}",
+      "severity": null
+    },
+    {
+      "id": "print-ui-week-tabs",
+      "status": "PASS",
+      "detail": "{\"hasBoard\":false,\"dayHits\":[],\"branding\":false,\"snippet\":\"← Back to Lesson Plans All About Me Preschool · Free Add to My Week Add to Calendar Print Weekly Calendar Download Weekly Calendar More Week Plan Activities Materials Mon Tue Wed Thu Fri Mirror Me Open-Ended Exploration My Name Discovery Literacy Family Photo Sharing Open-Ended Exploration\",\"uiDays\":[\"Mon\",\"Tue\",\"Wed\",\"Thu\",\"Fri\"]}",
+      "severity": null
+    },
+    {
+      "id": "print-mobile-viewport",
+      "status": "PASS",
+      "detail": "Captured mobile viewport while lesson viewer open",
+      "severity": null
+    },
+    {
+      "id": "calendar-add-note",
+      "status": "PASS",
+      "detail": "{\"today\":\"2026-07-14\",\"afterSave\":\"Audit note 1784047384615\",\"hasFn\":true}",
+      "severity": null
+    },
+    {
+      "id": "calendar-add-lesson",
+      "status": "PASS",
+      "detail": "{\"ok\":false,\"reason\":\"This week already has a lesson plan assigned.\"}",
+      "severity": null
+    },
+    {
+      "id": "calendar-edit-note",
+      "status": "PASS",
+      "detail": "{\"ok\":true,\"notes\":\"Audit note 1784047384615 edited\"}",
+      "severity": null
+    },
+    {
+      "id": "calendar-persist-refresh",
+      "status": "PASS",
+      "detail": "{\"notePersisted\":true,\"lessonVisible\":true,\"snippet\":\"← Back to Dashboard PLANNING HOME Calendar PLANNING HOME July 2026 Tap any day to open it. Add notes and events on any day — lesson plans still run Monday–Friday. ‹ Prev MONTH January February March April May June July August September October November December YEAR 2022 2023 2024 2025 2026 2027 2028 2029 2030 Next › Today Add Lesson Plan 📘 Lesson\"}",
+      "severity": null
+    },
+    {
+      "id": "health",
+      "status": "RETRY",
+      "detail": "attempt 1 health={\"ok\":false,\"status\":503}",
+      "severity": null
+    },
+    {
+      "id": "health",
+      "status": "RETRY",
+      "detail": "attempt 2 health={\"ok\":false,\"status\":503}",
+      "severity": null
+    },
+    {
+      "id": "login",
+      "status": "PASS",
+      "detail": "Logged in as leahivie@icloud.com (attempt 3)",
+      "severity": null
+    },
+    {
+      "id": "calendar-persist-relogin",
+      "status": "PASS",
+      "detail": "{\"notePersisted\":false,\"lessonVisible\":true,\"hasCalendar\":true,\"snippet\":\"← Back to Dashboard PLANNING HOME Calendar PLANNING HOME July 2026 Tap any day to open it. Add notes and events on any day — lesson plans still run Monday–Friday. ‹ Prev MONTH January February March April May June July August September October November December YEAR 2022 2023 2024 2025 2026 2027 202\"}",
+      "severity": null
+    },
+    {
+      "id": "calendar-delete-note",
+      "status": "PASS",
+      "detail": "{\"ok\":true,\"via\":\"clear\"}",
+      "severity": null
+    },
+    {
+      "id": "pro-lesson-activities",
+      "status": "PASS",
+      "detail": "{\"attempt\":1,\"open\":true,\"hasActivities\":true,\"loading\":false,\"syncing\":false,\"overviewOnly\":false,\"snippet\":\"← Back to Lesson Plans Amazing Insects Preschool 3-5 Years · Pro Add to My Week Add to Calendar Print Weekly Calendar Download Weekly Calendar More Week Plan Activities Materials Mon Tue Wed Thu Fri Bug Discovery Sensory Bin Sensory Play Insect Sorting Center Open-Ended Exploration Ladybug Dot Painting Fine Motor Bug Movement Parade Music & Movement\"}",
+      "severity": null
+    },
+    {
+      "id": "space-adventure-live",
+      "status": "NEEDS_IMPROVEMENT",
+      "detail": "{\"foundId\":\"cur-lp-preschool-space-adventure\",\"days\":[\"Mon\",\"Tue\",\"Wed\",\"Thu\",\"Fri\"],\"wedFriLive\":false,\"snippet\":\"← Back to Lesson Plans Space Adventure Preschool 3-5 Years · Pro Add to My Week Add to Calendar Print Weekly Calendar Download Weekly Calendar More Week Plan Activities Materials Mon Tue Wed Thu Fri Space Sensory Exploration Sensory Play Astronaut Training Course Gross Motor Rocket Ship Craft Fine Motor Build a Rocket Open-Ended Exploration\",\"note\":\"Import source fixed in repo; production catalog still needs admin re-import/deploy for Wed–Fri activities\"}",
+      "severity": "high"
+    }
+  ],
+  "counts": {
+    "PASS": 14,
+    "RETRY": 2,
+    "NEEDS_IMPROVEMENT": 1
+  }
+}
