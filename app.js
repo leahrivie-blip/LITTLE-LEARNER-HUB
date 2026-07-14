@@ -24036,11 +24036,36 @@ function attendanceStateMeta(state) {
   }[state] || { label: "Not checked in", badge: "⚪", className: "dlc-att-not-arrived", statusText: "Waiting" };
 }
 
+function dailyLogCompletionChips(child, records, today) {
+  const status = getDailyLogStatus(child, records, today);
+  const id = child.id;
+  const chips = [
+    { ok: records.attendance.some((r) => r.childId === id && r.date === today), label: "Attendance" },
+    { ok: records.meals.some((r) => r.childId === id && r.date === today), label: "Meals" },
+    { ok: records.naps.some((r) => r.childId === id && r.date === today), label: "Naps" },
+    { ok: records.diapers.some((r) => r.childId === id && r.date === today), label: "Diaper/Potty" },
+    { ok: records.activityLogs.some((r) => r.childId === id && r.date === today), label: "Activities" },
+  ];
+  const done = chips.filter((c) => c.ok).length;
+  const statusLabel = status === "complete" ? "Day complete" : status === "in-progress" ? "In progress" : "Not started";
+  return `
+    <div class="dlc-completion-row" aria-label="Daily log progress">
+      <span class="dlc-completion-status dlc-completion-${escapeHtml(status)}">${escapeHtml(statusLabel)} · ${done}/${chips.length}</span>
+      <div class="dlc-completion-chips">
+        ${chips.map((chip) => `
+          <span class="dlc-chip ${chip.ok ? "is-done" : "is-missing"}" title="${escapeHtml(chip.label)}">${chip.ok ? "✓" : "○"} ${escapeHtml(chip.label)}</span>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
 // Render a child status card for the Daily Logs dashboard (attendance-first)
 function renderDlcChildStatusCard(child, records, today) {
   const state = getChildAttendanceState(child, records, today);
   const meta = attendanceStateMeta(state);
   const attendance = getChildAttendanceRecord(child, records, today);
+  const reminders = buildDailyLogReminders(child, records, today).slice(0, 2);
   const detail = state === "checked_in" && attendance?.dropoff
     ? `Checked In ${formatDlcClock(attendance.dropoff)}`
     : state === "checked_out" && attendance?.pickup
@@ -24061,6 +24086,8 @@ function renderDlcChildStatusCard(child, records, today) {
           <h4>${escapeHtml(child.name)}</h4>
           <span class="dlc-child-card-age">${escapeHtml(childAgeLabel(child))}</span>
           <span class="dlc-child-card-arrival">${escapeHtml(detail)}</span>
+          ${dailyLogCompletionChips(child, records, today)}
+          ${reminders.length ? `<span class="dlc-card-reminder">${escapeHtml(reminders.join(" · "))}</span>` : ""}
         </div>
         <span class="dlc-status-badge ${meta.className}">${escapeHtml(meta.statusText)}</span>
       </button>
@@ -24497,7 +24524,7 @@ function dlcFormShareFlag(form, fallback = true) {
 }
 
 function renderDlcAccordionForm(sectionId, records) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dlcActiveDate();
   const childSel = renderDlcChildSelector(records);
   const selectedChildId = dlcGetSelectedChildren(records)[0]?.id || "";
   const mealSuggestions = recentDailyLogValues(records.meals, "lunch", selectedChildId, 6);
@@ -24933,14 +24960,14 @@ function buildDailyLogLines(child, records, today) {
   ];
 }
 
-function printDailyLog(childId, today = new Date().toISOString().slice(0, 10)) {
+function printDailyLog(childId, today = dlcActiveDate()) {
   const records = childRecords();
   const child = records.children.find((item) => item.id === childId);
   if (!child) return;
   printTextDocument(`${child.name} Daily Log`, buildDailyLogLines(child, records, today).join("\n"));
 }
 
-function printAllDailyLogs(today = new Date().toISOString().slice(0, 10)) {
+function printAllDailyLogs(today = dlcActiveDate()) {
   const records = childRecords();
   const activeChildren = getActiveChildren(records);
   if (!activeChildren.length) {
@@ -24964,7 +24991,7 @@ function dlcRequestedOutputSet(requestedOutputs = []) {
 async function parseDailyLogNote(note, selectedChildren, records, requestedOutputs = []) {
   const suggestions = [];
   const noteLower = note.toLowerCase();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dlcActiveDate();
   const childNames = selectedChildren.map((c) => c.name);
   const programSettings = getProgramSettings();
   const programName = programSettings.programName || "";
@@ -25212,7 +25239,7 @@ async function parseDailyLogNote(note, selectedChildren, records, requestedOutpu
 function dlcSaveSuggestion(sug, idx) {
   const records = childRecords();
   const selectedChildren = dlcGetSelectedChildren(records);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dlcActiveDate();
   const shareFlag = sug.shareWithFamily !== false;
 
   if (sug.type === "meals") {
@@ -25700,7 +25727,7 @@ function renderDailyLogsOverviewTab(child, records, today) {
 }
 
 function renderDailyLogsQuickDoc(records) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dlcActiveDate();
   const quickDocOptions = [
     { value: "observation", label: "Observation", pro: false },
     { value: "parent-message", label: "Parent Message", pro: true },
@@ -26648,7 +26675,7 @@ async function buildDailyReportFromChild(childId, quickNote) {
   const records = childRecords();
   const child = records.children.find((item) => item.id === childId);
   if (!child) return;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dlcActiveDate();
   const programSettings = getProgramSettings();
   const programName = programSettings.programName || "";
   const tone = programSettings.communicationTone || "Warm and friendly";
@@ -37366,9 +37393,18 @@ document.addEventListener("click", async (event) => {
     const actionId = dlcQuickActionBtn.dataset.dlcQuickAction || "";
     const childId = dlcQuickActionBtn.dataset.dlcQuickChild || selectedChildId;
     if (!actionId || !childId) return;
-    saveDailyLogQuickAction(actionId, childId, { date: dlcActiveDate() });
     const afterTab = dlcQuickActionBtn.dataset.dlcAfterTab || "";
-    if (afterTab && !["check-in", "check-out", "absent"].includes(actionId)) {
+    const formOnlyActions = new Set(["meal", "nap", "diaper", "activity", "photo", "observation", "incident", "parent-message", "daily-log"]);
+    const isAttendance = ["check-in", "check-out", "absent"].includes(actionId);
+    if (isAttendance || !formOnlyActions.has(actionId)) {
+      saveDailyLogQuickAction(actionId, childId, { date: dlcActiveDate() });
+      trackEvent(actionId === "check-in" || actionId === "check-out" || actionId === "absent" ? "daily_log_created" : "button_click", {
+        action: actionId,
+        childId,
+        date: dlcActiveDate(),
+      });
+    }
+    if (afterTab && !isAttendance) {
       selectedChildId = childId;
       localStorage.setItem("llhSelectedChild", selectedChildId);
       dailyLogsSection = "individual";
@@ -37379,15 +37415,15 @@ document.addEventListener("click", async (event) => {
       "check-in": "Checked in",
       "check-out": "Checked out",
       absent: "Marked absent",
-      "daily-log": "Daily note started",
-      observation: "Observation started",
-      incident: "Incident report started",
-      "parent-message": "Parent message started",
-      photo: "Photo entry started",
-      meal: "Meal logged",
-      nap: "Nap logged",
-      diaper: "Diaper / potty logged",
-      activity: "Activity logged",
+      "daily-log": "Opening notes…",
+      observation: "Opening observation form…",
+      incident: "Opening incident form…",
+      "parent-message": "Opening parent message…",
+      photo: "Opening photos…",
+      meal: "Opening meals…",
+      nap: "Opening naps…",
+      diaper: "Opening diaper / potty…",
+      activity: "Opening activities…",
     };
     showActionFeedback(labels[actionId] || "Saved.");
     renderChildManagement();
@@ -37713,7 +37749,7 @@ document.addEventListener("click", async (event) => {
     const summaryText = summaryInput?.value?.trim() || "";
     if (!summaryText) return;
     const shareCheckbox = document.querySelector(`[data-dlc-summary-share="${childId}"]`);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = dlcActiveDate();
     setDailyLogParentSummaryDraft(childId, today, summaryText);
     appendChildRecord("Communications", {
       childId,
@@ -42232,7 +42268,7 @@ document.addEventListener("submit", async (event) => {
   if (!childIds.length || !files.length) return;
   const data = collectFormData(form);
   const shareWithFamily = dlcFormShareFlag(form, true);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dlcActiveDate();
   const records = childRecords();
   if (!isProUser()) {
     const overLimitChild = childIds.find((childId) => ((records.photos || []).filter((item) => item.childId === childId && item.date === today).length + files.length) > dailyLogPhotoLimit());

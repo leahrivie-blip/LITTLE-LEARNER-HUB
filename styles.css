@@ -8259,6 +8259,55 @@ body.lessons-view .mobile-brand {
   color: var(--ink-muted);
 }
 
+.dlc-completion-row {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  text-align: left;
+}
+
+.dlc-completion-status {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.dlc-completion-complete { color: #2f6b4f; }
+.dlc-completion-in-progress { color: #8a6d1d; }
+.dlc-completion-not-started { color: var(--muted); }
+
+.dlc-completion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.dlc-chip {
+  font-size: 0.68rem;
+  border-radius: 999px;
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--muted);
+}
+
+.dlc-chip.is-done {
+  background: #e8f6ee;
+  border-color: #b7dfc6;
+  color: #2f6b4f;
+}
+
+.dlc-chip.is-missing {
+  background: #f7f7f7;
+}
+
+.dlc-card-reminder {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.7rem;
+  color: #8a6d1d;
+}
+
 /* Status badges */
 
 .dlc-status-badge {
