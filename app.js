@@ -3443,6 +3443,7 @@ const sidebarViewAliases = {
   help: "contact",
   "support-licensing": "resources",
   "provider-resources": "resources",
+  "behavior-support": "support-center",
 };
 
 const sidebarFutureToolTargets = {
@@ -7926,18 +7927,33 @@ function syncPlatformNavVisibility() {
 function isPlatformNavActive(buttonView, requestedView, resolvedView) {
   if (!buttonView) return false;
   if (buttonView === requestedView) return true;
+  // Dedicated alias links (Daily Logs, Behavior & Support) should not also
+  // highlight their resolved destination (Child Profiles / Resources).
+  if (requestedView !== resolvedView && buttonView === resolvedView) {
+    const aliasHasOwnNav = Boolean(
+      childToolTabFromView(requestedView)
+      || requestedView === "behavior-support"
+      || requestedView === "membership"
+    );
+    if (aliasHasOwnNav) return false;
+  }
   if (buttonView === resolvedView) return true;
-  if (buttonView === "resources" && ["resources", "support-center", "menus", "observations"].includes(resolvedView)) {
+  if (buttonView === "resources" && ["resources", "support-center", "menus", "observations"].includes(resolvedView) && requestedView !== "behavior-support") {
     return true;
   }
+  // Billing and Staff have their own sidebar items — do not also mark Settings active.
   if (
     buttonView === "settings"
-    && ["settings", "account", "program-settings", "forms-settings", "curriculum-settings", "billing", "subscription", "billing-history", "contact", "faq", "plans", "upgrade", "staff", "cancel-subscription"].includes(resolvedView)
+    && ["settings", "account", "program-settings", "forms-settings", "curriculum-settings", "subscription", "billing-history", "contact", "faq", "plans", "upgrade", "cancel-subscription"].includes(resolvedView)
   ) {
+    return true;
+  }
+  if (buttonView === "billing" && ["billing", "subscription", "billing-history", "cancel-subscription"].includes(resolvedView)) {
     return true;
   }
   if (buttonView === "calendar" && resolvedView === "planner") return true;
   if (buttonView === "ai" && resolvedView === "generators") return true;
+  if (buttonView === "home" && resolvedView === "home") return true;
   return false;
 }
 
@@ -8213,6 +8229,11 @@ function setView(view, options = {}) {
     && !options.skipLessonEditorGuard
     && !canLeaveUserLessonEditor({ type: "view", view: resolvedView, options })
   ) return;
+  if (requestedView === "behavior-support") {
+    activeSupportCategoryId = "behavior-emotions";
+    activeSupportTopicId = "";
+    activeSupportArticleId = "";
+  }
   if (requestedChildToolTab === "daily-logs") {
     childManagementMode = "daily-logs";
     dailyLogsSection = "home";
