@@ -50,10 +50,10 @@ The backend enforces AI limits:
 
 ## 4. HTTPS Domain
 
-When the website is hosted, update `.env`:
+When the website is hosted, update `.env` / Render Environment:
 
 ```bash
-SITE_URL=https://your-real-domain.com
+SITE_URL=https://www.littlelearnerhub.com
 ```
 
 Use that same domain for Stripe redirect URLs and webhook setup.
@@ -61,7 +61,16 @@ Use that same domain for Stripe redirect URLs and webhook setup.
 Stripe webhook URL:
 
 ```bash
-https://your-real-domain.com/api/webhooks/stripe
+https://www.littlelearnerhub.com/api/webhooks/stripe
+```
+
+**Important:** `littlelearnerhub.com` must DNS-point at the Render service (`little-learner-hub.onrender.com`), not Bluehost.  
+If the custom domain shows a stuck Cloudflare “Just a moment…” page, follow **`docs/DOMAIN_DNS_FIX.md`**.
+
+Until DNS is fixed, the working public URL is:
+
+```bash
+https://little-learner-hub.onrender.com/
 ```
 
 The project includes basic Node hosting files:

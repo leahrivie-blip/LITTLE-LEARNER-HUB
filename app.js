@@ -8296,8 +8296,14 @@ function registerPwaSupport() {
         console.warn("Service worker registration failed", error);
       });
       let refreshing = false;
+      let hadController = Boolean(navigator.serviceWorker.controller);
       navigator.serviceWorker.addEventListener("controllerchange", () => {
-        if (refreshing) return;
+        // Reload only when replacing an already-controlling worker (deploy update),
+        // not on the very first SW claim.
+        if (refreshing || !hadController) {
+          hadController = Boolean(navigator.serviceWorker.controller);
+          return;
+        }
         refreshing = true;
         window.location.reload();
       });

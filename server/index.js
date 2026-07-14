@@ -7421,6 +7421,21 @@ function handleBillingReadiness(request, response) {
 
 function handleHealth(request, response) {
   const store = readStore();
+  const host = String(request.headers.host || "").split(":")[0].toLowerCase();
+  const configuredHost = (() => {
+    try {
+      return new URL(SITE_URL).hostname.toLowerCase();
+    } catch {
+      return "";
+    }
+  })();
+  const knownAppHosts = new Set([
+    configuredHost,
+    "little-learner-hub.onrender.com",
+    "localhost",
+    "127.0.0.1",
+  ].filter(Boolean));
+  const customDomainHosts = ["littlelearnerhub.com", "www.littlelearnerhub.com"];
   jsonResponse(response, 200, {
     ok: true,
     service: "Little Learner Hub",
@@ -7429,6 +7444,14 @@ function handleHealth(request, response) {
     launchReady: launchReadinessStatus().ready,
     supportEmailReady: supportEmailConfigStatus().ready,
     founding: foundingStatusPayload(store),
+    domain: {
+      requestHost: host || null,
+      configuredSiteUrl: SITE_URL,
+      configuredHost: configuredHost || null,
+      servingKnownAppHost: knownAppHosts.has(host),
+      customDomainTargets: customDomainHosts,
+      note: "If littlelearnerhub.com shows a Cloudflare 'Just a moment' / security check and never loads, DNS is still pointing at Bluehost instead of this Render service. Point www CNAME to little-learner-hub.onrender.com and set SITE_URL to https://www.littlelearnerhub.com.",
+    },
   });
 }
 
