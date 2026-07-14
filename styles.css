@@ -14989,6 +14989,72 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
     font-size: 10pt !important;
   }
 
+  /* Weekly Calendar print matches DOCX board: landscape Mon–Fri columns */
+  @page lesson-week-landscape {
+    size: letter landscape;
+    margin: 0.4in;
+  }
+
+  body.printing-lesson-week .lesson-week-schedule-print {
+    page: lesson-week-landscape;
+  }
+
+  body.printing-lesson-week .lesson-week-snapshot,
+  body.printing-lesson-week .lesson-week-teacher-prep,
+  body.printing-lesson-week .lesson-week-materials-summary,
+  body.printing-lesson-week .lesson-week-resources,
+  body.printing-lesson-week .lesson-week-teacher-notes,
+  body.printing-lesson-week .lesson-week-print-footer {
+    display: none !important;
+  }
+
+  body.printing-lesson-week .lesson-week-schedule-header {
+    padding: 8pt 10pt !important;
+    border-radius: 0 !important;
+    margin-bottom: 8pt;
+  }
+
+  body.printing-lesson-week .lesson-week-schedule-header h3 {
+    font-size: 14pt !important;
+    margin: 2pt 0 6pt !important;
+  }
+
+  body.printing-lesson-week .lesson-week-schedule-meta {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 6pt !important;
+  }
+
+  body.printing-lesson-week .lesson-week-schedule-section h3 {
+    display: none !important;
+  }
+
+  body.printing-lesson-week .lesson-week-day-stack {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 6pt !important;
+    align-items: stretch;
+  }
+
+  body.printing-lesson-week .lesson-week-day-block {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    min-height: 0;
+  }
+
+  body.printing-lesson-week .lesson-week-activity-cards {
+    gap: 4pt !important;
+    padding: 6pt !important;
+  }
+
+  body.printing-lesson-week .lesson-week-activity-card {
+    padding: 4pt 5pt !important;
+  }
+
+  body.printing-lesson-week .lesson-week-activity-desc,
+  body.printing-lesson-week .lesson-week-activity-materials {
+    font-size: 8pt !important;
+  }
+
   body.printing-resource .lesson-week-activity-cards {
     gap: 6pt !important;
     padding: 8pt !important;

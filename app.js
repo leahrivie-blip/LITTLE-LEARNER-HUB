@@ -12864,6 +12864,37 @@ function buildLessonPlanWeeklySchedulePdfBlob(resource, options = {}) {
   return createPdfDocumentBlob(pages.slice(0, 3));
 }
 
+function buildLessonPlanWeeklyCalendarDocxBlob(resource, options = {}) {
+  if (!globalThis.LlhLessonDocx?.buildWeeklyCalendarDocxBlob) {
+    throw new Error("DOCX builder is not loaded.");
+  }
+  const plan = normalizeCurriculumLessonPlanForRender(resource?._curriculumLessonPlan);
+  const weekStart = options.weekStartDate || lessonPlanAssignedWeekStart(resource?.id) || "";
+  return LlhLessonDocx.buildWeeklyCalendarDocxBlob({
+    title: resource?.title || plan.title || "Weekly Lesson Plan",
+    theme: plan.theme || resource?.theme || "",
+    age: resource?.age || plan.age || "Preschool",
+    weekOfLabel: formatLessonWeekOfLabel(weekStart),
+    days: lessonPlanWeeklyScheduleDays(plan),
+    plan,
+  });
+}
+
+function buildLessonPlanFullDocxBlob(resource, options = {}) {
+  if (!globalThis.LlhLessonDocx?.buildFullLessonPlanDocxBlob) {
+    throw new Error("DOCX builder is not loaded.");
+  }
+  const plan = normalizeCurriculumLessonPlanForRender(resource?._curriculumLessonPlan);
+  const weekStart = options.weekStartDate || lessonPlanAssignedWeekStart(resource?.id) || "";
+  return LlhLessonDocx.buildFullLessonPlanDocxBlob({
+    title: resource?.title || plan.title || "Full Lesson Plan",
+    theme: plan.theme || resource?.theme || "",
+    age: resource?.age || plan.age || "Preschool",
+    weekOfLabel: formatLessonWeekOfLabel(weekStart),
+    plan,
+  });
+}
+
 function canDownloadLessonWorkspacePlan(resource) {
   return Boolean(
     resource
@@ -12875,12 +12906,21 @@ function canDownloadLessonWorkspacePlan(resource) {
 }
 
 function downloadLessonPlanVariantPdf(printVariant = "week") {
+  // Legacy name kept for callers; weekly + full now prefer DOCX.
+  downloadLessonPlanVariant(printVariant);
+}
+
+function downloadLessonPlanVariant(printVariant = "week", options = {}) {
   const viewerResource = activeResourceViewerResource;
   if (!canDownloadLessonWorkspacePlan(viewerResource)) return;
   const safeVariant = printVariant === "materials" || printVariant === "full" ? printVariant : "week";
+  const preferDocx = options.format
+    ? options.format === "docx"
+    : (safeVariant === "week" || safeVariant === "full");
   recordResourceOutputRequest({
     mode: "download",
     printVariant: safeVariant,
+    format: preferDocx ? "docx" : "pdf",
     resourceId: viewerResource.id,
     title: viewerResource.title,
     category: viewerResource.category,
@@ -12890,11 +12930,20 @@ function downloadLessonPlanVariantPdf(printVariant = "week") {
     : safeVariant === "full"
       ? "full-lesson-plan"
       : "weekly-calendar";
-  if (safeVariant === "week") {
+  const weekStartDate = lessonPlanAssignedWeekStart(viewerResource.id);
+  if (preferDocx && safeVariant === "week") {
     downloadBlob(
-      buildLessonPlanWeeklySchedulePdfBlob(viewerResource, {
-        weekStartDate: lessonPlanAssignedWeekStart(viewerResource.id),
-      }),
+      buildLessonPlanWeeklyCalendarDocxBlob(viewerResource, { weekStartDate }),
+      `${slug(viewerResource.title)}-${variantLabel}.docx`,
+    );
+  } else if (preferDocx && safeVariant === "full") {
+    downloadBlob(
+      buildLessonPlanFullDocxBlob(viewerResource, { weekStartDate }),
+      `${slug(viewerResource.title)}-${variantLabel}.docx`,
+    );
+  } else if (safeVariant === "week") {
+    downloadBlob(
+      buildLessonPlanWeeklySchedulePdfBlob(viewerResource, { weekStartDate }),
       `${slug(viewerResource.title)}-${variantLabel}.pdf`,
     );
   } else {
@@ -12914,13 +12963,14 @@ function downloadLessonPlanVariantPdf(printVariant = "week") {
     saveDownloads();
     updatePlanLabel();
   }
-  trackEvent("resource_pdf_download", {
+  trackEvent(preferDocx ? "resource_docx_download" : "resource_pdf_download", {
     resourceId: viewerResource.id,
     title: viewerResource.title,
     category: viewerResource.category,
     age: viewerResource.age,
     access: viewerResource.plan,
     printVariant: safeVariant,
+    format: preferDocx ? "docx" : "pdf",
   });
 }
 
@@ -13160,9 +13210,11 @@ function printResourceViewer(options = {}) {
     printVariant,
   });
   document.body.classList.add("printing-resource");
+  document.body.classList.toggle("printing-lesson-week", printVariant === "week");
+  document.body.classList.toggle("printing-lesson-full", printVariant === "full" || printVariant === "materials");
   const cleanup = () => {
     if (body) body.innerHTML = previousHtml;
-    document.body.classList.remove("printing-resource");
+    document.body.classList.remove("printing-resource", "printing-lesson-week", "printing-lesson-full");
     window.removeEventListener("afterprint", cleanup);
   };
   window.addEventListener("afterprint", cleanup);
