@@ -189,19 +189,19 @@ async function main() {
 
     check("Empty week shows friendly empty state", /This week is empty/i.test(weekText) && /Nothing planned yet/i.test(weekText), weekText.slice(0, 160));
     check("Empty week says nothing is auto-filled", /auto-filled/i.test(weekText) || /stay empty/i.test(weekText));
-    check("Always-visible week actions include Add / Browse / AI / Print", /Add Lesson Plan/i.test(weekText) && /Browse Library/i.test(weekText) && /AI Ideas/i.test(weekText) && (/Print Week PDF/i.test(weekText) || /Print \/ Download/i.test(weekText)));
+    check("Always-visible week actions include Add / Browse / Doc Helper / Print", /Add Lesson Plan/i.test(weekText) && /Browse Library/i.test(weekText) && /Doc Helper/i.test(weekText) && (/Print Week PDF/i.test(weekText) || /Print \/ Download/i.test(weekText)));
     check("Print is disabled while week is empty", await page.locator("[data-calendar-print-week]").isDisabled());
     check("Empty week shows guided next step", /Add a Lesson Plan/i.test(weekText) && /Print Week PDF/i.test(weekText));
     check("Empty-state CTA block is present", /data-calendar-empty-week/.test(weekHtml));
 
-    // AI Ideas navigates
+    // Doc Helper navigates to Documentation Helpers
     await page.locator('.llh-cal-week-actions [data-view="ai"]').click();
     await page.waitForSelector("#view-ai.active-view, #view-ai.view.active-view", { timeout: 10000 }).catch(() => {});
     const aiActive = await page.evaluate(() => {
       const el = document.querySelector("#view-ai");
       return Boolean(el && (el.classList.contains("active-view") || el.classList.contains("active")));
     });
-    check("AI Ideas opens AI view", aiActive);
+    check("Doc Helper opens Documentation Helpers view", aiActive);
 
     // Assign a plan to this week, then reopen week view
     await page.evaluate(async ({ planId, weekStart }) => {

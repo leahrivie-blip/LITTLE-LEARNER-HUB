@@ -2034,7 +2034,7 @@ function refreshFreePlanFaqAnswer(answer) {
       lessonLabel,
       "8 Activity Ideas",
       "6 Forms",
-      "10 AI Generations",
+      "10 Document Creations",
       "No Credit Card Required",
     ].join(", ");
   }
@@ -15853,21 +15853,24 @@ function renderUserDashboard() {
 
       ${dashboardScheduleOverviewMarkup()}
 
+      <section class="section-block dashboard-quick-doc">
+        <div class="dashboard-quick-doc-header"><div><p class="eyebrow">Documentation Helpers</p><h3>Type one quick note. Use it everywhere.</h3></div></div>
+        <p class="muted-copy">Optional writing help turns a short classroom note into documentation you can review and save.</p>
+        <div class="dashboard-quick-doc-actions">
+          <button class="primary-button" data-view="ai" data-quick-doc-type="observation" type="button">Observation</button>
+          <button class="ghost-button" data-view="ai" data-quick-doc-type="parent-message" type="button">Parent Message</button>
+          <button class="ghost-button" data-view="ai" data-quick-doc-type="incident-report" type="button">Incident Report</button>
+          <button class="ghost-button" data-view="ai" data-quick-doc-type="behavior-note" type="button">Behavior Note</button>
+          <button class="ghost-button" data-view="ai" data-quick-doc-type="daily-log" type="button">Daily Report</button>
+          <button class="ghost-button" data-view="ai" data-quick-doc-type="activity-idea" type="button">Activity Update</button>
+          <button class="ghost-button" data-view="ai" type="button">Open Helpers</button>
+        </div>
+      </section>
+
       <details class="llh-dashboard-more">
-        <summary>More tools — documentation, children, and classroom extras</summary>
+        <summary>More tools — children, classroom extras, and install options</summary>
         <div class="llh-dashboard-more-body">
           ${dashboardInstallCardMarkup()}
-          <section class="section-block dashboard-quick-doc">
-            <div class="dashboard-quick-doc-header"><div><p class="eyebrow">Quick Documentation</p><h3>Type one quick note. Use it everywhere.</h3></div></div>
-            <div class="dashboard-quick-doc-actions">
-              <button class="primary-button" data-view="ai" data-quick-doc-type="observation" type="button">Observation</button>
-              <button class="ghost-button" data-view="ai" data-quick-doc-type="parent-message" type="button">Parent Message</button>
-              <button class="ghost-button" data-view="ai" data-quick-doc-type="incident-report" type="button">Incident Report</button>
-              <button class="ghost-button" data-view="ai" data-quick-doc-type="behavior-note" type="button">Behavior Note</button>
-              <button class="ghost-button" data-view="ai" data-quick-doc-type="daily-log" type="button">Daily Report</button>
-              <button class="ghost-button" data-view="ai" data-quick-doc-type="activity-idea" type="button">Activity Update</button>
-            </div>
-          </section>
           ${dashboardTeasers}
           <div class="dashboard-grid">
             <section class="section-block dashboard-today">
@@ -18625,7 +18628,7 @@ function calendarWeekHeaderActionsHtml(week, options = {}) {
     <div class="llh-cal-week-actions" role="group" aria-label="Week planning actions">
       <button type="button" class="primary-button" data-view="lessons">Add Lesson Plan</button>
       <button type="button" class="ghost-button" data-view="lessons">Browse Library</button>
-      <button type="button" class="ghost-button" data-view="ai">AI Ideas</button>
+      <button type="button" class="ghost-button" data-view="ai">Doc Helper</button>
       <button type="button" class="ghost-button" data-calendar-print-week="${escapeHtml(week)}" ${hasLesson ? "" : "disabled"} title="${hasLesson ? "Download week-at-a-glance PDF (classroom copy)" : "Add a lesson plan before printing"}">Print Week PDF</button>
       <button type="button" class="ghost-button" data-calendar-print-full="${escapeHtml(week)}" ${hasLesson ? "" : "disabled"} title="${hasLesson ? "Print the full classroom lesson plan" : "Add a lesson plan before printing"}">Print Full Plan</button>
     </div>
@@ -18642,7 +18645,7 @@ function calendarWeekEmptyStateHtml() {
       <div class="form-actions llh-cal-week-empty-actions">
         <button type="button" class="primary-button" data-view="lessons">Add Lesson Plan</button>
         <button type="button" class="ghost-button" data-view="lessons">Browse Library</button>
-        <button type="button" class="ghost-button" data-view="ai">AI Ideas</button>
+        <button type="button" class="ghost-button" data-view="ai">Doc Helper</button>
       </div>
     </section>
   `;
@@ -19320,7 +19323,7 @@ function renderAiUsagePanel() {
     <div class="ai-usage-panel">
       <div>
         <p class="eyebrow">Helper Usage</p>
-        <h4>${used} of ${limit} generations used</h4>
+        <h4>${used} of ${limit} document creations used</h4>
         <span>${remaining} remaining · Resets ${escapeHtml(aiResetLabel())}</span>
       </div>
       <div class="usage-bar" aria-label="${used} of ${limit} document creations used">
@@ -23598,16 +23601,16 @@ function renderDlcStep2() {
       <p class="dlc-step-label">Step 2 — How would you like to update today?</p>
       <p class="dlc-sel-summary">Updating: <strong>${escapeHtml(dlcSelectionLabel())}</strong></p>
       <div class="dlc-mode-cards">
-        <button class="dlc-mode-card" data-dlc-mode="manual" type="button">
+        <button class="dlc-mode-card dlc-mode-recommended" data-dlc-mode="manual" type="button">
+          <span class="dlc-mode-badge">Recommended</span>
           <span class="dlc-card-icon" aria-hidden="true">✏️</span>
           <strong>Do It Myself</strong>
           <span>Manually enter attendance, meals, naps, potty, activities, medication, incidents, photos, notes, and other daily information.</span>
         </button>
-        <button class="dlc-mode-card dlc-mode-recommended" data-dlc-mode="ai" type="button">
-          <span class="dlc-mode-badge">Recommended</span>
-          <span class="dlc-card-icon" aria-hidden="true">✨</span>
+        <button class="dlc-mode-card" data-dlc-mode="ai" type="button">
+          <span class="dlc-card-icon" aria-hidden="true">📝</span>
           <strong>Write What Happened</strong>
-          <span>Type or speak a quick summary of the day and Little Learner Hub will organize everything automatically.</span>
+          <span>Optional: type a quick summary and Little Learner Hub can help organize it. You review everything before saving.</span>
         </button>
       </div>
     </div>
@@ -34221,7 +34224,7 @@ function renderPreviewLibrary() {
   target.innerHTML = `
     <section class="section-block preview-feature">
       <div>
-        <p class="eyebrow">AI Tool Preview</p>
+        <p class="eyebrow">Documentation Helper Preview</p>
         <h3>Observation Generator sample output</h3>
         <p>Professional Observation: During play, the child demonstrated growing confidence while sorting colors, naming objects, and participating in a simple group routine. This supports language, cognitive development, and social-emotional growth.</p>
       </div>
@@ -38715,9 +38718,9 @@ const featurePreviewContent = {
   },
   "ai-tools": {
     eyebrow: "Preview",
-    title: "Doc Helpers",
+    title: "Documentation Helpers",
     html: `<div class="fp-screen">
-      <div class="fp-screen-bar"><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-screen-title">Doc Helpers — Little Learner Hub</span></div>
+      <div class="fp-screen-bar"><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-dot"></span><span class="fp-screen-title">Documentation Helpers — Little Learner Hub</span></div>
       <div class="fp-screen-body">
         <aside class="fp-sidebar">
           <div class="fp-nav">Children</div>
@@ -38732,13 +38735,13 @@ const featurePreviewContent = {
             <div class="fp-stat"><strong>3</strong><span>Remaining</span></div>
           </div>
           <div class="fp-card">
-            <div class="fp-card-title">Generate Observation Note</div>
+            <div class="fp-card-title">Observation Note</div>
             <div class="fp-field"><label>Child</label><div class="fp-field-value">Emma — Age 3</div></div>
             <div class="fp-field"><label>Developmental Area</label><div class="fp-field-value">Fine Motor</div></div>
             <div class="fp-field"><label>What did you notice?</label><div class="fp-field-value">Emma threaded 6 beads without help today.</div></div>
           </div>
           <div class="fp-card">
-            <div class="fp-card-title">✨ Created Document</div>
+            <div class="fp-card-title">Ready to review</div>
             <div class="fp-ai-output">During a structured fine motor activity, Emma demonstrated focused concentration and developing dexterity as she independently threaded six beads onto a string. This skill highlights Emma's growing hand-eye coordination and perseverance. Next steps: introduce smaller beads or lacing cards to continue building precision.</div>
           </div>
         </div>
