@@ -7,11 +7,24 @@
  *
  * Existing users without these fields default to home_daycare + owner.
  * programSettings.programType is used only as a migration hint for accountType.
+ *
+ * Future onboarding/pricing (curriculum_only, new plan SKUs, signup questionnaire)
+ * is documented in docs/FUTURE_ONBOARDING_PRICING.md — not implemented here.
+ * Founder Members must remain grandfathered when that project ships.
  */
 
 const ACCOUNT_TYPES = Object.freeze({
   HOME_DAYCARE: "home_daycare",
   CENTER: "center",
+});
+
+/**
+ * Reserved for a future onboarding/pricing project.
+ * See docs/FUTURE_ONBOARDING_PRICING.md — not active in capability checks yet.
+ * Founder Members must keep full access when this type is introduced.
+ */
+const FUTURE_ACCOUNT_TYPES = Object.freeze({
+  CURRICULUM_ONLY: "curriculum_only",
 });
 
 const USER_ROLES = Object.freeze({
@@ -211,6 +224,7 @@ function summarizeAccountAccess(account = {}) {
 
 module.exports = {
   ACCOUNT_TYPES,
+  FUTURE_ACCOUNT_TYPES,
   USER_ROLES,
   FUTURE_USER_ROLES,
   PLATFORM_CAPABILITIES,

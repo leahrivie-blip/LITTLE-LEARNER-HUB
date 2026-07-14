@@ -7343,6 +7343,11 @@ const ACCOUNT_TYPES = Object.freeze({
   CENTER: "center",
 });
 
+/** Reserved — see docs/FUTURE_ONBOARDING_PRICING.md (not active yet). */
+const FUTURE_ACCOUNT_TYPES = Object.freeze({
+  CURRICULUM_ONLY: "curriculum_only",
+});
+
 const USER_ROLES = Object.freeze({
   OWNER: "owner",
   DIRECTOR: "director",

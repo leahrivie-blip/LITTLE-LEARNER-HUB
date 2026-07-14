@@ -102,6 +102,12 @@ test("role aliases normalize co-teacher and family helper", () => {
   assert.equal(accountAccess.normalizeUserRole("Substitute"), "assistant");
 });
 
+test("curriculum_only remains a reserved future account type (not active)", () => {
+  assert.equal(accountAccess.FUTURE_ACCOUNT_TYPES.CURRICULUM_ONLY, "curriculum_only");
+  // Not wired into normalize/capability matrix yet — unknown types fall back to home_daycare.
+  assert.equal(accountAccess.normalizeAccountType("curriculum_only"), "home_daycare");
+});
+
 if (!process.exitCode) {
   console.log("\nAll account-access tests passed.");
 }
