@@ -3312,6 +3312,7 @@ let adminAnalyticsLoading = false;
 let adminAnalyticsLastError = "";
 let adminAnalyticsLoadPromise = null;
 let adminAnalyticsAbortController = null;
+let adminSessionInvalidOnServer = false;
 const ADMIN_ANALYTICS_TIMEOUT_MS = 25000;
 const LOCAL_ADMIN_TOKENS = new Set(["local-preview-admin", "local-owner-account"]);
 let adminOwnerDrilldown = {
@@ -8515,6 +8516,7 @@ function setView(view, options = {}) {
     // a page refresh.  Render twice: once immediately with whatever is in state,
     // then again after the fresh data arrives.
     if (isAdminUnlocked() && adminSession()?.token && canUseLaunchBackend()) {
+      validateAdminSessionOnServer().catch(() => {});
       loadAdminSiteContent()
         .catch(() => {})
         .then(() => renderAdminDashboard());
@@ -27993,6 +27995,8 @@ function setAdminSession(sessionDetail) {
   };
   localStorage.setItem("llhAdminSession", JSON.stringify(session));
   localStorage.setItem("llhAdminUnlocked", "true");
+  adminSessionInvalidOnServer = false;
+  adminAnalyticsLastError = "";
   if (!localStorage.getItem("llhAdminPreviewMode")) {
     localStorage.setItem("llhAdminPreviewMode", "Admin");
   }
@@ -28005,10 +28009,54 @@ function clearAdminSession() {
   localStorage.removeItem("llhAdminSession");
   localStorage.removeItem("llhAdminUnlocked");
   localStorage.removeItem("llhAdminPreviewMode");
+  adminSessionInvalidOnServer = false;
+  adminAnalyticsCache = null;
+  adminAnalyticsLastError = "";
   updateAdminNavVisibility();
   refreshAdminPreviewBadge();
   document.body.classList.remove("admin-preview-simulating");
   delete document.body.dataset.adminPreview;
+}
+
+function markAdminSessionInvalidOnServer(detail = "") {
+  adminSessionInvalidOnServer = true;
+  const hint = String(detail || "").trim();
+  adminAnalyticsLastError = hint
+    || "Admin session expired on the server. Unlock Admin again with owner email, password, and access code.";
+}
+
+function isAdminSessionAuthError(payload, response) {
+  const status = Number(response?.status || 0);
+  const code = String(payload?.code || "");
+  const error = String(payload?.error || payload?.message || "");
+  if (code === "admin_session_invalid") return true;
+  if (status === 401 && /admin access is required/i.test(error)) return true;
+  return /admin access is required/i.test(error);
+}
+
+async function validateAdminSessionOnServer(options = {}) {
+  const token = adminSession()?.token || "";
+  if (!isAdminUnlocked() || !token || !canUseLaunchBackend()) return true;
+  if (LOCAL_ADMIN_TOKENS.has(String(token))) return true;
+  try {
+    const response = await fetch(`/api/admin/session?adminToken=${encodeURIComponent(token)}&t=${Date.now()}`, {
+      cache: "no-store",
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data?.valid === false || isAdminSessionAuthError(data, response)) {
+      markAdminSessionInvalidOnServer(data?.hint || data?.error || "");
+      if (options.render !== false) {
+        renderAdminAccessShell();
+        renderAdminOwnerOverview();
+      }
+      return false;
+    }
+    adminSessionInvalidOnServer = false;
+    return true;
+  } catch (error) {
+    console.warn("Admin session validation failed", error);
+    return true;
+  }
 }
 
 function canUseSignedInOwnerAdmin() {
@@ -28446,9 +28494,11 @@ function renderAdminOwnerOverview() {
     ` : ""}
     ${!adminAnalyticsLoading && adminAnalyticsLastError ? `
       <div class="admin-analytics-state is-error" role="alert" data-admin-analytics-state="error">
-        <p><strong>Could not load live analytics.</strong></p>
+        <p><strong>${adminSessionInvalidOnServer ? "Admin server session expired." : "Could not load live analytics."}</strong></p>
         <p class="muted-copy">${escapeHtml(adminAnalyticsLastError)}</p>
-        <button type="button" class="primary-button" data-refresh-analytics>Retry</button>
+        ${adminSessionInvalidOnServer
+          ? `<button type="button" class="primary-button" data-admin-reunlock>Unlock Admin Again</button>`
+          : `<button type="button" class="primary-button" data-refresh-analytics>Retry</button>`}
       </div>
     ` : ""}
     ${adminAnalyticsCache && !adminAnalyticsLoading ? `
@@ -28764,6 +28814,13 @@ function renderAdminAccessShell() {
       </div>
       <button class="ghost-button" type="button" id="adminLockButton">Lock Admin</button>
     </div>
+    ${adminSessionInvalidOnServer ? `
+      <div class="admin-analytics-state is-error" role="alert" data-admin-session-invalid>
+        <p><strong>Admin server session expired.</strong></p>
+        <p class="muted-copy">${escapeHtml(adminAnalyticsLastError || "The browser still shows Admin unlocked, but the server no longer recognizes this unlock token. This can happen after a deploy or store sync.")}</p>
+        <button type="button" class="primary-button" data-admin-reunlock>Unlock Admin Again</button>
+      </div>
+    ` : ""}
   `;
   return true;
 }
@@ -28991,9 +29048,19 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
         { cache: "no-store", signal: controller.signal },
       );
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data?.error || "Could not load admin analytics.");
+      if (!response.ok) {
+        if (isAdminSessionAuthError(data, response)) {
+          markAdminSessionInvalidOnServer(data?.hint || data?.error || "");
+        }
+        throw new Error(
+          isAdminSessionAuthError(data, response)
+            ? (data?.hint || "Admin session expired on the server. Unlock Admin again.")
+            : (data?.error || "Could not load admin analytics."),
+        );
+      }
       adminAnalyticsCache = data.analytics || data;
       adminAnalyticsLastError = "";
+      adminSessionInvalidOnServer = false;
       renderAdminAnalytics();
       renderAdminOwnerOverview();
       renderAdminUsersDashboard();
@@ -40559,6 +40626,20 @@ document.addEventListener("click", async (event) => {
   if (adminLockButton) {
     clearAdminSession();
     renderAdminDashboard();
+    return;
+  }
+
+  const adminReunlockButton = event.target.closest("[data-admin-reunlock]");
+  if (adminReunlockButton) {
+    event.preventDefault();
+    clearAdminSession();
+    renderAdminDashboard();
+    document.querySelector("#adminUnlockForm")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const message = document.querySelector("#adminUnlockMessage");
+    if (message) {
+      message.textContent = "Enter owner email, password, and access code to restore live Admin access.";
+      message.classList.add("success");
+    }
     return;
   }
 

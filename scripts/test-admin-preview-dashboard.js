@@ -68,11 +68,11 @@ test("analytics load has timeout, abort, retry, and no duplicate listener", () =
 test("cache bust versions stay aligned", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260714-admin-drilldown");
-  assert.equal(indexJs, "20260714-admin-drilldown");
-  assert.match(sw, /styles\.css\?v=20260714-admin-drilldown/);
-  assert.match(sw, /app\.js\?v=20260714-admin-drilldown/);
-  assert.match(sw, /llh-shell-v29-admin-drilldown/);
+  assert.equal(indexCss, "20260714-admin-auth-fix");
+  assert.equal(indexJs, "20260714-admin-auth-fix");
+  assert.match(sw, /styles\.css\?v=20260714-admin-auth-fix/);
+  assert.match(sw, /app\.js\?v=20260714-admin-auth-fix/);
+  assert.match(sw, /llh-shell-v30-admin-auth-fix/);
 });
 
 if (!process.exitCode) {

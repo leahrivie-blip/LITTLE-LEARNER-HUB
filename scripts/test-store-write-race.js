@@ -217,6 +217,12 @@ async function main() {
     assert(plans.some((item) => item.id === "cur-lp-race-tiny"), "Curriculum lesson was wiped by concurrent writeStore");
     assert(acts.length === 1, `Expected 1 activity after race, got ${acts.length}`);
 
+    console.log("3) Admin session must still authorize analytics after concurrent writes");
+    const sessionCheck = await requestJson("GET", `/api/admin/session?adminToken=${encodeURIComponent(token)}`);
+    assert(sessionCheck.status === 200 && sessionCheck.json?.valid === true, `Admin session invalid after race: ${sessionCheck.status} ${sessionCheck.text}`);
+    const analyticsAdmin = await requestJson("GET", `/api/admin/analytics?adminToken=${encodeURIComponent(token)}`);
+    assert(analyticsAdmin.status === 200, `Admin analytics failed after race: ${analyticsAdmin.status} ${analyticsAdmin.text}`);
+
     console.log("\nStore write race checks passed.");
   } catch (error) {
     console.error("\nFAIL:", error.message);
