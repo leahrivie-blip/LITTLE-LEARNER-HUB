@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Child profile Documents & Forms tab markers.
+ * Child profile Documents & Forms markers (now under Records).
  * Run: node scripts/test-child-documents-tab.js
  */
 const assert = require("node:assert/strict");
@@ -21,14 +21,14 @@ function test(name, fn) {
 const appJs = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
 const serverJs = fs.readFileSync(path.join(__dirname, "..", "server", "index.js"), "utf8");
 
-test("profile tabs include Documents & Forms in the core set", () => {
-  assert.match(appJs, /\["documents", "Documents & Forms"\]/);
+test("profile tabs include Records (documents live under Records)", () => {
+  assert.match(appJs, /\["records", "Records"\]/);
   assert.match(appJs, /\["overview", "Overview"\]/);
   assert.match(appJs, /\["observations", "Observations"\]/);
   assert.match(appJs, /\["goals", "Goals"\]/);
-  assert.match(appJs, /\["reports", "Daily Reports"\]/);
-  assert.match(appJs, /\["photos", "Photos"\]/);
-  assert.match(appJs, /\["timeline", "Timeline"\]/);
+  assert.match(appJs, /\["reports", "Reports & Photos"\]/);
+  assert.match(appJs, /function renderChildRecordsTab/);
+  assert.match(appJs, /function renderChildDocumentsTab/);
 });
 
 test("documents tab renderer and handlers exist", () => {
@@ -36,6 +36,12 @@ test("documents tab renderer and handlers exist", () => {
   assert.match(appJs, /data-child-document-form/);
   assert.match(appJs, /data-delete-child-document/);
   assert.match(appJs, /appendChildRecord\("Documents"/);
+});
+
+test("legacy documents/timeline tabs normalize into Records", () => {
+  assert.match(appJs, /function normalizeChildProfileTab/);
+  assert.match(appJs, /raw === "documents" \|\| raw === "timeline"/);
+  assert.match(appJs, /return "records"/);
 });
 
 test("Documents store is included in client and server child data keys", () => {

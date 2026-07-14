@@ -417,7 +417,7 @@ function openDocHelperSavedChild(childId, childTab = "overview") {
     selectedChildId = childId;
     localStorage.setItem("llhSelectedChild", selectedChildId);
     childManagementMode = "profile";
-    childProfileTab = childTab || "overview";
+    childProfileTab = normalizeChildProfileTab(childTab || "overview");
   }
   setView("children");
 }
@@ -23231,10 +23231,41 @@ function renderSimpleGoalCard(child, goal, records) {
   `;
 }
 
+function normalizeChildProfileTab(tab = childProfileTab) {
+  const raw = String(tab || "overview").trim().toLowerCase();
+  if (raw === "photos") return "reports";
+  if (raw === "documents" || raw === "timeline") return "records";
+  if (["overview", "observations", "goals", "reports", "records", "daily-log", "attendance", "notes", "family"].includes(raw)) {
+    return raw;
+  }
+  return "overview";
+}
+
+function syncChildrenViewShell(mode = childManagementMode) {
+  const view = document.querySelector("#view-children");
+  if (!view) return;
+  view.dataset.childMode = mode || "list";
+}
+
+function renderProfileEmptyState({ title = "Nothing here yet", body = "", actionsHtml = "" } = {}) {
+  return `
+    <div class="profile-empty-state">
+      <strong>${escapeHtml(title)}</strong>
+      ${body ? `<p>${escapeHtml(body)}</p>` : ""}
+      ${actionsHtml ? `<div class="profile-empty-actions">${actionsHtml}</div>` : ""}
+    </div>
+  `;
+}
+
+function childProfileClassroomLabel(child = {}) {
+  return cleanAgeText(child.classroom) || childAgeGroupLabel(child) || "Classroom not set";
+}
+
 function renderChildManagement() {
   const app = document.querySelector("#childManagementApp");
   if (!app) return;
   activePortfolioChildId = "";
+  childProfileTab = normalizeChildProfileTab(childProfileTab);
   const records = childRecords();
   if (!selectedChildId && records.children[0]) selectedChildId = records.children[0].id;
   const child = records.children.find((item) => item.id === selectedChildId) || records.children[0] || null;
@@ -23244,6 +23275,7 @@ function renderChildManagement() {
   }
 
   if (childManagementMode === "add") {
+    syncChildrenViewShell("add");
     app.innerHTML = renderChildProfileFormScreen();
     updateChildAgePreview();
     return;
@@ -23256,42 +23288,49 @@ function renderChildManagement() {
       renderChildManagement();
       return;
     }
+    syncChildrenViewShell("edit");
     app.innerHTML = renderChildProfileFormScreen(editingChild);
     updateChildAgePreview();
     return;
   }
 
   if (childManagementMode === "observe") {
+    syncChildrenViewShell("observe");
     app.innerHTML = renderObservationScreen(records);
     return;
   }
 
   if (childManagementMode === "goals") {
+    syncChildrenViewShell("goals");
     app.innerHTML = renderSimpleGoalsProgressPage(records);
     return;
   }
 
   if (childManagementMode === "tools") {
+    syncChildrenViewShell("tools");
     app.innerHTML = renderChildToolsPage(records);
     return;
   }
 
   if (childManagementMode === "daily-logs") {
+    syncChildrenViewShell("daily-logs");
     app.innerHTML = renderDailyLogsCenter(records);
     return;
   }
 
   if (childManagementMode === "profile" && child) {
+    syncChildrenViewShell("profile");
     app.innerHTML = renderSimpleChildProfile(child, records);
     return;
   }
 
+  syncChildrenViewShell("list");
   app.innerHTML = `
     <section class="simple-child-page">
       <div class="child-page-header">
         <div>
           <h2>Children</h2>
-          <p>Select a child to open their workspace — track observations, goals, attendance, daily logs, reports, and parent communication all in one place.</p>
+          <p>Select a child to open their profile — observations, goals, reports, and records in one calm workspace.</p>
         </div>
         <div class="child-header-actions">
           <button class="ghost-button" data-child-view="observe" type="button">Add Observation</button>
@@ -23302,9 +23341,11 @@ function renderChildManagement() {
       <div class="simple-child-grid">
         ${records.children.length ? records.children.map((item) => renderChildProfileCard(item, records)).join("") : `
           <section class="section-block empty-state">
-            <h3>No child profiles yet.</h3>
-            <p>Add your first child profile to track observations, goals, and lesson plan ideas.</p>
-            <button class="primary-button" data-child-view="add" type="button">Add Child</button>
+            ${renderProfileEmptyState({
+              title: "No child profiles yet",
+              body: "Add your first child to track observations, goals, and daily care in one place.",
+              actionsHtml: `<button class="primary-button" data-child-view="add" type="button">Add Child</button>`,
+            })}
           </section>
         `}
       </div>
@@ -23398,18 +23439,38 @@ function updateChildAgePreview() {
 
 function renderSimpleChildProfile(child, records) {
   const summary = monthlyObservationSummary(child, records.observations);
+  const classroomLabel = childProfileClassroomLabel(child);
+  const ageLabel = childAgeLabel(child);
+  const progressLabel = summary.remaining > 0
+    ? `${summary.completed}/${summary.goal} observations this month`
+    : `${summary.completed}/${summary.goal} observations · complete`;
+  const switcher = records.children.length > 1 ? `
+    <label class="profile-child-switcher">
+      <span class="visually-hidden">Switch child</span>
+      <select data-switch-profile-child aria-label="Switch child profile">
+        ${records.children.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === child.id ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}
+      </select>
+    </label>
+  ` : "";
   return `
-    <section class="simple-child-page">
+    <section class="simple-child-page child-profile-command">
       <button class="ghost-button back-button" data-child-view="list" type="button">← Back to Children</button>
-      <section class="section-block simple-profile-hero">
+      <section class="section-block simple-profile-hero profile-identity-hero">
         ${renderChildAvatar(child)}
-        <div>
-          <p class="eyebrow">Child Workspace</p>
+        <div class="profile-identity-copy">
+          <p class="eyebrow">${escapeHtml(classroomLabel)}</p>
           <h2>${escapeHtml(child.name)}</h2>
-          <p>${escapeHtml(childAgeLabel(child))} &mdash; ${escapeHtml(childRoomAgeLabel(child))}</p>
+          <p class="profile-identity-meta">${escapeHtml(ageLabel)}${childAgeGroupLabel(child) && child.classroom ? ` · ${escapeHtml(childAgeGroupLabel(child))}` : ""}</p>
+          <div class="profile-observation-progress" aria-label="Monthly observation progress">
+            <div class="progress-bar"><span style="width:${summary.percent}%"></span></div>
+            <span>${escapeHtml(progressLabel)}</span>
+          </div>
         </div>
         <div class="profile-hero-actions">
-          <button class="ghost-button" data-edit-child-profile="${child.id}" type="button">Edit Profile</button>
+          ${switcher}
+          <button class="primary-button" data-quick-add-observation="${child.id}" type="button">Add Observation</button>
+          <button class="ghost-button" data-view="child-tools-daily-logs" type="button">Open Daily Log</button>
+          <button class="ghost-button" data-edit-child-profile="${child.id}" type="button">Edit</button>
           ${itemActionMenuHtml(`child-profile-${child.id}`, [
             child.archived || child.hiddenFromActive
               ? { label: "Reactivate Child", attr: `data-reactivate-child="${child.id}"` }
@@ -23420,27 +23481,25 @@ function renderSimpleChildProfile(child, records) {
         </div>
       </section>
 
-      ${renderChildAiQuickEntry(child)}
-
       ${renderChildProfileTabs()}
       ${renderChildProfileTabContent(child, records)}
+      ${renderChildAiQuickEntry(child)}
     </section>
   `;
 }
 
 function renderChildProfileTabs() {
+  const activeTab = normalizeChildProfileTab(childProfileTab);
   const tabs = [
     ["overview", "Overview"],
     ["observations", "Observations"],
     ["goals", "Goals"],
-    ["reports", "Daily Reports"],
-    ["photos", "Photos"],
-    ["documents", "Documents & Forms"],
-    ["timeline", "Timeline"],
+    ["reports", "Reports & Photos"],
+    ["records", "Records"],
   ];
   return `
     <div class="simple-profile-tabs" aria-label="Child profile sections">
-      ${tabs.map(([id, label]) => `<button class="${childProfileTab === id ? "active" : ""}" data-child-tab="${id}" type="button">${label}</button>`).join("")}
+      ${tabs.map(([id, label]) => `<button class="${activeTab === id ? "active" : ""}" data-child-tab="${id}" type="button">${label}</button>`).join("")}
     </div>
   `;
 }
@@ -23452,29 +23511,69 @@ function renderChildProfileTabContent(child, records) {
   const activeGoals = childActiveGoals(child, records);
   const differentiations = records.differentiations.filter((item) => item.childId === child.id);
   const summary = monthlyObservationSummary(child, records.observations);
-  if (childProfileTab === "observations") return renderChildObservationsTab(child, observations, summary);
+  const tab = normalizeChildProfileTab(childProfileTab);
+  if (tab === "observations") return renderChildObservationsTab(child, observations, summary);
+  if (tab === "goals") return renderChildGoalsTab(child, goals, activeGoals, observations, records);
+  if (tab === "reports") return renderChildReportsPhotosTab(child, records, observations, goals, supportPlans, differentiations);
+  if (tab === "records") return renderChildRecordsTab(child, records);
+  // Legacy deep-links kept for older buttons / saved flows.
   if (childProfileTab === "timeline") return renderChildTimelineTab(child, records);
-  if (childProfileTab === "goals") return renderChildGoalsTab(child, goals, activeGoals, observations, records);
+  if (childProfileTab === "documents") return renderChildDocumentsTab(child, records);
   if (childProfileTab === "photos") {
     const photos = (records.photos || []).filter((item) => item.childId === child.id);
     return renderChildSimpleRecordTab("Photos", "Saved photo moments for this child.", renderDlcPhotoSection(records), filterDailyLogHistory(photos), "Photos");
   }
-  if (childProfileTab === "reports") return renderChildReportsTab(child, records, observations, goals, supportPlans, differentiations);
-  if (childProfileTab === "documents") return renderChildDocumentsTab(child, records);
-  if (childProfileTab === "daily-log") return renderChildDailyLogTab(child, records);
-  if (childProfileTab === "attendance") {
+  if (tab === "daily-log") return renderChildDailyLogTab(child, records);
+  if (tab === "attendance") {
     const attendance = records.attendance.filter((item) => item.childId === child.id);
     return renderChildSimpleRecordTab("Attendance", "Attendance information for this child only.", attendanceForm(child.id), filterDailyLogHistory(attendance), "Attendance");
   }
-  if (childProfileTab === "notes") {
+  if (tab === "notes") {
     const notes = records.communications.filter((item) => item.childId === child.id && ["Teacher Note", "General Note", "Mood Note", "Behavior Note"].includes(item.type));
     return renderChildSimpleRecordTab("Notes", "Provider notes and mood history for this child.", renderDlcAccordionForm("notes", records), filterDailyLogHistory(notes), "Communications");
   }
-  if (childProfileTab === "family") {
+  if (tab === "family") {
     const comms = records.communications.filter((item) => item.childId === child.id);
     return renderChildSimpleRecordTab("Parent Messages", "Parent notes and communication records for this child only.", isProUser() ? communicationForm(child.id) : lockedFeatureCard("Parent Communication Tools", "Preview family messaging here and upgrade only when you need it.", "daily-log-parent-messages"), filterDailyLogHistory(comms), "Communications");
   }
   return renderChildOverviewTab(child, summary, records);
+}
+
+function renderChildReportsPhotosTab(child, records, observations, goals, supportPlans, differentiations) {
+  const photos = filterDailyLogHistory((records.photos || []).filter((item) => item.childId === child.id));
+  return `
+    <div class="profile-combined-tab">
+      ${renderChildReportsTab(child, records, observations, goals, supportPlans, differentiations)}
+      <section class="section-block profile-photos-panel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Photos</p>
+            <h3>Photo moments</h3>
+            <p class="muted-copy">Capture and keep classroom moments with ${escapeHtml(child.name)}.</p>
+          </div>
+        </div>
+        ${renderDlcPhotoSection(records)}
+        <div class="resource-list compact">
+          ${photos.length
+            ? photos.slice(-8).reverse().map((item) => simpleRecordItem(item, { storeKey: "Photos" })).join("")
+            : renderProfileEmptyState({
+              title: "No photos yet",
+              body: "Add a photo moment from Daily Logs or save one here when you capture something special.",
+              actionsHtml: `<button class="ghost-button" data-view="child-tools-daily-logs" type="button">Open Daily Logs</button>`,
+            })}
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function renderChildRecordsTab(child, records) {
+  return `
+    <div class="profile-combined-tab profile-records-tab">
+      ${renderChildDocumentsTab(child, records)}
+      ${renderChildTimelineTab(child, records)}
+    </div>
+  `;
 }
 
 function renderChildDocumentsTab(child, records) {
@@ -23486,7 +23585,7 @@ function renderChildDocumentsTab(child, records) {
         <div>
           <p class="eyebrow">Documents &amp; Forms</p>
           <h3>Child file for ${escapeHtml(child.name)}</h3>
-          <p class="muted-copy">Enrollment paperwork, signed forms, and uploaded documents for this child will live here. You can start from the Forms Library today and attach items as the Documents system expands.</p>
+          <p class="muted-copy">Enrollment paperwork, signed forms, and uploaded documents for this child live here. Start from the Forms Library and attach items as the Documents system expands.</p>
         </div>
       </div>
       <div class="account-actions-row" style="margin-bottom:16px;">
@@ -23525,7 +23624,11 @@ function renderChildDocumentsTab(child, records) {
               <button class="ghost-button" type="button" data-delete-child-document="${escapeHtml(item.id)}">Remove</button>
             </article>
           `).join("")
-          : `<div class="empty-state">No documents linked yet. Add a placeholder above or open the Forms Library to start enrollment paperwork.</div>`}
+          : renderProfileEmptyState({
+            title: "No documents linked yet",
+            body: "Add a placeholder above or open the Forms Library to start enrollment paperwork.",
+            actionsHtml: `<button class="ghost-button" type="button" data-view="forms">Browse Forms Library</button>`,
+          })}
       </div>
     </section>
   `;
@@ -23533,13 +23636,13 @@ function renderChildDocumentsTab(child, records) {
 
 function renderChildAiQuickEntry(child) {
   return `
-    <section class="section-block child-quick-entry" id="childQuickEntry-${domSafeId(child.id)}">
-      <div class="quick-entry-header">
+    <details class="section-block child-quick-entry child-quick-entry-collapsed">
+      <summary class="quick-entry-header">
         <div>
-          <p class="eyebrow">AI Quick Entry</p>
-          <strong>What happened today?</strong>
+          <p class="eyebrow">Optional AI assist</p>
+          <strong>Quick entry from a short note</strong>
         </div>
-      </div>
+      </summary>
       <textarea
         id="childQuickNote-${domSafeId(child.id)}"
         class="quick-entry-textarea"
@@ -23556,7 +23659,7 @@ function renderChildAiQuickEntry(child) {
       </div>
       ${renderChildQuickEntryUpgradePreviews()}
       <div id="childQuickEntryOutput-${domSafeId(child.id)}" class="quick-entry-output" aria-live="polite"></div>
-    </section>
+    </details>
   `;
 }
 
@@ -23665,63 +23768,73 @@ function renderChildSupportLinks(child, supportAreas = childSelectedSupportAreas
 
 function renderChildOverviewTab(child, summary, records = childRecords()) {
   const activeGoals = childActiveGoals(child, records);
-  const context = childRecommendationContext(child, records);
-  const primaryGoal = activeGoals[0];
-  const goalArea = context.areas[0] || normalizeObservationArea(primaryGoal?.area || inferAreasFromGoalText(primaryGoal?.goal || child.activeGoals || "")[0]) || "";
-  const nextActivity = suggestedActivitiesForArea(goalArea || "Approaches to Learning", child)[0];
   const today = new Date().toISOString().slice(0, 10);
   const todayAttendance = records.attendance.filter((item) => item.childId === child.id && item.date === today).slice(-1)[0];
+  const completion = dailyLogCompletionState(child, records, today);
   const recentComm = records.communications.filter((item) => item.childId === child.id).slice(-1)[0];
-  const recentObs = records.observations.filter((item) => item.childId === child.id).sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 1)[0];
+  const recentObs = records.observations
+    .filter((item) => item.childId === child.id)
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+    .slice(0, 1)[0];
+  const recentReport = (records.reports || [])
+    .filter((item) => item.childId === child.id)
+    .sort((a, b) => String(b.date || b.createdAt || "").localeCompare(String(a.date || a.createdAt || "")))
+    .slice(0, 1)[0];
+  const recentActivityLabel = recentObs
+    ? `Observation · ${recentObs.date || "recent"}`
+    : recentReport
+      ? `Daily report · ${recentReport.date || String(recentReport.createdAt || "").slice(0, 10) || "recent"}`
+      : recentComm
+        ? `Parent note · ${recentComm.date || "recent"}`
+        : "No recent activity yet";
+  const recentActivityDetail = recentObs
+    ? `${(recentObs.text || "").slice(0, 140)}${(recentObs.text || "").length > 140 ? "…" : ""}`
+    : recentReport
+      ? `${String(recentReport.summary || recentReport.text || recentReport.title || "Daily report saved").slice(0, 140)}`
+      : recentComm
+        ? `${String(recentComm.message || recentComm.summary || "").slice(0, 120)}${String(recentComm.message || recentComm.summary || "").length > 120 ? "…" : ""}`
+        : "Add an observation or open today’s daily log to get started.";
   return `
     <section class="section-block profile-overview-card">
-      <div class="overview-info-grid">
-        <div class="overview-info-item">
-          <span class="overview-label">Age</span>
-          <strong>${escapeHtml(childAgeLabel(child))}</strong>
-        </div>
-        <div class="overview-info-item">
-          <span class="overview-label">Classroom</span>
-          <strong>${escapeHtml(childRoomAgeLabel(child))}</strong>
-        </div>
-        <div class="overview-info-item">
-          <span class="overview-label">Attendance Today</span>
-          <strong>${todayAttendance ? escapeHtml(todayAttendance.status || "Logged") : "Not yet recorded"}</strong>
-        </div>
-        <div class="overview-info-item">
-          <span class="overview-label">Observation Progress</span>
-          <strong>${summary.completed}/${summary.goal} this month${summary.remaining > 0 ? ` — ${summary.remaining} remaining` : " ✓"}</strong>
-        </div>
-        <div class="overview-info-item">
-          <span class="overview-label">Active Goals</span>
-          <strong>${activeGoals.length ? `${activeGoals.length} goal${activeGoals.length !== 1 ? "s" : ""}` : "No active goals"}</strong>
-        </div>
-        <div class="overview-info-item">
-          <span class="overview-label">Latest Activity</span>
-          <strong>${escapeHtml(primaryGoal ? nextActivity : "Add a goal to get suggestions")}</strong>
-        </div>
+      <div class="overview-dashboard-grid">
+        <article class="overview-dash-card">
+          <span class="overview-label">This month</span>
+          <strong>${summary.completed}/${summary.goal}</strong>
+          <p>${summary.remaining > 0 ? `${summary.remaining} observation${summary.remaining === 1 ? "" : "s"} remaining` : "Monthly observation goal met"}</p>
+          <button class="ghost-button" data-child-tab="observations" type="button">View observations</button>
+        </article>
+        <article class="overview-dash-card">
+          <span class="overview-label">Goals</span>
+          <strong>${activeGoals.length ? `${activeGoals.length} active` : "None yet"}</strong>
+          <p>${activeGoals.length ? activeGoals.slice(0, 2).map((g) => escapeHtml(g.area || g.goal || "Goal")).join(" · ") : "Set a developmental focus for this child."}</p>
+          <button class="ghost-button" data-child-tab="goals" type="button">View goals</button>
+        </article>
+        <article class="overview-dash-card">
+          <span class="overview-label">Today</span>
+          <strong>${todayAttendance ? escapeHtml(todayAttendance.status || "Present") : "Not checked in"}</strong>
+          <p>Daily log ${completion.percent}% complete (${completion.completed}/${completion.total})</p>
+          <button class="ghost-button" data-view="child-tools-daily-logs" type="button">Open Daily Log</button>
+        </article>
+        <article class="overview-dash-card">
+          <span class="overview-label">Recent</span>
+          <strong>${escapeHtml(recentActivityLabel)}</strong>
+          <p>${escapeHtml(recentActivityDetail)}</p>
+          <button class="ghost-button" data-child-tab="records" type="button">View records</button>
+        </article>
       </div>
       ${activeGoals.length ? `
         <div class="overview-goals-summary">
           <strong>Current Goals</strong>
           <div class="chip-list">${activeGoals.slice(0, 4).map((g) => `<span class="chip">${escapeHtml(g.area || g.goal || "Goal")}</span>`).join("")}</div>
         </div>
-      ` : ""}
-      ${recentObs ? `
-        <div class="overview-recent-item">
-          <span class="overview-label">Latest Observation</span>
-          <p>${escapeHtml((recentObs.text || "").slice(0, 140))}${(recentObs.text || "").length > 140 ? "…" : ""}</p>
-        </div>
-      ` : ""}
-      ${recentComm ? `
-        <div class="overview-recent-item">
-          <span class="overview-label">Recent Parent Communication</span>
-          <p>${escapeHtml((recentComm.message || recentComm.summary || "").slice(0, 120))}${(recentComm.message || recentComm.summary || "").length > 120 ? "…" : ""}</p>
-        </div>
-      ` : ""}
+      ` : renderProfileEmptyState({
+        title: "No active goals yet",
+        body: "Goals help focus observations and activity suggestions for this child.",
+        actionsHtml: `<button class="ghost-button" data-child-tab="goals" type="button">Add a goal</button>`,
+      })}
       <div class="quick-action-list">
-        <button class="ghost-button" data-quick-add-observation="${child.id}" type="button">Add Observation</button>
-        <button class="ghost-button" data-child-tab="attendance" type="button">Take Attendance</button>
+        <button class="primary-button" data-quick-add-observation="${child.id}" type="button">Add Observation</button>
+        <button class="ghost-button" data-view="child-tools-daily-logs" type="button">Open Daily Log</button>
         <button class="ghost-button" data-child-tab="goals" type="button">View Goals</button>
       </div>
     </section>
@@ -23768,7 +23881,11 @@ function renderChildTimelineTab(child, records) {
               shareWithFamily: entry.shareWithFamily,
             }, entry.storeKey)) : ""}
           </article>
-        `).join("") : `<div class="empty-state">No matching timeline entries yet.</div>`}
+        `).join("") : renderProfileEmptyState({
+          title: "No matching timeline entries yet",
+          body: "Observations, daily logs, reports, and documents for this child will appear here.",
+          actionsHtml: `<button class="ghost-button" data-quick-add-observation="${child.id}" type="button">Add Observation</button>`,
+        })}
       </div>
     </section>
   `;
@@ -36930,7 +37047,7 @@ document.addEventListener("click", async (event) => {
       selectedChildId = childId;
       localStorage.setItem("llhSelectedChild", selectedChildId);
       childManagementMode = "profile";
-      childProfileTab = viewChildProfileButton.dataset.openChildTab || "overview";
+      childProfileTab = normalizeChildProfileTab(viewChildProfileButton.dataset.openChildTab || "overview");
     } else {
       childManagementMode = "list";
       childProfileTab = "overview";
@@ -37023,7 +37140,7 @@ document.addEventListener("click", async (event) => {
   const childTabButton = event.target.closest("[data-child-tab]");
   if (childTabButton) {
     event.preventDefault();
-    childProfileTab = childTabButton.dataset.childTab || "overview";
+    childProfileTab = normalizeChildProfileTab(childTabButton.dataset.childTab || "overview");
     childManagementMode = "profile";
     renderChildManagement();
     return;
@@ -39882,6 +39999,12 @@ document.addEventListener("change", (event) => {
     selectedChildId = event.target.value;
     localStorage.setItem("llhSelectedChild", selectedChildId);
     childManagementMode = "tools";
+    renderChildManagement();
+  }
+  if (event.target.matches("[data-switch-profile-child]")) {
+    selectedChildId = event.target.value;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+    childManagementMode = "profile";
     renderChildManagement();
   }
   if (event.target.matches("[data-dlc-dashboard-date]")) {

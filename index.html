@@ -23,7 +23,7 @@
     <link rel="apple-touch-icon" href="images/icons/icon-192.svg" />
     <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
-  <link rel="stylesheet" href="styles.css?v=20260714-daily-logs-redesign" />
+  <link rel="stylesheet" href="styles.css?v=20260714-child-profile-redesign" />
   </head>
   <body>
     <div class="app-shell">
@@ -1041,12 +1041,12 @@
           <div class="future-workspace" id="futureToolWorkspace"></div>
         </section>
 
-        <section id="view-children" class="view">
+        <section id="view-children" class="view" data-child-mode="list">
           <button class="ghost-button back-button" data-contextual-back="children" data-fallback-view="calendar" data-always-visible="true" type="button">← Back</button>
-          <div class="page-title">
+          <div class="page-title children-list-title">
             <p class="eyebrow">Child Profiles</p>
             <h2>Child Profiles</h2>
-            <p>Select a child to open their profile. Track observations, goals, attendance, daily logs, reports, and parent communication in one place.</p>
+            <p>Select a child to open their profile. Track observations, goals, reports, and records in one place.</p>
           </div>
           <div id="childManagementApp"></div>
         </section>
@@ -1701,6 +1701,6 @@
     <script src="scripts/curriculum-lesson-viewer-render.js?v=20260711-phase-d" defer></script>
     <script src="scripts/llh-schedule.js?v=20260714-calendar-day-notes" defer></script>
     <script src="scripts/llh-lesson-docx.js?v=20260714-lesson-docx" defer></script>
-    <script src="app.js?v=20260714-daily-logs-redesign" defer></script>
+    <script src="app.js?v=20260714-child-profile-redesign" defer></script>
   </body>
 </html>
