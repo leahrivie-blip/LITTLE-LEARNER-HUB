@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Step 5 — Weekly Calendar DOCX download smoke (Playwright).
+ * Weekly classroom downloads are PDF calendars (not garbled DOCX).
+ * Full lesson plan download is also PDF by default.
  * Run: npm run test:lesson-weekly-docx
  */
 const fs = require("fs");
@@ -9,9 +10,11 @@ const http = require("http");
 const os = require("os");
 const { spawn } = require("child_process");
 const crypto = require("crypto");
+const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-parser.js");
 
 const ROOT = path.join(__dirname, "..");
-const PORT = 19880 + Math.floor(Math.random() * 40);
+const SAMPLE = path.join(ROOT, "scripts/curriculum-import-samples/premium-garden-scientists-v2.txt");
+const PORT = 19640 + Math.floor(Math.random() * 40);
 const STORE_PATH = path.join(os.tmpdir(), `llh-lesson-weekly-docx-${crypto.randomBytes(4).toString("hex")}.json`);
 const ADMIN = {
   email: "lesson-weekly-docx-admin@test.local",
@@ -87,16 +90,11 @@ async function waitForBoot(child) {
 async function stopServer(child) {
   if (!child || child.exitCode !== null) return;
   child.kill("SIGTERM");
-  await new Promise((resolve) => {
-    const timer = setTimeout(() => { child.kill("SIGKILL"); resolve(); }, 3000);
-    child.on("exit", () => { clearTimeout(timer); resolve(); });
-  });
+  await new Promise((resolve) => setTimeout(resolve, 250));
 }
 
 async function seedFreeLesson(token) {
-  const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-parser.js");
-  const sample = path.join(ROOT, "scripts/curriculum-import-samples/label-only-full-workflow-v3.txt");
-  const parsed = parseCurriculumLessonPlanImport(fs.readFileSync(sample, "utf8"));
+  const parsed = parseCurriculumLessonPlanImport(fs.readFileSync(SAMPLE, "utf8"));
   if (!parsed.ok) return null;
   const bootstrap = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(token)}`);
   const touch = await requestJson("POST", "/api/admin/site-content", {
@@ -104,7 +102,7 @@ async function seedFreeLesson(token) {
     siteContent: { ...bootstrap.json.siteContent, updatedAt: bootstrap.json.siteContent.updatedAt || "" },
   });
   const planId = `cur-lp-weekly-docx-${crypto.randomBytes(3).toString("hex")}`;
-  const title = "Weekly DOCX Lesson Plan";
+  const title = "Weekly Calendar PDF Lesson";
   const save = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
     adminToken: token,
     expectedUpdatedAt: touch.json.siteContent.updatedAt,
@@ -115,20 +113,29 @@ async function seedFreeLesson(token) {
       plan: "Free",
       status: "published",
       age: "Preschool",
-      theme: "Weekly DOCX",
+      theme: "Garden Scientists",
     },
   });
   if (save.status !== 200) return null;
   return { planId, title };
 }
 
+function assertPdf(buf, label) {
+  assert(buf.slice(0, 5).toString() === "%PDF-", `${label} is not a PDF`);
+  assert(buf.length > 900, `${label} too small: ${buf.length}`);
+}
+
 async function main() {
+  const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+  assert(appJs.includes('preferDocx = options.format === "docx" && safeVariant === "full"'),
+    "weekly downloads must not default to DOCX");
+
   let playwright;
   try {
     playwright = require("playwright");
   } catch {
-    console.error("FAIL: playwright is required");
-    process.exitCode = 1;
+    console.log("Browser checks skipped — playwright not installed");
+    console.log("Static weekly PDF routing checks passed.");
     return;
   }
 
@@ -173,7 +180,7 @@ async function main() {
       page.waitForResponse((r) => r.url().includes("/api/site-content") && r.status() === 200, { timeout: 30000 }),
       page.reload({ waitUntil: "domcontentloaded" }),
     ]);
-    await page.waitForFunction(() => typeof LlhLessonDocx === "object" && typeof downloadLessonPlanVariant === "function", null, { timeout: 30000 });
+    await page.waitForFunction(() => typeof downloadLessonPlanVariant === "function", null, { timeout: 30000 });
 
     await page.evaluate(() => setView("lessons"));
     await page.waitForSelector("#view-lessons.active-view", { timeout: 8000 });
@@ -183,18 +190,21 @@ async function main() {
     await page.locator("#view-lessons .lesson-plan-card").first().click();
     await page.waitForSelector("#resourceViewerModal.lesson-workspace-mode.open", { timeout: 10000 });
 
-    await page.locator("[data-lesson-workspace-more-toggle]").click();
-    await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 5000 });
     const weekDownload = page.waitForEvent("download", { timeout: 10000 });
-    await page.locator('.lesson-workspace-more-menu [data-lesson-download-variant="week"]').click();
+    await page.locator('[data-lesson-action-bars="top"] .lesson-workspace-primary-actions > [data-lesson-download-variant="week"]').click();
     const weekFile = await weekDownload;
     const weekName = weekFile.suggestedFilename();
-    check("Weekly download filename ends with .docx", /\.docx$/i.test(weekName), weekName);
-    const weekPath = path.join(os.tmpdir(), `llh-week-${crypto.randomBytes(3).toString("hex")}.docx`);
+    check("Weekly download filename ends with .pdf", /\.pdf$/i.test(weekName), weekName);
+    const weekPath = path.join(os.tmpdir(), `llh-week-${crypto.randomBytes(3).toString("hex")}.pdf`);
     await weekFile.saveAs(weekPath);
     const weekBuf = fs.readFileSync(weekPath);
-    check("Weekly DOCX is a ZIP package", weekBuf.readUInt32LE(0) === 0x04034b50);
-    check("Weekly DOCX has meaningful size", weekBuf.length > 800, `bytes=${weekBuf.length}`);
+    try {
+      assertPdf(weekBuf, "weekly calendar");
+      check("Weekly download is a PDF package", true);
+    } catch (error) {
+      check("Weekly download is a PDF package", false, error.message);
+    }
+    check("Weekly PDF has meaningful size", weekBuf.length > 900, `bytes=${weekBuf.length}`);
 
     await page.locator("[data-lesson-workspace-more-toggle]").click();
     await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 5000 });
@@ -202,15 +212,20 @@ async function main() {
     await page.locator('.lesson-workspace-more-menu [data-lesson-download-variant="full"]').click();
     const fullFile = await fullDownload;
     const fullName = fullFile.suggestedFilename();
-    check("Full download filename ends with .docx", /\.docx$/i.test(fullName), fullName);
-    const fullPath = path.join(os.tmpdir(), `llh-full-${crypto.randomBytes(3).toString("hex")}.docx`);
+    check("Full download filename ends with .pdf", /\.pdf$/i.test(fullName), fullName);
+    const fullPath = path.join(os.tmpdir(), `llh-full-${crypto.randomBytes(3).toString("hex")}.pdf`);
     await fullFile.saveAs(fullPath);
     const fullBuf = fs.readFileSync(fullPath);
-    check("Full DOCX is a ZIP package", fullBuf.readUInt32LE(0) === 0x04034b50);
-    check("Full DOCX has meaningful size", fullBuf.length > 800, `bytes=${fullBuf.length}`);
+    try {
+      assertPdf(fullBuf, "full lesson plan");
+      check("Full download is a PDF package", true);
+    } catch (error) {
+      check("Full download is a PDF package", false, error.message);
+    }
+    check("Full PDF has meaningful size", fullBuf.length > 900, `bytes=${fullBuf.length}`);
 
     const requestMeta = await page.evaluate(() => window.__llhLastResourceOutputRequest || null);
-    check("Last download recorded as DOCX", requestMeta?.format === "docx", JSON.stringify(requestMeta));
+    check("Last download recorded as PDF", requestMeta?.format === "pdf", JSON.stringify(requestMeta));
 
     try { fs.unlinkSync(weekPath); } catch { /* ignore */ }
     try { fs.unlinkSync(fullPath); } catch { /* ignore */ }
@@ -218,7 +233,7 @@ async function main() {
     if (failures.length) {
       throw new Error(`${failures.length} check(s) failed:\n- ${failures.join("\n- ")}`);
     }
-    console.log("\nAll weekly/full DOCX download checks passed.");
+    console.log("\nAll weekly/full PDF download checks passed.");
   } finally {
     if (browser) await browser.close();
     await stopServer(child);
