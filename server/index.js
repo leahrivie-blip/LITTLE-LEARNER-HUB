@@ -5418,7 +5418,8 @@ function handlePublicSiteContent(request, response) {
   const content = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
   const defaults = normalizedSiteContent(defaultSiteContentStore());
   const publicForms = (content.forms || []).filter((item) => item.visible === true && item.archived !== true);
-  const publicPrintables = (content.printables || []).filter((item) => item.visible === true && item.archived !== true);
+  // Printables marketplace removed from the public product surface.
+  const publicPrintables = [];
   const publicReviews = (content.reviews || []).filter((item) => item.visible !== false);
   const publicFaqs = (content.faqs || []).filter((item) => item.visible !== false);
   // Draft/hidden marketing copy must not ship on the public API. Admin GET keeps full content.

@@ -4,7 +4,6 @@ const categories = [
   { view: "forms", title: "Forms Library", detail: "Editable daycare paperwork and parent forms.", icon: "FM" },
   { view: "menus", title: "Menu Center", detail: "Weekly menus, meal ideas, snacks, and shopping lists.", icon: "MN" },
   { view: "activities", title: "Activity Center", detail: "Search by age, theme, skill, and materials.", icon: "AC" },
-  { view: "printables", title: "Printables", detail: "Worksheets, coloring, tracing, letters, numbers, and shapes.", icon: "PR" },
 ];
 
 const aiAgeGroupOptions = ["Infant", "Young Toddler", "Older Toddler", "Preschool", "School Age"];
@@ -705,12 +704,12 @@ const printableTypes = ["Infant Activity Guide", "Tracing Worksheets", "Coloring
 const professionalPrintableTypes = ["Infant Activity Guide", "Tracing Worksheets", "Coloring Pages", "Alphabet Practice", "Number Practice", "Shape Practice", "Name Writing", "Cutting Practice", "Matching Activities", "Assessment Forms", "Seasonal Worksheets", "Holiday Worksheets"];
 const printableQualityBlockedTerms = ["placeholder", "draw here", "blank box", "coming soon", "lorem ipsum", "unfinished", "ai draft", "ai-generated"];
 const printablePdfLimit = Number.POSITIVE_INFINITY;
-// Set to true to temporarily hide the user-facing printables library while the section is being refreshed.
-// Admins always retain full access. Flip back to false to re-enable for users.
-const PRINTABLES_HIDDEN = false;
+// Printables marketplace/library removed from the product. Lesson PDF/DOCX exports and
+// lesson-attached resources remain. Admin CMS may still store legacy printable records.
+const PRINTABLES_FEATURE_REMOVED = true;
 
 function isPrintablesUpgradeModeActive() {
-  return PRINTABLES_HIDDEN && !hasAdminFullAccess();
+  return PRINTABLES_FEATURE_REMOVED;
 }
 
 // ─── 4-Status Content System ──────────────────────────────────────────────────
@@ -763,7 +762,6 @@ function buildResourceLibrary() {
     ...buildObservationLibrary(),
     ...buildFormsLibrary(),
     ...buildMenuLibrary(),
-    ...buildPrintableLibrary(),
   ];
 }
 
@@ -1696,7 +1694,6 @@ const billingPlans = {
       "10 Observations",
       "6 Forms",
       "8 Activity Ideas",
-      "6 Printables",
       "10 Document Creations Per Month",
       "Up to 3 Child Profiles",
       "Weekly Observation Tracker",
@@ -1954,13 +1951,11 @@ const freeAccessLimits = {
   "Forms Library": 6,
   "Menu Center": 0,
   "Activity Center": 8,
-  "Printables": 6,
 };
 const freePlanBaseFeatures = [
   "10 Observations",
   "6 Forms",
   "8 Activity Ideas",
-  "6 Printables",
   "10 Document Creations Per Month",
   "Up to 3 Child Profiles",
   "Weekly Observation Tracker",
@@ -1998,7 +1993,7 @@ function freePlanFeatureList() {
 
 function freePlanAccessSummaryText() {
   const lessonLabel = freeLessonPlanMarketingLabel().toLowerCase();
-  return `Free: 3 profiles, 10 observations, ${lessonLabel}, 6 forms, 8 activity ideas, 6 printables, and 10 document creations. Upgrade anytime to start a 7-Day Free Pro Trial.`;
+  return `Free: 3 profiles, 10 observations, ${lessonLabel}, 6 forms, 8 activity ideas, and 10 document creations. Upgrade anytime to start a 7-Day Free Pro Trial.`;
 }
 
 function formatLessonPlanAgeBreakdown(byAge) {
@@ -2011,15 +2006,18 @@ function formatLessonPlanAgeBreakdown(byAge) {
 function refreshFreePlanFeatureLines(features) {
   const lessonLine = `✓ ${freeLessonPlanMarketingLabel()}`;
   const lessonPlanPattern = /lesson plan/i;
+  const printablePattern = /printable/i;
   if (!Array.isArray(features) || !features.length) {
     return freePlanFeatureList().map((feature) => (feature.startsWith("✓") ? feature : `✓ ${feature}`));
   }
   let replaced = false;
-  const updated = features.map((line) => {
-    if (!lessonPlanPattern.test(line)) return line;
-    replaced = true;
-    return lessonLine;
-  });
+  const updated = features
+    .filter((line) => !printablePattern.test(String(line || "")))
+    .map((line) => {
+      if (!lessonPlanPattern.test(line)) return line;
+      replaced = true;
+      return lessonLine;
+    });
   if (!replaced) {
     const observationIndex = updated.findIndex((line) => /observation/i.test(line));
     updated.splice(observationIndex >= 0 ? observationIndex + 1 : 2, 0, lessonLine);
@@ -2036,18 +2034,18 @@ function refreshFreePlanFaqAnswer(answer) {
       lessonLabel,
       "8 Activity Ideas",
       "6 Forms",
-      "6 Printables",
       "10 AI Generations",
       "No Credit Card Required",
     ].join(", ");
   }
-  if (!/lesson plan/i.test(answer)) return answer;
-  return answer
+  const cleaned = String(answer)
     .split(/,\s*/)
     .map((part) => part.trim())
     .filter(Boolean)
+    .filter((part) => !/printable/i.test(part))
     .map((part) => (/lesson plan/i.test(part) ? lessonLabel : part))
     .join(", ");
+  return cleaned || answer;
 }
 
 function syncFreePlanMarketingCopy() {
@@ -2078,14 +2076,13 @@ const proFeatureList = [
   "Individual Child Support Plans",
   "Premium Forms",
   "Premium Activities",
-  "Premium Printables",
   "Premium Menus",
   "Future Premium Features",
 ];
 const freeAiLimitMessage = "You have used all 10 free document creations for this month. Upgrade to Pro for 250 document creations each month.";
 const paidAiLimitMessage = "You have used all 250 document creations for this month. Your access will reset next month.";
 const freeResourceLimitMessage = "You have reached your Free Plan limit. Upgrade to Pro to unlock the full Little Learner Hub library.";
-const proTrialUpgradeMessage = "Start your 7-Day Free Pro Trial for full Pro access to every lesson plan, activity, form, printable, and premium workflow. Credit card required. Cancel anytime.";
+const proTrialUpgradeMessage = "Start your 7-Day Free Pro Trial for full Pro access to every lesson plan, activity, form, and premium workflow. Credit card required. Cancel anytime.";
 const proTrialUpgradeSummary = "7-Day Free Pro Trial · Credit card required · Cancel anytime · Full Pro access during the trial.";
 const favoritesPageLimit = 20;
 const dailyLogFavoriteStorageKey = "llhDailyLogFavoriteActivities";
@@ -2132,7 +2129,6 @@ const viewMap = {
   forms: "Forms Library",
   activities: "Activity Center",
   menus: "Menu Center",
-  printables: "Printables",
 };
 
 // Views that are accessible without being logged in.
@@ -3327,7 +3323,7 @@ if (adminActiveSectionTab === "activities") adminActiveSectionTab = "curriculum-
 // ─── Admin 2.0 Navigation Groups ─────────────────────────────────────────────
 const adminGroups = [
   { id: "dashboard", icon: "🏠", label: "Dashboard",  tabs: ["dashboard", "analytics", "support"], defaultTab: "dashboard" },
-  { id: "content",   icon: "📚", label: "Content",    tabs: ["curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "printables", "reviews", "founder", "resources"], defaultTab: "curriculum-lesson-plans" },
+  { id: "content",   icon: "📚", label: "Content",    tabs: ["curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "reviews", "founder", "resources"], defaultTab: "curriculum-lesson-plans" },
   { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
   { id: "users",     icon: "👥", label: "Users",      tabs: ["users", "stripe-backfill"], defaultTab: "users" },
   { id: "settings",  icon: "⚙️", label: "Settings",   tabs: ["images"], defaultTab: "images" },
@@ -7046,7 +7042,7 @@ function captureDefaultSiteContent() {
     upgradeMessaging: {
       upgradePopupHeadline: "This is a Pro Feature",
       upgradeLimitHeadline: "You've reached your Free Plan limit.",
-      upgradePopupBody: "Start your 7-Day Free Pro Trial for full Pro access to every lesson plan, activity, form, printable, and premium workflow. Credit card required. Cancel anytime.",
+      upgradePopupBody: "Start your 7-Day Free Pro Trial for full Pro access to every lesson plan, activity, form, and premium workflow. Credit card required. Cancel anytime.",
       proTrialButtonText: "Start Your 7-Day Free Pro Trial",
       freeLimitMessage: "You have reached your Free Plan limit. Upgrade to Pro to unlock the full Little Learner Hub library.",
       trialUpgradeSummary: "7-Day Free Pro Trial · Credit card required · Cancel anytime · Full Pro access during the trial.",
@@ -7256,9 +7252,8 @@ function loadResources() {
     ...loadCurriculumManagedLessonPlans(),
     ...loadCurriculumManagedActivities(),
     ...loadAdminManagedForms(),
-    ...loadAdminManagedPrintables(),
     ...saved,
-  ]);
+  ].filter((resource) => resource.category !== "Printables"));
 }
 
 function loadAdminManagedForms() {
@@ -7866,9 +7861,6 @@ function updateAdminNavVisibility() {
   document.querySelectorAll("[data-admin-nav]").forEach((button) => {
     button.hidden = !canSeeAdminNav();
   });
-  document.querySelectorAll("[data-printables-entry]").forEach((button) => {
-    button.hidden = isPrintablesUpgradeModeActive();
-  });
 }
 
 function canSeeAdminNav() {
@@ -7878,6 +7870,10 @@ function canSeeAdminNav() {
 function setView(view, options = {}) {
   const requestedView = view;
   let resolvedRequested = resolveSidebarView(view);
+  // Printables marketplace removed — send leftover links to Activities.
+  if (resolvedRequested === "printables") {
+    return setView("activities", options);
+  }
   // Soft-retire Curriculum Planner: redirect to Calendar unless rollback flag is on.
   if (resolvedRequested === "curriculum-planner" && !isCurriculumPlannerLegacyEnabled()) {
     pendingCurriculumPlannerRetirementNotice = true;
@@ -10415,7 +10411,7 @@ function lessonPlanAttachedResourcesHtml(resource) {
 
   return `
     <section class="print-section lp-resources-section no-print-break">
-      <h3>Printables &amp; Resources</h3>
+      <h3>Lesson Resources</h3>
       <p>Expand a category to view, print, or open attached resources for this lesson plan.</p>
       ${categorySections}
     </section>
@@ -11875,7 +11871,6 @@ function lessonWorkspaceBackButtonLabel() {
   if (activeView === "activities") return "← Back to Activities";
   if (activeView === "forms") return "← Back to Forms";
   if (activeView === "menus") return "← Back to Menu Center";
-  if (activeView === "printables") return "← Back to Printables";
   if (activeView === "support-center") return "← Back to Support Center";
   if (activeView === "children") return "← Back to Children";
   if (activeView === "home") return isLoggedIn() || hasAdminFullAccess() ? "← Back to Dashboard" : "← Back to Home";
@@ -11984,7 +11979,6 @@ function resourceViewerBackLabel() {
   if (activeView === "activities") return "← Back to Activities";
   if (activeView === "forms") return "← Back to Forms";
   if (activeView === "menus") return "← Back to Menu Center";
-  if (activeView === "printables") return "← Back to Printables";
   if (activeView === "planner") return "← Back to Calendar";
   if (activeView === "curriculum-planner") return "← Back to Curriculum Planner";
   if (activeView === "support-center") return "← Back to Support Center";
@@ -14102,7 +14096,7 @@ function openGeneratedPrintableResource(resource) {
 }
 
 function supportsLockedResourcePreview(resource) {
-  return ["Lesson Plans", "Activity Center", "Forms Library", "Printables"].includes(resource?.category);
+  return ["Lesson Plans", "Activity Center", "Forms Library"].includes(resource?.category);
 }
 
 function lockedResourcePreviewBenefits(resource) {
@@ -14125,13 +14119,6 @@ function lockedResourcePreviewBenefits(resource) {
     return [
       `Keeps ${formGroup.toLowerCase()} paperwork organized and family-ready.`,
       "Helps providers customize polished forms for daily operations, records, and parent communication.",
-    ];
-  }
-  if (resource.category === "Printables") {
-    const type = printableType(resource);
-    return [
-      `Reinforces ${type.toLowerCase()} practice with a print-ready activity.`,
-      `Supports independent skill-building, fine motor practice, and quick table-time prep for ${String(resource.age || "young").toLowerCase()} learners.`,
     ];
   }
   return [resource.description || "Unlock the full resource with Pro."];
@@ -14190,7 +14177,7 @@ async function openResourceViewer(resourceId, options = {}) {
   const resource = resources.find((item) => item.id === resourceId);
   if (!resource) return;
   if (!isResourceVisibleToCurrentUser(resource)) {
-    setView("printables");
+    setView(resourceViewForCategory(resource.category) || "home");
     return;
   }
   if (!canAccess(resource)) {
@@ -14426,8 +14413,8 @@ function renderCategoryPage(view) {
   const section = document.querySelector(`#view-${view}`);
   const isLessonPlanCategory = category === "Lesson Plans";
 
-  if (category === "Printables" && isPrintablesUpgradeModeActive()) {
-    section.innerHTML = renderPrintablesComingSoon();
+  if (category === "Printables" || isPrintablesUpgradeModeActive() && view === "printables") {
+    setView("activities");
     return;
   }
 
@@ -14829,9 +14816,17 @@ function renderManagedFaqContent() {
     return;
   }
   target.innerHTML = faqs.map((f) => {
-    const answer = /what is included in the free plan/i.test(f.question || "")
-      ? refreshFreePlanFaqAnswer(f.answer)
-      : f.answer;
+    let answer = f.answer || "";
+    if (/what is included in the free plan/i.test(f.question || "") || /is there a free plan/i.test(f.question || "")) {
+      answer = refreshFreePlanFaqAnswer(answer);
+    }
+    answer = String(answer)
+      .replace(/,?\s*printables,?/gi, ",")
+      .replace(/,\s*,/g, ",")
+      .replace(/\s+,/g, ",")
+      .replace(/,\s*$/g, "")
+      .replace(/^\s*,\s*/g, "")
+      .trim();
     return `
     <article class="faq-item">
       <h3>${escapeHtml(f.question)}</h3>
@@ -15064,7 +15059,7 @@ function renderHome() {
     total: resources.length,
     lessons: resources.filter((resource) => resource.category === "Lesson Plans").length,
     observations: resources.filter((resource) => resource.category === "Observation Hub").length,
-    downloads: resources.filter((resource) => ["Forms Library", "Printables", "Menu Center"].includes(resource.category)).length,
+    downloads: resources.filter((resource) => ["Forms Library", "Menu Center"].includes(resource.category)).length,
   };
   const homeStats = document.querySelector("#homeStats");
   if (homeStats) {
@@ -15206,7 +15201,7 @@ function saveWeeklyPlanner(planner) {
 function plannerSuggestions(planner) {
   const query = [planner.theme, planner.ageGroup, planner.focus].join(" ").toLowerCase();
   return resources
-    .filter((resource) => ["Lesson Plans", "Activity Center", "Menu Center", "Printables"].includes(resource.category))
+    .filter((resource) => ["Lesson Plans", "Activity Center", "Menu Center"].includes(resource.category))
     .filter((resource) => isResourceVisibleToCurrentUser(resource))
     .filter((resource) => canAccess(resource))
     .map((resource) => {
@@ -19736,12 +19731,11 @@ function supportTopicResources(topic = "", child = null, records = childRecords(
   const area = supportTopicDevelopmentArea(topic);
   const childAgeGroup = child?.ageGroup || "";
   const lessonsResult = portfolioResourcesFor("Lesson Plans", [area], childAgeGroup, 3);
-  const printablesResult = portfolioResourcesFor("Printables", [area], childAgeGroup, 3);
   const activitiesResult = portfolioResourcesFor("Activity Center", [area], childAgeGroup, 3);
   return {
     area,
     lessons: lessonsResult.items,
-    printables: printablesResult.items,
+    printables: [],
     activities: activitiesResult.items,
   };
 }
@@ -19911,8 +19905,8 @@ function renderSupportTopicTabContent(topic, content, child, records = childReco
           <div class="support-resource-mini-grid">${resourcesForTopic.lessons.length ? resourcesForTopic.lessons.map(renderSupportMiniResourceCard).join("") : `<p>No matching lesson plans yet - use AI to create ideas for this support area.</p>`}</div>
         </div>
         <div class="support-resource-section">
-          <strong>Related Printables</strong>
-          <div class="support-resource-mini-grid">${resourcesForTopic.printables.length ? resourcesForTopic.printables.map(renderSupportMiniResourceCard).join("") : `<p>No matching printables yet - use AI to create activities for this support area.</p>`}</div>
+          <strong>Related Activities</strong>
+          <div class="support-resource-mini-grid">${resourcesForTopic.activities.length ? resourcesForTopic.activities.map(renderSupportMiniResourceCard).join("") : `<p>No matching activities yet - use AI to create activities for this support area.</p>`}</div>
         </div>
       </section>
     `;
@@ -19964,7 +19958,7 @@ function renderSupportAiIdeas(topic = "", child = null, records = childRecords()
         <div><strong>Parent Communication</strong>${renderSupportBulletList(content.parentNotes.slice(0, 3))}</div>
         <div><strong>Related Resources</strong>${renderSupportBulletList([
           resourcesForTopic.lessons[0]?.title || "Create a matching lesson plan idea.",
-          resourcesForTopic.printables[0]?.title || "Create a printable support activity.",
+          resourcesForTopic.activities[0]?.title || "Create a matching activity idea.",
         ])}</div>
       </div>
     </div>
@@ -20517,8 +20511,6 @@ function renderRecommendedForChild(child, records, portfolio) {
   const activities = portfolioResourcesFor("Activity Center", areas, child.ageGroup);
   const lessonPlans = portfolioResourcesFor("Lesson Plans", areas, child.ageGroup);
   const observations = portfolioResourcesFor("Observation Hub", areas, child.ageGroup);
-  const printables = portfolioResourcesFor("Printables", areas, child.ageGroup);
-  printables.items = prioritizeProfessionalResources(printables.items, areas, child.ageGroup, primaryArea);
   const extraResources = {
     items: resources
     .filter((resource) => !["Activity Center", "Lesson Plans", "Observation Hub", "Printables"].includes(resource.category))
@@ -20542,7 +20534,6 @@ function renderRecommendedForChild(child, records, portfolio) {
       ${renderPortfolioRecommendationSection(`Recommended ${displayArea} Activities`, activities, areas.flatMap(suggestedActivitiesForArea).slice(0, 6))}
       ${renderPortfolioRecommendationSection(`Recommended ${displayArea} Lesson Plans`, lessonPlans, areas.flatMap(suggestedLessonPlansForArea).slice(0, 6))}
       ${renderPortfolioRecommendationSection(`Recommended ${displayArea} Observations`, observations, areas.map((area) => `${area} observation wording`))}
-      ${renderPortfolioRecommendationSection(`Recommended ${displayArea} Printables`, printables, areas.flatMap(suggestedActivitiesForArea).map((item) => `${item} printable`).slice(0, 6))}
       ${renderPortfolioRecommendationSection(`Recommended ${displayArea} Resources`, extraResources, ["Parent conference notes", "Progress report", "Goal planning form"])}
     </section>
   `;
@@ -21056,11 +21047,10 @@ function goalRecommendations(child, goal, records) {
   const activityResources = portfolioResourcesFor("Activity Center", primaryAreas, child.ageGroup, 4);
   const lessonResources = portfolioResourcesFor("Lesson Plans", primaryAreas, child.ageGroup, 4);
   lessonResources.items = childLessonRecommendations(goalLessonChild, records, 4);
-  const printableResources = portfolioResourcesFor("Printables", primaryAreas, child.ageGroup, 4);
+  const printableResources = { items: [], note: "" };
   const observationResources = portfolioResourcesFor("Observation Hub", primaryAreas, child.ageGroup, 3);
   activityResources.items = prioritizeProfessionalResources(activityResources.items, primaryAreas, child.ageGroup, goal?.goal);
   lessonResources.items = prioritizeProfessionalResources(lessonResources.items, primaryAreas, child.ageGroup, goal?.goal);
-  printableResources.items = prioritizeProfessionalResources(printableResources.items, primaryAreas, child.ageGroup, goal?.goal);
   observationResources.items = prioritizeProfessionalResources(observationResources.items, primaryAreas, child.ageGroup, goal?.goal);
   const extraResources = resources
     .filter((resource) => !["Activity Center", "Lesson Plans", "Printables", "Observation Hub"].includes(resource.category))
@@ -21074,9 +21064,7 @@ function goalRecommendations(child, goal, records) {
     .sort((a, b) => a.ageTier - b.ageTier || b.score - a.score || a.resource.title.localeCompare(b.resource.title))
     .slice(0, 2)
     .map((item) => item.resource);
-  const professionalPrintableFallback = printableResources.items.length
-    ? null
-    : professionalGoalPrintableResource(child, goal, area);
+  const professionalPrintableFallback = null;
   return {
     areas,
     area,
@@ -21302,12 +21290,8 @@ function renderSimpleGoalCard(child, goal, records) {
   const progress = goal ? goalProgressPercent(goal.progress) : 0;
   const activities = suggestedActivitiesForArea(area, child).slice(0, 3);
   const lessonFallbacks = suggestedLessonPlansForArea(area).slice(0, 3);
-  const printResourceMatches = recommendations.printableResources.items.length
-    ? [...recommendations.printableResources.items, ...recommendations.extraResources]
-    : [];
-  const printFallbacks = recommendations.professionalPrintableFallback
-    ? [recommendations.professionalPrintableFallback.title, ...printableProfessionalFeatures(printableType(recommendations.professionalPrintableFallback)).slice(0, 2)]
-    : suggestedActivitiesForArea(area, child).slice(0, 3).map((item) => `${item} printable`);
+  const printResourceMatches = recommendations.extraResources || [];
+  const printFallbacks = suggestedActivitiesForArea(area, child).slice(0, 3);
   const lastObservation = goalLastObservation(child, normalizedGoal, records);
   const connectedObservations = connectedObservationsForGoal(normalizedGoal, records);
   const childSummary = childProgressSummary(child.id, records);
@@ -21343,10 +21327,10 @@ function renderSimpleGoalCard(child, goal, records) {
         </section>
         ${renderGoalResourceList("Suggested Activities", activities.map((title) => ({ title })), suggestedActivitiesForArea(area, child))}
         ${renderGoalResourceList("Matching Lesson Plans", recommendations.lessonResources.items, lessonFallbacks, { note: recommendations.lessonResources.note })}
-        ${renderGoalResourceList("Printables & Resources", printResourceMatches, printFallbacks, {
-          note: recommendations.printableResources.note,
-          emptyMessage: "No matching professional printable yet - generate a print-ready resource for this goal.",
-          generatePrintable: Boolean(recommendations.professionalPrintableFallback),
+        ${renderGoalResourceList("Support Resources", printResourceMatches, printFallbacks, {
+          note: "",
+          emptyMessage: "Try matching activities and lesson plans above for this goal.",
+          generatePrintable: false,
           childId: child.id,
           goalId: goal?.id || "",
         })}
@@ -29990,7 +29974,7 @@ function renderAdminDashboard() {
   table.innerHTML = filtered.length ? filtered.map(adminRow).join("") : `
     <tr>
       <td colspan="6">
-        <div class="empty-state">No legacy uploads yet. Use Forms, Printables, Activities, and Lesson Plans managers for new content.</div>
+        <div class="empty-state">No legacy uploads yet. Use Forms, Activities, and Lesson Plans managers for new content.</div>
       </td>
     </tr>
   `;
@@ -33130,7 +33114,6 @@ function renderPreviewLibrary() {
     ...sampleResources("Lesson Plans", 3),
     ...sampleResources("Observation Hub", 3),
     ...sampleResources("Forms Library", 1),
-    ...sampleResources("Printables", 3),
     ...sampleResources("Menu Center", 1),
   ];
   target.innerHTML = `
@@ -33649,7 +33632,7 @@ function renderAccountPage() {
   statusLabel.textContent = paidBilling ? account?.subscriptionStatus || `${billingPlanLabel(currentPlan, account)} Subscription Active` : "Free Plan";
   detailLabel.innerHTML = paidBilling
     ? `Current Plan: ${escapeHtml(billingPlanLabel(currentPlan, account))}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${account?.foundingMember ? "Lifetime" : "Regular Pro pricing"}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>Helper Usage: ${aiUsageCount()} of ${paidAiMonthlyLimit} used this billing month. Resets ${escapeHtml(aiResetLabel())}.<br>Your account has full in-app resources, menus, child profiles, portfolios, tracking tools, provider tools, future premium features, and ${paidAiMonthlyLimit} document creations per month.`
-    : `Your Free account includes 5 lesson plans, 10 observations, 6 forms, 8 activity ideas, 6 printables, ${freeAiMonthlyLimit} document creations per month, up to 3 child profiles, and the weekly observation tracker. Upgrade to Pro to spend less time on paperwork with parent messages, daily reports, portfolios, and faster documentation workflows. Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}. Helper Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`;
+    : `Your Free account includes 5 lesson plans, 10 observations, 6 forms, 8 activity ideas, ${freeAiMonthlyLimit} document creations per month, up to 3 child profiles, and the weekly observation tracker. Upgrade to Pro to spend less time on paperwork with parent messages, daily reports, portfolios, and faster documentation workflows. Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}. Helper Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`;
   if (demoButton) demoButton.style.display = "none";
   if (upgradeButton) {
     upgradeButton.textContent = paidBilling ? "Manage Billing" : "Upgrade to Pro";
@@ -33770,7 +33753,6 @@ function resourceViewForCategory(category) {
     "Forms Library": "forms",
     "Activity Center": "activities",
     "Menu Center": "menus",
-    "Printables": "printables",
   };
   return map[category] || "home";
 }
