@@ -3374,7 +3374,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","reviews","founder","images","analytics","support","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","reviews","founder","images","analytics","support","feedback","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding"]);
 // FUTURE ADMIN BUILD: lessonPlanResourceCategories is currently hardcoded.
 // A future admin section should allow adding, renaming, and reordering these category labels
 // so new upload categories can be managed without a code change.
@@ -3388,7 +3388,7 @@ if (adminActiveSectionTab === "activities") adminActiveSectionTab = "curriculum-
 
 // ─── Admin 2.0 Navigation Groups ─────────────────────────────────────────────
 const adminGroups = [
-  { id: "dashboard", icon: "🏠", label: "Dashboard",  tabs: ["dashboard", "analytics", "support"], defaultTab: "dashboard" },
+  { id: "dashboard", icon: "🏠", label: "Dashboard",  tabs: ["dashboard", "analytics", "support", "feedback"], defaultTab: "dashboard" },
   { id: "content",   icon: "📚", label: "Content",    tabs: ["curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "reviews", "founder", "resources"], defaultTab: "curriculum-lesson-plans" },
   { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
   { id: "users",     icon: "👥", label: "Users",      tabs: ["users", "stripe-backfill"], defaultTab: "users" },
@@ -3400,6 +3400,7 @@ const adminGroupForTab = {
   "dashboard":   "dashboard",
   "analytics":   "dashboard",
   "support":     "dashboard",
+  "feedback":    "dashboard",
   "curriculum-lesson-plans": "content",
   "curriculum-activities": "content",
   "curriculum-resources": "content",
@@ -3430,6 +3431,7 @@ const adminTabLabels = {
   "dashboard":   "Overview",
   "analytics":   "Analytics",
   "support":     "Support",
+  "feedback":    "Feedback",
   "curriculum-lesson-plans": "Play-Based Lessons",
   "curriculum-activities": "Curriculum Activities",
   "curriculum-resources": "Curriculum Resources",
@@ -7403,6 +7405,7 @@ function currentAccount() {
 const ACCOUNT_TYPES = Object.freeze({
   HOME_DAYCARE: "home_daycare",
   CENTER: "center",
+  SINGLE_PROVIDER: "single_provider",
 });
 
 /** Reserved — see docs/FUTURE_ONBOARDING_PRICING.md (not active yet). */
@@ -7451,16 +7454,23 @@ const ACCOUNT_TYPE_ALIASES = Object.freeze({
   "preschool classroom": ACCOUNT_TYPES.CENTER,
   "after school program": ACCOUNT_TYPES.CENTER,
   after_school: ACCOUNT_TYPES.CENTER,
+  single_provider: ACCOUNT_TYPES.SINGLE_PROVIDER,
+  "single provider": ACCOUNT_TYPES.SINGLE_PROVIDER,
+  individual: ACCOUNT_TYPES.SINGLE_PROVIDER,
   other: ACCOUNT_TYPES.HOME_DAYCARE,
 });
 
 const USER_ROLE_ALIASES = Object.freeze({
   owner: USER_ROLES.OWNER,
+  "director / owner": USER_ROLES.OWNER,
+  "director/owner": USER_ROLES.OWNER,
   director: USER_ROLES.DIRECTOR,
   teacher: USER_ROLES.TEACHER,
   "lead teacher": USER_ROLES.TEACHER,
   lead_teacher: USER_ROLES.TEACHER,
   assistant: USER_ROLES.ASSISTANT,
+  "assistant / staff": USER_ROLES.ASSISTANT,
+  staff: USER_ROLES.ASSISTANT,
   "co-teacher": USER_ROLES.TEACHER,
   coteacher: USER_ROLES.TEACHER,
   "family helper": USER_ROLES.ASSISTANT,
@@ -7574,6 +7584,53 @@ function getUserRole(account = currentAccount()) {
   return resolveUserRole(account);
 }
 
+function accountTypeDisplayLabel(accountOrType) {
+  const type = typeof accountOrType === "string"
+    ? normalizeAccountType(accountOrType)
+    : getAccountType(accountOrType);
+  if (type === ACCOUNT_TYPES.CENTER) return "Childcare Center";
+  if (type === ACCOUNT_TYPES.SINGLE_PROVIDER) return "Single Provider";
+  return "Home Daycare";
+}
+
+function roleDisplayLabel(accountOrRole) {
+  const role = typeof accountOrRole === "string"
+    ? normalizeUserRole(accountOrRole)
+    : getUserRole(accountOrRole);
+  if (role === USER_ROLES.DIRECTOR) return "Director";
+  if (role === USER_ROLES.TEACHER) return "Lead Teacher";
+  if (role === USER_ROLES.ASSISTANT) return "Assistant / Staff";
+  return "Director / Owner";
+}
+
+async function syncAccountProfileToBackend(email, profile = {}, options = {}) {
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  if (!cleanEmail || !canUseLaunchBackend()) return null;
+  try {
+    const response = await fetch("/api/account/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: cleanEmail,
+        firstName: profile.firstName || "",
+        lastName: profile.lastName || "",
+        businessName: profile.businessName || profile.daycareName || profile.programName || "",
+        accountType: profile.accountType || "",
+        role: profile.role || "",
+        phone: profile.phone || "",
+        signup: Boolean(options.signup),
+        lastLogin: Boolean(options.lastLogin),
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Could not sync account profile.");
+    return data.user || null;
+  } catch (error) {
+    console.warn("Account profile sync failed", error);
+    return null;
+  }
+}
+
 /**
  * Platform feature gate (roles + account type).
  * Distinct from canAccess(resource) which gates Free vs Pro library content.
@@ -7662,6 +7719,14 @@ function saveProgramSettings(data) {
   if (!updates.accountType) updates.accountType = migration.accountType;
   if (!account?.role) updates.role = migration.role;
   updateAccount(currentUser, updates);
+  syncAccountProfileToBackend(currentUser, {
+    firstName: account?.firstName || "",
+    lastName: account?.lastName || "",
+    businessName: nextSettings.programName || account?.businessName || "",
+    accountType: updates.accountType || account?.accountType || "",
+    role: updates.role || account?.role || "",
+    phone: account?.phone || "",
+  }).catch(() => {});
 }
 
 function loadAccountState(email) {
@@ -7735,6 +7800,7 @@ function setAuthMode(mode) {
   currentAuthMode = mode;
   const title = document.querySelector("#authTitle");
   const nameFields = document.querySelector("#authNameFields");
+  const businessFields = document.querySelector("#authBusinessFields");
   const phoneField = document.querySelector("#authPhoneField");
   const passwordField = document.querySelector("#passwordInput");
   const submitButton = document.querySelector("#authSubmitButton");
@@ -7746,6 +7812,16 @@ function setAuthMode(mode) {
   if (nameFields) {
     nameFields.classList.toggle("hidden-field", !isSignup);
     nameFields.setAttribute("aria-hidden", isSignup ? "false" : "true");
+    nameFields.querySelectorAll("input").forEach((input) => {
+      input.required = isSignup;
+    });
+  }
+  if (businessFields) {
+    businessFields.classList.toggle("hidden-field", !isSignup);
+    businessFields.setAttribute("aria-hidden", isSignup ? "false" : "true");
+    businessFields.querySelectorAll("input, select").forEach((input) => {
+      input.required = isSignup;
+    });
   }
   phoneField.classList.toggle("hidden-field", !isSignup);
   phoneField.setAttribute("aria-hidden", isSignup ? "false" : "true");
@@ -20806,8 +20882,8 @@ function renderSettingsHubPage() {
   const canBilling = canAccessPlatformFeature("billing");
   const canStaff = canAccessPlatformFeature("staff_management");
   const account = currentAccount();
-  const accountTypeLabel = getAccountType(account) === "center" ? "Center" : "Home Daycare";
-  const roleLabel = String(getUserRole(account) || "owner").replace(/_/g, " ");
+  const accountTypeLabel = accountTypeDisplayLabel(account);
+  const roleLabel = roleDisplayLabel(account);
   const groups = [
     {
       title: "Account",
@@ -20815,6 +20891,16 @@ function renderSettingsHubPage() {
       cards: [
         { view: "account", title: "Profile & Security", detail: "Email, phone, password, and sign-out" },
         { view: "account", title: "Notifications", detail: "Choose how Little Learner Hub reminds you", hash: "notifications" },
+      ],
+    },
+    {
+      title: "Need Help?",
+      detail: "Report bugs, request features, or contact Leah",
+      cards: [
+        { view: "", title: "Send Feedback", detail: "Bugs, suggestions, and questions", action: "feedback", feedbackType: "General Feedback" },
+        { view: "", title: "Report a Bug", detail: "Something broken or confusing", action: "feedback", feedbackType: "Bug" },
+        { view: "", title: "Request a Feature", detail: "Tell us what would help your classroom", action: "feedback", feedbackType: "Feature Request" },
+        { view: "contact", title: "Contact Support", detail: "Open the full support page" },
       ],
     },
     {
@@ -20889,10 +20975,15 @@ function renderSettingsHubPage() {
               <p>${escapeHtml(group.detail)}</p>
             </div>
             <div class="settings-hub-grid">
-              ${group.cards.map((card) => card.disabled
-                ? `<div class="settings-hub-card settings-hub-card-disabled"><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></div>`
-                : `<button class="settings-hub-card" type="button" data-view="${escapeHtml(card.view)}"${card.hash ? ` data-settings-anchor="${escapeHtml(card.hash)}"` : ""}><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></button>`
-              ).join("")}
+              ${group.cards.map((card) => {
+                if (card.disabled) {
+                  return `<div class="settings-hub-card settings-hub-card-disabled"><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></div>`;
+                }
+                if (card.action === "feedback") {
+                  return `<button class="settings-hub-card" type="button" data-open-feedback="${escapeHtml(card.feedbackType || "General Feedback")}"><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></button>`;
+                }
+                return `<button class="settings-hub-card" type="button" data-view="${escapeHtml(card.view)}"${card.hash ? ` data-settings-anchor="${escapeHtml(card.hash)}"` : ""}><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></button>`;
+              }).join("")}
             </div>
           </section>
         `).join("")}
@@ -27096,6 +27187,165 @@ async function submitSupportTicket(form) {
   renderAdminTickets();
 }
 
+function openFeedbackModal(type = "General Feedback") {
+  const modal = document.querySelector("#feedbackModal");
+  if (!modal) return;
+  const account = currentAccount() || {};
+  const name = displayUserName(account) || [account.firstName, account.lastName].filter(Boolean).join(" ") || "";
+  const email = currentUser || account.email || "";
+  const typeInput = document.querySelector("#feedbackTypeInput");
+  const nameInput = document.querySelector("#feedbackNameInput");
+  const emailInput = document.querySelector("#feedbackEmailInput");
+  const subjectInput = document.querySelector("#feedbackSubjectInput");
+  const messageInput = document.querySelector("#feedbackMessageInput");
+  if (typeInput) typeInput.value = type;
+  if (nameInput && !nameInput.value) nameInput.value = name;
+  if (emailInput && !emailInput.value) emailInput.value = email;
+  if (subjectInput) subjectInput.value = "";
+  if (messageInput) messageInput.value = "";
+  setFormMessage("#feedbackMessage", "");
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+  nameInput?.focus();
+}
+
+function closeFeedbackModal() {
+  const modal = document.querySelector("#feedbackModal");
+  if (!modal) return;
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+async function submitFeedbackForm(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const type = document.querySelector("#feedbackTypeInput")?.value || "General Feedback";
+  const name = document.querySelector("#feedbackNameInput")?.value?.trim() || "Provider";
+  const email = document.querySelector("#feedbackEmailInput")?.value?.trim() || currentUser || "";
+  const subject = document.querySelector("#feedbackSubjectInput")?.value?.trim() || type;
+  const message = document.querySelector("#feedbackMessageInput")?.value?.trim() || "";
+  if (!email || !message) {
+    setFormMessage("#feedbackMessage", "Email and message are required.");
+    return;
+  }
+  setFormMessage("#feedbackMessage", "Sending…", true);
+  const account = currentAccount() || {};
+  const payload = {
+    type,
+    name,
+    email,
+    subject,
+    message,
+    sourceUrl: window.location.href,
+    page: window.location.hash || window.location.pathname || "app",
+    accountType: account.accountType || getAccountType(account),
+    role: account.role || getUserRole(account),
+  };
+  try {
+    if (!canUseLaunchBackend()) throw new Error("Backend unavailable");
+    const response = await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Could not send feedback.");
+    trackEvent("feedback_submitted", { type, subject });
+    setFormMessage("#feedbackMessage", "Thank you — your feedback was sent to Leah and saved in Admin.", true);
+    form.reset();
+    setTimeout(closeFeedbackModal, 1200);
+    if (isAdminUnlocked()) {
+      adminAnalyticsCache = null;
+      loadAdminAnalyticsFromBackend();
+    }
+  } catch (error) {
+    // Fallback: also create a support ticket so Admin still sees it.
+    try {
+      await fetch("/api/support-ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: type === "Bug" || type === "Problem" ? "Bug Report" : type === "Feature Request" || type === "Missing Feature" ? "Feature Request" : "Support Request",
+          name,
+          email,
+          topic: subject,
+          message,
+          sourceUrl: window.location.href,
+          userAgent: navigator.userAgent,
+        }),
+      });
+      setFormMessage("#feedbackMessage", "Saved to support inbox. If urgent, also email little.learners.hub.customer@gmail.com.", true);
+      setTimeout(closeFeedbackModal, 1400);
+    } catch {
+      setFormMessage("#feedbackMessage", error.message || "Could not send feedback. Please email support.");
+    }
+  }
+}
+
+function renderAdminFeedbackCenter() {
+  const target = document.querySelector("#adminFeedbackApp");
+  if (!target || !isAdminUnlocked()) return;
+  const filter = document.querySelector("#feedbackStatusFilter")?.value || "All Statuses";
+  const items = (adminAnalyticsCache?.feedback || []).slice();
+  const filtered = items.filter((item) => {
+    if (filter === "All Statuses") return true;
+    if (filter === "Resolved") return ["Resolved", "Completed"].includes(item.status);
+    return item.status === filter;
+  });
+  const counts = {
+    new: items.filter((i) => i.status === "New").length,
+    progress: items.filter((i) => i.status === "In Progress" || i.status === "Reviewed" || i.status === "Planned").length,
+    resolved: items.filter((i) => ["Resolved", "Completed"].includes(i.status)).length,
+    archived: items.filter((i) => i.status === "Archived").length,
+  };
+  target.innerHTML = `
+    <div class="aup-insight-grid">
+      <div class="aup-insight-card"><strong>${counts.new}</strong><span>New</span></div>
+      <div class="aup-insight-card aup-insight--trial"><strong>${counts.progress}</strong><span>In Progress</span></div>
+      <div class="aup-insight-card aup-insight--pro"><strong>${counts.resolved}</strong><span>Resolved</span></div>
+      <div class="aup-insight-card"><strong>${counts.archived}</strong><span>Archived</span></div>
+    </div>
+    <div class="ticket-list admin-feedback-list">
+      ${filtered.length ? filtered.map((item) => `
+        <article class="ticket-card" data-feedback-id="${escapeHtml(item.id)}">
+          <div class="ticket-card-header">
+            <div>
+              <p class="eyebrow">${escapeHtml(item.type || "Feedback")} · ${escapeHtml(item.status || "New")}</p>
+              <h3>${escapeHtml(item.subject || item.type || "Feedback")}</h3>
+              <p>${escapeHtml(item.name || "Provider")} · ${escapeHtml(item.email || "No email")}</p>
+              <small>${escapeHtml(item.createdAt ? new Date(item.createdAt).toLocaleString() : "")}${item.page || item.sourceUrl ? ` · ${escapeHtml(item.page || item.sourceUrl)}` : ""}</small>
+            </div>
+          </div>
+          <p>${escapeHtml(item.message || "")}</p>
+          ${(item.adminNotes || []).length ? `<div class="muted-copy">${(item.adminNotes || []).map((n) => `<p><strong>Note:</strong> ${escapeHtml(n.note || n)}</p>`).join("")}</div>` : ""}
+          <div class="account-actions-row">
+            <button class="ghost-button" type="button" data-feedback-status="In Progress" data-feedback-id="${escapeHtml(item.id)}">In Progress</button>
+            <button class="primary-button" type="button" data-feedback-status="Resolved" data-feedback-id="${escapeHtml(item.id)}">Mark Resolved</button>
+            <button class="ghost-button" type="button" data-feedback-status="Archived" data-feedback-id="${escapeHtml(item.id)}">Archive</button>
+            <button class="ghost-button" type="button" data-feedback-note="${escapeHtml(item.id)}">Add Note</button>
+          </div>
+        </article>
+      `).join("") : `<div class="empty-state">No feedback in this status yet.</div>`}
+    </div>
+  `;
+}
+
+async function updateAdminFeedbackItem(id, updates = {}) {
+  const token = adminSession()?.token;
+  if (!token || !canUseLaunchBackend()) return { ok: false, error: "Admin token required." };
+  const response = await fetch("/api/admin/feedback-update", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminToken: token, id, ...updates }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) return { ok: false, error: data?.error || "Update failed." };
+  adminAnalyticsCache = null;
+  await loadAdminAnalyticsFromBackend();
+  renderAdminFeedbackCenter();
+  return { ok: true, feedback: data.feedback };
+}
+
 async function renderContactPage() {
   const target = document.querySelector("#userTicketList");
   if (!target) return;
@@ -27283,37 +27533,35 @@ function adminMetric(label, value, detail = "") {
 function renderAdminOwnerOverview() {
   const target = document.querySelector("#adminOwnerOverview");
   if (!target || !isAdminUnlocked()) return;
-  // Prefer backend users; supplement with any local-only accounts not yet in the cache.
   const serverUsers = (adminAnalyticsCache?.users || []);
   const serverEmails = new Set(serverUsers.map((u) => u.email).filter(Boolean));
   const localAccounts = allAccountsList();
   const localOnlyAccounts = localAccounts.filter((a) => a.email && !serverEmails.has(a.email));
   const accountRows = [...serverUsers, ...localOnlyAccounts];
-  const totals = adminAnalyticsCache?.totals;
-  const paidAccounts = accountRows.filter((account) => ["Pro", "Founding"].includes(account.plan));
-  const foundingAccounts = accountRows.filter((account) => account.foundingMember);
+  const totals = adminAnalyticsCache?.totals || {};
   const ticketRows = supportTickets();
   const openTickets = ticketRows.filter((ticket) => ticket.status !== "Complete");
-  const leadRows = leads();
-  const events = analyticsEvents();
-  const downloads = readSavedJson("llhDownloads", []);
-  const aiUseTotal = Object.keys(localStorage)
-    .filter((key) => key.startsWith("llhAiUsage-"))
-    .reduce((total, key) => total + Number(localStorage.getItem(key) || 0), 0);
-  const billingEvents = accountRows.flatMap((account) => (account.billingHistory || []).map((item) => ({ ...item, email: account.email })));
+  const feedbackRows = adminAnalyticsCache?.feedback || [];
+  const openFeedback = feedbackRows.filter((item) => !["Resolved", "Completed", "Archived"].includes(item.status)).length;
   const recentAccounts = accountRows
     .slice()
-    .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))
-    .slice(0, 6);
-  const recentEvents = events.slice(0, 6);
+    .sort((a, b) => new Date(b.updatedAt || b.lastSeenAt || b.createdAt || 0) - new Date(a.updatedAt || a.lastSeenAt || a.createdAt || 0))
+    .slice(0, 8);
+  const recentEvents = (adminAnalyticsCache?.recentEvents || analyticsEvents()).slice(0, 8);
+  const loadingNote = adminAnalyticsCache
+    ? "Live production data from the server store + Stripe membership fields."
+    : (adminAnalyticsLoading ? "Loading live production data…" : "Server analytics not loaded yet. Unlock Admin on production or click Refresh Analytics.");
   target.innerHTML = `
     <div class="admin-owner-header">
       <div>
-        <p class="eyebrow">Owner Login</p>
-        <h3>${escapeHtml(adminSession()?.name || adminOwnerAccount.name)}'s private command center</h3>
-        <p>Signed in as ${escapeHtml(adminSession()?.email || adminOwnerAccount.email)}. Admin access unlocks every resource and tool unless Preview Mode is selected.</p>
+        <p class="eyebrow">Owner Command Center</p>
+        <h3>${escapeHtml(adminSession()?.name || adminOwnerAccount.name)}'s Admin Dashboard</h3>
+        <p>Signed in as ${escapeHtml(adminSession()?.email || adminOwnerAccount.email)}. ${escapeHtml(loadingNote)}</p>
       </div>
-      <button class="ghost-button" type="button" id="adminLockButton">Lock Admin</button>
+      <div class="account-actions-row">
+        <button class="ghost-button" type="button" id="adminRefreshAnalyticsButton">Refresh Data</button>
+        <button class="ghost-button" type="button" id="adminLockButton">Lock Admin</button>
+      </div>
     </div>
     <div class="admin-preview-panel">
       <div>
@@ -27328,28 +27576,58 @@ function renderAdminOwnerOverview() {
       </div>
     </div>
     ${renderAccessDebugPanel()}
+    <div class="section-heading"><div><p class="eyebrow">Users</p><h3>Account inventory</h3></div></div>
     <div class="admin-owner-grid">
-      ${adminMetric("total accounts", totals?.totalRegisteredUsers ?? accountRows.length)}
-      ${adminMetric("paid accounts", totals?.paidUsers ?? paidAccounts.length)}
-      ${adminMetric("founding members", totals?.foundingMembers ?? foundingAccounts.length, `${foundingSpotsRemaining()} spots left`)}
-      ${adminMetric("open support tickets", openTickets.length)}
-      ${adminMetric("lead signups", leadRows.length)}
-      ${adminMetric("viewed resources", downloads.length)}
-      ${adminMetric("Helper documents tracked", aiUseTotal)}
-      ${adminMetric("billing events", billingEvents.length)}
+      ${adminMetric("Total Users", totals.totalRegisteredUsers ?? accountRows.length)}
+      ${adminMetric("Free", totals.freeUsers ?? "—")}
+      ${adminMetric("Trial", totals.trialUsers ?? "—")}
+      ${adminMetric("Pro", totals.proUsers ?? "—")}
+      ${adminMetric("Founding", totals.foundingMembers ?? "—", `${foundingSpotsRemaining()} spots left`)}
+      ${adminMetric("Home Daycare", totals.homeDaycareAccounts ?? "—")}
+      ${adminMetric("Centers", totals.centerAccounts ?? "—")}
+      ${adminMetric("Single Provider", totals.singleProviderAccounts ?? "—")}
     </div>
+    <div class="section-heading"><div><p class="eyebrow">Subscriptions</p><h3>Billing health</h3></div></div>
+    <div class="admin-owner-grid">
+      ${adminMetric("Active", totals.activeSubscriptions ?? totals.paidUsers ?? "—")}
+      ${adminMetric("Trial", totals.trialUsers ?? "—")}
+      ${adminMetric("Founding", totals.foundingMembers ?? "—")}
+      ${adminMetric("Canceling", totals.cancelingSubscriptions ?? "—")}
+      ${adminMetric("Canceled", totals.canceledSubscriptions ?? "—")}
+      ${adminMetric("Past Due", totals.pastDueUsers ?? "—")}
+      ${adminMetric("Failed Payment", totals.failedPayments ?? "—")}
+      ${adminMetric("Open Support", totals.openSupportTickets ?? openTickets.length)}
+    </div>
+    <div class="section-heading"><div><p class="eyebrow">Activity &amp; Growth</p><h3>How people are using Little Learner Hub</h3></div></div>
+    <div class="admin-owner-grid">
+      ${adminMetric("Active Today", totals.activeUsersToday ?? "—")}
+      ${adminMetric("Active This Week", totals.activeUsersWeek ?? "—")}
+      ${adminMetric("Active This Month", totals.activeUsersMonth ?? "—")}
+      ${adminMetric("New Users Week", totals.newUsersWeek ?? "—")}
+      ${adminMetric("New Users Month", totals.newUsersMonth ?? "—")}
+      ${adminMetric("New Founding (30d)", totals.newFoundingMembers ?? "—")}
+      ${adminMetric("Lesson Views", totals.lessonPlansViewed ?? "—")}
+      ${adminMetric("Added to Calendar", totals.lessonPlansAddedToCalendar ?? "—")}
+      ${adminMetric("Observations", totals.observationsCreated ?? "—")}
+      ${adminMetric("Daily Logs", totals.dailyLogsCreated ?? "—")}
+      ${adminMetric("Incident Reports", totals.incidentReportsCreated ?? "—")}
+      ${adminMetric("Parent Messages", totals.parentMessagesGenerated ?? "—")}
+      ${adminMetric("Forms Submitted", totals.formsSubmitted ?? "—")}
+      ${adminMetric("Open Feedback", totals.openFeedback ?? openFeedback)}
+    </div>
+    ${!adminAnalyticsCache && !adminAnalyticsLoading ? `
+      <div class="empty-state admin-empty-callout">
+        Live user counts are empty until server analytics load. On production, use <strong>Users → Stripe Backfill</strong> if Stripe has customers that are missing from Admin.
+      </div>
+    ` : ""}
     <div class="admin-owner-lists">
       <article class="analytics-card">
         <h4>Recent Accounts</h4>
         ${recentAccounts.length ? recentAccounts.map((account) => `
           <div class="analytics-row stacked">
             <span><strong>${escapeHtml(displayUserName(account))}</strong> &mdash; ${escapeHtml(account.email)}</span>
-            <strong>${escapeHtml(account.plan || "Free")}</strong>
-            <small>${escapeHtml(account.subscriptionStatus || "Free Plan")} · ${escapeHtml(
-              (account.foundingMemberActive || account.plan === "Founding") && String(account.subscriptionStatus || "").toLowerCase() !== "free plan"
-                ? "$9.99/month"
-                : (account.monthlyPrice || "$0")
-            )}</small>
+            <strong>${escapeHtml(account.membershipPlan || account.plan || "Free")}</strong>
+            <small>${escapeHtml(accountTypeDisplayLabel(account))} · ${escapeHtml(roleDisplayLabel(account))} · ${escapeHtml(account.businessName || account.daycareName || "No business name")}</small>
           </div>
         `).join("") : `<div class="empty-state">No accounts yet.</div>`}
       </article>
@@ -27358,7 +27636,7 @@ function renderAdminOwnerOverview() {
         ${recentEvents.length ? recentEvents.map((event) => `
           <div class="analytics-row stacked">
             <span>${escapeHtml(event.name)}</span>
-            <strong>${escapeHtml(event.detail?.view || event.detail?.type || event.detail?.plan || "activity")}</strong>
+            <strong>${escapeHtml(event.user || event.detail?.view || event.detail?.type || event.detail?.plan || "activity")}</strong>
             <small>${new Date(event.createdAt).toLocaleString()}</small>
           </div>
         `).join("") : `<div class="empty-state">No activity tracked yet.</div>`}
@@ -27366,6 +27644,11 @@ function renderAdminOwnerOverview() {
     </div>
     ${renderContentHealthDashboard()}
   `;
+  target.querySelector("#adminRefreshAnalyticsButton")?.addEventListener("click", async () => {
+    adminAnalyticsCache = null;
+    await loadAdminAnalyticsFromBackend();
+    renderAdminFeedbackCenter();
+  });
 }
 
 function renderContentHealthDashboard() {
@@ -27726,6 +28009,7 @@ async function loadAdminAnalyticsFromBackend() {
     renderAdminAnalytics();
     renderAdminOwnerOverview();
     renderAdminUsersDashboard();
+    renderAdminFeedbackCenter();
   } catch (error) {
     console.warn("Admin analytics backend load failed", error);
   } finally {
@@ -29600,6 +29884,7 @@ function applyAdminSectionVisibility() {
     ".admin-analytics-panel",
     ".launch-readiness-panel",
     ".admin-ticket-panel",
+    ".admin-feedback-panel",
     ".admin-ai-test-panel",
     ".admin-ai-prompts-panel",
     ".admin-ai-settings-panel",
@@ -29640,6 +29925,10 @@ function applyAdminSectionVisibility() {
   } else if (tab === "support") {
     const el = document.querySelector(".admin-ticket-panel");
     if (el) el.hidden = false;
+  } else if (tab === "feedback") {
+    const el = document.querySelector(".admin-feedback-panel");
+    if (el) el.hidden = false;
+    renderAdminFeedbackCenter();
   } else if (tab === "ai-testing") {
     const el = document.querySelector(".admin-ai-test-panel");
     if (el) el.hidden = false;
@@ -29996,33 +30285,51 @@ function adminUserLastActiveLabel(account) {
 function adminUserCard(account) {
   const planLabel = adminMembershipPlanLabel(account);
   const statusLabel = adminMembershipStatusLabel(account);
-  const joined = account.createdAt ? new Date(account.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "—";
+  const joined = account.signupAt || account.createdAt
+    ? new Date(account.signupAt || account.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    : "—";
   const lastActive = adminUserLastActiveLabel(account);
   const email = account.email || "";
-  const business = account.businessName ? `<span class="aup-card-business">${escapeHtml(account.businessName)}</span>` : "";
+  const business = account.businessName || account.daycareName || account.programName || "";
   const price = adminMembershipDisplayPrice(account);
-  const proAccess = adminMembershipHasProAccess(account) ? "Yes" : "No";
+  const disabled = String(account.accountStatus || "Active") === "Disabled";
+  const trialEnd = account.trialEnd ? new Date(account.trialEnd).toLocaleDateString() : "";
+  const usage = account.usage || {};
   return `
-    <div class="admin-user-card aup-card">
+    <div class="admin-user-card aup-card${disabled ? " aup-card--disabled" : ""}">
       <div class="aup-card-top">
         <div class="aup-card-identity">
           <strong class="aup-card-name">${escapeHtml(displayUserName(account))}</strong>
           <span class="aup-card-email">${escapeHtml(email)}</span>
-          ${business}
+          ${business ? `<span class="aup-card-business">${escapeHtml(business)}</span>` : `<span class="aup-card-business muted-copy">No business name</span>`}
         </div>
         <div class="aup-card-badges">
           ${adminUserPlanBadge(account)}
           ${adminUserStatusBadge(account)}
+          ${disabled ? `<span class="tag tag-hidden">Disabled</span>` : ""}
         </div>
       </div>
+      <div class="aup-card-meta">
+        <span>${escapeHtml(account.accountTypeLabel || accountTypeDisplayLabel(account))}</span>
+        <span>${escapeHtml(account.roleLabel || roleDisplayLabel(account))}</span>
+        <span>${escapeHtml(planLabel)}</span>
+        <span>${escapeHtml(statusLabel)}</span>
+      </div>
       <div class="aup-card-dates">
-        <span>📅 Joined <strong>${escapeHtml(joined)}</strong></span>
+        <span>📅 Signed up <strong>${escapeHtml(joined)}</strong></span>
         <span>💳 <strong>${escapeHtml(price)}</strong></span>
-        <span>🔓 Pro access <strong>${proAccess}</strong></span>
-        <span>🕐 Last Active <strong>${escapeHtml(lastActive)}</strong></span>
+        <span>🕐 Last active <strong>${escapeHtml(lastActive)}</strong></span>
+        ${trialEnd ? `<span>⏳ Trial ends <strong>${escapeHtml(trialEnd)}</strong></span>` : ""}
+      </div>
+      <div class="aup-card-usage">
+        <span>Lessons viewed <strong>${Number(usage.lessonPlansViewed || 0)}</strong></span>
+        <span>Added to calendar <strong>${Number(usage.lessonPlansAddedToCalendar || 0)}</strong></span>
+        <span>Observations <strong>${Number(usage.observationsCreated || 0)}</strong></span>
+        <span>Daily logs <strong>${Number(usage.dailyLogsCreated || 0)}</strong></span>
+        <span>Forms <strong>${Number(usage.formsSubmitted || 0)}</strong></span>
       </div>
       <div class="aup-card-actions">
-        <button class="ghost-button aup-btn" type="button" data-aup-view="${escapeHtml(email)}">View</button>
+        <button class="ghost-button aup-btn" type="button" data-aup-view="${escapeHtml(email)}">View Details</button>
         <button class="primary-button aup-btn" type="button" data-aup-manage="${escapeHtml(email)}">Manage</button>
       </div>
     </div>
@@ -30068,7 +30375,11 @@ function renderAdminUsersDashboard() {
     return items.filter((a) => {
       const name  = String(displayUserName(a) || "").toLowerCase();
       const email = String(a.email || "").toLowerCase();
-      return name.includes(q) || email.includes(q);
+      const business = String(a.businessName || a.daycareName || a.programName || "").toLowerCase();
+      const accountType = String(a.accountTypeLabel || accountTypeDisplayLabel(a) || "").toLowerCase();
+      const role = String(a.roleLabel || roleDisplayLabel(a) || "").toLowerCase();
+      const plan = String(adminMembershipPlanLabel(a) || a.plan || "").toLowerCase();
+      return name.includes(q) || email.includes(q) || business.includes(q) || accountType.includes(q) || role.includes(q) || plan.includes(q);
     });
   }
 
@@ -30110,9 +30421,9 @@ function renderAdminUsersDashboard() {
         <span>Past Due / Failed</span>
       </div>
     </div>
-    <p class="muted-copy aup-source-note">${adminAnalyticsCache ? "Showing server-backed membership data (Stripe sync)." : "Loading server data… local-only accounts may appear until sync completes."}</p>
+    <p class="muted-copy aup-source-note">${adminAnalyticsCache ? "Showing server-backed membership data (Stripe sync + account profiles)." : "Loading server data… local-only accounts may appear until sync completes. Use Stripe Backfill if production users are missing."}</p>
     <div class="aup-search-wrap">
-      <input class="aup-search-input" id="adminUsersSearch" type="search" placeholder="🔍  Search by name or email…" autocomplete="off" />
+      <input class="aup-search-input" id="adminUsersSearch" type="search" placeholder="Search name, email, business, plan, role…" autocomplete="off" />
     </div>
     <div class="admin-vis-tabs aup-filter-tabs" id="adminUserFilterTabs">
       <button class="admin-sub-tab active" id="adminUserTabAll"      type="button">All (${Number(allAccounts.length)})</button>
@@ -30249,11 +30560,14 @@ function openAdminUserProfile(email, startTab) {
         <div class="aup-info-grid">
           <div><span>Name</span><strong>${escapeHtml(displayUserName(account))}</strong></div>
           <div><span>Email</span><strong>${escapeHtml(email)}</strong></div>
+          <div><span>Daycare / Business</span><strong>${escapeHtml(account.businessName || account.daycareName || account.programName || "—")}</strong></div>
+          <div><span>Account Type</span><strong>${escapeHtml(account.accountTypeLabel || accountTypeDisplayLabel(account))}</strong></div>
+          <div><span>User Role</span><strong>${escapeHtml(account.roleLabel || roleDisplayLabel(account))}</strong></div>
+          <div><span>Account Status</span><strong>${escapeHtml(account.accountStatus || "Active")}</strong></div>
           <div><span>Membership Plan</span><strong>${escapeHtml(adminMembershipPlanLabel(account))}</strong></div>
           <div><span>Membership Status</span><strong>${escapeHtml(statusLabel)}</strong></div>
           <div><span>Pro Access Now</span><strong>${adminMembershipHasProAccess(account) ? "Yes" : "No"}</strong></div>
           <div><span>Display Price</span><strong>${escapeHtml(adminMembershipDisplayPrice(account))}</strong></div>
-          ${account.businessName ? `<div><span>Business</span><strong>${escapeHtml(account.businessName)}</strong></div>` : ""}
           <div><span>Plan (stored)</span><strong>${escapeHtml(plan)}</strong></div>
           <div><span>Status (stored)</span><strong>${escapeHtml(status)}</strong></div>
           <div><span>Stripe Subscription Status</span><strong>${escapeHtml(account.stripeSubscriptionStatus || "—")}</strong></div>
@@ -30322,9 +30636,13 @@ function openAdminUserProfile(email, startTab) {
         <div class="aup-action-row" style="margin-top:12px;">
           ${!adminMembershipHasProAccess(account) ? `<button class="primary-button aup-action-btn" type="button" data-aup-action="upgrade"    data-aup-email="${escapeHtml(email)}">Upgrade to Pro</button>` : ""}
           ${adminMembershipHasProAccess(account) ? `<button class="ghost-button aup-action-btn" type="button" data-aup-action="downgrade"  data-aup-email="${escapeHtml(email)}">Downgrade to Free</button>` : ""}
+          ${!isFoundingActive ? `<button class="ghost-button aup-action-btn" type="button" data-aup-action="add-founding" data-aup-email="${escapeHtml(email)}">Add Founding Access</button>` : `<button class="ghost-button aup-action-btn" type="button" data-aup-action="remove-founding" data-aup-email="${escapeHtml(email)}">Remove Founding Access</button>`}
           ${adminMembershipHasProAccess(account) && !isCanceling ? `<button class="ghost-button aup-action-btn aup-btn--danger" type="button" data-aup-action="cancel"     data-aup-email="${escapeHtml(email)}">Schedule Cancel at Period End</button>` : ""}
           ${isEnded && !adminMembershipHasProAccess(account) ? `<button class="primary-button aup-action-btn" type="button" data-aup-action="reactivate" data-aup-email="${escapeHtml(email)}">Reactivate (Internal)</button>` : ""}
           ${isFoundingHistorical && !isFoundingActive ? `<button class="primary-button aup-action-btn" type="button" data-aup-action="restore-founding" data-aup-email="${escapeHtml(email)}">Restore Founding $9.99 (Admin)</button>` : ""}
+          ${String(account.accountStatus || "Active") !== "Disabled"
+            ? `<button class="ghost-button aup-action-btn aup-btn--danger" type="button" data-aup-action="disable" data-aup-email="${escapeHtml(email)}">Disable Account</button>`
+            : `<button class="primary-button aup-action-btn" type="button" data-aup-action="reenable" data-aup-email="${escapeHtml(email)}">Re-enable Account</button>`}
         </div>
         <p id="aupSubMsg" class="form-message" style="margin-top:8px;"></p>
       </fieldset>
@@ -30361,11 +30679,16 @@ function openAdminUserProfile(email, startTab) {
         <legend>📊 Usage Information</legend>
         <div class="aup-info-grid">
           <div><span>Feature Events</span><strong>${escapeHtml(String(featureUseCount))}</strong></div>
+          <div><span>Lesson Plans Viewed</span><strong>${Number((userAnalytics.usage || account.usage || {}).lessonPlansViewed || 0)}</strong></div>
+          <div><span>Added to Calendar</span><strong>${Number((userAnalytics.usage || account.usage || {}).lessonPlansAddedToCalendar || 0)}</strong></div>
+          <div><span>Observations Created</span><strong>${Number((userAnalytics.usage || account.usage || {}).observationsCreated || 0)}</strong></div>
+          <div><span>Daily Logs Created</span><strong>${Number((userAnalytics.usage || account.usage || {}).dailyLogsCreated || 0)}</strong></div>
+          <div><span>Forms Submitted</span><strong>${Number((userAnalytics.usage || account.usage || {}).formsSubmitted || 0)}</strong></div>
           ${userAnalytics.topFeatures?.length ? `<div><span>Top Features</span><strong>${escapeHtml(userAnalytics.topFeatures.map(([l, c]) => `${l} (${c})`).join(", "))}</strong></div>` : ""}
           <div><span>Last Login</span><strong>${escapeHtml(lastLogin)}</strong></div>
           <div><span>Last Seen</span><strong>${escapeHtml(userAnalytics.lastSeenAt ? new Date(userAnalytics.lastSeenAt).toLocaleString() : lastActive)}</strong></div>
         </div>
-        <p class="aup-usage-note">Usage data reflects analytics events tracked in this browser or synced from the server. Per-user child profiles and observations are stored on each user's device.</p>
+        <p class="aup-usage-note">Usage counts come from server analytics events and per-user featureUsage. Counts grow as providers use Lesson Library, Calendar, Observations, Daily Logs, and Forms.</p>
       </fieldset>
 
       ${account.billingHistory?.length ? `
@@ -30446,7 +30769,8 @@ async function adminUpdateMembershipOnServer(email, updates, action, note) {
 
 function handleAdminUserAction(action, email, modal) {
   const allAccounts = allAccountsList();
-  const account = allAccounts.find((a) => a.email === email);
+  const account = allAccounts.find((a) => a.email === email)
+    || (adminAnalyticsCache?.users || []).find((u) => u.email === email);
   if (!account) return;
 
   const msgEl = modal?.querySelector(action.includes("trial") ? "#aupTrialMsg" : "#aupSubMsg");
@@ -30457,10 +30781,80 @@ function handleAdminUserAction(action, email, modal) {
   }
 
   if (action === "extend-trial") {
-    const newEnd = new Date(account.trialEnd || Date.now());
-    newEnd.setDate(newEnd.getDate() + 7);
-    updateAccount(email, { trialEnd: newEnd.toISOString() });
-    showMsg("✅ Trial extended by 7 days.");
+    if (!confirm(`Extend trial for ${displayUserName(account)} (${email}) by 7 days?`)) return;
+    const updates = { extendTrialDays: 7, internalAccessOverride: true };
+    adminUpdateMembershipOnServer(email, updates, action, "Extended trial by 7 days.").then((result) => {
+      if (!result.ok && !result.localOnly) { showMsg(result.error || "Server update failed.", false); return; }
+      const newEnd = new Date(account.trialEnd || Date.now());
+      newEnd.setDate(newEnd.getDate() + 7);
+      updateAccount(email, { trialEnd: newEnd.toISOString(), trialStatus: "Trial Active" });
+      showMsg(result.localOnly ? "Trial extended locally." : "Trial extended on server record.");
+      renderAdminUsersDashboard();
+      openAdminUserProfile(email, "manage");
+    });
+    return;
+  }
+  if (action === "disable") {
+    if (!confirm(`Disable account for ${displayUserName(account)} (${email})?`)) return;
+    const updates = { accountStatus: "Disabled", disabled: true, internalAccessOverride: true };
+    adminUpdateMembershipOnServer(email, updates, action, "Account disabled by admin.").then((result) => {
+      if (!result.ok && !result.localOnly) { showMsg(result.error || "Server update failed.", false); return; }
+      updateAccount(email, { accountStatus: "Disabled" });
+      showMsg("Account disabled.");
+      renderAdminUsersDashboard();
+      openAdminUserProfile(email, "manage");
+    });
+    return;
+  }
+  if (action === "reenable") {
+    const updates = { accountStatus: "Active", disabled: false, reenable: true, internalAccessOverride: true };
+    adminUpdateMembershipOnServer(email, updates, action, "Account re-enabled by admin.").then((result) => {
+      if (!result.ok && !result.localOnly) { showMsg(result.error || "Server update failed.", false); return; }
+      updateAccount(email, { accountStatus: "Active" });
+      showMsg("Account re-enabled.");
+      renderAdminUsersDashboard();
+      openAdminUserProfile(email, "manage");
+    });
+    return;
+  }
+  if (action === "add-founding") {
+    if (!confirm(`Add Founding Member access for ${displayUserName(account)} (${email})? This claims a founding spot if needed.`)) return;
+    const updates = {
+      plan: "Founding",
+      foundingMemberActive: true,
+      foundingMember: true,
+      foundingMemberHistorical: true,
+      monthlyPrice: "$9.99/month",
+      priceLock: "Lifetime",
+      subscriptionCadence: "monthly",
+      subscriptionStatus: "Founding Member Subscription Active",
+      internalAccessOverride: true,
+    };
+    adminUpdateMembershipOnServer(email, updates, action, "Admin granted founding access.").then((result) => {
+      if (!result.ok && !result.localOnly) { showMsg(result.error || "Server update failed.", false); return; }
+      updateAccount(email, updates);
+      showMsg("Founding access added.");
+      renderAdminUsersDashboard();
+      openAdminUserProfile(email, "manage");
+    });
+    return;
+  }
+  if (action === "remove-founding") {
+    if (!confirm(`Remove active Founding pricing for ${displayUserName(account)} (${email})? Historical founding record is retained.`)) return;
+    const updates = {
+      foundingMemberActive: false,
+      plan: "Free",
+      subscriptionStatus: "Free Plan",
+      monthlyPrice: "$0/month",
+      internalAccessOverride: true,
+    };
+    adminUpdateMembershipOnServer(email, updates, action, "Admin removed founding access.").then((result) => {
+      if (!result.ok && !result.localOnly) { showMsg(result.error || "Server update failed.", false); return; }
+      updateAccount(email, updates);
+      showMsg("Founding access removed.");
+      renderAdminUsersDashboard();
+      openAdminUserProfile(email, "manage");
+    });
     return;
   }
   if (action === "end-trial") {
@@ -36007,6 +36401,34 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const openFeedbackButton = event.target.closest("[data-open-feedback]");
+  if (openFeedbackButton) {
+    event.preventDefault();
+    openFeedbackModal(openFeedbackButton.dataset.openFeedback || "General Feedback");
+    return;
+  }
+  if (event.target.closest("#closeFeedbackModal") || event.target.closest("#cancelFeedbackModal")) {
+    event.preventDefault();
+    closeFeedbackModal();
+    return;
+  }
+  const feedbackStatusButton = event.target.closest("[data-feedback-status][data-feedback-id]");
+  if (feedbackStatusButton) {
+    event.preventDefault();
+    updateAdminFeedbackItem(feedbackStatusButton.dataset.feedbackId, {
+      status: feedbackStatusButton.dataset.feedbackStatus,
+    }).catch((error) => console.warn(error));
+    return;
+  }
+  const feedbackNoteButton = event.target.closest("[data-feedback-note]");
+  if (feedbackNoteButton) {
+    event.preventDefault();
+    const note = prompt("Add an admin note for this feedback item:");
+    if (!note) return;
+    updateAdminFeedbackItem(feedbackNoteButton.dataset.feedbackNote, { adminNote: note }).catch((error) => console.warn(error));
+    return;
+  }
+
   const localOwnerUnlockButton = event.target.closest("#localOwnerAdminUnlock");
   if (localOwnerUnlockButton) {
     event.preventDefault();
@@ -39391,6 +39813,9 @@ document.addEventListener("change", (event) => {
   if (event.target.matches("#ticketStatusFilter")) {
     renderAdminTickets();
   }
+  if (event.target.matches("#feedbackStatusFilter")) {
+    renderAdminFeedbackCenter();
+  }
   if (event.target.matches("[data-ticket-status]")) {
     updateTicket(event.target.dataset.ticketStatus, { status: event.target.value });
   }
@@ -39908,22 +40333,68 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
       return;
     }
     if (currentAuthMode === "signup") {
+      const businessName = (document.querySelector("#businessNameInput")?.value || "").trim();
+      const accountType = (document.querySelector("#accountTypeInput")?.value || "").trim();
+      const userRole = (document.querySelector("#userRoleInput")?.value || "").trim();
+      if (!firstName || !lastName) throw new Error("Please enter your first and last name.");
+      if (!businessName) throw new Error("Please enter your daycare or center name.");
+      if (!accountType) throw new Error("Please select an account type.");
+      if (!userRole) throw new Error("Please select your role.");
       const result = await signUpWithProvider(email, password, phone, firstName, lastName);
       loadAccountState(result.email);
       updateAccount(result.email, {
         signupAt: new Date().toISOString(),
         lastLoginAt: new Date().toISOString(),
         selectedPlanAtSignup: currentPlan,
+        firstName,
+        lastName,
+        name: [firstName, lastName].filter(Boolean).join(" "),
+        businessName,
+        daycareName: businessName,
+        programName: businessName,
+        accountType: normalizeAccountType(accountType),
+        role: normalizeUserRole(userRole),
+        programSettings: {
+          ...(currentAccount()?.programSettings || {}),
+          programName: businessName,
+          providerName: [firstName, lastName].filter(Boolean).join(" "),
+          programType: accountType === "center" ? "Childcare Center" : accountType === "single_provider" ? "Single Provider" : "Home Daycare",
+        },
       });
+      await syncAccountProfileToBackend(result.email, {
+        firstName,
+        lastName,
+        businessName,
+        accountType,
+        role: userRole,
+        phone,
+      }, { signup: true, lastLogin: true });
       await syncSubscriptionFromBackend(result.email);
       await syncChildDataFromBackend();
       loadUserAiUsage(result.email).catch(() => {});
-      trackEvent("account_signup_complete", { email: result.email, plan: currentPlan, source: trafficSource(), firstName, lastName });
+      trackEvent("account_signup_complete", {
+        email: result.email,
+        plan: currentPlan,
+        source: trafficSource(),
+        firstName,
+        lastName,
+        businessName,
+        accountType,
+        role: userRole,
+      });
       setFormMessage("#authMessage", result.message || "Account created.", true);
     } else {
       const result = await loginWithProvider(email, password);
       loadAccountState(result.email);
       markAccountLogin(result.email);
+      await syncAccountProfileToBackend(result.email, {
+        firstName: currentAccount()?.firstName || "",
+        lastName: currentAccount()?.lastName || "",
+        businessName: currentAccount()?.businessName || currentAccount()?.programSettings?.programName || "",
+        accountType: currentAccount()?.accountType || "",
+        role: currentAccount()?.role || "",
+        phone: currentAccount()?.phone || "",
+      }, { lastLogin: true });
       await syncSubscriptionFromBackend(result.email);
       await syncChildDataFromBackend();
       loadUserAiUsage(result.email).catch(() => {});
@@ -39958,7 +40429,10 @@ document.addEventListener("submit", async (event) => {
     trackEvent("admin_unlocked", { email: session.email, mode: session.mode || "server" });
     await loadAdminSiteContent().catch(() => {});
     await loadUploadedResourcesFromBackend({ admin: true, migrateLocal: true }).catch(() => {});
+    adminAnalyticsCache = null;
     renderAdminDashboard();
+    await loadAdminAnalyticsFromBackend();
+    renderAdminFeedbackCenter();
     return;
   } catch (error) {
     if (message) {
@@ -40711,6 +41185,7 @@ document.querySelectorAll(".support-form").forEach((form) => {
     submitSupportTicket(event.currentTarget);
   });
 });
+document.querySelector("#feedbackForm")?.addEventListener("submit", submitFeedbackForm);
 
 document.querySelector("#leadCaptureForm")?.addEventListener("submit", (event) => {
   event.preventDefault();

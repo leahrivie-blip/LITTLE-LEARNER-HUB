@@ -16,6 +16,7 @@
 const ACCOUNT_TYPES = Object.freeze({
   HOME_DAYCARE: "home_daycare",
   CENTER: "center",
+  SINGLE_PROVIDER: "single_provider",
 });
 
 /**
@@ -78,16 +79,23 @@ const ACCOUNT_TYPE_ALIASES = Object.freeze({
   "preschool classroom": ACCOUNT_TYPES.CENTER,
   "after school program": ACCOUNT_TYPES.CENTER,
   after_school: ACCOUNT_TYPES.CENTER,
+  single_provider: ACCOUNT_TYPES.SINGLE_PROVIDER,
+  "single provider": ACCOUNT_TYPES.SINGLE_PROVIDER,
+  individual: ACCOUNT_TYPES.SINGLE_PROVIDER,
   other: ACCOUNT_TYPES.HOME_DAYCARE,
 });
 
 const USER_ROLE_ALIASES = Object.freeze({
   owner: USER_ROLES.OWNER,
+  "director / owner": USER_ROLES.OWNER,
+  "director/owner": USER_ROLES.OWNER,
   director: USER_ROLES.DIRECTOR,
   teacher: USER_ROLES.TEACHER,
   "lead teacher": USER_ROLES.TEACHER,
   lead_teacher: USER_ROLES.TEACHER,
   assistant: USER_ROLES.ASSISTANT,
+  "assistant / staff": USER_ROLES.ASSISTANT,
+  staff: USER_ROLES.ASSISTANT,
   "co-teacher": USER_ROLES.TEACHER,
   coteacher: USER_ROLES.TEACHER,
   "family helper": USER_ROLES.ASSISTANT,
@@ -222,6 +230,23 @@ function summarizeAccountAccess(account = {}) {
   return { accountType, role, capabilities };
 }
 
+function accountTypeLabel(accountType) {
+  switch (normalizeAccountType(accountType)) {
+    case ACCOUNT_TYPES.CENTER: return "Childcare Center";
+    case ACCOUNT_TYPES.SINGLE_PROVIDER: return "Single Provider";
+    default: return "Home Daycare";
+  }
+}
+
+function roleLabel(role) {
+  switch (normalizeUserRole(role)) {
+    case USER_ROLES.DIRECTOR: return "Director";
+    case USER_ROLES.TEACHER: return "Lead Teacher";
+    case USER_ROLES.ASSISTANT: return "Assistant / Staff";
+    default: return "Director / Owner";
+  }
+}
+
 module.exports = {
   ACCOUNT_TYPES,
   FUTURE_ACCOUNT_TYPES,
@@ -239,4 +264,6 @@ module.exports = {
   migrateAccountAccessFields,
   defaultAccountAccessFields,
   summarizeAccountAccess,
+  accountTypeLabel,
+  roleLabel,
 };

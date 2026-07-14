@@ -23,7 +23,7 @@
     <link rel="apple-touch-icon" href="images/icons/icon-192.svg" />
     <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
-  <link rel="stylesheet" href="styles.css?v=20260714-lesson-docx" />
+  <link rel="stylesheet" href="styles.css?v=20260714-admin-command-center" />
   </head>
   <body>
     <div class="app-shell">
@@ -155,6 +155,13 @@
             <div><span>This Week&rsquo;s Plans</span><strong id="sidebarWeekPlans">0</strong></div>
           </div>
           <button class="small-button" data-view="calendar">Open Calendar</button>
+          <div class="sidebar-help-block">
+            <p class="eyebrow">Need Help?</p>
+            <button class="ghost-button" type="button" data-open-feedback="Bug">Report a Bug</button>
+            <button class="ghost-button" type="button" data-open-feedback="Feature Request">Request a Feature</button>
+            <button class="ghost-button" type="button" data-open-feedback="Support">Contact Support</button>
+            <button class="ghost-button" type="button" data-open-feedback="General Feedback">Send Feedback</button>
+          </div>
         </div>
       </aside>
 
@@ -857,6 +864,15 @@
             </div>
             <div class="ticket-list" id="adminTicketList"></div>
           </section>
+          <section class="section-block admin-feedback-panel" hidden>
+            <div class="section-heading">
+              <div><p class="eyebrow">Feedback Inbox</p><h3>Bugs, suggestions, and support messages</h3></div>
+              <label class="ticket-filter-label">Status
+                <select id="feedbackStatusFilter"><option>All Statuses</option><option>New</option><option>In Progress</option><option>Resolved</option><option>Archived</option></select>
+              </label>
+            </div>
+            <div id="adminFeedbackApp"></div>
+          </section>
           <section class="section-block admin-ai-test-panel">
             <div id="adminAiTestCenter"></div>
           </section>
@@ -1518,11 +1534,35 @@
           <div id="authNameFields" class="hidden-field" aria-hidden="true">
             <label>
               First Name
-              <input type="text" id="firstNameInput" name="firstName" autocomplete="given-name" placeholder="Jane" />
+              <input type="text" id="firstNameInput" name="firstName" autocomplete="given-name" placeholder="Jane" required />
             </label>
             <label>
               Last Name
-              <input type="text" id="lastNameInput" name="lastName" autocomplete="family-name" placeholder="Smith" />
+              <input type="text" id="lastNameInput" name="lastName" autocomplete="family-name" placeholder="Smith" required />
+            </label>
+          </div>
+          <div id="authBusinessFields" class="hidden-field" aria-hidden="true">
+            <label>
+              Daycare / Center Name
+              <input type="text" id="businessNameInput" name="businessName" autocomplete="organization" placeholder="Sunshine Home Daycare" required />
+            </label>
+            <label>
+              Account Type
+              <select id="accountTypeInput" name="accountType" required>
+                <option value="">Select account type</option>
+                <option value="home_daycare">Home Daycare</option>
+                <option value="center">Childcare Center</option>
+                <option value="single_provider">Single Provider</option>
+              </select>
+            </label>
+            <label>
+              Your Role
+              <select id="userRoleInput" name="userRole" required>
+                <option value="">Select your role</option>
+                <option value="owner">Director / Owner</option>
+                <option value="teacher">Lead Teacher</option>
+                <option value="assistant">Assistant / Staff</option>
+              </select>
             </label>
           </div>
           <label id="authPhoneField" class="hidden-field" aria-hidden="true">
@@ -1536,6 +1576,14 @@
           <button class="primary-button" id="authSubmitButton" type="submit">Log In</button>
           <span class="form-message" id="authMessage" aria-live="polite"></span>
         </form>
+        <div class="auth-help-links">
+          <p class="muted-copy">Need help?</p>
+          <div class="account-actions-row">
+            <button class="ghost-button" type="button" data-open-feedback="Bug">Report a Bug</button>
+            <button class="ghost-button" type="button" data-open-feedback="Feature Request">Request a Feature</button>
+            <button class="ghost-button" type="button" data-view="contact">Contact Support</button>
+          </div>
+        </div>
         <div class="auth-secondary-actions">
           <button class="ghost-button" id="forgotPasswordButton" type="button">Forgot password?</button>
           <button class="ghost-button" id="switchAuthModeButton" type="button">Create account</button>
@@ -1606,12 +1654,53 @@
       </div>
     </div>
 
+    <div class="modal" id="feedbackModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="feedbackModalTitle">
+      <div class="modal-card">
+        <button class="close-button" id="closeFeedbackModal" type="button" aria-label="Close feedback">&times;</button>
+        <p class="eyebrow">Need Help?</p>
+        <h2 id="feedbackModalTitle">Send Feedback</h2>
+        <p class="muted-copy">Report a bug, request a feature, ask a question, or share a suggestion. Leah receives these directly.</p>
+        <form class="panel-form" id="feedbackForm">
+          <label>Type
+            <select id="feedbackTypeInput" name="type" required>
+              <option value="Bug">Report a Bug</option>
+              <option value="Problem">Problem</option>
+              <option value="Feature Request">Request a Feature</option>
+              <option value="Missing Feature">Missing Feature</option>
+              <option value="Suggestion">Suggestion</option>
+              <option value="Question">Question</option>
+              <option value="Support">Contact Support</option>
+              <option value="General Feedback">General Feedback</option>
+            </select>
+          </label>
+          <label>Name
+            <input type="text" id="feedbackNameInput" name="name" required autocomplete="name" />
+          </label>
+          <label>Email
+            <input type="email" id="feedbackEmailInput" name="email" required autocomplete="email" />
+          </label>
+          <label>Subject
+            <input type="text" id="feedbackSubjectInput" name="subject" required maxlength="200" placeholder="Short summary" />
+          </label>
+          <label>Message
+            <textarea id="feedbackMessageInput" name="message" rows="5" required maxlength="5000" placeholder="Tell us what happened or what you need."></textarea>
+          </label>
+          <p class="muted-copy">Screenshot upload coming soon.</p>
+          <div class="form-actions">
+            <button class="primary-button" type="submit">Send Feedback</button>
+            <button class="ghost-button" type="button" id="cancelFeedbackModal">Cancel</button>
+          </div>
+          <span class="form-message" id="feedbackMessage" aria-live="polite"></span>
+        </form>
+      </div>
+    </div>
+
     <script src="scripts/curriculum-safe-values.js?v=20260712-v3-render-fix" defer></script>
     <script src="scripts/curriculum-lesson-import-parser.js?v=20260712-v3-final" defer></script>
     <script src="scripts/curriculum-import-preview.js?v=20260712-v3-final" defer></script>
     <script src="scripts/curriculum-lesson-viewer-render.js?v=20260711-phase-d" defer></script>
     <script src="scripts/llh-schedule.js?v=20260714-calendar-day-notes" defer></script>
     <script src="scripts/llh-lesson-docx.js?v=20260714-lesson-docx" defer></script>
-    <script src="app.js?v=20260714-lesson-docx" defer></script>
+    <script src="app.js?v=20260714-admin-command-center" defer></script>
   </body>
 </html>
