@@ -1,11 +1,11 @@
-const CACHE_NAME = "llh-shell-v16-add-to-calendar";
+const CACHE_NAME = "llh-shell-v17-classroom-copies";
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/styles.css?v=20260714-add-to-calendar",
+  "/styles.css?v=20260714-classroom-copies",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/scripts/llh-schedule.js?v=20260714-calendar-day-notes",
-  "/app.js?v=20260714-add-to-calendar",
+  "/app.js?v=20260714-classroom-copies",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",

@@ -15533,11 +15533,78 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   outline-offset: -1px;
 }
 
+.llh-day-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: flex-start;
+}
+
 .llh-day-card-head h3 {
   margin: 0;
   font-size: 0.95rem;
   font-family: var(--llh-font-display, Georgia, serif);
   line-height: 1.25;
+}
+
+.llh-day-edit-btn {
+  flex-shrink: 0;
+  font-size: 12px;
+  min-height: 32px;
+  padding: 4px 8px;
+}
+
+.llh-week-copy-banner {
+  margin: 8px 0 0;
+  font-size: 0.92rem;
+  color: var(--llh-muted, #6b6b7b);
+}
+
+.llh-week-edit-panel {
+  background: var(--llh-surface, #fff);
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: 14px;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+  box-shadow: var(--llh-shadow-soft, 0 8px 24px rgba(42,42,53,.06));
+  position: sticky;
+  top: 12px;
+}
+
+.llh-week-edit-field {
+  display: grid;
+  gap: 4px;
+  font-size: 0.9rem;
+}
+
+.llh-week-edit-field input {
+  width: 100%;
+}
+
+.llh-week-edit-activities {
+  display: grid;
+  gap: 12px;
+}
+
+.llh-week-edit-activity-row {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--llh-primary-soft, #ede8f7) 35%, #fff);
+}
+
+.llh-week-edit-status.is-error {
+  color: var(--llh-danger, #c56b6b);
+}
+
+.llh-week-workspace:has(.llh-week-edit-panel.is-open) {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.9fr);
+  gap: 14px;
+  align-items: start;
 }
 
 .llh-day-card-section .eyebrow {
