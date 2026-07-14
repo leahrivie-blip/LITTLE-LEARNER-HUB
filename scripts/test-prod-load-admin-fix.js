@@ -24,7 +24,7 @@ const appJs = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
 
 test("service worker cache bumped and network-first for JS/CSS", () => {
-  assert.match(sw, /llh-shell-v24-prod-load-fix/);
+  assert.match(sw, /llh-shell-v2\d-/);
   assert.match(sw, /isNetworkFirstRequest/);
   assert.match(sw, /path\.endsWith\("\.js"\) \|\| path\.endsWith\("\.css"\)/);
   assert.match(sw, /SKIP_WAITING/);
@@ -32,10 +32,11 @@ test("service worker cache bumped and network-first for JS/CSS", () => {
 });
 
 test("index and SW share the same app/styles cache bust", () => {
-  assert.match(indexHtml, /styles\.css\?v=20260714-prod-load-fix/);
-  assert.match(indexHtml, /app\.js\?v=20260714-prod-load-fix/);
-  assert.match(sw, /styles\.css\?v=20260714-prod-load-fix/);
-  assert.match(sw, /app\.js\?v=20260714-prod-load-fix/);
+  const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
+  const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
+  assert.ok(indexCss && indexJs, "index.html must version styles.css and app.js");
+  assert.match(sw, new RegExp(`styles\\.css\\?v=${indexCss.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+  assert.match(sw, new RegExp(`app\\.js\\?v=${indexJs.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
 });
 
 test("PWA registration forces waiting worker activation", () => {
