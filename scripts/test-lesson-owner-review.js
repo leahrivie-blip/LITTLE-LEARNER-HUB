@@ -274,10 +274,14 @@ async function main() {
       downloadFull: Boolean(document.querySelector('[data-lesson-action-bars="top"] [data-lesson-download-variant="full"]')),
       downloadPdf: Boolean(document.querySelector('[data-lesson-action-bars="top"] [data-download-pdf]')),
       bottomBar: Boolean(document.querySelector('[data-lesson-action-bars="bottom"]')),
+      actionBarCount: document.querySelectorAll(".lesson-workspace-action-bars").length,
+      hasMore: Boolean(document.querySelector("[data-lesson-workspace-more-toggle]")),
     }));
     assert(bar.edit && bar.calendar && bar.myWeek, "primary manage actions missing");
     assert(bar.printWeekly && bar.downloadWeekly && bar.downloadFull && bar.downloadPdf, "download/print actions missing");
-    assert(bar.bottomBar, "bottom action bar missing");
+    assert(!bar.bottomBar, "duplicate bottom action bar should be removed");
+    assert(bar.actionBarCount === 1, "exactly one action bar should render");
+    assert(bar.hasMore, "More actions menu should be present");
     await page.click("[data-lesson-use-this-plan]");
     await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
     const sheet = await page.evaluate(() => ({

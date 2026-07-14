@@ -14282,12 +14282,11 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 .lesson-workspace-action-bars {
   display: grid;
   gap: 8px;
-  padding: 0 2px 12px;
+  padding: 0 2px 10px;
   flex-shrink: 0;
 }
 
-.lesson-workspace-primary-actions,
-.lesson-workspace-secondary-actions {
+.lesson-workspace-primary-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -14295,21 +14294,22 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 }
 
 .lesson-workspace-primary-actions .primary-button,
-.lesson-workspace-primary-actions .ghost-button,
-.lesson-workspace-secondary-actions .ghost-button {
+.lesson-workspace-primary-actions .ghost-button {
   min-height: 44px;
   flex: 1 1 calc(50% - 4px);
   margin: 0;
 }
 
-.lesson-workspace-secondary-actions {
-  padding-top: 2px;
-  border-top: 1px solid rgba(213, 227, 240, 0.9);
+.lesson-workspace-more-wrap {
+  position: relative;
+  flex: 1 1 calc(50% - 4px);
+  display: flex;
 }
 
-.lesson-workspace-secondary-actions .lesson-workspace-danger {
-  color: #9b3b3b;
-  border-color: #e2b4b4;
+.lesson-workspace-more-wrap > .lesson-workspace-more-btn {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
 }
 
 .lesson-workspace-more-btn {
@@ -14317,25 +14317,20 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   min-width: 72px;
 }
 
-[data-lesson-action-bars="bottom"] {
-  margin-top: 8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
-}
-
-.lesson-workspace-save-btn.is-saved {
-  border-color: #c9a227;
-  color: #8a6d12;
+.lesson-workspace-more-menu .lesson-workspace-danger {
+  color: #9b3b3b;
 }
 
 .lesson-workspace-more-menu {
   position: absolute;
   top: calc(100% + 4px);
-  right: 2px;
+  right: 0;
+  left: auto;
   z-index: 12;
   display: grid;
   gap: 2px;
-  min-width: min(260px, calc(100vw - 32px));
+  min-width: min(280px, calc(100vw - 32px));
+  max-width: min(320px, calc(100vw - 24px));
   padding: 6px;
   background: var(--white, #fff);
   border: 1px solid var(--line);
@@ -14374,6 +14369,28 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 .lesson-workspace-more-menu button:hover,
 .lesson-workspace-more-menu button:focus-visible {
   background: var(--cream-2, #f5f1ec);
+}
+
+@media (min-width: 760px) {
+  .lesson-workspace-primary-actions .primary-button,
+  .lesson-workspace-primary-actions .ghost-button {
+    flex: 0 1 auto;
+    min-width: 140px;
+  }
+
+  .lesson-workspace-more-wrap {
+    flex: 0 0 auto;
+  }
+
+  .lesson-workspace-more-wrap > .lesson-workspace-more-btn {
+    width: auto;
+    min-width: 88px;
+  }
+}
+
+.lesson-workspace-save-btn.is-saved {
+  border-color: #c9a227;
+  color: #8a6d12;
 }
 
 .lesson-workspace-tabs {
@@ -14912,12 +14929,6 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 }
 
 @media (min-width: 640px) {
-  .lesson-workspace-primary-actions .primary-button,
-  .lesson-workspace-primary-actions .ghost-button,
-  .lesson-workspace-secondary-actions .ghost-button {
-    flex: 1 1 100%;
-  }
-
   .lesson-workspace-action-sheet {
     align-items: center;
     justify-items: center;

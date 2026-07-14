@@ -186,24 +186,34 @@ async function main() {
       const labels = (root) => [...root.querySelectorAll("button")].map((el) => el.textContent.trim());
       const top = document.querySelector('[data-lesson-action-bars="top"]');
       const bottom = document.querySelector('[data-lesson-action-bars="bottom"]');
+      const allBars = document.querySelectorAll(".lesson-workspace-action-bars");
+      const primary = document.querySelector(".lesson-workspace-primary-actions");
+      const primaryVisible = [...(primary?.children || [])]
+        .filter((el) => el.matches("button"))
+        .map((el) => el.textContent.trim());
+      const moreLabels = [...document.querySelectorAll(".lesson-workspace-more-menu button")]
+        .map((el) => el.textContent.trim());
       return {
         top: labels(top || document.createElement("div")),
         bottom: labels(bottom || document.createElement("div")),
+        barCount: allBars.length,
         hasMore: Boolean(document.querySelector("[data-lesson-workspace-more-toggle]")),
+        primaryVisible,
+        moreLabels,
         overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
       };
     });
 
-    check("Top bar has Edit Lesson Plan", bars.top.includes("Edit Lesson Plan"));
-    check("Top bar has Add to Calendar", bars.top.includes("Add to Calendar"));
-    check("Top bar has Add to My Week", bars.top.includes("Add to My Week"));
-    check("Top bar has Print Weekly Calendar", bars.top.includes("Print Weekly Calendar"));
-    check("Top bar has Download Weekly Calendar", bars.top.includes("Download Weekly Calendar"));
-    check("Top bar has Download Full Lesson Plan", bars.top.includes("Download Full Lesson Plan"));
-    check("Top bar has Download PDF", bars.top.includes("Download PDF"));
-    check("Bottom bar mirrors primary actions", bars.bottom.includes("Add to Calendar") && bars.bottom.includes("Edit Lesson Plan"));
-    check("Bottom bar has Back to Library", bars.bottom.includes("Back to Library"));
-    check("Legacy More menu removed", !bars.hasMore);
+    check("Only one action bar rendered", bars.barCount === 1, `found ${bars.barCount}`);
+    check("Bottom duplicate action bar removed", bars.bottom.length === 0);
+    check("Primary has Add to My Week", bars.primaryVisible.includes("Add to My Week"));
+    check("Primary has Add to Calendar", bars.primaryVisible.includes("Add to Calendar"));
+    check("Primary has Print Weekly Calendar", bars.primaryVisible.includes("Print Weekly Calendar"));
+    check("Primary has Download PDF", bars.primaryVisible.includes("Download PDF"));
+    check("Edit lives in More menu", bars.moreLabels.includes("Edit Lesson Plan") && !bars.primaryVisible.includes("Edit Lesson Plan"));
+    check("Download Weekly lives in More menu", bars.moreLabels.includes("Download Weekly Calendar") && !bars.primaryVisible.includes("Download Weekly Calendar"));
+    check("Download Full lives in More menu", bars.moreLabels.includes("Download Full Lesson Plan") && !bars.primaryVisible.includes("Download Full Lesson Plan"));
+    check("More menu toggle present", bars.hasMore);
     check("No horizontal overflow on mobile", !bars.overflow);
 
     await page.locator('[data-lesson-action-bars="top"] [data-lesson-add-to-my-week]').click();
@@ -237,9 +247,11 @@ async function main() {
     check("Add to Calendar still opens pick-week form", calendarSheet === "Add to Calendar", calendarSheet);
 
     await page.click("[data-lesson-workspace-action-sheet-dismiss]");
-    await page.locator('[data-lesson-action-bars="bottom"] [data-lesson-workspace-back]').click();
+    await page.locator("[data-lesson-workspace-more-toggle]").click();
+    await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 5000 });
+    await page.locator('.lesson-workspace-more-menu [data-lesson-workspace-back]').click();
     await page.waitForFunction(() => !document.querySelector("#resourceViewerModal.open"), null, { timeout: 5000 });
-    check("Bottom Back to Library closes viewer", true);
+    check("More → Back to Library closes viewer", true);
 
     if (failures.length) throw new Error(`${failures.length} check(s) failed:\n- ${failures.join("\n- ")}`);
     console.log("\nAll lesson viewer action bar checks passed.");

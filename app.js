@@ -13529,25 +13529,40 @@ function downloadLessonPlanVariant(printVariant = "week", options = {}) {
   });
 }
 
-function lessonWorkspaceActionBarsHtml(resource, position = "top") {
+function lessonWorkspaceActionBarsHtml(resource) {
   const id = escapeHtml(resource.id);
   const isUserCopy = Boolean(resource._userLessonCopy);
   return `
-    <div class="lesson-workspace-action-bars" data-lesson-action-bars="${escapeHtml(position)}">
+    <div class="lesson-workspace-action-bars" data-lesson-action-bars="top">
       <div class="lesson-workspace-primary-actions" aria-label="Lesson plan actions">
-        <button type="button" class="primary-button" data-edit-lesson-plan="${id}">Edit Lesson Plan</button>
+        <button type="button" class="primary-button" data-lesson-add-to-my-week>Add to My Week</button>
         <button type="button" class="ghost-button" data-lesson-use-this-plan>Add to Calendar</button>
-        <button type="button" class="ghost-button" data-lesson-add-to-my-week>Add to My Week</button>
         <button type="button" class="ghost-button" data-lesson-print-variant="week">Print Weekly Calendar</button>
-        <button type="button" class="ghost-button" data-lesson-download-variant="week">Download Weekly Calendar</button>
-        <button type="button" class="ghost-button" data-lesson-download-variant="full">Download Full Lesson Plan</button>
         <button type="button" class="ghost-button" data-download-pdf="${id}">Download PDF</button>
-      </div>
-      <div class="lesson-workspace-secondary-actions" aria-label="More lesson plan actions">
-        <button type="button" class="ghost-button" data-lesson-duplicate="${id}">Duplicate</button>
-        ${isUserCopy ? `<button type="button" class="ghost-button" data-lesson-archive="${id}">Archive</button>` : ""}
-        ${isUserCopy ? `<button type="button" class="ghost-button lesson-workspace-danger" data-lesson-delete="${id}">Delete Permanently</button>` : ""}
-        <button type="button" class="ghost-button" data-lesson-workspace-back>Back to Library</button>
+        <div class="lesson-workspace-more-wrap">
+          <button type="button" class="ghost-button lesson-workspace-more-btn" data-lesson-workspace-more-toggle aria-expanded="false" aria-haspopup="true">More</button>
+          <div class="lesson-workspace-more-menu" hidden>
+            <div class="lesson-workspace-more-group">
+              <p class="lesson-workspace-more-label">Plan</p>
+              <button type="button" data-edit-lesson-plan="${id}">Edit Lesson Plan</button>
+              <button type="button" data-lesson-duplicate="${id}">Duplicate</button>
+            </div>
+            <div class="lesson-workspace-more-group">
+              <p class="lesson-workspace-more-label">Downloads</p>
+              <button type="button" data-lesson-download-variant="week">Download Weekly Calendar</button>
+              <button type="button" data-lesson-download-variant="full">Download Full Lesson Plan</button>
+            </div>
+            ${isUserCopy ? `
+            <div class="lesson-workspace-more-group">
+              <p class="lesson-workspace-more-label">Manage copy</p>
+              <button type="button" data-lesson-archive="${id}">Archive</button>
+              <button type="button" class="lesson-workspace-danger" data-lesson-delete="${id}">Delete Permanently</button>
+            </div>` : ""}
+            <div class="lesson-workspace-more-group">
+              <button type="button" data-lesson-workspace-back>Back to Library</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   `;
@@ -13645,7 +13660,7 @@ function lessonWorkspaceChromeHtml(resource) {
           <p class="lesson-workspace-meta">${escapeHtml(age)} · ${escapeHtml(planLabel)}</p>
         </div>
       </header>
-      ${lessonWorkspaceActionBarsHtml(resource, "top")}
+      ${lessonWorkspaceActionBarsHtml(resource)}
       <nav class="lesson-workspace-tabs" role="tablist" aria-label="Lesson plan sections">
         ${tabs.map(([id, label]) => `
           <button type="button" role="tab" class="lesson-workspace-tab${lessonWorkspaceTab === id ? " is-active" : ""}" data-lesson-workspace-tab="${id}" aria-selected="${lessonWorkspaceTab === id ? "true" : "false"}">${label}</button>
@@ -13657,7 +13672,6 @@ function lessonWorkspaceChromeHtml(resource) {
         <div class="lesson-workspace-panel${lessonWorkspaceTab === "activities" ? " is-active" : ""}" data-lesson-workspace-panel="activities">${lessonWorkspaceActivitiesTabHtml(plan, resource.id)}</div>
         <div class="lesson-workspace-panel${lessonWorkspaceTab === "materials" ? " is-active" : ""}" data-lesson-workspace-panel="materials">${lessonWorkspaceMaterialsTabHtml(plan, resource)}</div>
       </div>
-      ${lessonWorkspaceActionBarsHtml(resource, "bottom")}
       <div class="lesson-workspace-action-sheet" hidden aria-hidden="true">
         <button type="button" class="lesson-workspace-action-sheet-backdrop" data-lesson-workspace-action-sheet-dismiss aria-label="Close"></button>
         <div class="lesson-workspace-action-sheet-panel" role="dialog" aria-label="Add to Calendar">
@@ -36609,6 +36623,7 @@ document.addEventListener("click", async (event) => {
   const lessonDuplicate = event.target.closest("[data-lesson-duplicate]");
   if (lessonDuplicate) {
     event.preventDefault();
+    toggleLessonWorkspaceMoreMenu(false);
     const copy = duplicateLessonWorkspacePlan(lessonDuplicate.dataset.lessonDuplicate);
     if (!copy) return;
     dismissResourceViewerForNavigation();
@@ -36619,6 +36634,7 @@ document.addEventListener("click", async (event) => {
   const lessonArchive = event.target.closest("[data-lesson-archive]");
   if (lessonArchive) {
     event.preventDefault();
+    toggleLessonWorkspaceMoreMenu(false);
     if (!archiveLessonWorkspacePlan(lessonArchive.dataset.lessonArchive)) return;
     dismissResourceViewerForNavigation();
     if (document.querySelector("#view-lessons.active-view")) renderCategoryPage("lessons");
@@ -36628,6 +36644,7 @@ document.addEventListener("click", async (event) => {
   const lessonDelete = event.target.closest("[data-lesson-delete]");
   if (lessonDelete) {
     event.preventDefault();
+    toggleLessonWorkspaceMoreMenu(false);
     deleteLessonWorkspacePlan(lessonDelete.dataset.lessonDelete).then((deleted) => {
       if (!deleted) return;
       dismissResourceViewerForNavigation();
@@ -37195,6 +37212,7 @@ document.addEventListener("click", async (event) => {
   if (editLessonPlanButton) {
     const resourceId = editLessonPlanButton.dataset.editLessonPlan;
     if (!resourceId) return;
+    toggleLessonWorkspaceMoreMenu(false);
     await openLessonPlanEditor(resourceId);
     return;
   }
