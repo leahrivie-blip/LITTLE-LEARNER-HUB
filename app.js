@@ -3491,7 +3491,37 @@ function installMobileNavigation() {
   backdrop.addEventListener("click", () => setMobileNavOpen(false));
   window.addEventListener("resize", () => {
     if (!isMobileLayout()) setMobileNavOpen(false);
+    syncTopbarMetrics();
   });
+  window.visualViewport?.addEventListener("resize", syncTopbarMetrics);
+  window.visualViewport?.addEventListener("scroll", syncTopbarMetrics);
+  syncTopbarMetrics();
+}
+
+function syncTopbarMetrics() {
+  const root = document.documentElement;
+  if (!root) return;
+  const topbar = document.querySelector(".topbar");
+  const sticky = document.querySelector("[data-lesson-editor-sticky]");
+  const topbarHeight = Math.max(
+    0,
+    Math.round(topbar?.getBoundingClientRect?.().height || 0),
+  );
+  const stickyHeight = Math.max(
+    0,
+    Math.round(sticky?.getBoundingClientRect?.().height || 0),
+  );
+  if (topbarHeight > 0) {
+    root.style.setProperty("--llh-topbar-height", `${topbarHeight}px`);
+  } else {
+    root.style.setProperty(
+      "--llh-topbar-height",
+      isMobileLayout() ? "56px" : "64px",
+    );
+  }
+  if (stickyHeight > 0) {
+    root.style.setProperty("--llh-editor-sticky-height", `${stickyHeight}px`);
+  }
 }
 
 function emptySiteContent() {
@@ -5469,6 +5499,7 @@ function renderUserLessonEditor(options = {}) {
   if (!userLessonEditorShowSuccess) userLessonEditorDirty = false;
   startUserLessonEditorStatusTimer();
   refreshUserLessonEditorSaveStatus();
+  requestAnimationFrame(() => syncTopbarMetrics());
 }
 
 async function openLessonPlanEditor(resourceId, options = {}) {
@@ -7934,6 +7965,7 @@ function setView(view, options = {}) {
   document.body.classList.toggle("lesson-editor-view", resolvedView === "lesson-editor");
   document.body.classList.toggle("curriculum-planner-retired", !isCurriculumPlannerLegacyEnabled());
   syncCurriculumPlannerNavVisibility();
+  requestAnimationFrame(() => syncTopbarMetrics());
   document.querySelectorAll(".nav-link").forEach((button) => {
     button.classList.toggle("active", button.dataset.view === requestedView);
   });

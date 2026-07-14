@@ -12,8 +12,8 @@ Current cache (this branch): `llh-shell-v23-lesson-docx` / `?v=20260714-lesson-d
 | 1 | Separate Create vs Edit + true editor | Merged | [#173](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/173) |
 | 2 | Viewer action bars | Merged | [#174](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/174) |
 | 3 | Save UX | Merged | [#175](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/175) |
-| 4 | Mobile / header overlap polish | Open (merge when ready) | [#176](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/176) `cursor/lesson-mobile-header-6627` |
-| 5 | Weekly Calendar **DOCX** (landscape Mon–Fri) | This PR | `cursor/lesson-weekly-calendar-docx-cf3e` |
+| 4 | Mobile / header overlap polish | Merged | [#176](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/176) `cursor/lesson-mobile-header-6627` |
+| 5 | Weekly Calendar **DOCX** (landscape Mon–Fri) | This PR | [#177](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/177) `cursor/lesson-weekly-calendar-docx-cf3e` |
 | 6 | Full Lesson Plan DOCX (+ existing PDF button) | This PR | same |
 | 7 | Print consistency + QA suite | This PR | same |
 
@@ -28,6 +28,7 @@ Current cache (this branch): `llh-shell-v23-lesson-docx` / `?v=20260714-lesson-d
   - `npm run test:lesson-docx`
   - `npm run test:lesson-weekly-docx`
   - `npm run test:lesson-print-qa`
+  - `npm run test:lesson-mobile-header` (from Step 4, still green)
 
 ## Explicitly out of scope (still)
 
@@ -35,6 +36,9 @@ Recurring events, notifications, Family Hub, Google Calendar sync, staff calenda
 
 ## Key code locations
 
+- Editor: `openLessonPlanEditor`, `renderUserLessonEditor`, `saveUserLessonEditorForm`, `syncTopbarMetrics` in `app.js`
+- Viewer chrome: `lessonWorkspaceChromeHtml`, `lessonWorkspaceActionBarsHtml`
 - DOCX: `scripts/llh-lesson-docx.js`
 - Wiring: `downloadLessonPlanVariant`, `buildLessonPlanWeeklyCalendarDocxBlob`, `buildLessonPlanFullDocxBlob` in `app.js`
-- Print CSS: `body.printing-lesson-week`, `@page lesson-week-landscape`
+- Styles: `.lesson-editor-sticky-bar`, `--llh-topbar-height`, `body.printing-lesson-week`, `@page lesson-week-landscape`
+- Tests: `scripts/test-lesson-*.js`
