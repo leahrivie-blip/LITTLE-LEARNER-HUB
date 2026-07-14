@@ -15153,9 +15153,9 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   z-index: 1;
 }
 
-/* Weekends stay fully clickable and never look disabled — a distinct tint
-   plus a visible "Weekend" text label (not color alone) signal that lesson
-   plans don't auto-populate here, while manual events remain fully usable. */
+/* Weekends stay fully clickable and never look disabled — a soft tint
+   distinguishes Sat/Sun without a "Weekend" text banner. Lesson plans still
+   run Monday–Friday; weekends remain usable for notes and events. */
 .llh-cal-cell.is-weekend {
   background: color-mix(in srgb, var(--llh-primary-soft, #ede8f7) 35%, #fff);
 }
@@ -15165,12 +15165,28 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   background: color-mix(in srgb, var(--llh-primary-soft, #ede8f7) 55%, #fff);
 }
 
-.llh-cal-weekend-tag {
-  font-size: 9px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+.llh-cal-chip-day_note {
+  background: color-mix(in srgb, var(--llh-primary-soft, #ede8f7) 70%, #fff);
   color: var(--llh-primary-deep, #5a4d8a);
+}
+
+.llh-cal-day-notes-card textarea {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+}
+
+.llh-cal-day-note-label {
+  display: block;
+  margin: 8px 0 12px;
+}
+
+.llh-cal-day-note-hint {
+  margin-top: 8px;
+}
+
+.llh-cal-day-note-hint.is-error {
+  color: var(--llh-danger, #c56b6b);
 }
 
 .llh-cal-daynum {
@@ -15268,10 +15284,6 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 
   .llh-cal-week-jump-label {
     display: none;
-  }
-
-  .llh-cal-weekend-tag {
-    font-size: 8px;
   }
 
   .llh-cal-week-strip {

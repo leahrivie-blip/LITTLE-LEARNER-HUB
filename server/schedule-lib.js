@@ -1,6 +1,6 @@
 /**
  * Unified ScheduleItem helpers (server + shared semantics).
- * Types: lesson_plan, classroom_event, closure, reminder, director_event, family_event.
+ * Types: lesson_plan, classroom_event, closure, reminder, director_event, family_event, day_note.
  * Org/center/classroom IDs are schema-ready but optional for home daycare.
  */
 
@@ -11,6 +11,7 @@ const SCHEDULE_ITEM_TYPES = Object.freeze([
   "reminder",
   "director_event",
   "family_event",
+  "day_note",
 ]);
 
 // Filter/category grouping for the Calendar's show/hide filters. Purely a
@@ -22,6 +23,7 @@ const SCHEDULE_ITEM_CATEGORIES = Object.freeze({
   closure: "family",
   director_event: "director",
   family_event: "family",
+  day_note: "classroom",
 });
 
 function scheduleItemCategory(type) {
@@ -210,6 +212,7 @@ function normalizeScheduleItem(raw = {}) {
     reminder: "Reminder",
     director_event: "Director Item",
     family_event: "Family Event",
+    day_note: "Day Note",
   };
   return {
     ...base,
@@ -368,6 +371,17 @@ function upsertScheduleItem(doc, item) {
       (entry) => !(
         entry.type === "lesson_plan"
         && entry.weekStartDate === normalized.weekStartDate
+        && entry.classroomId === normalized.classroomId
+        && entry.id !== normalized.id
+      ),
+    );
+  }
+  // One free-text day note per classroom + calendar date (independent of lesson_plan notes).
+  if (normalized.type === "day_note" && normalized.startDate) {
+    next.items = next.items.filter(
+      (entry) => !(
+        entry.type === "day_note"
+        && entry.startDate === normalized.startDate
         && entry.classroomId === normalized.classroomId
         && entry.id !== normalized.id
       ),

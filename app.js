@@ -16360,6 +16360,7 @@ function calendarEventTypeLabel(type) {
     reminder: "Reminder",
     director_event: "Director",
     family_event: "Family/Center",
+    day_note: "Note",
     birthday: "Birthday",
     enrollment_anniversary: "Anniversary",
     observation_reminder: "Observation",
@@ -16513,10 +16514,19 @@ function calendarDerivedChildItemsInRange(fromIso, toIso) {
 
 function calendarVisibleItemsForDate(realItems, derivedItems, iso) {
   const real = (realItems || []).filter(
-    (item) => item.type !== "lesson_plan" && item.startDate === iso && isCalendarCategoryVisible(calendarItemCategory(item.type)),
+    (item) => item.type !== "lesson_plan"
+      && item.type !== "day_note"
+      && item.startDate === iso
+      && isCalendarCategoryVisible(calendarItemCategory(item.type)),
   );
   const derived = isCalendarCategoryVisible("child") ? (derivedItems || []).filter((item) => item.startDate === iso) : [];
   return [...real, ...derived];
+}
+
+function calendarDayNoteForDate(doc, iso) {
+  const date = String(iso || "").slice(0, 10);
+  if (!date) return null;
+  return (doc?.items || []).find((item) => item.type === "day_note" && item.startDate === date) || null;
 }
 
 function calendarItemById(itemId) {
@@ -16602,7 +16612,7 @@ function renderCalendarMonthView(app) {
         <div>
           <p class="eyebrow">Planning home</p>
           <h3 class="llh-calendar-month">${escapeHtml(mainCalendarMonthLabel(cursor))}</h3>
-          <p class="muted-copy llh-calendar-toolbar-hint">Tap any day to open it. Weekends are available for manual events — lesson plans still run Monday–Friday.</p>
+          <p class="muted-copy llh-calendar-toolbar-hint">Tap any day to open it. Add notes and events on any day — lesson plans still run Monday–Friday.</p>
         </div>
         <div class="llh-calendar-toolbar-actions">
           <div class="llh-calendar-month-nav" role="group" aria-label="Month and year navigation">
@@ -16643,13 +16653,15 @@ function renderCalendarMonthView(app) {
               const extraItems = Math.max(0, cell.dayItems.length - visibleItems.length);
               const title = cell.lesson?.lessonPlanTitle || "";
               const shortTitle = title.length > 24 ? `${title.slice(0, 22)}…` : title;
-              const ariaLabel = `${calendarLongDateLabel(cell.iso)}${cell.weekend ? ", weekend" : ""}${hasLesson ? `, lesson plan: ${title}` : ""}${cell.dayItems.length ? `, ${cell.dayItems.length} item${cell.dayItems.length === 1 ? "" : "s"}` : ""}`;
+              const dayNote = calendarDayNoteForDate({ items }, cell.iso);
+              const hasDayNote = Boolean(String(dayNote?.notes || "").trim());
+              const ariaLabel = `${calendarLongDateLabel(cell.iso)}${cell.weekend ? ", weekend" : ""}${hasLesson ? `, lesson plan: ${title}` : ""}${hasDayNote ? ", has day note" : ""}${cell.dayItems.length ? `, ${cell.dayItems.length} item${cell.dayItems.length === 1 ? "" : "s"}` : ""}`;
               return `
-                <button type="button" class="llh-cal-cell ${cell.weekend ? "is-weekend" : ""} ${hasLesson ? "has-lesson" : ""} ${isToday ? "is-today" : ""}" data-calendar-select-day="${escapeHtml(cell.iso)}" aria-label="${escapeHtml(ariaLabel)}">
+                <button type="button" class="llh-cal-cell ${cell.weekend ? "is-weekend" : ""} ${hasLesson ? "has-lesson" : ""} ${hasDayNote ? "has-day-note" : ""} ${isToday ? "is-today" : ""}" data-calendar-select-day="${escapeHtml(cell.iso)}" aria-label="${escapeHtml(ariaLabel)}">
                   <span class="llh-cal-daynum">${cell.day}${isToday ? '<span class="llh-cal-today-dot" aria-hidden="true"></span>' : ""}</span>
-                  ${cell.weekend ? `<span class="llh-cal-weekend-tag">Weekend</span>` : ""}
                   ${hasLesson && isMonday ? `<span class="llh-cal-weekbar" title="${escapeHtml(title)}">${escapeHtml(shortTitle)}</span>` : ""}
                   ${hasLesson && !isMonday && !cell.weekend ? `<span class="llh-cal-lesson-stripe" title="${escapeHtml(title)}" aria-hidden="true"></span>` : ""}
+                  ${hasDayNote ? `<span class="llh-cal-chip llh-cal-chip-day_note" title="Day note">Note</span>` : ""}
                   ${visibleItems.map((item) => `<span class="llh-cal-chip llh-cal-chip-${escapeHtml(calendarItemCategory(item.type))}" title="${escapeHtml(item.title)}">${escapeHtml(calendarEventTypeLabel(item.type))}: ${escapeHtml(item.title || item.type)}</span>`).join("")}
                   ${extraItems ? `<span class="llh-cal-more">+${extraItems} more</span>` : ""}
                 </button>
@@ -16719,9 +16731,15 @@ function renderCalendarWeekView(app) {
       <div class="llh-cal-week-strip">
         ${dayCells.map((cell) => `
           <button type="button" class="llh-cal-week-day ${cell.weekend ? "is-weekend" : ""} ${cell.isToday ? "is-today" : ""}" data-calendar-select-day="${escapeHtml(cell.iso)}" aria-label="${escapeHtml(calendarLongDateLabel(cell.iso))}${cell.weekend ? ", weekend" : ""}">
-            <span class="eyebrow">${dayLabels[cell.dow]}${cell.weekend ? " · Weekend" : ""}</span>
+            <span class="eyebrow">${dayLabels[cell.dow]}</span>
             <strong>${escapeHtml(cell.iso.slice(8, 10))}</strong>
             ${cell.dayKey && lesson ? `<span class="llh-cal-lesson-stripe" aria-hidden="true"></span>` : ""}
+            ${(() => {
+              const noteItem = calendarDayNoteForDate(doc, cell.iso);
+              return String(noteItem?.notes || "").trim()
+                ? `<span class="llh-cal-chip llh-cal-chip-day_note" title="Day note">Note</span>`
+                : "";
+            })()}
             ${cell.dayItems.slice(0, 3).map((item) => `<span class="llh-cal-chip llh-cal-chip-${escapeHtml(calendarItemCategory(item.type))}">${escapeHtml(item.title || item.type)}</span>`).join("")}
             ${cell.dayItems.length > 3 ? `<span class="llh-cal-more">+${cell.dayItems.length - 3} more</span>` : ""}
           </button>
@@ -16746,6 +16764,8 @@ function renderCalendarDayView(app) {
   const realItems = api ? api.itemsInRange(doc, iso, iso) : [];
   const derivedItems = calendarDerivedChildItemsInRange(iso, iso);
   const visibleItems = calendarVisibleItemsForDate(realItems, derivedItems, iso);
+  const dayNote = calendarDayNoteForDate(doc, iso);
+  const dayNoteText = String(dayNote?.notes || "");
   const room = scheduleClassroomName(doc);
   const planDay = dayKey ? lesson?.snapshot?.dailyPlans?.[dayKey] : null;
   const activities = Array.isArray(planDay?.items) ? planDay.items : [];
@@ -16755,7 +16775,7 @@ function renderCalendarDayView(app) {
       <div class="llh-calendar-toolbar">
         <div>
           <button type="button" class="ghost-button" data-calendar-back-to-month>← Back to Calendar</button>
-          <p class="eyebrow">${weekend ? "Weekend day" : "Day view"}</p>
+          <p class="eyebrow">Day view</p>
           <h3 class="llh-calendar-month">${escapeHtml(calendarLongDateLabel(iso))}</h3>
         </div>
         <div class="llh-calendar-toolbar-actions">
@@ -16764,6 +16784,18 @@ function renderCalendarDayView(app) {
       </div>
       ${calendarFilterBarHtml()}
       <div class="llh-cal-day-body">
+        <section class="llh-ds-card llh-cal-day-notes-card">
+          <p class="eyebrow">Day notes</p>
+          <label class="llh-cal-day-note-label">
+            <span class="visually-hidden">Notes for ${escapeHtml(calendarLongDateLabel(iso))}</span>
+            <textarea rows="4" data-calendar-day-note-input placeholder="Prep, what worked, reminders for this day…">${escapeHtml(dayNoteText)}</textarea>
+          </label>
+          <div class="form-actions">
+            <button type="button" class="primary-button" data-calendar-save-day-note data-calendar-save-day-note-date="${escapeHtml(iso)}">Save Notes</button>
+            ${dayNote ? `<button type="button" class="ghost-button" data-calendar-clear-day-note data-calendar-clear-day-note-date="${escapeHtml(iso)}">Clear</button>` : ""}
+          </div>
+          <p class="muted-copy llh-cal-day-note-hint" data-calendar-day-note-status hidden></p>
+        </section>
         <section class="llh-ds-card">
           <p class="eyebrow">Lesson Plan · ${escapeHtml(room)}</p>
           ${lesson && dayKey ? `
@@ -16775,7 +16807,7 @@ function renderCalendarDayView(app) {
             </div>
           ` : `
             <p class="muted-copy">${weekend
-              ? "Lesson plans run Monday–Friday. This weekend day has no automatic lesson-plan content — add a manual event below if your program runs weekends."
+              ? "Lesson plans run Monday–Friday. Add notes or events on this day anytime."
               : "No lesson plan assigned for this week yet."}</p>
             <div class="form-actions"><button type="button" class="ghost-button" data-view="lessons">Browse Lesson Plans</button></div>
           `}
@@ -16921,6 +16953,68 @@ async function deleteCalendarItem(itemId) {
     mainCalendarBusy = false;
     renderMainCalendar();
   }
+}
+
+function setCalendarDayNoteStatus(message, isError = false) {
+  const statusEl = document.querySelector("[data-calendar-day-note-status]");
+  if (!statusEl) return;
+  statusEl.hidden = !message;
+  statusEl.textContent = message || "";
+  statusEl.classList.toggle("is-error", Boolean(isError));
+}
+
+async function saveCalendarDayNote(iso, options = {}) {
+  const api = getScheduleApi();
+  if (!api || !isLoggedIn()) {
+    openAuthModal("login");
+    return;
+  }
+  const date = api.isoDateOnly(iso || mainCalendarSelectedDay);
+  if (!date) return;
+  const input = document.querySelector("[data-calendar-day-note-input]");
+  const notes = options.clear ? "" : String(options.notes ?? input?.value ?? "").trim();
+  mainCalendarBusy = true;
+  setCalendarDayNoteStatus("Saving…");
+  renderMainCalendar();
+  try {
+    await ensureScheduleLoaded();
+    const doc = scheduleDocCache || api.readCache(scheduleApiEmail()) || { items: [], classrooms: [] };
+    const existing = calendarDayNoteForDate(doc, date);
+    const classroomId = doc.classrooms?.[0]?.id || "classroom-main";
+    if (!notes) {
+      if (existing?.id && api.deleteItem) {
+        await api.deleteItem(firebaseAuthHeaders, scheduleApiEmail(), existing.id);
+      }
+    } else {
+      await api.upsertItem(firebaseAuthHeaders, scheduleApiEmail(), {
+        ...(existing?.id ? { id: existing.id } : {}),
+        type: "day_note",
+        title: "Day Note",
+        startDate: date,
+        endDate: date,
+        weekStartDate: api.weekStartMonday(date),
+        allDay: true,
+        notes,
+        classroomId,
+      });
+    }
+    scheduleDocCache = api.readCache(scheduleApiEmail());
+  } catch (error) {
+    mainCalendarBusy = false;
+    renderMainCalendar();
+    setCalendarDayNoteStatus(error.message || "Could not save day notes.", true);
+    const restored = document.querySelector("[data-calendar-day-note-input]");
+    if (restored && !options.clear) restored.value = notes;
+    return;
+  }
+  mainCalendarBusy = false;
+  renderMainCalendar();
+  setCalendarDayNoteStatus(notes ? "Notes saved." : "Notes cleared.");
+}
+
+async function clearCalendarDayNote(iso) {
+  if (!window.confirm("Clear the notes for this day?")) return;
+  await saveCalendarDayNote(iso, { clear: true });
 }
 
 async function openCurriculumPlannerAssignFlow(resourceId, options = {}) {
@@ -33964,6 +34058,20 @@ document.addEventListener("click", async (event) => {
   if (calendarDeleteItem) {
     event.preventDefault();
     deleteCalendarItem(calendarDeleteItem.dataset.calendarDeleteItem || "");
+    return;
+  }
+
+  const calendarSaveDayNote = event.target.closest("[data-calendar-save-day-note]");
+  if (calendarSaveDayNote) {
+    event.preventDefault();
+    saveCalendarDayNote(calendarSaveDayNote.dataset.calendarSaveDayNoteDate || mainCalendarSelectedDay);
+    return;
+  }
+
+  const calendarClearDayNote = event.target.closest("[data-calendar-clear-day-note]");
+  if (calendarClearDayNote) {
+    event.preventDefault();
+    clearCalendarDayNote(calendarClearDayNote.dataset.calendarClearDayNoteDate || mainCalendarSelectedDay);
     return;
   }
 

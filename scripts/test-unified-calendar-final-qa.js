@@ -326,12 +326,15 @@ async function runViewportSuite(browser, { viewport, label }) {
   // ==================== 7/8) Weekend manual event + Add/Edit/Delete ====================
   const weekendCell = page.locator(".llh-cal-cell.is-weekend").first();
   const weekendAriaLabel = await weekendCell.getAttribute("aria-label");
-  check("23) Weekend cell has a text aria-label (not color-only)", /weekend/i.test(weekendAriaLabel || ""), weekendAriaLabel);
+  check("23) Weekend cell stays clickable without a visible Weekend banner", Boolean(weekendAriaLabel) && /weekend/i.test(weekendAriaLabel || ""), weekendAriaLabel);
+  const monthHtmlBeforeWeekend = await page.locator("#mainCalendarApp").innerHTML();
+  check("23b) Month View has no visible 'Weekend' text tags", !/llh-cal-weekend-tag/.test(monthHtmlBeforeWeekend) && !/>\s*Weekend\s*</.test(monthHtmlBeforeWeekend));
   await weekendCell.click();
   await page.waitForTimeout(300);
   await shot("weekend-day-view");
   const weekendDayText = await page.locator("#mainCalendarApp").innerText();
-  check("7) Weekend day view is fully functional (no lesson plan, has Add Item)", weekendDayText.includes("Add Item") && !weekendDayText.includes(lessonNow.title));
+  check("7) Weekend day view is fully functional (no lesson plan, has Add Item + Day notes)", weekendDayText.includes("Add Item") && weekendDayText.includes("Day notes") && !weekendDayText.includes(lessonNow.title));
+  check("7a) Weekend Day View has no 'Weekend' banner label", !/\bWeekend day\b/i.test(weekendDayText) && !/\b· Weekend\b/i.test(weekendDayText));
 
   await page.click("[data-calendar-add-item]");
   await page.waitForSelector("#scheduleEventModal.open", { timeout: 5000 });
