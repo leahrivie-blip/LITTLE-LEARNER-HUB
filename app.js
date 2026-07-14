@@ -19800,12 +19800,22 @@ function applyChildDataSnapshot(snapshot = {}, updatedAt = "") {
 async function firebaseAuthHeaders() {
   if (!firebaseAuthEnabled || !currentUser) return null;
   const client = await getFirebaseAuthClient();
+  // Wait for Firebase to finish restoring a persisted session before reading the token.
+  // Without this, page refresh / early login sync often runs with no currentUser yet.
+  if (typeof client.auth.authStateReady === "function") {
+    try {
+      await client.auth.authStateReady();
+    } catch (error) {
+      console.warn("Firebase authStateReady did not complete", error);
+    }
+  }
   const token = await client.auth.currentUser?.getIdToken();
   return token ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } : null;
 }
 
-async function saveChildDataToBackend() {
-  if (!currentUser || childCloudSyncing) return;
+async function saveChildDataToBackend(options = {}) {
+  if (!currentUser) return;
+  if (childCloudSyncing && !options.force) return;
   const headers = await firebaseAuthHeaders();
   if (!headers) return;
   await fetch("/api/child-data", {
@@ -19823,29 +19833,57 @@ function queueChildDataCloudSave() {
   }, 700);
 }
 
+function delayMs(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+let childCloudSyncQueued = false;
+
 async function syncChildDataFromBackend(options = {}) {
-  if (!currentUser || !firebaseAuthEnabled || childCloudSyncing) return;
-  const headers = await firebaseAuthHeaders();
-  if (!headers) return;
+  if (!currentUser || !firebaseAuthEnabled) return false;
+  if (childCloudSyncing) {
+    childCloudSyncQueued = true;
+    return false;
+  }
   childCloudSyncing = true;
+  let applied = false;
   try {
-    const response = await fetch("/api/child-data", { headers });
-    if (!response.ok) return;
-    const remote = await response.json();
-    const localUpdatedAt = localStorage.getItem(childCloudUpdatedKey()) || "";
-    if (remote?.data && (!localUpdatedAt || String(remote.updatedAt || "") > localUpdatedAt || !childDataHasRecords())) {
-      applyChildDataSnapshot(remote.data, remote.updatedAt);
-    } else if (!remote?.data && childDataHasRecords()) {
-      await saveChildDataToBackend();
-    }
-    if (options.render && document.querySelector("#view-children")?.classList.contains("active-view")) {
-      renderChildManagement();
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const headers = await firebaseAuthHeaders();
+      if (!headers) {
+        await delayMs(350 * (attempt + 1));
+        continue;
+      }
+      const response = await fetch("/api/child-data", { headers });
+      if (!response.ok) {
+        console.warn(`Child data cloud sync failed (${response.status}) on attempt ${attempt + 1}`);
+        await delayMs(400 * (attempt + 1));
+        continue;
+      }
+      const remote = await response.json();
+      const localUpdatedAt = localStorage.getItem(childCloudUpdatedKey()) || "";
+      if (remote?.data && (!localUpdatedAt || String(remote.updatedAt || "") > localUpdatedAt || !childDataHasRecords())) {
+        applyChildDataSnapshot(remote.data, remote.updatedAt);
+        applied = true;
+      } else if (!remote?.data && childDataHasRecords()) {
+        await saveChildDataToBackend({ force: true });
+      }
+      if (options.render !== false && document.querySelector("#view-children")?.classList.contains("active-view")) {
+        renderChildManagement();
+      }
+      updateSidebarDashboard();
+      break;
     }
   } catch (error) {
     console.warn("Child data cloud sync did not complete", error);
   } finally {
     childCloudSyncing = false;
+    if (childCloudSyncQueued) {
+      childCloudSyncQueued = false;
+      syncChildDataFromBackend(options).catch((error) => console.warn("Queued child data sync did not complete", error));
+    }
   }
+  return applied;
 }
 
 function saveChildStore(key, value) {
