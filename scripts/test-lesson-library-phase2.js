@@ -233,18 +233,23 @@ async function main() {
     await page.click('[data-lesson-library-mode="browse"]');
     await page.waitForSelector("#view-lessons:has-text('Lesson Plan Library')", { timeout: 5000 });
 
-    console.log("C) Use This Plan sheet action order and renamed weekly plan action");
+    console.log("C) Add to Calendar opens pick-week form (no nested print menu)");
     await openLessonWorkspace(page, primary.title);
     await page.click("[data-lesson-use-this-plan]");
-    await page.waitForSelector(".lesson-workspace-action-sheet:not([hidden])", { timeout: 5000 });
-    const sheetLabels = await page.evaluate(() => (
-      [...document.querySelectorAll('[data-lesson-workspace-action-panel="menu"] button')]
-        .map((el) => el.textContent.trim())
-    ));
-    assert(sheetLabels[0] === "Plan This Week", `first sheet action wrong: ${sheetLabels.join(" | ")}`);
-    assert(sheetLabels[1] === "Print Full Lesson Plan", `print action wrong: ${sheetLabels.join(" | ")}`);
-    assert(sheetLabels.includes("Cancel"), `cancel action missing: ${sheetLabels.join(" | ")}`);
-    assert(!sheetLabels.some((label) => /Assign to a Week|Add to This Week|View in Curriculum Planner/i.test(label)), `old sheet action still present: ${sheetLabels.join(" | ")}`);
+    await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
+    const sheetCopy = await page.evaluate(() => ({
+      title: document.querySelector("[data-lesson-assign-sheet-title]")?.textContent.trim() || "",
+      submit: document.querySelector("[data-lesson-assign-submit]")?.textContent.trim() || "",
+      hasCancel: Boolean(document.querySelector('[data-lesson-workspace-action-panel="main-calendar"] [data-lesson-workspace-action-sheet-dismiss]')),
+      hasPrintInSheet: Boolean(document.querySelector('[data-lesson-workspace-action-panel="main-calendar"] [data-lesson-print-variant]')),
+      hasEdit: Boolean(document.querySelector('[data-lesson-action-bars="top"] [data-edit-lesson-plan]')),
+      hasMyWeek: Boolean(document.querySelector("[data-lesson-add-to-my-week]")),
+    }));
+    assert(sheetCopy.title === "Add to Calendar", `sheet title wrong: ${sheetCopy.title}`);
+    assert(sheetCopy.submit === "Add to Calendar", `submit wrong: ${sheetCopy.submit}`);
+    assert(sheetCopy.hasCancel, "cancel action missing");
+    assert(!sheetCopy.hasPrintInSheet, "assign sheet should not mix print options");
+    assert(sheetCopy.hasEdit && sheetCopy.hasMyWeek, "primary action bar missing Edit / My Week");
     await page.click("[data-lesson-workspace-action-sheet-dismiss]");
 
     console.log("D) Global search renders lesson plan compact cards");

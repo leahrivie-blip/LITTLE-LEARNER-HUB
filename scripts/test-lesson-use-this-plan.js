@@ -201,12 +201,14 @@ async function main() {
       title: document.querySelector('[data-lesson-workspace-action-panel="main-calendar"] .lesson-workspace-action-sheet-title')?.textContent.trim() || "",
       submit: document.querySelector('[data-lesson-main-calendar-form] button[type="submit"]')?.textContent.trim() || "",
       primaryLabel: document.querySelector("[data-lesson-use-this-plan]")?.textContent.trim() || "",
-      customizeLabel: document.querySelector('.lesson-workspace-primary-actions [data-customize-lesson-ai]')?.textContent.trim() || "",
-      printLabel: document.querySelector("[data-lesson-print-download]")?.textContent.trim() || "",
+      editLabel: document.querySelector('.lesson-workspace-primary-actions [data-edit-lesson-plan]')?.textContent.trim() || "",
+      myWeekLabel: document.querySelector("[data-lesson-add-to-my-week]")?.textContent.trim() || "",
+      printLabel: document.querySelector('[data-lesson-action-bars="top"] [data-lesson-print-variant="week"]')?.textContent.trim() || "",
     }));
     assert(formCopy.primaryLabel === "Add to Calendar", `primary CTA wrong: ${formCopy.primaryLabel}`);
-    assert(formCopy.customizeLabel === "Customize Plan", `customize CTA wrong: ${formCopy.customizeLabel}`);
-    assert(formCopy.printLabel === "Print / Download", `print CTA wrong: ${formCopy.printLabel}`);
+    assert(formCopy.editLabel === "Edit Lesson Plan", `edit CTA wrong: ${formCopy.editLabel}`);
+    assert(formCopy.myWeekLabel === "Add to My Week", `my week CTA wrong: ${formCopy.myWeekLabel}`);
+    assert(formCopy.printLabel === "Print Weekly Calendar", `print CTA wrong: ${formCopy.printLabel}`);
     assert(formCopy.title === "Add to Calendar", `form title wrong: ${formCopy.title}`);
     assert(formCopy.submit === "Add to Calendar", `submit copy wrong: ${formCopy.submit}`);
 

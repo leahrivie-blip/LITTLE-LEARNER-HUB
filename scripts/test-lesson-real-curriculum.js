@@ -323,16 +323,20 @@ async function main() {
       console.log(`   ✓ ${plan.ownerLabel}`);
     }
 
-    console.log("2) Use This Plan final actions only");
+    console.log("2) Add to Calendar opens pick-week form only");
     await openLesson(page, primary.title);
     await page.click("[data-lesson-use-this-plan]");
-    await page.waitForSelector(".lesson-workspace-action-sheet:not([hidden])", { timeout: 5000 });
-    const sheet = await page.evaluate(() => [...document.querySelectorAll('[data-lesson-workspace-action-panel="menu"] button')].map((el) => el.textContent.trim()));
-    assert(sheet[0] === "Plan This Week", `Plan This Week first: ${sheet.join(" | ")}`);
-    assert(sheet[1] === "Print Full Lesson Plan", `Print Full Lesson Plan second: ${sheet.join(" | ")}`);
-    assert(sheet[2] === "Download PDF", `Download PDF third: ${sheet.join(" | ")}`);
-    assert(sheet[3] === "Cancel", `Cancel last: ${sheet.join(" | ")}`);
-    assert(sheet.length === 4, `extra Use This Plan actions: ${sheet.join(" | ")}`);
+    await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
+    const sheet = await page.evaluate(() => ({
+      title: document.querySelector("[data-lesson-assign-sheet-title]")?.textContent.trim() || "",
+      submit: document.querySelector("[data-lesson-assign-submit]")?.textContent.trim() || "",
+      hasCancel: Boolean(document.querySelector('[data-lesson-workspace-action-panel="main-calendar"] [data-lesson-workspace-action-sheet-dismiss]')),
+      hasPrintInSheet: Boolean(document.querySelector('[data-lesson-workspace-action-panel="main-calendar"] [data-lesson-print-variant]')),
+    }));
+    assert(sheet.title === "Add to Calendar", `title wrong: ${sheet.title}`);
+    assert(sheet.submit === "Add to Calendar", `submit wrong: ${sheet.submit}`);
+    assert(sheet.hasCancel, "Cancel missing");
+    assert(!sheet.hasPrintInSheet, "assign sheet should not include print actions");
     await page.click("[data-lesson-workspace-action-sheet-dismiss]");
 
     console.log("2b) Week Of auto-populates from Curriculum Planner assignment");

@@ -14271,25 +14271,48 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   color: var(--muted, #6b6560);
 }
 
-.lesson-workspace-primary-actions {
-  display: flex;
-  flex-wrap: wrap;
+.lesson-workspace-action-bars {
+  display: grid;
   gap: 8px;
   padding: 0 2px 12px;
   flex-shrink: 0;
+}
+
+.lesson-workspace-primary-actions,
+.lesson-workspace-secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   position: relative;
 }
 
 .lesson-workspace-primary-actions .primary-button,
-.lesson-workspace-primary-actions .ghost-button {
+.lesson-workspace-primary-actions .ghost-button,
+.lesson-workspace-secondary-actions .ghost-button {
   min-height: 44px;
   flex: 1 1 calc(50% - 4px);
   margin: 0;
 }
 
+.lesson-workspace-secondary-actions {
+  padding-top: 2px;
+  border-top: 1px solid rgba(213, 227, 240, 0.9);
+}
+
+.lesson-workspace-secondary-actions .lesson-workspace-danger {
+  color: #9b3b3b;
+  border-color: #e2b4b4;
+}
+
 .lesson-workspace-more-btn {
   flex: 0 0 auto !important;
   min-width: 72px;
+}
+
+[data-lesson-action-bars="bottom"] {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
 }
 
 .lesson-workspace-save-btn.is-saved {
@@ -14881,8 +14904,10 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 }
 
 @media (min-width: 640px) {
-  .lesson-workspace-primary-actions .primary-button {
-    flex: 1 1 auto;
+  .lesson-workspace-primary-actions .primary-button,
+  .lesson-workspace-primary-actions .ghost-button,
+  .lesson-workspace-secondary-actions .ghost-button {
+    flex: 1 1 100%;
   }
 
   .lesson-workspace-action-sheet {
