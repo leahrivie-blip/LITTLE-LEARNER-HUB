@@ -57,6 +57,7 @@ let databaseReady = false;
 let postgresPool = null;
 let postgresWriteChain = Promise.resolve();
 let firebaseCertCache = { expiresAt: 0, certs: {} };
+let clientAppScriptCache = null;
 const MAX_BACKFILL_REPORT_ITEMS = 500;
 
 const planConfig = {
@@ -1878,6 +1879,19 @@ function ensureStore() {
 
 function readStore() {
   if (usePostgresStore()) return structuredClone(storeCache || defaultStore());
+  ensureStore();
+  return JSON.parse(fs.readFileSync(storePath, "utf8"));
+}
+
+// Returns the store without deep-cloning. Safe for read-only handlers that never
+// mutate the returned object (or that intentionally mutate storeCache in place).
+// For Postgres this avoids an expensive structuredClone of lesson plans, analytics,
+// and child records on every request — the prior OOM crash source on Render starter.
+function peekStore() {
+  if (usePostgresStore()) {
+    if (!storeCache) readStore();
+    return storeCache || defaultStore();
+  }
   ensureStore();
   return JSON.parse(fs.readFileSync(storePath, "utf8"));
 }
@@ -4405,8 +4419,10 @@ function membershipStatusDisplay(user) {
   return membershipAccess.membershipStatusDisplay(user);
 }
 
-function membershipSummaryForUser(user) {
-  const store = readStore();
+function membershipSummaryForUser(user, storeRef = null) {
+  // NEVER call readStore() here — analytics maps this over every user and a full
+  // structuredClone per user OOMs the Render starter plan (512MB).
+  const store = storeRef || peekStore();
   const audits = (store.membershipAudit || []).filter((entry) => entry.email === user?.email).slice(0, 5);
   const endMs = membershipAccess.accessEndMs(user);
   const access = accountAccess.summarizeAccountAccess(user || {});
@@ -5784,6 +5800,8 @@ async function handleStaffInviteAccept(request, response) {
 }
 
 
+const MAX_ANALYTICS_EVENTS = 25000;
+
 async function handleAnalyticsEvent(request, response) {
   const body = await readJson(request);
   const event = sanitizeAnalyticsEvent(body, request);
@@ -5791,6 +5809,9 @@ async function handleAnalyticsEvent(request, response) {
   store.analyticsEvents = store.analyticsEvents || [];
   if (!store.analyticsEvents.some((item) => item.id === event.id)) {
     store.analyticsEvents.push(event);
+  }
+  if (store.analyticsEvents.length > MAX_ANALYTICS_EVENTS) {
+    store.analyticsEvents = store.analyticsEvents.slice(-MAX_ANALYTICS_EVENTS);
   }
   updateAnalyticsUser(store, event);
   if (["checkout_success", "subscription_canceled"].includes(event.name)) recordBillingEvent(store, event);
@@ -5921,9 +5942,23 @@ function analyticsSummary(store) {
   const openFeedback = feedbackItems.filter((item) => !["Resolved", "Completed", "Archived"].includes(item.status)).length;
   const openTickets = supportTickets.filter((ticket) => ticket.status !== "Complete").length;
 
+  // Index events once — nested events.filter per user was O(users * events) and
+  // combined with per-user readStore() clones this endpoint OOMed on Render.
+  const eventsByUser = new Map();
+  for (const event of events) {
+    const email = event.user;
+    if (!email || email === "guest") continue;
+    let list = eventsByUser.get(email);
+    if (!list) {
+      list = [];
+      eventsByUser.set(email, list);
+    }
+    list.push(event);
+  }
+
   const userRows = users
     .map((user) => {
-      const userEvents = events.filter((event) => event.user === user.email);
+      const userEvents = eventsByUser.get(user.email) || [];
       const displayName = user.name || user.displayName || [user.firstName, user.lastName].filter(Boolean).join(" ") || "";
       const featureUsage = user.featureUsage || {};
       const usage = {
@@ -5969,7 +6004,7 @@ function analyticsSummary(store) {
         subscriptionStartedAt: user.subscriptionStartedAt || "",
         priceLock: user.priceLock || "",
         usage,
-        ...membershipSummaryForUser(user),
+        ...membershipSummaryForUser(user, store),
         accountTypeLabel: accountAccess.accountTypeLabel(user.accountType || accountAccess.resolveAccountType(user)),
         roleLabel: accountAccess.roleLabel(user.role || accountAccess.resolveUserRole(user)),
       };
@@ -6047,8 +6082,16 @@ function analyticsSummary(store) {
 }
 
 function handleAdminAnalytics(request, response, url) {
-  const token = url.searchParams.get("adminToken");
+  const startedAt = Date.now();
+  const token = String(url.searchParams.get("adminToken") || "").trim();
+  const tokenPrefix = token ? `${token.slice(0, 12)}…` : "(empty)";
+  console.log("[admin-analytics] request", {
+    tokenPrefix,
+    tokenValid: validAdminToken(token),
+    heapUsedMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+  });
   if (!validAdminToken(token)) {
+    console.warn("[admin-analytics] rejected — invalid admin token", { tokenPrefix });
     jsonResponse(response, 401, {
       error: "Admin access is required.",
       code: "admin_session_invalid",
@@ -6056,7 +6099,40 @@ function handleAdminAnalytics(request, response, url) {
     });
     return;
   }
-  jsonResponse(response, 200, { analytics: analyticsSummary(readStore()) });
+  try {
+    // peekStore: do not structuredClone the entire production store for this read.
+    const store = peekStore();
+    const session = store.adminSessions?.[token] || {};
+    const userCount = Object.keys(store.users || {}).length;
+    const eventCount = (store.analyticsEvents || []).length;
+    console.log("[admin-analytics] building summary", {
+      email: session.email || "",
+      userCount,
+      eventCount,
+      heapUsedMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+    });
+    const analytics = analyticsSummary(store);
+    console.log("[admin-analytics] success", {
+      email: session.email || "",
+      ms: Date.now() - startedAt,
+      usersReturned: (analytics.users || []).length,
+      rawEventCount: analytics.rawEventCount,
+      heapUsedMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+    });
+    jsonResponse(response, 200, { analytics });
+  } catch (error) {
+    console.error("[admin-analytics] FAILED", {
+      message: error?.message,
+      stack: error?.stack,
+      ms: Date.now() - startedAt,
+      heapUsedMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+    });
+    jsonResponse(response, 500, {
+      error: error?.message || "Admin analytics failed.",
+      code: "admin_analytics_failed",
+      hint: "Server failed while building analytics. Check Render logs for [admin-analytics] FAILED.",
+    });
+  }
 }
 
 async function handleAdminMembershipUpdate(request, response) {
@@ -6154,7 +6230,7 @@ async function handleAdminMembershipUpdate(request, response) {
 }
 
 function handlePublicSiteContent(request, response) {
-  const store = readStore();
+  const store = peekStore();
   const content = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
   const defaults = normalizedSiteContent(defaultSiteContentStore());
   const publicForms = (content.forms || []).filter((item) => item.visible === true && item.archived !== true);
@@ -6319,7 +6395,7 @@ function handleAdminSiteContent(request, response, url) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
-  const store = readStore();
+  const store = peekStore();
   jsonResponse(response, 200, { siteContent: normalizedSiteContent(store.siteContent || defaultSiteContentStore()) });
 }
 
@@ -6594,7 +6670,7 @@ async function handleSupportTicketUpdate(request, response) {
 function handleSupportTicketsList(request, response, url) {
   const email = normalizeEmail(url.searchParams.get("email"));
   const adminToken = url.searchParams.get("adminToken") || "";
-  const store = readStore();
+  const store = peekStore();
   const allTickets = store.supportTickets || [];
   const tickets = validAdminToken(adminToken)
     ? allTickets
@@ -7286,7 +7362,7 @@ async function handleAdminUploadedResourceDelete(request, response) {
 
 function handleStripeReadiness(request, response) {
   const status = stripeConfigStatus();
-  const store = readStore();
+  const store = peekStore();
   jsonResponse(response, 200, {
     stripe: status,
     founding: foundingStatusPayload(store),
@@ -7489,7 +7565,7 @@ function handleBillingReadiness(request, response) {
 }
 
 function handleHealth(request, response) {
-  const store = readStore();
+  const store = peekStore();
   const host = String(request.headers.host || "").split(":")[0].toLowerCase();
   const configuredHost = (() => {
     try {
@@ -7525,7 +7601,7 @@ function handleHealth(request, response) {
 }
 
 function handleFoundingStatus(request, response) {
-  jsonResponse(response, 200, { founding: foundingStatusPayload(readStore()) });
+  jsonResponse(response, 200, { founding: foundingStatusPayload(peekStore()) });
 }
 
 function handleClientConfig(request, response) {
@@ -7567,6 +7643,7 @@ function clientRuntimeConfig() {
 }
 
 function clientAppScript(filePath) {
+  if (clientAppScriptCache !== null) return clientAppScriptCache;
   let source = fs.readFileSync(filePath, "utf8");
   const config = clientRuntimeConfig();
   source = source.replace(
@@ -7577,7 +7654,8 @@ function clientAppScript(filePath) {
     /const firebaseAuthConfig = \{\n  apiKey: ".*?",\n  authDomain: ".*?",\n  projectId: ".*?",\n  appId: ".*?",\n\};/,
     `const firebaseAuthConfig = ${JSON.stringify(config.firebase, null, 2)};`,
   );
-  return source;
+  clientAppScriptCache = source;
+  return clientAppScriptCache;
 }
 
 function serveStatic(request, response, url) {

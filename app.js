@@ -29056,20 +29056,48 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
   }, ADMIN_ANALYTICS_TIMEOUT_MS);
 
   adminAnalyticsLoadPromise = (async () => {
+    const session = adminSession() || {};
+    const requestUrl = `${analyticsConfig.adminEndpoint}?adminToken=${encodeURIComponent(token)}&t=${Date.now()}`;
+    console.info("[admin-analytics:client] request", {
+      url: analyticsConfig.adminEndpoint,
+      email: session.email || "",
+      mode: session.mode || "",
+      unlocked: isAdminUnlocked(),
+      tokenPrefix: token ? `${String(token).slice(0, 12)}…` : "",
+    });
     try {
-      const response = await fetch(
-        `${analyticsConfig.adminEndpoint}?adminToken=${encodeURIComponent(token)}&t=${Date.now()}`,
-        { cache: "no-store", signal: controller.signal },
-      );
-      const data = await response.json().catch(() => ({}));
+      const response = await fetch(requestUrl, { cache: "no-store", signal: controller.signal });
+      const rawText = await response.text();
+      let data = {};
+      try {
+        data = rawText ? JSON.parse(rawText) : {};
+      } catch (parseError) {
+        console.error("[admin-analytics:client] non-JSON response", {
+          status: response.status,
+          bodyPreview: String(rawText || "").slice(0, 300),
+          parseError: parseError?.message,
+        });
+        throw new Error(
+          `Admin analytics returned HTTP ${response.status} with non-JSON body (often a Render crash/OOM).`,
+        );
+      }
+      console.info("[admin-analytics:client] response", {
+        status: response.status,
+        ok: response.ok,
+        code: data?.code || "",
+        error: data?.error || "",
+        hasAnalytics: Boolean(data?.analytics),
+        bodyKeys: Object.keys(data || {}),
+      });
       if (!response.ok) {
         if (isAdminSessionAuthError(data, response)) {
           markAdminSessionInvalidOnServer(data?.hint || data?.error || "");
         }
+        const detail = data?.error || data?.hint || `HTTP ${response.status}`;
         throw new Error(
           isAdminSessionAuthError(data, response)
             ? (data?.hint || "Admin session expired on the server. Unlock Admin again.")
-            : (data?.error || "Could not load admin analytics."),
+            : detail,
         );
       }
       adminAnalyticsCache = data.analytics || data;
@@ -29085,7 +29113,11 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
       adminAnalyticsLastError = aborted
         ? `Analytics timed out after ${Math.round(ADMIN_ANALYTICS_TIMEOUT_MS / 1000)}s. Tap Retry.`
         : (error?.message || "Could not load admin analytics.");
-      console.warn("Admin analytics backend load failed", error);
+      console.error("[admin-analytics:client] failed", {
+        aborted,
+        message: adminAnalyticsLastError,
+        email: session.email || "",
+      });
       renderAdminOwnerOverview();
       renderAdminAnalytics();
       return null;

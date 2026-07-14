@@ -4,7 +4,7 @@ services:
     env: node
     plan: starter
     buildCommand: "npm install"
-    startCommand: "node server/index.js"
+    startCommand: "node --max-old-space-size=300 server/index.js"
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
