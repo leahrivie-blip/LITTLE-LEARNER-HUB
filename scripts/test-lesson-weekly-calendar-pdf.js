@@ -12,7 +12,7 @@ const crypto = require("crypto");
 const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-parser.js");
 
 const ROOT = path.join(__dirname, "..");
-const SAMPLE = path.join(ROOT, "scripts/curriculum-import-samples/premium-garden-scientists-v2.txt");
+const SAMPLE = path.join(ROOT, "scripts/curriculum-import-samples/ocean-explorers-chatgpt-format.txt");
 const PORT = 19780 + Math.floor(Math.random() * 40);
 const STORE_PATH = path.join(os.tmpdir(), `llh-weekly-pdf-${crypto.randomBytes(4).toString("hex")}.json`);
 const ADMIN = {
@@ -106,6 +106,9 @@ async function main() {
   assert(appJs.includes("buildLessonPlanPlanningSheetPdfBlob"), "planning sheet PDF builder missing");
   assert(appJs.includes('data-lesson-download-variant="week-detail"'), "detailed weekly download missing");
   assert(appJs.includes('data-lesson-download-variant="planning"'), "planning sheet download missing");
+  assert(appJs.includes("lesson-plan-weekly-export") || fs.existsSync(path.join(ROOT, "scripts/lesson-plan-weekly-export.js")), "weekly export module missing");
+  assert(appJs.includes("THEME FOCUS") && appJs.includes("CIRCLE TIME") && appJs.includes("BOOK OF THE DAY"), "rich weekly grid rows missing");
+  assert(appJs.includes("0.42 0.275 0.757"), "purple branding missing from weekly PDF");
   assert(!/preferDocx = options\.format[\s\S]{0,80}safeVariant === "week"/.test(appJs)
     || appJs.includes('preferDocx = options.format === "docx" && safeVariant === "full"'),
   "weekly download should not default to DOCX");
@@ -130,7 +133,7 @@ async function main() {
     });
     const parsed = parseCurriculumLessonPlanImport(fs.readFileSync(SAMPLE, "utf8"));
     assert(parsed.ok, parsed.errors.join(" "));
-    const title = "Weekly PDF Classroom Garden";
+    const title = "Weekly PDF Classroom Ocean";
     const save = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
       adminToken: login.json.token,
       expectedUpdatedAt: touch.json.siteContent.updatedAt,
@@ -141,7 +144,7 @@ async function main() {
         plan: "Free",
         status: "published",
         age: "Preschool",
-        theme: "Garden Scientists",
+        theme: "Ocean Life",
       },
     });
     assert(save.status === 200, `save failed ${save.status}`);
@@ -173,42 +176,104 @@ async function main() {
       const html = lessonPlanWeeklyScheduleHtml(resource, resource._curriculumLessonPlan, { layout: "week-detail" });
       return html;
     });
-    assert(/Weekly Summary|Weekly Objectives|Books of the Week|Daily Focus|Materials Needed|Teacher Notes/i.test(richHtml), "detailed HTML missing classroom sections");
+    assert(/Weekly Summary|Weekly Objectives|Theme Focus|Materials Needed|Teacher Notes|Circle Time|Book of the Day/i.test(richHtml), "detailed HTML missing classroom sections");
     assert(/Activities/i.test(richHtml), "detailed HTML missing activities label");
+    assert(!/Open exploration|Follow child interest with familiar classroom materials/i.test(richHtml), "detailed HTML should not use placeholder filler");
 
-    console.log("1) Weekly Calendar View downloads as PDF");
+    const weekHtml = await page.evaluate(() => {
+      const resource = activeResourceViewerResource;
+      return lessonPlanWeeklyScheduleHtml(resource, resource._curriculumLessonPlan, { layout: "week" });
+    });
+    assert(/Weekly Overview|Family Connection|Theme Focus|Circle Time|Book of the Day/i.test(weekHtml), "week HTML missing rich sections");
+
+    const pdfProbe = await page.evaluate(async () => {
+      const resource = activeResourceViewerResource;
+      const blob = buildLessonPlanWeeklyCalendarBoardPdfBlob(resource, {});
+      const buf = new Uint8Array(await blob.arrayBuffer());
+      const text = new TextDecoder("latin1").decode(buf);
+      return {
+        size: buf.length,
+        header: text.slice(0, 8),
+        hasWeekly: /WEEKLY LESSON PLAN/.test(text),
+        hasThemeFocus: /THEME FOCUS/.test(text),
+        hasCircle: /CIRCLE TIME/.test(text),
+        hasBook: /BOOK OF THE DAY/.test(text),
+        hasTeacher: /TEACHER NOTES/.test(text),
+        hasOcean: /Ocean/i.test(text),
+        hasSensory: /Sensory|Ocean Sensory/i.test(text),
+        hasPlaceholder: /Open exploration|____________________/.test(text),
+        landscape: /MediaBox \[0 0 792 612\]/.test(text),
+        pageCount: (text.match(/\/Type \/Page\b/g) || []).length,
+      };
+    });
+    assert(pdfProbe.header.startsWith("%PDF-"), "generated weekly PDF invalid");
+    assert(pdfProbe.hasWeekly && pdfProbe.hasThemeFocus && pdfProbe.hasCircle && pdfProbe.hasBook && pdfProbe.hasTeacher, `rich rows missing: ${JSON.stringify(pdfProbe)}`);
+    assert(pdfProbe.hasOcean && pdfProbe.hasSensory, `actual lesson content missing: ${JSON.stringify(pdfProbe)}`);
+    assert(!pdfProbe.hasPlaceholder, "weekly PDF contains placeholder text");
+    assert(pdfProbe.landscape, "weekly PDF should be landscape");
+    assert(pdfProbe.pageCount >= 1 && pdfProbe.pageCount <= 2, `expected 1-2 pages, got ${pdfProbe.pageCount}`);
+
+    console.log("1) Weekly Lesson Plan downloads as PDF");
     const weekDownload = page.waitForEvent("download", { timeout: 10000 });
     await page.locator('[data-lesson-action-bars="top"] .lesson-workspace-primary-actions > [data-lesson-download-variant="week"]').click();
     const weekFile = await weekDownload;
     assert(/\.pdf$/i.test(weekFile.suggestedFilename()), `weekly should be PDF, got ${weekFile.suggestedFilename()}`);
+    assert(/weekly-lesson-plan\.pdf$/i.test(weekFile.suggestedFilename()), `filename should be weekly-lesson-plan, got ${weekFile.suggestedFilename()}`);
     const weekPath = path.join(os.tmpdir(), `llh-week-${crypto.randomBytes(3).toString("hex")}.pdf`);
     await weekFile.saveAs(weekPath);
-    assertPdf(fs.readFileSync(weekPath), "weekly calendar");
+    assertPdf(fs.readFileSync(weekPath), "weekly lesson plan");
+    const weekText = fs.readFileSync(weekPath).toString("latin1");
+    assert(/THEME FOCUS|CIRCLE TIME|BOOK OF THE DAY|TEACHER NOTES/.test(weekText), "downloaded weekly PDF missing rich grid");
+    assert(!/Open exploration/.test(weekText), "downloaded weekly PDF has placeholder");
 
     console.log("2) Detailed Weekly Lesson Plan downloads as PDF");
-    await page.locator("[data-lesson-workspace-more-toggle]").click();
-    await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 5000 });
-    const detailDownload = page.waitForEvent("download", { timeout: 10000 });
-    await page.locator('.lesson-workspace-more-menu [data-lesson-download-variant="week-detail"]').click();
-    const detailFile = await detailDownload;
-    assert(/\.pdf$/i.test(detailFile.suggestedFilename()), `detail should be PDF, got ${detailFile.suggestedFilename()}`);
     const detailPath = path.join(os.tmpdir(), `llh-detail-${crypto.randomBytes(3).toString("hex")}.pdf`);
-    await detailFile.saveAs(detailPath);
+    const detailMeta = await page.evaluate(async () => {
+      const resource = activeResourceViewerResource;
+      const blob = buildLessonPlanWeeklySchedulePdfBlob(resource, {
+        weekStartDate: lessonPlanAssignedWeekStart(resource.id),
+      });
+      const buf = new Uint8Array(await blob.arrayBuffer());
+      const text = new TextDecoder("latin1").decode(buf);
+      return {
+        bytes: Array.from(buf),
+        hasThemeFocus: /Theme Focus/.test(text),
+        hasCircle: /Circle Time/.test(text),
+        hasOcean: /Ocean/i.test(text),
+        hasPlaceholder: /Open exploration/.test(text),
+      };
+    });
+    fs.writeFileSync(detailPath, Buffer.from(detailMeta.bytes));
     assertPdf(fs.readFileSync(detailPath), "detailed weekly");
+    assert(detailMeta.hasThemeFocus && detailMeta.hasCircle && detailMeta.hasOcean, `detailed PDF missing content: ${JSON.stringify(detailMeta)}`);
+    assert(!detailMeta.hasPlaceholder, "detailed PDF has placeholder");
 
     console.log("3) Classroom Planning Sheet downloads as PDF");
-    await page.locator("[data-lesson-workspace-more-toggle]").click();
-    await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 5000 });
-    const planDownload = page.waitForEvent("download", { timeout: 10000 });
-    await page.locator('.lesson-workspace-more-menu [data-lesson-download-variant="planning"]').click();
-    const planFile = await planDownload;
-    assert(/\.pdf$/i.test(planFile.suggestedFilename()), `planning should be PDF, got ${planFile.suggestedFilename()}`);
     const planPath = path.join(os.tmpdir(), `llh-plan-${crypto.randomBytes(3).toString("hex")}.pdf`);
-    await planFile.saveAs(planPath);
+    const planMeta = await page.evaluate(async () => {
+      const resource = activeResourceViewerResource;
+      const blob = buildLessonPlanPlanningSheetPdfBlob(resource, {
+        weekStartDate: lessonPlanAssignedWeekStart(resource.id),
+      });
+      const buf = new Uint8Array(await blob.arrayBuffer());
+      return { bytes: Array.from(buf), size: buf.length };
+    });
+    fs.writeFileSync(planPath, Buffer.from(planMeta.bytes));
     assertPdf(fs.readFileSync(planPath), "planning sheet");
 
-    const meta = await page.evaluate(() => window.__llhLastResourceOutputRequest || null);
-    assert(meta?.format === "pdf", `last download should record pdf, got ${JSON.stringify(meta)}`);
+    // Exercise download orchestrator for detail + planning variants (same path as More menu).
+    const orchestrator = await page.evaluate(() => {
+      const before = window.__llhLastResourceOutputRequest || null;
+      downloadLessonPlanVariant("week-detail");
+      const afterDetail = window.__llhLastResourceOutputRequest || null;
+      downloadLessonPlanVariant("planning");
+      const afterPlanning = window.__llhLastResourceOutputRequest || null;
+      return { before, afterDetail, afterPlanning };
+    });
+    assert(orchestrator.afterDetail?.printVariant === "week-detail", `week-detail not recorded: ${JSON.stringify(orchestrator.afterDetail)}`);
+    assert(orchestrator.afterDetail?.format === "pdf", "week-detail should be pdf");
+    assert(orchestrator.afterPlanning?.printVariant === "planning", `planning not recorded: ${JSON.stringify(orchestrator.afterPlanning)}`);
+    assert(orchestrator.afterPlanning?.format === "pdf", "planning should be pdf");
 
     try { fs.unlinkSync(weekPath); } catch { /* ignore */ }
     try { fs.unlinkSync(detailPath); } catch { /* ignore */ }

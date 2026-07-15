@@ -1,8 +1,8 @@
-const CACHE_NAME = "llh-shell-v43-import-v5";
+const CACHE_NAME = "llh-shell-v44-weekly-pdf-redesign";
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/styles.css?v=20260715-import-v5",
+  "/styles.css?v=20260715-weekly-pdf-redesign",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260715-tablet2",
   "/styles/llh-library-browse.css?v=20260715-signup-fix",
@@ -13,7 +13,8 @@ const APP_SHELL = [
   "/scripts/curriculum-lesson-viewer-render.js?v=20260715-preview-cta-fix",
   "/scripts/llh-schedule.js?v=20260714-prod-priority-fixes",
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
-  "/app.js?v=20260715-import-v5",
+  "/scripts/lesson-plan-weekly-export.js?v=20260715-weekly-pdf-redesign",
+  "/app.js?v=20260715-weekly-pdf-redesign",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",

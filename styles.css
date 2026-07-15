@@ -16277,7 +16277,7 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   }
 
   body.printing-resource .lesson-week-day-block h4 {
-    background: #234f70 !important;
+    background: #5b3a9e !important;
     color: #fff !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -16295,13 +16295,35 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
     page: lesson-week-landscape;
   }
 
-  body.printing-lesson-week .lesson-week-snapshot,
   body.printing-lesson-week .lesson-week-teacher-prep,
   body.printing-lesson-week .lesson-week-materials-summary,
   body.printing-lesson-week .lesson-week-resources,
   body.printing-lesson-week .lesson-week-teacher-notes,
   body.printing-lesson-week .lesson-week-print-footer {
     display: none !important;
+  }
+
+  body.printing-lesson-week .lesson-week-snapshot {
+    display: block !important;
+    margin-bottom: 8pt;
+  }
+
+  body.printing-lesson-week .lesson-week-snapshot-block {
+    break-inside: avoid;
+    margin-bottom: 4pt !important;
+  }
+
+  body.printing-lesson-week .lesson-week-snapshot-block h4 {
+    font-size: 8pt !important;
+    margin: 0 0 2pt !important;
+    color: #5b3a9e !important;
+  }
+
+  body.printing-lesson-week .lesson-week-snapshot-block p,
+  body.printing-lesson-week .lesson-week-snapshot-block li {
+    font-size: 7.5pt !important;
+    line-height: 1.25 !important;
+    margin: 0 !important;
   }
 
   body.printing-lesson-week .lesson-week-calendar-footer-summary {
