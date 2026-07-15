@@ -365,7 +365,7 @@ const docHelperToolMap = {
 };
 const docTypeLabels = {
   "observation": "Observation",
-  "daily-log": "Daily Log",
+  "daily-log": "Daily Report",
   "parent-message": "Parent Message",
   "lesson-plan": "Lesson Plan",
   "behavior-note": "Behavior Note",
@@ -410,6 +410,50 @@ function resetDocHelperResultsPanel() {
     note.focus();
   }
   document.querySelector("#docHelperDebugPanel")?.setAttribute("hidden", "hidden");
+  const typeSelect = document.querySelector("#docHelperType");
+  if (typeSelect?.value) selectDocHelperType(typeSelect.value, { focusNote: true, scroll: true });
+}
+
+function updateDocHelperComposeHint() {
+  const hint = document.querySelector("#docHelperComposeHint");
+  if (!hint) return;
+  const childSelect = document.querySelector("#docHelperChild");
+  const childId = childSelect?.value || "";
+  const childName = childSelect?.selectedOptions?.[0]?.textContent?.trim() || "";
+  if (childId && childName && childName !== "All Children") {
+    hint.textContent = `Writing for ${childName}. Add a quick note, generate documentation, then review before saving.`;
+    return;
+  }
+  hint.textContent = "Add a quick note, generate documentation, then review before saving.";
+}
+
+function selectDocHelperType(docType, options = {}) {
+  const resolvedType = docHelperToolMap[docType] ? docType : "observation";
+  selectedDocHelperType = resolvedType;
+  const typeSelect = document.querySelector("#docHelperType");
+  const compose = document.querySelector("#docHelperCompose");
+  const title = document.querySelector("#docHelperComposeTitle");
+  const label = docTypeLabels[resolvedType] || "Documentation";
+  if (typeSelect) typeSelect.value = resolvedType;
+  document.querySelectorAll(".doc-helper-card[data-quick-doc-type]").forEach((card) => {
+    card.classList.toggle("is-selected", card.dataset.quickDocType === resolvedType);
+  });
+  if (compose) compose.hidden = false;
+  if (title) title.textContent = label;
+  updateDocHelperComposeHint();
+  if (options.scroll !== false) {
+    compose?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  if (options.focusNote !== false) {
+    requestAnimationFrame(() => document.querySelector("#docHelperNote")?.focus());
+  }
+}
+
+function clearDocHelperSelection() {
+  selectedDocHelperType = "";
+  document.querySelectorAll(".doc-helper-card.is-selected").forEach((card) => card.classList.remove("is-selected"));
+  const compose = document.querySelector("#docHelperCompose");
+  if (compose) compose.hidden = true;
 }
 
 function openDocHelperSavedChild(childId, childTab = "overview") {
@@ -423,6 +467,7 @@ function openDocHelperSavedChild(childId, childTab = "overview") {
 }
 let selectedChildId = localStorage.getItem("llhSelectedChild") || "";
 let pendingAiDocType = "";
+let selectedDocHelperType = "";
 let childObservationSearch = "";
 let childObservationAreaFilter = "All";
 let childObservationDateFilter = "";
@@ -8764,8 +8809,10 @@ function setView(view, options = {}) {
   }
   document.querySelectorAll(".view").forEach((section) => section.classList.remove("active-view"));
   document.querySelector(`#view-${resolvedView}`)?.classList.add("active-view");
+  if (activeView === "ai" && resolvedView !== "ai") selectedDocHelperType = "";
   document.body.classList.toggle("home-view", resolvedView === "home");
   document.body.classList.toggle("lessons-view", resolvedView === "lessons");
+  document.body.classList.toggle("doc-helpers-view", resolvedView === "ai");
   document.body.classList.toggle(
     "scheduling-focus",
     ["calendar", "planner", "curriculum-planner", "lessons", "lesson-editor"].includes(resolvedView),
@@ -19932,38 +19979,34 @@ async function handleCurriculumPlannerAssignSubmit(form) {
 }
 
 function renderAiPage() {
-  renderAiUsagePanel();
   const childSelect = document.querySelector("#docHelperChild");
   if (childSelect) {
     const records = childRecords();
+    const preferredChildId = childSelect.value || selectedChildId || "";
     childSelect.innerHTML = `<option value="">All Children</option>` +
       records.children.map((child) => `<option value="${escapeHtml(child.id)}">${escapeHtml(child.name)}</option>`).join("");
+    if (preferredChildId && records.children.some((child) => child.id === preferredChildId)) {
+      childSelect.value = preferredChildId;
+    }
   }
+  updateDocHelperComposeHint();
   if (pendingAiDocType) {
-    const typeSelect = document.querySelector("#docHelperType");
-    if (typeSelect) typeSelect.value = pendingAiDocType;
+    const nextType = pendingAiDocType;
     pendingAiDocType = "";
+    selectDocHelperType(nextType, { focusNote: true, scroll: true });
+    return;
   }
+  if (selectedDocHelperType) {
+    selectDocHelperType(selectedDocHelperType, { focusNote: false, scroll: false });
+    return;
+  }
+  clearDocHelperSelection();
 }
 
 function renderAiUsagePanel() {
+  // Usage meter removed from Documentation Helpers to keep the page helper-first.
   const target = document.querySelector("#aiUsagePanel");
-  if (!target) return;
-  const used = serverAiUsed !== null ? serverAiUsed : aiUsageCount();
-  const limit = serverAiLimit !== null ? serverAiLimit : aiMonthlyLimit();
-  const remaining = Math.max(limit - used, 0);
-  target.innerHTML = `
-    <div class="ai-usage-panel">
-      <div>
-        <p class="eyebrow">Helper Usage</p>
-        <h4>${used} of ${limit} document creations used</h4>
-        <span>${remaining} remaining · Resets ${escapeHtml(aiResetLabel())}</span>
-      </div>
-      <div class="usage-bar" aria-label="${used} of ${limit} document creations used">
-        <span style="width: ${Math.min((used / limit) * 100, 100)}%"></span>
-      </div>
-    </div>
-  `;
+  if (target) target.innerHTML = "";
 }
 
 function renderQuickPrompts() {
@@ -41200,7 +41243,7 @@ document.addEventListener("click", async (event) => {
     if (!text || text === "Generating..." || text === "Creating your document…") return;
     const config = docHelperSaveConfig[docType] || { key: "Reports", view: "children", childTab: "overview", label: "documentation" };
     if (config.key && !childId) {
-      window.alert("Choose a child in Step 1 before saving to a child profile.");
+      window.alert("Choose a child above before saving to a child profile.");
       document.querySelector("#docHelperChild")?.focus();
       return;
     }
@@ -43084,6 +43127,14 @@ document.querySelector("#aiChatForm")?.addEventListener("submit", async (event) 
   }
 });
 
+document.addEventListener("change", (event) => {
+  if (!event.target.matches("#docHelperChild")) return;
+  selectedChildId = event.target.value || "";
+  if (selectedChildId) localStorage.setItem("llhSelectedChild", selectedChildId);
+  else localStorage.removeItem("llhSelectedChild");
+  updateDocHelperComposeHint();
+});
+
 document.addEventListener("submit", async (event) => {
   if (!event.target.matches("#docHelperForm")) return;
   event.preventDefault();
@@ -43093,7 +43144,7 @@ document.addEventListener("submit", async (event) => {
   // Prevent duplicate submissions
   if (submitBtn && submitBtn.disabled) return;
 
-  const childId = form.querySelector("#docHelperChild")?.value || "";
+  const childId = form.querySelector("#docHelperChild")?.value || document.querySelector("#docHelperChild")?.value || "";
   const docType = form.querySelector("#docHelperType")?.value || "observation";
   const note = form.querySelector("#docHelperNote")?.value.trim() || "";
   if (!note) return;

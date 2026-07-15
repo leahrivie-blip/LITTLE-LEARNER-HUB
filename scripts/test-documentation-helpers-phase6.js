@@ -34,12 +34,21 @@ test("Documentation Helpers page is helper-first, not AI-first", () => {
   assert.ok(start >= 0 && end > start);
   const section = html.slice(start, end);
   assert.match(section, /<h2>Documentation Helpers<\/h2>/);
+  assert.match(section, /Turn quick classroom notes into professional childcare documentation in seconds/);
+  assert.match(section, /Who is this for\?/);
+  assert.match(section, /id="docHelperChild"/);
+  assert.match(section, /Most Used/);
+  assert.match(section, /What do you want to create today\?/);
+  assert.match(section, /class="doc-helper-card"/);
   assert.match(section, /Create Documentation/);
   assert.match(section, /writing help is optional/i);
   assert.match(section, /More documentation tools/);
   assert.match(section, /data-view="generators"/);
   assert.doesNotMatch(section, /AI Childcare Tools/);
   assert.doesNotMatch(section, /Generate Documentation/);
+  assert.doesNotMatch(section, /document creations used/);
+  assert.doesNotMatch(section, /aiUsagePanel/);
+  assert.doesNotMatch(section, /What do you need help creating today\?/);
 });
 
 test("Homepage showcase promotes Documentation Helpers", () => {

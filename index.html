@@ -695,43 +695,93 @@
 
         <section id="view-ai" class="view">
           <button class="ghost-button back-button" data-contextual-back="ai" data-fallback-view="home" data-always-visible="true" type="button">← Back to Home</button>
-          <div class="page-title">
-            <p class="eyebrow">Documentation Helpers</p>
+          <div class="page-title doc-helpers-page-title">
             <h2>Documentation Helpers</h2>
-            <p>Turn one quick classroom note into professional childcare documentation. Review everything before you save — writing help is optional and you stay in control.</p>
+            <p>Turn quick classroom notes into professional childcare documentation in seconds.</p>
           </div>
 
-          <div id="aiUsagePanel"></div>
+          <section class="doc-helpers-child-step" aria-label="Select a child">
+            <label class="doc-helpers-child-picker">
+              <span class="doc-helpers-section-heading">Who is this for? <span class="doc-helpers-optional-label">(optional)</span></span>
+              <select name="childId" id="docHelperChild">
+                <option value="">All Children</option>
+              </select>
+            </label>
+          </section>
 
-          <section class="section-block doc-helpers-hub-intro" aria-label="What you can create">
-            <div class="doc-helpers-type-grid">
-              <button class="doc-helpers-type-chip" type="button" data-quick-doc-type="observation" data-view="ai">Observation</button>
-              <button class="doc-helpers-type-chip" type="button" data-quick-doc-type="daily-log" data-view="ai">Daily Log</button>
-              <button class="doc-helpers-type-chip" type="button" data-quick-doc-type="parent-message" data-view="ai">Parent Message</button>
-              <button class="doc-helpers-type-chip" type="button" data-quick-doc-type="behavior-note" data-view="ai">Behavior Note</button>
-              <button class="doc-helpers-type-chip" type="button" data-quick-doc-type="incident-report" data-view="ai">Incident Report</button>
-              <button class="doc-helpers-type-chip" type="button" data-quick-doc-type="lesson-plan" data-view="ai">Lesson Plan</button>
-              <button class="doc-helpers-type-chip" type="button" data-quick-doc-type="activity-idea" data-view="ai">Activity Idea</button>
+          <section class="doc-helpers-most-used" aria-label="Most used helpers">
+            <h3 class="doc-helpers-section-heading">Most Used</h3>
+            <div class="doc-helpers-card-list doc-helpers-card-list-compact">
+              <button class="doc-helper-card" type="button" data-quick-doc-type="observation" data-view="ai">
+                <span class="doc-helper-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5c5 0 9 4.5 9 7s-4 7-9 7-9-4.5-9-7 4-7 9-7z"/><circle cx="12" cy="12" r="3"/></svg></span>
+                <span class="doc-helper-card-copy"><strong>Observation</strong><span>Document developmental milestones and learning.</span></span>
+                <span class="doc-helper-card-arrow" aria-hidden="true">→</span>
+              </button>
+              <button class="doc-helper-card" type="button" data-quick-doc-type="parent-message" data-view="ai">
+                <span class="doc-helper-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></svg></span>
+                <span class="doc-helper-card-copy"><strong>Parent Message</strong><span>Create professional parent communication.</span></span>
+                <span class="doc-helper-card-arrow" aria-hidden="true">→</span>
+              </button>
+              <button class="doc-helper-card" type="button" data-quick-doc-type="daily-log" data-view="ai">
+                <span class="doc-helper-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span>
+                <span class="doc-helper-card-copy"><strong>Daily Report</strong><span>Generate daily summaries for families.</span></span>
+                <span class="doc-helper-card-arrow" aria-hidden="true">→</span>
+              </button>
             </div>
           </section>
 
-          <form id="docHelperForm" class="panel-form doc-helpers-form" style="margin-top:16px;">
-            <div>
-              <p class="eyebrow" style="margin-bottom:6px;">Step 1</p>
-              <h3 style="margin:0 0 12px;">Who is this for?</h3>
-              <label>Select a child.
-                <select name="childId" id="docHelperChild">
-                  <option value="">All Children</option>
-                </select>
-              </label>
+          <section class="doc-helpers-hub" aria-label="What do you want to create today?">
+            <h3 class="doc-helpers-section-heading">What do you want to create today?</h3>
+            <div class="doc-helpers-card-list" id="docHelpersCardList">
+              <button class="doc-helper-card" type="button" data-quick-doc-type="observation" data-view="ai">
+                <span class="doc-helper-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5c5 0 9 4.5 9 7s-4 7-9 7-9-4.5-9-7 4-7 9-7z"/><circle cx="12" cy="12" r="3"/></svg></span>
+                <span class="doc-helper-card-copy"><strong>Observation</strong><span>Document developmental milestones and learning.</span></span>
+                <span class="doc-helper-card-arrow" aria-hidden="true">→</span>
+              </button>
+              <button class="doc-helper-card" type="button" data-quick-doc-type="parent-message" data-view="ai">
+                <span class="doc-helper-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></svg></span>
+                <span class="doc-helper-card-copy"><strong>Parent Message</strong><span>Create professional parent communication.</span></span>
+                <span class="doc-helper-card-arrow" aria-hidden="true">→</span>
+              </button>
+              <button class="doc-helper-card" type="button" data-quick-doc-type="incident-report" data-view="ai">
+                <span class="doc-helper-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 3 20h18z"/><path d="M12 9v5M12 16.5v.5"/></svg></span>
+                <span class="doc-helper-card-copy"><strong>Incident Report</strong><span>Create incident and accident documentation.</span></span>
+                <span class="doc-helper-card-arrow" aria-hidden="true">→</span>
+              </button>
+              <button class="doc-helper-card" type="button" data-quick-doc-type="daily-log" data-view="ai">
+                <span class="doc-helper-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span>
+                <span class="doc-helper-card-copy"><strong>Daily Report</strong><span>Generate daily summaries for families.</span></span>
+                <span class="doc-helper-card-arrow" aria-hidden="true">→</span>
+              </button>
+              <button class="doc-helper-card" type="button" data-quick-doc-type="behavior-note" data-view="ai">
+                <span class="doc-helper-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.5-3.5 4-5 7-5s5.5 1.5 7 5"/></svg></span>
+                <span class="doc-helper-card-copy"><strong>Behavior Note</strong><span>Document behaviors and support strategies.</span></span>
+                <span class="doc-helper-card-arrow" aria-hidden="true">→</span>
+              </button>
+              <button class="doc-helper-card" type="button" data-quick-doc-type="lesson-plan" data-view="ai">
+                <span class="doc-helper-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 0 4 22z"/><path d="M8 7h8M8 11h7M8 15h5"/></svg></span>
+                <span class="doc-helper-card-copy"><strong>Lesson Plan</strong><span>Turn ideas into structured lesson plans.</span></span>
+                <span class="doc-helper-card-arrow" aria-hidden="true">→</span>
+              </button>
+              <button class="doc-helper-card" type="button" data-quick-doc-type="activity-idea" data-view="ai">
+                <span class="doc-helper-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6v5h5v6h-5v7H9v-7H4V8h5z"/></svg></span>
+                <span class="doc-helper-card-copy"><strong>Activity Idea</strong><span>Generate activity suggestions.</span></span>
+                <span class="doc-helper-card-arrow" aria-hidden="true">→</span>
+              </button>
             </div>
-            <div>
-              <p class="eyebrow" style="margin-bottom:6px;">Step 2</p>
-              <h3 style="margin:0 0 12px;">What do you need help creating today?</h3>
-              <label>Document type
+          </section>
+
+          <section id="docHelperCompose" class="doc-helpers-compose" hidden>
+            <form id="docHelperForm" class="panel-form doc-helpers-form">
+              <div class="doc-helpers-compose-header">
+                <p class="eyebrow">Quick notes</p>
+                <h3 id="docHelperComposeTitle">Documentation</h3>
+                <p class="muted-copy" id="docHelperComposeHint">Add a quick note, generate documentation, then review before saving.</p>
+              </div>
+              <label class="doc-helpers-type-label">Document type
                 <select name="docType" id="docHelperType">
                   <option value="observation">Observation</option>
-                  <option value="daily-log">Daily Log</option>
+                  <option value="daily-log">Daily Report</option>
                   <option value="parent-message">Parent Message</option>
                   <option value="lesson-plan">Lesson Plan</option>
                   <option value="behavior-note">Behavior Note</option>
@@ -739,24 +789,20 @@
                   <option value="activity-idea">Activity Idea</option>
                 </select>
               </label>
-            </div>
-            <div>
-              <p class="eyebrow" style="margin-bottom:6px;">Step 3</p>
-              <h3 style="margin:0 0 12px;">Tell us what happened</h3>
               <label>Your note
                 <textarea name="note" id="docHelperNote" rows="4" placeholder="Liam counted to ten while building with blocks."></textarea>
               </label>
               <p class="form-note">Keep it simple. One or two sentences are enough. You can edit the result before saving.</p>
-            </div>
-            <label class="settings-check-label ai-debug-toggle">
-              <input type="checkbox" data-ai-debug-toggle />
-              Debug mode
-            </label>
-            <button class="primary-button" type="submit">Create Documentation</button>
-            <p class="form-note doc-helpers-optional-note">Optional writing help uses your monthly document creations. You can always rewrite or start from a blank note.</p>
-          </form>
+              <label class="settings-check-label ai-debug-toggle">
+                <input type="checkbox" data-ai-debug-toggle />
+                Debug mode
+              </label>
+              <button class="primary-button" type="submit">Create Documentation</button>
+              <p class="form-note doc-helpers-optional-note">Writing help is optional — you stay in control and can rewrite or start from a blank note.</p>
+            </form>
+          </section>
 
-          <div id="docHelperResults" class="section-block" hidden style="margin-top:24px;">
+          <div id="docHelperResults" class="section-block doc-helpers-results" hidden>
             <div class="output-toolbar">
               <div>
                 <p class="eyebrow" id="docHelperResultLabel">Result</p>
