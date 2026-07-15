@@ -143,16 +143,18 @@ async function runBrowserChecks(baseUrl) {
       planLabel: typeof billingPlanLabel === "function" ? billingPlanLabel() : null,
       effective: typeof effectiveAccessPlan === "function" ? effectiveAccessPlan() : null,
       price: typeof billingPriceLabel === "function" ? billingPriceLabel() : null,
+      adminBillingStatus: typeof adminMembershipStatusLabel === "function" ? adminMembershipStatusLabel(currentAccount()) : null,
     }));
     if (expectations.planLabel) assert(labels.planLabel === expectations.planLabel, `${email}: expected label ${expectations.planLabel}, got ${labels.planLabel}`);
     if (expectations.price) assert(labels.price === expectations.price, `${email}: expected price ${expectations.price}, got ${labels.price}`);
     if (expectations.effective) assert(labels.effective === expectations.effective, `${email}: expected effective ${expectations.effective}, got ${labels.effective}`);
+    if (expectations.adminBillingStatus) assert(labels.adminBillingStatus === expectations.adminBillingStatus, `${email}: expected admin billing status ${expectations.adminBillingStatus}, got ${labels.adminBillingStatus}`);
   }
 
   const now = new Date().toISOString();
   const future = new Date(Date.now() + 14 * 86400000).toISOString();
   await checkPersona("free@billing.test", { email: "free@billing.test", plan: "Free", subscriptionStatus: "Free Plan" }, {
-    proAccess: false, planLabel: "Free", price: "$0/month", effective: "Free",
+    proAccess: false, planLabel: "Free", price: "$0/month", effective: "Free", adminBillingStatus: "No paid subscription",
   });
   await checkPersona("trial@billing.test", {
     email: "trial@billing.test", plan: "Pro", subscriptionStatus: "Pro Monthly Subscription trialing",
@@ -273,6 +275,102 @@ async function main() {
   console.log("2) Shared membership-access policy unit checks");
   const periodEndFuture = Math.floor((Date.now() + 20 * 86400000) / 1000);
   const periodEndPast = Math.floor((Date.now() - 86400000) / 1000);
+  const futureIso = new Date(periodEndFuture * 1000).toISOString();
+  const pastIso = new Date(periodEndPast * 1000).toISOString();
+
+  const scenarios = [
+    {
+      name: "brand-new Free",
+      user: { plan: "Free", subscriptionStatus: "Free Plan", trialStatus: "No Trial" },
+      access: "free", billing: "never_subscribed", label: "No paid subscription", pro: false,
+    },
+    {
+      name: "abandoned checkout",
+      user: { plan: "Free", subscriptionStatus: "Checkout Started", pendingPlan: "monthly" },
+      access: "free", billing: "never_subscribed", label: "No paid subscription", pro: false,
+    },
+    {
+      name: "Stripe customer without subscription",
+      user: { plan: "Free", subscriptionStatus: "Free Plan", stripeCustomerId: "cus_only" },
+      access: "free", billing: "never_subscribed", label: "No paid subscription", pro: false,
+    },
+    {
+      name: "active trial",
+      user: { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Trialing", stripeSubscriptionStatus: "trialing", trialStatus: "In Trial", trialStart: new Date().toISOString(), trialEnd: futureIso },
+      access: "trial", billing: "active", label: "Trial Active", pro: true,
+    },
+    {
+      name: "trial canceled with remaining access",
+      user: { plan: "Pro", subscriptionStatus: "Canceled — Access Ends soon (Trial — no future charge)", stripeSubscriptionStatus: "trialing", trialStatus: "In Trial", trialEnd: futureIso, cancelAtPeriodEnd: true },
+      access: "trial", billing: "canceling", label: "Cancels at Trial End", pro: true,
+    },
+    {
+      name: "expired trial",
+      user: { plan: "Pro", subscriptionStatus: "Trial Ended", stripeSubscriptionStatus: "trialing", trialStatus: "Trial Ended", trialStart: pastIso, trialEnd: pastIso },
+      access: "free", billing: "ended", label: "Trial Ended", pro: false,
+    },
+    {
+      name: "canceled expired trial",
+      user: { plan: "Free", subscriptionStatus: "Trial Ended", stripeSubscriptionStatus: "canceled", trialStatus: "Trial Canceled", trialStart: pastIso, trialEnd: pastIso },
+      access: "free", billing: "canceled", label: "Trial Canceled", pro: false,
+    },
+    {
+      name: "active Pro",
+      user: { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", stripeSubscriptionStatus: "active", currentPeriodEnd: futureIso },
+      access: "pro", billing: "active", label: "Active", pro: true,
+    },
+    {
+      name: "Pro scheduled to cancel",
+      user: { plan: "Pro", subscriptionStatus: "Canceled — Access Ends soon", stripeSubscriptionStatus: "active", currentPeriodEnd: futureIso, cancelAtPeriodEnd: true },
+      access: "pro", billing: "canceling", label: "Cancels at Period End", pro: true,
+    },
+    {
+      name: "ended Pro",
+      user: { plan: "Free", previousPlan: "Pro", subscriptionStatus: "Subscription Ended", stripeSubscriptionStatus: "canceled", stripeSubscriptionId: "sub_ended", subscriptionEndedAt: pastIso },
+      access: "free", billing: "ended", label: "Subscription Ended", pro: false,
+    },
+    {
+      name: "active Founding",
+      user: { plan: "Founding", foundingMemberActive: true, foundingMemberHistorical: true, subscriptionStatus: "Founding Member Subscription Active", stripeSubscriptionStatus: "active" },
+      access: "founding", billing: "active", label: "Active", pro: true,
+    },
+    {
+      name: "Founding scheduled to cancel",
+      user: { plan: "Founding", foundingMemberActive: true, foundingMemberHistorical: true, subscriptionStatus: "Canceled — Access Ends soon", stripeSubscriptionStatus: "active", currentPeriodEnd: futureIso, cancelAtPeriodEnd: true },
+      access: "founding", billing: "canceling", label: "Cancels at Period End", pro: true,
+    },
+    {
+      name: "past due",
+      user: { plan: "Pro", subscriptionStatus: "Past Due", stripeSubscriptionStatus: "past_due" },
+      access: "past_due", billing: "payment_failed", label: "Past Due", pro: false,
+    },
+    {
+      name: "promo only",
+      user: { plan: "Free", subscriptionStatus: "Free Plan", promoRedeemedAt: new Date().toISOString() },
+      access: "free", billing: "never_subscribed", label: "No paid subscription", pro: false,
+    },
+    {
+      name: "manual upgrade",
+      user: { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", internalAccessOverride: true },
+      access: "pro", billing: "active", label: "Manual Access", pro: true,
+    },
+    {
+      name: "admin account without billing override",
+      user: { plan: "Free", subscriptionStatus: "Free Plan", role: "admin" },
+      access: "free", billing: "never_subscribed", label: "No paid subscription", pro: false,
+    },
+    {
+      name: "disabled account cannot retain manual Pro access",
+      user: { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", internalAccessOverride: true, accountStatus: "Disabled" },
+      access: "free", billing: "active", label: "Active", pro: false,
+    },
+  ];
+  for (const scenario of scenarios) {
+    assert(membershipAccess.membershipCurrentAccessKey(scenario.user) === scenario.access, `${scenario.name}: current access`);
+    assert(membershipAccess.membershipBillingStatusKey(scenario.user) === scenario.billing, `${scenario.name}: billing bucket`);
+    assert(membershipAccess.membershipStatusDisplay(scenario.user) === scenario.label, `${scenario.name}: billing label`);
+    assert(membershipAccess.membershipHasProAccess(scenario.user) === scenario.pro, `${scenario.name}: permission`);
+  }
 
   const cancelScheduled = simulateStripeSubscriptionUpdated(
     { plan: "Pro", foundingMemberActive: false },
@@ -416,13 +514,25 @@ async function main() {
     assert(adminLogin.status === 200 && adminLogin.json?.token, "Admin login for analytics test");
     const analytics = await requestJson("GET", `/api/admin/analytics?adminToken=${encodeURIComponent(adminLogin.json.token)}`);
     assert(analytics.status === 200, "Admin analytics fetch");
+    const currentCounts = analytics.json.analytics?.totals?.currentAccessCounts || {};
+    const billingCounts = analytics.json.analytics?.totals?.billingStatusCounts || {};
+    const totalUsers = analytics.json.analytics?.totals?.totalRegisteredUsers || 0;
+    assert(Object.values(currentCounts).reduce((sum, value) => sum + Number(value || 0), 0) === totalUsers, "Current-access buckets must be mutually exclusive");
+    assert(Object.values(billingCounts).reduce((sum, value) => sum + Number(value || 0), 0) === totalUsers, "Billing-status buckets must be mutually exclusive");
+    const freeUser = (analytics.json.analytics?.users || []).find((u) => u.email === "free@billing.test");
+    assert(freeUser?.membershipPlan === "Free", "Brand-new Free user current plan");
+    assert(freeUser?.membershipStatus === "No paid subscription", "Brand-new Free user must not appear canceled");
+    assert(freeUser?.previousPlan === "None", "Brand-new Free user has no previous plan");
+    assert(freeUser?.billingStatus === "never_subscribed", "Brand-new Free user billing history bucket");
     const trialUser = (analytics.json.analytics?.users || []).find((u) => u.email === "trial@billing.test");
     assert(trialUser?.membershipPlan === "Trial", "Trial user in admin analytics");
     assert(trialUser?.trialEnd, "Admin shows trial end date");
     assert(trialUser?.hasProAccess === true, "Trial user has Pro access in admin");
+    assert(trialUser?.membershipStatus === "Cancels at Trial End", "Canceled trial remains active until trial end");
+    assert(trialUser?.currentAccess === "trial", "Canceled active trial remains in Trial current-access count");
 
     const cancelingUser = (analytics.json.analytics?.users || []).find((u) => u.email === "canceling@billing.test");
-    assert(cancelingUser?.membershipStatus === "Canceling at Period End", "Admin shows canceling status");
+    assert(cancelingUser?.membershipStatus === "Cancels at Period End", "Admin shows canceling status");
     assert(cancelingUser?.accessEndsAt, "Admin shows access-end date");
     assert(cancelingUser?.scheduledCancellation === true, "Admin shows scheduled cancellation");
 
@@ -439,7 +549,7 @@ async function main() {
     });
     assert(overrideRes.status === 200, "Admin override update succeeds");
     assert(overrideRes.json?.user?.internalAccessOverride === true, "Internal override flag set");
-    assert(overrideRes.json?.user?.membershipStatus === "Internal Access Override", "Internal override status label");
+    assert(overrideRes.json?.user?.membershipStatus === "Manual Access", "Internal override status label");
     assert(!overrideRes.json?.user?.stripeSubscriptionId, "Override should not create Stripe subscription");
 
     console.log("8) Admin totals from backend data");
@@ -504,6 +614,40 @@ async function main() {
         assert(refreshRes.json?.ok === true, "Admin refresh ok flag");
         assert(refreshRes.json?.email === "paid-founding@billing.test", "Admin refresh returns email");
       }
+    }
+
+    console.log("9d) Old and duplicate Stripe events cannot overwrite newer membership state");
+    {
+      const orderedStore = readStore();
+      orderedStore.users["ordered-webhook@billing.test"] = {
+        email: "ordered-webhook@billing.test",
+        plan: "Pro",
+        subscriptionStatus: "Pro Monthly Subscription Active",
+        stripeSubscriptionStatus: "active",
+        stripeCustomerId: "cus_ordered",
+        stripeSubscriptionId: "sub_ordered",
+        currentPeriodEnd: futureIso,
+        lastStripeEventCreatedAt: 200,
+      };
+      writeStore(orderedStore);
+      const staleEvent = {
+        id: "evt_stale_membership",
+        created: 100,
+        type: "customer.subscription.updated",
+        data: {
+          object: {
+            id: "sub_ordered",
+            customer: "cus_ordered",
+            status: "canceled",
+            current_period_end: periodEndPast,
+          },
+        },
+      };
+      const staleRes = await requestJson("POST", "/api/webhooks/stripe", staleEvent);
+      assert(staleRes.status === 200 && staleRes.json?.stale === true, "Older Stripe event is acknowledged but ignored");
+      assert(readStore().users["ordered-webhook@billing.test"].plan === "Pro", "Older event did not downgrade current access");
+      const duplicateRes = await requestJson("POST", "/api/webhooks/stripe", staleEvent);
+      assert(duplicateRes.status === 200 && duplicateRes.json?.duplicate === true, "Duplicate Stripe event is idempotent");
     }
 
     console.log("10) Browser persona labels & access");
