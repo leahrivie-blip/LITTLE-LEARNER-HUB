@@ -73,9 +73,9 @@ test("founding banners stay compact", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260715-admin-stay");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260715-admin-stay");
-  assert.match(sw, /llh-shell-v36-admin-stay/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260715-lesson-importer");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260715-lesson-importer");
+  assert.match(sw, /llh-shell-v37-lesson-importer/);
 });
 
 if (!process.exitCode) {

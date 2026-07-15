@@ -1,8 +1,10 @@
 /**
- * Shared Play-Based Curriculum lesson plan import parser (v1 colon + v2 strict markers + v3 label-only).
+ * Shared Play-Based Curriculum lesson plan import parser (label-only format).
  * Used by browser (global CurriculumLessonImportParser), Node tests, and seed scripts.
  *
- * v2/v3 policy: preserve wording exactly; never regenerate; unmapped content is reported, not dropped silently.
+ * Policy: paste TITLE:/AGE_GROUP:/MONDAY/ACTIVITY_NAME: style plans exactly as authored.
+ * Preserve wording; never regenerate. Unmapped content is reported, not dropped silently.
+ * Legacy v1/v2 marker formats are rejected by the public importer entry point.
  */
 (function curriculumLessonImportParserModule() {
 let nodeCrypto = null;
@@ -35,6 +37,35 @@ const APPROVED_V2_ACTIVITY_CATEGORIES = [
   "Open-Ended Exploration",
 ];
 
+const ACTIVITY_CATEGORY_ALIASES = {
+  "gross motor & movement": "Gross Motor",
+  "gross motor and movement": "Gross Motor",
+  "gross-motor": "Gross Motor",
+  "movement": "Gross Motor",
+  "fine motor skills": "Fine Motor",
+  "fine-motor": "Fine Motor",
+  "sensory": "Sensory Play",
+  "sensory bin": "Sensory Play",
+  "music and movement": "Music & Movement",
+  "music": "Music & Movement",
+  "stem": "STEM/Discovery",
+  "stem & discovery": "STEM/Discovery",
+  "discovery": "STEM/Discovery",
+  "science": "STEM/Discovery",
+  "art & creativity": "Art",
+  "creative arts": "Art",
+  "outdoor": "Outdoor Play",
+  "outdoors": "Outdoor Play",
+  "dramatic": "Dramatic Play",
+  "pretend play": "Dramatic Play",
+  "circle": "Circle Time",
+  "literacy & language": "Literacy",
+  "language": "Literacy",
+  "open ended": "Open-Ended Exploration",
+  "open-ended": "Open-Ended Exploration",
+  "open-ended exploration": "Open-Ended Exploration",
+};
+
 const CURRICULUM_LEARNING_DOMAINS = [
   "Social Emotional",
   "Language & Literacy",
@@ -43,6 +74,25 @@ const CURRICULUM_LEARNING_DOMAINS = [
   "Physical Development",
   "Creative Arts",
 ];
+
+const LEARNING_DOMAIN_ALIASES = {
+  "fine motor": "Physical Development",
+  "gross motor": "Physical Development",
+  "physical": "Physical Development",
+  "motor": "Physical Development",
+  "literacy": "Language & Literacy",
+  "language": "Language & Literacy",
+  "language and literacy": "Language & Literacy",
+  "social": "Social Emotional",
+  "social-emotional": "Social Emotional",
+  "social emotional": "Social Emotional",
+  "sel": "Social Emotional",
+  "art": "Creative Arts",
+  "arts": "Creative Arts",
+  "creative": "Creative Arts",
+  "maths": "Math",
+  "mathematics": "Math",
+};
 
 const CURRICULUM_LESSON_STATUSES = ["draft", "published", "featured", "archived"];
 const CURRICULUM_WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
@@ -283,10 +333,33 @@ function curriculumAgeBucketFromText(value) {
 }
 
 function parseLearningDomainsList(text) {
-  return String(text || "")
+  const seen = new Set();
+  const domains = [];
+  String(text || "")
     .split(/[,;\n]/)
     .map((item) => normalizedShortText(item))
-    .filter((item) => CURRICULUM_LEARNING_DOMAINS.includes(item));
+    .filter(Boolean)
+    .forEach((item) => {
+      const exact = CURRICULUM_LEARNING_DOMAINS.find((domain) => domain.toLowerCase() === item.toLowerCase());
+      const aliased = LEARNING_DOMAIN_ALIASES[item.toLowerCase()];
+      const resolved = exact || aliased || "";
+      if (!resolved || seen.has(resolved)) return;
+      seen.add(resolved);
+      domains.push(resolved);
+    });
+  return domains;
+}
+
+function normalizeActivityCategory(raw) {
+  const value = normalizedShortText(raw);
+  if (!value) return "";
+  const exact = PLAY_ACTIVITY_CATEGORIES_V1.find((entry) => entry.toLowerCase() === value.toLowerCase());
+  if (exact) return exact;
+  const aliased = ACTIVITY_CATEGORY_ALIASES[value.toLowerCase()];
+  if (aliased) return aliased;
+  const lower = value.toLowerCase();
+  const fuzzy = PLAY_ACTIVITY_CATEGORIES_V1.find((entry) => lower.includes(entry.toLowerCase()) || entry.toLowerCase().includes(lower));
+  return fuzzy || "";
 }
 
 function parseCurriculumImportListLines(text, { parts = 2 } = {}) {
@@ -318,8 +391,9 @@ function parseTextListItems(text) {
 function isV3LabelOnlyFormat(text) {
   const raw = String(text || "");
   if (/@LESSON_PLAN_START@/i.test(raw)) return false;
-  if (/^ACTIVITY_NAME:\s*$/im.test(raw)) return true;
-  if (/^AGE_GROUP:\s*$/im.test(raw) && /^LEARNING_OBJECTIVES:\s*$/im.test(raw) && !/^ACTIVITY NAME:\s*$/im.test(raw)) {
+  if (/^ACTIVITY_NAME:\s*/im.test(raw)) return true;
+  if (/^TITLE:\s*/im.test(raw) && /^(MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY):?\s*$/im.test(raw)) return true;
+  if (/^AGE_GROUP:\s*/im.test(raw) && /^LEARNING_OBJECTIVES:\s*/im.test(raw) && !/^ACTIVITY NAME:\s*$/im.test(raw)) {
     return true;
   }
   return false;
@@ -328,7 +402,7 @@ function isV3LabelOnlyFormat(text) {
 function detectImportFormat(text) {
   if (/@LESSON_PLAN_START@/i.test(String(text || ""))) return "v2";
   if (isV3LabelOnlyFormat(text)) return "v3";
-  return "v1";
+  return "unsupported";
 }
 
 function isKnownMarkerLine(line) {
@@ -406,6 +480,12 @@ function parseFieldBlock(text, allowedFields, { lineOffset = 1, context = "", fi
     currentLines = [];
   };
 
+  const resolveField = (rawName) => {
+    if (fieldAliases) return canonicalV3FieldName(rawName, allowedFields);
+    const underscored = String(rawName || "").trim().toUpperCase().replace(/\s+/g, "_");
+    return allowedFields.has(underscored) ? underscored : "";
+  };
+
   lines.forEach((line, index) => {
     const trimmed = line.trim();
     if (isKnownMarkerLine(trimmed)) {
@@ -418,14 +498,23 @@ function parseFieldBlock(text, allowedFields, { lineOffset = 1, context = "", fi
       });
       return;
     }
-    const fieldMatch = trimmed.match(/^([A-Za-z][A-Za-z0-9_/ ]*):\s*$/);
-    if (fieldMatch) {
-      const canonical = fieldAliases
-        ? canonicalV3FieldName(fieldMatch[1], allowedFields)
-        : fieldMatch[1].toUpperCase().replace(/ /g, "_");
-      if (allowedFields.has(canonical)) {
+    const emptyFieldMatch = trimmed.match(/^([A-Za-z][A-Za-z0-9_/ ]*):\s*$/);
+    if (emptyFieldMatch) {
+      const canonical = resolveField(emptyFieldMatch[1]);
+      if (canonical) {
         flush();
         currentField = canonical;
+        return;
+      }
+    }
+    const inlineFieldMatch = trimmed.match(/^([A-Za-z][A-Za-z0-9_/ ]*):\s+(.+)$/);
+    if (inlineFieldMatch) {
+      const canonical = resolveField(inlineFieldMatch[1]);
+      if (canonical) {
+        flush();
+        fields[canonical] = preserveMultilineText(inlineFieldMatch[2]);
+        currentField = "";
+        currentLines = [];
         return;
       }
     }
@@ -1044,7 +1133,8 @@ function splitV3WeekdaySections(text) {
 
   lines.forEach((line, index) => {
     const trimmed = line.trim();
-    const weekdayMatch = trimmed.match(/^(MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY):\s*$/i);
+    // Accept both "MONDAY" and "MONDAY:" as weekday headers.
+    const weekdayMatch = trimmed.match(/^(MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY):?\s*$/i);
     if (weekdayMatch) {
       currentDay = weekdayMatch[1].toLowerCase();
       return;
@@ -1074,8 +1164,9 @@ function splitV3WeekdaySections(text) {
 function splitV3DayActivities(dayContent) {
   const content = String(dayContent || "");
   if (!content.trim()) return [];
-  const blocks = content.split(/(?=^ACTIVITY_NAME:\s*$)/im).map((block) => block.trim()).filter(Boolean);
-  return blocks.filter((block) => /^ACTIVITY_NAME:\s*$/im.test((block.split(/\r?\n/)[0] || "").trim()));
+  // Split before each ACTIVITY_NAME: whether the value is inline or on the next line.
+  const blocks = content.split(/(?=^ACTIVITY_NAME:\s*)/im).map((block) => block.trim()).filter(Boolean);
+  return blocks.filter((block) => /^ACTIVITY_NAME:\s*/im.test((block.split(/\r?\n/)[0] || "").trim()));
 }
 
 function parseV3ActivityBlock(block, { dayKey, lineOffset = 1, existingItemIds = new Map(), generateItemId = generateCurriculumItemId } = {}) {
@@ -1093,11 +1184,12 @@ function parseV3ActivityBlock(block, { dayKey, lineOffset = 1, existingItemIds =
     return { activity: null, errors, warnings, unmapped };
   }
 
-  const category = normalizedShortText(fields.CATEGORY);
-  if (!category) {
+  const categoryRaw = normalizedShortText(fields.CATEGORY);
+  const category = normalizeActivityCategory(categoryRaw);
+  if (!categoryRaw) {
     errors.push(`${dayKey}: "${title}" is missing CATEGORY.`);
-  } else if (!PLAY_ACTIVITY_CATEGORIES_V1.includes(category)) {
-    errors.push(`${dayKey}: "${title}" has invalid CATEGORY "${category}". Use one of: ${PLAY_ACTIVITY_CATEGORIES_V1.join(", ")}.`);
+  } else if (!category) {
+    errors.push(`${dayKey}: "${title}" has invalid CATEGORY "${categoryRaw}". Use one of: ${PLAY_ACTIVITY_CATEGORIES_V1.join(", ")}.`);
   }
 
   if (!preserveMultilineText(fields.DESCRIPTION)) {
@@ -1119,18 +1211,6 @@ function parseV3ActivityBlock(block, { dayKey, lineOffset = 1, existingItemIds =
   const learningGoals = parseActivityGoals(fields.LEARNING_GOALS);
   if (!learningGoals.length) {
     errors.push(`${dayKey}: "${title}" is missing LEARNING_GOALS.`);
-  }
-
-  if (!preserveMultilineText(fields.OBJECTIVE)) {
-    warnings.push(`${dayKey}: "${title}" is missing OBJECTIVE (recommended).`);
-  }
-
-  if (!preserveMultilineText(fields.SETUP)) {
-    warnings.push(`${dayKey}: "${title}" is missing SETUP (recommended).`);
-  }
-
-  if (!preserveMultilineText(fields.OBSERVATION_OPPORTUNITIES)) {
-    warnings.push(`${dayKey}: "${title}" is missing OBSERVATION_OPPORTUNITIES (recommended).`);
   }
 
   const itemKey = `${dayKey}:${title.toLowerCase()}`;
@@ -1342,30 +1422,35 @@ function parseCurriculumLessonPlanImportV3(text, { existingItemIds = new Map(), 
 function parseCurriculumLessonPlanImport(text, options = {}) {
   const format = detectImportFormat(text);
   if (format === "v2") {
-    const blocks = extractAllMarkedRegions(text, V2_MARKERS.LESSON_PLAN_START, V2_MARKERS.LESSON_PLAN_END);
-    if (blocks.length > 1) {
-      return {
-        ok: false,
-        errors: [`Detected ${blocks.length} lesson plans. Use parseCurriculumLessonPlanBulkImport() for multi-plan paste.`],
-        warnings: [],
-        unmapped: [],
-        parseReport: { formatVersion: 2, lessonPlanCount: blocks.length },
-        data: null,
-      };
-    }
-    return parseCurriculumLessonPlanImportV2(text, options);
+    return {
+      ok: false,
+      errors: [
+        "Legacy @LESSON_PLAN_START@ marker format is no longer supported. Paste the current label-only format (TITLE:, AGE_GROUP:, MONDAY, ACTIVITY_NAME:, …) instead.",
+      ],
+      warnings: [],
+      unmapped: [],
+      parseReport: { formatVersion: 2, rejectedLegacyFormat: true },
+      data: null,
+    };
   }
-  if (format === "v3") {
-    return parseCurriculumLessonPlanImportV3(text, options);
+  if (format !== "v3") {
+    return {
+      ok: false,
+      errors: [
+        "Paste a complete lesson plan using TITLE:, AGE_GROUP:, THEME:, PLAN:, STATUS:, WEEKLY_OVERVIEW:, weekday headers (MONDAY–FRIDAY), and ACTIVITY_NAME: blocks. No special markers are required.",
+      ],
+      warnings: [],
+      unmapped: [],
+      parseReport: { formatVersion: 0, rejectedLegacyFormat: true },
+      data: null,
+    };
   }
-  return parseCurriculumLessonPlanImportV1(text, options);
+  return parseCurriculumLessonPlanImportV3(text, options);
 }
 
 function parseCurriculumLessonPlanBulkImport(text, options = {}) {
-  const raw = String(text || "");
-  const blocks = extractAllMarkedRegions(raw, V2_MARKERS.LESSON_PLAN_START, V2_MARKERS.LESSON_PLAN_END);
-  const unmapped = [];
-  if (!blocks.length) {
+  const raw = String(text || "").trim();
+  if (!raw) {
     return {
       ok: false,
       lessonPlans: [],
@@ -1377,15 +1462,16 @@ function parseCurriculumLessonPlanBulkImport(text, options = {}) {
         duplicateTitleWarnings: 0,
         unmappedLineCount: 0,
       },
-      errors: ["No @LESSON_PLAN_START@ / @LESSON_PLAN_END@ blocks detected."],
+      errors: ["Paste is empty."],
       unmapped: [],
     };
   }
-
+  // Bulk import now expects one or more label-only plans separated by a TITLE: restart.
+  const chunks = raw.split(/(?=^TITLE:\s*)/im).map((chunk) => chunk.trim()).filter(Boolean);
+  const plans = chunks.length ? chunks : [raw];
   const seenTitles = new Set((options.existingTitles || []).map((title) => String(title).trim().toLowerCase()));
-  const results = blocks.map((block, index) => {
-    const wrapped = `${V2_MARKERS.LESSON_PLAN_START}\n${block.content}\n${V2_MARKERS.LESSON_PLAN_END}`;
-    const parsed = parseCurriculumLessonPlanImportV2(wrapped, {
+  const results = plans.map((chunk, index) => {
+    const parsed = parseCurriculumLessonPlanImport(chunk, {
       ...options,
       existingTitles: [...seenTitles],
     });
@@ -1422,7 +1508,6 @@ function formatImportSection(header, content = "") {
 }
 
 function formatImportActivity(activity = {}) {
-  const setup = activity.setup || activity.description || "";
   const goals = Array.isArray(activity.learningGoals) ? activity.learningGoals.filter(Boolean) : [];
   const directions = String(activity.steps || "").trim();
   const numberedDirections = directions
@@ -1433,259 +1518,28 @@ function formatImportActivity(activity = {}) {
     }).filter(Boolean).join("\n")
     : "";
   return [
-    "ACTIVITY NAME:",
+    "ACTIVITY_NAME:",
     activity.title || "",
     "CATEGORY:",
     activity.activityCategory || "Open-Ended Exploration",
+    "OBJECTIVE:",
+    activity.objective || "",
+    "DESCRIPTION:",
+    activity.description || "",
     "MATERIALS:",
     activity.materials || "",
     "SETUP:",
-    setup,
+    activity.setup || "",
+    "TEACHER_ROLE:",
+    activity.teacherRole || "",
     "DIRECTIONS:",
     numberedDirections,
-    "LEARNING GOAL:",
+    "LEARNING_GOALS:",
     goals.join("\n"),
+    "OBSERVATION_OPPORTUNITIES:",
+    activity.observationOpportunities || "",
   ].join("\n");
 }
-
-function formatCurriculumLessonPlanImport(plan = {}) {
-  const entry = plan && typeof plan === "object" ? plan : {};
-  const sections = [
-    formatImportSection("TITLE", entry.title),
-    formatImportSection("AGE GROUP", entry.age),
-    formatImportSection("THEME", entry.theme),
-  ];
-  if (entry.plan) sections.push(formatImportSection("PLAN", entry.plan));
-  if (entry.status) sections.push(formatImportSection("STATUS", entry.status));
-  if (Array.isArray(entry.learningDomains) && entry.learningDomains.length) {
-    sections.push(formatImportSection("LEARNING DOMAINS", entry.learningDomains.join(", ")));
-  }
-  sections.push(
-    formatImportSection("WEEKLY OVERVIEW", entry.weeklyOverview),
-    formatImportSection("LEARNING OBJECTIVES", entry.objectives),
-    formatImportSection("WEEKLY MATERIALS", entry.weeklyMaterials),
-    formatImportSection("VOCABULARY", entry.vocabularyWords),
-    formatImportSection("BOOKS", (entry.books || []).map((book) => [book.title, book.author, book.notes].filter(Boolean).join(" | ")).join("\n")),
-    formatImportSection("SONGS", (entry.songs || []).map((song) => [song.title, song.notes].filter(Boolean).join(" | ")).join("\n")),
-    formatImportSection("FAMILY CONNECTION", entry.familyConnection),
-    formatImportSection("OBSERVATION OPPORTUNITIES", entry.observationOpportunities),
-    formatImportSection("ADAPTATIONS", entry.adaptations),
-  );
-  ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"].forEach((dayKey) => {
-    const day = dayKey.toLowerCase();
-    const items = Array.isArray(entry.dailyPlans?.[day]?.items) ? entry.dailyPlans[day].items : [];
-    const dayBody = items.length ? items.map((item) => formatImportActivity(item)).join("\n\n") : "";
-    sections.push(formatImportSection(dayKey, dayBody));
-  });
-  return `${sections.join("\n").trim()}\n`;
-}
-
-const CURRICULUM_LESSON_IMPORT_V2_TEMPLATE = `@LESSON_PLAN_START@
-
-TITLE:
-Your Lesson Plan Title
-
-AGE_GROUP:
-Preschool
-
-THEME:
-Your Theme
-
-PLAN:
-Pro
-
-STATUS:
-draft
-
-@WEEKLY_START@
-LEARNING_DOMAINS:
-Science, Language & Literacy
-
-WEEKLY_OVERVIEW:
-Write the weekly overview here.
-
-WEEKLY_OBJECTIVES:
-Objective one
-Objective two
-
-WEEKLY_MATERIALS:
-Material one, material two
-
-WEEKLY_VOCABULARY:
-word one, word two
-
-@WEEKLY_BOOKS_START@
-Book Title | Author | Notes
-@WEEKLY_BOOKS_END@
-
-@WEEKLY_SONGS_START@
-Song Title | Notes
-@WEEKLY_SONGS_END@
-
-FAMILY_CONNECTION:
-Weekly family connection text.
-
-OBSERVATION_OPPORTUNITIES:
-Weekly observation notes.
-
-ADAPTATIONS:
-Weekly adaptations.
-@WEEKLY_END@
-
-@MONDAY_START@
-DAILY_THEME:
-Monday focus
-
-@MONDAY_BOOKS_START@
-Monday Book | Author | Notes
-@MONDAY_BOOKS_END@
-
-@MONDAY_SONGS_START@
-Monday Song | Notes
-@MONDAY_SONGS_END@
-
-@ACTIVITY_START@
-ACTIVITY_NAME:
-Sample Activity
-CATEGORY:
-Sensory Play
-MATERIALS:
-Materials list
-SETUP:
-Setup text
-DIRECTIONS:
-1. Step one
-2. Step two
-LEARNING_GOAL:
-Goal one
-@ACTIVITY_END@
-@MONDAY_END@
-
-@LESSON_PLAN_END@
-`;
-
-const CURRICULUM_LESSON_IMPORT_V3_TEMPLATE = `TITLE:
-Your Lesson Plan Title
-
-AGE_GROUP:
-Preschool
-
-THEME:
-Your Theme
-
-PLAN:
-Pro
-
-STATUS:
-draft
-
-LEARNING_DOMAINS:
-Science, Language & Literacy
-
-WEEKLY_OVERVIEW:
-Write the weekly overview here.
-
-LEARNING_OBJECTIVES:
-Objective one
-Objective two
-
-WEEKLY_MATERIALS:
-Material one, material two
-
-VOCABULARY:
-word one, word two
-
-BOOKS:
-Book Title | Author | Notes
-
-SONGS:
-Song Title | Notes
-
-FAMILY_CONNECTION:
-Weekly family connection text.
-
-OBSERVATION_OPPORTUNITIES:
-Weekly observation notes.
-
-ADAPTATIONS:
-Weekly adaptations.
-
-MONDAY:
-
-ACTIVITY_NAME:
-Sample Activity
-CATEGORY:
-Sensory Play
-OBJECTIVE:
-Children will explore textures through hands-on play.
-DESCRIPTION:
-Children scoop, pour, and compare soil textures at a sensory table.
-MATERIALS:
-Materials list
-SETUP:
-Setup text
-TEACHER_ROLE:
-Observe and narrate children's discoveries.
-DIRECTIONS:
-1. Step one
-2. Step two
-LEARNING_GOALS:
-Goal one
-OBSERVATION_OPPORTUNITIES:
-Note how children describe textures.
-
-ACTIVITY_NAME:
-Second Monday Activity
-CATEGORY:
-Fine Motor
-OBJECTIVE:
-Children practice pinching and placing small objects.
-DESCRIPTION:
-Children use tongs to sort pom-poms into color bowls.
-MATERIALS:
-Tongs, pom-poms, bowls
-SETUP:
-Place materials at a low table.
-TEACHER_ROLE:
-Model tong use and offer vocabulary.
-DIRECTIONS:
-1. Demonstrate picking up one pom-pom.
-2. Invite children to fill a bowl.
-LEARNING_GOALS:
-Strengthen pincer grasp
-OBSERVATION_OPPORTUNITIES:
-Watch for hand preference and grip changes.
-
-TUESDAY:
-
-ACTIVITY_NAME:
-Tuesday Activity
-CATEGORY:
-Music & Movement
-OBJECTIVE:
-Children move to rhythm and follow simple directions.
-DESCRIPTION:
-Children shake instruments and move to a simple stop-and-go song.
-MATERIALS:
-Shakers, scarves
-SETUP:
-Clear open space with materials in a basket.
-TEACHER_ROLE:
-Lead movement and pause for listening.
-DIRECTIONS:
-1. Shake to the beat.
-2. Freeze when the music stops.
-LEARNING_GOALS:
-Follow two-step directions
-OBSERVATION_OPPORTUNITIES:
-Note balance and coordination during movement.
-
-WEDNESDAY:
-
-THURSDAY:
-
-FRIDAY:
-`;
 
 function formatCurriculumLessonPlanImportV3(plan = {}) {
   const entry = plan && typeof plan === "object" ? plan : {};
@@ -1713,43 +1567,220 @@ function formatCurriculumLessonPlanImportV3(plan = {}) {
   ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"].forEach((dayKey) => {
     const day = dayKey.toLowerCase();
     const items = Array.isArray(entry.dailyPlans?.[day]?.items) ? entry.dailyPlans[day].items : [];
-    const activityBlocks = items.map((item) => {
-      const goals = Array.isArray(item.learningGoals) ? item.learningGoals.filter(Boolean) : [];
-      const directions = String(item.steps || "").trim();
-      const numberedDirections = directions
-        ? directions.split(/\r?\n/).map((line, index) => {
-          const trimmed = line.trim();
-          if (!trimmed) return "";
-          return /^\d+\.\s/.test(trimmed) ? trimmed : `${index + 1}. ${trimmed}`;
-        }).filter(Boolean).join("\n")
-        : "";
-      return [
-        "ACTIVITY_NAME:",
-        item.title || "",
-        "CATEGORY:",
-        item.activityCategory || "Open-Ended Exploration",
-        "OBJECTIVE:",
-        item.objective || "",
-        "DESCRIPTION:",
-        item.description || "",
-        "MATERIALS:",
-        item.materials || "",
-        "SETUP:",
-        item.setup || "",
-        "TEACHER_ROLE:",
-        item.teacherRole || "",
-        "DIRECTIONS:",
-        numberedDirections,
-        "LEARNING_GOALS:",
-        goals.join("\n"),
-        "OBSERVATION_OPPORTUNITIES:",
-        item.observationOpportunities || "",
-      ].join("\n");
-    });
-    sections.push(formatImportSection(dayKey, activityBlocks.join("\n\n")));
+    const activityBlocks = items.map((item) => formatImportActivity(item));
+    sections.push(`${dayKey}\n\n${activityBlocks.join("\n\n")}`.trim() + "\n");
   });
   return `${sections.join("\n").trim()}\n`;
 }
+
+function formatCurriculumLessonPlanImport(plan = {}) {
+  return formatCurriculumLessonPlanImportV3(plan);
+}
+
+const CURRICULUM_LESSON_IMPORT_V2_TEMPLATE = `@LESSON_PLAN_START@
+TITLE:
+Legacy template retired — use CURRICULUM_LESSON_IMPORT_V3_TEMPLATE
+@LESSON_PLAN_END@
+`;
+
+const CURRICULUM_LESSON_IMPORT_V3_TEMPLATE = `TITLE:
+Ocean Explorers
+
+AGE_GROUP:
+Preschool
+
+THEME:
+Ocean Life
+
+PLAN:
+Pro
+
+STATUS:
+Published
+
+LEARNING_DOMAINS:
+Science, Language & Literacy, Fine Motor, Gross Motor
+
+WEEKLY_OVERVIEW:
+Children will explore ocean animals through hands-on play, movement, literacy, sensory experiences, and creative activities.
+
+LEARNING_OBJECTIVES:
+• Identify ocean animals
+• Expand vocabulary
+• Develop fine motor skills
+• Encourage creativity and exploration
+
+WEEKLY_MATERIALS:
+Toy ocean animals, blue paper, paint, scissors, glue, sensory bin materials, books
+
+VOCABULARY:
+Ocean, Fish, Whale, Shark, Coral Reef
+
+BOOKS:
+Commotion in the Ocean
+Way Down Deep in the Deep Blue Sea
+
+SONGS:
+Baby Shark
+A Sailor Went to Sea
+
+FAMILY_CONNECTION:
+Encourage families to talk about ocean animals and visit local aquariums or read ocean-themed books together.
+
+OBSERVATION_OPPORTUNITIES:
+Observe language development, social interaction, fine motor skills, and participation during activities.
+
+ADAPTATIONS:
+Provide visual supports, adaptive tools, sensory alternatives, and additional teacher support as needed.
+
+MONDAY
+
+ACTIVITY_NAME:
+Ocean Sensory Bin
+
+CATEGORY:
+Sensory Play
+
+DESCRIPTION:
+Children explore ocean animals in a sensory bin.
+
+MATERIALS:
+Water beads, toy ocean animals
+
+DIRECTIONS:
+1. Fill sensory bin.
+2. Add ocean animals.
+3. Encourage exploration.
+
+TEACHER_ROLE:
+Model vocabulary and encourage discussion.
+
+LEARNING_GOALS:
+Sensory exploration and vocabulary development.
+
+ACTIVITY_NAME:
+Ocean Animal Movement
+
+CATEGORY:
+Gross Motor & Movement
+
+DESCRIPTION:
+Children move like different ocean animals.
+
+MATERIALS:
+Open space
+
+DIRECTIONS:
+1. Name an animal.
+2. Demonstrate movement.
+3. Children copy.
+
+TEACHER_ROLE:
+Encourage participation.
+
+LEARNING_GOALS:
+Gross motor development.
+
+TUESDAY
+
+ACTIVITY_NAME:
+Ocean Painting
+
+CATEGORY:
+Fine Motor
+
+DESCRIPTION:
+Children paint ocean scenes.
+
+MATERIALS:
+Paint, paper, brushes
+
+DIRECTIONS:
+1. Discuss ocean animals.
+2. Paint ocean scenes.
+3. Share artwork.
+
+TEACHER_ROLE:
+Support creativity.
+
+LEARNING_GOALS:
+Fine motor skills and self-expression.
+
+WEDNESDAY
+
+ACTIVITY_NAME:
+Ocean Book Time
+
+CATEGORY:
+Literacy
+
+DESCRIPTION:
+Children listen to and talk about an ocean story.
+
+MATERIALS:
+Ocean book
+
+DIRECTIONS:
+1. Read the story.
+2. Pause for predictions.
+3. Retell with children.
+
+TEACHER_ROLE:
+Ask open-ended questions.
+
+LEARNING_GOALS:
+Listening comprehension and vocabulary.
+
+THURSDAY
+
+ACTIVITY_NAME:
+Coral Reef Collage
+
+CATEGORY:
+Art
+
+DESCRIPTION:
+Children create a coral reef collage.
+
+MATERIALS:
+Paper, glue, tissue paper
+
+DIRECTIONS:
+1. Tear paper shapes.
+2. Glue onto reef scene.
+3. Name colors and textures.
+
+TEACHER_ROLE:
+Model tearing and gluing.
+
+LEARNING_GOALS:
+Creative expression and fine motor control.
+
+FRIDAY
+
+ACTIVITY_NAME:
+Ocean Song Circle
+
+CATEGORY:
+Music & Movement
+
+DESCRIPTION:
+Children sing and move to ocean songs.
+
+MATERIALS:
+Song list, open space
+
+DIRECTIONS:
+1. Introduce the song.
+2. Add movements.
+3. Repeat together.
+
+TEACHER_ROLE:
+Lead singing and movement.
+
+LEARNING_GOALS:
+Rhythm, listening, and participation.
+`;
 
 const api = {
   PLAY_ACTIVITY_CATEGORIES: PLAY_ACTIVITY_CATEGORIES_V1,
@@ -1760,6 +1791,7 @@ const api = {
   CURRICULUM_LESSON_IMPORT_V3_TEMPLATE,
   detectImportFormat,
   isV3LabelOnlyFormat,
+  normalizeActivityCategory,
   parseCurriculumImportAgeValue,
   curriculumAgeBucket,
   emptyCurriculumDailyPlans,

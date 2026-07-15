@@ -1,0 +1,197 @@
+TITLE:
+Ocean Explorers
+
+AGE_GROUP:
+Preschool
+
+THEME:
+Ocean Life
+
+PLAN:
+Pro
+
+STATUS:
+Published
+
+LEARNING_DOMAINS:
+Science, Language & Literacy, Fine Motor, Gross Motor
+
+WEEKLY_OVERVIEW:
+Children will explore ocean animals through hands-on play, movement, literacy, sensory experiences, and creative activities.
+
+LEARNING_OBJECTIVES:
+• Identify ocean animals
+• Expand vocabulary
+• Develop fine motor skills
+• Encourage creativity and exploration
+
+WEEKLY_MATERIALS:
+Toy ocean animals, blue paper, paint, scissors, glue, sensory bin materials, books
+
+VOCABULARY:
+Ocean, Fish, Whale, Shark, Coral Reef
+
+BOOKS:
+Commotion in the Ocean
+Way Down Deep in the Deep Blue Sea
+
+SONGS:
+Baby Shark
+A Sailor Went to Sea
+
+FAMILY_CONNECTION:
+Encourage families to talk about ocean animals and visit local aquariums or read ocean-themed books together.
+
+OBSERVATION_OPPORTUNITIES:
+Observe language development, social interaction, fine motor skills, and participation during activities.
+
+ADAPTATIONS:
+Provide visual supports, adaptive tools, sensory alternatives, and additional teacher support as needed.
+
+MONDAY
+
+ACTIVITY_NAME:
+Ocean Sensory Bin
+
+CATEGORY:
+Sensory Play
+
+DESCRIPTION:
+Children explore ocean animals in a sensory bin.
+
+MATERIALS:
+Water beads, toy ocean animals
+
+DIRECTIONS:
+1. Fill sensory bin.
+2. Add ocean animals.
+3. Encourage exploration.
+
+TEACHER_ROLE:
+Model vocabulary and encourage discussion.
+
+LEARNING_GOALS:
+Sensory exploration and vocabulary development.
+
+ACTIVITY_NAME:
+Ocean Animal Movement
+
+CATEGORY:
+Gross Motor & Movement
+
+DESCRIPTION:
+Children move like different ocean animals.
+
+MATERIALS:
+Open space
+
+DIRECTIONS:
+1. Name an animal.
+2. Demonstrate movement.
+3. Children copy.
+
+TEACHER_ROLE:
+Encourage participation.
+
+LEARNING_GOALS:
+Gross motor development.
+
+TUESDAY
+
+ACTIVITY_NAME:
+Ocean Painting
+
+CATEGORY:
+Fine Motor
+
+DESCRIPTION:
+Children paint ocean scenes.
+
+MATERIALS:
+Paint, paper, brushes
+
+DIRECTIONS:
+1. Discuss ocean animals.
+2. Paint ocean scenes.
+3. Share artwork.
+
+TEACHER_ROLE:
+Support creativity.
+
+LEARNING_GOALS:
+Fine motor skills and self-expression.
+
+WEDNESDAY
+
+ACTIVITY_NAME:
+Ocean Book Time
+
+CATEGORY:
+Literacy
+
+DESCRIPTION:
+Children listen to and talk about an ocean story.
+
+MATERIALS:
+Ocean book
+
+DIRECTIONS:
+1. Read the story.
+2. Pause for predictions.
+3. Retell with children.
+
+TEACHER_ROLE:
+Ask open-ended questions.
+
+LEARNING_GOALS:
+Listening comprehension and vocabulary.
+
+THURSDAY
+
+ACTIVITY_NAME:
+Coral Reef Collage
+
+CATEGORY:
+Art
+
+DESCRIPTION:
+Children create a coral reef collage.
+
+MATERIALS:
+Paper, glue, tissue paper
+
+DIRECTIONS:
+1. Tear paper shapes.
+2. Glue onto reef scene.
+3. Name colors and textures.
+
+TEACHER_ROLE:
+Model tearing and gluing.
+
+LEARNING_GOALS:
+Creative expression and fine motor control.
+
+FRIDAY
+
+ACTIVITY_NAME:
+Ocean Song Circle
+
+CATEGORY:
+Music & Movement
+
+DESCRIPTION:
+Children sing and move to ocean songs.
+
+MATERIALS:
+Song list, open space
+
+DIRECTIONS:
+1. Introduce the song.
+2. Add movements.
+3. Repeat together.
+
+TEACHER_ROLE:
+Lead singing and movement.
+
+LEARNING_GOALS:
+Rhythm, listening, and participation.
