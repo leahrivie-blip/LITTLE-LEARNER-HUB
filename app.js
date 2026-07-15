@@ -3795,7 +3795,7 @@ let adminCurriculumLessonImportTextCache = "";
 let adminCurriculumLessonImportPreview = null;
 let adminCurriculumLessonImportPreviewText = "";
 let adminCurriculumLessonImportStep = "paste";
-let adminCurriculumLessonImportMode = "v4"; // "v3" | "v4"
+let adminCurriculumLessonImportMode = "v5"; // "v3" | "v4" | "v5"
 let adminCurriculumLessonSaveBanner = { text: "", isSuccess: false };
 let adminCurriculumResourceSaving = false;
 let curriculumPlannerSelectedWeek = "";
@@ -4867,7 +4867,7 @@ function parseCurriculumLessonPlanImport(text, options = {}) {
   if (!api) throw new Error("CurriculumLessonImportParser is not loaded.");
   return api.parseCurriculumLessonPlanImport(text, {
     ...options,
-    mode: options.mode || adminCurriculumLessonImportMode || "v4",
+    mode: options.mode || adminCurriculumLessonImportMode || "v5",
     generateItemId: generateCurriculumItemIdClient,
   });
 }
@@ -5080,9 +5080,12 @@ function renderCurriculumLessonImportPreviewPanel(previewState) {
           <div><strong>${quality.missingFieldCount ?? 0}</strong><span>Missing Fields</span></div>
           <div><strong>${quality.qualityScore ?? "—"}%</strong><span>Quality Score</span></div>
         </div>
+        ${(quality.recognizedFields || summary.recognizedFields || []).length ? `
+          <p class="muted-copy"><strong>Recognized:</strong> ${escapeHtml((quality.recognizedFields || summary.recognizedFields || []).join(", "))}</p>
+        ` : ""}
         ${(quality.missingFields || []).length ? `
-          <p class="muted-copy"><strong>Missing fields:</strong> ${escapeHtml(quality.missingFields.join("; "))}</p>
-        ` : `<p class="muted-copy">No critical day-field gaps detected beyond warnings below.</p>`}
+          <p class="muted-copy"><strong>Missing:</strong> ${escapeHtml(quality.missingFields.join("; "))}</p>
+        ` : `<p class="muted-copy">No critical field gaps detected beyond warnings below.</p>`}
       </div>
   ` : "";
   return `
@@ -5201,7 +5204,7 @@ function buildAdminCurriculumImportPreview(text) {
   adminCurriculumLessonImportMode = mode;
   const parsed = parseCurriculumLessonPlanImport(text, { existingItemIds, mode });
   const formatVersion = Number(parsed?.parseReport?.formatVersion)
-    || (mode === "v4" ? 4 : mode === "v3" ? 3 : 0);
+    || (mode === "v5" ? 5 : mode === "v4" ? 4 : mode === "v3" ? 3 : 0);
   const editingId = adminCurriculumLessonEditorId || "";
   const proposedLessonPlanId = editingId || `cur-lp-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
   const preview = previewApi.buildCurriculumImportPreview(parsed, {
@@ -5218,12 +5221,17 @@ function readCurriculumImportModeFromUi() {
   const selected = document.querySelector('input[name="adminCurriculumImportMode"]:checked')?.value
     || document.querySelector("#adminCurriculumImportMode")?.value
     || adminCurriculumLessonImportMode
-    || "v4";
-  return selected === "v3" ? "v3" : "v4";
+    || "v5";
+  if (selected === "v3") return "v3";
+  if (selected === "v4") return "v4";
+  return "v5";
 }
 
 function curriculumImportTemplateForMode(mode = adminCurriculumLessonImportMode) {
   const api = curriculumImportApi();
+  if ((mode === "v5" || mode === "flexible") && api?.CURRICULUM_LESSON_IMPORT_V5_TEMPLATE) {
+    return api.CURRICULUM_LESSON_IMPORT_V5_TEMPLATE;
+  }
   if (mode === "v4" && api?.CURRICULUM_LESSON_IMPORT_V4_TEMPLATE) {
     return api.CURRICULUM_LESSON_IMPORT_V4_TEMPLATE;
   }
@@ -5393,17 +5401,25 @@ function renderCurriculumLessonImportPanel() {
       </fieldset>
     `;
   }
-  const mode = adminCurriculumLessonImportMode === "v3" ? "v3" : "v4";
+  const mode = adminCurriculumLessonImportMode === "v3"
+    ? "v3"
+    : adminCurriculumLessonImportMode === "v4"
+      ? "v4"
+      : "v5";
   return `
     <fieldset class="admin-fieldset curriculum-import-panel">
       <legend>Complete Lesson Plan Importer</legend>
-      <p class="muted-copy">Paste a lesson plan, choose an import mode, then Preview or Import. The system creates the lesson plan, adds activities to the Activity Library, and links them automatically.</p>
+      <p class="muted-copy">Paste a lesson plan from ChatGPT or any reasonable format. V5 Flexible Import maps headings automatically, infers missing categories, and shows a quality preview before save.</p>
       <fieldset class="curriculum-import-mode-fieldset">
         <legend class="visually-hidden">Import mode</legend>
         <div class="curriculum-import-mode-row" role="radiogroup" aria-label="Import mode">
           <label class="admin-inline-toggle">
+            <input type="radio" name="adminCurriculumImportMode" value="v5" ${mode === "v5" ? "checked" : ""} data-curriculum-import-mode />
+            <span><strong>V5 Flexible Import</strong> — paste almost any format; auto-maps fields, days, and categories</span>
+          </label>
+          <label class="admin-inline-toggle">
             <input type="radio" name="adminCurriculumImportMode" value="v4" ${mode === "v4" ? "checked" : ""} data-curriculum-import-mode />
-            <span><strong>V4 Smart Import</strong> — flexible section names, day fields, soft warnings</span>
+            <span><strong>V4 Smart Import</strong> — flexible section names with soft warnings</span>
           </label>
           <label class="admin-inline-toggle">
             <input type="radio" name="adminCurriculumImportMode" value="v3" ${mode === "v3" ? "checked" : ""} data-curriculum-import-mode />
@@ -5412,13 +5428,13 @@ function renderCurriculumLessonImportPanel() {
         </div>
       </fieldset>
       <details class="curriculum-import-format-details" ${mode === "v3" ? "open" : ""}>
-        <summary>View ${mode === "v4" ? "V4 smart" : "V3 strict"} lesson plan format</summary>
+        <summary>View ${mode === "v5" ? "V5 flexible" : mode === "v4" ? "V4 smart" : "V3 strict"} lesson plan format</summary>
         <pre class="curriculum-import-template" id="curriculumImportTemplatePre">${escapeHtml(curriculumImportTemplateForMode(mode))}</pre>
       </details>
       <label>Paste complete lesson plan
-        <textarea id="adminCurriculumLessonImportText" rows="16" placeholder="${mode === "v4"
-    ? "Paste any reasonable lesson plan (Theme Overview, Monday, Activity:, …)"
-    : "Paste TITLE:, AGE_GROUP:, THEME:, MONDAY…FRIDAY, ACTIVITY_NAME:, …"}">${escapeHtml(adminCurriculumLessonImportTextCache || "")}</textarea>
+        <textarea id="adminCurriculumLessonImportText" rows="16" placeholder="${mode === "v3"
+    ? "Paste TITLE:, AGE_GROUP:, THEME:, MONDAY…FRIDAY, ACTIVITY_NAME:, …"
+    : "Paste any reasonable lesson plan (TITLE / Theme Overview / Monday / Activity Title / What Children Will Do / …)"}">${escapeHtml(adminCurriculumLessonImportTextCache || "")}</textarea>
       </label>
       <div class="form-actions">
         <button class="ghost-button" type="button" id="adminCurriculumLessonClearImportButton">Clear</button>
@@ -44902,7 +44918,11 @@ document.addEventListener("click", async (event) => {
   if (importModeInput) {
     const textarea = document.querySelector("#adminCurriculumLessonImportText");
     if (textarea) adminCurriculumLessonImportTextCache = textarea.value || "";
-    adminCurriculumLessonImportMode = importModeInput.value === "v3" ? "v3" : "v4";
+    adminCurriculumLessonImportMode = importModeInput.value === "v3"
+      ? "v3"
+      : importModeInput.value === "v4"
+        ? "v4"
+        : "v5";
     renderAdminCurriculumLessonPlanManager();
     applyAdminSectionVisibility();
     return;

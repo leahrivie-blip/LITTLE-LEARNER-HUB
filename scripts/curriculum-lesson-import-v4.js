@@ -47,10 +47,18 @@
       "goals for the week",
       "children will",
     ],
-    WEEKLY_MATERIALS: ["weekly materials", "materials list", "materials needed", "supplies", "prep materials"],
+    WEEKLY_MATERIALS: [
+      "weekly materials",
+      "materials list",
+      "materials needed",
+      "needed materials",
+      "supplies",
+      "prep materials",
+      "materials",
+    ],
     VOCABULARY: ["vocabulary", "vocab", "weekly vocabulary", "key vocabulary", "words to know"],
-    BOOKS: ["books", "read alouds", "read-alouds", "story books", "literature"],
-    SONGS: ["songs", "music", "fingerplays", "rhymes", "chants"],
+    BOOKS: ["books", "read alouds", "read-alouds", "story books", "recommended books", "literature"],
+    SONGS: ["songs", "music", "music and songs", "music & songs", "fingerplays", "rhymes", "chants"],
     FAMILY_CONNECTION: [
       "family connection",
       "family engagement",
@@ -68,10 +76,19 @@
       "what to watch for",
       "observations",
       "assessment opportunities",
+      "assessment",
+      "teacher notes",
       "look fors",
       "look-fors",
     ],
-    ADAPTATIONS: ["adaptations", "modifications", "differentiation", "supports", "accommodations"],
+    ADAPTATIONS: [
+      "adaptations",
+      "modifications",
+      "differentiation",
+      "supports",
+      "accommodations",
+      "support strategies",
+    ],
   };
 
   const V4_DAY_FIELD_SYNONYMS = {
@@ -87,24 +104,60 @@
     OUTDOOR_PLAY: ["outdoor play", "outdoors", "outside play", "playground", "outdoor"],
     FAMILY_CONNECTION: ["family connection", "home connection", "family engagement", "at home"],
     OBSERVATIONS: ["observations", "observe for", "what to watch for", "assessment ideas"],
-    ADAPTATIONS: ["adaptations", "modifications", "supports"],
+    ADAPTATIONS: ["adaptations", "modifications", "supports", "accommodations", "support strategies"],
     SAFETY_NOTES: ["safety notes", "safety", "safety reminders"],
   };
 
   const V4_ACTIVITY_FIELD_SYNONYMS = {
-    ACTIVITY_NAME: ["activity name", "activity", "activity title", "name", "center", "station"],
+    ACTIVITY_NAME: [
+      "activity name",
+      "activity",
+      "activity title",
+      "center activity",
+      "name",
+      "center",
+      "station",
+    ],
     CATEGORY: ["category", "activity type", "type", "center type"],
     OBJECTIVE: ["objective", "goal", "purpose"],
-    DESCRIPTION: ["description", "overview", "about", "summary"],
-    MATERIALS: ["materials", "supplies", "you will need"],
+    DESCRIPTION: [
+      "description",
+      "overview",
+      "about",
+      "summary",
+      "what children will do",
+      "what kids will do",
+    ],
+    MATERIALS: ["materials", "supplies", "you will need", "items needed", "needed items"],
     SETUP: ["setup", "set up", "preparation", "prep", "prepare"],
-    TEACHER_ROLE: ["teacher role", "teacher tips", "educator role", "facilitator role", "adult role"],
-    DIRECTIONS: ["directions", "steps", "instructions", "how to", "procedure", "how it works"],
-    LEARNING_GOALS: ["learning goals", "goals", "learning outcomes", "skills"],
+    TEACHER_ROLE: [
+      "teacher role",
+      "teacher tips",
+      "teacher notes",
+      "teacher support",
+      "educator role",
+      "facilitator role",
+      "adult role",
+    ],
+    DIRECTIONS: [
+      "directions",
+      "steps",
+      "instructions",
+      "how to",
+      "procedure",
+      "how it works",
+    ],
+    LEARNING_GOALS: [
+      "learning goals",
+      "goals",
+      "learning outcomes",
+      "skills",
+      "skills practiced",
+    ],
     OBSERVATION_OPPORTUNITIES: ["observation opportunities", "observe for", "what to watch for"],
     VOCABULARY: ["vocabulary", "vocab"],
     EXTENSIONS: ["extensions", "extend the learning", "enrichment"],
-    ADAPTATIONS: ["adaptations", "modifications"],
+    ADAPTATIONS: ["adaptations", "modifications", "accommodations", "support strategies"],
     SAFETY_NOTES: ["safety notes", "safety"],
     TEACHER_LANGUAGE: ["teacher language", "language prompts", "talking points"],
     AGE_MODIFICATIONS: ["age modifications", "age adaptations"],
@@ -114,14 +167,14 @@
   const CATEGORY_INFERENCE_RULES = [
     { category: "Fine Motor", patterns: [/play\s*-?\s*dough|playdoh|tweezers|beading|threading|pegboard|scissors|cutting|pinch|pincer|lacing|clothespin/i] },
     { category: "Art", patterns: [/paint(?:ing)?|crayon|collage|marker|stamp(?:ing)?|glitter|draw(?:ing)?|watercolor|coloring/i] },
-    { category: "Gross Motor", patterns: [/obstacle\s*course|hop(?:ping)?|jump(?:ing)?|balance\s*beam|crawl(?:ing)?|run(?:ning)?|throw(?:ing)?|kick(?:ing)?|yoga|movement\s*path/i] },
-    { category: "STEM/Discovery", patterns: [/science\s*experiment|magnet|sink\s*(?:or|&)\s*float|measure|count(?:ing)?|engineer|build(?:ing)?|hypothesis|observe\s*and\s*record|stem/i] },
+    { category: "Gross Motor", patterns: [/obstacle\s*course|hop(?:ping)?|jump(?:ing)?|balance\s*beam|crawl(?:ing)?|run(?:ning)?|throw(?:ing)?|kick(?:ing)?|yoga|movement\s*path|relay/i] },
+    { category: "STEM/Discovery", patterns: [/science\s*experiment|magnet|sink\s*(?:or|&)\s*float|measure|count(?:ing)?|engineer|build(?:ing)?|hypothesis|observe\s*and\s*record|stem|sort(?:ing)?/i] },
     { category: "Sensory Play", patterns: [/water\s*table|sand\s*table|sensory\s*bin|sensory\s*play|rice\s*bin|oobleck|slime|texture/i] },
-    { category: "Dramatic Play", patterns: [/pretend|dramatic\s*play|restaurant|kitchen|doctor\s*office|role\s*-?\s*play|dress\s*-?\s*up|puppet/i] },
+    { category: "Dramatic Play", patterns: [/pretend|dramatic\s*play|restaurant|kitchen|doctor\s*office|role\s*-?\s*play|dress\s*-?\s*up|puppet|clinic|shop|cashier/i] },
     { category: "Outdoor Play", patterns: [/nature\s*walk|outdoor|playground|garden(?:ing)?|sidewalk\s*chalk|outside/i] },
-    { category: "Music & Movement", patterns: [/music\s*game|sing(?:ing)?|dance|rhythm|instrument|freeze\s*dance|song\s*and\s*move/i] },
-    { category: "Circle Time", patterns: [/circle\s*time|morning\s*meeting|group\s*time|calendar\s*time|greeting\s*song/i] },
-    { category: "Literacy", patterns: [/read\s*aloud|letter\s*hunt|phonics|story\s*retell|name\s*writing|alphabet|book\s*walk|shared\s*reading/i] },
+    { category: "Music & Movement", patterns: [/music\s*game|sing(?:ing)?|dance|rhythm|instrument|freeze\s*dance|song\s*and\s*move|song\s*circle/i] },
+    { category: "Circle Time", patterns: [/circle\s*time|morning\s*meeting|group\s*time|calendar\s*time|greeting\s*song|celebration\s*circle/i] },
+    { category: "Literacy", patterns: [/read\s*aloud|letter\s*hunt|phonics|story\s*retell|name\s*writing|alphabet|book\s*walk|shared\s*reading|story\s*time|journal/i] },
   ];
 
   function normalizeKey(value) {
@@ -194,9 +247,43 @@
     if (!trimmed) return false;
     if (/^---+\s*activity\s*---+$/i.test(trimmed)) return true;
     if (/^#{1,3}\s*activity\b/i.test(trimmed)) return true;
-    if (/^(activity(?:\s+name)?|center|station)\s*[:\-–]/i.test(trimmed)) return true;
+    if (/^(activity(?:\s+(?:name|title))?|center(?:\s+activity)?|station)\s*[:\-–]/i.test(trimmed)) return true;
     if (/^activity\s+\d+\s*[:\-–.]/i.test(trimmed)) return true;
+    // Bare activity heading with title on same line: "Activity Wave Water Table"
+    if (/^activity(?:\s+(?:name|title))?\s+[A-Za-z0-9].{2,80}$/i.test(trimmed) && !/^(activity(?:\s+(?:name|title))?)$/i.test(trimmed)) {
+      return true;
+    }
     return false;
+  }
+
+  function isBareFieldHeading(line, lookup) {
+    const trimmed = String(line || "").trim()
+      .replace(/^#+\s*/, "")
+      .replace(/^\*\*?/, "")
+      .replace(/\*\*?$/, "")
+      .replace(/:$/, "")
+      .trim();
+    if (!trimmed || trimmed.length > 60) return "";
+    if (/[.!?]$/.test(trimmed)) return "";
+    if (trimmed.split(/\s+/).length > 6) return "";
+    const key = normalizeKey(trimmed);
+    if (!key) return "";
+    // Prefer exact synonym hits so prose lines are not swallowed.
+    if (lookup.has(key)) return lookup.get(key);
+    // ALL_CAPS / Title-Case short labels that fuzzy-match a known field.
+    const looksLikeLabel = /^[A-Za-z][A-Za-z0-9_/ &-]{1,58}$/.test(trimmed);
+    if (!looksLikeLabel) return "";
+    const fuzzy = headingToField(trimmed, lookup);
+    if (!fuzzy) return "";
+    // Require the synonym itself to be mostly the heading (avoid "About the ocean" → DESCRIPTION).
+    for (const [syn, canonical] of lookup.entries()) {
+      if (canonical !== fuzzy) continue;
+      if (key === syn) return canonical;
+      if (syn.length >= 4 && (key === syn || Math.abs(key.length - syn.length) <= 2) && (key.includes(syn) || syn.includes(key))) {
+        return canonical;
+      }
+    }
+    return "";
   }
 
   function splitFlexibleWeekdaySections(text) {
@@ -310,6 +397,14 @@
         }
       }
 
+      // Bare heading without colon (ChatGPT / freeform pastes): "TITLE", "Theme Overview", "Materials"
+      const bareCanonical = isBareFieldHeading(trimmed, lookup);
+      if (bareCanonical) {
+        flush();
+        currentField = bareCanonical;
+        return;
+      }
+
       if (currentField) {
         currentLines.push(line);
         return;
@@ -329,12 +424,13 @@
   function splitFlexibleDayActivities(dayContent) {
     const content = String(dayContent || "");
     if (!content.trim()) return [];
-    // Prefer ACTIVITY_NAME style splits first
-    if (/^ACTIVITY[_ ]NAME:\s*/im.test(content) || /^Activity Name:\s*/im.test(content)) {
+    // Prefer ACTIVITY_NAME / Activity Title / Center Activity style splits first
+    const activityHeaderRe = /^(?:ACTIVITY[_ ]NAME|Activity Name|Activity Title|Center Activity|Activity)\s*:/im;
+    if (activityHeaderRe.test(content)) {
       return content
-        .split(/(?=^(?:ACTIVITY[_ ]NAME|Activity Name):\s*)/im)
+        .split(/(?=^(?:ACTIVITY[_ ]NAME|Activity Name|Activity Title|Center Activity|Activity)\s*:)/im)
         .map((block) => block.trim())
-        .filter((block) => /^(?:ACTIVITY[_ ]NAME|Activity Name):\s*/im.test((block.split(/\r?\n/)[0] || "").trim()));
+        .filter((block) => activityHeaderRe.test((block.split(/\r?\n/)[0] || "").trim()));
     }
     const lines = content.split(/\r?\n/);
     const blocks = [];
@@ -451,7 +547,7 @@
       .replace(/^#+\s*/, "")
       .replace(/^---+/, "")
       .replace(/---+$/, "")
-      .replace(/^(activity(?:\s+name)?|center|station)\s*[:\-–]\s*/i, "")
+      .replace(/^(activity(?:\s+(?:name|title))?|center(?:\s+activity)?|station)\s*[:\-–]\s*/i, "")
       .replace(/^activity\s+\d+\s*[:\-–.]\s*/i, "")
       .trim();
     return normalizedShortText(fromHeader);
@@ -568,7 +664,7 @@
     }
   }
 
-  function computeQualityReport(data, warnings, inferences) {
+  function computeQualityReport(data, warnings, inferences, { formatVersion = 4, recognizedFields = [] } = {}) {
     const checks = [];
     const push = (ok, label) => checks.push({ ok: Boolean(ok), label });
     push(data.title && data.title !== "Untitled Lesson Plan", "Title");
@@ -581,6 +677,7 @@
     push(data.vocabularyWords, "Vocabulary");
     push(data.familyConnection, "Family connection");
     push(data.observationOpportunities, "Observation opportunities");
+    push(data.adaptations, "Adaptations");
     push((data.books || []).length, "Books");
     push((data.songs || []).length, "Songs");
 
@@ -588,6 +685,7 @@
     let activities = 0;
     let categoriesAssigned = 0;
     const missingFields = [];
+    const dayLabel = (day) => day.charAt(0).toUpperCase() + day.slice(1);
     WEEKDAYS.forEach((day) => {
       const dayPlan = data.dailyPlans?.[day];
       if (!dayPlan) return;
@@ -596,15 +694,36 @@
         daysWithActivities += 1;
         activities += itemCount;
         categoriesAssigned += dayPlan.items.filter((item) => item.activityCategory).length;
-        if (!dayPlan.vocabulary) missingFields.push(`${day.charAt(0).toUpperCase() + day.slice(1)} missing vocabulary`);
-        if (!dayPlan.familyConnection) missingFields.push(`${day.charAt(0).toUpperCase() + day.slice(1)} missing family connection`);
-        if (!dayPlan.objectives) missingFields.push(`${day.charAt(0).toUpperCase() + day.slice(1)} missing daily objectives`);
-        if (!dayPlan.materials) missingFields.push(`${day.charAt(0).toUpperCase() + day.slice(1)} missing daily materials`);
+        if (!dayPlan.vocabulary) missingFields.push(`${dayLabel(day)} vocabulary`);
+        if (!dayPlan.familyConnection && formatVersion >= 5) {
+          // Family connection is usually weekly; only flag day-level when format asks for it.
+        } else if (!dayPlan.familyConnection && formatVersion < 5) {
+          missingFields.push(`${dayLabel(day)} family connection`);
+        }
+        if (!dayPlan.objectives) missingFields.push(`${dayLabel(day)} objectives`);
+        if (!dayPlan.materials) missingFields.push(`${dayLabel(day)} materials`);
+        if (formatVersion >= 5) {
+          if (!(dayPlan.books || []).length && !(data.books || []).length) {
+            missingFields.push(`${dayLabel(day)} books`);
+          } else if (!(dayPlan.books || []).length && formatVersion >= 5) {
+            // Weekly books cover the week — do not double-count as day gaps.
+          }
+          dayPlan.items.forEach((item) => {
+            if (!item.description) missingFields.push(`${dayLabel(day)} "${item.title}" description`);
+            if (!item.materials) missingFields.push(`${dayLabel(day)} "${item.title}" materials`);
+            if (!item.steps) missingFields.push(`${dayLabel(day)} "${item.title}" directions`);
+          });
+        }
+      } else if (formatVersion >= 5) {
+        missingFields.push(`${dayLabel(day)} activities`);
       }
     });
     push(daysWithActivities >= 1, "At least one weekday with activities");
     push(daysWithActivities >= 5, "All five weekdays present");
     push(activities >= 1, "Activities imported");
+    if (formatVersion >= 5) {
+      push(activities >= 10, "At least 10 activities");
+    }
 
     const okCount = checks.filter((item) => item.ok).length;
     const qualityScore = Math.round((okCount / Math.max(checks.length, 1)) * 100);
@@ -615,11 +734,13 @@
       activitiesImported: activities,
       categoriesAssigned,
       missingFieldCount: missingFields.length,
-      missingFields: missingFields.slice(0, 20),
+      missingFields: missingFields.slice(0, 30),
+      recognizedFields: (recognizedFields || []).slice(0, 40),
       warningCount: (warnings || []).length,
       qualityScore,
       inferences: inferences || [],
       checks,
+      formatVersion,
     };
   }
 
@@ -641,7 +762,10 @@
       existingItemIds = new Map(),
       generateItemId = baseApi?.generateCurriculumItemId,
       existingTitles = [],
+      formatVersion: requestedFormatVersion = 4,
     } = options;
+    const formatVersion = Number(requestedFormatVersion) === 5 ? 5 : 4;
+    const formatLabel = formatVersion === 5 ? "V5 Flexible Import" : "V4 Smart Import";
     const errors = [];
     const warnings = [];
     const unmapped = [];
@@ -655,7 +779,7 @@
         errors: ["Paste is empty. Include a lesson title and at least one weekday activity."],
         warnings,
         unmapped,
-        parseReport: { formatVersion: 4, sectionsDetected: [], activityCount: 0, activityLibraryEntries: 0, daysPresent: [] },
+        parseReport: { formatVersion, formatLabel, sectionsDetected: [], activityCount: 0, activityLibraryEntries: 0, daysPresent: [] },
         data: null,
       };
     }
@@ -812,7 +936,7 @@
       .slice(0, 6);
 
     const data = {
-      _formatVersion: 4,
+      _formatVersion: formatVersion,
       title: title || "Untitled Lesson Plan",
       age: ageValue.display || "Preschool",
       ageBucket: ageValue.bucket || "Preschool",
@@ -834,12 +958,15 @@
       _activityCount: activityCount,
     };
 
-    const quality = computeQualityReport(data, warnings, inferences);
+    const quality = computeQualityReport(data, warnings, inferences, {
+      formatVersion,
+      recognizedFields: sectionsDetected,
+    });
     quality.categoriesInferred = categoriesInferred;
 
     const parseReport = {
-      formatVersion: 4,
-      formatLabel: "V4 Smart Import",
+      formatVersion,
+      formatLabel,
       title: data.title,
       age: data.age,
       theme: data.theme,
@@ -865,6 +992,107 @@
       data,
     };
   }
+
+  function parseCurriculumLessonPlanImportV5(text, options = {}) {
+    return parseCurriculumLessonPlanImportV4(text, { ...options, formatVersion: 5 });
+  }
+
+  const CURRICULUM_LESSON_IMPORT_V5_TEMPLATE = `TITLE
+Beach Explorers
+
+AGE GROUP
+Preschool
+
+THEME
+Beach Exploration
+
+PLAN
+Pro
+
+STATUS
+Published
+
+WEEKLY OVERVIEW
+Children explore beach life through sensory play, science, literacy, and movement.
+
+LEARNING OBJECTIVES
+• Investigate sand and shells
+• Build beach vocabulary
+• Practice sharing and teamwork
+
+NEEDED MATERIALS
+Sand, shells, buckets, towels, books
+
+VOCABULARY
+Beach, Shell, Sand, Wave, Ocean
+
+RECOMMENDED BOOKS
+Beach Day
+A Day at the Beach
+
+MUSIC & SONGS
+The Waves in the Ocean
+You Are My Sunshine
+
+FAMILY ENGAGEMENT
+Ask families to share a beach memory or photo.
+
+ASSESSMENT
+Observe vocabulary, cooperation, and sensory engagement.
+
+SUPPORT STRATEGIES
+Provide adaptive tools and peer partners as needed.
+
+MONDAY
+
+Activity Title: Sand Discovery Station
+Activity Type: Sensory Play
+What Children Will Do:
+Children explore sand textures with scoops and shells.
+Items Needed:
+Sand table, scoops, shells
+Procedure:
+1. Invite children to the sand table.
+2. Model scooping and pouring.
+3. Talk about textures.
+Teacher Support:
+Narrate discoveries and introduce vocabulary.
+Skills Practiced:
+Sensory awareness and vocabulary
+
+Activity: Beach Story Time
+Category: Literacy
+Description:
+Read a beach-themed story together.
+Materials:
+Beach book
+Directions:
+1. Read aloud.
+2. Point to pictures.
+3. Repeat key words.
+Teacher Role:
+Support listening and vocabulary.
+Learning Goals:
+Early literacy
+
+TUESDAY
+Day 2
+
+Center Activity: Shell Sorting
+Category: STEM/Discovery
+Description:
+Children sort shells by size and color.
+Materials:
+Shells, trays
+Directions:
+1. Offer shells.
+2. Sort by size.
+3. Compare groups.
+Teacher Notes:
+Ask open-ended questions.
+Goals:
+Comparing and classifying
+`;
 
   const CURRICULUM_LESSON_IMPORT_V4_TEMPLATE = `Title:
 Ocean Explorers Week
@@ -952,14 +1180,20 @@ Comparing and describing
   function install(api) {
     if (!api) return null;
     api.parseCurriculumLessonPlanImportV4 = parseCurriculumLessonPlanImportV4;
+    api.parseCurriculumLessonPlanImportV5 = parseCurriculumLessonPlanImportV5;
     api.CURRICULUM_LESSON_IMPORT_V4_TEMPLATE = CURRICULUM_LESSON_IMPORT_V4_TEMPLATE;
+    api.CURRICULUM_LESSON_IMPORT_V5_TEMPLATE = CURRICULUM_LESSON_IMPORT_V5_TEMPLATE;
     api.V4_LESSON_FIELD_SYNONYMS = V4_LESSON_FIELD_SYNONYMS;
+    api.V4_ACTIVITY_FIELD_SYNONYMS = V4_ACTIVITY_FIELD_SYNONYMS;
     api.inferActivityCategory = (activity) => inferActivityCategory(activity, api);
     api.computeImportQualityReport = computeQualityReport;
 
     const originalParse = api.parseCurriculumLessonPlanImport;
     api.parseCurriculumLessonPlanImport = function parseCurriculumLessonPlanImportWithMode(text, options = {}) {
       const mode = String(options.mode || options.importMode || "auto").toLowerCase();
+      if (mode === "v5" || mode === "flexible") {
+        return parseCurriculumLessonPlanImportV5(text, options);
+      }
       if (mode === "v4" || mode === "smart") {
         return parseCurriculumLessonPlanImportV4(text, options);
       }
@@ -972,7 +1206,7 @@ Comparing and describing
           return {
             ok: false,
             errors: [
-              "V3 Strict Import requires TITLE:, AGE_GROUP:, THEME:, PLAN:, STATUS:, WEEKLY_OVERVIEW:, weekday headers, and ACTIVITY_NAME: blocks. Switch to V4 Smart Import for flexible formats.",
+              "V3 Strict Import requires TITLE:, AGE_GROUP:, THEME:, PLAN:, STATUS:, WEEKLY_OVERVIEW:, weekday headers, and ACTIVITY_NAME: blocks. Switch to V5 Flexible Import for ChatGPT-style pastes.",
             ],
             warnings: [],
             unmapped: [],
@@ -982,11 +1216,11 @@ Comparing and describing
         }
         return api.parseCurriculumLessonPlanImportV3(text, options);
       }
-      // auto: prefer V3 when clearly label-only; otherwise try V4
+      // auto: prefer V3 when clearly label-only; otherwise use V5 flexible
       const format = api.detectImportFormat(text);
       if (format === "v3") return api.parseCurriculumLessonPlanImportV3(text, options);
       if (format === "v2") return originalParse(text, options);
-      return parseCurriculumLessonPlanImportV4(text, options);
+      return parseCurriculumLessonPlanImportV5(text, options);
     };
 
     return api;
@@ -996,7 +1230,9 @@ Comparing and describing
   if (typeof module !== "undefined" && module.exports) {
     module.exports = installed || {
       parseCurriculumLessonPlanImportV4,
+      parseCurriculumLessonPlanImportV5,
       CURRICULUM_LESSON_IMPORT_V4_TEMPLATE,
+      CURRICULUM_LESSON_IMPORT_V5_TEMPLATE,
     };
   }
   if (typeof globalThis !== "undefined" && installed) {

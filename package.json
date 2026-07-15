@@ -20,6 +20,7 @@
     "import:toddler-pro-batch1": "node scripts/normalize-and-import-toddler-pro-batch1.js",
     "test:curriculum-import": "node scripts/test-curriculum-import-parser.js",
     "test:curriculum-import-v4": "node scripts/test-curriculum-import-v4.js",
+    "test:curriculum-import-v5": "node scripts/test-curriculum-import-v5.js",
     "test:importer-pre-batch-qa": "node scripts/test-importer-pre-batch-qa.js",
     "test:curriculum-schema": "node scripts/test-curriculum-schema.js",
     "test:curriculum-import-preview": "node scripts/test-curriculum-import-preview.js",
