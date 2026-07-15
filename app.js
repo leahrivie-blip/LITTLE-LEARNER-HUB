@@ -3850,7 +3850,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","reviews","founder","images","analytics","support","feedback","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","reviews","founder","images","analytics","support","feedback","emails","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding"]);
 // FUTURE ADMIN BUILD: lessonPlanResourceCategories is currently hardcoded.
 // A future admin section should allow adding, renaming, and reordering these category labels
 // so new upload categories can be managed without a code change.
@@ -3864,7 +3864,7 @@ if (adminActiveSectionTab === "activities") adminActiveSectionTab = "curriculum-
 
 // ─── Admin 2.0 Navigation Groups ─────────────────────────────────────────────
 const adminGroups = [
-  { id: "dashboard", icon: "🏠", label: "Dashboard",  tabs: ["dashboard", "analytics", "support", "feedback"], defaultTab: "dashboard" },
+  { id: "dashboard", icon: "🏠", label: "Dashboard",  tabs: ["dashboard", "analytics", "support", "feedback", "emails"], defaultTab: "dashboard" },
   { id: "content",   icon: "📚", label: "Content",    tabs: ["curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "reviews", "founder", "resources"], defaultTab: "curriculum-lesson-plans" },
   { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
   { id: "users",     icon: "👥", label: "Users",      tabs: ["users", "stripe-backfill"], defaultTab: "users" },
@@ -3877,6 +3877,7 @@ const adminGroupForTab = {
   "analytics":   "dashboard",
   "support":     "dashboard",
   "feedback":    "dashboard",
+  "emails":      "dashboard",
   "curriculum-lesson-plans": "content",
   "curriculum-activities": "content",
   "curriculum-resources": "content",
@@ -3908,6 +3909,7 @@ const adminTabLabels = {
   "analytics":   "Analytics",
   "support":     "Support",
   "feedback":    "Feedback",
+  "emails":      "Emails",
   "curriculum-lesson-plans": "Play-Based Lessons",
   "curriculum-activities": "Curriculum Activities",
   "curriculum-resources": "Curriculum Resources",
@@ -29727,6 +29729,125 @@ async function updateAdminFeedbackItem(id, updates = {}) {
   return { ok: true, feedback: data.feedback };
 }
 
+let adminEmailEngagementCache = null;
+
+async function loadAdminEmailEngagement(force = false) {
+  const token = adminSession()?.token;
+  if (!token || !canUseLaunchBackend()) return null;
+  if (adminEmailEngagementCache && !force) return adminEmailEngagementCache;
+  const response = await fetch(`/api/admin/email-engagement?adminToken=${encodeURIComponent(token)}`);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Could not load email engagement.");
+  adminEmailEngagementCache = data;
+  return data;
+}
+
+async function renderAdminEmailEngagement() {
+  const target = document.querySelector("#adminEmailEngagementApp");
+  if (!target || !isAdminUnlocked()) return;
+  target.innerHTML = `<div class="empty-state">Loading email engagement…</div>`;
+  try {
+    const data = await loadAdminEmailEngagement(true);
+    const summary = data.summary || {};
+    const settings = summary.settings || {};
+    const totals = summary.totals || {};
+    const onboarding = summary.onboarding || {};
+    const support = data.supportEmail || {};
+    const preview = Array.isArray(data.previewLessons) ? data.previewLessons : [];
+    const events = Array.isArray(summary.recentEvents) ? summary.recentEvents : [];
+    const steps = Array.isArray(data.onboardingSteps) ? data.onboardingSteps : [];
+
+    target.innerHTML = `
+      <div class="aup-insight-grid">
+        <div class="aup-insight-card"><strong>${totals.sent || 0}</strong><span>Emails Sent</span></div>
+        <div class="aup-insight-card aup-insight--trial"><strong>${totals.failed || 0}</strong><span>Failed</span></div>
+        <div class="aup-insight-card"><strong>${totals.skipped || 0}</strong><span>Skipped</span></div>
+        <div class="aup-insight-card aup-insight--pro"><strong>${onboarding.welcome || 0}</strong><span>Welcome stamped</span></div>
+      </div>
+
+      <div class="admin-email-status ${support.ready ? "is-ready" : "is-pending"}">
+        <p><strong>Provider:</strong> ${escapeHtml(support.provider || "not configured")} · ${support.ready ? "Ready to send" : "Soft-fail mode (tickets & engagement still save)"}</p>
+        <p class="form-note">${escapeHtml(support.note || "")}</p>
+      </div>
+
+      <div class="admin-email-controls panel-form">
+        <h4>Delivery controls</h4>
+        <label class="checkbox-row"><input type="checkbox" id="adminEmailOnboardingEnabled" ${settings.onboardingEnabled !== false ? "checked" : ""}> Onboarding drip (welcome → tips → explore)</label>
+        <label class="checkbox-row"><input type="checkbox" id="adminEmailWeeklyEnabled" ${settings.weeklyWhatsNewEnabled !== false ? "checked" : ""}> Weekly Monday “What’s New”</label>
+        <div class="account-actions-row">
+          <button class="primary-button" type="button" id="adminEmailSaveSettings">Save Settings</button>
+          <button class="ghost-button" type="button" id="adminEmailRunOnboarding">Run onboarding sweep</button>
+          <button class="ghost-button" type="button" id="adminEmailRunWeekly">Run weekly digest now</button>
+        </div>
+        <p class="form-note">Last onboarding sweep: ${escapeHtml(settings.lastOnboardingSweepAt || "never")} · Last weekly run: ${escapeHtml(settings.lastWeeklyRunAt || "never")}${settings.lastWeeklySkipReason ? ` · Skip: ${escapeHtml(settings.lastWeeklySkipReason)}` : ""}</p>
+      </div>
+
+      <div class="admin-email-onboarding">
+        <h4>Onboarding sequence (once-only)</h4>
+        <ul class="admin-email-step-list">
+          ${steps.map((step) => `
+            <li><strong>${escapeHtml(step.key)}</strong> · day ${Number(step.delayDays) || 0} · ${escapeHtml(step.subject || "")} · stamped ${escapeHtml(String(onboarding[step.key] || 0))} users</li>
+          `).join("")}
+        </ul>
+        <div class="panel-form admin-email-test-send">
+          <label>Send one step to a user (admin test)
+            <input type="email" id="adminEmailTestTo" placeholder="teacher@example.com">
+          </label>
+          <label>Step
+            <select id="adminEmailTestStep">
+              <option value="welcome">welcome</option>
+              <option value="tips">tips</option>
+              <option value="explore">explore</option>
+            </select>
+          </label>
+          <button class="ghost-button" type="button" id="adminEmailSendStep">Send step</button>
+          <p class="form-note" id="adminEmailActionMessage"></p>
+        </div>
+      </div>
+
+      <div class="admin-email-preview">
+        <h4>What’s New preview (last 7 days)</h4>
+        ${preview.length ? `
+          <ul>${preview.map((lesson) => `<li><strong>${escapeHtml(lesson.title || "")}</strong> · ${escapeHtml(lesson.age || "")}${lesson.theme ? ` · ${escapeHtml(lesson.theme)}` : ""}</li>`).join("")}</ul>
+        ` : `<div class="empty-state">No newly published lessons in the last 7 days — weekly digest will skip.</div>`}
+      </div>
+
+      <div class="admin-email-events">
+        <h4>Recent email events</h4>
+        <div class="ticket-list">
+          ${events.length ? events.map((ev) => `
+            <article class="ticket-card">
+              <div class="ticket-card-header">
+                <div>
+                  <p class="eyebrow">${escapeHtml(ev.type || "")} · ${escapeHtml(ev.campaign || "")}</p>
+                  <h3>${escapeHtml(ev.templateKey || "event")}</h3>
+                  <p>${escapeHtml(ev.to || "(system)")}${ev.subject ? ` · ${escapeHtml(ev.subject)}` : ""}</p>
+                  <small>${escapeHtml(ev.at ? new Date(ev.at).toLocaleString() : "")}${ev.error ? ` · ${escapeHtml(ev.error)}` : ""}</small>
+                </div>
+              </div>
+            </article>
+          `).join("") : `<div class="empty-state">No email events yet.</div>`}
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    target.innerHTML = `<div class="empty-state">${escapeHtml(error.message || "Could not load email engagement.")}</div>`;
+  }
+}
+
+async function adminEmailEngagementPost(path, body = {}) {
+  const token = adminSession()?.token;
+  if (!token) throw new Error("Admin login required.");
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminToken: token, ...body }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Request failed.");
+  return data;
+}
+
 async function renderContactPage() {
   const target = document.querySelector("#userTicketList");
   if (!target) return;
@@ -32985,6 +33106,7 @@ function applyAdminSectionVisibility() {
     ".launch-readiness-panel",
     ".admin-ticket-panel",
     ".admin-feedback-panel",
+    ".admin-emails-panel",
     ".admin-ai-test-panel",
     ".admin-ai-prompts-panel",
     ".admin-ai-settings-panel",
@@ -33029,6 +33151,10 @@ function applyAdminSectionVisibility() {
     const el = document.querySelector(".admin-feedback-panel");
     if (el) el.hidden = false;
     renderAdminFeedbackCenter();
+  } else if (tab === "emails") {
+    const el = document.querySelector(".admin-emails-panel");
+    if (el) el.hidden = false;
+    renderAdminEmailEngagement();
   } else if (tab === "ai-testing") {
     const el = document.querySelector(".admin-ai-test-panel");
     if (el) el.hidden = false;
@@ -39765,6 +39891,78 @@ document.addEventListener("click", async (event) => {
     const note = prompt("Add an admin note for this feedback item:");
     if (!note) return;
     updateAdminFeedbackItem(feedbackNoteButton.dataset.feedbackNote, { adminNote: note }).catch((error) => console.warn(error));
+    return;
+  }
+
+  if (event.target.closest("#adminEmailRefreshBtn")) {
+    event.preventDefault();
+    renderAdminEmailEngagement();
+    return;
+  }
+  if (event.target.closest("#adminEmailSaveSettings")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminEmailActionMessage");
+    try {
+      await adminEmailEngagementPost("/api/admin/email-engagement/settings", {
+        onboardingEnabled: Boolean(document.querySelector("#adminEmailOnboardingEnabled")?.checked),
+        weeklyWhatsNewEnabled: Boolean(document.querySelector("#adminEmailWeeklyEnabled")?.checked),
+      });
+      if (msg) msg.textContent = "Settings saved.";
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "Could not save settings.";
+    }
+    return;
+  }
+  if (event.target.closest("#adminEmailRunOnboarding")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminEmailActionMessage");
+    try {
+      const data = await adminEmailEngagementPost("/api/admin/email-engagement/run-onboarding", { force: false });
+      if (msg) msg.textContent = `Onboarding sweep: sent ${data.result?.sent || 0}, processed ${data.result?.processed || 0}.`;
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "Onboarding sweep failed.";
+    }
+    return;
+  }
+  if (event.target.closest("#adminEmailRunWeekly")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminEmailActionMessage");
+    try {
+      const data = await adminEmailEngagementPost("/api/admin/email-engagement/run-weekly", { force: true });
+      const result = data.result || {};
+      if (msg) {
+        msg.textContent = result.skipped
+          ? `Weekly digest skipped: ${result.reason || "empty"}.`
+          : `Weekly digest sent to ${result.sent || 0} of ${result.recipients || 0} recipients (${result.lessons?.length || 0} lessons).`;
+      }
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "Weekly digest failed.";
+    }
+    return;
+  }
+  if (event.target.closest("#adminEmailSendStep")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminEmailActionMessage");
+    const email = String(document.querySelector("#adminEmailTestTo")?.value || "").trim();
+    const step = String(document.querySelector("#adminEmailTestStep")?.value || "welcome");
+    if (!email) {
+      if (msg) msg.textContent = "Enter a user email first.";
+      return;
+    }
+    try {
+      const data = await adminEmailEngagementPost("/api/admin/email-engagement/send-step", {
+        email,
+        step,
+        force: true,
+      });
+      if (msg) msg.textContent = `Step ${step}: ${data.result?.reason || (data.result?.sent ? "sent" : "not sent")}.`;
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "Send failed.";
+    }
     return;
   }
 
