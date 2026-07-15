@@ -36,6 +36,7 @@ function accessEndMs(user) {
 
 function membershipHasProAccess(user, nowMs = Date.now()) {
   if (!user) return false;
+  if (String(user.accountStatus || "").toLowerCase() === "disabled" || user.disabled === true) return false;
   if (user.internalAccessOverride === true) return true;
 
   const stripeStatus = String(user.stripeSubscriptionStatus || "").toLowerCase();
@@ -51,9 +52,8 @@ function membershipHasProAccess(user, nowMs = Date.now()) {
   const endMs = accessEndMs(user);
   const periodStillValid = endMs !== null && endMs > nowMs;
 
-  if (stripeStatusIsPaidAccess(stripeStatus)) {
-    return true;
-  }
+  if (stripeStatus === "trialing") return endMs === null || periodStillValid;
+  if (stripeStatus === "active") return true;
 
   if (periodStillValid && (user.plan === "Pro" || user.plan === "Founding" || user.foundingMemberActive)) {
     return true;
@@ -101,27 +101,89 @@ function membershipPlanDisplay(user, nowMs = Date.now()) {
   return "Pro Monthly";
 }
 
+function membershipHasTrialHistory(user) {
+  if (!user) return false;
+  const trialStatus = String(user.trialStatus || "").toLowerCase();
+  const status = String(user.subscriptionStatus || "").toLowerCase();
+  return Boolean(user.trialStart || user.trialEnd)
+    || (trialStatus.includes("trial") && !trialStatus.includes("no trial"))
+    || status.includes("trialing")
+    || status.includes("trial ended")
+    || status.includes("trial canceled");
+}
+
+function membershipHasSubscriptionHistory(user) {
+  if (!user) return false;
+  const status = String(user.subscriptionStatus || "").toLowerCase();
+  const stripeStatus = String(user.stripeSubscriptionStatus || "").toLowerCase();
+  const stripeEvidence = Boolean(user.subscriptionStartedAt || user.stripeSubscriptionId)
+    || ["active", "trialing", "past_due", "unpaid", "canceled"].includes(stripeStatus);
+  if ((user.manualAccessGranted || user.internalAccessOverride) && !stripeEvidence && !membershipHasTrialHistory(user)) return false;
+  return membershipHasTrialHistory(user)
+    || stripeEvidence
+    || (["Pro", "Founding"].includes(user.plan) && !user.internalAccessOverride)
+    || Boolean(user.foundingMemberHistorical || user.foundingMember || user.foundingMemberNumber)
+    || (!user.manualAccessGranted && (
+      status.includes("subscription active")
+      || status.includes("subscription ended")
+      || status.includes("canceled and ended")
+    ));
+}
+
+function membershipPreviousPlanDisplay(user) {
+  if (!user || !membershipHasSubscriptionHistory(user)) return "None";
+  if (membershipHasProAccess(user)) return "None";
+  if (membershipHasTrialHistory(user)) return "Pro Trial";
+  if (membershipFoundingHistorical(user)) return "Founding Member";
+  return user.previousPlan || "Pro";
+}
+
 function membershipStatusDisplay(user, nowMs = Date.now()) {
-  if (user?.internalAccessOverride) return "Internal Access Override";
   const stripeStatus = String(user?.stripeSubscriptionStatus || "").toLowerCase();
   const status = String(user?.subscriptionStatus || "").toLowerCase();
-  const endMs = accessEndMs(user);
 
   if (status.includes("payment failed") || stripeStatus === "unpaid") return "Payment Failed";
   if (status.includes("past due") || stripeStatus === "past_due") return "Past Due";
 
   const hasAccess = membershipHasProAccess(user, nowMs);
   const cancelScheduled = Boolean(user?.cancelAtPeriodEnd) || status.includes("access ends");
+  const trialEndMs = parseIsoMs(user?.trialEnd) || parseIsoMs(user?.accessEndsAt);
+  const stripeTrialActive = stripeStatus === "trialing" && (trialEndMs === null || trialEndMs > nowMs);
+  const manualOnlyAccess = Boolean(user?.internalAccessOverride) && !stripeStatusIsPaidAccess(stripeStatus);
+  const billingActive = stripeStatus === "active" || stripeTrialActive || (hasAccess && !manualOnlyAccess);
 
-  if (!hasAccess && (status.includes("ended") || status.includes("free plan") || stripeStatus === "canceled")) {
-    return "Canceled and Ended";
+  if (cancelScheduled && billingActive) {
+    return stripeTrialActive || membershipUserInTrial(user, nowMs) ? "Cancels at Trial End" : "Cancels at Period End";
   }
-  if (cancelScheduled && hasAccess) {
-    return membershipUserInTrial(user, nowMs) ? "Trialing — Cancels at Trial End" : "Canceling at Period End";
+  if (stripeTrialActive || membershipUserInTrial(user, nowMs)) return "Trial Active";
+  if (billingActive) return "Active";
+  if (membershipHasTrialHistory(user)) {
+    return status.includes("cancel") || String(user?.trialStatus || "").toLowerCase().includes("cancel")
+      ? "Trial Canceled"
+      : "Trial Ended";
   }
-  if (membershipUserInTrial(user, nowMs)) return "Trialing";
-  if (hasAccess) return "Active";
-  return "Free";
+  if (membershipHasSubscriptionHistory(user)) return "Subscription Ended";
+  return "No paid subscription";
+}
+
+function membershipCurrentAccessKey(user, nowMs = Date.now()) {
+  const status = membershipStatusDisplay(user, nowMs);
+  if (status === "Past Due" || status === "Payment Failed") return "past_due";
+  const plan = membershipPlanDisplay(user, nowMs);
+  if (plan === "Trial") return "trial";
+  if (plan === "Founding Member") return "founding";
+  if (plan === "Pro Monthly" || plan === "Pro Annual") return "pro";
+  return "free";
+}
+
+function membershipBillingStatusKey(user, nowMs = Date.now()) {
+  const status = membershipStatusDisplay(user, nowMs);
+  if (status === "No paid subscription") return "never_subscribed";
+  if (status === "Cancels at Trial End" || status === "Cancels at Period End") return "canceling";
+  if (status === "Trial Canceled") return "canceled";
+  if (status === "Trial Ended" || status === "Subscription Ended") return "ended";
+  if (status === "Past Due" || status === "Payment Failed") return "payment_failed";
+  return "active";
 }
 
 function planKeyFromStripePriceHints(subscription, user = {}) {
@@ -174,6 +236,12 @@ function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventTyp
   const accessEndsAt = stripeStatus === "trialing" && trialEndIso ? trialEndIso : periodEndIso;
   const cancelAtPeriodEnd = Boolean(subscription?.cancel_at_period_end);
   const nowMs = Date.now();
+  const previousStripeStatus = String(user?.stripeSubscriptionStatus || "").toLowerCase();
+  const previousTrialStatus = String(user?.trialStatus || "").toLowerCase();
+  const previousStatus = String(user?.subscriptionStatus || "").toLowerCase();
+  const endedDuringTrial = stripeStatus === "trialing"
+    || previousStripeStatus === "trialing"
+    || (previousTrialStatus.includes("in trial") && previousStatus.includes("trial"));
   const ended = eventType === "deleted"
     || stripeStatus === "canceled"
     || stripeStatus === "unpaid"
@@ -194,16 +262,24 @@ function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventTyp
   };
 
   if (ended) {
+    const endedAt = accessEndsAt && parseIsoMs(accessEndsAt) <= nowMs
+      ? accessEndsAt
+      : new Date().toISOString();
+    const previousPlan = endedDuringTrial
+      ? "Pro Trial"
+      : (user.foundingMemberActive || user.plan === "Founding" ? "Founding Member" : "Pro");
     return {
       ...base,
       plan: "Free",
       subscriptionCadence: "",
-      subscriptionStatus: "Canceled and Ended",
+      subscriptionStatus: endedDuringTrial ? "Trial Ended" : "Subscription Ended",
       monthlyPrice: "$0/month",
       foundingMemberActive: false,
       foundingMemberHistorical: wasFounding,
       foundingMember: wasFounding,
-      trialStatus: stripeStatus === "trialing" ? "Trial Ended" : user.trialStatus || "",
+      trialStatus: endedDuringTrial ? (cancelAtPeriodEnd ? "Trial Canceled" : "Trial Ended") : user.trialStatus || "",
+      previousPlan,
+      subscriptionEndedAt: endedAt,
     };
   }
 
@@ -242,6 +318,8 @@ function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventTyp
     foundingMember: wasFounding || isFoundingCheckout,
     trialStatus: inTrial ? "In Trial" : (user.trialStatus === "In Trial" ? "Trial Ended" : user.trialStatus || ""),
     priceLock: isFoundingCheckout ? "Lifetime" : user.priceLock || "",
+    internalAccessOverride: false,
+    manualAccessGranted: false,
   };
 }
 
@@ -252,6 +330,11 @@ module.exports = {
   membershipFoundingHistorical,
   membershipPlanDisplay,
   membershipStatusDisplay,
+  membershipHasTrialHistory,
+  membershipHasSubscriptionHistory,
+  membershipPreviousPlanDisplay,
+  membershipCurrentAccessKey,
+  membershipBillingStatusKey,
   planKeyFromStripeSubscription,
   stripeSubscriptionToMembershipUpdates,
   accessEndMs,

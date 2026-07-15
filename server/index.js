@@ -2551,6 +2551,8 @@ function applyCheckoutMembershipUpgrade(email, {
     foundingMemberNumber: founding.foundingMemberNumber,
     subscriptionStartedAt: new Date().toISOString(),
     paymentMethod: "Managed in Stripe",
+    internalAccessOverride: false,
+    manualAccessGranted: false,
     pendingPlan: "",
     pendingPromoCode: "",
     pendingTrialDays: 0,
@@ -4793,6 +4795,9 @@ function membershipSummaryForUser(user, storeRef = null) {
     capabilities: access.capabilities,
     membershipPlan: membershipPlanDisplay(user),
     membershipStatus: membershipStatusDisplay(user),
+    currentAccess: membershipAccess.membershipCurrentAccessKey(user),
+    billingStatus: membershipAccess.membershipBillingStatusKey(user),
+    previousPlan: membershipAccess.membershipPreviousPlanDisplay(user),
     hasProAccess: membershipHasProAccess(user),
     foundingMemberHistorical: membershipAccess.membershipFoundingHistorical(user),
     foundingMemberActive: membershipAccess.membershipFoundingActive(user),
@@ -4817,10 +4822,29 @@ function membershipSummaryForUser(user, storeRef = null) {
     canceledAt: !membershipHasProAccess(user) && String(user?.subscriptionStatus || "").toLowerCase().includes("ended")
       ? (user?.accessEndsAt || user?.updatedAt || "")
       : "",
+    subscriptionEndedAt: user?.subscriptionEndedAt || "",
+    lastSuccessfulPaymentAt: user?.lastSuccessfulPaymentAt || "",
+    lastFailedPaymentAt: user?.lastFailedPaymentAt || "",
+    nextPaymentRetryAt: user?.nextPaymentRetryAt || "",
+    hasPaymentMethod: typeof user?.hasPaymentMethod === "boolean" ? user.hasPaymentMethod : null,
+    willTrialConvertToPaid: membershipUserInTrial(user) ? !user?.cancelAtPeriodEnd : null,
+    accessSource: user?.internalAccessOverride && !user?.stripeSubscriptionId
+      ? "Manual admin grant"
+      : user?.promoRedeemedAt && membershipUserInTrial(user)
+        ? "Promo trial"
+        : membershipAccess.membershipFoundingActive(user)
+          ? "Founding subscription"
+          : user?.stripeSubscriptionId
+            ? "Stripe subscription"
+            : user?.manualAccessGranted
+              ? "Previous manual admin grant"
+              : "Free account",
     lastMembershipSyncAt: user?.lastStripeSyncAt || user?.updatedAt || "",
     lastStripeSyncAt: user?.lastStripeSyncAt || user?.updatedAt || "",
     stripeSubscriptionStatus: user?.stripeSubscriptionStatus || "",
     stripeCustomerRef: user?.stripeCustomerId ? `cus_…${String(user.stripeCustomerId).slice(-6)}` : "",
+    stripeCustomerId: user?.stripeCustomerId || "",
+    stripeSubscriptionId: user?.stripeSubscriptionId || "",
     internalAccessOverride: Boolean(user?.internalAccessOverride),
     membershipAuditRecent: audits,
   };
@@ -5024,6 +5048,14 @@ async function handleStripeWebhook(request, response) {
       if (userEntry) {
         const [email, user] = userEntry;
         const eventType = event.type === "customer.subscription.deleted" ? "deleted" : "updated";
+        const eventCreated = Number(event.created || 0);
+        const lastEventCreated = Number(user.lastStripeEventCreatedAt || 0);
+        if (eventCreated && lastEventCreated && eventCreated < lastEventCreated) {
+          console.warn(`[membership] webhook_stale_ignored event=${event.id} email=${email} created=${eventCreated} last=${lastEventCreated}`);
+          if (event?.id) markProcessedStripeEvent(event.id);
+          jsonResponse(response, 200, { received: true, stale: true });
+          return;
+        }
         const updates = membershipUpdatesFromStripeSubscription(subscription, user, eventType);
         if (updates.foundingMemberActive && !user.foundingMemberNumber) {
           const claim = claimFoundingSpot(email);
@@ -5037,6 +5069,8 @@ async function handleStripeWebhook(request, response) {
         }
         const saved = upsertUser(email, {
           ...updates,
+          lastStripeEventCreatedAt: eventCreated || lastEventCreated,
+          lastStripeEventId: event.id || user.lastStripeEventId || "",
           paymentMethod: updates.plan === "Free" ? user.paymentMethod || "Managed in Stripe" : "Managed in Stripe",
           pendingPlan: "",
         });
@@ -5071,6 +5105,14 @@ async function handleStripeWebhook(request, response) {
           const liveSub = await stripeGet(`subscriptions/${encodeURIComponent(invoice.subscription)}`);
           if (liveSub?.id) {
             const synced = upsertStripeSubscription(userEntry[0], invoice.customer, liveSub);
+            upsertUser(userEntry[0], {
+              lastSuccessfulPaymentAt: new Date(Number(invoice.created || event.created || Date.now() / 1000) * 1000).toISOString(),
+              lastFailedPaymentAt: "",
+              nextPaymentRetryAt: "",
+              hasPaymentMethod: Boolean(invoice.payment_intent || invoice.default_payment_method || synced.hasPaymentMethod),
+              lastStripeEventCreatedAt: Math.max(Number(synced.lastStripeEventCreatedAt || 0), Number(event.created || 0)),
+              lastStripeEventId: event.id || synced.lastStripeEventId || "",
+            });
             logMembershipTransition("payment_received", userEntry[0], {
               plan: synced.plan,
               subscriptionStatus: synced.subscriptionStatus,
@@ -5090,6 +5132,14 @@ async function handleStripeWebhook(request, response) {
       const userEntry = findUserEntryByStripeCustomer(store, invoice.customer, invoice.customer_email);
       if (userEntry) {
         const [email, existing] = userEntry;
+        const eventCreated = Number(event.created || 0);
+        const lastEventCreated = Number(existing.lastStripeEventCreatedAt || 0);
+        if (eventCreated && lastEventCreated && eventCreated < lastEventCreated) {
+          console.warn(`[membership] webhook_stale_ignored event=${event.id} email=${email} created=${eventCreated} last=${lastEventCreated}`);
+          if (event?.id) markProcessedStripeEvent(event.id);
+          jsonResponse(response, 200, { received: true, stale: true });
+          return;
+        }
         const updated = upsertUser(email, {
           plan: "Free",
           subscriptionStatus: "Payment Failed - Action Needed",
@@ -5101,6 +5151,12 @@ async function handleStripeWebhook(request, response) {
           foundingMemberNumber: existing?.foundingMemberNumber || null,
           priceLock: existing?.foundingMemberHistorical || existing?.foundingMember ? "Lifetime" : "",
           lastStripeSyncAt: new Date().toISOString(),
+          lastFailedPaymentAt: new Date(Number(invoice.created || event.created || Date.now() / 1000) * 1000).toISOString(),
+          nextPaymentRetryAt: invoice.next_payment_attempt
+            ? new Date(Number(invoice.next_payment_attempt) * 1000).toISOString()
+            : "",
+          lastStripeEventCreatedAt: eventCreated || lastEventCreated,
+          lastStripeEventId: event.id || existing.lastStripeEventId || "",
         });
         appendMembershipLifecycleAudit(email, "payment_failed", {
           note: "Payment failed — Pro access revoked until Stripe recovers",
@@ -6417,20 +6473,25 @@ function analyticsSummary(store) {
   });
   const returningVisitors = Object.values(visitorDays).filter((days) => days.size > 1).length;
   const paidUsers = users.filter((user) => membershipHasProAccess(user) && String(user.accountStatus || "Active") !== "Disabled");
-  const canceledUsers = users.filter((user) => membershipStatusDisplay(user) === "Canceled and Ended");
-  const cancelingUsers = users.filter((user) => {
-    const status = membershipStatusDisplay(user);
-    return status === "Canceling at Period End" || status === "Trialing — Cancels at Trial End";
-  });
-  const trialUsers = users.filter((user) => {
-    const plan = membershipPlanDisplay(user);
-    const status = membershipStatusDisplay(user);
-    return plan === "Trial" || String(status || "").toLowerCase().includes("trial");
-  });
-  const pastDueUsers = users.filter((user) => {
-    const status = membershipStatusDisplay(user);
-    return status === "Payment Failed" || status === "Past Due";
-  });
+  const currentAccessCounts = {
+    free: users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "free").length,
+    trial: users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "trial").length,
+    pro: users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "pro").length,
+    founding: users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "founding").length,
+    pastDue: users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "past_due").length,
+  };
+  const billingStatusCounts = {
+    active: users.filter((user) => membershipAccess.membershipBillingStatusKey(user) === "active").length,
+    canceling: users.filter((user) => membershipAccess.membershipBillingStatusKey(user) === "canceling").length,
+    canceled: users.filter((user) => membershipAccess.membershipBillingStatusKey(user) === "canceled").length,
+    ended: users.filter((user) => membershipAccess.membershipBillingStatusKey(user) === "ended").length,
+    paymentFailed: users.filter((user) => membershipAccess.membershipBillingStatusKey(user) === "payment_failed").length,
+    neverSubscribed: users.filter((user) => membershipAccess.membershipBillingStatusKey(user) === "never_subscribed").length,
+  };
+  const canceledUsers = users.filter((user) => ["canceled", "ended"].includes(membershipAccess.membershipBillingStatusKey(user)));
+  const cancelingUsers = users.filter((user) => membershipAccess.membershipBillingStatusKey(user) === "canceling");
+  const trialUsers = users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "trial");
+  const pastDueUsers = users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "past_due");
   const revenueItems = [
     ...paidEvents,
     ...billingEvents.filter((event) => !String(event.type || "").toLowerCase().includes("cancel")),
@@ -6535,10 +6596,10 @@ function analyticsSummary(store) {
       uniqueVisitors: uniqueVisitors.size,
       signups: Math.max(signups.length, users.length),
       totalRegisteredUsers: users.length,
-      freeUsers: users.filter((user) => !membershipHasProAccess(user)).length,
+      freeUsers: currentAccessCounts.free,
       trialUsers: trialUsers.length,
-      proUsers: users.filter((user) => membershipHasProAccess(user) && membershipPlanDisplay(user) !== "Founding Member" && membershipPlanDisplay(user) !== "Trial").length,
-      foundingMembers: users.filter((user) => membershipAccess.membershipFoundingActive(user)).length,
+      proUsers: currentAccessCounts.pro,
+      foundingMembers: currentAccessCounts.founding,
       homeDaycareAccounts,
       centerAccounts,
       singleProviderAccounts,
@@ -6552,6 +6613,8 @@ function analyticsSummary(store) {
       canceledSubscriptions: canceledUsers.length,
       pastDueUsers: pastDueUsers.length,
       failedPayments: pastDueUsers.length,
+      currentAccessCounts,
+      billingStatusCounts,
       returningVisitors,
       visitorToSignupRate: rate(Math.max(signups.length, users.length), Math.max(uniqueVisitors.size, visits.length)),
       signupToPaidRate: rate(paidUsers.length, Math.max(signups.length, users.length)),
