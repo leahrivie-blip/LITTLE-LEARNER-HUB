@@ -1236,6 +1236,7 @@ function publicCurriculumActivityPreviewDto(activity, parentPlan) {
   const entry = normalizedCurriculumActivity(activity);
   if (!entry || entry.status !== "published") return null;
   if (!parentPlan || !isCurriculumLessonPublic(parentPlan.status) || parentPlan.plan !== "Pro") return null;
+  // Overview teaser only — no description/materials/steps/teacher language/etc.
   return {
     id: entry.id,
     lessonPlanId: entry.lessonPlanId,
@@ -1244,7 +1245,6 @@ function publicCurriculumActivityPreviewDto(activity, parentPlan) {
     dayOfWeek: entry.dayOfWeek,
     plan: parentPlan.plan,
     locked: true,
-    description: curriculumTextExcerpt(entry.description, 40),
     learningDomains: entry.learningDomains.slice(0, 3),
     parentTitle: parentPlan.title,
     parentAge: parentPlan.age,

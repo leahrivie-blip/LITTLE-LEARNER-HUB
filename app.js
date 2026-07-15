@@ -4504,18 +4504,21 @@ function loadCurriculumManagedLessonPlans() {
 function loadCurriculumManagedActivities() {
   return effectiveCurriculumLibrary().activities
     .filter((item) => item.id && item.title && item.lessonPlanId)
-    .map((item) => ({
+    .map((item) => {
+      const lockedTeaser = item.locked === true || item.parentPlan === "Pro";
+      return {
       id: item.id,
       category: "Activity Center",
       title: item.title,
       age: item.parentAge || "All Ages",
       plan: item.parentPlan || "Free",
-      description: item.description || "",
+      // Locked Pro teasers never carry activity how-to copy into the library card.
+      description: lockedTeaser ? "" : (item.description || ""),
       theme: item.parentTheme || item.activityCategory || "",
       tags: [item.activityCategory, item.dayOfWeek, item.parentTitle, item.parentTheme].filter(Boolean),
       previewData: "",
       fileData: "",
-      customContent: buildActivityTextFromCurriculum(item),
+      customContent: lockedTeaser ? "" : buildActivityTextFromCurriculum(item),
       downloadUrl: "",
       format: "Play-Based Activity",
       visible: true,
@@ -4523,26 +4526,27 @@ function loadCurriculumManagedActivities() {
       updatedAt: item.updatedAt || "",
       activityCategory: item.activityCategory || "Open-Ended Exploration",
       lessonPlanId: item.lessonPlanId,
-      objective: item.objective || "",
-      materials: item.materials || "",
-      setup: item.setup || "",
-      steps: item.steps || "",
-      learningGoals: Array.isArray(item.learningGoals) ? item.learningGoals : [],
+      objective: lockedTeaser ? "" : (item.objective || ""),
+      materials: lockedTeaser ? "" : (item.materials || ""),
+      setup: lockedTeaser ? "" : (item.setup || ""),
+      steps: lockedTeaser ? "" : (item.steps || ""),
+      learningGoals: lockedTeaser ? [] : (Array.isArray(item.learningGoals) ? item.learningGoals : []),
       learningDomains: Array.isArray(item.learningDomains) ? item.learningDomains : [],
-      teacherRole: item.teacherRole || "",
-      teacherLanguage: item.teacherLanguage || "",
-      observationOpportunities: item.observationOpportunities || "",
-      vocabulary: item.vocabulary || "",
-      extensions: item.extensions || "",
-      adaptations: item.adaptations || "",
-      safetyNotes: item.safetyNotes || "",
-      ageModifications: item.ageModifications || "",
+      teacherRole: lockedTeaser ? "" : (item.teacherRole || ""),
+      teacherLanguage: lockedTeaser ? "" : (item.teacherLanguage || ""),
+      observationOpportunities: lockedTeaser ? "" : (item.observationOpportunities || ""),
+      vocabulary: lockedTeaser ? "" : (item.vocabulary || ""),
+      extensions: lockedTeaser ? "" : (item.extensions || ""),
+      adaptations: lockedTeaser ? "" : (item.adaptations || ""),
+      safetyNotes: lockedTeaser ? "" : (item.safetyNotes || ""),
+      ageModifications: lockedTeaser ? "" : (item.ageModifications || ""),
       _curriculumManaged: true,
       _curriculumLessonPlanId: item.lessonPlanId,
       _curriculumParentTitle: item.parentTitle || "",
       _curriculumParentTheme: item.parentTheme || "",
       _curriculumActivity: item,
-    }));
+    };
+    });
 }
 
 const CURRICULUM_WEEKDAYS = Object.freeze(["monday", "tuesday", "wednesday", "thursday", "friday"]);
@@ -15896,7 +15900,10 @@ function openLockedResourcePreview(resource, triggerEl = null) {
     .join("");
   featurePreviewTrigger = triggerEl || document.activeElement || null;
   const isLockedLessonPlan = Boolean(resource._curriculumManaged && resource.category === "Lesson Plans");
-  featurePreviewEyebrow.textContent = isLockedLessonPlan ? "Pro Lesson Plan Preview" : "Pro Resource Preview";
+  const isLockedActivity = Boolean(resource._curriculumManaged && resource.category === "Activity Center");
+  featurePreviewEyebrow.textContent = isLockedLessonPlan
+    ? "Pro Lesson Plan Preview"
+    : (isLockedActivity ? "Pro Activity Preview" : "Pro Resource Preview");
   featurePreviewTitle.textContent = resource.title;
   const lockedUpgradeCta = canSeePaidUpgradeOffer()
     ? `<button class="primary-button" data-checkout-plan="${preferredPaidCheckoutPlan()}" type="button">Upgrade to Pro</button>`
@@ -15904,17 +15911,28 @@ function openLockedResourcePreview(resource, triggerEl = null) {
   const stickyUpgradeCta = lockedUpgradeCta;
   const lockedUpgradeNote = canSeePaidUpgradeOffer() && foundingSpotsStillAvailable()
     ? "Founding Member pricing still available — lock in $9.99/month for life. Regular price $19.99/month."
-    : (typeof proTrialUpgradeSummary === "string" ? proTrialUpgradeSummary : "Upgrade to unlock the full lesson plan.");
+    : (typeof proTrialUpgradeSummary === "string"
+      ? proTrialUpgradeSummary
+      : (isLockedActivity ? "Upgrade to unlock the full activity." : "Upgrade to unlock the full lesson plan."));
   const showFoundingOffer = canSeePaidUpgradeOffer() && foundingSpotsStillAvailable();
+  const renderApi = curriculumViewerRenderApi();
   const lockedCurriculum = isLockedLessonPlan
-    ? curriculumViewerRenderApi()?.lockedCurriculumLessonPreviewHtml(resource, {
+    ? renderApi?.lockedCurriculumLessonPreviewHtml(resource, {
       upgradeCtaHtml: lockedUpgradeCta,
       upgradeNote: lockedUpgradeNote,
       showFoundingOffer,
     })
-    : null;
+    : (isLockedActivity
+      ? renderApi?.lockedCurriculumActivityPreviewHtml(resource, {
+        upgradeCtaHtml: lockedUpgradeCta,
+        upgradeNote: lockedUpgradeNote,
+        showFoundingOffer,
+      })
+      : null);
+  const lockedPreviewClass = isLockedActivity ? "fp-pro-activity-preview" : "fp-pro-lesson-preview";
+  const lockedPreviewAttr = isLockedActivity ? "data-fp-pro-activity-preview" : "data-fp-pro-lesson-preview";
   featurePreviewBody.innerHTML = lockedCurriculum ? `
-    <section class="section-block fp-pro-lesson-preview" style="margin:0;" data-fp-pro-lesson-preview>
+    <section class="section-block ${lockedPreviewClass}" style="margin:0;" ${lockedPreviewAttr}>
       ${lockedCurriculum.html}
     </section>
   ` : `
@@ -15939,12 +15957,14 @@ function openLockedResourcePreview(resource, triggerEl = null) {
     stickyBar.dataset.fpStickyUpgrade = "";
     featurePreviewModal.querySelector(".feature-preview-card")?.appendChild(stickyBar);
   }
-  if (isLockedLessonPlan) {
+  if (isLockedLessonPlan || isLockedActivity) {
     stickyBar.hidden = false;
     stickyBar.innerHTML = `
       <div class="fp-sticky-upgrade-copy">
-        <strong>Unlock this Pro lesson plan</strong>
-        <span>${showFoundingOffer ? "Founding Member: $9.99/month for life" : "Get full Monday–Friday plans"}</span>
+        <strong>${isLockedActivity ? "Unlock this Pro activity" : "Unlock this Pro lesson plan"}</strong>
+        <span>${showFoundingOffer
+          ? "Founding Member: $9.99/month for life"
+          : (isLockedActivity ? "Get full materials, steps &amp; guidance" : "Get full Monday–Friday plans")}</span>
       </div>
       ${stickyUpgradeCta}
     `;

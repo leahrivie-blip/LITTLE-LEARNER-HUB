@@ -310,6 +310,13 @@ async function main() {
     const proActivityPublic = (publicLoggedOut.json.siteContent?.curriculumLibrary?.activities || []).find((item) => item.id === ids.proActivityId);
     assert(proActivityPublic?.locked === true, "pro activity public preview locked");
     assert(proActivityPublic?.lessonPlanId === ids.proId, "pro activity public preview must include lessonPlanId");
+    assert(!proActivityPublic.description, "pro activity public preview must not expose description");
+    assert(!proActivityPublic.objective, "pro activity public preview must not expose objective");
+    assert(!proActivityPublic.materials, "pro activity public preview must not expose materials");
+    assert(!proActivityPublic.steps, "pro activity public preview must not expose steps");
+    assert(!proActivityPublic.teacherLanguage, "pro activity public preview must not expose teacher language");
+    assert(!proActivityPublic.setup, "pro activity public preview must not expose setup");
+    assert(proActivityPublic.activityCategory || proActivityPublic.title, "pro activity preview should keep overview metadata");
     assertNoProtectedStrings(proActivityPublic, "logged-out pro activity public DTO");
     const freeActivityDenied = await requestJson("GET", `/api/curriculum/activities/${encodeURIComponent(ids.proActivityId)}`, null, {
       headers: authHeader("free@security.test"),

@@ -10,7 +10,10 @@ const os = require("os");
 const { spawn } = require("child_process");
 const crypto = require("crypto");
 const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-parser.js");
-const { lockedCurriculumLessonPreviewHtml } = require("./curriculum-lesson-viewer-render.js");
+const {
+  lockedCurriculumLessonPreviewHtml,
+  lockedCurriculumActivityPreviewHtml,
+} = require("./curriculum-lesson-viewer-render.js");
 
 const ROOT = path.join(__dirname, "..");
 const SAMPLE = path.join(ROOT, "scripts/curriculum-import-samples/label-only-garden-scientists-v3.txt");
@@ -201,6 +204,42 @@ async function main() {
   assert(!/Old MacDonald/.test(previewHtml.html), "preview leaked song titles");
   assert(!/Count animals and practice vocabulary/.test(previewHtml.html), "preview leaked objectives");
 
+  console.log("0b) Locked activity preview HTML shows overview only (no how-to content)");
+  const activityPreview = lockedCurriculumActivityPreviewHtml(
+    {
+      title: "Soil Exploration Bin",
+      age: "Preschool",
+      activityCategory: "Sensory Play",
+      _curriculumParentTitle: "Preview Audit Garden Scientists",
+      _curriculumActivity: {
+        title: "Soil Exploration Bin",
+        activityCategory: "Sensory Play",
+        dayOfWeek: "monday",
+        parentTitle: "Preview Audit Garden Scientists",
+        parentAge: "Preschool",
+        description: "Children use scoops and magnifying glasses to explore soil at a sensory table.",
+        objective: "Children explore soil texture using hands and tools.",
+        materials: "Bin of potting soil, scoops, small pots, smocks",
+        steps: "Invite children to scoop and feel the soil.",
+        teacherLanguage: "I notice the soil feels damp",
+        learningDomains: ["Science", "Language"],
+      },
+    },
+    {
+      upgradeCtaHtml: '<button type="button" data-checkout-plan="founding">Upgrade to Pro</button>',
+      showFoundingOffer: true,
+    },
+  );
+  assert(/Activity Type|Sensory Play/.test(activityPreview.html), "activity preview missing activity type");
+  assert(/From Lesson Plan|Preview Audit Garden Scientists/.test(activityPreview.html), "activity preview missing parent lesson");
+  assert(/Pro Activity|Unlock this premium activity/.test(activityPreview.html), "activity preview missing upgrade card");
+  assert(/Founding Member Pricing Still Available/.test(activityPreview.html), "activity preview missing founding offer");
+  assert(!/Children use scoops and magnifying glasses/.test(activityPreview.html), "activity preview leaked description");
+  assert(!/Invite children to scoop/.test(activityPreview.html), "activity preview leaked directions");
+  assert(!/Bin of potting soil/.test(activityPreview.html), "activity preview leaked materials");
+  assert(!/I notice the soil feels damp/.test(activityPreview.html), "activity preview leaked teacher language");
+  assert(!/Children explore soil texture using hands/.test(activityPreview.html), "activity preview leaked objective");
+
   const child = startServer();
   let browser;
   try {
@@ -225,6 +264,20 @@ async function main() {
     assert(!(proPublic.songs || []).length, "public pro plan must not expose songs");
     assert(!proPublic.dailyActivityPreview, "public pro plan must not expose dailyActivityPreview");
     assert(!JSON.stringify(proPublic).includes("Invite children to scoop"), "public preview leaked directions");
+
+    const proActivities = (publicContent.json.siteContent?.curriculumLibrary?.activities || [])
+      .filter((item) => item.lessonPlanId === planId);
+    assert(proActivities.length > 0, "pro lesson should publish linked activities");
+    for (const activity of proActivities) {
+      assert(activity.locked === true, `activity ${activity.id} should be locked publicly`);
+      assert(!activity.description, `activity ${activity.id} must not expose description`);
+      assert(!activity.objective, `activity ${activity.id} must not expose objective`);
+      assert(!activity.materials, `activity ${activity.id} must not expose materials`);
+      assert(!activity.steps, `activity ${activity.id} must not expose steps`);
+      assert(!activity.teacherLanguage, `activity ${activity.id} must not expose teacher language`);
+      assert(!JSON.stringify(activity).includes("Invite children to scoop"), `activity ${activity.id} leaked directions`);
+      assert(!JSON.stringify(activity).includes("Children use scoops"), `activity ${activity.id} leaked description copy`);
+    }
 
     console.log("2) Membership detail access matrix");
     const denied = ["free@preview.test", "promo-only@preview.test"];
@@ -295,6 +348,46 @@ async function main() {
     assert(!/fp-locked-activity-list/.test(locked.html), "locked preview must not list activity names");
     assert(!/<label>Weekly Objectives|<label>Materials List|<label>Vocabulary|<label>Books|<label>Songs|<label>Daily Activities/i.test(locked.html), "locked preview leaked premium section fields");
     assert(!/Farm Animal|Sensory Bin|Invite children|Planting a Rainbow/i.test(locked.body), "locked preview leaked premium content strings");
+
+    console.log("3b) Free user sees overview-only Pro activity preview with upgrade card");
+    await page.evaluate(() => {
+      if (typeof closeFeaturePreviewModal === "function") closeFeaturePreviewModal();
+      else {
+        const modal = document.getElementById("featurePreviewModal");
+        if (modal) {
+          modal.classList.remove("open");
+          modal.setAttribute("aria-hidden", "true");
+        }
+      }
+    });
+    await page.evaluate(() => setView("activities"));
+    await page.waitForSelector("#view-activities.active-view", { timeout: 8000 });
+    await page.waitForTimeout(500);
+    const activityCard = page.locator("#view-activities .resource-card").filter({ hasText: "Soil Exploration Bin" }).first();
+    await activityCard.waitFor({ state: "visible", timeout: 10000 });
+    const cardText = await activityCard.innerText();
+    assert(!/Children use scoops|Invite children to scoop|Bin of potting soil/i.test(cardText), "activity card leaked how-to content");
+    await activityCard.locator("[data-view-resource]").click({ force: true });
+    await page.waitForSelector("#featurePreviewModal.open", { timeout: 10000 });
+    const lockedActivity = await page.evaluate(() => ({
+      workspace: Boolean(document.querySelector("#resourceViewerModal.open")),
+      body: document.querySelector("#featurePreviewBody")?.innerText || "",
+      html: document.querySelector("#featurePreviewBody")?.innerHTML || "",
+      stickyVisible: Boolean(document.querySelector("#featurePreviewModal.fp-has-sticky-upgrade [data-fp-sticky-upgrade]:not([hidden])")),
+      stickyText: document.querySelector("[data-fp-sticky-upgrade]")?.innerText || "",
+      eyebrow: document.querySelector("#featurePreviewEyebrow")?.textContent || "",
+    }));
+    assert(!lockedActivity.workspace, "free user must not open full activity viewer for Pro activity");
+    assert(/Pro Activity Preview/i.test(lockedActivity.eyebrow), "activity preview missing Pro Activity eyebrow");
+    assert(/Activity Type|Sensory Play|From Lesson Plan|Learning Domains/i.test(lockedActivity.body), `activity preview missing overview metadata: ${lockedActivity.body.slice(0, 240)}`);
+    assert(/Unlock this premium activity|Pro Activity/i.test(lockedActivity.body), "activity preview missing upgrade card");
+    assert(/Upgrade to Pro/i.test(lockedActivity.body + lockedActivity.stickyText), "activity preview missing Upgrade to Pro CTA");
+    assert(lockedActivity.stickyVisible, "mobile sticky upgrade bar should be visible for activities");
+    assert(!/Children use scoops and magnifying glasses/i.test(lockedActivity.body), "activity preview leaked description");
+    assert(!/Invite children to scoop/i.test(lockedActivity.body), "activity preview leaked directions");
+    assert(!/Bin of potting soil/i.test(lockedActivity.body), "activity preview leaked materials");
+    assert(!/I notice the soil feels damp/i.test(lockedActivity.body), "activity preview leaked teacher language");
+    assert(!/<label>Objective|<label>Description|<label>Materials|<label>Directions/i.test(lockedActivity.html), "activity preview leaked premium field labels");
 
     console.log("4) Promo-only account remains Free for Pro content");
     await page.evaluate(() => {

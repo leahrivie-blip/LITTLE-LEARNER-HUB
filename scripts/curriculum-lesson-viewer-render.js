@@ -336,6 +336,24 @@ function renderCurriculumActivityHtml(activity = {}, options = {}) {
   `;
 }
 
+function lockedFoundingOfferHtml(showFoundingOffer) {
+  if (!showFoundingOffer) return "";
+  return `
+    <div class="fp-founding-offer" data-fp-founding-offer>
+      <p class="fp-founding-offer-eyebrow">🔥 Founding Member Pricing Still Available</p>
+      <p>Lock in <strong>$9.99/month for life</strong> and receive unlimited access to:</p>
+      <ul class="fp-pro-upgrade-benefits fp-founding-benefits">
+        <li>• Every Pro Lesson Plan</li>
+        <li>• Every Activity</li>
+        <li>• Future Curriculum Releases</li>
+        <li>• Documentation Helpers</li>
+        <li>• New Features as They Launch</li>
+      </ul>
+      <p class="fp-founding-regular-price">Regular Price: <span>$19.99/month</span></p>
+    </div>
+  `;
+}
+
 function lockedCurriculumLessonPreviewHtml(resource = {}, options = {}) {
   // Pro lesson previews intentionally sell quality without revealing plan content.
   // Visible: title (set by caller), age, theme, learning domains, weekly overview.
@@ -377,20 +395,63 @@ function lockedCurriculumLessonPreviewHtml(resource = {}, options = {}) {
           <li>✓ Observation Opportunities</li>
           <li>✓ Adaptations &amp; Extensions</li>
         </ul>
-        ${showFoundingOffer ? `
-          <div class="fp-founding-offer" data-fp-founding-offer>
-            <p class="fp-founding-offer-eyebrow">🔥 Founding Member Pricing Still Available</p>
-            <p>Lock in <strong>$9.99/month for life</strong> and receive unlimited access to:</p>
-            <ul class="fp-pro-upgrade-benefits fp-founding-benefits">
-              <li>• Every Pro Lesson Plan</li>
-              <li>• Every Activity</li>
-              <li>• Future Curriculum Releases</li>
-              <li>• Documentation Helpers</li>
-              <li>• New Features as They Launch</li>
-            </ul>
-            <p class="fp-founding-regular-price">Regular Price: <span>$19.99/month</span></p>
-          </div>
-        ` : ""}
+        ${lockedFoundingOfferHtml(showFoundingOffer)}
+        ${upgradeCtaHtml ? `<div class="fp-pro-upgrade-actions pro-modal-actions">${upgradeCtaHtml}</div>` : ""}
+        ${upgradeNote ? `<p class="fp-pro-upgrade-note"><small>${escapeHtml(upgradeNote)}</small></p>` : ""}
+      </section>
+    `,
+  };
+}
+
+function lockedCurriculumActivityPreviewHtml(resource = {}, options = {}) {
+  // Pro activity previews show overview metadata only — no activity how-to content.
+  // Visible: title (set by caller), age, activity type, day, learning domains, parent lesson.
+  // Hidden: description, objective, materials, setup, steps, teacher role/language,
+  // learning goals, observations, vocabulary, extensions, adaptations, safety notes.
+  const activity = resource._curriculumActivity && typeof resource._curriculumActivity === "object"
+    ? resource._curriculumActivity
+    : {};
+  const age = resource.age || activity.parentAge || "All Ages";
+  const category = resource.activityCategory || activity.activityCategory || resource.theme || "";
+  const dayRaw = String(activity.dayOfWeek || "").trim().toLowerCase();
+  const dayLabel = dayRaw
+    ? `${dayRaw.charAt(0).toUpperCase()}${dayRaw.slice(1)}`
+    : "";
+  const domains = asStringArray(activity.learningDomains || resource.learningDomains)
+    .slice(0, 3)
+    .map((domain) => `<span class="tag">${escapeHtml(domain)}</span>`)
+    .join("");
+  const parentTitle = resource._curriculumParentTitle || activity.parentTitle || "";
+  const upgradeCtaHtml = String(options.upgradeCtaHtml || "").trim();
+  const upgradeNote = String(options.upgradeNote || "").trim();
+  const showFoundingOffer = options.showFoundingOffer !== false;
+
+  return {
+    title: resource.title || activity.title || "Activity",
+    html: `
+      <div class="fp-pro-teaser" data-fp-pro-teaser data-fp-pro-activity-teaser>
+        <div class="fp-field"><label>Age Group</label><div class="fp-field-value">${escapeHtml(age)}</div></div>
+        ${category ? `<div class="fp-field"><label>Activity Type</label><div class="fp-field-value">${escapeHtml(category)}</div></div>` : ""}
+        ${dayLabel ? `<div class="fp-field"><label>Day</label><div class="fp-field-value">${escapeHtml(dayLabel)}</div></div>` : ""}
+        ${parentTitle ? `<div class="fp-field"><label>From Lesson Plan</label><div class="fp-field-value">${escapeHtml(parentTitle)}</div></div>` : ""}
+        ${domains ? `<div class="fp-field"><label>Learning Domains</label><div class="fp-field-value tag-row">${domains}</div></div>` : ""}
+      </div>
+      <section class="fp-pro-upgrade-card" data-fp-pro-upgrade-card aria-label="Pro Activity upgrade">
+        <p class="fp-pro-upgrade-eyebrow">🔒 Pro Activity</p>
+        <h3>Unlock this premium activity</h3>
+        <p class="muted-copy">This premium activity includes:</p>
+        <ul class="fp-pro-upgrade-benefits">
+          <li>✓ Learning Objective</li>
+          <li>✓ Materials List</li>
+          <li>✓ Setup Instructions</li>
+          <li>✓ Step-by-Step Directions</li>
+          <li>✓ Teacher Role &amp; Language</li>
+          <li>✓ Learning Goals</li>
+          <li>✓ Observation Opportunities</li>
+          <li>✓ Vocabulary Supports</li>
+          <li>✓ Extensions &amp; Adaptations</li>
+        </ul>
+        ${lockedFoundingOfferHtml(showFoundingOffer)}
         ${upgradeCtaHtml ? `<div class="fp-pro-upgrade-actions pro-modal-actions">${upgradeCtaHtml}</div>` : ""}
         ${upgradeNote ? `<p class="fp-pro-upgrade-note"><small>${escapeHtml(upgradeNote)}</small></p>` : ""}
       </section>
@@ -411,6 +472,7 @@ const api = {
   renderCurriculumLessonPlanHtml,
   renderCurriculumActivityHtml,
   lockedCurriculumLessonPreviewHtml,
+  lockedCurriculumActivityPreviewHtml,
 };
 
 if (typeof module !== "undefined" && module.exports) {
