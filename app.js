@@ -2526,6 +2526,37 @@ async function localPasswordHash(password) {
   return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+function dismissOverlaysForAuthOrUpgrade() {
+  // Resource viewer is appended after #authModal in the DOM and shares the default
+  // modal stacking context — close it so signup/upgrade CTAs are never covered.
+  if (typeof dismissResourceViewerForNavigation === "function") {
+    dismissResourceViewerForNavigation();
+  } else if (typeof closeResourceViewer === "function") {
+    closeResourceViewer();
+  }
+  if (typeof closeFeaturePreview === "function") closeFeaturePreview();
+  if (typeof closeProFeatureModal === "function") closeProFeatureModal();
+  if (typeof setHomePublicMenuOpen === "function") setHomePublicMenuOpen(false);
+}
+
+function preferredSignupPlanFromStorage() {
+  try {
+    return String(sessionStorage.getItem("llhSignupPreferredPlan") || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function setPreferredSignupPlan(plan = "") {
+  try {
+    const value = String(plan || "").trim();
+    if (value) sessionStorage.setItem("llhSignupPreferredPlan", value);
+    else sessionStorage.removeItem("llhSignupPreferredPlan");
+  } catch {
+    /* ignore */
+  }
+}
+
 function openAuthModal(mode = "login") {
   if (mode === "signup") {
     signupWizardStep = 1;
@@ -2654,9 +2685,12 @@ function renderSignupPlanChooser() {
   if (!target) return;
   const remaining = foundingSpotsRemaining();
   const soldOut = remaining <= 0;
+  const preferredPlan = preferredSignupPlanFromStorage();
+  const preferFounding = preferredPlan === "founding" && !soldOut;
   syncFoundingStatus({ render: false }).catch(() => {});
   target.innerHTML = `
     <p class="signup-plan-intro">Created by a Childcare Provider. Built for Childcare Providers.</p>
+    ${preferFounding ? `<p class="signup-plan-preferred-note" role="status">You’re locking in Founding Member pricing — here’s everything Pro includes:</p>` : ""}
     ${!soldOut ? `
       <p class="signup-founding-urgency" role="status">
         <span>Founding Member pricing ends forever once all spots are claimed</span>
@@ -2690,7 +2724,7 @@ function renderSignupPlanChooser() {
         <button class="ghost-button" type="button" data-signup-choose-plan="free">Start Free</button>
       </article>
       ${!soldOut ? `
-        <article class="signup-plan-card signup-plan-card--founding">
+        <article class="signup-plan-card signup-plan-card--founding${preferFounding ? " is-preferred" : ""}">
           <span class="signup-plan-badge">Most Popular</span>
           <h3>Founding Member</h3>
           <p class="signup-plan-subtitle">Lock in lifetime pricing before it’s gone</p>
@@ -3657,6 +3691,7 @@ function isPromoLinkActive() {
 
 function requireBillingAccount() {
   if (currentUser) return true;
+  dismissOverlaysForAuthOrUpgrade();
   openAuthModal("signup");
   return false;
 }
@@ -14719,7 +14754,7 @@ function lessonWorkspaceActionBarsHtml(resource) {
         <p>Create an account to use, edit, plan, print, and download lesson plans.</p>
         <div class="llh-public-preview-cta-actions">
           <button class="primary-button" type="button" data-action="start-free">Create Free Account</button>
-          <button class="ghost-button" type="button" data-checkout-plan="founding">Lock In $9.99 Founding Pricing</button>
+          <button class="ghost-button" type="button" data-checkout-plan="founding" data-signup-intent="founding">Lock In $9.99 Founding Pricing</button>
           <button class="ghost-button" type="button" data-lesson-workspace-back>Back to Lesson Plans</button>
         </div>
       </div>
@@ -39204,8 +39239,10 @@ document.addEventListener("click", async (event) => {
   const startFreeButton = event.target.closest("[data-action='start-free']");
   if (startFreeButton) {
     event.preventDefault();
-    setHomePublicMenuOpen(false);
+    dismissOverlaysForAuthOrUpgrade();
     if (!currentUser) {
+      const intent = String(startFreeButton.dataset.signupIntent || "").trim();
+      setPreferredSignupPlan(intent || "");
       openAuthModal("signup");
       return;
     }
@@ -39216,7 +39253,9 @@ document.addEventListener("click", async (event) => {
   const upgradeTrialButton = event.target.closest("[data-action='upgrade-trial']");
   if (upgradeTrialButton) {
     event.preventDefault();
+    dismissOverlaysForAuthOrUpgrade();
     if (!currentUser) {
+      setPreferredSignupPlan("monthly");
       openAuthModal("signup");
       return;
     }
@@ -39227,12 +39266,12 @@ document.addEventListener("click", async (event) => {
   const directTrialButton = event.target.closest("[data-start-pro-trial]");
   if (directTrialButton) {
     event.preventDefault();
+    dismissOverlaysForAuthOrUpgrade();
     if (!currentUser) {
-      closeFeaturePreview();
+      setPreferredSignupPlan("monthly");
       openAuthModal("signup");
       return;
     }
-    closeFeaturePreview();
     if (canSeePaidUpgradeOffer()) {
       await startPreferredPaidCheckout();
       return;
@@ -39244,7 +39283,9 @@ document.addEventListener("click", async (event) => {
   const freePlanButton = event.target.closest("[data-plan='Free']");
   if (freePlanButton) {
     event.preventDefault();
+    dismissOverlaysForAuthOrUpgrade();
     if (!currentUser) {
+      setPreferredSignupPlan("free");
       openAuthModal("signup");
       return;
     }
@@ -39271,9 +39312,26 @@ document.addEventListener("click", async (event) => {
   const checkoutButton = event.target.closest("[data-checkout-plan]");
   if (checkoutButton) {
     event.preventDefault();
-    closeFeaturePreview?.();
-    closeProFeatureModal?.();
-    startCheckout(checkoutButton.dataset.checkoutPlan);
+    const planType = checkoutButton.dataset.checkoutPlan || "monthly";
+    const fromLessonPreviewCta = Boolean(
+      checkoutButton.closest("#resourceViewerModal .llh-public-preview-cta, #resourceViewerModal [data-lesson-action-bars], #resourceViewerModal .llh-public-preview-cta-actions"),
+    );
+    dismissOverlaysForAuthOrUpgrade();
+    if (!currentUser) {
+      setPreferredSignupPlan(planType === "founding" ? "founding" : planType);
+      openAuthModal("signup");
+      return;
+    }
+    // From free lesson preview: show upgrade/plan benefits before Stripe checkout.
+    if (fromLessonPreviewCta && (planType === "founding" || planType === "monthly" || planType === "annual")) {
+      setView("upgrade");
+      requestAnimationFrame(() => {
+        document.querySelector("#upgradeApp .pricing-grid, #upgradeApp [data-checkout-plan]")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+      return;
+    }
+    startCheckout(planType);
     return;
   }
 

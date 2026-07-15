@@ -1,16 +1,16 @@
-const CACHE_NAME = "llh-shell-v39-pwa-install-restore";
+const CACHE_NAME = "llh-shell-v40-preview-cta-fix";
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/styles.css?v=20260715-pwa-install",
+  "/styles.css?v=20260715-preview-cta-fix",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/scripts/curriculum-safe-values.js?v=20260712-v3-render-fix",
   "/scripts/curriculum-lesson-import-parser.js?v=20260715-lesson-system",
   "/scripts/curriculum-import-preview.js?v=20260715-lesson-system",
-  "/scripts/curriculum-lesson-viewer-render.js?v=20260711-phase-d",
+  "/scripts/curriculum-lesson-viewer-render.js?v=20260715-preview-cta-fix",
   "/scripts/llh-schedule.js?v=20260714-prod-priority-fixes",
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
-  "/app.js?v=20260715-pwa-install",
+  "/app.js?v=20260715-preview-cta-fix",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",

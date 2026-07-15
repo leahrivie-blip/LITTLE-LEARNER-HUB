@@ -9943,6 +9943,18 @@ body.lessons-view .mobile-brand {
   display: grid;
 }
 
+/* Auth must sit above dynamically-created resource viewer (z-index 70) and
+   lesson-workspace action sheets (z-index 1200), or signup/upgrade CTAs look dead. */
+#authModal {
+  z-index: 1400;
+}
+
+#featurePreviewModal,
+#proFeatureModal,
+#installAppModal {
+  z-index: 1300;
+}
+
 .modal-card {
   position: relative;
   width: min(460px, 100%);
@@ -19181,12 +19193,49 @@ body.admin-preview-simulating .sidebar .brand h1::after {
   font-size: 1.9rem;
 }
 
+.signup-plan-preferred-note {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(56, 96, 98, 0.08);
+  color: var(--ink, #243041);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.signup-plan-card--founding.is-preferred {
+  box-shadow: 0 0 0 2px rgba(56, 96, 98, 0.45), 0 14px 28px rgba(122, 58, 36, 0.12);
+}
+
 .signup-plan-card--founding {
   border: 2px solid #c45c3e;
   background: linear-gradient(180deg, #fffaf6 0%, #ffffff 42%);
   box-shadow: 0 14px 28px rgba(122, 58, 36, 0.12);
   transform: scale(1.02);
   z-index: 1;
+}
+
+.llh-public-preview-cta {
+  position: relative;
+  z-index: 40;
+  pointer-events: auto;
+}
+
+.llh-public-preview-cta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  position: relative;
+  z-index: 41;
+  pointer-events: auto;
+}
+
+.llh-public-preview-cta-actions .primary-button,
+.llh-public-preview-cta-actions .ghost-button {
+  position: relative;
+  z-index: 42;
+  pointer-events: auto;
+  min-height: 44px;
 }
 
 .signup-plan-badge {
