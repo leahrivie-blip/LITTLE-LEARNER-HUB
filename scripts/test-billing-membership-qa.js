@@ -362,7 +362,7 @@ async function main() {
     {
       name: "disabled account cannot retain manual Pro access",
       user: { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", internalAccessOverride: true, accountStatus: "Disabled" },
-      access: "free", billing: "active", label: "Active", pro: false,
+      access: "free", billing: "ended", label: "Subscription Ended", pro: false,
     },
   ];
   for (const scenario of scenarios) {
