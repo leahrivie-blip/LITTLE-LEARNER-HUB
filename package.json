@@ -67,6 +67,7 @@
     "test:lesson-library-phase2": "node scripts/test-lesson-library-phase2.js",
     "test:lesson-library-mobile-qa": "node scripts/test-lesson-library-mobile-qa.js",
     "test:lesson-owner-review": "node scripts/test-lesson-owner-review.js",
+    "test:lesson-system-rebuild-qa": "node scripts/test-lesson-system-rebuild-qa.js",
     "test:lesson-real-curriculum": "node scripts/test-lesson-real-curriculum.js",
     "test:prod-e2e-pr161": "node scripts/prod-e2e-post-merge-161.js",
     "test:scheduling-owner-audit": "node scripts/owner-audit-scheduling.js",

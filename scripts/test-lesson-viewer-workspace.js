@@ -165,10 +165,12 @@ async function main() {
       page.reload({ waitUntil: "domcontentloaded" }),
     ]);
     await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
+    await page.waitForSelector("#view-calendar.active-view", { timeout: 30000 });
 
-    await page.evaluate(() => setView("lessons"));
+    await page.evaluate(() => setView("lessons", { lessonLibraryMode: "browse" }));
     await page.waitForSelector("#view-lessons.active-view", { timeout: 8000 });
-    await page.fill("#lessonPlanSearch", freeLesson.title);
+    await page.waitForSelector("#view-lessons.active-view #lessonPlanSearch", { timeout: 10000 });
+    await page.fill("#view-lessons.active-view #lessonPlanSearch", freeLesson.title);
     await page.waitForTimeout(400);
     await page.waitForSelector(`#view-lessons .lesson-plan-card:has-text("${freeLesson.title}")`, { timeout: 15000 });
     await page.locator("#view-lessons .lesson-plan-card").first().click();

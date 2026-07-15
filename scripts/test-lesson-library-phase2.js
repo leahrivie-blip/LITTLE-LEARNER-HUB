@@ -140,15 +140,15 @@ async function gotoLessons(page) {
   await page.evaluate(() => {
     searchInput.value = "";
     activeFilter = "All";
-    setView("lessons");
+    setView("lessons", { lessonLibraryMode: "browse" });
   });
   await page.waitForSelector("#view-lessons.active-view", { timeout: 10000 });
-  await page.waitForSelector("#lessonPlanSearch", { timeout: 10000 });
+  await page.waitForSelector("#view-lessons.active-view #lessonPlanSearch", { timeout: 10000 });
 }
 
 async function openLessonWorkspace(page, title) {
   await gotoLessons(page);
-  await page.fill("#lessonPlanSearch", title);
+  await page.fill("#view-lessons.active-view #lessonPlanSearch", title);
   await page.waitForTimeout(350);
   await page.waitForSelector(`#view-lessons .lesson-plan-card:has-text("${title}")`, { timeout: 15000 });
   await page.locator("#view-lessons .lesson-plan-card").filter({ hasText: title }).first().click();

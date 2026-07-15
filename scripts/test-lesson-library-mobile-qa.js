@@ -141,13 +141,13 @@ async function prepareFreeUser(page) {
 }
 
 async function gotoLessons(page) {
-  await page.evaluate(() => setView("lessons"));
+  await page.evaluate(() => setView("lessons", { lessonLibraryMode: "browse" }));
   await page.waitForSelector("#view-lessons.active-view", { timeout: 10000 });
-  await page.waitForSelector("#lessonPlanSearch", { timeout: 10000 });
+  await page.waitForSelector("#view-lessons.active-view #lessonPlanSearch", { timeout: 10000 });
 }
 
 async function searchLesson(page, title) {
-  await page.fill("#lessonPlanSearch", title);
+  await page.fill("#view-lessons.active-view #lessonPlanSearch", title);
   await page.waitForTimeout(350);
   await page.waitForSelector(`#view-lessons .lesson-plan-card:has-text("${title}")`, { timeout: 15000 });
 }

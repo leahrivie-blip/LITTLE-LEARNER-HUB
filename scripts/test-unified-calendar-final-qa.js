@@ -155,9 +155,10 @@ async function loginAsTeacher(page, viewport, email) {
 }
 
 async function openLessonWorkspace(page, title) {
-  await page.evaluate(() => setView("lessons"));
+  await page.evaluate(() => setView("lessons", { lessonLibraryMode: "browse" }));
   await page.waitForSelector("#view-lessons.active-view", { timeout: 10000 });
-  await page.fill("#lessonPlanSearch", title);
+  await page.waitForSelector("#view-lessons.active-view #lessonPlanSearch", { timeout: 10000 });
+  await page.fill("#view-lessons.active-view #lessonPlanSearch", title);
   await page.waitForTimeout(400);
   await page.waitForSelector(`#view-lessons .lesson-plan-card:has-text("${title}")`, { timeout: 15000 });
   await page.locator("#view-lessons .lesson-plan-card", { hasText: title }).first().click();

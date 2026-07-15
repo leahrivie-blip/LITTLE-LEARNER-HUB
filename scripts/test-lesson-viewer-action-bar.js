@@ -174,10 +174,13 @@ async function main() {
       page.reload({ waitUntil: "domcontentloaded" }),
     ]);
     await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
+    // Logged-in boot finishes on Calendar; wait before opening Lessons.
+    await page.waitForSelector("#view-calendar.active-view", { timeout: 30000 });
 
-    await page.evaluate(() => setView("lessons"));
+    await page.evaluate(() => setView("lessons", { lessonLibraryMode: "browse" }));
     await page.waitForSelector("#view-lessons.active-view", { timeout: 8000 });
-    await page.fill("#lessonPlanSearch", lesson.title);
+    await page.waitForSelector("#view-lessons.active-view #lessonPlanSearch", { timeout: 10000 });
+    await page.fill("#view-lessons.active-view #lessonPlanSearch", lesson.title);
     await page.waitForTimeout(400);
     await page.locator("#view-lessons .lesson-plan-card").filter({ hasText: lesson.title }).first().click();
     await page.waitForSelector("#resourceViewerModal.lesson-workspace-mode.open", { timeout: 10000 });
