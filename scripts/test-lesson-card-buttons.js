@@ -192,11 +192,13 @@ async function main() {
       page.reload({ waitUntil: "domcontentloaded" }),
     ]);
     await page.waitForFunction(() => typeof setView === "function" && typeof isProUser === "function" && isProUser(), null, { timeout: 30000 });
+    // Logged-in boot finishes on Calendar; wait for that before opening Lessons.
+    await page.waitForSelector("#view-calendar.active-view", { timeout: 30000 });
 
-    await page.evaluate(() => setView("lessons"));
+    await page.evaluate(() => setView("lessons", { lessonLibraryMode: "browse" }));
     await page.waitForSelector("#view-lessons.active-view", { timeout: 8000 });
-    await page.waitForSelector("#lessonPlanSearch", { timeout: 10000 });
-    await page.fill("#lessonPlanSearch", lesson.title);
+    await page.waitForSelector("#view-lessons.active-view #lessonPlanSearch", { timeout: 10000 });
+    await page.fill("#view-lessons.active-view #lessonPlanSearch", lesson.title);
     await page.waitForTimeout(400);
     await page.waitForSelector(`#view-lessons .lesson-plan-card:has-text("${lesson.title}")`, { timeout: 15000 });
 
@@ -239,6 +241,8 @@ async function main() {
     console.log("✓ Use This Plan opens assign sheet");
     console.log("✓ workspace Save button is present");
 
+    await page.locator(".lesson-workspace-action-sheet-actions [data-lesson-workspace-action-sheet-dismiss]").click();
+    await page.waitForSelector(".lesson-workspace-action-sheet[hidden]", { state: "attached", timeout: 5000 });
     await page.locator(".lesson-workspace-save-btn").click();
     await page.waitForTimeout(200);
     const afterWorkspaceSave = await page.evaluate((id) => {
