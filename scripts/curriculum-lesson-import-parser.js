@@ -391,9 +391,14 @@ function parseTextListItems(text) {
 function isV3LabelOnlyFormat(text) {
   const raw = String(text || "");
   if (/@LESSON_PLAN_START@/i.test(raw)) return false;
+  // Preferred ChatGPT / current format uses underscore labels (value inline or next line).
   if (/^ACTIVITY_NAME:\s*/im.test(raw)) return true;
   if (/^TITLE:\s*/im.test(raw) && /^(MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY):?\s*$/im.test(raw)) return true;
   if (/^AGE_GROUP:\s*/im.test(raw) && /^LEARNING_OBJECTIVES:\s*/im.test(raw) && !/^ACTIVITY NAME:\s*$/im.test(raw)) {
+    return true;
+  }
+  // TITLE + THEME + weekday headers with underscore activity labels.
+  if (/^TITLE:\s*$/im.test(raw) && /^THEME:\s*$/im.test(raw) && /^MONDAY:\s*$/im.test(raw) && /^ACTIVITY_NAME:\s*$/im.test(raw)) {
     return true;
   }
   return false;
@@ -1164,9 +1169,12 @@ function splitV3WeekdaySections(text) {
 function splitV3DayActivities(dayContent) {
   const content = String(dayContent || "");
   if (!content.trim()) return [];
-  // Split before each ACTIVITY_NAME: whether the value is inline or on the next line.
-  const blocks = content.split(/(?=^ACTIVITY_NAME:\s*)/im).map((block) => block.trim()).filter(Boolean);
-  return blocks.filter((block) => /^ACTIVITY_NAME:\s*/im.test((block.split(/\r?\n/)[0] || "").trim()));
+  // Split before each ACTIVITY_NAME / ACTIVITY NAME, whether the value is inline or on the next line.
+  const blocks = content
+    .split(/(?=^ACTIVITY[_ ]NAME:\s*)/im)
+    .map((block) => block.trim())
+    .filter(Boolean);
+  return blocks.filter((block) => /^ACTIVITY[_ ]NAME:\s*/im.test((block.split(/\r?\n/)[0] || "").trim()));
 }
 
 function parseV3ActivityBlock(block, { dayKey, lineOffset = 1, existingItemIds = new Map(), generateItemId = generateCurriculumItemId } = {}) {

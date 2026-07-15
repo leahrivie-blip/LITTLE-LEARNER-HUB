@@ -241,7 +241,7 @@ async function main() {
     console.log("✓ Use This Plan opens assign sheet");
     console.log("✓ workspace Save button is present");
 
-    await page.locator(".lesson-workspace-action-sheet-actions [data-lesson-workspace-action-sheet-dismiss]").click();
+    await page.locator('.lesson-workspace-use-plan-choices [data-lesson-workspace-action-sheet-dismiss]').click();
     await page.waitForSelector(".lesson-workspace-action-sheet[hidden]", { state: "attached", timeout: 5000 });
     await page.locator(".lesson-workspace-save-btn").click();
     await page.waitForTimeout(200);

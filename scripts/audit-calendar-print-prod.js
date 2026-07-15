@@ -99,7 +99,7 @@ async function wakeAndLogin(page) {
   const downloadPromise = page.waitForEvent("download", { timeout: 45000 }).catch(() => null);
   const clicked = await page.evaluate(() => {
     const buttons = Array.from(document.querySelectorAll("button"));
-    const btn = buttons.find((b) => /Download Weekly Calendar/i.test(b.textContent || ""));
+    const btn = buttons.find((b) => /^(Download|Download Weekly Calendar)$/i.test(String(b.textContent || "").trim()));
     if (btn) {
       btn.click();
       return { ok: true, via: "label" };

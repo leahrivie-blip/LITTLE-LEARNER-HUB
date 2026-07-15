@@ -165,10 +165,12 @@ async function main() {
       page.reload({ waitUntil: "domcontentloaded" }),
     ]);
     await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
+    await page.waitForSelector("#view-calendar.active-view", { timeout: 30000 });
 
-    await page.evaluate(() => setView("lessons"));
+    await page.evaluate(() => setView("lessons", { lessonLibraryMode: "browse" }));
     await page.waitForSelector("#view-lessons.active-view", { timeout: 8000 });
-    await page.fill("#lessonPlanSearch", freeLesson.title);
+    await page.waitForSelector("#view-lessons.active-view #lessonPlanSearch", { timeout: 10000 });
+    await page.fill("#view-lessons.active-view #lessonPlanSearch", freeLesson.title);
     await page.waitForTimeout(400);
     await page.waitForSelector(`#view-lessons .lesson-plan-card:has-text("${freeLesson.title}")`, { timeout: 15000 });
     await page.locator("#view-lessons .lesson-plan-card").first().click();
@@ -179,17 +181,22 @@ async function main() {
       const overflow = document.documentElement.scrollWidth > document.documentElement.clientWidth + 1;
       const tabs = [...document.querySelectorAll("[data-lesson-workspace-tab]")].map((el) => el.textContent.trim());
       const dayTabs = [...document.querySelectorAll("[data-lesson-workspace-week-day]")].map((el) => el.textContent.trim());
-      const activityRows = document.querySelectorAll(".lesson-workspace-activity-row").length;
+      const activityRows = document.querySelectorAll(".lesson-workspace-activity-row, .lesson-workspace-activity-card").length;
       return {
         hasBack: Boolean(document.querySelector("[data-lesson-workspace-back]")),
-        hasAddToCalendar: Boolean(document.querySelector("[data-lesson-use-this-plan]")),
-        hasAddToMyWeek: Boolean(document.querySelector("[data-lesson-add-to-my-week]")),
+        hasUseThisPlan: Boolean(document.querySelector("[data-lesson-use-this-plan]")),
         hasEdit: Boolean(document.querySelector("[data-edit-lesson-plan]")),
         hasPrintWeekly: Boolean(document.querySelector('[data-lesson-action-bars="top"] [data-lesson-print-variant="week"]')),
         hasDownloadWeekly: Boolean(document.querySelector('[data-lesson-action-bars="top"] [data-lesson-download-variant="week"]')),
         hasBottomBar: Boolean(document.querySelector('[data-lesson-action-bars="bottom"]')),
         actionBarCount: document.querySelectorAll(".lesson-workspace-action-bars").length,
         hasMore: Boolean(document.querySelector("[data-lesson-workspace-more-toggle]")),
+        hasOverview: Boolean(document.querySelector(".lesson-workspace-week-overview, [data-lesson-plan-section]")),
+        actionsAfterPanels: (() => {
+          const panels = document.querySelector(".lesson-workspace-panels");
+          const actions = document.querySelector(".lesson-workspace-action-bars");
+          return Boolean(panels && actions && (panels.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING));
+        })(),
         tabs,
         dayTabs,
         activityRows,
@@ -204,11 +211,13 @@ async function main() {
 
     assert(workspace.modalClass.includes("lesson-workspace-mode"), "lesson workspace mode not applied");
     assert(workspace.hasBack, "workspace back button missing");
-    assert(workspace.hasAddToCalendar && workspace.hasAddToMyWeek && workspace.hasEdit, "primary actions missing");
+    assert(workspace.hasUseThisPlan && workspace.hasEdit, "primary/manage actions missing");
     assert(workspace.hasPrintWeekly && workspace.hasDownloadWeekly, "print/download weekly actions missing");
     assert(!workspace.hasBottomBar, "duplicate bottom action bar should be removed");
     assert(workspace.actionBarCount === 1, "exactly one action bar should render");
     assert(workspace.hasMore, "More actions menu should be present");
+    assert(workspace.hasOverview, "Week tab should show weekly overview content");
+    assert(workspace.actionsAfterPanels, "actions should appear after lesson content");
     assert(workspace.toolbarHidden, "duplicate toolbar should be hidden for lessons");
     assert(workspace.tabs.join(",") === "Week,Plan,Activities,Materials", `unexpected tabs: ${workspace.tabs.join(",")}`);
     assert(workspace.weekPanelActive, "Week tab should be active by default");
@@ -223,6 +232,8 @@ async function main() {
     await page.waitForSelector('[data-lesson-workspace-panel="plan"].is-active', { timeout: 3000 });
 
     await page.click("[data-lesson-use-this-plan]");
+    await page.waitForSelector('[data-lesson-workspace-action-panel="use-plan"]:not([hidden])', { timeout: 3000 });
+    await page.click('[data-lesson-use-plan-choice="calendar"]');
     await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 3000 });
     const sheetCopy = await page.evaluate(() => ({
       title: document.querySelector("[data-lesson-assign-sheet-title]")?.textContent.trim() || "",

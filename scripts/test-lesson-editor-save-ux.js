@@ -174,8 +174,9 @@ async function main() {
       page.reload({ waitUntil: "domcontentloaded" }),
     ]);
     await page.waitForFunction(() => typeof openLessonPlanEditor === "function", null, { timeout: 30000 });
+    await page.waitForSelector("#view-calendar.active-view", { timeout: 30000 });
 
-    await page.evaluate(() => setView("lessons"));
+    await page.evaluate(() => setView("lessons", { lessonLibraryMode: "browse" }));
     await page.waitForSelector("#view-lessons.active-view", { timeout: 8000 });
     await page.waitForFunction((title) => resources.some((item) => item.title === title), lesson.title, { timeout: 15000 });
     await page.evaluate((id) => openLessonPlanEditor(id), lesson.planId);
@@ -206,7 +207,10 @@ async function main() {
     await page.click("[data-lesson-editor-back]");
     await page.waitForSelector("[data-lesson-editor-leave-dialog]:not([hidden])", { timeout: 5000 });
     await page.click("[data-lesson-editor-leave-save]");
-    await page.waitForSelector("#view-lessons.active-view", { timeout: 10000 });
+    await page.waitForFunction(() => {
+      const lessons = document.querySelector("#view-lessons");
+      return Boolean(lessons?.classList.contains("active-view") && getComputedStyle(lessons).display !== "none");
+    }, null, { timeout: 15000 });
     check("Leave + Save returns to library", await page.locator("#view-lessons.active-view").count() > 0);
 
     const storedTheme = await page.evaluate((sourceId) => {
@@ -234,12 +238,10 @@ async function main() {
     check("Success title", /Lesson Plan Saved Successfully/i.test(success.title), success.title);
     check("Form hidden while success shows", success.formHidden);
     check("Success has Continue Editing", success.labels.includes("Continue Editing"));
-    check("Success has Add to Calendar", success.labels.includes("Add to Calendar"));
-    check("Success has Add to My Week", success.labels.includes("Add to My Week"));
-    check("Success has Print Weekly Calendar", success.labels.includes("Print Weekly Calendar"));
-    check("Success has Download Weekly Calendar", success.labels.includes("Download Weekly Calendar"));
+    check("Success has Use This Plan", success.labels.includes("Use This Plan"));
+    check("Success has Print", success.labels.includes("Print"));
+    check("Success has Download", success.labels.includes("Download"));
     check("Success has Download Full Lesson Plan", success.labels.includes("Download Full Lesson Plan"));
-    check("Success has Download PDF", success.labels.includes("Download PDF"));
     check("Success has Return to Library", success.labels.includes("Return to Library"));
     check("Status shows last saved", /Last saved/i.test(success.status), success.status);
 

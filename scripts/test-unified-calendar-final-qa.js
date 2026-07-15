@@ -155,9 +155,10 @@ async function loginAsTeacher(page, viewport, email) {
 }
 
 async function openLessonWorkspace(page, title) {
-  await page.evaluate(() => setView("lessons"));
+  await page.evaluate(() => setView("lessons", { lessonLibraryMode: "browse" }));
   await page.waitForSelector("#view-lessons.active-view", { timeout: 10000 });
-  await page.fill("#lessonPlanSearch", title);
+  await page.waitForSelector("#view-lessons.active-view #lessonPlanSearch", { timeout: 10000 });
+  await page.fill("#view-lessons.active-view #lessonPlanSearch", title);
   await page.waitForTimeout(400);
   await page.waitForSelector(`#view-lessons .lesson-plan-card:has-text("${title}")`, { timeout: 15000 });
   await page.locator("#view-lessons .lesson-plan-card", { hasText: title }).first().click();
@@ -217,6 +218,8 @@ async function runViewportSuite(browser, { viewport, label }) {
   // ==================== 14) Plan This Week (baseline assign, current week) ====================
   await openLessonWorkspace(page, lessonNow.title);
   await page.click("[data-lesson-use-this-plan]");
+  await page.waitForSelector('[data-lesson-workspace-action-panel="use-plan"]:not([hidden])', { timeout: 10000 });
+  await page.click('[data-lesson-use-plan-choice="calendar"]');
   await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 10000 });
   await page.fill('[data-lesson-main-calendar-form] [name="weekStartDate"]', currentWeek);
   await page.click('[data-lesson-main-calendar-form] button[type="submit"]');
@@ -237,6 +240,8 @@ async function runViewportSuite(browser, { viewport, label }) {
   await page.waitForSelector("#view-planner.active-view", { timeout: 10000 });
   await openLessonWorkspace(page, lessonFuture.title);
   await page.click("[data-lesson-use-this-plan]");
+  await page.waitForSelector('[data-lesson-workspace-action-panel="use-plan"]:not([hidden])', { timeout: 10000 });
+  await page.click('[data-lesson-use-plan-choice="calendar"]');
   await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 10000 });
   await page.fill('[data-lesson-main-calendar-form] [name="weekStartDate"]', futureWeek);
   await page.click('[data-lesson-main-calendar-form] button[type="submit"]');

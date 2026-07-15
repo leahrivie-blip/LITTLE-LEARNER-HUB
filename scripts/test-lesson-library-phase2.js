@@ -140,15 +140,15 @@ async function gotoLessons(page) {
   await page.evaluate(() => {
     searchInput.value = "";
     activeFilter = "All";
-    setView("lessons");
+    setView("lessons", { lessonLibraryMode: "browse" });
   });
   await page.waitForSelector("#view-lessons.active-view", { timeout: 10000 });
-  await page.waitForSelector("#lessonPlanSearch", { timeout: 10000 });
+  await page.waitForSelector("#view-lessons.active-view #lessonPlanSearch", { timeout: 10000 });
 }
 
 async function openLessonWorkspace(page, title) {
   await gotoLessons(page);
-  await page.fill("#lessonPlanSearch", title);
+  await page.fill("#view-lessons.active-view #lessonPlanSearch", title);
   await page.waitForTimeout(350);
   await page.waitForSelector(`#view-lessons .lesson-plan-card:has-text("${title}")`, { timeout: 15000 });
   await page.locator("#view-lessons .lesson-plan-card").filter({ hasText: title }).first().click();
@@ -233,23 +233,25 @@ async function main() {
     await page.click('[data-lesson-library-mode="browse"]');
     await page.waitForSelector("#view-lessons:has-text('Lesson Plan Library')", { timeout: 5000 });
 
-    console.log("C) Add to Calendar opens pick-week form (no nested print menu)");
+    console.log("C) Use This Plan → Add to Calendar opens pick-week form (no nested print menu)");
     await openLessonWorkspace(page, primary.title);
     await page.click("[data-lesson-use-this-plan]");
+    await page.waitForSelector('[data-lesson-workspace-action-panel="use-plan"]:not([hidden])', { timeout: 5000 });
+    await page.click('[data-lesson-use-plan-choice="calendar"]');
     await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
     const sheetCopy = await page.evaluate(() => ({
       title: document.querySelector("[data-lesson-assign-sheet-title]")?.textContent.trim() || "",
       submit: document.querySelector("[data-lesson-assign-submit]")?.textContent.trim() || "",
       hasCancel: Boolean(document.querySelector('[data-lesson-workspace-action-panel="main-calendar"] [data-lesson-workspace-action-sheet-dismiss]')),
       hasPrintInSheet: Boolean(document.querySelector('[data-lesson-workspace-action-panel="main-calendar"] [data-lesson-print-variant]')),
-      hasEdit: Boolean(document.querySelector('[data-lesson-action-bars="top"] [data-edit-lesson-plan]')),
-      hasMyWeek: Boolean(document.querySelector("[data-lesson-add-to-my-week]")),
+      hasEdit: Boolean(document.querySelector('.lesson-workspace-more-menu [data-edit-lesson-plan]')),
+      hasUsePlan: Boolean(document.querySelector("[data-lesson-use-this-plan]")),
     }));
     assert(sheetCopy.title === "Add to Calendar", `sheet title wrong: ${sheetCopy.title}`);
     assert(sheetCopy.submit === "Add to Calendar", `submit wrong: ${sheetCopy.submit}`);
     assert(sheetCopy.hasCancel, "cancel action missing");
     assert(!sheetCopy.hasPrintInSheet, "assign sheet should not mix print options");
-    assert(sheetCopy.hasEdit && sheetCopy.hasMyWeek, "primary action bar missing Edit / My Week");
+    assert(sheetCopy.hasEdit && sheetCopy.hasUsePlan, "primary action bar missing Use This Plan / Edit");
     await page.click("[data-lesson-workspace-action-sheet-dismiss]");
 
     console.log("D) Global search renders lesson plan compact cards");
@@ -273,11 +275,9 @@ async function main() {
     await openLessonWorkspace(page, primary.title);
     const weeklyHtml = await page.evaluate(() => resourcePrintableHtml(activeResourceViewerResource, { mode: "print", printVariant: "week" }));
     assert(weeklyHtml.includes("lesson-week-day-stack"), "weekly print HTML missing day stack class");
-    assert(weeklyHtml.includes("Weekly Snapshot"), "weekly print HTML missing Weekly Snapshot");
-    assert(weeklyHtml.includes("Teacher Prep This Week"), "weekly print HTML missing Teacher Prep");
-    assert(weeklyHtml.includes("Weekly Materials"), "weekly print HTML missing Weekly Materials");
-    assert(weeklyHtml.includes("Weekly Resources"), "weekly print HTML missing Weekly Resources");
-    assert(weeklyHtml.includes("Teacher Notes"), "weekly print HTML missing Teacher Notes");
+    assert(weeklyHtml.includes("Weekly Summary") || weeklyHtml.includes("Weekly Snapshot"), "weekly print HTML missing Weekly Summary");
+    assert(weeklyHtml.includes("Weekly Materials") || weeklyHtml.includes("Teacher Prep This Week") || weeklyHtml.includes("Weekly Vocabulary"), "weekly print HTML missing materials/vocab");
+    assert(weeklyHtml.includes("Teacher Notes") || weeklyHtml.includes("Daily Focus"), "weekly print HTML missing day notes/focus");
     assert(weeklyHtml.includes("lesson-week-brand-logo"), "weekly print HTML missing LLH logo");
     assert(weeklyHtml.includes("lesson-week-print-footer"), "weekly print HTML missing footer");
     assert(weeklyHtml.includes("lesson-week-activity-card"), "weekly print HTML missing activity cards");

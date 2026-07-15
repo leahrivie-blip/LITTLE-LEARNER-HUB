@@ -5202,13 +5202,13 @@ function renderCurriculumLessonImportPanel() {
   return `
     <fieldset class="admin-fieldset curriculum-import-panel">
       <legend>Complete Lesson Plan Importer</legend>
-      <p class="muted-copy">Paste a complete lesson plan exactly as written (TITLE, AGE_GROUP, weekday headers, ACTIVITY_NAME blocks). Click <strong>Import Lesson Plan</strong> to create the lesson plan, assign Monday–Friday activities, and sync Activity Library entries automatically — no special markers and no manual cleanup required.</p>
+      <p class="muted-copy">Copy a complete lesson plan from ChatGPT, paste it below, then click <strong>Import Lesson Plan</strong>. The system creates the lesson plan, adds every activity to the Activity Library, and links them automatically — no special markers and no manual cleanup required.</p>
       <details class="curriculum-import-format-details" open>
-        <summary>View required import format</summary>
-        <pre class="curriculum-import-template">${escapeHtml(curriculumImportTemplate())}</pre>
+        <summary>View lesson plan format</summary>
+        <pre class="curriculum-import-template">${escapeHtml(curriculumImportTemplate() || curriculumImportV3Template() || CURRICULUM_LESSON_IMPORT_TEMPLATE)}</pre>
       </details>
       <label>Paste complete lesson plan
-        <textarea id="adminCurriculumLessonImportText" rows="16" placeholder="Paste TITLE:, AGE_GROUP:, THEME:, PLAN:, STATUS:, WEEKLY_OVERVIEW:, MONDAY…FRIDAY, and ACTIVITY_NAME: blocks">${escapeHtml(adminCurriculumLessonImportTextCache || "")}</textarea>
+        <textarea id="adminCurriculumLessonImportText" rows="16" placeholder="Paste your ChatGPT lesson plan here (TITLE, AGE_GROUP, THEME, MONDAY…FRIDAY, ACTIVITY_NAME, …)">${escapeHtml(adminCurriculumLessonImportTextCache || "")}</textarea>
       </label>
       <div class="form-actions">
         <button class="ghost-button" type="button" id="adminCurriculumLessonClearImportButton">Clear</button>
@@ -5656,15 +5656,13 @@ function lessonEditorAfterSavePanelHtml(resource) {
     <section class="lesson-editor-success" data-lesson-editor-success aria-live="polite">
       <p class="eyebrow">Saved</p>
       <h3>Lesson Plan Saved Successfully</h3>
-      <p class="muted-copy">“${escapeHtml(resource.title || "Your lesson plan")}” is ready. Keep editing or move it into your week.</p>
+      <p class="muted-copy">“${escapeHtml(resource.title || "Your lesson plan")}” is ready. Keep editing or use this plan for your week.</p>
       <div class="lesson-editor-success-actions">
         <button type="button" class="primary-button" data-lesson-editor-continue>Continue Editing</button>
-        <button type="button" class="ghost-button" data-lesson-editor-add-calendar="${id}">Add to Calendar</button>
-        <button type="button" class="ghost-button" data-lesson-editor-add-my-week="${id}">Add to My Week</button>
-        <button type="button" class="ghost-button" data-lesson-editor-print-week="${id}">Print Weekly Calendar</button>
-        <button type="button" class="ghost-button" data-lesson-editor-download-week="${id}">Download Weekly Calendar</button>
+        <button type="button" class="ghost-button" data-lesson-editor-use-plan="${id}">Use This Plan</button>
+        <button type="button" class="ghost-button" data-lesson-editor-print-week="${id}">Print</button>
+        <button type="button" class="ghost-button" data-lesson-editor-download-week="${id}">Download</button>
         <button type="button" class="ghost-button" data-lesson-editor-download-full="${id}">Download Full Lesson Plan</button>
-        <button type="button" class="ghost-button" data-lesson-editor-download-pdf="${id}">Download PDF</button>
         <button type="button" class="ghost-button" data-lesson-editor-return-library>Return to Library</button>
       </div>
     </section>
@@ -5680,7 +5678,7 @@ function prepareLessonEditorResourceForOutput(resourceId) {
   return resource;
 }
 
-async function openAssignFromLessonEditor(resourceId, intent = "calendar") {
+async function openAssignFromLessonEditor(resourceId, intent = "choose") {
   const resource = resources.find((item) => item.id === resourceId) || prepareLessonEditorResourceForOutput(resourceId);
   if (!resource) return;
   userLessonEditorDirty = false;
@@ -5692,7 +5690,10 @@ async function openAssignFromLessonEditor(resourceId, intent = "calendar") {
   userLessonEditorSnapshot = "";
   clearLessonPlanEditorRoute();
   setView("lessons", { skipLessonEditorGuard: true });
-  openResourceViewer(id, { openPlanThisWeek: true, assignIntent: intent === "my-week" ? "my-week" : "calendar" });
+  openResourceViewer(id, {
+    openPlanThisWeek: true,
+    assignIntent: intent === "my-week" ? "my-week" : "calendar",
+  });
 }
 
 function lessonEditorJumpNavHtml() {
@@ -13102,6 +13103,13 @@ function toggleLessonWorkspaceActionSheet(open, options = {}) {
   sheet.hidden = !open;
   sheet.setAttribute("aria-hidden", open ? "false" : "true");
   if (open) {
+    const panel = options.panel || "use-plan";
+    if (panel === "use-plan") {
+      lessonWorkspaceAssignIntent = "";
+      sheet.querySelector(".lesson-workspace-action-sheet-panel")?.setAttribute("aria-label", "Use This Plan");
+      setLessonWorkspaceActionSheetPanel("use-plan");
+      return;
+    }
     const intent = options.intent === "my-week" ? "my-week" : "calendar";
     lessonWorkspaceAssignIntent = intent;
     const intentInput = sheet.querySelector('input[name="assignIntent"]');
@@ -13110,12 +13118,12 @@ function toggleLessonWorkspaceActionSheet(open, options = {}) {
     const note = sheet.querySelector("[data-lesson-assign-sheet-note]");
     const submit = sheet.querySelector("[data-lesson-assign-submit]");
     if (intent === "my-week") {
-      if (title) title.textContent = "Add to My Week";
+      if (title) title.textContent = "Add to Weekly Plan";
       if (note) {
         note.textContent = "Pick the Monday for your teaching week. We’ll add this plan to Weekly Planner and Calendar so you can customize your classroom copy.";
       }
-      if (submit) submit.textContent = "Add to My Week";
-      sheet.querySelector(".lesson-workspace-action-sheet-panel")?.setAttribute("aria-label", "Add to My Week");
+      if (submit) submit.textContent = "Add to Weekly Plan";
+      sheet.querySelector(".lesson-workspace-action-sheet-panel")?.setAttribute("aria-label", "Add to Weekly Plan");
     } else {
       if (title) title.textContent = "Add to Calendar";
       if (note) {
@@ -13124,7 +13132,7 @@ function toggleLessonWorkspaceActionSheet(open, options = {}) {
       if (submit) submit.textContent = "Add to Calendar";
       sheet.querySelector(".lesson-workspace-action-sheet-panel")?.setAttribute("aria-label", "Add to Calendar");
     }
-    setLessonWorkspaceActionSheetPanel(options.panel || "main-calendar");
+    setLessonWorkspaceActionSheetPanel(panel === "main-calendar" ? "main-calendar" : "main-calendar");
   }
 }
 
@@ -13256,12 +13264,12 @@ function showLessonWorkspaceMainCalendarSuccess(assignment, options = {}) {
   const room = scheduleClassroomName(scheduleDocCache || getScheduleApi()?.readCache(scheduleApiEmail()));
   const end = getScheduleApi()?.weekEndFromStart(week) || curriculumPlannerWeekEndIso(week);
   if (successTitle) {
-    successTitle.textContent = intent === "my-week" ? "Added to My Week" : "Added to Calendar";
+    successTitle.textContent = intent === "my-week" ? "Added to Weekly Plan" : "Added to Calendar";
   }
   if (message) {
     message.textContent = week
       ? `“${title}” is ready for ${week}–${end}${room ? ` · ${room}` : ""}.`
-      : (intent === "my-week" ? "Lesson plan added to My Week." : "Lesson plan added to Calendar.");
+      : (intent === "my-week" ? "Lesson plan added to Weekly Plan." : "Lesson plan added to Calendar.");
   }
   if (successNote) {
     successNote.textContent = intent === "my-week"
@@ -13347,6 +13355,7 @@ function toggleLessonWorkspaceMoreMenu(open) {
 
 function lessonWorkspaceWeekGlanceHtml(plan, lessonPlanId) {
   const normalized = normalizeCurriculumLessonPlanForRender(plan);
+  const weekly = lessonWorkspaceWeeklySectionsHtml(normalized);
   const dailyPlans = normalized.dailyPlans && typeof normalized.dailyPlans === "object" ? normalized.dailyPlans : {};
   const dayTabs = LESSON_WORKSPACE_WEEKDAYS.map((day) => {
     const active = day === lessonWorkspaceWeekDay;
@@ -13375,8 +13384,12 @@ function lessonWorkspaceWeekGlanceHtml(plan, lessonPlanId) {
   }).join("");
   return `
     <div class="lesson-workspace-week-glance">
-      <div class="lesson-workspace-day-tabs" role="tablist" aria-label="Week days">${dayTabs}</div>
-      <div class="lesson-workspace-day-panels">${dayPanels}</div>
+      ${weekly ? `<section class="lesson-workspace-week-overview curriculum-lesson-weekly" aria-label="Weekly overview">${weekly}</section>` : ""}
+      <section class="lesson-workspace-week-days" aria-label="Daily activities">
+        <h3 class="lesson-workspace-week-days-heading">Daily Activities</h3>
+        <div class="lesson-workspace-day-tabs" role="tablist" aria-label="Week days">${dayTabs}</div>
+        <div class="lesson-workspace-day-panels">${dayPanels}</div>
+      </section>
     </div>
   `;
 }
@@ -13432,23 +13445,39 @@ function lessonWorkspacePlanTabHtml(plan) {
 function lessonWorkspaceActivitiesTabHtml(plan, lessonPlanId) {
   const normalized = normalizeCurriculumLessonPlanForRender(plan);
   const dailyPlans = normalized.dailyPlans && typeof normalized.dailyPlans === "object" ? normalized.dailyPlans : {};
-  const rows = [];
+  const cards = [];
   LESSON_WORKSPACE_WEEKDAYS.forEach((day) => {
     const items = Array.isArray(dailyPlans[day]?.items) ? dailyPlans[day].items : [];
     items.forEach((item) => {
       const activityId = resolvePublishedCurriculumActivityId(lessonPlanId, item);
       const title = escapeHtml(item.title || "Activity");
-      const category = item.activityCategory ? `<span class="lesson-workspace-activity-cat">${escapeHtml(item.activityCategory)}</span>` : "";
-      const dayLabel = `<span class="lesson-workspace-activity-day">${LESSON_WORKSPACE_DAY_LONG[day]}</span>`;
+      const category = String(item.activityCategory || "").trim();
+      const description = String(item.description || item.objective || "").trim();
+      const materials = String(item.materials || "").trim();
+      const directions = String(item.steps || item.directions || "").trim();
+      const goals = Array.isArray(item.learningGoals)
+        ? item.learningGoals.map((goal) => String(goal || "").trim()).filter(Boolean)
+        : String(item.learningGoals || "").split(/\n+/).map((line) => line.replace(/^[-•*]\s*/, "").trim()).filter(Boolean);
+      const body = `
+        <div class="lesson-workspace-activity-card-meta">
+          <span class="lesson-workspace-activity-day">${LESSON_WORKSPACE_DAY_LONG[day]}</span>
+          ${category ? `<span class="lesson-workspace-activity-cat">${escapeHtml(category)}</span>` : ""}
+        </div>
+        <h4 class="lesson-workspace-activity-name">${title}</h4>
+        ${description ? `<p class="lesson-workspace-activity-desc">${escapeHtml(description)}</p>` : ""}
+        ${materials ? `<p class="lesson-workspace-activity-field"><strong>Materials:</strong> ${escapeHtml(materials)}</p>` : ""}
+        ${directions ? `<div class="lesson-workspace-activity-field"><strong>Directions:</strong>${curriculumMultilineSectionHtml(directions)}</div>` : ""}
+        ${goals.length ? `<p class="lesson-workspace-activity-field"><strong>Learning goals:</strong> ${escapeHtml(goals.join("; "))}</p>` : ""}
+      `;
       if (activityId) {
-        rows.push(`<button type="button" class="lesson-workspace-activity-row" data-open-curriculum-activity="${escapeHtml(activityId)}">${dayLabel}<span class="lesson-workspace-activity-name">${title}</span>${category}</button>`);
+        cards.push(`<button type="button" class="lesson-workspace-activity-card" data-open-curriculum-activity="${escapeHtml(activityId)}">${body}</button>`);
       } else {
-        rows.push(`<div class="lesson-workspace-activity-row is-static">${dayLabel}<span class="lesson-workspace-activity-name">${title}</span>${category}</div>`);
+        cards.push(`<div class="lesson-workspace-activity-card is-static">${body}</div>`);
       }
     });
   });
-  return rows.length
-    ? `<div class="lesson-workspace-activity-list lesson-workspace-activity-list-all">${rows.join("")}</div>`
+  return cards.length
+    ? `<div class="lesson-workspace-activity-list lesson-workspace-activity-list-all">${cards.join("")}</div>`
     : '<p class="muted-copy">No linked activities for this plan.</p>';
 }
 
@@ -13495,6 +13524,7 @@ function lessonPlanPrintHeaderHtml(resource, title, options = {}) {
   const lead = String(options.lead || "").trim();
   return `
     <header class="curriculum-lesson-header lesson-print-variant-header">
+      <p class="lesson-print-brand">Little Learner Hub</p>
       <h3>${escapeHtml(title)}</h3>
       <div class="tag-row">
         <span class="tag">${escapeHtml(resource?.age || plan.age || "Preschool")}</span>
@@ -14378,10 +14408,9 @@ function lessonWorkspaceActionBarsHtml(resource) {
   return `
     <div class="lesson-workspace-action-bars" data-lesson-action-bars="top">
       <div class="lesson-workspace-primary-actions" aria-label="Lesson plan actions">
-        <button type="button" class="primary-button" data-lesson-add-to-my-week>Add to My Week</button>
-        <button type="button" class="ghost-button" data-lesson-use-this-plan>Add to Calendar</button>
-        <button type="button" class="ghost-button" data-lesson-print-variant="week">Print Weekly Calendar</button>
-        <button type="button" class="ghost-button" data-lesson-download-variant="week">Download Weekly Calendar</button>
+        <button type="button" class="primary-button lesson-workspace-use-plan-btn" data-lesson-use-this-plan>Use This Plan</button>
+        <button type="button" class="ghost-button lesson-workspace-secondary-btn" data-lesson-print-variant="week">Print</button>
+        <button type="button" class="ghost-button lesson-workspace-secondary-btn" data-lesson-download-variant="week">Download</button>
         <div class="lesson-workspace-more-wrap">
           <button type="button" class="ghost-button lesson-workspace-more-btn" data-lesson-workspace-more-toggle aria-expanded="false" aria-haspopup="true">More</button>
           <div class="lesson-workspace-more-menu" hidden>
@@ -14392,7 +14421,6 @@ function lessonWorkspaceActionBarsHtml(resource) {
             </div>
             <div class="lesson-workspace-more-group">
               <p class="lesson-workspace-more-label">Downloads</p>
-              <button type="button" data-lesson-download-variant="week">Weekly Calendar View (PDF)</button>
               <button type="button" data-lesson-download-variant="week-detail">Detailed Weekly Lesson Plan (PDF)</button>
               <button type="button" data-lesson-download-variant="planning">Classroom Planning Sheet (PDF)</button>
               <button type="button" data-lesson-download-variant="full">Download Full Lesson Plan (PDF)</button>
@@ -14483,13 +14511,23 @@ function openLessonWorkspaceAssignSheet(intent = "calendar") {
     return;
   }
   toggleLessonWorkspaceMoreMenu(false);
+  if (intent === "choose" || intent === "use-plan") {
+    toggleLessonWorkspaceActionSheet(true, { panel: "use-plan" });
+    return;
+  }
   toggleLessonWorkspaceActionSheet(true, { intent, panel: "main-calendar" });
+}
+
+function openLessonWorkspaceUseThisPlan() {
+  openLessonWorkspaceAssignSheet("choose");
 }
 
 function lessonWorkspaceChromeHtml(resource) {
   const plan = normalizeCurriculumLessonPlanForRender(resource._curriculumLessonPlan);
   const age = resource.age || plan.age || "Preschool";
   const planLabel = resource.plan || plan.plan || "Free";
+  const planBadgeClass = String(planLabel).trim() === "Pro" ? "pro-badge" : "free-badge";
+  const theme = String(resource.theme || plan.theme || "").trim();
   const tabs = [
     ["week", "Week"],
     ["plan", "Plan"],
@@ -14502,11 +14540,14 @@ function lessonWorkspaceChromeHtml(resource) {
         <button type="button" class="lesson-workspace-back ghost-button" data-lesson-workspace-back>${escapeHtml(lessonWorkspaceBackButtonLabel())}</button>
         <div class="lesson-workspace-title-block">
           <h2 class="lesson-workspace-title">${escapeHtml(resource.title)}</h2>
-          <p class="lesson-workspace-meta">${escapeHtml(age)} · ${escapeHtml(planLabel)}</p>
+          <p class="lesson-workspace-meta">
+            <span class="tag">${escapeHtml(age)}</span>
+            <span class="tag access-tag ${planBadgeClass}">${escapeHtml(planLabel)}</span>
+            ${theme ? `<span class="tag lesson-workspace-theme-tag">${escapeHtml(theme)}</span>` : ""}
+          </p>
         </div>
         ${lessonWorkspaceSaveButtonHtml(resource.id)}
       </header>
-      ${lessonWorkspaceActionBarsHtml(resource)}
       <nav class="lesson-workspace-tabs" role="tablist" aria-label="Lesson plan sections">
         ${tabs.map(([id, label]) => `
           <button type="button" role="tab" class="lesson-workspace-tab${lessonWorkspaceTab === id ? " is-active" : ""}" data-lesson-workspace-tab="${id}" aria-selected="${lessonWorkspaceTab === id ? "true" : "false"}">${label}</button>
@@ -14518,10 +14559,20 @@ function lessonWorkspaceChromeHtml(resource) {
         <div class="lesson-workspace-panel${lessonWorkspaceTab === "activities" ? " is-active" : ""}" data-lesson-workspace-panel="activities">${lessonWorkspaceActivitiesTabHtml(plan, resource.id)}</div>
         <div class="lesson-workspace-panel${lessonWorkspaceTab === "materials" ? " is-active" : ""}" data-lesson-workspace-panel="materials">${lessonWorkspaceMaterialsTabHtml(plan, resource)}</div>
       </div>
+      ${lessonWorkspaceActionBarsHtml(resource)}
       <div class="lesson-workspace-action-sheet" hidden aria-hidden="true">
         <button type="button" class="lesson-workspace-action-sheet-backdrop" data-lesson-workspace-action-sheet-dismiss aria-label="Close"></button>
-        <div class="lesson-workspace-action-sheet-panel" role="dialog" aria-label="Add to Calendar">
-          <div data-lesson-workspace-action-panel="main-calendar">
+        <div class="lesson-workspace-action-sheet-panel" role="dialog" aria-label="Use This Plan">
+          <div data-lesson-workspace-action-panel="use-plan">
+            <p class="lesson-workspace-action-sheet-title">Use This Plan</p>
+            <p class="muted-copy lesson-workspace-action-sheet-note">Choose how you want to use this lesson plan for your classroom week.</p>
+            <div class="lesson-workspace-use-plan-choices">
+              <button type="button" class="primary-button" data-lesson-use-plan-choice="my-week">Add to Weekly Plan</button>
+              <button type="button" class="ghost-button" data-lesson-use-plan-choice="calendar">Add to Calendar</button>
+              <button type="button" class="link-button" data-lesson-workspace-action-sheet-dismiss>Cancel</button>
+            </div>
+          </div>
+          <div data-lesson-workspace-action-panel="main-calendar" hidden aria-hidden="true">
             <p class="lesson-workspace-action-sheet-title" data-lesson-assign-sheet-title>Add to Calendar</p>
             <p class="muted-copy lesson-workspace-action-sheet-note" data-lesson-assign-sheet-note>Pick the Monday that starts your teaching week. We’ll add this plan to Calendar, Weekly Planner, and your dashboard — nothing else is auto-filled.</p>
             <form class="lesson-workspace-main-calendar-form" data-lesson-main-calendar-form>
@@ -14535,6 +14586,7 @@ function lessonWorkspaceChromeHtml(resource) {
               </label>
               <div class="lesson-workspace-action-sheet-actions">
                 <button type="submit" class="primary-button" data-lesson-assign-submit>Add to Calendar</button>
+                <button type="button" class="ghost-button" data-lesson-use-this-plan>Back</button>
                 <button type="button" class="ghost-button" data-lesson-workspace-action-sheet-dismiss>Cancel</button>
               </div>
             </form>
@@ -15676,7 +15728,9 @@ async function openResourceViewer(resourceId, options = {}) {
     if (shouldOpenAssign) {
       toggleLessonWorkspaceActionSheet(true, {
         intent: options.assignIntent === "my-week" ? "my-week" : "calendar",
-        panel: "main-calendar",
+        panel: options.openPlanThisWeek && !calendarLessonAssignContext?.fromCalendar
+          ? "use-plan"
+          : "main-calendar",
       });
       if (assignWeek) {
         const weekInput = document.querySelector("[data-lesson-main-calendar-form] [name='weekStartDate']");
@@ -39889,7 +39943,15 @@ document.addEventListener("click", async (event) => {
   const lessonUseThisPlan = event.target.closest("[data-lesson-use-this-plan]");
   if (lessonUseThisPlan) {
     event.preventDefault();
-    openLessonWorkspaceAssignSheet("calendar");
+    openLessonWorkspaceUseThisPlan();
+    return;
+  }
+
+  const lessonUsePlanChoice = event.target.closest("[data-lesson-use-plan-choice]");
+  if (lessonUsePlanChoice) {
+    event.preventDefault();
+    const choice = lessonUsePlanChoice.dataset.lessonUsePlanChoice === "my-week" ? "my-week" : "calendar";
+    openLessonWorkspaceAssignSheet(choice);
     return;
   }
 
@@ -40474,6 +40536,13 @@ document.addEventListener("click", async (event) => {
     event.preventDefault();
     userLessonEditorPendingLeave = null;
     hideUserLessonEditorLeaveDialog();
+    return;
+  }
+
+  const lessonEditorUsePlan = event.target.closest("[data-lesson-editor-use-plan]");
+  if (lessonEditorUsePlan) {
+    event.preventDefault();
+    await openAssignFromLessonEditor(lessonEditorUsePlan.dataset.lessonEditorUsePlan, "choose");
     return;
   }
 

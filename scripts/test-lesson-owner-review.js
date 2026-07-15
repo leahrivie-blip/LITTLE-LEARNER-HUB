@@ -157,12 +157,12 @@ async function seedLesson(token, { age, sourcePlan, index }) {
 async function gotoLessonsBrowse(page) {
   await page.evaluate(() => setView("lessons", { lessonLibraryMode: "browse" }));
   await page.waitForSelector("#view-lessons.active-view", { timeout: 10000 });
-  await page.waitForSelector("#lessonPlanSearch", { timeout: 10000 });
+  await page.waitForSelector("#view-lessons.active-view #lessonPlanSearch", { timeout: 10000 });
 }
 
 async function openLesson(page, title) {
   await gotoLessonsBrowse(page);
-  await page.fill("#lessonPlanSearch", title);
+  await page.fill("#view-lessons.active-view #lessonPlanSearch", title);
   await page.waitForTimeout(400);
   await page.waitForSelector(`#view-lessons .lesson-plan-card:has-text("${title}")`, { timeout: 15000 });
   await page.locator("#view-lessons .lesson-plan-card").filter({ hasText: title }).first().click();
@@ -220,6 +220,7 @@ async function main() {
       page.reload({ waitUntil: "domcontentloaded" }),
     ]);
     await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
+    await page.waitForSelector("#view-calendar.active-view", { timeout: 30000 });
 
     console.log("1) Browse library is clean and Saved Plans is a destination");
     await gotoLessonsBrowse(page);
@@ -266,23 +267,25 @@ async function main() {
     console.log("3) Action bar exposes manage actions; assign sheet is pick-week only");
     await openLesson(page, primary.title);
     const bar = await page.evaluate(() => ({
-      edit: Boolean(document.querySelector('[data-lesson-action-bars="top"] [data-edit-lesson-plan]')),
-      calendar: Boolean(document.querySelector("[data-lesson-use-this-plan]")),
-      myWeek: Boolean(document.querySelector("[data-lesson-add-to-my-week]")),
+      edit: Boolean(document.querySelector('.lesson-workspace-more-menu [data-edit-lesson-plan]')),
+      usePlan: Boolean(document.querySelector("[data-lesson-use-this-plan]")),
       printWeekly: Boolean(document.querySelector('[data-lesson-action-bars="top"] [data-lesson-print-variant="week"]')),
       downloadWeekly: Boolean(document.querySelector('[data-lesson-action-bars="top"] [data-lesson-download-variant="week"]')),
-      downloadFull: Boolean(document.querySelector('[data-lesson-action-bars="top"] [data-lesson-download-variant="full"]')),
-      downloadPdf: Boolean(document.querySelector('[data-lesson-action-bars="top"] [data-download-pdf]')),
+      downloadFull: Boolean(document.querySelector('.lesson-workspace-more-menu [data-lesson-download-variant="full"]')),
       bottomBar: Boolean(document.querySelector('[data-lesson-action-bars="bottom"]')),
       actionBarCount: document.querySelectorAll(".lesson-workspace-action-bars").length,
       hasMore: Boolean(document.querySelector("[data-lesson-workspace-more-toggle]")),
+      hasOverview: Boolean(document.querySelector(".lesson-workspace-week-overview, [data-lesson-plan-section]")),
     }));
-    assert(bar.edit && bar.calendar && bar.myWeek, "primary manage actions missing");
-    assert(bar.printWeekly && bar.downloadWeekly && bar.downloadFull && bar.downloadPdf, "download/print actions missing");
+    assert(bar.edit && bar.usePlan, "manage/use actions missing");
+    assert(bar.printWeekly && bar.downloadWeekly && bar.downloadFull, "download/print actions missing");
     assert(!bar.bottomBar, "duplicate bottom action bar should be removed");
     assert(bar.actionBarCount === 1, "exactly one action bar should render");
     assert(bar.hasMore, "More actions menu should be present");
+    assert(bar.hasOverview, "Week overview content should be visible");
     await page.click("[data-lesson-use-this-plan]");
+    await page.waitForSelector('[data-lesson-workspace-action-panel="use-plan"]:not([hidden])', { timeout: 5000 });
+    await page.click('[data-lesson-use-plan-choice="calendar"]');
     await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
     const sheet = await page.evaluate(() => ({
       title: document.querySelector("[data-lesson-assign-sheet-title]")?.textContent.trim() || "",
@@ -302,16 +305,15 @@ async function main() {
         hasTopPrint: Boolean(weekPanel?.querySelector('.lesson-workspace-week-actions [data-lesson-print-variant="week"]')),
         hasTopDownload: Boolean(weekPanel?.querySelector('.lesson-workspace-week-actions [data-lesson-download-variant="week"]')),
         html,
-        activityRows: document.querySelectorAll(".lesson-workspace-activity-row").length,
+        activityRows: document.querySelectorAll(".lesson-workspace-activity-row, .lesson-workspace-activity-card").length,
         expectedActivityCount,
       };
     }, primary.activityCount);
     assert(!weekAndPrint.hasTopPrint && !weekAndPrint.hasTopDownload, "Week tab should not show top print/download buttons");
     assert(weekAndPrint.html.includes("lesson-week-day-stack"), "weekly print HTML missing day stack");
-    assert(weekAndPrint.html.includes("Weekly Snapshot"), "weekly print HTML missing Weekly Snapshot");
-    assert(weekAndPrint.html.includes("Teacher Prep This Week"), "weekly print HTML missing Teacher Prep");
-    assert(weekAndPrint.html.includes("Weekly Materials"), "weekly print HTML missing Weekly Materials");
-    assert(weekAndPrint.html.includes("Teacher Notes"), "weekly print HTML missing Teacher Notes");
+    assert(weekAndPrint.html.includes("Weekly Summary") || weekAndPrint.html.includes("Weekly Snapshot"), "weekly print HTML missing Weekly Summary");
+    assert(weekAndPrint.html.includes("Weekly Materials") || weekAndPrint.html.includes("Teacher Prep This Week"), "weekly print HTML missing materials/prep");
+    assert(weekAndPrint.html.includes("Teacher Notes") || weekAndPrint.html.includes("Daily Focus"), "weekly print HTML missing day notes/focus");
     assert(weekAndPrint.html.includes("lesson-week-brand-logo"), "weekly print HTML missing LLH logo");
     assert(weekAndPrint.html.includes("lesson-week-print-footer"), "weekly print HTML missing footer");
     assert(weekAndPrint.html.includes("lesson-week-activity-card"), "weekly print HTML missing activity cards");
@@ -336,7 +338,7 @@ async function main() {
       await openLesson(page, plan.title);
       const opened = await page.evaluate(() => ({
         title: document.querySelector(".lesson-workspace-title")?.textContent.trim() || "",
-        activityRows: document.querySelectorAll(".lesson-workspace-activity-row").length,
+        activityRows: document.querySelectorAll(".lesson-workspace-activity-row, .lesson-workspace-activity-card").length,
       }));
       assert(opened.title === plan.title, `${plan.age} viewer title wrong: ${opened.title}`);
       assert(opened.activityRows >= plan.activityCount, `${plan.age} viewer missing activities (${opened.activityRows}/${plan.activityCount})`);

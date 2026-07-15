@@ -1,16 +1,16 @@
-const CACHE_NAME = "llh-shell-v37-lesson-importer";
+const CACHE_NAME = "llh-shell-v38-lesson-system";
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/styles.css?v=20260715-lesson-importer",
+  "/styles.css?v=20260715-lesson-system",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/scripts/curriculum-safe-values.js?v=20260712-v3-render-fix",
-  "/scripts/curriculum-lesson-import-parser.js?v=20260715-lesson-importer",
-  "/scripts/curriculum-import-preview.js?v=20260715-lesson-importer",
+  "/scripts/curriculum-lesson-import-parser.js?v=20260715-lesson-system",
+  "/scripts/curriculum-import-preview.js?v=20260715-lesson-system",
   "/scripts/curriculum-lesson-viewer-render.js?v=20260711-phase-d",
   "/scripts/llh-schedule.js?v=20260714-prod-priority-fixes",
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
-  "/app.js?v=20260715-lesson-importer",
+  "/app.js?v=20260715-lesson-system",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
