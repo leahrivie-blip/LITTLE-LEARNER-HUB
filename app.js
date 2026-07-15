@@ -10036,7 +10036,6 @@ function lessonPlanCard(resource) {
       <button type="button" class="browse-card-quick-toggle" data-browse-actions-toggle aria-label="Quick actions">⋯</button>
       <div class="browse-card-actions" role="group" aria-label="Lesson plan actions">
         <button type="button" class="primary-button" data-view-resource="${escapeHtml(resource.id)}">View Plan</button>
-        ${!locked ? `<button type="button" class="ghost-button" data-lesson-card-use-plan="${escapeHtml(resource.id)}">Use This Plan</button>` : ""}
         <button
           type="button"
           class="ghost-button ${!isProUser() ? "disabled-control" : ""}"
@@ -16741,6 +16740,26 @@ function clearLessonLibraryAdvancedFilters() {
   if (searchInput) searchInput.value = "";
 }
 
+function libraryCompactUpgradeStripHtml() {
+  if (!canSeePaidUpgradeOffer()) return "";
+  if (isFoundingUpgradeBannerDismissed()) return "";
+  const soldOut = !foundingSpotsStillAvailable();
+  const checkoutPlan = preferredPaidCheckoutPlan();
+  const ctaLabel = soldOut ? "Upgrade" : "Claim $9.99";
+  const title = soldOut
+    ? "Upgrade to Pro for full library access"
+    : "Founding Member pricing still available";
+  return `
+    <section class="library-upgrade-strip" role="region" aria-label="${soldOut ? "Pro upgrade offer" : "Founding Member upgrade offer"}">
+      <p>${escapeHtml(title)}</p>
+      <div class="library-upgrade-strip-actions">
+        <button class="primary-button" type="button" data-checkout-plan="${checkoutPlan}">${escapeHtml(ctaLabel)}</button>
+        <button class="ghost-button" type="button" data-dismiss-founding-upgrade aria-label="Dismiss upgrade offer">×</button>
+      </div>
+    </section>
+  `;
+}
+
 function clearActivityLibraryAdvancedFilters() {
   activityLibraryPlanFilter = "All";
   activityLibraryShowSavedOnly = false;
@@ -16771,7 +16790,7 @@ function renderCategoryPage(view) {
     : `<div class="empty-state">No resources found. Try another search or filter.</div>`;
   if (isLessonPlanCategory) {
     const isSavedLessonMode = lessonLibraryMode === "saved";
-    const lessonUpgradeBanner = !isProUser() ? foundingUpgradeBannerHtml({ variant: "library", dismissible: true }) : "";
+    const lessonUpgradeBanner = !isProUser() ? libraryCompactUpgradeStripHtml() : "";
     const hasSearchOrAdvanced = Boolean(searchInput.value.trim() || lessonLibraryPlanFilter !== "All" || lessonLibraryShowAssignedOnly || lessonLibrarySort !== "recommended");
     const useBrowseRows = !isSavedLessonMode && !lessonLibraryViewAllKey && !hasSearchOrAdvanced;
     let browseBody = "";
@@ -16788,14 +16807,16 @@ function renderCategoryPage(view) {
           </div>
         ` : ""}
         <div class="resource-grid lesson-library-grid library-browse-shell is-filtered-grid">
+          ${lessonUpgradeBanner}
           ${viewAllItems.length ? viewAllItems.map(lessonPlanCard).join("") : lessonLibraryEmptyStateHtml()}
         </div>
       `;
     } else if (useBrowseRows) {
       const rows = buildLessonBrowseRows(items);
       browseBody = `
-        ${activeFilter === "All" ? featuredLessonBannerHtml(items) : ""}
         <div class="resource-grid lesson-library-grid library-browse-shell">
+          ${lessonUpgradeBanner}
+          ${activeFilter === "All" ? featuredLessonBannerHtml(items) : ""}
           ${rows.length
             ? rows.map((row) => browseRowHtml({ ...row, cardHtml: lessonPlanCard })).join("")
             : lessonLibraryEmptyStateHtml()}
@@ -16804,7 +16825,6 @@ function renderCategoryPage(view) {
     }
     section.innerHTML = `
       ${renderLessonPlanLibraryHeader()}
-      ${lessonUpgradeBanner}
       ${calendarLessonAssignBannerHtml()}
       <div class="lesson-plan-search-bar">
         <label class="lesson-plan-search-label visually-hidden" for="lessonPlanSearch">Search lesson plans</label>
@@ -16821,7 +16841,7 @@ function renderCategoryPage(view) {
 
   if (category === "Activity Center") {
     const activityItems = filterActivityBrowseItems(items);
-    const activityUpgradeBanner = !isProUser() ? foundingUpgradeBannerHtml({ variant: "library", dismissible: true }) : "";
+    const activityUpgradeBanner = !isProUser() ? libraryCompactUpgradeStripHtml() : "";
     const categoryBackTarget = isLoggedIn() || hasAdminFullAccess() ? "calendar" : "home";
     const categoryBackButton = activeActivityLessonPlanId
       ? `<button class="ghost-button back-button" data-contextual-back="activities" data-fallback-view="lessons" data-always-visible="true" type="button">${escapeHtml(contextualBackLabel("activities", "lessons"))}</button>`
@@ -16854,6 +16874,7 @@ function renderCategoryPage(view) {
           </div>
         ` : ""}
         <div class="resource-grid library-browse-shell is-filtered-grid">
+          ${activityUpgradeBanner}
           ${viewAllItems.length ? viewAllItems.map(activityBrowseCard).join("") : emptyStateHtml}
         </div>
       `;
@@ -16861,6 +16882,7 @@ function renderCategoryPage(view) {
       const rows = buildActivityBrowseRows(activityItems);
       activityBody = `
         <div class="resource-grid library-browse-shell">
+          ${activityUpgradeBanner}
           ${rows.length
             ? rows.map((row) => browseRowHtml({ ...row, cardHtml: activityBrowseCard })).join("")
             : emptyStateHtml}
@@ -16877,7 +16899,6 @@ function renderCategoryPage(view) {
         <p class="library-compact-subtitle">Browse ready-to-use activities by age, theme, or activity type.</p>
         <p class="library-stats-line">${accessCounts.total} Activities · ${Math.min(freeCount, accessCounts.total)} Free · ${proCount} Pro</p>
       </header>
-      ${activityUpgradeBanner}
       ${searchedChild ? renderChildLessonSearchContext(searchedChild) : ""}
       ${activeActivityLessonPlanId ? renderActivityLessonFilterBanner() : ""}
       <div class="activity-search-bar">
@@ -38403,7 +38424,7 @@ function dismissFoundingUpgradeBanner() {
   } catch {
     /* ignore */
   }
-  document.querySelectorAll(".founding-upgrade-banner").forEach((node) => node.remove());
+  document.querySelectorAll(".founding-upgrade-banner, .library-upgrade-strip").forEach((node) => node.remove());
 }
 
 /** Preferred paid checkout for eligible Free owners: founding while spots remain, else Pro monthly. */

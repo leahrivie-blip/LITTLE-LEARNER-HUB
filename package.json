@@ -59,6 +59,7 @@
     "test:lesson-library-header": "node scripts/test-lesson-library-header.js",
     "test:lesson-library-cards": "node scripts/test-lesson-library-cards.js",
     "test:lesson-card-buttons": "node scripts/test-lesson-card-buttons.js",
+    "test:library-browse-redesign": "node scripts/test-library-browse-redesign.js",
     "test:lesson-viewer-workspace": "node scripts/test-lesson-viewer-workspace.js",
     "test:lesson-editor-separation": "node scripts/test-lesson-plan-editor-separation.js",
     "test:lesson-viewer-action-bar": "node scripts/test-lesson-viewer-action-bar.js",

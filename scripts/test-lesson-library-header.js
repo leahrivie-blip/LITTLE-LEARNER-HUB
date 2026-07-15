@@ -165,9 +165,9 @@ async function main() {
     await page.click("[data-lesson-library-info-toggle]");
     await page.waitForSelector("#lessonLibraryInfoPanel", { timeout: 3000 });
 
-    // Leaving lessons restores topbar chrome.
-    await page.evaluate(() => setView("home"));
-    await page.waitForSelector("#view-home.active-view", { timeout: 5000 });
+    // Leaving lessons restores topbar chrome (logged-in home remaps to Calendar).
+    await page.evaluate(() => setView("calendar"));
+    await page.waitForSelector("#view-calendar.active-view", { timeout: 5000 });
     const homeState = await page.evaluate(() => {
       const accountActions = document.querySelector(".topbar .account-actions");
       const style = accountActions ? window.getComputedStyle(accountActions) : null;
@@ -177,7 +177,7 @@ async function main() {
       };
     });
     assert(!homeState.lessonsViewClass, "lessons-view should clear off lessons");
-    assert(homeState.accountVisible, "account actions should return on home");
+    assert(homeState.accountVisible, "account actions should return off lessons");
 
     await browser.close();
     console.log("Lesson library header cleanup checks passed.");
