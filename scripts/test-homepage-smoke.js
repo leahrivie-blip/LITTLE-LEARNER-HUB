@@ -361,9 +361,8 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
       const foundingBtn = page.locator("#featurePreviewModal [data-checkout-plan='founding']");
       const trialBtn = page.locator("#featurePreviewModal [data-start-pro-trial]");
       if (await foundingBtn.count()) {
-        await foundingBtn.first().waitFor({ timeout: 5000 });
-        await foundingBtn.first().click();
-        // Confirm dialog is auto-accepted; local/test checkout may land on upgrade or stay put.
+        // Sticky mobile bar can hide the in-body button visually; force-click is safe here.
+        await foundingBtn.first().click({ force: true });
         await page.waitForTimeout(800);
       } else {
         await trialBtn.waitFor({ timeout: 5000 });

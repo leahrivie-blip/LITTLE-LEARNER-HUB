@@ -217,9 +217,8 @@ async function runViewportSuite(browser, { viewport, label }) {
 
   // ==================== 14) Plan This Week (baseline assign, current week) ====================
   await openLessonWorkspace(page, lessonNow.title);
-  await page.click("[data-lesson-use-this-plan]");
-  await page.waitForSelector('[data-lesson-workspace-action-panel="use-plan"]:not([hidden])', { timeout: 10000 });
-  await page.click('[data-lesson-use-plan-choice="calendar"]');
+  await page.click("#resourceViewerModal [data-lesson-use-this-plan]");
+  // Product now skips the old Weekly Plan choice and opens Calendar assign directly.
   await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 10000 });
   await page.fill('[data-lesson-main-calendar-form] [name="weekStartDate"]', currentWeek);
   await page.click('[data-lesson-main-calendar-form] button[type="submit"]');
@@ -239,9 +238,7 @@ async function runViewportSuite(browser, { viewport, label }) {
   await page.click("[data-lesson-open-weekly-planner]");
   await page.waitForSelector("#view-planner.active-view", { timeout: 10000 });
   await openLessonWorkspace(page, lessonFuture.title);
-  await page.click("[data-lesson-use-this-plan]");
-  await page.waitForSelector('[data-lesson-workspace-action-panel="use-plan"]:not([hidden])', { timeout: 10000 });
-  await page.click('[data-lesson-use-plan-choice="calendar"]');
+  await page.click("#resourceViewerModal [data-lesson-use-this-plan]");
   await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 10000 });
   await page.fill('[data-lesson-main-calendar-form] [name="weekStartDate"]', futureWeek);
   await page.click('[data-lesson-main-calendar-form] button[type="submit"]');
@@ -259,10 +256,14 @@ async function runViewportSuite(browser, { viewport, label }) {
   // ==================== 16) Weekly Planner focus behavior ====================
   const hasBackToThisWeek = await page.locator('#view-planner [data-view="planner"]:has-text("Back to This Week")').count();
   check("16) Weekly Planner (future week) offers Back to This Week", hasBackToThisWeek > 0);
-  await page.click('#view-planner [data-view="planner"]:has-text("Back to This Week")');
-  await page.waitForTimeout(400);
-  const backText = await page.locator("#view-planner").innerText();
-  check("16) Back to This Week returns to the current week's plan", backText.includes(lessonNow.title), backText.slice(0, 120));
+  if (hasBackToThisWeek > 0) {
+    await page.click('#view-planner [data-view="planner"]:has-text("Back to This Week")');
+    await page.waitForTimeout(400);
+    const backText = await page.locator("#view-planner").innerText();
+    check("16) Back to This Week returns to the current week's plan", backText.includes(lessonNow.title), backText.slice(0, 120));
+  } else {
+    check("16) Back to This Week returns to the current week's plan", false, "Back to This Week control not present in current Weekly Planner UI");
+  }
   await page.evaluate(() => setView("calendar"));
   await page.waitForTimeout(200);
   await page.evaluate((week) => { mainCalendarSelectedWeek = week; renderMainCalendar(); }, futureWeek);
