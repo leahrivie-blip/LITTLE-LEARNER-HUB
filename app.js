@@ -5887,7 +5887,7 @@ function lessonEditorAfterSavePanelHtml(resource) {
         <button type="button" class="primary-button" data-lesson-editor-continue>Continue Editing</button>
         <button type="button" class="ghost-button" data-lesson-editor-use-plan="${id}">Use This Plan</button>
         <button type="button" class="ghost-button" data-lesson-editor-print-week="${id}">Print</button>
-        <button type="button" class="ghost-button" data-lesson-editor-download-week="${id}">Download</button>
+        <button type="button" class="ghost-button" data-lesson-editor-download-week="${id}">Download Weekly Lesson Plan</button>
         <button type="button" class="ghost-button" data-lesson-editor-download-full="${id}">Download Full Lesson Plan</button>
         <button type="button" class="ghost-button" data-lesson-editor-return-library>Return to Library</button>
       </div>
@@ -15580,8 +15580,8 @@ function lessonWorkspaceActionBarsHtml(resource) {
     <div class="lesson-workspace-action-bars" data-lesson-action-bars="top">
       <div class="lesson-workspace-primary-actions" aria-label="Lesson plan actions">
         <button type="button" class="primary-button lesson-workspace-use-plan-btn" data-lesson-use-this-plan>Use This Plan</button>
-        <button type="button" class="ghost-button lesson-workspace-secondary-btn" data-lesson-print-variant="week">Print</button>
-        <button type="button" class="ghost-button lesson-workspace-secondary-btn" data-lesson-download-variant="week">Download</button>
+        <button type="button" class="ghost-button lesson-workspace-secondary-btn" data-lesson-print-variant="week">Print Weekly Lesson Plan</button>
+        <button type="button" class="ghost-button lesson-workspace-secondary-btn" data-lesson-download-variant="week" title="Download substitute-ready weekly lesson plan PDF">Download Weekly Lesson Plan</button>
         <div class="lesson-workspace-more-wrap">
           <button type="button" class="ghost-button lesson-workspace-more-btn" data-lesson-workspace-more-toggle aria-expanded="false" aria-haspopup="true">More</button>
           <div class="lesson-workspace-more-menu" hidden>
@@ -15592,6 +15592,7 @@ function lessonWorkspaceActionBarsHtml(resource) {
             </div>
             <div class="lesson-workspace-more-group">
               <p class="lesson-workspace-more-label">Downloads</p>
+              <button type="button" data-lesson-download-variant="week">Download Weekly Lesson Plan (PDF)</button>
               <button type="button" data-lesson-download-variant="week-detail">Detailed Weekly Lesson Plan (PDF)</button>
               <button type="button" data-lesson-download-variant="planning">Classroom Planning Sheet (PDF)</button>
               <button type="button" data-lesson-download-variant="full">Download Full Lesson Plan (PDF)</button>
@@ -18588,7 +18589,7 @@ function renderWeeklyPlanViewHtml(scheduleItem, weekStart, weekEnd, room) {
         <div class="form-actions llh-weekly-plan-actions">
           <button type="button" class="primary-button" data-weekly-plan-edit-week>Edit Week</button>
           <button type="button" class="ghost-button" data-weekly-plan-print="${escapeHtml(weekStart)}">Print</button>
-          <button type="button" class="ghost-button" data-weekly-plan-download="${escapeHtml(weekStart)}">Download Weekly Plan</button>
+          <button type="button" class="ghost-button" data-weekly-plan-download="${escapeHtml(weekStart)}">Download Weekly Lesson Plan</button>
           <button type="button" class="ghost-button" data-weekly-plan-remove="${escapeHtml(scheduleItem.id)}" data-weekly-plan-remove-week="${escapeHtml(weekStart)}">Remove from Calendar</button>
           <button type="button" class="ghost-button" data-view="calendar" data-dash-select-week="${escapeHtml(weekStart)}" data-weekly-plan-back-calendar>Back to Calendar</button>
         </div>
