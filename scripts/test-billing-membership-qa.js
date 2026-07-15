@@ -7,7 +7,7 @@ const fs = require("fs");
 const path = require("path");
 const http = require("http");
 const os = require("os");
-const { spawn } = require("child_process");
+const { spawn, spawnSync } = require("child_process");
 const crypto = require("crypto");
 const membershipAccess = require("./membership-access.js");
 
@@ -362,7 +362,7 @@ async function main() {
     {
       name: "disabled account cannot retain manual Pro access",
       user: { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", internalAccessOverride: true, accountStatus: "Disabled" },
-      access: "free", billing: "ended", label: "Subscription Ended", pro: false,
+      access: "free", billing: "never_subscribed", label: "No paid subscription", pro: false,
     },
   ];
   for (const scenario of scenarios) {
@@ -370,6 +370,67 @@ async function main() {
     assert(membershipAccess.membershipBillingStatusKey(scenario.user) === scenario.billing, `${scenario.name}: billing bucket`);
     assert(membershipAccess.membershipStatusDisplay(scenario.user) === scenario.label, `${scenario.name}: billing label`);
     assert(membershipAccess.membershipHasProAccess(scenario.user) === scenario.pro, `${scenario.name}: permission`);
+  }
+
+  const paidAfterTrialEnds = simulateStripeSubscriptionUpdated(
+    {
+      plan: "Pro",
+      stripeSubscriptionStatus: "active",
+      subscriptionStatus: "Pro Monthly Subscription Active",
+      trialStatus: "Trial Ended",
+      trialStart: pastIso,
+      trialEnd: pastIso,
+    },
+    { status: "canceled", current_period_end: periodEndPast, trial_end: periodEndPast },
+    "deleted",
+  );
+  assert(paidAfterTrialEnds.subscriptionStatus === "Subscription Ended", "Former trial converted to paid must end as a paid subscription");
+  assert(paidAfterTrialEnds.previousPlan === "Pro", "Former trial converted to paid retains paid previous plan");
+
+  console.log("2b) Repair script protects converted paid accounts and writes a backup");
+  {
+    const repairStorePath = path.join(os.tmpdir(), `llh-repair-test-${crypto.randomBytes(4).toString("hex")}.json`);
+    const repairOutputDir = path.join(os.tmpdir(), `llh-repair-reports-${crypto.randomBytes(4).toString("hex")}`);
+    const repairStore = {
+      users: {
+        "converted@test": {
+          email: "converted@test",
+          plan: "Pro",
+          subscriptionStatus: "Pro Monthly Subscription Active",
+          stripeSubscriptionStatus: "active",
+          stripeSubscriptionId: "sub_converted",
+          trialStatus: "Trial Ended",
+          trialStart: pastIso,
+          trialEnd: pastIso,
+        },
+        "expired-trial@test": {
+          email: "expired-trial@test",
+          plan: "Pro",
+          subscriptionStatus: "Pro Monthly Subscription Trialing",
+          stripeSubscriptionStatus: "trialing",
+          trialStatus: "In Trial",
+          trialStart: pastIso,
+          trialEnd: pastIso,
+        },
+      },
+    };
+    fs.writeFileSync(repairStorePath, JSON.stringify(repairStore, null, 2));
+    const repairRun = spawnSync(process.execPath, [
+      "scripts/audit-repair-subscription-statuses.js",
+      `--input=${repairStorePath}`,
+      "--apply",
+    ], {
+      cwd: ROOT,
+      env: { ...process.env, SUBSCRIPTION_AUDIT_DIR: repairOutputDir },
+      encoding: "utf8",
+    });
+    assert(repairRun.status === 0, `Repair script failed: ${repairRun.stderr || repairRun.stdout}`);
+    const repaired = JSON.parse(fs.readFileSync(repairStorePath, "utf8"));
+    assert(repaired.users["converted@test"].plan === "Pro", "Repair must not downgrade paid user with historical trial dates");
+    assert(repaired.users["expired-trial@test"].plan === "Free", "Repair downgrades a verifiably expired current trial");
+    assert(fs.readdirSync(repairOutputDir).some((file) => file.startsWith("subscription-backup-")), "Repair writes backup before apply");
+    fs.rmSync(repairStorePath, { force: true });
+    fs.rmSync(repairOutputDir, { recursive: true, force: true });
   }
 
   const cancelScheduled = simulateStripeSubscriptionUpdated(

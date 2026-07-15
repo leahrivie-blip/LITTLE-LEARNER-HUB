@@ -116,14 +116,18 @@ function membershipHasSubscriptionHistory(user) {
   if (!user) return false;
   const status = String(user.subscriptionStatus || "").toLowerCase();
   const stripeStatus = String(user.stripeSubscriptionStatus || "").toLowerCase();
+  const stripeEvidence = Boolean(user.subscriptionStartedAt || user.stripeSubscriptionId)
+    || ["active", "trialing", "past_due", "unpaid", "canceled"].includes(stripeStatus);
+  if ((user.manualAccessGranted || user.internalAccessOverride) && !stripeEvidence && !membershipHasTrialHistory(user)) return false;
   return membershipHasTrialHistory(user)
-    || Boolean(user.subscriptionStartedAt || user.stripeSubscriptionId)
-    || ["Pro", "Founding"].includes(user.plan)
+    || stripeEvidence
+    || (["Pro", "Founding"].includes(user.plan) && !user.internalAccessOverride)
     || Boolean(user.foundingMemberHistorical || user.foundingMember || user.foundingMemberNumber)
-    || ["active", "trialing", "past_due", "unpaid", "canceled"].includes(stripeStatus)
-    || status.includes("subscription active")
-    || status.includes("subscription ended")
-    || status.includes("canceled and ended");
+    || (!user.manualAccessGranted && (
+      status.includes("subscription active")
+      || status.includes("subscription ended")
+      || status.includes("canceled and ended")
+    ));
 }
 
 function membershipPreviousPlanDisplay(user) {
@@ -232,9 +236,12 @@ function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventTyp
   const accessEndsAt = stripeStatus === "trialing" && trialEndIso ? trialEndIso : periodEndIso;
   const cancelAtPeriodEnd = Boolean(subscription?.cancel_at_period_end);
   const nowMs = Date.now();
-  const wasTrial = stripeStatus === "trialing"
-    || Boolean(subscription?.trial_start || subscription?.trial_end)
-    || membershipHasTrialHistory(user);
+  const previousStripeStatus = String(user?.stripeSubscriptionStatus || "").toLowerCase();
+  const previousTrialStatus = String(user?.trialStatus || "").toLowerCase();
+  const previousStatus = String(user?.subscriptionStatus || "").toLowerCase();
+  const endedDuringTrial = stripeStatus === "trialing"
+    || previousStripeStatus === "trialing"
+    || (previousTrialStatus.includes("in trial") && previousStatus.includes("trial"));
   const ended = eventType === "deleted"
     || stripeStatus === "canceled"
     || stripeStatus === "unpaid"
@@ -258,19 +265,19 @@ function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventTyp
     const endedAt = accessEndsAt && parseIsoMs(accessEndsAt) <= nowMs
       ? accessEndsAt
       : new Date().toISOString();
-    const previousPlan = wasTrial
+    const previousPlan = endedDuringTrial
       ? "Pro Trial"
       : (user.foundingMemberActive || user.plan === "Founding" ? "Founding Member" : "Pro");
     return {
       ...base,
       plan: "Free",
       subscriptionCadence: "",
-      subscriptionStatus: wasTrial ? "Trial Ended" : "Subscription Ended",
+      subscriptionStatus: endedDuringTrial ? "Trial Ended" : "Subscription Ended",
       monthlyPrice: "$0/month",
       foundingMemberActive: false,
       foundingMemberHistorical: wasFounding,
       foundingMember: wasFounding,
-      trialStatus: wasTrial ? (cancelAtPeriodEnd ? "Trial Canceled" : "Trial Ended") : user.trialStatus || "",
+      trialStatus: endedDuringTrial ? (cancelAtPeriodEnd ? "Trial Canceled" : "Trial Ended") : user.trialStatus || "",
       previousPlan,
       subscriptionEndedAt: endedAt,
     };

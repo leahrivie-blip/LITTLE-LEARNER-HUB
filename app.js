@@ -30955,7 +30955,7 @@ const ADMIN_OWNER_METRIC_TITLES = {
   "billing-trial": "Trial Subscriptions",
   "billing-founding": "Founding Members",
   "billing-canceling": "Canceling Subscriptions",
-  "billing-canceled": "Canceled Subscriptions",
+  "billing-canceled": "Canceled / Ended Billing History",
   "billing-past-due": "Past Due / Failed Payment",
   "active-today": "Active Today",
   "active-week": "Active This Week",
@@ -31343,7 +31343,7 @@ function renderAdminOwnerOverview() {
         ${adminMetric("Trial", totals.trialUsers ?? "—", "", "billing-trial")}
         ${adminMetric("Founding", totals.foundingMembers ?? "—", "", "billing-founding")}
         ${adminMetric("Canceling", totals.cancelingSubscriptions ?? "—", "", "billing-canceling")}
-        ${adminMetric("Canceled", totals.canceledSubscriptions ?? "—", "", "billing-canceled")}
+        ${adminMetric("Canceled / Ended", totals.canceledSubscriptions ?? "—", "", "billing-canceled")}
         ${adminMetric("Past Due", totals.pastDueUsers ?? "—", "", "billing-past-due")}
         ${adminMetric("Failed Payment", totals.failedPayments ?? "—", "", "billing-past-due")}
         ${adminMetric("Open Support", totals.openSupportTickets ?? openTickets.length, "Opens Support tab", "open-support")}
@@ -31968,7 +31968,7 @@ function renderAdminAnalytics() {
       ${adminMetric("pro users", totals.proUsers || 0)}
       ${adminMetric("founding members", totals.foundingMembers || 0)}
       ${adminMetric("active subscriptions", totals.activeSubscriptions || 0)}
-      ${adminMetric("canceled subscriptions", totals.canceledSubscriptions || 0)}
+      ${adminMetric("canceled / ended history", totals.canceledSubscriptions || 0)}
       ${adminMetric("visitor to signup", totals.visitorToSignupRate || "0%")}
       ${adminMetric("signup to paid", totals.signupToPaidRate || "0%")}
       ${adminMetric("visitor to paid", totals.visitorToPaidRate || "0%")}
@@ -34127,14 +34127,18 @@ function adminMembershipHasBillingHistory(account) {
   if (!account) return false;
   const status = String(account.subscriptionStatus || "").toLowerCase();
   const stripeStatus = String(account.stripeSubscriptionStatus || "").toLowerCase();
+  const stripeEvidence = Boolean(account.subscriptionStartedAt || account.stripeSubscriptionId)
+    || ["active", "trialing", "past_due", "unpaid", "canceled"].includes(stripeStatus);
+  if ((account.manualAccessGranted || account.internalAccessOverride) && !stripeEvidence && !adminMembershipHasTrialHistory(account)) return false;
   return adminMembershipHasTrialHistory(account)
-    || Boolean(account.subscriptionStartedAt || account.stripeSubscriptionId)
-    || ["Pro", "Founding"].includes(account.plan)
+    || stripeEvidence
+    || (["Pro", "Founding"].includes(account.plan) && !account.internalAccessOverride)
     || Boolean(account.foundingMemberHistorical || account.foundingMember || account.foundingMemberNumber)
-    || ["active", "trialing", "past_due", "unpaid", "canceled"].includes(stripeStatus)
-    || status.includes("subscription active")
-    || status.includes("subscription ended")
-    || status.includes("canceled and ended");
+    || (!account.manualAccessGranted && (
+      status.includes("subscription active")
+      || status.includes("subscription ended")
+      || status.includes("canceled and ended")
+    ));
 }
 
 function adminMembershipPlanLabel(account) {
@@ -34575,7 +34579,7 @@ function openAdminUserProfile(email, startTab) {
           ${account.lastSuccessfulPaymentAt ? `<div><span>Last Successful Payment</span><strong>${escapeHtml(new Date(account.lastSuccessfulPaymentAt).toLocaleString())}</strong></div>` : ""}
           ${account.lastFailedPaymentAt ? `<div><span>Last Failed Payment</span><strong>${escapeHtml(new Date(account.lastFailedPaymentAt).toLocaleString())}</strong></div>` : ""}
           ${account.nextPaymentRetryAt ? `<div><span>Next Payment Retry</span><strong>${escapeHtml(new Date(account.nextPaymentRetryAt).toLocaleString())}</strong></div>` : ""}
-          <div><span>Access Source</span><strong>${escapeHtml(account.accessSource || (account.internalAccessOverride ? "Manual admin grant" : account.promoRedeemedAt ? "Promo trial" : account.stripeSubscriptionId ? "Stripe subscription" : "Free account"))}</strong></div>
+          <div><span>Access Source</span><strong>${escapeHtml(account.accessSource || (account.internalAccessOverride ? "Manual admin grant" : account.manualAccessGranted ? "Previous manual admin grant" : account.promoRedeemedAt ? "Promo trial" : account.stripeSubscriptionId ? "Stripe subscription" : "Free account"))}</strong></div>
           ${account.lastStripeSyncAt || account.lastMembershipSyncAt || account.updatedAt ? `<div><span>Last Stripe Sync</span><strong>${escapeHtml(new Date(account.lastStripeSyncAt || account.lastMembershipSyncAt || account.updatedAt).toLocaleString())}</strong></div>` : ""}
         </div>
       </fieldset>
@@ -34881,6 +34885,7 @@ function handleAdminUserAction(action, email, modal) {
       subscriptionCadence: "monthly",
       subscriptionStatus: "Founding Member Subscription Active",
       internalAccessOverride: true,
+      manualAccessGranted: true,
     };
     adminUpdateMembershipOnServer(email, updates, action, "Admin granted founding access.").then((result) => {
       if (!result.ok && !result.localOnly) { showMsg(result.error || "Server update failed.", false); return; }
@@ -34923,7 +34928,7 @@ function handleAdminUserAction(action, email, modal) {
   }
   if (action === "convert-pro") {
     if (!confirm(`Convert ${displayUserName(account)} (${email}) to Pro Monthly? Internal override only — confirm separately in Stripe if billing should change.`)) return;
-    const updates = { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", trialEnd: null, monthlyPrice: "$19.99/month", subscriptionCadence: "monthly", foundingMemberActive: false, internalAccessOverride: true };
+    const updates = { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", trialEnd: null, monthlyPrice: "$19.99/month", subscriptionCadence: "monthly", foundingMemberActive: false, internalAccessOverride: true, manualAccessGranted: true };
     adminUpdateMembershipOnServer(email, updates, action).then((result) => {
       if (!result.ok && !result.localOnly) { showMsg(result.error || "Server update failed.", false); return; }
       updateAccount(email, updates);
@@ -34935,7 +34940,7 @@ function handleAdminUserAction(action, email, modal) {
   }
   if (action === "upgrade") {
     if (!confirm(`Upgrade ${displayUserName(account)} (${email}) to Pro Monthly? Internal override only — does not create a Stripe charge.`)) return;
-    const updates = { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", monthlyPrice: "$19.99/month", subscriptionCadence: "monthly", foundingMemberActive: false, internalAccessOverride: true };
+    const updates = { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", monthlyPrice: "$19.99/month", subscriptionCadence: "monthly", foundingMemberActive: false, internalAccessOverride: true, manualAccessGranted: true };
     adminUpdateMembershipOnServer(email, updates, action).then((result) => {
       if (!result.ok && !result.localOnly) { showMsg(result.error || "Server update failed.", false); return; }
       updateAccount(email, updates);
@@ -34947,7 +34952,18 @@ function handleAdminUserAction(action, email, modal) {
   }
   if (action === "downgrade") {
     if (!confirm(`Downgrade ${displayUserName(account)} (${email}) to Free? This removes Pro access immediately (internal override).`)) return;
-    const updates = { plan: "Free", subscriptionStatus: "Subscription Ended", previousPlan: adminCurrentAccessLabel(account), subscriptionEndedAt: new Date().toISOString(), monthlyPrice: "$0/month", foundingMemberActive: false, cancelAtPeriodEnd: false, internalAccessOverride: false };
+    const manualOnly = Boolean(account.manualAccessGranted || account.internalAccessOverride) && !account.stripeSubscriptionId;
+    const updates = {
+      plan: "Free",
+      subscriptionStatus: manualOnly ? "Free Plan" : "Subscription Ended",
+      previousPlan: manualOnly ? "None" : adminCurrentAccessLabel(account),
+      subscriptionEndedAt: manualOnly ? "" : new Date().toISOString(),
+      monthlyPrice: "$0/month",
+      foundingMemberActive: false,
+      cancelAtPeriodEnd: false,
+      internalAccessOverride: false,
+      manualAccessGranted: manualOnly,
+    };
     adminUpdateMembershipOnServer(email, updates, action).then((result) => {
       if (!result.ok && !result.localOnly) { showMsg(result.error || "Server update failed.", false); return; }
       updateAccount(email, updates);
@@ -34992,6 +35008,7 @@ function handleAdminUserAction(action, email, modal) {
       subscriptionStatus: "Founding Member Subscription Active",
       priceLock: "Lifetime",
       internalAccessOverride: true,
+      manualAccessGranted: true,
     };
     adminUpdateMembershipOnServer(email, updates, action, "Admin restored founding $9.99 pricing — internal override only.").then((result) => {
       if (!result.ok && !result.localOnly) { showMsg(result.error || "Server update failed.", false); return; }
@@ -35004,7 +35021,7 @@ function handleAdminUserAction(action, email, modal) {
   }
   if (action === "reactivate") {
     if (!confirm(`Reactivate Pro for ${displayUserName(account)} (${email})? Internal override only — does not charge Stripe.`)) return;
-    const updates = { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", monthlyPrice: "$19.99/month", cancelAtPeriodEnd: false, internalAccessOverride: true };
+    const updates = { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", monthlyPrice: "$19.99/month", cancelAtPeriodEnd: false, internalAccessOverride: true, manualAccessGranted: true };
     adminUpdateMembershipOnServer(email, updates, action).then((result) => {
       if (!result.ok && !result.localOnly) { showMsg(result.error || "Server update failed.", false); return; }
       updateAccount(email, updates);

@@ -4828,13 +4828,15 @@ function membershipSummaryForUser(user, storeRef = null) {
     willTrialConvertToPaid: membershipUserInTrial(user) ? !user?.cancelAtPeriodEnd : null,
     accessSource: user?.internalAccessOverride
       ? "Manual admin grant"
-      : user?.promoRedeemedAt
-        ? "Promo trial"
-        : membershipAccess.membershipFoundingActive(user)
-          ? "Founding subscription"
-          : user?.stripeSubscriptionId
-            ? "Stripe subscription"
-            : "Free account",
+      : user?.manualAccessGranted
+        ? "Previous manual admin grant"
+        : user?.promoRedeemedAt
+          ? "Promo trial"
+          : membershipAccess.membershipFoundingActive(user)
+            ? "Founding subscription"
+            : user?.stripeSubscriptionId
+              ? "Stripe subscription"
+              : "Free account",
     lastMembershipSyncAt: user?.lastStripeSyncAt || user?.updatedAt || "",
     lastStripeSyncAt: user?.lastStripeSyncAt || user?.updatedAt || "",
     stripeSubscriptionStatus: user?.stripeSubscriptionStatus || "",

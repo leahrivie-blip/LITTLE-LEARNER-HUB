@@ -41,9 +41,15 @@ function evidenceBackedRepair(user, nowMs = Date.now()) {
   const next = { ...user };
   const changes = {};
   const trialEndMs = user.trialEnd ? new Date(user.trialEnd).getTime() : NaN;
-  const expiredTrial = membership.membershipHasTrialHistory(user)
+  const stripeStatus = String(user.stripeSubscriptionStatus || "").toLowerCase();
+  const trialStatus = String(user.trialStatus || "").toLowerCase();
+  const subscriptionStatus = String(user.subscriptionStatus || "").toLowerCase();
+  const currentTrialSignal = stripeStatus === "trialing"
+    || (trialStatus.includes("in trial") && subscriptionStatus.includes("trial"));
+  const expiredTrial = currentTrialSignal
     && Number.isFinite(trialEndMs)
     && trialEndMs <= nowMs
+    && stripeStatus !== "active"
     && !user.internalAccessOverride;
 
   if (expiredTrial && (user.plan !== "Free" || user.trialStatus === "In Trial")) {
@@ -91,8 +97,9 @@ const report = {
 
 const repairedUsers = { ...(store.users || {}) };
 for (const user of users) {
-  const result = classify(user);
   const { next, changes } = evidenceBackedRepair(user);
+  const reportedUser = apply ? next : user;
+  const result = classify(reportedUser);
   const rawStatus = String(user.subscriptionStatus || "");
   const ambiguousEnded = /canceled and ended|subscription ended/i.test(rawStatus) && !hasVerifiedHistory({
     ...user,
@@ -101,7 +108,7 @@ for (const user of users) {
 
   report.users.push({
     email: user.email,
-    rawPlan: user.plan || "Free",
+    rawPlan: reportedUser.plan || "Free",
     rawSubscriptionStatus: rawStatus || "",
     stripeCustomerId: user.stripeCustomerId || "",
     stripeSubscriptionId: user.stripeSubscriptionId || "",
