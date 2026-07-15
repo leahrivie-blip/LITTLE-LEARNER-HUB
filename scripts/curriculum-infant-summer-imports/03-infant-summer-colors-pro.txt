@@ -1,0 +1,322 @@
+TITLE:
+Summer Colors
+
+AGE_GROUP:
+Infant 0–12 Months
+
+THEME:
+Summer Colors
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development, Creative Arts
+
+WEEKLY_OVERVIEW:
+Infants will explore bright summer colors through sensory experiences, movement, music, visual discovery, and hands-on play. Children will investigate colorful summer objects, nature items, and playful materials while developing curiosity and early learning skills.
+
+LEARNING_OBJECTIVES:
+• Explore colors through sensory experiences
+• Strengthen visual tracking and observation skills
+• Support language development through color vocabulary
+• Encourage fine and gross motor development
+• Foster curiosity through colorful exploration
+
+WEEKLY_MATERIALS:
+Colorful scarves, textured balls, sensory bags, mirrors, flowers, beach balls, ribbons, music player, color cards, bubbles
+
+VOCABULARY:
+Red, Blue, Yellow, Green, Orange, Purple, Bright, Color, Summer, Rainbow
+
+BOOKS:
+Baby Colors
+Brown Bear, Brown Bear, What Do You See?
+Bright Baby Colors
+Hello Colors
+Colorful Summer
+
+SONGS:
+The Rainbow Song
+Red Yellow Green Blue
+You Are My Sunshine
+If You're Happy and You Know It
+Twinkle Twinkle Little Star
+
+FAMILY_CONNECTION:
+Encourage families to point out colorful objects, flowers, toys, and nature items during everyday routines and outdoor adventures.
+
+OBSERVATION_OPPORTUNITIES:
+Observe visual tracking, color preferences, communication attempts, sensory exploration, social engagement, and participation during activities.
+
+ADAPTATIONS:
+Provide high-contrast visuals, alternative sensory materials, adaptive positioning, and individualized support as needed.
+
+MONDAY
+
+ACTIVITY_NAME:
+Red Discovery Basket
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants explore red-colored objects through touch and sight.
+MATERIALS:
+Red toys, red scarves, red textured items
+DIRECTIONS:
+Place materials in basket.
+Encourage touching and grasping.
+Name the color red.
+Allow exploration.
+TEACHER_ROLE:
+Model color vocabulary and encourage exploration.
+LEARNING_GOALS:
+Color awareness and sensory exploration.
+
+ACTIVITY_NAME:
+Red Song Time
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Infants listen to songs while exploring red objects.
+MATERIALS:
+Music player, red scarves
+DIRECTIONS:
+Play music.
+Move scarves gently.
+Encourage participation.
+TEACHER_ROLE:
+Lead music experience.
+LEARNING_GOALS:
+Auditory awareness and engagement.
+
+ACTIVITY_NAME:
+Color Story Time
+CATEGORY:
+Literacy
+DESCRIPTION:
+Infants listen to a colorful board book.
+MATERIALS:
+Color-themed board books
+DIRECTIONS:
+Read story aloud.
+Point to colors.
+Repeat color words.
+TEACHER_ROLE:
+Support language development.
+LEARNING_GOALS:
+Early literacy and vocabulary development.
+
+TUESDAY
+
+ACTIVITY_NAME:
+Yellow Sunshine Exploration
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants explore yellow summer-themed materials.
+MATERIALS:
+Yellow toys, yellow scarves, sun pictures
+DIRECTIONS:
+Present yellow materials.
+Encourage exploration.
+Discuss the color yellow.
+TEACHER_ROLE:
+Model descriptive language.
+LEARNING_GOALS:
+Color recognition and sensory awareness.
+
+ACTIVITY_NAME:
+Sunshine Mirror Play
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Infants explore reflections while viewing yellow objects.
+MATERIALS:
+Baby-safe mirrors
+DIRECTIONS:
+Position mirrors safely.
+Show yellow objects.
+Encourage interaction.
+TEACHER_ROLE:
+Support social interaction.
+LEARNING_GOALS:
+Social-emotional development.
+
+ACTIVITY_NAME:
+Yellow Movement Fun
+CATEGORY:
+Gross Motor
+DESCRIPTION:
+Infants participate in simple movement experiences.
+MATERIALS:
+Yellow scarves
+DIRECTIONS:
+Move scarves overhead.
+Encourage reaching.
+Celebrate participation.
+TEACHER_ROLE:
+Support physical development.
+LEARNING_GOALS:
+Gross motor development.
+
+WEDNESDAY
+
+ACTIVITY_NAME:
+Blue Ocean Discovery
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants explore blue ocean-themed materials.
+MATERIALS:
+Blue scarves, blue toys
+DIRECTIONS:
+Present materials.
+Encourage touching.
+Discuss the color blue.
+TEACHER_ROLE:
+Guide sensory exploration.
+LEARNING_GOALS:
+Color awareness and tactile development.
+
+ACTIVITY_NAME:
+Bubble Color Tracking
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Infants watch colorful bubbles and practice visual tracking.
+MATERIALS:
+Bubbles
+DIRECTIONS:
+Blow bubbles.
+Encourage eye tracking.
+Observe reactions.
+TEACHER_ROLE:
+Support observation.
+LEARNING_GOALS:
+Visual tracking skills.
+
+ACTIVITY_NAME:
+Blue Music Time
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Infants enjoy music while exploring blue materials.
+MATERIALS:
+Music player
+DIRECTIONS:
+Play music.
+Move together.
+Encourage participation.
+TEACHER_ROLE:
+Lead activity.
+LEARNING_GOALS:
+Auditory development and engagement.
+
+THURSDAY
+
+ACTIVITY_NAME:
+Green Nature Discovery
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants explore green nature-inspired materials.
+MATERIALS:
+Leaves, green scarves, nature photos
+DIRECTIONS:
+Present materials.
+Encourage exploration.
+Discuss the color green.
+TEACHER_ROLE:
+Support sensory discovery.
+LEARNING_GOALS:
+Color recognition and environmental awareness.
+
+ACTIVITY_NAME:
+Rainbow Sensory Bag
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants explore a sealed sensory bag filled with colorful items.
+MATERIALS:
+Sensory bag, colorful ribbons, shapes
+DIRECTIONS:
+Place bag on floor.
+Encourage pressing and touching.
+Observe colors moving.
+TEACHER_ROLE:
+Guide sensory exploration.
+LEARNING_GOALS:
+Visual awareness and sensory development.
+
+ACTIVITY_NAME:
+Rainbow Rhythm Time
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Infants enjoy colorful scarves and music.
+MATERIALS:
+Scarves, music player
+DIRECTIONS:
+Play music.
+Move scarves.
+Encourage visual tracking.
+TEACHER_ROLE:
+Lead rhythm activities.
+LEARNING_GOALS:
+Auditory awareness and visual tracking.
+
+FRIDAY
+
+ACTIVITY_NAME:
+Summer Color Parade
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Infants explore all the colors discovered throughout the week.
+MATERIALS:
+Colorful toys, scarves, visuals
+DIRECTIONS:
+Present colorful materials.
+Review colors.
+Encourage exploration.
+TEACHER_ROLE:
+Narrate discoveries and reinforce vocabulary.
+LEARNING_GOALS:
+Color recognition and language development.
+
+ACTIVITY_NAME:
+Rainbow Treasure Basket
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants explore a basket filled with colorful sensory materials.
+MATERIALS:
+Colorful toys, textured objects
+DIRECTIONS:
+Present materials.
+Encourage touching and grasping.
+Compare colors and textures.
+TEACHER_ROLE:
+Support sensory discovery.
+LEARNING_GOALS:
+Fine motor development and sensory exploration.
+
+ACTIVITY_NAME:
+Summer Colors Celebration Circle
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Infants review favorite colors and experiences from the week.
+MATERIALS:
+Books, visuals, songs
+DIRECTIONS:
+Show colorful visuals.
+Review vocabulary.
+Sing favorite songs.
+TEACHER_ROLE:
+Lead group experience.
+LEARNING_GOALS:
+Vocabulary development and social participation.
