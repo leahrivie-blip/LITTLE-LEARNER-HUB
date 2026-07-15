@@ -74,8 +74,8 @@ function parseImportMessage(message, severity) {
 function isBlockingUnmappedEntry(entry, formatVersion = 0) {
   const text = String(entry?.text || "").trim();
   if (!text) return false;
-  // V4 Smart Import keeps unmapped prose as warnings, not blockers.
-  if (Number(formatVersion) === 4) {
+  // V4/V5 Flexible Import keeps unmapped prose as warnings, not blockers.
+  if (Number(formatVersion) === 4 || Number(formatVersion) === 5) {
     if (/^@[A-Z0-9_]+@$/i.test(text)) return true;
     return false;
   }
@@ -147,7 +147,7 @@ function duplicateTitleWarnings(data) {
 
 function emptyWeekdayWarnings(data, formatVersion = 1) {
   const warnings = [];
-  const skipDayMediaWarnings = formatVersion === 3 || formatVersion === 4;
+  const skipDayMediaWarnings = formatVersion === 3 || formatVersion === 4 || formatVersion === 5;
   CURRICULUM_WEEKDAYS.forEach((day) => {
     const dayPlan = data.dailyPlans?.[day];
     if (!dayPlan) return;
@@ -172,7 +172,7 @@ function emptyWeekdayWarnings(data, formatVersion = 1) {
         line: null,
       });
     }
-    if (formatVersion === 4 && (dayPlan.items || []).length) {
+    if ((formatVersion === 4 || formatVersion === 5) && (dayPlan.items || []).length) {
       if (!dayPlan.vocabulary) {
         warnings.push({
           severity: "warning",
@@ -183,7 +183,7 @@ function emptyWeekdayWarnings(data, formatVersion = 1) {
           line: null,
         });
       }
-      if (!dayPlan.familyConnection) {
+      if (!dayPlan.familyConnection && formatVersion === 4) {
         warnings.push({
           severity: "warning",
           message: `${dayLabel} missing family connection`,
@@ -339,7 +339,7 @@ function buildCurriculumImportPreview(parsed, options = {}) {
   if (formatVersion === 0 || formatVersion === 1) {
     structuredWarnings.unshift({
       severity: "error",
-      message: "Unrecognized paste format. Use V3 Strict labels or switch to V4 Smart Import for flexible section names.",
+      message: "Unrecognized paste format. Use V3 Strict labels or switch to V5 Flexible Import for ChatGPT-style pastes.",
       section: "format",
       weekday: "",
       activityName: "",
@@ -389,16 +389,19 @@ function buildCurriculumImportPreview(parsed, options = {}) {
     unmappedCount: unmapped.length,
     blockingUnmappedCount: blockingUnmapped.length,
     formatVersion,
-    formatLabel: formatVersion === 4
-      ? "V4 Smart Import"
-      : formatVersion === 3
-        ? "V3 Strict Import (label-only)"
-        : formatVersion === 2
-          ? "legacy marker format (unsupported)"
-          : "unrecognized format",
+    formatLabel: formatVersion === 5
+      ? "V5 Flexible Import"
+      : formatVersion === 4
+        ? "V4 Smart Import"
+        : formatVersion === 3
+          ? "V3 Strict Import (label-only)"
+          : formatVersion === 2
+            ? "legacy marker format (unsupported)"
+            : "unrecognized format",
     qualityScore: quality?.qualityScore ?? null,
     missingFieldCount: quality?.missingFieldCount ?? null,
     categoriesAssigned: quality?.categoriesAssigned ?? activityCounts.total,
+    recognizedFields: quality?.recognizedFields || parsed?.parseReport?.sectionsDetected || [],
   };
   return {
     ok: Boolean(parsed?.ok) && structuredErrors.length === 0,
@@ -417,7 +420,7 @@ function buildCurriculumImportPreview(parsed, options = {}) {
       && structuredErrors.length === 0
       && blockingUnmapped.length === 0
       && duplicateTitle.status !== "duplicate",
-    confirmMessage: formatVersion === 4
+    confirmMessage: (formatVersion === 4 || formatVersion === 5)
       ? `Import & Save will create 1 lesson plan and ${summary.activityLibraryEntries} linked Activity Library ${summary.activityLibraryEntries === 1 ? "entry" : "entries"}. Warnings can be fixed in the editor after import.`
       : `Import & Save will create 1 lesson plan and ${summary.activityLibraryEntries} linked Activity Library ${summary.activityLibraryEntries === 1 ? "entry" : "entries"} automatically.`,
   };
