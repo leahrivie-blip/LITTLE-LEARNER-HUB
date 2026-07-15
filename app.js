@@ -3764,7 +3764,7 @@ let adminOwnerDrilldown = {
 };
 const adminOwnerMobileDefaultCollapsed = typeof window !== "undefined"
   && typeof window.matchMedia === "function"
-  && window.matchMedia("(max-width: 820px)").matches;
+  && window.matchMedia("(max-width: 1100px)").matches;
 let adminOwnerSectionsOpen = {
   inventory: true,
   billing: !adminOwnerMobileDefaultCollapsed,
@@ -3928,7 +3928,9 @@ const adminTabLabels = {
   "usage":       "Usage Monitor",
 };
 let adminActiveGroup = adminGroupForTab[adminActiveSectionTab] || "dashboard";
-const mobileNavMaxWidth = 820;
+/* Tablet + phone: collapse the full sidebar into the hamburger drawer.
+   Desktop side-nav remains from 1101px up (covers iPad portrait/landscape). */
+const mobileNavMaxWidth = 1100;
 const installPromptDeferDays = 30;
 let deferredInstallPrompt = null;
 let installModalSource = "settings";

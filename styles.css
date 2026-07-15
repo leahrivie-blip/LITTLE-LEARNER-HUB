@@ -1006,7 +1006,7 @@ body.lessons-view .mobile-brand {
   color: #2457a0;
 }
 
-@media (max-width: 820px) {
+@media (max-width: 1100px) {
   .lesson-library-grid {
     grid-template-columns: 1fr;
   }
@@ -1016,12 +1016,18 @@ body.lessons-view .mobile-brand {
   }
 }
 
+@media (min-width: 700px) and (max-width: 1100px) {
+  .lesson-library-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .lesson-library-age-filters button {
   min-height: 44px;
   padding: 10px 14px;
 }
 
-@media (max-width: 820px) {
+@media (max-width: 1100px) {
   body.lessons-view .topbar {
     padding: 8px 12px;
   }
@@ -4711,7 +4717,7 @@ body.lessons-view .mobile-brand {
   }
 }
 
-@media (max-width: 820px) {
+@media (max-width: 1100px) {
   .admin-owner-jump {
     position: sticky;
     top: 0;
@@ -6184,7 +6190,7 @@ body.lessons-view .mobile-brand {
   margin-top: 12px;
 }
 
-@media (max-width: 820px) {
+@media (max-width: 1100px) {
   .curriculum-planner-day-board {
     grid-template-columns: 1fr;
   }
@@ -10127,7 +10133,7 @@ body.lessons-view .mobile-brand {
   }
 }
 
-@media (max-width: 820px) {
+@media (max-width: 1100px) {
   body.mobile-nav-open,
   body.auth-modal-open {
     overflow: hidden;
@@ -12559,13 +12565,13 @@ body.user-authenticated .lp-final-cta [data-action="start-free"] {
   white-space: nowrap;
 }
 
-@media (min-width: 821px) {
+@media (min-width: 1101px) {
   .fp-has-sticky-upgrade .fp-sticky-upgrade {
     display: none;
   }
 }
 
-@media (max-width: 820px) {
+@media (max-width: 1100px) {
   .fp-has-sticky-upgrade #featurePreviewBody {
     max-height: none;
     padding-bottom: 0.5rem;
@@ -15208,7 +15214,7 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 .ai-log-email { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .form-success { color: #1a6b2f; background: #d4edda; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; margin: 0; }
 
-@media (max-width: 820px) {
+@media (max-width: 1100px) {
   .ai-pm-grid { grid-template-columns: 1fr; }
   .ai-pm-sidebar { flex-direction: row; flex-wrap: wrap; position: static; }
   .ai-pm-tool-btn { flex: 1 1 auto; min-width: 120px; }
@@ -19412,3 +19418,400 @@ body.admin-preview-simulating .sidebar .brand h1::after {
   background: #fff7f7;
 }
 .settings-hub-card-danger strong { color: #9b2c2c; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Tablet / mid-size responsive polish (phones → iPads → small laptops)
+   Keeps the same visual language; only adjusts layout density & overflow.
+   Shell hamburger + drawer activates at max-width: 1100px (see above).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+html {
+  overflow-x: clip;
+  max-width: 100%;
+}
+
+body {
+  overflow-x: clip;
+  max-width: 100%;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+.main,
+.view,
+.section-block,
+.modal-card,
+.llh-calendar-shell,
+.lesson-workspace,
+.resource-viewer-card {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Prefer contained table scroll over page-level horizontal scroll. */
+.admin-table-wrap,
+.comparison-table-wrap,
+.ai-usage-log-table-wrap,
+.llh-cal-week-strip {
+  max-width: 100%;
+}
+
+@media (max-width: 1100px) {
+  /* Comfortable content padding on tablets once the sidebar becomes a drawer. */
+  .view {
+    padding: 16px 18px 28px;
+  }
+
+  .topbar {
+    padding: 12px 16px;
+  }
+
+  .topbar .search-wrap {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .account-actions {
+    width: 100%;
+  }
+
+  .account-actions .ghost-button,
+  .account-actions .primary-button {
+    flex: 1 1 auto;
+    min-height: 44px;
+  }
+
+  /* Stack side-by-side page shells that fight narrow content widths. */
+  .admin-layout,
+  .child-layout,
+  .child-profile-grid,
+  .account-layout,
+  .planner-dashboard,
+  .planner-form,
+  .ai-layout,
+  .generator-grid,
+  .generator-panel,
+  .two-column,
+  .hero {
+    grid-template-columns: 1fr !important;
+  }
+
+  .child-sidebar,
+  .planner-suggestions {
+    position: static;
+  }
+
+  .empty-state,
+  .profile-empty-state {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* Cards & grids: 2 columns when space allows, else stack. */
+  .lesson-library-grid,
+  .resource-grid,
+  .category-grid,
+  .ai-tool-grid,
+  .future-tool-grid,
+  .home-stats,
+  .library-stats,
+  .recommendation-grid,
+  .planning-dashboard-grid,
+  .support-simple-card-grid,
+  .support-category-grid,
+  .dlc-action-cards,
+  .analytics-summary-grid,
+  .admin-owner-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lesson-plan-card,
+  .resource-card,
+  .price-card,
+  .section-block {
+    min-width: 0;
+  }
+
+  /* Forms, buttons, modals */
+  .primary-button,
+  .ghost-button,
+  .small-button,
+  .download-button,
+  .favorite-button,
+  .prompt-chip,
+  .nav-link {
+    min-height: 44px;
+  }
+
+  .modal {
+    align-items: flex-start;
+    padding: 12px;
+    overflow: auto;
+  }
+
+  .modal-card,
+  #authModal .modal-card,
+  #feedbackModal .modal-card,
+  .resource-viewer-modal .resource-viewer-card,
+  .llh-schedule-event-modal {
+    width: min(720px, 100%);
+    max-width: 100%;
+    max-height: calc(100dvh - 24px);
+    overflow: auto;
+    margin: 0 auto;
+  }
+
+  .founding-banner,
+  .home-founding-banner,
+  .founding-upgrade-banner {
+    grid-template-columns: 1fr;
+  }
+
+  .founding-banner .form-actions,
+  .home-founding-banner .form-actions,
+  .founding-upgrade-banner-actions,
+  .dashboard-install-actions {
+    display: grid;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .founding-banner .form-actions .primary-button,
+  .founding-banner .form-actions .ghost-button,
+  .home-founding-banner .form-actions .primary-button,
+  .home-founding-banner .form-actions .ghost-button,
+  .founding-upgrade-banner-actions .primary-button,
+  .founding-upgrade-banner-actions .ghost-button,
+  .dashboard-install-actions .primary-button,
+  .dashboard-install-actions .ghost-button {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .dashboard-install-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* Calendar tablet denseness */
+  .llh-calendar-toolbar,
+  .llh-calendar-toolbar-actions {
+    width: 100%;
+  }
+
+  .llh-calendar-month-nav {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .llh-calendar-month-nav .ghost-button,
+  .llh-calendar-month-nav .primary-button,
+  .llh-calendar-toolbar-actions .primary-button,
+  .llh-calendar-toolbar-actions .ghost-button,
+  .llh-calendar-add-row .primary-button {
+    min-height: 44px;
+  }
+
+  .llh-calendar-grid,
+  .llh-calendar-grid-7 {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .llh-calendar-grid-7 {
+    grid-template-columns: 22px repeat(7, minmax(0, 1fr));
+  }
+
+  .llh-cal-cell {
+    min-height: 72px;
+    padding: 6px 4px;
+    min-width: 0;
+  }
+
+  .llh-cal-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .llh-cal-filter-chip {
+    min-height: 40px;
+    padding: 8px 12px;
+  }
+
+  .llh-cal-week-strip {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  /* Lesson workspace action bars */
+  .lesson-workspace-primary-actions .lesson-workspace-secondary-btn {
+    min-width: 0;
+    flex: 1 1 calc(50% - 8px);
+  }
+
+  .lesson-library-header,
+  .page-title {
+    min-width: 0;
+  }
+
+  .page-title h2,
+  .lesson-library-title,
+  .llh-schedule-page-title h2 {
+    overflow-wrap: anywhere;
+  }
+
+  /* Documentation helpers / activity / behavior cards */
+  .doc-helpers-most-used .doc-helpers-card-list,
+  .doc-helpers-card-list-compact,
+  .doc-helpers-hub .doc-helpers-card-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Weekly planner */
+  .llh-weekly-plan-days {
+    grid-template-columns: 1fr;
+  }
+
+  .llh-weekly-plan-actions,
+  .llh-weekly-plan-hero {
+    flex-wrap: wrap;
+  }
+
+  .llh-weekly-plan-actions .primary-button,
+  .llh-weekly-plan-actions .ghost-button {
+    min-height: 44px;
+  }
+
+  /* Settings / admin tables stay in their scroll containers */
+  .admin-table {
+    min-width: 640px;
+  }
+
+  .admin-sub-nav,
+  .admin-vis-tabs,
+  .admin-table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+
+  .admin-sub-tab {
+    min-height: 40px;
+  }
+
+  .settings-hub-grid,
+  .settings-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Keep form fields usable */
+  input,
+  select,
+  textarea,
+  button {
+    max-width: 100%;
+  }
+}
+
+/* Mid tablets: allow roomier 2-col planning cards once the drawer frees horizontal space. */
+@media (min-width: 768px) and (max-width: 1100px) {
+  .view {
+    padding: 18px 22px 32px;
+  }
+
+  .lesson-library-grid,
+  .resource-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .llh-weekly-plan-days {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .doc-helpers-most-used .doc-helpers-card-list,
+  .doc-helpers-card-list-compact,
+  .doc-helpers-hub .doc-helpers-card-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .modal-card,
+  #authModal .modal-card {
+    width: min(560px, 100%);
+  }
+
+  #authModal .auth-modal-card--plans {
+    width: min(720px, 100%);
+  }
+
+  .llh-cal-cell {
+    min-height: 84px;
+  }
+}
+
+/* Phones: collapse remaining 2-col card grids. */
+@media (max-width: 640px) {
+  .lesson-library-grid,
+  .resource-grid,
+  .category-grid,
+  .ai-tool-grid,
+  .future-tool-grid,
+  .home-stats,
+  .library-stats,
+  .recommendation-grid,
+  .planning-dashboard-grid,
+  .support-simple-card-grid,
+  .support-category-grid,
+  .dlc-action-cards,
+  .analytics-summary-grid,
+  .admin-owner-grid,
+  .doc-helpers-most-used .doc-helpers-card-list,
+  .doc-helpers-card-list-compact,
+  .doc-helpers-hub .doc-helpers-card-list,
+  .settings-hub-grid,
+  .settings-card-grid,
+  .llh-weekly-plan-days {
+    grid-template-columns: 1fr;
+  }
+
+  .lesson-workspace-primary-actions .lesson-workspace-secondary-btn {
+    flex: 1 1 100%;
+  }
+
+  .llh-calendar-grid-7 {
+    grid-template-columns: 18px repeat(7, minmax(0, 1fr));
+  }
+
+  .llh-cal-cell {
+    min-height: 64px;
+    padding: 4px 2px;
+  }
+
+  .llh-cal-chip {
+    font-size: 9px;
+  }
+
+  .view {
+    padding: 12px;
+  }
+}
+
+/* Landscape phones / short tablets */
+@media (max-width: 1100px) and (max-height: 520px) {
+  .modal-card,
+  .resource-viewer-modal .resource-viewer-card {
+    max-height: calc(100dvh - 16px);
+  }
+
+  .llh-cal-cell {
+    min-height: 56px;
+  }
+}
