@@ -3795,6 +3795,7 @@ let adminCurriculumLessonImportTextCache = "";
 let adminCurriculumLessonImportPreview = null;
 let adminCurriculumLessonImportPreviewText = "";
 let adminCurriculumLessonImportStep = "paste";
+let adminCurriculumLessonImportMode = "v4"; // "v3" | "v4"
 let adminCurriculumLessonSaveBanner = { text: "", isSuccess: false };
 let adminCurriculumResourceSaving = false;
 let curriculumPlannerSelectedWeek = "";
@@ -4866,6 +4867,7 @@ function parseCurriculumLessonPlanImport(text, options = {}) {
   if (!api) throw new Error("CurriculumLessonImportParser is not loaded.");
   return api.parseCurriculumLessonPlanImport(text, {
     ...options,
+    mode: options.mode || adminCurriculumLessonImportMode || "v4",
     generateItemId: generateCurriculumItemIdClient,
   });
 }
@@ -5054,6 +5056,7 @@ function renderCurriculumLessonImportPreviewPanel(previewState) {
   const data = preview?.data;
   if (!preview || !data) return "";
   const summary = preview.summary;
+  const quality = preview.quality || preview.parsed?.parseReport?.quality || null;
   const sync = preview.activitySync || {
     newEntries: 0,
     updatedEntries: 0,
@@ -5065,6 +5068,23 @@ function renderCurriculumLessonImportPreviewPanel(previewState) {
   const unmapped = Array.isArray(preview.unmapped) ? preview.unmapped : [];
   const duplicate = preview.duplicateTitle || { status: "ok" };
   const learningDomains = curriculumAsStringArray(data.learningDomains);
+  const qualityBlock = quality ? `
+      <div class="curriculum-import-success-report" role="status">
+        <h5>Lesson Plan Ready to Import</h5>
+        <div class="curriculum-import-preview-summary">
+          <div><strong>${escapeHtml(quality.ageGroup || data.age || "—")}</strong><span>Age Group</span></div>
+          <div><strong>${escapeHtml(quality.planType || data.plan || "—")}</strong><span>Plan Type</span></div>
+          <div><strong>${quality.daysImported ?? summary.weekdaysDetected}</strong><span>Days Imported</span></div>
+          <div><strong>${quality.activitiesImported ?? summary.activityCount}</strong><span>Activities Imported</span></div>
+          <div><strong>${quality.categoriesAssigned ?? summary.activityCount}</strong><span>Categories Assigned</span></div>
+          <div><strong>${quality.missingFieldCount ?? 0}</strong><span>Missing Fields</span></div>
+          <div><strong>${quality.qualityScore ?? "—"}%</strong><span>Quality Score</span></div>
+        </div>
+        ${(quality.missingFields || []).length ? `
+          <p class="muted-copy"><strong>Missing fields:</strong> ${escapeHtml(quality.missingFields.join("; "))}</p>
+        ` : `<p class="muted-copy">No critical day-field gaps detected beyond warnings below.</p>`}
+      </div>
+  ` : "";
   return `
     <section class="curriculum-import-preview" aria-labelledby="curriculumImportPreviewHeading">
       <div class="curriculum-import-preview-header">
@@ -5074,6 +5094,7 @@ function renderCurriculumLessonImportPreviewPanel(previewState) {
         </div>
         <span class="curriculum-import-format-badge">${escapeHtml(summary.formatLabel)}</span>
       </div>
+      ${qualityBlock}
       <div class="curriculum-import-preview-summary" role="status">
         <div><strong>${summary.lessonPlanCount}</strong><span>lesson plan</span></div>
         <div><strong>${escapeHtml(data.title || "—")}</strong><span>title</span></div>
@@ -5176,9 +5197,11 @@ function buildAdminCurriculumImportPreview(text) {
   if (!previewApi) throw new Error("CurriculumImportPreview is not loaded.");
   const form = document.querySelector("#adminCurriculumLessonPlanForm");
   const existingItemIds = snapshotCurriculumDailyItemIds(form);
-  const parsed = parseCurriculumLessonPlanImport(text, { existingItemIds });
-  const detectedFormat = curriculumImportApi()?.detectImportFormat(text) || "unsupported";
-  const formatVersion = detectedFormat === "v3" ? 3 : detectedFormat === "v2" ? 2 : 0;
+  const mode = readCurriculumImportModeFromUi();
+  adminCurriculumLessonImportMode = mode;
+  const parsed = parseCurriculumLessonPlanImport(text, { existingItemIds, mode });
+  const formatVersion = Number(parsed?.parseReport?.formatVersion)
+    || (mode === "v4" ? 4 : mode === "v3" ? 3 : 0);
   const editingId = adminCurriculumLessonEditorId || "";
   const proposedLessonPlanId = editingId || `cur-lp-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
   const preview = previewApi.buildCurriculumImportPreview(parsed, {
@@ -5189,6 +5212,22 @@ function buildAdminCurriculumImportPreview(text) {
     proposedLessonPlanId,
   });
   return { preview, proposedLessonPlanId };
+}
+
+function readCurriculumImportModeFromUi() {
+  const selected = document.querySelector('input[name="adminCurriculumImportMode"]:checked')?.value
+    || document.querySelector("#adminCurriculumImportMode")?.value
+    || adminCurriculumLessonImportMode
+    || "v4";
+  return selected === "v3" ? "v3" : "v4";
+}
+
+function curriculumImportTemplateForMode(mode = adminCurriculumLessonImportMode) {
+  const api = curriculumImportApi();
+  if (mode === "v4" && api?.CURRICULUM_LESSON_IMPORT_V4_TEMPLATE) {
+    return api.CURRICULUM_LESSON_IMPORT_V4_TEMPLATE;
+  }
+  return curriculumImportTemplate() || curriculumImportV3Template() || CURRICULUM_LESSON_IMPORT_TEMPLATE;
 }
 
 function previewCurriculumLessonPlanImport() {
@@ -5354,16 +5393,32 @@ function renderCurriculumLessonImportPanel() {
       </fieldset>
     `;
   }
+  const mode = adminCurriculumLessonImportMode === "v3" ? "v3" : "v4";
   return `
     <fieldset class="admin-fieldset curriculum-import-panel">
       <legend>Complete Lesson Plan Importer</legend>
-      <p class="muted-copy">Copy a complete lesson plan from ChatGPT, paste it below, then click <strong>Import Lesson Plan</strong>. The system creates the lesson plan, adds every activity to the Activity Library, and links them automatically — no special markers and no manual cleanup required.</p>
-      <details class="curriculum-import-format-details" open>
-        <summary>View lesson plan format</summary>
-        <pre class="curriculum-import-template">${escapeHtml(curriculumImportTemplate() || curriculumImportV3Template() || CURRICULUM_LESSON_IMPORT_TEMPLATE)}</pre>
+      <p class="muted-copy">Paste a lesson plan, choose an import mode, then Preview or Import. The system creates the lesson plan, adds activities to the Activity Library, and links them automatically.</p>
+      <fieldset class="curriculum-import-mode-fieldset">
+        <legend class="visually-hidden">Import mode</legend>
+        <div class="curriculum-import-mode-row" role="radiogroup" aria-label="Import mode">
+          <label class="admin-inline-toggle">
+            <input type="radio" name="adminCurriculumImportMode" value="v4" ${mode === "v4" ? "checked" : ""} data-curriculum-import-mode />
+            <span><strong>V4 Smart Import</strong> — flexible section names, day fields, soft warnings</span>
+          </label>
+          <label class="admin-inline-toggle">
+            <input type="radio" name="adminCurriculumImportMode" value="v3" ${mode === "v3" ? "checked" : ""} data-curriculum-import-mode />
+            <span><strong>V3 Strict Import</strong> — exact TITLE: / ACTIVITY_NAME: labels required</span>
+          </label>
+        </div>
+      </fieldset>
+      <details class="curriculum-import-format-details" ${mode === "v3" ? "open" : ""}>
+        <summary>View ${mode === "v4" ? "V4 smart" : "V3 strict"} lesson plan format</summary>
+        <pre class="curriculum-import-template" id="curriculumImportTemplatePre">${escapeHtml(curriculumImportTemplateForMode(mode))}</pre>
       </details>
       <label>Paste complete lesson plan
-        <textarea id="adminCurriculumLessonImportText" rows="16" placeholder="Paste your ChatGPT lesson plan here (TITLE, AGE_GROUP, THEME, MONDAY…FRIDAY, ACTIVITY_NAME, …)">${escapeHtml(adminCurriculumLessonImportTextCache || "")}</textarea>
+        <textarea id="adminCurriculumLessonImportText" rows="16" placeholder="${mode === "v4"
+    ? "Paste any reasonable lesson plan (Theme Overview, Monday, Activity:, …)"
+    : "Paste TITLE:, AGE_GROUP:, THEME:, MONDAY…FRIDAY, ACTIVITY_NAME:, …"}">${escapeHtml(adminCurriculumLessonImportTextCache || "")}</textarea>
       </label>
       <div class="form-actions">
         <button class="ghost-button" type="button" id="adminCurriculumLessonClearImportButton">Clear</button>
@@ -9882,6 +9937,9 @@ function libraryPlanBadge(resource) {
 }
 
 function libraryAccessBadgeHtml() {
+  if (!isLoggedIn() && !hasAdminFullAccess()) {
+    return `<span class="library-access-badge is-free">Free previews</span>`;
+  }
   if (!isProUser()) {
     return `<span class="library-access-badge is-free">Free Plan</span>`;
   }
@@ -16771,6 +16829,18 @@ function clearLessonLibraryAdvancedFilters() {
 }
 
 function libraryCompactUpgradeStripHtml() {
+  // Guests: topbar Sign Up can be easy to miss on compact library chrome — keep an in-library path.
+  if (!isLoggedIn() && !hasAdminFullAccess()) {
+    return `
+      <section class="library-upgrade-strip library-upgrade-strip--guest" role="region" aria-label="Create your free account">
+        <p>Create a free account to save plans and claim Founding Member pricing.</p>
+        <div class="library-upgrade-strip-actions">
+          <button class="primary-button" type="button" data-action="start-free" data-signup-intent="founding">Get Started</button>
+          <button class="ghost-button" type="button" data-action="open-login">Log In</button>
+        </div>
+      </section>
+    `;
+  }
   if (!canSeePaidUpgradeOffer()) return "";
   if (isFoundingUpgradeBannerDismissed()) return "";
   const soldOut = !foundingSpotsStillAvailable();
@@ -43801,6 +43871,7 @@ document.querySelector("#signinButton")?.addEventListener("click", () => {
     setView("settings", { settingsAnchor: "account-membership" });
     return;
   }
+  dismissOverlaysForAuthOrUpgrade();
   openAuthModal("login");
 });
 
@@ -43810,6 +43881,8 @@ document.querySelector("#signupButton")?.addEventListener("click", () => {
     setView(isProUser() ? "settings" : "plans", isProUser() ? { settingsAnchor: "account-membership" } : {});
     return;
   }
+  dismissOverlaysForAuthOrUpgrade();
+  setPreferredSignupPlan("founding");
   openAuthModal("signup");
 });
 
@@ -44823,6 +44896,15 @@ document.addEventListener("click", async (event) => {
   }
   if (event.target.closest("#adminCurriculumLessonParseButton")) {
     previewCurriculumLessonPlanImport();
+    return;
+  }
+  const importModeInput = event.target.closest("[data-curriculum-import-mode]");
+  if (importModeInput) {
+    const textarea = document.querySelector("#adminCurriculumLessonImportText");
+    if (textarea) adminCurriculumLessonImportTextCache = textarea.value || "";
+    adminCurriculumLessonImportMode = importModeInput.value === "v3" ? "v3" : "v4";
+    renderAdminCurriculumLessonPlanManager();
+    applyAdminSectionVisibility();
     return;
   }
   if (event.target.closest("#adminCurriculumLessonImportSaveButton")) {

@@ -740,15 +740,35 @@ body.doc-helpers-view .topbar .search-wrap {
   display: none !important;
 }
 
-/* Lesson Plan Library: reclaim topbar space for search/filters/results */
-body.lessons-view .topbar .search-wrap,
-body.lessons-view .topbar .account-actions {
+/* Lesson Plan Library: reclaim topbar space for search/filters/results.
+   Keep Log In / Sign Up visible for guests — otherwise library browse has no signup chrome. */
+body.lessons-view .topbar .search-wrap {
+  display: none !important;
+}
+
+body.lessons-view.user-authenticated .topbar .account-actions {
   display: none !important;
 }
 
 body.lessons-view .topbar {
   grid-template-columns: minmax(0, 1fr);
   padding: 10px 14px;
+}
+
+body.lessons-view:not(.user-authenticated) .topbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+body.lessons-view:not(.user-authenticated) .topbar .account-actions {
+  display: flex !important;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+body.lessons-view:not(.user-authenticated) .topbar #signupButton {
+  white-space: nowrap;
 }
 
 body.lessons-view .mobile-brand {
@@ -3623,6 +3643,33 @@ body.lessons-view .mobile-brand {
 
 .curriculum-import-format-details {
   margin-bottom: 10px;
+}
+
+.curriculum-import-mode-fieldset {
+  border: 1px solid rgba(123, 168, 201, 0.35);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 0 0 12px;
+  background: rgba(229, 241, 248, 0.45);
+}
+
+.curriculum-import-mode-row {
+  display: grid;
+  gap: 8px;
+}
+
+.curriculum-import-success-report {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(93, 184, 154, 0.35);
+  background: linear-gradient(135deg, rgba(227, 246, 239, 0.95), rgba(255, 255, 255, 0.98));
+}
+
+.curriculum-import-success-report h5 {
+  margin: 0;
+  font-size: 1rem;
 }
 
 .curriculum-import-panel textarea {
