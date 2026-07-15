@@ -1,0 +1,322 @@
+TITLE:
+Fourth of July Stars & Stripes
+
+AGE_GROUP:
+Toddler
+
+THEME:
+Fourth of July
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development, Creative Arts
+
+WEEKLY_OVERVIEW:
+Toddlers will celebrate the Fourth of July through patriotic colors, stars, flags, music, movement, sensory exploration, and creative activities. Children will explore red, white, and blue themes while developing social, cognitive, and motor skills through hands-on learning.
+
+LEARNING_OBJECTIVES:
+• Explore patriotic symbols and colors
+• Strengthen fine and gross motor skills
+• Build vocabulary related to celebrations
+• Encourage creativity and self-expression
+• Support social interaction and teamwork
+
+WEEKLY_MATERIALS:
+Red, white, and blue paint, stars, flags, ribbons, sensory bin materials, books, music player, pom-poms, paper plates, bubbles
+
+VOCABULARY:
+Flag, Star, Red, White, Blue, Celebrate, Parade, Fireworks, Summer, America
+
+BOOKS:
+Red White and Boom!
+My First Fourth of July
+Baby Loves America
+F Is for Flag
+Stars and Stripes
+
+SONGS:
+You're a Grand Old Flag
+Yankee Doodle
+This Land Is Your Land
+Red White and Blue
+Twinkle Twinkle Little Star
+
+FAMILY_CONNECTION:
+Encourage families to discuss summer traditions, patriotic celebrations, and community events. Invite children to share their favorite summer activities.
+
+OBSERVATION_OPPORTUNITIES:
+Observe color recognition, language development, social interaction, fine motor skills, and participation during group activities.
+
+ADAPTATIONS:
+Provide adaptive art tools, larger materials, visual supports, sensory alternatives, and additional teacher assistance as needed.
+
+MONDAY
+
+ACTIVITY_NAME:
+Patriotic Sensory Bin
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Children explore red, white, and blue materials in a sensory bin.
+MATERIALS:
+Colored rice, stars, pom-poms, scoops
+DIRECTIONS:
+Fill sensory bin with materials.
+Encourage scooping and sorting.
+Discuss colors and textures.
+Explore together.
+TEACHER_ROLE:
+Model vocabulary and sensory exploration.
+LEARNING_GOALS:
+Color recognition and sensory development.
+
+ACTIVITY_NAME:
+Flag Parade March
+CATEGORY:
+Gross Motor
+DESCRIPTION:
+Children march around the classroom carrying flags.
+MATERIALS:
+Small flags
+DIRECTIONS:
+Give each child a flag.
+March together.
+Follow simple directions.
+TEACHER_ROLE:
+Lead movement activity.
+LEARNING_GOALS:
+Coordination and listening skills.
+
+ACTIVITY_NAME:
+Fourth of July Circle Time
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Introduce patriotic symbols and celebrations.
+MATERIALS:
+Picture cards
+DIRECTIONS:
+Show patriotic pictures.
+Discuss colors and symbols.
+Read a short story.
+TEACHER_ROLE:
+Lead discussion.
+LEARNING_GOALS:
+Vocabulary development and listening skills.
+
+TUESDAY
+
+ACTIVITY_NAME:
+Star Sponge Painting
+CATEGORY:
+Art
+DESCRIPTION:
+Children create star-themed artwork using paint.
+MATERIALS:
+Star sponges, paint, paper
+DIRECTIONS:
+Dip sponges in paint.
+Stamp stars onto paper.
+Explore colors.
+TEACHER_ROLE:
+Support creativity.
+LEARNING_GOALS:
+Fine motor development and creative expression.
+
+ACTIVITY_NAME:
+Star Jump Game
+CATEGORY:
+Gross Motor
+DESCRIPTION:
+Children jump from star to star on the floor.
+MATERIALS:
+Paper stars
+DIRECTIONS:
+Place stars on floor.
+Jump between stars.
+Count jumps together.
+TEACHER_ROLE:
+Encourage movement.
+LEARNING_GOALS:
+Balance and coordination.
+
+ACTIVITY_NAME:
+Star Story Time
+CATEGORY:
+Literacy
+DESCRIPTION:
+Children listen to a story about stars and celebrations.
+MATERIALS:
+Patriotic book
+DIRECTIONS:
+Read story aloud.
+Ask simple questions.
+Identify stars and colors.
+TEACHER_ROLE:
+Support comprehension.
+LEARNING_GOALS:
+Listening and vocabulary development.
+
+WEDNESDAY
+
+ACTIVITY_NAME:
+Red White & Blue Sorting
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children sort objects by color.
+MATERIALS:
+Colored pom-poms, sorting trays
+DIRECTIONS:
+Gather objects.
+Sort by color.
+Compare groups.
+TEACHER_ROLE:
+Guide sorting discussions.
+LEARNING_GOALS:
+Classification and color recognition.
+
+ACTIVITY_NAME:
+Firework Ribbon Dance
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Children wave ribbons like fireworks in the sky.
+MATERIALS:
+Red, white, and blue ribbons
+DIRECTIONS:
+Play music.
+Wave ribbons high and low.
+Follow movement directions.
+TEACHER_ROLE:
+Lead movement activity.
+LEARNING_GOALS:
+Coordination and rhythm.
+
+ACTIVITY_NAME:
+Summer Celebration Songs
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Children sing patriotic and summer songs together.
+MATERIALS:
+Music player
+DIRECTIONS:
+Play songs.
+Add hand motions.
+Encourage participation.
+TEACHER_ROLE:
+Lead music experience.
+LEARNING_GOALS:
+Listening and social participation.
+
+THURSDAY
+
+ACTIVITY_NAME:
+Flag Craft
+CATEGORY:
+Art
+DESCRIPTION:
+Children create a simple American flag craft.
+MATERIALS:
+Paper, paint, star stickers
+DIRECTIONS:
+Paint stripes.
+Add stars.
+Display artwork.
+TEACHER_ROLE:
+Support creativity and fine motor development.
+LEARNING_GOALS:
+Creative expression and hand strength.
+
+ACTIVITY_NAME:
+Bubble Blast Celebration
+CATEGORY:
+Outdoor Play
+DESCRIPTION:
+Children chase and pop bubbles outside.
+MATERIALS:
+Bubble solution
+DIRECTIONS:
+Blow bubbles.
+Encourage children to chase them.
+Count pops together.
+TEACHER_ROLE:
+Encourage movement and participation.
+LEARNING_GOALS:
+Gross motor development and visual tracking.
+
+ACTIVITY_NAME:
+Patriotic Pretend Picnic
+CATEGORY:
+Dramatic Play
+DESCRIPTION:
+Children enjoy a pretend Fourth of July picnic.
+MATERIALS:
+Toy food, blankets
+DIRECTIONS:
+Set up picnic area.
+Share pretend food.
+Practice manners.
+TEACHER_ROLE:
+Facilitate imaginative play.
+LEARNING_GOALS:
+Social skills and cooperation.
+
+FRIDAY
+
+ACTIVITY_NAME:
+Stars & Stripes Treasure Hunt
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Children search for patriotic items hidden around the room.
+MATERIALS:
+Stars, flags, red white and blue objects
+DIRECTIONS:
+Hide items around room.
+Search together.
+Count collected items.
+TEACHER_ROLE:
+Support exploration and teamwork.
+LEARNING_GOALS:
+Problem-solving and observation skills.
+
+ACTIVITY_NAME:
+Patriotic Dance Party
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Children celebrate with music and movement.
+MATERIALS:
+Music player
+DIRECTIONS:
+Play patriotic songs.
+Dance together.
+Follow movement directions.
+TEACHER_ROLE:
+Lead movement activities.
+LEARNING_GOALS:
+Gross motor development and social participation.
+
+ACTIVITY_NAME:
+Fourth of July Celebration Circle
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Review the week's activities and celebrate learning.
+MATERIALS:
+Books, visuals, songs
+DIRECTIONS:
+Discuss favorite activities.
+Review vocabulary.
+Sing favorite songs.
+TEACHER_ROLE:
+Lead reflection and discussion.
+LEARNING_GOALS:
+Recall, language development, and social participation.
