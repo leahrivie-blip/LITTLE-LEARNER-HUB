@@ -365,7 +365,7 @@ const docHelperToolMap = {
 };
 const docTypeLabels = {
   "observation": "Observation",
-  "daily-log": "Daily Log",
+  "daily-log": "Daily Report",
   "parent-message": "Parent Message",
   "lesson-plan": "Lesson Plan",
   "behavior-note": "Behavior Note",
@@ -410,6 +410,36 @@ function resetDocHelperResultsPanel() {
     note.focus();
   }
   document.querySelector("#docHelperDebugPanel")?.setAttribute("hidden", "hidden");
+  const typeSelect = document.querySelector("#docHelperType");
+  if (typeSelect?.value) selectDocHelperType(typeSelect.value, { focusNote: true, scroll: true });
+}
+
+function selectDocHelperType(docType, options = {}) {
+  const resolvedType = docHelperToolMap[docType] ? docType : "observation";
+  selectedDocHelperType = resolvedType;
+  const typeSelect = document.querySelector("#docHelperType");
+  const compose = document.querySelector("#docHelperCompose");
+  const title = document.querySelector("#docHelperComposeTitle");
+  const label = docTypeLabels[resolvedType] || "Documentation";
+  if (typeSelect) typeSelect.value = resolvedType;
+  document.querySelectorAll(".doc-helper-card[data-quick-doc-type]").forEach((card) => {
+    card.classList.toggle("is-selected", card.dataset.quickDocType === resolvedType);
+  });
+  if (compose) compose.hidden = false;
+  if (title) title.textContent = label;
+  if (options.scroll !== false) {
+    compose?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  if (options.focusNote !== false) {
+    requestAnimationFrame(() => document.querySelector("#docHelperNote")?.focus());
+  }
+}
+
+function clearDocHelperSelection() {
+  selectedDocHelperType = "";
+  document.querySelectorAll(".doc-helper-card.is-selected").forEach((card) => card.classList.remove("is-selected"));
+  const compose = document.querySelector("#docHelperCompose");
+  if (compose) compose.hidden = true;
 }
 
 function openDocHelperSavedChild(childId, childTab = "overview") {
@@ -423,6 +453,7 @@ function openDocHelperSavedChild(childId, childTab = "overview") {
 }
 let selectedChildId = localStorage.getItem("llhSelectedChild") || "";
 let pendingAiDocType = "";
+let selectedDocHelperType = "";
 let childObservationSearch = "";
 let childObservationAreaFilter = "All";
 let childObservationDateFilter = "";
@@ -8764,8 +8795,10 @@ function setView(view, options = {}) {
   }
   document.querySelectorAll(".view").forEach((section) => section.classList.remove("active-view"));
   document.querySelector(`#view-${resolvedView}`)?.classList.add("active-view");
+  if (activeView === "ai" && resolvedView !== "ai") selectedDocHelperType = "";
   document.body.classList.toggle("home-view", resolvedView === "home");
   document.body.classList.toggle("lessons-view", resolvedView === "lessons");
+  document.body.classList.toggle("doc-helpers-view", resolvedView === "ai");
   document.body.classList.toggle(
     "scheduling-focus",
     ["calendar", "planner", "curriculum-planner", "lessons", "lesson-editor"].includes(resolvedView),
@@ -19932,7 +19965,6 @@ async function handleCurriculumPlannerAssignSubmit(form) {
 }
 
 function renderAiPage() {
-  renderAiUsagePanel();
   const childSelect = document.querySelector("#docHelperChild");
   if (childSelect) {
     const records = childRecords();
@@ -19940,30 +19972,22 @@ function renderAiPage() {
       records.children.map((child) => `<option value="${escapeHtml(child.id)}">${escapeHtml(child.name)}</option>`).join("");
   }
   if (pendingAiDocType) {
-    const typeSelect = document.querySelector("#docHelperType");
-    if (typeSelect) typeSelect.value = pendingAiDocType;
+    const nextType = pendingAiDocType;
     pendingAiDocType = "";
+    selectDocHelperType(nextType, { focusNote: true, scroll: true });
+    return;
   }
+  if (selectedDocHelperType) {
+    selectDocHelperType(selectedDocHelperType, { focusNote: false, scroll: false });
+    return;
+  }
+  clearDocHelperSelection();
 }
 
 function renderAiUsagePanel() {
+  // Usage meter removed from Documentation Helpers to keep the page helper-first.
   const target = document.querySelector("#aiUsagePanel");
-  if (!target) return;
-  const used = serverAiUsed !== null ? serverAiUsed : aiUsageCount();
-  const limit = serverAiLimit !== null ? serverAiLimit : aiMonthlyLimit();
-  const remaining = Math.max(limit - used, 0);
-  target.innerHTML = `
-    <div class="ai-usage-panel">
-      <div>
-        <p class="eyebrow">Helper Usage</p>
-        <h4>${used} of ${limit} document creations used</h4>
-        <span>${remaining} remaining · Resets ${escapeHtml(aiResetLabel())}</span>
-      </div>
-      <div class="usage-bar" aria-label="${used} of ${limit} document creations used">
-        <span style="width: ${Math.min((used / limit) * 100, 100)}%"></span>
-      </div>
-    </div>
-  `;
+  if (target) target.innerHTML = "";
 }
 
 function renderQuickPrompts() {
