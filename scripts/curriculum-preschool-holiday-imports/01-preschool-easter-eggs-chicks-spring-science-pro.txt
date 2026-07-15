@@ -1,0 +1,325 @@
+TITLE:
+Easter Eggs, Chicks & Spring Science
+
+AGE_GROUP:
+Preschool
+
+THEME:
+Easter & Spring
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science, Physical Development, Creative Arts
+
+WEEKLY_OVERVIEW:
+Preschoolers will explore Easter and spring through life cycle investigations, egg experiments, nature studies, literacy activities, engineering challenges, art projects, and outdoor exploration. Children will develop scientific thinking while learning about growth, change, and new beginnings.
+
+LEARNING_OBJECTIVES:
+• Explore life cycles and spring changes
+• Practice counting, measuring, and sorting
+• Develop observation and scientific inquiry skills
+• Strengthen literacy and vocabulary development
+• Encourage creativity, problem-solving, and teamwork
+
+WEEKLY_MATERIALS:
+Plastic eggs, real eggs, toy chicks, magnifying glasses, measuring tools, flower seeds, soil, paint, books, graph paper, sensory materials
+
+VOCABULARY:
+Egg, Chick, Hatch, Nest, Spring, Life Cycle, Grow, Seed, Flower, Observe
+
+BOOKS:
+The Easter Egg
+From Egg to Chick
+The Tiny Seed
+We're Going on an Egg Hunt
+Chicken Little
+
+SONGS:
+Five Little Easter Eggs
+Spring Is Here
+The Bunny Hop
+Old MacDonald Had a Farm
+The Chick Song
+
+FAMILY_CONNECTION:
+Encourage families to look for signs of spring, observe birds and flowers, and discuss how plants and animals grow.
+
+OBSERVATION_OPPORTUNITIES:
+Observe scientific thinking, counting skills, vocabulary development, social interactions, and participation during investigations.
+
+ADAPTATIONS:
+Provide visual supports, adaptive tools, sensory alternatives, larger materials, and additional teacher assistance as needed.
+
+MONDAY
+
+ACTIVITY_NAME:
+Egg Investigation Station
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children investigate different types of eggs using observation tools.
+MATERIALS:
+Plastic eggs, real eggs, magnifying glasses
+DIRECTIONS:
+Observe eggs closely.
+Compare sizes and colors.
+Record observations.
+Discuss findings.
+TEACHER_ROLE:
+Guide scientific inquiry and observation.
+LEARNING_GOALS:
+Observation skills and scientific thinking.
+
+ACTIVITY_NAME:
+Egg Measurement Challenge
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children measure eggs using non-standard units.
+MATERIALS:
+Eggs, linking cubes
+DIRECTIONS:
+Measure egg length.
+Count cubes used.
+Compare measurements.
+TEACHER_ROLE:
+Support math discussions.
+LEARNING_GOALS:
+Measurement and counting skills.
+
+ACTIVITY_NAME:
+Spring Circle Time
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Introduce Easter and spring themes.
+MATERIALS:
+Spring visuals
+DIRECTIONS:
+Discuss spring changes.
+Share observations.
+Read a spring story.
+TEACHER_ROLE:
+Lead discussion.
+LEARNING_GOALS:
+Vocabulary and communication skills.
+
+TUESDAY
+
+ACTIVITY_NAME:
+Life Cycle of a Chick
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children learn the stages of a chick's life cycle.
+MATERIALS:
+Life cycle cards
+DIRECTIONS:
+Introduce life cycle stages.
+Sequence cards.
+Discuss growth and change.
+TEACHER_ROLE:
+Guide science learning.
+LEARNING_GOALS:
+Understanding life cycles.
+
+ACTIVITY_NAME:
+Chick Name Craft
+CATEGORY:
+Fine Motor
+DESCRIPTION:
+Children create chicks using the letters of their names.
+MATERIALS:
+Chick templates, markers, feathers
+DIRECTIONS:
+Write letters.
+Decorate chick.
+Share with class.
+TEACHER_ROLE:
+Support literacy development.
+LEARNING_GOALS:
+Letter recognition and fine motor skills.
+
+ACTIVITY_NAME:
+Chick Story Time
+CATEGORY:
+Literacy
+DESCRIPTION:
+Children listen to a story about chicks and spring.
+MATERIALS:
+Spring book
+DIRECTIONS:
+Read story.
+Ask questions.
+Discuss characters.
+TEACHER_ROLE:
+Support comprehension.
+LEARNING_GOALS:
+Listening and vocabulary development.
+
+WEDNESDAY
+
+ACTIVITY_NAME:
+Egg Drop Engineering Challenge
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children design a way to protect an egg from breaking.
+MATERIALS:
+Plastic eggs, cotton balls, tape, paper
+DIRECTIONS:
+Discuss protection ideas.
+Build designs.
+Test solutions.
+Compare results.
+TEACHER_ROLE:
+Encourage engineering thinking.
+LEARNING_GOALS:
+Problem-solving and critical thinking.
+
+ACTIVITY_NAME:
+Spring Flower Painting
+CATEGORY:
+Art
+DESCRIPTION:
+Children create spring flower artwork.
+MATERIALS:
+Paint, paper, brushes
+DIRECTIONS:
+Observe flower photos.
+Paint flowers.
+Share artwork.
+TEACHER_ROLE:
+Support creativity.
+LEARNING_GOALS:
+Creative expression and observation.
+
+ACTIVITY_NAME:
+Bunny Hop Movement Game
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Children move like bunnies using different movement challenges.
+MATERIALS:
+Music player
+DIRECTIONS:
+Hop forward.
+Hop backward.
+Follow movement directions.
+TEACHER_ROLE:
+Lead movement activities.
+LEARNING_GOALS:
+Gross motor development.
+
+THURSDAY
+
+ACTIVITY_NAME:
+Planting Seeds Investigation
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children plant seeds and predict what will happen.
+MATERIALS:
+Seeds, soil, cups
+DIRECTIONS:
+Plant seeds.
+Water plants.
+Make predictions.
+Observe growth over time.
+TEACHER_ROLE:
+Guide scientific observations.
+LEARNING_GOALS:
+Understanding plant growth.
+
+ACTIVITY_NAME:
+Easter Egg Pattern Challenge
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children create and extend egg patterns.
+MATERIALS:
+Colored egg manipulatives
+DIRECTIONS:
+Create patterns.
+Identify pattern rules.
+Extend patterns.
+TEACHER_ROLE:
+Support math thinking.
+LEARNING_GOALS:
+Pattern recognition and logic.
+
+ACTIVITY_NAME:
+Spring Vocabulary Match
+CATEGORY:
+Literacy
+DESCRIPTION:
+Children match spring words with pictures.
+MATERIALS:
+Word cards, picture cards
+DIRECTIONS:
+Match cards.
+Read vocabulary words.
+Discuss meanings.
+TEACHER_ROLE:
+Support literacy development.
+LEARNING_GOALS:
+Vocabulary and word recognition.
+
+FRIDAY
+
+ACTIVITY_NAME:
+Spring Nature Walk
+CATEGORY:
+Outdoor Play
+DESCRIPTION:
+Children explore outdoors looking for signs of spring.
+MATERIALS:
+Clipboards, observation sheets
+DIRECTIONS:
+Walk outside.
+Observe plants and animals.
+Record discoveries.
+Share observations.
+TEACHER_ROLE:
+Guide exploration and discussion.
+LEARNING_GOALS:
+Observation and nature awareness.
+
+ACTIVITY_NAME:
+Easter Treasure Hunt
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Children search for hidden eggs and solve simple clues.
+MATERIALS:
+Plastic eggs, clue cards
+DIRECTIONS:
+Search for eggs.
+Follow clues.
+Work together.
+TEACHER_ROLE:
+Support teamwork and problem-solving.
+LEARNING_GOALS:
+Critical thinking and cooperation.
+
+ACTIVITY_NAME:
+Easter & Spring Celebration Circle
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Review the week's science discoveries and favorite activities.
+MATERIALS:
+Books, visuals, student work
+DIRECTIONS:
+Discuss favorite investigations.
+Review vocabulary.
+Celebrate learning.
+TEACHER_ROLE:
+Lead reflection and discussion.
+LEARNING_GOALS:
+Communication, recall, and scientific thinking.

@@ -1941,6 +1941,20 @@ async function initializeStorage() {
   } catch (error) {
     console.error("[curriculum-toddler-holiday-seed] startup seed failed:", error.message);
   }
+  try {
+    const { ensurePreschoolHolidayCurriculumSeeded } = require("./curriculum-preschool-holiday-seed.js");
+    await ensurePreschoolHolidayCurriculumSeeded({
+      readStore,
+      writeStoreAsync,
+      writeSiteCurriculum,
+      syncCurriculumActivitiesForLessonPlan,
+      assertCurriculumIntegrityOrError,
+      defaultSiteContentStore,
+      defaultCurriculumStore,
+    });
+  } catch (error) {
+    console.error("[curriculum-preschool-holiday-seed] startup seed failed:", error.message);
+  }
 }
 
 function ensureStore() {
