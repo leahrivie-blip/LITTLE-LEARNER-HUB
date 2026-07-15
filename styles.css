@@ -5499,6 +5499,54 @@ body.lessons-view .mobile-brand {
   margin-top: 24px;
 }
 
+.admin-emails-panel {
+  margin-top: 24px;
+}
+
+.admin-email-status {
+  margin: 16px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--white);
+}
+
+.admin-email-status.is-ready {
+  border-color: rgba(47, 111, 94, 0.35);
+  background: linear-gradient(135deg, var(--white), rgba(47, 111, 94, 0.06));
+}
+
+.admin-email-status.is-pending {
+  border-color: rgba(183, 140, 97, 0.35);
+  background: linear-gradient(135deg, var(--white), rgba(183, 140, 97, 0.08));
+}
+
+.admin-email-controls,
+.admin-email-onboarding,
+.admin-email-preview,
+.admin-email-events {
+  margin-top: 20px;
+}
+
+.admin-email-step-list {
+  margin: 8px 0 16px;
+  padding-left: 18px;
+}
+
+.admin-email-test-send {
+  display: grid;
+  gap: 10px;
+  max-width: 420px;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  font-size: 0.95rem;
+}
+
 .checkout-test-panel,
 .success-panel {
   border-color: rgba(91, 155, 213, 0.36);

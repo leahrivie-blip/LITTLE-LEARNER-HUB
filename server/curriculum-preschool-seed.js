@@ -110,6 +110,8 @@ async function ensurePreschoolCurriculumSeeded(deps) {
     const planInput = {
       ...parsed,
       createdAt: existingPlan?.createdAt || now,
+      // Stable historical stamp so startup seeds never look like "new this week".
+      publishedAt: existingPlan?.publishedAt || existingPlan?.createdAt || "2026-01-01T00:00:00.000Z",
       updatedAt: now,
     };
     const synced = syncCurriculumActivitiesForLessonPlan(workingCurriculum, planInput);

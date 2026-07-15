@@ -6,6 +6,7 @@ const { URL } = require("node:url");
 const membershipAccess = require("../scripts/membership-access.js");
 const accountAccess = require("../scripts/account-access.js");
 const scheduleLib = require("./schedule-lib.js");
+const { createEmailEngagement, defaultEmailEngagementStore } = require("./email-engagement.js");
 
 loadEnvFile(path.join(__dirname, "..", ".env"));
 
@@ -342,6 +343,7 @@ function defaultStore() {
     promoRedemptions: [],
     siteContent: defaultSiteContentStore(),
     scheduleByUser: {},
+    emailEngagement: defaultEmailEngagementStore(),
   };
 }
 
@@ -950,6 +952,8 @@ function normalizedCurriculumLessonPlan(value) {
     resourceIds: normalizedList(entry.resourceIds, 200, (item) => normalizedShortText(item, 160)).filter(Boolean),
     createdAt: normalizedShortText(entry.createdAt, 80),
     updatedAt: normalizedShortText(entry.updatedAt, 80),
+    // Set when status first becomes published/featured; used by weekly "What's New" digests.
+    publishedAt: normalizedShortText(entry.publishedAt, 80),
   };
 }
 
@@ -999,6 +1003,7 @@ function normalizedCurriculumActivity(value) {
     status: CURRICULUM_ITEM_STATUSES.has(status) ? status : "draft",
     createdAt: normalizedShortText(entry.createdAt, 80),
     updatedAt: normalizedShortText(entry.updatedAt, 80),
+    publishedAt: normalizedShortText(entry.publishedAt, 80),
   };
 }
 
@@ -1029,6 +1034,7 @@ function normalizedCurriculumResource(value) {
     status: CURRICULUM_ITEM_STATUSES.has(status) ? status : "draft",
     createdAt: normalizedShortText(entry.createdAt, 80),
     updatedAt: normalizedShortText(entry.updatedAt, 80),
+    publishedAt: normalizedShortText(entry.publishedAt, 80),
   };
 }
 
@@ -1601,6 +1607,17 @@ function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
   dailyItems.forEach((item) => {
     const sourceKey = item.sourceKey || curriculumActivitySourceKey(plan.id, item.itemId);
     const existing = activitiesBySourceKey.get(sourceKey);
+    const becomingPublished = activityStatus === "published"
+      && Boolean(existing)
+      && existing.status !== "published";
+    let publishedAt = existing?.publishedAt || "";
+    if (becomingPublished) {
+      publishedAt = now;
+    } else if (activityStatus === "published" && !publishedAt) {
+      // Inherit lesson publish stamp when available. Leave empty for seed/bootstrap
+      // imports so weekly digests do not treat every startup seed as "new this week".
+      publishedAt = plan.publishedAt || "";
+    }
     syncedForPlan.push(normalizedCurriculumActivity({
       id: existing?.id || curriculumActivityIdFromItemId(item.itemId),
       lessonPlanId: plan.id,
@@ -1627,6 +1644,7 @@ function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
       status: activityStatus,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
+      publishedAt,
     }));
   });
 
@@ -4044,6 +4062,12 @@ async function handleAccountProfileSync(request, response) {
     updates.lastSeenAt = updates.lastLoginAt;
   }
   const user = upsertUser(email, updates);
+  // Once-only welcome email on first signup stamp (soft-fail if email unconfigured).
+  if (body.signup === true && !existing.signupAt) {
+    emailEngagement.maybeSendWelcomeOnSignup(email).catch((err) => {
+      console.warn("[email-engagement] welcome email failed:", err.message);
+    });
+  }
   jsonResponse(response, 200, {
     ok: true,
     user: {
@@ -6843,6 +6867,17 @@ async function sendEmail(opts = {}) {
   return { sent: false, configured: false, provider: provider || "not configured" };
 }
 
+// Email engagement (onboarding drip + weekly What's New) reuses sendEmail().
+const emailEngagement = createEmailEngagement({
+  sendEmail,
+  SITE_URL,
+  htmlEscape,
+  readStore,
+  writeStore,
+  writeStoreAsync,
+  isCurriculumLessonPublic,
+});
+
 // ─── User acknowledgment email ────────────────────────────────────────────────
 // Sent to the submitter right after any new submission (ticket, bug, feature, feedback).
 async function notifyUserAck({ toEmail, toName, submissionType, topic }) {
@@ -7278,11 +7313,24 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
     }
     const existingCurriculum = siteContent.curriculum || defaultCurriculumStore();
     const existingPlan = (existingCurriculum.lessonPlans || []).find((item) => item.id === id);
+    const nextStatus = normalizedShortText(incomingPlan.status, 20);
+    const wasPublic = isCurriculumLessonPublic(existingPlan?.status || "");
+    const willBePublic = isCurriculumLessonPublic(nextStatus);
+    let publishedAt = normalizedShortText(existingPlan?.publishedAt, 80)
+      || normalizedShortText(incomingPlan.publishedAt, 80)
+      || "";
+    if (willBePublic && !wasPublic) {
+      publishedAt = now;
+    } else if (willBePublic && !publishedAt) {
+      // Legacy public plans: keep a stable stamp so weekly digests don't re-fire on every edit.
+      publishedAt = existingPlan?.createdAt || now;
+    }
     const planInput = {
       ...incomingPlan,
       id,
       createdAt: existingPlan?.createdAt || normalizedShortText(incomingPlan.createdAt, 80) || now,
       updatedAt: now,
+      publishedAt,
     };
 
     step = "syncActivities";
@@ -7436,6 +7484,12 @@ async function handleAdminCurriculumResourceSave(request, response) {
       return;
     }
   }
+  const nextStatus = normalizedShortText(incoming.status || existing?.status || "draft", 20);
+  const wasPublished = existing?.status === "published";
+  const willBePublished = nextStatus === "published";
+  let publishedAt = existing?.publishedAt || "";
+  if (willBePublished && !wasPublished) publishedAt = now;
+  else if (willBePublished && !publishedAt) publishedAt = existing?.createdAt || now;
   const resource = normalizedCurriculumResource({
     ...existing,
     ...incoming,
@@ -7444,8 +7498,10 @@ async function handleAdminCurriculumResourceSave(request, response) {
     fileName: normalizedShortText(incoming.fileName, 180) || existing?.fileName || "",
     mimeType: normalizedShortText(incoming.mimeType, 80) || existing?.mimeType || "",
     lessonPlanIds: existing?.lessonPlanIds || incoming.lessonPlanIds || [],
+    status: nextStatus,
     createdAt: existing?.createdAt || normalizedShortText(incoming.createdAt, 80) || now,
     updatedAt: now,
+    publishedAt,
   });
   if (!resource) {
     jsonResponse(response, 400, { error: "Resource could not be normalized." });
@@ -8640,6 +8696,99 @@ function handleAnnouncementsList(request, response, url) {
   jsonResponse(response, 200, { announcements: published.slice(0, 50).map(publicAnnouncement) });
 }
 
+// ─── Email Engagement (onboarding + weekly What's New) ─────────────────────────
+
+function handleAdminEmailEngagementGet(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = readStore();
+  const summary = emailEngagement.getAnalyticsSummary(store);
+  const digest = emailEngagement.newlyPublishedCurriculum(store, 7 * 24 * 60 * 60 * 1000);
+  jsonResponse(response, 200, {
+    ok: true,
+    supportEmail: supportEmailConfigStatus(),
+    summary,
+    previewLessons: digest.lessons,
+    previewDigest: digest,
+    onboardingSteps: emailEngagement.ONBOARDING_STEPS.map((s) => ({
+      key: s.key,
+      subject: s.subject,
+      delayDays: s.delayDays,
+    })),
+  });
+}
+
+async function handleAdminEmailEngagementSettings(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const settings = await emailEngagement.updateSettings({
+    onboardingEnabled: body.onboardingEnabled,
+    weeklyWhatsNewEnabled: body.weeklyWhatsNewEnabled,
+  });
+  jsonResponse(response, 200, { ok: true, settings });
+}
+
+async function handleAdminEmailEngagementRunOnboarding(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const result = await emailEngagement.processOnboardingDrip({ force: Boolean(body.force) });
+  jsonResponse(response, 200, { ok: true, result });
+}
+
+async function handleAdminEmailEngagementRunWeekly(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const result = await emailEngagement.runWeeklyWhatsNew({ force: Boolean(body.force) });
+  jsonResponse(response, 200, { ok: true, result });
+}
+
+async function handleAdminEmailEngagementSendStep(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const email = normalizeEmail(body.email);
+  const step = String(body.step || "welcome");
+  if (!email) {
+    jsonResponse(response, 400, { error: "Email is required." });
+    return;
+  }
+  const result = await emailEngagement.sendOnboardingStep(email, step, {
+    force: Boolean(body.force),
+    forceStampOnSoftFail: true,
+  });
+  jsonResponse(response, 200, { ok: true, result });
+}
+
+async function handleEmailUnsubscribe(request, response) {
+  const body = await readJson(request);
+  const email = normalizeEmail(body.email);
+  if (!email) {
+    jsonResponse(response, 400, { error: "Email is required." });
+    return;
+  }
+  // Soft public unsubscribe: requires matching account email. Prefer authenticated users in future.
+  const result = await emailEngagement.unsubscribeUser(email);
+  if (!result.ok) {
+    jsonResponse(response, 404, { error: "Account not found." });
+    return;
+  }
+  jsonResponse(response, 200, { ok: true });
+}
+
 // ─── Release Notes handlers ───────────────────────────────────────────────────
 
 const RELEASE_NOTE_STATUSES = new Set(["draft", "published"]);
@@ -8761,6 +8910,12 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/feedback") return await handleFeedbackCreate(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/feedback-update") return await handleFeedbackUpdate(request, response);
     if (request.method === "GET" && url.pathname === "/api/feedback") return handleFeedbackList(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/email-engagement") return handleAdminEmailEngagementGet(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/settings") return await handleAdminEmailEngagementSettings(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/run-onboarding") return await handleAdminEmailEngagementRunOnboarding(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/run-weekly") return await handleAdminEmailEngagementRunWeekly(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/send-step") return await handleAdminEmailEngagementSendStep(request, response);
+    if (request.method === "POST" && url.pathname === "/api/email/unsubscribe") return await handleEmailUnsubscribe(request, response);
     // Phase 6-A: Admin Reply & Communications
     if (request.method === "POST" && url.pathname === "/api/admin/reply") return await handleAdminReply(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/communications") return handleCommunicationsList(request, response, url);
@@ -8853,6 +9008,12 @@ initializeStorage()
   .then(() => {
     server.listen(PORT, () => {
       console.log(`Little Learner Hub launch server running on http://localhost:${PORT}`);
+      try {
+        emailEngagement.startScheduler();
+        console.log("[email-engagement] scheduler started (hourly onboarding + Monday What's New)");
+      } catch (err) {
+        console.warn("[email-engagement] scheduler failed to start:", err.message);
+      }
     });
   })
   .catch((error) => {
