@@ -2729,7 +2729,7 @@ async function finishSignupWithPlan(planChoice) {
     saveCurrentAccountState();
     updateAuthButtons();
     updatePlanLabel();
-    setView("calendar");
+    setView("calendar", { fromAuthLanding: true });
     return;
   }
   if (planChoice === "founding") {
@@ -2943,11 +2943,29 @@ function accountHasRemainingPaidAccess(account = null) {
   const target = account || currentAccount();
   if (!target) return false;
   if (target.internalAccessOverride) return true;
-  const endMs = accountAccessEndMs(target);
   const stripeStatus = String(target.stripeSubscriptionStatus || "").toLowerCase();
+  const status = String(target.subscriptionStatus || "").toLowerCase();
+  if (status.includes("payment failed") || status.includes("failed") || stripeStatus === "unpaid") return false;
+  if (status.includes("past due") || stripeStatus === "past_due") return false;
+  if (status.includes("free plan")) return false;
+  if (status.includes("ended") && !status.includes("access ends")) return false;
+  const endMs = accountAccessEndMs(target);
   if (stripeStatus === "active" || stripeStatus === "trialing") return true;
   if (endMs !== null && endMs > Date.now()) return true;
-  const status = String(target.subscriptionStatus || "").toLowerCase();
+  // Checkout completion can assign Founding/Pro before Stripe status fields sync.
+  // Trust Active/Trialing paid plan records the same way the server membership policy does.
+  const paidPlan = ["Pro", "Founding"].includes(String(target.plan || "").trim()) || Boolean(target.foundingMemberActive);
+  if (
+    paidPlan
+    && (
+      status.includes("active")
+      || status.includes("trial")
+      || status.includes("paid")
+      || status.includes("access ends")
+    )
+  ) {
+    return endMs === null || endMs > Date.now();
+  }
   if (status.includes("access ends") && endMs !== null && endMs > Date.now()) return true;
   return false;
 }
@@ -2967,6 +2985,11 @@ function normalizeBillingPlan(plan = currentPlan, account = null) {
   const status = String(account?.subscriptionStatus || "");
   if (account && billingStatusIndicatesFree(status, account)) return "Free";
   if ((rawPlan === "Founding" || account?.foundingMemberActive) && accountHasRemainingPaidAccess(account)) return "Founding";
+  // Founding Member records with Active status must never fall through to Free
+  // just because Stripe status fields have not synced yet.
+  if ((rawPlan === "Founding" || account?.foundingMemberActive) && billingStatusIndicatesPaid(status, account)) {
+    return "Founding";
+  }
   if (rawPlan === "Pro" || rawPlan === "Premium" || lowerPlan.includes("pro")) {
     return account && status && !billingStatusIndicatesPaid(status, account) ? "Free" : "Pro";
   }
@@ -3253,7 +3276,8 @@ async function syncSubscriptionFromBackend(email, options = {}) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail || !stripeCheckoutConfig.subscriptionStatusEndpoint || !canUseStripeBackend()) return null;
   try {
-    const response = await fetch(`${stripeCheckoutConfig.subscriptionStatusEndpoint}?email=${encodeURIComponent(cleanEmail)}`);
+    const refreshParam = options.forceRefresh ? "&refresh=1" : "";
+    const response = await fetch(`${stripeCheckoutConfig.subscriptionStatusEndpoint}?email=${encodeURIComponent(cleanEmail)}${refreshParam}`);
     const data = await response.json();
     if (!response.ok) throw new Error(data?.error || "Could not sync subscription.");
     if (data?.founding) applyFoundingStatus(data.founding);
@@ -3287,6 +3311,9 @@ async function syncSubscriptionFromBackend(email, options = {}) {
       }
       if (options.renderFounding) refreshFoundingDisplays();
     }
+    console.info(
+      `[membership] client_sync email=${cleanEmail} plan=${updates.plan || "n/a"} status="${updates.subscriptionStatus || ""}" recovered=${Boolean(data?.recoveredFromStripe)} force=${Boolean(options.forceRefresh)}`,
+    );
     return data;
   } catch (error) {
     console.warn("Subscription sync did not complete", error);
@@ -3606,6 +3633,9 @@ let activeViewerResourceId = "";
 let resourceViewerReturnToId = "";
 let viewReturnContexts = Object.create(null);
 let lessonNavHistorySilent = false;
+let pendingAuthReturnView = "";
+let suppressBootLanding = false;
+let viewNavigationGeneration = 0;
 let currentAuthMode = "login";
 let signupWizardStep = 1;
 let signupPersonaChoice = "";
@@ -8711,7 +8741,25 @@ function setView(view, options = {}) {
   const requestedFutureTool = sidebarFutureToolTargets[requestedView] || "";
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
   const resolvedView = resolvedRequested;
-  if (activeView && activeView !== resolvedView) clearViewReturnContext(activeView);
+  // User-driven navigation cancels deferred boot/login landings that would yank the view back.
+  if (!options.fromBoot && !options.fromAuthLanding && !options.skipAccessRedirect) {
+    suppressBootLanding = true;
+    viewNavigationGeneration += 1;
+  }
+  if (activeView && activeView !== resolvedView) {
+    clearViewReturnContext(activeView);
+    // Sidebar / programmatic section changes should not leave orphan lesson History API entries.
+    if (activeView === "lessons" || document.querySelector("#resourceViewerModal.open")) {
+      dismissResourceViewerForNavigation();
+      if (window.history?.replaceState) {
+        const nextState = { ...(window.history.state || {}) };
+        if (nextState.llhLessonNav) {
+          delete nextState.llhLessonNav;
+          window.history.replaceState(nextState, "", window.location.href);
+        }
+      }
+    }
+  }
   if (activeView === "admin" && resolvedView !== "admin" && !confirmDiscardAdminLessonChanges()) return;
   if (
     activeView === "lesson-editor"
@@ -8748,6 +8796,7 @@ function setView(view, options = {}) {
   }
   // Route guard: unauthenticated visitors may only access public marketing views.
   if (!isLoggedIn() && !hasAdminFullAccess() && !guestAllowedViews.has(resolvedView)) {
+    pendingAuthReturnView = resolvedView || requestedView || "";
     openAuthModal("login");
     return;
   }
@@ -32198,6 +32247,7 @@ function openAdminUserProfile(email, startTab) {
           ${account.stripeSubscriptionId ? `<div><span>Stripe Sub ID</span><strong><small>${escapeHtml(account.stripeSubscriptionId)}</small></strong></div>` : ""}
         </div>
         <div class="aup-action-row" style="margin-top:12px;">
+          <button class="primary-button aup-action-btn" type="button" data-aup-action="refresh-stripe" data-aup-email="${escapeHtml(email)}">Refresh from Stripe</button>
           ${!adminMembershipHasProAccess(account) ? `<button class="primary-button aup-action-btn" type="button" data-aup-action="upgrade"    data-aup-email="${escapeHtml(email)}">Upgrade to Pro</button>` : ""}
           ${adminMembershipHasProAccess(account) ? `<button class="ghost-button aup-action-btn" type="button" data-aup-action="downgrade"  data-aup-email="${escapeHtml(email)}">Downgrade to Free</button>` : ""}
           ${!isFoundingActive ? `<button class="ghost-button aup-action-btn" type="button" data-aup-action="add-founding" data-aup-email="${escapeHtml(email)}">Add Founding Access</button>` : `<button class="ghost-button aup-action-btn" type="button" data-aup-action="remove-founding" data-aup-email="${escapeHtml(email)}">Remove Founding Access</button>`}
@@ -32208,6 +32258,7 @@ function openAdminUserProfile(email, startTab) {
             ? `<button class="ghost-button aup-action-btn aup-btn--danger" type="button" data-aup-action="disable" data-aup-email="${escapeHtml(email)}">Disable Account</button>`
             : `<button class="primary-button aup-action-btn" type="button" data-aup-action="reenable" data-aup-email="${escapeHtml(email)}">Re-enable Account</button>`}
         </div>
+        <p class="muted-copy" style="margin-top:8px;">Refresh from Stripe re-reads the customer’s live subscription and updates membership/permissions immediately. Use this when a paid checkout succeeded but the account still shows Free.</p>
         <p id="aupSubMsg" class="form-message" style="margin-top:8px;"></p>
       </fieldset>
 
@@ -32331,6 +32382,47 @@ async function adminUpdateMembershipOnServer(email, updates, action, note) {
   }
 }
 
+async function adminRefreshSubscriptionFromStripe(email) {
+  const token = adminSession()?.token;
+  if (!token || !canUseLaunchBackend()) return { ok: false, error: "Admin session required." };
+  try {
+    const response = await fetch("/api/admin/subscription-refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        adminToken: token,
+        email,
+        adminEmail: adminSession()?.email || "admin",
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error || "Stripe refresh failed.");
+    adminAnalyticsCache = null;
+    await loadAdminAnalyticsFromBackend();
+    if (data?.subscription) {
+      const updates = subscriptionToAccountUpdates(data.subscription);
+      if (updates) updateAccount(email, updates);
+    }
+    if (email === currentUser) {
+      await syncSubscriptionFromBackend(email, {
+        forceRefresh: true,
+        renderAccount: true,
+        renderBilling: true,
+        renderFounding: true,
+      });
+      updateAuthButtons();
+      updatePlanLabel();
+    }
+    return {
+      ok: true,
+      recoveredFromStripe: Boolean(data.recoveredFromStripe),
+      subscription: data.subscription || null,
+    };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+}
+
 function handleAdminUserAction(action, email, modal) {
   const allAccounts = allAccountsList();
   const account = allAccounts.find((a) => a.email === email)
@@ -32344,6 +32436,23 @@ function handleAdminUserAction(action, email, modal) {
     msgEl.style.color = ok ? "var(--accent, #386062)" : "#c0392b";
   }
 
+  if (action === "refresh-stripe") {
+    showMsg("Refreshing membership from Stripe…");
+    adminRefreshSubscriptionFromStripe(email).then((result) => {
+      if (!result.ok) {
+        showMsg(result.error || "Stripe refresh failed.", false);
+        return;
+      }
+      const planLabel = result.subscription?.membershipPlan || result.subscription?.plan || "Free";
+      const access = result.subscription?.hasProAccess ? "Pro access granted" : "No active paid subscription";
+      showMsg(result.recoveredFromStripe
+        ? `Stripe sync complete — ${planLabel}. ${access}.`
+        : `Stripe checked — ${planLabel}. ${access}.`);
+      renderAdminUsersDashboard();
+      openAdminUserProfile(email, "manage");
+    });
+    return;
+  }
   if (action === "extend-trial") {
     if (!confirm(`Extend trial for ${displayUserName(account)} (${email}) by 7 days?`)) return;
     const updates = { extendTrialDays: 7, internalAccessOverride: true };
@@ -37870,10 +37979,20 @@ async function completeCheckoutFromStripeSession(session) {
     stripeSubscriptionId: session.subscriptionId || currentAccount()?.stripeSubscriptionId,
     paymentMethod: "Managed in Stripe",
   });
-  await syncSubscriptionFromBackend(currentUser || session.email, { renderFounding: true });
+  await syncSubscriptionFromBackend(currentUser || session.email, {
+    renderFounding: true,
+    renderAccount: true,
+    renderBilling: true,
+    forceRefresh: true,
+  });
   loadUserAiUsage(currentUser || session.email).catch(() => {});
   await syncFoundingStatus({ render: true });
   saveCurrentAccountState();
+  updateAuthButtons();
+  updatePlanLabel();
+  console.info(
+    `[membership] checkout_complete email=${currentUser || session.email} plan=${currentAccount()?.plan || "n/a"} foundingActive=${Boolean(currentAccount()?.foundingMemberActive)} isPro=${typeof isProUser === "function" ? isProUser() : "n/a"}`,
+  );
   renderPaymentSuccessPage();
 }
 
@@ -38463,7 +38582,7 @@ document.addEventListener("click", async (event) => {
       activePortfolioChildId = "";
     }
     setMobileNavOpen(false);
-    const navOptions = {};
+    const navOptions = { skipHistory: true };
     if (requestedLessonLibraryMode) navOptions.lessonLibraryMode = requestedLessonLibraryMode;
     if (nextView === "planner" && viewButton.dataset.plannerFocusWeek) {
       navOptions.weekStartDate = viewButton.dataset.plannerFocusWeek;
@@ -42293,12 +42412,23 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
       role: currentAccount()?.role || "",
       phone: currentAccount()?.phone || "",
     }, { lastLogin: true });
-    await syncSubscriptionFromBackend(result.email);
+    const loginNavGeneration = viewNavigationGeneration;
+    await syncSubscriptionFromBackend(result.email, { forceRefresh: true });
     await syncChildDataFromBackend();
     loadUserAiUsage(result.email).catch(() => {});
     trackEvent("account_login_complete", { email: result.email, plan: currentPlan });
     closeAuthModal();
-    setView("calendar");
+    // If the user already clicked a sidebar section during login sync, do not yank them to Calendar.
+    if (loginNavGeneration !== viewNavigationGeneration) {
+      pendingAuthReturnView = "";
+      return;
+    }
+    const returnView = pendingAuthReturnView
+      && canOpenViewForCurrentAccess(pendingAuthReturnView)
+      ? pendingAuthReturnView
+      : "calendar";
+    pendingAuthReturnView = "";
+    setView(returnView, { fromAuthLanding: true });
   } catch (error) {
     setFormMessage("#authMessage", friendlyAuthError(error));
   } finally {
@@ -44543,13 +44673,15 @@ function initialViewFromLocation() {
 }
 
 async function initializeAppView() {
+  suppressBootLanding = false;
+  const bootNavGeneration = viewNavigationGeneration;
   try {
     await Promise.race([
       (async () => {
         const handledCheckoutReturn = await verifyStripeReturnIfNeeded();
         if (handledCheckoutReturn) return;
         if (currentUser) {
-          await syncSubscriptionFromBackend(currentUser, { renderFounding: true }).catch((error) => {
+          await syncSubscriptionFromBackend(currentUser, { renderFounding: true, forceRefresh: false }).catch((error) => {
             console.warn("Subscription sync during boot failed", error);
           });
           await syncChildDataFromBackend({ render: true }).catch((error) => {
@@ -44559,6 +44691,10 @@ async function initializeAppView() {
         }
         await syncFoundingStatus({ render: true }).catch(() => {});
         await maybeHandleStaffInviteFromUrl().catch(() => {});
+        // User already navigated while boot sync was in flight — never override their section.
+        if (suppressBootLanding || bootNavGeneration !== viewNavigationGeneration) {
+          return;
+        }
         const initialView = initialViewFromLocation();
         const lessonEditId = lessonPlanEditRouteIdFromLocation();
         if (!currentAttribution()?.firstSeenAt) {
@@ -44573,6 +44709,7 @@ async function initializeAppView() {
           if (isLoggedIn() || hasAdminFullAccess()) {
             await openLessonPlanEditor(lessonEditId, { returnView: "lessons", skipEditorRoute: true });
           } else {
+            pendingAuthReturnView = "lessons";
             openAuthModal("login");
           }
           return;
@@ -44581,18 +44718,18 @@ async function initializeAppView() {
           const route = window.location.pathname || window.location.hash;
           saveAttribution({ route, view: initialView });
           trackEvent("ad_route_visit", { route, view: initialView });
-          setView(initialView);
+          setView(initialView, { fromBoot: true });
           return;
         }
         // Prefer restoring Admin when this browser left Admin unlocked.
         if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") {
-          setView("admin");
+          setView("admin", { fromBoot: true });
           loadAdminAnalyticsFromBackend({ force: true }).catch(() => {});
           return;
         }
         // Logged-in providers land on Calendar instead of Dashboard.
-        if (currentUser) {
-          setView("calendar");
+        if (currentUser && !suppressBootLanding) {
+          setView("calendar", { fromBoot: true });
           return;
         }
       })(),
