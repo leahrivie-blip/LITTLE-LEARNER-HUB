@@ -34165,7 +34165,6 @@ function adminPreviousPlanLabel(account) {
 
 function adminMembershipStatusLabel(account) {
   if (account?.membershipStatus) return account.membershipStatus;
-  if (account?.internalAccessOverride && adminMembershipHasProAccess(account)) return "Manual Access";
   const stripeStatus = String(account?.stripeSubscriptionStatus || "").toLowerCase();
   const status = String(account?.subscriptionStatus || "").toLowerCase();
   if (status.includes("payment failed") || stripeStatus === "unpaid") return "Payment Failed";
@@ -34175,7 +34174,9 @@ function adminMembershipStatusLabel(account) {
   const trialEndMs = account?.trialEnd || account?.accessEndsAt;
   const stripeTrialActive = stripeStatus === "trialing"
     && (!trialEndMs || new Date(trialEndMs).getTime() > Date.now());
-  const billingActive = stripeStatus === "active" || stripeTrialActive || hasAccess;
+  const manualOnlyAccess = Boolean(account?.internalAccessOverride)
+    && stripeStatus !== "active" && stripeStatus !== "trialing";
+  const billingActive = stripeStatus === "active" || stripeTrialActive || (hasAccess && !manualOnlyAccess);
   if (cancelScheduled && billingActive) {
     return stripeTrialActive || adminMembershipInTrial(account) ? "Cancels at Trial End" : "Cancels at Period End";
   }
@@ -34579,7 +34580,7 @@ function openAdminUserProfile(email, startTab) {
           ${account.lastSuccessfulPaymentAt ? `<div><span>Last Successful Payment</span><strong>${escapeHtml(new Date(account.lastSuccessfulPaymentAt).toLocaleString())}</strong></div>` : ""}
           ${account.lastFailedPaymentAt ? `<div><span>Last Failed Payment</span><strong>${escapeHtml(new Date(account.lastFailedPaymentAt).toLocaleString())}</strong></div>` : ""}
           ${account.nextPaymentRetryAt ? `<div><span>Next Payment Retry</span><strong>${escapeHtml(new Date(account.nextPaymentRetryAt).toLocaleString())}</strong></div>` : ""}
-          <div><span>Access Source</span><strong>${escapeHtml(account.accessSource || (account.internalAccessOverride ? "Manual admin grant" : account.manualAccessGranted ? "Previous manual admin grant" : account.promoRedeemedAt ? "Promo trial" : account.stripeSubscriptionId ? "Stripe subscription" : "Free account"))}</strong></div>
+          <div><span>Access Source</span><strong>${escapeHtml(account.accessSource || (account.internalAccessOverride && !account.stripeSubscriptionId ? "Manual admin grant" : account.promoRedeemedAt && adminMembershipInTrial(account) ? "Promo trial" : account.stripeSubscriptionId ? "Stripe subscription" : account.manualAccessGranted ? "Previous manual admin grant" : "Free account"))}</strong></div>
           ${account.lastStripeSyncAt || account.lastMembershipSyncAt || account.updatedAt ? `<div><span>Last Stripe Sync</span><strong>${escapeHtml(new Date(account.lastStripeSyncAt || account.lastMembershipSyncAt || account.updatedAt).toLocaleString())}</strong></div>` : ""}
         </div>
       </fieldset>
@@ -34852,7 +34853,12 @@ function handleAdminUserAction(action, email, modal) {
   }
   if (action === "disable") {
     if (!confirm(`Disable account for ${displayUserName(account)} (${email})?`)) return;
-    const updates = { accountStatus: "Disabled", disabled: true, internalAccessOverride: false };
+    const updates = {
+      accountStatus: "Disabled",
+      disabled: true,
+      internalAccessOverride: false,
+      manualAccessGranted: Boolean(account.manualAccessGranted || (account.internalAccessOverride && !account.stripeSubscriptionId)),
+    };
     adminUpdateMembershipOnServer(email, updates, action, "Account disabled by admin.").then((result) => {
       if (!result.ok && !result.localOnly) { showMsg(result.error || "Server update failed.", false); return; }
       updateAccount(email, { accountStatus: "Disabled" });

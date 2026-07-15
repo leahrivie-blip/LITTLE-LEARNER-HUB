@@ -352,7 +352,7 @@ async function main() {
     {
       name: "manual upgrade",
       user: { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", internalAccessOverride: true },
-      access: "pro", billing: "active", label: "Manual Access", pro: true,
+      access: "pro", billing: "never_subscribed", label: "No paid subscription", pro: true,
     },
     {
       name: "admin account without billing override",
@@ -363,6 +363,16 @@ async function main() {
       name: "disabled account cannot retain manual Pro access",
       user: { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", internalAccessOverride: true, accountStatus: "Disabled" },
       access: "free", billing: "never_subscribed", label: "No paid subscription", pro: false,
+    },
+    {
+      name: "disabled legacy manual grant retains non-billing source marker",
+      user: { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", manualAccessGranted: true, accountStatus: "Disabled" },
+      access: "free", billing: "never_subscribed", label: "No paid subscription", pro: false,
+    },
+    {
+      name: "manual account converted to Stripe",
+      user: { plan: "Pro", subscriptionStatus: "Pro Monthly Subscription Active", internalAccessOverride: true, manualAccessGranted: true, stripeSubscriptionStatus: "active", stripeSubscriptionId: "sub_converted_manual" },
+      access: "pro", billing: "active", label: "Active", pro: true,
     },
   ];
   for (const scenario of scenarios) {
@@ -386,6 +396,13 @@ async function main() {
   );
   assert(paidAfterTrialEnds.subscriptionStatus === "Subscription Ended", "Former trial converted to paid must end as a paid subscription");
   assert(paidAfterTrialEnds.previousPlan === "Pro", "Former trial converted to paid retains paid previous plan");
+
+  const stripeConversion = simulateStripeSubscriptionUpdated(
+    { plan: "Pro", internalAccessOverride: true, manualAccessGranted: true },
+    { status: "active", current_period_end: periodEndFuture },
+  );
+  assert(stripeConversion.internalAccessOverride === false, "Confirmed Stripe subscription clears manual override");
+  assert(stripeConversion.manualAccessGranted === false, "Confirmed Stripe subscription clears manual grant marker");
 
   console.log("2b) Repair script protects converted paid accounts and writes a backup");
   {
@@ -415,10 +432,21 @@ async function main() {
       },
     };
     fs.writeFileSync(repairStorePath, JSON.stringify(repairStore, null, 2));
+    const refusedOnlineRun = spawnSync(process.execPath, [
+      "scripts/audit-repair-subscription-statuses.js",
+      `--input=${repairStorePath}`,
+      "--apply",
+    ], {
+      cwd: ROOT,
+      env: { ...process.env, SUBSCRIPTION_AUDIT_DIR: repairOutputDir },
+      encoding: "utf8",
+    });
+    assert(refusedOnlineRun.status === 2, "Repair apply requires explicit offline confirmation");
     const repairRun = spawnSync(process.execPath, [
       "scripts/audit-repair-subscription-statuses.js",
       `--input=${repairStorePath}`,
       "--apply",
+      "--offline-confirmed",
     ], {
       cwd: ROOT,
       env: { ...process.env, SUBSCRIPTION_AUDIT_DIR: repairOutputDir },
@@ -610,7 +638,8 @@ async function main() {
     });
     assert(overrideRes.status === 200, "Admin override update succeeds");
     assert(overrideRes.json?.user?.internalAccessOverride === true, "Internal override flag set");
-    assert(overrideRes.json?.user?.membershipStatus === "Manual Access", "Internal override status label");
+    assert(overrideRes.json?.user?.membershipStatus === "No paid subscription", "Internal override does not imply paid billing");
+    assert(overrideRes.json?.user?.accessSource === "Manual admin grant", "Internal override access source label");
     assert(!overrideRes.json?.user?.stripeSubscriptionId, "Override should not create Stripe subscription");
 
     console.log("8) Admin totals from backend data");

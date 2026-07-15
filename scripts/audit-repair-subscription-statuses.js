@@ -5,7 +5,8 @@
  * Dry run (default):
  *   node scripts/audit-repair-subscription-statuses.js
  * Apply only evidence-backed normalizations:
- *   node scripts/audit-repair-subscription-statuses.js --apply
+ *   # First stop every process that can write the store.
+ *   node scripts/audit-repair-subscription-statuses.js --apply --offline-confirmed
  *
  * The script always writes a timestamped audit report. Before --apply writes any
  * record, it also exports the complete source store to a timestamped backup.
@@ -17,6 +18,7 @@ const membership = require("./membership-access.js");
 
 const args = new Set(process.argv.slice(2));
 const apply = args.has("--apply");
+const offlineConfirmed = args.has("--offline-confirmed");
 const inputArg = process.argv.find((arg) => arg.startsWith("--input="));
 const inputPath = path.resolve(inputArg ? inputArg.slice("--input=".length) : process.env.LLH_STORE_PATH || "data/launch-store.json");
 const stamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -83,7 +85,14 @@ if (!fs.existsSync(inputPath)) {
   process.exit(1);
 }
 
-const store = JSON.parse(fs.readFileSync(inputPath, "utf8"));
+if (apply && !offlineConfirmed) {
+  console.error("Refusing --apply without --offline-confirmed. Stop all application processes that can write this store, then retry.");
+  process.exit(2);
+}
+
+const sourceText = fs.readFileSync(inputPath, "utf8");
+const sourceFingerprint = `${fs.statSync(inputPath).mtimeMs}:${sourceText}`;
+const store = JSON.parse(sourceText);
 const users = Object.values(store.users || {});
 const report = {
   generatedAt: new Date().toISOString(),
@@ -133,10 +142,18 @@ const reportPath = path.join(outputDir, `subscription-audit-${stamp}.json`);
 fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
 
 if (apply && report.proposedRepairs.length) {
+  const latestText = fs.readFileSync(inputPath, "utf8");
+  const latestFingerprint = `${fs.statSync(inputPath).mtimeMs}:${latestText}`;
+  if (latestFingerprint !== sourceFingerprint) {
+    console.error("Source store changed during audit. No records were written; stop writers and retry from a fresh audit.");
+    process.exit(3);
+  }
   const backupPath = path.join(outputDir, `subscription-backup-${stamp}.json`);
   fs.copyFileSync(inputPath, backupPath);
   store.users = repairedUsers;
-  fs.writeFileSync(inputPath, JSON.stringify(store, null, 2));
+  const tempPath = `${inputPath}.subscription-repair-${process.pid}.tmp`;
+  fs.writeFileSync(tempPath, JSON.stringify(store, null, 2));
+  fs.renameSync(tempPath, inputPath);
   console.log(`Backup: ${backupPath}`);
 }
 

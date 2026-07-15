@@ -139,7 +139,6 @@ function membershipPreviousPlanDisplay(user) {
 }
 
 function membershipStatusDisplay(user, nowMs = Date.now()) {
-  if (user?.internalAccessOverride && membershipHasProAccess(user, nowMs)) return "Manual Access";
   const stripeStatus = String(user?.stripeSubscriptionStatus || "").toLowerCase();
   const status = String(user?.subscriptionStatus || "").toLowerCase();
 
@@ -150,7 +149,8 @@ function membershipStatusDisplay(user, nowMs = Date.now()) {
   const cancelScheduled = Boolean(user?.cancelAtPeriodEnd) || status.includes("access ends");
   const trialEndMs = parseIsoMs(user?.trialEnd) || parseIsoMs(user?.accessEndsAt);
   const stripeTrialActive = stripeStatus === "trialing" && (trialEndMs === null || trialEndMs > nowMs);
-  const billingActive = stripeStatus === "active" || stripeTrialActive || hasAccess;
+  const manualOnlyAccess = Boolean(user?.internalAccessOverride) && !stripeStatusIsPaidAccess(stripeStatus);
+  const billingActive = stripeStatus === "active" || stripeTrialActive || (hasAccess && !manualOnlyAccess);
 
   if (cancelScheduled && billingActive) {
     return stripeTrialActive || membershipUserInTrial(user, nowMs) ? "Cancels at Trial End" : "Cancels at Period End";
@@ -318,6 +318,8 @@ function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventTyp
     foundingMember: wasFounding || isFoundingCheckout,
     trialStatus: inTrial ? "In Trial" : (user.trialStatus === "In Trial" ? "Trial Ended" : user.trialStatus || ""),
     priceLock: isFoundingCheckout ? "Lifetime" : user.priceLock || "",
+    internalAccessOverride: false,
+    manualAccessGranted: false,
   };
 }
 

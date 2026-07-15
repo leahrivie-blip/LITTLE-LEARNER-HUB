@@ -2551,6 +2551,8 @@ function applyCheckoutMembershipUpgrade(email, {
     foundingMemberNumber: founding.foundingMemberNumber,
     subscriptionStartedAt: new Date().toISOString(),
     paymentMethod: "Managed in Stripe",
+    internalAccessOverride: false,
+    manualAccessGranted: false,
     pendingPlan: "",
     pendingPromoCode: "",
     pendingTrialDays: 0,
@@ -4826,16 +4828,16 @@ function membershipSummaryForUser(user, storeRef = null) {
     nextPaymentRetryAt: user?.nextPaymentRetryAt || "",
     hasPaymentMethod: typeof user?.hasPaymentMethod === "boolean" ? user.hasPaymentMethod : null,
     willTrialConvertToPaid: membershipUserInTrial(user) ? !user?.cancelAtPeriodEnd : null,
-    accessSource: user?.internalAccessOverride
+    accessSource: user?.internalAccessOverride && !user?.stripeSubscriptionId
       ? "Manual admin grant"
-      : user?.manualAccessGranted
-        ? "Previous manual admin grant"
-        : user?.promoRedeemedAt
-          ? "Promo trial"
-          : membershipAccess.membershipFoundingActive(user)
-            ? "Founding subscription"
-            : user?.stripeSubscriptionId
-              ? "Stripe subscription"
+      : user?.promoRedeemedAt && membershipUserInTrial(user)
+        ? "Promo trial"
+        : membershipAccess.membershipFoundingActive(user)
+          ? "Founding subscription"
+          : user?.stripeSubscriptionId
+            ? "Stripe subscription"
+            : user?.manualAccessGranted
+              ? "Previous manual admin grant"
               : "Free account",
     lastMembershipSyncAt: user?.lastStripeSyncAt || user?.updatedAt || "",
     lastStripeSyncAt: user?.lastStripeSyncAt || user?.updatedAt || "",
