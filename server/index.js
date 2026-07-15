@@ -54,6 +54,7 @@ const spaRoutePaths = new Set([
 ]);
 let storeCache = null;
 let databaseReady = false;
+let lastPostgresError = "";
 let postgresPool = null;
 let postgresWriteChain = Promise.resolve();
 let firebaseCertCache = { expiresAt: 0, certs: {} };
@@ -244,16 +245,40 @@ function databaseConfigStatus() {
   const credentialsReady = postgres
     ? isConfiguredValue(PRODUCTION_DATABASE_URL)
     : isConfiguredValue(PRODUCTION_DATABASE_URL) && isConfiguredValue(PRODUCTION_DATABASE_SERVICE_KEY);
+  let note = "Local JSON storage is only for testing. Use a protected hosted database before serious traffic.";
+  if (postgres && databaseReady) {
+    note = "Postgres storage is connected for launch data.";
+  } else if (postgres && credentialsReady && lastPostgresError) {
+    note = `Postgres is configured, but the last connection/write failed: ${lastPostgresError}`;
+  } else if (external && credentialsReady) {
+    note = "External database credentials are configured, but readiness is not confirmed yet.";
+  }
   return {
     ready: external && credentialsReady && (postgres ? databaseReady : true),
     provider: DATABASE_PROVIDER,
     localJsonPath: storePath,
-    note: postgres && databaseReady
-      ? "Postgres storage is connected for launch data."
-      : external && credentialsReady
-        ? "External database credentials are configured. Connect this provider before accepting serious traffic."
-        : "Local JSON storage is only for testing. Use a protected hosted database before serious traffic.",
+    lastError: lastPostgresError || "",
+    note,
   };
+}
+
+async function probePostgresReadiness() {
+  if (!usePostgresStore() || !postgresPool) return false;
+  try {
+    await withTimeout(
+      postgresPool.query("SELECT 1 AS ok"),
+      5000,
+      "Postgres readiness probe",
+    );
+    databaseReady = true;
+    lastPostgresError = "";
+    return true;
+  } catch (error) {
+    databaseReady = false;
+    lastPostgresError = error.message || "Postgres readiness probe failed.";
+    console.error("Postgres readiness probe failed:", lastPostgresError);
+    return false;
+  }
 }
 
 function launchReadinessStatus() {
@@ -1824,15 +1849,23 @@ async function initializePostgresStore() {
     );
   }
   databaseReady = true;
+  lastPostgresError = "";
 }
 
 async function initializeStorage() {
   if (usePostgresStore()) {
-    await initializePostgresStore();
+    try {
+      await initializePostgresStore();
+    } catch (error) {
+      databaseReady = false;
+      lastPostgresError = error.message || "Postgres initialization failed.";
+      throw error;
+    }
   } else {
     ensureStore();
     storeCache = JSON.parse(fs.readFileSync(storePath, "utf8"));
     databaseReady = false;
+    lastPostgresError = "";
   }
   try {
     const { ensurePreschoolCurriculumSeeded } = require("./curriculum-preschool-seed.js");
@@ -1947,10 +1980,13 @@ function enqueuePostgresStoreWrite() {
       POSTGRES_QUERY_TIMEOUT_MS,
       "Postgres store upsert",
     );
+    databaseReady = true;
+    lastPostgresError = "";
   })();
   postgresWriteChain = writePromise.catch((error) => {
     databaseReady = false;
-    console.error("Could not persist launch store to Postgres:", error.message);
+    lastPostgresError = error.message || "Postgres store write failed.";
+    console.error("Could not persist launch store to Postgres:", lastPostgresError);
   });
   return { writeGeneration, writePromise };
 }
@@ -7694,7 +7730,12 @@ function handleStripeReadiness(request, response) {
   });
 }
 
-function handleLaunchReadiness(request, response) {
+async function handleLaunchReadiness(request, response) {
+  // Recover from transient write failures so launchReady is not stuck false
+  // after a single timed-out upsert while Postgres is otherwise healthy.
+  if (usePostgresStore() && postgresPool && !databaseReady) {
+    await probePostgresReadiness();
+  }
   jsonResponse(response, 200, launchReadinessStatus());
 }
 
@@ -8796,7 +8837,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/founding-status") return handleFoundingStatus(request, response);
     if (request.method === "GET" && url.pathname === "/api/stripe-readiness") return handleStripeReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/billing-readiness") return handleBillingReadiness(request, response);
-    if (request.method === "GET" && url.pathname === "/api/launch-readiness") return handleLaunchReadiness(request, response);
+    if (request.method === "GET" && url.pathname === "/api/launch-readiness") return await handleLaunchReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/health") return handleHealth(request, response);
     if (request.method === "GET" && url.pathname === "/api/client-config.js") return handleClientConfig(request, response);
     if (request.method === "HEAD" && url.pathname === "/api/health") return headResponse(response, 200, "application/json; charset=utf-8");
