@@ -21,13 +21,13 @@ const ONBOARDING_STEPS = [
     key: "tips",
     flag: "tipsSentAt",
     delayDays: 2,
-    subject: "Your first week with Little Learner Hub",
+    subject: "Quick favor: what should we improve?",
   },
   {
     key: "explore",
     flag: "exploreSentAt",
     delayDays: 5,
-    subject: "New curriculum ideas waiting for you",
+    subject: "What’s coming next in Little Learner Hub",
   },
 ];
 
@@ -135,25 +135,22 @@ function buildOnboardingContent(stepKey, user, { siteUrl, htmlEscape }) {
   const first = userDisplayName(user);
   const base = siteBase(siteUrl);
   const lessonsUrl = `${base}/#lessons`;
-  const plannerUrl = `${base}/#planner`;
-  const childrenUrl = `${base}/#children`;
-  const plansUrl = `${base}/#plans`;
+  const contactUrl = `${base}/#contact`;
+  const homeUrl = `${base}/`;
   const greeting = `Hi ${htmlEscape(first)},`;
 
   if (stepKey === "welcome") {
     const shell = brandEmailShell({
       htmlEscape,
       title: "Welcome to Little Learner Hub",
-      introHtml: `<p>${greeting}</p><p>You’re in. Little Learner Hub is built for daycare teachers who need classroom-ready lesson plans without the Sunday-night scramble.</p>`,
+      introHtml: `<p>${greeting}</p>
+        <p>Little Learner Hub is built for daycare teachers and home providers who need classroom-ready curriculum without the Sunday-night scramble.</p>
+        <p>Inside you’ll find play-based lesson plans for Infant, Toddler, and Preschool — with Week at a Glance, activities, materials, and print-ready weekly schedules.</p>`,
       bodyHtml: `
-        <p>Start here:</p>
-        <ol>
-          <li>Browse the Lesson Plan Library</li>
-          <li>Open a plan and tap <strong>Use This Plan</strong></li>
-          <li>Add it to your Weekly Planner</li>
-        </ol>
+        <p>New lesson plans are added regularly, so the library keeps growing with you.</p>
+        <p>As you explore, we’d love your feedback. If something feels confusing, missing, or especially helpful, tell us — your notes shape what we build next.</p>
       `,
-      ctaLabel: "Browse Lesson Plans",
+      ctaLabel: "Open Little Learner Hub",
       ctaUrl: lessonsUrl,
       footerNote: "You’re receiving this welcome email once for your new account.",
     });
@@ -161,9 +158,16 @@ function buildOnboardingContent(stepKey, user, { siteUrl, htmlEscape }) {
       `Hi ${first},`,
       "",
       "Welcome to Little Learner Hub.",
-      "Browse the Lesson Plan Library, open a plan, and tap Use This Plan to add it to your Weekly Planner.",
       "",
-      `Open lessons: ${lessonsUrl}`,
+      "Little Learner Hub is built for daycare teachers and home providers who need classroom-ready curriculum without the Sunday-night scramble.",
+      "Inside you’ll find play-based lesson plans for Infant, Toddler, and Preschool — with Week at a Glance, activities, materials, and print-ready weekly schedules.",
+      "",
+      "New lesson plans are added regularly, so the library keeps growing with you.",
+      "",
+      "As you explore, we’d love your feedback. If something feels confusing, missing, or especially helpful, tell us — your notes shape what we build next.",
+      "",
+      `Open the library: ${lessonsUrl}`,
+      `Share feedback anytime: ${contactUrl}`,
       "",
       "— The Little Learner Hub Team",
     ].join("\n");
@@ -173,102 +177,185 @@ function buildOnboardingContent(stepKey, user, { siteUrl, htmlEscape }) {
   if (stepKey === "tips") {
     const shell = brandEmailShell({
       htmlEscape,
-      title: "Your first week setup",
-      introHtml: `<p>${greeting}</p><p>Here’s a simple path to get value in under 15 minutes.</p>`,
+      title: "How is Little Learner Hub working for you?",
+      introHtml: `<p>${greeting}</p>
+        <p>You’re one of the early providers using Little Learner Hub, and your feedback matters a lot right now.</p>`,
       bodyHtml: `
-        <ol>
-          <li><a href="${htmlEscape(childrenUrl)}">Add a child profile</a> (or skip if you’re exploring)</li>
-          <li><a href="${htmlEscape(lessonsUrl)}">Save a lesson plan</a> you want to teach</li>
-          <li><a href="${htmlEscape(plannerUrl)}">Open Weekly Planner</a> and place it on a day</li>
-        </ol>
-        <p>Tip: the Plan tab includes vocabulary, books, songs, and family connection notes ready for classroom use.</p>
+        <p>Could you send a quick note about:</p>
+        <ul>
+          <li>Anything confusing or hard to find</li>
+          <li>A bug or glitch you ran into</li>
+          <li>One thing that would make lesson planning easier</li>
+        </ul>
+        <p>Even one sentence helps. Bug reports and honest feedback are the fastest way we improve the product for real classrooms.</p>
       `,
-      ctaLabel: "Open Weekly Planner",
-      ctaUrl: plannerUrl,
+      ctaLabel: "Send Feedback or Report a Bug",
+      ctaUrl: contactUrl,
+      footerNote: "This is a one-time check-in email from your onboarding sequence.",
     });
     const text = [
       `Hi ${first},`,
       "",
-      "Your first week with Little Learner Hub:",
-      "1) Add a child profile",
-      "2) Save a lesson plan",
-      "3) Place it on your Weekly Planner",
+      "How is Little Learner Hub working for you?",
       "",
-      `Planner: ${plannerUrl}`,
+      "You’re one of the early providers using Little Learner Hub, and your feedback matters a lot right now.",
+      "",
+      "Could you send a quick note about:",
+      "- Anything confusing or hard to find",
+      "- A bug or glitch you ran into",
+      "- One thing that would make lesson planning easier",
+      "",
+      "Even one sentence helps. Bug reports and honest feedback are the fastest way we improve the product for real classrooms.",
+      "",
+      `Send feedback: ${contactUrl}`,
       "",
       "— The Little Learner Hub Team",
     ].join("\n");
     return { subject: ONBOARDING_STEPS[1].subject, text, html: shell.html };
   }
 
-  // explore
+  // explore — upcoming features / new content / what’s next
   const shell = brandEmailShell({
     htmlEscape,
-    title: "Fresh curriculum ideas for your classroom",
-    introHtml: `<p>${greeting}</p><p>When you’re ready for more themes and ages, the library grows with Infant, Toddler, and Preschool plans built for real daycare rooms.</p>`,
+    title: "What’s coming next",
+    introHtml: `<p>${greeting}</p>
+      <p>Thanks for being here early. Here’s what we’re focused on next for Little Learner Hub.</p>`,
     bodyHtml: `
-      <p>This week, try:</p>
+      <p><strong>New content rolling out</strong></p>
       <ul>
-        <li>Filter by age group in the Lesson Library</li>
-        <li>Open Week at a Glance to see Mon–Fri at a glance</li>
-        <li>Print or download a Weekly Schedule PDF for your room</li>
+        <li>More Infant, Toddler, and Preschool lesson plans</li>
+        <li>More classroom activities tied to weekly themes</li>
+        <li>More printable resources for teachers</li>
       </ul>
-      <p>Pro unlocks the full curriculum library when you need it.</p>
+      <p><strong>Product improvements underway</strong></p>
+      <ul>
+        <li>Faster lesson browsing and planning on mobile</li>
+        <li>Clearer weekly planning and print workflows</li>
+        <li>Better ways to discover what’s newly added</li>
+      </ul>
+      <p>You’ll also get a short Monday “What’s New” email when fresh curriculum is published — and we’ll skip the week if nothing new went live.</p>
     `,
-    ctaLabel: "Explore the Library",
+    ctaLabel: "See What’s in the Library",
     ctaUrl: lessonsUrl,
+    footerNote: "This is the final email in your one-time onboarding sequence.",
   });
   const text = [
     `Hi ${first},`,
     "",
-    "Fresh curriculum ideas are waiting in Little Learner Hub.",
-    "Filter by age, open Week at a Glance, and print a Weekly Schedule for your room.",
+    "What’s coming next in Little Learner Hub",
+    "",
+    "Thanks for being here early. Here’s what we’re focused on next:",
+    "",
+    "New content rolling out:",
+    "- More Infant, Toddler, and Preschool lesson plans",
+    "- More classroom activities tied to weekly themes",
+    "- More printable resources for teachers",
+    "",
+    "Product improvements underway:",
+    "- Faster lesson browsing and planning on mobile",
+    "- Clearer weekly planning and print workflows",
+    "- Better ways to discover what’s newly added",
+    "",
+    "You’ll also get a short Monday “What’s New” email when fresh curriculum is published — and we’ll skip the week if nothing new went live.",
     "",
     `Library: ${lessonsUrl}`,
-    `Plans: ${plansUrl}`,
+    `Home: ${homeUrl}`,
     "",
     "— The Little Learner Hub Team",
   ].join("\n");
   return { subject: ONBOARDING_STEPS[2].subject, text, html: shell.html };
 }
 
-function buildWhatsNewContent(lessons, { siteUrl, htmlEscape }) {
+function lessonDeepLink(base, lessonId) {
+  const id = encodeURIComponent(String(lessonId || ""));
+  return `${base}/#lessons?lesson=${id}`;
+}
+
+function buildWhatsNewContent(digest, { siteUrl, htmlEscape }) {
   const base = siteBase(siteUrl);
   const lessonsUrl = `${base}/#lessons`;
-  const itemsHtml = lessons.map((lesson) => {
+  const lessons = Array.isArray(digest.lessons) ? digest.lessons : [];
+  const activities = Array.isArray(digest.activities) ? digest.activities : [];
+  const resources = Array.isArray(digest.resources) ? digest.resources : [];
+  const printables = Array.isArray(digest.printables) ? digest.printables : [];
+
+  const lessonItemsHtml = lessons.map((lesson) => {
     const title = htmlEscape(lesson.title || "Untitled lesson");
     const age = htmlEscape(lesson.age || "");
     const theme = htmlEscape(lesson.theme || "");
     const meta = [age, theme].filter(Boolean).join(" · ");
-    return `<li style="margin:0 0 10px"><strong>${title}</strong>${meta ? `<br><span style="color:#7a6e5c;font-size:13px">${meta}</span>` : ""}</li>`;
+    const link = htmlEscape(lesson.url || lessonsUrl);
+    const counts = [];
+    if (Number.isFinite(lesson.activityCount)) counts.push(`${lesson.activityCount} activit${lesson.activityCount === 1 ? "y" : "ies"}`);
+    if (Number.isFinite(lesson.resourceCount)) counts.push(`${lesson.resourceCount} resource${lesson.resourceCount === 1 ? "" : "s"}`);
+    const countLine = counts.length ? `<br><span style="color:#7a6e5c;font-size:13px">${htmlEscape(counts.join(" · "))}</span>` : "";
+    return `<li style="margin:0 0 12px"><a href="${link}" style="color:#2f6f5e;font-weight:700;text-decoration:none">${title}</a>${meta ? `<br><span style="color:#7a6e5c;font-size:13px">${meta}</span>` : ""}${countLine}</li>`;
   }).join("");
-  const itemsText = lessons.map((lesson) => {
-    const meta = [lesson.age, lesson.theme].filter(Boolean).join(" · ");
-    return `- ${lesson.title || "Untitled"}${meta ? ` (${meta})` : ""}`;
-  }).join("\n");
 
+  const listSection = (heading, items, formatter) => {
+    if (!items.length) return "";
+    return `<p style="margin:22px 0 8px"><strong>${htmlEscape(heading)}</strong></p><ul style="padding-left:18px;margin:0">${items.map(formatter).join("")}</ul>`;
+  };
+
+  const activityHtml = listSection("New activities", activities, (item) => {
+    const title = htmlEscape(item.title || "Activity");
+    const age = htmlEscape(item.age || "");
+    const category = htmlEscape(item.category || "");
+    const meta = [age, category].filter(Boolean).join(" · ");
+    return `<li style="margin:0 0 8px"><strong>${title}</strong>${meta ? `<br><span style="color:#7a6e5c;font-size:13px">${meta}</span>` : ""}</li>`;
+  });
+  const resourceHtml = listSection("New curriculum resources", resources, (item) => {
+    const title = htmlEscape(item.title || "Resource");
+    const category = htmlEscape(item.category || "");
+    return `<li style="margin:0 0 8px"><strong>${title}</strong>${category ? `<br><span style="color:#7a6e5c;font-size:13px">${category}</span>` : ""}</li>`;
+  });
+  const printableHtml = listSection("New printables", printables, (item) => {
+    const title = htmlEscape(item.title || "Printable");
+    return `<li style="margin:0 0 8px"><strong>${title}</strong></li>`;
+  });
+
+  const bodyHtml = `
+    ${lessons.length ? `<p style="margin:16px 0 8px"><strong>New lesson plans</strong></p><ul style="padding-left:18px;margin:0">${lessonItemsHtml}</ul>` : ""}
+    ${activityHtml}
+    ${resourceHtml}
+    ${printableHtml}
+  `;
+
+  const lessonText = lessons.map((lesson) => {
+    const meta = [lesson.age, lesson.theme].filter(Boolean).join(" · ");
+    const counts = [];
+    if (Number.isFinite(lesson.activityCount)) counts.push(`${lesson.activityCount} activities`);
+    if (Number.isFinite(lesson.resourceCount)) counts.push(`${lesson.resourceCount} resources`);
+    return `- ${lesson.title || "Untitled"}${meta ? ` (${meta})` : ""}${counts.length ? ` [${counts.join(", ")}]` : ""}\n  ${lesson.url || lessonsUrl}`;
+  }).join("\n");
+  const activityText = activities.map((a) => `- ${a.title || "Activity"}${a.age || a.category ? ` (${[a.age, a.category].filter(Boolean).join(" · ")})` : ""}`).join("\n");
+  const resourceText = resources.map((r) => `- ${r.title || "Resource"}${r.category ? ` (${r.category})` : ""}`).join("\n");
+  const printableText = printables.map((p) => `- ${p.title || "Printable"}`).join("\n");
+
+  const totalCount = lessons.length + activities.length + resources.length + printables.length;
   const shell = brandEmailShell({
     htmlEscape,
     title: "What’s New this week",
-    introHtml: `<p>New classroom-ready curriculum just landed in Little Learner Hub.</p>`,
-    bodyHtml: `<ul style="padding-left:18px;margin:16px 0">${itemsHtml}</ul>`,
+    introHtml: `<p>Fresh curriculum content just landed in Little Learner Hub.</p>`,
+    bodyHtml,
     ctaLabel: "Open Lesson Library",
     ctaUrl: lessonsUrl,
-    footerNote: "Weekly curriculum digest from Little Learner Hub. Sent only when new plans are published.",
+    footerNote: "Weekly curriculum digest from Little Learner Hub. Sent only when new content is published.",
   });
-  const text = [
+  const textParts = [
     "What’s New this week — Little Learner Hub",
     "",
-    "New classroom-ready curriculum:",
-    itemsText,
-    "",
-    `Open the library: ${lessonsUrl}`,
-    "",
-    "— The Little Learner Hub Team",
-  ].join("\n");
+    "Fresh curriculum content just landed:",
+  ];
+  if (lessons.length) textParts.push("", "New lesson plans:", lessonText);
+  if (activities.length) textParts.push("", "New activities:", activityText);
+  if (resources.length) textParts.push("", "New curriculum resources:", resourceText);
+  if (printables.length) textParts.push("", "New printables:", printableText);
+  textParts.push("", `Open the library: ${lessonsUrl}`, "", "— The Little Learner Hub Team");
+
   return {
-    subject: `What’s New: ${lessons.length} new lesson${lessons.length === 1 ? "" : "s"} this week`,
-    text,
+    subject: `What’s New: ${totalCount} new item${totalCount === 1 ? "" : "s"} this week`,
+    text: textParts.join("\n"),
     html: shell.html,
   };
 }
@@ -296,33 +383,99 @@ function createEmailEngagement(deps) {
     return entry;
   }
 
-  function newlyPublishedLessons(store, sinceMs = 7 * MS_PER_DAY) {
+  function newlyPublishedCurriculum(store, sinceMs = 7 * MS_PER_DAY) {
     const curriculum = store?.siteContent?.curriculum || {};
     const plans = Array.isArray(curriculum.lessonPlans) ? curriculum.lessonPlans : [];
+    const activities = Array.isArray(curriculum.activities) ? curriculum.activities : [];
+    const resources = Array.isArray(curriculum.resources) ? curriculum.resources : [];
+    const printables = Array.isArray(store?.siteContent?.printables) ? store.siteContent.printables : [];
     const cutoff = Date.now() - sinceMs;
-    return plans
+    const base = siteBase(SITE_URL);
+    const planById = Object.fromEntries(plans.map((p) => [p.id, p]));
+
+    const inWindow = (stamp) => {
+      const t = new Date(stamp || "").getTime();
+      return Number.isFinite(t) && t >= cutoff;
+    };
+
+    const lessons = plans
       .filter((plan) => isCurriculumLessonPublic(plan.status))
-      .filter((plan) => {
-        // Require publishedAt so routine edits (updatedAt) and seed imports without a
-        // publish stamp do not accidentally trigger the weekly digest.
-        const stamp = plan.publishedAt || "";
-        const t = new Date(stamp).getTime();
-        return Number.isFinite(t) && t >= cutoff;
-      })
-      .sort((a, b) => {
-        const ta = new Date(a.publishedAt || 0).getTime();
-        const tb = new Date(b.publishedAt || 0).getTime();
-        return tb - ta;
-      })
+      .filter((plan) => inWindow(plan.publishedAt))
+      .sort((a, b) => new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0))
       .slice(0, 12)
-      .map((plan) => ({
-        id: plan.id,
-        title: plan.title,
-        age: plan.age,
-        theme: plan.theme,
-        plan: plan.plan,
-        publishedAt: plan.publishedAt || "",
+      .map((plan) => {
+        const linkedActivities = activities.filter((a) => a.lessonPlanId === plan.id && a.status === "published");
+        const linkedResources = resources.filter((r) => (
+          r.status === "published"
+          && Array.isArray(r.lessonPlanIds)
+          && r.lessonPlanIds.includes(plan.id)
+        ));
+        return {
+          id: plan.id,
+          title: plan.title,
+          age: plan.age,
+          theme: plan.theme,
+          plan: plan.plan,
+          publishedAt: plan.publishedAt || "",
+          activityCount: linkedActivities.length,
+          resourceCount: linkedResources.length,
+          url: lessonDeepLink(base, plan.id),
+        };
+      });
+
+    const newActivities = activities
+      .filter((activity) => activity.status === "published" && inWindow(activity.publishedAt))
+      .sort((a, b) => new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0))
+      .slice(0, 20)
+      .map((activity) => {
+        const parent = planById[activity.lessonPlanId] || {};
+        return {
+          id: activity.id,
+          title: activity.title,
+          category: activity.activityCategory || "",
+          age: parent.age || "",
+          lessonPlanId: activity.lessonPlanId || "",
+          publishedAt: activity.publishedAt || "",
+          url: activity.lessonPlanId ? lessonDeepLink(base, activity.lessonPlanId) : `${base}/#lessons`,
+        };
+      });
+
+    const newResources = resources
+      .filter((resource) => resource.status === "published" && inWindow(resource.publishedAt))
+      .sort((a, b) => new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0))
+      .slice(0, 20)
+      .map((resource) => ({
+        id: resource.id,
+        title: resource.title,
+        category: resource.resourceCategory || "",
+        publishedAt: resource.publishedAt || "",
       }));
+
+    // Site-content printables library (separate from curriculum resources).
+    // Use createdAt when present; only include visible/non-hidden items.
+    const newPrintables = printables
+      .filter((item) => item && item.hidden !== true && item.visible !== false)
+      .filter((item) => inWindow(item.publishedAt || item.createdAt))
+      .sort((a, b) => new Date(b.publishedAt || b.createdAt || 0) - new Date(a.publishedAt || a.createdAt || 0))
+      .slice(0, 12)
+      .map((item) => ({
+        id: item.id,
+        title: item.title || item.name || "Printable",
+        publishedAt: item.publishedAt || item.createdAt || "",
+      }));
+
+    return {
+      lessons,
+      activities: newActivities,
+      resources: newResources,
+      printables: newPrintables,
+      totalCount: lessons.length + newActivities.length + newResources.length + newPrintables.length,
+    };
+  }
+
+  // Back-compat alias used by admin preview endpoint
+  function newlyPublishedLessons(store, sinceMs = 7 * MS_PER_DAY) {
+    return newlyPublishedCurriculum(store, sinceMs).lessons;
   }
 
   async function sendAndLog({ store, to, templateKey, campaign, subject, text, html, meta = {} }) {
@@ -518,10 +671,10 @@ function createEmailEngagement(deps) {
       return { sent: 0, skipped: true, reason: "already_ran_this_week", weekKey: key };
     }
 
-    const lessons = newlyPublishedLessons(store, 7 * MS_PER_DAY);
-    if (!lessons.length) {
+    const digest = newlyPublishedCurriculum(store, 7 * MS_PER_DAY);
+    if (!digest.totalCount) {
       eng.settings.lastWeeklySkippedAt = new Date().toISOString();
-      eng.settings.lastWeeklySkipReason = "no_new_lessons";
+      eng.settings.lastWeeklySkipReason = "no_new_content";
       eng.settings.lastWeeklyRunAt = new Date().toISOString();
       eng.settings.lastWeeklySentCount = 0;
       logEvent(store, {
@@ -530,13 +683,13 @@ function createEmailEngagement(deps) {
         campaign: "weekly_whats_new",
         to: "",
         subject: "What’s New this week",
-        meta: { weekKey: key, lessonCount: 0 },
+        meta: { weekKey: key, lessonCount: 0, activityCount: 0, resourceCount: 0, printableCount: 0 },
       });
       writeStore(store);
-      return { sent: 0, skipped: true, reason: "no_new_lessons", weekKey: key, lessons: [] };
+      return { sent: 0, skipped: true, reason: "no_new_content", weekKey: key, digest };
     }
 
-    const content = buildWhatsNewContent(lessons, { siteUrl: SITE_URL, htmlEscape });
+    const content = buildWhatsNewContent(digest, { siteUrl: SITE_URL, htmlEscape });
     const recipients = eligibleWeeklyRecipients(store, options);
     let sentCount = 0;
     let failCount = 0;
@@ -556,7 +709,12 @@ function createEmailEngagement(deps) {
         subject: content.subject,
         text: content.text,
         html: content.html,
-        meta: { weekKey: key, lessonIds: lessons.map((l) => l.id) },
+        meta: {
+          weekKey: key,
+          lessonIds: digest.lessons.map((l) => l.id),
+          activityIds: digest.activities.map((a) => a.id),
+          resourceIds: digest.resources.map((r) => r.id),
+        },
       });
       if (emailResult.sent) {
         sentCount += 1;
@@ -600,8 +758,9 @@ function createEmailEngagement(deps) {
       softSkipped: softSkip,
       recipients: recipients.length,
       weekKey: key,
-      lessons,
-      skipped: sentCount === 0 && lessons.length === 0,
+      lessons: digest.lessons,
+      digest,
+      skipped: sentCount === 0 && digest.totalCount === 0,
       reason: sentCount ? "sent" : eng.settings.lastWeeklySkipReason,
     };
   }
@@ -717,6 +876,7 @@ function createEmailEngagement(deps) {
     ensureEmailEngagement,
     weekKey,
     newlyPublishedLessons,
+    newlyPublishedCurriculum,
     maybeSendWelcomeOnSignup,
     sendOnboardingStep,
     processOnboardingDrip,

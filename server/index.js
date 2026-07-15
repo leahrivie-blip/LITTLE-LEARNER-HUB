@@ -1003,6 +1003,7 @@ function normalizedCurriculumActivity(value) {
     status: CURRICULUM_ITEM_STATUSES.has(status) ? status : "draft",
     createdAt: normalizedShortText(entry.createdAt, 80),
     updatedAt: normalizedShortText(entry.updatedAt, 80),
+    publishedAt: normalizedShortText(entry.publishedAt, 80),
   };
 }
 
@@ -1033,6 +1034,7 @@ function normalizedCurriculumResource(value) {
     status: CURRICULUM_ITEM_STATUSES.has(status) ? status : "draft",
     createdAt: normalizedShortText(entry.createdAt, 80),
     updatedAt: normalizedShortText(entry.updatedAt, 80),
+    publishedAt: normalizedShortText(entry.publishedAt, 80),
   };
 }
 
@@ -1605,6 +1607,17 @@ function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
   dailyItems.forEach((item) => {
     const sourceKey = item.sourceKey || curriculumActivitySourceKey(plan.id, item.itemId);
     const existing = activitiesBySourceKey.get(sourceKey);
+    const becomingPublished = activityStatus === "published"
+      && Boolean(existing)
+      && existing.status !== "published";
+    let publishedAt = existing?.publishedAt || "";
+    if (becomingPublished) {
+      publishedAt = now;
+    } else if (activityStatus === "published" && !publishedAt) {
+      // Inherit lesson publish stamp when available. Leave empty for seed/bootstrap
+      // imports so weekly digests do not treat every startup seed as "new this week".
+      publishedAt = plan.publishedAt || "";
+    }
     syncedForPlan.push(normalizedCurriculumActivity({
       id: existing?.id || curriculumActivityIdFromItemId(item.itemId),
       lessonPlanId: plan.id,
@@ -1631,6 +1644,7 @@ function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
       status: activityStatus,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
+      publishedAt,
     }));
   });
 
@@ -7470,6 +7484,12 @@ async function handleAdminCurriculumResourceSave(request, response) {
       return;
     }
   }
+  const nextStatus = normalizedShortText(incoming.status || existing?.status || "draft", 20);
+  const wasPublished = existing?.status === "published";
+  const willBePublished = nextStatus === "published";
+  let publishedAt = existing?.publishedAt || "";
+  if (willBePublished && !wasPublished) publishedAt = now;
+  else if (willBePublished && !publishedAt) publishedAt = existing?.createdAt || now;
   const resource = normalizedCurriculumResource({
     ...existing,
     ...incoming,
@@ -7478,8 +7498,10 @@ async function handleAdminCurriculumResourceSave(request, response) {
     fileName: normalizedShortText(incoming.fileName, 180) || existing?.fileName || "",
     mimeType: normalizedShortText(incoming.mimeType, 80) || existing?.mimeType || "",
     lessonPlanIds: existing?.lessonPlanIds || incoming.lessonPlanIds || [],
+    status: nextStatus,
     createdAt: existing?.createdAt || normalizedShortText(incoming.createdAt, 80) || now,
     updatedAt: now,
+    publishedAt,
   });
   if (!resource) {
     jsonResponse(response, 400, { error: "Resource could not be normalized." });
@@ -8684,12 +8706,13 @@ function handleAdminEmailEngagementGet(request, response, url) {
   }
   const store = readStore();
   const summary = emailEngagement.getAnalyticsSummary(store);
-  const previewLessons = emailEngagement.newlyPublishedLessons(store, 7 * 24 * 60 * 60 * 1000);
+  const digest = emailEngagement.newlyPublishedCurriculum(store, 7 * 24 * 60 * 60 * 1000);
   jsonResponse(response, 200, {
     ok: true,
     supportEmail: supportEmailConfigStatus(),
     summary,
-    previewLessons,
+    previewLessons: digest.lessons,
+    previewDigest: digest,
     onboardingSteps: emailEngagement.ONBOARDING_STEPS.map((s) => ({
       key: s.key,
       subject: s.subject,

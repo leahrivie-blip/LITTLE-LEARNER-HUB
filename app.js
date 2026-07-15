@@ -29807,9 +29807,19 @@ async function renderAdminEmailEngagement() {
 
       <div class="admin-email-preview">
         <h4>What’s New preview (last 7 days)</h4>
-        ${preview.length ? `
-          <ul>${preview.map((lesson) => `<li><strong>${escapeHtml(lesson.title || "")}</strong> · ${escapeHtml(lesson.age || "")}${lesson.theme ? ` · ${escapeHtml(lesson.theme)}` : ""}</li>`).join("")}</ul>
-        ` : `<div class="empty-state">No newly published lessons in the last 7 days — weekly digest will skip.</div>`}
+        ${(() => {
+          const digest = data.previewDigest || { lessons: preview, activities: [], resources: [], printables: [], totalCount: preview.length };
+          if (!digest.totalCount) {
+            return `<div class="empty-state">No newly published curriculum in the last 7 days — weekly digest will skip.</div>`;
+          }
+          return `
+            <p class="form-note">${digest.lessons?.length || 0} lessons · ${digest.activities?.length || 0} activities · ${digest.resources?.length || 0} resources · ${digest.printables?.length || 0} printables</p>
+            ${digest.lessons?.length ? `<p><strong>Lessons</strong></p><ul>${digest.lessons.map((lesson) => `<li><strong>${escapeHtml(lesson.title || "")}</strong> · ${escapeHtml(lesson.age || "")}${lesson.theme ? ` · ${escapeHtml(lesson.theme)}` : ""} · ${lesson.activityCount || 0} activities · ${lesson.resourceCount || 0} resources</li>`).join("")}</ul>` : ""}
+            ${digest.activities?.length ? `<p><strong>Activities</strong></p><ul>${digest.activities.map((item) => `<li>${escapeHtml(item.title || "")}${item.age ? ` · ${escapeHtml(item.age)}` : ""}</li>`).join("")}</ul>` : ""}
+            ${digest.resources?.length ? `<p><strong>Resources</strong></p><ul>${digest.resources.map((item) => `<li>${escapeHtml(item.title || "")}${item.category ? ` · ${escapeHtml(item.category)}` : ""}</li>`).join("")}</ul>` : ""}
+            ${digest.printables?.length ? `<p><strong>Printables</strong></p><ul>${digest.printables.map((item) => `<li>${escapeHtml(item.title || "")}</li>`).join("")}</ul>` : ""}
+          `;
+        })()}
       </div>
 
       <div class="admin-email-events">

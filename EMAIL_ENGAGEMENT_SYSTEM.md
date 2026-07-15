@@ -4,51 +4,35 @@
 
 Built an outbound engagement layer on top of the existing `sendEmail()` helper (Resend / SendGrid / Postmark). No duplicate mail stack. Support/bug/feature/feedback/staff-invite emails are unchanged.
 
-## What was added
+## Onboarding drip (once-only)
 
-### Onboarding drip (once-only)
-| Step | Timing | Subject |
-|------|--------|---------|
-| `welcome` | Immediate on first signup (`POST /api/account/profile` with `signup: true`) | Welcome to Little Learner Hub |
-| `tips` | Day 2+ (after welcome) | Your first week with Little Learner Hub |
-| `explore` | Day 5+ (after tips) | New curriculum ideas waiting for you |
+| Step | Timing | Focus |
+|------|--------|-------|
+| `welcome` | Immediate on first signup | Explains LLH, notes that new lesson plans are added regularly, invites feedback |
+| `tips` | Day 2+ | Requests feedback and bug reports |
+| `explore` | Day 5+ | Upcoming features, new content, what’s coming next |
 
-Flags live on the user as `onboardingEmails.welcomeSentAt|tipsSentAt|exploreSentAt`. A step never re-sends once stamped.
+Flags: `onboardingEmails.welcomeSentAt|tipsSentAt|exploreSentAt`.
 
-### Weekly Monday “What’s New”
-- Hourly scheduler checks for Monday + enabled setting.
-- Includes only **public** lesson plans with `publishedAt` in the last 7 days.
-- **Skip if empty** — no blast when nothing new was published.
-- Lesson saves now set `publishedAt` the first time a plan becomes `published` / `featured`.
+## Weekly Monday “What’s New”
 
-### Admin → Dashboard → Emails
-- Provider readiness, send/fail/skip totals
-- Toggle onboarding + weekly digests
-- Run onboarding sweep / force weekly digest
-- Test-send one onboarding step to a user
-- Preview lessons that would appear in What’s New
-- Recent email event log
+Detects newly published curriculum in the last 7 days:
 
-### APIs
-- `GET /api/admin/email-engagement`
-- `POST /api/admin/email-engagement/settings`
-- `POST /api/admin/email-engagement/run-onboarding`
-- `POST /api/admin/email-engagement/run-weekly`
-- `POST /api/admin/email-engagement/send-step`
-- `POST /api/email/unsubscribe`
+| Content type | Detected now? | Notes |
+|--------------|---------------|-------|
+| Lesson plans | Yes | title, age, theme, deep link, activity count, resource count |
+| Activities | Yes | via `publishedAt` when published with/after a lesson |
+| Curriculum resources | Yes | via `publishedAt` on resource publish |
+| Site printables library | Yes | via `publishedAt` or `createdAt` |
+| Coloring pages / vocabulary cards | Partial | Only if stored as curriculum resources or printables — not separate content types today |
 
-## Reliability audit
+**Skip send if nothing new exists.**
 
-| Check | Result |
-|-------|--------|
-| Soft-fail when email provider unconfigured | PASS — signup / digests stamp without crashing |
-| Once-only welcome | PASS |
-| Once-only tips / explore | PASS |
-| Weekly skip-if-empty | PASS |
-| Seed curriculum does not falsely trigger What’s New | PASS (`publishedAt` required) |
-| Existing support ticket path preserved | PASS |
-| Firebase verification / reset untouched | PASS (still client Firebase only) |
-| In-app onboarding checklist untouched | PASS (separate UX) |
+`publishedAt` is set the first time a lesson/activity/resource becomes public. Startup seeds use a stable historical stamp so they do not falsely fill the digest.
+
+## Admin → Dashboard → Emails
+
+Toggles, analytics, manual runs, test sends, digest preview.
 
 ## Tests
 
@@ -56,18 +40,6 @@ Flags live on the user as `onboardingEmails.welcomeSentAt|tipsSentAt|exploreSent
 NODE_ENV=test node scripts/test-email-engagement.js
 ```
 
-All assertions passed in this environment.
+## Sample previews
 
-## Ops notes
-
-1. Configure `SUPPORT_EMAIL_FROM` + one of `RESEND_API_KEY` / `SENDGRID_API_KEY` / `POSTMARK_SERVER_TOKEN` (same as support mail).
-2. Set `SITE_URL` to the production origin for CTA links.
-3. Admin can disable either campaign from **Emails** without redeploying.
-4. Users can stop digests via `POST /api/email/unsubscribe` (`emailPrefs.unsubscribedAt`).
-
-## Files
-
-- `server/email-engagement.js` — engagement engine
-- `server/index.js` — hooks, `publishedAt`, routes, scheduler
-- `app.js` / `index.html` / `styles.css` — Admin Emails panel
-- `scripts/test-email-engagement.js` — coverage
+Generated under `/opt/cursor/artifacts/email-previews/` (`welcome`, `tips`, `explore`, `whats-new`).

@@ -70,7 +70,11 @@ async function main() {
   assert.match(moduleJs, /createEmailEngagement/);
   assert.match(moduleJs, /maybeSendWelcomeOnSignup/);
   assert.match(moduleJs, /runWeeklyWhatsNew/);
-  assert.match(moduleJs, /no_new_lessons/);
+  assert.match(moduleJs, /no_new_content/);
+  assert.match(moduleJs, /newlyPublishedCurriculum/);
+  assert.match(moduleJs, /Send Feedback or Report a Bug/);
+  assert.match(moduleJs, /What’s coming next/);
+  assert.match(moduleJs, /New lesson plans are added regularly/);
   assert.match(serverJs, /\/api\/admin\/email-engagement/);
   assert.match(serverJs, /emailEngagement\.maybeSendWelcomeOnSignup/);
   assert.match(serverJs, /publishedAt/);
@@ -126,7 +130,7 @@ async function main() {
   await test("weekly digest skips when no new lessons", async () => {
     const result = await eng.runWeeklyWhatsNew({ force: true });
     assert.equal(result.skipped, true);
-    assert.equal(result.reason, "no_new_lessons");
+    assert.equal(result.reason, "no_new_content");
     assert.equal(fakeEvents.length, 0);
   });
 
@@ -167,14 +171,57 @@ async function main() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }];
+    fakeStore.siteContent.curriculum.activities = [{
+      id: "act-1",
+      lessonPlanId: "lesson-1",
+      title: "Color Sort",
+      status: "published",
+      activityCategory: "STEM/Discovery",
+      publishedAt: new Date().toISOString(),
+    }];
+    fakeStore.siteContent.curriculum.resources = [{
+      id: "res-1",
+      title: "Color Cards",
+      status: "published",
+      resourceCategory: "Printables",
+      lessonPlanIds: ["lesson-1"],
+      publishedAt: new Date().toISOString(),
+      fileData: "https://example.com/color.pdf",
+    }];
     // Reset weekly stamp
     fakeStore.users["new@example.com"].weeklyWhatsNew = {};
     fakeStore.emailEngagement.settings.lastWeeklyRunAt = "";
     const result = await eng.runWeeklyWhatsNew({ force: true });
     assert.equal(result.sent, 1);
-    assert.equal(result.lessons.length, 1);
+    assert.equal(result.digest.lessons.length, 1);
+    assert.equal(result.digest.lessons[0].activityCount, 1);
+    assert.equal(result.digest.lessons[0].resourceCount, 1);
+    assert.ok(result.digest.lessons[0].url.includes("lesson=lesson-1"));
+    assert.equal(result.digest.activities.length, 1);
+    assert.equal(result.digest.resources.length, 1);
     assert.equal(fakeEvents.length, 1);
     assert.ok(fakeStore.users["new@example.com"].weeklyWhatsNew.lastSentWeekKey);
+  });
+
+  await test("onboarding copy matches designed flow", async () => {
+    const welcome = eng.buildOnboardingContent("welcome", { firstName: "Ava" }, {
+      siteUrl: "https://www.littlelearnerhub.com",
+      htmlEscape: (v) => String(v ?? ""),
+    });
+    assert.match(welcome.text, /New lesson plans are added regularly/);
+    assert.match(welcome.text, /feedback/i);
+    const tips = eng.buildOnboardingContent("tips", { firstName: "Ava" }, {
+      siteUrl: "https://www.littlelearnerhub.com",
+      htmlEscape: (v) => String(v ?? ""),
+    });
+    assert.match(tips.text, /bug/i);
+    assert.match(tips.text, /feedback/i);
+    const explore = eng.buildOnboardingContent("explore", { firstName: "Ava" }, {
+      siteUrl: "https://www.littlelearnerhub.com",
+      htmlEscape: (v) => String(v ?? ""),
+    });
+    assert.match(explore.text, /coming next/i);
+    assert.match(explore.text, /What’s New/);
   });
 
   // Integration: spawn server without email keys (soft-fail)
@@ -270,7 +317,7 @@ async function main() {
         body: { adminToken, force: true },
       });
       assert.equal(res.status, 200, JSON.stringify(res.json));
-      assert.equal(res.json.result.reason, "no_new_lessons");
+      assert.equal(res.json.result.reason, "no_new_content");
       assert.equal(res.json.result.skipped, true);
     });
 
