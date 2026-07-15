@@ -52,6 +52,8 @@
     "test:prod-load-admin-fix": "node scripts/test-prod-load-admin-fix.js",
     "test:domain-dns-fix": "node scripts/test-domain-dns-fix.js",
     "test:homepage-signup-cta": "node scripts/test-homepage-signup-cta.js",
+    "test:homepage-redesign-audit": "node scripts/test-homepage-redesign-audit.js",
+    "test:lesson-plan-calendar-workflow": "node scripts/test-lesson-plan-calendar-workflow-audit.js",
     "test:settings-hub": "node scripts/test-settings-hub.js",
     "test:homepage-smoke": "node scripts/test-homepage-smoke.js",
     "test:lesson-library-header": "node scripts/test-lesson-library-header.js",

@@ -157,13 +157,14 @@ function roleAllowsCapability(role, capability) {
     case "child_profiles":
     case "activity_library":
     case "documentation_helpers":
-    case "forms":
     case "reports":
     case "resources":
     case "settings":
       return true;
+    case "forms":
     case "staff_management":
     case "permissions":
+      // Forms & Enrollment + staff tools: Director/Owner only.
       return r === USER_ROLES.OWNER || r === USER_ROLES.DIRECTOR;
     case "billing":
       // Directors manage program ops but not subscription ownership.
