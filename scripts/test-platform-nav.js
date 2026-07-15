@@ -56,29 +56,32 @@ test("sidebar shows rebuilt primary items in the new order", () => {
     'data-view="calendar"',
     'data-view="lessons"',
     'data-view="activities"',
-    'data-view="ai"',
+    'data-view="child-tools-daily-logs"',
     'data-view="children"',
+    'data-view="ai"',
     'data-view="behavior-support"',
+    'data-view="forms"',
     'data-view="settings"',
-    'data-view="director-center"',
   ].map((token) => sidebar.indexOf(token));
   order.forEach((index, i) => assert.ok(index >= 0, `missing nav token #${i}`));
   for (let i = 1; i < order.length; i += 1) {
     assert.ok(order[i] > order[i - 1], "primary nav order is incorrect");
   }
   assert.match(sidebar, />\s*Activities\s*</);
-  assert.match(sidebar, /Documentation Center/);
-  assert.match(sidebar, /Director Center/);
-  assert.match(sidebar, /Coming Soon/);
+  assert.match(sidebar, /Documentation Helpers/);
+  assert.match(sidebar, /Daily Logs/);
+  assert.match(sidebar, /Forms &amp; Enrollment/);
   assert.match(sidebar, /Behavior &amp; Support/);
   assert.match(sidebar, /data-view="settings"/);
+  assert.doesNotMatch(sidebar, /What Do You Need Today/);
+  assert.doesNotMatch(sidebar, />\s*Account\s*</);
+  assert.doesNotMatch(sidebar, />\s*Founding Member\s*</);
 });
 
 test("removed items stay in DOM but are permanently hidden from main nav", () => {
   const sidebar = visibleSidebar(html);
   assert.match(sidebar, /data-view="home"[^>]*data-nav-hidden="true"/);
-  assert.match(sidebar, /data-view="child-tools-daily-logs"[^>]*data-nav-hidden="true"/);
-  assert.match(sidebar, /data-view="forms"[^>]*data-nav-hidden="true"/);
+  assert.match(sidebar, /data-view="director-center"[^>]*data-nav-hidden="true"/);
   assert.match(sidebar, /data-view="reports"[^>]*data-nav-hidden="true"/);
   assert.match(sidebar, /data-view="resources"[^>]*data-nav-hidden="true"/);
   assert.match(html, /id="view-resources"/);
@@ -92,6 +95,14 @@ test("removed items stay in DOM but are permanently hidden from main nav", () =>
   assert.doesNotMatch(sidebar, /Favorites/);
   assert.doesNotMatch(sidebar, /Family Hub/);
   assert.doesNotMatch(sidebar, /Membership\/Billing/);
+  assert.doesNotMatch(sidebar, /sidebar-dashboard-card/);
+});
+
+test("forms capability is director/owner only", () => {
+  assert.ok(accountAccess.canAccessCapability({ accountType: "home_daycare", role: "owner" }, "forms"));
+  assert.ok(accountAccess.canAccessCapability({ accountType: "center", role: "director" }, "forms"));
+  assert.ok(!accountAccess.canAccessCapability({ accountType: "home_daycare", role: "teacher" }, "forms"));
+  assert.ok(!accountAccess.canAccessCapability({ accountType: "center", role: "assistant" }, "forms"));
 });
 
 test("home daycare owner sees staff but not center tools", () => {

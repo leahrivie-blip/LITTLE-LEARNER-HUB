@@ -25,7 +25,9 @@ const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
 
 test("settings hub includes required section groups", () => {
   assert.match(appJs, /function renderSettingsHubPage/);
-  assert.match(appJs, /Membership & Billing/);
+  assert.match(appJs, /Account & Membership/);
+  assert.match(appJs, /Account Actions/);
+  assert.match(appJs, /data-settings-sign-out/);
   assert.match(appJs, /Staff & Permissions/);
   assert.match(appJs, /Forms Settings/);
   assert.match(appJs, /Curriculum Settings/);

@@ -211,8 +211,6 @@ async function main() {
     assert(barCopy.editInMore, "Edit should live in More menu");
 
     await page.click("[data-lesson-use-this-plan]");
-    await page.waitForSelector('[data-lesson-workspace-action-panel="use-plan"]:not([hidden])', { timeout: 5000 });
-    await page.click('[data-lesson-use-plan-choice="calendar"]');
     await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
     const formCopy = await page.evaluate(() => ({
       title: document.querySelector('[data-lesson-workspace-action-panel="main-calendar"] .lesson-workspace-action-sheet-title')?.textContent.trim() || "",
@@ -264,8 +262,6 @@ async function main() {
 
     await openLessonWorkspace(page, lessonB.title);
     await page.click("[data-lesson-use-this-plan]");
-    await page.waitForSelector('[data-lesson-workspace-action-panel="use-plan"]:not([hidden])', { timeout: 5000 });
-    await page.click('[data-lesson-use-plan-choice="calendar"]');
     await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
     await page.fill('[data-lesson-main-calendar-form] [name="weekStartDate"]', weekStart);
     await page.click('[data-lesson-main-calendar-form] button[type="submit"]');

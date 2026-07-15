@@ -19155,3 +19155,82 @@ body.admin-preview-simulating .sidebar .brand h1::after {
     align-items: flex-start;
   }
 }
+
+
+/* LLH View Weekly Plan / Edit Week + Settings account cleanup */
+.sidebar-account-anchor { display: none !important; }
+.llh-weekly-plan { display: grid; gap: 1.25rem; }
+.llh-weekly-plan-hero {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem 1.35rem;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #f7fbff 0%, #ffffff 100%);
+}
+.llh-weekly-plan-actions { flex-wrap: wrap; gap: 0.65rem; }
+.llh-weekly-plan-days {
+  display: grid;
+  gap: 1rem;
+}
+.llh-weekly-plan-day,
+.llh-weekly-plan-edit-day {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+  padding: 1rem 1.1rem;
+  display: grid;
+  gap: 0.85rem;
+}
+.llh-weekly-plan-day-head h3,
+.llh-weekly-plan-edit-day h3 {
+  margin: 0.15rem 0;
+}
+.llh-weekly-plan-activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+.llh-weekly-plan-activity-list li {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  background: var(--cream);
+}
+.llh-weekly-plan-edit-form {
+  display: grid;
+  gap: 1rem;
+}
+.llh-week-edit-activity-row {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--cream);
+}
+@media (min-width: 900px) {
+  .llh-weekly-plan-days { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .llh-week-edit-activity-row {
+    grid-template-columns: 1.4fr 1fr 0.8fr 1.2fr auto;
+    align-items: end;
+  }
+}
+.settings-hub-badge {
+  display: inline-flex;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: #e8f3ff;
+  color: #255f96;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.settings-hub-card-danger {
+  border-color: #efc2c2;
+  background: #fff7f7;
+}
+.settings-hub-card-danger strong { color: #9b2c2c; }

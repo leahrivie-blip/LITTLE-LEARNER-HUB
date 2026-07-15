@@ -315,8 +315,7 @@ async function main() {
     // 2–3) Add to week and save
     console.log("\n2/3) Add to week and save");
     await page.click("[data-lesson-use-this-plan]");
-    await page.waitForSelector('[data-lesson-workspace-action-panel="use-plan"]:not([hidden])', { timeout: 5000 });
-    await page.click('[data-lesson-use-plan-choice="calendar"]');
+    // Use This Plan now opens Add to Calendar week picker directly (no Weekly Plan choice).
     await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
     await page.fill('[data-lesson-main-calendar-form] [name="weekStartDate"]', weekStart);
     await page.selectOption('[data-lesson-main-calendar-form] [name="ageGroup"]', "Preschool");
@@ -354,51 +353,63 @@ async function main() {
     check("Calendar shows assigned lesson title", new RegExp(seeded.title.slice(0, 18), "i").test(calendarText), calendarText.slice(0, 220));
     check("Calendar workflow active (not Curriculum Planner)", !await page.locator("#view-curriculum-planner.active-view").count(), "");
 
-    // Preferred path: Open Weekly Planner from Calendar week card (current classroom workflow)
-    const openPlannerBtn = page.locator('#view-calendar [data-view="planner"][data-planner-focus-week], #view-calendar button:has-text("Open Weekly Planner"), #view-calendar button:has-text("Customize days")').first();
-    assert(await openPlannerBtn.count(), "Calendar missing Open Weekly Planner / Customize days action");
+    // Preferred path: View Weekly Plan from Calendar week card (current classroom workflow)
+    const openPlannerBtn = page.locator('#view-calendar [data-view="planner"][data-planner-focus-week], #view-calendar button:has-text("View Weekly Plan"), #view-calendar button:has-text("Customize days")').first();
+    assert(await openPlannerBtn.count(), "Calendar missing View Weekly Plan / Customize days action");
     await openPlannerBtn.click();
     await page.waitForSelector("#view-planner.active-view", { timeout: 10000 });
     await page.waitForTimeout(500);
     report.screenshots.push(await shot(page, "04-open-from-calendar-weekly-classroom"));
-    check("Opens current Weekly Classroom / planner view", Boolean(await page.locator("#view-planner.active-view").count()), "");
+    check("Opens View Weekly Plan (Calendar week detail)", Boolean(await page.locator("#view-planner.active-view").count()) && Boolean(await page.locator('[data-weekly-plan-screen="view"]').count()), "");
     check("Does NOT open legacy Curriculum Planner", !await page.locator("#view-curriculum-planner.active-view").count(), "");
     const plannerText = await page.locator("#view-planner").innerText();
     check("Saved lesson title visible from Calendar open", new RegExp(seeded.title.slice(0, 18), "i").test(plannerText), plannerText.slice(0, 220));
-    for (const day of DAYS) {
-      await page.locator(`[data-week-day-tab="${day}"]`).click().catch(() => {});
-      await page.waitForTimeout(120);
-    }
+    check("View Weekly Plan actions present", /Edit Week|Print|Remove from Calendar|Back to Calendar/i.test(plannerText), plannerText.slice(0, 300));
     const plannerEmptyDays = await page.evaluate((days) => {
       const empty = [];
       for (const day of days) {
-        const card = document.querySelector(`[data-week-day-card="${day}"]`);
+        const card = document.querySelector(`[data-weekly-plan-day="${day}"]`) || document.querySelector(`[data-week-day-card="${day}"]`);
         const text = card?.innerText || "";
-        const hasActivity = Boolean(card?.querySelector(".llh-day-activity-list li"));
-        if (!hasActivity || /No activities listed/i.test(text)) empty.push(day);
+        const hasActivity = Boolean(card?.querySelector(".llh-weekly-plan-activity-list li, .llh-day-activity-list li"));
+        if (!hasActivity || (/No activities/i.test(text) && !hasActivity)) empty.push(day);
       }
       return empty;
     }, DAYS);
-    check("No false empty days in classroom week view", plannerEmptyDays.length === 0, JSON.stringify(plannerEmptyDays));
+    check("No false empty days in weekly plan view", plannerEmptyDays.length === 0, JSON.stringify(plannerEmptyDays));
 
-    // 5) Edit the saved lesson plan (classroom day editor)
-    console.log("\n5) Edit saved lesson plan");
-    await page.locator('[data-week-edit-day="monday"]').first().click();
-    await page.waitForSelector("[data-week-edit-panel]", { timeout: 5000 });
+    // 5) Edit Week on the Calendar copy
+    console.log("\n5) Edit Week on Calendar copy");
+    await page.click("[data-weekly-plan-edit-week]");
+    await page.waitForSelector('[data-weekly-plan-screen="edit"]', { timeout: 5000 });
     report.screenshots.push(await shot(page, "05-edit-classroom-day"));
-    check("Edit opens classroom-copy day editor (not legacy Curriculum Planner)", Boolean(await page.locator("[data-week-edit-panel]").count()) && !await page.locator("#view-curriculum-planner.active-view").count(), "");
+    check("Edit Week opens week editor (not legacy Curriculum Planner)", Boolean(await page.locator('[data-weekly-plan-screen="edit"]').count()) && !await page.locator("#view-curriculum-planner.active-view").count(), "");
     const mondayTitleBefore = afterAssign.titles.monday[0];
     const editedTitle = `${mondayTitleBefore} · Edited`;
-    await page.locator("[data-week-edit-activity-title]").first().fill(editedTitle);
-    await page.locator("[data-week-edit-day-theme]").fill("Edited Monday Theme");
-    await page.click("[data-week-edit-save]");
-    await page.waitForFunction(() => !document.querySelector("[data-week-edit-panel]"), null, { timeout: 10000 });
+    await page.locator('[data-week-edit-day-block="monday"] [data-week-edit-activity-title]').first().fill(editedTitle);
+    await page.locator('[data-week-edit-day-block="monday"] [data-week-edit-day-theme]').fill("Edited Monday Theme");
+    await page.locator('[data-week-edit-day-block="monday"] [data-week-edit-day-note]').fill("Edited Monday note");
+    await page.click('[data-week-edit-add-custom][data-week-edit-add-day="friday"]');
+    await page.locator('[data-week-edit-day-block="friday"] [data-week-edit-activity-row]').last().locator("[data-week-edit-activity-title]").fill("Custom Friday Activity");
+    const tuesdayRows = page.locator('[data-week-edit-day-block="tuesday"] [data-week-edit-activity-row]');
+    const tuesdayCountBefore = await tuesdayRows.count();
+    if (tuesdayCountBefore > 0) {
+      await tuesdayRows.last().locator("[data-week-edit-remove-activity]").click();
+    }
+    const wednesdayMove = page.locator('[data-week-edit-day-block="wednesday"] [data-week-edit-activity-row]').first();
+    if (await wednesdayMove.count()) {
+      await wednesdayMove.locator("[data-week-edit-activity-day]").selectOption("thursday");
+    }
+    await page.click("[data-weekly-plan-save-week]");
+    await page.waitForSelector("#view-calendar.active-view", { timeout: 15000 });
     await page.waitForTimeout(400);
     const afterEdit = await collectScheduleDayCounts(page, weekStart);
-    check("Activities remain after edit save", afterEdit.totalActivities === baselineTotal, `${afterEdit.totalActivities} vs ${baselineTotal}`);
     check("Edited Monday activity persisted in schedule snapshot", afterEdit.titles.monday.includes(editedTitle), JSON.stringify(afterEdit.titles.monday));
+    check("Custom Friday activity persisted", afterEdit.titles.friday.includes("Custom Friday Activity"), JSON.stringify(afterEdit.titles.friday));
+    check("Tuesday activity removed", afterEdit.counts.tuesday === Math.max(0, afterAssign.counts.tuesday - 1), `${afterEdit.counts.tuesday} vs ${afterAssign.counts.tuesday}`);
     check("No duplicate activities after edit save", DAYS.every((day) => new Set(afterEdit.titles[day]).size === afterEdit.titles[day].length), JSON.stringify(afterEdit.titles));
-    check("Other weekdays still attached after Monday edit", DAYS.filter((d) => d !== "monday").every((day) => afterEdit.counts[day] > 0), JSON.stringify(afterEdit.counts));
+    check("Save returns to Calendar week", Boolean(await page.locator("#view-calendar.active-view").count()), "");
+    const calendarWeekSelected = await page.evaluate(() => mainCalendarSelectedWeek || "");
+    check("Calendar week context preserved after Edit Week save", calendarWeekSelected === weekStart, `selected=${calendarWeekSelected} expected=${weekStart}`);
 
     // Also verify Edit Lesson Plan opens the true lesson-editor page (library/user copy path)
     await page.evaluate(() => setView("calendar"));
@@ -491,13 +502,13 @@ async function main() {
     await page.waitForFunction((week) => {
       const text = document.querySelector("#view-calendar")?.innerText || "";
       const hasPlannerCta = Boolean(document.querySelector('#view-calendar [data-view="planner"][data-planner-focus-week], #view-calendar [data-view="planner"]'));
-      return hasPlannerCta || /Open Weekly Planner|Customize days|Lesson Plan/i.test(text);
+      return hasPlannerCta || /View Weekly Plan|Customize days|Lesson Plan/i.test(text);
     }, weekStart, { timeout: 15000 });
     report.screenshots.push(await shot(page, "07-after-refresh-calendar"));
 
     // 7) Reopen saved lesson
     console.log("\n7) Reopen saved lesson plan");
-    const reopenPlanner = page.locator('#view-calendar [data-view="planner"][data-planner-focus-week], #view-calendar [data-view="planner"], #view-calendar button:has-text("Open Weekly Planner"), #view-calendar button:has-text("Customize days")').first();
+    const reopenPlanner = page.locator('#view-calendar [data-view="planner"][data-planner-focus-week], #view-calendar [data-view="planner"], #view-calendar button:has-text("View Weekly Plan"), #view-calendar button:has-text("Customize days")').first();
     if (!(await reopenPlanner.count())) {
       // Fall back to direct setView planner with focus week.
       await page.evaluate((week) => {
@@ -519,7 +530,7 @@ async function main() {
     check("No activity disappearance after refresh", afterRefresh.totalActivities >= baselineTotal, `${afterRefresh.totalActivities} vs ${baselineTotal}`);
     check("No activity duplication after refresh", DAYS.every((day) => new Set(afterRefresh.titles[day]).size === afterRefresh.titles[day].length), JSON.stringify(afterRefresh.titles));
     const reopenEmpty = await page.evaluate((days) => days.filter((day) => {
-      const card = document.querySelector(`[data-week-day-card="${day}"]`);
+      const card = document.querySelector(`[data-weekly-plan-day="${day}"]`) || document.querySelector(`[data-week-day-card="${day}"]`);
       return !card?.querySelector(".llh-day-activity-list li");
     }), DAYS);
     check("Reopened week has no false empty days", reopenEmpty.length === 0, JSON.stringify(reopenEmpty));
