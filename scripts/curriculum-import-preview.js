@@ -295,20 +295,20 @@ function buildCurriculumImportPreview(parsed, options = {}) {
   ...duplicateTitleWarnings(data || {}),
   ...emptyWeekdayWarnings(data || {}, formatVersion),
   ];
-  if (formatVersion === 1) {
+  if (formatVersion === 2) {
     structuredWarnings.unshift({
-      severity: "warning",
-      message: "Legacy v1 colon-section format detected. The label-only import format is recommended for new lesson plans.",
+      severity: "error",
+      message: "Legacy @LESSON_PLAN_START@ marker format is no longer supported. Paste the current label-only format instead.",
       section: "format",
       weekday: "",
       activityName: "",
       line: null,
     });
   }
-  if (formatVersion === 2) {
+  if (formatVersion === 0 || formatVersion === 1) {
     structuredWarnings.unshift({
-      severity: "warning",
-      message: "Legacy v2 strict-marker format detected. The label-only import format is recommended for new lesson plans.",
+      severity: "error",
+      message: "Unrecognized paste format. Use TITLE:, AGE_GROUP:, weekday headers (MONDAY–FRIDAY), and ACTIVITY_NAME: blocks.",
       section: "format",
       weekday: "",
       activityName: "",
@@ -358,10 +358,10 @@ function buildCurriculumImportPreview(parsed, options = {}) {
     blockingUnmappedCount: blockingUnmapped.length,
     formatVersion,
     formatLabel: formatVersion === 3
-      ? "label-only import format"
+      ? "Little Learner Hub lesson plan format"
       : formatVersion === 2
-        ? "v2 premium strict-marker format"
-        : "v1 legacy colon-section format",
+        ? "legacy marker format (unsupported)"
+        : "unrecognized format",
   };
   return {
     ok: Boolean(parsed?.ok) && structuredErrors.length === 0,
@@ -379,7 +379,7 @@ function buildCurriculumImportPreview(parsed, options = {}) {
       && structuredErrors.length === 0
       && blockingUnmapped.length === 0
       && duplicateTitle.status !== "duplicate",
-    confirmMessage: `This will place 1 lesson plan into the editor and prepare ${summary.activityLibraryEntries} linked Activity Library ${summary.activityLibraryEntries === 1 ? "entry" : "entries"} for synchronization when you Save.`,
+    confirmMessage: `Import & Save will create 1 lesson plan and ${summary.activityLibraryEntries} linked Activity Library ${summary.activityLibraryEntries === 1 ? "entry" : "entries"} automatically.`,
   };
 }
 
@@ -391,7 +391,7 @@ function applyImportTitleAction(preview, action) {
     next.data = { ...preview.data, title: copyTitle };
     next.duplicateTitle = { status: "resolved-copy", existingPlan: preview.duplicateTitle?.existingPlan || null };
     next.canConfirm = preview.ok && preview.errors.length === 0 && preview.blockingUnmapped.length === 0;
-    next.confirmMessage = `This will place 1 lesson plan titled "${copyTitle}" into the editor and prepare ${preview.summary.activityLibraryEntries} linked Activity Library entries for synchronization when you Save.`;
+    next.confirmMessage = `Import & Save will create 1 lesson plan titled "${copyTitle}" and ${preview.summary.activityLibraryEntries} linked Activity Library entries automatically.`;
   } else if (action === "same-plan" || action === "open-existing") {
     next.canConfirm = false;
   }
