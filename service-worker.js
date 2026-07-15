@@ -1,4 +1,4 @@
-const CACHE_NAME = "llh-shell-v45-weekly-pdf-reg";
+const CACHE_NAME = "llh-shell-v46-hide-forms-nav";
 const APP_SHELL = [
   "/",
   "/index.html",

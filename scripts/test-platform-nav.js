@@ -60,17 +60,20 @@ test("sidebar shows rebuilt primary items in the new order", () => {
     'data-view="children"',
     'data-view="ai"',
     'data-view="behavior-support"',
-    'data-view="forms"',
     'data-view="settings"',
-  ].map((token) => sidebar.indexOf(token));
-  order.forEach((index, i) => assert.ok(index >= 0, `missing nav token #${i}`));
+  ].map((token) => {
+    // Match the visible primary nav button, not hidden preserved items.
+    const re = new RegExp(`<button class="nav-link"[^>]*${token}(?![^>]*data-nav-hidden="true")`);
+    const match = sidebar.match(re);
+    return match ? sidebar.indexOf(match[0]) : -1;
+  });
+  order.forEach((index, i) => assert.ok(index >= 0, `missing primary nav token #${i}`));
   for (let i = 1; i < order.length; i += 1) {
     assert.ok(order[i] > order[i - 1], "primary nav order is incorrect");
   }
   assert.match(sidebar, />\s*Activities\s*</);
   assert.match(sidebar, /Documentation Helpers/);
   assert.match(sidebar, /Daily Logs/);
-  assert.match(sidebar, /Forms &amp; Enrollment/);
   assert.match(sidebar, /Behavior &amp; Support/);
   assert.match(sidebar, /data-view="settings"/);
   assert.doesNotMatch(sidebar, /What Do You Need Today/);
@@ -84,6 +87,7 @@ test("removed items stay in DOM but are permanently hidden from main nav", () =>
   assert.match(sidebar, /data-view="director-center"[^>]*data-nav-hidden="true"/);
   assert.match(sidebar, /data-view="reports"[^>]*data-nav-hidden="true"/);
   assert.match(sidebar, /data-view="resources"[^>]*data-nav-hidden="true"/);
+  assert.match(sidebar, /data-view="forms"[^>]*data-nav-hidden="true"/);
   assert.match(html, /id="view-resources"/);
   assert.match(html, /id="view-settings"/);
   assert.match(html, /id="view-staff"/);
@@ -96,6 +100,13 @@ test("removed items stay in DOM but are permanently hidden from main nav", () =>
   assert.doesNotMatch(sidebar, /Family Hub/);
   assert.doesNotMatch(sidebar, /Membership\/Billing/);
   assert.doesNotMatch(sidebar, /sidebar-dashboard-card/);
+});
+
+test("Forms & Enrollment is removed from the visible sidebar", () => {
+  const sidebar = visibleSidebar(html);
+  const visibleForms = sidebar.match(/<button class="nav-link"[^>]*data-view="forms"(?![^>]*data-nav-hidden="true")[^>]*>[\s\S]*?Forms/i);
+  assert.equal(visibleForms, null);
+  assert.match(sidebar, /data-view="forms"[^>]*data-nav-hidden="true"[^>]*hidden/);
 });
 
 test("forms capability is director/owner only", () => {
