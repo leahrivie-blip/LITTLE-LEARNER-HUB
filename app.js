@@ -8569,8 +8569,11 @@ function renderChildQuickEntryUpgradePreviews() {
 
 function refreshInstallSurfaces() {
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "") || "";
+  syncPlatformInstallCard();
   if (activeView === "home") renderHome();
   if (activeView === "account") renderAccountPage();
+  if (activeView === "settings") renderSettingsHubPage();
+  updateInstallSettingsPanel();
 }
 
 function updateInstallSettingsPanel() {
@@ -8611,8 +8614,9 @@ function openInstallAppModal({ source = "settings", forceInstructions = false } 
   body.innerHTML = installInstructionsMarkup();
   primaryButton.textContent = canTriggerInstallPrompt() && !forceInstructions ? "Add to Home Screen" : "Got It";
   primaryButton.dataset.installMode = canTriggerInstallPrompt() && !forceInstructions ? "prompt" : "close";
-  secondaryButton.textContent = source === "dashboard" ? "Maybe Later" : "Close";
-  secondaryButton.dataset.installMode = source === "dashboard" ? "later" : "close";
+  const deferrable = source === "dashboard" || source === "calendar" || source === "settings-prompt";
+  secondaryButton.textContent = deferrable ? "Maybe Later" : "Close";
+  secondaryButton.dataset.installMode = deferrable ? "later" : "close";
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
   document.body.classList.add("auth-modal-open");
@@ -16611,21 +16615,34 @@ function renderManagedAnnouncementBanner() {
   }
 }
 
-function dashboardInstallCardMarkup() {
+function platformInstallCardMarkup(source = "calendar") {
   if (!shouldShowInstallPromptCard()) return "";
+  const sourceKey = String(source || "calendar").trim() || "calendar";
   return `
-    <section class="section-block dashboard-install-card">
+    <section class="section-block dashboard-install-card platform-install-card" data-install-card-source="${escapeHtml(sourceKey)}">
       <div class="dashboard-install-copy">
         <p class="eyebrow">📱 Install Little Learner Hub</p>
         <h3>Add Little Learner Hub to your Home Screen</h3>
         <p>Add Little Learner Hub to your Home Screen for faster access. It works like an app, keeps you signed in, and makes documenting throughout the day even easier.</p>
       </div>
       <div class="dashboard-install-actions">
-        <button class="primary-button" data-install-app="dashboard" type="button">Add to Home Screen</button>
-        <button class="ghost-button" data-install-later="dashboard" type="button">Maybe Later</button>
+        <button class="primary-button" data-install-app="${escapeHtml(sourceKey)}" type="button">Add to Home Screen</button>
+        <button class="ghost-button" data-install-later="${escapeHtml(sourceKey)}" type="button">Maybe Later</button>
       </div>
     </section>
   `;
+}
+
+function dashboardInstallCardMarkup() {
+  // Keep legacy Dashboard install card for any remaining dashboard surfaces.
+  return platformInstallCardMarkup("dashboard");
+}
+
+function syncPlatformInstallCard() {
+  const host = document.querySelector("#platformInstallCardHost");
+  if (!host) return;
+  host.innerHTML = platformInstallCardMarkup("calendar");
+  host.hidden = !host.innerHTML.trim();
 }
 
 function plannerDaySummary(dayPlan = {}) {
@@ -19447,6 +19464,7 @@ function calendarDayItemCardHtml(item) {
 function renderMainCalendar() {
   const app = document.querySelector("#mainCalendarApp");
   if (!app) return;
+  syncPlatformInstallCard();
   loadCalendarFilters();
   if (mainCalendarSubView === "day" && mainCalendarSelectedDay) {
     renderCalendarDayView(app);
@@ -21729,10 +21747,19 @@ function renderSettingsHubPage() {
   const groups = [
     {
       title: "Account",
-      detail: "Profile, security, and notifications",
+      detail: "Profile, security, notifications, and install",
       cards: [
         { view: "account", title: "Profile & Security", detail: "Email, phone, password, and sign-out" },
         { view: "account", title: "Notifications", detail: "Choose how Little Learner Hub reminds you", hash: "notifications" },
+        {
+          view: "",
+          title: isStandaloneDisplayMode() ? "App Installed" : "Add to Home Screen",
+          detail: isStandaloneDisplayMode()
+            ? "Little Learner Hub is already installed on this device"
+            : "Install for faster access on iPhone, Android, and desktop",
+          action: "install-app",
+          disabled: isStandaloneDisplayMode(),
+        },
       ],
     },
     {
@@ -21810,6 +21837,7 @@ function renderSettingsHubPage() {
         <p class="settings-hub-identity muted-copy">${escapeHtml(accountTypeLabel)} · ${escapeHtml(roleLabel)}</p>
       </div>
       ${canBilling && !isProUser() ? foundingUpgradeBannerHtml({ variant: "settings", dismissible: true }) : ""}
+      ${platformInstallCardMarkup("settings-prompt")}
       <div class="settings-hub-groups">
         ${groups.map((group) => `
           <section class="settings-hub-group">
@@ -21824,6 +21852,9 @@ function renderSettingsHubPage() {
                 }
                 if (card.action === "feedback") {
                   return `<button class="settings-hub-card" type="button" data-open-feedback="${escapeHtml(card.feedbackType || "General Feedback")}"><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></button>`;
+                }
+                if (card.action === "install-app") {
+                  return `<button class="settings-hub-card" type="button" data-install-app="settings"><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></button>`;
                 }
                 return `<button class="settings-hub-card" type="button" data-view="${escapeHtml(card.view)}"${card.hash ? ` data-settings-anchor="${escapeHtml(card.hash)}"` : ""}><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></button>`;
               }).join("")}

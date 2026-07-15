@@ -13012,6 +13012,15 @@ body.user-authenticated .lp-final-cta [data-action="start-free"] {
   margin-bottom: 20px;
 }
 
+.platform-install-card-host:empty,
+.platform-install-card-host[hidden] {
+  display: none;
+}
+
+.platform-install-card-host {
+  margin: 0 0 12px;
+}
+
 .dashboard-install-card {
   display: flex;
   align-items: center;
