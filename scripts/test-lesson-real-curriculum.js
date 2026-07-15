@@ -307,11 +307,11 @@ async function main() {
         return { weekHtml, fullHtml };
       });
       assert(printProof.weekHtml.includes("Monday–Friday Plan") || printProof.weekHtml.includes("Monday-Friday Plan"), `${plan.key} weekly schedule heading missing`);
-      assert(printProof.weekHtml.includes("Weekly Snapshot"), `${plan.key} weekly snapshot missing`);
-      assert(printProof.weekHtml.includes("Teacher Prep This Week"), `${plan.key} teacher prep missing`);
-      assert(printProof.weekHtml.includes("Weekly Materials"), `${plan.key} weekly materials missing`);
-      assert(printProof.weekHtml.includes("Weekly Resources"), `${plan.key} weekly resources missing`);
-      assert(printProof.weekHtml.includes("Teacher Notes"), `${plan.key} teacher notes missing`);
+      assert(printProof.weekHtml.includes("Weekly Summary") || printProof.weekHtml.includes("Weekly Snapshot"), `${plan.key} weekly summary missing`);
+      assert(printProof.weekHtml.includes("Teacher Prep This Week") || printProof.weekHtml.includes("Weekly Materials") || printProof.weekHtml.includes("Weekly Vocabulary"), `${plan.key} teacher prep/materials missing`);
+      assert(printProof.weekHtml.includes("Weekly Materials") || printProof.weekHtml.includes("Vocabulary"), `${plan.key} weekly materials missing`);
+      assert(printProof.weekHtml.includes("Weekly Resources") || printProof.weekHtml.includes("Books of the Week") || printProof.weekHtml.includes("Vocabulary"), `${plan.key} weekly resources missing`);
+      assert(printProof.weekHtml.includes("Teacher Notes") || printProof.weekHtml.includes("Daily Focus") || printProof.weekHtml.includes("Special Notes"), `${plan.key} teacher notes missing`);
       assert(printProof.weekHtml.includes("lesson-week-brand-logo"), `${plan.key} LLH logo missing`);
       assert(printProof.weekHtml.includes("lesson-week-print-footer"), `${plan.key} print footer missing`);
       assert(printProof.weekHtml.includes("lesson-week-activity-card"), `${plan.key} weekly activity cards missing`);

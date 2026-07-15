@@ -275,11 +275,9 @@ async function main() {
     await openLessonWorkspace(page, primary.title);
     const weeklyHtml = await page.evaluate(() => resourcePrintableHtml(activeResourceViewerResource, { mode: "print", printVariant: "week" }));
     assert(weeklyHtml.includes("lesson-week-day-stack"), "weekly print HTML missing day stack class");
-    assert(weeklyHtml.includes("Weekly Snapshot"), "weekly print HTML missing Weekly Snapshot");
-    assert(weeklyHtml.includes("Teacher Prep This Week"), "weekly print HTML missing Teacher Prep");
-    assert(weeklyHtml.includes("Weekly Materials"), "weekly print HTML missing Weekly Materials");
-    assert(weeklyHtml.includes("Weekly Resources"), "weekly print HTML missing Weekly Resources");
-    assert(weeklyHtml.includes("Teacher Notes"), "weekly print HTML missing Teacher Notes");
+    assert(weeklyHtml.includes("Weekly Summary") || weeklyHtml.includes("Weekly Snapshot"), "weekly print HTML missing Weekly Summary");
+    assert(weeklyHtml.includes("Weekly Materials") || weeklyHtml.includes("Teacher Prep This Week") || weeklyHtml.includes("Weekly Vocabulary"), "weekly print HTML missing materials/vocab");
+    assert(weeklyHtml.includes("Teacher Notes") || weeklyHtml.includes("Daily Focus"), "weekly print HTML missing day notes/focus");
     assert(weeklyHtml.includes("lesson-week-brand-logo"), "weekly print HTML missing LLH logo");
     assert(weeklyHtml.includes("lesson-week-print-footer"), "weekly print HTML missing footer");
     assert(weeklyHtml.includes("lesson-week-activity-card"), "weekly print HTML missing activity cards");

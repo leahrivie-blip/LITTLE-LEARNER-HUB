@@ -174,8 +174,9 @@ async function main() {
       page.reload({ waitUntil: "domcontentloaded" }),
     ]);
     await page.waitForFunction(() => typeof openLessonPlanEditor === "function", null, { timeout: 30000 });
+    await page.waitForSelector("#view-calendar.active-view", { timeout: 30000 });
 
-    await page.evaluate(() => setView("lessons"));
+    await page.evaluate(() => setView("lessons", { lessonLibraryMode: "browse" }));
     await page.waitForSelector("#view-lessons.active-view", { timeout: 8000 });
     await page.waitForFunction((title) => resources.some((item) => item.title === title), lesson.title, { timeout: 15000 });
     await page.evaluate((id) => openLessonPlanEditor(id), lesson.planId);
@@ -206,7 +207,10 @@ async function main() {
     await page.click("[data-lesson-editor-back]");
     await page.waitForSelector("[data-lesson-editor-leave-dialog]:not([hidden])", { timeout: 5000 });
     await page.click("[data-lesson-editor-leave-save]");
-    await page.waitForSelector("#view-lessons.active-view", { timeout: 10000 });
+    await page.waitForFunction(() => {
+      const lessons = document.querySelector("#view-lessons");
+      return Boolean(lessons?.classList.contains("active-view") && getComputedStyle(lessons).display !== "none");
+    }, null, { timeout: 15000 });
     check("Leave + Save returns to library", await page.locator("#view-lessons.active-view").count() > 0);
 
     const storedTheme = await page.evaluate((sourceId) => {

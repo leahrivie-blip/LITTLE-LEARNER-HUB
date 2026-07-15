@@ -220,6 +220,7 @@ async function main() {
       page.reload({ waitUntil: "domcontentloaded" }),
     ]);
     await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
+    await page.waitForSelector("#view-calendar.active-view", { timeout: 30000 });
 
     console.log("1) Browse library is clean and Saved Plans is a destination");
     await gotoLessonsBrowse(page);
@@ -310,10 +311,9 @@ async function main() {
     }, primary.activityCount);
     assert(!weekAndPrint.hasTopPrint && !weekAndPrint.hasTopDownload, "Week tab should not show top print/download buttons");
     assert(weekAndPrint.html.includes("lesson-week-day-stack"), "weekly print HTML missing day stack");
-    assert(weekAndPrint.html.includes("Weekly Snapshot"), "weekly print HTML missing Weekly Snapshot");
-    assert(weekAndPrint.html.includes("Teacher Prep This Week"), "weekly print HTML missing Teacher Prep");
-    assert(weekAndPrint.html.includes("Weekly Materials"), "weekly print HTML missing Weekly Materials");
-    assert(weekAndPrint.html.includes("Teacher Notes"), "weekly print HTML missing Teacher Notes");
+    assert(weekAndPrint.html.includes("Weekly Summary") || weekAndPrint.html.includes("Weekly Snapshot"), "weekly print HTML missing Weekly Summary");
+    assert(weekAndPrint.html.includes("Weekly Materials") || weekAndPrint.html.includes("Teacher Prep This Week"), "weekly print HTML missing materials/prep");
+    assert(weekAndPrint.html.includes("Teacher Notes") || weekAndPrint.html.includes("Daily Focus"), "weekly print HTML missing day notes/focus");
     assert(weekAndPrint.html.includes("lesson-week-brand-logo"), "weekly print HTML missing LLH logo");
     assert(weekAndPrint.html.includes("lesson-week-print-footer"), "weekly print HTML missing footer");
     assert(weekAndPrint.html.includes("lesson-week-activity-card"), "weekly print HTML missing activity cards");

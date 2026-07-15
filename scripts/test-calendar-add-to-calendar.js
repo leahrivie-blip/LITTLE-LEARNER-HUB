@@ -154,8 +154,12 @@ async function loginAsTeacher(page) {
     localStorage.removeItem(`llhScheduleMigrated:${email}`);
     localStorage.removeItem("llhWeeklyPlanner");
   }, USER_EMAIL);
-  await page.reload({ waitUntil: "domcontentloaded" });
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes("/api/site-content") && r.status() === 200, { timeout: 30000 }),
+    page.reload({ waitUntil: "domcontentloaded" }),
+  ]);
   await page.waitForFunction(() => typeof setView === "function" && typeof assignScheduleLessonPlan === "function", null, { timeout: 30000 });
+  await page.waitForSelector("#view-calendar.active-view", { timeout: 30000 });
 }
 
 async function openLessonWorkspace(page, title) {
