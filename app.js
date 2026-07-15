@@ -4307,6 +4307,7 @@ function effectiveCurriculumLibrary() {
         ...activity,
         parentTitle: parent?.title || "",
         parentAge: parent?.age || "Preschool",
+        parentTheme: parent?.theme || "",
         parentPlan: parent?.plan || "Free",
         parentStatus: parent?.status || "",
       };
@@ -4405,8 +4406,8 @@ function loadCurriculumManagedActivities() {
       age: item.parentAge || "All Ages",
       plan: item.parentPlan || "Free",
       description: item.description || "",
-      theme: item.activityCategory || "",
-      tags: [item.activityCategory, item.dayOfWeek, item.parentTitle].filter(Boolean),
+      theme: item.parentTheme || item.activityCategory || "",
+      tags: [item.activityCategory, item.dayOfWeek, item.parentTitle, item.parentTheme].filter(Boolean),
       previewData: "",
       fileData: "",
       customContent: buildActivityTextFromCurriculum(item),
@@ -4434,6 +4435,7 @@ function loadCurriculumManagedActivities() {
       _curriculumManaged: true,
       _curriculumLessonPlanId: item.lessonPlanId,
       _curriculumParentTitle: item.parentTitle || "",
+      _curriculumParentTheme: item.parentTheme || "",
       _curriculumActivity: item,
     }));
 }
@@ -4677,105 +4679,11 @@ function createAdminCurriculumLessonPlan() {
   openAdminCurriculumLessonEditor(id, { scroll: true });
 }
 
-const CURRICULUM_LESSON_IMPORT_TEMPLATE = `TITLE:
-Exploring My Senses
-
-AGE GROUP:
-Infant 0-6 Months
-
-THEME:
-Exploring My Senses
-
-WEEKLY OVERVIEW:
-This week children explore sights, sounds, textures, and movement through gentle sensory play.
-
-LEARNING OBJECTIVES:
-Children will notice sensory differences and respond to familiar voices and textures.
-
-WEEKLY MATERIALS:
-Soft scarves, shakers, textured balls, mirrors, water bin, smocks
-
-VOCABULARY:
-soft, loud, smooth, bumpy, see, hear, touch
-
-BOOKS:
-Baby Faces | Margaret Miller | Use during circle time
-I Hear a Pickle | Rachel Isadora | Pair with sound exploration
-
-SONGS:
-Head, Shoulders, Knees, and Toes | Gentle movement song
-If You're Happy and You Know It | Transition song
-
-FAMILY CONNECTION:
-Ask families to share one favorite sound or texture from home.
-
-OBSERVATION OPPORTUNITIES:
-Note how infants respond to new textures, sounds, and caregiver narration.
-
-ADAPTATIONS:
-Offer larger grips, reduce visual clutter, and provide one-on-one support as needed.
-
-MONDAY:
-ACTIVITY NAME:
-Soft Scarf Peek-a-Boo
-CATEGORY:
-Circle Time
-MATERIALS:
-Soft scarves, caregiver voice
-SETUP:
-Sit in a small group with scarves within reach.
-DIRECTIONS:
-1. Cover your face briefly with a scarf and say peek-a-boo.
-2. Let infants reach for the scarf.
-3. Repeat with calm pacing.
-LEARNING GOAL:
-Respond to familiar faces and voices during play.
-
-ACTIVITY NAME:
-Texture Ball Roll
-CATEGORY:
-Sensory Play
-MATERIALS:
-Textured balls, mat
-SETUP:
-Place 2-3 balls on a low mat in an open area.
-DIRECTIONS:
-1. Roll a ball slowly toward each infant.
-2. Encourage reaching and touching.
-3. Name textures as infants explore.
-LEARNING GOAL:
-Explore texture through reaching and touching.
-
-TUESDAY:
-ACTIVITY NAME:
-Shaker Listening
-CATEGORY:
-Music & Movement
-MATERIALS:
-Sealed shakers, basket
-SETUP:
-Place shakers in a basket within arm's reach.
-DIRECTIONS:
-1. Shake one shaker and pause.
-2. Invite infants to hold and shake.
-3. Match shaking to a simple beat.
-LEARNING GOAL:
-Notice sound differences through shaking and listening.
-
-WEDNESDAY:
-THURSDAY:
-FRIDAY:
-`;
-
 function curriculumImportApi() {
   return globalThis.CurriculumLessonImportParser || null;
 }
 
-function curriculumImportV2Template() {
-  return curriculumImportApi()?.CURRICULUM_LESSON_IMPORT_V2_TEMPLATE || "";
-}
-
-function curriculumImportV3Template() {
+function curriculumImportTemplate() {
   return curriculumImportApi()?.CURRICULUM_LESSON_IMPORT_V3_TEMPLATE || "";
 }
 
@@ -5006,8 +4914,8 @@ function renderCurriculumLessonImportPreviewPanel(previewState) {
     <section class="curriculum-import-preview" aria-labelledby="curriculumImportPreviewHeading">
       <div class="curriculum-import-preview-header">
         <div>
-          <h4 id="curriculumImportPreviewHeading">Import preview (not saved yet)</h4>
-          <p class="muted-copy">Review exactly how the parser understood this lesson plan before confirming.</p>
+          <h4 id="curriculumImportPreviewHeading">Import preview</h4>
+          <p class="muted-copy">Review how the parser understood this lesson plan. Confirm Import will create the lesson plan and Activity Library entries automatically.</p>
         </div>
         <span class="curriculum-import-format-badge">${escapeHtml(summary.formatLabel)}</span>
       </div>
@@ -5102,7 +5010,7 @@ function renderCurriculumLessonImportPreviewPanel(previewState) {
       <div class="form-actions curriculum-import-preview-actions">
         <button class="ghost-button" type="button" id="adminCurriculumLessonReturnToPasteButton">Return to Edit Paste</button>
         <button class="ghost-button" type="button" id="adminCurriculumLessonCancelImportButton">Cancel Import</button>
-        <button class="primary-button" type="button" id="adminCurriculumLessonConfirmImportButton" ${preview.canConfirm ? "" : "disabled"}>Confirm Import</button>
+        <button class="primary-button" type="button" id="adminCurriculumLessonConfirmImportButton" ${preview.canConfirm ? "" : "disabled"}>Import &amp; Save</button>
       </div>
     </section>
   `;
@@ -5114,8 +5022,8 @@ function buildAdminCurriculumImportPreview(text) {
   const form = document.querySelector("#adminCurriculumLessonPlanForm");
   const existingItemIds = snapshotCurriculumDailyItemIds(form);
   const parsed = parseCurriculumLessonPlanImport(text, { existingItemIds });
-  const detectedFormat = curriculumImportApi()?.detectImportFormat(text) || "v1";
-  const formatVersion = detectedFormat === "v3" ? 3 : detectedFormat === "v2" ? 2 : 1;
+  const detectedFormat = curriculumImportApi()?.detectImportFormat(text) || "unsupported";
+  const formatVersion = detectedFormat === "v3" ? 3 : detectedFormat === "v2" ? 2 : 0;
   const editingId = adminCurriculumLessonEditorId || "";
   const proposedLessonPlanId = editingId || `cur-lp-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
   const preview = previewApi.buildCurriculumImportPreview(parsed, {
@@ -5173,9 +5081,64 @@ function confirmCurriculumLessonPlanImport() {
   adminCurriculumLessonImportDraft = curriculumImportDraftFromParsed(preview.data);
   adminCurriculumLessonImportTextCache = adminCurriculumLessonImportPreviewText;
   resetCurriculumLessonImportPreviewState();
-  setAdminCurriculumLessonSaveBanner("Import confirmed. Review the form below, then click Save when ready. Nothing has been published yet.", true);
+  setAdminCurriculumLessonSaveBanner("Import loaded. Saving lesson plan and Activity Library entries…", true);
   renderAdminCurriculumLessonPlanManager();
   applyAdminSectionVisibility();
+  requestAnimationFrame(() => {
+    const form = document.querySelector("#adminCurriculumLessonPlanForm");
+    if (form) saveAdminCurriculumLessonPlanForm(form);
+  });
+}
+
+async function importAndSaveCurriculumLessonPlan() {
+  const textarea = document.querySelector("#adminCurriculumLessonImportText");
+  const messageEl = document.querySelector("#adminCurriculumLessonImportMessage");
+  const text = textarea?.value || "";
+  if (!text.trim()) {
+    if (messageEl) {
+      messageEl.textContent = "Paste a complete lesson plan before importing.";
+      messageEl.classList.remove("success");
+    }
+    return;
+  }
+  let built;
+  try {
+    built = buildAdminCurriculumImportPreview(text);
+  } catch (error) {
+    if (messageEl) {
+      messageEl.textContent = error.message || "Lesson plan parser is not available.";
+      messageEl.classList.remove("success");
+    }
+    return;
+  }
+  adminCurriculumLessonImportPreview = built;
+  adminCurriculumLessonImportPreviewText = text;
+  adminCurriculumLessonImportTextCache = text;
+  if (!built.preview.canConfirm) {
+    adminCurriculumLessonImportStep = "preview";
+    adminCurriculumLessonImportDraft = null;
+    renderAdminCurriculumLessonPlanManager();
+    applyAdminSectionVisibility();
+    if (messageEl) {
+      messageEl.textContent = "Import blocked by errors. Fix the paste, then try Import again.";
+      messageEl.classList.remove("success");
+    }
+    return;
+  }
+  adminCurriculumLessonEditorId = built.proposedLessonPlanId;
+  adminCurriculumLessonImportDraft = curriculumImportDraftFromParsed(built.preview.data);
+  resetCurriculumLessonImportPreviewState();
+  setAdminCurriculumLessonSaveBanner("Importing lesson plan and creating Activity Library entries…", true);
+  renderAdminCurriculumLessonPlanManager();
+  applyAdminSectionVisibility();
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  const form = document.querySelector("#adminCurriculumLessonPlanForm");
+  if (!form) {
+    setAdminCurriculumLessonSaveBanner("Import parsed, but the editor form did not load. Click Save manually.", false);
+    renderAdminCurriculumLessonPlanManager();
+    return;
+  }
+  await saveAdminCurriculumLessonPlanForm(form);
 }
 
 function cancelCurriculumLessonPlanImport() {
@@ -5223,7 +5186,7 @@ function handleCurriculumImportDuplicateTitleAction(action) {
 }
 
 function applyCurriculumLessonPlanImport() {
-  previewCurriculumLessonPlanImport();
+  importAndSaveCurriculumLessonPlan();
 }
 
 function renderCurriculumLessonImportPanel() {
@@ -5239,17 +5202,18 @@ function renderCurriculumLessonImportPanel() {
   return `
     <fieldset class="admin-fieldset curriculum-import-panel">
       <legend>Complete Lesson Plan Importer</legend>
-      <p class="muted-copy">Copy a complete lesson plan from ChatGPT, paste it below, preview, then import. The system creates the lesson plan, adds every activity to the Activity Library, and links them automatically — no special markers required.</p>
+      <p class="muted-copy">Copy a complete lesson plan from ChatGPT, paste it below, then click <strong>Import Lesson Plan</strong>. The system creates the lesson plan, adds every activity to the Activity Library, and links them automatically — no special markers and no manual cleanup required.</p>
       <details class="curriculum-import-format-details" open>
         <summary>View lesson plan format</summary>
-        <pre class="curriculum-import-template">${escapeHtml(curriculumImportV3Template() || CURRICULUM_LESSON_IMPORT_TEMPLATE)}</pre>
+        <pre class="curriculum-import-template">${escapeHtml(curriculumImportTemplate() || curriculumImportV3Template() || CURRICULUM_LESSON_IMPORT_TEMPLATE)}</pre>
       </details>
       <label>Paste complete lesson plan
-        <textarea id="adminCurriculumLessonImportText" rows="14" placeholder="Paste your ChatGPT lesson plan here (TITLE, AGE_GROUP, THEME, MONDAY…FRIDAY, ACTIVITY_NAME, …)">${escapeHtml(adminCurriculumLessonImportTextCache || "")}</textarea>
+        <textarea id="adminCurriculumLessonImportText" rows="16" placeholder="Paste your ChatGPT lesson plan here (TITLE, AGE_GROUP, THEME, MONDAY…FRIDAY, ACTIVITY_NAME, …)">${escapeHtml(adminCurriculumLessonImportTextCache || "")}</textarea>
       </label>
       <div class="form-actions">
         <button class="ghost-button" type="button" id="adminCurriculumLessonClearImportButton">Clear</button>
-        <button class="primary-button" type="button" id="adminCurriculumLessonParseButton">Preview Lesson Plan</button>
+        <button class="ghost-button" type="button" id="adminCurriculumLessonParseButton">Preview</button>
+        <button class="primary-button" type="button" id="adminCurriculumLessonImportSaveButton">Import Lesson Plan</button>
       </div>
       <span class="form-message" id="adminCurriculumLessonImportMessage"></span>
     </fieldset>
@@ -42717,6 +42681,10 @@ document.addEventListener("click", async (event) => {
   }
   if (event.target.closest("#adminCurriculumLessonParseButton")) {
     previewCurriculumLessonPlanImport();
+    return;
+  }
+  if (event.target.closest("#adminCurriculumLessonImportSaveButton")) {
+    importAndSaveCurriculumLessonPlan();
     return;
   }
   if (event.target.closest("#adminCurriculumLessonClearImportButton")) {
