@@ -193,22 +193,29 @@ async function main() {
     ]);
     await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
 
-    console.log("1) Add to Calendar opens pick-week form directly");
+    console.log("1) Use This Plan → Add to Calendar opens pick-week form");
     await openLessonWorkspace(page, lessonA.title);
+    const barCopy = await page.evaluate(() => ({
+      primaryLabel: document.querySelector("[data-lesson-use-this-plan]")?.textContent.trim() || "",
+      printLabel: document.querySelector('[data-lesson-action-bars="top"] [data-lesson-print-variant="week"]')?.textContent.trim() || "",
+      downloadLabel: document.querySelector('[data-lesson-action-bars="top"] [data-lesson-download-variant="week"]')?.textContent.trim() || "",
+      hasMyWeekPrimary: Boolean(document.querySelector("[data-lesson-add-to-my-week]")),
+      editInMore: Boolean(document.querySelector(".lesson-workspace-more-menu [data-edit-lesson-plan]")),
+    }));
+    assert(barCopy.primaryLabel === "Use This Plan", `primary CTA wrong: ${barCopy.primaryLabel}`);
+    assert(barCopy.printLabel === "Print", `print CTA wrong: ${barCopy.printLabel}`);
+    assert(barCopy.downloadLabel === "Download", `download CTA wrong: ${barCopy.downloadLabel}`);
+    assert(!barCopy.hasMyWeekPrimary, "duplicate Add to My Week should not be on primary bar");
+    assert(barCopy.editInMore, "Edit should live in More menu");
+
     await page.click("[data-lesson-use-this-plan]");
+    await page.waitForSelector('[data-lesson-workspace-action-panel="use-plan"]:not([hidden])', { timeout: 5000 });
+    await page.click('[data-lesson-use-plan-choice="calendar"]');
     await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
     const formCopy = await page.evaluate(() => ({
       title: document.querySelector('[data-lesson-workspace-action-panel="main-calendar"] .lesson-workspace-action-sheet-title')?.textContent.trim() || "",
       submit: document.querySelector('[data-lesson-main-calendar-form] button[type="submit"]')?.textContent.trim() || "",
-      primaryLabel: document.querySelector("[data-lesson-use-this-plan]")?.textContent.trim() || "",
-      editLabel: document.querySelector('.lesson-workspace-primary-actions [data-edit-lesson-plan]')?.textContent.trim() || "",
-      myWeekLabel: document.querySelector("[data-lesson-add-to-my-week]")?.textContent.trim() || "",
-      printLabel: document.querySelector('[data-lesson-action-bars="top"] [data-lesson-print-variant="week"]')?.textContent.trim() || "",
     }));
-    assert(formCopy.primaryLabel === "Add to Calendar", `primary CTA wrong: ${formCopy.primaryLabel}`);
-    assert(formCopy.editLabel === "Edit Lesson Plan", `edit CTA wrong: ${formCopy.editLabel}`);
-    assert(formCopy.myWeekLabel === "Add to My Week", `my week CTA wrong: ${formCopy.myWeekLabel}`);
-    assert(formCopy.printLabel === "Print Weekly Calendar", `print CTA wrong: ${formCopy.printLabel}`);
     assert(formCopy.title === "Add to Calendar", `form title wrong: ${formCopy.title}`);
     assert(formCopy.submit === "Add to Calendar", `submit copy wrong: ${formCopy.submit}`);
 
@@ -255,6 +262,8 @@ async function main() {
 
     await openLessonWorkspace(page, lessonB.title);
     await page.click("[data-lesson-use-this-plan]");
+    await page.waitForSelector('[data-lesson-workspace-action-panel="use-plan"]:not([hidden])', { timeout: 5000 });
+    await page.click('[data-lesson-use-plan-choice="calendar"]');
     await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
     await page.fill('[data-lesson-main-calendar-form] [name="weekStartDate"]', weekStart);
     await page.click('[data-lesson-main-calendar-form] button[type="submit"]');
@@ -274,7 +283,7 @@ async function main() {
     assert(afterReplace.assignment?.lessonPlanId === lessonB.planId, "Week assignment should be replaced with lesson B");
     assert(afterReplace.planner?.resourceId === lessonB.planId, "Weekly planner should point to lesson B after replace");
 
-    console.log("Lesson Add to Calendar weekly plan checks passed.");
+    console.log("Lesson Use This Plan weekly plan checks passed.");
     await browser.close();
   } catch (error) {
     console.error("FAIL:", error.message);

@@ -323,9 +323,11 @@ async function main() {
       console.log(`   ✓ ${plan.ownerLabel}`);
     }
 
-    console.log("2) Add to Calendar opens pick-week form only");
+    console.log("2) Use This Plan → Add to Calendar opens pick-week form only");
     await openLesson(page, primary.title);
     await page.click("[data-lesson-use-this-plan]");
+    await page.waitForSelector('[data-lesson-workspace-action-panel="use-plan"]:not([hidden])', { timeout: 5000 });
+    await page.click('[data-lesson-use-plan-choice="calendar"]');
     await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
     const sheet = await page.evaluate(() => ({
       title: document.querySelector("[data-lesson-assign-sheet-title]")?.textContent.trim() || "",

@@ -318,8 +318,15 @@ function parseTextListItems(text) {
 function isV3LabelOnlyFormat(text) {
   const raw = String(text || "");
   if (/@LESSON_PLAN_START@/i.test(raw)) return false;
-  if (/^ACTIVITY_NAME:\s*$/im.test(raw)) return true;
-  if (/^AGE_GROUP:\s*$/im.test(raw) && /^LEARNING_OBJECTIVES:\s*$/im.test(raw) && !/^ACTIVITY NAME:\s*$/im.test(raw)) {
+  // ChatGPT / label-only format: ACTIVITY_NAME or ACTIVITY NAME, plus common lesson headers.
+  if (/^ACTIVITY[_ ]NAME:\s*$/im.test(raw)) return true;
+  if (
+    /^AGE[_ ]GROUP:\s*$/im.test(raw)
+    && (/^LEARNING[_ ]OBJECTIVES:\s*$/im.test(raw) || /^WEEKLY[_ ]OVERVIEW:\s*$/im.test(raw) || /^THEME:\s*$/im.test(raw))
+  ) {
+    return true;
+  }
+  if (/^TITLE:\s*$/im.test(raw) && /^MONDAY:\s*$/im.test(raw) && /^THEME:\s*$/im.test(raw)) {
     return true;
   }
   return false;
@@ -328,6 +335,11 @@ function isV3LabelOnlyFormat(text) {
 function detectImportFormat(text) {
   if (/@LESSON_PLAN_START@/i.test(String(text || ""))) return "v2";
   if (isV3LabelOnlyFormat(text)) return "v3";
+  // Prefer v3 for any paste that looks like a modern ChatGPT lesson plan.
+  const raw = String(text || "");
+  if (/^TITLE:\s*$/im.test(raw) && (/^MONDAY:\s*$/im.test(raw) || /^ACTIVITY[_ ]NAME:\s*$/im.test(raw))) {
+    return "v3";
+  }
   return "v1";
 }
 

@@ -193,19 +193,22 @@ async function main() {
     await openLessonWorkspace(page, lesson.title);
 
     const primary = await page.locator("[data-lesson-use-this-plan]").first().innerText();
-    const edit = await page.locator('.lesson-workspace-primary-actions [data-edit-lesson-plan]').first().innerText();
-    const myWeek = await page.locator("[data-lesson-add-to-my-week]").first().innerText();
+    const edit = await page.locator('.lesson-workspace-more-menu [data-edit-lesson-plan]').first().innerText();
     const printBtn = await page.locator('[data-lesson-action-bars="top"] [data-lesson-print-variant="week"]').innerText();
-    check("Add to Calendar CTA is visible", /Add to Calendar/i.test(primary), primary);
-    check("Edit Lesson Plan CTA is visible", /Edit Lesson Plan/i.test(edit), edit);
-    check("Add to My Week CTA is visible", /Add to My Week/i.test(myWeek), myWeek);
-    check("Print Weekly Calendar CTA is visible", /Print Weekly Calendar/i.test(printBtn), printBtn);
-    check("Old Use This Plan label is gone", !/Use This Plan/i.test(primary));
+    const downloadBtn = await page.locator('[data-lesson-action-bars="top"] [data-lesson-download-variant="week"]').innerText();
+    check("Use This Plan CTA is visible", /Use This Plan/i.test(primary), primary);
+    check("Edit Lesson Plan lives in More", /Edit Lesson Plan/i.test(edit), edit);
+    check("Print CTA is visible", /^Print$/i.test(printBtn.trim()), printBtn);
+    check("Download CTA is visible", /^Download$/i.test(downloadBtn.trim()), downloadBtn);
+    check("Duplicate Add to My Week removed from primary", await page.locator("[data-lesson-add-to-my-week]").count() === 0);
 
     await page.click("[data-lesson-use-this-plan]");
+    await page.waitForSelector('[data-lesson-workspace-action-panel="use-plan"]:not([hidden])', { timeout: 10000 });
+    check("Use This Plan opens choice sheet", await page.locator('[data-lesson-use-plan-choice="calendar"]').count() > 0);
+    await page.click('[data-lesson-use-plan-choice="calendar"]');
     await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 10000 });
     const formTitle = await page.locator('[data-lesson-workspace-action-panel="main-calendar"] .lesson-workspace-action-sheet-title').innerText();
-    check("Add to Calendar opens pick-week form directly", /Add to Calendar/i.test(formTitle), formTitle);
+    check("Add to Calendar opens pick-week form", /Add to Calendar/i.test(formTitle), formTitle);
     check("Form has Cancel button", await page.locator('[data-lesson-workspace-action-panel="main-calendar"] [data-lesson-workspace-action-sheet-dismiss]').count() > 0);
 
     await page.fill('[data-lesson-main-calendar-form] [name="weekStartDate"]', week);

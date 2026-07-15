@@ -305,13 +305,15 @@ async function main() {
     await page.waitForSelector("#resourceViewerModal.lesson-workspace-mode.open", { timeout: 10000 });
     assert(await page.locator(".lesson-workspace-title").innerText() === freeLesson.title, "activity library back should reopen the originating lesson");
 
-    console.log("4) Escape closes transient lesson UI and Add to Calendar panel works");
+    console.log("4) Escape closes transient lesson UI and Use This Plan panel works");
     await page.click("[data-lesson-use-this-plan]");
     await page.waitForSelector(".lesson-workspace-action-sheet:not([hidden])", { timeout: 3000 });
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => document.querySelector(".lesson-workspace-action-sheet")?.hidden === true, null, { timeout: 5000 });
     assert(await page.locator("#resourceViewerModal.lesson-workspace-mode.open").count(), "Escape should close the action sheet before closing the lesson");
     await page.click("[data-lesson-use-this-plan]");
+    await page.waitForSelector('[data-lesson-workspace-action-panel="use-plan"]:not([hidden])', { timeout: 5000 });
+    await page.click('[data-lesson-use-plan-choice="calendar"]');
     await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
     const planPanelCopy = await page.evaluate(() => ({
       title: document.querySelector('[data-lesson-workspace-action-panel="main-calendar"] .lesson-workspace-action-sheet-title')?.textContent.trim() || "",
@@ -324,6 +326,8 @@ async function main() {
 
     console.log("5) Weekly planner can reopen its linked lesson");
     await page.click("[data-lesson-use-this-plan]");
+    await page.waitForSelector('[data-lesson-workspace-action-panel="use-plan"]:not([hidden])', { timeout: 5000 });
+    await page.click('[data-lesson-use-plan-choice="calendar"]');
     await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
     const monday = await page.evaluate(() => {
       const date = new Date();

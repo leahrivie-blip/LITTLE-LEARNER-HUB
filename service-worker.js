@@ -1,16 +1,16 @@
-const CACHE_NAME = "llh-shell-v36-admin-stay";
+const CACHE_NAME = "llh-shell-v37-lesson-rebuild";
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/styles.css?v=20260715-admin-stay",
+  "/styles.css?v=20260715-lesson-rebuild",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/scripts/curriculum-safe-values.js?v=20260712-v3-render-fix",
-  "/scripts/curriculum-lesson-import-parser.js?v=20260712-v3-final",
+  "/scripts/curriculum-lesson-import-parser.js?v=20260715-lesson-rebuild",
   "/scripts/curriculum-import-preview.js?v=20260712-v3-final",
   "/scripts/curriculum-lesson-viewer-render.js?v=20260711-phase-d",
   "/scripts/llh-schedule.js?v=20260714-prod-priority-fixes",
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
-  "/app.js?v=20260715-admin-stay",
+  "/app.js?v=20260715-lesson-rebuild",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",

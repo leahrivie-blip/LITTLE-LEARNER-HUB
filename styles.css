@@ -15164,15 +15164,23 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   margin: 4px 0 0;
   font-size: 0.9rem;
   color: var(--muted, #6b6560);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
 }
 
 .lesson-workspace-action-bars {
   display: grid;
   gap: 8px;
-  padding: 0 2px 10px;
+  padding: 10px 2px calc(10px + env(safe-area-inset-bottom, 0px));
   flex-shrink: 0;
-  position: relative;
+  position: sticky;
+  bottom: 0;
   z-index: 30;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, #fff 28%);
+  border-top: 1px solid rgba(213, 227, 240, 0.9);
+  margin-top: auto;
 }
 
 .lesson-workspace-primary-actions {
@@ -15180,19 +15188,34 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   flex-wrap: wrap;
   gap: 8px;
   position: relative;
+  align-items: stretch;
+}
+
+.lesson-workspace-primary-actions .lesson-workspace-use-plan-btn {
+  flex: 1 1 100%;
+  min-height: 48px;
+  margin: 0;
+  order: 0;
+}
+
+.lesson-workspace-primary-actions .lesson-workspace-secondary-btn {
+  flex: 1 1 calc(33.33% - 8px);
+  min-height: 44px;
+  margin: 0;
+  min-width: 88px;
 }
 
 .lesson-workspace-primary-actions .primary-button,
 .lesson-workspace-primary-actions .ghost-button {
   min-height: 44px;
-  flex: 1 1 calc(50% - 4px);
   margin: 0;
 }
 
 .lesson-workspace-more-wrap {
   position: relative;
-  flex: 1 1 calc(50% - 4px);
+  flex: 0 0 auto;
   display: flex;
+  min-width: 72px;
 }
 
 .lesson-workspace-more-wrap > .lesson-workspace-more-btn {
@@ -15212,7 +15235,8 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 
 .lesson-workspace-more-menu {
   position: absolute;
-  top: calc(100% + 4px);
+  bottom: calc(100% + 4px);
+  top: auto;
   right: 0;
   left: auto;
   z-index: 80;
@@ -15262,11 +15286,87 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   background: var(--cream-2, #f5f1ec);
 }
 
+.lesson-workspace-use-plan-choices {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.lesson-workspace-use-plan-choices .primary-button,
+.lesson-workspace-use-plan-choices .ghost-button,
+.lesson-workspace-use-plan-choices .link-button {
+  min-height: 48px;
+  width: 100%;
+}
+
+.lesson-workspace-week-overview {
+  margin-bottom: 18px;
+}
+
+.lesson-workspace-week-days-heading {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+}
+
+.lesson-workspace-activity-card {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  padding: 14px 12px;
+  margin: 0 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.lesson-workspace-activity-card.is-static {
+  cursor: default;
+}
+
+.lesson-workspace-activity-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.lesson-workspace-activity-card .lesson-workspace-activity-name {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.lesson-workspace-activity-desc,
+.lesson-workspace-activity-field {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--muted, #6b6560);
+  line-height: 1.45;
+}
+
+.lesson-print-brand {
+  margin: 0 0 4px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #3a7abf;
+}
+
 @media (min-width: 760px) {
-  .lesson-workspace-primary-actions .primary-button,
-  .lesson-workspace-primary-actions .ghost-button {
+  .lesson-workspace-primary-actions .lesson-workspace-use-plan-btn {
+    flex: 1 1 auto;
+    min-width: 160px;
+    order: 0;
+  }
+
+  .lesson-workspace-primary-actions .lesson-workspace-secondary-btn {
     flex: 0 1 auto;
-    min-width: 140px;
+    min-width: 100px;
   }
 
   .lesson-workspace-more-wrap {
@@ -15276,6 +15376,11 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   .lesson-workspace-more-wrap > .lesson-workspace-more-btn {
     width: auto;
     min-width: 88px;
+  }
+
+  .lesson-workspace-more-menu {
+    bottom: auto;
+    top: calc(100% + 4px);
   }
 }
 
@@ -16105,16 +16210,19 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 
 @media (max-width: 760px) {
   .resource-viewer-modal.lesson-workspace-mode.open {
-    padding: 8px;
-    padding-top: calc(8px + env(safe-area-inset-top, 0px));
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
   }
 
   .resource-viewer-modal.lesson-workspace-mode .resource-viewer-card {
     max-height: 100dvh;
-    border-radius: 12px;
-    overflow-x: hidden;
+    height: 100dvh;
     width: 100%;
     max-width: 100%;
+    border-radius: 0;
+    overflow-x: hidden;
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 0;
   }
 
   .resource-viewer-modal.lesson-workspace-mode .resource-viewer-body,
@@ -16122,9 +16230,10 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   .lesson-workspace {
     max-width: 100%;
     min-width: 0;
+    height: 100%;
   }
 
-  /* Header/tabs stay pinned via flex chrome (outside .lesson-workspace-panels). */
+  /* Header/tabs stay pinned; content scrolls; actions stick to bottom. */
   .lesson-workspace-header {
     position: relative;
     z-index: 2;
@@ -16136,6 +16245,10 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
     width: 100%;
     justify-self: stretch;
     justify-content: center;
+  }
+
+  .resource-viewer-modal.lesson-workspace-mode .close-button {
+    top: calc(8px + env(safe-area-inset-top, 0px));
   }
 }
 

@@ -234,12 +234,10 @@ async function main() {
     check("Success title", /Lesson Plan Saved Successfully/i.test(success.title), success.title);
     check("Form hidden while success shows", success.formHidden);
     check("Success has Continue Editing", success.labels.includes("Continue Editing"));
-    check("Success has Add to Calendar", success.labels.includes("Add to Calendar"));
-    check("Success has Add to My Week", success.labels.includes("Add to My Week"));
-    check("Success has Print Weekly Calendar", success.labels.includes("Print Weekly Calendar"));
-    check("Success has Download Weekly Calendar", success.labels.includes("Download Weekly Calendar"));
+    check("Success has Use This Plan", success.labels.includes("Use This Plan"));
+    check("Success has Print", success.labels.includes("Print"));
+    check("Success has Download", success.labels.includes("Download"));
     check("Success has Download Full Lesson Plan", success.labels.includes("Download Full Lesson Plan"));
-    check("Success has Download PDF", success.labels.includes("Download PDF"));
     check("Success has Return to Library", success.labels.includes("Return to Library"));
     check("Status shows last saved", /Last saved/i.test(success.status), success.status);
 
