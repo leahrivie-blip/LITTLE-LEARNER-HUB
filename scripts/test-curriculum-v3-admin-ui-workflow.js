@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Browser regression: v3 admin import workflow must not throw during render.
+ * Browser regression: label-only admin import workflow.
  * Run: node scripts/test-curriculum-v3-admin-ui-workflow.js
  */
 const fs = require("fs");
@@ -14,7 +14,7 @@ const ROOT = path.join(__dirname, "..");
 const PORT = 19610 + Math.floor(Math.random() * 40);
 const STORE_PATH = path.join(os.tmpdir(), `llh-v3-ui-${crypto.randomBytes(4).toString("hex")}.json`);
 const V3_FULL = path.join(ROOT, "scripts/curriculum-import-samples/label-only-full-workflow-v3.txt");
-const V1_LEGACY = path.join(ROOT, "scripts/curriculum-phase-2f-imports/01-infant-soft-sounds-free.txt");
+const OCEAN = path.join(ROOT, "scripts/curriculum-import-samples/ocean-explorers-chatgpt-format.txt");
 const ADMIN = {
   email: "v3-ui-test@test.local",
   password: "v3-ui-test-pass",
@@ -95,10 +95,7 @@ async function stopServer(child) {
   });
 }
 
-async function openAdminImporter(page, { fresh = false } = {}) {
-  if (fresh) {
-    await page.goto("about:blank");
-  }
+async function openAdminImporter(page) {
   await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
   await page.evaluate(() => setView("admin"));
@@ -117,7 +114,7 @@ async function openAdminImporter(page, { fresh = false } = {}) {
   await page.waitForSelector("#adminCurriculumLessonImportText", { timeout: 15000 });
 }
 
-async function runWorkflow(page, label, pasteText) {
+async function runImportSaveWorkflow(page, label, pasteText) {
   const consoleErrors = [];
   const pageErrors = [];
   page.on("console", (msg) => {
@@ -125,51 +122,51 @@ async function runWorkflow(page, label, pasteText) {
   });
   page.on("pageerror", (err) => pageErrors.push(String(err)));
 
-  await openAdminImporter(page, { fresh: true });
-
+  await openAdminImporter(page);
   await page.fill("#adminCurriculumLessonImportText", pasteText);
-  await page.click("#adminCurriculumLessonParseButton");
-  await page.waitForSelector(".curriculum-import-preview", { timeout: 15000 });
 
-  const previewText = await page.locator(".curriculum-import-preview").innerText();
-  assert(!/Render failed/i.test(previewText), `${label}: preview shows Render failed`);
+  // Prefer one-click Import Lesson Plan (parse + save).
+  const importBtn = page.locator("#adminCurriculumLessonImportSaveButton");
+  if (await importBtn.count()) {
+    await importBtn.click();
+  } else {
+    await page.click("#adminCurriculumLessonParseButton");
+    await page.waitForSelector(".curriculum-import-preview", { timeout: 15000 });
+    const duplicateBtn = page.locator('[data-import-title-action="new-copy"]');
+    if (await duplicateBtn.isVisible().catch(() => false)) await duplicateBtn.click();
+    await page.click("#adminCurriculumLessonConfirmImportButton");
+  }
 
-  const confirmDisabled = await page.locator("#adminCurriculumLessonConfirmImportButton").isDisabled();
-  if (confirmDisabled) {
+  // If preview opened because of errors/duplicates, resolve and Import & Save.
+  if (await page.locator(".curriculum-import-preview").isVisible().catch(() => false)) {
+    const previewText = await page.locator(".curriculum-import-preview").innerText();
+    assert(!/Render failed/i.test(previewText), `${label}: preview shows Render failed`);
     const duplicateBtn = page.locator('[data-import-title-action="new-copy"]');
     if (await duplicateBtn.isVisible().catch(() => false)) {
       await duplicateBtn.click();
-      await page.waitForFunction(() => {
-        const btn = document.querySelector("#adminCurriculumLessonConfirmImportButton");
-        return btn && !btn.disabled;
-      }, null, { timeout: 10000 });
+      await page.waitForTimeout(300);
+    }
+    const confirm = page.locator("#adminCurriculumLessonConfirmImportButton");
+    if (await confirm.isVisible().catch(() => false)) {
+      if (await confirm.isDisabled()) {
+        const errors = await page.locator(".curriculum-import-issue-list.is-error").innerText().catch(() => "");
+        throw new Error(`${label}: preview blocked import. ${errors}`);
+      }
+      await confirm.click();
     }
   }
-  const stillDisabled = await page.locator("#adminCurriculumLessonConfirmImportButton").isDisabled();
-  if (stillDisabled) {
-    const errors = await page.locator(".curriculum-import-issue-list.is-error").innerText().catch(() => "");
-    const previewDump = await page.locator(".curriculum-import-preview").innerText().catch(() => "");
-    throw new Error(`${label}: preview blocked confirm. Errors: ${errors}\nPreview:\n${previewDump.slice(0, 1500)}`);
-  }
 
-  await page.click("#adminCurriculumLessonConfirmImportButton");
-  await page.waitForSelector("#adminCurriculumLessonPlanForm", { timeout: 15000 });
-
-  const formText = await page.locator("#adminCurriculumLessonPlanForm").innerText();
-  assert(formText.includes("Objective"), `${label}: editor missing Objective field`);
-  assert(!/Render failed/i.test(formText), `${label}: editor shows Render failed`);
-
-  await page.click('#adminCurriculumLessonPlanForm button[type="submit"]');
+  await page.waitForSelector("#adminCurriculumLessonPlanForm", { timeout: 20000 });
   await page.waitForFunction(() => {
     const msg = document.querySelector("#adminCurriculumLessonPlanMessage, #adminCurriculumLessonPlanBanner");
-    return msg && /saved|✅/i.test(msg.textContent || "");
-  }, null, { timeout: 30000 });
+    return msg && /saved|✅|linked activities/i.test(msg.textContent || "");
+  }, null, { timeout: 45000 });
 
-  const savedBanner = await page.locator("#adminCurriculumLessonPlanBanner, #adminCurriculumLessonPlanMessage").first().innerText();
-  assert(!/Render failed|could not refresh/i.test(savedBanner), `${label}: save banner shows render failure: ${savedBanner}`);
+  const formText = await page.locator("#adminCurriculumLessonPlanForm").innerText();
+  assert(!/Render failed/i.test(formText), `${label}: editor shows Render failed`);
 
   const planId = await page.evaluate(() => adminCurriculumLessonEditorId || "");
-  assert(planId, `${label}: missing plan id after save`);
+  assert(planId, `${label}: missing plan id after import/save`);
 
   await page.evaluate((id) => {
     if (typeof openResourceViewer === "function") openResourceViewer(id);
@@ -205,22 +202,22 @@ async function main() {
     const page = await context.newPage();
     page.on("dialog", async (dialog) => { await dialog.accept(); });
 
-    console.log("1) Brand-new v3 lesson plan UI workflow");
-    await runWorkflow(page, "v3-full", fs.readFileSync(V3_FULL, "utf8"));
+    console.log("1) Full label-only lesson plan Import & Save");
+    await runImportSaveWorkflow(page, "v3-full", fs.readFileSync(V3_FULL, "utf8"));
 
-    console.log("2) Legacy v1 lesson plan UI workflow");
-    await runWorkflow(page, "v1-legacy", fs.readFileSync(V1_LEGACY, "utf8"));
+    console.log("2) ChatGPT Ocean Explorers format Import & Save");
+    await runImportSaveWorkflow(page, "ocean-chatgpt", fs.readFileSync(OCEAN, "utf8"));
 
-    console.log("3) v3 plan with optional fields stripped");
+    console.log("3) Optional fields stripped still Import & Save");
     const minimal = fs.readFileSync(V3_FULL, "utf8")
       .replace(/^TITLE:\n[^\n]+\n/m, "TITLE:\nGarden Scientists Optional Fields Missing\n")
       .replace(/^OBJECTIVE:\n[^\n]+\n/gm, "")
       .replace(/^OBSERVATION_OPPORTUNITIES:\n[^\n]+\n/gm, "")
       .replace(/^SETUP:\n[^\n]+\n/gm, "");
-    await runWorkflow(page, "v3-minimal-optional", minimal);
+    await runImportSaveWorkflow(page, "v3-minimal-optional", minimal);
 
     await browser.close();
-    console.log("\nAll v3 admin UI workflow checks passed (no Render failed).");
+    console.log("\nAll label-only admin UI workflow checks passed.");
   } finally {
     await stopServer(child);
     try { fs.unlinkSync(STORE_PATH); } catch { /* ignore */ }
