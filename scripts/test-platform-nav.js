@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Phase 2 sidebar capability expectations.
+ * Phase 2 sidebar capability expectations + nav rebuild checks.
  * Run: node scripts/test-platform-nav.js
  */
 
@@ -21,6 +21,7 @@ function test(name, fn) {
 }
 
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const appJs = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
 
 function expectedNavCapabilities(account) {
   return [
@@ -42,31 +43,55 @@ function expectedNavCapabilities(account) {
   ].filter((capability) => accountAccess.canAccessCapability(account, capability));
 }
 
-test("sidebar includes new primary items and omits removed clutter", () => {
-  const sidebarStart = html.indexOf('id="platformNav"');
-  const sidebarEnd = html.indexOf("</nav>", sidebarStart);
+function visibleSidebar(htmlSource) {
+  const sidebarStart = htmlSource.indexOf('id="platformNav"');
+  const sidebarEnd = htmlSource.indexOf("</nav>", sidebarStart);
   assert.ok(sidebarStart >= 0 && sidebarEnd > sidebarStart);
-  const sidebar = html.slice(sidebarStart, sidebarEnd);
-  assert.match(sidebar, /Dashboard/);
-  assert.match(sidebar, /data-view="calendar"/);
-  assert.match(sidebar, /Child Profiles/);
-  assert.match(sidebar, /Documentation Helpers/);
+  return htmlSource.slice(sidebarStart, sidebarEnd);
+}
+
+test("sidebar shows rebuilt primary items in the new order", () => {
+  const sidebar = visibleSidebar(html);
+  const order = [
+    'data-view="calendar"',
+    'data-view="lessons"',
+    'data-view="activities"',
+    'data-view="ai"',
+    'data-view="children"',
+    'data-view="behavior-support"',
+    'data-view="settings"',
+    'data-view="director-center"',
+  ].map((token) => sidebar.indexOf(token));
+  order.forEach((index, i) => assert.ok(index >= 0, `missing nav token #${i}`));
+  for (let i = 1; i < order.length; i += 1) {
+    assert.ok(order[i] > order[i - 1], "primary nav order is incorrect");
+  }
+  assert.match(sidebar, />\s*Activities\s*</);
+  assert.match(sidebar, /Documentation Center/);
+  assert.match(sidebar, /Director Center/);
+  assert.match(sidebar, /Coming Soon/);
   assert.match(sidebar, /Behavior &amp; Support/);
-  assert.match(sidebar, /Forms &amp; Enrollment/);
-  assert.match(sidebar, /Users &amp; Staff/);
-  assert.match(sidebar, /data-view="billing"/);
-  assert.match(sidebar, /data-view="resources"/);
   assert.match(sidebar, /data-view="settings"/);
-  assert.match(sidebar, /data-nav-capability="staff_management"/);
+});
+
+test("removed items stay in DOM but are permanently hidden from main nav", () => {
+  const sidebar = visibleSidebar(html);
+  assert.match(sidebar, /data-view="home"[^>]*data-nav-hidden="true"/);
+  assert.match(sidebar, /data-view="child-tools-daily-logs"[^>]*data-nav-hidden="true"/);
+  assert.match(sidebar, /data-view="forms"[^>]*data-nav-hidden="true"/);
+  assert.match(sidebar, /data-view="reports"[^>]*data-nav-hidden="true"/);
+  assert.match(sidebar, /data-view="resources"[^>]*data-nav-hidden="true"/);
+  assert.match(html, /id="view-resources"/);
+  assert.match(html, /id="view-settings"/);
+  assert.match(html, /id="view-staff"/);
+  assert.match(html, /id="view-director-center"/);
+  assert.match(html, /id="view-home"/);
   assert.doesNotMatch(sidebar, /Forms &amp; Paperwork/);
   assert.doesNotMatch(sidebar, /Observation Library/);
   assert.doesNotMatch(sidebar, /Menu Center/);
   assert.doesNotMatch(sidebar, /Favorites/);
   assert.doesNotMatch(sidebar, /Family Hub/);
   assert.doesNotMatch(sidebar, /Membership\/Billing/);
-  assert.match(html, /id="view-resources"/);
-  assert.match(html, /id="view-settings"/);
-  assert.match(html, /id="view-staff"/);
 });
 
 test("home daycare owner sees staff but not center tools", () => {
@@ -154,11 +179,15 @@ test("Billing does not also mark Settings active", () => {
   assert.equal(isPlatformNavActive("settings", "billing", "billing"), false);
 });
 
-test("app.js keeps Behavior & Support alias and billing nav highlight rules", () => {
-  const appJs = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+test("app.js keeps Behavior & Support alias, Director Center, and Calendar landing", () => {
   assert.match(appJs, /"behavior-support": "support-center"/);
   assert.match(appJs, /buttonView === "billing"/);
   assert.match(appJs, /requestedView === "behavior-support"/);
+  assert.match(appJs, /function renderDirectorCenterPage/);
+  assert.match(appJs, /data-nav-hidden/);
+  assert.match(appJs, /setView\("calendar"\)/);
+  assert.match(appJs, /Founding Members will receive access to future Director Center features/);
+  assert.match(appJs, /Logged-in providers land on Calendar/);
 });
 
 if (!process.exitCode) {

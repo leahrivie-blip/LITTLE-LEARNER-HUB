@@ -23,9 +23,9 @@ function test(name, fn) {
   }
 }
 
-test("Sidebar still labels Documentation Helpers", () => {
+test("Sidebar still labels Documentation Center", () => {
   assert.match(html, /data-nav-capability="documentation_helpers"/);
-  assert.match(html, />\s*Documentation Helpers\s*</);
+  assert.match(html, />\s*Documentation Center\s*</);
 });
 
 test("Documentation Helpers page is helper-first, not AI-first", () => {
@@ -33,7 +33,7 @@ test("Documentation Helpers page is helper-first, not AI-first", () => {
   const end = html.indexOf('id="view-admin"', start);
   assert.ok(start >= 0 && end > start);
   const section = html.slice(start, end);
-  assert.match(section, /<h2>Documentation Helpers<\/h2>/);
+  assert.match(section, /<h2>Documentation Center<\/h2>/);
   assert.match(section, /Turn quick classroom notes into professional childcare documentation in seconds/);
   assert.match(section, /Who is this for\?/);
   assert.match(section, /id="docHelperChild"/);
