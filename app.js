@@ -2729,7 +2729,7 @@ async function finishSignupWithPlan(planChoice) {
     saveCurrentAccountState();
     updateAuthButtons();
     updatePlanLabel();
-    setView("home");
+    setView("calendar");
     return;
   }
   if (planChoice === "founding") {
@@ -8371,13 +8371,19 @@ function syncPlatformNavVisibility() {
   const account = currentAccount();
   document.querySelectorAll("[data-nav-capability]").forEach((button) => {
     const capability = button.getAttribute("data-nav-capability");
-    const allowed = !capability || canAccessCapability(account, capability, {
+    const permanentlyHidden = button.hasAttribute("data-nav-hidden");
+    const allowed = !permanentlyHidden && (!capability || canAccessCapability(account, capability, {
       adminOverride: typeof hasAdminFullAccess === "function" && hasAdminFullAccess(),
-    });
+    }));
     button.hidden = !allowed;
     button.setAttribute("aria-hidden", allowed ? "false" : "true");
     if (allowed) button.removeAttribute("tabindex");
     else button.setAttribute("tabindex", "-1");
+  });
+  document.querySelectorAll("#platformNav [data-nav-hidden='true']").forEach((button) => {
+    button.hidden = true;
+    button.setAttribute("aria-hidden", "true");
+    button.setAttribute("tabindex", "-1");
   });
   document.querySelectorAll("[data-nav-section]").forEach((section) => {
     const hasVisibleLink = Array.from(section.querySelectorAll(".nav-link")).some((link) => !link.hidden);
@@ -8415,6 +8421,7 @@ function isPlatformNavActive(buttonView, requestedView, resolvedView) {
   }
   if (buttonView === "calendar" && resolvedView === "planner") return true;
   if (buttonView === "ai" && resolvedView === "generators") return true;
+  if (buttonView === "director-center" && resolvedView === "director-center") return true;
   if (buttonView === "home" && resolvedView === "home") return true;
   return false;
 }
@@ -8734,8 +8741,9 @@ function setView(view, options = {}) {
     && !canLeaveUserLessonEditor({ type: "view", view: resolvedView, options })
   ) return;
   if (requestedView === "behavior-support") {
-    activeSupportCategoryId = "behavior-emotions";
+    activeSupportCategoryId = "";
     activeSupportTopicId = "";
+    activeSupportTab = "why";
   }
   if (requestedChildToolTab === "daily-logs") {
     childManagementMode = "daily-logs";
@@ -8877,6 +8885,7 @@ function setView(view, options = {}) {
   if (resolvedView === "tools") renderFutureTools(requestedFutureTool || undefined);
   if (resolvedView === "children") renderChildManagement();
   if (resolvedView === "support-center") renderSupportCenterPage();
+  if (resolvedView === "director-center") renderDirectorCenterPage();
   if (resolvedView === "resources") renderResourcesHubPage();
   if (resolvedView === "settings") renderSettingsHubPage();
   if (resolvedView === "forms-settings") renderFormsSettingsPage();
@@ -12950,20 +12959,24 @@ function lessonWorkspaceBackButtonLabel() {
   if (activeView === "activities") return "← Back to Activities";
   if (activeView === "forms") return "← Back to Forms";
   if (activeView === "menus") return "← Back to Menu Center";
-  if (activeView === "support-center") return "← Back to Support Center";
+  if (activeView === "support-center") return "← Back to Behavior & Support";
   if (activeView === "children") return "← Back to Children";
-  if (activeView === "home") return isLoggedIn() || hasAdminFullAccess() ? "← Back to Dashboard" : "← Back to Home";
+  if (activeView === "calendar") return "← Back to Calendar";
+  if (activeView === "home") return isLoggedIn() || hasAdminFullAccess() ? "← Back to Calendar" : "← Back to Home";
   return "← Back to Lesson Plans";
 }
 
 function fallbackBackLabel(view) {
-  if (view === "home") return isLoggedIn() || hasAdminFullAccess() ? "← Back to Dashboard" : "← Back to Home";
+  if (view === "home") return isLoggedIn() || hasAdminFullAccess() ? "← Back to Calendar" : "← Back to Home";
+  if (view === "calendar") return "← Back to Calendar";
   if (view === "planner") return "← Back to Calendar";
   if (view === "curriculum-planner") return "← Back to Curriculum Planner";
   if (view === "account") return "← Back to Account";
   if (view === "billing") return "← Back to Billing Management";
   if (view === "children") return "← Back to Children";
-  if (view === "support-center") return "← Back to Support Center";
+  if (view === "ai") return "← Back to Documentation Center";
+  if (view === "director-center") return "← Back to Director Center";
+  if (view === "support-center") return "← Back to Behavior & Support";
   if (viewMap[view]) return `← Back to ${viewMap[view]}`;
   return "← Back";
 }
@@ -13060,13 +13073,14 @@ function resourceViewerBackLabel() {
   if (activeView === "menus") return "← Back to Menu Center";
   if (activeView === "planner") return "← Back to Calendar";
   if (activeView === "curriculum-planner") return "← Back to Curriculum Planner";
-  if (activeView === "support-center") return "← Back to Support Center";
+  if (activeView === "support-center") return "← Back to Behavior & Support";
   if (activeView === "children") return "← Back to Children";
   if (activeView === "favorites") return "← Back to Favorites";
   if (activeView === "reports") return "← Back to Reports";
   if (activeView === "account") return "← Back to Account";
   if (activeView === "billing") return "← Back to Billing Management";
-  if (activeView === "home") return isLoggedIn() || hasAdminFullAccess() ? "← Back to Dashboard" : "← Back to Home";
+  if (activeView === "calendar") return "← Back to Calendar";
+  if (activeView === "home") return isLoggedIn() || hasAdminFullAccess() ? "← Back to Calendar" : "← Back to Home";
   return "Close";
 }
 
@@ -21506,7 +21520,7 @@ function renderSettingsHubPage() {
       <div class="page-title">
         <p class="eyebrow">Settings</p>
         <h2>Configuration &amp; account</h2>
-        <p>Manage your account, program, billing, and support here. Daily work stays in Calendar, Daily Logs, Lesson Plans, and Child Profiles.</p>
+        <p>Manage your account, program, billing, and support here. Daily work stays in Calendar, Lesson Plans, Activities, Documentation Center, and Child Profiles.</p>
         <p class="settings-hub-identity muted-copy">${escapeHtml(accountTypeLabel)} · ${escapeHtml(roleLabel)}</p>
       </div>
       ${canBilling && !isProUser() ? foundingUpgradeBannerHtml({ variant: "settings", dismissible: true }) : ""}
@@ -22159,49 +22173,107 @@ function renderSupportHomePage(records = childRecords()) {
   const currentChild = selectedChild(records);
   const childSupportAreas = currentChild ? childSelectedSupportAreas(currentChild).slice(0, 3) : [];
   const searchResults = supportSearchResults(supportCenterSearch);
+  const plannedAreas = [
+    { title: "Common behavior challenges", detail: "Guidance for tantrums, biting, transitions, and other everyday challenges." },
+    { title: "Support strategies", detail: "Practical classroom strategies you can use the same day." },
+    { title: "Behavior plans", detail: "Simple plans you can adapt for individual children." },
+    { title: "Parent communication help", detail: "Professional wording for sensitive family conversations." },
+    { title: "Behavior tracking", detail: "Track patterns over time without extra paperwork." },
+    { title: "Social emotional resources", detail: "SEL tools that support calm, connection, and confidence." },
+  ];
   return `
-    <section class="support-center-page">
-      <button class="ghost-button back-button" data-view="resources" type="button">← Back to Resources</button>
+    <section class="support-center-page behavior-support-placeholder">
       <div class="page-title support-center-title">
-        <p class="eyebrow">Support Resources</p>
-        <h2>Quick help for common childcare challenges.</h2>
-        <p>Pick one area, then open only the details you need.</p>
+        <p class="eyebrow">Behavior &amp; Support</p>
+        <h2>Support for big feelings and everyday challenges</h2>
+        <p>This section will become your calm, child-centered behavior toolkit. The structure below is the foundation for the redesign.</p>
       </div>
-      <label class="support-search">
-        <span>Search support topics</span>
-        <input id="supportCenterSearch" type="search" value="${escapeHtml(supportCenterSearch)}" placeholder="Tantrums, biting, potty training, transitions" />
-      </label>
-      ${supportCenterSearch ? `
-        <div class="support-topic-grid">
-          ${searchResults.length ? searchResults.map((item) => `
-            <button class="support-topic-card" data-support-topic="${item.topicId}" type="button">
-              <strong>${escapeHtml(item.topic)}</strong>
-              <span>${escapeHtml(item.content.why)}</span>
-            </button>
-          `).join("") : `<div class="empty-state">No support topics match yet.</div>`}
+      <div class="platform-placeholder-grid">
+        ${plannedAreas.map((area) => `
+          <article class="platform-placeholder-card">
+            <strong>${escapeHtml(area.title)}</strong>
+            <p>${escapeHtml(area.detail)}</p>
+            <span class="badge-coming-soon">Coming Soon</span>
+          </article>
+        `).join("")}
+      </div>
+      <section class="section-block behavior-support-current-tools">
+        <div class="page-title" style="margin-bottom:12px;">
+          <p class="eyebrow">Available now</p>
+          <h3 style="margin:0;">Browse current support library</h3>
+          <p class="muted-copy">Existing Behavior &amp; Support resources stay available while we rebuild this area.</p>
         </div>
-      ` : `
-        <div class="support-category-grid">
-          ${supportCenterCategories().map((category) => `
-            <button class="support-category-card" data-support-category="${category.id}" type="button">
-              <span>${escapeHtml(category.title.slice(0, 2).toUpperCase())}</span>
-              <strong>${escapeHtml(category.title)}</strong>
-              <p>${escapeHtml(category.detail)}</p>
-            </button>
-          `).join("")}
-        </div>
-      `}
-      ${childSupportAreas.length ? `
-        <section class="section-block support-child-shortcuts">
-          <div>
-            <p class="eyebrow">From Child Profiles</p>
-            <h3>${escapeHtml(currentChild.name)} support areas</h3>
+        <label class="support-search">
+          <span>Search support topics</span>
+          <input id="supportCenterSearch" type="search" value="${escapeHtml(supportCenterSearch)}" placeholder="Tantrums, biting, potty training, transitions" />
+        </label>
+        ${supportCenterSearch ? `
+          <div class="support-topic-grid">
+            ${searchResults.length ? searchResults.map((item) => `
+              <button class="support-topic-card" data-support-topic="${item.topicId}" type="button">
+                <strong>${escapeHtml(item.topic)}</strong>
+                <span>${escapeHtml(item.content.why)}</span>
+              </button>
+            `).join("") : `<div class="empty-state">No support topics match yet.</div>`}
           </div>
-          <div class="support-shortcut-list">
-            ${childSupportAreas.map((area) => `<button class="ghost-button" data-support-topic="${supportTopicIdForArea(area)}" data-support-child-id="${currentChild.id}" type="button">View ${escapeHtml(area)} Support</button>`).join("")}
+        ` : `
+          <div class="support-category-grid">
+            ${supportCenterCategories().map((category) => `
+              <button class="support-category-card" data-support-category="${category.id}" type="button">
+                <span>${escapeHtml(category.title.slice(0, 2).toUpperCase())}</span>
+                <strong>${escapeHtml(category.title)}</strong>
+                <p>${escapeHtml(category.detail)}</p>
+              </button>
+            `).join("")}
           </div>
-        </section>
-      ` : ""}
+        `}
+        ${childSupportAreas.length ? `
+          <section class="section-block support-child-shortcuts">
+            <div>
+              <p class="eyebrow">From Child Profiles</p>
+              <h3>${escapeHtml(currentChild.name)} support areas</h3>
+            </div>
+            <div class="support-shortcut-list">
+              ${childSupportAreas.map((area) => `<button class="ghost-button" data-support-topic="${supportTopicIdForArea(area)}" data-support-child-id="${currentChild.id}" type="button">View ${escapeHtml(area)} Support</button>`).join("")}
+            </div>
+          </section>
+        ` : ""}
+      </section>
+    </section>
+  `;
+}
+
+function renderDirectorCenterPage() {
+  const section = document.querySelector("#view-director-center");
+  if (!section) return;
+  const planned = [
+    { title: "Staff Management", detail: "Invite staff, assign roles, and manage access." },
+    { title: "Classroom Management", detail: "Organize classrooms and daily classroom workflows." },
+    { title: "Child Assignments", detail: "Assign children to classrooms and staff." },
+    { title: "Classroom Calendars", detail: "Plan by classroom with shared visibility." },
+    { title: "Enrollment", detail: "Track enrollment and onboarding paperwork." },
+    { title: "Forms", detail: "Center forms and administrative documents." },
+    { title: "Center Administration", detail: "Operate your center from one professional hub." },
+  ];
+  section.innerHTML = `
+    <section class="platform-placeholder-page director-center-page">
+      <div class="page-title">
+        <p class="eyebrow">Director Center</p>
+        <h2>Coming Soon</h2>
+        <p>Director Center will bring staff, classrooms, enrollment, and center administration into one clear place.</p>
+      </div>
+      <div class="platform-placeholder-hero">
+        <span class="badge-coming-soon">Coming Soon</span>
+        <p class="muted-copy">Founding Members will receive access to future Director Center features as they are released.</p>
+      </div>
+      <div class="platform-placeholder-grid">
+        ${planned.map((item) => `
+          <article class="platform-placeholder-card">
+            <strong>${escapeHtml(item.title)}</strong>
+            <p>${escapeHtml(item.detail)}</p>
+          </article>
+        `).join("")}
+      </div>
     </section>
   `;
 }
@@ -22209,9 +22281,9 @@ function renderSupportHomePage(records = childRecords()) {
 function renderSupportCategoryPage(category) {
   return `
     <section class="support-center-page">
-      <button class="ghost-button back-button" data-support-home type="button">← Back to Support Resources</button>
+      <button class="ghost-button back-button" data-support-home type="button">← Back to Behavior &amp; Support</button>
       <div class="page-title support-center-title">
-        <p class="eyebrow">Support Resources</p>
+        <p class="eyebrow">Behavior &amp; Support</p>
         <h2>${escapeHtml(category.title)}</h2>
         <p>${escapeHtml(category.detail)}</p>
       </div>
@@ -37937,7 +38009,7 @@ function showSearchResults() {
   const resultCards = results.map((resource) => (
     resource.category === "Lesson Plans" ? lessonPlanCard(resource) : resourceCard(resource)
   )).join("");
-  const backLabel = isLoggedIn() || hasAdminFullAccess() ? "Back to Dashboard" : "Back to Home";
+  const backLabel = isLoggedIn() || hasAdminFullAccess() ? "Back to Calendar" : "Back to Home";
   document.querySelectorAll(".view").forEach((section) => section.classList.remove("active-view"));
   document.querySelector("#view-home").classList.add("active-view");
   document.querySelectorAll(".nav-link").forEach((button) => {
@@ -38084,7 +38156,7 @@ document.addEventListener("click", async (event) => {
       openAuthModal("signup");
       return;
     }
-    setView("home");
+    setView("calendar");
     return;
   }
 
@@ -38322,7 +38394,7 @@ document.addEventListener("click", async (event) => {
       activeObservationChildLock = "";
       activePortfolioChildId = "";
     }
-    if (viewButton.dataset.view === "support-center") {
+    if (viewButton.dataset.view === "support-center" || viewButton.dataset.view === "behavior-support") {
       activeSupportCategoryId = "";
       activeSupportTopicId = "";
       activeSupportTab = "why";
@@ -38410,7 +38482,7 @@ document.addEventListener("click", async (event) => {
       setViewReturnContext("generators", {
         type: "view",
         view: activeView,
-        label: activeView === "ai" ? "← Back to Documentation Helper" : fallbackBackLabel(activeView),
+        label: activeView === "ai" ? "← Back to Documentation Center" : fallbackBackLabel(activeView),
       });
     }
     setView("generators");
@@ -38675,7 +38747,7 @@ document.addEventListener("click", async (event) => {
         const url = new URL(window.location.href);
         url.searchParams.delete("staffInvite");
         window.history.replaceState({}, "", url.pathname + url.search + url.hash);
-        setView("home");
+        setView("calendar");
       })
       .catch((error) => {
         if (message) message.textContent = error.message || "Could not accept invite.";
@@ -42171,7 +42243,7 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
     loadUserAiUsage(result.email).catch(() => {});
     trackEvent("account_login_complete", { email: result.email, plan: currentPlan });
     closeAuthModal();
-    setView("home");
+    setView("calendar");
   } catch (error) {
     setFormMessage("#authMessage", friendlyAuthError(error));
   } finally {
@@ -44451,6 +44523,11 @@ async function initializeAppView() {
           saveAttribution({ route, view: initialView });
           trackEvent("ad_route_visit", { route, view: initialView });
           setView(initialView);
+          return;
+        }
+        // Logged-in providers land on Calendar instead of Dashboard.
+        if (currentUser) {
+          setView("calendar");
           return;
         }
         // If admin was previously in the admin area, restore the admin view on refresh.

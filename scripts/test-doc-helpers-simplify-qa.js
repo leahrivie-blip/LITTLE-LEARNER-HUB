@@ -74,7 +74,7 @@ async function run() {
         };
       });
 
-      assert.equal(state.title, "Documentation Helpers");
+      assert.equal(state.title, "Documentation Center");
       assert.match(state.description, /Turn quick classroom notes/);
       assert.equal(state.hasChildPicker, true);
       assert.equal(state.mostUsedCount, 3);
