@@ -59,6 +59,17 @@ function unitTests() {
   });
   assert(mapped.url.includes("colors"), "curriculum previewData must not override theme map");
   assert(mapped.source === "mapped", "mapped source expected");
+  const customFallbacks = covers.resolveLessonPlanCoverFallbacks({
+    title: "Ocean Explorers",
+    theme: "Ocean",
+    age: "Toddler",
+    coverImageUrl: "https://cdn.example.test/broken.webp",
+  });
+  assert(customFallbacks[0].includes("cdn.example.test"), "custom cover must resolve first");
+  assert(customFallbacks[1].includes("ocean"), "theme cover must precede age fallback");
+  assert(customFallbacks[2].includes("generic-toddler"), "age cover must precede brand fallback");
+  assert(customFallbacks.at(-1).includes("default"), "brand fallback must resolve last");
+  assert(!covers.getMappedThemeCover("Scarlet Art", "").includes("transportation"), "car must not match inside scarlet");
 
   const missing = covers.resolveLessonPlanCover({
     title: "Brand New Unique Title XYZ",
@@ -78,9 +89,16 @@ function unitTests() {
   assert(app.includes("data-lesson-card-use-plan"), "Use This Plan wiring must remain");
   assert(app.includes("renderAdminCurriculumLessonCoverSection"), "admin cover section missing");
   assert(app.includes("data-curriculum-cover-pick"), "admin cover picker missing");
+  assert(app.includes("/api/admin/curriculum/lesson-covers/upload"), "persistent cover upload endpoint missing");
+  assert(app.includes("uploadAdminCurriculumLessonCover"), "admin upload helper missing");
 
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   assert(html.includes("scripts/lesson-plan-covers.js"), "cover script must load in index.html");
+  const server = fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8");
+  assert(server.includes("CREATE TABLE IF NOT EXISTS llh_media_assets"), "persistent media table missing");
+  assert(server.includes("bytes BYTEA NOT NULL"), "cover bytes must use persistent binary storage");
+  assert(server.includes("sanitizedLessonCoverUrl"), "lesson records must reject base64 covers");
+  assert(!/coverImageUrl:\s*sanitizedImageSource/.test(server), "lesson cover records must not store base64");
 
   console.log("✓ unit cover resolver + static wiring");
 }
@@ -175,7 +193,7 @@ async function seedPlans(token) {
   });
   const freeId = `cur-lp-cover-free-${crypto.randomBytes(3).toString("hex")}`;
   const proId = `cur-lp-cover-pro-${crypto.randomBytes(3).toString("hex")}`;
-  const freeTitle = "Colors Everywhere Cover Test";
+  const freeTitle = "Colors Everywhere: A Very Long Lesson Plan Title That Still Keeps Every Card Action Visible Cover Test";
   const proTitle = "Ocean Explorers Cover Test";
   const freeSave = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
     adminToken: token,
@@ -186,7 +204,7 @@ async function seedPlans(token) {
       title: freeTitle,
       theme: "Colors",
       plan: "Free",
-      status: "published",
+      status: "featured",
       age: "Preschool",
       coverImageUrl: "/images/lesson-covers/colors.svg",
       coverImageAlt: "Illustration of a rainbow and crayons for Colors Everywhere",
@@ -234,13 +252,20 @@ async function browserRegression() {
     });
     assert(login.status === 200 && login.json?.token, "Admin login failed");
     const seeded = await seedPlans(login.json.token);
+    const unavailableUpload = await requestJson("POST", "/api/admin/curriculum/lesson-covers/upload", {
+      adminToken: login.json.token,
+      fileName: "cover.png",
+      fileData: "data:image/png;base64,iVBORw0KGgo=",
+    });
+    assert(unavailableUpload.status === 503, "local storage must never accept a supposedly persistent upload");
 
     // Confirm cover fields round-trip on public curriculum payload without leaking Pro body.
     const publicContent = await requestJson("GET", "/api/site-content");
     assert(publicContent.status === 200, "site-content failed");
-    const freePlan = (publicContent.json?.curriculum?.lessonPlans || []).find((p) => p.id === seeded.freeId)
-      || (publicContent.json?.siteContent?.curriculum?.lessonPlans || []).find((p) => p.id === seeded.freeId);
-    // Public DTO shape varies; also check authorized path via page.
+    const freePlan = (publicContent.json?.siteContent?.curriculumLibrary?.lessonPlans || [])
+      .find((p) => p.id === seeded.freeId);
+    assert(freePlan?.coverImageUrl === "/images/lesson-covers/colors.svg", "cover URL must round-trip");
+    assert(freePlan?.coverImageAlt.includes("rainbow"), "cover alt must round-trip");
 
     browser = await playwright.chromium.launch({ headless: true });
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
@@ -251,6 +276,12 @@ async function browserRegression() {
     });
     await page.evaluate(() => setView("lessons"));
     await page.waitForSelector("#view-lessons.active-view", { timeout: 10000 });
+    const initialMobileReady = await page.evaluate(() => ({
+      featured: Boolean(document.querySelector(".library-featured-banner-image")),
+      rows: document.querySelectorAll(".browse-row-track").length,
+    }));
+    assert(initialMobileReady.featured, "featured banner cover missing");
+    assert(initialMobileReady.rows > 0, "horizontal lesson rows missing");
     await page.waitForSelector("#lessonPlanSearch", { timeout: 10000 });
     await page.fill("#lessonPlanSearch", "Cover Test");
     await page.waitForTimeout(500);
@@ -273,7 +304,8 @@ async function browserRegression() {
           hasView: Boolean(card.querySelector("[data-view-resource]")),
           badge: card.querySelector(".browse-card-badge")?.textContent?.trim() || "",
           height: card.getBoundingClientRect().height,
-          fallback: img?.dataset.coverFallback || "",
+          fallbacks: img?.dataset.coverFallbacks || "",
+          buttonVisible: Boolean(card.querySelector("[data-lesson-card-use-plan]")?.getClientRects().length),
         };
       };
       return {
@@ -292,13 +324,29 @@ async function browserRegression() {
     assert(cardAudit.free.hasFavorite, "favorite control missing on free card");
     assert(cardAudit.free.hasView, "view wiring missing on free card");
     assert(cardAudit.free.badge === "Free", "FREE badge missing");
-    assert(cardAudit.free.height < 330, `free card too tall: ${cardAudit.free.height}`);
-    assert(cardAudit.free.fallback.includes("/images/lesson-covers/"), "cover fallback data attribute missing");
+    assert(cardAudit.free.height < 360, `free card too tall: ${cardAudit.free.height}`);
+    assert(cardAudit.free.fallbacks.includes("/images/lesson-covers/"), "cover fallback chain missing");
+    assert(cardAudit.free.buttonVisible, "long title pushed Use This Plan off the card");
 
     assert(cardAudit.pro?.hasImg, "pro card missing cover img");
     assert(cardAudit.pro.src.includes("ocean") || cardAudit.pro.src.includes("lesson-covers"), `pro cover unexpected: ${cardAudit.pro.src}`);
     assert(cardAudit.pro.badge === "Pro", "PRO badge missing");
     assert(!cardAudit.pro.hasUsePlan, "locked Pro card should not expose Use This Plan");
+
+    const fallbackResult = await page.evaluate((title) => {
+      const card = [...document.querySelectorAll("#view-lessons .lesson-plan-card")]
+        .find((item) => item.textContent.includes(title));
+      const img = card?.querySelector("img.lesson-plan-card__cover");
+      if (!img) return {};
+      img.setAttribute("src", "https://invalid.example.test/not-found.webp");
+      handleLessonCoverImageError(img);
+      const first = img.getAttribute("src");
+      handleLessonCoverImageError(img);
+      const second = img.getAttribute("src");
+      return { first, second, hidden: img.hidden };
+    }, seeded.proTitle);
+    assert(fallbackResult.first.includes("ocean"), "broken custom cover must restore theme cover first");
+    assert(fallbackResult.second.includes("generic-preschool"), "broken theme cover must restore age cover second");
 
     // Pro user: Use This Plan and View must still work with covers present.
     const userEmail = "lesson-covers-user@example.com";
@@ -342,6 +390,86 @@ async function browserRegression() {
       document.querySelector("#resourceViewerModal")?.classList.remove("open");
       document.querySelector("#resourceViewerModal")?.setAttribute("aria-hidden", "true");
     });
+
+    // Mobile: banner crop, horizontal rows, touch controls, and page overflow.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => { searchInput.value = ""; });
+    await page.evaluate(() => setView("lessons", { lessonLibraryMode: "browse" }));
+    await page.waitForSelector(".library-featured-banner-image", { timeout: 10000 });
+    const mobileAudit = await page.evaluate(async () => {
+      let track = [...document.querySelectorAll(".browse-row-track")]
+        .find((item) => item.scrollWidth > item.clientWidth + 1);
+      if (!track) {
+        track = document.querySelector(".browse-row-track");
+        const cardToClone = track?.querySelector(".lesson-plan-card");
+        if (track && cardToClone) {
+          track.append(cardToClone.cloneNode(true), cardToClone.cloneNode(true));
+        }
+      }
+      const before = track?.scrollLeft || 0;
+      if (track) track.scrollLeft = 280;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      const banner = document.querySelector(".library-featured-banner-image");
+      const card = document.querySelector(".lesson-plan-card");
+      const currentTrack = [...document.querySelectorAll(".browse-row-track")]
+        .find((item) => item.scrollWidth > item.clientWidth + 1) || track;
+      return {
+        objectFit: banner ? getComputedStyle(banner).objectFit : "",
+        bannerWidth: banner?.getBoundingClientRect().width || 0,
+        viewportWidth: window.innerWidth,
+        pageOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+        cardWidth: card?.getBoundingClientRect().width || 0,
+        scrollMoved: Boolean(currentTrack) && (currentTrack.scrollLeft || 0) > before,
+        trackWidth: currentTrack?.clientWidth || 0,
+        trackScrollWidth: currentTrack?.scrollWidth || 0,
+        trackScrollLeft: currentTrack?.scrollLeft || 0,
+        coverCount: document.querySelectorAll(".lesson-plan-card img.lesson-plan-card__cover").length,
+        cardCount: document.querySelectorAll(".lesson-plan-card").length,
+      };
+    });
+    assert(mobileAudit.objectFit === "cover", `featured banner must crop with object-fit cover: ${JSON.stringify(mobileAudit)}`);
+    assert(mobileAudit.bannerWidth <= mobileAudit.viewportWidth, "featured banner overflows mobile viewport");
+    assert(!mobileAudit.pageOverflow, "lesson library causes mobile page overflow");
+    assert(mobileAudit.cardWidth > mobileAudit.viewportWidth * 0.55 && mobileAudit.cardWidth < mobileAudit.viewportWidth, "mobile card width should hint at horizontal scrolling");
+    assert(mobileAudit.scrollMoved, `mobile lesson row did not scroll: ${JSON.stringify(mobileAudit)}`);
+    assert(mobileAudit.coverCount === mobileAudit.cardCount, "a mobile lesson card is missing a cover");
+
+    // Admin controls: choose, reposition, and remove must update preview without saving other fields.
+    const adminControlAudit = await page.evaluate(() => {
+      const host = document.createElement("div");
+      host.innerHTML = renderAdminCurriculumLessonPlanForm({
+        id: "admin-cover-test",
+        title: "Ocean Admin Test",
+        theme: "Ocean",
+        age: "Preschool",
+        plan: "Free",
+        status: "draft",
+        coverImageUrl: "/images/lesson-covers/ocean.svg",
+        coverImageAlt: "Ocean illustration",
+        coverImageSource: "mapped",
+        coverImagePosition: "top",
+        dailyPlans: {},
+      });
+      document.body.appendChild(host);
+      const form = host.querySelector("#adminCurriculumLessonPlanForm");
+      const preview = form.querySelector("[data-curriculum-cover-preview]");
+      const titleBefore = form.querySelector('[name="title"]').value;
+      applyAdminCurriculumCoverSelection("/images/lesson-covers/colors.svg", { source: "mapped" });
+      const replaced = form.querySelector("[data-curriculum-cover-url]").value;
+      form.querySelector('[name="coverImagePosition"]').value = "bottom";
+      preview.style.objectPosition = "bottom";
+      applyAdminCurriculumCoverSelection("", { source: "" });
+      const removed = form.querySelector("[data-curriculum-cover-url]").value;
+      const fallback = preview.getAttribute("src");
+      const titleAfter = form.querySelector('[name="title"]').value;
+      host.remove();
+      return { replaced, removed, fallback, position: preview.style.objectPosition, titleBefore, titleAfter };
+    });
+    assert(adminControlAudit.replaced.includes("colors"), "admin replace cover failed");
+    assert(adminControlAudit.removed === "", "admin remove cover failed");
+    assert(adminControlAudit.fallback.includes("ocean"), "removing cover must immediately restore theme fallback");
+    assert(adminControlAudit.position.includes("bottom"), `admin focal position preview failed: ${JSON.stringify(adminControlAudit)}`);
+    assert(adminControlAudit.titleBefore === adminControlAudit.titleAfter, "cover controls changed unrelated lesson data");
 
     const asset = await requestJson("GET", "/images/lesson-covers/colors.svg");
     assert(asset.status === 200, "cover asset not served");

@@ -537,7 +537,7 @@ body.activities-view .mobile-brand {
   max-width: calc(100vw - 48px);
   scroll-snap-align: start;
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 0;
   min-height: 0;
   padding: 0;
@@ -802,7 +802,6 @@ body.activities-view .mobile-brand {
 /* Lesson plan cards in browse mode — keep existing class for tests */
 .lesson-plan-card.browse-card {
   min-height: 0;
-  max-height: 318px;
 }
 
 .lesson-plan-card.browse-card .lesson-plan-card-top {

@@ -5285,7 +5285,17 @@ function confirmCurriculumLessonPlanImport() {
   if (!adminCurriculumLessonEditorId) {
     adminCurriculumLessonEditorId = state.proposedLessonPlanId;
   }
-  adminCurriculumLessonImportDraft = curriculumImportDraftFromParsed(preview.data);
+  const existing = curriculumLessonEditorRecord();
+  const importedDraft = curriculumImportDraftFromParsed(preview.data);
+  adminCurriculumLessonImportDraft = existing
+    ? {
+      ...importedDraft,
+      coverImageUrl: existing.coverImageUrl || "",
+      coverImageAlt: existing.coverImageAlt || "",
+      coverImageSource: existing.coverImageSource || "",
+      coverImagePosition: existing.coverImagePosition || "center",
+    }
+    : importedDraft;
   adminCurriculumLessonImportTextCache = adminCurriculumLessonImportPreviewText;
   resetCurriculumLessonImportPreviewState();
   setAdminCurriculumLessonSaveBanner("Import loaded. Saving lesson plan and Activity Library entries…", true);
@@ -6171,6 +6181,12 @@ async function saveUserLessonEditorForm(form, options = {}) {
       description: nextPlan.weeklyOverview || nextPlan.theme || resource.description || "",
       materials: nextPlan.weeklyMaterials || "",
       weeklyOverview: nextPlan.weeklyOverview || "",
+      previewData: sanitizedImageSource(nextPlan.coverImageUrl || "") || resource.previewData || "",
+      thumbnailUrl: sanitizedImageSource(nextPlan.coverImageUrl || "") || resource.thumbnailUrl || "",
+      coverImageUrl: nextPlan.coverImageUrl || "",
+      coverImageAlt: nextPlan.coverImageAlt || "",
+      coverImageSource: nextPlan.coverImageSource || "",
+      coverImagePosition: nextPlan.coverImagePosition || "center",
       tags: [
         ...curriculumAsStringArray(nextPlan.learningDomains),
         nextPlan.theme,
@@ -6242,6 +6258,7 @@ function renderAdminCurriculumLessonCoverSection(record) {
             data-curriculum-cover-preview
             src="${escapeHtml(previewUrl)}"
             alt="${escapeHtml(previewAlt)}"
+            style="object-position:${escapeHtml(position)}"
             width="320"
             height="180"
             loading="lazy"
@@ -6262,7 +6279,8 @@ function renderAdminCurriculumLessonCoverSection(record) {
           <input type="text" data-curriculum-cover-url-input value="${escapeHtml(currentUrl.startsWith("data:") ? "" : currentUrl)}" placeholder="https://… or /images/lesson-covers/…" />
         </label>
         <label>Upload new image
-          <input type="file" accept="image/*" data-curriculum-cover-upload />
+          <input type="file" accept="image/png,image/jpeg,image/webp" data-curriculum-cover-upload />
+          <small>PNG, JPG, or WebP up to 2 MB. Uploads are saved to persistent database-backed media storage.</small>
         </label>
       </div>
       <label>Alt text
@@ -6329,6 +6347,7 @@ function applyAdminCurriculumCoverSelection(url, { source = "mapped", alt = "" }
         age: form.querySelector('[name="age"]')?.value || "",
       }).url
       || "/images/lesson-covers/default.svg";
+    preview.style.objectPosition = form.querySelector('[name="coverImagePosition"]')?.value || "center";
   }
   if (alt && altField && !String(altField.value || "").trim()) {
     altField.value = alt;
@@ -6337,6 +6356,35 @@ function applyAdminCurriculumCoverSelection(url, { source = "mapped", alt = "" }
   form.querySelectorAll("[data-curriculum-cover-pick]").forEach((button) => {
     button.classList.toggle("is-selected", button.dataset.curriculumCoverPick === safeUrl);
   });
+}
+
+async function uploadAdminCurriculumLessonCover(file) {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) {
+    throw new Error("Backend server and admin login are required to upload a cover.");
+  }
+  if (!file || file.size > 2 * 1024 * 1024) {
+    throw new Error("Use a PNG, JPG, or WebP image no larger than 2 MB.");
+  }
+  if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+    throw new Error("Use a PNG, JPG, or WebP image.");
+  }
+  const fileData = await fileToImageDataUrlSafe(file, { maxMb: 2 });
+  if (!fileData) throw new Error("Could not read that image.");
+  const response = await fetch("/api/admin/curriculum/lesson-covers/upload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      adminToken: token,
+      fileName: file.name || "lesson-cover",
+      fileData,
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.persistent || !sanitizedImageSource(data.url || "")) {
+    throw new Error(data.error || "The cover could not be saved to persistent storage.");
+  }
+  return data;
 }
 
 function filterAdminCurriculumCoverLibrary() {
@@ -10147,6 +10195,34 @@ function resolveLessonPlanCoverForResource(resource) {
   };
 }
 
+function lessonPlanCoverFallbackUrls(resource) {
+  const api = lessonPlanCoversApi();
+  const urls = api?.resolveLessonPlanCoverFallbacks?.(resource)
+    || [resolveLessonPlanCoverForResource(resource).url, api?.DEFAULT_COVER || "/images/lesson-covers/default.svg"];
+  return [...new Set(urls.map((url) => sanitizedImageSource(url || "")).filter(Boolean))];
+}
+
+function handleLessonCoverImageError(image) {
+  if (!image) return;
+  let fallbacks = [];
+  try {
+    fallbacks = JSON.parse(image.dataset.coverFallbacks || "[]");
+  } catch {
+    fallbacks = [];
+  }
+  const current = image.getAttribute("src") || "";
+  const currentIndex = fallbacks.indexOf(current);
+  const next = fallbacks.slice(Math.max(0, currentIndex + 1)).find((url) => url && url !== current);
+  if (next) {
+    image.setAttribute("src", next);
+    return;
+  }
+  // Last-resort branded gradient: suppress the browser's broken-image icon.
+  image.hidden = true;
+  image.closest(".has-cover-image")?.classList.remove("has-cover-image");
+  image.onerror = null;
+}
+
 function libraryResourceCoverStyle(resource) {
   const cover = resolveLessonPlanCoverForResource(resource);
   const image = sanitizedImageSource(cover.url || "");
@@ -10290,7 +10366,7 @@ function lessonPlanCard(resource) {
     || "/images/lesson-covers/default.svg";
   const coverAlt = String(resolvedCover.alt || "").trim() || `Cover illustration for ${resource.title}`;
   const coverPosition = String(resolvedCover.position || "center").trim() || "center";
-  const fallbackUrl = lessonPlanCoversApi()?.DEFAULT_COVER || "/images/lesson-covers/default.svg";
+  const coverFallbacks = lessonPlanCoverFallbackUrls(resource);
   const description = lessonPlanCoversApi()?.shortThemeDescription?.(resource)
     || (theme && theme.toLowerCase() !== String(resource.title || "").trim().toLowerCase() ? theme : "");
   const metaParts = [ageLabel];
@@ -10314,9 +10390,9 @@ function lessonPlanCard(resource) {
           height="270"
           loading="lazy"
           decoding="async"
-          data-cover-fallback="${escapeHtml(fallbackUrl)}"
+          data-cover-fallbacks="${escapeHtml(JSON.stringify(coverFallbacks))}"
           style="object-position:${escapeHtml(coverPosition)}"
-          onerror="if(this.dataset.coverFallback&&this.getAttribute('src')!==this.dataset.coverFallback){this.setAttribute('src',this.dataset.coverFallback);this.onerror=null;}"
+          onerror="handleLessonCoverImageError(this)"
         />
         <div class="browse-card-cover-scrim" aria-hidden="true"></div>
         <span class="browse-card-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>
@@ -10548,7 +10624,7 @@ function featuredLessonBannerHtml(items) {
     || "/images/lesson-covers/default.svg";
   const coverAlt = String(resolvedCover.alt || "").trim() || `Cover illustration for ${featured.title}`;
   const coverPosition = String(resolvedCover.position || "center").trim() || "center";
-  const fallbackUrl = lessonPlanCoversApi()?.DEFAULT_COVER || "/images/lesson-covers/default.svg";
+  const coverFallbacks = lessonPlanCoverFallbackUrls(featured);
   const planBadge = libraryPlanBadge(featured);
   const ageLabel = String(featured.age || "").trim();
   const locked = !canAccess(featured);
@@ -10563,9 +10639,9 @@ function featuredLessonBannerHtml(items) {
           height="540"
           loading="eager"
           decoding="async"
-          data-cover-fallback="${escapeHtml(fallbackUrl)}"
+          data-cover-fallbacks="${escapeHtml(JSON.stringify(coverFallbacks))}"
           style="object-position:${escapeHtml(coverPosition)}"
-          onerror="if(this.dataset.coverFallback&&this.getAttribute('src')!==this.dataset.coverFallback){this.setAttribute('src',this.dataset.coverFallback);this.onerror=null;}"
+          onerror="handleLessonCoverImageError(this)"
         />
         <div class="library-featured-banner-scrim" aria-hidden="true"></div>
         <span class="browse-card-badge library-featured-banner-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>
@@ -32728,6 +32804,10 @@ async function duplicateAdminLessonPlan(id) {
     activityFocus: record.resource?.activityFocus || record.activityFocus || "",
     tags: Array.isArray(record.resource?.tags) ? record.resource.tags : (Array.isArray(record.tags) ? record.tags : []),
     thumbnailUrl: record.thumbnailUrl || "",
+    coverImageUrl: record.coverImageUrl || record.resource?.coverImageUrl || "",
+    coverImageAlt: record.coverImageAlt || record.resource?.coverImageAlt || "",
+    coverImageSource: record.coverImageSource || record.resource?.coverImageSource || "",
+    coverImagePosition: record.coverImagePosition || record.resource?.coverImagePosition || "center",
     dailyActivities: {
       monday: record.dailyActivities?.monday || "",
       tuesday: record.dailyActivities?.tuesday || "",
@@ -45199,7 +45279,7 @@ document.addEventListener("submit", async (event) => {
   }
 });
 
-document.addEventListener("change", (event) => {
+document.addEventListener("change", async (event) => {
   if (event.target.matches("[data-curriculum-activity-move-day]")) {
     const row = event.target.closest(".curriculum-daily-item-row");
     moveCurriculumDailyPlanRowToDay(row, event.target.value);
@@ -45208,15 +45288,25 @@ document.addEventListener("change", (event) => {
   if (event.target.matches("[data-curriculum-cover-upload]")) {
     const file = event.target.files?.[0];
     if (!file) return;
-    fileToImageDataUrlSafe(file).then((dataUrl) => {
-      if (!dataUrl) {
-        setFormMessage("#adminCurriculumLessonPlanMessage", "Could not read that image. Try a smaller PNG, JPG, or WebP.", false);
-        return;
-      }
-      applyAdminCurriculumCoverSelection(dataUrl, { source: "uploaded" });
-    }).catch(() => {
-      setFormMessage("#adminCurriculumLessonPlanMessage", "Could not upload that cover image.", false);
-    });
+    const input = event.target;
+    input.disabled = true;
+    setFormMessage("#adminCurriculumLessonPlanMessage", "Uploading cover to persistent storage…", true);
+    try {
+      const uploaded = await uploadAdminCurriculumLessonCover(file);
+      applyAdminCurriculumCoverSelection(uploaded.url, { source: "uploaded" });
+      setFormMessage("#adminCurriculumLessonPlanMessage", "Cover uploaded. Save the lesson plan to assign it.", true);
+    } catch (error) {
+      // Do not alter the current cover when upload persistence fails.
+      setFormMessage("#adminCurriculumLessonPlanMessage", error.message || "Could not upload that cover image.", false);
+      input.value = "";
+    } finally {
+      input.disabled = false;
+    }
+    return;
+  }
+  if (event.target.matches('#adminCurriculumLessonPlanForm [name="coverImagePosition"]')) {
+    const preview = document.querySelector("[data-curriculum-cover-preview]");
+    if (preview) preview.style.objectPosition = event.target.value || "center";
     return;
   }
   if (event.target.matches("[data-curriculum-cover-url-input]")) {

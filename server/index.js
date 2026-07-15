@@ -802,6 +802,18 @@ const CURRICULUM_UPLOAD_MIME_TYPES = new Set([
   "image/webp",
   "image/gif",
 ]);
+const MAX_LESSON_COVER_UPLOAD_BYTES = 2 * 1024 * 1024;
+const MAX_LESSON_COVER_UPLOAD_MB = 2;
+const LESSON_COVER_UPLOAD_MIME_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+]);
+
+function sanitizedLessonCoverUrl(value) {
+  const source = sanitizedImageSource(value);
+  return source && !source.startsWith("data:") ? source : "";
+}
 
 function defaultCurriculumStore() {
   return {
@@ -950,11 +962,13 @@ function normalizedCurriculumLessonPlan(value) {
     dailyPlans: normalizedCurriculumDailyPlans(entry.dailyPlans, id),
     activityIds: normalizedList(entry.activityIds, 200, (item) => normalizedShortText(item, 160)).filter(Boolean),
     resourceIds: normalizedList(entry.resourceIds, 200, (item) => normalizedShortText(item, 160)).filter(Boolean),
-    coverImageUrl: sanitizedImageSource(entry.coverImageUrl || entry.thumbnailUrl || ""),
+    // Cover records store URLs only. Uploaded bytes live in llh_media_assets,
+    // never in the lesson-plan JSON or Render's ephemeral filesystem.
+    coverImageUrl: sanitizedLessonCoverUrl(entry.coverImageUrl || entry.thumbnailUrl || ""),
     coverImageAlt: normalizedShortText(entry.coverImageAlt, 240),
     coverImageSource: ["uploaded", "generated", "default", "mapped"].includes(String(entry.coverImageSource || "").trim())
       ? String(entry.coverImageSource).trim()
-      : (sanitizedImageSource(entry.coverImageUrl || entry.thumbnailUrl || "") ? "uploaded" : ""),
+      : (sanitizedLessonCoverUrl(entry.coverImageUrl || entry.thumbnailUrl || "") ? "uploaded" : ""),
     coverImagePosition: normalizedShortText(entry.coverImagePosition, 40) || "center",
     createdAt: normalizedShortText(entry.createdAt, 80),
     updatedAt: normalizedShortText(entry.updatedAt, 80),
@@ -1487,6 +1501,17 @@ function parseCurriculumUploadDataUrl(value) {
   return { mimeType, buffer, fileData };
 }
 
+function parseLessonCoverUploadDataUrl(value) {
+  const text = String(value || "").trim();
+  const match = text.match(/^data:([^;]+);base64,([a-z0-9+/=\s]+)$/i);
+  if (!match) return null;
+  const mimeType = normalizedShortText(match[1], 80).toLowerCase();
+  if (!LESSON_COVER_UPLOAD_MIME_TYPES.has(mimeType)) return null;
+  const buffer = Buffer.from(match[2].replace(/\s+/g, ""), "base64");
+  if (!buffer.length || buffer.length > MAX_LESSON_COVER_UPLOAD_BYTES) return null;
+  return { mimeType, buffer };
+}
+
 function readSiteCurriculum(store) {
   const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
   return siteContent.curriculum || defaultCurriculumStore();
@@ -1872,6 +1897,16 @@ async function initializePostgresStore() {
       id TEXT PRIMARY KEY,
       data JSONB NOT NULL,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await postgresPool.query(`
+    CREATE TABLE IF NOT EXISTS llh_media_assets (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      bytes BYTEA NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
   const result = await postgresPool.query("SELECT data FROM llh_store WHERE id = $1", [storeRecordId]);
@@ -7548,6 +7583,84 @@ async function handleAdminCurriculumResourceUpload(request, response) {
   });
 }
 
+async function handleAdminLessonCoverUpload(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to upload lesson-plan covers." });
+    return;
+  }
+  if (!usePostgresStore() || !postgresPool || !databaseReady) {
+    jsonResponse(response, 503, {
+      error: "Persistent media storage is unavailable. The image was not saved; choose an existing cover or paste a durable HTTPS URL.",
+    });
+    return;
+  }
+  const parsed = parseLessonCoverUploadDataUrl(body.fileData);
+  if (!parsed) {
+    jsonResponse(response, 400, {
+      error: `Use a PNG, JPG, or WebP image no larger than ${MAX_LESSON_COVER_UPLOAD_MB} MB.`,
+    });
+    return;
+  }
+  const id = `lesson-cover-${crypto.randomBytes(16).toString("hex")}`;
+  const fileName = sanitizeCurriculumUploadFileName(body.fileName || "lesson-cover");
+  try {
+    await postgresPool.query(
+      `INSERT INTO llh_media_assets (id, kind, mime_type, file_name, bytes)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [id, "lesson-plan-cover", parsed.mimeType, fileName, parsed.buffer],
+    );
+    jsonResponse(response, 200, {
+      id,
+      url: `/api/media/lesson-covers/${encodeURIComponent(id)}`,
+      mimeType: parsed.mimeType,
+      fileName,
+      persistent: true,
+    });
+  } catch (error) {
+    console.error("[lesson-cover-upload] persistent write failed", error.message);
+    jsonResponse(response, 503, {
+      error: "The cover could not be saved to persistent media storage. The lesson plan was not changed.",
+    });
+  }
+}
+
+async function handleLessonCoverMedia(request, response, assetId) {
+  const id = normalizedShortText(assetId, 120);
+  if (!id || !id.startsWith("lesson-cover-") || !usePostgresStore() || !postgresPool || !databaseReady) {
+    textResponse(response, 404, "Cover not found.");
+    return;
+  }
+  try {
+    const result = await postgresPool.query(
+      `SELECT mime_type, bytes
+       FROM llh_media_assets
+       WHERE id = $1 AND kind = $2
+       LIMIT 1`,
+      [id, "lesson-plan-cover"],
+    );
+    const asset = result.rows[0];
+    if (!asset?.bytes) {
+      textResponse(response, 404, "Cover not found.");
+      return;
+    }
+    response.writeHead(200, {
+      "Content-Type": asset.mime_type,
+      "Content-Length": asset.bytes.length,
+      "Cache-Control": "public, max-age=31536000, immutable",
+      "X-Content-Type-Options": "nosniff",
+    });
+    if (request.method === "HEAD") {
+      response.end();
+      return;
+    }
+    response.end(asset.bytes);
+  } catch (error) {
+    console.error("[lesson-cover-media] read failed", error.message);
+    textResponse(response, 503, "Cover temporarily unavailable.");
+  }
+}
+
 async function handleAdminCurriculumResourceSave(request, response) {
   const body = await readJson(request);
   if (!validAdminToken(body.adminToken || "")) {
@@ -8979,6 +9092,10 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/login") return await handleAdminLogin(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/session") return handleAdminSession(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/site-content") return handlePublicSiteContent(request, response);
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/media/lesson-covers/")) {
+      const assetId = decodeURIComponent(url.pathname.slice("/api/media/lesson-covers/".length));
+      return await handleLessonCoverMedia(request, response, assetId);
+    }
     if (request.method === "GET" && url.pathname.startsWith("/api/curriculum/lesson-plans/")) {
       const planId = decodeURIComponent(url.pathname.slice("/api/curriculum/lesson-plans/".length));
       return await handleCurriculumLessonPlanDetail(request, response, url, planId);
@@ -9039,6 +9156,7 @@ const server = http.createServer(async (request, response) => {
       return await handleAdminCurriculumWipe(request, response);
     }
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans") return await handleAdminCurriculumLessonPlanSave(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-covers/upload") return await handleAdminLessonCoverUpload(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources") return handleAdminCurriculumResourcesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources/file") return handleAdminCurriculumResourceFile(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/curriculum/resources/file") return await handlePublicCurriculumResourceFile(request, response, url);

@@ -123,8 +123,13 @@
   function getMappedThemeCover(title, theme) {
     const haystack = normalizeTheme(`${title || ""} ${theme || ""}`);
     if (!haystack) return "";
+    const paddedHaystack = ` ${haystack} `;
     for (const rule of THEME_COVER_RULES) {
-      if (rule.match.some((phrase) => haystack.includes(normalizeTheme(phrase)))) {
+      if (rule.match.some((phrase) => {
+        const normalizedPhrase = normalizeTheme(phrase);
+        return paddedHaystack.includes(` ${normalizedPhrase} `)
+          || paddedHaystack.includes(` ${normalizedPhrase}s `);
+      })) {
         return coverPath(rule.cover);
       }
     }
@@ -163,7 +168,7 @@
         alt: String(plan.coverImageAlt || entry.coverImageAlt || "").trim()
           || `Illustration for ${theme || title}`,
         source: "mapped",
-        position: "center",
+        position,
       };
     }
     const isCurriculum = Boolean(entry._curriculumManaged || plan.dailyPlans);
@@ -192,6 +197,17 @@
     return resolveLessonPlanCover(planOrResource).alt;
   }
 
+  function resolveLessonPlanCoverFallbacks(planOrResource = {}) {
+    const entry = planOrResource && typeof planOrResource === "object" ? planOrResource : {};
+    const plan = entry._curriculumLessonPlan && typeof entry._curriculumLessonPlan === "object"
+      ? entry._curriculumLessonPlan
+      : entry;
+    const resolved = resolveLessonPlanCover(entry);
+    const mapped = getMappedThemeCover(plan.title || entry.title, plan.theme || entry.theme);
+    const age = getAgeGroupFallback(plan.age || entry.age);
+    return [...new Set([resolved.url, mapped, age, DEFAULT_COVER].filter(Boolean))];
+  }
+
   function shortThemeDescription(planOrResource = {}) {
     const entry = planOrResource && typeof planOrResource === "object" ? planOrResource : {};
     const overview = String(entry.weeklyOverview || entry.description || "").replace(/\s+/g, " ").trim();
@@ -218,6 +234,7 @@
     getAgeGroupFallback,
     resolveLessonPlanCover,
     resolveLessonPlanCoverAlt,
+    resolveLessonPlanCoverFallbacks,
     shortThemeDescription,
   };
 
