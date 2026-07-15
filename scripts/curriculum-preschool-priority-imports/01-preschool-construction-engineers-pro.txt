@@ -1,0 +1,323 @@
+TITLE:
+Construction Engineers
+
+AGE_GROUP:
+Preschool
+
+THEME:
+Construction & Engineering
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science, Physical Development, Creative Arts
+
+WEEKLY_OVERVIEW:
+Children will become construction engineers as they design buildings, test structures, operate construction sites, explore tools, and solve engineering challenges. Through hands-on building experiences and STEM investigations, children will develop creativity, problem-solving, and teamwork skills.
+
+LEARNING_OBJECTIVES:
+• Explore engineering and construction concepts
+• Practice planning and problem-solving
+• Develop measurement and building skills
+• Strengthen teamwork and communication
+• Build fine and gross motor abilities
+
+WEEKLY_MATERIALS:
+Blocks, measuring tapes, toy tools, hard hats, cardboard boxes, blueprints, rulers, clipboards, construction vehicles
+
+VOCABULARY:
+Engineer, Builder, Blueprint, Structure, Measure, Construct, Tool, Foundation, Design, Build
+
+BOOKS:
+Goodnight Goodnight Construction Site
+Mighty Mighty Construction Site
+Roadwork
+Construction Zone
+Diggersaurs
+
+SONGS:
+The Construction Song
+Johnny Works With One Hammer
+Driving in My Truck
+Build It Up
+The Builder Song
+
+FAMILY_CONNECTION:
+Encourage families to identify construction projects in the community and discuss how buildings are made.
+
+OBSERVATION_OPPORTUNITIES:
+Observe problem-solving, teamwork, measuring skills, communication, and creativity during building activities.
+
+ADAPTATIONS:
+Provide larger building materials, visual supports, adaptive tools, peer partnerships, and additional teacher support.
+
+MONDAY
+
+ACTIVITY_NAME:
+Construction Site Setup
+CATEGORY:
+Dramatic Play
+DESCRIPTION:
+Children create a classroom construction site.
+MATERIALS:
+Hard hats, blocks, toy tools
+DIRECTIONS:
+Explore materials.
+Assign construction jobs.
+Set up work zones.
+Discuss safety rules.
+TEACHER_ROLE:
+Introduce construction vocabulary.
+LEARNING_GOALS:
+Communication and imaginative play.
+
+ACTIVITY_NAME:
+Blueprint Drawing
+CATEGORY:
+Art
+DESCRIPTION:
+Children draw plans for a building.
+MATERIALS:
+Blueprint paper, pencils, rulers
+DIRECTIONS:
+Discuss blueprints.
+Draw a building design.
+Label parts.
+TEACHER_ROLE:
+Model planning skills.
+LEARNING_GOALS:
+Engineering thinking and creativity.
+
+ACTIVITY_NAME:
+Construction Story Time
+CATEGORY:
+Literacy
+DESCRIPTION:
+Read a construction-themed story.
+MATERIALS:
+Construction books
+DIRECTIONS:
+Read story.
+Discuss construction vehicles.
+Ask prediction questions.
+TEACHER_ROLE:
+Support literacy development.
+LEARNING_GOALS:
+Listening and comprehension.
+
+TUESDAY
+
+ACTIVITY_NAME:
+Tower Building Challenge
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children build the tallest tower possible.
+MATERIALS:
+Blocks
+DIRECTIONS:
+Build tower.
+Measure height.
+Compare structures.
+TEACHER_ROLE:
+Guide engineering discussions.
+LEARNING_GOALS:
+Problem-solving and measurement.
+
+ACTIVITY_NAME:
+Dump Truck Relay
+CATEGORY:
+Gross Motor
+DESCRIPTION:
+Children transport building materials.
+MATERIALS:
+Buckets, blocks
+DIRECTIONS:
+Collect materials.
+Deliver to construction zone.
+Repeat challenge.
+TEACHER_ROLE:
+Encourage teamwork.
+LEARNING_GOALS:
+Coordination and cooperation.
+
+ACTIVITY_NAME:
+Tool Exploration
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children investigate construction tools.
+MATERIALS:
+Toy tools
+DIRECTIONS:
+Observe tools.
+Discuss uses.
+Compare functions.
+TEACHER_ROLE:
+Introduce tool safety.
+LEARNING_GOALS:
+Observation and vocabulary.
+
+WEDNESDAY
+
+ACTIVITY_NAME:
+Bridge Engineering Challenge
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children build bridges that support weight.
+MATERIALS:
+Blocks, cardboard
+DIRECTIONS:
+Design bridge.
+Test strength.
+Improve design.
+TEACHER_ROLE:
+Support experimentation.
+LEARNING_GOALS:
+Engineering and critical thinking.
+
+ACTIVITY_NAME:
+Measure the Building
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children measure classroom structures.
+MATERIALS:
+Measuring tapes
+DIRECTIONS:
+Measure structures.
+Record findings.
+Compare results.
+TEACHER_ROLE:
+Support measurement skills.
+LEARNING_GOALS:
+Math and data collection.
+
+ACTIVITY_NAME:
+Builder Journal
+CATEGORY:
+Literacy
+DESCRIPTION:
+Children document building projects.
+MATERIALS:
+Paper, pencils
+DIRECTIONS:
+Draw project.
+Add labels.
+Share observations.
+TEACHER_ROLE:
+Support communication.
+LEARNING_GOALS:
+Early writing and reflection.
+
+THURSDAY
+
+ACTIVITY_NAME:
+Road Construction Lab
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Children design roads for vehicles.
+MATERIALS:
+Tape, toy vehicles
+DIRECTIONS:
+Create roads.
+Test vehicle routes.
+Improve designs.
+TEACHER_ROLE:
+Guide problem-solving.
+LEARNING_GOALS:
+Planning and engineering.
+
+ACTIVITY_NAME:
+Construction Vehicle Sorting
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children sort vehicles by purpose.
+MATERIALS:
+Vehicle cards
+DIRECTIONS:
+Identify vehicles.
+Sort into groups.
+Discuss jobs.
+TEACHER_ROLE:
+Support classification.
+LEARNING_GOALS:
+Vocabulary and reasoning.
+
+ACTIVITY_NAME:
+Builder Dance Break
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Children move like construction workers.
+MATERIALS:
+Music player
+DIRECTIONS:
+Follow movements.
+Pretend to build.
+Dance together.
+TEACHER_ROLE:
+Lead movement activity.
+LEARNING_GOALS:
+Gross motor development.
+
+FRIDAY
+
+ACTIVITY_NAME:
+Ultimate Construction Project
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Children work together to build a classroom city.
+MATERIALS:
+Blocks, boxes, vehicles
+DIRECTIONS:
+Plan city.
+Build structures.
+Connect roads.
+Present creations.
+TEACHER_ROLE:
+Facilitate teamwork.
+LEARNING_GOALS:
+Collaboration and engineering.
+
+ACTIVITY_NAME:
+Junior Engineer Showcase
+CATEGORY:
+Dramatic Play
+DESCRIPTION:
+Children present their construction projects.
+MATERIALS:
+Projects, clipboards
+DIRECTIONS:
+Present project.
+Explain design.
+Answer questions.
+TEACHER_ROLE:
+Encourage communication.
+LEARNING_GOALS:
+Confidence and presentation skills.
+
+ACTIVITY_NAME:
+Construction Engineers Celebration Circle
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Review favorite building projects and discoveries.
+MATERIALS:
+Photos, journals, projects
+DIRECTIONS:
+Share favorite activities.
+Review vocabulary.
+Celebrate learning.
+TEACHER_ROLE:
+Lead reflection.
+LEARNING_GOALS:
+Communication and social participation.
