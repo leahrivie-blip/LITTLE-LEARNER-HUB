@@ -35,6 +35,8 @@ test("Documentation Helpers page is helper-first, not AI-first", () => {
   const section = html.slice(start, end);
   assert.match(section, /<h2>Documentation Helpers<\/h2>/);
   assert.match(section, /Turn quick classroom notes into professional childcare documentation in seconds/);
+  assert.match(section, /Who is this for\?/);
+  assert.match(section, /id="docHelperChild"/);
   assert.match(section, /Most Used/);
   assert.match(section, /What do you want to create today\?/);
   assert.match(section, /class="doc-helper-card"/);

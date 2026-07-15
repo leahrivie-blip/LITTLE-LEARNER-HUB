@@ -35,11 +35,11 @@ test("app keeps generated content on page after save and supports create another
   assert.match(appJs, /function resetDocHelperResultsPanel/);
   assert.match(appJs, /function openDocHelperSavedChild/);
   assert.match(appJs, /Save to Child Profile/);
-  assert.match(appJs, /Choose a child in Step 1 before saving/);
-  assert.doesNotMatch(
-    appJs.slice(appJs.indexOf("const docHelperSaveBtn = event.target.closest(\"#docHelperSaveBtn\")"), appJs.indexOf("const docHelperSaveBtn = event.target.closest(\"#docHelperSaveBtn\")") + 2500),
-    /setView\(config\.view\);/
-  );
+    assert.match(appJs, /Choose a child above before saving/);
+    assert.doesNotMatch(
+      appJs.slice(appJs.indexOf("const docHelperSaveBtn = event.target.closest(\"#docHelperSaveBtn\")"), appJs.indexOf("const docHelperSaveBtn = event.target.closest(\"#docHelperSaveBtn\")") + 2500),
+      /setView\(config\.view\);/
+    );
 });
 
 if (!process.exitCode) {

@@ -53,11 +53,13 @@ async function run() {
         const searchStyle = search ? getComputedStyle(search) : null;
         const compose = document.querySelector("#docHelperCompose");
         const usage = document.querySelector("#aiUsagePanel");
+        const childPicker = document.querySelector("#docHelperChild");
         const firstCard = cards[0];
         const firstRect = firstCard?.getBoundingClientRect();
         return {
           title: view?.querySelector("h2")?.textContent?.trim() || "",
           description: view?.querySelector(".doc-helpers-page-title p")?.textContent?.trim() || "",
+          hasChildPicker: Boolean(childPicker),
           mostUsedCount: mostUsed.length,
           cardCount: cards.length,
           cardTypes: cards.map((card) => card.dataset.quickDocType),
@@ -74,6 +76,7 @@ async function run() {
 
       assert.equal(state.title, "Documentation Helpers");
       assert.match(state.description, /Turn quick classroom notes/);
+      assert.equal(state.hasChildPicker, true);
       assert.equal(state.mostUsedCount, 3);
       assert.deepEqual(state.mostUsedTypes, ["observation", "parent-message", "daily-log"]);
       assert.equal(state.cardCount, 7);

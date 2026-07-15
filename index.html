@@ -700,6 +700,15 @@
             <p>Turn quick classroom notes into professional childcare documentation in seconds.</p>
           </div>
 
+          <section class="doc-helpers-child-step" aria-label="Select a child">
+            <label class="doc-helpers-child-picker">
+              <span class="doc-helpers-section-heading">Who is this for? <span class="doc-helpers-optional-label">(optional)</span></span>
+              <select name="childId" id="docHelperChild">
+                <option value="">All Children</option>
+              </select>
+            </label>
+          </section>
+
           <section class="doc-helpers-most-used" aria-label="Most used helpers">
             <h3 class="doc-helpers-section-heading">Most Used</h3>
             <div class="doc-helpers-card-list doc-helpers-card-list-compact">
@@ -765,15 +774,10 @@
           <section id="docHelperCompose" class="doc-helpers-compose" hidden>
             <form id="docHelperForm" class="panel-form doc-helpers-form">
               <div class="doc-helpers-compose-header">
-                <p class="eyebrow">Create</p>
+                <p class="eyebrow">Quick notes</p>
                 <h3 id="docHelperComposeTitle">Documentation</h3>
-                <p class="muted-copy">Optionally choose a child, add a quick note, then review before saving.</p>
+                <p class="muted-copy" id="docHelperComposeHint">Add a quick note, generate documentation, then review before saving.</p>
               </div>
-              <label>Child <span class="doc-helpers-optional-label">(optional)</span>
-                <select name="childId" id="docHelperChild">
-                  <option value="">All Children</option>
-                </select>
-              </label>
               <label class="doc-helpers-type-label">Document type
                 <select name="docType" id="docHelperType">
                   <option value="observation">Observation</option>
@@ -785,7 +789,7 @@
                   <option value="activity-idea">Activity Idea</option>
                 </select>
               </label>
-              <label>Quick notes
+              <label>Your note
                 <textarea name="note" id="docHelperNote" rows="4" placeholder="Liam counted to ten while building with blocks."></textarea>
               </label>
               <p class="form-note">Keep it simple. One or two sentences are enough. You can edit the result before saving.</p>

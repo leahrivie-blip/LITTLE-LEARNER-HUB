@@ -414,6 +414,19 @@ function resetDocHelperResultsPanel() {
   if (typeSelect?.value) selectDocHelperType(typeSelect.value, { focusNote: true, scroll: true });
 }
 
+function updateDocHelperComposeHint() {
+  const hint = document.querySelector("#docHelperComposeHint");
+  if (!hint) return;
+  const childSelect = document.querySelector("#docHelperChild");
+  const childId = childSelect?.value || "";
+  const childName = childSelect?.selectedOptions?.[0]?.textContent?.trim() || "";
+  if (childId && childName && childName !== "All Children") {
+    hint.textContent = `Writing for ${childName}. Add a quick note, generate documentation, then review before saving.`;
+    return;
+  }
+  hint.textContent = "Add a quick note, generate documentation, then review before saving.";
+}
+
 function selectDocHelperType(docType, options = {}) {
   const resolvedType = docHelperToolMap[docType] ? docType : "observation";
   selectedDocHelperType = resolvedType;
@@ -427,6 +440,7 @@ function selectDocHelperType(docType, options = {}) {
   });
   if (compose) compose.hidden = false;
   if (title) title.textContent = label;
+  updateDocHelperComposeHint();
   if (options.scroll !== false) {
     compose?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -19968,9 +19982,14 @@ function renderAiPage() {
   const childSelect = document.querySelector("#docHelperChild");
   if (childSelect) {
     const records = childRecords();
+    const preferredChildId = childSelect.value || selectedChildId || "";
     childSelect.innerHTML = `<option value="">All Children</option>` +
       records.children.map((child) => `<option value="${escapeHtml(child.id)}">${escapeHtml(child.name)}</option>`).join("");
+    if (preferredChildId && records.children.some((child) => child.id === preferredChildId)) {
+      childSelect.value = preferredChildId;
+    }
   }
+  updateDocHelperComposeHint();
   if (pendingAiDocType) {
     const nextType = pendingAiDocType;
     pendingAiDocType = "";
@@ -41224,7 +41243,7 @@ document.addEventListener("click", async (event) => {
     if (!text || text === "Generating..." || text === "Creating your document…") return;
     const config = docHelperSaveConfig[docType] || { key: "Reports", view: "children", childTab: "overview", label: "documentation" };
     if (config.key && !childId) {
-      window.alert("Choose a child in Step 1 before saving to a child profile.");
+      window.alert("Choose a child above before saving to a child profile.");
       document.querySelector("#docHelperChild")?.focus();
       return;
     }
@@ -43108,6 +43127,14 @@ document.querySelector("#aiChatForm")?.addEventListener("submit", async (event) 
   }
 });
 
+document.addEventListener("change", (event) => {
+  if (!event.target.matches("#docHelperChild")) return;
+  selectedChildId = event.target.value || "";
+  if (selectedChildId) localStorage.setItem("llhSelectedChild", selectedChildId);
+  else localStorage.removeItem("llhSelectedChild");
+  updateDocHelperComposeHint();
+});
+
 document.addEventListener("submit", async (event) => {
   if (!event.target.matches("#docHelperForm")) return;
   event.preventDefault();
@@ -43117,7 +43144,7 @@ document.addEventListener("submit", async (event) => {
   // Prevent duplicate submissions
   if (submitBtn && submitBtn.disabled) return;
 
-  const childId = form.querySelector("#docHelperChild")?.value || "";
+  const childId = form.querySelector("#docHelperChild")?.value || document.querySelector("#docHelperChild")?.value || "";
   const docType = form.querySelector("#docHelperType")?.value || "observation";
   const note = form.querySelector("#docHelperNote")?.value.trim() || "";
   if (!note) return;
