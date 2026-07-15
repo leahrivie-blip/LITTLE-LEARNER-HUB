@@ -1,0 +1,324 @@
+TITLE:
+New Year's Celebration
+
+AGE_GROUP:
+Infant
+
+THEME:
+New Year's
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development, Creative Arts
+
+WEEKLY_OVERVIEW:
+Infants will celebrate the New Year through sensory exploration, music, movement, colorful experiences, and social interaction. Activities focus on sparkling colors, counting down, festive sounds, and welcoming a new year while supporting developmental growth.
+
+LEARNING_OBJECTIVES:
+• Explore new colors, sounds, and textures
+• Strengthen sensory exploration skills
+• Encourage social interaction and engagement
+• Support language development through songs and stories
+• Develop fine and gross motor skills through age-appropriate activities
+
+WEEKLY_MATERIALS:
+Metallic scarves, ribbons, mirrors, sensory bags, musical instruments, soft stars, shiny pom-poms, books, bubbles
+
+VOCABULARY:
+New Year, Celebrate, Sparkle, Star, Count, Party, Happy, Friends, Music, Shine
+
+BOOKS:
+Happy New Year, Spot!
+Squirrel's New Year's Resolution
+Baby's First New Year
+Happy New Year Everywhere
+The Night Before New Year's
+
+SONGS:
+If You're Happy and You Know It
+Twinkle Twinkle Little Star
+The Countdown Song
+Celebrate Together
+Happy New Year Song
+
+FAMILY_CONNECTION:
+Encourage families to talk about celebrations, special traditions, and new experiences. Share photos of classroom New Year's activities throughout the week.
+
+OBSERVATION_OPPORTUNITIES:
+Observe sensory preferences, visual tracking, language development, social engagement, and participation during group activities.
+
+ADAPTATIONS:
+Provide larger sensory materials for younger infants. Offer seated support during movement activities. Modify sensory experiences based on individual developmental needs.
+
+MONDAY
+
+ACTIVITY_NAME:
+Sparkle Scarf Exploration
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants explore shiny scarves and colorful materials.
+MATERIALS:
+Metallic scarves
+DIRECTIONS:
+Place scarves within reach.
+Encourage touching and grasping.
+Describe colors and textures.
+Allow free exploration.
+TEACHER_ROLE:
+Model descriptive language and encourage exploration.
+LEARNING_GOALS:
+Sensory awareness and fine motor development.
+
+ACTIVITY_NAME:
+Shiny Scarf Dance
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Infants watch sparkling scarves move to music.
+MATERIALS:
+Scarves, music player
+DIRECTIONS:
+Play music.
+Move scarves gently.
+Encourage visual tracking.
+TEACHER_ROLE:
+Lead movement and engagement.
+LEARNING_GOALS:
+Visual tracking and auditory awareness.
+
+ACTIVITY_NAME:
+New Year Story Time
+CATEGORY:
+Literacy
+DESCRIPTION:
+Infants listen to a simple New Year's story.
+MATERIALS:
+Board books
+DIRECTIONS:
+Read story aloud.
+Point to pictures.
+Name celebration items.
+TEACHER_ROLE:
+Support language development.
+LEARNING_GOALS:
+Early literacy and vocabulary exposure.
+
+TUESDAY
+
+ACTIVITY_NAME:
+Star Touch & Explore
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants explore soft star shapes through touch and observation.
+MATERIALS:
+Soft stars
+DIRECTIONS:
+Present stars.
+Encourage touching.
+Describe shapes and textures.
+TEACHER_ROLE:
+Guide sensory exploration.
+LEARNING_GOALS:
+Tactile awareness and sensory development.
+
+ACTIVITY_NAME:
+Reach for the Stars
+CATEGORY:
+Fine Motor
+DESCRIPTION:
+Infants practice reaching for and grasping soft stars.
+MATERIALS:
+Soft stars
+DIRECTIONS:
+Place stars nearby.
+Encourage reaching.
+Support grasping attempts.
+TEACHER_ROLE:
+Encourage fine motor development.
+LEARNING_GOALS:
+Hand-eye coordination and grasping skills.
+
+ACTIVITY_NAME:
+Star Song Circle
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Infants participate in songs about stars and celebrations.
+MATERIALS:
+Music player
+DIRECTIONS:
+Play songs.
+Encourage movement.
+Repeat favorite songs.
+TEACHER_ROLE:
+Lead participation.
+LEARNING_GOALS:
+Social engagement and auditory development.
+
+WEDNESDAY
+
+ACTIVITY_NAME:
+Mirror Celebration Faces
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Infants explore reflections and facial expressions.
+MATERIALS:
+Baby-safe mirrors
+DIRECTIONS:
+Position mirrors safely.
+Encourage looking.
+Model happy expressions.
+TEACHER_ROLE:
+Support social interaction.
+LEARNING_GOALS:
+Social-emotional development.
+
+ACTIVITY_NAME:
+Bubble Countdown Fun
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Infants watch bubbles while practicing simple counting.
+MATERIALS:
+Bubbles
+DIRECTIONS:
+Blow bubbles.
+Count aloud.
+Encourage watching and reaching.
+TEACHER_ROLE:
+Model counting and excitement.
+LEARNING_GOALS:
+Visual tracking and language exposure.
+
+ACTIVITY_NAME:
+Celebration Story Time
+CATEGORY:
+Literacy
+DESCRIPTION:
+Infants enjoy a story about celebrations and friendship.
+MATERIALS:
+Board books
+DIRECTIONS:
+Read story aloud.
+Point to pictures.
+Repeat key vocabulary.
+TEACHER_ROLE:
+Support language development.
+LEARNING_GOALS:
+Vocabulary and literacy exposure.
+
+THURSDAY
+
+ACTIVITY_NAME:
+New Year Sensory Bag
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants explore a sensory bag filled with shiny materials.
+MATERIALS:
+Sealed sensory bag, pom-poms, ribbons
+DIRECTIONS:
+Place bag on floor.
+Encourage pressing and touching.
+Describe materials.
+TEACHER_ROLE:
+Guide sensory exploration.
+LEARNING_GOALS:
+Tactile exploration and sensory awareness.
+
+ACTIVITY_NAME:
+Ribbon Watch & Explore
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Infants watch colorful ribbons move and sparkle.
+MATERIALS:
+Ribbons
+DIRECTIONS:
+Move ribbons slowly.
+Encourage visual tracking.
+Describe colors and movement.
+TEACHER_ROLE:
+Support observation and engagement.
+LEARNING_GOALS:
+Visual tracking and attention.
+
+ACTIVITY_NAME:
+Party Music Time
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Infants explore rhythm and movement through festive music.
+MATERIALS:
+Music player, shakers
+DIRECTIONS:
+Play music.
+Shake instruments.
+Encourage movement.
+TEACHER_ROLE:
+Lead music experience.
+LEARNING_GOALS:
+Auditory awareness and coordination.
+
+FRIDAY
+
+ACTIVITY_NAME:
+New Year Celebration Circle
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Infants celebrate the week's experiences through songs, stories, and social interaction.
+MATERIALS:
+Books, music player
+DIRECTIONS:
+Gather together.
+Read a favorite story.
+Sing songs.
+Celebrate participation.
+TEACHER_ROLE:
+Lead group experience.
+LEARNING_GOALS:
+Social participation and listening skills.
+
+ACTIVITY_NAME:
+Sparkle Discovery Basket
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants explore shiny materials and colorful objects.
+MATERIALS:
+Sparkly scarves, ribbons, stars
+DIRECTIONS:
+Present materials.
+Encourage touching and exploring.
+Name colors and textures.
+TEACHER_ROLE:
+Guide sensory exploration.
+LEARNING_GOALS:
+Sensory development and curiosity.
+
+ACTIVITY_NAME:
+Happy New Year Dance Party
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Infants enjoy a festive New Year's dance party with music and movement.
+MATERIALS:
+Music player
+DIRECTIONS:
+Play music.
+Dance together.
+Encourage movement and smiles.
+Celebrate participation.
+TEACHER_ROLE:
+Create a joyful and engaging atmosphere.
+LEARNING_GOALS:
+Movement, social engagement, and auditory development.

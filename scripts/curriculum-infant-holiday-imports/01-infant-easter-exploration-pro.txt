@@ -1,0 +1,324 @@
+TITLE:
+Easter Exploration
+
+AGE_GROUP:
+Infant
+
+THEME:
+Easter
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development, Creative Arts
+
+WEEKLY_OVERVIEW:
+Infants will explore Easter through colorful sensory experiences, spring-themed activities, music, movement, and hands-on discovery. Activities focus on baby chicks, bunnies, eggs, spring colors, and sensory exploration while supporting developmental growth.
+
+LEARNING_OBJECTIVES:
+• Explore spring colors and textures
+• Strengthen sensory exploration skills
+• Encourage visual tracking and engagement
+• Support language development through songs and stories
+• Develop fine and gross motor skills through age-appropriate activities
+
+WEEKLY_MATERIALS:
+Plastic eggs, soft bunnies, chick toys, pastel scarves, sensory bags, mirrors, musical instruments, ribbons, Easter books
+
+VOCABULARY:
+Easter, Bunny, Egg, Chick, Basket, Spring, Hop, Yellow, Pink, Blue
+
+BOOKS:
+Baby's First Easter
+Llama Llama Easter Egg
+Happy Easter Mouse
+You're My Little Bunny
+Peek-a-Boo Bunny
+
+SONGS:
+Here Comes Peter Cottontail
+Bunny Hop Song
+Five Little Easter Eggs
+The Easter Bunny Song
+Spring Is Here
+
+FAMILY_CONNECTION:
+Encourage families to talk about Easter traditions, springtime changes, and colorful decorations. Share photos of classroom Easter activities throughout the week.
+
+OBSERVATION_OPPORTUNITIES:
+Observe sensory preferences, visual tracking, social engagement, language development, and participation during music and movement experiences.
+
+ADAPTATIONS:
+Provide larger sensory materials for younger infants. Offer seated support during movement activities. Modify sensory experiences based on individual needs and preferences.
+
+MONDAY
+
+ACTIVITY_NAME:
+Pastel Color Exploration
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants explore soft pastel-colored materials through touch and sight.
+MATERIALS:
+Pastel scarves, fabric squares
+DIRECTIONS:
+Place materials within reach.
+Encourage touching and grasping.
+Describe colors and textures.
+Allow free exploration.
+TEACHER_ROLE:
+Model language and sensory exploration.
+LEARNING_GOALS:
+Sensory awareness and color recognition.
+
+ACTIVITY_NAME:
+Pastel Scarf Dance
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Infants watch and interact with colorful scarves moving to music.
+MATERIALS:
+Pastel scarves, music player
+DIRECTIONS:
+Play music.
+Move scarves gently.
+Encourage visual tracking.
+TEACHER_ROLE:
+Lead movement and engagement.
+LEARNING_GOALS:
+Visual tracking and auditory awareness.
+
+ACTIVITY_NAME:
+Easter Story Time
+CATEGORY:
+Literacy
+DESCRIPTION:
+Infants listen to a simple Easter story.
+MATERIALS:
+Easter board books
+DIRECTIONS:
+Read story aloud.
+Point to pictures.
+Name Easter objects.
+TEACHER_ROLE:
+Support language development.
+LEARNING_GOALS:
+Early literacy and vocabulary development.
+
+TUESDAY
+
+ACTIVITY_NAME:
+Soft Bunny Exploration
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants explore soft bunny toys through touch and observation.
+MATERIALS:
+Stuffed bunnies
+DIRECTIONS:
+Present bunny toys.
+Encourage touching.
+Describe features and textures.
+TEACHER_ROLE:
+Guide sensory exploration.
+LEARNING_GOALS:
+Sensory awareness and vocabulary exposure.
+
+ACTIVITY_NAME:
+Bunny Hop Movement
+CATEGORY:
+Gross Motor
+DESCRIPTION:
+Infants participate in simple bunny-inspired movements.
+MATERIALS:
+Stuffed bunny
+DIRECTIONS:
+Demonstrate gentle hopping motions.
+Assist infant movement.
+Encourage participation.
+TEACHER_ROLE:
+Support movement and interaction.
+LEARNING_GOALS:
+Gross motor development.
+
+ACTIVITY_NAME:
+Bunny Song Circle
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Infants participate in bunny-themed songs and movement.
+MATERIALS:
+Music player
+DIRECTIONS:
+Play bunny songs.
+Encourage movement.
+Repeat favorite songs.
+TEACHER_ROLE:
+Lead participation.
+LEARNING_GOALS:
+Social engagement and auditory development.
+
+WEDNESDAY
+
+ACTIVITY_NAME:
+Egg Roll & Watch
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Infants watch colorful eggs roll across the floor.
+MATERIALS:
+Large plastic eggs
+DIRECTIONS:
+Roll eggs slowly.
+Encourage visual tracking.
+Repeat in different directions.
+TEACHER_ROLE:
+Encourage observation and engagement.
+LEARNING_GOALS:
+Visual tracking and attention.
+
+ACTIVITY_NAME:
+Egg Touch & Feel
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants explore smooth Easter eggs through touch.
+MATERIALS:
+Large plastic eggs
+DIRECTIONS:
+Present eggs safely.
+Encourage touching and holding.
+Describe colors and shapes.
+TEACHER_ROLE:
+Support sensory exploration.
+LEARNING_GOALS:
+Sensory awareness and fine motor development.
+
+ACTIVITY_NAME:
+Egg Story Time
+CATEGORY:
+Literacy
+DESCRIPTION:
+Infants enjoy an Easter-themed story featuring eggs and springtime.
+MATERIALS:
+Easter books
+DIRECTIONS:
+Read story aloud.
+Point to pictures.
+Repeat vocabulary words.
+TEACHER_ROLE:
+Support language development.
+LEARNING_GOALS:
+Vocabulary and literacy exposure.
+
+THURSDAY
+
+ACTIVITY_NAME:
+Spring Sensory Bag
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants explore a spring-themed sensory bag.
+MATERIALS:
+Sealed sensory bag, pastel pom-poms, ribbons
+DIRECTIONS:
+Place bag on floor.
+Encourage pressing and touching.
+Describe colors and textures.
+TEACHER_ROLE:
+Guide sensory exploration.
+LEARNING_GOALS:
+Tactile exploration and sensory awareness.
+
+ACTIVITY_NAME:
+Chick Watch & Explore
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Infants observe soft chick toys and explore their features.
+MATERIALS:
+Stuffed chicks
+DIRECTIONS:
+Present chick toys.
+Encourage touching.
+Name colors and features.
+TEACHER_ROLE:
+Support language development.
+LEARNING_GOALS:
+Observation and vocabulary development.
+
+ACTIVITY_NAME:
+Spring Music Time
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Infants move and listen to spring-themed songs.
+MATERIALS:
+Music player, shakers
+DIRECTIONS:
+Play music.
+Shake instruments.
+Encourage movement.
+TEACHER_ROLE:
+Lead music experience.
+LEARNING_GOALS:
+Auditory awareness and coordination.
+
+FRIDAY
+
+ACTIVITY_NAME:
+Easter Celebration Circle
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Infants celebrate Easter through songs, stories, and group interaction.
+MATERIALS:
+Books, music player
+DIRECTIONS:
+Gather together.
+Read a favorite Easter story.
+Sing songs.
+Celebrate participation.
+TEACHER_ROLE:
+Lead group experience.
+LEARNING_GOALS:
+Social participation and listening skills.
+
+ACTIVITY_NAME:
+Basket Discovery
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Infants explore Easter baskets and colorful materials.
+MATERIALS:
+Small baskets, scarves
+DIRECTIONS:
+Present baskets.
+Encourage touching and exploring.
+Describe colors and textures.
+TEACHER_ROLE:
+Guide exploration and language.
+LEARNING_GOALS:
+Sensory development and curiosity.
+
+ACTIVITY_NAME:
+Easter Dance Party
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Infants enjoy a festive Easter dance party.
+MATERIALS:
+Music player
+DIRECTIONS:
+Play music.
+Dance together.
+Encourage movement and smiles.
+Celebrate participation.
+TEACHER_ROLE:
+Create a joyful atmosphere.
+LEARNING_GOALS:
+Movement, social engagement, and auditory development.
