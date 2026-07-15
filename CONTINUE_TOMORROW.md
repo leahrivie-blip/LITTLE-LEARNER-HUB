@@ -1,81 +1,96 @@
-# Little Learner Hub - Continue Tomorrow
+# Handoff: Lesson Plan Functionality Audit
 
-Last updated: July 11, 2026
-
-## Curriculum Calendar (parked)
-
-Calendar project is **complete through F3**. Future calendar work is documented in:
-
-**[`CURRICULUM_CALENDAR_ROADMAP.md`](./CURRICULUM_CALENDAR_ROADMAP.md)**
-
-Resume order when ready: cloud planner storage → Family Hub → F4 parent sharing. Do not start F4 until approved.
+**Date:** 2026-07-15  
+**Branch:** `cursor/lesson-plan-functionality-audit-165d` (created from latest `main`)  
+**Status:** Navigation rebuild merged. Lesson Plan audit **not started yet** — ready for next agent.
 
 ---
 
-## Current Local Preview
+## Just completed (merged to main)
 
-Desktop:
-http://localhost:4178
+1. **PR #208** — Documentation Helpers simplified + child-centered flow  
+2. **PR #209** — Navigation & sidebar rebuild  
+   - Sidebar: Calendar → Lesson Plans → Activities → Documentation Center → Child Profiles → Behavior & Support → Settings → Director Center (Coming Soon)  
+   - Post-login landing = **Calendar**  
+   - Hidden (not deleted): Dashboard, Daily Logs, Forms & Enrollment, Reports, Resources  
 
-Phone on the same Wi-Fi/hotspot:
-http://172.20.10.3:4178
+---
 
-If the phone link stops working tomorrow, restart the local server from this folder:
+## Next agent task (do this next)
 
-```bash
-python3 -m http.server 4178 --bind 0.0.0.0
-```
+**STOP ALL LESSON PLAN UI/DESIGN CHANGES.**
 
-## What Was Completed
+Critical priority: full audit + repair of Lesson Plan **functionality only**.
 
-- Built the website-style homepage content.
-- Added the Founding Member homepage offer.
-- Set public founding count to 15 of 50 filled, 35 left.
-- Added Preview Library on the homepage.
-- Added Why Providers Love Little Learner Hub section.
-- Added What's Inside Pro section.
-- Added Free Daycare Starter Pack lead capture.
-- Added protected private Admin area.
-- Added private Admin analytics for page views, signups, checkout starts, conversions, leads, and ad routes.
-- Expanded the AI generator suite.
-- Added AI output actions: edit, copy, save, download, print, regenerate, and save to library.
-- Added/verified Free vs Pro AI limits.
-- Added legal, FAQ, contact, support tickets, billing mock flow, child management, and resource libraries.
+### Verify / fix
 
-## Latest QA Status
+- Lesson Plan Library loads correctly  
+- Lesson Plan cards are clickable  
+- Preview buttons work  
+- View Lesson Plan works  
+- Use This Plan works  
+- Assign To Calendar works  
+- Add To Calendar works  
+- Back buttons work  
+- Print works  
+- Download works  
+- Mobile navigation works  
+- Desktop navigation works  
+- Search works  
+- Filters work  
+- Free/Pro permissions work  
+- Founding Member permissions work  
+- Login redirects work  
+- Calendar integration works  
 
-Full browser QA passed with:
+### Rules
 
-```text
-issues: []
-```
+- Do **not** redesign anything  
+- Identify every broken button, link, route, click action, redirect, modal, and workflow in Lesson Plans  
+- Repair them  
+- Test on **mobile and desktop**  
 
-The last QA checked:
+### Deliverable report
 
-- Desktop, tablet, and mobile views
-- Navigation
-- Homepage sections
-- Founding Member offer
-- Lead capture
-- Protected Admin unlock
-- Private analytics
-- Support tickets
-- Billing mock flow
-- Free vs Pro permissions
-- Child profiles and portfolios
-- Attendance, support plans, daily reports, parent communication
-- All AI generators
-- AI save/download/edit/regenerate/save-to-library actions
+1. What was broken  
+2. What was fixed  
+3. What still needs attention  
 
-## Important Next Steps
+Do not continue feature development until Lesson Plans are fully functional and tested.
 
-1. Keep polishing the website for launch.
-2. Add real backend accounts and secure database.
-3. Connect real Stripe Checkout, Customer Portal, and webhooks.
-4. Add real email delivery for welcome emails, password reset, starter pack, support tickets, and billing notices.
-5. Move private analytics/admin data from local storage to a secure backend before public launch.
-6. When the website is stable, package as a mobile-friendly app/PWA, then plan Apple App Store submission.
+---
 
-## Admin Login
+## Suggested starting points
 
-Admin login should be configured with `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `ADMIN_ACCESS_CODE` in the backend `.env` file. Do not place real admin credentials in browser JavaScript.
+- Branch already exists: `cursor/lesson-plan-functionality-audit-165d`  
+- Key files: `app.js`, `index.html`, `styles.css`  
+- Existing tests (run these first):  
+  - `npm run test:lesson-library-phase2`  
+  - `npm run test:lesson-library-cards`  
+  - `npm run test:lesson-viewer-workspace`  
+  - `npm run test:lesson-use-this-plan`  
+  - `npm run test:lesson-library-mobile-qa`  
+  - `npm run test:assign-workflow-polish`  
+  - `npm run test:calendar-week-hub` (if present)  
+- Related docs already in repo: `LESSON_LIBRARY_*`, `FINAL_OWNER_REVIEW_LESSON_LIBRARY.md`  
+
+## Boot tips
+
+- Static serve: `python3 -m http.server 4173`  
+- Playwright is in `devDependencies` (`npm install` if needed)  
+- Cache-bust script tag currently: `app.js?v=20260715-nav-rebuild`  
+
+---
+
+## After Lesson Plans are healthy
+
+Owner wants section-by-section redesign later, one at a time:
+
+1. Calendar  
+2. Lesson Plans  
+3. Activities  
+4. Documentation Center  
+5. Child Profiles  
+6. Behavior & Support  
+7. Settings  
+8. Director Center  
