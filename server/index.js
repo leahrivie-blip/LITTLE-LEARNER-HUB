@@ -1148,29 +1148,13 @@ function authorizedCurriculumDailyPlansDto(dailyPlans) {
 function publicCurriculumLessonPlanPreviewDto(plan) {
   const entry = normalizedCurriculumLessonPlan(plan);
   if (!entry || !isCurriculumLessonPublic(entry.status) || entry.plan !== "Pro") return null;
-  const dailyActivityPreview = {};
+  // Public Pro teaser: overview metadata only. Do not ship objectives, materials,
+  // vocabulary, books, songs, or activity names — those unlock with paid access.
   let activityCount = 0;
   CURRICULUM_WEEKDAYS.forEach((day) => {
     const items = Array.isArray(entry.dailyPlans?.[day]?.items) ? entry.dailyPlans[day].items : [];
-    const titles = items
-      .map((item) => String(item?.title || "").trim())
-      .filter(Boolean)
-      .slice(0, 8);
-    if (!titles.length) return;
-    dailyActivityPreview[day] = titles.map((title) => ({ title, locked: true }));
-    activityCount += titles.length;
+    activityCount += items.filter((item) => String(item?.title || "").trim()).length;
   });
-  const books = (Array.isArray(entry.books) ? entry.books : [])
-    .map((book) => ({
-      title: String(book?.title || "").trim(),
-      author: String(book?.author || "").trim(),
-    }))
-    .filter((book) => book.title)
-    .slice(0, 8);
-  const songs = (Array.isArray(entry.songs) ? entry.songs : [])
-    .map((song) => ({ title: String(song?.title || "").trim() }))
-    .filter((song) => song.title)
-    .slice(0, 8);
   return {
     id: entry.id,
     title: entry.title,
@@ -1181,12 +1165,6 @@ function publicCurriculumLessonPlanPreviewDto(plan) {
     locked: true,
     learningDomains: entry.learningDomains.slice(0, 6),
     weeklyOverview: curriculumTextExcerpt(entry.weeklyOverview, 80),
-    objectives: curriculumTextExcerpt(entry.objectives, 60),
-    weeklyMaterials: curriculumTextExcerpt(entry.weeklyMaterials, 60),
-    vocabularyWords: curriculumTextExcerpt(entry.vocabularyWords, 40),
-    books,
-    songs,
-    dailyActivityPreview,
     activityCount,
     updatedAt: entry.updatedAt,
   };
@@ -1258,6 +1236,7 @@ function publicCurriculumActivityPreviewDto(activity, parentPlan) {
   const entry = normalizedCurriculumActivity(activity);
   if (!entry || entry.status !== "published") return null;
   if (!parentPlan || !isCurriculumLessonPublic(parentPlan.status) || parentPlan.plan !== "Pro") return null;
+  // Overview teaser only — no description/materials/steps/teacher language/etc.
   return {
     id: entry.id,
     lessonPlanId: entry.lessonPlanId,
@@ -1266,7 +1245,6 @@ function publicCurriculumActivityPreviewDto(activity, parentPlan) {
     dayOfWeek: entry.dayOfWeek,
     plan: parentPlan.plan,
     locked: true,
-    description: curriculumTextExcerpt(entry.description, 40),
     learningDomains: entry.learningDomains.slice(0, 3),
     parentTitle: parentPlan.title,
     parentAge: parentPlan.age,

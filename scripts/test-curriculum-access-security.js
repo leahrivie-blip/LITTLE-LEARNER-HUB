@@ -12,7 +12,7 @@ const crypto = require("crypto");
 const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-parser.js");
 
 const ROOT = path.join(__dirname, "..");
-const V2_SAMPLE = path.join(ROOT, "scripts/curriculum-import-samples/premium-garden-scientists-v2.txt");
+const V2_SAMPLE = path.join(ROOT, "scripts/curriculum-import-samples/label-only-garden-scientists-v3.txt");
 const PORT = 4580 + Math.floor(Math.random() * 200);
 const STORE_PATH = path.join(os.tmpdir(), `llh-curriculum-security-${crypto.randomBytes(4).toString("hex")}.json`);
 const ADMIN = {
@@ -178,7 +178,11 @@ async function publishPlans(token) {
   let expectedUpdatedAt = touch.json.siteContent.updatedAt;
   const parsed = parseCurriculumLessonPlanImport(fs.readFileSync(V2_SAMPLE, "utf8"));
   assert(parsed.ok, parsed.errors.join(" "));
+  parsed.data.dailyPlans.monday.books = [{ title: "Planting a Rainbow", author: "Lois Ehlert" }];
   parsed.data.dailyPlans.tuesday.songs = [{ title: "Rain Song", notes: "Weather transition" }];
+  if (parsed.data.dailyPlans.monday.items?.[0]) {
+    parsed.data.dailyPlans.monday.items[0].teacherLanguage = "I notice the soil feels damp";
+  }
   const base = parsed.data;
 
   const freeId = `cur-lp-sec-free-${crypto.randomBytes(3).toString("hex")}`;
@@ -237,11 +241,11 @@ async function main() {
   child.stdout.on("data", () => {});
   try {
     await waitForHealth(child);
-    seedMembershipUsers();
-
     const login = await requestJson("POST", "/api/admin/login", ADMIN);
     const token = login.json.token;
     const ids = await publishPlans(token);
+    // Re-seed after admin writes so membership users survive storeCache bootstrap.
+    seedMembershipUsers();
 
     console.log("1) Logged-out public site-content cannot retrieve full Pro lesson content");
     const publicLoggedOut = await requestJson("GET", "/api/site-content");
@@ -250,9 +254,13 @@ async function main() {
     assert(proPublic, "pro lesson listed publicly as preview");
     assert(proPublic.locked === true, "pro lesson marked locked");
     assert(!proPublic.dailyPlans, "pro public plan has no dailyPlans");
-    assert(Array.isArray(proPublic.dailyActivityPreview?.monday) || Object.keys(proPublic.dailyActivityPreview || {}).length > 0, "pro preview should include locked activity titles by day");
-    assert(Number(proPublic.activityCount || 0) > 0, "pro preview should include activity count");
-    assert(proPublic.weeklyMaterials || proPublic.objectives || (proPublic.books || []).length, "pro preview should include teaser metadata");
+    assert(!proPublic.dailyActivityPreview, "pro preview must not include activity titles by day");
+    assert(!proPublic.weeklyMaterials, "pro preview must not include materials");
+    assert(!proPublic.objectives, "pro preview must not include objectives");
+    assert(!(proPublic.books || []).length, "pro preview must not include books");
+    assert(!(proPublic.songs || []).length, "pro preview must not include songs");
+    assert(proPublic.weeklyOverview, "pro preview should include weekly overview");
+    assert(proPublic.theme, "pro preview should include theme");
     assertNoProtectedStrings(proPublic, "logged-out pro lesson public DTO");
     assert(freePublic?.dailyPlans?.monday?.books?.[0]?.title === "Planting a Rainbow", "free lesson still has full public content");
 
@@ -302,6 +310,13 @@ async function main() {
     const proActivityPublic = (publicLoggedOut.json.siteContent?.curriculumLibrary?.activities || []).find((item) => item.id === ids.proActivityId);
     assert(proActivityPublic?.locked === true, "pro activity public preview locked");
     assert(proActivityPublic?.lessonPlanId === ids.proId, "pro activity public preview must include lessonPlanId");
+    assert(!proActivityPublic.description, "pro activity public preview must not expose description");
+    assert(!proActivityPublic.objective, "pro activity public preview must not expose objective");
+    assert(!proActivityPublic.materials, "pro activity public preview must not expose materials");
+    assert(!proActivityPublic.steps, "pro activity public preview must not expose steps");
+    assert(!proActivityPublic.teacherLanguage, "pro activity public preview must not expose teacher language");
+    assert(!proActivityPublic.setup, "pro activity public preview must not expose setup");
+    assert(proActivityPublic.activityCategory || proActivityPublic.title, "pro activity preview should keep overview metadata");
     assertNoProtectedStrings(proActivityPublic, "logged-out pro activity public DTO");
     const freeActivityDenied = await requestJson("GET", `/api/curriculum/activities/${encodeURIComponent(ids.proActivityId)}`, null, {
       headers: authHeader("free@security.test"),
