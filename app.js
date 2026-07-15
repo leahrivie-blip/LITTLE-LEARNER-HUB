@@ -2729,7 +2729,7 @@ async function finishSignupWithPlan(planChoice) {
     saveCurrentAccountState();
     updateAuthButtons();
     updatePlanLabel();
-    setView("calendar");
+    setView("calendar", { fromAuthLanding: true });
     return;
   }
   if (planChoice === "founding") {
@@ -2943,11 +2943,29 @@ function accountHasRemainingPaidAccess(account = null) {
   const target = account || currentAccount();
   if (!target) return false;
   if (target.internalAccessOverride) return true;
-  const endMs = accountAccessEndMs(target);
   const stripeStatus = String(target.stripeSubscriptionStatus || "").toLowerCase();
+  const status = String(target.subscriptionStatus || "").toLowerCase();
+  if (status.includes("payment failed") || status.includes("failed") || stripeStatus === "unpaid") return false;
+  if (status.includes("past due") || stripeStatus === "past_due") return false;
+  if (status.includes("free plan")) return false;
+  if (status.includes("ended") && !status.includes("access ends")) return false;
+  const endMs = accountAccessEndMs(target);
   if (stripeStatus === "active" || stripeStatus === "trialing") return true;
   if (endMs !== null && endMs > Date.now()) return true;
-  const status = String(target.subscriptionStatus || "").toLowerCase();
+  // Checkout completion can assign Founding/Pro before Stripe status fields sync.
+  // Trust Active/Trialing paid plan records the same way the server membership policy does.
+  const paidPlan = ["Pro", "Founding"].includes(String(target.plan || "").trim()) || Boolean(target.foundingMemberActive);
+  if (
+    paidPlan
+    && (
+      status.includes("active")
+      || status.includes("trial")
+      || status.includes("paid")
+      || status.includes("access ends")
+    )
+  ) {
+    return endMs === null || endMs > Date.now();
+  }
   if (status.includes("access ends") && endMs !== null && endMs > Date.now()) return true;
   return false;
 }
@@ -2967,6 +2985,11 @@ function normalizeBillingPlan(plan = currentPlan, account = null) {
   const status = String(account?.subscriptionStatus || "");
   if (account && billingStatusIndicatesFree(status, account)) return "Free";
   if ((rawPlan === "Founding" || account?.foundingMemberActive) && accountHasRemainingPaidAccess(account)) return "Founding";
+  // Founding Member records with Active status must never fall through to Free
+  // just because Stripe status fields have not synced yet.
+  if ((rawPlan === "Founding" || account?.foundingMemberActive) && billingStatusIndicatesPaid(status, account)) {
+    return "Founding";
+  }
   if (rawPlan === "Pro" || rawPlan === "Premium" || lowerPlan.includes("pro")) {
     return account && status && !billingStatusIndicatesPaid(status, account) ? "Free" : "Pro";
   }
@@ -3253,7 +3276,8 @@ async function syncSubscriptionFromBackend(email, options = {}) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail || !stripeCheckoutConfig.subscriptionStatusEndpoint || !canUseStripeBackend()) return null;
   try {
-    const response = await fetch(`${stripeCheckoutConfig.subscriptionStatusEndpoint}?email=${encodeURIComponent(cleanEmail)}`);
+    const refreshParam = options.forceRefresh ? "&refresh=1" : "";
+    const response = await fetch(`${stripeCheckoutConfig.subscriptionStatusEndpoint}?email=${encodeURIComponent(cleanEmail)}${refreshParam}`);
     const data = await response.json();
     if (!response.ok) throw new Error(data?.error || "Could not sync subscription.");
     if (data?.founding) applyFoundingStatus(data.founding);
@@ -3263,6 +3287,28 @@ async function syncSubscriptionFromBackend(email, options = {}) {
     }
     const updates = subscriptionToAccountUpdates(data?.subscription);
     if (!updates) {
+      if (options.renderFounding) refreshFoundingDisplays();
+      return data;
+    }
+    // Never demote a locally Active paid/Founding account to Free unless Stripe
+    // recovery explicitly confirmed the subscription ended (or admin force demote).
+    const localAccount = (typeof accounts === "function" ? accounts()?.[cleanEmail] : null)
+      || (cleanEmail === currentUser ? currentAccount() : null)
+      || readSavedJson("llhAccounts", {})?.[cleanEmail]
+      || null;
+    if (
+      updates.plan === "Free"
+      && localAccount
+      && accountHasRemainingPaidAccess(localAccount)
+      && !data?.recoveredFromStripe
+      && !options.allowDemote
+      && !String(data?.subscription?.subscriptionStatus || "").toLowerCase().includes("payment failed")
+      && String(data?.subscription?.stripeSubscriptionStatus || "").toLowerCase() !== "canceled"
+      && String(data?.subscription?.stripeSubscriptionStatus || "").toLowerCase() !== "unpaid"
+    ) {
+      console.warn(
+        `[membership] client_sync_skip_demote email=${cleanEmail} localPlan=${localAccount.plan || "n/a"} serverPlan=${data?.subscription?.plan || "none"}`,
+      );
       if (options.renderFounding) refreshFoundingDisplays();
       return data;
     }
@@ -3287,6 +3333,9 @@ async function syncSubscriptionFromBackend(email, options = {}) {
       }
       if (options.renderFounding) refreshFoundingDisplays();
     }
+    console.info(
+      `[membership] client_sync email=${cleanEmail} plan=${updates.plan || "n/a"} status="${updates.subscriptionStatus || ""}" recovered=${Boolean(data?.recoveredFromStripe)} force=${Boolean(options.forceRefresh)}`,
+    );
     return data;
   } catch (error) {
     console.warn("Subscription sync did not complete", error);
@@ -3589,7 +3638,7 @@ let currentPlan = localStorage.getItem("llhPlan") || "Free";
 let currentUser = localStorage.getItem("llhUser") || "";
 syncFreePlanMarketingCopy();
 let activeFilter = "All";
-let lessonLibraryReturnView = "home";
+let lessonLibraryReturnView = "calendar";
 let lessonLibraryInfoOpen = false;
 let lessonLibraryMode = "browse"; // browse | saved
 let lessonLibraryShowAssignedOnly = false;
@@ -3606,6 +3655,22 @@ let activeViewerResourceId = "";
 let resourceViewerReturnToId = "";
 let viewReturnContexts = Object.create(null);
 let lessonNavHistorySilent = false;
+let pendingAuthReturnView = "";
+let suppressBootLanding = false;
+let viewNavigationGeneration = 0;
+let viewScrollPositions = Object.create(null);
+let platformHistoryPrimed = false;
+let platformHistorySilent = false;
+const PLATFORM_LAST_VIEW_KEY = "llhLastPlatformView";
+const PLATFORM_SCROLL_KEY = "llhViewScrollPositions";
+try {
+  viewScrollPositions = JSON.parse(sessionStorage.getItem(PLATFORM_SCROLL_KEY) || "{}") || {};
+} catch {
+  viewScrollPositions = Object.create(null);
+}
+try {
+  if (window.history?.scrollRestoration) window.history.scrollRestoration = "manual";
+} catch { /* ignore */ }
 let currentAuthMode = "login";
 let signupWizardStep = 1;
 let signupPersonaChoice = "";
@@ -8695,6 +8760,10 @@ function setView(view, options = {}) {
   if (resolvedRequested === "printables") {
     return setView("activities", options);
   }
+  // Logged-in providers never land on the retired Dashboard — Calendar is the home surface.
+  if (resolvedRequested === "home" && isLoggedIn() && !options.allowDashboard) {
+    return setView("calendar", { ...options, remappedFromHome: true });
+  }
   // Soft-retire Curriculum Planner: redirect to Calendar unless rollback flag is on.
   if (resolvedRequested === "curriculum-planner" && !isCurriculumPlannerLegacyEnabled()) {
     pendingCurriculumPlannerRetirementNotice = true;
@@ -8711,7 +8780,25 @@ function setView(view, options = {}) {
   const requestedFutureTool = sidebarFutureToolTargets[requestedView] || "";
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
   const resolvedView = resolvedRequested;
-  if (activeView && activeView !== resolvedView) clearViewReturnContext(activeView);
+  // User-driven navigation cancels deferred boot/login landings that would yank the view back.
+  if (!options.fromBoot && !options.fromAuthLanding && !options.skipAccessRedirect && !options.fromPopState) {
+    suppressBootLanding = true;
+    viewNavigationGeneration += 1;
+  }
+  if (options.fromAuthLanding) {
+    suppressBootLanding = true;
+    viewNavigationGeneration += 1;
+  }
+  if (activeView && activeView !== resolvedView) {
+    captureActiveViewScroll(activeView);
+    // Keep return context for contextual back; only clear when explicitly navigating away via sidebar hubs.
+    if (options.clearReturnContext !== false && !options.fromPopState) {
+      // Preserve stack via History API; contextual map is still used for in-view deep returns.
+    }
+    if (activeView === "lessons" || document.querySelector("#resourceViewerModal.open")) {
+      dismissResourceViewerForNavigation();
+    }
+  }
   if (activeView === "admin" && resolvedView !== "admin" && !confirmDiscardAdminLessonChanges()) return;
   if (
     activeView === "lesson-editor"
@@ -8748,6 +8835,7 @@ function setView(view, options = {}) {
   }
   // Route guard: unauthenticated visitors may only access public marketing views.
   if (!isLoggedIn() && !hasAdminFullAccess() && !guestAllowedViews.has(resolvedView)) {
+    pendingAuthReturnView = resolvedView || requestedView || "";
     openAuthModal("login");
     return;
   }
@@ -8788,7 +8876,7 @@ function setView(view, options = {}) {
       activeFilter = "All";
     }
   }
-  if (resolvedView === "lessons" && activeView !== "lessons" && !options.skipHistory) {
+  if (resolvedView === "lessons" && activeView !== "lessons" && !options.skipHistory && !options.fromPopState) {
     pushLessonNavHistory({
       type: "lessons",
       mode: lessonLibraryMode === "saved" ? "saved" : "browse",
@@ -8796,8 +8884,10 @@ function setView(view, options = {}) {
   }
   document.querySelectorAll(".view").forEach((section) => section.classList.remove("active-view"));
   document.querySelector(`#view-${resolvedView}`)?.classList.add("active-view");
+  document.body.classList.add("app-booted");
+  document.documentElement.classList.remove("llh-boot-authenticated");
   if (activeView === "ai" && resolvedView !== "ai") selectedDocHelperType = "";
-  document.body.classList.toggle("home-view", resolvedView === "home");
+  document.body.classList.toggle("home-view", resolvedView === "home" && !isLoggedIn());
   document.body.classList.toggle("lessons-view", resolvedView === "lessons");
   document.body.classList.toggle("doc-helpers-view", resolvedView === "ai");
   document.body.classList.toggle(
@@ -8811,6 +8901,15 @@ function setView(view, options = {}) {
   requestAnimationFrame(() => syncTopbarMetrics());
   document.querySelectorAll(".nav-link").forEach((button) => {
     button.classList.toggle("active", isPlatformNavActive(button.dataset.view, requestedView, resolvedView));
+  });
+  rememberPlatformView(resolvedView);
+  pushPlatformNavHistory(resolvedView, {
+    ...options,
+    requestedView,
+    lessonLibraryMode: lessonLibraryMode,
+    scrollY: options.restoreScrollY,
+    replaceHistory: options.replaceHistory || options.fromBoot || options.fromAuthLanding,
+    skipPlatformHistory: options.skipPlatformHistory || options.fromPopState,
   });
   if (viewMap[resolvedView]) renderCategoryPage(resolvedView);
   if ((resolvedView === "lessons" || resolvedView === "activities") && canUseLaunchBackend() && isLoggedIn()) {
@@ -8914,7 +9013,13 @@ function setView(view, options = {}) {
   updateSidebarDashboard();
   setMobileNavOpen(false);
   refreshContextualViewBackButtons();
-  if (!isMobileLayout()) window.scrollTo({ top: 0, behavior: "smooth" });
+  if (options.fromPopState || Number.isFinite(options.restoreScrollY)) {
+    restoreViewScroll(resolvedView, options.restoreScrollY);
+  } else if (activeView === resolvedView && Number.isFinite(viewScrollPositions[resolvedView])) {
+    restoreViewScroll(resolvedView);
+  } else {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }
 }
 
 function canAccess(resource) {
@@ -12842,14 +12947,115 @@ function lessonNavStatesMatch(a, b) {
   return true;
 }
 
+function persistViewScrollPositions() {
+  try {
+    sessionStorage.setItem(PLATFORM_SCROLL_KEY, JSON.stringify(viewScrollPositions));
+  } catch { /* ignore quota */ }
+}
+
+function captureActiveViewScroll(viewName = "") {
+  const view = viewName || document.querySelector(".active-view")?.id?.replace("view-", "") || "";
+  if (!view) return;
+  viewScrollPositions[view] = window.scrollY || window.pageYOffset || 0;
+  persistViewScrollPositions();
+}
+
+function restoreViewScroll(viewName, explicitY) {
+  const y = Number.isFinite(explicitY) ? explicitY : viewScrollPositions[viewName];
+  const target = Number.isFinite(y) ? Math.max(0, y) : 0;
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: target, left: 0, behavior: "auto" });
+    requestAnimationFrame(() => window.scrollTo({ top: target, left: 0, behavior: "auto" }));
+  });
+}
+
+function rememberPlatformView(viewName) {
+  if (!viewName || viewName === "home" && isLoggedIn()) return;
+  try {
+    sessionStorage.setItem(PLATFORM_LAST_VIEW_KEY, viewName);
+  } catch { /* ignore */ }
+}
+
+function readRememberedPlatformView() {
+  try {
+    return String(sessionStorage.getItem(PLATFORM_LAST_VIEW_KEY) || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function defaultLoggedInLandingView() {
+  const remembered = readRememberedPlatformView();
+  if (
+    remembered
+    && remembered !== "home"
+    && remembered !== "payment-success"
+    && remembered !== "payment-failed"
+    && document.querySelector(`#view-${remembered}`)
+    && canOpenViewForCurrentAccess(remembered)
+  ) {
+    return remembered;
+  }
+  return "calendar";
+}
+
+function platformBackView(fallback = "home") {
+  if (fallback === "home" && (isLoggedIn() || hasAdminFullAccess())) return "calendar";
+  return fallback;
+}
+
+function platformNavHistoryState() {
+  return window.history?.state?.llhPlatformNav || null;
+}
+
+function buildPlatformNavState(viewName, options = {}) {
+  return {
+    view: viewName,
+    scrollY: Number.isFinite(options.scrollY) ? options.scrollY : (viewScrollPositions[viewName] || 0),
+    lessonLibraryMode: viewName === "lessons" ? (options.lessonLibraryMode || lessonLibraryMode || "browse") : "",
+    requestedView: options.requestedView || viewName,
+  };
+}
+
+function pushPlatformNavHistory(viewName, options = {}) {
+  if (platformHistorySilent || options.skipPlatformHistory || options.fromPopState || !window.history?.pushState) return;
+  if (!viewName) return;
+  const nextState = buildPlatformNavState(viewName, options);
+  const current = platformNavHistoryState();
+  const sameView = current?.view === nextState.view
+    && (current?.lessonLibraryMode || "") === (nextState.lessonLibraryMode || "");
+  const historyPayload = {
+    ...(window.history.state || {}),
+    llhPlatformNav: nextState,
+  };
+  // Drop nested lesson markers when moving between platform sections.
+  if (!options.keepLessonNav) delete historyPayload.llhLessonNav;
+  if (!platformHistoryPrimed || options.replaceHistory || options.fromBoot || options.fromAuthLanding) {
+    window.history.replaceState(historyPayload, "", window.location.href);
+    platformHistoryPrimed = true;
+    return;
+  }
+  if (sameView) {
+    window.history.replaceState(historyPayload, "", window.location.href);
+    return;
+  }
+  window.history.pushState(historyPayload, "", window.location.href);
+  platformHistoryPrimed = true;
+}
+
 function pushLessonNavHistory(state) {
   if (lessonNavHistorySilent || !window.history?.pushState || !state?.type) return;
   const current = lessonNavHistoryState();
   if (lessonNavStatesMatch(current, state)) return;
+  const platform = platformNavHistoryState() || buildPlatformNavState(
+    document.querySelector(".active-view")?.id?.replace("view-", "") || "lessons",
+  );
   window.history.pushState({
     ...(window.history.state || {}),
+    llhPlatformNav: platform,
     llhLessonNav: state,
   }, "", window.location.href);
+  platformHistoryPrimed = true;
 }
 
 function lessonNavRunSilent(callback) {
@@ -12900,7 +13106,8 @@ function requestResourceViewerClose() {
 }
 
 function handleLessonNavPopState(event) {
-  if (lessonNavHistorySilent) return;
+  if (lessonNavHistorySilent || platformHistorySilent) return;
+  const state = event?.state || window.history.state || {};
   const viewer = document.querySelector("#resourceViewerModal.open");
   if (viewer && resourceViewerReturnToId) {
     const returnId = resourceViewerReturnToId;
@@ -12917,16 +13124,48 @@ function handleLessonNavPopState(event) {
     return;
   }
 
+  const lessonNav = state.llhLessonNav;
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
-  if (activeView === "lessons") {
-    if (lessonLibraryMode === "saved") {
+  if (lessonNav?.type === "lessons" && activeView === "lessons") {
+    if (lessonLibraryMode === "saved" && lessonNav.mode !== "saved") {
       lessonNavRunSilent(() => {
         lessonLibraryMode = "browse";
         renderCategoryPage("lessons");
       });
       return;
     }
-    lessonNavRunSilent(() => setView(resolveLessonLibraryBackView(), { skipHistory: true }));
+  }
+  if (activeView === "lessons" && lessonLibraryMode === "saved" && (!lessonNav || lessonNav.mode !== "saved")) {
+    lessonNavRunSilent(() => {
+      lessonLibraryMode = "browse";
+      renderCategoryPage("lessons");
+    });
+    return;
+  }
+
+  const platform = state.llhPlatformNav;
+  if (platform?.view) {
+    platformHistorySilent = true;
+    try {
+      setView(platform.view, {
+        fromPopState: true,
+        skipHistory: true,
+        skipPlatformHistory: true,
+        restoreScrollY: platform.scrollY,
+        lessonLibraryMode: platform.lessonLibraryMode || undefined,
+      });
+    } finally {
+      platformHistorySilent = false;
+    }
+    return;
+  }
+
+  if (activeView === "lessons") {
+    lessonNavRunSilent(() => setView(resolveLessonLibraryBackView(), {
+      skipHistory: true,
+      skipPlatformHistory: true,
+      fromPopState: true,
+    }));
   }
 }
 
@@ -13019,10 +13258,20 @@ function navigateContextualBack(view, fallbackView = "home") {
     return;
   }
   if (context?.type === "view" && context.view) {
-    setView(context.view);
+    setView(context.view, { replaceHistory: false });
     return;
   }
-  setView(fallbackView);
+  // Prefer real browser history so Back returns to the exact prior section + scroll.
+  const platform = platformNavHistoryState();
+  if (platform?.view && platform.view !== view && window.history?.state?.llhPlatformNav) {
+    const canUseHistoryBack = platformHistoryPrimed && window.history.length > 1;
+    if (canUseHistoryBack) {
+      window.history.back();
+      return;
+    }
+  }
+  const resolvedFallback = (fallbackView === "home" && isLoggedIn()) ? "calendar" : fallbackView;
+  setView(resolvedFallback, { replaceHistory: false });
 }
 
 function refreshContextualViewBackButtons() {
@@ -15777,14 +16026,17 @@ async function openResourceViewer(resourceId, options = {}) {
 }
 
 function resolveLessonLibraryBackView() {
-  const candidate = String(lessonLibraryReturnView || "home").trim() || "home";
-  if (candidate === "lessons") return "home";
+  const preferred = isLoggedIn() || hasAdminFullAccess() ? "calendar" : "home";
+  const candidate = String(lessonLibraryReturnView || preferred).trim() || preferred;
+  if (candidate === "lessons") return preferred;
+  if (candidate === "home" && (isLoggedIn() || hasAdminFullAccess())) return "calendar";
   if (document.querySelector(`#view-${candidate}`)) return candidate;
-  return "home";
+  return preferred;
 }
 
 function lessonLibraryBackLabel(backView) {
-  if (backView === "home") return "← Back";
+  if (backView === "home") return isLoggedIn() || hasAdminFullAccess() ? "← Back to Calendar" : "← Back";
+  if (backView === "calendar") return "← Back to Calendar";
   if (backView === "curriculum-planner") return "← Back to Curriculum Planner";
   if (backView === "activities") return "← Back to Activities";
   if (backView === "planner") return "← Back to Calendar";
@@ -15942,9 +16194,10 @@ function renderCategoryPage(view) {
     `;
     return;
   }
+  const categoryBackTarget = isLoggedIn() || hasAdminFullAccess() ? "calendar" : "home";
   const categoryBackButton = view === "activities" && activeActivityLessonPlanId
     ? `<button class="ghost-button back-button" data-contextual-back="activities" data-fallback-view="lessons" data-always-visible="true" type="button">${escapeHtml(contextualBackLabel("activities", "lessons"))}</button>`
-    : `<button class="ghost-button back-button" data-view="home" type="button">${escapeHtml(fallbackBackLabel("home"))}</button>`;
+    : `<button class="ghost-button back-button" data-view="${categoryBackTarget}" type="button">${escapeHtml(fallbackBackLabel(categoryBackTarget))}</button>`;
   const activityUpgradeBanner = category === "Activity Center" && !isProUser()
     ? foundingUpgradeBannerHtml({ variant: "library", dismissible: true })
     : "";
@@ -32198,6 +32451,7 @@ function openAdminUserProfile(email, startTab) {
           ${account.stripeSubscriptionId ? `<div><span>Stripe Sub ID</span><strong><small>${escapeHtml(account.stripeSubscriptionId)}</small></strong></div>` : ""}
         </div>
         <div class="aup-action-row" style="margin-top:12px;">
+          <button class="primary-button aup-action-btn" type="button" data-aup-action="refresh-stripe" data-aup-email="${escapeHtml(email)}">Refresh from Stripe</button>
           ${!adminMembershipHasProAccess(account) ? `<button class="primary-button aup-action-btn" type="button" data-aup-action="upgrade"    data-aup-email="${escapeHtml(email)}">Upgrade to Pro</button>` : ""}
           ${adminMembershipHasProAccess(account) ? `<button class="ghost-button aup-action-btn" type="button" data-aup-action="downgrade"  data-aup-email="${escapeHtml(email)}">Downgrade to Free</button>` : ""}
           ${!isFoundingActive ? `<button class="ghost-button aup-action-btn" type="button" data-aup-action="add-founding" data-aup-email="${escapeHtml(email)}">Add Founding Access</button>` : `<button class="ghost-button aup-action-btn" type="button" data-aup-action="remove-founding" data-aup-email="${escapeHtml(email)}">Remove Founding Access</button>`}
@@ -32208,6 +32462,7 @@ function openAdminUserProfile(email, startTab) {
             ? `<button class="ghost-button aup-action-btn aup-btn--danger" type="button" data-aup-action="disable" data-aup-email="${escapeHtml(email)}">Disable Account</button>`
             : `<button class="primary-button aup-action-btn" type="button" data-aup-action="reenable" data-aup-email="${escapeHtml(email)}">Re-enable Account</button>`}
         </div>
+        <p class="muted-copy" style="margin-top:8px;">Refresh from Stripe re-reads the customer’s live subscription and updates membership/permissions immediately. Use this when a paid checkout succeeded but the account still shows Free.</p>
         <p id="aupSubMsg" class="form-message" style="margin-top:8px;"></p>
       </fieldset>
 
@@ -32331,6 +32586,47 @@ async function adminUpdateMembershipOnServer(email, updates, action, note) {
   }
 }
 
+async function adminRefreshSubscriptionFromStripe(email) {
+  const token = adminSession()?.token;
+  if (!token || !canUseLaunchBackend()) return { ok: false, error: "Admin session required." };
+  try {
+    const response = await fetch("/api/admin/subscription-refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        adminToken: token,
+        email,
+        adminEmail: adminSession()?.email || "admin",
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error || "Stripe refresh failed.");
+    adminAnalyticsCache = null;
+    await loadAdminAnalyticsFromBackend();
+    if (data?.subscription) {
+      const updates = subscriptionToAccountUpdates(data.subscription);
+      if (updates) updateAccount(email, updates);
+    }
+    if (email === currentUser) {
+      await syncSubscriptionFromBackend(email, {
+        forceRefresh: true,
+        renderAccount: true,
+        renderBilling: true,
+        renderFounding: true,
+      });
+      updateAuthButtons();
+      updatePlanLabel();
+    }
+    return {
+      ok: true,
+      recoveredFromStripe: Boolean(data.recoveredFromStripe),
+      subscription: data.subscription || null,
+    };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+}
+
 function handleAdminUserAction(action, email, modal) {
   const allAccounts = allAccountsList();
   const account = allAccounts.find((a) => a.email === email)
@@ -32344,6 +32640,23 @@ function handleAdminUserAction(action, email, modal) {
     msgEl.style.color = ok ? "var(--accent, #386062)" : "#c0392b";
   }
 
+  if (action === "refresh-stripe") {
+    showMsg("Refreshing membership from Stripe…");
+    adminRefreshSubscriptionFromStripe(email).then((result) => {
+      if (!result.ok) {
+        showMsg(result.error || "Stripe refresh failed.", false);
+        return;
+      }
+      const planLabel = result.subscription?.membershipPlan || result.subscription?.plan || "Free";
+      const access = result.subscription?.hasProAccess ? "Pro access granted" : "No active paid subscription";
+      showMsg(result.recoveredFromStripe
+        ? `Stripe sync complete — ${planLabel}. ${access}.`
+        : `Stripe checked — ${planLabel}. ${access}.`);
+      renderAdminUsersDashboard();
+      openAdminUserProfile(email, "manage");
+    });
+    return;
+  }
   if (action === "extend-trial") {
     if (!confirm(`Extend trial for ${displayUserName(account)} (${email}) by 7 days?`)) return;
     const updates = { extendTrialDays: 7, internalAccessOverride: true };
@@ -37230,7 +37543,7 @@ function renderDashboardTasksPage() {
   const dayPlan = planner.days?.[weekday] || {};
   const plannedTasks = [dayPlan.circle, dayPlan.activity, dayPlan.meal, dayPlan.rest, dayPlan.support].filter((item) => String(item || "").trim()).length;
   section.innerHTML = `
-    <button class="ghost-button back-button" data-view="home" type="button">← Back to Home</button>
+    <button class="ghost-button back-button" data-view="${platformBackView("home")}" type="button">${escapeHtml(fallbackBackLabel(platformBackView("home")))}</button>
     <div class="page-title">
       <p class="eyebrow">Today&rsquo;s Tasks</p>
       <h2>Focus on what needs attention today.</h2>
@@ -37283,7 +37596,7 @@ function renderFavoritesPage() {
     ? `<p class="muted-copy">Some previously saved lesson plans or activities were retired and are no longer available.</p>`
     : "";
   section.innerHTML = `
-    <button class="ghost-button back-button" data-view="home" type="button">${escapeHtml(fallbackBackLabel("home"))}</button>
+    <button class="ghost-button back-button" data-view="${platformBackView("home")}" type="button">${escapeHtml(fallbackBackLabel(platformBackView("home")))}</button>
     <div class="page-title">
       <p class="eyebrow">Favorites</p>
       <h2>Saved Favorites</h2>
@@ -37315,7 +37628,7 @@ function renderReportsPage() {
   const messagesToday = records.communications.filter((item) => item.date === today && item.type !== "Behavior Note").length;
   const activeGoals = records.goals.filter((goal) => goalProgressPercent(goal.progress) < 100).length;
   section.innerHTML = `
-    <button class="ghost-button back-button" data-view="home" type="button">${escapeHtml(fallbackBackLabel("home"))}</button>
+    <button class="ghost-button back-button" data-view="${platformBackView("home")}" type="button">${escapeHtml(fallbackBackLabel(platformBackView("home")))}</button>
     <div class="page-title">
       <p class="eyebrow">Reports &amp; Analytics</p>
       <h2>Program reporting snapshot</h2>
@@ -37870,10 +38183,20 @@ async function completeCheckoutFromStripeSession(session) {
     stripeSubscriptionId: session.subscriptionId || currentAccount()?.stripeSubscriptionId,
     paymentMethod: "Managed in Stripe",
   });
-  await syncSubscriptionFromBackend(currentUser || session.email, { renderFounding: true });
+  await syncSubscriptionFromBackend(currentUser || session.email, {
+    renderFounding: true,
+    renderAccount: true,
+    renderBilling: true,
+    forceRefresh: true,
+  });
   loadUserAiUsage(currentUser || session.email).catch(() => {});
   await syncFoundingStatus({ render: true });
   saveCurrentAccountState();
+  updateAuthButtons();
+  updatePlanLabel();
+  console.info(
+    `[membership] checkout_complete email=${currentUser || session.email} plan=${currentAccount()?.plan || "n/a"} foundingActive=${Boolean(currentAccount()?.foundingMemberActive)} isPro=${typeof isProUser === "function" ? isProUser() : "n/a"}`,
+  );
   renderPaymentSuccessPage();
 }
 
@@ -38023,11 +38346,18 @@ async function signOut() {
   localStorage.setItem("llhPlan", currentPlan);
   localStorage.setItem("llhFavorites", JSON.stringify(favorites));
   localStorage.setItem("llhDownloads", JSON.stringify(savedDownloads));
+  try {
+    sessionStorage.removeItem(PLATFORM_LAST_VIEW_KEY);
+  } catch { /* ignore */ }
+  document.documentElement.classList.remove("llh-boot-authenticated");
   updateAuthButtons();
   updatePlanLabel();
   updateAdminNavVisibility();
   refreshAdminPreviewBadge();
-  setView(isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin" ? "admin" : "home");
+  setView(
+    isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin" ? "admin" : "home",
+    { allowDashboard: true, replaceHistory: true },
+  );
 }
 
 function toggleFavorite(id) {
@@ -38048,15 +38378,24 @@ function showSearchResults() {
   const resultCards = results.map((resource) => (
     resource.category === "Lesson Plans" ? lessonPlanCard(resource) : resourceCard(resource)
   )).join("");
-  const backLabel = isLoggedIn() || hasAdminFullAccess() ? "Back to Calendar" : "Back to Home";
+  const backTarget = platformBackView("home");
+  const hostView = isLoggedIn() || hasAdminFullAccess() ? "lessons" : "home";
+  const previousView = document.querySelector(".active-view")?.id?.replace("view-", "") || "";
+  if (previousView) captureActiveViewScroll(previousView);
   document.querySelectorAll(".view").forEach((section) => section.classList.remove("active-view"));
-  document.querySelector("#view-home").classList.add("active-view");
+  const section = document.querySelector(`#view-${hostView}`);
+  if (!section) return;
+  section.classList.add("active-view");
+  document.body.classList.add("app-booted");
+  document.body.classList.toggle("home-view", hostView === "home");
+  document.body.classList.toggle("lessons-view", hostView === "lessons");
   document.querySelectorAll(".nav-link").forEach((button) => {
-    button.classList.toggle("active", button.dataset.view === "home");
+    button.classList.toggle("active", isPlatformNavActive(button.dataset.view, hostView, hostView));
   });
-  const section = document.querySelector("#view-home");
+  rememberPlatformView(hostView);
+  pushPlatformNavHistory(hostView, { requestedView: hostView });
   section.innerHTML = `
-    <button class="ghost-button back-button" data-view="home" type="button">${escapeHtml(backLabel)}</button>
+    <button class="ghost-button back-button" data-view="${escapeHtml(backTarget)}" type="button">${escapeHtml(fallbackBackLabel(backTarget))}</button>
     <div class="page-title">
       <p class="eyebrow">Search Results</p>
       <h2>Results for "${escapeHtml(searchInput.value.trim())}"</h2>
@@ -38067,7 +38406,7 @@ function showSearchResults() {
       ${results.length ? resultCards : `<div class="empty-state">No matches yet. Try toddler, forms, menu, ocean, farm, fine motor, or observation.</div>`}
     </div>
   `;
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 }
 
 document.addEventListener("click", async (event) => {
@@ -38296,7 +38635,7 @@ document.addEventListener("click", async (event) => {
     event.preventDefault();
     const target = document.querySelector(`#${scrollButton.dataset.scrollTarget}`);
     if (target) {
-      setView("home");
+      setView("home", { allowDashboard: true });
       target.scrollIntoView({ behavior: "smooth", block: "start" });
       trackEvent("homepage_scroll_click", { target: scrollButton.dataset.scrollTarget });
     }
@@ -38388,11 +38727,9 @@ document.addEventListener("click", async (event) => {
   const viewButton = event.target.closest("[data-view]");
   if (viewButton) {
     const nextView = viewButton.dataset.view || "";
+    const previousView = document.querySelector(".active-view")?.id?.replace("view-", "") || "";
     if (viewButton.dataset.dashSelectWeek) {
       mainCalendarSelectedWeek = viewButton.dataset.dashSelectWeek;
-    }
-    if (["activities", "planner", "curriculum-planner", "children", "generators"].includes(nextView)) {
-      clearViewReturnContext(nextView);
     }
     if (nextView === "activities") {
       activeActivityLessonPlanId = "";
@@ -38463,13 +38800,23 @@ document.addEventListener("click", async (event) => {
       activePortfolioChildId = "";
     }
     setMobileNavOpen(false);
-    const navOptions = {};
+    // Sidebar section changes participate in platform History so browser Back restores
+    // the previous section + scroll. skipHistory only suppresses nested lesson entries.
+    const navOptions = { skipHistory: true };
     if (requestedLessonLibraryMode) navOptions.lessonLibraryMode = requestedLessonLibraryMode;
     if (nextView === "planner" && viewButton.dataset.plannerFocusWeek) {
       navOptions.weekStartDate = viewButton.dataset.plannerFocusWeek;
     }
     if (nextView === "calendar" && viewButton.dataset.dashSelectWeek) {
       navOptions.weekStartDate = viewButton.dataset.dashSelectWeek;
+    }
+    const resolvedNext = resolveSidebarView(nextView);
+    if (previousView && previousView !== resolvedNext && previousView !== "home") {
+      setViewReturnContext(resolvedNext, {
+        type: "view",
+        view: previousView === "home" && isLoggedIn() ? "calendar" : previousView,
+        label: fallbackBackLabel(previousView === "home" && isLoggedIn() ? "calendar" : previousView),
+      });
     }
     setView(viewButton.dataset.view, navOptions);
     if (viewButton.dataset.settingsAnchor === "notifications") {
@@ -42293,12 +42640,23 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
       role: currentAccount()?.role || "",
       phone: currentAccount()?.phone || "",
     }, { lastLogin: true });
-    await syncSubscriptionFromBackend(result.email);
+    const loginNavGeneration = viewNavigationGeneration;
+    await syncSubscriptionFromBackend(result.email, { forceRefresh: true });
     await syncChildDataFromBackend();
     loadUserAiUsage(result.email).catch(() => {});
     trackEvent("account_login_complete", { email: result.email, plan: currentPlan });
     closeAuthModal();
-    setView("calendar");
+    // If the user already clicked a sidebar section during login sync, do not yank them to Calendar.
+    if (loginNavGeneration !== viewNavigationGeneration) {
+      pendingAuthReturnView = "";
+      return;
+    }
+    const returnView = pendingAuthReturnView
+      && canOpenViewForCurrentAccess(pendingAuthReturnView)
+      ? pendingAuthReturnView
+      : "calendar";
+    pendingAuthReturnView = "";
+    setView(returnView, { fromAuthLanding: true });
   } catch (error) {
     setFormMessage("#authMessage", friendlyAuthError(error));
   } finally {
@@ -44522,14 +44880,36 @@ document.addEventListener("change", (event) => {
 
 if (currentUser) {
   loadAccountState(currentUser);
+  document.body.classList.add("user-authenticated");
+  document.body.classList.remove("home-view");
 } else {
   updateAuthButtons();
   updatePlanLabel();
+  document.body.classList.add("home-view");
 }
 updateInstallSettingsPanel();
-document.body.classList.add("home-view");
 syncCurriculumPlannerNavVisibility();
-renderHome();
+// Guests get the marketing homepage. Logged-in users never paint the retired Dashboard.
+if (!currentUser) {
+  renderHome();
+} else {
+  // Synchronously open Calendar (or last remembered section) before async sync work.
+  // This prevents the old Dashboard from flashing or lingering behind Calendar.
+  const earlyLanding = (() => {
+    const fromLocation = (() => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("mode") === "resetPassword") return "reset-password";
+      if (lessonPlanEditRouteIdFromLocation()) return "lesson-editor";
+      return adRouteMap[window.location.pathname] || adRouteMap[window.location.hash] || "";
+    })();
+    if (fromLocation && fromLocation !== "home") return fromLocation;
+    if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") return "admin";
+    return defaultLoggedInLandingView();
+  })();
+  if (earlyLanding !== "lesson-editor") {
+    setView(earlyLanding, { fromBoot: true, replaceHistory: true });
+  }
+}
 loadSiteContentFromBackend().catch(() => {});
 loadUploadedResourcesFromBackend({ admin: isAdminUnlocked(), migrateLocal: isAdminUnlocked() }).catch(() => {});
 
@@ -44543,13 +44923,15 @@ function initialViewFromLocation() {
 }
 
 async function initializeAppView() {
+  suppressBootLanding = false;
+  const bootNavGeneration = viewNavigationGeneration;
   try {
     await Promise.race([
       (async () => {
         const handledCheckoutReturn = await verifyStripeReturnIfNeeded();
         if (handledCheckoutReturn) return;
         if (currentUser) {
-          await syncSubscriptionFromBackend(currentUser, { renderFounding: true }).catch((error) => {
+          await syncSubscriptionFromBackend(currentUser, { renderFounding: true, forceRefresh: false }).catch((error) => {
             console.warn("Subscription sync during boot failed", error);
           });
           await syncChildDataFromBackend({ render: true }).catch((error) => {
@@ -44559,6 +44941,10 @@ async function initializeAppView() {
         }
         await syncFoundingStatus({ render: true }).catch(() => {});
         await maybeHandleStaffInviteFromUrl().catch(() => {});
+        // User already navigated while boot sync was in flight — never override their section.
+        if (suppressBootLanding || bootNavGeneration !== viewNavigationGeneration) {
+          return;
+        }
         const initialView = initialViewFromLocation();
         const lessonEditId = lessonPlanEditRouteIdFromLocation();
         if (!currentAttribution()?.firstSeenAt) {
@@ -44573,6 +44959,7 @@ async function initializeAppView() {
           if (isLoggedIn() || hasAdminFullAccess()) {
             await openLessonPlanEditor(lessonEditId, { returnView: "lessons", skipEditorRoute: true });
           } else {
+            pendingAuthReturnView = "lessons";
             openAuthModal("login");
           }
           return;
@@ -44581,19 +44968,23 @@ async function initializeAppView() {
           const route = window.location.pathname || window.location.hash;
           saveAttribution({ route, view: initialView });
           trackEvent("ad_route_visit", { route, view: initialView });
-          setView(initialView);
+          setView(initialView, { fromBoot: true, replaceHistory: true });
           return;
         }
         // Prefer restoring Admin when this browser left Admin unlocked.
         if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") {
-          setView("admin");
+          setView("admin", { fromBoot: true, replaceHistory: true });
           loadAdminAnalyticsFromBackend({ force: true }).catch(() => {});
           return;
         }
-        // Logged-in providers land on Calendar instead of Dashboard.
-        if (currentUser) {
-          setView("calendar");
+        // Logged-in providers land on Calendar (or last remembered page on refresh).
+        if (currentUser && !suppressBootLanding) {
+          setView(defaultLoggedInLandingView(), { fromBoot: true, replaceHistory: true });
           return;
+        }
+        // Guest marketing homepage.
+        if (!currentUser) {
+          setView("home", { fromBoot: true, allowDashboard: true, replaceHistory: true });
         }
       })(),
       delayMs(12000).then(() => {
@@ -44602,6 +44993,9 @@ async function initializeAppView() {
     ]);
   } catch (error) {
     console.warn("App boot failed", error);
+  } finally {
+    document.body.classList.add("app-booted");
+    document.documentElement.classList.remove("llh-boot-authenticated");
   }
 }
 

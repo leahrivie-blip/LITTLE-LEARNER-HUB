@@ -170,6 +170,37 @@ async function runBrowserChecks(baseUrl) {
     foundingMemberNumber: 5, stripeSubscriptionStatus: "active", currentPeriodEnd: future,
     subscriptionStartedAt: now, monthlyPrice: "$9.99/month", priceLock: "Lifetime",
   }, { proAccess: true, planLabel: "Founding Member", price: "$9.99/month", effective: "Founding" });
+  // Regression: checkout completion used to omit stripeSubscriptionStatus/period end, and the UI showed Free.
+  {
+    const store = readStore();
+    store.users = store.users || {};
+    store.users["founding-nosync@billing.test"] = {
+      email: "founding-nosync@billing.test",
+      plan: "Founding",
+      subscriptionStatus: "Founding Member Subscription Active",
+      foundingMemberActive: true,
+      foundingMemberHistorical: true,
+      foundingMember: true,
+      foundingMemberNumber: 12,
+      monthlyPrice: "$9.99/month",
+      priceLock: "Lifetime",
+      subscriptionStartedAt: now,
+      updatedAt: now,
+    };
+    writeStore(store);
+  }
+  await checkPersona("founding-nosync@billing.test", {
+    email: "founding-nosync@billing.test",
+    plan: "Founding",
+    subscriptionStatus: "Founding Member Subscription Active",
+    foundingMemberActive: true,
+    foundingMemberHistorical: true,
+    foundingMember: true,
+    foundingMemberNumber: 12,
+    monthlyPrice: "$9.99/month",
+    priceLock: "Lifetime",
+    subscriptionStartedAt: now,
+  }, { proAccess: true, planLabel: "Founding Member", price: "$9.99/month", effective: "Founding" });
   await checkPersona("canceling@billing.test", {
     email: "canceling@billing.test", plan: "Pro", subscriptionStatus: `Canceled — Access Ends ${new Date(future).toLocaleDateString()}`,
     stripeSubscriptionStatus: "active", cancelAtPeriodEnd: true, accessEndsAt: future, currentPeriodEnd: future,
@@ -226,6 +257,18 @@ async function main() {
   assert(appJs.includes("foundingMemberActive"), "foundingMemberActive field missing from app.js");
   assert(appJs.includes("cancelSubscriptionEndpoint"), "cancel subscription endpoint config missing");
   assert(!/foundingSpotsRemaining\(\) <= 0 \? "monthly"/.test(appJs), "startCheckout still silently falls back to monthly when founding sold out");
+  assert(appJs.includes("Refresh from Stripe"), "Admin Refresh from Stripe control missing");
+  assert(appJs.includes("adminRefreshSubscriptionFromStripe"), "Admin Stripe refresh helper missing");
+  assert(appJs.includes("forceRefresh"), "Client forceRefresh subscription sync missing");
+  assert(appJs.includes("suppressBootLanding"), "Boot navigation race guard missing");
+  assert(appJs.includes("pendingAuthReturnView"), "Post-login return view restore missing");
+
+  const serverJs = fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8");
+  assert(serverJs.includes("applyCheckoutMembershipUpgrade"), "Shared checkout membership upgrade helper missing");
+  assert(serverJs.includes("stripeSubscriptionStatus"), "Checkout statusForPlan must set stripeSubscriptionStatus");
+  assert(serverJs.includes("/api/admin/subscription-refresh"), "Admin subscription refresh endpoint missing");
+  assert(serverJs.includes("markProcessedStripeEvent"), "Webhook idempotency marker missing");
+  assert(serverJs.includes("invoice.paid"), "invoice.paid webhook handling missing");
 
   console.log("2) Shared membership-access policy unit checks");
   const periodEndFuture = Math.floor((Date.now() + 20 * 86400000) / 1000);
@@ -417,6 +460,51 @@ async function main() {
     const failedSub = await requestJson("GET", "/api/subscription-status?email=failed-pay@billing.test");
     assert(failedSub.json.subscription?.hasProAccess === false, "Payment failed user has no Pro access");
     assert(failedSub.json.subscription?.membershipStatus === "Payment Failed", "Payment failed visible in status");
+
+    console.log("9b) Checkout webhook assigns Founding with Stripe status + permissions");
+    {
+      const webhookRes = await requestJson("POST", "/api/webhooks/stripe", {
+        id: `evt_test_founding_${Date.now()}`,
+        type: "checkout.session.completed",
+        data: {
+          object: {
+            id: `cs_test_${Date.now()}`,
+            customer: "cus_test_founding_pay",
+            subscription: "sub_test_founding_pay",
+            payment_status: "paid",
+            status: "complete",
+            metadata: { email: "paid-founding@billing.test", plan: "founding" },
+            customer_details: { email: "paid-founding@billing.test" },
+          },
+        },
+      });
+      assert(webhookRes.status === 200, `Founding checkout webhook should succeed, got ${webhookRes.status}`);
+      const paidUser = readStore().users["paid-founding@billing.test"];
+      assert(paidUser?.plan === "Founding", "Webhook must assign Founding plan");
+      assert(paidUser?.foundingMemberActive === true, "Webhook must set foundingMemberActive");
+      assert(paidUser?.stripeSubscriptionStatus === "active" || paidUser?.stripeSubscriptionStatus === "trialing", "Webhook must set stripeSubscriptionStatus");
+      assert(membershipAccess.membershipHasProAccess(paidUser), "Webhook Founding member must have Pro access");
+      const statusRes = await requestJson("GET", "/api/subscription-status?email=paid-founding@billing.test");
+      assert(statusRes.json?.subscription?.hasProAccess === true, "subscription-status must report Pro access after Founding checkout");
+      assert(statusRes.json?.subscription?.membershipPlan === "Founding Member", "subscription-status must show Founding Member");
+    }
+
+    console.log("9c) Admin subscription refresh endpoint auth + response shape");
+    {
+      const noAuth = await requestJson("POST", "/api/admin/subscription-refresh", { email: "paid-founding@billing.test" });
+      assert(noAuth.status === 401, "Admin refresh requires auth");
+      const refreshRes = await requestJson("POST", "/api/admin/subscription-refresh", {
+        adminToken: adminLogin.json.token,
+        email: "paid-founding@billing.test",
+        adminEmail: "billing-qa@test.local",
+      });
+      // Without Stripe keys this returns 503; with keys it returns 200. Either proves the route exists.
+      assert([200, 503].includes(refreshRes.status), `Admin refresh route should respond, got ${refreshRes.status}`);
+      if (refreshRes.status === 200) {
+        assert(refreshRes.json?.ok === true, "Admin refresh ok flag");
+        assert(refreshRes.json?.email === "paid-founding@billing.test", "Admin refresh returns email");
+      }
+    }
 
     console.log("10) Browser persona labels & access");
     seedPersonas();

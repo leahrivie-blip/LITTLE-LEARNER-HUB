@@ -311,6 +311,8 @@ function defaultStore() {
     uploadedResources: [],
     analyticsEvents: [],
     billingEvents: [],
+    membershipAudit: [],
+    processedStripeEvents: {},
     leads: [],
     promoRedemptions: [],
     siteContent: defaultSiteContentStore(),
@@ -2241,14 +2243,184 @@ function claimFoundingSpot(email) {
 
 function statusForPlan(planKey, stripeSubscriptionId, status) {
   const config = planConfig[planKey] || planConfig.monthly;
+  const normalizedStatus = String(status || "Active").trim();
+  const lower = normalizedStatus.toLowerCase();
+  const stripeSubscriptionStatus = lower.includes("trial") ? "trialing" : "active";
+  const periodDays = lower.includes("trial") ? 7 : 30;
+  const periodEndIso = new Date(Date.now() + periodDays * 86400000).toISOString();
   return {
     plan: config.plan,
     subscriptionCadence: config.cadence,
-    subscriptionStatus: `${config.label} Subscription ${status || "Active"}`,
+    subscriptionStatus: `${config.label} Subscription ${normalizedStatus || "Active"}`,
     monthlyPrice: config.amount,
     priceLock: config.priceLock,
-    stripeSubscriptionId,
+    stripeSubscriptionId: stripeSubscriptionId || "",
+    stripeSubscriptionStatus,
+    currentPeriodEnd: periodEndIso,
+    accessEndsAt: periodEndIso,
+    cancelAtPeriodEnd: false,
+    lastStripeSyncAt: new Date().toISOString(),
   };
+}
+
+function logMembershipTransition(stage, email, details = {}) {
+  const plan = details.plan || details.membershipPlan || "";
+  const status = details.subscriptionStatus || details.membershipStatus || details.stripeSubscriptionStatus || "";
+  const access = details.hasProAccess === undefined ? "" : ` hasProAccess=${details.hasProAccess}`;
+  console.log(
+    `[membership] ${stage} email=${email || "unknown"} plan=${plan || "n/a"} status="${status || "n/a"}"${access}`,
+    details.extra ? JSON.stringify(details.extra) : "",
+  );
+}
+
+function findUserEntryByStripeCustomer(store, customerId, fallbackEmail = "") {
+  const cleanCustomer = String(customerId || "").trim();
+  if (cleanCustomer) {
+    const byCustomer = Object.entries(store.users || {}).find(([, user]) => user.stripeCustomerId === cleanCustomer);
+    if (byCustomer) return byCustomer;
+  }
+  const cleanEmail = normalizeEmail(fallbackEmail);
+  if (cleanEmail && store.users?.[cleanEmail]) {
+    return [cleanEmail, store.users[cleanEmail]];
+  }
+  return null;
+}
+
+function hasProcessedStripeEvent(eventId) {
+  if (!eventId) return false;
+  const store = readStore();
+  return Boolean(store.processedStripeEvents?.[eventId]);
+}
+
+function markProcessedStripeEvent(eventId) {
+  if (!eventId) return;
+  const store = readStore();
+  store.processedStripeEvents = store.processedStripeEvents || {};
+  store.processedStripeEvents[eventId] = {
+    processedAt: new Date().toISOString(),
+  };
+  // Keep a bounded idempotency window.
+  const ids = Object.keys(store.processedStripeEvents);
+  if (ids.length > 500) {
+    ids
+      .sort((a, b) => String(store.processedStripeEvents[a]?.processedAt || "").localeCompare(String(store.processedStripeEvents[b]?.processedAt || "")))
+      .slice(0, ids.length - 500)
+      .forEach((id) => {
+        delete store.processedStripeEvents[id];
+      });
+  }
+  writeStore(store);
+}
+
+function appendMembershipLifecycleAudit(email, action, details = {}) {
+  const store = readStore();
+  store.membershipAudit = store.membershipAudit || [];
+  const entry = {
+    id: `mem_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
+    email: normalizeEmail(email),
+    action,
+    updates: details.updates || {},
+    adminEmail: details.adminEmail || "system",
+    note: details.note || "",
+    createdAt: new Date().toISOString(),
+  };
+  store.membershipAudit.unshift(entry);
+  store.membershipAudit = store.membershipAudit.slice(0, 500);
+  writeStore(store);
+  return entry;
+}
+
+function applyCheckoutMembershipUpgrade(email, {
+  planKey,
+  customerId,
+  subscriptionId,
+  promoCode = "",
+  promoTrialDays = 0,
+  promoLabel = "",
+  sessionId = "",
+  source = "checkout",
+} = {}) {
+  const cleanEmail = normalizeEmail(email);
+  if (!cleanEmail) {
+    logMembershipTransition("payment_received_missing_email", "", { extra: { planKey, source, sessionId } });
+    return null;
+  }
+  const founding = planKey === "founding" ? claimFoundingSpot(cleanEmail) : { foundingMember: false, foundingMemberNumber: null };
+  const checkoutTrialUpdates = {};
+  const statusLabel = promoTrialDays > 0 ? "trialing" : "Active";
+  if (promoTrialDays > 0) {
+    checkoutTrialUpdates.trialStatus = "In Trial";
+    checkoutTrialUpdates.trialStart = new Date().toISOString();
+    checkoutTrialUpdates.trialEnd = new Date(Date.now() + promoTrialDays * 86400000).toISOString();
+  }
+  logMembershipTransition("payment_received", cleanEmail, {
+    plan: planConfig[planKey]?.plan || planKey,
+    subscriptionStatus: statusLabel,
+    extra: { source, sessionId, subscriptionId, customerId },
+  });
+  const user = upsertUser(cleanEmail, {
+    ...statusForPlan(planKey, subscriptionId, statusLabel),
+    ...checkoutTrialUpdates,
+    stripeCustomerId: customerId,
+    foundingMember: planKey === "founding" || founding.foundingMember,
+    foundingMemberActive: planKey === "founding",
+    foundingMemberHistorical: planKey === "founding" || founding.foundingMember,
+    foundingMemberNumber: founding.foundingMemberNumber,
+    subscriptionStartedAt: new Date().toISOString(),
+    paymentMethod: "Managed in Stripe",
+    pendingPlan: "",
+    pendingPromoCode: "",
+    pendingTrialDays: 0,
+    pendingPromoLabel: "",
+  });
+  if (promoCode) {
+    markPromoRedeemed(cleanEmail, promoCode, {
+      label: promoLabel,
+      trialDays: promoTrialDays,
+      stripeSessionId: sessionId,
+      stripeSubscriptionId: subscriptionId,
+    });
+  }
+  appendBillingEvent(cleanEmail, "checkout_success", planKey, planConfig[planKey]?.amount || "");
+  appendMembershipLifecycleAudit(cleanEmail, "membership_assigned", {
+    note: `Membership assigned from ${source}`,
+    updates: {
+      plan: user.plan,
+      foundingMemberActive: user.foundingMemberActive,
+      stripeSubscriptionStatus: user.stripeSubscriptionStatus,
+      hasProAccess: membershipHasProAccess(user),
+    },
+  });
+  logMembershipTransition("membership_assigned", cleanEmail, {
+    plan: user.plan,
+    subscriptionStatus: user.subscriptionStatus,
+    hasProAccess: membershipHasProAccess(user),
+    extra: {
+      foundingMemberActive: user.foundingMemberActive,
+      foundingMemberNumber: user.foundingMemberNumber,
+      stripeSubscriptionStatus: user.stripeSubscriptionStatus,
+      source,
+    },
+  });
+  logMembershipTransition("permissions_updated", cleanEmail, {
+    plan: user.plan,
+    membershipStatus: membershipStatusDisplay(user),
+    hasProAccess: membershipHasProAccess(user),
+    extra: { membershipPlan: membershipPlanDisplay(user), source },
+  });
+  return user;
+}
+
+function subscriptionNeedsStripeRepair(subscription) {
+  if (!subscription) return false;
+  const paidLooking = ["Pro", "Founding"].includes(String(subscription.plan || "").trim())
+    || Boolean(subscription.foundingMemberActive)
+    || String(subscription.subscriptionStatus || "").toLowerCase().includes("active")
+    || String(subscription.subscriptionStatus || "").toLowerCase().includes("trial");
+  if (!paidLooking) return false;
+  if (!subscription.stripeSubscriptionStatus) return true;
+  if (!subscription.stripeCustomerId && !subscription.stripeSubscriptionId) return true;
+  return false;
 }
 
 function planKeyFromPriceId(priceId) {
@@ -4506,35 +4678,46 @@ async function handleCheckoutStatus(request, response, url) {
   try {
     const session = await stripeGet(`checkout/sessions/${encodeURIComponent(sessionId)}`);
     const store = readStore();
-    const userEntry = Object.entries(store.users || {}).find(([, user]) => user.stripeCustomerId === session.customer);
-    const email = normalizeEmail(session.customer_details?.email || session.customer_email || session.metadata?.email || userEntry?.[0]);
+    const userEntry = findUserEntryByStripeCustomer(
+      store,
+      session.customer,
+      session.customer_details?.email || session.customer_email || session.metadata?.email,
+    );
+    const email = normalizeEmail(session.metadata?.email || session.customer_details?.email || session.customer_email || userEntry?.[0]);
     const planKey = session.metadata?.plan || userEntry?.[1]?.pendingPlan || "monthly";
     const promoCode = normalizePromoCode(session.metadata?.promoCode || userEntry?.[1]?.pendingPromoCode || "");
     const promoTrialDays = Number(session.metadata?.promoTrialDays || userEntry?.[1]?.pendingTrialDays || 0);
     const promoLabel = session.metadata?.promoLabel || userEntry?.[1]?.pendingPromoLabel || "";
     const paid = session.payment_status === "paid" || session.status === "complete";
+    let upgradedUser = null;
     if (paid && email) {
-      const founding = planKey === "founding" ? claimFoundingSpot(email) : { foundingMember: false, foundingMemberNumber: null };
-      upsertUser(email, {
-        ...statusForPlan(planKey, session.subscription, "Active"),
-        stripeCustomerId: session.customer,
-        foundingMember: planKey === "founding" || founding.foundingMember,
-        foundingMemberActive: planKey === "founding",
-        foundingMemberHistorical: planKey === "founding" || founding.foundingMember,
-        foundingMemberNumber: founding.foundingMemberNumber,
-        subscriptionStartedAt: new Date().toISOString(),
-        paymentMethod: "Managed in Stripe",
-        pendingPlan: "",
+      upgradedUser = applyCheckoutMembershipUpgrade(email, {
+        planKey,
+        customerId: session.customer,
+        subscriptionId: session.subscription,
+        promoCode,
+        promoTrialDays,
+        promoLabel,
+        sessionId: session.id,
+        source: "checkout_status",
       });
-      if (promoCode) {
-        markPromoRedeemed(email, promoCode, {
-          label: promoLabel,
-          trialDays: promoTrialDays,
-          stripeSessionId: session.id,
-          stripeSubscriptionId: session.subscription,
-        });
+      // Prefer live Stripe subscription fields when available so period end is exact.
+      if (session.subscription && typeof session.subscription === "string") {
+        try {
+          const liveSub = await stripeGet(`subscriptions/${encodeURIComponent(session.subscription)}`);
+          if (liveSub?.id) {
+            upgradedUser = upsertStripeSubscription(email, session.customer, liveSub);
+            logMembershipTransition("membership_synced_from_subscription", email, {
+              plan: upgradedUser.plan,
+              subscriptionStatus: upgradedUser.subscriptionStatus,
+              hasProAccess: membershipHasProAccess(upgradedUser),
+              extra: { source: "checkout_status" },
+            });
+          }
+        } catch (syncError) {
+          console.warn(`[membership] checkout_status subscription sync failed email=${email}:`, syncError.message);
+        }
       }
-      appendBillingEvent(email, "checkout_success", planKey, planConfig[planKey]?.amount || "");
     }
     jsonResponse(response, 200, {
       paid,
@@ -4546,6 +4729,7 @@ async function handleCheckoutStatus(request, response, url) {
       customerId: session.customer,
       promo: promoCode ? { applied: true, trialDays: promoTrialDays, label: promoLabel } : null,
       founding: foundingStatusPayload(readStore()),
+      membership: upgradedUser ? membershipSummaryForUser(upgradedUser) : null,
     });
   } catch (error) {
     jsonResponse(response, 500, { error: error.message || "Could not verify Stripe Checkout status." });
@@ -4576,6 +4760,7 @@ async function handlePortal(request, response) {
 async function handleStripeWebhook(request, response) {
   const rawBody = await readBody(request);
   if (!verifyStripeSignature(rawBody, request.headers["stripe-signature"])) {
+    console.warn("[membership] webhook_signature_invalid");
     jsonResponse(response, 400, { error: "Invalid Stripe webhook signature." });
     return;
   }
@@ -4587,105 +4772,167 @@ async function handleStripeWebhook(request, response) {
     return;
   }
 
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object;
-    const store = readStore();
-    const userEntry = Object.entries(store.users || {}).find(([, user]) => user.stripeCustomerId === session.customer);
-    const email = normalizeEmail(session.customer_details?.email || session.customer_email || session.metadata?.email || userEntry?.[0]);
-    const planKey = session.metadata?.plan || userEntry?.[1]?.pendingPlan || "monthly";
-    const promoCode = normalizePromoCode(session.metadata?.promoCode || userEntry?.[1]?.pendingPromoCode || "");
-    const promoTrialDays = Number(session.metadata?.promoTrialDays || userEntry?.[1]?.pendingTrialDays || 0);
-    const promoLabel = session.metadata?.promoLabel || userEntry?.[1]?.pendingPromoLabel || "";
-    if (email) {
-      const founding = planKey === "founding" ? claimFoundingSpot(email) : { foundingMember: false, foundingMemberNumber: null };
-      const checkoutTrialUpdates = {};
-      if (promoTrialDays > 0) {
-        checkoutTrialUpdates.trialStatus = "In Trial";
-        checkoutTrialUpdates.trialStart = new Date().toISOString();
-        checkoutTrialUpdates.trialEnd = new Date(Date.now() + promoTrialDays * 86400000).toISOString();
+  if (event?.id && hasProcessedStripeEvent(event.id)) {
+    console.log(`[membership] webhook_duplicate event=${event.id} type=${event.type}`);
+    jsonResponse(response, 200, { received: true, duplicate: true });
+    return;
+  }
+
+  try {
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
+      const store = readStore();
+      const userEntry = findUserEntryByStripeCustomer(
+        store,
+        session.customer,
+        session.metadata?.email || session.customer_details?.email || session.customer_email,
+      );
+      const email = normalizeEmail(session.metadata?.email || session.customer_details?.email || session.customer_email || userEntry?.[0]);
+      const planKey = session.metadata?.plan || userEntry?.[1]?.pendingPlan || "monthly";
+      const promoCode = normalizePromoCode(session.metadata?.promoCode || userEntry?.[1]?.pendingPromoCode || "");
+      const promoTrialDays = Number(session.metadata?.promoTrialDays || userEntry?.[1]?.pendingTrialDays || 0);
+      const promoLabel = session.metadata?.promoLabel || userEntry?.[1]?.pendingPromoLabel || "";
+      if (email) {
+        applyCheckoutMembershipUpgrade(email, {
+          planKey,
+          customerId: session.customer,
+          subscriptionId: session.subscription,
+          promoCode,
+          promoTrialDays,
+          promoLabel,
+          sessionId: session.id,
+          source: "webhook_checkout.session.completed",
+        });
+        if (session.subscription && typeof session.subscription === "string") {
+          try {
+            const liveSub = await stripeGet(`subscriptions/${encodeURIComponent(session.subscription)}`);
+            if (liveSub?.id) {
+              const synced = upsertStripeSubscription(email, session.customer, liveSub);
+              logMembershipTransition("permissions_updated", email, {
+                plan: synced.plan,
+                membershipStatus: membershipStatusDisplay(synced),
+                hasProAccess: membershipHasProAccess(synced),
+                extra: { source: "webhook_checkout_subscription_sync" },
+              });
+            }
+          } catch (syncError) {
+            console.warn(`[membership] webhook checkout subscription sync failed email=${email}:`, syncError.message);
+          }
+        }
+      } else {
+        console.warn("[membership] webhook checkout.session.completed missing email", session.id);
       }
-      upsertUser(email, {
-        ...statusForPlan(planKey, session.subscription, promoTrialDays > 0 ? "trialing" : "Active"),
-        ...checkoutTrialUpdates,
-        stripeCustomerId: session.customer,
-        foundingMember: planKey === "founding" || founding.foundingMember,
-        foundingMemberActive: planKey === "founding",
-        foundingMemberHistorical: planKey === "founding" || founding.foundingMember,
-        foundingMemberNumber: founding.foundingMemberNumber,
-        subscriptionStartedAt: new Date().toISOString(),
-        paymentMethod: "Managed in Stripe",
-        pendingPlan: "",
-      });
-      if (promoCode) {
-        markPromoRedeemed(email, promoCode, {
-          label: promoLabel,
-          trialDays: promoTrialDays,
-          stripeSessionId: session.id,
-          stripeSubscriptionId: session.subscription,
+    }
+
+    if (event.type === "customer.subscription.deleted" || event.type === "customer.subscription.updated") {
+      const subscription = event.data.object;
+      const store = readStore();
+      const userEntry = findUserEntryByStripeCustomer(
+        store,
+        subscription.customer,
+        subscription.metadata?.email,
+      );
+      if (userEntry) {
+        const [email, user] = userEntry;
+        const eventType = event.type === "customer.subscription.deleted" ? "deleted" : "updated";
+        const updates = membershipUpdatesFromStripeSubscription(subscription, user, eventType);
+        if (updates.foundingMemberActive && !user.foundingMemberNumber) {
+          const claim = claimFoundingSpot(email);
+          updates.foundingMemberNumber = claim.foundingMemberNumber;
+          updates.foundingMemberHistorical = true;
+          updates.foundingMember = true;
+        } else if (user.foundingMemberNumber) {
+          updates.foundingMemberNumber = user.foundingMemberNumber;
+          updates.foundingMemberHistorical = true;
+          updates.foundingMember = true;
+        }
+        const saved = upsertUser(email, {
+          ...updates,
+          paymentMethod: updates.plan === "Free" ? user.paymentMethod || "Managed in Stripe" : "Managed in Stripe",
+          pendingPlan: "",
+        });
+        logMembershipTransition("membership_assigned", email, {
+          plan: saved.plan,
+          subscriptionStatus: saved.subscriptionStatus,
+          hasProAccess: membershipHasProAccess(saved),
+          extra: { source: event.type, stripeStatus: subscription.status },
+        });
+        const subscriptionPromoCode = normalizePromoCode(subscription.metadata?.promoCode || user.pendingPromoCode || "");
+        if (membershipAccess.membershipHasProAccess({ ...user, ...updates }) && subscriptionPromoCode) {
+          markPromoRedeemed(email, subscriptionPromoCode, {
+            label: subscription.metadata?.promoLabel || user.pendingPromoLabel || "",
+            trialDays: Number(subscription.metadata?.promoTrialDays || user.pendingTrialDays || 0),
+            stripeSubscriptionId: subscription.id,
+          });
+        }
+        if (!membershipAccess.membershipHasProAccess({ ...user, ...updates })) {
+          appendBillingEvent(email, "subscription_canceled", planKeyFromStripe(subscription, user), "$0");
+        }
+      } else {
+        console.warn(`[membership] webhook ${event.type} unmatched customer=${subscription.customer}`);
+      }
+    }
+
+    if (event.type === "invoice.paid" || event.type === "invoice.payment_succeeded") {
+      const invoice = event.data.object;
+      const store = readStore();
+      const userEntry = findUserEntryByStripeCustomer(store, invoice.customer, invoice.customer_email);
+      if (userEntry?.[0] && invoice.subscription) {
+        try {
+          const liveSub = await stripeGet(`subscriptions/${encodeURIComponent(invoice.subscription)}`);
+          if (liveSub?.id) {
+            const synced = upsertStripeSubscription(userEntry[0], invoice.customer, liveSub);
+            logMembershipTransition("payment_received", userEntry[0], {
+              plan: synced.plan,
+              subscriptionStatus: synced.subscriptionStatus,
+              hasProAccess: membershipHasProAccess(synced),
+              extra: { source: event.type, invoiceId: invoice.id },
+            });
+          }
+        } catch (syncError) {
+          console.warn(`[membership] invoice paid sync failed email=${userEntry[0]}:`, syncError.message);
+        }
+      }
+    }
+
+    if (event.type === "invoice.payment_failed") {
+      const invoice = event.data.object;
+      const store = readStore();
+      const userEntry = findUserEntryByStripeCustomer(store, invoice.customer, invoice.customer_email);
+      if (userEntry) {
+        const [email, existing] = userEntry;
+        const updated = upsertUser(email, {
+          plan: "Free",
+          subscriptionStatus: "Payment Failed - Action Needed",
+          stripeSubscriptionStatus: "unpaid",
+          monthlyPrice: "$0/month",
+          foundingMemberActive: false,
+          foundingMemberHistorical: Boolean(existing?.foundingMemberHistorical || existing?.foundingMember),
+          foundingMember: Boolean(existing?.foundingMemberHistorical || existing?.foundingMember),
+          foundingMemberNumber: existing?.foundingMemberNumber || null,
+          priceLock: existing?.foundingMemberHistorical || existing?.foundingMember ? "Lifetime" : "",
+          lastStripeSyncAt: new Date().toISOString(),
+        });
+        appendMembershipLifecycleAudit(email, "payment_failed", {
+          note: "Payment failed — Pro access revoked until Stripe recovers",
+          updates: { stripeSubscriptionStatus: "unpaid", invoiceId: invoice.id },
+        });
+        logMembershipTransition("payment_failed", email, {
+          plan: updated.plan,
+          subscriptionStatus: updated.subscriptionStatus,
+          hasProAccess: false,
+          extra: { invoiceId: invoice.id },
         });
       }
-      appendBillingEvent(email, "checkout_success", planKey, planConfig[planKey]?.amount || "");
     }
-  }
 
-  if (event.type === "customer.subscription.deleted" || event.type === "customer.subscription.updated") {
-    const subscription = event.data.object;
-    const store = readStore();
-    const userEntry = Object.entries(store.users || {}).find(([, user]) => user.stripeCustomerId === subscription.customer);
-    if (userEntry) {
-      const [email, user] = userEntry;
-      const eventType = event.type === "customer.subscription.deleted" ? "deleted" : "updated";
-      const updates = membershipUpdatesFromStripeSubscription(subscription, user, eventType);
-      if (updates.foundingMemberActive && !user.foundingMemberNumber) {
-        const claim = claimFoundingSpot(email);
-        updates.foundingMemberNumber = claim.foundingMemberNumber;
-        updates.foundingMemberHistorical = true;
-        updates.foundingMember = true;
-      } else if (user.foundingMemberNumber) {
-        updates.foundingMemberNumber = user.foundingMemberNumber;
-        updates.foundingMemberHistorical = true;
-        updates.foundingMember = true;
-      }
-      upsertUser(email, {
-        ...updates,
-        paymentMethod: updates.plan === "Free" ? user.paymentMethod || "Managed in Stripe" : "Managed in Stripe",
-        pendingPlan: "",
-      });
-      const subscriptionPromoCode = normalizePromoCode(subscription.metadata?.promoCode || user.pendingPromoCode || "");
-      if (membershipAccess.membershipHasProAccess({ ...user, ...updates }) && subscriptionPromoCode) {
-        markPromoRedeemed(email, subscriptionPromoCode, {
-          label: subscription.metadata?.promoLabel || user.pendingPromoLabel || "",
-          trialDays: Number(subscription.metadata?.promoTrialDays || user.pendingTrialDays || 0),
-          stripeSubscriptionId: subscription.id,
-        });
-      }
-      if (!membershipAccess.membershipHasProAccess({ ...user, ...updates })) {
-        appendBillingEvent(email, "subscription_canceled", planKeyFromStripe(subscription, user), "$0");
-      }
-    }
+    if (event?.id) markProcessedStripeEvent(event.id);
+    jsonResponse(response, 200, { received: true });
+  } catch (error) {
+    // Return 500 so Stripe retries failed webhook processing.
+    console.error(`[membership] webhook_processing_failed type=${event?.type}:`, error.message || error);
+    jsonResponse(response, 500, { error: error.message || "Webhook processing failed." });
   }
-
-  if (event.type === "invoice.payment_failed") {
-    const invoice = event.data.object;
-    const store = readStore();
-    const userEntry = Object.entries(store.users || {}).find(([, user]) => user.stripeCustomerId === invoice.customer);
-    if (userEntry) {
-      upsertUser(userEntry[0], {
-        plan: "Free",
-        subscriptionStatus: "Payment Failed - Action Needed",
-        stripeSubscriptionStatus: "unpaid",
-        monthlyPrice: "$0/month",
-        foundingMemberActive: false,
-        foundingMemberHistorical: Boolean(userEntry[1]?.foundingMemberHistorical || userEntry[1]?.foundingMember),
-        foundingMember: Boolean(userEntry[1]?.foundingMemberHistorical || userEntry[1]?.foundingMember),
-        foundingMemberNumber: userEntry[1]?.foundingMemberNumber || null,
-        priceLock: userEntry[1]?.foundingMemberHistorical || userEntry[1]?.foundingMember ? "Lifetime" : "",
-        lastStripeSyncAt: new Date().toISOString(),
-      });
-    }
-  }
-
-  jsonResponse(response, 200, { received: true });
 }
 
 async function handleAiGenerate(request, response) {
@@ -4804,37 +5051,118 @@ async function handleCancelSubscription(request, response) {
   }
 }
 
-async function handleSubscriptionStatus(request, response, url) {
-  const email = normalizeEmail(url.searchParams.get("email"));
+async function syncUserMembershipFromStripe(email, { force = false, reason = "subscription_status" } = {}) {
+  const cleanEmail = normalizeEmail(email);
+  if (!cleanEmail) return { subscription: null, recoveredFromStripe: false };
   const store = readStore();
-  let subscription = store.users?.[email] || null;
+  let subscription = store.users?.[cleanEmail] || null;
   let recoveredFromStripe = false;
-  if (email && !storedSubscriptionActive(subscription)) {
+  const shouldQueryStripe = force
+    || !storedSubscriptionActive(subscription)
+    || subscriptionNeedsStripeRepair(subscription);
+  if (shouldQueryStripe && isConfiguredValue(STRIPE_SECRET_KEY)) {
     try {
-      const stripeMatch = await findStripeSubscriptionByEmail(email);
+      const stripeMatch = await findStripeSubscriptionByEmail(cleanEmail);
       if (stripeMatch?.subscription) {
-        subscription = upsertStripeSubscription(email, stripeMatch.customerId, stripeMatch.subscription);
+        subscription = upsertStripeSubscription(cleanEmail, stripeMatch.customerId, stripeMatch.subscription);
         recoveredFromStripe = true;
+        logMembershipTransition("membership_assigned", cleanEmail, {
+          plan: subscription.plan,
+          subscriptionStatus: subscription.subscriptionStatus,
+          hasProAccess: membershipHasProAccess(subscription),
+          extra: { source: reason, force, recoveredFromStripe: true },
+        });
+      } else if (force) {
+        logMembershipTransition("stripe_refresh_no_active_subscription", cleanEmail, {
+          plan: subscription?.plan || "Free",
+          subscriptionStatus: subscription?.subscriptionStatus || "",
+          extra: { source: reason },
+        });
       }
     } catch (error) {
-      console.warn(`Could not recover Stripe subscription for ${email}:`, error.message);
+      console.warn(`[membership] Could not sync Stripe subscription for ${cleanEmail}:`, error.message);
+      if (force) throw error;
     }
   }
   if (subscription && membershipAccess.membershipFoundingActive(subscription)) {
     const repaired = repairFoundingMemberPricing(subscription);
     if (repaired.monthlyPrice !== subscription.monthlyPrice || repaired.plan !== subscription.plan) {
-      subscription = upsertUser(email, repaired);
+      subscription = upsertUser(cleanEmail, repaired);
     } else {
       subscription = repaired;
     }
   }
-  jsonResponse(response, 200, {
-    email,
-    subscription: subscription ? { ...subscription, ...membershipSummaryForUser(subscription) } : null,
-    recoveredFromStripe,
-    aiUsage: email ? canUseServerAi(email, subscription?.plan || "Free") : null,
-    founding: foundingStatusPayload(readStore()),
-  });
+  if (subscription) {
+    logMembershipTransition("permissions_updated", cleanEmail, {
+      plan: subscription.plan,
+      membershipStatus: membershipStatusDisplay(subscription),
+      hasProAccess: membershipHasProAccess(subscription),
+      extra: { source: reason, recoveredFromStripe },
+    });
+  }
+  return { subscription, recoveredFromStripe };
+}
+
+async function handleSubscriptionStatus(request, response, url) {
+  const email = normalizeEmail(url.searchParams.get("email"));
+  const forceRefresh = url.searchParams.get("refresh") === "1" || url.searchParams.get("force") === "1";
+  try {
+    const { subscription, recoveredFromStripe } = await syncUserMembershipFromStripe(email, {
+      force: forceRefresh,
+      reason: forceRefresh ? "subscription_status_force_refresh" : "subscription_status",
+    });
+    jsonResponse(response, 200, {
+      email,
+      subscription: subscription ? { ...subscription, ...membershipSummaryForUser(subscription) } : null,
+      recoveredFromStripe,
+      aiUsage: email ? canUseServerAi(email, subscription?.plan || "Free") : null,
+      founding: foundingStatusPayload(readStore()),
+    });
+  } catch (error) {
+    jsonResponse(response, 500, { error: error.message || "Could not refresh subscription status." });
+  }
+}
+
+async function handleAdminSubscriptionRefresh(request, response) {
+  const body = await readJson(request);
+  const token = String(body.adminToken || "");
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const email = normalizeEmail(body.email);
+  if (!email) {
+    jsonResponse(response, 400, { error: "email is required." });
+    return;
+  }
+  if (!requireStripe(response)) return;
+  try {
+    const before = readStore().users?.[email] || null;
+    const { subscription, recoveredFromStripe } = await syncUserMembershipFromStripe(email, {
+      force: true,
+      reason: "admin_subscription_refresh",
+    });
+    appendMembershipLifecycleAudit(email, "admin_stripe_refresh", {
+      adminEmail: body.adminEmail || ADMIN_EMAIL || "admin",
+      note: recoveredFromStripe
+        ? "Admin refreshed membership from Stripe and applied active subscription."
+        : "Admin refreshed membership from Stripe; no active paid subscription found.",
+      updates: {
+        beforePlan: before?.plan || "Free",
+        afterPlan: subscription?.plan || "Free",
+        recoveredFromStripe,
+      },
+    });
+    jsonResponse(response, 200, {
+      ok: true,
+      email,
+      recoveredFromStripe,
+      subscription: subscription ? { ...subscription, ...membershipSummaryForUser(subscription) } : null,
+    });
+  } catch (error) {
+    console.error(`[membership] admin refresh failed email=${email}:`, error.message || error);
+    jsonResponse(response, 503, { error: error.message || "Could not refresh subscription from Stripe." });
+  }
 }
 
 function handleUserAiUsage(request, response, url) {
@@ -7399,6 +7727,8 @@ function handleBillingReadiness(request, response) {
       "checkout.session.completed",
       "customer.subscription.updated",
       "customer.subscription.deleted",
+      "invoice.paid",
+      "invoice.payment_succeeded",
       "invoice.payment_failed",
     ],
     note: stripe.webhookConfigured
@@ -8461,6 +8791,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/user/ai-usage") return handleUserAiUsage(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/analytics") return handleAdminAnalytics(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/membership-update") return await handleAdminMembershipUpdate(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/subscription-refresh") return await handleAdminSubscriptionRefresh(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-test") return await handleAdminAiTest(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/ai-prompts") return handleAdminAiPrompts(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-prompts") return await handleAdminAiPromptsSave(request, response);

@@ -185,9 +185,27 @@ test("app.js keeps Behavior & Support alias, Director Center, and Calendar landi
   assert.match(appJs, /requestedView === "behavior-support"/);
   assert.match(appJs, /function renderDirectorCenterPage/);
   assert.match(appJs, /data-nav-hidden/);
-  assert.match(appJs, /setView\("calendar"\)/);
+  assert.match(appJs, /setView\("calendar"/);
   assert.match(appJs, /Founding Members will receive access to future Director Center features/);
   assert.match(appJs, /Logged-in providers land on Calendar/);
+});
+
+test("navigation guards prevent post-login/boot yank and sidebar history pollution", () => {
+  assert.match(appJs, /let pendingAuthReturnView/);
+  assert.match(appJs, /let suppressBootLanding/);
+  assert.match(appJs, /let viewNavigationGeneration/);
+  assert.match(appJs, /pendingAuthReturnView = resolvedView/);
+  assert.match(appJs, /fromAuthLanding:\s*true/);
+  assert.match(appJs, /fromBoot:\s*true/);
+  assert.match(appJs, /suppressBootLanding = true/);
+  assert.match(appJs, /skipHistory:\s*true/);
+  assert.match(appJs, /loginNavGeneration !== viewNavigationGeneration/);
+  assert.match(appJs, /dismissResourceViewerForNavigation\(\)/);
+  assert.match(appJs, /pushPlatformNavHistory/);
+  assert.match(appJs, /restoreViewScroll/);
+  assert.match(appJs, /defaultLoggedInLandingView/);
+  assert.match(html, /llh-boot-authenticated/);
+  assert.doesNotMatch(html, /Back to Dashboard/);
 });
 
 if (!process.exitCode) {

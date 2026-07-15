@@ -24,6 +24,20 @@
     <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles.css?v=20260715-lesson-system" />
+  <script>
+    // Paint Calendar immediately for returning users — never flash the old Dashboard.
+    (function () {
+      try {
+        if (!localStorage.getItem("llhUser")) return;
+        document.documentElement.classList.add("llh-boot-authenticated");
+      } catch (error) { /* ignore */ }
+    })();
+  </script>
+  <style>
+    html.llh-boot-authenticated body:not(.app-booted) #view-home { display: none !important; }
+    html.llh-boot-authenticated body:not(.app-booted) #view-calendar { display: block !important; }
+    html.llh-boot-authenticated body:not(.app-booted).home-view { /* prevent marketing chrome flash */ }
+  </style>
   </head>
   <body>
     <div class="app-shell">
@@ -656,7 +670,7 @@
         </section>
 
         <section id="view-calendar" class="view">
-          <button class="ghost-button back-button" data-contextual-back="calendar" data-fallback-view="home" data-always-visible="true" type="button">← Back to Dashboard</button>
+          <button class="ghost-button back-button" data-contextual-back="calendar" data-fallback-view="calendar" type="button" hidden>← Back</button>
           <div class="page-title llh-schedule-page-title">
             <p class="eyebrow">Planning home</p>
             <h2>Calendar</h2>
@@ -674,7 +688,7 @@
         </section>
 
         <section id="view-curriculum-planner" class="view">
-          <button class="ghost-button back-button" data-contextual-back="curriculum-planner" data-fallback-view="home" data-always-visible="true" type="button">← Back to Dashboard</button>
+          <button class="ghost-button back-button" data-contextual-back="curriculum-planner" data-fallback-view="calendar" data-always-visible="true" type="button">← Back to Calendar</button>
           <div class="page-title">
             <p class="eyebrow">Curriculum Planner</p>
             <h2>Assign a lesson plan to your week.</h2>
