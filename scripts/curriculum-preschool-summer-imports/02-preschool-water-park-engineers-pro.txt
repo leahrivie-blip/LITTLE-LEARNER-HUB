@@ -1,0 +1,323 @@
+TITLE:
+Water Park Engineers
+
+AGE_GROUP:
+Preschool
+
+THEME:
+Water Engineering & Summer STEM
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science, Physical Development, Creative Arts
+
+WEEKLY_OVERVIEW:
+Children will become water park engineers as they design water slides, build water systems, test floating objects, solve engineering challenges, and explore how water moves. Through hands-on STEM investigations, children will learn about gravity, flow, construction, and teamwork while having summer-themed fun.
+
+LEARNING_OBJECTIVES:
+• Explore engineering and design concepts
+• Investigate how water moves and flows
+• Practice problem-solving and critical thinking
+• Develop measurement and observation skills
+• Encourage teamwork and creativity
+
+WEEKLY_MATERIALS:
+Funnels, tubing, water tables, cups, buckets, toy boats, measuring cups, blocks, cardboard tubes, clipboards, journals
+
+VOCABULARY:
+Engineer, Design, Build, Flow, Gravity, Water, Measure, Experiment, Structure, Solution
+
+BOOKS:
+Rosie Revere, Engineer
+Dreaming Up
+What Do Engineers Do?
+Water Can Be...
+STEM Builds
+
+SONGS:
+The Water Song
+Row Row Row Your Boat
+The Engineer Song
+Move and Build
+Splish Splash
+
+FAMILY_CONNECTION:
+Encourage families to explore water play, building activities, and problem-solving challenges together at home.
+
+OBSERVATION_OPPORTUNITIES:
+Observe problem-solving, cooperation, engineering thinking, measuring skills, and scientific inquiry.
+
+ADAPTATIONS:
+Provide visual supports, adaptive tools, simplified challenges, peer partnerships, and additional guidance as needed.
+
+MONDAY
+
+ACTIVITY_NAME:
+Meet the Engineers
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Children learn what engineers do and how they solve problems.
+MATERIALS:
+Engineer photos, building examples
+DIRECTIONS:
+Discuss engineers.
+Explore examples.
+Brainstorm things engineers build.
+Share ideas.
+TEACHER_ROLE:
+Introduce engineering concepts.
+LEARNING_GOALS:
+Vocabulary and critical thinking.
+
+ACTIVITY_NAME:
+Build a Mini Water Park
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children design a simple water park using blocks and materials.
+MATERIALS:
+Blocks, tubes, toy figures
+DIRECTIONS:
+Plan design.
+Build structures.
+Test ideas.
+TEACHER_ROLE:
+Support planning and creativity.
+LEARNING_GOALS:
+Engineering and problem-solving.
+
+ACTIVITY_NAME:
+Engineer Journal
+CATEGORY:
+Literacy
+DESCRIPTION:
+Children draw their first water park design.
+MATERIALS:
+Paper, crayons
+DIRECTIONS:
+Draw design.
+Label parts.
+Share ideas.
+TEACHER_ROLE:
+Support communication.
+LEARNING_GOALS:
+Planning and early writing.
+
+TUESDAY
+
+ACTIVITY_NAME:
+Water Flow Investigation
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children explore how water moves through funnels and tubes.
+MATERIALS:
+Funnels, tubing, water
+DIRECTIONS:
+Pour water.
+Observe movement.
+Compare pathways.
+TEACHER_ROLE:
+Ask prediction questions.
+LEARNING_GOALS:
+Scientific observation.
+
+ACTIVITY_NAME:
+Slide Testing Challenge
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children test different slide designs.
+MATERIALS:
+Cardboard tubes, toy figures
+DIRECTIONS:
+Build slide.
+Test toy movement.
+Adjust design.
+TEACHER_ROLE:
+Encourage experimentation.
+LEARNING_GOALS:
+Engineering design process.
+
+ACTIVITY_NAME:
+Water Park Story Time
+CATEGORY:
+Literacy
+DESCRIPTION:
+Read a STEM-themed story.
+MATERIALS:
+Engineering book
+DIRECTIONS:
+Read story.
+Discuss solutions.
+Ask questions.
+TEACHER_ROLE:
+Support comprehension.
+LEARNING_GOALS:
+Literacy and reasoning.
+
+WEDNESDAY
+
+ACTIVITY_NAME:
+Sink or Float Water Lab
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children test objects to determine whether they sink or float.
+MATERIALS:
+Water tub, objects
+DIRECTIONS:
+Predict outcome.
+Test object.
+Record results.
+TEACHER_ROLE:
+Guide scientific inquiry.
+LEARNING_GOALS:
+Prediction and observation skills.
+
+ACTIVITY_NAME:
+Build a Boat Challenge
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children design boats that float.
+MATERIALS:
+Foam, straws, tape
+DIRECTIONS:
+Build boat.
+Test in water.
+Improve design.
+TEACHER_ROLE:
+Support problem-solving.
+LEARNING_GOALS:
+Engineering and creativity.
+
+ACTIVITY_NAME:
+Water Scientist Circle
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Discuss discoveries from experiments.
+MATERIALS:
+Science charts
+DIRECTIONS:
+Share results.
+Compare observations.
+Discuss findings.
+TEACHER_ROLE:
+Lead discussion.
+LEARNING_GOALS:
+Communication and scientific thinking.
+
+THURSDAY
+
+ACTIVITY_NAME:
+Measure the Splash
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children compare splash sizes using different amounts of water.
+MATERIALS:
+Water containers, rulers
+DIRECTIONS:
+Make splash.
+Observe results.
+Compare sizes.
+TEACHER_ROLE:
+Introduce measurement vocabulary.
+LEARNING_GOALS:
+Math and observation skills.
+
+ACTIVITY_NAME:
+Water Wheel Engineering
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children explore how water powers movement.
+MATERIALS:
+Water wheel, water table
+DIRECTIONS:
+Pour water.
+Watch wheel move.
+Discuss cause and effect.
+TEACHER_ROLE:
+Guide exploration.
+LEARNING_GOALS:
+Scientific reasoning.
+
+ACTIVITY_NAME:
+Construction Crew Dance
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Children pretend to build while dancing.
+MATERIALS:
+Music player
+DIRECTIONS:
+Dance to music.
+Pretend to build structures.
+Follow movement directions.
+TEACHER_ROLE:
+Lead activity.
+LEARNING_GOALS:
+Movement and participation.
+
+FRIDAY
+
+ACTIVITY_NAME:
+Ultimate Water Park Build
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Children work together to build a large classroom water park.
+MATERIALS:
+Blocks, tubes, water materials
+DIRECTIONS:
+Plan design.
+Build together.
+Test systems.
+Make improvements.
+TEACHER_ROLE:
+Facilitate teamwork and problem-solving.
+LEARNING_GOALS:
+Collaboration and engineering.
+
+ACTIVITY_NAME:
+Engineer Showcase
+CATEGORY:
+Dramatic Play
+DESCRIPTION:
+Children present their water park designs.
+MATERIALS:
+Projects, journals
+DIRECTIONS:
+Present design.
+Explain features.
+Answer questions.
+TEACHER_ROLE:
+Encourage communication.
+LEARNING_GOALS:
+Confidence and presentation skills.
+
+ACTIVITY_NAME:
+Water Park Engineers Celebration Circle
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Review favorite engineering challenges and discoveries.
+MATERIALS:
+Photos, journals, projects
+DIRECTIONS:
+Share favorite activities.
+Review vocabulary.
+Celebrate learning.
+TEACHER_ROLE:
+Lead reflection.
+LEARNING_GOALS:
+Communication and scientific understanding.
