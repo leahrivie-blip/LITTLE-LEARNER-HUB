@@ -45,7 +45,7 @@ function main() {
   assert(ocean.summary.activityCount === 6, "ocean activities");
   assert(ocean.summary.weekdaysDetected === 5, "ocean weekdays");
   assert(/Import & Save will create/i.test(ocean.confirmMessage), "auto-save confirm copy");
-  assert(ocean.summary.formatLabel === "Little Learner Hub lesson plan format", "format label");
+  assert(ocean.summary.formatLabel === "V3 Strict Import (label-only)", "format label");
 
   console.log("3) Existing v3 sample preview summary");
   const v3Parsed = parseCurriculumLessonPlanImport(fs.readFileSync(V3_SAMPLE, "utf8"));
