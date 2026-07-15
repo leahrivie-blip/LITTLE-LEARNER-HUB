@@ -9694,7 +9694,7 @@ function lessonPlanCard(resource) {
       ${domains.length ? `<div class="lesson-plan-card-domains" aria-label="Learning domains">${domains.map((domain) => `<span class="tag">${escapeHtml(domain)}</span>`).join("")}</div>` : ""}
       ${overview ? `<p class="lesson-plan-card-overview">${escapeHtml(overview)}</p>` : ""}
       ${!locked ? `
-        <div class="lesson-plan-card-actions" onclick="event.stopPropagation()">
+        <div class="lesson-plan-card-actions">
           <button type="button" class="primary-button" data-lesson-card-use-plan="${escapeHtml(resource.id)}">Use This Plan</button>
         </div>
       ` : `<p class="lesson-plan-card-hint">Tap to preview →</p>`}
@@ -14526,6 +14526,7 @@ function lessonWorkspaceChromeHtml(resource) {
           <h2 class="lesson-workspace-title">${escapeHtml(resource.title)}</h2>
           <p class="lesson-workspace-meta">${escapeHtml(age)} · ${escapeHtml(planLabel)}</p>
         </div>
+        ${lessonWorkspaceSaveButtonHtml(resource.id)}
       </header>
       ${lessonWorkspaceActionBarsHtml(resource)}
       <nav class="lesson-workspace-tabs" role="tablist" aria-label="Lesson plan sections">
@@ -38454,9 +38455,36 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  // Nested card actions must run before [data-view-resource] (whole lesson cards are clickable).
+  const favoriteButton = event.target.closest("[data-favorite]");
+  if (favoriteButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    toggleFavorite(favoriteButton.dataset.favorite);
+    return;
+  }
+
+  const lessonCardUsePlan = event.target.closest("[data-lesson-card-use-plan]");
+  if (lessonCardUsePlan) {
+    event.preventDefault();
+    event.stopPropagation();
+    const resourceId = lessonCardUsePlan.dataset.lessonCardUsePlan || "";
+    if (!resourceId) return;
+    if (!isLoggedIn() && !hasAdminFullAccess()) {
+      openAuthModal("login");
+      return;
+    }
+    openResourceViewer(resourceId, {
+      openPlanThisWeek: true,
+      assignIntent: "calendar",
+      weekStartDate: calendarLessonAssignContext?.weekStartDate || mainCalendarSelectedWeek || "",
+    });
+    return;
+  }
+
   const viewResourceButton = event.target.closest("[data-view-resource]");
   if (viewResourceButton) {
-    if (event.target.closest("[data-favorite], [data-pro-feature], .lesson-plan-save-btn")) return;
+    if (event.target.closest("[data-pro-feature], .lesson-plan-save-btn, [data-lesson-card-use-plan]")) return;
     event.preventDefault();
     const resourceId = viewResourceButton.dataset.viewResource;
     const current = activeViewerResourceId ? resources.find((item) => item.id === activeViewerResourceId) : null;
@@ -39741,14 +39769,6 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const favoriteButton = event.target.closest("[data-favorite]");
-  if (favoriteButton) {
-    event.preventDefault();
-    event.stopPropagation();
-    toggleFavorite(favoriteButton.dataset.favorite);
-    return;
-  }
-
   const lessonLibraryFiltersToggle = event.target.closest("[data-lesson-library-filters-toggle]");
   if (lessonLibraryFiltersToggle) {
     event.preventDefault();
@@ -40019,24 +40039,6 @@ document.addEventListener("click", async (event) => {
     event.preventDefault();
     clearCalendarLessonAssignContext();
     setView("calendar", mainCalendarSelectedWeek ? { weekStartDate: mainCalendarSelectedWeek } : {});
-    return;
-  }
-
-  const lessonCardUsePlan = event.target.closest("[data-lesson-card-use-plan]");
-  if (lessonCardUsePlan) {
-    event.preventDefault();
-    event.stopPropagation();
-    const resourceId = lessonCardUsePlan.dataset.lessonCardUsePlan || "";
-    if (!resourceId) return;
-    if (!isLoggedIn() && !hasAdminFullAccess()) {
-      openAuthModal("login");
-      return;
-    }
-    openResourceViewer(resourceId, {
-      openPlanThisWeek: true,
-      assignIntent: "calendar",
-      weekStartDate: calendarLessonAssignContext?.weekStartDate || mainCalendarSelectedWeek || "",
-    });
     return;
   }
 

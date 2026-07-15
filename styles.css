@@ -15126,13 +15126,16 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 
 .lesson-workspace-header {
   display: grid;
+  grid-template-columns: 1fr auto;
   gap: 8px;
+  align-items: start;
   padding: 0 2px 10px;
   flex-shrink: 0;
   background: rgba(255, 255, 255, 0.96);
 }
 
 .lesson-workspace-back {
+  grid-column: 1 / -1;
   justify-self: start;
   min-height: 44px;
   padding: 8px 10px;
@@ -15140,6 +15143,13 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 
 .lesson-workspace-title-block {
   min-width: 0;
+}
+
+.lesson-workspace-save-btn {
+  justify-self: end;
+  align-self: start;
+  min-height: 44px;
+  white-space: nowrap;
 }
 
 .lesson-workspace-title {
