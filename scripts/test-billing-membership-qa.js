@@ -171,6 +171,24 @@ async function runBrowserChecks(baseUrl) {
     subscriptionStartedAt: now, monthlyPrice: "$9.99/month", priceLock: "Lifetime",
   }, { proAccess: true, planLabel: "Founding Member", price: "$9.99/month", effective: "Founding" });
   // Regression: checkout completion used to omit stripeSubscriptionStatus/period end, and the UI showed Free.
+  {
+    const store = readStore();
+    store.users = store.users || {};
+    store.users["founding-nosync@billing.test"] = {
+      email: "founding-nosync@billing.test",
+      plan: "Founding",
+      subscriptionStatus: "Founding Member Subscription Active",
+      foundingMemberActive: true,
+      foundingMemberHistorical: true,
+      foundingMember: true,
+      foundingMemberNumber: 12,
+      monthlyPrice: "$9.99/month",
+      priceLock: "Lifetime",
+      subscriptionStartedAt: now,
+      updatedAt: now,
+    };
+    writeStore(store);
+  }
   await checkPersona("founding-nosync@billing.test", {
     email: "founding-nosync@billing.test",
     plan: "Founding",

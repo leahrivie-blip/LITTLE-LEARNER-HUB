@@ -3290,6 +3290,28 @@ async function syncSubscriptionFromBackend(email, options = {}) {
       if (options.renderFounding) refreshFoundingDisplays();
       return data;
     }
+    // Never demote a locally Active paid/Founding account to Free unless Stripe
+    // recovery explicitly confirmed the subscription ended (or admin force demote).
+    const localAccount = (typeof accounts === "function" ? accounts()?.[cleanEmail] : null)
+      || (cleanEmail === currentUser ? currentAccount() : null)
+      || readSavedJson("llhAccounts", {})?.[cleanEmail]
+      || null;
+    if (
+      updates.plan === "Free"
+      && localAccount
+      && accountHasRemainingPaidAccess(localAccount)
+      && !data?.recoveredFromStripe
+      && !options.allowDemote
+      && !String(data?.subscription?.subscriptionStatus || "").toLowerCase().includes("payment failed")
+      && String(data?.subscription?.stripeSubscriptionStatus || "").toLowerCase() !== "canceled"
+      && String(data?.subscription?.stripeSubscriptionStatus || "").toLowerCase() !== "unpaid"
+    ) {
+      console.warn(
+        `[membership] client_sync_skip_demote email=${cleanEmail} localPlan=${localAccount.plan || "n/a"} serverPlan=${data?.subscription?.plan || "none"}`,
+      );
+      if (options.renderFounding) refreshFoundingDisplays();
+      return data;
+    }
     // Preserve / adopt accountType + role from server when present.
     if (data?.subscription?.accountType) {
       updates.accountType = normalizeAccountType(data.subscription.accountType);
@@ -3616,7 +3638,7 @@ let currentPlan = localStorage.getItem("llhPlan") || "Free";
 let currentUser = localStorage.getItem("llhUser") || "";
 syncFreePlanMarketingCopy();
 let activeFilter = "All";
-let lessonLibraryReturnView = "home";
+let lessonLibraryReturnView = "calendar";
 let lessonLibraryInfoOpen = false;
 let lessonLibraryMode = "browse"; // browse | saved
 let lessonLibraryShowAssignedOnly = false;
@@ -3636,6 +3658,19 @@ let lessonNavHistorySilent = false;
 let pendingAuthReturnView = "";
 let suppressBootLanding = false;
 let viewNavigationGeneration = 0;
+let viewScrollPositions = Object.create(null);
+let platformHistoryPrimed = false;
+let platformHistorySilent = false;
+const PLATFORM_LAST_VIEW_KEY = "llhLastPlatformView";
+const PLATFORM_SCROLL_KEY = "llhViewScrollPositions";
+try {
+  viewScrollPositions = JSON.parse(sessionStorage.getItem(PLATFORM_SCROLL_KEY) || "{}") || {};
+} catch {
+  viewScrollPositions = Object.create(null);
+}
+try {
+  if (window.history?.scrollRestoration) window.history.scrollRestoration = "manual";
+} catch { /* ignore */ }
 let currentAuthMode = "login";
 let signupWizardStep = 1;
 let signupPersonaChoice = "";
@@ -8725,6 +8760,10 @@ function setView(view, options = {}) {
   if (resolvedRequested === "printables") {
     return setView("activities", options);
   }
+  // Logged-in providers never land on the retired Dashboard — Calendar is the home surface.
+  if (resolvedRequested === "home" && isLoggedIn() && !options.allowDashboard) {
+    return setView("calendar", { ...options, remappedFromHome: true });
+  }
   // Soft-retire Curriculum Planner: redirect to Calendar unless rollback flag is on.
   if (resolvedRequested === "curriculum-planner" && !isCurriculumPlannerLegacyEnabled()) {
     pendingCurriculumPlannerRetirementNotice = true;
@@ -8742,22 +8781,22 @@ function setView(view, options = {}) {
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
   const resolvedView = resolvedRequested;
   // User-driven navigation cancels deferred boot/login landings that would yank the view back.
-  if (!options.fromBoot && !options.fromAuthLanding && !options.skipAccessRedirect) {
+  if (!options.fromBoot && !options.fromAuthLanding && !options.skipAccessRedirect && !options.fromPopState) {
+    suppressBootLanding = true;
+    viewNavigationGeneration += 1;
+  }
+  if (options.fromAuthLanding) {
     suppressBootLanding = true;
     viewNavigationGeneration += 1;
   }
   if (activeView && activeView !== resolvedView) {
-    clearViewReturnContext(activeView);
-    // Sidebar / programmatic section changes should not leave orphan lesson History API entries.
+    captureActiveViewScroll(activeView);
+    // Keep return context for contextual back; only clear when explicitly navigating away via sidebar hubs.
+    if (options.clearReturnContext !== false && !options.fromPopState) {
+      // Preserve stack via History API; contextual map is still used for in-view deep returns.
+    }
     if (activeView === "lessons" || document.querySelector("#resourceViewerModal.open")) {
       dismissResourceViewerForNavigation();
-      if (window.history?.replaceState) {
-        const nextState = { ...(window.history.state || {}) };
-        if (nextState.llhLessonNav) {
-          delete nextState.llhLessonNav;
-          window.history.replaceState(nextState, "", window.location.href);
-        }
-      }
     }
   }
   if (activeView === "admin" && resolvedView !== "admin" && !confirmDiscardAdminLessonChanges()) return;
@@ -8837,7 +8876,7 @@ function setView(view, options = {}) {
       activeFilter = "All";
     }
   }
-  if (resolvedView === "lessons" && activeView !== "lessons" && !options.skipHistory) {
+  if (resolvedView === "lessons" && activeView !== "lessons" && !options.skipHistory && !options.fromPopState) {
     pushLessonNavHistory({
       type: "lessons",
       mode: lessonLibraryMode === "saved" ? "saved" : "browse",
@@ -8845,8 +8884,10 @@ function setView(view, options = {}) {
   }
   document.querySelectorAll(".view").forEach((section) => section.classList.remove("active-view"));
   document.querySelector(`#view-${resolvedView}`)?.classList.add("active-view");
+  document.body.classList.add("app-booted");
+  document.documentElement.classList.remove("llh-boot-authenticated");
   if (activeView === "ai" && resolvedView !== "ai") selectedDocHelperType = "";
-  document.body.classList.toggle("home-view", resolvedView === "home");
+  document.body.classList.toggle("home-view", resolvedView === "home" && !isLoggedIn());
   document.body.classList.toggle("lessons-view", resolvedView === "lessons");
   document.body.classList.toggle("doc-helpers-view", resolvedView === "ai");
   document.body.classList.toggle(
@@ -8860,6 +8901,15 @@ function setView(view, options = {}) {
   requestAnimationFrame(() => syncTopbarMetrics());
   document.querySelectorAll(".nav-link").forEach((button) => {
     button.classList.toggle("active", isPlatformNavActive(button.dataset.view, requestedView, resolvedView));
+  });
+  rememberPlatformView(resolvedView);
+  pushPlatformNavHistory(resolvedView, {
+    ...options,
+    requestedView,
+    lessonLibraryMode: lessonLibraryMode,
+    scrollY: options.restoreScrollY,
+    replaceHistory: options.replaceHistory || options.fromBoot || options.fromAuthLanding,
+    skipPlatformHistory: options.skipPlatformHistory || options.fromPopState,
   });
   if (viewMap[resolvedView]) renderCategoryPage(resolvedView);
   if ((resolvedView === "lessons" || resolvedView === "activities") && canUseLaunchBackend() && isLoggedIn()) {
@@ -8963,7 +9013,13 @@ function setView(view, options = {}) {
   updateSidebarDashboard();
   setMobileNavOpen(false);
   refreshContextualViewBackButtons();
-  if (!isMobileLayout()) window.scrollTo({ top: 0, behavior: "smooth" });
+  if (options.fromPopState || Number.isFinite(options.restoreScrollY)) {
+    restoreViewScroll(resolvedView, options.restoreScrollY);
+  } else if (activeView === resolvedView && Number.isFinite(viewScrollPositions[resolvedView])) {
+    restoreViewScroll(resolvedView);
+  } else {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }
 }
 
 function canAccess(resource) {
@@ -12891,14 +12947,115 @@ function lessonNavStatesMatch(a, b) {
   return true;
 }
 
+function persistViewScrollPositions() {
+  try {
+    sessionStorage.setItem(PLATFORM_SCROLL_KEY, JSON.stringify(viewScrollPositions));
+  } catch { /* ignore quota */ }
+}
+
+function captureActiveViewScroll(viewName = "") {
+  const view = viewName || document.querySelector(".active-view")?.id?.replace("view-", "") || "";
+  if (!view) return;
+  viewScrollPositions[view] = window.scrollY || window.pageYOffset || 0;
+  persistViewScrollPositions();
+}
+
+function restoreViewScroll(viewName, explicitY) {
+  const y = Number.isFinite(explicitY) ? explicitY : viewScrollPositions[viewName];
+  const target = Number.isFinite(y) ? Math.max(0, y) : 0;
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: target, left: 0, behavior: "auto" });
+    requestAnimationFrame(() => window.scrollTo({ top: target, left: 0, behavior: "auto" }));
+  });
+}
+
+function rememberPlatformView(viewName) {
+  if (!viewName || viewName === "home" && isLoggedIn()) return;
+  try {
+    sessionStorage.setItem(PLATFORM_LAST_VIEW_KEY, viewName);
+  } catch { /* ignore */ }
+}
+
+function readRememberedPlatformView() {
+  try {
+    return String(sessionStorage.getItem(PLATFORM_LAST_VIEW_KEY) || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function defaultLoggedInLandingView() {
+  const remembered = readRememberedPlatformView();
+  if (
+    remembered
+    && remembered !== "home"
+    && remembered !== "payment-success"
+    && remembered !== "payment-failed"
+    && document.querySelector(`#view-${remembered}`)
+    && canOpenViewForCurrentAccess(remembered)
+  ) {
+    return remembered;
+  }
+  return "calendar";
+}
+
+function platformBackView(fallback = "home") {
+  if (fallback === "home" && (isLoggedIn() || hasAdminFullAccess())) return "calendar";
+  return fallback;
+}
+
+function platformNavHistoryState() {
+  return window.history?.state?.llhPlatformNav || null;
+}
+
+function buildPlatformNavState(viewName, options = {}) {
+  return {
+    view: viewName,
+    scrollY: Number.isFinite(options.scrollY) ? options.scrollY : (viewScrollPositions[viewName] || 0),
+    lessonLibraryMode: viewName === "lessons" ? (options.lessonLibraryMode || lessonLibraryMode || "browse") : "",
+    requestedView: options.requestedView || viewName,
+  };
+}
+
+function pushPlatformNavHistory(viewName, options = {}) {
+  if (platformHistorySilent || options.skipPlatformHistory || options.fromPopState || !window.history?.pushState) return;
+  if (!viewName) return;
+  const nextState = buildPlatformNavState(viewName, options);
+  const current = platformNavHistoryState();
+  const sameView = current?.view === nextState.view
+    && (current?.lessonLibraryMode || "") === (nextState.lessonLibraryMode || "");
+  const historyPayload = {
+    ...(window.history.state || {}),
+    llhPlatformNav: nextState,
+  };
+  // Drop nested lesson markers when moving between platform sections.
+  if (!options.keepLessonNav) delete historyPayload.llhLessonNav;
+  if (!platformHistoryPrimed || options.replaceHistory || options.fromBoot || options.fromAuthLanding) {
+    window.history.replaceState(historyPayload, "", window.location.href);
+    platformHistoryPrimed = true;
+    return;
+  }
+  if (sameView) {
+    window.history.replaceState(historyPayload, "", window.location.href);
+    return;
+  }
+  window.history.pushState(historyPayload, "", window.location.href);
+  platformHistoryPrimed = true;
+}
+
 function pushLessonNavHistory(state) {
   if (lessonNavHistorySilent || !window.history?.pushState || !state?.type) return;
   const current = lessonNavHistoryState();
   if (lessonNavStatesMatch(current, state)) return;
+  const platform = platformNavHistoryState() || buildPlatformNavState(
+    document.querySelector(".active-view")?.id?.replace("view-", "") || "lessons",
+  );
   window.history.pushState({
     ...(window.history.state || {}),
+    llhPlatformNav: platform,
     llhLessonNav: state,
   }, "", window.location.href);
+  platformHistoryPrimed = true;
 }
 
 function lessonNavRunSilent(callback) {
@@ -12949,7 +13106,8 @@ function requestResourceViewerClose() {
 }
 
 function handleLessonNavPopState(event) {
-  if (lessonNavHistorySilent) return;
+  if (lessonNavHistorySilent || platformHistorySilent) return;
+  const state = event?.state || window.history.state || {};
   const viewer = document.querySelector("#resourceViewerModal.open");
   if (viewer && resourceViewerReturnToId) {
     const returnId = resourceViewerReturnToId;
@@ -12966,16 +13124,48 @@ function handleLessonNavPopState(event) {
     return;
   }
 
+  const lessonNav = state.llhLessonNav;
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
-  if (activeView === "lessons") {
-    if (lessonLibraryMode === "saved") {
+  if (lessonNav?.type === "lessons" && activeView === "lessons") {
+    if (lessonLibraryMode === "saved" && lessonNav.mode !== "saved") {
       lessonNavRunSilent(() => {
         lessonLibraryMode = "browse";
         renderCategoryPage("lessons");
       });
       return;
     }
-    lessonNavRunSilent(() => setView(resolveLessonLibraryBackView(), { skipHistory: true }));
+  }
+  if (activeView === "lessons" && lessonLibraryMode === "saved" && (!lessonNav || lessonNav.mode !== "saved")) {
+    lessonNavRunSilent(() => {
+      lessonLibraryMode = "browse";
+      renderCategoryPage("lessons");
+    });
+    return;
+  }
+
+  const platform = state.llhPlatformNav;
+  if (platform?.view) {
+    platformHistorySilent = true;
+    try {
+      setView(platform.view, {
+        fromPopState: true,
+        skipHistory: true,
+        skipPlatformHistory: true,
+        restoreScrollY: platform.scrollY,
+        lessonLibraryMode: platform.lessonLibraryMode || undefined,
+      });
+    } finally {
+      platformHistorySilent = false;
+    }
+    return;
+  }
+
+  if (activeView === "lessons") {
+    lessonNavRunSilent(() => setView(resolveLessonLibraryBackView(), {
+      skipHistory: true,
+      skipPlatformHistory: true,
+      fromPopState: true,
+    }));
   }
 }
 
@@ -13068,10 +13258,20 @@ function navigateContextualBack(view, fallbackView = "home") {
     return;
   }
   if (context?.type === "view" && context.view) {
-    setView(context.view);
+    setView(context.view, { replaceHistory: false });
     return;
   }
-  setView(fallbackView);
+  // Prefer real browser history so Back returns to the exact prior section + scroll.
+  const platform = platformNavHistoryState();
+  if (platform?.view && platform.view !== view && window.history?.state?.llhPlatformNav) {
+    const canUseHistoryBack = platformHistoryPrimed && window.history.length > 1;
+    if (canUseHistoryBack) {
+      window.history.back();
+      return;
+    }
+  }
+  const resolvedFallback = (fallbackView === "home" && isLoggedIn()) ? "calendar" : fallbackView;
+  setView(resolvedFallback, { replaceHistory: false });
 }
 
 function refreshContextualViewBackButtons() {
@@ -15826,14 +16026,17 @@ async function openResourceViewer(resourceId, options = {}) {
 }
 
 function resolveLessonLibraryBackView() {
-  const candidate = String(lessonLibraryReturnView || "home").trim() || "home";
-  if (candidate === "lessons") return "home";
+  const preferred = isLoggedIn() || hasAdminFullAccess() ? "calendar" : "home";
+  const candidate = String(lessonLibraryReturnView || preferred).trim() || preferred;
+  if (candidate === "lessons") return preferred;
+  if (candidate === "home" && (isLoggedIn() || hasAdminFullAccess())) return "calendar";
   if (document.querySelector(`#view-${candidate}`)) return candidate;
-  return "home";
+  return preferred;
 }
 
 function lessonLibraryBackLabel(backView) {
-  if (backView === "home") return "← Back";
+  if (backView === "home") return isLoggedIn() || hasAdminFullAccess() ? "← Back to Calendar" : "← Back";
+  if (backView === "calendar") return "← Back to Calendar";
   if (backView === "curriculum-planner") return "← Back to Curriculum Planner";
   if (backView === "activities") return "← Back to Activities";
   if (backView === "planner") return "← Back to Calendar";
@@ -15991,9 +16194,10 @@ function renderCategoryPage(view) {
     `;
     return;
   }
+  const categoryBackTarget = isLoggedIn() || hasAdminFullAccess() ? "calendar" : "home";
   const categoryBackButton = view === "activities" && activeActivityLessonPlanId
     ? `<button class="ghost-button back-button" data-contextual-back="activities" data-fallback-view="lessons" data-always-visible="true" type="button">${escapeHtml(contextualBackLabel("activities", "lessons"))}</button>`
-    : `<button class="ghost-button back-button" data-view="home" type="button">${escapeHtml(fallbackBackLabel("home"))}</button>`;
+    : `<button class="ghost-button back-button" data-view="${categoryBackTarget}" type="button">${escapeHtml(fallbackBackLabel(categoryBackTarget))}</button>`;
   const activityUpgradeBanner = category === "Activity Center" && !isProUser()
     ? foundingUpgradeBannerHtml({ variant: "library", dismissible: true })
     : "";
@@ -37339,7 +37543,7 @@ function renderDashboardTasksPage() {
   const dayPlan = planner.days?.[weekday] || {};
   const plannedTasks = [dayPlan.circle, dayPlan.activity, dayPlan.meal, dayPlan.rest, dayPlan.support].filter((item) => String(item || "").trim()).length;
   section.innerHTML = `
-    <button class="ghost-button back-button" data-view="home" type="button">← Back to Home</button>
+    <button class="ghost-button back-button" data-view="${platformBackView("home")}" type="button">${escapeHtml(fallbackBackLabel(platformBackView("home")))}</button>
     <div class="page-title">
       <p class="eyebrow">Today&rsquo;s Tasks</p>
       <h2>Focus on what needs attention today.</h2>
@@ -37392,7 +37596,7 @@ function renderFavoritesPage() {
     ? `<p class="muted-copy">Some previously saved lesson plans or activities were retired and are no longer available.</p>`
     : "";
   section.innerHTML = `
-    <button class="ghost-button back-button" data-view="home" type="button">${escapeHtml(fallbackBackLabel("home"))}</button>
+    <button class="ghost-button back-button" data-view="${platformBackView("home")}" type="button">${escapeHtml(fallbackBackLabel(platformBackView("home")))}</button>
     <div class="page-title">
       <p class="eyebrow">Favorites</p>
       <h2>Saved Favorites</h2>
@@ -37424,7 +37628,7 @@ function renderReportsPage() {
   const messagesToday = records.communications.filter((item) => item.date === today && item.type !== "Behavior Note").length;
   const activeGoals = records.goals.filter((goal) => goalProgressPercent(goal.progress) < 100).length;
   section.innerHTML = `
-    <button class="ghost-button back-button" data-view="home" type="button">${escapeHtml(fallbackBackLabel("home"))}</button>
+    <button class="ghost-button back-button" data-view="${platformBackView("home")}" type="button">${escapeHtml(fallbackBackLabel(platformBackView("home")))}</button>
     <div class="page-title">
       <p class="eyebrow">Reports &amp; Analytics</p>
       <h2>Program reporting snapshot</h2>
@@ -38142,11 +38346,18 @@ async function signOut() {
   localStorage.setItem("llhPlan", currentPlan);
   localStorage.setItem("llhFavorites", JSON.stringify(favorites));
   localStorage.setItem("llhDownloads", JSON.stringify(savedDownloads));
+  try {
+    sessionStorage.removeItem(PLATFORM_LAST_VIEW_KEY);
+  } catch { /* ignore */ }
+  document.documentElement.classList.remove("llh-boot-authenticated");
   updateAuthButtons();
   updatePlanLabel();
   updateAdminNavVisibility();
   refreshAdminPreviewBadge();
-  setView(isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin" ? "admin" : "home");
+  setView(
+    isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin" ? "admin" : "home",
+    { allowDashboard: true, replaceHistory: true },
+  );
 }
 
 function toggleFavorite(id) {
@@ -38167,15 +38378,24 @@ function showSearchResults() {
   const resultCards = results.map((resource) => (
     resource.category === "Lesson Plans" ? lessonPlanCard(resource) : resourceCard(resource)
   )).join("");
-  const backLabel = isLoggedIn() || hasAdminFullAccess() ? "Back to Calendar" : "Back to Home";
+  const backTarget = platformBackView("home");
+  const hostView = isLoggedIn() || hasAdminFullAccess() ? "lessons" : "home";
+  const previousView = document.querySelector(".active-view")?.id?.replace("view-", "") || "";
+  if (previousView) captureActiveViewScroll(previousView);
   document.querySelectorAll(".view").forEach((section) => section.classList.remove("active-view"));
-  document.querySelector("#view-home").classList.add("active-view");
+  const section = document.querySelector(`#view-${hostView}`);
+  if (!section) return;
+  section.classList.add("active-view");
+  document.body.classList.add("app-booted");
+  document.body.classList.toggle("home-view", hostView === "home");
+  document.body.classList.toggle("lessons-view", hostView === "lessons");
   document.querySelectorAll(".nav-link").forEach((button) => {
-    button.classList.toggle("active", button.dataset.view === "home");
+    button.classList.toggle("active", isPlatformNavActive(button.dataset.view, hostView, hostView));
   });
-  const section = document.querySelector("#view-home");
+  rememberPlatformView(hostView);
+  pushPlatformNavHistory(hostView, { requestedView: hostView });
   section.innerHTML = `
-    <button class="ghost-button back-button" data-view="home" type="button">${escapeHtml(backLabel)}</button>
+    <button class="ghost-button back-button" data-view="${escapeHtml(backTarget)}" type="button">${escapeHtml(fallbackBackLabel(backTarget))}</button>
     <div class="page-title">
       <p class="eyebrow">Search Results</p>
       <h2>Results for "${escapeHtml(searchInput.value.trim())}"</h2>
@@ -38186,7 +38406,7 @@ function showSearchResults() {
       ${results.length ? resultCards : `<div class="empty-state">No matches yet. Try toddler, forms, menu, ocean, farm, fine motor, or observation.</div>`}
     </div>
   `;
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 }
 
 document.addEventListener("click", async (event) => {
@@ -38415,7 +38635,7 @@ document.addEventListener("click", async (event) => {
     event.preventDefault();
     const target = document.querySelector(`#${scrollButton.dataset.scrollTarget}`);
     if (target) {
-      setView("home");
+      setView("home", { allowDashboard: true });
       target.scrollIntoView({ behavior: "smooth", block: "start" });
       trackEvent("homepage_scroll_click", { target: scrollButton.dataset.scrollTarget });
     }
@@ -38507,11 +38727,9 @@ document.addEventListener("click", async (event) => {
   const viewButton = event.target.closest("[data-view]");
   if (viewButton) {
     const nextView = viewButton.dataset.view || "";
+    const previousView = document.querySelector(".active-view")?.id?.replace("view-", "") || "";
     if (viewButton.dataset.dashSelectWeek) {
       mainCalendarSelectedWeek = viewButton.dataset.dashSelectWeek;
-    }
-    if (["activities", "planner", "curriculum-planner", "children", "generators"].includes(nextView)) {
-      clearViewReturnContext(nextView);
     }
     if (nextView === "activities") {
       activeActivityLessonPlanId = "";
@@ -38582,6 +38800,8 @@ document.addEventListener("click", async (event) => {
       activePortfolioChildId = "";
     }
     setMobileNavOpen(false);
+    // Sidebar section changes participate in platform History so browser Back restores
+    // the previous section + scroll. skipHistory only suppresses nested lesson entries.
     const navOptions = { skipHistory: true };
     if (requestedLessonLibraryMode) navOptions.lessonLibraryMode = requestedLessonLibraryMode;
     if (nextView === "planner" && viewButton.dataset.plannerFocusWeek) {
@@ -38589,6 +38809,14 @@ document.addEventListener("click", async (event) => {
     }
     if (nextView === "calendar" && viewButton.dataset.dashSelectWeek) {
       navOptions.weekStartDate = viewButton.dataset.dashSelectWeek;
+    }
+    const resolvedNext = resolveSidebarView(nextView);
+    if (previousView && previousView !== resolvedNext && previousView !== "home") {
+      setViewReturnContext(resolvedNext, {
+        type: "view",
+        view: previousView === "home" && isLoggedIn() ? "calendar" : previousView,
+        label: fallbackBackLabel(previousView === "home" && isLoggedIn() ? "calendar" : previousView),
+      });
     }
     setView(viewButton.dataset.view, navOptions);
     if (viewButton.dataset.settingsAnchor === "notifications") {
@@ -44652,14 +44880,36 @@ document.addEventListener("change", (event) => {
 
 if (currentUser) {
   loadAccountState(currentUser);
+  document.body.classList.add("user-authenticated");
+  document.body.classList.remove("home-view");
 } else {
   updateAuthButtons();
   updatePlanLabel();
+  document.body.classList.add("home-view");
 }
 updateInstallSettingsPanel();
-document.body.classList.add("home-view");
 syncCurriculumPlannerNavVisibility();
-renderHome();
+// Guests get the marketing homepage. Logged-in users never paint the retired Dashboard.
+if (!currentUser) {
+  renderHome();
+} else {
+  // Synchronously open Calendar (or last remembered section) before async sync work.
+  // This prevents the old Dashboard from flashing or lingering behind Calendar.
+  const earlyLanding = (() => {
+    const fromLocation = (() => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("mode") === "resetPassword") return "reset-password";
+      if (lessonPlanEditRouteIdFromLocation()) return "lesson-editor";
+      return adRouteMap[window.location.pathname] || adRouteMap[window.location.hash] || "";
+    })();
+    if (fromLocation && fromLocation !== "home") return fromLocation;
+    if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") return "admin";
+    return defaultLoggedInLandingView();
+  })();
+  if (earlyLanding !== "lesson-editor") {
+    setView(earlyLanding, { fromBoot: true, replaceHistory: true });
+  }
+}
 loadSiteContentFromBackend().catch(() => {});
 loadUploadedResourcesFromBackend({ admin: isAdminUnlocked(), migrateLocal: isAdminUnlocked() }).catch(() => {});
 
@@ -44718,19 +44968,23 @@ async function initializeAppView() {
           const route = window.location.pathname || window.location.hash;
           saveAttribution({ route, view: initialView });
           trackEvent("ad_route_visit", { route, view: initialView });
-          setView(initialView, { fromBoot: true });
+          setView(initialView, { fromBoot: true, replaceHistory: true });
           return;
         }
         // Prefer restoring Admin when this browser left Admin unlocked.
         if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") {
-          setView("admin", { fromBoot: true });
+          setView("admin", { fromBoot: true, replaceHistory: true });
           loadAdminAnalyticsFromBackend({ force: true }).catch(() => {});
           return;
         }
-        // Logged-in providers land on Calendar instead of Dashboard.
+        // Logged-in providers land on Calendar (or last remembered page on refresh).
         if (currentUser && !suppressBootLanding) {
-          setView("calendar", { fromBoot: true });
+          setView(defaultLoggedInLandingView(), { fromBoot: true, replaceHistory: true });
           return;
+        }
+        // Guest marketing homepage.
+        if (!currentUser) {
+          setView("home", { fromBoot: true, allowDashboard: true, replaceHistory: true });
         }
       })(),
       delayMs(12000).then(() => {
@@ -44739,6 +44993,9 @@ async function initializeAppView() {
     ]);
   } catch (error) {
     console.warn("App boot failed", error);
+  } finally {
+    document.body.classList.add("app-booted");
+    document.documentElement.classList.remove("llh-boot-authenticated");
   }
 }
 

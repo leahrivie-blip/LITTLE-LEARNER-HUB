@@ -201,6 +201,11 @@ test("navigation guards prevent post-login/boot yank and sidebar history polluti
   assert.match(appJs, /skipHistory:\s*true/);
   assert.match(appJs, /loginNavGeneration !== viewNavigationGeneration/);
   assert.match(appJs, /dismissResourceViewerForNavigation\(\)/);
+  assert.match(appJs, /pushPlatformNavHistory/);
+  assert.match(appJs, /restoreViewScroll/);
+  assert.match(appJs, /defaultLoggedInLandingView/);
+  assert.match(html, /llh-boot-authenticated/);
+  assert.doesNotMatch(html, /Back to Dashboard/);
 });
 
 if (!process.exitCode) {

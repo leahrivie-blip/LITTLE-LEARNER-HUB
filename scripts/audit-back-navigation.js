@@ -42,7 +42,7 @@ for (const viewId of viewIds) {
       || (short === "resources" && /renderResourcesHubPage[\s\S]{0,800}/.test(appJs))
       || (short === "settings" && /renderSettingsHubPage/.test(appJs))
       || (short === "staff" && /Back to Settings/.test(appJs))
-      || (short === "calendar" && /Back to Dashboard/.test(html));
+      || (short === "calendar" && /data-contextual-back="calendar"/.test(html));
     if (hasDynamicBack || ["resources", "settings", "staff", "classrooms", "families", "enrollment", "reports", "activities", "forms", "support-center"].includes(short)) {
       const detail = ["resources", "settings"].includes(short)
         ? "Hub page relies on sidebar (no explicit back) — OK on desktop, weaker on mobile deep links"
