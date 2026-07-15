@@ -407,8 +407,12 @@ async function browserRegression() {
         }
       }
       const before = track?.scrollLeft || 0;
-      if (track) track.scrollLeft = 280;
-      await new Promise((resolve) => setTimeout(resolve, 250));
+      if (track) {
+        track.style.scrollBehavior = "auto";
+        track.style.scrollSnapType = "none";
+        track.scrollLeft = 280;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
       const banner = document.querySelector(".library-featured-banner-image");
       const card = document.querySelector(".lesson-plan-card");
       const currentTrack = [...document.querySelectorAll(".browse-row-track")]
