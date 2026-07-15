@@ -1,8 +1,8 @@
-const CACHE_NAME = "llh-shell-v38-lesson-system";
+const CACHE_NAME = "llh-shell-v39-pwa-install-restore";
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/styles.css?v=20260715-lesson-system",
+  "/styles.css?v=20260715-pwa-install",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/scripts/curriculum-safe-values.js?v=20260712-v3-render-fix",
   "/scripts/curriculum-lesson-import-parser.js?v=20260715-lesson-system",
@@ -10,7 +10,7 @@ const APP_SHELL = [
   "/scripts/curriculum-lesson-viewer-render.js?v=20260711-phase-d",
   "/scripts/llh-schedule.js?v=20260714-prod-priority-fixes",
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
-  "/app.js?v=20260715-lesson-system",
+  "/app.js?v=20260715-pwa-install",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
