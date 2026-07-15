@@ -8689,6 +8689,26 @@ function updateAdminNavVisibility() {
   });
 }
 
+function rememberAdminDevice() {
+  localStorage.setItem("llhAdminRememberDevice", "true");
+}
+
+function hasRememberedAdminDevice() {
+  return localStorage.getItem("llhAdminRememberDevice") === "true";
+}
+
+function clearRememberedAdminDevice() {
+  localStorage.removeItem("llhAdminRememberDevice");
+}
+
+function rememberedAdminEmail() {
+  const fromSession = String(adminSession()?.email || "").trim();
+  if (fromSession) return fromSession;
+  const remembered = String(localStorage.getItem("llhAdminRememberEmail") || "").trim();
+  if (remembered) return remembered;
+  return String(adminOwnerAccount?.email || "").trim();
+}
+
 function isSignedInPlatformOwner() {
   const email = String(currentUser || "").trim().toLowerCase();
   if (!email) return false;
@@ -8704,9 +8724,12 @@ function canSeeAdminNav() {
   // While simulating Free/Pro/Founding, hide Admin nav so the sidebar matches that account.
   // The floating preview badge still provides Return to Admin.
   if (isAdminPreviewSimulating()) return false;
-  // Keep Admin reachable when unlocked, awaiting re-auth, or signed in as the platform owner.
-  // The unlock form still protects private admin tools.
-  return isAdminUnlocked() || adminSessionInvalidOnServer || isSignedInPlatformOwner();
+  // Keep Admin reachable when unlocked, awaiting re-auth, signed in as owner,
+  // or on a browser that has unlocked Admin before (so the unlock form is one tap away).
+  return isAdminUnlocked()
+    || adminSessionInvalidOnServer
+    || isSignedInPlatformOwner()
+    || hasRememberedAdminDevice();
 }
 
 function setView(view, options = {}) {
@@ -28412,6 +28435,8 @@ function setAdminSession(sessionDetail) {
   };
   localStorage.setItem("llhAdminSession", JSON.stringify(session));
   localStorage.setItem("llhAdminUnlocked", "true");
+  localStorage.setItem("llhAdminRememberEmail", session.email);
+  rememberAdminDevice();
   adminSessionInvalidOnServer = false;
   adminAnalyticsLastError = "";
   if (!localStorage.getItem("llhAdminPreviewMode")) {
@@ -28422,10 +28447,12 @@ function setAdminSession(sessionDetail) {
   return session;
 }
 
-function clearAdminSession() {
+function clearAdminSession(options = {}) {
   localStorage.removeItem("llhAdminSession");
   localStorage.removeItem("llhAdminUnlocked");
   localStorage.removeItem("llhAdminPreviewMode");
+  // Explicit Lock Admin forgets this browser; re-unlock / expired-session flows keep the nav link.
+  if (options.forgetDevice) clearRememberedAdminDevice();
   adminSessionInvalidOnServer = false;
   adminAnalyticsCache = null;
   adminAnalyticsLastError = "";
@@ -29186,6 +29213,7 @@ function renderAdminAccessShell() {
   if (!isAdminUnlocked()) {
     protectedContent.hidden = true;
     lockPanel.hidden = false;
+    const emailValue = escapeHtml(rememberedAdminEmail());
     lockPanel.innerHTML = `
       <div class="admin-lock-content">
         <div>
@@ -29196,7 +29224,7 @@ function renderAdminAccessShell() {
         <form id="adminUnlockForm" class="admin-unlock-form">
           <label>
             Owner Email
-            <input name="adminEmail" type="email" required placeholder="little.learners.hub.customer@gmail.com" autocomplete="username" />
+            <input name="adminEmail" type="email" required value="${emailValue}" placeholder="little.learners.hub.customer@gmail.com" autocomplete="username" />
           </label>
           <label>
             Owner Password
@@ -29207,7 +29235,7 @@ function renderAdminAccessShell() {
             <input name="adminCode" type="password" required placeholder="Enter owner code" autocomplete="off" />
           </label>
           <button class="primary-button" type="submit">Unlock Admin</button>
-          <p class="form-note">Admin credentials are checked by the backend server. If the Admin link is missing from the sidebar, open <code>/admin</code> directly, then unlock here.</p>
+          <p class="form-note">Once unlocked, Admin stays signed in on this browser across refreshes and provider sign-out. Use <strong>Lock Admin</strong> only when you want to clear owner access. Bookmark <code>/admin</code> if the sidebar link is ever missing.</p>
           <span id="adminUnlockMessage" class="form-message"></span>
         </form>
         ${canUseSignedInOwnerAdmin() ? `
@@ -29227,7 +29255,7 @@ function renderAdminAccessShell() {
       <div>
         <p class="eyebrow">Private Owner Area</p>
         <strong>Admin dashboard unlocked for ${escapeHtml(adminSession()?.email || adminOwnerAccount.email)}</strong>
-        <span>Accounts, analytics, leads, tickets, billing activity, AI usage, and uploads are visible in this private area.</span>
+        <span>Stays unlocked on this browser until you tap Lock Admin. Provider sign-out will not clear Admin.</span>
       </div>
       <button class="ghost-button" type="button" id="adminLockButton">Lock Admin</button>
     </div>
@@ -37970,9 +37998,8 @@ async function signOut() {
       console.warn("Firebase sign out did not complete", error);
     }
   }
-  // Clear admin session so stale admin-unlocked state cannot grant Pro access
-  // to a visitor who is no longer authenticated.
-  clearAdminSession();
+  // Keep Admin unlock on this browser. Provider sign-out should not force a full
+  // Admin re-login — use Lock Admin when you want to clear owner access.
   currentUser = "";
   currentPlan = "Free";
   favorites = [];
@@ -37989,7 +38016,9 @@ async function signOut() {
   localStorage.setItem("llhDownloads", JSON.stringify(savedDownloads));
   updateAuthButtons();
   updatePlanLabel();
-  setView("home");
+  updateAdminNavVisibility();
+  refreshAdminPreviewBadge();
+  setView(isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin" ? "admin" : "home");
 }
 
 function toggleFavorite(id) {
@@ -41190,7 +41219,7 @@ document.addEventListener("click", async (event) => {
 
   const adminLockButton = event.target.closest("#adminLockButton");
   if (adminLockButton) {
-    clearAdminSession();
+    clearAdminSession({ forgetDevice: true });
     renderAdminDashboard();
     return;
   }
@@ -41198,7 +41227,7 @@ document.addEventListener("click", async (event) => {
   const adminReunlockButton = event.target.closest("[data-admin-reunlock]");
   if (adminReunlockButton) {
     event.preventDefault();
-    clearAdminSession();
+    clearAdminSession({ forgetDevice: false });
     updateAdminNavVisibility();
     setView("admin");
     renderAdminDashboard();
@@ -44527,15 +44556,16 @@ async function initializeAppView() {
           setView(initialView);
           return;
         }
+        // Prefer restoring Admin when this browser left Admin unlocked.
+        if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") {
+          setView("admin");
+          loadAdminAnalyticsFromBackend({ force: true }).catch(() => {});
+          return;
+        }
         // Logged-in providers land on Calendar instead of Dashboard.
         if (currentUser) {
           setView("calendar");
           return;
-        }
-        // If admin was previously in the admin area, restore the admin view on refresh.
-        if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") {
-          setView("admin");
-          loadAdminAnalyticsFromBackend({ force: true }).catch(() => {});
         }
       })(),
       delayMs(12000).then(() => {
