@@ -9,6 +9,10 @@
  */
 
 const crypto = require("crypto");
+const membershipAccess = require("../scripts/membership-access.js");
+
+const FREE_REENGAGEMENT_CAMPAIGN_ID = "free-reengagement-2026-07";
+const FREE_REENGAGEMENT_SUBJECT = "🎉 Little Learner Hub Has Been Updated!";
 
 const ONBOARDING_STEPS = [
   {
@@ -46,6 +50,7 @@ function defaultEmailEngagementStore() {
       lastOnboardingSweepAt: "",
     },
     events: [],
+    campaigns: {},
   };
 }
 
@@ -56,6 +61,7 @@ function ensureEmailEngagement(store) {
   const eng = store.emailEngagement;
   eng.settings = { ...defaultEmailEngagementStore().settings, ...(eng.settings || {}) };
   eng.events = Array.isArray(eng.events) ? eng.events : [];
+  eng.campaigns = eng.campaigns && typeof eng.campaigns === "object" ? eng.campaigns : {};
   return eng;
 }
 
@@ -95,6 +101,7 @@ function emailPrefs(user) {
   return {
     onboarding: prefs.onboarding !== false,
     weeklyWhatsNew: prefs.weeklyWhatsNew !== false,
+    marketing: prefs.marketing !== false,
     unsubscribedAt: prefs.unsubscribedAt || "",
   };
 }
@@ -360,10 +367,86 @@ function buildWhatsNewContent(digest, { siteUrl, htmlEscape }) {
   };
 }
 
+function buildFreeReengagementContent(user, { siteUrl, htmlEscape, unsubscribeUrl }) {
+  const base = siteBase(siteUrl);
+  const safeBase = htmlEscape(base);
+  const safeUnsubscribe = htmlEscape(unsubscribeUrl || `${base}/`);
+  const text = [
+    "Hi!",
+    "",
+    "I wanted to reach out and let you know that we've been working hard behind the scenes and have added a lot of new content and improvements to Little Learner Hub.",
+    "",
+    "✨ What's New",
+    "• New lesson plans added",
+    "• New activities added",
+    "• Improved lesson plan viewing",
+    "• Better lesson plan downloads and printing",
+    "• Calendar improvements",
+    "• Cleaner navigation and organization",
+    "• Bug fixes and performance improvements",
+    "",
+    "🚧 Coming Soon",
+    "• Daily Logs improvements",
+    "• Child Profiles enhancements",
+    "• Observation and documentation tools",
+    "• Behavior & Support resources",
+    "• Forms and paperwork tools",
+    "• Even more lesson plans and activities",
+    "",
+    "As a childcare provider myself, my goal is to create an affordable platform that truly gives providers everything they need in one place. Many of the updates we've made have come directly from feedback from childcare providers.",
+    "",
+    "I'd love for you to log back in, explore the updates, and let me know what you think.",
+    "",
+    "If you see anything that would make Little Learner Hub better, easier, or more useful for your program, please let me know. I genuinely use provider feedback to decide what gets built next.",
+    "",
+    "👉 Login Here:",
+    base,
+    "",
+    "Thank you for being part of helping build Little Learner Hub! ❤️",
+    "",
+    "Leah Ivie",
+    "Founder, Little Learner Hub",
+    "",
+    "P.S. Founding Member spots are still available. Lock in $9.99/month for life before pricing increases and receive unlimited access to all current and future features.",
+    "",
+    `Unsubscribe from marketing emails: ${unsubscribeUrl || `${base}/`}`,
+  ].join("\n");
+  const html = `
+    <div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;color:#2c2416;line-height:1.6">
+      <p>Hi!</p>
+      <p>I wanted to reach out and let you know that we've been working hard behind the scenes and have added a lot of new content and improvements to Little Learner Hub.</p>
+      <h2 style="font-size:20px">✨ What's New</h2>
+      <ul>
+        <li>New lesson plans added</li><li>New activities added</li><li>Improved lesson plan viewing</li>
+        <li>Better lesson plan downloads and printing</li><li>Calendar improvements</li>
+        <li>Cleaner navigation and organization</li><li>Bug fixes and performance improvements</li>
+      </ul>
+      <h2 style="font-size:20px">🚧 Coming Soon</h2>
+      <ul>
+        <li>Daily Logs improvements</li><li>Child Profiles enhancements</li>
+        <li>Observation and documentation tools</li><li>Behavior &amp; Support resources</li>
+        <li>Forms and paperwork tools</li><li>Even more lesson plans and activities</li>
+      </ul>
+      <p>As a childcare provider myself, my goal is to create an affordable platform that truly gives providers everything they need in one place. Many of the updates we've made have come directly from feedback from childcare providers.</p>
+      <p>I'd love for you to log back in, explore the updates, and let me know what you think.</p>
+      <p>If you see anything that would make Little Learner Hub better, easier, or more useful for your program, please let me know. I genuinely use provider feedback to decide what gets built next.</p>
+      <p><strong>👉 Login Here:</strong><br><a href="${safeBase}">${safeBase}</a></p>
+      <p>Thank you for being part of helping build Little Learner Hub! ❤️</p>
+      <p>Leah Ivie<br>Founder, Little Learner Hub</p>
+      <p><strong>P.S.</strong> Founding Member spots are still available. Lock in $9.99/month for life before pricing increases and receive unlimited access to all current and future features.</p>
+      <hr style="border:0;border-top:1px solid #ddd;margin:28px 0 16px">
+      <p style="font-size:12px;color:#6f675d">You are receiving this because you have an active Free Little Learner Hub account. <a href="${safeUnsubscribe}">Unsubscribe from marketing emails</a>.</p>
+    </div>
+  `.trim();
+  return { subject: FREE_REENGAGEMENT_SUBJECT, text, html };
+}
+
 function createEmailEngagement(deps) {
   const {
     sendEmail,
     SITE_URL,
+    reviewEmail,
+    unsubscribeUrlForEmail,
     htmlEscape,
     readStore,
     writeStore,
@@ -381,6 +464,85 @@ function createEmailEngagement(deps) {
     eng.events.unshift(entry);
     eng.events = eng.events.slice(0, MAX_EVENTS);
     return entry;
+  }
+
+  function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim().toLowerCase());
+  }
+
+  function hasPromoAccessHistory(user) {
+    return Boolean(
+      user?.promoRedeemedAt
+      || user?.pendingPromoCode
+      || user?.promoCode
+      || (Array.isArray(user?.promoRedemptions) && user.promoRedemptions.length),
+    );
+  }
+
+  function freeReengagementAudience(store = readStore()) {
+    const eligible = [];
+    const invalid = [];
+    const excluded = {
+      disabled: 0,
+      paidTrialOrPastDue: 0,
+      admin: 0,
+      promo: 0,
+      unsubscribed: 0,
+      missingAccountActivity: 0,
+      alreadySent: 0,
+    };
+    for (const user of Object.values(store.users || {})) {
+      const email = String(user?.email || "").trim().toLowerCase();
+      if (String(user?.accountStatus || "Active").toLowerCase() === "disabled" || user?.disabled === true) {
+        excluded.disabled += 1;
+        continue;
+      }
+      if (membershipAccess.membershipCurrentAccessKey(user) !== "free") {
+        excluded.paidTrialOrPastDue += 1;
+        continue;
+      }
+      if (
+        email === String(reviewEmail || "").trim().toLowerCase()
+        || String(user?.role || "").toLowerCase() === "admin"
+        || user?.admin === true
+        || user?.adminOverride === true
+        || user?.internalAccessOverride === true
+        || user?.manualAccessGranted === true
+      ) {
+        excluded.admin += 1;
+        continue;
+      }
+      if (hasPromoAccessHistory(user)) {
+        excluded.promo += 1;
+        continue;
+      }
+      const prefs = emailPrefs(user);
+      if (prefs.unsubscribedAt || prefs.marketing === false || prefs.weeklyWhatsNew === false) {
+        excluded.unsubscribed += 1;
+        continue;
+      }
+      if (!user?.signupAt && !user?.createdAt && !user?.lastLoginAt && !user?.lastSeenAt) {
+        excluded.missingAccountActivity += 1;
+        continue;
+      }
+      if (!isValidEmail(email)) {
+        invalid.push(email || "(missing email)");
+        continue;
+      }
+      if (user?.emailCampaigns?.[FREE_REENGAGEMENT_CAMPAIGN_ID]?.sentAt) {
+        excluded.alreadySent += 1;
+        continue;
+      }
+      eligible.push({ email, user });
+    }
+    return {
+      campaignId: FREE_REENGAGEMENT_CAMPAIGN_ID,
+      subject: FREE_REENGAGEMENT_SUBJECT,
+      eligible,
+      eligibleCount: eligible.length,
+      invalid,
+      excluded,
+    };
   }
 
   function newlyPublishedCurriculum(store, sinceMs = 7 * MS_PER_DAY) {
@@ -478,10 +640,10 @@ function createEmailEngagement(deps) {
     return newlyPublishedCurriculum(store, sinceMs).lessons;
   }
 
-  async function sendAndLog({ store, to, templateKey, campaign, subject, text, html, meta = {} }) {
+  async function sendAndLog({ store, to, templateKey, campaign, subject, text, html, listUnsubscribeUrl = "", meta = {} }) {
     let emailResult = { sent: false, configured: false, provider: "not configured" };
     try {
-      emailResult = await sendEmail({ to, subject, text, html });
+      emailResult = await sendEmail({ to, subject, text, html, listUnsubscribeUrl });
     } catch (err) {
       emailResult = {
         sent: false,
@@ -501,6 +663,163 @@ function createEmailEngagement(deps) {
       meta,
     });
     return { emailResult, event };
+  }
+
+  async function sendFreeReengagementTest() {
+    const cleanReviewEmail = String(reviewEmail || "").trim().toLowerCase();
+    if (!isValidEmail(cleanReviewEmail)) {
+      return { sent: false, reason: "review_email_not_configured" };
+    }
+    const store = readStore();
+    const unsubscribeUrl = unsubscribeUrlForEmail(cleanReviewEmail);
+    const content = buildFreeReengagementContent({}, {
+      siteUrl: SITE_URL,
+      htmlEscape,
+      unsubscribeUrl,
+    });
+    const { emailResult, event } = await sendAndLog({
+      store,
+      to: cleanReviewEmail,
+      templateKey: FREE_REENGAGEMENT_CAMPAIGN_ID,
+      campaign: FREE_REENGAGEMENT_CAMPAIGN_ID,
+      ...content,
+      listUnsubscribeUrl: unsubscribeUrl,
+      meta: { test: true },
+    });
+    const eng = ensureEmailEngagement(store);
+    eng.campaigns = eng.campaigns && typeof eng.campaigns === "object" ? eng.campaigns : {};
+    eng.campaigns[FREE_REENGAGEMENT_CAMPAIGN_ID] = {
+      ...(eng.campaigns[FREE_REENGAGEMENT_CAMPAIGN_ID] || {}),
+      subject: FREE_REENGAGEMENT_SUBJECT,
+      testRecipient: cleanReviewEmail,
+      testSentAt: emailResult.sent ? new Date().toISOString() : "",
+      testProvider: emailResult.provider || "",
+      testError: emailResult.error || "",
+    };
+    await writeStoreAsync(store);
+    return {
+      sent: Boolean(emailResult.sent),
+      configured: Boolean(emailResult.configured),
+      provider: emailResult.provider || "",
+      messageId: emailResult.messageId || "",
+      error: emailResult.error || "",
+      recipient: cleanReviewEmail,
+      eventId: event.id,
+    };
+  }
+
+  async function runFreeReengagementCampaign(options = {}) {
+    const store = readStore();
+    const eng = ensureEmailEngagement(store);
+    eng.campaigns = eng.campaigns && typeof eng.campaigns === "object" ? eng.campaigns : {};
+    const campaignState = eng.campaigns[FREE_REENGAGEMENT_CAMPAIGN_ID] || {};
+    if (!campaignState.testSentAt || campaignState.testRecipient !== String(reviewEmail || "").trim().toLowerCase()) {
+      return { sent: 0, failed: 0, reason: "successful_review_test_required" };
+    }
+    if (options.confirmCampaignId !== FREE_REENGAGEMENT_CAMPAIGN_ID) {
+      return { sent: 0, failed: 0, reason: "explicit_campaign_confirmation_required" };
+    }
+    const sendStartedMs = Date.parse(campaignState.sendStartedAt || "") || 0;
+    if (sendStartedMs && !campaignState.sendCompletedAt && Date.now() - sendStartedMs < 30 * 60 * 1000) {
+      return { sent: 0, failed: 0, reason: "campaign_already_in_progress" };
+    }
+
+    const audience = freeReengagementAudience(store);
+    const failures = [];
+    const successes = [];
+    campaignState.sendStartedAt = new Date().toISOString();
+    campaignState.targetCount = audience.eligibleCount;
+    eng.campaigns[FREE_REENGAGEMENT_CAMPAIGN_ID] = campaignState;
+    await writeStoreAsync(store);
+
+    for (const { email, user } of audience.eligible) {
+      const unsubscribeUrl = unsubscribeUrlForEmail(email);
+      const content = buildFreeReengagementContent(user, {
+        siteUrl: SITE_URL,
+        htmlEscape,
+        unsubscribeUrl,
+      });
+      const { emailResult } = await sendAndLog({
+        store,
+        to: email,
+        templateKey: FREE_REENGAGEMENT_CAMPAIGN_ID,
+        campaign: FREE_REENGAGEMENT_CAMPAIGN_ID,
+        ...content,
+        listUnsubscribeUrl: unsubscribeUrl,
+        meta: { test: false },
+      });
+      if (emailResult.sent) {
+        user.emailCampaigns = user.emailCampaigns && typeof user.emailCampaigns === "object"
+          ? user.emailCampaigns
+          : {};
+        user.emailCampaigns[FREE_REENGAGEMENT_CAMPAIGN_ID] = {
+          sentAt: new Date().toISOString(),
+          provider: emailResult.provider || "",
+          messageId: emailResult.messageId || "",
+        };
+        user.updatedAt = new Date().toISOString();
+        successes.push(email);
+      } else {
+        failures.push({
+          email,
+          error: emailResult.error || (emailResult.configured ? "Provider rejected send" : "Email provider not configured"),
+        });
+      }
+      await writeStoreAsync(store);
+    }
+
+    campaignState.sendCompletedAt = new Date().toISOString();
+    campaignState.successfulSends = successes.length;
+    campaignState.failedSends = failures.length;
+    campaignState.invalidEmails = audience.invalid;
+    campaignState.failures = failures;
+    campaignState.bouncedEmails = [];
+    campaignState.bounceTrackingAvailable = false;
+    await writeStoreAsync(store);
+    return {
+      campaignId: FREE_REENGAGEMENT_CAMPAIGN_ID,
+      totalFreeUsersEmailed: audience.eligibleCount,
+      successfulSends: successes.length,
+      failedSends: failures.length,
+      failures,
+      invalidEmails: audience.invalid,
+      bouncedEmails: [],
+      bounceTrackingAvailable: false,
+      excluded: audience.excluded,
+      reviewCopy: {
+        recipient: campaignState.testRecipient,
+        deliveredToProvider: Boolean(campaignState.testSentAt),
+        sentAt: campaignState.testSentAt,
+      },
+    };
+  }
+
+  async function processQueuedFreeReengagementCampaign() {
+    let store = readStore();
+    let eng = ensureEmailEngagement(store);
+    let state = eng.campaigns?.[FREE_REENGAGEMENT_CAMPAIGN_ID] || {};
+    if (state.sendCompletedAt) {
+      return { queued: false, reason: "already_completed" };
+    }
+    const startedMs = Date.parse(state.sendStartedAt || "") || 0;
+    if (startedMs && !state.sendCompletedAt && Date.now() - startedMs < 30 * 60 * 1000) {
+      return { queued: false, reason: "campaign_already_in_progress" };
+    }
+    if (startedMs && !state.sendCompletedAt) state.sendStartedAt = "";
+    state.queuedAt = state.queuedAt || new Date().toISOString();
+    eng.campaigns[FREE_REENGAGEMENT_CAMPAIGN_ID] = state;
+    await writeStoreAsync(store);
+
+    if (!state.testSentAt) {
+      const testResult = await sendFreeReengagementTest();
+      if (!testResult.sent) {
+        return { queued: true, test: testResult, production: null, reason: "review_test_failed" };
+      }
+    }
+    const production = await runFreeReengagementCampaign({
+      confirmCampaignId: FREE_REENGAGEMENT_CAMPAIGN_ID,
+    });
+    return { queued: true, production };
   }
 
   async function sendOnboardingStep(email, stepKey, options = {}) {
@@ -825,6 +1144,7 @@ function createEmailEngagement(deps) {
         ...prefs,
         onboarding: options.keepTransactional ? prefs.onboarding : false,
         weeklyWhatsNew: false,
+        marketing: false,
         unsubscribedAt: new Date().toISOString(),
       },
       updatedAt: new Date().toISOString(),
@@ -887,6 +1207,13 @@ function createEmailEngagement(deps) {
     startScheduler,
     buildOnboardingContent,
     buildWhatsNewContent,
+    buildFreeReengagementContent,
+    freeReengagementAudience,
+    sendFreeReengagementTest,
+    runFreeReengagementCampaign,
+    processQueuedFreeReengagementCampaign,
+    FREE_REENGAGEMENT_CAMPAIGN_ID,
+    FREE_REENGAGEMENT_SUBJECT,
   };
 }
 
@@ -896,4 +1223,6 @@ module.exports = {
   ONBOARDING_STEPS,
   weekKey,
   isMonday,
+  FREE_REENGAGEMENT_CAMPAIGN_ID,
+  FREE_REENGAGEMENT_SUBJECT,
 };
