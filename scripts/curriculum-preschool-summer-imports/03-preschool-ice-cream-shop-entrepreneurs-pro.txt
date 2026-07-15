@@ -1,0 +1,323 @@
+TITLE:
+Ice Cream Shop Entrepreneurs
+
+AGE_GROUP:
+Preschool
+
+THEME:
+Ice Cream Shop Business
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science, Physical Development, Creative Arts
+
+WEEKLY_OVERVIEW:
+Children will become ice cream shop owners as they create menus, take customer orders, count money, build ice cream creations, and operate their own classroom ice cream business. Through dramatic play, math activities, literacy experiences, and teamwork, children will learn early business concepts while having summer fun.
+
+LEARNING_OBJECTIVES:
+• Explore basic business and money concepts
+• Practice counting, sorting, and number recognition
+• Build communication and literacy skills
+• Strengthen problem-solving abilities
+• Encourage teamwork and customer service skills
+
+WEEKLY_MATERIALS:
+Play ice cream sets, pretend money, menus, order forms, clipboards, aprons, cash register, play dough, art supplies
+
+VOCABULARY:
+Business, Customer, Order, Menu, Money, Price, Scoop, Flavor, Cashier, Entrepreneur
+
+BOOKS:
+Should I Share My Ice Cream?
+Ice Cream Summer
+Pete the Cat Screams for Ice Cream
+Ice Cream Face
+The Ice Cream Shop
+
+SONGS:
+I Like Ice Cream
+The Ice Cream Song
+Five Little Ice Cream Cones
+Summer Fun Song
+If You're Happy and You Know It
+
+FAMILY_CONNECTION:
+Encourage families to discuss businesses they visit, practice counting money, and talk about customer service experiences.
+
+OBSERVATION_OPPORTUNITIES:
+Observe counting skills, communication abilities, problem-solving, social interactions, and participation during dramatic play.
+
+ADAPTATIONS:
+Provide visual menus, larger manipulatives, simplified order forms, peer partners, and additional support as needed.
+
+MONDAY
+
+ACTIVITY_NAME:
+Open the Ice Cream Shop
+CATEGORY:
+Dramatic Play
+DESCRIPTION:
+Children help set up and organize the classroom ice cream shop.
+MATERIALS:
+Play ice cream, cash register, menus
+DIRECTIONS:
+Explore shop materials.
+Organize supplies.
+Assign jobs.
+Open the shop.
+TEACHER_ROLE:
+Introduce business vocabulary and roles.
+LEARNING_GOALS:
+Communication and social development.
+
+ACTIVITY_NAME:
+Design a Shop Sign
+CATEGORY:
+Art
+DESCRIPTION:
+Children create signs for the classroom ice cream shop.
+MATERIALS:
+Poster board, markers, stickers
+DIRECTIONS:
+Design shop sign.
+Decorate creatively.
+Display sign.
+TEACHER_ROLE:
+Support creativity and writing.
+LEARNING_GOALS:
+Fine motor development and literacy.
+
+ACTIVITY_NAME:
+Ice Cream Story Time
+CATEGORY:
+Literacy
+DESCRIPTION:
+Read a story about ice cream and sharing.
+MATERIALS:
+Ice cream-themed books
+DIRECTIONS:
+Read story.
+Discuss characters.
+Share ideas.
+TEACHER_ROLE:
+Support literacy development.
+LEARNING_GOALS:
+Listening and comprehension.
+
+TUESDAY
+
+ACTIVITY_NAME:
+Create a Menu
+CATEGORY:
+Literacy
+DESCRIPTION:
+Children design an ice cream menu.
+MATERIALS:
+Menu templates, crayons
+DIRECTIONS:
+Choose flavors.
+Draw menu items.
+Add labels.
+TEACHER_ROLE:
+Support writing and vocabulary.
+LEARNING_GOALS:
+Early literacy and creativity.
+
+ACTIVITY_NAME:
+Flavor Sorting Challenge
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children sort ice cream scoops by color and flavor.
+MATERIALS:
+Colored pom-poms, sorting trays
+DIRECTIONS:
+Sort scoops.
+Count groups.
+Compare amounts.
+TEACHER_ROLE:
+Guide math discussions.
+LEARNING_GOALS:
+Classification and counting skills.
+
+ACTIVITY_NAME:
+Ice Cream Dance Party
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Children dance and freeze like melting ice cream.
+MATERIALS:
+Music player
+DIRECTIONS:
+Dance to music.
+Freeze when music stops.
+Pretend to melt.
+TEACHER_ROLE:
+Lead movement activity.
+LEARNING_GOALS:
+Listening and self-regulation.
+
+WEDNESDAY
+
+ACTIVITY_NAME:
+Take Customer Orders
+CATEGORY:
+Dramatic Play
+DESCRIPTION:
+Children practice taking and filling customer orders.
+MATERIALS:
+Order forms, clipboards
+DIRECTIONS:
+Take an order.
+Record request.
+Fill order correctly.
+TEACHER_ROLE:
+Model customer service.
+LEARNING_GOALS:
+Communication and problem-solving.
+
+ACTIVITY_NAME:
+Count the Coins
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children use pretend money to purchase ice cream.
+MATERIALS:
+Pretend coins and bills
+DIRECTIONS:
+Count money.
+Pay for ice cream.
+Make simple exchanges.
+TEACHER_ROLE:
+Support counting skills.
+LEARNING_GOALS:
+Number recognition and math development.
+
+ACTIVITY_NAME:
+Entrepreneur Circle Time
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Discuss what business owners do.
+MATERIALS:
+Business picture cards
+DIRECTIONS:
+Discuss businesses.
+Share observations.
+Review vocabulary.
+TEACHER_ROLE:
+Lead discussion.
+LEARNING_GOALS:
+Social studies and communication.
+
+THURSDAY
+
+ACTIVITY_NAME:
+Build Giant Ice Cream Cones
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children construct tall ice cream cones using blocks.
+MATERIALS:
+Blocks, cones, pom-poms
+DIRECTIONS:
+Build cone.
+Add scoops.
+Test stability.
+TEACHER_ROLE:
+Encourage engineering thinking.
+LEARNING_GOALS:
+Problem-solving and design.
+
+ACTIVITY_NAME:
+Play Dough Ice Cream Shop
+CATEGORY:
+Fine Motor
+DESCRIPTION:
+Children create pretend ice cream treats.
+MATERIALS:
+Play dough, tools
+DIRECTIONS:
+Roll play dough.
+Create scoops.
+Build desserts.
+TEACHER_ROLE:
+Model techniques.
+LEARNING_GOALS:
+Fine motor development.
+
+ACTIVITY_NAME:
+Customer Service Practice
+CATEGORY:
+Dramatic Play
+DESCRIPTION:
+Children practice greeting and helping customers.
+MATERIALS:
+Shop props
+DIRECTIONS:
+Welcome customers.
+Take orders.
+Thank customers.
+TEACHER_ROLE:
+Model positive interactions.
+LEARNING_GOALS:
+Communication and social skills.
+
+FRIDAY
+
+ACTIVITY_NAME:
+Grand Opening Day
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Children operate the classroom ice cream shop.
+MATERIALS:
+All shop materials
+DIRECTIONS:
+Open business.
+Serve customers.
+Use menus and money.
+Rotate jobs.
+TEACHER_ROLE:
+Support operations and teamwork.
+LEARNING_GOALS:
+Application of business skills.
+
+ACTIVITY_NAME:
+Young Entrepreneur Awards
+CATEGORY:
+Dramatic Play
+DESCRIPTION:
+Children celebrate their success as business owners.
+MATERIALS:
+Certificates, ribbons
+DIRECTIONS:
+Present awards.
+Celebrate accomplishments.
+Share favorite memories.
+TEACHER_ROLE:
+Recognize effort and achievement.
+LEARNING_GOALS:
+Confidence and self-esteem.
+
+ACTIVITY_NAME:
+Ice Cream Shop Entrepreneurs Celebration Circle
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Review favorite business experiences and learning from the week.
+MATERIALS:
+Menus, photos, certificates
+DIRECTIONS:
+Share favorite activities.
+Review vocabulary.
+Celebrate learning.
+TEACHER_ROLE:
+Lead reflection.
+LEARNING_GOALS:
+Communication and social participation.

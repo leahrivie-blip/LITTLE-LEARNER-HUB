@@ -1969,6 +1969,20 @@ async function initializeStorage() {
   } catch (error) {
     console.error("[curriculum-infant-summer-seed] startup seed failed:", error.message);
   }
+  try {
+    const { ensurePreschoolSummerCurriculumSeeded } = require("./curriculum-preschool-summer-seed.js");
+    await ensurePreschoolSummerCurriculumSeeded({
+      readStore,
+      writeStoreAsync,
+      writeSiteCurriculum,
+      syncCurriculumActivitiesForLessonPlan,
+      assertCurriculumIntegrityOrError,
+      defaultSiteContentStore,
+      defaultCurriculumStore,
+    });
+  } catch (error) {
+    console.error("[curriculum-preschool-summer-seed] startup seed failed:", error.message);
+  }
 }
 
 function ensureStore() {

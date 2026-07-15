@@ -1,0 +1,324 @@
+TITLE:
+Zoo Veterinarians
+
+AGE_GROUP:
+Preschool
+
+THEME:
+Zoo Veterinarians & Animal Care
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science, Physical Development, Creative Arts
+
+WEEKLY_OVERVIEW:
+Children will become zoo veterinarians as they learn how animals are cared for, explore animal needs, conduct pretend health checks, investigate habitats, and practice empathy through dramatic play and hands-on science activities. Children will discover how veterinarians help keep animals healthy and safe.
+
+LEARNING_OBJECTIVES:
+• Learn about animal care and veterinary careers
+• Develop empathy and responsibility
+• Explore animal habitats and needs
+• Strengthen communication and problem-solving skills
+• Practice observation and recording skills
+
+WEEKLY_MATERIALS:
+Stuffed animals, toy medical kits, clipboards, animal charts, scales, measuring tape, bandages, animal books, habitat pictures
+
+VOCABULARY:
+Veterinarian, Healthy, Habitat, Animal, Care, Examine, Medicine, Rescue, Patient, Treatment
+
+BOOKS:
+I Want to Be a Veterinarian
+Vet in Training
+National Geographic Kids Animal Doctors
+If I Were a Veterinarian
+Zoo Animals
+
+SONGS:
+Old MacDonald Had a Farm
+The Animal Care Song
+Five Little Monkeys
+Bingo
+Animal Action Song
+
+FAMILY_CONNECTION:
+Encourage families to talk about pets, animal care, and the importance of being kind and gentle with animals.
+
+OBSERVATION_OPPORTUNITIES:
+Observe empathy, communication skills, problem-solving, scientific thinking, and participation during dramatic play activities.
+
+ADAPTATIONS:
+Provide visual supports, adaptive tools, peer partners, simplified recording sheets, and additional guidance as needed.
+
+MONDAY
+
+ACTIVITY_NAME:
+Veterinary Clinic Opening Day
+CATEGORY:
+Dramatic Play
+DESCRIPTION:
+Children set up a classroom veterinary clinic.
+MATERIALS:
+Stuffed animals, toy medical kit
+DIRECTIONS:
+Introduce veterinary tools.
+Set up clinic stations.
+Assign roles.
+Explore materials.
+TEACHER_ROLE:
+Introduce veterinary vocabulary and procedures.
+LEARNING_GOALS:
+Imaginative play and communication skills.
+
+ACTIVITY_NAME:
+Animal Check-Up Station
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children perform pretend health checks on stuffed animals.
+MATERIALS:
+Stuffed animals, stethoscopes, clipboards
+DIRECTIONS:
+Examine animal.
+Listen to heartbeat.
+Record observations.
+Discuss findings.
+TEACHER_ROLE:
+Model observation skills.
+LEARNING_GOALS:
+Scientific observation and empathy.
+
+ACTIVITY_NAME:
+Veterinarian Story Time
+CATEGORY:
+Literacy
+DESCRIPTION:
+Read a story about animal doctors.
+MATERIALS:
+Veterinarian-themed book
+DIRECTIONS:
+Read story.
+Discuss animal care.
+Ask questions.
+TEACHER_ROLE:
+Support literacy development.
+LEARNING_GOALS:
+Listening comprehension and vocabulary.
+
+TUESDAY
+
+ACTIVITY_NAME:
+Animal Habitat Match
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children match zoo animals to their habitats.
+MATERIALS:
+Animal cards, habitat boards
+DIRECTIONS:
+Identify animals.
+Match habitat.
+Explain choices.
+TEACHER_ROLE:
+Guide scientific discussions.
+LEARNING_GOALS:
+Classification and reasoning skills.
+
+ACTIVITY_NAME:
+Zoo Animal X-Rays
+CATEGORY:
+Art
+DESCRIPTION:
+Children create pretend animal x-rays.
+MATERIALS:
+Black paper, white crayons
+DIRECTIONS:
+Draw animal skeleton.
+Decorate x-ray.
+Share creation.
+TEACHER_ROLE:
+Support creativity and science connections.
+LEARNING_GOALS:
+Fine motor skills and scientific awareness.
+
+ACTIVITY_NAME:
+Animal Movement Lab
+CATEGORY:
+Gross Motor
+DESCRIPTION:
+Children move like different zoo animals.
+MATERIALS:
+Animal cards
+DIRECTIONS:
+Choose animal.
+Demonstrate movement.
+Children imitate.
+TEACHER_ROLE:
+Lead movement activity.
+LEARNING_GOALS:
+Coordination and body awareness.
+
+WEDNESDAY
+
+ACTIVITY_NAME:
+Weigh the Animals
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children compare and measure animal weights.
+MATERIALS:
+Toy animals, balance scale
+DIRECTIONS:
+Place animals on scale.
+Compare weights.
+Record results.
+TEACHER_ROLE:
+Support math vocabulary.
+LEARNING_GOALS:
+Measurement and comparison skills.
+
+ACTIVITY_NAME:
+Bandage the Animals
+CATEGORY:
+Fine Motor
+DESCRIPTION:
+Children practice wrapping bandages on stuffed animals.
+MATERIALS:
+Bandages, stuffed animals
+DIRECTIONS:
+Wrap bandage carefully.
+Secure gently.
+Help animal recover.
+TEACHER_ROLE:
+Model techniques.
+LEARNING_GOALS:
+Fine motor development and empathy.
+
+ACTIVITY_NAME:
+Veterinary Circle Time
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Discuss how veterinarians help animals.
+MATERIALS:
+Animal pictures
+DIRECTIONS:
+Discuss animal care.
+Share experiences.
+Review vocabulary.
+TEACHER_ROLE:
+Lead discussion.
+LEARNING_GOALS:
+Communication and social awareness.
+
+THURSDAY
+
+ACTIVITY_NAME:
+Animal Rescue Mission
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Children rescue animals and transport them safely to the clinic.
+MATERIALS:
+Stuffed animals, rescue carriers
+DIRECTIONS:
+Locate animals.
+Rescue safely.
+Bring to clinic.
+Provide care.
+TEACHER_ROLE:
+Encourage teamwork.
+LEARNING_GOALS:
+Problem-solving and cooperation.
+
+ACTIVITY_NAME:
+Healthy vs. Unhealthy Choices
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children sort pictures into healthy and unhealthy categories.
+MATERIALS:
+Picture cards
+DIRECTIONS:
+Examine pictures.
+Sort into groups.
+Discuss choices.
+TEACHER_ROLE:
+Guide health discussions.
+LEARNING_GOALS:
+Health awareness and critical thinking.
+
+ACTIVITY_NAME:
+Animal Care Songs
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Children sing songs about caring for animals.
+MATERIALS:
+Music player
+DIRECTIONS:
+Sing songs.
+Add movements.
+Repeat favorites.
+TEACHER_ROLE:
+Lead music activity.
+LEARNING_GOALS:
+Participation and language development.
+
+FRIDAY
+
+ACTIVITY_NAME:
+Zoo Veterinarian Challenge Stations
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Children rotate through veterinary care stations.
+MATERIALS:
+Medical tools, stuffed animals, scales
+DIRECTIONS:
+Visit each station.
+Complete animal care tasks.
+Record observations.
+TEACHER_ROLE:
+Support exploration and learning.
+LEARNING_GOALS:
+Application of veterinary skills.
+
+ACTIVITY_NAME:
+Junior Veterinarian Graduation
+CATEGORY:
+Dramatic Play
+DESCRIPTION:
+Children receive certificates for completing veterinarian training.
+MATERIALS:
+Certificates, badges
+DIRECTIONS:
+Celebrate accomplishments.
+Present certificates.
+Share favorite memories.
+TEACHER_ROLE:
+Recognize achievements.
+LEARNING_GOALS:
+Confidence and self-esteem.
+
+ACTIVITY_NAME:
+Zoo Veterinarians Celebration Circle
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Review favorite animal care activities and discoveries.
+MATERIALS:
+Photos, journals, books
+DIRECTIONS:
+Share favorite activities.
+Review vocabulary.
+Celebrate learning.
+TEACHER_ROLE:
+Lead reflection.
+LEARNING_GOALS:
+Language development and social participation.
