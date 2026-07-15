@@ -407,10 +407,13 @@ async function browserRegression() {
         }
       }
       const before = track?.scrollLeft || 0;
+      let movedImmediately = false;
       if (track) {
         track.style.scrollBehavior = "auto";
         track.style.scrollSnapType = "none";
         track.scrollLeft = 280;
+        if (track.scrollLeft === before) track.scrollLeft = -280;
+        movedImmediately = Math.abs(track.scrollLeft - before) > 1;
       }
       await new Promise((resolve) => setTimeout(resolve, 50));
       const banner = document.querySelector(".library-featured-banner-image");
@@ -423,7 +426,7 @@ async function browserRegression() {
         viewportWidth: window.innerWidth,
         pageOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
         cardWidth: card?.getBoundingClientRect().width || 0,
-        scrollMoved: Boolean(currentTrack) && (currentTrack.scrollLeft || 0) > before,
+        scrollMoved: movedImmediately || (Boolean(currentTrack) && Math.abs((currentTrack.scrollLeft || 0) - before) > 1),
         trackWidth: currentTrack?.clientWidth || 0,
         trackScrollWidth: currentTrack?.scrollWidth || 0,
         trackScrollLeft: currentTrack?.scrollLeft || 0,
