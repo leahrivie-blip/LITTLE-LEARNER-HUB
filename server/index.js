@@ -1927,6 +1927,20 @@ async function initializeStorage() {
   } catch (error) {
     console.error("[curriculum-infant-holiday-seed] startup seed failed:", error.message);
   }
+  try {
+    const { ensureToddlerHolidayCurriculumSeeded } = require("./curriculum-toddler-holiday-seed.js");
+    await ensureToddlerHolidayCurriculumSeeded({
+      readStore,
+      writeStoreAsync,
+      writeSiteCurriculum,
+      syncCurriculumActivitiesForLessonPlan,
+      assertCurriculumIntegrityOrError,
+      defaultSiteContentStore,
+      defaultCurriculumStore,
+    });
+  } catch (error) {
+    console.error("[curriculum-toddler-holiday-seed] startup seed failed:", error.message);
+  }
 }
 
 function ensureStore() {

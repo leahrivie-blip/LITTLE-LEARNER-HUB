@@ -1,0 +1,322 @@
+TITLE:
+Easter Eggstravaganza
+
+AGE_GROUP:
+Toddler
+
+THEME:
+Easter
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development, Creative Arts
+
+WEEKLY_OVERVIEW:
+Toddlers will explore Easter through colorful eggs, bunnies, chicks, springtime discoveries, sensory play, movement, art, and dramatic play. Activities encourage curiosity, creativity, early problem-solving, and social interaction while celebrating the arrival of spring.
+
+LEARNING_OBJECTIVES:
+• Explore Easter and spring themes through play
+• Strengthen fine and gross motor skills
+• Build Easter-related vocabulary
+• Encourage creativity and imagination
+• Support social interaction and cooperative play
+
+WEEKLY_MATERIALS:
+Plastic eggs, stuffed bunnies, chick toys, pastel paint, baskets, sensory bin materials, books, music player, ribbons, pom-poms
+
+VOCABULARY:
+Easter, Bunny, Egg, Chick, Basket, Spring, Hop, Nest, Flower, Pastel
+
+BOOKS:
+We're Going on an Egg Hunt
+Llama Llama Easter Egg
+The Easter Egg
+Happy Easter Mouse
+Peek-a-Boo Bunny
+
+SONGS:
+Here Comes Peter Cottontail
+Bunny Hop
+Five Little Easter Eggs
+Spring Is Here
+The Easter Bunny Song
+
+FAMILY_CONNECTION:
+Encourage families to talk about Easter traditions, springtime changes, and signs of new growth. Invite children to share favorite Easter experiences.
+
+OBSERVATION_OPPORTUNITIES:
+Observe language development, fine motor skills, problem-solving abilities, social interaction, and participation during group activities.
+
+ADAPTATIONS:
+Provide larger materials for younger toddlers, visual supports, adaptive art tools, sensory alternatives, and additional teacher assistance as needed.
+
+MONDAY
+
+ACTIVITY_NAME:
+Easter Sensory Bin
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Children explore Easter-themed materials in a sensory bin.
+MATERIALS:
+Plastic eggs, pastel rice, scoops, pom-poms
+DIRECTIONS:
+Fill sensory bin with materials.
+Encourage scooping and sorting.
+Open and close eggs.
+Explore textures together.
+TEACHER_ROLE:
+Model vocabulary and sensory exploration.
+LEARNING_GOALS:
+Sensory awareness and fine motor development.
+
+ACTIVITY_NAME:
+Egg Hunt Adventure
+CATEGORY:
+Gross Motor
+DESCRIPTION:
+Children search for colorful eggs hidden around the room.
+MATERIALS:
+Plastic eggs
+DIRECTIONS:
+Hide eggs around room.
+Encourage children to search.
+Collect eggs in baskets.
+TEACHER_ROLE:
+Support exploration and participation.
+LEARNING_GOALS:
+Observation skills and gross motor development.
+
+ACTIVITY_NAME:
+Easter Circle Time
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Introduce Easter themes through stories and discussion.
+MATERIALS:
+Picture cards
+DIRECTIONS:
+Show Easter pictures.
+Discuss eggs and bunnies.
+Read a short Easter story.
+TEACHER_ROLE:
+Lead discussion.
+LEARNING_GOALS:
+Vocabulary development and listening skills.
+
+TUESDAY
+
+ACTIVITY_NAME:
+Bunny Ear Craft
+CATEGORY:
+Art
+DESCRIPTION:
+Children create bunny ears using paper and cotton balls.
+MATERIALS:
+Paper, cotton balls, glue
+DIRECTIONS:
+Decorate bunny ears.
+Glue cotton balls.
+Wear finished ears.
+TEACHER_ROLE:
+Support creativity and fine motor skills.
+LEARNING_GOALS:
+Creative expression and hand strength.
+
+ACTIVITY_NAME:
+Bunny Hop Race
+CATEGORY:
+Gross Motor
+DESCRIPTION:
+Children hop like bunnies across the room.
+MATERIALS:
+Open space
+DIRECTIONS:
+Demonstrate hopping.
+Encourage participation.
+Practice different movements.
+TEACHER_ROLE:
+Lead movement activity.
+LEARNING_GOALS:
+Balance and coordination.
+
+ACTIVITY_NAME:
+Bunny Story Time
+CATEGORY:
+Literacy
+DESCRIPTION:
+Children listen to a bunny-themed story.
+MATERIALS:
+Easter book
+DIRECTIONS:
+Read story aloud.
+Ask simple questions.
+Identify bunny vocabulary.
+TEACHER_ROLE:
+Support comprehension.
+LEARNING_GOALS:
+Listening and vocabulary development.
+
+WEDNESDAY
+
+ACTIVITY_NAME:
+Egg Color Sorting
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children sort plastic eggs by color.
+MATERIALS:
+Colored plastic eggs
+DIRECTIONS:
+Gather eggs.
+Sort by color.
+Count eggs together.
+TEACHER_ROLE:
+Guide sorting discussions.
+LEARNING_GOALS:
+Color recognition and classification skills.
+
+ACTIVITY_NAME:
+Chick Nest Building
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Children build nests for toy chicks.
+MATERIALS:
+Toy chicks, shredded paper, baskets
+DIRECTIONS:
+Gather materials.
+Build nests.
+Place chicks inside.
+TEACHER_ROLE:
+Encourage creativity and problem-solving.
+LEARNING_GOALS:
+Imagination and early engineering skills.
+
+ACTIVITY_NAME:
+Easter Music Circle
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Children sing Easter songs and move to the music.
+MATERIALS:
+Music player
+DIRECTIONS:
+Play music.
+Add hand motions.
+Encourage participation.
+TEACHER_ROLE:
+Lead music activity.
+LEARNING_GOALS:
+Rhythm and listening skills.
+
+THURSDAY
+
+ACTIVITY_NAME:
+Pastel Egg Painting
+CATEGORY:
+Art
+DESCRIPTION:
+Children paint Easter egg shapes using pastel colors.
+MATERIALS:
+Egg templates, paint, brushes
+DIRECTIONS:
+Paint egg shapes.
+Explore colors.
+Display artwork.
+TEACHER_ROLE:
+Support creativity.
+LEARNING_GOALS:
+Fine motor skills and self-expression.
+
+ACTIVITY_NAME:
+Basket Toss
+CATEGORY:
+Gross Motor
+DESCRIPTION:
+Children toss soft eggs into baskets.
+MATERIALS:
+Soft eggs, baskets
+DIRECTIONS:
+Set up baskets.
+Toss eggs toward targets.
+Count successful tosses.
+TEACHER_ROLE:
+Encourage participation.
+LEARNING_GOALS:
+Hand-eye coordination.
+
+ACTIVITY_NAME:
+Easter Basket Pretend Play
+CATEGORY:
+Dramatic Play
+DESCRIPTION:
+Children pretend to prepare Easter baskets.
+MATERIALS:
+Baskets, eggs, stuffed bunnies
+DIRECTIONS:
+Fill baskets.
+Deliver baskets to friends.
+Practice sharing.
+TEACHER_ROLE:
+Facilitate imaginative play.
+LEARNING_GOALS:
+Social interaction and creativity.
+
+FRIDAY
+
+ACTIVITY_NAME:
+Spring Nature Walk
+CATEGORY:
+Outdoor Play
+DESCRIPTION:
+Children look for signs of spring outdoors.
+MATERIALS:
+Collection baskets
+DIRECTIONS:
+Walk outside.
+Look for flowers, grass, and birds.
+Discuss observations.
+TEACHER_ROLE:
+Guide exploration and discussion.
+LEARNING_GOALS:
+Observation skills and nature awareness.
+
+ACTIVITY_NAME:
+Easter Dance Party
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Children celebrate with Easter songs and dancing.
+MATERIALS:
+Music player
+DIRECTIONS:
+Play music.
+Dance together.
+Follow movement directions.
+TEACHER_ROLE:
+Lead movement activities.
+LEARNING_GOALS:
+Gross motor development and social participation.
+
+ACTIVITY_NAME:
+Easter Celebration Circle
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Review the week's Easter activities and celebrate learning.
+MATERIALS:
+Books, visuals, songs
+DIRECTIONS:
+Discuss favorite activities.
+Review vocabulary.
+Sing favorite songs.
+TEACHER_ROLE:
+Lead reflection and discussion.
+LEARNING_GOALS:
+Recall, language development, and social participation.

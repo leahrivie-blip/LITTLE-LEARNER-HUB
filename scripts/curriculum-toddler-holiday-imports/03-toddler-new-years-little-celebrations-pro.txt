@@ -1,0 +1,322 @@
+TITLE:
+New Year's Little Celebrations
+
+AGE_GROUP:
+Toddler
+
+THEME:
+New Year's
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development, Creative Arts
+
+WEEKLY_OVERVIEW:
+Toddlers will celebrate the New Year through music, movement, sensory play, counting activities, art, and social experiences. Children will explore concepts of celebrations, new beginnings, friendship, and making happy memories while developing important early learning skills.
+
+LEARNING_OBJECTIVES:
+• Explore celebrations and traditions
+• Practice counting and number recognition
+• Strengthen fine and gross motor skills
+• Encourage social interaction and cooperation
+• Support creativity and self-expression
+
+WEEKLY_MATERIALS:
+Party hats, streamers, pom-poms, balloons, counting cards, music player, sensory bin materials, mirrors, stickers, craft supplies
+
+VOCABULARY:
+New Year, Celebrate, Party, Count, Happy, Friend, Music, Dance, Cheer, Together
+
+BOOKS:
+Squirrel's New Year's Resolution
+Happy New Year Everywhere
+The Night Before New Year's
+New Year's Eve Countdown
+Let's Celebrate
+
+SONGS:
+If You're Happy and You Know It
+The Countdown Song
+Celebrate Together
+This Little Light of Mine
+The Party Song
+
+FAMILY_CONNECTION:
+Encourage families to talk about celebrations, family traditions, and fun memories from the past year. Invite children to share stories about special family events.
+
+OBSERVATION_OPPORTUNITIES:
+Observe counting skills, social interaction, communication, participation during group activities, and fine motor development.
+
+ADAPTATIONS:
+Provide visual supports, adaptive art tools, sensory alternatives, larger materials, and additional teacher assistance as needed.
+
+MONDAY
+
+ACTIVITY_NAME:
+Party Sensory Bin
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Children explore a New Year's themed sensory bin filled with party materials.
+MATERIALS:
+Pom-poms, streamers, scoops, cups
+DIRECTIONS:
+Fill sensory bin with materials.
+Encourage scooping and sorting.
+Explore colors and textures.
+Discuss party items.
+TEACHER_ROLE:
+Model vocabulary and sensory exploration.
+LEARNING_GOALS:
+Sensory awareness and language development.
+
+ACTIVITY_NAME:
+Party Hat Parade
+CATEGORY:
+Gross Motor
+DESCRIPTION:
+Children wear party hats and march around the classroom.
+MATERIALS:
+Party hats
+DIRECTIONS:
+Decorate hats.
+Wear hats.
+March together around the room.
+TEACHER_ROLE:
+Lead movement activity.
+LEARNING_GOALS:
+Balance and coordination.
+
+ACTIVITY_NAME:
+New Year's Circle Time
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Introduce New Year's celebrations and traditions.
+MATERIALS:
+Picture cards
+DIRECTIONS:
+Show celebration pictures.
+Discuss parties and traditions.
+Read a short story.
+TEACHER_ROLE:
+Lead discussion.
+LEARNING_GOALS:
+Vocabulary and listening skills.
+
+TUESDAY
+
+ACTIVITY_NAME:
+Firework Painting
+CATEGORY:
+Art
+DESCRIPTION:
+Children create colorful firework artwork using paint.
+MATERIALS:
+Paint, paper, forks
+DIRECTIONS:
+Dip forks into paint.
+Stamp onto paper.
+Create firework designs.
+TEACHER_ROLE:
+Support creativity.
+LEARNING_GOALS:
+Creative expression and fine motor development.
+
+ACTIVITY_NAME:
+Streamer Dance
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Children dance with colorful streamers.
+MATERIALS:
+Streamers, music player
+DIRECTIONS:
+Play music.
+Wave streamers.
+Dance together.
+TEACHER_ROLE:
+Lead movement activity.
+LEARNING_GOALS:
+Coordination and rhythm.
+
+ACTIVITY_NAME:
+Celebration Story Time
+CATEGORY:
+Literacy
+DESCRIPTION:
+Children listen to a story about celebrations and friendship.
+MATERIALS:
+New Year's book
+DIRECTIONS:
+Read story aloud.
+Ask simple questions.
+Discuss celebrations.
+TEACHER_ROLE:
+Support comprehension.
+LEARNING_GOALS:
+Listening and vocabulary development.
+
+WEDNESDAY
+
+ACTIVITY_NAME:
+Countdown Number Match
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children practice matching numbers during a countdown activity.
+MATERIALS:
+Number cards 1-10
+DIRECTIONS:
+Display number cards.
+Count together.
+Match numbers.
+TEACHER_ROLE:
+Guide counting practice.
+LEARNING_GOALS:
+Number recognition and early math skills.
+
+ACTIVITY_NAME:
+Balloon Keep-Up
+CATEGORY:
+Gross Motor
+DESCRIPTION:
+Children work together to keep balloons in the air.
+MATERIALS:
+Balloons
+DIRECTIONS:
+Toss balloons gently.
+Encourage children to tap balloons.
+Work together to keep them up.
+TEACHER_ROLE:
+Encourage cooperation and movement.
+LEARNING_GOALS:
+Coordination and teamwork.
+
+ACTIVITY_NAME:
+Countdown Song Circle
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Children practice counting through music and movement.
+MATERIALS:
+Music player
+DIRECTIONS:
+Sing countdown songs.
+Count together.
+Add movements.
+TEACHER_ROLE:
+Lead music experience.
+LEARNING_GOALS:
+Counting and listening skills.
+
+THURSDAY
+
+ACTIVITY_NAME:
+Memory Ribbon Wand
+CATEGORY:
+Art
+DESCRIPTION:
+Children create ribbon wands to celebrate special memories.
+MATERIALS:
+Craft sticks, ribbons, tape
+DIRECTIONS:
+Attach ribbons to sticks.
+Decorate wands.
+Use wands during music activities.
+TEACHER_ROLE:
+Support creativity.
+LEARNING_GOALS:
+Fine motor development and self-expression.
+
+ACTIVITY_NAME:
+Mirror Celebration Faces
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Children practice making happy, excited, and surprised faces.
+MATERIALS:
+Mirrors
+DIRECTIONS:
+Look into mirrors.
+Practice expressions.
+Talk about feelings.
+TEACHER_ROLE:
+Support emotional vocabulary.
+LEARNING_GOALS:
+Social-emotional development.
+
+ACTIVITY_NAME:
+Party Pretend Play
+CATEGORY:
+Dramatic Play
+DESCRIPTION:
+Children host a pretend New Year's party.
+MATERIALS:
+Party hats, toy food, decorations
+DIRECTIONS:
+Set up party area.
+Invite friends.
+Celebrate together.
+TEACHER_ROLE:
+Facilitate imaginative play.
+LEARNING_GOALS:
+Social interaction and creativity.
+
+FRIDAY
+
+ACTIVITY_NAME:
+New Year's Treasure Hunt
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Children search for hidden party items around the classroom.
+MATERIALS:
+Party hats, streamers, stars
+DIRECTIONS:
+Hide items around room.
+Search together.
+Count discoveries.
+TEACHER_ROLE:
+Support exploration and teamwork.
+LEARNING_GOALS:
+Observation and problem-solving skills.
+
+ACTIVITY_NAME:
+New Year's Dance Party
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Children celebrate with music, dancing, and movement games.
+MATERIALS:
+Music player
+DIRECTIONS:
+Play music.
+Dance together.
+Follow movement directions.
+TEACHER_ROLE:
+Lead movement activities.
+LEARNING_GOALS:
+Gross motor development and social participation.
+
+ACTIVITY_NAME:
+New Year's Celebration Circle
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Review the week's activities and celebrate learning together.
+MATERIALS:
+Books, visuals, songs
+DIRECTIONS:
+Discuss favorite activities.
+Review vocabulary.
+Celebrate the New Year together.
+TEACHER_ROLE:
+Lead reflection and discussion.
+LEARNING_GOALS:
+Recall, language development, and social participation.
