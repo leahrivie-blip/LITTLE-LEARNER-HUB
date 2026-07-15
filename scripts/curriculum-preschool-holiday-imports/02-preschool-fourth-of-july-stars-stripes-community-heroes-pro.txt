@@ -1,0 +1,324 @@
+TITLE:
+Fourth of July Stars, Stripes & Community Heroes
+
+AGE_GROUP:
+Preschool
+
+THEME:
+Fourth of July
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science, Physical Development, Creative Arts
+
+WEEKLY_OVERVIEW:
+Preschoolers will explore the Fourth of July through community helpers, patriotic symbols, STEM investigations, literacy activities, art projects, and outdoor games. Children will learn about community, teamwork, celebrations, and national symbols while building kindergarten readiness skills.
+
+LEARNING_OBJECTIVES:
+• Learn about patriotic symbols and celebrations
+• Explore community helpers and citizenship
+• Practice counting, graphing, and measurement
+• Develop observation and scientific inquiry skills
+• Strengthen literacy and communication skills
+
+WEEKLY_MATERIALS:
+Flags, star cutouts, red/white/blue manipulatives, measuring tools, books, paint, magnets, chart paper, sensory materials, community helper props
+
+VOCABULARY:
+Flag, Community, Citizen, Hero, Celebrate, Parade, America, Symbol, Freedom, Respect
+
+BOOKS:
+F Is for Flag
+Red White and Boom!
+America the Beautiful
+My Fourth of July
+What If Everybody Did That?
+
+SONGS:
+You're a Grand Old Flag
+This Land Is Your Land
+Yankee Doodle
+America Song
+Red White and Blue
+
+FAMILY_CONNECTION:
+Encourage families to discuss community helpers, local celebrations, and ways families work together to help their communities.
+
+OBSERVATION_OPPORTUNITIES:
+Observe teamwork, communication skills, counting abilities, scientific thinking, social awareness, and participation during group activities.
+
+ADAPTATIONS:
+Provide visual supports, adaptive tools, larger manipulatives, sensory alternatives, and additional teacher support as needed.
+
+MONDAY
+
+ACTIVITY_NAME:
+Patriotic Symbol Investigation
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children investigate patriotic symbols and discuss their meanings.
+MATERIALS:
+Flags, photos, symbol cards
+DIRECTIONS:
+Observe symbols.
+Discuss what they represent.
+Compare similarities and differences.
+Share observations.
+TEACHER_ROLE:
+Guide discussion and observation.
+LEARNING_GOALS:
+Social studies awareness and vocabulary development.
+
+ACTIVITY_NAME:
+Flag Counting Challenge
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children count and sort flags by size and color.
+MATERIALS:
+Mini flags, sorting trays
+DIRECTIONS:
+Count flags.
+Sort by category.
+Compare groups.
+TEACHER_ROLE:
+Support counting strategies.
+LEARNING_GOALS:
+Math and classification skills.
+
+ACTIVITY_NAME:
+Community Circle Time
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Introduce community helpers and celebrations.
+MATERIALS:
+Community helper visuals
+DIRECTIONS:
+Discuss community roles.
+Share experiences.
+Read a related story.
+TEACHER_ROLE:
+Lead discussion.
+LEARNING_GOALS:
+Communication and social awareness.
+
+TUESDAY
+
+ACTIVITY_NAME:
+Community Hero Writing
+CATEGORY:
+Literacy
+DESCRIPTION:
+Children draw and write about a community helper.
+MATERIALS:
+Paper, markers, pencils
+DIRECTIONS:
+Choose a community helper.
+Draw a picture.
+Write words or sentences.
+TEACHER_ROLE:
+Support writing development.
+LEARNING_GOALS:
+Literacy and self-expression.
+
+ACTIVITY_NAME:
+Firefighter Obstacle Course
+CATEGORY:
+Gross Motor
+DESCRIPTION:
+Children complete challenges inspired by firefighters.
+MATERIALS:
+Cones, tunnels, hoops
+DIRECTIONS:
+Navigate obstacles.
+Complete rescue challenges.
+Work as a team.
+TEACHER_ROLE:
+Lead movement activity.
+LEARNING_GOALS:
+Coordination and teamwork.
+
+ACTIVITY_NAME:
+Community Helper Story Time
+CATEGORY:
+Literacy
+DESCRIPTION:
+Children listen to a story about helping others.
+MATERIALS:
+Community helper book
+DIRECTIONS:
+Read story.
+Discuss characters.
+Identify ways to help others.
+TEACHER_ROLE:
+Support comprehension.
+LEARNING_GOALS:
+Listening and vocabulary development.
+
+WEDNESDAY
+
+ACTIVITY_NAME:
+Fireworks in a Jar Science
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children observe a colorful science experiment resembling fireworks.
+MATERIALS:
+Water, oil, food coloring, jars
+DIRECTIONS:
+Add water to jar.
+Mix colors in oil.
+Pour into water.
+Observe reactions.
+TEACHER_ROLE:
+Guide scientific investigation.
+LEARNING_GOALS:
+Observation and cause-and-effect understanding.
+
+ACTIVITY_NAME:
+Patriotic Windsock Craft
+CATEGORY:
+Art
+DESCRIPTION:
+Children create red, white, and blue windsocks.
+MATERIALS:
+Construction paper, streamers, glue
+DIRECTIONS:
+Decorate paper.
+Attach streamers.
+Display creations.
+TEACHER_ROLE:
+Support creativity.
+LEARNING_GOALS:
+Fine motor development and artistic expression.
+
+ACTIVITY_NAME:
+Firework Movement Game
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Children move like fireworks using different motions.
+MATERIALS:
+Music player
+DIRECTIONS:
+Listen to music.
+Jump, spin, and stretch.
+Follow movement directions.
+TEACHER_ROLE:
+Lead movement activity.
+LEARNING_GOALS:
+Gross motor development and listening skills.
+
+THURSDAY
+
+ACTIVITY_NAME:
+Build a Parade Float
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children work in teams to build miniature parade floats.
+MATERIALS:
+Blocks, boxes, craft supplies
+DIRECTIONS:
+Plan design.
+Build float.
+Present creation.
+TEACHER_ROLE:
+Encourage teamwork and engineering.
+LEARNING_GOALS:
+Problem-solving and collaboration.
+
+ACTIVITY_NAME:
+Patriotic Graphing Activity
+CATEGORY:
+STEM/Discovery
+DESCRIPTION:
+Children graph favorite patriotic symbols.
+MATERIALS:
+Chart paper, stickers
+DIRECTIONS:
+Vote on favorite symbol.
+Place stickers on graph.
+Analyze results.
+TEACHER_ROLE:
+Guide graphing discussions.
+LEARNING_GOALS:
+Data collection and math skills.
+
+ACTIVITY_NAME:
+Patriotic Vocabulary Match
+CATEGORY:
+Literacy
+DESCRIPTION:
+Children match patriotic vocabulary words with pictures.
+MATERIALS:
+Word cards, picture cards
+DIRECTIONS:
+Match words.
+Read vocabulary.
+Discuss meanings.
+TEACHER_ROLE:
+Support literacy development.
+LEARNING_GOALS:
+Word recognition and vocabulary growth.
+
+FRIDAY
+
+ACTIVITY_NAME:
+Community Heroes Parade
+CATEGORY:
+Dramatic Play
+DESCRIPTION:
+Children dress as community helpers and participate in a classroom parade.
+MATERIALS:
+Dress-up clothes, props
+DIRECTIONS:
+Choose community helper role.
+Dress up.
+Participate in parade.
+Share helper responsibilities.
+TEACHER_ROLE:
+Facilitate dramatic play.
+LEARNING_GOALS:
+Social awareness and communication.
+
+ACTIVITY_NAME:
+Red White & Blue Relay
+CATEGORY:
+Gross Motor
+DESCRIPTION:
+Children complete relay races using patriotic colors.
+MATERIALS:
+Colored beanbags, cones
+DIRECTIONS:
+Divide into teams.
+Complete relay challenges.
+Encourage teamwork.
+TEACHER_ROLE:
+Lead activity.
+LEARNING_GOALS:
+Coordination and cooperation.
+
+ACTIVITY_NAME:
+Fourth of July Celebration Circle
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Review the week's learning and celebrate community heroes.
+MATERIALS:
+Books, visuals, student work
+DIRECTIONS:
+Discuss favorite activities.
+Review vocabulary.
+Celebrate learning.
+TEACHER_ROLE:
+Lead reflection and discussion.
+LEARNING_GOALS:
+Communication, recall, and social-emotional development.
