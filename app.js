@@ -8953,6 +8953,34 @@ function setView(view, options = {}) {
   if (resolvedView === "lessons" && activeView && activeView !== "lessons") {
     lessonLibraryReturnView = activeView;
   }
+  // Keep Netflix-style browse rows visible when moving between libraries.
+  // Shared global search would otherwise force a filtered grid and hide browse rows.
+  if (
+    (resolvedView === "lessons" || resolvedView === "activities")
+    && activeView
+    && activeView !== resolvedView
+    && !options.preserveSearch
+  ) {
+    if (searchInput) searchInput.value = "";
+    activeFilter = "All";
+    if (resolvedView === "activities") {
+      activityLibraryViewAllKey = "";
+      activityLibraryPlanFilter = "All";
+      activityLibraryShowSavedOnly = false;
+      activityLibraryShowRecentOnly = false;
+      activityLibraryFiltersOpen = false;
+      // Keep activeActivityLessonPlanId — callers set it before setView("activities")
+      // when drilling in from a parent lesson plan.
+    }
+    if (resolvedView === "lessons") {
+      lessonLibraryViewAllKey = "";
+      if (activeView === "activities") {
+        lessonLibraryPlanFilter = "All";
+        lessonLibraryShowAssignedOnly = false;
+        lessonLibraryFiltersOpen = false;
+      }
+    }
+  }
   if (resolvedView === "lessons") {
     const requestedLessonLibraryMode = options.lessonLibraryMode || "";
     if (requestedLessonLibraryMode === "browse" || requestedLessonLibraryMode === "saved") {

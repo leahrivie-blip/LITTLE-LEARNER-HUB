@@ -434,6 +434,7 @@ body.activities-view .mobile-brand {
   position: relative;
   flex: 0 0 auto;
   width: min(220px, 72vw);
+  max-width: calc(100vw - 48px);
   scroll-snap-align: start;
   display: grid;
   grid-template-rows: auto 1fr;
@@ -752,6 +753,7 @@ body.activities-view .mobile-brand {
 @media (max-width: 480px) {
   .browse-card {
     width: min(240px, 78vw); /* ~1.2–1.4 cards visible */
+    max-width: calc(100vw - 40px);
   }
 
   .browse-card-cover {

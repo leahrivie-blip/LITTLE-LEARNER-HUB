@@ -1,0 +1,42 @@
+{
+  "generatedAt": "2026-07-15T18:37:20.831Z",
+  "passed": [
+    "Homepage loads with auth/pricing CTAs",
+    "Lesson Plan Library browse rows, age sections, View All, empty sections hidden",
+    "Desktop browse arrows scroll rows",
+    "Lesson search returns correct plans",
+    "Age filters prioritize correct age group",
+    "Free/Pro filters enforce access labels",
+    "Saved lesson plans mode opens and returns",
+    "Lesson card Save works",
+    "Lesson viewer content + Print/Download/Save controls",
+    "Use This Plan opens assign sheet",
+    "Lesson viewer Save/Unsave toggles (favorites now 0)",
+    "Lesson viewer Back/close works",
+    "Pro user can open Pro lesson plans",
+    "Activity Center compact header + browse rows + filters",
+    "Activity rows present (11 expected categories matched)",
+    "Activity View All / back to browse",
+    "Activity viewer opens with Print and content",
+    "Activity advanced filters open and apply",
+    "Add to Calendar / Assign submit clicked",
+    "Calendar renders without Weekend labels / overflow",
+    "Assigned lesson appears on calendar",
+    "Free user Pro lock / preview behavior enforced",
+    "Free user access badge",
+    "Founding Member full Pro access",
+    "Logged-out visitor path works",
+    "Core sidebar views render without blank pages",
+    "Logout and login again works",
+    "Admin content intact, no duplicate lesson plan IDs",
+    "Responsive widths 320–1440 (lessons/activities/calendar) — no overflow/cutoff"
+  ],
+  "warnings": [
+    "Console errors observed: Failed to load resource: the server responded with a status of 403 (Forbidden)"
+  ],
+  "failed": [],
+  "testedCount": 30,
+  "passCount": 29,
+  "warnCount": 1,
+  "failCount": 0
+}
