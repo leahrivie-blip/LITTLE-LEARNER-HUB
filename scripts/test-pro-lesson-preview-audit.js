@@ -13,7 +13,7 @@ const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-
 const { lockedCurriculumLessonPreviewHtml } = require("./curriculum-lesson-viewer-render.js");
 
 const ROOT = path.join(__dirname, "..");
-const SAMPLE = path.join(ROOT, "scripts/curriculum-import-samples/premium-garden-scientists-v2.txt");
+const SAMPLE = path.join(ROOT, "scripts/curriculum-import-samples/label-only-garden-scientists-v3.txt");
 const PORT = 4590 + Math.floor(Math.random() * 180);
 const STORE_PATH = path.join(os.tmpdir(), `llh-pro-preview-audit-${crypto.randomBytes(4).toString("hex")}.json`);
 const ADMIN = {
@@ -159,7 +159,7 @@ async function publishProLesson(token) {
 }
 
 async function main() {
-  console.log("0) Locked preview HTML includes activity names");
+  console.log("0) Locked preview HTML shows overview only (no premium content)");
   const previewHtml = lockedCurriculumLessonPreviewHtml(
     {
       title: "Farm Week",
@@ -182,30 +182,48 @@ async function main() {
         learningDomains: ["Science", "Language"],
       },
     },
-    { activities: [] },
+    {
+      activities: [],
+      upgradeCtaHtml: '<button type="button" data-checkout-plan="founding">Upgrade to Pro</button>',
+      showFoundingOffer: true,
+    },
   );
-  assert(/Farm Animal Sensory Bin/.test(previewHtml.html), "preview missing Monday activity");
-  assert(/Barn Building Challenge/.test(previewHtml.html), "preview missing Tuesday activity");
-  assert(/Materials List/.test(previewHtml.html), "preview missing materials");
-  assert(/Big Red Barn/.test(previewHtml.html), "preview missing books");
-  assert(/🔒/.test(previewHtml.html), "preview missing lock icons");
+  assert(/Weekly Overview/.test(previewHtml.html), "preview missing weekly overview");
+  assert(/Learning Domains/.test(previewHtml.html), "preview missing learning domains");
+  assert(/Pro Lesson Plan/.test(previewHtml.html), "preview missing upgrade card");
+  assert(/Founding Member Pricing Still Available/.test(previewHtml.html), "preview missing founding offer");
+  assert(/Upgrade to Pro/.test(previewHtml.html), "preview missing upgrade CTA");
+  assert(!/Farm Animal Sensory Bin/.test(previewHtml.html), "preview leaked Monday activity name");
+  assert(!/Barn Building Challenge/.test(previewHtml.html), "preview leaked Tuesday activity name");
+  assert(!/Materials List/.test(previewHtml.html) || /Complete Materials List/.test(previewHtml.html), "preview should not show materials content");
+  assert(!/Bins, animals, hay/.test(previewHtml.html), "preview leaked materials content");
+  assert(!/Big Red Barn/.test(previewHtml.html), "preview leaked book titles");
+  assert(!/Old MacDonald/.test(previewHtml.html), "preview leaked song titles");
+  assert(!/Count animals and practice vocabulary/.test(previewHtml.html), "preview leaked objectives");
 
   const child = startServer();
   let browser;
   try {
     await waitForBoot(child);
-    seedMembershipUsers();
     const login = await requestJson("POST", "/api/admin/login", ADMIN);
     assert(login.status === 200 && login.json?.token, "admin login failed");
     const planId = await publishProLesson(login.json.token);
+    // Re-seed after admin writes so membership users are not wiped by storeCache bootstrap.
+    seedMembershipUsers();
 
-    console.log("1) Public Pro DTO exposes locked activity titles, not directions");
+    console.log("1) Public Pro DTO exposes overview teaser only (no premium content)");
     const publicContent = await requestJson("GET", "/api/site-content");
     const proPublic = (publicContent.json.siteContent?.curriculumLibrary?.lessonPlans || []).find((item) => item.id === planId);
     assert(proPublic?.locked === true, "pro plan should be locked publicly");
     assert(!proPublic.dailyPlans, "public pro plan must not include full dailyPlans");
-    assert(Number(proPublic.activityCount || 0) > 0, "public pro plan should expose activityCount");
-    assert(Object.keys(proPublic.dailyActivityPreview || {}).length > 0, "public pro plan should expose dailyActivityPreview");
+    assert(proPublic.weeklyOverview, "public pro plan should expose weeklyOverview");
+    assert(proPublic.theme, "public pro plan should expose theme");
+    assert(!proPublic.objectives, "public pro plan must not expose objectives");
+    assert(!proPublic.weeklyMaterials, "public pro plan must not expose materials");
+    assert(!proPublic.vocabularyWords, "public pro plan must not expose vocabulary");
+    assert(!(proPublic.books || []).length, "public pro plan must not expose books");
+    assert(!(proPublic.songs || []).length, "public pro plan must not expose songs");
+    assert(!proPublic.dailyActivityPreview, "public pro plan must not expose dailyActivityPreview");
     assert(!JSON.stringify(proPublic).includes("Invite children to scoop"), "public preview leaked directions");
 
     console.log("2) Membership detail access matrix");
@@ -238,7 +256,7 @@ async function main() {
       return;
     }
 
-    console.log("3) Free user sees rich locked preview modal (not empty workspace)");
+    console.log("3) Free user sees overview-only Pro preview with upgrade card + sticky CTA");
     browser = await playwright.chromium.launch({ headless: true });
     const page = await browser.newPage({ viewport: { width: 412, height: 915 } });
     await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 30000 });
@@ -265,10 +283,18 @@ async function main() {
       workspace: Boolean(document.querySelector("#resourceViewerModal.lesson-workspace-mode.open")),
       body: document.querySelector("#featurePreviewBody")?.innerText || "",
       html: document.querySelector("#featurePreviewBody")?.innerHTML || "",
+      stickyVisible: Boolean(document.querySelector("#featurePreviewModal.fp-has-sticky-upgrade [data-fp-sticky-upgrade]:not([hidden])")),
+      stickyText: document.querySelector("[data-fp-sticky-upgrade]")?.innerText || "",
     }));
     assert(!locked.workspace, "free user must not open full lesson workspace for Pro plan");
-    assert(/Garden Scientists|Weekly Overview|Materials|Daily Activities/i.test(locked.body), `locked preview missing teaser content: ${locked.body.slice(0, 200)}`);
-    assert(/fp-locked-activity-list|🔒/.test(locked.html), "locked preview missing locked activity list");
+    assert(/Weekly Overview/i.test(locked.body), `locked preview missing weekly overview: ${locked.body.slice(0, 200)}`);
+    assert(/Learning Domains|Garden Scientists/i.test(locked.body), `locked preview missing overview metadata: ${locked.body.slice(0, 200)}`);
+    assert(/Pro Lesson Plan|Unlock this premium lesson plan/i.test(locked.body), "locked preview missing upgrade card");
+    assert(/Upgrade to Pro/i.test(locked.body + locked.stickyText), "locked preview missing Upgrade to Pro CTA");
+    assert(locked.stickyVisible, "mobile sticky upgrade bar should be visible");
+    assert(!/fp-locked-activity-list/.test(locked.html), "locked preview must not list activity names");
+    assert(!/<label>Weekly Objectives|<label>Materials List|<label>Vocabulary|<label>Books|<label>Songs|<label>Daily Activities/i.test(locked.html), "locked preview leaked premium section fields");
+    assert(!/Farm Animal|Sensory Bin|Invite children|Planting a Rainbow/i.test(locked.body), "locked preview leaked premium content strings");
 
     console.log("4) Promo-only account remains Free for Pro content");
     await page.evaluate(() => {

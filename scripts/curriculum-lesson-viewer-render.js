@@ -337,84 +337,63 @@ function renderCurriculumActivityHtml(activity = {}, options = {}) {
 }
 
 function lockedCurriculumLessonPreviewHtml(resource = {}, options = {}) {
+  // Pro lesson previews intentionally sell quality without revealing plan content.
+  // Visible: title (set by caller), age, theme, learning domains, weekly overview.
+  // Hidden: objectives, materials, vocabulary, books, songs, family connection,
+  // observations, adaptations, Mon–Fri activities/names/descriptions, teacher notes/goals.
   const plan = normalizePlanForRender(resource._curriculumLessonPlan || {});
   const overview = String(plan.weeklyOverview || resource.description || "").trim();
-  const words = overview.split(/\s+/).filter(Boolean);
-  const excerpt = words.slice(0, 80).join(" ");
   const domains = asStringArray(plan.learningDomains)
     .slice(0, 6)
     .map((domain) => `<span class="tag">${escapeHtml(domain)}</span>`)
     .join("");
-  const objectives = String(plan.objectives || "").trim();
-  const materials = String(plan.weeklyMaterials || "").trim();
-  const vocabulary = String(plan.vocabularyWords || "").trim();
-  const books = Array.isArray(plan.books) ? plan.books.filter((book) => String(book?.title || "").trim()) : [];
-  const songs = Array.isArray(plan.songs) ? plan.songs.filter((song) => String(song?.title || "").trim()) : [];
-
-  const previewDays = plan.dailyActivityPreview && typeof plan.dailyActivityPreview === "object"
-    ? plan.dailyActivityPreview
-    : null;
-  const linkedActivities = Array.isArray(options.activities) ? options.activities : [];
-  const activitiesByDay = {};
-  if (previewDays) {
-    CURRICULUM_WEEKDAYS.forEach((day) => {
-      const items = Array.isArray(previewDays[day]) ? previewDays[day] : [];
-      activitiesByDay[day] = items
-        .map((item) => String(item?.title || item || "").trim())
-        .filter(Boolean);
-    });
-  } else {
-    linkedActivities.forEach((activity) => {
-      const day = String(activity?.dayOfWeek || "").trim().toLowerCase();
-      const title = String(activity?.title || "").trim();
-      if (!day || !title || !CURRICULUM_WEEKDAYS.includes(day)) return;
-      if (!activitiesByDay[day]) activitiesByDay[day] = [];
-      if (!activitiesByDay[day].includes(title)) activitiesByDay[day].push(title);
-    });
-  }
-  const activityCount = Number(plan.activityCount)
-    || Object.values(activitiesByDay).reduce((sum, list) => sum + list.length, 0)
-    || linkedActivities.length;
-
-  const daySections = CURRICULUM_WEEKDAYS
-    .map((day) => {
-      const titles = activitiesByDay[day] || [];
-      if (!titles.length) return "";
-      return `
-        <div class="fp-locked-day">
-          <strong>${escapeHtml(DAY_LABELS[day] || day)}</strong>
-          <ul class="fp-locked-activity-list">
-            ${titles.map((title) => `<li><span class="fp-lock-icon" aria-hidden="true">🔒</span><span>${escapeHtml(title)}</span></li>`).join("")}
-          </ul>
-        </div>
-      `;
-    })
-    .filter(Boolean)
-    .join("");
-
-  const listHtml = (items) => items.length
-    ? `<ul class="fp-preview-list">${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
-    : "";
+  const upgradeCtaHtml = String(options.upgradeCtaHtml || "").trim();
+  const upgradeNote = String(options.upgradeNote || "").trim();
+  const showFoundingOffer = options.showFoundingOffer !== false;
 
   return {
     title: resource.title || plan.title || "Lesson Plan",
     html: `
-      <div class="fp-field"><label>Age Group</label><div class="fp-field-value">${escapeHtml(plan.age || resource.age || "Preschool")}</div></div>
-      <div class="fp-field"><label>Theme</label><div class="fp-field-value">${escapeHtml(plan.theme || resource.theme || "—")}</div></div>
-      ${domains ? `<div class="fp-field"><label>Learning Domains</label><div class="fp-field-value tag-row">${domains}</div></div>` : ""}
-      ${excerpt ? `<div class="fp-field"><label>Weekly Overview</label><div class="fp-field-value">${escapeHtml(excerpt)}${words.length > 80 ? "…" : ""}</div></div>` : ""}
-      ${objectives ? `<div class="fp-field"><label>Weekly Objectives</label><div class="fp-field-value">${escapeHtml(objectives)}</div></div>` : ""}
-      ${materials ? `<div class="fp-field"><label>Materials List</label><div class="fp-field-value">${escapeHtml(materials)}</div></div>` : ""}
-      ${vocabulary ? `<div class="fp-field"><label>Vocabulary</label><div class="fp-field-value">${escapeHtml(vocabulary)}</div></div>` : ""}
-      ${books.length ? `<div class="fp-field"><label>Books</label><div class="fp-field-value">${listHtml(books.map((book) => book.author ? `${book.title} — ${book.author}` : book.title))}</div></div>` : ""}
-      ${songs.length ? `<div class="fp-field"><label>Songs</label><div class="fp-field-value">${listHtml(songs.map((song) => song.title || song))}</div></div>` : ""}
-      <div class="fp-field">
-        <label>Daily Activities${activityCount ? ` (${activityCount})` : ""}</label>
-        <div class="fp-field-value">
-          ${daySections || `<p class="muted-copy">Activity names unlock in this preview once the lesson is published with daily plans.</p>`}
-          <p class="muted-copy fp-locked-note">🔒 Full directions, teacher language, learning goals, downloads, and calendar exports unlock with Pro.</p>
-        </div>
+      <div class="fp-pro-teaser" data-fp-pro-teaser>
+        <div class="fp-field"><label>Age Group</label><div class="fp-field-value">${escapeHtml(plan.age || resource.age || "Preschool")}</div></div>
+        <div class="fp-field"><label>Theme</label><div class="fp-field-value">${escapeHtml(plan.theme || resource.theme || "—")}</div></div>
+        ${domains ? `<div class="fp-field"><label>Learning Domains</label><div class="fp-field-value tag-row">${domains}</div></div>` : ""}
+        ${overview ? `<div class="fp-field"><label>Weekly Overview</label><div class="fp-field-value">${escapeHtml(overview)}</div></div>` : ""}
       </div>
+      <section class="fp-pro-upgrade-card" data-fp-pro-upgrade-card aria-label="Pro Lesson Plan upgrade">
+        <p class="fp-pro-upgrade-eyebrow">🔒 Pro Lesson Plan</p>
+        <h3>Unlock this premium lesson plan</h3>
+        <p class="muted-copy">This premium lesson plan includes:</p>
+        <ul class="fp-pro-upgrade-benefits">
+          <li>✓ Weekly Learning Objectives</li>
+          <li>✓ Complete Materials List</li>
+          <li>✓ Vocabulary Development Activities</li>
+          <li>✓ Book Recommendations</li>
+          <li>✓ Songs &amp; Movement Activities</li>
+          <li>✓ Monday–Friday Daily Activities</li>
+          <li>✓ Teacher Guidance &amp; Instructions</li>
+          <li>✓ Learning Goals</li>
+          <li>✓ Family Connection Ideas</li>
+          <li>✓ Observation Opportunities</li>
+          <li>✓ Adaptations &amp; Extensions</li>
+        </ul>
+        ${showFoundingOffer ? `
+          <div class="fp-founding-offer" data-fp-founding-offer>
+            <p class="fp-founding-offer-eyebrow">🔥 Founding Member Pricing Still Available</p>
+            <p>Lock in <strong>$9.99/month for life</strong> and receive unlimited access to:</p>
+            <ul class="fp-pro-upgrade-benefits fp-founding-benefits">
+              <li>• Every Pro Lesson Plan</li>
+              <li>• Every Activity</li>
+              <li>• Future Curriculum Releases</li>
+              <li>• Documentation Helpers</li>
+              <li>• New Features as They Launch</li>
+            </ul>
+            <p class="fp-founding-regular-price">Regular Price: <span>$19.99/month</span></p>
+          </div>
+        ` : ""}
+        ${upgradeCtaHtml ? `<div class="fp-pro-upgrade-actions pro-modal-actions">${upgradeCtaHtml}</div>` : ""}
+        ${upgradeNote ? `<p class="fp-pro-upgrade-note"><small>${escapeHtml(upgradeNote)}</small></p>` : ""}
+      </section>
     `,
   };
 }

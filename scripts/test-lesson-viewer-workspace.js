@@ -232,9 +232,7 @@ async function main() {
     await page.waitForSelector('[data-lesson-workspace-panel="plan"].is-active', { timeout: 3000 });
 
     await page.click("[data-lesson-use-this-plan]");
-    await page.waitForSelector('[data-lesson-workspace-action-panel="use-plan"]:not([hidden])', { timeout: 3000 });
-    await page.click('[data-lesson-use-plan-choice="calendar"]');
-    await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 3000 });
+    await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
     const sheetCopy = await page.evaluate(() => ({
       title: document.querySelector("[data-lesson-assign-sheet-title]")?.textContent.trim() || "",
       submit: document.querySelector("[data-lesson-assign-submit]")?.textContent.trim() || "",

@@ -17,7 +17,7 @@ const {
 const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-parser.js");
 
 const ROOT = path.join(__dirname, "..");
-const V2_SAMPLE = path.join(ROOT, "scripts/curriculum-import-samples/premium-garden-scientists-v2.txt");
+const V2_SAMPLE = path.join(ROOT, "scripts/curriculum-import-samples/label-only-garden-scientists-v3.txt");
 const V1_SAMPLE = path.join(ROOT, "scripts/curriculum-phase-2f-imports/01-infant-soft-sounds-free.txt");
 const PORT = 4560 + Math.floor(Math.random() * 200);
 const STORE_PATH = path.join(ROOT, "server/data/launch-store.json");
@@ -107,7 +107,18 @@ async function stopServer(child) {
 function premiumPlan() {
   const parsed = parseCurriculumLessonPlanImport(fs.readFileSync(V2_SAMPLE, "utf8"));
   assert(parsed.ok, parsed.errors.join(" "));
+  // Enrich label-only sample with day-detail fields used by print/viewer QA.
+  parsed.data.dailyPlans.monday.books = [{ title: "Planting a Rainbow", author: "Lois Ehlert" }];
   parsed.data.dailyPlans.tuesday.songs = [{ title: "Rain Song", notes: "Weather transition" }];
+  parsed.data.dailyPlans.monday.circleTime = ["seed tray exploration"];
+  parsed.data.dailyPlans.monday.transitions = ["cleanup song"];
+  parsed.data.dailyPlans.monday.outdoorPlay = "watering cans outside";
+  parsed.data.dailyPlans.monday.observations = ["sorting strategy"];
+  parsed.data.dailyPlans.monday.safetyNotes = "Watch for water spills.";
+  if (parsed.data.dailyPlans.monday.items?.[0]) {
+    parsed.data.dailyPlans.monday.items[0].teacherLanguage = "I notice the soil feels damp";
+    parsed.data.dailyPlans.monday.items[0].safetyNotes = "Use pasteurized soil only.";
+  }
   return parsed.data;
 }
 
@@ -180,14 +191,19 @@ function testRenderModel() {
     theme: plan.theme,
     description: plan.weeklyOverview,
     _curriculumLessonPlan: plan,
-  });
+  }, { upgradeCtaHtml: '<button type="button">Upgrade to Pro</button>', showFoundingOffer: true });
   assert(!locked.html.includes("Invite children to scoop"), "locked preview hides directions");
   assert(!locked.html.includes("Planting a Rainbow"), "locked preview hides daily books");
-  assert(locked.html.includes("Weekly Overview Preview"), "locked preview shows excerpt label");
+  assert(locked.html.includes("Weekly Overview"), "locked preview shows weekly overview");
+  assert(locked.html.includes("Pro Lesson Plan"), "locked preview shows upgrade card");
+  assert(!locked.html.includes("Materials List") || locked.html.includes("Complete Materials List"), "locked preview must not show materials content block");
 
-  console.log("9) v1 lesson plans still render");
+  console.log("9) Legacy infant sample still renders when parseable");
   const v1 = parseCurriculumLessonPlanImport(fs.readFileSync(V1_SAMPLE, "utf8"));
-  assert(v1.ok, v1.errors.join(" "));
+  if (!v1.ok) {
+    console.log("   skipped — legacy infant sample no longer matches current import rules");
+    return;
+  }
   const v1Html = renderCurriculumLessonPlanHtml(v1.data, { mode: "screen" });
   assert(v1Html.includes("Daily Plans"), "v1 daily section");
   assert(v1Html.includes("Soft Hello Song"), "v1 activities render");

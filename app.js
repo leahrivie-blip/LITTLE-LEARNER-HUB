@@ -15895,31 +15895,27 @@ function openLockedResourcePreview(resource, triggerEl = null) {
     .map((item) => `<li>${escapeHtml(item)}</li>`)
     .join("");
   featurePreviewTrigger = triggerEl || document.activeElement || null;
-  featurePreviewEyebrow.textContent = "Pro Resource Preview";
+  const isLockedLessonPlan = Boolean(resource._curriculumManaged && resource.category === "Lesson Plans");
+  featurePreviewEyebrow.textContent = isLockedLessonPlan ? "Pro Lesson Plan Preview" : "Pro Resource Preview";
   featurePreviewTitle.textContent = resource.title;
-  const lockedActivities = resource._curriculumManaged && resource.category === "Lesson Plans"
-    ? curriculumActivitiesForLesson(resource.id)
-    : [];
-  const lockedCurriculum = resource._curriculumManaged && resource.category === "Lesson Plans"
-    ? curriculumViewerRenderApi()?.lockedCurriculumLessonPreviewHtml(resource, { activities: lockedActivities })
-    : null;
   const lockedUpgradeCta = canSeePaidUpgradeOffer()
-    ? `<button class="primary-button" data-checkout-plan="${preferredPaidCheckoutPlan()}" type="button">${escapeHtml(preferredPaidCheckoutButtonLabel())}</button>`
-    : `<button class="primary-button" data-start-pro-trial type="button">Start Your 7-Day Free Pro Trial</button>`;
+    ? `<button class="primary-button" data-checkout-plan="${preferredPaidCheckoutPlan()}" type="button">Upgrade to Pro</button>`
+    : `<button class="primary-button" data-start-pro-trial type="button">Upgrade to Pro</button>`;
+  const stickyUpgradeCta = lockedUpgradeCta;
   const lockedUpgradeNote = canSeePaidUpgradeOffer() && foundingSpotsStillAvailable()
-    ? "Lock in $9.99/month for life. Regular price $19.99/month."
-    : proTrialUpgradeSummary;
+    ? "Founding Member pricing still available — lock in $9.99/month for life. Regular price $19.99/month."
+    : (typeof proTrialUpgradeSummary === "string" ? proTrialUpgradeSummary : "Upgrade to unlock the full lesson plan.");
+  const showFoundingOffer = canSeePaidUpgradeOffer() && foundingSpotsStillAvailable();
+  const lockedCurriculum = isLockedLessonPlan
+    ? curriculumViewerRenderApi()?.lockedCurriculumLessonPreviewHtml(resource, {
+      upgradeCtaHtml: lockedUpgradeCta,
+      upgradeNote: lockedUpgradeNote,
+      showFoundingOffer,
+    })
+    : null;
   featurePreviewBody.innerHTML = lockedCurriculum ? `
-    <section class="section-block" style="margin:0;">
+    <section class="section-block fp-pro-lesson-preview" style="margin:0;" data-fp-pro-lesson-preview>
       ${lockedCurriculum.html}
-      <div class="fp-field">
-        <label>What this helps with</label>
-        <div class="fp-field-value"><ul class="md-ul">${benefits}</ul></div>
-      </div>
-      <div class="pro-modal-actions" style="margin-top:20px;justify-content:flex-start;">
-        ${lockedUpgradeCta}
-      </div>
-      <p><small>${escapeHtml(lockedUpgradeNote)}</small></p>
     </section>
   ` : `
     <section class="section-block" style="margin:0;">
@@ -15936,6 +15932,28 @@ function openLockedResourcePreview(resource, triggerEl = null) {
       <p><small>${escapeHtml(lockedUpgradeNote)}</small></p>
     </section>
   `;
+  let stickyBar = featurePreviewModal.querySelector("[data-fp-sticky-upgrade]");
+  if (!stickyBar) {
+    stickyBar = document.createElement("div");
+    stickyBar.className = "fp-sticky-upgrade";
+    stickyBar.dataset.fpStickyUpgrade = "";
+    featurePreviewModal.querySelector(".feature-preview-card")?.appendChild(stickyBar);
+  }
+  if (isLockedLessonPlan) {
+    stickyBar.hidden = false;
+    stickyBar.innerHTML = `
+      <div class="fp-sticky-upgrade-copy">
+        <strong>Unlock this Pro lesson plan</strong>
+        <span>${showFoundingOffer ? "Founding Member: $9.99/month for life" : "Get full Monday–Friday plans"}</span>
+      </div>
+      ${stickyUpgradeCta}
+    `;
+    featurePreviewModal.classList.add("fp-has-sticky-upgrade");
+  } else {
+    stickyBar.hidden = true;
+    stickyBar.innerHTML = "";
+    featurePreviewModal.classList.remove("fp-has-sticky-upgrade");
+  }
   featurePreviewModal.classList.add("open");
   featurePreviewModal.setAttribute("aria-hidden", "false");
   document.body.classList.add("auth-modal-open");
@@ -43146,10 +43164,15 @@ function openFeaturePreview(previewId, triggerEl = null) {
 function closeFeaturePreview() {
   if (!featurePreviewModal) return;
   const wasOpen = featurePreviewModal.classList.contains("open");
-  featurePreviewModal.classList.remove("open");
+  featurePreviewModal.classList.remove("open", "fp-has-sticky-upgrade");
   featurePreviewModal.setAttribute("aria-hidden", "true");
   document.body.classList.remove("auth-modal-open");
   featurePreviewBody.innerHTML = "";
+  const stickyBar = featurePreviewModal.querySelector("[data-fp-sticky-upgrade]");
+  if (stickyBar) {
+    stickyBar.hidden = true;
+    stickyBar.innerHTML = "";
+  }
   if (featurePreviewTrigger && typeof featurePreviewTrigger.focus === "function") {
     featurePreviewTrigger.focus();
   }
