@@ -99,9 +99,9 @@ test("mobile-friendly banner styles", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260714-founding-banner");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260714-founding-banner");
-  assert.match(sw, /llh-shell-v35-founding-banner/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260715-admin-stay");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260715-admin-stay");
+  assert.match(sw, /llh-shell-v36-admin-stay/);
 });
 
 test("account-access: only owners get billing capability", () => {
