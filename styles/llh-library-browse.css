@@ -67,8 +67,9 @@
   letter-spacing: 0.01em;
 }
 
-/* Activity Center: reclaim topbar chrome like lessons */
-body.activities-view .topbar .account-actions {
+/* Activity Center: reclaim topbar chrome like lessons.
+   Guests keep Log In / Sign Up so browse is not a signup dead-end. */
+body.activities-view.user-authenticated .topbar .account-actions {
   display: none !important;
 }
 
@@ -77,8 +78,62 @@ body.activities-view .topbar {
   padding: 10px 14px;
 }
 
+body.activities-view:not(.user-authenticated) .topbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+body.activities-view:not(.user-authenticated) .topbar .account-actions {
+  display: flex !important;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+body.activities-view:not(.user-authenticated) .topbar #signupButton {
+  white-space: nowrap;
+}
+
 body.activities-view .mobile-brand {
   display: flex;
+}
+
+.library-upgrade-strip--guest {
+  border-color: rgba(91, 155, 213, 0.28);
+  background: linear-gradient(135deg, rgba(229, 241, 248, 0.95), rgba(255, 255, 255, 0.98));
+}
+
+.library-upgrade-strip--guest .library-upgrade-strip-actions {
+  flex-shrink: 0;
+}
+
+@media (max-width: 720px) {
+  body.lessons-view:not(.user-authenticated) .topbar #signupButton,
+  body.activities-view:not(.user-authenticated) .topbar #signupButton {
+    font-size: 13px;
+    padding-inline: 12px;
+    min-width: 0;
+  }
+
+  body.lessons-view:not(.user-authenticated) .topbar #signinButton,
+  body.activities-view:not(.user-authenticated) .topbar #signinButton {
+    padding-inline: 10px;
+    min-width: 0;
+  }
+
+  .library-upgrade-strip--guest {
+    flex-wrap: wrap;
+  }
+
+  .library-upgrade-strip--guest .library-upgrade-strip-actions {
+    width: 100%;
+  }
+
+  .library-upgrade-strip--guest .library-upgrade-strip-actions .primary-button,
+  .library-upgrade-strip--guest .library-upgrade-strip-actions .ghost-button {
+    flex: 1 1 auto;
+    min-height: 44px;
+  }
 }
 
 #view-activities .library-compact-header,

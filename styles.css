@@ -740,15 +740,35 @@ body.doc-helpers-view .topbar .search-wrap {
   display: none !important;
 }
 
-/* Lesson Plan Library: reclaim topbar space for search/filters/results */
-body.lessons-view .topbar .search-wrap,
-body.lessons-view .topbar .account-actions {
+/* Lesson Plan Library: reclaim topbar space for search/filters/results.
+   Keep Log In / Sign Up visible for guests — otherwise library browse has no signup chrome. */
+body.lessons-view .topbar .search-wrap {
+  display: none !important;
+}
+
+body.lessons-view.user-authenticated .topbar .account-actions {
   display: none !important;
 }
 
 body.lessons-view .topbar {
   grid-template-columns: minmax(0, 1fr);
   padding: 10px 14px;
+}
+
+body.lessons-view:not(.user-authenticated) .topbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+body.lessons-view:not(.user-authenticated) .topbar .account-actions {
+  display: flex !important;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+body.lessons-view:not(.user-authenticated) .topbar #signupButton {
+  white-space: nowrap;
 }
 
 body.lessons-view .mobile-brand {

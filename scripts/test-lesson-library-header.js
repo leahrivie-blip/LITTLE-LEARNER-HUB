@@ -152,7 +152,7 @@ async function main() {
 
     assert(state.lessonsViewClass, "body.lessons-view should be set");
     assert(state.topbarSearchHidden, "global What do you need today? search should be hidden on lessons");
-    assert(state.accountActionsHidden, "Account / Pro Active buttons should be hidden on lessons");
+    assert(state.accountActionsHidden, "Account / Pro Active buttons should be hidden on lessons for signed-in users");
     assert(state.hasCompactHeader, "compact Lesson Plan Library header missing");
     assert(state.hasBack, "Back control missing");
     assert(state.hasAgeFilters, "age filters missing");
@@ -178,6 +178,36 @@ async function main() {
     });
     assert(!homeState.lessonsViewClass, "lessons-view should clear off lessons");
     assert(homeState.accountVisible, "account actions should return off lessons");
+
+    // Guests keep Log In / Sign Up on lessons (topbar + in-library strip).
+    await page.evaluate(() => {
+      localStorage.removeItem("llhUser");
+      localStorage.removeItem("llhAccounts");
+      localStorage.removeItem("llhPlan");
+      currentUser = "";
+      currentPlan = "Free";
+      if (typeof updateBodyAuthClass === "function") updateBodyAuthClass();
+      if (typeof updateAuthButtons === "function") updateAuthButtons();
+      setView("lessons");
+    });
+    await page.waitForSelector("#view-lessons.active-view", { timeout: 8000 });
+    await page.waitForTimeout(400);
+    const guestState = await page.evaluate(() => {
+      const accountActions = document.querySelector(".topbar .account-actions");
+      const style = accountActions ? window.getComputedStyle(accountActions) : null;
+      const signup = document.querySelector("#signupButton");
+      const strip = document.querySelector(".library-upgrade-strip--guest [data-action='start-free']");
+      return {
+        authenticated: document.body.classList.contains("user-authenticated"),
+        accountVisible: style ? style.display !== "none" : false,
+        signupWidth: signup ? signup.getBoundingClientRect().width : 0,
+        hasGuestStrip: Boolean(strip),
+      };
+    });
+    assert(!guestState.authenticated, "guest should not be user-authenticated");
+    assert(guestState.accountVisible, "guest Log In / Sign Up should stay visible on lessons");
+    assert(guestState.signupWidth > 0, "guest signup button should be clickable size");
+    assert(guestState.hasGuestStrip, "guest library Get Started strip missing");
 
     await browser.close();
     console.log("Lesson library header cleanup checks passed.");

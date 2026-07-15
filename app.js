@@ -9880,6 +9880,9 @@ function libraryPlanBadge(resource) {
 }
 
 function libraryAccessBadgeHtml() {
+  if (!isLoggedIn() && !hasAdminFullAccess()) {
+    return `<span class="library-access-badge is-free">Free previews</span>`;
+  }
   if (!isProUser()) {
     return `<span class="library-access-badge is-free">Free Plan</span>`;
   }
@@ -16769,6 +16772,18 @@ function clearLessonLibraryAdvancedFilters() {
 }
 
 function libraryCompactUpgradeStripHtml() {
+  // Guests: topbar Sign Up can be easy to miss on compact library chrome — keep an in-library path.
+  if (!isLoggedIn() && !hasAdminFullAccess()) {
+    return `
+      <section class="library-upgrade-strip library-upgrade-strip--guest" role="region" aria-label="Create your free account">
+        <p>Create a free account to save plans and claim Founding Member pricing.</p>
+        <div class="library-upgrade-strip-actions">
+          <button class="primary-button" type="button" data-action="start-free" data-signup-intent="founding">Get Started</button>
+          <button class="ghost-button" type="button" data-action="open-login">Log In</button>
+        </div>
+      </section>
+    `;
+  }
   if (!canSeePaidUpgradeOffer()) return "";
   if (isFoundingUpgradeBannerDismissed()) return "";
   const soldOut = !foundingSpotsStillAvailable();
@@ -43593,6 +43608,7 @@ document.querySelector("#signinButton")?.addEventListener("click", () => {
     setView("settings", { settingsAnchor: "account-membership" });
     return;
   }
+  dismissOverlaysForAuthOrUpgrade();
   openAuthModal("login");
 });
 
@@ -43602,6 +43618,8 @@ document.querySelector("#signupButton")?.addEventListener("click", () => {
     setView(isProUser() ? "settings" : "plans", isProUser() ? { settingsAnchor: "account-membership" } : {});
     return;
   }
+  dismissOverlaysForAuthOrUpgrade();
+  setPreferredSignupPlan("founding");
   openAuthModal("signup");
 });
 
