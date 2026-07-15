@@ -5,24 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta
       name="description"
-      content="Little Learner Hub helps childcare providers stop spending evenings writing observations, lesson plans, child goals, incident reports, and forms from scratch by keeping documentation tools, templates, and records in one place."
+      content="Little Learner Hub offers play-based lesson plans, activities, and classroom planning tools for childcare providers—starting at $9.99/month Founding Member pricing for life."
     />
     <meta name="theme-color" content="#5b9bd5" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Little Learner Hub" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Little Learner Hub | Stop Spending Evenings on Childcare Documentation" />
-    <meta property="og:description" content="Help for childcare providers who are tired of writing observations, lesson plans, developmental notes, forms, and incident reports after hours. Keep child records and paperwork together in one place." />
+    <meta property="og:title" content="Little Learner Hub | Affordable Childcare Curriculum & Planning Tools" />
+    <meta property="og:description" content="Play-based lesson plans, activity library, and weekly planning tools for home daycares, centers, and preschool teachers. Founding Members lock in $9.99/month for life." />
     <meta property="og:site_name" content="Little Learner Hub" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Little Learner Hub | Stop Spending Evenings on Childcare Documentation" />
-    <meta name="twitter:description" content="Little Learner Hub helps childcare providers organize observations, lesson plans, child goals, forms, and incident reports in one place so documentation takes minutes instead of hours." />
-    <title>Little Learner Hub | Stop Spending Evenings on Childcare Documentation</title>
+    <meta name="twitter:title" content="Little Learner Hub | Affordable Childcare Curriculum & Planning Tools" />
+    <meta name="twitter:description" content="Affordable childcare curriculum and planning tools. Join as a Founding Member for $9.99/month for life." />
+    <title>Little Learner Hub | Affordable Childcare Curriculum &amp; Planning Tools</title>
     <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="10" fill="%235b9bd5"/><text x="32" y="39" text-anchor="middle" font-family="Arial" font-size="24" fill="%23ffffff">LL</text></svg>' />
     <link rel="apple-touch-icon" href="images/icons/icon-192.svg" />
     <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
+  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260715-home" />
   <link rel="stylesheet" href="styles.css?v=20260715-pwa-install" />
   <script>
     // Paint Calendar immediately for returning users — never flash the old Dashboard.
@@ -200,7 +201,7 @@
           </label>
           <div class="account-actions">
             <button class="ghost-button" id="signinButton">Log in</button>
-            <button class="primary-button" id="signupButton" type="button">Sign Up</button>
+            <button class="primary-button" id="signupButton" type="button">Get Started — $9.99/month</button>
           </div>
         </header>
 
@@ -212,459 +213,422 @@
 
         <section id="view-home" class="view active-view landing-home">
 
+          <div class="llh-announce-banner" role="region" aria-label="Founding Member announcement">
+            <div class="llh-announce-banner-inner">
+              <div class="llh-announce-copy">
+                <strong>🔥 Founding Member Pricing Available</strong>
+                <p>Lock in $9.99/month for life and receive access to new lesson plans, activities, curriculum updates, and future platform features as they launch.</p>
+              </div>
+              <button class="llh-btn llh-btn-accent" type="button" data-checkout-plan="founding">Claim Founding Member Pricing</button>
+            </div>
+          </div>
+
+          <header class="llh-public-nav" aria-label="Little Learner Hub public navigation">
+            <a class="llh-public-brand" href="#homeHero" data-home-nav="home">
+              <span class="llh-public-brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 48 48" width="28" height="28" focusable="false">
+                  <line x1="24" y1="24" x2="24" y2="8" stroke="#7B6BB5" stroke-width="2"/>
+                  <line x1="24" y1="24" x2="38" y2="16" stroke="#7BA8C9" stroke-width="2"/>
+                  <line x1="24" y1="24" x2="38" y2="32" stroke="#5DB89A" stroke-width="2"/>
+                  <line x1="24" y1="24" x2="24" y2="40" stroke="#E8A07A" stroke-width="2"/>
+                  <line x1="24" y1="24" x2="10" y2="32" stroke="#E8C96A" stroke-width="2"/>
+                  <line x1="24" y1="24" x2="10" y2="16" stroke="#7B6BB5" stroke-width="2"/>
+                  <circle cx="24" cy="24" r="3.5" fill="#7B6BB5"/>
+                  <circle cx="24" cy="8" r="3" fill="#7B6BB5"/>
+                  <circle cx="38" cy="16" r="3" fill="#7BA8C9"/>
+                  <circle cx="38" cy="32" r="3" fill="#5DB89A"/>
+                  <circle cx="24" cy="40" r="3" fill="#E8A07A"/>
+                  <circle cx="10" cy="32" r="3" fill="#E8C96A"/>
+                  <circle cx="10" cy="16" r="3" fill="#A78BC9"/>
+                </svg>
+              </span>
+              <span class="llh-public-brand-text">Little Learner Hub</span>
+            </a>
+            <nav class="llh-public-nav-links" aria-label="Homepage sections">
+              <a href="#homeHero" data-home-nav="home">Home</a>
+              <a href="#homeLessonPlans" data-home-nav="lessons">Lesson Plans</a>
+              <a href="#homeActivities" data-home-nav="activities">Activities</a>
+              <a href="#homeFeatures" data-home-nav="features">Features</a>
+              <a href="#homeComingSoon" data-home-nav="coming-soon">Coming Soon</a>
+              <a href="#homePricing" data-home-nav="pricing">Pricing</a>
+              <a href="#homeReviews" data-home-nav="reviews">Reviews</a>
+            </nav>
+            <div class="llh-public-nav-actions">
+              <button class="llh-btn llh-btn-ghost" type="button" data-action="open-login">Log In</button>
+              <button class="llh-btn llh-btn-primary" type="button" data-action="start-free" data-signup-intent="founding">Get Started — $9.99/month</button>
+            </div>
+            <button class="llh-public-menu-toggle" id="llhPublicMenuToggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="llhPublicMobileMenu">
+              <span></span><span></span><span></span>
+            </button>
+          </header>
+
+          <div class="llh-public-mobile-menu" id="llhPublicMobileMenu" hidden>
+            <nav aria-label="Mobile homepage sections">
+              <a href="#homeHero" data-home-nav="home">Home</a>
+              <a href="#homeLessonPlans" data-home-nav="lessons">Lesson Plans</a>
+              <a href="#homeActivities" data-home-nav="activities">Activities</a>
+              <a href="#homeFeatures" data-home-nav="features">Features</a>
+              <a href="#homeComingSoon" data-home-nav="coming-soon">Coming Soon</a>
+              <a href="#homePricing" data-home-nav="pricing">Pricing</a>
+              <a href="#homeReviews" data-home-nav="reviews">Reviews</a>
+            </nav>
+            <div class="llh-public-mobile-actions">
+              <button class="llh-btn llh-btn-ghost" type="button" data-action="open-login">Log In</button>
+              <button class="llh-btn llh-btn-primary" type="button" data-action="start-free" data-signup-intent="founding">Get Started — $9.99/month</button>
+            </div>
+          </div>
+          <button class="llh-public-menu-backdrop" id="llhPublicMenuBackdrop" type="button" aria-label="Close menu" hidden></button>
+
           <!-- HERO SECTION -->
-          <section class="lp-hero" aria-label="Get started with Little Learner Hub">
+          <section class="lp-hero llh-hero" id="homeHero" aria-label="Get started with Little Learner Hub">
             <div class="lp-hero-content">
-              <div class="lp-hero-badge">Built by a Childcare Provider &amp; Mama of 3</div>
-              <h2 class="lp-hero-headline">Stop Spending Your Evenings on Childcare Paperwork</h2>
-              <p class="lp-hero-sub">Track observations, child goals, lesson plans, forms, reports, and documentation in one organized place.</p>
+              <p class="lp-hero-badge">Curriculum Today. Complete Childcare Platform Tomorrow.</p>
+              <h2 class="lp-hero-headline">Affordable Childcare Curriculum &amp; Planning Tools</h2>
+              <p class="lp-hero-sub">Access a growing library of play-based lesson plans, activities, calendar planning tools, and classroom resources created by a childcare provider—starting at just $9.99/month.</p>
+              <p class="llh-hero-support">Join now while Little Learner Hub is growing. Founding Members lock in $9.99/month pricing for life and automatically receive future features as they launch, including child profiles, observations, parent messaging, forms, enrollment tools, daily logs, and more.</p>
               <div class="lp-hero-actions">
-                <button class="lp-btn-primary" data-action="start-free" type="button">Start Free</button>
-                <button class="lp-btn-secondary" data-action="start-free" type="button">Create Your Account</button>
+                <button class="lp-btn-primary llh-btn llh-btn-primary" data-home-nav="lessons" type="button">Browse Lesson Plans</button>
+                <button class="lp-btn-secondary llh-btn llh-btn-secondary" data-action="start-free" type="button">Start Free</button>
               </div>
-              <p class="lp-hero-founding-note">Founding Spots Still Available — Claim $9.99/Month for Life</p>
-              <p class="lp-hero-cta-note">No credit card needed. Create your account in under a minute.</p>
-              <ul class="lp-hero-benefits">
-                <li>✓ Never wonder which children still need observations</li>
-                <li>✓ Keep goals and progress connected</li>
-                <li>✓ Keep paperwork organized in one place</li>
-                <li>✓ Spend less time on documentation</li>
-              </ul>
-              <div class="lp-social-proof">
-                <div class="lp-avatars" aria-hidden="true">
-                  <span class="lp-avatar">J</span>
-                  <span class="lp-avatar">A</span>
-                  <span class="lp-avatar">S</span>
-                  <span class="lp-avatar">M</span>
-                </div>
-                <p>Made for childcare providers who are tired of doing documentation after hours.</p>
-              </div>
+              <p class="lp-hero-founding-note"><a href="#homeComingSoon" data-home-nav="coming-soon">See What’s Coming Soon</a></p>
+              <p class="lp-hero-cta-note">Curriculum and planning tools are available now. The complete childcare management platform is coming soon.</p>
             </div>
-            <div class="lp-hero-visual" aria-label="Little Learner Hub dashboard preview" aria-hidden="true">
-              <div class="lp-dashboard-mockup">
-                <div class="lp-dash-header">
-                  <div class="lp-dash-dot"></div>
-                  <div class="lp-dash-dot"></div>
-                  <div class="lp-dash-dot"></div>
-                  <span>Little Learner Hub</span>
+            <div class="lp-hero-visual llh-hero-visual" aria-label="Lesson planning preview" aria-hidden="true">
+              <div class="llh-hero-mock">
+                <div class="llh-hero-mock-card llh-hero-mock-lesson">
+                  <span class="llh-chip free">Free</span>
+                  <strong>Colors Everywhere</strong>
+                  <small>Preschool · Theme Week</small>
+                  <div class="llh-hero-mock-days">
+                    <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span>
+                  </div>
                 </div>
-                <div class="lp-dash-body">
-                  <aside class="lp-dash-sidebar">
-                    <div class="lp-dash-nav-item active">Home</div>
-                    <div class="lp-dash-nav-item">Children</div>
-                    <div class="lp-dash-nav-item">Observations</div>
-                    <div class="lp-dash-nav-item">Doc Helpers</div>
-                    <div class="lp-dash-nav-item">Lessons</div>
-                  </aside>
-                  <main class="lp-dash-main">
-                    <div class="lp-dash-pill-row">
-                      <span>Child Profiles</span>
-                      <span>Observation Tracker</span>
-                      <span>Goals &amp; Progress</span>
-                    </div>
-                    <div class="lp-dash-stat-row">
-                      <div class="lp-dash-stat"><strong>24</strong><span>Child Profiles</span></div>
-                      <div class="lp-dash-stat"><strong>64</strong><span>Observations</span></div>
-                      <div class="lp-dash-stat"><strong>18</strong><span>Goals</span></div>
-                    </div>
-                    <div class="lp-dash-card">
-                      <div class="lp-dash-card-title">Recent Observations</div>
-                      <div class="lp-dash-obs-item">
-                        <span class="lp-obs-avatar">E</span>
-                        <div>
-                          <strong>Emma — Fine Motor</strong>
-                          <small>Observed stacking blocks with both hands...</small>
-                        </div>
-                      </div>
-                      <div class="lp-dash-obs-item">
-                        <span class="lp-obs-avatar">L</span>
-                        <div>
-                          <strong>Liam — Language</strong>
-                          <small>Used 3-word sentences during play...</small>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="lp-dash-ai-banner">Documentation helpers for observations, reports &amp; more</div>
-                  </main>
+                <div class="llh-hero-mock-card llh-hero-mock-cal">
+                  <strong>Weekly Planning</strong>
+                  <div class="llh-hero-mock-cal-row"><em>Circle Time</em><span>Ready</span></div>
+                  <div class="llh-hero-mock-cal-row"><em>Sensory Play</em><span>Ready</span></div>
+                  <div class="llh-hero-mock-cal-row"><em>Gross Motor</em><span>Ready</span></div>
+                </div>
+                <div class="llh-hero-mock-card llh-hero-mock-activity">
+                  <span class="llh-chip">Activity</span>
+                  <strong>Music &amp; Movement</strong>
+                  <small>Infant · Toddler · Preschool</small>
                 </div>
               </div>
             </div>
           </section>
 
-          <section class="lp-hero-testimonials" aria-label="Childcare provider social proof">
+          <!-- TAKE A LOOK INSIDE -->
+          <section class="llh-section llh-lesson-preview-section" id="homeLessonPlans" aria-label="Preview lesson plans">
             <div class="lp-section-header">
-              <h2 class="lp-section-title">Trusted by Providers Who Want Their Evenings Back</h2>
+              <h2 class="lp-section-title">Take a Look Inside</h2>
+              <p class="lp-section-sub">Preview real lesson plans created for home daycares, childcare centers, and preschool classrooms.</p>
             </div>
-            <div class="lp-proof-grid">
-              <article class="lp-proof-card">
-                <strong>Built by a childcare provider</strong>
-                <p>Created around real observation, planning, paperwork, and reporting workflows.</p>
+            <div class="llh-preview-grid" id="homeLessonPreviewGrid">
+              <div class="llh-preview-empty muted-copy">Loading free lesson plan previews…</div>
+            </div>
+            <div class="llh-section-actions">
+              <button class="llh-btn llh-btn-secondary" type="button" data-view="lessons" data-guest-browse="lessons">Browse All Lesson Plans</button>
+            </div>
+          </section>
+
+          <!-- COMING SOON -->
+          <section class="llh-section llh-coming-soon-section" id="homeComingSoon" aria-label="Coming soon features">
+            <div class="lp-section-header">
+              <h2 class="lp-section-title">More Than Curriculum Is Coming</h2>
+              <p class="lp-section-sub">Little Learner Hub is growing into a complete childcare management platform.</p>
+            </div>
+            <div class="llh-coming-grid">
+              <article class="llh-coming-card">
+                <span class="llh-coming-icon" aria-hidden="true">👶</span>
+                <div>
+                  <h3>Child Profiles <span class="llh-status-pill">Coming Soon</span></h3>
+                  <p>Keep child information, documents, observations, reports, photos, and progress together.</p>
+                </div>
               </article>
-              <article class="lp-proof-card">
-                <strong>Start free with no credit card</strong>
-                <p>Explore the platform, add children, and test your workflow before upgrading.</p>
+              <article class="llh-coming-card">
+                <span class="llh-coming-icon" aria-hidden="true">💬</span>
+                <div>
+                  <h3>Parent Messaging <span class="llh-status-pill">Coming Soon</span></h3>
+                  <p>Create and send clear parent updates, reminders, and childcare communication.</p>
+                </div>
               </article>
-              <article class="lp-proof-card">
-                <strong>Keep your records in one place</strong>
-                <p>Child profiles, goals, forms, lesson plans, and documentation stay connected.</p>
+              <article class="llh-coming-card">
+                <span class="llh-coming-icon" aria-hidden="true">📸</span>
+                <div>
+                  <h3>Observations &amp; Documentation <span class="llh-status-pill">In Development</span></h3>
+                  <p>Quickly turn notes into professional observations and development documentation.</p>
+                </div>
+              </article>
+              <article class="llh-coming-card">
+                <span class="llh-coming-icon" aria-hidden="true">📝</span>
+                <div>
+                  <h3>Daily Logs <span class="llh-status-pill">Coming Soon</span></h3>
+                  <p>Track meals, naps, diapers, potty, attendance, activities, photos, and daily reports.</p>
+                </div>
+              </article>
+              <article class="llh-coming-card">
+                <span class="llh-coming-icon" aria-hidden="true">📋</span>
+                <div>
+                  <h3>Forms &amp; Enrollment <span class="llh-status-pill">Coming Soon</span></h3>
+                  <p>Send, complete, sign, save, and manage childcare forms digitally.</p>
+                </div>
+              </article>
+              <article class="llh-coming-card">
+                <span class="llh-coming-icon" aria-hidden="true">🎯</span>
+                <div>
+                  <h3>Goals &amp; Progress <span class="llh-status-pill">In Development</span></h3>
+                  <p>Create goals, monitor development, and connect progress to observations.</p>
+                </div>
+              </article>
+              <article class="llh-coming-card">
+                <span class="llh-coming-icon" aria-hidden="true">🏫</span>
+                <div>
+                  <h3>Staff &amp; Classroom Management <span class="llh-status-pill">Coming Soon</span></h3>
+                  <p>Manage classrooms, staff access, roles, and future center tools.</p>
+                </div>
+              </article>
+              <article class="llh-coming-card">
+                <span class="llh-coming-icon" aria-hidden="true">📁</span>
+                <div>
+                  <h3>Child Portfolios <span class="llh-status-pill">Coming Soon</span></h3>
+                  <p>Keep each child’s learning, reports, forms, and milestones organized.</p>
+                </div>
               </article>
             </div>
-          </section>
-
-          <!-- MID-PAGE SIGNUP CTA -->
-          <section class="lp-mid-cta" aria-label="Create your free account">
-            <div class="lp-mid-cta-inner">
-              <h2>Ready to get organized?</h2>
-              <p>Create your free account and start tracking observations, goals, and paperwork in one place.</p>
-              <button class="lp-btn-primary lp-btn-large" data-action="start-free" type="button">Sign Up — Create Free Account</button>
+            <div class="llh-founding-callout">
+              <p><strong>Founding Members receive future platform features as they launch while keeping their $9.99/month price for life.</strong></p>
+              <p>As Little Learner Hub grows and new features are released, pricing will increase for new members.</p>
+              <button class="llh-btn llh-btn-accent" type="button" data-checkout-plan="founding">Lock In Founding Member Pricing</button>
             </div>
           </section>
 
-          <!-- WHAT CAN I ACTUALLY DO SECTION -->
-          <section id="homePlatformPreview" class="lp-feature-showcase" aria-label="What you can do inside Little Learner Hub">
+          <!-- ACTIVITY PREVIEW -->
+          <section class="llh-section llh-activity-preview-section" id="homeActivities" aria-label="Activity library preview">
             <div class="lp-section-header">
-              <h2 class="lp-section-title">What Can I Actually Do Inside Little Learner Hub?</h2>
-              <p class="lp-section-sub">Everything is designed around the paperwork and documentation childcare providers already do every week.</p>
+              <h2 class="lp-section-title">Explore Our Activity Library</h2>
+              <p class="lp-section-sub">Discover simple, play-based activities that can be used in real childcare classrooms.</p>
             </div>
-            <div class="lp-showcase-grid">
-
-              <!-- Card 1: Child Profiles -->
-              <div class="lp-showcase-card" data-preview="child-profiles" role="button" tabindex="0" aria-haspopup="dialog">
-                <div class="lp-showcase-screen" aria-hidden="true">
-                  <div class="lp-sc-bar"><span class="lp-sc-dot"></span><span class="lp-sc-dot"></span><span class="lp-sc-dot"></span><span class="lp-sc-title">Child Profiles</span></div>
-                  <div class="lp-sc-body">
-                    <div class="lp-sc-stat-row">
-                      <div class="lp-sc-stat"><strong>3</strong><span>Profiles</span></div>
-                      <div class="lp-sc-stat"><strong>2</strong><span>Active Goals</span></div>
-                      <div class="lp-sc-stat"><strong>8</strong><span>Observations</span></div>
-                    </div>
-                    <div class="lp-sc-card">
-                      <div class="lp-sc-card-title">Child Profiles</div>
-                      <div class="lp-sc-row"><span class="lp-sc-avatar">E</span><div><strong>Emma, Age 3</strong><small>Preschooler · Fine Motor · Language</small></div><span class="lp-sc-tag">Active</span></div>
-                      <div class="lp-sc-row"><span class="lp-sc-avatar">L</span><div><strong>Liam, Age 2</strong><small>Toddler · Social · Language</small></div><span class="lp-sc-tag">Active</span></div>
-                      <div class="lp-sc-row"><span class="lp-sc-avatar">S</span><div><strong>Sofia, Age 4</strong><small>Preschooler · Cognitive</small></div><span class="lp-sc-tag">Active</span></div>
-                    </div>
-                    <div class="lp-sc-card lp-sc-card-detail">
-                      <div class="lp-sc-card-title">Emma — Profile Details</div>
-                      <div class="lp-sc-field"><label>Age Group</label><span>Preschooler (3–5 years)</span></div>
-                      <div class="lp-sc-field"><label>Goals</label><span>Fine Motor · Language · Social</span></div>
-                      <div class="lp-sc-field"><label>Enrolled</label><span>September 2024</span></div>
-                    </div>
-                  </div>
-                </div>
-                <div class="lp-showcase-info">
-                  <h3>Child Profiles</h3>
-                  <p>Keep each child&rsquo;s information, observations, goals, and documentation connected in one organized place.</p>
-                  <button class="lp-showcase-btn" type="button">View Example</button>
-                </div>
-              </div>
-
-              <!-- Card 2: Observation Hub -->
-              <div class="lp-showcase-card" data-preview="observation-tracker" role="button" tabindex="0" aria-haspopup="dialog">
-                <div class="lp-showcase-screen" aria-hidden="true">
-                  <div class="lp-sc-bar"><span class="lp-sc-dot"></span><span class="lp-sc-dot"></span><span class="lp-sc-dot"></span><span class="lp-sc-title">Observation Tracker</span></div>
-                  <div class="lp-sc-body">
-                    <div class="lp-sc-stat-row">
-                      <div class="lp-sc-stat"><strong>8</strong><span>This Month</span></div>
-                      <div class="lp-sc-stat"><strong>3</strong><span>Children</span></div>
-                      <div class="lp-sc-stat"><strong>5</strong><span>Areas</span></div>
-                    </div>
-                    <div class="lp-sc-card">
-                      <div class="lp-sc-card-title">Recent Observations</div>
-                      <div class="lp-sc-row"><span class="lp-sc-avatar">E</span><div><strong>Emma — Fine Motor</strong><small>Stacking blocks with both hands, improving grip.</small></div><span class="lp-sc-tag">Fine Motor</span></div>
-                      <div class="lp-sc-row"><span class="lp-sc-avatar">L</span><div><strong>Liam — Language</strong><small>Used 3-word sentences during play with peers.</small></div><span class="lp-sc-tag lp-sc-tag-purple">Language</span></div>
-                      <div class="lp-sc-row"><span class="lp-sc-avatar">S</span><div><strong>Sofia — Social</strong><small>Shared toys and invited a friend to play.</small></div><span class="lp-sc-tag lp-sc-tag-gold">Social</span></div>
-                    </div>
-                    <div class="lp-sc-card lp-sc-card-detail">
-                      <div class="lp-sc-card-title">New Observation</div>
-                      <div class="lp-sc-field"><label>Child</label><span>Emma</span></div>
-                      <div class="lp-sc-field"><label>Area</label><span>Fine Motor</span></div>
-                      <div class="lp-sc-field"><label>Note</label><span>Emma demonstrated strong pincer grasp...</span></div>
-                    </div>
-                  </div>
-                </div>
-                <div class="lp-showcase-info">
-                  <h3>Observation Tracker</h3>
-                  <p>Track observations by child and developmental area so you can quickly see what has been documented and what still needs attention.</p>
-                  <button class="lp-showcase-btn" type="button">View Example</button>
-                </div>
-              </div>
-
-              <!-- Card 3: Goals & Progress -->
-              <div class="lp-showcase-card" data-preview="goals-progress" role="button" tabindex="0" aria-haspopup="dialog">
-                <div class="lp-showcase-screen" aria-hidden="true">
-                  <div class="lp-sc-bar"><span class="lp-sc-dot"></span><span class="lp-sc-dot"></span><span class="lp-sc-dot"></span><span class="lp-sc-title">Goals &amp; Progress</span></div>
-                  <div class="lp-sc-body">
-                    <div class="lp-sc-stat-row">
-                      <div class="lp-sc-stat"><strong>6</strong><span>Active Goals</span></div>
-                      <div class="lp-sc-stat"><strong>4</strong><span>In Progress</span></div>
-                      <div class="lp-sc-stat"><strong>2</strong><span>Achieved</span></div>
-                    </div>
-                    <div class="lp-sc-card">
-                      <div class="lp-sc-card-title">Emma — Active Goals</div>
-                      <div class="lp-sc-row"><span class="lp-sc-icon">🎯</span><div><strong>Fine Motor: Pincer Grasp</strong><small>Started Sept 2024</small></div><span class="lp-sc-tag">In Progress</span></div>
-                      <div class="lp-sc-row"><span class="lp-sc-icon">🎯</span><div><strong>Language: 4-Word Sentences</strong><small>Started Oct 2024</small></div><span class="lp-sc-tag lp-sc-tag-purple">In Progress</span></div>
-                      <div class="lp-sc-row"><span class="lp-sc-icon">🎯</span><div><strong>Social: Cooperative Play</strong><small>Achieved Nov 2024</small></div><span class="lp-sc-tag lp-sc-tag-gold">✓ Done</span></div>
-                    </div>
-                    <div class="lp-sc-card lp-sc-card-detail">
-                      <div class="lp-sc-card-title">Progress Overview</div>
-                      <div class="lp-sc-progress"><label>Fine Motor</label><div class="lp-sc-bar-wrap"><div class="lp-sc-bar-fill" style="width:70%"></div></div></div>
-                      <div class="lp-sc-progress"><label>Language</label><div class="lp-sc-bar-wrap"><div class="lp-sc-bar-fill" style="width:55%"></div></div></div>
-                      <div class="lp-sc-progress"><label>Social</label><div class="lp-sc-bar-wrap"><div class="lp-sc-bar-fill" style="width:90%"></div></div></div>
-                    </div>
-                  </div>
-                </div>
-                <div class="lp-showcase-info">
-                  <h3>Goals &amp; Progress</h3>
-                  <p>Track developmental goals and progress so you can better support children who need extra help in language, fine motor, social skills, behavior, and more.</p>
-                  <button class="lp-showcase-btn" type="button">View Example</button>
-                </div>
-              </div>
-
-              <!-- Card 4: Lesson Plans -->
-              <div class="lp-showcase-card" data-preview="lesson-plans" role="button" tabindex="0" aria-haspopup="dialog">
-                <div class="lp-showcase-screen" aria-hidden="true">
-                  <div class="lp-sc-bar"><span class="lp-sc-dot"></span><span class="lp-sc-dot"></span><span class="lp-sc-dot"></span><span class="lp-sc-title">Lesson Plan Library</span></div>
-                  <div class="lp-sc-body">
-                    <div class="lp-sc-stat-row">
-                      <div class="lp-sc-stat"><strong>5</strong><span>Plans</span></div>
-                      <div class="lp-sc-stat"><strong>3</strong><span>Age Groups</span></div>
-                      <div class="lp-sc-stat"><strong>12</strong><span>Activities</span></div>
-                    </div>
-                    <div class="lp-sc-card">
-                      <div class="lp-sc-card-title">Saved Lesson Plans</div>
-                      <div class="lp-sc-row"><span class="lp-sc-icon">🌿</span><div><strong>Spring Nature Walk</strong><small>Preschoolers · Science &amp; Outdoor</small></div><span class="lp-sc-tag">Saved</span></div>
-                      <div class="lp-sc-row"><span class="lp-sc-icon">🎨</span><div><strong>Sensory Color Mixing</strong><small>Toddlers · Fine Motor &amp; Art</small></div><span class="lp-sc-tag lp-sc-tag-purple">New</span></div>
-                      <div class="lp-sc-row"><span class="lp-sc-icon">📖</span><div><strong>Storytime with Puppets</strong><small>All Ages · Language &amp; Literacy</small></div><span class="lp-sc-tag">Saved</span></div>
-                    </div>
-                    <div class="lp-sc-card lp-sc-card-detail">
-                      <div class="lp-sc-card-title">Spring Nature Walk — Details</div>
-                      <div class="lp-sc-field"><label>Age Group</label><span>Preschoolers (3–5 years)</span></div>
-                      <div class="lp-sc-field"><label>Goal</label><span>Explore seasonal changes, build vocabulary.</span></div>
-                      <div class="lp-sc-field"><label>Materials</label><span>Magnifying glass · Collection bags · Journal</span></div>
-                    </div>
-                  </div>
-                </div>
-                <div class="lp-showcase-info">
-                  <h3>Lesson Plan Library</h3>
-                  <p>Create, save, and organize lesson plans without starting from a blank page every week.</p>
-                  <button class="lp-showcase-btn" type="button">View Example</button>
-                </div>
-              </div>
-
-              <!-- Card 5: Forms & Paperwork -->
-              <div class="lp-showcase-card" data-preview="forms-paperwork" role="button" tabindex="0" aria-haspopup="dialog">
-                <div class="lp-showcase-screen" aria-hidden="true">
-                  <div class="lp-sc-bar"><span class="lp-sc-dot"></span><span class="lp-sc-dot"></span><span class="lp-sc-dot"></span><span class="lp-sc-title">Forms &amp; Paperwork</span></div>
-                  <div class="lp-sc-body">
-                    <div class="lp-sc-stat-row">
-                      <div class="lp-sc-stat"><strong>50+</strong><span>Forms</span></div>
-                      <div class="lp-sc-stat"><strong>12</strong><span>Categories</span></div>
-                      <div class="lp-sc-stat"><strong>Free</strong><span>&amp; Pro</span></div>
-                    </div>
-                    <div class="lp-sc-card">
-                      <div class="lp-sc-card-title">Forms Library</div>
-                      <div class="lp-sc-row"><span class="lp-sc-icon">📋</span><div><strong>Enrollment Form</strong><small>Parent Handbook · Contract</small></div><span class="lp-sc-tag">Editable</span></div>
-                      <div class="lp-sc-row"><span class="lp-sc-icon">📋</span><div><strong>Emergency Contact Card</strong><small>Child Info · Medical Notes</small></div><span class="lp-sc-tag lp-sc-tag-purple">PDF</span></div>
-                      <div class="lp-sc-row"><span class="lp-sc-icon">📋</span><div><strong>Incident Report</strong><small>Accident Documentation</small></div><span class="lp-sc-tag">Editable</span></div>
-                    </div>
-                    <div class="lp-sc-card lp-sc-card-detail">
-                      <div class="lp-sc-card-title">Enrollment Form — Details</div>
-                      <div class="lp-sc-field"><label>Type</label><span>Editable Word Document</span></div>
-                      <div class="lp-sc-field"><label>Category</label><span>Enrollment &amp; Registration</span></div>
-                      <div class="lp-sc-field"><label>Access</label><span>Free Plan Included</span></div>
-                    </div>
-                  </div>
-                </div>
-                <div class="lp-showcase-info">
-                  <h3>Forms &amp; Paperwork</h3>
-                  <p>Keep child forms, reports, handbooks, contracts, incident reports, and other paperwork easy to access when you need them.</p>
-                  <button class="lp-showcase-btn" type="button">View Example</button>
-                </div>
-              </div>
-
-              <!-- Card 6: Documentation Helpers -->
-              <div class="lp-showcase-card" data-preview="ai-tools" role="button" tabindex="0" aria-haspopup="dialog">
-                <div class="lp-showcase-screen" aria-hidden="true">
-                  <div class="lp-sc-bar"><span class="lp-sc-dot"></span><span class="lp-sc-dot"></span><span class="lp-sc-dot"></span><span class="lp-sc-title">Documentation Helpers</span></div>
-                  <div class="lp-sc-body">
-                    <div class="lp-sc-stat-row">
-                      <div class="lp-sc-stat"><strong>10+</strong><span>Doc Helpers</span></div>
-                      <div class="lp-sc-stat"><strong>7</strong><span>Used</span></div>
-                      <div class="lp-sc-stat"><strong>3</strong><span>Remaining</span></div>
-                    </div>
-                    <div class="lp-sc-card">
-                      <div class="lp-sc-card-title">Observation Note</div>
-                      <div class="lp-sc-field"><label>Child</label><span>Emma — Age 3</span></div>
-                      <div class="lp-sc-field"><label>Area</label><span>Fine Motor</span></div>
-                      <div class="lp-sc-field"><label>What did you notice?</label><span>Emma threaded 6 beads without help today.</span></div>
-                    </div>
-                    <div class="lp-sc-card lp-sc-card-detail lp-sc-ai-output">
-                      <div class="lp-sc-card-title">Ready to review</div>
-                      <p>During a structured fine motor activity, Emma demonstrated focused concentration as she independently threaded six beads. This highlights her growing hand-eye coordination. Next steps: introduce smaller beads or lacing cards.</p>
-                    </div>
-                  </div>
-                </div>
-                <div class="lp-showcase-info">
-                  <h3>Documentation Helpers</h3>
-                  <p>Turn one quick classroom note into observations, reports, parent messages, and more — then review and save where they belong.</p>
-                  <button class="lp-showcase-btn" type="button">View Example</button>
-                </div>
-              </div>
-
+            <div class="llh-preview-grid" id="homeActivityPreviewGrid">
+              <div class="llh-preview-empty muted-copy">Loading activity previews…</div>
+            </div>
+            <div class="llh-section-actions">
+              <button class="llh-btn llh-btn-secondary" type="button" data-view="activities" data-guest-browse="activities">Browse Activity Library</button>
             </div>
           </section>
 
-          <section class="lp-home-journey" aria-label="How Little Learner Hub works">
+          <!-- FEATURES AVAILABLE NOW -->
+          <section class="llh-section llh-features-now-section" id="homeFeatures" aria-label="What members receive right now">
             <div class="lp-section-header">
-              <h2 class="lp-section-title">Simple to Start. More Helpful Every Week.</h2>
-              <p class="lp-section-sub">Get set up fast, then keep your everyday documentation work moving in one place.</p>
+              <h2 class="lp-section-title">Everything You Need to Plan a Better Week</h2>
+              <p class="lp-section-sub">Available now for members — honest tools for real classrooms.</p>
             </div>
-            <div class="lp-home-journey-grid">
-              <section class="lp-journey-card" aria-label="How it works">
-                <h3>How It Works</h3>
-                <div class="lp-how-grid">
-                  <div class="lp-step-card"><span>1</span><strong>Create Free Account</strong></div>
-                  <div class="lp-step-card"><span>2</span><strong>Add Children</strong></div>
-                  <div class="lp-step-card"><span>3</span><strong>Track Observations &amp; Goals</strong></div>
-                  <div class="lp-step-card"><span>4</span><strong>Generate Documentation</strong></div>
-                </div>
-              </section>
-              <section class="lp-journey-card" aria-label="Coming soon features">
-                <h3>Coming Soon</h3>
-                <div class="lp-coming-soon-list">
-                  <span>Family Hub</span>
-                  <span>Daily Reports Center</span>
-                  <span>Attendance Tracking</span>
-                  <span>Family Messaging</span>
-                  <span>Child Portfolios</span>
-                  <span>Mobile App Experience</span>
-                </div>
-              </section>
-            </div>
-          </section>
-
-          <!-- WHY SECTION -->
-          <section class="lp-why-section" aria-label="Why providers use Little Learner Hub">
-            <h2 class="lp-section-title">Why Childcare Providers Love Little Learner Hub</h2>
-            <div class="lp-why-grid">
-              <div class="lp-why-item">
-                <div class="lp-why-icon" aria-hidden="true">📊</div>
-                <div>
-                  <strong>Never wonder which children still need observations</strong>
-                </div>
-              </div>
-              <div class="lp-why-item">
-                <div class="lp-why-icon" aria-hidden="true">🗃️</div>
-                <div>
-                  <strong>Keep goals and progress connected</strong>
-                </div>
-              </div>
-              <div class="lp-why-item">
-                <div class="lp-why-icon" aria-hidden="true">⏰</div>
-                <div>
-                  <strong>Keep paperwork organized in one place</strong>
-                </div>
-              </div>
-              <div class="lp-why-item">
-                <div class="lp-why-icon" aria-hidden="true">⚡</div>
-                <div>
-                  <strong>Spend less time on documentation</strong>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <!-- PRICING -->
-          <section class="lp-pricing-section" aria-label="Pricing plans">
-            <div class="lp-section-header">
-              <h2 class="lp-section-title">Simple, Transparent Pricing</h2>
-              <p class="lp-section-sub">Start with a free account, then upgrade when you need more profiles, observations, and tools.</p>
-            </div>
-            <div class="lp-pricing-grid">
-              <div class="lp-pricing-card lp-free-card">
-                <div class="lp-price-header">
-                  <h3>Free</h3>
-                  <div class="lp-price-amount"><strong>$0</strong><span>Forever</span></div>
-                </div>
-                <ul class="lp-price-features">
-                  <li>✓ 3 Child Profiles</li>
-                  <li>✓ 10 Observations Per Month</li>
-                  <li>✓ 30 Total Free Lesson Plans</li>
-                  <li>✓ 8 Activity Ideas</li>
-                  <li>✓ 6 Forms</li>
-                  <li>✓ 10 Document Creations</li>
-                  <li>✓ No Credit Card Required</li>
-                </ul>
-                <button class="lp-btn-outline" data-plan="Free" type="button">Start Free</button>
-              </div>
-              <div class="lp-pricing-card lp-pro-card">
-                <div class="lp-pro-highlight-badge">Most Popular</div>
-                <div class="lp-price-header">
-                  <h3>Pro</h3>
-                  <div class="lp-price-amount"><strong>$19.99</strong><span>/month</span></div>
-                </div>
-                <ul class="lp-price-features">
-                  <li>✓ Unlimited Child Profiles</li>
-                  <li>✓ Unlimited Observations</li>
-                  <li>✓ Unlimited Lesson Plans</li>
-                  <li>✓ Unlimited Document Creations</li>
-                  <li>✓ Portfolio Builder</li>
-                  <li>✓ Premium Resources</li>
-                  <li>✓ Documentation Helpers</li>
-                  <li>✓ Priority Support</li>
-                </ul>
-                <button class="lp-btn-primary" data-action="upgrade-trial" type="button">Start Your 7-Day Free Pro Trial</button>
-                <p class="lp-price-note">Credit card required. Cancel anytime. Full Pro access during the 7-day trial.</p>
-              </div>
-            </div>
-          </section>
-
-          <!-- REVIEWS -->
-          <section class="lp-reviews-section" aria-label="Provider reviews">
-            <div class="lp-section-header">
-              <h2 class="lp-section-title">Real Providers. Real Feedback.</h2>
-            </div>
-            <div class="lp-reviews-grid">
-              <article class="lp-review-card featured">
-                <div class="lp-review-stars" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
-                <p>&ldquo;I actually love it. I would definitely use it for our lesson planning and things like that. I&rsquo;m excited about it. It&rsquo;s really good.&rdquo;</p>
-                <div class="lp-reviewer">
-                  <span class="lp-reviewer-avatar" aria-hidden="true">T</span>
-                  <div><strong>Tiffany Lashley</strong><small>Little Saints Daycare</small></div>
-                </div>
+            <div class="llh-feature-grid">
+              <article class="llh-feature-card">
+                <span aria-hidden="true">📚</span>
+                <h3>Growing Lesson-Plan Library</h3>
+                <p>Infant, Toddler, and Preschool lesson plans designed for real childcare environments.</p>
+              </article>
+              <article class="llh-feature-card">
+                <span aria-hidden="true">🎨</span>
+                <h3>Organized Activity Library</h3>
+                <p>Browse activities by category, theme, and age group.</p>
+              </article>
+              <article class="llh-feature-card">
+                <span aria-hidden="true">📅</span>
+                <h3>Calendar Planning</h3>
+                <p>Add lesson plans, activities, and notes to weekly planning.</p>
+              </article>
+              <article class="llh-feature-card">
+                <span aria-hidden="true">🖨️</span>
+                <h3>Print and Download Tools</h3>
+                <p>Members can print or download classroom-ready weekly plans.</p>
+              </article>
+              <article class="llh-feature-card">
+                <span aria-hidden="true">🔄</span>
+                <h3>New Content Added Regularly</h3>
+                <p>Continue adding new lesson plans, activities, and resources.</p>
+              </article>
+              <article class="llh-feature-card">
+                <span aria-hidden="true">🧸</span>
+                <h3>Created by a Childcare Provider</h3>
+                <p>Built around the actual needs of home daycare providers, teachers, and childcare centers.</p>
               </article>
             </div>
           </section>
 
-          <!-- FOUNDER STORY -->
-          <section class="lp-founder-section" aria-label="About the founder">
+          <!-- WHO IT'S FOR -->
+          <section class="llh-section llh-audience-section" id="homeAudience" aria-label="Who Little Learner Hub is for">
+            <div class="lp-section-header">
+              <h2 class="lp-section-title">Made for Childcare Providers</h2>
+            </div>
+            <div class="llh-audience-grid">
+              <article class="llh-audience-card">
+                <h3>Home Daycares</h3>
+                <p>Affordable planning tools for providers managing curriculum, children, communication, and paperwork.</p>
+              </article>
+              <article class="llh-audience-card">
+                <h3>Childcare Centers</h3>
+                <p>Curriculum and planning now, with future classroom, staff, enrollment, and child-management features.</p>
+              </article>
+              <article class="llh-audience-card">
+                <h3>Preschool Teachers</h3>
+                <p>Ready-to-use lesson plans, activities, and planning resources.</p>
+              </article>
+              <article class="llh-audience-card">
+                <h3>Family Childcare Programs</h3>
+                <p>Flexible tools designed for mixed ages and small-group learning.</p>
+              </article>
+            </div>
+          </section>
+
+          <!-- FOUNDER -->
+          <section class="lp-founder-section llh-founder-section" id="homeFounder" aria-label="About the founder">
             <div class="lp-founder-photo-wrap">
               <img class="lp-founder-photo lp-founder-photo-img" src="images/leah-founder.jpg" alt="Leah, founder of Little Learner Hub" width="160" height="160" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'" />
               <div class="lp-founder-photo lp-founder-photo-fallback" aria-label="Leah, founder of Little Learner Hub" style="display:none"><span aria-hidden="true">LH</span></div>
             </div>
             <div class="lp-founder-content">
-              <h2>Hi, I&rsquo;m Leah <span role="img" aria-label="waving hand">👋</span></h2>
-              <p>I&rsquo;m a childcare provider and proud mama of three who created Little Learner Hub to help childcare providers spend less time on paperwork and more time with children.</p>
-              <p>After spending years juggling observations, lesson plans, daily reports, parent communication, and paperwork across multiple places, I wanted one simple platform that keeps everything organized while saving providers valuable time.</p>
-              <p>Little Learner Hub was built by someone who understands childcare because I live it every day. My goal is to continue improving the platform based on real feedback from childcare providers and create one place where everything they need is connected.</p>
+              <h2>Created by Someone Who Understands Childcare</h2>
+              <p>Little Learner Hub was created by a childcare provider who understands how much time goes into planning activities, organizing paperwork, writing documentation, and communicating with families.</p>
+              <p>The goal is to create one affordable place where childcare providers can find curriculum today and manage more of their program tomorrow.</p>
+              <p class="llh-founder-tagline"><strong>Curriculum Today. Complete Childcare Platform Tomorrow.</strong></p>
               <div class="lp-founder-links"></div>
             </div>
           </section>
 
-          <!-- FINAL CTA -->
-          <section class="lp-final-cta" aria-label="Ready to get started">
-            <h2>Ready to Stop Doing Childcare Paperwork Alone at Night?</h2>
-            <p class="lp-cta-body">Create your free account and begin organizing observations, lesson plans, child goals, forms, and reports in one place.</p>
-            <button class="lp-btn-primary lp-btn-large" data-action="start-free" type="button">Sign Up — Get Started</button>
-            <p class="lp-cta-subtext">No credit card required. Upgrade anytime inside the platform when you&rsquo;re ready.</p>
+          <!-- REVIEWS -->
+          <section class="lp-reviews-section llh-reviews-section" id="homeReviews" aria-label="Provider reviews">
+            <div class="lp-section-header">
+              <h2 class="lp-section-title">What Childcare Providers Are Saying</h2>
+            </div>
+            <div class="lp-reviews-grid llh-reviews-grid">
+              <article class="lp-review-card featured llh-review-featured">
+                <div class="lp-review-stars" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
+                <p>&ldquo;I actually love it. I would definitely use it for our lesson planning and things like that. I&rsquo;m excited about it. It&rsquo;s really good.&rdquo;</p>
+                <div class="lp-reviewer">
+                  <span class="lp-reviewer-avatar" aria-hidden="true">T</span>
+                  <div><strong>Tiffany</strong><small>Little Saints Daycare</small></div>
+                </div>
+              </article>
+            </div>
+            <p class="llh-reviews-more muted-copy">More provider stories coming soon.</p>
           </section>
 
-          <!-- FOUNDING MEMBER SLOT -->
+          <!-- PRICING -->
+          <section class="lp-pricing-section llh-pricing-section" id="homePricing" aria-label="Founding Member pricing">
+            <div class="lp-section-header">
+              <h2 class="lp-section-title">Join Now and Keep Your Price for Life</h2>
+              <p class="lp-section-sub">Lock in Founding Member pricing while Little Learner Hub is growing.</p>
+            </div>
+            <div class="lp-pricing-grid llh-pricing-grid">
+              <div class="lp-pricing-card lp-free-card">
+                <div class="lp-price-header">
+                  <h3>Free Account</h3>
+                  <div class="lp-price-amount"><strong>$0</strong><span>to explore</span></div>
+                </div>
+                <ul class="lp-price-features">
+                  <li>✓ View available free content</li>
+                  <li>✓ Explore limited lesson plans and activities</li>
+                  <li>✓ Try the platform</li>
+                  <li>✓ Upgrade later</li>
+                </ul>
+                <button class="lp-btn-outline llh-btn llh-btn-secondary" data-plan="Free" data-action="start-free" type="button">Create Free Account</button>
+                <p class="lp-price-note">No credit card required. Free does not include full member access.</p>
+              </div>
+              <div class="lp-pricing-card lp-pro-card llh-founding-card">
+                <div class="lp-pro-highlight-badge">Founding Member</div>
+                <div class="lp-price-header">
+                  <h3>Founding Member</h3>
+                  <div class="lp-price-amount"><strong>$9.99</strong><span>/month for life</span></div>
+                </div>
+                <ul class="lp-price-features">
+                  <li>✓ Growing lesson-plan library</li>
+                  <li>✓ Activity Library</li>
+                  <li>✓ Calendar planning</li>
+                  <li>✓ Member printing and downloads</li>
+                  <li>✓ New curriculum additions</li>
+                  <li>✓ Future feature access as features launch</li>
+                  <li>✓ Founding Member price locked in for life</li>
+                  <li>✓ Cancel anytime</li>
+                </ul>
+                <button class="lp-btn-primary llh-btn llh-btn-accent" data-checkout-plan="founding" type="button">Claim Founding Member Pricing</button>
+                <p class="lp-price-note">Future regular pricing: $19.99/month. Billing is monthly. Your $9.99/month price stays locked in while your membership remains active.</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- FREE VS FOUNDING -->
+          <section class="llh-section llh-compare-section" id="homeCompare" aria-label="Free account and Founding Member comparison">
+            <div class="lp-section-header">
+              <h2 class="lp-section-title">Choose How You Want to Start</h2>
+              <p class="lp-section-sub">Create a Free account to explore, or become a Founding Member for full access.</p>
+            </div>
+            <div class="llh-compare-grid">
+              <article class="llh-compare-card">
+                <h3>Free Account</h3>
+                <ul>
+                  <li>View available free content</li>
+                  <li>Explore limited lesson plans and activities</li>
+                  <li>Try the platform</li>
+                  <li>Upgrade later</li>
+                </ul>
+                <button class="llh-btn llh-btn-secondary" type="button" data-action="start-free">Create Free Account</button>
+              </article>
+              <article class="llh-compare-card llh-compare-featured">
+                <h3>Founding Member</h3>
+                <ul>
+                  <li>Full curriculum and planning access</li>
+                  <li>Pro lesson plans and activities</li>
+                  <li>Print and download</li>
+                  <li>Calendar tools</li>
+                  <li>Future features as released</li>
+                  <li>$9.99/month locked in for life</li>
+                </ul>
+                <button class="llh-btn llh-btn-accent" type="button" data-checkout-plan="founding">Become a Founding Member</button>
+              </article>
+            </div>
+          </section>
+
+          <!-- FINAL CTA -->
+          <section class="lp-final-cta llh-final-cta" id="homeFinalCta" aria-label="Ready to get started">
+            <h2>Don’t Wait Until New Features Raise the Price</h2>
+            <p class="lp-cta-body">Join Little Learner Hub now for curriculum, lesson plans, activities, and planning tools. Grow with the platform as child profiles, parent messaging, forms, enrollment, daily logs, documentation, and center tools are added.</p>
+            <p class="lp-cta-subtext">Founding Members keep their $9.99/month price for life.</p>
+            <div class="llh-final-actions">
+              <button class="llh-btn llh-btn-secondary" type="button" data-home-nav="lessons">Browse Lesson Plans</button>
+              <button class="llh-btn llh-btn-accent" type="button" data-checkout-plan="founding">Claim Founding Member Pricing</button>
+              <button class="llh-btn llh-btn-ghost" type="button" data-action="start-free">Create Free Account</button>
+            </div>
+          </section>
+
+          <!-- FOUNDING MEMBER SLOT (kept for dynamic meter / CMS) -->
           <section id="homeFoundingOffer" class="landing-founding-slot"></section>
 
-          <div class="lp-mobile-sticky-cta" aria-label="Create your account">
-            <button class="lp-btn-primary" data-action="start-free" type="button">Start Free</button>
+          <footer class="llh-public-footer" aria-label="Footer">
+            <div class="llh-footer-brand">
+              <strong>Little Learner Hub</strong>
+              <p>Built by a Childcare Provider for Childcare Providers.</p>
+            </div>
+            <nav class="llh-footer-links" aria-label="Footer links">
+              <a href="#homeHero" data-home-nav="home">Home</a>
+              <a href="#homeLessonPlans" data-home-nav="lessons">Lesson Plans</a>
+              <a href="#homeActivities" data-home-nav="activities">Activities</a>
+              <a href="#homeFeatures" data-home-nav="features">Features</a>
+              <a href="#homeComingSoon" data-home-nav="coming-soon">Coming Soon</a>
+              <a href="#homePricing" data-home-nav="pricing">Pricing</a>
+              <a href="#homeReviews" data-home-nav="reviews">Reviews</a>
+              <button type="button" data-action="open-login">Log In</button>
+              <button type="button" data-action="start-free">Sign Up</button>
+              <button type="button" data-view="legal">Privacy Policy</button>
+              <button type="button" data-view="legal">Terms</button>
+              <button type="button" data-view="contact">Contact</button>
+            </nav>
+            <p class="llh-footer-copy">© <span id="llhFooterYear">2026</span> Little Learner Hub. All rights reserved.</p>
+          </footer>
+
+          <div class="lp-mobile-sticky-cta" aria-label="Claim founding pricing">
+            <button class="lp-btn-primary" data-checkout-plan="founding" type="button">Get Started — $9.99/month</button>
           </div>
 
         </section>

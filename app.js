@@ -2221,7 +2221,44 @@ const viewMap = {
 const guestAllowedViews = new Set([
   "home", "plans", "upgrade", "legal", "faq", "contact", "admin",
   "reset-password", "payment-success", "payment-failed",
+  // Public curriculum browsing for approved Free previews (Pro stays locked).
+  "lessons", "activities",
 ]);
+
+const HOME_NAV_SECTION_IDS = {
+  home: "homeHero",
+  lessons: "homeLessonPlans",
+  activities: "homeActivities",
+  features: "homeFeatures",
+  "coming-soon": "homeComingSoon",
+  pricing: "homePricing",
+  reviews: "homeReviews",
+};
+
+const HOME_LESSON_PREVIEW_HINTS = [
+  "Familiar Faces",
+  "Soft Sounds",
+  "Peek-A-Boo",
+  "Peekaboo",
+  "Colors Everywhere",
+  "Farm Friends",
+  "Farm Animals",
+  "Music & Movement",
+  "All About Me",
+  "Five Senses",
+];
+
+const HOME_ACTIVITY_CATEGORY_ORDER = [
+  "Sensory Play",
+  "Gross Motor",
+  "Fine Motor",
+  "Music & Movement",
+  "Dramatic Play",
+  "Open-Ended Exploration",
+];
+
+let homePreviewReturnScrollY = 0;
+let homePreviewReturnSectionId = "";
 
 const MAX_LOGO_SIZE_BYTES = 512 * 1024;
 const CUSTOM_CURRICULUM_OPTION = "Custom/Other";
@@ -8353,7 +8390,7 @@ function updateAuthButtons() {
   } else {
     signIn.textContent = "Log in";
     delete signIn.dataset.view;
-    signUp.textContent = "Sign Up";
+    signUp.textContent = "Get Started — $9.99/month";
     delete signUp.dataset.view;
   }
   updateAdminNavVisibility();
@@ -8916,12 +8953,13 @@ function setView(view, options = {}) {
     skipPlatformHistory: options.skipPlatformHistory || options.fromPopState,
   });
   if (viewMap[resolvedView]) renderCategoryPage(resolvedView);
-  if ((resolvedView === "lessons" || resolvedView === "activities") && canUseLaunchBackend() && isLoggedIn()) {
+  if ((resolvedView === "lessons" || resolvedView === "activities") && canUseLaunchBackend()) {
     refreshPublicCurriculumLibrary()
       .catch(() => {})
       .then(() => {
         const active = document.querySelector(".active-view")?.id.replace("view-", "");
         if (active === resolvedView && viewMap[resolvedView]) renderCategoryPage(resolvedView);
+        if (active === "home" && !isLoggedIn()) renderHomePublicPreviews();
       });
   }
   if (resolvedView === "home") renderHome();
@@ -12883,6 +12921,7 @@ function closeResourceViewer() {
   restoreDefaultResourceViewerChrome();
   updateResourceViewerBackButton();
   if (wasOpen) restoreLessonLibraryBrowseState();
+  if (wasOpen) restoreHomePreviewScrollPosition();
 }
 
 function updateResourceViewerBackButton() {
@@ -13332,6 +13371,9 @@ function restoreDefaultResourceViewerChrome() {
 }
 
 function lessonWorkspaceSaveButtonHtml(resourceId) {
+  if (!isLoggedIn() && !hasAdminFullAccess()) {
+    return `<span class="lesson-workspace-save-btn llh-public-preview-save-note" aria-hidden="false">Public preview</span>`;
+  }
   const favorite = favorites.includes(resourceId);
   const saveAttrs = !isProUser() ? `data-pro-feature="favorites"` : `data-favorite="${escapeHtml(resourceId)}"`;
   const saveLabel = !isProUser() ? "Save (Pro)" : favorite ? "Saved" : "Save";
@@ -14568,6 +14610,7 @@ function buildLessonPlanFullDocxBlob(resource, options = {}) {
 }
 
 function canDownloadLessonWorkspacePlan(resource) {
+  if (!isLoggedIn() && !hasAdminFullAccess()) return false;
   return Boolean(
     resource
     && resource.category === "Lesson Plans"
@@ -14656,6 +14699,18 @@ function downloadLessonPlanVariant(printVariant = "week", options = {}) {
 }
 
 function lessonWorkspaceActionBarsHtml(resource) {
+  if (!isLoggedIn() && !hasAdminFullAccess()) {
+    return `
+      <div class="lesson-workspace-action-bars llh-public-preview-cta" data-lesson-action-bars="top">
+        <p>Create an account to use, edit, plan, print, and download lesson plans.</p>
+        <div class="llh-public-preview-cta-actions">
+          <button class="primary-button" type="button" data-action="start-free">Create Free Account</button>
+          <button class="ghost-button" type="button" data-checkout-plan="founding">Lock In $9.99 Founding Pricing</button>
+          <button class="ghost-button" type="button" data-lesson-workspace-back>Back to Lesson Plans</button>
+        </div>
+      </div>
+    `;
+  }
   const id = escapeHtml(resource.id);
   const isUserCopy = Boolean(resource._userLessonCopy);
   return `
@@ -16392,103 +16447,125 @@ function renderManagedHomeContent() {
     const node = document.querySelector(selector);
     if (node && normalizedMultilineText(value)) node.textContent = value;
   };
-  setText(".lp-hero-badge", homepage.heroBadge);
-  setText(".lp-hero-headline", homepage.heroHeadline);
-  setText(".lp-hero-sub", homepage.heroSubheadline);
-  setText(".lp-social-proof p", homepage.socialProofText);
-  setText(".lp-final-cta h2", homepage.finalCtaHeadline);
-  setText(".lp-final-cta .lp-cta-body", homepage.finalCtaText);
-  setText(".lp-final-cta .lp-cta-subtext", homepage.finalCtaSubtext);
-  const heroPrimary = document.querySelector(".lp-hero-actions .lp-btn-primary");
-  if (heroPrimary && homepage.heroCtaText) heroPrimary.textContent = homepage.heroCtaText;
-  const heroSecondary = document.querySelector(".lp-hero-actions .lp-btn-secondary");
-  if (heroSecondary && homepage.heroSecondaryCtaText) heroSecondary.textContent = homepage.heroSecondaryCtaText;
-  const finalButton = document.querySelector(".lp-final-cta .lp-btn-primary");
-  if (finalButton && homepage.finalCtaButtonText) finalButton.textContent = homepage.finalCtaButtonText;
+  const redesignedHome = Boolean(document.querySelector(".llh-hero"));
+  // Redesigned homepage owns positioning copy so stale CMS hero/journey text cannot
+  // reintroduce outdated claims or conflicting pricing messaging.
+  if (!redesignedHome) {
+    setText(".lp-hero-badge", homepage.heroBadge);
+    setText(".lp-hero-headline", homepage.heroHeadline);
+    setText(".lp-hero-sub", homepage.heroSubheadline);
+    setText(".lp-social-proof p", homepage.socialProofText);
+    setText(".lp-final-cta h2", homepage.finalCtaHeadline);
+    setText(".lp-final-cta .lp-cta-body", homepage.finalCtaText);
+    setText(".lp-final-cta .lp-cta-subtext", homepage.finalCtaSubtext);
+    const heroPrimary = document.querySelector(".lp-hero-actions .lp-btn-primary");
+    if (heroPrimary && homepage.heroCtaText) heroPrimary.textContent = homepage.heroCtaText;
+    const heroSecondary = document.querySelector(".lp-hero-actions .lp-btn-secondary");
+    if (heroSecondary && homepage.heroSecondaryCtaText) heroSecondary.textContent = homepage.heroSecondaryCtaText;
+    const finalButton = document.querySelector(".lp-final-cta .lp-btn-primary");
+    if (finalButton && homepage.finalCtaButtonText) finalButton.textContent = homepage.finalCtaButtonText;
 
-  if (homepage.heroBenefits?.length) {
-    const heroBenefitsList = document.querySelector(".lp-hero-benefits");
-    if (heroBenefitsList) {
-      heroBenefitsList.innerHTML = homepage.heroBenefits.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+    if (homepage.heroBenefits?.length) {
+      const heroBenefitsList = document.querySelector(".lp-hero-benefits");
+      if (heroBenefitsList) {
+        heroBenefitsList.innerHTML = homepage.heroBenefits.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+      }
+    }
+
+    setText(".lp-hero-testimonials .lp-section-title", homepage.trustSectionHeading);
+    setText("#homePlatformPreview .lp-section-title", homepage.showcaseSectionHeading);
+    setText("#homePlatformPreview .lp-section-sub", homepage.showcaseSectionSubtitle);
+    setText(".lp-home-journey .lp-section-title", homepage.journeySectionHeading);
+    setText(".lp-home-journey .lp-section-sub", homepage.journeySectionSubtitle);
+    setText(".lp-journey-card[aria-label='How it works'] h3", homepage.journeyHowItWorksHeading);
+    setText(".lp-journey-card[aria-label='Coming soon features'] h3", homepage.journeyComingSoonHeading);
+    setText(".lp-why-section .lp-section-title", homepage.whySectionHeading);
+
+    if (homepage.whyItems?.length) {
+      const whyTitles = document.querySelectorAll(".lp-why-item strong");
+      homepage.whyItems.forEach((item, index) => {
+        if (whyTitles[index] && item.title) whyTitles[index].textContent = item.title;
+      });
+    }
+
+    document.querySelectorAll(".lp-proof-card").forEach((card, index) => {
+      const item = homepage.featureCards?.[index];
+      if (!item) return;
+      const title = card.querySelector("strong");
+      const text = card.querySelector("p");
+      if (title && item.title) title.textContent = item.title;
+      if (text && item.text) text.textContent = item.text;
+    });
+
+    document.querySelectorAll(".lp-how-grid .lp-step-card").forEach((card, index) => {
+      const item = homepage.howItWorks?.[index];
+      const title = card.querySelector("strong");
+      if (title && item?.title) title.textContent = item.title;
+    });
+
+    const comingSoonList = document.querySelector(".lp-coming-soon-list");
+    if (comingSoonList && homepage.comingSoon?.length) {
+      comingSoonList.innerHTML = homepage.comingSoon.map((item) => `<span>${escapeHtml(item.title)}</span>`).join("");
+    }
+
+    document.querySelectorAll(".lp-showcase-card").forEach((card, index) => {
+      const item = homepage.previewCards?.find((entry) => entry.id === card.dataset.preview) || homepage.previewCards?.[index];
+      if (!item) return;
+      const title = card.querySelector(".lp-showcase-info h3");
+      const text = card.querySelector(".lp-showcase-info p");
+      if (title && item.title) title.textContent = item.title;
+      if (text && item.text) text.textContent = item.text;
+      const screen = card.querySelector(".lp-showcase-screen");
+      if (!screen) return;
+      screen.querySelector(".lp-showcase-managed-image")?.remove();
+      if (item.imageUrl) {
+        screen.insertAdjacentHTML("afterbegin", `<img class="lp-showcase-managed-image" src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.title || "Preview image")}" />`);
+      }
+    });
+
+    const heroVisual = document.querySelector(".lp-hero-visual");
+    if (heroVisual) {
+      heroVisual.querySelector(".lp-home-hero-image")?.remove();
+      if (homepage.heroImageUrl) {
+        heroVisual.insertAdjacentHTML("afterbegin", `<img class="lp-home-hero-image" src="${escapeHtml(homepage.heroImageUrl)}" alt="Little Learner Hub preview" />`);
+      }
     }
   }
 
-  setText(".lp-hero-testimonials .lp-section-title", homepage.trustSectionHeading);
-  setText("#homePlatformPreview .lp-section-title", homepage.showcaseSectionHeading);
-  setText("#homePlatformPreview .lp-section-sub", homepage.showcaseSectionSubtitle);
-  setText(".lp-home-journey .lp-section-title", homepage.journeySectionHeading);
-  setText(".lp-home-journey .lp-section-sub", homepage.journeySectionSubtitle);
-  setText(".lp-journey-card[aria-label='How it works'] h3", homepage.journeyHowItWorksHeading);
-  setText(".lp-journey-card[aria-label='Coming soon features'] h3", homepage.journeyComingSoonHeading);
-  setText(".lp-why-section .lp-section-title", homepage.whySectionHeading);
   setText(".lp-reviews-section .lp-section-title", homepage.reviewsSectionHeading);
 
-  if (homepage.whyItems?.length) {
-    const whyTitles = document.querySelectorAll(".lp-why-item strong");
-    homepage.whyItems.forEach((item, index) => {
-      if (whyTitles[index] && item.title) whyTitles[index].textContent = item.title;
-    });
-  }
-
-  document.querySelectorAll(".lp-proof-card").forEach((card, index) => {
-    const item = homepage.featureCards?.[index];
-    if (!item) return;
-    const title = card.querySelector("strong");
-    const text = card.querySelector("p");
-    if (title && item.title) title.textContent = item.title;
-    if (text && item.text) text.textContent = item.text;
-  });
-
-  document.querySelectorAll(".lp-how-grid .lp-step-card").forEach((card, index) => {
-    const item = homepage.howItWorks?.[index];
-    const title = card.querySelector("strong");
-    if (title && item?.title) title.textContent = item.title;
-  });
-
-  const comingSoonList = document.querySelector(".lp-coming-soon-list");
-  if (comingSoonList && homepage.comingSoon?.length) {
-    comingSoonList.innerHTML = homepage.comingSoon.map((item) => `<span>${escapeHtml(item.title)}</span>`).join("");
-  }
-
-  document.querySelectorAll(".lp-showcase-card").forEach((card, index) => {
-    const item = homepage.previewCards?.find((entry) => entry.id === card.dataset.preview) || homepage.previewCards?.[index];
-    if (!item) return;
-    const title = card.querySelector(".lp-showcase-info h3");
-    const text = card.querySelector(".lp-showcase-info p");
-    if (title && item.title) title.textContent = item.title;
-    if (text && item.text) text.textContent = item.text;
-    const screen = card.querySelector(".lp-showcase-screen");
-    if (!screen) return;
-    screen.querySelector(".lp-showcase-managed-image")?.remove();
-    if (item.imageUrl) {
-      screen.insertAdjacentHTML("afterbegin", `<img class="lp-showcase-managed-image" src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.title || "Preview image")}" />`);
-    }
-  });
-
-  const heroVisual = document.querySelector(".lp-hero-visual");
-  if (heroVisual) {
-    heroVisual.querySelector(".lp-home-hero-image")?.remove();
-    if (homepage.heroImageUrl) {
-      heroVisual.insertAdjacentHTML("afterbegin", `<img class="lp-home-hero-image" src="${escapeHtml(homepage.heroImageUrl)}" alt="Little Learner Hub preview" />`);
-    }
-  }
-
   const reviewsGrid = document.querySelector(".lp-reviews-grid");
-  if (reviewsGrid && reviews.length) {
+  // Keep Tiffany's hardcoded featured review on the redesigned homepage.
+  // Additional CMS reviews can append once; never replace Tiffany's card.
+  if (reviewsGrid && reviews.length && !redesignedHome) {
     reviewsGrid.innerHTML = reviews.map(reviewCardHtml).join("");
+  } else if (reviewsGrid && reviews.length && redesignedHome) {
+    const tiffanyCard = reviewsGrid.querySelector(".llh-review-featured");
+    reviewsGrid.querySelectorAll(".lp-review-card:not(.llh-review-featured)").forEach((node) => node.remove());
+    const extra = reviews
+      .filter((item) => !/tiffany/i.test(`${item.name || ""} ${item.author || ""}`))
+      .map(reviewCardHtml)
+      .join("");
+    if (tiffanyCard) {
+      tiffanyCard.insertAdjacentHTML("afterend", extra);
+    } else {
+      reviewsGrid.innerHTML = reviews.map(reviewCardHtml).join("");
+    }
   }
 
-  const founderTitle = founder.title || founder.name;
-  if (founderTitle) setText(".lp-founder-content h2", founderTitle);
-  const founderParagraphs = document.querySelectorAll(".lp-founder-content p");
-  const aboutText = normalizedMultilineText(founder.aboutText || "");
-  if (founderParagraphs.length && aboutText) {
-    const parts = aboutText.split(/\n{2,}/).filter(Boolean);
-    founderParagraphs[0].textContent = parts[0] || founder.shortBio || founderParagraphs[0].textContent;
-    if (founderParagraphs[1]) founderParagraphs[1].textContent = parts[1] || founderParagraphs[1].textContent;
-    if (founderParagraphs[2]) founderParagraphs[2].textContent = parts[2] || founderParagraphs[2].textContent;
-  } else if (founderParagraphs[0] && founder.shortBio) {
-    founderParagraphs[0].textContent = founder.shortBio;
+  if (!redesignedHome) {
+    const founderTitle = founder.title || founder.name;
+    if (founderTitle) setText(".lp-founder-content h2", founderTitle);
+    const founderParagraphs = document.querySelectorAll(".lp-founder-content p");
+    const aboutText = normalizedMultilineText(founder.aboutText || "");
+    if (founderParagraphs.length && aboutText) {
+      const parts = aboutText.split(/\n{2,}/).filter(Boolean);
+      founderParagraphs[0].textContent = parts[0] || founder.shortBio || founderParagraphs[0].textContent;
+      if (founderParagraphs[1]) founderParagraphs[1].textContent = parts[1] || founderParagraphs[1].textContent;
+      if (founderParagraphs[2]) founderParagraphs[2].textContent = parts[2] || founderParagraphs[2].textContent;
+    } else if (founderParagraphs[0] && founder.shortBio) {
+      founderParagraphs[0].textContent = founder.shortBio;
+    }
   }
   const founderLinks = document.querySelector(".lp-founder-links");
   if (founderLinks) {
@@ -16521,6 +16598,27 @@ function renderManagedPricingText() {
   const content = effectiveSiteContent();
   const pricing = content.pricing || {};
   if (pricing._draft) return;
+  // Homepage redesign features Founding Member ($9.99/mo for life) as the paid plan.
+  // Never let legacy CMS "Pro $19.99" copy overwrite that offer.
+  if (document.querySelector(".llh-founding-card")) {
+    const setText = (selector, value) => {
+      const node = document.querySelector(selector);
+      if (node && value) node.textContent = value;
+    };
+    // Allow free-card CMS tweaks only; keep founding price/features authoritative.
+    setText(".lp-free-card h3", pricing.freePlanName);
+    const freePriceStrong = document.querySelector(".lp-free-card .lp-price-amount strong");
+    if (freePriceStrong && pricing.freePlanPrice) freePriceStrong.textContent = pricing.freePlanPrice;
+    const freePriceSpan = document.querySelector(".lp-free-card .lp-price-amount span");
+    if (freePriceSpan && pricing.freePlanPriceInterval) freePriceSpan.textContent = pricing.freePlanPriceInterval;
+    if (pricing.freePlanFeatures?.length) {
+      const freeList = document.querySelector(".lp-free-card .lp-price-features");
+      if (freeList) {
+        freeList.innerHTML = refreshFreePlanFeatureLines(pricing.freePlanFeatures).map((f) => `<li>${escapeHtml(f)}</li>`).join("");
+      }
+    }
+    return;
+  }
   const setText = (selector, value) => {
     const node = document.querySelector(selector);
     if (node && value) node.textContent = value;
@@ -16818,6 +16916,242 @@ function renderUserDashboard() {
   `;
 }
 
+function setHomePublicMenuOpen(open) {
+  const shouldOpen = Boolean(open);
+  document.body.classList.toggle("llh-public-menu-open", shouldOpen);
+  const menu = document.querySelector("#llhPublicMobileMenu");
+  const backdrop = document.querySelector("#llhPublicMenuBackdrop");
+  const toggle = document.querySelector("#llhPublicMenuToggle");
+  if (menu) menu.hidden = !shouldOpen;
+  if (backdrop) backdrop.hidden = !shouldOpen;
+  if (toggle) {
+    toggle.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+    toggle.setAttribute("aria-label", shouldOpen ? "Close menu" : "Open menu");
+  }
+}
+
+function bindHomePublicChrome() {
+  const toggle = document.querySelector("#llhPublicMenuToggle");
+  const backdrop = document.querySelector("#llhPublicMenuBackdrop");
+  if (toggle && !toggle.dataset.bound) {
+    toggle.dataset.bound = "1";
+    toggle.addEventListener("click", () => {
+      setHomePublicMenuOpen(!document.body.classList.contains("llh-public-menu-open"));
+    });
+  }
+  if (backdrop && !backdrop.dataset.bound) {
+    backdrop.dataset.bound = "1";
+    backdrop.addEventListener("click", () => setHomePublicMenuOpen(false));
+  }
+  setHomePublicMenuOpen(false);
+}
+
+function scrollToHomeSection(sectionKeyOrId) {
+  const sectionId = HOME_NAV_SECTION_IDS[sectionKeyOrId] || sectionKeyOrId;
+  const target = document.getElementById(sectionId);
+  if (!target) return false;
+  setView("home", { allowDashboard: true });
+  setHomePublicMenuOpen(false);
+  requestAnimationFrame(() => {
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  return true;
+}
+
+function captureHomePreviewScrollPosition(sectionId = "") {
+  homePreviewReturnScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+  homePreviewReturnSectionId = sectionId || "";
+}
+
+function restoreHomePreviewScrollPosition() {
+  if (!document.querySelector("#view-home.active-view") && !document.querySelector("#view-home.landing-home")) {
+    return;
+  }
+  const sectionId = homePreviewReturnSectionId;
+  const y = homePreviewReturnScrollY;
+  homePreviewReturnSectionId = "";
+  homePreviewReturnScrollY = 0;
+  requestAnimationFrame(() => {
+    if (sectionId) {
+      const target = document.getElementById(sectionId);
+      if (target) {
+        target.scrollIntoView({ behavior: "auto", block: "start" });
+        return;
+      }
+    }
+    window.scrollTo({ top: y, behavior: "auto" });
+  });
+}
+
+function homeCurriculumLessonPlans() {
+  return (resources || []).filter((resource) => (
+    resource
+    && resource.category === "Lesson Plans"
+    && resource._curriculumManaged
+    && isResourceVisibleToCurrentUser(resource)
+    && String(resource.plan || "Free").trim() !== "Pro"
+  ));
+}
+
+function homeCurriculumActivities() {
+  return (resources || []).filter((resource) => (
+    resource
+    && resource.category === "Activity Center"
+    && resource._curriculumManaged
+    && isResourceVisibleToCurrentUser(resource)
+    && String(resource.plan || "Free").trim() !== "Pro"
+  ));
+}
+
+function pickHomeLessonPreviewPlans(limit = 5) {
+  const freePlans = homeCurriculumLessonPlans();
+  const selected = [];
+  const used = new Set();
+  for (const hint of HOME_LESSON_PREVIEW_HINTS) {
+    const match = freePlans.find((plan) => {
+      if (used.has(plan.id)) return false;
+      const hay = `${plan.title || ""} ${plan.theme || ""}`.toLowerCase();
+      return hay.includes(String(hint).toLowerCase());
+    });
+    if (match) {
+      selected.push(match);
+      used.add(match.id);
+    }
+    if (selected.length >= limit) break;
+  }
+  for (const plan of freePlans) {
+    if (selected.length >= limit) break;
+    if (used.has(plan.id)) continue;
+    selected.push(plan);
+    used.add(plan.id);
+  }
+  return selected;
+}
+
+function pickHomeActivityPreviews(limit = 6) {
+  const activities = homeCurriculumActivities();
+  const selected = [];
+  const used = new Set();
+  for (const category of HOME_ACTIVITY_CATEGORY_ORDER) {
+    const match = activities.find((activity) => {
+      if (used.has(activity.id)) return false;
+      const cat = String(activity.activityCategory || activity.tags?.[0] || "").trim();
+      return cat.toLowerCase() === category.toLowerCase();
+    });
+    if (match) {
+      selected.push(match);
+      used.add(match.id);
+    }
+    if (selected.length >= limit) break;
+  }
+  for (const activity of activities) {
+    if (selected.length >= limit) break;
+    if (used.has(activity.id)) continue;
+    selected.push(activity);
+    used.add(activity.id);
+  }
+  return selected;
+}
+
+function countLessonPlanDaysOrActivities(resource) {
+  const plan = resource?._curriculumLessonPlan || {};
+  const days = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+  let activityCount = 0;
+  let dayCount = 0;
+  days.forEach((day) => {
+    const items = plan?.dailyPlans?.[day]?.items;
+    if (Array.isArray(items) && items.length) {
+      dayCount += 1;
+      activityCount += items.length;
+    }
+  });
+  if (activityCount > 0) return `${activityCount} activities · ${dayCount || 5} days`;
+  return "5-day week";
+}
+
+function homeLessonPreviewCardHtml(resource) {
+  const overview = String(resource.description || resource._curriculumLessonPlan?.weeklyOverview || "").trim();
+  const shortOverview = overview.length > 140 ? `${overview.slice(0, 137)}…` : overview || "Play-based weekly lesson plan ready to preview.";
+  return `
+    <article class="llh-preview-card" data-home-preview-resource="${escapeHtml(resource.id)}">
+      <div class="llh-preview-meta">
+        <span class="llh-chip free">Free</span>
+        <span>${escapeHtml(normalizeAgeGroup(resource.age) || resource.age || "All Ages")}</span>
+        ${resource.theme ? `<span>${escapeHtml(resource.theme)}</span>` : ""}
+      </div>
+      <h3>${escapeHtml(resource.title)}</h3>
+      <p>${escapeHtml(shortOverview)}</p>
+      <p><strong>${escapeHtml(countLessonPlanDaysOrActivities(resource))}</strong></p>
+      <button class="llh-btn llh-btn-secondary" type="button" data-home-open-preview="${escapeHtml(resource.id)}" data-home-preview-section="homeLessonPlans">View Lesson Plan</button>
+    </article>
+  `;
+}
+
+function homeActivityPreviewCardHtml(resource) {
+  const category = resource.activityCategory || resource.tags?.[0] || "Activity";
+  const overview = String(resource.description || "").trim();
+  const shortOverview = overview.length > 120 ? `${overview.slice(0, 117)}…` : overview || "Play-based classroom activity.";
+  return `
+    <article class="llh-preview-card" data-home-preview-resource="${escapeHtml(resource.id)}">
+      <div class="llh-preview-meta">
+        <span>${escapeHtml(category)}</span>
+        <span>${escapeHtml(normalizeAgeGroup(resource.age) || resource.age || "All Ages")}</span>
+      </div>
+      <h3>${escapeHtml(resource.title)}</h3>
+      <p>${escapeHtml(shortOverview)}</p>
+      <button class="llh-btn llh-btn-secondary" type="button" data-home-open-preview="${escapeHtml(resource.id)}" data-home-preview-section="homeActivities">View Activity</button>
+    </article>
+  `;
+}
+
+function publicActivityPreviewCtaHtml() {
+  if (isLoggedIn() || hasAdminFullAccess()) return "";
+  return `
+    <section class="llh-public-preview-cta">
+      <p>Create an account to save activities and use them in your weekly planning.</p>
+      <div class="llh-public-preview-cta-actions">
+        <button class="primary-button" type="button" data-action="start-free">Create Free Account</button>
+        <button class="ghost-button" type="button" data-checkout-plan="founding">Get Full Access for $9.99/month</button>
+      </div>
+    </section>
+  `;
+}
+
+async function openHomePublicPreview(resourceId, sectionId = "") {
+  const resource = (resources || []).find((item) => item.id === resourceId);
+  if (!resource) return;
+  captureHomePreviewScrollPosition(sectionId);
+  lessonLibraryReturnView = "home";
+  if (!canAccess(resource)) {
+    openLockedResourcePreview(resource);
+    return;
+  }
+  await openResourceViewer(resourceId, { returnTo: "" });
+  if (!isLoggedIn() && !hasAdminFullAccess() && resource.category === "Activity Center") {
+    const body = document.querySelector("#resourceViewerBody");
+    if (body && !body.querySelector(".llh-public-preview-cta")) {
+      body.insertAdjacentHTML("beforeend", publicActivityPreviewCtaHtml());
+    }
+  }
+}
+
+function renderHomePublicPreviews() {
+  const lessonGrid = document.querySelector("#homeLessonPreviewGrid");
+  const activityGrid = document.querySelector("#homeActivityPreviewGrid");
+  if (lessonGrid) {
+    const lessons = pickHomeLessonPreviewPlans(5);
+    lessonGrid.innerHTML = lessons.length
+      ? lessons.map(homeLessonPreviewCardHtml).join("")
+      : `<div class="llh-preview-empty muted-copy">Free lesson plan previews will appear here as published curriculum is available. <button class="link-button" type="button" data-view="lessons">Browse Lesson Plans</button></div>`;
+  }
+  if (activityGrid) {
+    const activities = pickHomeActivityPreviews(6);
+    activityGrid.innerHTML = activities.length
+      ? activities.map(homeActivityPreviewCardHtml).join("")
+      : `<div class="llh-preview-empty muted-copy">Activity previews will appear here as published activities are available. <button class="link-button" type="button" data-view="activities">Browse Activities</button></div>`;
+  }
+}
+
 function renderHome() {
   if (currentUser) {
     renderUserDashboard();
@@ -16866,6 +17200,19 @@ function renderHome() {
   const newThisMonth = document.querySelector("#newThisMonth");
   if (newThisMonth) newThisMonth.innerHTML = newItems.map(compactItem).join("");
   renderHomeFoundingOffer();
+  renderHomePublicPreviews();
+  bindHomePublicChrome();
+  const footerYear = document.querySelector("#llhFooterYear");
+  if (footerYear) footerYear.textContent = String(new Date().getFullYear());
+  if (canUseLaunchBackend()) {
+    refreshPublicCurriculumLibrary()
+      .catch(() => {})
+      .then(() => {
+        if (document.querySelector("#view-home.landing-home") && !currentUser) {
+          renderHomePublicPreviews();
+        }
+      });
+  }
   renderPreviewLibrary();
   renderFavorites();
   updatePlanLabel();
@@ -38558,9 +38905,36 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const openLoginButton = event.target.closest("[data-action='open-login']");
+  if (openLoginButton) {
+    event.preventDefault();
+    setHomePublicMenuOpen(false);
+    openAuthModal("login");
+    return;
+  }
+
+  const homeNavButton = event.target.closest("[data-home-nav]");
+  if (homeNavButton) {
+    event.preventDefault();
+    const key = homeNavButton.dataset.homeNav || "home";
+    scrollToHomeSection(key);
+    return;
+  }
+
+  const homePreviewButton = event.target.closest("[data-home-open-preview]");
+  if (homePreviewButton) {
+    event.preventDefault();
+    openHomePublicPreview(
+      homePreviewButton.dataset.homeOpenPreview || "",
+      homePreviewButton.dataset.homePreviewSection || "",
+    );
+    return;
+  }
+
   const startFreeButton = event.target.closest("[data-action='start-free']");
   if (startFreeButton) {
     event.preventDefault();
+    setHomePublicMenuOpen(false);
     if (!currentUser) {
       openAuthModal("signup");
       return;
