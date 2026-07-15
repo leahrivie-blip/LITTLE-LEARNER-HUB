@@ -231,9 +231,11 @@ async function seedPlans(token) {
       plan: "Pro",
       status: "published",
       age: "Preschool",
+      coverImageUrl: "data:image/png;base64,iVBORw0KGgo=",
     },
   });
   assert(proSave.status === 200, `pro save failed: ${proSave.status} ${proSave.text?.slice(0, 200)}`);
+  assert(proSave.json.lessonPlan?.coverImageUrl === "", "server must not store base64 in lesson cover records");
   return { freeId, freeTitle, proId, proTitle };
 }
 
