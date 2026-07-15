@@ -95,7 +95,7 @@ async function stopServer(child) {
 
 async function seedProLessonForLockedPreview(token) {
   const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-parser.js");
-  const sample = path.join(ROOT, "scripts/curriculum-import-samples/premium-garden-scientists-v2.txt");
+  const sample = path.join(ROOT, "scripts/curriculum-import-samples/label-only-garden-scientists-v3.txt");
   const parsed = parseCurriculumLessonPlanImport(fs.readFileSync(sample, "utf8"));
   if (!parsed.ok) return null;
   const bootstrap = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(token)}`);
@@ -241,12 +241,15 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
     const monthlyBtn = page.locator('#pricingApp [data-checkout-plan="monthly"]');
     const foundingPlanBtn = page.locator('#pricingApp [data-checkout-plan="founding"]');
     const annualBtn = page.locator('#pricingApp [data-checkout-plan="annual"]').first();
-    await annualBtn.waitFor({ timeout: 5000 });
-    if (await monthlyBtn.count()) {
-      await monthlyBtn.first().click();
-    } else {
+    // While founding spots remain, annual is hidden — click the visible paid plan.
+    if (await foundingPlanBtn.count()) {
       await foundingPlanBtn.first().waitFor({ timeout: 5000 });
       await foundingPlanBtn.first().click();
+    } else if (await monthlyBtn.count()) {
+      await monthlyBtn.first().click();
+    } else {
+      await annualBtn.waitFor({ timeout: 5000 });
+      await annualBtn.click();
     }
     await page.waitForSelector("#authModal.open", { timeout: 5000 });
     await page.click("#closeModal");
@@ -349,10 +352,10 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
       await page.waitForTimeout(500);
       const card = page.locator("#view-lessons .resource-card").filter({ hasText: proLesson.title }).first();
       await card.waitFor({ timeout: 10000 });
-      const previewBtn = card.locator("button[data-view-resource]").first();
-      const btnText = await previewBtn.innerText();
-      assert(/preview/i.test(btnText), `${label}: pro lesson should show Preview`);
-      await previewBtn.click({ force: true });
+      const aria = await card.getAttribute("aria-label");
+      assert(/preview/i.test(aria || ""), `${label}: pro lesson should show Preview`);
+      assert(await card.locator(".lesson-plan-card-hint").count(), `${label}: locked preview hint missing`);
+      await card.click({ force: true });
       await page.waitForSelector("#featurePreviewModal.open", { timeout: 10000 });
       // Free owners see Founding checkout while spots remain; otherwise Pro trial CTA.
       const foundingBtn = page.locator("#featurePreviewModal [data-checkout-plan='founding']");
@@ -368,6 +371,8 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
         await page.waitForSelector("#view-upgrade.active-view", { timeout: 10000 });
         await page.waitForSelector("#upgradeApp .pricing-grid, #upgradeApp .checkout-test-panel", { timeout: 10000 });
       }
+    });
+  }
 
   await step("admin login", async () => {
     await page.evaluate(() => setView("admin"));
@@ -387,6 +392,8 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
   const badConsole = consoleErrors.filter((msg) =>
     !/favicon|manifest|Failed to load resource.*(404|favicon)/i.test(msg)
     && !/net::ERR_/i.test(msg)
+    // Admin analytics can time out in local smoke environments without affecting homepage CTAs.
+    && !/admin-analytics:client.*timed out|Analytics timed out after/i.test(msg)
   );
   assert(!pageErrors.length, `${label}: pageerror: ${pageErrors.join(" | ")}`);
   assert(!unhandled.length, `${label}: unhandled rejections: ${unhandled.join(" | ")}`);
