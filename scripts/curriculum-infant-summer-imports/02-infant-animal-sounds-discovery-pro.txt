@@ -1,0 +1,322 @@
+TITLE:
+Animal Sounds Discovery
+
+AGE_GROUP:
+Infant 0–12 Months
+
+THEME:
+Animal Sounds
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development, Creative Arts
+
+WEEKLY_OVERVIEW:
+Infants will explore animal sounds through music, stories, sensory play, visual discovery, movement, and communication activities. Children will listen to familiar animal sounds, observe animal pictures, and engage in playful experiences that support early language development and auditory awareness.
+
+LEARNING_OBJECTIVES:
+• Explore animal sounds through listening experiences
+• Strengthen auditory awareness and attention
+• Support language development through sound imitation
+• Encourage sensory exploration and visual tracking
+• Foster curiosity about animals and communication
+
+WEEKLY_MATERIALS:
+Animal picture cards, stuffed animals, mirrors, music player, animal sound recordings, sensory bags, scarves, puppets, board books
+
+VOCABULARY:
+Dog, Cat, Cow, Duck, Bird, Animal, Sound, Bark, Moo, Quack
+
+BOOKS:
+Brown Bear, Brown Bear, What Do You See?
+Baby Animal Sounds
+Moo Baa La La La
+Dear Zoo
+Farm Animals
+
+SONGS:
+Old MacDonald Had a Farm
+Bingo
+Five Little Ducks
+The Animal Sounds Song
+Baby Beluga
+
+FAMILY_CONNECTION:
+Encourage families to point out animals and imitate animal sounds during everyday routines and story time.
+
+OBSERVATION_OPPORTUNITIES:
+Observe listening skills, sound imitation attempts, visual tracking, communication development, social engagement, and participation during activities.
+
+ADAPTATIONS:
+Provide visual supports, additional sensory materials, adaptive positioning, and individualized support based on developmental needs.
+
+MONDAY
+
+ACTIVITY_NAME:
+Animal Discovery Basket
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants explore stuffed animals and animal pictures through touch and sight.
+MATERIALS:
+Stuffed animals, animal cards
+DIRECTIONS:
+Present animal materials.
+Encourage touching and grasping.
+Name each animal.
+Allow exploration.
+TEACHER_ROLE:
+Model vocabulary and animal sounds.
+LEARNING_GOALS:
+Language development and sensory exploration.
+
+ACTIVITY_NAME:
+Animal Song Circle
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Infants listen and move to animal-themed songs.
+MATERIALS:
+Music player
+DIRECTIONS:
+Play songs.
+Move gently together.
+Encourage participation.
+TEACHER_ROLE:
+Lead music experience.
+LEARNING_GOALS:
+Auditory awareness and social engagement.
+
+ACTIVITY_NAME:
+Animal Story Time
+CATEGORY:
+Literacy
+DESCRIPTION:
+Infants listen to an animal-themed board book.
+MATERIALS:
+Board books
+DIRECTIONS:
+Read story aloud.
+Point to animal pictures.
+Repeat animal names.
+TEACHER_ROLE:
+Support language development.
+LEARNING_GOALS:
+Early literacy and vocabulary exposure.
+
+TUESDAY
+
+ACTIVITY_NAME:
+Dog Bark Listening Fun
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Infants listen to dog sounds and observe dog pictures.
+MATERIALS:
+Dog pictures, sound recordings
+DIRECTIONS:
+Play dog sounds.
+Show dog pictures.
+Encourage listening.
+TEACHER_ROLE:
+Model sounds and language.
+LEARNING_GOALS:
+Auditory awareness and vocabulary development.
+
+ACTIVITY_NAME:
+Animal Mirror Play
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Infants watch themselves while making animal sounds.
+MATERIALS:
+Baby-safe mirrors
+DIRECTIONS:
+Position mirrors safely.
+Make simple animal sounds.
+Encourage interaction.
+TEACHER_ROLE:
+Support communication.
+LEARNING_GOALS:
+Social-emotional and language development.
+
+ACTIVITY_NAME:
+Animal Movement Fun
+CATEGORY:
+Gross Motor
+DESCRIPTION:
+Infants participate in simple animal-inspired movements.
+MATERIALS:
+Open floor space
+DIRECTIONS:
+Demonstrate movements.
+Encourage reaching and stretching.
+Celebrate participation.
+TEACHER_ROLE:
+Support physical development.
+LEARNING_GOALS:
+Gross motor development.
+
+WEDNESDAY
+
+ACTIVITY_NAME:
+Farm Animal Discovery
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants explore farm animal toys and visuals.
+MATERIALS:
+Farm animal toys
+DIRECTIONS:
+Present animals.
+Name each animal.
+Encourage exploration.
+TEACHER_ROLE:
+Model animal sounds.
+LEARNING_GOALS:
+Language development and sensory exploration.
+
+ACTIVITY_NAME:
+Moo & Quack Listening
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Infants listen to farm animal sounds.
+MATERIALS:
+Animal sound recordings
+DIRECTIONS:
+Play sounds.
+Pause and listen.
+Encourage reactions.
+TEACHER_ROLE:
+Support listening skills.
+LEARNING_GOALS:
+Auditory discrimination.
+
+ACTIVITY_NAME:
+Animal Music Time
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Infants enjoy songs featuring animal sounds.
+MATERIALS:
+Music player
+DIRECTIONS:
+Play songs.
+Move together.
+Encourage engagement.
+TEACHER_ROLE:
+Lead music activities.
+LEARNING_GOALS:
+Auditory development and participation.
+
+THURSDAY
+
+ACTIVITY_NAME:
+Animal Sensory Bag
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants explore a sealed sensory bag with animal pictures.
+MATERIALS:
+Sensory bag, animal cutouts
+DIRECTIONS:
+Place sensory bag on floor.
+Encourage pressing and touching.
+Observe movement.
+TEACHER_ROLE:
+Guide sensory exploration.
+LEARNING_GOALS:
+Visual awareness and tactile development.
+
+ACTIVITY_NAME:
+Bird Sound Discovery
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Infants listen to gentle bird sounds.
+MATERIALS:
+Bird recordings
+DIRECTIONS:
+Play sounds.
+Listen together.
+Encourage attention.
+TEACHER_ROLE:
+Model listening skills.
+LEARNING_GOALS:
+Auditory awareness.
+
+ACTIVITY_NAME:
+Animal Rhythm Time
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Infants explore rhythm through songs and instruments.
+MATERIALS:
+Shakers, music player
+DIRECTIONS:
+Play music.
+Shake instruments.
+Move together.
+TEACHER_ROLE:
+Lead rhythm activities.
+LEARNING_GOALS:
+Auditory awareness and coordination.
+
+FRIDAY
+
+ACTIVITY_NAME:
+Favorite Animal Exploration
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Infants revisit favorite animals explored throughout the week.
+MATERIALS:
+Animal toys, picture cards
+DIRECTIONS:
+Present favorite animals.
+Name each animal.
+Encourage interaction.
+TEACHER_ROLE:
+Support communication.
+LEARNING_GOALS:
+Vocabulary reinforcement.
+
+ACTIVITY_NAME:
+Animal Treasure Basket
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants explore a variety of animal-themed sensory materials.
+MATERIALS:
+Stuffed animals, textured animal toys
+DIRECTIONS:
+Present materials.
+Encourage touching and grasping.
+Compare textures.
+TEACHER_ROLE:
+Support sensory discovery.
+LEARNING_GOALS:
+Fine motor development and sensory exploration.
+
+ACTIVITY_NAME:
+Animal Sounds Celebration Circle
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Infants review favorite animals and sounds from the week.
+MATERIALS:
+Animal photos, books, songs
+DIRECTIONS:
+Show animal visuals.
+Review sounds.
+Sing favorite songs.
+TEACHER_ROLE:
+Lead group experience.
+LEARNING_GOALS:
+Language development and social participation.

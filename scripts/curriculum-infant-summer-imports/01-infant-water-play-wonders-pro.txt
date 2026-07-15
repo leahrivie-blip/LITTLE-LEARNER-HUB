@@ -1,0 +1,322 @@
+TITLE:
+Water Play Wonders
+
+AGE_GROUP:
+Infant 0–12 Months
+
+THEME:
+Water Exploration
+
+PLAN:
+Pro
+
+STATUS:
+published
+
+LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development, Creative Arts
+
+WEEKLY_OVERVIEW:
+Infants will explore water through safe sensory experiences, movement, visual discovery, music, and hands-on play. Children will investigate splashing, floating, bubbles, water movement, and summer fun while developing curiosity and foundational learning skills.
+
+LEARNING_OBJECTIVES:
+• Explore water through sensory experiences
+• Strengthen visual tracking and observation skills
+• Support language development through water-related vocabulary
+• Encourage fine and gross motor development
+• Foster curiosity and confidence through exploration
+
+WEEKLY_MATERIALS:
+Water mats, sensory bags, bubbles, blue scarves, floating toys, mirrors, cups, toy boats, music player, soft washcloths
+
+VOCABULARY:
+Water, Splash, Float, Bubble, Wet, Wave, Boat, Pour, Blue, Summer
+
+BOOKS:
+Splish Splash Baby
+Baby Loves Water
+Bath Time Fun
+Ocean Babies
+Water Wonders
+
+SONGS:
+Row Row Row Your Boat
+Splish Splash
+Baby Beluga
+The Waves in the Ocean
+You Are My Sunshine
+
+FAMILY_CONNECTION:
+Encourage families to provide safe water play opportunities such as bath play, water tables, and outdoor water exploration.
+
+OBSERVATION_OPPORTUNITIES:
+Observe sensory preferences, visual tracking, communication attempts, social engagement, curiosity, and participation during water activities.
+
+ADAPTATIONS:
+Provide adaptive positioning, alternative sensory materials, individualized support, and modified experiences as needed.
+
+MONDAY
+
+ACTIVITY_NAME:
+Water Discovery Basket
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants explore water-themed objects through touch and sight.
+MATERIALS:
+Toy boats, cups, floating toys
+DIRECTIONS:
+Place materials in basket.
+Encourage touching and grasping.
+Name objects.
+Allow exploration.
+TEACHER_ROLE:
+Model vocabulary and encourage curiosity.
+LEARNING_GOALS:
+Sensory awareness and language development.
+
+ACTIVITY_NAME:
+Water Song Circle
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Infants listen and move to water-themed songs.
+MATERIALS:
+Music player
+DIRECTIONS:
+Play songs.
+Move gently together.
+Encourage participation.
+TEACHER_ROLE:
+Lead music experience.
+LEARNING_GOALS:
+Auditory awareness and social engagement.
+
+ACTIVITY_NAME:
+Water Story Time
+CATEGORY:
+Literacy
+DESCRIPTION:
+Infants listen to a water-themed board book.
+MATERIALS:
+Board books
+DIRECTIONS:
+Read story aloud.
+Point to pictures.
+Repeat vocabulary words.
+TEACHER_ROLE:
+Support language development.
+LEARNING_GOALS:
+Early literacy and vocabulary exposure.
+
+TUESDAY
+
+ACTIVITY_NAME:
+Floating Toy Exploration
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants observe floating objects in a clear container.
+MATERIALS:
+Clear tub, floating toys
+DIRECTIONS:
+Place toys in water.
+Encourage observation.
+Discuss movement.
+TEACHER_ROLE:
+Guide sensory exploration.
+LEARNING_GOALS:
+Visual awareness and curiosity.
+
+ACTIVITY_NAME:
+Blue Scarf Waves
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Infants watch blue scarves move like ocean waves.
+MATERIALS:
+Blue scarves
+DIRECTIONS:
+Move scarves gently.
+Encourage visual tracking.
+Discuss movement.
+TEACHER_ROLE:
+Support observation.
+LEARNING_GOALS:
+Visual tracking development.
+
+ACTIVITY_NAME:
+Splash Movement Fun
+CATEGORY:
+Gross Motor
+DESCRIPTION:
+Infants participate in water-inspired movement activities.
+MATERIALS:
+Open floor space
+DIRECTIONS:
+Encourage reaching and stretching.
+Move arms like splashing water.
+Celebrate participation.
+TEACHER_ROLE:
+Support physical development.
+LEARNING_GOALS:
+Gross motor development.
+
+WEDNESDAY
+
+ACTIVITY_NAME:
+Bubble Watching
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Infants watch and track floating bubbles.
+MATERIALS:
+Bubbles
+DIRECTIONS:
+Blow bubbles.
+Encourage eye tracking.
+Observe reactions.
+TEACHER_ROLE:
+Support observation.
+LEARNING_GOALS:
+Visual tracking skills.
+
+ACTIVITY_NAME:
+Water Sensory Bag
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants explore a sealed water sensory bag.
+MATERIALS:
+Water sensory bag, floating shapes
+DIRECTIONS:
+Place bag on floor.
+Encourage pressing and touching.
+Observe movement.
+TEACHER_ROLE:
+Guide sensory exploration.
+LEARNING_GOALS:
+Tactile awareness and visual exploration.
+
+ACTIVITY_NAME:
+Water Music Time
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Infants enjoy songs about water and summer.
+MATERIALS:
+Music player
+DIRECTIONS:
+Play music.
+Move together.
+Encourage engagement.
+TEACHER_ROLE:
+Lead music activities.
+LEARNING_GOALS:
+Auditory development and participation.
+
+THURSDAY
+
+ACTIVITY_NAME:
+Cool Washcloth Exploration
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants explore cool damp washcloths through touch.
+MATERIALS:
+Soft washcloths
+DIRECTIONS:
+Offer washcloths.
+Encourage touching and grasping.
+Describe temperature and texture.
+TEACHER_ROLE:
+Support sensory learning.
+LEARNING_GOALS:
+Tactile exploration and sensory awareness.
+
+ACTIVITY_NAME:
+Mirror Water Faces
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Infants explore facial expressions while looking in mirrors.
+MATERIALS:
+Baby-safe mirrors
+DIRECTIONS:
+Position mirrors safely.
+Encourage interaction.
+Talk about reflections.
+TEACHER_ROLE:
+Support social interaction.
+LEARNING_GOALS:
+Social-emotional development.
+
+ACTIVITY_NAME:
+Boat Rhythm Time
+CATEGORY:
+Music & Movement
+DESCRIPTION:
+Infants move gently while listening to boat-themed songs.
+MATERIALS:
+Music player
+DIRECTIONS:
+Play music.
+Rock gently like a boat.
+Encourage participation.
+TEACHER_ROLE:
+Lead rhythm activities.
+LEARNING_GOALS:
+Auditory awareness and movement.
+
+FRIDAY
+
+ACTIVITY_NAME:
+Water Adventure Walk
+CATEGORY:
+Open-Ended Exploration
+DESCRIPTION:
+Infants explore water-themed visuals and materials around the classroom.
+MATERIALS:
+Water pictures, toy boats, ocean visuals
+DIRECTIONS:
+Visit exploration stations.
+Observe materials.
+Discuss discoveries.
+TEACHER_ROLE:
+Narrate experiences and encourage engagement.
+LEARNING_GOALS:
+Environmental awareness and language development.
+
+ACTIVITY_NAME:
+Splash Sensory Basket
+CATEGORY:
+Sensory Play
+DESCRIPTION:
+Infants explore safe water-themed sensory materials.
+MATERIALS:
+Floating toys, cups, textured items
+DIRECTIONS:
+Present materials.
+Encourage touching and grasping.
+Compare textures and shapes.
+TEACHER_ROLE:
+Support sensory discovery.
+LEARNING_GOALS:
+Fine motor development and sensory exploration.
+
+ACTIVITY_NAME:
+Water Play Wonders Celebration Circle
+CATEGORY:
+Circle Time
+DESCRIPTION:
+Infants review favorite water experiences from the week.
+MATERIALS:
+Books, visuals, songs
+DIRECTIONS:
+Show photos and visuals.
+Review vocabulary.
+Sing favorite songs.
+TEACHER_ROLE:
+Lead group experience.
+LEARNING_GOALS:
+Vocabulary development and social participation.
