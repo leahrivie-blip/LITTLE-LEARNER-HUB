@@ -124,6 +124,7 @@ function main() {
     "scripts/curriculum-phase-2f-imports",
     "scripts/curriculum-infant-imports",
     "scripts/curriculum-toddler-imports",
+    "scripts/curriculum-toddler-pro-imports",
   ].map((rel) => path.join(ROOT, rel));
 
   const files = importDirs.flatMap((dir) => walkTxtFiles(dir));

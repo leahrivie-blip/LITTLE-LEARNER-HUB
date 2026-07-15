@@ -1870,6 +1870,20 @@ async function initializeStorage() {
   } catch (error) {
     console.error("[curriculum-preschool-seed] startup seed failed:", error.message);
   }
+  try {
+    const { ensureToddlerCurriculumSeeded } = require("./curriculum-toddler-seed.js");
+    await ensureToddlerCurriculumSeeded({
+      readStore,
+      writeStoreAsync,
+      writeSiteCurriculum,
+      syncCurriculumActivitiesForLessonPlan,
+      assertCurriculumIntegrityOrError,
+      defaultSiteContentStore,
+      defaultCurriculumStore,
+    });
+  } catch (error) {
+    console.error("[curriculum-toddler-seed] startup seed failed:", error.message);
+  }
 }
 
 function ensureStore() {
