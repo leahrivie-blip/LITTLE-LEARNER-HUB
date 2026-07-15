@@ -79,10 +79,15 @@ function unitTests() {
 
   const libraryPaths = covers.EXISTING_COVER_LIBRARY.map((item) => item.path);
   assert(libraryPaths.length >= 25, "expected reusable cover library");
+  let totalCoverBytes = 0;
   for (const item of covers.EXISTING_COVER_LIBRARY) {
     const filePath = path.join(ROOT, item.path.replace(/^\//, ""));
     assert(fs.existsSync(filePath), `missing cover asset: ${item.path}`);
+    const source = fs.readFileSync(filePath, "utf8");
+    totalCoverBytes += Buffer.byteLength(source);
+    assert(source.includes("<svg") && source.includes("</svg>"), `invalid SVG cover: ${item.path}`);
   }
+  assert(totalCoverBytes < 250 * 1024, `cover library is too large: ${totalCoverBytes} bytes`);
 
   const app = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   assert(app.includes("lesson-plan-card__cover"), "card cover img class missing");
@@ -332,6 +337,11 @@ async function browserRegression() {
     assert(cardAudit.pro.src.includes("ocean") || cardAudit.pro.src.includes("lesson-covers"), `pro cover unexpected: ${cardAudit.pro.src}`);
     assert(cardAudit.pro.badge === "Pro", "PRO badge missing");
     assert(!cardAudit.pro.hasUsePlan, "locked Pro card should not expose Use This Plan");
+    const loadedCover = await page.locator("#view-lessons .lesson-plan-card")
+      .filter({ hasText: seeded.freeTitle })
+      .locator("img.lesson-plan-card__cover")
+      .evaluate((img) => ({ complete: img.complete, naturalWidth: img.naturalWidth }));
+    assert(loadedCover.complete && loadedCover.naturalWidth > 0, "visible lesson cover failed to load");
 
     const fallbackResult = await page.evaluate((title) => {
       const card = [...document.querySelectorAll("#view-lessons .lesson-plan-card")]
@@ -477,6 +487,35 @@ async function browserRegression() {
     assert(adminControlAudit.fallback.includes("ocean"), "removing cover must immediately restore theme fallback");
     assert(adminControlAudit.position.includes("bottom"), `admin focal position preview failed: ${JSON.stringify(adminControlAudit)}`);
     assert(adminControlAudit.titleBefore === adminControlAudit.titleAfter, "cover controls changed unrelated lesson data");
+
+    const copyAudit = await page.evaluate(() => {
+      const copy = buildUserLessonCopyResource({
+        id: "copy-cover-source",
+        title: "Copy Cover Source",
+        age: "Preschool",
+        plan: "Free",
+        _curriculumLessonPlan: {
+          id: "copy-cover-source",
+          title: "Copy Cover Source",
+          age: "Preschool",
+          plan: "Free",
+          theme: "Ocean",
+          coverImageUrl: "/images/lesson-covers/ocean.svg",
+          coverImageAlt: "Ocean copy cover",
+          coverImageSource: "mapped",
+          coverImagePosition: "top",
+          dailyPlans: {},
+        },
+      });
+      return {
+        url: copy.coverImageUrl,
+        alt: copy.coverImageAlt,
+        position: copy.coverImagePosition,
+        nestedUrl: copy._curriculumLessonPlan?.coverImageUrl,
+      };
+    });
+    assert(copyAudit.url.includes("ocean") && copyAudit.nestedUrl.includes("ocean"), "duplicating lost cover URL");
+    assert(copyAudit.alt === "Ocean copy cover" && copyAudit.position === "top", "duplicating lost cover metadata");
 
     const asset = await requestJson("GET", "/images/lesson-covers/colors.svg");
     assert(asset.status === 200, "cover asset not served");
