@@ -71,9 +71,14 @@ function parseImportMessage(message, severity) {
   return entry;
 }
 
-function isBlockingUnmappedEntry(entry) {
+function isBlockingUnmappedEntry(entry, formatVersion = 0) {
   const text = String(entry?.text || "").trim();
   if (!text) return false;
+  // V4 Smart Import keeps unmapped prose as warnings, not blockers.
+  if (Number(formatVersion) === 4) {
+    if (/^@[A-Z0-9_]+@$/i.test(text)) return true;
+    return false;
+  }
   if (/^@[A-Z0-9_]+@$/i.test(text)) return true;
   if (/^(ACTIVITY_NAME|CATEGORY|DIRECTIONS|TITLE|AGE_GROUP|THEME|PLAN|STATUS|BOOKS|SONGS|MATERIALS|SETUP):/i.test(text)) return true;
   if (/^---ACTIVITY---/i.test(text)) return true;
@@ -142,26 +147,52 @@ function duplicateTitleWarnings(data) {
 
 function emptyWeekdayWarnings(data, formatVersion = 1) {
   const warnings = [];
-  const skipDayMediaWarnings = formatVersion === 3;
+  const skipDayMediaWarnings = formatVersion === 3 || formatVersion === 4;
   CURRICULUM_WEEKDAYS.forEach((day) => {
     const dayPlan = data.dailyPlans?.[day];
     if (!dayPlan) return;
+    const dayLabel = day.charAt(0).toUpperCase() + day.slice(1);
     const hasDayContent = Boolean(
       dayPlan.theme
       || dayPlan.objectives
       || (dayPlan.items || []).length
       || (dayPlan.books || []).length
-      || (dayPlan.songs || []).length,
+      || (dayPlan.songs || []).length
+      || dayPlan.materials
+      || dayPlan.vocabulary
+      || (dayPlan.circleTime || []).length,
     );
     if (hasDayContent && !(dayPlan.items || []).length) {
       warnings.push({
         severity: "warning",
-        message: `${day.charAt(0).toUpperCase() + day.slice(1)} has daily content but no activities.`,
+        message: `${dayLabel} has daily content but no activities.`,
         section: "daily",
         weekday: day,
         activityName: "",
         line: null,
       });
+    }
+    if (formatVersion === 4 && (dayPlan.items || []).length) {
+      if (!dayPlan.vocabulary) {
+        warnings.push({
+          severity: "warning",
+          message: `${dayLabel} missing vocabulary`,
+          section: "daily",
+          weekday: day,
+          activityName: "",
+          line: null,
+        });
+      }
+      if (!dayPlan.familyConnection) {
+        warnings.push({
+          severity: "warning",
+          message: `${dayLabel} missing family connection`,
+          section: "daily",
+          weekday: day,
+          activityName: "",
+          line: null,
+        });
+      }
     }
     if ((dayPlan.items || []).length && !(dayPlan.books || []).length && !skipDayMediaWarnings) {
       warnings.push({
@@ -308,7 +339,7 @@ function buildCurriculumImportPreview(parsed, options = {}) {
   if (formatVersion === 0 || formatVersion === 1) {
     structuredWarnings.unshift({
       severity: "error",
-      message: "Unrecognized paste format. Use TITLE:, AGE_GROUP:, weekday headers (MONDAY–FRIDAY), and ACTIVITY_NAME: blocks.",
+      message: "Unrecognized paste format. Use V3 Strict labels or switch to V4 Smart Import for flexible section names.",
       section: "format",
       weekday: "",
       activityName: "",
@@ -316,7 +347,7 @@ function buildCurriculumImportPreview(parsed, options = {}) {
     });
   }
   const unmapped = Array.isArray(parsed?.unmapped) ? parsed.unmapped : [];
-  const blockingUnmapped = unmapped.filter(isBlockingUnmappedEntry);
+  const blockingUnmapped = unmapped.filter((entry) => isBlockingUnmappedEntry(entry, formatVersion));
   const duplicateTitle = resolveDuplicateLessonTitle(data, existingPlans, editingLessonPlanId);
   const lessonPlanId = proposedLessonPlanId || editingLessonPlanId || "";
   const activitySync = computeActivitySyncPreview(data, {
@@ -344,6 +375,7 @@ function buildCurriculumImportPreview(parsed, options = {}) {
       line: null,
     });
   }
+  const quality = parsed?.parseReport?.quality || null;
   const summary = {
     lessonPlanCount: 1,
     weekdaysDetected: daysPresent.length,
@@ -357,11 +389,16 @@ function buildCurriculumImportPreview(parsed, options = {}) {
     unmappedCount: unmapped.length,
     blockingUnmappedCount: blockingUnmapped.length,
     formatVersion,
-    formatLabel: formatVersion === 3
-      ? "Little Learner Hub lesson plan format"
-      : formatVersion === 2
-        ? "legacy marker format (unsupported)"
-        : "unrecognized format",
+    formatLabel: formatVersion === 4
+      ? "V4 Smart Import"
+      : formatVersion === 3
+        ? "V3 Strict Import (label-only)"
+        : formatVersion === 2
+          ? "legacy marker format (unsupported)"
+          : "unrecognized format",
+    qualityScore: quality?.qualityScore ?? null,
+    missingFieldCount: quality?.missingFieldCount ?? null,
+    categoriesAssigned: quality?.categoriesAssigned ?? activityCounts.total,
   };
   return {
     ok: Boolean(parsed?.ok) && structuredErrors.length === 0,
@@ -375,11 +412,14 @@ function buildCurriculumImportPreview(parsed, options = {}) {
     duplicateTitle,
     activitySync,
     daysPresent,
+    quality,
     canConfirm: Boolean(parsed?.ok)
       && structuredErrors.length === 0
       && blockingUnmapped.length === 0
       && duplicateTitle.status !== "duplicate",
-    confirmMessage: `Import & Save will create 1 lesson plan and ${summary.activityLibraryEntries} linked Activity Library ${summary.activityLibraryEntries === 1 ? "entry" : "entries"} automatically.`,
+    confirmMessage: formatVersion === 4
+      ? `Import & Save will create 1 lesson plan and ${summary.activityLibraryEntries} linked Activity Library ${summary.activityLibraryEntries === 1 ? "entry" : "entries"}. Warnings can be fixed in the editor after import.`
+      : `Import & Save will create 1 lesson plan and ${summary.activityLibraryEntries} linked Activity Library ${summary.activityLibraryEntries === 1 ? "entry" : "entries"} automatically.`,
   };
 }
 
