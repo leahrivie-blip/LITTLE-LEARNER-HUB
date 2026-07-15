@@ -4536,7 +4536,12 @@ function loadCurriculumManagedLessonPlans() {
       activityFocus: "",
       weeklyOverview: plan.weeklyOverview || "",
       materials: plan.weeklyMaterials || "",
-      previewData: "",
+      previewData: sanitizedImageSource(plan.coverImageUrl || "") || (lessonPlanCoversApi()?.resolveLessonPlanCover?.(plan)?.url || ""),
+      thumbnailUrl: sanitizedImageSource(plan.coverImageUrl || "") || (lessonPlanCoversApi()?.resolveLessonPlanCover?.(plan)?.url || ""),
+      coverImageUrl: plan.coverImageUrl || "",
+      coverImageAlt: plan.coverImageAlt || "",
+      coverImageSource: plan.coverImageSource || "",
+      coverImagePosition: plan.coverImagePosition || "center",
       visible: true,
       archived: false,
       featured: plan.status === "featured",
@@ -5733,6 +5738,12 @@ function buildUserLessonCopyResource(sourceResource) {
     developmentalArea: curriculumAsStringArray(copyPlan.learningDomains)[0] || sourceResource.developmentalArea || "",
     materials: copyPlan.weeklyMaterials || sourceResource.materials || "",
     weeklyOverview: copyPlan.weeklyOverview || "",
+    previewData: sanitizedImageSource(copyPlan.coverImageUrl || sourceResource.previewData || sourceResource.thumbnailUrl || "") || "",
+    thumbnailUrl: sanitizedImageSource(copyPlan.coverImageUrl || sourceResource.thumbnailUrl || sourceResource.previewData || "") || "",
+    coverImageUrl: copyPlan.coverImageUrl || "",
+    coverImageAlt: copyPlan.coverImageAlt || "",
+    coverImageSource: copyPlan.coverImageSource || "",
+    coverImagePosition: copyPlan.coverImagePosition || "center",
     customContent: buildLessonPlanTextFromCurriculum(copyPlan),
     visible: true,
     archived: false,
@@ -6209,6 +6220,139 @@ function closeUserLessonEditor({ force = false } = {}) {
   return true;
 }
 
+function renderAdminCurriculumLessonCoverSection(record) {
+  const coversApi = lessonPlanCoversApi();
+  const resolved = resolveLessonPlanCoverForResource(record);
+  const currentUrl = sanitizedImageSource(record.coverImageUrl || "") || "";
+  const previewUrl = sanitizedImageSource(currentUrl || resolved.url || "")
+    || coversApi?.DEFAULT_COVER
+    || "/images/lesson-covers/default.svg";
+  const previewAlt = String(record.coverImageAlt || resolved.alt || "Lesson plan cover preview").trim();
+  const position = String(record.coverImagePosition || "center").trim() || "center";
+  const source = String(record.coverImageSource || (currentUrl ? "uploaded" : resolved.source || "")).trim();
+  const library = Array.isArray(coversApi?.EXISTING_COVER_LIBRARY) ? coversApi.EXISTING_COVER_LIBRARY : [];
+  const categories = [...new Set(library.map((item) => item.category).filter(Boolean))];
+  return `
+    <fieldset class="admin-fieldset curriculum-cover-editor" data-curriculum-cover-editor>
+      <legend>Cover Image</legend>
+      <p class="muted-copy">Optional illustrated cover for the Lesson Plan Library card. Leave empty to use the automatic theme match.</p>
+      <div class="curriculum-cover-preview-row">
+        <div class="curriculum-cover-preview">
+          <img
+            data-curriculum-cover-preview
+            src="${escapeHtml(previewUrl)}"
+            alt="${escapeHtml(previewAlt)}"
+            width="320"
+            height="180"
+            loading="lazy"
+            decoding="async"
+          />
+        </div>
+        <div class="curriculum-cover-preview-meta">
+          <p class="muted-copy">${currentUrl ? "Custom cover assigned." : "Using automatic theme / age fallback."}</p>
+          <div class="form-actions" style="margin:0">
+            <button class="ghost-button" type="button" data-curriculum-cover-remove ${currentUrl ? "" : "disabled"}>Remove Image</button>
+          </div>
+        </div>
+      </div>
+      <input type="hidden" name="coverImageUrl" value="${escapeHtml(currentUrl)}" data-curriculum-cover-url />
+      <input type="hidden" name="coverImageSource" value="${escapeHtml(source)}" data-curriculum-cover-source />
+      <div class="form-grid-two">
+        <label>Paste image URL
+          <input type="text" data-curriculum-cover-url-input value="${escapeHtml(currentUrl.startsWith("data:") ? "" : currentUrl)}" placeholder="https://… or /images/lesson-covers/…" />
+        </label>
+        <label>Upload new image
+          <input type="file" accept="image/*" data-curriculum-cover-upload />
+        </label>
+      </div>
+      <label>Alt text
+        <input name="coverImageAlt" value="${escapeHtml(record.coverImageAlt || "")}" maxlength="240" placeholder="Illustration of … for this lesson plan" />
+      </label>
+      <label>Image position
+        <select name="coverImagePosition">
+          ${["center", "top", "bottom", "left", "right"].map((value) => `
+            <option value="${value}"${position === value ? " selected" : ""}>${value.charAt(0).toUpperCase()}${value.slice(1)}</option>
+          `).join("")}
+        </select>
+      </label>
+      <details class="curriculum-cover-library" data-curriculum-cover-library>
+        <summary>Choose Existing Cover</summary>
+        <label class="curriculum-cover-library-search">
+          Search covers
+          <input type="search" data-curriculum-cover-search placeholder="Search by theme or category" />
+        </label>
+        <div class="curriculum-cover-library-filters" role="group" aria-label="Cover categories">
+          <button type="button" class="ghost-button active-filter" data-curriculum-cover-category="All">All</button>
+          ${categories.map((category) => `
+            <button type="button" class="ghost-button" data-curriculum-cover-category="${escapeHtml(category)}">${escapeHtml(category)}</button>
+          `).join("")}
+        </div>
+        <div class="curriculum-cover-library-grid" data-curriculum-cover-grid>
+          ${library.map((item) => `
+            <button
+              type="button"
+              class="curriculum-cover-library-item${currentUrl === item.path ? " is-selected" : ""}"
+              data-curriculum-cover-pick="${escapeHtml(item.path)}"
+              data-cover-label="${escapeHtml(item.label)}"
+              data-cover-category="${escapeHtml(item.category || "")}"
+              aria-label="Use ${escapeHtml(item.label)} cover"
+            >
+              <img src="${escapeHtml(item.path)}" alt="" width="160" height="90" loading="lazy" decoding="async" />
+              <span>${escapeHtml(item.label)}</span>
+            </button>
+          `).join("")}
+        </div>
+      </details>
+    </fieldset>
+  `;
+}
+
+function applyAdminCurriculumCoverSelection(url, { source = "mapped", alt = "" } = {}) {
+  const form = document.querySelector("#adminCurriculumLessonPlanForm");
+  if (!form) return;
+  const safeUrl = sanitizedImageSource(url || "");
+  const urlField = form.querySelector("[data-curriculum-cover-url]");
+  const sourceField = form.querySelector("[data-curriculum-cover-source]");
+  const urlInput = form.querySelector("[data-curriculum-cover-url-input]");
+  const preview = form.querySelector("[data-curriculum-cover-preview]");
+  const altField = form.querySelector('[name="coverImageAlt"]');
+  const removeButton = form.querySelector("[data-curriculum-cover-remove]");
+  if (urlField) urlField.value = safeUrl;
+  if (sourceField) sourceField.value = safeUrl ? source : "";
+  if (urlInput && !String(safeUrl).startsWith("data:")) urlInput.value = safeUrl;
+  if (urlInput && !safeUrl) urlInput.value = "";
+  if (preview) {
+    preview.src = safeUrl
+      || resolveLessonPlanCoverForResource({
+        title: form.querySelector('[name="title"]')?.value || "",
+        theme: form.querySelector('[name="theme"]')?.value || "",
+        age: form.querySelector('[name="age"]')?.value || "",
+      }).url
+      || "/images/lesson-covers/default.svg";
+  }
+  if (alt && altField && !String(altField.value || "").trim()) {
+    altField.value = alt;
+  }
+  if (removeButton) removeButton.disabled = !safeUrl;
+  form.querySelectorAll("[data-curriculum-cover-pick]").forEach((button) => {
+    button.classList.toggle("is-selected", button.dataset.curriculumCoverPick === safeUrl);
+  });
+}
+
+function filterAdminCurriculumCoverLibrary() {
+  const form = document.querySelector("#adminCurriculumLessonPlanForm");
+  if (!form) return;
+  const query = String(form.querySelector("[data-curriculum-cover-search]")?.value || "").trim().toLowerCase();
+  const activeCategory = form.querySelector("[data-curriculum-cover-category].active-filter")?.dataset.curriculumCoverCategory || "All";
+  form.querySelectorAll("[data-curriculum-cover-pick]").forEach((button) => {
+    const label = String(button.dataset.coverLabel || button.textContent || "").toLowerCase();
+    const category = String(button.dataset.coverCategory || "");
+    const matchesQuery = !query || label.includes(query) || category.toLowerCase().includes(query);
+    const matchesCategory = activeCategory === "All" || category === activeCategory;
+    button.hidden = !(matchesQuery && matchesCategory);
+  });
+}
+
 function renderAdminCurriculumLessonPlanForm(plan) {
   const record = normalizeCurriculumLessonPlanForRender(plan || curriculumLessonEditorRecord() || {
     id: adminCurriculumLessonEditorId || "",
@@ -6255,6 +6399,7 @@ function renderAdminCurriculumLessonPlanForm(plan) {
           </select>
         </label>
       </div>
+      ${renderAdminCurriculumLessonCoverSection(record)}
       <label>Status
         <select name="status">
           ${CURRICULUM_LESSON_STATUSES.map((status) => `<option value="${status}"${record.status === status ? " selected" : ""}>${curriculumLessonPlanStatusLabel(status)}</option>`).join("")}
@@ -6496,6 +6641,26 @@ function collectCurriculumLessonPlanFromForm(form, existingOverride = null) {
     dailyPlans,
     resourceIds: existing?.resourceIds || [],
     activityIds: existing?.activityIds || [],
+    coverImageUrl: (() => {
+      const rawCoverUrl = formData.get("coverImageUrl");
+      if (rawCoverUrl === null) return sanitizedImageSource(existing?.coverImageUrl || "");
+      return sanitizedImageSource(rawCoverUrl || "");
+    })(),
+    coverImageAlt: (() => {
+      const rawAlt = formData.get("coverImageAlt");
+      if (rawAlt === null) return existing?.coverImageAlt || "";
+      return normalizedShortText(rawAlt) || "";
+    })(),
+    coverImageSource: (() => {
+      const rawSource = formData.get("coverImageSource");
+      if (rawSource === null) return existing?.coverImageSource || "";
+      return normalizedShortText(rawSource) || "";
+    })(),
+    coverImagePosition: (() => {
+      const rawPosition = formData.get("coverImagePosition");
+      if (rawPosition === null) return existing?.coverImagePosition || "center";
+      return normalizedShortText(rawPosition) || "center";
+    })(),
     createdAt: existing?.createdAt || "",
     updatedAt: existing?.updatedAt || "",
   };
@@ -9966,8 +10131,25 @@ function libraryAccessBadgeHtml() {
   return `<span class="library-access-badge is-pro">✓ Pro — Full Access</span>`;
 }
 
+function lessonPlanCoversApi() {
+  return globalThis.LlhLessonPlanCovers || null;
+}
+
+function resolveLessonPlanCoverForResource(resource) {
+  const api = lessonPlanCoversApi();
+  if (api?.resolveLessonPlanCover) return api.resolveLessonPlanCover(resource);
+  const fallback = sanitizedImageSource(resource?.previewData || resource?.thumbnailUrl || resource?._curriculumLessonPlan?.coverImageUrl || "");
+  return {
+    url: fallback || "/images/lesson-covers/default.svg",
+    alt: `Cover for ${resource?.title || "lesson plan"}`,
+    source: fallback ? "uploaded" : "default",
+    position: "center",
+  };
+}
+
 function libraryResourceCoverStyle(resource) {
-  const image = sanitizedImageSource(resource.previewData || resource.thumbnailUrl || "");
+  const cover = resolveLessonPlanCoverForResource(resource);
+  const image = sanitizedImageSource(cover.url || "");
   if (image) return `background-image: url('${escapeHtml(image)}')`;
   return "";
 }
@@ -10102,12 +10284,20 @@ function lessonPlanCard(resource) {
   const openLabel = locked ? `Preview ${resource.title}` : `Open ${resource.title}`;
   const pickingForCalendar = Boolean(calendarLessonAssignContext?.weekStartDate);
   const coverClass = libraryCoverToneClass(`${resource.title}-${theme || ageLabel}`);
-  const coverStyle = libraryResourceCoverStyle(resource);
+  const resolvedCover = resolveLessonPlanCoverForResource(resource);
+  const coverUrl = sanitizedImageSource(resolvedCover.url || "")
+    || lessonPlanCoversApi()?.DEFAULT_COVER
+    || "/images/lesson-covers/default.svg";
+  const coverAlt = String(resolvedCover.alt || "").trim() || `Cover illustration for ${resource.title}`;
+  const coverPosition = String(resolvedCover.position || "center").trim() || "center";
+  const fallbackUrl = lessonPlanCoversApi()?.DEFAULT_COVER || "/images/lesson-covers/default.svg";
+  const description = lessonPlanCoversApi()?.shortThemeDescription?.(resource)
+    || (theme && theme.toLowerCase() !== String(resource.title || "").trim().toLowerCase() ? theme : "");
   const metaParts = [ageLabel];
-  if (activityCount) metaParts.push(`${activityCount} Activities`);
+  if (activityCount) metaParts.push(`${activityCount} ${activityCount === 1 ? "Activity" : "Activities"}`);
   return `
     <article
-      class="resource-card lesson-plan-card browse-card ${locked ? "locked" : ""} ${pickingForCalendar ? "is-calendar-pick" : ""}"
+      class="resource-card lesson-plan-card browse-card has-cover-image ${locked ? "locked" : ""} ${pickingForCalendar ? "is-calendar-pick" : ""}"
       data-lesson-card="${escapeHtml(resource.id)}"
       data-view-resource="${escapeHtml(resource.id)}"
       data-browse-card="${escapeHtml(resource.id)}"
@@ -10115,7 +10305,20 @@ function lessonPlanCard(resource) {
       tabindex="0"
       aria-label="${escapeHtml(openLabel)}"
     >
-      <div class="browse-card-cover ${coverClass}" ${coverStyle ? `style="${coverStyle}"` : ""}>
+      <div class="browse-card-cover ${coverClass} lesson-plan-card__cover-wrap">
+        <img
+          class="lesson-plan-card__cover"
+          src="${escapeHtml(coverUrl)}"
+          alt="${escapeHtml(coverAlt)}"
+          width="480"
+          height="270"
+          loading="lazy"
+          decoding="async"
+          data-cover-fallback="${escapeHtml(fallbackUrl)}"
+          style="object-position:${escapeHtml(coverPosition)}"
+          onerror="if(this.dataset.coverFallback&&this.getAttribute('src')!==this.dataset.coverFallback){this.setAttribute('src',this.dataset.coverFallback);this.onerror=null;}"
+        />
+        <div class="browse-card-cover-scrim" aria-hidden="true"></div>
         <span class="browse-card-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>
         <button
           class="lesson-plan-save-btn browse-card-save ${favorite ? "is-saved" : ""} ${!isProUser() ? "disabled-control" : ""}"
@@ -10125,12 +10328,11 @@ function lessonPlanCard(resource) {
           aria-pressed="${favorite ? "true" : "false"}"
           title="${escapeHtml(favoriteLabel)}"
         >${favorite ? "★" : "☆"}</button>
-        ${theme && !coverStyle ? `<span class="browse-card-cover-label">${escapeHtml(theme)}</span>` : ""}
       </div>
       <div class="browse-card-body">
         <h3>${escapeHtml(resource.title)}</h3>
         <p class="browse-card-meta">${escapeHtml(metaParts.join(" · "))}</p>
-        ${theme ? `<p class="browse-card-parent">${escapeHtml(theme)}</p>` : ""}
+        ${description ? `<p class="browse-card-desc">${escapeHtml(description)}</p>` : ""}
       </div>
       ${!locked ? `
         <div class="browse-card-always-actions lesson-plan-card-actions">
@@ -10340,20 +10542,44 @@ function featuredLessonBannerHtml(items) {
   if (!featured) return "";
   const blurb = truncateLessonOverview(featured.weeklyOverview || featured.description || featured.theme || "A full week of ready-to-use play-based activities.", 120);
   const coverClass = libraryCoverToneClass(`${featured.title}-featured`);
-  const coverStyle = libraryResourceCoverStyle(featured);
+  const resolvedCover = resolveLessonPlanCoverForResource(featured);
+  const coverUrl = sanitizedImageSource(resolvedCover.url || "")
+    || lessonPlanCoversApi()?.DEFAULT_COVER
+    || "/images/lesson-covers/default.svg";
+  const coverAlt = String(resolvedCover.alt || "").trim() || `Cover illustration for ${featured.title}`;
+  const coverPosition = String(resolvedCover.position || "center").trim() || "center";
+  const fallbackUrl = lessonPlanCoversApi()?.DEFAULT_COVER || "/images/lesson-covers/default.svg";
+  const planBadge = libraryPlanBadge(featured);
+  const ageLabel = String(featured.age || "").trim();
   const locked = !canAccess(featured);
   return `
-    <section class="library-featured-banner" aria-label="Featured lesson plan">
+    <section class="library-featured-banner has-cover-image" aria-label="Featured lesson plan">
+      <div class="library-featured-banner-media ${coverClass}">
+        <img
+          class="library-featured-banner-image"
+          src="${escapeHtml(coverUrl)}"
+          alt="${escapeHtml(coverAlt)}"
+          width="960"
+          height="540"
+          loading="eager"
+          decoding="async"
+          data-cover-fallback="${escapeHtml(fallbackUrl)}"
+          style="object-position:${escapeHtml(coverPosition)}"
+          onerror="if(this.dataset.coverFallback&&this.getAttribute('src')!==this.dataset.coverFallback){this.setAttribute('src',this.dataset.coverFallback);this.onerror=null;}"
+        />
+        <div class="library-featured-banner-scrim" aria-hidden="true"></div>
+        <span class="browse-card-badge library-featured-banner-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>
+      </div>
       <div class="library-featured-banner-copy">
         <p class="library-featured-banner-eyebrow">Featured This Week</p>
         <h3>${escapeHtml(featured.title)}</h3>
+        ${ageLabel ? `<p class="library-featured-banner-meta">${escapeHtml(ageLabel)}</p>` : ""}
         <p>${escapeHtml(blurb)}</p>
         <div class="library-featured-banner-actions">
           <button type="button" class="primary-button" data-view-resource="${escapeHtml(featured.id)}">View Lesson Plan</button>
           ${!locked ? `<button type="button" class="ghost-button" data-lesson-card-use-plan="${escapeHtml(featured.id)}">Add to Calendar</button>` : ""}
         </div>
       </div>
-      <div class="library-featured-banner-cover ${coverClass}" ${coverStyle ? `style="${coverStyle}"` : ""} role="img" aria-label="${escapeHtml(featured.title)}"></div>
     </section>
   `;
 }
@@ -43987,6 +44213,18 @@ document.addEventListener("input", (event) => {
     if (event.target.matches("#adminFormsSearch")) renderAdminFormsManager();
     if (event.target.matches("#adminPrintablesSearch")) renderAdminPrintablesManager();
   }
+  if (event.target.matches("[data-curriculum-cover-search]")) {
+    filterAdminCurriculumCoverLibrary();
+  }
+  if (event.target.matches("[data-curriculum-cover-url-input]")) {
+    const raw = String(event.target.value || "").trim();
+    if (!raw) {
+      applyAdminCurriculumCoverSelection("", { source: "" });
+      return;
+    }
+    const safe = sanitizedImageSource(raw);
+    if (safe) applyAdminCurriculumCoverSelection(safe, { source: "uploaded" });
+  }
   // Mark managed-collection editor forms dirty when the user types in them
   const managedFormTypes = { "#adminActivitiesManagerApp": "activities", "#adminFormsManagerApp": "forms", "#adminPrintablesManagerApp": "printables" };
   for (const [appId, type] of Object.entries(managedFormTypes)) {
@@ -44967,6 +45205,31 @@ document.addEventListener("change", (event) => {
     moveCurriculumDailyPlanRowToDay(row, event.target.value);
     return;
   }
+  if (event.target.matches("[data-curriculum-cover-upload]")) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    fileToImageDataUrlSafe(file).then((dataUrl) => {
+      if (!dataUrl) {
+        setFormMessage("#adminCurriculumLessonPlanMessage", "Could not read that image. Try a smaller PNG, JPG, or WebP.", false);
+        return;
+      }
+      applyAdminCurriculumCoverSelection(dataUrl, { source: "uploaded" });
+    }).catch(() => {
+      setFormMessage("#adminCurriculumLessonPlanMessage", "Could not upload that cover image.", false);
+    });
+    return;
+  }
+  if (event.target.matches("[data-curriculum-cover-url-input]")) {
+    const raw = String(event.target.value || "").trim();
+    if (!raw) {
+      applyAdminCurriculumCoverSelection("", { source: "" });
+      return;
+    }
+    const safe = sanitizedImageSource(raw);
+    if (safe) applyAdminCurriculumCoverSelection(safe, { source: "uploaded" });
+    else setFormMessage("#adminCurriculumLessonPlanMessage", "Cover URL must start with / or https://", false);
+    return;
+  }
   if (event.target.matches("#adminFounderPhotoFile")) {
     const file = event.target.files?.[0];
     const preview = document.querySelector("#adminFounderPhotoPreview");
@@ -45176,6 +45439,35 @@ document.addEventListener("click", async (event) => {
   const curriculumLessonEditButton = event.target.closest("[data-curriculum-lesson-edit]");
   if (curriculumLessonEditButton) {
     openAdminCurriculumLessonEditor(curriculumLessonEditButton.dataset.curriculumLessonEdit, { scroll: true });
+    return;
+  }
+  const coverPickButton = event.target.closest("[data-curriculum-cover-pick]");
+  if (coverPickButton) {
+    event.preventDefault();
+    const path = coverPickButton.dataset.curriculumCoverPick || "";
+    const label = coverPickButton.dataset.coverLabel || "lesson plan";
+    applyAdminCurriculumCoverSelection(path, {
+      source: "mapped",
+      alt: `Illustration for ${label}`,
+    });
+    return;
+  }
+  if (event.target.closest("[data-curriculum-cover-remove]")) {
+    event.preventDefault();
+    applyAdminCurriculumCoverSelection("", { source: "" });
+    const form = document.querySelector("#adminCurriculumLessonPlanForm");
+    const altField = form?.querySelector('[name="coverImageAlt"]');
+    if (altField) altField.value = "";
+    return;
+  }
+  const coverCategoryButton = event.target.closest("[data-curriculum-cover-category]");
+  if (coverCategoryButton) {
+    event.preventDefault();
+    const form = document.querySelector("#adminCurriculumLessonPlanForm");
+    form?.querySelectorAll("[data-curriculum-cover-category]").forEach((button) => {
+      button.classList.toggle("active-filter", button === coverCategoryButton);
+    });
+    filterAdminCurriculumCoverLibrary();
     return;
   }
   if (event.target.closest("#adminCurriculumLessonParseButton")) {

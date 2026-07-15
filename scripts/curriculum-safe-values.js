@@ -141,6 +141,10 @@ function normalizeCurriculumLessonPlanForRender(plan = {}) {
     activityCount: Number(entry.activityCount) || 0,
     activityIds: curriculumAsStringArray(entry.activityIds),
     resourceIds: curriculumAsStringArray(entry.resourceIds),
+    coverImageUrl: curriculumAsString(entry.coverImageUrl || entry.thumbnailUrl),
+    coverImageAlt: curriculumAsString(entry.coverImageAlt),
+    coverImageSource: curriculumAsString(entry.coverImageSource),
+    coverImagePosition: curriculumAsString(entry.coverImagePosition) || "center",
     createdAt: curriculumAsString(entry.createdAt),
     updatedAt: curriculumAsString(entry.updatedAt),
   };

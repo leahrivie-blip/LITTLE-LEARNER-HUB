@@ -4049,6 +4049,101 @@ body.lessons-view .mobile-brand {
   font-weight: 700;
 }
 
+.curriculum-cover-editor {
+  margin-top: 8px;
+}
+
+.curriculum-cover-preview-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 240px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 12px;
+}
+
+.curriculum-cover-preview {
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #f4f1fb;
+  aspect-ratio: 16 / 9;
+}
+
+.curriculum-cover-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.curriculum-cover-library {
+  margin-top: 10px;
+}
+
+.curriculum-cover-library summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #5b4a9e;
+}
+
+.curriculum-cover-library-search {
+  display: grid;
+  gap: 4px;
+  margin: 10px 0;
+}
+
+.curriculum-cover-library-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.curriculum-cover-library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+  max-height: 320px;
+  overflow: auto;
+  padding: 2px;
+}
+
+.curriculum-cover-library-item {
+  display: grid;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.curriculum-cover-library-item img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #efeaf8;
+}
+
+.curriculum-cover-library-item span {
+  font-size: 0.75rem;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+.curriculum-cover-library-item.is-selected {
+  border-color: #7b6bb5;
+  box-shadow: 0 0 0 2px rgba(123, 107, 181, 0.25);
+}
+
+@media (max-width: 700px) {
+  .curriculum-cover-preview-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .admin-lesson-editing-heading {
   margin: 2px 0 4px;
   color: #5b4a9e;

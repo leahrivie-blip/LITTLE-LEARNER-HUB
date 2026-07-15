@@ -1,12 +1,13 @@
-const CACHE_NAME = "llh-shell-v46-hide-forms-nav";
+const CACHE_NAME = "llh-shell-v47-lesson-covers";
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/styles.css?v=20260715-weekly-pdf-redesign",
+  "/styles.css?v=20260715-lesson-covers",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260715-tablet2",
-  "/styles/llh-library-browse.css?v=20260715-signup-fix",
+  "/styles/llh-library-browse.css?v=20260715-lesson-covers",
   "/scripts/curriculum-safe-values.js?v=20260712-v3-render-fix",
+  "/scripts/lesson-plan-covers.js?v=20260715-lesson-covers",
   "/scripts/curriculum-lesson-import-parser.js?v=20260715-weekly-pdf-reg",
   "/scripts/curriculum-lesson-import-v4.js?v=20260715-import-v5",
   "/scripts/curriculum-import-preview.js?v=20260715-import-v5",
@@ -14,7 +15,7 @@ const APP_SHELL = [
   "/scripts/llh-schedule.js?v=20260714-prod-priority-fixes",
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
   "/scripts/lesson-plan-weekly-export.js?v=20260715-weekly-pdf-reg",
-  "/app.js?v=20260715-weekly-pdf-reg",
+  "/app.js?v=20260715-lesson-covers",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
