@@ -531,7 +531,8 @@ async function main() {
     check("No activity duplication after refresh", DAYS.every((day) => new Set(afterRefresh.titles[day]).size === afterRefresh.titles[day].length), JSON.stringify(afterRefresh.titles));
     const reopenEmpty = await page.evaluate((days) => days.filter((day) => {
       const card = document.querySelector(`[data-weekly-plan-day="${day}"]`) || document.querySelector(`[data-week-day-card="${day}"]`);
-      return !card?.querySelector(".llh-day-activity-list li");
+      const hasActivity = Boolean(card?.querySelector(".llh-weekly-plan-activity-list li, .llh-day-activity-list li"));
+      return !hasActivity;
     }), DAYS);
     check("Reopened week has no false empty days", reopenEmpty.length === 0, JSON.stringify(reopenEmpty));
 
