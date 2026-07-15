@@ -950,6 +950,12 @@ function normalizedCurriculumLessonPlan(value) {
     dailyPlans: normalizedCurriculumDailyPlans(entry.dailyPlans, id),
     activityIds: normalizedList(entry.activityIds, 200, (item) => normalizedShortText(item, 160)).filter(Boolean),
     resourceIds: normalizedList(entry.resourceIds, 200, (item) => normalizedShortText(item, 160)).filter(Boolean),
+    coverImageUrl: sanitizedImageSource(entry.coverImageUrl || entry.thumbnailUrl || ""),
+    coverImageAlt: normalizedShortText(entry.coverImageAlt, 240),
+    coverImageSource: ["uploaded", "generated", "default", "mapped"].includes(String(entry.coverImageSource || "").trim())
+      ? String(entry.coverImageSource).trim()
+      : (sanitizedImageSource(entry.coverImageUrl || entry.thumbnailUrl || "") ? "uploaded" : ""),
+    coverImagePosition: normalizedShortText(entry.coverImagePosition, 40) || "center",
     createdAt: normalizedShortText(entry.createdAt, 80),
     updatedAt: normalizedShortText(entry.updatedAt, 80),
     // Set when status first becomes published/featured; used by weekly "What's New" digests.
@@ -1197,6 +1203,10 @@ function publicCurriculumLessonPlanPreviewDto(plan) {
     learningDomains: entry.learningDomains.slice(0, 6),
     weeklyOverview: curriculumTextExcerpt(entry.weeklyOverview, 80),
     activityCount,
+    coverImageUrl: entry.coverImageUrl,
+    coverImageAlt: entry.coverImageAlt,
+    coverImageSource: entry.coverImageSource,
+    coverImagePosition: entry.coverImagePosition,
     updatedAt: entry.updatedAt,
   };
 }
@@ -1224,6 +1234,10 @@ function publicCurriculumLessonPlanFreeDto(plan) {
     familyConnection: entry.familyConnection,
     dailyPlans: authorizedCurriculumDailyPlansDto(entry.dailyPlans),
     resourceIds: entry.resourceIds,
+    coverImageUrl: entry.coverImageUrl,
+    coverImageAlt: entry.coverImageAlt,
+    coverImageSource: entry.coverImageSource,
+    coverImagePosition: entry.coverImagePosition,
     updatedAt: entry.updatedAt,
   };
 }
@@ -1252,6 +1266,10 @@ function authorizedCurriculumLessonPlanDto(plan) {
     dailyPlans: authorizedCurriculumDailyPlansDto(entry.dailyPlans),
     activityIds: entry.activityIds,
     resourceIds: entry.resourceIds,
+    coverImageUrl: entry.coverImageUrl,
+    coverImageAlt: entry.coverImageAlt,
+    coverImageSource: entry.coverImageSource,
+    coverImagePosition: entry.coverImagePosition,
     updatedAt: entry.updatedAt,
   };
 }

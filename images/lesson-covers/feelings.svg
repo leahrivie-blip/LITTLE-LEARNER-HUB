@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450" role="img">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFF0F4"/>
+      <stop offset="100%" stop-color="#E8F8FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="450" fill="url(#sky)"/>
+  
+      <circle cx="200" cy="220" r="70" fill="#FFE66D"/>
+      <circle cx="175" cy="200" r="8" fill="#5A4A42"/>
+      <circle cx="225" cy="200" r="8" fill="#5A4A42"/>
+      <path d="M170 245 q30 25 60 0" fill="none" stroke="#5A4A42" stroke-width="5" stroke-linecap="round"/>
+      <circle cx="400" cy="220" r="70" fill="#A8D4FF"/>
+      <circle cx="375" cy="205" r="8" fill="#5A4A42"/>
+      <circle cx="425" cy="205" r="8" fill="#5A4A42"/>
+      <path d="M375 250 q25 -15 50 0" fill="none" stroke="#5A4A42" stroke-width="5" stroke-linecap="round"/>
+      <circle cx="600" cy="220" r="70" fill="#FF8FAB"/>
+      <circle cx="575" cy="200" r="8" fill="#5A4A42"/>
+      <circle cx="625" cy="200" r="8" fill="#5A4A42"/>
+      <circle cx="575" cy="195" r="4" fill="#FFF" opacity="0.6"/>
+      <path d="M575 250 q25 20 50 0" fill="none" stroke="#5A4A42" stroke-width="5" stroke-linecap="round"/>
+      <path d="M300 350 q50 -30 100 0 q50 30 100 0" fill="none" stroke="#B388FF" stroke-width="10" opacity="0.4"/>
+    
+</svg>

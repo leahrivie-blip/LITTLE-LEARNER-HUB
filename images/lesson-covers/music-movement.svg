@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450" role="img">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFE8F0"/>
+      <stop offset="100%" stop-color="#E8F0FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="450" fill="url(#sky)"/>
+  
+      <circle cx="280" cy="180" r="35" fill="#FFD4B8"/>
+      <ellipse cx="280" cy="280" rx="40" ry="55" fill="#FF8FAB"/>
+      <path d="M250 300 q-40 20 -30 60 M310 300 q40 20 30 60" fill="none" stroke="#FF8FAB" stroke-width="16" stroke-linecap="round"/>
+      <path d="M240 250 q-35 -20 -50 10 M320 250 q35 -20 50 10" fill="none" stroke="#FFD4B8" stroke-width="14" stroke-linecap="round"/>
+      <circle cx="520" cy="200" r="35" fill="#E8B898"/>
+      <ellipse cx="520" cy="300" rx="40" ry="55" fill="#6C8CFF"/>
+      <path d="M490 320 q-40 20 -30 60 M550 320 q40 20 30 60" fill="none" stroke="#6C8CFF" stroke-width="16" stroke-linecap="round"/>
+      <path d="M480 270 q-35 -30 -55 -5 M560 270 q35 -30 55 -5" fill="none" stroke="#E8B898" stroke-width="14" stroke-linecap="round"/>
+      <path d="M150 120 q15 -30 30 0 M200 100 q15 -30 30 0 M600 110 q15 -30 30 0 M650 130 q15 -30 30 0" fill="none" stroke="#B388FF" stroke-width="5" stroke-linecap="round"/>
+    
+</svg>
