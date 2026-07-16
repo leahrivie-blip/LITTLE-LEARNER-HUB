@@ -12,14 +12,9 @@ Pro
 
 STATUS:
 published
-LEARNING_DOMAINS:
-Science
-Language & Literacy
-Math
-Physical Development
-Social Emotional
-Creative Arts
 
+LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Physical Development, Social Emotional, Creative Arts
 
 WEEKLY_OVERVIEW:
 Children will become scientists as they ask questions, make predictions, conduct experiments, observe results, and explore the world around them. Throughout the week, children will investigate colors, magnets, water, plants, and simple chemical reactions while building critical thinking, observation, and problem-solving skills through hands-on discovery.
@@ -33,7 +28,6 @@ Strengthen vocabulary related to science
 Build problem-solving and critical thinking skills
 Encourage curiosity and questioning
 Develop fine and gross motor skills
-
 
 WEEKLY_MATERIALS:
 Magnifying glasses
@@ -53,7 +47,6 @@ Clipboards
 Books
 Music player
 
-
 VOCABULARY:
 Scientist
 Experiment
@@ -70,12 +63,10 @@ Hypothesis
 Explore
 Reaction
 
-
 BOOKS:
 Ada Twist, Scientist | Andrea Beaty
 What Is Science? | Rebecca Kai Dotlich
 The Most Magnificent Thing | Ashley Spires
-
 
 SONGS:
 The Science Song
@@ -91,646 +82,925 @@ Observe children's curiosity, ability to make predictions, problem-solving skill
 ADAPTATIONS:
 Provide visual supports and picture cards. Offer hands-on materials for all learners. Allow children to participate through observation, discussion, drawing, movement, or experimentation.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+Little Scientists: Scientist Exploration Lab and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Introduce scientific tools and observation skills.
+Explore color combinations and cause and effect.
+Develop creativity and fine motor skills.
+
+DAILY_VOCABULARY:
+Scientist, Experiment, Observe, Predict, Investigate, Discover
+
+DAILY_MATERIALS:
+Magnifying glasses
+Natural objects
+Clipboards
+Water
+Food coloring
+Clear cups
+Paper badges
+Markers
+Stickers
+Movement cards
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to little scientists.
+Sing "The Science Song" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit Ada Twist, Scientist by Andrea Beaty and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to little scientists — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Scientist Exploration Lab / Color Mixing Discovery).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Little Scientists play
+
+DAILY_ADAPTATIONS:
+Provide visual supports and picture cards. Offer hands-on materials for all learners. Allow children to participate through observation, discussion, drawing, movement, or experimentation.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Scientist Exploration Lab
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Introduce scientific tools and observation skills.
-
+DESCRIPTION:
+Introduce scientific tools and observation skills.
 MATERIALS:
 Magnifying glasses
 Natural objects
 Clipboards
-
 SETUP:
 Arrange materials at science tables.
-
-DIRECTIONS:
-Explore objects using magnifying glasses.
-Discuss observations.
-Record discoveries through drawings.
-
 TEACHER_ROLE:
 Model observation skills and scientific vocabulary.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Introduce scientific tools and observation skills.
-
+DIRECTIONS:
+1. Explore objects using magnifying glasses.
+2. Discuss observations.
+3. Record discoveries through drawings.
 LEARNING_GOALS:
 Introduce scientific tools and observation skills.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Color Mixing Discovery
-
 CATEGORY:
 Sensory Play
-
 OBJECTIVE:
 Explore color combinations and cause and effect.
-
+DESCRIPTION:
+Explore color combinations and cause and effect.
 MATERIALS:
 Water
 Food coloring
 Clear cups
-
 SETUP:
 Prepare color stations.
-
-DIRECTIONS:
-Mix colors together.
-Observe changes.
-Predict new colors before mixing.
-
 TEACHER_ROLE:
 Encourage predictions and observations.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Explore color combinations and cause and effect.
-
+DIRECTIONS:
+1. Mix colors together.
+2. Observe changes.
+3. Predict new colors before mixing.
 LEARNING_GOALS:
 Explore color combinations and cause and effect.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Scientist Badge Craft
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Develop creativity and fine motor skills.
-
+DESCRIPTION:
+Develop creativity and fine motor skills.
 MATERIALS:
 Paper badges
 Markers
 Stickers
-
 SETUP:
 Prepare craft station.
-
-DIRECTIONS:
-Create personalized scientist badges.
-
 TEACHER_ROLE:
 Encourage creativity and ownership.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop creativity and fine motor skills.
-
+DIRECTIONS:
+1. Introduce Scientist Badge Craft and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop creativity and fine motor skills.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Science Movement Challenge
-
 CATEGORY:
 Music & Movement
-
 OBJECTIVE:
 Develop listening and body awareness.
-
-MATERIALS:
-Movement cards
-
-SETUP:
-Open movement area.
-
-DIRECTIONS:
-Move like bouncing molecules, growing plants, and spinning planets.
-
-TEACHER_ROLE:
-Lead movement activities.
-
 DESCRIPTION:
 Develop listening and body awareness.
+MATERIALS:
+Movement cards
+SETUP:
+Open movement area.
+TEACHER_ROLE:
+Lead movement activities.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Introduce Science Movement Challenge and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop listening and body awareness.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
-TUESDAY:
+TUESDAY
+
+DAILY_THEME:
+Little Scientists: Magnet Investigation and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Explore magnetism.
+Encourage imaginative scientific exploration.
+Combine science and creativity.
+
+DAILY_VOCABULARY:
+Scientist, Experiment, Observe, Predict, Investigate, Discover
+
+DAILY_MATERIALS:
+Magnets
+Metal and non-metal objects
+Lab coats
+Goggles
+Clipboards
+Magnets
+Paint
+Paper clips
+Paint trays
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to little scientists.
+Sing "The Science Song" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit Ada Twist, Scientist by Andrea Beaty and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to little scientists — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Magnet Investigation / Science Lab Dramatic Play).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Little Scientists play
+
+DAILY_ADAPTATIONS:
+Provide visual supports and picture cards. Offer hands-on materials for all learners. Allow children to participate through observation, discussion, drawing, movement, or experimentation.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Magnet Investigation
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Explore magnetism.
-
+DESCRIPTION:
+Explore magnetism.
 MATERIALS:
 Magnets
 Metal and non-metal objects
-
 SETUP:
 Arrange testing materials.
-
-DIRECTIONS:
-Test objects with magnets.
-Sort items into magnetic and non-magnetic groups.
-
 TEACHER_ROLE:
 Guide exploration and discussion.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Explore magnetism.
-
+DIRECTIONS:
+1. Introduce Magnet Investigation and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Explore magnetism.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Science Lab Dramatic Play
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Encourage imaginative scientific exploration.
-
+DESCRIPTION:
+Encourage imaginative scientific exploration.
 MATERIALS:
 Lab coats
 Goggles
 Clipboards
-
 SETUP:
 Create science laboratory.
-
-DIRECTIONS:
-Conduct pretend experiments and record findings.
-
 TEACHER_ROLE:
 Support role-playing and vocabulary development.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Encourage imaginative scientific exploration.
-
+DIRECTIONS:
+1. Introduce Science Lab Dramatic Play and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Encourage imaginative scientific exploration.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Magnet Art
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Combine science and creativity.
-
+DESCRIPTION:
+Combine science and creativity.
 MATERIALS:
 Magnets
 Paint
 Paper clips
 Paint trays
-
 SETUP:
 Prepare art station.
-
-DIRECTIONS:
-Use magnets to move paint-covered paper clips across paper.
-
 TEACHER_ROLE:
 Encourage observation of movement.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Combine science and creativity.
-
+DIRECTIONS:
+1. Introduce Magnet Art and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Combine science and creativity.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Discovery Dance
-
 CATEGORY:
 Music & Movement
-
 OBJECTIVE:
 Celebrate exploration through movement.
-
-MATERIALS:
-Music player
-
-SETUP:
-Open movement area.
-
-DIRECTIONS:
-Move in response to scientific discoveries and observations.
-
-TEACHER_ROLE:
-Encourage participation and creativity.
-
 DESCRIPTION:
 Celebrate exploration through movement.
+MATERIALS:
+Music player
+SETUP:
+Open movement area.
+TEACHER_ROLE:
+Encourage participation and creativity.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Introduce Discovery Dance and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Celebrate exploration through movement.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
-WEDNESDAY:
+WEDNESDAY
+
+DAILY_THEME:
+Little Scientists: Sink or Float Investigation and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Explore buoyancy concepts.
+Explore water properties.
+Record scientific observations.
+
+DAILY_VOCABULARY:
+Scientist, Experiment, Observe, Predict, Investigate, Discover
+
+DAILY_MATERIALS:
+Water tub
+Various objects
+Funnels
+Cups
+Droppers
+Paper
+Crayons
+Markers
+None
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to little scientists.
+Sing "The Science Song" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit Ada Twist, Scientist by Andrea Beaty and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to little scientists — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Sink or Float Investigation / Water Exploration Center).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Little Scientists play
+
+DAILY_ADAPTATIONS:
+Provide visual supports and picture cards. Offer hands-on materials for all learners. Allow children to participate through observation, discussion, drawing, movement, or experimentation.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Sink or Float Investigation
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Explore buoyancy concepts.
-
+DESCRIPTION:
+Explore buoyancy concepts.
 MATERIALS:
 Water tub
 Various objects
-
 SETUP:
 Prepare testing station.
-
-DIRECTIONS:
-Predict whether objects will sink or float.
-Test and compare results.
-
 TEACHER_ROLE:
 Encourage scientific thinking.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Explore buoyancy concepts.
-
+DIRECTIONS:
+1. Introduce Sink or Float Investigation and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Explore buoyancy concepts.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Water Exploration Center
-
 CATEGORY:
 Sensory Play
-
 OBJECTIVE:
 Explore water properties.
-
+DESCRIPTION:
+Explore water properties.
 MATERIALS:
 Funnels
 Cups
 Droppers
-
 SETUP:
 Prepare water table.
-
-DIRECTIONS:
-Pour, transfer, and investigate water.
-
 TEACHER_ROLE:
 Support experimentation.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Explore water properties.
-
+DIRECTIONS:
+1. Introduce Water Exploration Center and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Explore water properties.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Observation Journal Drawing
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Record scientific observations.
-
+DESCRIPTION:
+Record scientific observations.
 MATERIALS:
 Paper
 Crayons
 Markers
-
 SETUP:
 Prepare journal station.
-
-DIRECTIONS:
-Draw discoveries from experiments.
-
 TEACHER_ROLE:
 Encourage reflection.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Record scientific observations.
-
+DIRECTIONS:
+1. Introduce Observation Journal Drawing and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Record scientific observations.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Scientist Says
-
 CATEGORY:
 Music & Movement
-
 OBJECTIVE:
 Develop listening skills.
-
-MATERIALS:
-None
-
-SETUP:
-Open movement area.
-
-DIRECTIONS:
-Play a science-themed version of Simon Says.
-
-TEACHER_ROLE:
-Lead directions and encourage participation.
-
 DESCRIPTION:
 Develop listening skills.
+MATERIALS:
+None
+SETUP:
+Open movement area.
+TEACHER_ROLE:
+Lead directions and encourage participation.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Introduce Scientist Says and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop listening skills.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
-THURSDAY:
+THURSDAY
+
+DAILY_THEME:
+Little Scientists: Growing Plants Investigation and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Learn about plant growth.
+Encourage observation and exploration.
+Demonstrate understanding of plant life cycles.
+
+DAILY_VOCABULARY:
+Scientist, Experiment, Observe, Predict, Investigate, Discover
+
+DAILY_MATERIALS:
+Seeds
+Soil
+Cups
+Magnifying glasses
+Nature items
+Paper
+Markers
+Glue
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to little scientists.
+Sing "The Science Song" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit Ada Twist, Scientist by Andrea Beaty and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to little scientists — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Growing Plants Investigation / Nature Scientist Station).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Little Scientists play
+
+DAILY_ADAPTATIONS:
+Provide visual supports and picture cards. Offer hands-on materials for all learners. Allow children to participate through observation, discussion, drawing, movement, or experimentation.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Growing Plants Investigation
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Learn about plant growth.
-
+DESCRIPTION:
+Learn about plant growth.
 MATERIALS:
 Seeds
 Soil
 Cups
-
 SETUP:
 Prepare planting station.
-
-DIRECTIONS:
-Plant seeds and discuss growth needs.
-
 TEACHER_ROLE:
 Guide observations and predictions.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Learn about plant growth.
-
+DIRECTIONS:
+1. Introduce Growing Plants Investigation and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Learn about plant growth.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Nature Scientist Station
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Encourage observation and exploration.
-
+DESCRIPTION:
+Encourage observation and exploration.
 MATERIALS:
 Magnifying glasses
 Nature items
-
 SETUP:
 Create outdoor investigation center.
-
-DIRECTIONS:
-Observe and classify natural objects.
-
 TEACHER_ROLE:
 Support scientific discussions.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Encourage observation and exploration.
-
+DIRECTIONS:
+1. Introduce Nature Scientist Station and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Encourage observation and exploration.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Plant Growth Craft
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Demonstrate understanding of plant life cycles.
-
+DESCRIPTION:
+Demonstrate understanding of plant life cycles.
 MATERIALS:
 Paper
 Markers
 Glue
-
 SETUP:
 Prepare art materials.
-
-DIRECTIONS:
-Create plant growth sequence artwork.
-
 TEACHER_ROLE:
 Support creativity and sequencing.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Demonstrate understanding of plant life cycles.
-
+DIRECTIONS:
+1. Introduce Plant Growth Craft and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Demonstrate understanding of plant life cycles.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Growing Like a Plant
-
 CATEGORY:
 Gross Motor
-
 OBJECTIVE:
 Develop body awareness.
-
-MATERIALS:
-Music player
-
-SETUP:
-Open movement area.
-
-DIRECTIONS:
-Pretend to grow from a seed into a plant.
-
-TEACHER_ROLE:
-Model movements.
-
 DESCRIPTION:
 Develop body awareness.
+MATERIALS:
+Music player
+SETUP:
+Open movement area.
+TEACHER_ROLE:
+Model movements.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Introduce Growing Like a Plant and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop body awareness.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
-FRIDAY:
+FRIDAY
+
+DAILY_THEME:
+Little Scientists: Science Fair Showcase and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Build confidence and communication skills.
+Review scientific concepts.
+Celebrate learning and discovery.
+
+DAILY_VOCABULARY:
+Scientist, Experiment, Observe, Predict, Investigate, Discover
+
+DAILY_MATERIALS:
+Projects from the week
+Favorite materials from the week
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to little scientists.
+Sing "The Science Song" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit Ada Twist, Scientist by Andrea Beaty and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to little scientists — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Science Fair Showcase / Scientist Discovery Centers).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Little Scientists play
+
+DAILY_ADAPTATIONS:
+Provide visual supports and picture cards. Offer hands-on materials for all learners. Allow children to participate through observation, discussion, drawing, movement, or experimentation.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Science Fair Showcase
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Build confidence and communication skills.
-
-MATERIALS:
-Projects from the week
-
-SETUP:
-Create science fair displays.
-
-DIRECTIONS:
-Share favorite discoveries and experiments.
-
-TEACHER_ROLE:
-Encourage reflection and presentation skills.
-
 DESCRIPTION:
 Build confidence and communication skills.
+MATERIALS:
+Projects from the week
+SETUP:
+Create science fair displays.
+TEACHER_ROLE:
+Encourage reflection and presentation skills.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Introduce Science Fair Showcase and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Build confidence and communication skills.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Scientist Discovery Centers
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Review scientific concepts.
-
-MATERIALS:
-Favorite materials from the week
-
-SETUP:
-Create exploration stations.
-
-DIRECTIONS:
-Revisit favorite investigations and experiments.
-
-TEACHER_ROLE:
-Observe and support learning.
-
 DESCRIPTION:
 Review scientific concepts.
+MATERIALS:
+Favorite materials from the week
+SETUP:
+Create exploration stations.
+TEACHER_ROLE:
+Observe and support learning.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Introduce Scientist Discovery Centers and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Review scientific concepts.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Little Scientist Celebration
-
 CATEGORY:
 Music & Movement
-
 OBJECTIVE:
 Celebrate learning and discovery.
-
-MATERIALS:
-Music player
-
-SETUP:
-Open movement area.
-
-DIRECTIONS:
-Dance and celebrate a week of scientific exploration.
-
-TEACHER_ROLE:
-Celebrate participation and accomplishments.
-
 DESCRIPTION:
 Celebrate learning and discovery.
+MATERIALS:
+Music player
+SETUP:
+Open movement area.
+TEACHER_ROLE:
+Celebrate participation and accomplishments.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Introduce Little Scientist Celebration and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Celebrate learning and discovery.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

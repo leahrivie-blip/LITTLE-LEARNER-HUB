@@ -14,12 +14,7 @@ STATUS:
 published
 
 LEARNING_DOMAINS:
-Social Emotional
-Physical Development
-Language & Literacy
-Science
-Math
-Creative Arts
+Social Emotional, Physical Development, Language & Literacy, Science, Math, Creative Arts
 
 WEEKLY_OVERVIEW:
 Children will learn how healthy choices help their bodies grow strong. Throughout the week, children will explore nutrition, exercise, hygiene, sleep, dental health, and self-care through hands-on activities, movement games, dramatic play, experiments, and creative experiences. Children will build lifelong healthy habits while strengthening social, physical, and cognitive skills.
@@ -86,7 +81,53 @@ Observe children's understanding of healthy choices, participation in self-care 
 ADAPTATIONS:
 Provide visual supports for routines. Offer adaptive tools when needed. Break activities into smaller steps and allow children multiple ways to participate.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+Healthy Habits: Healthy Food Sorting and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Identify healthy and less healthy food choices.
+Explore healthy foods through sensory play.
+Learn about balanced meals.
+
+DAILY_VOCABULARY:
+Healthy, Exercise, Nutrition, Vegetables, Fruits, Strong
+
+DAILY_MATERIALS:
+Food pictures
+Sorting mats
+Plastic fruits
+Plastic vegetables
+Rice
+Scoops
+Paper plates
+Food pictures
+Glue
+Scissors
+Cones
+Hula hoops
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Physical Development, Language & Literacy, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to healthy habits.
+Sing "Brush Your Teeth" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit The Berenstain Bears and Too Much Junk Food by Stan and Jan Berenstain and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to healthy habits — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Healthy Food Sorting / Fruit and Vegetable Sensory Bin).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Healthy Habits play
+
+DAILY_ADAPTATIONS:
+Provide visual supports for routines. Offer adaptive tools when needed. Break activities into smaller steps and allow children multiple ways to participate.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Healthy Food Sorting
@@ -103,6 +144,8 @@ SETUP:
 Place food pictures in a basket.
 TEACHER_ROLE:
 Guide discussions and encourage critical thinking.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Sort foods into healthy and sometimes foods.
 2. Discuss food choices.
@@ -111,6 +154,15 @@ LEARNING_GOALS:
 Identify healthy and less healthy food choices.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Fruit and Vegetable Sensory Bin
@@ -129,6 +181,8 @@ SETUP:
 Create sensory bin.
 TEACHER_ROLE:
 Model vocabulary and encourage conversation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Search for fruits and vegetables.
 2. Name each item discovered.
@@ -137,6 +191,15 @@ LEARNING_GOALS:
 Explore healthy foods through sensory play.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 My Healthy Plate Craft
@@ -155,13 +218,27 @@ SETUP:
 Prepare materials.
 TEACHER_ROLE:
 Support cutting and healthy food discussions.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Create a healthy meal plate.
-2. Discuss food groups.
+1. Introduce My Healthy Plate Craft and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Learn about balanced meals.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Fitness Fun Circuit
@@ -178,14 +255,73 @@ SETUP:
 Create movement stations.
 TEACHER_ROLE:
 Encourage participation and safe movement.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Jump, hop, crawl, and balance through stations.
+1. Introduce Fitness Fun Circuit and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Promote exercise and movement.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-TUESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Healthy Habits: Handwashing Science and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Understand the importance of handwashing.
+Explore health care roles.
+Develop creativity and understanding of germs.
+
+DAILY_VOCABULARY:
+Healthy, Exercise, Nutrition, Vegetables, Fruits, Strong
+
+DAILY_MATERIALS:
+Glitter
+Soap
+Water
+Doctor kit
+Bandages
+Clipboards
+Paint
+Paper
+Markers
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Physical Development, Language & Literacy, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to healthy habits.
+Sing "Brush Your Teeth" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit The Berenstain Bears and Too Much Junk Food by Stan and Jan Berenstain and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to healthy habits — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Handwashing Science / Doctor's Office Dramatic Play).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Healthy Habits play
+
+DAILY_ADAPTATIONS:
+Provide visual supports for routines. Offer adaptive tools when needed. Break activities into smaller steps and allow children multiple ways to participate.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Handwashing Science
@@ -203,6 +339,8 @@ SETUP:
 Place glitter on children's hands.
 TEACHER_ROLE:
 Explain hygiene concepts.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Pretend glitter is germs.
 2. Wash hands with and without soap.
@@ -211,6 +349,15 @@ LEARNING_GOALS:
 Understand the importance of handwashing.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Doctor's Office Dramatic Play
@@ -228,13 +375,27 @@ SETUP:
 Create doctor's office.
 TEACHER_ROLE:
 Support role-playing and communication.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Take turns being doctors and patients.
-2. Discuss healthy habits.
+1. Introduce Doctor's Office Dramatic Play and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Explore health care roles.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Germ Monster Art
@@ -252,13 +413,27 @@ SETUP:
 Prepare art station.
 TEACHER_ROLE:
 Connect art to hygiene lessons.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Create silly germ monsters.
-2. Discuss how to keep germs away.
+1. Introduce Germ Monster Art and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop creativity and understanding of germs.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Healthy Habits Movement Game
@@ -274,14 +449,71 @@ SETUP:
 Open movement space.
 TEACHER_ROLE:
 Lead movements and discussions.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Act out brushing teeth, exercising, sleeping, and washing hands.
+1. Introduce Healthy Habits Movement Game and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Practice healthy routines through movement.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-WEDNESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Healthy Habits: Toothbrush Investigation and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Learn about dental health.
+Build confidence around dental care.
+Strengthen fine motor skills.
+
+DAILY_VOCABULARY:
+Healthy, Exercise, Nutrition, Vegetables, Fruits, Strong
+
+DAILY_MATERIALS:
+Toothbrushes
+Model teeth
+Dental props
+Mirrors
+Tooth templates
+Cotton balls
+Glue
+Exercise cards
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Physical Development, Language & Literacy, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to healthy habits.
+Sing "Brush Your Teeth" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit The Berenstain Bears and Too Much Junk Food by Stan and Jan Berenstain and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to healthy habits — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Toothbrush Investigation / Dentist Office Dramatic Play).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Healthy Habits play
+
+DAILY_ADAPTATIONS:
+Provide visual supports for routines. Offer adaptive tools when needed. Break activities into smaller steps and allow children multiple ways to participate.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Toothbrush Investigation
@@ -298,13 +530,27 @@ SETUP:
 Prepare demonstration area.
 TEACHER_ROLE:
 Model proper brushing.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Practice brushing techniques.
-2. Discuss caring for teeth.
+1. Introduce Toothbrush Investigation and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Learn about dental health.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Dentist Office Dramatic Play
@@ -321,12 +567,27 @@ SETUP:
 Create dental office.
 TEACHER_ROLE:
 Support role-play and reduce fears.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Pretend to examine and clean teeth.
+1. Introduce Dentist Office Dramatic Play and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Build confidence around dental care.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Tooth Craft
@@ -344,13 +605,27 @@ SETUP:
 Prepare craft supplies.
 TEACHER_ROLE:
 Encourage creativity and conversation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Decorate healthy teeth.
-2. Discuss dental care.
+1. Introduce Tooth Craft and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Strengthen fine motor skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Strong Body Exercise Time
@@ -366,14 +641,70 @@ SETUP:
 Create movement area.
 TEACHER_ROLE:
 Encourage effort and participation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Complete exercise challenges.
+1. Introduce Strong Body Exercise Time and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop strength and coordination.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-THURSDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Healthy Habits: Healthy Choices Sorting Game and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Practice making healthy choices.
+Practice independence skills.
+Promote hydration awareness.
+
+DAILY_VOCABULARY:
+Healthy, Exercise, Nutrition, Vegetables, Fruits, Strong
+
+DAILY_MATERIALS:
+Picture cards
+Brushes
+Washcloths
+Mirrors
+Water bottles
+Stickers
+Cones
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Physical Development, Language & Literacy, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to healthy habits.
+Sing "Brush Your Teeth" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit The Berenstain Bears and Too Much Junk Food by Stan and Jan Berenstain and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to healthy habits — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Healthy Choices Sorting Game / Self-Care Station).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Healthy Habits play
+
+DAILY_ADAPTATIONS:
+Provide visual supports for routines. Offer adaptive tools when needed. Break activities into smaller steps and allow children multiple ways to participate.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Healthy Choices Sorting Game
@@ -389,13 +720,27 @@ SETUP:
 Prepare sorting mats.
 TEACHER_ROLE:
 Guide discussions.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Sort healthy and unhealthy choices.
-2. Discuss reasoning.
+1. Introduce Healthy Choices Sorting Game and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Practice making healthy choices.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Self-Care Station
@@ -413,12 +758,27 @@ SETUP:
 Create self-care center.
 TEACHER_ROLE:
 Model self-care skills.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Practice grooming routines.
+1. Introduce Self-Care Station and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Practice independence skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Water Bottle Decorating
@@ -435,12 +795,27 @@ SETUP:
 Prepare decorating station.
 TEACHER_ROLE:
 Discuss drinking water benefits.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Decorate personal water bottles.
+1. Introduce Water Bottle Decorating and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Promote hydration awareness.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Healthy Habits Relay
@@ -456,14 +831,67 @@ SETUP:
 Create relay course.
 TEACHER_ROLE:
 Encourage teamwork.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Complete healthy habit challenges.
+1. Introduce Healthy Habits Relay and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Promote active play.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-FRIDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Healthy Habits: Healthy Habits Review Stations and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Review concepts learned during the week.
+Celebrate healthy choices.
+Celebrate movement and exercise.
+
+DAILY_VOCABULARY:
+Healthy, Exercise, Nutrition, Vegetables, Fruits, Strong
+
+DAILY_MATERIALS:
+Materials from the week
+Certificates
+Props
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Physical Development, Language & Literacy, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to healthy habits.
+Sing "Brush Your Teeth" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit The Berenstain Bears and Too Much Junk Food by Stan and Jan Berenstain and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to healthy habits — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Healthy Habits Review Stations / Healthy Hero Celebration).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Healthy Habits play
+
+DAILY_ADAPTATIONS:
+Provide visual supports for routines. Offer adaptive tools when needed. Break activities into smaller steps and allow children multiple ways to participate.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Healthy Habits Review Stations
@@ -479,12 +907,27 @@ SETUP:
 Create review centers.
 TEACHER_ROLE:
 Encourage reflection.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Visit stations and discuss learning.
+1. Introduce Healthy Habits Review Stations and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Review concepts learned during the week.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Healthy Hero Celebration
@@ -501,13 +944,27 @@ SETUP:
 Create celebration area.
 TEACHER_ROLE:
 Celebrate learning and participation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Share favorite healthy habits.
-2. Receive Healthy Hero recognition.
+1. Introduce Healthy Hero Celebration and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Celebrate healthy choices.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Healthy Dance Party
@@ -523,11 +980,24 @@ SETUP:
 Open movement area.
 TEACHER_ROLE:
 Encourage joyful movement.
+TEACHER_LANGUAGE:
 
 DIRECTIONS:
-1. Dance and move with friends.
-2. Practice favorite exercises.
+1. Introduce Healthy Dance Party and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Celebrate movement and exercise.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

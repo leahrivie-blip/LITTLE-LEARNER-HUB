@@ -14,12 +14,7 @@ STATUS:
 published
 
 LEARNING_DOMAINS:
-Science
-Language & Literacy
-Math
-Creative Arts
-Physical Development
-Social Emotional
+Science, Language & Literacy, Math, Creative Arts, Physical Development, Social Emotional
 
 WEEKLY_OVERVIEW:
 Preschoolers will explore sight, hearing, touch, smell, and taste through safe sensory stations, experiments, games, and discussions. Children will name the five senses and describe how each helps them learn about the world.
@@ -77,7 +72,46 @@ Observe sensory vocabulary, willingness to try explorations, descriptive languag
 ADAPTATIONS:
 Avoid known allergens in smell and taste activities. Offer opt-out for smell jars. Use taste-safe items only.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+Five Senses: Five Senses Circle Intro and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Introduce five senses and body parts used.
+Use magnifying glasses to observe details.
+Play I Spy using colored paddles to focus sight.
+
+DAILY_VOCABULARY:
+see, hear, touch, smell, taste, sense
+
+DAILY_MATERIALS:
+Sense cards, body chart
+Magnifying glasses, natural objects, trays
+Color paddles, classroom objects
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to five senses.
+Sing "Head, Shoulders, Knees and Toes (senses version)" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit My Five Senses by Aliki and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to five senses — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Five Senses Circle Intro / Sight Exploration Station).
+
+DAILY_OBSERVATIONS:
+Names five senses
+Uses magnifier correctly
+Uses paddle to focus
+Participation and interest in Five Senses play
+
+DAILY_ADAPTATIONS:
+Avoid known allergens in smell and taste activities. Offer opt-out for smell jars. Use taste-safe items only.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Five Senses Circle Intro
@@ -93,6 +127,8 @@ SETUP:
 Post body chart at circle.
 TEACHER_ROLE:
 Model matching sense to body part.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Sing Head, Shoulders, Knees and Toes.
 2. Hold up see card to eyes.
@@ -107,6 +143,15 @@ OBSERVATION_OPPORTUNITIES:
 Names five senses
 Points to body parts
 Matches cards
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Sight Exploration Station
@@ -122,6 +167,8 @@ SETUP:
 Set objects on trays with magnifiers.
 TEACHER_ROLE:
 Ask detail questions during looking.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose object to examine.
 2. Look through magnifier.
@@ -136,6 +183,15 @@ OBSERVATION_OPPORTUNITIES:
 Uses magnifier correctly
 Describes details
 Records observation in drawing
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Color Paddle I Spy
@@ -151,6 +207,8 @@ SETUP:
 Give each child a color paddle.
 TEACHER_ROLE:
 Model I spy with color clue.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Look through paddle.
 2. Spy something matching paddle color.
@@ -165,8 +223,56 @@ OBSERVATION_OPPORTUNITIES:
 Uses paddle to focus
 Gives clear clue
 Guesses peer clues
+VOCABULARY:
 
-TUESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Five Senses: Mystery Sound Match and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Match shakers to picture cards by sound.
+Walk quietly and note sounds heard indoors or out.
+Add instrument sounds to a familiar story.
+
+DAILY_VOCABULARY:
+see, hear, touch, smell, taste, sense
+
+DAILY_MATERIALS:
+Sound shakers, matching picture cards
+Listening walk clipboard, pencils
+Story book, rhythm instruments
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to five senses.
+Sing "Head, Shoulders, Knees and Toes (senses version)" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit My Five Senses by Aliki and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to five senses — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Mystery Sound Match / Listening Walk).
+
+DAILY_OBSERVATIONS:
+Discriminates sounds
+Walks quietly
+Plays on cue
+Participation and interest in Five Senses play
+
+DAILY_ADAPTATIONS:
+Avoid known allergens in smell and taste activities. Offer opt-out for smell jars. Use taste-safe items only.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Mystery Sound Match
@@ -182,6 +288,8 @@ SETUP:
 Prepare identical-looking shakers with different fills.
 TEACHER_ROLE:
 Encourage quiet listening.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Shake one shaker.
 2. Listen carefully.
@@ -196,6 +304,15 @@ OBSERVATION_OPPORTUNITIES:
 Discriminates sounds
 Makes logical match
 Describes sound
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Listening Walk
@@ -211,6 +328,8 @@ SETUP:
 Prepare picture checklist of common sounds.
 TEACHER_ROLE:
 Demonstrate quiet walking.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Walk quietly together.
 2. Mark picture when sound heard.
@@ -225,6 +344,15 @@ OBSERVATION_OPPORTUNITIES:
 Walks quietly
 Marks heard sounds
 Compares with peers
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Sound Story with Instruments
@@ -240,6 +368,8 @@ SETUP:
 Assign instruments to story words.
 TEACHER_ROLE:
 Read and cue instrument plays.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Review instrument cues.
 2. Listen for word in story.
@@ -254,8 +384,56 @@ OBSERVATION_OPPORTUNITIES:
 Plays on cue
 Stops appropriately
 Attends to story
+VOCABULARY:
 
-WEDNESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Five Senses: Texture Exploration Station and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Touch materials and sort by texture.
+Guess objects inside a bag using touch only.
+Sort smell jars by pleasant or strong categories.
+
+DAILY_VOCABULARY:
+see, hear, touch, smell, taste, sense
+
+DAILY_MATERIALS:
+Texture samples, sorting mats
+Cloth bag, familiar objects
+Smell jars (lemon, cinnamon, vanilla), sorting mats
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to five senses.
+Sing "Head, Shoulders, Knees and Toes (senses version)" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit My Five Senses by Aliki and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to five senses — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Texture Exploration Station / Feely Bag Guessing Game).
+
+DAILY_OBSERVATIONS:
+Uses texture words
+Describes by touch
+Smells safely
+Participation and interest in Five Senses play
+
+DAILY_ADAPTATIONS:
+Avoid known allergens in smell and taste activities. Offer opt-out for smell jars. Use taste-safe items only.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Texture Exploration Station
@@ -271,6 +449,8 @@ SETUP:
 Organize samples on trays.
 TEACHER_ROLE:
 Model describing textures.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Feel each sample.
 2. Use texture words.
@@ -285,6 +465,15 @@ OBSERVATION_OPPORTUNITIES:
 Uses texture words
 Sorts accurately
 Guesses by touch
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Feely Bag Guessing Game
@@ -300,6 +489,8 @@ SETUP:
 Place safe objects in bag.
 TEACHER_ROLE:
 Supervise turns and no-peek rule.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Reach in without looking.
 2. Describe shape and texture.
@@ -314,6 +505,15 @@ OBSERVATION_OPPORTUNITIES:
 Describes by touch
 Makes reasonable guess
 Waits for turn
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Smell and Sort
@@ -329,6 +529,8 @@ SETUP:
 Prepare jars with vented lids.
 TEACHER_ROLE:
 Remind gentle sniffing not touching nose.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Smell one jar.
 2. Describe smell with word.
@@ -343,8 +545,56 @@ OBSERVATION_OPPORTUNITIES:
 Smells safely
 Uses descriptive words
 Sorts jars
+VOCABULARY:
 
-THURSDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Five Senses: Taste-Safe Sampling Station and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Sample sweet and sour taste-safe foods.
+Mix scented water colors for paint potions.
+Make pages for each sense with drawings.
+
+DAILY_VOCABULARY:
+see, hear, touch, smell, taste, sense
+
+DAILY_MATERIALS:
+Taste-safe foods (apple, lemon slice), cups, sorting cards
+Scented extracts, watercolors, paper, droppers
+Book template pages, crayons
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to five senses.
+Sing "Head, Shoulders, Knees and Toes (senses version)" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit My Five Senses by Aliki and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to five senses — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Taste-Safe Sampling Station / Sense Potion Mixing Art).
+
+DAILY_OBSERVATIONS:
+Tastes safely
+Mixes safely
+Completes all pages
+Participation and interest in Five Senses play
+
+DAILY_ADAPTATIONS:
+Avoid known allergens in smell and taste activities. Offer opt-out for smell jars. Use taste-safe items only.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Taste-Safe Sampling Station
@@ -360,6 +610,8 @@ SETUP:
 Prepare allergy-aware samples.
 TEACHER_ROLE:
 Supervise tiny tastes and hand washing.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Wash hands.
 2. Taste tiny sample.
@@ -374,6 +626,15 @@ OBSERVATION_OPPORTUNITIES:
 Tastes safely
 Uses sweet/sour words
 Follows hygiene
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Sense Potion Mixing Art
@@ -389,6 +650,8 @@ SETUP:
 Set potion station with droppers.
 TEACHER_ROLE:
 Connect scent and color choices.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose scent and color.
 2. Mix in cup with dropper.
@@ -403,6 +666,15 @@ OBSERVATION_OPPORTUNITIES:
 Mixes safely
 Describes scent and color
 Creates intentional art
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 My Five Senses Book
@@ -418,6 +690,8 @@ SETUP:
 Staple template into booklets.
 TEACHER_ROLE:
 Help label sense on each page.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Draw on see page what eyes notice.
 2. Complete hear, touch, smell, taste pages.
@@ -432,8 +706,56 @@ OBSERVATION_OPPORTUNITIES:
 Completes all pages
 Dictates sense sentence
 Shares book
+VOCABULARY:
 
-FRIDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Five Senses: Sense Obstacle Course and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Rotate through stations for each sense.
+Pretend to be sense scientists conducting tests.
+Review senses and share favorite exploration.
+
+DAILY_VOCABULARY:
+see, hear, touch, smell, taste, sense
+
+DAILY_MATERIALS:
+Station signs, materials from week
+Lab coat props, magnifiers, shakers, smell jars
+Sense cards, stickers
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to five senses.
+Sing "Head, Shoulders, Knees and Toes (senses version)" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit My Five Senses by Aliki and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to five senses — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Sense Obstacle Course / Sense Scientist Lab Coats).
+
+DAILY_OBSERVATIONS:
+Visits all stations
+Uses tools appropriately
+Names favorite sense
+Participation and interest in Five Senses play
+
+DAILY_ADAPTATIONS:
+Avoid known allergens in smell and taste activities. Offer opt-out for smell jars. Use taste-safe items only.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Sense Obstacle Course
@@ -449,6 +771,8 @@ SETUP:
 Set five short stations in path.
 TEACHER_ROLE:
 Rotate small groups through.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Start at sight station with magnifier.
 2. Move to sound shaker station.
@@ -463,6 +787,15 @@ OBSERVATION_OPPORTUNITIES:
 Visits all stations
 Names sense at each
 Follows rotation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Sense Scientist Lab Coats
@@ -478,6 +811,8 @@ SETUP:
 Set science lab dramatic area.
 TEACHER_ROLE:
 Assign scientist roles.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Put on lab coat.
 2. Choose tool for test.
@@ -492,6 +827,15 @@ OBSERVATION_OPPORTUNITIES:
 Uses tools appropriately
 Reports finding
 Engages in role
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Five Senses Celebration Circle
@@ -507,6 +851,8 @@ SETUP:
 Gather in circle.
 TEACHER_ROLE:
 Facilitate review and celebration.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Hold up favorite sense card.
 2. Share favorite activity from week.
@@ -521,3 +867,12 @@ OBSERVATION_OPPORTUNITIES:
 Names favorite sense
 Recalls activity
 Participates in song
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

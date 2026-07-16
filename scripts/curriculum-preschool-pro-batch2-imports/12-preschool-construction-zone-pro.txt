@@ -12,14 +12,9 @@ Pro
 
 STATUS:
 published
-LEARNING_DOMAINS:
-Science
-Math
-Language & Literacy
-Physical Development
-Social Emotional
-Creative Arts
 
+LEARNING_DOMAINS:
+Science, Math, Language & Literacy, Physical Development, Social Emotional, Creative Arts
 
 WEEKLY_OVERVIEW:
 Children will become builders, architects, engineers, and construction workers as they explore how things are designed and built. Through hands-on building challenges, dramatic play, measuring activities, construction-themed art, and problem-solving experiences, children will develop teamwork, creativity, and critical thinking skills while learning about the exciting world of construction.
@@ -33,7 +28,6 @@ Build teamwork and communication skills
 Learn about construction tools and jobs
 Develop creativity through design challenges
 Strengthen observation and planning abilities
-
 
 WEEKLY_MATERIALS:
 Blocks
@@ -53,7 +47,6 @@ Blueprint examples
 Books
 Music player
 
-
 VOCABULARY:
 Construction
 Builder
@@ -70,12 +63,10 @@ Crane
 Excavate
 Demolition
 
-
 BOOKS:
 Goodnight, Goodnight Construction Site | Sherri Duskey Rinker
 Mighty Mighty Construction Site | Sherri Duskey Rinker
 Roadwork | Sally Sutton
-
 
 SONGS:
 The Construction Worker Song
@@ -91,652 +82,933 @@ Observe children's problem-solving skills, ability to work cooperatively, measur
 ADAPTATIONS:
 Provide larger building materials when needed. Offer visual examples of structures and blueprints. Allow children to participate through building, drawing, dramatic play, or verbal discussion.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+Construction Zone: Construction Sensory Site and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Explore construction materials through sensory play.
+Learn about construction tools.
+Develop creativity and fine motor skills.
+
+DAILY_VOCABULARY:
+Construction, Builder, Engineer, Architect, Blueprint, Measure
+
+DAILY_MATERIALS:
+Kinetic sand
+Construction vehicles
+Small rocks
+Scoops
+Toy tools
+Tool cards
+Paper hard hats
+Markers
+Stickers
+Cones
+Boxes
+
+DAILY_LEARNING_DOMAINS:
+Science, Math, Language & Literacy, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to construction zone.
+Sing "The Construction Worker Song" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit Goodnight, Goodnight Construction Site by Sherri Duskey Rinker and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to construction zone — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Construction Sensory Site / Tool Exploration Station).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Construction Zone play
+
+DAILY_ADAPTATIONS:
+Provide larger building materials when needed. Offer visual examples of structures and blueprints. Allow children to participate through building, drawing, dramatic play, or verbal discussion.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Construction Sensory Site
-
 CATEGORY:
 Sensory Play
-
 OBJECTIVE:
 Explore construction materials through sensory play.
-
+DESCRIPTION:
+Explore construction materials through sensory play.
 MATERIALS:
 Kinetic sand
 Construction vehicles
 Small rocks
 Scoops
-
 SETUP:
 Create a construction-themed sensory bin.
-
-DIRECTIONS:
-Dig, scoop, and move materials.
-Operate construction vehicles.
-Discuss construction jobs.
-
 TEACHER_ROLE:
 Introduce construction vocabulary and encourage exploration.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Explore construction materials through sensory play.
-
+DIRECTIONS:
+1. Dig, scoop, and move materials.
+2. Operate construction vehicles.
+3. Discuss construction jobs.
 LEARNING_GOALS:
 Explore construction materials through sensory play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Tool Exploration Station
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Learn about construction tools.
-
+DESCRIPTION:
+Learn about construction tools.
 MATERIALS:
 Toy tools
 Tool cards
-
 SETUP:
 Arrange tools for exploration.
-
-DIRECTIONS:
-Examine tools.
-Match tools to their uses.
-
 TEACHER_ROLE:
 Discuss tool safety and purpose.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Learn about construction tools.
-
+DIRECTIONS:
+1. Introduce Tool Exploration Station and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Learn about construction tools.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Hard Hat Decorating
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Develop creativity and fine motor skills.
-
+DESCRIPTION:
+Develop creativity and fine motor skills.
 MATERIALS:
 Paper hard hats
 Markers
 Stickers
-
 SETUP:
 Prepare decorating station.
-
-DIRECTIONS:
-Decorate construction hard hats.
-Wear them during dramatic play.
-
 TEACHER_ROLE:
 Encourage creativity and discussion.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop creativity and fine motor skills.
-
+DIRECTIONS:
+1. Introduce Hard Hat Decorating and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop creativity and fine motor skills.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Construction Worker Training
-
 CATEGORY:
 Gross Motor
-
 OBJECTIVE:
 Develop coordination and body awareness.
-
+DESCRIPTION:
+Develop coordination and body awareness.
 MATERIALS:
 Cones
 Boxes
-
 SETUP:
 Create obstacle course.
-
-DIRECTIONS:
-Carry materials.
-Navigate construction challenges.
-
 TEACHER_ROLE:
 Encourage safe movement.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop coordination and body awareness.
-
+DIRECTIONS:
+1. Introduce Construction Worker Training and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop coordination and body awareness.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
-TUESDAY:
+TUESDAY
+
+DAILY_THEME:
+Construction Zone: Blueprint Investigation and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Introduce planning and design concepts.
+Encourage imaginative play and teamwork.
+Develop planning and creativity.
+
+DAILY_VOCABULARY:
+Construction, Builder, Engineer, Architect, Blueprint, Measure
+
+DAILY_MATERIALS:
+Blueprint examples
+Clipboards
+Hard hats
+Tool belts
+Building materials
+Paper
+Markers
+Rulers
+Buckets
+Cones
+
+DAILY_LEARNING_DOMAINS:
+Science, Math, Language & Literacy, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to construction zone.
+Sing "The Construction Worker Song" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit Goodnight, Goodnight Construction Site by Sherri Duskey Rinker and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to construction zone — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Blueprint Investigation / Builder's Workshop).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Construction Zone play
+
+DAILY_ADAPTATIONS:
+Provide larger building materials when needed. Offer visual examples of structures and blueprints. Allow children to participate through building, drawing, dramatic play, or verbal discussion.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Blueprint Investigation
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Introduce planning and design concepts.
-
+DESCRIPTION:
+Introduce planning and design concepts.
 MATERIALS:
 Blueprint examples
 Clipboards
-
 SETUP:
 Display blueprints.
-
-DIRECTIONS:
-Observe blueprints.
-Discuss what builders use them for.
-
 TEACHER_ROLE:
 Introduce design vocabulary.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Introduce planning and design concepts.
-
+DIRECTIONS:
+1. Introduce Blueprint Investigation and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Introduce planning and design concepts.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Builder's Workshop
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Encourage imaginative play and teamwork.
-
+DESCRIPTION:
+Encourage imaginative play and teamwork.
 MATERIALS:
 Hard hats
 Tool belts
 Building materials
-
 SETUP:
 Create construction site.
-
-DIRECTIONS:
-Work together to complete building projects.
-
 TEACHER_ROLE:
 Support cooperation and communication.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Encourage imaginative play and teamwork.
-
+DIRECTIONS:
+1. Introduce Builder's Workshop and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Encourage imaginative play and teamwork.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Design Your Building
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Develop planning and creativity.
-
+DESCRIPTION:
+Develop planning and creativity.
 MATERIALS:
 Paper
 Markers
 Rulers
-
 SETUP:
 Prepare drawing materials.
-
-DIRECTIONS:
-Draw a building design.
-Share ideas with classmates.
-
 TEACHER_ROLE:
 Encourage planning and explanation.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop planning and creativity.
-
+DIRECTIONS:
+1. Introduce Design Your Building and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop planning and creativity.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Wheelbarrow Relay
-
 CATEGORY:
 Gross Motor
-
 OBJECTIVE:
 Develop strength and coordination.
-
+DESCRIPTION:
+Develop strength and coordination.
 MATERIALS:
 Buckets
 Cones
-
 SETUP:
 Create relay course.
-
-DIRECTIONS:
-Transport building materials through the course.
-
 TEACHER_ROLE:
 Encourage teamwork and effort.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop strength and coordination.
-
+DIRECTIONS:
+1. Introduce Wheelbarrow Relay and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop strength and coordination.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
-WEDNESDAY:
+WEDNESDAY
+
+DAILY_THEME:
+Construction Zone: Bridge Building Challenge and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Develop engineering skills.
+Develop leadership and communication.
+Develop creativity and hand control.
+
+DAILY_VOCABULARY:
+Construction, Builder, Engineer, Architect, Blueprint, Measure
+
+DAILY_MATERIALS:
+Craft sticks
+Blocks
+Paper cups
+Clipboards
+Safety vests
+Paper
+Paint
+Vehicle templates
+Blocks
+Buckets
+
+DAILY_LEARNING_DOMAINS:
+Science, Math, Language & Literacy, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to construction zone.
+Sing "The Construction Worker Song" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit Goodnight, Goodnight Construction Site by Sherri Duskey Rinker and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to construction zone — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Bridge Building Challenge / Construction Site Manager).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Construction Zone play
+
+DAILY_ADAPTATIONS:
+Provide larger building materials when needed. Offer visual examples of structures and blueprints. Allow children to participate through building, drawing, dramatic play, or verbal discussion.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Bridge Building Challenge
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Develop engineering skills.
-
+DESCRIPTION:
+Develop engineering skills.
 MATERIALS:
 Craft sticks
 Blocks
 Paper cups
-
 SETUP:
 Provide building materials.
-
-DIRECTIONS:
-Build a bridge.
-Test strength and stability.
-
 TEACHER_ROLE:
 Encourage problem-solving.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop engineering skills.
-
+DIRECTIONS:
+1. Introduce Bridge Building Challenge and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop engineering skills.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Construction Site Manager
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Develop leadership and communication.
-
+DESCRIPTION:
+Develop leadership and communication.
 MATERIALS:
 Clipboards
 Safety vests
-
 SETUP:
 Create manager station.
-
-DIRECTIONS:
-Assign jobs and organize projects.
-
 TEACHER_ROLE:
 Support communication skills.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop leadership and communication.
-
+DIRECTIONS:
+1. Introduce Construction Site Manager and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop leadership and communication.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Construction Vehicle Art
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Develop creativity and hand control.
-
+DESCRIPTION:
+Develop creativity and hand control.
 MATERIALS:
 Paper
 Paint
 Vehicle templates
-
 SETUP:
 Prepare art station.
-
-DIRECTIONS:
-Create favorite construction vehicles.
-
 TEACHER_ROLE:
 Encourage artistic expression.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop creativity and hand control.
-
+DIRECTIONS:
+1. Introduce Construction Vehicle Art and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop creativity and hand control.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Crane Operator Challenge
-
 CATEGORY:
 Gross Motor
-
 OBJECTIVE:
 Develop coordination and balance.
-
+DESCRIPTION:
+Develop coordination and balance.
 MATERIALS:
 Blocks
 Buckets
-
 SETUP:
 Create lifting challenge.
-
-DIRECTIONS:
-Move materials from one location to another.
-
 TEACHER_ROLE:
 Encourage focus and persistence.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop coordination and balance.
-
+DIRECTIONS:
+1. Introduce Crane Operator Challenge and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop coordination and balance.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
-THURSDAY:
+THURSDAY
+
+DAILY_THEME:
+Construction Zone: Tower Engineering Challenge and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Develop engineering and measurement skills.
+Explore community construction projects.
+Strengthen fine motor development.
+
+DAILY_VOCABULARY:
+Construction, Builder, Engineer, Architect, Blueprint, Measure
+
+DAILY_MATERIALS:
+Blocks
+Measuring tape
+Road tape
+Vehicles
+Signs
+Paper
+Markers
+Craft sticks
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Science, Math, Language & Literacy, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to construction zone.
+Sing "The Construction Worker Song" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit Goodnight, Goodnight Construction Site by Sherri Duskey Rinker and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to construction zone — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Tower Engineering Challenge / Road Construction Crew).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Construction Zone play
+
+DAILY_ADAPTATIONS:
+Provide larger building materials when needed. Offer visual examples of structures and blueprints. Allow children to participate through building, drawing, dramatic play, or verbal discussion.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Tower Engineering Challenge
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Develop engineering and measurement skills.
-
+DESCRIPTION:
+Develop engineering and measurement skills.
 MATERIALS:
 Blocks
 Measuring tape
-
 SETUP:
 Create building station.
-
-DIRECTIONS:
-Build the tallest tower possible.
-Measure and compare heights.
-
 TEACHER_ROLE:
 Introduce measuring vocabulary.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop engineering and measurement skills.
-
+DIRECTIONS:
+1. Introduce Tower Engineering Challenge and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop engineering and measurement skills.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Road Construction Crew
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Explore community construction projects.
-
+DESCRIPTION:
+Explore community construction projects.
 MATERIALS:
 Road tape
 Vehicles
 Signs
-
 SETUP:
 Create roadwork area.
-
-DIRECTIONS:
-Build roads and direct traffic.
-
 TEACHER_ROLE:
 Support teamwork and planning.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Explore community construction projects.
-
+DIRECTIONS:
+1. Introduce Road Construction Crew and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Explore community construction projects.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Construction Sign Craft
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Strengthen fine motor development.
-
+DESCRIPTION:
+Strengthen fine motor development.
 MATERIALS:
 Paper
 Markers
 Craft sticks
-
 SETUP:
 Prepare materials.
-
-DIRECTIONS:
-Design construction warning signs.
-
 TEACHER_ROLE:
 Discuss safety and creativity.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Strengthen fine motor development.
-
+DIRECTIONS:
+1. Introduce Construction Sign Craft and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Strengthen fine motor development.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Heavy Equipment Movement
-
 CATEGORY:
 Music & Movement
-
 OBJECTIVE:
 Develop body awareness.
-
+DESCRIPTION:
+Develop body awareness.
 MATERIALS:
 Music player
-
 SETUP:
 Open movement area.
-
-DIRECTIONS:
-Move like bulldozers, cranes, and dump trucks.
-
 TEACHER_ROLE:
 Lead movement activities.
-
-DESCRIPTION:
-Develop body awareness.
-
-LEARNING_GOALS:
-Develop body awareness.
-
-OBSERVATION_OPPORTUNITIES:
-Observe participation, engagement, and use of theme vocabulary.
-
-
-
-FRIDAY:
-
-ACTIVITY_NAME:
-Construction Showcase
-
-CATEGORY:
-Dramatic Play
-
-OBJECTIVE:
-Build confidence and communication.
-
-MATERIALS:
-Projects from the week
-
-SETUP:
-Create display area.
+TEACHER_LANGUAGE:
 
 DIRECTIONS:
-Share favorite structures and designs.
-
-TEACHER_ROLE:
-Encourage reflection and discussion.
-
-DESCRIPTION:
-Build confidence and communication.
-
+1. Introduce Heavy Equipment Movement and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
-Build confidence and communication.
-
+Develop body awareness.
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
-ACTIVITY_NAME:
-Building Center Review
+FRIDAY
 
-CATEGORY:
-Open-Ended Exploration
+DAILY_THEME:
+Construction Zone: Construction Showcase and related play (review, celebrate, and connect the theme for families)
 
-OBJECTIVE:
+DAILY_OBJECTIVES:
+Build confidence and communication.
 Review construction concepts.
-
-MATERIALS:
-Favorite building materials
-
-SETUP:
-Create exploration stations.
-
-DIRECTIONS:
-Revisit favorite building challenges.
-
-TEACHER_ROLE:
-Observe and support learning.
-
-DESCRIPTION:
-Review construction concepts.
-
-LEARNING_GOALS:
-Review construction concepts.
-
-OBSERVATION_OPPORTUNITIES:
-Observe participation, engagement, and use of theme vocabulary.
-
-
-
-ACTIVITY_NAME:
-Builder Celebration Parade
-
-CATEGORY:
-Music & Movement
-
-OBJECTIVE:
 Celebrate learning and teamwork.
 
-MATERIALS:
+DAILY_VOCABULARY:
+Construction, Builder, Engineer, Architect, Blueprint, Measure
+
+DAILY_MATERIALS:
+Projects from the week
+Favorite building materials
 Hard hats
 Music player
 
+DAILY_LEARNING_DOMAINS:
+Science, Math, Language & Literacy, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to construction zone.
+Sing "The Construction Worker Song" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit Goodnight, Goodnight Construction Site by Sherri Duskey Rinker and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to construction zone — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Construction Showcase / Building Center Review).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Construction Zone play
+
+DAILY_ADAPTATIONS:
+Provide larger building materials when needed. Offer visual examples of structures and blueprints. Allow children to participate through building, drawing, dramatic play, or verbal discussion.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+
+ACTIVITY_NAME:
+Construction Showcase
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Build confidence and communication.
+DESCRIPTION:
+Build confidence and communication.
+MATERIALS:
+Projects from the week
 SETUP:
-Create parade route.
+Create display area.
+TEACHER_ROLE:
+Encourage reflection and discussion.
+TEACHER_LANGUAGE:
 
 DIRECTIONS:
-March through the classroom as construction workers.
-
-TEACHER_ROLE:
-Celebrate participation and accomplishments.
-
-DESCRIPTION:
-Celebrate learning and teamwork.
-
+1. Introduce Construction Showcase and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
-Celebrate learning and teamwork.
-
+Build confidence and communication.
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
+Building Center Review
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Review construction concepts.
+DESCRIPTION:
+Review construction concepts.
+MATERIALS:
+Favorite building materials
+SETUP:
+Create exploration stations.
+TEACHER_ROLE:
+Observe and support learning.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Introduce Building Center Review and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
+LEARNING_GOALS:
+Review construction concepts.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
+Builder Celebration Parade
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Celebrate learning and teamwork.
+DESCRIPTION:
+Celebrate learning and teamwork.
+MATERIALS:
+Hard hats
+Music player
+SETUP:
+Create parade route.
+TEACHER_ROLE:
+Celebrate participation and accomplishments.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Introduce Builder Celebration Parade and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
+LEARNING_GOALS:
+Celebrate learning and teamwork.
+OBSERVATION_OPPORTUNITIES:
+Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

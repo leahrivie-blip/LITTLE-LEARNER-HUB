@@ -14,12 +14,7 @@ STATUS:
 published
 
 LEARNING_DOMAINS:
-Social Emotional
-Language & Literacy
-Science
-Physical Development
-Creative Arts
-Math
+Social Emotional, Language & Literacy, Science, Physical Development, Creative Arts, Math
 
 WEEKLY_OVERVIEW:
 Toddlers will explore the fun of camping through pretend campfires, nature discoveries, animal adventures, outdoor-inspired sensory experiences, and imaginative play. Children will learn about nature, nighttime, friendship, exploration, and outdoor safety while building language, motor, and social-emotional skills.
@@ -94,359 +89,281 @@ Observe curiosity, language development, dramatic play skills, cooperation, fine
 ADAPTATIONS:
 Provide visual supports, sensory alternatives, larger materials when needed, and allow children to participate at their comfort level during movement activities.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+Camping Under the Stars: Set Up the Campsite and related play (introduce the theme through movement, sensory play, and simple language)
+
+DAILY_OBJECTIVES:
+Practice dramatic play skills during Set Up the Campsite.
+Practice open-ended exploration skills during Tent Exploration.
+Practice music & movement skills during Campfire Songs.
+
+DAILY_VOCABULARY:
+Camping, Tent, Campfire, Forest, Lantern, Trail
+
+DAILY_MATERIALS:
+Pretend-play props
+Costumes or badges
+Theme accessories
+Play tents
+Theme toys/figurines
+Baskets
+Picture cards
+Scarves or music
+Open movement space
+Play dough or crayons
+Small manipulatives
+Paper
+Theme toys/figurines
+Baskets
+Picture cards
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to camping under the stars.
+Sing "The Bear Went Over the Mountain" with simple movements or props.
+Show one prop or picture from today's activity (Set Up the Campsite) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to camping under the stars: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Observe engagement, theme vocabulary, motor skills, and social interaction.
+Participation and interest in Camping Under the Stars play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, sensory alternatives, larger materials when needed, and allow children to participate at their comfort level during movement activities.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
 
 ACTIVITY_NAME:
 Set Up the Campsite
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Practice dramatic play skills during Set Up the Campsite.
-
 DESCRIPTION:
 Toddlers explore Set Up the Campsite during our Camping Under the Stars week through dramatic play.
-
 MATERIALS:
 Pretend-play props
 Costumes or badges
 Theme accessories
-
 SETUP:
 Prepare a toddler-ready space and materials for Set Up the Campsite.
-
-DIRECTIONS:
-Set up a pretend-play area for Set Up the Campsite with a few clear props.
-Model a short role (helper, keeper, captain) and invite children in.
-Use simple language to support caregiving, teamwork, and problem-solving.
-Follow the children's storyline and keep roles flexible.
-
 TEACHER_ROLE:
 Join play briefly as a co-player, then step back so toddlers lead the story.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Set up a pretend-play area for Set Up the Campsite with a few clear props.
+2. Model a short role (helper, keeper, captain) and invite children in.
+3. Use simple language to support caregiving, teamwork, and problem-solving.
+4. Follow the children's storyline and keep roles flexible.
 LEARNING_GOALS:
 Engage in Set Up the Campsite through toddler-friendly dramatic play.
 Use theme vocabulary related to Camping Under the Stars.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Tent Exploration
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Practice open-ended exploration skills during Tent Exploration.
-
 DESCRIPTION:
 Toddlers explore Tent Exploration during our Camping Under the Stars week through open-ended exploration.
-
 MATERIALS:
 Play tents
 Theme toys/figurines
 Baskets
 Picture cards
-
 SETUP:
 Prepare a toddler-ready space and materials for Tent Exploration.
-
-DIRECTIONS:
-Invite toddlers to explore Tent Exploration with hands-on materials related to Camping Under the Stars.
-Stay nearby and narrate what children notice using simple theme words.
-Offer choices and follow each child's interest for a few minutes at a time.
-Encourage pointing, naming, and short conversations about discoveries.
-
 TEACHER_ROLE:
 Observe, narrate discoveries, and introduce theme vocabulary without directing every action.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Invite toddlers to explore Tent Exploration with hands-on materials related to Camping Under the Stars.
+2. Stay nearby and narrate what children notice using simple theme words.
+3. Offer choices and follow each child's interest for a few minutes at a time.
+4. Encourage pointing, naming, and short conversations about discoveries.
 LEARNING_GOALS:
 Engage in Tent Exploration through toddler-friendly open-ended exploration.
 Use theme vocabulary related to Camping Under the Stars.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Campfire Songs
-
 CATEGORY:
 Music & Movement
-
 OBJECTIVE:
 Practice music & movement skills during Campfire Songs.
-
 DESCRIPTION:
 Toddlers explore Campfire Songs during our Camping Under the Stars week through music & movement.
-
 MATERIALS:
 Scarves or music
 Open movement space
-
 SETUP:
 Prepare a toddler-ready space and materials for Campfire Songs.
-
-DIRECTIONS:
-Start Campfire Songs with a familiar song, chant, or movement cue.
-Invite toddlers to move their bodies with the music and theme ideas.
-Mirror children's movements and add simple vocabulary.
-Allow sitting dancers and standing movers to participate together.
-
 TEACHER_ROLE:
 Lead with energy, mirror children's movements, and keep transitions playful.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Start Campfire Songs with a familiar song, chant, or movement cue.
+2. Invite toddlers to move their bodies with the music and theme ideas.
+3. Mirror children's movements and add simple vocabulary.
+4. Allow sitting dancers and standing movers to participate together.
 LEARNING_GOALS:
 Engage in Campfire Songs through toddler-friendly music & movement.
 Use theme vocabulary related to Camping Under the Stars.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Pack the Backpack
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Practice fine motor skills during Pack the Backpack.
-
 DESCRIPTION:
 Toddlers explore Pack the Backpack during our Camping Under the Stars week through fine motor.
-
 MATERIALS:
 Play dough or crayons
 Small manipulatives
 Paper
-
 SETUP:
 Prepare a toddler-ready space and materials for Pack the Backpack.
-
-DIRECTIONS:
-Offer materials for Pack the Backpack that invite pinching, placing, sticking, or scribbling.
-Demonstrate one simple action, then invite toddlers to try.
-Celebrate effort and keep tools large enough for little hands.
-Support turn-taking when children want the same material.
-
 TEACHER_ROLE:
 Offer hand-over-hand support when wanted and keep materials accessible on low trays.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Offer materials for Pack the Backpack that invite pinching, placing, sticking, or scribbling.
+2. Demonstrate one simple action, then invite toddlers to try.
+3. Celebrate effort and keep tools large enough for little hands.
+4. Support turn-taking when children want the same material.
 LEARNING_GOALS:
 Engage in Pack the Backpack through toddler-friendly fine motor.
 Use theme vocabulary related to Camping Under the Stars.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Camping Story Corner
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Practice open-ended exploration skills during Camping Story Corner.
-
 DESCRIPTION:
 Toddlers explore Camping Story Corner during our Camping Under the Stars week through open-ended exploration.
-
 MATERIALS:
 Theme toys/figurines
 Baskets
 Picture cards
-
 SETUP:
 Prepare a toddler-ready space and materials for Camping Story Corner.
-
-DIRECTIONS:
-Invite toddlers to explore Camping Story Corner with hands-on materials related to Camping Under the Stars.
-Stay nearby and narrate what children notice using simple theme words.
-Offer choices and follow each child's interest for a few minutes at a time.
-Encourage pointing, naming, and short conversations about discoveries.
-
 TEACHER_ROLE:
 Observe, narrate discoveries, and introduce theme vocabulary without directing every action.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Invite toddlers to explore Camping Story Corner with hands-on materials related to Camping Under the Stars.
+2. Stay nearby and narrate what children notice using simple theme words.
+3. Offer choices and follow each child's interest for a few minutes at a time.
+4. Encourage pointing, naming, and short conversations about discoveries.
 LEARNING_GOALS:
 Engage in Camping Story Corner through toddler-friendly open-ended exploration.
 Use theme vocabulary related to Camping Under the Stars.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
 
-TUESDAY:
+EXTENSIONS:
 
-ACTIVITY_NAME:
-Forest Animal Discovery
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
-CATEGORY:
-Open-Ended Exploration
+TUESDAY
 
-OBJECTIVE:
+DAILY_THEME:
+Camping Under the Stars: Forest Animal Discovery and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
 Practice open-ended exploration skills during Forest Animal Discovery.
+Practice sensory play skills during Woodland Sensory Bin.
+Practice gross motor skills during Bear Hunt Adventure.
 
-DESCRIPTION:
-Toddlers explore Forest Animal Discovery during our Camping Under the Stars week through open-ended exploration.
+DAILY_VOCABULARY:
+Camping, Tent, Campfire, Forest, Lantern, Trail
 
-MATERIALS:
+DAILY_MATERIALS:
 stuffed forest animals
 Theme toys/figurines
 Baskets
 Picture cards
-
-SETUP:
-Prepare a toddler-ready space and materials for Forest Animal Discovery.
-
-DIRECTIONS:
-Invite toddlers to explore Forest Animal Discovery with hands-on materials related to Camping Under the Stars.
-Stay nearby and narrate what children notice using simple theme words.
-Offer choices and follow each child's interest for a few minutes at a time.
-Encourage pointing, naming, and short conversations about discoveries.
-
-TEACHER_ROLE:
-Observe, narrate discoveries, and introduce theme vocabulary without directing every action.
-
-LEARNING_GOALS:
-Engage in Forest Animal Discovery through toddler-friendly open-ended exploration.
-Use theme vocabulary related to Camping Under the Stars.
-Practice social interaction, curiosity, and motor skills during play.
-
-OBSERVATION_OPPORTUNITIES:
-Observe engagement, theme vocabulary, motor skills, and social interaction.
-
-ACTIVITY_NAME:
-Woodland Sensory Bin
-
-CATEGORY:
-Sensory Play
-
-OBJECTIVE:
-Practice sensory play skills during Woodland Sensory Bin.
-
-DESCRIPTION:
-Toddlers explore Woodland Sensory Bin during our Camping Under the Stars week through sensory play.
-
-MATERIALS:
 sensory bin materials
 Sensory bin
 Scoops
 Loose parts
-
-SETUP:
-Prepare a toddler-ready space and materials for Woodland Sensory Bin.
-
-DIRECTIONS:
-Set out a toddler-safe sensory experience for Woodland Sensory Bin.
-Model gentle scooping, pouring, and exploring with fingers or tools.
-Name textures, colors, and theme vocabulary as children play.
-Rotate materials if interest fades and keep play short and calm.
-
-TEACHER_ROLE:
-Supervise closely, model gentle exploration, and support sensory preferences.
-
-LEARNING_GOALS:
-Engage in Woodland Sensory Bin through toddler-friendly sensory play.
-Use theme vocabulary related to Camping Under the Stars.
-Practice social interaction, curiosity, and motor skills during play.
-
-OBSERVATION_OPPORTUNITIES:
-Observe engagement, theme vocabulary, motor skills, and social interaction.
-
-ACTIVITY_NAME:
-Bear Hunt Adventure
-
-CATEGORY:
-Gross Motor
-
-OBJECTIVE:
-Practice gross motor skills during Bear Hunt Adventure.
-
-DESCRIPTION:
-Toddlers explore Bear Hunt Adventure during our Camping Under the Stars week through gross motor.
-
-MATERIALS:
 Cones or mats
 Open floor space
 Soft obstacles
-
-SETUP:
-Prepare a toddler-ready space and materials for Bear Hunt Adventure.
-
-DIRECTIONS:
-Create a short movement path or challenge for Bear Hunt Adventure.
-Show the movement once, then invite toddlers to try at their own pace.
-Offer hand support or a simpler path for children who need it.
-Cheer on attempts and keep the course playful, not competitive.
-
-TEACHER_ROLE:
-Spot children for safety, adapt the challenge level, and celebrate every attempt.
-
-LEARNING_GOALS:
-Engage in Bear Hunt Adventure through toddler-friendly gross motor.
-Use theme vocabulary related to Camping Under the Stars.
-Practice social interaction, curiosity, and motor skills during play.
-
-OBSERVATION_OPPORTUNITIES:
-Observe engagement, theme vocabulary, motor skills, and social interaction.
-
-ACTIVITY_NAME:
-Animal Track Stamping
-
-CATEGORY:
-Fine Motor
-
-OBJECTIVE:
-Practice fine motor skills during Animal Track Stamping.
-
-DESCRIPTION:
-Toddlers explore Animal Track Stamping during our Camping Under the Stars week through fine motor.
-
-MATERIALS:
 stuffed forest animals
 Play dough or crayons
 Small manipulatives
 Paper
-
-SETUP:
-Prepare a toddler-ready space and materials for Animal Track Stamping.
-
-DIRECTIONS:
-Offer materials for Animal Track Stamping that invite pinching, placing, sticking, or scribbling.
-Demonstrate one simple action, then invite toddlers to try.
-Celebrate effort and keep tools large enough for little hands.
-Support turn-taking when children want the same material.
-
-TEACHER_ROLE:
-Offer hand-over-hand support when wanted and keep materials accessible on low trays.
-
-LEARNING_GOALS:
-Engage in Animal Track Stamping through toddler-friendly fine motor.
-Use theme vocabulary related to Camping Under the Stars.
-Practice social interaction, curiosity, and motor skills during play.
-
-OBSERVATION_OPPORTUNITIES:
-Observe engagement, theme vocabulary, motor skills, and social interaction.
-
-ACTIVITY_NAME:
-Forest Animal Pretend Play
-
-CATEGORY:
-Dramatic Play
-
-OBJECTIVE:
-Practice dramatic play skills during Forest Animal Pretend Play.
-
-DESCRIPTION:
-Toddlers explore Forest Animal Pretend Play during our Camping Under the Stars week through dramatic play.
-
-MATERIALS:
 Play tents
 stuffed forest animals
 play dough
@@ -454,268 +371,584 @@ pretend food
 Pretend-play props
 Costumes or badges
 
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to camping under the stars.
+Sing "The Bear Went Over the Mountain" with simple movements or props.
+Show one prop or picture from today's activity (Forest Animal Discovery) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to camping under the stars: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Observe engagement, theme vocabulary, motor skills, and social interaction.
+Participation and interest in Camping Under the Stars play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, sensory alternatives, larger materials when needed, and allow children to participate at their comfort level during movement activities.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
+
+ACTIVITY_NAME:
+Forest Animal Discovery
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Practice open-ended exploration skills during Forest Animal Discovery.
+DESCRIPTION:
+Toddlers explore Forest Animal Discovery during our Camping Under the Stars week through open-ended exploration.
+MATERIALS:
+stuffed forest animals
+Theme toys/figurines
+Baskets
+Picture cards
 SETUP:
-Prepare a toddler-ready space and materials for Forest Animal Pretend Play.
+Prepare a toddler-ready space and materials for Forest Animal Discovery.
+TEACHER_ROLE:
+Observe, narrate discoveries, and introduce theme vocabulary without directing every action.
+TEACHER_LANGUAGE:
 
 DIRECTIONS:
-Set up a pretend-play area for Forest Animal Pretend Play with a few clear props.
-Model a short role (helper, keeper, captain) and invite children in.
-Use simple language to support caregiving, teamwork, and problem-solving.
-Follow the children's storyline and keep roles flexible.
+1. Invite toddlers to explore Forest Animal Discovery with hands-on materials related to Camping Under the Stars.
+2. Stay nearby and narrate what children notice using simple theme words.
+3. Offer choices and follow each child's interest for a few minutes at a time.
+4. Encourage pointing, naming, and short conversations about discoveries.
+LEARNING_GOALS:
+Engage in Forest Animal Discovery through toddler-friendly open-ended exploration.
+Use theme vocabulary related to Camping Under the Stars.
+Practice social interaction, curiosity, and motor skills during play.
+OBSERVATION_OPPORTUNITIES:
+Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
 
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
+Woodland Sensory Bin
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Practice sensory play skills during Woodland Sensory Bin.
+DESCRIPTION:
+Toddlers explore Woodland Sensory Bin during our Camping Under the Stars week through sensory play.
+MATERIALS:
+sensory bin materials
+Sensory bin
+Scoops
+Loose parts
+SETUP:
+Prepare a toddler-ready space and materials for Woodland Sensory Bin.
+TEACHER_ROLE:
+Supervise closely, model gentle exploration, and support sensory preferences.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Set out a toddler-safe sensory experience for Woodland Sensory Bin.
+2. Model gentle scooping, pouring, and exploring with fingers or tools.
+3. Name textures, colors, and theme vocabulary as children play.
+4. Rotate materials if interest fades and keep play short and calm.
+LEARNING_GOALS:
+Engage in Woodland Sensory Bin through toddler-friendly sensory play.
+Use theme vocabulary related to Camping Under the Stars.
+Practice social interaction, curiosity, and motor skills during play.
+OBSERVATION_OPPORTUNITIES:
+Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
+Bear Hunt Adventure
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Practice gross motor skills during Bear Hunt Adventure.
+DESCRIPTION:
+Toddlers explore Bear Hunt Adventure during our Camping Under the Stars week through gross motor.
+MATERIALS:
+Cones or mats
+Open floor space
+Soft obstacles
+SETUP:
+Prepare a toddler-ready space and materials for Bear Hunt Adventure.
+TEACHER_ROLE:
+Spot children for safety, adapt the challenge level, and celebrate every attempt.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Create a short movement path or challenge for Bear Hunt Adventure.
+2. Show the movement once, then invite toddlers to try at their own pace.
+3. Offer hand support or a simpler path for children who need it.
+4. Cheer on attempts and keep the course playful, not competitive.
+LEARNING_GOALS:
+Engage in Bear Hunt Adventure through toddler-friendly gross motor.
+Use theme vocabulary related to Camping Under the Stars.
+Practice social interaction, curiosity, and motor skills during play.
+OBSERVATION_OPPORTUNITIES:
+Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
+Animal Track Stamping
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Practice fine motor skills during Animal Track Stamping.
+DESCRIPTION:
+Toddlers explore Animal Track Stamping during our Camping Under the Stars week through fine motor.
+MATERIALS:
+stuffed forest animals
+Play dough or crayons
+Small manipulatives
+Paper
+SETUP:
+Prepare a toddler-ready space and materials for Animal Track Stamping.
+TEACHER_ROLE:
+Offer hand-over-hand support when wanted and keep materials accessible on low trays.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Offer materials for Animal Track Stamping that invite pinching, placing, sticking, or scribbling.
+2. Demonstrate one simple action, then invite toddlers to try.
+3. Celebrate effort and keep tools large enough for little hands.
+4. Support turn-taking when children want the same material.
+LEARNING_GOALS:
+Engage in Animal Track Stamping through toddler-friendly fine motor.
+Use theme vocabulary related to Camping Under the Stars.
+Practice social interaction, curiosity, and motor skills during play.
+OBSERVATION_OPPORTUNITIES:
+Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
+Forest Animal Pretend Play
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Practice dramatic play skills during Forest Animal Pretend Play.
+DESCRIPTION:
+Toddlers explore Forest Animal Pretend Play during our Camping Under the Stars week through dramatic play.
+MATERIALS:
+Play tents
+stuffed forest animals
+play dough
+pretend food
+Pretend-play props
+Costumes or badges
+SETUP:
+Prepare a toddler-ready space and materials for Forest Animal Pretend Play.
 TEACHER_ROLE:
 Join play briefly as a co-player, then step back so toddlers lead the story.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Set up a pretend-play area for Forest Animal Pretend Play with a few clear props.
+2. Model a short role (helper, keeper, captain) and invite children in.
+3. Use simple language to support caregiving, teamwork, and problem-solving.
+4. Follow the children's storyline and keep roles flexible.
 LEARNING_GOALS:
 Engage in Forest Animal Pretend Play through toddler-friendly dramatic play.
 Use theme vocabulary related to Camping Under the Stars.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
 
-WEDNESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Camping Under the Stars: Nature Treasure Hunt and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Practice open-ended exploration skills during Nature Treasure Hunt.
+Practice sensory play skills during Leaf and Pinecone Investigation.
+Practice gross motor skills during Hiking Trail Obstacle Course.
+
+DAILY_VOCABULARY:
+Camping, Tent, Campfire, Forest, Lantern, Trail
+
+DAILY_MATERIALS:
+nature photos.
+Theme toys/figurines
+Baskets
+Picture cards
+pinecones
+Sensory bin
+Scoops
+Loose parts
+Cones or mats
+Open floor space
+Soft obstacles
+nature photos.
+Play dough or crayons
+Small manipulatives
+Paper
+Pretend-play props
+Costumes or badges
+Theme accessories
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to camping under the stars.
+Sing "The Bear Went Over the Mountain" with simple movements or props.
+Show one prop or picture from today's activity (Nature Treasure Hunt) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to camping under the stars: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Observe engagement, theme vocabulary, motor skills, and social interaction.
+Participation and interest in Camping Under the Stars play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, sensory alternatives, larger materials when needed, and allow children to participate at their comfort level during movement activities.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
 
 ACTIVITY_NAME:
 Nature Treasure Hunt
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Practice open-ended exploration skills during Nature Treasure Hunt.
-
 DESCRIPTION:
 Toddlers explore Nature Treasure Hunt during our Camping Under the Stars week through open-ended exploration.
-
 MATERIALS:
 nature photos.
 Theme toys/figurines
 Baskets
 Picture cards
-
 SETUP:
 Prepare a toddler-ready space and materials for Nature Treasure Hunt.
-
-DIRECTIONS:
-Invite toddlers to explore Nature Treasure Hunt with hands-on materials related to Camping Under the Stars.
-Stay nearby and narrate what children notice using simple theme words.
-Offer choices and follow each child's interest for a few minutes at a time.
-Encourage pointing, naming, and short conversations about discoveries.
-
 TEACHER_ROLE:
 Observe, narrate discoveries, and introduce theme vocabulary without directing every action.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Invite toddlers to explore Nature Treasure Hunt with hands-on materials related to Camping Under the Stars.
+2. Stay nearby and narrate what children notice using simple theme words.
+3. Offer choices and follow each child's interest for a few minutes at a time.
+4. Encourage pointing, naming, and short conversations about discoveries.
 LEARNING_GOALS:
 Engage in Nature Treasure Hunt through toddler-friendly open-ended exploration.
 Use theme vocabulary related to Camping Under the Stars.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Leaf and Pinecone Investigation
-
 CATEGORY:
 Sensory Play
-
 OBJECTIVE:
 Practice sensory play skills during Leaf and Pinecone Investigation.
-
 DESCRIPTION:
 Toddlers explore Leaf and Pinecone Investigation during our Camping Under the Stars week through sensory play.
-
 MATERIALS:
 pinecones
 Sensory bin
 Scoops
 Loose parts
-
 SETUP:
 Prepare a toddler-ready space and materials for Leaf and Pinecone Investigation.
-
-DIRECTIONS:
-Set out a toddler-safe sensory experience for Leaf and Pinecone Investigation.
-Model gentle scooping, pouring, and exploring with fingers or tools.
-Name textures, colors, and theme vocabulary as children play.
-Rotate materials if interest fades and keep play short and calm.
-
 TEACHER_ROLE:
 Supervise closely, model gentle exploration, and support sensory preferences.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Set out a toddler-safe sensory experience for Leaf and Pinecone Investigation.
+2. Model gentle scooping, pouring, and exploring with fingers or tools.
+3. Name textures, colors, and theme vocabulary as children play.
+4. Rotate materials if interest fades and keep play short and calm.
 LEARNING_GOALS:
 Engage in Leaf and Pinecone Investigation through toddler-friendly sensory play.
 Use theme vocabulary related to Camping Under the Stars.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Hiking Trail Obstacle Course
-
 CATEGORY:
 Gross Motor
-
 OBJECTIVE:
 Practice gross motor skills during Hiking Trail Obstacle Course.
-
 DESCRIPTION:
 Toddlers explore Hiking Trail Obstacle Course during our Camping Under the Stars week through gross motor.
-
 MATERIALS:
 Cones or mats
 Open floor space
 Soft obstacles
-
 SETUP:
 Prepare a toddler-ready space and materials for Hiking Trail Obstacle Course.
-
-DIRECTIONS:
-Create a short movement path or challenge for Hiking Trail Obstacle Course.
-Show the movement once, then invite toddlers to try at their own pace.
-Offer hand support or a simpler path for children who need it.
-Cheer on attempts and keep the course playful, not competitive.
-
 TEACHER_ROLE:
 Spot children for safety, adapt the challenge level, and celebrate every attempt.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Create a short movement path or challenge for Hiking Trail Obstacle Course.
+2. Show the movement once, then invite toddlers to try at their own pace.
+3. Offer hand support or a simpler path for children who need it.
+4. Cheer on attempts and keep the course playful, not competitive.
 LEARNING_GOALS:
 Engage in Hiking Trail Obstacle Course through toddler-friendly gross motor.
 Use theme vocabulary related to Camping Under the Stars.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Nature Collage Creation
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Practice fine motor skills during Nature Collage Creation.
-
 DESCRIPTION:
 Toddlers explore Nature Collage Creation during our Camping Under the Stars week through fine motor.
-
 MATERIALS:
 nature photos.
 Play dough or crayons
 Small manipulatives
 Paper
-
 SETUP:
 Prepare a toddler-ready space and materials for Nature Collage Creation.
-
-DIRECTIONS:
-Offer materials for Nature Collage Creation that invite pinching, placing, sticking, or scribbling.
-Demonstrate one simple action, then invite toddlers to try.
-Celebrate effort and keep tools large enough for little hands.
-Support turn-taking when children want the same material.
-
 TEACHER_ROLE:
 Offer hand-over-hand support when wanted and keep materials accessible on low trays.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Offer materials for Nature Collage Creation that invite pinching, placing, sticking, or scribbling.
+2. Demonstrate one simple action, then invite toddlers to try.
+3. Celebrate effort and keep tools large enough for little hands.
+4. Support turn-taking when children want the same material.
 LEARNING_GOALS:
 Engage in Nature Collage Creation through toddler-friendly fine motor.
 Use theme vocabulary related to Camping Under the Stars.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Explorer Station
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Practice dramatic play skills during Explorer Station.
-
 DESCRIPTION:
 Toddlers explore Explorer Station during our Camping Under the Stars week through dramatic play.
-
 MATERIALS:
 Pretend-play props
 Costumes or badges
 Theme accessories
-
 SETUP:
 Prepare a toddler-ready space and materials for Explorer Station.
-
-DIRECTIONS:
-Set up a pretend-play area for Explorer Station with a few clear props.
-Model a short role (helper, keeper, captain) and invite children in.
-Use simple language to support caregiving, teamwork, and problem-solving.
-Follow the children's storyline and keep roles flexible.
-
 TEACHER_ROLE:
 Join play briefly as a co-player, then step back so toddlers lead the story.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Set up a pretend-play area for Explorer Station with a few clear props.
+2. Model a short role (helper, keeper, captain) and invite children in.
+3. Use simple language to support caregiving, teamwork, and problem-solving.
+4. Follow the children's storyline and keep roles flexible.
 LEARNING_GOALS:
 Engage in Explorer Station through toddler-friendly dramatic play.
 Use theme vocabulary related to Camping Under the Stars.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
 
-THURSDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Camping Under the Stars: Flashlight Exploration and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Practice open-ended exploration skills during Flashlight Exploration.
+Practice sensory play skills during Glow Star Sensory Play.
+Practice music & movement skills during Owl Flight Movement Game.
+
+DAILY_VOCABULARY:
+Camping, Tent, Campfire, Forest, Lantern, Trail
+
+DAILY_MATERIALS:
+flashlights
+Theme toys/figurines
+Baskets
+Picture cards
+Play tents
+sensory bin materials
+play dough
+star stickers
+Sensory bin
+Scoops
+Scarves or music
+Open movement space
+sticks
+star stickers
+Play dough or crayons
+Small manipulatives
+Paper
+Pretend-play props
+Costumes or badges
+Theme accessories
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to camping under the stars.
+Sing "The Bear Went Over the Mountain" with simple movements or props.
+Show one prop or picture from today's activity (Flashlight Exploration) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to camping under the stars: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Observe engagement, theme vocabulary, motor skills, and social interaction.
+Participation and interest in Camping Under the Stars play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, sensory alternatives, larger materials when needed, and allow children to participate at their comfort level during movement activities.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
 
 ACTIVITY_NAME:
 Flashlight Exploration
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Practice open-ended exploration skills during Flashlight Exploration.
-
 DESCRIPTION:
 Toddlers explore Flashlight Exploration during our Camping Under the Stars week through open-ended exploration.
-
 MATERIALS:
 flashlights
 Theme toys/figurines
 Baskets
 Picture cards
-
 SETUP:
 Prepare a toddler-ready space and materials for Flashlight Exploration.
-
-DIRECTIONS:
-Invite toddlers to explore Flashlight Exploration with hands-on materials related to Camping Under the Stars.
-Stay nearby and narrate what children notice using simple theme words.
-Offer choices and follow each child's interest for a few minutes at a time.
-Encourage pointing, naming, and short conversations about discoveries.
-
 TEACHER_ROLE:
 Observe, narrate discoveries, and introduce theme vocabulary without directing every action.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Invite toddlers to explore Flashlight Exploration with hands-on materials related to Camping Under the Stars.
+2. Stay nearby and narrate what children notice using simple theme words.
+3. Offer choices and follow each child's interest for a few minutes at a time.
+4. Encourage pointing, naming, and short conversations about discoveries.
 LEARNING_GOALS:
 Engage in Flashlight Exploration through toddler-friendly open-ended exploration.
 Use theme vocabulary related to Camping Under the Stars.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Glow Star Sensory Play
-
 CATEGORY:
 Sensory Play
-
 OBJECTIVE:
 Practice sensory play skills during Glow Star Sensory Play.
-
 DESCRIPTION:
 Toddlers explore Glow Star Sensory Play during our Camping Under the Stars week through sensory play.
-
 MATERIALS:
 Play tents
 sensory bin materials
@@ -723,324 +956,397 @@ play dough
 star stickers
 Sensory bin
 Scoops
-
 SETUP:
 Prepare a toddler-ready space and materials for Glow Star Sensory Play.
-
-DIRECTIONS:
-Set out a toddler-safe sensory experience for Glow Star Sensory Play.
-Model gentle scooping, pouring, and exploring with fingers or tools.
-Name textures, colors, and theme vocabulary as children play.
-Rotate materials if interest fades and keep play short and calm.
-
 TEACHER_ROLE:
 Supervise closely, model gentle exploration, and support sensory preferences.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Set out a toddler-safe sensory experience for Glow Star Sensory Play.
+2. Model gentle scooping, pouring, and exploring with fingers or tools.
+3. Name textures, colors, and theme vocabulary as children play.
+4. Rotate materials if interest fades and keep play short and calm.
 LEARNING_GOALS:
 Engage in Glow Star Sensory Play through toddler-friendly sensory play.
 Use theme vocabulary related to Camping Under the Stars.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Owl Flight Movement Game
-
 CATEGORY:
 Music & Movement
-
 OBJECTIVE:
 Practice music & movement skills during Owl Flight Movement Game.
-
 DESCRIPTION:
 Toddlers explore Owl Flight Movement Game during our Camping Under the Stars week through music & movement.
-
 MATERIALS:
 Scarves or music
 Open movement space
-
 SETUP:
 Prepare a toddler-ready space and materials for Owl Flight Movement Game.
-
-DIRECTIONS:
-Start Owl Flight Movement Game with a familiar song, chant, or movement cue.
-Invite toddlers to move their bodies with the music and theme ideas.
-Mirror children's movements and add simple vocabulary.
-Allow sitting dancers and standing movers to participate together.
-
 TEACHER_ROLE:
 Lead with energy, mirror children's movements, and keep transitions playful.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Start Owl Flight Movement Game with a familiar song, chant, or movement cue.
+2. Invite toddlers to move their bodies with the music and theme ideas.
+3. Mirror children's movements and add simple vocabulary.
+4. Allow sitting dancers and standing movers to participate together.
 LEARNING_GOALS:
 Engage in Owl Flight Movement Game through toddler-friendly music & movement.
 Use theme vocabulary related to Camping Under the Stars.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Star Sticker Art
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Practice fine motor skills during Star Sticker Art.
-
 DESCRIPTION:
 Toddlers explore Star Sticker Art during our Camping Under the Stars week through fine motor.
-
 MATERIALS:
 sticks
 star stickers
 Play dough or crayons
 Small manipulatives
 Paper
-
 SETUP:
 Prepare a toddler-ready space and materials for Star Sticker Art.
-
-DIRECTIONS:
-Offer materials for Star Sticker Art that invite pinching, placing, sticking, or scribbling.
-Demonstrate one simple action, then invite toddlers to try.
-Celebrate effort and keep tools large enough for little hands.
-Support turn-taking when children want the same material.
-
 TEACHER_ROLE:
 Offer hand-over-hand support when wanted and keep materials accessible on low trays.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Offer materials for Star Sticker Art that invite pinching, placing, sticking, or scribbling.
+2. Demonstrate one simple action, then invite toddlers to try.
+3. Celebrate effort and keep tools large enough for little hands.
+4. Support turn-taking when children want the same material.
 LEARNING_GOALS:
 Engage in Star Sticker Art through toddler-friendly fine motor.
 Use theme vocabulary related to Camping Under the Stars.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Campfire Story Time
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Practice dramatic play skills during Campfire Story Time.
-
 DESCRIPTION:
 Toddlers explore Campfire Story Time during our Camping Under the Stars week through dramatic play.
-
 MATERIALS:
 Pretend-play props
 Costumes or badges
 Theme accessories
-
 SETUP:
 Prepare a toddler-ready space and materials for Campfire Story Time.
-
-DIRECTIONS:
-Set up a pretend-play area for Campfire Story Time with a few clear props.
-Model a short role (helper, keeper, captain) and invite children in.
-Use simple language to support caregiving, teamwork, and problem-solving.
-Follow the children's storyline and keep roles flexible.
-
 TEACHER_ROLE:
 Join play briefly as a co-player, then step back so toddlers lead the story.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Set up a pretend-play area for Campfire Story Time with a few clear props.
+2. Model a short role (helper, keeper, captain) and invite children in.
+3. Use simple language to support caregiving, teamwork, and problem-solving.
+4. Follow the children's storyline and keep roles flexible.
 LEARNING_GOALS:
 Engage in Campfire Story Time through toddler-friendly dramatic play.
 Use theme vocabulary related to Camping Under the Stars.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
 
-FRIDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Camping Under the Stars: Pretend Fishing Adventure and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Practice open-ended exploration skills during Pretend Fishing Adventure.
+Practice open-ended exploration skills during Campground Building Challenge.
+Practice music & movement skills during Nature Dance Party.
+
+DAILY_VOCABULARY:
+Camping, Tent, Campfire, Forest, Lantern, Trail
+
+DAILY_MATERIALS:
+toy fishing poles
+pretend food
+Theme toys/figurines
+Baskets
+Picture cards
+Theme toys/figurines
+Baskets
+Picture cards
+nature photos.
+Scarves or music
+Open movement space
+Play dough or crayons
+Small manipulatives
+Paper
+Pretend-play props
+Costumes or badges
+Theme accessories
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to camping under the stars.
+Sing "The Bear Went Over the Mountain" with simple movements or props.
+Show one prop or picture from today's activity (Pretend Fishing Adventure) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to camping under the stars: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Observe engagement, theme vocabulary, motor skills, and social interaction.
+Participation and interest in Camping Under the Stars play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, sensory alternatives, larger materials when needed, and allow children to participate at their comfort level during movement activities.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
 
 ACTIVITY_NAME:
 Pretend Fishing Adventure
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Practice open-ended exploration skills during Pretend Fishing Adventure.
-
 DESCRIPTION:
 Toddlers explore Pretend Fishing Adventure during our Camping Under the Stars week through open-ended exploration.
-
 MATERIALS:
 toy fishing poles
 pretend food
 Theme toys/figurines
 Baskets
 Picture cards
-
 SETUP:
 Prepare a toddler-ready space and materials for Pretend Fishing Adventure.
-
-DIRECTIONS:
-Invite toddlers to explore Pretend Fishing Adventure with hands-on materials related to Camping Under the Stars.
-Stay nearby and narrate what children notice using simple theme words.
-Offer choices and follow each child's interest for a few minutes at a time.
-Encourage pointing, naming, and short conversations about discoveries.
-
 TEACHER_ROLE:
 Observe, narrate discoveries, and introduce theme vocabulary without directing every action.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Invite toddlers to explore Pretend Fishing Adventure with hands-on materials related to Camping Under the Stars.
+2. Stay nearby and narrate what children notice using simple theme words.
+3. Offer choices and follow each child's interest for a few minutes at a time.
+4. Encourage pointing, naming, and short conversations about discoveries.
 LEARNING_GOALS:
 Engage in Pretend Fishing Adventure through toddler-friendly open-ended exploration.
 Use theme vocabulary related to Camping Under the Stars.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Campground Building Challenge
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Practice open-ended exploration skills during Campground Building Challenge.
-
 DESCRIPTION:
 Toddlers explore Campground Building Challenge during our Camping Under the Stars week through open-ended exploration.
-
 MATERIALS:
 Theme toys/figurines
 Baskets
 Picture cards
-
 SETUP:
 Prepare a toddler-ready space and materials for Campground Building Challenge.
-
-DIRECTIONS:
-Invite toddlers to explore Campground Building Challenge with hands-on materials related to Camping Under the Stars.
-Stay nearby and narrate what children notice using simple theme words.
-Offer choices and follow each child's interest for a few minutes at a time.
-Encourage pointing, naming, and short conversations about discoveries.
-
 TEACHER_ROLE:
 Observe, narrate discoveries, and introduce theme vocabulary without directing every action.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Invite toddlers to explore Campground Building Challenge with hands-on materials related to Camping Under the Stars.
+2. Stay nearby and narrate what children notice using simple theme words.
+3. Offer choices and follow each child's interest for a few minutes at a time.
+4. Encourage pointing, naming, and short conversations about discoveries.
 LEARNING_GOALS:
 Engage in Campground Building Challenge through toddler-friendly open-ended exploration.
 Use theme vocabulary related to Camping Under the Stars.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Nature Dance Party
-
 CATEGORY:
 Music & Movement
-
 OBJECTIVE:
 Practice music & movement skills during Nature Dance Party.
-
 DESCRIPTION:
 Toddlers explore Nature Dance Party during our Camping Under the Stars week through music & movement.
-
 MATERIALS:
 nature photos.
 Scarves or music
 Open movement space
-
 SETUP:
 Prepare a toddler-ready space and materials for Nature Dance Party.
-
-DIRECTIONS:
-Start Nature Dance Party with a familiar song, chant, or movement cue.
-Invite toddlers to move their bodies with the music and theme ideas.
-Mirror children's movements and add simple vocabulary.
-Allow sitting dancers and standing movers to participate together.
-
 TEACHER_ROLE:
 Lead with energy, mirror children's movements, and keep transitions playful.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Start Nature Dance Party with a familiar song, chant, or movement cue.
+2. Invite toddlers to move their bodies with the music and theme ideas.
+3. Mirror children's movements and add simple vocabulary.
+4. Allow sitting dancers and standing movers to participate together.
 LEARNING_GOALS:
 Engage in Nature Dance Party through toddler-friendly music & movement.
 Use theme vocabulary related to Camping Under the Stars.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Make a Camping Badge
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Practice fine motor skills during Make a Camping Badge.
-
 DESCRIPTION:
 Toddlers explore Make a Camping Badge during our Camping Under the Stars week through fine motor.
-
 MATERIALS:
 Play dough or crayons
 Small manipulatives
 Paper
-
 SETUP:
 Prepare a toddler-ready space and materials for Make a Camping Badge.
-
-DIRECTIONS:
-Offer materials for Make a Camping Badge that invite pinching, placing, sticking, or scribbling.
-Demonstrate one simple action, then invite toddlers to try.
-Celebrate effort and keep tools large enough for little hands.
-Support turn-taking when children want the same material.
-
 TEACHER_ROLE:
 Offer hand-over-hand support when wanted and keep materials accessible on low trays.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Offer materials for Make a Camping Badge that invite pinching, placing, sticking, or scribbling.
+2. Demonstrate one simple action, then invite toddlers to try.
+3. Celebrate effort and keep tools large enough for little hands.
+4. Support turn-taking when children want the same material.
 LEARNING_GOALS:
 Engage in Make a Camping Badge through toddler-friendly fine motor.
 Use theme vocabulary related to Camping Under the Stars.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Camping Adventure Parade
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Practice dramatic play skills during Camping Adventure Parade.
-
 DESCRIPTION:
 Toddlers explore Camping Adventure Parade during our Camping Under the Stars week through dramatic play.
-
 MATERIALS:
 Pretend-play props
 Costumes or badges
 Theme accessories
-
 SETUP:
 Prepare a toddler-ready space and materials for Camping Adventure Parade.
-
-DIRECTIONS:
-Set up a pretend-play area for Camping Adventure Parade with a few clear props.
-Model a short role (helper, keeper, captain) and invite children in.
-Use simple language to support caregiving, teamwork, and problem-solving.
-Follow the children's storyline and keep roles flexible.
-
 TEACHER_ROLE:
 Join play briefly as a co-player, then step back so toddlers lead the story.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Set up a pretend-play area for Camping Adventure Parade with a few clear props.
+2. Model a short role (helper, keeper, captain) and invite children in.
+3. Use simple language to support caregiving, teamwork, and problem-solving.
+4. Follow the children's storyline and keep roles flexible.
 LEARNING_GOALS:
 Engage in Camping Adventure Parade through toddler-friendly dramatic play.
 Use theme vocabulary related to Camping Under the Stars.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:

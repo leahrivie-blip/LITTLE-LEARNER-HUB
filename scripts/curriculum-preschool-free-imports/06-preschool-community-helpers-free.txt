@@ -14,12 +14,7 @@ STATUS:
 published
 
 LEARNING_DOMAINS:
-Social Emotional
-Language & Literacy
-Math
-Physical Development
-Creative Arts
-Science
+Social Emotional, Language & Literacy, Math, Physical Development, Creative Arts, Science
 
 WEEKLY_OVERVIEW:
 Preschoolers will learn about community helpers who keep neighborhoods safe, healthy, and running smoothly. Through dramatic play, books, movement, and cooperative activities, children explore helper roles, tools, and ways to thank people who help.
@@ -75,7 +70,46 @@ Observe role vocabulary, cooperative play, gratitude language, and ability to co
 ADAPTATIONS:
 Offer picture cards for helper names. Provide dictated thank-you options for emerging writers. Create quieter helper stations for children who need less noise.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+Community Helpers: Community Helper Discovery Basket and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Explore helper tools and uniforms in a discovery basket.
+Parade wearing helper hats to helper songs.
+Discuss places helpers work on a community map.
+
+DAILY_VOCABULARY:
+helper, community, job, tool, safe, thank you
+
+DAILY_MATERIALS:
+Helper basket with hats, tools, photos
+Helper hats, music player
+Large map poster, helper stickers
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to community helpers.
+Sing "People in Your Neighborhood" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit Whose Hands Are These? by Miranda Paul and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to community helpers — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Community Helper Discovery Basket / Helper Hat Parade).
+
+DAILY_OBSERVATIONS:
+Names helpers
+Wears hat during parade
+Places stickers appropriately
+Participation and interest in Community Helpers play
+
+DAILY_ADAPTATIONS:
+Offer picture cards for helper names. Provide dictated thank-you options for emerging writers. Create quieter helper stations for children who need less noise.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Community Helper Discovery Basket
@@ -91,6 +125,8 @@ SETUP:
 Fill basket with safe helper props.
 TEACHER_ROLE:
 Name each item and its helper.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Sit in circle and explore basket items one at a time.
 2. Try on hats and name helper jobs.
@@ -105,6 +141,15 @@ OBSERVATION_OPPORTUNITIES:
 Names helpers
 Matches tools to roles
 Handles props safely
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Helper Hat Parade
@@ -120,6 +165,8 @@ SETUP:
 Line up parade path with hats ready.
 TEACHER_ROLE:
 Lead parade and call helper names.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose a helper hat.
 2. March to People in Your Neighborhood.
@@ -134,6 +181,15 @@ OBSERVATION_OPPORTUNITIES:
 Wears hat during parade
 Names helper role
 Follows parade path
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Community Map Talk
@@ -149,6 +205,8 @@ SETUP:
 Post map at child height.
 TEACHER_ROLE:
 Discuss each place and its helpers.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Look at map together.
 2. Place firefighter at fire station sticker.
@@ -163,8 +221,56 @@ OBSERVATION_OPPORTUNITIES:
 Places stickers appropriately
 Names community places
 Tells simple stories
+VOCABULARY:
 
-TUESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Community Helpers: Doctor's Office Dramatic Play and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Pretend to care for patients in a doctor office.
+Complete a rescue relay carrying a hose to a pretend fire.
+Match helpers to their tools and workplaces.
+
+DAILY_VOCABULARY:
+helper, community, job, tool, safe, thank you
+
+DAILY_MATERIALS:
+Doctor kit, stethoscope, bandages, clipboards, dolls
+Soft hose, cones, red vests
+Matching cards in sets of three
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to community helpers.
+Sing "People in Your Neighborhood" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit Whose Hands Are These? by Miranda Paul and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to community helpers — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Doctor's Office Dramatic Play / Firefighter Rescue Relay).
+
+DAILY_OBSERVATIONS:
+Uses doctor tools safely
+Completes path safely
+Creates correct sets
+Participation and interest in Community Helpers play
+
+DAILY_ADAPTATIONS:
+Offer picture cards for helper names. Provide dictated thank-you options for emerging writers. Create quieter helper stations for children who need less noise.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Doctor's Office Dramatic Play
@@ -180,6 +286,8 @@ SETUP:
 Set up doctor office with waiting area.
 TEACHER_ROLE:
 Model gentle care and patient waiting.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Patients wait with books.
 2. Doctors check heartbeat and bandage.
@@ -194,6 +302,15 @@ OBSERVATION_OPPORTUNITIES:
 Uses doctor tools safely
 Shows care language
 Switches roles
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Firefighter Rescue Relay
@@ -209,6 +326,8 @@ SETUP:
 Set safe obstacle path indoors or outdoors.
 TEACHER_ROLE:
 Demonstrate path and emphasize safety.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Put on firefighter vest.
 2. Carry hose through cones.
@@ -223,6 +342,15 @@ OBSERVATION_OPPORTUNITIES:
 Completes path safely
 Cooperates in relay
 Uses helper vocabulary
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Community Helper Matching
@@ -238,6 +366,8 @@ SETUP:
 Lay cards face up in groups.
 TEACHER_ROLE:
 Model finding matching sets.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Pick a helper card.
 2. Find matching tool and building.
@@ -252,8 +382,56 @@ OBSERVATION_OPPORTUNITIES:
 Creates correct sets
 Names helper and tool
 Works independently or with peer
+VOCABULARY:
 
-WEDNESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Community Helpers: Mail Carrier Center and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Sort and deliver mail in the classroom.
+Prepare pretend meals and serve community members.
+Build community buildings with blocks and count structures.
+
+DAILY_VOCABULARY:
+helper, community, job, tool, safe, thank you
+
+DAILY_MATERIALS:
+Envelopes, mailbags, mailbox labels, crayons
+Play food, pots, menus, aprons, plates
+Unit blocks, helper figures, road tape
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to community helpers.
+Sing "People in Your Neighborhood" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit Whose Hands Are These? by Miranda Paul and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to community helpers — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Mail Carrier Center / Chef's Kitchen).
+
+DAILY_OBSERVATIONS:
+Delivers to correct mailbox
+Follows pretend cooking sequence
+Builds representational structure
+Participation and interest in Community Helpers play
+
+DAILY_ADAPTATIONS:
+Offer picture cards for helper names. Provide dictated thank-you options for emerging writers. Create quieter helper stations for children who need less noise.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Mail Carrier Center
@@ -269,6 +447,8 @@ SETUP:
 Label cubbies or boxes as mailboxes.
 TEACHER_ROLE:
 Model writing name on envelope and delivering.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Create mail for a friend.
 2. Place in mailbag.
@@ -283,6 +463,15 @@ OBSERVATION_OPPORTUNITIES:
 Delivers to correct mailbox
 Creates mark or drawing on mail
 Uses thank-you language
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Chef's Kitchen
@@ -298,6 +487,8 @@ SETUP:
 Stock kitchen with food and serving items.
 TEACHER_ROLE:
 Encourage taking orders and serving.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Customers order from menu.
 2. Chefs prepare pretend meals.
@@ -312,6 +503,15 @@ OBSERVATION_OPPORTUNITIES:
 Follows pretend cooking sequence
 Uses polite language
 Cleans up with group
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Build a Community Block City
@@ -327,6 +527,8 @@ SETUP:
 Define building area with road tape.
 TEACHER_ROLE:
 Encourage planning before building.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose a building to construct.
 2. Plan blocks needed.
@@ -341,8 +543,56 @@ OBSERVATION_OPPORTUNITIES:
 Builds representational structure
 Names building type
 Counts buildings
+VOCABULARY:
 
-THURSDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Community Helpers: Tool Exploration Table and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Explore safe tool textures and functions.
+Graph favorite community helpers.
+Make thank-you cards for real community helpers.
+
+DAILY_VOCABULARY:
+helper, community, job, tool, safe, thank you
+
+DAILY_MATERIALS:
+Plastic tools, helper cards, magnifying glasses
+Chart paper, helper pictures, stickers
+Cardstock, crayons, stickers, envelopes
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to community helpers.
+Sing "People in Your Neighborhood" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit Whose Hands Are These? by Miranda Paul and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to community helpers — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Tool Exploration Table / Healthy Helpers Chart).
+
+DAILY_OBSERVATIONS:
+Describes tool safely
+Votes independently
+Creates intentional drawing
+Participation and interest in Community Helpers play
+
+DAILY_ADAPTATIONS:
+Offer picture cards for helper names. Provide dictated thank-you options for emerging writers. Create quieter helper stations for children who need less noise.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Tool Exploration Table
@@ -358,6 +608,8 @@ SETUP:
 Display tools with matching helper cards.
 TEACHER_ROLE:
 Facilitate texture and function discussion.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Pick up tool carefully.
 2. Describe how it feels and moves.
@@ -372,6 +624,15 @@ OBSERVATION_OPPORTUNITIES:
 Describes tool safely
 Matches tool to helper
 Uses descriptive words
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Healthy Helpers Chart
@@ -387,6 +648,8 @@ SETUP:
 Post chart with helper columns.
 TEACHER_ROLE:
 Count votes and compare.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose favorite helper.
 2. Place sticker in column.
@@ -401,6 +664,15 @@ OBSERVATION_OPPORTUNITIES:
 Votes independently
 Counts with group
 States preference
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Thank-You Card Workshop
@@ -416,6 +688,8 @@ SETUP:
 Set art table with example messages.
 TEACHER_ROLE:
 Help dictate messages of thanks.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose a helper to thank.
 2. Draw picture on card.
@@ -430,8 +704,56 @@ OBSERVATION_OPPORTUNITIES:
 Creates intentional drawing
 Dictates thank-you
 Shows pride in card
+VOCABULARY:
 
-FRIDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Community Helpers: Helper Interview Circle and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Share what they learned about one helper job.
+Move through stations pretending to be different helpers.
+Celebrate helper week and review gratitude.
+
+DAILY_VOCABULARY:
+helper, community, job, tool, safe, thank you
+
+DAILY_MATERIALS:
+Helper props, talking stick
+Cones, mailbag, vest, spoon and bowl
+Thank-you cards, helper hats, music
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to community helpers.
+Sing "People in Your Neighborhood" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit Whose Hands Are These? by Miranda Paul and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to community helpers — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Helper Interview Circle / Community Helper Obstacle Course).
+
+DAILY_OBSERVATIONS:
+Shares a fact
+Completes stations
+Recalls helper jobs
+Participation and interest in Community Helpers play
+
+DAILY_ADAPTATIONS:
+Offer picture cards for helper names. Provide dictated thank-you options for emerging writers. Create quieter helper stations for children who need less noise.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Helper Interview Circle
@@ -447,6 +769,8 @@ SETUP:
 Gather in circle with props visible.
 TEACHER_ROLE:
 Model short helper fact sharing.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose favorite helper.
 2. Share one job they do.
@@ -461,6 +785,15 @@ OBSERVATION_OPPORTUNITIES:
 Shares a fact
 Listens to peers
 Uses helper vocabulary
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Community Helper Obstacle Course
@@ -476,6 +809,8 @@ SETUP:
 Set up multi-station course.
 TEACHER_ROLE:
 Demonstrate each station safely.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Start at mail delivery station.
 2. Move to firefighter crawl.
@@ -490,6 +825,15 @@ OBSERVATION_OPPORTUNITIES:
 Completes stations
 Embodies helper actions
 Follows course safely
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Community Helpers Celebration
@@ -505,6 +849,8 @@ SETUP:
 Gather with completed cards.
 TEACHER_ROLE:
 Facilitate gratitude sharing.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Review helpers learned about.
 2. Share thank-you card plans.
@@ -519,3 +865,12 @@ OBSERVATION_OPPORTUNITIES:
 Recalls helper jobs
 Expresses thanks
 Participates in closing
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

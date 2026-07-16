@@ -57,266 +57,746 @@ Provide larger materials for younger toddlers, visual supports, adaptive art too
 
 MONDAY
 
+DAILY_THEME:
+Easter: Easter Sensory Bin and related play (introduce the theme through movement, sensory play, and simple language)
+
+DAILY_OBJECTIVES:
+Support easter learning through easter sensory bin.
+Support easter learning through egg hunt adventure.
+Support easter learning through easter circle time.
+
+DAILY_VOCABULARY:
+Easter, Bunny, Egg, Chick, Basket, Spring
+
+DAILY_MATERIALS:
+Plastic eggs, pastel rice, scoops, pom-poms
+Plastic eggs
+Picture cards
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to easter.
+Sing "Here Comes Peter Cottontail" with simple movements or props.
+Show one prop or picture from today's activity (Easter Sensory Bin) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to easter: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Easter Sensory Bin
+Engagement during Egg Hunt Adventure
+Engagement during Easter Circle Time
+Participation and interest in Easter play
+
+DAILY_ADAPTATIONS:
+Provide larger materials for younger toddlers, visual supports, adaptive art tools, sensory alternatives, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
+
 ACTIVITY_NAME:
 Easter Sensory Bin
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support easter learning through easter sensory bin.
 DESCRIPTION:
 Children explore Easter-themed materials in a sensory bin.
 MATERIALS:
 Plastic eggs, pastel rice, scoops, pom-poms
-DIRECTIONS:
-Fill sensory bin with materials.
-Encourage scooping and sorting.
-Open and close eggs.
-Explore textures together.
+SETUP:
+Prepare materials for Easter Sensory Bin before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Model vocabulary and sensory exploration.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Fill sensory bin with materials.
+2. Encourage scooping and sorting.
+3. Open and close eggs.
+4. Explore textures together.
 LEARNING_GOALS:
 Sensory awareness and fine motor development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Easter Sensory Bin
+Use of easter vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Egg Hunt Adventure
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support easter learning through egg hunt adventure.
 DESCRIPTION:
 Children search for colorful eggs hidden around the room.
 MATERIALS:
 Plastic eggs
-DIRECTIONS:
-Hide eggs around room.
-Encourage children to search.
-Collect eggs in baskets.
+SETUP:
+Prepare materials for Egg Hunt Adventure before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support exploration and participation.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Hide eggs around room.
+2. Encourage children to search.
+3. Collect eggs in baskets.
 LEARNING_GOALS:
 Observation skills and gross motor development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Egg Hunt Adventure
+Use of easter vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Easter Circle Time
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support easter learning through easter circle time.
 DESCRIPTION:
 Introduce Easter themes through stories and discussion.
 MATERIALS:
 Picture cards
-DIRECTIONS:
-Show Easter pictures.
-Discuss eggs and bunnies.
-Read a short Easter story.
+SETUP:
+Prepare materials for Easter Circle Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead discussion.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Show Easter pictures.
+2. Discuss eggs and bunnies.
+3. Read a short Easter story.
 LEARNING_GOALS:
 Vocabulary development and listening skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Easter Circle Time
+Use of easter vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 TUESDAY
+
+DAILY_THEME:
+Easter: Bunny Ear Craft and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Support easter learning through bunny ear craft.
+Support easter learning through bunny hop race.
+Support easter learning through bunny story time.
+
+DAILY_VOCABULARY:
+Easter, Bunny, Egg, Chick, Basket, Spring
+
+DAILY_MATERIALS:
+Paper, cotton balls, glue
+Open space
+Easter book
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to easter.
+Sing "Here Comes Peter Cottontail" with simple movements or props.
+Show one prop or picture from today's activity (Bunny Ear Craft) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to easter: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Bunny Ear Craft
+Engagement during Bunny Hop Race
+Engagement during Bunny Story Time
+Participation and interest in Easter play
+
+DAILY_ADAPTATIONS:
+Provide larger materials for younger toddlers, visual supports, adaptive art tools, sensory alternatives, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
 
 ACTIVITY_NAME:
 Bunny Ear Craft
 CATEGORY:
 Art
+OBJECTIVE:
+Support easter learning through bunny ear craft.
 DESCRIPTION:
 Children create bunny ears using paper and cotton balls.
 MATERIALS:
 Paper, cotton balls, glue
-DIRECTIONS:
-Decorate bunny ears.
-Glue cotton balls.
-Wear finished ears.
+SETUP:
+Prepare materials for Bunny Ear Craft before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support creativity and fine motor skills.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Decorate bunny ears.
+2. Glue cotton balls.
+3. Wear finished ears.
 LEARNING_GOALS:
 Creative expression and hand strength.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Bunny Ear Craft
+Use of easter vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Bunny Hop Race
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support easter learning through bunny hop race.
 DESCRIPTION:
 Children hop like bunnies across the room.
 MATERIALS:
 Open space
-DIRECTIONS:
-Demonstrate hopping.
-Encourage participation.
-Practice different movements.
+SETUP:
+Prepare materials for Bunny Hop Race before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead movement activity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Demonstrate hopping.
+2. Encourage participation.
+3. Practice different movements.
 LEARNING_GOALS:
 Balance and coordination.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Bunny Hop Race
+Use of easter vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Bunny Story Time
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support easter learning through bunny story time.
 DESCRIPTION:
 Children listen to a bunny-themed story.
 MATERIALS:
 Easter book
-DIRECTIONS:
-Read story aloud.
-Ask simple questions.
-Identify bunny vocabulary.
+SETUP:
+Prepare materials for Bunny Story Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support comprehension.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Read story aloud.
+2. Ask simple questions.
+3. Identify bunny vocabulary.
 LEARNING_GOALS:
 Listening and vocabulary development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Bunny Story Time
+Use of easter vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 WEDNESDAY
+
+DAILY_THEME:
+Easter: Egg Color Sorting and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Support easter learning through egg color sorting.
+Support easter learning through chick nest building.
+Support easter learning through easter music circle.
+
+DAILY_VOCABULARY:
+Easter, Bunny, Egg, Chick, Basket, Spring
+
+DAILY_MATERIALS:
+Colored plastic eggs
+Toy chicks, shredded paper, baskets
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to easter.
+Sing "Here Comes Peter Cottontail" with simple movements or props.
+Show one prop or picture from today's activity (Egg Color Sorting) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to easter: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Egg Color Sorting
+Engagement during Chick Nest Building
+Engagement during Easter Music Circle
+Participation and interest in Easter play
+
+DAILY_ADAPTATIONS:
+Provide larger materials for younger toddlers, visual supports, adaptive art tools, sensory alternatives, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
 
 ACTIVITY_NAME:
 Egg Color Sorting
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support easter learning through egg color sorting.
 DESCRIPTION:
 Children sort plastic eggs by color.
 MATERIALS:
 Colored plastic eggs
-DIRECTIONS:
-Gather eggs.
-Sort by color.
-Count eggs together.
+SETUP:
+Prepare materials for Egg Color Sorting before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide sorting discussions.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Gather eggs.
+2. Sort by color.
+3. Count eggs together.
 LEARNING_GOALS:
 Color recognition and classification skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Egg Color Sorting
+Use of easter vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Chick Nest Building
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support easter learning through chick nest building.
 DESCRIPTION:
 Children build nests for toy chicks.
 MATERIALS:
 Toy chicks, shredded paper, baskets
-DIRECTIONS:
-Gather materials.
-Build nests.
-Place chicks inside.
+SETUP:
+Prepare materials for Chick Nest Building before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Encourage creativity and problem-solving.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Gather materials.
+2. Build nests.
+3. Place chicks inside.
 LEARNING_GOALS:
 Imagination and early engineering skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Chick Nest Building
+Use of easter vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Easter Music Circle
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support easter learning through easter music circle.
 DESCRIPTION:
 Children sing Easter songs and move to the music.
 MATERIALS:
 Music player
-DIRECTIONS:
-Play music.
-Add hand motions.
-Encourage participation.
+SETUP:
+Prepare materials for Easter Music Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead music activity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play music.
+2. Add hand motions.
+3. Encourage participation.
 LEARNING_GOALS:
 Rhythm and listening skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Easter Music Circle
+Use of easter vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 THURSDAY
+
+DAILY_THEME:
+Easter: Pastel Egg Painting and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Support easter learning through pastel egg painting.
+Support easter learning through basket toss.
+Support easter learning through easter basket pretend play.
+
+DAILY_VOCABULARY:
+Easter, Bunny, Egg, Chick, Basket, Spring
+
+DAILY_MATERIALS:
+Egg templates, paint, brushes
+Soft eggs, baskets
+Baskets, eggs, stuffed bunnies
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to easter.
+Sing "Here Comes Peter Cottontail" with simple movements or props.
+Show one prop or picture from today's activity (Pastel Egg Painting) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to easter: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Pastel Egg Painting
+Engagement during Basket Toss
+Engagement during Easter Basket Pretend Play
+Participation and interest in Easter play
+
+DAILY_ADAPTATIONS:
+Provide larger materials for younger toddlers, visual supports, adaptive art tools, sensory alternatives, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
 
 ACTIVITY_NAME:
 Pastel Egg Painting
 CATEGORY:
 Art
+OBJECTIVE:
+Support easter learning through pastel egg painting.
 DESCRIPTION:
 Children paint Easter egg shapes using pastel colors.
 MATERIALS:
 Egg templates, paint, brushes
-DIRECTIONS:
-Paint egg shapes.
-Explore colors.
-Display artwork.
+SETUP:
+Prepare materials for Pastel Egg Painting before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support creativity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Paint egg shapes.
+2. Explore colors.
+3. Display artwork.
 LEARNING_GOALS:
 Fine motor skills and self-expression.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Pastel Egg Painting
+Use of easter vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Basket Toss
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support easter learning through basket toss.
 DESCRIPTION:
 Children toss soft eggs into baskets.
 MATERIALS:
 Soft eggs, baskets
-DIRECTIONS:
-Set up baskets.
-Toss eggs toward targets.
-Count successful tosses.
+SETUP:
+Prepare materials for Basket Toss before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Encourage participation.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Set up baskets.
+2. Toss eggs toward targets.
+3. Count successful tosses.
 LEARNING_GOALS:
 Hand-eye coordination.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Basket Toss
+Use of easter vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Easter Basket Pretend Play
 CATEGORY:
 Dramatic Play
+OBJECTIVE:
+Support easter learning through easter basket pretend play.
 DESCRIPTION:
 Children pretend to prepare Easter baskets.
 MATERIALS:
 Baskets, eggs, stuffed bunnies
-DIRECTIONS:
-Fill baskets.
-Deliver baskets to friends.
-Practice sharing.
+SETUP:
+Prepare materials for Easter Basket Pretend Play before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Facilitate imaginative play.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Fill baskets.
+2. Deliver baskets to friends.
+3. Practice sharing.
 LEARNING_GOALS:
 Social interaction and creativity.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Easter Basket Pretend Play
+Use of easter vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 FRIDAY
+
+DAILY_THEME:
+Easter: Spring Nature Walk and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Support easter learning through spring nature walk.
+Support easter learning through easter dance party.
+Support easter learning through easter celebration circle.
+
+DAILY_VOCABULARY:
+Easter, Bunny, Egg, Chick, Basket, Spring
+
+DAILY_MATERIALS:
+Collection baskets
+Music player
+Books, visuals, songs
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to easter.
+Sing "Here Comes Peter Cottontail" with simple movements or props.
+Show one prop or picture from today's activity (Spring Nature Walk) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to easter: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Spring Nature Walk
+Engagement during Easter Dance Party
+Engagement during Easter Celebration Circle
+Participation and interest in Easter play
+
+DAILY_ADAPTATIONS:
+Provide larger materials for younger toddlers, visual supports, adaptive art tools, sensory alternatives, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
 
 ACTIVITY_NAME:
 Spring Nature Walk
 CATEGORY:
 Outdoor Play
+OBJECTIVE:
+Support easter learning through spring nature walk.
 DESCRIPTION:
 Children look for signs of spring outdoors.
 MATERIALS:
 Collection baskets
-DIRECTIONS:
-Walk outside.
-Look for flowers, grass, and birds.
-Discuss observations.
+SETUP:
+Prepare materials for Spring Nature Walk before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide exploration and discussion.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Walk outside.
+2. Look for flowers, grass, and birds.
+3. Discuss observations.
 LEARNING_GOALS:
 Observation skills and nature awareness.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Spring Nature Walk
+Use of easter vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Easter Dance Party
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support easter learning through easter dance party.
 DESCRIPTION:
 Children celebrate with Easter songs and dancing.
 MATERIALS:
 Music player
-DIRECTIONS:
-Play music.
-Dance together.
-Follow movement directions.
+SETUP:
+Prepare materials for Easter Dance Party before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead movement activities.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play music.
+2. Dance together.
+3. Follow movement directions.
 LEARNING_GOALS:
 Gross motor development and social participation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Easter Dance Party
+Use of easter vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Easter Celebration Circle
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support easter learning through easter celebration circle.
 DESCRIPTION:
 Review the week's Easter activities and celebrate learning.
 MATERIALS:
 Books, visuals, songs
-DIRECTIONS:
-Discuss favorite activities.
-Review vocabulary.
-Sing favorite songs.
+SETUP:
+Prepare materials for Easter Celebration Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead reflection and discussion.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Discuss favorite activities.
+2. Review vocabulary.
+3. Sing favorite songs.
 LEARNING_GOALS:
 Recall, language development, and social participation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Easter Celebration Circle
+Use of easter vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:

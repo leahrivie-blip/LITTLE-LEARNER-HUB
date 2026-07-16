@@ -14,12 +14,7 @@ STATUS:
 published
 
 LEARNING_DOMAINS:
-Science
-Math
-Language & Literacy
-Physical Development
-Social Emotional
-Creative Arts
+Science, Math, Language & Literacy, Physical Development, Social Emotional, Creative Arts
 
 WEEKLY_OVERVIEW:
 Children will become young scientists, engineers, mathematicians, and inventors as they explore hands-on STEM activities. Throughout the week, children will investigate, build, test, predict, measure, sort, and solve problems while developing critical thinking skills through engaging experiments and challenges.
@@ -87,7 +82,49 @@ Observe problem-solving skills, persistence, cooperation, measuring abilities, s
 ADAPTATIONS:
 Provide visual supports and step-by-step picture directions. Offer larger materials when needed and allow extra time for exploration and problem-solving.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+STEM: Scientist Investigation Station and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Develop observation and investigation skills.
+Develop engineering and problem-solving skills.
+Introduce measuring concepts.
+
+DAILY_VOCABULARY:
+Science, Engineer, Predict, Observe, Experiment, Measure
+
+DAILY_MATERIALS:
+Magnifying glasses
+Natural objects
+Observation trays
+Blocks
+Rulers
+Blocks
+Classroom objects
+Movement cards
+
+DAILY_LEARNING_DOMAINS:
+Science, Math, Language & Literacy, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to stem.
+Sing "The Science Song" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit Rosie Revere, Engineer by Andrea Beaty and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to stem — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Scientist Investigation Station / Build the Tallest Tower).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in STEM play
+
+DAILY_ADAPTATIONS:
+Provide visual supports and step-by-step picture directions. Offer larger materials when needed and allow extra time for exploration and problem-solving.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Scientist Investigation Station
@@ -105,6 +142,8 @@ SETUP:
 Arrange items on trays for exploration.
 TEACHER_ROLE:
 Encourage questioning and observation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Observe objects closely.
 2. Describe colors, textures, and shapes.
@@ -113,6 +152,15 @@ LEARNING_GOALS:
 Develop observation and investigation skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Build the Tallest Tower
@@ -128,6 +176,8 @@ SETUP:
 Provide building materials.
 TEACHER_ROLE:
 Encourage planning and persistence.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Build the tallest tower possible.
 2. Test stability.
@@ -136,6 +186,15 @@ LEARNING_GOALS:
 Develop engineering and problem-solving skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Measuring Fun
@@ -153,6 +212,8 @@ SETUP:
 Create measuring stations.
 TEACHER_ROLE:
 Introduce measurement vocabulary.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Measure classroom items.
 2. Compare lengths.
@@ -161,6 +222,15 @@ LEARNING_GOALS:
 Introduce measuring concepts.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 STEM Movement Challenge
@@ -176,15 +246,71 @@ SETUP:
 Create movement space.
 TEACHER_ROLE:
 Lead activities and encourage participation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Complete movement challenges.
-2. Jump, balance, crawl, and stretch.
+1. Introduce STEM Movement Challenge and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop listening and body control.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-TUESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+STEM: Sink or Float Experiment and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Explore scientific investigation.
+Develop engineering skills.
+Develop mathematical thinking.
+
+DAILY_VOCABULARY:
+Science, Engineer, Predict, Observe, Experiment, Measure
+
+DAILY_MATERIALS:
+Water tub
+Various objects
+Craft sticks
+Blocks
+Paper cups
+Colored manipulatives
+Tool props
+Clipboards
+
+DAILY_LEARNING_DOMAINS:
+Science, Math, Language & Literacy, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to stem.
+Sing "The Science Song" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit Rosie Revere, Engineer by Andrea Beaty and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to stem — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Sink or Float Experiment / Bridge Builders).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in STEM play
+
+DAILY_ADAPTATIONS:
+Provide visual supports and step-by-step picture directions. Offer larger materials when needed and allow extra time for exploration and problem-solving.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Sink or Float Experiment
@@ -201,6 +327,8 @@ SETUP:
 Fill container with water.
 TEACHER_ROLE:
 Guide scientific discussions.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Predict what will happen.
 2. Test each object.
@@ -209,6 +337,15 @@ LEARNING_GOALS:
 Explore scientific investigation.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Bridge Builders
@@ -226,6 +363,8 @@ SETUP:
 Provide building materials.
 TEACHER_ROLE:
 Support problem-solving.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Build a bridge.
 2. Test strength.
@@ -234,6 +373,15 @@ LEARNING_GOALS:
 Develop engineering skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Pattern Creation
@@ -249,13 +397,27 @@ SETUP:
 Create pattern stations.
 TEACHER_ROLE:
 Introduce pattern vocabulary.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Create repeating patterns.
-2. Extend patterns.
+1. Introduce Pattern Creation and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop mathematical thinking.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Inventor Dramatic Play
@@ -272,15 +434,69 @@ SETUP:
 Create invention workshop.
 TEACHER_ROLE:
 Encourage imaginative thinking.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Design inventions.
-2. Explain how they work.
+1. Introduce Inventor Dramatic Play and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Encourage creativity and communication.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-WEDNESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+STEM: Ramp Testing and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Investigate motion and speed.
+Develop planning skills.
+Develop planning and creativity.
+
+DAILY_VOCABULARY:
+Science, Engineer, Predict, Observe, Experiment, Measure
+
+DAILY_MATERIALS:
+Ramps
+Toy cars
+Dominoes
+Paper
+Markers
+Music
+
+DAILY_LEARNING_DOMAINS:
+Science, Math, Language & Literacy, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to stem.
+Sing "The Science Song" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit Rosie Revere, Engineer by Andrea Beaty and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to stem — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Ramp Testing / Domino Engineering).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in STEM play
+
+DAILY_ADAPTATIONS:
+Provide visual supports and step-by-step picture directions. Offer larger materials when needed and allow extra time for exploration and problem-solving.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Ramp Testing
@@ -297,6 +513,8 @@ SETUP:
 Create testing stations.
 TEACHER_ROLE:
 Guide experimentation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Test different ramps.
 2. Observe results.
@@ -305,6 +523,15 @@ LEARNING_GOALS:
 Investigate motion and speed.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Domino Engineering
@@ -320,13 +547,27 @@ SETUP:
 Arrange building area.
 TEACHER_ROLE:
 Support persistence.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Create domino paths.
-2. Test chain reactions.
+1. Introduce Domino Engineering and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop planning skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Blueprint Drawing
@@ -343,13 +584,27 @@ SETUP:
 Provide drawing supplies.
 TEACHER_ROLE:
 Encourage detailed thinking.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Draw building plans.
-2. Explain designs.
+1. Introduce Blueprint Drawing and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop planning and creativity.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Robot Movement Game
@@ -365,15 +620,70 @@ SETUP:
 Open floor space.
 TEACHER_ROLE:
 Lead movement activities.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Move like robots.
-2. Follow movement commands.
+1. Introduce Robot Movement Game and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop body awareness.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-THURSDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+STEM: Marble Run Challenge and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Explore engineering concepts.
+Develop classification skills.
+Record observations.
+
+DAILY_VOCABULARY:
+Science, Engineer, Predict, Observe, Experiment, Measure
+
+DAILY_MATERIALS:
+Tubes
+Marbles
+Tape
+Various objects
+Paper
+Crayons
+Building materials
+
+DAILY_LEARNING_DOMAINS:
+Science, Math, Language & Literacy, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to stem.
+Sing "The Science Song" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit Rosie Revere, Engineer by Andrea Beaty and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to stem — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Marble Run Challenge / Sorting Scientists).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in STEM play
+
+DAILY_ADAPTATIONS:
+Provide visual supports and step-by-step picture directions. Offer larger materials when needed and allow extra time for exploration and problem-solving.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Marble Run Challenge
@@ -391,13 +701,27 @@ SETUP:
 Provide materials.
 TEACHER_ROLE:
 Support experimentation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Build marble runs.
-2. Test and redesign.
+1. Introduce Marble Run Challenge and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Explore engineering concepts.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Sorting Scientists
@@ -413,13 +737,27 @@ SETUP:
 Create sorting trays.
 TEACHER_ROLE:
 Introduce comparison vocabulary.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Sort by different attributes.
-2. Discuss categories.
+1. Introduce Sorting Scientists and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop classification skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 STEM Journal Drawing
@@ -436,13 +774,27 @@ SETUP:
 Prepare journals.
 TEACHER_ROLE:
 Encourage reflection.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Draw favorite investigations.
-2. Share observations.
+1. Introduce STEM Journal Drawing and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Record observations.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Team Builder Challenge
@@ -458,14 +810,66 @@ SETUP:
 Small group stations.
 TEACHER_ROLE:
 Encourage cooperation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Work together to complete challenges.
+1. Introduce Team Builder Challenge and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop teamwork.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-FRIDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+STEM: STEM Exploration Stations and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Review weekly STEM concepts.
+Build confidence and communication.
+Celebrate learning through movement.
+
+DAILY_VOCABULARY:
+Science, Engineer, Predict, Observe, Experiment, Measure
+
+DAILY_MATERIALS:
+Favorite materials from the week
+Completed projects
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Science, Math, Language & Literacy, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to stem.
+Sing "The Science Song" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit Rosie Revere, Engineer by Andrea Beaty and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to stem — movement games, collaborative challenges, or nature observation linked to today's indoor activities (STEM Exploration Stations / Engineer Showcase).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in STEM play
+
+DAILY_ADAPTATIONS:
+Provide visual supports and step-by-step picture directions. Offer larger materials when needed and allow extra time for exploration and problem-solving.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 STEM Exploration Stations
@@ -481,13 +885,27 @@ SETUP:
 Create exploration centers.
 TEACHER_ROLE:
 Encourage discussion.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Visit each station.
-2. Explore and investigate.
+1. Introduce STEM Exploration Stations and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Review weekly STEM concepts.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Engineer Showcase
@@ -503,13 +921,27 @@ SETUP:
 Display projects.
 TEACHER_ROLE:
 Support presentations.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Share creations.
-2. Explain designs.
+1. Introduce Engineer Showcase and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Build confidence and communication.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 STEM Celebration Dance
@@ -525,11 +957,24 @@ SETUP:
 Open movement area.
 TEACHER_ROLE:
 Encourage participation and reflection.
+TEACHER_LANGUAGE:
 
 DIRECTIONS:
-1. Dance and move.
-2. Celebrate discoveries.
+1. Introduce STEM Celebration Dance and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Celebrate learning through movement.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

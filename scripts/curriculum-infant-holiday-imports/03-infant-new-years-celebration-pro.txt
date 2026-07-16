@@ -2,7 +2,7 @@ TITLE:
 New Year's Celebration
 
 AGE_GROUP:
-Infant
+Infant 0–6 Months
 
 THEME:
 New Year's
@@ -57,268 +57,747 @@ Provide larger sensory materials for younger infants. Offer seated support durin
 
 MONDAY
 
+DAILY_THEME:
+New Year's: Sparkle Scarf Exploration and related play (introduce calm bonding, faces, and soft sensory play)
+
+DAILY_OBJECTIVES:
+Support new year's learning through sparkle scarf exploration.
+Support new year's learning through shiny scarf dance.
+Support new year's learning through new year story time.
+
+DAILY_VOCABULARY:
+New Year, Celebrate, Sparkle, Star, Count, Party
+
+DAILY_MATERIALS:
+Metallic scarves
+Scarves, music player
+Board books
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "If You're Happy and You Know It" at a low volume while offering gentle movement or visual interest tied to new year's.
+End with a brief look at Happy New Year, Spot! or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate new year's sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Sparkle Scarf Exploration
+Engagement during Shiny Scarf Dance
+Engagement during New Year Story Time
+Participation and interest in New Year's play
+
+DAILY_ADAPTATIONS:
+Provide larger sensory materials for younger infants. Offer seated support during movement activities. Modify sensory experiences based on individual developmental needs.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
+
 ACTIVITY_NAME:
 Sparkle Scarf Exploration
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support new year's learning through sparkle scarf exploration.
 DESCRIPTION:
 Infants explore shiny scarves and colorful materials.
 MATERIALS:
 Metallic scarves
-DIRECTIONS:
-Place scarves within reach.
-Encourage touching and grasping.
-Describe colors and textures.
-Allow free exploration.
+SETUP:
+Prepare materials for Sparkle Scarf Exploration before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Model descriptive language and encourage exploration.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Place scarves within reach.
+2. Encourage touching and grasping.
+3. Describe colors and textures.
+4. Allow free exploration.
 LEARNING_GOALS:
 Sensory awareness and fine motor development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Sparkle Scarf Exploration
+Use of new year's vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Shiny Scarf Dance
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support new year's learning through shiny scarf dance.
 DESCRIPTION:
 Infants watch sparkling scarves move to music.
 MATERIALS:
 Scarves, music player
-DIRECTIONS:
-Play music.
-Move scarves gently.
-Encourage visual tracking.
+SETUP:
+Prepare materials for Shiny Scarf Dance before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead movement and engagement.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play music.
+2. Move scarves gently.
+3. Encourage visual tracking.
 LEARNING_GOALS:
 Visual tracking and auditory awareness.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Shiny Scarf Dance
+Use of new year's vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 New Year Story Time
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support new year's learning through new year story time.
 DESCRIPTION:
 Infants listen to a simple New Year's story.
 MATERIALS:
 Board books
-DIRECTIONS:
-Read story aloud.
-Point to pictures.
-Name celebration items.
+SETUP:
+Prepare materials for New Year Story Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support language development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Read story aloud.
+2. Point to pictures.
+3. Name celebration items.
 LEARNING_GOALS:
 Early literacy and vocabulary exposure.
+OBSERVATION_OPPORTUNITIES:
+Engagement during New Year Story Time
+Use of new year's vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 TUESDAY
+
+DAILY_THEME:
+New Year's: Star Touch & Explore and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Support new year's learning through star touch & explore.
+Support new year's learning through reach for the stars.
+Support new year's learning through star song circle.
+
+DAILY_VOCABULARY:
+New Year, Celebrate, Sparkle, Star, Count, Party
+
+DAILY_MATERIALS:
+Soft stars
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "If You're Happy and You Know It" at a low volume while offering gentle movement or visual interest tied to new year's.
+End with a brief look at Happy New Year, Spot! or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate new year's sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Star Touch & Explore
+Engagement during Reach for the Stars
+Engagement during Star Song Circle
+Participation and interest in New Year's play
+
+DAILY_ADAPTATIONS:
+Provide larger sensory materials for younger infants. Offer seated support during movement activities. Modify sensory experiences based on individual developmental needs.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 Star Touch & Explore
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support new year's learning through star touch & explore.
 DESCRIPTION:
 Infants explore soft star shapes through touch and observation.
 MATERIALS:
 Soft stars
-DIRECTIONS:
-Present stars.
-Encourage touching.
-Describe shapes and textures.
+SETUP:
+Prepare materials for Star Touch & Explore before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide sensory exploration.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Present stars.
+2. Encourage touching.
+3. Describe shapes and textures.
 LEARNING_GOALS:
 Tactile awareness and sensory development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Star Touch & Explore
+Use of new year's vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Reach for the Stars
 CATEGORY:
 Fine Motor
+OBJECTIVE:
+Support new year's learning through reach for the stars.
 DESCRIPTION:
 Infants practice reaching for and grasping soft stars.
 MATERIALS:
 Soft stars
-DIRECTIONS:
-Place stars nearby.
-Encourage reaching.
-Support grasping attempts.
+SETUP:
+Prepare materials for Reach for the Stars before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Encourage fine motor development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Place stars nearby.
+2. Encourage reaching.
+3. Support grasping attempts.
 LEARNING_GOALS:
 Hand-eye coordination and grasping skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Reach for the Stars
+Use of new year's vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Star Song Circle
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support new year's learning through star song circle.
 DESCRIPTION:
 Infants participate in songs about stars and celebrations.
 MATERIALS:
 Music player
-DIRECTIONS:
-Play songs.
-Encourage movement.
-Repeat favorite songs.
+SETUP:
+Prepare materials for Star Song Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead participation.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play songs.
+2. Encourage movement.
+3. Repeat favorite songs.
 LEARNING_GOALS:
 Social engagement and auditory development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Star Song Circle
+Use of new year's vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 WEDNESDAY
+
+DAILY_THEME:
+New Year's: Mirror Celebration Faces and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Support new year's learning through mirror celebration faces.
+Support new year's learning through bubble countdown fun.
+Support new year's learning through celebration story time.
+
+DAILY_VOCABULARY:
+New Year, Celebrate, Sparkle, Star, Count, Party
+
+DAILY_MATERIALS:
+Baby-safe mirrors
+Bubbles
+Board books
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "If You're Happy and You Know It" at a low volume while offering gentle movement or visual interest tied to new year's.
+End with a brief look at Happy New Year, Spot! or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate new year's sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Mirror Celebration Faces
+Engagement during Bubble Countdown Fun
+Engagement during Celebration Story Time
+Participation and interest in New Year's play
+
+DAILY_ADAPTATIONS:
+Provide larger sensory materials for younger infants. Offer seated support during movement activities. Modify sensory experiences based on individual developmental needs.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 Mirror Celebration Faces
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support new year's learning through mirror celebration faces.
 DESCRIPTION:
 Infants explore reflections and facial expressions.
 MATERIALS:
 Baby-safe mirrors
-DIRECTIONS:
-Position mirrors safely.
-Encourage looking.
-Model happy expressions.
+SETUP:
+Prepare materials for Mirror Celebration Faces before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support social interaction.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Position mirrors safely.
+2. Encourage looking.
+3. Model happy expressions.
 LEARNING_GOALS:
 Social-emotional development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Mirror Celebration Faces
+Use of new year's vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Bubble Countdown Fun
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support new year's learning through bubble countdown fun.
 DESCRIPTION:
 Infants watch bubbles while practicing simple counting.
 MATERIALS:
 Bubbles
-DIRECTIONS:
-Blow bubbles.
-Count aloud.
-Encourage watching and reaching.
+SETUP:
+Prepare materials for Bubble Countdown Fun before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Model counting and excitement.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Blow bubbles.
+2. Count aloud.
+3. Encourage watching and reaching.
 LEARNING_GOALS:
 Visual tracking and language exposure.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Bubble Countdown Fun
+Use of new year's vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Celebration Story Time
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support new year's learning through celebration story time.
 DESCRIPTION:
 Infants enjoy a story about celebrations and friendship.
 MATERIALS:
 Board books
-DIRECTIONS:
-Read story aloud.
-Point to pictures.
-Repeat key vocabulary.
+SETUP:
+Prepare materials for Celebration Story Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support language development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Read story aloud.
+2. Point to pictures.
+3. Repeat key vocabulary.
 LEARNING_GOALS:
 Vocabulary and literacy exposure.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Celebration Story Time
+Use of new year's vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 THURSDAY
+
+DAILY_THEME:
+New Year's: New Year Sensory Bag and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Support new year's learning through new year sensory bag.
+Support new year's learning through ribbon watch & explore.
+Support new year's learning through party music time.
+
+DAILY_VOCABULARY:
+New Year, Celebrate, Sparkle, Star, Count, Party
+
+DAILY_MATERIALS:
+Sealed sensory bag, pom-poms, ribbons
+Ribbons
+Music player, shakers
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "If You're Happy and You Know It" at a low volume while offering gentle movement or visual interest tied to new year's.
+End with a brief look at Happy New Year, Spot! or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate new year's sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during New Year Sensory Bag
+Engagement during Ribbon Watch & Explore
+Engagement during Party Music Time
+Participation and interest in New Year's play
+
+DAILY_ADAPTATIONS:
+Provide larger sensory materials for younger infants. Offer seated support during movement activities. Modify sensory experiences based on individual developmental needs.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 New Year Sensory Bag
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support new year's learning through new year sensory bag.
 DESCRIPTION:
 Infants explore a sensory bag filled with shiny materials.
 MATERIALS:
 Sealed sensory bag, pom-poms, ribbons
-DIRECTIONS:
-Place bag on floor.
-Encourage pressing and touching.
-Describe materials.
+SETUP:
+Prepare materials for New Year Sensory Bag before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide sensory exploration.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Place bag on floor.
+2. Encourage pressing and touching.
+3. Describe materials.
 LEARNING_GOALS:
 Tactile exploration and sensory awareness.
+OBSERVATION_OPPORTUNITIES:
+Engagement during New Year Sensory Bag
+Use of new year's vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Ribbon Watch & Explore
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support new year's learning through ribbon watch & explore.
 DESCRIPTION:
 Infants watch colorful ribbons move and sparkle.
 MATERIALS:
 Ribbons
-DIRECTIONS:
-Move ribbons slowly.
-Encourage visual tracking.
-Describe colors and movement.
+SETUP:
+Prepare materials for Ribbon Watch & Explore before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support observation and engagement.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Move ribbons slowly.
+2. Encourage visual tracking.
+3. Describe colors and movement.
 LEARNING_GOALS:
 Visual tracking and attention.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Ribbon Watch & Explore
+Use of new year's vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Party Music Time
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support new year's learning through party music time.
 DESCRIPTION:
 Infants explore rhythm and movement through festive music.
 MATERIALS:
 Music player, shakers
-DIRECTIONS:
-Play music.
-Shake instruments.
-Encourage movement.
+SETUP:
+Prepare materials for Party Music Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead music experience.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play music.
+2. Shake instruments.
+3. Encourage movement.
 LEARNING_GOALS:
 Auditory awareness and coordination.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Party Music Time
+Use of new year's vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 FRIDAY
+
+DAILY_THEME:
+New Year's: New Year Celebration Circle and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Support new year's learning through new year celebration circle.
+Support new year's learning through sparkle discovery basket.
+Support new year's learning through happy new year dance party.
+
+DAILY_VOCABULARY:
+New Year, Celebrate, Sparkle, Star, Count, Party
+
+DAILY_MATERIALS:
+Books, music player
+Sparkly scarves, ribbons, stars
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "If You're Happy and You Know It" at a low volume while offering gentle movement or visual interest tied to new year's.
+End with a brief look at Happy New Year, Spot! or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate new year's sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during New Year Celebration Circle
+Engagement during Sparkle Discovery Basket
+Engagement during Happy New Year Dance Party
+Participation and interest in New Year's play
+
+DAILY_ADAPTATIONS:
+Provide larger sensory materials for younger infants. Offer seated support during movement activities. Modify sensory experiences based on individual developmental needs.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 New Year Celebration Circle
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support new year's learning through new year celebration circle.
 DESCRIPTION:
 Infants celebrate the week's experiences through songs, stories, and social interaction.
 MATERIALS:
 Books, music player
-DIRECTIONS:
-Gather together.
-Read a favorite story.
-Sing songs.
-Celebrate participation.
+SETUP:
+Prepare materials for New Year Celebration Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead group experience.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Gather together.
+2. Read a favorite story.
+3. Sing songs.
+4. Celebrate participation.
 LEARNING_GOALS:
 Social participation and listening skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during New Year Celebration Circle
+Use of new year's vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Sparkle Discovery Basket
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support new year's learning through sparkle discovery basket.
 DESCRIPTION:
 Infants explore shiny materials and colorful objects.
 MATERIALS:
 Sparkly scarves, ribbons, stars
-DIRECTIONS:
-Present materials.
-Encourage touching and exploring.
-Name colors and textures.
+SETUP:
+Prepare materials for Sparkle Discovery Basket before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide sensory exploration.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Present materials.
+2. Encourage touching and exploring.
+3. Name colors and textures.
 LEARNING_GOALS:
 Sensory development and curiosity.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Sparkle Discovery Basket
+Use of new year's vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Happy New Year Dance Party
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support new year's learning through happy new year dance party.
 DESCRIPTION:
 Infants enjoy a festive New Year's dance party with music and movement.
 MATERIALS:
 Music player
-DIRECTIONS:
-Play music.
-Dance together.
-Encourage movement and smiles.
-Celebrate participation.
+SETUP:
+Prepare materials for Happy New Year Dance Party before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Create a joyful and engaging atmosphere.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play music.
+2. Dance together.
+3. Encourage movement and smiles.
+4. Celebrate participation.
 LEARNING_GOALS:
 Movement, social engagement, and auditory development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Happy New Year Dance Party
+Use of new year's vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:

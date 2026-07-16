@@ -2,7 +2,7 @@ TITLE:
 Fourth of July Celebration
 
 AGE_GROUP:
-Infant
+Infant 0–6 Months
 
 THEME:
 Fourth of July
@@ -57,268 +57,747 @@ Provide larger sensory materials for younger infants. Offer seated support durin
 
 MONDAY
 
+DAILY_THEME:
+Fourth of July: Red White & Blue Discovery and related play (introduce calm bonding, faces, and soft sensory play)
+
+DAILY_OBJECTIVES:
+Support fourth of july learning through red white & blue discovery.
+Support fourth of july learning through patriotic scarf dance.
+Support fourth of july learning through patriotic story time.
+
+DAILY_VOCABULARY:
+Red, White, Blue, Star, Flag, Summer
+
+DAILY_MATERIALS:
+Red, white, and blue scarves
+Scarves, music player
+Board books
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Yankee Doodle" at a low volume while offering gentle movement or visual interest tied to fourth of july.
+End with a brief look at Red, White, and Boom! or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate fourth of july sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Red White & Blue Discovery
+Engagement during Patriotic Scarf Dance
+Engagement during Patriotic Story Time
+Participation and interest in Fourth of July play
+
+DAILY_ADAPTATIONS:
+Provide larger sensory materials for younger infants. Offer seated support during movement activities. Modify sensory experiences based on individual needs and comfort levels.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
+
 ACTIVITY_NAME:
 Red White & Blue Discovery
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support fourth of july learning through red white & blue discovery.
 DESCRIPTION:
 Infants explore patriotic colors through touch and visual experiences.
 MATERIALS:
 Red, white, and blue scarves
-DIRECTIONS:
-Place scarves within reach.
-Encourage touching and grasping.
-Describe colors.
-Allow free exploration.
+SETUP:
+Prepare materials for Red White & Blue Discovery before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Model language and sensory exploration.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Place scarves within reach.
+2. Encourage touching and grasping.
+3. Describe colors.
+4. Allow free exploration.
 LEARNING_GOALS:
 Color recognition and sensory awareness.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Red White & Blue Discovery
+Use of fourth of july vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Patriotic Scarf Dance
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support fourth of july learning through patriotic scarf dance.
 DESCRIPTION:
 Infants watch colorful scarves move to patriotic music.
 MATERIALS:
 Scarves, music player
-DIRECTIONS:
-Play music.
-Move scarves gently.
-Encourage visual tracking.
+SETUP:
+Prepare materials for Patriotic Scarf Dance before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead movement and engagement.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play music.
+2. Move scarves gently.
+3. Encourage visual tracking.
 LEARNING_GOALS:
 Visual tracking and auditory awareness.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Patriotic Scarf Dance
+Use of fourth of july vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Patriotic Story Time
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support fourth of july learning through patriotic story time.
 DESCRIPTION:
 Infants listen to a simple patriotic story.
 MATERIALS:
 Board books
-DIRECTIONS:
-Read story aloud.
-Point to pictures.
-Name colors and symbols.
+SETUP:
+Prepare materials for Patriotic Story Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support language development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Read story aloud.
+2. Point to pictures.
+3. Name colors and symbols.
 LEARNING_GOALS:
 Early literacy and vocabulary exposure.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Patriotic Story Time
+Use of fourth of july vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 TUESDAY
+
+DAILY_THEME:
+Fourth of July: Star Touch & Feel and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Support fourth of july learning through star touch & feel.
+Support fourth of july learning through reach for the stars.
+Support fourth of july learning through star song circle.
+
+DAILY_VOCABULARY:
+Red, White, Blue, Star, Flag, Summer
+
+DAILY_MATERIALS:
+Soft fabric stars
+Soft stars
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Yankee Doodle" at a low volume while offering gentle movement or visual interest tied to fourth of july.
+End with a brief look at Red, White, and Boom! or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate fourth of july sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Star Touch & Feel
+Engagement during Reach for the Stars
+Engagement during Star Song Circle
+Participation and interest in Fourth of July play
+
+DAILY_ADAPTATIONS:
+Provide larger sensory materials for younger infants. Offer seated support during movement activities. Modify sensory experiences based on individual needs and comfort levels.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 Star Touch & Feel
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support fourth of july learning through star touch & feel.
 DESCRIPTION:
 Infants explore soft star shapes through touch.
 MATERIALS:
 Soft fabric stars
-DIRECTIONS:
-Present stars.
-Encourage touching.
-Describe shapes and textures.
+SETUP:
+Prepare materials for Star Touch & Feel before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide sensory exploration.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Present stars.
+2. Encourage touching.
+3. Describe shapes and textures.
 LEARNING_GOALS:
 Tactile awareness and fine motor development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Star Touch & Feel
+Use of fourth of july vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Reach for the Stars
 CATEGORY:
 Fine Motor
+OBJECTIVE:
+Support fourth of july learning through reach for the stars.
 DESCRIPTION:
 Infants practice reaching for and grasping stars.
 MATERIALS:
 Soft stars
-DIRECTIONS:
-Place stars nearby.
-Encourage reaching.
-Support grasping attempts.
+SETUP:
+Prepare materials for Reach for the Stars before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Encourage fine motor development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Place stars nearby.
+2. Encourage reaching.
+3. Support grasping attempts.
 LEARNING_GOALS:
 Hand-eye coordination and grasping skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Reach for the Stars
+Use of fourth of july vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Star Song Circle
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support fourth of july learning through star song circle.
 DESCRIPTION:
 Infants participate in songs about stars and summer.
 MATERIALS:
 Music player
-DIRECTIONS:
-Play songs.
-Encourage movement.
-Repeat favorite songs.
+SETUP:
+Prepare materials for Star Song Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead participation.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play songs.
+2. Encourage movement.
+3. Repeat favorite songs.
 LEARNING_GOALS:
 Social engagement and auditory development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Star Song Circle
+Use of fourth of july vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 WEDNESDAY
+
+DAILY_THEME:
+Fourth of July: Flag Exploration and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Support fourth of july learning through flag exploration.
+Support fourth of july learning through flag watching fun.
+Support fourth of july learning through summer story time.
+
+DAILY_VOCABULARY:
+Red, White, Blue, Star, Flag, Summer
+
+DAILY_MATERIALS:
+Fabric flags
+Summer-themed books
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Yankee Doodle" at a low volume while offering gentle movement or visual interest tied to fourth of july.
+End with a brief look at Red, White, and Boom! or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate fourth of july sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Flag Exploration
+Engagement during Flag Watching Fun
+Engagement during Summer Story Time
+Participation and interest in Fourth of July play
+
+DAILY_ADAPTATIONS:
+Provide larger sensory materials for younger infants. Offer seated support during movement activities. Modify sensory experiences based on individual needs and comfort levels.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 Flag Exploration
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support fourth of july learning through flag exploration.
 DESCRIPTION:
 Infants observe and explore soft fabric flags.
 MATERIALS:
 Fabric flags
-DIRECTIONS:
-Present flags.
-Encourage touching.
-Describe colors and patterns.
+SETUP:
+Prepare materials for Flag Exploration before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support language development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Present flags.
+2. Encourage touching.
+3. Describe colors and patterns.
 LEARNING_GOALS:
 Observation and vocabulary exposure.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Flag Exploration
+Use of fourth of july vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Flag Watching Fun
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support fourth of july learning through flag watching fun.
 DESCRIPTION:
 Infants watch flags move through the air.
 MATERIALS:
 Fabric flags
-DIRECTIONS:
-Wave flags slowly.
-Encourage visual tracking.
-Repeat movements.
+SETUP:
+Prepare materials for Flag Watching Fun before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Encourage observation.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Wave flags slowly.
+2. Encourage visual tracking.
+3. Repeat movements.
 LEARNING_GOALS:
 Visual attention and tracking.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Flag Watching Fun
+Use of fourth of july vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Summer Story Time
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support fourth of july learning through summer story time.
 DESCRIPTION:
 Infants enjoy a story about summer celebrations.
 MATERIALS:
 Summer-themed books
-DIRECTIONS:
-Read story aloud.
-Point to pictures.
-Discuss summer items.
+SETUP:
+Prepare materials for Summer Story Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support language development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Read story aloud.
+2. Point to pictures.
+3. Discuss summer items.
 LEARNING_GOALS:
 Vocabulary and literacy exposure.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Summer Story Time
+Use of fourth of july vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 THURSDAY
+
+DAILY_THEME:
+Fourth of July: Patriotic Sensory Bag and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Support fourth of july learning through patriotic sensory bag.
+Support fourth of july learning through ribbon watch & explore.
+Support fourth of july learning through patriotic music time.
+
+DAILY_VOCABULARY:
+Red, White, Blue, Star, Flag, Summer
+
+DAILY_MATERIALS:
+Sealed sensory bag, ribbons, stars
+Red, white, and blue ribbons
+Music player, shakers
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Yankee Doodle" at a low volume while offering gentle movement or visual interest tied to fourth of july.
+End with a brief look at Red, White, and Boom! or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate fourth of july sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Patriotic Sensory Bag
+Engagement during Ribbon Watch & Explore
+Engagement during Patriotic Music Time
+Participation and interest in Fourth of July play
+
+DAILY_ADAPTATIONS:
+Provide larger sensory materials for younger infants. Offer seated support during movement activities. Modify sensory experiences based on individual needs and comfort levels.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 Patriotic Sensory Bag
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support fourth of july learning through patriotic sensory bag.
 DESCRIPTION:
 Infants explore a red, white, and blue sensory bag.
 MATERIALS:
 Sealed sensory bag, ribbons, stars
-DIRECTIONS:
-Place bag on floor.
-Encourage pressing and touching.
-Describe materials.
+SETUP:
+Prepare materials for Patriotic Sensory Bag before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide sensory exploration.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Place bag on floor.
+2. Encourage pressing and touching.
+3. Describe materials.
 LEARNING_GOALS:
 Sensory awareness and tactile exploration.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Patriotic Sensory Bag
+Use of fourth of july vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Ribbon Watch & Explore
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support fourth of july learning through ribbon watch & explore.
 DESCRIPTION:
 Infants watch patriotic ribbons move and sparkle.
 MATERIALS:
 Red, white, and blue ribbons
-DIRECTIONS:
-Move ribbons slowly.
-Encourage watching.
-Describe colors.
+SETUP:
+Prepare materials for Ribbon Watch & Explore before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support engagement and observation.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Move ribbons slowly.
+2. Encourage watching.
+3. Describe colors.
 LEARNING_GOALS:
 Visual tracking and sensory exploration.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Ribbon Watch & Explore
+Use of fourth of july vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Patriotic Music Time
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support fourth of july learning through patriotic music time.
 DESCRIPTION:
 Infants explore rhythm and sound through patriotic songs.
 MATERIALS:
 Music player, shakers
-DIRECTIONS:
-Play music.
-Shake instruments.
-Encourage movement.
+SETUP:
+Prepare materials for Patriotic Music Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead music experience.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play music.
+2. Shake instruments.
+3. Encourage movement.
 LEARNING_GOALS:
 Auditory awareness and coordination.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Patriotic Music Time
+Use of fourth of july vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 FRIDAY
+
+DAILY_THEME:
+Fourth of July: Fourth of July Celebration Circle and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Support fourth of july learning through fourth of july celebration circle.
+Support fourth of july learning through summer color exploration.
+Support fourth of july learning through red white & blue dance party.
+
+DAILY_VOCABULARY:
+Red, White, Blue, Star, Flag, Summer
+
+DAILY_MATERIALS:
+Books, music player
+Scarves, stars, ribbons
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Yankee Doodle" at a low volume while offering gentle movement or visual interest tied to fourth of july.
+End with a brief look at Red, White, and Boom! or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate fourth of july sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Fourth of July Celebration Circle
+Engagement during Summer Color Exploration
+Engagement during Red White & Blue Dance Party
+Participation and interest in Fourth of July play
+
+DAILY_ADAPTATIONS:
+Provide larger sensory materials for younger infants. Offer seated support during movement activities. Modify sensory experiences based on individual needs and comfort levels.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 Fourth of July Celebration Circle
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support fourth of july learning through fourth of july celebration circle.
 DESCRIPTION:
 Infants celebrate the week through songs, stories, and group interaction.
 MATERIALS:
 Books, music player
-DIRECTIONS:
-Gather together.
-Read a favorite story.
-Sing songs.
-Celebrate participation.
+SETUP:
+Prepare materials for Fourth of July Celebration Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead group experience.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Gather together.
+2. Read a favorite story.
+3. Sing songs.
+4. Celebrate participation.
 LEARNING_GOALS:
 Social participation and listening skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Fourth of July Celebration Circle
+Use of fourth of july vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Summer Color Exploration
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support fourth of july learning through summer color exploration.
 DESCRIPTION:
 Infants explore patriotic colors through various materials.
 MATERIALS:
 Scarves, stars, ribbons
-DIRECTIONS:
-Present materials.
-Encourage touching and exploring.
-Name colors.
+SETUP:
+Prepare materials for Summer Color Exploration before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide sensory exploration.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Present materials.
+2. Encourage touching and exploring.
+3. Name colors.
 LEARNING_GOALS:
 Color recognition and sensory development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Summer Color Exploration
+Use of fourth of july vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Red White & Blue Dance Party
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support fourth of july learning through red white & blue dance party.
 DESCRIPTION:
 Infants enjoy a festive Fourth of July dance party.
 MATERIALS:
 Music player
-DIRECTIONS:
-Play music.
-Dance together.
-Encourage movement and smiles.
-Celebrate participation.
+SETUP:
+Prepare materials for Red White & Blue Dance Party before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Create a joyful atmosphere.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play music.
+2. Dance together.
+3. Encourage movement and smiles.
+4. Celebrate participation.
 LEARNING_GOALS:
 Movement, social engagement, and auditory development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Red White & Blue Dance Party
+Use of fourth of july vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:

@@ -14,12 +14,7 @@ STATUS:
 published
 
 LEARNING_DOMAINS:
-Social Emotional
-Language & Literacy
-Science
-Creative Arts
-Physical Development
-Math
+Social Emotional, Language & Literacy, Science, Creative Arts, Physical Development, Math
 
 WEEKLY_OVERVIEW:
 Preschoolers will explore who they are through activities focused on their names, families, bodies, feelings, preferences, and unique characteristics. Through books, songs, art, mirrors, movement, and discussions, children will build self-awareness, confidence, communication skills, and positive relationships with others.
@@ -78,7 +73,46 @@ Observe self-recognition, emotional awareness, communication skills, social inte
 ADAPTATIONS:
 Provide visual supports, family photos, and individualized assistance as needed. Encourage participation at each child's comfort level.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+All About Me: Mirror Me and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Develop self-awareness through observation.
+Recognize and become familiar with individual names.
+Strengthen family connections and communication.
+
+DAILY_VOCABULARY:
+me, name, family, friend, happy, sad
+
+DAILY_MATERIALS:
+Child-safe mirrors, emotion cards
+Name cards, photos, letter magnets
+Family photos, photo display board
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to all about me.
+Sing "If You're Happy and You Know It" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit I Like Myself! by Karen Beaumont and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to all about me — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Mirror Me / My Name Discovery).
+
+DAILY_OBSERVATIONS:
+Identifies facial features
+Recognizes own name
+Identifies family members
+Participation and interest in All About Me play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, family photos, and individualized assistance as needed. Encourage participation at each child's comfort level.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Mirror Me
@@ -94,6 +128,8 @@ SETUP:
 Place mirrors at child eye level with emotion cards nearby.
 TEACHER_ROLE:
 Model vocabulary and encourage observation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Invite children to look into mirrors.
 2. Point out eyes, nose, mouth, and ears.
@@ -108,6 +144,15 @@ OBSERVATION_OPPORTUNITIES:
 Identifies facial features
 Engages with reflection
 Uses vocabulary
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 My Name Discovery
@@ -123,6 +168,8 @@ SETUP:
 Arrange name cards on a table with photos.
 TEACHER_ROLE:
 Help children recognize their names and connect names with photos.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Show each child's name card and say the name aloud.
 2. Match photos to names.
@@ -137,6 +184,15 @@ OBSERVATION_OPPORTUNITIES:
 Recognizes own name
 Matches photo correctly
 Participates willingly
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Family Photo Sharing
@@ -152,6 +208,8 @@ SETUP:
 Display photos at child level on a board.
 TEACHER_ROLE:
 Encourage discussion and model language.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Show family photos submitted by families.
 2. Name family members in each photo.
@@ -166,8 +224,56 @@ OBSERVATION_OPPORTUNITIES:
 Identifies family members
 Communicates about family
 Engages in discussion
+VOCABULARY:
 
-TUESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+All About Me: Family Graph and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Collect and compare information about families.
+Identify body parts through active play.
+Create a representation of self through art.
+
+DAILY_VOCABULARY:
+me, name, family, friend, happy, sad
+
+DAILY_MATERIALS:
+Large chart paper, family size labels, stickers
+Open space, body part picture cards
+Mirrors, paper, crayons, markers, paint (optional)
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to all about me.
+Sing "If You're Happy and You Know It" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit I Like Myself! by Karen Beaumont and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to all about me — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Family Graph / Body Part Movement Game).
+
+DAILY_OBSERVATIONS:
+Reports family size
+Touches correct body part
+Includes facial features
+Participation and interest in All About Me play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, family photos, and individualized assistance as needed. Encourage participation at each child's comfort level.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Family Graph
@@ -183,6 +289,8 @@ SETUP:
 Post a graph with columns for family sizes.
 TEACHER_ROLE:
 Help children place stickers and compare results.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Ask each child how many people live in their home.
 2. Place a sticker in the matching column.
@@ -197,6 +305,15 @@ OBSERVATION_OPPORTUNITIES:
 Reports family size
 Places sticker correctly
 Compares quantities
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Body Part Movement Game
@@ -212,6 +329,8 @@ SETUP:
 Clear space for movement with picture cards visible.
 TEACHER_ROLE:
 Call body parts and model movements.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Review body part names with picture cards.
 2. Play Head, Shoulders, Knees and Toes.
@@ -226,6 +345,15 @@ OBSERVATION_OPPORTUNITIES:
 Touches correct body part
 Follows movement song
 Uses body vocabulary
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Self-Portrait Studio
@@ -241,6 +369,8 @@ SETUP:
 Set mirrors and art materials at individual seats.
 TEACHER_ROLE:
 Encourage detail and describe features as children work.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Invite children to look in the mirror before drawing.
 2. Draw face shape, features, and clothing.
@@ -255,8 +385,56 @@ OBSERVATION_OPPORTUNITIES:
 Includes facial features
 Adds personal details
 Describes their portrait
+VOCABULARY:
 
-WEDNESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+All About Me: Family Dramatic Play and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Explore family roles through pretend play.
+Practice asking and answering questions about preferences.
+Search for letters from names in the classroom.
+
+DAILY_VOCABULARY:
+me, name, family, friend, happy, sad
+
+DAILY_MATERIALS:
+Play kitchen, dolls, dishes, phone, family photo props
+Interview cards with picture prompts, clipboards, crayons
+Letter cards, name cards, collection bags
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to all about me.
+Sing "If You're Happy and You Know It" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit I Like Myself! by Karen Beaumont and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to all about me — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Family Dramatic Play / Friend Interview).
+
+DAILY_OBSERVATIONS:
+Engages in pretend family roles
+Asks a question
+Finds letters from own name
+Participation and interest in All About Me play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, family photos, and individualized assistance as needed. Encourage participation at each child's comfort level.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Family Dramatic Play
@@ -272,6 +450,8 @@ SETUP:
 Set up a home dramatic play area with family props.
 TEACHER_ROLE:
 Model caring roles and encourage cooperative play.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Introduce the home center and available props.
 2. Children choose family roles to play.
@@ -286,6 +466,15 @@ OBSERVATION_OPPORTUNITIES:
 Engages in pretend family roles
 Uses caring language
 Shares materials
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Friend Interview
@@ -301,6 +490,8 @@ SETUP:
 Prepare question cards and pair children.
 TEACHER_ROLE:
 Model asking and listening, then circulate to support.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Demonstrate asking What is your favorite color?
 2. Partners take turns asking and answering.
@@ -315,6 +506,15 @@ OBSERVATION_OPPORTUNITIES:
 Asks a question
 Listens to partner
 Shares a response
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Name Letter Hunt
@@ -330,6 +530,8 @@ SETUP:
 Hide or display letter cards throughout the room.
 TEACHER_ROLE:
 Help children match found letters to their name card.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Give each child their name card.
 2. Search the room for matching letters.
@@ -344,8 +546,56 @@ OBSERVATION_OPPORTUNITIES:
 Finds letters from own name
 Matches letters to name card
 Shows letter awareness
+VOCABULARY:
 
-THURSDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+All About Me: Height and Measure Me and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Compare heights and explore measurement.
+Express emotions through drawing.
+Create a simple book about personal favorites.
+
+DAILY_VOCABULARY:
+me, name, family, friend, happy, sad
+
+DAILY_MATERIALS:
+Height chart, measuring tape, blocks, paper
+Paper, crayons, emotion cards, mirrors
+Book templates, crayons, photos, stapler
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to all about me.
+Sing "If You're Happy and You Know It" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit I Like Myself! by Karen Beaumont and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to all about me — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Height and Measure Me / Feelings Faces Art).
+
+DAILY_OBSERVATIONS:
+Stands still for measuring
+Draws recognizable expressions
+Contributes a page
+Participation and interest in All About Me play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, family photos, and individualized assistance as needed. Encourage participation at each child's comfort level.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Height and Measure Me
@@ -361,6 +611,8 @@ SETUP:
 Post a height chart and provide measuring tools.
 TEACHER_ROLE:
 Demonstrate safe measuring and describe comparisons.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Measure each child against the chart.
 2. Use blocks to measure a table or chair.
@@ -375,6 +627,15 @@ OBSERVATION_OPPORTUNITIES:
 Stands still for measuring
 Uses comparison words
 Shows curiosity about measurement
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Feelings Faces Art
@@ -390,6 +651,8 @@ SETUP:
 Provide emotion cards and art materials at tables.
 TEACHER_ROLE:
 Name emotions and encourage expressive drawing.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Review emotion cards and name each feeling.
 2. Draw a happy face, sad face, and surprised face.
@@ -404,6 +667,15 @@ OBSERVATION_OPPORTUNITIES:
 Draws recognizable expressions
 Names emotions
 Explains choices
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 All About Me Book Making
@@ -419,6 +691,8 @@ SETUP:
 Prepare book pages with prompts like My favorite food.
 TEACHER_ROLE:
 Write children's dictation and read pages aloud.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Complete pages about favorites (food, toy, color).
 2. Add drawings or photos to each page.
@@ -433,8 +707,56 @@ OBSERVATION_OPPORTUNITIES:
 Contributes a page
 Dictates or draws ideas
 Listens to compiled book
+VOCABULARY:
 
-FRIDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+All About Me: Body Outline Tracing and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Explore body shape and spatial awareness.
+Celebrate unique qualities of each child.
+Express identity through movement and music.
+
+DAILY_VOCABULARY:
+me, name, family, friend, happy, sad
+
+DAILY_MATERIALS:
+Large paper, crayons, safe space
+Celebration stickers, name cards, tambourine
+Scarves, rhythm instruments, music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to all about me.
+Sing "If You're Happy and You Know It" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit I Like Myself! by Karen Beaumont and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to all about me — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Body Outline Tracing / Celebration Circle).
+
+DAILY_OBSERVATIONS:
+Cooperates during tracing
+Shares about self
+Chooses personal movement
+Participation and interest in All About Me play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, family photos, and individualized assistance as needed. Encourage participation at each child's comfort level.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Body Outline Tracing
@@ -450,6 +772,8 @@ SETUP:
 Tape large paper to the floor in open area.
 TEACHER_ROLE:
 Supervise tracing and encourage labeling body parts.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. One child lies still while a partner traces around them.
 2. Switch roles so each child has an outline.
@@ -464,6 +788,15 @@ OBSERVATION_OPPORTUNITIES:
 Cooperates during tracing
 Labels body parts
 Works with a partner
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Celebration Circle
@@ -479,6 +812,8 @@ SETUP:
 Gather in circle with name cards visible.
 TEACHER_ROLE:
 Facilitate positive sharing and group appreciation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Invite each child to share one special thing about themselves.
 2. Classmates listen and clap after each share.
@@ -493,6 +828,15 @@ OBSERVATION_OPPORTUNITIES:
 Shares about self
 Listens to peers
 Participates in celebration
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 All About Me Movement Parade
@@ -508,6 +852,8 @@ SETUP:
 Line up parade path in open space.
 TEACHER_ROLE:
 Lead parade and invite creative movement.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Each child chooses a movement that feels like them.
 2. Parade around the room to music.
@@ -522,3 +868,12 @@ OBSERVATION_OPPORTUNITIES:
 Chooses personal movement
 Participates in parade
 Shows confidence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

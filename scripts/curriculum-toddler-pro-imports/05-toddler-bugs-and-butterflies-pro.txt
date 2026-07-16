@@ -14,12 +14,7 @@ STATUS:
 published
 
 LEARNING_DOMAINS:
-Social Emotional
-Language & Literacy
-Science
-Physical Development
-Creative Arts
-Math
+Social Emotional, Language & Literacy, Science, Physical Development, Creative Arts, Math
 
 WEEKLY_OVERVIEW:
 Toddlers will become little nature explorers as they investigate bugs, butterflies, caterpillars, and other tiny creatures. Through sensory play, movement, art, dramatic play, and hands-on discovery, children will develop curiosity about the natural world while strengthening observation, language, and motor skills.
@@ -94,247 +89,366 @@ Observe curiosity, language development, fine motor skills, nature exploration, 
 ADAPTATIONS:
 Provide larger bug models, visual supports, sensory alternatives, and opportunities for children to participate at their own comfort level.
 
-MONDAY:
+MONDAY
 
-ACTIVITY_NAME:
-Bug Discovery Table
+DAILY_THEME:
+Bugs & Butterflies: Bug Discovery Table and related play (introduce the theme through movement, sensory play, and simple language)
 
-CATEGORY:
-Open-Ended Exploration
-
-OBJECTIVE:
+DAILY_OBJECTIVES:
 Practice open-ended exploration skills during Bug Discovery Table.
+Practice music & movement skills during Crawl Like a Bug.
+Practice fine motor skills during Bug Sorting Investigation.
 
-DESCRIPTION:
-Toddlers explore Bug Discovery Table during our Bugs & Butterflies week through open-ended exploration.
+DAILY_VOCABULARY:
+Bug, Butterfly, Caterpillar, Cocoon, Wings, Ant
 
-MATERIALS:
+DAILY_MATERIALS:
 Theme toys/figurines
 Baskets
 Picture cards
-
-SETUP:
-Prepare a toddler-ready space and materials for Bug Discovery Table.
-
-DIRECTIONS:
-Invite toddlers to explore Bug Discovery Table with hands-on materials related to Bugs & Butterflies.
-Stay nearby and narrate what children notice using simple theme words.
-Offer choices and follow each child's interest for a few minutes at a time.
-Encourage pointing, naming, and short conversations about discoveries.
-
-TEACHER_ROLE:
-Observe, narrate discoveries, and introduce theme vocabulary without directing every action.
-
-LEARNING_GOALS:
-Engage in Bug Discovery Table through toddler-friendly open-ended exploration.
-Use theme vocabulary related to Bugs & Butterflies.
-Practice social interaction, curiosity, and motor skills during play.
-
-OBSERVATION_OPPORTUNITIES:
-Observe engagement, theme vocabulary, motor skills, and social interaction.
-
-ACTIVITY_NAME:
-Crawl Like a Bug
-
-CATEGORY:
-Music & Movement
-
-OBJECTIVE:
-Practice music & movement skills during Crawl Like a Bug.
-
-DESCRIPTION:
-Toddlers explore Crawl Like a Bug during our Bugs & Butterflies week through music & movement.
-
-MATERIALS:
 Scarves or music
 Open movement space
-
-SETUP:
-Prepare a toddler-ready space and materials for Crawl Like a Bug.
-
-DIRECTIONS:
-Start Crawl Like a Bug with a familiar song, chant, or movement cue.
-Invite toddlers to move their bodies with the music and theme ideas.
-Mirror children's movements and add simple vocabulary.
-Allow sitting dancers and standing movers to participate together.
-
-TEACHER_ROLE:
-Lead with energy, mirror children's movements, and keep transitions playful.
-
-LEARNING_GOALS:
-Engage in Crawl Like a Bug through toddler-friendly music & movement.
-Use theme vocabulary related to Bugs & Butterflies.
-Practice social interaction, curiosity, and motor skills during play.
-
-OBSERVATION_OPPORTUNITIES:
-Observe engagement, theme vocabulary, motor skills, and social interaction.
-
-ACTIVITY_NAME:
-Bug Sorting Investigation
-
-CATEGORY:
-Fine Motor
-
-OBJECTIVE:
-Practice fine motor skills during Bug Sorting Investigation.
-
-DESCRIPTION:
-Toddlers explore Bug Sorting Investigation during our Bugs & Butterflies week through fine motor.
-
-MATERIALS:
 Play dough or crayons
 Small manipulatives
 Paper
-
-SETUP:
-Prepare a toddler-ready space and materials for Bug Sorting Investigation.
-
-DIRECTIONS:
-Offer materials for Bug Sorting Investigation that invite pinching, placing, sticking, or scribbling.
-Demonstrate one simple action, then invite toddlers to try.
-Celebrate effort and keep tools large enough for little hands.
-Support turn-taking when children want the same material.
-
-TEACHER_ROLE:
-Offer hand-over-hand support when wanted and keep materials accessible on low trays.
-
-LEARNING_GOALS:
-Engage in Bug Sorting Investigation through toddler-friendly fine motor.
-Use theme vocabulary related to Bugs & Butterflies.
-Practice social interaction, curiosity, and motor skills during play.
-
-OBSERVATION_OPPORTUNITIES:
-Observe engagement, theme vocabulary, motor skills, and social interaction.
-
-ACTIVITY_NAME:
-Bug Explorer Dramatic Play
-
-CATEGORY:
-Dramatic Play
-
-OBJECTIVE:
-Practice dramatic play skills during Bug Explorer Dramatic Play.
-
-DESCRIPTION:
-Toddlers explore Bug Explorer Dramatic Play during our Bugs & Butterflies week through dramatic play.
-
-MATERIALS:
 play dough
 Pretend-play props
 Costumes or badges
 Theme accessories
-
-SETUP:
-Prepare a toddler-ready space and materials for Bug Explorer Dramatic Play.
-
-DIRECTIONS:
-Set up a pretend-play area for Bug Explorer Dramatic Play with a few clear props.
-Model a short role (helper, keeper, captain) and invite children in.
-Use simple language to support caregiving, teamwork, and problem-solving.
-Follow the children's storyline and keep roles flexible.
-
-TEACHER_ROLE:
-Join play briefly as a co-player, then step back so toddlers lead the story.
-
-LEARNING_GOALS:
-Engage in Bug Explorer Dramatic Play through toddler-friendly dramatic play.
-Use theme vocabulary related to Bugs & Butterflies.
-Practice social interaction, curiosity, and motor skills during play.
-
-OBSERVATION_OPPORTUNITIES:
-Observe engagement, theme vocabulary, motor skills, and social interaction.
-
-ACTIVITY_NAME:
-Insect Book Exploration
-
-CATEGORY:
-Open-Ended Exploration
-
-OBJECTIVE:
-Practice open-ended exploration skills during Insect Book Exploration.
-
-DESCRIPTION:
-Toddlers explore Insect Book Exploration during our Bugs & Butterflies week through open-ended exploration.
-
-MATERIALS:
 insect books
 Theme toys/figurines
 Baskets
 Picture cards
 
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to bugs & butterflies.
+Sing "The Ants Go Marching" with simple movements or props.
+Show one prop or picture from today's activity (Bug Discovery Table) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to bugs & butterflies: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Observe engagement, theme vocabulary, motor skills, and social interaction.
+Participation and interest in Bugs & Butterflies play
+
+DAILY_ADAPTATIONS:
+Provide larger bug models, visual supports, sensory alternatives, and opportunities for children to participate at their own comfort level.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
+
+ACTIVITY_NAME:
+Bug Discovery Table
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Practice open-ended exploration skills during Bug Discovery Table.
+DESCRIPTION:
+Toddlers explore Bug Discovery Table during our Bugs & Butterflies week through open-ended exploration.
+MATERIALS:
+Theme toys/figurines
+Baskets
+Picture cards
 SETUP:
-Prepare a toddler-ready space and materials for Insect Book Exploration.
-
-DIRECTIONS:
-Invite toddlers to explore Insect Book Exploration with hands-on materials related to Bugs & Butterflies.
-Stay nearby and narrate what children notice using simple theme words.
-Offer choices and follow each child's interest for a few minutes at a time.
-Encourage pointing, naming, and short conversations about discoveries.
-
+Prepare a toddler-ready space and materials for Bug Discovery Table.
 TEACHER_ROLE:
 Observe, narrate discoveries, and introduce theme vocabulary without directing every action.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Invite toddlers to explore Bug Discovery Table with hands-on materials related to Bugs & Butterflies.
+2. Stay nearby and narrate what children notice using simple theme words.
+3. Offer choices and follow each child's interest for a few minutes at a time.
+4. Encourage pointing, naming, and short conversations about discoveries.
+LEARNING_GOALS:
+Engage in Bug Discovery Table through toddler-friendly open-ended exploration.
+Use theme vocabulary related to Bugs & Butterflies.
+Practice social interaction, curiosity, and motor skills during play.
+OBSERVATION_OPPORTUNITIES:
+Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
+Crawl Like a Bug
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Practice music & movement skills during Crawl Like a Bug.
+DESCRIPTION:
+Toddlers explore Crawl Like a Bug during our Bugs & Butterflies week through music & movement.
+MATERIALS:
+Scarves or music
+Open movement space
+SETUP:
+Prepare a toddler-ready space and materials for Crawl Like a Bug.
+TEACHER_ROLE:
+Lead with energy, mirror children's movements, and keep transitions playful.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Start Crawl Like a Bug with a familiar song, chant, or movement cue.
+2. Invite toddlers to move their bodies with the music and theme ideas.
+3. Mirror children's movements and add simple vocabulary.
+4. Allow sitting dancers and standing movers to participate together.
+LEARNING_GOALS:
+Engage in Crawl Like a Bug through toddler-friendly music & movement.
+Use theme vocabulary related to Bugs & Butterflies.
+Practice social interaction, curiosity, and motor skills during play.
+OBSERVATION_OPPORTUNITIES:
+Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
+Bug Sorting Investigation
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Practice fine motor skills during Bug Sorting Investigation.
+DESCRIPTION:
+Toddlers explore Bug Sorting Investigation during our Bugs & Butterflies week through fine motor.
+MATERIALS:
+Play dough or crayons
+Small manipulatives
+Paper
+SETUP:
+Prepare a toddler-ready space and materials for Bug Sorting Investigation.
+TEACHER_ROLE:
+Offer hand-over-hand support when wanted and keep materials accessible on low trays.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Offer materials for Bug Sorting Investigation that invite pinching, placing, sticking, or scribbling.
+2. Demonstrate one simple action, then invite toddlers to try.
+3. Celebrate effort and keep tools large enough for little hands.
+4. Support turn-taking when children want the same material.
+LEARNING_GOALS:
+Engage in Bug Sorting Investigation through toddler-friendly fine motor.
+Use theme vocabulary related to Bugs & Butterflies.
+Practice social interaction, curiosity, and motor skills during play.
+OBSERVATION_OPPORTUNITIES:
+Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
+Bug Explorer Dramatic Play
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Practice dramatic play skills during Bug Explorer Dramatic Play.
+DESCRIPTION:
+Toddlers explore Bug Explorer Dramatic Play during our Bugs & Butterflies week through dramatic play.
+MATERIALS:
+play dough
+Pretend-play props
+Costumes or badges
+Theme accessories
+SETUP:
+Prepare a toddler-ready space and materials for Bug Explorer Dramatic Play.
+TEACHER_ROLE:
+Join play briefly as a co-player, then step back so toddlers lead the story.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Set up a pretend-play area for Bug Explorer Dramatic Play with a few clear props.
+2. Model a short role (helper, keeper, captain) and invite children in.
+3. Use simple language to support caregiving, teamwork, and problem-solving.
+4. Follow the children's storyline and keep roles flexible.
+LEARNING_GOALS:
+Engage in Bug Explorer Dramatic Play through toddler-friendly dramatic play.
+Use theme vocabulary related to Bugs & Butterflies.
+Practice social interaction, curiosity, and motor skills during play.
+OBSERVATION_OPPORTUNITIES:
+Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
+Insect Book Exploration
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Practice open-ended exploration skills during Insect Book Exploration.
+DESCRIPTION:
+Toddlers explore Insect Book Exploration during our Bugs & Butterflies week through open-ended exploration.
+MATERIALS:
+insect books
+Theme toys/figurines
+Baskets
+Picture cards
+SETUP:
+Prepare a toddler-ready space and materials for Insect Book Exploration.
+TEACHER_ROLE:
+Observe, narrate discoveries, and introduce theme vocabulary without directing every action.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Invite toddlers to explore Insect Book Exploration with hands-on materials related to Bugs & Butterflies.
+2. Stay nearby and narrate what children notice using simple theme words.
+3. Offer choices and follow each child's interest for a few minutes at a time.
+4. Encourage pointing, naming, and short conversations about discoveries.
 LEARNING_GOALS:
 Engage in Insect Book Exploration through toddler-friendly open-ended exploration.
 Use theme vocabulary related to Bugs & Butterflies.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
 
-TUESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Bugs & Butterflies: Butterfly Life Cycle Exploration and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Practice open-ended exploration skills during Butterfly Life Cycle Exploration.
+Practice sensory play skills during Butterfly Sensory Bin.
+Practice music & movement skills during Butterfly Wing Dance.
+
+DAILY_VOCABULARY:
+Bug, Butterfly, Caterpillar, Cocoon, Wings, Ant
+
+DAILY_MATERIALS:
+butterfly models
+butterfly stickers
+Theme toys/figurines
+Baskets
+Picture cards
+butterfly models
+sensory bin materials
+butterfly stickers
+Sensory bin
+Scoops
+Loose parts
+butterfly models
+butterfly stickers
+Scarves or music
+Open movement space
+butterfly models
+coffee filters
+butterfly stickers
+Play dough or crayons
+Small manipulatives
+Paper
+butterfly models
+play dough
+butterfly stickers
+Pretend-play props
+Costumes or badges
+Theme accessories
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to bugs & butterflies.
+Sing "The Ants Go Marching" with simple movements or props.
+Show one prop or picture from today's activity (Butterfly Life Cycle Exploration) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to bugs & butterflies: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Observe engagement, theme vocabulary, motor skills, and social interaction.
+Participation and interest in Bugs & Butterflies play
+
+DAILY_ADAPTATIONS:
+Provide larger bug models, visual supports, sensory alternatives, and opportunities for children to participate at their own comfort level.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
 
 ACTIVITY_NAME:
 Butterfly Life Cycle Exploration
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Practice open-ended exploration skills during Butterfly Life Cycle Exploration.
-
 DESCRIPTION:
 Toddlers explore Butterfly Life Cycle Exploration during our Bugs & Butterflies week through open-ended exploration.
-
 MATERIALS:
 butterfly models
 butterfly stickers
 Theme toys/figurines
 Baskets
 Picture cards
-
 SETUP:
 Prepare a toddler-ready space and materials for Butterfly Life Cycle Exploration.
-
-DIRECTIONS:
-Invite toddlers to explore Butterfly Life Cycle Exploration with hands-on materials related to Bugs & Butterflies.
-Stay nearby and narrate what children notice using simple theme words.
-Offer choices and follow each child's interest for a few minutes at a time.
-Encourage pointing, naming, and short conversations about discoveries.
-
 TEACHER_ROLE:
 Observe, narrate discoveries, and introduce theme vocabulary without directing every action.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Invite toddlers to explore Butterfly Life Cycle Exploration with hands-on materials related to Bugs & Butterflies.
+2. Stay nearby and narrate what children notice using simple theme words.
+3. Offer choices and follow each child's interest for a few minutes at a time.
+4. Encourage pointing, naming, and short conversations about discoveries.
 LEARNING_GOALS:
 Engage in Butterfly Life Cycle Exploration through toddler-friendly open-ended exploration.
 Use theme vocabulary related to Bugs & Butterflies.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Butterfly Sensory Bin
-
 CATEGORY:
 Sensory Play
-
 OBJECTIVE:
 Practice sensory play skills during Butterfly Sensory Bin.
-
 DESCRIPTION:
 Toddlers explore Butterfly Sensory Bin during our Bugs & Butterflies week through sensory play.
-
 MATERIALS:
 butterfly models
 sensory bin materials
@@ -342,77 +456,81 @@ butterfly stickers
 Sensory bin
 Scoops
 Loose parts
-
 SETUP:
 Prepare a toddler-ready space and materials for Butterfly Sensory Bin.
-
-DIRECTIONS:
-Set out a toddler-safe sensory experience for Butterfly Sensory Bin.
-Model gentle scooping, pouring, and exploring with fingers or tools.
-Name textures, colors, and theme vocabulary as children play.
-Rotate materials if interest fades and keep play short and calm.
-
 TEACHER_ROLE:
 Supervise closely, model gentle exploration, and support sensory preferences.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Set out a toddler-safe sensory experience for Butterfly Sensory Bin.
+2. Model gentle scooping, pouring, and exploring with fingers or tools.
+3. Name textures, colors, and theme vocabulary as children play.
+4. Rotate materials if interest fades and keep play short and calm.
 LEARNING_GOALS:
 Engage in Butterfly Sensory Bin through toddler-friendly sensory play.
 Use theme vocabulary related to Bugs & Butterflies.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Butterfly Wing Dance
-
 CATEGORY:
 Music & Movement
-
 OBJECTIVE:
 Practice music & movement skills during Butterfly Wing Dance.
-
 DESCRIPTION:
 Toddlers explore Butterfly Wing Dance during our Bugs & Butterflies week through music & movement.
-
 MATERIALS:
 butterfly models
 butterfly stickers
 Scarves or music
 Open movement space
-
 SETUP:
 Prepare a toddler-ready space and materials for Butterfly Wing Dance.
-
-DIRECTIONS:
-Start Butterfly Wing Dance with a familiar song, chant, or movement cue.
-Invite toddlers to move their bodies with the music and theme ideas.
-Mirror children's movements and add simple vocabulary.
-Allow sitting dancers and standing movers to participate together.
-
 TEACHER_ROLE:
 Lead with energy, mirror children's movements, and keep transitions playful.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Start Butterfly Wing Dance with a familiar song, chant, or movement cue.
+2. Invite toddlers to move their bodies with the music and theme ideas.
+3. Mirror children's movements and add simple vocabulary.
+4. Allow sitting dancers and standing movers to participate together.
 LEARNING_GOALS:
 Engage in Butterfly Wing Dance through toddler-friendly music & movement.
 Use theme vocabulary related to Bugs & Butterflies.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Coffee Filter Butterfly Art
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Practice fine motor skills during Coffee Filter Butterfly Art.
-
 DESCRIPTION:
 Toddlers explore Coffee Filter Butterfly Art during our Bugs & Butterflies week through fine motor.
-
 MATERIALS:
 butterfly models
 coffee filters
@@ -420,39 +538,41 @@ butterfly stickers
 Play dough or crayons
 Small manipulatives
 Paper
-
 SETUP:
 Prepare a toddler-ready space and materials for Coffee Filter Butterfly Art.
-
-DIRECTIONS:
-Offer materials for Coffee Filter Butterfly Art that invite pinching, placing, sticking, or scribbling.
-Demonstrate one simple action, then invite toddlers to try.
-Celebrate effort and keep tools large enough for little hands.
-Support turn-taking when children want the same material.
-
 TEACHER_ROLE:
 Offer hand-over-hand support when wanted and keep materials accessible on low trays.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Offer materials for Coffee Filter Butterfly Art that invite pinching, placing, sticking, or scribbling.
+2. Demonstrate one simple action, then invite toddlers to try.
+3. Celebrate effort and keep tools large enough for little hands.
+4. Support turn-taking when children want the same material.
 LEARNING_GOALS:
 Engage in Coffee Filter Butterfly Art through toddler-friendly fine motor.
 Use theme vocabulary related to Bugs & Butterflies.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Butterfly Garden Pretend Play
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Practice dramatic play skills during Butterfly Garden Pretend Play.
-
 DESCRIPTION:
 Toddlers explore Butterfly Garden Pretend Play during our Bugs & Butterflies week through dramatic play.
-
 MATERIALS:
 butterfly models
 play dough
@@ -460,595 +580,789 @@ butterfly stickers
 Pretend-play props
 Costumes or badges
 Theme accessories
-
 SETUP:
 Prepare a toddler-ready space and materials for Butterfly Garden Pretend Play.
-
-DIRECTIONS:
-Set up a pretend-play area for Butterfly Garden Pretend Play with a few clear props.
-Model a short role (helper, keeper, captain) and invite children in.
-Use simple language to support caregiving, teamwork, and problem-solving.
-Follow the children's storyline and keep roles flexible.
-
 TEACHER_ROLE:
 Join play briefly as a co-player, then step back so toddlers lead the story.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Set up a pretend-play area for Butterfly Garden Pretend Play with a few clear props.
+2. Model a short role (helper, keeper, captain) and invite children in.
+3. Use simple language to support caregiving, teamwork, and problem-solving.
+4. Follow the children's storyline and keep roles flexible.
 LEARNING_GOALS:
 Engage in Butterfly Garden Pretend Play through toddler-friendly dramatic play.
 Use theme vocabulary related to Bugs & Butterflies.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
 
-WEDNESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Bugs & Butterflies: Ladybug Counting Fun and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Practice fine motor skills during Ladybug Counting Fun.
+Practice open-ended exploration skills during Bee Pollination Investigation.
+Practice gross motor skills during Bumblebee Flight Course.
+
+DAILY_VOCABULARY:
+Bug, Butterfly, Caterpillar, Cocoon, Wings, Ant
+
+DAILY_MATERIALS:
+Play dough or crayons
+Small manipulatives
+Paper
+Theme toys/figurines
+Baskets
+Picture cards
+Cones or mats
+Open floor space
+Soft obstacles
+play dough
+Play dough or crayons
+Small manipulatives
+Paper
+Pretend-play props
+Costumes or badges
+Theme accessories
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to bugs & butterflies.
+Sing "The Ants Go Marching" with simple movements or props.
+Show one prop or picture from today's activity (Ladybug Counting Fun) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to bugs & butterflies: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Observe engagement, theme vocabulary, motor skills, and social interaction.
+Participation and interest in Bugs & Butterflies play
+
+DAILY_ADAPTATIONS:
+Provide larger bug models, visual supports, sensory alternatives, and opportunities for children to participate at their own comfort level.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
 
 ACTIVITY_NAME:
 Ladybug Counting Fun
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Practice fine motor skills during Ladybug Counting Fun.
-
 DESCRIPTION:
 Toddlers explore Ladybug Counting Fun during our Bugs & Butterflies week through fine motor.
-
 MATERIALS:
 Play dough or crayons
 Small manipulatives
 Paper
-
 SETUP:
 Prepare a toddler-ready space and materials for Ladybug Counting Fun.
-
-DIRECTIONS:
-Offer materials for Ladybug Counting Fun that invite pinching, placing, sticking, or scribbling.
-Demonstrate one simple action, then invite toddlers to try.
-Celebrate effort and keep tools large enough for little hands.
-Support turn-taking when children want the same material.
-
 TEACHER_ROLE:
 Offer hand-over-hand support when wanted and keep materials accessible on low trays.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Offer materials for Ladybug Counting Fun that invite pinching, placing, sticking, or scribbling.
+2. Demonstrate one simple action, then invite toddlers to try.
+3. Celebrate effort and keep tools large enough for little hands.
+4. Support turn-taking when children want the same material.
 LEARNING_GOALS:
 Engage in Ladybug Counting Fun through toddler-friendly fine motor.
 Use theme vocabulary related to Bugs & Butterflies.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Bee Pollination Investigation
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Practice open-ended exploration skills during Bee Pollination Investigation.
-
 DESCRIPTION:
 Toddlers explore Bee Pollination Investigation during our Bugs & Butterflies week through open-ended exploration.
-
 MATERIALS:
 Theme toys/figurines
 Baskets
 Picture cards
-
 SETUP:
 Prepare a toddler-ready space and materials for Bee Pollination Investigation.
-
-DIRECTIONS:
-Invite toddlers to explore Bee Pollination Investigation with hands-on materials related to Bugs & Butterflies.
-Stay nearby and narrate what children notice using simple theme words.
-Offer choices and follow each child's interest for a few minutes at a time.
-Encourage pointing, naming, and short conversations about discoveries.
-
 TEACHER_ROLE:
 Observe, narrate discoveries, and introduce theme vocabulary without directing every action.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Invite toddlers to explore Bee Pollination Investigation with hands-on materials related to Bugs & Butterflies.
+2. Stay nearby and narrate what children notice using simple theme words.
+3. Offer choices and follow each child's interest for a few minutes at a time.
+4. Encourage pointing, naming, and short conversations about discoveries.
 LEARNING_GOALS:
 Engage in Bee Pollination Investigation through toddler-friendly open-ended exploration.
 Use theme vocabulary related to Bugs & Butterflies.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Bumblebee Flight Course
-
 CATEGORY:
 Gross Motor
-
 OBJECTIVE:
 Practice gross motor skills during Bumblebee Flight Course.
-
 DESCRIPTION:
 Toddlers explore Bumblebee Flight Course during our Bugs & Butterflies week through gross motor.
-
 MATERIALS:
 Cones or mats
 Open floor space
 Soft obstacles
-
 SETUP:
 Prepare a toddler-ready space and materials for Bumblebee Flight Course.
-
-DIRECTIONS:
-Create a short movement path or challenge for Bumblebee Flight Course.
-Show the movement once, then invite toddlers to try at their own pace.
-Offer hand support or a simpler path for children who need it.
-Cheer on attempts and keep the course playful, not competitive.
-
 TEACHER_ROLE:
 Spot children for safety, adapt the challenge level, and celebrate every attempt.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Create a short movement path or challenge for Bumblebee Flight Course.
+2. Show the movement once, then invite toddlers to try at their own pace.
+3. Offer hand support or a simpler path for children who need it.
+4. Cheer on attempts and keep the course playful, not competitive.
 LEARNING_GOALS:
 Engage in Bumblebee Flight Course through toddler-friendly gross motor.
 Use theme vocabulary related to Bugs & Butterflies.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Bug Play Dough Creations
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Practice fine motor skills during Bug Play Dough Creations.
-
 DESCRIPTION:
 Toddlers explore Bug Play Dough Creations during our Bugs & Butterflies week through fine motor.
-
 MATERIALS:
 play dough
 Play dough or crayons
 Small manipulatives
 Paper
-
 SETUP:
 Prepare a toddler-ready space and materials for Bug Play Dough Creations.
-
-DIRECTIONS:
-Offer materials for Bug Play Dough Creations that invite pinching, placing, sticking, or scribbling.
-Demonstrate one simple action, then invite toddlers to try.
-Celebrate effort and keep tools large enough for little hands.
-Support turn-taking when children want the same material.
-
 TEACHER_ROLE:
 Offer hand-over-hand support when wanted and keep materials accessible on low trays.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Offer materials for Bug Play Dough Creations that invite pinching, placing, sticking, or scribbling.
+2. Demonstrate one simple action, then invite toddlers to try.
+3. Celebrate effort and keep tools large enough for little hands.
+4. Support turn-taking when children want the same material.
 LEARNING_GOALS:
 Engage in Bug Play Dough Creations through toddler-friendly fine motor.
 Use theme vocabulary related to Bugs & Butterflies.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Garden Bug Discovery Center
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Practice dramatic play skills during Garden Bug Discovery Center.
-
 DESCRIPTION:
 Toddlers explore Garden Bug Discovery Center during our Bugs & Butterflies week through dramatic play.
-
 MATERIALS:
 Pretend-play props
 Costumes or badges
 Theme accessories
-
 SETUP:
 Prepare a toddler-ready space and materials for Garden Bug Discovery Center.
-
-DIRECTIONS:
-Set up a pretend-play area for Garden Bug Discovery Center with a few clear props.
-Model a short role (helper, keeper, captain) and invite children in.
-Use simple language to support caregiving, teamwork, and problem-solving.
-Follow the children's storyline and keep roles flexible.
-
 TEACHER_ROLE:
 Join play briefly as a co-player, then step back so toddlers lead the story.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Set up a pretend-play area for Garden Bug Discovery Center with a few clear props.
+2. Model a short role (helper, keeper, captain) and invite children in.
+3. Use simple language to support caregiving, teamwork, and problem-solving.
+4. Follow the children's storyline and keep roles flexible.
 LEARNING_GOALS:
 Engage in Garden Bug Discovery Center through toddler-friendly dramatic play.
 Use theme vocabulary related to Bugs & Butterflies.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
 
-THURSDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Bugs & Butterflies: Magnifying Glass Nature Hunt and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Practice open-ended exploration skills during Magnifying Glass Nature Hunt.
+Practice sensory play skills during Nature Sensory Investigation.
+Practice gross motor skills during Ant Trail Movement Game.
+
+DAILY_VOCABULARY:
+Bug, Butterfly, Caterpillar, Cocoon, Wings, Ant
+
+DAILY_MATERIALS:
+magnifying glasses
+nature photos
+Theme toys/figurines
+Baskets
+Picture cards
+sensory bin materials
+nature photos
+Sensory bin
+Scoops
+Loose parts
+Cones or mats
+Open floor space
+Soft obstacles
+Play dough or crayons
+Small manipulatives
+Paper
+play dough
+Pretend-play props
+Costumes or badges
+Theme accessories
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to bugs & butterflies.
+Sing "The Ants Go Marching" with simple movements or props.
+Show one prop or picture from today's activity (Magnifying Glass Nature Hunt) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to bugs & butterflies: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Observe engagement, theme vocabulary, motor skills, and social interaction.
+Participation and interest in Bugs & Butterflies play
+
+DAILY_ADAPTATIONS:
+Provide larger bug models, visual supports, sensory alternatives, and opportunities for children to participate at their own comfort level.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
 
 ACTIVITY_NAME:
 Magnifying Glass Nature Hunt
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Practice open-ended exploration skills during Magnifying Glass Nature Hunt.
-
 DESCRIPTION:
 Toddlers explore Magnifying Glass Nature Hunt during our Bugs & Butterflies week through open-ended exploration.
-
 MATERIALS:
 magnifying glasses
 nature photos
 Theme toys/figurines
 Baskets
 Picture cards
-
 SETUP:
 Prepare a toddler-ready space and materials for Magnifying Glass Nature Hunt.
-
-DIRECTIONS:
-Invite toddlers to explore Magnifying Glass Nature Hunt with hands-on materials related to Bugs & Butterflies.
-Stay nearby and narrate what children notice using simple theme words.
-Offer choices and follow each child's interest for a few minutes at a time.
-Encourage pointing, naming, and short conversations about discoveries.
-
 TEACHER_ROLE:
 Observe, narrate discoveries, and introduce theme vocabulary without directing every action.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Invite toddlers to explore Magnifying Glass Nature Hunt with hands-on materials related to Bugs & Butterflies.
+2. Stay nearby and narrate what children notice using simple theme words.
+3. Offer choices and follow each child's interest for a few minutes at a time.
+4. Encourage pointing, naming, and short conversations about discoveries.
 LEARNING_GOALS:
 Engage in Magnifying Glass Nature Hunt through toddler-friendly open-ended exploration.
 Use theme vocabulary related to Bugs & Butterflies.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Nature Sensory Investigation
-
 CATEGORY:
 Sensory Play
-
 OBJECTIVE:
 Practice sensory play skills during Nature Sensory Investigation.
-
 DESCRIPTION:
 Toddlers explore Nature Sensory Investigation during our Bugs & Butterflies week through sensory play.
-
 MATERIALS:
 sensory bin materials
 nature photos
 Sensory bin
 Scoops
 Loose parts
-
 SETUP:
 Prepare a toddler-ready space and materials for Nature Sensory Investigation.
-
-DIRECTIONS:
-Set out a toddler-safe sensory experience for Nature Sensory Investigation.
-Model gentle scooping, pouring, and exploring with fingers or tools.
-Name textures, colors, and theme vocabulary as children play.
-Rotate materials if interest fades and keep play short and calm.
-
 TEACHER_ROLE:
 Supervise closely, model gentle exploration, and support sensory preferences.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Set out a toddler-safe sensory experience for Nature Sensory Investigation.
+2. Model gentle scooping, pouring, and exploring with fingers or tools.
+3. Name textures, colors, and theme vocabulary as children play.
+4. Rotate materials if interest fades and keep play short and calm.
 LEARNING_GOALS:
 Engage in Nature Sensory Investigation through toddler-friendly sensory play.
 Use theme vocabulary related to Bugs & Butterflies.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Ant Trail Movement Game
-
 CATEGORY:
 Gross Motor
-
 OBJECTIVE:
 Practice gross motor skills during Ant Trail Movement Game.
-
 DESCRIPTION:
 Toddlers explore Ant Trail Movement Game during our Bugs & Butterflies week through gross motor.
-
 MATERIALS:
 Cones or mats
 Open floor space
 Soft obstacles
-
 SETUP:
 Prepare a toddler-ready space and materials for Ant Trail Movement Game.
-
-DIRECTIONS:
-Create a short movement path or challenge for Ant Trail Movement Game.
-Show the movement once, then invite toddlers to try at their own pace.
-Offer hand support or a simpler path for children who need it.
-Cheer on attempts and keep the course playful, not competitive.
-
 TEACHER_ROLE:
 Spot children for safety, adapt the challenge level, and celebrate every attempt.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Create a short movement path or challenge for Ant Trail Movement Game.
+2. Show the movement once, then invite toddlers to try at their own pace.
+3. Offer hand support or a simpler path for children who need it.
+4. Cheer on attempts and keep the course playful, not competitive.
 LEARNING_GOALS:
 Engage in Ant Trail Movement Game through toddler-friendly gross motor.
 Use theme vocabulary related to Bugs & Butterflies.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Build a Bug Habitat
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Practice fine motor skills during Build a Bug Habitat.
-
 DESCRIPTION:
 Toddlers explore Build a Bug Habitat during our Bugs & Butterflies week through fine motor.
-
 MATERIALS:
 Play dough or crayons
 Small manipulatives
 Paper
-
 SETUP:
 Prepare a toddler-ready space and materials for Build a Bug Habitat.
-
-DIRECTIONS:
-Offer materials for Build a Bug Habitat that invite pinching, placing, sticking, or scribbling.
-Demonstrate one simple action, then invite toddlers to try.
-Celebrate effort and keep tools large enough for little hands.
-Support turn-taking when children want the same material.
-
 TEACHER_ROLE:
 Offer hand-over-hand support when wanted and keep materials accessible on low trays.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Offer materials for Build a Bug Habitat that invite pinching, placing, sticking, or scribbling.
+2. Demonstrate one simple action, then invite toddlers to try.
+3. Celebrate effort and keep tools large enough for little hands.
+4. Support turn-taking when children want the same material.
 LEARNING_GOALS:
 Engage in Build a Bug Habitat through toddler-friendly fine motor.
 Use theme vocabulary related to Bugs & Butterflies.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Backyard Explorer Pretend Play
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Practice dramatic play skills during Backyard Explorer Pretend Play.
-
 DESCRIPTION:
 Toddlers explore Backyard Explorer Pretend Play during our Bugs & Butterflies week through dramatic play.
-
 MATERIALS:
 play dough
 Pretend-play props
 Costumes or badges
 Theme accessories
-
 SETUP:
 Prepare a toddler-ready space and materials for Backyard Explorer Pretend Play.
-
-DIRECTIONS:
-Set up a pretend-play area for Backyard Explorer Pretend Play with a few clear props.
-Model a short role (helper, keeper, captain) and invite children in.
-Use simple language to support caregiving, teamwork, and problem-solving.
-Follow the children's storyline and keep roles flexible.
-
 TEACHER_ROLE:
 Join play briefly as a co-player, then step back so toddlers lead the story.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Set up a pretend-play area for Backyard Explorer Pretend Play with a few clear props.
+2. Model a short role (helper, keeper, captain) and invite children in.
+3. Use simple language to support caregiving, teamwork, and problem-solving.
+4. Follow the children's storyline and keep roles flexible.
 LEARNING_GOALS:
 Engage in Backyard Explorer Pretend Play through toddler-friendly dramatic play.
 Use theme vocabulary related to Bugs & Butterflies.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
 
-FRIDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Bugs & Butterflies: Create a Giant Butterfly and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Practice fine motor skills during Create a Giant Butterfly.
+Practice music & movement skills during Bug Dance Party.
+Practice sensory play skills during Insect Sensory Discovery Bin.
+
+DAILY_VOCABULARY:
+Bug, Butterfly, Caterpillar, Cocoon, Wings, Ant
+
+DAILY_MATERIALS:
+butterfly models
+butterfly stickers
+Play dough or crayons
+Small manipulatives
+Paper
+Scarves or music
+Open movement space
+sensory bin materials
+insect books
+Sensory bin
+Scoops
+Loose parts
+butterfly models
+butterfly stickers
+Theme toys/figurines
+Baskets
+Picture cards
+Pretend-play props
+Costumes or badges
+Theme accessories
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to bugs & butterflies.
+Sing "The Ants Go Marching" with simple movements or props.
+Show one prop or picture from today's activity (Create a Giant Butterfly) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to bugs & butterflies: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Observe engagement, theme vocabulary, motor skills, and social interaction.
+Participation and interest in Bugs & Butterflies play
+
+DAILY_ADAPTATIONS:
+Provide larger bug models, visual supports, sensory alternatives, and opportunities for children to participate at their own comfort level.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
 
 ACTIVITY_NAME:
 Create a Giant Butterfly
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Practice fine motor skills during Create a Giant Butterfly.
-
 DESCRIPTION:
 Toddlers explore Create a Giant Butterfly during our Bugs & Butterflies week through fine motor.
-
 MATERIALS:
 butterfly models
 butterfly stickers
 Play dough or crayons
 Small manipulatives
 Paper
-
 SETUP:
 Prepare a toddler-ready space and materials for Create a Giant Butterfly.
-
-DIRECTIONS:
-Offer materials for Create a Giant Butterfly that invite pinching, placing, sticking, or scribbling.
-Demonstrate one simple action, then invite toddlers to try.
-Celebrate effort and keep tools large enough for little hands.
-Support turn-taking when children want the same material.
-
 TEACHER_ROLE:
 Offer hand-over-hand support when wanted and keep materials accessible on low trays.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Offer materials for Create a Giant Butterfly that invite pinching, placing, sticking, or scribbling.
+2. Demonstrate one simple action, then invite toddlers to try.
+3. Celebrate effort and keep tools large enough for little hands.
+4. Support turn-taking when children want the same material.
 LEARNING_GOALS:
 Engage in Create a Giant Butterfly through toddler-friendly fine motor.
 Use theme vocabulary related to Bugs & Butterflies.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Bug Dance Party
-
 CATEGORY:
 Music & Movement
-
 OBJECTIVE:
 Practice music & movement skills during Bug Dance Party.
-
 DESCRIPTION:
 Toddlers explore Bug Dance Party during our Bugs & Butterflies week through music & movement.
-
 MATERIALS:
 Scarves or music
 Open movement space
-
 SETUP:
 Prepare a toddler-ready space and materials for Bug Dance Party.
-
-DIRECTIONS:
-Start Bug Dance Party with a familiar song, chant, or movement cue.
-Invite toddlers to move their bodies with the music and theme ideas.
-Mirror children's movements and add simple vocabulary.
-Allow sitting dancers and standing movers to participate together.
-
 TEACHER_ROLE:
 Lead with energy, mirror children's movements, and keep transitions playful.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Start Bug Dance Party with a familiar song, chant, or movement cue.
+2. Invite toddlers to move their bodies with the music and theme ideas.
+3. Mirror children's movements and add simple vocabulary.
+4. Allow sitting dancers and standing movers to participate together.
 LEARNING_GOALS:
 Engage in Bug Dance Party through toddler-friendly music & movement.
 Use theme vocabulary related to Bugs & Butterflies.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Insect Sensory Discovery Bin
-
 CATEGORY:
 Sensory Play
-
 OBJECTIVE:
 Practice sensory play skills during Insect Sensory Discovery Bin.
-
 DESCRIPTION:
 Toddlers explore Insect Sensory Discovery Bin during our Bugs & Butterflies week through sensory play.
-
 MATERIALS:
 sensory bin materials
 insect books
 Sensory bin
 Scoops
 Loose parts
-
 SETUP:
 Prepare a toddler-ready space and materials for Insect Sensory Discovery Bin.
-
-DIRECTIONS:
-Set out a toddler-safe sensory experience for Insect Sensory Discovery Bin.
-Model gentle scooping, pouring, and exploring with fingers or tools.
-Name textures, colors, and theme vocabulary as children play.
-Rotate materials if interest fades and keep play short and calm.
-
 TEACHER_ROLE:
 Supervise closely, model gentle exploration, and support sensory preferences.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Set out a toddler-safe sensory experience for Insect Sensory Discovery Bin.
+2. Model gentle scooping, pouring, and exploring with fingers or tools.
+3. Name textures, colors, and theme vocabulary as children play.
+4. Rotate materials if interest fades and keep play short and calm.
 LEARNING_GOALS:
 Engage in Insect Sensory Discovery Bin through toddler-friendly sensory play.
 Use theme vocabulary related to Bugs & Butterflies.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Build a Butterfly Garden
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Practice open-ended exploration skills during Build a Butterfly Garden.
-
 DESCRIPTION:
 Toddlers explore Build a Butterfly Garden during our Bugs & Butterflies week through open-ended exploration.
-
 MATERIALS:
 butterfly models
 butterfly stickers
 Theme toys/figurines
 Baskets
 Picture cards
-
 SETUP:
 Prepare a toddler-ready space and materials for Build a Butterfly Garden.
-
-DIRECTIONS:
-Invite toddlers to explore Build a Butterfly Garden with hands-on materials related to Bugs & Butterflies.
-Stay nearby and narrate what children notice using simple theme words.
-Offer choices and follow each child's interest for a few minutes at a time.
-Encourage pointing, naming, and short conversations about discoveries.
-
 TEACHER_ROLE:
 Observe, narrate discoveries, and introduce theme vocabulary without directing every action.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Invite toddlers to explore Build a Butterfly Garden with hands-on materials related to Bugs & Butterflies.
+2. Stay nearby and narrate what children notice using simple theme words.
+3. Offer choices and follow each child's interest for a few minutes at a time.
+4. Encourage pointing, naming, and short conversations about discoveries.
 LEARNING_GOALS:
 Engage in Build a Butterfly Garden through toddler-friendly open-ended exploration.
 Use theme vocabulary related to Bugs & Butterflies.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Little Entomologist Parade
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Practice dramatic play skills during Little Entomologist Parade.
-
 DESCRIPTION:
 Toddlers explore Little Entomologist Parade during our Bugs & Butterflies week through dramatic play.
-
 MATERIALS:
 Pretend-play props
 Costumes or badges
 Theme accessories
-
 SETUP:
 Prepare a toddler-ready space and materials for Little Entomologist Parade.
-
-DIRECTIONS:
-Set up a pretend-play area for Little Entomologist Parade with a few clear props.
-Model a short role (helper, keeper, captain) and invite children in.
-Use simple language to support caregiving, teamwork, and problem-solving.
-Follow the children's storyline and keep roles flexible.
-
 TEACHER_ROLE:
 Join play briefly as a co-player, then step back so toddlers lead the story.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Set up a pretend-play area for Little Entomologist Parade with a few clear props.
+2. Model a short role (helper, keeper, captain) and invite children in.
+3. Use simple language to support caregiving, teamwork, and problem-solving.
+4. Follow the children's storyline and keep roles flexible.
 LEARNING_GOALS:
 Engage in Little Entomologist Parade through toddler-friendly dramatic play.
 Use theme vocabulary related to Bugs & Butterflies.
 Practice social interaction, curiosity, and motor skills during play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe engagement, theme vocabulary, motor skills, and social interaction.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:

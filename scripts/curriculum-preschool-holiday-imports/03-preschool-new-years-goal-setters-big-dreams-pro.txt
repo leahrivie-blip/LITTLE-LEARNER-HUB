@@ -57,268 +57,748 @@ Provide visual supports, adaptive writing tools, sensory alternatives, larger ma
 
 MONDAY
 
+DAILY_THEME:
+New Year's: My Favorite Memories Graph and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Support new year's learning through my favorite memories graph.
+Support new year's learning through new year reflection drawing.
+Support new year's learning through new year's circle time.
+
+DAILY_VOCABULARY:
+Goal, Growth, Celebrate, Challenge, Dream, Achieve
+
+DAILY_MATERIALS:
+Chart paper, stickers
+Paper, crayons, markers
+Visuals, calendar
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to new year's.
+Sing "Celebrate Together" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit The Night Before New Year's and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to new year's — movement games, collaborative challenges, or nature observation linked to today's indoor activities (My Favorite Memories Graph / New Year Reflection Drawing).
+
+DAILY_OBSERVATIONS:
+Engagement during My Favorite Memories Graph
+Engagement during New Year Reflection Drawing
+Engagement during New Year's Circle Time
+Participation and interest in New Year's play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive writing tools, sensory alternatives, larger manipulatives, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+
 ACTIVITY_NAME:
 My Favorite Memories Graph
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support new year's learning through my favorite memories graph.
 DESCRIPTION:
 Children graph their favorite classroom memories from the past year.
 MATERIALS:
 Chart paper, stickers
-DIRECTIONS:
-Discuss favorite memories.
-Vote using stickers.
-Create graph.
-Analyze results together.
+SETUP:
+Prepare materials for My Favorite Memories Graph before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide discussion and graphing.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Discuss favorite memories.
+2. Vote using stickers.
+3. Create graph.
+4. Analyze results together.
 LEARNING_GOALS:
 Data collection and communication skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during My Favorite Memories Graph
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 New Year Reflection Drawing
 CATEGORY:
 Art
+OBJECTIVE:
+Support new year's learning through new year reflection drawing.
 DESCRIPTION:
 Children draw their favorite memory from the year.
 MATERIALS:
 Paper, crayons, markers
-DIRECTIONS:
-Think about favorite memory.
-Draw picture.
-Share with class.
+SETUP:
+Prepare materials for New Year Reflection Drawing before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Encourage storytelling and creativity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Think about favorite memory.
+2. Draw picture.
+3. Share with class.
 LEARNING_GOALS:
 Self-expression and communication.
+OBSERVATION_OPPORTUNITIES:
+Engagement during New Year Reflection Drawing
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 New Year's Circle Time
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support new year's learning through new year's circle time.
 DESCRIPTION:
 Introduce the concept of a new year and new goals.
 MATERIALS:
 Visuals, calendar
-DIRECTIONS:
-Discuss what a new year means.
-Talk about goals.
-Share ideas.
+SETUP:
+Prepare materials for New Year's Circle Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead discussion.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Discuss what a new year means.
+2. Talk about goals.
+3. Share ideas.
 LEARNING_GOALS:
 Vocabulary and social-emotional development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during New Year's Circle Time
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 TUESDAY
+
+DAILY_THEME:
+New Year's: Dream Big Writing Center and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Support new year's learning through dream big writing center.
+Support new year's learning through goal obstacle course.
+Support new year's learning through goal story time.
+
+DAILY_VOCABULARY:
+Goal, Growth, Celebrate, Challenge, Dream, Achieve
+
+DAILY_MATERIALS:
+Paper, pencils, markers
+Cones, hoops, tunnels
+Goal-themed book
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to new year's.
+Sing "Celebrate Together" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit The Night Before New Year's and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to new year's — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Dream Big Writing Center / Goal Obstacle Course).
+
+DAILY_OBSERVATIONS:
+Engagement during Dream Big Writing Center
+Engagement during Goal Obstacle Course
+Engagement during Goal Story Time
+Participation and interest in New Year's play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive writing tools, sensory alternatives, larger manipulatives, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Dream Big Writing Center
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support new year's learning through dream big writing center.
 DESCRIPTION:
 Children draw and write about something they want to learn.
 MATERIALS:
 Paper, pencils, markers
-DIRECTIONS:
-Think of a goal.
-Draw a picture.
-Write words or sentences.
+SETUP:
+Prepare materials for Dream Big Writing Center before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support writing development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Think of a goal.
+2. Draw a picture.
+3. Write words or sentences.
 LEARNING_GOALS:
 Writing and goal setting.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Dream Big Writing Center
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Goal Obstacle Course
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support new year's learning through goal obstacle course.
 DESCRIPTION:
 Children complete challenges that require perseverance and effort.
 MATERIALS:
 Cones, hoops, tunnels
-DIRECTIONS:
-Complete obstacle course.
-Try again if needed.
-Celebrate effort.
+SETUP:
+Prepare materials for Goal Obstacle Course before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Encourage perseverance.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Complete obstacle course.
+2. Try again if needed.
+3. Celebrate effort.
 LEARNING_GOALS:
 Growth mindset and coordination.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Goal Obstacle Course
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Goal Story Time
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support new year's learning through goal story time.
 DESCRIPTION:
 Children listen to a story about trying new things.
 MATERIALS:
 Goal-themed book
-DIRECTIONS:
-Read story.
-Discuss challenges.
-Talk about solutions.
+SETUP:
+Prepare materials for Goal Story Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support comprehension.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Read story.
+2. Discuss challenges.
+3. Talk about solutions.
 LEARNING_GOALS:
 Listening and critical thinking.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Goal Story Time
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 WEDNESDAY
+
+DAILY_THEME:
+New Year's: Build the Tallest Tower Challenge and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Support new year's learning through build the tallest tower challenge.
+Support new year's learning through growth mindset mirror talk.
+Support new year's learning through countdown movement game.
+
+DAILY_VOCABULARY:
+Goal, Growth, Celebrate, Challenge, Dream, Achieve
+
+DAILY_MATERIALS:
+Blocks
+Mirrors
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to new year's.
+Sing "Celebrate Together" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit The Night Before New Year's and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to new year's — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Build the Tallest Tower Challenge / Growth Mindset Mirror Talk).
+
+DAILY_OBSERVATIONS:
+Engagement during Build the Tallest Tower Challenge
+Engagement during Growth Mindset Mirror Talk
+Engagement during Countdown Movement Game
+Participation and interest in New Year's play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive writing tools, sensory alternatives, larger manipulatives, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Build the Tallest Tower Challenge
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support new year's learning through build the tallest tower challenge.
 DESCRIPTION:
 Children work in teams to build the tallest tower possible.
 MATERIALS:
 Blocks
-DIRECTIONS:
-Plan tower.
-Build together.
-Measure height.
-Compare results.
+SETUP:
+Prepare materials for Build the Tallest Tower Challenge before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide teamwork and problem-solving.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Plan tower.
+2. Build together.
+3. Measure height.
+4. Compare results.
 LEARNING_GOALS:
 Engineering and collaboration.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Build the Tallest Tower Challenge
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Growth Mindset Mirror Talk
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support new year's learning through growth mindset mirror talk.
 DESCRIPTION:
 Children practice positive self-talk in mirrors.
 MATERIALS:
 Mirrors
-DIRECTIONS:
-Look in mirror.
-Say positive statements.
-Discuss strengths.
+SETUP:
+Prepare materials for Growth Mindset Mirror Talk before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Model positive language.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Look in mirror.
+2. Say positive statements.
+3. Discuss strengths.
 LEARNING_GOALS:
 Self-confidence and emotional development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Growth Mindset Mirror Talk
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Countdown Movement Game
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support new year's learning through countdown movement game.
 DESCRIPTION:
 Children move while counting down from different numbers.
 MATERIALS:
 Music player
-DIRECTIONS:
-Count down.
-Complete movement challenge.
-Repeat with different numbers.
+SETUP:
+Prepare materials for Countdown Movement Game before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead activity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Count down.
+2. Complete movement challenge.
+3. Repeat with different numbers.
 LEARNING_GOALS:
 Counting and listening skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Countdown Movement Game
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 THURSDAY
+
+DAILY_THEME:
+New Year's: Balloon Rocket Investigation and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Support new year's learning through balloon rocket investigation.
+Support new year's learning through my future self craft.
+Support new year's learning through goal vocabulary match.
+
+DAILY_VOCABULARY:
+Goal, Growth, Celebrate, Challenge, Dream, Achieve
+
+DAILY_MATERIALS:
+Balloons, string, tape
+Paper, markers, craft supplies
+Word cards, picture cards
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to new year's.
+Sing "Celebrate Together" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit The Night Before New Year's and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to new year's — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Balloon Rocket Investigation / My Future Self Craft).
+
+DAILY_OBSERVATIONS:
+Engagement during Balloon Rocket Investigation
+Engagement during My Future Self Craft
+Engagement during Goal Vocabulary Match
+Participation and interest in New Year's play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive writing tools, sensory alternatives, larger manipulatives, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Balloon Rocket Investigation
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support new year's learning through balloon rocket investigation.
 DESCRIPTION:
 Children explore motion using balloon rockets.
 MATERIALS:
 Balloons, string, tape
-DIRECTIONS:
-Inflate balloon.
-Attach to string.
-Release and observe.
-Discuss what happened.
+SETUP:
+Prepare materials for Balloon Rocket Investigation before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide scientific inquiry.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Inflate balloon.
+2. Attach to string.
+3. Release and observe.
+4. Discuss what happened.
 LEARNING_GOALS:
 Cause-and-effect understanding.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Balloon Rocket Investigation
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 My Future Self Craft
 CATEGORY:
 Art
+OBJECTIVE:
+Support new year's learning through my future self craft.
 DESCRIPTION:
 Children create artwork showing what they want to be when they grow up.
 MATERIALS:
 Paper, markers, craft supplies
-DIRECTIONS:
-Discuss future jobs.
-Create artwork.
-Share ideas.
+SETUP:
+Prepare materials for My Future Self Craft before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support creativity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Discuss future jobs.
+2. Create artwork.
+3. Share ideas.
 LEARNING_GOALS:
 Self-expression and planning skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during My Future Self Craft
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Goal Vocabulary Match
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support new year's learning through goal vocabulary match.
 DESCRIPTION:
 Children match goal-setting vocabulary words to pictures.
 MATERIALS:
 Word cards, picture cards
-DIRECTIONS:
-Match cards.
-Read vocabulary.
-Discuss meanings.
+SETUP:
+Prepare materials for Goal Vocabulary Match before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support literacy development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Match cards.
+2. Read vocabulary.
+3. Discuss meanings.
 LEARNING_GOALS:
 Vocabulary and word recognition.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Goal Vocabulary Match
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 FRIDAY
+
+DAILY_THEME:
+New Year's: Kindergarten Ready Challenge and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Support new year's learning through kindergarten ready challenge.
+Support new year's learning through new year's dance party.
+Support new year's learning through new year's celebration circle.
+
+DAILY_VOCABULARY:
+Goal, Growth, Celebrate, Challenge, Dream, Achieve
+
+DAILY_MATERIALS:
+Letters, numbers, puzzles, manipulatives
+Music player
+Student work, visuals
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to new year's.
+Sing "Celebrate Together" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit The Night Before New Year's and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to new year's — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Kindergarten Ready Challenge / New Year's Dance Party).
+
+DAILY_OBSERVATIONS:
+Engagement during Kindergarten Ready Challenge
+Engagement during New Year's Dance Party
+Engagement during New Year's Celebration Circle
+Participation and interest in New Year's play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive writing tools, sensory alternatives, larger manipulatives, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Kindergarten Ready Challenge
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support new year's learning through kindergarten ready challenge.
 DESCRIPTION:
 Children complete a variety of literacy, math, and problem-solving stations.
 MATERIALS:
 Letters, numbers, puzzles, manipulatives
-DIRECTIONS:
-Rotate through stations.
-Complete challenges.
-Celebrate successes.
+SETUP:
+Prepare materials for Kindergarten Ready Challenge before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support learning and confidence.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Rotate through stations.
+2. Complete challenges.
+3. Celebrate successes.
 LEARNING_GOALS:
 School readiness skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Kindergarten Ready Challenge
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 New Year's Dance Party
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support new year's learning through new year's dance party.
 DESCRIPTION:
 Children celebrate with music, dancing, and movement games.
 MATERIALS:
 Music player
-DIRECTIONS:
-Dance together.
-Follow movement directions.
-Celebrate achievements.
+SETUP:
+Prepare materials for New Year's Dance Party before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead celebration activities.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Dance together.
+2. Follow movement directions.
+3. Celebrate achievements.
 LEARNING_GOALS:
 Coordination and social participation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during New Year's Dance Party
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 New Year's Celebration Circle
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support new year's learning through new year's celebration circle.
 DESCRIPTION:
 Review goals, celebrate accomplishments, and welcome the New Year.
 MATERIALS:
 Student work, visuals
-DIRECTIONS:
-Share goals.
-Discuss favorite activities.
-Celebrate learning together.
+SETUP:
+Prepare materials for New Year's Celebration Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead reflection and discussion.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Share goals.
+2. Discuss favorite activities.
+3. Celebrate learning together.
 LEARNING_GOALS:
 Communication, confidence, and social-emotional development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during New Year's Celebration Circle
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

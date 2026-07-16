@@ -57,268 +57,748 @@ Provide visual supports, adaptive tools, larger manipulatives, sensory alternati
 
 MONDAY
 
+DAILY_THEME:
+Fourth of July: Patriotic Symbol Investigation and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Support fourth of july learning through patriotic symbol investigation.
+Support fourth of july learning through flag counting challenge.
+Support fourth of july learning through community circle time.
+
+DAILY_VOCABULARY:
+Flag, Community, Citizen, Hero, Celebrate, Parade
+
+DAILY_MATERIALS:
+Flags, photos, symbol cards
+Mini flags, sorting trays
+Community helper visuals
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to fourth of july.
+Sing "You're a Grand Old Flag" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit F Is for Flag and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to fourth of july — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Patriotic Symbol Investigation / Flag Counting Challenge).
+
+DAILY_OBSERVATIONS:
+Engagement during Patriotic Symbol Investigation
+Engagement during Flag Counting Challenge
+Engagement during Community Circle Time
+Participation and interest in Fourth of July play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive tools, larger manipulatives, sensory alternatives, and additional teacher support as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+
 ACTIVITY_NAME:
 Patriotic Symbol Investigation
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support fourth of july learning through patriotic symbol investigation.
 DESCRIPTION:
 Children investigate patriotic symbols and discuss their meanings.
 MATERIALS:
 Flags, photos, symbol cards
-DIRECTIONS:
-Observe symbols.
-Discuss what they represent.
-Compare similarities and differences.
-Share observations.
+SETUP:
+Prepare materials for Patriotic Symbol Investigation before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide discussion and observation.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Observe symbols.
+2. Discuss what they represent.
+3. Compare similarities and differences.
+4. Share observations.
 LEARNING_GOALS:
 Social studies awareness and vocabulary development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Patriotic Symbol Investigation
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Flag Counting Challenge
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support fourth of july learning through flag counting challenge.
 DESCRIPTION:
 Children count and sort flags by size and color.
 MATERIALS:
 Mini flags, sorting trays
-DIRECTIONS:
-Count flags.
-Sort by category.
-Compare groups.
+SETUP:
+Prepare materials for Flag Counting Challenge before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support counting strategies.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Count flags.
+2. Sort by category.
+3. Compare groups.
 LEARNING_GOALS:
 Math and classification skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Flag Counting Challenge
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Community Circle Time
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support fourth of july learning through community circle time.
 DESCRIPTION:
 Introduce community helpers and celebrations.
 MATERIALS:
 Community helper visuals
-DIRECTIONS:
-Discuss community roles.
-Share experiences.
-Read a related story.
+SETUP:
+Prepare materials for Community Circle Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead discussion.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Discuss community roles.
+2. Share experiences.
+3. Read a related story.
 LEARNING_GOALS:
 Communication and social awareness.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Community Circle Time
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 TUESDAY
+
+DAILY_THEME:
+Fourth of July: Community Hero Writing and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Support fourth of july learning through community hero writing.
+Support fourth of july learning through firefighter obstacle course.
+Support fourth of july learning through community helper story time.
+
+DAILY_VOCABULARY:
+Flag, Community, Citizen, Hero, Celebrate, Parade
+
+DAILY_MATERIALS:
+Paper, markers, pencils
+Cones, tunnels, hoops
+Community helper book
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to fourth of july.
+Sing "You're a Grand Old Flag" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit F Is for Flag and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to fourth of july — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Community Hero Writing / Firefighter Obstacle Course).
+
+DAILY_OBSERVATIONS:
+Engagement during Community Hero Writing
+Engagement during Firefighter Obstacle Course
+Engagement during Community Helper Story Time
+Participation and interest in Fourth of July play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive tools, larger manipulatives, sensory alternatives, and additional teacher support as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Community Hero Writing
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support fourth of july learning through community hero writing.
 DESCRIPTION:
 Children draw and write about a community helper.
 MATERIALS:
 Paper, markers, pencils
-DIRECTIONS:
-Choose a community helper.
-Draw a picture.
-Write words or sentences.
+SETUP:
+Prepare materials for Community Hero Writing before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support writing development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Choose a community helper.
+2. Draw a picture.
+3. Write words or sentences.
 LEARNING_GOALS:
 Literacy and self-expression.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Community Hero Writing
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Firefighter Obstacle Course
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support fourth of july learning through firefighter obstacle course.
 DESCRIPTION:
 Children complete challenges inspired by firefighters.
 MATERIALS:
 Cones, tunnels, hoops
-DIRECTIONS:
-Navigate obstacles.
-Complete rescue challenges.
-Work as a team.
+SETUP:
+Prepare materials for Firefighter Obstacle Course before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead movement activity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Navigate obstacles.
+2. Complete rescue challenges.
+3. Work as a team.
 LEARNING_GOALS:
 Coordination and teamwork.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Firefighter Obstacle Course
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Community Helper Story Time
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support fourth of july learning through community helper story time.
 DESCRIPTION:
 Children listen to a story about helping others.
 MATERIALS:
 Community helper book
-DIRECTIONS:
-Read story.
-Discuss characters.
-Identify ways to help others.
+SETUP:
+Prepare materials for Community Helper Story Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support comprehension.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Read story.
+2. Discuss characters.
+3. Identify ways to help others.
 LEARNING_GOALS:
 Listening and vocabulary development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Community Helper Story Time
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 WEDNESDAY
+
+DAILY_THEME:
+Fourth of July: Fireworks in a Jar Science and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Support fourth of july learning through fireworks in a jar science.
+Support fourth of july learning through patriotic windsock craft.
+Support fourth of july learning through firework movement game.
+
+DAILY_VOCABULARY:
+Flag, Community, Citizen, Hero, Celebrate, Parade
+
+DAILY_MATERIALS:
+Water, oil, food coloring, jars
+Construction paper, streamers, glue
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to fourth of july.
+Sing "You're a Grand Old Flag" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit F Is for Flag and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to fourth of july — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Fireworks in a Jar Science / Patriotic Windsock Craft).
+
+DAILY_OBSERVATIONS:
+Engagement during Fireworks in a Jar Science
+Engagement during Patriotic Windsock Craft
+Engagement during Firework Movement Game
+Participation and interest in Fourth of July play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive tools, larger manipulatives, sensory alternatives, and additional teacher support as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Fireworks in a Jar Science
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support fourth of july learning through fireworks in a jar science.
 DESCRIPTION:
 Children observe a colorful science experiment resembling fireworks.
 MATERIALS:
 Water, oil, food coloring, jars
-DIRECTIONS:
-Add water to jar.
-Mix colors in oil.
-Pour into water.
-Observe reactions.
+SETUP:
+Prepare materials for Fireworks in a Jar Science before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide scientific investigation.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Add water to jar.
+2. Mix colors in oil.
+3. Pour into water.
+4. Observe reactions.
 LEARNING_GOALS:
 Observation and cause-and-effect understanding.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Fireworks in a Jar Science
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Patriotic Windsock Craft
 CATEGORY:
 Art
+OBJECTIVE:
+Support fourth of july learning through patriotic windsock craft.
 DESCRIPTION:
 Children create red, white, and blue windsocks.
 MATERIALS:
 Construction paper, streamers, glue
-DIRECTIONS:
-Decorate paper.
-Attach streamers.
-Display creations.
+SETUP:
+Prepare materials for Patriotic Windsock Craft before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support creativity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Decorate paper.
+2. Attach streamers.
+3. Display creations.
 LEARNING_GOALS:
 Fine motor development and artistic expression.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Patriotic Windsock Craft
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Firework Movement Game
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support fourth of july learning through firework movement game.
 DESCRIPTION:
 Children move like fireworks using different motions.
 MATERIALS:
 Music player
-DIRECTIONS:
-Listen to music.
-Jump, spin, and stretch.
-Follow movement directions.
+SETUP:
+Prepare materials for Firework Movement Game before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead movement activity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Listen to music.
+2. Jump, spin, and stretch.
+3. Follow movement directions.
 LEARNING_GOALS:
 Gross motor development and listening skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Firework Movement Game
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 THURSDAY
+
+DAILY_THEME:
+Fourth of July: Build a Parade Float and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Support fourth of july learning through build a parade float.
+Support fourth of july learning through patriotic graphing activity.
+Support fourth of july learning through patriotic vocabulary match.
+
+DAILY_VOCABULARY:
+Flag, Community, Citizen, Hero, Celebrate, Parade
+
+DAILY_MATERIALS:
+Blocks, boxes, craft supplies
+Chart paper, stickers
+Word cards, picture cards
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to fourth of july.
+Sing "You're a Grand Old Flag" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit F Is for Flag and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to fourth of july — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Build a Parade Float / Patriotic Graphing Activity).
+
+DAILY_OBSERVATIONS:
+Engagement during Build a Parade Float
+Engagement during Patriotic Graphing Activity
+Engagement during Patriotic Vocabulary Match
+Participation and interest in Fourth of July play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive tools, larger manipulatives, sensory alternatives, and additional teacher support as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Build a Parade Float
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support fourth of july learning through build a parade float.
 DESCRIPTION:
 Children work in teams to build miniature parade floats.
 MATERIALS:
 Blocks, boxes, craft supplies
-DIRECTIONS:
-Plan design.
-Build float.
-Present creation.
+SETUP:
+Prepare materials for Build a Parade Float before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Encourage teamwork and engineering.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Plan design.
+2. Build float.
+3. Present creation.
 LEARNING_GOALS:
 Problem-solving and collaboration.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Build a Parade Float
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Patriotic Graphing Activity
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support fourth of july learning through patriotic graphing activity.
 DESCRIPTION:
 Children graph favorite patriotic symbols.
 MATERIALS:
 Chart paper, stickers
-DIRECTIONS:
-Vote on favorite symbol.
-Place stickers on graph.
-Analyze results.
+SETUP:
+Prepare materials for Patriotic Graphing Activity before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide graphing discussions.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Vote on favorite symbol.
+2. Place stickers on graph.
+3. Analyze results.
 LEARNING_GOALS:
 Data collection and math skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Patriotic Graphing Activity
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Patriotic Vocabulary Match
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support fourth of july learning through patriotic vocabulary match.
 DESCRIPTION:
 Children match patriotic vocabulary words with pictures.
 MATERIALS:
 Word cards, picture cards
-DIRECTIONS:
-Match words.
-Read vocabulary.
-Discuss meanings.
+SETUP:
+Prepare materials for Patriotic Vocabulary Match before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support literacy development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Match words.
+2. Read vocabulary.
+3. Discuss meanings.
 LEARNING_GOALS:
 Word recognition and vocabulary growth.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Patriotic Vocabulary Match
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 FRIDAY
+
+DAILY_THEME:
+Fourth of July: Community Heroes Parade and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Support fourth of july learning through community heroes parade.
+Support fourth of july learning through red white & blue relay.
+Support fourth of july learning through fourth of july celebration circle.
+
+DAILY_VOCABULARY:
+Flag, Community, Citizen, Hero, Celebrate, Parade
+
+DAILY_MATERIALS:
+Dress-up clothes, props
+Colored beanbags, cones
+Books, visuals, student work
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to fourth of july.
+Sing "You're a Grand Old Flag" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit F Is for Flag and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to fourth of july — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Community Heroes Parade / Red White & Blue Relay).
+
+DAILY_OBSERVATIONS:
+Engagement during Community Heroes Parade
+Engagement during Red White & Blue Relay
+Engagement during Fourth of July Celebration Circle
+Participation and interest in Fourth of July play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive tools, larger manipulatives, sensory alternatives, and additional teacher support as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Community Heroes Parade
 CATEGORY:
 Dramatic Play
+OBJECTIVE:
+Support fourth of july learning through community heroes parade.
 DESCRIPTION:
 Children dress as community helpers and participate in a classroom parade.
 MATERIALS:
 Dress-up clothes, props
-DIRECTIONS:
-Choose community helper role.
-Dress up.
-Participate in parade.
-Share helper responsibilities.
+SETUP:
+Prepare materials for Community Heroes Parade before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Facilitate dramatic play.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Choose community helper role.
+2. Dress up.
+3. Participate in parade.
+4. Share helper responsibilities.
 LEARNING_GOALS:
 Social awareness and communication.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Community Heroes Parade
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Red White & Blue Relay
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support fourth of july learning through red white & blue relay.
 DESCRIPTION:
 Children complete relay races using patriotic colors.
 MATERIALS:
 Colored beanbags, cones
-DIRECTIONS:
-Divide into teams.
-Complete relay challenges.
-Encourage teamwork.
+SETUP:
+Prepare materials for Red White & Blue Relay before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead activity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Divide into teams.
+2. Complete relay challenges.
+3. Encourage teamwork.
 LEARNING_GOALS:
 Coordination and cooperation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Red White & Blue Relay
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Fourth of July Celebration Circle
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support fourth of july learning through fourth of july celebration circle.
 DESCRIPTION:
 Review the week's learning and celebrate community heroes.
 MATERIALS:
 Books, visuals, student work
-DIRECTIONS:
-Discuss favorite activities.
-Review vocabulary.
-Celebrate learning.
+SETUP:
+Prepare materials for Fourth of July Celebration Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead reflection and discussion.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Discuss favorite activities.
+2. Review vocabulary.
+3. Celebrate learning.
 LEARNING_GOALS:
 Communication, recall, and social-emotional development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Fourth of July Celebration Circle
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

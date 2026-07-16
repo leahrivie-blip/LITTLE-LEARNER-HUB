@@ -57,266 +57,746 @@ Provide visual supports, adaptive art tools, sensory alternatives, larger materi
 
 MONDAY
 
+DAILY_THEME:
+New Year's: Party Sensory Bin and related play (introduce the theme through movement, sensory play, and simple language)
+
+DAILY_OBJECTIVES:
+Support new year's learning through party sensory bin.
+Support new year's learning through party hat parade.
+Support new year's learning through new year's circle time.
+
+DAILY_VOCABULARY:
+New Year, Celebrate, Party, Count, Happy, Friend
+
+DAILY_MATERIALS:
+Pom-poms, streamers, scoops, cups
+Party hats
+Picture cards
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to new year's.
+Sing "If You're Happy and You Know It" with simple movements or props.
+Show one prop or picture from today's activity (Party Sensory Bin) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to new year's: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Party Sensory Bin
+Engagement during Party Hat Parade
+Engagement during New Year's Circle Time
+Participation and interest in New Year's play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive art tools, sensory alternatives, larger materials, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
+
 ACTIVITY_NAME:
 Party Sensory Bin
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support new year's learning through party sensory bin.
 DESCRIPTION:
 Children explore a New Year's themed sensory bin filled with party materials.
 MATERIALS:
 Pom-poms, streamers, scoops, cups
-DIRECTIONS:
-Fill sensory bin with materials.
-Encourage scooping and sorting.
-Explore colors and textures.
-Discuss party items.
+SETUP:
+Prepare materials for Party Sensory Bin before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Model vocabulary and sensory exploration.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Fill sensory bin with materials.
+2. Encourage scooping and sorting.
+3. Explore colors and textures.
+4. Discuss party items.
 LEARNING_GOALS:
 Sensory awareness and language development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Party Sensory Bin
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Party Hat Parade
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support new year's learning through party hat parade.
 DESCRIPTION:
 Children wear party hats and march around the classroom.
 MATERIALS:
 Party hats
-DIRECTIONS:
-Decorate hats.
-Wear hats.
-March together around the room.
+SETUP:
+Prepare materials for Party Hat Parade before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead movement activity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Decorate hats.
+2. Wear hats.
+3. March together around the room.
 LEARNING_GOALS:
 Balance and coordination.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Party Hat Parade
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 New Year's Circle Time
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support new year's learning through new year's circle time.
 DESCRIPTION:
 Introduce New Year's celebrations and traditions.
 MATERIALS:
 Picture cards
-DIRECTIONS:
-Show celebration pictures.
-Discuss parties and traditions.
-Read a short story.
+SETUP:
+Prepare materials for New Year's Circle Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead discussion.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Show celebration pictures.
+2. Discuss parties and traditions.
+3. Read a short story.
 LEARNING_GOALS:
 Vocabulary and listening skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during New Year's Circle Time
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 TUESDAY
+
+DAILY_THEME:
+New Year's: Firework Painting and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Support new year's learning through firework painting.
+Support new year's learning through streamer dance.
+Support new year's learning through celebration story time.
+
+DAILY_VOCABULARY:
+New Year, Celebrate, Party, Count, Happy, Friend
+
+DAILY_MATERIALS:
+Paint, paper, forks
+Streamers, music player
+New Year's book
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to new year's.
+Sing "If You're Happy and You Know It" with simple movements or props.
+Show one prop or picture from today's activity (Firework Painting) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to new year's: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Firework Painting
+Engagement during Streamer Dance
+Engagement during Celebration Story Time
+Participation and interest in New Year's play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive art tools, sensory alternatives, larger materials, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
 
 ACTIVITY_NAME:
 Firework Painting
 CATEGORY:
 Art
+OBJECTIVE:
+Support new year's learning through firework painting.
 DESCRIPTION:
 Children create colorful firework artwork using paint.
 MATERIALS:
 Paint, paper, forks
-DIRECTIONS:
-Dip forks into paint.
-Stamp onto paper.
-Create firework designs.
+SETUP:
+Prepare materials for Firework Painting before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support creativity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Dip forks into paint.
+2. Stamp onto paper.
+3. Create firework designs.
 LEARNING_GOALS:
 Creative expression and fine motor development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Firework Painting
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Streamer Dance
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support new year's learning through streamer dance.
 DESCRIPTION:
 Children dance with colorful streamers.
 MATERIALS:
 Streamers, music player
-DIRECTIONS:
-Play music.
-Wave streamers.
-Dance together.
+SETUP:
+Prepare materials for Streamer Dance before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead movement activity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play music.
+2. Wave streamers.
+3. Dance together.
 LEARNING_GOALS:
 Coordination and rhythm.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Streamer Dance
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Celebration Story Time
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support new year's learning through celebration story time.
 DESCRIPTION:
 Children listen to a story about celebrations and friendship.
 MATERIALS:
 New Year's book
-DIRECTIONS:
-Read story aloud.
-Ask simple questions.
-Discuss celebrations.
+SETUP:
+Prepare materials for Celebration Story Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support comprehension.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Read story aloud.
+2. Ask simple questions.
+3. Discuss celebrations.
 LEARNING_GOALS:
 Listening and vocabulary development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Celebration Story Time
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 WEDNESDAY
+
+DAILY_THEME:
+New Year's: Countdown Number Match and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Support new year's learning through countdown number match.
+Support new year's learning through balloon keep-up.
+Support new year's learning through countdown song circle.
+
+DAILY_VOCABULARY:
+New Year, Celebrate, Party, Count, Happy, Friend
+
+DAILY_MATERIALS:
+Number cards 1-10
+Balloons
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to new year's.
+Sing "If You're Happy and You Know It" with simple movements or props.
+Show one prop or picture from today's activity (Countdown Number Match) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to new year's: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Countdown Number Match
+Engagement during Balloon Keep-Up
+Engagement during Countdown Song Circle
+Participation and interest in New Year's play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive art tools, sensory alternatives, larger materials, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
 
 ACTIVITY_NAME:
 Countdown Number Match
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support new year's learning through countdown number match.
 DESCRIPTION:
 Children practice matching numbers during a countdown activity.
 MATERIALS:
 Number cards 1-10
-DIRECTIONS:
-Display number cards.
-Count together.
-Match numbers.
+SETUP:
+Prepare materials for Countdown Number Match before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide counting practice.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Display number cards.
+2. Count together.
+3. Match numbers.
 LEARNING_GOALS:
 Number recognition and early math skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Countdown Number Match
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Balloon Keep-Up
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support new year's learning through balloon keep-up.
 DESCRIPTION:
 Children work together to keep balloons in the air.
 MATERIALS:
 Balloons
-DIRECTIONS:
-Toss balloons gently.
-Encourage children to tap balloons.
-Work together to keep them up.
+SETUP:
+Prepare materials for Balloon Keep-Up before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Encourage cooperation and movement.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Toss balloons gently.
+2. Encourage children to tap balloons.
+3. Work together to keep them up.
 LEARNING_GOALS:
 Coordination and teamwork.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Balloon Keep-Up
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Countdown Song Circle
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support new year's learning through countdown song circle.
 DESCRIPTION:
 Children practice counting through music and movement.
 MATERIALS:
 Music player
-DIRECTIONS:
-Sing countdown songs.
-Count together.
-Add movements.
+SETUP:
+Prepare materials for Countdown Song Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead music experience.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Sing countdown songs.
+2. Count together.
+3. Add movements.
 LEARNING_GOALS:
 Counting and listening skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Countdown Song Circle
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 THURSDAY
+
+DAILY_THEME:
+New Year's: Memory Ribbon Wand and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Support new year's learning through memory ribbon wand.
+Support new year's learning through mirror celebration faces.
+Support new year's learning through party pretend play.
+
+DAILY_VOCABULARY:
+New Year, Celebrate, Party, Count, Happy, Friend
+
+DAILY_MATERIALS:
+Craft sticks, ribbons, tape
+Mirrors
+Party hats, toy food, decorations
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to new year's.
+Sing "If You're Happy and You Know It" with simple movements or props.
+Show one prop or picture from today's activity (Memory Ribbon Wand) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to new year's: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Memory Ribbon Wand
+Engagement during Mirror Celebration Faces
+Engagement during Party Pretend Play
+Participation and interest in New Year's play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive art tools, sensory alternatives, larger materials, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
 
 ACTIVITY_NAME:
 Memory Ribbon Wand
 CATEGORY:
 Art
+OBJECTIVE:
+Support new year's learning through memory ribbon wand.
 DESCRIPTION:
 Children create ribbon wands to celebrate special memories.
 MATERIALS:
 Craft sticks, ribbons, tape
-DIRECTIONS:
-Attach ribbons to sticks.
-Decorate wands.
-Use wands during music activities.
+SETUP:
+Prepare materials for Memory Ribbon Wand before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support creativity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Attach ribbons to sticks.
+2. Decorate wands.
+3. Use wands during music activities.
 LEARNING_GOALS:
 Fine motor development and self-expression.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Memory Ribbon Wand
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Mirror Celebration Faces
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support new year's learning through mirror celebration faces.
 DESCRIPTION:
 Children practice making happy, excited, and surprised faces.
 MATERIALS:
 Mirrors
-DIRECTIONS:
-Look into mirrors.
-Practice expressions.
-Talk about feelings.
+SETUP:
+Prepare materials for Mirror Celebration Faces before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support emotional vocabulary.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Look into mirrors.
+2. Practice expressions.
+3. Talk about feelings.
 LEARNING_GOALS:
 Social-emotional development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Mirror Celebration Faces
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Party Pretend Play
 CATEGORY:
 Dramatic Play
+OBJECTIVE:
+Support new year's learning through party pretend play.
 DESCRIPTION:
 Children host a pretend New Year's party.
 MATERIALS:
 Party hats, toy food, decorations
-DIRECTIONS:
-Set up party area.
-Invite friends.
-Celebrate together.
+SETUP:
+Prepare materials for Party Pretend Play before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Facilitate imaginative play.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Set up party area.
+2. Invite friends.
+3. Celebrate together.
 LEARNING_GOALS:
 Social interaction and creativity.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Party Pretend Play
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 FRIDAY
+
+DAILY_THEME:
+New Year's: New Year's Treasure Hunt and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Support new year's learning through new year's treasure hunt.
+Support new year's learning through new year's dance party.
+Support new year's learning through new year's celebration circle.
+
+DAILY_VOCABULARY:
+New Year, Celebrate, Party, Count, Happy, Friend
+
+DAILY_MATERIALS:
+Party hats, streamers, stars
+Music player
+Books, visuals, songs
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to new year's.
+Sing "If You're Happy and You Know It" with simple movements or props.
+Show one prop or picture from today's activity (New Year's Treasure Hunt) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to new year's: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during New Year's Treasure Hunt
+Engagement during New Year's Dance Party
+Engagement during New Year's Celebration Circle
+Participation and interest in New Year's play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive art tools, sensory alternatives, larger materials, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
 
 ACTIVITY_NAME:
 New Year's Treasure Hunt
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support new year's learning through new year's treasure hunt.
 DESCRIPTION:
 Children search for hidden party items around the classroom.
 MATERIALS:
 Party hats, streamers, stars
-DIRECTIONS:
-Hide items around room.
-Search together.
-Count discoveries.
+SETUP:
+Prepare materials for New Year's Treasure Hunt before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support exploration and teamwork.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Hide items around room.
+2. Search together.
+3. Count discoveries.
 LEARNING_GOALS:
 Observation and problem-solving skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during New Year's Treasure Hunt
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 New Year's Dance Party
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support new year's learning through new year's dance party.
 DESCRIPTION:
 Children celebrate with music, dancing, and movement games.
 MATERIALS:
 Music player
-DIRECTIONS:
-Play music.
-Dance together.
-Follow movement directions.
+SETUP:
+Prepare materials for New Year's Dance Party before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead movement activities.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play music.
+2. Dance together.
+3. Follow movement directions.
 LEARNING_GOALS:
 Gross motor development and social participation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during New Year's Dance Party
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 New Year's Celebration Circle
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support new year's learning through new year's celebration circle.
 DESCRIPTION:
 Review the week's activities and celebrate learning together.
 MATERIALS:
 Books, visuals, songs
-DIRECTIONS:
-Discuss favorite activities.
-Review vocabulary.
-Celebrate the New Year together.
+SETUP:
+Prepare materials for New Year's Celebration Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead reflection and discussion.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Discuss favorite activities.
+2. Review vocabulary.
+3. Celebrate the New Year together.
 LEARNING_GOALS:
 Recall, language development, and social participation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during New Year's Celebration Circle
+Use of new year's vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:

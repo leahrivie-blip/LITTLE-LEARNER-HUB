@@ -14,12 +14,7 @@ STATUS:
 published
 
 LEARNING_DOMAINS:
-Language & Literacy
-Social Emotional
-Physical Development
-Creative Arts
-Science
-Math
+Language & Literacy, Social Emotional, Physical Development, Creative Arts, Science, Math
 
 WEEKLY_OVERVIEW:
 Children will blast off into outer space as they explore planets, stars, astronauts, rockets, and the solar system through hands-on investigations, dramatic play, movement activities, art experiences, and STEM challenges. Throughout the week, children will develop curiosity about space while strengthening critical thinking, creativity, and early academic skills.
@@ -87,7 +82,55 @@ Observe children's curiosity during investigations, use of new vocabulary, parti
 ADAPTATIONS:
 Provide visual supports and picture cards. Offer larger materials when needed. Allow children to participate through drawing, acting, building, or verbal responses.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+Space: Space Sensory Exploration and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Encourage sensory exploration and curiosity.
+Develop coordination and body control.
+Strengthen creativity and hand control.
+
+DAILY_VOCABULARY:
+Planet, Star, Moon, Sun, Rocket, Astronaut
+
+DAILY_MATERIALS:
+Black beans
+Glow stars
+Toy astronauts
+Scoops
+Cones
+Tunnels
+Balance beam
+Paper
+Markers
+Glue
+Foil
+Blocks
+Cardboard tubes
+Boxes
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to space.
+Sing "Zoom Zoom Zoom We're Going to the Moon" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit There's No Place Like Space by Tish Rabe and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to space — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Space Sensory Exploration / Astronaut Training Course).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Space play
+
+DAILY_ADAPTATIONS:
+Provide visual supports and picture cards. Offer larger materials when needed. Allow children to participate through drawing, acting, building, or verbal responses.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Space Sensory Exploration
@@ -106,6 +149,8 @@ SETUP:
 Create a space-themed sensory bin.
 TEACHER_ROLE:
 Model vocabulary and encourage exploration.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Invite children to explore the materials.
 2. Search for hidden stars and astronauts.
@@ -114,6 +159,15 @@ LEARNING_GOALS:
 Encourage sensory exploration and curiosity.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Astronaut Training Course
@@ -131,13 +185,27 @@ SETUP:
 Create an astronaut obstacle course.
 TEACHER_ROLE:
 Encourage participation and safe movement.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Complete astronaut training challenges.
-2. Crawl, jump, balance, and climb.
+1. Introduce Astronaut Training Course and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop coordination and body control.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Rocket Ship Craft
@@ -156,13 +224,27 @@ SETUP:
 Prepare craft materials.
 TEACHER_ROLE:
 Support creativity and fine motor development.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Create and decorate rocket ships.
-2. Discuss rocket features.
+1. Introduce Rocket Ship Craft and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Strengthen creativity and hand control.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Build a Rocket
@@ -180,15 +262,70 @@ SETUP:
 Arrange building materials.
 TEACHER_ROLE:
 Ask open-ended questions and encourage planning.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Design and build rockets.
-2. Test stability and compare designs.
+1. Introduce Build a Rocket and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop engineering and problem-solving skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-TUESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Space: Planet Sorting Station and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Develop classification and observation skills.
+Develop balance and body awareness.
+Strengthen creativity and hand-eye coordination.
+
+DAILY_VOCABULARY:
+Planet, Star, Moon, Sun, Rocket, Astronaut
+
+DAILY_MATERIALS:
+Planet picture cards
+Music player
+Paint
+Star templates
+Astronaut helmets
+Control panels
+Space props
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to space.
+Sing "Zoom Zoom Zoom We're Going to the Moon" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit There's No Place Like Space by Tish Rabe and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to space — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Planet Sorting Station / Moon Walk Movement).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Space play
+
+DAILY_ADAPTATIONS:
+Provide visual supports and picture cards. Offer larger materials when needed. Allow children to participate through drawing, acting, building, or verbal responses.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Planet Sorting Station
@@ -204,13 +341,27 @@ SETUP:
 Arrange cards for sorting.
 TEACHER_ROLE:
 Support scientific thinking.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Sort planets by size, color, or features.
-2. Compare observations.
+1. Introduce Planet Sorting Station and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop classification and observation skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Moon Walk Movement
@@ -226,13 +377,27 @@ SETUP:
 Create movement space.
 TEACHER_ROLE:
 Lead movement and encourage participation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Move slowly like astronauts on the moon.
-2. Practice giant and tiny steps.
+1. Introduce Moon Walk Movement and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop balance and body awareness.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Star Painting
@@ -249,13 +414,27 @@ SETUP:
 Prepare painting stations.
 TEACHER_ROLE:
 Encourage creativity and conversation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Paint and decorate stars.
-2. Discuss shapes and colors.
+1. Introduce Star Painting and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Strengthen creativity and hand-eye coordination.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Space Mission Dramatic Play
@@ -273,15 +452,74 @@ SETUP:
 Create a space station.
 TEACHER_ROLE:
 Support communication and storytelling.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Work together to complete a space mission.
-2. Explore imaginary planets.
+1. Introduce Space Mission Dramatic Play and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Encourage imagination and teamwork.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-WEDNESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Space: Constellation Flashlight Hunt and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Explore light, shadows, and patterns.
+Build early measurement and comparison skills.
+Strengthen cutting, gluing, and creativity.
+
+DAILY_VOCABULARY:
+Planet, Star, Moon, Sun, Rocket, Astronaut
+
+DAILY_MATERIALS:
+Flashlights
+Glow stars
+Dark paper
+Circles of different sizes
+Planet labels
+Yarn
+Paper bags
+Markers
+Glue
+Scrap paper
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to space.
+Sing "Zoom Zoom Zoom We're Going to the Moon" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit There's No Place Like Space by Tish Rabe and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to space — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Constellation Flashlight Hunt / Planet Size Comparison).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Space play
+
+DAILY_ADAPTATIONS:
+Provide visual supports and picture cards. Offer larger materials when needed. Allow children to participate through drawing, acting, building, or verbal responses.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Constellation Flashlight Hunt
@@ -299,6 +537,8 @@ SETUP:
 Dim a corner and place glow stars on paper or walls.
 TEACHER_ROLE:
 Prompt observations and new vocabulary.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Shine flashlights to find star patterns.
 2. Trace or recreate simple constellations.
@@ -307,6 +547,15 @@ LEARNING_GOALS:
 Explore light, shadows, and patterns.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Planet Size Comparison
@@ -324,6 +573,8 @@ SETUP:
 Prepare size-sorted planet circles.
 TEACHER_ROLE:
 Introduce comparison words.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Order planets from smallest to largest.
 2. Measure diameters with yarn.
@@ -332,6 +583,15 @@ LEARNING_GOALS:
 Build early measurement and comparison skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Alien Puppet Craft
@@ -350,6 +610,8 @@ SETUP:
 Prepare puppet craft stations.
 TEACHER_ROLE:
 Encourage unique designs and storytelling.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Decorate paper bag aliens.
 2. Add eyes, arms, and details.
@@ -358,6 +620,15 @@ LEARNING_GOALS:
 Strengthen cutting, gluing, and creativity.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Zoom to the Moon Dance
@@ -373,6 +644,8 @@ SETUP:
 Clear a movement space.
 TEACHER_ROLE:
 Lead freeze cues and space movements.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Dance like rockets and astronauts.
 2. Freeze when the music stops.
@@ -381,8 +654,64 @@ LEARNING_GOALS:
 Practice listening and coordinated movement.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-THURSDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Space: Meteor Sorting Station and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Develop classification and counting skills.
+Encourage engineering, teamwork, and creativity.
+Strengthen hand muscles and imaginative play.
+
+DAILY_VOCABULARY:
+Planet, Star, Moon, Sun, Rocket, Astronaut
+
+DAILY_MATERIALS:
+Rocks
+Buttons
+Sorting trays
+Blocks
+Cardboard tubes
+Foil
+Tape
+Play dough
+Glitter (optional)
+Toy astronauts
+Clipboards
+Headsets
+Control panel props
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to space.
+Sing "Zoom Zoom Zoom We're Going to the Moon" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit There's No Place Like Space by Tish Rabe and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to space — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Meteor Sorting Station / Build a Space Station).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Space play
+
+DAILY_ADAPTATIONS:
+Provide visual supports and picture cards. Offer larger materials when needed. Allow children to participate through drawing, acting, building, or verbal responses.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Meteor Sorting Station
@@ -400,6 +729,8 @@ SETUP:
 Provide trays and mixed “meteor” materials.
 TEACHER_ROLE:
 Support math talk and sorting rules.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Sort meteors by size, color, or texture.
 2. Count each group.
@@ -408,6 +739,15 @@ LEARNING_GOALS:
 Develop classification and counting skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Build a Space Station
@@ -426,6 +766,8 @@ SETUP:
 Set out building materials on a large table.
 TEACHER_ROLE:
 Ask design questions and celebrate collaboration.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Plan a space station together.
 2. Build rooms, rockets, and control panels.
@@ -434,6 +776,15 @@ LEARNING_GOALS:
 Encourage engineering, teamwork, and creativity.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Galaxy Dough Creations
@@ -451,6 +802,8 @@ SETUP:
 Provide dough and space props at each seat.
 TEACHER_ROLE:
 Model rolling, pinching, and storytelling.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Roll planets and stars from dough.
 2. Create moon craters and rocket paths.
@@ -459,6 +812,15 @@ LEARNING_GOALS:
 Strengthen hand muscles and imaginative play.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Mission Control Dramatic Play
@@ -476,6 +838,8 @@ SETUP:
 Create a mission control center.
 TEACHER_ROLE:
 Support turn-taking and role language.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Assign roles such as captain and engineer.
 2. Give and follow mission instructions.
@@ -484,8 +848,58 @@ LEARNING_GOALS:
 Build language, roles, and cooperation.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-FRIDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Space: Space Museum Showcase and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Build confidence and communication skills.
+Review space concepts through hands-on play.
+Celebrate learning through movement and counting.
+
+DAILY_VOCABULARY:
+Planet, Star, Moon, Sun, Rocket, Astronaut
+
+DAILY_MATERIALS:
+Week's projects
+Planet pictures
+Sensory bin fillers
+Glow stars
+Toy astronauts
+Music player
+Paper rockets
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to space.
+Sing "Zoom Zoom Zoom We're Going to the Moon" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit There's No Place Like Space by Tish Rabe and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to space — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Space Museum Showcase / Solar System Sensory Review).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Space play
+
+DAILY_ADAPTATIONS:
+Provide visual supports and picture cards. Offer larger materials when needed. Allow children to participate through drawing, acting, building, or verbal responses.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Space Museum Showcase
@@ -502,6 +916,8 @@ SETUP:
 Display creations around the room.
 TEACHER_ROLE:
 Encourage speaking and listening.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Arrange space projects for visitors.
 2. Give short museum tours.
@@ -510,6 +926,15 @@ LEARNING_GOALS:
 Build confidence and communication skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Solar System Sensory Review
@@ -527,6 +952,8 @@ SETUP:
 Refresh the space sensory bin.
 TEACHER_ROLE:
 Prompt vocabulary and reflection.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Explore the bin and find familiar objects.
 2. Name planets, stars, and astronauts.
@@ -535,6 +962,15 @@ LEARNING_GOALS:
 Review space concepts through hands-on play.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Rocket Countdown Parade
@@ -551,6 +987,8 @@ SETUP:
 Clear a parade path.
 TEACHER_ROLE:
 Lead countdown and celebrate participation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Count down from 10 together.
 2. March or dance with paper rockets.
@@ -559,3 +997,12 @@ LEARNING_GOALS:
 Celebrate learning through movement and counting.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

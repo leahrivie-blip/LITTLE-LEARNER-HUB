@@ -1,8 +1,8 @@
 TITLE:
 Infant Gentle Water Play
 
-AGE GROUP:
-Infant
+AGE_GROUP:
+Infant 0–6 Months
 
 THEME:
 Gentle Water Discovery
@@ -13,18 +13,18 @@ Pro
 STATUS:
 draft
 
-LEARNING DOMAINS:
+LEARNING_DOMAINS:
 Science, Physical Development, Social Emotional, Language & Literacy
 
-WEEKLY OVERVIEW:
+WEEKLY_OVERVIEW:
 Infants explore safe water play through supervised splash trays, wet cloths, and calm pouring. Keep water shallow, stay within arm's reach, and dry babies promptly.
 
-LEARNING OBJECTIVES:
+LEARNING_OBJECTIVES:
 Infants will notice wet and dry textures with caregiver support.
 Infants will practice reaching, patting, and early pouring motions.
 Infants will stay regulated during short sensory water moments.
 
-WEEKLY MATERIALS:
+WEEKLY_MATERIALS:
 Shallow sensory trays, warm water, washcloths, soft sponges, cups, towels, waterproof smocks, non-slip mats, soft ducks
 
 VOCABULARY:
@@ -38,160 +38,531 @@ SONGS:
 Row Row Row Your Boat | Gentle rocking version
 Rain Is Falling Down | Soft finger taps on tray
 
-FAMILY CONNECTION:
+FAMILY_CONNECTION:
 Invite families to describe bath-time preferences (warmth, songs, comfort cues) so classroom water play can feel familiar and safe.
 
-OBSERVATION OPPORTUNITIES:
+OBSERVATION_OPPORTUNITIES:
 Watch for enjoyment vs. startle responses, reaching into water, and calming strategies that help each infant stay regulated.
 
 ADAPTATIONS:
 Offer a damp cloth only for babies who dislike open water trays. Support seated infants with rolled towels. Keep sessions very short for sensitive babies.
 
-MONDAY:
-ACTIVITY NAME:
+MONDAY
+
+DAILY_THEME:
+Gentle Water Discovery: Warm Washcloth Explore and related play (introduce calm bonding, faces, and soft sensory play)
+
+DAILY_OBJECTIVES:
+Support gentle water discovery learning through warm washcloth explore.
+Support gentle water discovery learning through boat rock lullaby.
+
+DAILY_VOCABULARY:
+wet, dry, splash, drip, warm, wipe
+
+DAILY_MATERIALS:
+Warm washcloths, towels
+Calm seating space
+
+DAILY_LEARNING_DOMAINS:
+Science, Physical Development, Social Emotional, Language & Literacy
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Row Row Row Your Boat" at a low volume while offering gentle movement or visual interest tied to gentle water discovery.
+End with a brief look at Splash! by Ann Jonas or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate gentle water discovery sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Warm Washcloth Explore
+Engagement during Boat Rock Lullaby
+Participation and interest in Gentle Water Discovery play
+
+DAILY_ADAPTATIONS:
+Offer a damp cloth only for babies who dislike open water trays. Support seated infants with rolled towels. Keep sessions very short for sensitive babies.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
+
+ACTIVITY_NAME:
 Warm Washcloth Explore
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support gentle water discovery learning through warm washcloth explore.
+DESCRIPTION:
+Infants feel warm damp washcloths on hands and arms with caregiver support. Children explore gentle water discovery through warm washcloth explore.
 MATERIALS:
 Warm washcloths, towels
 SETUP:
 Infants feel warm damp washcloths on hands and arms with caregiver support.
+TEACHER_ROLE:
+Stay within arm's reach, follow the infant's cues, and narrate gentle water discovery softly during warm washcloth explore.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Offer a warm damp cloth for touching.
 2. Gently wipe hands while naming wet and warm.
 3. Switch to a dry towel and name dry.
-LEARNING GOAL:
+LEARNING_GOALS:
 Notice wet and dry contrasts
 Stay calm during sensory caregiving
+OBSERVATION_OPPORTUNITIES:
+Engagement during Warm Washcloth Explore
+Use of gentle water discovery vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Boat Rock Lullaby
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support gentle water discovery learning through boat rock lullaby.
+DESCRIPTION:
+Caregiver rocks with infant while singing a soft boat song. Children explore gentle water discovery through boat rock lullaby.
 MATERIALS:
 Calm seating space
 SETUP:
 Caregiver rocks with infant while singing a soft boat song.
+TEACHER_ROLE:
+Stay within arm's reach, follow the infant's cues, and narrate gentle water discovery softly during boat rock lullaby.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Hold infant securely.
 2. Rock gently and sing slowly.
 3. Pause if the baby needs stillness.
-LEARNING GOAL:
+LEARNING_GOALS:
 Connect rhythm with calming movement
 Build trust through predictable care
+OBSERVATION_OPPORTUNITIES:
+Engagement during Boat Rock Lullaby
+Use of gentle water discovery vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
 
-TUESDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Gentle Water Discovery: Shallow Splash Tray and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Support gentle water discovery learning through shallow splash tray.
+Support gentle water discovery learning through soft sponge squeeze.
+
+DAILY_VOCABULARY:
+wet, dry, splash, drip, warm, wipe
+
+DAILY_MATERIALS:
+Shallow tray, warm water, towels, smocks
+Soft sponges, tray, towels
+
+DAILY_LEARNING_DOMAINS:
+Science, Physical Development, Social Emotional, Language & Literacy
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Row Row Row Your Boat" at a low volume while offering gentle movement or visual interest tied to gentle water discovery.
+End with a brief look at Splash! by Ann Jonas or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate gentle water discovery sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Shallow Splash Tray
+Engagement during Soft Sponge Squeeze
+Participation and interest in Gentle Water Discovery play
+
+DAILY_ADAPTATIONS:
+Offer a damp cloth only for babies who dislike open water trays. Support seated infants with rolled towels. Keep sessions very short for sensitive babies.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
+
+ACTIVITY_NAME:
 Shallow Splash Tray
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support gentle water discovery learning through shallow splash tray.
+DESCRIPTION:
+Supervised fingertip and hand exploration in a shallow warm water tray. Children explore gentle water discovery through shallow splash tray.
 MATERIALS:
 Shallow tray, warm water, towels, smocks
 SETUP:
 Supervised fingertip and hand exploration in a shallow warm water tray.
+TEACHER_ROLE:
+Stay within arm's reach, follow the infant's cues, and narrate gentle water discovery softly during shallow splash tray.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Seat infant safely with caregiver support.
 2. Invite hand dips and soft pats on water.
 3. Dry promptly and narrate splash words.
-LEARNING GOAL:
+LEARNING_GOALS:
 Explore water with hands
 Hear simple science words
+OBSERVATION_OPPORTUNITIES:
+Engagement during Shallow Splash Tray
+Use of gentle water discovery vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Soft Sponge Squeeze
 CATEGORY:
 Fine Motor
+OBJECTIVE:
+Support gentle water discovery learning through soft sponge squeeze.
+DESCRIPTION:
+Infants squeeze soft wet sponges with help. Children explore gentle water discovery through soft sponge squeeze.
 MATERIALS:
 Soft sponges, tray, towels
 SETUP:
 Infants squeeze soft wet sponges with help.
+TEACHER_ROLE:
+Stay within arm's reach, follow the infant's cues, and narrate gentle water discovery softly during soft sponge squeeze.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Show a gentle squeeze over the tray.
 2. Support the infant's hands as needed.
 3. Celebrate drips and squeezes.
-LEARNING GOAL:
+LEARNING_GOALS:
 Strengthen early grasp
 Notice cause and effect with drips
+OBSERVATION_OPPORTUNITIES:
+Engagement during Soft Sponge Squeeze
+Use of gentle water discovery vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
 
-WEDNESDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Gentle Water Discovery: Kick and Splash Toes and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Support gentle water discovery learning through kick and splash toes.
+
+DAILY_VOCABULARY:
+wet, dry, splash, drip, warm, wipe
+
+DAILY_MATERIALS:
+Shallow tray, warm water, towels, non-slip mat
+
+DAILY_LEARNING_DOMAINS:
+Science, Physical Development, Social Emotional, Language & Literacy
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Row Row Row Your Boat" at a low volume while offering gentle movement or visual interest tied to gentle water discovery.
+End with a brief look at Splash! by Ann Jonas or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate gentle water discovery sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Kick and Splash Toes
+Participation and interest in Gentle Water Discovery play
+
+DAILY_ADAPTATIONS:
+Offer a damp cloth only for babies who dislike open water trays. Support seated infants with rolled towels. Keep sessions very short for sensitive babies.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
+
+ACTIVITY_NAME:
 Kick and Splash Toes
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support gentle water discovery learning through kick and splash toes.
+DESCRIPTION:
+Supported infants kick toes in a shallow tray. Children explore gentle water discovery through kick and splash toes.
 MATERIALS:
 Shallow tray, warm water, towels, non-slip mat
 SETUP:
 Supported infants kick toes in a shallow tray.
+TEACHER_ROLE:
+Stay within arm's reach, follow the infant's cues, and narrate gentle water discovery softly during kick and splash toes.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Support infant in a safe seated or reclined position.
 2. Bring toes to the water surface.
 3. Mirror kicks and smile with the baby.
-LEARNING GOAL:
+LEARNING_GOALS:
 Practice leg movement
 Enjoy shared water play
+OBSERVATION_OPPORTUNITIES:
+Engagement during Kick and Splash Toes
+Use of gentle water discovery vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
 
-THURSDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Gentle Water Discovery: Floating Duck Watch and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Support gentle water discovery learning through floating duck watch.
+Support gentle water discovery learning through water word talk.
+
+DAILY_VOCABULARY:
+wet, dry, splash, drip, warm, wipe
+
+DAILY_MATERIALS:
+Soft ducks, shallow tray, towels
+Washcloth or tray already in use
+
+DAILY_LEARNING_DOMAINS:
+Science, Physical Development, Social Emotional, Language & Literacy
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Row Row Row Your Boat" at a low volume while offering gentle movement or visual interest tied to gentle water discovery.
+End with a brief look at Splash! by Ann Jonas or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate gentle water discovery sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Floating Duck Watch
+Engagement during Water Word Talk
+Participation and interest in Gentle Water Discovery play
+
+DAILY_ADAPTATIONS:
+Offer a damp cloth only for babies who dislike open water trays. Support seated infants with rolled towels. Keep sessions very short for sensitive babies.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
+
+ACTIVITY_NAME:
 Floating Duck Watch
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support gentle water discovery learning through floating duck watch.
+DESCRIPTION:
+Infants watch and reach toward soft floating toys. Children explore gentle water discovery through floating duck watch.
 MATERIALS:
 Soft ducks, shallow tray, towels
 SETUP:
 Infants watch and reach toward soft floating toys.
+TEACHER_ROLE:
+Stay within arm's reach, follow the infant's cues, and narrate gentle water discovery softly during floating duck watch.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Float one toy in shallow water.
 2. Move it slowly for visual tracking.
 3. Allow reaching or batting.
-LEARNING GOAL:
+LEARNING_GOALS:
 Track moving objects
 Reach toward interesting toys
+OBSERVATION_OPPORTUNITIES:
+Engagement during Floating Duck Watch
+Use of gentle water discovery vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Water Word Talk
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support gentle water discovery learning through water word talk.
+DESCRIPTION:
+Caregiver narrates water actions with simple repeated words. Children explore gentle water discovery through water word talk.
 MATERIALS:
 Washcloth or tray already in use
 SETUP:
 Caregiver narrates water actions with simple repeated words.
+TEACHER_ROLE:
+Stay within arm's reach, follow the infant's cues, and narrate gentle water discovery softly during water word talk.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose two words such as drip and splash.
 2. Repeat them during play.
 3. Pause for infant vocalizations.
-LEARNING GOAL:
+LEARNING_GOALS:
 Hear repeated water vocabulary
 Practice early turn-taking sounds
+OBSERVATION_OPPORTUNITIES:
+Engagement during Water Word Talk
+Use of gentle water discovery vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
 
-FRIDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Gentle Water Discovery: Bath Time Care Doll and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Support gentle water discovery learning through bath time care doll.
+Support gentle water discovery learning through dry and dance fingers.
+
+DAILY_VOCABULARY:
+wet, dry, splash, drip, warm, wipe
+
+DAILY_MATERIALS:
+Soft doll, washcloth, towel
+Dry towels, calm space
+
+DAILY_LEARNING_DOMAINS:
+Science, Physical Development, Social Emotional, Language & Literacy
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Row Row Row Your Boat" at a low volume while offering gentle movement or visual interest tied to gentle water discovery.
+End with a brief look at Splash! by Ann Jonas or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate gentle water discovery sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Bath Time Care Doll
+Engagement during Dry and Dance Fingers
+Participation and interest in Gentle Water Discovery play
+
+DAILY_ADAPTATIONS:
+Offer a damp cloth only for babies who dislike open water trays. Support seated infants with rolled towels. Keep sessions very short for sensitive babies.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
+
+ACTIVITY_NAME:
 Bath Time Care Doll
 CATEGORY:
 Dramatic Play
+OBJECTIVE:
+Support gentle water discovery learning through bath time care doll.
+DESCRIPTION:
+Caregiver models gentle doll washing with a damp cloth. Children explore gentle water discovery through bath time care doll.
 MATERIALS:
 Soft doll, washcloth, towel
 SETUP:
 Caregiver models gentle doll washing with a damp cloth.
+TEACHER_ROLE:
+Stay within arm's reach, follow the infant's cues, and narrate gentle water discovery softly during bath time care doll.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Show wiping the doll gently.
 2. Invite the infant to touch the cloth or doll.
 3. Dry the doll and wrap in a towel.
-LEARNING GOAL:
+LEARNING_GOALS:
 Observe caregiving routines
 Explore gentle pretend care
+OBSERVATION_OPPORTUNITIES:
+Engagement during Bath Time Care Doll
+Use of gentle water discovery vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Dry and Dance Fingers
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support gentle water discovery learning through dry and dance fingers.
+DESCRIPTION:
+After drying, wiggle fingers to a short goodbye rhyme. Children explore gentle water discovery through dry and dance fingers.
 MATERIALS:
 Dry towels, calm space
 SETUP:
 After drying, wiggle fingers to a short goodbye rhyme.
+TEACHER_ROLE:
+Stay within arm's reach, follow the infant's cues, and narrate gentle water discovery softly during dry and dance fingers.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Dry hands thoroughly.
 2. Wiggle fingers to a short rhyme.
 3. End with a calm cuddle or smile.
-LEARNING GOAL:
+LEARNING_GOALS:
 Transition from wet play to dry calm
 Enjoy closing rhythm play
+OBSERVATION_OPPORTUNITIES:
+Engagement during Dry and Dance Fingers
+Use of gentle water discovery vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:

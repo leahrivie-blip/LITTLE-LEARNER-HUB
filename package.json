@@ -30,6 +30,7 @@
     "test:curriculum-gap": "node scripts/test-curriculum-gap.js",
     "test:curriculum-standards": "node scripts/test-curriculum-standards.js",
     "audit:lesson-content": "node scripts/audit-lesson-plan-content.js",
+    "upgrade:curriculum-standards": "node scripts/upgrade-curriculum-to-standards.js",
     "test:curriculum-access-security": "node scripts/test-curriculum-access-security.js",
     "test:pro-lesson-preview-audit": "node scripts/test-pro-lesson-preview-audit.js",
     "test:curriculum-ux": "node scripts/test-curriculum-ux-qa.js",

@@ -14,11 +14,7 @@ STATUS:
 published
 
 LEARNING_DOMAINS:
-Math
-Language & Literacy
-Physical Development
-Social Emotional
-Creative Arts
+Math, Language & Literacy, Physical Development, Social Emotional, Creative Arts
 
 WEEKLY_OVERVIEW:
 Preschoolers will explore numbers and counting through hands-on play, songs, books, games, and everyday routines. Children will count, compare quantities, recognize numerals, and use numbers in pretend play while building mathematical thinking.
@@ -74,7 +70,46 @@ Observe counting accuracy, numeral recognition, quantity comparison, use of math
 ADAPTATIONS:
 Provide concrete objects for all counting tasks. Accept counting in child's home language. Offer number lines and visual supports.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+Numbers Everywhere: Number Hunt in the Room and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Find numerals hidden in the classroom.
+Count through songs and fingerplays.
+Connect numbers to movement by stomping counts.
+
+DAILY_VOCABULARY:
+count, number, more, less, same, how many
+
+DAILY_MATERIALS:
+Number cards 1-10, clipboards, pencils
+Song chart, finger puppets (optional)
+Number cards, open space
+
+DAILY_LEARNING_DOMAINS:
+Math, Language & Literacy, Physical Development, Social Emotional
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to numbers everywhere.
+Sing "Five Little Ducks" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit Ten Black Dots by Donald Crews and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to numbers everywhere — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Number Hunt in the Room / Counting Song Circle).
+
+DAILY_OBSERVATIONS:
+Names numerals
+Sings counting songs
+Performs correct number of movements
+Participation and interest in Numbers Everywhere play
+
+DAILY_ADAPTATIONS:
+Provide concrete objects for all counting tasks. Accept counting in child's home language. Offer number lines and visual supports.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Number Hunt in the Room
@@ -90,6 +125,8 @@ SETUP:
 Hide number cards at child level before activity.
 TEACHER_ROLE:
 Support numeral naming and celebrate finds.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Explain that numbers are hiding around the room.
 2. Search together and name each number found.
@@ -104,6 +141,15 @@ OBSERVATION_OPPORTUNITIES:
 Names numerals
 Participates in hunt
 Orders numbers with support
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Counting Song Circle
@@ -119,6 +165,8 @@ SETUP:
 Gather in circle with song chart visible.
 TEACHER_ROLE:
 Lead songs and model finger counting.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Sing Five Little Ducks with finger puppets.
 2. Count fingers up to five together.
@@ -133,6 +181,15 @@ OBSERVATION_OPPORTUNITIES:
 Sings counting songs
 Shows quantities on fingers
 Joins group singing
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Number Movement Stomp
@@ -148,6 +205,8 @@ SETUP:
 Spread number cards in activity area.
 TEACHER_ROLE:
 Show card and lead matching number of movements.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Draw a number card and name it.
 2. Stomp that many times together.
@@ -162,8 +221,56 @@ OBSERVATION_OPPORTUNITIES:
 Performs correct number of movements
 Names numeral
 Takes turn leading
+VOCABULARY:
 
-TUESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Numbers Everywhere: Counting Bear Sorting and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Sort and count bears by color and quantity.
+Form numerals on play dough mats.
+Create pictures by stamping the correct number of dots.
+
+DAILY_VOCABULARY:
+count, number, more, less, same, how many
+
+DAILY_MATERIALS:
+Counting bears, sorting cups, number cards
+Play dough, number mats 1-10, rolling pins
+Dot markers, counting picture cards, paper
+
+DAILY_LEARNING_DOMAINS:
+Math, Language & Literacy, Physical Development, Social Emotional
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to numbers everywhere.
+Sing "Five Little Ducks" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit Ten Black Dots by Donald Crews and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to numbers everywhere — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Counting Bear Sorting / Number Play Dough Mats).
+
+DAILY_OBSERVATIONS:
+Counts accurately to 5 or beyond
+Forms numeral shapes
+Counts while stamping
+Participation and interest in Numbers Everywhere play
+
+DAILY_ADAPTATIONS:
+Provide concrete objects for all counting tasks. Accept counting in child's home language. Offer number lines and visual supports.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Counting Bear Sorting
@@ -179,6 +286,8 @@ SETUP:
 Set bears and cups at table with number cards.
 TEACHER_ROLE:
 Model sort, count, and match to numeral.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose a color and sort bears.
 2. Count bears in the cup.
@@ -193,6 +302,15 @@ OBSERVATION_OPPORTUNITIES:
 Counts accurately to 5 or beyond
 Sorts by color
 Matches quantity to numeral
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Number Play Dough Mats
@@ -208,6 +326,8 @@ SETUP:
 Provide mats and dough at tables.
 TEACHER_ROLE:
 Model numeral formation strokes.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose a number mat.
 2. Roll dough into snakes.
@@ -222,6 +342,15 @@ OBSERVATION_OPPORTUNITIES:
 Forms numeral shapes
 Names numerals
 Uses controlled hand movements
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Dot Marker Counting
@@ -237,6 +366,8 @@ SETUP:
 Set cards showing numeral and empty ten frames.
 TEACHER_ROLE:
 Help children stamp one dot per count aloud.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Look at numeral on card.
 2. Stamp one dot at a time while counting.
@@ -251,8 +382,56 @@ OBSERVATION_OPPORTUNITIES:
 Counts while stamping
 Stops at target number
 Creates intentional art
+VOCABULARY:
 
-WEDNESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Numbers Everywhere: Build and Count Towers and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Build block towers to match numeral cards.
+Use numbers during pretend shopping play.
+Count scoops while filling containers.
+
+DAILY_VOCABULARY:
+count, number, more, less, same, how many
+
+DAILY_MATERIALS:
+Blocks, number cards 1-10
+Play food, price tags with numerals, play money, baskets
+Measuring cups, rice or water bin, funnel
+
+DAILY_LEARNING_DOMAINS:
+Math, Language & Literacy, Physical Development, Social Emotional
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to numbers everywhere.
+Sing "Five Little Ducks" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit Ten Black Dots by Donald Crews and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to numbers everywhere — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Build and Count Towers / Number Store Pretend Play).
+
+DAILY_OBSERVATIONS:
+Builds correct quantity
+Uses numbers during play
+Counts scoops aloud
+Participation and interest in Numbers Everywhere play
+
+DAILY_ADAPTATIONS:
+Provide concrete objects for all counting tasks. Accept counting in child's home language. Offer number lines and visual supports.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Build and Count Towers
@@ -268,6 +447,8 @@ SETUP:
 Provide blocks and number cards at building area.
 TEACHER_ROLE:
 Encourage counting each block as placed.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Draw a number card.
 2. Stack that many blocks.
@@ -282,6 +463,15 @@ OBSERVATION_OPPORTUNITIES:
 Builds correct quantity
 Counts blocks
 Rebuilds after topple
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Number Store Pretend Play
@@ -297,6 +487,8 @@ SETUP:
 Set up store with labeled items.
 TEACHER_ROLE:
 Model counting money and items.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Assign shopkeeper and customer roles.
 2. Customers buy items and count coins.
@@ -311,6 +503,15 @@ OBSERVATION_OPPORTUNITIES:
 Uses numbers during play
 Counts items or coins
 Takes turns in roles
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Measurement Pour and Count
@@ -326,6 +527,8 @@ SETUP:
 Set up pouring station with clear containers.
 TEACHER_ROLE:
 Narrate counts during pouring.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Predict how many scoops will fill cup.
 2. Pour one scoop at a time and count.
@@ -340,8 +543,56 @@ OBSERVATION_OPPORTUNITIES:
 Counts scoops aloud
 Compares container sizes
 Adjusts predictions
+VOCABULARY:
 
-THURSDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Numbers Everywhere: Number Line Jump and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Jump along a floor number line.
+String beads in number-based patterns.
+Compare two groups and decide which has more.
+
+DAILY_VOCABULARY:
+count, number, more, less, same, how many
+
+DAILY_MATERIALS:
+Floor number line 1-10, dice (optional)
+Beads, laces, pattern cards
+Two sets of counters, comparison mats
+
+DAILY_LEARNING_DOMAINS:
+Math, Language & Literacy, Physical Development, Social Emotional
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to numbers everywhere.
+Sing "Five Little Ducks" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit Ten Black Dots by Donald Crews and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to numbers everywhere — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Number Line Jump / Number Pattern Beads).
+
+DAILY_OBSERVATIONS:
+Jumps on line safely
+Strings beads independently
+Counts both groups
+Participation and interest in Numbers Everywhere play
+
+DAILY_ADAPTATIONS:
+Provide concrete objects for all counting tasks. Accept counting in child's home language. Offer number lines and visual supports.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Number Line Jump
@@ -357,6 +608,8 @@ SETUP:
 Tape number line on floor in open area.
 TEACHER_ROLE:
 Call numbers and model jumps.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Stand on number one.
 2. Jump to next numbers while counting.
@@ -371,6 +624,15 @@ OBSERVATION_OPPORTUNITIES:
 Jumps on line safely
 Counts while moving
 Names landing numerals
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Number Pattern Beads
@@ -386,6 +648,8 @@ SETUP:
 Provide beads sorted by color at table.
 TEACHER_ROLE:
 Model simple quantity patterns on cards.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Follow pattern card for bead groups.
 2. Count beads in each group.
@@ -400,6 +664,15 @@ OBSERVATION_OPPORTUNITIES:
 Strings beads independently
 Counts groups
 Describes pattern
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 More or Less Game
@@ -415,6 +688,8 @@ SETUP:
 Prepare pairs of object sets with different quantities.
 TEACHER_ROLE:
 Model counting both groups before comparing.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Count objects in group A.
 2. Count objects in group B.
@@ -429,8 +704,56 @@ OBSERVATION_OPPORTUNITIES:
 Counts both groups
 Uses comparison words
 Self-corrects with support
+VOCABULARY:
 
-FRIDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Numbers Everywhere: Number Book Making and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Create a counting book with drawings.
+Count and march to The Ants Go Marching.
+Celebrate number learning from the week.
+
+DAILY_VOCABULARY:
+count, number, more, less, same, how many
+
+DAILY_MATERIALS:
+Book templates, crayons, stapler
+Music player, ant picture props (optional)
+Number cards, celebration stickers
+
+DAILY_LEARNING_DOMAINS:
+Math, Language & Literacy, Physical Development, Social Emotional
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to numbers everywhere.
+Sing "Five Little Ducks" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit Ten Black Dots by Donald Crews and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to numbers everywhere — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Number Book Making / Ants Marching Movement).
+
+DAILY_OBSERVATIONS:
+Draws correct quantities with support
+Marches with group
+Shares favorite activity
+Participation and interest in Numbers Everywhere play
+
+DAILY_ADAPTATIONS:
+Provide concrete objects for all counting tasks. Accept counting in child's home language. Offer number lines and visual supports.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Number Book Making
@@ -446,6 +769,8 @@ SETUP:
 Prepare pages labeled 1 through 5.
 TEACHER_ROLE:
 Help children draw matching quantities.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Draw one object on page 1, two on page 2, etc.
 2. Trace numerals on each page.
@@ -460,6 +785,15 @@ OBSERVATION_OPPORTUNITIES:
 Draws correct quantities with support
 Sequences pages
 Reads book to peer
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Ants Marching Movement
@@ -475,6 +809,8 @@ SETUP:
 Clear marching path in room.
 TEACHER_ROLE:
 Lead verses and encourage counting along.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. March around room to song.
 2. Perform motion for each verse.
@@ -489,6 +825,15 @@ OBSERVATION_OPPORTUNITIES:
 Marches with group
 Counts during song
 Follows verse motions
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Numbers Celebration Circle
@@ -504,6 +849,8 @@ SETUP:
 Gather in circle with number cards.
 TEACHER_ROLE:
 Facilitate sharing and numeral review.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Invite children to share favorite number activity.
 2. Hold up random numerals for group to name.
@@ -518,3 +865,12 @@ OBSERVATION_OPPORTUNITIES:
 Shares favorite activity
 Names numerals
 Participates in review
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

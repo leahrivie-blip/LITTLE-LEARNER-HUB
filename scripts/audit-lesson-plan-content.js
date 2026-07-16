@@ -57,10 +57,16 @@ function main() {
     "scripts/curriculum-preschool-free-imports",
     "scripts/curriculum-preschool-pro-imports",
     "scripts/curriculum-preschool-pro-batch2-imports",
+    "scripts/curriculum-preschool-holiday-imports",
+    "scripts/curriculum-preschool-summer-imports",
+    "scripts/curriculum-preschool-priority-imports",
     "scripts/curriculum-phase-2f-imports",
     "scripts/curriculum-infant-imports",
+    "scripts/curriculum-infant-summer-imports",
+    "scripts/curriculum-infant-holiday-imports",
     "scripts/curriculum-toddler-imports",
     "scripts/curriculum-toddler-pro-imports",
+    "scripts/curriculum-toddler-holiday-imports",
   ].map((rel) => path.join(ROOT, rel));
 
   const files = importDirs.flatMap((dir) => walkTxtFiles(dir));

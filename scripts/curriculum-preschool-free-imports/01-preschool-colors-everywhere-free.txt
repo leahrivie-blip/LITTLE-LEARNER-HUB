@@ -14,12 +14,7 @@ STATUS:
 published
 
 LEARNING_DOMAINS:
-Language & Literacy
-Math
-Physical Development
-Creative Arts
-Social Emotional
-Science
+Language & Literacy, Math, Physical Development, Creative Arts, Social Emotional, Science
 
 WEEKLY_OVERVIEW:
 Preschoolers will explore colors through hands-on play, movement, art, songs, books, sensory experiences, and everyday discoveries. Throughout the week, children will identify, sort, match, mix, create, and talk about colors while developing language, problem-solving, fine motor skills, and creativity.
@@ -78,7 +73,46 @@ Observe color recognition, matching and pattern skills, language use, participat
 ADAPTATIONS:
 Provide larger materials for easier grasping. Offer hand-over-hand support when needed. Focus on exploration and exposure rather than requiring color mastery.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+Colors Everywhere: Color Hunt Adventure and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Introduce and explore colors found in the classroom.
+Explore colors through sensory art.
+Connect colors with movement and music.
+
+DAILY_VOCABULARY:
+red, blue, yellow, green, purple, orange
+
+DAILY_MATERIALS:
+Color baskets, classroom objects, color picture cards
+Washable paint, paper, smocks, trays
+Color scarves, music player
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Math, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to colors everywhere.
+Sing "I Can Sing a Rainbow" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit Mouse Paint by Ellen Stoll Walsh and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to colors everywhere — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Color Hunt Adventure / Rainbow Finger Painting).
+
+DAILY_OBSERVATIONS:
+Identifies colors
+Explores colors
+Participates in movement
+Participation and interest in Colors Everywhere play
+
+DAILY_ADAPTATIONS:
+Provide larger materials for easier grasping. Offer hand-over-hand support when needed. Focus on exploration and exposure rather than requiring color mastery.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Color Hunt Adventure
@@ -94,6 +128,8 @@ SETUP:
 Place colored baskets around the room with a few sample objects in each.
 TEACHER_ROLE:
 Guide children as they search, identify, and sort colors.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Introduce color baskets and name each color.
 2. Invite children to find objects that match each basket color.
@@ -108,6 +144,15 @@ OBSERVATION_OPPORTUNITIES:
 Identifies colors
 Matches objects to baskets
 Participates in group activity
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Rainbow Finger Painting
@@ -123,6 +168,8 @@ SETUP:
 Prepare paint stations with primary colors and smocks nearby.
 TEACHER_ROLE:
 Encourage exploration and describe color discoveries as children mix.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Introduce paint colors and demonstrate gentle finger painting.
 2. Allow free painting and color mixing.
@@ -137,6 +184,15 @@ OBSERVATION_OPPORTUNITIES:
 Explores colors
 Uses fingers purposefully
 Engages in art activity
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Color Dance Party
@@ -152,6 +208,8 @@ SETUP:
 Clear open space for movement and place scarves in a basket.
 TEACHER_ROLE:
 Lead movement activities and name colors during the dance.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Give each child a colorful scarf.
 2. Play music and invite dancing and scarf waving.
@@ -166,8 +224,56 @@ OBSERVATION_OPPORTUNITIES:
 Participates in movement
 Responds to color prompts
 Engages with peers
+VOCABULARY:
 
-TUESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Colors Everywhere: Pom-Pom Color Sort and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Practice matching and sorting colors using fine motor skills.
+Create and extend simple color patterns.
+Explore how primary colors combine to make new colors.
+
+DAILY_VOCABULARY:
+red, blue, yellow, green, purple, orange
+
+DAILY_MATERIALS:
+Colored cups or bowls, pom-poms in assorted colors, tweezers (optional)
+Colored blocks or beads, pattern cards
+Red, blue, and yellow paint or colored water, clear cups, droppers, white paper
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Math, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to colors everywhere.
+Sing "I Can Sing a Rainbow" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit Mouse Paint by Ellen Stoll Walsh and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to colors everywhere — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Pom-Pom Color Sort / Color Pattern Building).
+
+DAILY_OBSERVATIONS:
+Sorts correctly
+Copies simple patterns
+Makes predictions
+Participation and interest in Colors Everywhere play
+
+DAILY_ADAPTATIONS:
+Provide larger materials for easier grasping. Offer hand-over-hand support when needed. Focus on exploration and exposure rather than requiring color mastery.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Pom-Pom Color Sort
@@ -183,6 +289,8 @@ SETUP:
 Arrange colored cups on a table with a bowl of mixed pom-poms.
 TEACHER_ROLE:
 Model sorting and encourage independent attempts.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Introduce the colored cups and name each color.
 2. Demonstrate sorting one pom-pom into the matching cup.
@@ -198,6 +306,15 @@ OBSERVATION_OPPORTUNITIES:
 Sorts correctly
 Attempts matching independently
 Stays engaged
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Color Pattern Building
@@ -213,6 +330,8 @@ SETUP:
 Place blocks and sample pattern cards at a table.
 TEACHER_ROLE:
 Model AB patterns and invite children to copy or extend them.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Show a simple two-color pattern such as red-blue-red-blue.
 2. Invite children to copy the pattern with blocks.
@@ -227,6 +346,15 @@ OBSERVATION_OPPORTUNITIES:
 Copies simple patterns
 Creates original patterns
 Names colors in sequence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Primary Color Mixing Lab
@@ -242,6 +370,8 @@ SETUP:
 Set up mixing trays with small amounts of each primary color.
 TEACHER_ROLE:
 Ask prediction questions and narrate color changes during mixing.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Review the three primary colors.
 2. Invite children to predict what happens when two colors mix.
@@ -256,8 +386,56 @@ OBSERVATION_OPPORTUNITIES:
 Makes predictions
 Describes color changes
 Uses science vocabulary
+VOCABULARY:
 
-WEDNESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Colors Everywhere: Paint Store Pretend Play and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Use color vocabulary during cooperative pretend play.
+Build color recognition through active searching.
+Connect books to color learning through discussion.
+
+DAILY_VOCABULARY:
+red, blue, yellow, green, purple, orange
+
+DAILY_MATERIALS:
+Paint sample cards, empty paint cans or containers, brushes, aprons, play money
+Color cards, collection bags or baskets
+Mouse Paint or Brown Bear book, color picture cards
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Math, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to colors everywhere.
+Sing "I Can Sing a Rainbow" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit Mouse Paint by Ellen Stoll Walsh and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to colors everywhere — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Paint Store Pretend Play / Color Scavenger Hunt).
+
+DAILY_OBSERVATIONS:
+Uses color words during play
+Finds color matches
+Names colors from illustrations
+Participation and interest in Colors Everywhere play
+
+DAILY_ADAPTATIONS:
+Provide larger materials for easier grasping. Offer hand-over-hand support when needed. Focus on exploration and exposure rather than requiring color mastery.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Paint Store Pretend Play
@@ -273,6 +451,8 @@ SETUP:
 Arrange a paint store counter with sample cards and props.
 TEACHER_ROLE:
 Model customer and clerk roles and encourage color conversations.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Introduce the paint store and available color samples.
 2. Children take turns being shopkeepers and customers.
@@ -287,6 +467,15 @@ OBSERVATION_OPPORTUNITIES:
 Uses color words during play
 Takes turns in roles
 Engages in cooperative play
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Color Scavenger Hunt
@@ -302,6 +491,8 @@ SETUP:
 Give each child or pair a color card before the hunt begins.
 TEACHER_ROLE:
 Walk with groups, name colors, and celebrate each find.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Show the focus color card and name the color together.
 2. Walk slowly and search for matching objects.
@@ -316,6 +507,15 @@ OBSERVATION_OPPORTUNITIES:
 Finds color matches
 Stays with the group
 Uses color names
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Color Book Read-Aloud Circle
@@ -331,6 +531,8 @@ SETUP:
 Gather children in circle with book and color cards visible.
 TEACHER_ROLE:
 Read expressively, pause for predictions, and invite color naming.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Introduce the book and ask what colors children expect to see.
 2. Read aloud, pausing to name colors on each page.
@@ -345,8 +547,56 @@ OBSERVATION_OPPORTUNITIES:
 Names colors from illustrations
 Answers simple questions
 Attends to story
+VOCABULARY:
 
-THURSDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Colors Everywhere: Color Collage Studio and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Create an original collage using one focus color.
+Practice listening skills while reinforcing color names.
+Collect and compare data about favorite colors.
+
+DAILY_VOCABULARY:
+red, blue, yellow, green, purple, orange
+
+DAILY_MATERIALS:
+Cardstock, torn paper scraps, glue sticks, fabric scraps, color labels
+Music player, color cards, open space
+Large chart paper, color labels, dot stickers, markers
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Math, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to colors everywhere.
+Sing "I Can Sing a Rainbow" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit Mouse Paint by Ellen Stoll Walsh and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to colors everywhere — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Color Collage Studio / Color Freeze Dance).
+
+DAILY_OBSERVATIONS:
+Selects materials purposefully
+Freezes on cue
+Places vote correctly
+Participation and interest in Colors Everywhere play
+
+DAILY_ADAPTATIONS:
+Provide larger materials for easier grasping. Offer hand-over-hand support when needed. Focus on exploration and exposure rather than requiring color mastery.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Color Collage Studio
@@ -362,6 +612,8 @@ SETUP:
 Organize collage materials by color at an art table.
 TEACHER_ROLE:
 Discuss shades and textures while children work.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Each child chooses a focus color for their collage.
 2. Sort and select materials in that color family.
@@ -376,6 +628,15 @@ OBSERVATION_OPPORTUNITIES:
 Selects materials purposefully
 Uses glue with control
 Describes their collage
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Color Freeze Dance
@@ -391,6 +652,8 @@ SETUP:
 Place color cards where children can reach them during the game.
 TEACHER_ROLE:
 Control music, call colors, and model freezing positions.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Explain that children dance when music plays and freeze when it stops.
 2. When frozen, hold up the color card that is called.
@@ -405,6 +668,15 @@ OBSERVATION_OPPORTUNITIES:
 Freezes on cue
 Shows correct color card
 Follows game rules
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Color Graphing Chart
@@ -420,6 +692,8 @@ SETUP:
 Post a blank graph with color columns at child eye level.
 TEACHER_ROLE:
 Help children place votes and compare column heights.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Ask each child to name their favorite color.
 2. Place a sticker in the matching column.
@@ -434,8 +708,56 @@ OBSERVATION_OPPORTUNITIES:
 Places vote correctly
 Counts with support
 Compares amounts using more/less language
+VOCABULARY:
 
-FRIDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Colors Everywhere: Block Color Towers and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Build towers using a repeating color sequence.
+Collaborate on a group art project celebrating colors.
+Reflect on color learning and celebrate the week's discoveries.
+
+DAILY_VOCABULARY:
+red, blue, yellow, green, purple, orange
+
+DAILY_MATERIALS:
+Colored unit blocks, measuring strip (optional)
+Long paper banner, washable paint, brushes, smocks, wipes
+Color cards, celebration stickers, song lyrics chart
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Math, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to colors everywhere.
+Sing "I Can Sing a Rainbow" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit Mouse Paint by Ellen Stoll Walsh and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to colors everywhere — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Block Color Towers / Friendship Color Banner).
+
+DAILY_OBSERVATIONS:
+Follows color sequence
+Waits for turn
+Recalls a favorite activity
+Participation and interest in Colors Everywhere play
+
+DAILY_ADAPTATIONS:
+Provide larger materials for easier grasping. Offer hand-over-hand support when needed. Focus on exploration and exposure rather than requiring color mastery.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Block Color Towers
@@ -451,6 +773,8 @@ SETUP:
 Provide blocks sorted by color at the building area.
 TEACHER_ROLE:
 Encourage pattern building and safe tower construction.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Review a simple color pattern for towers.
 2. Invite children to build the tallest tower they can.
@@ -465,6 +789,15 @@ OBSERVATION_OPPORTUNITIES:
 Follows color sequence
 Builds steadily
 Compares heights
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Friendship Color Banner
@@ -480,6 +813,8 @@ SETUP:
 Lay the banner on a table with paint stations along the edge.
 TEACHER_ROLE:
 Facilitate turn-taking and describe the growing rainbow.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Explain that the class will create one rainbow banner together.
 2. Each child adds a handprint or painted shape in a chosen color.
@@ -494,6 +829,15 @@ OBSERVATION_OPPORTUNITIES:
 Waits for turn
 Adds to group project
 Shows pride in shared work
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Colors Celebration Circle
@@ -509,6 +853,8 @@ SETUP:
 Gather children in circle with color cards in the center.
 TEACHER_ROLE:
 Facilitate sharing and positive recognition of each child's participation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Invite children to share a favorite color moment from the week.
 2. Hold up color cards and review names together.
@@ -523,3 +869,12 @@ OBSERVATION_OPPORTUNITIES:
 Recalls a favorite activity
 Speaks in front of group
 Participates in songs
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

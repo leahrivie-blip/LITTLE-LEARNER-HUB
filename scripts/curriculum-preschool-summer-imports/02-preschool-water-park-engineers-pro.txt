@@ -57,267 +57,747 @@ Provide visual supports, adaptive tools, simplified challenges, peer partnership
 
 MONDAY
 
+DAILY_THEME:
+Water Engineering & Summer STEM: Meet the Engineers and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Support water engineering & summer stem learning through meet the engineers.
+Support water engineering & summer stem learning through build a mini water park.
+Support water engineering & summer stem learning through engineer journal.
+
+DAILY_VOCABULARY:
+Engineer, Design, Build, Flow, Gravity, Water
+
+DAILY_MATERIALS:
+Engineer photos, building examples
+Blocks, tubes, toy figures
+Paper, crayons
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to water engineering & summer stem.
+Sing "The Water Song" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit Rosie Revere, Engineer and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to water engineering & summer stem — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Meet the Engineers / Build a Mini Water Park).
+
+DAILY_OBSERVATIONS:
+Engagement during Meet the Engineers
+Engagement during Build a Mini Water Park
+Engagement during Engineer Journal
+Participation and interest in Water Engineering & Summer STEM play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive tools, simplified challenges, peer partnerships, and additional guidance as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+
 ACTIVITY_NAME:
 Meet the Engineers
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support water engineering & summer stem learning through meet the engineers.
 DESCRIPTION:
 Children learn what engineers do and how they solve problems.
 MATERIALS:
 Engineer photos, building examples
-DIRECTIONS:
-Discuss engineers.
-Explore examples.
-Brainstorm things engineers build.
-Share ideas.
+SETUP:
+Prepare materials for Meet the Engineers before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Introduce engineering concepts.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Discuss engineers.
+2. Explore examples.
+3. Brainstorm things engineers build.
+4. Share ideas.
 LEARNING_GOALS:
 Vocabulary and critical thinking.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Meet the Engineers
+Use of water engineering & summer stem vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Build a Mini Water Park
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support water engineering & summer stem learning through build a mini water park.
 DESCRIPTION:
 Children design a simple water park using blocks and materials.
 MATERIALS:
 Blocks, tubes, toy figures
-DIRECTIONS:
-Plan design.
-Build structures.
-Test ideas.
+SETUP:
+Prepare materials for Build a Mini Water Park before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support planning and creativity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Plan design.
+2. Build structures.
+3. Test ideas.
 LEARNING_GOALS:
 Engineering and problem-solving.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Build a Mini Water Park
+Use of water engineering & summer stem vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Engineer Journal
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support water engineering & summer stem learning through engineer journal.
 DESCRIPTION:
 Children draw their first water park design.
 MATERIALS:
 Paper, crayons
-DIRECTIONS:
-Draw design.
-Label parts.
-Share ideas.
+SETUP:
+Prepare materials for Engineer Journal before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support communication.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Draw design.
+2. Label parts.
+3. Share ideas.
 LEARNING_GOALS:
 Planning and early writing.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Engineer Journal
+Use of water engineering & summer stem vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 TUESDAY
+
+DAILY_THEME:
+Water Engineering & Summer STEM: Water Flow Investigation and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Support water engineering & summer stem learning through water flow investigation.
+Support water engineering & summer stem learning through slide testing challenge.
+Support water engineering & summer stem learning through water park story time.
+
+DAILY_VOCABULARY:
+Engineer, Design, Build, Flow, Gravity, Water
+
+DAILY_MATERIALS:
+Funnels, tubing, water
+Cardboard tubes, toy figures
+Engineering book
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to water engineering & summer stem.
+Sing "The Water Song" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit Rosie Revere, Engineer and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to water engineering & summer stem — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Water Flow Investigation / Slide Testing Challenge).
+
+DAILY_OBSERVATIONS:
+Engagement during Water Flow Investigation
+Engagement during Slide Testing Challenge
+Engagement during Water Park Story Time
+Participation and interest in Water Engineering & Summer STEM play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive tools, simplified challenges, peer partnerships, and additional guidance as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Water Flow Investigation
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support water engineering & summer stem learning through water flow investigation.
 DESCRIPTION:
 Children explore how water moves through funnels and tubes.
 MATERIALS:
 Funnels, tubing, water
-DIRECTIONS:
-Pour water.
-Observe movement.
-Compare pathways.
+SETUP:
+Prepare materials for Water Flow Investigation before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Ask prediction questions.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Pour water.
+2. Observe movement.
+3. Compare pathways.
 LEARNING_GOALS:
 Scientific observation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Water Flow Investigation
+Use of water engineering & summer stem vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Slide Testing Challenge
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support water engineering & summer stem learning through slide testing challenge.
 DESCRIPTION:
 Children test different slide designs.
 MATERIALS:
 Cardboard tubes, toy figures
-DIRECTIONS:
-Build slide.
-Test toy movement.
-Adjust design.
+SETUP:
+Prepare materials for Slide Testing Challenge before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Encourage experimentation.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Build slide.
+2. Test toy movement.
+3. Adjust design.
 LEARNING_GOALS:
 Engineering design process.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Slide Testing Challenge
+Use of water engineering & summer stem vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Water Park Story Time
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support water engineering & summer stem learning through water park story time.
 DESCRIPTION:
 Read a STEM-themed story.
 MATERIALS:
 Engineering book
-DIRECTIONS:
-Read story.
-Discuss solutions.
-Ask questions.
+SETUP:
+Prepare materials for Water Park Story Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support comprehension.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Read story.
+2. Discuss solutions.
+3. Ask questions.
 LEARNING_GOALS:
 Literacy and reasoning.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Water Park Story Time
+Use of water engineering & summer stem vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 WEDNESDAY
+
+DAILY_THEME:
+Water Engineering & Summer STEM: Sink or Float Water Lab and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Support water engineering & summer stem learning through sink or float water lab.
+Support water engineering & summer stem learning through build a boat challenge.
+Support water engineering & summer stem learning through water scientist circle.
+
+DAILY_VOCABULARY:
+Engineer, Design, Build, Flow, Gravity, Water
+
+DAILY_MATERIALS:
+Water tub, objects
+Foam, straws, tape
+Science charts
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to water engineering & summer stem.
+Sing "The Water Song" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit Rosie Revere, Engineer and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to water engineering & summer stem — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Sink or Float Water Lab / Build a Boat Challenge).
+
+DAILY_OBSERVATIONS:
+Engagement during Sink or Float Water Lab
+Engagement during Build a Boat Challenge
+Engagement during Water Scientist Circle
+Participation and interest in Water Engineering & Summer STEM play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive tools, simplified challenges, peer partnerships, and additional guidance as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Sink or Float Water Lab
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support water engineering & summer stem learning through sink or float water lab.
 DESCRIPTION:
 Children test objects to determine whether they sink or float.
 MATERIALS:
 Water tub, objects
-DIRECTIONS:
-Predict outcome.
-Test object.
-Record results.
+SETUP:
+Prepare materials for Sink or Float Water Lab before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide scientific inquiry.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Predict outcome.
+2. Test object.
+3. Record results.
 LEARNING_GOALS:
 Prediction and observation skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Sink or Float Water Lab
+Use of water engineering & summer stem vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Build a Boat Challenge
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support water engineering & summer stem learning through build a boat challenge.
 DESCRIPTION:
 Children design boats that float.
 MATERIALS:
 Foam, straws, tape
-DIRECTIONS:
-Build boat.
-Test in water.
-Improve design.
+SETUP:
+Prepare materials for Build a Boat Challenge before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support problem-solving.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Build boat.
+2. Test in water.
+3. Improve design.
 LEARNING_GOALS:
 Engineering and creativity.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Build a Boat Challenge
+Use of water engineering & summer stem vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Water Scientist Circle
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support water engineering & summer stem learning through water scientist circle.
 DESCRIPTION:
 Discuss discoveries from experiments.
 MATERIALS:
 Science charts
-DIRECTIONS:
-Share results.
-Compare observations.
-Discuss findings.
+SETUP:
+Prepare materials for Water Scientist Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead discussion.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Share results.
+2. Compare observations.
+3. Discuss findings.
 LEARNING_GOALS:
 Communication and scientific thinking.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Water Scientist Circle
+Use of water engineering & summer stem vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 THURSDAY
+
+DAILY_THEME:
+Water Engineering & Summer STEM: Measure the Splash and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Support water engineering & summer stem learning through measure the splash.
+Support water engineering & summer stem learning through water wheel engineering.
+Support water engineering & summer stem learning through construction crew dance.
+
+DAILY_VOCABULARY:
+Engineer, Design, Build, Flow, Gravity, Water
+
+DAILY_MATERIALS:
+Water containers, rulers
+Water wheel, water table
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to water engineering & summer stem.
+Sing "The Water Song" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit Rosie Revere, Engineer and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to water engineering & summer stem — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Measure the Splash / Water Wheel Engineering).
+
+DAILY_OBSERVATIONS:
+Engagement during Measure the Splash
+Engagement during Water Wheel Engineering
+Engagement during Construction Crew Dance
+Participation and interest in Water Engineering & Summer STEM play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive tools, simplified challenges, peer partnerships, and additional guidance as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Measure the Splash
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support water engineering & summer stem learning through measure the splash.
 DESCRIPTION:
 Children compare splash sizes using different amounts of water.
 MATERIALS:
 Water containers, rulers
-DIRECTIONS:
-Make splash.
-Observe results.
-Compare sizes.
+SETUP:
+Prepare materials for Measure the Splash before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Introduce measurement vocabulary.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Make splash.
+2. Observe results.
+3. Compare sizes.
 LEARNING_GOALS:
 Math and observation skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Measure the Splash
+Use of water engineering & summer stem vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Water Wheel Engineering
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support water engineering & summer stem learning through water wheel engineering.
 DESCRIPTION:
 Children explore how water powers movement.
 MATERIALS:
 Water wheel, water table
-DIRECTIONS:
-Pour water.
-Watch wheel move.
-Discuss cause and effect.
+SETUP:
+Prepare materials for Water Wheel Engineering before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide exploration.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Pour water.
+2. Watch wheel move.
+3. Discuss cause and effect.
 LEARNING_GOALS:
 Scientific reasoning.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Water Wheel Engineering
+Use of water engineering & summer stem vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Construction Crew Dance
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support water engineering & summer stem learning through construction crew dance.
 DESCRIPTION:
 Children pretend to build while dancing.
 MATERIALS:
 Music player
-DIRECTIONS:
-Dance to music.
-Pretend to build structures.
-Follow movement directions.
+SETUP:
+Prepare materials for Construction Crew Dance before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead activity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Dance to music.
+2. Pretend to build structures.
+3. Follow movement directions.
 LEARNING_GOALS:
 Movement and participation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Construction Crew Dance
+Use of water engineering & summer stem vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 FRIDAY
+
+DAILY_THEME:
+Water Engineering & Summer STEM: Ultimate Water Park Build and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Support water engineering & summer stem learning through ultimate water park build.
+Support water engineering & summer stem learning through engineer showcase.
+Support water engineering & summer stem learning through water park engineers celebration circle.
+
+DAILY_VOCABULARY:
+Engineer, Design, Build, Flow, Gravity, Water
+
+DAILY_MATERIALS:
+Blocks, tubes, water materials
+Projects, journals
+Photos, journals, projects
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to water engineering & summer stem.
+Sing "The Water Song" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit Rosie Revere, Engineer and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to water engineering & summer stem — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Ultimate Water Park Build / Engineer Showcase).
+
+DAILY_OBSERVATIONS:
+Engagement during Ultimate Water Park Build
+Engagement during Engineer Showcase
+Engagement during Water Park Engineers Celebration Circle
+Participation and interest in Water Engineering & Summer STEM play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive tools, simplified challenges, peer partnerships, and additional guidance as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Ultimate Water Park Build
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support water engineering & summer stem learning through ultimate water park build.
 DESCRIPTION:
 Children work together to build a large classroom water park.
 MATERIALS:
 Blocks, tubes, water materials
-DIRECTIONS:
-Plan design.
-Build together.
-Test systems.
-Make improvements.
+SETUP:
+Prepare materials for Ultimate Water Park Build before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Facilitate teamwork and problem-solving.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Plan design.
+2. Build together.
+3. Test systems.
+4. Make improvements.
 LEARNING_GOALS:
 Collaboration and engineering.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Ultimate Water Park Build
+Use of water engineering & summer stem vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Engineer Showcase
 CATEGORY:
 Dramatic Play
+OBJECTIVE:
+Support water engineering & summer stem learning through engineer showcase.
 DESCRIPTION:
 Children present their water park designs.
 MATERIALS:
 Projects, journals
-DIRECTIONS:
-Present design.
-Explain features.
-Answer questions.
+SETUP:
+Prepare materials for Engineer Showcase before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Encourage communication.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Present design.
+2. Explain features.
+3. Answer questions.
 LEARNING_GOALS:
 Confidence and presentation skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Engineer Showcase
+Use of water engineering & summer stem vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Water Park Engineers Celebration Circle
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support water engineering & summer stem learning through water park engineers celebration circle.
 DESCRIPTION:
 Review favorite engineering challenges and discoveries.
 MATERIALS:
 Photos, journals, projects
-DIRECTIONS:
-Share favorite activities.
-Review vocabulary.
-Celebrate learning.
+SETUP:
+Prepare materials for Water Park Engineers Celebration Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead reflection.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Share favorite activities.
+2. Review vocabulary.
+3. Celebrate learning.
 LEARNING_GOALS:
 Communication and scientific understanding.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Water Park Engineers Celebration Circle
+Use of water engineering & summer stem vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

@@ -14,12 +14,7 @@ STATUS:
 published
 
 LEARNING_DOMAINS:
-Language & Literacy
-Social Emotional
-Physical Development
-Creative Arts
-Science
-Math
+Language & Literacy, Social Emotional, Physical Development, Creative Arts, Science, Math
 
 WEEKLY_OVERVIEW:
 Children will travel back to prehistoric times as they investigate dinosaurs through hands-on exploration, dramatic play, sensory experiences, STEM challenges, art, movement, and early literacy activities. Throughout the week, children will become paleontologists, discover fossils, compare dinosaur sizes, explore volcanoes, and strengthen kindergarten readiness skills through engaging dinosaur-themed learning.
@@ -88,7 +83,52 @@ Observe children's use of dinosaur vocabulary, participation in dramatic play, c
 ADAPTATIONS:
 Provide larger materials for children needing additional fine motor support. Offer visual aids and picture cards. Simplify instructions when needed and allow children multiple ways to participate.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+Dinosaurs: Dinosaur Discovery Bin and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Encourage sensory exploration and scientific curiosity.
+Develop gross motor skills and body awareness.
+Strengthen creativity and fine motor control.
+
+DAILY_VOCABULARY:
+Dinosaur, Fossil, Paleontologist, Volcano, Extinct, Footprint
+
+DAILY_MATERIALS:
+Kinetic sand
+Toy dinosaurs
+Small rocks
+Brushes
+Music player
+Paint
+Toy dinosaur feet
+Paper
+Blocks
+Artificial plants
+Toy dinosaurs
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to dinosaurs.
+Sing "We're Marching with the Dinosaurs" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit How Do Dinosaurs Say Goodnight? by Jane Yolen and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to dinosaurs — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Dinosaur Discovery Bin / Dinosaur Stomp Parade).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Dinosaurs play
+
+DAILY_ADAPTATIONS:
+Provide larger materials for children needing additional fine motor support. Offer visual aids and picture cards. Simplify instructions when needed and allow children multiple ways to participate.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Dinosaur Discovery Bin
@@ -107,6 +147,8 @@ SETUP:
 Hide dinosaurs throughout the sensory bin.
 TEACHER_ROLE:
 Encourage observation and descriptive language.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Invite children to search for hidden dinosaurs.
 2. Discuss dinosaur names and characteristics.
@@ -115,6 +157,15 @@ LEARNING_GOALS:
 Encourage sensory exploration and scientific curiosity.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Dinosaur Stomp Parade
@@ -130,6 +181,8 @@ SETUP:
 Clear an open movement space.
 TEACHER_ROLE:
 Model movements and encourage participation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Play dinosaur music.
 2. Encourage children to stomp, march, and move like different dinosaurs.
@@ -138,6 +191,15 @@ LEARNING_GOALS:
 Develop gross motor skills and body awareness.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Dinosaur Footprint Art
@@ -155,6 +217,8 @@ SETUP:
 Prepare painting stations.
 TEACHER_ROLE:
 Encourage observation and creativity.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Dip dinosaur feet into paint.
 2. Stamp footprints onto paper.
@@ -163,6 +227,15 @@ LEARNING_GOALS:
 Strengthen creativity and fine motor control.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Dinosaur Habitat Building
@@ -180,6 +253,8 @@ SETUP:
 Arrange materials on a building table.
 TEACHER_ROLE:
 Ask open-ended questions and support planning.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Create homes for dinosaurs.
 2. Discuss what dinosaurs may need to survive.
@@ -188,8 +263,61 @@ LEARNING_GOALS:
 Develop creativity and problem-solving.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-TUESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Dinosaurs: Fossil Excavation Dig and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Develop investigation skills.
+Promote movement and exploration.
+Strengthen hand muscles and observation skills.
+
+DAILY_VOCABULARY:
+Dinosaur, Fossil, Paleontologist, Volcano, Extinct, Footprint
+
+DAILY_MATERIALS:
+Sand
+Toy bones
+Brushes
+Magnifying glasses
+Plastic eggs
+Toy dinosaurs
+Play dough
+Toy dinosaurs
+Dinosaur puppets
+Props
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to dinosaurs.
+Sing "We're Marching with the Dinosaurs" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit How Do Dinosaurs Say Goodnight? by Jane Yolen and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to dinosaurs — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Fossil Excavation Dig / Dinosaur Egg Hunt).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Dinosaurs play
+
+DAILY_ADAPTATIONS:
+Provide larger materials for children needing additional fine motor support. Offer visual aids and picture cards. Simplify instructions when needed and allow children multiple ways to participate.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Fossil Excavation Dig
@@ -208,6 +336,8 @@ SETUP:
 Bury bones in a sensory bin.
 TEACHER_ROLE:
 Introduce paleontologist vocabulary.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Excavate fossils carefully.
 2. Observe discoveries using magnifying glasses.
@@ -216,6 +346,15 @@ LEARNING_GOALS:
 Develop investigation skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Dinosaur Egg Hunt
@@ -232,6 +371,8 @@ SETUP:
 Hide eggs around the room.
 TEACHER_ROLE:
 Encourage counting and teamwork.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Search for dinosaur eggs.
 2. Count collected eggs.
@@ -240,6 +381,15 @@ LEARNING_GOALS:
 Promote movement and exploration.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Fossil Impressions
@@ -256,6 +406,8 @@ SETUP:
 Provide play dough to each child.
 TEACHER_ROLE:
 Guide scientific discussions.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Press dinosaurs into dough.
 2. Examine fossil impressions.
@@ -264,6 +416,15 @@ LEARNING_GOALS:
 Strengthen hand muscles and observation skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Dinosaur Story Theater
@@ -280,6 +441,8 @@ SETUP:
 Create a storytelling area.
 TEACHER_ROLE:
 Expand vocabulary and storytelling.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Create dinosaur adventures.
 2. Act out stories with friends.
@@ -288,8 +451,61 @@ LEARNING_GOALS:
 Build language and storytelling skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-WEDNESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Dinosaurs: Volcano Eruption Experiment and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Introduce simple science concepts.
+Explore measurement concepts.
+Develop cutting and gluing skills.
+
+DAILY_VOCABULARY:
+Dinosaur, Fossil, Paleontologist, Volcano, Extinct, Footprint
+
+DAILY_MATERIALS:
+Baking soda
+Vinegar
+Food coloring
+Small volcano model
+Measuring tape
+Dinosaur pictures
+Black paper
+Cotton swabs
+Glue
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to dinosaurs.
+Sing "We're Marching with the Dinosaurs" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit How Do Dinosaurs Say Goodnight? by Jane Yolen and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to dinosaurs — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Volcano Eruption Experiment / Dinosaur Measurement Station).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Dinosaurs play
+
+DAILY_ADAPTATIONS:
+Provide larger materials for children needing additional fine motor support. Offer visual aids and picture cards. Simplify instructions when needed and allow children multiple ways to participate.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Volcano Eruption Experiment
@@ -308,6 +524,8 @@ SETUP:
 Prepare volcano materials.
 TEACHER_ROLE:
 Encourage scientific thinking.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Predict what will happen.
 2. Add ingredients.
@@ -316,6 +534,15 @@ LEARNING_GOALS:
 Introduce simple science concepts.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Dinosaur Measurement Station
@@ -332,6 +559,8 @@ SETUP:
 Place dinosaur pictures around the room.
 TEACHER_ROLE:
 Introduce math vocabulary.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Measure dinosaur lengths.
 2. Compare sizes.
@@ -340,6 +569,15 @@ LEARNING_GOALS:
 Explore measurement concepts.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Dinosaur Skeleton Craft
@@ -357,6 +595,8 @@ SETUP:
 Prepare craft materials.
 TEACHER_ROLE:
 Assist as needed.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Create dinosaur skeletons.
 2. Arrange bones on paper.
@@ -365,6 +605,15 @@ LEARNING_GOALS:
 Develop cutting and gluing skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 T-Rex Freeze Dance
@@ -380,6 +629,8 @@ SETUP:
 Open movement area.
 TEACHER_ROLE:
 Lead movement activities.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Dance like dinosaurs.
 2. Freeze when music stops.
@@ -388,8 +639,59 @@ LEARNING_GOALS:
 Strengthen listening skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-THURSDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Dinosaurs: Dinosaur Sorting Center and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Develop classification skills.
+Encourage engineering and creativity.
+Strengthen creativity and hand control.
+
+DAILY_VOCABULARY:
+Dinosaur, Fossil, Paleontologist, Volcano, Extinct, Footprint
+
+DAILY_MATERIALS:
+Toy dinosaurs
+Straw
+Paper
+Natural materials
+Paper egg templates
+Paint
+Toy dinosaurs
+Props
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to dinosaurs.
+Sing "We're Marching with the Dinosaurs" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit How Do Dinosaurs Say Goodnight? by Jane Yolen and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to dinosaurs — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Dinosaur Sorting Center / Dinosaur Nest Builders).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Dinosaurs play
+
+DAILY_ADAPTATIONS:
+Provide larger materials for children needing additional fine motor support. Offer visual aids and picture cards. Simplify instructions when needed and allow children multiple ways to participate.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Dinosaur Sorting Center
@@ -405,6 +707,8 @@ SETUP:
 Provide sorting trays.
 TEACHER_ROLE:
 Support mathematical thinking.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Sort dinosaurs by color, size, or type.
 2. Compare groups.
@@ -413,6 +717,15 @@ LEARNING_GOALS:
 Develop classification skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Dinosaur Nest Builders
@@ -430,6 +743,8 @@ SETUP:
 Provide building materials.
 TEACHER_ROLE:
 Encourage problem-solving.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Build nests for dinosaur eggs.
 2. Test nest strength.
@@ -438,6 +753,15 @@ LEARNING_GOALS:
 Encourage engineering and creativity.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Dinosaur Egg Painting
@@ -454,13 +778,27 @@ SETUP:
 Prepare painting stations.
 TEACHER_ROLE:
 Encourage artistic expression.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Decorate dinosaur eggs.
-2. Create unique patterns.
+1. Introduce Dinosaur Egg Painting and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Strengthen creativity and hand control.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Dinosaur Rescue Mission
@@ -477,15 +815,69 @@ SETUP:
 Create rescue scenarios.
 TEACHER_ROLE:
 Support teamwork and communication.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Work together to rescue dinosaurs.
-2. Create solutions to challenges.
+1. Introduce Dinosaur Rescue Mission and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop cooperation and imagination.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-FRIDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Dinosaurs: Dinosaur Museum and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Build confidence and communication skills.
+Review dinosaur concepts through play.
+Celebrate learning through movement.
+
+DAILY_VOCABULARY:
+Dinosaur, Fossil, Paleontologist, Volcano, Extinct, Footprint
+
+DAILY_MATERIALS:
+Week's projects
+Toy dinosaurs
+Sensory materials
+Dinosaurs
+Fossils
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to dinosaurs.
+Sing "We're Marching with the Dinosaurs" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit How Do Dinosaurs Say Goodnight? by Jane Yolen and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to dinosaurs — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Dinosaur Museum / Dinosaur Sensory Adventure).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Dinosaurs play
+
+DAILY_ADAPTATIONS:
+Provide larger materials for children needing additional fine motor support. Offer visual aids and picture cards. Simplify instructions when needed and allow children multiple ways to participate.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Dinosaur Museum
@@ -502,6 +894,8 @@ SETUP:
 Create museum displays.
 TEACHER_ROLE:
 Encourage speaking and listening.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Display dinosaur creations.
 2. Give museum tours.
@@ -510,6 +904,15 @@ LEARNING_GOALS:
 Build confidence and communication skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Dinosaur Sensory Adventure
@@ -527,13 +930,27 @@ SETUP:
 Create sensory stations.
 TEACHER_ROLE:
 Encourage reflection and vocabulary.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Explore stations.
-2. Discuss favorite discoveries.
+1. Introduce Dinosaur Sensory Adventure and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Review dinosaur concepts through play.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Dinosaur Celebration Stomp
@@ -549,11 +966,24 @@ SETUP:
 Clear movement space.
 TEACHER_ROLE:
 Celebrate participation and learning.
+TEACHER_LANGUAGE:
 
 DIRECTIONS:
-1. Dance and stomp like favorite dinosaurs.
-2. Share favorite parts of the week.
+1. Introduce Dinosaur Celebration Stomp and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Celebrate learning through movement.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

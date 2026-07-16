@@ -57,267 +57,747 @@ Provide larger building materials, visual supports, adaptive tools, peer partner
 
 MONDAY
 
+DAILY_THEME:
+Construction & Engineering: Construction Site Setup and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Support construction & engineering learning through construction site setup.
+Support construction & engineering learning through blueprint drawing.
+Support construction & engineering learning through construction story time.
+
+DAILY_VOCABULARY:
+Engineer, Builder, Blueprint, Structure, Measure, Construct
+
+DAILY_MATERIALS:
+Hard hats, blocks, toy tools
+Blueprint paper, pencils, rulers
+Construction books
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to construction & engineering.
+Sing "The Construction Song" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit Goodnight Goodnight Construction Site and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to construction & engineering — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Construction Site Setup / Blueprint Drawing).
+
+DAILY_OBSERVATIONS:
+Engagement during Construction Site Setup
+Engagement during Blueprint Drawing
+Engagement during Construction Story Time
+Participation and interest in Construction & Engineering play
+
+DAILY_ADAPTATIONS:
+Provide larger building materials, visual supports, adaptive tools, peer partnerships, and additional teacher support.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+
 ACTIVITY_NAME:
 Construction Site Setup
 CATEGORY:
 Dramatic Play
+OBJECTIVE:
+Support construction & engineering learning through construction site setup.
 DESCRIPTION:
 Children create a classroom construction site.
 MATERIALS:
 Hard hats, blocks, toy tools
-DIRECTIONS:
-Explore materials.
-Assign construction jobs.
-Set up work zones.
-Discuss safety rules.
+SETUP:
+Prepare materials for Construction Site Setup before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Introduce construction vocabulary.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Explore materials.
+2. Assign construction jobs.
+3. Set up work zones.
+4. Discuss safety rules.
 LEARNING_GOALS:
 Communication and imaginative play.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Construction Site Setup
+Use of construction & engineering vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Blueprint Drawing
 CATEGORY:
 Art
+OBJECTIVE:
+Support construction & engineering learning through blueprint drawing.
 DESCRIPTION:
 Children draw plans for a building.
 MATERIALS:
 Blueprint paper, pencils, rulers
-DIRECTIONS:
-Discuss blueprints.
-Draw a building design.
-Label parts.
+SETUP:
+Prepare materials for Blueprint Drawing before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Model planning skills.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Discuss blueprints.
+2. Draw a building design.
+3. Label parts.
 LEARNING_GOALS:
 Engineering thinking and creativity.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Blueprint Drawing
+Use of construction & engineering vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Construction Story Time
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support construction & engineering learning through construction story time.
 DESCRIPTION:
 Read a construction-themed story.
 MATERIALS:
 Construction books
-DIRECTIONS:
-Read story.
-Discuss construction vehicles.
-Ask prediction questions.
+SETUP:
+Prepare materials for Construction Story Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support literacy development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Read story.
+2. Discuss construction vehicles.
+3. Ask prediction questions.
 LEARNING_GOALS:
 Listening and comprehension.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Construction Story Time
+Use of construction & engineering vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 TUESDAY
+
+DAILY_THEME:
+Construction & Engineering: Tower Building Challenge and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Support construction & engineering learning through tower building challenge.
+Support construction & engineering learning through dump truck relay.
+Support construction & engineering learning through tool exploration.
+
+DAILY_VOCABULARY:
+Engineer, Builder, Blueprint, Structure, Measure, Construct
+
+DAILY_MATERIALS:
+Blocks
+Buckets, blocks
+Toy tools
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to construction & engineering.
+Sing "The Construction Song" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit Goodnight Goodnight Construction Site and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to construction & engineering — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Tower Building Challenge / Dump Truck Relay).
+
+DAILY_OBSERVATIONS:
+Engagement during Tower Building Challenge
+Engagement during Dump Truck Relay
+Engagement during Tool Exploration
+Participation and interest in Construction & Engineering play
+
+DAILY_ADAPTATIONS:
+Provide larger building materials, visual supports, adaptive tools, peer partnerships, and additional teacher support.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Tower Building Challenge
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support construction & engineering learning through tower building challenge.
 DESCRIPTION:
 Children build the tallest tower possible.
 MATERIALS:
 Blocks
-DIRECTIONS:
-Build tower.
-Measure height.
-Compare structures.
+SETUP:
+Prepare materials for Tower Building Challenge before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide engineering discussions.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Build tower.
+2. Measure height.
+3. Compare structures.
 LEARNING_GOALS:
 Problem-solving and measurement.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Tower Building Challenge
+Use of construction & engineering vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Dump Truck Relay
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support construction & engineering learning through dump truck relay.
 DESCRIPTION:
 Children transport building materials.
 MATERIALS:
 Buckets, blocks
-DIRECTIONS:
-Collect materials.
-Deliver to construction zone.
-Repeat challenge.
+SETUP:
+Prepare materials for Dump Truck Relay before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Encourage teamwork.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Collect materials.
+2. Deliver to construction zone.
+3. Repeat challenge.
 LEARNING_GOALS:
 Coordination and cooperation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Dump Truck Relay
+Use of construction & engineering vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Tool Exploration
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support construction & engineering learning through tool exploration.
 DESCRIPTION:
 Children investigate construction tools.
 MATERIALS:
 Toy tools
-DIRECTIONS:
-Observe tools.
-Discuss uses.
-Compare functions.
+SETUP:
+Prepare materials for Tool Exploration before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Introduce tool safety.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Observe tools.
+2. Discuss uses.
+3. Compare functions.
 LEARNING_GOALS:
 Observation and vocabulary.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Tool Exploration
+Use of construction & engineering vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 WEDNESDAY
+
+DAILY_THEME:
+Construction & Engineering: Bridge Engineering Challenge and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Support construction & engineering learning through bridge engineering challenge.
+Support construction & engineering learning through measure the building.
+Support construction & engineering learning through builder journal.
+
+DAILY_VOCABULARY:
+Engineer, Builder, Blueprint, Structure, Measure, Construct
+
+DAILY_MATERIALS:
+Blocks, cardboard
+Measuring tapes
+Paper, pencils
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to construction & engineering.
+Sing "The Construction Song" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit Goodnight Goodnight Construction Site and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to construction & engineering — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Bridge Engineering Challenge / Measure the Building).
+
+DAILY_OBSERVATIONS:
+Engagement during Bridge Engineering Challenge
+Engagement during Measure the Building
+Engagement during Builder Journal
+Participation and interest in Construction & Engineering play
+
+DAILY_ADAPTATIONS:
+Provide larger building materials, visual supports, adaptive tools, peer partnerships, and additional teacher support.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Bridge Engineering Challenge
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support construction & engineering learning through bridge engineering challenge.
 DESCRIPTION:
 Children build bridges that support weight.
 MATERIALS:
 Blocks, cardboard
-DIRECTIONS:
-Design bridge.
-Test strength.
-Improve design.
+SETUP:
+Prepare materials for Bridge Engineering Challenge before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support experimentation.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Design bridge.
+2. Test strength.
+3. Improve design.
 LEARNING_GOALS:
 Engineering and critical thinking.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Bridge Engineering Challenge
+Use of construction & engineering vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Measure the Building
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support construction & engineering learning through measure the building.
 DESCRIPTION:
 Children measure classroom structures.
 MATERIALS:
 Measuring tapes
-DIRECTIONS:
-Measure structures.
-Record findings.
-Compare results.
+SETUP:
+Prepare materials for Measure the Building before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support measurement skills.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Measure structures.
+2. Record findings.
+3. Compare results.
 LEARNING_GOALS:
 Math and data collection.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Measure the Building
+Use of construction & engineering vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Builder Journal
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support construction & engineering learning through builder journal.
 DESCRIPTION:
 Children document building projects.
 MATERIALS:
 Paper, pencils
-DIRECTIONS:
-Draw project.
-Add labels.
-Share observations.
+SETUP:
+Prepare materials for Builder Journal before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support communication.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Draw project.
+2. Add labels.
+3. Share observations.
 LEARNING_GOALS:
 Early writing and reflection.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Builder Journal
+Use of construction & engineering vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 THURSDAY
+
+DAILY_THEME:
+Construction & Engineering: Road Construction Lab and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Support construction & engineering learning through road construction lab.
+Support construction & engineering learning through construction vehicle sorting.
+Support construction & engineering learning through builder dance break.
+
+DAILY_VOCABULARY:
+Engineer, Builder, Blueprint, Structure, Measure, Construct
+
+DAILY_MATERIALS:
+Tape, toy vehicles
+Vehicle cards
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to construction & engineering.
+Sing "The Construction Song" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit Goodnight Goodnight Construction Site and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to construction & engineering — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Road Construction Lab / Construction Vehicle Sorting).
+
+DAILY_OBSERVATIONS:
+Engagement during Road Construction Lab
+Engagement during Construction Vehicle Sorting
+Engagement during Builder Dance Break
+Participation and interest in Construction & Engineering play
+
+DAILY_ADAPTATIONS:
+Provide larger building materials, visual supports, adaptive tools, peer partnerships, and additional teacher support.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Road Construction Lab
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support construction & engineering learning through road construction lab.
 DESCRIPTION:
 Children design roads for vehicles.
 MATERIALS:
 Tape, toy vehicles
-DIRECTIONS:
-Create roads.
-Test vehicle routes.
-Improve designs.
+SETUP:
+Prepare materials for Road Construction Lab before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide problem-solving.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Create roads.
+2. Test vehicle routes.
+3. Improve designs.
 LEARNING_GOALS:
 Planning and engineering.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Road Construction Lab
+Use of construction & engineering vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Construction Vehicle Sorting
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support construction & engineering learning through construction vehicle sorting.
 DESCRIPTION:
 Children sort vehicles by purpose.
 MATERIALS:
 Vehicle cards
-DIRECTIONS:
-Identify vehicles.
-Sort into groups.
-Discuss jobs.
+SETUP:
+Prepare materials for Construction Vehicle Sorting before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support classification.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Identify vehicles.
+2. Sort into groups.
+3. Discuss jobs.
 LEARNING_GOALS:
 Vocabulary and reasoning.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Construction Vehicle Sorting
+Use of construction & engineering vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Builder Dance Break
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support construction & engineering learning through builder dance break.
 DESCRIPTION:
 Children move like construction workers.
 MATERIALS:
 Music player
-DIRECTIONS:
-Follow movements.
-Pretend to build.
-Dance together.
+SETUP:
+Prepare materials for Builder Dance Break before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead movement activity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Follow movements.
+2. Pretend to build.
+3. Dance together.
 LEARNING_GOALS:
 Gross motor development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Builder Dance Break
+Use of construction & engineering vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 FRIDAY
+
+DAILY_THEME:
+Construction & Engineering: Ultimate Construction Project and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Support construction & engineering learning through ultimate construction project.
+Support construction & engineering learning through junior engineer showcase.
+Support construction & engineering learning through construction engineers celebration circle.
+
+DAILY_VOCABULARY:
+Engineer, Builder, Blueprint, Structure, Measure, Construct
+
+DAILY_MATERIALS:
+Blocks, boxes, vehicles
+Projects, clipboards
+Photos, journals, projects
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to construction & engineering.
+Sing "The Construction Song" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit Goodnight Goodnight Construction Site and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to construction & engineering — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Ultimate Construction Project / Junior Engineer Showcase).
+
+DAILY_OBSERVATIONS:
+Engagement during Ultimate Construction Project
+Engagement during Junior Engineer Showcase
+Engagement during Construction Engineers Celebration Circle
+Participation and interest in Construction & Engineering play
+
+DAILY_ADAPTATIONS:
+Provide larger building materials, visual supports, adaptive tools, peer partnerships, and additional teacher support.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Ultimate Construction Project
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support construction & engineering learning through ultimate construction project.
 DESCRIPTION:
 Children work together to build a classroom city.
 MATERIALS:
 Blocks, boxes, vehicles
-DIRECTIONS:
-Plan city.
-Build structures.
-Connect roads.
-Present creations.
+SETUP:
+Prepare materials for Ultimate Construction Project before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Facilitate teamwork.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Plan city.
+2. Build structures.
+3. Connect roads.
+4. Present creations.
 LEARNING_GOALS:
 Collaboration and engineering.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Ultimate Construction Project
+Use of construction & engineering vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Junior Engineer Showcase
 CATEGORY:
 Dramatic Play
+OBJECTIVE:
+Support construction & engineering learning through junior engineer showcase.
 DESCRIPTION:
 Children present their construction projects.
 MATERIALS:
 Projects, clipboards
-DIRECTIONS:
-Present project.
-Explain design.
-Answer questions.
+SETUP:
+Prepare materials for Junior Engineer Showcase before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Encourage communication.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Present project.
+2. Explain design.
+3. Answer questions.
 LEARNING_GOALS:
 Confidence and presentation skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Junior Engineer Showcase
+Use of construction & engineering vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Construction Engineers Celebration Circle
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support construction & engineering learning through construction engineers celebration circle.
 DESCRIPTION:
 Review favorite building projects and discoveries.
 MATERIALS:
 Photos, journals, projects
-DIRECTIONS:
-Share favorite activities.
-Review vocabulary.
-Celebrate learning.
+SETUP:
+Prepare materials for Construction Engineers Celebration Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead reflection.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Share favorite activities.
+2. Review vocabulary.
+3. Celebrate learning.
 LEARNING_GOALS:
 Communication and social participation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Construction Engineers Celebration Circle
+Use of construction & engineering vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

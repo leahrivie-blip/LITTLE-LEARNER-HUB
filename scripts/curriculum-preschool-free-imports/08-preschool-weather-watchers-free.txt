@@ -14,12 +14,7 @@ STATUS:
 published
 
 LEARNING_DOMAINS:
-Science
-Language & Literacy
-Creative Arts
-Physical Development
-Math
-Social Emotional
+Science, Language & Literacy, Creative Arts, Physical Development, Math, Social Emotional
 
 WEEKLY_OVERVIEW:
 Preschoolers will observe and explore weather patterns through charts, experiments, movement, art, and dramatic play. Children will describe weather conditions, notice changes, and connect weather to clothing and activities.
@@ -76,7 +71,46 @@ Observe weather vocabulary, chart participation, descriptive language, engagemen
 ADAPTATIONS:
 Use real weather photos for support. Offer alternate indoor activities during extreme weather days. Accept one-word weather descriptions.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+Weather Watchers: Weather Watchers Circle and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Observe and record today's weather.
+Move like sunshine with stretching and reaching.
+Create cloud pictures with cotton balls.
+
+DAILY_VOCABULARY:
+sunny, rainy, cloudy, windy, storm, warm
+
+DAILY_MATERIALS:
+Weather chart, symbol cards, window access
+Open space, sunny day song
+Blue paper, cotton balls, glue, crayons
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to weather watchers.
+Sing "Mr. Sun" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit The Snowy Day by Ezra Jack Keats and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to weather watchers — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Weather Watchers Circle / Sunshine Movement Game).
+
+DAILY_OBSERVATIONS:
+Describes weather
+Participates in stretches
+Creates weather scene
+Participation and interest in Weather Watchers play
+
+DAILY_ADAPTATIONS:
+Use real weather photos for support. Offer alternate indoor activities during extreme weather days. Accept one-word weather descriptions.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Weather Watchers Circle
@@ -92,6 +126,8 @@ SETUP:
 Post chart near window at child height.
 TEACHER_ROLE:
 Lead observation and model chart marking.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Look out window together.
 2. Describe what sky and air feel like.
@@ -106,6 +142,15 @@ OBSERVATION_OPPORTUNITIES:
 Describes weather
 Places symbol on chart
 Uses weather words
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Sunshine Movement Game
@@ -121,6 +166,8 @@ SETUP:
 Play sunny music in open area.
 TEACHER_ROLE:
 Model big reaching movements.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Stretch arms like sun rays.
 2. Move slowly then quickly.
@@ -135,6 +182,15 @@ OBSERVATION_OPPORTUNITIES:
 Participates in stretches
 Follows movement cues
 Hydrates after activity
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Cloud Cotton Art
@@ -150,6 +206,8 @@ SETUP:
 Set art table with cotton and glue.
 TEACHER_ROLE:
 Discuss fluffy cloud texture.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Glue cotton for clouds.
 2. Draw sun or rain under clouds.
@@ -164,8 +222,56 @@ OBSERVATION_OPPORTUNITIES:
 Creates weather scene
 Describes picture
 Uses glue with control
+VOCABULARY:
 
-TUESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Weather Watchers: Rain Drop Sensory Play and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Explore water droplets and rain sounds.
+Dress for different weather scenarios.
+Make pinwheels and test them with fans.
+
+DAILY_VOCABULARY:
+sunny, rainy, cloudy, windy, storm, warm
+
+DAILY_MATERIALS:
+Water bins, pipettes, rain sticks, towels
+Rain coats, boots, hats, mittens, sunglasses
+Pinwheel kits or paper squares, pins, pencils, fan
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to weather watchers.
+Sing "Mr. Sun" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit The Snowy Day by Ezra Jack Keats and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to weather watchers — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Rain Drop Sensory Play / Weather Dress-Up Center).
+
+DAILY_OBSERVATIONS:
+Uses pipettes
+Selects appropriate clothing
+Assembles pinwheel
+Participation and interest in Weather Watchers play
+
+DAILY_ADAPTATIONS:
+Use real weather photos for support. Offer alternate indoor activities during extreme weather days. Accept one-word weather descriptions.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Rain Drop Sensory Play
@@ -181,6 +287,8 @@ SETUP:
 Cover tables with towels and fill bins.
 TEACHER_ROLE:
 Supervise water use and narrate rain sounds.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Fill pipettes and squeeze rain into bin.
 2. Listen to rain stick sounds.
@@ -195,6 +303,15 @@ OBSERVATION_OPPORTUNITIES:
 Uses pipettes
 Compares sounds
 Engages in sensory play
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Weather Dress-Up Center
@@ -210,6 +327,8 @@ SETUP:
 Organize dress-up by weather type.
 TEACHER_ROLE:
 Call weather scenario for dressing.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Announce rainy day scenario.
 2. Children choose rain gear.
@@ -224,6 +343,15 @@ OBSERVATION_OPPORTUNITIES:
 Selects appropriate clothing
 Explains choices
 Dresses independently
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Windy Day Pinwheels
@@ -239,6 +367,8 @@ SETUP:
 Prepare pinwheel materials at tables.
 TEACHER_ROLE:
 Supervise pin assembly and fan use.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Fold and assemble pinwheel.
 2. Test spin near fan.
@@ -253,8 +383,56 @@ OBSERVATION_OPPORTUNITIES:
 Assembles pinwheel
 Observes spinning
 Connects wind to movement
+VOCABULARY:
 
-WEDNESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Weather Watchers: Weather Chart Helpers and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Take turns updating weekly weather chart.
+Explore loud and soft sounds like thunder.
+Read weather books and match to chart symbols.
+
+DAILY_VOCABULARY:
+sunny, rainy, cloudy, windy, storm, warm
+
+DAILY_MATERIALS:
+Weekly weather chart, stickers
+Hand drums, thunder story book excerpt
+Weather books, symbol cards
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to weather watchers.
+Sing "Mr. Sun" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit The Snowy Day by Ezra Jack Keats and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to weather watchers — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Weather Chart Helpers / Thunder Drum Experiment).
+
+DAILY_OBSERVATIONS:
+Records weather accurately
+Varies drum volume
+Matches book to symbol
+Participation and interest in Weather Watchers play
+
+DAILY_ADAPTATIONS:
+Use real weather photos for support. Offer alternate indoor activities during extreme weather days. Accept one-word weather descriptions.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Weather Chart Helpers
@@ -270,6 +448,8 @@ SETUP:
 Assign helper roles for chart.
 TEACHER_ROLE:
 Guide counting and comparison.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Weather helper checks outside.
 2. Adds sticker to chart.
@@ -284,6 +464,15 @@ OBSERVATION_OPPORTUNITIES:
 Records weather accurately
 Counts days
 Takes helper role seriously
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Thunder Drum Experiment
@@ -299,6 +488,8 @@ SETUP:
 Sit in circle with drums.
 TEACHER_ROLE:
 Connect taps to storm story.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Listen to storm description.
 2. Tap drum softly for far thunder.
@@ -313,6 +504,15 @@ OBSERVATION_OPPORTUNITIES:
 Varies drum volume
 Follows story cues
 Repeats safety phrase
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Weather Book Nook
@@ -328,6 +528,8 @@ SETUP:
 Set books in nook with symbol cards.
 TEACHER_ROLE:
 Ask children to find pages for symbols.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose weather book.
 2. Find sunny or rainy page.
@@ -342,8 +544,56 @@ OBSERVATION_OPPORTUNITIES:
 Matches book to symbol
 Handles books carefully
 Describes pictures
+VOCABULARY:
 
-THURSDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Weather Watchers: Season Sorting Trays and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Sort pictures by season and typical weather.
+Paint rainbows after discussing sun and rain together.
+Practice calm weather-themed stretches.
+
+DAILY_VOCABULARY:
+sunny, rainy, cloudy, windy, storm, warm
+
+DAILY_MATERIALS:
+Season sorting trays, photo cards
+Paint, brushes, paper, smocks
+Yoga mats, calm music
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to weather watchers.
+Sing "Mr. Sun" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit The Snowy Day by Ezra Jack Keats and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to weather watchers — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Season Sorting Trays / Rainbow After Rain Art).
+
+DAILY_OBSERVATIONS:
+Sorts with guidance
+Paints arc shape
+Follows gentle poses
+Participation and interest in Weather Watchers play
+
+DAILY_ADAPTATIONS:
+Use real weather photos for support. Offer alternate indoor activities during extreme weather days. Accept one-word weather descriptions.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Season Sorting Trays
@@ -359,6 +609,8 @@ SETUP:
 Label trays with season and weather hints.
 TEACHER_ROLE:
 Discuss weather typical in each season.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Pick photo card.
 2. Talk about season shown.
@@ -373,6 +625,15 @@ OBSERVATION_OPPORTUNITIES:
 Sorts with guidance
 Names seasons
 Connects weather to season
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Rainbow After Rain Art
@@ -388,6 +649,8 @@ SETUP:
 Demonstrate rainbow arc stroke.
 TEACHER_ROLE:
 Name colors in rainbow order.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Paint rainbow arc.
 2. Add rain lines if desired.
@@ -402,6 +665,15 @@ OBSERVATION_OPPORTUNITIES:
 Paints arc shape
 Names rainbow colors
 Connects to sun and rain
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Weather Yoga and Rest
@@ -417,6 +689,8 @@ SETUP:
 Lay mats for small group.
 TEACHER_ROLE:
 Lead slow weather poses.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Reach for sun pose.
 2. Float like cloud pose.
@@ -431,8 +705,56 @@ OBSERVATION_OPPORTUNITIES:
 Follows gentle poses
 Rests quietly
 Uses slow breathing
+VOCABULARY:
 
-FRIDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Weather Watchers: Meteorologist Report Circle and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Give a short weather report to the class.
+Race to dress in correct gear for called weather.
+Review weather week and thank weather helpers.
+
+DAILY_VOCABULARY:
+sunny, rainy, cloudy, windy, storm, warm
+
+DAILY_MATERIALS:
+Pointer, weather chart, microphone prop
+Separate piles of weather gear
+Completed chart, song chart
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to weather watchers.
+Sing "Mr. Sun" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit The Snowy Day by Ezra Jack Keats and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to weather watchers — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Meteorologist Report Circle / Weather Dress Relay).
+
+DAILY_OBSERVATIONS:
+Speaks audibly
+Chooses correct gear
+Recalls week data
+Participation and interest in Weather Watchers play
+
+DAILY_ADAPTATIONS:
+Use real weather photos for support. Offer alternate indoor activities during extreme weather days. Accept one-word weather descriptions.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Meteorologist Report Circle
@@ -448,6 +770,8 @@ SETUP:
 Invite volunteers to be meteorologist.
 TEACHER_ROLE:
 Model short report structure.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Point to chart symbols.
 2. Say today's weather words.
@@ -462,6 +786,15 @@ OBSERVATION_OPPORTUNITIES:
 Speaks audibly
 Uses weather words
 Points to chart
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Weather Dress Relay
@@ -477,6 +810,8 @@ SETUP:
 Organize gear in three piles.
 TEACHER_ROLE:
 Emphasize safe dressing not speed alone.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Call a weather type.
 2. Child grabs one matching item.
@@ -491,6 +826,15 @@ OBSERVATION_OPPORTUNITIES:
 Chooses correct gear
 Participates in relay
 Explains choice
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Weather Watchers Celebration
@@ -506,6 +850,8 @@ SETUP:
 Gather with full week chart visible.
 TEACHER_ROLE:
 Celebrate chart helpers.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Count weather types for week.
 2. Thank chart helpers.
@@ -520,3 +866,12 @@ OBSERVATION_OPPORTUNITIES:
 Recalls week data
 Participates in songs
 Shares favorite moment
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

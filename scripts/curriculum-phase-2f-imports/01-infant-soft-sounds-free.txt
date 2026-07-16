@@ -1,8 +1,8 @@
 TITLE:
 Infant Soft Sounds & Faces
 
-AGE GROUP:
-Infant
+AGE_GROUP:
+Infant 0–6 Months
 
 THEME:
 Soft Sounds and Familiar Faces
@@ -13,18 +13,18 @@ Free
 STATUS:
 draft
 
-LEARNING DOMAINS:
+LEARNING_DOMAINS:
 Social Emotional, Language & Literacy, Physical Development
 
-WEEKLY OVERVIEW:
+WEEKLY_OVERVIEW:
 This gentle week helps infants notice soft sounds, familiar faces, and calm one-to-one play. Keep sessions short, follow each baby's cues, and stop before overstimulation.
 
-LEARNING OBJECTIVES:
+LEARNING_OBJECTIVES:
 Infants will calm to familiar voices and soft music.
 Infants will look toward faces and simple picture cards.
 Infants will practice reaching, grasping, and tummy-time strength.
 
-WEEKLY MATERIALS:
+WEEKLY_MATERIALS:
 Soft scarves, mirror, face picture cards, rattles, soft books, tummy-time mat, basket of fabric squares, calm playlist speaker at low volume
 
 VOCABULARY:
@@ -38,144 +38,491 @@ SONGS:
 Twinkle Twinkle Little Star | Soft hum or quiet voice
 If You're Happy and You Know It | Gentle clap version for older infants
 
-FAMILY CONNECTION:
+FAMILY_CONNECTION:
 Ask families to share one soft song or lullaby they use at home. Play a short clip or hum it during arrival so babies hear familiar sounds.
 
-OBSERVATION OPPORTUNITIES:
+OBSERVATION_OPPORTUNITIES:
 Note eye contact during face play, calming responses to soft sound, and reaching or rolling during tummy time.
 
 ADAPTATIONS:
 Offer side-lying support for babies who tire on tummy time. Use high-contrast cards for visual interest. Keep lighting soft and reduce background noise.
 
-MONDAY:
-ACTIVITY NAME:
+MONDAY
+
+DAILY_THEME:
+Soft Sounds and Familiar Faces: Soft Hello Song and related play (introduce calm bonding, faces, and soft sensory play)
+
+DAILY_OBJECTIVES:
+Support soft sounds and familiar faces learning through soft hello song.
+Support soft sounds and familiar faces learning through face mirror moments.
+
+DAILY_VOCABULARY:
+hello, soft, face, look, gentle, hush
+
+DAILY_MATERIALS:
+Calm space, soft scarf optional
+Unbreakable mirror, soft mat
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Twinkle Twinkle Little Star" at a low volume while offering gentle movement or visual interest tied to soft sounds and familiar faces.
+End with a brief look at Global Babies by The Global Fund for Children or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate soft sounds and familiar faces sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Soft Hello Song
+Engagement during Face Mirror Moments
+Participation and interest in Soft Sounds and Familiar Faces play
+
+DAILY_ADAPTATIONS:
+Offer side-lying support for babies who tire on tummy time. Use high-contrast cards for visual interest. Keep lighting soft and reduce background noise.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
+
+ACTIVITY_NAME:
 Soft Hello Song
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support soft sounds and familiar faces learning through soft hello song.
+DESCRIPTION:
+Caregiver greets each infant with a calm hello song and soft eye contact. Children explore soft sounds and familiar faces through soft hello song.
 MATERIALS:
 Calm space, soft scarf optional
 SETUP:
 Caregiver greets each infant with a calm hello song and soft eye contact.
+TEACHER_ROLE:
+Stay within arm's reach, follow the infant's cues, and narrate soft sounds and familiar faces softly during soft hello song.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Sit close and make gentle eye contact.
 2. Sing a short hello using the baby's name.
 3. Pause and watch for smiles, looks, or calm body cues.
-LEARNING GOAL:
+LEARNING_GOALS:
 Connect with a familiar caregiver voice
 Practice calm social attention
+OBSERVATION_OPPORTUNITIES:
+Engagement during Soft Hello Song
+Use of soft sounds and familiar faces vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Face Mirror Moments
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support soft sounds and familiar faces learning through face mirror moments.
+DESCRIPTION:
+Infants look at their reflection and caregiver faces in a safe mirror. Children explore soft sounds and familiar faces through face mirror moments.
 MATERIALS:
 Unbreakable mirror, soft mat
 SETUP:
 Infants look at their reflection and caregiver faces in a safe mirror.
+TEACHER_ROLE:
+Stay within arm's reach, follow the infant's cues, and narrate soft sounds and familiar faces softly during face mirror moments.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Place the mirror at infant eye level on the mat.
 2. Sit beside the baby and point to faces gently.
 3. Name features slowly: eyes, nose, smile.
-LEARNING GOAL:
+LEARNING_GOALS:
 Notice faces and reflections
 Hear simple face vocabulary
+OBSERVATION_OPPORTUNITIES:
+Engagement during Face Mirror Moments
+Use of soft sounds and familiar faces vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
 
-TUESDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Soft Sounds and Familiar Faces: Soft Scarf Peek and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Support soft sounds and familiar faces learning through soft scarf peek.
+Support soft sounds and familiar faces learning through reach for rattle.
+
+DAILY_VOCABULARY:
+hello, soft, face, look, gentle, hush
+
+DAILY_MATERIALS:
+Soft scarves
+Soft rattles, mat
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Twinkle Twinkle Little Star" at a low volume while offering gentle movement or visual interest tied to soft sounds and familiar faces.
+End with a brief look at Global Babies by The Global Fund for Children or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate soft sounds and familiar faces sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Soft Scarf Peek
+Engagement during Reach for Rattle
+Participation and interest in Soft Sounds and Familiar Faces play
+
+DAILY_ADAPTATIONS:
+Offer side-lying support for babies who tire on tummy time. Use high-contrast cards for visual interest. Keep lighting soft and reduce background noise.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
+
+ACTIVITY_NAME:
 Soft Scarf Peek
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support soft sounds and familiar faces learning through soft scarf peek.
+DESCRIPTION:
+Caregiver slowly lifts and lowers a soft scarf for gentle peekaboo. Children explore soft sounds and familiar faces through soft scarf peek.
 MATERIALS:
 Soft scarves
 SETUP:
 Caregiver slowly lifts and lowers a soft scarf for gentle peekaboo.
+TEACHER_ROLE:
+Stay within arm's reach, follow the infant's cues, and narrate soft sounds and familiar faces softly during soft scarf peek.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Hold the scarf where the infant can see it.
 2. Lift and lower slowly while saying peekaboo softly.
 3. Stop if the baby turns away or fusses.
-LEARNING GOAL:
+LEARNING_GOALS:
 Track slow visual movement
 Enjoy predictable social games
+OBSERVATION_OPPORTUNITIES:
+Engagement during Soft Scarf Peek
+Use of soft sounds and familiar faces vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Reach for Rattle
 CATEGORY:
 Fine Motor
+OBJECTIVE:
+Support soft sounds and familiar faces learning through reach for rattle.
+DESCRIPTION:
+Infants reach toward a soft rattle held within safe reach. Children explore soft sounds and familiar faces through reach for rattle.
 MATERIALS:
 Soft rattles, mat
 SETUP:
 Infants reach toward a soft rattle held within safe reach.
+TEACHER_ROLE:
+Stay within arm's reach, follow the infant's cues, and narrate soft sounds and familiar faces softly during reach for rattle.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Place baby in a supported position.
 2. Hold a rattle just within reach.
 3. Celebrate any reach, bat, or grasp.
-LEARNING GOAL:
+LEARNING_GOALS:
 Practice reaching and grasping
 Connect sound with movement
+OBSERVATION_OPPORTUNITIES:
+Engagement during Reach for Rattle
+Use of soft sounds and familiar faces vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
 
-WEDNESDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Soft Sounds and Familiar Faces: Supported Tummy Time Songs and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Support soft sounds and familiar faces learning through supported tummy time songs.
+
+DAILY_VOCABULARY:
+hello, soft, face, look, gentle, hush
+
+DAILY_MATERIALS:
+Tummy-time mat, soft book
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Twinkle Twinkle Little Star" at a low volume while offering gentle movement or visual interest tied to soft sounds and familiar faces.
+End with a brief look at Global Babies by The Global Fund for Children or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate soft sounds and familiar faces sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Supported Tummy Time Songs
+Participation and interest in Soft Sounds and Familiar Faces play
+
+DAILY_ADAPTATIONS:
+Offer side-lying support for babies who tire on tummy time. Use high-contrast cards for visual interest. Keep lighting soft and reduce background noise.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
+
+ACTIVITY_NAME:
 Supported Tummy Time Songs
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support soft sounds and familiar faces learning through supported tummy time songs.
+DESCRIPTION:
+Short tummy-time sessions paired with soft singing. Children explore soft sounds and familiar faces through supported tummy time songs.
 MATERIALS:
 Tummy-time mat, soft book
 SETUP:
 Short tummy-time sessions paired with soft singing.
+TEACHER_ROLE:
+Stay within arm's reach, follow the infant's cues, and narrate soft sounds and familiar faces softly during supported tummy time songs.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Place infant on tummy with caregiver nearby.
 2. Sing softly and show a high-contrast page.
 3. End after a short successful stretch.
-LEARNING GOAL:
+LEARNING_GOALS:
 Build neck and upper-body strength
 Stay engaged during brief tummy time
+OBSERVATION_OPPORTUNITIES:
+Engagement during Supported Tummy Time Songs
+Use of soft sounds and familiar faces vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
 
-THURSDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Soft Sounds and Familiar Faces: Soft Book Cuddle and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Support soft sounds and familiar faces learning through soft book cuddle.
+
+DAILY_VOCABULARY:
+hello, soft, face, look, gentle, hush
+
+DAILY_MATERIALS:
+Soft or board books
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Twinkle Twinkle Little Star" at a low volume while offering gentle movement or visual interest tied to soft sounds and familiar faces.
+End with a brief look at Global Babies by The Global Fund for Children or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate soft sounds and familiar faces sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Soft Book Cuddle
+Participation and interest in Soft Sounds and Familiar Faces play
+
+DAILY_ADAPTATIONS:
+Offer side-lying support for babies who tire on tummy time. Use high-contrast cards for visual interest. Keep lighting soft and reduce background noise.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
+
+ACTIVITY_NAME:
 Soft Book Cuddle
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support soft sounds and familiar faces learning through soft book cuddle.
+DESCRIPTION:
+One-to-one board book sharing with pauses for looking. Children explore soft sounds and familiar faces through soft book cuddle.
 MATERIALS:
 Soft or board books
 SETUP:
 One-to-one board book sharing with pauses for looking.
+TEACHER_ROLE:
+Stay within arm's reach, follow the infant's cues, and narrate soft sounds and familiar faces softly during soft book cuddle.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Hold the infant comfortably.
 2. Show one page at a time and name one picture.
 3. Follow the baby's gaze and pause often.
-LEARNING GOAL:
+LEARNING_GOALS:
 Attend to pictures and voice
 Hear warm book language
+OBSERVATION_OPPORTUNITIES:
+Engagement during Soft Book Cuddle
+Use of soft sounds and familiar faces vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
 
-FRIDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Soft Sounds and Familiar Faces: Caregiving Pretend Basket and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Support soft sounds and familiar faces learning through caregiving pretend basket.
+Support soft sounds and familiar faces learning through calm goodbye sway.
+
+DAILY_VOCABULARY:
+hello, soft, face, look, gentle, hush
+
+DAILY_MATERIALS:
+Soft doll, small blanket, basket
+Calm playlist optional
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Twinkle Twinkle Little Star" at a low volume while offering gentle movement or visual interest tied to soft sounds and familiar faces.
+End with a brief look at Global Babies by The Global Fund for Children or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate soft sounds and familiar faces sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Caregiving Pretend Basket
+Engagement during Calm Goodbye Sway
+Participation and interest in Soft Sounds and Familiar Faces play
+
+DAILY_ADAPTATIONS:
+Offer side-lying support for babies who tire on tummy time. Use high-contrast cards for visual interest. Keep lighting soft and reduce background noise.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
+
+ACTIVITY_NAME:
 Caregiving Pretend Basket
 CATEGORY:
 Dramatic Play
+OBJECTIVE:
+Support soft sounds and familiar faces learning through caregiving pretend basket.
+DESCRIPTION:
+Older infants explore soft caregiving props with caregiver modeling. Children explore soft sounds and familiar faces through caregiving pretend basket.
 MATERIALS:
 Soft doll, small blanket, basket
 SETUP:
 Older infants explore soft caregiving props with caregiver modeling.
+TEACHER_ROLE:
+Stay within arm's reach, follow the infant's cues, and narrate soft sounds and familiar faces softly during caregiving pretend basket.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Offer one soft doll and blanket.
 2. Model gentle patting and covering.
 3. Narrate kind caregiving words.
-LEARNING GOAL:
+LEARNING_GOALS:
 Explore gentle caregiving actions
 Hear caring language
+OBSERVATION_OPPORTUNITIES:
+Engagement during Caregiving Pretend Basket
+Use of soft sounds and familiar faces vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Calm Goodbye Sway
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support soft sounds and familiar faces learning through calm goodbye sway.
+DESCRIPTION:
+Soft swaying and a short goodbye song to close the week. Children explore soft sounds and familiar faces through calm goodbye sway.
 MATERIALS:
 Calm playlist optional
 SETUP:
 Soft swaying and a short goodbye song to close the week.
+TEACHER_ROLE:
+Stay within arm's reach, follow the infant's cues, and narrate soft sounds and familiar faces softly during calm goodbye sway.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Hold or sit with each infant.
 2. Sway gently while humming goodbye.
 3. End with a quiet smile and soft voice.
-LEARNING GOAL:
+LEARNING_GOALS:
 Experience calm transitions
 Recognize a familiar closing routine
+OBSERVATION_OPPORTUNITIES:
+Engagement during Calm Goodbye Sway
+Use of soft sounds and familiar faces vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
