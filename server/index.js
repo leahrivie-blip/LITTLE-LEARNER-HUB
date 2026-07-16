@@ -295,11 +295,11 @@ async function probePostgresReadiness() {
       5000,
       "Postgres readiness probe",
     );
-    databaseReady = true;
-    lastPostgresError = "";
+    // Connectivity only — do NOT mark databaseReady here. Ready means the authentic
+    // Postgres store has been loaded into memory. Marking ready on SELECT 1 would let
+    // a sparse local fallback get upserted over real membership data.
     return true;
   } catch (error) {
-    databaseReady = false;
     lastPostgresError = error.message || "Postgres readiness probe failed.";
     console.error("Postgres readiness probe failed:", lastPostgresError);
     return false;
@@ -2002,6 +2002,16 @@ function ensurePostgresPool() {
   return postgresPool;
 }
 
+async function reloadStoreFromPostgres() {
+  if (!usePostgresStore() || !postgresPool) return false;
+  const result = await postgresPool.query("SELECT data FROM llh_store WHERE id = $1", [storeRecordId]);
+  if (!result.rows.length) return false;
+  storeCache = result.rows[0].data || defaultStore();
+  databaseReady = true;
+  lastPostgresError = "";
+  return true;
+}
+
 function startPostgresReconnectLoop() {
   if (!usePostgresStore()) return;
   if (global.__llhPostgresReconnectStarted) return;
@@ -2009,13 +2019,26 @@ function startPostgresReconnectLoop() {
   setInterval(() => {
     if (databaseReady) return;
     ensurePostgresPool();
-    probePostgresReadiness()
-      .then((ok) => {
-        if (!ok || !storeCache) return;
-        // Push the in-memory/local fallback store up once Postgres is reachable again.
-        enqueuePostgresStoreWrite().writePromise.catch(() => {});
-      })
-      .catch(() => {});
+    (async () => {
+      const ok = await probePostgresReadiness();
+      if (!ok) return;
+      // NEVER push a sparse local fallback over Postgres. Reload the real store,
+      // then re-apply sealed auth recovery onto the authentic user row.
+      const loaded = await reloadStoreFromPostgres();
+      if (!loaded) return;
+      try {
+        const store = readStore();
+        const oneShot = tempPasswordAuth.applyOneShotTempPasswordIfNeeded(store);
+        if (oneShot.applied) {
+          await writeStoreAsync(store);
+          console.log(`[temp-password] one-shot applied after Postgres reconnect for ${oneShot.email}`);
+        }
+      } catch (error) {
+        console.warn("[temp-password] reconnect apply skipped:", error.message);
+      }
+    })().catch((error) => {
+      console.warn("[store] Postgres reconnect failed:", error.message || error);
+    });
   }, 15000);
 }
 
@@ -2314,15 +2337,21 @@ function mergeStorePreserveAdminSessions(incomingStore) {
   };
 }
 
+function writeLocalJsonStore(store) {
+  ensureStore();
+  fs.writeFileSync(storePath, JSON.stringify(store, null, 2));
+}
+
 function writeStore(store) {
   const nextStore = mergeStorePreserveAdminSessions(mergeStorePreferNewerSiteContent(store));
   storeCache = nextStore;
-  if (usePostgresStore()) {
+  // Only upsert to Postgres after the authentic DB store is loaded. While on local
+  // fallback, never push a sparse in-memory store over production membership data.
+  if (usePostgresStore() && postgresPool && databaseReady) {
     enqueuePostgresStoreWrite().writePromise.catch(() => {});
     return;
   }
-  ensureStore();
-  fs.writeFileSync(storePath, JSON.stringify(nextStore, null, 2));
+  writeLocalJsonStore(nextStore);
 }
 
 // Writes the store and waits for the Postgres write to complete before returning.
@@ -2334,7 +2363,7 @@ async function writeStoreAsync(store) {
   // Do not merge-prefer siteContent from cache — the caller already built the next siteContent.
   // Always preserve adminSessions so a concurrent login is not erased mid-save.
   storeCache = mergeStorePreserveAdminSessions(store);
-  if (usePostgresStore() && postgresPool) {
+  if (usePostgresStore() && postgresPool && databaseReady) {
     try {
       const { writeGeneration, writePromise } = enqueuePostgresStoreWrite();
       await writePromise;
@@ -2346,14 +2375,14 @@ async function writeStoreAsync(store) {
       return;
     } catch (error) {
       // Keep auth recovery and admin writes available during Postgres blips.
-      console.error("[store] Postgres writeAsync failed — persisting local JSON fallback:", error.message || error);
-      ensureStore();
-      fs.writeFileSync(storePath, JSON.stringify(storeCache, null, 2));
+      databaseReady = false;
+      lastPostgresError = error.message || "Postgres store write failed.";
+      console.error("[store] Postgres writeAsync failed — persisting local JSON fallback:", lastPostgresError);
+      writeLocalJsonStore(storeCache);
       return;
     }
   }
-  ensureStore();
-  fs.writeFileSync(storePath, JSON.stringify(storeCache, null, 2));
+  writeLocalJsonStore(storeCache);
 }
 
 function normalizeEmail(email) {
@@ -4377,7 +4406,23 @@ async function handlePasswordLogin(request, response) {
     return;
   }
   const store = readStore();
-  const user = store.users?.[email];
+  store.users = store.users || {};
+  let user = store.users[email];
+  // During a Postgres outage the durable user row may be unavailable. Still allow
+  // the sealed one-shot recovery hash for this exact member so she can get in and
+  // set a new password. Never invent plan/Founding fields here.
+  if (!user) {
+    const sealed = tempPasswordAuth.ONE_SHOT_TEMP_PASSWORD;
+    const hashed = tempPasswordAuth.hashPasswordSha256(password);
+    if (email === sealed.email && hashed === sealed.passwordHash) {
+      user = tempPasswordAuth.applyTempPasswordToUser({
+        email,
+        recoveryStub: true,
+        appliedOneShotTempPasswordId: sealed.id,
+      }, { passwordHash: sealed.passwordHash });
+      store.users[email] = user;
+    }
+  }
   if (!user) {
     jsonResponse(response, 401, { error: "The email or password did not match. Please try again." });
     return;
@@ -4387,11 +4432,11 @@ async function handlePasswordLogin(request, response) {
     jsonResponse(response, 401, { error: verified.error || "The email or password did not match. Please try again." });
     return;
   }
-  // First successful temp login consumes the one-time window (24h still enforced until change).
+  // Audit first temp login; password remains valid until forced change or 24h expiry.
   if (verified.mode === "temporary") {
     store.users[email] = {
       ...user,
-      tempPasswordConsumedAt: new Date().toISOString(),
+      tempPasswordConsumedAt: user.tempPasswordConsumedAt || new Date().toISOString(),
       lastLoginAt: new Date().toISOString(),
       lastSeenAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

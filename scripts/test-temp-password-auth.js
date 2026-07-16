@@ -93,7 +93,7 @@ async function main() {
         role: "owner",
         accountType: "home_daycare",
         // Force one-shot id already applied so this test controls the hash itself.
-        appliedOneShotTempPasswordId: "tclashley-temp-20260716b",
+        appliedOneShotTempPasswordId: "tclashley-temp-20260716c",
         tempPasswordHash: knownHash,
         tempPasswordIssuedAt: new Date().toISOString(),
         tempPasswordExpiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
@@ -144,14 +144,17 @@ async function main() {
     assert.equal(login.json.mustChangePassword, true);
     assert.ok(login.json.memberSessionToken);
     assertNoPlaintextLeak(login.raw, knownTemp);
-    const session = login.json.memberSessionToken;
+    // Prefer the latest temp-login session for the forced change.
+    let session = login.json.memberSessionToken;
 
-    // Temp password is one-login: second login fails.
+    // Temp password stays usable until forced change completes (or 24h expires).
     const second = await request("POST", "/api/auth/password-login", {
       body: { email: EMAIL, password: knownTemp },
     });
-    assert.equal(second.status, 401);
-    assert.match(String(second.json.error || ""), /expired|temporary/i);
+    assert.equal(second.status, 200, JSON.stringify(second.json));
+    assert.equal(second.json.mustChangePassword, true);
+    assert.ok(second.json.memberSessionToken);
+    session = second.json.memberSessionToken;
 
     const newPassword = "BrandNew-Pass-99!";
     const changed = await request("POST", "/api/auth/complete-forced-password-change", {
