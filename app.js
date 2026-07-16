@@ -36042,10 +36042,15 @@ function renderAdminUsersDashboard() {
     });
   }
 
+  const sparseWarning = allAccounts.length > 0 && allAccounts.length <= 5
+    ? `<div class="form-error" style="margin-bottom:12px;">Only ${allAccounts.length} users are loaded. If this looks wrong after the July 16 outage, open <strong>Users → Stripe Backfill</strong> and run <em>Recover users from Stripe now</em>.</div>`
+    : "";
+
   target.innerHTML = `
     <div class="section-heading">
       <div><p class="eyebrow">Users &amp; Memberships</p><h3>Account and subscription overview</h3></div>
     </div>
+    ${sparseWarning}
     <p class="eyebrow">Current Access</p>
     <div class="aup-insight-grid">
       <div class="aup-insight-card">
@@ -38628,19 +38633,88 @@ function renderStripeBackfillReport(report, label) {
   `;
 }
 
+let adminStoreHealthState = { loading: false, health: null, error: "", recovering: false, recoverResult: null };
+
+async function loadAdminStoreHealth() {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return null;
+  adminStoreHealthState.loading = true;
+  adminStoreHealthState.error = "";
+  try {
+    const res = await fetch(`/api/admin/store-health?adminToken=${encodeURIComponent(token)}`, { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Could not load store health.");
+    adminStoreHealthState.health = data.health || null;
+  } catch (error) {
+    adminStoreHealthState.error = error.message || "Store health unavailable.";
+  }
+  adminStoreHealthState.loading = false;
+  return adminStoreHealthState.health;
+}
+
+async function runAdminSparseStoreRecovery({ force = false } = {}) {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return;
+  adminStoreHealthState.recovering = true;
+  adminStoreHealthState.recoverResult = null;
+  adminStoreHealthState.error = "";
+  renderAdminStripeBackfillTab();
+  try {
+    const res = await fetch("/api/admin/recover-sparse-store", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminToken: token, force: force === true }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Recovery failed.");
+    adminStoreHealthState.recoverResult = data.result || null;
+    adminStoreHealthState.health = data.health || adminStoreHealthState.health;
+    await loadAdminAnalytics(true).catch(() => {});
+    renderAdminUsersDashboard();
+  } catch (error) {
+    adminStoreHealthState.error = error.message || "Recovery failed.";
+  }
+  adminStoreHealthState.recovering = false;
+  renderAdminStripeBackfillTab();
+}
+
 function renderAdminStripeBackfillTab() {
   const target = document.querySelector("#adminStripeBackfillApp");
   if (!target || !isAdminUnlocked()) return;
   const s = stripeBackfillState;
+  const health = adminStoreHealthState.health;
+  const sparse = Boolean(health?.sparseStoreSuspected);
+
+  if (!adminStoreHealthState.loading && !health && !adminStoreHealthState.error) {
+    loadAdminStoreHealth().then(() => renderAdminStripeBackfillTab());
+  }
 
   target.innerHTML = `
     <div class="section-heading">
       <div>
         <p class="eyebrow">Admin Only</p>
-        <h3>Stripe Backfill</h3>
-        <p>Reconcile legacy Stripe customers with backend user accounts. Run a dry-run preview first, then confirm to apply changes.</p>
+        <h3>Stripe Backfill / Store Recovery</h3>
+        <p>Rebuild missing users from Stripe after a sparse-store wipe, or reconcile legacy Stripe customers with backend accounts.</p>
       </div>
     </div>
+
+    ${adminStoreHealthState.error ? `<p class="form-error">${escapeHtml(adminStoreHealthState.error)}</p>` : ""}
+    ${health ? `
+      <div class="aup-insight-grid" style="margin-bottom:16px;">
+        <div class="aup-insight-card"><strong>${health.counts?.users ?? "—"}</strong><span>Users in store</span></div>
+        <div class="aup-insight-card"><strong>${health.counts?.messages ?? "—"}</strong><span>Messages</span></div>
+        <div class="aup-insight-card"><strong>${health.counts?.conversations ?? "—"}</strong><span>Conversations</span></div>
+        <div class="aup-insight-card ${sparse ? "aup-insight--canceled" : "aup-insight--pro"}"><strong>${sparse ? "SPARSE" : "OK"}</strong><span>Store health</span></div>
+      </div>
+      <p class="form-note">${escapeHtml(health.note || "")}${health.recovery?.sparseStripeBackfillAt ? ` · Last auto-recovery: ${escapeHtml(health.recovery.sparseStripeBackfillAt)} (${Number(health.recovery.userCountBefore) || 0} → ${Number(health.recovery.userCountAfter) || 0} users)` : ""}</p>
+      <div class="account-actions-row" style="margin-bottom:18px;">
+        <button class="primary-button" type="button" id="adminRecoverSparseStoreBtn" ${adminStoreHealthState.recovering ? "disabled" : ""}>
+          ${adminStoreHealthState.recovering ? "Recovering from Stripe…" : (sparse ? "Recover users from Stripe now" : "Re-run Stripe recovery (force)")}
+        </button>
+        <button class="ghost-button" type="button" id="adminRefreshStoreHealthBtn">Refresh store health</button>
+      </div>
+      ${adminStoreHealthState.recoverResult ? `<p class="form-note">Recovery result: ${escapeHtml(adminStoreHealthState.recoverResult.reason || "")}${adminStoreHealthState.recoverResult.userCountAfter != null ? ` · users now ${adminStoreHealthState.recoverResult.userCountAfter}` : ""}</p>` : ""}
+    ` : (adminStoreHealthState.loading ? `<p class="ai-pm-loading">Checking store health…</p>` : "")}
 
     ${s.error ? `<p class="form-error">${escapeHtml(s.error)}</p>` : ""}
 
@@ -38669,6 +38743,18 @@ function renderAdminStripeBackfillTab() {
     ` : ""}
   `;
 
+  document.querySelector("#adminRecoverSparseStoreBtn")?.addEventListener("click", () => {
+    const force = !sparse;
+    const label = force
+      ? "Force re-run Stripe recovery even if the store no longer looks sparse?"
+      : "Rebuild missing users from Stripe into the production store now?";
+    if (!window.confirm(label)) return;
+    runAdminSparseStoreRecovery({ force });
+  });
+  document.querySelector("#adminRefreshStoreHealthBtn")?.addEventListener("click", async () => {
+    await loadAdminStoreHealth();
+    renderAdminStripeBackfillTab();
+  });
   document.querySelector("#stripeBackfillPreviewBtn")?.addEventListener("click", loadStripeBackfillPreview);
   document.querySelector("#stripeBackfillRunBtn")?.addEventListener("click", runStripeBackfillConfirm);
   document.querySelector("#stripeBackfillResetBtn")?.addEventListener("click", () => {
