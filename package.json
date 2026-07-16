@@ -59,6 +59,7 @@
     "test:child-profile-redesign": "node scripts/test-child-profile-redesign.js",
     "test:prod-load-admin-fix": "node scripts/test-prod-load-admin-fix.js",
     "test:domain-dns-fix": "node scripts/test-domain-dns-fix.js",
+    "test:email-system-audit": "node scripts/test-email-system-audit.js",
     "test:homepage-signup-cta": "node scripts/test-homepage-signup-cta.js",
     "test:signup-buttons-audit": "node scripts/test-signup-buttons-audit.js",
     "test:homepage-redesign-audit": "node scripts/test-homepage-redesign-audit.js",

@@ -8761,11 +8761,10 @@ async function signUpWithProvider(email, password, phone, firstName, lastName) {
   if (firebaseAuthEnabled) {
     const client = await getFirebaseAuthClient();
     const credential = await client.createUserWithEmailAndPassword(client.auth, cleanEmail, password);
-    await client.sendEmailVerification(credential.user);
     ensureAccount(cleanEmail);
     updateAccount(cleanEmail, {
       authProvider: "Firebase Authentication",
-      emailVerified: credential.user.emailVerified,
+      emailVerified: accounts()[cleanEmail]?.emailVerified || credential.user.emailVerified,
       firebaseUid: credential.user.uid,
       phone: String(phone || "").trim(),
       firstName: cleanFirst,
@@ -8825,7 +8824,7 @@ async function loginWithProvider(email, password) {
       ensureAccount(cleanEmail);
       updateAccount(cleanEmail, {
         authProvider: "Firebase Authentication",
-        emailVerified: credential.user.emailVerified,
+        emailVerified: accounts()[cleanEmail]?.emailVerified || credential.user.emailVerified,
         firebaseUid: credential.user.uid,
       });
       return { email: cleanEmail, verified: credential.user.emailVerified, mustChangePassword: accountRequiresPasswordChange(accounts()[cleanEmail]) };
@@ -8899,32 +8898,26 @@ async function completeForcedPasswordChange(newPassword, confirmPassword) {
 async function sendPasswordReset(email) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail) throw new Error("Please enter your email address.");
-  if (firebaseAuthEnabled) {
-    const client = await getFirebaseAuthClient();
-    const resetUrl = window.location.origin && window.location.origin !== "null"
-      ? `${window.location.origin}${window.location.pathname}`
-      : window.location.href.split("?")[0];
-    await client.sendPasswordResetEmail(client.auth, cleanEmail, {
-      url: resetUrl,
-      handleCodeInApp: false,
-    });
-    return "Password reset email sent. Please check your inbox.";
-  }
-  const token = `demo-reset-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  localStorage.setItem("llhDemoResetToken", JSON.stringify({ email: cleanEmail, token, createdAt: new Date().toISOString() }));
-  return "Demo reset created. Connect Firebase Auth to send real password reset emails.";
+  const response = await fetch("/api/auth/request-password-reset", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: cleanEmail }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Could not send the password reset email.");
+  return data.message || "If that email is in Little Learner Hub, a password reset link has been sent.";
 }
 
 async function resendVerificationEmail() {
   if (!currentUser) throw new Error("Please log in before requesting a verification email.");
-  if (firebaseAuthEnabled) {
-    const client = await getFirebaseAuthClient();
-    if (!client.auth.currentUser) throw new Error("Please log in again before requesting verification.");
-    await client.sendEmailVerification(client.auth.currentUser);
-    return "Verification email sent. Please check your inbox.";
-  }
-  updateAccount(currentUser, { emailVerified: false });
-  return "Demo mode: connect Firebase Auth to send a real verification email.";
+  const response = await fetch("/api/auth/send-verification-email", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: currentUser }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Could not send the verification email.");
+  return data.message || "Verification email sent. Please check your inbox.";
 }
 
 async function changePassword(currentPassword, newPassword) {
@@ -8951,6 +8944,28 @@ async function changePassword(currentPassword, newPassword) {
 async function confirmPasswordResetFromLink(newPassword) {
   if (String(newPassword || "").length < 8) throw new Error("Please use a password with at least 8 characters.");
   const params = new URLSearchParams(window.location.search);
+  const resetToken = params.get("resetToken");
+  if (resetToken) {
+    const response = await fetch("/api/auth/password-reset/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: resetToken, newPassword, confirmPassword: newPassword }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Could not complete the password reset.");
+    const email = String(data.email || "").trim().toLowerCase();
+    if (email) {
+      ensureAccount(email);
+      updateAccount(email, {
+        passwordHash: await localPasswordHash(newPassword),
+        serverPasswordAuth: true,
+        mustChangePassword: false,
+        tempPasswordExpiresAt: "",
+        emailVerified: true,
+      });
+    }
+    return data.message || "Password reset complete. You can now log in.";
+  }
   const oobCode = params.get("oobCode");
   if (firebaseAuthEnabled && oobCode) {
     const client = await getFirebaseAuthClient();
@@ -41411,7 +41426,10 @@ function renderResetPasswordPage() {
   const message = document.querySelector("#resetPasswordMessage");
   if (!message) return;
   const params = new URLSearchParams(window.location.search);
-  if (firebaseAuthEnabled && params.get("mode") === "resetPassword" && params.get("oobCode")) {
+  const resetToken = params.get("resetToken");
+  if (resetToken) {
+    setFormMessage(message, "Enter a new password to complete your secure reset.", true);
+  } else if (firebaseAuthEnabled && params.get("mode") === "resetPassword" && params.get("oobCode")) {
     setFormMessage(message, "Enter a new password to complete your secure reset.", true);
   } else if (!firebaseAuthEnabled && localStorage.getItem("llhDemoResetToken")) {
     setFormMessage(message, "Demo reset mode is active. Enter a new password to test the recovery screen.", true);

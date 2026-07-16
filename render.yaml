@@ -45,6 +45,12 @@ services:
         sync: false
       - key: PRODUCTION_DATABASE_SERVICE_KEY
         sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: SUPPORT_EMAIL_FROM
+        value: "Little Learner Hub <support@littlelearnershubbyleah.com>"
+      - key: SUPPORT_EMAIL_TO
+        value: "support@littlelearnershubbyleah.com"
       # Push notifications work with no setup — VAPID keys auto-generate and
       # persist in the database on first boot. Set these only if you want to
       # pin a specific key pair (see docs/MESSAGING_AND_PUSH_SETUP.md).
