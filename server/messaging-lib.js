@@ -9,7 +9,12 @@
 
 const MESSAGE_KINDS = Object.freeze(["message", "announcement", "feature_update", "support_reply", "bug_update"]);
 const AUDIENCES = Object.freeze(["private", "free", "pro", "founding", "selected", "all"]);
-const NOTIFICATION_TYPES = Object.freeze(["message", "announcement", "feature_update", "support_reply", "bug_update"]);
+const NOTIFICATION_TYPES = Object.freeze([
+  "message", "announcement", "feature_update", "support_reply", "bug_update",
+  "feature_status", "trial_ending", "subscription_change",
+  "lesson_plans_released", "activities_added", "form_required",
+  "admin_new_message", "admin_new_support", "admin_new_feature", "admin_new_bug",
+]);
 
 function audienceLabel(audience) {
   switch (audience) {
@@ -127,6 +132,44 @@ function pushCopyForNotification({ type, senderName = "Leah", title = "" }) {
       return {
         title: title || "Little Learner Hub",
         body: "A feature update is ready — open the app to see what's new.",
+      };
+    case "feature_status":
+      return {
+        title: "Little Learner Hub",
+        body: "Your feature request has a status update.",
+      };
+    case "trial_ending":
+      return {
+        title: "Little Learner Hub",
+        body: "Your trial is ending soon — open the app for details.",
+      };
+    case "subscription_change":
+      return {
+        title: "Little Learner Hub",
+        body: "There's an update on your subscription.",
+      };
+    case "lesson_plans_released":
+      return {
+        title: title || "Little Learner Hub",
+        body: "New lesson plans are available.",
+      };
+    case "activities_added":
+      return {
+        title: title || "Little Learner Hub",
+        body: "New activities were added.",
+      };
+    case "form_required":
+      return {
+        title: "Little Learner Hub",
+        body: "A form needs your attention.",
+      };
+    case "admin_new_message":
+    case "admin_new_support":
+    case "admin_new_feature":
+    case "admin_new_bug":
+      return {
+        title: "Little Learner Hub Admin",
+        body: title || "You have a new admin alert.",
       };
     case "support_reply":
       return {
