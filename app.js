@@ -3866,7 +3866,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","reviews","founder","images","analytics","support","feedback","emails","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-compose","messages-conversations","message-templates","user-health","automations","changelog","feature-requests","bug-reports"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","reviews","founder","images","analytics","support","feedback","emails","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","admin-inbox","messages-compose","messages-conversations","message-templates","user-health","automations","changelog","feature-requests","bug-reports"]);
 // FUTURE ADMIN BUILD: lessonPlanResourceCategories is currently hardcoded.
 // A future admin section should allow adding, renaming, and reordering these category labels
 // so new upload categories can be managed without a code change.
@@ -3881,7 +3881,7 @@ if (adminActiveSectionTab === "activities") adminActiveSectionTab = "curriculum-
 // ─── Admin 2.0 Navigation Groups ─────────────────────────────────────────────
 const adminGroups = [
   { id: "dashboard", icon: "🏠", label: "Dashboard",  tabs: ["dashboard", "analytics", "support", "feedback", "feature-requests", "bug-reports", "emails"], defaultTab: "dashboard" },
-  { id: "messages",  icon: "💬", label: "Messages",   tabs: ["messages-compose", "messages-conversations", "message-templates", "automations"], defaultTab: "messages-compose" },
+  { id: "messages",  icon: "💬", label: "Messages",   tabs: ["admin-inbox", "messages-compose", "messages-conversations", "message-templates", "automations"], defaultTab: "admin-inbox" },
   { id: "content",   icon: "📚", label: "Content",    tabs: ["curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "reviews", "founder", "resources"], defaultTab: "curriculum-lesson-plans" },
   { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
   { id: "users",     icon: "👥", label: "Users",      tabs: ["users", "user-health", "stripe-backfill"], defaultTab: "users" },
@@ -3897,6 +3897,7 @@ const adminGroupForTab = {
   "feature-requests": "dashboard",
   "bug-reports": "dashboard",
   "emails":      "dashboard",
+  "admin-inbox": "messages",
   "messages-compose": "messages",
   "messages-conversations": "messages",
   "message-templates": "messages",
@@ -3937,6 +3938,7 @@ const adminTabLabels = {
   "feature-requests": "Feature Requests",
   "bug-reports": "Bug Reports",
   "emails":      "Emails",
+  "admin-inbox": "Admin Inbox",
   "messages-compose": "Message Someone",
   "messages-conversations": "Conversations",
   "message-templates": "Templates",
@@ -35138,6 +35140,7 @@ function applyAdminSectionVisibility() {
     ".admin-stripe-backfill-panel",
     ".admin-site-editor-panel",
     ".admin-messages-panel",
+    ".admin-inbox-panel",
     ".admin-templates-panel",
     ".admin-user-health-panel",
     ".admin-automations-panel",
@@ -35246,6 +35249,12 @@ function applyAdminSectionVisibility() {
     if (el) el.hidden = false;
     if (typeof window.renderAdminChangelogEditor === "function") {
       window.renderAdminChangelogEditor(document.querySelector("#adminChangelogApp"));
+    }
+  } else if (tab === "admin-inbox") {
+    const el = document.querySelector(".admin-inbox-panel");
+    if (el) el.hidden = false;
+    if (typeof window.renderAdminInbox === "function") {
+      window.renderAdminInbox(document.querySelector("#adminInboxApp"));
     }
   } else if (tab === "messages-compose" || tab === "messages-conversations") {
     const el = document.querySelector(".admin-messages-panel");
@@ -35710,6 +35719,7 @@ function adminUserCard(account) {
       <div class="aup-card-actions">
         <button class="ghost-button aup-btn" type="button" data-aup-view="${escapeHtml(email)}">View Details</button>
         <button class="ghost-button aup-btn" type="button" data-aup-message="${escapeHtml(email)}">Message User</button>
+        <button class="ghost-button aup-btn" type="button" data-aup-open-conversation="${escapeHtml(email)}">View Conversation</button>
         <button class="primary-button aup-btn" type="button" data-aup-manage="${escapeHtml(email)}">Manage</button>
       </div>
     </div>
@@ -35858,15 +35868,17 @@ function renderAdminUsersDashboard() {
     });
   }
 
-  // View / Manage / Message button delegation
+  // View / Manage / Message / Conversation button delegation
   if (listEl) {
     listEl.addEventListener("click", (e) => {
       const viewEmail = e.target.closest("[data-aup-view]")?.dataset?.aupView;
       const manageEmail = e.target.closest("[data-aup-manage]")?.dataset?.aupManage;
       const messageEmail = e.target.closest("[data-aup-message]")?.dataset?.aupMessage;
+      const conversationEmail = e.target.closest("[data-aup-open-conversation]")?.dataset?.aupOpenConversation;
       if (viewEmail) openAdminUserProfile(viewEmail, "view");
       if (manageEmail) openAdminUserProfile(manageEmail, "manage");
       if (messageEmail) startAdminMessageToUser(messageEmail);
+      if (conversationEmail) startAdminMessageToUser(conversationEmail, { openConversation: true });
     });
   }
 }
