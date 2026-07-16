@@ -44,6 +44,9 @@ function defaultOneTimeWelcomeUpdate() {
     lastAuditAt: "",
     lastAuditPassed: false,
     lastAuditToken: "",
+    preparedAt: "",
+    preparedRecipientCount: 0,
+    preparedSubject: "",
   };
 }
 
@@ -514,6 +517,7 @@ function createEmailEngagement(deps) {
     isCurriculumLessonPublic,
     getDatabaseStatus = () => ({}),
     getAdminEmail = () => "",
+    getSupportEmailStatus = () => ({ ready: false, provider: "not configured", fromConfigured: false }),
     // Optional: when provided, used to cross-check audience "all" recipients.
     resolveAudienceRecipients = null,
   } = deps;
@@ -1067,6 +1071,11 @@ function createEmailEngagement(deps) {
       && recipientListMatchesDb
       && totalUsers === dbUserEmails.size;
 
+    const emailStatus = typeof getSupportEmailStatus === "function"
+      ? (getSupportEmailStatus() || {})
+      : {};
+    const emailProviderReady = Boolean(emailStatus.ready);
+
     const checks = [
       {
         id: "total_users",
@@ -1136,6 +1145,17 @@ function createEmailEngagement(deps) {
           ? "User directory, dashboard list, and recipient resolution use the full unfiltered store"
           : "A filter or slice appears to be hiding users from the dashboard or recipient list",
       },
+      {
+        id: "email_provider_ready",
+        label: "Email provider is configured and ready to send",
+        pass: emailProviderReady || (allowLocalForTests && nodeEnv === "test"),
+        value: emailStatus.provider || "not configured",
+        detail: emailProviderReady
+          ? `Provider ${emailStatus.provider || "configured"} is ready (from address configured)`
+          : (allowLocalForTests && nodeEnv === "test"
+            ? "Test mode: provider soft-fail allowed for prepare/audit coverage"
+            : "Outbound email is not ready. Set RESEND_API_KEY (or SendGrid/Postmark) plus SUPPORT_EMAIL_FROM."),
+      },
     ];
 
     const auditPassed = checks.every((check) => check.pass);
@@ -1178,11 +1198,82 @@ function createEmailEngagement(deps) {
       },
       checks,
       oneTimeWelcomeUpdate: eng.settings.oneTimeWelcomeUpdate,
+      emailProvider: {
+        ready: emailProviderReady,
+        provider: emailStatus.provider || "not configured",
+        fromConfigured: Boolean(emailStatus.fromConfigured),
+        to: emailStatus.to || "",
+        note: emailStatus.note || "",
+      },
       sendUnlocked: Boolean(
         auditPassed
         && auditToken
         && !eng.settings.oneTimeWelcomeUpdate.sentAt,
       ),
+    };
+  }
+
+  /**
+   * Build the one-time welcome/update email + recipient list without sending.
+   * Safe to run anytime after (or with) the preflight audit.
+   */
+  function prepareOneTimeWelcomeUpdate(options = {}) {
+    const store = options.store || readStore();
+    const eng = ensureEmailEngagement(store);
+    const state = eng.settings.oneTimeWelcomeUpdate || defaultOneTimeWelcomeUpdate();
+    const adminEmail = String(options.adminEmail || getAdminEmail() || "").trim().toLowerCase();
+    const emailStatus = typeof getSupportEmailStatus === "function"
+      ? (getSupportEmailStatus() || {})
+      : {};
+    const recipients = eligibleOneTimeRecipients(store, { adminEmail });
+    const sampleUser = store.users?.[recipients[0]] || {
+      email: recipients[0] || "teacher@example.com",
+      firstName: "there",
+    };
+    const content = buildWelcomeUpdateContent(sampleUser, { siteUrl: SITE_URL, htmlEscape });
+    const alreadySent = Boolean(state.sentAt);
+    const preparedAt = new Date().toISOString();
+
+    eng.settings.oneTimeWelcomeUpdate = {
+      ...defaultOneTimeWelcomeUpdate(),
+      ...state,
+      preparedAt,
+      preparedRecipientCount: recipients.length,
+      preparedSubject: content.subject,
+    };
+    writeStore(store);
+
+    return {
+      prepared: true,
+      sent: false,
+      willSend: false,
+      dryRun: true,
+      alreadySent,
+      preparedAt,
+      subject: content.subject,
+      textPreview: content.text,
+      htmlPreview: content.html,
+      ctaSiteUrl: siteBase(SITE_URL),
+      recipients: {
+        count: recipients.length,
+        sample: recipients.slice(0, 20),
+        fullListIncluded: false,
+      },
+      emailProvider: {
+        ready: Boolean(emailStatus.ready),
+        provider: emailStatus.provider || "not configured",
+        fromConfigured: Boolean(emailStatus.fromConfigured),
+        to: emailStatus.to || "",
+        note: emailStatus.note || "",
+      },
+      audit: {
+        lastAuditAt: state.lastAuditAt || "",
+        lastAuditPassed: Boolean(state.lastAuditPassed),
+        sendUnlocked: Boolean(state.lastAuditPassed && state.lastAuditToken && !alreadySent),
+      },
+      note: alreadySent
+        ? "This one-time email was already sent. Prepare shows the template only — no send."
+        : "Emails are prepared only. Nothing was sent. Use send-one-time with confirm:true after audit to deliver.",
     };
   }
 
@@ -1393,6 +1484,7 @@ function createEmailEngagement(deps) {
     buildWelcomeUpdateContent,
     eligibleOneTimeRecipients,
     runPreflightAudit,
+    prepareOneTimeWelcomeUpdate,
     sendOneTimeWelcomeUpdate,
     countAdminInboxFromStore,
   };
