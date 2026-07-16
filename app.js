@@ -3853,7 +3853,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","reviews","founder","images","analytics","support","feedback","emails","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","reviews","founder","images","analytics","support","feedback","emails","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-compose","messages-conversations"]);
 // FUTURE ADMIN BUILD: lessonPlanResourceCategories is currently hardcoded.
 // A future admin section should allow adding, renaming, and reordering these category labels
 // so new upload categories can be managed without a code change.
@@ -3868,6 +3868,7 @@ if (adminActiveSectionTab === "activities") adminActiveSectionTab = "curriculum-
 // ─── Admin 2.0 Navigation Groups ─────────────────────────────────────────────
 const adminGroups = [
   { id: "dashboard", icon: "🏠", label: "Dashboard",  tabs: ["dashboard", "analytics", "support", "feedback", "emails"], defaultTab: "dashboard" },
+  { id: "messages",  icon: "💬", label: "Messages",   tabs: ["messages-compose", "messages-conversations"], defaultTab: "messages-compose" },
   { id: "content",   icon: "📚", label: "Content",    tabs: ["curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "reviews", "founder", "resources"], defaultTab: "curriculum-lesson-plans" },
   { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
   { id: "users",     icon: "👥", label: "Users",      tabs: ["users", "stripe-backfill"], defaultTab: "users" },
@@ -3881,6 +3882,8 @@ const adminGroupForTab = {
   "support":     "dashboard",
   "feedback":    "dashboard",
   "emails":      "dashboard",
+  "messages-compose": "messages",
+  "messages-conversations": "messages",
   "curriculum-lesson-plans": "content",
   "curriculum-activities": "content",
   "curriculum-resources": "content",
@@ -3913,6 +3916,8 @@ const adminTabLabels = {
   "support":     "Support",
   "feedback":    "Feedback",
   "emails":      "Emails",
+  "messages-compose": "Compose",
+  "messages-conversations": "Conversations",
   "curriculum-lesson-plans": "Play-Based Lessons",
   "curriculum-activities": "Curriculum Activities",
   "curriculum-resources": "Curriculum Resources",
@@ -8736,6 +8741,13 @@ function updateAuthButtons() {
   syncPlatformNavVisibility();
   updateBodyAuthClass();
   refreshAdminPreviewBadge();
+  // Auth state just changed (login, logout, or boot restore) — keep the
+  // notification bell in sync either way (it also hides itself when logged out).
+  if (typeof refreshNotificationBell === "function") {
+    refreshNotificationBell();
+    if (currentUser) startNotificationBellPolling();
+    else if (notificationBellPollTimer) { clearInterval(notificationBellPollTimer); notificationBellPollTimer = null; }
+  }
 }
 
 /** Map SPA views to platform capabilities for role/account-type guards. */
@@ -9026,6 +9038,721 @@ function deferInstallPrompt() {
   refreshInstallSurfaces();
   updateInstallSettingsPanel();
 }
+
+// ─── Member Messaging Center + Push Notifications ──────────────────────────
+// In-app messages/notifications are always the source of truth (fetched from
+// the server on every refresh). Push is a best-effort layer on top: if the
+// browser doesn't support it, the user declined, or a send fails, the bell
+// and Messages tab keep working exactly the same.
+
+let notificationBellState = { items: [], unreadCount: 0, open: false, loaded: false };
+let messagesViewState = { tab: "conversation", conversation: [], inbox: [], reply: "", loaded: false };
+let pushUiState = { preference: null, deviceCount: 0, publicKey: "", supportedOnServer: false, busy: false, lastMessage: "" };
+let notificationBellPollTimer = null;
+
+async function messagingAuthHeaders() {
+  if (!isLoggedIn() || !canUseLaunchBackend()) return null;
+  return staffAuthHeaders();
+}
+
+function notificationTypeIcon(type) {
+  switch (type) {
+    case "message": return "💬";
+    case "announcement": return "📣";
+    case "support_reply": return "🛟";
+    case "bug_update": return "🛠️";
+    default: return "🔔";
+  }
+}
+
+function messagingRelativeTime(iso) {
+  const then = new Date(iso || "").getTime();
+  if (!Number.isFinite(then)) return "";
+  const diffMs = Date.now() - then;
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  if (diffMs < minute) return "Just now";
+  if (diffMs < hour) return `${Math.max(1, Math.round(diffMs / minute))}m ago`;
+  if (diffMs < day) return `${Math.round(diffMs / hour)}h ago`;
+  if (diffMs < 7 * day) return `${Math.round(diffMs / day)}d ago`;
+  return new Date(then).toLocaleDateString();
+}
+
+async function fetchNotificationsFromBackend() {
+  const headers = await messagingAuthHeaders();
+  if (!headers) return { notifications: [], unreadCount: 0 };
+  try {
+    const res = await fetch("/api/notifications?limit=50", { headers, cache: "no-store" });
+    if (!res.ok) return { notifications: [], unreadCount: 0 };
+    return await res.json();
+  } catch (error) {
+    console.warn("Could not load notifications", error);
+    return { notifications: [], unreadCount: 0 };
+  }
+}
+
+async function refreshNotificationBell() {
+  if (!isLoggedIn()) {
+    notificationBellState = { items: [], unreadCount: 0, open: notificationBellState.open, loaded: true };
+    renderNotificationBell();
+    return;
+  }
+  const data = await fetchNotificationsFromBackend();
+  notificationBellState.items = Array.isArray(data.notifications) ? data.notifications : [];
+  notificationBellState.unreadCount = Number(data.unreadCount) || 0;
+  notificationBellState.loaded = true;
+  renderNotificationBell();
+}
+
+function renderNotificationBell() {
+  const wrap = document.querySelector("#notificationBellWrap");
+  if (wrap) wrap.hidden = !isLoggedIn();
+  const count = notificationBellState.unreadCount;
+  const badgeText = count > 99 ? "99+" : String(count);
+  [document.querySelector("#notificationBellBadge"), document.querySelector("#messagesNavBadge")].forEach((el) => {
+    if (!el) return;
+    el.hidden = count <= 0;
+    el.textContent = badgeText;
+  });
+  const bellBtn = document.querySelector("#notificationBellBtn");
+  if (bellBtn) bellBtn.setAttribute("aria-expanded", String(notificationBellState.open));
+  const panel = document.querySelector("#notificationBellPanel");
+  if (panel) panel.hidden = !notificationBellState.open;
+  const list = document.querySelector("#notificationBellList");
+  if (!list) return;
+  if (!notificationBellState.items.length) {
+    list.innerHTML = `<p class="notification-empty">No notifications yet. Messages from Leah will show up here.</p>`;
+    return;
+  }
+  list.innerHTML = notificationBellState.items.slice(0, 20).map((n) => `
+    <button type="button" class="notification-bell-item${n.read ? "" : " unread"}" data-notification-id="${escapeHtml(n.id)}" data-notification-conversation="${escapeHtml(n.conversationEmail || "")}">
+      <span class="notification-item-icon" aria-hidden="true">${notificationTypeIcon(n.type)}</span>
+      <span class="notification-item-body">
+        <strong>${escapeHtml(n.title || "Little Learner Hub")}</strong>
+        <span>${escapeHtml(n.preview || "")}</span>
+        <small>${escapeHtml(messagingRelativeTime(n.createdAt))}</small>
+      </span>
+    </button>
+  `).join("");
+}
+
+function toggleNotificationBellPanel(forceOpen) {
+  notificationBellState.open = typeof forceOpen === "boolean" ? forceOpen : !notificationBellState.open;
+  renderNotificationBell();
+  if (notificationBellState.open) refreshNotificationBell();
+}
+
+async function markNotificationRead({ id, conversationEmail, all } = {}) {
+  const headers = await messagingAuthHeaders();
+  if (!headers) return;
+  try {
+    const body = {};
+    if (all) body.all = true;
+    else if (conversationEmail) body.conversationEmail = conversationEmail;
+    else if (id) body.notificationIds = [id];
+    await fetch("/api/messages/mark-read", { method: "POST", headers, body: JSON.stringify(body) });
+  } catch (error) {
+    console.warn("Could not mark notification read", error);
+  }
+  await refreshNotificationBell();
+}
+
+function startNotificationBellPolling() {
+  if (notificationBellPollTimer) clearInterval(notificationBellPollTimer);
+  notificationBellPollTimer = setInterval(() => {
+    if (isLoggedIn() && document.visibilityState === "visible") refreshNotificationBell();
+  }, 45000);
+}
+
+// ─── Messages page (conversation with Leah + updates + notification prefs) ──
+
+function messagesPageSetTab(tab) {
+  messagesViewState.tab = tab;
+  renderMessagesPageBody();
+}
+
+async function renderMessagesPage(options = {}) {
+  const section = document.querySelector("#view-messages");
+  if (!section) return;
+  if (!isLoggedIn()) {
+    section.innerHTML = renderManageSurfaceShell({
+      eyebrow: "Messages",
+      title: "Log in to view your messages",
+      detail: "Create a free account or log in to message Leah, read announcements, and manage notification settings.",
+      bodyHtml: `<button class="primary-button" type="button" data-action="open-login">Log In</button>`,
+    });
+    return;
+  }
+  if (options.conversation) messagesViewState.tab = "conversation";
+  section.innerHTML = `<div class="messages-page-shell" id="messagesPageShell"><p class="messages-loading">Loading your messages…</p></div>`;
+  await Promise.all([refreshMessagesData(), refreshPushPreferenceState()]);
+  renderMessagesPageBody();
+  // Opening the Messages page is the "read" action for the private thread —
+  // matches "Mark messages read" without a separate required click.
+  if (messagesViewState.tab === "conversation" && messagesViewState.conversation.length) {
+    markNotificationRead({ conversationEmail: currentUser });
+  }
+}
+
+async function refreshMessagesData() {
+  const headers = await messagingAuthHeaders();
+  if (!headers) {
+    messagesViewState.conversation = [];
+    messagesViewState.inbox = [];
+    return;
+  }
+  try {
+    const [convoRes, inboxRes] = await Promise.all([
+      fetch("/api/messages/conversation", { headers, cache: "no-store" }),
+      fetch("/api/messages/inbox", { headers, cache: "no-store" }),
+    ]);
+    const convoData = convoRes.ok ? await convoRes.json().catch(() => ({})) : {};
+    const inboxData = inboxRes.ok ? await inboxRes.json().catch(() => ({})) : {};
+    messagesViewState.conversation = Array.isArray(convoData.messages) ? convoData.messages : [];
+    messagesViewState.inbox = Array.isArray(inboxData.items) ? inboxData.items : [];
+  } catch (error) {
+    console.warn("Could not load messages", error);
+  }
+  messagesViewState.loaded = true;
+}
+
+function messageBubbleHtml(message) {
+  const mine = message.senderType === "user";
+  const who = mine ? "You" : (message.senderName || "Leah");
+  return `
+    <div class="message-bubble ${mine ? "message-bubble-mine" : "message-bubble-admin"}">
+      <div class="message-bubble-meta"><strong>${escapeHtml(who)}</strong><span>${escapeHtml(messagingRelativeTime(message.createdAt))}</span></div>
+      <div class="message-bubble-body">${escapeHtml(message.body || "").replace(/\n/g, "<br>")}</div>
+    </div>
+  `;
+}
+
+function renderMessagesConversationTab() {
+  const messages = messagesViewState.conversation;
+  const list = messages.length
+    ? messages.map(messageBubbleHtml).join("")
+    : `<p class="messages-empty">No messages yet. Send Leah a note and she'll reply here.</p>`;
+  return `
+    <div class="messages-conversation">
+      <div class="messages-thread" id="messagesThread">${list}</div>
+      <form class="messages-reply-form" id="messagesReplyForm">
+        <textarea id="messagesReplyInput" placeholder="Write a message to Leah…" maxlength="4000" rows="2"></textarea>
+        <button type="submit" class="primary-button">Send</button>
+      </form>
+    </div>
+  `;
+}
+
+function renderMessagesUpdatesTab() {
+  const items = messagesViewState.inbox;
+  if (!items.length) {
+    return `<p class="messages-empty">No announcements yet. Updates from Little Learner Hub will show up here.</p>`;
+  }
+  return `
+    <div class="messages-updates-list">
+      ${items.map(({ notification, message }) => `
+        <button type="button" class="messages-update-item${notification.read ? "" : " unread"}" data-notification-id="${escapeHtml(notification.id)}">
+          <div class="messages-update-item-head">
+            <strong>${escapeHtml(notification.title || message?.subject || "Little Learner Hub")}</strong>
+            <small>${escapeHtml(messagingRelativeTime(notification.createdAt))}</small>
+          </div>
+          <p>${escapeHtml(message?.body || notification.preview || "")}</p>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function pushPreferenceStatusText() {
+  if (!browserPushSupport()) return "Push notifications are not supported in this browser.";
+  const decision = pushUiState.preference?.decision || "default";
+  if (Notification.permission === "denied") {
+    return "Notifications are blocked for Little Learner Hub in this browser's settings. You can turn them back on there anytime.";
+  }
+  if (decision === "granted" && pushUiState.preference?.pushEnabled) {
+    return `Push notifications are ON for this device.${pushUiState.deviceCount > 1 ? ` (${pushUiState.deviceCount} devices enabled across your account.)` : ""}`;
+  }
+  if (decision === "denied") {
+    return "Push notifications are off. You can turn them on anytime — we won't ask again unless you do.";
+  }
+  return "You haven't chosen yet. Turn this on to get notified about new messages and updates.";
+}
+
+function renderMessagesPreferencesTab() {
+  const enabled = Boolean(pushUiState.preference?.pushEnabled) && Notification.permission === "granted" && browserPushSupport();
+  return `
+    <div class="messages-preferences">
+      <div class="notification-pref-card">
+        <div class="notification-pref-copy">
+          <strong>Receive push notifications from Little Learner Hub</strong>
+          <p>${escapeHtml(pushPreferenceStatusText())}</p>
+        </div>
+        <label class="toggle-switch" aria-label="Receive push notifications from Little Learner Hub">
+          <input type="checkbox" id="pushNotificationToggle" ${enabled ? "checked" : ""} ${browserPushSupport() ? "" : "disabled"} />
+          <span class="toggle-switch-track"><span class="toggle-switch-thumb"></span></span>
+        </label>
+      </div>
+      ${pushUiState.lastMessage ? `<p class="notification-pref-message">${escapeHtml(pushUiState.lastMessage)}</p>` : ""}
+      <p class="notification-pref-note">Notifications never include private message text — open the app to read the full message. Sensitive details always stay in-app.</p>
+    </div>
+  `;
+}
+
+function renderMessagesPageBody() {
+  const section = document.querySelector("#view-messages");
+  if (!section) return;
+  const tab = messagesViewState.tab;
+  section.innerHTML = `
+    <div class="messages-page-shell">
+      <div class="page-title">
+        <p class="eyebrow">Messages</p>
+        <h2>Messages from Little Learner Hub</h2>
+        <p>Message Leah directly, catch up on announcements, and control your notifications.</p>
+      </div>
+      <div class="messages-tabs" role="tablist">
+        <button type="button" class="messages-tab${tab === "conversation" ? " active" : ""}" data-messages-tab="conversation" role="tab" aria-selected="${tab === "conversation"}">Conversation with Leah</button>
+        <button type="button" class="messages-tab${tab === "updates" ? " active" : ""}" data-messages-tab="updates" role="tab" aria-selected="${tab === "updates"}">Updates &amp; Announcements${messagesViewState.inbox.some((i) => !i.notification.read) ? ' <span class="messages-tab-dot"></span>' : ""}</button>
+        <button type="button" class="messages-tab${tab === "preferences" ? " active" : ""}" data-messages-tab="preferences" role="tab" aria-selected="${tab === "preferences"}">Notification Settings</button>
+      </div>
+      <div class="messages-tab-panel">
+        ${tab === "conversation" ? renderMessagesConversationTab() : ""}
+        ${tab === "updates" ? renderMessagesUpdatesTab() : ""}
+        ${tab === "preferences" ? renderMessagesPreferencesTab() : ""}
+      </div>
+    </div>
+  `;
+  const thread = document.querySelector("#messagesThread");
+  if (thread) thread.scrollTop = thread.scrollHeight;
+}
+
+async function sendMemberReply(body) {
+  const headers = await messagingAuthHeaders();
+  if (!headers) return { ok: false, error: "Please log in again." };
+  try {
+    const res = await fetch("/api/messages/reply", { method: "POST", headers, body: JSON.stringify({ body }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: data.error || "Could not send message." };
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error.message || "Could not send message." };
+  }
+}
+
+// ─── Web Push subscription flow ────────────────────────────────────────────
+
+function browserPushSupport() {
+  return typeof window !== "undefined"
+    && "serviceWorker" in navigator
+    && "PushManager" in window
+    && "Notification" in window;
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i += 1) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+async function ensureVapidPublicKey() {
+  if (pushUiState.publicKey) return pushUiState.publicKey;
+  try {
+    const res = await fetch("/api/push/vapid-public-key", { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    pushUiState.publicKey = data.publicKey || "";
+    pushUiState.supportedOnServer = Boolean(data.supported);
+    return pushUiState.publicKey;
+  } catch {
+    return "";
+  }
+}
+
+async function refreshPushPreferenceState() {
+  const headers = await messagingAuthHeaders();
+  if (!headers) {
+    pushUiState.preference = null;
+    return;
+  }
+  try {
+    const res = await fetch("/api/notification-preferences", { headers, cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+    pushUiState.preference = data.preference || null;
+    pushUiState.deviceCount = Number(data.deviceCount) || 0;
+    pushUiState.supportedOnServer = Boolean(data.pushSupportedOnServer);
+  } catch (error) {
+    console.warn("Could not load notification preferences", error);
+  }
+}
+
+async function savePushPreferenceDecision(decision) {
+  const headers = await messagingAuthHeaders();
+  if (!headers) return null;
+  try {
+    const res = await fetch("/api/notification-preferences", { method: "POST", headers, body: JSON.stringify({ decision }) });
+    const data = await res.json().catch(() => ({}));
+    if (data.preference) pushUiState.preference = data.preference;
+    return data.preference || null;
+  } catch (error) {
+    console.warn("Could not save notification preference", error);
+    return null;
+  }
+}
+
+// Called only from an explicit user click (the toggle) — never on page load,
+// so we never repeatedly pressure a user who already said no.
+async function enablePushNotifications() {
+  if (!browserPushSupport()) {
+    pushUiState.lastMessage = "This browser does not support push notifications. In-app messages still work normally.";
+    return false;
+  }
+  if (Notification.permission === "denied") {
+    pushUiState.lastMessage = "Notifications are blocked for this site in your browser settings. Allow them there, then try again.";
+    await savePushPreferenceDecision("denied");
+    return false;
+  }
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") {
+    pushUiState.lastMessage = "Notifications were not enabled. You can turn them on anytime here — we won't ask again automatically.";
+    await savePushPreferenceDecision("denied");
+    return false;
+  }
+  const publicKey = await ensureVapidPublicKey();
+  if (!publicKey) {
+    pushUiState.lastMessage = "Push isn't set up on the server yet. Your in-app messages still work normally.";
+    return false;
+  }
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+    }
+    const headers = await messagingAuthHeaders();
+    if (!headers) {
+      pushUiState.lastMessage = "Please log in again to finish enabling notifications.";
+      return false;
+    }
+    await fetch("/api/push/subscribe", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ subscription: subscription.toJSON(), userAgent: navigator.userAgent }),
+    });
+    await savePushPreferenceDecision("granted");
+    pushUiState.lastMessage = "Push notifications are on for this device.";
+    return true;
+  } catch (error) {
+    console.warn("Push subscribe failed", error);
+    pushUiState.lastMessage = "Could not enable notifications on this device. In-app messages still work normally.";
+    return false;
+  }
+}
+
+async function disablePushNotifications() {
+  await savePushPreferenceDecision("denied");
+  try {
+    if (browserPushSupport()) {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) {
+        const endpoint = subscription.endpoint;
+        await subscription.unsubscribe().catch(() => {});
+        const headers = await messagingAuthHeaders();
+        if (headers) {
+          await fetch("/api/push/unsubscribe", { method: "POST", headers, body: JSON.stringify({ endpoint }) });
+        }
+      }
+    }
+  } catch (error) {
+    console.warn("Push unsubscribe failed", error);
+  }
+  pushUiState.lastMessage = "Push notifications are off for this device.";
+  return true;
+}
+
+// Best-effort device revoke on logout — see signOut(). Never blocks logout.
+async function revokePushSubscriptionForLogout() {
+  if (!browserPushSupport() || !isLoggedIn()) return;
+  try {
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (!registration) return;
+    const subscription = await registration.pushManager.getSubscription();
+    if (!subscription) return;
+    const endpoint = subscription.endpoint;
+    await subscription.unsubscribe().catch(() => {});
+    const headers = await messagingAuthHeaders();
+    if (headers) {
+      await Promise.race([
+        fetch("/api/push/unsubscribe", { method: "POST", headers, body: JSON.stringify({ endpoint }) }),
+        delayMs(2000),
+      ]);
+    }
+  } catch (error) {
+    console.warn("Could not revoke push subscription on logout", error);
+  }
+}
+
+// ─── Admin: Member Messaging Center (compose + conversations) ─────────────
+
+let adminMessagesState = {
+  tab: "compose",
+  audience: "private",
+  toEmail: "",
+  selectedEmails: [],
+  subject: "",
+  body: "",
+  conversations: [],
+  activeConversationEmail: "",
+  activeConversationMessages: [],
+};
+
+const adminAudienceLabels = {
+  private: "Private message to one user",
+  free: "All Free users",
+  pro: "All Pro users",
+  founding: "All Founding Members",
+  selected: "Selected users",
+  all: "Everyone (announcement)",
+};
+
+async function adminMessagesPreview(payload) {
+  const token = adminSession()?.token || "";
+  const res = await fetch("/api/admin/messages/preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminToken: token, ...payload }),
+  });
+  return res.json().catch(() => ({}));
+}
+
+async function adminMessagesSend(payload) {
+  const token = adminSession()?.token || "";
+  const res = await fetch("/api/admin/messages/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminToken: token, ...payload }),
+  });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, ...data };
+}
+
+function renderAdminMessagesCenter(tab) {
+  adminMessagesState.tab = tab === "messages-conversations" ? "conversations" : "compose";
+  const container = document.querySelector("#adminMessagesApp");
+  if (!container) return;
+  if (adminMessagesState.tab === "compose") {
+    renderAdminMessagesCompose(container);
+  } else {
+    renderAdminMessagesConversations(container);
+  }
+}
+
+function renderAdminMessagesCompose(container) {
+  const s = adminMessagesState;
+  container.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Member Messaging</p><h3>Send a message</h3></div>
+    </div>
+    <form class="admin-compose-form" id="adminMessagesComposeForm">
+      <label>Send to
+        <select name="audience" id="adminMessagesAudience">
+          ${Object.entries(adminAudienceLabels).map(([value, label]) => `<option value="${value}" ${s.audience === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+        </select>
+      </label>
+      <label class="admin-compose-field" ${s.audience !== "private" ? "hidden" : ""}>
+        User email
+        <input type="email" name="toEmail" value="${escapeHtml(s.toEmail)}" placeholder="parent@example.com" />
+      </label>
+      <label class="admin-compose-field" ${s.audience !== "selected" ? "hidden" : ""}>
+        User emails (comma or newline separated)
+        <textarea name="selectedEmails" rows="3" placeholder="one@example.com, two@example.com">${escapeHtml(s.selectedEmails.join(", "))}</textarea>
+      </label>
+      <label>Subject ${s.audience === "private" ? "(optional)" : ""}
+        <input type="text" name="subject" value="${escapeHtml(s.subject)}" maxlength="300" placeholder="${s.audience === "private" ? "e.g. Welcome!" : "e.g. New lesson plans added 🎉"}" />
+      </label>
+      <label>Message
+        <textarea name="body" rows="5" maxlength="8000" placeholder="Write your message…">${escapeHtml(s.body)}</textarea>
+      </label>
+      <div class="admin-compose-actions">
+        <button type="submit" class="primary-button">${s.audience === "private" ? "Send Message" : "Preview & Send"}</button>
+      </div>
+      <p class="admin-compose-message" id="adminMessagesComposeMessage"></p>
+    </form>
+  `;
+}
+
+async function renderAdminMessagesConversations(container) {
+  container.innerHTML = `<p class="messages-loading">Loading conversations…</p>`;
+  const token = adminSession()?.token || "";
+  try {
+    const res = await fetch(`/api/admin/conversations?adminToken=${encodeURIComponent(token)}`, { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    adminMessagesState.conversations = Array.isArray(data.conversations) ? data.conversations : [];
+  } catch (error) {
+    console.warn("Could not load admin conversations", error);
+    adminMessagesState.conversations = [];
+  }
+  renderAdminConversationsBody(container);
+}
+
+function renderAdminConversationsBody(container) {
+  const conversations = adminMessagesState.conversations;
+  const listHtml = conversations.length
+    ? conversations.map((c) => `
+      <button type="button" class="admin-conversation-item${c.userEmail === adminMessagesState.activeConversationEmail ? " active" : ""}" data-admin-conversation="${escapeHtml(c.userEmail)}">
+        <strong>${escapeHtml(c.userEmail)}</strong>
+        <span>${escapeHtml(c.lastMessagePreview || "")}</span>
+        ${c.unreadFromUser ? `<span class="admin-conversation-unread">${c.unreadFromUser}</span>` : ""}
+      </button>
+    `).join("")
+    : `<p class="messages-empty">No private conversations yet.</p>`;
+  container.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Member Messaging</p><h3>Conversations</h3></div>
+    </div>
+    <div class="admin-conversations-layout">
+      <div class="admin-conversations-list">${listHtml}</div>
+      <div class="admin-conversation-thread" id="adminConversationThread">
+        <p class="messages-empty">Select a conversation to view the full history and reply.</p>
+      </div>
+    </div>
+  `;
+}
+
+async function openAdminConversation(userEmail) {
+  adminMessagesState.activeConversationEmail = userEmail;
+  document.querySelectorAll(".admin-conversation-item").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.adminConversation === userEmail);
+  });
+  const threadEl = document.querySelector("#adminConversationThread");
+  if (threadEl) threadEl.innerHTML = `<p class="messages-loading">Loading…</p>`;
+  const token = adminSession()?.token || "";
+  try {
+    const res = await fetch(`/api/admin/messages/conversation?adminToken=${encodeURIComponent(token)}&userEmail=${encodeURIComponent(userEmail)}`, { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    adminMessagesState.activeConversationMessages = Array.isArray(data.messages) ? data.messages : [];
+  } catch (error) {
+    console.warn("Could not load conversation", error);
+    adminMessagesState.activeConversationMessages = [];
+  }
+  renderAdminConversationThread();
+}
+
+function renderAdminConversationThread() {
+  const threadEl = document.querySelector("#adminConversationThread");
+  if (!threadEl) return;
+  const messages = adminMessagesState.activeConversationMessages;
+  const bubbles = messages.length
+    ? messages.map((m) => `
+      <div class="message-bubble ${m.senderType === "admin" ? "message-bubble-mine" : "message-bubble-admin"}">
+        <div class="message-bubble-meta"><strong>${escapeHtml(m.senderType === "admin" ? "You" : adminMessagesState.activeConversationEmail)}</strong><span>${escapeHtml(messagingRelativeTime(m.createdAt))}</span></div>
+        <div class="message-bubble-body">${escapeHtml(m.body || "").replace(/\n/g, "<br>")}</div>
+      </div>
+    `).join("")
+    : `<p class="messages-empty">No messages yet.</p>`;
+  threadEl.innerHTML = `
+    <div class="messages-thread" id="adminMessagesThread">${bubbles}</div>
+    <form class="messages-reply-form" id="adminConversationReplyForm">
+      <textarea id="adminConversationReplyInput" rows="2" placeholder="Reply to ${escapeHtml(adminMessagesState.activeConversationEmail)}…"></textarea>
+      <button type="submit" class="primary-button">Send</button>
+    </form>
+  `;
+  const thread = document.querySelector("#adminMessagesThread");
+  if (thread) thread.scrollTop = thread.scrollHeight;
+}
+
+document.addEventListener("change", (event) => {
+  if (!event.target.matches("#adminMessagesAudience")) return;
+  const form = event.target.closest("form");
+  if (form) {
+    adminMessagesState.subject = String(form.subject?.value || "");
+    adminMessagesState.body = String(form.body?.value || "");
+  }
+  adminMessagesState.audience = event.target.value;
+  renderAdminMessagesCompose(document.querySelector("#adminMessagesApp"));
+});
+
+document.addEventListener("submit", async (event) => {
+  if (!event.target.matches("#adminMessagesComposeForm")) return;
+  event.preventDefault();
+  const form = event.target;
+  const messageEl = document.querySelector("#adminMessagesComposeMessage");
+  const audience = form.audience.value;
+  const toEmail = String(form.toEmail?.value || "").trim().toLowerCase();
+  const selectedEmails = String(form.selectedEmails?.value || "").split(/[,\n]/).map((e) => e.trim().toLowerCase()).filter(Boolean);
+  const subject = String(form.subject?.value || "").trim();
+  const body = String(form.body?.value || "").trim();
+  Object.assign(adminMessagesState, { audience, toEmail, selectedEmails, subject, body });
+  if (!body) { setFormMessage(messageEl, "Write a message before sending.", false); return; }
+  if (audience === "private" && !toEmail) { setFormMessage(messageEl, "Enter the user's email.", false); return; }
+  if (audience === "selected" && !selectedEmails.length) { setFormMessage(messageEl, "Enter at least one user email.", false); return; }
+
+  const submitBtn = form.querySelector("button[type='submit']");
+  if (submitBtn) submitBtn.disabled = true;
+  try {
+    if (audience === "private") {
+      const result = await adminMessagesSend({ audience, toEmail, subject, body });
+      if (!result.ok) throw new Error(result.error || "Could not send message.");
+      Object.assign(adminMessagesState, { toEmail: "", subject: "", body: "" });
+      renderAdminMessagesCompose(document.querySelector("#adminMessagesApp"));
+      setFormMessage(document.querySelector("#adminMessagesComposeMessage"), `✅ Message sent to ${toEmail}.`, true);
+    } else {
+      // Group send: always preview the exact recipient count + message text
+      // and require an explicit confirmation click before anything is sent —
+      // one accidental click must never notify everyone.
+      const preview = await adminMessagesPreview({ audience, toEmail, selectedEmails, body });
+      if (preview.error) throw new Error(preview.error);
+      const confirmed = await confirmAction({
+        title: `Send to ${preview.audienceLabel}?`,
+        message: `This will notify exactly ${preview.recipientCount} recipient${preview.recipientCount === 1 ? "" : "s"}.\n\nMessage preview:\n"${preview.messagePreview}"\n\nThis cannot be undone.`,
+        confirmLabel: `Send to ${preview.recipientCount}`,
+        cancelLabel: "Cancel",
+        danger: preview.recipientCount > 20,
+      });
+      if (!confirmed) { setFormMessage(messageEl, "Send canceled — nothing was sent.", true); return; }
+      const result = await adminMessagesSend({ audience, toEmail, selectedEmails, subject, body, confirm: true });
+      if (!result.ok) throw new Error(result.error || "Could not send message.");
+      Object.assign(adminMessagesState, { subject: "", body: "", selectedEmails: [] });
+      renderAdminMessagesCompose(document.querySelector("#adminMessagesApp"));
+      setFormMessage(document.querySelector("#adminMessagesComposeMessage"), `✅ Sent to ${result.recipientCount} recipient${result.recipientCount === 1 ? "" : "s"}.`, true);
+    }
+  } catch (error) {
+    setFormMessage(messageEl, `❌ ${error.message}`, false);
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+  }
+});
+
+document.addEventListener("click", async (event) => {
+  const convoBtn = event.target.closest(".admin-conversation-item");
+  if (convoBtn) {
+    event.preventDefault();
+    await openAdminConversation(convoBtn.dataset.adminConversation);
+  }
+});
+
+document.addEventListener("submit", async (event) => {
+  if (!event.target.matches("#adminConversationReplyForm")) return;
+  event.preventDefault();
+  const textarea = document.querySelector("#adminConversationReplyInput");
+  const body = String(textarea?.value || "").trim();
+  if (!body || !adminMessagesState.activeConversationEmail) return;
+  const result = await adminMessagesSend({ audience: "private", toEmail: adminMessagesState.activeConversationEmail, body });
+  if (result.ok) {
+    if (textarea) textarea.value = "";
+    const container = document.querySelector("#adminMessagesApp");
+    if (container) await renderAdminMessagesConversations(container);
+    await openAdminConversation(adminMessagesState.activeConversationEmail);
+  } else {
+    alert(result.error || "Could not send reply.");
+  }
+});
 
 function registerPwaSupport() {
   if ("serviceWorker" in navigator) {
@@ -9373,6 +10100,7 @@ function setView(view, options = {}) {
   if (resolvedView === "tools") renderFutureTools(requestedFutureTool || undefined);
   if (resolvedView === "children") renderChildManagement();
   if (resolvedView === "support-center") renderSupportCenterPage();
+  if (resolvedView === "messages") renderMessagesPage(options);
   if (resolvedView === "director-center") renderDirectorCenterPage();
   if (resolvedView === "resources") renderResourcesHubPage();
   if (resolvedView === "settings") {
@@ -23644,6 +24372,8 @@ function renderSettingsHubPage() {
         },
         { view: "account", title: "Profile & Security", detail: "Name, email, phone, password, and recovery" },
         { view: "account", title: "Notifications", detail: "Choose how Little Learner Hub reminds you", hash: "notifications" },
+        { view: "messages", title: "Messages", detail: "Read messages from Little Learner Hub and reply to Leah" },
+        { view: "messages", title: "Push Notifications", detail: "Turn on/off push notifications for new messages and updates" },
         ...(canBilling
           ? [
               { view: "billing", title: "Billing / Manage Subscription", detail: "Payment method, invoices, and plan changes" },
@@ -33789,6 +34519,7 @@ function applyAdminSectionVisibility() {
     ".admin-users-panel",
     ".admin-stripe-backfill-panel",
     ".admin-site-editor-panel",
+    ".admin-messages-panel",
   ];
 
   topSelectors.forEach((sel) => {
@@ -33868,6 +34599,10 @@ function applyAdminSectionVisibility() {
     const el = document.querySelector(".admin-site-editor-panel");
     if (el) el.hidden = false;
     renderAdminSiteEditorSection(tab);
+  } else if (tab === "messages-compose" || tab === "messages-conversations") {
+    const el = document.querySelector(".admin-messages-panel");
+    if (el) el.hidden = false;
+    renderAdminMessagesCenter(tab);
   }
 }
 
@@ -40519,6 +41254,10 @@ function updatePaymentMethod() {
 }
 
 async function signOut() {
+  // Best-effort: revoke this device's push subscription BEFORE clearing the
+  // session so the next person to use this browser never receives pushes
+  // meant for this account. In-app data is unaffected either way.
+  await revokePushSubscriptionForLogout().catch(() => {});
   saveCurrentAccountState();
   if (firebaseAuthEnabled) {
     try {
@@ -47572,6 +48311,10 @@ function initialViewFromLocation() {
   const params = new URLSearchParams(window.location.search);
   if (params.get("mode") === "resetPassword") return "reset-password";
   if (lessonPlanEditRouteIdFromLocation()) return "lesson-editor";
+  // Deep link used by push notification taps (see service-worker.js
+  // notificationclick) and by "Open Little Learner Hub" copy — routes
+  // straight to the right conversation/tab instead of the default landing.
+  if (params.get("view") === "messages" && (isLoggedIn() || hasAdminFullAccess())) return "messages";
   const pathView = adRouteMap[window.location.pathname];
   const hashView = adRouteMap[window.location.hash];
   return pathView || hashView || "home";
@@ -47623,7 +48366,12 @@ async function initializeAppView() {
           const route = window.location.pathname || window.location.hash;
           saveAttribution({ route, view: initialView });
           trackEvent("ad_route_visit", { route, view: initialView });
-          setView(initialView, { fromBoot: true, replaceHistory: true });
+          const viewOptions = { fromBoot: true, replaceHistory: true };
+          if (initialView === "messages") {
+            const conversationParam = new URLSearchParams(window.location.search).get("conversation") || "";
+            if (conversationParam) viewOptions.conversation = conversationParam;
+          }
+          setView(initialView, viewOptions);
           return;
         }
         // Prefer restoring Admin when this browser left Admin unlocked.
@@ -47960,3 +48708,101 @@ document.addEventListener("submit", (event) => {
     return;
   }
 });
+
+// ─── Messaging Center + Notification Bell — event wiring ───────────────────
+
+document.addEventListener("click", async (event) => {
+  const bellBtn = event.target.closest("#notificationBellBtn");
+  if (bellBtn) {
+    event.preventDefault();
+    toggleNotificationBellPanel();
+    return;
+  }
+  const markAllBtn = event.target.closest("#notificationMarkAllBtn");
+  if (markAllBtn) {
+    event.preventDefault();
+    await markNotificationRead({ all: true });
+    return;
+  }
+  const bellItem = event.target.closest(".notification-bell-item");
+  if (bellItem) {
+    event.preventDefault();
+    const id = bellItem.dataset.notificationId;
+    const conversationEmail = bellItem.dataset.notificationConversation || "";
+    toggleNotificationBellPanel(false);
+    await markNotificationRead(conversationEmail ? { conversationEmail } : { id });
+    setView("messages", conversationEmail ? { conversation: conversationEmail } : {});
+    return;
+  }
+  // Close the bell panel on any outside click.
+  if (notificationBellState.open && !event.target.closest("#notificationBellWrap")) {
+    toggleNotificationBellPanel(false);
+  }
+  const messagesTabBtn = event.target.closest("[data-messages-tab]");
+  if (messagesTabBtn) {
+    event.preventDefault();
+    messagesPageSetTab(messagesTabBtn.dataset.messagesTab);
+    if (messagesTabBtn.dataset.messagesTab === "updates") {
+      const unreadIds = messagesViewState.inbox.filter((i) => !i.notification.read).map((i) => i.notification.id);
+      if (unreadIds.length) await markNotificationRead({ id: unreadIds[0] });
+      if (unreadIds.length > 1) {
+        for (const id of unreadIds.slice(1)) {
+          // Best-effort sequential mark-read; small lists in practice.
+          // eslint-disable-next-line no-await-in-loop
+          await markNotificationRead({ id });
+        }
+      }
+    }
+    return;
+  }
+  const updateItem = event.target.closest(".messages-update-item");
+  if (updateItem) {
+    event.preventDefault();
+    await markNotificationRead({ id: updateItem.dataset.notificationId });
+    return;
+  }
+});
+
+document.addEventListener("change", async (event) => {
+  if (!event.target.matches("#pushNotificationToggle")) return;
+  const checkbox = event.target;
+  checkbox.disabled = true;
+  if (checkbox.checked) {
+    await enablePushNotifications();
+  } else {
+    await disablePushNotifications();
+  }
+  checkbox.disabled = false;
+  renderMessagesPageBody();
+});
+
+document.addEventListener("submit", async (event) => {
+  if (!event.target.matches("#messagesReplyForm")) return;
+  event.preventDefault();
+  const textarea = document.querySelector("#messagesReplyInput");
+  const body = String(textarea?.value || "").trim();
+  if (!body) return;
+  const submitBtn = event.target.querySelector("button[type='submit']");
+  if (submitBtn) submitBtn.disabled = true;
+  const result = await sendMemberReply(body);
+  if (submitBtn) submitBtn.disabled = false;
+  if (result.ok) {
+    if (textarea) textarea.value = "";
+    await refreshMessagesData();
+    renderMessagesPageBody();
+  } else {
+    alert(result.error || "Could not send your message. Please try again.");
+  }
+});
+
+// Refresh the bell when the tab regains focus/visibility (covers "app open,
+// backgrounded, closed" — foreground refresh catches up on anything a push
+// may have missed while backgrounded, with no push required at all).
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && isLoggedIn()) refreshNotificationBell();
+});
+
+if (isLoggedIn()) {
+  refreshNotificationBell();
+  startNotificationBellPolling();
+}
