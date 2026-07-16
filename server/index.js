@@ -4925,30 +4925,69 @@ function normalizeLegacyStripeUser(customer, subscription) {
   const createdAt = unixTimestampToIso(customer?.created);
   const subscriptionState = legacySubscriptionState(subscription);
   const planInfo = legacyPlanFromSubscription(subscription);
-  const planKey = planInfo.plan === "Founding"
-    ? "founding"
-    : planInfo.plan === "Pro"
-      ? "monthly"
-      : "";
-  return {
+  const base = {
     email,
     name: String(customer?.name || "").trim(),
     stripeCustomerId: String(customer?.id || "").trim(),
-    stripeSubscriptionId: String(subscription?.id || "").trim(),
     stripeCustomerCreatedAt: createdAt,
     createdAt,
     signupAt: createdAt,
-    plan: planInfo.plan,
-    planDisplayName: planInfo.planDisplayName,
-    subscriptionState,
-    subscriptionStatus: subscriptionState,
-    trialStatus: legacyTrialStatus(subscriptionState),
     accountStatus: legacyAccountStatus(subscriptionState),
-    subscriptionCadence: planConfig[planKey]?.cadence || "",
-    monthlyPrice: planConfig[planKey]?.amount || "$0/month",
-    priceLock: planConfig[planKey]?.priceLock || "",
+    subscriptionState,
     paymentMethod: "Managed in Stripe",
   };
+  if (!subscription) {
+    return {
+      ...base,
+      plan: "Free",
+      planDisplayName: "Free",
+      subscriptionStatus: "Free Plan",
+      trialStatus: "No Trial",
+      stripeSubscriptionId: "",
+      stripeSubscriptionStatus: "",
+      foundingMemberActive: false,
+      monthlyPrice: "$0/month",
+    };
+  }
+  // Use the same Stripe→membership mapping as live webhooks so restored users
+  // get foundingMemberActive, period dates, and access keys — not just plan labels.
+  const membership = membershipUpdatesFromStripeSubscription(subscription, {
+    email,
+    plan: planInfo.plan,
+    foundingMemberActive: planInfo.plan === "Founding",
+    foundingMemberHistorical: planInfo.plan === "Founding",
+  });
+  return {
+    ...base,
+    ...membership,
+    planDisplayName: planInfo.planDisplayName,
+    trialStatus: membership.trialStatus || legacyTrialStatus(subscriptionState),
+    subscriptionStartedAt: unixTimestampToIso(subscription?.start_date || subscription?.created) || createdAt,
+  };
+}
+
+function rebuildFoundingMembersFromUsers(store) {
+  const users = store.users || {};
+  const next = [];
+  Object.values(users).forEach((user) => {
+    const email = normalizeEmail(user?.email || "");
+    if (!email) return;
+    const isFounding = Boolean(
+      user.foundingMemberActive
+      || user.foundingMemberHistorical
+      || user.foundingMember
+      || user.foundingMemberNumber
+      || String(user.plan || "") === "Founding",
+    );
+    if (isFounding && !next.includes(email)) next.push(email);
+  });
+  // Preserve any emails already listed that may not have been rebuilt yet.
+  (store.foundingMembers || []).forEach((email) => {
+    const clean = normalizeEmail(email);
+    if (clean && !next.includes(clean)) next.push(clean);
+  });
+  store.foundingMembers = next;
+  return next.length;
 }
 
 function unixTimestampToIso(value) {
@@ -5028,6 +5067,7 @@ async function backfillLegacyStripeUsers({ dryRun = false } = {}) {
     });
   });
 
+  report.userCountBefore = Object.keys(store.users).length;
   for (const customer of stripeCustomers) {
     const email = normalizeEmail(customer?.email || "");
     if (!email) {
@@ -5045,6 +5085,17 @@ async function backfillLegacyStripeUsers({ dryRun = false } = {}) {
     if (existing) {
       report.usersMatchedByEmail += 1;
       store.users[email] = mergeLegacyStripeIntoUser(existing, incomingUser, report);
+      // Always refresh Stripe-authoritative membership fields for paid subscriptions.
+      if (subscription && ["active", "trialing", "past_due"].includes(String(subscription.status || "").toLowerCase())) {
+        const membership = membershipUpdatesFromStripeSubscription(subscription, store.users[email]);
+        store.users[email] = {
+          ...store.users[email],
+          ...membership,
+          email,
+          stripeCustomerId: store.users[email].stripeCustomerId || incomingUser.stripeCustomerId,
+          updatedAt: new Date().toISOString(),
+        };
+      }
     } else {
       report.usersNotMatched += 1;
       report.usersCreatedFromStripeRecords += 1;
@@ -5057,10 +5108,119 @@ async function backfillLegacyStripeUsers({ dryRun = false } = {}) {
       };
     }
   }
-  if (!dryRun) writeStore(store);
+  report.foundingMembersRestored = rebuildFoundingMembersFromUsers(store);
+  report.userCountAfter = Object.keys(store.users).length;
+  if (!dryRun) await writeStoreAsync(store);
   report.duplicateAccountsDetected = report.duplicateAccountsDetected.slice(0, MAX_BACKFILL_REPORT_ITEMS);
   report.recordsNeedingManualReview = report.recordsNeedingManualReview.slice(0, MAX_BACKFILL_REPORT_ITEMS);
   return report;
+}
+
+function storeHealthSnapshot(store = peekStore()) {
+  const users = store.users || {};
+  const userEmails = Object.keys(users);
+  const messages = Array.isArray(store.messages) ? store.messages : [];
+  const notifications = Array.isArray(store.notifications) ? store.notifications : [];
+  const conversations = new Set(
+    messages
+      .map((m) => normalizeEmail(m.conversationEmail || m.toEmail || ""))
+      .filter(Boolean),
+  );
+  const recovery = store.systemRecovery && typeof store.systemRecovery === "object"
+    ? store.systemRecovery
+    : {};
+  const sparse = userEmails.length > 0 && userEmails.length <= 5;
+  return {
+    database: {
+      provider: DATABASE_PROVIDER,
+      ready: databaseReady,
+      lastError: lastPostgresError || "",
+      usingPostgres: usePostgresStore(),
+    },
+    counts: {
+      users: userEmails.length,
+      activeUsers: userEmails.filter((email) => {
+        const status = String(users[email]?.accountStatus || "Active").toLowerCase();
+        return status !== "disabled" && status !== "deleted";
+      }).length,
+      messages: messages.length,
+      conversations: conversations.size,
+      notifications: notifications.length,
+      foundingMembers: Array.isArray(store.foundingMembers) ? store.foundingMembers.length : 0,
+      supportTickets: Array.isArray(store.supportTickets) ? store.supportTickets.length : 0,
+    },
+    sampleUsers: userEmails.slice(0, 12),
+    sparseStoreSuspected: sparse,
+    recovery,
+    note: sparse
+      ? "User directory looks sparse (≤5 users). Run Stripe sparse-store recovery to rebuild paid accounts from Stripe."
+      : "User directory does not look sparse.",
+  };
+}
+
+/**
+ * One-shot recovery after the 2026-07-16 temp-password Postgres wipe race:
+ * if the live store has only a handful of users but Stripe has many customers,
+ * recreate missing users from Stripe. Does not invent free-only accounts that
+ * never touched Stripe; those return on next login via profile sync.
+ */
+async function recoverSparseStoreFromStripeIfNeeded({ force = false, source = "boot" } = {}) {
+  if (!databaseReady || !usePostgresStore()) {
+    return { ran: false, reason: "postgres_not_ready" };
+  }
+  if (!isConfiguredValue(STRIPE_SECRET_KEY)) {
+    return { ran: false, reason: "stripe_not_configured" };
+  }
+  const store = peekStore();
+  store.systemRecovery = store.systemRecovery && typeof store.systemRecovery === "object"
+    ? store.systemRecovery
+    : {};
+  if (store.systemRecovery.sparseStripeBackfillAt && !force) {
+    return {
+      ran: false,
+      reason: "already_recovered",
+      recoveredAt: store.systemRecovery.sparseStripeBackfillAt,
+      userCount: Object.keys(store.users || {}).length,
+    };
+  }
+  const userCount = Object.keys(store.users || {}).length;
+  if (!force && userCount > 5) {
+    return { ran: false, reason: "not_sparse", userCount };
+  }
+
+  console.warn(`[store-recovery] sparse store detected (${userCount} users). Starting Stripe rebuild (source=${source}).`);
+  // Peek Stripe first so a brand-new empty install with zero customers is left alone.
+  const preview = await backfillLegacyStripeUsers({ dryRun: true });
+  if (!force && preview.stripeCustomersFound <= Math.max(userCount, 2)) {
+    return {
+      ran: false,
+      reason: "stripe_not_larger",
+      userCount,
+      stripeCustomersFound: preview.stripeCustomersFound,
+    };
+  }
+  const report = await backfillLegacyStripeUsers({ dryRun: false });
+  const afterCount = Object.keys(peekStore().users || {}).length;
+  const recoveryStore = readStore();
+  recoveryStore.systemRecovery = {
+    ...(recoveryStore.systemRecovery || {}),
+    sparseStripeBackfillAt: new Date().toISOString(),
+    sparseStripeBackfillSource: source,
+    userCountBefore: report.userCountBefore,
+    userCountAfter: afterCount,
+    stripeCustomersFound: report.stripeCustomersFound,
+    usersCreatedFromStripeRecords: report.usersCreatedFromStripeRecords,
+    foundingMembersRestored: report.foundingMembersRestored,
+  };
+  await writeStoreAsync(recoveryStore);
+  console.warn(`[store-recovery] complete: ${report.userCountBefore} → ${afterCount} users (created ${report.usersCreatedFromStripeRecords} from Stripe).`);
+  return {
+    ran: true,
+    reason: "recovered",
+    report,
+    userCountBefore: report.userCountBefore,
+    userCountAfter: afterCount,
+  };
 }
 
 function paidStripeSubscription(subscription) {
@@ -5779,11 +5939,38 @@ async function handleAdminStripeBackfill(request, response) {
   const dryRun = body.dryRun === true;
   try {
     const report = await backfillLegacyStripeUsers({ dryRun });
-    jsonResponse(response, 200, { ok: true, report });
+    jsonResponse(response, 200, { ok: true, report, health: storeHealthSnapshot() });
   } catch (error) {
     const message = error?.message || "Unknown error.";
     console.error("Stripe backfill failed:", message);
     jsonResponse(response, 503, { error: `Stripe backfill failed: ${message}` });
+  }
+}
+
+function handleAdminStoreHealth(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  jsonResponse(response, 200, { ok: true, health: storeHealthSnapshot() });
+}
+
+async function handleAdminRecoverSparseStore(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  try {
+    const result = await recoverSparseStoreFromStripeIfNeeded({
+      force: body.force === true,
+      source: "admin",
+    });
+    jsonResponse(response, 200, { ok: true, result, health: storeHealthSnapshot() });
+  } catch (error) {
+    console.error("[store-recovery] admin recover failed:", error.message || error);
+    jsonResponse(response, 503, { error: error.message || "Sparse store recovery failed." });
   }
 }
 
@@ -10879,6 +11066,8 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/ai-usage") return handleAdminAiUsage(request, response, url);
     // Phase 2H: legacy /api/admin/generate-lesson-plan removed.
     if (request.method === "POST" && url.pathname === "/api/admin/stripe-backfill") return await handleAdminStripeBackfill(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/store-health") return handleAdminStoreHealth(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/recover-sparse-store") return await handleAdminRecoverSparseStore(request, response);
     if (request.method === "GET" && url.pathname === "/api/founding-status") return handleFoundingStatus(request, response);
     if (request.method === "GET" && url.pathname === "/api/stripe-readiness") return handleStripeReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/billing-readiness") return handleBillingReadiness(request, response);
@@ -10895,7 +11084,7 @@ const server = http.createServer(async (request, response) => {
 });
 
 initializeStorage()
-  .then(() => {
+  .then(async () => {
     try {
       pushService = createPushService({
         envPublicKey: VAPID_PUBLIC_KEY,
@@ -10916,6 +11105,17 @@ initializeStorage()
     } catch (error) {
       console.warn("[push] could not initialize Web Push service — push notifications will be unavailable, in-app messaging is unaffected:", error.message);
       pushService = null;
+    }
+    // Auto-rebuild wiped/sparse membership directories from Stripe (one-shot).
+    try {
+      const recovery = await recoverSparseStoreFromStripeIfNeeded({ source: "boot" });
+      if (recovery.ran) {
+        console.warn(`[store-recovery] boot recovery restored users ${recovery.userCountBefore} → ${recovery.userCountAfter}`);
+      } else {
+        console.log(`[store-recovery] boot check: ${recovery.reason}${recovery.userCount != null ? ` (users=${recovery.userCount})` : ""}`);
+      }
+    } catch (error) {
+      console.error("[store-recovery] boot recovery failed:", error.message || error);
     }
     server.listen(PORT, () => {
       console.log(`Little Learner Hub launch server running on http://localhost:${PORT}`);
