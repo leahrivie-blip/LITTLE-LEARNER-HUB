@@ -23,10 +23,10 @@
     <link rel="apple-touch-icon" href="images/icons/apple-touch-icon.png" />
     <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
-  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260716-home-auth" />
-  <link rel="stylesheet" href="styles.css?v=20260716-home-auth" />
+  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260716-temp-password" />
+  <link rel="stylesheet" href="styles.css?v=20260716-temp-password" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260715-persistent-lesson-covers" />
-  <link rel="stylesheet" href="styles/llh-messaging.css?v=20260716-home-auth" />
+  <link rel="stylesheet" href="styles/llh-messaging.css?v=20260716-temp-password" />
   <link rel="stylesheet" href="styles/llh-comms.css?v=20260716-inbox-health" />
   <script>
     // Paint Calendar immediately for returning users — never flash the old Dashboard.
@@ -1629,6 +1629,25 @@
       </div>
     </div>
 
+    <div class="modal" id="forcePasswordModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="forcePasswordTitle">
+      <div class="modal-card auth-modal-card force-password-card">
+        <h2 id="forcePasswordTitle">Create a New Password</h2>
+        <p class="muted-copy">For security, you must choose a new password before continuing. Your temporary password will stop working after this.</p>
+        <form class="panel-form" id="forcePasswordForm" novalidate>
+          <label>
+            New password
+            <input type="password" id="forceNewPasswordInput" name="newPassword" required autocomplete="new-password" minlength="8" placeholder="At least 8 characters" />
+          </label>
+          <label>
+            Confirm new password
+            <input type="password" id="forceConfirmPasswordInput" name="confirmPassword" required autocomplete="new-password" minlength="8" placeholder="Re-enter new password" />
+          </label>
+          <button class="primary-button" id="forcePasswordSubmitButton" type="submit">Save New Password</button>
+          <span class="form-message" id="forcePasswordMessage" aria-live="polite"></span>
+        </form>
+      </div>
+    </div>
+
     <div class="modal" id="authModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="authTitle">
       <div class="modal-card auth-modal-card">
         <button class="close-button" id="closeModal" type="button" aria-label="Close">&times;</button>
@@ -1850,7 +1869,7 @@
     <script src="scripts/llh-schedule.js?v=20260714-prod-priority-fixes" defer></script>
     <script src="scripts/llh-lesson-docx.js?v=20260714-lesson-docx" defer></script>
     <script src="scripts/lesson-plan-weekly-export.js?v=20260715-weekly-pdf-reg" defer></script>
-    <script src="app.js?v=20260716-home-auth" defer></script>
-    <script src="comms-center.js?v=20260716-home-auth" defer></script>
+    <script src="app.js?v=20260716-temp-password" defer></script>
+    <script src="comms-center.js?v=20260716-temp-password" defer></script>
   </body>
 </html>

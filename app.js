@@ -2535,6 +2535,68 @@ async function localPasswordHash(password) {
   return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+const LLH_MEMBER_SESSION_KEY = "llhMemberSessionToken";
+
+function readMemberSessionToken() {
+  try {
+    return String(sessionStorage.getItem(LLH_MEMBER_SESSION_KEY) || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function writeMemberSessionToken(token) {
+  try {
+    const clean = String(token || "").trim();
+    if (clean) sessionStorage.setItem(LLH_MEMBER_SESSION_KEY, clean);
+    else sessionStorage.removeItem(LLH_MEMBER_SESSION_KEY);
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function clearMemberSessionToken() {
+  writeMemberSessionToken("");
+}
+
+function accountRequiresPasswordChange(account = currentAccount()) {
+  return Boolean(account?.mustChangePassword);
+}
+
+function openForcePasswordModal() {
+  const modal = document.querySelector("#forcePasswordModal");
+  if (!modal) return;
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("force-password-required");
+  const message = document.querySelector("#forcePasswordMessage");
+  if (message) message.textContent = "";
+  const form = document.querySelector("#forcePasswordForm");
+  if (form) form.reset();
+  document.querySelector("#forceNewPasswordInput")?.focus();
+}
+
+function closeForcePasswordModal() {
+  const modal = document.querySelector("#forcePasswordModal");
+  if (!modal) return;
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("force-password-required");
+}
+
+function enforceForcedPasswordChangeGate() {
+  if (!currentUser) {
+    closeForcePasswordModal();
+    return false;
+  }
+  if (!accountRequiresPasswordChange()) {
+    closeForcePasswordModal();
+    return false;
+  }
+  openForcePasswordModal();
+  return true;
+}
+
 function dismissOverlaysForAuthOrUpgrade() {
   // Resource viewer is appended after #authModal in the DOM and shares the default
   // modal stacking context — close it so signup/upgrade CTAs are never covered.
@@ -3413,6 +3475,15 @@ async function syncSubscriptionFromBackend(email, options = {}) {
     if (data?.subscription?.role) {
       updates.role = normalizeUserRole(data.subscription.role);
     }
+    if (typeof data?.subscription?.mustChangePassword === "boolean") {
+      updates.mustChangePassword = data.subscription.mustChangePassword;
+    }
+    if (typeof data?.subscription?.serverPasswordAuth === "boolean") {
+      updates.serverPasswordAuth = data.subscription.serverPasswordAuth;
+    }
+    if (data?.subscription?.tempPasswordExpiresAt != null) {
+      updates.tempPasswordExpiresAt = data.subscription.tempPasswordExpiresAt || "";
+    }
     updateAccount(cleanEmail, updates);
     ensureAccountAccessMigrated(cleanEmail);
     if (cleanEmail === currentUser) {
@@ -3426,6 +3497,7 @@ async function syncSubscriptionFromBackend(email, options = {}) {
         renderSubscriptionPage();
       }
       if (options.renderFounding) refreshFoundingDisplays();
+      if (accountRequiresPasswordChange()) enforceForcedPasswordChangeGate();
     }
     console.info(
       `[membership] client_sync email=${cleanEmail} plan=${updates.plan || "n/a"} status="${updates.subscriptionStatus || ""}" recovered=${Boolean(data?.recoveredFromStripe)} force=${Boolean(options.forceRefresh)}`,
@@ -8715,27 +8787,107 @@ async function signUpWithProvider(email, password, phone, firstName, lastName) {
   return { email: cleanEmail, verified: false, message: "Demo account created. Connect Firebase Auth to send real verification emails." };
 }
 
+async function loginWithServerPassword(email, password) {
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  const response = await fetch("/api/auth/password-login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: cleanEmail, password }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || "The email or password did not match. Please try again.");
+  }
+  ensureAccount(cleanEmail);
+  updateAccount(cleanEmail, {
+    mustChangePassword: Boolean(data.mustChangePassword),
+    serverPasswordAuth: Boolean(data.serverPasswordAuth),
+    tempPasswordExpiresAt: data.tempPasswordExpiresAt || "",
+    authProvider: firebaseAuthEnabled ? "Firebase Authentication" : "Local demo authentication",
+  });
+  writeMemberSessionToken(data.memberSessionToken || "");
+  return {
+    email: cleanEmail,
+    verified: true,
+    mustChangePassword: Boolean(data.mustChangePassword),
+    memberSessionToken: data.memberSessionToken || "",
+  };
+}
+
 async function loginWithProvider(email, password) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail) throw new Error("Please enter your email address.");
   if (firebaseAuthEnabled) {
-    const client = await getFirebaseAuthClient();
-    const credential = await client.signInWithEmailAndPassword(client.auth, cleanEmail, password);
-    ensureAccount(cleanEmail);
-    updateAccount(cleanEmail, {
-      authProvider: "Firebase Authentication",
-      emailVerified: credential.user.emailVerified,
-      firebaseUid: credential.user.uid,
-    });
-    return { email: cleanEmail, verified: credential.user.emailVerified };
+    try {
+      const client = await getFirebaseAuthClient();
+      const credential = await client.signInWithEmailAndPassword(client.auth, cleanEmail, password);
+      clearMemberSessionToken();
+      ensureAccount(cleanEmail);
+      updateAccount(cleanEmail, {
+        authProvider: "Firebase Authentication",
+        emailVerified: credential.user.emailVerified,
+        firebaseUid: credential.user.uid,
+      });
+      return { email: cleanEmail, verified: credential.user.emailVerified, mustChangePassword: accountRequiresPasswordChange(accounts()[cleanEmail]) };
+    } catch (error) {
+      // Temporary / server-password login for admin-issued recovery only.
+      const code = String(error?.code || "");
+      if (code.includes("wrong-password") || code.includes("invalid-credential") || code.includes("user-not-found") || code.includes("invalid-login")) {
+        return loginWithServerPassword(cleanEmail, password);
+      }
+      throw error;
+    }
   }
-  const account = accounts()[cleanEmail];
-  if (!account) throw new Error("No demo account was found for this email. Create an account first.");
-  if (account.passwordHash) {
-    const hash = await localPasswordHash(password);
-    if (hash !== account.passwordHash) throw new Error("The email or password did not match. Please try again.");
+  try {
+    return await loginWithServerPassword(cleanEmail, password);
+  } catch (serverError) {
+    const account = accounts()[cleanEmail];
+    if (!account) throw serverError;
+    if (account.passwordHash) {
+      const hash = await localPasswordHash(password);
+      if (hash !== account.passwordHash) throw serverError;
+    }
+    return { email: cleanEmail, verified: account.emailVerified, mustChangePassword: accountRequiresPasswordChange(account) };
   }
-  return { email: cleanEmail, verified: account.emailVerified };
+}
+
+async function completeForcedPasswordChange(newPassword, confirmPassword) {
+  if (!currentUser) throw new Error("Please log in before changing your password.");
+  if (String(newPassword || "").length < 8) throw new Error("Please use a new password with at least 8 characters.");
+  if (String(newPassword || "") !== String(confirmPassword || "")) {
+    throw new Error("The new passwords did not match.");
+  }
+  const token = readMemberSessionToken();
+  if (!token) throw new Error("Please log in again with your temporary password, then create a new password.");
+  const response = await fetch("/api/auth/complete-forced-password-change", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ newPassword, confirmPassword }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Could not update your password.");
+  writeMemberSessionToken(data.memberSessionToken || "");
+  updateAccount(currentUser, {
+    mustChangePassword: false,
+    serverPasswordAuth: true,
+    passwordHash: await localPasswordHash(newPassword),
+    tempPasswordExpiresAt: "",
+  });
+  // If Firebase session exists, keep it aligned with the new password.
+  if (firebaseAuthEnabled) {
+    try {
+      const client = await getFirebaseAuthClient();
+      if (client.auth.currentUser) {
+        await client.updatePassword(client.auth.currentUser, newPassword);
+      }
+    } catch (error) {
+      console.warn("Firebase password sync after forced change did not complete", error);
+    }
+  }
+  return "Password updated. You can continue into your account.";
 }
 
 async function sendPasswordReset(email) {
@@ -10350,6 +10502,16 @@ function canSeeAdminNav() {
 function setView(view, options = {}) {
   const requestedView = view;
   let resolvedRequested = resolveSidebarView(view);
+  // Temporary-password accounts must create a new password before using the app.
+  if (
+    currentUser
+    && accountRequiresPasswordChange()
+    && !options.allowDuringForcedPasswordChange
+    && resolvedRequested !== "home"
+  ) {
+    enforceForcedPasswordChangeGate();
+    return;
+  }
   // Printables marketplace removed — send leftover links to Activities.
   if (resolvedRequested === "printables") {
     return setView("activities", options);
@@ -24035,7 +24197,12 @@ function applyChildDataSnapshot(snapshot = {}, updatedAt = "") {
 }
 
 async function firebaseAuthHeaders() {
-  if (!firebaseAuthEnabled || !currentUser) return null;
+  if (!currentUser) return null;
+  const memberToken = readMemberSessionToken();
+  if (memberToken) {
+    return { Authorization: `Bearer ${memberToken}`, "Content-Type": "application/json" };
+  }
+  if (!firebaseAuthEnabled) return null;
   const client = await getFirebaseAuthClient();
   // Wait for Firebase to finish restoring a persisted session before reading the token.
   // Without this, page refresh / early login sync often runs with no currentUser yet.
@@ -42048,6 +42215,8 @@ async function signOut() {
       console.warn("Firebase sign out did not complete", error);
     }
   }
+  clearMemberSessionToken();
+  closeForcePasswordModal();
   // Keep Admin unlock on this browser. Provider sign-out should not force a full
   // Admin re-login — use Lock Admin when you want to clear owner access.
   currentUser = "";
@@ -46805,6 +46974,12 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
     }, { lastLogin: true });
     const loginNavGeneration = viewNavigationGeneration;
     await syncSubscriptionFromBackend(result.email, { forceRefresh: true });
+    if (result.mustChangePassword || accountRequiresPasswordChange()) {
+      updateAccount(result.email, { mustChangePassword: true });
+      closeAuthModal();
+      enforceForcedPasswordChangeGate();
+      return;
+    }
     await syncChildDataFromBackend();
     loadUserAiUsage(result.email).catch(() => {});
     trackEvent("account_login_complete", { email: result.email, plan: currentPlan });
@@ -46824,6 +46999,33 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
     setFormMessage("#authMessage", friendlyAuthError(error));
   } finally {
     submitButton.disabled = false;
+  }
+});
+
+document.querySelector("#forcePasswordForm")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = new FormData(event.target);
+  const messageEl = document.querySelector("#forcePasswordMessage");
+  const button = document.querySelector("#forcePasswordSubmitButton");
+  if (button) button.disabled = true;
+  setFormMessage("#forcePasswordMessage", "Saving your new password…", true);
+  try {
+    const message = await completeForcedPasswordChange(form.get("newPassword"), form.get("confirmPassword"));
+    setFormMessage("#forcePasswordMessage", message, true);
+    closeForcePasswordModal();
+    trackEvent("forced_password_change_complete", { email: currentUser });
+    await syncChildDataFromBackend().catch(() => {});
+    const returnView = pendingAuthReturnView
+      && canOpenViewForCurrentAccess(pendingAuthReturnView)
+      ? pendingAuthReturnView
+      : "calendar";
+    pendingAuthReturnView = "";
+    setView(returnView, { fromAuthLanding: true });
+  } catch (error) {
+    setFormMessage("#forcePasswordMessage", friendlyAuthError(error) || error.message || "Could not update password.");
+    if (messageEl) messageEl.classList.remove("success");
+  } finally {
+    if (button) button.disabled = false;
   }
 });
 
