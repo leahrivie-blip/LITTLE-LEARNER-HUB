@@ -231,6 +231,7 @@ async function main() {
     const now = new Date().toISOString();
     const future = new Date(Date.now() + 7 * 86400000).toISOString();
     const campaignSends = [];
+    const campaignDeliveries = new Map();
     let campaignStore = {
       users: {
         "free@example.com": { email: "free@example.com", plan: "Free", subscriptionStatus: "Free Plan", signupAt: now },
@@ -269,6 +270,20 @@ async function main() {
       readStore: () => campaignStore,
       writeStore: (s) => { campaignStore = s; },
       writeStoreAsync: async (s) => { campaignStore = s; },
+      claimEmailCampaignDelivery: async ({ campaignId, email, contentHash }) => {
+        const key = `${campaignId}:${email}`;
+        if (campaignDeliveries.has(key)) return { claimed: false, delivery: campaignDeliveries.get(key) };
+        const delivery = { campaign_id: campaignId, email, content_hash: contentHash, status: "pending", error: "" };
+        campaignDeliveries.set(key, delivery);
+        return { claimed: true, delivery };
+      },
+      completeEmailCampaignDelivery: async ({ campaignId, email, status, provider = "", messageId = "", error = "" }) => {
+        const delivery = campaignDeliveries.get(`${campaignId}:${email}`);
+        Object.assign(delivery, { status, provider, message_id: messageId, error });
+      },
+      listEmailCampaignDeliveries: async (campaignId) => (
+        [...campaignDeliveries.values()].filter((delivery) => delivery.campaign_id === campaignId)
+      ),
       isCurriculumLessonPublic: () => true,
     });
     const audience = campaign.freeReengagementAudience(campaignStore);
@@ -301,10 +316,20 @@ async function main() {
     });
     assert.equal(awaitingReview.reason, "human_review_approval_required");
 
-    const sent = await campaign.runFreeReengagementCampaign({
-      confirmCampaignId: campaign.FREE_REENGAGEMENT_CAMPAIGN_ID,
-      reviewApproved: true,
-    });
+    const concurrentResults = await Promise.all([
+      campaign.runFreeReengagementCampaign({
+        confirmCampaignId: campaign.FREE_REENGAGEMENT_CAMPAIGN_ID,
+        reviewApproved: true,
+      }),
+      campaign.runFreeReengagementCampaign({
+        confirmCampaignId: campaign.FREE_REENGAGEMENT_CAMPAIGN_ID,
+        reviewApproved: true,
+      }),
+    ]);
+    const sent = concurrentResults.find((result) => result.successfulSends === 1);
+    const blockedConcurrent = concurrentResults.find((result) => result.reason);
+    assert.ok(sent);
+    assert.ok(["campaign_already_claimed", "campaign_already_in_progress"].includes(blockedConcurrent.reason));
     assert.equal(sent.totalFreeUsersEmailed, 1);
     assert.equal(sent.successfulSends, 1);
     assert.equal(sent.failedSends, 0);

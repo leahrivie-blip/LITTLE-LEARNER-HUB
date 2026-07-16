@@ -1932,6 +1932,20 @@ async function initializePostgresStore() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await postgresPool.query(`
+    CREATE TABLE IF NOT EXISTS llh_email_campaign_deliveries (
+      campaign_id TEXT NOT NULL,
+      email TEXT NOT NULL,
+      content_hash TEXT NOT NULL,
+      status TEXT NOT NULL,
+      provider TEXT NOT NULL DEFAULT '',
+      message_id TEXT NOT NULL DEFAULT '',
+      error TEXT NOT NULL DEFAULT '',
+      claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      completed_at TIMESTAMPTZ,
+      PRIMARY KEY (campaign_id, email)
+    )
+  `);
   const result = await postgresPool.query("SELECT data FROM llh_store WHERE id = $1", [storeRecordId]);
   if (result.rows.length) {
     storeCache = result.rows[0].data || defaultStore();
@@ -2262,6 +2276,86 @@ async function writeStoreAsync(store) {
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
+}
+
+async function claimEmailCampaignDelivery({ campaignId, email, contentHash }) {
+  const cleanEmail = normalizeEmail(email);
+  if (usePostgresStore()) {
+    const inserted = await postgresPool.query(
+      `INSERT INTO llh_email_campaign_deliveries
+        (campaign_id, email, content_hash, status)
+       VALUES ($1, $2, $3, 'pending')
+       ON CONFLICT (campaign_id, email) DO NOTHING
+       RETURNING campaign_id, email, content_hash, status, provider, message_id, error, claimed_at, completed_at`,
+      [campaignId, cleanEmail, contentHash],
+    );
+    if (inserted.rows[0]) return { claimed: true, delivery: inserted.rows[0] };
+    const existing = await postgresPool.query(
+      `SELECT campaign_id, email, content_hash, status, provider, message_id, error, claimed_at, completed_at
+       FROM llh_email_campaign_deliveries WHERE campaign_id = $1 AND email = $2`,
+      [campaignId, cleanEmail],
+    );
+    return { claimed: false, delivery: existing.rows[0] || null };
+  }
+  const store = readStore();
+  store.emailCampaignDeliveries = store.emailCampaignDeliveries || {};
+  const key = `${campaignId}:${cleanEmail}`;
+  if (store.emailCampaignDeliveries[key]) {
+    return { claimed: false, delivery: store.emailCampaignDeliveries[key] };
+  }
+  const delivery = {
+    campaign_id: campaignId,
+    email: cleanEmail,
+    content_hash: contentHash,
+    status: "pending",
+    provider: "",
+    message_id: "",
+    error: "",
+    claimed_at: new Date().toISOString(),
+    completed_at: null,
+  };
+  store.emailCampaignDeliveries[key] = delivery;
+  await writeStoreAsync(store);
+  return { claimed: true, delivery };
+}
+
+async function completeEmailCampaignDelivery({ campaignId, email, status, provider = "", messageId = "", error = "" }) {
+  const cleanEmail = normalizeEmail(email);
+  if (usePostgresStore()) {
+    await postgresPool.query(
+      `UPDATE llh_email_campaign_deliveries
+       SET status = $3, provider = $4, message_id = $5, error = $6, completed_at = NOW()
+       WHERE campaign_id = $1 AND email = $2`,
+      [campaignId, cleanEmail, status, provider, messageId, error],
+    );
+    return;
+  }
+  const store = readStore();
+  store.emailCampaignDeliveries = store.emailCampaignDeliveries || {};
+  const key = `${campaignId}:${cleanEmail}`;
+  if (store.emailCampaignDeliveries[key]) {
+    Object.assign(store.emailCampaignDeliveries[key], {
+      status,
+      provider,
+      message_id: messageId,
+      error,
+      completed_at: new Date().toISOString(),
+    });
+    await writeStoreAsync(store);
+  }
+}
+
+async function listEmailCampaignDeliveries(campaignId) {
+  if (usePostgresStore()) {
+    const result = await postgresPool.query(
+      `SELECT campaign_id, email, content_hash, status, provider, message_id, error, claimed_at, completed_at
+       FROM llh_email_campaign_deliveries WHERE campaign_id = $1 ORDER BY claimed_at ASC`,
+      [campaignId],
+    );
+    return result.rows;
+  }
+  const store = readStore();
+  return Object.values(store.emailCampaignDeliveries || {}).filter((delivery) => delivery.campaign_id === campaignId);
 }
 
 function jsonResponse(response, statusCode, payload) {
@@ -7128,6 +7222,9 @@ const emailEngagement = createEmailEngagement({
   readStore,
   writeStore,
   writeStoreAsync,
+  claimEmailCampaignDelivery,
+  completeEmailCampaignDelivery,
+  listEmailCampaignDeliveries,
   isCurriculumLessonPublic,
 });
 
