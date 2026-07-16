@@ -22,6 +22,20 @@ const CURRICULUM_ITEM_TEXT_LIMITS = {
   ageModifications: 4000,
 };
 
+function getStandardsApi() {
+  if (typeof module !== "undefined" && module.exports) {
+    try { return require("./curriculum-standards.js"); } catch (error) { /* browser/global */ }
+  }
+  return globalThis.CurriculumStandards || null;
+}
+
+function getEnrichApi() {
+  if (typeof module !== "undefined" && module.exports) {
+    try { return require("./curriculum-import-enrich.js"); } catch (error) { /* browser/global */ }
+  }
+  return globalThis.CurriculumImportEnrich || null;
+}
+
 function normalizedShortText(value) {
   return String(value || "").trim();
 }
@@ -302,7 +316,27 @@ function buildCurriculumImportPreview(parsed, options = {}) {
     existingActivities = [],
     proposedLessonPlanId = "",
   } = options;
-  const data = parsed?.data || null;
+  let data = parsed?.data || null;
+  let enrichReport = null;
+  const enrichApi = getEnrichApi();
+  const standardsApi = getStandardsApi();
+
+  // Fill only missing gold-standard fields from TITLE / THEME / AGE — never invent off-theme activities.
+  // Theme alignment is checked on the original paste first so enrich cannot mask mismatches.
+  let preEnrichAlignment = null;
+  if (data && enrichApi) {
+    preEnrichAlignment = enrichApi.analyzeThemeAlignment(data);
+  }
+  if (data && enrichApi && (formatVersion === 3 || formatVersion === 4 || formatVersion === 5)) {
+    if (String(data.title || "").trim() && String(data.theme || "").trim() && String(data.age || "").trim()) {
+      enrichReport = enrichApi.enrichCurriculumImportPlan(data, {
+        inventMedia: false,
+        source: proposedLessonPlanId || editingLessonPlanId || data.title || "import",
+      });
+      data = enrichReport.plan || data;
+    }
+  }
+
   const activityCounts = countDailyActivities(data?.dailyPlans || {});
   const mediaCounts = countBooksAndSongs(data || {});
   const daysPresent = CURRICULUM_WEEKDAYS.filter((day) => {
@@ -326,6 +360,87 @@ function buildCurriculumImportPreview(parsed, options = {}) {
   ...duplicateTitleWarnings(data || {}),
   ...emptyWeekdayWarnings(data || {}, formatVersion),
   ];
+
+  if (!String(data?.title || "").trim() || data?.title === "Untitled Lesson Plan") {
+    structuredErrors.push({
+      severity: "error",
+      message: "TITLE is required. Put the lesson name at the top so the importer can place it correctly.",
+      section: "lesson",
+      weekday: "",
+      activityName: "",
+      line: null,
+    });
+  }
+  if (!String(data?.theme || "").trim()) {
+    structuredErrors.push({
+      severity: "error",
+      message: "THEME is required. Every activity must match this theme — do not leave theme blank or paste unrelated content.",
+      section: "lesson",
+      weekday: "",
+      activityName: "",
+      line: null,
+    });
+  }
+  if (!String(data?.age || "").trim()) {
+    structuredErrors.push({
+      severity: "error",
+      message: "AGE_GROUP is required (Infant 0–6 Months, Infant 6–12 Months, Toddler, or Preschool).",
+      section: "lesson",
+      weekday: "",
+      activityName: "",
+      line: null,
+    });
+  }
+
+  const audit = enrichReport?.audit
+    || (standardsApi && data ? standardsApi.auditLessonPlanAgainstStandards(data, { source: "import-preview" }) : null);
+  if (audit) {
+    audit.issues.forEach((issue) => {
+      if (issue.code === "age_inappropriate" || issue.code === "worksheet_primary") {
+        structuredErrors.push({
+          severity: "error",
+          message: issue.detail,
+          section: "standards",
+          weekday: "",
+          activityName: "",
+          line: null,
+        });
+      } else if (issue.code === "missing_age_component") {
+        structuredWarnings.push({
+          severity: "warning",
+          message: issue.detail,
+          section: "standards",
+          weekday: "",
+          activityName: "",
+          line: null,
+        });
+      }
+    });
+  }
+
+  const alignment = preEnrichAlignment
+    || enrichReport?.alignment
+    || (enrichApi && data ? enrichApi.analyzeThemeAlignment(data) : null);
+  if (alignment && alignment.tokens.length && alignment.score === 0 && alignment.weak.length >= 3) {
+    structuredErrors.push({
+      severity: "error",
+      message: `Activities do not match THEME "${data.theme}". Weak matches: ${alignment.weak.slice(0, 4).map((item) => `${item.day} "${item.title}"`).join("; ")}. Fix the paste so every activity belongs to this theme and age group.`,
+      section: "theme",
+      weekday: "",
+      activityName: "",
+      line: null,
+    });
+  } else if (alignment && alignment.tokens.length && alignment.weak.length && alignment.score < 0.5) {
+    structuredWarnings.push({
+      severity: "warning",
+      message: `${alignment.weak.length} activity(ies) may be weakly tied to theme "${data.theme}". Review before publish.`,
+      section: "theme",
+      weekday: "",
+      activityName: "",
+      line: null,
+    });
+  }
+
   if (formatVersion === 2) {
     structuredWarnings.unshift({
       severity: "error",
@@ -402,7 +517,11 @@ function buildCurriculumImportPreview(parsed, options = {}) {
     missingFieldCount: quality?.missingFieldCount ?? null,
     categoriesAssigned: quality?.categoriesAssigned ?? activityCounts.total,
     recognizedFields: quality?.recognizedFields || parsed?.parseReport?.sectionsDetected || [],
+    ageBand: enrichReport?.ageBand || "",
+    themeAlignmentScore: alignment ? Math.round((alignment.score || 0) * 100) : null,
+    standardsComplete: audit ? Boolean(audit.complete) : null,
   };
+  const hasBlockingStandards = structuredErrors.some((item) => item.section === "standards" || item.section === "theme" || item.section === "lesson");
   return {
     ok: Boolean(parsed?.ok) && structuredErrors.length === 0,
     parsed,
@@ -416,10 +535,12 @@ function buildCurriculumImportPreview(parsed, options = {}) {
     activitySync,
     daysPresent,
     quality,
+    enrichReport,
     canConfirm: Boolean(parsed?.ok)
       && structuredErrors.length === 0
       && blockingUnmapped.length === 0
-      && duplicateTitle.status !== "duplicate",
+      && duplicateTitle.status !== "duplicate"
+      && !hasBlockingStandards,
     confirmMessage: (formatVersion === 4 || formatVersion === 5)
       ? `Import & Save will create 1 lesson plan and ${summary.activityLibraryEntries} linked Activity Library ${summary.activityLibraryEntries === 1 ? "entry" : "entries"}. Warnings can be fixed in the editor after import.`
       : `Import & Save will create 1 lesson plan and ${summary.activityLibraryEntries} linked Activity Library ${summary.activityLibraryEntries === 1 ? "entry" : "entries"} automatically.`,
