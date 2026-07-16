@@ -23,10 +23,10 @@
     <link rel="apple-touch-icon" href="images/icons/apple-touch-icon.png" />
     <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
-  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260715-tablet2" />
-  <link rel="stylesheet" href="styles.css?v=20260716-message-by-name" />
+  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260716-home-auth" />
+  <link rel="stylesheet" href="styles.css?v=20260716-home-auth" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260715-persistent-lesson-covers" />
-  <link rel="stylesheet" href="styles/llh-messaging.css?v=20260716-message-by-name" />
+  <link rel="stylesheet" href="styles/llh-messaging.css?v=20260716-home-auth" />
   <link rel="stylesheet" href="styles/llh-comms.css?v=20260716-inbox-health" />
   <script>
     // Paint Calendar immediately for returning users — never flash the old Dashboard.
@@ -267,9 +267,9 @@
               <a href="#homePricing" data-home-nav="pricing">Pricing</a>
               <a href="#homeReviews" data-home-nav="reviews">Reviews</a>
             </nav>
-            <div class="llh-public-nav-actions">
+            <div class="llh-public-nav-actions" aria-label="Account actions">
               <button class="llh-btn llh-btn-ghost" type="button" data-action="open-login">Log In</button>
-              <button class="llh-btn llh-btn-primary" type="button" data-action="start-free" data-signup-intent="founding">Get Started — $9.99/month</button>
+              <button class="llh-btn llh-btn-primary" type="button" data-action="start-free" data-signup-intent="founding">Sign Up</button>
             </div>
             <button class="llh-public-menu-toggle" id="llhPublicMenuToggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="llhPublicMobileMenu">
               <span></span><span></span><span></span>
@@ -288,7 +288,7 @@
             </nav>
             <div class="llh-public-mobile-actions">
               <button class="llh-btn llh-btn-ghost" type="button" data-action="open-login">Log In</button>
-              <button class="llh-btn llh-btn-primary" type="button" data-action="start-free" data-signup-intent="founding">Get Started — $9.99/month</button>
+              <button class="llh-btn llh-btn-primary" type="button" data-action="start-free" data-signup-intent="founding">Sign Up</button>
             </div>
           </div>
           <button class="llh-public-menu-backdrop" id="llhPublicMenuBackdrop" type="button" aria-label="Close menu" hidden></button>
@@ -301,8 +301,9 @@
               <p class="lp-hero-sub">Access a growing library of play-based lesson plans, activities, calendar planning tools, and classroom resources created by a childcare provider—starting at just $9.99/month.</p>
               <p class="llh-hero-support">Join now while Little Learner Hub is growing. Founding Members lock in $9.99/month pricing for life and automatically receive future features as they launch, including child profiles, observations, parent messaging, forms, enrollment tools, daily logs, and more.</p>
               <div class="lp-hero-actions">
-                <button class="lp-btn-primary llh-btn llh-btn-primary" data-home-nav="lessons" type="button">Browse Lesson Plans</button>
-                <button class="lp-btn-secondary llh-btn llh-btn-secondary" data-action="start-free" type="button">Start Free</button>
+                <button class="lp-btn-primary llh-btn llh-btn-primary" data-action="start-free" data-signup-intent="founding" type="button">Sign Up</button>
+                <button class="lp-btn-secondary llh-btn llh-btn-secondary" data-action="open-login" type="button">Log In</button>
+                <button class="llh-btn llh-btn-ghost" data-home-nav="lessons" type="button">Browse Lesson Plans</button>
               </div>
               <p class="lp-hero-founding-note"><a href="#homeComingSoon" data-home-nav="coming-soon">See What’s Coming Soon</a></p>
               <p class="lp-hero-cta-note">Curriculum and planning tools are available now. The complete childcare management platform is coming soon.</p>
@@ -1849,7 +1850,7 @@
     <script src="scripts/llh-schedule.js?v=20260714-prod-priority-fixes" defer></script>
     <script src="scripts/llh-lesson-docx.js?v=20260714-lesson-docx" defer></script>
     <script src="scripts/lesson-plan-weekly-export.js?v=20260715-weekly-pdf-reg" defer></script>
-    <script src="app.js?v=20260716-message-by-name" defer></script>
-    <script src="comms-center.js?v=20260716-message-by-name" defer></script>
+    <script src="app.js?v=20260716-home-auth" defer></script>
+    <script src="comms-center.js?v=20260716-home-auth" defer></script>
   </body>
 </html>

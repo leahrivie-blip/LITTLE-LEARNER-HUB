@@ -272,10 +272,14 @@ async function runAudit(playwright, baseUrl, seeded) {
   await mobile.locator('#llhPublicMobileMenu [data-home-nav="pricing"]').click();
   await mobile.waitForFunction(() => !document.body.classList.contains("llh-public-menu-open"));
   results.mobileMenu = true;
-  await mobile.locator('#llhPublicMenuToggle').click();
-  await mobile.locator('#llhPublicMobileMenu [data-action="open-login"]').click();
+  // Log In must be reachable from the sticky top bar without opening the menu.
+  await mobile.locator(".llh-public-nav-actions [data-action='open-login']").click();
   await mobile.waitForSelector("#authModal.open");
-  results.loginButtons.push("mobile-menu");
+  results.loginButtons.push("mobile-sticky-nav");
+  await mobile.click("#closeModal");
+  await mobile.locator(".llh-public-nav-actions [data-action='start-free']").click();
+  await mobile.waitForSelector("#authModal.open");
+  results.signupButtons.push("mobile-sticky-nav");
   await mobile.click("#closeModal");
 
   // Free signup + login lands on Calendar
