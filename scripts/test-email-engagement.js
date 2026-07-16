@@ -248,10 +248,7 @@ async function main() {
       ADMIN_ACCESS_CODE,
       // Explicitly clear email keys for soft-fail assertions
       RESEND_API_KEY: "",
-      SENDGRID_API_KEY: "",
-      POSTMARK_SERVER_TOKEN: "",
       SUPPORT_EMAIL_FROM: "",
-      SUPPORT_EMAIL_PROVIDER: "",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

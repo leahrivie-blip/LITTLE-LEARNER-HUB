@@ -13,6 +13,7 @@ const messagingLib = require("./messaging-lib.js");
 const { createCommsApi } = require("./comms-api.js");
 const commsLib = require("./comms-lib.js");
 const tempPasswordAuth = require("./temp-password-auth.js");
+const emailAuth = require("./email-auth.js");
 
 loadEnvFile(path.join(__dirname, "..", ".env"));
 
@@ -42,11 +43,9 @@ const FIREBASE_MESSAGING_SENDER_ID = process.env.FIREBASE_MESSAGING_SENDER_ID ||
 const FIREBASE_MEASUREMENT_ID = process.env.FIREBASE_MEASUREMENT_ID || "";
 const FIREBASE_CERT_URL = "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com";
 const SUPPORT_EMAIL_TO = normalizeEmail(process.env.SUPPORT_EMAIL_TO || ADMIN_EMAIL || "little.learners.hub.customer@gmail.com");
-const SUPPORT_EMAIL_FROM = process.env.SUPPORT_EMAIL_FROM || process.env.RESEND_FROM || process.env.SENDGRID_FROM || process.env.POSTMARK_FROM || "";
-const SUPPORT_EMAIL_PROVIDER = String(process.env.SUPPORT_EMAIL_PROVIDER || "").trim().toLowerCase();
+const SUPPORT_EMAIL_FROM = process.env.SUPPORT_EMAIL_FROM || process.env.RESEND_FROM || "";
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
-const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || "";
-const POSTMARK_SERVER_TOKEN = process.env.POSTMARK_SERVER_TOKEN || "";
+const RESEND_API_BASE_URL = process.env.RESEND_API_BASE_URL || "https://api.resend.com";
 const DATABASE_PROVIDER = process.env.DATABASE_PROVIDER || "local-json";
 const PRODUCTION_DATABASE_URL = process.env.PRODUCTION_DATABASE_URL || "";
 const PRODUCTION_DATABASE_SERVICE_KEY = process.env.PRODUCTION_DATABASE_SERVICE_KEY || "";
@@ -226,31 +225,24 @@ function firebaseConfigStatus() {
 }
 
 function detectedEmailProvider() {
-  if (SUPPORT_EMAIL_PROVIDER) return SUPPORT_EMAIL_PROVIDER;
   if (isConfiguredValue(RESEND_API_KEY)) return "resend";
-  if (isConfiguredValue(SENDGRID_API_KEY)) return "sendgrid";
-  if (isConfiguredValue(POSTMARK_SERVER_TOKEN)) return "postmark";
   return "";
 }
 
 function supportEmailConfigStatus() {
   const provider = detectedEmailProvider();
-  const keyReady = provider === "resend"
-    ? isConfiguredValue(RESEND_API_KEY)
-    : provider === "sendgrid"
-      ? isConfiguredValue(SENDGRID_API_KEY)
-      : provider === "postmark"
-        ? isConfiguredValue(POSTMARK_SERVER_TOKEN)
-        : false;
+  const keyReady = provider === "resend" ? isConfiguredValue(RESEND_API_KEY) : false;
   const ready = Boolean(provider && keyReady && isConfiguredValue(SUPPORT_EMAIL_FROM) && isConfiguredValue(SUPPORT_EMAIL_TO));
   return {
     ready,
     provider: provider || "not configured",
     to: SUPPORT_EMAIL_TO,
+    from: SUPPORT_EMAIL_FROM || "",
     fromConfigured: isConfiguredValue(SUPPORT_EMAIL_FROM),
+    recommendedFrom: "Little Learner Hub <support@littlelearnershubbyleah.com>",
     note: ready
       ? "Support and bug report email notifications are configured."
-      : "Support tickets are saved in Admin. Add RESEND_API_KEY, SENDGRID_API_KEY, or POSTMARK_SERVER_TOKEN plus SUPPORT_EMAIL_FROM to send automatic email notifications.",
+      : "Support tickets are saved in Admin. Add RESEND_API_KEY plus SUPPORT_EMAIL_FROM and SUPPORT_EMAIL_TO to send automatic email notifications.",
   };
 }
 
@@ -4342,9 +4334,16 @@ async function handleAccountProfileSync(request, response) {
   const user = upsertUser(email, updates);
   // Once-only welcome email on first signup stamp (soft-fail if email unconfigured).
   if (body.signup === true && !existing.signupAt) {
-    emailEngagement.maybeSendWelcomeOnSignup(email).catch((err) => {
+    try {
+      await sendVerificationEmail(email);
+    } catch (err) {
+      console.warn("[email] verification email failed:", err.message);
+    }
+    try {
+      await emailEngagement.maybeSendWelcomeOnSignup(email);
+    } catch (err) {
       console.warn("[email-engagement] welcome email failed:", err.message);
-    });
+    }
   }
   jsonResponse(response, 200, {
     ok: true,
@@ -4395,6 +4394,125 @@ async function handleAdminIssueTempPassword(request, response) {
     expiresAt: store.users[email].tempPasswordExpiresAt,
     mustChangePassword: true,
   });
+}
+
+async function handlePasswordResetRequest(request, response) {
+  const body = await readJson(request);
+  const email = normalizeEmail(body.email);
+  if (!email) {
+    jsonResponse(response, 400, { error: "Email is required." });
+    return;
+  }
+  try {
+    await sendPasswordResetEmail(email);
+  } catch (error) {
+    console.warn("[email] Password reset email failed:", error.message);
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    message: "If that email is in Little Learner Hub, a password reset link has been sent.",
+  });
+}
+
+function handlePasswordResetVerify(request, response, url) {
+  const token = String(url.searchParams.get("token") || "");
+  const store = readStore();
+  const inspected = emailAuth.inspectToken(store, token, "password_reset");
+  if (!inspected.ok) {
+    jsonResponse(response, 400, { ok: false, error: "This reset link is missing or expired." });
+    return;
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    email: inspected.email,
+    expiresAt: inspected.expiresAt,
+  });
+}
+
+async function handlePasswordResetComplete(request, response) {
+  const body = await readJson(request);
+  const token = String(body.token || "");
+  const newPassword = String(body.newPassword || "");
+  const confirmPassword = String(body.confirmPassword || "");
+  if (newPassword.length < 8) {
+    jsonResponse(response, 400, { error: "Please use a new password with at least 8 characters." });
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    jsonResponse(response, 400, { error: "The new passwords did not match." });
+    return;
+  }
+  const store = readStore();
+  const consumed = emailAuth.consumeToken(store, token, "password_reset");
+  if (!consumed.ok || !consumed.email) {
+    jsonResponse(response, 400, { error: "This reset link is missing or expired." });
+    return;
+  }
+  const user = store.users?.[consumed.email];
+  if (!user) {
+    jsonResponse(response, 404, { error: "Account not found." });
+    return;
+  }
+  store.users[consumed.email] = {
+    ...tempPasswordAuth.clearTempPasswordFields(user, { keepServerPasswordAuth: true }),
+    passwordHash: tempPasswordAuth.hashPasswordSha256(newPassword),
+    serverPasswordAuth: true,
+    mustChangePassword: false,
+    emailVerified: user.emailVerified !== false,
+    lastPasswordResetAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  await writeStoreAsync(store);
+  jsonResponse(response, 200, {
+    ok: true,
+    email: consumed.email,
+    message: "Password reset complete. You can now log in.",
+  });
+}
+
+async function handleVerificationEmailRequest(request, response) {
+  const body = await readJson(request);
+  const email = normalizeEmail(body.email);
+  if (!email) {
+    jsonResponse(response, 400, { error: "Email is required." });
+    return;
+  }
+  try {
+    const result = await sendVerificationEmail(email);
+    jsonResponse(response, 200, {
+      ok: true,
+      message: result?.reason === "already_verified"
+        ? "This email is already verified."
+        : "Verification email sent. Please check your inbox.",
+    });
+  } catch (error) {
+    console.warn("[email] Verification email failed:", error.message);
+    jsonResponse(response, 200, {
+      ok: true,
+      message: "If that account exists, a verification email has been sent.",
+    });
+  }
+}
+
+async function handleVerifyEmailToken(request, response, url) {
+  const token = String(url.searchParams.get("token") || "");
+  const store = readStore();
+  const consumed = emailAuth.consumeToken(store, token, "email_verification");
+  const redirectBase = appBaseUrl();
+  if (!consumed.ok || !consumed.email || !store.users?.[consumed.email]) {
+    response.writeHead(302, { Location: `${redirectBase}/?emailVerification=expired` });
+    response.end();
+    return;
+  }
+  store.users[consumed.email] = {
+    ...store.users[consumed.email],
+    emailVerified: true,
+    emailVerifiedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  await writeStoreAsync(store);
+  response.writeHead(302, { Location: `${redirectBase}/?emailVerification=success` });
+  response.end();
 }
 
 async function handlePasswordLogin(request, response) {
@@ -7345,18 +7463,6 @@ function htmlEscape(value) {
     .replace(/'/g, "&#39;");
 }
 
-function parseEmailAddress(value) {
-  const text = String(value || "").trim();
-  const match = text.match(/^(.*?)\s*<([^>]+)>$/);
-  if (match) {
-    return {
-      name: match[1].trim().replace(/^["']|["']$/g, ""),
-      email: match[2].trim(),
-    };
-  }
-  return { email: text };
-}
-
 async function postJson(url, headers, payload) {
   if (typeof fetch !== "function") throw new Error("Email sending requires Node fetch support.");
   const response = await fetch(url, {
@@ -7394,31 +7500,7 @@ async function sendEmail(opts = {}) {
   if (provider === "resend") {
     const payload = { from: SUPPORT_EMAIL_FROM, to: toList, subject, text, html };
     if (replyTo) payload.reply_to = replyTo;
-    await postJson("https://api.resend.com/emails", { Authorization: "Bearer " + RESEND_API_KEY }, payload);
-    return { sent: true, configured: true, provider };
-  }
-  if (provider === "sendgrid") {
-    const from = parseEmailAddress(SUPPORT_EMAIL_FROM);
-    const payload = {
-      personalizations: [{ to: [{ email: toList[0] }], subject }],
-      from,
-      content: [{ type: "text/plain", value: text }, { type: "text/html", value: html }],
-    };
-    if (replyTo) payload.reply_to = { email: replyTo };
-    await postJson("https://api.sendgrid.com/v3/mail/send", { Authorization: "Bearer " + SENDGRID_API_KEY }, payload);
-    return { sent: true, configured: true, provider };
-  }
-  if (provider === "postmark") {
-    const payload = {
-      From: SUPPORT_EMAIL_FROM,
-      To: toList[0],
-      Subject: subject,
-      TextBody: text,
-      HtmlBody: html,
-      MessageStream: "outbound",
-    };
-    if (replyTo) payload.ReplyTo = replyTo;
-    await postJson("https://api.postmarkapp.com/email", { "X-Postmark-Server-Token": POSTMARK_SERVER_TOKEN }, payload);
+    await postJson(`${RESEND_API_BASE_URL.replace(/\/$/, "")}/emails`, { Authorization: "Bearer " + RESEND_API_KEY }, payload);
     return { sent: true, configured: true, provider };
   }
   return { sent: false, configured: false, provider: provider || "not configured" };
@@ -7434,6 +7516,122 @@ const emailEngagement = createEmailEngagement({
   writeStoreAsync,
   isCurriculumLessonPublic,
 });
+
+function appBaseUrl() {
+  return String(SITE_URL || "").replace(/\/$/, "") || `http://localhost:${PORT}`;
+}
+
+function transactionalEmailShell({ title, introHtml, bodyHtml, ctaLabel, ctaUrl, footerNote }) {
+  const safeTitle = htmlEscape(title || "");
+  const safeCta = htmlEscape(ctaLabel || "Open Little Learner Hub");
+  const safeUrl = htmlEscape(ctaUrl || appBaseUrl());
+  const safeFooter = htmlEscape(footerNote || "Little Learner Hub");
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1f2937;line-height:1.6">
+      <p style="font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#8a7048;margin:0 0 8px">Little Learner Hub</p>
+      <h1 style="font-size:24px;margin:0 0 16px;color:#111827">${safeTitle}</h1>
+      ${introHtml || ""}
+      ${bodyHtml || ""}
+      <p style="margin:24px 0 12px">
+        <a href="${safeUrl}" style="display:inline-block;background:#2f6f5e;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-size:15px">${safeCta}</a>
+      </p>
+      <p style="font-size:12px;color:#6b7280;margin-top:24px">${safeFooter}</p>
+    </div>
+  `.trim();
+}
+
+function passwordResetEmailPayload({ email, token, expiresAt }) {
+  const resetUrl = `${appBaseUrl()}/?view=reset-password&resetToken=${encodeURIComponent(token)}`;
+  const expiryLabel = new Date(expiresAt).toLocaleString();
+  return {
+    subject: "Reset your Little Learner Hub password",
+    text: [
+      "Hi,",
+      "",
+      "We received a request to reset your Little Learner Hub password.",
+      "",
+      "Use this secure link to choose a new password:",
+      resetUrl,
+      "",
+      `This link expires on ${expiryLabel}. If you did not request this, you can ignore this email.`,
+      "",
+      "— Little Learner Hub",
+    ].join("\n"),
+    html: transactionalEmailShell({
+      title: "Reset your password",
+      introHtml: "<p>We received a request to reset your Little Learner Hub password.</p>",
+      bodyHtml: `<p>Use the secure button below to choose a new password.</p><p><strong>This link expires on ${htmlEscape(expiryLabel)}.</strong> If you did not request this, you can safely ignore this email.</p>`,
+      ctaLabel: "Choose a New Password",
+      ctaUrl: resetUrl,
+      footerNote: "If you did not request a password reset, no changes will be made to your account.",
+    }),
+  };
+}
+
+function verificationEmailPayload({ email, token, expiresAt }) {
+  const verifyUrl = `${appBaseUrl()}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
+  const expiryLabel = new Date(expiresAt).toLocaleDateString();
+  return {
+    subject: "Verify your Little Learner Hub email",
+    text: [
+      "Hi,",
+      "",
+      "Please verify your email address for Little Learner Hub.",
+      "",
+      "Use this secure link to verify your account:",
+      verifyUrl,
+      "",
+      `This verification link expires on ${expiryLabel}.`,
+      "",
+      "— Little Learner Hub",
+    ].join("\n"),
+    html: transactionalEmailShell({
+      title: "Verify your email",
+      introHtml: "<p>Please verify your email address for Little Learner Hub.</p>",
+      bodyHtml: "<p>Verifying helps protect your account and confirms you can receive important account and billing emails.</p>",
+      ctaLabel: "Verify Email Address",
+      ctaUrl: verifyUrl,
+      footerNote: `This verification link expires on ${expiryLabel}.`,
+    }),
+  };
+}
+
+async function sendPasswordResetEmail(email) {
+  const cleanEmail = normalizeEmail(email);
+  if (!cleanEmail) return { ok: false, reason: "missing_email" };
+  const store = readStore();
+  const user = store.users?.[cleanEmail];
+  if (!user) return { ok: true, skipped: true, reason: "user_not_found" };
+  const tokenData = emailAuth.createToken(store, {
+    email: cleanEmail,
+    purpose: "password_reset",
+    ttlMs: emailAuth.PASSWORD_RESET_TTL_MS,
+  });
+  writeStore(store);
+  if (!tokenData) return { ok: false, reason: "token_create_failed" };
+  const payload = passwordResetEmailPayload({ email: cleanEmail, token: tokenData.token, expiresAt: tokenData.expiresAt });
+  const emailResult = await sendEmail({ to: cleanEmail, replyTo: SUPPORT_EMAIL_TO, subject: payload.subject, text: payload.text, html: payload.html });
+  return { ok: true, email: cleanEmail, expiresAt: tokenData.expiresAt, emailResult };
+}
+
+async function sendVerificationEmail(email) {
+  const cleanEmail = normalizeEmail(email);
+  if (!cleanEmail) return { ok: false, reason: "missing_email" };
+  const store = readStore();
+  const user = store.users?.[cleanEmail];
+  if (!user) return { ok: true, skipped: true, reason: "user_not_found" };
+  if (user.emailVerified) return { ok: true, skipped: true, reason: "already_verified" };
+  const tokenData = emailAuth.createToken(store, {
+    email: cleanEmail,
+    purpose: "email_verification",
+    ttlMs: emailAuth.EMAIL_VERIFICATION_TTL_MS,
+  });
+  writeStore(store);
+  if (!tokenData) return { ok: false, reason: "token_create_failed" };
+  const payload = verificationEmailPayload({ email: cleanEmail, token: tokenData.token, expiresAt: tokenData.expiresAt });
+  const emailResult = await sendEmail({ to: cleanEmail, replyTo: SUPPORT_EMAIL_TO, subject: payload.subject, text: payload.text, html: payload.html });
+  return { ok: true, email: cleanEmail, expiresAt: tokenData.expiresAt, emailResult };
+}
 
 // ─── User acknowledgment email ────────────────────────────────────────────────
 // Sent to the submitter right after any new submission (ticket, bug, feature, feedback).
@@ -10633,6 +10831,11 @@ const server = http.createServer(async (request, response) => {
   try {
     if (request.method === "POST" && url.pathname === "/api/admin/login") return await handleAdminLogin(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/session") return handleAdminSession(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/auth/request-password-reset") return await handlePasswordResetRequest(request, response);
+    if (request.method === "GET" && url.pathname === "/api/auth/password-reset/verify") return handlePasswordResetVerify(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/auth/password-reset/complete") return await handlePasswordResetComplete(request, response);
+    if (request.method === "POST" && url.pathname === "/api/auth/send-verification-email") return await handleVerificationEmailRequest(request, response);
+    if (request.method === "GET" && url.pathname === "/api/auth/verify-email") return await handleVerifyEmailToken(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/site-content") return handlePublicSiteContent(request, response);
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/media/lesson-covers/")) {
       const assetId = decodeURIComponent(url.pathname.slice("/api/media/lesson-covers/".length));
