@@ -380,21 +380,21 @@ function lockedCurriculumLessonPreviewHtml(resource = {}, options = {}) {
       </div>
       <section class="fp-pro-upgrade-card" data-fp-pro-upgrade-card aria-label="Pro Lesson Plan upgrade">
         <p class="fp-pro-upgrade-eyebrow">🔒 Pro Lesson Plan</p>
-        <h3>Unlock this premium lesson plan</h3>
-        <p class="muted-copy">This premium lesson plan includes:</p>
+        <h3>This is a Pro Lesson Plan.</h3>
+        <p class="muted-copy">You're viewing a preview only.</p>
+        <p>Unlock:</p>
         <ul class="fp-pro-upgrade-benefits">
-          <li>✓ Weekly Learning Objectives</li>
-          <li>✓ Complete Materials List</li>
-          <li>✓ Vocabulary Development Activities</li>
-          <li>✓ Book Recommendations</li>
-          <li>✓ Songs &amp; Movement Activities</li>
-          <li>✓ Monday–Friday Daily Activities</li>
-          <li>✓ Teacher Guidance &amp; Instructions</li>
-          <li>✓ Learning Goals</li>
-          <li>✓ Family Connection Ideas</li>
-          <li>✓ Observation Opportunities</li>
-          <li>✓ Adaptations &amp; Extensions</li>
+          <li>✓ Complete Monday–Friday lesson plans</li>
+          <li>✓ Activities and directions</li>
+          <li>✓ Books and songs</li>
+          <li>✓ Materials lists</li>
+          <li>✓ Family connections</li>
+          <li>✓ Observation opportunities</li>
+          <li>✓ Printable curriculum</li>
+          <li>✓ Curriculum Planner access</li>
+          <li>✓ New lesson plans added every week</li>
         </ul>
+        <p class="muted-copy">Unlock the full curriculum library and access new lesson plans added every week.</p>
         ${lockedFoundingOfferHtml(showFoundingOffer)}
         ${upgradeCtaHtml ? `<div class="fp-pro-upgrade-actions pro-modal-actions">${upgradeCtaHtml}</div>` : ""}
         ${upgradeNote ? `<p class="fp-pro-upgrade-note"><small>${escapeHtml(upgradeNote)}</small></p>` : ""}

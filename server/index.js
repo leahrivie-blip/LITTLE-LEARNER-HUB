@@ -5265,6 +5265,15 @@ async function handleAiGenerate(request, response) {
   const plan = resolvedPlanForUser(user);
   const tool = String(body.tool || "unknown");
   console.log(`[access] ai-generate email=${email} tool=${tool} storedPlan=${user?.plan || "none"} resolvedPlan=${plan} status=${user?.subscriptionStatus || "none"}`);
+  const lessonTools = new Set(["lesson", "lesson-plan", "lesson_plan"]);
+  if (lessonTools.has(tool) && !membershipHasProAccess(user || {})) {
+    jsonResponse(response, 403, {
+      error: "Generate custom lesson plans in seconds. Available with Pro Membership. Start Your 7-Day Free Trial. Card required. Cancel anytime.",
+      code: "pro_required",
+      tool,
+    });
+    return;
+  }
   const usage = canUseServerAi(email, plan);
   if (!usage.allowed) {
     jsonResponse(response, 429, { error: `Monthly helper limit reached. ${usage.used} of ${usage.limit} documents created this month.`, used: usage.used, limit: usage.limit });

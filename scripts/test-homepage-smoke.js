@@ -365,8 +365,17 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
         await foundingBtn.first().click({ force: true });
         await page.waitForTimeout(800);
       } else {
-        await trialBtn.waitFor({ timeout: 5000 });
-        await trialBtn.click();
+        // Body CTA can be visually hidden on mobile when the sticky upgrade bar is active.
+        assert(await trialBtn.count(), `${label}: trial CTA missing in locked preview`);
+        const clicked = await page.evaluate(() => {
+          const sticky = document.querySelector("#featurePreviewModal .fp-sticky-upgrade:not([hidden]) [data-start-pro-trial]");
+          const body = document.querySelector("#featurePreviewModal .fp-pro-upgrade-actions [data-start-pro-trial]");
+          const target = sticky || body || document.querySelector("#featurePreviewModal [data-start-pro-trial]");
+          if (!target) return false;
+          target.click();
+          return true;
+        });
+        assert(clicked, `${label}: could not click trial CTA`);
         await page.waitForSelector("#view-upgrade.active-view", { timeout: 10000 });
         await page.waitForSelector("#upgradeApp .pricing-grid, #upgradeApp .checkout-test-panel", { timeout: 10000 });
       }
