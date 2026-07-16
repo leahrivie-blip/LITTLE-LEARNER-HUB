@@ -51,11 +51,11 @@ test("client detects expired admin server session and offers re-unlock", () => {
 test("cache bust versions stay aligned for admin stay-logged-in", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260716-platform-audit");
-  assert.equal(indexJs, "20260716-platform-audit");
-  assert.match(sw, /styles\.css\?v=20260716-platform-audit/);
-  assert.match(sw, /app\.js\?v=20260716-platform-audit/);
-  assert.match(sw, /llh-shell-v51-platform-audit/);
+  assert.equal(indexCss, "20260716-message-by-name");
+  assert.equal(indexJs, "20260716-message-by-name");
+  assert.match(sw, /styles\.css\?v=20260716-message-by-name/);
+  assert.match(sw, /app\.js\?v=20260716-message-by-name/);
+  assert.match(sw, /llh-shell-v52-message-by-name/);
 });
 
 test("owner can always see Admin nav to reach unlock form", () => {

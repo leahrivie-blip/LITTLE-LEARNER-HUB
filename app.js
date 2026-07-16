@@ -3937,7 +3937,7 @@ const adminTabLabels = {
   "feature-requests": "Feature Requests",
   "bug-reports": "Bug Reports",
   "emails":      "Emails",
-  "messages-compose": "Compose",
+  "messages-compose": "Message Someone",
   "messages-conversations": "Conversations",
   "message-templates": "Templates",
   "automations": "Automations",
@@ -9593,7 +9593,9 @@ let adminMessagesState = {
   tab: "compose",
   audience: "private",
   toEmail: "",
+  toUserName: "",
   selectedEmails: [],
+  conversationSearch: "",
   subject: "",
   body: "",
   kind: "message",
@@ -9602,6 +9604,148 @@ let adminMessagesState = {
   activeConversationMessages: [],
   activeConversationUser: null,
 };
+
+function adminMessagingDirectoryUsers() {
+  const serverUsers = Array.isArray(adminAnalyticsCache?.users) ? adminAnalyticsCache.users : [];
+  const serverEmails = new Set(serverUsers.map((user) => String(user.email || "").toLowerCase()).filter(Boolean));
+  const localOnly = allAccountsList().filter((account) => {
+    const email = String(account.email || "").toLowerCase();
+    return email && !serverEmails.has(email);
+  });
+  return [...serverUsers, ...localOnly]
+    .filter((user) => String(user.email || "").trim())
+    .map((user) => ({
+      email: String(user.email || "").trim().toLowerCase(),
+      name: displayUserName(user),
+      businessName: user.businessName || user.daycareName || user.programName || "",
+      plan: adminCurrentAccessLabel(user),
+      raw: user,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+}
+
+function adminMessagingUserMatchesQuery(user, query) {
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return true;
+  const haystack = [
+    user.name,
+    user.email,
+    user.businessName,
+    user.plan,
+    user.raw?.firstName,
+    user.raw?.lastName,
+  ].map((value) => String(value || "").toLowerCase()).join(" ");
+  return haystack.includes(q) || q.split(/\s+/).every((part) => haystack.includes(part));
+}
+
+function adminMessagingUserByEmail(email) {
+  const clean = String(email || "").trim().toLowerCase();
+  if (!clean) return null;
+  return adminMessagingDirectoryUsers().find((user) => user.email === clean) || null;
+}
+
+function closeAdminUserProfileModal() {
+  if (typeof closeAdminUserProfile === "function") {
+    closeAdminUserProfile();
+    return;
+  }
+  const modal = document.querySelector("#adminUserProfileModal");
+  if (!modal) return;
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function startAdminMessageToUser(email, options = {}) {
+  if (!isAdminUnlocked()) return;
+  const clean = String(email || "").trim().toLowerCase();
+  if (!clean) return;
+  const directoryUser = adminMessagingUserByEmail(clean);
+  adminMessagesState.toEmail = clean;
+  adminMessagesState.toUserName = directoryUser?.name || clean;
+  adminMessagesState.audience = "private";
+  adminMessagesState.selectedEmails = [];
+  closeAdminUserProfileModal();
+  if (options.openConversation) {
+    adminMessagesState.activeConversationEmail = clean;
+    setAdminSectionTab("messages-conversations");
+    requestAnimationFrame(() => {
+      openAdminConversation(clean).catch(() => {});
+    });
+    return;
+  }
+  setAdminSectionTab("messages-compose");
+}
+
+function renderAdminMessageUserPickerResults(query, options = {}) {
+  const multi = options.multi === true;
+  const resultsEl = document.querySelector(multi ? "#adminMessageSelectedResults" : "#adminMessageUserResults");
+  if (!resultsEl) return;
+  const selected = new Set(
+    (multi ? adminMessagesState.selectedEmails : [adminMessagesState.toEmail])
+      .map((email) => String(email || "").toLowerCase())
+      .filter(Boolean),
+  );
+  const matches = adminMessagingDirectoryUsers()
+    .filter((user) => adminMessagingUserMatchesQuery(user, query))
+    .slice(0, 12);
+  if (!String(query || "").trim()) {
+    resultsEl.hidden = true;
+    resultsEl.innerHTML = "";
+    return;
+  }
+  if (!matches.length) {
+    resultsEl.hidden = false;
+    resultsEl.innerHTML = `<p class="admin-user-picker-empty">No members match “${escapeHtml(query)}”. Try another name or email.</p>`;
+    return;
+  }
+  resultsEl.hidden = false;
+  resultsEl.innerHTML = matches.map((user) => {
+    const isSelected = selected.has(user.email);
+    return `
+      <button type="button" class="admin-user-picker-option${isSelected ? " is-selected" : ""}"
+        data-admin-message-pick="${escapeHtml(user.email)}"
+        data-admin-message-pick-multi="${multi ? "true" : "false"}">
+        <span class="admin-user-picker-option-name">${escapeHtml(user.name)}</span>
+        <span class="admin-user-picker-option-meta">${escapeHtml(user.email)}${user.businessName ? ` · ${escapeHtml(user.businessName)}` : ""} · ${escapeHtml(user.plan)}</span>
+      </button>
+    `;
+  }).join("");
+}
+
+function syncAdminMessageSelectedUserSummary() {
+  const summary = document.querySelector("#adminMessageUserSelected");
+  const hidden = document.querySelector("#adminMessagesComposeForm [name='toEmail']");
+  if (hidden) hidden.value = adminMessagesState.toEmail || "";
+  if (!summary) return;
+  if (!adminMessagesState.toEmail) {
+    summary.textContent = "No member selected yet. Type a name above — you do not need to remember their email.";
+    return;
+  }
+  const user = adminMessagingUserByEmail(adminMessagesState.toEmail);
+  const name = adminMessagesState.toUserName || user?.name || adminMessagesState.toEmail;
+  summary.innerHTML = `Messaging <strong>${escapeHtml(name)}</strong> <span class="muted-copy">(${escapeHtml(adminMessagesState.toEmail)})</span>`;
+}
+
+function syncAdminMessageSelectedChips() {
+  const chipsEl = document.querySelector("#adminMessageSelectedChips");
+  if (!chipsEl) return;
+  const emails = Array.isArray(adminMessagesState.selectedEmails) ? adminMessagesState.selectedEmails : [];
+  if (!emails.length) {
+    chipsEl.innerHTML = `<span class="muted-copy">No members selected yet. Search by name to add people.</span>`;
+    return;
+  }
+  chipsEl.innerHTML = emails.map((email) => {
+    const user = adminMessagingUserByEmail(email);
+    const name = user?.name || email;
+    return `
+      <button type="button" class="admin-user-chip" data-admin-message-remove="${escapeHtml(email)}" title="Remove ${escapeHtml(name)}">
+        <strong>${escapeHtml(name)}</strong>
+        <span>${escapeHtml(email)}</span>
+        <span aria-hidden="true">×</span>
+      </button>
+    `;
+  }).join("");
+}
 
 const adminAudienceLabels = {
   private: "Private message to one user",
@@ -9691,9 +9835,15 @@ function renderAdminMessagesCompose(container) {
     ["announcement", "Announcement"],
     ["feature_update", "Feature update"],
   ];
+  const selectedUser = s.toEmail ? adminMessagingUserByEmail(s.toEmail) : null;
+  const selectedName = s.toUserName || selectedUser?.name || "";
   container.innerHTML = `
     <div class="section-heading">
-      <div><p class="eyebrow">Member Messaging</p><h3>Send a message</h3></div>
+      <div>
+        <p class="eyebrow">Member Messaging</p>
+        <h3>Message someone</h3>
+        <p class="muted-copy">Search by name first. Email is filled in automatically — you do not need to remember it.</p>
+      </div>
     </div>
     <div class="admin-message-templates" aria-label="Message templates">
       <p class="admin-message-templates-label">Templates</p>
@@ -9709,14 +9859,20 @@ function renderAdminMessagesCompose(container) {
           ${Object.entries(adminAudienceLabels).map(([value, label]) => `<option value="${value}" ${s.audience === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
         </select>
       </label>
-      <label class="admin-compose-field" ${s.audience !== "private" ? "hidden" : ""}>
-        User email
-        <input type="email" name="toEmail" value="${escapeHtml(s.toEmail)}" placeholder="parent@example.com" />
-      </label>
-      <label class="admin-compose-field" ${s.audience !== "selected" ? "hidden" : ""}>
-        User emails (comma or newline separated)
-        <textarea name="selectedEmails" rows="3" placeholder="one@example.com, two@example.com">${escapeHtml(s.selectedEmails.join(", "))}</textarea>
-      </label>
+      <div class="admin-compose-field admin-user-picker" ${s.audience !== "private" ? "hidden" : ""}>
+        <label for="adminMessageUserSearch">Find member by name</label>
+        <input type="search" id="adminMessageUserSearch" autocomplete="off" placeholder="Type a name, program, or email…" value="${escapeHtml(selectedName)}" />
+        <input type="hidden" name="toEmail" value="${escapeHtml(s.toEmail)}" />
+        <div id="adminMessageUserResults" class="admin-user-picker-results" hidden></div>
+        <p class="admin-user-picker-selected" id="adminMessageUserSelected"></p>
+      </div>
+      <div class="admin-compose-field admin-user-picker" ${s.audience !== "selected" ? "hidden" : ""}>
+        <label for="adminMessageSelectedSearch">Add members by name</label>
+        <input type="search" id="adminMessageSelectedSearch" autocomplete="off" placeholder="Type a name to add people…" value="" />
+        <input type="hidden" name="selectedEmails" value="${escapeHtml(s.selectedEmails.join(", "))}" />
+        <div id="adminMessageSelectedResults" class="admin-user-picker-results" hidden></div>
+        <div class="admin-user-chip-row" id="adminMessageSelectedChips"></div>
+      </div>
       <label>Message type
         <select name="kind" id="adminMessagesKind">
           ${kindOptions.map(([value, label]) => `<option value="${value}" ${s.kind === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
@@ -9730,7 +9886,7 @@ function renderAdminMessagesCompose(container) {
         </select>
       </label>
       <label>Subject ${s.audience === "private" ? "(optional)" : ""}
-        <input type="text" name="subject" value="${escapeHtml(s.subject)}" maxlength="300" placeholder="${s.audience === "private" ? "e.g. Welcome!" : "e.g. New lesson plans added 🎉"}" />
+        <input type="text" name="subject" value="${escapeHtml(s.subject)}" maxlength="300" placeholder="${s.audience === "private" ? "e.g. Welcome!" : "e.g. New lesson plans added"}" />
       </label>
       <label>Message
         <textarea name="body" rows="5" maxlength="8000" placeholder="Write your message…">${escapeHtml(s.body)}</textarea>
@@ -9741,6 +9897,8 @@ function renderAdminMessagesCompose(container) {
       <p class="admin-compose-message" id="adminMessagesComposeMessage"></p>
     </form>
   `;
+  syncAdminMessageSelectedUserSummary();
+  syncAdminMessageSelectedChips();
 }
 
 async function renderAdminMessagesConversations(container) {
@@ -9757,20 +9915,50 @@ async function renderAdminMessagesConversations(container) {
   renderAdminConversationsBody(container);
 }
 
+function filteredAdminConversations() {
+  const query = String(adminMessagesState.conversationSearch || "").trim().toLowerCase();
+  const conversations = Array.isArray(adminMessagesState.conversations) ? adminMessagesState.conversations : [];
+  if (!query) return conversations;
+  return conversations.filter((conversation) => {
+    const haystack = [
+      conversation.userName,
+      conversation.userEmail,
+      conversation.businessName,
+      conversation.plan,
+      conversation.lastMessagePreview,
+    ].map((value) => String(value || "").toLowerCase()).join(" ");
+    return haystack.includes(query);
+  });
+}
+
 function renderAdminConversationsBody(container) {
-  const conversations = adminMessagesState.conversations;
+  const conversations = filteredAdminConversations();
+  const total = adminMessagesState.conversations.length;
   const listHtml = conversations.length
-    ? conversations.map((c) => `
+    ? conversations.map((c) => {
+      const name = c.userName || adminMessagingUserByEmail(c.userEmail)?.name || c.userEmail;
+      const meta = [c.businessName, c.plan].filter(Boolean).join(" · ");
+      return `
       <button type="button" class="admin-conversation-item${c.userEmail === adminMessagesState.activeConversationEmail ? " active" : ""}" data-admin-conversation="${escapeHtml(c.userEmail)}">
-        <strong>${escapeHtml(c.userEmail)}</strong>
-        <span>${escapeHtml(c.lastMessagePreview || "")}</span>
+        <strong>${escapeHtml(name)}</strong>
+        <span class="admin-conversation-email">${escapeHtml(c.userEmail)}${meta ? ` · ${escapeHtml(meta)}` : ""}</span>
+        <span class="admin-conversation-preview">${escapeHtml(c.lastMessagePreview || "")}</span>
         ${c.unreadFromUser ? `<span class="admin-conversation-unread">${c.unreadFromUser}</span>` : ""}
       </button>
-    `).join("")
-    : `<p class="messages-empty">No private conversations yet.</p>`;
+    `;
+    }).join("")
+    : `<p class="messages-empty">${total ? "No conversations match that name." : "No private conversations yet."}</p>`;
   container.innerHTML = `
     <div class="section-heading">
-      <div><p class="eyebrow">Member Messaging</p><h3>Conversations</h3></div>
+      <div>
+        <p class="eyebrow">Member Messaging</p>
+        <h3>Conversations</h3>
+        <p class="muted-copy">Find people by name. Email stays available under each name.</p>
+      </div>
+    </div>
+    <div class="admin-conversations-toolbar">
+      <label class="admin-conversations-search-label" for="adminConversationsSearch">Search conversations</label>
+      <input type="search" id="adminConversationsSearch" class="admin-conversations-search" placeholder="Search by name, email, or program…" value="${escapeHtml(adminMessagesState.conversationSearch || "")}" />
     </div>
     <div class="admin-conversations-layout">
       <div class="admin-conversations-list">${listHtml}</div>
@@ -9779,6 +9967,9 @@ function renderAdminConversationsBody(container) {
       </div>
     </div>
   `;
+  if (adminMessagesState.activeConversationEmail) {
+    renderAdminConversationThread();
+  }
 }
 
 async function openAdminConversation(userEmail) {
@@ -9874,16 +10065,21 @@ document.addEventListener("submit", async (event) => {
   const form = event.target;
   const messageEl = document.querySelector("#adminMessagesComposeMessage");
   const audience = form.audience.value;
-  const toEmail = String(form.toEmail?.value || "").trim().toLowerCase();
-  const selectedEmails = String(form.selectedEmails?.value || "").split(/[,\n]/).map((e) => e.trim().toLowerCase()).filter(Boolean);
+  const toEmail = String(form.toEmail?.value || adminMessagesState.toEmail || "").trim().toLowerCase();
+  const selectedEmails = (
+    Array.isArray(adminMessagesState.selectedEmails) && adminMessagesState.selectedEmails.length
+      ? adminMessagesState.selectedEmails
+      : String(form.selectedEmails?.value || "").split(/[,\n]/).map((e) => e.trim().toLowerCase()).filter(Boolean)
+  );
   const subject = String(form.subject?.value || "").trim();
   const body = String(form.body?.value || "").trim();
   const kind = String(form.kind?.value || "message");
   const deliverVia = String(form.deliverVia?.value || "in_app");
+  const recipientName = adminMessagesState.toUserName || adminMessagingUserByEmail(toEmail)?.name || toEmail;
   Object.assign(adminMessagesState, { audience, toEmail, selectedEmails, subject, body, kind, deliverVia });
   if (!body) { setFormMessage(messageEl, "Write a message before sending.", false); return; }
-  if (audience === "private" && !toEmail) { setFormMessage(messageEl, "Enter the user's email.", false); return; }
-  if (audience === "selected" && !selectedEmails.length) { setFormMessage(messageEl, "Enter at least one user email.", false); return; }
+  if (audience === "private" && !toEmail) { setFormMessage(messageEl, "Choose a member by name before sending.", false); return; }
+  if (audience === "selected" && !selectedEmails.length) { setFormMessage(messageEl, "Add at least one member by name before sending.", false); return; }
 
   const submitBtn = form.querySelector("button[type='submit']");
   if (submitBtn) submitBtn.disabled = true;
@@ -9891,9 +10087,9 @@ document.addEventListener("submit", async (event) => {
     if (audience === "private") {
       const result = await adminMessagesSend({ audience, toEmail, subject, body, kind, deliverVia });
       if (!result.ok) throw new Error(result.error || "Could not send message.");
-      Object.assign(adminMessagesState, { toEmail: "", subject: "", body: "", kind: "message", deliverVia: "in_app" });
+      Object.assign(adminMessagesState, { toEmail: "", toUserName: "", subject: "", body: "", kind: "message", deliverVia: "in_app" });
       renderAdminMessagesCompose(document.querySelector("#adminMessagesApp"));
-      setFormMessage(document.querySelector("#adminMessagesComposeMessage"), `✅ Message sent to ${toEmail}.`, true);
+      setFormMessage(document.querySelector("#adminMessagesComposeMessage"), `Message sent to ${recipientName}.`, true);
     } else {
       // Group send: always preview the exact recipient count + message text
       // and require an explicit confirmation click before anything is sent —
@@ -9922,6 +10118,56 @@ document.addEventListener("submit", async (event) => {
 });
 
 document.addEventListener("click", async (event) => {
+  const messageUserBtn = event.target.closest("[data-aup-message]");
+  if (messageUserBtn) {
+    event.preventDefault();
+    startAdminMessageToUser(messageUserBtn.dataset.aupMessage);
+    return;
+  }
+  const openConversationBtn = event.target.closest("[data-aup-open-conversation]");
+  if (openConversationBtn) {
+    event.preventDefault();
+    startAdminMessageToUser(openConversationBtn.dataset.aupOpenConversation, { openConversation: true });
+    return;
+  }
+  const pickBtn = event.target.closest("[data-admin-message-pick]");
+  if (pickBtn) {
+    event.preventDefault();
+    const email = String(pickBtn.dataset.adminMessagePick || "").trim().toLowerCase();
+    const multi = pickBtn.dataset.adminMessagePickMulti === "true";
+    const user = adminMessagingUserByEmail(email);
+    if (!email) return;
+    if (multi) {
+      const next = new Set(adminMessagesState.selectedEmails.map((item) => String(item || "").toLowerCase()));
+      if (next.has(email)) next.delete(email);
+      else next.add(email);
+      adminMessagesState.selectedEmails = [...next];
+      const hidden = document.querySelector("#adminMessagesComposeForm [name='selectedEmails']");
+      if (hidden) hidden.value = adminMessagesState.selectedEmails.join(", ");
+      const search = document.querySelector("#adminMessageSelectedSearch");
+      if (search) search.value = "";
+      syncAdminMessageSelectedChips();
+      renderAdminMessageUserPickerResults("", { multi: true });
+    } else {
+      adminMessagesState.toEmail = email;
+      adminMessagesState.toUserName = user?.name || email;
+      const search = document.querySelector("#adminMessageUserSearch");
+      if (search) search.value = adminMessagesState.toUserName;
+      syncAdminMessageSelectedUserSummary();
+      renderAdminMessageUserPickerResults("", { multi: false });
+    }
+    return;
+  }
+  const removeChip = event.target.closest("[data-admin-message-remove]");
+  if (removeChip) {
+    event.preventDefault();
+    const email = String(removeChip.dataset.adminMessageRemove || "").trim().toLowerCase();
+    adminMessagesState.selectedEmails = adminMessagesState.selectedEmails.filter((item) => item !== email);
+    const hidden = document.querySelector("#adminMessagesComposeForm [name='selectedEmails']");
+    if (hidden) hidden.value = adminMessagesState.selectedEmails.join(", ");
+    syncAdminMessageSelectedChips();
+    return;
+  }
   const templateBtn = event.target.closest("[data-admin-message-template]");
   if (templateBtn) {
     event.preventDefault();
@@ -9932,6 +10178,38 @@ document.addEventListener("click", async (event) => {
   if (convoBtn) {
     event.preventDefault();
     await openAdminConversation(convoBtn.dataset.adminConversation);
+  }
+});
+
+document.addEventListener("input", (event) => {
+  if (event.target.matches("#adminMessageUserSearch")) {
+    renderAdminMessageUserPickerResults(event.target.value, { multi: false });
+    return;
+  }
+  if (event.target.matches("#adminMessageSelectedSearch")) {
+    renderAdminMessageUserPickerResults(event.target.value, { multi: true });
+    return;
+  }
+  if (event.target.matches("#adminConversationsSearch")) {
+    adminMessagesState.conversationSearch = event.target.value || "";
+    const listEl = document.querySelector(".admin-conversations-list");
+    if (!listEl) return;
+    const conversations = filteredAdminConversations();
+    const total = adminMessagesState.conversations.length;
+    listEl.innerHTML = conversations.length
+      ? conversations.map((c) => {
+        const name = c.userName || adminMessagingUserByEmail(c.userEmail)?.name || c.userEmail;
+        const meta = [c.businessName, c.plan].filter(Boolean).join(" · ");
+        return `
+          <button type="button" class="admin-conversation-item${c.userEmail === adminMessagesState.activeConversationEmail ? " active" : ""}" data-admin-conversation="${escapeHtml(c.userEmail)}">
+            <strong>${escapeHtml(name)}</strong>
+            <span class="admin-conversation-email">${escapeHtml(c.userEmail)}${meta ? ` · ${escapeHtml(meta)}` : ""}</span>
+            <span class="admin-conversation-preview">${escapeHtml(c.lastMessagePreview || "")}</span>
+            ${c.unreadFromUser ? `<span class="admin-conversation-unread">${c.unreadFromUser}</span>` : ""}
+          </button>
+        `;
+      }).join("")
+      : `<p class="messages-empty">${total ? "No conversations match that name." : "No private conversations yet."}</p>`;
   }
 });
 
@@ -32141,6 +32419,7 @@ function adminDrilldownUserRow(account) {
       </div>
       <div class="admin-drilldown-actions">
         <button class="ghost-button aup-btn" type="button" data-aup-view="${escapeHtml(email)}">View</button>
+        <button class="ghost-button aup-btn" type="button" data-aup-message="${escapeHtml(email)}">Message</button>
         <button class="primary-button aup-btn" type="button" data-aup-manage="${escapeHtml(email)}">Manage</button>
       </div>
     </article>
@@ -32237,8 +32516,10 @@ function bindAdminOwnerDrilldownControls(target) {
   listEl?.addEventListener("click", (event) => {
     const viewEmail = event.target.closest("[data-aup-view]")?.dataset?.aupView;
     const manageEmail = event.target.closest("[data-aup-manage]")?.dataset?.aupManage;
+    const messageEmail = event.target.closest("[data-aup-message]")?.dataset?.aupMessage;
     if (viewEmail) openAdminUserProfile(viewEmail, "view");
     if (manageEmail) openAdminUserProfile(manageEmail, "manage");
+    if (messageEmail) startAdminMessageToUser(messageEmail);
   });
   target.querySelectorAll("[data-admin-owner-section]").forEach((detailsEl) => {
     const key = detailsEl.dataset.adminOwnerSection;
@@ -35428,6 +35709,7 @@ function adminUserCard(account) {
       </div>
       <div class="aup-card-actions">
         <button class="ghost-button aup-btn" type="button" data-aup-view="${escapeHtml(email)}">View Details</button>
+        <button class="ghost-button aup-btn" type="button" data-aup-message="${escapeHtml(email)}">Message User</button>
         <button class="primary-button aup-btn" type="button" data-aup-manage="${escapeHtml(email)}">Manage</button>
       </div>
     </div>
@@ -35576,13 +35858,15 @@ function renderAdminUsersDashboard() {
     });
   }
 
-  // View / Manage button delegation
+  // View / Manage / Message button delegation
   if (listEl) {
     listEl.addEventListener("click", (e) => {
-      const viewEmail   = e.target.closest("[data-aup-view]")?.dataset?.aupView;
+      const viewEmail = e.target.closest("[data-aup-view]")?.dataset?.aupView;
       const manageEmail = e.target.closest("[data-aup-manage]")?.dataset?.aupManage;
-      if (viewEmail)   openAdminUserProfile(viewEmail, "view");
+      const messageEmail = e.target.closest("[data-aup-message]")?.dataset?.aupMessage;
+      if (viewEmail) openAdminUserProfile(viewEmail, "view");
       if (manageEmail) openAdminUserProfile(manageEmail, "manage");
+      if (messageEmail) startAdminMessageToUser(messageEmail);
     });
   }
 }
@@ -35647,6 +35931,10 @@ function openAdminUserProfile(email, startTab) {
             ${adminUserStatusBadge(account)}
           </div>
         </div>
+      </div>
+      <div class="aup-modal-header-actions">
+        <button class="primary-button aup-btn" type="button" data-aup-message="${escapeHtml(email)}">Message User</button>
+        <button class="ghost-button aup-btn" type="button" data-aup-open-conversation="${escapeHtml(email)}">View Conversation</button>
       </div>
     </div>
 

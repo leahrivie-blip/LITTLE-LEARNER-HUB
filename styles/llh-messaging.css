@@ -452,9 +452,111 @@
   font-size: 13px;
 }
 
+.admin-user-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-user-picker-results {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: var(--llh-radius-sm, 8px);
+  background: var(--llh-surface, #fff);
+  padding: 6px;
+}
+
+.admin-user-picker-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.admin-user-picker-option:hover,
+.admin-user-picker-option.is-selected {
+  background: var(--llh-primary-soft, #ede8f7);
+  border-color: var(--llh-primary, #7b6bb5);
+}
+
+.admin-user-picker-option-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--llh-ink, #2a2a35);
+}
+
+.admin-user-picker-option-meta,
+.admin-user-picker-empty,
+.admin-user-picker-selected {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--llh-muted, #6b6b7b);
+}
+
+.admin-user-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: 999px;
+  background: var(--llh-bg, #f7f6f9);
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.admin-user-chip strong {
+  font-size: 12px;
+}
+
+.admin-conversations-toolbar {
+  margin: 0 0 14px;
+  max-width: 420px;
+}
+
+.admin-conversations-search-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.admin-conversations-search {
+  width: 100%;
+  font: inherit;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--llh-line, #e4e1ea);
+}
+
+.admin-conversation-email {
+  font-size: 11px !important;
+}
+
+.admin-conversation-preview {
+  font-size: 12px;
+}
+
 .admin-conversations-layout {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 280px 1fr;
   gap: 18px;
   min-height: 420px;
 }
