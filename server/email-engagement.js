@@ -881,11 +881,6 @@ function createEmailEngagement(deps) {
         }
       }
 
-      await completeEmailCampaignDelivery({
-        campaignId: FREE_REENGAGEMENT_CAMPAIGN_ID,
-        email: "__campaign_lock__",
-        status: "sent",
-      });
       const deliveries = (await listEmailCampaignDeliveries(FREE_REENGAGEMENT_CAMPAIGN_ID))
         .filter((delivery) => delivery.email !== "__campaign_lock__");
       const delivered = deliveries.filter((delivery) => delivery.status === "sent");
@@ -907,6 +902,11 @@ function createEmailEngagement(deps) {
         bounceTrackingAvailable: false,
       };
       await patchEmailCampaignState(FREE_REENGAGEMENT_CAMPAIGN_ID, completionPatch);
+      await completeEmailCampaignDelivery({
+        campaignId: FREE_REENGAGEMENT_CAMPAIGN_ID,
+        email: "__campaign_lock__",
+        status: "sent",
+      });
       campaignState = { ...campaignState, ...completionPatch };
       return {
         campaignId: FREE_REENGAGEMENT_CAMPAIGN_ID,

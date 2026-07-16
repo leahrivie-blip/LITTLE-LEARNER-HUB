@@ -2104,6 +2104,7 @@ function readStore() {
 
 async function readStoreFresh() {
   if (usePostgresStore()) {
+    await postgresWriteChain.catch(() => {});
     const result = await postgresPool.query("SELECT data FROM llh_store WHERE id = $1", [storeRecordId]);
     if (result.rows[0]?.data) storeCache = result.rows[0].data;
     return structuredClone(storeCache || defaultStore());
@@ -2249,8 +2250,27 @@ function mergeStorePreserveAdminSessions(incomingStore) {
   };
 }
 
+function mergeStorePreserveEmailCampaigns(incomingStore) {
+  if (!storeCache?.emailEngagement?.campaigns) return incomingStore;
+  const incomingEngagement = incomingStore?.emailEngagement && typeof incomingStore.emailEngagement === "object"
+    ? incomingStore.emailEngagement
+    : {};
+  return {
+    ...incomingStore,
+    emailEngagement: {
+      ...incomingEngagement,
+      campaigns: {
+        ...(incomingEngagement.campaigns || {}),
+        ...storeCache.emailEngagement.campaigns,
+      },
+    },
+  };
+}
+
 function writeStore(store) {
-  const nextStore = mergeStorePreserveAdminSessions(mergeStorePreferNewerSiteContent(store));
+  const nextStore = mergeStorePreserveEmailCampaigns(
+    mergeStorePreserveAdminSessions(mergeStorePreferNewerSiteContent(store)),
+  );
   storeCache = nextStore;
   if (usePostgresStore()) {
     enqueuePostgresStoreWrite().writePromise.catch(() => {});
@@ -2268,7 +2288,7 @@ async function writeStoreAsync(store) {
   // Intentional full-state writes (curriculum / site-content) may carry a newer stamp.
   // Do not merge-prefer siteContent from cache — the caller already built the next siteContent.
   // Always preserve adminSessions so a concurrent login is not erased mid-save.
-  storeCache = mergeStorePreserveAdminSessions(store);
+  storeCache = mergeStorePreserveEmailCampaigns(mergeStorePreserveAdminSessions(store));
   if (usePostgresStore()) {
     const { writeGeneration, writePromise } = enqueuePostgresStoreWrite();
     await writePromise;
@@ -2378,34 +2398,44 @@ async function listEmailCampaignDeliveries(campaignId) {
 
 async function patchEmailCampaignState(campaignId, patch = {}) {
   if (usePostgresStore()) {
-    await postgresPool.query(
-      `UPDATE llh_store
-       SET data = jsonb_set(
-         data, '{emailEngagement}',
-         COALESCE(data -> 'emailEngagement', '{}'::jsonb)
-         || jsonb_build_object(
-           'campaigns',
-           COALESCE(data #> '{emailEngagement,campaigns}', '{}'::jsonb)
+    const previousWrites = postgresWriteChain;
+    const patchPromise = (async () => {
+      await previousWrites.catch(() => {});
+      await postgresPool.query(
+        `UPDATE llh_store
+         SET data = jsonb_set(
+           data, '{emailEngagement}',
+           COALESCE(data -> 'emailEngagement', '{}'::jsonb)
            || jsonb_build_object(
-             $2::text,
-             COALESCE(data #> ARRAY['emailEngagement', 'campaigns', $2::text], '{}'::jsonb) || $3::jsonb
-           )
-         ),
-         true
-       ), updated_at = NOW()
-       WHERE id = $1`,
-      [storeRecordId, campaignId, JSON.stringify(patch)],
-    );
-    storeCache = storeCache || defaultStore();
-    storeCache.emailEngagement = storeCache.emailEngagement && typeof storeCache.emailEngagement === "object"
-      ? storeCache.emailEngagement
-      : defaultEmailEngagementStore();
-    storeCache.emailEngagement.campaigns = storeCache.emailEngagement.campaigns || {};
-    storeCache.emailEngagement.campaigns[campaignId] = {
-      ...(storeCache.emailEngagement.campaigns[campaignId] || {}),
-      ...patch,
-    };
-    return storeCache.emailEngagement.campaigns[campaignId];
+             'campaigns',
+             COALESCE(data #> '{emailEngagement,campaigns}', '{}'::jsonb)
+             || jsonb_build_object(
+               $2::text,
+               COALESCE(data #> ARRAY['emailEngagement', 'campaigns', $2::text], '{}'::jsonb) || $3::jsonb
+             )
+           ),
+           true
+         ), updated_at = NOW()
+         WHERE id = $1`,
+        [storeRecordId, campaignId, JSON.stringify(patch)],
+      );
+      storeCache = storeCache || defaultStore();
+      storeCache.emailEngagement = storeCache.emailEngagement && typeof storeCache.emailEngagement === "object"
+        ? storeCache.emailEngagement
+        : defaultEmailEngagementStore();
+      storeCache.emailEngagement.campaigns = storeCache.emailEngagement.campaigns || {};
+      storeCache.emailEngagement.campaigns[campaignId] = {
+        ...(storeCache.emailEngagement.campaigns[campaignId] || {}),
+        ...patch,
+      };
+      return storeCache.emailEngagement.campaigns[campaignId];
+    })();
+    postgresWriteChain = patchPromise.catch((error) => {
+      databaseReady = false;
+      lastPostgresError = error.message || "Postgres email campaign patch failed.";
+      console.error(lastPostgresError);
+    });
+    return await patchPromise;
   }
   const store = readStore();
   store.emailEngagement = store.emailEngagement && typeof store.emailEngagement === "object"
