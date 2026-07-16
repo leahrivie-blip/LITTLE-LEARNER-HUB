@@ -7,6 +7,8 @@ const membershipAccess = require("../scripts/membership-access.js");
 const accountAccess = require("../scripts/account-access.js");
 const scheduleLib = require("./schedule-lib.js");
 const { createEmailEngagement, defaultEmailEngagementStore } = require("./email-engagement.js");
+const { createPushService } = require("./push-lib.js");
+const messagingLib = require("./messaging-lib.js");
 
 loadEnvFile(path.join(__dirname, "..", ".env"));
 
@@ -45,6 +47,13 @@ const DATABASE_PROVIDER = process.env.DATABASE_PROVIDER || "local-json";
 const PRODUCTION_DATABASE_URL = process.env.PRODUCTION_DATABASE_URL || "";
 const PRODUCTION_DATABASE_SERVICE_KEY = process.env.PRODUCTION_DATABASE_SERVICE_KEY || "";
 const DATABASE_SSL = process.env.DATABASE_SSL || "";
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || `mailto:${SUPPORT_EMAIL_TO || "support@littlelearnerhub.com"}`;
+const PUSH_BULK_BATCH_SIZE = Number(process.env.PUSH_BULK_BATCH_SIZE || 20);
+const PUSH_BULK_BATCH_DELAY_MS = Number(process.env.PUSH_BULK_BATCH_DELAY_MS || 75);
+const PUSH_BULK_MAX_RECIPIENTS = Number(process.env.PUSH_BULK_MAX_RECIPIENTS || 2000);
+const MAX_PUSH_DEVICES_PER_USER = Number(process.env.MAX_PUSH_DEVICES_PER_USER || 8);
 
 const publicDir = path.join(__dirname, "..");
 const dataDir = path.join(__dirname, "data");
@@ -61,6 +70,17 @@ let postgresWriteChain = Promise.resolve();
 let firebaseCertCache = { expiresAt: 0, certs: {} };
 let clientAppScriptCache = null;
 const MAX_BACKFILL_REPORT_ITEMS = 500;
+
+// Member Messaging Center + Web Push — initialized once storage is ready (see
+// initializeStorage().then(...) near the bottom) so VAPID key persistence can
+// safely read/write the store.
+let pushService = null;
+const messagingCenter = messagingLib.createMessagingCenter({ membershipAccess });
+const MAX_MESSAGES = 5000;
+const MAX_NOTIFICATIONS = 20000;
+const MAX_PUSH_DELIVERY_LOG = 5000;
+const recentSendFingerprints = new Map(); // dedupes accidental double-submits of the same send
+const SEND_FINGERPRINT_TTL_MS = 15000;
 
 const planConfig = {
   founding: {
@@ -344,7 +364,29 @@ function defaultStore() {
     siteContent: defaultSiteContentStore(),
     scheduleByUser: {},
     emailEngagement: defaultEmailEngagementStore(),
+    messages: [],
+    messageDrafts: [],
+    notifications: [],
+    pushSubscriptions: [],
+    notificationPreferences: {},
+    pushDeliveryLog: [],
+    pushConfig: {},
   };
+}
+
+// Older stores predate the Messaging Center — default any missing collections
+// in place so existing installs upgrade without a migration step.
+function ensureMessagingStore(store) {
+  store.messages = Array.isArray(store.messages) ? store.messages : [];
+  store.messageDrafts = Array.isArray(store.messageDrafts) ? store.messageDrafts : [];
+  store.notifications = Array.isArray(store.notifications) ? store.notifications : [];
+  store.pushSubscriptions = Array.isArray(store.pushSubscriptions) ? store.pushSubscriptions : [];
+  store.notificationPreferences = store.notificationPreferences && typeof store.notificationPreferences === "object"
+    ? store.notificationPreferences
+    : {};
+  store.pushDeliveryLog = Array.isArray(store.pushDeliveryLog) ? store.pushDeliveryLog : [];
+  store.pushConfig = store.pushConfig && typeof store.pushConfig === "object" ? store.pushConfig : {};
+  return store;
 }
 
 function defaultAiSettings() {
@@ -7240,21 +7282,35 @@ async function handleSupportTicketUpdate(request, response) {
     return;
   }
   const id = String(body.id || "");
-  const store = readStore();
+  const store = ensureMessagingStore(readStore());
   const tickets = store.supportTickets || [];
   const index = tickets.findIndex((ticket) => ticket.id === id);
   if (index < 0) {
     jsonResponse(response, 404, { error: "Support ticket was not found." });
     return;
   }
+  const previousReply = tickets[index].reply || "";
+  const nextReply = body.reply !== undefined ? String(body.reply).slice(0, 5000) : tickets[index].reply;
   tickets[index] = {
     ...tickets[index],
     status: body.status ? String(body.status).slice(0, 40) : tickets[index].status,
-    reply: body.reply !== undefined ? String(body.reply).slice(0, 5000) : tickets[index].reply,
+    reply: nextReply,
     updatedAt: new Date().toISOString(),
   };
   store.supportTickets = tickets;
   writeStore(store);
+  // Notify the ticket owner (bell + push) only when there is an actual new
+  // reply for them to read — never on trivial internal status housekeeping.
+  const ticketOwnerEmail = normalizeEmail(tickets[index].email || tickets[index].createdBy || "");
+  if (ticketOwnerEmail && nextReply && nextReply !== previousReply) {
+    await fanOutNotificationsAndPush(store, {
+      type: "support_reply",
+      recipients: [ticketOwnerEmail],
+      title: "Support request update",
+      preview: messagePreviewText(nextReply),
+      refId: id,
+    }).catch((error) => console.warn("[messaging] support reply notification failed:", error.message));
+  }
   jsonResponse(response, 200, { ticket: publicTicket(tickets[index]) });
 }
 
@@ -8315,6 +8371,10 @@ function handleClientConfig(request, response) {
     adminEmail: ADMIN_EMAIL,
     firebase,
     firebaseStatus: firebaseConfigStatus(),
+    push: {
+      supported: Boolean(pushService && pushService.configured()),
+      publicKey: pushService ? pushService.publicKey() : "",
+    },
   };
   response.writeHead(200, {
     "Content-Type": "text/javascript; charset=utf-8",
@@ -8556,13 +8616,14 @@ async function handleBugReportUpdate(request, response) {
     return;
   }
   const id = String(body.id || "");
-  const store = readStore();
+  const store = ensureMessagingStore(readStore());
   const items = store.bugReports || [];
   const index = items.findIndex((r) => r.id === id);
   if (index < 0) {
     jsonResponse(response, 404, { error: "Bug report was not found." });
     return;
   }
+  const previousStatus = items[index].status;
   const rawStatus = body.status ? String(body.status).slice(0, 40) : "";
   items[index] = {
     ...items[index],
@@ -8578,6 +8639,17 @@ async function handleBugReportUpdate(request, response) {
   }
   store.bugReports = items;
   writeStore(store);
+  // Notify the reporter (bug-fix update) only on a real status change.
+  const reporterEmail = normalizeEmail(items[index].email || "");
+  if (reporterEmail && items[index].status !== previousStatus) {
+    await fanOutNotificationsAndPush(store, {
+      type: "bug_update",
+      recipients: [reporterEmail],
+      title: "Bug report update",
+      preview: `Status: ${items[index].status}`,
+      refId: id,
+    }).catch((error) => console.warn("[messaging] bug update notification failed:", error.message));
+  }
   jsonResponse(response, 200, { bugReport: publicBugReport(items[index]) });
 }
 
@@ -8974,6 +9046,842 @@ function handleAnnouncementsList(request, response, url) {
   jsonResponse(response, 200, { announcements: published.slice(0, 50).map(publicAnnouncement) });
 }
 
+// ─── Member Messaging Center + Web Push ────────────────────────────────────────
+// In-app messaging is always the source of truth: a message is saved and an
+// unread notification created *before* any push attempt. Push is best-effort
+// on top — if it is unavailable, unconfigured, declined, or fails, the
+// in-app message and notification remain intact either way.
+
+async function resolveMemberIdentity(request) {
+  // Reuses the same Firebase/test/email-header identity resolution already
+  // used for the schedule API so messaging never introduces a second,
+  // divergent auth path.
+  return resolveScheduleIdentity(request);
+}
+
+function capArray(list, max) {
+  return list.length > max ? list.slice(0, max) : list;
+}
+
+function messagingRandomId(prefix) {
+  return `${prefix}-${Date.now()}-${crypto.randomBytes(6).toString("hex")}`;
+}
+
+function sendFingerprintKey(parts) {
+  return crypto.createHash("sha256").update(JSON.stringify(parts)).digest("hex");
+}
+
+function isDuplicateSend(fingerprint) {
+  const now = Date.now();
+  for (const [key, expiresAt] of recentSendFingerprints) {
+    if (expiresAt <= now) recentSendFingerprints.delete(key);
+  }
+  if (recentSendFingerprints.has(fingerprint)) return true;
+  recentSendFingerprints.set(fingerprint, now + SEND_FINGERPRINT_TTL_MS);
+  return false;
+}
+
+function publicMessage(message) {
+  return {
+    id: message.id,
+    kind: message.kind,
+    audience: message.audience,
+    senderType: message.senderType,
+    senderEmail: message.senderType === "admin" ? "" : message.senderEmail,
+    senderName: message.senderType === "admin" ? (ADMIN_NAME || "Leah") : (message.senderName || "You"),
+    toEmail: message.toEmail || "",
+    conversationEmail: message.conversationEmail || "",
+    subject: message.subject || "",
+    body: message.body || "",
+    recipientCount: message.recipientCount || 0,
+    createdAt: message.createdAt,
+    sentAt: message.sentAt || message.createdAt,
+    pushSummary: message.pushSummary || null,
+  };
+}
+
+function publicNotification(notification) {
+  return {
+    id: notification.id,
+    type: notification.type,
+    title: notification.title || "",
+    preview: notification.preview || "",
+    messageId: notification.messageId || "",
+    conversationEmail: notification.conversationEmail || "",
+    refId: notification.refId || "",
+    createdAt: notification.createdAt,
+    read: Boolean(notification.read),
+    readAt: notification.readAt || "",
+  };
+}
+
+function publicPushSubscription(sub) {
+  return {
+    id: sub.id,
+    deviceLabel: sub.deviceLabel || describeUserAgent(sub.userAgent),
+    createdAt: sub.createdAt,
+    lastSeenAt: sub.lastSeenAt || sub.createdAt,
+    lastSuccessAt: sub.lastSuccessAt || "",
+    lastFailureAt: sub.lastFailureAt || "",
+    failureCount: sub.failureCount || 0,
+  };
+}
+
+function describeUserAgent(userAgent) {
+  const ua = String(userAgent || "");
+  if (/iphone|ipad|ipod/i.test(ua)) return "iOS device";
+  if (/android/i.test(ua)) return "Android device";
+  if (/macintosh/i.test(ua)) return "Mac";
+  if (/windows/i.test(ua)) return "Windows PC";
+  if (/linux/i.test(ua)) return "Linux device";
+  return "Device";
+}
+
+function logPushDelivery(store, entry) {
+  store.pushDeliveryLog.unshift({
+    id: messagingRandomId("pushlog"),
+    at: new Date().toISOString(),
+    ...entry,
+  });
+  store.pushDeliveryLog = capArray(store.pushDeliveryLog, MAX_PUSH_DELIVERY_LOG);
+}
+
+function userNotificationPreference(store, email) {
+  const raw = store.notificationPreferences[email];
+  return {
+    pushEnabled: Boolean(raw?.pushEnabled),
+    decision: raw?.decision || "default",
+    promptedAt: raw?.promptedAt || "",
+    respondedAt: raw?.respondedAt || "",
+    updatedAt: raw?.updatedAt || "",
+  };
+}
+
+/**
+ * Creates one notification row per recipient (always — this is the in-app
+ * source of truth for the bell + unread badges), then best-effort attempts
+ * push for recipients who explicitly opted in and have live subscriptions.
+ * Never throws: push failures are logged, never allowed to roll back the
+ * in-app notifications that were already persisted.
+ *
+ * @returns {Promise<{targeted:number, optedIn:number, attempted:number, sent:number, failed:number, skipped:number, expired:number}>}
+ */
+async function fanOutNotificationsAndPush(store, {
+  type,
+  recipients,
+  title,
+  preview,
+  messageId = "",
+  conversationEmail = "",
+  refId = "",
+  senderName = ADMIN_NAME || "Leah",
+}) {
+  const uniqueRecipients = [...new Set((recipients || []).map((e) => normalizeEmail(e)).filter(Boolean))];
+  const now = new Date().toISOString();
+  const notificationByEmail = new Map();
+  uniqueRecipients.forEach((email) => {
+    const notification = {
+      id: messagingRandomId("notif"),
+      email,
+      type,
+      title: messagingLib.clampText(title, 200),
+      preview: messagingLib.clampText(preview, 240),
+      messageId,
+      conversationEmail,
+      refId,
+      createdAt: now,
+      read: false,
+      readAt: "",
+      pushAttempted: false,
+      pushSent: false,
+      pushError: "",
+    };
+    notificationByEmail.set(email, notification);
+    store.notifications.unshift(notification);
+  });
+  store.notifications = capArray(store.notifications, MAX_NOTIFICATIONS);
+
+  const summary = {
+    targeted: uniqueRecipients.length,
+    optedIn: 0,
+    attempted: 0,
+    sent: 0,
+    failed: 0,
+    skipped: 0,
+    expired: 0,
+  };
+
+  if (!pushService || !pushService.configured()) {
+    writeStore(store);
+    return summary;
+  }
+
+  // Build one push job per (subscription) so a user with multiple devices
+  // gets the notification on every device they opted in on.
+  const jobs = [];
+  uniqueRecipients.forEach((email) => {
+    const pref = userNotificationPreference(store, email);
+    if (!pref.pushEnabled) return; // explicit opt-in required — never nag or auto-enable
+    const subs = store.pushSubscriptions.filter((s) => s.email === email && !s.expired);
+    if (!subs.length) return;
+    summary.optedIn += 1;
+    subs.forEach((subscription) => jobs.push({ email, subscription, notification: notificationByEmail.get(email) }));
+  });
+
+  if (jobs.length) {
+    const copy = messagingLib.pushCopyForNotification({ type, senderName, title });
+    const results = await pushService.sendBatch(
+      jobs.map((job) => job.subscription),
+      () => ({
+        title: copy.title,
+        body: copy.body,
+        icon: "/images/icons/icon-192.png",
+        badge: "/images/icons/badge-72.png",
+        data: {
+          url: conversationEmail
+            ? `/?view=messages&conversation=${encodeURIComponent(conversationEmail)}`
+            : "/?view=messages",
+          type,
+        },
+      }),
+      { batchSize: PUSH_BULK_BATCH_SIZE, batchDelayMs: PUSH_BULK_BATCH_DELAY_MS, maxRecipientsPerSend: PUSH_BULK_MAX_RECIPIENTS },
+    );
+
+    results.forEach((entry, index) => {
+      const job = jobs[index];
+      const { result } = entry;
+      const notification = job.notification;
+      if (result.skipped) {
+        summary.skipped += 1;
+        logPushDelivery(store, { email: job.email, notificationId: notification.id, result: "skipped", reason: "rate_limit_skipped" });
+        return;
+      }
+      summary.attempted += 1;
+      notification.pushAttempted = true;
+      if (result.ok) {
+        summary.sent += 1;
+        notification.pushSent = true;
+        job.subscription.lastSuccessAt = new Date().toISOString();
+        job.subscription.failureCount = 0;
+        logPushDelivery(store, { email: job.email, notificationId: notification.id, result: "sent" });
+      } else if (result.expired) {
+        summary.expired += 1;
+        notification.pushError = "subscription_expired";
+        job.subscription.expired = true;
+        store.pushSubscriptions = store.pushSubscriptions.filter((s) => s.id !== job.subscription.id);
+        logPushDelivery(store, { email: job.email, notificationId: notification.id, result: "expired", reason: result.error });
+      } else {
+        summary.failed += 1;
+        notification.pushError = String(result.error || "push_failed").slice(0, 300);
+        job.subscription.lastFailureAt = new Date().toISOString();
+        job.subscription.failureCount = (job.subscription.failureCount || 0) + 1;
+        logPushDelivery(store, { email: job.email, notificationId: notification.id, result: "failed", reason: result.error });
+      }
+    });
+  }
+
+  writeStore(store);
+  return summary;
+}
+
+// Kept in sync with the audience selector in the admin composer UI.
+function messagePreviewText(body, maxLength = 160) {
+  const clean = String(body || "").replace(/\s+/g, " ").trim();
+  return clean.length > maxLength ? `${clean.slice(0, maxLength - 1)}…` : clean;
+}
+
+async function handleAdminMessagePreview(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const audience = String(body.audience || "").trim().toLowerCase();
+  if (!messagingLib.AUDIENCES.includes(audience)) {
+    jsonResponse(response, 400, { error: "Unknown audience." });
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  const recipients = messagingCenter.resolveAudienceRecipients(store, {
+    audience,
+    toEmail: normalizeEmail(body.toEmail),
+    selectedEmails: Array.isArray(body.selectedEmails) ? body.selectedEmails : [],
+    adminEmail: ADMIN_EMAIL,
+  });
+  jsonResponse(response, 200, {
+    audience,
+    audienceLabel: messagingLib.audienceLabel(audience),
+    recipientCount: recipients.length,
+    sampleRecipients: recipients.slice(0, 10),
+    messagePreview: messagePreviewText(body.body || ""),
+    requiresConfirmation: audience !== "private",
+  });
+}
+
+async function handleAdminMessageSend(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required to send messages." });
+    return;
+  }
+  const audience = String(body.audience || "").trim().toLowerCase();
+  if (!messagingLib.AUDIENCES.includes(audience)) {
+    jsonResponse(response, 400, { error: "Unknown audience." });
+    return;
+  }
+  const subject = messagingLib.clampText(body.subject, 300);
+  const messageBody = messagingLib.clampText(body.body, 8000);
+  if (!messageBody) {
+    jsonResponse(response, 400, { error: "Message body is required." });
+    return;
+  }
+  const kind = messagingLib.MESSAGE_KINDS.includes(body.kind) ? body.kind : (audience === "private" ? "message" : "announcement");
+  const toEmail = normalizeEmail(body.toEmail);
+  if (audience === "private" && !toEmail) {
+    jsonResponse(response, 400, { error: "toEmail is required for a private message." });
+    return;
+  }
+  const selectedEmails = Array.isArray(body.selectedEmails) ? body.selectedEmails.map(normalizeEmail).filter(Boolean) : [];
+  if (audience === "selected" && !selectedEmails.length) {
+    jsonResponse(response, 400, { error: "Select at least one user." });
+    return;
+  }
+  // Group sends must show a recipient-count confirmation before this call —
+  // never allow one accidental click to notify everyone.
+  if (audience !== "private" && body.confirm !== true) {
+    jsonResponse(response, 400, { error: "Group messages require confirmation (confirm: true) after reviewing the recipient count and preview." });
+    return;
+  }
+
+  const fingerprint = sendFingerprintKey([audience, toEmail, selectedEmails.sort(), subject, messageBody]);
+  if (isDuplicateSend(fingerprint)) {
+    jsonResponse(response, 409, { error: "This message was already sent moments ago (duplicate submission blocked)." });
+    return;
+  }
+
+  const store = ensureMessagingStore(readStore());
+  const recipients = messagingCenter.resolveAudienceRecipients(store, { audience, toEmail, selectedEmails, adminEmail: ADMIN_EMAIL });
+  if (!recipients.length) {
+    jsonResponse(response, 400, { error: "No recipients matched this audience." });
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const message = {
+    id: messagingRandomId("msg"),
+    kind,
+    audience,
+    senderType: "admin",
+    senderEmail: ADMIN_EMAIL,
+    senderName: ADMIN_NAME || "Leah",
+    toEmail: audience === "private" ? toEmail : "",
+    conversationEmail: audience === "private" ? toEmail : "",
+    selectedEmails: audience === "selected" ? selectedEmails : [],
+    subject,
+    body: messageBody,
+    recipientCount: recipients.length,
+    createdAt: now,
+    sentAt: now,
+    status: "sent",
+    pushSummary: null,
+  };
+  store.messages.unshift(message);
+  store.messages = capArray(store.messages, MAX_MESSAGES);
+  writeStore(store);
+
+  const summary = await fanOutNotificationsAndPush(store, {
+    type: kind === "announcement" ? "announcement" : "message",
+    recipients,
+    title: audience === "private" ? "New message from Leah" : (subject || "Little Learner Hub"),
+    preview: messagePreviewText(messageBody),
+    messageId: message.id,
+    conversationEmail: message.conversationEmail,
+    senderName: ADMIN_NAME || "Leah",
+  });
+
+  const store2 = readStore();
+  const index = store2.messages.findIndex((m) => m.id === message.id);
+  if (index >= 0) {
+    store2.messages[index].pushSummary = summary;
+    writeStore(store2);
+  }
+
+  jsonResponse(response, 200, {
+    ok: true,
+    message: publicMessage({ ...message, pushSummary: summary }),
+    recipientCount: recipients.length,
+    pushSummary: summary,
+  });
+}
+
+async function handleAdminMessageDraftSave(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const audience = String(body.audience || "all").trim().toLowerCase();
+  const store = ensureMessagingStore(readStore());
+  const id = String(body.id || "") || messagingRandomId("draft");
+  const existingIndex = store.messageDrafts.findIndex((d) => d.id === id);
+  const draft = {
+    id,
+    audience: messagingLib.AUDIENCES.includes(audience) ? audience : "all",
+    toEmail: normalizeEmail(body.toEmail || ""),
+    selectedEmails: Array.isArray(body.selectedEmails) ? body.selectedEmails.map(normalizeEmail).filter(Boolean) : [],
+    subject: messagingLib.clampText(body.subject, 300),
+    body: messagingLib.clampText(body.body, 8000),
+    kind: messagingLib.MESSAGE_KINDS.includes(body.kind) ? body.kind : "announcement",
+    updatedAt: new Date().toISOString(),
+    createdAt: existingIndex >= 0 ? store.messageDrafts[existingIndex].createdAt : new Date().toISOString(),
+  };
+  if (existingIndex >= 0) {
+    store.messageDrafts[existingIndex] = draft;
+  } else {
+    store.messageDrafts.unshift(draft);
+  }
+  store.messageDrafts = capArray(store.messageDrafts, 500);
+  writeStore(store);
+  // Drafts are never fanned out to notifications and never trigger push.
+  jsonResponse(response, 200, { ok: true, draft });
+}
+
+function handleAdminMessageDraftsList(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  jsonResponse(response, 200, { drafts: store.messageDrafts });
+}
+
+async function handleAdminMessageDraftDelete(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  store.messageDrafts = store.messageDrafts.filter((d) => d.id !== String(body.id || ""));
+  writeStore(store);
+  jsonResponse(response, 200, { ok: true });
+}
+
+function handleAdminConversationsList(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  const byUser = new Map();
+  store.messages
+    .filter((m) => m.audience === "private" && m.conversationEmail)
+    .forEach((m) => {
+      const existing = byUser.get(m.conversationEmail);
+      if (!existing || m.createdAt > existing.lastMessageAt) {
+        byUser.set(m.conversationEmail, {
+          userEmail: m.conversationEmail,
+          lastMessageAt: m.createdAt,
+          lastMessagePreview: messagePreviewText(m.body, 100),
+          lastMessageSender: m.senderType,
+        });
+      }
+    });
+  const unreadFromUser = new Map();
+  store.notifications
+    .filter((n) => n.email === ADMIN_EMAIL && n.type === "message" && !n.read)
+    .forEach((n) => {
+      unreadFromUser.set(n.conversationEmail, (unreadFromUser.get(n.conversationEmail) || 0) + 1);
+    });
+  const conversations = [...byUser.values()]
+    .map((c) => ({ ...c, unreadFromUser: unreadFromUser.get(c.userEmail) || 0 }))
+    .sort((a, b) => (a.lastMessageAt < b.lastMessageAt ? 1 : -1));
+  jsonResponse(response, 200, { conversations });
+}
+
+function handleAdminConversationMessages(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const userEmail = normalizeEmail(url.searchParams.get("userEmail") || "");
+  if (!userEmail) {
+    jsonResponse(response, 400, { error: "userEmail is required." });
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  const messages = store.messages
+    .filter((m) => m.audience === "private" && m.conversationEmail === userEmail)
+    .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))
+    .map(publicMessage);
+  jsonResponse(response, 200, { userEmail, messages });
+}
+
+// ─── Member-facing messaging endpoints ─────────────────────────────────────────
+
+async function handleMemberConversation(request, response) {
+  let identity;
+  try {
+    identity = await resolveMemberIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message });
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  const messages = store.messages
+    .filter((m) => m.audience === "private" && m.conversationEmail === identity.email)
+    .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))
+    .map(publicMessage);
+  jsonResponse(response, 200, { messages });
+}
+
+async function handleMemberMessageReply(request, response) {
+  let identity;
+  try {
+    identity = await resolveMemberIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message });
+    return;
+  }
+  const body = await readJson(request);
+  const messageBody = messagingLib.clampText(body.body, 4000);
+  if (!messageBody) {
+    jsonResponse(response, 400, { error: "Message body is required." });
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  const user = store.users?.[identity.email] || { email: identity.email };
+  const now = new Date().toISOString();
+  const message = {
+    id: messagingRandomId("msg"),
+    kind: "message",
+    audience: "private",
+    senderType: "user",
+    senderEmail: identity.email,
+    senderName: user.firstName || user.name || identity.email,
+    toEmail: "",
+    conversationEmail: identity.email,
+    subject: "",
+    body: messageBody,
+    recipientCount: 1,
+    createdAt: now,
+    sentAt: now,
+    status: "sent",
+    pushSummary: null,
+  };
+  store.messages.unshift(message);
+  store.messages = capArray(store.messages, MAX_MESSAGES);
+  writeStore(store);
+
+  // Admin does not receive push (no admin device model) — the admin dashboard
+  // "conversations" unread count uses this same notification row instead.
+  if (ADMIN_EMAIL) {
+    await fanOutNotificationsAndPush(store, {
+      type: "message",
+      recipients: [ADMIN_EMAIL],
+      title: `Reply from ${message.senderName}`,
+      preview: messagePreviewText(messageBody),
+      messageId: message.id,
+      conversationEmail: identity.email,
+    });
+  }
+
+  jsonResponse(response, 200, { ok: true, message: publicMessage(message) });
+}
+
+async function handleMemberInbox(request, response) {
+  let identity;
+  try {
+    identity = await resolveMemberIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message });
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  const messageById = new Map(store.messages.map((m) => [m.id, m]));
+  const broadcastNotifications = store.notifications
+    .filter((n) => n.email === identity.email && !n.conversationEmail && (n.type === "message" || n.type === "announcement"))
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .slice(0, 200)
+    .map((n) => ({
+      notification: publicNotification(n),
+      message: messageById.has(n.messageId) ? publicMessage(messageById.get(n.messageId)) : null,
+    }));
+  jsonResponse(response, 200, { items: broadcastNotifications });
+}
+
+async function handleMemberMarkRead(request, response) {
+  let identity;
+  try {
+    identity = await resolveMemberIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message });
+    return;
+  }
+  const body = await readJson(request);
+  const store = ensureMessagingStore(readStore());
+  const now = new Date().toISOString();
+  let updated = 0;
+  store.notifications.forEach((n) => {
+    if (n.email !== identity.email || n.read) return;
+    const matchesConversation = body.conversationEmail && n.conversationEmail === body.conversationEmail;
+    const matchesId = Array.isArray(body.notificationIds) && body.notificationIds.includes(n.id);
+    const matchesAll = body.all === true;
+    if (matchesConversation || matchesId || matchesAll) {
+      n.read = true;
+      n.readAt = now;
+      updated += 1;
+    }
+  });
+  if (updated) writeStore(store);
+  jsonResponse(response, 200, { ok: true, updated });
+}
+
+async function handleMemberNotificationsList(request, response, url) {
+  let identity;
+  try {
+    identity = await resolveMemberIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message });
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  const mine = store.notifications
+    .filter((n) => n.email === identity.email)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  const limit = Math.min(Number(url.searchParams.get("limit")) || 50, 200);
+  const unreadCount = mine.filter((n) => !n.read).length;
+  jsonResponse(response, 200, {
+    notifications: mine.slice(0, limit).map(publicNotification),
+    unreadCount,
+  });
+}
+
+async function handleMemberNotificationsMarkAllRead(request, response) {
+  let identity;
+  try {
+    identity = await resolveMemberIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message });
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  const now = new Date().toISOString();
+  let updated = 0;
+  store.notifications.forEach((n) => {
+    if (n.email === identity.email && !n.read) {
+      n.read = true;
+      n.readAt = now;
+      updated += 1;
+    }
+  });
+  if (updated) writeStore(store);
+  jsonResponse(response, 200, { ok: true, updated });
+}
+
+async function handleNotificationPreferencesGet(request, response) {
+  let identity;
+  try {
+    identity = await resolveMemberIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message });
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  jsonResponse(response, 200, {
+    preference: userNotificationPreference(store, identity.email),
+    pushSupportedOnServer: Boolean(pushService && pushService.configured()),
+    deviceCount: store.pushSubscriptions.filter((s) => s.email === identity.email).length,
+  });
+}
+
+async function handleNotificationPreferencesSet(request, response) {
+  let identity;
+  try {
+    identity = await resolveMemberIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message });
+    return;
+  }
+  const body = await readJson(request);
+  const store = ensureMessagingStore(readStore());
+  const now = new Date().toISOString();
+  const existing = store.notificationPreferences[identity.email] || {};
+  const decision = ["granted", "denied", "default"].includes(body.decision) ? body.decision : existing.decision || "default";
+  const next = {
+    pushEnabled: decision === "granted",
+    decision,
+    promptedAt: existing.promptedAt || (decision !== "default" ? now : ""),
+    respondedAt: decision !== "default" ? now : existing.respondedAt || "",
+    updatedAt: now,
+  };
+  store.notificationPreferences[identity.email] = next;
+  // Turning notifications off is a soft toggle — subscriptions stay on file so
+  // re-enabling does not require the browser permission dance again. Denying
+  // does not delete devices either; it only stops future push sends.
+  writeStore(store);
+  jsonResponse(response, 200, { ok: true, preference: next });
+}
+
+function subscriptionEndpointFingerprint(endpoint) {
+  return crypto.createHash("sha256").update(String(endpoint || "")).digest("hex");
+}
+
+async function handlePushSubscribe(request, response) {
+  let identity;
+  try {
+    identity = await resolveMemberIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message });
+    return;
+  }
+  const body = await readJson(request);
+  const subscription = body.subscription || {};
+  const endpoint = String(subscription.endpoint || "").trim();
+  const p256dh = String(subscription.keys?.p256dh || "").trim();
+  const auth = String(subscription.keys?.auth || "").trim();
+  if (!endpoint || !p256dh || !auth) {
+    jsonResponse(response, 400, { error: "A valid push subscription (endpoint + keys) is required." });
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  const fingerprint = subscriptionEndpointFingerprint(endpoint);
+  const now = new Date().toISOString();
+  // Duplicate-prevention: re-subscribing the same device (same endpoint)
+  // updates the existing row instead of creating a second one.
+  const existingIndex = store.pushSubscriptions.findIndex((s) => s.fingerprint === fingerprint);
+  if (existingIndex >= 0) {
+    store.pushSubscriptions[existingIndex] = {
+      ...store.pushSubscriptions[existingIndex],
+      email: identity.email,
+      endpoint,
+      keys: { p256dh, auth },
+      userAgent: messagingLib.clampText(body.userAgent, 300),
+      lastSeenAt: now,
+      expired: false,
+    };
+  } else {
+    const existingForUser = store.pushSubscriptions.filter((s) => s.email === identity.email);
+    if (existingForUser.length >= MAX_PUSH_DEVICES_PER_USER) {
+      // Evict the oldest device for this user before adding a new one.
+      const oldestId = existingForUser.sort((a, b) => (a.lastSeenAt < b.lastSeenAt ? -1 : 1))[0]?.id;
+      store.pushSubscriptions = store.pushSubscriptions.filter((s) => s.id !== oldestId);
+    }
+    store.pushSubscriptions.push({
+      id: messagingRandomId("sub"),
+      email: identity.email,
+      endpoint,
+      keys: { p256dh, auth },
+      fingerprint,
+      userAgent: messagingLib.clampText(body.userAgent, 300),
+      deviceLabel: describeUserAgent(body.userAgent),
+      createdAt: now,
+      lastSeenAt: now,
+      lastSuccessAt: "",
+      lastFailureAt: "",
+      failureCount: 0,
+      expired: false,
+    });
+  }
+  writeStore(store);
+  jsonResponse(response, 200, { ok: true, deviceCount: store.pushSubscriptions.filter((s) => s.email === identity.email).length });
+}
+
+async function handlePushUnsubscribe(request, response) {
+  let identity;
+  try {
+    identity = await resolveMemberIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message });
+    return;
+  }
+  const body = await readJson(request);
+  const endpoint = String(body.endpoint || "").trim();
+  const store = ensureMessagingStore(readStore());
+  const before = store.pushSubscriptions.length;
+  // Only ever remove the caller's OWN device — never another user's, even if
+  // an endpoint value is guessed or replayed.
+  store.pushSubscriptions = store.pushSubscriptions.filter((s) => !(s.email === identity.email && (!endpoint || s.endpoint === endpoint)));
+  const removed = before - store.pushSubscriptions.length;
+  writeStore(store);
+  jsonResponse(response, 200, { ok: true, removed });
+}
+
+function handleVapidPublicKey(request, response) {
+  jsonResponse(response, 200, {
+    supported: Boolean(pushService && pushService.configured()),
+    publicKey: pushService ? pushService.publicKey() : "",
+  });
+}
+
+function handleAdminPushSubscriptionsList(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  const byUser = new Map();
+  store.pushSubscriptions.forEach((sub) => {
+    if (!byUser.has(sub.email)) byUser.set(sub.email, []);
+    byUser.get(sub.email).push(publicPushSubscription(sub));
+  });
+  jsonResponse(response, 200, {
+    totalDevices: store.pushSubscriptions.length,
+    totalUsersWithDevices: byUser.size,
+    byUser: [...byUser.entries()].map(([email, devices]) => ({ email, devices })),
+    pushStatus: pushService ? pushService.statusInfo() : { configured: false },
+  });
+}
+
+function handleAdminPushDeliveryLog(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  const limit = Math.min(Number(url.searchParams.get("limit")) || 200, 1000);
+  jsonResponse(response, 200, { log: store.pushDeliveryLog.slice(0, limit) });
+}
+
+// Admin test-send: strictly limited to the admin's OWN subscribed devices.
+// This intentionally cannot target any other address — test notifications
+// must never reach a real member.
+async function handleAdminPushTest(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  if (!ADMIN_EMAIL) {
+    jsonResponse(response, 503, { error: "ADMIN_EMAIL is not configured on the server." });
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  const pref = userNotificationPreference(store, ADMIN_EMAIL);
+  if (!pref.pushEnabled) {
+    jsonResponse(response, 400, { error: "Enable push notifications on the admin's own account first (Settings → Notifications), then retry the test." });
+    return;
+  }
+  const devices = store.pushSubscriptions.filter((s) => s.email === ADMIN_EMAIL);
+  if (!devices.length) {
+    jsonResponse(response, 400, { error: "No subscribed devices found for the admin account. Install the app and enable notifications on this device first." });
+    return;
+  }
+  const summary = await fanOutNotificationsAndPush(store, {
+    type: "message",
+    recipients: [ADMIN_EMAIL],
+    title: "Test notification",
+    preview: "This is a test notification — only visible to the admin's own device(s).",
+    senderName: ADMIN_NAME || "Leah",
+  });
+  jsonResponse(response, 200, { ok: true, pushSummary: summary, deviceCount: devices.length });
+}
+
 // ─── Email Engagement (onboarding + weekly What's New) ─────────────────────────
 
 function handleAdminEmailEngagementGet(request, response, url) {
@@ -9206,6 +10114,29 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/announcement-update") return await handleAnnouncementUpdate(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/announcements") return handleAnnouncementsList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/announcements") return handleAnnouncementsList(request, response, url);
+    // Member Messaging Center — admin composer + delivery
+    if (request.method === "POST" && url.pathname === "/api/admin/messages/preview") return await handleAdminMessagePreview(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/messages/send") return await handleAdminMessageSend(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/messages/draft") return await handleAdminMessageDraftSave(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/messages/drafts") return handleAdminMessageDraftsList(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/messages/draft-delete") return await handleAdminMessageDraftDelete(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/conversations") return handleAdminConversationsList(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/messages/conversation") return handleAdminConversationMessages(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/push/subscriptions") return handleAdminPushSubscriptionsList(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/push/log") return handleAdminPushDeliveryLog(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/push/test") return await handleAdminPushTest(request, response);
+    // Member Messaging Center — member-facing inbox, replies, notifications, push opt-in
+    if (request.method === "GET" && url.pathname === "/api/messages/conversation") return await handleMemberConversation(request, response);
+    if (request.method === "POST" && url.pathname === "/api/messages/reply") return await handleMemberMessageReply(request, response);
+    if (request.method === "GET" && url.pathname === "/api/messages/inbox") return await handleMemberInbox(request, response);
+    if (request.method === "POST" && url.pathname === "/api/messages/mark-read") return await handleMemberMarkRead(request, response);
+    if (request.method === "GET" && url.pathname === "/api/notifications") return await handleMemberNotificationsList(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/notifications/mark-all-read") return await handleMemberNotificationsMarkAllRead(request, response);
+    if (request.method === "GET" && url.pathname === "/api/notification-preferences") return await handleNotificationPreferencesGet(request, response);
+    if (request.method === "POST" && url.pathname === "/api/notification-preferences") return await handleNotificationPreferencesSet(request, response);
+    if (request.method === "POST" && url.pathname === "/api/push/subscribe") return await handlePushSubscribe(request, response);
+    if (request.method === "POST" && url.pathname === "/api/push/unsubscribe") return await handlePushUnsubscribe(request, response);
+    if (request.method === "GET" && url.pathname === "/api/push/vapid-public-key") return handleVapidPublicKey(request, response);
     // Phase 6-A: Release Notes
     if (request.method === "POST" && url.pathname === "/api/admin/release-notes") return await handleReleaseNoteCreate(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/release-note-update") return await handleReleaseNoteUpdate(request, response);
@@ -9289,6 +10220,27 @@ const server = http.createServer(async (request, response) => {
 
 initializeStorage()
   .then(() => {
+    try {
+      pushService = createPushService({
+        envPublicKey: VAPID_PUBLIC_KEY,
+        envPrivateKey: VAPID_PRIVATE_KEY,
+        subject: VAPID_SUBJECT,
+        loadStoredKeys: () => peekStore().pushConfig?.vapid || null,
+        persistKeys: (keys) => {
+          const store = readStore();
+          store.pushConfig = store.pushConfig || {};
+          store.pushConfig.vapid = { ...keys, generatedAt: new Date().toISOString() };
+          writeStore(store);
+        },
+        batchSize: PUSH_BULK_BATCH_SIZE,
+        batchDelayMs: PUSH_BULK_BATCH_DELAY_MS,
+        maxRecipientsPerSend: PUSH_BULK_MAX_RECIPIENTS,
+      });
+      console.log(`[push] Web Push ${pushService.configured() ? "ready" : "not configured"} (key source: ${pushService.statusInfo().keySource}).`);
+    } catch (error) {
+      console.warn("[push] could not initialize Web Push service — push notifications will be unavailable, in-app messaging is unaffected:", error.message);
+      pushService = null;
+    }
     server.listen(PORT, () => {
       console.log(`Little Learner Hub launch server running on http://localhost:${PORT}`);
       try {
