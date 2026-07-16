@@ -150,18 +150,18 @@ body.activities-view .mobile-brand {
 
 .library-upgrade-strip {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px 10px;
   margin: 0 0 10px;
-  padding: 6px 10px;
+  padding: 8px 12px;
   border-radius: var(--llh-radius-md, 12px);
   border: 1px solid rgba(123, 107, 181, 0.22);
   background: linear-gradient(135deg, rgba(237, 232, 247, 0.9), rgba(255, 255, 255, 0.95));
 }
 
-.library-upgrade-strip p {
+.library-upgrade-strip > p {
   margin: 0;
   flex: 1 1 auto;
   min-width: 0;
@@ -172,6 +172,26 @@ body.activities-view .mobile-brand {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.library-upgrade-strip-copy {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.library-upgrade-strip-copy p {
+  margin: 0 0 2px;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: var(--llh-ink, var(--ink));
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  font-weight: 500;
+}
+
+.library-upgrade-strip-copy p strong {
+  font-weight: 700;
 }
 
 .library-upgrade-strip-actions {
