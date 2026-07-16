@@ -135,6 +135,64 @@ async function main() {
       const quiet = [...(health.json.inactive || []), ...(health.json.at_risk || [])]
         .find((u) => u.email === "quiet@example.com");
       assert.ok(quiet, "quiet user should not be in active bucket");
+      const free = [...(health.json.active || []), ...(health.json.at_risk || []), ...(health.json.inactive || [])]
+        .find((u) => u.email === FREE_USER);
+      assert.ok(free, "free user should appear in health rows");
+      assert.equal(free.accessPlan, "Free");
+      assert.ok(free.accountType, "accountType should be enriched");
+      assert.ok(free.createdAt, "createdAt should be enriched");
+      assert.ok("lastActivityAt" in free, "lastActivityAt should be present");
+      assert.ok(Number.isFinite(Number(free.daysSince)), "daysSince should be numeric");
+    });
+
+    await test("Admin inbox aggregates new submissions and unread DMs", async () => {
+      const bug = await request(BASE, "POST", "/api/bug-report", {
+        body: {
+          email: FREE_USER,
+          name: "Comms Free",
+          title: "Calendar blank on mobile",
+          description: "Week view renders empty on iPhone Safari",
+          category: "Calendar",
+        },
+      });
+      assert.equal(bug.status, 200, JSON.stringify(bug.json));
+
+      const feature = await request(BASE, "POST", "/api/feature-request", {
+        body: {
+          email: FREE_USER,
+          name: "Comms Free",
+          title: "Bulk export observations",
+          description: "Export a month of observations as PDF",
+        },
+      });
+      assert.equal(feature.status, 200, JSON.stringify(feature.json));
+
+      // Member reply creates an unread admin notification for the conversation.
+      const seedMsg = await request(BASE, "POST", "/api/admin/messages/send", {
+        body: {
+          adminToken,
+          audience: "private",
+          toEmail: FREE_USER,
+          subject: "Quick check-in",
+          body: "How is the calendar looking this week?",
+          confirm: true,
+          deliverVia: "in_app",
+        },
+      });
+      assert.equal(seedMsg.status, 200, JSON.stringify(seedMsg.json));
+      const reply = await request(BASE, "POST", "/api/messages/reply", {
+        email: FREE_USER,
+        body: { body: "Still blank on mobile — filing a bug too." },
+      });
+      assert.equal(reply.status, 200, JSON.stringify(reply.json));
+
+      const inbox = await request(BASE, "GET", `/api/admin/inbox?adminToken=${adminToken}`);
+      assert.equal(inbox.status, 200, JSON.stringify(inbox.json));
+      assert.ok(Array.isArray(inbox.json.items));
+      assert.ok(inbox.json.summary);
+      assert.ok(inbox.json.items.some((i) => i.kind === "bug" && /Calendar blank/i.test(i.title)));
+      assert.ok(inbox.json.items.some((i) => i.kind === "feature" && /Bulk export/i.test(i.title)));
+      assert.ok(inbox.json.items.some((i) => i.kind === "message" && i.email === FREE_USER));
     });
 
     await test("Feature request statuses align to product vocabulary", async () => {

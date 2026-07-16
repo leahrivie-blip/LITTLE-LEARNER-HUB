@@ -10431,6 +10431,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/user-tags") return await comms.handleUserTagsSet(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/user-timeline") return comms.handleUserTimelineGet(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/user-health") return comms.handleUserHealthGet(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/inbox") return comms.handleAdminInboxGet(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/automations") return comms.handleAutomationsGet(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/automations") return await comms.handleAutomationsSave(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/broadcast-log") return comms.handleBroadcastLogGet(request, response, url);

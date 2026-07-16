@@ -168,7 +168,7 @@ function createCommsApi(deps) {
     messagingCenter: _messagingCenter,
     messagingLib: _messagingLib,
     membershipAccess,
-    accountAccess: _accountAccess,
+    accountAccess,
     ADMIN_EMAIL,
     ADMIN_NAME,
     sendEmail: _sendEmail,
@@ -736,6 +736,16 @@ function createCommsApi(deps) {
 
   // ─── User health (admin) ───────────────────────────────────────────────────
 
+  function accessPlanShortLabel(accessKey) {
+    switch (String(accessKey || "").toLowerCase()) {
+      case "trial": return "Trial";
+      case "pro": return "Pro";
+      case "founding": return "Founding";
+      case "past_due": return "Past Due";
+      default: return "Free";
+    }
+  }
+
   function handleUserHealthGet(request, response, url) {
     if (!requireAdmin(url.searchParams.get("adminToken") || "", response)) return;
     const store = ensureCommsStore(ensureMessagingStore(readStore()));
@@ -756,9 +766,10 @@ function createCommsApi(deps) {
           || normalizeEmail(m.toEmail) === email,
       ).length;
       let subscriptionStatus = user.stripeSubscriptionStatus || user.subscriptionStatus || "";
+      let accessKey = "free";
       if (membershipAccess && typeof membershipAccess.membershipCurrentAccessKey === "function") {
         try {
-          const accessKey = membershipAccess.membershipCurrentAccessKey(user);
+          accessKey = membershipAccess.membershipCurrentAccessKey(user) || "free";
           if (accessKey) subscriptionStatus = subscriptionStatus || accessKey;
         } catch (_err) {
           // ignore — fall back to stored status fields
@@ -773,13 +784,27 @@ function createCommsApi(deps) {
         downloads: analytics.downloads,
         subscriptionStatus,
       });
+      const accountTypeKey = accountAccess && typeof accountAccess.resolveAccountType === "function"
+        ? accountAccess.resolveAccountType(user)
+        : (user.accountType || "");
+      const accountType = accountAccess && typeof accountAccess.accountTypeLabel === "function"
+        ? accountAccess.accountTypeLabel(accountTypeKey)
+        : (accountTypeKey || "");
+      const createdAt = user.signupAt || user.createdAt || "";
+      const lastActivityAt = user.lastLoginAt || user.lastSeenAt || "";
       const row = {
         email,
         name: user.name || user.displayName || [user.firstName, user.lastName].filter(Boolean).join(" ") || "",
         plan: user.plan || "",
+        accessKey,
+        accessPlan: accessPlanShortLabel(accessKey),
+        accountType,
+        accountTypeKey: accountTypeKey || "",
         subscriptionStatus,
+        createdAt,
         lastLoginAt: user.lastLoginAt || "",
         lastSeenAt: user.lastSeenAt || "",
+        lastActivityAt,
         messageCount,
         ...analytics,
         ...health,
@@ -804,6 +829,151 @@ function createCommsApi(deps) {
         inactive: inactive.length,
       },
     });
+  }
+
+  // ─── Admin inbox (submissions + unread DMs) ────────────────────────────────
+
+  function isNewSubmissionStatus(status) {
+    const s = String(status || "New").trim().toLowerCase();
+    return !s || s === "new" || s === "open";
+  }
+
+  function handleAdminInboxGet(request, response, url) {
+    if (!requireAdmin(url.searchParams.get("adminToken") || "", response)) return;
+    const store = ensureCommsStore(ensureMessagingStore(readStore()));
+    const adminEmail = normalizeEmail(ADMIN_EMAIL || "");
+    const items = [];
+
+    (store.supportTickets || []).forEach((ticket) => {
+      if (!isNewSubmissionStatus(ticket.status)) return;
+      const email = normalizeEmail(ticket.email || ticket.createdBy);
+      items.push({
+        id: `support-${ticket.id}`,
+        kind: "support",
+        kindLabel: "Support",
+        status: ticket.status || "New",
+        title: ticket.topic || "Support request",
+        preview: commsLib.clampText(ticket.message || "", 220),
+        body: ticket.message || "",
+        email,
+        name: ticket.name || "",
+        createdAt: ticket.createdAt || ticket.updatedAt || "",
+        refId: ticket.id,
+        source: "supportTickets",
+      });
+    });
+
+    (store.featureRequests || []).forEach((item) => {
+      if (!isNewSubmissionStatus(item.status)) return;
+      const email = normalizeEmail(item.email);
+      items.push({
+        id: `feature-${item.id}`,
+        kind: "feature",
+        kindLabel: "Feature request",
+        status: item.status || "New",
+        title: item.title || "Feature request",
+        preview: commsLib.clampText(item.description || "", 220),
+        body: item.description || "",
+        email,
+        name: item.name || "",
+        createdAt: item.createdAt || item.updatedAt || "",
+        refId: item.id,
+        source: "featureRequests",
+      });
+    });
+
+    (store.bugReports || []).forEach((item) => {
+      if (!isNewSubmissionStatus(item.status)) return;
+      const email = normalizeEmail(item.email);
+      items.push({
+        id: `bug-${item.id}`,
+        kind: "bug",
+        kindLabel: "Bug report",
+        status: item.status || "New",
+        title: item.title || "Bug report",
+        preview: commsLib.clampText(item.description || "", 220),
+        body: item.description || "",
+        email,
+        name: item.name || "",
+        createdAt: item.createdAt || item.updatedAt || "",
+        refId: item.id,
+        source: "bugReports",
+      });
+    });
+
+    (store.feedbackItems || []).forEach((item) => {
+      if (!isNewSubmissionStatus(item.status)) return;
+      const email = normalizeEmail(item.email);
+      items.push({
+        id: `feedback-${item.id}`,
+        kind: "feedback",
+        kindLabel: "Feedback",
+        status: item.status || "New",
+        title: item.type || "Feedback",
+        preview: commsLib.clampText(item.message || "", 220),
+        body: item.message || "",
+        email,
+        name: item.name || "",
+        createdAt: item.createdAt || item.updatedAt || "",
+        refId: item.id,
+        source: "feedbackItems",
+      });
+    });
+
+    const unreadByConversation = new Map();
+    (store.notifications || [])
+      .filter((n) => adminEmail && normalizeEmail(n.email) === adminEmail && n.type === "message" && !n.read)
+      .forEach((n) => {
+        const conversationEmail = normalizeEmail(n.conversationEmail);
+        if (!conversationEmail) return;
+        const existing = unreadByConversation.get(conversationEmail) || {
+          count: 0,
+          latestAt: "",
+          preview: "",
+        };
+        existing.count += 1;
+        const at = n.createdAt || n.at || "";
+        if (!existing.latestAt || at > existing.latestAt) {
+          existing.latestAt = at;
+          existing.preview = commsLib.clampText(n.body || n.message || n.title || "", 220);
+        }
+        unreadByConversation.set(conversationEmail, existing);
+      });
+
+    unreadByConversation.forEach((meta, conversationEmail) => {
+      const user = store.users?.[conversationEmail] || {};
+      const name = user.name || user.displayName
+        || [user.firstName, user.lastName].filter(Boolean).join(" ")
+        || conversationEmail;
+      items.push({
+        id: `dm-${conversationEmail}`,
+        kind: "message",
+        kindLabel: "Unread message",
+        status: "Unread",
+        title: `Message from ${name}`,
+        preview: meta.preview || "New member message",
+        body: meta.preview || "",
+        email: conversationEmail,
+        name,
+        createdAt: meta.latestAt || "",
+        unreadCount: meta.count,
+        refId: conversationEmail,
+        source: "messages",
+      });
+    });
+
+    items.sort((a, b) => String(a.createdAt || "") < String(b.createdAt || "") ? 1 : -1);
+
+    const summary = {
+      total: items.length,
+      support: items.filter((i) => i.kind === "support").length,
+      feature: items.filter((i) => i.kind === "feature").length,
+      bug: items.filter((i) => i.kind === "bug").length,
+      feedback: items.filter((i) => i.kind === "feedback").length,
+      message: items.filter((i) => i.kind === "message").length,
+    };
+
+    jsonResponse(response, 200, { items, summary });
   }
 
   // ─── Automations (admin) ───────────────────────────────────────────────────
@@ -891,6 +1061,7 @@ function createCommsApi(deps) {
     handleUserTagsSet,
     handleUserTimelineGet,
     handleUserHealthGet,
+    handleAdminInboxGet,
     handleAutomationsGet,
     handleAutomationsSave,
     handleBroadcastLogGet,

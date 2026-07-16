@@ -1406,6 +1406,118 @@
 
   window.renderAdminMessageTemplates = renderAdminMessageTemplates;
 
+  function formatHealthDate(iso) {
+    if (!iso) return "—";
+    const ms = new Date(iso).getTime();
+    if (!Number.isFinite(ms)) return "—";
+    return new Date(ms).toLocaleDateString();
+  }
+
+  function paintAdminUserHealth(container, users, filterLevel) {
+    const counts = {
+      active: users.filter((u) => u.level === "active").length,
+      at_risk: users.filter((u) => u.level === "at_risk").length,
+      inactive: users.filter((u) => u.level === "inactive").length,
+    };
+    const filter = filterLevel || "all";
+    const filtered = filter === "all" ? users : users.filter((u) => u.level === filter);
+    const filterLabel = filter === "all"
+      ? "All users"
+      : filter === "at_risk"
+        ? "At risk"
+        : filter.charAt(0).toUpperCase() + filter.slice(1);
+
+    container.innerHTML = adminPanelShell("User Health", `
+      <p class="muted-copy">Click a category to drill into that group. Scoring is unchanged — this view only filters and expands details.</p>
+      <div class="admin-health-grid" role="group" aria-label="User health categories">
+        <button type="button" class="admin-health-card active${filter === "active" ? " is-selected" : ""}" data-health-filter="active">
+          <span>Active</span><strong>${counts.active}</strong>
+        </button>
+        <button type="button" class="admin-health-card at_risk${filter === "at_risk" ? " is-selected" : ""}" data-health-filter="at_risk">
+          <span>At risk</span><strong>${counts.at_risk}</strong>
+        </button>
+        <button type="button" class="admin-health-card inactive${filter === "inactive" ? " is-selected" : ""}" data-health-filter="inactive">
+          <span>Inactive</span><strong>${counts.inactive}</strong>
+        </button>
+      </div>
+      <div class="admin-health-table-toolbar">
+        <h4>${escapeHtml(filterLabel)} (${filtered.length})</h4>
+        ${filter !== "all" ? `<button type="button" class="ghost-button" data-health-filter="all">Show all</button>` : ""}
+      </div>
+      <div class="admin-health-table-wrap">
+        ${filtered.length ? `
+          <table class="admin-health-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Account type</th>
+                <th>Plan</th>
+                <th>Last login</th>
+                <th>Last activity</th>
+                <th>Created</th>
+                <th>Days since activity</th>
+                <th>Score</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filtered.map((u) => {
+                const email = u.email || "";
+                const lastActivity = u.lastActivityAt || u.lastLoginAt || u.lastSeenAt || "";
+                const days = Number.isFinite(Number(u.daysSince)) ? String(u.daysSince) : "—";
+                return `
+                  <tr>
+                    <td>${escapeHtml(u.name || "—")}</td>
+                    <td>${escapeHtml(email)}</td>
+                    <td>${escapeHtml(u.accountType || "—")}</td>
+                    <td>${escapeHtml(u.accessPlan || u.plan || "Free")}</td>
+                    <td title="${escapeHtml(u.lastLoginAt || "")}">${escapeHtml(u.lastLoginAt ? messagingRelativeTime(u.lastLoginAt) : "—")}</td>
+                    <td title="${escapeHtml(lastActivity)}">${escapeHtml(lastActivity ? messagingRelativeTime(lastActivity) : "—")}</td>
+                    <td>${escapeHtml(formatHealthDate(u.createdAt))}</td>
+                    <td>${escapeHtml(days)}</td>
+                    <td title="${escapeHtml((u.reasons || []).join(" · "))}">${escapeHtml(String(u.score ?? "—"))}</td>
+                    <td class="admin-health-actions">
+                      <button type="button" class="ghost-button" data-health-message="${escapeHtml(email)}">Message</button>
+                      <button type="button" class="ghost-button" data-health-conversation="${escapeHtml(email)}">Conversation</button>
+                      <button type="button" class="ghost-button" data-admin-open-timeline="${escapeHtml(email)}">Timeline</button>
+                    </td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+        ` : `<div class="empty-state">No users in this category.</div>`}
+      </div>
+    `);
+
+    container.querySelectorAll("[data-health-filter]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        paintAdminUserHealth(container, users, btn.getAttribute("data-health-filter") || "all");
+      });
+    });
+    container.querySelectorAll("[data-admin-open-timeline]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const email = btn.getAttribute("data-admin-open-timeline");
+        if (email && typeof window.openAdminUserTimeline === "function") window.openAdminUserTimeline(email);
+      });
+    });
+    container.querySelectorAll("[data-health-message]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const email = btn.getAttribute("data-health-message");
+        if (email && typeof window.startAdminMessageToUser === "function") window.startAdminMessageToUser(email);
+      });
+    });
+    container.querySelectorAll("[data-health-conversation]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const email = btn.getAttribute("data-health-conversation");
+        if (email && typeof window.startAdminMessageToUser === "function") {
+          window.startAdminMessageToUser(email, { openConversation: true });
+        }
+      });
+    });
+  }
+
   async function renderAdminUserHealth(container) {
     if (!container) return;
     container.innerHTML = `<p class="messages-loading">Loading user health…</p>`;
@@ -1417,7 +1529,6 @@
       } else if (Array.isArray(data.health)) {
         users = data.health;
       } else {
-        // Shape from server/comms-api.js handleUserHealthGet.
         users = [
           ...(Array.isArray(data.active) ? data.active : []),
           ...(Array.isArray(data.at_risk) ? data.at_risk : []),
@@ -1425,59 +1536,156 @@
         ];
       }
     } catch {
-      // Soft fallback from analytics cache if present.
       users = Array.isArray(window.adminAnalyticsCache?.users)
         ? window.adminAnalyticsCache.users.slice(0, 50).map((u) => ({
           email: u.email,
           name: displayUserName(u),
           level: "active",
           score: 50,
-          lastLoginAt: u.lastLoginAt || u.lastSeenAt || "",
+          accessPlan: "Free",
+          accountType: "",
+          createdAt: u.signupAt || u.createdAt || "",
+          lastLoginAt: u.lastLoginAt || "",
+          lastActivityAt: u.lastLoginAt || u.lastSeenAt || "",
+          daysSince: "",
           reasons: ["From analytics cache"],
         }))
         : [];
     }
-
-    const levelClass = { active: "aup-insight--pro", at_risk: "aup-insight--trial", inactive: "" };
-    const counts = {
-      active: users.filter((u) => u.level === "active").length,
-      at_risk: users.filter((u) => u.level === "at_risk").length,
-      inactive: users.filter((u) => u.level === "inactive").length,
-    };
-
-    container.innerHTML = adminPanelShell("User Health", `
-      <div class="aup-insight-grid">
-        <div class="aup-insight-card aup-insight--pro"><strong>${counts.active}</strong><span>Active</span></div>
-        <div class="aup-insight-card aup-insight--trial"><strong>${counts.at_risk}</strong><span>At risk</span></div>
-        <div class="aup-insight-card"><strong>${counts.inactive}</strong><span>Inactive</span></div>
-      </div>
-      <div class="ticket-list">
-        ${users.length ? users.map((u) => `
-          <article class="ticket-card">
-            <div class="ticket-card-header">
-              <div>
-                <p class="eyebrow ${levelClass[u.level] || ""}">${escapeHtml(String(u.level || "unknown").replace(/_/g, " "))} · score ${escapeHtml(String(u.score ?? "—"))}</p>
-                <h3>${escapeHtml(u.name || u.email || "User")}</h3>
-                <p>${escapeHtml(u.email || "")}</p>
-                <small>Last login: ${escapeHtml(u.lastLoginAt ? messagingRelativeTime(u.lastLoginAt) : "—")}</small>
-              </div>
-              <button type="button" class="ghost-button" data-admin-open-timeline="${escapeHtml(u.email || "")}">Timeline</button>
-            </div>
-            ${(u.reasons || []).length ? `<p class="muted-copy">${escapeHtml((u.reasons || []).join(" · "))}</p>` : ""}
-          </article>
-        `).join("") : `<div class="empty-state">No health data yet.</div>`}
-      </div>
-    `);
-
-    container.querySelectorAll("[data-admin-open-timeline]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const email = btn.getAttribute("data-admin-open-timeline");
-        if (email) window.openAdminUserTimeline(email);
-      });
-    });
+    paintAdminUserHealth(container, users, "all");
   }
 
   window.renderAdminUserHealth = renderAdminUserHealth;
+
+  async function renderAdminInbox(container) {
+    if (!container) return;
+    container.innerHTML = `<p class="messages-loading">Loading admin inbox…</p>`;
+    let items = [];
+    let summary = { total: 0, support: 0, feature: 0, bug: 0, feedback: 0, message: 0 };
+    try {
+      const data = await adminFetchJson("/api/admin/inbox");
+      items = Array.isArray(data.items) ? data.items : [];
+      summary = data.summary || summary;
+    } catch (error) {
+      container.innerHTML = adminPanelShell("Admin Inbox", `
+        <div class="empty-state">${escapeHtml(error.message || "Could not load inbox.")}</div>
+      `);
+      return;
+    }
+
+    let selectedId = items[0]?.id || "";
+    let kindFilter = "all";
+
+    async function paint(selectedOverride) {
+      if (selectedOverride) selectedId = selectedOverride;
+      const visible = kindFilter === "all" ? items : items.filter((i) => i.kind === kindFilter);
+      if (selectedId && !visible.some((i) => i.id === selectedId)) {
+        selectedId = visible[0]?.id || "";
+      }
+      const selected = visible.find((i) => i.id === selectedId) || null;
+      let conversationHtml = "";
+      if (selected?.email && (selected.kind === "message" || selected.email)) {
+        try {
+          const convo = await adminFetchJson(
+            `/api/admin/messages/conversation?userEmail=${encodeURIComponent(selected.email)}`,
+          );
+          const messages = Array.isArray(convo.messages) ? convo.messages.slice(-8) : [];
+          conversationHtml = messages.length
+            ? `<div class="admin-inbox-thread">
+                <h4>Conversation</h4>
+                ${messages.map((m) => `
+                  <article class="admin-inbox-thread-item ${m.senderType === "admin" ? "from-admin" : "from-user"}">
+                    <strong>${escapeHtml(m.senderType === "admin" ? "You" : (selected.name || selected.email))}</strong>
+                    <p>${escapeHtml(m.body || m.subject || "")}</p>
+                    <small>${escapeHtml(m.createdAt ? messagingRelativeTime(m.createdAt) : "")}</small>
+                  </article>
+                `).join("")}
+              </div>`
+            : `<p class="muted-copy">No conversation history yet.</p>`;
+        } catch {
+          conversationHtml = `<p class="muted-copy">Conversation history unavailable.</p>`;
+        }
+      }
+
+      container.innerHTML = adminPanelShell("Admin Inbox", `
+        <p class="muted-copy">New support, bug, feature, and feedback submissions plus unread member messages — in one place.</p>
+        <div class="admin-inbox-summary">
+          <button type="button" class="comms-admin-tab${kindFilter === "all" ? " active" : ""}" data-inbox-kind="all">All (${summary.total || items.length})</button>
+          <button type="button" class="comms-admin-tab${kindFilter === "message" ? " active" : ""}" data-inbox-kind="message">Messages (${summary.message || 0})</button>
+          <button type="button" class="comms-admin-tab${kindFilter === "support" ? " active" : ""}" data-inbox-kind="support">Support (${summary.support || 0})</button>
+          <button type="button" class="comms-admin-tab${kindFilter === "bug" ? " active" : ""}" data-inbox-kind="bug">Bugs (${summary.bug || 0})</button>
+          <button type="button" class="comms-admin-tab${kindFilter === "feature" ? " active" : ""}" data-inbox-kind="feature">Features (${summary.feature || 0})</button>
+          <button type="button" class="comms-admin-tab${kindFilter === "feedback" ? " active" : ""}" data-inbox-kind="feedback">Feedback (${summary.feedback || 0})</button>
+        </div>
+        <div class="admin-inbox-layout">
+          <div class="admin-inbox-list" role="list">
+            ${visible.length ? visible.map((item) => `
+              <button type="button" class="admin-inbox-item${item.id === selectedId ? " is-selected" : ""}" data-inbox-id="${escapeHtml(item.id)}" role="listitem">
+                <span class="status-pill">${escapeHtml(item.kindLabel || item.kind)}</span>
+                <strong>${escapeHtml(item.title || "Untitled")}</strong>
+                <span>${escapeHtml(item.name || item.email || "Unknown")}</span>
+                <small>${escapeHtml(item.createdAt ? messagingRelativeTime(item.createdAt) : "")}${item.unreadCount ? ` · ${item.unreadCount} unread` : ""}</small>
+                <p>${escapeHtml(item.preview || "")}</p>
+              </button>
+            `).join("") : `<div class="empty-state">Inbox is clear.</div>`}
+          </div>
+          <div class="admin-inbox-detail">
+            ${selected ? `
+              <div class="admin-inbox-detail-header">
+                <p class="eyebrow">${escapeHtml(selected.kindLabel || selected.kind)} · ${escapeHtml(selected.status || "")}</p>
+                <h3>${escapeHtml(selected.title || "")}</h3>
+                <p>${escapeHtml(selected.name || "—")} · ${escapeHtml(selected.email || "—")}</p>
+              </div>
+              <div class="admin-inbox-body">${escapeHtml(selected.body || selected.preview || "No details.")}</div>
+              <div class="admin-inbox-actions">
+                ${selected.email ? `
+                  <button type="button" class="primary-button" data-inbox-reply="${escapeHtml(selected.email)}">Reply / Message</button>
+                  <button type="button" class="ghost-button" data-inbox-conversation="${escapeHtml(selected.email)}">Open conversation</button>
+                  <button type="button" class="ghost-button" data-inbox-user="${escapeHtml(selected.email)}">View user</button>
+                ` : ""}
+              </div>
+              ${conversationHtml}
+            ` : `<div class="empty-state">Select an item to review.</div>`}
+          </div>
+        </div>
+      `, "Messaging");
+
+      container.querySelectorAll("[data-inbox-kind]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          kindFilter = btn.getAttribute("data-inbox-kind") || "all";
+          paint();
+        });
+      });
+      container.querySelectorAll("[data-inbox-id]").forEach((btn) => {
+        btn.addEventListener("click", () => paint(btn.getAttribute("data-inbox-id") || ""));
+      });
+      container.querySelectorAll("[data-inbox-reply]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const email = btn.getAttribute("data-inbox-reply");
+          if (email && typeof window.startAdminMessageToUser === "function") window.startAdminMessageToUser(email);
+        });
+      });
+      container.querySelectorAll("[data-inbox-conversation]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const email = btn.getAttribute("data-inbox-conversation");
+          if (email && typeof window.startAdminMessageToUser === "function") {
+            window.startAdminMessageToUser(email, { openConversation: true });
+          }
+        });
+      });
+      container.querySelectorAll("[data-inbox-user]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const email = btn.getAttribute("data-inbox-user");
+          if (email && typeof window.openAdminUserProfile === "function") window.openAdminUserProfile(email, "view");
+          else if (email && typeof window.setAdminSectionTab === "function") window.setAdminSectionTab("users");
+        });
+      });
+    }
+
+    await paint();
+  }
+
+  window.renderAdminInbox = renderAdminInbox;
 
   async function renderAdminAutomations(container) {
     if (!container) return;

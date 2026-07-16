@@ -140,6 +140,15 @@
   border-radius: 12px;
   padding: 14px;
   background: var(--llh-surface, #fff);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.admin-health-card:hover,
+.admin-health-card.is-selected {
+  box-shadow: 0 0 0 2px rgba(42, 42, 53, 0.12);
 }
 
 .admin-health-card.active { border-top: 3px solid #3d9a5f; }
@@ -149,6 +158,157 @@
 .admin-health-card strong {
   display: block;
   font-size: 28px;
+  margin: 4px 0;
+}
+
+.admin-health-table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0 12px;
+}
+
+.admin-health-table-toolbar h4 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.admin-health-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: 12px;
+  background: var(--llh-surface, #fff);
+}
+
+.admin-health-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.admin-health-table th,
+.admin-health-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--llh-line, #e4e1ea);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.admin-health-table th {
+  font-size: 12px;
+  color: var(--llh-muted, #6b6a75);
+  font-weight: 600;
+  background: #faf9fc;
+}
+
+.admin-health-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-inbox-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+
+.admin-inbox-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.admin-inbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.admin-inbox-item {
+  text-align: left;
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--llh-surface, #fff);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.admin-inbox-item.is-selected,
+.admin-inbox-item:hover {
+  border-color: #2a2a35;
+}
+
+.admin-inbox-item strong {
+  display: block;
+  margin: 6px 0 2px;
+}
+
+.admin-inbox-item small,
+.admin-inbox-item span {
+  display: block;
+  color: var(--llh-muted, #6b6a75);
+  font-size: 12px;
+}
+
+.admin-inbox-item p {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--llh-ink, #2a2a35);
+}
+
+.admin-inbox-detail {
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--llh-surface, #fff);
+  min-height: 280px;
+}
+
+.admin-inbox-detail-header h3 {
+  margin: 4px 0 8px;
+}
+
+.admin-inbox-body {
+  white-space: pre-wrap;
+  margin: 12px 0 16px;
+  line-height: 1.5;
+}
+
+.admin-inbox-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.admin-inbox-thread {
+  border-top: 1px solid var(--llh-line, #e4e1ea);
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-inbox-thread-item {
+  border-left: 3px solid #c9b8e8;
+  padding: 8px 12px;
+  background: #faf9fc;
+}
+
+.admin-inbox-thread-item.from-admin {
+  border-left-color: #3d9a5f;
+}
+
+.admin-inbox-thread-item p {
   margin: 4px 0;
 }
 
@@ -179,6 +339,10 @@
 
 @media (max-width: 760px) {
   .admin-health-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-inbox-layout {
     grid-template-columns: 1fr;
   }
 }
