@@ -538,3 +538,121 @@
     max-height: 220px;
   }
 }
+
+/* ---------- Admin message templates ---------- */
+.admin-message-templates {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: var(--llh-radius-md, 12px);
+  background: var(--llh-surface-soft, #faf9fc);
+}
+
+.admin-message-templates-label {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--llh-muted, #6b6a75);
+}
+
+.admin-message-templates-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-message-template-btn {
+  font-size: 13px;
+}
+
+/* ---------- Admin conversation user profile ---------- */
+.admin-conversation-profile {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: var(--llh-radius-md, 12px);
+  background: var(--llh-surface-soft, #faf9fc);
+}
+
+.admin-conversation-profile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.admin-conversation-plan-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--llh-accent-soft, #efeaf8);
+  color: var(--llh-ink, #2a2a35);
+}
+
+.admin-conversation-profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 14px;
+  margin: 0;
+}
+
+.admin-conversation-profile-grid dt {
+  margin: 0;
+  font-size: 11px;
+  color: var(--llh-muted, #6b6a75);
+  font-weight: 600;
+}
+
+.admin-conversation-profile-grid dd {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+
+.message-support-btn {
+  white-space: nowrap;
+}
+
+.messages-empty-start {
+  text-align: center;
+  padding: 28px 16px;
+}
+
+.messages-empty-start p {
+  margin: 0 0 6px;
+}
+
+/* ---------- Lesson plan feedback shortcut ---------- */
+.lesson-workspace-feedback {
+  margin: 18px 0 8px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--llh-line, #e4e1ea);
+}
+
+.lesson-workspace-feedback-label {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.lesson-workspace-feedback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lesson-workspace-feedback-status {
+  margin: 10px 0 0;
+}
+
+@media (max-width: 640px) {
+  .admin-conversation-profile-grid {
+    grid-template-columns: 1fr;
+  }
+  .message-support-btn {
+    display: none;
+  }
+}

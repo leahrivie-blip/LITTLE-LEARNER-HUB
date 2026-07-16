@@ -59,6 +59,27 @@ specific key pair, and bulk-send rate-limit tuning knobs). The Render
 deploy config (`render.yaml`) documents these as optional, `sync: false`
 values.
 
+## How users message Leah (User → Leah)
+
+Users can start conversations — admins do not have to message first.
+
+1. From the top bar, click **Message Support** (desktop), or open **Messages**
+   in the nav, or Settings → **Message Support** / **Help & Support**.
+2. On the Conversation with Leah tab, type a message and click **Send**.
+3. That creates a private thread immediately. Leah sees it under Admin →
+   **Messages → Conversations**, with the member's profile (name, account
+   type, Free/Pro/Founding, signup date, last active) above the thread.
+4. Support tickets, bug reports, and feature requests still work via
+   Settings → Need Help? (feedback modal / Contact page). Lesson plans also
+   include 👍 / 👎 / 💡 shortcuts that land in the feedback + support inbox.
+
+## Dashboard announcement banner (separate from messaging)
+
+Site Editor → Announcement still drives `#siteAnnouncementBanner`
+(`renderManagedAnnouncementBanner()`). That banner can show copy like
+"🎉 New Lesson Plans Added This Week" without sending any message or
+notification. Messaging announcements and the bell are a separate system.
+
 ## How Leah sends one private message
 
 1. Admin Dashboard → **Messages → Compose**.

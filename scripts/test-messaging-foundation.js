@@ -19,7 +19,16 @@ const FREE_USER = "free-parent@example.com";
 async function main() {
   seedStore(STORE, {
     [ADMIN_EMAIL]: { email: ADMIN_EMAIL },
-    [FREE_USER]: { email: FREE_USER, plan: "Free", subscriptionStatus: "Free Plan" },
+    [FREE_USER]: {
+      email: FREE_USER,
+      firstName: "Free",
+      lastName: "Parent",
+      plan: "Free",
+      subscriptionStatus: "Free Plan",
+      accountType: "home_daycare",
+      signupAt: "2026-01-15T12:00:00.000Z",
+      lastSeenAt: "2026-07-10T12:00:00.000Z",
+    },
   });
   const { child, getLog } = startServer({ port: PORT, storeFile: STORE });
 
@@ -104,6 +113,84 @@ async function main() {
       const convo = await request(BASE, "GET", "/api/messages/conversation", { email: otherUser });
       assert.equal(convo.status, 200);
       assert.equal(convo.json.messages.length, 0, "another user must never see someone else's private thread");
+    });
+
+    await test("User can initiate a conversation without a prior admin message", async () => {
+      const starter = "starter-user@example.com";
+      const reply = await request(BASE, "POST", "/api/messages/reply", {
+        email: starter,
+        body: { body: "Hi Leah — I have a question about lesson plans." },
+      });
+      assert.equal(reply.status, 200, JSON.stringify(reply.json));
+      assert.equal(reply.json.message.senderType, "user");
+      assert.equal(reply.json.message.audience, "private");
+      const convo = await request(BASE, "GET", "/api/messages/conversation", { email: starter });
+      assert.equal(convo.json.messages.length, 1);
+      assert.equal(convo.json.messages[0].body, "Hi Leah — I have a question about lesson plans.");
+      const conversations = await request(BASE, "GET", `/api/admin/conversations?adminToken=${adminToken}`);
+      const thread = conversations.json.conversations.find((c) => c.userEmail === starter);
+      assert.ok(thread, "admin should see the user-started conversation");
+    });
+
+    await test("Admin conversation endpoint returns user profile context", async () => {
+      const detail = await request(
+        BASE,
+        "GET",
+        `/api/admin/messages/conversation?adminToken=${adminToken}&userEmail=${encodeURIComponent(FREE_USER)}`,
+      );
+      assert.equal(detail.status, 200, JSON.stringify(detail.json));
+      assert.ok(detail.json.user, "expected user profile payload");
+      assert.equal(detail.json.user.email, FREE_USER);
+      assert.match(detail.json.user.name, /Free Parent|free-parent/i);
+      assert.equal(detail.json.user.plan, "Free");
+      assert.ok(detail.json.user.accountType);
+      assert.ok(detail.json.user.signupAt);
+      assert.ok(detail.json.user.lastActiveAt);
+      assert.ok(Array.isArray(detail.json.messages));
+    });
+
+    await test("Feature update broadcasts create feature_update notifications", async () => {
+      const send = await request(BASE, "POST", "/api/admin/messages/send", {
+        body: {
+          adminToken,
+          audience: "all",
+          kind: "feature_update",
+          subject: "New Daily Logs Update Available",
+          body: "We've added new lesson plans and activities this week!",
+          confirm: true,
+        },
+      });
+      assert.equal(send.status, 200, JSON.stringify(send.json));
+      const notifs = await request(BASE, "GET", "/api/notifications", { email: FREE_USER });
+      assert.ok(
+        notifs.json.notifications.some((n) => n.type === "feature_update"),
+        "expected a feature_update notification in the bell",
+      );
+    });
+
+    await test("Lesson plan feedback is accepted into the support inbox", async () => {
+      const feedback = await request(BASE, "POST", "/api/feedback", {
+        body: {
+          type: "Lesson Plan Feedback",
+          name: "Free Parent",
+          email: FREE_USER,
+          subject: "Lesson plan feedback: Colors Everywhere (Helpful)",
+          message: "Lesson plan: Colors Everywhere\nFeedback: Helpful\nMarked as helpful.",
+        },
+      });
+      assert.equal(feedback.status, 200, JSON.stringify(feedback.json));
+      assert.equal(feedback.json.feedback.type, "Lesson Plan Feedback");
+      const ticket = await request(BASE, "POST", "/api/support-ticket", {
+        body: {
+          kind: "Lesson Plan Feedback",
+          topic: "Needs Improvement",
+          name: "Free Parent",
+          email: FREE_USER,
+          message: "Lesson plan: Colors Everywhere\nFeedback: Needs Improvement\nThe circle time felt long.",
+        },
+      });
+      assert.equal(ticket.status, 200, JSON.stringify(ticket.json));
+      assert.equal(ticket.json.ticket.kind, "Lesson Plan Feedback");
     });
 
     if (process.exitCode) {

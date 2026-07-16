@@ -159,6 +159,10 @@ test("pushCopyForNotification announcement/support copy matches product spec", (
   assert.equal(announcement.title, "New lesson plans added 🎉");
   assert.equal(announcement.body, "Open Little Learner Hub to see what's new.");
 
+  const featureUpdate = pushCopyForNotification({ type: "feature_update", title: "New Daily Logs Update Available" });
+  assert.equal(featureUpdate.title, "New Daily Logs Update Available");
+  assert.match(featureUpdate.body, /feature update/i);
+
   const support = pushCopyForNotification({ type: "support_reply" });
   assert.equal(support.body, "Your support request has an update.");
 });

@@ -8803,6 +8803,7 @@ function handleFeatureRequestsList(request, response, url) {
 const FEEDBACK_TYPES = new Set([
   "General Feedback", "Suggestion", "Idea", "Compliment", "Improvement Request",
   "Bug", "Problem", "Missing Feature", "Question", "Feature Request", "Support",
+  "Lesson Plan Feedback",
 ]);
 const FEEDBACK_STATUSES = new Set(["New", "In Progress", "Reviewed", "Planned", "Resolved", "Completed", "Archived"]);
 
@@ -9335,7 +9336,10 @@ async function handleAdminMessageSend(request, response) {
     jsonResponse(response, 400, { error: "Message body is required." });
     return;
   }
-  const kind = messagingLib.MESSAGE_KINDS.includes(body.kind) ? body.kind : (audience === "private" ? "message" : "announcement");
+  const kind = messagingLib.MESSAGE_KINDS.includes(body.kind)
+    ? body.kind
+    : (audience === "private" ? "message" : "announcement");
+  // feature_update is an announcement-style broadcast with a distinct bell icon.
   const toEmail = normalizeEmail(body.toEmail);
   if (audience === "private" && !toEmail) {
     jsonResponse(response, 400, { error: "toEmail is required for a private message." });
@@ -9389,8 +9393,13 @@ async function handleAdminMessageSend(request, response) {
   store.messages = capArray(store.messages, MAX_MESSAGES);
   writeStore(store);
 
+  const notificationType = kind === "feature_update"
+    ? "feature_update"
+    : kind === "announcement"
+      ? "announcement"
+      : "message";
   const summary = await fanOutNotificationsAndPush(store, {
-    type: kind === "announcement" ? "announcement" : "message",
+    type: notificationType,
     recipients,
     title: audience === "private" ? "New message from Leah" : (subject || "Little Learner Hub"),
     preview: messagePreviewText(messageBody),
@@ -9501,6 +9510,34 @@ function handleAdminConversationsList(request, response, url) {
   jsonResponse(response, 200, { conversations });
 }
 
+function publicConversationUserProfile(store, email) {
+  const user = store.users?.[email] || { email };
+  const accessGroup = messagingCenter.accessGroupForUser(store, user);
+  const planLabel = accessGroup === "founding"
+    ? "Founding Member"
+    : accessGroup === "pro"
+      ? "Pro"
+      : "Free";
+  const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ")
+    || user.name
+    || user.displayName
+    || "";
+  return {
+    email,
+    name: displayName || email,
+    firstName: user.firstName || "",
+    lastName: user.lastName || "",
+    businessName: user.businessName || user.daycareName || user.programName || "",
+    accountType: accountAccess.accountTypeLabel(accountAccess.resolveAccountType(user)),
+    role: accountAccess.roleLabel(accountAccess.resolveUserRole(user)),
+    plan: planLabel,
+    accessGroup,
+    signupAt: user.signupAt || user.createdAt || "",
+    lastActiveAt: user.lastSeenAt || user.lastLoginAt || user.updatedAt || "",
+    lastLoginAt: user.lastLoginAt || "",
+  };
+}
+
 function handleAdminConversationMessages(request, response, url) {
   const adminToken = url.searchParams.get("adminToken") || "";
   if (!validAdminToken(adminToken)) {
@@ -9517,7 +9554,11 @@ function handleAdminConversationMessages(request, response, url) {
     .filter((m) => m.audience === "private" && m.conversationEmail === userEmail)
     .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))
     .map(publicMessage);
-  jsonResponse(response, 200, { userEmail, messages });
+  jsonResponse(response, 200, {
+    userEmail,
+    messages,
+    user: publicConversationUserProfile(store, userEmail),
+  });
 }
 
 // ─── Member-facing messaging endpoints ─────────────────────────────────────────
@@ -9578,11 +9619,20 @@ async function handleMemberMessageReply(request, response) {
 
   // Admin does not receive push (no admin device model) — the admin dashboard
   // "conversations" unread count uses this same notification row instead.
+  // Users may start a brand-new thread (no prior admin message); title reflects that.
   if (ADMIN_EMAIL) {
+    const priorAdminMessages = store.messages.filter(
+      (m) => m.audience === "private"
+        && m.conversationEmail === identity.email
+        && m.senderType === "admin"
+        && m.id !== message.id,
+    );
     await fanOutNotificationsAndPush(store, {
       type: "message",
       recipients: [ADMIN_EMAIL],
-      title: `Reply from ${message.senderName}`,
+      title: priorAdminMessages.length
+        ? `Reply from ${message.senderName}`
+        : `New message from ${message.senderName}`,
       preview: messagePreviewText(messageBody),
       messageId: message.id,
       conversationEmail: identity.email,
@@ -9603,7 +9653,7 @@ async function handleMemberInbox(request, response) {
   const store = ensureMessagingStore(readStore());
   const messageById = new Map(store.messages.map((m) => [m.id, m]));
   const broadcastNotifications = store.notifications
-    .filter((n) => n.email === identity.email && !n.conversationEmail && (n.type === "message" || n.type === "announcement"))
+    .filter((n) => n.email === identity.email && !n.conversationEmail && (n.type === "message" || n.type === "announcement" || n.type === "feature_update"))
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
     .slice(0, 200)
     .map((n) => ({

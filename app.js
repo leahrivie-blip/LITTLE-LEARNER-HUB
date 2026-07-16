@@ -9059,6 +9059,7 @@ function notificationTypeIcon(type) {
   switch (type) {
     case "message": return "💬";
     case "announcement": return "📣";
+    case "feature_update": return "🚀";
     case "support_reply": return "🛟";
     case "bug_update": return "🛠️";
     default: return "🔔";
@@ -9108,6 +9109,8 @@ async function refreshNotificationBell() {
 function renderNotificationBell() {
   const wrap = document.querySelector("#notificationBellWrap");
   if (wrap) wrap.hidden = !isLoggedIn();
+  const supportBtn = document.querySelector("#messageSupportBtn");
+  if (supportBtn) supportBtn.hidden = !isLoggedIn();
   const count = notificationBellState.unreadCount;
   const badgeText = count > 99 ? "99+" : String(count);
   [document.querySelector("#notificationBellBadge"), document.querySelector("#messagesNavBadge")].forEach((el) => {
@@ -9122,7 +9125,7 @@ function renderNotificationBell() {
   const list = document.querySelector("#notificationBellList");
   if (!list) return;
   if (!notificationBellState.items.length) {
-    list.innerHTML = `<p class="notification-empty">No notifications yet. Messages from Leah will show up here.</p>`;
+    list.innerHTML = `<p class="notification-empty">No notifications yet. New messages, support replies, announcements, and feature updates will show up here.</p>`;
     return;
   }
   list.innerHTML = notificationBellState.items.slice(0, 20).map((n) => `
@@ -9232,7 +9235,10 @@ function renderMessagesConversationTab() {
   const messages = messagesViewState.conversation;
   const list = messages.length
     ? messages.map(messageBubbleHtml).join("")
-    : `<p class="messages-empty">No messages yet. Send Leah a note and she'll reply here.</p>`;
+    : `<div class="messages-empty messages-empty-start">
+        <p><strong>Message Support anytime</strong></p>
+        <p>Ask a question, report a bug, request a feature, or just say hello — Leah will reply here.</p>
+      </div>`;
   return `
     <div class="messages-conversation">
       <div class="messages-thread" id="messagesThread">${list}</div>
@@ -9306,9 +9312,9 @@ function renderMessagesPageBody() {
   section.innerHTML = `
     <div class="messages-page-shell">
       <div class="page-title">
-        <p class="eyebrow">Messages</p>
-        <h2>Messages from Little Learner Hub</h2>
-        <p>Message Leah directly, catch up on announcements, and control your notifications.</p>
+        <p class="eyebrow">Help &amp; Support</p>
+        <h2>Message Support</h2>
+        <p>Start a conversation with Leah anytime — support questions, feature requests, bug reports, or a quick hello. Updates and announcements also land here.</p>
       </div>
       <div class="messages-tabs" role="tablist">
         <button type="button" class="messages-tab${tab === "conversation" ? " active" : ""}" data-messages-tab="conversation" role="tab" aria-selected="${tab === "conversation"}">Conversation with Leah</button>
@@ -9507,9 +9513,11 @@ let adminMessagesState = {
   selectedEmails: [],
   subject: "",
   body: "",
+  kind: "message",
   conversations: [],
   activeConversationEmail: "",
   activeConversationMessages: [],
+  activeConversationUser: null,
 };
 
 const adminAudienceLabels = {
@@ -9520,6 +9528,46 @@ const adminAudienceLabels = {
   selected: "Selected users",
   all: "Everyone (announcement)",
 };
+
+const ADMIN_MESSAGE_TEMPLATES = [
+  {
+    id: "check-in",
+    label: "Check-In",
+    subject: "Just checking in",
+    body: "Hi! Just checking in to see how you're enjoying Little Learner Hub. We'd love your feedback.",
+    kind: "message",
+    audience: "private",
+  },
+  {
+    id: "new-features",
+    label: "New Features",
+    subject: "New features this week 🚀",
+    body: "We've added new lesson plans and activities this week!",
+    kind: "feature_update",
+    audience: "all",
+  },
+  {
+    id: "bug-fixed",
+    label: "Bug Fixed",
+    subject: "Bug fixed",
+    body: "Thanks for reporting this issue. It has now been fixed.",
+    kind: "message",
+    audience: "private",
+  },
+];
+
+function applyAdminMessageTemplate(templateId) {
+  const template = ADMIN_MESSAGE_TEMPLATES.find((t) => t.id === templateId);
+  if (!template) return;
+  Object.assign(adminMessagesState, {
+    subject: template.subject,
+    body: template.body,
+    kind: template.kind,
+    audience: template.audience || adminMessagesState.audience,
+  });
+  const container = document.querySelector("#adminMessagesApp");
+  if (container) renderAdminMessagesCompose(container);
+}
 
 async function adminMessagesPreview(payload) {
   const token = adminSession()?.token || "";
@@ -9555,9 +9603,22 @@ function renderAdminMessagesCenter(tab) {
 
 function renderAdminMessagesCompose(container) {
   const s = adminMessagesState;
+  const kindOptions = [
+    ["message", "Direct message"],
+    ["announcement", "Announcement"],
+    ["feature_update", "Feature update"],
+  ];
   container.innerHTML = `
     <div class="section-heading">
       <div><p class="eyebrow">Member Messaging</p><h3>Send a message</h3></div>
+    </div>
+    <div class="admin-message-templates" aria-label="Message templates">
+      <p class="admin-message-templates-label">Templates</p>
+      <div class="admin-message-templates-row">
+        ${ADMIN_MESSAGE_TEMPLATES.map((t) => `
+          <button type="button" class="ghost-button admin-message-template-btn" data-admin-message-template="${escapeHtml(t.id)}">${escapeHtml(t.label)}</button>
+        `).join("")}
+      </div>
     </div>
     <form class="admin-compose-form" id="adminMessagesComposeForm">
       <label>Send to
@@ -9572,6 +9633,11 @@ function renderAdminMessagesCompose(container) {
       <label class="admin-compose-field" ${s.audience !== "selected" ? "hidden" : ""}>
         User emails (comma or newline separated)
         <textarea name="selectedEmails" rows="3" placeholder="one@example.com, two@example.com">${escapeHtml(s.selectedEmails.join(", "))}</textarea>
+      </label>
+      <label>Message type
+        <select name="kind" id="adminMessagesKind">
+          ${kindOptions.map(([value, label]) => `<option value="${value}" ${s.kind === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+        </select>
       </label>
       <label>Subject ${s.audience === "private" ? "(optional)" : ""}
         <input type="text" name="subject" value="${escapeHtml(s.subject)}" maxlength="300" placeholder="${s.audience === "private" ? "e.g. Welcome!" : "e.g. New lesson plans added 🎉"}" />
@@ -9637,29 +9703,62 @@ async function openAdminConversation(userEmail) {
     const res = await fetch(`/api/admin/messages/conversation?adminToken=${encodeURIComponent(token)}&userEmail=${encodeURIComponent(userEmail)}`, { cache: "no-store" });
     const data = await res.json().catch(() => ({}));
     adminMessagesState.activeConversationMessages = Array.isArray(data.messages) ? data.messages : [];
+    adminMessagesState.activeConversationUser = data.user || null;
   } catch (error) {
     console.warn("Could not load conversation", error);
     adminMessagesState.activeConversationMessages = [];
+    adminMessagesState.activeConversationUser = null;
   }
   renderAdminConversationThread();
+}
+
+function adminConversationProfileHtml(user) {
+  if (!user) return "";
+  const formatProfileDate = (iso) => {
+    if (!iso) return "—";
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  };
+  const signup = formatProfileDate(user.signupAt);
+  const lastActive = formatProfileDate(user.lastActiveAt);
+  return `
+    <aside class="admin-conversation-profile" aria-label="User profile">
+      <div class="admin-conversation-profile-head">
+        <strong>${escapeHtml(user.name || user.email || "")}</strong>
+        <span class="admin-conversation-plan-badge">${escapeHtml(user.plan || "Free")}</span>
+      </div>
+      <dl class="admin-conversation-profile-grid">
+        <div><dt>Email</dt><dd>${escapeHtml(user.email || "")}</dd></div>
+        <div><dt>Account type</dt><dd>${escapeHtml(user.accountType || "—")}</dd></div>
+        <div><dt>Plan</dt><dd>${escapeHtml(user.plan || "Free")}</dd></div>
+        ${user.businessName ? `<div><dt>Program</dt><dd>${escapeHtml(user.businessName)}</dd></div>` : ""}
+        <div><dt>Signup date</dt><dd>${escapeHtml(signup)}</dd></div>
+        <div><dt>Last active</dt><dd>${escapeHtml(lastActive)}</dd></div>
+      </dl>
+    </aside>
+  `;
 }
 
 function renderAdminConversationThread() {
   const threadEl = document.querySelector("#adminConversationThread");
   if (!threadEl) return;
   const messages = adminMessagesState.activeConversationMessages;
+  const user = adminMessagesState.activeConversationUser;
+  const displayName = user?.name || adminMessagesState.activeConversationEmail;
   const bubbles = messages.length
     ? messages.map((m) => `
       <div class="message-bubble ${m.senderType === "admin" ? "message-bubble-mine" : "message-bubble-admin"}">
-        <div class="message-bubble-meta"><strong>${escapeHtml(m.senderType === "admin" ? "You" : adminMessagesState.activeConversationEmail)}</strong><span>${escapeHtml(messagingRelativeTime(m.createdAt))}</span></div>
+        <div class="message-bubble-meta"><strong>${escapeHtml(m.senderType === "admin" ? "You" : displayName)}</strong><span>${escapeHtml(messagingRelativeTime(m.createdAt))}</span></div>
         <div class="message-bubble-body">${escapeHtml(m.body || "").replace(/\n/g, "<br>")}</div>
       </div>
     `).join("")
     : `<p class="messages-empty">No messages yet.</p>`;
   threadEl.innerHTML = `
+    ${adminConversationProfileHtml(user)}
     <div class="messages-thread" id="adminMessagesThread">${bubbles}</div>
     <form class="messages-reply-form" id="adminConversationReplyForm">
-      <textarea id="adminConversationReplyInput" rows="2" placeholder="Reply to ${escapeHtml(adminMessagesState.activeConversationEmail)}…"></textarea>
+      <textarea id="adminConversationReplyInput" rows="2" placeholder="Reply to ${escapeHtml(displayName)}…"></textarea>
       <button type="submit" class="primary-button">Send</button>
     </form>
   `;
@@ -9673,6 +9772,7 @@ document.addEventListener("change", (event) => {
   if (form) {
     adminMessagesState.subject = String(form.subject?.value || "");
     adminMessagesState.body = String(form.body?.value || "");
+    adminMessagesState.kind = String(form.kind?.value || adminMessagesState.kind || "message");
   }
   adminMessagesState.audience = event.target.value;
   renderAdminMessagesCompose(document.querySelector("#adminMessagesApp"));
@@ -9688,7 +9788,8 @@ document.addEventListener("submit", async (event) => {
   const selectedEmails = String(form.selectedEmails?.value || "").split(/[,\n]/).map((e) => e.trim().toLowerCase()).filter(Boolean);
   const subject = String(form.subject?.value || "").trim();
   const body = String(form.body?.value || "").trim();
-  Object.assign(adminMessagesState, { audience, toEmail, selectedEmails, subject, body });
+  const kind = String(form.kind?.value || "message");
+  Object.assign(adminMessagesState, { audience, toEmail, selectedEmails, subject, body, kind });
   if (!body) { setFormMessage(messageEl, "Write a message before sending.", false); return; }
   if (audience === "private" && !toEmail) { setFormMessage(messageEl, "Enter the user's email.", false); return; }
   if (audience === "selected" && !selectedEmails.length) { setFormMessage(messageEl, "Enter at least one user email.", false); return; }
@@ -9697,16 +9798,16 @@ document.addEventListener("submit", async (event) => {
   if (submitBtn) submitBtn.disabled = true;
   try {
     if (audience === "private") {
-      const result = await adminMessagesSend({ audience, toEmail, subject, body });
+      const result = await adminMessagesSend({ audience, toEmail, subject, body, kind });
       if (!result.ok) throw new Error(result.error || "Could not send message.");
-      Object.assign(adminMessagesState, { toEmail: "", subject: "", body: "" });
+      Object.assign(adminMessagesState, { toEmail: "", subject: "", body: "", kind: "message" });
       renderAdminMessagesCompose(document.querySelector("#adminMessagesApp"));
       setFormMessage(document.querySelector("#adminMessagesComposeMessage"), `✅ Message sent to ${toEmail}.`, true);
     } else {
       // Group send: always preview the exact recipient count + message text
       // and require an explicit confirmation click before anything is sent —
       // one accidental click must never notify everyone.
-      const preview = await adminMessagesPreview({ audience, toEmail, selectedEmails, body });
+      const preview = await adminMessagesPreview({ audience, toEmail, selectedEmails, body, kind });
       if (preview.error) throw new Error(preview.error);
       const confirmed = await confirmAction({
         title: `Send to ${preview.audienceLabel}?`,
@@ -9716,9 +9817,9 @@ document.addEventListener("submit", async (event) => {
         danger: preview.recipientCount > 20,
       });
       if (!confirmed) { setFormMessage(messageEl, "Send canceled — nothing was sent.", true); return; }
-      const result = await adminMessagesSend({ audience, toEmail, selectedEmails, subject, body, confirm: true });
+      const result = await adminMessagesSend({ audience, toEmail, selectedEmails, subject, body, kind, confirm: true });
       if (!result.ok) throw new Error(result.error || "Could not send message.");
-      Object.assign(adminMessagesState, { subject: "", body: "", selectedEmails: [] });
+      Object.assign(adminMessagesState, { subject: "", body: "", selectedEmails: [], kind: "message" });
       renderAdminMessagesCompose(document.querySelector("#adminMessagesApp"));
       setFormMessage(document.querySelector("#adminMessagesComposeMessage"), `✅ Sent to ${result.recipientCount} recipient${result.recipientCount === 1 ? "" : "s"}.`, true);
     }
@@ -9730,6 +9831,12 @@ document.addEventListener("submit", async (event) => {
 });
 
 document.addEventListener("click", async (event) => {
+  const templateBtn = event.target.closest("[data-admin-message-template]");
+  if (templateBtn) {
+    event.preventDefault();
+    applyAdminMessageTemplate(templateBtn.dataset.adminMessageTemplate);
+    return;
+  }
   const convoBtn = event.target.closest(".admin-conversation-item");
   if (convoBtn) {
     event.preventDefault();
@@ -16727,6 +16834,89 @@ function openLessonWorkspaceUseThisPlan() {
   openLessonWorkspaceAssignSheet("calendar");
 }
 
+function lessonWorkspaceFeedbackHtml(resource) {
+  if (!isLoggedIn() && !hasAdminFullAccess()) return "";
+  const id = escapeHtml(resource.id || "");
+  const title = escapeHtml(resource.title || "Lesson plan");
+  return `
+    <section class="lesson-workspace-feedback" data-lesson-feedback-root aria-label="Lesson plan feedback" data-lesson-id="${id}" data-lesson-title="${title}">
+      <p class="lesson-workspace-feedback-label">Was this lesson plan helpful?</p>
+      <div class="lesson-workspace-feedback-actions">
+        <button type="button" class="ghost-button" data-lesson-feedback="helpful" data-lesson-id="${id}" data-lesson-title="${title}">👍 Helpful</button>
+        <button type="button" class="ghost-button" data-lesson-feedback="needs-improvement" data-lesson-id="${id}" data-lesson-title="${title}">👎 Needs Improvement</button>
+        <button type="button" class="ghost-button" data-lesson-feedback="suggest" data-lesson-id="${id}" data-lesson-title="${title}">💡 Suggest Improvement</button>
+      </div>
+      <p class="lesson-workspace-feedback-status muted-copy" data-lesson-feedback-status hidden></p>
+    </section>
+  `;
+}
+
+async function submitLessonPlanFeedback({ sentiment, lessonId, lessonTitle, detail = "" }) {
+  const account = currentAccount() || {};
+  const name = displayUserName(account) || [account.firstName, account.lastName].filter(Boolean).join(" ") || "Provider";
+  const email = currentUser || account.email || "";
+  if (!email) return { ok: false, error: "Please log in to send feedback." };
+
+  const labels = {
+    helpful: "Helpful",
+    "needs-improvement": "Needs Improvement",
+    suggest: "Suggest Improvement",
+  };
+  const sentimentLabel = labels[sentiment] || "Feedback";
+  const subject = `Lesson plan feedback: ${lessonTitle || lessonId || "Untitled"} (${sentimentLabel})`;
+  const message = [
+    `Lesson plan: ${lessonTitle || "Untitled"}`,
+    lessonId ? `Lesson ID: ${lessonId}` : "",
+    `Feedback: ${sentimentLabel}`,
+    detail ? `\n${detail}` : (sentiment === "helpful" ? "\nMarked as helpful." : ""),
+  ].filter(Boolean).join("\n");
+
+  const payload = {
+    type: "Lesson Plan Feedback",
+    name,
+    email,
+    subject,
+    message,
+    sourceUrl: window.location.href,
+    page: `lesson:${lessonId || ""}`,
+    accountType: account.accountType || getAccountType(account),
+    role: account.role || getUserRole(account),
+  };
+
+  try {
+    if (!canUseLaunchBackend()) throw new Error("Backend unavailable");
+    const response = await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Could not send feedback.");
+
+    // Needs Improvement / Suggest also land in the support ticket inbox.
+    if (sentiment === "needs-improvement" || sentiment === "suggest") {
+      await fetch("/api/support-ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: "Lesson Plan Feedback",
+          topic: sentimentLabel,
+          name,
+          email,
+          createdBy: email,
+          message,
+          sourceUrl: window.location.href,
+        }),
+      }).catch(() => null);
+    }
+
+    trackEvent("lesson_plan_feedback", { sentiment, lessonId, lessonTitle });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error.message || "Could not send feedback." };
+  }
+}
+
 function lessonWorkspaceChromeHtml(resource) {
   const plan = normalizeCurriculumLessonPlanForRender(resource._curriculumLessonPlan);
   const age = resource.age || plan.age || "Preschool";
@@ -16765,6 +16955,7 @@ function lessonWorkspaceChromeHtml(resource) {
         <div class="lesson-workspace-panel${lessonWorkspaceTab === "materials" ? " is-active" : ""}" data-lesson-workspace-panel="materials">${lessonWorkspaceMaterialsTabHtml(plan, resource)}</div>
       </div>
       ${lessonWorkspaceActionBarsHtml(resource)}
+      ${lessonWorkspaceFeedbackHtml(resource)}
       <div class="lesson-workspace-action-sheet" hidden aria-hidden="true">
         <button type="button" class="lesson-workspace-action-sheet-backdrop" data-lesson-workspace-action-sheet-dismiss aria-label="Close"></button>
         <div class="lesson-workspace-action-sheet-panel" role="dialog" aria-label="Use This Plan">
@@ -24399,6 +24590,7 @@ function renderSettingsHubPage() {
       title: "Need Help?",
       detail: "Report bugs, request features, or contact Leah",
       cards: [
+        { view: "messages", title: "Message Support", detail: "Start a conversation with Leah in Messages" },
         { view: "", title: "Send Feedback", detail: "Bugs, suggestions, and questions", action: "feedback", feedbackType: "General Feedback" },
         { view: "", title: "Report a Bug", detail: "Something broken or confusing", action: "feedback", feedbackType: "Bug" },
         { view: "", title: "Request a Feature", detail: "Tell us what would help your classroom", action: "feedback", feedbackType: "Feature Request" },
@@ -24441,6 +24633,7 @@ function renderSettingsHubPage() {
       title: "Support",
       detail: "Help without leaving Settings",
       cards: [
+        { view: "messages", title: "Help & Support", detail: "Message Leah directly from Messages" },
         { view: "contact", title: "Help Center & Contact Support", detail: "Ask a question or send a feature request" },
         { view: "faq", title: "Release Notes & FAQ", detail: "Common questions and product updates" },
         { view: "resources", title: "Provider Resources", detail: "Behavior, licensing, and classroom help" },
@@ -31022,6 +31215,22 @@ async function submitFeedbackForm(event) {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data?.error || "Could not send feedback.");
     trackEvent("feedback_submitted", { type, subject });
+    // Lesson-plan improvement feedback also lands in the support ticket inbox.
+    if (type === "Lesson Plan Feedback") {
+      await fetch("/api/support-ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: "Lesson Plan Feedback",
+          name,
+          email,
+          topic: subject,
+          message,
+          sourceUrl: window.location.href,
+          userAgent: navigator.userAgent,
+        }),
+      }).catch(() => null);
+    }
     setFormMessage("#feedbackMessage", "Thank you — your feedback was sent to Leah and saved in Admin.", true);
     form.reset();
     setTimeout(closeFeedbackModal, 1200);
@@ -43485,6 +43694,38 @@ document.addEventListener("click", async (event) => {
   if (lessonUseThisPlan) {
     event.preventDefault();
     openLessonWorkspaceUseThisPlan();
+    return;
+  }
+
+  const lessonFeedbackBtn = event.target.closest("[data-lesson-feedback]");
+  if (lessonFeedbackBtn) {
+    event.preventDefault();
+    const sentiment = lessonFeedbackBtn.dataset.lessonFeedback;
+    const lessonId = lessonFeedbackBtn.dataset.lessonId || "";
+    const lessonTitle = lessonFeedbackBtn.dataset.lessonTitle || activeResourceViewerResource?.title || "";
+    const statusEl = lessonFeedbackBtn.closest("[data-lesson-feedback-root]")?.querySelector("[data-lesson-feedback-status]");
+    if (sentiment === "suggest" || sentiment === "needs-improvement") {
+      openFeedbackModal("Lesson Plan Feedback");
+      const subjectInput = document.querySelector("#feedbackSubjectInput");
+      const messageInput = document.querySelector("#feedbackMessageInput");
+      const label = sentiment === "suggest" ? "Suggest Improvement" : "Needs Improvement";
+      if (subjectInput) subjectInput.value = `Lesson plan feedback: ${lessonTitle} (${label})`;
+      if (messageInput) {
+        messageInput.value = `Lesson plan: ${lessonTitle}\nLesson ID: ${lessonId}\nFeedback: ${label}\n\n`;
+        messageInput.focus();
+      }
+      return;
+    }
+    if (statusEl) {
+      statusEl.hidden = false;
+      statusEl.textContent = "Sending…";
+    }
+    const result = await submitLessonPlanFeedback({ sentiment, lessonId, lessonTitle });
+    if (statusEl) {
+      statusEl.textContent = result.ok
+        ? "Thanks — your feedback was sent to Leah."
+        : (result.error || "Could not send feedback.");
+    }
     return;
   }
 

@@ -7,9 +7,9 @@
  * authoritative membership-access rules.
  */
 
-const MESSAGE_KINDS = Object.freeze(["message", "announcement", "support_reply", "bug_update"]);
+const MESSAGE_KINDS = Object.freeze(["message", "announcement", "feature_update", "support_reply", "bug_update"]);
 const AUDIENCES = Object.freeze(["private", "free", "pro", "founding", "selected", "all"]);
-const NOTIFICATION_TYPES = Object.freeze(["message", "announcement", "support_reply", "bug_update"]);
+const NOTIFICATION_TYPES = Object.freeze(["message", "announcement", "feature_update", "support_reply", "bug_update"]);
 
 function audienceLabel(audience) {
   switch (audience) {
@@ -122,6 +122,11 @@ function pushCopyForNotification({ type, senderName = "Leah", title = "" }) {
       return {
         title: title || "Little Learner Hub",
         body: "Open Little Learner Hub to see what's new.",
+      };
+    case "feature_update":
+      return {
+        title: title || "Little Learner Hub",
+        body: "A feature update is ready — open the app to see what's new.",
       };
     case "support_reply":
       return {
