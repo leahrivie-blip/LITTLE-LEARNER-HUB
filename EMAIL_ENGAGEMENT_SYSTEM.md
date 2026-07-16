@@ -30,9 +30,29 @@ Detects newly published curriculum in the last 7 days:
 
 `publishedAt` is set the first time a lesson/activity/resource becomes public. Startup seeds use a stable historical stamp so they do not falsely fill the digest.
 
+## One-time welcome/update (all users)
+
+Manual, audit-gated blast for a **single** welcome/update email to every eligible account.
+
+- **Not scheduled** and **not recurring** (never added to the hourly scheduler)
+- Requires `POST /api/admin/email-engagement/preflight-audit` to pass first
+- Send via `POST /api/admin/email-engagement/send-one-time` with `{ auditToken, confirm: true }`
+- Stamped in `emailEngagement.settings.oneTimeWelcomeUpdate.sentAt` so it cannot run again
+
+### Preflight audit checks
+
+1. Total production user count  
+2. Total active user count (non-disabled)  
+3. Total message count  
+4. Admin dashboard user list matches the database  
+5. Admin inbox matches the database  
+6. Email recipient list matches the database  
+7. No staging/test database is being used  
+8. No filters are hiding users  
+
 ## Admin → Dashboard → Emails
 
-Toggles, analytics, manual runs, test sends, digest preview.
+Toggles, analytics, preflight audit, one-time all-users send, manual onboarding/weekly runs, test sends, digest preview.
 
 ## Tests
 

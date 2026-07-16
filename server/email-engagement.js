@@ -2,6 +2,7 @@
  * Email & User Engagement System
  * - Onboarding drip (welcome → tips → explore), once-only per user
  * - Weekly Monday "What's New" curriculum digest (skip if empty)
+ * - One-time all-users welcome/update email (manual, audit-gated, never scheduled)
  * - Analytics events + admin controls
  *
  * Reuses the shared sendEmail() helper. Soft-fails when email is not configured.
@@ -34,6 +35,18 @@ const ONBOARDING_STEPS = [
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MAX_EVENTS = 2000;
 
+function defaultOneTimeWelcomeUpdate() {
+  return {
+    sentAt: "",
+    sentCount: 0,
+    failedCount: 0,
+    recipientCount: 0,
+    lastAuditAt: "",
+    lastAuditPassed: false,
+    lastAuditToken: "",
+  };
+}
+
 function defaultEmailEngagementStore() {
   return {
     settings: {
@@ -44,6 +57,7 @@ function defaultEmailEngagementStore() {
       lastWeeklySkipReason: "",
       lastWeeklySentCount: 0,
       lastOnboardingSweepAt: "",
+      oneTimeWelcomeUpdate: defaultOneTimeWelcomeUpdate(),
     },
     events: [],
   };
@@ -55,8 +69,89 @@ function ensureEmailEngagement(store) {
   }
   const eng = store.emailEngagement;
   eng.settings = { ...defaultEmailEngagementStore().settings, ...(eng.settings || {}) };
+  eng.settings.oneTimeWelcomeUpdate = {
+    ...defaultOneTimeWelcomeUpdate(),
+    ...(eng.settings.oneTimeWelcomeUpdate || {}),
+  };
   eng.events = Array.isArray(eng.events) ? eng.events : [];
   return eng;
+}
+
+function isStagingOrTestDatabase({ provider, connectionString, nodeEnv, allowLocalForTests }) {
+  const providerKey = String(provider || "").trim().toLowerCase();
+  const url = String(connectionString || "").trim().toLowerCase();
+  const env = String(nodeEnv || "").trim().toLowerCase();
+  const stagingHints = ["staging", "stage-", "-stage", "test", "sandbox", "localhost", "127.0.0.1"];
+  const urlLooksStaging = stagingHints.some((hint) => url.includes(hint));
+  const isLocalJson = !providerKey || providerKey === "local-json";
+  if (isLocalJson) {
+    // Local JSON is never production. Tests may still run the audit path.
+    return { isStagingOrTest: !(allowLocalForTests && env === "test"), isLocalJson: true, urlLooksStaging };
+  }
+  if (urlLooksStaging) {
+    return { isStagingOrTest: true, isLocalJson: false, urlLooksStaging: true };
+  }
+  return { isStagingOrTest: false, isLocalJson: false, urlLooksStaging: false };
+}
+
+function isActiveAccount(user) {
+  const status = String(user?.accountStatus || "Active").trim().toLowerCase();
+  return status !== "disabled" && status !== "deleted" && status !== "archived";
+}
+
+function isNewInboxStatus(status) {
+  // Match /api/admin/inbox (comms-api isNewSubmissionStatus).
+  const value = String(status || "New").trim().toLowerCase();
+  return !value || value === "new" || value === "open";
+}
+
+/**
+ * Rebuilds admin-inbox counts from the authoritative store collections so the
+ * dashboard can be checked for parity (same rules as /api/admin/inbox).
+ */
+function countAdminInboxFromStore(store, adminEmail) {
+  const admin = String(adminEmail || "").trim().toLowerCase();
+  let support = 0;
+  let feature = 0;
+  let bug = 0;
+  let feedback = 0;
+  let message = 0;
+
+  (store.supportTickets || []).forEach((ticket) => {
+    if (isNewInboxStatus(ticket.status)) support += 1;
+  });
+  (store.featureRequests || []).forEach((item) => {
+    if (isNewInboxStatus(item.status)) feature += 1;
+  });
+  (store.bugReports || []).forEach((item) => {
+    if (isNewInboxStatus(item.status)) bug += 1;
+  });
+  (store.feedbackItems || []).forEach((item) => {
+    if (isNewInboxStatus(item.status)) feedback += 1;
+  });
+
+  const unreadConversations = new Set();
+  (store.notifications || []).forEach((n) => {
+    if (!admin) return;
+    if (String(n.email || "").trim().toLowerCase() !== admin) return;
+    if (n.type !== "message" || n.read) return;
+    const conversationEmail = String(n.conversationEmail || "").trim().toLowerCase();
+    if (conversationEmail) unreadConversations.add(conversationEmail);
+  });
+  message = unreadConversations.size;
+
+  return {
+    support,
+    feature,
+    bug,
+    feedback,
+    message,
+    total: support + feature + bug + feedback + message,
+  };
+}
+
+function makeAuditToken() {
+  return crypto.randomBytes(16).toString("hex");
 }
 
 function siteBase(siteUrl) {
@@ -266,6 +361,54 @@ function buildOnboardingContent(stepKey, user, { siteUrl, htmlEscape }) {
   return { subject: ONBOARDING_STEPS[2].subject, text, html: shell.html };
 }
 
+/**
+ * Single welcome/update email for a one-time all-users blast.
+ * Not part of the onboarding drip and never scheduled.
+ */
+function buildWelcomeUpdateContent(user, { siteUrl, htmlEscape }) {
+  const first = userDisplayName(user);
+  const base = siteBase(siteUrl);
+  const lessonsUrl = `${base}/#lessons`;
+  const contactUrl = `${base}/#contact`;
+  const greeting = `Hi ${htmlEscape(first)},`;
+  const subject = "A quick Little Learner Hub update for you";
+  const shell = brandEmailShell({
+    htmlEscape,
+    title: "A quick update from Little Learner Hub",
+    introHtml: `<p>${greeting}</p>
+      <p>Thank you for being part of Little Learner Hub. We wanted to send one short update so every account has the same welcome and context.</p>`,
+    bodyHtml: `
+      <p>Little Learner Hub is built for daycare teachers and home providers who need classroom-ready curriculum without the Sunday-night scramble.</p>
+      <p>Inside you’ll find play-based lesson plans for Infant, Toddler, and Preschool — with Week at a Glance, activities, materials, and print-ready weekly schedules. New lesson plans are added regularly.</p>
+      <p>If something feels confusing, missing, or especially helpful, tell us. Your feedback shapes what we build next.</p>
+    `,
+    ctaLabel: "Open Little Learner Hub",
+    ctaUrl: lessonsUrl,
+    footerNote: "This is a one-time welcome/update email. It is not a recurring campaign.",
+  });
+  const text = [
+    `Hi ${first},`,
+    "",
+    "A quick update from Little Learner Hub",
+    "",
+    "Thank you for being part of Little Learner Hub. We wanted to send one short update so every account has the same welcome and context.",
+    "",
+    "Little Learner Hub is built for daycare teachers and home providers who need classroom-ready curriculum without the Sunday-night scramble.",
+    "Inside you’ll find play-based lesson plans for Infant, Toddler, and Preschool — with Week at a Glance, activities, materials, and print-ready weekly schedules.",
+    "New lesson plans are added regularly.",
+    "",
+    "If something feels confusing, missing, or especially helpful, tell us. Your feedback shapes what we build next.",
+    "",
+    `Open the library: ${lessonsUrl}`,
+    `Share feedback anytime: ${contactUrl}`,
+    "",
+    "— The Little Learner Hub Team",
+    "",
+    "This is a one-time welcome/update email. It is not a recurring campaign.",
+  ].join("\n");
+  return { subject, text, html: shell.html };
+}
+
 function lessonDeepLink(base, lessonId) {
   const id = encodeURIComponent(String(lessonId || ""));
   return `${base}/#lessons?lesson=${id}`;
@@ -369,6 +512,10 @@ function createEmailEngagement(deps) {
     writeStore,
     writeStoreAsync,
     isCurriculumLessonPublic,
+    getDatabaseStatus = () => ({}),
+    getAdminEmail = () => "",
+    // Optional: when provided, used to cross-check audience "all" recipients.
+    resolveAudienceRecipients = null,
   } = deps;
 
   function logEvent(store, event) {
@@ -797,6 +944,360 @@ function createEmailEngagement(deps) {
       onboarding,
       recentEvents: events.slice(0, 40),
       emailConfiguredNote: "Outbound mail uses the shared sendEmail() provider (Resend / SendGrid / Postmark).",
+      oneTimeWelcomeUpdate: eng.settings.oneTimeWelcomeUpdate || defaultOneTimeWelcomeUpdate(),
+    };
+  }
+
+  /**
+   * Eligible recipients for the one-time all-users welcome/update email.
+   * Uses the full user directory (no UI search/health filters). Excludes admin
+   * and marketing-unsubscribed accounts.
+   */
+  function eligibleOneTimeRecipients(store, options = {}) {
+    const adminEmail = String(options.adminEmail || getAdminEmail() || "").trim().toLowerCase();
+    return Object.values(store.users || {})
+      .filter((user) => {
+        const email = String(user.email || "").trim().toLowerCase();
+        if (!email || !email.includes("@")) return false;
+        if (adminEmail && email === adminEmail) return false;
+        if (!isActiveAccount(user)) return false;
+        const prefs = emailPrefs(user);
+        if (prefs.unsubscribedAt) return false;
+        return true;
+      })
+      .map((user) => String(user.email).trim().toLowerCase());
+  }
+
+  /**
+   * Complete admin preflight audit before any bulk / all-users email send.
+   * Does not send mail. Issues a short-lived audit token used to unlock the
+   * one-time welcome/update send.
+   */
+  function runPreflightAudit(options = {}) {
+    const store = options.store || readStore();
+    const eng = ensureEmailEngagement(store);
+    const adminEmail = String(options.adminEmail || getAdminEmail() || "").trim().toLowerCase();
+    const dbStatus = typeof getDatabaseStatus === "function" ? (getDatabaseStatus() || {}) : {};
+    const nodeEnv = String(options.nodeEnv || process.env.NODE_ENV || "").trim().toLowerCase();
+    const allowLocalForTests = Boolean(options.allowLocalForTests || nodeEnv === "test");
+
+    const userEntries = Object.entries(store.users || {});
+    const users = userEntries.map(([, user]) => user);
+    const totalUsers = users.length;
+    const activeUsers = users.filter(isActiveAccount).length;
+    const totalMessages = Array.isArray(store.messages) ? store.messages.length : 0;
+
+    // Admin dashboard analytics user list should be the full directory (no slice).
+    const dashboardUserEmails = new Set(
+      users
+        .map((user) => String(user.email || "").trim().toLowerCase())
+        .filter(Boolean),
+    );
+    const dbUserEmails = new Set(
+      userEntries
+        .map(([key, user]) => String(user.email || key || "").trim().toLowerCase())
+        .filter(Boolean),
+    );
+    const userListMatchesDb = dashboardUserEmails.size === dbUserEmails.size
+      && [...dashboardUserEmails].every((email) => dbUserEmails.has(email));
+
+    const inboxExpected = countAdminInboxFromStore(store, adminEmail);
+    const inboxReported = options.inboxSummary && typeof options.inboxSummary === "object"
+      ? {
+        total: Number(options.inboxSummary.total) || 0,
+        support: Number(options.inboxSummary.support) || 0,
+        feature: Number(options.inboxSummary.feature) || 0,
+        bug: Number(options.inboxSummary.bug) || 0,
+        feedback: Number(options.inboxSummary.feedback) || 0,
+        message: Number(options.inboxSummary.message) || 0,
+      }
+      : inboxExpected;
+    const inboxMatchesDb = inboxExpected.total === inboxReported.total
+      && inboxExpected.support === inboxReported.support
+      && inboxExpected.feature === inboxReported.feature
+      && inboxExpected.bug === inboxReported.bug
+      && inboxExpected.feedback === inboxReported.feedback
+      && inboxExpected.message === inboxReported.message;
+
+    const recipients = eligibleOneTimeRecipients(store, { adminEmail });
+    const recipientSet = new Set(recipients);
+    let audienceAllCount = recipients.length;
+    if (typeof resolveAudienceRecipients === "function") {
+      const audienceAll = resolveAudienceRecipients(store, {
+        audience: "all",
+        adminEmail,
+      }) || [];
+      audienceAllCount = audienceAll.length;
+    }
+    // Recipients are active, non-admin, non-unsubscribed users from the full directory.
+    // Smaller than audience "all" when disabled/unsubscribed users exist — intentional.
+    const unsubscribedCount = users.filter((user) => emailPrefs(user).unsubscribedAt).length;
+    const missingRecipients = [];
+    const unexpectedRecipients = [];
+    userEntries.forEach(([key, user]) => {
+      const email = String(user.email || key || "").trim().toLowerCase();
+      if (!email) return;
+      const shouldInclude = email.includes("@")
+        && !(adminEmail && email === adminEmail)
+        && isActiveAccount(user)
+        && !emailPrefs(user).unsubscribedAt;
+      const included = recipientSet.has(email);
+      if (shouldInclude && !included) missingRecipients.push(email);
+      if (!shouldInclude && included) unexpectedRecipients.push(email);
+    });
+    const recipientListMatchesDb = missingRecipients.length === 0
+      && unexpectedRecipients.length === 0
+      && recipients.every((email) => dbUserEmails.has(email));
+
+    const dbCheck = isStagingOrTestDatabase({
+      provider: dbStatus.provider || process.env.DATABASE_PROVIDER || "local-json",
+      connectionString: dbStatus.connectionString
+        || process.env.PRODUCTION_DATABASE_URL
+        || "",
+      nodeEnv,
+      allowLocalForTests,
+    });
+    const usingProductionDb = Boolean(dbStatus.ready)
+      && !dbCheck.isStagingOrTest
+      && !dbCheck.isLocalJson;
+    // In automated tests, local-json is allowed so the audit/send path can be exercised.
+    const databaseOk = usingProductionDb || (allowLocalForTests && dbCheck.isLocalJson && nodeEnv === "test");
+
+    const noHiddenUserFilters = userListMatchesDb
+      && recipientListMatchesDb
+      && totalUsers === dbUserEmails.size;
+
+    const checks = [
+      {
+        id: "total_users",
+        label: "Total production user count",
+        pass: totalUsers >= 0 && userListMatchesDb,
+        value: totalUsers,
+        detail: `${totalUsers} users in the authoritative store directory`,
+      },
+      {
+        id: "active_users",
+        label: "Total active user count",
+        pass: activeUsers >= 0 && activeUsers <= totalUsers,
+        value: activeUsers,
+        detail: `${activeUsers} non-disabled accounts (of ${totalUsers})`,
+      },
+      {
+        id: "total_messages",
+        label: "Total message count",
+        pass: totalMessages >= 0,
+        value: totalMessages,
+        detail: `${totalMessages} rows in store.messages`,
+      },
+      {
+        id: "user_list_matches_db",
+        label: "Admin dashboard user list matches the database",
+        pass: userListMatchesDb,
+        value: dashboardUserEmails.size,
+        detail: userListMatchesDb
+          ? `Dashboard directory and database both list ${dashboardUserEmails.size} users`
+          : `Mismatch: dashboard ${dashboardUserEmails.size} vs database ${dbUserEmails.size}`,
+      },
+      {
+        id: "inbox_matches_db",
+        label: "Admin inbox matches the database",
+        pass: inboxMatchesDb,
+        value: inboxExpected.total,
+        detail: inboxMatchesDb
+          ? `Inbox totals match store collections (${inboxExpected.total} open items)`
+          : `Inbox mismatch: expected ${JSON.stringify(inboxExpected)} reported ${JSON.stringify(inboxReported)}`,
+      },
+      {
+        id: "recipients_match_db",
+        label: "Email recipient list matches the database",
+        pass: recipientListMatchesDb,
+        value: recipients.length,
+        detail: recipientListMatchesDb
+          ? `${recipients.length} recipients from the full user directory (admin/disabled/unsubscribed excluded)`
+          : `Recipient list mismatch (missing=${missingRecipients.length}, unexpected=${unexpectedRecipients.length}, audience-all=${audienceAllCount}, recipients=${recipients.length}, unsubscribed=${unsubscribedCount})`,
+      },
+      {
+        id: "production_database",
+        label: "No staging/test database is being used",
+        pass: databaseOk,
+        value: dbStatus.provider || process.env.DATABASE_PROVIDER || "local-json",
+        detail: databaseOk
+          ? (usingProductionDb
+            ? `Connected to production-ready database (${dbStatus.provider})`
+            : "Test mode: local-json allowed for automated audits only")
+          : `Blocked: provider=${dbStatus.provider || "unknown"}, stagingOrTest=${dbCheck.isStagingOrTest}, ready=${Boolean(dbStatus.ready)}`,
+      },
+      {
+        id: "no_hidden_filters",
+        label: "No filters are hiding users",
+        pass: noHiddenUserFilters,
+        value: totalUsers,
+        detail: noHiddenUserFilters
+          ? "User directory, dashboard list, and recipient resolution use the full unfiltered store"
+          : "A filter or slice appears to be hiding users from the dashboard or recipient list",
+      },
+    ];
+
+    const auditPassed = checks.every((check) => check.pass);
+    const auditToken = auditPassed ? makeAuditToken() : "";
+    const now = new Date().toISOString();
+    eng.settings.oneTimeWelcomeUpdate = {
+      ...defaultOneTimeWelcomeUpdate(),
+      ...(eng.settings.oneTimeWelcomeUpdate || {}),
+      lastAuditAt: now,
+      lastAuditPassed: auditPassed,
+      lastAuditToken: auditToken,
+    };
+    writeStore(store);
+
+    return {
+      auditPassed,
+      auditToken,
+      auditedAt: now,
+      counts: {
+        totalUsers,
+        activeUsers,
+        totalMessages,
+        emailRecipients: recipients.length,
+        unsubscribedUsers: unsubscribedCount,
+        audienceAllCount,
+      },
+      inbox: inboxExpected,
+      database: {
+        provider: dbStatus.provider || process.env.DATABASE_PROVIDER || "local-json",
+        ready: Boolean(dbStatus.ready),
+        isProduction: usingProductionDb,
+        isStagingOrTest: dbCheck.isStagingOrTest,
+        isLocalJson: dbCheck.isLocalJson,
+        note: dbStatus.note || "",
+      },
+      recipients: {
+        count: recipients.length,
+        sample: recipients.slice(0, 12),
+        matchesDatabase: recipientListMatchesDb,
+      },
+      checks,
+      oneTimeWelcomeUpdate: eng.settings.oneTimeWelcomeUpdate,
+      sendUnlocked: Boolean(
+        auditPassed
+        && auditToken
+        && !eng.settings.oneTimeWelcomeUpdate.sentAt,
+      ),
+    };
+  }
+
+  /**
+   * One-time welcome/update email to every eligible user.
+   * Requires a passing preflight audit token. Never scheduled / never recurring.
+   */
+  async function sendOneTimeWelcomeUpdate(options = {}) {
+    const store = readStore();
+    const eng = ensureEmailEngagement(store);
+    const state = eng.settings.oneTimeWelcomeUpdate || defaultOneTimeWelcomeUpdate();
+
+    if (state.sentAt && !options.forceResend) {
+      return {
+        sent: 0,
+        failed: 0,
+        skipped: true,
+        reason: "already_sent",
+        sentAt: state.sentAt,
+        recipientCount: state.recipientCount || 0,
+      };
+    }
+
+    const auditToken = String(options.auditToken || "").trim();
+    if (!options.skipAuditToken) {
+      if (!state.lastAuditPassed || !state.lastAuditToken || auditToken !== state.lastAuditToken) {
+        return {
+          sent: 0,
+          failed: 0,
+          skipped: true,
+          reason: "audit_required",
+          detail: "Run the admin preflight audit and confirm before sending.",
+        };
+      }
+      const auditAgeMs = Date.now() - new Date(state.lastAuditAt || 0).getTime();
+      if (!Number.isFinite(auditAgeMs) || auditAgeMs < 0 || auditAgeMs > 2 * 60 * 60 * 1000) {
+        return {
+          sent: 0,
+          failed: 0,
+          skipped: true,
+          reason: "audit_expired",
+          detail: "Audit token expired. Re-run the preflight audit.",
+        };
+      }
+    }
+
+    if (options.confirm !== true) {
+      return {
+        sent: 0,
+        failed: 0,
+        skipped: true,
+        reason: "confirmation_required",
+        detail: "Pass confirm: true after reviewing the audit recipient count.",
+      };
+    }
+
+    const adminEmail = String(options.adminEmail || getAdminEmail() || "").trim().toLowerCase();
+    const recipients = eligibleOneTimeRecipients(store, { adminEmail });
+    if (!recipients.length) {
+      return { sent: 0, failed: 0, skipped: true, reason: "no_recipients", recipients: 0 };
+    }
+
+    let sentCount = 0;
+    let failCount = 0;
+    let softSkip = 0;
+    const details = [];
+
+    for (const to of recipients) {
+      const user = store.users[to] || { email: to };
+      const content = buildWelcomeUpdateContent(user, { siteUrl: SITE_URL, htmlEscape });
+      const { emailResult } = await sendAndLog({
+        store,
+        to,
+        templateKey: "one_time_welcome_update",
+        campaign: "one_time_welcome_update",
+        subject: content.subject,
+        text: content.text,
+        html: content.html,
+        meta: { oneTime: true, recurring: false },
+      });
+      if (emailResult.sent) {
+        sentCount += 1;
+        details.push({ email: to, reason: "sent" });
+      } else if (!emailResult.configured) {
+        softSkip += 1;
+        details.push({ email: to, reason: "unconfigured" });
+      } else {
+        failCount += 1;
+        details.push({ email: to, reason: "failed", error: emailResult.error || "" });
+      }
+    }
+
+    const now = new Date().toISOString();
+    // Stamp once-only even in soft-fail/unconfigured mode so this cannot become recurring.
+    eng.settings.oneTimeWelcomeUpdate = {
+      ...state,
+      sentAt: now,
+      sentCount,
+      failedCount: failCount,
+      recipientCount: recipients.length,
+      lastAuditToken: "",
+      lastAuditPassed: false,
+    };
+    writeStore(store);
+
+    return {
+      sent: sentCount,
+      failed: failCount,
+      softSkipped: softSkip,
+      recipients: recipients.length,
+      skipped: false,
+      reason: sentCount ? "sent" : (softSkip ? "unconfigured" : "no_successful_sends"),
+      sentAt: now,
+      recurring: false,
+      details: details.slice(0, 50),
     };
   }
 
@@ -841,6 +1342,8 @@ function createEmailEngagement(deps) {
   }
 
   function startScheduler(options = {}) {
+    // Hourly onboarding + Monday What's New only.
+    // The one-time welcome/update blast is intentionally NEVER scheduled.
     const intervalMs = options.intervalMs || 60 * 60 * 1000; // hourly
     if (global.__llhEmailEngagementTimer) {
       clearInterval(global.__llhEmailEngagementTimer);
@@ -887,6 +1390,11 @@ function createEmailEngagement(deps) {
     startScheduler,
     buildOnboardingContent,
     buildWhatsNewContent,
+    buildWelcomeUpdateContent,
+    eligibleOneTimeRecipients,
+    runPreflightAudit,
+    sendOneTimeWelcomeUpdate,
+    countAdminInboxFromStore,
   };
 }
 
@@ -896,4 +1404,7 @@ module.exports = {
   ONBOARDING_STEPS,
   weekKey,
   isMonday,
+  isStagingOrTestDatabase,
+  countAdminInboxFromStore,
+  buildWelcomeUpdateContent,
 };

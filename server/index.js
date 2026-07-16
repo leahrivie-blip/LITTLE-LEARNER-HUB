@@ -7425,6 +7425,7 @@ async function sendEmail(opts = {}) {
 }
 
 // Email engagement (onboarding drip + weekly What's New) reuses sendEmail().
+// One-time all-users welcome/update is audit-gated and never scheduled.
 const emailEngagement = createEmailEngagement({
   sendEmail,
   SITE_URL,
@@ -7433,6 +7434,12 @@ const emailEngagement = createEmailEngagement({
   writeStore,
   writeStoreAsync,
   isCurriculumLessonPublic,
+  getDatabaseStatus: () => ({
+    ...databaseConfigStatus(),
+    connectionString: PRODUCTION_DATABASE_URL || "",
+  }),
+  getAdminEmail: () => ADMIN_EMAIL,
+  resolveAudienceRecipients: (store, opts) => messagingCenter.resolveAudienceRecipients(store, opts),
 });
 
 // ─── User acknowledgment email ────────────────────────────────────────────────
@@ -9836,9 +9843,10 @@ async function handleAdminMessageSend(request, response) {
     });
   }
 
-  let emailSummary = { attempted: 0, sent: 0, failed: 0 };
+  let emailSummary = { attempted: 0, sent: 0, failed: 0, truncated: false };
   if (deliverVia === "email" || deliverVia === "both") {
-    for (const recipient of recipients.slice(0, 500)) {
+    // Send to the full resolved audience — never silently truncate bulk email lists.
+    for (const recipient of recipients) {
       emailSummary.attempted += 1;
       try {
         const result = await sendEmail({
@@ -10429,18 +10437,76 @@ function handleAdminEmailEngagementGet(request, response, url) {
   const store = readStore();
   const summary = emailEngagement.getAnalyticsSummary(store);
   const digest = emailEngagement.newlyPublishedCurriculum(store, 7 * 24 * 60 * 60 * 1000);
+  const oneTime = summary.oneTimeWelcomeUpdate || {};
   jsonResponse(response, 200, {
     ok: true,
     supportEmail: supportEmailConfigStatus(),
+    database: databaseConfigStatus(),
     summary,
     previewLessons: digest.lessons,
     previewDigest: digest,
+    oneTimeWelcomeUpdate: {
+      ...oneTime,
+      recurring: false,
+      sendUnlocked: Boolean(oneTime.lastAuditPassed && oneTime.lastAuditToken && !oneTime.sentAt),
+    },
     onboardingSteps: emailEngagement.ONBOARDING_STEPS.map((s) => ({
       key: s.key,
       subject: s.subject,
       delayDays: s.delayDays,
     })),
   });
+}
+
+async function handleAdminEmailEngagementPreflightAudit(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  // Rebuild inbox totals from the same store collections the admin inbox uses.
+  const inboxSummary = emailEngagement.countAdminInboxFromStore(store, ADMIN_EMAIL);
+  const audit = emailEngagement.runPreflightAudit({
+    store,
+    adminEmail: ADMIN_EMAIL,
+    inboxSummary,
+    nodeEnv: process.env.NODE_ENV || "",
+    allowLocalForTests: process.env.NODE_ENV === "test",
+  });
+  jsonResponse(response, 200, { ok: true, audit });
+}
+
+async function handleAdminEmailEngagementSendOneTime(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const result = await emailEngagement.sendOneTimeWelcomeUpdate({
+    auditToken: body.auditToken || "",
+    confirm: body.confirm === true,
+    adminEmail: ADMIN_EMAIL,
+    forceResend: false,
+    skipAuditToken: false,
+  });
+  if (result.skipped && result.reason === "audit_required") {
+    jsonResponse(response, 400, { error: "Run and pass the admin preflight audit before sending.", result });
+    return;
+  }
+  if (result.skipped && result.reason === "audit_expired") {
+    jsonResponse(response, 400, { error: "Audit expired. Re-run the preflight audit.", result });
+    return;
+  }
+  if (result.skipped && result.reason === "confirmation_required") {
+    jsonResponse(response, 400, { error: "Confirmation required (confirm: true).", result });
+    return;
+  }
+  if (result.skipped && result.reason === "already_sent") {
+    jsonResponse(response, 409, { error: "This one-time welcome/update email was already sent.", result });
+    return;
+  }
+  jsonResponse(response, 200, { ok: true, result });
 }
 
 async function handleAdminEmailEngagementSettings(request, response) {
@@ -10679,6 +10745,8 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/run-onboarding") return await handleAdminEmailEngagementRunOnboarding(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/run-weekly") return await handleAdminEmailEngagementRunWeekly(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/send-step") return await handleAdminEmailEngagementSendStep(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/preflight-audit") return await handleAdminEmailEngagementPreflightAudit(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/send-one-time") return await handleAdminEmailEngagementSendOneTime(request, response);
     if (request.method === "POST" && url.pathname === "/api/email/unsubscribe") return await handleEmailUnsubscribe(request, response);
     // Phase 6-A: Admin Reply & Communications
     if (request.method === "POST" && url.pathname === "/api/admin/reply") return await handleAdminReply(request, response);

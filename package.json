@@ -103,7 +103,8 @@
     "test:platform-wide-audit": "node scripts/test-platform-wide-audit-regression.js",
     "test:admin-auth-session": "node scripts/test-admin-auth-session.js",
     "test:admin-message-by-name": "node scripts/test-admin-message-by-name.js",
-    "test:temp-password-auth": "NODE_ENV=test node scripts/test-temp-password-auth.js"
+    "test:temp-password-auth": "NODE_ENV=test node scripts/test-temp-password-auth.js",
+    "test:email-engagement": "NODE_ENV=test node scripts/test-email-engagement.js"
   },
   "devDependencies": {
     "playwright": "^1.61.1"

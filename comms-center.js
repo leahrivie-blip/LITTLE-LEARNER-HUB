@@ -1536,8 +1536,9 @@
         ];
       }
     } catch {
+      // Fallback must use the full analytics user directory — never slice/hide users.
       users = Array.isArray(window.adminAnalyticsCache?.users)
-        ? window.adminAnalyticsCache.users.slice(0, 50).map((u) => ({
+        ? window.adminAnalyticsCache.users.map((u) => ({
           email: u.email,
           name: displayUserName(u),
           level: "active",
