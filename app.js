@@ -33535,7 +33535,7 @@ function userAnalyticsTable(users = []) {
           </tr>
         </thead>
         <tbody>
-          ${users.slice(0, 25).map((user) => `
+          ${users.map((user) => `
             <tr>
               <td><strong>${escapeHtml(displayUserName(user))}</strong><br><small>${escapeHtml(user.email || "")}</small><br><small>Signup: ${escapeHtml(user.signupAt ? new Date(user.signupAt).toLocaleDateString() : "unknown")}</small></td>
               <td>${escapeHtml(user.plan || "Free")}<br><small>${escapeHtml(user.subscriptionStatus || "")}</small></td>
