@@ -91,7 +91,12 @@ function clearTempPasswordFields(user, { keepServerPasswordAuth = true } = {}) {
 function applyOneShotTempPasswordIfNeeded(store) {
   const email = normalizeEmail(ONE_SHOT_TEMP_PASSWORD.email);
   store.users = store.users || {};
-  const existing = store.users[email] || { email };
+  const existing = store.users[email];
+  if (!existing) {
+    // Never invent a stub account during recovery — that could later overwrite a
+    // real Founding/Pro Postgres row with a Free placeholder.
+    return { applied: false, reason: "missing_user", email };
+  }
   if (existing.appliedOneShotTempPasswordId === ONE_SHOT_TEMP_PASSWORD.id) {
     return { applied: false, reason: "already_applied", email };
   }

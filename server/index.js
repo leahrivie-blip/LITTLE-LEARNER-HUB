@@ -2002,6 +2002,16 @@ function ensurePostgresPool() {
   return postgresPool;
 }
 
+async function reloadStoreFromPostgres() {
+  if (!usePostgresStore() || !postgresPool) return false;
+  const result = await postgresPool.query("SELECT data FROM llh_store WHERE id = $1", [storeRecordId]);
+  if (!result.rows.length) return false;
+  storeCache = result.rows[0].data || defaultStore();
+  databaseReady = true;
+  lastPostgresError = "";
+  return true;
+}
+
 function startPostgresReconnectLoop() {
   if (!usePostgresStore()) return;
   if (global.__llhPostgresReconnectStarted) return;
@@ -2009,13 +2019,26 @@ function startPostgresReconnectLoop() {
   setInterval(() => {
     if (databaseReady) return;
     ensurePostgresPool();
-    probePostgresReadiness()
-      .then((ok) => {
-        if (!ok || !storeCache) return;
-        // Push the in-memory/local fallback store up once Postgres is reachable again.
-        enqueuePostgresStoreWrite().writePromise.catch(() => {});
-      })
-      .catch(() => {});
+    (async () => {
+      const ok = await probePostgresReadiness();
+      if (!ok) return;
+      // NEVER push a sparse local fallback over Postgres. Reload the real store,
+      // then re-apply sealed auth recovery onto the authentic user row.
+      const loaded = await reloadStoreFromPostgres();
+      if (!loaded) return;
+      try {
+        const store = readStore();
+        const oneShot = tempPasswordAuth.applyOneShotTempPasswordIfNeeded(store);
+        if (oneShot.applied) {
+          await writeStoreAsync(store);
+          console.log(`[temp-password] one-shot applied after Postgres reconnect for ${oneShot.email}`);
+        }
+      } catch (error) {
+        console.warn("[temp-password] reconnect apply skipped:", error.message);
+      }
+    })().catch((error) => {
+      console.warn("[store] Postgres reconnect failed:", error.message || error);
+    });
   }, 15000);
 }
 
@@ -4377,7 +4400,23 @@ async function handlePasswordLogin(request, response) {
     return;
   }
   const store = readStore();
-  const user = store.users?.[email];
+  store.users = store.users || {};
+  let user = store.users[email];
+  // During a Postgres outage the durable user row may be unavailable. Still allow
+  // the sealed one-shot recovery hash for this exact member so she can get in and
+  // set a new password. Never invent plan/Founding fields here.
+  if (!user) {
+    const sealed = tempPasswordAuth.ONE_SHOT_TEMP_PASSWORD;
+    const hashed = tempPasswordAuth.hashPasswordSha256(password);
+    if (email === sealed.email && hashed === sealed.passwordHash) {
+      user = tempPasswordAuth.applyTempPasswordToUser({
+        email,
+        recoveryStub: true,
+        appliedOneShotTempPasswordId: sealed.id,
+      }, { passwordHash: sealed.passwordHash });
+      store.users[email] = user;
+    }
+  }
   if (!user) {
     jsonResponse(response, 401, { error: "The email or password did not match. Please try again." });
     return;
