@@ -2324,6 +2324,7 @@ async function claimEmailCampaignDelivery({ campaignId, email, contentHash }) {
        SET claimed_at = NOW(), error = ''
        WHERE campaign_id = $1 AND email = $2 AND status = 'pending'
          AND claimed_at < NOW() - INTERVAL '30 minutes'
+         AND claimed_at > NOW() - INTERVAL '24 hours'
        RETURNING campaign_id, email, content_hash, status, provider, message_id, error, claimed_at, completed_at`,
       [campaignId, cleanEmail],
     );
