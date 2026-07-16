@@ -1,11 +1,14 @@
-const CACHE_NAME = "llh-shell-v48-persistent-lesson-covers";
+const CACHE_NAME = "llh-shell-v49-messaging-push";
+const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
   "/index.html",
+  "/offline.html",
   "/styles.css?v=20260715-persistent-lesson-covers",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260715-tablet2",
   "/styles/llh-library-browse.css?v=20260715-persistent-lesson-covers",
+  "/styles/llh-messaging.css?v=20260716-messaging",
   "/scripts/curriculum-safe-values.js?v=20260712-v3-render-fix",
   "/scripts/lesson-plan-covers.js?v=20260715-persistent-lesson-covers",
   "/scripts/curriculum-lesson-import-parser.js?v=20260715-weekly-pdf-reg",
@@ -15,10 +18,13 @@ const APP_SHELL = [
   "/scripts/llh-schedule.js?v=20260714-prod-priority-fixes",
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
   "/scripts/lesson-plan-weekly-export.js?v=20260715-weekly-pdf-reg",
-  "/app.js?v=20260715-persistent-lesson-covers",
+  "/app.js?v=20260716-messaging-push",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
+  "/images/icons/icon-192.png",
+  "/images/icons/icon-512.png",
+  "/images/icons/badge-72.png",
   "/images/leah-founder.jpg",
   "/images/lesson-covers/default.svg",
   "/images/lesson-covers/generic-infant.svg",
@@ -79,7 +85,15 @@ self.addEventListener("fetch", (event) => {
           }
           return response;
         })
-        .catch(() => caches.match(event.request).then((cached) => cached || caches.match("/index.html")))
+        .catch(() => caches.match(event.request).then((cached) => {
+          if (cached) return cached;
+          if (event.request.mode === "navigate") {
+            // Offline-safe fallback: previously-visited shell first, then a
+            // minimal offline page so navigation never hard-fails.
+            return caches.match("/index.html").then((shell) => shell || caches.match(OFFLINE_URL));
+          }
+          return undefined;
+        }))
     );
     return;
   }
@@ -93,6 +107,45 @@ self.addEventListener("fetch", (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cloned));
         return response;
       });
+    })
+  );
+});
+
+// ─── Web Push ───────────────────────────────────────────────────────────────
+// Push payloads are always short, generic copy (see server/messaging-lib.js
+// pushCopyForNotification) — never private message bodies. Tapping the
+// notification opens (or focuses) the app on the correct conversation/view.
+self.addEventListener("push", (event) => {
+  let payload = { title: "Little Learner Hub", body: "You have a new notification.", data: {} };
+  try {
+    if (event.data) payload = { ...payload, ...event.data.json() };
+  } catch {
+    if (event.data) payload.body = event.data.text() || payload.body;
+  }
+  const options = {
+    body: payload.body,
+    icon: payload.icon || "/images/icons/icon-192.png",
+    badge: payload.badge || "/images/icons/badge-72.png",
+    data: payload.data || {},
+    tag: payload.data?.type || "llh-notification",
+  };
+  event.waitUntil(self.registration.showNotification(payload.title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || "/?view=messages";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      const targetPath = new URL(targetUrl, self.location.origin).pathname + new URL(targetUrl, self.location.origin).search;
+      const existing = clients.find((c) => {
+        const clientUrl = new URL(c.url);
+        return clientUrl.origin === self.location.origin;
+      });
+      if (existing) {
+        return existing.navigate(targetUrl).then(() => existing.focus()).catch(() => existing.focus());
+      }
+      return self.clients.openWindow(targetUrl);
     })
   );
 });

@@ -45,3 +45,10 @@ services:
         sync: false
       - key: PRODUCTION_DATABASE_SERVICE_KEY
         sync: false
+      # Push notifications work with no setup — VAPID keys auto-generate and
+      # persist in the database on first boot. Set these only if you want to
+      # pin a specific key pair (see docs/MESSAGING_AND_PUSH_SETUP.md).
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false

@@ -20,12 +20,13 @@
     <meta name="twitter:description" content="Affordable childcare curriculum and planning tools. Join as a Founding Member for $9.99/month for life." />
     <title>Little Learner Hub | Affordable Childcare Curriculum &amp; Planning Tools</title>
     <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="10" fill="%235b9bd5"/><text x="32" y="39" text-anchor="middle" font-family="Arial" font-size="24" fill="%23ffffff">LL</text></svg>' />
-    <link rel="apple-touch-icon" href="images/icons/icon-192.svg" />
+    <link rel="apple-touch-icon" href="images/icons/apple-touch-icon.png" />
     <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260715-tablet2" />
   <link rel="stylesheet" href="styles.css?v=20260715-persistent-lesson-covers" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260715-persistent-lesson-covers" />
+  <link rel="stylesheet" href="styles/llh-messaging.css?v=20260716-messaging" />
   <script>
     // Paint Calendar immediately for returning users — never flash the old Dashboard.
     (function () {
@@ -97,6 +98,11 @@
             <button class="nav-link" data-view="behavior-support" data-nav-capability="resources">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3c4.5 0 8 2.5 8 6.5S16 16 12 21C8 16 4 13 4 9.5S7.5 3 12 3z"/><path d="M9.5 10.5h5M12 8v5"/></svg></span>
               Behavior &amp; Support
+            </button>
+            <button class="nav-link" data-view="messages" id="messagesNavLink">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg></span>
+              Messages
+              <span class="nav-unread-badge" id="messagesNavBadge" hidden>0</span>
             </button>
             <button class="nav-link" data-view="settings" data-nav-capability="settings">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5l-.3 3.1a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.3 3.1h5l.3-3.1a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5a7 7 0 0 0 .1-1z"/></svg></span>
@@ -186,6 +192,23 @@
             <input id="searchInput" type="search" placeholder="Search lesson plans, activities, and tools" />
           </label>
           <div class="account-actions">
+            <div class="notification-bell-wrap" id="notificationBellWrap" hidden>
+              <button class="notification-bell-btn" id="notificationBellBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Notifications">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a5 5 0 0 0-5 5v3.2c0 .8-.3 1.6-.8 2.2L5 15.5c-.6.8 0 2 1 2h12c1 0 1.6-1.2 1-2l-1.2-1.6c-.5-.7-.8-1.5-.8-2.2V8a5 5 0 0 0-5-5z"/><path d="M9.5 19.5a2.5 2.5 0 0 0 5 0"/></svg>
+                <span class="notification-bell-badge" id="notificationBellBadge" hidden>0</span>
+              </button>
+              <div class="notification-bell-panel" id="notificationBellPanel" hidden role="menu" aria-label="Notifications">
+                <div class="notification-bell-panel-header">
+                  <strong>Notifications</strong>
+                  <button type="button" class="ghost-button notification-mark-all-btn" id="notificationMarkAllBtn">Mark all as read</button>
+                </div>
+                <div class="notification-bell-list" id="notificationBellList"></div>
+                <div class="notification-bell-panel-footer">
+                  <button type="button" class="ghost-button" data-view="messages" id="notificationSeeAllBtn">Open Messages</button>
+                </div>
+              </div>
+            </div>
+            <button class="ghost-button message-support-btn" id="messageSupportBtn" type="button" data-view="messages" hidden>Message Support</button>
             <button class="ghost-button" id="signinButton">Log in</button>
             <button class="primary-button" id="signupButton" type="button">Get Started — $9.99/month</button>
           </div>
@@ -654,6 +677,7 @@
         <section id="view-lessons" class="view"></section>
         <section id="view-lesson-editor" class="view"></section>
         <section id="view-support-center" class="view"></section>
+        <section id="view-messages" class="view"></section>
         <section id="view-director-center" class="view"></section>
         <section id="view-resources" class="view"></section>
         <section id="view-settings" class="view"></section>
@@ -899,6 +923,9 @@
               </label>
             </div>
             <div class="ticket-list" id="adminTicketList"></div>
+          </section>
+          <section class="section-block admin-messages-panel" hidden>
+            <div id="adminMessagesApp"></div>
           </section>
           <section class="section-block admin-feedback-panel" hidden>
             <div class="section-heading">
@@ -1750,6 +1777,7 @@
               <option value="Suggestion">Suggestion</option>
               <option value="Question">Question</option>
               <option value="Support">Contact Support</option>
+              <option value="Lesson Plan Feedback">Lesson Plan Feedback</option>
               <option value="General Feedback">General Feedback</option>
             </select>
           </label>

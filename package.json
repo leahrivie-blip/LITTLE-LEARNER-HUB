@@ -4,7 +4,8 @@
   "private": true,
   "description": "Little Learner Hub static website and childcare provider app.",
   "dependencies": {
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "web-push": "^3.6.7"
   },
   "engines": {
     "node": ">=20"
@@ -85,7 +86,14 @@
     "test:prod-e2e-pr161": "node scripts/prod-e2e-post-merge-161.js",
     "test:scheduling-owner-audit": "node scripts/owner-audit-scheduling.js",
     "test:assign-workflow-polish": "node scripts/test-assign-workflow-polish.js",
-    "test:unified-calendar-final-qa": "node scripts/test-unified-calendar-final-qa.js"
+    "test:unified-calendar-final-qa": "node scripts/test-unified-calendar-final-qa.js",
+    "test:messaging-lib": "node scripts/test-messaging-lib.js",
+    "test:messaging-foundation": "node scripts/test-messaging-foundation.js",
+    "test:messaging-group-broadcast": "node scripts/test-messaging-group-broadcast.js",
+    "test:push-notifications": "node scripts/test-push-notifications.js",
+    "test:messaging-regression": "node scripts/test-messaging-regression.js",
+    "test:messaging-ui": "node scripts/test-messaging-ui.js",
+    "test:messaging-all": "npm run test:messaging-lib && npm run test:messaging-foundation && npm run test:messaging-group-broadcast && npm run test:push-notifications && npm run test:messaging-ui && npm run test:messaging-regression"
   },
   "devDependencies": {
     "playwright": "^1.61.1"

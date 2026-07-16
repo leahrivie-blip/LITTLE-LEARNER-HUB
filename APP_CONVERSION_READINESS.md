@@ -6,14 +6,14 @@ Short report for future native/PWA packaging. Based on current website code as o
 
 | Area | Status | Notes |
 |------|--------|--------|
-| PWA manifest | Partial | `site.webmanifest` exists (`name`, `short_name`, `start_url`, `display: standalone`, icons) |
-| Service worker | Partial | `service-worker.js` caches a small app shell + navigate fallback |
-| Install prompt | Partial | `beforeinstallprompt` handled in `app.js` with install surfaces/settings |
-| Apple touch icon | Partial | `apple-touch-icon` points at SVG icon assets |
+| PWA manifest | Ready | `site.webmanifest` has `name`, `short_name`, `start_url`, `display: standalone`, PNG + maskable icons |
+| Service worker | Ready | `service-worker.js` caches the app shell, offline-safe navigation fallback, and now handles `push` + `notificationclick` |
+| Install prompt | Ready | `beforeinstallprompt` handled in `app.js` with install surfaces/settings (unchanged) |
+| Apple touch icon | Ready | `apple-touch-icon` now points at a real 180×180 PNG export |
 | Login persistence | Present | Account/plan/favorites in `localStorage`; backend session for admin/API |
-| Offline handling | Weak | Shell-only cache; curriculum/API content still needs network |
-| Push notifications | Not ready | No Web Push subscription, VAPID keys, or notification preference UI |
-| App icon / brand | Needs update | Replace SVG placeholders with final Little Learner Hub logo (PNG 192/512 + maskable) |
+| Offline handling | Improved | Shell-only cache + dedicated `offline.html` fallback for first-ever offline visits |
+| Push notifications | Ready | Web Push (VAPID) subscribe/unsubscribe, opt-in preference center, Messages + notification bell — see `docs/MESSAGING_AND_PUSH_SETUP.md` and `MESSAGING_PUSH_LAUNCH_REPORT.md` |
+| App icon / brand | Rasterized | SVG brand art rasterized to PNG 192/512 + maskable via `scripts/generate-app-icons.js`; still same placeholder brand mark — swap the source SVGs and re-run the script when final logo art is ready |
 
 ## What works today for “Add to Home Screen”
 
