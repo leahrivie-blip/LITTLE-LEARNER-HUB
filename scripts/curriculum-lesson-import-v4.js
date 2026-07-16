@@ -92,20 +92,51 @@
   };
 
   const V4_DAY_FIELD_SYNONYMS = {
-    THEME: ["daily theme", "day theme", "focus", "theme", "today's focus", "day focus"],
-    OBJECTIVES: ["daily objectives", "day objectives", "objectives", "goals", "learning goals"],
-    LEARNING_DOMAINS: ["learning domains", "domains", "daily domains"],
-    MATERIALS: ["daily materials", "materials", "supplies", "materials needed"],
-    VOCABULARY: ["daily vocabulary", "vocabulary", "vocab", "words"],
+    THEME: [
+      "daily theme",
+      "day theme",
+      "focus",
+      "theme",
+      "today's focus",
+      "day focus",
+      "daily_theme",
+    ],
+    OBJECTIVES: [
+      "daily objectives",
+      "day objectives",
+      "objectives",
+      "goals",
+      "learning goals",
+      "daily_objectives",
+    ],
+    LEARNING_DOMAINS: ["learning domains", "domains", "daily domains", "daily learning domains", "daily_learning_domains"],
+    MATERIALS: ["daily materials", "materials", "supplies", "materials needed", "daily_materials"],
+    VOCABULARY: ["daily vocabulary", "vocabulary", "vocab", "words", "daily_vocabulary"],
     BOOKS: ["books", "read aloud", "read-aloud", "story"],
     SONGS: ["songs", "music", "fingerplays"],
-    CIRCLE_TIME: ["circle time", "morning meeting", "group time", "opening circle", "circle"],
+    CIRCLE_TIME: ["circle time", "morning meeting", "group time", "opening circle", "circle", "circle_time"],
     TRANSITIONS: ["transitions", "transition songs", "transition ideas"],
-    OUTDOOR_PLAY: ["outdoor play", "outdoors", "outside play", "playground", "outdoor"],
+    OUTDOOR_PLAY: ["outdoor play", "outdoors", "outside play", "playground", "outdoor", "outdoor_play"],
     FAMILY_CONNECTION: ["family connection", "home connection", "family engagement", "at home"],
-    OBSERVATIONS: ["observations", "observe for", "what to watch for", "assessment ideas"],
-    ADAPTATIONS: ["adaptations", "modifications", "supports", "accommodations", "support strategies"],
-    SAFETY_NOTES: ["safety notes", "safety", "safety reminders"],
+    OBSERVATIONS: [
+      "observations",
+      "observe for",
+      "what to watch for",
+      "assessment ideas",
+      "daily observations",
+      "daily_observations",
+      "observation opportunities",
+    ],
+    ADAPTATIONS: [
+      "adaptations",
+      "modifications",
+      "supports",
+      "accommodations",
+      "support strategies",
+      "daily adaptations",
+      "daily_adaptations",
+    ],
+    SAFETY_NOTES: ["safety notes", "safety", "safety reminders", "safety_notes"],
   };
 
   const V4_ACTIVITY_FIELD_SYNONYMS = {
@@ -815,19 +846,25 @@
     else sectionsDetected.push("TITLE");
 
     const ageValue = inferAgeFromText(raw, lessonFields.AGE_GROUP, baseApi);
-    if (ageValue.inferred) {
-      warnings.push(ageValue.defaulted
-        ? `AGE_GROUP missing — defaulted to ${ageValue.display}. Override in the editor if needed.`
-        : `AGE_GROUP inferred as ${ageValue.display}.`);
-      inferences.push({ field: "age", value: ageValue.display, reason: ageValue.defaulted ? "default" : "detected" });
+    if (ageValue.defaulted) {
+      errors.push(
+        "Missing required field: AGE_GROUP. Add exactly one of: Infant 0–6 Months, Infant 6–12 Months, Toddler, or Preschool so activities land in the right developmental band.",
+      );
+    } else if (ageValue.inferred) {
+      warnings.push(`AGE_GROUP inferred as ${ageValue.display}.`);
+      inferences.push({ field: "age", value: ageValue.display, reason: "detected" });
     } else sectionsDetected.push("AGE_GROUP");
 
     let theme = normalizedShortText(lessonFields.THEME);
     if (!theme) {
       theme = title || "";
       if (theme) {
-        warnings.push("THEME missing — copied from title.");
+        warnings.push("THEME missing — copied from TITLE so activities stay attached to this lesson. Add an explicit THEME when title and theme differ.");
         inferences.push({ field: "theme", value: theme, reason: "title-fallback" });
+      } else {
+        errors.push(
+          "Missing required field: THEME. Add a clear weekly theme (for example: Ocean Explorers) so daily activities map to the right topic — do not leave theme blank.",
+        );
       }
     } else sectionsDetected.push("THEME");
 
@@ -938,8 +975,8 @@
     const data = {
       _formatVersion: formatVersion,
       title: title || "Untitled Lesson Plan",
-      age: ageValue.display || "Preschool",
-      ageBucket: ageValue.bucket || "Preschool",
+      age: ageValue.defaulted ? "" : (ageValue.display || ""),
+      ageBucket: ageValue.defaulted ? "" : (ageValue.bucket || ""),
       theme: theme || "",
       plan: planInfo.plan || "Free",
       status,
@@ -997,101 +1034,128 @@
     return parseCurriculumLessonPlanImportV4(text, { ...options, formatVersion: 5 });
   }
 
-  const CURRICULUM_LESSON_IMPORT_V5_TEMPLATE = `TITLE
-Beach Explorers
+  const CURRICULUM_LESSON_IMPORT_V5_TEMPLATE = `TITLE:
+Ocean Explorers
 
-AGE GROUP
+AGE_GROUP:
 Preschool
 
-THEME
-Beach Exploration
+THEME:
+Ocean Life
 
-PLAN
+PLAN:
 Pro
 
-STATUS
-Published
+STATUS:
+published
 
-WEEKLY OVERVIEW
-Children explore beach life through sensory play, science, literacy, and movement.
+LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Physical Development, Social Emotional, Creative Arts
 
-LEARNING OBJECTIVES
-• Investigate sand and shells
-• Build beach vocabulary
-• Practice sharing and teamwork
+WEEKLY_OVERVIEW:
+Preschoolers explore ocean animals through sensory play, literacy, math sorting, STEM building, movement, and cooperative play. Keep every activity tied to ocean life — no off-theme fillers.
 
-NEEDED MATERIALS
-Sand, shells, buckets, towels, books
+LEARNING_OBJECTIVES:
+Identify common ocean animals and habitats
+Build ocean vocabulary through books, songs, and play
+Practice counting and sorting with shells
+Strengthen fine and gross motor skills through ocean centers
+Practice cooperation during group ocean projects
 
-VOCABULARY
-Beach, Shell, Sand, Wave, Ocean
+WEEKLY_MATERIALS:
+Toy ocean animals, blue scarves, shells, sand or kinetic sand, scoops, trays, ocean books, paint, paper, blocks
 
-RECOMMENDED BOOKS
-Beach Day
-A Day at the Beach
+VOCABULARY:
+ocean, wave, shell, fish, whale, coral, swim, float, deep, shore
 
-MUSIC & SONGS
-The Waves in the Ocean
-You Are My Sunshine
+BOOKS:
+Commotion in the Ocean | Giles Andreae
+Way Down Deep in the Deep Blue Sea | Jan Peck
 
-FAMILY ENGAGEMENT
-Ask families to share a beach memory or photo.
+SONGS:
+A Sailor Went to Sea
+Baby Shark
 
-ASSESSMENT
-Observe vocabulary, cooperation, and sensory engagement.
+FAMILY_CONNECTION:
+Ask families to find one “ocean” word at home (bath time, books, or a walk) and share it tomorrow.
 
-SUPPORT STRATEGIES
-Provide adaptive tools and peer partners as needed.
+OBSERVATION_OPPORTUNITIES:
+Note ocean vocabulary, sorting accuracy, cooperation, and engagement during sensory and movement play.
+
+ADAPTATIONS:
+Offer larger scoops, visual step cards, and peer partners. Shorten seated work; extend with an open-ended building challenge.
 
 MONDAY
 
-Activity Title: Sand Discovery Station
-Activity Type: Sensory Play
-What Children Will Do:
-Children explore sand textures with scoops and shells.
-Items Needed:
-Sand table, scoops, shells
-Procedure:
-1. Invite children to the sand table.
-2. Model scooping and pouring.
-3. Talk about textures.
-Teacher Support:
-Narrate discoveries and introduce vocabulary.
-Skills Practiced:
-Sensory awareness and vocabulary
+DAILY_THEME:
+Ocean Life: Shell Sort and Ocean Story
 
-Activity: Beach Story Time
-Category: Literacy
-Description:
-Read a beach-themed story together.
-Materials:
-Beach book
-Directions:
-1. Read aloud.
-2. Point to pictures.
-3. Repeat key words.
-Teacher Role:
-Support listening and vocabulary.
-Learning Goals:
-Early literacy
+DAILY_OBJECTIVES:
+Explore shells through sorting and ocean vocabulary
+Connect story language to ocean animals
+
+DAILY_VOCABULARY:
+ocean, shell, shore, wave
+
+DAILY_MATERIALS:
+Shells, trays, ocean book, blue scarves
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Math
+
+CIRCLE_TIME:
+Hello song and name greeting
+Sing “A Sailor Went to Sea”
+Preview today’s ocean focus with one shell prop
+
+OUTDOOR_PLAY:
+Ocean movement game — swim, float, and crab walk across a safe open space
+
+DAILY_OBSERVATIONS:
+Uses ocean words
+Sorts shells with purpose
+Joins movement play
+
+DAILY_ADAPTATIONS:
+Offer hand-over-hand scooping and fewer shell choices
+
+SAFETY_NOTES:
+Supervise small shells; use larger shells for younger preschoolers
+
+ACTIVITY_NAME:
+Shell Sorting Lab
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Sort shells by size or color while using ocean vocabulary.
+DESCRIPTION:
+Children sort shells into trays and talk about what they notice.
+MATERIALS:
+Shells, sorting trays
+SETUP:
+Place trays and shells at a small table before children arrive.
+TEACHER_ROLE:
+Ask open-ended questions and model ocean words.
+DIRECTIONS:
+1. Show the shells and name the ocean theme.
+2. Invite children to sort by size or color.
+3. Count how many are in each tray.
+4. Share one discovery with a friend.
+5. Clean up shells together.
+LEARNING_GOALS:
+Sorting
+Counting
+Ocean vocabulary
+OBSERVATION_OPPORTUNITIES:
+Sorts with intention
+Uses theme words
+ADAPTATIONS:
+Limit to two categories; extend with a graphing challenge
+SAFETY_NOTES:
+No shells small enough to choke; supervise closely
 
 TUESDAY
-Day 2
-
-Center Activity: Shell Sorting
-Category: STEM/Discovery
-Description:
-Children sort shells by size and color.
-Materials:
-Shells, trays
-Directions:
-1. Offer shells.
-2. Sort by size.
-3. Compare groups.
-Teacher Notes:
-Ask open-ended questions.
-Goals:
-Comparing and classifying
+(continue same daily + activity pattern through FRIDAY)
 `;
 
   const CURRICULUM_LESSON_IMPORT_V4_TEMPLATE = `Title:

@@ -1,4 +1,4 @@
-const CACHE_NAME = "llh-shell-v49-messaging-push";
+const CACHE_NAME = "llh-shell-v50-curriculum-standards";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
@@ -11,14 +11,16 @@ const APP_SHELL = [
   "/styles/llh-messaging.css?v=20260716-messaging",
   "/scripts/curriculum-safe-values.js?v=20260712-v3-render-fix",
   "/scripts/lesson-plan-covers.js?v=20260715-persistent-lesson-covers",
-  "/scripts/curriculum-lesson-import-parser.js?v=20260715-weekly-pdf-reg",
-  "/scripts/curriculum-lesson-import-v4.js?v=20260715-import-v5",
-  "/scripts/curriculum-import-preview.js?v=20260715-import-v5",
+  "/scripts/curriculum-standards.js?v=20260716-curriculum-standards",
+  "/scripts/curriculum-import-enrich.js?v=20260716-curriculum-standards",
+  "/scripts/curriculum-lesson-import-parser.js?v=20260716-curriculum-standards",
+  "/scripts/curriculum-lesson-import-v4.js?v=20260716-curriculum-standards",
+  "/scripts/curriculum-import-preview.js?v=20260716-curriculum-standards",
   "/scripts/curriculum-lesson-viewer-render.js?v=20260715-preview-cta-fix",
   "/scripts/llh-schedule.js?v=20260714-prod-priority-fixes",
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
   "/scripts/lesson-plan-weekly-export.js?v=20260715-weekly-pdf-reg",
-  "/app.js?v=20260716-messaging-push",
+  "/app.js?v=20260716-curriculum-standards",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",

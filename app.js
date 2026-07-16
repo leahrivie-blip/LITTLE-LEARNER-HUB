@@ -5431,7 +5431,7 @@ function renderCurriculumLessonImportPanel() {
   return `
     <fieldset class="admin-fieldset curriculum-import-panel">
       <legend>Complete Lesson Plan Importer</legend>
-      <p class="muted-copy">Paste a lesson plan from ChatGPT or any reasonable format. V5 Flexible Import maps headings automatically, infers missing categories, and shows a quality preview before save.</p>
+      <p class="muted-copy">Paste one complete lesson plan. The importer reads <strong>TITLE</strong>, <strong>AGE_GROUP</strong>, and <strong>THEME</strong> first, then places weekly + Monday–Friday activities in the right spots. It will not invent off-theme activities. Use V5 Flexible for ChatGPT pastes, or the gold-standard template below for the cleanest paste → preview → publish flow.</p>
       <fieldset class="curriculum-import-mode-fieldset">
         <legend class="visually-hidden">Import mode</legend>
         <div class="curriculum-import-mode-row" role="radiogroup" aria-label="Import mode">

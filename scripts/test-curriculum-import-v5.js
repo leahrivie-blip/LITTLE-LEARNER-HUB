@@ -113,7 +113,11 @@ Comparing and classifying
 
 test("V5 API is installed", () => {
   assert.equal(typeof parser.parseCurriculumLessonPlanImportV5, "function");
-  assert.match(parser.CURRICULUM_LESSON_IMPORT_V5_TEMPLATE || "", /Activity Title/i);
+  assert.match(parser.CURRICULUM_LESSON_IMPORT_V5_TEMPLATE || "", /TITLE:/i);
+  assert.match(parser.CURRICULUM_LESSON_IMPORT_V5_TEMPLATE || "", /AGE_GROUP:/i);
+  assert.match(parser.CURRICULUM_LESSON_IMPORT_V5_TEMPLATE || "", /THEME:/i);
+  assert.match(parser.CURRICULUM_LESSON_IMPORT_V5_TEMPLATE || "", /ACTIVITY_NAME:/i);
+  assert.match(parser.CURRICULUM_LESSON_IMPORT_V5_TEMPLATE || "", /DAILY_THEME:/i);
 });
 
 test("V5 maps bare headings without colons", () => {

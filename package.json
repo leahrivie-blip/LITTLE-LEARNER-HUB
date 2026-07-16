@@ -96,7 +96,8 @@
     "test:push-notifications": "node scripts/test-push-notifications.js",
     "test:messaging-regression": "node scripts/test-messaging-regression.js",
     "test:messaging-ui": "node scripts/test-messaging-ui.js",
-    "test:messaging-all": "npm run test:messaging-lib && npm run test:messaging-foundation && npm run test:messaging-group-broadcast && npm run test:push-notifications && npm run test:messaging-ui && npm run test:messaging-regression"
+    "test:messaging-all": "npm run test:messaging-lib && npm run test:messaging-foundation && npm run test:messaging-group-broadcast && npm run test:push-notifications && npm run test:messaging-ui && npm run test:messaging-regression",
+    "test:curriculum-import-gold": "node scripts/test-curriculum-import-gold-standard.js"
   },
   "devDependencies": {
     "playwright": "^1.61.1"
