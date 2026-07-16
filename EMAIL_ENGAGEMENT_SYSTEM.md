@@ -35,7 +35,8 @@ Detects newly published curriculum in the last 7 days:
 Manual, audit-gated blast for a **single** welcome/update email to every eligible account.
 
 - **Not scheduled** and **not recurring** (never added to the hourly scheduler)
-- Requires `POST /api/admin/email-engagement/preflight-audit` to pass first
+- Prepare first (no send): `POST /api/admin/email-engagement/prepare-one-time`
+- Requires `POST /api/admin/email-engagement/preflight-audit` to pass before delivery
 - Send via `POST /api/admin/email-engagement/send-one-time` with `{ auditToken, confirm: true }`
 - Stamped in `emailEngagement.settings.oneTimeWelcomeUpdate.sentAt` so it cannot run again
 
@@ -49,10 +50,11 @@ Manual, audit-gated blast for a **single** welcome/update email to every eligibl
 6. Email recipient list matches the database  
 7. No staging/test database is being used  
 8. No filters are hiding users  
+9. Email provider is configured and ready to send  
 
 ## Admin → Dashboard → Emails
 
-Toggles, analytics, preflight audit, one-time all-users send, manual onboarding/weekly runs, test sends, digest preview.
+Toggles, analytics, preflight audit, **Prepare emails (no send)**, one-time all-users send, manual onboarding/weekly runs, test sends, digest preview.
 
 ## Tests
 

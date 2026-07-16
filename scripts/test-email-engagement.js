@@ -76,17 +76,21 @@ async function main() {
   assert.match(moduleJs, /What’s coming next/);
   assert.match(moduleJs, /New lesson plans are added regularly/);
   assert.match(moduleJs, /runPreflightAudit/);
+  assert.match(moduleJs, /prepareOneTimeWelcomeUpdate/);
   assert.match(moduleJs, /sendOneTimeWelcomeUpdate/);
   assert.match(moduleJs, /one_time_welcome_update/);
   assert.match(moduleJs, /intentionally NEVER scheduled/);
+  assert.match(moduleJs, /willSend: false/);
   assert.match(serverJs, /\/api\/admin\/email-engagement/);
   assert.match(serverJs, /emailEngagement\.maybeSendWelcomeOnSignup/);
   assert.match(serverJs, /preflight-audit/);
+  assert.match(serverJs, /prepare-one-time/);
   assert.match(serverJs, /send-one-time/);
   assert.match(serverJs, /publishedAt/);
   assert.match(serverJs, /emailEngagement\.startScheduler/);
   assert.match(appJs, /renderAdminEmailEngagement/);
   assert.match(appJs, /adminEmailRunPreflightAudit/);
+  assert.match(appJs, /adminEmailPrepareOneTime/);
   assert.match(appJs, /adminEmailSendOneTime/);
   assert.match(appJs, /"emails"/);
   assert.match(html, /admin-emails-panel/);
@@ -282,6 +286,18 @@ async function main() {
     assert.ok(audit.auditToken);
     assert.equal(audit.sendUnlocked, true);
 
+    const prepared = eng.prepareOneTimeWelcomeUpdate({
+      store: fakeStore,
+      adminEmail: "owner@example.com",
+    });
+    assert.equal(prepared.prepared, true);
+    assert.equal(prepared.sent, false);
+    assert.equal(prepared.willSend, false);
+    assert.equal(prepared.recipients.count, 2);
+    assert.match(prepared.subject, /Little Learner Hub/i);
+    assert.match(prepared.textPreview, /one-time welcome\/update email/i);
+    assert.equal(fakeEvents.length, 0, "prepare must not send email");
+
     const unconfirmed = await eng.sendOneTimeWelcomeUpdate({
       auditToken: audit.auditToken,
       confirm: false,
@@ -442,6 +458,15 @@ async function main() {
       assert.equal(auditRes.json.audit.auditPassed, true, JSON.stringify(auditRes.json.audit.checks, null, 2));
       assert.ok(auditRes.json.audit.counts.totalUsers >= 2);
       assert.ok(auditRes.json.audit.auditToken);
+
+      const prepareRes = await request("POST", "/api/admin/email-engagement/prepare-one-time", {
+        body: { adminToken },
+      });
+      assert.equal(prepareRes.status, 200, JSON.stringify(prepareRes.json));
+      assert.equal(prepareRes.json.sent, false);
+      assert.equal(prepareRes.json.prepared.willSend, false);
+      assert.ok(prepareRes.json.prepared.recipients.count >= 2);
+      assert.match(prepareRes.json.prepared.subject || "", /Little Learner Hub/i);
 
       const sendRes = await request("POST", "/api/admin/email-engagement/send-one-time", {
         body: {

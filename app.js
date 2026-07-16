@@ -31974,8 +31974,10 @@ async function renderAdminEmailEngagement() {
     const events = Array.isArray(summary.recentEvents) ? summary.recentEvents : [];
     const steps = Array.isArray(data.onboardingSteps) ? data.onboardingSteps : [];
     const cachedAudit = window.__adminEmailPreflightAudit || null;
+    const cachedPrepare = window.__adminEmailPrepared || null;
     const auditChecks = Array.isArray(cachedAudit?.checks) ? cachedAudit.checks : [];
     const sendReady = Boolean(cachedAudit?.sendUnlocked || (oneTime.sendUnlocked && cachedAudit?.auditToken));
+    const providerReady = Boolean(support.ready || cachedPrepare?.emailProvider?.ready || cachedAudit?.emailProvider?.ready);
 
     target.innerHTML = `
       <div class="aup-insight-grid">
@@ -31993,12 +31995,12 @@ async function renderAdminEmailEngagement() {
 
       <div class="admin-email-controls panel-form">
         <h4>One-time welcome/update (all users)</h4>
-        <p class="form-note">Single manual send only — not scheduled, not recurring. Requires a passing admin preflight audit first.</p>
+        <p class="form-note">Prepare builds the email and recipient list without sending. The actual send is manual, audit-gated, and not recurring.</p>
         <div class="aup-insight-grid">
           <div class="aup-insight-card"><strong>${cachedAudit?.counts?.totalUsers ?? "—"}</strong><span>Total users</span></div>
           <div class="aup-insight-card"><strong>${cachedAudit?.counts?.activeUsers ?? "—"}</strong><span>Active users</span></div>
           <div class="aup-insight-card"><strong>${cachedAudit?.counts?.totalMessages ?? "—"}</strong><span>Messages</span></div>
-          <div class="aup-insight-card aup-insight--pro"><strong>${cachedAudit?.counts?.emailRecipients ?? "—"}</strong><span>Email recipients</span></div>
+          <div class="aup-insight-card aup-insight--pro"><strong>${cachedPrepare?.recipients?.count ?? cachedAudit?.counts?.emailRecipients ?? "—"}</strong><span>Email recipients</span></div>
         </div>
         ${auditChecks.length ? `
           <ul class="admin-email-step-list">
@@ -32006,17 +32008,27 @@ async function renderAdminEmailEngagement() {
               <li>${check.pass ? "✓" : "✗"} <strong>${escapeHtml(check.label || check.id || "")}</strong> · ${escapeHtml(String(check.value ?? ""))} · ${escapeHtml(check.detail || "")}</li>
             `).join("")}
           </ul>
-        ` : `<p class="form-note">No audit run yet in this session. Run the preflight audit before sending.</p>`}
+        ` : `<p class="form-note">No audit run yet in this session. Run audit + prepare before you send.</p>`}
+        ${cachedPrepare ? `
+          <div class="admin-email-preview">
+            <h4>Prepared email preview (not sent)</h4>
+            <p class="form-note"><strong>Subject:</strong> ${escapeHtml(cachedPrepare.subject || "")}</p>
+            <p class="form-note"><strong>Provider:</strong> ${escapeHtml(cachedPrepare.emailProvider?.provider || "unknown")}${providerReady ? " · ready" : " · not ready"} · CTA links use ${escapeHtml(cachedPrepare.ctaSiteUrl || "")}</p>
+            <p class="form-note"><strong>Recipients:</strong> ${Number(cachedPrepare.recipients?.count) || 0}${Array.isArray(cachedPrepare.recipients?.sample) && cachedPrepare.recipients.sample.length ? ` · sample: ${escapeHtml(cachedPrepare.recipients.sample.slice(0, 8).join(", "))}` : ""}</p>
+            <pre class="admin-email-text-preview" style="white-space:pre-wrap;max-height:240px;overflow:auto;background:#f7f3ec;padding:12px;border-radius:8px;">${escapeHtml(cachedPrepare.textPreview || "")}</pre>
+          </div>
+        ` : ""}
         <div class="account-actions-row">
           <button class="primary-button" type="button" id="adminEmailRunPreflightAudit">Run preflight audit</button>
-          <button class="ghost-button" type="button" id="adminEmailSendOneTime" ${sendReady && !oneTime.sentAt ? "" : "disabled"}>Send one-time email to all users</button>
+          <button class="ghost-button" type="button" id="adminEmailPrepareOneTime">Prepare emails (no send)</button>
+          <button class="ghost-button" type="button" id="adminEmailSendOneTime" ${sendReady && providerReady && !oneTime.sentAt ? "" : "disabled"}>Send one-time email to all users</button>
         </div>
         <p class="form-note">
           ${oneTime.sentAt
             ? `Already sent ${escapeHtml(oneTime.sentAt)} to ${Number(oneTime.recipientCount) || 0} recipients (${Number(oneTime.sentCount) || 0} delivered).`
-            : (sendReady
-              ? `Audit passed. Ready to send to ${Number(cachedAudit?.counts?.emailRecipients) || 0} recipients.`
-              : "Send stays locked until the audit passes.")}
+            : (sendReady && providerReady
+              ? `Ready when you are: audit passed, provider ready, ${Number(cachedPrepare?.recipients?.count || cachedAudit?.counts?.emailRecipients) || 0} recipients. Nothing has been sent yet.`
+              : "Nothing will be sent until you explicitly confirm after audit + prepare.")}
         </p>
         <p class="form-note" id="adminEmailOneTimeMessage"></p>
       </div>
@@ -42493,12 +42505,29 @@ document.addEventListener("click", async (event) => {
       window.__adminEmailPreflightAudit = data.audit || null;
       if (msg) {
         msg.textContent = data.audit?.auditPassed
-          ? `Audit passed. ${data.audit.counts?.emailRecipients || 0} recipients ready.`
+          ? `Audit passed. ${data.audit.counts?.emailRecipients || 0} recipients ready. Nothing was sent.`
           : `Audit failed. Review the checklist before sending.`;
       }
       await renderAdminEmailEngagement();
     } catch (error) {
       if (msg) msg.textContent = error.message || "Preflight audit failed.";
+    }
+    return;
+  }
+  if (event.target.closest("#adminEmailPrepareOneTime")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminEmailOneTimeMessage");
+    try {
+      const data = await adminEmailEngagementPost("/api/admin/email-engagement/prepare-one-time", {});
+      window.__adminEmailPrepared = data.prepared || null;
+      if (msg) {
+        const count = data.prepared?.recipients?.count || 0;
+        const provider = data.prepared?.emailProvider?.ready ? "provider ready" : "provider not ready";
+        msg.textContent = `Prepared ${count} recipients (${provider}). Nothing was sent.`;
+      }
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "Prepare failed.";
     }
     return;
   }
