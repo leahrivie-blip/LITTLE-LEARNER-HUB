@@ -1,14 +1,14 @@
-const CACHE_NAME = "llh-shell-v52-message-by-name";
+const CACHE_NAME = "llh-shell-v55-home-auth";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260716-message-by-name",
+  "/styles.css?v=20260716-home-auth",
   "/styles/llh-design-tokens.css?v=20260713-ds",
-  "/styles/llh-homepage.css?v=20260715-tablet2",
+  "/styles/llh-homepage.css?v=20260716-home-auth",
   "/styles/llh-library-browse.css?v=20260715-persistent-lesson-covers",
-  "/styles/llh-messaging.css?v=20260716-message-by-name",
+  "/styles/llh-messaging.css?v=20260716-home-auth",
   "/scripts/curriculum-safe-values.js?v=20260712-v3-render-fix",
   "/scripts/lesson-plan-covers.js?v=20260715-persistent-lesson-covers",
   "/scripts/curriculum-standards.js?v=20260716-curriculum-standards",
@@ -20,8 +20,8 @@ const APP_SHELL = [
   "/scripts/llh-schedule.js?v=20260714-prod-priority-fixes",
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
   "/scripts/lesson-plan-weekly-export.js?v=20260715-weekly-pdf-reg",
-  "/app.js?v=20260716-message-by-name",
-  "/comms-center.js?v=20260716-message-by-name",
+  "/app.js?v=20260716-home-auth",
+  "/comms-center.js?v=20260716-home-auth",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",

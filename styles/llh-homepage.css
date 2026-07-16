@@ -147,6 +147,13 @@ body.home-view .llh-public-nav {
   flex-shrink: 0;
 }
 
+/* Always keep Log In / Sign Up in the sticky top bar — guests should never
+   need the hamburger (or lesson filters) just to get into their account. */
+.llh-public-nav-actions .llh-btn {
+  min-height: 42px;
+  white-space: nowrap;
+}
+
 .llh-public-menu-toggle {
   display: none;
   width: 44px;
@@ -917,15 +924,31 @@ body.llh-public-menu-open {
     display: none;
   }
 
-  .llh-public-menu-toggle {
-    display: inline-flex;
-    margin-left: auto;
-    min-width: 44px;
-    min-height: 44px;
+  .llh-public-nav {
+    gap: 10px;
   }
 
   .llh-public-nav-actions {
-    display: none;
+    display: flex;
+    margin-left: auto;
+    gap: 6px;
+  }
+
+  .llh-public-nav-actions .llh-btn {
+    min-height: 44px;
+    padding-inline: 12px;
+    font-size: 0.92rem;
+  }
+
+  .llh-public-nav-actions .llh-btn-primary {
+    font-weight: 700;
+  }
+
+  .llh-public-menu-toggle {
+    display: inline-flex;
+    margin-left: 0;
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .llh-feature-grid {
@@ -967,7 +990,33 @@ body.llh-public-menu-open {
   }
 
   .llh-public-brand-text {
-    font-size: 1rem;
+    font-size: 0.95rem;
+    max-width: 42vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .llh-public-nav-actions .llh-btn {
+    min-height: 40px;
+    padding-inline: 10px;
+    font-size: 0.88rem;
+  }
+
+  .landing-home .lp-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .landing-home .lp-hero-actions .llh-btn,
+  .landing-home .lp-hero-actions .lp-btn-primary,
+  .landing-home .lp-hero-actions .lp-btn-secondary {
+    flex: 1 1 calc(50% - 10px);
+    justify-content: center;
+  }
+
+  .landing-home .lp-hero-actions [data-home-nav="lessons"] {
+    flex: 1 1 100%;
   }
 
   .llh-feature-grid {

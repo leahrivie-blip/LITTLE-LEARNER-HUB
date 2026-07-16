@@ -185,8 +185,8 @@ async function runViewport(browser, viewport, label) {
   const homeSelectors = [
     { sel: "#signupButton", name: "topbar #signupButton" },
     { sel: ".llh-announce-banner [data-checkout-plan='founding']", name: "announce banner founding" },
-    { sel: ".llh-public-nav-actions [data-action='start-free']", name: "public nav Get Started" },
-    { sel: ".lp-hero-actions [data-action='start-free']", name: "hero Start Free" },
+    { sel: ".llh-public-nav-actions [data-action='start-free']", name: "public nav Sign Up" },
+    { sel: ".lp-hero-actions [data-action='start-free']", name: "hero Sign Up" },
     { sel: "#homeComingSoon [data-checkout-plan='founding']", name: "coming soon founding" },
     { sel: "#homePricing [data-action='start-free']", name: "pricing Create Free Account" },
     { sel: "#homePricing [data-checkout-plan='founding']", name: "pricing founding Claim" },
@@ -221,12 +221,6 @@ async function runViewport(browser, viewport, label) {
       skipped.push({ skipped: true, label: `${label}: ${item.name}`, reason: "desktop hide" });
       continue;
     }
-    // Public nav actions hidden on small screens
-    if (item.sel.includes("llh-public-nav-actions") && viewport.width <= 900) {
-      skipped.push({ skipped: true, label: `${label}: ${item.name}`, reason: "mobile hide" });
-      continue;
-    }
-
     await ensureHomeGuest(page);
     const result = await clickSignupAndExpectModal(page, page.locator(item.sel), `${label}: ${item.name}`);
     if (result.skipped) skipped.push(result);
