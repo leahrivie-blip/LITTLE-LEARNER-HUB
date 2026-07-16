@@ -35,6 +35,8 @@ services:
         sync: false
       - key: ADMIN_NAME
         value: Leah
+      - key: SUPPORT_POSTAL_ADDRESS
+        sync: false
       - key: FOUNDING_MEMBER_LIMIT
         value: 50
       - key: PUBLIC_FOUNDING_CLAIMED_BASE

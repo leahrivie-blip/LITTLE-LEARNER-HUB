@@ -38,6 +38,7 @@ const FIREBASE_CERT_URL = "https://www.googleapis.com/robot/v1/metadata/x509/sec
 const SUPPORT_EMAIL_TO = normalizeEmail(process.env.SUPPORT_EMAIL_TO || ADMIN_EMAIL || "little.learners.hub.customer@gmail.com");
 const SUPPORT_EMAIL_FROM = process.env.SUPPORT_EMAIL_FROM || process.env.RESEND_FROM || process.env.SENDGRID_FROM || process.env.POSTMARK_FROM || "";
 const SUPPORT_EMAIL_PROVIDER = String(process.env.SUPPORT_EMAIL_PROVIDER || "").trim().toLowerCase();
+const SUPPORT_POSTAL_ADDRESS = String(process.env.SUPPORT_POSTAL_ADDRESS || "").trim();
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || "";
 const POSTMARK_SERVER_TOKEN = process.env.POSTMARK_SERVER_TOKEN || "";
@@ -7061,6 +7062,7 @@ async function sendEmail(opts = {}) {
   const text = String(opts.text || "");
   const html = String(opts.html || "");
   const listUnsubscribeUrl = String(opts.listUnsubscribeUrl || "");
+  const idempotencyKey = String(opts.idempotencyKey || "").slice(0, 256);
 
   if (provider === "resend") {
     const payload = { from: SUPPORT_EMAIL_FROM, to: toList, subject, text, html };
@@ -7071,7 +7073,9 @@ async function sendEmail(opts = {}) {
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       };
     }
-    const result = await postJson("https://api.resend.com/emails", { Authorization: "Bearer " + RESEND_API_KEY }, payload);
+    const headers = { Authorization: "Bearer " + RESEND_API_KEY };
+    if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
+    const result = await postJson("https://api.resend.com/emails", headers, payload);
     return { sent: true, configured: true, provider, messageId: result.id || "" };
   }
   if (provider === "sendgrid") {
@@ -7119,6 +7123,7 @@ const emailEngagement = createEmailEngagement({
   SITE_URL,
   reviewEmail: ADMIN_EMAIL,
   unsubscribeUrlForEmail,
+  postalAddress: SUPPORT_POSTAL_ADDRESS,
   htmlEscape,
   readStore,
   writeStore,
@@ -9036,6 +9041,7 @@ function handleAdminEmailEngagementGet(request, response, url) {
   jsonResponse(response, 200, {
     ok: true,
     supportEmail: supportEmailConfigStatus(),
+    freeReengagement: freeReengagementSafetyStatus(store),
     summary,
     previewLessons: digest.lessons,
     previewDigest: digest,
@@ -9102,10 +9108,17 @@ async function handleAdminEmailEngagementSendStep(request, response) {
 function freeReengagementSafetyStatus(store = readStore()) {
   const audience = emailEngagement.freeReengagementAudience(store);
   const emailService = supportEmailConfigStatus();
+  const unsubscribeHttpsReady = unsubscribeUrlForEmail(ADMIN_EMAIL).startsWith("https://");
+  const postalAddressConfigured = isConfiguredValue(SUPPORT_POSTAL_ADDRESS);
   return {
-    ready: emailService.ready && isConfiguredValue(EMAIL_UNSUBSCRIBE_SECRET),
+    ready: emailService.ready
+      && isConfiguredValue(EMAIL_UNSUBSCRIBE_SECRET)
+      && unsubscribeHttpsReady
+      && postalAddressConfigured,
     emailService,
     unsubscribeConfigured: isConfiguredValue(EMAIL_UNSUBSCRIBE_SECRET),
+    unsubscribeHttpsReady,
+    postalAddressConfigured,
     campaignId: audience.campaignId,
     subject: audience.subject,
     eligibleCount: audience.eligibleCount,
@@ -9153,6 +9166,7 @@ async function handleAdminFreeReengagementSend(request, response) {
   }
   const result = await emailEngagement.runFreeReengagementCampaign({
     confirmCampaignId: String(body.confirmCampaignId || ""),
+    reviewApproved: body.reviewApproved === true,
   });
   if (result.reason) {
     jsonResponse(response, 409, { error: result.reason, result, safety: freeReengagementSafetyStatus() });
@@ -9476,14 +9490,6 @@ initializeStorage()
         console.log("[email-engagement] scheduler started (hourly onboarding + Monday What's New)");
       } catch (err) {
         console.warn("[email-engagement] scheduler failed to start:", err.message);
-      }
-      if (process.env.NODE_ENV === "production") {
-        const campaignTimer = setTimeout(() => {
-          emailEngagement.processQueuedFreeReengagementCampaign()
-            .then((result) => console.log("[email-engagement] Free re-engagement queue result", result))
-            .catch((err) => console.error("[email-engagement] Free re-engagement queue failed:", err.message));
-        }, 45_000);
-        if (typeof campaignTimer.unref === "function") campaignTimer.unref();
       }
     });
   })

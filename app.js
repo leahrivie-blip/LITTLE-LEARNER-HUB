@@ -30411,6 +30411,8 @@ async function renderAdminEmailEngagement() {
     const totals = summary.totals || {};
     const onboarding = summary.onboarding || {};
     const support = data.supportEmail || {};
+    const freeCampaign = data.freeReengagement || {};
+    const freeCampaignState = freeCampaign.campaignState || {};
     const preview = Array.isArray(data.previewLessons) ? data.previewLessons : [];
     const events = Array.isArray(summary.recentEvents) ? summary.recentEvents : [];
     const steps = Array.isArray(data.onboardingSteps) ? data.onboardingSteps : [];
@@ -30438,6 +30440,25 @@ async function renderAdminEmailEngagement() {
           <button class="ghost-button" type="button" id="adminEmailRunWeekly">Run weekly digest now</button>
         </div>
         <p class="form-note">Last onboarding sweep: ${escapeHtml(settings.lastOnboardingSweepAt || "never")} · Last weekly run: ${escapeHtml(settings.lastWeeklyRunAt || "never")}${settings.lastWeeklySkipReason ? ` · Skip: ${escapeHtml(settings.lastWeeklySkipReason)}` : ""}</p>
+      </div>
+
+      <div class="admin-email-controls panel-form">
+        <h4>Free-user re-engagement campaign</h4>
+        <p><strong>${escapeHtml(freeCampaign.subject || "🎉 Little Learner Hub Has Been Updated!")}</strong></p>
+        <p class="form-note">
+          Eligible active Free users: ${Number(freeCampaign.eligibleCount || 0)} ·
+          Invalid addresses: ${Number((freeCampaign.invalidEmails || []).length)} ·
+          Compliance: ${freeCampaign.ready ? "Ready" : "Blocked — email provider, HTTPS unsubscribe, and postal address are required"}
+        </p>
+        <p class="form-note">
+          Review copy: ${freeCampaignState.testSentAt ? `accepted for ${escapeHtml(freeCampaignState.testRecipient || "")} at ${escapeHtml(new Date(freeCampaignState.testSentAt).toLocaleString())}` : "not sent"} ·
+          Production: ${freeCampaignState.sendCompletedAt ? `completed (${Number(freeCampaignState.successfulSends || 0)} sent, ${Number(freeCampaignState.failedSends || 0)} failed)` : "not sent"}
+        </p>
+        <div class="account-actions-row">
+          <button class="ghost-button" type="button" id="adminEmailFreeCampaignTest" ${freeCampaign.ready ? "" : "disabled"}>Send review copy first</button>
+          <button class="primary-button" type="button" id="adminEmailFreeCampaignSend" ${freeCampaign.ready && freeCampaignState.testSentAt && !freeCampaignState.sendCompletedAt ? "" : "disabled"}>Approve &amp; send to Free users</button>
+        </div>
+        <p class="form-note" id="adminEmailFreeCampaignMessage"></p>
       </div>
 
       <div class="admin-email-onboarding">
@@ -40729,6 +40750,41 @@ document.addEventListener("click", async (event) => {
       await renderAdminEmailEngagement();
     } catch (error) {
       if (msg) msg.textContent = error.message || "Weekly digest failed.";
+    }
+    return;
+  }
+  if (event.target.closest("#adminEmailFreeCampaignTest")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminEmailFreeCampaignMessage");
+    try {
+      if (msg) msg.textContent = "Sending review copy…";
+      const data = await adminEmailEngagementPost("/api/admin/email-engagement/free-reengagement-test");
+      if (msg) msg.textContent = data.result?.sent
+        ? `Review copy accepted by ${data.result.provider || "provider"} for ${data.result.recipient}. Check the inbox before approving production.`
+        : `Review copy failed: ${data.result?.error || "unknown error"}`;
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "Review copy failed.";
+    }
+    return;
+  }
+  if (event.target.closest("#adminEmailFreeCampaignSend")) {
+    event.preventDefault();
+    const campaign = adminEmailEngagementCache?.freeReengagement || {};
+    const count = Number(campaign.eligibleCount || 0);
+    if (!confirm(`Have you reviewed the test email in leahivie@icloud.com? Send this exact campaign to ${count} eligible Free users now?`)) return;
+    const msg = document.querySelector("#adminEmailFreeCampaignMessage");
+    try {
+      if (msg) msg.textContent = `Sending to ${count} eligible Free users…`;
+      const data = await adminEmailEngagementPost("/api/admin/email-engagement/free-reengagement-send", {
+        confirmCampaignId: campaign.campaignId,
+        reviewApproved: true,
+      });
+      const result = data.result || {};
+      if (msg) msg.textContent = `Campaign complete: ${Number(result.successfulSends || 0)} sent, ${Number(result.failedSends || 0)} failed, ${Number((result.invalidEmails || []).length)} invalid.`;
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "Campaign send failed.";
     }
     return;
   }

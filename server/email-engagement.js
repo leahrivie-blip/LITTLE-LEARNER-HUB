@@ -367,10 +367,11 @@ function buildWhatsNewContent(digest, { siteUrl, htmlEscape }) {
   };
 }
 
-function buildFreeReengagementContent(user, { siteUrl, htmlEscape, unsubscribeUrl }) {
+function buildFreeReengagementContent(user, { siteUrl, htmlEscape, unsubscribeUrl, postalAddress }) {
   const base = siteBase(siteUrl);
   const safeBase = htmlEscape(base);
   const safeUnsubscribe = htmlEscape(unsubscribeUrl || `${base}/`);
+  const safePostalAddress = htmlEscape(postalAddress || "");
   const text = [
     "Hi!",
     "",
@@ -410,6 +411,7 @@ function buildFreeReengagementContent(user, { siteUrl, htmlEscape, unsubscribeUr
     "P.S. Founding Member spots are still available. Lock in $9.99/month for life before pricing increases and receive unlimited access to all current and future features.",
     "",
     `Unsubscribe from marketing emails: ${unsubscribeUrl || `${base}/`}`,
+    postalAddress || "",
   ].join("\n");
   const html = `
     <div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;color:#2c2416;line-height:1.6">
@@ -435,7 +437,7 @@ function buildFreeReengagementContent(user, { siteUrl, htmlEscape, unsubscribeUr
       <p>Leah Ivie<br>Founder, Little Learner Hub</p>
       <p><strong>P.S.</strong> Founding Member spots are still available. Lock in $9.99/month for life before pricing increases and receive unlimited access to all current and future features.</p>
       <hr style="border:0;border-top:1px solid #ddd;margin:28px 0 16px">
-      <p style="font-size:12px;color:#6f675d">You are receiving this because you have an active Free Little Learner Hub account. <a href="${safeUnsubscribe}">Unsubscribe from marketing emails</a>.</p>
+      <p style="font-size:12px;color:#6f675d">You are receiving this because you have an active Free Little Learner Hub account. <a href="${safeUnsubscribe}">Unsubscribe from marketing emails</a>.<br>${safePostalAddress}</p>
     </div>
   `.trim();
   return { subject: FREE_REENGAGEMENT_SUBJECT, text, html };
@@ -447,6 +449,7 @@ function createEmailEngagement(deps) {
     SITE_URL,
     reviewEmail,
     unsubscribeUrlForEmail,
+    postalAddress,
     htmlEscape,
     readStore,
     writeStore,
@@ -470,12 +473,15 @@ function createEmailEngagement(deps) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim().toLowerCase());
   }
 
-  function hasPromoAccessHistory(user) {
+  function hasPromoAccessHistory(user, store, email) {
     return Boolean(
       user?.promoRedeemedAt
       || user?.pendingPromoCode
       || user?.promoCode
-      || (Array.isArray(user?.promoRedemptions) && user.promoRedemptions.length),
+      || (Array.isArray(user?.promoRedemptions) && user.promoRedemptions.length)
+      || (Array.isArray(store?.promoRedemptions) && store.promoRedemptions.some((record) => (
+        String(record?.email || "").trim().toLowerCase() === email
+      )))
     );
   }
 
@@ -490,14 +496,25 @@ function createEmailEngagement(deps) {
       unsubscribed: 0,
       missingAccountActivity: 0,
       alreadySent: 0,
+      duplicateEmail: 0,
     };
+    const seenEmails = new Set();
     for (const user of Object.values(store.users || {})) {
       const email = String(user?.email || "").trim().toLowerCase();
       if (String(user?.accountStatus || "Active").toLowerCase() === "disabled" || user?.disabled === true) {
         excluded.disabled += 1;
         continue;
       }
-      if (membershipAccess.membershipCurrentAccessKey(user) !== "free") {
+      const rawPlan = String(user?.plan || "").toLowerCase();
+      const rawStripeStatus = String(user?.stripeSubscriptionStatus || "").toLowerCase();
+      const rawTrialStatus = String(user?.trialStatus || "").toLowerCase();
+      const explicitlyNonFree = rawPlan === "pro"
+        || rawPlan === "founding"
+        || Boolean(user?.foundingMember || user?.foundingMemberHistorical || user?.foundingMemberActive || user?.foundingMemberNumber)
+        || ["active", "trialing", "past_due", "unpaid"].includes(rawStripeStatus)
+        || rawTrialStatus.includes("in trial")
+        || rawTrialStatus.includes("trial active");
+      if (explicitlyNonFree || membershipAccess.membershipCurrentAccessKey(user) !== "free") {
         excluded.paidTrialOrPastDue += 1;
         continue;
       }
@@ -512,7 +529,7 @@ function createEmailEngagement(deps) {
         excluded.admin += 1;
         continue;
       }
-      if (hasPromoAccessHistory(user)) {
+      if (hasPromoAccessHistory(user, store, email)) {
         excluded.promo += 1;
         continue;
       }
@@ -529,7 +546,13 @@ function createEmailEngagement(deps) {
         invalid.push(email || "(missing email)");
         continue;
       }
-      if (user?.emailCampaigns?.[FREE_REENGAGEMENT_CAMPAIGN_ID]?.sentAt) {
+      if (seenEmails.has(email)) {
+        excluded.duplicateEmail += 1;
+        continue;
+      }
+      seenEmails.add(email);
+      const campaignStamp = user?.emailCampaigns?.[FREE_REENGAGEMENT_CAMPAIGN_ID] || {};
+      if (campaignStamp.sentAt || campaignStamp.pendingAt) {
         excluded.alreadySent += 1;
         continue;
       }
@@ -676,6 +699,7 @@ function createEmailEngagement(deps) {
       siteUrl: SITE_URL,
       htmlEscape,
       unsubscribeUrl,
+      postalAddress,
     });
     const { emailResult, event } = await sendAndLog({
       store,
@@ -709,15 +733,24 @@ function createEmailEngagement(deps) {
   }
 
   async function runFreeReengagementCampaign(options = {}) {
-    const store = readStore();
-    const eng = ensureEmailEngagement(store);
+    if (global.__llhFreeReengagementCampaignRunning) {
+      return { sent: 0, failed: 0, reason: "campaign_already_in_progress" };
+    }
+    let store = readStore();
+    let eng = ensureEmailEngagement(store);
     eng.campaigns = eng.campaigns && typeof eng.campaigns === "object" ? eng.campaigns : {};
-    const campaignState = eng.campaigns[FREE_REENGAGEMENT_CAMPAIGN_ID] || {};
+    let campaignState = eng.campaigns[FREE_REENGAGEMENT_CAMPAIGN_ID] || {};
     if (!campaignState.testSentAt || campaignState.testRecipient !== String(reviewEmail || "").trim().toLowerCase()) {
       return { sent: 0, failed: 0, reason: "successful_review_test_required" };
     }
+    if (options.reviewApproved !== true) {
+      return { sent: 0, failed: 0, reason: "human_review_approval_required" };
+    }
     if (options.confirmCampaignId !== FREE_REENGAGEMENT_CAMPAIGN_ID) {
       return { sent: 0, failed: 0, reason: "explicit_campaign_confirmation_required" };
+    }
+    if (campaignState.sendCompletedAt) {
+      return { sent: 0, failed: 0, reason: "campaign_already_completed" };
     }
     const sendStartedMs = Date.parse(campaignState.sendStartedAt || "") || 0;
     if (sendStartedMs && !campaignState.sendCompletedAt && Date.now() - sendStartedMs < 30 * 60 * 1000) {
@@ -727,99 +760,135 @@ function createEmailEngagement(deps) {
     const audience = freeReengagementAudience(store);
     const failures = [];
     const successes = [];
+    const skippedAfterRecheck = [];
     campaignState.sendStartedAt = new Date().toISOString();
+    campaignState.reviewApprovedAt = new Date().toISOString();
     campaignState.targetCount = audience.eligibleCount;
     eng.campaigns[FREE_REENGAGEMENT_CAMPAIGN_ID] = campaignState;
     await writeStoreAsync(store);
-
-    for (const { email, user } of audience.eligible) {
-      const unsubscribeUrl = unsubscribeUrlForEmail(email);
-      const content = buildFreeReengagementContent(user, {
-        siteUrl: SITE_URL,
-        htmlEscape,
-        unsubscribeUrl,
-      });
-      const { emailResult } = await sendAndLog({
-        store,
-        to: email,
-        templateKey: FREE_REENGAGEMENT_CAMPAIGN_ID,
-        campaign: FREE_REENGAGEMENT_CAMPAIGN_ID,
-        ...content,
-        listUnsubscribeUrl: unsubscribeUrl,
-        meta: { test: false },
-      });
-      if (emailResult.sent) {
-        user.emailCampaigns = user.emailCampaigns && typeof user.emailCampaigns === "object"
-          ? user.emailCampaigns
+    global.__llhFreeReengagementCampaignRunning = true;
+    try {
+      for (const { email } of audience.eligible) {
+        // Re-read and re-segment immediately before every send. A user who
+        // unsubscribed, upgraded, or was disabled after preview is skipped.
+        let latestStore = readStore();
+        const latestEntry = freeReengagementAudience(latestStore).eligible.find((entry) => entry.email === email);
+        if (!latestEntry) {
+          skippedAfterRecheck.push(email);
+          continue;
+        }
+        const currentUser = latestEntry.user;
+        const idempotencyKey = `${FREE_REENGAGEMENT_CAMPAIGN_ID}:${crypto.createHash("sha256").update(email).digest("hex").slice(0, 32)}`;
+        currentUser.emailCampaigns = currentUser.emailCampaigns && typeof currentUser.emailCampaigns === "object"
+          ? currentUser.emailCampaigns
           : {};
-        user.emailCampaigns[FREE_REENGAGEMENT_CAMPAIGN_ID] = {
-          sentAt: new Date().toISOString(),
-          provider: emailResult.provider || "",
-          messageId: emailResult.messageId || "",
+        currentUser.emailCampaigns[FREE_REENGAGEMENT_CAMPAIGN_ID] = {
+          pendingAt: new Date().toISOString(),
+          idempotencyKey,
         };
-        user.updatedAt = new Date().toISOString();
-        successes.push(email);
-      } else {
-        failures.push({
-          email,
-          error: emailResult.error || (emailResult.configured ? "Provider rejected send" : "Email provider not configured"),
+        await writeStoreAsync(latestStore);
+
+        const unsubscribeUrl = unsubscribeUrlForEmail(email);
+        const content = buildFreeReengagementContent(currentUser, {
+          siteUrl: SITE_URL,
+          htmlEscape,
+          unsubscribeUrl,
+          postalAddress,
         });
+        let emailResult;
+        try {
+          emailResult = await sendEmail({
+            to: email,
+            ...content,
+            listUnsubscribeUrl: unsubscribeUrl,
+            idempotencyKey,
+          });
+        } catch (err) {
+          emailResult = {
+            sent: false,
+            configured: true,
+            provider: "error",
+            error: err.message || String(err),
+          };
+        }
+
+        // Re-read after provider response so unrelated concurrent profile or
+        // unsubscribe updates are not overwritten by a stale campaign snapshot.
+        latestStore = readStore();
+        const latestUser = Object.values(latestStore.users || {}).find((user) => (
+          String(user?.email || "").trim().toLowerCase() === email
+        ));
+        logEvent(latestStore, {
+          type: emailResult.sent ? "sent" : (emailResult.configured ? "failed" : "skipped_unconfigured"),
+          templateKey: FREE_REENGAGEMENT_CAMPAIGN_ID,
+          campaign: FREE_REENGAGEMENT_CAMPAIGN_ID,
+          to: email,
+          subject: content.subject,
+          provider: emailResult.provider || "",
+          error: emailResult.error || "",
+          meta: { test: false, idempotencyKey },
+        });
+        if (latestUser) {
+          latestUser.emailCampaigns = latestUser.emailCampaigns && typeof latestUser.emailCampaigns === "object"
+            ? latestUser.emailCampaigns
+            : {};
+          latestUser.emailCampaigns[FREE_REENGAGEMENT_CAMPAIGN_ID] = emailResult.sent
+            ? {
+              sentAt: new Date().toISOString(),
+              provider: emailResult.provider || "",
+              messageId: emailResult.messageId || "",
+              idempotencyKey,
+            }
+            : {
+              failedAt: new Date().toISOString(),
+              error: emailResult.error || "Provider rejected send",
+              idempotencyKey,
+            };
+          latestUser.updatedAt = new Date().toISOString();
+        }
+        if (emailResult.sent) successes.push(email);
+        else {
+          failures.push({
+            email,
+            error: emailResult.error || (emailResult.configured ? "Provider rejected send" : "Email provider not configured"),
+          });
+        }
+        await writeStoreAsync(latestStore);
       }
+
+      store = readStore();
+      eng = ensureEmailEngagement(store);
+      campaignState = eng.campaigns[FREE_REENGAGEMENT_CAMPAIGN_ID] || campaignState;
+      campaignState.sendCompletedAt = new Date().toISOString();
+      campaignState.successfulSends = successes.length;
+      campaignState.failedSends = failures.length;
+      campaignState.invalidEmails = audience.invalid;
+      campaignState.failures = failures;
+      campaignState.skippedAfterRecheck = skippedAfterRecheck;
+      campaignState.bouncedEmails = [];
+      campaignState.bounceTrackingAvailable = false;
+      eng.campaigns[FREE_REENGAGEMENT_CAMPAIGN_ID] = campaignState;
       await writeStoreAsync(store);
+      return {
+        campaignId: FREE_REENGAGEMENT_CAMPAIGN_ID,
+        totalFreeUsersEmailed: successes.length + failures.length,
+        successfulSends: successes.length,
+        failedSends: failures.length,
+        failures,
+        invalidEmails: audience.invalid,
+        skippedAfterRecheck,
+        bouncedEmails: [],
+        bounceTrackingAvailable: false,
+        excluded: audience.excluded,
+        reviewCopy: {
+          recipient: campaignState.testRecipient,
+          deliveredToProvider: Boolean(campaignState.testSentAt),
+          sentAt: campaignState.testSentAt,
+        },
+      };
+    } finally {
+      global.__llhFreeReengagementCampaignRunning = false;
     }
-
-    campaignState.sendCompletedAt = new Date().toISOString();
-    campaignState.successfulSends = successes.length;
-    campaignState.failedSends = failures.length;
-    campaignState.invalidEmails = audience.invalid;
-    campaignState.failures = failures;
-    campaignState.bouncedEmails = [];
-    campaignState.bounceTrackingAvailable = false;
-    await writeStoreAsync(store);
-    return {
-      campaignId: FREE_REENGAGEMENT_CAMPAIGN_ID,
-      totalFreeUsersEmailed: audience.eligibleCount,
-      successfulSends: successes.length,
-      failedSends: failures.length,
-      failures,
-      invalidEmails: audience.invalid,
-      bouncedEmails: [],
-      bounceTrackingAvailable: false,
-      excluded: audience.excluded,
-      reviewCopy: {
-        recipient: campaignState.testRecipient,
-        deliveredToProvider: Boolean(campaignState.testSentAt),
-        sentAt: campaignState.testSentAt,
-      },
-    };
-  }
-
-  async function processQueuedFreeReengagementCampaign() {
-    let store = readStore();
-    let eng = ensureEmailEngagement(store);
-    let state = eng.campaigns?.[FREE_REENGAGEMENT_CAMPAIGN_ID] || {};
-    if (state.sendCompletedAt) {
-      return { queued: false, reason: "already_completed" };
-    }
-    const startedMs = Date.parse(state.sendStartedAt || "") || 0;
-    if (startedMs && !state.sendCompletedAt && Date.now() - startedMs < 30 * 60 * 1000) {
-      return { queued: false, reason: "campaign_already_in_progress" };
-    }
-    if (startedMs && !state.sendCompletedAt) state.sendStartedAt = "";
-    state.queuedAt = state.queuedAt || new Date().toISOString();
-    eng.campaigns[FREE_REENGAGEMENT_CAMPAIGN_ID] = state;
-    await writeStoreAsync(store);
-
-    if (!state.testSentAt) {
-      const testResult = await sendFreeReengagementTest();
-      if (!testResult.sent) {
-        return { queued: true, test: testResult, production: null, reason: "review_test_failed" };
-      }
-    }
-    const production = await runFreeReengagementCampaign({
-      confirmCampaignId: FREE_REENGAGEMENT_CAMPAIGN_ID,
-    });
-    return { queued: true, production };
   }
 
   async function sendOnboardingStep(email, stepKey, options = {}) {
@@ -1211,7 +1280,6 @@ function createEmailEngagement(deps) {
     freeReengagementAudience,
     sendFreeReengagementTest,
     runFreeReengagementCampaign,
-    processQueuedFreeReengagementCampaign,
     FREE_REENGAGEMENT_CAMPAIGN_ID,
     FREE_REENGAGEMENT_SUBJECT,
   };

@@ -81,6 +81,8 @@ async function main() {
   assert.match(serverJs, /publishedAt/);
   assert.match(serverJs, /emailEngagement\.startScheduler/);
   assert.match(appJs, /renderAdminEmailEngagement/);
+  assert.match(appJs, /adminEmailFreeCampaignTest/);
+  assert.match(appJs, /adminEmailFreeCampaignSend/);
   assert.match(appJs, /"emails"/);
   assert.match(html, /admin-emails-panel/);
   assert.match(html, /adminEmailEngagementApp/);
@@ -238,11 +240,16 @@ async function main() {
         "pastdue@example.com": { email: "pastdue@example.com", plan: "Pro", subscriptionStatus: "Past Due", stripeSubscriptionStatus: "past_due", signupAt: now },
         "admin@example.com": { email: "admin@example.com", plan: "Free", subscriptionStatus: "Free Plan", role: "admin", signupAt: now },
         "promo@example.com": { email: "promo@example.com", plan: "Free", subscriptionStatus: "Free Plan", promoRedeemedAt: now, signupAt: now },
+        "store-promo@example.com": { email: "store-promo@example.com", plan: "Free", subscriptionStatus: "Free Plan", signupAt: now },
+        "historical-founding@example.com": { email: "historical-founding@example.com", plan: "Free", subscriptionStatus: "Subscription Ended", foundingMemberHistorical: true, signupAt: now },
+        "manual@example.com": { email: "manual@example.com", plan: "Free", subscriptionStatus: "Free Plan", manualAccessGranted: true, signupAt: now },
         "disabled@example.com": { email: "disabled@example.com", plan: "Free", subscriptionStatus: "Free Plan", accountStatus: "Disabled", signupAt: now },
         "unsubscribed@example.com": { email: "unsubscribed@example.com", plan: "Free", subscriptionStatus: "Free Plan", signupAt: now, emailPrefs: { unsubscribedAt: now } },
         "invalid": { email: "invalid", plan: "Free", subscriptionStatus: "Free Plan", signupAt: now },
         "owner@example.com": { email: "owner@example.com", plan: "Free", subscriptionStatus: "Free Plan", signupAt: now },
+        "duplicate-record": { email: "free@example.com", plan: "Free", subscriptionStatus: "Free Plan", signupAt: now },
       },
+      promoRedemptions: [{ email: "store-promo@example.com", code: "TRYPRO3", redeemedAt: now }],
       emailEngagement: defaultEmailEngagementStore(),
     };
     const campaign = createEmailEngagement({
@@ -253,6 +260,7 @@ async function main() {
       SITE_URL: "https://little-learner-hub.onrender.com",
       reviewEmail: "owner@example.com",
       unsubscribeUrlForEmail: (email) => `https://little-learner-hub.onrender.com/unsubscribe?email=${encodeURIComponent(email)}&token=signed`,
+      postalAddress: "123 Main St, Test City, MI 48000",
       htmlEscape: (v) => String(v ?? "")
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
@@ -266,11 +274,12 @@ async function main() {
     const audience = campaign.freeReengagementAudience(campaignStore);
     assert.deepEqual(audience.eligible.map((entry) => entry.email), ["free@example.com"]);
     assert.deepEqual(audience.invalid, ["invalid"]);
-    assert.equal(audience.excluded.admin, 2);
-    assert.equal(audience.excluded.promo, 1);
+    assert.equal(audience.excluded.admin, 3);
+    assert.equal(audience.excluded.promo, 2);
     assert.equal(audience.excluded.unsubscribed, 1);
     assert.equal(audience.excluded.disabled, 1);
-    assert.equal(audience.excluded.paidTrialOrPastDue, 4);
+    assert.equal(audience.excluded.paidTrialOrPastDue, 5);
+    assert.equal(audience.excluded.duplicateEmail, 1);
 
     const blocked = await campaign.runFreeReengagementCampaign({
       confirmCampaignId: campaign.FREE_REENGAGEMENT_CAMPAIGN_ID,
@@ -284,10 +293,17 @@ async function main() {
     assert.equal(campaignSends[0].subject, "🎉 Little Learner Hub Has Been Updated!");
     assert.match(campaignSends[0].text, /New lesson plans added/);
     assert.match(campaignSends[0].html, /Founding Member spots are still available/);
+    assert.match(campaignSends[0].html, /123 Main St/);
     assert.match(campaignSends[0].listUnsubscribeUrl, /token=signed/);
+
+    const awaitingReview = await campaign.runFreeReengagementCampaign({
+      confirmCampaignId: campaign.FREE_REENGAGEMENT_CAMPAIGN_ID,
+    });
+    assert.equal(awaitingReview.reason, "human_review_approval_required");
 
     const sent = await campaign.runFreeReengagementCampaign({
       confirmCampaignId: campaign.FREE_REENGAGEMENT_CAMPAIGN_ID,
+      reviewApproved: true,
     });
     assert.equal(sent.totalFreeUsersEmailed, 1);
     assert.equal(sent.successfulSends, 1);
@@ -383,6 +399,7 @@ async function main() {
       assert.ok(Array.isArray(res.json.onboardingSteps));
       assert.equal(res.json.onboardingSteps.length, 3);
       assert.equal(res.json.supportEmail.ready, false);
+      assert.equal(res.json.freeReengagement.ready, false);
     });
 
     await test("re-engagement safety blocks test and send when provider is unconfigured", async () => {
