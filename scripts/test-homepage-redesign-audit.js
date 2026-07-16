@@ -279,7 +279,6 @@ async function runAudit(playwright, baseUrl, seeded) {
   await mobile.click("#closeModal");
   await mobile.locator(".llh-public-nav-actions [data-action='start-free']").click();
   await mobile.waitForSelector("#authModal.open");
-  results.signupButtons = Array.isArray(results.signupButtons) ? results.signupButtons : [];
   results.signupButtons.push("mobile-sticky-nav");
   await mobile.click("#closeModal");
 
