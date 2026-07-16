@@ -42,7 +42,7 @@ function membershipHasProAccess(user, nowMs = Date.now()) {
   const stripeStatus = String(user.stripeSubscriptionStatus || "").toLowerCase();
   const subStatus = String(user.subscriptionStatus || "").toLowerCase();
 
-  if (subStatus.includes("payment failed") || subStatus.includes("failed") || stripeStatus === "unpaid") {
+  if (subStatus.includes("payment failed") || stripeStatus === "unpaid") {
     return false;
   }
   if (subStatus.includes("past due") || stripeStatus === "past_due") {
@@ -77,7 +77,7 @@ function membershipHasProAccess(user, nowMs = Date.now()) {
 function membershipUserInTrial(user, nowMs = Date.now()) {
   if (!user || !membershipHasProAccess(user, nowMs)) return false;
   const trialStatus = String(user.trialStatus || "").toLowerCase();
-  if (trialStatus.includes("in trial")) return true;
+  if (trialStatus.includes("in trial") || trialStatus.includes("trial active")) return true;
   const stripeStatus = String(user.stripeSubscriptionStatus || "").toLowerCase();
   if (stripeStatus === "trialing") return true;
   const status = String(user.subscriptionStatus || "").toLowerCase();

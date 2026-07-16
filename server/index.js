@@ -2425,7 +2425,7 @@ async function resolveCurriculumAccessUser(request, url) {
   };
 }
 
-function createAdminToken(email) {
+async function createAdminToken(email) {
   const token = `admin_${crypto.randomBytes(24).toString("hex")}`;
   // Always mutate the live cache (not a stale readStore clone) so concurrent
   // analytics writeStore(readStore()) calls cannot drop this session.
@@ -2436,7 +2436,9 @@ function createAdminToken(email) {
     email: normalizeEmail(email),
     createdAt: new Date().toISOString(),
   };
-  writeStore(storeCache);
+  // Await durable persist so login never returns a token that disappears after
+  // a restart/deploy race (browser unlocked, server missing the session).
+  await writeStoreAsync(storeCache);
   return token;
 }
 
@@ -4281,13 +4283,21 @@ async function handleAdminLogin(request, response) {
     jsonResponse(response, 401, { error: "The owner email, password, or admin code did not match." });
     return;
   }
-  const token = createAdminToken(email);
-  jsonResponse(response, 200, {
-    token,
-    email,
-    name: ADMIN_NAME,
-    mode: "server",
-  });
+  try {
+    const token = await createAdminToken(email);
+    jsonResponse(response, 200, {
+      token,
+      email,
+      name: ADMIN_NAME,
+      mode: "server",
+    });
+  } catch (error) {
+    jsonResponse(response, 500, {
+      error: "Admin login succeeded locally but the session could not be saved. Please try again.",
+      code: "admin_session_persist_failed",
+      hint: error?.message || "Store write failed.",
+    });
+  }
 }
 
 async function handleAdminSiteContentSave(request, response) {
@@ -4296,7 +4306,7 @@ async function handleAdminSiteContentSave(request, response) {
   console.log("[DIAG] handleAdminSiteContentSave: body keys =", Object.keys(body || {}), "| hasAdminToken =", !!(body?.adminToken));
   if (!validAdminToken(body.adminToken || "")) {
     console.error("[DIAG] handleAdminSiteContentSave: REJECTED — invalid admin token");
-    jsonResponse(response, 401, { error: "Admin access is required." });
+    jsonResponse(response, 401, adminAuthFailurePayload());
     return;
   }
   console.log("[DIAG] handleAdminSiteContentSave: token valid");
@@ -4406,6 +4416,23 @@ async function handleCheckout(request, response) {
     return;
   }
   const existingUser = store.users?.[email] || {};
+  // Block a second Checkout while the account already has paid/trial/manual Pro access.
+  // Prevents double billing from duplicate clicks or returning to the upgrade page.
+  if (membershipAccess.membershipHasProAccess(existingUser)) {
+    const alreadyFounding = membershipAccess.membershipFoundingActive(existingUser);
+    const alreadyTrial = membershipAccess.membershipUserInTrial(existingUser);
+    jsonResponse(response, 409, {
+      error: alreadyFounding
+        ? "This account already has an active Founding Member subscription. Manage billing from Account → Billing instead of starting a new checkout."
+        : alreadyTrial
+          ? "This account already has an active Pro trial. Manage billing from Account → Billing instead of starting a new checkout."
+          : "This account already has an active Pro subscription. Manage billing from Account → Billing instead of starting a new checkout.",
+      code: "already_subscribed",
+      alreadySubscribed: true,
+      planDisplay: membershipAccess.membershipPlanDisplay(existingUser),
+    });
+    return;
+  }
   if (requestedPlan === "founding"
     && membershipAccess.membershipFoundingHistorical(existingUser)
     && !membershipAccess.membershipFoundingActive(existingUser)) {
@@ -4903,12 +4930,20 @@ function upsertStripeSubscription(email, customerId, subscription) {
   } else if (user.foundingMemberNumber) {
     updates.foundingMemberNumber = user.foundingMemberNumber;
   }
+  // Stamp a watermark so a later stale subscription.updated webhook cannot overwrite
+  // fresher checkout/live-sync data when lastStripeEventCreatedAt was previously 0.
+  const watermark = Math.max(
+    Number(user.lastStripeEventCreatedAt || 0),
+    Number(subscription?.created || 0),
+    Math.floor(Date.now() / 1000),
+  );
   return upsertUser(cleanEmail, {
     ...updates,
     stripeCustomerId: customerId || subscription.customer || user.stripeCustomerId || "",
     subscriptionStartedAt: user.subscriptionStartedAt || new Date().toISOString(),
     paymentMethod: "Managed in Stripe",
     pendingPlan: "",
+    lastStripeEventCreatedAt: watermark,
   });
 }
 
@@ -5510,6 +5545,16 @@ function publicTicket(ticket) {
   };
 }
 
+function adminAuthFailurePayload(extra = {}) {
+  return {
+    valid: false,
+    code: "admin_session_invalid",
+    error: "Admin access is required.",
+    hint: "Your Admin unlock session is no longer on the server. Unlock Admin again with owner email, password, and access code.",
+    ...extra,
+  };
+}
+
 function validAdminToken(token) {
   const clean = String(token || "").trim();
   if (!clean) return false;
@@ -5520,12 +5565,7 @@ function validAdminToken(token) {
 function handleAdminSession(request, response, url) {
   const token = String(url.searchParams.get("adminToken") || "").trim();
   if (!validAdminToken(token)) {
-    jsonResponse(response, 401, {
-      valid: false,
-      code: "admin_session_invalid",
-      error: "Admin access is required.",
-      hint: "Your Admin unlock session is no longer on the server. Unlock Admin again with owner email, password, and access code.",
-    });
+    jsonResponse(response, 401, adminAuthFailurePayload());
     return;
   }
   const session = readStore().adminSessions?.[token] || {};
@@ -6835,7 +6875,13 @@ async function handleAdminMembershipUpdate(request, response) {
     if (!Number.isFinite(base.getTime())) base.setTime(Date.now());
     base.setUTCDate(base.getUTCDate() + Number(updates.extendTrialDays));
     merged.trialEnd = base.toISOString();
-    merged.trialStatus = "Trial Active";
+    // Access layer matches trialStatus.includes("in trial") — keep that wording.
+    merged.trialStatus = "In Trial";
+    merged.accessEndsAt = merged.trialEnd;
+    if (!merged.plan || merged.plan === "Free") merged.plan = "Pro";
+    if (!merged.subscriptionStatus || String(merged.subscriptionStatus).toLowerCase().includes("free")) {
+      merged.subscriptionStatus = "Trialing — Access Ends " + merged.trialEnd.slice(0, 10);
+    }
     if (!merged.trialStart) merged.trialStart = new Date().toISOString();
   }
   const accessFields = accountAccess.migrateAccountAccessFields(merged);
@@ -9728,6 +9774,15 @@ async function handleMemberMessageReply(request, response) {
   const messageBody = messagingLib.clampText(body.body, 4000);
   if (!messageBody) {
     jsonResponse(response, 400, { error: "Message body is required." });
+    return;
+  }
+  const fingerprint = sendFingerprintKey(["member-reply", identity.email, messageBody]);
+  if (isDuplicateSend(fingerprint)) {
+    jsonResponse(response, 200, {
+      ok: true,
+      duplicate: true,
+      message: "That message was already sent. Refresh to see it in the conversation.",
+    });
     return;
   }
   const store = ensureMessagingStore(readStore());

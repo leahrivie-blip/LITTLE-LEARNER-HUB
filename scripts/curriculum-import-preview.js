@@ -418,6 +418,17 @@ function buildCurriculumImportPreview(parsed, options = {}) {
     });
   }
 
+  if (enrichReport?.enriched) {
+    structuredWarnings.push({
+      severity: "warning",
+      message: "Auto-fill completed missing gold-standard fields (for example circle time, outdoor play, directions, teacher role, or weekly overview). Review every day and activity before confirming — do not publish invented content you did not intend.",
+      section: "enrichment",
+      weekday: "",
+      activityName: "",
+      line: null,
+    });
+  }
+
   const alignment = preEnrichAlignment
     || enrichReport?.alignment
     || (enrichApi && data ? enrichApi.analyzeThemeAlignment(data) : null);
