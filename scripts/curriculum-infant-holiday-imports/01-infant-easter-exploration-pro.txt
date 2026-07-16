@@ -2,7 +2,7 @@ TITLE:
 Easter Exploration
 
 AGE_GROUP:
-Infant
+Infant 0–6 Months
 
 THEME:
 Easter
@@ -57,268 +57,747 @@ Provide larger sensory materials for younger infants. Offer seated support durin
 
 MONDAY
 
+DAILY_THEME:
+Easter: Pastel Color Exploration and related play (introduce calm bonding, faces, and soft sensory play)
+
+DAILY_OBJECTIVES:
+Support easter learning through pastel color exploration.
+Support easter learning through pastel scarf dance.
+Support easter learning through easter story time.
+
+DAILY_VOCABULARY:
+Easter, Bunny, Egg, Chick, Basket, Spring
+
+DAILY_MATERIALS:
+Pastel scarves, fabric squares
+Pastel scarves, music player
+Easter board books
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Here Comes Peter Cottontail" at a low volume while offering gentle movement or visual interest tied to easter.
+End with a brief look at Baby's First Easter or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate easter sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Pastel Color Exploration
+Engagement during Pastel Scarf Dance
+Engagement during Easter Story Time
+Participation and interest in Easter play
+
+DAILY_ADAPTATIONS:
+Provide larger sensory materials for younger infants. Offer seated support during movement activities. Modify sensory experiences based on individual needs and preferences.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
+
 ACTIVITY_NAME:
 Pastel Color Exploration
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support easter learning through pastel color exploration.
 DESCRIPTION:
 Infants explore soft pastel-colored materials through touch and sight.
 MATERIALS:
 Pastel scarves, fabric squares
-DIRECTIONS:
-Place materials within reach.
-Encourage touching and grasping.
-Describe colors and textures.
-Allow free exploration.
+SETUP:
+Prepare materials for Pastel Color Exploration before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Model language and sensory exploration.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Place materials within reach.
+2. Encourage touching and grasping.
+3. Describe colors and textures.
+4. Allow free exploration.
 LEARNING_GOALS:
 Sensory awareness and color recognition.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Pastel Color Exploration
+Use of easter vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Pastel Scarf Dance
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support easter learning through pastel scarf dance.
 DESCRIPTION:
 Infants watch and interact with colorful scarves moving to music.
 MATERIALS:
 Pastel scarves, music player
-DIRECTIONS:
-Play music.
-Move scarves gently.
-Encourage visual tracking.
+SETUP:
+Prepare materials for Pastel Scarf Dance before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead movement and engagement.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play music.
+2. Move scarves gently.
+3. Encourage visual tracking.
 LEARNING_GOALS:
 Visual tracking and auditory awareness.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Pastel Scarf Dance
+Use of easter vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Easter Story Time
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support easter learning through easter story time.
 DESCRIPTION:
 Infants listen to a simple Easter story.
 MATERIALS:
 Easter board books
-DIRECTIONS:
-Read story aloud.
-Point to pictures.
-Name Easter objects.
+SETUP:
+Prepare materials for Easter Story Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support language development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Read story aloud.
+2. Point to pictures.
+3. Name Easter objects.
 LEARNING_GOALS:
 Early literacy and vocabulary development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Easter Story Time
+Use of easter vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 TUESDAY
+
+DAILY_THEME:
+Easter: Soft Bunny Exploration and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Support easter learning through soft bunny exploration.
+Support easter learning through bunny hop movement.
+Support easter learning through bunny song circle.
+
+DAILY_VOCABULARY:
+Easter, Bunny, Egg, Chick, Basket, Spring
+
+DAILY_MATERIALS:
+Stuffed bunnies
+Stuffed bunny
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Here Comes Peter Cottontail" at a low volume while offering gentle movement or visual interest tied to easter.
+End with a brief look at Baby's First Easter or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate easter sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Soft Bunny Exploration
+Engagement during Bunny Hop Movement
+Engagement during Bunny Song Circle
+Participation and interest in Easter play
+
+DAILY_ADAPTATIONS:
+Provide larger sensory materials for younger infants. Offer seated support during movement activities. Modify sensory experiences based on individual needs and preferences.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 Soft Bunny Exploration
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support easter learning through soft bunny exploration.
 DESCRIPTION:
 Infants explore soft bunny toys through touch and observation.
 MATERIALS:
 Stuffed bunnies
-DIRECTIONS:
-Present bunny toys.
-Encourage touching.
-Describe features and textures.
+SETUP:
+Prepare materials for Soft Bunny Exploration before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide sensory exploration.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Present bunny toys.
+2. Encourage touching.
+3. Describe features and textures.
 LEARNING_GOALS:
 Sensory awareness and vocabulary exposure.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Soft Bunny Exploration
+Use of easter vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Bunny Hop Movement
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support easter learning through bunny hop movement.
 DESCRIPTION:
 Infants participate in simple bunny-inspired movements.
 MATERIALS:
 Stuffed bunny
-DIRECTIONS:
-Demonstrate gentle hopping motions.
-Assist infant movement.
-Encourage participation.
+SETUP:
+Prepare materials for Bunny Hop Movement before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support movement and interaction.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Demonstrate gentle hopping motions.
+2. Assist infant movement.
+3. Encourage participation.
 LEARNING_GOALS:
 Gross motor development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Bunny Hop Movement
+Use of easter vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Bunny Song Circle
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support easter learning through bunny song circle.
 DESCRIPTION:
 Infants participate in bunny-themed songs and movement.
 MATERIALS:
 Music player
-DIRECTIONS:
-Play bunny songs.
-Encourage movement.
-Repeat favorite songs.
+SETUP:
+Prepare materials for Bunny Song Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead participation.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play bunny songs.
+2. Encourage movement.
+3. Repeat favorite songs.
 LEARNING_GOALS:
 Social engagement and auditory development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Bunny Song Circle
+Use of easter vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 WEDNESDAY
+
+DAILY_THEME:
+Easter: Egg Roll & Watch and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Support easter learning through egg roll & watch.
+Support easter learning through egg touch & feel.
+Support easter learning through egg story time.
+
+DAILY_VOCABULARY:
+Easter, Bunny, Egg, Chick, Basket, Spring
+
+DAILY_MATERIALS:
+Large plastic eggs
+Easter books
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Here Comes Peter Cottontail" at a low volume while offering gentle movement or visual interest tied to easter.
+End with a brief look at Baby's First Easter or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate easter sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Egg Roll & Watch
+Engagement during Egg Touch & Feel
+Engagement during Egg Story Time
+Participation and interest in Easter play
+
+DAILY_ADAPTATIONS:
+Provide larger sensory materials for younger infants. Offer seated support during movement activities. Modify sensory experiences based on individual needs and preferences.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 Egg Roll & Watch
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support easter learning through egg roll & watch.
 DESCRIPTION:
 Infants watch colorful eggs roll across the floor.
 MATERIALS:
 Large plastic eggs
-DIRECTIONS:
-Roll eggs slowly.
-Encourage visual tracking.
-Repeat in different directions.
+SETUP:
+Prepare materials for Egg Roll & Watch before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Encourage observation and engagement.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Roll eggs slowly.
+2. Encourage visual tracking.
+3. Repeat in different directions.
 LEARNING_GOALS:
 Visual tracking and attention.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Egg Roll & Watch
+Use of easter vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Egg Touch & Feel
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support easter learning through egg touch & feel.
 DESCRIPTION:
 Infants explore smooth Easter eggs through touch.
 MATERIALS:
 Large plastic eggs
-DIRECTIONS:
-Present eggs safely.
-Encourage touching and holding.
-Describe colors and shapes.
+SETUP:
+Prepare materials for Egg Touch & Feel before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support sensory exploration.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Present eggs safely.
+2. Encourage touching and holding.
+3. Describe colors and shapes.
 LEARNING_GOALS:
 Sensory awareness and fine motor development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Egg Touch & Feel
+Use of easter vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Egg Story Time
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support easter learning through egg story time.
 DESCRIPTION:
 Infants enjoy an Easter-themed story featuring eggs and springtime.
 MATERIALS:
 Easter books
-DIRECTIONS:
-Read story aloud.
-Point to pictures.
-Repeat vocabulary words.
+SETUP:
+Prepare materials for Egg Story Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support language development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Read story aloud.
+2. Point to pictures.
+3. Repeat vocabulary words.
 LEARNING_GOALS:
 Vocabulary and literacy exposure.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Egg Story Time
+Use of easter vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 THURSDAY
+
+DAILY_THEME:
+Easter: Spring Sensory Bag and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Support easter learning through spring sensory bag.
+Support easter learning through chick watch & explore.
+Support easter learning through spring music time.
+
+DAILY_VOCABULARY:
+Easter, Bunny, Egg, Chick, Basket, Spring
+
+DAILY_MATERIALS:
+Sealed sensory bag, pastel pom-poms, ribbons
+Stuffed chicks
+Music player, shakers
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Here Comes Peter Cottontail" at a low volume while offering gentle movement or visual interest tied to easter.
+End with a brief look at Baby's First Easter or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate easter sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Spring Sensory Bag
+Engagement during Chick Watch & Explore
+Engagement during Spring Music Time
+Participation and interest in Easter play
+
+DAILY_ADAPTATIONS:
+Provide larger sensory materials for younger infants. Offer seated support during movement activities. Modify sensory experiences based on individual needs and preferences.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 Spring Sensory Bag
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support easter learning through spring sensory bag.
 DESCRIPTION:
 Infants explore a spring-themed sensory bag.
 MATERIALS:
 Sealed sensory bag, pastel pom-poms, ribbons
-DIRECTIONS:
-Place bag on floor.
-Encourage pressing and touching.
-Describe colors and textures.
+SETUP:
+Prepare materials for Spring Sensory Bag before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide sensory exploration.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Place bag on floor.
+2. Encourage pressing and touching.
+3. Describe colors and textures.
 LEARNING_GOALS:
 Tactile exploration and sensory awareness.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Spring Sensory Bag
+Use of easter vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Chick Watch & Explore
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support easter learning through chick watch & explore.
 DESCRIPTION:
 Infants observe soft chick toys and explore their features.
 MATERIALS:
 Stuffed chicks
-DIRECTIONS:
-Present chick toys.
-Encourage touching.
-Name colors and features.
+SETUP:
+Prepare materials for Chick Watch & Explore before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support language development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Present chick toys.
+2. Encourage touching.
+3. Name colors and features.
 LEARNING_GOALS:
 Observation and vocabulary development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Chick Watch & Explore
+Use of easter vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Spring Music Time
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support easter learning through spring music time.
 DESCRIPTION:
 Infants move and listen to spring-themed songs.
 MATERIALS:
 Music player, shakers
-DIRECTIONS:
-Play music.
-Shake instruments.
-Encourage movement.
+SETUP:
+Prepare materials for Spring Music Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead music experience.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play music.
+2. Shake instruments.
+3. Encourage movement.
 LEARNING_GOALS:
 Auditory awareness and coordination.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Spring Music Time
+Use of easter vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 FRIDAY
+
+DAILY_THEME:
+Easter: Easter Celebration Circle and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Support easter learning through easter celebration circle.
+Support easter learning through basket discovery.
+Support easter learning through easter dance party.
+
+DAILY_VOCABULARY:
+Easter, Bunny, Egg, Chick, Basket, Spring
+
+DAILY_MATERIALS:
+Books, music player
+Small baskets, scarves
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Here Comes Peter Cottontail" at a low volume while offering gentle movement or visual interest tied to easter.
+End with a brief look at Baby's First Easter or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate easter sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Easter Celebration Circle
+Engagement during Basket Discovery
+Engagement during Easter Dance Party
+Participation and interest in Easter play
+
+DAILY_ADAPTATIONS:
+Provide larger sensory materials for younger infants. Offer seated support during movement activities. Modify sensory experiences based on individual needs and preferences.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 Easter Celebration Circle
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support easter learning through easter celebration circle.
 DESCRIPTION:
 Infants celebrate Easter through songs, stories, and group interaction.
 MATERIALS:
 Books, music player
-DIRECTIONS:
-Gather together.
-Read a favorite Easter story.
-Sing songs.
-Celebrate participation.
+SETUP:
+Prepare materials for Easter Celebration Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead group experience.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Gather together.
+2. Read a favorite Easter story.
+3. Sing songs.
+4. Celebrate participation.
 LEARNING_GOALS:
 Social participation and listening skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Easter Celebration Circle
+Use of easter vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Basket Discovery
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support easter learning through basket discovery.
 DESCRIPTION:
 Infants explore Easter baskets and colorful materials.
 MATERIALS:
 Small baskets, scarves
-DIRECTIONS:
-Present baskets.
-Encourage touching and exploring.
-Describe colors and textures.
+SETUP:
+Prepare materials for Basket Discovery before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide exploration and language.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Present baskets.
+2. Encourage touching and exploring.
+3. Describe colors and textures.
 LEARNING_GOALS:
 Sensory development and curiosity.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Basket Discovery
+Use of easter vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Easter Dance Party
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support easter learning through easter dance party.
 DESCRIPTION:
 Infants enjoy a festive Easter dance party.
 MATERIALS:
 Music player
-DIRECTIONS:
-Play music.
-Dance together.
-Encourage movement and smiles.
-Celebrate participation.
+SETUP:
+Prepare materials for Easter Dance Party before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Create a joyful atmosphere.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play music.
+2. Dance together.
+3. Encourage movement and smiles.
+4. Celebrate participation.
 LEARNING_GOALS:
 Movement, social engagement, and auditory development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Easter Dance Party
+Use of easter vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–5 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:

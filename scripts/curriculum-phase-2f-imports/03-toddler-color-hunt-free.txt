@@ -1,7 +1,7 @@
 TITLE:
 Toddler Color Hunt Friends
 
-AGE GROUP:
+AGE_GROUP:
 Toddler
 
 THEME:
@@ -13,18 +13,18 @@ Free
 STATUS:
 draft
 
-LEARNING DOMAINS:
+LEARNING_DOMAINS:
 Math, Language & Literacy, Physical Development, Social Emotional
 
-WEEKLY OVERVIEW:
+WEEKLY_OVERVIEW:
 Toddlers hunt for colors around the room, sort soft objects, and practice naming favorite colors through short active games and calm art.
 
-LEARNING OBJECTIVES:
+LEARNING_OBJECTIVES:
 Toddlers will find and name at least two familiar colors.
 Toddlers will sort objects by color with support.
 Toddlers will practice turn-taking during color games.
 
-WEEKLY MATERIALS:
+WEEKLY_MATERIALS:
 Colored scarves, sorting bowls, pom-poms, color cards, tape spots on floor, crayons, paper, baskets, music speaker
 
 VOCABULARY:
@@ -38,160 +38,531 @@ SONGS:
 Colors Colors Can You Find | Call out colors around the room
 If You're Wearing Red | Stand or wave when color is called
 
-FAMILY CONNECTION:
+FAMILY_CONNECTION:
 Ask families to notice one color on the way to care and tell you about it at drop-off so you can celebrate that color during the day.
 
-OBSERVATION OPPORTUNITIES:
+OBSERVATION_OPPORTUNITIES:
 Note which colors children recognize independently, how they handle sorting, and peer sharing during hunts.
 
 ADAPTATIONS:
 Offer two-choice color prompts for emerging talkers. Use larger objects for easier grasp. Pair a visual card with every spoken color name.
 
-MONDAY:
-ACTIVITY NAME:
+MONDAY
+
+DAILY_THEME:
+Color Hunt Friends: Color Spot Hop and related play (introduce the theme through movement, sensory play, and simple language)
+
+DAILY_OBJECTIVES:
+Support color hunt friends learning through color spot hop.
+Support color hunt friends learning through soft color scarf toss.
+
+DAILY_VOCABULARY:
+red, blue, yellow, green, find, same
+
+DAILY_MATERIALS:
+Colored tape or spot markers, open space
+Colored scarves
+
+DAILY_LEARNING_DOMAINS:
+Math, Language & Literacy, Physical Development, Social Emotional
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to color hunt friends.
+Sing "Colors Colors Can You Find" with simple movements or props.
+Show one prop or picture from today's activity (Color Spot Hop) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to color hunt friends: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Color Spot Hop
+Engagement during Soft Color Scarf Toss
+Participation and interest in Color Hunt Friends play
+
+DAILY_ADAPTATIONS:
+Offer two-choice color prompts for emerging talkers. Use larger objects for easier grasp. Pair a visual card with every spoken color name.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
+
+ACTIVITY_NAME:
 Color Spot Hop
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support color hunt friends learning through color spot hop.
+DESCRIPTION:
+Toddlers hop or step onto colored floor spots when the color is named. Children explore color hunt friends through color spot hop.
 MATERIALS:
 Colored tape or spot markers, open space
 SETUP:
 Toddlers hop or step onto colored floor spots when the color is named.
+TEACHER_ROLE:
+Model simple steps, stay close for support, and use short theme vocabulary during color spot hop.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Show two color spots and name them.
 2. Call a color and model stepping onto it.
 3. Invite toddlers to find the matching spot.
-LEARNING GOAL:
+LEARNING_GOALS:
 Match spoken color to a location
 Practice balance and body control
+OBSERVATION_OPPORTUNITIES:
+Engagement during Color Spot Hop
+Use of color hunt friends vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Soft Color Scarf Toss
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support color hunt friends learning through soft color scarf toss.
+DESCRIPTION:
+Toddlers toss and catch soft colored scarves. Children explore color hunt friends through soft color scarf toss.
 MATERIALS:
 Colored scarves
 SETUP:
 Toddlers toss and catch soft colored scarves.
+TEACHER_ROLE:
+Model simple steps, stay close for support, and use short theme vocabulary during soft color scarf toss.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Offer one scarf at a time.
 2. Model gentle toss and catch.
 3. Name the scarf color together.
-LEARNING GOAL:
+LEARNING_GOALS:
 Explore movement with soft materials
 Hear and repeat color names
+OBSERVATION_OPPORTUNITIES:
+Engagement during Soft Color Scarf Toss
+Use of color hunt friends vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-TUESDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Color Hunt Friends: Pom-Pom Color Sort and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Support color hunt friends learning through pom-pom color sort.
+Support color hunt friends learning through color freeze dance.
+
+DAILY_VOCABULARY:
+red, blue, yellow, green, find, same
+
+DAILY_MATERIALS:
+Pom-poms, sorting bowls, color labels
+Music speaker, color cards
+
+DAILY_LEARNING_DOMAINS:
+Math, Language & Literacy, Physical Development, Social Emotional
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to color hunt friends.
+Sing "Colors Colors Can You Find" with simple movements or props.
+Show one prop or picture from today's activity (Pom-Pom Color Sort) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to color hunt friends: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Pom-Pom Color Sort
+Engagement during Color Freeze Dance
+Participation and interest in Color Hunt Friends play
+
+DAILY_ADAPTATIONS:
+Offer two-choice color prompts for emerging talkers. Use larger objects for easier grasp. Pair a visual card with every spoken color name.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
+
+ACTIVITY_NAME:
 Pom-Pom Color Sort
 CATEGORY:
 Fine Motor
+OBJECTIVE:
+Support color hunt friends learning through pom-pom color sort.
+DESCRIPTION:
+Toddlers place pom-poms into matching color bowls. Children explore color hunt friends through pom-pom color sort.
 MATERIALS:
 Pom-poms, sorting bowls, color labels
 SETUP:
 Toddlers place pom-poms into matching color bowls.
+TEACHER_ROLE:
+Model simple steps, stay close for support, and use short theme vocabulary during pom-pom color sort.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Set out two or three color bowls.
 2. Demonstrate one match.
 3. Invite toddlers to sort at their own pace.
-LEARNING GOAL:
+LEARNING_GOALS:
 Sort by a single attribute
 Strengthen pincer grasp
+OBSERVATION_OPPORTUNITIES:
+Engagement during Pom-Pom Color Sort
+Use of color hunt friends vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Color Freeze Dance
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support color hunt friends learning through color freeze dance.
+DESCRIPTION:
+Children dance and freeze when a color card is shown. Children explore color hunt friends through color freeze dance.
 MATERIALS:
 Music speaker, color cards
 SETUP:
 Children dance and freeze when a color card is shown.
+TEACHER_ROLE:
+Model simple steps, stay close for support, and use short theme vocabulary during color freeze dance.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Play music and invite dancing.
 2. Pause music and show a color card.
 3. Children freeze and point to that color nearby.
-LEARNING GOAL:
+LEARNING_GOALS:
 Practice stop-and-go control
 Connect color cards to the environment
+OBSERVATION_OPPORTUNITIES:
+Engagement during Color Freeze Dance
+Use of color hunt friends vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-WEDNESDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Color Hunt Friends: Color Market Basket and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Support color hunt friends learning through color market basket.
+
+DAILY_VOCABULARY:
+red, blue, yellow, green, find, same
+
+DAILY_MATERIALS:
+Baskets, toy foods, color cards
+
+DAILY_LEARNING_DOMAINS:
+Math, Language & Literacy, Physical Development, Social Emotional
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to color hunt friends.
+Sing "Colors Colors Can You Find" with simple movements or props.
+Show one prop or picture from today's activity (Color Market Basket) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to color hunt friends: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Color Market Basket
+Participation and interest in Color Hunt Friends play
+
+DAILY_ADAPTATIONS:
+Offer two-choice color prompts for emerging talkers. Use larger objects for easier grasp. Pair a visual card with every spoken color name.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
+
+ACTIVITY_NAME:
 Color Market Basket
 CATEGORY:
 Dramatic Play
+OBJECTIVE:
+Support color hunt friends learning through color market basket.
+DESCRIPTION:
+Toddlers shop for pretend foods matching a color card. Children explore color hunt friends through color market basket.
 MATERIALS:
 Baskets, toy foods, color cards
 SETUP:
 Toddlers shop for pretend foods matching a color card.
+TEACHER_ROLE:
+Model simple steps, stay close for support, and use short theme vocabulary during color market basket.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Give each child a color card.
 2. Model finding one matching food.
 3. Place finds in the basket and name them.
-LEARNING GOAL:
+LEARNING_GOALS:
 Use color cues in pretend play
 Practice simple choice-making
+OBSERVATION_OPPORTUNITIES:
+Engagement during Color Market Basket
+Use of color hunt friends vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-THURSDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Color Hunt Friends: Color Hunt Walk and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Support color hunt friends learning through color hunt walk.
+Support color hunt friends learning through crayon color marks.
+
+DAILY_VOCABULARY:
+red, blue, yellow, green, find, same
+
+DAILY_MATERIALS:
+Color cards, collection basket
+Paper, crayons
+
+DAILY_LEARNING_DOMAINS:
+Math, Language & Literacy, Physical Development, Social Emotional
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to color hunt friends.
+Sing "Colors Colors Can You Find" with simple movements or props.
+Show one prop or picture from today's activity (Color Hunt Walk) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to color hunt friends: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Color Hunt Walk
+Engagement during Crayon Color Marks
+Participation and interest in Color Hunt Friends play
+
+DAILY_ADAPTATIONS:
+Offer two-choice color prompts for emerging talkers. Use larger objects for easier grasp. Pair a visual card with every spoken color name.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
+
+ACTIVITY_NAME:
 Color Hunt Walk
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support color hunt friends learning through color hunt walk.
+DESCRIPTION:
+A short indoor hunt for objects matching today's focus colors. Children explore color hunt friends through color hunt walk.
 MATERIALS:
 Color cards, collection basket
 SETUP:
 A short indoor hunt for objects matching today's focus colors.
+TEACHER_ROLE:
+Model simple steps, stay close for support, and use short theme vocabulary during color hunt walk.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Show the focus color card.
 2. Walk slowly and look together.
 3. Celebrate each find with the color word.
-LEARNING GOAL:
+LEARNING_GOALS:
 Search with a purpose
 Build color vocabulary in context
+OBSERVATION_OPPORTUNITIES:
+Engagement during Color Hunt Walk
+Use of color hunt friends vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Crayon Color Marks
 CATEGORY:
 Fine Motor
+OBJECTIVE:
+Support color hunt friends learning through crayon color marks.
+DESCRIPTION:
+Toddlers make marks with crayons matching the day's colors. Children explore color hunt friends through crayon color marks.
 MATERIALS:
 Paper, crayons
 SETUP:
 Toddlers make marks with crayons matching the day's colors.
+TEACHER_ROLE:
+Model simple steps, stay close for support, and use short theme vocabulary during crayon color marks.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Offer two crayon colors.
 2. Name each color as children choose.
 3. Talk about the marks they make.
-LEARNING GOAL:
+LEARNING_GOALS:
 Strengthen hand control
 Connect color names to marks
+OBSERVATION_OPPORTUNITIES:
+Engagement during Crayon Color Marks
+Use of color hunt friends vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-FRIDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Color Hunt Friends: Parade of Colors and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Support color hunt friends learning through parade of colors.
+Support color hunt friends learning through color bag feel.
+
+DAILY_VOCABULARY:
+red, blue, yellow, green, find, same
+
+DAILY_MATERIALS:
+Scarves, music
+Cloth bag, soft colored objects
+
+DAILY_LEARNING_DOMAINS:
+Math, Language & Literacy, Physical Development, Social Emotional
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to color hunt friends.
+Sing "Colors Colors Can You Find" with simple movements or props.
+Show one prop or picture from today's activity (Parade of Colors) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to color hunt friends: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Parade of Colors
+Engagement during Color Bag Feel
+Participation and interest in Color Hunt Friends play
+
+DAILY_ADAPTATIONS:
+Offer two-choice color prompts for emerging talkers. Use larger objects for easier grasp. Pair a visual card with every spoken color name.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
+
+ACTIVITY_NAME:
 Parade of Colors
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support color hunt friends learning through parade of colors.
+DESCRIPTION:
+Toddlers parade with scarves while singing a color song. Children explore color hunt friends through parade of colors.
 MATERIALS:
 Scarves, music
 SETUP:
 Toddlers parade with scarves while singing a color song.
+TEACHER_ROLE:
+Model simple steps, stay close for support, and use short theme vocabulary during parade of colors.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose a scarf and name its color.
 2. March in a short parade path.
 3. Wave scarves on the chorus.
-LEARNING GOAL:
+LEARNING_GOALS:
 Coordinate movement with music
 Celebrate weekly color learning
+OBSERVATION_OPPORTUNITIES:
+Engagement during Parade of Colors
+Use of color hunt friends vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Color Bag Feel
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support color hunt friends learning through color bag feel.
+DESCRIPTION:
+Toddlers feel soft colored items inside a discovery bag. Children explore color hunt friends through color bag feel.
 MATERIALS:
 Cloth bag, soft colored objects
 SETUP:
 Toddlers feel soft colored items inside a discovery bag.
+TEACHER_ROLE:
+Model simple steps, stay close for support, and use short theme vocabulary during color bag feel.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Invite a child to reach in and feel one item.
 2. Pull it out and name the color.
 3. Place it on a matching color mat.
-LEARNING GOAL:
+LEARNING_GOALS:
 Use touch and sight together
 Practice matching after discovery
+OBSERVATION_OPPORTUNITIES:
+Engagement during Color Bag Feel
+Use of color hunt friends vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:

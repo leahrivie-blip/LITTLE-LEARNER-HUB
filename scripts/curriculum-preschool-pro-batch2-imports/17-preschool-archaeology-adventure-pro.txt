@@ -12,14 +12,9 @@ Pro
 
 STATUS:
 published
-LEARNING_DOMAINS:
-Science
-Language & Literacy
-Math
-Physical Development
-Social Emotional
-Creative Arts
 
+LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Physical Development, Social Emotional, Creative Arts
 
 WEEKLY_OVERVIEW:
 Children will become archaeologists as they dig for artifacts, uncover fossils, investigate ancient discoveries, and explore how people learn about the past. Through hands-on excavation activities, dramatic play, sensory exploration, art projects, and STEM challenges, children will develop curiosity, observation skills, and a love for discovery.
@@ -33,7 +28,6 @@ Strengthen fine and gross motor skills
 Build vocabulary related to archaeology
 Encourage problem-solving and critical thinking
 Foster curiosity about history and discovery
-
 
 WEEKLY_MATERIALS:
 Sand
@@ -53,7 +47,6 @@ Clipboards
 Books
 Music player
 
-
 VOCABULARY:
 Archaeologist
 Artifact
@@ -70,12 +63,10 @@ Bones
 Museum
 Treasure
 
-
 BOOKS:
 Archaeologists Dig for Clues | Kate Duke
 Dinosaur Bones | Bob Barner
 Fossils Tell of Long Ago | Aliki
-
 
 SONGS:
 We're Going on a Fossil Hunt
@@ -91,642 +82,927 @@ Observe children's investigation skills, curiosity, ability to classify artifact
 ADAPTATIONS:
 Provide larger excavation tools when needed. Use visual supports and photographs. Allow children to participate through digging, sorting, art, dramatic play, or discussion.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+Archaeology Adventure: Fossil Dig Sensory Bin and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Explore excavation through sensory play.
+Learn about excavation tools.
+Develop hand-eye coordination.
+
+DAILY_VOCABULARY:
+Archaeologist, Artifact, Fossil, Excavate, Discovery, Ancient
+
+DAILY_MATERIALS:
+Sand
+Toy fossils
+Brushes
+Scoops
+Brushes
+Magnifying glasses
+Tool cards
+Fossil templates
+Crayons
+Paper
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to archaeology adventure.
+Sing "We're Going on a Fossil Hunt" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit Archaeologists Dig for Clues by Kate Duke and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to archaeology adventure — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Fossil Dig Sensory Bin / Archaeologist Tool Exploration).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Archaeology Adventure play
+
+DAILY_ADAPTATIONS:
+Provide larger excavation tools when needed. Use visual supports and photographs. Allow children to participate through digging, sorting, art, dramatic play, or discussion.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Fossil Dig Sensory Bin
-
 CATEGORY:
 Sensory Play
-
 OBJECTIVE:
 Explore excavation through sensory play.
-
+DESCRIPTION:
+Explore excavation through sensory play.
 MATERIALS:
 Sand
 Toy fossils
 Brushes
 Scoops
-
 SETUP:
 Bury fossils in a sensory bin.
-
-DIRECTIONS:
-Excavate fossils carefully.
-Observe discoveries.
-Discuss findings.
-
 TEACHER_ROLE:
 Introduce archaeology vocabulary and encourage observation.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Explore excavation through sensory play.
-
+DIRECTIONS:
+1. Excavate fossils carefully.
+2. Observe discoveries.
+3. Discuss findings.
 LEARNING_GOALS:
 Explore excavation through sensory play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Archaeologist Tool Exploration
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Learn about excavation tools.
-
+DESCRIPTION:
+Learn about excavation tools.
 MATERIALS:
 Brushes
 Magnifying glasses
 Tool cards
-
 SETUP:
 Arrange tools for exploration.
-
-DIRECTIONS:
-Examine tools and discuss how archaeologists use them.
-
 TEACHER_ROLE:
 Guide discussion and questioning.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Learn about excavation tools.
-
+DIRECTIONS:
+1. Introduce Archaeologist Tool Exploration and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Learn about excavation tools.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Fossil Rubbing Art
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Develop hand-eye coordination.
-
+DESCRIPTION:
+Develop hand-eye coordination.
 MATERIALS:
 Fossil templates
 Crayons
 Paper
-
 SETUP:
 Prepare rubbing station.
-
-DIRECTIONS:
-Create fossil rubbings and compare patterns.
-
 TEACHER_ROLE:
 Encourage observation and creativity.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop hand-eye coordination.
-
+DIRECTIONS:
+1. Introduce Fossil Rubbing Art and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop hand-eye coordination.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Dinosaur Explorer Movement
-
 CATEGORY:
 Music & Movement
-
 OBJECTIVE:
 Develop gross motor skills.
-
-MATERIALS:
-Music player
-
-SETUP:
-Open movement area.
-
-DIRECTIONS:
-Walk, stomp, and move like prehistoric creatures.
-
-TEACHER_ROLE:
-Lead movement activities.
-
 DESCRIPTION:
 Develop gross motor skills.
+MATERIALS:
+Music player
+SETUP:
+Open movement area.
+TEACHER_ROLE:
+Lead movement activities.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Introduce Dinosaur Explorer Movement and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop gross motor skills.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
-TUESDAY:
+TUESDAY
+
+DAILY_THEME:
+Archaeology Adventure: Artifact Sorting Station and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Develop classification skills.
+Encourage imaginative exploration.
+Develop creativity and fine motor control.
+
+DAILY_VOCABULARY:
+Archaeologist, Artifact, Fossil, Excavate, Discovery, Ancient
+
+DAILY_MATERIALS:
+Artifact pictures
+Sorting trays
+Explorer hats
+Clipboards
+Brushes
+Paper bowls
+Paint
+Markers
+Cones
+Tunnels
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to archaeology adventure.
+Sing "We're Going on a Fossil Hunt" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit Archaeologists Dig for Clues by Kate Duke and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to archaeology adventure — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Artifact Sorting Station / Archaeology Camp).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Archaeology Adventure play
+
+DAILY_ADAPTATIONS:
+Provide larger excavation tools when needed. Use visual supports and photographs. Allow children to participate through digging, sorting, art, dramatic play, or discussion.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Artifact Sorting Station
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Develop classification skills.
-
+DESCRIPTION:
+Develop classification skills.
 MATERIALS:
 Artifact pictures
 Sorting trays
-
 SETUP:
 Arrange artifacts for sorting.
-
-DIRECTIONS:
-Sort artifacts by size, type, or material.
-
 TEACHER_ROLE:
 Support critical thinking.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop classification skills.
-
+DIRECTIONS:
+1. Introduce Artifact Sorting Station and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop classification skills.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Archaeology Camp
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Encourage imaginative exploration.
-
+DESCRIPTION:
+Encourage imaginative exploration.
 MATERIALS:
 Explorer hats
 Clipboards
 Brushes
-
 SETUP:
 Create archaeology camp.
-
-DIRECTIONS:
-Search for discoveries and record findings.
-
 TEACHER_ROLE:
 Support storytelling and investigation.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Encourage imaginative exploration.
-
+DIRECTIONS:
+1. Introduce Archaeology Camp and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Encourage imaginative exploration.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Ancient Pottery Craft
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Develop creativity and fine motor control.
-
+DESCRIPTION:
+Develop creativity and fine motor control.
 MATERIALS:
 Paper bowls
 Paint
 Markers
-
 SETUP:
 Prepare art station.
-
-DIRECTIONS:
-Decorate pottery inspired by ancient discoveries.
-
 TEACHER_ROLE:
 Encourage creativity.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop creativity and fine motor control.
-
+DIRECTIONS:
+1. Introduce Ancient Pottery Craft and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop creativity and fine motor control.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Explorer Obstacle Course
-
 CATEGORY:
 Gross Motor
-
 OBJECTIVE:
 Develop coordination and balance.
-
+DESCRIPTION:
+Develop coordination and balance.
 MATERIALS:
 Cones
 Tunnels
-
 SETUP:
 Create excavation trail.
-
-DIRECTIONS:
-Navigate obstacles to reach dig sites.
-
 TEACHER_ROLE:
 Promote safe movement.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop coordination and balance.
-
+DIRECTIONS:
+1. Introduce Explorer Obstacle Course and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop coordination and balance.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
-WEDNESDAY:
+WEDNESDAY
+
+DAILY_THEME:
+Archaeology Adventure: Bone Investigation Center and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Explore skeletal structures.
+Develop communication and organization skills.
+Strengthen fine motor skills.
+
+DAILY_VOCABULARY:
+Archaeologist, Artifact, Fossil, Excavate, Discovery, Ancient
+
+DAILY_MATERIALS:
+Plastic bones
+Skeleton pictures
+Artifacts
+Display shelves
+Black paper
+Cotton swabs
+Glue
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to archaeology adventure.
+Sing "We're Going on a Fossil Hunt" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit Archaeologists Dig for Clues by Kate Duke and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to archaeology adventure — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Bone Investigation Center / Museum Curator Center).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Archaeology Adventure play
+
+DAILY_ADAPTATIONS:
+Provide larger excavation tools when needed. Use visual supports and photographs. Allow children to participate through digging, sorting, art, dramatic play, or discussion.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Bone Investigation Center
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Explore skeletal structures.
-
+DESCRIPTION:
+Explore skeletal structures.
 MATERIALS:
 Plastic bones
 Skeleton pictures
-
 SETUP:
 Create investigation station.
-
-DIRECTIONS:
-Compare bones and skeleton images.
-
 TEACHER_ROLE:
 Guide observations.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Explore skeletal structures.
-
+DIRECTIONS:
+1. Introduce Bone Investigation Center and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Explore skeletal structures.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Museum Curator Center
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Develop communication and organization skills.
-
+DESCRIPTION:
+Develop communication and organization skills.
 MATERIALS:
 Artifacts
 Display shelves
-
 SETUP:
 Create museum center.
-
-DIRECTIONS:
-Organize discoveries and create exhibits.
-
 TEACHER_ROLE:
 Support communication.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop communication and organization skills.
-
+DIRECTIONS:
+1. Introduce Museum Curator Center and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop communication and organization skills.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Skeleton Craft
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Strengthen fine motor skills.
-
+DESCRIPTION:
+Strengthen fine motor skills.
 MATERIALS:
 Black paper
 Cotton swabs
 Glue
-
 SETUP:
 Prepare craft materials.
-
-DIRECTIONS:
-Create skeleton pictures using cotton swabs.
-
 TEACHER_ROLE:
 Assist and encourage creativity.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Strengthen fine motor skills.
-
+DIRECTIONS:
+1. Introduce Skeleton Craft and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Strengthen fine motor skills.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Fossil Freeze Dance
-
 CATEGORY:
 Music & Movement
-
 OBJECTIVE:
 Develop listening skills.
-
-MATERIALS:
-Music player
-
-SETUP:
-Open movement area.
-
-DIRECTIONS:
-Dance and freeze like fossils when music stops.
-
-TEACHER_ROLE:
-Lead activity.
-
 DESCRIPTION:
 Develop listening skills.
+MATERIALS:
+Music player
+SETUP:
+Open movement area.
+TEACHER_ROLE:
+Lead activity.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Introduce Fossil Freeze Dance and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop listening skills.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
-THURSDAY:
+THURSDAY
+
+DAILY_THEME:
+Archaeology Adventure: Treasure Excavation Challenge and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Develop investigation skills.
+Develop engineering and creativity.
+Develop observation and drawing skills.
+
+DAILY_VOCABULARY:
+Archaeologist, Artifact, Fossil, Excavate, Discovery, Ancient
+
+DAILY_MATERIALS:
+Sand
+Hidden treasures
+Brushes
+Blocks
+Natural materials
+Paper
+Pencils
+Clipboards
+Explorer maps
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to archaeology adventure.
+Sing "We're Going on a Fossil Hunt" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit Archaeologists Dig for Clues by Kate Duke and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to archaeology adventure — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Treasure Excavation Challenge / Ancient Village Builders).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Archaeology Adventure play
+
+DAILY_ADAPTATIONS:
+Provide larger excavation tools when needed. Use visual supports and photographs. Allow children to participate through digging, sorting, art, dramatic play, or discussion.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Treasure Excavation Challenge
-
 CATEGORY:
 Sensory Play
-
 OBJECTIVE:
 Develop investigation skills.
-
+DESCRIPTION:
+Develop investigation skills.
 MATERIALS:
 Sand
 Hidden treasures
 Brushes
-
 SETUP:
 Bury treasures in excavation bin.
-
-DIRECTIONS:
-Excavate and record discoveries.
-
 TEACHER_ROLE:
 Encourage careful observation.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop investigation skills.
-
+DIRECTIONS:
+1. Introduce Treasure Excavation Challenge and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop investigation skills.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Ancient Village Builders
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Develop engineering and creativity.
-
+DESCRIPTION:
+Develop engineering and creativity.
 MATERIALS:
 Blocks
 Natural materials
-
 SETUP:
 Create building area.
-
-DIRECTIONS:
-Build an ancient village.
-
 TEACHER_ROLE:
 Support planning and design.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop engineering and creativity.
-
+DIRECTIONS:
+1. Introduce Ancient Village Builders and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop engineering and creativity.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Artifact Sketchbook
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Develop observation and drawing skills.
-
+DESCRIPTION:
+Develop observation and drawing skills.
 MATERIALS:
 Paper
 Pencils
 Clipboards
-
 SETUP:
 Prepare sketching area.
-
-DIRECTIONS:
-Draw discovered artifacts.
-
 TEACHER_ROLE:
 Encourage detailed observation.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop observation and drawing skills.
-
+DIRECTIONS:
+1. Introduce Artifact Sketchbook and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop observation and drawing skills.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Explorer Adventure Walk
-
 CATEGORY:
 Gross Motor
-
 OBJECTIVE:
 Develop coordination and movement.
-
-MATERIALS:
-Explorer maps
-
-SETUP:
-Create adventure path.
-
-DIRECTIONS:
-Follow maps to discovery locations.
-
-TEACHER_ROLE:
-Lead exploration.
-
 DESCRIPTION:
 Develop coordination and movement.
+MATERIALS:
+Explorer maps
+SETUP:
+Create adventure path.
+TEACHER_ROLE:
+Lead exploration.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Introduce Explorer Adventure Walk and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop coordination and movement.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
-FRIDAY:
+FRIDAY
+
+DAILY_THEME:
+Archaeology Adventure: Archaeology Museum Showcase and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Build confidence and communication.
+Review archaeology concepts.
+Celebrate learning and discovery.
+
+DAILY_VOCABULARY:
+Archaeologist, Artifact, Fossil, Excavate, Discovery, Ancient
+
+DAILY_MATERIALS:
+Projects from the week
+Favorite materials from the week
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to archaeology adventure.
+Sing "We're Going on a Fossil Hunt" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit Archaeologists Dig for Clues by Kate Duke and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to archaeology adventure — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Archaeology Museum Showcase / Discovery Exploration Centers).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Archaeology Adventure play
+
+DAILY_ADAPTATIONS:
+Provide larger excavation tools when needed. Use visual supports and photographs. Allow children to participate through digging, sorting, art, dramatic play, or discussion.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Archaeology Museum Showcase
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Build confidence and communication.
-
-MATERIALS:
-Projects from the week
-
-SETUP:
-Create museum displays.
-
-DIRECTIONS:
-Share discoveries and explain exhibits.
-
-TEACHER_ROLE:
-Encourage reflection and presentation.
-
 DESCRIPTION:
 Build confidence and communication.
+MATERIALS:
+Projects from the week
+SETUP:
+Create museum displays.
+TEACHER_ROLE:
+Encourage reflection and presentation.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Introduce Archaeology Museum Showcase and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Build confidence and communication.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Discovery Exploration Centers
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Review archaeology concepts.
-
-MATERIALS:
-Favorite materials from the week
-
-SETUP:
-Create exploration stations.
-
-DIRECTIONS:
-Revisit favorite investigations and discoveries.
-
-TEACHER_ROLE:
-Observe and support learning.
-
 DESCRIPTION:
 Review archaeology concepts.
+MATERIALS:
+Favorite materials from the week
+SETUP:
+Create exploration stations.
+TEACHER_ROLE:
+Observe and support learning.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Introduce Discovery Exploration Centers and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Review archaeology concepts.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Explorer Celebration
-
 CATEGORY:
 Music & Movement
-
 OBJECTIVE:
 Celebrate learning and discovery.
-
-MATERIALS:
-Music player
-
-SETUP:
-Open movement area.
-
-DIRECTIONS:
-Dance and celebrate a week of archaeological adventures.
-
-TEACHER_ROLE:
-Celebrate participation and accomplishments.
-
 DESCRIPTION:
 Celebrate learning and discovery.
+MATERIALS:
+Music player
+SETUP:
+Open movement area.
+TEACHER_ROLE:
+Celebrate participation and accomplishments.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Introduce Explorer Celebration and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Celebrate learning and discovery.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

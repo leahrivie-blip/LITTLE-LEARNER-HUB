@@ -14,12 +14,7 @@ STATUS:
 published
 
 LEARNING_DOMAINS:
-Language & Literacy
-Social Emotional
-Physical Development
-Creative Arts
-Science
-Math
+Language & Literacy, Social Emotional, Physical Development, Creative Arts, Science, Math
 
 WEEKLY_OVERVIEW:
 Children will dive into an exciting underwater adventure as they explore ocean animals, habitats, waves, coral reefs, and ocean conservation. Through hands-on investigations, sensory experiences, dramatic play, art projects, and STEM challenges, children will discover the wonders of the ocean while developing curiosity, creativity, and critical thinking skills.
@@ -87,7 +82,52 @@ Observe children's curiosity during investigations, use of ocean vocabulary, abi
 ADAPTATIONS:
 Provide visual supports and picture cards. Offer adaptive tools when needed. Allow children multiple ways to participate through art, discussion, movement, and sensory exploration.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+Ocean: Ocean Sensory Bin and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Explore ocean animals through sensory experiences.
+Develop gross motor skills and body awareness.
+Strengthen creativity and hand control.
+
+DAILY_VOCABULARY:
+Ocean, Wave, Coral, Reef, Fish, Shark
+
+DAILY_MATERIALS:
+Blue water beads
+Ocean animals
+Shells
+Scoops
+Music player
+Paint
+Paper
+Brushes
+Blocks
+Ocean animals
+Blue fabric
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to ocean.
+Sing "Baby Shark" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit Commotion in the Ocean by Giles Andreae and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to ocean — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Ocean Sensory Bin / Ocean Animal Movements).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Ocean play
+
+DAILY_ADAPTATIONS:
+Provide visual supports and picture cards. Offer adaptive tools when needed. Allow children multiple ways to participate through art, discussion, movement, and sensory exploration.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Ocean Sensory Bin
@@ -106,6 +146,8 @@ SETUP:
 Create an ocean-themed sensory bin.
 TEACHER_ROLE:
 Encourage descriptive language and observation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Search for ocean animals hidden in the bin.
 2. Explore textures and materials.
@@ -114,6 +156,15 @@ LEARNING_GOALS:
 Explore ocean animals through sensory experiences.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Ocean Animal Movements
@@ -129,6 +180,8 @@ SETUP:
 Open movement space.
 TEACHER_ROLE:
 Model movements and encourage participation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Move like different ocean animals.
 2. Swim like fish.
@@ -138,6 +191,15 @@ LEARNING_GOALS:
 Develop gross motor skills and body awareness.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Ocean Animal Painting
@@ -155,13 +217,27 @@ SETUP:
 Prepare painting station.
 TEACHER_ROLE:
 Encourage creativity and conversation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Paint favorite ocean animals.
-2. Discuss colors and features.
+1. Introduce Ocean Animal Painting and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Strengthen creativity and hand control.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Build an Ocean Habitat
@@ -179,15 +255,72 @@ SETUP:
 Arrange building materials.
 TEACHER_ROLE:
 Support planning and critical thinking.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Create homes for ocean animals.
-2. Discuss habitat needs.
+1. Introduce Build an Ocean Habitat and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop creativity and problem-solving.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-TUESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Ocean: Float or Sink Investigation and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Explore basic science concepts.
+Develop classification skills.
+Develop creativity and fine motor skills.
+
+DAILY_VOCABULARY:
+Ocean, Wave, Coral, Reef, Fish, Shark
+
+DAILY_MATERIALS:
+Water tub
+Various objects
+Shell collection
+Sorting trays
+Paper plates
+Ribbon
+Glue
+Ocean animals
+Rescue props
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to ocean.
+Sing "Baby Shark" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit Commotion in the Ocean by Giles Andreae and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to ocean — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Float or Sink Investigation / Shell Sorting Center).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Ocean play
+
+DAILY_ADAPTATIONS:
+Provide visual supports and picture cards. Offer adaptive tools when needed. Allow children multiple ways to participate through art, discussion, movement, and sensory exploration.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Float or Sink Investigation
@@ -204,6 +337,8 @@ SETUP:
 Fill tub with water.
 TEACHER_ROLE:
 Encourage scientific thinking.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Predict whether objects will float or sink.
 2. Test each item.
@@ -212,6 +347,15 @@ LEARNING_GOALS:
 Explore basic science concepts.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Shell Sorting Center
@@ -228,13 +372,27 @@ SETUP:
 Arrange shells for sorting.
 TEACHER_ROLE:
 Support mathematical thinking.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Sort by size, color, or shape.
-2. Count each group.
+1. Introduce Shell Sorting Center and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop classification skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Jellyfish Craft
@@ -252,12 +410,27 @@ SETUP:
 Prepare craft supplies.
 TEACHER_ROLE:
 Assist and encourage creativity.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Create jellyfish using ribbons and paper plates.
+1. Introduce Jellyfish Craft and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop creativity and fine motor skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Ocean Rescue Center
@@ -274,15 +447,71 @@ SETUP:
 Create rescue station.
 TEACHER_ROLE:
 Encourage cooperation and communication.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Rescue and care for ocean animals.
-2. Work together to solve problems.
+1. Introduce Ocean Rescue Center and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop empathy and teamwork.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-WEDNESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Ocean: Coral Reef Discovery and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Explore ocean habitats.
+Practice measurement skills.
+Strengthen hand-eye coordination.
+
+DAILY_VOCABULARY:
+Ocean, Wave, Coral, Reef, Fish, Shark
+
+DAILY_MATERIALS:
+Colored pasta
+Ocean animals
+Containers
+Measuring tape
+Shark pictures
+Paper fish
+Construction paper strips
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to ocean.
+Sing "Baby Shark" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit Commotion in the Ocean by Giles Andreae and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to ocean — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Coral Reef Discovery / Shark Measurement Station).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Ocean play
+
+DAILY_ADAPTATIONS:
+Provide visual supports and picture cards. Offer adaptive tools when needed. Allow children multiple ways to participate through art, discussion, movement, and sensory exploration.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Coral Reef Discovery
@@ -300,13 +529,27 @@ SETUP:
 Create coral reef sensory station.
 TEACHER_ROLE:
 Introduce habitat vocabulary.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Explore reef materials.
-2. Create ocean scenes.
+1. Introduce Coral Reef Discovery and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Explore ocean habitats.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Shark Measurement Station
@@ -323,13 +566,27 @@ SETUP:
 Place shark images around room.
 TEACHER_ROLE:
 Introduce measurement vocabulary.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Measure sharks.
-2. Compare lengths.
+1. Introduce Shark Measurement Station and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Practice measurement skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Fish Weaving Craft
@@ -346,12 +603,27 @@ SETUP:
 Prepare weaving materials.
 TEACHER_ROLE:
 Assist as needed.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Weave strips through fish templates.
+1. Introduce Fish Weaving Craft and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Strengthen hand-eye coordination.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Shark Freeze Dance
@@ -367,15 +639,71 @@ SETUP:
 Create movement area.
 TEACHER_ROLE:
 Lead movement activities.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Dance like ocean animals.
-2. Freeze when music stops.
+1. Introduce Shark Freeze Dance and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop listening skills and coordination.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-THURSDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Ocean: Ocean Animal Sorting Challenge and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Develop classification skills.
+Encourage imagination and storytelling.
+Develop creativity and hand control.
+
+DAILY_VOCABULARY:
+Ocean, Wave, Coral, Reef, Fish, Shark
+
+DAILY_MATERIALS:
+Ocean animal figures
+Large box
+Ocean props
+Starfish templates
+Paint
+Glue
+Cones
+Tunnels
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to ocean.
+Sing "Baby Shark" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit Commotion in the Ocean by Giles Andreae and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to ocean — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Ocean Animal Sorting Challenge / Deep Sea Submarine).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Ocean play
+
+DAILY_ADAPTATIONS:
+Provide visual supports and picture cards. Offer adaptive tools when needed. Allow children multiple ways to participate through art, discussion, movement, and sensory exploration.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Ocean Animal Sorting Challenge
@@ -391,12 +719,27 @@ SETUP:
 Prepare sorting trays.
 TEACHER_ROLE:
 Support critical thinking.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Sort animals by habitat, size, or type.
+1. Introduce Ocean Animal Sorting Challenge and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop classification skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Deep Sea Submarine
@@ -413,13 +756,27 @@ SETUP:
 Create submarine center.
 TEACHER_ROLE:
 Support imaginative play.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Explore the deep ocean.
-2. Discover sea creatures.
+1. Introduce Deep Sea Submarine and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Encourage imagination and storytelling.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Starfish Art
@@ -437,12 +794,27 @@ SETUP:
 Prepare art station.
 TEACHER_ROLE:
 Encourage artistic expression.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Decorate starfish using various materials.
+1. Introduce Starfish Art and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop creativity and hand control.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Ocean Obstacle Course
@@ -459,14 +831,66 @@ SETUP:
 Create ocean-themed course.
 TEACHER_ROLE:
 Encourage safe participation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Swim, jump waves, and crawl through underwater caves.
+1. Introduce Ocean Obstacle Course and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop balance and coordination.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-FRIDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Ocean: Ocean Museum and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Build confidence and communication.
+Review concepts from the week.
+Celebrate learning through movement.
+
+DAILY_VOCABULARY:
+Ocean, Wave, Coral, Reef, Fish, Shark
+
+DAILY_MATERIALS:
+Projects from the week
+Materials from previous activities
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to ocean.
+Sing "Baby Shark" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit Commotion in the Ocean by Giles Andreae and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to ocean — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Ocean Museum / Ocean Exploration Stations).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Ocean play
+
+DAILY_ADAPTATIONS:
+Provide visual supports and picture cards. Offer adaptive tools when needed. Allow children multiple ways to participate through art, discussion, movement, and sensory exploration.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Ocean Museum
@@ -482,12 +906,27 @@ SETUP:
 Create museum displays.
 TEACHER_ROLE:
 Encourage speaking and listening.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Share favorite ocean discoveries.
+1. Introduce Ocean Museum and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Build confidence and communication.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Ocean Exploration Stations
@@ -503,12 +942,27 @@ SETUP:
 Create exploration centers.
 TEACHER_ROLE:
 Encourage reflection and discussion.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Visit stations and revisit favorite activities.
+1. Introduce Ocean Exploration Stations and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Review concepts from the week.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Ocean Celebration Dance
@@ -524,10 +978,24 @@ SETUP:
 Open movement area.
 TEACHER_ROLE:
 Celebrate participation and learning.
+TEACHER_LANGUAGE:
 
 DIRECTIONS:
-1. Dance and move like favorite ocean animals.
+1. Introduce Ocean Celebration Dance and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Celebrate learning through movement.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

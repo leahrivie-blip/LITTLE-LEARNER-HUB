@@ -14,12 +14,7 @@ STATUS:
 published
 
 LEARNING_DOMAINS:
-Language & Literacy
-Social Emotional
-Physical Development
-Creative Arts
-Science
-Math
+Language & Literacy, Social Emotional, Physical Development, Creative Arts, Science, Math
 
 WEEKLY_OVERVIEW:
 Children will explore the exciting world of transportation through hands-on investigations, dramatic play, building challenges, art experiences, movement activities, and early math concepts. Throughout the week, children will discover how people and goods travel by land, air, and water while developing problem-solving, creativity, and communication skills.
@@ -87,7 +82,52 @@ Observe children's transportation vocabulary, problem-solving skills during buil
 ADAPTATIONS:
 Provide larger materials for children needing additional support. Offer visual transportation cards and allow multiple ways for children to participate and demonstrate understanding.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+Transportation: Transportation Sensory Bin and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Encourage exploration and transportation vocabulary.
+Develop coordination and body awareness.
+Strengthen creativity and fine motor skills.
+
+DAILY_VOCABULARY:
+Transportation, Vehicle, Road, Bridge, Airplane, Boat
+
+DAILY_MATERIALS:
+Kinetic sand
+Toy vehicles
+Road signs
+Scoops
+Movement cards
+Paper
+Crayons
+Markers
+Blocks
+Road tape
+Toy vehicles
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to transportation.
+Sing "The Wheels on the Bus" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit The Little Engine That Could by Watty Piper and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to transportation — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Transportation Sensory Bin / Vehicle Movement Challenge).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Transportation play
+
+DAILY_ADAPTATIONS:
+Provide larger materials for children needing additional support. Offer visual transportation cards and allow multiple ways for children to participate and demonstrate understanding.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Transportation Sensory Bin
@@ -106,6 +146,8 @@ SETUP:
 Place vehicles and materials in a sensory bin.
 TEACHER_ROLE:
 Introduce transportation vocabulary and encourage conversation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Explore the sensory materials.
 2. Drive vehicles through roads and tunnels.
@@ -114,6 +156,15 @@ LEARNING_GOALS:
 Encourage exploration and transportation vocabulary.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Vehicle Movement Challenge
@@ -129,6 +180,8 @@ SETUP:
 Create an open movement area.
 TEACHER_ROLE:
 Model movements and encourage participation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Move like different vehicles.
 2. Fly like airplanes.
@@ -138,6 +191,15 @@ LEARNING_GOALS:
 Develop coordination and body awareness.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 My Favorite Vehicle Art
@@ -155,13 +217,27 @@ SETUP:
 Prepare art materials.
 TEACHER_ROLE:
 Encourage creativity and language development.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Draw a favorite vehicle.
-2. Discuss what it does and where it travels.
+1. Introduce My Favorite Vehicle Art and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Strengthen creativity and fine motor skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Build a Road System
@@ -179,15 +255,71 @@ SETUP:
 Create a construction area.
 TEACHER_ROLE:
 Support problem-solving and cooperation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Design roads and bridges.
-2. Drive vehicles through the system.
+1. Introduce Build a Road System and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop engineering and planning skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-TUESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Transportation: Vehicle Sorting Center and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Develop classification skills.
+Encourage imaginative play and communication.
+Strengthen hand-eye coordination.
+
+DAILY_VOCABULARY:
+Transportation, Vehicle, Road, Bridge, Airplane, Boat
+
+DAILY_MATERIALS:
+Vehicle toys
+Suitcases
+Tickets
+Pilot props
+Paper
+Glue
+Crayons
+Cones
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to transportation.
+Sing "The Wheels on the Bus" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit The Little Engine That Could by Watty Piper and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to transportation — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Vehicle Sorting Center / Airport Dramatic Play).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Transportation play
+
+DAILY_ADAPTATIONS:
+Provide larger materials for children needing additional support. Offer visual transportation cards and allow multiple ways for children to participate and demonstrate understanding.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Vehicle Sorting Center
@@ -203,13 +335,27 @@ SETUP:
 Arrange vehicles for sorting.
 TEACHER_ROLE:
 Support mathematical thinking.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Sort by land, air, and water transportation.
-2. Count each group.
+1. Introduce Vehicle Sorting Center and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop classification skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Airport Dramatic Play
@@ -227,6 +373,8 @@ SETUP:
 Create an airport area.
 TEACHER_ROLE:
 Support storytelling and social interaction.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Pretend to travel.
 2. Check in passengers.
@@ -235,6 +383,15 @@ LEARNING_GOALS:
 Encourage imaginative play and communication.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Airplane Craft
@@ -252,13 +409,27 @@ SETUP:
 Prepare craft supplies.
 TEACHER_ROLE:
 Assist and encourage creativity.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Create airplanes.
-2. Decorate with unique designs.
+1. Introduce Airplane Craft and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Strengthen hand-eye coordination.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Runway Relay Race
@@ -274,14 +445,72 @@ SETUP:
 Create a runway course.
 TEACHER_ROLE:
 Encourage participation and cooperation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Complete transportation-themed relay challenges.
+1. Introduce Runway Relay Race and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop coordination and teamwork.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-WEDNESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Transportation: Floating Boats Investigation and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Explore floating and sinking concepts.
+Develop engineering skills.
+Encourage creativity.
+
+DAILY_VOCABULARY:
+Transportation, Vehicle, Road, Bridge, Airplane, Boat
+
+DAILY_MATERIALS:
+Water tub
+Toy boats
+Various objects
+Foam
+Craft sticks
+Tape
+Paint
+Paper
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to transportation.
+Sing "The Wheels on the Bus" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit The Little Engine That Could by Watty Piper and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to transportation — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Floating Boats Investigation / Boat Builders).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Transportation play
+
+DAILY_ADAPTATIONS:
+Provide larger materials for children needing additional support. Offer visual transportation cards and allow multiple ways for children to participate and demonstrate understanding.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Floating Boats Investigation
@@ -299,13 +528,27 @@ SETUP:
 Fill water tub.
 TEACHER_ROLE:
 Encourage scientific thinking.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Test objects in water.
-2. Observe which float and sink.
+1. Introduce Floating Boats Investigation and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Explore floating and sinking concepts.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Boat Builders
@@ -323,13 +566,27 @@ SETUP:
 Provide building materials.
 TEACHER_ROLE:
 Support experimentation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Design and build boats.
-2. Test in water.
+1. Introduce Boat Builders and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop engineering skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Ocean Transportation Painting
@@ -346,12 +603,27 @@ SETUP:
 Prepare painting stations.
 TEACHER_ROLE:
 Encourage artistic expression.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Paint boats and ocean scenes.
+1. Introduce Ocean Transportation Painting and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Encourage creativity.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Sailor Movement Game
@@ -367,14 +639,70 @@ SETUP:
 Create movement area.
 TEACHER_ROLE:
 Lead movement activities.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Row, balance, and move like sailors.
+1. Introduce Sailor Movement Game and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop listening skills and movement.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-THURSDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Transportation: Train Track Engineers and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Develop planning and problem-solving.
+Develop communication and social skills.
+Practice name recognition.
+
+DAILY_VOCABULARY:
+Transportation, Vehicle, Road, Bridge, Airplane, Boat
+
+DAILY_MATERIALS:
+Train tracks
+Toy trains
+Play tickets
+Cash register
+Train templates
+Markers
+Music
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to transportation.
+Sing "The Wheels on the Bus" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit The Little Engine That Could by Watty Piper and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to transportation — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Train Track Engineers / Ticket Booth Dramatic Play).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Transportation play
+
+DAILY_ADAPTATIONS:
+Provide larger materials for children needing additional support. Offer visual transportation cards and allow multiple ways for children to participate and demonstrate understanding.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Train Track Engineers
@@ -391,13 +719,27 @@ SETUP:
 Arrange train materials.
 TEACHER_ROLE:
 Encourage engineering thinking.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Build train tracks.
-2. Test train routes.
+1. Introduce Train Track Engineers and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop planning and problem-solving.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Ticket Booth Dramatic Play
@@ -414,13 +756,27 @@ SETUP:
 Create train station.
 TEACHER_ROLE:
 Support conversation and role play.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Buy and sell tickets.
-2. Plan imaginary trips.
+1. Introduce Ticket Booth Dramatic Play and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop communication and social skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Train Name Craft
@@ -437,13 +793,27 @@ SETUP:
 Prepare materials.
 TEACHER_ROLE:
 Support early literacy.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Write names on train cars.
-2. Decorate trains.
+1. Introduce Train Name Craft and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Practice name recognition.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Train Parade
@@ -459,15 +829,66 @@ SETUP:
 Open floor space.
 TEACHER_ROLE:
 Lead movement and teamwork.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Move together as a train.
-2. Follow directions and patterns.
+1. Introduce Train Parade and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop coordination.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-FRIDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Transportation: Transportation Museum and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Build confidence and communication.
+Review transportation concepts.
+Celebrate learning through movement.
+
+DAILY_VOCABULARY:
+Transportation, Vehicle, Road, Bridge, Airplane, Boat
+
+DAILY_MATERIALS:
+Projects from the week
+Favorite sensory materials from the week
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to transportation.
+Sing "The Wheels on the Bus" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit The Little Engine That Could by Watty Piper and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to transportation — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Transportation Museum / Transportation Sensory Stations).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Transportation play
+
+DAILY_ADAPTATIONS:
+Provide larger materials for children needing additional support. Offer visual transportation cards and allow multiple ways for children to participate and demonstrate understanding.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Transportation Museum
@@ -483,12 +904,27 @@ SETUP:
 Create museum displays.
 TEACHER_ROLE:
 Encourage speaking and listening.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Share favorite transportation discoveries.
+1. Introduce Transportation Museum and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Build confidence and communication.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Transportation Sensory Stations
@@ -504,12 +940,27 @@ SETUP:
 Create stations.
 TEACHER_ROLE:
 Encourage reflection and vocabulary.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Explore and discuss transportation themes.
+1. Introduce Transportation Sensory Stations and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Review transportation concepts.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Transportation Celebration
@@ -525,11 +976,24 @@ SETUP:
 Open movement area.
 TEACHER_ROLE:
 Celebrate participation and learning.
+TEACHER_LANGUAGE:
 
 DIRECTIONS:
-1. Move like favorite vehicles.
-2. Share favorite memories from the week.
+1. Introduce Transportation Celebration and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Celebrate learning through movement.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

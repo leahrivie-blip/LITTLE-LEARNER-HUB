@@ -57,266 +57,746 @@ Provide adaptive art tools, larger materials, visual supports, sensory alternati
 
 MONDAY
 
+DAILY_THEME:
+Fourth of July: Patriotic Sensory Bin and related play (introduce the theme through movement, sensory play, and simple language)
+
+DAILY_OBJECTIVES:
+Support fourth of july learning through patriotic sensory bin.
+Support fourth of july learning through flag parade march.
+Support fourth of july learning through fourth of july circle time.
+
+DAILY_VOCABULARY:
+Flag, Star, Red, White, Blue, Celebrate
+
+DAILY_MATERIALS:
+Colored rice, stars, pom-poms, scoops
+Small flags
+Picture cards
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to fourth of july.
+Sing "You're a Grand Old Flag" with simple movements or props.
+Show one prop or picture from today's activity (Patriotic Sensory Bin) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to fourth of july: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Patriotic Sensory Bin
+Engagement during Flag Parade March
+Engagement during Fourth of July Circle Time
+Participation and interest in Fourth of July play
+
+DAILY_ADAPTATIONS:
+Provide adaptive art tools, larger materials, visual supports, sensory alternatives, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
+
 ACTIVITY_NAME:
 Patriotic Sensory Bin
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support fourth of july learning through patriotic sensory bin.
 DESCRIPTION:
 Children explore red, white, and blue materials in a sensory bin.
 MATERIALS:
 Colored rice, stars, pom-poms, scoops
-DIRECTIONS:
-Fill sensory bin with materials.
-Encourage scooping and sorting.
-Discuss colors and textures.
-Explore together.
+SETUP:
+Prepare materials for Patriotic Sensory Bin before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Model vocabulary and sensory exploration.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Fill sensory bin with materials.
+2. Encourage scooping and sorting.
+3. Discuss colors and textures.
+4. Explore together.
 LEARNING_GOALS:
 Color recognition and sensory development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Patriotic Sensory Bin
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Flag Parade March
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support fourth of july learning through flag parade march.
 DESCRIPTION:
 Children march around the classroom carrying flags.
 MATERIALS:
 Small flags
-DIRECTIONS:
-Give each child a flag.
-March together.
-Follow simple directions.
+SETUP:
+Prepare materials for Flag Parade March before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead movement activity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Give each child a flag.
+2. March together.
+3. Follow simple directions.
 LEARNING_GOALS:
 Coordination and listening skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Flag Parade March
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Fourth of July Circle Time
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support fourth of july learning through fourth of july circle time.
 DESCRIPTION:
 Introduce patriotic symbols and celebrations.
 MATERIALS:
 Picture cards
-DIRECTIONS:
-Show patriotic pictures.
-Discuss colors and symbols.
-Read a short story.
+SETUP:
+Prepare materials for Fourth of July Circle Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead discussion.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Show patriotic pictures.
+2. Discuss colors and symbols.
+3. Read a short story.
 LEARNING_GOALS:
 Vocabulary development and listening skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Fourth of July Circle Time
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 TUESDAY
+
+DAILY_THEME:
+Fourth of July: Star Sponge Painting and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Support fourth of july learning through star sponge painting.
+Support fourth of july learning through star jump game.
+Support fourth of july learning through star story time.
+
+DAILY_VOCABULARY:
+Flag, Star, Red, White, Blue, Celebrate
+
+DAILY_MATERIALS:
+Star sponges, paint, paper
+Paper stars
+Patriotic book
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to fourth of july.
+Sing "You're a Grand Old Flag" with simple movements or props.
+Show one prop or picture from today's activity (Star Sponge Painting) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to fourth of july: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Star Sponge Painting
+Engagement during Star Jump Game
+Engagement during Star Story Time
+Participation and interest in Fourth of July play
+
+DAILY_ADAPTATIONS:
+Provide adaptive art tools, larger materials, visual supports, sensory alternatives, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
 
 ACTIVITY_NAME:
 Star Sponge Painting
 CATEGORY:
 Art
+OBJECTIVE:
+Support fourth of july learning through star sponge painting.
 DESCRIPTION:
 Children create star-themed artwork using paint.
 MATERIALS:
 Star sponges, paint, paper
-DIRECTIONS:
-Dip sponges in paint.
-Stamp stars onto paper.
-Explore colors.
+SETUP:
+Prepare materials for Star Sponge Painting before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support creativity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Dip sponges in paint.
+2. Stamp stars onto paper.
+3. Explore colors.
 LEARNING_GOALS:
 Fine motor development and creative expression.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Star Sponge Painting
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Star Jump Game
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support fourth of july learning through star jump game.
 DESCRIPTION:
 Children jump from star to star on the floor.
 MATERIALS:
 Paper stars
-DIRECTIONS:
-Place stars on floor.
-Jump between stars.
-Count jumps together.
+SETUP:
+Prepare materials for Star Jump Game before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Encourage movement.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Place stars on floor.
+2. Jump between stars.
+3. Count jumps together.
 LEARNING_GOALS:
 Balance and coordination.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Star Jump Game
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Star Story Time
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support fourth of july learning through star story time.
 DESCRIPTION:
 Children listen to a story about stars and celebrations.
 MATERIALS:
 Patriotic book
-DIRECTIONS:
-Read story aloud.
-Ask simple questions.
-Identify stars and colors.
+SETUP:
+Prepare materials for Star Story Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support comprehension.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Read story aloud.
+2. Ask simple questions.
+3. Identify stars and colors.
 LEARNING_GOALS:
 Listening and vocabulary development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Star Story Time
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 WEDNESDAY
+
+DAILY_THEME:
+Fourth of July: Red White & Blue Sorting and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Support fourth of july learning through red white & blue sorting.
+Support fourth of july learning through firework ribbon dance.
+Support fourth of july learning through summer celebration songs.
+
+DAILY_VOCABULARY:
+Flag, Star, Red, White, Blue, Celebrate
+
+DAILY_MATERIALS:
+Colored pom-poms, sorting trays
+Red, white, and blue ribbons
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to fourth of july.
+Sing "You're a Grand Old Flag" with simple movements or props.
+Show one prop or picture from today's activity (Red White & Blue Sorting) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to fourth of july: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Red White & Blue Sorting
+Engagement during Firework Ribbon Dance
+Engagement during Summer Celebration Songs
+Participation and interest in Fourth of July play
+
+DAILY_ADAPTATIONS:
+Provide adaptive art tools, larger materials, visual supports, sensory alternatives, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
 
 ACTIVITY_NAME:
 Red White & Blue Sorting
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support fourth of july learning through red white & blue sorting.
 DESCRIPTION:
 Children sort objects by color.
 MATERIALS:
 Colored pom-poms, sorting trays
-DIRECTIONS:
-Gather objects.
-Sort by color.
-Compare groups.
+SETUP:
+Prepare materials for Red White & Blue Sorting before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide sorting discussions.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Gather objects.
+2. Sort by color.
+3. Compare groups.
 LEARNING_GOALS:
 Classification and color recognition.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Red White & Blue Sorting
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Firework Ribbon Dance
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support fourth of july learning through firework ribbon dance.
 DESCRIPTION:
 Children wave ribbons like fireworks in the sky.
 MATERIALS:
 Red, white, and blue ribbons
-DIRECTIONS:
-Play music.
-Wave ribbons high and low.
-Follow movement directions.
+SETUP:
+Prepare materials for Firework Ribbon Dance before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead movement activity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play music.
+2. Wave ribbons high and low.
+3. Follow movement directions.
 LEARNING_GOALS:
 Coordination and rhythm.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Firework Ribbon Dance
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Summer Celebration Songs
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support fourth of july learning through summer celebration songs.
 DESCRIPTION:
 Children sing patriotic and summer songs together.
 MATERIALS:
 Music player
-DIRECTIONS:
-Play songs.
-Add hand motions.
-Encourage participation.
+SETUP:
+Prepare materials for Summer Celebration Songs before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead music experience.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play songs.
+2. Add hand motions.
+3. Encourage participation.
 LEARNING_GOALS:
 Listening and social participation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Summer Celebration Songs
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 THURSDAY
+
+DAILY_THEME:
+Fourth of July: Flag Craft and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Support fourth of july learning through flag craft.
+Support fourth of july learning through bubble blast celebration.
+Support fourth of july learning through patriotic pretend picnic.
+
+DAILY_VOCABULARY:
+Flag, Star, Red, White, Blue, Celebrate
+
+DAILY_MATERIALS:
+Paper, paint, star stickers
+Bubble solution
+Toy food, blankets
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to fourth of july.
+Sing "You're a Grand Old Flag" with simple movements or props.
+Show one prop or picture from today's activity (Flag Craft) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to fourth of july: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Flag Craft
+Engagement during Bubble Blast Celebration
+Engagement during Patriotic Pretend Picnic
+Participation and interest in Fourth of July play
+
+DAILY_ADAPTATIONS:
+Provide adaptive art tools, larger materials, visual supports, sensory alternatives, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
 
 ACTIVITY_NAME:
 Flag Craft
 CATEGORY:
 Art
+OBJECTIVE:
+Support fourth of july learning through flag craft.
 DESCRIPTION:
 Children create a simple American flag craft.
 MATERIALS:
 Paper, paint, star stickers
-DIRECTIONS:
-Paint stripes.
-Add stars.
-Display artwork.
+SETUP:
+Prepare materials for Flag Craft before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support creativity and fine motor development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Paint stripes.
+2. Add stars.
+3. Display artwork.
 LEARNING_GOALS:
 Creative expression and hand strength.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Flag Craft
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Bubble Blast Celebration
 CATEGORY:
 Outdoor Play
+OBJECTIVE:
+Support fourth of july learning through bubble blast celebration.
 DESCRIPTION:
 Children chase and pop bubbles outside.
 MATERIALS:
 Bubble solution
-DIRECTIONS:
-Blow bubbles.
-Encourage children to chase them.
-Count pops together.
+SETUP:
+Prepare materials for Bubble Blast Celebration before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Encourage movement and participation.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Blow bubbles.
+2. Encourage children to chase them.
+3. Count pops together.
 LEARNING_GOALS:
 Gross motor development and visual tracking.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Bubble Blast Celebration
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Patriotic Pretend Picnic
 CATEGORY:
 Dramatic Play
+OBJECTIVE:
+Support fourth of july learning through patriotic pretend picnic.
 DESCRIPTION:
 Children enjoy a pretend Fourth of July picnic.
 MATERIALS:
 Toy food, blankets
-DIRECTIONS:
-Set up picnic area.
-Share pretend food.
-Practice manners.
+SETUP:
+Prepare materials for Patriotic Pretend Picnic before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Facilitate imaginative play.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Set up picnic area.
+2. Share pretend food.
+3. Practice manners.
 LEARNING_GOALS:
 Social skills and cooperation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Patriotic Pretend Picnic
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 FRIDAY
+
+DAILY_THEME:
+Fourth of July: Stars & Stripes Treasure Hunt and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Support fourth of july learning through stars & stripes treasure hunt.
+Support fourth of july learning through patriotic dance party.
+Support fourth of july learning through fourth of july celebration circle.
+
+DAILY_VOCABULARY:
+Flag, Star, Red, White, Blue, Celebrate
+
+DAILY_MATERIALS:
+Stars, flags, red white and blue objects
+Music player
+Books, visuals, songs
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to fourth of july.
+Sing "You're a Grand Old Flag" with simple movements or props.
+Show one prop or picture from today's activity (Stars & Stripes Treasure Hunt) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to fourth of july: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Stars & Stripes Treasure Hunt
+Engagement during Patriotic Dance Party
+Engagement during Fourth of July Celebration Circle
+Participation and interest in Fourth of July play
+
+DAILY_ADAPTATIONS:
+Provide adaptive art tools, larger materials, visual supports, sensory alternatives, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
 
 ACTIVITY_NAME:
 Stars & Stripes Treasure Hunt
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support fourth of july learning through stars & stripes treasure hunt.
 DESCRIPTION:
 Children search for patriotic items hidden around the room.
 MATERIALS:
 Stars, flags, red white and blue objects
-DIRECTIONS:
-Hide items around room.
-Search together.
-Count collected items.
+SETUP:
+Prepare materials for Stars & Stripes Treasure Hunt before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support exploration and teamwork.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Hide items around room.
+2. Search together.
+3. Count collected items.
 LEARNING_GOALS:
 Problem-solving and observation skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Stars & Stripes Treasure Hunt
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Patriotic Dance Party
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support fourth of july learning through patriotic dance party.
 DESCRIPTION:
 Children celebrate with music and movement.
 MATERIALS:
 Music player
-DIRECTIONS:
-Play patriotic songs.
-Dance together.
-Follow movement directions.
+SETUP:
+Prepare materials for Patriotic Dance Party before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead movement activities.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play patriotic songs.
+2. Dance together.
+3. Follow movement directions.
 LEARNING_GOALS:
 Gross motor development and social participation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Patriotic Dance Party
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Fourth of July Celebration Circle
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support fourth of july learning through fourth of july celebration circle.
 DESCRIPTION:
 Review the week's activities and celebrate learning.
 MATERIALS:
 Books, visuals, songs
-DIRECTIONS:
-Discuss favorite activities.
-Review vocabulary.
-Sing favorite songs.
+SETUP:
+Prepare materials for Fourth of July Celebration Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead reflection and discussion.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Discuss favorite activities.
+2. Review vocabulary.
+3. Sing favorite songs.
 LEARNING_GOALS:
 Recall, language development, and social participation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Fourth of July Celebration Circle
+Use of fourth of july vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:

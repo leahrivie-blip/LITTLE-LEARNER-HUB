@@ -57,266 +57,746 @@ Provide high-contrast visuals, alternative sensory materials, adaptive positioni
 
 MONDAY
 
+DAILY_THEME:
+Summer Colors: Red Discovery Basket and related play (introduce calm bonding, faces, and soft sensory play)
+
+DAILY_OBJECTIVES:
+Support summer colors learning through red discovery basket.
+Support summer colors learning through red song time.
+Support summer colors learning through color story time.
+
+DAILY_VOCABULARY:
+Red, Blue, Yellow, Green, Orange, Purple
+
+DAILY_MATERIALS:
+Red toys, red scarves, red textured items
+Music player, red scarves
+Color-themed board books
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "The Rainbow Song" at a low volume while offering gentle movement or visual interest tied to summer colors.
+End with a brief look at Baby Colors or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate summer colors sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Red Discovery Basket
+Engagement during Red Song Time
+Engagement during Color Story Time
+Participation and interest in Summer Colors play
+
+DAILY_ADAPTATIONS:
+Provide high-contrast visuals, alternative sensory materials, adaptive positioning, and individualized support as needed.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
+
 ACTIVITY_NAME:
 Red Discovery Basket
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support summer colors learning through red discovery basket.
 DESCRIPTION:
 Infants explore red-colored objects through touch and sight.
 MATERIALS:
 Red toys, red scarves, red textured items
-DIRECTIONS:
-Place materials in basket.
-Encourage touching and grasping.
-Name the color red.
-Allow exploration.
+SETUP:
+Prepare materials for Red Discovery Basket before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Model color vocabulary and encourage exploration.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Place materials in basket.
+2. Encourage touching and grasping.
+3. Name the color red.
+4. Allow exploration.
 LEARNING_GOALS:
 Color awareness and sensory exploration.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Red Discovery Basket
+Use of summer colors vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Red Song Time
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support summer colors learning through red song time.
 DESCRIPTION:
 Infants listen to songs while exploring red objects.
 MATERIALS:
 Music player, red scarves
-DIRECTIONS:
-Play music.
-Move scarves gently.
-Encourage participation.
+SETUP:
+Prepare materials for Red Song Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead music experience.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play music.
+2. Move scarves gently.
+3. Encourage participation.
 LEARNING_GOALS:
 Auditory awareness and engagement.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Red Song Time
+Use of summer colors vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Color Story Time
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support summer colors learning through color story time.
 DESCRIPTION:
 Infants listen to a colorful board book.
 MATERIALS:
 Color-themed board books
-DIRECTIONS:
-Read story aloud.
-Point to colors.
-Repeat color words.
+SETUP:
+Prepare materials for Color Story Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support language development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Read story aloud.
+2. Point to colors.
+3. Repeat color words.
 LEARNING_GOALS:
 Early literacy and vocabulary development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Color Story Time
+Use of summer colors vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 TUESDAY
+
+DAILY_THEME:
+Summer Colors: Yellow Sunshine Exploration and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Support summer colors learning through yellow sunshine exploration.
+Support summer colors learning through sunshine mirror play.
+Support summer colors learning through yellow movement fun.
+
+DAILY_VOCABULARY:
+Red, Blue, Yellow, Green, Orange, Purple
+
+DAILY_MATERIALS:
+Yellow toys, yellow scarves, sun pictures
+Baby-safe mirrors
+Yellow scarves
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "The Rainbow Song" at a low volume while offering gentle movement or visual interest tied to summer colors.
+End with a brief look at Baby Colors or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate summer colors sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Yellow Sunshine Exploration
+Engagement during Sunshine Mirror Play
+Engagement during Yellow Movement Fun
+Participation and interest in Summer Colors play
+
+DAILY_ADAPTATIONS:
+Provide high-contrast visuals, alternative sensory materials, adaptive positioning, and individualized support as needed.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 Yellow Sunshine Exploration
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support summer colors learning through yellow sunshine exploration.
 DESCRIPTION:
 Infants explore yellow summer-themed materials.
 MATERIALS:
 Yellow toys, yellow scarves, sun pictures
-DIRECTIONS:
-Present yellow materials.
-Encourage exploration.
-Discuss the color yellow.
+SETUP:
+Prepare materials for Yellow Sunshine Exploration before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Model descriptive language.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Present yellow materials.
+2. Encourage exploration.
+3. Discuss the color yellow.
 LEARNING_GOALS:
 Color recognition and sensory awareness.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Yellow Sunshine Exploration
+Use of summer colors vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Sunshine Mirror Play
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support summer colors learning through sunshine mirror play.
 DESCRIPTION:
 Infants explore reflections while viewing yellow objects.
 MATERIALS:
 Baby-safe mirrors
-DIRECTIONS:
-Position mirrors safely.
-Show yellow objects.
-Encourage interaction.
+SETUP:
+Prepare materials for Sunshine Mirror Play before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support social interaction.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Position mirrors safely.
+2. Show yellow objects.
+3. Encourage interaction.
 LEARNING_GOALS:
 Social-emotional development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Sunshine Mirror Play
+Use of summer colors vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Yellow Movement Fun
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support summer colors learning through yellow movement fun.
 DESCRIPTION:
 Infants participate in simple movement experiences.
 MATERIALS:
 Yellow scarves
-DIRECTIONS:
-Move scarves overhead.
-Encourage reaching.
-Celebrate participation.
+SETUP:
+Prepare materials for Yellow Movement Fun before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support physical development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Move scarves overhead.
+2. Encourage reaching.
+3. Celebrate participation.
 LEARNING_GOALS:
 Gross motor development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Yellow Movement Fun
+Use of summer colors vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 WEDNESDAY
+
+DAILY_THEME:
+Summer Colors: Blue Ocean Discovery and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Support summer colors learning through blue ocean discovery.
+Support summer colors learning through bubble color tracking.
+Support summer colors learning through blue music time.
+
+DAILY_VOCABULARY:
+Red, Blue, Yellow, Green, Orange, Purple
+
+DAILY_MATERIALS:
+Blue scarves, blue toys
+Bubbles
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "The Rainbow Song" at a low volume while offering gentle movement or visual interest tied to summer colors.
+End with a brief look at Baby Colors or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate summer colors sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Blue Ocean Discovery
+Engagement during Bubble Color Tracking
+Engagement during Blue Music Time
+Participation and interest in Summer Colors play
+
+DAILY_ADAPTATIONS:
+Provide high-contrast visuals, alternative sensory materials, adaptive positioning, and individualized support as needed.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 Blue Ocean Discovery
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support summer colors learning through blue ocean discovery.
 DESCRIPTION:
 Infants explore blue ocean-themed materials.
 MATERIALS:
 Blue scarves, blue toys
-DIRECTIONS:
-Present materials.
-Encourage touching.
-Discuss the color blue.
+SETUP:
+Prepare materials for Blue Ocean Discovery before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide sensory exploration.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Present materials.
+2. Encourage touching.
+3. Discuss the color blue.
 LEARNING_GOALS:
 Color awareness and tactile development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Blue Ocean Discovery
+Use of summer colors vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Bubble Color Tracking
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support summer colors learning through bubble color tracking.
 DESCRIPTION:
 Infants watch colorful bubbles and practice visual tracking.
 MATERIALS:
 Bubbles
-DIRECTIONS:
-Blow bubbles.
-Encourage eye tracking.
-Observe reactions.
+SETUP:
+Prepare materials for Bubble Color Tracking before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support observation.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Blow bubbles.
+2. Encourage eye tracking.
+3. Observe reactions.
 LEARNING_GOALS:
 Visual tracking skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Bubble Color Tracking
+Use of summer colors vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Blue Music Time
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support summer colors learning through blue music time.
 DESCRIPTION:
 Infants enjoy music while exploring blue materials.
 MATERIALS:
 Music player
-DIRECTIONS:
-Play music.
-Move together.
-Encourage participation.
+SETUP:
+Prepare materials for Blue Music Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead activity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play music.
+2. Move together.
+3. Encourage participation.
 LEARNING_GOALS:
 Auditory development and engagement.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Blue Music Time
+Use of summer colors vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 THURSDAY
+
+DAILY_THEME:
+Summer Colors: Green Nature Discovery and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Support summer colors learning through green nature discovery.
+Support summer colors learning through rainbow sensory bag.
+Support summer colors learning through rainbow rhythm time.
+
+DAILY_VOCABULARY:
+Red, Blue, Yellow, Green, Orange, Purple
+
+DAILY_MATERIALS:
+Leaves, green scarves, nature photos
+Sensory bag, colorful ribbons, shapes
+Scarves, music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "The Rainbow Song" at a low volume while offering gentle movement or visual interest tied to summer colors.
+End with a brief look at Baby Colors or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate summer colors sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Green Nature Discovery
+Engagement during Rainbow Sensory Bag
+Engagement during Rainbow Rhythm Time
+Participation and interest in Summer Colors play
+
+DAILY_ADAPTATIONS:
+Provide high-contrast visuals, alternative sensory materials, adaptive positioning, and individualized support as needed.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 Green Nature Discovery
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support summer colors learning through green nature discovery.
 DESCRIPTION:
 Infants explore green nature-inspired materials.
 MATERIALS:
 Leaves, green scarves, nature photos
-DIRECTIONS:
-Present materials.
-Encourage exploration.
-Discuss the color green.
+SETUP:
+Prepare materials for Green Nature Discovery before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support sensory discovery.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Present materials.
+2. Encourage exploration.
+3. Discuss the color green.
 LEARNING_GOALS:
 Color recognition and environmental awareness.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Green Nature Discovery
+Use of summer colors vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Rainbow Sensory Bag
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support summer colors learning through rainbow sensory bag.
 DESCRIPTION:
 Infants explore a sealed sensory bag filled with colorful items.
 MATERIALS:
 Sensory bag, colorful ribbons, shapes
-DIRECTIONS:
-Place bag on floor.
-Encourage pressing and touching.
-Observe colors moving.
+SETUP:
+Prepare materials for Rainbow Sensory Bag before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide sensory exploration.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Place bag on floor.
+2. Encourage pressing and touching.
+3. Observe colors moving.
 LEARNING_GOALS:
 Visual awareness and sensory development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Rainbow Sensory Bag
+Use of summer colors vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Rainbow Rhythm Time
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support summer colors learning through rainbow rhythm time.
 DESCRIPTION:
 Infants enjoy colorful scarves and music.
 MATERIALS:
 Scarves, music player
-DIRECTIONS:
-Play music.
-Move scarves.
-Encourage visual tracking.
+SETUP:
+Prepare materials for Rainbow Rhythm Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead rhythm activities.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play music.
+2. Move scarves.
+3. Encourage visual tracking.
 LEARNING_GOALS:
 Auditory awareness and visual tracking.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Rainbow Rhythm Time
+Use of summer colors vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 FRIDAY
+
+DAILY_THEME:
+Summer Colors: Summer Color Parade and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Support summer colors learning through summer color parade.
+Support summer colors learning through rainbow treasure basket.
+Support summer colors learning through summer colors celebration circle.
+
+DAILY_VOCABULARY:
+Red, Blue, Yellow, Green, Orange, Purple
+
+DAILY_MATERIALS:
+Colorful toys, scarves, visuals
+Colorful toys, textured objects
+Books, visuals, songs
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "The Rainbow Song" at a low volume while offering gentle movement or visual interest tied to summer colors.
+End with a brief look at Baby Colors or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate summer colors sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Summer Color Parade
+Engagement during Rainbow Treasure Basket
+Engagement during Summer Colors Celebration Circle
+Participation and interest in Summer Colors play
+
+DAILY_ADAPTATIONS:
+Provide high-contrast visuals, alternative sensory materials, adaptive positioning, and individualized support as needed.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 Summer Color Parade
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support summer colors learning through summer color parade.
 DESCRIPTION:
 Infants explore all the colors discovered throughout the week.
 MATERIALS:
 Colorful toys, scarves, visuals
-DIRECTIONS:
-Present colorful materials.
-Review colors.
-Encourage exploration.
+SETUP:
+Prepare materials for Summer Color Parade before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Narrate discoveries and reinforce vocabulary.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Present colorful materials.
+2. Review colors.
+3. Encourage exploration.
 LEARNING_GOALS:
 Color recognition and language development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Summer Color Parade
+Use of summer colors vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Rainbow Treasure Basket
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support summer colors learning through rainbow treasure basket.
 DESCRIPTION:
 Infants explore a basket filled with colorful sensory materials.
 MATERIALS:
 Colorful toys, textured objects
-DIRECTIONS:
-Present materials.
-Encourage touching and grasping.
-Compare colors and textures.
+SETUP:
+Prepare materials for Rainbow Treasure Basket before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support sensory discovery.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Present materials.
+2. Encourage touching and grasping.
+3. Compare colors and textures.
 LEARNING_GOALS:
 Fine motor development and sensory exploration.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Rainbow Treasure Basket
+Use of summer colors vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Summer Colors Celebration Circle
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support summer colors learning through summer colors celebration circle.
 DESCRIPTION:
 Infants review favorite colors and experiences from the week.
 MATERIALS:
 Books, visuals, songs
-DIRECTIONS:
-Show colorful visuals.
-Review vocabulary.
-Sing favorite songs.
+SETUP:
+Prepare materials for Summer Colors Celebration Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead group experience.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Show colorful visuals.
+2. Review vocabulary.
+3. Sing favorite songs.
 LEARNING_GOALS:
 Vocabulary development and social participation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Summer Colors Celebration Circle
+Use of summer colors vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:

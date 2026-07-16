@@ -57,266 +57,746 @@ Provide adaptive positioning, alternative sensory materials, individualized supp
 
 MONDAY
 
+DAILY_THEME:
+Water Exploration: Water Discovery Basket and related play (introduce calm bonding, faces, and soft sensory play)
+
+DAILY_OBJECTIVES:
+Support water exploration learning through water discovery basket.
+Support water exploration learning through water song circle.
+Support water exploration learning through water story time.
+
+DAILY_VOCABULARY:
+Water, Splash, Float, Bubble, Wet, Wave
+
+DAILY_MATERIALS:
+Toy boats, cups, floating toys
+Music player
+Board books
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Row Row Row Your Boat" at a low volume while offering gentle movement or visual interest tied to water exploration.
+End with a brief look at Splish Splash Baby or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate water exploration sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Water Discovery Basket
+Engagement during Water Song Circle
+Engagement during Water Story Time
+Participation and interest in Water Exploration play
+
+DAILY_ADAPTATIONS:
+Provide adaptive positioning, alternative sensory materials, individualized support, and modified experiences as needed.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
+
 ACTIVITY_NAME:
 Water Discovery Basket
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support water exploration learning through water discovery basket.
 DESCRIPTION:
 Infants explore water-themed objects through touch and sight.
 MATERIALS:
 Toy boats, cups, floating toys
-DIRECTIONS:
-Place materials in basket.
-Encourage touching and grasping.
-Name objects.
-Allow exploration.
+SETUP:
+Prepare materials for Water Discovery Basket before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Model vocabulary and encourage curiosity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Place materials in basket.
+2. Encourage touching and grasping.
+3. Name objects.
+4. Allow exploration.
 LEARNING_GOALS:
 Sensory awareness and language development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Water Discovery Basket
+Use of water exploration vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Water Song Circle
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support water exploration learning through water song circle.
 DESCRIPTION:
 Infants listen and move to water-themed songs.
 MATERIALS:
 Music player
-DIRECTIONS:
-Play songs.
-Move gently together.
-Encourage participation.
+SETUP:
+Prepare materials for Water Song Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead music experience.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play songs.
+2. Move gently together.
+3. Encourage participation.
 LEARNING_GOALS:
 Auditory awareness and social engagement.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Water Song Circle
+Use of water exploration vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Water Story Time
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support water exploration learning through water story time.
 DESCRIPTION:
 Infants listen to a water-themed board book.
 MATERIALS:
 Board books
-DIRECTIONS:
-Read story aloud.
-Point to pictures.
-Repeat vocabulary words.
+SETUP:
+Prepare materials for Water Story Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support language development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Read story aloud.
+2. Point to pictures.
+3. Repeat vocabulary words.
 LEARNING_GOALS:
 Early literacy and vocabulary exposure.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Water Story Time
+Use of water exploration vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 TUESDAY
+
+DAILY_THEME:
+Water Exploration: Floating Toy Exploration and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Support water exploration learning through floating toy exploration.
+Support water exploration learning through blue scarf waves.
+Support water exploration learning through splash movement fun.
+
+DAILY_VOCABULARY:
+Water, Splash, Float, Bubble, Wet, Wave
+
+DAILY_MATERIALS:
+Clear tub, floating toys
+Blue scarves
+Open floor space
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Row Row Row Your Boat" at a low volume while offering gentle movement or visual interest tied to water exploration.
+End with a brief look at Splish Splash Baby or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate water exploration sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Floating Toy Exploration
+Engagement during Blue Scarf Waves
+Engagement during Splash Movement Fun
+Participation and interest in Water Exploration play
+
+DAILY_ADAPTATIONS:
+Provide adaptive positioning, alternative sensory materials, individualized support, and modified experiences as needed.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 Floating Toy Exploration
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support water exploration learning through floating toy exploration.
 DESCRIPTION:
 Infants observe floating objects in a clear container.
 MATERIALS:
 Clear tub, floating toys
-DIRECTIONS:
-Place toys in water.
-Encourage observation.
-Discuss movement.
+SETUP:
+Prepare materials for Floating Toy Exploration before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide sensory exploration.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Place toys in water.
+2. Encourage observation.
+3. Discuss movement.
 LEARNING_GOALS:
 Visual awareness and curiosity.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Floating Toy Exploration
+Use of water exploration vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Blue Scarf Waves
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support water exploration learning through blue scarf waves.
 DESCRIPTION:
 Infants watch blue scarves move like ocean waves.
 MATERIALS:
 Blue scarves
-DIRECTIONS:
-Move scarves gently.
-Encourage visual tracking.
-Discuss movement.
+SETUP:
+Prepare materials for Blue Scarf Waves before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support observation.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Move scarves gently.
+2. Encourage visual tracking.
+3. Discuss movement.
 LEARNING_GOALS:
 Visual tracking development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Blue Scarf Waves
+Use of water exploration vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Splash Movement Fun
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support water exploration learning through splash movement fun.
 DESCRIPTION:
 Infants participate in water-inspired movement activities.
 MATERIALS:
 Open floor space
-DIRECTIONS:
-Encourage reaching and stretching.
-Move arms like splashing water.
-Celebrate participation.
+SETUP:
+Prepare materials for Splash Movement Fun before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support physical development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Encourage reaching and stretching.
+2. Move arms like splashing water.
+3. Celebrate participation.
 LEARNING_GOALS:
 Gross motor development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Splash Movement Fun
+Use of water exploration vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 WEDNESDAY
+
+DAILY_THEME:
+Water Exploration: Bubble Watching and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Support water exploration learning through bubble watching.
+Support water exploration learning through water sensory bag.
+Support water exploration learning through water music time.
+
+DAILY_VOCABULARY:
+Water, Splash, Float, Bubble, Wet, Wave
+
+DAILY_MATERIALS:
+Bubbles
+Water sensory bag, floating shapes
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Row Row Row Your Boat" at a low volume while offering gentle movement or visual interest tied to water exploration.
+End with a brief look at Splish Splash Baby or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate water exploration sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Bubble Watching
+Engagement during Water Sensory Bag
+Engagement during Water Music Time
+Participation and interest in Water Exploration play
+
+DAILY_ADAPTATIONS:
+Provide adaptive positioning, alternative sensory materials, individualized support, and modified experiences as needed.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 Bubble Watching
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support water exploration learning through bubble watching.
 DESCRIPTION:
 Infants watch and track floating bubbles.
 MATERIALS:
 Bubbles
-DIRECTIONS:
-Blow bubbles.
-Encourage eye tracking.
-Observe reactions.
+SETUP:
+Prepare materials for Bubble Watching before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support observation.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Blow bubbles.
+2. Encourage eye tracking.
+3. Observe reactions.
 LEARNING_GOALS:
 Visual tracking skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Bubble Watching
+Use of water exploration vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Water Sensory Bag
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support water exploration learning through water sensory bag.
 DESCRIPTION:
 Infants explore a sealed water sensory bag.
 MATERIALS:
 Water sensory bag, floating shapes
-DIRECTIONS:
-Place bag on floor.
-Encourage pressing and touching.
-Observe movement.
+SETUP:
+Prepare materials for Water Sensory Bag before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide sensory exploration.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Place bag on floor.
+2. Encourage pressing and touching.
+3. Observe movement.
 LEARNING_GOALS:
 Tactile awareness and visual exploration.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Water Sensory Bag
+Use of water exploration vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Water Music Time
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support water exploration learning through water music time.
 DESCRIPTION:
 Infants enjoy songs about water and summer.
 MATERIALS:
 Music player
-DIRECTIONS:
-Play music.
-Move together.
-Encourage engagement.
+SETUP:
+Prepare materials for Water Music Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead music activities.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play music.
+2. Move together.
+3. Encourage engagement.
 LEARNING_GOALS:
 Auditory development and participation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Water Music Time
+Use of water exploration vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 THURSDAY
+
+DAILY_THEME:
+Water Exploration: Cool Washcloth Exploration and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Support water exploration learning through cool washcloth exploration.
+Support water exploration learning through mirror water faces.
+Support water exploration learning through boat rhythm time.
+
+DAILY_VOCABULARY:
+Water, Splash, Float, Bubble, Wet, Wave
+
+DAILY_MATERIALS:
+Soft washcloths
+Baby-safe mirrors
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Row Row Row Your Boat" at a low volume while offering gentle movement or visual interest tied to water exploration.
+End with a brief look at Splish Splash Baby or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate water exploration sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Cool Washcloth Exploration
+Engagement during Mirror Water Faces
+Engagement during Boat Rhythm Time
+Participation and interest in Water Exploration play
+
+DAILY_ADAPTATIONS:
+Provide adaptive positioning, alternative sensory materials, individualized support, and modified experiences as needed.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 Cool Washcloth Exploration
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support water exploration learning through cool washcloth exploration.
 DESCRIPTION:
 Infants explore cool damp washcloths through touch.
 MATERIALS:
 Soft washcloths
-DIRECTIONS:
-Offer washcloths.
-Encourage touching and grasping.
-Describe temperature and texture.
+SETUP:
+Prepare materials for Cool Washcloth Exploration before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support sensory learning.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Offer washcloths.
+2. Encourage touching and grasping.
+3. Describe temperature and texture.
 LEARNING_GOALS:
 Tactile exploration and sensory awareness.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Cool Washcloth Exploration
+Use of water exploration vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Mirror Water Faces
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support water exploration learning through mirror water faces.
 DESCRIPTION:
 Infants explore facial expressions while looking in mirrors.
 MATERIALS:
 Baby-safe mirrors
-DIRECTIONS:
-Position mirrors safely.
-Encourage interaction.
-Talk about reflections.
+SETUP:
+Prepare materials for Mirror Water Faces before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support social interaction.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Position mirrors safely.
+2. Encourage interaction.
+3. Talk about reflections.
 LEARNING_GOALS:
 Social-emotional development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Mirror Water Faces
+Use of water exploration vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Boat Rhythm Time
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support water exploration learning through boat rhythm time.
 DESCRIPTION:
 Infants move gently while listening to boat-themed songs.
 MATERIALS:
 Music player
-DIRECTIONS:
-Play music.
-Rock gently like a boat.
-Encourage participation.
+SETUP:
+Prepare materials for Boat Rhythm Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead rhythm activities.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play music.
+2. Rock gently like a boat.
+3. Encourage participation.
 LEARNING_GOALS:
 Auditory awareness and movement.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Boat Rhythm Time
+Use of water exploration vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 FRIDAY
+
+DAILY_THEME:
+Water Exploration: Water Adventure Walk and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Support water exploration learning through water adventure walk.
+Support water exploration learning through splash sensory basket.
+Support water exploration learning through water play wonders celebration circle.
+
+DAILY_VOCABULARY:
+Water, Splash, Float, Bubble, Wet, Wave
+
+DAILY_MATERIALS:
+Water pictures, toy boats, ocean visuals
+Floating toys, cups, textured items
+Books, visuals, songs
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Row Row Row Your Boat" at a low volume while offering gentle movement or visual interest tied to water exploration.
+End with a brief look at Splish Splash Baby or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate water exploration sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Water Adventure Walk
+Engagement during Splash Sensory Basket
+Engagement during Water Play Wonders Celebration Circle
+Participation and interest in Water Exploration play
+
+DAILY_ADAPTATIONS:
+Provide adaptive positioning, alternative sensory materials, individualized support, and modified experiences as needed.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 Water Adventure Walk
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support water exploration learning through water adventure walk.
 DESCRIPTION:
 Infants explore water-themed visuals and materials around the classroom.
 MATERIALS:
 Water pictures, toy boats, ocean visuals
-DIRECTIONS:
-Visit exploration stations.
-Observe materials.
-Discuss discoveries.
+SETUP:
+Prepare materials for Water Adventure Walk before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Narrate experiences and encourage engagement.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Visit exploration stations.
+2. Observe materials.
+3. Discuss discoveries.
 LEARNING_GOALS:
 Environmental awareness and language development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Water Adventure Walk
+Use of water exploration vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Splash Sensory Basket
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support water exploration learning through splash sensory basket.
 DESCRIPTION:
 Infants explore safe water-themed sensory materials.
 MATERIALS:
 Floating toys, cups, textured items
-DIRECTIONS:
-Present materials.
-Encourage touching and grasping.
-Compare textures and shapes.
+SETUP:
+Prepare materials for Splash Sensory Basket before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support sensory discovery.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Present materials.
+2. Encourage touching and grasping.
+3. Compare textures and shapes.
 LEARNING_GOALS:
 Fine motor development and sensory exploration.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Splash Sensory Basket
+Use of water exploration vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Water Play Wonders Celebration Circle
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support water exploration learning through water play wonders celebration circle.
 DESCRIPTION:
 Infants review favorite water experiences from the week.
 MATERIALS:
 Books, visuals, songs
-DIRECTIONS:
-Show photos and visuals.
-Review vocabulary.
-Sing favorite songs.
+SETUP:
+Prepare materials for Water Play Wonders Celebration Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead group experience.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Show photos and visuals.
+2. Review vocabulary.
+3. Sing favorite songs.
 LEARNING_GOALS:
 Vocabulary development and social participation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Water Play Wonders Celebration Circle
+Use of water exploration vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:

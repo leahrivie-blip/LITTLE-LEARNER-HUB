@@ -57,268 +57,748 @@ Provide visual supports, adaptive tools, peer partners, simplified recording she
 
 MONDAY
 
+DAILY_THEME:
+Zoo Veterinarians & Animal Care: Veterinary Clinic Opening Day and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Support zoo veterinarians & animal care learning through veterinary clinic opening day.
+Support zoo veterinarians & animal care learning through animal check-up station.
+Support zoo veterinarians & animal care learning through veterinarian story time.
+
+DAILY_VOCABULARY:
+Veterinarian, Healthy, Habitat, Animal, Care, Examine
+
+DAILY_MATERIALS:
+Stuffed animals, toy medical kit
+Stuffed animals, stethoscopes, clipboards
+Veterinarian-themed book
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to zoo veterinarians & animal care.
+Sing "Old MacDonald Had a Farm" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit I Want to Be a Veterinarian and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to zoo veterinarians & animal care — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Veterinary Clinic Opening Day / Animal Check-Up Station).
+
+DAILY_OBSERVATIONS:
+Engagement during Veterinary Clinic Opening Day
+Engagement during Animal Check-Up Station
+Engagement during Veterinarian Story Time
+Participation and interest in Zoo Veterinarians & Animal Care play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive tools, peer partners, simplified recording sheets, and additional guidance as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+
 ACTIVITY_NAME:
 Veterinary Clinic Opening Day
 CATEGORY:
 Dramatic Play
+OBJECTIVE:
+Support zoo veterinarians & animal care learning through veterinary clinic opening day.
 DESCRIPTION:
 Children set up a classroom veterinary clinic.
 MATERIALS:
 Stuffed animals, toy medical kit
-DIRECTIONS:
-Introduce veterinary tools.
-Set up clinic stations.
-Assign roles.
-Explore materials.
+SETUP:
+Prepare materials for Veterinary Clinic Opening Day before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Introduce veterinary vocabulary and procedures.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Introduce veterinary tools.
+2. Set up clinic stations.
+3. Assign roles.
+4. Explore materials.
 LEARNING_GOALS:
 Imaginative play and communication skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Veterinary Clinic Opening Day
+Use of zoo veterinarians & animal care vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Animal Check-Up Station
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support zoo veterinarians & animal care learning through animal check-up station.
 DESCRIPTION:
 Children perform pretend health checks on stuffed animals.
 MATERIALS:
 Stuffed animals, stethoscopes, clipboards
-DIRECTIONS:
-Examine animal.
-Listen to heartbeat.
-Record observations.
-Discuss findings.
+SETUP:
+Prepare materials for Animal Check-Up Station before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Model observation skills.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Examine animal.
+2. Listen to heartbeat.
+3. Record observations.
+4. Discuss findings.
 LEARNING_GOALS:
 Scientific observation and empathy.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Animal Check-Up Station
+Use of zoo veterinarians & animal care vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Veterinarian Story Time
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support zoo veterinarians & animal care learning through veterinarian story time.
 DESCRIPTION:
 Read a story about animal doctors.
 MATERIALS:
 Veterinarian-themed book
-DIRECTIONS:
-Read story.
-Discuss animal care.
-Ask questions.
+SETUP:
+Prepare materials for Veterinarian Story Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support literacy development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Read story.
+2. Discuss animal care.
+3. Ask questions.
 LEARNING_GOALS:
 Listening comprehension and vocabulary.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Veterinarian Story Time
+Use of zoo veterinarians & animal care vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 TUESDAY
+
+DAILY_THEME:
+Zoo Veterinarians & Animal Care: Animal Habitat Match and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Support zoo veterinarians & animal care learning through animal habitat match.
+Support zoo veterinarians & animal care learning through zoo animal x-rays.
+Support zoo veterinarians & animal care learning through animal movement lab.
+
+DAILY_VOCABULARY:
+Veterinarian, Healthy, Habitat, Animal, Care, Examine
+
+DAILY_MATERIALS:
+Animal cards, habitat boards
+Black paper, white crayons
+Animal cards
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to zoo veterinarians & animal care.
+Sing "Old MacDonald Had a Farm" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit I Want to Be a Veterinarian and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to zoo veterinarians & animal care — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Animal Habitat Match / Zoo Animal X-Rays).
+
+DAILY_OBSERVATIONS:
+Engagement during Animal Habitat Match
+Engagement during Zoo Animal X-Rays
+Engagement during Animal Movement Lab
+Participation and interest in Zoo Veterinarians & Animal Care play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive tools, peer partners, simplified recording sheets, and additional guidance as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Animal Habitat Match
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support zoo veterinarians & animal care learning through animal habitat match.
 DESCRIPTION:
 Children match zoo animals to their habitats.
 MATERIALS:
 Animal cards, habitat boards
-DIRECTIONS:
-Identify animals.
-Match habitat.
-Explain choices.
+SETUP:
+Prepare materials for Animal Habitat Match before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide scientific discussions.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Identify animals.
+2. Match habitat.
+3. Explain choices.
 LEARNING_GOALS:
 Classification and reasoning skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Animal Habitat Match
+Use of zoo veterinarians & animal care vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Zoo Animal X-Rays
 CATEGORY:
 Art
+OBJECTIVE:
+Support zoo veterinarians & animal care learning through zoo animal x-rays.
 DESCRIPTION:
 Children create pretend animal x-rays.
 MATERIALS:
 Black paper, white crayons
-DIRECTIONS:
-Draw animal skeleton.
-Decorate x-ray.
-Share creation.
+SETUP:
+Prepare materials for Zoo Animal X-Rays before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support creativity and science connections.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Draw animal skeleton.
+2. Decorate x-ray.
+3. Share creation.
 LEARNING_GOALS:
 Fine motor skills and scientific awareness.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Zoo Animal X-Rays
+Use of zoo veterinarians & animal care vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Animal Movement Lab
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support zoo veterinarians & animal care learning through animal movement lab.
 DESCRIPTION:
 Children move like different zoo animals.
 MATERIALS:
 Animal cards
-DIRECTIONS:
-Choose animal.
-Demonstrate movement.
-Children imitate.
+SETUP:
+Prepare materials for Animal Movement Lab before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead movement activity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Choose animal.
+2. Demonstrate movement.
+3. Children imitate.
 LEARNING_GOALS:
 Coordination and body awareness.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Animal Movement Lab
+Use of zoo veterinarians & animal care vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 WEDNESDAY
+
+DAILY_THEME:
+Zoo Veterinarians & Animal Care: Weigh the Animals and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Support zoo veterinarians & animal care learning through weigh the animals.
+Support zoo veterinarians & animal care learning through bandage the animals.
+Support zoo veterinarians & animal care learning through veterinary circle time.
+
+DAILY_VOCABULARY:
+Veterinarian, Healthy, Habitat, Animal, Care, Examine
+
+DAILY_MATERIALS:
+Toy animals, balance scale
+Bandages, stuffed animals
+Animal pictures
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to zoo veterinarians & animal care.
+Sing "Old MacDonald Had a Farm" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit I Want to Be a Veterinarian and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to zoo veterinarians & animal care — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Weigh the Animals / Bandage the Animals).
+
+DAILY_OBSERVATIONS:
+Engagement during Weigh the Animals
+Engagement during Bandage the Animals
+Engagement during Veterinary Circle Time
+Participation and interest in Zoo Veterinarians & Animal Care play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive tools, peer partners, simplified recording sheets, and additional guidance as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Weigh the Animals
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support zoo veterinarians & animal care learning through weigh the animals.
 DESCRIPTION:
 Children compare and measure animal weights.
 MATERIALS:
 Toy animals, balance scale
-DIRECTIONS:
-Place animals on scale.
-Compare weights.
-Record results.
+SETUP:
+Prepare materials for Weigh the Animals before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support math vocabulary.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Place animals on scale.
+2. Compare weights.
+3. Record results.
 LEARNING_GOALS:
 Measurement and comparison skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Weigh the Animals
+Use of zoo veterinarians & animal care vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Bandage the Animals
 CATEGORY:
 Fine Motor
+OBJECTIVE:
+Support zoo veterinarians & animal care learning through bandage the animals.
 DESCRIPTION:
 Children practice wrapping bandages on stuffed animals.
 MATERIALS:
 Bandages, stuffed animals
-DIRECTIONS:
-Wrap bandage carefully.
-Secure gently.
-Help animal recover.
+SETUP:
+Prepare materials for Bandage the Animals before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Model techniques.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Wrap bandage carefully.
+2. Secure gently.
+3. Help animal recover.
 LEARNING_GOALS:
 Fine motor development and empathy.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Bandage the Animals
+Use of zoo veterinarians & animal care vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Veterinary Circle Time
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support zoo veterinarians & animal care learning through veterinary circle time.
 DESCRIPTION:
 Discuss how veterinarians help animals.
 MATERIALS:
 Animal pictures
-DIRECTIONS:
-Discuss animal care.
-Share experiences.
-Review vocabulary.
+SETUP:
+Prepare materials for Veterinary Circle Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead discussion.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Discuss animal care.
+2. Share experiences.
+3. Review vocabulary.
 LEARNING_GOALS:
 Communication and social awareness.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Veterinary Circle Time
+Use of zoo veterinarians & animal care vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 THURSDAY
+
+DAILY_THEME:
+Zoo Veterinarians & Animal Care: Animal Rescue Mission and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Support zoo veterinarians & animal care learning through animal rescue mission.
+Support zoo veterinarians & animal care learning through healthy vs. unhealthy choices.
+Support zoo veterinarians & animal care learning through animal care songs.
+
+DAILY_VOCABULARY:
+Veterinarian, Healthy, Habitat, Animal, Care, Examine
+
+DAILY_MATERIALS:
+Stuffed animals, rescue carriers
+Picture cards
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to zoo veterinarians & animal care.
+Sing "Old MacDonald Had a Farm" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit I Want to Be a Veterinarian and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to zoo veterinarians & animal care — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Animal Rescue Mission / Healthy vs. Unhealthy Choices).
+
+DAILY_OBSERVATIONS:
+Engagement during Animal Rescue Mission
+Engagement during Healthy vs. Unhealthy Choices
+Engagement during Animal Care Songs
+Participation and interest in Zoo Veterinarians & Animal Care play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive tools, peer partners, simplified recording sheets, and additional guidance as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Animal Rescue Mission
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support zoo veterinarians & animal care learning through animal rescue mission.
 DESCRIPTION:
 Children rescue animals and transport them safely to the clinic.
 MATERIALS:
 Stuffed animals, rescue carriers
-DIRECTIONS:
-Locate animals.
-Rescue safely.
-Bring to clinic.
-Provide care.
+SETUP:
+Prepare materials for Animal Rescue Mission before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Encourage teamwork.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Locate animals.
+2. Rescue safely.
+3. Bring to clinic.
+4. Provide care.
 LEARNING_GOALS:
 Problem-solving and cooperation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Animal Rescue Mission
+Use of zoo veterinarians & animal care vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Healthy vs. Unhealthy Choices
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support zoo veterinarians & animal care learning through healthy vs. unhealthy choices.
 DESCRIPTION:
 Children sort pictures into healthy and unhealthy categories.
 MATERIALS:
 Picture cards
-DIRECTIONS:
-Examine pictures.
-Sort into groups.
-Discuss choices.
+SETUP:
+Prepare materials for Healthy vs. Unhealthy Choices before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide health discussions.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Examine pictures.
+2. Sort into groups.
+3. Discuss choices.
 LEARNING_GOALS:
 Health awareness and critical thinking.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Healthy vs. Unhealthy Choices
+Use of zoo veterinarians & animal care vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Animal Care Songs
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support zoo veterinarians & animal care learning through animal care songs.
 DESCRIPTION:
 Children sing songs about caring for animals.
 MATERIALS:
 Music player
-DIRECTIONS:
-Sing songs.
-Add movements.
-Repeat favorites.
+SETUP:
+Prepare materials for Animal Care Songs before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead music activity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Sing songs.
+2. Add movements.
+3. Repeat favorites.
 LEARNING_GOALS:
 Participation and language development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Animal Care Songs
+Use of zoo veterinarians & animal care vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 FRIDAY
+
+DAILY_THEME:
+Zoo Veterinarians & Animal Care: Zoo Veterinarian Challenge Stations and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Support zoo veterinarians & animal care learning through zoo veterinarian challenge stations.
+Support zoo veterinarians & animal care learning through junior veterinarian graduation.
+Support zoo veterinarians & animal care learning through zoo veterinarians celebration circle.
+
+DAILY_VOCABULARY:
+Veterinarian, Healthy, Habitat, Animal, Care, Examine
+
+DAILY_MATERIALS:
+Medical tools, stuffed animals, scales
+Certificates, badges
+Photos, journals, books
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to zoo veterinarians & animal care.
+Sing "Old MacDonald Had a Farm" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit I Want to Be a Veterinarian and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to zoo veterinarians & animal care — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Zoo Veterinarian Challenge Stations / Junior Veterinarian Graduation).
+
+DAILY_OBSERVATIONS:
+Engagement during Zoo Veterinarian Challenge Stations
+Engagement during Junior Veterinarian Graduation
+Engagement during Zoo Veterinarians Celebration Circle
+Participation and interest in Zoo Veterinarians & Animal Care play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive tools, peer partners, simplified recording sheets, and additional guidance as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Zoo Veterinarian Challenge Stations
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support zoo veterinarians & animal care learning through zoo veterinarian challenge stations.
 DESCRIPTION:
 Children rotate through veterinary care stations.
 MATERIALS:
 Medical tools, stuffed animals, scales
-DIRECTIONS:
-Visit each station.
-Complete animal care tasks.
-Record observations.
+SETUP:
+Prepare materials for Zoo Veterinarian Challenge Stations before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support exploration and learning.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Visit each station.
+2. Complete animal care tasks.
+3. Record observations.
 LEARNING_GOALS:
 Application of veterinary skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Zoo Veterinarian Challenge Stations
+Use of zoo veterinarians & animal care vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Junior Veterinarian Graduation
 CATEGORY:
 Dramatic Play
+OBJECTIVE:
+Support zoo veterinarians & animal care learning through junior veterinarian graduation.
 DESCRIPTION:
 Children receive certificates for completing veterinarian training.
 MATERIALS:
 Certificates, badges
-DIRECTIONS:
-Celebrate accomplishments.
-Present certificates.
-Share favorite memories.
+SETUP:
+Prepare materials for Junior Veterinarian Graduation before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Recognize achievements.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Celebrate accomplishments.
+2. Present certificates.
+3. Share favorite memories.
 LEARNING_GOALS:
 Confidence and self-esteem.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Junior Veterinarian Graduation
+Use of zoo veterinarians & animal care vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Zoo Veterinarians Celebration Circle
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support zoo veterinarians & animal care learning through zoo veterinarians celebration circle.
 DESCRIPTION:
 Review favorite animal care activities and discoveries.
 MATERIALS:
 Photos, journals, books
-DIRECTIONS:
-Share favorite activities.
-Review vocabulary.
-Celebrate learning.
+SETUP:
+Prepare materials for Zoo Veterinarians Celebration Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead reflection.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Share favorite activities.
+2. Review vocabulary.
+3. Celebrate learning.
 LEARNING_GOALS:
 Language development and social participation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Zoo Veterinarians Celebration Circle
+Use of zoo veterinarians & animal care vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

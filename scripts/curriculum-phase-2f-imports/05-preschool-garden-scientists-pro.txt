@@ -1,7 +1,7 @@
 TITLE:
 Preschool Garden Scientists
 
-AGE GROUP:
+AGE_GROUP:
 Preschool
 
 THEME:
@@ -13,18 +13,18 @@ Pro
 STATUS:
 draft
 
-LEARNING DOMAINS:
+LEARNING_DOMAINS:
 Science, Math, Language & Literacy, Physical Development
 
-WEEKLY OVERVIEW:
+WEEKLY_OVERVIEW:
 Preschoolers investigate soil, seeds, leaves, and garden helpers through hands-on science play, measurement, and outdoor-style movement indoors or outside.
 
-LEARNING OBJECTIVES:
+LEARNING_OBJECTIVES:
 Children will observe and describe plant or soil changes using science words.
 Children will count, compare, and sort garden materials.
 Children will cooperate during shared garden investigations.
 
-WEEKLY MATERIALS:
+WEEKLY_MATERIALS:
 Soil trays, seeds, magnifying glasses, measuring cups, spray bottles, paper, crayons, sorting trays, pretend gardening tools, plant picture cards
 
 VOCABULARY:
@@ -38,176 +38,571 @@ SONGS:
 Oats Peas Beans and Barley Grow | Planting circle song
 The Farmer Plants the Seeds | Action song for planting sequence
 
-FAMILY CONNECTION:
+FAMILY_CONNECTION:
 Ask families to send a leaf, seed packet photo, or garden story from home for the Friday scientist share circle.
 
-OBSERVATION OPPORTUNITIES:
+OBSERVATION_OPPORTUNITIES:
 Listen for science vocabulary, note careful tool use, and document how children explain predictions vs. observations.
 
 ADAPTATIONS:
 Provide pre-moistened soil for children avoiding dry dust. Offer visual sequence cards for multi-step planting. Pair peers for shared tool turns.
 
-MONDAY:
-ACTIVITY NAME:
+MONDAY
+
+DAILY_THEME:
+Garden Scientists: Soil Scientists Tray and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Support garden scientists learning through soil scientists tray.
+Support garden scientists learning through seed sort lab.
+
+DAILY_VOCABULARY:
+seed, soil, sprout, root, observe, measure
+
+DAILY_MATERIALS:
+Soil trays, scoops, magnifying glasses, smocks
+Mixed seeds, sorting trays, tweezers optional
+
+DAILY_LEARNING_DOMAINS:
+Science, Math, Language & Literacy, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to garden scientists.
+Sing "Oats Peas Beans and Barley Grow" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit The Tiny Seed by Eric Carle and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to garden scientists — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Soil Scientists Tray / Seed Sort Lab).
+
+DAILY_OBSERVATIONS:
+Engagement during Soil Scientists Tray
+Engagement during Seed Sort Lab
+Participation and interest in Garden Scientists play
+
+DAILY_ADAPTATIONS:
+Provide pre-moistened soil for children avoiding dry dust. Offer visual sequence cards for multi-step planting. Pair peers for shared tool turns.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+
+ACTIVITY_NAME:
 Soil Scientists Tray
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support garden scientists learning through soil scientists tray.
+DESCRIPTION:
+Children explore moist soil with hands and tools, describing texture. Children explore garden scientists through soil scientists tray.
 MATERIALS:
 Soil trays, scoops, magnifying glasses, smocks
 SETUP:
 Children explore moist soil with hands and tools, describing texture.
+TEACHER_ROLE:
+Facilitate soil scientists tray, ask open-ended questions, and connect discoveries back to garden scientists.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Invite children to feel and scoop soil.
 2. Ask what they notice: wet, dry, bumpy.
 3. Record one group observation on a chart.
-LEARNING GOAL:
+LEARNING_GOALS:
 Observe and describe soil properties
 Use science talk with peers
+OBSERVATION_OPPORTUNITIES:
+Engagement during Soil Scientists Tray
+Use of garden scientists vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Seed Sort Lab
 CATEGORY:
 Fine Motor
+OBJECTIVE:
+Support garden scientists learning through seed sort lab.
+DESCRIPTION:
+Children sort seeds by size or type onto trays. Children explore garden scientists through seed sort lab.
 MATERIALS:
 Mixed seeds, sorting trays, tweezers optional
 SETUP:
 Children sort seeds by size or type onto trays.
+TEACHER_ROLE:
+Facilitate seed sort lab, ask open-ended questions, and connect discoveries back to garden scientists.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Show two seed types and name them.
 2. Sort seeds into trays.
 3. Count how many are in each tray.
-LEARNING GOAL:
+LEARNING_GOALS:
 Sort by attribute
 Strengthen fine-motor control
+OBSERVATION_OPPORTUNITIES:
+Engagement during Seed Sort Lab
+Use of garden scientists vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-TUESDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Garden Scientists: Garden Center Shop and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Support garden scientists learning through garden center shop.
+Support garden scientists learning through watering can walk.
+
+DAILY_VOCABULARY:
+seed, soil, sprout, root, observe, measure
+
+DAILY_MATERIALS:
+Seed packets, pots, play money, baskets
+Lightweight watering cans, small water amount, path markers
+
+DAILY_LEARNING_DOMAINS:
+Science, Math, Language & Literacy, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to garden scientists.
+Sing "Oats Peas Beans and Barley Grow" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit The Tiny Seed by Eric Carle and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to garden scientists — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Garden Center Shop / Watering Can Walk).
+
+DAILY_OBSERVATIONS:
+Engagement during Garden Center Shop
+Engagement during Watering Can Walk
+Participation and interest in Garden Scientists play
+
+DAILY_ADAPTATIONS:
+Provide pre-moistened soil for children avoiding dry dust. Offer visual sequence cards for multi-step planting. Pair peers for shared tool turns.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+
+ACTIVITY_NAME:
 Garden Center Shop
 CATEGORY:
 Dramatic Play
+OBJECTIVE:
+Support garden scientists learning through garden center shop.
+DESCRIPTION:
+Children pretend to sell seeds, pots, and tools in a garden shop. Children explore garden scientists through garden center shop.
 MATERIALS:
 Seed packets, pots, play money, baskets
 SETUP:
 Children pretend to sell seeds, pots, and tools in a garden shop.
+TEACHER_ROLE:
+Facilitate garden center shop, ask open-ended questions, and connect discoveries back to garden scientists.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Set roles: gardener and shopkeeper.
 2. Request and gather garden supplies.
 3. Use polite customer language.
-LEARNING GOAL:
+LEARNING_GOALS:
 Practice cooperative pretend roles
 Use garden vocabulary in context
+OBSERVATION_OPPORTUNITIES:
+Engagement during Garden Center Shop
+Use of garden scientists vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Watering Can Walk
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support garden scientists learning through watering can walk.
+DESCRIPTION:
+Children carry lightweight watering cans along a path without spilling. Children explore garden scientists through watering can walk.
 MATERIALS:
 Lightweight watering cans, small water amount, path markers
 SETUP:
 Children carry lightweight watering cans along a path without spilling.
+TEACHER_ROLE:
+Facilitate watering can walk, ask open-ended questions, and connect discoveries back to garden scientists.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Fill cans with a small amount of water.
 2. Walk the path carefully.
 3. Water a pretend plant bed at the end.
-LEARNING GOAL:
+LEARNING_GOALS:
 Coordinate careful carrying
 Control body movement with a tool
+OBSERVATION_OPPORTUNITIES:
+Engagement during Watering Can Walk
+Use of garden scientists vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-WEDNESDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Garden Scientists: Sprout Prediction Journal and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Support garden scientists learning through sprout prediction journal.
+Support garden scientists learning through seed to sprout dance.
+
+DAILY_VOCABULARY:
+seed, soil, sprout, root, observe, measure
+
+DAILY_MATERIALS:
+Paper, crayons, seed picture cards
+Music speaker
+
+DAILY_LEARNING_DOMAINS:
+Science, Math, Language & Literacy, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to garden scientists.
+Sing "Oats Peas Beans and Barley Grow" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit The Tiny Seed by Eric Carle and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to garden scientists — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Sprout Prediction Journal / Seed to Sprout Dance).
+
+DAILY_OBSERVATIONS:
+Engagement during Sprout Prediction Journal
+Engagement during Seed to Sprout Dance
+Participation and interest in Garden Scientists play
+
+DAILY_ADAPTATIONS:
+Provide pre-moistened soil for children avoiding dry dust. Offer visual sequence cards for multi-step planting. Pair peers for shared tool turns.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+
+ACTIVITY_NAME:
 Sprout Prediction Journal
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support garden scientists learning through sprout prediction journal.
+DESCRIPTION:
+Children draw predictions about what seeds need to grow. Children explore garden scientists through sprout prediction journal.
 MATERIALS:
 Paper, crayons, seed picture cards
 SETUP:
 Children draw predictions about what seeds need to grow.
+TEACHER_ROLE:
+Facilitate sprout prediction journal, ask open-ended questions, and connect discoveries back to garden scientists.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Look at seed cards together.
 2. Ask what seeds might need.
 3. Draw or dictate a prediction.
-LEARNING GOAL:
+LEARNING_GOALS:
 Make a simple scientific prediction
 Represent ideas through drawing
+OBSERVATION_OPPORTUNITIES:
+Engagement during Sprout Prediction Journal
+Use of garden scientists vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Seed to Sprout Dance
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support garden scientists learning through seed to sprout dance.
+DESCRIPTION:
+Children curl like seeds then slowly rise like sprouts to music. Children explore garden scientists through seed to sprout dance.
 MATERIALS:
 Music speaker
 SETUP:
 Children curl like seeds then slowly rise like sprouts to music.
+TEACHER_ROLE:
+Facilitate seed to sprout dance, ask open-ended questions, and connect discoveries back to garden scientists.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Curl small on the floor like a seed.
 2. Add rain and sun motions.
 3. Rise slowly into a sprout stretch.
-LEARNING GOAL:
+LEARNING_GOALS:
 Represent a life cycle through movement
 Follow multi-step movement cues
+OBSERVATION_OPPORTUNITIES:
+Engagement during Seed to Sprout Dance
+Use of garden scientists vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-THURSDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Garden Scientists: Mist and Moisture Test and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Support garden scientists learning through mist and moisture test.
+Support garden scientists learning through leaf rubbing collectors.
+
+DAILY_VOCABULARY:
+seed, soil, sprout, root, observe, measure
+
+DAILY_MATERIALS:
+Spray bottles, soil cups, observation chart
+Leaves, paper, crayons
+
+DAILY_LEARNING_DOMAINS:
+Science, Math, Language & Literacy, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to garden scientists.
+Sing "Oats Peas Beans and Barley Grow" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit The Tiny Seed by Eric Carle and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to garden scientists — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Mist and Moisture Test / Leaf Rubbing Collectors).
+
+DAILY_OBSERVATIONS:
+Engagement during Mist and Moisture Test
+Engagement during Leaf Rubbing Collectors
+Participation and interest in Garden Scientists play
+
+DAILY_ADAPTATIONS:
+Provide pre-moistened soil for children avoiding dry dust. Offer visual sequence cards for multi-step planting. Pair peers for shared tool turns.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+
+ACTIVITY_NAME:
 Mist and Moisture Test
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support garden scientists learning through mist and moisture test.
+DESCRIPTION:
+Children mist soil and compare damp vs. dry samples. Children explore garden scientists through mist and moisture test.
 MATERIALS:
 Spray bottles, soil cups, observation chart
 SETUP:
 Children mist soil and compare damp vs. dry samples.
+TEACHER_ROLE:
+Facilitate mist and moisture test, ask open-ended questions, and connect discoveries back to garden scientists.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Feel a dry soil cup.
 2. Mist a second cup lightly.
 3. Compare and describe the difference.
-LEARNING GOAL:
+LEARNING_GOALS:
 Compare moisture levels
 Practice careful tool use
+OBSERVATION_OPPORTUNITIES:
+Engagement during Mist and Moisture Test
+Use of garden scientists vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Leaf Rubbing Collectors
 CATEGORY:
 Fine Motor
+OBJECTIVE:
+Support garden scientists learning through leaf rubbing collectors.
+DESCRIPTION:
+Children make crayon rubbings of leaves and compare shapes. Children explore garden scientists through leaf rubbing collectors.
 MATERIALS:
 Leaves, paper, crayons
 SETUP:
 Children make crayon rubbings of leaves and compare shapes.
+TEACHER_ROLE:
+Facilitate leaf rubbing collectors, ask open-ended questions, and connect discoveries back to garden scientists.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Place a leaf under paper.
 2. Rub with the side of a crayon.
 3. Compare leaf shapes and sizes.
-LEARNING GOAL:
+LEARNING_GOALS:
 Notice natural details
 Strengthen hand control
+OBSERVATION_OPPORTUNITIES:
+Engagement during Leaf Rubbing Collectors
+Use of garden scientists vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-FRIDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Garden Scientists: Scientist Share Circle and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Support garden scientists learning through scientist share circle.
+Support garden scientists learning through garden relay reset.
+
+DAILY_VOCABULARY:
+seed, soil, sprout, root, observe, measure
+
+DAILY_MATERIALS:
+Family contributions, drawings, talking piece
+Tools, labeled baskets
+
+DAILY_LEARNING_DOMAINS:
+Science, Math, Language & Literacy, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to garden scientists.
+Sing "Oats Peas Beans and Barley Grow" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit The Tiny Seed by Eric Carle and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to garden scientists — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Scientist Share Circle / Garden Relay Reset).
+
+DAILY_OBSERVATIONS:
+Engagement during Scientist Share Circle
+Engagement during Garden Relay Reset
+Participation and interest in Garden Scientists play
+
+DAILY_ADAPTATIONS:
+Provide pre-moistened soil for children avoiding dry dust. Offer visual sequence cards for multi-step planting. Pair peers for shared tool turns.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+
+ACTIVITY_NAME:
 Scientist Share Circle
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support garden scientists learning through scientist share circle.
+DESCRIPTION:
+Children share a garden item or drawing and one observation. Children explore garden scientists through scientist share circle.
 MATERIALS:
 Family contributions, drawings, talking piece
 SETUP:
 Children share a garden item or drawing and one observation.
+TEACHER_ROLE:
+Facilitate scientist share circle, ask open-ended questions, and connect discoveries back to garden scientists.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Sit in a circle with a talking piece.
 2. Each child shares one observation.
 3. Group thanks each scientist.
-LEARNING GOAL:
+LEARNING_GOALS:
 Communicate an observation to peers
 Practice listening and turn-taking
+OBSERVATION_OPPORTUNITIES:
+Engagement during Scientist Share Circle
+Use of garden scientists vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Garden Relay Reset
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support garden scientists learning through garden relay reset.
+DESCRIPTION:
+Teams carry tools back to labeled spots to close the week. Children explore garden scientists through garden relay reset.
 MATERIALS:
 Tools, labeled baskets
 SETUP:
 Teams carry tools back to labeled spots to close the week.
+TEACHER_ROLE:
+Facilitate garden relay reset, ask open-ended questions, and connect discoveries back to garden scientists.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Assign a tool to return.
 2. Walk carefully to the matching label.
 3. Check the garden center is ready.
-LEARNING GOAL:
+LEARNING_GOALS:
 Follow clean-up systems
 Move safely with classroom tools
+OBSERVATION_OPPORTUNITIES:
+Engagement during Garden Relay Reset
+Use of garden scientists vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

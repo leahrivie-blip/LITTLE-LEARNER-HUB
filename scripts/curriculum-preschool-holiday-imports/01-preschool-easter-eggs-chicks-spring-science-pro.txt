@@ -57,269 +57,749 @@ Provide visual supports, adaptive tools, sensory alternatives, larger materials,
 
 MONDAY
 
+DAILY_THEME:
+Easter & Spring: Egg Investigation Station and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Support easter & spring learning through egg investigation station.
+Support easter & spring learning through egg measurement challenge.
+Support easter & spring learning through spring circle time.
+
+DAILY_VOCABULARY:
+Egg, Chick, Hatch, Nest, Spring, Life Cycle
+
+DAILY_MATERIALS:
+Plastic eggs, real eggs, magnifying glasses
+Eggs, linking cubes
+Spring visuals
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to easter & spring.
+Sing "Five Little Easter Eggs" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit The Easter Egg and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to easter & spring — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Egg Investigation Station / Egg Measurement Challenge).
+
+DAILY_OBSERVATIONS:
+Engagement during Egg Investigation Station
+Engagement during Egg Measurement Challenge
+Engagement during Spring Circle Time
+Participation and interest in Easter & Spring play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive tools, sensory alternatives, larger materials, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+
 ACTIVITY_NAME:
 Egg Investigation Station
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support easter & spring learning through egg investigation station.
 DESCRIPTION:
 Children investigate different types of eggs using observation tools.
 MATERIALS:
 Plastic eggs, real eggs, magnifying glasses
-DIRECTIONS:
-Observe eggs closely.
-Compare sizes and colors.
-Record observations.
-Discuss findings.
+SETUP:
+Prepare materials for Egg Investigation Station before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide scientific inquiry and observation.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Observe eggs closely.
+2. Compare sizes and colors.
+3. Record observations.
+4. Discuss findings.
 LEARNING_GOALS:
 Observation skills and scientific thinking.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Egg Investigation Station
+Use of easter & spring vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Egg Measurement Challenge
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support easter & spring learning through egg measurement challenge.
 DESCRIPTION:
 Children measure eggs using non-standard units.
 MATERIALS:
 Eggs, linking cubes
-DIRECTIONS:
-Measure egg length.
-Count cubes used.
-Compare measurements.
+SETUP:
+Prepare materials for Egg Measurement Challenge before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support math discussions.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Measure egg length.
+2. Count cubes used.
+3. Compare measurements.
 LEARNING_GOALS:
 Measurement and counting skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Egg Measurement Challenge
+Use of easter & spring vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Spring Circle Time
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support easter & spring learning through spring circle time.
 DESCRIPTION:
 Introduce Easter and spring themes.
 MATERIALS:
 Spring visuals
-DIRECTIONS:
-Discuss spring changes.
-Share observations.
-Read a spring story.
+SETUP:
+Prepare materials for Spring Circle Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead discussion.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Discuss spring changes.
+2. Share observations.
+3. Read a spring story.
 LEARNING_GOALS:
 Vocabulary and communication skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Spring Circle Time
+Use of easter & spring vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 TUESDAY
+
+DAILY_THEME:
+Easter & Spring: Life Cycle of a Chick and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Support easter & spring learning through life cycle of a chick.
+Support easter & spring learning through chick name craft.
+Support easter & spring learning through chick story time.
+
+DAILY_VOCABULARY:
+Egg, Chick, Hatch, Nest, Spring, Life Cycle
+
+DAILY_MATERIALS:
+Life cycle cards
+Chick templates, markers, feathers
+Spring book
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to easter & spring.
+Sing "Five Little Easter Eggs" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit The Easter Egg and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to easter & spring — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Life Cycle of a Chick / Chick Name Craft).
+
+DAILY_OBSERVATIONS:
+Engagement during Life Cycle of a Chick
+Engagement during Chick Name Craft
+Engagement during Chick Story Time
+Participation and interest in Easter & Spring play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive tools, sensory alternatives, larger materials, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Life Cycle of a Chick
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support easter & spring learning through life cycle of a chick.
 DESCRIPTION:
 Children learn the stages of a chick's life cycle.
 MATERIALS:
 Life cycle cards
-DIRECTIONS:
-Introduce life cycle stages.
-Sequence cards.
-Discuss growth and change.
+SETUP:
+Prepare materials for Life Cycle of a Chick before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide science learning.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Introduce life cycle stages.
+2. Sequence cards.
+3. Discuss growth and change.
 LEARNING_GOALS:
 Understanding life cycles.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Life Cycle of a Chick
+Use of easter & spring vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Chick Name Craft
 CATEGORY:
 Fine Motor
+OBJECTIVE:
+Support easter & spring learning through chick name craft.
 DESCRIPTION:
 Children create chicks using the letters of their names.
 MATERIALS:
 Chick templates, markers, feathers
-DIRECTIONS:
-Write letters.
-Decorate chick.
-Share with class.
+SETUP:
+Prepare materials for Chick Name Craft before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support literacy development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Write letters.
+2. Decorate chick.
+3. Share with class.
 LEARNING_GOALS:
 Letter recognition and fine motor skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Chick Name Craft
+Use of easter & spring vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Chick Story Time
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support easter & spring learning through chick story time.
 DESCRIPTION:
 Children listen to a story about chicks and spring.
 MATERIALS:
 Spring book
-DIRECTIONS:
-Read story.
-Ask questions.
-Discuss characters.
+SETUP:
+Prepare materials for Chick Story Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support comprehension.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Read story.
+2. Ask questions.
+3. Discuss characters.
 LEARNING_GOALS:
 Listening and vocabulary development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Chick Story Time
+Use of easter & spring vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 WEDNESDAY
+
+DAILY_THEME:
+Easter & Spring: Egg Drop Engineering Challenge and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Support easter & spring learning through egg drop engineering challenge.
+Support easter & spring learning through spring flower painting.
+Support easter & spring learning through bunny hop movement game.
+
+DAILY_VOCABULARY:
+Egg, Chick, Hatch, Nest, Spring, Life Cycle
+
+DAILY_MATERIALS:
+Plastic eggs, cotton balls, tape, paper
+Paint, paper, brushes
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to easter & spring.
+Sing "Five Little Easter Eggs" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit The Easter Egg and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to easter & spring — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Egg Drop Engineering Challenge / Spring Flower Painting).
+
+DAILY_OBSERVATIONS:
+Engagement during Egg Drop Engineering Challenge
+Engagement during Spring Flower Painting
+Engagement during Bunny Hop Movement Game
+Participation and interest in Easter & Spring play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive tools, sensory alternatives, larger materials, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Egg Drop Engineering Challenge
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support easter & spring learning through egg drop engineering challenge.
 DESCRIPTION:
 Children design a way to protect an egg from breaking.
 MATERIALS:
 Plastic eggs, cotton balls, tape, paper
-DIRECTIONS:
-Discuss protection ideas.
-Build designs.
-Test solutions.
-Compare results.
+SETUP:
+Prepare materials for Egg Drop Engineering Challenge before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Encourage engineering thinking.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Discuss protection ideas.
+2. Build designs.
+3. Test solutions.
+4. Compare results.
 LEARNING_GOALS:
 Problem-solving and critical thinking.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Egg Drop Engineering Challenge
+Use of easter & spring vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Spring Flower Painting
 CATEGORY:
 Art
+OBJECTIVE:
+Support easter & spring learning through spring flower painting.
 DESCRIPTION:
 Children create spring flower artwork.
 MATERIALS:
 Paint, paper, brushes
-DIRECTIONS:
-Observe flower photos.
-Paint flowers.
-Share artwork.
+SETUP:
+Prepare materials for Spring Flower Painting before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support creativity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Observe flower photos.
+2. Paint flowers.
+3. Share artwork.
 LEARNING_GOALS:
 Creative expression and observation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Spring Flower Painting
+Use of easter & spring vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Bunny Hop Movement Game
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support easter & spring learning through bunny hop movement game.
 DESCRIPTION:
 Children move like bunnies using different movement challenges.
 MATERIALS:
 Music player
-DIRECTIONS:
-Hop forward.
-Hop backward.
-Follow movement directions.
+SETUP:
+Prepare materials for Bunny Hop Movement Game before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead movement activities.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Hop forward.
+2. Hop backward.
+3. Follow movement directions.
 LEARNING_GOALS:
 Gross motor development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Bunny Hop Movement Game
+Use of easter & spring vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 THURSDAY
+
+DAILY_THEME:
+Easter & Spring: Planting Seeds Investigation and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Support easter & spring learning through planting seeds investigation.
+Support easter & spring learning through easter egg pattern challenge.
+Support easter & spring learning through spring vocabulary match.
+
+DAILY_VOCABULARY:
+Egg, Chick, Hatch, Nest, Spring, Life Cycle
+
+DAILY_MATERIALS:
+Seeds, soil, cups
+Colored egg manipulatives
+Word cards, picture cards
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to easter & spring.
+Sing "Five Little Easter Eggs" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit The Easter Egg and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to easter & spring — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Planting Seeds Investigation / Easter Egg Pattern Challenge).
+
+DAILY_OBSERVATIONS:
+Engagement during Planting Seeds Investigation
+Engagement during Easter Egg Pattern Challenge
+Engagement during Spring Vocabulary Match
+Participation and interest in Easter & Spring play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive tools, sensory alternatives, larger materials, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Planting Seeds Investigation
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support easter & spring learning through planting seeds investigation.
 DESCRIPTION:
 Children plant seeds and predict what will happen.
 MATERIALS:
 Seeds, soil, cups
-DIRECTIONS:
-Plant seeds.
-Water plants.
-Make predictions.
-Observe growth over time.
+SETUP:
+Prepare materials for Planting Seeds Investigation before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide scientific observations.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Plant seeds.
+2. Water plants.
+3. Make predictions.
+4. Observe growth over time.
 LEARNING_GOALS:
 Understanding plant growth.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Planting Seeds Investigation
+Use of easter & spring vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Easter Egg Pattern Challenge
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support easter & spring learning through easter egg pattern challenge.
 DESCRIPTION:
 Children create and extend egg patterns.
 MATERIALS:
 Colored egg manipulatives
-DIRECTIONS:
-Create patterns.
-Identify pattern rules.
-Extend patterns.
+SETUP:
+Prepare materials for Easter Egg Pattern Challenge before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support math thinking.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Create patterns.
+2. Identify pattern rules.
+3. Extend patterns.
 LEARNING_GOALS:
 Pattern recognition and logic.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Easter Egg Pattern Challenge
+Use of easter & spring vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Spring Vocabulary Match
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support easter & spring learning through spring vocabulary match.
 DESCRIPTION:
 Children match spring words with pictures.
 MATERIALS:
 Word cards, picture cards
-DIRECTIONS:
-Match cards.
-Read vocabulary words.
-Discuss meanings.
+SETUP:
+Prepare materials for Spring Vocabulary Match before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support literacy development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Match cards.
+2. Read vocabulary words.
+3. Discuss meanings.
 LEARNING_GOALS:
 Vocabulary and word recognition.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Spring Vocabulary Match
+Use of easter & spring vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 FRIDAY
+
+DAILY_THEME:
+Easter & Spring: Spring Nature Walk and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Support easter & spring learning through spring nature walk.
+Support easter & spring learning through easter treasure hunt.
+Support easter & spring learning through easter & spring celebration circle.
+
+DAILY_VOCABULARY:
+Egg, Chick, Hatch, Nest, Spring, Life Cycle
+
+DAILY_MATERIALS:
+Clipboards, observation sheets
+Plastic eggs, clue cards
+Books, visuals, student work
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to easter & spring.
+Sing "Five Little Easter Eggs" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit The Easter Egg and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to easter & spring — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Spring Nature Walk / Easter Treasure Hunt).
+
+DAILY_OBSERVATIONS:
+Engagement during Spring Nature Walk
+Engagement during Easter Treasure Hunt
+Engagement during Easter & Spring Celebration Circle
+Participation and interest in Easter & Spring play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, adaptive tools, sensory alternatives, larger materials, and additional teacher assistance as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Spring Nature Walk
 CATEGORY:
 Outdoor Play
+OBJECTIVE:
+Support easter & spring learning through spring nature walk.
 DESCRIPTION:
 Children explore outdoors looking for signs of spring.
 MATERIALS:
 Clipboards, observation sheets
-DIRECTIONS:
-Walk outside.
-Observe plants and animals.
-Record discoveries.
-Share observations.
+SETUP:
+Prepare materials for Spring Nature Walk before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide exploration and discussion.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Walk outside.
+2. Observe plants and animals.
+3. Record discoveries.
+4. Share observations.
 LEARNING_GOALS:
 Observation and nature awareness.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Spring Nature Walk
+Use of easter & spring vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Easter Treasure Hunt
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support easter & spring learning through easter treasure hunt.
 DESCRIPTION:
 Children search for hidden eggs and solve simple clues.
 MATERIALS:
 Plastic eggs, clue cards
-DIRECTIONS:
-Search for eggs.
-Follow clues.
-Work together.
+SETUP:
+Prepare materials for Easter Treasure Hunt before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support teamwork and problem-solving.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Search for eggs.
+2. Follow clues.
+3. Work together.
 LEARNING_GOALS:
 Critical thinking and cooperation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Easter Treasure Hunt
+Use of easter & spring vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Easter & Spring Celebration Circle
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support easter & spring learning through easter & spring celebration circle.
 DESCRIPTION:
 Review the week's science discoveries and favorite activities.
 MATERIALS:
 Books, visuals, student work
-DIRECTIONS:
-Discuss favorite investigations.
-Review vocabulary.
-Celebrate learning.
+SETUP:
+Prepare materials for Easter & Spring Celebration Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead reflection and discussion.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Discuss favorite investigations.
+2. Review vocabulary.
+3. Celebrate learning.
 LEARNING_GOALS:
 Communication, recall, and scientific thinking.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Easter & Spring Celebration Circle
+Use of easter & spring vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

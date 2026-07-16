@@ -14,12 +14,7 @@ STATUS:
 published
 
 LEARNING_DOMAINS:
-Language & Literacy
-Social Emotional
-Physical Development
-Creative Arts
-Science
-Math
+Language & Literacy, Social Emotional, Physical Development, Creative Arts, Science, Math
 
 WEEKLY_OVERVIEW:
 Children will enter a magical world of fairy tales as they explore castles, dragons, princes, princesses, giants, and enchanted forests through hands-on play. Throughout the week, children will retell stories, build castles, create fairy tale art, solve problems, engage in dramatic play, and strengthen early literacy and math skills while bringing beloved fairy tales to life.
@@ -91,7 +86,54 @@ Observe children's ability to retell stories, engage in dramatic play, cooperate
 ADAPTATIONS:
 Provide visual story cards for children needing additional support. Offer adaptive art tools as needed. Simplify directions into smaller steps and provide one-on-one guidance when appropriate.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+Fairy Tales: Fairy Tale Dress-Up Kingdom and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Encourage imaginative play and social interaction.
+Develop engineering and problem-solving skills.
+Strengthen fine motor skills and creativity.
+
+DAILY_VOCABULARY:
+Castle, Dragon, Knight, Princess, Prince, Giant
+
+DAILY_MATERIALS:
+Crowns
+Capes
+Scarves
+Dress-up accessories
+Mirror
+Blocks
+Cardboard tubes
+Small boxes
+Paper crown templates
+Gem stickers
+Crayons
+Glue
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to fairy tales.
+Sing "I'm a Little Knight" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit The Three Little Pigs by James Marshall and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to fairy tales — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Fairy Tale Dress-Up Kingdom / Castle Builders).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Fairy Tales play
+
+DAILY_ADAPTATIONS:
+Provide visual story cards for children needing additional support. Offer adaptive art tools as needed. Simplify directions into smaller steps and provide one-on-one guidance when appropriate.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Fairy Tale Dress-Up Kingdom
@@ -111,6 +153,8 @@ SETUP:
 Arrange dress-up materials in the dramatic play area.
 TEACHER_ROLE:
 Model imaginative play and encourage storytelling language.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Invite children to choose a fairy tale character.
 2. Encourage children to interact with peers while acting out roles.
@@ -119,6 +163,15 @@ LEARNING_GOALS:
 Encourage imaginative play and social interaction.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Castle Builders
@@ -136,6 +189,8 @@ SETUP:
 Place building materials in a large construction area.
 TEACHER_ROLE:
 Ask open-ended questions and support problem-solving.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Show pictures of castles.
 2. Invite children to build their own castles.
@@ -144,6 +199,15 @@ LEARNING_GOALS:
 Develop engineering and problem-solving skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Royal Crown Creations
@@ -162,6 +226,8 @@ SETUP:
 Prepare art supplies at tables.
 TEACHER_ROLE:
 Support cutting, gluing, and creative expression.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Allow children to decorate crowns.
 2. Encourage unique designs and color choices.
@@ -170,6 +236,15 @@ LEARNING_GOALS:
 Strengthen fine motor skills and creativity.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Knights and Dragons Dance
@@ -185,6 +260,8 @@ SETUP:
 Create an open movement space.
 TEACHER_ROLE:
 Lead movement and encourage participation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Play music.
 2. Call out "knight" or "dragon."
@@ -194,8 +271,64 @@ LEARNING_GOALS:
 Develop gross motor skills and listening abilities.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-TUESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Fairy Tales: Three Little Pigs Story Retelling and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Strengthen sequencing and language development.
+Explore engineering and problem-solving.
+Develop creativity and hand control.
+
+DAILY_VOCABULARY:
+Castle, Dragon, Knight, Princess, Prince, Giant
+
+DAILY_MATERIALS:
+Story props
+Puppets
+Straw
+Sticks
+Blocks
+Straws
+Craft sticks
+Blocks
+Paper
+Paint
+Brushes
+Cones
+Open space
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to fairy tales.
+Sing "I'm a Little Knight" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit The Three Little Pigs by James Marshall and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to fairy tales — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Three Little Pigs Story Retelling / Build the Strongest House).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Fairy Tales play
+
+DAILY_ADAPTATIONS:
+Provide visual story cards for children needing additional support. Offer adaptive art tools as needed. Simplify directions into smaller steps and provide one-on-one guidance when appropriate.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Three Little Pigs Story Retelling
@@ -215,6 +348,8 @@ SETUP:
 Prepare story materials in a circle area.
 TEACHER_ROLE:
 Support comprehension and sequencing.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Read the story.
 2. Invite children to act out each part.
@@ -223,6 +358,15 @@ LEARNING_GOALS:
 Strengthen sequencing and language development.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Build the Strongest House
@@ -240,6 +384,8 @@ SETUP:
 Place materials in small group stations.
 TEACHER_ROLE:
 Encourage predictions and observations.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Challenge children to build houses.
 2. Test which house stays standing.
@@ -248,6 +394,15 @@ LEARNING_GOALS:
 Explore engineering and problem-solving.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Pig House Painting
@@ -265,13 +420,27 @@ SETUP:
 Prepare painting stations.
 TEACHER_ROLE:
 Encourage creativity and conversation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Paint houses from the story.
-2. Discuss colors and details.
+1. Introduce Pig House Painting and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop creativity and hand control.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Wolf Movement Game
@@ -288,6 +457,8 @@ SETUP:
 Create a movement course.
 TEACHER_ROLE:
 Model safe movement.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Children move like sneaky wolves.
 2. Follow obstacle paths.
@@ -296,8 +467,59 @@ LEARNING_GOALS:
 Develop balance and coordination.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-WEDNESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Fairy Tales: Jack and the Beanstalk Adventure and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Encourage storytelling and imagination.
+Introduce measuring concepts.
+Strengthen cutting and gluing skills.
+
+DAILY_VOCABULARY:
+Castle, Dragon, Knight, Princess, Prince, Giant
+
+DAILY_MATERIALS:
+Green streamers
+Beanstalk props
+Large paper footprints
+Measuring tape
+Green paper
+Glue
+Scissors
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to fairy tales.
+Sing "I'm a Little Knight" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit The Three Little Pigs by James Marshall and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to fairy tales — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Jack and the Beanstalk Adventure / Giant Footprint Measuring).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Fairy Tales play
+
+DAILY_ADAPTATIONS:
+Provide visual story cards for children needing additional support. Offer adaptive art tools as needed. Simplify directions into smaller steps and provide one-on-one guidance when appropriate.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Jack and the Beanstalk Adventure
@@ -314,6 +536,8 @@ SETUP:
 Create a giant beanstalk area.
 TEACHER_ROLE:
 Expand vocabulary and imagination.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Pretend to climb the beanstalk.
 2. Meet giant characters.
@@ -322,6 +546,15 @@ LEARNING_GOALS:
 Encourage storytelling and imagination.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Giant Footprint Measuring
@@ -338,6 +571,8 @@ SETUP:
 Place footprints around the room.
 TEACHER_ROLE:
 Introduce math vocabulary.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Measure giant footprints.
 2. Compare sizes.
@@ -346,6 +581,15 @@ LEARNING_GOALS:
 Introduce measuring concepts.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Beanstalk Collage
@@ -363,13 +607,27 @@ SETUP:
 Prepare collage materials.
 TEACHER_ROLE:
 Assist as needed.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Create giant beanstalks.
-2. Add leaves and clouds.
+1. Introduce Beanstalk Collage and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Strengthen cutting and gluing skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Giant Steps Movement
@@ -385,6 +643,8 @@ SETUP:
 Open floor space.
 TEACHER_ROLE:
 Lead movement activities.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Take giant steps.
 2. Take tiny steps.
@@ -393,8 +653,58 @@ LEARNING_GOALS:
 Develop body awareness and coordination.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-THURSDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Fairy Tales: Goldilocks and the Three Bears House and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Develop story comprehension.
+Explore comparison concepts.
+Develop creativity and fine motor skills.
+
+DAILY_VOCABULARY:
+Castle, Dragon, Knight, Princess, Prince, Giant
+
+DAILY_MATERIALS:
+Bowls
+Chairs
+Bear props
+Sorting objects
+Bear mask templates
+Crayons
+Glue
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to fairy tales.
+Sing "I'm a Little Knight" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit The Three Little Pigs by James Marshall and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to fairy tales — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Goldilocks and the Three Bears House / Too Big, Too Small, Just Right).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Fairy Tales play
+
+DAILY_ADAPTATIONS:
+Provide visual story cards for children needing additional support. Offer adaptive art tools as needed. Simplify directions into smaller steps and provide one-on-one guidance when appropriate.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Goldilocks and the Three Bears House
@@ -412,13 +722,27 @@ SETUP:
 Create a bear cottage area.
 TEACHER_ROLE:
 Encourage sequencing and discussion.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Act out the story.
-2. Compare sizes of objects.
+1. Introduce Goldilocks and the Three Bears House and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop story comprehension.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Too Big, Too Small, Just Right
@@ -434,13 +758,27 @@ SETUP:
 Prepare sorting trays.
 TEACHER_ROLE:
 Introduce comparison vocabulary.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Sort items by size.
-2. Discuss comparisons.
+1. Introduce Too Big, Too Small, Just Right and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Explore comparison concepts.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Bear Mask Craft
@@ -458,15 +796,72 @@ SETUP:
 Prepare craft stations.
 TEACHER_ROLE:
 Support creativity.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Decorate masks.
-2. Wear during dramatic play.
+1. Introduce Bear Mask Craft and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop creativity and fine motor skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-FRIDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Fairy Tales: Fairy Tale Puppet Theater and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Encourage storytelling and confidence.
+Encourage sensory exploration and imaginative play.
+Celebrate learning through movement and expression.
+
+DAILY_VOCABULARY:
+Castle, Dragon, Knight, Princess, Prince, Giant
+
+DAILY_MATERIALS:
+Puppets
+Stage area
+Green rice
+Toy animals
+Trees
+Gems
+Crowns
+Music
+Costumes
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to fairy tales.
+Sing "I'm a Little Knight" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit The Three Little Pigs by James Marshall and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to fairy tales — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Fairy Tale Puppet Theater / Enchanted Forest Sensory Bin).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Fairy Tales play
+
+DAILY_ADAPTATIONS:
+Provide visual story cards for children needing additional support. Offer adaptive art tools as needed. Simplify directions into smaller steps and provide one-on-one guidance when appropriate.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Fairy Tale Puppet Theater
@@ -483,6 +878,8 @@ SETUP:
 Create puppet theater.
 TEACHER_ROLE:
 Support storytelling and participation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose favorite fairy tale characters.
 2. Create original stories.
@@ -491,6 +888,15 @@ LEARNING_GOALS:
 Encourage storytelling and confidence.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Enchanted Forest Sensory Bin
@@ -509,6 +915,8 @@ SETUP:
 Prepare sensory bin.
 TEACHER_ROLE:
 Encourage descriptive language.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Explore materials.
 2. Create fairy tale scenes.
@@ -517,6 +925,15 @@ LEARNING_GOALS:
 Encourage sensory exploration and imaginative play.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Fairy Tale Celebration Parade
@@ -534,7 +951,7 @@ SETUP:
 Prepare parade route.
 TEACHER_ROLE:
 Celebrate participation and learning.
-
+TEACHER_LANGUAGE:
 
 DIRECTIONS:
 1. Dress as favorite characters.
@@ -544,3 +961,12 @@ LEARNING_GOALS:
 Celebrate learning through movement and expression.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

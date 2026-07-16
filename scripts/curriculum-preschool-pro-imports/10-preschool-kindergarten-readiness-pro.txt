@@ -14,12 +14,7 @@ STATUS:
 published
 
 LEARNING_DOMAINS:
-Language & Literacy
-Social Emotional
-Physical Development
-Math
-Science
-Creative Arts
+Language & Literacy, Social Emotional, Physical Development, Math, Science, Creative Arts
 
 WEEKLY_OVERVIEW:
 Children will strengthen the foundational skills needed for kindergarten success through engaging, play-based learning experiences. Throughout the week, children will practice independence, communication, early literacy, math concepts, problem-solving, classroom routines, social skills, and confidence-building activities designed to support a successful transition into kindergarten.
@@ -86,7 +81,49 @@ Observe children's independence, ability to follow directions, letter recognitio
 ADAPTATIONS:
 Provide visual schedules and picture supports. Offer adaptive writing tools when needed. Allow children multiple ways to demonstrate learning through movement, discussion, art, and hands-on exploration.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+Kindergarten Readiness: All About Me Name Practice and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Strengthen name recognition and writing skills.
+Learn classroom expectations and routines.
+Develop counting and number recognition.
+
+DAILY_VOCABULARY:
+Kindergarten, Ready, Independent, Routine, Schedule, Classroom
+
+DAILY_MATERIALS:
+Name cards
+Markers
+Paper
+Picture schedule
+Classroom materials
+Manipulatives
+Number cards
+Open space
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Math
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to kindergarten readiness.
+Sing "The Alphabet Song" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit The King of Kindergarten by Derrick Barnes and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to kindergarten readiness — movement games, collaborative challenges, or nature observation linked to today's indoor activities (All About Me Name Practice / Classroom Routine Exploration).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Kindergarten Readiness play
+
+DAILY_ADAPTATIONS:
+Provide visual schedules and picture supports. Offer adaptive writing tools when needed. Allow children multiple ways to demonstrate learning through movement, discussion, art, and hands-on exploration.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 All About Me Name Practice
@@ -104,6 +141,8 @@ SETUP:
 Place name cards at each seat.
 TEACHER_ROLE:
 Support letter formation and encourage confidence.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Trace and practice writing names.
 2. Decorate name cards.
@@ -112,6 +151,15 @@ LEARNING_GOALS:
 Strengthen name recognition and writing skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Classroom Routine Exploration
@@ -128,13 +176,27 @@ SETUP:
 Display visual schedule.
 TEACHER_ROLE:
 Model routines and expectations.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Practice daily routines.
-2. Role-play classroom situations.
+1. Introduce Classroom Routine Exploration and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Learn classroom expectations and routines.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Counting Collections
@@ -151,12 +213,27 @@ SETUP:
 Create counting stations.
 TEACHER_ROLE:
 Support one-to-one correspondence.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Count objects and match to numbers.
+1. Introduce Counting Collections and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop counting and number recognition.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Follow the Leader Challenge
@@ -172,14 +249,72 @@ SETUP:
 Create movement area.
 TEACHER_ROLE:
 Lead activities and encourage participation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Follow multi-step movement directions.
+1. Introduce Follow the Leader Challenge and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Practice listening and following directions.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-TUESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Kindergarten Readiness: Alphabet Treasure Hunt and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Strengthen letter recognition.
+Build confidence about kindergarten.
+Develop cutting and gluing skills.
+
+DAILY_VOCABULARY:
+Kindergarten, Ready, Independent, Routine, Schedule, Classroom
+
+DAILY_MATERIALS:
+Alphabet cards
+Teacher props
+Books
+Clipboards
+Bus templates
+Glue
+Crayons
+Cones
+Balance beam
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Math
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to kindergarten readiness.
+Sing "The Alphabet Song" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit The King of Kindergarten by Derrick Barnes and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to kindergarten readiness — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Alphabet Treasure Hunt / School Dramatic Play Center).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Kindergarten Readiness play
+
+DAILY_ADAPTATIONS:
+Provide visual schedules and picture supports. Offer adaptive writing tools when needed. Allow children multiple ways to demonstrate learning through movement, discussion, art, and hands-on exploration.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Alphabet Treasure Hunt
@@ -195,6 +330,8 @@ SETUP:
 Hide cards around classroom.
 TEACHER_ROLE:
 Support letter identification.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Search for letters.
 2. Name letters found.
@@ -203,6 +340,15 @@ LEARNING_GOALS:
 Strengthen letter recognition.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 School Dramatic Play Center
@@ -220,12 +366,27 @@ SETUP:
 Create pretend classroom.
 TEACHER_ROLE:
 Support positive role-playing.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Take turns being teacher and student.
+1. Introduce School Dramatic Play Center and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Build confidence about kindergarten.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 School Bus Craft
@@ -243,12 +404,27 @@ SETUP:
 Prepare craft materials.
 TEACHER_ROLE:
 Assist and encourage creativity.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Create and decorate school buses.
+1. Introduce School Bus Craft and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop cutting and gluing skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Kindergarten Obstacle Course
@@ -265,14 +441,70 @@ SETUP:
 Create obstacle course.
 TEACHER_ROLE:
 Encourage persistence and effort.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Complete movement challenges.
+1. Introduce Kindergarten Obstacle Course and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop coordination and confidence.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-WEDNESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Kindergarten Readiness: Pattern Builders and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Develop early math skills.
+Build social-emotional skills.
+Strengthen hand muscles and coordination.
+
+DAILY_VOCABULARY:
+Kindergarten, Ready, Independent, Routine, Schedule, Classroom
+
+DAILY_MATERIALS:
+Pattern blocks
+Manipulatives
+Emotion cards
+Puppets
+Scissors
+Paper strips
+Number cards
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Math
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to kindergarten readiness.
+Sing "The Alphabet Song" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit The King of Kindergarten by Derrick Barnes and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to kindergarten readiness — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Pattern Builders / Friendship Role Play).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Kindergarten Readiness play
+
+DAILY_ADAPTATIONS:
+Provide visual schedules and picture supports. Offer adaptive writing tools when needed. Allow children multiple ways to demonstrate learning through movement, discussion, art, and hands-on exploration.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Pattern Builders
@@ -289,12 +521,27 @@ SETUP:
 Create pattern station.
 TEACHER_ROLE:
 Introduce pattern vocabulary.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Create and extend patterns.
+1. Introduce Pattern Builders and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop early math skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Friendship Role Play
@@ -311,12 +558,27 @@ SETUP:
 Prepare role-play area.
 TEACHER_ROLE:
 Model positive interactions.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Practice sharing, kindness, and problem-solving.
+1. Introduce Friendship Role Play and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Build social-emotional skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Scissor Skills Practice
@@ -333,12 +595,27 @@ SETUP:
 Prepare cutting station.
 TEACHER_ROLE:
 Support proper scissor use.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Practice cutting along lines and shapes.
+1. Introduce Scissor Skills Practice and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Strengthen hand muscles and coordination.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Movement and Number Hop
@@ -354,14 +631,72 @@ SETUP:
 Place numbers on floor.
 TEACHER_ROLE:
 Encourage participation and counting.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Hop to numbers as called out.
+1. Introduce Movement and Number Hop and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Combine movement with number recognition.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-THURSDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Kindergarten Readiness: STEM Building Challenge and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Develop problem-solving and engineering skills.
+Learn classroom responsibilities.
+Encourage early writing and expression.
+
+DAILY_VOCABULARY:
+Kindergarten, Ready, Independent, Routine, Schedule, Classroom
+
+DAILY_MATERIALS:
+Blocks
+Building materials
+Helper badges
+Classroom tools
+Paper
+Crayons
+Markers
+Balls
+Parachute
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Math
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to kindergarten readiness.
+Sing "The Alphabet Song" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit The King of Kindergarten by Derrick Barnes and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to kindergarten readiness — movement games, collaborative challenges, or nature observation linked to today's indoor activities (STEM Building Challenge / Responsibility Helpers).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Kindergarten Readiness play
+
+DAILY_ADAPTATIONS:
+Provide visual schedules and picture supports. Offer adaptive writing tools when needed. Allow children multiple ways to demonstrate learning through movement, discussion, art, and hands-on exploration.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 STEM Building Challenge
@@ -378,12 +713,27 @@ SETUP:
 Create building area.
 TEACHER_ROLE:
 Ask open-ended questions and support thinking.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Build a structure that can stand independently.
+1. Introduce STEM Building Challenge and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop problem-solving and engineering skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Responsibility Helpers
@@ -400,12 +750,27 @@ SETUP:
 Assign classroom jobs.
 TEACHER_ROLE:
 Model responsibility and leadership.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Practice classroom helper roles.
+1. Introduce Responsibility Helpers and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Learn classroom responsibilities.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Kindergarten Journal Drawing
@@ -423,12 +788,27 @@ SETUP:
 Prepare journals.
 TEACHER_ROLE:
 Record children's ideas and encourage storytelling.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Draw and dictate what kindergarten might be like.
+1. Introduce Kindergarten Journal Drawing and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Encourage early writing and expression.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Cooperative Team Games
@@ -445,14 +825,70 @@ SETUP:
 Create group game area.
 TEACHER_ROLE:
 Encourage cooperation and communication.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Work together to complete challenges.
+1. Introduce Cooperative Team Games and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop teamwork skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-FRIDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Kindergarten Readiness: Kindergarten Readiness Centers and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Review skills learned throughout the week.
+Celebrate growth and readiness.
+Celebrate learning and movement.
+
+DAILY_VOCABULARY:
+Kindergarten, Ready, Independent, Routine, Schedule, Classroom
+
+DAILY_MATERIALS:
+Alphabet materials
+Counting tools
+Patterns
+Certificates
+Caps
+Props
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Math
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to kindergarten readiness.
+Sing "The Alphabet Song" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit The King of Kindergarten by Derrick Barnes and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to kindergarten readiness — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Kindergarten Readiness Centers / Future Kindergarten Student Celebration).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Kindergarten Readiness play
+
+DAILY_ADAPTATIONS:
+Provide visual schedules and picture supports. Offer adaptive writing tools when needed. Allow children multiple ways to demonstrate learning through movement, discussion, art, and hands-on exploration.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Kindergarten Readiness Centers
@@ -470,12 +906,27 @@ SETUP:
 Create learning centers.
 TEACHER_ROLE:
 Observe and support learning.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Rotate through readiness stations.
+1. Introduce Kindergarten Readiness Centers and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Review skills learned throughout the week.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Future Kindergarten Student Celebration
@@ -493,13 +944,27 @@ SETUP:
 Create celebration area.
 TEACHER_ROLE:
 Celebrate accomplishments and build confidence.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Share favorite learning experiences.
-2. Receive readiness certificates.
+1. Introduce Future Kindergarten Student Celebration and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Celebrate growth and readiness.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Kindergarten Dance Party
@@ -515,9 +980,24 @@ SETUP:
 Open movement area.
 TEACHER_ROLE:
 Encourage participation and excitement.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Dance and celebrate readiness for new adventures.
+1. Introduce Kindergarten Dance Party and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Celebrate learning and movement.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

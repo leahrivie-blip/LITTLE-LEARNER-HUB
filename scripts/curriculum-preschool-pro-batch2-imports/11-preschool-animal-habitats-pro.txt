@@ -12,14 +12,9 @@ Pro
 
 STATUS:
 published
-LEARNING_DOMAINS:
-Language & Literacy
-Social Emotional
-Physical Development
-Science
-Math
-Creative Arts
 
+LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Science, Math, Creative Arts
 
 WEEKLY_OVERVIEW:
 Children will become wildlife explorers as they investigate where animals live and why habitats help animals survive. Throughout the week, children will explore forests, oceans, deserts, arctic regions, and jungles through hands-on sensory experiences, dramatic play, STEM building challenges, movement activities, and creative projects. Children will learn how animals adapt to their environments while developing observation, problem-solving, and critical thinking skills.
@@ -33,7 +28,6 @@ Strengthen classification and sorting abilities
 Build vocabulary related to animals and habitats
 Develop fine and gross motor skills
 Foster curiosity and respect for wildlife
-
 
 WEEKLY_MATERIALS:
 Animal figures
@@ -54,7 +48,6 @@ Magnifying glasses
 Books
 Music player
 
-
 VOCABULARY:
 Habitat
 Forest
@@ -71,12 +64,10 @@ Camouflage
 Predator
 Prey
 
-
 BOOKS:
 A House for Hermit Crab | Eric Carle
 Over in the Jungle | Marianne Berkes
 Who Lives Here? | Deborah Hodge
-
 
 SONGS:
 We're Going on a Habitat Hunt
@@ -92,659 +83,934 @@ Observe children's ability to match animals to habitats, use habitat vocabulary,
 ADAPTATIONS:
 Provide visual habitat cards and animal photographs. Offer larger manipulatives when needed. Allow children to demonstrate understanding through movement, art, dramatic play, or verbal discussion.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+Animal Habitats: Habitat Discovery Sensory Bin and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Explore different habitat materials through sensory investigation.
+Develop classification skills.
+Develop creativity and fine motor skills.
+
+DAILY_VOCABULARY:
+Habitat, Forest, Ocean, Desert, Arctic, Jungle
+
+DAILY_MATERIALS:
+Sand
+Artificial grass
+Cotton balls
+Small rocks
+Animal figures
+Animal cards
+Habitat mats
+Paper
+Crayons
+Glue
+Forest animal templates
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to animal habitats.
+Sing "We're Going on a Habitat Hunt" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit A House for Hermit Crab by Eric Carle and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to animal habitats — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Habitat Discovery Sensory Bin / Animal Habitat Sorting).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Animal Habitats play
+
+DAILY_ADAPTATIONS:
+Provide visual habitat cards and animal photographs. Offer larger manipulatives when needed. Allow children to demonstrate understanding through movement, art, dramatic play, or verbal discussion.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Habitat Discovery Sensory Bin
-
 CATEGORY:
 Sensory Play
-
 OBJECTIVE:
 Explore different habitat materials through sensory investigation.
-
+DESCRIPTION:
+Explore different habitat materials through sensory investigation.
 MATERIALS:
 Sand
 Artificial grass
 Cotton balls
 Small rocks
 Animal figures
-
 SETUP:
 Create sections representing different habitats.
-
-DIRECTIONS:
-Explore habitat materials.
-Match animals to appropriate habitats.
-Discuss observations.
-
 TEACHER_ROLE:
 Introduce habitat vocabulary and encourage scientific thinking.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Explore different habitat materials through sensory investigation.
-
+DIRECTIONS:
+1. Explore habitat materials.
+2. Match animals to appropriate habitats.
+3. Discuss observations.
 LEARNING_GOALS:
 Explore different habitat materials through sensory investigation.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Animal Habitat Sorting
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Develop classification skills.
-
+DESCRIPTION:
+Develop classification skills.
 MATERIALS:
 Animal cards
 Habitat mats
-
 SETUP:
 Place habitat mats around the table.
-
-DIRECTIONS:
-Sort animals into the habitats where they live.
-Discuss reasons for choices.
-
 TEACHER_ROLE:
 Support critical thinking and classification.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop classification skills.
-
+DIRECTIONS:
+1. Introduce Animal Habitat Sorting and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop classification skills.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Forest Animal Craft
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Develop creativity and fine motor skills.
-
+DESCRIPTION:
+Develop creativity and fine motor skills.
 MATERIALS:
 Paper
 Crayons
 Glue
 Forest animal templates
-
 SETUP:
 Prepare art materials.
-
-DIRECTIONS:
-Create favorite forest animals.
-Add habitat details.
-
 TEACHER_ROLE:
 Encourage creativity and discussion.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop creativity and fine motor skills.
-
+DIRECTIONS:
+1. Introduce Forest Animal Craft and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop creativity and fine motor skills.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Habitat Animal Movements
-
 CATEGORY:
 Music & Movement
-
 OBJECTIVE:
 Develop gross motor skills and body awareness.
-
-MATERIALS:
-Music player
-
-SETUP:
-Create open movement space.
-
-DIRECTIONS:
-Move like animals from different habitats.
-Hop like rabbits.
-Slither like snakes.
-Swing like monkeys.
-
-TEACHER_ROLE:
-Model movements and encourage participation.
-
 DESCRIPTION:
 Develop gross motor skills and body awareness.
+MATERIALS:
+Music player
+SETUP:
+Create open movement space.
+TEACHER_ROLE:
+Model movements and encourage participation.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Move like animals from different habitats.
+2. Hop like rabbits.
+3. Slither like snakes.
+4. Swing like monkeys.
 LEARNING_GOALS:
 Develop gross motor skills and body awareness.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
-TUESDAY:
+TUESDAY
+
+DAILY_THEME:
+Animal Habitats: Forest Explorer Investigation and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Learn about forest habitats.
+Encourage imaginative play and problem-solving.
+Strengthen hand-eye coordination.
+
+DAILY_VOCABULARY:
+Habitat, Forest, Ocean, Desert, Arctic, Jungle
+
+DAILY_MATERIALS:
+Magnifying glasses
+Leaves
+Animal figures
+Binoculars
+Animal figures
+Explorer hats
+Paper
+Crayons
+Tree bark rubbings
+Cones
+Logs (pretend)
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to animal habitats.
+Sing "We're Going on a Habitat Hunt" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit A House for Hermit Crab by Eric Carle and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to animal habitats — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Forest Explorer Investigation / Woodland Ranger Station).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Animal Habitats play
+
+DAILY_ADAPTATIONS:
+Provide visual habitat cards and animal photographs. Offer larger manipulatives when needed. Allow children to demonstrate understanding through movement, art, dramatic play, or verbal discussion.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Forest Explorer Investigation
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Learn about forest habitats.
-
+DESCRIPTION:
+Learn about forest habitats.
 MATERIALS:
 Magnifying glasses
 Leaves
 Animal figures
-
 SETUP:
 Create forest exploration station.
-
-DIRECTIONS:
-Observe forest materials.
-Identify forest animals.
-Discuss habitat features.
-
 TEACHER_ROLE:
 Guide observations and discussions.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Learn about forest habitats.
-
+DIRECTIONS:
+1. Observe forest materials.
+2. Identify forest animals.
+3. Discuss habitat features.
 LEARNING_GOALS:
 Learn about forest habitats.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Woodland Ranger Station
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Encourage imaginative play and problem-solving.
-
+DESCRIPTION:
+Encourage imaginative play and problem-solving.
 MATERIALS:
 Binoculars
 Animal figures
 Explorer hats
-
 SETUP:
 Create ranger station.
-
-DIRECTIONS:
-Search for forest animals.
-Record discoveries.
-
 TEACHER_ROLE:
 Support storytelling and exploration.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Encourage imaginative play and problem-solving.
-
+DIRECTIONS:
+1. Introduce Woodland Ranger Station and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Encourage imaginative play and problem-solving.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Tree Texture Art
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Strengthen hand-eye coordination.
-
+DESCRIPTION:
+Strengthen hand-eye coordination.
 MATERIALS:
 Paper
 Crayons
 Tree bark rubbings
-
 SETUP:
 Prepare art station.
-
-DIRECTIONS:
-Create bark rubbings and forest artwork.
-
 TEACHER_ROLE:
 Encourage observation and creativity.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Strengthen hand-eye coordination.
-
+DIRECTIONS:
+1. Introduce Tree Texture Art and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Strengthen hand-eye coordination.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Forest Obstacle Trail
-
 CATEGORY:
 Gross Motor
-
 OBJECTIVE:
 Develop coordination and balance.
-
+DESCRIPTION:
+Develop coordination and balance.
 MATERIALS:
 Cones
 Logs (pretend)
-
 SETUP:
 Create forest trail.
-
-DIRECTIONS:
-Navigate through the forest trail.
-Avoid obstacles.
-
 TEACHER_ROLE:
 Promote safe movement.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop coordination and balance.
-
+DIRECTIONS:
+1. Introduce Forest Obstacle Trail and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop coordination and balance.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
-WEDNESDAY:
+WEDNESDAY
+
+DAILY_THEME:
+Animal Habitats: Ocean Habitat Investigation and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Explore ocean environments.
+Develop engineering and creativity.
+Develop creativity.
+
+DAILY_VOCABULARY:
+Habitat, Forest, Ocean, Desert, Arctic, Jungle
+
+DAILY_MATERIALS:
+Water beads
+Ocean animals
+Shells
+Blocks
+Ocean animals
+Blue fabric
+Paint
+Paper
+Brushes
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to animal habitats.
+Sing "We're Going on a Habitat Hunt" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit A House for Hermit Crab by Eric Carle and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to animal habitats — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Ocean Habitat Investigation / Coral Reef Builders).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Animal Habitats play
+
+DAILY_ADAPTATIONS:
+Provide visual habitat cards and animal photographs. Offer larger manipulatives when needed. Allow children to demonstrate understanding through movement, art, dramatic play, or verbal discussion.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Ocean Habitat Investigation
-
 CATEGORY:
 Sensory Play
-
 OBJECTIVE:
 Explore ocean environments.
-
+DESCRIPTION:
+Explore ocean environments.
 MATERIALS:
 Water beads
 Ocean animals
 Shells
-
 SETUP:
 Create ocean sensory station.
-
-DIRECTIONS:
-Explore ocean materials.
-Match animals to ocean habitat.
-
 TEACHER_ROLE:
 Introduce ocean vocabulary.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Explore ocean environments.
-
+DIRECTIONS:
+1. Introduce Ocean Habitat Investigation and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Explore ocean environments.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Coral Reef Builders
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Develop engineering and creativity.
-
+DESCRIPTION:
+Develop engineering and creativity.
 MATERIALS:
 Blocks
 Ocean animals
 Blue fabric
-
 SETUP:
 Create building station.
-
-DIRECTIONS:
-Build coral reefs and ocean homes.
-
 TEACHER_ROLE:
 Encourage planning and problem-solving.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop engineering and creativity.
-
+DIRECTIONS:
+1. Introduce Coral Reef Builders and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop engineering and creativity.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Ocean Animal Painting
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Develop creativity.
-
+DESCRIPTION:
+Develop creativity.
 MATERIALS:
 Paint
 Paper
 Brushes
-
 SETUP:
 Prepare painting area.
-
-DIRECTIONS:
-Paint favorite ocean animals.
-
 TEACHER_ROLE:
 Support artistic expression.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop creativity.
-
+DIRECTIONS:
+1. Introduce Ocean Animal Painting and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop creativity.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Swim Like Sea Animals
-
 CATEGORY:
 Music & Movement
-
 OBJECTIVE:
 Develop gross motor coordination.
-
-MATERIALS:
-Music player
-
-SETUP:
-Open movement area.
-
-DIRECTIONS:
-Move like dolphins, sharks, and sea turtles.
-
-TEACHER_ROLE:
-Lead movement activities.
-
 DESCRIPTION:
 Develop gross motor coordination.
+MATERIALS:
+Music player
+SETUP:
+Open movement area.
+TEACHER_ROLE:
+Lead movement activities.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Introduce Swim Like Sea Animals and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop gross motor coordination.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
-THURSDAY:
+THURSDAY
+
+DAILY_THEME:
+Animal Habitats: Arctic Habitat Exploration and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Explore cold-weather habitats.
+Encourage teamwork and imagination.
+Strengthen fine motor development.
+
+DAILY_VOCABULARY:
+Habitat, Forest, Ocean, Desert, Arctic, Jungle
+
+DAILY_MATERIALS:
+Cotton balls
+Ice cubes
+Arctic animals
+Arctic animals
+Rescue props
+Polar bear templates
+Cotton balls
+Glue
+Cones
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to animal habitats.
+Sing "We're Going on a Habitat Hunt" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit A House for Hermit Crab by Eric Carle and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to animal habitats — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Arctic Habitat Exploration / Polar Rescue Mission).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Animal Habitats play
+
+DAILY_ADAPTATIONS:
+Provide visual habitat cards and animal photographs. Offer larger manipulatives when needed. Allow children to demonstrate understanding through movement, art, dramatic play, or verbal discussion.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Arctic Habitat Exploration
-
 CATEGORY:
 Sensory Play
-
 OBJECTIVE:
 Explore cold-weather habitats.
-
+DESCRIPTION:
+Explore cold-weather habitats.
 MATERIALS:
 Cotton balls
 Ice cubes
 Arctic animals
-
 SETUP:
 Create arctic sensory area.
-
-DIRECTIONS:
-Explore cold habitat materials.
-Match animals to habitat.
-
 TEACHER_ROLE:
 Discuss animal adaptations.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Explore cold-weather habitats.
-
+DIRECTIONS:
+1. Introduce Arctic Habitat Exploration and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Explore cold-weather habitats.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Polar Rescue Mission
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Encourage teamwork and imagination.
-
+DESCRIPTION:
+Encourage teamwork and imagination.
 MATERIALS:
 Arctic animals
 Rescue props
-
 SETUP:
 Create rescue center.
-
-DIRECTIONS:
-Help animals find shelter and food.
-
 TEACHER_ROLE:
 Support cooperation and problem-solving.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Encourage teamwork and imagination.
-
+DIRECTIONS:
+1. Introduce Polar Rescue Mission and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Encourage teamwork and imagination.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Polar Bear Craft
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Strengthen fine motor development.
-
+DESCRIPTION:
+Strengthen fine motor development.
 MATERIALS:
 Polar bear templates
 Cotton balls
 Glue
-
 SETUP:
 Prepare art station.
-
-DIRECTIONS:
-Create fluffy polar bears.
-
 TEACHER_ROLE:
 Assist as needed.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Strengthen fine motor development.
-
+DIRECTIONS:
+1. Introduce Polar Bear Craft and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Strengthen fine motor development.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Penguin Waddle Race
-
 CATEGORY:
 Gross Motor
-
 OBJECTIVE:
 Develop balance and coordination.
-
-MATERIALS:
-Cones
-
-SETUP:
-Create race course.
-
-DIRECTIONS:
-Waddle like penguins through the course.
-
-TEACHER_ROLE:
-Encourage participation.
-
 DESCRIPTION:
 Develop balance and coordination.
+MATERIALS:
+Cones
+SETUP:
+Create race course.
+TEACHER_ROLE:
+Encourage participation.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Introduce Penguin Waddle Race and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop balance and coordination.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
-FRIDAY:
+FRIDAY
+
+DAILY_THEME:
+Animal Habitats: Habitat Museum and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Review habitat concepts and build confidence.
+Review habitat knowledge.
+Celebrate learning through movement.
+
+DAILY_VOCABULARY:
+Habitat, Forest, Ocean, Desert, Arctic, Jungle
+
+DAILY_MATERIALS:
+Projects from the week
+Animal figures
+Materials from previous activities
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to animal habitats.
+Sing "We're Going on a Habitat Hunt" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit A House for Hermit Crab by Eric Carle and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to animal habitats — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Habitat Museum / Habitat Exploration Centers).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Animal Habitats play
+
+DAILY_ADAPTATIONS:
+Provide visual habitat cards and animal photographs. Offer larger manipulatives when needed. Allow children to demonstrate understanding through movement, art, dramatic play, or verbal discussion.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Habitat Museum
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Review habitat concepts and build confidence.
-
+DESCRIPTION:
+Review habitat concepts and build confidence.
 MATERIALS:
 Projects from the week
 Animal figures
-
 SETUP:
 Create museum displays.
-
-DIRECTIONS:
-Share habitat discoveries with classmates.
-
 TEACHER_ROLE:
 Encourage communication and reflection.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Review habitat concepts and build confidence.
-
+DIRECTIONS:
+1. Introduce Habitat Museum and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Review habitat concepts and build confidence.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Habitat Exploration Centers
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Review habitat knowledge.
-
-MATERIALS:
-Materials from previous activities
-
-SETUP:
-Create habitat stations.
-
-DIRECTIONS:
-Visit and explore each habitat center.
-
-TEACHER_ROLE:
-Observe and support learning.
-
 DESCRIPTION:
 Review habitat knowledge.
+MATERIALS:
+Materials from previous activities
+SETUP:
+Create habitat stations.
+TEACHER_ROLE:
+Observe and support learning.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Introduce Habitat Exploration Centers and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Review habitat knowledge.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Wild Animal Celebration
-
 CATEGORY:
 Music & Movement
-
 OBJECTIVE:
 Celebrate learning through movement.
-
-MATERIALS:
-Music player
-
-SETUP:
-Open movement area.
-
-DIRECTIONS:
-Move like favorite habitat animals.
-Share favorite discoveries.
-
-TEACHER_ROLE:
-Celebrate participation and learning.
-
 DESCRIPTION:
 Celebrate learning through movement.
+MATERIALS:
+Music player
+SETUP:
+Open movement area.
+TEACHER_ROLE:
+Celebrate participation and learning.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Introduce Wild Animal Celebration and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Celebrate learning through movement.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

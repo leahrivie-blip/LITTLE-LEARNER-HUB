@@ -14,12 +14,7 @@ STATUS:
 published
 
 LEARNING_DOMAINS:
-Language & Literacy
-Social Emotional
-Physical Development
-Creative Arts
-Science
-Math
+Language & Literacy, Social Emotional, Physical Development, Creative Arts, Science, Math
 
 WEEKLY_OVERVIEW:
 Children will travel around the world through imaginative play, cultural exploration, music, art, movement, and hands-on learning experiences. Throughout the week, children will discover different countries, traditions, foods, landmarks, languages, and celebrations while developing an appreciation for diversity and global communities.
@@ -86,7 +81,50 @@ Observe children's curiosity about different cultures, participation in discussi
 ADAPTATIONS:
 Provide visual supports, photographs, and simplified maps. Allow children to participate through art, movement, discussion, or dramatic play based on their strengths and interests.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+Around the World: Passport Adventure and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Introduce travel concepts and imaginative exploration.
+Introduce maps and geography.
+Develop creativity and cultural awareness.
+
+DAILY_VOCABULARY:
+World, Country, Continent, Travel, Passport, Culture
+
+DAILY_MATERIALS:
+Play passports
+Stickers
+Suitcases
+World map
+Globe
+Paper
+Markers
+Flag examples
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to around the world.
+Sing "Hello Around the World" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit Children Just Like Me by Barnabas and Anabel Kindersley and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to around the world — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Passport Adventure / World Map Exploration).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Around the World play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, photographs, and simplified maps. Allow children to participate through art, movement, discussion, or dramatic play based on their strengths and interests.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Passport Adventure
@@ -104,6 +142,8 @@ SETUP:
 Create an airport travel station.
 TEACHER_ROLE:
 Encourage imaginative travel experiences and conversations.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Create passports.
 2. Travel to pretend countries.
@@ -112,6 +152,15 @@ LEARNING_GOALS:
 Introduce travel concepts and imaginative exploration.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 World Map Exploration
@@ -128,13 +177,27 @@ SETUP:
 Display map and globe.
 TEACHER_ROLE:
 Introduce basic geography vocabulary.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Locate oceans and continents.
-2. Explore different places around the world.
+1. Introduce World Map Exploration and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Introduce maps and geography.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Flag Art Creations
@@ -152,13 +215,27 @@ SETUP:
 Prepare art materials.
 TEACHER_ROLE:
 Encourage creativity and cultural appreciation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Design and create unique flags.
-2. Discuss colors and symbols.
+1. Introduce Flag Art Creations and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop creativity and cultural awareness.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Airplane Movement Adventure
@@ -174,15 +251,72 @@ SETUP:
 Open movement space.
 TEACHER_ROLE:
 Lead movement and encourage participation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Fly around the classroom visiting different countries.
-2. Move at different speeds and heights.
+1. Introduce Airplane Movement Adventure and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop gross motor skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-TUESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Around the World: Landmark Builders and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Develop engineering and problem-solving skills.
+Explore foods from different cultures.
+Explore patterns and creativity.
+
+DAILY_VOCABULARY:
+World, Country, Continent, Travel, Passport, Culture
+
+DAILY_MATERIALS:
+Blocks
+Photos of landmarks
+Play food
+Menus
+Table settings
+Paper
+Markers
+Paint
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to around the world.
+Sing "Hello Around the World" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit Children Just Like Me by Barnabas and Anabel Kindersley and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to around the world — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Landmark Builders / International Restaurant).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Around the World play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, photographs, and simplified maps. Allow children to participate through art, movement, discussion, or dramatic play based on their strengths and interests.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Landmark Builders
@@ -199,13 +333,27 @@ SETUP:
 Display landmark photos.
 TEACHER_ROLE:
 Support planning and building.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Build famous landmarks using blocks.
-2. Compare structures.
+1. Introduce Landmark Builders and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop engineering and problem-solving skills.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 International Restaurant
@@ -223,13 +371,27 @@ SETUP:
 Create restaurant center.
 TEACHER_ROLE:
 Encourage conversation and cooperation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Serve pretend foods from around the world.
-2. Take orders and role-play.
+1. Introduce International Restaurant and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Explore foods from different cultures.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Cultural Pattern Art
@@ -247,12 +409,27 @@ SETUP:
 Prepare art station.
 TEACHER_ROLE:
 Discuss designs from different cultures.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Create colorful patterns inspired by world art.
+1. Introduce Cultural Pattern Art and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Explore patterns and creativity.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 World Dance Party
@@ -268,15 +445,73 @@ SETUP:
 Open movement area.
 TEACHER_ROLE:
 Encourage participation and appreciation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Dance to different styles of music.
-2. Explore various movement patterns.
+1. Introduce World Dance Party and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Experience music and movement from around the world.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-WEDNESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Around the World: Language Discovery Center and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Introduce greetings from different cultures.
+Develop communication and imagination.
+Strengthen creativity and hand control.
+
+DAILY_VOCABULARY:
+World, Country, Continent, Travel, Passport, Culture
+
+DAILY_MATERIALS:
+Greeting cards
+Photos
+Maps
+Tickets
+Suitcases
+Paper
+Glue
+Craft materials
+Cones
+Tunnels
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to around the world.
+Sing "Hello Around the World" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit Children Just Like Me by Barnabas and Anabel Kindersley and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to around the world — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Language Discovery Center / Travel Agency).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Around the World play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, photographs, and simplified maps. Allow children to participate through art, movement, discussion, or dramatic play based on their strengths and interests.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Language Discovery Center
@@ -293,13 +528,27 @@ SETUP:
 Display greetings around room.
 TEACHER_ROLE:
 Model pronunciation and celebrate effort.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Practice saying hello in different languages.
-2. Match greetings to pictures.
+1. Introduce Language Discovery Center and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Introduce greetings from different cultures.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Travel Agency
@@ -317,12 +566,27 @@ SETUP:
 Create travel office.
 TEACHER_ROLE:
 Support storytelling and planning.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Plan imaginary trips around the world.
+1. Introduce Travel Agency and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop communication and imagination.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 World Landmark Craft
@@ -340,12 +604,27 @@ SETUP:
 Prepare craft supplies.
 TEACHER_ROLE:
 Encourage creativity and discussion.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Create a favorite world landmark.
+1. Introduce World Landmark Craft and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Strengthen creativity and hand control.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Around the World Obstacle Course
@@ -362,14 +641,72 @@ SETUP:
 Create travel-themed obstacle course.
 TEACHER_ROLE:
 Lead activities and encourage participation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Visit different countries through movement challenges.
+1. Introduce Around the World Obstacle Course and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop coordination and movement.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-THURSDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Around the World: Cultural Clothing Exploration and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Explore traditions and clothing.
+Introduce continents and geography.
+Promote kindness and inclusion.
+
+DAILY_VOCABULARY:
+World, Country, Continent, Travel, Passport, Culture
+
+DAILY_MATERIALS:
+Dress-up clothing
+Photos
+Picture cards
+Sorting mats
+Paper
+Markers
+Paint
+Music player
+Rhythm instruments
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to around the world.
+Sing "Hello Around the World" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit Children Just Like Me by Barnabas and Anabel Kindersley and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to around the world — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Cultural Clothing Exploration / Continent Sorting Challenge).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Around the World play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, photographs, and simplified maps. Allow children to participate through art, movement, discussion, or dramatic play based on their strengths and interests.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Cultural Clothing Exploration
@@ -386,12 +723,27 @@ SETUP:
 Create dress-up area.
 TEACHER_ROLE:
 Encourage respectful discussion.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Explore clothing styles from around the world.
+1. Introduce Cultural Clothing Exploration and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Explore traditions and clothing.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Continent Sorting Challenge
@@ -408,12 +760,27 @@ SETUP:
 Arrange sorting materials.
 TEACHER_ROLE:
 Introduce geography concepts.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Sort pictures by continent.
+1. Introduce Continent Sorting Challenge and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Introduce continents and geography.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Global Friendship Craft
@@ -431,12 +798,27 @@ SETUP:
 Prepare art station.
 TEACHER_ROLE:
 Encourage positive social discussions.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Create artwork celebrating friendship around the world.
+1. Introduce Global Friendship Craft and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Promote kindness and inclusion.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Cultural Music Parade
@@ -453,14 +835,67 @@ SETUP:
 Create parade route.
 TEACHER_ROLE:
 Lead movement and participation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. March and play instruments to music from different cultures.
+1. Introduce Cultural Music Parade and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Explore music and movement traditions.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
 
-FRIDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Around the World: Around the World Celebration and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Celebrate learning and cultural exploration.
+Review concepts from the week.
+Celebrate learning through movement.
+
+DAILY_VOCABULARY:
+World, Country, Continent, Travel, Passport, Culture
+
+DAILY_MATERIALS:
+Projects from the week
+Passports
+Materials from previous activities
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Social Emotional, Physical Development, Creative Arts
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to around the world.
+Sing "Hello Around the World" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit Children Just Like Me by Barnabas and Anabel Kindersley and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to around the world — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Around the World Celebration / World Exploration Centers).
+
+DAILY_OBSERVATIONS:
+Observe participation and engagement.
+Participation and interest in Around the World play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, photographs, and simplified maps. Allow children to participate through art, movement, discussion, or dramatic play based on their strengths and interests.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Around the World Celebration
@@ -477,12 +912,27 @@ SETUP:
 Create celebration stations.
 TEACHER_ROLE:
 Encourage reflection and communication.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Share favorite countries and discoveries.
+1. Introduce Around the World Celebration and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Celebrate learning and cultural exploration.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 World Exploration Centers
@@ -498,12 +948,27 @@ SETUP:
 Create exploration stations.
 TEACHER_ROLE:
 Encourage discussion and reflection.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
-1. Visit centers and revisit favorite activities.
+1. Introduce World Exploration Centers and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Review concepts from the week.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Around the World Dance Celebration
@@ -519,10 +984,24 @@ SETUP:
 Open movement area.
 TEACHER_ROLE:
 Celebrate participation and learning.
+TEACHER_LANGUAGE:
 
 DIRECTIONS:
-1. Dance and move while celebrating the week's adventures.
+1. Introduce Around the World Dance Celebration and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Celebrate learning through movement.
 OBSERVATION_OPPORTUNITIES:
 Observe participation and engagement.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

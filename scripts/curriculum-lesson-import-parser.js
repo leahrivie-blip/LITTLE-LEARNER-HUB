@@ -183,15 +183,38 @@ const V3_ACTIVITY_FIELDS = new Set([
   "MATERIALS",
   "SETUP",
   "TEACHER_ROLE",
+  "TEACHER_LANGUAGE",
   "DIRECTIONS",
   "LEARNING_GOALS",
   "OBSERVATION_OPPORTUNITIES",
+  "VOCABULARY",
+  "EXTENSIONS",
+  "ADAPTATIONS",
+  "SAFETY_NOTES",
+  "AGE_MODIFICATIONS",
+]);
+
+const V3_DAY_FIELDS = new Set([
+  "DAILY_THEME",
+  "DAILY_OBJECTIVES",
+  "DAILY_VOCABULARY",
+  "DAILY_MATERIALS",
+  "DAILY_LEARNING_DOMAINS",
+  "CIRCLE_TIME",
+  "OUTDOOR_PLAY",
+  "DAILY_OBSERVATIONS",
+  "OBSERVATION_OPPORTUNITIES",
+  "DAILY_ADAPTATIONS",
+  "ADAPTATIONS",
+  "SAFETY_NOTES",
 ]);
 
 const V3_WEEKDAY_HEADERS = new Set(["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]);
 
 const V3_FIELD_ALIASES = {
   "LEARNING GOALS": "LEARNING_GOALS",
+  "LEARNING GOAL": "LEARNING_GOALS",
+  LEARNING_GOAL: "LEARNING_GOALS",
   "LEARNING OBJECTIVES": "LEARNING_OBJECTIVES",
   "AGE GROUP": "AGE_GROUP",
   "ACTIVITY NAME": "ACTIVITY_NAME",
@@ -201,6 +224,18 @@ const V3_FIELD_ALIASES = {
   "OBSERVATION OPPORTUNITIES": "OBSERVATION_OPPORTUNITIES",
   "LEARNING DOMAINS": "LEARNING_DOMAINS",
   "TEACHER ROLE": "TEACHER_ROLE",
+  "TEACHER LANGUAGE": "TEACHER_LANGUAGE",
+  "DAILY THEME": "DAILY_THEME",
+  "DAILY OBJECTIVES": "DAILY_OBJECTIVES",
+  "DAILY VOCABULARY": "DAILY_VOCABULARY",
+  "DAILY MATERIALS": "DAILY_MATERIALS",
+  "DAILY LEARNING DOMAINS": "DAILY_LEARNING_DOMAINS",
+  "CIRCLE TIME": "CIRCLE_TIME",
+  "OUTDOOR PLAY": "OUTDOOR_PLAY",
+  "DAILY OBSERVATIONS": "DAILY_OBSERVATIONS",
+  "DAILY ADAPTATIONS": "DAILY_ADAPTATIONS",
+  "SAFETY NOTES": "SAFETY_NOTES",
+  "AGE MODIFICATIONS": "AGE_MODIFICATIONS",
 };
 
 const CURRICULUM_IMPORT_COLON_SECTION_KEYS = {
@@ -1216,7 +1251,14 @@ function parseV3ActivityBlock(block, { dayKey, lineOffset = 1, existingItemIds =
     errors.push(`${dayKey}: "${title}" is missing TEACHER_ROLE.`);
   }
 
-  const learningGoals = parseActivityGoals(fields.LEARNING_GOALS);
+  let stepsText = preserveMultilineText(fields.DIRECTIONS);
+  let learningGoals = parseActivityGoals(fields.LEARNING_GOALS);
+  // Older drafts nested "LEARNING GOAL:" under directions — lift it out when needed.
+  if (!learningGoals.length && /learning\s+goals?:/i.test(stepsText)) {
+    const split = stepsText.split(/\n(?=LEARNING\s+GOALS?:)/i);
+    stepsText = preserveMultilineText(split[0] || "");
+    learningGoals = parseActivityGoals((split.slice(1).join("\n") || "").replace(/^LEARNING\s+GOALS?:\s*/i, ""));
+  }
   if (!learningGoals.length) {
     errors.push(`${dayKey}: "${title}" is missing LEARNING_GOALS.`);
   }
@@ -1234,19 +1276,60 @@ function parseV3ActivityBlock(block, { dayKey, lineOffset = 1, existingItemIds =
     learningDomains: [],
     materials: preserveMultilineText(fields.MATERIALS),
     setup: preserveMultilineText(fields.SETUP),
-    steps: preserveMultilineText(fields.DIRECTIONS),
+    steps: stepsText,
     teacherRole: preserveMultilineText(fields.TEACHER_ROLE),
-    teacherLanguage: "",
+    teacherLanguage: preserveMultilineText(fields.TEACHER_LANGUAGE),
     learningGoals,
     observationOpportunities: preserveMultilineText(fields.OBSERVATION_OPPORTUNITIES),
-    vocabulary: "",
-    extensions: "",
-    adaptations: "",
-    safetyNotes: "",
-    ageModifications: "",
+    vocabulary: preserveMultilineText(fields.VOCABULARY),
+    extensions: preserveMultilineText(fields.EXTENSIONS),
+    adaptations: preserveMultilineText(fields.ADAPTATIONS),
+    safetyNotes: preserveMultilineText(fields.SAFETY_NOTES),
+    ageModifications: preserveMultilineText(fields.AGE_MODIFICATIONS),
   };
 
   return { activity, errors, warnings, unmapped };
+}
+
+function splitV3DayPreambleAndActivities(dayContent) {
+  const content = String(dayContent || "");
+  const match = /^(ACTIVITY[_ ]NAME:\s*)/im.exec(content);
+  if (!match) {
+    return { preamble: content.trim(), activityContent: "" };
+  }
+  return {
+    preamble: content.slice(0, match.index).trim(),
+    activityContent: content.slice(match.index).trim(),
+  };
+}
+
+function applyV3DayFields(dayPlan, fields = {}) {
+  const theme = preserveMultilineText(fields.DAILY_THEME);
+  const objectives = preserveMultilineText(fields.DAILY_OBJECTIVES);
+  const vocabulary = preserveMultilineText(fields.DAILY_VOCABULARY);
+  const materials = preserveMultilineText(fields.DAILY_MATERIALS);
+  const learningDomains = parseLearningDomainsList(fields.DAILY_LEARNING_DOMAINS);
+  const circleTime = preserveMultilineText(fields.CIRCLE_TIME);
+  const outdoorPlay = preserveMultilineText(fields.OUTDOOR_PLAY);
+  const observations = preserveMultilineText(fields.DAILY_OBSERVATIONS || fields.OBSERVATION_OPPORTUNITIES);
+  const adaptations = preserveMultilineText(fields.DAILY_ADAPTATIONS || fields.ADAPTATIONS);
+  const safetyNotes = preserveMultilineText(fields.SAFETY_NOTES);
+
+  if (theme) dayPlan.theme = theme;
+  if (objectives) dayPlan.objectives = objectives;
+  if (vocabulary) dayPlan.vocabulary = vocabulary;
+  if (materials) dayPlan.materials = materials;
+  if (learningDomains.length) dayPlan.learningDomains = learningDomains;
+  if (circleTime) {
+    dayPlan.circleTime = circleTime.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  }
+  if (outdoorPlay) dayPlan.outdoorPlay = outdoorPlay;
+  if (observations) {
+    dayPlan.observations = observations.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  }
+  if (adaptations) dayPlan.adaptations = adaptations;
+  if (safetyNotes) dayPlan.safetyNotes = safetyNotes;
+  return dayPlan;
 }
 
 function parseCurriculumLessonPlanImportV3(text, { existingItemIds = new Map(), generateItemId = generateCurriculumItemId, existingTitles = [] } = {}) {
@@ -1342,7 +1425,21 @@ function parseCurriculumLessonPlanImportV3(text, { existingItemIds = new Map(), 
     sectionsDetected.push(dayKey.toUpperCase());
     daysPresent.push(dayKey);
 
-    const activityBlocks = splitV3DayActivities(dayContent);
+    const { preamble, activityContent } = splitV3DayPreambleAndActivities(dayContent);
+    if (preamble) {
+      const { fields: dayFields, unmapped: dayUnmapped } = parseFieldBlock(preamble, V3_DAY_FIELDS, {
+        lineOffset: dayLineOffsets[dayKey] || 1,
+        context: `${dayKey}:daily`,
+        fieldAliases: V3_FIELD_ALIASES,
+      });
+      unmapped.push(...dayUnmapped);
+      applyV3DayFields(dailyPlans[dayKey], dayFields);
+      if (dayFields.DAILY_THEME || dayFields.CIRCLE_TIME || dayFields.OUTDOOR_PLAY) {
+        sectionsDetected.push(`${dayKey.toUpperCase()}_DAILY_FIELDS`);
+      }
+    }
+
+    const activityBlocks = splitV3DayActivities(activityContent || dayContent);
     if (!activityBlocks.length) {
       const trimmed = dayContent.trim();
       if (trimmed) {
@@ -1586,9 +1683,33 @@ function formatCurriculumLessonPlanImportV3(plan = {}) {
   );
   ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"].forEach((dayKey) => {
     const day = dayKey.toLowerCase();
-    const items = Array.isArray(entry.dailyPlans?.[day]?.items) ? entry.dailyPlans[day].items : [];
+    const dayPlan = entry.dailyPlans?.[day] || {};
+    const items = Array.isArray(dayPlan.items) ? dayPlan.items : [];
+    const daySectionsOut = [];
+    if (dayPlan.theme) daySectionsOut.push(formatImportSection("DAILY_THEME", dayPlan.theme));
+    if (dayPlan.objectives) daySectionsOut.push(formatImportSection("DAILY_OBJECTIVES", dayPlan.objectives));
+    if (dayPlan.vocabulary) daySectionsOut.push(formatImportSection("DAILY_VOCABULARY", dayPlan.vocabulary));
+    if (dayPlan.materials) daySectionsOut.push(formatImportSection("DAILY_MATERIALS", dayPlan.materials));
+    if (Array.isArray(dayPlan.learningDomains) && dayPlan.learningDomains.length) {
+      daySectionsOut.push(formatImportSection("DAILY_LEARNING_DOMAINS", dayPlan.learningDomains.join(", ")));
+    }
+    if (Array.isArray(dayPlan.circleTime) ? dayPlan.circleTime.length : dayPlan.circleTime) {
+      daySectionsOut.push(formatImportSection(
+        "CIRCLE_TIME",
+        Array.isArray(dayPlan.circleTime) ? dayPlan.circleTime.join("\n") : dayPlan.circleTime,
+      ));
+    }
+    if (dayPlan.outdoorPlay) daySectionsOut.push(formatImportSection("OUTDOOR_PLAY", dayPlan.outdoorPlay));
+    if (Array.isArray(dayPlan.observations) ? dayPlan.observations.length : dayPlan.observations) {
+      daySectionsOut.push(formatImportSection(
+        "DAILY_OBSERVATIONS",
+        Array.isArray(dayPlan.observations) ? dayPlan.observations.join("\n") : dayPlan.observations,
+      ));
+    }
+    if (dayPlan.adaptations) daySectionsOut.push(formatImportSection("DAILY_ADAPTATIONS", dayPlan.adaptations));
+    if (dayPlan.safetyNotes) daySectionsOut.push(formatImportSection("SAFETY_NOTES", dayPlan.safetyNotes));
     const activityBlocks = items.map((item) => formatImportActivity(item));
-    sections.push(`${dayKey}\n\n${activityBlocks.join("\n\n")}`.trim() + "\n");
+    sections.push(`${dayKey}\n\n${[...daySectionsOut, ...activityBlocks].join("\n").trim()}\n`);
   });
   return `${sections.join("\n").trim()}\n`;
 }

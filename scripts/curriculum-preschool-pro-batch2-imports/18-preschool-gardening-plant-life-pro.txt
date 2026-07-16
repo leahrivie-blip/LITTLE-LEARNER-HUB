@@ -12,14 +12,9 @@ Pro
 
 STATUS:
 published
-LEARNING_DOMAINS:
-Science
-Language & Literacy
-Math
-Physical Development
-Social Emotional
-Creative Arts
 
+LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Physical Development, Social Emotional, Creative Arts
 
 WEEKLY_OVERVIEW:
 Children will become gardeners and plant scientists as they explore seeds, flowers, vegetables, insects, plant life cycles, and the needs of living things. Through hands-on planting experiences, sensory exploration, dramatic play, art, STEM investigations, and nature observations, children will discover how plants grow and why gardens are important.
@@ -33,7 +28,6 @@ Practice counting, sorting, and measuring
 Strengthen fine and gross motor skills
 Build vocabulary related to gardening
 Foster responsibility through plant care
-
 
 WEEKLY_MATERIALS:
 Seeds
@@ -53,7 +47,6 @@ Scissors
 Books
 Music player
 
-
 VOCABULARY:
 Seed
 Plant
@@ -70,12 +63,10 @@ Sprout
 Vegetable
 Harvest
 
-
 BOOKS:
 From Seed to Plant | Gail Gibbons
 The Tiny Seed | Eric Carle
 Planting a Rainbow | Lois Ehlert
-
 
 SONGS:
 The Garden Song
@@ -91,643 +82,931 @@ Observe children's ability to identify plant parts, describe plant growth, care 
 ADAPTATIONS:
 Provide larger gardening tools when needed. Use visual plant life cycle cards. Allow children to participate through planting, observation, art, dramatic play, or discussion.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+Gardening & Plant Life: Garden Sensory Bin and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Explore gardening materials through sensory play.
+Develop classification skills.
+Develop creativity and hand control.
+
+DAILY_VOCABULARY:
+Seed, Plant, Flower, Stem, Roots, Leaf
+
+DAILY_MATERIALS:
+Soil
+Seeds
+Artificial flowers
+Scoops
+Various seeds
+Sorting trays
+Paint
+Paper
+Brushes
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to gardening & plant life.
+Sing "The Garden Song" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit From Seed to Plant by Gail Gibbons and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to gardening & plant life — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Garden Sensory Bin / Seed Sorting Center).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Gardening & Plant Life play
+
+DAILY_ADAPTATIONS:
+Provide larger gardening tools when needed. Use visual plant life cycle cards. Allow children to participate through planting, observation, art, dramatic play, or discussion.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Garden Sensory Bin
-
 CATEGORY:
 Sensory Play
-
 OBJECTIVE:
 Explore gardening materials through sensory play.
-
+DESCRIPTION:
+Explore gardening materials through sensory play.
 MATERIALS:
 Soil
 Seeds
 Artificial flowers
 Scoops
-
 SETUP:
 Create a garden-themed sensory bin.
-
-DIRECTIONS:
-Explore soil and seeds.
-Discuss what plants need to grow.
-
 TEACHER_ROLE:
 Introduce gardening vocabulary and encourage exploration.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Explore gardening materials through sensory play.
-
+DIRECTIONS:
+1. Introduce Garden Sensory Bin and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Explore gardening materials through sensory play.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Seed Sorting Center
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Develop classification skills.
-
+DESCRIPTION:
+Develop classification skills.
 MATERIALS:
 Various seeds
 Sorting trays
-
 SETUP:
 Arrange seeds for sorting.
-
-DIRECTIONS:
-Sort seeds by size, shape, or color.
-
 TEACHER_ROLE:
 Support observation and comparison skills.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop classification skills.
-
+DIRECTIONS:
+1. Introduce Seed Sorting Center and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop classification skills.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Flower Garden Painting
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Develop creativity and hand control.
-
+DESCRIPTION:
+Develop creativity and hand control.
 MATERIALS:
 Paint
 Paper
 Brushes
-
 SETUP:
 Prepare painting station.
-
-DIRECTIONS:
-Paint colorful flower gardens.
-
 TEACHER_ROLE:
 Encourage artistic expression.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop creativity and hand control.
-
+DIRECTIONS:
+1. Introduce Flower Garden Painting and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop creativity and hand control.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Growing Like a Plant
-
 CATEGORY:
 Music & Movement
-
 OBJECTIVE:
 Develop body awareness.
-
-MATERIALS:
-Music player
-
-SETUP:
-Open movement space.
-
-DIRECTIONS:
-Pretend to grow from tiny seeds into tall plants.
-
-TEACHER_ROLE:
-Lead movement activities.
-
 DESCRIPTION:
 Develop body awareness.
+MATERIALS:
+Music player
+SETUP:
+Open movement space.
+TEACHER_ROLE:
+Lead movement activities.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Introduce Growing Like a Plant and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop body awareness.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
-TUESDAY:
+TUESDAY
+
+DAILY_THEME:
+Gardening & Plant Life: Planting Seeds Investigation and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Learn about plant growth.
+Encourage imaginative play and communication.
+Strengthen fine motor development.
+
+DAILY_VOCABULARY:
+Seed, Plant, Flower, Stem, Roots, Leaf
+
+DAILY_MATERIALS:
+Seeds
+Soil
+Cups
+Flowers
+Gardening tools
+Play money
+Paper
+Markers
+Stickers
+Watering cans
+Buckets
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to gardening & plant life.
+Sing "The Garden Song" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit From Seed to Plant by Gail Gibbons and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to gardening & plant life — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Planting Seeds Investigation / Garden Center Dramatic Play).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Gardening & Plant Life play
+
+DAILY_ADAPTATIONS:
+Provide larger gardening tools when needed. Use visual plant life cycle cards. Allow children to participate through planting, observation, art, dramatic play, or discussion.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Planting Seeds Investigation
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Learn about plant growth.
-
+DESCRIPTION:
+Learn about plant growth.
 MATERIALS:
 Seeds
 Soil
 Cups
-
 SETUP:
 Prepare planting station.
-
-DIRECTIONS:
-Plant seeds and water them.
-Predict what will happen.
-
 TEACHER_ROLE:
 Guide scientific thinking and observation.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Learn about plant growth.
-
+DIRECTIONS:
+1. Introduce Planting Seeds Investigation and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Learn about plant growth.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Garden Center Dramatic Play
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Encourage imaginative play and communication.
-
+DESCRIPTION:
+Encourage imaginative play and communication.
 MATERIALS:
 Flowers
 Gardening tools
 Play money
-
 SETUP:
 Create garden shop.
-
-DIRECTIONS:
-Buy, sell, and care for plants.
-
 TEACHER_ROLE:
 Support role-play and vocabulary.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Encourage imaginative play and communication.
-
+DIRECTIONS:
+1. Introduce Garden Center Dramatic Play and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Encourage imaginative play and communication.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Seed Packet Craft
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Strengthen fine motor development.
-
+DESCRIPTION:
+Strengthen fine motor development.
 MATERIALS:
 Paper
 Markers
 Stickers
-
 SETUP:
 Prepare craft station.
-
-DIRECTIONS:
-Create and decorate seed packets.
-
 TEACHER_ROLE:
 Encourage creativity.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Strengthen fine motor development.
-
+DIRECTIONS:
+1. Introduce Seed Packet Craft and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Strengthen fine motor development.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Watering Relay
-
 CATEGORY:
 Gross Motor
-
 OBJECTIVE:
 Develop coordination and teamwork.
-
+DESCRIPTION:
+Develop coordination and teamwork.
 MATERIALS:
 Watering cans
 Buckets
-
 SETUP:
 Create relay course.
-
-DIRECTIONS:
-Carry water to garden plants.
-
 TEACHER_ROLE:
 Promote teamwork and participation.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop coordination and teamwork.
-
+DIRECTIONS:
+1. Introduce Watering Relay and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop coordination and teamwork.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
-WEDNESDAY:
+WEDNESDAY
+
+DAILY_THEME:
+Gardening & Plant Life: Plant Parts Investigation and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Identify parts of a plant.
+Practice caring for living things.
+Understand plant growth stages.
+
+DAILY_VOCABULARY:
+Seed, Plant, Flower, Stem, Roots, Leaf
+
+DAILY_MATERIALS:
+Real plants
+Magnifying glasses
+Gardening tools
+Plants
+Life cycle templates
+Glue
+Markers
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to gardening & plant life.
+Sing "The Garden Song" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit From Seed to Plant by Gail Gibbons and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to gardening & plant life — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Plant Parts Investigation / Garden Helper Center).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Gardening & Plant Life play
+
+DAILY_ADAPTATIONS:
+Provide larger gardening tools when needed. Use visual plant life cycle cards. Allow children to participate through planting, observation, art, dramatic play, or discussion.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Plant Parts Investigation
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Identify parts of a plant.
-
+DESCRIPTION:
+Identify parts of a plant.
 MATERIALS:
 Real plants
 Magnifying glasses
-
 SETUP:
 Arrange plants for observation.
-
-DIRECTIONS:
-Examine roots, stems, leaves, and flowers.
-
 TEACHER_ROLE:
 Introduce plant vocabulary.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Identify parts of a plant.
-
+DIRECTIONS:
+1. Introduce Plant Parts Investigation and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Identify parts of a plant.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Garden Helper Center
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Practice caring for living things.
-
+DESCRIPTION:
+Practice caring for living things.
 MATERIALS:
 Gardening tools
 Plants
-
 SETUP:
 Create garden care station.
-
-DIRECTIONS:
-Care for plants and complete garden jobs.
-
 TEACHER_ROLE:
 Model responsibility.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Practice caring for living things.
-
+DIRECTIONS:
+1. Introduce Garden Helper Center and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Practice caring for living things.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Plant Life Cycle Craft
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Understand plant growth stages.
-
+DESCRIPTION:
+Understand plant growth stages.
 MATERIALS:
 Life cycle templates
 Glue
 Markers
-
 SETUP:
 Prepare art materials.
-
-DIRECTIONS:
-Create a plant life cycle sequence.
-
 TEACHER_ROLE:
 Support sequencing skills.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Understand plant growth stages.
-
+DIRECTIONS:
+1. Introduce Plant Life Cycle Craft and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Understand plant growth stages.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Garden Yoga
-
 CATEGORY:
 Music & Movement
-
 OBJECTIVE:
 Develop flexibility and body awareness.
-
-MATERIALS:
-Music player
-
-SETUP:
-Open movement area.
-
-DIRECTIONS:
-Move like flowers, trees, and growing plants.
-
-TEACHER_ROLE:
-Guide movement activities.
-
 DESCRIPTION:
 Develop flexibility and body awareness.
+MATERIALS:
+Music player
+SETUP:
+Open movement area.
+TEACHER_ROLE:
+Guide movement activities.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Introduce Garden Yoga and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop flexibility and body awareness.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
-THURSDAY:
+THURSDAY
+
+DAILY_THEME:
+Gardening & Plant Life: Vegetable Investigation and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Explore vegetables and healthy foods.
+Develop communication and social skills.
+Explore textures and creativity.
+
+DAILY_VOCABULARY:
+Seed, Plant, Flower, Stem, Roots, Leaf
+
+DAILY_MATERIALS:
+Vegetables
+Magnifying glasses
+Play vegetables
+Cash register
+Baskets
+Cut vegetables
+Paint
+Paper
+Baskets
+Play vegetables
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to gardening & plant life.
+Sing "The Garden Song" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit From Seed to Plant by Gail Gibbons and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to gardening & plant life — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Vegetable Investigation / Farmer's Market).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Gardening & Plant Life play
+
+DAILY_ADAPTATIONS:
+Provide larger gardening tools when needed. Use visual plant life cycle cards. Allow children to participate through planting, observation, art, dramatic play, or discussion.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Vegetable Investigation
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Explore vegetables and healthy foods.
-
+DESCRIPTION:
+Explore vegetables and healthy foods.
 MATERIALS:
 Vegetables
 Magnifying glasses
-
 SETUP:
 Arrange vegetables for observation.
-
-DIRECTIONS:
-Observe and compare vegetables.
-
 TEACHER_ROLE:
 Encourage scientific observation.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Explore vegetables and healthy foods.
-
+DIRECTIONS:
+1. Introduce Vegetable Investigation and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Explore vegetables and healthy foods.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Farmer's Market
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Develop communication and social skills.
-
+DESCRIPTION:
+Develop communication and social skills.
 MATERIALS:
 Play vegetables
 Cash register
 Baskets
-
 SETUP:
 Create market center.
-
-DIRECTIONS:
-Buy and sell vegetables.
-
 TEACHER_ROLE:
 Support role-playing.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop communication and social skills.
-
+DIRECTIONS:
+1. Introduce Farmer's Market and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop communication and social skills.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Vegetable Printing Art
-
 CATEGORY:
 Fine Motor
-
 OBJECTIVE:
 Explore textures and creativity.
-
+DESCRIPTION:
+Explore textures and creativity.
 MATERIALS:
 Cut vegetables
 Paint
 Paper
-
 SETUP:
 Prepare printing station.
-
-DIRECTIONS:
-Use vegetables to create prints.
-
 TEACHER_ROLE:
 Encourage experimentation.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Explore textures and creativity.
-
+DIRECTIONS:
+1. Introduce Vegetable Printing Art and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Explore textures and creativity.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Harvest Helpers Race
-
 CATEGORY:
 Gross Motor
-
 OBJECTIVE:
 Develop coordination and teamwork.
-
+DESCRIPTION:
+Develop coordination and teamwork.
 MATERIALS:
 Baskets
 Play vegetables
-
 SETUP:
 Create harvesting course.
-
-DIRECTIONS:
-Collect and deliver vegetables.
-
 TEACHER_ROLE:
 Encourage participation.
+TEACHER_LANGUAGE:
 
-DESCRIPTION:
-Develop coordination and teamwork.
-
+DIRECTIONS:
+1. Introduce Harvest Helpers Race and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Develop coordination and teamwork.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
-FRIDAY:
+FRIDAY
+
+DAILY_THEME:
+Gardening & Plant Life: Garden Showcase and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Build confidence and communication.
+Review gardening concepts.
+Celebrate learning and growth.
+
+DAILY_VOCABULARY:
+Seed, Plant, Flower, Stem, Roots, Leaf
+
+DAILY_MATERIALS:
+Projects from the week
+Favorite materials from the week
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Science, Language & Literacy, Math, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to gardening & plant life.
+Sing "The Garden Song" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit From Seed to Plant by Gail Gibbons and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to gardening & plant life — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Garden Showcase / Garden Exploration Centers).
+
+DAILY_OBSERVATIONS:
+Observe participation, engagement, and use of theme vocabulary.
+Participation and interest in Gardening & Plant Life play
+
+DAILY_ADAPTATIONS:
+Provide larger gardening tools when needed. Use visual plant life cycle cards. Allow children to participate through planting, observation, art, dramatic play, or discussion.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Garden Showcase
-
 CATEGORY:
 Dramatic Play
-
 OBJECTIVE:
 Build confidence and communication.
-
-MATERIALS:
-Projects from the week
-
-SETUP:
-Create display area.
-
-DIRECTIONS:
-Share gardening discoveries and projects.
-
-TEACHER_ROLE:
-Encourage reflection and discussion.
-
 DESCRIPTION:
 Build confidence and communication.
+MATERIALS:
+Projects from the week
+SETUP:
+Create display area.
+TEACHER_ROLE:
+Encourage reflection and discussion.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Introduce Garden Showcase and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Build confidence and communication.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Garden Exploration Centers
-
 CATEGORY:
 Open-Ended Exploration
-
 OBJECTIVE:
 Review gardening concepts.
-
-MATERIALS:
-Favorite materials from the week
-
-SETUP:
-Create exploration stations.
-
-DIRECTIONS:
-Revisit favorite gardening activities.
-
-TEACHER_ROLE:
-Observe and support learning.
-
 DESCRIPTION:
 Review gardening concepts.
+MATERIALS:
+Favorite materials from the week
+SETUP:
+Create exploration stations.
+TEACHER_ROLE:
+Observe and support learning.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Introduce Garden Exploration Centers and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Review gardening concepts.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
 
+EXTENSIONS:
 
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Garden Celebration Dance
-
 CATEGORY:
 Music & Movement
-
 OBJECTIVE:
 Celebrate learning and growth.
-
-MATERIALS:
-Music player
-
-SETUP:
-Open movement area.
-
-DIRECTIONS:
-Dance and celebrate a successful week of gardening adventures.
-
-TEACHER_ROLE:
-Celebrate participation and accomplishments.
-
 DESCRIPTION:
 Celebrate learning and growth.
+MATERIALS:
+Music player
+SETUP:
+Open movement area.
+TEACHER_ROLE:
+Celebrate participation and accomplishments.
+TEACHER_LANGUAGE:
 
+DIRECTIONS:
+1. Introduce Garden Celebration Dance and connect it to today's theme focus.
+2. Review materials and expectations, then model the first step.
+3. Support children as they explore, asking open-ended theme questions.
+4. Invite children to share one discovery with a peer or the group.
+5. Clean up together and note one skill to celebrate.
 LEARNING_GOALS:
 Celebrate learning and growth.
-
 OBSERVATION_OPPORTUNITIES:
 Observe participation, engagement, and use of theme vocabulary.
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

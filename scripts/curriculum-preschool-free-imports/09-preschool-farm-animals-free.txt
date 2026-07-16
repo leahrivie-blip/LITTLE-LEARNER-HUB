@@ -14,12 +14,7 @@ STATUS:
 published
 
 LEARNING_DOMAINS:
-Language & Literacy
-Science
-Creative Arts
-Physical Development
-Social Emotional
-Math
+Language & Literacy, Science, Creative Arts, Physical Development, Social Emotional, Math
 
 WEEKLY_OVERVIEW:
 Preschoolers will explore farm life through animal sounds, care routines, sensory bins, books, songs, and dramatic play. Children will name farm animals, describe what they provide, and practice caring for living things.
@@ -77,7 +72,46 @@ Observe animal naming, sound imitation, caring play, sorting skills, and use of 
 ADAPTATIONS:
 Use real photos alongside toy animals. Supervise sensory bins closely. Offer single-animal focus for overwhelmed children.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+Farm Animals: Farm Animal Discovery Basket and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Explore farm animals and textures in a basket.
+Sing and act out farm animal verses.
+Move like farm animals across the room.
+
+DAILY_VOCABULARY:
+farm, barn, cow, pig, chicken, horse
+
+DAILY_MATERIALS:
+Farm animals, hay, fabric eggs, basket
+Farm animal props, music or voice
+Open space, animal picture cards
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Science, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to farm animals.
+Sing "Old MacDonald Had a Farm" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit Big Red Barn by Margaret Wise Brown and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to farm animals — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Farm Animal Discovery Basket / Old MacDonald Sing Along).
+
+DAILY_OBSERVATIONS:
+Names animals
+Sings along
+Imitates animal movement
+Participation and interest in Farm Animals play
+
+DAILY_ADAPTATIONS:
+Use real photos alongside toy animals. Supervise sensory bins closely. Offer single-animal focus for overwhelmed children.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Farm Animal Discovery Basket
@@ -93,6 +127,8 @@ SETUP:
 Fill basket with safe farm items.
 TEACHER_ROLE:
 Name animals and describe textures.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Reach into basket and choose item.
 2. Name animal or object.
@@ -107,6 +143,15 @@ OBSERVATION_OPPORTUNITIES:
 Names animals
 Imitates sounds
 Handles materials gently
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Old MacDonald Sing Along
@@ -122,6 +167,8 @@ SETUP:
 Sit in circle with animal props in center.
 TEACHER_ROLE:
 Pause for children to choose animals.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Sing opening verse together.
 2. Child picks animal for next verse.
@@ -136,6 +183,15 @@ OBSERVATION_OPPORTUNITIES:
 Sings along
 Makes animal sound
 Takes turn choosing
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Farm Animal Walk
@@ -151,6 +207,8 @@ SETUP:
 Clear path for animal walks.
 TEACHER_ROLE:
 Demonstrate safe animal movements.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Pick animal card.
 2. Move like that animal across room.
@@ -165,8 +223,56 @@ OBSERVATION_OPPORTUNITIES:
 Imitates animal movement
 Freezes on cue
 Stays safe in space
+VOCABULARY:
 
-TUESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Farm Animals: Animal Sorting Center and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Sort animals by farm habitat or product.
+Play with mud dough and pig figures.
+Complete farm puzzles and name animals.
+
+DAILY_VOCABULARY:
+farm, barn, cow, pig, chicken, horse
+
+DAILY_MATERIALS:
+Farm animals, habitat mats
+Brown play dough, pig figures, trays
+Farm puzzles, animal name cards
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Science, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to farm animals.
+Sing "Old MacDonald Had a Farm" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit Big Red Barn by Margaret Wise Brown and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to farm animals — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Animal Sorting Center / Muddy Pig Sensory Bin).
+
+DAILY_OBSERVATIONS:
+Sorts logically
+Describes texture
+Completes puzzle
+Participation and interest in Farm Animals play
+
+DAILY_ADAPTATIONS:
+Use real photos alongside toy animals. Supervise sensory bins closely. Offer single-animal focus for overwhelmed children.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Animal Sorting Center
@@ -182,6 +288,8 @@ SETUP:
 Prepare mats labeled barn, pond, field.
 TEACHER_ROLE:
 Discuss where each animal lives.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Pick animal figure.
 2. Discuss habitat.
@@ -196,6 +304,15 @@ OBSERVATION_OPPORTUNITIES:
 Sorts logically
 States habitat reason
 Counts groups
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Muddy Pig Sensory Bin
@@ -211,6 +328,8 @@ SETUP:
 Set dough and pigs in shallow bin.
 TEACHER_ROLE:
 Supervise dough use and hand washing.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Squish mud dough.
 2. Roll pigs through mud.
@@ -225,6 +344,15 @@ OBSERVATION_OPPORTUNITIES:
 Describes texture
 Engages in pretend cleaning
 Washes hands
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Farm Animal Puzzle Table
@@ -240,6 +368,8 @@ SETUP:
 Place puzzles at table.
 TEACHER_ROLE:
 Encourage naming each piece placed.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose puzzle.
 2. Name animal as piece placed.
@@ -254,8 +384,56 @@ OBSERVATION_OPPORTUNITIES:
 Completes puzzle
 Names animals
 Trades cooperatively
+VOCABULARY:
 
-WEDNESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Farm Animals: Farmer's Market Dramatic Play and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Buy and sell farm goods at a market stand.
+Squeeze water from glove udder into bucket.
+Read Big Red Barn and discuss animal bedtime.
+
+DAILY_VOCABULARY:
+farm, barn, cow, pig, chicken, horse
+
+DAILY_MATERIALS:
+Market stand, baskets, pretend produce, play money
+Rubber glove with pinholes, water, bucket, towel
+Big Red Barn book, animal props
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Science, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to farm animals.
+Sing "Old MacDonald Had a Farm" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit Big Red Barn by Margaret Wise Brown and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to farm animals — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Farmer's Market Dramatic Play / Milking the Cow Fine Motor).
+
+DAILY_OBSERVATIONS:
+Uses market vocabulary
+Squeezes with control
+Participates in sounds
+Participation and interest in Farm Animals play
+
+DAILY_ADAPTATIONS:
+Use real photos alongside toy animals. Supervise sensory bins closely. Offer single-animal focus for overwhelmed children.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Farmer's Market Dramatic Play
@@ -271,6 +449,8 @@ SETUP:
 Set up market with labeled bins.
 TEACHER_ROLE:
 Model customer and farmer roles.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Farmers stock stand.
 2. Customers buy with play money.
@@ -285,6 +465,15 @@ OBSERVATION_OPPORTUNITIES:
 Uses market vocabulary
 Counts items
 Takes turns in roles
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Milking the Cow Fine Motor
@@ -300,6 +489,8 @@ SETUP:
 Prepare glove udder over bucket.
 TEACHER_ROLE:
 Supervise water play.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Demonstrate gentle squeeze.
 2. Child squeezes glove fingers.
@@ -314,6 +505,15 @@ OBSERVATION_OPPORTUNITIES:
 Squeezes with control
 Understands milk source
 Follows cleanup
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Farm Story Read-Aloud
@@ -329,6 +529,8 @@ SETUP:
 Gather with props matching story.
 TEACHER_ROLE:
 Pause for animal sound participation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Read story with animal sounds.
 2. Children hold props when animal mentioned.
@@ -343,8 +545,56 @@ OBSERVATION_OPPORTUNITIES:
 Participates in sounds
 Retells part of story
 Handles props
+VOCABULARY:
 
-THURSDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Farm Animals: Egg Carton Counting and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Place correct number of eggs in carton sections.
+Create farm scene with torn paper and animal stickers.
+Practice gentle animal care brushing plush horses.
+
+DAILY_VOCABULARY:
+farm, barn, cow, pig, chicken, horse
+
+DAILY_MATERIALS:
+Empty egg carton, plastic eggs, numeral labels
+Paper, glue, torn paper, farm stickers, crayons
+Plush horses, brushes, towels
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Science, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to farm animals.
+Sing "Old MacDonald Had a Farm" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit Big Red Barn by Margaret Wise Brown and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to farm animals — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Egg Carton Counting / Farm Collage Art).
+
+DAILY_OBSERVATIONS:
+Counts accurately
+Creates layered scene
+Uses gentle touch
+Participation and interest in Farm Animals play
+
+DAILY_ADAPTATIONS:
+Use real photos alongside toy animals. Supervise sensory bins closely. Offer single-animal focus for overwhelmed children.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Egg Carton Counting
@@ -360,6 +610,8 @@ SETUP:
 Label carton cups 1-6 or 1-10.
 TEACHER_ROLE:
 Model counting one egg per cup.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Read numeral on cup.
 2. Place matching number of eggs.
@@ -374,6 +626,15 @@ OBSERVATION_OPPORTUNITIES:
 Counts accurately
 Matches numeral to quantity
 Self-corrects
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Farm Collage Art
@@ -389,6 +650,8 @@ SETUP:
 Set collage materials at art table.
 TEACHER_ROLE:
 Discuss barn, field, and sky in scene.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Tear and glue grass and dirt.
 2. Add sky with crayon.
@@ -403,6 +666,15 @@ OBSERVATION_OPPORTUNITIES:
 Creates layered scene
 Places stickers intentionally
 Tells about farm
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Brush the Horse Grooming
@@ -418,6 +690,8 @@ SETUP:
 Set grooming station with horses.
 TEACHER_ROLE:
 Model gentle strokes.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose horse to groom.
 2. Brush mane and body gently.
@@ -432,8 +706,56 @@ OBSERVATION_OPPORTUNITIES:
 Uses gentle touch
 Verbalizes care
 Completes grooming routine
+VOCABULARY:
 
-FRIDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Farm Animals: Farm Sound Bingo and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Mark animal pictures when matching sound is played.
+Dance to The Farmer in the Dell with partner roles.
+Share favorite farm animal and sing B-I-N-G-O.
+
+DAILY_VOCABULARY:
+farm, barn, cow, pig, chicken, horse
+
+DAILY_MATERIALS:
+Bingo cards with animals, sound recordings
+Music player, farmer hat props
+Animal props, song chart
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Science, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to farm animals.
+Sing "Old MacDonald Had a Farm" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit Big Red Barn by Margaret Wise Brown and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to farm animals — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Farm Sound Bingo / Harvest Hoedown Dance).
+
+DAILY_OBSERVATIONS:
+Matches sound to picture
+Participates in circle
+Shares favorite animal
+Participation and interest in Farm Animals play
+
+DAILY_ADAPTATIONS:
+Use real photos alongside toy animals. Supervise sensory bins closely. Offer single-animal focus for overwhelmed children.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Farm Sound Bingo
@@ -449,6 +771,8 @@ SETUP:
 Prepare cards and sound clips.
 TEACHER_ROLE:
 Play sounds and repeat.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Explain bingo rules.
 2. Play animal sound.
@@ -463,6 +787,15 @@ OBSERVATION_OPPORTUNITIES:
 Matches sound to picture
 Follows rules
 Names animals
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Harvest Hoedown Dance
@@ -478,6 +811,8 @@ SETUP:
 Form circle with space to move.
 TEACHER_ROLE:
 Assign roles for verses.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Form circle holding hands.
 2. Dance to song verses.
@@ -492,6 +827,15 @@ OBSERVATION_OPPORTUNITIES:
 Participates in circle
 Follows role cues
 Cooperates in dance
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Farm Animals Celebration Circle
@@ -507,6 +851,8 @@ SETUP:
 Gather in circle with props.
 TEACHER_ROLE:
 Facilitate sharing and song.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Share favorite farm animal.
 2. Tell one fact learned.
@@ -521,3 +867,12 @@ OBSERVATION_OPPORTUNITIES:
 Shares favorite animal
 States one fact
 Participates in spelling song
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

@@ -1,7 +1,7 @@
 TITLE:
 Preschool Community Helpers Week
 
-AGE GROUP:
+AGE_GROUP:
 Preschool
 
 THEME:
@@ -13,18 +13,18 @@ Free
 STATUS:
 draft
 
-LEARNING DOMAINS:
+LEARNING_DOMAINS:
 Social Emotional, Language & Literacy, Creative Arts, Physical Development
 
-WEEKLY OVERVIEW:
+WEEKLY_OVERVIEW:
 Preschoolers explore community helper roles through dramatic play, movement obstacle courses, thank-you writing, and cooperative problem-solving about how helpers keep communities caring and safe.
 
-LEARNING OBJECTIVES:
+LEARNING_OBJECTIVES:
 Children will name several community helpers and one way each helps.
 Children will use helper tools in pretend scenarios with peers.
 Children will practice gratitude language through notes or drawings.
 
-WEEKLY MATERIALS:
+WEEKLY_MATERIALS:
 Helper hats/props, clipboards, paper, crayons, thank-you cards, obstacle course markers, toy phones, first-aid pretend kit, building tools set, music
 
 VOCABULARY:
@@ -38,176 +38,571 @@ SONGS:
 People in Your Neighborhood | Name helpers during chorus
 Helpful Friends Song | Create verses for classroom helpers
 
-FAMILY CONNECTION:
+FAMILY_CONNECTION:
 Invite families to share the title of a helper in their family or neighborhood (nurse, driver, cook, firefighter, etc.) for the classroom helper map.
 
-OBSERVATION OPPORTUNITIES:
+OBSERVATION_OPPORTUNITIES:
 Note role vocabulary, cooperative play quality, and how children explain why helpers matter.
 
 ADAPTATIONS:
 Offer picture cards for helper names. Provide dictated thank-you options for emerging writers. Create quieter helper stations for children who need less noise.
 
-MONDAY:
-ACTIVITY NAME:
+MONDAY
+
+DAILY_THEME:
+Community Helpers: Helper Office Open and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Support community helpers learning through helper office open.
+Support community helpers learning through helper march introductions.
+
+DAILY_VOCABULARY:
+helper, community, thank you, safe, map, job
+
+DAILY_MATERIALS:
+Hats, phones, clipboards, badges
+Music, helper badges
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to community helpers.
+Sing "People in Your Neighborhood" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit Whose Hands Are These? by Miranda Paul and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to community helpers — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Helper Office Open / Helper March Introductions).
+
+DAILY_OBSERVATIONS:
+Engagement during Helper Office Open
+Engagement during Helper March Introductions
+Participation and interest in Community Helpers play
+
+DAILY_ADAPTATIONS:
+Offer picture cards for helper names. Provide dictated thank-you options for emerging writers. Create quieter helper stations for children who need less noise.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+
+ACTIVITY_NAME:
 Helper Office Open
 CATEGORY:
 Dramatic Play
+OBJECTIVE:
+Support community helpers learning through helper office open.
+DESCRIPTION:
+Children choose helper roles and set up a community office. Children explore community helpers through helper office open.
 MATERIALS:
 Hats, phones, clipboards, badges
 SETUP:
 Children choose helper roles and set up a community office.
+TEACHER_ROLE:
+Facilitate helper office open, ask open-ended questions, and connect discoveries back to community helpers.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Introduce 3-4 helper roles with props.
 2. Children choose a role and badge.
 3. Practice greeting community friends.
-LEARNING GOAL:
+LEARNING_GOALS:
 Explore helper roles through pretend play
 Use greeting and helping language
+OBSERVATION_OPPORTUNITIES:
+Engagement during Helper Office Open
+Use of community helpers vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Helper March Introductions
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support community helpers learning through helper march introductions.
+DESCRIPTION:
+Children march and freeze to introduce their helper role. Children explore community helpers through helper march introductions.
 MATERIALS:
 Music, helper badges
 SETUP:
 Children march and freeze to introduce their helper role.
+TEACHER_ROLE:
+Facilitate helper march introductions, ask open-ended questions, and connect discoveries back to community helpers.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. March to the beat.
 2. Freeze and say your helper name.
 3. Tell one way you help.
-LEARNING GOAL:
+LEARNING_GOALS:
 Build confidence speaking in a group
 Connect movement with identity play
+OBSERVATION_OPPORTUNITIES:
+Engagement during Helper March Introductions
+Use of community helpers vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-TUESDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Community Helpers: Rescue Path Obstacle and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Support community helpers learning through rescue path obstacle.
+Support community helpers learning through clipboard checklists.
+
+DAILY_VOCABULARY:
+helper, community, thank you, safe, map, job
+
+DAILY_MATERIALS:
+Cones/cushions, soft supply bag
+Clipboards, checklist paper, crayons, stickers
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to community helpers.
+Sing "People in Your Neighborhood" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit Whose Hands Are These? by Miranda Paul and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to community helpers — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Rescue Path Obstacle / Clipboard Checklists).
+
+DAILY_OBSERVATIONS:
+Engagement during Rescue Path Obstacle
+Engagement during Clipboard Checklists
+Participation and interest in Community Helpers play
+
+DAILY_ADAPTATIONS:
+Offer picture cards for helper names. Provide dictated thank-you options for emerging writers. Create quieter helper stations for children who need less noise.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+
+ACTIVITY_NAME:
 Rescue Path Obstacle
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support community helpers learning through rescue path obstacle.
+DESCRIPTION:
+Children move through a safe obstacle path delivering a pretend supply bag. Children explore community helpers through rescue path obstacle.
 MATERIALS:
 Cones/cushions, soft supply bag
 SETUP:
 Children move through a safe obstacle path delivering a pretend supply bag.
+TEACHER_ROLE:
+Facilitate rescue path obstacle, ask open-ended questions, and connect discoveries back to community helpers.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Demonstrate the path: climb, balance, deliver.
 2. Carry the bag carefully to the end.
 3. High-five the next helper.
-LEARNING GOAL:
+LEARNING_GOALS:
 Coordinate whole-body movement
 Practice persevering through a sequence
+OBSERVATION_OPPORTUNITIES:
+Engagement during Rescue Path Obstacle
+Use of community helpers vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Clipboard Checklists
 CATEGORY:
 Fine Motor
+OBJECTIVE:
+Support community helpers learning through clipboard checklists.
+DESCRIPTION:
+Children mark helper checklists with crayons or stickers. Children explore community helpers through clipboard checklists.
 MATERIALS:
 Clipboards, checklist paper, crayons, stickers
 SETUP:
 Children mark helper checklists with crayons or stickers.
+TEACHER_ROLE:
+Facilitate clipboard checklists, ask open-ended questions, and connect discoveries back to community helpers.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Look at a simple 3-item checklist.
 2. Mark each item after pretend completion.
 3. Sign or scribble a name at the bottom.
-LEARNING GOAL:
+LEARNING_GOALS:
 Practice early writing marks
 Follow a visual sequence
+OBSERVATION_OPPORTUNITIES:
+Engagement during Clipboard Checklists
+Use of community helpers vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-WEDNESDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Community Helpers: Community Map Makers and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Support community helpers learning through community map makers.
+Support community helpers learning through tool texture table.
+
+DAILY_VOCABULARY:
+helper, community, thank you, safe, map, job
+
+DAILY_MATERIALS:
+Large paper, crayons, helper cards
+Texture tools, trays
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to community helpers.
+Sing "People in Your Neighborhood" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit Whose Hands Are These? by Miranda Paul and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to community helpers — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Community Map Makers / Tool Texture Table).
+
+DAILY_OBSERVATIONS:
+Engagement during Community Map Makers
+Engagement during Tool Texture Table
+Participation and interest in Community Helpers play
+
+DAILY_ADAPTATIONS:
+Offer picture cards for helper names. Provide dictated thank-you options for emerging writers. Create quieter helper stations for children who need less noise.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+
+ACTIVITY_NAME:
 Community Map Makers
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support community helpers learning through community map makers.
+DESCRIPTION:
+Children draw places helpers work and dictate labels. Children explore community helpers through community map makers.
 MATERIALS:
 Large paper, crayons, helper cards
 SETUP:
 Children draw places helpers work and dictate labels.
+TEACHER_ROLE:
+Facilitate community map makers, ask open-ended questions, and connect discoveries back to community helpers.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Brainstorm places: clinic, fire station, school.
 2. Draw places on a shared map.
 3. Add helper cards to each place.
-LEARNING GOAL:
+LEARNING_GOALS:
 Represent community places
 Connect helpers to locations
+OBSERVATION_OPPORTUNITIES:
+Engagement during Community Map Makers
+Use of community helpers vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Tool Texture Table
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support community helpers learning through tool texture table.
+DESCRIPTION:
+Children explore safe helper-tool textures (brushes, fabric gloves, soft hoses). Children explore community helpers through tool texture table.
 MATERIALS:
 Texture tools, trays
 SETUP:
 Children explore safe helper-tool textures (brushes, fabric gloves, soft hoses).
+TEACHER_ROLE:
+Facilitate tool texture table, ask open-ended questions, and connect discoveries back to community helpers.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Feel each tool and describe it.
 2. Match tools to helper picture cards.
 3. Sort hard/soft or rough/smooth.
-LEARNING GOAL:
+LEARNING_GOALS:
 Describe textures with detail
 Link tools to helper roles
+OBSERVATION_OPPORTUNITIES:
+Engagement during Tool Texture Table
+Use of community helpers vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-THURSDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Community Helpers: Thank-You Mail Center and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Support community helpers learning through thank-you mail center.
+Support community helpers learning through badge making studio.
+
+DAILY_VOCABULARY:
+helper, community, thank you, safe, map, job
+
+DAILY_MATERIALS:
+Cards, crayons, stickers, mailbox prop
+Badge cutouts, crayons, stickers
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to community helpers.
+Sing "People in Your Neighborhood" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit Whose Hands Are These? by Miranda Paul and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to community helpers — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Thank-You Mail Center / Badge Making Studio).
+
+DAILY_OBSERVATIONS:
+Engagement during Thank-You Mail Center
+Engagement during Badge Making Studio
+Participation and interest in Community Helpers play
+
+DAILY_ADAPTATIONS:
+Offer picture cards for helper names. Provide dictated thank-you options for emerging writers. Create quieter helper stations for children who need less noise.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+
+ACTIVITY_NAME:
 Thank-You Mail Center
 CATEGORY:
 Dramatic Play
+OBJECTIVE:
+Support community helpers learning through thank-you mail center.
+DESCRIPTION:
+Children create thank-you notes for community helpers. Children explore community helpers through thank-you mail center.
 MATERIALS:
 Cards, crayons, stickers, mailbox prop
 SETUP:
 Children create thank-you notes for community helpers.
+TEACHER_ROLE:
+Facilitate thank-you mail center, ask open-ended questions, and connect discoveries back to community helpers.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose a helper to thank.
 2. Draw or dictate a thank-you message.
 3. Mail it in the classroom mailbox.
-LEARNING GOAL:
+LEARNING_GOALS:
 Practice gratitude language
 Communicate appreciation to others
+OBSERVATION_OPPORTUNITIES:
+Engagement during Thank-You Mail Center
+Use of community helpers vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Badge Making Studio
 CATEGORY:
 Fine Motor
+OBJECTIVE:
+Support community helpers learning through badge making studio.
+DESCRIPTION:
+Children decorate helper badges with controlled coloring and stickers. Children explore community helpers through badge making studio.
 MATERIALS:
 Badge cutouts, crayons, stickers
 SETUP:
 Children decorate helper badges with controlled coloring and stickers.
+TEACHER_ROLE:
+Facilitate badge making studio, ask open-ended questions, and connect discoveries back to community helpers.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Write or stamp a helper title.
 2. Decorate the badge edges.
 3. Wear or display the badge.
-LEARNING GOAL:
+LEARNING_GOALS:
 Strengthen hand control
 Take pride in role identity
+OBSERVATION_OPPORTUNITIES:
+Engagement during Badge Making Studio
+Use of community helpers vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-FRIDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Community Helpers: Cooperative Helper Relay and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Support community helpers learning through cooperative helper relay.
+Support community helpers learning through helper parade closing.
+
+DAILY_VOCABULARY:
+helper, community, thank you, safe, map, job
+
+DAILY_MATERIALS:
+Soft supply items, station markers
+Music, badges, props
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to community helpers.
+Sing "People in Your Neighborhood" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit Whose Hands Are These? by Miranda Paul and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to community helpers — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Cooperative Helper Relay / Helper Parade Closing).
+
+DAILY_OBSERVATIONS:
+Engagement during Cooperative Helper Relay
+Engagement during Helper Parade Closing
+Participation and interest in Community Helpers play
+
+DAILY_ADAPTATIONS:
+Offer picture cards for helper names. Provide dictated thank-you options for emerging writers. Create quieter helper stations for children who need less noise.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+
+ACTIVITY_NAME:
 Cooperative Helper Relay
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support community helpers learning through cooperative helper relay.
+DESCRIPTION:
+Teams move supplies from station to station working together. Children explore community helpers through cooperative helper relay.
 MATERIALS:
 Soft supply items, station markers
 SETUP:
 Teams move supplies from station to station working together.
+TEACHER_ROLE:
+Facilitate cooperative helper relay, ask open-ended questions, and connect discoveries back to community helpers.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Explain that helpers cooperate.
 2. Carry items together across stations.
 3. Celebrate the team finish.
-LEARNING GOAL:
+LEARNING_GOALS:
 Practice cooperation
 Move safely in a group game
+OBSERVATION_OPPORTUNITIES:
+Engagement during Cooperative Helper Relay
+Use of community helpers vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Helper Parade Closing
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support community helpers learning through helper parade closing.
+DESCRIPTION:
+Class parades helper roles and sings a thank-you verse. Children explore community helpers through helper parade closing.
 MATERIALS:
 Music, badges, props
 SETUP:
 Class parades helper roles and sings a thank-you verse.
+TEACHER_ROLE:
+Facilitate helper parade closing, ask open-ended questions, and connect discoveries back to community helpers.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Line up with badges.
 2. Parade and wave to classmates.
 3. Sing a thank-you closing verse.
-LEARNING GOAL:
+LEARNING_GOALS:
 Celebrate community learning
 Close the week with shared joy
+OBSERVATION_OPPORTUNITIES:
+Engagement during Helper Parade Closing
+Use of community helpers vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

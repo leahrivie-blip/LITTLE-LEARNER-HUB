@@ -57,266 +57,746 @@ Provide visual supports, additional sensory materials, adaptive positioning, and
 
 MONDAY
 
+DAILY_THEME:
+Animal Sounds: Animal Discovery Basket and related play (introduce calm bonding, faces, and soft sensory play)
+
+DAILY_OBJECTIVES:
+Support animal sounds learning through animal discovery basket.
+Support animal sounds learning through animal song circle.
+Support animal sounds learning through animal story time.
+
+DAILY_VOCABULARY:
+Dog, Cat, Cow, Duck, Bird, Animal
+
+DAILY_MATERIALS:
+Stuffed animals, animal cards
+Music player
+Board books
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Old MacDonald Had a Farm" at a low volume while offering gentle movement or visual interest tied to animal sounds.
+End with a brief look at Brown Bear, Brown Bear, What Do You See? or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate animal sounds sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Animal Discovery Basket
+Engagement during Animal Song Circle
+Engagement during Animal Story Time
+Participation and interest in Animal Sounds play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, additional sensory materials, adaptive positioning, and individualized support based on developmental needs.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
+
 ACTIVITY_NAME:
 Animal Discovery Basket
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support animal sounds learning through animal discovery basket.
 DESCRIPTION:
 Infants explore stuffed animals and animal pictures through touch and sight.
 MATERIALS:
 Stuffed animals, animal cards
-DIRECTIONS:
-Present animal materials.
-Encourage touching and grasping.
-Name each animal.
-Allow exploration.
+SETUP:
+Prepare materials for Animal Discovery Basket before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Model vocabulary and animal sounds.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Present animal materials.
+2. Encourage touching and grasping.
+3. Name each animal.
+4. Allow exploration.
 LEARNING_GOALS:
 Language development and sensory exploration.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Animal Discovery Basket
+Use of animal sounds vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Animal Song Circle
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support animal sounds learning through animal song circle.
 DESCRIPTION:
 Infants listen and move to animal-themed songs.
 MATERIALS:
 Music player
-DIRECTIONS:
-Play songs.
-Move gently together.
-Encourage participation.
+SETUP:
+Prepare materials for Animal Song Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead music experience.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play songs.
+2. Move gently together.
+3. Encourage participation.
 LEARNING_GOALS:
 Auditory awareness and social engagement.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Animal Song Circle
+Use of animal sounds vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Animal Story Time
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support animal sounds learning through animal story time.
 DESCRIPTION:
 Infants listen to an animal-themed board book.
 MATERIALS:
 Board books
-DIRECTIONS:
-Read story aloud.
-Point to animal pictures.
-Repeat animal names.
+SETUP:
+Prepare materials for Animal Story Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support language development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Read story aloud.
+2. Point to animal pictures.
+3. Repeat animal names.
 LEARNING_GOALS:
 Early literacy and vocabulary exposure.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Animal Story Time
+Use of animal sounds vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 TUESDAY
+
+DAILY_THEME:
+Animal Sounds: Dog Bark Listening Fun and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Support animal sounds learning through dog bark listening fun.
+Support animal sounds learning through animal mirror play.
+Support animal sounds learning through animal movement fun.
+
+DAILY_VOCABULARY:
+Dog, Cat, Cow, Duck, Bird, Animal
+
+DAILY_MATERIALS:
+Dog pictures, sound recordings
+Baby-safe mirrors
+Open floor space
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Old MacDonald Had a Farm" at a low volume while offering gentle movement or visual interest tied to animal sounds.
+End with a brief look at Brown Bear, Brown Bear, What Do You See? or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate animal sounds sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Dog Bark Listening Fun
+Engagement during Animal Mirror Play
+Engagement during Animal Movement Fun
+Participation and interest in Animal Sounds play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, additional sensory materials, adaptive positioning, and individualized support based on developmental needs.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 Dog Bark Listening Fun
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support animal sounds learning through dog bark listening fun.
 DESCRIPTION:
 Infants listen to dog sounds and observe dog pictures.
 MATERIALS:
 Dog pictures, sound recordings
-DIRECTIONS:
-Play dog sounds.
-Show dog pictures.
-Encourage listening.
+SETUP:
+Prepare materials for Dog Bark Listening Fun before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Model sounds and language.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play dog sounds.
+2. Show dog pictures.
+3. Encourage listening.
 LEARNING_GOALS:
 Auditory awareness and vocabulary development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Dog Bark Listening Fun
+Use of animal sounds vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Animal Mirror Play
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support animal sounds learning through animal mirror play.
 DESCRIPTION:
 Infants watch themselves while making animal sounds.
 MATERIALS:
 Baby-safe mirrors
-DIRECTIONS:
-Position mirrors safely.
-Make simple animal sounds.
-Encourage interaction.
+SETUP:
+Prepare materials for Animal Mirror Play before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support communication.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Position mirrors safely.
+2. Make simple animal sounds.
+3. Encourage interaction.
 LEARNING_GOALS:
 Social-emotional and language development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Animal Mirror Play
+Use of animal sounds vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Animal Movement Fun
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support animal sounds learning through animal movement fun.
 DESCRIPTION:
 Infants participate in simple animal-inspired movements.
 MATERIALS:
 Open floor space
-DIRECTIONS:
-Demonstrate movements.
-Encourage reaching and stretching.
-Celebrate participation.
+SETUP:
+Prepare materials for Animal Movement Fun before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support physical development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Demonstrate movements.
+2. Encourage reaching and stretching.
+3. Celebrate participation.
 LEARNING_GOALS:
 Gross motor development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Animal Movement Fun
+Use of animal sounds vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 WEDNESDAY
+
+DAILY_THEME:
+Animal Sounds: Farm Animal Discovery and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Support animal sounds learning through farm animal discovery.
+Support animal sounds learning through moo & quack listening.
+Support animal sounds learning through animal music time.
+
+DAILY_VOCABULARY:
+Dog, Cat, Cow, Duck, Bird, Animal
+
+DAILY_MATERIALS:
+Farm animal toys
+Animal sound recordings
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Old MacDonald Had a Farm" at a low volume while offering gentle movement or visual interest tied to animal sounds.
+End with a brief look at Brown Bear, Brown Bear, What Do You See? or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate animal sounds sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Farm Animal Discovery
+Engagement during Moo & Quack Listening
+Engagement during Animal Music Time
+Participation and interest in Animal Sounds play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, additional sensory materials, adaptive positioning, and individualized support based on developmental needs.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 Farm Animal Discovery
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support animal sounds learning through farm animal discovery.
 DESCRIPTION:
 Infants explore farm animal toys and visuals.
 MATERIALS:
 Farm animal toys
-DIRECTIONS:
-Present animals.
-Name each animal.
-Encourage exploration.
+SETUP:
+Prepare materials for Farm Animal Discovery before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Model animal sounds.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Present animals.
+2. Name each animal.
+3. Encourage exploration.
 LEARNING_GOALS:
 Language development and sensory exploration.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Farm Animal Discovery
+Use of animal sounds vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Moo & Quack Listening
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support animal sounds learning through moo & quack listening.
 DESCRIPTION:
 Infants listen to farm animal sounds.
 MATERIALS:
 Animal sound recordings
-DIRECTIONS:
-Play sounds.
-Pause and listen.
-Encourage reactions.
+SETUP:
+Prepare materials for Moo & Quack Listening before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support listening skills.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play sounds.
+2. Pause and listen.
+3. Encourage reactions.
 LEARNING_GOALS:
 Auditory discrimination.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Moo & Quack Listening
+Use of animal sounds vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Animal Music Time
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support animal sounds learning through animal music time.
 DESCRIPTION:
 Infants enjoy songs featuring animal sounds.
 MATERIALS:
 Music player
-DIRECTIONS:
-Play songs.
-Move together.
-Encourage engagement.
+SETUP:
+Prepare materials for Animal Music Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead music activities.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play songs.
+2. Move together.
+3. Encourage engagement.
 LEARNING_GOALS:
 Auditory development and participation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Animal Music Time
+Use of animal sounds vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 THURSDAY
+
+DAILY_THEME:
+Animal Sounds: Animal Sensory Bag and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Support animal sounds learning through animal sensory bag.
+Support animal sounds learning through bird sound discovery.
+Support animal sounds learning through animal rhythm time.
+
+DAILY_VOCABULARY:
+Dog, Cat, Cow, Duck, Bird, Animal
+
+DAILY_MATERIALS:
+Sensory bag, animal cutouts
+Bird recordings
+Shakers, music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Old MacDonald Had a Farm" at a low volume while offering gentle movement or visual interest tied to animal sounds.
+End with a brief look at Brown Bear, Brown Bear, What Do You See? or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate animal sounds sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Animal Sensory Bag
+Engagement during Bird Sound Discovery
+Engagement during Animal Rhythm Time
+Participation and interest in Animal Sounds play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, additional sensory materials, adaptive positioning, and individualized support based on developmental needs.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 Animal Sensory Bag
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support animal sounds learning through animal sensory bag.
 DESCRIPTION:
 Infants explore a sealed sensory bag with animal pictures.
 MATERIALS:
 Sensory bag, animal cutouts
-DIRECTIONS:
-Place sensory bag on floor.
-Encourage pressing and touching.
-Observe movement.
+SETUP:
+Prepare materials for Animal Sensory Bag before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide sensory exploration.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Place sensory bag on floor.
+2. Encourage pressing and touching.
+3. Observe movement.
 LEARNING_GOALS:
 Visual awareness and tactile development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Animal Sensory Bag
+Use of animal sounds vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Bird Sound Discovery
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support animal sounds learning through bird sound discovery.
 DESCRIPTION:
 Infants listen to gentle bird sounds.
 MATERIALS:
 Bird recordings
-DIRECTIONS:
-Play sounds.
-Listen together.
-Encourage attention.
+SETUP:
+Prepare materials for Bird Sound Discovery before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Model listening skills.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play sounds.
+2. Listen together.
+3. Encourage attention.
 LEARNING_GOALS:
 Auditory awareness.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Bird Sound Discovery
+Use of animal sounds vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Animal Rhythm Time
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support animal sounds learning through animal rhythm time.
 DESCRIPTION:
 Infants explore rhythm through songs and instruments.
 MATERIALS:
 Shakers, music player
-DIRECTIONS:
-Play music.
-Shake instruments.
-Move together.
+SETUP:
+Prepare materials for Animal Rhythm Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead rhythm activities.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Play music.
+2. Shake instruments.
+3. Move together.
 LEARNING_GOALS:
 Auditory awareness and coordination.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Animal Rhythm Time
+Use of animal sounds vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 FRIDAY
+
+DAILY_THEME:
+Animal Sounds: Favorite Animal Exploration and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Support animal sounds learning through favorite animal exploration.
+Support animal sounds learning through animal treasure basket.
+Support animal sounds learning through animal sounds celebration circle.
+
+DAILY_VOCABULARY:
+Dog, Cat, Cow, Duck, Bird, Animal
+
+DAILY_MATERIALS:
+Animal toys, picture cards
+Stuffed animals, textured animal toys
+Animal photos, books, songs
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Science, Physical Development
+
+CIRCLE_TIME:
+Soft hello with each infant's name and a calm face-to-face greeting.
+Hum or sing "Old MacDonald Had a Farm" at a low volume while offering gentle movement or visual interest tied to animal sounds.
+End with a brief look at Brown Bear, Brown Bear, What Do You See? or a theme picture card, watching for engagement cues.
+
+OUTDOOR_PLAY:
+Take infants outdoors for fresh air on a shaded blanket or supervised stroller time. Narrate animal sounds sounds and sights for 1–5 minutes, staying within arm's reach and watching for overstimulation.
+
+DAILY_OBSERVATIONS:
+Engagement during Favorite Animal Exploration
+Engagement during Animal Treasure Basket
+Engagement during Animal Sounds Celebration Circle
+Participation and interest in Animal Sounds play
+
+DAILY_ADAPTATIONS:
+Provide visual supports, additional sensory materials, adaptive positioning, and individualized support based on developmental needs.
+
+SAFETY_NOTES:
+Arm's-reach supervision, choke-safe materials only, supervised tummy time, and no unattended water or elevated surfaces.
 
 ACTIVITY_NAME:
 Favorite Animal Exploration
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support animal sounds learning through favorite animal exploration.
 DESCRIPTION:
 Infants revisit favorite animals explored throughout the week.
 MATERIALS:
 Animal toys, picture cards
-DIRECTIONS:
-Present favorite animals.
-Name each animal.
-Encourage interaction.
+SETUP:
+Prepare materials for Favorite Animal Exploration before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support communication.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Present favorite animals.
+2. Name each animal.
+3. Encourage interaction.
 LEARNING_GOALS:
 Vocabulary reinforcement.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Favorite Animal Exploration
+Use of animal sounds vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Animal Treasure Basket
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support animal sounds learning through animal treasure basket.
 DESCRIPTION:
 Infants explore a variety of animal-themed sensory materials.
 MATERIALS:
 Stuffed animals, textured animal toys
-DIRECTIONS:
-Present materials.
-Encourage touching and grasping.
-Compare textures.
+SETUP:
+Prepare materials for Animal Treasure Basket before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support sensory discovery.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Present materials.
+2. Encourage touching and grasping.
+3. Compare textures.
 LEARNING_GOALS:
 Fine motor development and sensory exploration.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Animal Treasure Basket
+Use of animal sounds vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Animal Sounds Celebration Circle
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support animal sounds learning through animal sounds celebration circle.
 DESCRIPTION:
 Infants review favorite animals and sounds from the week.
 MATERIALS:
 Animal photos, books, songs
-DIRECTIONS:
-Show animal visuals.
-Review sounds.
-Sing favorite songs.
+SETUP:
+Prepare materials for Animal Sounds Celebration Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead group experience.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Show animal visuals.
+2. Review sounds.
+3. Sing favorite songs.
 LEARNING_GOALS:
 Language development and social participation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Animal Sounds Celebration Circle
+Use of animal sounds vocabulary or interest
+Cue reading and calm participation
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Shorten to 1–8 minutes. Offer side-lying or supported positions. Stop immediately if the infant shows overstimulation cues.
+SAFETY_NOTES:
+Remain within arm's reach at all times. Use only large, choke-safe materials. Never leave an infant unattended on a mat, changing surface, or near water.
+AGE_MODIFICATIONS:

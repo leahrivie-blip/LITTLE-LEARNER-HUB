@@ -57,267 +57,747 @@ Provide visual menus, larger manipulatives, simplified order forms, peer partner
 
 MONDAY
 
+DAILY_THEME:
+Ice Cream Shop Business: Open the Ice Cream Shop and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Support ice cream shop business learning through open the ice cream shop.
+Support ice cream shop business learning through design a shop sign.
+Support ice cream shop business learning through ice cream story time.
+
+DAILY_VOCABULARY:
+Business, Customer, Order, Menu, Money, Price
+
+DAILY_MATERIALS:
+Play ice cream, cash register, menus
+Poster board, markers, stickers
+Ice cream-themed books
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to ice cream shop business.
+Sing "I Like Ice Cream" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit Should I Share My Ice Cream? and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to ice cream shop business — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Open the Ice Cream Shop / Design a Shop Sign).
+
+DAILY_OBSERVATIONS:
+Engagement during Open the Ice Cream Shop
+Engagement during Design a Shop Sign
+Engagement during Ice Cream Story Time
+Participation and interest in Ice Cream Shop Business play
+
+DAILY_ADAPTATIONS:
+Provide visual menus, larger manipulatives, simplified order forms, peer partners, and additional support as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
+
 ACTIVITY_NAME:
 Open the Ice Cream Shop
 CATEGORY:
 Dramatic Play
+OBJECTIVE:
+Support ice cream shop business learning through open the ice cream shop.
 DESCRIPTION:
 Children help set up and organize the classroom ice cream shop.
 MATERIALS:
 Play ice cream, cash register, menus
-DIRECTIONS:
-Explore shop materials.
-Organize supplies.
-Assign jobs.
-Open the shop.
+SETUP:
+Prepare materials for Open the Ice Cream Shop before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Introduce business vocabulary and roles.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Explore shop materials.
+2. Organize supplies.
+3. Assign jobs.
+4. Open the shop.
 LEARNING_GOALS:
 Communication and social development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Open the Ice Cream Shop
+Use of ice cream shop business vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Design a Shop Sign
 CATEGORY:
 Art
+OBJECTIVE:
+Support ice cream shop business learning through design a shop sign.
 DESCRIPTION:
 Children create signs for the classroom ice cream shop.
 MATERIALS:
 Poster board, markers, stickers
-DIRECTIONS:
-Design shop sign.
-Decorate creatively.
-Display sign.
+SETUP:
+Prepare materials for Design a Shop Sign before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support creativity and writing.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Design shop sign.
+2. Decorate creatively.
+3. Display sign.
 LEARNING_GOALS:
 Fine motor development and literacy.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Design a Shop Sign
+Use of ice cream shop business vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Ice Cream Story Time
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support ice cream shop business learning through ice cream story time.
 DESCRIPTION:
 Read a story about ice cream and sharing.
 MATERIALS:
 Ice cream-themed books
-DIRECTIONS:
-Read story.
-Discuss characters.
-Share ideas.
+SETUP:
+Prepare materials for Ice Cream Story Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support literacy development.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Read story.
+2. Discuss characters.
+3. Share ideas.
 LEARNING_GOALS:
 Listening and comprehension.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Ice Cream Story Time
+Use of ice cream shop business vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 TUESDAY
+
+DAILY_THEME:
+Ice Cream Shop Business: Create a Menu and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Support ice cream shop business learning through create a menu.
+Support ice cream shop business learning through flavor sorting challenge.
+Support ice cream shop business learning through ice cream dance party.
+
+DAILY_VOCABULARY:
+Business, Customer, Order, Menu, Money, Price
+
+DAILY_MATERIALS:
+Menu templates, crayons
+Colored pom-poms, sorting trays
+Music player
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to ice cream shop business.
+Sing "I Like Ice Cream" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit Should I Share My Ice Cream? and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to ice cream shop business — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Create a Menu / Flavor Sorting Challenge).
+
+DAILY_OBSERVATIONS:
+Engagement during Create a Menu
+Engagement during Flavor Sorting Challenge
+Engagement during Ice Cream Dance Party
+Participation and interest in Ice Cream Shop Business play
+
+DAILY_ADAPTATIONS:
+Provide visual menus, larger manipulatives, simplified order forms, peer partners, and additional support as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Create a Menu
 CATEGORY:
 Literacy
+OBJECTIVE:
+Support ice cream shop business learning through create a menu.
 DESCRIPTION:
 Children design an ice cream menu.
 MATERIALS:
 Menu templates, crayons
-DIRECTIONS:
-Choose flavors.
-Draw menu items.
-Add labels.
+SETUP:
+Prepare materials for Create a Menu before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support writing and vocabulary.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Choose flavors.
+2. Draw menu items.
+3. Add labels.
 LEARNING_GOALS:
 Early literacy and creativity.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Create a Menu
+Use of ice cream shop business vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Flavor Sorting Challenge
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support ice cream shop business learning through flavor sorting challenge.
 DESCRIPTION:
 Children sort ice cream scoops by color and flavor.
 MATERIALS:
 Colored pom-poms, sorting trays
-DIRECTIONS:
-Sort scoops.
-Count groups.
-Compare amounts.
+SETUP:
+Prepare materials for Flavor Sorting Challenge before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Guide math discussions.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Sort scoops.
+2. Count groups.
+3. Compare amounts.
 LEARNING_GOALS:
 Classification and counting skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Flavor Sorting Challenge
+Use of ice cream shop business vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Ice Cream Dance Party
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support ice cream shop business learning through ice cream dance party.
 DESCRIPTION:
 Children dance and freeze like melting ice cream.
 MATERIALS:
 Music player
-DIRECTIONS:
-Dance to music.
-Freeze when music stops.
-Pretend to melt.
+SETUP:
+Prepare materials for Ice Cream Dance Party before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead movement activity.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Dance to music.
+2. Freeze when music stops.
+3. Pretend to melt.
 LEARNING_GOALS:
 Listening and self-regulation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Ice Cream Dance Party
+Use of ice cream shop business vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 WEDNESDAY
+
+DAILY_THEME:
+Ice Cream Shop Business: Take Customer Orders and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Support ice cream shop business learning through take customer orders.
+Support ice cream shop business learning through count the coins.
+Support ice cream shop business learning through entrepreneur circle time.
+
+DAILY_VOCABULARY:
+Business, Customer, Order, Menu, Money, Price
+
+DAILY_MATERIALS:
+Order forms, clipboards
+Pretend coins and bills
+Business picture cards
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to ice cream shop business.
+Sing "I Like Ice Cream" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit Should I Share My Ice Cream? and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to ice cream shop business — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Take Customer Orders / Count the Coins).
+
+DAILY_OBSERVATIONS:
+Engagement during Take Customer Orders
+Engagement during Count the Coins
+Engagement during Entrepreneur Circle Time
+Participation and interest in Ice Cream Shop Business play
+
+DAILY_ADAPTATIONS:
+Provide visual menus, larger manipulatives, simplified order forms, peer partners, and additional support as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Take Customer Orders
 CATEGORY:
 Dramatic Play
+OBJECTIVE:
+Support ice cream shop business learning through take customer orders.
 DESCRIPTION:
 Children practice taking and filling customer orders.
 MATERIALS:
 Order forms, clipboards
-DIRECTIONS:
-Take an order.
-Record request.
-Fill order correctly.
+SETUP:
+Prepare materials for Take Customer Orders before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Model customer service.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Take an order.
+2. Record request.
+3. Fill order correctly.
 LEARNING_GOALS:
 Communication and problem-solving.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Take Customer Orders
+Use of ice cream shop business vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Count the Coins
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support ice cream shop business learning through count the coins.
 DESCRIPTION:
 Children use pretend money to purchase ice cream.
 MATERIALS:
 Pretend coins and bills
-DIRECTIONS:
-Count money.
-Pay for ice cream.
-Make simple exchanges.
+SETUP:
+Prepare materials for Count the Coins before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support counting skills.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Count money.
+2. Pay for ice cream.
+3. Make simple exchanges.
 LEARNING_GOALS:
 Number recognition and math development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Count the Coins
+Use of ice cream shop business vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Entrepreneur Circle Time
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support ice cream shop business learning through entrepreneur circle time.
 DESCRIPTION:
 Discuss what business owners do.
 MATERIALS:
 Business picture cards
-DIRECTIONS:
-Discuss businesses.
-Share observations.
-Review vocabulary.
+SETUP:
+Prepare materials for Entrepreneur Circle Time before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead discussion.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Discuss businesses.
+2. Share observations.
+3. Review vocabulary.
 LEARNING_GOALS:
 Social studies and communication.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Entrepreneur Circle Time
+Use of ice cream shop business vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 THURSDAY
+
+DAILY_THEME:
+Ice Cream Shop Business: Build Giant Ice Cream Cones and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Support ice cream shop business learning through build giant ice cream cones.
+Support ice cream shop business learning through play dough ice cream shop.
+Support ice cream shop business learning through customer service practice.
+
+DAILY_VOCABULARY:
+Business, Customer, Order, Menu, Money, Price
+
+DAILY_MATERIALS:
+Blocks, cones, pom-poms
+Play dough, tools
+Shop props
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to ice cream shop business.
+Sing "I Like Ice Cream" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit Should I Share My Ice Cream? and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to ice cream shop business — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Build Giant Ice Cream Cones / Play Dough Ice Cream Shop).
+
+DAILY_OBSERVATIONS:
+Engagement during Build Giant Ice Cream Cones
+Engagement during Play Dough Ice Cream Shop
+Engagement during Customer Service Practice
+Participation and interest in Ice Cream Shop Business play
+
+DAILY_ADAPTATIONS:
+Provide visual menus, larger manipulatives, simplified order forms, peer partners, and additional support as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Build Giant Ice Cream Cones
 CATEGORY:
 STEM/Discovery
+OBJECTIVE:
+Support ice cream shop business learning through build giant ice cream cones.
 DESCRIPTION:
 Children construct tall ice cream cones using blocks.
 MATERIALS:
 Blocks, cones, pom-poms
-DIRECTIONS:
-Build cone.
-Add scoops.
-Test stability.
+SETUP:
+Prepare materials for Build Giant Ice Cream Cones before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Encourage engineering thinking.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Build cone.
+2. Add scoops.
+3. Test stability.
 LEARNING_GOALS:
 Problem-solving and design.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Build Giant Ice Cream Cones
+Use of ice cream shop business vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Play Dough Ice Cream Shop
 CATEGORY:
 Fine Motor
+OBJECTIVE:
+Support ice cream shop business learning through play dough ice cream shop.
 DESCRIPTION:
 Children create pretend ice cream treats.
 MATERIALS:
 Play dough, tools
-DIRECTIONS:
-Roll play dough.
-Create scoops.
-Build desserts.
+SETUP:
+Prepare materials for Play Dough Ice Cream Shop before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Model techniques.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Roll play dough.
+2. Create scoops.
+3. Build desserts.
 LEARNING_GOALS:
 Fine motor development.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Play Dough Ice Cream Shop
+Use of ice cream shop business vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Customer Service Practice
 CATEGORY:
 Dramatic Play
+OBJECTIVE:
+Support ice cream shop business learning through customer service practice.
 DESCRIPTION:
 Children practice greeting and helping customers.
 MATERIALS:
 Shop props
-DIRECTIONS:
-Welcome customers.
-Take orders.
-Thank customers.
+SETUP:
+Prepare materials for Customer Service Practice before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Model positive interactions.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Welcome customers.
+2. Take orders.
+3. Thank customers.
 LEARNING_GOALS:
 Communication and social skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Customer Service Practice
+Use of ice cream shop business vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 FRIDAY
+
+DAILY_THEME:
+Ice Cream Shop Business: Grand Opening Day and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Support ice cream shop business learning through grand opening day.
+Support ice cream shop business learning through young entrepreneur awards.
+Support ice cream shop business learning through ice cream shop entrepreneurs celebration circle.
+
+DAILY_VOCABULARY:
+Business, Customer, Order, Menu, Money, Price
+
+DAILY_MATERIALS:
+All shop materials
+Certificates, ribbons
+Menus, photos, certificates
+
+DAILY_LEARNING_DOMAINS:
+Social Emotional, Language & Literacy, Math, Science
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to ice cream shop business.
+Sing "I Like Ice Cream" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit Should I Share My Ice Cream? and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to ice cream shop business — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Grand Opening Day / Young Entrepreneur Awards).
+
+DAILY_OBSERVATIONS:
+Engagement during Grand Opening Day
+Engagement during Young Entrepreneur Awards
+Engagement during Ice Cream Shop Entrepreneurs Celebration Circle
+Participation and interest in Ice Cream Shop Business play
+
+DAILY_ADAPTATIONS:
+Provide visual menus, larger manipulatives, simplified order forms, peer partners, and additional support as needed.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Grand Opening Day
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support ice cream shop business learning through grand opening day.
 DESCRIPTION:
 Children operate the classroom ice cream shop.
 MATERIALS:
 All shop materials
-DIRECTIONS:
-Open business.
-Serve customers.
-Use menus and money.
-Rotate jobs.
+SETUP:
+Prepare materials for Grand Opening Day before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Support operations and teamwork.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Open business.
+2. Serve customers.
+3. Use menus and money.
+4. Rotate jobs.
 LEARNING_GOALS:
 Application of business skills.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Grand Opening Day
+Use of ice cream shop business vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Young Entrepreneur Awards
 CATEGORY:
 Dramatic Play
+OBJECTIVE:
+Support ice cream shop business learning through young entrepreneur awards.
 DESCRIPTION:
 Children celebrate their success as business owners.
 MATERIALS:
 Certificates, ribbons
-DIRECTIONS:
-Present awards.
-Celebrate accomplishments.
-Share favorite memories.
+SETUP:
+Prepare materials for Young Entrepreneur Awards before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Recognize effort and achievement.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Present awards.
+2. Celebrate accomplishments.
+3. Share favorite memories.
 LEARNING_GOALS:
 Confidence and self-esteem.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Young Entrepreneur Awards
+Use of ice cream shop business vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Ice Cream Shop Entrepreneurs Celebration Circle
 CATEGORY:
 Circle Time
+OBJECTIVE:
+Support ice cream shop business learning through ice cream shop entrepreneurs celebration circle.
 DESCRIPTION:
 Review favorite business experiences and learning from the week.
 MATERIALS:
 Menus, photos, certificates
-DIRECTIONS:
-Share favorite activities.
-Review vocabulary.
-Celebrate learning.
+SETUP:
+Prepare materials for Ice Cream Shop Entrepreneurs Celebration Circle before children arrive and arrange a clear, supervised space.
 TEACHER_ROLE:
 Lead reflection.
+TEACHER_LANGUAGE:
+
+DIRECTIONS:
+1. Share favorite activities.
+2. Review vocabulary.
+3. Celebrate learning.
 LEARNING_GOALS:
 Communication and social participation.
+OBSERVATION_OPPORTUNITIES:
+Engagement during Ice Cream Shop Entrepreneurs Celebration Circle
+Use of ice cream shop business vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

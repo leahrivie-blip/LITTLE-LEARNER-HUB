@@ -1,7 +1,7 @@
 TITLE:
 Toddler Building Buddies
 
-AGE GROUP:
+AGE_GROUP:
 Toddler
 
 THEME:
@@ -13,18 +13,18 @@ Pro
 STATUS:
 draft
 
-LEARNING DOMAINS:
+LEARNING_DOMAINS:
 Physical Development, Social Emotional, Math, Creative Arts
 
-WEEKLY OVERVIEW:
+WEEKLY_OVERVIEW:
 Toddlers build with blocks, soft materials, and recycled boxes while practicing sharing space, stacking, knocking down, and rebuilding with friends.
 
-LEARNING OBJECTIVES:
+LEARNING_OBJECTIVES:
 Toddlers will stack at least two to three items with intention.
 Toddlers will practice waiting or trading materials with support.
 Toddlers will describe builds using simple size and place words.
 
-WEEKLY MATERIALS:
+WEEKLY_MATERIALS:
 Unit blocks, soft blocks, cardboard boxes, masking tape, toy people/animals, baskets, music for clean-up, paper and crayons for build sketches
 
 VOCABULARY:
@@ -38,160 +38,531 @@ SONGS:
 London Bridge | Connect to building and rebuilding
 Clean Up Song | Use during block reset
 
-FAMILY CONNECTION:
+FAMILY_CONNECTION:
 Invite families to send a clean recycled box or tube for the Friday build museum, labeled with the child's name if they like.
 
-OBSERVATION OPPORTUNITIES:
+OBSERVATION_OPPORTUNITIES:
 Note stacking persistence, peer negotiation language, and how children recover after a tower falls.
 
 ADAPTATIONS:
 Provide wider bases for children needing more success. Offer one-on-one coaching for turn-taking. Allow solo build zones for children who need less crowding.
 
-MONDAY:
-ACTIVITY NAME:
+MONDAY
+
+DAILY_THEME:
+Building Buddies: Soft Block Stack Challenge and related play (introduce the theme through movement, sensory play, and simple language)
+
+DAILY_OBJECTIVES:
+Support building buddies learning through soft block stack challenge.
+Support building buddies learning through carry and deliver blocks.
+
+DAILY_VOCABULARY:
+stack, tall, short, balance, share, rebuild
+
+DAILY_MATERIALS:
+Soft blocks, clear floor space
+Soft blocks, tape path
+
+DAILY_LEARNING_DOMAINS:
+Physical Development, Social Emotional, Math, Creative Arts
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to building buddies.
+Sing "London Bridge" with simple movements or props.
+Show one prop or picture from today's activity (Soft Block Stack Challenge) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to building buddies: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Soft Block Stack Challenge
+Engagement during Carry and Deliver Blocks
+Participation and interest in Building Buddies play
+
+DAILY_ADAPTATIONS:
+Provide wider bases for children needing more success. Offer one-on-one coaching for turn-taking. Allow solo build zones for children who need less crowding.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
+
+ACTIVITY_NAME:
 Soft Block Stack Challenge
 CATEGORY:
 Fine Motor
+OBJECTIVE:
+Support building buddies learning through soft block stack challenge.
+DESCRIPTION:
+Toddlers stack soft blocks and notice height. Children explore building buddies through soft block stack challenge.
 MATERIALS:
 Soft blocks, clear floor space
 SETUP:
 Toddlers stack soft blocks and notice height.
+TEACHER_ROLE:
+Model simple steps, stay close for support, and use short theme vocabulary during soft block stack challenge.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Model stacking two blocks.
 2. Invite children to stack their own.
 3. Count blocks together when a tower stands.
-LEARNING GOAL:
+LEARNING_GOALS:
 Practice controlled placement
 Explore tall and short
+OBSERVATION_OPPORTUNITIES:
+Engagement during Soft Block Stack Challenge
+Use of building buddies vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Carry and Deliver Blocks
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support building buddies learning through carry and deliver blocks.
+DESCRIPTION:
+Toddlers carry blocks along a short path to a build zone. Children explore building buddies through carry and deliver blocks.
 MATERIALS:
 Soft blocks, tape path
 SETUP:
 Toddlers carry blocks along a short path to a build zone.
+TEACHER_ROLE:
+Model simple steps, stay close for support, and use short theme vocabulary during carry and deliver blocks.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Show the path to the build zone.
 2. Carry one block at a time.
 3. Place it gently in the basket or stack.
-LEARNING GOAL:
+LEARNING_GOALS:
 Coordinate carrying and walking
 Follow a simple pathway
+OBSERVATION_OPPORTUNITIES:
+Engagement during Carry and Deliver Blocks
+Use of building buddies vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-TUESDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Building Buddies: Block Town Friends and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Support building buddies learning through block town friends.
+Support building buddies learning through tape stick construction.
+
+DAILY_VOCABULARY:
+stack, tall, short, balance, share, rebuild
+
+DAILY_MATERIALS:
+Blocks, toy figures
+Cardboard boxes, masking tape strips
+
+DAILY_LEARNING_DOMAINS:
+Physical Development, Social Emotional, Math, Creative Arts
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to building buddies.
+Sing "London Bridge" with simple movements or props.
+Show one prop or picture from today's activity (Block Town Friends) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to building buddies: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Block Town Friends
+Engagement during Tape Stick Construction
+Participation and interest in Building Buddies play
+
+DAILY_ADAPTATIONS:
+Provide wider bases for children needing more success. Offer one-on-one coaching for turn-taking. Allow solo build zones for children who need less crowding.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
+
+ACTIVITY_NAME:
 Block Town Friends
 CATEGORY:
 Dramatic Play
+OBJECTIVE:
+Support building buddies learning through block town friends.
+DESCRIPTION:
+Toddlers add toy people and animals to block roads and homes. Children explore building buddies through block town friends.
 MATERIALS:
 Blocks, toy figures
 SETUP:
 Toddlers add toy people and animals to block roads and homes.
+TEACHER_ROLE:
+Model simple steps, stay close for support, and use short theme vocabulary during block town friends.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Build a simple road or house together.
 2. Invite figures to visit the build.
 3. Narrate greetings and short stories.
-LEARNING GOAL:
+LEARNING_GOALS:
 Combine building with pretend stories
 Practice social language
+OBSERVATION_OPPORTUNITIES:
+Engagement during Block Town Friends
+Use of building buddies vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Tape Stick Construction
 CATEGORY:
 Sensory Play
+OBJECTIVE:
+Support building buddies learning through tape stick construction.
+DESCRIPTION:
+Toddlers press masking tape pieces onto boxes to connect parts. Children explore building buddies through tape stick construction.
 MATERIALS:
 Cardboard boxes, masking tape strips
 SETUP:
 Toddlers press masking tape pieces onto boxes to connect parts.
+TEACHER_ROLE:
+Model simple steps, stay close for support, and use short theme vocabulary during tape stick construction.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Offer short pre-torn tape pieces.
 2. Model sticking two box edges.
 3. Let children press and smooth tape.
-LEARNING GOAL:
+LEARNING_GOALS:
 Strengthen finger pressure
 Explore joining materials
+OBSERVATION_OPPORTUNITIES:
+Engagement during Tape Stick Construction
+Use of building buddies vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-WEDNESDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Building Buddies: Knock Down and Rebuild and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Support building buddies learning through knock down and rebuild.
+Support building buddies learning through hammer dance beat.
+
+DAILY_VOCABULARY:
+stack, tall, short, balance, share, rebuild
+
+DAILY_MATERIALS:
+Soft blocks
+Soft mallets or hands, rhythm music
+
+DAILY_LEARNING_DOMAINS:
+Physical Development, Social Emotional, Math, Creative Arts
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to building buddies.
+Sing "London Bridge" with simple movements or props.
+Show one prop or picture from today's activity (Knock Down and Rebuild) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to building buddies: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Knock Down and Rebuild
+Engagement during Hammer Dance Beat
+Participation and interest in Building Buddies play
+
+DAILY_ADAPTATIONS:
+Provide wider bases for children needing more success. Offer one-on-one coaching for turn-taking. Allow solo build zones for children who need less crowding.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
+
+ACTIVITY_NAME:
 Knock Down and Rebuild
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support building buddies learning through knock down and rebuild.
+DESCRIPTION:
+Children intentionally knock down towers and rebuild. Children explore building buddies through knock down and rebuild.
 MATERIALS:
 Soft blocks
 SETUP:
 Children intentionally knock down towers and rebuild.
+TEACHER_ROLE:
+Model simple steps, stay close for support, and use short theme vocabulary during knock down and rebuild.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Build a tower together.
 2. Invite a gentle knock-down.
 3. Rebuild with a new idea.
-LEARNING GOAL:
+LEARNING_GOALS:
 Accept change and try again
 Explore cause and effect
+OBSERVATION_OPPORTUNITIES:
+Engagement during Knock Down and Rebuild
+Use of building buddies vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Hammer Dance Beat
 CATEGORY:
 Music & Movement
+OBJECTIVE:
+Support building buddies learning through hammer dance beat.
+DESCRIPTION:
+Toddlers tap soft mallets or hands to a building beat. Children explore building buddies through hammer dance beat.
 MATERIALS:
 Soft mallets or hands, rhythm music
 SETUP:
 Toddlers tap soft mallets or hands to a building beat.
+TEACHER_ROLE:
+Model simple steps, stay close for support, and use short theme vocabulary during hammer dance beat.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Tap a slow beat together.
 2. Pretend to hammer in time.
 3. Freeze when the music stops.
-LEARNING GOAL:
+LEARNING_GOALS:
 Match movement to rhythm
 Practice stop-and-start control
+OBSERVATION_OPPORTUNITIES:
+Engagement during Hammer Dance Beat
+Use of building buddies vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-THURSDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Building Buddies: People on Top Placement and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Support building buddies learning through people on top placement.
+
+DAILY_VOCABULARY:
+stack, tall, short, balance, share, rebuild
+
+DAILY_MATERIALS:
+Blocks, small figures
+
+DAILY_LEARNING_DOMAINS:
+Physical Development, Social Emotional, Math, Creative Arts
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to building buddies.
+Sing "London Bridge" with simple movements or props.
+Show one prop or picture from today's activity (People on Top Placement) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to building buddies: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during People on Top Placement
+Participation and interest in Building Buddies play
+
+DAILY_ADAPTATIONS:
+Provide wider bases for children needing more success. Offer one-on-one coaching for turn-taking. Allow solo build zones for children who need less crowding.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
+
+ACTIVITY_NAME:
 People on Top Placement
 CATEGORY:
 Fine Motor
+OBJECTIVE:
+Support building buddies learning through people on top placement.
+DESCRIPTION:
+Toddlers carefully place figures on block surfaces. Children explore building buddies through people on top placement.
 MATERIALS:
 Blocks, small figures
 SETUP:
 Toddlers carefully place figures on block surfaces.
+TEACHER_ROLE:
+Model simple steps, stay close for support, and use short theme vocabulary during people on top placement.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Stack a sturdy base.
 2. Model gentle figure placement.
 3. Talk about on top and next to.
-LEARNING GOAL:
+LEARNING_GOALS:
 Use precise hand control
 Practice position words
+OBSERVATION_OPPORTUNITIES:
+Engagement during People on Top Placement
+Use of building buddies vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-FRIDAY:
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Building Buddies: Build Museum Sketch and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Support building buddies learning through build museum sketch.
+Support building buddies learning through buddy block parade.
+
+DAILY_VOCABULARY:
+stack, tall, short, balance, share, rebuild
+
+DAILY_MATERIALS:
+Paper, crayons, finished builds
+Soft blocks, music
+
+DAILY_LEARNING_DOMAINS:
+Physical Development, Social Emotional, Math, Creative Arts
+
+CIRCLE_TIME:
+Welcome song and name greeting connected to building buddies.
+Sing "London Bridge" with simple movements or props.
+Show one prop or picture from today's activity (Build Museum Sketch) and invite toddlers to name what they see.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor play tied to building buddies: animal walks, pushing/pulling, or simple theme movement games for 5–15 minutes with close supervision.
+
+DAILY_OBSERVATIONS:
+Engagement during Build Museum Sketch
+Engagement during Buddy Block Parade
+Participation and interest in Building Buddies play
+
+DAILY_ADAPTATIONS:
+Provide wider bases for children needing more success. Offer one-on-one coaching for turn-taking. Allow solo build zones for children who need less crowding.
+
+SAFETY_NOTES:
+Close supervision during movement and sensory play; avoid tiny pieces; check outdoor equipment before use.
+
+ACTIVITY_NAME:
 Build Museum Sketch
 CATEGORY:
 Open-Ended Exploration
+OBJECTIVE:
+Support building buddies learning through build museum sketch.
+DESCRIPTION:
+Toddlers make simple marks about a favorite build before photos or display. Children explore building buddies through build museum sketch.
 MATERIALS:
 Paper, crayons, finished builds
 SETUP:
 Toddlers make simple marks about a favorite build before photos or display.
+TEACHER_ROLE:
+Model simple steps, stay close for support, and use short theme vocabulary during build museum sketch.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Look at a favorite build together.
 2. Invite marks or shapes on paper.
 3. Dictate a short label if the child wants.
-LEARNING GOAL:
+LEARNING_GOALS:
 Represent an idea on paper
 Reflect on weekly building work
+OBSERVATION_OPPORTUNITIES:
+Engagement during Build Museum Sketch
+Use of building buddies vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
 
-ACTIVITY NAME:
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:
+
+ACTIVITY_NAME:
 Buddy Block Parade
 CATEGORY:
 Gross Motor
+OBJECTIVE:
+Support building buddies learning through buddy block parade.
+DESCRIPTION:
+Children parade a small build or block to music, then reset the area. Children explore building buddies through buddy block parade.
 MATERIALS:
 Soft blocks, music
 SETUP:
 Children parade a small build or block to music, then reset the area.
+TEACHER_ROLE:
+Model simple steps, stay close for support, and use short theme vocabulary during buddy block parade.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose one block or small build to carry.
 2. Parade carefully around the rug.
 3. Return materials and sing clean-up.
-LEARNING GOAL:
+LEARNING_GOALS:
 Move carefully with materials
 Practice group clean-up routines
+OBSERVATION_OPPORTUNITIES:
+Engagement during Buddy Block Parade
+Use of building buddies vocabulary or interest
+Peer interaction and independence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Offer larger materials, hand-over-hand support, and a shorter turn. Allow parallel play instead of forced sharing.
+SAFETY_NOTES:
+Supervise closely, keep materials too large to choke on, and clear walkways for active movement. Check outdoor surfaces before play.
+AGE_MODIFICATIONS:

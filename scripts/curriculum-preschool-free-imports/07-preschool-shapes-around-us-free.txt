@@ -14,11 +14,7 @@ STATUS:
 published
 
 LEARNING_DOMAINS:
-Math
-Language & Literacy
-Creative Arts
-Physical Development
-Social Emotional
+Math, Language & Literacy, Creative Arts, Physical Development, Social Emotional
 
 WEEKLY_OVERVIEW:
 Preschoolers will discover shapes in the environment through hunts, art, building, sorting, and pretend play. Children will name shapes, describe attributes, combine shapes to create designs, and find shapes in everyday objects.
@@ -75,7 +71,46 @@ Observe shape naming, sorting accuracy, attribute language, spatial reasoning in
 ADAPTATIONS:
 Provide shape word cards with pictures. Accept approximate shape names. Offer pre-cut shapes for gluing activities.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+Shapes Around Us: Shape Hunt Adventure and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Search the classroom for shapes in objects.
+Glue paper shapes to create a picture.
+Make shapes with bodies during movement song.
+
+DAILY_VOCABULARY:
+circle, square, triangle, rectangle, side, corner
+
+DAILY_MATERIALS:
+Shape hunt cards, clipboards, pencils
+Precut paper shapes, glue, scissors, background paper
+Shape cards, open space, music (optional)
+
+DAILY_LEARNING_DOMAINS:
+Math, Language & Literacy, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to shapes around us.
+Sing "The Shape Song" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit Shape by Shape by Suse MacDonald and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to shapes around us — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Shape Hunt Adventure / Shape Collage Art).
+
+DAILY_OBSERVATIONS:
+Finds shape examples
+Combines multiple shapes
+Forms group shapes
+Participation and interest in Shapes Around Us play
+
+DAILY_ADAPTATIONS:
+Provide shape word cards with pictures. Accept approximate shape names. Offer pre-cut shapes for gluing activities.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Shape Hunt Adventure
@@ -91,6 +126,8 @@ SETUP:
 Prepare shape cards before hunt.
 TEACHER_ROLE:
 Name shapes as children discover them.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Give each child a focus shape card.
 2. Walk and search for matching shapes.
@@ -105,6 +142,15 @@ OBSERVATION_OPPORTUNITIES:
 Finds shape examples
 Names shapes
 Shares discoveries
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Shape Collage Art
@@ -120,6 +166,8 @@ SETUP:
 Organize shapes by type at art table.
 TEACHER_ROLE:
 Discuss shapes used in creations.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose shapes for a picture.
 2. Arrange before gluing.
@@ -134,6 +182,15 @@ OBSERVATION_OPPORTUNITIES:
 Combines multiple shapes
 Names shapes in art
 Completes collage
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Shape Body Moves
@@ -149,6 +206,8 @@ SETUP:
 Clear large space for group shapes.
 TEACHER_ROLE:
 Call shape and model group formation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Call circle and hold hands in round.
 2. Make line shape side by side.
@@ -163,8 +222,56 @@ OBSERVATION_OPPORTUNITIES:
 Forms group shapes
 Responds to shape calls
 Cooperates with peers
+VOCABULARY:
 
-TUESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Shapes Around Us: Shape Sorting Center and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Sort objects and picture cards by shape.
+Cut and form shapes with dough and cutters.
+Complete puzzles featuring geometric shapes.
+
+DAILY_VOCABULARY:
+circle, square, triangle, rectangle, side, corner
+
+DAILY_MATERIALS:
+Shape sorting mats, mixed shape objects
+Play dough, shape cutters, rolling pins, mats
+Shape puzzles, pattern blocks
+
+DAILY_LEARNING_DOMAINS:
+Math, Language & Literacy, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to shapes around us.
+Sing "The Shape Song" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit Shape by Shape by Suse MacDonald and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to shapes around us — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Shape Sorting Center / Play Dough Shapes).
+
+DAILY_OBSERVATIONS:
+Sorts accurately
+Cuts recognizable shapes
+Completes puzzles
+Participation and interest in Shapes Around Us play
+
+DAILY_ADAPTATIONS:
+Provide shape word cards with pictures. Accept approximate shape names. Offer pre-cut shapes for gluing activities.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Shape Sorting Center
@@ -180,6 +287,8 @@ SETUP:
 Set mats with mixed objects in center.
 TEACHER_ROLE:
 Model sorting and naming attributes.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Pick object and examine shape.
 2. Name shape and place on mat.
@@ -194,6 +303,15 @@ OBSERVATION_OPPORTUNITIES:
 Sorts accurately
 Names shapes
 Counts groups
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Play Dough Shapes
@@ -209,6 +327,8 @@ SETUP:
 Provide dough tools at tables.
 TEACHER_ROLE:
 Model rolling flat and cutting.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Roll dough flat.
 2. Cut shapes with cutters.
@@ -223,6 +343,15 @@ OBSERVATION_OPPORTUNITIES:
 Cuts recognizable shapes
 Names shapes
 Combines shapes creatively
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Shape Puzzle Center
@@ -238,6 +367,8 @@ SETUP:
 Place puzzles at table for small groups.
 TEACHER_ROLE:
 Encourage naming pieces as placed.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose puzzle or pattern block design.
 2. Name shape of each piece.
@@ -252,8 +383,56 @@ OBSERVATION_OPPORTUNITIES:
 Completes puzzles
 Names piece shapes
 Persists when challenged
+VOCABULARY:
 
-WEDNESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Shapes Around Us: Build a Shape Town and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Cooperate to build a town using shape blocks.
+Fill design templates with pattern blocks.
+Read shape books and hunt shapes on pages.
+
+DAILY_VOCABULARY:
+circle, square, triangle, rectangle, side, corner
+
+DAILY_MATERIALS:
+Unit blocks, shape blocks, road tape, toy people
+Pattern blocks, design templates
+Mouse Shapes book, shape pointers
+
+DAILY_LEARNING_DOMAINS:
+Math, Language & Literacy, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to shapes around us.
+Sing "The Shape Song" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit Shape by Shape by Suse MacDonald and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to shapes around us — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Build a Shape Town / Pattern Block Designs).
+
+DAILY_OBSERVATIONS:
+Contributes to group build
+Fills template
+Points to shapes in book
+Participation and interest in Shapes Around Us play
+
+DAILY_ADAPTATIONS:
+Provide shape word cards with pictures. Accept approximate shape names. Offer pre-cut shapes for gluing activities.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Build a Shape Town
@@ -269,6 +448,8 @@ SETUP:
 Define building area with road tape.
 TEACHER_ROLE:
 Facilitate planning and role assignment.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Discuss what town needs.
 2. Assign building jobs.
@@ -283,6 +464,15 @@ OBSERVATION_OPPORTUNITIES:
 Contributes to group build
 Uses shape vocabulary
 Cooperates on plan
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Pattern Block Designs
@@ -298,6 +488,8 @@ SETUP:
 Provide templates at math table.
 TEACHER_ROLE:
 Discuss shapes that fit together.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose template.
 2. Select blocks to fill spaces.
@@ -312,6 +504,15 @@ OBSERVATION_OPPORTUNITIES:
 Fills template
 Names less common shapes
 Creates original design
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Shape Story Read-Aloud
@@ -327,6 +528,8 @@ SETUP:
 Gather for read-aloud with pointers.
 TEACHER_ROLE:
 Pause to find shapes on each page.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Read story aloud.
 2. Children point to shapes on pages.
@@ -341,8 +544,56 @@ OBSERVATION_OPPORTUNITIES:
 Points to shapes in book
 Retells with props
 Attends to story
+VOCABULARY:
 
-THURSDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Shapes Around Us: Shape Obstacle Path and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Walk a path by stepping on shape floor markers.
+Stretch bands on geoboards to create shapes.
+Sort snack items by shape before eating.
+
+DAILY_VOCABULARY:
+circle, square, triangle, rectangle, side, corner
+
+DAILY_MATERIALS:
+Shape floor markers, cones
+Geoboards, rubber bands, shape cards
+Shape snacks (crackers, cheese, fruit), sorting plates
+
+DAILY_LEARNING_DOMAINS:
+Math, Language & Literacy, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to shapes around us.
+Sing "The Shape Song" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit Shape by Shape by Suse MacDonald and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to shapes around us — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Shape Obstacle Path / Geoboard Shape Makers).
+
+DAILY_OBSERVATIONS:
+Names shapes while moving
+Forms closed shapes
+Sorts snacks by shape
+Participation and interest in Shapes Around Us play
+
+DAILY_ADAPTATIONS:
+Provide shape word cards with pictures. Accept approximate shape names. Offer pre-cut shapes for gluing activities.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Shape Obstacle Path
@@ -358,6 +609,8 @@ SETUP:
 Tape shape markers along path.
 TEACHER_ROLE:
 Demonstrate path and shape naming.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Walk path stepping on each shape.
 2. Name shape aloud at each step.
@@ -372,6 +625,15 @@ OBSERVATION_OPPORTUNITIES:
 Names shapes while moving
 Follows path safely
 Creates path variations
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Geoboard Shape Makers
@@ -387,6 +649,8 @@ SETUP:
 Provide geoboards and shape model cards.
 TEACHER_ROLE:
 Model stretching bands corner to corner.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose shape card.
 2. Stretch bands to match.
@@ -401,6 +665,15 @@ OBSERVATION_OPPORTUNITIES:
 Forms closed shapes
 Counts corners
 Uses geoboard safely
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Shape Snack Sort
@@ -416,6 +689,8 @@ SETUP:
 Prepare snack items in varied shapes.
 TEACHER_ROLE:
 Supervise sorting and allergies.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Examine snack pieces.
 2. Sort onto shape plates.
@@ -430,8 +705,56 @@ OBSERVATION_OPPORTUNITIES:
 Sorts snacks by shape
 Counts pieces
 Follows snack routines
+VOCABULARY:
 
-FRIDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Shapes Around Us: Shape Blueprint Drawings and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Draw a building plan using only shapes.
+Dance and freeze making shape with arms.
+Review shape learning and share favorite shape.
+
+DAILY_VOCABULARY:
+circle, square, triangle, rectangle, side, corner
+
+DAILY_MATERIALS:
+Blue paper, chalk or white crayons, shape stencils
+Music player, shape cards
+Shape cards, celebration stickers
+
+DAILY_LEARNING_DOMAINS:
+Math, Language & Literacy, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to shapes around us.
+Sing "The Shape Song" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit Shape by Shape by Suse MacDonald and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to shapes around us — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Shape Blueprint Drawings / Shape Freeze Dance).
+
+DAILY_OBSERVATIONS:
+Uses multiple shapes in plan
+Forms shape poses
+Shares favorite shape
+Participation and interest in Shapes Around Us play
+
+DAILY_ADAPTATIONS:
+Provide shape word cards with pictures. Accept approximate shape names. Offer pre-cut shapes for gluing activities.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Shape Blueprint Drawings
@@ -447,6 +770,8 @@ SETUP:
 Provide blue paper for blueprint look.
 TEACHER_ROLE:
 Encourage labeling shapes in plan.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Plan a building with shapes.
 2. Draw using stencils or freehand.
@@ -461,6 +786,15 @@ OBSERVATION_OPPORTUNITIES:
 Uses multiple shapes in plan
 Labels with help
 Explains design
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Shape Freeze Dance
@@ -476,6 +810,8 @@ SETUP:
 Open space with shape cards visible.
 TEACHER_ROLE:
 Call shape for freeze pose.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Dance while music plays.
 2. Freeze in circle arms or triangle legs.
@@ -490,6 +826,15 @@ OBSERVATION_OPPORTUNITIES:
 Forms shape poses
 Freezes on cue
 Names shapes
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Shapes Celebration Circle
@@ -505,6 +850,8 @@ SETUP:
 Gather in circle.
 TEACHER_ROLE:
 Facilitate sharing and review.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Share favorite shape from the week.
 2. Hold up matching shape card.
@@ -519,3 +866,12 @@ OBSERVATION_OPPORTUNITIES:
 Shares favorite shape
 Participates in song
 Recalls week learning
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:

@@ -5,6 +5,7 @@ const path = require("node:path");
 const { URL } = require("node:url");
 const membershipAccess = require("../scripts/membership-access.js");
 const accountAccess = require("../scripts/account-access.js");
+const curriculumStandards = require("../scripts/curriculum-standards.js");
 const scheduleLib = require("./schedule-lib.js");
 const { createEmailEngagement, defaultEmailEngagementStore } = require("./email-engagement.js");
 const { createPushService } = require("./push-lib.js");
@@ -2999,11 +3000,11 @@ function getToolSystemPrompt(tool) {
     "Only include developmental areas, skills, and recommendations that are clearly supported by the note and context provided.",
     "Avoid generic developmental template language that could apply to any child. Make each response specific to this child and this exact situation.",
     "Recommendations must be directly tied to what was observed, not generic filler.",
-    "If the provider's note is brief or minimal, produce a helpful result using appropriate general childcare context — note 'Based on the note provided...' and keep details realistic but not i[...]",
-    "VARIETY: Generate fresh, specific content every single time. Vary your sentence openings, vocabulary, structure, transitions, and examples. Never reuse the same phrases, openers, or conclusi[...]",
-    "Avoid empty filler phrases like 'had a great day,' 'very engaged,' 'wonderful experience,' 'it is a pleasure to share,' 'I hope this message finds you well,' 'in today's fast-paced world,' o[...]",
+    "If the provider's note is brief or minimal, produce a helpful result using appropriate general childcare context — note 'Based on the note provided...' and keep details realistic but not invented.",
+    "VARIETY: Generate fresh, specific content every single time. Vary your sentence openings, vocabulary, structure, transitions, and examples. Never reuse the same phrases, openers, or conclusions across responses.",
+    "Avoid empty filler phrases like 'had a great day,' 'very engaged,' 'wonderful experience,' 'it is a pleasure to share,' 'I hope this message finds you well,' or 'in today's fast-paced world.'",
     "Do not use repetitive or generic phrasing such as 'This supports future learning,' 'Making meaningful connections,' or 'Growing cognitive skills' unless it is truly specific and necessary.",
-    "If a curriculum framework is mentioned (Creative Curriculum, HighScope, Frog Street, Montessori, Reggio Emilia, Mother Goose Time, or a custom curriculum), align your language, documentation[...]",
+    "If a curriculum framework is mentioned (Creative Curriculum, HighScope, Frog Street, Montessori, Reggio Emilia, Mother Goose Time, or a custom curriculum), align your language, documentation style, and activity framing to that framework.",
     "If a state or state standards are mentioned, reference relevant domain indicators and align developmental language accordingly.",
     "",
     "FINAL QUALITY REVIEW — complete before returning any response:",
@@ -3013,14 +3014,9 @@ function getToolSystemPrompt(tool) {
     "- Consistent formatting and polished readability.",
     "- If any issue is found, revise and return the corrected final version (never return a first draft).",
     "",
-    "CRITICAL — DEVELOPMENTAL APPROPRIATENESS:",
-    "All content MUST match the child's stated age group. Never suggest activities, milestones, goals, behaviors, lesson plans, or expectations outside the correct age range.",
-    "Age ranges and what belongs in each:",
-    "- Infant (0-12 months): tummy time, songs, simple sensory exploration, tracking objects, reaching/grasping, babbling, bonding, responsive feeding, safe floor play, safe sleep. NEVER suggest[...]",
-    "- Young Toddler (12-24 months): simple movement, stacking, naming objects, cause-and-effect, parallel play, simple songs, toddler-safe sensory play, early choices. NEVER suggest tracing, wo[...]",
-    "- Older Toddler (24-36 months): pretend play, matching, sorting, simple art, running/jumping, beginning sharing, short directions, simple routines. NEVER suggest kindergarten or school-age expectations.",
-    "- Preschool (3-5 years): vocabulary building, pre-literacy, counting, science exploration, cooperative play, problem-solving, growing independence, simple writing experiences. NEVER suggest elementary-level workload or pressure.",
-    "- School Age (5+ years): projects, discussions, writing, STEM, problem-solving, leadership, reflection, responsibility, and age-appropriate independence. Content should feel meaningfully more advanced than preschool.",
+    curriculumStandards.buildAllAgeStandardsPromptBlock(),
+    "",
+    "School Age (5+ years), when requested: projects, discussions, writing, STEM, problem-solving, leadership, reflection, responsibility, and age-appropriate independence. Content should feel meaningfully more advanced than preschool.",
   ].join("\n");
 
   const toolPrompts = {
@@ -3035,23 +3031,11 @@ Every plan must be genuinely different: different books, different songs, differ
 
 DEVELOPMENTAL AGE VERIFICATION — DO THIS FIRST BEFORE WRITING ANYTHING:
 Confirm every planned activity is truly appropriate for the selected age group. If an activity is not appropriate, replace it entirely — do not try to force it.
+Do not simply add more content. Verify that the content matches how children actually learn at that age.
 
-INFANT (0–12 months):
-Focus ONLY on: sensory exploration, tummy time, rolling, crawling, reaching, tracking objects, cause and effect, simple songs, nursery rhymes, peekaboo, mirrors, texture exploration, one-on-one interactions, teacher narration, and responsive caregiving.
-NEVER include: worksheets, scissors, complex crafts, multi-step directions, writing, preschool circle activities, or group discussions.
-Activities: 5–10 minutes, caregiver-led, sensory-safe materials only, no choking hazards, no small parts.
+` + curriculumStandards.buildAllAgeStandardsPromptBlock() + `
 
-TODDLER (12–36 months):
-Focus ONLY on: short activities (10–15 min), movement, pretend play, simple crafts, vocabulary building, matching, sorting, music, large motor play, beginning problem solving, following one-step directions, repetition, and hands-on play.
-NEVER include: worksheets, tracing, writing, or kindergarten-level expectations.
-Activities: 10–15 minutes, adult-supported, simple one-to-two step directions.
-
-PRESCHOOL (3–5 years):
-Focus on: problem solving, letter recognition, number concepts, science experiments, cooperative learning, fine motor skills, early writing, open-ended questions, higher-level thinking, and growing independence.
-Activities must be meaningfully more advanced than toddler activities in every way.
-Activities: 15–20 minutes, small group or whole group, open-ended and discussion-rich.
-
-SCHOOL AGE (5+ years):
+SCHOOL AGE (5+ years), when requested:
 Focus on: projects, writing, STEM challenges, leadership, reflection, and meaningful independence.
 Activities: 20–30+ minutes, peer collaboration, student choice, real-world connections.
 
@@ -3229,9 +3213,11 @@ VARIETY AND QUALITY RULES — CRITICAL:
 - Vary art media, science topics, sensory materials, and dramatic play scenarios every single time.
 - Never write vague instructions like "read a book," "sing a song," "do an art activity," or "go outside." Every instruction must be complete and specific.
 - Never omit a required section. Every section must be fully written out with no placeholder text and no empty sections.
-- Infant plans: sensory-safe only, no small parts, 5–10 min, caregiver-led.
-- Toddler plans: 10–15 min, simple, adult-supported, hands-on, no worksheets.
-- Preschool plans: literacy + math + science + social-emotional all appear across the week.
+- Infant 0–6 Months: 1–5 min, caregiver-led, bonding/tummy time/tracking/sensory only; no worksheets, crafts, scissors, glue, small parts, or independent sitting.
+- Infant 6–12 Months: 3–8 min; crawling, container play, object permanence, large safe materials; no worksheets, complex crafts, or choking hazards.
+- Toddler plans: 5–15 min; must include movement, sensory play, fine motor, and social interaction; no worksheets or tiny pieces.
+- Preschool plans: 10–25 min; must include literacy, math, STEM/science, fine motor, gross motor, and social-emotional; worksheets must never be the primary activity.
+- Every activity must include name, category, objective, description, materials, setup, 3–5 numbered directions, teacher role, learning goals, observation opportunities, adaptations, and safety notes — no blank fields or placeholders.
 - School Age: meaningfully more advanced than preschool — projects, writing, STEM, leadership.
 - All books must be real, published children's books with real authors matched to the theme — never invent fake book titles or fake authors; use different books each day when possible.
 - All songs must be real or well-known children's songs, fingerplays, or nursery rhymes — never invent fake song titles.
@@ -3454,10 +3440,12 @@ Required sections:
 Rules:
 - Make the title descriptive and engaging — it should make a provider want to try it.
 - Vary activity types: art, STEM, sensory, dramatic play, literacy, math, gross motor, fine motor, cooking, outdoor, music — never suggest the same type each time.
-- Infant activities: sensory-safe, caregiver-led, no small parts, 5-10 minutes. Focus on bonding, tracking, reaching, and responsive interaction.
-- Young Toddler: movement or sensory-based, toddler-safe materials, 10-15 minutes. Keep adult support central.
-- Older Toddler: pretend play, matching, sorting, process art, 10-15 minutes.
-- Preschool: problem-solving, early literacy/math/science/STEM, small group or whole group, 15-20 minutes.
+- Follow Little Learner Hub Curriculum Standards for the stated age group (focus areas, appropriate activities, avoid lists, and activity length).
+- Infant 0–6 Months: 1–5 minutes; bonding, tummy time, tracking, soft sensory, songs; never worksheets, crafts, scissors, glue, small parts, or independent sitting.
+- Infant 6–12 Months: 3–8 minutes; crawling, fill/dump, stacking cups, large blocks, safe sensory; never worksheets, complex crafts, or choking hazards.
+- Toddlers (1–2 years): 5–15 minutes; include movement, sensory, fine motor, and social interaction; no worksheets or tiny pieces.
+- Preschool (3–5 years): 10–25 minutes; support literacy, math, STEM/science, fine/gross motor, and social-emotional learning; worksheets must not be the primary activity.
+- Every activity must include: title, category, objective, description, materials, setup, 3–5 numbered directions, teacher role, learning goals, observation opportunities, adaptations, and safety notes. No blank fields or placeholders.
 - School Age: projects, writing, STEM challenges, leadership-based, 20-30+ minutes.
 - Never suggest the same activity type, materials, or format back-to-back.`,
 
@@ -3890,16 +3878,17 @@ async function scoreAiOutput(text) {
 }
 
 function buildAdminLessonGeneratorPrompt(age, theme, lessonNumber) {
-  const ageInstructions = {
-    Infant: "infants (0–12 months). Activities: 5–10 minutes, caregiver-led, sensory-safe only. Focus: tummy time, songs, tracking, reaching, sensory exploration, bonding. Never suggest scissors, small parts, worksheets, or complex crafts.",
-    Toddler: "toddlers (12–36 months). Activities: 10–15 minutes, adult-supported, 1–2 step directions. Focus: movement, pretend play, simple art, songs, vocabulary, sensory play. Never suggest worksheets or academic pressure.",
-    Preschool: "preschool children (3–5 years). Activities: 15–20 minutes, small or whole group. Focus: problem-solving, pre-literacy, counting, science, cooperative play, early writing, open-ended questions.",
-  };
-  const elgAgeLabel = age === "Infant" ? "Infant (0–12 months)" : age === "Toddler" ? "Toddler (1–3 years)" : "Preschool (3–5 years)";
-  const ageNote = ageInstructions[age] || ageInstructions.Preschool;
+  const standardsBlock = curriculumStandards.buildFullCurriculumStandardsPrompt(age);
+  const elgAgeLabel = /infant/i.test(age)
+    ? (/0\s*[–-]\s*6/i.test(age) ? "Infant (0–6 months)" : /6\s*[–-]\s*12/i.test(age) ? "Infant (6–12 months)" : "Infant (0–12 months)")
+    : /toddler/i.test(age)
+      ? "Toddler (1–2 years)"
+      : "Preschool (3–5 years)";
   const themeUpper = theme.toUpperCase();
 
-  return `Create a complete, professional weekly lesson plan for ${ageNote}
+  return `Create a complete, professional weekly lesson plan for ${age}.
+
+${standardsBlock}
 
 Theme: ${theme}
 ${lessonNumber ? `Lesson Plan Number: ${lessonNumber}` : ""}
@@ -3931,7 +3920,8 @@ Critical rules:
 - All books must be real, published children's books matched to the theme — never invent fake book titles or fake authors
 - All songs must be real, well-known children's songs or fingerplays — never invent fake song titles
 - Each day must have a completely different circle time, activity, book, and song
-- Every activity must be truly age-appropriate for ${age}
+- Every activity must follow Little Learner Hub Curriculum Standards for ${age} (developmental focus, avoid list, activity length, and required components)
+- Every activity must include name, category, objective, description, materials, setup, 3–5 numbered directions, teacher role, learning goals, observation opportunities, adaptations, and safety notes with no blank fields
 - This lesson plan must be specific and professional — use specific book titles, specific song names, and detailed step-by-step instructions
 - Every section (weeklyOverview, materials, objectives, teacherLanguage, monday–friday, elgConnections, familyConnection, reflectionNotes, thumbnailPrompt) must be fully written with no placeholder text, no empty values, and no duplicate paragraphs
 - The theme "${theme}" must be consistent across every section: overview, materials, objectives, daily activities, books, songs, discussion ideas, family connection, and reflection notes

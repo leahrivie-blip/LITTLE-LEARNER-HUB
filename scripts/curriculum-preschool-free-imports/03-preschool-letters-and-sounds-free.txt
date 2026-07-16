@@ -14,11 +14,7 @@ STATUS:
 published
 
 LEARNING_DOMAINS:
-Language & Literacy
-Math
-Creative Arts
-Physical Development
-Social Emotional
+Language & Literacy, Math, Creative Arts, Physical Development, Social Emotional
 
 WEEKLY_OVERVIEW:
 Preschoolers will explore letters and sounds through playful literacy activities, sensory materials, songs, books, and hands-on building. Children will recognize letters, connect sounds to symbols, explore names, and build phonological awareness in meaningful contexts.
@@ -73,7 +69,46 @@ Observe letter recognition, sound matching, name letter identification, fine mot
 ADAPTATIONS:
 Offer uppercase letters first if lowercase are challenging. Provide multi-sensory letter options and accept approximations in writing.
 
-MONDAY:
+MONDAY
+
+DAILY_THEME:
+Letters & Sounds: Alphabet Circle Time and related play (introduce the theme through literacy, sensory, and language play)
+
+DAILY_OBJECTIVES:
+Introduce the alphabet through song and visual cards.
+Discover letters in signs and labels around the classroom.
+Connect letter sounds to movement.
+
+DAILY_VOCABULARY:
+letter, sound, alphabet, name, beginning, rhyme
+
+DAILY_MATERIALS:
+Alphabet chart, letter cards, pointer
+Clipboards, pencils, environmental print labels
+Letter sound cards, open space, music (optional)
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Math, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to letters & sounds.
+Sing "The Alphabet Song" and preview today's focus: introduce the theme through literacy, sensory, and language play.
+Read or revisit Chicka Chicka Boom Boom by Bill Martin Jr. and John Archambault and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to letters & sounds — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Alphabet Circle Time / Environmental Print Walk).
+
+DAILY_OBSERVATIONS:
+Sings along
+Finds letters in environment
+Repeats beginning sounds
+Participation and interest in Letters & Sounds play
+
+DAILY_ADAPTATIONS:
+Offer uppercase letters first if lowercase are challenging. Provide multi-sensory letter options and accept approximations in writing.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Alphabet Circle Time
@@ -89,6 +124,8 @@ SETUP:
 Post alphabet chart at circle and distribute letter cards.
 TEACHER_ROLE:
 Lead song, track letters on chart, and invite participation.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Sing the alphabet song while pointing to letters.
 2. Give select children a letter card to hold up.
@@ -103,6 +140,15 @@ OBSERVATION_OPPORTUNITIES:
 Sings along
 Recognizes some letters
 Attends during circle
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Environmental Print Walk
@@ -118,6 +164,8 @@ SETUP:
 Place familiar logos and labels at child height before the walk.
 TEACHER_ROLE:
 Guide search and celebrate letter finds.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Explain that letters are all around us.
 2. Walk together and point out letters on labels.
@@ -132,6 +180,15 @@ OBSERVATION_OPPORTUNITIES:
 Finds letters in environment
 Copies or marks letters
 Shows excitement for print
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Letter Sound Song Stretches
@@ -147,6 +204,8 @@ SETUP:
 Spread letter sound cards in circle area.
 TEACHER_ROLE:
 Call a sound and model a matching movement.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Review a few letter sounds with examples.
 2. Call a sound and invite a matching movement.
@@ -161,8 +220,56 @@ OBSERVATION_OPPORTUNITIES:
 Repeats beginning sounds
 Matches sound to movement
 Participates actively
+VOCABULARY:
 
-TUESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+TUESDAY
+
+DAILY_THEME:
+Letters & Sounds: Beginning Sound Basket and related play (extend the theme with math, STEM, or hands-on investigation)
+
+DAILY_OBJECTIVES:
+Sort objects by beginning sounds.
+Form letters using play dough.
+Create letter art using stamps and ink pads.
+
+DAILY_VOCABULARY:
+letter, sound, alphabet, name, beginning, rhyme
+
+DAILY_MATERIALS:
+Picture cards, labeled baskets, small objects
+Play dough, letter mats, rolling pins
+Letter stamps, ink pads, paper
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Math, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to letters & sounds.
+Sing "The Alphabet Song" and preview today's focus: extend the theme with math, STEM, or hands-on investigation.
+Read or revisit Chicka Chicka Boom Boom by Bill Martin Jr. and John Archambault and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to letters & sounds — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Beginning Sound Basket / Play Dough Letters).
+
+DAILY_OBSERVATIONS:
+Hears beginning sound with support
+Forms letter shapes
+Stamps recognizable letters
+Participation and interest in Letters & Sounds play
+
+DAILY_ADAPTATIONS:
+Offer uppercase letters first if lowercase are challenging. Provide multi-sensory letter options and accept approximations in writing.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Beginning Sound Basket
@@ -178,6 +285,8 @@ SETUP:
 Prepare baskets with letter labels and mixed objects.
 TEACHER_ROLE:
 Model sorting and emphasize the first sound.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose an object and say its name slowly.
 2. Emphasize the beginning sound.
@@ -192,6 +301,15 @@ OBSERVATION_OPPORTUNITIES:
 Hears beginning sound with support
 Sorts with guidance
 Names objects
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Play Dough Letters
@@ -207,6 +325,8 @@ SETUP:
 Set dough and letter mats at tables.
 TEACHER_ROLE:
 Model rolling snakes and forming letters.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose a focus letter for the day.
 2. Roll play dough into a snake.
@@ -221,6 +341,15 @@ OBSERVATION_OPPORTUNITIES:
 Forms letter shapes
 Names letter
 Uses fine motor control
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Letter Stamping Station
@@ -236,6 +365,8 @@ SETUP:
 Set stamping materials at art table.
 TEACHER_ROLE:
 Demonstrate stamping and naming letters.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose letter stamps to use.
 2. Stamp letters in a row or pattern.
@@ -250,8 +381,56 @@ OBSERVATION_OPPORTUNITIES:
 Stamps recognizable letters
 Names letters
 Creates intentional design
+VOCABULARY:
 
-WEDNESDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+WEDNESDAY
+
+DAILY_THEME:
+Letters & Sounds: Name Letter Builders and related play (explore the theme through dramatic play, music, and discovery)
+
+DAILY_OBJECTIVES:
+Build the letters in children's names with manipulatives.
+Retell a letter story through movement and props.
+Develop phonological awareness through rhyming movement games.
+
+DAILY_VOCABULARY:
+letter, sound, alphabet, name, beginning, rhyme
+
+DAILY_MATERIALS:
+Letter tiles, blocks, name cards
+Letter cutouts, brown tree poster, rhythm sticks
+Rhyming picture cards, open space
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Math, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to letters & sounds.
+Sing "The Alphabet Song" and preview today's focus: explore the theme through dramatic play, music, and discovery.
+Read or revisit Chicka Chicka Boom Boom by Bill Martin Jr. and John Archambault and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to letters & sounds — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Name Letter Builders / Chicka Chicka Story Drama).
+
+DAILY_OBSERVATIONS:
+Builds letters from name
+Participates in retelling
+Identifies rhymes with support
+Participation and interest in Letters & Sounds play
+
+DAILY_ADAPTATIONS:
+Offer uppercase letters first if lowercase are challenging. Provide multi-sensory letter options and accept approximations in writing.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Name Letter Builders
@@ -267,6 +446,8 @@ SETUP:
 Provide name cards and building materials.
 TEACHER_ROLE:
 Support left-to-right name construction.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Look at name card letter by letter.
 2. Build each letter with chosen materials.
@@ -281,6 +462,15 @@ OBSERVATION_OPPORTUNITIES:
 Builds letters from name
 Names letters in order
 Persists on task
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Chicka Chicka Story Drama
@@ -296,6 +486,8 @@ SETUP:
 Post tree and spread letter cutouts.
 TEACHER_ROLE:
 Narrate story and assign letter roles.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Read or retell Chicka Chicka Boom Boom.
 2. Children hold letters and climb the tree.
@@ -310,6 +502,15 @@ OBSERVATION_OPPORTUNITIES:
 Participates in retelling
 Holds letter prop
 Recalls story sequence
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Rhyming Body Break
@@ -325,6 +526,8 @@ SETUP:
 Stand in circle with rhyming cards ready.
 TEACHER_ROLE:
 Call word pairs and model responses.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Explain that rhyming words sound alike at the end.
 2. Call pairs like cat-hat and hop-stop.
@@ -339,8 +542,56 @@ OBSERVATION_OPPORTUNITIES:
 Identifies rhymes with support
 Responds with movement
 Attempts rhyming words
+VOCABULARY:
 
-THURSDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+THURSDAY
+
+DAILY_THEME:
+Letters & Sounds: Sand Tray Letter Writing and related play (practice fine motor and social-emotional skills connected to the theme)
+
+DAILY_OBJECTIVES:
+Practice writing letters in a sensory tray.
+Build the tallest stack of alphabet blocks in order.
+Play bingo using beginning sounds.
+
+DAILY_VOCABULARY:
+letter, sound, alphabet, name, beginning, rhyme
+
+DAILY_MATERIALS:
+Sand or salt trays, letter cards, brushes
+Alphabet blocks, timer (optional)
+Bingo cards with pictures, sound markers
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Math, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to letters & sounds.
+Sing "The Alphabet Song" and preview today's focus: practice fine motor and social-emotional skills connected to the theme.
+Read or revisit Chicka Chicka Boom Boom by Bill Martin Jr. and John Archambault and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to letters & sounds — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Sand Tray Letter Writing / Alphabet Building Challenge).
+
+DAILY_OBSERVATIONS:
+Traces letter shape
+Names letters during play
+Matches sound to picture
+Participation and interest in Letters & Sounds play
+
+DAILY_ADAPTATIONS:
+Offer uppercase letters first if lowercase are challenging. Provide multi-sensory letter options and accept approximations in writing.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Sand Tray Letter Writing
@@ -356,6 +607,8 @@ SETUP:
 Fill shallow trays and provide letter models.
 TEACHER_ROLE:
 Model letter strokes and describe direction.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose a focus letter.
 2. Trace letter in tray using finger.
@@ -370,6 +623,15 @@ OBSERVATION_OPPORTUNITIES:
 Traces letter shape
 Uses correct stroke direction with help
 Engages in repeated practice
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Alphabet Building Challenge
@@ -385,6 +647,8 @@ SETUP:
 Provide alphabet blocks at building table.
 TEACHER_ROLE:
 Encourage letter naming during stacking.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Sort blocks alphabetically first.
 2. Stack blocks while naming letters.
@@ -399,6 +663,15 @@ OBSERVATION_OPPORTUNITIES:
 Names letters during play
 Works with partner
 Persists after challenges
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Letter Sound Bingo
@@ -414,6 +687,8 @@ SETUP:
 Prepare bingo cards and markers.
 TEACHER_ROLE:
 Call beginning sounds clearly and repeat.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Review how to play bingo.
 2. Call a beginning sound.
@@ -428,8 +703,56 @@ OBSERVATION_OPPORTUNITIES:
 Matches sound to picture
 Follows game rules
 Stays engaged
+VOCABULARY:
 
-FRIDAY:
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
+
+FRIDAY
+
+DAILY_THEME:
+Letters & Sounds: Letter Collage Hunt and related play (review, celebrate, and connect the theme for families)
+
+DAILY_OBJECTIVES:
+Find and glue letters from magazines onto a collage.
+March with letter signs during an alphabet parade.
+Celebrate letter learning from the week.
+
+DAILY_VOCABULARY:
+letter, sound, alphabet, name, beginning, rhyme
+
+DAILY_MATERIALS:
+Magazines, scissors, glue, paper
+Letter signs on sticks, music player
+Letter stickers, chart of learned letters
+
+DAILY_LEARNING_DOMAINS:
+Language & Literacy, Math, Creative Arts, Physical Development
+
+CIRCLE_TIME:
+Morning greeting and brief share connected to letters & sounds.
+Sing "The Alphabet Song" and preview today's focus: review, celebrate, and connect the theme for families.
+Read or revisit Chicka Chicka Boom Boom by Bill Martin Jr. and John Archambault and ask 1–2 open-ended theme questions before centers.
+
+OUTDOOR_PLAY:
+Outdoor gross-motor exploration connected to letters & sounds — movement games, collaborative challenges, or nature observation linked to today's indoor activities (Letter Collage Hunt / Alphabet Parade).
+
+DAILY_OBSERVATIONS:
+Finds target letter in print
+Holds letter sign
+Shares a letter or sound
+Participation and interest in Letters & Sounds play
+
+DAILY_ADAPTATIONS:
+Offer uppercase letters first if lowercase are challenging. Provide multi-sensory letter options and accept approximations in writing.
+
+SAFETY_NOTES:
+Supervise active play and tools; review allergy considerations; keep aisles clear during centers and outdoor games.
 
 ACTIVITY_NAME:
 Letter Collage Hunt
@@ -445,6 +768,8 @@ SETUP:
 Provide pre-cut magazine letters and child-safe scissors.
 TEACHER_ROLE:
 Help identify target letters in print.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Choose a focus letter for collage.
 2. Find and cut or tear that letter from magazines.
@@ -459,6 +784,15 @@ OBSERVATION_OPPORTUNITIES:
 Finds target letter in print
 Uses glue and scissors safely
 Completes collage
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Alphabet Parade
@@ -474,6 +808,8 @@ SETUP:
 Give each child a letter sign for parade.
 TEACHER_ROLE:
 Lead parade and pause to name letters.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Line up in alphabetical order if possible.
 2. Parade around room singing.
@@ -488,6 +824,15 @@ OBSERVATION_OPPORTUNITIES:
 Holds letter sign
 Participates in parade
 Names letter on sign
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
 
 ACTIVITY_NAME:
 Letters & Sounds Celebration Circle
@@ -503,6 +848,8 @@ SETUP:
 Gather in circle with letter chart visible.
 TEACHER_ROLE:
 Facilitate sharing and positive feedback.
+TEACHER_LANGUAGE:
+
 DIRECTIONS:
 1. Invite children to share favorite letter or sound.
 2. Add learned letters to class chart.
@@ -517,3 +864,12 @@ OBSERVATION_OPPORTUNITIES:
 Shares a letter or sound
 Recalls week activities
 Participates in closing
+VOCABULARY:
+
+EXTENSIONS:
+
+ADAPTATIONS:
+Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.
+SAFETY_NOTES:
+Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.
+AGE_MODIFICATIONS:
