@@ -1608,7 +1608,7 @@
       btn.addEventListener("click", async () => {
         const id = btn.getAttribute("data-publish-note");
         try {
-          await adminFetchJson("/api/admin/release-notes", {
+          await adminFetchJson("/api/admin/release-note-update", {
             method: "POST",
             body: { id, status: "published" },
           });
