@@ -1,4 +1,4 @@
-const CACHE_NAME = "llh-shell-v58-temp-password-fix3";
+const CACHE_NAME = "llh-shell-v59-hero-mock-fix";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
@@ -6,7 +6,7 @@ const APP_SHELL = [
   "/offline.html",
   "/styles.css?v=20260716-temp-password-fix3",
   "/styles/llh-design-tokens.css?v=20260713-ds",
-  "/styles/llh-homepage.css?v=20260716-temp-password-fix3",
+  "/styles/llh-homepage.css?v=20260716-hero-mock-fix",
   "/styles/llh-library-browse.css?v=20260715-persistent-lesson-covers",
   "/styles/llh-messaging.css?v=20260716-temp-password-fix3",
   "/scripts/curriculum-safe-values.js?v=20260712-v3-render-fix",
