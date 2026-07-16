@@ -1978,21 +1978,66 @@ async function initializePostgresStore() {
   lastPostgresError = "";
 }
 
+function loadLocalJsonStoreFallback() {
+  ensureStore();
+  try {
+    storeCache = JSON.parse(fs.readFileSync(storePath, "utf8"));
+  } catch {
+    storeCache = defaultStore();
+    fs.writeFileSync(storePath, JSON.stringify(storeCache, null, 2));
+  }
+}
+
+function ensurePostgresPool() {
+  if (!usePostgresStore() || postgresPool) return postgresPool;
+  try {
+    const { Pool } = require("pg");
+    postgresPool = new Pool({
+      connectionString: PRODUCTION_DATABASE_URL,
+      ssl: postgresSslConfig(),
+    });
+  } catch (error) {
+    console.warn("[store] could not create Postgres pool:", error.message);
+  }
+  return postgresPool;
+}
+
+function startPostgresReconnectLoop() {
+  if (!usePostgresStore()) return;
+  if (global.__llhPostgresReconnectStarted) return;
+  global.__llhPostgresReconnectStarted = true;
+  setInterval(() => {
+    if (databaseReady) return;
+    ensurePostgresPool();
+    probePostgresReadiness()
+      .then((ok) => {
+        if (!ok || !storeCache) return;
+        // Push the in-memory/local fallback store up once Postgres is reachable again.
+        enqueuePostgresStoreWrite().writePromise.catch(() => {});
+      })
+      .catch(() => {});
+  }, 15000);
+}
+
 async function initializeStorage() {
   if (usePostgresStore()) {
     try {
       await initializePostgresStore();
     } catch (error) {
+      // Do not crash the web service when Postgres is briefly unreachable — that left
+      // production stuck on an old deploy and broke urgent auth recovery.
       databaseReady = false;
       lastPostgresError = error.message || "Postgres initialization failed.";
-      throw error;
+      console.error("[store] Postgres unavailable at boot — using local JSON fallback until reconnect:", lastPostgresError);
+      ensurePostgresPool();
+      loadLocalJsonStoreFallback();
     }
   } else {
-    ensureStore();
-    storeCache = JSON.parse(fs.readFileSync(storePath, "utf8"));
+    loadLocalJsonStoreFallback();
     databaseReady = false;
     lastPostgresError = "";
   }
+  startPostgresReconnectLoop();
   try {
     // One-user sealed temp-password apply (hash only). Never logs plaintext.
     const store = readStore();
@@ -2289,15 +2334,23 @@ async function writeStoreAsync(store) {
   // Do not merge-prefer siteContent from cache — the caller already built the next siteContent.
   // Always preserve adminSessions so a concurrent login is not erased mid-save.
   storeCache = mergeStorePreserveAdminSessions(store);
-  if (usePostgresStore()) {
-    const { writeGeneration, writePromise } = enqueuePostgresStoreWrite();
-    await writePromise;
-    // If a newer write superseded us while we waited, wait for that newer persist too
-    // so the caller does not return success before the latest state is durable.
-    if (writeGeneration !== postgresWriteGeneration) {
-      await postgresWriteChain.catch(() => {});
+  if (usePostgresStore() && postgresPool) {
+    try {
+      const { writeGeneration, writePromise } = enqueuePostgresStoreWrite();
+      await writePromise;
+      // If a newer write superseded us while we waited, wait for that newer persist too
+      // so the caller does not return success before the latest state is durable.
+      if (writeGeneration !== postgresWriteGeneration) {
+        await postgresWriteChain.catch(() => {});
+      }
+      return;
+    } catch (error) {
+      // Keep auth recovery and admin writes available during Postgres blips.
+      console.error("[store] Postgres writeAsync failed — persisting local JSON fallback:", error.message || error);
+      ensureStore();
+      fs.writeFileSync(storePath, JSON.stringify(storeCache, null, 2));
+      return;
     }
-    return;
   }
   ensureStore();
   fs.writeFileSync(storePath, JSON.stringify(storeCache, null, 2));

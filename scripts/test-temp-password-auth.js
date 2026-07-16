@@ -93,7 +93,7 @@ async function main() {
         role: "owner",
         accountType: "home_daycare",
         // Force one-shot id already applied so this test controls the hash itself.
-        appliedOneShotTempPasswordId: "tclashley-temp-20260716",
+        appliedOneShotTempPasswordId: "tclashley-temp-20260716b",
         tempPasswordHash: knownHash,
         tempPasswordIssuedAt: new Date().toISOString(),
         tempPasswordExpiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),

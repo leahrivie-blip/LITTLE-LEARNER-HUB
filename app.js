@@ -8829,13 +8829,19 @@ async function loginWithProvider(email, password) {
         firebaseUid: credential.user.uid,
       });
       return { email: cleanEmail, verified: credential.user.emailVerified, mustChangePassword: accountRequiresPasswordChange(accounts()[cleanEmail]) };
-    } catch (error) {
-      // Temporary / server-password login for admin-issued recovery only.
-      const code = String(error?.code || "");
-      if (code.includes("wrong-password") || code.includes("invalid-credential") || code.includes("user-not-found") || code.includes("invalid-login")) {
-        return loginWithServerPassword(cleanEmail, password);
+    } catch (firebaseError) {
+      // Always attempt server temp/recovery password login when Firebase rejects the
+      // password. Do not depend on a narrow set of error codes — Firebase has changed
+      // these across releases (wrong-password vs invalid-credential, etc.).
+      try {
+        return await loginWithServerPassword(cleanEmail, password);
+      } catch (serverError) {
+        const serverMsg = String(serverError?.message || "");
+        if (/method not allowed|failed to fetch|network|offline/i.test(serverMsg)) {
+          throw new Error("Sign-in recovery is still deploying. Please wait one minute and try again.");
+        }
+        throw serverError?.message ? serverError : firebaseError;
       }
-      throw error;
     }
   }
   try {
