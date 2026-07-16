@@ -9742,6 +9742,21 @@ function handleAdminConversationMessages(request, response, url) {
     return;
   }
   const store = ensureMessagingStore(readStore());
+  // Opening a thread marks Leah's unread badges for that member as read so the
+  // Conversations list updates immediately (and stays correct after live refresh).
+  if (ADMIN_EMAIL) {
+    const now = new Date().toISOString();
+    let marked = 0;
+    store.notifications.forEach((n) => {
+      if (n.email !== ADMIN_EMAIL || n.read) return;
+      if (n.conversationEmail !== userEmail) return;
+      if (n.type !== "message" && n.type !== "admin_new_message") return;
+      n.read = true;
+      n.readAt = now;
+      marked += 1;
+    });
+    if (marked) writeStore(store);
+  }
   const messages = store.messages
     .filter((m) => m.audience === "private" && m.conversationEmail === userEmail)
     .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))
@@ -9817,26 +9832,19 @@ async function handleMemberMessageReply(request, response) {
   store.messages.unshift(message);
   store.messages = capArray(store.messages, MAX_MESSAGES);
   try {
-    const { recordTimeline, notifyAdminsInApp } = getCommsApi();
+    const { recordTimeline } = getCommsApi();
     recordTimeline(store, {
       email: identity.email,
       type: "message_sent",
       title: "Message to Leah",
       detail: messageBody.slice(0, 400),
     });
-    notifyAdminsInApp(store, {
-      type: "admin_new_message",
-      title: `Message from ${message.senderName}`,
-      preview: messagePreviewText(messageBody),
-      refId: message.id,
-      conversationEmail: identity.email,
-    }).catch(() => {});
   } catch {}
   writeStore(store);
 
-  // Admin does not receive push (no admin device model) — the admin dashboard
-  // "conversations" unread count uses this same notification row instead.
-  // Users may start a brand-new thread (no prior admin message); title reflects that.
+  // Single admin notification with conversationEmail — drives Conversations unread
+  // badges and mark-read when Leah opens the thread. (Do not also call
+  // notifyAdminsInApp; that ignored conversationEmail and created duplicates.)
   if (ADMIN_EMAIL) {
     const priorAdminMessages = store.messages.filter(
       (m) => m.audience === "private"

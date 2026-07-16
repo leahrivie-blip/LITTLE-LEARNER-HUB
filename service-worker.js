@@ -1,14 +1,14 @@
-const CACHE_NAME = "llh-shell-v52-message-by-name";
+const CACHE_NAME = "llh-shell-v54-messages-live";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260716-message-by-name",
+  "/styles.css?v=20260716-messages-live",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260715-tablet2",
   "/styles/llh-library-browse.css?v=20260715-persistent-lesson-covers",
-  "/styles/llh-messaging.css?v=20260716-message-by-name",
+  "/styles/llh-messaging.css?v=20260716-messages-live",
   "/scripts/curriculum-safe-values.js?v=20260712-v3-render-fix",
   "/scripts/lesson-plan-covers.js?v=20260715-persistent-lesson-covers",
   "/scripts/curriculum-standards.js?v=20260716-curriculum-standards",
@@ -20,8 +20,8 @@ const APP_SHELL = [
   "/scripts/llh-schedule.js?v=20260714-prod-priority-fixes",
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
   "/scripts/lesson-plan-weekly-export.js?v=20260715-weekly-pdf-reg",
-  "/app.js?v=20260716-message-by-name",
-  "/comms-center.js?v=20260716-message-by-name",
+  "/app.js?v=20260716-messages-live",
+  "/comms-center.js?v=20260716-messages-live",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
@@ -67,7 +67,6 @@ function isNetworkFirstRequest(request, requestUrl) {
   const path = requestUrl.pathname;
   if (path === "/" || path.endsWith(".html")) return true;
   if (path.endsWith(".js") || path.endsWith(".css") || path.endsWith(".webmanifest")) return true;
-  if (path.startsWith("/api/")) return true;
   return false;
 }
 
@@ -76,8 +75,20 @@ self.addEventListener("fetch", (event) => {
   const requestUrl = new URL(event.request.url);
   if (requestUrl.origin !== self.location.origin) return;
 
-  // Always prefer network for HTML/JS/CSS/API so deploys and Admin data are not stuck
-  // behind a stale shell. Fall back to cache only when offline.
+  // Never cache /api/ — messages, notifications, and admin data must always be live.
+  // A stale cached inbox/conversation is worse than a brief offline error.
+  if (requestUrl.pathname.startsWith("/api/")) {
+    event.respondWith(
+      fetch(event.request).catch(() => new Response(JSON.stringify({ error: "offline" }), {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      })),
+    );
+    return;
+  }
+
+  // Always prefer network for HTML/JS/CSS so deploys are not stuck behind a stale shell.
+  // Fall back to cache only when offline.
   if (isNetworkFirstRequest(event.request, requestUrl)) {
     event.respondWith(
       fetch(event.request)

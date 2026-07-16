@@ -102,7 +102,8 @@
     "test:curriculum-import-gold": "node scripts/test-curriculum-import-gold-standard.js",
     "test:platform-wide-audit": "node scripts/test-platform-wide-audit-regression.js",
     "test:admin-auth-session": "node scripts/test-admin-auth-session.js",
-    "test:admin-message-by-name": "node scripts/test-admin-message-by-name.js"
+    "test:admin-message-by-name": "node scripts/test-admin-message-by-name.js",
+    "test:messages-live-refresh": "node scripts/test-messages-live-refresh.js"
   },
   "devDependencies": {
     "playwright": "^1.61.1"
