@@ -385,8 +385,9 @@
       if (token) body.adminToken = token;
     }
     try {
-      await fetch("/api/drafts", {
-        method: "DELETE",
+      // Prefer POST — some proxies drop DELETE bodies.
+      await fetch("/api/drafts/delete", {
+        method: "POST",
         headers,
         body: JSON.stringify(body),
       });
@@ -402,6 +403,14 @@
   }
 
   const LLHDrafts = {
+    detach(form) {
+      if (!form || !attachedDraftForms.has(form)) return;
+      const state = attachedDraftForms.get(form);
+      if (state?.intervalId) clearInterval(state.intervalId);
+      attachedDraftForms.delete(form);
+      dirtyDraftForms.delete(form);
+    },
+
     attach(form) {
       if (!form || !(form instanceof HTMLFormElement)) return;
       if (!form.hasAttribute("data-draft-form")) return;
@@ -411,6 +420,7 @@
         intervalId: null,
         saving: false,
         lastSavedAt: "",
+        restoreToken: 0,
       };
 
       const saveDebounced = debounce(() => {
@@ -426,12 +436,15 @@
       form.addEventListener("input", onInput);
       form.addEventListener("change", onInput);
       form.addEventListener("submit", () => {
-        // Successful submit should clear draft; caller may also call clear().
-        markDraftClean(form);
+        // Do not mark clean here — only clear after a successful send.
       });
 
       state.intervalId = setInterval(() => {
-        if (dirtyDraftForms.has(form) && document.body.contains(form)) {
+        if (!document.body.contains(form)) {
+          LLHDrafts.detach(form);
+          return;
+        }
+        if (dirtyDraftForms.has(form)) {
           LLHDrafts.save(form);
         }
       }, DRAFT_INTERVAL_MS);
@@ -452,7 +465,11 @@
           return String(v || "").trim().length > 0;
         });
         if (!hasContent) {
+          // Empty form means the user cleared it — remove stale drafts so they do not revive.
+          clearLocalDraft(form);
+          await clearServerDraft(form);
           markDraftClean(form);
+          setDraftStatus(form, "");
           return false;
         }
         writeLocalDraft(form, payload);
@@ -476,14 +493,37 @@
 
     async restore(form) {
       if (!form) return false;
+      const state = attachedDraftForms.get(form);
+      const restoreToken = (state?.restoreToken || 0) + 1;
+      if (state) state.restoreToken = restoreToken;
+
+      // Never overwrite what the user is actively typing.
+      const activeEl = document.activeElement;
+      if (activeEl && form.contains(activeEl) && ["INPUT", "TEXTAREA"].includes(activeEl.tagName)) {
+        const currentValue = String(activeEl.value || "").trim();
+        if (currentValue) return false;
+      }
+      const liveFields = serializeFormDraft(form).fields || {};
+      const liveHasContent = Object.values(liveFields).some((v) => {
+        if (typeof v === "boolean") return v;
+        return String(v || "").trim().length > 0;
+      });
+      if (liveHasContent && dirtyDraftForms.has(form)) return false;
+
       let draft = readLocalDraft(form);
       const serverDraft = await fetchServerDraft(form);
+      if (state && state.restoreToken !== restoreToken) return false;
       if (serverDraft?.fields) {
         const localAt = new Date(draft?.savedAt || 0).getTime();
         const serverAt = new Date(serverDraft.savedAt || serverDraft.updatedAt || 0).getTime();
         if (!draft || serverAt >= localAt) draft = serverDraft;
       }
       if (!draft?.fields) return false;
+      // Re-check after async fetch — typing may have started.
+      if (state && state.restoreToken !== restoreToken) return false;
+      if (dirtyDraftForms.has(form)) return false;
+      const activeAfter = document.activeElement;
+      if (activeAfter && form.contains(activeAfter) && String(activeAfter.value || "").trim()) return false;
       const applied = applyDraftFields(form, draft.fields);
       if (applied) {
         markDraftClean(form);
@@ -819,7 +859,6 @@
             <button type="button"
               class="messages-tab${tab === t.id ? " active" : ""}"
               data-messages-center-tab="${escapeHtml(t.id)}"
-              data-messages-tab="${escapeHtml(t.id)}"
               role="tab"
               aria-selected="${tab === t.id}">${escapeHtml(t.label)}${badge}</button>
           `;

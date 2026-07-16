@@ -51,11 +51,11 @@ test("client detects expired admin server session and offers re-unlock", () => {
 test("cache bust versions stay aligned for admin stay-logged-in", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260715-lesson-importer");
-  assert.equal(indexJs, "20260715-lesson-importer");
-  assert.match(sw, /styles\.css\?v=20260715-lesson-importer/);
-  assert.match(sw, /app\.js\?v=20260715-lesson-importer/);
-  assert.match(sw, /llh-shell-v37-lesson-importer/);
+  assert.equal(indexCss, "20260716-platform-audit");
+  assert.equal(indexJs, "20260716-platform-audit");
+  assert.match(sw, /styles\.css\?v=20260716-platform-audit/);
+  assert.match(sw, /app\.js\?v=20260716-platform-audit/);
+  assert.match(sw, /llh-shell-v51-platform-audit/);
 });
 
 test("owner can always see Admin nav to reach unlock form", () => {
@@ -79,10 +79,10 @@ test("provider sign-out keeps Admin unlock on this browser", () => {
 test("boot restores Admin before Calendar when last view was admin", () => {
   const boot = appJs.slice(appJs.indexOf("async function initializeAppView()"), appJs.indexOf("initializeAppView();"));
   const adminRestoreIdx = boot.indexOf('llhAdminLastView") === "admin"');
-  const calendarIdx = boot.indexOf('setView("calendar")');
+  const landingIdx = boot.indexOf("defaultLoggedInLandingView()");
   assert.ok(adminRestoreIdx > 0, "admin restore missing from boot");
-  assert.ok(calendarIdx > 0, "calendar boot redirect missing");
-  assert.ok(adminRestoreIdx < calendarIdx, "admin restore must run before calendar redirect");
+  assert.ok(landingIdx > 0, "default logged-in landing missing from boot");
+  assert.ok(adminRestoreIdx < landingIdx, "admin restore must run before default calendar landing");
 });
 
 if (!process.exitCode) {

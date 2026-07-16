@@ -2994,7 +2994,10 @@ function closeProFeatureModal() {
 
 function billingStatusIndicatesFree(status = "", account = null) {
   const cleanStatus = String(status || "").toLowerCase();
-  if (cleanStatus.includes("free plan") || cleanStatus.includes("failed")) return true;
+  if (cleanStatus.includes("free plan")) return true;
+  // Only treat explicit payment failure — bare "failed" matched unrelated status text
+  // and incorrectly demoted active Pro users.
+  if (cleanStatus.includes("payment failed")) return true;
   if (cleanStatus.includes("ended") && !cleanStatus.includes("access ends")) return true;
   if (account && accountHasRemainingPaidAccess(account)) return false;
   if (cleanStatus.includes("cancel") && !(account && accountHasRemainingPaidAccess(account))) return true;
@@ -3017,7 +3020,7 @@ function accountHasRemainingPaidAccess(account = null) {
   if (target.internalAccessOverride) return true;
   const stripeStatus = String(target.stripeSubscriptionStatus || "").toLowerCase();
   const status = String(target.subscriptionStatus || "").toLowerCase();
-  if (status.includes("payment failed") || status.includes("failed") || stripeStatus === "unpaid") return false;
+  if (status.includes("payment failed") || stripeStatus === "unpaid") return false;
   if (status.includes("past due") || stripeStatus === "past_due") return false;
   if (status.includes("free plan")) return false;
   if (status.includes("ended") && !status.includes("access ends")) return false;
@@ -3254,7 +3257,7 @@ function isStripeStatusActive(subscription) {
   if (!subscription) return false;
   if (accountHasRemainingPaidAccess(subscription)) return true;
   const status = String(subscription?.subscriptionStatus || "").toLowerCase();
-  if (status.includes("payment failed") || status.includes("failed")) return false;
+  if (status.includes("payment failed")) return false;
   if (status.includes("free plan")) return false;
   if (status.includes("ended") && !status.includes("access ends")) return false;
   const stripeStatus = String(subscription.stripeSubscriptionStatus || "").toLowerCase();
@@ -3282,7 +3285,7 @@ function accountIsInTrial(account = null) {
   if (!target) return false;
   if (isFoundingSubscription(target)) return false;
   const trialStatus = String(target.trialStatus || "").toLowerCase();
-  if (trialStatus.includes("in trial")) return true;
+  if (trialStatus.includes("in trial") || trialStatus.includes("trial active")) return true;
   const status = String(target.subscriptionStatus || "").toLowerCase();
   if (status.includes("day free trial") || status.includes("trialing")) return true;
   if (status.includes("trial") && !status.includes("trial ended") && !status.includes("no trial")) return true;
@@ -3293,10 +3296,19 @@ function subscriptionToAccountUpdates(subscription) {
   if (!subscription) return null;
   if (!isStripeStatusActive(subscription)) {
     const wasFounding = Boolean(subscription.foundingMemberHistorical || subscription.foundingMember);
+    const hadPaidHistory = Boolean(
+      subscription.stripeSubscriptionId
+      || subscription.subscriptionStartedAt
+      || wasFounding
+      || ["Pro", "Founding"].includes(String(subscription.plan || "")),
+    );
+    // Never label never-subscribed Free accounts as "Canceled and Ended".
+    const inactiveStatus = subscription.subscriptionStatus
+      || (hadPaidHistory ? "Canceled and Ended" : "Free Plan");
     return {
       plan: "Free",
       subscriptionCadence: "",
-      subscriptionStatus: subscription.subscriptionStatus || "Canceled and Ended",
+      subscriptionStatus: inactiveStatus,
       foundingMemberActive: false,
       foundingMemberHistorical: wasFounding,
       foundingMember: wasFounding,
@@ -3798,6 +3810,7 @@ let adminCurriculumLessonImportPreview = null;
 let adminCurriculumLessonImportPreviewText = "";
 let adminCurriculumLessonImportStep = "paste";
 let adminCurriculumLessonImportMode = "v5"; // "v3" | "v4" | "v5"
+let adminCurriculumLessonImporting = false;
 let adminCurriculumLessonSaveBanner = { text: "", isSuccess: false };
 let adminCurriculumResourceSaving = false;
 let curriculumPlannerSelectedWeek = "";
@@ -4572,10 +4585,29 @@ function loadCurriculumManagedLessonPlans() {
 }
 
 function loadCurriculumManagedActivities() {
-  return effectiveCurriculumLibrary().activities
+  // Admin full access must use the private curriculum activities, not public locked teasers.
+  // Otherwise Pro activity how-to fields stay empty and appear "locked" for the owner.
+  const sourceActivities = hasAdminFullAccess()
+    ? (() => {
+      const curriculum = effectiveCurriculum();
+      const plansById = new Map((curriculum.lessonPlans || []).map((plan) => [plan.id, plan]));
+      return (curriculum.activities || []).map((activity) => {
+        const parent = plansById.get(activity.lessonPlanId);
+        return {
+          ...activity,
+          parentTitle: parent?.title || activity.parentTitle || "",
+          parentAge: parent?.age || activity.parentAge || "Preschool",
+          parentTheme: parent?.theme || activity.parentTheme || "",
+          parentPlan: parent?.plan || activity.parentPlan || "Free",
+          locked: false,
+        };
+      });
+    })()
+    : effectiveCurriculumLibrary().activities;
+  return sourceActivities
     .filter((item) => item.id && item.title && item.lessonPlanId)
     .map((item) => {
-      const lockedTeaser = item.locked === true || item.parentPlan === "Pro";
+      const lockedTeaser = !hasAdminFullAccess() && (item.locked === true || item.parentPlan === "Pro");
       return {
       id: item.id,
       category: "Activity Center",
@@ -5218,9 +5250,20 @@ function renderCurriculumLessonImportPreviewPanel(previewState) {
   `;
 }
 
+function countCurriculumImportTitleBlocks(text) {
+  const matches = String(text || "").match(/^\s*TITLE\s*:/gim);
+  return matches ? matches.length : 0;
+}
+
 function buildAdminCurriculumImportPreview(text) {
   const previewApi = curriculumImportPreviewApi();
   if (!previewApi) throw new Error("CurriculumImportPreview is not loaded.");
+  const titleCount = countCurriculumImportTitleBlocks(text);
+  if (titleCount > 1) {
+    throw new Error(
+      `This paste contains ${titleCount} TITLE: blocks. Import one lesson plan at a time so activities stay on the correct plan. Split the paste after each complete plan, then import again.`,
+    );
+  }
   const form = document.querySelector("#adminCurriculumLessonPlanForm");
   const existingItemIds = snapshotCurriculumDailyItemIds(form);
   const mode = readCurriculumImportModeFromUi();
@@ -5297,6 +5340,7 @@ function previewCurriculumLessonPlanImport() {
 }
 
 function confirmCurriculumLessonPlanImport() {
+  if (adminCurriculumLessonImporting || adminCurriculumLessonSaving) return;
   const state = adminCurriculumLessonImportPreview;
   const preview = state?.preview;
   if (!preview?.canConfirm || !preview.data) return;
@@ -5319,13 +5363,25 @@ function confirmCurriculumLessonPlanImport() {
   setAdminCurriculumLessonSaveBanner("Import loaded. Saving lesson plan and Activity Library entries…", true);
   renderAdminCurriculumLessonPlanManager();
   applyAdminSectionVisibility();
+  adminCurriculumLessonImporting = true;
   requestAnimationFrame(() => {
     const form = document.querySelector("#adminCurriculumLessonPlanForm");
-    if (form) saveAdminCurriculumLessonPlanForm(form);
+    const savePromise = form ? saveAdminCurriculumLessonPlanForm(form) : Promise.resolve();
+    Promise.resolve(savePromise).finally(() => {
+      adminCurriculumLessonImporting = false;
+    });
   });
 }
 
 async function importAndSaveCurriculumLessonPlan() {
+  if (adminCurriculumLessonImporting || adminCurriculumLessonSaving) {
+    const messageEl = document.querySelector("#adminCurriculumLessonImportMessage");
+    if (messageEl) {
+      messageEl.textContent = "Import already in progress. Please wait for the current save to finish.";
+      messageEl.classList.remove("success");
+    }
+    return;
+  }
   const textarea = document.querySelector("#adminCurriculumLessonImportText");
   const messageEl = document.querySelector("#adminCurriculumLessonImportMessage");
   const text = textarea?.value || "";
@@ -5336,47 +5392,63 @@ async function importAndSaveCurriculumLessonPlan() {
     }
     return;
   }
-  let built;
+  adminCurriculumLessonImporting = true;
+  const importButton = document.querySelector("#adminCurriculumLessonImportSaveButton");
+  const confirmButton = document.querySelector("#adminCurriculumLessonConfirmImportButton");
+  if (importButton) importButton.disabled = true;
+  if (confirmButton) confirmButton.disabled = true;
   try {
-    built = buildAdminCurriculumImportPreview(text);
-  } catch (error) {
-    if (messageEl) {
-      messageEl.textContent = error.message || "Lesson plan parser is not available.";
-      messageEl.classList.remove("success");
+    let built;
+    try {
+      built = buildAdminCurriculumImportPreview(text);
+    } catch (error) {
+      if (messageEl) {
+        messageEl.textContent = error.message || "Lesson plan parser is not available.";
+        messageEl.classList.remove("success");
+      }
+      return;
     }
-    return;
-  }
-  adminCurriculumLessonImportPreview = built;
-  adminCurriculumLessonImportPreviewText = text;
-  adminCurriculumLessonImportTextCache = text;
-  if (!built.preview.canConfirm) {
-    adminCurriculumLessonImportStep = "preview";
-    adminCurriculumLessonImportDraft = null;
+    adminCurriculumLessonImportPreview = built;
+    adminCurriculumLessonImportPreviewText = text;
+    adminCurriculumLessonImportTextCache = text;
+    if (!built.preview.canConfirm) {
+      adminCurriculumLessonImportStep = "preview";
+      adminCurriculumLessonImportDraft = null;
+      renderAdminCurriculumLessonPlanManager();
+      applyAdminSectionVisibility();
+      if (messageEl) {
+        messageEl.textContent = "Import blocked by errors. Fix the paste, then try Import again.";
+        messageEl.classList.remove("success");
+      }
+      return;
+    }
+    adminCurriculumLessonEditorId = built.proposedLessonPlanId;
+    adminCurriculumLessonImportDraft = curriculumImportDraftFromParsed(built.preview.data);
+    resetCurriculumLessonImportPreviewState();
+    setAdminCurriculumLessonSaveBanner("Importing lesson plan and creating Activity Library entries…", true);
     renderAdminCurriculumLessonPlanManager();
     applyAdminSectionVisibility();
-    if (messageEl) {
-      messageEl.textContent = "Import blocked by errors. Fix the paste, then try Import again.";
-      messageEl.classList.remove("success");
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const form = document.querySelector("#adminCurriculumLessonPlanForm");
+    if (!form) {
+      setAdminCurriculumLessonSaveBanner("Import parsed, but the editor form did not load. Click Save manually.", false);
+      renderAdminCurriculumLessonPlanManager();
+      return;
     }
-    return;
+    await saveAdminCurriculumLessonPlanForm(form);
+  } finally {
+    adminCurriculumLessonImporting = false;
+    if (importButton) importButton.disabled = false;
+    if (confirmButton) confirmButton.disabled = false;
   }
-  adminCurriculumLessonEditorId = built.proposedLessonPlanId;
-  adminCurriculumLessonImportDraft = curriculumImportDraftFromParsed(built.preview.data);
-  resetCurriculumLessonImportPreviewState();
-  setAdminCurriculumLessonSaveBanner("Importing lesson plan and creating Activity Library entries…", true);
-  renderAdminCurriculumLessonPlanManager();
-  applyAdminSectionVisibility();
-  await new Promise((resolve) => requestAnimationFrame(resolve));
-  const form = document.querySelector("#adminCurriculumLessonPlanForm");
-  if (!form) {
-    setAdminCurriculumLessonSaveBanner("Import parsed, but the editor form did not load. Click Save manually.", false);
-    renderAdminCurriculumLessonPlanManager();
-    return;
-  }
-  await saveAdminCurriculumLessonPlanForm(form);
 }
 
 function cancelCurriculumLessonPlanImport() {
+  // Preserve pasted content after cancel so the admin does not lose their work.
+  adminCurriculumLessonImportTextCache = adminCurriculumLessonImportPreviewText
+    || adminCurriculumLessonImportTextCache
+    || document.querySelector("#adminCurriculumLessonImportText")?.value
+    || "";
   resetCurriculumLessonImportPreviewState();
   adminCurriculumLessonImportDraft = null;
   renderAdminCurriculumLessonPlanManager();
@@ -13439,7 +13511,30 @@ async function fetchAuthorizedCurriculumActivity(activityId) {
 
 async function withHydratedCurriculumActivityContent(resource) {
   if (!resource?._curriculumManaged || resource.category !== "Activity Center") return resource;
-  if (hasAdminFullAccess()) return resource;
+  if (hasAdminFullAccess()) {
+    const full = curriculumActivityById(resource.id);
+    if (!full) return resource;
+    if (resource.steps || resource.materials || resource.description) return resource;
+    return {
+      ...resource,
+      description: full.description || resource.description,
+      objective: full.objective || "",
+      materials: full.materials || "",
+      setup: full.setup || "",
+      steps: full.steps || "",
+      learningGoals: Array.isArray(full.learningGoals) ? full.learningGoals : [],
+      learningDomains: Array.isArray(full.learningDomains) ? full.learningDomains : [],
+      teacherRole: full.teacherRole || "",
+      teacherLanguage: full.teacherLanguage || "",
+      vocabulary: full.vocabulary || "",
+      observationOpportunities: full.observationOpportunities || "",
+      extensions: full.extensions || "",
+      adaptations: full.adaptations || "",
+      safetyNotes: full.safetyNotes || "",
+      ageModifications: full.ageModifications || "",
+      customContent: buildActivityTextFromCurriculum({ ...full, parentTitle: resource.tags?.[2], dayOfWeek: resource.tags?.[1] }),
+    };
+  }
   if (resource.plan !== "Pro" || !isProUser()) return resource;
   const fullActivity = await fetchAuthorizedCurriculumActivity(resource.id);
   if (!fullActivity) return resource;
@@ -31557,7 +31652,10 @@ async function updateTicket(id, updates) {
 }
 
 function isAdminUnlocked() {
-  return localStorage.getItem("llhAdminUnlocked") === "true";
+  // Unlock flag alone is not enough — a corrupt/missing token left the UI
+  // "unlocked" while every /api/admin call returned 401 (felt like random logout).
+  const session = adminSession();
+  return localStorage.getItem("llhAdminUnlocked") === "true" && Boolean(session?.token);
 }
 
 function adminPreviewMode() {
@@ -31771,6 +31869,20 @@ function isAdminSessionAuthError(payload, response) {
   return /admin access is required/i.test(error);
 }
 
+function assertAdminApiResponse(response, data = {}, options = {}) {
+  if (!isAdminSessionAuthError(data, response)) return true;
+  markAdminSessionInvalidOnServer(data?.hint || data?.error || "");
+  if (options.render !== false) {
+    try {
+      renderAdminAccessShell();
+      renderAdminOwnerOverview();
+    } catch (error) {
+      console.warn("Could not render Admin re-unlock shell", error);
+    }
+  }
+  return false;
+}
+
 async function validateAdminSessionOnServer(options = {}) {
   const token = adminSession()?.token || "";
   if (!isAdminUnlocked() || !token || !canUseLaunchBackend()) return true;
@@ -31781,11 +31893,7 @@ async function validateAdminSessionOnServer(options = {}) {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data?.valid === false || isAdminSessionAuthError(data, response)) {
-      markAdminSessionInvalidOnServer(data?.hint || data?.error || "");
-      if (options.render !== false) {
-        renderAdminAccessShell();
-        renderAdminOwnerOverview();
-      }
+      assertAdminApiResponse(response, data, options);
       return false;
     }
     adminSessionInvalidOnServer = false;
@@ -32816,8 +32924,8 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
         bodyKeys: Object.keys(data || {}),
       });
       if (!response.ok) {
-        if (isAdminSessionAuthError(data, response)) {
-          markAdminSessionInvalidOnServer(data?.hint || data?.error || "");
+        if (!assertAdminApiResponse(response, data, { render: false })) {
+          // Session invalid — re-unlock shell will appear on next admin paint.
         }
         const detail = data?.error || data?.hint || `HTTP ${response.status}`;
         throw new Error(
@@ -35089,7 +35197,7 @@ function adminMembershipHasProAccess(account) {
   if (account.internalAccessOverride) return true;
   const stripeStatus = String(account.stripeSubscriptionStatus || "").toLowerCase();
   const status = String(account.subscriptionStatus || "").toLowerCase();
-  if (status.includes("payment failed") || status.includes("failed")) return false;
+  if (status.includes("payment failed")) return false;
   if (status.includes("past due") || stripeStatus === "past_due" || stripeStatus === "unpaid") return false;
   const endMs = account.accessEndsAt || account.currentPeriodEnd || account.trialEnd;
   const periodStillValid = Boolean(endMs && new Date(endMs).getTime() > Date.now());
@@ -35113,7 +35221,7 @@ function adminMembershipInTrial(account) {
   if (!account || !adminMembershipHasProAccess(account)) return false;
   if (account.membershipPlan === "Trial") return true;
   const trialStatus = String(account.trialStatus || "").toLowerCase();
-  if (trialStatus.includes("in trial")) return true;
+  if (trialStatus.includes("in trial") || trialStatus.includes("trial active")) return true;
   const status = String(account.subscriptionStatus || "").toLowerCase();
   return status.includes("trialing") || (status.includes("trial") && !status.includes("trial ended") && !status.includes("no trial"));
 }
@@ -45498,11 +45606,44 @@ document.addEventListener("input", (event) => {
     supportCenterSearch = event.target.value;
     activeSupportCategoryId = "";
     activeSupportTopicId = "";
-    renderSupportCenterPage();
+    // Debounced in-place filter refresh — full remount on every keystroke stole focus.
+    window.clearTimeout(window.__llhSupportSearchTimer);
+    window.__llhSupportSearchTimer = window.setTimeout(() => {
+      const active = document.activeElement;
+      const selectionStart = active?.selectionStart;
+      const selectionEnd = active?.selectionEnd;
+      const wasSearch = active?.id === "supportCenterSearch";
+      renderSupportCenterPage();
+      if (wasSearch) {
+        const next = document.querySelector("#supportCenterSearch");
+        if (next) {
+          next.focus();
+          if (Number.isFinite(selectionStart) && Number.isFinite(selectionEnd)) {
+            try { next.setSelectionRange(selectionStart, selectionEnd); } catch { /* ignore */ }
+          }
+        }
+      }
+    }, 180);
   }
   if (event.target.matches("#childTimelineSearch")) {
     childTimelineSearch = event.target.value || "";
-    renderChildManagement();
+    window.clearTimeout(window.__llhTimelineSearchTimer);
+    window.__llhTimelineSearchTimer = window.setTimeout(() => {
+      const active = document.activeElement;
+      const selectionStart = active?.selectionStart;
+      const selectionEnd = active?.selectionEnd;
+      const wasSearch = active?.id === "childTimelineSearch";
+      renderChildManagement();
+      if (wasSearch) {
+        const next = document.querySelector("#childTimelineSearch");
+        if (next) {
+          next.focus();
+          if (Number.isFinite(selectionStart) && Number.isFinite(selectionEnd)) {
+            try { next.setSelectionRange(selectionStart, selectionEnd); } catch { /* ignore */ }
+          }
+        }
+      }
+    }, 180);
   }
   if (event.target.matches("#checkoutPromoCodeInput")) {
     saveCheckoutPromoCode(event.target.value);
@@ -48587,8 +48728,13 @@ if (currentUser) {
 updateInstallSettingsPanel();
 syncCurriculumPlannerNavVisibility();
 // Guests get the marketing homepage. Logged-in users never paint the retired Dashboard.
+// Admin-only unlock (no provider login) restores Admin immediately to avoid Home flash / "kicked out" feel.
 if (!currentUser) {
-  renderHome();
+  if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") {
+    setView("admin", { fromBoot: true, replaceHistory: true });
+  } else {
+    renderHome();
+  }
 } else {
   // Synchronously open Calendar (or last remembered section) before async sync work.
   // This prevents the old Dashboard from flashing or lingering behind Calendar.
@@ -49043,6 +49189,13 @@ document.addEventListener("click", async (event) => {
   }
   const messagesTabBtn = event.target.closest("[data-messages-tab]");
   if (messagesTabBtn) {
+    // Comms Center owns Messages tabs when mounted — do not remount the legacy 3-tab shell.
+    if (typeof window.renderMyMessagesCenter === "function" && (
+      messagesTabBtn.hasAttribute("data-messages-center-tab")
+      || document.querySelector(".messages-center-tabs, [data-messages-center-tab]")
+    )) {
+      return;
+    }
     event.preventDefault();
     messagesPageSetTab(messagesTabBtn.dataset.messagesTab);
     if (messagesTabBtn.dataset.messagesTab === "updates") {
@@ -49076,11 +49229,22 @@ document.addEventListener("change", async (event) => {
     await disablePushNotifications();
   }
   checkbox.disabled = false;
+  if (typeof window.renderMyMessagesCenter === "function" && document.querySelector(".messages-center-tabs, [data-messages-center-tab]")) {
+    window.renderMyMessagesCenter({ tab: "preferences" }).catch(() => {});
+    return;
+  }
   renderMessagesPageBody();
 });
 
 document.addEventListener("submit", async (event) => {
   if (!event.target.matches("#messagesReplyForm")) return;
+  // Comms Center has its own submit handler — skip legacy path to prevent double-send.
+  if (typeof window.renderMyMessagesCenter === "function" && (
+    event.target.hasAttribute("data-draft-form")
+    || document.querySelector(".messages-center-tabs, [data-messages-center-tab]")
+  )) {
+    return;
+  }
   event.preventDefault();
   const textarea = document.querySelector("#messagesReplyInput");
   const body = String(textarea?.value || "").trim();

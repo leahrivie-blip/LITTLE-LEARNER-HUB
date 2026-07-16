@@ -1,10 +1,10 @@
-const CACHE_NAME = "llh-shell-v50-curriculum-standards";
+const CACHE_NAME = "llh-shell-v51-platform-audit";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260715-persistent-lesson-covers",
+  "/styles.css?v=20260716-platform-audit",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260715-tablet2",
   "/styles/llh-library-browse.css?v=20260715-persistent-lesson-covers",
@@ -20,7 +20,8 @@ const APP_SHELL = [
   "/scripts/llh-schedule.js?v=20260714-prod-priority-fixes",
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
   "/scripts/lesson-plan-weekly-export.js?v=20260715-weekly-pdf-reg",
-  "/app.js?v=20260716-curriculum-standards",
+  "/app.js?v=20260716-platform-audit",
+  "/comms-center.js?v=20260716-platform-audit",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
