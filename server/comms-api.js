@@ -14,7 +14,6 @@ const MAX_TIMELINE = 2000;
 const MAX_BROADCAST_LOG = 500;
 const MAX_ARCHIVED = 2000;
 const MAX_AUTOMATION_RUNS = 2000;
-const MEMBER_DRAFT_SCOPES = new Set(["message", "support", "feature", "bug", "user"]);
 
 function clampArray(list, max) {
   if (!Array.isArray(list)) return [];
