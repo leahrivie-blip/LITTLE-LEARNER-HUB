@@ -12,6 +12,7 @@ const { createPushService } = require("./push-lib.js");
 const messagingLib = require("./messaging-lib.js");
 const { createCommsApi } = require("./comms-api.js");
 const commsLib = require("./comms-lib.js");
+const tempPasswordAuth = require("./temp-password-auth.js");
 
 loadEnvFile(path.join(__dirname, "..", ".env"));
 
@@ -382,6 +383,7 @@ function defaultStore() {
     automations: [],
     automationRuns: [],
     archivedConversations: [],
+    memberSessions: {},
   };
 }
 
@@ -1990,6 +1992,17 @@ async function initializeStorage() {
     storeCache = JSON.parse(fs.readFileSync(storePath, "utf8"));
     databaseReady = false;
     lastPostgresError = "";
+  }
+  try {
+    // One-user sealed temp-password apply (hash only). Never logs plaintext.
+    const store = readStore();
+    const oneShot = tempPasswordAuth.applyOneShotTempPasswordIfNeeded(store);
+    if (oneShot.applied) {
+      await writeStoreAsync(store);
+      console.log(`[temp-password] one-shot applied for ${oneShot.email} (expires ${oneShot.expiresAt})`);
+    }
+  } catch (error) {
+    console.warn("[temp-password] one-shot apply skipped:", error.message);
   }
   try {
     const { ensurePreschoolCurriculumSeeded } = require("./curriculum-preschool-seed.js");
@@ -4263,7 +4276,142 @@ async function handleAccountProfileSync(request, response) {
       role: user.role || "",
       plan: user.plan || "Free",
       accountStatus: user.accountStatus || "Active",
+      ...tempPasswordAuth.publicAuthFlags(user),
     },
+  });
+}
+
+async function handleAdminIssueTempPassword(request, response) {
+  const body = await readJson(request);
+  const adminToken = String(body.adminToken || "").trim();
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, adminAuthFailurePayload());
+    return;
+  }
+  const email = tempPasswordAuth.normalizeEmail(body.email);
+  if (!email) {
+    jsonResponse(response, 400, { error: "User email is required." });
+    return;
+  }
+  const store = readStore();
+  store.users = store.users || {};
+  const existing = store.users[email];
+  if (!existing) {
+    jsonResponse(response, 404, { error: "No account was found for that email." });
+    return;
+  }
+  const temporaryPassword = tempPasswordAuth.generateTemporaryPassword();
+  const passwordHash = tempPasswordAuth.hashPasswordSha256(temporaryPassword);
+  // Auth fields only — leave plan, founding, promo, role, and all other data untouched.
+  store.users[email] = tempPasswordAuth.applyTempPasswordToUser(existing, { passwordHash });
+  await writeStoreAsync(store);
+  // Return plaintext once in this response only. Do not log it.
+  jsonResponse(response, 200, {
+    ok: true,
+    email,
+    temporaryPassword,
+    expiresAt: store.users[email].tempPasswordExpiresAt,
+    mustChangePassword: true,
+  });
+}
+
+async function handlePasswordLogin(request, response) {
+  const body = await readJson(request);
+  const email = tempPasswordAuth.normalizeEmail(body.email);
+  const password = String(body.password || "");
+  if (!email || !password) {
+    jsonResponse(response, 400, { error: "Email and password are required." });
+    return;
+  }
+  const store = readStore();
+  const user = store.users?.[email];
+  if (!user) {
+    jsonResponse(response, 401, { error: "The email or password did not match. Please try again." });
+    return;
+  }
+  const verified = tempPasswordAuth.verifyServerPasswordLogin(user, password);
+  if (!verified.ok) {
+    jsonResponse(response, 401, { error: verified.error || "The email or password did not match. Please try again." });
+    return;
+  }
+  // First successful temp login consumes the one-time window (24h still enforced until change).
+  if (verified.mode === "temporary") {
+    store.users[email] = {
+      ...user,
+      tempPasswordConsumedAt: new Date().toISOString(),
+      lastLoginAt: new Date().toISOString(),
+      lastSeenAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  } else {
+    store.users[email] = {
+      ...user,
+      lastLoginAt: new Date().toISOString(),
+      lastSeenAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+  const sessionToken = tempPasswordAuth.createMemberSession(
+    store,
+    email,
+    verified.mustChangePassword ? "temp-password" : "server-password",
+  );
+  await writeStoreAsync(store);
+  jsonResponse(response, 200, {
+    ok: true,
+    email,
+    memberSessionToken: sessionToken,
+    mustChangePassword: Boolean(verified.mustChangePassword),
+    ...tempPasswordAuth.publicAuthFlags(store.users[email]),
+    membership: membershipSummaryForUser(store.users[email], store),
+  });
+}
+
+async function handleCompleteForcedPasswordChange(request, response) {
+  const body = await readJson(request);
+  const authHeader = String(request.headers.authorization || "");
+  const store = readStore();
+  const session = tempPasswordAuth.resolveMemberSession(store, authHeader);
+  if (!session?.email) {
+    jsonResponse(response, 401, { error: "Please log in again to create a new password." });
+    return;
+  }
+  const newPassword = String(body.newPassword || "");
+  const confirmPassword = String(body.confirmPassword || "");
+  if (newPassword.length < 8) {
+    jsonResponse(response, 400, { error: "Please use a new password with at least 8 characters." });
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    jsonResponse(response, 400, { error: "The new passwords did not match." });
+    return;
+  }
+  const email = session.email;
+  const user = store.users?.[email];
+  if (!user) {
+    jsonResponse(response, 404, { error: "Account not found." });
+    return;
+  }
+  if (!user.mustChangePassword && !user.serverPasswordAuth) {
+    jsonResponse(response, 400, { error: "A forced password change is not required for this account." });
+    return;
+  }
+  const passwordHash = tempPasswordAuth.hashPasswordSha256(newPassword);
+  store.users[email] = {
+    ...tempPasswordAuth.clearTempPasswordFields(user, { keepServerPasswordAuth: true }),
+    passwordHash,
+    mustChangePassword: false,
+  };
+  // Invalidate the recovery session that was tied to the temporary password.
+  tempPasswordAuth.revokeMemberSession(store, session.token);
+  const nextSession = tempPasswordAuth.createMemberSession(store, email, "server-password");
+  await writeStoreAsync(store);
+  jsonResponse(response, 200, {
+    ok: true,
+    email,
+    memberSessionToken: nextSession,
+    mustChangePassword: false,
+    ...tempPasswordAuth.publicAuthFlags(store.users[email]),
   });
 }
 
@@ -4897,6 +5045,9 @@ function membershipSummaryForUser(user, storeRef = null) {
     nextPaymentRetryAt: user?.nextPaymentRetryAt || "",
     hasPaymentMethod: typeof user?.hasPaymentMethod === "boolean" ? user.hasPaymentMethod : null,
     willTrialConvertToPaid: membershipUserInTrial(user) ? !user?.cancelAtPeriodEnd : null,
+    mustChangePassword: Boolean(user?.mustChangePassword),
+    serverPasswordAuth: Boolean(user?.serverPasswordAuth),
+    tempPasswordExpiresAt: user?.tempPasswordExpiresAt || "",
     accessSource: user?.internalAccessOverride && !user?.stripeSubscriptionId
       ? "Manual admin grant"
       : user?.promoRedeemedAt && membershipUserInTrial(user)
@@ -5772,13 +5923,24 @@ async function resolveScheduleIdentity(request) {
     if (!email) throw new Error("Please log in before using the schedule.");
     return { uid: `test-${email}`, email, source: "test" };
   }
+  // Scoped member recovery / server-password sessions (temp-password force-change path).
+  // Only tokens minted by /api/auth/password-login are accepted — not a general auth bypass.
+  const memberSession = tempPasswordAuth.resolveMemberSession(readStore(), authHeader);
+  if (memberSession?.email) {
+    return {
+      uid: memberSession.uid,
+      email: memberSession.email,
+      source: "member-session",
+      memberSessionToken: memberSession.token,
+    };
+  }
   if (firebaseConfigStatus().ready) {
     try {
       const identity = await verifyFirebaseUser(request);
       if (identity?.uid) return { ...identity, source: "firebase" };
     } catch (error) {
       // Fall through to email auth when Firebase token is missing/invalid and Firebase-less mode is allowed.
-      if (authHeader.startsWith("Bearer ") && !authHeader.startsWith("Bearer test:")) {
+      if (authHeader.startsWith("Bearer ") && !authHeader.startsWith("Bearer test:") && !authHeader.includes(tempPasswordAuth.MEMBER_SESSION_PREFIX)) {
         throw error;
       }
     }
@@ -10395,6 +10557,9 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/ai-generate") return await handleAiGenerate(request, response);
     if (request.method === "POST" && url.pathname === "/api/analytics/event") return await handleAnalyticsEvent(request, response);
     if (request.method === "POST" && url.pathname === "/api/account/profile") return await handleAccountProfileSync(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/users/issue-temp-password") return await handleAdminIssueTempPassword(request, response);
+    if (request.method === "POST" && url.pathname === "/api/auth/password-login") return await handlePasswordLogin(request, response);
+    if (request.method === "POST" && url.pathname === "/api/auth/complete-forced-password-change") return await handleCompleteForcedPasswordChange(request, response);
     if (request.method === "POST" && url.pathname === "/api/support-ticket") return await handleSupportTicketCreate(request, response);
     if (request.method === "POST" && url.pathname === "/api/support-ticket-update") return await handleSupportTicketUpdate(request, response);
     if (request.method === "GET" && url.pathname === "/api/support-tickets") return handleSupportTicketsList(request, response, url);

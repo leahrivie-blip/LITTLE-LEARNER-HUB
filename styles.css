@@ -10248,6 +10248,31 @@ body.lessons-view .mobile-brand {
   z-index: 1400;
 }
 
+#forcePasswordModal {
+  z-index: 1500;
+}
+
+#forcePasswordModal.open {
+  display: grid;
+}
+
+body.force-password-required .sidebar,
+body.force-password-required .topbar,
+body.force-password-required .main > *:not(#forcePasswordModal) {
+  pointer-events: none;
+  user-select: none;
+}
+
+body.force-password-required #forcePasswordModal,
+body.force-password-required #forcePasswordModal * {
+  pointer-events: auto;
+  user-select: auto;
+}
+
+.force-password-card .muted-copy {
+  margin: 0 0 14px;
+}
+
 #featurePreviewModal,
 #proFeatureModal,
 #installAppModal {
