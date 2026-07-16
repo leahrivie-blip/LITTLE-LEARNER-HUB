@@ -7439,6 +7439,7 @@ const emailEngagement = createEmailEngagement({
     connectionString: PRODUCTION_DATABASE_URL || "",
   }),
   getAdminEmail: () => ADMIN_EMAIL,
+  getSupportEmailStatus: () => supportEmailConfigStatus(),
   resolveAudienceRecipients: (store, opts) => messagingCenter.resolveAudienceRecipients(store, opts),
 });
 
@@ -10477,6 +10478,19 @@ async function handleAdminEmailEngagementPreflightAudit(request, response) {
   jsonResponse(response, 200, { ok: true, audit });
 }
 
+async function handleAdminEmailEngagementPrepareOneTime(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  // Dry-run only — builds subject/body/recipients and never calls sendEmail().
+  const prepared = emailEngagement.prepareOneTimeWelcomeUpdate({
+    adminEmail: ADMIN_EMAIL,
+  });
+  jsonResponse(response, 200, { ok: true, prepared, sent: false });
+}
+
 async function handleAdminEmailEngagementSendOneTime(request, response) {
   const body = await readJson(request);
   if (!validAdminToken(body.adminToken || "")) {
@@ -10746,6 +10760,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/run-weekly") return await handleAdminEmailEngagementRunWeekly(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/send-step") return await handleAdminEmailEngagementSendStep(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/preflight-audit") return await handleAdminEmailEngagementPreflightAudit(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/prepare-one-time") return await handleAdminEmailEngagementPrepareOneTime(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/send-one-time") return await handleAdminEmailEngagementSendOneTime(request, response);
     if (request.method === "POST" && url.pathname === "/api/email/unsubscribe") return await handleEmailUnsubscribe(request, response);
     // Phase 6-A: Admin Reply & Communications
