@@ -31968,9 +31968,14 @@ async function renderAdminEmailEngagement() {
     const totals = summary.totals || {};
     const onboarding = summary.onboarding || {};
     const support = data.supportEmail || {};
+    const database = data.database || {};
+    const oneTime = data.oneTimeWelcomeUpdate || summary.oneTimeWelcomeUpdate || {};
     const preview = Array.isArray(data.previewLessons) ? data.previewLessons : [];
     const events = Array.isArray(summary.recentEvents) ? summary.recentEvents : [];
     const steps = Array.isArray(data.onboardingSteps) ? data.onboardingSteps : [];
+    const cachedAudit = window.__adminEmailPreflightAudit || null;
+    const auditChecks = Array.isArray(cachedAudit?.checks) ? cachedAudit.checks : [];
+    const sendReady = Boolean(cachedAudit?.sendUnlocked || (oneTime.sendUnlocked && cachedAudit?.auditToken));
 
     target.innerHTML = `
       <div class="aup-insight-grid">
@@ -31983,6 +31988,37 @@ async function renderAdminEmailEngagement() {
       <div class="admin-email-status ${support.ready ? "is-ready" : "is-pending"}">
         <p><strong>Provider:</strong> ${escapeHtml(support.provider || "not configured")} · ${support.ready ? "Ready to send" : "Soft-fail mode (tickets & engagement still save)"}</p>
         <p class="form-note">${escapeHtml(support.note || "")}</p>
+        <p class="form-note"><strong>Database:</strong> ${escapeHtml(database.provider || "unknown")}${database.ready ? " · ready" : " · not ready"} · ${escapeHtml(database.note || "")}</p>
+      </div>
+
+      <div class="admin-email-controls panel-form">
+        <h4>One-time welcome/update (all users)</h4>
+        <p class="form-note">Single manual send only — not scheduled, not recurring. Requires a passing admin preflight audit first.</p>
+        <div class="aup-insight-grid">
+          <div class="aup-insight-card"><strong>${cachedAudit?.counts?.totalUsers ?? "—"}</strong><span>Total users</span></div>
+          <div class="aup-insight-card"><strong>${cachedAudit?.counts?.activeUsers ?? "—"}</strong><span>Active users</span></div>
+          <div class="aup-insight-card"><strong>${cachedAudit?.counts?.totalMessages ?? "—"}</strong><span>Messages</span></div>
+          <div class="aup-insight-card aup-insight--pro"><strong>${cachedAudit?.counts?.emailRecipients ?? "—"}</strong><span>Email recipients</span></div>
+        </div>
+        ${auditChecks.length ? `
+          <ul class="admin-email-step-list">
+            ${auditChecks.map((check) => `
+              <li>${check.pass ? "✓" : "✗"} <strong>${escapeHtml(check.label || check.id || "")}</strong> · ${escapeHtml(String(check.value ?? ""))} · ${escapeHtml(check.detail || "")}</li>
+            `).join("")}
+          </ul>
+        ` : `<p class="form-note">No audit run yet in this session. Run the preflight audit before sending.</p>`}
+        <div class="account-actions-row">
+          <button class="primary-button" type="button" id="adminEmailRunPreflightAudit">Run preflight audit</button>
+          <button class="ghost-button" type="button" id="adminEmailSendOneTime" ${sendReady && !oneTime.sentAt ? "" : "disabled"}>Send one-time email to all users</button>
+        </div>
+        <p class="form-note">
+          ${oneTime.sentAt
+            ? `Already sent ${escapeHtml(oneTime.sentAt)} to ${Number(oneTime.recipientCount) || 0} recipients (${Number(oneTime.sentCount) || 0} delivered).`
+            : (sendReady
+              ? `Audit passed. Ready to send to ${Number(cachedAudit?.counts?.emailRecipients) || 0} recipients.`
+              : "Send stays locked until the audit passes.")}
+        </p>
+        <p class="form-note" id="adminEmailOneTimeMessage"></p>
       </div>
 
       <div class="admin-email-controls panel-form">
@@ -33499,7 +33535,7 @@ function userAnalyticsTable(users = []) {
           </tr>
         </thead>
         <tbody>
-          ${users.slice(0, 25).map((user) => `
+          ${users.map((user) => `
             <tr>
               <td><strong>${escapeHtml(displayUserName(user))}</strong><br><small>${escapeHtml(user.email || "")}</small><br><small>Signup: ${escapeHtml(user.signupAt ? new Date(user.signupAt).toLocaleDateString() : "unknown")}</small></td>
               <td>${escapeHtml(user.plan || "Free")}<br><small>${escapeHtml(user.subscriptionStatus || "")}</small></td>
@@ -42446,6 +42482,51 @@ document.addEventListener("click", async (event) => {
       await renderAdminEmailEngagement();
     } catch (error) {
       if (msg) msg.textContent = error.message || "Send failed.";
+    }
+    return;
+  }
+  if (event.target.closest("#adminEmailRunPreflightAudit")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminEmailOneTimeMessage");
+    try {
+      const data = await adminEmailEngagementPost("/api/admin/email-engagement/preflight-audit", {});
+      window.__adminEmailPreflightAudit = data.audit || null;
+      if (msg) {
+        msg.textContent = data.audit?.auditPassed
+          ? `Audit passed. ${data.audit.counts?.emailRecipients || 0} recipients ready.`
+          : `Audit failed. Review the checklist before sending.`;
+      }
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "Preflight audit failed.";
+    }
+    return;
+  }
+  if (event.target.closest("#adminEmailSendOneTime")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminEmailOneTimeMessage");
+    const audit = window.__adminEmailPreflightAudit;
+    if (!audit?.auditPassed || !audit?.auditToken) {
+      if (msg) msg.textContent = "Run and pass the preflight audit first.";
+      return;
+    }
+    const recipientCount = Number(audit.counts?.emailRecipients) || 0;
+    const confirmed = window.confirm(
+      `Send the one-time welcome/update email to all ${recipientCount} users?\n\nThis is a single send only (not recurring) and cannot be undone.`,
+    );
+    if (!confirmed) return;
+    try {
+      const data = await adminEmailEngagementPost("/api/admin/email-engagement/send-one-time", {
+        auditToken: audit.auditToken,
+        confirm: true,
+      });
+      window.__adminEmailPreflightAudit = null;
+      if (msg) {
+        msg.textContent = `One-time email finished: sent ${data.result?.sent || 0} of ${data.result?.recipients || 0} (failed ${data.result?.failed || 0}).`;
+      }
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "One-time send failed.";
     }
     return;
   }

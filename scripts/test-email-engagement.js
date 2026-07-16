@@ -75,11 +75,19 @@ async function main() {
   assert.match(moduleJs, /Send Feedback or Report a Bug/);
   assert.match(moduleJs, /What’s coming next/);
   assert.match(moduleJs, /New lesson plans are added regularly/);
+  assert.match(moduleJs, /runPreflightAudit/);
+  assert.match(moduleJs, /sendOneTimeWelcomeUpdate/);
+  assert.match(moduleJs, /one_time_welcome_update/);
+  assert.match(moduleJs, /intentionally NEVER scheduled/);
   assert.match(serverJs, /\/api\/admin\/email-engagement/);
   assert.match(serverJs, /emailEngagement\.maybeSendWelcomeOnSignup/);
+  assert.match(serverJs, /preflight-audit/);
+  assert.match(serverJs, /send-one-time/);
   assert.match(serverJs, /publishedAt/);
   assert.match(serverJs, /emailEngagement\.startScheduler/);
   assert.match(appJs, /renderAdminEmailEngagement/);
+  assert.match(appJs, /adminEmailRunPreflightAudit/);
+  assert.match(appJs, /adminEmailSendOneTime/);
   assert.match(appJs, /"emails"/);
   assert.match(html, /admin-emails-panel/);
   assert.match(html, /adminEmailEngagementApp/);
@@ -224,6 +232,80 @@ async function main() {
     assert.match(explore.text, /What’s New/);
   });
 
+  await test("preflight audit unlocks one-time send and blocks repeats", async () => {
+    fakeEvents.length = 0;
+    fakeStore.users = {
+      "one@example.com": {
+        email: "one@example.com",
+        firstName: "One",
+        accountStatus: "Active",
+        signupAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      },
+      "two@example.com": {
+        email: "two@example.com",
+        firstName: "Two",
+        accountStatus: "Active",
+        signupAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      },
+      "gone@example.com": {
+        email: "gone@example.com",
+        firstName: "Gone",
+        accountStatus: "Disabled",
+        signupAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      },
+    };
+    fakeStore.messages = [{ id: "msg-1" }, { id: "msg-2" }];
+    fakeStore.supportTickets = [{ id: "t1", status: "New", message: "help" }];
+    fakeStore.featureRequests = [];
+    fakeStore.bugReports = [];
+    fakeStore.feedbackItems = [];
+    fakeStore.notifications = [];
+    fakeStore.emailEngagement = defaultEmailEngagementStore();
+
+    const blocked = await eng.sendOneTimeWelcomeUpdate({ confirm: true, auditToken: "nope" });
+    assert.equal(blocked.reason, "audit_required");
+
+    const audit = eng.runPreflightAudit({
+      store: fakeStore,
+      adminEmail: "owner@example.com",
+      nodeEnv: "test",
+      allowLocalForTests: true,
+    });
+    assert.equal(audit.auditPassed, true, JSON.stringify(audit.checks, null, 2));
+    assert.equal(audit.counts.totalUsers, 3);
+    assert.equal(audit.counts.activeUsers, 2);
+    assert.equal(audit.counts.totalMessages, 2);
+    assert.equal(audit.counts.emailRecipients, 2);
+    assert.ok(audit.auditToken);
+    assert.equal(audit.sendUnlocked, true);
+
+    const unconfirmed = await eng.sendOneTimeWelcomeUpdate({
+      auditToken: audit.auditToken,
+      confirm: false,
+    });
+    assert.equal(unconfirmed.reason, "confirmation_required");
+
+    const sent = await eng.sendOneTimeWelcomeUpdate({
+      auditToken: audit.auditToken,
+      confirm: true,
+    });
+    assert.equal(sent.skipped, false);
+    assert.equal(sent.sent, 2);
+    assert.equal(sent.recipients, 2);
+    assert.equal(sent.recurring, false);
+    assert.equal(fakeEvents.length, 2);
+
+    const again = await eng.sendOneTimeWelcomeUpdate({
+      auditToken: audit.auditToken,
+      confirm: true,
+    });
+    assert.equal(again.reason, "already_sent");
+    assert.equal(fakeEvents.length, 2);
+  });
+
   // Integration: spawn server without email keys (soft-fail)
   fs.writeFileSync(STORE, JSON.stringify({
     users: {},
@@ -331,6 +413,55 @@ async function main() {
       await request("POST", "/api/admin/email-engagement/settings", {
         body: { adminToken, onboardingEnabled: true, weeklyWhatsNewEnabled: true },
       });
+    });
+
+    await test("admin preflight audit and one-time send endpoints", async () => {
+      for (const email of ["bulk-a@example.com", "bulk-b@example.com"]) {
+        const profile = await request("POST", "/api/account/profile", {
+          body: {
+            email,
+            firstName: email.startsWith("bulk-a") ? "BulkA" : "BulkB",
+            lastName: "Teacher",
+            signup: true,
+            lastLogin: true,
+          },
+        });
+        assert.equal(profile.status, 200, JSON.stringify(profile.json));
+      }
+      await new Promise((r) => setTimeout(r, 200));
+
+      const denied = await request("POST", "/api/admin/email-engagement/send-one-time", {
+        body: { adminToken, confirm: true, auditToken: "missing" },
+      });
+      assert.equal(denied.status, 400, JSON.stringify(denied.json));
+
+      const auditRes = await request("POST", "/api/admin/email-engagement/preflight-audit", {
+        body: { adminToken },
+      });
+      assert.equal(auditRes.status, 200, JSON.stringify(auditRes.json));
+      assert.equal(auditRes.json.audit.auditPassed, true, JSON.stringify(auditRes.json.audit.checks, null, 2));
+      assert.ok(auditRes.json.audit.counts.totalUsers >= 2);
+      assert.ok(auditRes.json.audit.auditToken);
+
+      const sendRes = await request("POST", "/api/admin/email-engagement/send-one-time", {
+        body: {
+          adminToken,
+          confirm: true,
+          auditToken: auditRes.json.audit.auditToken,
+        },
+      });
+      assert.equal(sendRes.status, 200, JSON.stringify(sendRes.json));
+      assert.ok(sendRes.json.result.recipients >= 2);
+      assert.equal(sendRes.json.result.recurring, false);
+
+      const repeat = await request("POST", "/api/admin/email-engagement/send-one-time", {
+        body: {
+          adminToken,
+          confirm: true,
+          auditToken: auditRes.json.audit.auditToken,
+        },
+      });
+      assert.equal(repeat.status, 409, JSON.stringify(repeat.json));
     });
 
     await test("support ticket email path still works (soft-fail)", async () => {
