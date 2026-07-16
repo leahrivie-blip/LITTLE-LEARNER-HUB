@@ -295,11 +295,11 @@ async function probePostgresReadiness() {
       5000,
       "Postgres readiness probe",
     );
-    databaseReady = true;
-    lastPostgresError = "";
+    // Connectivity only — do NOT mark databaseReady here. Ready means the authentic
+    // Postgres store has been loaded into memory. Marking ready on SELECT 1 would let
+    // a sparse local fallback get upserted over real membership data.
     return true;
   } catch (error) {
-    databaseReady = false;
     lastPostgresError = error.message || "Postgres readiness probe failed.";
     console.error("Postgres readiness probe failed:", lastPostgresError);
     return false;
@@ -2337,15 +2337,21 @@ function mergeStorePreserveAdminSessions(incomingStore) {
   };
 }
 
+function writeLocalJsonStore(store) {
+  ensureStore();
+  fs.writeFileSync(storePath, JSON.stringify(store, null, 2));
+}
+
 function writeStore(store) {
   const nextStore = mergeStorePreserveAdminSessions(mergeStorePreferNewerSiteContent(store));
   storeCache = nextStore;
-  if (usePostgresStore()) {
+  // Only upsert to Postgres after the authentic DB store is loaded. While on local
+  // fallback, never push a sparse in-memory store over production membership data.
+  if (usePostgresStore() && postgresPool && databaseReady) {
     enqueuePostgresStoreWrite().writePromise.catch(() => {});
     return;
   }
-  ensureStore();
-  fs.writeFileSync(storePath, JSON.stringify(nextStore, null, 2));
+  writeLocalJsonStore(nextStore);
 }
 
 // Writes the store and waits for the Postgres write to complete before returning.
@@ -2357,7 +2363,7 @@ async function writeStoreAsync(store) {
   // Do not merge-prefer siteContent from cache — the caller already built the next siteContent.
   // Always preserve adminSessions so a concurrent login is not erased mid-save.
   storeCache = mergeStorePreserveAdminSessions(store);
-  if (usePostgresStore() && postgresPool) {
+  if (usePostgresStore() && postgresPool && databaseReady) {
     try {
       const { writeGeneration, writePromise } = enqueuePostgresStoreWrite();
       await writePromise;
@@ -2369,14 +2375,14 @@ async function writeStoreAsync(store) {
       return;
     } catch (error) {
       // Keep auth recovery and admin writes available during Postgres blips.
-      console.error("[store] Postgres writeAsync failed — persisting local JSON fallback:", error.message || error);
-      ensureStore();
-      fs.writeFileSync(storePath, JSON.stringify(storeCache, null, 2));
+      databaseReady = false;
+      lastPostgresError = error.message || "Postgres store write failed.";
+      console.error("[store] Postgres writeAsync failed — persisting local JSON fallback:", lastPostgresError);
+      writeLocalJsonStore(storeCache);
       return;
     }
   }
-  ensureStore();
-  fs.writeFileSync(storePath, JSON.stringify(storeCache, null, 2));
+  writeLocalJsonStore(storeCache);
 }
 
 function normalizeEmail(email) {
@@ -4426,11 +4432,11 @@ async function handlePasswordLogin(request, response) {
     jsonResponse(response, 401, { error: verified.error || "The email or password did not match. Please try again." });
     return;
   }
-  // First successful temp login consumes the one-time window (24h still enforced until change).
+  // Audit first temp login; password remains valid until forced change or 24h expiry.
   if (verified.mode === "temporary") {
     store.users[email] = {
       ...user,
-      tempPasswordConsumedAt: new Date().toISOString(),
+      tempPasswordConsumedAt: user.tempPasswordConsumedAt || new Date().toISOString(),
       lastLoginAt: new Date().toISOString(),
       lastSeenAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

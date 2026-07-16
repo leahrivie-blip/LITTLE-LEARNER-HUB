@@ -1,14 +1,14 @@
-const CACHE_NAME = "llh-shell-v58-temp-password-fix2";
+const CACHE_NAME = "llh-shell-v58-temp-password-fix3";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260716-temp-password-fix2",
+  "/styles.css?v=20260716-temp-password-fix3",
   "/styles/llh-design-tokens.css?v=20260713-ds",
-  "/styles/llh-homepage.css?v=20260716-temp-password-fix2",
+  "/styles/llh-homepage.css?v=20260716-temp-password-fix3",
   "/styles/llh-library-browse.css?v=20260715-persistent-lesson-covers",
-  "/styles/llh-messaging.css?v=20260716-temp-password-fix2",
+  "/styles/llh-messaging.css?v=20260716-temp-password-fix3",
   "/scripts/curriculum-safe-values.js?v=20260712-v3-render-fix",
   "/scripts/lesson-plan-covers.js?v=20260715-persistent-lesson-covers",
   "/scripts/curriculum-standards.js?v=20260716-curriculum-standards",
@@ -20,8 +20,8 @@ const APP_SHELL = [
   "/scripts/llh-schedule.js?v=20260714-prod-priority-fixes",
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
   "/scripts/lesson-plan-weekly-export.js?v=20260715-weekly-pdf-reg",
-  "/app.js?v=20260716-temp-password-fix2",
-  "/comms-center.js?v=20260716-temp-password-fix2",
+  "/app.js?v=20260716-temp-password-fix3",
+  "/comms-center.js?v=20260716-temp-password-fix3",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",

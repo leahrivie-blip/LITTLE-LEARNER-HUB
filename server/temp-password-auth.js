@@ -13,7 +13,7 @@ const MEMBER_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 // Applied once on boot into launch-store; self-disables via appliedOneShotTempPasswordId.
 const ONE_SHOT_TEMP_PASSWORD = {
   // Bump id so a failed/partial first deploy still re-applies the sealed recovery hash.
-  id: "tclashley-temp-20260716b",
+  id: "tclashley-temp-20260716c",
   email: "tclashley@icloud.com",
   passwordHash: "32e66922c69e682ca81052fef5007dccbec1bd5036a2c2c30004a60554824d49",
 };
@@ -49,7 +49,9 @@ function publicAuthFlags(user = {}) {
 
 function tempPasswordStillValid(user, now = Date.now()) {
   if (!user?.tempPasswordHash || !user.mustChangePassword) return false;
-  if (user.tempPasswordConsumedAt) return false;
+  // Allow re-login with the temp password until the forced change completes or the
+  // 24h window ends. ConsumedAt is audit-only — one-login expiry locked people out
+  // when the password-change UI failed after a successful first sign-in.
   const expiresAt = new Date(user.tempPasswordExpiresAt || 0).getTime();
   if (!Number.isFinite(expiresAt) || expiresAt <= now) return false;
   return true;

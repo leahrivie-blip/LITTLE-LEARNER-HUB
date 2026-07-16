@@ -46970,6 +46970,23 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
     const result = await loginWithProvider(email, password);
     loadAccountState(result.email);
     markAccountLogin(result.email);
+    // Forced password change must win immediately. Do not let profile/subscription
+    // sync failures surface as "login failed" after a successful temp-password auth.
+    if (result.mustChangePassword || accountRequiresPasswordChange()) {
+      updateAccount(result.email, { mustChangePassword: true });
+      closeAuthModal();
+      enforceForcedPasswordChangeGate();
+      syncAccountProfileToBackend(result.email, {
+        firstName: currentAccount()?.firstName || "",
+        lastName: currentAccount()?.lastName || "",
+        businessName: currentAccount()?.businessName || currentAccount()?.programSettings?.programName || "",
+        accountType: currentAccount()?.accountType || "",
+        role: currentAccount()?.role || "",
+        phone: currentAccount()?.phone || "",
+      }, { lastLogin: true }).catch(() => {});
+      syncSubscriptionFromBackend(result.email, { forceRefresh: true }).catch(() => {});
+      return;
+    }
     await syncAccountProfileToBackend(result.email, {
       firstName: currentAccount()?.firstName || "",
       lastName: currentAccount()?.lastName || "",
@@ -46980,12 +46997,6 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
     }, { lastLogin: true });
     const loginNavGeneration = viewNavigationGeneration;
     await syncSubscriptionFromBackend(result.email, { forceRefresh: true });
-    if (result.mustChangePassword || accountRequiresPasswordChange()) {
-      updateAccount(result.email, { mustChangePassword: true });
-      closeAuthModal();
-      enforceForcedPasswordChangeGate();
-      return;
-    }
     await syncChildDataFromBackend();
     loadUserAiUsage(result.email).catch(() => {});
     trackEvent("account_login_complete", { email: result.email, plan: currentPlan });
