@@ -9688,7 +9688,16 @@ function handleAdminConversationsList(request, response, url) {
       unreadFromUser.set(n.conversationEmail, (unreadFromUser.get(n.conversationEmail) || 0) + 1);
     });
   const conversations = [...byUser.values()]
-    .map((c) => ({ ...c, unreadFromUser: unreadFromUser.get(c.userEmail) || 0 }))
+    .map((c) => {
+      const profile = publicConversationUserProfile(store, c.userEmail);
+      return {
+        ...c,
+        userName: profile.name || c.userEmail,
+        businessName: profile.businessName || "",
+        plan: profile.plan || "Free",
+        unreadFromUser: unreadFromUser.get(c.userEmail) || 0,
+      };
+    })
     .sort((a, b) => (a.lastMessageAt < b.lastMessageAt ? 1 : -1));
   jsonResponse(response, 200, { conversations });
 }

@@ -632,7 +632,7 @@
   // ─── 2. My Messages & Requests page ─────────────────────────────────────────
 
   const MESSAGES_TABS = Object.freeze([
-    { id: "conversation", label: "Conversation" },
+    { id: "conversation", label: "Message Leah" },
     { id: "inbox", label: "Inbox" },
     { id: "sent", label: "Sent" },
     { id: "drafts", label: "Drafts" },
@@ -1071,7 +1071,7 @@
         <div class="page-title">
           <p class="eyebrow">Help &amp; Support</p>
           <h2>My Messages &amp; Requests</h2>
-          <p>Inbox, conversation with Leah, support tickets, feature requests, and bug reports — all in one place.</p>
+          <p>Start with <strong>Message Leah</strong> to chat directly. Use Inbox for announcements, and Support / Features / Bugs for tracked requests.</p>
         </div>
         ${foundingCard}
         ${renderMessagesCenterTabs()}
@@ -1939,10 +1939,8 @@
       else if (action === "open-bug") openFeedbackModal("Bug");
       else if (action === "open-support") openFeedbackModal("General Feedback");
       else if (action === "prefs-link") {
-        myMessagesState.tab = "inbox";
-        const prefs = document.querySelector("#messagesCenterPrefs");
-        if (prefs) prefs.scrollIntoView({ behavior: "smooth", block: "start" });
-        else setViewSafe("messages", { tab: "preferences" });
+        myMessagesState.tab = "preferences";
+        renderMyMessagesCenter({ tab: "preferences" }).catch(() => {});
       }
     }
   });
