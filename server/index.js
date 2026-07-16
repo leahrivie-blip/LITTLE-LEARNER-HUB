@@ -2102,6 +2102,15 @@ function readStore() {
   return JSON.parse(fs.readFileSync(storePath, "utf8"));
 }
 
+async function readStoreFresh() {
+  if (usePostgresStore()) {
+    const result = await postgresPool.query("SELECT data FROM llh_store WHERE id = $1", [storeRecordId]);
+    if (result.rows[0]?.data) storeCache = result.rows[0].data;
+    return structuredClone(storeCache || defaultStore());
+  }
+  return readStore();
+}
+
 // Returns the store without deep-cloning. Safe for read-only handlers that never
 // mutate the returned object (or that intentionally mutate storeCache in place).
 // For Postgres this avoids an expensive structuredClone of lesson plans, analytics,
@@ -2290,6 +2299,15 @@ async function claimEmailCampaignDelivery({ campaignId, email, contentHash }) {
       [campaignId, cleanEmail, contentHash],
     );
     if (inserted.rows[0]) return { claimed: true, delivery: inserted.rows[0] };
+    const reclaimed = await postgresPool.query(
+      `UPDATE llh_email_campaign_deliveries
+       SET claimed_at = NOW(), error = ''
+       WHERE campaign_id = $1 AND email = $2 AND status = 'pending'
+         AND claimed_at < NOW() - INTERVAL '30 minutes'
+       RETURNING campaign_id, email, content_hash, status, provider, message_id, error, claimed_at, completed_at`,
+      [campaignId, cleanEmail],
+    );
+    if (reclaimed.rows[0]) return { claimed: true, reclaimed: true, delivery: reclaimed.rows[0] };
     const existing = await postgresPool.query(
       `SELECT campaign_id, email, content_hash, status, provider, message_id, error, claimed_at, completed_at
        FROM llh_email_campaign_deliveries WHERE campaign_id = $1 AND email = $2`,
@@ -2356,6 +2374,50 @@ async function listEmailCampaignDeliveries(campaignId) {
   }
   const store = readStore();
   return Object.values(store.emailCampaignDeliveries || {}).filter((delivery) => delivery.campaign_id === campaignId);
+}
+
+async function patchEmailCampaignState(campaignId, patch = {}) {
+  if (usePostgresStore()) {
+    await postgresPool.query(
+      `UPDATE llh_store
+       SET data = jsonb_set(
+         data, '{emailEngagement}',
+         COALESCE(data -> 'emailEngagement', '{}'::jsonb)
+         || jsonb_build_object(
+           'campaigns',
+           COALESCE(data #> '{emailEngagement,campaigns}', '{}'::jsonb)
+           || jsonb_build_object(
+             $2::text,
+             COALESCE(data #> ARRAY['emailEngagement', 'campaigns', $2::text], '{}'::jsonb) || $3::jsonb
+           )
+         ),
+         true
+       ), updated_at = NOW()
+       WHERE id = $1`,
+      [storeRecordId, campaignId, JSON.stringify(patch)],
+    );
+    storeCache = storeCache || defaultStore();
+    storeCache.emailEngagement = storeCache.emailEngagement && typeof storeCache.emailEngagement === "object"
+      ? storeCache.emailEngagement
+      : defaultEmailEngagementStore();
+    storeCache.emailEngagement.campaigns = storeCache.emailEngagement.campaigns || {};
+    storeCache.emailEngagement.campaigns[campaignId] = {
+      ...(storeCache.emailEngagement.campaigns[campaignId] || {}),
+      ...patch,
+    };
+    return storeCache.emailEngagement.campaigns[campaignId];
+  }
+  const store = readStore();
+  store.emailEngagement = store.emailEngagement && typeof store.emailEngagement === "object"
+    ? store.emailEngagement
+    : defaultEmailEngagementStore();
+  store.emailEngagement.campaigns = store.emailEngagement.campaigns || {};
+  store.emailEngagement.campaigns[campaignId] = {
+    ...(store.emailEngagement.campaigns[campaignId] || {}),
+    ...patch,
+  };
+  await writeStoreAsync(store);
+  return store.emailEngagement.campaigns[campaignId];
 }
 
 function jsonResponse(response, statusCode, payload) {
@@ -7220,11 +7282,13 @@ const emailEngagement = createEmailEngagement({
   postalAddress: SUPPORT_POSTAL_ADDRESS,
   htmlEscape,
   readStore,
+  readStoreFresh,
   writeStore,
   writeStoreAsync,
   claimEmailCampaignDelivery,
   completeEmailCampaignDelivery,
   listEmailCampaignDeliveries,
+  patchEmailCampaignState,
   isCurriculumLessonPublic,
 });
 
@@ -9207,15 +9271,21 @@ function freeReengagementSafetyStatus(store = readStore()) {
   const emailService = supportEmailConfigStatus();
   const unsubscribeHttpsReady = unsubscribeUrlForEmail(ADMIN_EMAIL).startsWith("https://");
   const postalAddressConfigured = isConfiguredValue(SUPPORT_POSTAL_ADDRESS);
+  const atomicDeliveryReady = usePostgresStore() && databaseReady;
+  const idempotentProviderReady = emailService.provider === "resend";
   return {
     ready: emailService.ready
       && isConfiguredValue(EMAIL_UNSUBSCRIBE_SECRET)
       && unsubscribeHttpsReady
-      && postalAddressConfigured,
+      && postalAddressConfigured
+      && atomicDeliveryReady
+      && idempotentProviderReady,
     emailService,
     unsubscribeConfigured: isConfiguredValue(EMAIL_UNSUBSCRIBE_SECRET),
     unsubscribeHttpsReady,
     postalAddressConfigured,
+    atomicDeliveryReady,
+    idempotentProviderReady,
     campaignId: audience.campaignId,
     subject: audience.subject,
     eligibleCount: audience.eligibleCount,

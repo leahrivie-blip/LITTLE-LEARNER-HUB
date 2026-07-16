@@ -268,6 +268,7 @@ async function main() {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;"),
       readStore: () => campaignStore,
+      readStoreFresh: async () => campaignStore,
       writeStore: (s) => { campaignStore = s; },
       writeStoreAsync: async (s) => { campaignStore = s; },
       claimEmailCampaignDelivery: async ({ campaignId, email, contentHash }) => {
@@ -284,6 +285,14 @@ async function main() {
       listEmailCampaignDeliveries: async (campaignId) => (
         [...campaignDeliveries.values()].filter((delivery) => delivery.campaign_id === campaignId)
       ),
+      patchEmailCampaignState: async (campaignId, patch) => {
+        campaignStore.emailEngagement.campaigns = campaignStore.emailEngagement.campaigns || {};
+        campaignStore.emailEngagement.campaigns[campaignId] = {
+          ...(campaignStore.emailEngagement.campaigns[campaignId] || {}),
+          ...patch,
+        };
+        return campaignStore.emailEngagement.campaigns[campaignId];
+      },
       isCurriculumLessonPublic: () => true,
     });
     const audience = campaign.freeReengagementAudience(campaignStore);
@@ -334,8 +343,7 @@ async function main() {
     assert.equal(sent.successfulSends, 1);
     assert.equal(sent.failedSends, 0);
     assert.equal(campaignSends[1].to, "free@example.com");
-    assert.ok(campaignStore.users["free@example.com"].emailCampaigns[campaign.FREE_REENGAGEMENT_CAMPAIGN_ID].sentAt);
-    assert.equal(campaign.freeReengagementAudience(campaignStore).eligibleCount, 0);
+    assert.equal(campaignDeliveries.get(`${campaign.FREE_REENGAGEMENT_CAMPAIGN_ID}:free@example.com`).status, "sent");
   });
 
   // Integration: spawn server without email keys (soft-fail)
@@ -433,6 +441,7 @@ async function main() {
       });
       assert.equal(preview.status, 200, JSON.stringify(preview.json));
       assert.equal(preview.json.safety.emailService.ready, false);
+      assert.equal(preview.json.safety.atomicDeliveryReady, false);
       const testCopy = await request("POST", "/api/admin/email-engagement/free-reengagement-test", {
         body: { adminToken },
       });
