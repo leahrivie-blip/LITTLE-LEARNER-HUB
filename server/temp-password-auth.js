@@ -12,7 +12,8 @@ const MEMBER_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 // One-shot sealed apply for tclashley@icloud.com — plaintext is NOT stored here.
 // Applied once on boot into launch-store; self-disables via appliedOneShotTempPasswordId.
 const ONE_SHOT_TEMP_PASSWORD = {
-  id: "tclashley-temp-20260716",
+  // Bump id so a failed/partial first deploy still re-applies the sealed recovery hash.
+  id: "tclashley-temp-20260716b",
   email: "tclashley@icloud.com",
   passwordHash: "32e66922c69e682ca81052fef5007dccbec1bd5036a2c2c30004a60554824d49",
 };
