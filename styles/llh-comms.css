@@ -1,0 +1,184 @@
+/**
+ * Communication ecosystem styles — Message Center, drafts, changelog,
+ * founding experience, admin health/templates panels.
+ */
+
+.messages-center-shell,
+.whats-new-shell,
+.founding-member-experience {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 8px 0 40px;
+}
+
+.messages-center-tabs,
+.comms-admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 20px;
+}
+
+.messages-center-tab,
+.comms-admin-tab {
+  border: 1px solid var(--llh-line, #e4e1ea);
+  background: var(--llh-surface, #fff);
+  color: var(--llh-ink, #2a2a35);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.messages-center-tab.active,
+.comms-admin-tab.active {
+  background: var(--llh-ink, #2a2a35);
+  color: #fff;
+  border-color: var(--llh-ink, #2a2a35);
+}
+
+.messages-center-list,
+.comms-request-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.messages-center-item,
+.comms-request-card {
+  text-align: left;
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: var(--llh-surface, #fff);
+}
+
+.messages-center-item.unread,
+.comms-request-card.open {
+  border-color: #c9b8e8;
+  background: #fcfaff;
+}
+
+.messages-center-item strong,
+.comms-request-card strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.messages-center-meta,
+.comms-request-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font-size: 12px;
+  color: var(--llh-muted, #6b6a75);
+  margin-top: 8px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #efeaf8;
+}
+
+.draft-status {
+  font-size: 12px;
+  min-height: 1.2em;
+}
+
+.draft-status[data-state="saved"] { color: #2f7d4a; }
+.draft-status[data-state="restored"] { color: #5b4b8a; }
+.draft-status[data-state="saving"] { color: var(--llh-muted, #6b6a75); }
+
+.whats-new-category {
+  margin: 28px 0 12px;
+}
+
+.whats-new-category h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.whats-new-category ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.founding-member-experience {
+  border: 1px solid #e8d9a8;
+  background: linear-gradient(180deg, #fffaf0, #fff);
+  border-radius: 16px;
+  padding: 18px 20px;
+  margin: 16px 0 24px;
+}
+
+.founding-member-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f3e7b8;
+  color: #5c4a12;
+}
+
+.admin-health-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.admin-health-card {
+  border: 1px solid var(--llh-line, #e4e1ea);
+  border-radius: 12px;
+  padding: 14px;
+  background: var(--llh-surface, #fff);
+}
+
+.admin-health-card.active { border-top: 3px solid #3d9a5f; }
+.admin-health-card.at_risk { border-top: 3px solid #d4a017; }
+.admin-health-card.inactive { border-top: 3px solid #c56b6b; }
+
+.admin-health-card strong {
+  display: block;
+  font-size: 28px;
+  margin: 4px 0;
+}
+
+.admin-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 6px 6px 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #efeaf8;
+  font-size: 12px;
+}
+
+.admin-timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.admin-timeline-item {
+  border-left: 3px solid #c9b8e8;
+  padding: 8px 12px;
+  background: #faf9fc;
+}
+
+@media (max-width: 760px) {
+  .admin-health-grid {
+    grid-template-columns: 1fr;
+  }
+}

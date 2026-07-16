@@ -617,17 +617,18 @@ function createCommsApi(deps) {
   async function handleTemplatesSave(request, response) {
     const body = await readJson(request);
     if (!requireAdmin(body.adminToken || "", response)) return;
+    const source = body.template && typeof body.template === "object" ? body.template : body;
     const store = ensureCommsStore(readStore());
-    const id = commsLib.clampText(body.id, 80) || randomId("tmpl");
+    const id = commsLib.clampText(source.id, 80) || randomId("tmpl");
     const now = new Date().toISOString();
     const existingIndex = store.messageTemplates.findIndex((t) => t.id === id);
     const row = {
       id,
-      label: commsLib.clampText(body.label, 80) || "Template",
-      subject: commsLib.clampText(body.subject, 300),
-      body: commsLib.clampText(body.body, 8000),
-      kind: body.kind || "message",
-      audience: body.audience || "private",
+      label: commsLib.clampText(source.label, 80) || "Template",
+      subject: commsLib.clampText(source.subject, 300),
+      body: commsLib.clampText(source.body, 8000),
+      kind: source.kind || "message",
+      audience: source.audience || "private",
       system: false,
       updatedAt: now,
       createdAt: existingIndex >= 0 ? store.messageTemplates[existingIndex].createdAt || now : now,

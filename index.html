@@ -27,6 +27,7 @@
   <link rel="stylesheet" href="styles.css?v=20260715-persistent-lesson-covers" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260715-persistent-lesson-covers" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260716-messaging" />
+  <link rel="stylesheet" href="styles/llh-comms.css?v=20260716-comms" />
   <script>
     // Paint Calendar immediately for returning users — never flash the old Dashboard.
     (function () {
@@ -101,8 +102,12 @@
             </button>
             <button class="nav-link" data-view="messages" id="messagesNavLink">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg></span>
-              Messages
+              My Messages
               <span class="nav-unread-badge" id="messagesNavBadge" hidden>0</span>
+            </button>
+            <button class="nav-link" data-view="whats-new" id="whatsNewNavLink">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l2.2 4.5L19 8.2l-3.5 3.4.8 4.9L12 14.8 7.7 16.5l.8-4.9L5 8.2l4.8-.7z"/></svg></span>
+              What&apos;s New
             </button>
             <button class="nav-link" data-view="settings" data-nav-capability="settings">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5l-.3 3.1a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.3 3.1h5l.3-3.1a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5a7 7 0 0 0 .1-1z"/></svg></span>
@@ -678,6 +683,7 @@
         <section id="view-lesson-editor" class="view"></section>
         <section id="view-support-center" class="view"></section>
         <section id="view-messages" class="view"></section>
+        <section id="view-whats-new" class="view"></section>
         <section id="view-director-center" class="view"></section>
         <section id="view-resources" class="view"></section>
         <section id="view-settings" class="view"></section>
@@ -926,6 +932,24 @@
           </section>
           <section class="section-block admin-messages-panel" hidden>
             <div id="adminMessagesApp"></div>
+          </section>
+          <section class="section-block admin-templates-panel" hidden>
+            <div id="adminTemplatesApp"></div>
+          </section>
+          <section class="section-block admin-user-health-panel" hidden>
+            <div id="adminUserHealthApp"></div>
+          </section>
+          <section class="section-block admin-automations-panel" hidden>
+            <div id="adminAutomationsApp"></div>
+          </section>
+          <section class="section-block admin-changelog-panel" hidden>
+            <div id="adminChangelogApp"></div>
+          </section>
+          <section class="section-block admin-feature-requests-panel" hidden>
+            <div id="adminFeatureRequestsApp"></div>
+          </section>
+          <section class="section-block admin-bug-reports-panel" hidden>
+            <div id="adminBugReportsApp"></div>
           </section>
           <section class="section-block admin-feedback-panel" hidden>
             <div class="section-heading">
@@ -1488,9 +1512,10 @@
             </div>
           </section>
           <div class="support-grid">
-            <form id="contactSupportForm" class="panel-form support-form" data-ticket-kind="Support Request">
+            <form id="contactSupportForm" class="panel-form support-form" data-ticket-kind="Support Request" data-draft-form="contact-support" data-draft-scope="support">
               <p class="eyebrow">Contact Form</p>
               <h3>Submit Support Request</h3>
+              <p class="draft-status muted-copy" data-draft-status hidden></p>
               <label>Name<input name="name" required placeholder="Your name" /></label>
               <label>Email<input name="email" type="email" required placeholder="you@example.com" /></label>
               <label>Topic
@@ -1499,9 +1524,10 @@
               <label>Message<textarea name="message" rows="5" required placeholder="Tell us what you need help with."></textarea></label>
               <button class="primary-button" type="submit">Submit Support Request</button>
             </form>
-            <form id="featureRequestForm" class="panel-form support-form" data-ticket-kind="Feature Request">
+            <form id="featureRequestForm" class="panel-form support-form" data-ticket-kind="Feature Request" data-draft-form="feature-request" data-draft-scope="feature">
               <p class="eyebrow">Feature Request Form</p>
               <h3>Request a Feature</h3>
+              <p class="draft-status muted-copy" data-draft-status hidden></p>
               <label>Name<input name="name" required placeholder="Your name" /></label>
               <label>Email<input name="email" type="email" required placeholder="you@example.com" /></label>
               <label>Feature Area
@@ -1510,15 +1536,20 @@
               <label>Feature Details<textarea name="message" rows="5" required placeholder="Describe the feature you would like to see."></textarea></label>
               <button class="primary-button" type="submit">Submit Feature Request</button>
             </form>
-            <form id="bugReportForm" class="panel-form support-form" data-ticket-kind="Bug Report">
+            <form id="bugReportForm" class="panel-form support-form" data-ticket-kind="Bug Report" data-draft-form="bug-report" data-draft-scope="bug">
               <p class="eyebrow">Bug Report Form</p>
               <h3>Report a Bug</h3>
+              <p class="draft-status muted-copy" data-draft-status hidden></p>
               <label>Name<input name="name" required placeholder="Your name" /></label>
               <label>Email<input name="email" type="email" required placeholder="you@example.com" /></label>
               <label>Problem Area
                 <select name="topic"><option>Technical Problems</option><option>Documentation Helpers</option><option>Downloads</option><option>Login or Account</option><option>Billing or Subscription</option><option>Other</option></select>
               </label>
               <label>Bug Details<textarea name="message" rows="5" required placeholder="What happened? What were you trying to do?"></textarea></label>
+              <label>Screenshot URL (optional)<input name="screenshotUrl" type="url" placeholder="https://…" /></label>
+              <label>Screen recording URL (optional)<input name="recordingUrl" type="url" placeholder="https://…" /></label>
+              <input type="hidden" name="deviceInfo" value="" data-auto-device-info />
+              <input type="hidden" name="browserInfo" value="" data-auto-browser-info />
               <button class="primary-button" type="submit">Submit Bug Report</button>
             </form>
           </div>
@@ -1767,7 +1798,8 @@
         <p class="eyebrow">Need Help?</p>
         <h2 id="feedbackModalTitle">Send Feedback</h2>
         <p class="muted-copy">Report a bug, request a feature, ask a question, or share a suggestion. Leah receives these directly.</p>
-        <form class="panel-form" id="feedbackForm">
+        <form class="panel-form" id="feedbackForm" data-draft-form="feedback-modal" data-draft-scope="feedback">
+          <p class="draft-status muted-copy" data-draft-status hidden></p>
           <label>Type
             <select id="feedbackTypeInput" name="type" required>
               <option value="Bug">Report a Bug</option>
@@ -1814,6 +1846,7 @@
     <script src="scripts/llh-schedule.js?v=20260714-prod-priority-fixes" defer></script>
     <script src="scripts/llh-lesson-docx.js?v=20260714-lesson-docx" defer></script>
     <script src="scripts/lesson-plan-weekly-export.js?v=20260715-weekly-pdf-reg" defer></script>
-    <script src="app.js?v=20260716-curriculum-standards" defer></script>
+    <script src="app.js?v=20260716-comms" defer></script>
+    <script src="comms-center.js?v=20260716-comms" defer></script>
   </body>
 </html>

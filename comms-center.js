@@ -592,8 +592,8 @@
   // ─── 2. My Messages & Requests page ─────────────────────────────────────────
 
   const MESSAGES_TABS = Object.freeze([
-    { id: "inbox", label: "Inbox" },
     { id: "conversation", label: "Conversation" },
+    { id: "inbox", label: "Inbox" },
     { id: "sent", label: "Sent" },
     { id: "drafts", label: "Drafts" },
     { id: "support", label: "Support" },
@@ -601,10 +601,11 @@
     { id: "bugs", label: "Bugs" },
     { id: "archived", label: "Archived" },
     { id: "unread", label: "Unread" },
+    { id: "preferences", label: "Notification Settings" },
   ]);
 
   const myMessagesState = {
-    tab: "inbox",
+    tab: "conversation",
     loaded: false,
     loading: false,
     data: {
@@ -818,6 +819,7 @@
             <button type="button"
               class="messages-tab${tab === t.id ? " active" : ""}"
               data-messages-center-tab="${escapeHtml(t.id)}"
+              data-messages-tab="${escapeHtml(t.id)}"
               role="tab"
               aria-selected="${tab === t.id}">${escapeHtml(t.label)}${badge}</button>
           `;
@@ -849,12 +851,12 @@
       : emptyStateHtml("Message Support anytime", "Ask a question, report a bug, request a feature, or just say hello — Leah will reply here.");
     return `
       <div class="messages-conversation">
-        <div class="messages-thread" id="messagesCenterThread">${list}</div>
-        <form class="messages-reply-form" id="messagesCenterReplyForm"
+        <div class="messages-thread" id="messagesThread">${list}</div>
+        <form class="messages-reply-form" id="messagesReplyForm"
           data-draft-scope="message"
           data-draft-form="member-reply">
-          <label class="visually-hidden" for="messagesCenterReplyInput">Reply</label>
-          <textarea id="messagesCenterReplyInput" name="body" placeholder="Write a message to Leah…" maxlength="4000" rows="2"></textarea>
+          <label class="visually-hidden" for="messagesReplyInput">Reply</label>
+          <textarea id="messagesReplyInput" name="body" placeholder="Write a message to Leah…" maxlength="4000" rows="2"></textarea>
           <div class="messages-reply-actions">
             <span class="messages-draft-status" data-draft-status aria-live="polite"></span>
             <button type="submit" class="primary-button">Send</button>
@@ -1012,6 +1014,7 @@
       case "bugs": return renderBugsTab();
       case "archived": return renderArchivedTab();
       case "unread": return renderUnreadTab();
+      case "preferences": return renderNotificationSettingsSubSection();
       case "inbox":
       default: return renderInboxTab();
     }
@@ -1040,14 +1043,13 @@
               ? `<p class="messages-empty">${escapeHtml(myMessagesState.error)}</p>`
               : renderMessagesCenterPanel()}
         </div>
-        ${renderNotificationSettingsSubSection()}
       </div>
     `;
 
-    const thread = document.querySelector("#messagesCenterThread");
+    const thread = document.querySelector("#messagesThread");
     if (thread) thread.scrollTop = thread.scrollHeight;
 
-    const replyForm = document.querySelector("#messagesCenterReplyForm");
+    const replyForm = document.querySelector("#messagesReplyForm");
     if (replyForm) LLHDrafts.attach(replyForm);
   }
 
@@ -1909,9 +1911,9 @@
   document.addEventListener("submit", async (event) => {
     const form = event.target;
     if (!(form instanceof HTMLFormElement)) return;
-    if (form.id !== "messagesCenterReplyForm") return;
+    if (form.id !== "messagesReplyForm" && form.id !== "messagesCenterReplyForm") return;
     event.preventDefault();
-    const textarea = form.querySelector("#messagesCenterReplyInput, textarea[name='body']");
+    const textarea = form.querySelector("#messagesReplyInput, #messagesCenterReplyInput, textarea[name='body']");
     const body = String(textarea?.value || "").trim();
     if (!body) return;
     const submitBtn = form.querySelector("button[type='submit']");

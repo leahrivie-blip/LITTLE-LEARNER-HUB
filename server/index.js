@@ -10,6 +10,8 @@ const scheduleLib = require("./schedule-lib.js");
 const { createEmailEngagement, defaultEmailEngagementStore } = require("./email-engagement.js");
 const { createPushService } = require("./push-lib.js");
 const messagingLib = require("./messaging-lib.js");
+const { createCommsApi } = require("./comms-api.js");
+const commsLib = require("./comms-lib.js");
 
 loadEnvFile(path.join(__dirname, "..", ".env"));
 
@@ -372,6 +374,14 @@ function defaultStore() {
     notificationPreferences: {},
     pushDeliveryLog: [],
     pushConfig: {},
+    universalDrafts: [],
+    messageTemplates: [],
+    userTags: {},
+    userTimeline: [],
+    broadcastLog: [],
+    automations: [],
+    automationRuns: [],
+    archivedConversations: [],
   };
 }
 
@@ -7243,6 +7253,21 @@ async function handleSupportTicketCreate(request, response) {
   };
   store.supportTickets.unshift(ticket);
   store.supportTickets = store.supportTickets.slice(0, 1000);
+  try {
+    const { recordTimeline, notifyAdminsInApp } = getCommsApi();
+    recordTimeline(store, {
+      email: ticket.email,
+      type: "support_request",
+      title: ticket.topic || ticket.kind,
+      detail: ticket.message.slice(0, 400),
+    });
+    notifyAdminsInApp(store, {
+      type: "admin_new_support",
+      title: "New support request",
+      preview: ticket.topic || ticket.message.slice(0, 120),
+      refId: ticket.id,
+    }).catch(() => {});
+  } catch {}
   writeStore(store);
   let emailNotification = { sent: false, configured: false, provider: "not configured" };
   try {
@@ -8483,6 +8508,9 @@ function publicBugReport(item) {
     description: item.description,
     category: item.category,
     screenshotUrl: item.screenshotUrl || "",
+    recordingUrl: item.recordingUrl || "",
+    deviceInfo: item.deviceInfo || "",
+    browserInfo: item.browserInfo || "",
     email: item.email,
     name: item.name,
     status: item.status,
@@ -8540,6 +8568,8 @@ function publicReleaseNote(item) {
     featuresAdded: item.featuresAdded || [],
     bugsFixed: item.bugsFixed || [],
     improvements: item.improvements || [],
+    lessonPlanAdditions: item.lessonPlanAdditions || [],
+    activityAdditions: item.activityAdditions || [],
     status: item.status,
     createdAt: item.createdAt,
   };
@@ -8571,6 +8601,9 @@ async function handleBugReportCreate(request, response) {
     description,
     category: BUG_REPORT_CATEGORIES.has(rawCategory) ? rawCategory : "Other",
     screenshotUrl: String(body.screenshotUrl || "").slice(0, 1000),
+    recordingUrl: String(body.recordingUrl || "").slice(0, 1000),
+    deviceInfo: String(body.deviceInfo || "").slice(0, 500),
+    browserInfo: String(body.browserInfo || body.userAgent || "").slice(0, 500),
     email,
     name: String(body.name || "Provider").slice(0, 120),
     status: "New",
@@ -8582,6 +8615,21 @@ async function handleBugReportCreate(request, response) {
   };
   store.bugReports.unshift(report);
   store.bugReports = store.bugReports.slice(0, 1000);
+  try {
+    const { recordTimeline, notifyAdminsInApp } = getCommsApi();
+    recordTimeline(store, {
+      email,
+      type: "bug_report",
+      title: report.title,
+      detail: report.description.slice(0, 400),
+    });
+    notifyAdminsInApp(store, {
+      type: "admin_new_bug",
+      title: "New bug report",
+      preview: report.title,
+      refId: report.id,
+    }).catch(() => {});
+  } catch {}
   writeStore(store);
   // Admin notification (best-effort)
   notifyAdmin({
@@ -8656,9 +8704,7 @@ function handleBugReportsList(request, response, url) {
 
 // ─── Feature Request handlers ─────────────────────────────────────────────────
 
-const FEATURE_REQUEST_STATUSES = new Set([
-  "New", "Under Review", "Planned", "In Development", "Released", "Declined",
-]);
+const FEATURE_REQUEST_STATUSES = new Set(commsLib.FEATURE_REQUEST_STATUSES);
 
 async function handleFeatureRequestCreate(request, response) {
   const body = await readJson(request);
@@ -8688,6 +8734,21 @@ async function handleFeatureRequestCreate(request, response) {
   };
   store.featureRequests.unshift(item);
   store.featureRequests = store.featureRequests.slice(0, 1000);
+  try {
+    const { recordTimeline, notifyAdminsInApp } = getCommsApi();
+    recordTimeline(store, {
+      email,
+      type: "feature_request",
+      title: item.title,
+      detail: item.description.slice(0, 400),
+    });
+    notifyAdminsInApp(store, {
+      type: "admin_new_feature",
+      title: "New feature request",
+      preview: item.title,
+      refId: item.id,
+    }).catch(() => {});
+  } catch {}
   writeStore(store);
   notifyAdmin({
     kind: "Feature Request",
@@ -8744,9 +8805,11 @@ async function handleFeatureRequestUpdate(request, response) {
     return;
   }
   const rawStatus = body.status ? String(body.status).slice(0, 40) : "";
+  const previousStatus = items[index].status;
+  const nextStatus = rawStatus ? commsLib.normalizeFeatureStatus(rawStatus) : items[index].status;
   items[index] = {
     ...items[index],
-    status: rawStatus && FEATURE_REQUEST_STATUSES.has(rawStatus) ? rawStatus : items[index].status,
+    status: FEATURE_REQUEST_STATUSES.has(nextStatus) ? nextStatus : items[index].status,
     updatedAt: new Date().toISOString(),
   };
   if (body.adminNote) {
@@ -8770,6 +8833,17 @@ async function handleFeatureRequestUpdate(request, response) {
   }
   store.featureRequests = items;
   writeStore(store);
+  const reporterEmail = normalizeEmail(items[index].email || "");
+  if (reporterEmail && items[index].status !== previousStatus) {
+    const messagingStore = ensureMessagingStore(readStore());
+    await fanOutNotificationsAndPush(messagingStore, {
+      type: "feature_status",
+      recipients: [reporterEmail],
+      title: "Feature request update",
+      preview: `Status: ${items[index].status}`,
+      refId: id,
+    }).catch((error) => console.warn("[messaging] feature status notification failed:", error.message));
+  }
   jsonResponse(response, 200, { featureRequest: publicFeatureRequest(items[index]) });
 }
 
@@ -8826,6 +8900,26 @@ async function handleFeedbackCreate(request, response) {
   };
   store.feedbackItems.unshift(item);
   store.feedbackItems = store.feedbackItems.slice(0, 1000);
+  try {
+    const { recordTimeline, notifyAdminsInApp } = getCommsApi();
+    recordTimeline(store, {
+      email,
+      type: "feedback",
+      title: item.subject || item.type,
+      detail: item.message.slice(0, 400),
+    });
+    const adminType = item.type === "Bug" || item.type === "Problem"
+      ? "admin_new_bug"
+      : item.type === "Feature Request" || item.type === "Missing Feature"
+        ? "admin_new_feature"
+        : "admin_new_support";
+    notifyAdminsInApp(store, {
+      type: adminType,
+      title: `New ${item.type}`,
+      preview: item.subject || item.message.slice(0, 120),
+      refId: item.id,
+    }).catch(() => {});
+  } catch {}
   writeStore(store);
   notifyAdmin({
     kind: "Feedback",
@@ -9381,27 +9475,78 @@ async function handleAdminMessageSend(request, response) {
   };
   store.messages.unshift(message);
   store.messages = capArray(store.messages, MAX_MESSAGES);
+
+  const deliverVia = commsLib.BROADCAST_DELIVERY.includes(body.deliverVia) ? body.deliverVia : "in_app";
+  message.deliverVia = deliverVia;
+
+  try {
+    const { recordTimeline, logBroadcast } = getCommsApi();
+    if (audience === "private" && toEmail) {
+      recordTimeline(store, {
+        email: toEmail,
+        type: "message_received",
+        title: subject || "Message from Leah",
+        detail: messageBody.slice(0, 400),
+      });
+    }
+    if (audience !== "private") {
+      logBroadcast(store, {
+        audience,
+        kind,
+        subject,
+        recipientCount: recipients.length,
+        delivery: deliverVia,
+        messageId: message.id,
+        preview: messagePreviewText(messageBody),
+      });
+    }
+  } catch {}
   writeStore(store);
 
-  const notificationType = kind === "feature_update"
-    ? "feature_update"
-    : kind === "announcement"
-      ? "announcement"
-      : "message";
-  const summary = await fanOutNotificationsAndPush(store, {
-    type: notificationType,
-    recipients,
-    title: audience === "private" ? "New message from Leah" : (subject || "Little Learner Hub"),
-    preview: messagePreviewText(messageBody),
-    messageId: message.id,
-    conversationEmail: message.conversationEmail,
-    senderName: ADMIN_NAME || "Leah",
-  });
+  let summary = { targeted: 0, sent: 0, failed: 0, skipped: 0 };
+  if (deliverVia === "in_app" || deliverVia === "both") {
+    const notificationType = kind === "feature_update"
+      ? "feature_update"
+      : kind === "announcement"
+        ? "announcement"
+        : "message";
+    summary = await fanOutNotificationsAndPush(store, {
+      type: notificationType,
+      recipients,
+      title: audience === "private" ? "New message from Leah" : (subject || "Little Learner Hub"),
+      preview: messagePreviewText(messageBody),
+      messageId: message.id,
+      conversationEmail: message.conversationEmail,
+      senderName: ADMIN_NAME || "Leah",
+    });
+  }
+
+  let emailSummary = { attempted: 0, sent: 0, failed: 0 };
+  if (deliverVia === "email" || deliverVia === "both") {
+    for (const recipient of recipients.slice(0, 500)) {
+      emailSummary.attempted += 1;
+      try {
+        const result = await sendEmail({
+          to: recipient,
+          replyTo: SUPPORT_EMAIL_TO,
+          subject: subject || "Message from Little Learner Hub",
+          text: `${messageBody}\n\n— ${ADMIN_NAME || "Leah"}\nLittle Learner Hub`,
+          html: `<p>${String(messageBody).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</p><p>— ${ADMIN_NAME || "Leah"}<br>Little Learner Hub</p>`,
+        });
+        if (result?.sent) emailSummary.sent += 1;
+        else emailSummary.failed += 1;
+      } catch {
+        emailSummary.failed += 1;
+      }
+    }
+  }
 
   const store2 = readStore();
   const index = store2.messages.findIndex((m) => m.id === message.id);
   if (index >= 0) {
     store2.messages[index].pushSummary = summary;
+    store2.messages[index].emailSummary = emailSummary;
+    store2.messages[index].deliverVia = deliverVia;
     writeStore(store2);
   }
 
@@ -9410,6 +9555,8 @@ async function handleAdminMessageSend(request, response) {
     message: publicMessage({ ...message, pushSummary: summary }),
     recipientCount: recipients.length,
     pushSummary: summary,
+    emailSummary,
+    deliverVia,
   });
 }
 
@@ -9605,6 +9752,22 @@ async function handleMemberMessageReply(request, response) {
   };
   store.messages.unshift(message);
   store.messages = capArray(store.messages, MAX_MESSAGES);
+  try {
+    const { recordTimeline, notifyAdminsInApp } = getCommsApi();
+    recordTimeline(store, {
+      email: identity.email,
+      type: "message_sent",
+      title: "Message to Leah",
+      detail: messageBody.slice(0, 400),
+    });
+    notifyAdminsInApp(store, {
+      type: "admin_new_message",
+      title: `Message from ${message.senderName}`,
+      preview: messagePreviewText(messageBody),
+      refId: message.id,
+      conversationEmail: identity.email,
+    }).catch(() => {});
+  } catch {}
   writeStore(store);
 
   // Admin does not receive push (no admin device model) — the admin dashboard
@@ -10042,6 +10205,8 @@ async function handleReleaseNoteCreate(request, response) {
     featuresAdded: toArray(body.featuresAdded),
     bugsFixed: toArray(body.bugsFixed),
     improvements: toArray(body.improvements),
+    lessonPlanAdditions: toArray(body.lessonPlanAdditions),
+    activityAdditions: toArray(body.activityAdditions),
     status: RELEASE_NOTE_STATUSES.has(rawStatus) ? rawStatus : "draft",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -10075,6 +10240,8 @@ async function handleReleaseNoteUpdate(request, response) {
     featuresAdded: toArray(body.featuresAdded) ?? items[index].featuresAdded,
     bugsFixed: toArray(body.bugsFixed) ?? items[index].bugsFixed,
     improvements: toArray(body.improvements) ?? items[index].improvements,
+    lessonPlanAdditions: toArray(body.lessonPlanAdditions) ?? items[index].lessonPlanAdditions,
+    activityAdditions: toArray(body.activityAdditions) ?? items[index].activityAdditions,
     status: rawStatus && RELEASE_NOTE_STATUSES.has(rawStatus) ? rawStatus : items[index].status,
     updatedAt: new Date().toISOString(),
   };
@@ -10097,8 +10264,39 @@ function handleReleaseNotesList(request, response, url) {
 }
 
 
+// ─── Communication ecosystem API (drafts, message center, tags, health, …) ───
+let _commsApi;
+function getCommsApi() {
+  if (!_commsApi) {
+    _commsApi = createCommsApi({
+      readStore,
+      writeStore,
+      ensureMessagingStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      validAdminToken,
+      resolveMemberIdentity,
+      fanOutNotificationsAndPush,
+      notifyAdmin,
+      messagingCenter,
+      messagingLib,
+      membershipAccess,
+      accountAccess,
+      ADMIN_EMAIL,
+      ADMIN_NAME,
+      sendEmail,
+      SUPPORT_EMAIL_TO,
+      publicMessage,
+      publicNotification,
+    });
+  }
+  return _commsApi;
+}
+
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, SITE_URL);
+  const comms = getCommsApi();
   try {
     if (request.method === "POST" && url.pathname === "/api/admin/login") return await handleAdminLogin(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/session") return handleAdminSession(request, response, url);
@@ -10154,6 +10352,24 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/announcement-update") return await handleAnnouncementUpdate(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/announcements") return handleAnnouncementsList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/announcements") return handleAnnouncementsList(request, response, url);
+    // Communication ecosystem — drafts, message center, templates, tags, health
+    if (request.method === "GET" && url.pathname === "/api/drafts") return await comms.handleDraftsGet(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/drafts") return await comms.handleDraftsSave(request, response);
+    if ((request.method === "DELETE" && url.pathname === "/api/drafts") || (request.method === "POST" && url.pathname === "/api/drafts/delete")) {
+      return await comms.handleDraftsDelete(request, response);
+    }
+    if (request.method === "GET" && url.pathname === "/api/messages/center") return await comms.handleMessageCenter(request, response);
+    if (request.method === "POST" && url.pathname === "/api/messages/archive") return await comms.handleArchiveConversation(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/message-templates") return comms.handleTemplatesGet(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/message-templates") return await comms.handleTemplatesSave(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/message-templates/delete") return await comms.handleTemplatesDelete(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/user-tags") return comms.handleUserTagsGet(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/user-tags") return await comms.handleUserTagsSet(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/user-timeline") return comms.handleUserTimelineGet(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/user-health") return comms.handleUserHealthGet(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/automations") return comms.handleAutomationsGet(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/automations") return await comms.handleAutomationsSave(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/broadcast-log") return comms.handleBroadcastLogGet(request, response, url);
     // Member Messaging Center — admin composer + delivery
     if (request.method === "POST" && url.pathname === "/api/admin/messages/preview") return await handleAdminMessagePreview(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/messages/send") return await handleAdminMessageSend(request, response);

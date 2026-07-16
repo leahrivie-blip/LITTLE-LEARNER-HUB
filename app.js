@@ -3853,7 +3853,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","reviews","founder","images","analytics","support","feedback","emails","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-compose","messages-conversations"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","reviews","founder","images","analytics","support","feedback","emails","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-compose","messages-conversations","message-templates","user-health","automations","changelog","feature-requests","bug-reports"]);
 // FUTURE ADMIN BUILD: lessonPlanResourceCategories is currently hardcoded.
 // A future admin section should allow adding, renaming, and reordering these category labels
 // so new upload categories can be managed without a code change.
@@ -3867,13 +3867,13 @@ if (adminActiveSectionTab === "activities") adminActiveSectionTab = "curriculum-
 
 // ─── Admin 2.0 Navigation Groups ─────────────────────────────────────────────
 const adminGroups = [
-  { id: "dashboard", icon: "🏠", label: "Dashboard",  tabs: ["dashboard", "analytics", "support", "feedback", "emails"], defaultTab: "dashboard" },
-  { id: "messages",  icon: "💬", label: "Messages",   tabs: ["messages-compose", "messages-conversations"], defaultTab: "messages-compose" },
+  { id: "dashboard", icon: "🏠", label: "Dashboard",  tabs: ["dashboard", "analytics", "support", "feedback", "feature-requests", "bug-reports", "emails"], defaultTab: "dashboard" },
+  { id: "messages",  icon: "💬", label: "Messages",   tabs: ["messages-compose", "messages-conversations", "message-templates", "automations"], defaultTab: "messages-compose" },
   { id: "content",   icon: "📚", label: "Content",    tabs: ["curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "reviews", "founder", "resources"], defaultTab: "curriculum-lesson-plans" },
   { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
-  { id: "users",     icon: "👥", label: "Users",      tabs: ["users", "stripe-backfill"], defaultTab: "users" },
+  { id: "users",     icon: "👥", label: "Users",      tabs: ["users", "user-health", "stripe-backfill"], defaultTab: "users" },
   { id: "settings",  icon: "⚙️", label: "Settings",   tabs: ["images"], defaultTab: "images" },
-  { id: "site-editor", icon: "✏️", label: "Site Editor", tabs: ["hero", "trust", "journey", "reviews-cta", "founding", "pricing", "faqs", "announcement", "upgrade-msg"], defaultTab: "hero" },
+  { id: "site-editor", icon: "✏️", label: "Site Editor", tabs: ["hero", "trust", "journey", "reviews-cta", "founding", "pricing", "faqs", "announcement", "upgrade-msg", "changelog"], defaultTab: "hero" },
   { id: "ai",        icon: "🤖", label: "AI",         tabs: ["prompts", "settings", "usage", "ai-testing"], defaultTab: "prompts" },
 ];
 const adminGroupForTab = {
@@ -3881,9 +3881,13 @@ const adminGroupForTab = {
   "analytics":   "dashboard",
   "support":     "dashboard",
   "feedback":    "dashboard",
+  "feature-requests": "dashboard",
+  "bug-reports": "dashboard",
   "emails":      "dashboard",
   "messages-compose": "messages",
   "messages-conversations": "messages",
+  "message-templates": "messages",
+  "automations": "messages",
   "curriculum-lesson-plans": "content",
   "curriculum-activities": "content",
   "curriculum-resources": "content",
@@ -3894,12 +3898,14 @@ const adminGroupForTab = {
   "resources":   "content",
   "visibility":  "visibility",
   "users":       "users",
+  "user-health": "users",
   "stripe-backfill": "users",
   "images":      "settings",
   "pricing":     "site-editor",
   "faqs":        "site-editor",
   "announcement":"site-editor",
   "upgrade-msg": "site-editor",
+  "changelog":   "site-editor",
   "hero":        "site-editor",
   "trust":       "site-editor",
   "journey":     "site-editor",
@@ -3915,9 +3921,13 @@ const adminTabLabels = {
   "analytics":   "Analytics",
   "support":     "Support",
   "feedback":    "Feedback",
+  "feature-requests": "Feature Requests",
+  "bug-reports": "Bug Reports",
   "emails":      "Emails",
   "messages-compose": "Compose",
   "messages-conversations": "Conversations",
+  "message-templates": "Templates",
+  "automations": "Automations",
   "curriculum-lesson-plans": "Play-Based Lessons",
   "curriculum-activities": "Curriculum Activities",
   "curriculum-resources": "Curriculum Resources",
@@ -3928,6 +3938,7 @@ const adminTabLabels = {
   "resources":   "Legacy File Uploads",
   "visibility":  "Visibility",
   "users":       "Users",
+  "user-health": "User Health",
   "stripe-backfill": "Stripe Backfill",
   "images":      "Images",
   "pricing":     "Pricing",
@@ -9639,6 +9650,13 @@ function renderAdminMessagesCompose(container) {
           ${kindOptions.map(([value, label]) => `<option value="${value}" ${s.kind === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
         </select>
       </label>
+      <label ${s.audience === "private" ? "hidden" : ""}>Delivery
+        <select name="deliverVia" id="adminMessagesDeliverVia">
+          <option value="in_app" ${s.deliverVia === "in_app" || !s.deliverVia ? "selected" : ""}>In-app only</option>
+          <option value="email" ${s.deliverVia === "email" ? "selected" : ""}>Email only</option>
+          <option value="both" ${s.deliverVia === "both" ? "selected" : ""}>In-app + Email</option>
+        </select>
+      </label>
       <label>Subject ${s.audience === "private" ? "(optional)" : ""}
         <input type="text" name="subject" value="${escapeHtml(s.subject)}" maxlength="300" placeholder="${s.audience === "private" ? "e.g. Welcome!" : "e.g. New lesson plans added 🎉"}" />
       </label>
@@ -9789,7 +9807,8 @@ document.addEventListener("submit", async (event) => {
   const subject = String(form.subject?.value || "").trim();
   const body = String(form.body?.value || "").trim();
   const kind = String(form.kind?.value || "message");
-  Object.assign(adminMessagesState, { audience, toEmail, selectedEmails, subject, body, kind });
+  const deliverVia = String(form.deliverVia?.value || "in_app");
+  Object.assign(adminMessagesState, { audience, toEmail, selectedEmails, subject, body, kind, deliverVia });
   if (!body) { setFormMessage(messageEl, "Write a message before sending.", false); return; }
   if (audience === "private" && !toEmail) { setFormMessage(messageEl, "Enter the user's email.", false); return; }
   if (audience === "selected" && !selectedEmails.length) { setFormMessage(messageEl, "Enter at least one user email.", false); return; }
@@ -9798,9 +9817,9 @@ document.addEventListener("submit", async (event) => {
   if (submitBtn) submitBtn.disabled = true;
   try {
     if (audience === "private") {
-      const result = await adminMessagesSend({ audience, toEmail, subject, body, kind });
+      const result = await adminMessagesSend({ audience, toEmail, subject, body, kind, deliverVia });
       if (!result.ok) throw new Error(result.error || "Could not send message.");
-      Object.assign(adminMessagesState, { toEmail: "", subject: "", body: "", kind: "message" });
+      Object.assign(adminMessagesState, { toEmail: "", subject: "", body: "", kind: "message", deliverVia: "in_app" });
       renderAdminMessagesCompose(document.querySelector("#adminMessagesApp"));
       setFormMessage(document.querySelector("#adminMessagesComposeMessage"), `✅ Message sent to ${toEmail}.`, true);
     } else {
@@ -9811,15 +9830,15 @@ document.addEventListener("submit", async (event) => {
       if (preview.error) throw new Error(preview.error);
       const confirmed = await confirmAction({
         title: `Send to ${preview.audienceLabel}?`,
-        message: `This will notify exactly ${preview.recipientCount} recipient${preview.recipientCount === 1 ? "" : "s"}.\n\nMessage preview:\n"${preview.messagePreview}"\n\nThis cannot be undone.`,
+        message: `This will notify exactly ${preview.recipientCount} recipient${preview.recipientCount === 1 ? "" : "s"} via ${deliverVia}.\n\nMessage preview:\n"${preview.messagePreview}"\n\nThis cannot be undone.`,
         confirmLabel: `Send to ${preview.recipientCount}`,
         cancelLabel: "Cancel",
         danger: preview.recipientCount > 20,
       });
       if (!confirmed) { setFormMessage(messageEl, "Send canceled — nothing was sent.", true); return; }
-      const result = await adminMessagesSend({ audience, toEmail, selectedEmails, subject, body, kind, confirm: true });
+      const result = await adminMessagesSend({ audience, toEmail, selectedEmails, subject, body, kind, deliverVia, confirm: true });
       if (!result.ok) throw new Error(result.error || "Could not send message.");
-      Object.assign(adminMessagesState, { subject: "", body: "", selectedEmails: [], kind: "message" });
+      Object.assign(adminMessagesState, { subject: "", body: "", selectedEmails: [], kind: "message", deliverVia: "in_app" });
       renderAdminMessagesCompose(document.querySelector("#adminMessagesApp"));
       setFormMessage(document.querySelector("#adminMessagesComposeMessage"), `✅ Sent to ${result.recipientCount} recipient${result.recipientCount === 1 ? "" : "s"}.`, true);
     }
@@ -10208,6 +10227,7 @@ function setView(view, options = {}) {
   if (resolvedView === "children") renderChildManagement();
   if (resolvedView === "support-center") renderSupportCenterPage();
   if (resolvedView === "messages") renderMessagesPage(options);
+  if (resolvedView === "whats-new" && typeof window.renderChangelogPage === "function") window.renderChangelogPage();
   if (resolvedView === "director-center") renderDirectorCenterPage();
   if (resolvedView === "resources") renderResourcesHubPage();
   if (resolvedView === "settings") {
@@ -34729,6 +34749,12 @@ function applyAdminSectionVisibility() {
     ".admin-stripe-backfill-panel",
     ".admin-site-editor-panel",
     ".admin-messages-panel",
+    ".admin-templates-panel",
+    ".admin-user-health-panel",
+    ".admin-automations-panel",
+    ".admin-changelog-panel",
+    ".admin-feature-requests-panel",
+    ".admin-bug-reports-panel",
   ];
 
   topSelectors.forEach((sel) => {
@@ -34765,6 +34791,18 @@ function applyAdminSectionVisibility() {
     const el = document.querySelector(".admin-feedback-panel");
     if (el) el.hidden = false;
     renderAdminFeedbackCenter();
+  } else if (tab === "feature-requests") {
+    const el = document.querySelector(".admin-feature-requests-panel");
+    if (el) el.hidden = false;
+    if (typeof window.renderAdminFeatureRequests === "function") {
+      window.renderAdminFeatureRequests(document.querySelector("#adminFeatureRequestsApp"));
+    }
+  } else if (tab === "bug-reports") {
+    const el = document.querySelector(".admin-bug-reports-panel");
+    if (el) el.hidden = false;
+    if (typeof window.renderAdminBugReports === "function") {
+      window.renderAdminBugReports(document.querySelector("#adminBugReportsApp"));
+    }
   } else if (tab === "emails") {
     const el = document.querySelector(".admin-emails-panel");
     if (el) el.hidden = false;
@@ -34800,6 +34838,12 @@ function applyAdminSectionVisibility() {
     const el = document.querySelector(".admin-users-panel");
     if (el) el.hidden = false;
     renderAdminUsersDashboard();
+  } else if (tab === "user-health") {
+    const el = document.querySelector(".admin-user-health-panel");
+    if (el) el.hidden = false;
+    if (typeof window.renderAdminUserHealth === "function") {
+      window.renderAdminUserHealth(document.querySelector("#adminUserHealthApp"));
+    }
   } else if (tab === "stripe-backfill") {
     const el = document.querySelector(".admin-stripe-backfill-panel");
     if (el) el.hidden = false;
@@ -34808,10 +34852,28 @@ function applyAdminSectionVisibility() {
     const el = document.querySelector(".admin-site-editor-panel");
     if (el) el.hidden = false;
     renderAdminSiteEditorSection(tab);
+  } else if (tab === "changelog") {
+    const el = document.querySelector(".admin-changelog-panel");
+    if (el) el.hidden = false;
+    if (typeof window.renderAdminChangelogEditor === "function") {
+      window.renderAdminChangelogEditor(document.querySelector("#adminChangelogApp"));
+    }
   } else if (tab === "messages-compose" || tab === "messages-conversations") {
     const el = document.querySelector(".admin-messages-panel");
     if (el) el.hidden = false;
     renderAdminMessagesCenter(tab);
+  } else if (tab === "message-templates") {
+    const el = document.querySelector(".admin-templates-panel");
+    if (el) el.hidden = false;
+    if (typeof window.renderAdminMessageTemplates === "function") {
+      window.renderAdminMessageTemplates(document.querySelector("#adminTemplatesApp"));
+    }
+  } else if (tab === "automations") {
+    const el = document.querySelector(".admin-automations-panel");
+    if (el) el.hidden = false;
+    if (typeof window.renderAdminAutomations === "function") {
+      window.renderAdminAutomations(document.querySelector("#adminAutomationsApp"));
+    }
   }
 }
 
