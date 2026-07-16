@@ -132,6 +132,8 @@ notification. Messaging announcements and the bell are a separate system.
 - Private message: *"Little Learner Hub — Leah sent you a new message."*
 - Announcement: title = the announcement's subject (e.g. "New lesson plans
   added 🎉"), body = *"Open Little Learner Hub to see what's new."*
+- Feature update: title = the update subject, body = *"A feature update is
+  ready — open the app to see what's new."*
 - Support reply: *"Little Learner Hub — Your support request has an
   update."*
 - Bug-fix update: *"Little Learner Hub — There's an update on a bug you
