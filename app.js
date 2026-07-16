@@ -3787,6 +3787,7 @@ const adminOwnerMobileDefaultCollapsed = typeof window !== "undefined"
   && typeof window.matchMedia === "function"
   && window.matchMedia("(max-width: 1100px)").matches;
 let adminOwnerSectionsOpen = {
+  traffic: true,
   inventory: true,
   billing: !adminOwnerMobileDefaultCollapsed,
   usage: !adminOwnerMobileDefaultCollapsed,
@@ -18595,7 +18596,18 @@ async function openResourceViewer(resourceId, options = {}) {
     }
   }
   updateResourceViewerBackButton();
-  trackEvent("resource_view", { resourceId, title: resource.title, category: resource.category, age: resource.age, access: resource.plan, plan: currentPlan });
+  const viewDetail = {
+    resourceId,
+    title: resource.title,
+    category: resource.category,
+    age: resource.age,
+    access: resource.plan,
+    plan: currentPlan,
+  };
+  trackEvent("resource_view", viewDetail);
+  if (/lesson/i.test(String(resource.category || "")) || resource._curriculumManaged && resource.category === "Lesson Plans") {
+    trackEvent("lesson_plan_view", viewDetail);
+  }
 }
 
 function resolveLessonLibraryBackView() {
@@ -20960,12 +20972,14 @@ async function assignScheduleLessonPlan({
       : `Assigned “${item.lessonPlanTitle}” to the week of ${item.weekStartDate}.`,
     isSuccess: true,
   };
-  trackEvent("schedule_assign_lesson", {
+  const assignDetail = {
     weekStartDate: item.weekStartDate,
     lessonPlanId: item.lessonPlanId,
     plan: item.lessonPlanPlan,
     replaced: Boolean(existing),
-  });
+  };
+  trackEvent("schedule_assign_lesson", assignDetail);
+  trackEvent("lesson_plan_added_to_calendar", assignDetail);
   return item;
 }
 
@@ -21396,12 +21410,14 @@ async function assignCurriculumLessonPlanToWeek({
       : `Assigned “${assignment.lessonPlanTitle}” to the week of ${assignment.weekStartDate}.`,
     isSuccess: true,
   };
-  trackEvent("curriculum_planner_assign", {
+  const plannerAssignDetail = {
     weekStartDate: assignment.weekStartDate,
     lessonPlanId: assignment.lessonPlanId,
     plan: assignment.lessonPlanPlan,
     replaced: Boolean(existing),
-  });
+  };
+  trackEvent("curriculum_planner_assign", plannerAssignDetail);
+  trackEvent("lesson_plan_added_to_calendar", plannerAssignDetail);
   return assignment;
 }
 
@@ -32652,13 +32668,31 @@ function renderAdminOwnerOverview() {
     </div>
     ${renderAccessDebugPanel()}
     <nav class="admin-owner-jump" aria-label="Jump to dashboard sections">
+      <a href="#adminOwnerTraffic" data-admin-owner-jump="traffic">Traffic &amp; Signups</a>
       <a href="#adminOwnerInventory" data-admin-owner-jump="inventory">Account Inventory</a>
       <a href="#adminOwnerBilling" data-admin-owner-jump="billing">Billing Health</a>
-      <a href="#adminOwnerUsage" data-admin-owner-jump="usage">Platform Usage</a>
+      <a href="#adminOwnerUsage" data-admin-owner-jump="usage">Who’s Active</a>
       <a href="#adminOwnerRecent" data-admin-owner-jump="recent">Recent</a>
       ${adminOwnerDrilldown.metricKey ? `<a href="#adminOwnerDrilldown" data-admin-owner-jump="drilldown">Open Drill-down</a>` : ""}
     </nav>
     ${renderAdminOwnerDrilldownPanel()}
+    <details class="admin-owner-collapse" id="adminOwnerTraffic" data-admin-owner-section="traffic" ${sectionOpen("traffic") ? "open" : ""}>
+      <summary class="admin-owner-collapse-summary">
+        <div>
+          <p class="eyebrow">Traffic</p>
+          <h3>Viewers, visits &amp; signups</h3>
+        </div>
+        <span class="admin-owner-collapse-hint">Tap to expand or collapse</span>
+      </summary>
+      <div class="admin-owner-grid">
+        ${adminMetric("Unique Viewers", totals.uniqueVisitors ?? "—", "Distinct browsers / devices")}
+        ${adminMetric("Session Visits", totals.sessionVisits ?? totals.visitors ?? "—", "Website opens")}
+        ${adminMetric("Page Views", totals.pageViewCount ?? "—", "Pages opened inside the app")}
+        ${adminMetric("Returning Viewers", totals.returningVisitors ?? "—", "Came back on another day")}
+        ${adminMetric("Signup Completions", totals.signups ?? "—", "account_signup_complete events")}
+        ${adminMetric("Registered Users", totals.totalRegisteredUsers ?? accountRows.length, "", "total-users")}
+      </div>
+    </details>
     <details class="admin-owner-collapse" id="adminOwnerInventory" data-admin-owner-section="inventory" ${sectionOpen("inventory") ? "open" : ""}>
       <summary class="admin-owner-collapse-summary">
         <div>
@@ -32687,13 +32721,12 @@ function renderAdminOwnerOverview() {
         <span class="admin-owner-collapse-hint">Tap to expand or collapse</span>
       </summary>
       <div class="admin-owner-grid">
-        ${adminMetric("Active", totals.activeSubscriptions ?? totals.paidUsers ?? "—", "", "billing-active")}
-        ${adminMetric("Trial", totals.trialUsers ?? "—", "", "billing-trial")}
-        ${adminMetric("Founding", totals.foundingMembers ?? "—", "", "billing-founding")}
+        ${adminMetric("Billing Active", totals.activeSubscriptions ?? totals.paidUsers ?? "—", "Not canceling / not ended", "billing-active")}
+        ${adminMetric("Trial Access", totals.trialUsers ?? "—", "", "billing-trial")}
+        ${adminMetric("Founding Access", totals.foundingMembers ?? "—", "", "billing-founding")}
         ${adminMetric("Canceling", totals.cancelingSubscriptions ?? "—", "", "billing-canceling")}
         ${adminMetric("Canceled / Ended", totals.canceledSubscriptions ?? "—", "", "billing-canceled")}
-        ${adminMetric("Past Due", totals.pastDueUsers ?? "—", "", "billing-past-due")}
-        ${adminMetric("Failed Payment", totals.failedPayments ?? "—", "", "billing-past-due")}
+        ${adminMetric("Past Due / Failed", totals.pastDueUsers ?? totals.failedPayments ?? "—", "", "billing-past-due")}
         ${adminMetric("Open Support", totals.openSupportTickets ?? openTickets.length, "Opens Support tab", "open-support")}
       </div>
     </details>
@@ -32701,12 +32734,12 @@ function renderAdminOwnerOverview() {
       <summary class="admin-owner-collapse-summary">
         <div>
           <p class="eyebrow">Activity &amp; Growth</p>
-          <h3>How people are using Little Learner Hub</h3>
+          <h3>Who’s active and what they’re using</h3>
         </div>
         <span class="admin-owner-collapse-hint">Tap to expand or collapse</span>
       </summary>
       <div class="admin-owner-grid">
-        ${adminMetric("Active Today", totals.activeUsersToday ?? "—", "", "active-today")}
+        ${adminMetric("Active Today", totals.activeUsersToday ?? "—", "Logged in or used the app today", "active-today")}
         ${adminMetric("Active This Week", totals.activeUsersWeek ?? "—", "", "active-week")}
         ${adminMetric("Active This Month", totals.activeUsersMonth ?? "—", "", "active-month")}
         ${adminMetric("New Users Week", totals.newUsersWeek ?? "—", "", "new-users-week")}
@@ -32718,7 +32751,7 @@ function renderAdminOwnerOverview() {
         ${adminMetric("Daily Logs", totals.dailyLogsCreated ?? "—")}
         ${adminMetric("Incident Reports", totals.incidentReportsCreated ?? "—")}
         ${adminMetric("Parent Messages", totals.parentMessagesGenerated ?? "—")}
-        ${adminMetric("Forms Submitted", totals.formsSubmitted ?? "—")}
+        ${adminMetric("Forms / Feedback", totals.formsSubmitted ?? "—")}
         ${adminMetric("Open Feedback", totals.openFeedback ?? openFeedback, "Opens Feedback tab", "open-feedback")}
       </div>
     </details>
@@ -33046,27 +33079,31 @@ function localAnalyticsSummary() {
   const accountRows = allAccountsList();
   const leadRows = leads();
   const pageViews = events.filter((event) => event.name === "page_view");
-  const visits = events.filter((event) => event.name === "website_visit" || event.name === "page_view");
+  const sessionVisits = events.filter((event) => event.name === "website_visit");
+  const trafficEvents = events.filter((event) => event.name === "website_visit" || event.name === "page_view");
   const signups = events.filter((event) => event.name === "account_signup_complete");
   const paidEvents = events.filter((event) => event.name === "checkout_success");
   const paidUsers = accountRows.filter((account) => adminMembershipHasProAccess(account));
-  const visitorIds = new Set(visits.map((event) => event.visitorId || event.user || event.sessionId).filter(Boolean));
+  const visitorIds = new Set(trafficEvents.map((event) => event.visitorId || event.user || event.sessionId).filter(Boolean));
   const visitorDays = {};
-  visits.forEach((event) => {
+  trafficEvents.forEach((event) => {
     const id = event.visitorId || event.user || event.sessionId || "unknown";
     visitorDays[id] = visitorDays[id] || new Set();
     visitorDays[id].add(dateKey(event.createdAt));
   });
   const returningVisitors = Object.values(visitorDays).filter((days) => days.size > 1).length;
   const revenueEvents = paidEvents;
-  const featureEvents = events.filter((event) => ["button_click", "ai_generation_success", "resource_view", "resource_print", "generated_pdf", "generated_print", "provider_tool_pdf", "checkout_start", "checkout_success"].includes(event.name));
+  const featureEvents = events.filter((event) => ["button_click", "ai_generation_success", "resource_view", "resource_print", "generated_pdf", "generated_print", "provider_tool_pdf", "checkout_start", "checkout_success", "schedule_assign_lesson", "lesson_plan_added_to_calendar", "observation_created", "parent_message_generated"].includes(event.name));
+  const activeMonth = accountRows.filter((account) => adminIsWithinDays(account.lastSeenAt || account.lastLoginAt, 30)).length;
   return {
     mode: "Local browser history",
     updatedAt: new Date().toISOString(),
     totals: {
-      visitors: visits.length,
+      visitors: sessionVisits.length,
+      sessionVisits: sessionVisits.length,
+      pageViewCount: pageViews.length,
       uniqueVisitors: visitorIds.size,
-      signups: Math.max(signups.length, accountRows.length),
+      signups: signups.length,
       totalRegisteredUsers: accountRows.length,
       freeUsers: accountRows.filter((account) => adminCurrentAccessKey(account) === "free").length,
       trialUsers: accountRows.filter((account) => adminCurrentAccessKey(account) === "trial").length,
@@ -33074,19 +33111,21 @@ function localAnalyticsSummary() {
       foundingMembers: accountRows.filter((account) => adminCurrentAccessKey(account) === "founding").length,
       paidUsers: paidUsers.length,
       activeSubscriptions: accountRows.filter((account) => adminBillingStatusKey(account) === "active").length,
+      activeUsersMonth: activeMonth,
       cancelingSubscriptions: accountRows.filter((account) => adminBillingStatusKey(account) === "canceling").length,
       canceledSubscriptions: accountRows.filter((account) => ["canceled", "ended"].includes(adminBillingStatusKey(account))).length,
       pastDueUsers: accountRows.filter((account) => adminCurrentAccessKey(account) === "past_due").length,
+      failedPayments: accountRows.filter((account) => adminBillingStatusKey(account) === "payment_failed").length,
       returningVisitors,
-      visitorToSignupRate: percentage(Math.max(signups.length, accountRows.length), Math.max(visitorIds.size, visits.length)),
-      signupToPaidRate: percentage(paidUsers.length, Math.max(signups.length, accountRows.length)),
-      visitorToPaidRate: percentage(paidUsers.length, Math.max(visitorIds.size, visits.length)),
+      visitorToSignupRate: percentage(accountRows.length, Math.max(visitorIds.size, 1)),
+      signupToPaidRate: percentage(paidUsers.length, Math.max(accountRows.length, 1)),
+      visitorToPaidRate: percentage(paidUsers.length, Math.max(visitorIds.size, 1)),
       totalRevenue: revenueEvents.reduce((total, event) => total + moneyValue(event.detail?.monthlyPrice || event.detail?.amount), 0),
     },
     periods: {
-      dailyVisitors: groupCounts(visits, (event) => dateKey(event.createdAt)),
-      weeklyVisitors: groupCounts(visits, (event) => weekKey(event.createdAt)),
-      monthlyVisitors: groupCounts(visits, (event) => monthKey(event.createdAt)),
+      dailyVisitors: groupCounts(sessionVisits, (event) => dateKey(event.createdAt)),
+      weeklyVisitors: groupCounts(sessionVisits, (event) => weekKey(event.createdAt)),
+      monthlyVisitors: groupCounts(sessionVisits, (event) => monthKey(event.createdAt)),
       dailyRevenue: groupMoney(revenueEvents, (event) => dateKey(event.createdAt)),
       weeklyRevenue: groupMoney(revenueEvents, (event) => weekKey(event.createdAt)),
       monthlyRevenue: groupMoney(revenueEvents, (event) => monthKey(event.createdAt)),
@@ -33094,7 +33133,7 @@ function localAnalyticsSummary() {
     },
     counts: {
       pageViews: groupCounts(pageViews, (event) => event.detail?.view || event.path || event.hash || "Home"),
-      sources: groupCounts(visits, (event) => event.source || event.attribution?.source || "Direct"),
+      sources: groupCounts(sessionVisits.length ? sessionVisits : trafficEvents, (event) => event.source || event.attribution?.source || "Direct"),
       buttonClicks: groupCounts(events.filter((event) => event.name === "button_click"), (event) => event.detail?.label || event.detail?.action || "Button"),
       aiUsage: groupCounts(events.filter((event) => event.name === "ai_generation_success"), (event) => event.detail?.tool || "Document Helper"),
       resourceViews: groupCounts(events.filter((event) => event.name === "resource_view"), (event) => event.detail?.category || "Resource"),
@@ -33110,7 +33149,7 @@ function localAnalyticsSummary() {
         subscriptionStatus: account.subscriptionStatus || "Free Plan",
         signupAt: account.createdAt || "",
         lastLoginAt: account.lastLoginAt || "",
-        lastSeenAt: lastEvent?.createdAt || account.updatedAt || "",
+        lastSeenAt: account.lastSeenAt || lastEvent?.createdAt || account.lastLoginAt || "",
         featureUseCount: userEvents.length,
         topFeatures: topEntries(groupCounts(userEvents, (event) => event.name), 3),
       };
@@ -33309,19 +33348,22 @@ function renderAdminAnalytics() {
       </div>
     ` : ""}
     <div class="analytics-summary-grid">
-      ${adminMetric("total visitors", totals.visitors || 0)}
-      ${adminMetric("unique visitors", totals.uniqueVisitors || 0)}
+      ${adminMetric("unique viewers", totals.uniqueVisitors || 0, "Distinct browsers / devices")}
+      ${adminMetric("session visits", totals.sessionVisits || totals.visitors || 0, "Website opens")}
+      ${adminMetric("page views", totals.pageViewCount || 0, "Pages opened")}
       ${adminMetric("registered users", totals.totalRegisteredUsers || 0)}
+      ${adminMetric("signup completions", totals.signups || 0, "Tracked signup events")}
       ${adminMetric("free users", totals.freeUsers || 0)}
       ${adminMetric("pro users", totals.proUsers || 0)}
       ${adminMetric("founding members", totals.foundingMembers || 0)}
-      ${adminMetric("active subscriptions", totals.activeSubscriptions || 0)}
+      ${adminMetric("billing active", totals.activeSubscriptions || 0)}
+      ${adminMetric("active this month", totals.activeUsersMonth || 0, "Users who logged in or used the app")}
       ${adminMetric("canceled / ended history", totals.canceledSubscriptions || 0)}
-      ${adminMetric("visitor to signup", totals.visitorToSignupRate || "0%")}
-      ${adminMetric("signup to paid", totals.signupToPaidRate || "0%")}
-      ${adminMetric("visitor to paid", totals.visitorToPaidRate || "0%")}
+      ${adminMetric("viewer to registered", totals.visitorToSignupRate || "0%")}
+      ${adminMetric("registered to paid", totals.signupToPaidRate || "0%")}
+      ${adminMetric("viewer to paid", totals.visitorToPaidRate || "0%")}
       ${adminMetric("tracked revenue", `$${Number(totals.totalRevenue || 0).toFixed(2)}`)}
-      ${adminMetric("returning visitors", totals.returningVisitors || 0)}
+      ${adminMetric("returning viewers", totals.returningVisitors || 0)}
     </div>
     <div class="analytics-grid">
       <article class="analytics-card">
@@ -47847,6 +47889,10 @@ document.addEventListener("submit", async (event) => {
     recordAiUse(result.used, result.limit);
     renderAiUsagePanel();
     trackEvent("ai_generation_success", { tool: "doc-helper", docType, plan: currentPlan, backendUsed: Boolean(result.backendUsed) });
+    if (docType === "observation") trackEvent("observation_created", { source: "doc-helper" });
+    if (docType === "parent-message") trackEvent("parent_message_generated", { source: "doc-helper" });
+    if (docType === "incident" || docType === "incident-report") trackEvent("incident_report_created", { source: "doc-helper" });
+    if (docType === "daily-report" || docType === "daily-summary") trackEvent("daily_report_saved", { source: "doc-helper", docType });
   } catch (error) {
     renderAiDebugPanel("#docHelperDebugPanel");
     outputEl.textContent = error.message || "We couldn't create your document right now. Please try again.";
@@ -47899,6 +47945,9 @@ document.addEventListener("submit", async (event) => {
     renderAiDebugPanel("#generatorDebugPanel", result.debug, result.output);
     recordAiUse(result.used, result.limit);
     trackEvent("ai_generation_success", { tool: toolId, plan: currentPlan, backendUsed: Boolean(result.backendUsed), used: result.used, limit: result.limit });
+    if (toolId === "observation") trackEvent("observation_created", { source: "generator" });
+    if (toolId === "parentMessage" || toolId === "parent-message") trackEvent("parent_message_generated", { source: "generator" });
+    if (toolId === "incidentReport" || toolId === "incident") trackEvent("incident_report_created", { source: "generator" });
   } catch (error) {
     renderAiDebugPanel("#generatorDebugPanel");
     if (titleEl) titleEl.textContent = "Document Creation Error";
@@ -49085,8 +49134,9 @@ async function initializeAppView() {
         if (!currentAttribution()?.firstSeenAt) {
           saveAttribution({ route: window.location.pathname || window.location.hash || "home", view: initialView, source: trafficSource() });
         }
+        // website_visit = one session visit. page_view is recorded by setView() so
+        // home boot does not double-count a page view.
         trackEvent("website_visit", { view: initialView, source: trafficSource() });
-        if (initialView === "home") trackEvent("page_view", { view: "home" });
         if (lessonEditId) {
           const route = window.location.pathname || window.location.hash;
           saveAttribution({ route, view: "lesson-editor" });
