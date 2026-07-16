@@ -28,6 +28,8 @@
     "test:curriculum-safe-render": "node scripts/test-curriculum-safe-render.js",
     "test:curriculum-v3-admin-ui": "node scripts/test-curriculum-v3-admin-ui-workflow.js",
     "test:curriculum-gap": "node scripts/test-curriculum-gap.js",
+    "test:curriculum-standards": "node scripts/test-curriculum-standards.js",
+    "audit:lesson-content": "node scripts/audit-lesson-plan-content.js",
     "test:curriculum-access-security": "node scripts/test-curriculum-access-security.js",
     "test:pro-lesson-preview-audit": "node scripts/test-pro-lesson-preview-audit.js",
     "test:curriculum-ux": "node scripts/test-curriculum-ux-qa.js",
