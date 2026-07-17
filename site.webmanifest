@@ -9,6 +9,7 @@
   "background_color": "#f8faff",
   "theme_color": "#5b9bd5",
   "orientation": "any",
+  "categories": ["education", "productivity", "business"],
   "icons": [
     {
       "src": "images/icons/icon-192.png",
@@ -45,6 +46,29 @@
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Open Admin",
+      "short_name": "Admin",
+      "description": "Open the owner Admin dashboard (unlock required on this device).",
+      "url": "/?view=admin",
+      "icons": [{ "src": "images/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Messages",
+      "short_name": "Messages",
+      "description": "Open Messages with Leah",
+      "url": "/?view=messages",
+      "icons": [{ "src": "images/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Lesson Plans",
+      "short_name": "Lessons",
+      "description": "Browse the Lesson Plan Library",
+      "url": "/?view=lessons",
+      "icons": [{ "src": "images/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }

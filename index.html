@@ -21,12 +21,14 @@
     <title>Little Learner Hub | Affordable Childcare Curriculum &amp; Planning Tools</title>
     <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="10" fill="%235b9bd5"/><text x="32" y="39" text-anchor="middle" font-family="Arial" font-size="24" fill="%23ffffff">LL</text></svg>' />
     <link rel="apple-touch-icon" href="images/icons/apple-touch-icon.png" />
+    <link rel="apple-touch-startup-image" href="images/icons/icon-512.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260716-hero-mock-fix" />
-  <link rel="stylesheet" href="styles.css?v=20260717-prod-audit" />
+  <link rel="stylesheet" href="styles.css?v=20260717-admin-notif-pwa" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260715-persistent-lesson-covers" />
-  <link rel="stylesheet" href="styles/llh-messaging.css?v=20260717-prod-audit" />
+  <link rel="stylesheet" href="styles/llh-messaging.css?v=20260717-admin-notif-pwa" />
   <link rel="stylesheet" href="styles/llh-comms.css?v=20260716-inbox-health" />
   <script>
     // Paint Calendar immediately for returning users — never flash the old Dashboard.
@@ -167,6 +169,7 @@
             <button class="nav-link" data-view="admin" data-admin-nav hidden>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.3 8 8 9 4.7-1 8-4 8-9V6z"/><path d="M9 12l2 2 4-5"/></svg></span>
               Admin Dashboard
+              <span class="nav-badge" id="adminNavBadge" hidden>0</span>
             </button>
             <button class="nav-link" data-view="curriculum-planner" hidden>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M7 14h4M13 14h4M7 17h2"/></svg></span>
@@ -911,6 +914,31 @@
             </div>
           </div>
           <section class="section-block admin-owner-panel"><div id="adminOwnerOverview"></div></section>
+          <section class="section-block admin-notifications-panel" id="adminNotificationsPanel" hidden>
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Owner Alerts</p>
+                <h3>Admin Notification Center</h3>
+                <p class="muted-copy">Signups, messages, billing, support, and reports — mark read or open the related record.</p>
+              </div>
+              <div class="account-actions-row">
+                <label class="ticket-filter-label">Filter
+                  <select id="adminNotifCategoryFilter">
+                    <option value="">All types</option>
+                    <option value="signup">Signups</option>
+                    <option value="messaging">Messages</option>
+                    <option value="billing">Billing</option>
+                    <option value="support">Support</option>
+                    <option value="reports">Reports</option>
+                    <option value="system">System</option>
+                  </select>
+                </label>
+                <button class="ghost-button" type="button" id="adminNotifMarkAllRead">Mark all read</button>
+                <button class="ghost-button" type="button" id="adminNotifRefresh">Refresh</button>
+              </div>
+            </div>
+            <div id="adminNotificationCenter" class="admin-notification-center" aria-live="polite"></div>
+          </section>
           <section class="section-block admin-analytics-panel">
             <div class="section-heading">
               <div><p class="eyebrow">Private Analytics</p><h3>Ad, signup, checkout, and lead tracking</h3></div>
@@ -1706,6 +1734,11 @@
                 Password
                 <input type="password" id="passwordInput" name="password" required autocomplete="current-password" placeholder="Password" minlength="8" />
               </label>
+              <label id="authPersistSessionField" class="auth-persist-session checkbox-row">
+                <input type="checkbox" id="keepSignedInInput" name="keepSignedIn" checked />
+                <span>Keep me signed in on this device</span>
+              </label>
+              <p class="form-note auth-persist-hint" id="authPersistHint">Recommended on your phone, tablet, or home-screen app. Turn off on shared/public computers.</p>
             </div>
             <div id="signupStepProgram" class="hidden-field" data-signup-step-panel="2" aria-hidden="true">
               <p class="signup-step-lede">Choose how you work — you can always connect or change this later in Settings.</p>
@@ -1904,7 +1937,7 @@
     <script src="scripts/llh-schedule.js?v=20260714-prod-priority-fixes" defer></script>
     <script src="scripts/llh-lesson-docx.js?v=20260714-lesson-docx" defer></script>
     <script src="scripts/lesson-plan-weekly-export.js?v=20260715-weekly-pdf-reg" defer></script>
-    <script src="app.js?v=20260717-prod-audit" defer></script>
-    <script src="comms-center.js?v=20260717-prod-audit" defer></script>
+    <script src="app.js?v=20260717-admin-notif-pwa" defer></script>
+    <script src="comms-center.js?v=20260717-admin-notif-pwa" defer></script>
   </body>
 </html>

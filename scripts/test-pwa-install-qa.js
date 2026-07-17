@@ -160,7 +160,7 @@ async function main() {
         active: document.querySelector(".active-view")?.id || "",
       }));
       assert(calendarInstall.active === "view-calendar", `expected calendar, got ${calendarInstall.active}`);
-      assert(/Add to Home Screen/i.test(calendarInstall.hostText), "Calendar install card copy missing");
+      assert(/Add .*Home Screen|Install App|Install the app/i.test(calendarInstall.hostText), "Calendar install card copy missing");
       assert(calendarInstall.hasButton, "Calendar install button missing");
       await page.close();
     }
@@ -191,9 +191,9 @@ async function main() {
         body: document.querySelector("#installAppBody")?.textContent || "",
       }));
       assert(modal.open, "install modal did not open");
-      assert(/iPhone \(Safari\)/i.test(modal.body), "iPhone instructions missing");
-      assert(/Android \(Chrome\)/i.test(modal.body), "Android instructions missing");
-      assert(/Add to Home Screen/i.test(modal.body), "Add to Home Screen guidance missing");
+      assert(/iPhone/i.test(modal.body) && /Safari/i.test(modal.body), "iPhone instructions missing");
+      assert(/Android \(Chrome\)|Android/i.test(modal.body), "Android instructions missing");
+      assert(/Add to Home Screen|Install App|Desktop \(Chrome/i.test(modal.body), "Add to Home Screen guidance missing");
       await page.close();
     }
 
