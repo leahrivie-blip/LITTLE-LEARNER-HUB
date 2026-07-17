@@ -197,7 +197,30 @@ async function main() {
     assert.ok(dry.json.ambiguities.some((a) => a.type === "duplicate_child_profiles"));
     assert.ok(dry.json.ambiguities.some((a) => a.type === "member_only_child_profiles"));
     assert.ok(dry.json.ambiguities.some((a) => a.type === "member_only_schedule_items"));
+    assert.ok(dry.json.ambiguities.every((a) => a.severity === "manual_review" || a.severity === "info"));
     console.log("PASS  migration dry-run reports duplicates/ambiguities without applying");
+
+    // Owner-empty + member schedule/classroom should promote (info), not block.
+    const beforePromote = JSON.parse(fs.readFileSync(STORE, "utf8"));
+    const ownerChildBackup = beforePromote.childData[ownerUid];
+    const ownerScheduleBackup = beforePromote.scheduleByUser[ownerUid];
+    delete beforePromote.childData[ownerUid];
+    delete beforePromote.scheduleByUser[ownerUid];
+    fs.writeFileSync(STORE, JSON.stringify(beforePromote, null, 2));
+    const promoteDry = await request(
+      "GET",
+      `/api/admin/program-migration-plan?adminToken=${encodeURIComponent(adminToken)}&ownerEmail=${encodeURIComponent(OWNER)}&memberEmail=${encodeURIComponent(DIRECTOR)}`,
+    );
+    assert.equal(promoteDry.status, 200, JSON.stringify(promoteDry.json));
+    assert.equal(promoteDry.json.scheduleSource, "member_legacy_uid_owner_empty");
+    assert.ok(promoteDry.json.ambiguities.some((a) => a.type === "promote_member_schedule_owner_empty" && a.severity === "info"));
+    assert.ok(!promoteDry.json.ambiguities.some((a) => a.severity === "manual_review" && a.type === "member_only_schedule_items"));
+    console.log("PASS  owner-empty member schedule promotes as info (not blocking)");
+    // Restore owner buckets for later conflict/apply tests.
+    const restored = JSON.parse(fs.readFileSync(STORE, "utf8"));
+    restored.childData[ownerUid] = ownerChildBackup;
+    restored.scheduleByUser[ownerUid] = ownerScheduleBackup;
+    fs.writeFileSync(STORE, JSON.stringify(restored, null, 2));
 
     // Live Ashley/Ladiisha apply stays blocked without confirm phrase.
     const liveBlock = await request(

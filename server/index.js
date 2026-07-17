@@ -6695,11 +6695,15 @@ function handleAdminProgramMigrationPlan(request, response, url) {
     });
     return;
   }
-  if ((dryReport.ambiguities || []).length && !forceAmbiguities) {
+  const blockingAmbiguities = (dryReport.ambiguities || []).filter((item) => item.severity === "manual_review");
+  const infoAmbiguities = (dryReport.ambiguities || []).filter((item) => item.severity !== "manual_review");
+  if (blockingAmbiguities.length && !forceAmbiguities) {
     jsonResponse(response, 409, {
-      error: "Dry-run found ambiguities. Resolve or pass forceAmbiguities=1 after manual review.",
+      error: "Dry-run found ambiguities that need manual review. Resolve or pass forceAmbiguities=1 after review.",
       code: "ambiguities_present",
       dryRun: dryReport,
+      blockingAmbiguities,
+      infoAmbiguities,
       livePair,
       programOwnerEmail,
       directorEmail,
