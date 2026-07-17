@@ -8362,6 +8362,8 @@ async function handleSupportTicketCreate(request, response) {
       configured: supportEmailConfigStatus().ready,
       provider: detectedEmailProvider() || "not configured",
       error: "Ticket was saved, but the email notification did not send.",
+      // Include provider detail so production delivery debugging is not blind.
+      detail: String(error && error.message ? error.message : error).slice(0, 500),
     };
   }
   // Send auto-acknowledgment to the user (best-effort; does not affect the response)
