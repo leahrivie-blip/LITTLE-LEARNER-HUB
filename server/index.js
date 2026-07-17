@@ -16,6 +16,7 @@ const { createCommsApi } = require("./comms-api.js");
 const commsLib = require("./comms-lib.js");
 const tempPasswordAuth = require("./temp-password-auth.js");
 const adminNotifications = require("./admin-notifications.js");
+const programOwnership = require("./program-ownership.js");
 
 loadEnvFile(path.join(__dirname, "..", ".env"));
 
@@ -472,6 +473,9 @@ function defaultStore() {
     promoRedemptions: [],
     siteContent: defaultSiteContentStore(),
     scheduleByUser: {},
+    programs: {},
+    programData: {},
+    programDataBackups: {},
     emailEngagement: defaultEmailEngagementStore(),
     messages: [],
     messageDrafts: [],
@@ -2831,10 +2835,13 @@ async function resolveCurriculumAccessUser(request, url) {
   }
   const store = readStore();
   const user = store.users?.[identity.email] || { email: identity.email };
+  // Staff/directors inherit the program owner's paid access for curriculum gates.
+  const ownerEmail = programOwnership.resolveOwnerEmailForUser(user, identity.email);
+  const accessRecord = (ownerEmail && store.users?.[ownerEmail]) || user;
   return {
-    authorized: membershipHasProAccess(user),
+    authorized: membershipHasProAccess(accessRecord),
     email: identity.email,
-    user,
+    user: accessRecord,
     source: "user",
   };
 }
@@ -5900,6 +5907,9 @@ function membershipSummaryForUser(user, storeRef = null) {
     mustChangePassword: Boolean(user?.mustChangePassword),
     serverPasswordAuth: Boolean(user?.serverPasswordAuth),
     tempPasswordExpiresAt: user?.tempPasswordExpiresAt || "",
+    programId: user?.programId || "",
+    linkedProgramOwnerEmail: normalizeEmail(user?.linkedProgramOwnerEmail || ""),
+    programAccessViaOwner: Boolean(user?.programAccessViaOwner),
     accessSource: user?.internalAccessOverride && !user?.stripeSubscriptionId
       ? "Manual admin grant"
       : user?.promoRedeemedAt && membershipUserInTrial(user)
@@ -6604,6 +6614,100 @@ function handleAdminStoreHealth(request, response, url) {
 }
 
 /**
+ * Read-only (default) shared-program migration planner.
+ * apply=1 only works for non-production emails unless ALLOW_LIVE_PROGRAM_MIGRATE=true.
+ * Never connects Ashley/Ladiisha membership by default.
+ */
+function handleAdminProgramMigrationPlan(request, response, url) {
+  const token = String(url.searchParams.get("adminToken") || "").trim();
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const ownerEmail = normalizeEmail(url.searchParams.get("ownerEmail") || "");
+  const memberEmail = normalizeEmail(url.searchParams.get("memberEmail") || "");
+  const apply = String(url.searchParams.get("apply") || "") === "1";
+  const linkMember = String(url.searchParams.get("linkMember") || "") === "1";
+  const livePair = (
+    (ownerEmail === "tclashley@icloud.com" && memberEmail === "ladiisha01@gmail.com")
+    || (ownerEmail === "ladiisha01@gmail.com" && memberEmail === "tclashley@icloud.com")
+  );
+  if (apply && livePair && process.env.ALLOW_LIVE_PROGRAM_MIGRATE !== "true") {
+    jsonResponse(response, 403, {
+      error: "Live Ashley/Ladiisha program migration apply is blocked. Dry-run only until explicitly enabled.",
+      code: "live_pair_apply_blocked",
+    });
+    return;
+  }
+  if (apply && linkMember && livePair && process.env.ALLOW_LIVE_ACCOUNT_LINK !== "true") {
+    jsonResponse(response, 403, {
+      error: "Live account linking is blocked. Shared-data migration tooling will not connect these logins yet.",
+      code: "live_account_link_blocked",
+    });
+    return;
+  }
+  const store = readStore();
+  const report = programOwnership.planProgramDataMigration(store, {
+    ownerEmail,
+    memberEmail,
+    ownerUid: String(url.searchParams.get("ownerUid") || "").trim(),
+    memberUid: String(url.searchParams.get("memberUid") || "").trim(),
+    apply,
+  });
+  if (apply && report.ok && report.applied) {
+    // Intentionally do NOT set linkedProgramOwnerEmail for live pair here.
+    if (linkMember && memberEmail && !livePair) {
+      const program = programOwnership.ensureProgramForOwner(store, ownerEmail, { actorEmail: ownerEmail });
+      const member = store.users?.[memberEmail] || { email: memberEmail };
+      store.users[memberEmail] = {
+        ...member,
+        email: memberEmail,
+        role: member.role && member.role !== "owner" ? member.role : "director",
+        linkedProgramOwnerEmail: ownerEmail,
+        programId: program.id,
+        programAccessViaOwner: membershipHasProAccess(store.users?.[ownerEmail] || {}),
+        updatedAt: new Date().toISOString(),
+      };
+      report.memberLinked = true;
+    }
+    writeStore(store);
+  }
+  console.log("[program] migration_plan", {
+    ownerEmail,
+    memberEmail,
+    apply,
+    applied: Boolean(report.applied),
+    ambiguities: (report.ambiguities || []).length,
+  });
+  jsonResponse(response, 200, { ...report, livePair, linkMemberRequested: linkMember });
+}
+
+function handleAdminProgramMigrationRollback(request, response) {
+  return readJson(request).then((body) => {
+    const token = String(body.adminToken || "").trim();
+    if (!validAdminToken(token)) {
+      jsonResponse(response, 401, { error: "Admin access is required." });
+      return;
+    }
+    const backupId = String(body.backupId || "").trim();
+    if (!backupId) {
+      jsonResponse(response, 400, { error: "backupId is required." });
+      return;
+    }
+    const store = readStore();
+    const result = programOwnership.rollbackProgramDataMigration(store, backupId);
+    if (!result.ok) {
+      jsonResponse(response, 404, result);
+      return;
+    }
+    writeStore(store);
+    jsonResponse(response, 200, result);
+  }).catch((error) => {
+    jsonResponse(response, 400, { error: error.message || "Invalid rollback payload." });
+  });
+}
+
+/**
  * Read-only full launch-store export for incident preservation.
  * Does not modify Postgres. Media bytes stay in llh_media_assets (IDs listed only).
  */
@@ -7140,36 +7244,22 @@ function emptyScheduleRecord(identity) {
   return {
     uid: identity.uid,
     email: identity.email,
+    programId: "",
+    ownerEmail: identity.email || "",
     ...doc,
   };
 }
 
 function readScheduleRecord(store, identity) {
-  store.scheduleByUser = store.scheduleByUser || {};
-  const existing = store.scheduleByUser[identity.uid];
-  if (existing) {
-    const doc = scheduleLib.normalizeScheduleDocument(existing);
-    return {
-      uid: identity.uid,
-      email: identity.email || existing.email || "",
-      ...doc,
-    };
-  }
-  return emptyScheduleRecord(identity);
+  const context = programOwnership.resolveProgramContext(store, identity);
+  if (!context.ok) return emptyScheduleRecord(identity);
+  return programOwnership.readProgramSchedule(store, context, scheduleLib);
 }
 
 function writeScheduleRecord(store, identity, doc) {
-  store.scheduleByUser = store.scheduleByUser || {};
-  const normalized = scheduleLib.normalizeScheduleDocument(doc);
-  store.scheduleByUser[identity.uid] = {
-    uid: identity.uid,
-    email: identity.email,
-    classrooms: normalized.classrooms,
-    items: normalized.items,
-    updatedAt: normalized.updatedAt || new Date().toISOString(),
-    schemaVersion: 1,
-  };
-  return store.scheduleByUser[identity.uid];
+  const context = programOwnership.resolveProgramContext(store, identity);
+  if (!context.ok) throw new Error(context.error || "Could not resolve shared program.");
+  return programOwnership.writeProgramSchedule(store, context, doc, scheduleLib);
 }
 
 async function handleScheduleGet(request, response, url) {
@@ -7191,10 +7281,13 @@ async function handleScheduleGet(request, response, url) {
   jsonResponse(response, 200, {
     uid: record.uid,
     email: record.email,
+    programId: record.programId || "",
+    ownerEmail: record.ownerEmail || record.email || "",
     classrooms: record.classrooms,
     items: filtered,
     updatedAt: record.updatedAt || "",
     schemaVersion: 1,
+    source: record.source || "",
   });
 }
 
@@ -7398,50 +7491,61 @@ function sanitizeChildDataPayload(data = {}) {
   }, {});
 }
 
+async function resolveChildDataIdentity(request) {
+  // Prefer Firebase in production; allow the same test/email bridges as schedule.
+  if (firebaseConfigStatus().ready) {
+    try {
+      return { ...(await verifyFirebaseUser(request)), source: "firebase" };
+    } catch (error) {
+      const authHeader = String(request.headers.authorization || "");
+      if (authHeader.startsWith("Bearer ") && !authHeader.startsWith("Bearer test:")) {
+        throw error;
+      }
+    }
+  }
+  return resolveScheduleIdentity(request);
+}
+
 async function handleChildData(request, response) {
-  let firebaseUser;
+  let identity;
   try {
-    firebaseUser = await verifyFirebaseUser(request);
+    identity = await resolveChildDataIdentity(request);
   } catch (error) {
     jsonResponse(response, 401, { error: error.message || "Please log in before saving child data." });
     return;
   }
   const store = readStore();
-  store.childData = store.childData || {};
+  const context = programOwnership.resolveProgramContext(store, identity);
+  if (!context.ok) {
+    jsonResponse(response, 403, { error: context.error || "Could not resolve shared program." });
+    return;
+  }
   if (request.method === "GET") {
-    const saved = store.childData[firebaseUser.uid] || null;
+    const saved = programOwnership.readProgramChildData(store, context);
     jsonResponse(response, 200, {
-      email: firebaseUser.email,
-      uid: firebaseUser.uid,
-      data: saved?.data || null,
-      updatedAt: saved?.updatedAt || "",
+      email: identity.email,
+      uid: identity.uid,
+      programId: context.programId,
+      ownerEmail: context.ownerEmail,
+      data: saved.data || null,
+      updatedAt: saved.updatedAt || "",
+      updatedByUid: saved.updatedByUid || "",
+      updatedByEmail: saved.updatedByEmail || "",
+      source: saved.source || "",
     });
     return;
   }
   try {
     const body = await readJson(request);
     const data = sanitizeChildDataPayload(body.data || {});
-    const updatedAt = new Date().toISOString();
-    store.childData[firebaseUser.uid] = {
-      uid: firebaseUser.uid,
-      email: firebaseUser.email,
-      data,
-      updatedAt,
-    };
-    if (firebaseUser.email) {
-      store.users = store.users || {};
-      store.users[firebaseUser.email] = {
-        ...(store.users[firebaseUser.email] || { email: firebaseUser.email }),
-        email: firebaseUser.email,
-        childProfiles: data.Profiles.length,
-        childObservations: data.Observations.length,
-        childGoals: data.Goals.length,
-        childDataUpdatedAt: updatedAt,
-        updatedAt,
-      };
-    }
+    const result = programOwnership.writeProgramChildData(store, context, data);
     writeStore(store);
-    jsonResponse(response, 200, { ok: true, updatedAt });
+    jsonResponse(response, 200, {
+      ok: true,
+      updatedAt: result.updatedAt,
+      programId: result.programId,
+      ownerEmail: context.ownerEmail,
+    });
   } catch (error) {
     jsonResponse(response, 400, { error: error.message || "Could not save child data." });
   }
@@ -7752,6 +7856,11 @@ async function handleStaffInviteAccept(request, response) {
   const ownerEmail = normalizeEmail(invite.ownerEmail || invite.invitedByEmail);
   const owner = store.users?.[ownerEmail] || { email: ownerEmail };
   const ownerHasPro = membershipHasProAccess(owner);
+  const program = programOwnership.ensureProgramForOwner(store, ownerEmail, {
+    ownerUid: owner.firebaseUid || "",
+    name: invite.programName || owner.businessName || owner.daycareName || "",
+    actorEmail: identity.email,
+  });
   const now = new Date().toISOString();
   const memberRecord = {
     email: identity.email,
@@ -7762,12 +7871,14 @@ async function handleStaffInviteAccept(request, response) {
     status: "active",
     joinedAt: now,
     inviteId: invite.id,
+    programId: program.id,
   };
   const existingMembers = listProgramMembers(store, ownerEmail).filter((member) => normalizeEmail(member.email) !== identity.email);
   store.programMembers[programOwnerKey(ownerEmail)] = [...existingMembers, memberRecord];
   invite.status = "accepted";
   invite.acceptedAt = now;
   invite.acceptedByUid = identity.uid;
+  invite.programId = program.id;
   store.staffInvites[token] = invite;
   store.users = store.users || {};
   store.users[identity.email] = {
@@ -7776,6 +7887,7 @@ async function handleStaffInviteAccept(request, response) {
     role: invite.role,
     accountType: invite.accountType || owner.accountType || "home_daycare",
     linkedProgramOwnerEmail: ownerEmail,
+    programId: program.id,
     classroomIds: invite.classroomId ? [invite.classroomId] : [],
     classroomName: invite.classroomName || "",
     programAccessViaOwner: ownerHasPro,
@@ -7792,6 +7904,7 @@ async function handleStaffInviteAccept(request, response) {
       role: invite.role,
       accountType: invite.accountType || owner.accountType || "home_daycare",
       linkedProgramOwnerEmail: ownerEmail,
+      programId: program.id,
       classroomIds: invite.classroomId ? [invite.classroomId] : [],
       classroomName: invite.classroomName || "",
       programAccessViaOwner: ownerHasPro,
@@ -12436,6 +12549,8 @@ const server = http.createServer(async (request, response) => {
     // Phase 2H: legacy /api/admin/generate-lesson-plan removed.
     if (request.method === "POST" && url.pathname === "/api/admin/stripe-backfill") return await handleAdminStripeBackfill(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/store-health") return handleAdminStoreHealth(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/program-migration-plan") return handleAdminProgramMigrationPlan(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/program-migration-rollback") return handleAdminProgramMigrationRollback(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/store-export") return handleAdminStoreExport(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/store-backups") return await handleAdminStoreBackupsList(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/store-backups") return await handleAdminStoreBackupCreate(request, response);
