@@ -503,20 +503,66 @@ function planProgramDataMigration(store, {
     });
   }
 
-  const childSource = existingProgramChild
+  const memberChildRows = countChildRows(memberChild || emptyChildPayload());
+  const ownerChildRows = countChildRows(ownerChild || emptyChildPayload());
+  const memberHasSchedule = Boolean(
+    (Array.isArray(memberSchedule?.classrooms) && memberSchedule.classrooms.length)
+    || (Array.isArray(memberSchedule?.items) && memberSchedule.items.length),
+  );
+  const ownerHasSchedule = Boolean(
+    (Array.isArray(ownerSchedule?.classrooms) && ownerSchedule.classrooms.length)
+    || (Array.isArray(ownerSchedule?.items) && ownerSchedule.items.length),
+  );
+
+  // If the billing owner has no operational data yet, promote the member's
+  // legacy UID data into the shared program so linking cannot hide it.
+  // Conflicting duplicates (both sides non-empty) remain manual-review only.
+  let childSource = existingProgramChild
     ? "existing_program"
-    : (ownerChild ? "owner_legacy_uid" : (memberChild && !ownerChild ? "member_legacy_only_blocked" : "empty"));
-  if (childSource === "member_legacy_only_blocked") {
+    : (ownerChildRows > 0
+      ? "owner_legacy_uid"
+      : (memberChildRows > 0 ? "member_legacy_uid_owner_empty" : "empty"));
+  if (childSource === "member_legacy_uid_owner_empty") {
     ambiguities.push({
-      type: "member_has_data_owner_empty",
-      severity: "manual_review",
-      detail: "Owner UID has no child data but member UID does. Refusing auto-promotion of member data to protect billing owner primacy.",
+      type: "promote_member_child_owner_empty",
+      severity: "info",
+      detail: "Owner has no child data; member legacy child data will be promoted into the shared program. Legacy UID bucket is preserved.",
+      count: memberChildRows,
     });
   }
 
-  const scheduleSource = store.programData[program.id]?.schedule
+  let scheduleSource = store.programData[program.id]?.schedule
     ? "existing_program"
-    : (ownerSchedule ? "owner_legacy_uid" : (memberSchedule && !ownerSchedule ? "member_legacy_only_blocked" : "empty"));
+    : (ownerHasSchedule
+      ? "owner_legacy_uid"
+      : (memberHasSchedule ? "member_legacy_uid_owner_empty" : "empty"));
+  if (scheduleSource === "member_legacy_uid_owner_empty") {
+    ambiguities.push({
+      type: "promote_member_schedule_owner_empty",
+      severity: "info",
+      detail: "Owner has no schedule/classroom data; member legacy schedule will be promoted into the shared program. Legacy UID bucket is preserved.",
+      classrooms: Array.isArray(memberSchedule?.classrooms) ? memberSchedule.classrooms.length : 0,
+      items: Array.isArray(memberSchedule?.items) ? memberSchedule.items.length : 0,
+    });
+  }
+
+  // Member-only rows are only conflicting when the owner already has data.
+  // When promoting member→program because owner is empty, don't treat those as blockers.
+  if (childSource === "member_legacy_uid_owner_empty" || scheduleSource === "member_legacy_uid_owner_empty") {
+    for (let i = ambiguities.length - 1; i >= 0; i -= 1) {
+      const type = ambiguities[i]?.type;
+      if (type === "member_only_child_profiles" || type === "member_only_schedule_items") {
+        ambiguities.splice(i, 1);
+      }
+    }
+  }
+
+  const childPayloadForActions = existingProgramChild
+    || (childSource === "member_legacy_uid_owner_empty" ? memberChild : ownerChild)
+    || emptyChildPayload();
+  const scheduleForActions = store.programData[program.id]?.schedule
+    || (scheduleSource === "member_legacy_uid_owner_empty" ? memberSchedule : ownerSchedule)
+    || null;
 
   actions.push({
     action: "ensure_program",
@@ -526,17 +572,13 @@ function planProgramDataMigration(store, {
   actions.push({
     action: "set_program_child_from",
     source: childSource,
-    profiles: summarizeChildPayload(existingProgramChild || ownerChild || emptyChildPayload()),
+    profiles: summarizeChildPayload(childPayloadForActions),
   });
   actions.push({
     action: "set_program_schedule_from",
     source: scheduleSource,
-    classrooms: Array.isArray((store.programData[program.id]?.schedule || ownerSchedule)?.classrooms)
-      ? (store.programData[program.id]?.schedule || ownerSchedule).classrooms.length
-      : 0,
-    items: Array.isArray((store.programData[program.id]?.schedule || ownerSchedule)?.items)
-      ? (store.programData[program.id]?.schedule || ownerSchedule).items.length
-      : 0,
+    classrooms: Array.isArray(scheduleForActions?.classrooms) ? scheduleForActions.classrooms.length : 0,
+    items: Array.isArray(scheduleForActions?.items) ? scheduleForActions.items.length : 0,
   });
   actions.push({
     action: "preserve_legacy_uid_buckets",
@@ -598,30 +640,40 @@ function planProgramDataMigration(store, {
     memberLegacySchedule: resolvedMemberUid ? JSON.parse(JSON.stringify(store.scheduleByUser[resolvedMemberUid] || null)) : null,
   };
 
-  // Promote owner (or existing program) data into programData. Never auto-combine member conflicts.
-  if (!store.programData[program.id]?.child && ownerChild) {
-    store.programData[program.id] = store.programData[program.id] || { programId: program.id };
-    store.programData[program.id].child = {
-      data: ownerChild,
-      updatedAt: new Date().toISOString(),
-      updatedByUid: resolvedOwnerUid || "",
-      updatedByEmail: owner,
-      migratedFrom: "owner_legacy_uid",
-    };
+  // Promote into programData: owner data preferred; member data only when owner empty.
+  if (!store.programData[program.id]?.child) {
+    const childFrom = childSource === "member_legacy_uid_owner_empty" ? memberChild : ownerChild;
+    const childFromUid = childSource === "member_legacy_uid_owner_empty" ? resolvedMemberUid : resolvedOwnerUid;
+    const childFromEmail = childSource === "member_legacy_uid_owner_empty" ? member : owner;
+    if (childFrom) {
+      store.programData[program.id] = store.programData[program.id] || { programId: program.id };
+      store.programData[program.id].child = {
+        data: childFrom,
+        updatedAt: new Date().toISOString(),
+        updatedByUid: childFromUid || "",
+        updatedByEmail: childFromEmail || owner,
+        migratedFrom: childSource,
+      };
+    }
   }
-  if (!store.programData[program.id]?.schedule && ownerSchedule) {
-    store.programData[program.id] = store.programData[program.id] || { programId: program.id };
-    store.programData[program.id].schedule = {
-      classrooms: ownerSchedule.classrooms || [],
-      items: ownerSchedule.items || [],
-      updatedAt: ownerSchedule.updatedAt || new Date().toISOString(),
-      schemaVersion: 1,
-      updatedByUid: resolvedOwnerUid || "",
-      updatedByEmail: owner,
-      migratedFrom: "owner_legacy_uid",
-      programId: program.id,
-      ownerEmail: owner,
-    };
+  if (!store.programData[program.id]?.schedule) {
+    const scheduleFrom = scheduleSource === "member_legacy_uid_owner_empty" ? memberSchedule : ownerSchedule;
+    const scheduleFromUid = scheduleSource === "member_legacy_uid_owner_empty" ? resolvedMemberUid : resolvedOwnerUid;
+    const scheduleFromEmail = scheduleSource === "member_legacy_uid_owner_empty" ? member : owner;
+    if (scheduleFrom) {
+      store.programData[program.id] = store.programData[program.id] || { programId: program.id };
+      store.programData[program.id].schedule = {
+        classrooms: scheduleFrom.classrooms || [],
+        items: scheduleFrom.items || [],
+        updatedAt: scheduleFrom.updatedAt || new Date().toISOString(),
+        schemaVersion: 1,
+        updatedByUid: scheduleFromUid || "",
+        updatedByEmail: scheduleFromEmail || owner,
+        migratedFrom: scheduleSource,
+        programId: program.id,
+        ownerEmail: owner,
+      };
+    }
   }
 
   report.applied = true;
