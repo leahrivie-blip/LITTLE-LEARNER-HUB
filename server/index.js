@@ -6247,6 +6247,108 @@ async function handleAdminRecoverSparseStore(request, response) {
   }
 }
 
+/**
+ * Create-missing-only Free profile stubs from an approved Firebase email list.
+ * Never overwrites existing Postgres users (preserves Stripe/Founding/subscription).
+ * Never resets passwords. Never sends email.
+ */
+async function handleAdminRecoverFirebaseProfiles(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  if (String(body.confirm || "").trim() !== "RECOVER_FIREBASE_PROFILES") {
+    jsonResponse(response, 400, {
+      error: "Confirmation required. Send confirm: \"RECOVER_FIREBASE_PROFILES\".",
+      requiresConfirm: "RECOVER_FIREBASE_PROFILES",
+    });
+    return;
+  }
+  const dryRun = body.dryRun === true;
+  const profiles = Array.isArray(body.profiles) ? body.profiles : [];
+  if (!profiles.length) {
+    jsonResponse(response, 400, { error: "profiles array is required (email + optional firebaseUid/createdAt)." });
+    return;
+  }
+  const store = readStore();
+  store.users = store.users || {};
+  const report = {
+    dryRun,
+    generatedAt: new Date().toISOString(),
+    requested: profiles.length,
+    created: [],
+    skippedExisting: [],
+    failed: [],
+    duplicateRequests: [],
+  };
+  const seen = new Set();
+  for (const profile of profiles) {
+    const email = normalizeEmail(profile?.email || profile);
+    if (!email || !email.includes("@")) {
+      report.failed.push({ email: String(profile?.email || ""), reason: "invalid_email" });
+      continue;
+    }
+    if (seen.has(email)) {
+      report.duplicateRequests.push(email);
+      continue;
+    }
+    seen.add(email);
+    if (store.users[email]) {
+      report.skippedExisting.push({
+        email,
+        plan: store.users[email].plan || "Free",
+        hasStripe: Boolean(store.users[email].stripeCustomerId),
+        foundingMemberActive: Boolean(store.users[email].foundingMemberActive),
+      });
+      continue;
+    }
+    const createdAt = profile.createdAt || profile.signupAt || new Date().toISOString();
+    const stub = {
+      email,
+      plan: "Free",
+      subscriptionStatus: "Free Plan",
+      accountStatus: "Active",
+      authProvider: "Firebase Authentication",
+      firebaseUid: String(profile.firebaseUid || profile.uid || "").trim(),
+      signupAt: createdAt,
+      createdAt,
+      recoveredFromFirebaseAt: new Date().toISOString(),
+      recoverySource: "firebase-hybrid-approved-free-stubs",
+      updatedAt: new Date().toISOString(),
+    };
+    if (dryRun) {
+      report.created.push({ email, dryRun: true, firebaseUid: stub.firebaseUid });
+      continue;
+    }
+    try {
+      const accessFields = accountAccess.migrateAccountAccessFields(stub);
+      store.users[email] = {
+        ...stub,
+        accountType: accessFields.accountType,
+        role: accessFields.role,
+      };
+      report.created.push({ email, firebaseUid: stub.firebaseUid });
+    } catch (error) {
+      report.failed.push({ email, reason: error.message || "create_failed" });
+    }
+  }
+  if (!dryRun && report.created.length) {
+    store.systemRecovery = {
+      ...(store.systemRecovery || {}),
+      firebaseHybridRecoveredAt: new Date().toISOString(),
+      firebaseHybridCreatedCount: report.created.length,
+      firebaseHybridRequestedCount: report.requested,
+    };
+    await writeStoreAsync(store);
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    report,
+    health: storeHealthSnapshot(dryRun ? peekStore() : peekStore()),
+  });
+}
+
 async function handleAdminStoreBackupsList(request, response, url) {
   const adminToken = url.searchParams.get("adminToken") || "";
   if (!validAdminToken(adminToken)) {
@@ -11435,6 +11537,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/store-backups") return await handleAdminStoreBackupCreate(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/store-backups/download") return await handleAdminStoreBackupDownload(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/recover-sparse-store") return await handleAdminRecoverSparseStore(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/recover-firebase-profiles") return await handleAdminRecoverFirebaseProfiles(request, response);
     if (request.method === "GET" && url.pathname === "/api/founding-status") return handleFoundingStatus(request, response);
     if (request.method === "GET" && url.pathname === "/api/stripe-readiness") return handleStripeReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/billing-readiness") return handleBillingReadiness(request, response);

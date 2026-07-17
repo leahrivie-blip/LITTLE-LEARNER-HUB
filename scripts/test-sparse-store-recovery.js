@@ -25,10 +25,14 @@ assert.match(serverJs, /assertSafePostgresStoreReplacement/);
 assert.match(serverJs, /store_count_drop_blocked/);
 assert.match(serverJs, /RECOVER_SPARSE_STORE/);
 assert.match(serverJs, /\/api\/admin\/store-backups/);
+assert.match(serverJs, /\/api\/admin\/recover-firebase-profiles/);
+assert.match(serverJs, /RECOVER_FIREBASE_PROFILES/);
 assert.match(serverJs, /startStoreBackupScheduler/);
 assert.match(appJs, /runAdminSparseStoreRecovery/);
 assert.match(appJs, /Recover users from Stripe now/);
 assert.match(appJs, /loadAdminStoreHealth/);
+assert.match(appJs, /loadAdminStoreBackups/);
+assert.match(appJs, /createAdminStoreBackup/);
 assert.match(appJs, /RECOVER_SPARSE_STORE/);
 console.log("PASS  sparse-store recovery markers present");
 
