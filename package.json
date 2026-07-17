@@ -82,6 +82,8 @@
     "test:lesson-docx": "node scripts/test-lesson-docx.js",
     "test:lesson-weekly-docx": "node scripts/test-lesson-weekly-docx.js",
     "test:lesson-weekly-calendar-pdf": "node scripts/test-lesson-weekly-calendar-pdf.js",
+    "mockup:teacher-weekly-planner": "node scripts/capture-teacher-weekly-planner-screenshots.js",
+    "audit:teacher-weekly-planner": "node scripts/audit-teacher-weekly-planner.js",
     "test:lesson-print-qa": "node scripts/test-lesson-print-qa.js",
     "test:lesson-use-this-plan": "node scripts/test-lesson-use-this-plan.js",
     "test:lesson-library-phase2": "node scripts/test-lesson-library-phase2.js",

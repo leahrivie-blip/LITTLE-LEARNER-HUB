@@ -6237,7 +6237,7 @@ function lessonEditorAfterSavePanelHtml(resource) {
         <button type="button" class="primary-button" data-lesson-editor-continue>Continue Editing</button>
         <button type="button" class="ghost-button" data-lesson-editor-use-plan="${id}">Use This Plan</button>
         <button type="button" class="ghost-button" data-lesson-editor-print-week="${id}">Print</button>
-        <button type="button" class="ghost-button" data-lesson-editor-download-week="${id}">Download Weekly Lesson Plan</button>
+        <button type="button" class="ghost-button" data-lesson-editor-download-week="${id}">Download Teacher Weekly Planner</button>
         <button type="button" class="ghost-button" data-lesson-editor-download-full="${id}">Download Full Lesson Plan</button>
         <button type="button" class="ghost-button" data-lesson-editor-return-library>Return to Library</button>
       </div>
@@ -16603,7 +16603,14 @@ function lessonPlanWeeklyScheduleHtml(resource, plan, options = {}) {
   const normalized = normalizeCurriculumLessonPlanForRender(plan);
   const theme = normalized.theme || resource?.theme || "";
   const age = resource?.age || normalized.age || "Preschool";
-  const days = lessonPlanWeeklyScheduleDays(normalized);
+  const plannerApi = typeof globalThis !== "undefined" ? globalThis.LlhTeacherWeeklyPlanner : null;
+  const plannerReadyPlan = layout === "week" && plannerApi?.repairLessonPlanForPlanner
+    ? plannerApi.repairLessonPlanForPlanner(normalized)
+    : normalized;
+  const plannerDays = layout === "week" && plannerApi?.buildTeacherPlannerDays
+    ? plannerApi.buildTeacherPlannerDays(plannerReadyPlan, { validate: true }).days
+    : null;
+  const days = plannerDays || lessonPlanWeeklyScheduleDays(plannerReadyPlan);
   const domains = curriculumAsStringArray(normalized.learningDomains);
   const objectives = lessonPlanObjectiveBullets(normalized, 6);
   const vocabulary = String(normalized.vocabularyWords || "").replace(/\n+/g, ", ").replace(/\s+/g, " ").trim();
@@ -16669,28 +16676,37 @@ function lessonPlanWeeklyScheduleHtml(resource, plan, options = {}) {
       `;
     }
     if (layout === "week") {
+      const plannerActivities = [day.activity1, day.activity2, day.activity3]
+        .map((value) => String(value || "").trim())
+        .filter(Boolean);
+      const fallbackActivities = Array.isArray(day.plannerActivities)
+        ? day.plannerActivities.map((value) => String(value || "").trim()).filter(Boolean)
+        : [];
+      const activityCards = [0, 1, 2].map((index) => {
+        const fromPlanner = plannerActivities[index] || fallbackActivities[index];
+        const activity = fromPlanner
+          ? { title: fromPlanner, category: "", description: "" }
+          : slots[index];
+        const title = (typeof activity === "string" ? activity : activity?.title)
+          || `${theme || "Weekly Theme"} Learning Center ${index + 1}`;
+        return `
+          <article class="lesson-week-activity-card">
+            <p class="lesson-week-day-section-label">Activity ${index + 1}${activity?.category ? ` · ${escapeHtml(activity.category)}` : ""}</p>
+            <p class="lesson-week-activity-title">${escapeHtml(title)}</p>
+            ${activity?.description ? `<p class="lesson-week-activity-desc">${escapeHtml(activity.description)}</p>` : ""}
+          </article>
+        `;
+      }).join("");
       return `
         <section class="lesson-week-day-block lesson-week-schedule-day-${escapeHtml(day.day)} lesson-week-rich-day">
           <h4>${escapeHtml(day.label)}</h4>
-          ${day.themeFocus || day.theme ? `<p class="lesson-week-schedule-theme"><strong>Theme Focus:</strong> ${escapeHtml(day.themeFocus || day.theme)}</p>` : ""}
-          ${day.circleTime ? `<p class="lesson-week-day-circle"><strong>Circle Time:</strong> ${escapeHtml(day.circleTime)}</p>` : ""}
+          <p class="lesson-week-schedule-theme"><strong>Theme Focus:</strong> ${escapeHtml(day.themeFocus || day.theme || theme || "Weekly Theme")}</p>
+          <p class="lesson-week-day-circle"><strong>Circle Time:</strong> ${escapeHtml(day.circleTime || `${theme || "Weekly Theme"} Circle Time`)}</p>
           <div class="lesson-week-activity-cards">
-            ${[0, 1, 2].map((index) => {
-              const activity = slots[index];
-              if (!activity) return "";
-              return `
-                <article class="lesson-week-activity-card">
-                  <p class="lesson-week-day-section-label">Activity ${index + 1}${activity.category ? ` · ${escapeHtml(activity.category)}` : ""}</p>
-                  <p class="lesson-week-activity-title">${escapeHtml(activity.title)}</p>
-                  ${activity.description ? `<p class="lesson-week-activity-desc">${escapeHtml(activity.description)}</p>` : ""}
-                </article>
-              `;
-            }).join("")}
+            ${activityCards}
           </div>
-          ${day.outdoorPlay ? `<p class="lesson-week-day-outdoor"><strong>Outdoor Play:</strong> ${escapeHtml(day.outdoorPlay)}</p>` : ""}
-          ${day.bookOfTheDay ? `<p class="lesson-week-day-book"><strong>Book of the Day:</strong> ${escapeHtml(day.bookOfTheDay)}</p>` : ""}
-          ${day.materialsNeeded ? `<p class="lesson-week-day-materials"><strong>Materials Needed:</strong> ${escapeHtml(day.materialsNeeded)}</p>` : ""}
-          <div class="lesson-week-day-notes"><strong>Teacher Notes</strong>${renderTeacherNotesHtml(day)}</div>
+          <p class="lesson-week-day-outdoor"><strong>Outdoor Play:</strong> ${escapeHtml(day.outdoorPlay || `Outdoor ${theme || "Weekly Theme"} Play`)}</p>
+          <p class="lesson-week-day-book"><strong>Book of the Day:</strong> ${escapeHtml(day.bookOfTheDay || (books[0] || `${theme || "Weekly Theme"} Story Time`))}</p>
         </section>
       `;
     }
@@ -17132,49 +17148,115 @@ function buildLessonPlanWeeklySchedulePdfBlob(resource, options = {}) {
   return createPdfDocumentBlob(pages.slice(0, 8));
 }
 
-function buildLessonPlanWeeklyCalendarBoardPdfBlob(resource, options = {}) {
-  const plan = normalizeCurriculumLessonPlanForRender(resource?._curriculumLessonPlan);
+/**
+ * Curriculum focus snapshot for classroom posting (letter / number / shape / color).
+ * Uses plan overrides when present; otherwise theme-aware defaults providers expect.
+ */
+function teacherPlannerCurriculumFocus(theme, plan = {}) {
+  const themeText = String(theme || plan.theme || "").trim();
+  const key = themeText.toLowerCase();
+  const presets = [
+    [/ocean|sea|beach|fish/, { letter: "O", number: "5", shape: "Circle", color: "Blue" }],
+    [/farm|barn|cow|pig/, { letter: "F", number: "4", shape: "Square", color: "Red" }],
+    [/dino/, { letter: "D", number: "6", shape: "Triangle", color: "Green" }],
+    [/space|star|moon|rocket/, { letter: "S", number: "8", shape: "Star", color: "Purple" }],
+    [/fall|autumn|leaf|pumpkin|apple/, { letter: "A", number: "3", shape: "Circle", color: "Orange" }],
+    [/winter|snow/, { letter: "W", number: "2", shape: "Hexagon", color: "Blue" }],
+    [/spring|flower|garden/, { letter: "S", number: "4", shape: "Heart", color: "Pink" }],
+    [/summer|sun/, { letter: "S", number: "7", shape: "Circle", color: "Yellow" }],
+    [/transport|car|bus|train/, { letter: "T", number: "5", shape: "Rectangle", color: "Yellow" }],
+    [/bug|insect|bee/, { letter: "B", number: "3", shape: "Oval", color: "Green" }],
+  ];
+  const matched = presets.find(([pattern]) => pattern.test(key))?.[1] || null;
+  const shapes = ["Circle", "Square", "Triangle", "Rectangle", "Star", "Heart"];
+  const colors = ["Red", "Blue", "Green", "Yellow", "Orange", "Purple"];
+  const hash = [...themeText].reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+  return {
+    letter: String(plan.focusLetter || plan.letterOfTheWeek || matched?.letter || printableLetter(themeText) || "A").trim(),
+    number: String(plan.focusNumber || plan.numberOfTheWeek || matched?.number || printableNumber(themeText) || "1").trim(),
+    shape: String(plan.focusShape || plan.shapeOfTheWeek || matched?.shape || shapes[hash % shapes.length]).trim(),
+    color: String(plan.focusColor || plan.colorOfTheWeek || matched?.color || colors[hash % colors.length]).trim(),
+  };
+}
+
+/**
+ * Teacher Weekly Planner PDF — director-ready 2-page printable.
+ * Page 1: Weekly Overview + curriculum focus (letter/number/shape/color)
+ * Page 2: Weekly Snapshot + Mon–Fri classroom calendar
+ * Empty rows/cells are never printed; calendar rows auto-collapse when unused.
+ */
+function buildTeacherWeeklyPlannerPdfBlob(resource, options = {}) {
+  const plannerApi = typeof globalThis !== "undefined" ? globalThis.LlhTeacherWeeklyPlanner : null;
+  const basePlan = normalizeCurriculumLessonPlanForRender(resource?._curriculumLessonPlan);
+  const plan = plannerApi?.repairLessonPlanForPlanner
+    ? plannerApi.repairLessonPlanForPlanner({
+      ...basePlan,
+      title: resource?.title || basePlan.title,
+      age: resource?.age || basePlan.age,
+      theme: basePlan.theme || resource?.theme,
+    })
+    : basePlan;
+  const built = plannerApi?.buildTeacherPlannerDays
+    ? plannerApi.buildTeacherPlannerDays(plan, { validate: true, strict: false })
+    : null;
+  const days = built?.days || [];
+  const validation = plannerApi?.validateTeacherPlannerDays
+    ? plannerApi.validateTeacherPlannerDays(days)
+    : { ok: days.length === 5 && days.every((day) => day.themeFocus && day.circleTime && day.activity1 && day.activity2 && day.activity3 && day.outdoorPlay && day.bookOfTheDay), missing: [], message: "" };
+  if (!validation.ok) {
+    const message = validation.message || "Teacher Weekly Planner has empty cells and cannot be generated.";
+    if (typeof window !== "undefined" && typeof window.alert === "function" && options.silent !== true) {
+      window.alert(message);
+    }
+    console.error("[llh-planner]", message, validation);
+    return null;
+  }
+
   const exportApi = lessonPlanWeeklyExportApi();
   const summary = exportApi?.buildWeeklySummary
-    ? exportApi.buildWeeklySummary({
-      ...plan,
-      title: resource?.title || plan.title,
-      age: resource?.age || plan.age,
-      theme: plan.theme || resource?.theme,
-    })
+    ? exportApi.buildWeeklySummary(plan)
     : {
       title: resource?.title || plan.title || "Weekly Lesson Plan",
       theme: plan.theme || resource?.theme || "",
       age: resource?.age || plan.age || "Preschool",
       learningDomains: curriculumAsStringArray(plan.learningDomains),
       weeklyOverview: String(plan.weeklyOverview || "").trim(),
-      objectives: lessonPlanObjectiveBullets(plan, 6),
+      objectives: lessonPlanObjectiveBullets(plan, 8),
       vocabularyWords: String(plan.vocabularyWords || "").replace(/\n+/g, ", ").replace(/\s+/g, " ").trim(),
       weeklyMaterials: String(plan.weeklyMaterials || "").replace(/\s+/g, " ").trim(),
       books: Array.isArray(plan.books)
         ? plan.books.map((book) => `${book.title || book}${book.author ? ` by ${book.author}` : ""}`).filter(Boolean)
         : [],
       songs: Array.isArray(plan.songs) ? plan.songs.map((song) => song.title || song).filter(Boolean) : [],
-      familyConnection: String(plan.familyConnection || "").trim(),
-      observationOpportunities: String(plan.observationOpportunities || "").trim(),
-      adaptations: String(plan.adaptations || "").trim(),
     };
-  const days = lessonPlanWeeklyScheduleDays(plan);
+  if (!Array.isArray(summary.objectives)) {
+    summary.objectives = lessonPlanObjectiveBullets(plan, 8);
+  }
+  summary.vocabularyWords = String(summary.vocabularyWords || "")
+    .replace(/\n+/g, ", ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const focus = teacherPlannerCurriculumFocus(summary.theme, plan);
   const weekStart = options.weekStartDate || lessonPlanAssignedWeekStart(resource?.id) || "";
   const weekOfLabel = formatLessonWeekOfLabel(weekStart) || "";
+  const includeNotesPage = options.includeTeacherNotes === true;
+  const books = Array.isArray(summary.books) ? summary.books.filter(Boolean) : [];
+  const cleanCell = (value) => String(value || "").replace(/\s+/g, " ").trim();
 
-  // Little Learner Hub purple brand (PDF RGB 0–1)
   const PURPLE = "0.42 0.275 0.757";
   const PURPLE_DEEP = "0.33 0.18 0.58";
   const PURPLE_SOFT = "0.953 0.933 1";
   const PURPLE_LINE = "0.82 0.76 0.94";
   const INK = "0.176 0.106 0.306";
-  const MUTED = "0.35 0.3 0.42";
 
-  const pages = [];
   const PAGE_W = 792;
   const PAGE_H = 612;
-  const MARGIN = 16;
+  const MARGIN = 18;
+  const FOOTER_H = 18;
+  const HEADER_H = 24;
+  const CONTENT_TOP = PAGE_H - HEADER_H - 8;
+  const CONTENT_BOTTOM = FOOTER_H + 8;
+  const CONTENT_WIDTH = PAGE_W - (MARGIN * 2);
 
   const makePageTools = () => {
     const page = [];
@@ -17188,9 +17270,8 @@ function buildLessonPlanWeeklyCalendarBoardPdfBlob(resource, options = {}) {
     const strokeRect = (x, yPos, width, height, color = PURPLE_LINE, widthPt = 0.7) => {
       page.push(`${color} RG ${widthPt} w ${x} ${yPos} ${width} ${height} re S`);
     };
-    const wrap = (value, widthChars) => wrapPdfText(String(value || ""), widthChars);
     const writeWrappedInBox = (value, x, topY, maxWidthChars, maxLines, size, font, color, lineGap = 1.15) => {
-      const lines = wrap(value, maxWidthChars).slice(0, maxLines);
+      const lines = wrapPdfText(String(value || ""), maxWidthChars).slice(0, maxLines);
       let y = topY;
       lines.forEach((lineText) => {
         text(lineText, x, y, size, font, color);
@@ -17198,228 +17279,274 @@ function buildLessonPlanWeeklyCalendarBoardPdfBlob(resource, options = {}) {
       });
       return lines.length;
     };
-    return { page, text, fillRect, strokeRect, wrap, writeWrappedInBox };
+    return { page, text, fillRect, strokeRect, writeWrappedInBox };
   };
-
-  const labelColW = 78;
-  const gridLeft = MARGIN;
-  const gridRight = PAGE_W - MARGIN;
-  const gridWidth = gridRight - gridLeft;
-  const dayColW = (gridWidth - labelColW) / 5;
-  const cellChars = 24;
-
-  const formatActivityCell = (activity) => {
-    if (!activity) return "";
-    const title = String(activity.title || "").trim();
-    const desc = String(activity.description || "").trim();
-    if (title && desc) return `${title} — ${desc}`;
-    return title || desc;
-  };
-
-  const formatTeacherNotesCell = (day) => {
-    const detail = day.teacherNotesDetail || {};
-    const parts = [];
-    if (detail.reminders) parts.push(detail.reminders);
-    if (detail.learningGoals) parts.push(`Goals: ${detail.learningGoals}`);
-    if (detail.adaptations) parts.push(`Adapt: ${detail.adaptations}`);
-    if (detail.safetyNotes) parts.push(`Safety: ${detail.safetyNotes}`);
-    return parts.join(" · ") || day.teacherNotes || "";
-  };
-
-  const gridRowsPage1 = [
-    { key: "themeFocus", label: "THEME FOCUS", sub: "Discovery & development", height: 36, maxLines: 3, get: (d) => d.themeFocus || d.theme || summary.theme },
-    { key: "circleTime", label: "CIRCLE TIME", sub: "Social, music & group", height: 42, maxLines: 4, get: (d) => d.circleTime },
-    { key: "activity1", label: "ACTIVITY 1", sub: "Sensory / exploration", height: 52, maxLines: 5, get: (d) => formatActivityCell(d.activitySlots?.[0] || d.activities?.[0]) },
-    { key: "activity2", label: "ACTIVITY 2", sub: "Fine motor / literacy", height: 52, maxLines: 5, get: (d) => formatActivityCell(d.activitySlots?.[1] || d.activities?.[1]) },
-    { key: "activity3", label: "ACTIVITY 3", sub: "Gross motor / movement", height: 52, maxLines: 5, get: (d) => formatActivityCell(d.activitySlots?.[2] || d.activities?.[2]) },
-    { key: "outdoorPlay", label: "OUTDOOR PLAY", sub: "Exploration outside", height: 38, maxLines: 3, get: (d) => d.outdoorPlay },
-    { key: "bookOfTheDay", label: "BOOK OF THE DAY", sub: "Daily read-aloud", height: 30, maxLines: 3, get: (d) => d.bookOfTheDay },
-  ];
-
-  const gridRowsPage2 = [
-    { key: "materials", label: "MATERIALS NEEDED", sub: "What you'll need", height: 70, maxLines: 7, get: (d) => d.materialsNeeded },
-    { key: "teacherNotes", label: "TEACHER NOTES", sub: "Reminders, goals & adaptations", height: 120, maxLines: 12, get: (d) => formatTeacherNotesCell(d) },
-    { key: "dailyExtras", label: "DAILY FOCUS", sub: "Vocab, songs & safety", height: 70, maxLines: 7, get: (d) => {
-      const bits = [];
-      if (d.vocabulary) bits.push(`Vocab: ${d.vocabulary}`);
-      if (d.songs?.length) bits.push(`Songs: ${d.songs.join("; ")}`);
-      if (d.objectives) bits.push(`Objectives: ${d.objectives}`);
-      if (d.safetyNotes) bits.push(`Safety: ${d.safetyNotes}`);
-      if (d.familyConnection) bits.push(`Family: ${d.familyConnection}`);
-      return bits.join(" · ");
-    } },
-  ];
 
   const drawBrandHeader = (tools, pageTitle) => {
     const { text, fillRect } = tools;
-    fillRect(0, PAGE_H - 28, PAGE_W, 28, PURPLE_DEEP);
-    text("Little Learner Hub", MARGIN + 4, PAGE_H - 12, 10, "F2", "1 1 1");
-    text("EARLY CHILDHOOD RESOURCES & SUPPORT", MARGIN + 130, PAGE_H - 12, 7, "F1", "0.92 0.88 1");
-    text(pageTitle, PAGE_W - MARGIN - 150, PAGE_H - 12, 10, "F2", "1 1 1");
-  };
-
-  const drawMetaBar = (tools, y) => {
-    const { text, fillRect } = tools;
-    fillRect(MARGIN, y - 16, gridWidth, 18, PURPLE);
-    const theme = summary.theme || "Classroom Theme";
-    const age = summary.age || "Preschool";
-    const week = weekOfLabel || "Week of ______________";
-    text(`Theme: ${theme}`, MARGIN + 8, y - 11, 8.5, "F2", "1 1 1");
-    text(`Age Group: ${age}`, MARGIN + 280, y - 11, 8.5, "F2", "1 1 1");
-    text(`Week Of: ${week}`, MARGIN + 460, y - 11, 8.5, "F2", "1 1 1");
-    return y - 22;
-  };
-
-  const drawWeeklyOverviewBlock = (tools, startY) => {
-    const { text, fillRect, writeWrappedInBox, strokeRect } = tools;
-    let y = startY;
-    text(summary.title || "Weekly Lesson Plan", MARGIN + 2, y, 14, "F2", INK);
-    y -= 16;
-    y = drawMetaBar(tools, y);
-
-    const overviewH = 78;
-    fillRect(MARGIN, y - overviewH, gridWidth, overviewH, PURPLE_SOFT);
-    strokeRect(MARGIN, y - overviewH, gridWidth, overviewH, PURPLE_LINE, 0.6);
-    const colW = gridWidth / 3;
-    const leftX = MARGIN + 6;
-    const midX = MARGIN + colW + 4;
-    const rightX = MARGIN + colW * 2 + 4;
-    const bodySize = 6.5;
-    const labelSize = 7;
-
-    text("WEEKLY OVERVIEW", leftX, y - 10, labelSize, "F2", PURPLE_DEEP);
-    writeWrappedInBox(summary.weeklyOverview || summary.objectives.slice(0, 2).join(" "), leftX, y - 20, 42, 3, bodySize, "F1", INK);
-
-    text("OBJECTIVES", midX, y - 10, labelSize, "F2", PURPLE_DEEP);
-    writeWrappedInBox(
-      (summary.objectives || []).map((item) => `• ${item}`).join("  ") || summary.learningDomains.join(" · "),
-      midX,
-      y - 20,
-      42,
-      3,
-      bodySize,
-      "F1",
-      INK,
-    );
-
-    text("VOCABULARY", rightX, y - 10, labelSize, "F2", PURPLE_DEEP);
-    writeWrappedInBox(summary.vocabularyWords, rightX, y - 20, 42, 2, bodySize, "F1", INK);
-    text("MATERIALS", rightX, y - 38, labelSize, "F2", PURPLE_DEEP);
-    writeWrappedInBox(summary.weeklyMaterials, rightX, y - 48, 42, 2, bodySize, "F1", INK);
-
-    const lowerY = y - overviewH + 18;
-    text("BOOKS", leftX, lowerY, labelSize, "F2", PURPLE_DEEP);
-    writeWrappedInBox((summary.books || []).join("; "), leftX + 32, lowerY, 36, 1, bodySize, "F1", INK);
-    text("SONGS", midX, lowerY, labelSize, "F2", PURPLE_DEEP);
-    writeWrappedInBox((summary.songs || []).join("; "), midX + 32, lowerY, 36, 1, bodySize, "F1", INK);
-    text("FAMILY", rightX, lowerY, labelSize, "F2", PURPLE_DEEP);
-    writeWrappedInBox(summary.familyConnection || summary.observationOpportunities || summary.adaptations, rightX + 34, lowerY, 34, 1, bodySize, "F1", INK);
-
-    return y - overviewH - 6;
-  };
-
-  const drawDayGrid = (tools, rows, topY, includeDayHeaders) => {
-    const { text, fillRect, strokeRect, writeWrappedInBox } = tools;
-    let y = topY;
-    const headerH = includeDayHeaders ? 16 : 0;
-    if (includeDayHeaders) {
-      fillRect(gridLeft, y - headerH, labelColW, headerH, PURPLE_DEEP);
-      days.forEach((day, index) => {
-        const x = gridLeft + labelColW + index * dayColW;
-        fillRect(x, y - headerH, dayColW, headerH, PURPLE);
-        text(String(day.label || "").toUpperCase(), x + 8, y - 11, 8, "F2", "1 1 1");
-      });
-      y -= headerH;
-    }
-
-    rows.forEach((row, rowIndex) => {
-      const rowH = row.height;
-      const labelFill = rowIndex % 2 === 0 ? PURPLE_SOFT : "0.98 0.97 1";
-      fillRect(gridLeft, y - rowH, labelColW, rowH, labelFill);
-      strokeRect(gridLeft, y - rowH, labelColW, rowH, PURPLE_LINE, 0.55);
-      text(row.label, gridLeft + 4, y - 10, 6.5, "F2", PURPLE_DEEP);
-      if (row.sub) text(row.sub, gridLeft + 4, y - 19, 5.5, "F1", MUTED);
-
-      days.forEach((day, index) => {
-        const x = gridLeft + labelColW + index * dayColW;
-        fillRect(x, y - rowH, dayColW, rowH, rowIndex % 2 === 0 ? "1 1 1" : "0.99 0.985 1");
-        strokeRect(x, y - rowH, dayColW, rowH, PURPLE_LINE, 0.55);
-        const value = String(row.get(day) || "").trim();
-        if (value) {
-          writeWrappedInBox(value, x + 3, y - 9, cellChars, row.maxLines, 6.2, "F1", INK, 1.2);
-        }
-      });
-      y -= rowH;
-    });
-    return y;
+    fillRect(0, PAGE_H - HEADER_H, PAGE_W, HEADER_H, PURPLE_DEEP);
+    text("Little Learner Hub", MARGIN, PAGE_H - 9, 9.5, "F2", "1 1 1");
+    text(pageTitle, PAGE_W - MARGIN - 200, PAGE_H - 9, 9.5, "F2", "1 1 1");
   };
 
   const drawFooter = (tools, pageNumber, pageCount) => {
     const { text, fillRect } = tools;
-    fillRect(0, 0, PAGE_W, 18, PURPLE_DEEP);
-    text(llhCopyrightPdfFooter(), MARGIN + 4, 6, 6.5, "F1", "1 1 1");
-    text("www.littlelearnerhub.com", PAGE_W / 2 - 20, 6, 6.5, "F1", "1 1 1");
-    text(`Page ${pageNumber} of ${pageCount}`, PAGE_W - MARGIN - 70, 6, 7, "F1", "1 1 1");
+    fillRect(0, 0, PAGE_W, FOOTER_H, PURPLE_DEEP);
+    text(llhCopyrightPdfFooter(), MARGIN, 6, 6.5, "F1", "1 1 1");
+    text(`Page ${pageNumber} of ${pageCount}`, PAGE_W - MARGIN - 72, 6, 7, "F2", "1 1 1");
   };
 
-  // Page 1 — weekly overview + primary classroom grid
-  const page1 = makePageTools();
-  drawBrandHeader(page1, "WEEKLY LESSON PLAN");
-  let cursorY = PAGE_H - 36;
-  cursorY = drawWeeklyOverviewBlock(page1, cursorY);
-  drawDayGrid(page1, gridRowsPage1, cursorY, true);
-  pages.push(page1.page);
+  const overviewSections = () => {
+    const objectives = (summary.objectives || []).map((item) => `- ${item}`).join(" ");
+    const bookList = books.join("; ");
+    return [
+      { label: "Theme", value: summary.theme || "Classroom Theme", chars: 48, maxLines: 2, pair: "top" },
+      { label: "Age Group", value: summary.age || "Preschool", chars: 48, maxLines: 1, pair: "top" },
+      { label: "Weekly Overview", value: summary.weeklyOverview, chars: 118, maxLines: 4 },
+      { label: "Objectives", value: objectives, chars: 112, maxLines: 4 },
+      { label: "Materials", value: summary.weeklyMaterials, chars: 118, maxLines: 3 },
+      { label: "Letter", value: focus.letter, chars: 12, maxLines: 1, quartet: "focus" },
+      { label: "Number", value: focus.number, chars: 12, maxLines: 1, quartet: "focus" },
+      { label: "Shape", value: focus.shape, chars: 16, maxLines: 1, quartet: "focus" },
+      { label: "Color", value: focus.color, chars: 16, maxLines: 1, quartet: "focus" },
+      { label: "Vocabulary", value: summary.vocabularyWords, chars: 118, maxLines: 3 },
+      { label: "Books", value: bookList, chars: 118, maxLines: 3 },
+    ].filter((section) => String(section.value || "").trim());
+  };
 
-  // Page 2 — materials, teacher notes, daily extras (only if any day has content)
-  const page2Needed = days.some((day) => (
-    day.materialsNeeded
-    || formatTeacherNotesCell(day)
-    || day.vocabulary
-    || (day.songs && day.songs.length)
-    || day.objectives
-    || day.safetyNotes
-    || day.familyConnection
-    || summary.adaptations
-    || summary.observationOpportunities
-  ));
-  if (page2Needed) {
-    const page2 = makePageTools();
-    drawBrandHeader(page2, "WEEKLY LESSON PLAN — TEACHER SUPPORT");
-    cursorY = PAGE_H - 36;
-    page2.text(summary.title || "Weekly Lesson Plan", MARGIN + 2, cursorY, 12, "F2", INK);
-    cursorY -= 14;
-    cursorY = drawMetaBar(page2, cursorY);
-    if (summary.adaptations || summary.observationOpportunities) {
-      page2.fillRect(MARGIN, cursorY - 28, gridWidth, 28, PURPLE_SOFT);
-      page2.strokeRect(MARGIN, cursorY - 28, gridWidth, 28, PURPLE_LINE, 0.6);
-      page2.text("WEEKLY ADAPTATIONS & OBSERVATIONS", MARGIN + 6, cursorY - 10, 7, "F2", PURPLE_DEEP);
-      page2.writeWrappedInBox(
-        [summary.adaptations, summary.observationOpportunities].filter(Boolean).join(" · "),
-        MARGIN + 6,
-        cursorY - 20,
-        130,
-        2,
-        6.5,
-        "F1",
-        INK,
-      );
-      cursorY -= 34;
+  const estimateSectionHeight = (section, bodySize = 9) => {
+    const lines = Math.max(1, Math.min(section.maxLines, wrapPdfText(section.value, section.chars).length));
+    return 15 + (lines * (bodySize * 1.22)) + 8;
+  };
+
+  const drawOverviewPage = (tools) => {
+    const { text, fillRect, strokeRect, writeWrappedInBox } = tools;
+    let y = CONTENT_TOP;
+    text(summary.title || "Weekly Lesson Plan", MARGIN, y, 15, "F2", INK);
+    y -= 16;
+    fillRect(MARGIN, y - 14, CONTENT_WIDTH, 16, PURPLE);
+    const week = weekOfLabel || "Week of ______________";
+    text("Teacher Weekly Planner", MARGIN + 8, y - 10, 8.5, "F2", "1 1 1");
+    text(week, PAGE_W - MARGIN - 150, y - 10, 8.5, "F2", "1 1 1");
+    y -= 22;
+
+    const sections = overviewSections();
+    const rows = [];
+    for (let i = 0; i < sections.length; i += 1) {
+      const current = sections[i];
+      if (current.quartet === "focus") {
+        const group = [];
+        while (i < sections.length && sections[i].quartet === "focus") {
+          group.push(sections[i]);
+          i += 1;
+        }
+        i -= 1;
+        rows.push(group);
+        continue;
+      }
+      const next = sections[i + 1];
+      if (current.pair && next && next.pair === current.pair) {
+        rows.push([current, next]);
+        i += 1;
+      } else {
+        rows.push([current]);
+      }
     }
-    drawDayGrid(page2, gridRowsPage2, cursorY, true);
-    pages.push(page2.page);
+
+    let bodySize = 9.2;
+    let labelSize = 9.5;
+    const measureRows = () => rows.reduce((sum, row) => {
+      const tallest = Math.max(...row.map((section) => estimateSectionHeight(section, bodySize)));
+      return sum + tallest + 6;
+    }, 0);
+
+    let scalePass = 0;
+    while (scalePass < 5) {
+      const budget = y - CONTENT_BOTTOM;
+      if (measureRows() <= budget || bodySize <= 7.5) break;
+      bodySize -= 0.35;
+      labelSize = Math.max(8, labelSize - 0.2);
+      rows.flat().forEach((section) => {
+        section.maxLines = Math.max(1, section.maxLines - (scalePass > 1 ? 1 : 0));
+      });
+      scalePass += 1;
+    }
+
+    const drawSectionBox = (section, x, top, width, height) => {
+      const lines = wrapPdfText(section.value, section.chars).slice(0, section.maxLines);
+      fillRect(x, top - height, width, height, "1 1 1");
+      strokeRect(x, top - height, width, height, PURPLE_LINE, 0.55);
+      fillRect(x, top - 14, width, 14, PURPLE_SOFT);
+      text(section.label, x + 6, top - 10, labelSize, "F2", PURPLE_DEEP);
+      writeWrappedInBox(lines.join(" "), x + 6, top - 25, section.chars, lines.length, bodySize, "F1", INK, 1.22);
+    };
+
+    // Keep boxes tight to content — leftover page space is fine; empty-looking tall boxes are not.
+    rows.forEach((row) => {
+      const height = Math.max(...row.map((section) => estimateSectionHeight(section, bodySize)));
+      if (y - height < CONTENT_BOTTOM) return;
+      if (row.length >= 2) {
+        const gap = 8;
+        const colW = (CONTENT_WIDTH - (gap * (row.length - 1))) / row.length;
+        row.forEach((section, index) => {
+          drawSectionBox(section, MARGIN + (index * (colW + gap)), y, colW, height);
+        });
+      } else {
+        drawSectionBox(row[0], MARGIN, y, CONTENT_WIDTH, height);
+      }
+      y -= height + 6;
+    });
+  };
+
+  const drawCalendarPage = (tools) => {
+    const { text, fillRect, strokeRect, writeWrappedInBox } = tools;
+    let y = CONTENT_TOP;
+    text("Weekly Classroom Calendar", MARGIN, y, 12, "F2", INK);
+    y -= 14;
+
+    // Compact Weekly Snapshot for posting on the wall/clipboard.
+    const snapshotH = 32;
+    fillRect(MARGIN, y - snapshotH, CONTENT_WIDTH, snapshotH, PURPLE_SOFT);
+    strokeRect(MARGIN, y - snapshotH, CONTENT_WIDTH, snapshotH, PURPLE_LINE, 0.6);
+    text("WEEKLY SNAPSHOT", MARGIN + 6, y - 9, 7.2, "F2", PURPLE_DEEP);
+    const vocabShort = wrapPdfText(summary.vocabularyWords || "", 70).slice(0, 1).join(" ");
+    const snapshotLine = [
+      `Theme: ${summary.theme || ""}`,
+      `Letter: ${focus.letter}`,
+      `Number: ${focus.number}`,
+      `Shape: ${focus.shape}`,
+      `Color: ${focus.color}`,
+    ].join("   |   ");
+    text(snapshotLine, MARGIN + 6, y - 20, 7.8, "F2", INK);
+    text(`Vocabulary: ${vocabShort}`, MARGIN + 6, y - 29, 7.2, "F1", INK);
+    y -= snapshotH + 6;
+
+    const labelColW = 78;
+    const dayColW = (CONTENT_WIDTH - labelColW) / 5;
+    const headerH = 16;
+    // Always show the full classroom day — validation guarantees every cell is filled.
+    const rows = [
+      { label: "Theme Focus", get: (d) => d.themeFocus, weight: 1 },
+      { label: "Circle Time", get: (d) => d.circleTime, weight: 1.15 },
+      { label: "Activity 1", get: (d) => d.activity1 || d.plannerActivities?.[0], weight: 1.2 },
+      { label: "Activity 2", get: (d) => d.activity2 || d.plannerActivities?.[1], weight: 1.2 },
+      { label: "Activity 3", get: (d) => d.activity3 || d.plannerActivities?.[2], weight: 1.2 },
+      { label: "Outdoor Play", get: (d) => d.outdoorPlay, weight: 1.05 },
+      { label: "Book of the Day", get: (d) => d.bookOfTheDay, weight: 1 },
+    ];
+    rows.forEach((row) => {
+      days.forEach((day) => {
+        if (!cleanCell(row.get(day))) {
+          throw new Error(`Empty planner cell blocked: ${day.label} / ${row.label}`);
+        }
+      });
+    });
+
+    // Stretch the grid flush to the footer — no white band under the calendar.
+    const gridTop = y;
+    const gridBottom = FOOTER_H + 2;
+    const usable = Math.max(220, gridTop - gridBottom - headerH);
+    const weightSum = rows.reduce((sum, row) => sum + row.weight, 0);
+    const rowHeights = rows.map((row) => Math.floor((usable * row.weight) / weightSum));
+    rowHeights[rowHeights.length - 1] += usable - rowHeights.reduce((sum, h) => sum + h, 0);
+
+    fillRect(MARGIN, gridTop - headerH, labelColW, headerH, PURPLE_DEEP);
+    days.forEach((day, index) => {
+      const x = MARGIN + labelColW + (index * dayColW);
+      fillRect(x, gridTop - headerH, dayColW, headerH, PURPLE);
+      text(String(day.label || "").toUpperCase(), x + 8, gridTop - 11, 8, "F2", "1 1 1");
+    });
+
+    let rowY = gridTop - headerH;
+    rows.forEach((row, rowIndex) => {
+      const rowH = Math.max(34, rowHeights[rowIndex]);
+      const labelFill = rowIndex % 2 === 0 ? PURPLE_SOFT : "0.985 0.98 1";
+      fillRect(MARGIN, rowY - rowH, labelColW, rowH, labelFill);
+      strokeRect(MARGIN, rowY - rowH, labelColW, rowH, PURPLE_LINE, 0.55);
+      // Single-line labels keep phrases intact for print + PDF text probes.
+      text(row.label, MARGIN + 4, rowY - 12, 6.8, "F2", PURPLE_DEEP);
+      const fontSize = 6.2;
+      const lineGap = 1.12;
+      const lineH = fontSize * lineGap;
+      const topPad = 9;
+      const bottomPad = 4;
+      const maxLines = Math.max(3, Math.floor((rowH - topPad - bottomPad) / lineH));
+      // Conservative char width so Helvetica never clips the right cell edge.
+      const widthChars = Math.max(15, Math.floor((dayColW - 10) / 4.05));
+      days.forEach((day, index) => {
+        const x = MARGIN + labelColW + (index * dayColW);
+        fillRect(x, rowY - rowH, dayColW, rowH, rowIndex % 2 === 0 ? "1 1 1" : "0.995 0.99 1");
+        strokeRect(x, rowY - rowH, dayColW, rowH, PURPLE_LINE, 0.55);
+        const value = cleanCell(row.get(day));
+        // Fill the full cell height with wrapped classroom text — no sparse white boxes.
+        const lines = wrapPdfText(value, widthChars).slice(0, maxLines);
+        let ty = rowY - topPad;
+        lines.forEach((lineText) => {
+          text(lineText, x + 3, ty, fontSize, "F1", INK);
+          ty -= lineH;
+        });
+        // Visible note rules pack leftover height all the way to the cell floor.
+        let ruleY = ty - 1;
+        const ruleFloor = rowY - rowH + 1.8;
+        while (ruleY >= ruleFloor) {
+          tools.page.push(`0.55 0.48 0.66 RG 0.7 w ${x + 3.5} ${ruleY} m ${x + dayColW - 3.5} ${ruleY} l S`);
+          ruleY -= 5.6;
+        }
+      });
+      rowY -= rowH;
+    });
+  };
+
+  const pageStreams = [];
+  const overview = makePageTools();
+  drawBrandHeader(overview, "TEACHER WEEKLY PLANNER");
+  drawOverviewPage(overview);
+  pageStreams.push(overview.page);
+
+  const calendar = makePageTools();
+  drawBrandHeader(calendar, "TEACHER WEEKLY PLANNER");
+  drawCalendarPage(calendar);
+  pageStreams.push(calendar.page);
+
+  if (includeNotesPage) {
+    const notes = makePageTools();
+    drawBrandHeader(notes, "TEACHER WEEKLY PLANNER");
+    let y = CONTENT_TOP;
+    notes.text("Teacher Planning Notes", MARGIN, y, 13, "F2", INK);
+    y -= 18;
+    const colGap = 8;
+    const colW = (CONTENT_WIDTH - (colGap * 4)) / 5;
+    const colH = y - CONTENT_BOTTOM;
+    days.forEach((day, index) => {
+      const x = MARGIN + (index * (colW + colGap));
+      notes.fillRect(x, y - colH, colW, colH, "1 1 1");
+      notes.strokeRect(x, y - colH, colW, colH, PURPLE_LINE, 0.7);
+      notes.fillRect(x, y - 16, colW, 16, PURPLE_SOFT);
+      notes.text(`${day.label} Notes`, x + 6, y - 11, 8, "F2", PURPLE_DEEP);
+    });
+    pageStreams.push(notes.page);
   }
 
-  const pageCount = pages.length;
-  pages.forEach((pageLines, index) => {
-    const tools = { page: pageLines, text: (value, x, yPos, size = 9, font = "F1", color = "0 0 0") => {
-      pageLines.push(`${color} rg BT /${font} ${size} Tf ${x} ${yPos} Td (${pdfEscapeText(value)}) Tj ET`);
-    }, fillRect: (x, yPos, width, height, color) => {
-      pageLines.push(`${color} rg ${x} ${yPos} ${width} ${height} re f`);
-    } };
+  const pageCount = pageStreams.length;
+  pageStreams.forEach((pageLines, index) => {
+    const tools = {
+      page: pageLines,
+      text: (value, x, yPos, size = 9, font = "F1", color = "0 0 0") => {
+        pageLines.push(`${color} rg BT /${font} ${size} Tf ${x} ${yPos} Td (${pdfEscapeText(value)}) Tj ET`);
+      },
+      fillRect: (x, yPos, width, height, color) => {
+        pageLines.push(`${color} rg ${x} ${yPos} ${width} ${height} re f`);
+      },
+    };
     drawFooter(tools, index + 1, pageCount);
   });
 
-  return createPdfDocumentBlob(pages, { landscape: true });
+  return createPdfDocumentBlob(pageStreams, { landscape: true });
+}
+
+/** @deprecated Alias — weekly classroom download now uses the Teacher Weekly Planner. */
+function buildLessonPlanWeeklyCalendarBoardPdfBlob(resource, options = {}) {
+  return buildTeacherWeeklyPlannerPdfBlob(resource, options);
 }
 
 function buildLessonPlanPlanningSheetPdfBlob(resource, options = {}) {
@@ -17525,12 +17652,13 @@ function downloadLessonPlanVariant(printVariant = "week", options = {}) {
   const viewerResource = activeResourceViewerResource;
   if (!canDownloadLessonWorkspacePlan(viewerResource)) return;
   const allowed = new Set(["week", "week-detail", "planning", "materials", "full"]);
-  const safeVariant = allowed.has(printVariant) ? printVariant : "week";
+  const normalizedVariant = (printVariant === "teacher-planner") ? "week" : printVariant;
+  const safeVariant = allowed.has(normalizedVariant) ? normalizedVariant : "week";
   // Weekly classroom downloads are PDF-only (no garbled DOCX).
   const preferDocx = options.format === "docx" && safeVariant === "full";
   recordResourceOutputRequest({
     mode: "download",
-    printVariant: safeVariant,
+    printVariant: safeVariant === "week" ? "teacher-planner" : safeVariant,
     format: preferDocx ? "docx" : "pdf",
     resourceId: viewerResource.id,
     title: viewerResource.title,
@@ -17544,7 +17672,7 @@ function downloadLessonPlanVariant(printVariant = "week", options = {}) {
         ? "detailed-weekly-lesson-plan"
         : safeVariant === "planning"
           ? "classroom-planning-sheet"
-          : "weekly-lesson-plan";
+          : "teacher-weekly-planner";
   const weekStartDate = lessonPlanAssignedWeekStart(viewerResource.id);
   if (preferDocx && safeVariant === "full") {
     downloadBlob(
@@ -17552,10 +17680,12 @@ function downloadLessonPlanVariant(printVariant = "week", options = {}) {
       `${slug(viewerResource.title)}-${variantLabel}.docx`,
     );
   } else if (safeVariant === "week") {
-    downloadBlob(
-      buildLessonPlanWeeklyCalendarBoardPdfBlob(viewerResource, { weekStartDate }),
-      `${slug(viewerResource.title)}-${variantLabel}.pdf`,
-    );
+    const plannerBlob = buildTeacherWeeklyPlannerPdfBlob(viewerResource, {
+      weekStartDate,
+      includeTeacherNotes: options.includeTeacherNotes === true,
+    });
+    if (!plannerBlob) return;
+    downloadBlob(plannerBlob, `${slug(viewerResource.title)}-${variantLabel}.pdf`);
   } else if (safeVariant === "week-detail") {
     downloadBlob(
       buildLessonPlanWeeklySchedulePdfBlob(viewerResource, { weekStartDate }),
@@ -17613,8 +17743,8 @@ function lessonWorkspaceActionBarsHtml(resource) {
     <div class="lesson-workspace-action-bars" data-lesson-action-bars="top">
       <div class="lesson-workspace-primary-actions" aria-label="Lesson plan actions">
         <button type="button" class="primary-button lesson-workspace-use-plan-btn" data-lesson-use-this-plan>Use This Plan</button>
-        <button type="button" class="ghost-button lesson-workspace-secondary-btn" data-lesson-print-variant="week">Print Weekly Lesson Plan</button>
-        <button type="button" class="ghost-button lesson-workspace-secondary-btn" data-lesson-download-variant="week" title="Download substitute-ready weekly lesson plan PDF">Download Weekly Lesson Plan</button>
+        <button type="button" class="ghost-button lesson-workspace-secondary-btn" data-lesson-download-variant="week" title="2–3 page printable for staff and classroom posting">Download Teacher Weekly Planner</button>
+        <button type="button" class="ghost-button lesson-workspace-secondary-btn" data-lesson-download-variant="full" title="Download the complete lesson plan PDF">Download Full Lesson Plan</button>
         <div class="lesson-workspace-more-wrap">
           <button type="button" class="ghost-button lesson-workspace-more-btn" data-lesson-workspace-more-toggle aria-expanded="false" aria-haspopup="true">More</button>
           <div class="lesson-workspace-more-menu" hidden>
@@ -17622,13 +17752,14 @@ function lessonWorkspaceActionBarsHtml(resource) {
               <p class="lesson-workspace-more-label">Plan</p>
               <button type="button" data-edit-lesson-plan="${id}">Edit Lesson Plan</button>
               <button type="button" data-lesson-duplicate="${id}">Duplicate</button>
+              <button type="button" data-lesson-print-variant="week">Print Teacher Weekly Planner</button>
             </div>
             <div class="lesson-workspace-more-group">
-              <p class="lesson-workspace-more-label">Downloads</p>
-              <button type="button" data-lesson-download-variant="week">Download Weekly Lesson Plan (PDF)</button>
+              <p class="lesson-workspace-more-label">More downloads</p>
+              <button type="button" data-lesson-download-variant="week">Teacher Weekly Planner (PDF)</button>
+              <button type="button" data-lesson-download-variant="full">Full Lesson Plan (PDF)</button>
               <button type="button" data-lesson-download-variant="week-detail">Detailed Weekly Lesson Plan (PDF)</button>
               <button type="button" data-lesson-download-variant="planning">Classroom Planning Sheet (PDF)</button>
-              <button type="button" data-lesson-download-variant="full">Download Full Lesson Plan (PDF)</button>
             </div>
             ${isUserCopy ? `
             <div class="lesson-workspace-more-group">
@@ -18007,6 +18138,8 @@ function pdfEscapeText(value) {
     .replace(/[“”]/g, '"')
     .replace(/[‘’]/g, "'")
     .replace(/[–—]/g, "-")
+    .replace(/©/g, "(c)")
+    .replace(/·/g, "|")
     .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, "")
     .replace(/\\/g, "\\\\")
     .replace(/\(/g, "\\(")
@@ -18018,6 +18151,8 @@ function pdfSafeText(value) {
     .replace(/[“”]/g, '"')
     .replace(/[‘’]/g, "'")
     .replace(/[–—]/g, "-")
+    .replace(/©/g, "(c)")
+    .replace(/·/g, "|")
     .replace(/[^\x20-\x7E]/g, "");
 }
 
@@ -20725,7 +20860,7 @@ function renderWeeklyPlanViewHtml(scheduleItem, weekStart, weekEnd, room) {
         <div class="form-actions llh-weekly-plan-actions">
           <button type="button" class="primary-button" data-weekly-plan-edit-week>Edit Week</button>
           <button type="button" class="ghost-button" data-weekly-plan-print="${escapeHtml(weekStart)}">Print</button>
-          <button type="button" class="ghost-button" data-weekly-plan-download="${escapeHtml(weekStart)}">Download Weekly Lesson Plan</button>
+          <button type="button" class="ghost-button" data-weekly-plan-download="${escapeHtml(weekStart)}">Download Teacher Weekly Planner</button>
           <button type="button" class="ghost-button" data-weekly-plan-remove="${escapeHtml(scheduleItem.id)}" data-weekly-plan-remove-week="${escapeHtml(weekStart)}">Remove from Calendar</button>
           <button type="button" class="ghost-button" data-view="calendar" data-dash-select-week="${escapeHtml(weekStart)}" data-weekly-plan-back-calendar>Back to Calendar</button>
         </div>

@@ -133,7 +133,16 @@
       used.add(found.index);
       return found.item;
     };
-    return ACTIVITY_SLOT_PREFS.map((prefs) => takePreferred(prefs) || takeNext());
+    // Prefer category order, then densify sequentially so slots never leave holes
+    // like [Activity, null, Activity] that print as empty planner boxes.
+    const preferred = ACTIVITY_SLOT_PREFS.map((prefs) => takePreferred(prefs) || null).filter(Boolean);
+    const densified = [...preferred];
+    while (densified.length < 3) {
+      const next = takeNext();
+      if (!next) break;
+      densified.push(next);
+    }
+    return [densified[0] || null, densified[1] || null, densified[2] || null];
   }
 
   function buildTeacherNotesDetail(dayPlan, activitySlots, weeklyAdaptations) {
@@ -215,6 +224,14 @@
         cleanText(dayPlan.outdoorPlay),
         ...outdoorFromItems.map((item) => joinUnique([item.title, item.description], " — ")),
       ];
+      // Gross-motor / movement activities also feed Outdoor Play when no outdoor field exists.
+      if (!outdoorParts.filter(Boolean).length) {
+        const movement = (playItems.length ? playItems : shapedItems).find((item) => (
+          categoryMatches(item.category, ["Gross Motor", "Gross Motor & Movement", "Music & Movement"])
+          || /outdoor|outside|playground|walk|movement/i.test(item.title)
+        ));
+        if (movement) outdoorParts.push(`Outdoor: ${movement.title}`);
+      }
 
       const dayBooks = Array.isArray(dayPlan.books) ? dayPlan.books.map(formatBook).filter(Boolean) : [];
       const bookOfTheDay = dayBooks[0]
@@ -232,19 +249,38 @@
         || firstSentence(dayPlan.observations || dayPlan.adaptations || dayPlan.familyConnection || dayPlan.outdoorPlay || "", 180)
         || firstSentence(activities[0]?.teacherRole || activities[0]?.observationOpportunities || "", 140);
 
+      const themeFocus = cleanText(dayPlan.theme)
+        || firstSentence(dayPlan.objectives, 120)
+        || cleanText(normalized.theme)
+        || "Weekly Theme";
+      let circleTime = joinUnique(circleParts, " · ");
+      if (!circleTime && weeklySongs.length) {
+        circleTime = `Circle + Song: ${formatSong(weeklySongs[dayIndex % weeklySongs.length] || weeklySongs[0])}`;
+      }
+      if (!circleTime) circleTime = `${themeFocus} Circle Time`;
+      let outdoorPlay = joinUnique(outdoorParts, " · ");
+      if (!outdoorPlay) outdoorPlay = `Outdoor ${themeFocus} Play`;
+      const resolvedBook = bookOfTheDay || `${themeFocus} Story Time`;
+
+      // Dense sequential activity list used by planner/print consumers.
+      const denseActivities = (activities.length ? activities : activitySlots.filter(Boolean)).slice();
+      const denseSlots = [
+        denseActivities[0] || activitySlots[0] || null,
+        denseActivities[1] || activitySlots[1] || null,
+        denseActivities[2] || activitySlots[2] || null,
+      ];
+
       return {
         day,
         label: DAY_LONG[day],
-        theme: cleanText(dayPlan.theme) || cleanText(normalized.theme),
-        themeFocus: cleanText(dayPlan.theme)
-          || firstSentence(dayPlan.objectives, 120)
-          || cleanText(normalized.theme),
+        theme: cleanText(dayPlan.theme) || cleanText(normalized.theme) || themeFocus,
+        themeFocus,
         domains: dayDomains.length ? dayDomains : weeklyDomains,
         objectives: cleanText(dayPlan.objectives),
         vocabulary: cleanText(dayPlan.vocabulary),
-        circleTime: joinUnique(circleParts, " · "),
-        outdoorPlay: joinUnique(outdoorParts, " · "),
-        bookOfTheDay,
+        circleTime,
+        outdoorPlay,
+        bookOfTheDay: resolvedBook,
         books: dayBooks,
         songs: daySongs,
         materialsNeeded,
@@ -256,8 +292,8 @@
         safetyNotes: cleanText(dayPlan.safetyNotes),
         teacherNotes,
         teacherNotesDetail,
-        activitySlots,
-        activities,
+        activitySlots: denseSlots,
+        activities: denseActivities.length ? denseActivities : denseSlots.filter(Boolean),
       };
     });
   }
