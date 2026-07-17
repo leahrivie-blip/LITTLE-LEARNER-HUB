@@ -63,33 +63,35 @@
     return value.includes("gross") || value.includes("movement") || isOutdoorCategory(value);
   }
 
-  function uniqueTitles(titles) {
-    const out = [];
-    const seen = new Set();
-    titles.forEach((title) => {
-      const clean = cleanText(title);
-      if (!clean) return;
-      const key = clean.toLowerCase();
-      if (seen.has(key)) return;
-      seen.add(key);
-      out.push(clean);
-    });
-    return out;
+  function firstSentence(value, maxChars = 90) {
+    const clean = cleanText(value);
+    if (!clean) return "";
+    const match = clean.match(/^(.+?[.!?])(?:\s|$)/);
+    const sentence = match ? match[1] : clean;
+    return sentence.length > maxChars ? `${sentence.slice(0, maxChars - 1).trim()}…` : sentence;
+  }
+
+  /** Title + supporting detail so PDF cells never look blank/sparse. */
+  function cellBlock(title, detail) {
+    const head = cleanText(title);
+    const body = cleanText(detail);
+    if (head && body && body.toLowerCase() !== head.toLowerCase()) return `${head} — ${body}`;
+    return head || body;
   }
 
   function themeFillers(themeFocus, dayLabel) {
     const theme = themeFocus || "Weekly Theme";
     return [
-      `${theme} Discovery Centers`,
-      `${theme} Fine Motor Practice`,
-      `${dayLabel} ${theme} Group Game`,
-      `${theme} Sensory Exploration`,
-      `${theme} Creative Art`,
+      { title: `${theme} Discovery Centers`, detail: `Hands-on ${theme.toLowerCase()} invitations for ${dayLabel}.` },
+      { title: `${theme} Fine Motor Practice`, detail: `Tracing, sorting, and small-muscle ${theme.toLowerCase()} work.` },
+      { title: `${dayLabel} ${theme} Group Game`, detail: `Active group play tied to ${theme.toLowerCase()}.` },
+      { title: `${theme} Sensory Exploration`, detail: `Touch, pour, and describe ${theme.toLowerCase()} materials.` },
+      { title: `${theme} Creative Art`, detail: `Open-ended art connected to ${theme.toLowerCase()}.` },
     ];
   }
 
   /**
-   * Dense Mon–Fri planner rows. Every required cell is non-empty.
+   * Dense Mon–Fri planner rows. Every required cell is non-empty and content-rich.
    */
   function buildTeacherPlannerDays(plan = {}, options = {}) {
     const exportApi = typeof globalThis !== "undefined" ? globalThis.LlhLessonWeeklyExport : null;
@@ -100,6 +102,7 @@
         title: cleanText(normalized.title) || "Weekly Lesson Plan",
         theme: cleanText(normalized.theme) || "Classroom Theme",
         age: cleanText(normalized.age) || "Preschool",
+        weeklyOverview: cleanText(normalized.weeklyOverview),
         vocabularyWords: cleanText(normalized.vocabularyWords).replace(/\n+/g, ", "),
         books: (Array.isArray(normalized.books) ? normalized.books : []).map(formatBook).filter(Boolean),
         songs: (Array.isArray(normalized.songs) ? normalized.songs : []).map(formatSong).filter(Boolean),
@@ -114,7 +117,13 @@
 
     const days = richDays.map((day, dayIndex) => {
       const dayLabel = day.label || DAY_LONG[day.day] || DAY_LONG[WEEKDAYS[dayIndex]];
-      const themeFocus = cleanText(day.themeFocus || day.theme || weeklyTheme) || weeklyTheme;
+      const dayPlan = normalized.dailyPlans?.[day.day] || {};
+      const themeBase = cleanText(day.themeFocus || day.theme || weeklyTheme) || weeklyTheme;
+      const themeDetail = firstSentence(
+        dayPlan.objectives || day.objectives || summary.weeklyOverview || `${dayLabel} ${themeBase} exploration`,
+        85,
+      );
+      const themeFocus = cellBlock(themeBase, themeDetail);
 
       const sourceActivities = [];
       const pushActivity = (activity) => {
@@ -125,59 +134,75 @@
       };
       (Array.isArray(day.activities) ? day.activities : []).forEach(pushActivity);
       (Array.isArray(day.activitySlots) ? day.activitySlots : []).filter(Boolean).forEach(pushActivity);
-
-      // Keep circle/music items available as activity fill-ins too.
-      const dayPlan = normalized.dailyPlans?.[day.day] || {};
       asStringArray(dayPlan.circleTime).forEach((entry) => {
-        pushActivity({ title: entry, category: "Circle Time" });
+        pushActivity({ title: entry, category: "Circle Time", description: "Warm-up songs, vocabulary, and group talk." });
       });
 
-      let titles = uniqueTitles(sourceActivities.map(activityTitle));
+      const activityCards = [];
+      const pushCard = (title, detail, category = "Activity") => {
+        const head = cleanText(title);
+        if (!head) return;
+        if (activityCards.some((entry) => entry.title.toLowerCase() === head.toLowerCase())) return;
+        const body = firstSentence(detail || category, 75);
+        activityCards.push({
+          title: head,
+          detail: body,
+          category: cleanText(category) || "Activity",
+          cell: cellBlock(head, body),
+        });
+      };
 
-      // Pull additional same-day leftovers before inventing theme fillers.
-      if (titles.length < 3) {
+      sourceActivities.forEach((activity) => {
+        pushCard(
+          activityTitle(activity),
+          activity.description || activity.objective || activity.learningGoals?.[0] || activity.category,
+          activity.category,
+        );
+      });
+      if (activityCards.length < 3) {
         songs.forEach((song) => {
-          if (titles.length >= 3) return;
-          titles = uniqueTitles([...titles, `Song Play: ${song}`]);
+          if (activityCards.length >= 3) return;
+          pushCard(`Song Play: ${song}`, "Sing, move, and practice theme vocabulary together.", "Music & Movement");
         });
       }
-      if (titles.length < 3) {
-        themeFillers(themeFocus, dayLabel).forEach((filler) => {
-          if (titles.length >= 3) return;
-          titles = uniqueTitles([...titles, filler]);
+      if (activityCards.length < 3) {
+        themeFillers(themeBase, dayLabel).forEach((filler) => {
+          if (activityCards.length >= 3) return;
+          pushCard(filler.title, filler.detail, "Open-Ended Exploration");
         });
       }
-      titles = titles.slice(0, 3);
-      while (titles.length < 3) {
-        titles.push(`${themeFocus} Learning Centers`);
+      while (activityCards.length < 3) {
+        pushCard(`${themeBase} Learning Centers`, `Teacher-guided ${themeBase.toLowerCase()} invitations.`, "Open-Ended Exploration");
       }
+      const cards = activityCards.slice(0, 3);
 
-      let circleTime = cleanText(day.circleTime);
-      if (!circleTime) {
+      let circleRaw = cleanText(day.circleTime);
+      if (!circleRaw) {
         const circleActivity = sourceActivities.find((activity) => isCircleCategory(activity.category));
-        if (circleActivity) {
-          circleTime = activityTitle(circleActivity);
-        }
+        if (circleActivity) circleRaw = activityTitle(circleActivity);
       }
-      if (!circleTime) {
+      if (!circleRaw) {
         const song = songs[dayIndex % Math.max(songs.length, 1)] || songs[0];
-        circleTime = song ? `Circle + Song: ${song}` : `${themeFocus} Circle Time`;
+        circleRaw = song ? `Circle + Song: ${song}` : `${themeBase} Circle Time`;
       }
+      const circleTime = cellBlock(circleRaw, "Greetings, songs, and theme talk");
 
-      let outdoorPlay = cleanText(day.outdoorPlay);
-      if (!outdoorPlay) {
+      let outdoorRaw = cleanText(day.outdoorPlay);
+      if (!outdoorRaw) {
         const movement = sourceActivities.find((activity) => (
           isMovementCategory(activity.category)
           || /outdoor|outside|playground|walk|movement/i.test(activityTitle(activity))
         ));
-        if (movement) outdoorPlay = `Outdoor: ${activityTitle(movement)}`;
+        if (movement) outdoorRaw = `Outdoor: ${activityTitle(movement)}`;
       }
-      if (!outdoorPlay) outdoorPlay = `Outdoor ${themeFocus} Play`;
+      if (!outdoorRaw) outdoorRaw = `Outdoor ${themeBase} Play`;
+      const outdoorPlay = cellBlock(outdoorRaw, "Gross motor + fresh-air exploration");
 
-      const bookOfTheDay = cleanText(day.bookOfTheDay)
+      const bookTitle = cleanText(day.bookOfTheDay)
         || cleanText(books[dayIndex % Math.max(books.length, 1)])
         || cleanText(books[0])
-        || `${themeFocus} Story Time`;
+        || `${themeBase} Story Time`;
+      const bookOfTheDay = cellBlock(bookTitle, "Read-aloud + story talk");
 
       return {
         day: day.day || WEEKDAYS[dayIndex],
@@ -186,10 +211,11 @@
         circleTime,
         outdoorPlay,
         bookOfTheDay,
-        plannerActivities: titles,
-        activity1: titles[0],
-        activity2: titles[1],
-        activity3: titles[2],
+        plannerActivities: cards.map((card) => card.cell),
+        activity1: cards[0].cell,
+        activity2: cards[1].cell,
+        activity3: cards[2].cell,
+        activityTitles: cards.map((card) => card.title),
       };
     });
 
@@ -235,10 +261,6 @@
     };
   }
 
-  /**
-   * Persistable repair: ensure each weekday has theme, circle, outdoor, books, and >=3 activities.
-   * Returns a shallow-copied plan with repaired dailyPlans/items.
-   */
   function repairLessonPlanForPlanner(plan = {}) {
     const normalized = plan && typeof plan === "object" ? { ...plan } : {};
     const theme = cleanText(normalized.theme) || "Weekly Theme";
@@ -253,12 +275,12 @@
       const items = Array.isArray(existing.items) ? existing.items.map((item) => ({ ...item })) : [];
       while (items.length < 3) {
         const fillers = themeFillers(theme, DAY_LONG[day]);
-        const title = fillers[items.length] || `${theme} Learning Centers`;
+        const filler = fillers[items.length] || { title: `${theme} Learning Centers`, detail: `Teacher-guided ${theme.toLowerCase()} experience.` };
         items.push({
           itemId: `repair-${day}-a${items.length + 1}`,
           activityCategory: items.length === 0 ? "Open-Ended Exploration" : items.length === 1 ? "Fine Motor" : "Gross Motor & Movement",
-          title,
-          description: `Teacher-guided ${theme.toLowerCase()} experience for ${DAY_LONG[day]}.`,
+          title: filler.title,
+          description: filler.detail,
           materials: cleanText(normalized.weeklyMaterials) || "Classroom materials",
           steps: "1. Introduce the invitation.\n2. Support exploration.\n3. Close with reflection.",
           learningGoals: [`Explore ${theme}`],

@@ -1,4 +1,4 @@
-const CACHE_NAME = "llh-shell-v68-planner-dense";
+const CACHE_NAME = "llh-shell-v69-planner-filled";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
@@ -21,9 +21,9 @@ const APP_SHELL = [
   "/scripts/curriculum-lesson-viewer-render.js?v=20260717-copyright",
   "/scripts/llh-schedule.js?v=20260714-prod-priority-fixes",
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
-  "/scripts/lesson-plan-weekly-export.js?v=20260717-planner-dense",
-  "/scripts/llh-teacher-weekly-planner.js?v=20260717-planner-dense",
-  "/app.js?v=20260717-planner-dense",
+  "/scripts/lesson-plan-weekly-export.js?v=20260717-planner-filled",
+  "/scripts/llh-teacher-weekly-planner.js?v=20260717-planner-filled",
+  "/app.js?v=20260717-planner-filled",
   "/comms-center.js?v=20260717-admin-notif-pwa",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",

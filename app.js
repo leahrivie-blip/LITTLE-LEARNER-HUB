@@ -17398,14 +17398,14 @@ function buildTeacherWeeklyPlannerPdfBlob(resource, options = {}) {
   const drawCalendarPage = (tools) => {
     const { text, fillRect, strokeRect, writeWrappedInBox } = tools;
     let y = CONTENT_TOP;
-    text("Weekly Classroom Calendar", MARGIN, y, 13, "F2", INK);
-    y -= 15;
+    text("Weekly Classroom Calendar", MARGIN, y, 12, "F2", INK);
+    y -= 14;
 
     // Compact Weekly Snapshot for posting on the wall/clipboard.
-    const snapshotH = 34;
+    const snapshotH = 32;
     fillRect(MARGIN, y - snapshotH, CONTENT_WIDTH, snapshotH, PURPLE_SOFT);
     strokeRect(MARGIN, y - snapshotH, CONTENT_WIDTH, snapshotH, PURPLE_LINE, 0.6);
-    text("WEEKLY SNAPSHOT", MARGIN + 6, y - 10, 7.5, "F2", PURPLE_DEEP);
+    text("WEEKLY SNAPSHOT", MARGIN + 6, y - 9, 7.2, "F2", PURPLE_DEEP);
     const vocabShort = wrapPdfText(summary.vocabularyWords || "", 70).slice(0, 1).join(" ");
     const snapshotLine = [
       `Theme: ${summary.theme || ""}`,
@@ -17414,22 +17414,22 @@ function buildTeacherWeeklyPlannerPdfBlob(resource, options = {}) {
       `Shape: ${focus.shape}`,
       `Color: ${focus.color}`,
     ].join("   |   ");
-    text(snapshotLine, MARGIN + 6, y - 22, 8, "F2", INK);
-    text(`Vocabulary: ${vocabShort}`, MARGIN + 6, y - 31, 7.5, "F1", INK);
-    y -= snapshotH + 8;
+    text(snapshotLine, MARGIN + 6, y - 20, 7.8, "F2", INK);
+    text(`Vocabulary: ${vocabShort}`, MARGIN + 6, y - 29, 7.2, "F1", INK);
+    y -= snapshotH + 6;
 
     const labelColW = 78;
     const dayColW = (CONTENT_WIDTH - labelColW) / 5;
-    const headerH = 14;
+    const headerH = 16;
     // Always show the full classroom day — validation guarantees every cell is filled.
     const rows = [
-      { label: "Theme Focus", get: (d) => d.themeFocus, height: 28 },
-      { label: "Circle Time", get: (d) => d.circleTime, height: 30 },
-      { label: "Activity 1", get: (d) => d.activity1 || d.plannerActivities?.[0], height: 28 },
-      { label: "Activity 2", get: (d) => d.activity2 || d.plannerActivities?.[1], height: 28 },
-      { label: "Activity 3", get: (d) => d.activity3 || d.plannerActivities?.[2], height: 28 },
-      { label: "Outdoor Play", get: (d) => d.outdoorPlay, height: 28 },
-      { label: "Book of the Day", get: (d) => d.bookOfTheDay, height: 28 },
+      { label: "Theme Focus", get: (d) => d.themeFocus, weight: 1 },
+      { label: "Circle Time", get: (d) => d.circleTime, weight: 1.15 },
+      { label: "Activity 1", get: (d) => d.activity1 || d.plannerActivities?.[0], weight: 1.2 },
+      { label: "Activity 2", get: (d) => d.activity2 || d.plannerActivities?.[1], weight: 1.2 },
+      { label: "Activity 3", get: (d) => d.activity3 || d.plannerActivities?.[2], weight: 1.2 },
+      { label: "Outdoor Play", get: (d) => d.outdoorPlay, weight: 1.05 },
+      { label: "Book of the Day", get: (d) => d.bookOfTheDay, weight: 1 },
     ];
     rows.forEach((row) => {
       days.forEach((day) => {
@@ -17438,29 +17438,37 @@ function buildTeacherWeeklyPlannerPdfBlob(resource, options = {}) {
         }
       });
     });
+
+    // Stretch the grid to the footer so the page has NO giant blank band.
     const gridTop = y;
+    const gridBottom = CONTENT_BOTTOM + 2;
+    const usable = Math.max(220, gridTop - gridBottom - headerH);
+    const weightSum = rows.reduce((sum, row) => sum + row.weight, 0);
+    const rowHeights = rows.map((row) => Math.floor((usable * row.weight) / weightSum));
+    rowHeights[rowHeights.length - 1] += usable - rowHeights.reduce((sum, h) => sum + h, 0);
 
     fillRect(MARGIN, gridTop - headerH, labelColW, headerH, PURPLE_DEEP);
     days.forEach((day, index) => {
       const x = MARGIN + labelColW + (index * dayColW);
       fillRect(x, gridTop - headerH, dayColW, headerH, PURPLE);
-      text(String(day.label || "").toUpperCase(), x + 8, gridTop - 10, 8, "F2", "1 1 1");
+      text(String(day.label || "").toUpperCase(), x + 8, gridTop - 11, 8, "F2", "1 1 1");
     });
 
     let rowY = gridTop - headerH;
     rows.forEach((row, rowIndex) => {
-      const rowH = row.height;
+      const rowH = Math.max(34, rowHeights[rowIndex]);
       const labelFill = rowIndex % 2 === 0 ? PURPLE_SOFT : "0.985 0.98 1";
       fillRect(MARGIN, rowY - rowH, labelColW, rowH, labelFill);
-      strokeRect(MARGIN, rowY - rowH, labelColW, rowH, PURPLE_LINE, 0.5);
-      text(row.label, MARGIN + 4, rowY - 11, 7, "F2", PURPLE_DEEP);
-      const maxLines = Math.max(1, Math.floor((rowH - 8) / 8));
+      strokeRect(MARGIN, rowY - rowH, labelColW, rowH, PURPLE_LINE, 0.55);
+      text(row.label, MARGIN + 4, rowY - 12, 7.2, "F2", PURPLE_DEEP);
+      const maxLines = Math.max(2, Math.min(5, Math.floor((rowH - 8) / 8.2)));
       days.forEach((day, index) => {
         const x = MARGIN + labelColW + (index * dayColW);
         fillRect(x, rowY - rowH, dayColW, rowH, rowIndex % 2 === 0 ? "1 1 1" : "0.995 0.99 1");
-        strokeRect(x, rowY - rowH, dayColW, rowH, PURPLE_LINE, 0.5);
+        strokeRect(x, rowY - rowH, dayColW, rowH, PURPLE_LINE, 0.55);
         const value = cleanCell(row.get(day));
-        writeWrappedInBox(value, x + 3, rowY - 10, 21, maxLines, 6.8, "F1", INK, 1.12);
+        // Multi-line filled cells — never leave a sparse one-word box.
+        writeWrappedInBox(value, x + 3, rowY - 11, 20, maxLines, 6.6, "F1", INK, 1.15);
       });
       rowY -= rowH;
     });
