@@ -9,6 +9,7 @@ const curriculumStandards = require("../scripts/curriculum-standards.js");
 const scheduleLib = require("./schedule-lib.js");
 const { createEmailEngagement, defaultEmailEngagementStore } = require("./email-engagement.js");
 const { createFoundingMemberEmail } = require("./founding-member-email.js");
+const { createFreeUserWelcomeEmail } = require("./free-user-welcome-email.js");
 const { createPushService } = require("./push-lib.js");
 const messagingLib = require("./messaging-lib.js");
 const { createCommsApi } = require("./comms-api.js");
@@ -8234,6 +8235,17 @@ const foundingMemberEmail = createFoundingMemberEmail({
   fetchResendEmailStatus,
 });
 
+// One-time Free Users welcome/upgrade — independent of EMAIL_AUTOMATIONS_ENABLED.
+const freeUserWelcomeEmail = createFreeUserWelcomeEmail({
+  sendEmail,
+  readStore,
+  writeStore,
+  htmlEscape,
+  getAdminEmail: () => ADMIN_EMAIL,
+  getSupportEmailStatus: () => supportEmailConfigStatus(),
+  fetchResendEmailStatus,
+});
+
 function pauseEmailAutomationsInStore(reason = "EMAIL_AUTOMATIONS_ENABLED=false") {
   const store = readStore();
   const eng = emailEngagement.ensureEmailEngagement(store);
@@ -11548,8 +11560,123 @@ async function handleResendEmailWebhook(request, response) {
     jsonResponse(response, 400, { error: "Invalid webhook JSON." });
     return;
   }
-  const result = foundingMemberEmail.handleResendWebhook(event, { persistAlways: true });
-  jsonResponse(response, 200, { received: true, ...result });
+  const foundingResult = foundingMemberEmail.handleResendWebhook(event, { persistAlways: false });
+  const freeResult = freeUserWelcomeEmail.handleResendWebhook(event, { persistAlways: false });
+  if (foundingResult.updated || freeResult.updated) {
+    // Persist whichever campaign matched (handlers write when updated).
+  } else {
+    // Still persist webhook audit on founding campaign store path when neither matches.
+    foundingMemberEmail.handleResendWebhook(event, { persistAlways: true });
+  }
+  jsonResponse(response, 200, {
+    received: true,
+    founding: foundingResult,
+    freeUserWelcome: freeResult,
+  });
+}
+
+/**
+ * Free Users welcome/upgrade — dry-run only. Never sends.
+ * Keep EMAIL_AUTOMATIONS_ENABLED=false; this path does not enable drip/weekly/bulk.
+ */
+async function handleAdminFreeUserWelcomeEmailDryRun(request, response, url) {
+  let token = "";
+  if (request.method === "GET") {
+    token = url.searchParams.get("adminToken") || "";
+  } else {
+    const body = await readJson(request);
+    token = body.adminToken || "";
+  }
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const preview = freeUserWelcomeEmail.dryRun({
+    adminEmail: ADMIN_EMAIL,
+    persist: true,
+  });
+  jsonResponse(response, 200, {
+    ok: true,
+    sent: false,
+    willSend: false,
+    preview,
+    automationsEnabled: emailAutomationsEnabled(),
+    note: "Dry-run only. Nothing was sent. Approve the recipient list, then send with confirmPhrase SEND_FREE_USER_WELCOME_EMAIL.",
+  });
+}
+
+async function handleAdminFreeUserWelcomeEmailSend(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const result = await freeUserWelcomeEmail.send({
+    adminEmail: ADMIN_EMAIL,
+    confirm: body.confirm === true,
+    confirmPhrase: body.confirmPhrase || "",
+    dryRunToken: body.dryRunToken || "",
+    confirmationToken: body.confirmationToken || "",
+    forceResend: false,
+  });
+  if (result.skipped && result.reason === "confirmation_required") {
+    jsonResponse(response, 400, {
+      error: "Confirmation required. Pass confirm:true and confirmPhrase SEND_FREE_USER_WELCOME_EMAIL after reviewing the Final Confirmation Screen.",
+      result,
+    });
+    return;
+  }
+  if (result.skipped && (
+    result.reason === "dry_run_required"
+    || result.reason === "dry_run_expired"
+    || result.reason === "recipient_drift"
+    || result.reason === "confirmation_screen_required"
+  )) {
+    jsonResponse(response, 400, {
+      error: result.detail || "Re-run dry-run and approve the Final Confirmation Screen before sending.",
+      result,
+    });
+    return;
+  }
+  if (result.skipped && result.reason === "already_sent") {
+    jsonResponse(response, 409, {
+      error: "This one-time Free User welcome email was already sent.",
+      result,
+    });
+    return;
+  }
+  if (result.skipped && result.reason === "no_recipients") {
+    jsonResponse(response, 400, {
+      error: "No Free users qualify for this send.",
+      result,
+    });
+    return;
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    result,
+    report: result.report || null,
+    confirmationScreen: result.confirmationScreen || null,
+    membershipRecordsModified: false,
+    billingRecordsModified: false,
+    accountAccessModified: false,
+    automationsEnabled: emailAutomationsEnabled(),
+  });
+}
+
+async function handleAdminFreeUserWelcomeEmailReport(request, response, url) {
+  const token = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const refresh = url.searchParams.get("refresh") === "1" || url.searchParams.get("refresh") === "true";
+  if (refresh) {
+    const refreshed = await freeUserWelcomeEmail.refreshDeliveryStatuses();
+    jsonResponse(response, 200, { ok: true, refreshed: true, ...refreshed });
+    return;
+  }
+  jsonResponse(response, 200, freeUserWelcomeEmail.getReport());
 }
 
 async function handleAdminEmailEngagementSettings(request, response) {
@@ -11834,6 +11961,15 @@ const server = http.createServer(async (request, response) => {
     }
     if (request.method === "GET" && url.pathname === "/api/admin/founding-member-email/report") {
       return await handleAdminFoundingMemberEmailReport(request, response, url);
+    }
+    if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/admin/free-user-welcome-email/dry-run") {
+      return await handleAdminFreeUserWelcomeEmailDryRun(request, response, url);
+    }
+    if (request.method === "POST" && url.pathname === "/api/admin/free-user-welcome-email/send") {
+      return await handleAdminFreeUserWelcomeEmailSend(request, response);
+    }
+    if (request.method === "GET" && url.pathname === "/api/admin/free-user-welcome-email/report") {
+      return await handleAdminFreeUserWelcomeEmailReport(request, response, url);
     }
     if (request.method === "POST" && url.pathname === "/api/webhooks/resend") {
       return await handleResendEmailWebhook(request, response);
