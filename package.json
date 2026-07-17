@@ -111,6 +111,7 @@
     "test:admin-notifications-pwa": "node scripts/test-admin-notifications-pwa.js",
     "test:admin-message-by-name": "node scripts/test-admin-message-by-name.js",
     "test:temp-password-auth": "NODE_ENV=test node scripts/test-temp-password-auth.js",
+    "test:auth-recovery-audit": "NODE_ENV=test node scripts/test-auth-recovery-audit.js",
     "test:email-engagement": "NODE_ENV=test node scripts/test-email-engagement.js",
     "test:founding-member-email": "NODE_ENV=test node scripts/test-founding-member-email.js",
     "dry-run:founding-member-email": "node scripts/founding-member-thank-you-dry-run.js",

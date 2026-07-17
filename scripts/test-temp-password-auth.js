@@ -207,6 +207,55 @@ async function main() {
     console.log("PASS  temporary password no longer works");
     console.log("PASS  Founding / role / plan fields unchanged");
     console.log("PASS  admin issue endpoint returns one-time password without logging it");
+
+    // Expired temp must not block a valid permanent passwordHash.
+    const expiredEmail = "expired.temp@example.com";
+    const permanent = "Permanent-Pass-42!";
+    const storeNow = JSON.parse(fs.readFileSync(STORE, "utf8"));
+    storeNow.users[expiredEmail] = {
+      email: expiredEmail,
+      plan: "Pro",
+      subscriptionStatus: "active",
+      role: "owner",
+      serverPasswordAuth: true,
+      passwordHash: hash(permanent),
+      mustChangePassword: true,
+      tempPasswordHash: hash("Expired-Temp-99!"),
+      tempPasswordIssuedAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+      tempPasswordExpiresAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+    };
+    fs.writeFileSync(STORE, JSON.stringify(storeNow, null, 2));
+    const expiredLogin = await request("POST", "/api/auth/password-login", {
+      body: { email: expiredEmail, password: permanent },
+    });
+    assert.equal(expiredLogin.status, 200, JSON.stringify(expiredLogin.json));
+    assert.equal(expiredLogin.json.mustChangePassword, false);
+    const expiredAfter = JSON.parse(fs.readFileSync(STORE, "utf8")).users[expiredEmail];
+    assert.equal(expiredAfter.mustChangePassword, false);
+    assert.ok(!expiredAfter.tempPasswordHash);
+    console.log("PASS  expired temp clears and permanent password still logs in");
+
+    // Firebase-style password sync clears sticky recovery flags.
+    const syncEmail = EMAIL;
+    const syncedPassword = "Synced-After-Firebase-55!";
+    const synced = await request("POST", "/api/auth/sync-password-after-firebase", {
+      token: `test:${syncEmail}`,
+      body: { newPassword: syncedPassword, source: "firebase_password_reset" },
+    });
+    assert.equal(synced.status, 200, JSON.stringify(synced.json));
+    assert.equal(synced.json.mustChangePassword, false);
+    const syncLogin = await request("POST", "/api/auth/password-login", {
+      body: { email: syncEmail, password: syncedPassword },
+    });
+    assert.equal(syncLogin.status, 200, JSON.stringify(syncLogin.json));
+    assert.equal(syncLogin.json.mustChangePassword, false);
+    const syncRow = JSON.parse(fs.readFileSync(STORE, "utf8")).users[syncEmail];
+    assert.equal(syncRow.plan, "Founding");
+    assert.equal(syncRow.passwordHash, hash(syncedPassword));
+    console.log("PASS  sync-password-after-firebase clears gate and preserves Founding");
+
+    assert.match(serverLog, /\[auth\] password_login/);
+    console.log("PASS  auth audit logging present");
     console.log("\nAll temp-password auth tests passed.");
   } finally {
     child.kill("SIGTERM");

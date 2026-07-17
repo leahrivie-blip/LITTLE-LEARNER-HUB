@@ -4787,11 +4787,24 @@ async function handleAdminIssueTempPassword(request, response) {
   });
 }
 
+function authAuditLog(event, details = {}) {
+  const safe = { ...details };
+  delete safe.password;
+  delete safe.newPassword;
+  delete safe.confirmPassword;
+  delete safe.temporaryPassword;
+  delete safe.passwordHash;
+  delete safe.tempPasswordHash;
+  console.log(`[auth] ${event} ${JSON.stringify(safe)}`);
+}
+
 async function handlePasswordLogin(request, response) {
   const body = await readJson(request);
   const email = tempPasswordAuth.normalizeEmail(body.email);
   const password = String(body.password || "");
+  authAuditLog("password_login_attempt", { email: email || "(missing)" });
   if (!email || !password) {
+    authAuditLog("password_login_rejected", { email: email || "(missing)", reason: "missing_credentials" });
     jsonResponse(response, 400, { error: "Email and password are required." });
     return;
   }
@@ -4811,40 +4824,67 @@ async function handlePasswordLogin(request, response) {
         appliedOneShotTempPasswordId: sealed.id,
       }, { passwordHash: sealed.passwordHash });
       store.users[email] = user;
+      authAuditLog("password_login_recovery_stub", { email });
     }
   }
   if (!user) {
+    authAuditLog("password_login_failed", { email, reason: "account_not_found" });
     jsonResponse(response, 401, { error: "The email or password did not match. Please try again." });
+    return;
+  }
+  if (String(user.accountStatus || "").toLowerCase() === "disabled" || user.disabled === true) {
+    authAuditLog("password_login_failed", { email, reason: "account_disabled" });
+    jsonResponse(response, 403, { error: "This account has been disabled. Please contact support." });
     return;
   }
   const verified = tempPasswordAuth.verifyServerPasswordLogin(user, password);
   if (!verified.ok) {
+    if (verified.clearExpiredTemp) {
+      store.users[email] = tempPasswordAuth.clearTempPasswordFields(user, {
+        keepServerPasswordAuth: Boolean(user.passwordHash || user.serverPasswordAuth),
+      });
+      await writeStoreAsync(store);
+      authAuditLog("password_login_cleared_expired_temp", { email });
+    }
+    authAuditLog("password_login_failed", { email, reason: "bad_password", hadTemp: Boolean(user.tempPasswordHash) });
     jsonResponse(response, 401, { error: verified.error || "The email or password did not match. Please try again." });
     return;
   }
   // Audit first temp login; password remains valid until forced change or 24h expiry.
+  let nextUser = { ...user };
+  if (verified.clearExpiredTemp || (verified.mode === "server" && verified.mustChangePassword === false)) {
+    nextUser = tempPasswordAuth.clearTempPasswordFields(nextUser, { keepServerPasswordAuth: true });
+  }
   if (verified.mode === "temporary") {
-    store.users[email] = {
-      ...user,
+    nextUser = {
+      ...nextUser,
       tempPasswordConsumedAt: user.tempPasswordConsumedAt || new Date().toISOString(),
       lastLoginAt: new Date().toISOString(),
       lastSeenAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
   } else {
-    store.users[email] = {
-      ...user,
+    nextUser = {
+      ...nextUser,
+      mustChangePassword: false,
       lastLoginAt: new Date().toISOString(),
       lastSeenAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
   }
+  store.users[email] = nextUser;
   const sessionToken = tempPasswordAuth.createMemberSession(
     store,
     email,
     verified.mustChangePassword ? "temp-password" : "server-password",
   );
   await writeStoreAsync(store);
+  authAuditLog("password_login_success", {
+    email,
+    mode: verified.mode,
+    mustChangePassword: Boolean(verified.mustChangePassword),
+    plan: nextUser.plan || "Free",
+  });
   jsonResponse(response, 200, {
     ok: true,
     email,
@@ -4861,26 +4901,32 @@ async function handleCompleteForcedPasswordChange(request, response) {
   const store = readStore();
   const session = tempPasswordAuth.resolveMemberSession(store, authHeader);
   if (!session?.email) {
+    authAuditLog("forced_password_change_rejected", { reason: "missing_member_session" });
     jsonResponse(response, 401, { error: "Please log in again to create a new password." });
     return;
   }
   const newPassword = String(body.newPassword || "");
   const confirmPassword = String(body.confirmPassword || "");
+  authAuditLog("forced_password_change_attempt", { email: session.email });
   if (newPassword.length < 8) {
+    authAuditLog("forced_password_change_rejected", { email: session.email, reason: "password_too_short" });
     jsonResponse(response, 400, { error: "Please use a new password with at least 8 characters." });
     return;
   }
   if (newPassword !== confirmPassword) {
+    authAuditLog("forced_password_change_rejected", { email: session.email, reason: "password_mismatch" });
     jsonResponse(response, 400, { error: "The new passwords did not match." });
     return;
   }
   const email = session.email;
   const user = store.users?.[email];
   if (!user) {
+    authAuditLog("forced_password_change_rejected", { email, reason: "account_not_found" });
     jsonResponse(response, 404, { error: "Account not found." });
     return;
   }
   if (!user.mustChangePassword && !user.serverPasswordAuth) {
+    authAuditLog("forced_password_change_rejected", { email, reason: "not_required" });
     jsonResponse(response, 400, { error: "A forced password change is not required for this account." });
     return;
   }
@@ -4889,15 +4935,87 @@ async function handleCompleteForcedPasswordChange(request, response) {
     ...tempPasswordAuth.clearTempPasswordFields(user, { keepServerPasswordAuth: true }),
     passwordHash,
     mustChangePassword: false,
+    passwordUpdatedAt: new Date().toISOString(),
+    passwordUpdatedVia: "forced_change",
   };
   // Invalidate the recovery session that was tied to the temporary password.
   tempPasswordAuth.revokeMemberSession(store, session.token);
   const nextSession = tempPasswordAuth.createMemberSession(store, email, "server-password");
   await writeStoreAsync(store);
+  authAuditLog("forced_password_change_success", { email, passwordUpdatedVia: "forced_change" });
   jsonResponse(response, 200, {
     ok: true,
     email,
     memberSessionToken: nextSession,
+    mustChangePassword: false,
+    ...tempPasswordAuth.publicAuthFlags(store.users[email]),
+  });
+}
+
+/**
+ * After a successful Firebase password reset/login, sync the permanent hash into
+ * the server store and clear sticky temp-password recovery flags so login cannot
+ * get stuck behind mustChangePassword without a member session.
+ */
+async function handleSyncPasswordAfterFirebase(request, response) {
+  const body = await readJson(request);
+  let identity = null;
+  try {
+    if (firebaseConfigStatus().ready) {
+      identity = await verifyFirebaseUser(request);
+    } else {
+      // Local/demo or automated tests when Firebase Auth is not configured.
+      const authHeader = String(request.headers.authorization || "");
+      if (authHeader.startsWith("Bearer test:")) {
+        identity = { email: normalizeEmail(authHeader.slice("Bearer test:".length)), uid: "test" };
+      } else if (normalizeEmail(body.email) && String(body.newPassword || "").length >= 8) {
+        identity = { email: normalizeEmail(body.email), uid: `local-${normalizeEmail(body.email)}` };
+      }
+    }
+  } catch (error) {
+    authAuditLog("firebase_password_sync_rejected", { reason: "invalid_firebase_token", error: error.message });
+    jsonResponse(response, 401, { error: "Please log in again before syncing your password." });
+    return;
+  }
+  const email = normalizeEmail(identity?.email || body.email || "");
+  const newPassword = String(body.newPassword || "");
+  authAuditLog("firebase_password_sync_attempt", { email: email || "(missing)" });
+  if (!email || !identity) {
+    jsonResponse(response, 401, { error: "A verified account email is required." });
+    return;
+  }
+  if (newPassword && newPassword.length < 8) {
+    jsonResponse(response, 400, { error: "Please use a password with at least 8 characters." });
+    return;
+  }
+  const store = readStore();
+  store.users = store.users || {};
+  const existing = store.users[email] || { email };
+  const passwordHash = newPassword
+    ? tempPasswordAuth.hashPasswordSha256(newPassword)
+    : (existing.passwordHash || "");
+  store.users[email] = {
+    ...tempPasswordAuth.clearTempPasswordFields(existing, { keepServerPasswordAuth: true }),
+    email,
+    passwordHash: passwordHash || existing.passwordHash || "",
+    serverPasswordAuth: true,
+    mustChangePassword: false,
+    passwordUpdatedAt: new Date().toISOString(),
+    passwordUpdatedVia: body.source || "firebase_sync",
+    firebaseUid: identity?.uid || existing.firebaseUid || "",
+    lastLoginAt: new Date().toISOString(),
+    lastSeenAt: new Date().toISOString(),
+  };
+  await writeStoreAsync(store);
+  authAuditLog("firebase_password_sync_success", {
+    email,
+    clearedRecoveryFlags: true,
+    passwordHashUpdated: Boolean(newPassword),
+    source: body.source || "firebase_sync",
+  });
+  jsonResponse(response, 200, {
+    ok: true,
+    email,
     mustChangePassword: false,
     ...tempPasswordAuth.publicAuthFlags(store.users[email]),
   });
@@ -12151,6 +12269,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/users/issue-temp-password") return await handleAdminIssueTempPassword(request, response);
     if (request.method === "POST" && url.pathname === "/api/auth/password-login") return await handlePasswordLogin(request, response);
     if (request.method === "POST" && url.pathname === "/api/auth/complete-forced-password-change") return await handleCompleteForcedPasswordChange(request, response);
+    if (request.method === "POST" && url.pathname === "/api/auth/sync-password-after-firebase") return await handleSyncPasswordAfterFirebase(request, response);
     if (request.method === "POST" && url.pathname === "/api/support-ticket") return await handleSupportTicketCreate(request, response);
     if (request.method === "POST" && url.pathname === "/api/support-ticket-update") return await handleSupportTicketUpdate(request, response);
     if (request.method === "GET" && url.pathname === "/api/support-tickets") return handleSupportTicketsList(request, response, url);

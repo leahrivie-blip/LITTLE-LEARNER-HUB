@@ -163,22 +163,42 @@ function verifyServerPasswordLogin(user, password) {
       mode: "temporary",
       mustChangePassword: true,
       flags: publicAuthFlags(cleanUser),
+      clearExpiredTemp: false,
     };
   }
 
-  if (cleanUser.mustChangePassword && cleanUser.tempPasswordHash) {
-    return { ok: false, error: "That temporary password has expired. Please contact support for a new one." };
-  }
-
+  // Expired temp must NOT permanently block a valid permanent passwordHash
+  // (or a later Firebase reset that synced passwordHash). Clear stale temp fields.
+  const expiredTempBlocking = Boolean(cleanUser.mustChangePassword && cleanUser.tempPasswordHash);
   if (cleanUser.serverPasswordAuth && cleanUser.passwordHash) {
     if (hash !== cleanUser.passwordHash) {
-      return { ok: false, error: "The email or password did not match. Please try again." };
+      return {
+        ok: false,
+        error: expiredTempBlocking
+          ? "That temporary password has expired. If you already set a new password, use that password — or request a new reset."
+          : "The email or password did not match. Please try again.",
+        clearExpiredTemp: expiredTempBlocking,
+      };
     }
     return {
       ok: true,
       mode: "server",
-      mustChangePassword: Boolean(cleanUser.mustChangePassword),
-      flags: publicAuthFlags(cleanUser),
+      // Permanent hash matched — never keep the user stuck on a forced-change gate.
+      mustChangePassword: false,
+      flags: {
+        ...publicAuthFlags(cleanUser),
+        mustChangePassword: false,
+        tempPasswordActive: false,
+      },
+      clearExpiredTemp: expiredTempBlocking,
+    };
+  }
+
+  if (expiredTempBlocking) {
+    return {
+      ok: false,
+      error: "That temporary password has expired. Please use Forgot Password or contact support for a new recovery link.",
+      clearExpiredTemp: true,
     };
   }
 

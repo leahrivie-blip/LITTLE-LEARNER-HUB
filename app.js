@@ -3630,7 +3630,13 @@ async function syncSubscriptionFromBackend(email, options = {}) {
       updates.role = normalizeUserRole(data.subscription.role);
     }
     if (typeof data?.subscription?.mustChangePassword === "boolean") {
-      updates.mustChangePassword = data.subscription.mustChangePassword;
+      // Firebase-authenticated sessions own the password. Never re-stick a
+      // temp-password gate after a successful Firebase login/reset.
+      let firebaseSignedIn = false;
+      try {
+        firebaseSignedIn = Boolean(firebaseAuthEnabled && firebaseAuthClient?.auth?.currentUser);
+      } catch { firebaseSignedIn = false; }
+      updates.mustChangePassword = firebaseSignedIn ? false : data.subscription.mustChangePassword;
     }
     if (typeof data?.subscription?.serverPasswordAuth === "boolean") {
       updates.serverPasswordAuth = data.subscription.serverPasswordAuth;
@@ -8973,6 +8979,46 @@ async function loginWithServerPassword(email, password) {
   };
 }
 
+async function syncPasswordAfterFirebaseAuth(password, source = "firebase_login", emailHint = "") {
+  try {
+    const headers = { "Content-Type": "application/json" };
+    const body = {
+      newPassword: password || undefined,
+      source,
+      email: String(emailHint || currentUser || "").trim().toLowerCase() || undefined,
+    };
+    if (firebaseAuthEnabled) {
+      const client = await getFirebaseAuthClient();
+      const token = await client.auth.currentUser?.getIdToken?.();
+      if (!token) return null;
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const response = await fetch("/api/auth/sync-password-after-firebase", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.warn("[auth] firebase password sync failed", data.error || response.status);
+      return null;
+    }
+    const email = data.email || emailHint || currentUser;
+    if (email) {
+      updateAccount(email, {
+        mustChangePassword: false,
+        serverPasswordAuth: true,
+        passwordHash: password ? await localPasswordHash(password) : accounts()[email]?.passwordHash,
+        tempPasswordExpiresAt: "",
+      });
+    }
+    return data;
+  } catch (error) {
+    console.warn("[auth] firebase password sync error", error);
+    return null;
+  }
+}
+
 async function loginWithProvider(email, password) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail) throw new Error("Please enter your email address.");
@@ -8984,12 +9030,17 @@ async function loginWithProvider(email, password) {
       const credential = await client.signInWithEmailAndPassword(client.auth, cleanEmail, password);
       clearMemberSessionToken();
       ensureAccount(cleanEmail);
+      // Firebase password is authoritative — never leave a sticky mustChangePassword
+      // gate that requires a member session the Firebase path just cleared.
       updateAccount(cleanEmail, {
         authProvider: "Firebase Authentication",
         emailVerified: credential.user.emailVerified,
         firebaseUid: credential.user.uid,
+        mustChangePassword: false,
+        tempPasswordExpiresAt: "",
       });
-      return { email: cleanEmail, verified: credential.user.emailVerified, mustChangePassword: accountRequiresPasswordChange(accounts()[cleanEmail]) };
+      await syncPasswordAfterFirebaseAuth(password, "firebase_login");
+      return { email: cleanEmail, verified: credential.user.emailVerified, mustChangePassword: false };
     } catch (firebaseError) {
       // Always attempt server temp/recovery password login when Firebase rejects the
       // password. Do not depend on a narrow set of error codes — Firebase has changed
@@ -9060,19 +9111,32 @@ async function completeForcedPasswordChange(newPassword, confirmPassword) {
 async function sendPasswordReset(email) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail) throw new Error("Please enter your email address.");
+  console.info("[auth] password_reset_request", { email: cleanEmail, firebase: firebaseAuthEnabled });
   if (firebaseAuthEnabled) {
     const client = await getFirebaseAuthClient();
     const resetUrl = window.location.origin && window.location.origin !== "null"
       ? `${window.location.origin}${window.location.pathname}`
       : window.location.href.split("?")[0];
-    await client.sendPasswordResetEmail(client.auth, cleanEmail, {
-      url: resetUrl,
-      handleCodeInApp: false,
-    });
-    return "Password reset email sent. Please check your inbox.";
+    try {
+      await client.sendPasswordResetEmail(client.auth, cleanEmail, {
+        url: resetUrl,
+        handleCodeInApp: false,
+      });
+      console.info("[auth] password_reset_email_sent", { email: cleanEmail });
+      return "Password reset email sent. Please check your inbox (and spam folder). The link usually stays valid for about an hour — request another if it expires.";
+    } catch (error) {
+      console.error("[auth] password_reset_email_failed", { email: cleanEmail, code: error?.code, message: error?.message });
+      throw error;
+    }
   }
   const token = `demo-reset-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  localStorage.setItem("llhDemoResetToken", JSON.stringify({ email: cleanEmail, token, createdAt: new Date().toISOString() }));
+  localStorage.setItem("llhDemoResetToken", JSON.stringify({
+    email: cleanEmail,
+    token,
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+  }));
+  console.info("[auth] password_reset_demo_token_created", { email: cleanEmail });
   return "Demo reset created. Connect Firebase Auth to send real password reset emails.";
 }
 
@@ -9098,6 +9162,13 @@ async function changePassword(currentPassword, newPassword) {
     const credential = client.EmailAuthProvider.credential(user.email, currentPassword);
     await client.reauthenticateWithCredential(user, credential);
     await client.updatePassword(user, newPassword);
+    updateAccount(currentUser, {
+      passwordHash: await localPasswordHash(newPassword),
+      mustChangePassword: false,
+      serverPasswordAuth: true,
+      tempPasswordExpiresAt: "",
+    });
+    await syncPasswordAfterFirebaseAuth(newPassword, "settings_change_password");
     return "Password updated.";
   }
   const account = currentAccount();
@@ -9105,7 +9176,22 @@ async function changePassword(currentPassword, newPassword) {
     const currentHash = await localPasswordHash(currentPassword);
     if (currentHash !== account.passwordHash) throw new Error("The current password did not match.");
   }
-  updateAccount(currentUser, { passwordHash: await localPasswordHash(newPassword) });
+  updateAccount(currentUser, {
+    passwordHash: await localPasswordHash(newPassword),
+    mustChangePassword: false,
+    serverPasswordAuth: true,
+  });
+  // Keep server store aligned in demo/local modes so login after change works.
+  try {
+    const token = readMemberSessionToken();
+    if (token) {
+      await fetch("/api/auth/complete-forced-password-change", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ newPassword, confirmPassword: newPassword }),
+      });
+    }
+  } catch { /* best-effort */ }
   return "Demo password updated. Connect Firebase Auth for production password security.";
 }
 
@@ -9113,15 +9199,58 @@ async function confirmPasswordResetFromLink(newPassword) {
   if (String(newPassword || "").length < 8) throw new Error("Please use a password with at least 8 characters.");
   const params = new URLSearchParams(window.location.search);
   const oobCode = params.get("oobCode");
+  console.info("[auth] password_reset_confirm_attempt", { hasOobCode: Boolean(oobCode), firebase: firebaseAuthEnabled });
   if (firebaseAuthEnabled && oobCode) {
     const client = await getFirebaseAuthClient();
+    let resetEmail = "";
+    try {
+      resetEmail = String(await client.verifyPasswordResetCode(client.auth, oobCode) || "").trim().toLowerCase();
+    } catch (error) {
+      console.error("[auth] password_reset_link_invalid", { code: error?.code, message: error?.message });
+      throw error;
+    }
     await client.confirmPasswordReset(client.auth, oobCode, newPassword);
-    return "Password reset complete. You can now log in.";
+    // Sign in immediately so the new password is usable and server recovery flags clear.
+    try {
+      firebaseAuthClient = null;
+      const liveClient = await getFirebaseAuthClient();
+      await liveClient.signInWithEmailAndPassword(liveClient.auth, resetEmail, newPassword);
+      ensureAccount(resetEmail);
+      updateAccount(resetEmail, {
+        authProvider: "Firebase Authentication",
+        mustChangePassword: false,
+        serverPasswordAuth: true,
+        passwordHash: await localPasswordHash(newPassword),
+        tempPasswordExpiresAt: "",
+      });
+      await syncPasswordAfterFirebaseAuth(newPassword, "firebase_password_reset");
+      clearMemberSessionToken();
+      console.info("[auth] password_reset_confirm_success", { email: resetEmail, synced: true });
+    } catch (syncError) {
+      console.warn("[auth] password_reset_post_login_sync_failed", syncError);
+      // Password was still reset in Firebase — user can log in manually.
+    }
+    return "Password reset complete. You can now log in with your new password.";
   }
   const demoReset = readSavedJson("llhDemoResetToken", null);
   if (demoReset?.email) {
-    updateAccount(demoReset.email, { passwordHash: await localPasswordHash(newPassword) });
+    const expiresAt = Date.parse(demoReset.expiresAt || "");
+    if (Number.isFinite(expiresAt) && expiresAt < Date.now()) {
+      localStorage.removeItem("llhDemoResetToken");
+      throw new Error("This reset link has expired. Please request a new password reset email.");
+    }
+    const cleanEmail = String(demoReset.email).trim().toLowerCase();
+    const passwordHash = await localPasswordHash(newPassword);
+    updateAccount(cleanEmail, {
+      passwordHash,
+      mustChangePassword: false,
+      serverPasswordAuth: true,
+      tempPasswordExpiresAt: "",
+    });
     localStorage.removeItem("llhDemoResetToken");
+    // Persist into server JSON store so password-login works after demo reset.
+    await syncPasswordAfterFirebaseAuth(newPassword, "demo_password_reset", cleanEmail);
+    console.info("[auth] password_reset_demo_success", { email: cleanEmail });
     return "Demo password reset complete. You can now log in.";
   }
   throw new Error("This reset link is missing or expired. Please request a new password reset email.");
