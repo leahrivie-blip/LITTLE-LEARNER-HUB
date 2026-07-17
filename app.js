@@ -3550,6 +3550,11 @@ function subscriptionToAccountUpdates(subscription) {
       paymentMethod: subscription.paymentMethod || "Managed in Stripe",
       promoRedemptions: accountPromoRedemptions(subscription),
       internalAccessOverride: Boolean(subscription.internalAccessOverride),
+      programId: subscription.programId || undefined,
+      linkedProgramOwnerEmail: subscription.linkedProgramOwnerEmail || undefined,
+      programAccessViaOwner: typeof subscription.programAccessViaOwner === "boolean"
+        ? subscription.programAccessViaOwner
+        : undefined,
     };
   }
   const isFounding = isFoundingSubscription(subscription);
@@ -3579,6 +3584,11 @@ function subscriptionToAccountUpdates(subscription) {
     trialStart: subscription.trialStart || undefined,
     trialEnd: subscription.trialEnd || undefined,
     internalAccessOverride: Boolean(subscription.internalAccessOverride),
+    programId: subscription.programId || undefined,
+    linkedProgramOwnerEmail: subscription.linkedProgramOwnerEmail || undefined,
+    programAccessViaOwner: typeof subscription.programAccessViaOwner === "boolean"
+      ? subscription.programAccessViaOwner
+      : undefined,
   };
 }
 
@@ -3644,6 +3654,17 @@ async function syncSubscriptionFromBackend(email, options = {}) {
     if (data?.subscription?.tempPasswordExpiresAt != null) {
       updates.tempPasswordExpiresAt = data.subscription.tempPasswordExpiresAt || "";
     }
+    if (data?.subscription?.programId) updates.programId = data.subscription.programId;
+    if (data?.subscription?.linkedProgramOwnerEmail != null) {
+      updates.linkedProgramOwnerEmail = data.subscription.linkedProgramOwnerEmail || "";
+    }
+    if (typeof data?.subscription?.programAccessViaOwner === "boolean") {
+      updates.programAccessViaOwner = data.subscription.programAccessViaOwner;
+    }
+    // Drop undefined keys so sync never wipes program fields accidentally.
+    Object.keys(updates).forEach((key) => {
+      if (typeof updates[key] === "undefined") delete updates[key];
+    });
     updateAccount(cleanEmail, updates);
     ensureAccountAccessMigrated(cleanEmail);
     if (cleanEmail === currentUser) {
@@ -26248,6 +26269,7 @@ async function acceptStaffInviteToken(token) {
       role: data.account.role,
       accountType: data.account.accountType,
       linkedProgramOwnerEmail: data.account.linkedProgramOwnerEmail,
+      programId: data.account.programId || "",
       classroomIds: data.account.classroomIds || [],
       classroomName: data.account.classroomName || "",
       programAccessViaOwner: Boolean(data.account.programAccessViaOwner),
