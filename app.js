@@ -14142,7 +14142,10 @@ function resourcePrintableHtml(resource, options = {}) {
     return `<section class="print-section">${printableLinesHtml(lines)}</section>`;
   }).join("");
   const resourcesHtml = lessonPlanAttachedResourcesHtml(resource);
-  return `<article class="printable-resource-page">${printableCartoonPreviewHtml(resource)}${content}${printableQualityCheckHtml(resource, text)}${resourcesHtml}</article>`;
+  const copyrightHtml = typeof globalThis !== "undefined" && globalThis.LlhCopyright?.noticeBlockHtml
+    ? globalThis.LlhCopyright.noticeBlockHtml("llh-copyright-block printable-copyright-footer")
+    : `<footer class="llh-copyright-block printable-copyright-footer" aria-label="Copyright"><p class="llh-copyright-notice">${escapeHtml(llhCopyrightText())}</p></footer>`;
+  return `<article class="printable-resource-page">${printableCartoonPreviewHtml(resource)}${content}${printableQualityCheckHtml(resource, text)}${resourcesHtml}${copyrightHtml}</article>`;
 }
 
 function lessonPlanAttachedResourcesHtml(resource) {
@@ -16422,6 +16425,23 @@ function lessonWorkspaceMaterialsTabHtml(plan, resource, options = {}) {
   return blocks.length ? blocks.join("") : '<p class="muted-copy">No materials listed for this plan.</p>';
 }
 
+function llhCopyrightText() {
+  return (typeof globalThis !== "undefined" && globalThis.LlhCopyright?.TEXT)
+    || "© 2026 Little Learner Hub by Leah. All Rights Reserved.";
+}
+
+function llhCopyrightPdfFooter() {
+  return (typeof globalThis !== "undefined" && globalThis.LlhCopyright?.PDF_FOOTER)
+    || llhCopyrightText();
+}
+
+function llhCopyrightNoticeHtml(className = "llh-copyright-notice") {
+  if (typeof globalThis !== "undefined" && globalThis.LlhCopyright?.noticeHtml) {
+    return globalThis.LlhCopyright.noticeHtml(className);
+  }
+  return `<p class="${className}">${escapeHtml(llhCopyrightText())}</p>`;
+}
+
 function lessonPlanPrintHeaderHtml(resource, title, options = {}) {
   const plan = normalizeCurriculumLessonPlanForRender(resource?._curriculumLessonPlan);
   const lead = String(options.lead || "").trim();
@@ -16435,6 +16455,7 @@ function lessonPlanPrintHeaderHtml(resource, title, options = {}) {
         <span class="tag access-tag">${escapeHtml(resource?.plan || plan.plan || "Free")}</span>
       </div>
       ${lead ? `<p class="curriculum-lesson-overview-lead">${escapeHtml(lead)}</p>` : ""}
+      ${llhCopyrightNoticeHtml("llh-copyright-notice lesson-print-copyright")}
     </header>
   `;
 }
@@ -16814,7 +16835,7 @@ function lessonPlanWeeklyScheduleHtml(resource, plan, options = {}) {
       ` : ""}
 
       <footer class="lesson-week-print-footer">
-        <span>Little Learner Hub · Classroom-ready weekly lesson plan</span>
+        <span>${escapeHtml(llhCopyrightText())}</span>
         <span class="lesson-week-print-page-num"></span>
       </footer>
     </article>
@@ -16951,7 +16972,7 @@ function buildLessonPlanWeeklySchedulePdfBlob(resource, options = {}) {
     page.push(`${color} rg ${x} ${yPos} ${width} ${height} re f`);
   };
   const writeFooter = (pageNumber) => {
-    text("Little Learner Hub", LEFT, 38, 8, "F1", "0.35 0.35 0.35");
+    text(llhCopyrightPdfFooter(), LEFT, 38, 7, "F1", "0.35 0.35 0.35");
     text(`Page ${pageNumber}`, 500, 38, 8, "F1", "0.35 0.35 0.35");
   };
   const ensurePage = (needed = 40) => {
@@ -17336,8 +17357,8 @@ function buildLessonPlanWeeklyCalendarBoardPdfBlob(resource, options = {}) {
   const drawFooter = (tools, pageNumber, pageCount) => {
     const { text, fillRect } = tools;
     fillRect(0, 0, PAGE_W, 18, PURPLE_DEEP);
-    text("Created by a Childcare Provider, for Childcare Providers", MARGIN + 4, 6, 7, "F1", "1 1 1");
-    text("www.littlelearnerhub.com", PAGE_W / 2 - 50, 6, 7, "F1", "1 1 1");
+    text(llhCopyrightPdfFooter(), MARGIN + 4, 6, 6.5, "F1", "1 1 1");
+    text("www.littlelearnerhub.com", PAGE_W / 2 - 20, 6, 6.5, "F1", "1 1 1");
     text(`Page ${pageNumber} of ${pageCount}`, PAGE_W - MARGIN - 70, 6, 7, "F1", "1 1 1");
   };
 
@@ -17448,7 +17469,7 @@ function buildLessonPlanPlanningSheetPdfBlob(resource, options = {}) {
       y -= 13;
     });
   }
-  text("Little Learner Hub", 48, 36, 8, "F1", "0.4 0.4 0.4");
+  text(llhCopyrightPdfFooter(), 48, 36, 7, "F1", "0.4 0.4 0.4");
   pages.push(page);
   return createPdfDocumentBlob(pages);
 }
@@ -17829,6 +17850,9 @@ function lessonWorkspaceChromeHtml(resource) {
       </div>
       ${lessonWorkspaceActionBarsHtml(resource)}
       ${lessonWorkspaceFeedbackHtml(resource)}
+      ${typeof globalThis !== "undefined" && globalThis.LlhCopyright?.noticeBlockHtml
+        ? globalThis.LlhCopyright.noticeBlockHtml("llh-copyright-block lesson-workspace-copyright")
+        : `<footer class="llh-copyright-block lesson-workspace-copyright" aria-label="Copyright"><p class="llh-copyright-notice">${escapeHtml(llhCopyrightText())}</p></footer>`}
       <div class="lesson-workspace-action-sheet" hidden aria-hidden="true">
         <button type="button" class="lesson-workspace-action-sheet-backdrop" data-lesson-workspace-action-sheet-dismiss aria-label="Close"></button>
         <div class="lesson-workspace-action-sheet-panel" role="dialog" aria-label="Use This Plan">
@@ -18110,7 +18134,8 @@ function buildTextResourcePdfBlob(resource) {
     y = 654;
   };
   const finishPage = () => {
-    page.push(`0.35 0.35 0.35 rg BT /F1 8 Tf 50 38 Td (${pdfEscapeText("Generated by Little Learner Hub. Review and customize for your program before use.")}) Tj ET`);
+    page.push(`0.35 0.35 0.35 rg BT /F1 7 Tf 50 38 Td (${pdfEscapeText(llhCopyrightPdfFooter())}) Tj ET`);
+    page.push(`0.35 0.35 0.35 rg BT /F1 7 Tf 50 26 Td (${pdfEscapeText("Review and customize for your program before use.")}) Tj ET`);
     pages.push(page);
   };
   const ensureSpace = (needed = 18) => {
@@ -18188,7 +18213,8 @@ function buildPrintablePdfBlob(resource) {
     line(190, y, 544, y, 1, "0.55 0.55 0.55");
   };
   const drawFooter = () => {
-    text("Provider note: printable supports early learning, fine motor practice, vocabulary, and confidence.", 50, 54, 9, "F1", "0.25 0.25 0.25");
+    text(llhCopyrightPdfFooter(), 50, 54, 7, "F1", "0.25 0.25 0.25");
+    text("Provider note: printable supports early learning, fine motor practice, vocabulary, and confidence.", 50, 40, 8, "F1", "0.25 0.25 0.25");
   };
   const drawWorkBox = (label, y, height) => {
     text(label, 50, y + height + 10, 12, "F2");

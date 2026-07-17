@@ -4,6 +4,9 @@
  * Node: module.exports
  */
 (function curriculumLessonViewerRenderModule() {
+if (typeof require === "function" && typeof module !== "undefined" && !globalThis.LlhCopyright) {
+  try { require("./llh-copyright.js"); } catch (_err) { /* browser bundle path */ }
+}
 const safeApi = typeof globalThis !== "undefined" ? globalThis.CurriculumSafeValues : null;
 const CURRICULUM_WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
 const DAY_LABELS = {
@@ -273,6 +276,12 @@ function curriculumLessonDailyPlansHtml(plan = {}, options = {}) {
   `;
 }
 
+function copyrightFooterHtml() {
+  const api = typeof globalThis !== "undefined" ? globalThis.LlhCopyright : null;
+  if (api?.noticeBlockHtml) return api.noticeBlockHtml("llh-copyright-block curriculum-copyright-footer");
+  return `<footer class="llh-copyright-block curriculum-copyright-footer" aria-label="Copyright"><p class="llh-copyright-notice">© 2026 Little Learner Hub by Leah. All Rights Reserved.</p></footer>`;
+}
+
 function renderCurriculumLessonPlanHtml(plan = {}, options = {}) {
   const normalized = normalizePlanForRender(plan);
   const showAdminStatus = Boolean(options.showAdminStatus);
@@ -291,6 +300,7 @@ function renderCurriculumLessonPlanHtml(plan = {}, options = {}) {
       <h3>Daily Plans</h3>
       ${curriculumLessonDailyPlansHtml(normalized, options)}
     </section>
+    ${copyrightFooterHtml()}
   `;
 }
 
@@ -333,6 +343,7 @@ function renderCurriculumActivityHtml(activity = {}, options = {}) {
         <button class="ghost-button" type="button" data-view-resource="${escapeHtml(lessonId)}">Open Parent Lesson</button>
       </div>
     ` : ""}
+    ${copyrightFooterHtml()}
   `;
 }
 
