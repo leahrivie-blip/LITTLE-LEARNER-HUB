@@ -74,6 +74,15 @@ let postgresWriteChain = Promise.resolve();
 let firebaseCertCache = { expiresAt: 0, certs: {} };
 let clientAppScriptCache = null;
 const MAX_BACKFILL_REPORT_ITEMS = 500;
+// Last successfully persisted inventory — used to abort catastrophic full-store drops.
+let lastPersistedStoreCounts = null;
+let lastStoreSafetyAlertAt = 0;
+let lastPostgresDisconnectAlertAt = 0;
+const STORE_BACKUP_RETENTION = Math.max(3, Number(process.env.STORE_BACKUP_RETENTION || 14));
+const STORE_BACKUP_INTERVAL_MS = Math.max(60 * 60 * 1000, Number(process.env.STORE_BACKUP_INTERVAL_MS || 24 * 60 * 60 * 1000));
+const ALLOW_DESTRUCTIVE_STORE_WRITE = ["1", "true", "yes", "on"].includes(
+  String(process.env.ALLOW_DESTRUCTIVE_STORE_WRITE || "").trim().toLowerCase(),
+);
 
 // Member Messaging Center + Web Push — initialized once storage is ready (see
 // initializeStorage().then(...) near the bottom) so VAPID key persistence can
@@ -1964,6 +1973,20 @@ async function initializePostgresStore() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await postgresPool.query(`
+    CREATE TABLE IF NOT EXISTS llh_store_backups (
+      id TEXT PRIMARY KEY,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      source TEXT NOT NULL DEFAULT 'scheduled',
+      user_count INTEGER NOT NULL DEFAULT 0,
+      message_count INTEGER NOT NULL DEFAULT 0,
+      founding_count INTEGER NOT NULL DEFAULT 0,
+      notification_count INTEGER NOT NULL DEFAULT 0,
+      support_ticket_count INTEGER NOT NULL DEFAULT 0,
+      verified BOOLEAN NOT NULL DEFAULT FALSE,
+      data JSONB NOT NULL
+    )
+  `);
   const result = await postgresPool.query("SELECT data FROM llh_store WHERE id = $1", [storeRecordId]);
   if (result.rows.length) {
     storeCache = result.rows[0].data || defaultStore();
@@ -1976,6 +1999,7 @@ async function initializePostgresStore() {
   }
   databaseReady = true;
   lastPostgresError = "";
+  lastPersistedStoreCounts = storeInventoryCounts(storeCache);
 }
 
 function loadLocalJsonStoreFallback() {
@@ -2017,7 +2041,10 @@ function startPostgresReconnectLoop() {
   if (global.__llhPostgresReconnectStarted) return;
   global.__llhPostgresReconnectStarted = true;
   setInterval(() => {
-    if (databaseReady) return;
+    if (databaseReady) {
+      return;
+    }
+    maybeAlertPostgresDisconnect("reconnect_loop_still_down");
     ensurePostgresPool();
     (async () => {
       const ok = await probePostgresReadiness();
@@ -2026,6 +2053,7 @@ function startPostgresReconnectLoop() {
       // then re-apply sealed auth recovery onto the authentic user row.
       const loaded = await reloadStoreFromPostgres();
       if (!loaded) return;
+      lastPersistedStoreCounts = storeInventoryCounts(storeCache);
       try {
         const store = readStore();
         const oneShot = tempPasswordAuth.applyOneShotTempPasswordIfNeeded(store);
@@ -2240,6 +2268,165 @@ function withTimeout(promise, timeoutMs, label = "Operation") {
 
 // Persist the latest in-memory storeCache. Stale generations are skipped so concurrent
 // fire-and-forget writeStore() callers cannot erase a newer writeStoreAsync() result.
+function storeInventoryCounts(store = peekStore()) {
+  const users = store?.users || {};
+  const messages = Array.isArray(store?.messages) ? store.messages : [];
+  const notifications = Array.isArray(store?.notifications) ? store.notifications : [];
+  const conversations = new Set(
+    messages
+      .map((m) => normalizeEmail(m.conversationEmail || m.toEmail || ""))
+      .filter(Boolean),
+  );
+  return {
+    users: Object.keys(users).length,
+    messages: messages.length,
+    conversations: conversations.size,
+    foundingMembers: Array.isArray(store?.foundingMembers) ? store.foundingMembers.length : 0,
+    notifications: notifications.length,
+    supportTickets: Array.isArray(store?.supportTickets) ? store.supportTickets.length : 0,
+  };
+}
+
+function storeCountDropReasons(nextCounts, prevCounts = lastPersistedStoreCounts) {
+  if (!prevCounts || !nextCounts) return [];
+  const reasons = [];
+  const droppedHalf = (prev, next, minPrev) => prev >= minPrev && next < Math.floor(prev * 0.5);
+  if (droppedHalf(prevCounts.users, nextCounts.users, 10)) {
+    reasons.push(`users ${prevCounts.users} → ${nextCounts.users}`);
+  }
+  if (droppedHalf(prevCounts.messages, nextCounts.messages, 10)) {
+    reasons.push(`messages ${prevCounts.messages} → ${nextCounts.messages}`);
+  }
+  if (droppedHalf(prevCounts.foundingMembers, nextCounts.foundingMembers, 5)) {
+    reasons.push(`foundingMembers ${prevCounts.foundingMembers} → ${nextCounts.foundingMembers}`);
+  }
+  return reasons;
+}
+
+async function maybeAlertStoreSafety(kind, detail = {}) {
+  const now = Date.now();
+  if (now - lastStoreSafetyAlertAt < 15 * 60 * 1000) return;
+  lastStoreSafetyAlertAt = now;
+  const subject = `[LLH SAFETY] ${kind}`;
+  const text = [
+    `Little Learner Hub store safety alert: ${kind}`,
+    `Time: ${new Date(now).toISOString()}`,
+    `Detail: ${JSON.stringify(detail)}`,
+    `Database ready: ${databaseReady}`,
+    `Last Postgres error: ${lastPostgresError || "(none)"}`,
+  ].join("\n");
+  console.error("[store-safety]", kind, detail);
+  try {
+    if (supportEmailConfigStatus().ready) {
+      await sendEmail({
+        to: SUPPORT_EMAIL_TO,
+        subject,
+        text,
+        html: `<pre>${text.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]))}</pre>`,
+      });
+    }
+  } catch (error) {
+    console.warn("[store-safety] alert email failed:", error.message);
+  }
+}
+
+function maybeAlertPostgresDisconnect(reason = "postgres_unavailable") {
+  const now = Date.now();
+  if (now - lastPostgresDisconnectAlertAt < 15 * 60 * 1000) return;
+  lastPostgresDisconnectAlertAt = now;
+  maybeAlertStoreSafety("postgres_disconnect", {
+    reason,
+    lastError: lastPostgresError || "",
+  }).catch(() => {});
+}
+
+function assertSafePostgresStoreReplacement(nextStore) {
+  const nextCounts = storeInventoryCounts(nextStore);
+  const dropReasons = storeCountDropReasons(nextCounts);
+  if (!dropReasons.length) return nextCounts;
+  if (ALLOW_DESTRUCTIVE_STORE_WRITE) {
+    console.warn("[store-safety] destructive store write allowed by ALLOW_DESTRUCTIVE_STORE_WRITE:", dropReasons);
+    return nextCounts;
+  }
+  const err = new Error(
+    `Refusing full-store Postgres write that would drop inventory (${dropReasons.join("; ")}). Set ALLOW_DESTRUCTIVE_STORE_WRITE=true only for an intentional rebuild.`,
+  );
+  err.code = "store_count_drop_blocked";
+  err.dropReasons = dropReasons;
+  err.previousCounts = lastPersistedStoreCounts;
+  err.nextCounts = nextCounts;
+  throw err;
+}
+
+async function createLogicalStoreBackup({ source = "scheduled" } = {}) {
+  if (!usePostgresStore() || !postgresPool || !databaseReady) {
+    return { ok: false, reason: "postgres_not_ready" };
+  }
+  const store = peekStore();
+  const counts = storeInventoryCounts(store);
+  const id = `backup_${new Date().toISOString().replace(/[:.]/g, "-")}_${source}`;
+  const payload = JSON.stringify(store);
+  await postgresPool.query(
+    `INSERT INTO llh_store_backups (
+      id, source, user_count, message_count, founding_count, notification_count, support_ticket_count, verified, data
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,FALSE,$8::jsonb)`,
+    [
+      id,
+      source,
+      counts.users,
+      counts.messages,
+      counts.foundingMembers,
+      counts.notifications,
+      counts.supportTickets,
+      payload,
+    ],
+  );
+  const verify = await postgresPool.query(
+    "SELECT user_count, message_count, founding_count FROM llh_store_backups WHERE id = $1",
+    [id],
+  );
+  const row = verify.rows[0] || {};
+  const verified = Number(row.user_count) === counts.users
+    && Number(row.message_count) === counts.messages
+    && Number(row.founding_count) === counts.foundingMembers;
+  if (verified) {
+    await postgresPool.query("UPDATE llh_store_backups SET verified = TRUE WHERE id = $1", [id]);
+  }
+  await postgresPool.query(`
+    DELETE FROM llh_store_backups
+    WHERE id IN (
+      SELECT id FROM llh_store_backups
+      ORDER BY created_at DESC
+      OFFSET $1
+    )
+  `, [STORE_BACKUP_RETENTION]);
+  return { ok: true, id, counts, verified, source };
+}
+
+function startStoreBackupScheduler() {
+  if (!usePostgresStore()) return;
+  if (global.__llhStoreBackupSchedulerStarted) return;
+  global.__llhStoreBackupSchedulerStarted = true;
+  const tick = async () => {
+    if (!databaseReady || !postgresPool) return;
+    try {
+      const latest = await postgresPool.query(
+        "SELECT created_at FROM llh_store_backups ORDER BY created_at DESC LIMIT 1",
+      );
+      const lastMs = latest.rows[0]?.created_at ? new Date(latest.rows[0].created_at).getTime() : 0;
+      if (lastMs && Date.now() - lastMs < STORE_BACKUP_INTERVAL_MS) return;
+      const result = await createLogicalStoreBackup({ source: "daily" });
+      if (result.ok) {
+        console.log(`[store-backup] created ${result.id} users=${result.counts.users} verified=${result.verified}`);
+      }
+    } catch (error) {
+      console.warn("[store-backup] scheduled backup failed:", error.message || error);
+    }
+  };
+  setTimeout(() => { tick().catch(() => {}); }, 45 * 1000);
+  setInterval(() => { tick().catch(() => {}); }, 60 * 60 * 1000);
+}
+
 function enqueuePostgresStoreWrite() {
   const writeGeneration = ++postgresWriteGeneration;
   const writePromise = (async () => {
@@ -2263,6 +2450,18 @@ function enqueuePostgresStoreWrite() {
       });
       return;
     }
+    let nextCounts;
+    try {
+      nextCounts = assertSafePostgresStoreReplacement(storeCache);
+    } catch (error) {
+      maybeAlertStoreSafety("store_replacement_blocked", {
+        code: error.code || "store_count_drop_blocked",
+        dropReasons: error.dropReasons || [],
+        previousCounts: error.previousCounts || lastPersistedStoreCounts,
+        nextCounts: error.nextCounts || storeInventoryCounts(storeCache),
+      }).catch(() => {});
+      throw error;
+    }
     const payload = JSON.stringify(storeCache);
     await withTimeout(
       postgresPool.query(POSTGRES_UPSERT_STORE, [storeRecordId, payload]),
@@ -2271,11 +2470,15 @@ function enqueuePostgresStoreWrite() {
     );
     databaseReady = true;
     lastPostgresError = "";
+    lastPersistedStoreCounts = nextCounts;
   })();
   postgresWriteChain = writePromise.catch((error) => {
-    databaseReady = false;
-    lastPostgresError = error.message || "Postgres store write failed.";
-    console.error("Could not persist launch store to Postgres:", lastPostgresError);
+    if (error?.code !== "store_count_drop_blocked") {
+      databaseReady = false;
+      lastPostgresError = error.message || "Postgres store write failed.";
+      maybeAlertPostgresDisconnect("postgres_write_failed");
+    }
+    console.error("Could not persist launch store to Postgres:", lastPostgresError || error.message);
   });
   return { writeGeneration, writePromise };
 }
@@ -2348,7 +2551,16 @@ function writeStore(store) {
   // Only upsert to Postgres after the authentic DB store is loaded. While on local
   // fallback, never push a sparse in-memory store over production membership data.
   if (usePostgresStore() && postgresPool && databaseReady) {
-    enqueuePostgresStoreWrite().writePromise.catch(() => {});
+    enqueuePostgresStoreWrite().writePromise.catch((error) => {
+      if (error?.code === "store_count_drop_blocked") {
+        console.error("[store] fire-and-forget write blocked by inventory guard:", error.message);
+      }
+    });
+    return;
+  }
+  if (usePostgresStore() && !databaseReady) {
+    // Degraded mode: keep an emergency local copy, but do not pretend Postgres accepted it.
+    writeLocalJsonStore(nextStore);
     return;
   }
   writeLocalJsonStore(nextStore);
@@ -2374,13 +2586,24 @@ async function writeStoreAsync(store) {
       }
       return;
     } catch (error) {
+      // Never persist a blocked destructive replacement to local JSON — that recreates the wipe path.
+      if (error?.code === "store_count_drop_blocked") {
+        console.error("[store] Postgres writeAsync blocked by inventory guard:", error.message);
+        throw error;
+      }
       // Keep auth recovery and admin writes available during Postgres blips.
       databaseReady = false;
       lastPostgresError = error.message || "Postgres store write failed.";
+      maybeAlertPostgresDisconnect("postgres_write_async_failed");
       console.error("[store] Postgres writeAsync failed — persisting local JSON fallback:", lastPostgresError);
       writeLocalJsonStore(storeCache);
       return;
     }
+  }
+  // Production Postgres mode with DB not ready: emergency local JSON only.
+  // Reconnect reloads Postgres and must never upsert this local copy over production.
+  if (usePostgresStore() && !databaseReady) {
+    console.warn("[store] writeAsync in degraded mode — local JSON only; Postgres upsert blocked until authentic reload");
   }
   writeLocalJsonStore(storeCache);
 }
@@ -5956,10 +6179,60 @@ function handleAdminStoreHealth(request, response, url) {
   jsonResponse(response, 200, { ok: true, health: storeHealthSnapshot() });
 }
 
+/**
+ * Read-only full launch-store export for incident preservation.
+ * Does not modify Postgres. Media bytes stay in llh_media_assets (IDs listed only).
+ */
+function handleAdminStoreExport(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = readStore();
+  const users = store.users || {};
+  const mediaIds = new Set();
+  const collectMediaIds = (value) => {
+    if (!value) return;
+    if (typeof value === "string") {
+      if (value.startsWith("lesson-cover-") || value.includes("/api/media/")) mediaIds.add(value);
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach(collectMediaIds);
+      return;
+    }
+    if (typeof value === "object") Object.values(value).forEach(collectMediaIds);
+  };
+  collectMediaIds(store.siteContent);
+  collectMediaIds(store.uploadedResources);
+  jsonResponse(response, 200, {
+    ok: true,
+    exportedAt: new Date().toISOString(),
+    purpose: "read-only-production-store-preservation",
+    destructive: false,
+    database: {
+      provider: DATABASE_PROVIDER,
+      ready: databaseReady,
+      usingPostgres: usePostgresStore(),
+    },
+    health: storeHealthSnapshot(store),
+    mediaAssetIdsReferenced: [...mediaIds].slice(0, 5000),
+    store,
+  });
+}
+
 async function handleAdminRecoverSparseStore(request, response) {
   const body = await readJson(request);
   if (!validAdminToken(body.adminToken || "")) {
     jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  if (String(body.confirm || "").trim() !== "RECOVER_SPARSE_STORE") {
+    jsonResponse(response, 400, {
+      error: "Confirmation required. Send confirm: \"RECOVER_SPARSE_STORE\" to run sparse-store recovery.",
+      requiresConfirm: "RECOVER_SPARSE_STORE",
+    });
     return;
   }
   try {
@@ -5972,6 +6245,198 @@ async function handleAdminRecoverSparseStore(request, response) {
     console.error("[store-recovery] admin recover failed:", error.message || error);
     jsonResponse(response, 503, { error: error.message || "Sparse store recovery failed." });
   }
+}
+
+/**
+ * Create-missing-only Free profile stubs from an approved Firebase email list.
+ * Never overwrites existing Postgres users (preserves Stripe/Founding/subscription).
+ * Never resets passwords. Never sends email.
+ */
+async function handleAdminRecoverFirebaseProfiles(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  if (String(body.confirm || "").trim() !== "RECOVER_FIREBASE_PROFILES") {
+    jsonResponse(response, 400, {
+      error: "Confirmation required. Send confirm: \"RECOVER_FIREBASE_PROFILES\".",
+      requiresConfirm: "RECOVER_FIREBASE_PROFILES",
+    });
+    return;
+  }
+  const dryRun = body.dryRun === true;
+  const profiles = Array.isArray(body.profiles) ? body.profiles : [];
+  if (!profiles.length) {
+    jsonResponse(response, 400, { error: "profiles array is required (email + optional firebaseUid/createdAt)." });
+    return;
+  }
+  const store = readStore();
+  store.users = store.users || {};
+  const report = {
+    dryRun,
+    generatedAt: new Date().toISOString(),
+    requested: profiles.length,
+    created: [],
+    skippedExisting: [],
+    failed: [],
+    duplicateRequests: [],
+  };
+  const seen = new Set();
+  for (const profile of profiles) {
+    const email = normalizeEmail(profile?.email || profile);
+    if (!email || !email.includes("@")) {
+      report.failed.push({ email: String(profile?.email || ""), reason: "invalid_email" });
+      continue;
+    }
+    if (seen.has(email)) {
+      report.duplicateRequests.push(email);
+      continue;
+    }
+    seen.add(email);
+    if (store.users[email]) {
+      report.skippedExisting.push({
+        email,
+        plan: store.users[email].plan || "Free",
+        hasStripe: Boolean(store.users[email].stripeCustomerId),
+        foundingMemberActive: Boolean(store.users[email].foundingMemberActive),
+      });
+      continue;
+    }
+    const createdAt = profile.createdAt || profile.signupAt || new Date().toISOString();
+    const stub = {
+      email,
+      plan: "Free",
+      subscriptionStatus: "Free Plan",
+      accountStatus: "Active",
+      authProvider: "Firebase Authentication",
+      firebaseUid: String(profile.firebaseUid || profile.uid || "").trim(),
+      signupAt: createdAt,
+      createdAt,
+      recoveredFromFirebaseAt: new Date().toISOString(),
+      recoverySource: "firebase-hybrid-approved-free-stubs",
+      updatedAt: new Date().toISOString(),
+    };
+    if (dryRun) {
+      report.created.push({ email, dryRun: true, firebaseUid: stub.firebaseUid });
+      continue;
+    }
+    try {
+      const accessFields = accountAccess.migrateAccountAccessFields(stub);
+      store.users[email] = {
+        ...stub,
+        accountType: accessFields.accountType,
+        role: accessFields.role,
+      };
+      report.created.push({ email, firebaseUid: stub.firebaseUid });
+    } catch (error) {
+      report.failed.push({ email, reason: error.message || "create_failed" });
+    }
+  }
+  if (!dryRun && report.created.length) {
+    store.systemRecovery = {
+      ...(store.systemRecovery || {}),
+      firebaseHybridRecoveredAt: new Date().toISOString(),
+      firebaseHybridCreatedCount: report.created.length,
+      firebaseHybridRequestedCount: report.requested,
+    };
+    await writeStoreAsync(store);
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    report,
+    health: storeHealthSnapshot(dryRun ? peekStore() : peekStore()),
+  });
+}
+
+async function handleAdminStoreBackupsList(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  if (!usePostgresStore() || !postgresPool || !databaseReady) {
+    jsonResponse(response, 503, { error: "Postgres backups are unavailable while the database is not ready." });
+    return;
+  }
+  const result = await postgresPool.query(`
+    SELECT id, created_at, source, user_count, message_count, founding_count,
+           notification_count, support_ticket_count, verified
+    FROM llh_store_backups
+    ORDER BY created_at DESC
+    LIMIT 50
+  `);
+  jsonResponse(response, 200, {
+    ok: true,
+    retention: STORE_BACKUP_RETENTION,
+    intervalMs: STORE_BACKUP_INTERVAL_MS,
+    backups: result.rows,
+    liveCounts: storeInventoryCounts(),
+  });
+}
+
+async function handleAdminStoreBackupCreate(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  try {
+    const result = await createLogicalStoreBackup({ source: body.source || "manual" });
+    if (!result.ok) {
+      jsonResponse(response, 503, { error: "Could not create backup.", result });
+      return;
+    }
+    jsonResponse(response, 200, { ok: true, result });
+  } catch (error) {
+    jsonResponse(response, 503, { error: error.message || "Backup failed." });
+  }
+}
+
+async function handleAdminStoreBackupDownload(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const id = String(url.searchParams.get("id") || "").trim();
+  if (!id) {
+    jsonResponse(response, 400, { error: "Backup id is required." });
+    return;
+  }
+  if (!usePostgresStore() || !postgresPool || !databaseReady) {
+    jsonResponse(response, 503, { error: "Postgres backups are unavailable while the database is not ready." });
+    return;
+  }
+  const result = await postgresPool.query(
+    `SELECT id, created_at, source, user_count, message_count, founding_count,
+            notification_count, support_ticket_count, verified, data
+     FROM llh_store_backups WHERE id = $1`,
+    [id],
+  );
+  if (!result.rows.length) {
+    jsonResponse(response, 404, { error: "Backup not found." });
+    return;
+  }
+  const row = result.rows[0];
+  jsonResponse(response, 200, {
+    ok: true,
+    exportedAt: new Date().toISOString(),
+    backup: {
+      id: row.id,
+      createdAt: row.created_at,
+      source: row.source,
+      counts: {
+        users: row.user_count,
+        messages: row.message_count,
+        foundingMembers: row.founding_count,
+        notifications: row.notification_count,
+        supportTickets: row.support_ticket_count,
+      },
+      verified: row.verified,
+      store: row.data,
+    },
+  });
 }
 
 function publicTicket(ticket) {
@@ -11067,7 +11532,12 @@ const server = http.createServer(async (request, response) => {
     // Phase 2H: legacy /api/admin/generate-lesson-plan removed.
     if (request.method === "POST" && url.pathname === "/api/admin/stripe-backfill") return await handleAdminStripeBackfill(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/store-health") return handleAdminStoreHealth(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/store-export") return handleAdminStoreExport(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/store-backups") return await handleAdminStoreBackupsList(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/store-backups") return await handleAdminStoreBackupCreate(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/store-backups/download") return await handleAdminStoreBackupDownload(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/recover-sparse-store") return await handleAdminRecoverSparseStore(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/recover-firebase-profiles") return await handleAdminRecoverFirebaseProfiles(request, response);
     if (request.method === "GET" && url.pathname === "/api/founding-status") return handleFoundingStatus(request, response);
     if (request.method === "GET" && url.pathname === "/api/stripe-readiness") return handleStripeReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/billing-readiness") return handleBillingReadiness(request, response);
@@ -11106,16 +11576,30 @@ initializeStorage()
       console.warn("[push] could not initialize Web Push service — push notifications will be unavailable, in-app messaging is unaffected:", error.message);
       pushService = null;
     }
-    // Auto-rebuild wiped/sparse membership directories from Stripe (one-shot).
-    try {
-      const recovery = await recoverSparseStoreFromStripeIfNeeded({ source: "boot" });
-      if (recovery.ran) {
-        console.warn(`[store-recovery] boot recovery restored users ${recovery.userCountBefore} → ${recovery.userCountAfter}`);
-      } else {
-        console.log(`[store-recovery] boot check: ${recovery.reason}${recovery.userCount != null ? ` (users=${recovery.userCount})` : ""}`);
+    // Boot-time Stripe sparse recovery is opt-in. Prefer explicit Admin recover after review.
+    // Set ALLOW_BOOT_SPARSE_STORE_RECOVERY=true only when an unattended rebuild is intentional.
+    const allowBootSparseRecovery = ["1", "true", "yes", "on"].includes(
+      String(process.env.ALLOW_BOOT_SPARSE_STORE_RECOVERY || "").trim().toLowerCase(),
+    );
+    if (!allowBootSparseRecovery) {
+      console.log("[store-recovery] boot check skipped — set ALLOW_BOOT_SPARSE_STORE_RECOVERY=true to enable automatic rebuild");
+    } else {
+      try {
+        const recovery = await recoverSparseStoreFromStripeIfNeeded({ source: "boot" });
+        if (recovery.ran) {
+          console.warn(`[store-recovery] boot recovery restored users ${recovery.userCountBefore} → ${recovery.userCountAfter}`);
+        } else {
+          console.log(`[store-recovery] boot check: ${recovery.reason}${recovery.userCount != null ? ` (users=${recovery.userCount})` : ""}`);
+        }
+      } catch (error) {
+        console.error("[store-recovery] boot recovery failed:", error.message || error);
       }
+    }
+    try {
+      startStoreBackupScheduler();
+      console.log(`[store-backup] scheduler ready (intervalMs=${STORE_BACKUP_INTERVAL_MS}, retention=${STORE_BACKUP_RETENTION})`);
     } catch (error) {
-      console.error("[store-recovery] boot recovery failed:", error.message || error);
+      console.warn("[store-backup] scheduler failed to start:", error.message || error);
     }
     server.listen(PORT, () => {
       console.log(`Little Learner Hub launch server running on http://localhost:${PORT}`);

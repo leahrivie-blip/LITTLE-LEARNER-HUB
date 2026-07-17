@@ -38633,7 +38633,17 @@ function renderStripeBackfillReport(report, label) {
   `;
 }
 
-let adminStoreHealthState = { loading: false, health: null, error: "", recovering: false, recoverResult: null };
+let adminStoreHealthState = {
+  loading: false,
+  health: null,
+  error: "",
+  recovering: false,
+  recoverResult: null,
+  backups: [],
+  backupsLoading: false,
+  backingUp: false,
+  backupError: "",
+};
 
 async function loadAdminStoreHealth() {
   const token = adminSession()?.token || "";
@@ -38652,6 +38662,74 @@ async function loadAdminStoreHealth() {
   return adminStoreHealthState.health;
 }
 
+async function loadAdminStoreBackups() {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return [];
+  adminStoreHealthState.backupsLoading = true;
+  adminStoreHealthState.backupError = "";
+  try {
+    const res = await fetch(`/api/admin/store-backups?adminToken=${encodeURIComponent(token)}`, { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Could not load store backups.");
+    adminStoreHealthState.backups = Array.isArray(data.backups) ? data.backups : [];
+  } catch (error) {
+    adminStoreHealthState.backupError = error.message || "Store backups unavailable.";
+    adminStoreHealthState.backups = [];
+  }
+  adminStoreHealthState.backupsLoading = false;
+  return adminStoreHealthState.backups;
+}
+
+async function createAdminStoreBackup() {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return null;
+  adminStoreHealthState.backingUp = true;
+  adminStoreHealthState.backupError = "";
+  try {
+    const res = await fetch("/api/admin/store-backups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminToken: token, source: "manual-admin" }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Could not create store backup.");
+    await loadAdminStoreBackups();
+    return data.result || null;
+  } catch (error) {
+    adminStoreHealthState.backupError = error.message || "Could not create store backup.";
+    return null;
+  } finally {
+    adminStoreHealthState.backingUp = false;
+  }
+}
+
+async function downloadAdminStoreBackup(backupId) {
+  const token = adminSession()?.token || "";
+  const id = String(backupId || "").trim();
+  if (!token || !id || !canUseLaunchBackend()) return;
+  adminStoreHealthState.backupError = "";
+  try {
+    const res = await fetch(
+      `/api/admin/store-backups/download?adminToken=${encodeURIComponent(token)}&id=${encodeURIComponent(id)}`,
+      { cache: "no-store" },
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Could not download backup.");
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const href = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = `${id}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(href);
+  } catch (error) {
+    adminStoreHealthState.backupError = error.message || "Backup download failed.";
+    renderAdminStripeBackfillTab();
+  }
+}
+
 async function runAdminSparseStoreRecovery({ force = false } = {}) {
   const token = adminSession()?.token || "";
   if (!token || !canUseLaunchBackend()) return;
@@ -38663,7 +38741,11 @@ async function runAdminSparseStoreRecovery({ force = false } = {}) {
     const res = await fetch("/api/admin/recover-sparse-store", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ adminToken: token, force: force === true }),
+      body: JSON.stringify({
+        adminToken: token,
+        force: force === true,
+        confirm: "RECOVER_SPARSE_STORE",
+      }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Recovery failed.");
@@ -38686,7 +38768,9 @@ function renderAdminStripeBackfillTab() {
   const sparse = Boolean(health?.sparseStoreSuspected);
 
   if (!adminStoreHealthState.loading && !health && !adminStoreHealthState.error) {
-    loadAdminStoreHealth().then(() => renderAdminStripeBackfillTab());
+    loadAdminStoreHealth().then(() => {
+      loadAdminStoreBackups().finally(() => renderAdminStripeBackfillTab());
+    });
   }
 
   target.innerHTML = `
@@ -38706,14 +38790,40 @@ function renderAdminStripeBackfillTab() {
         <div class="aup-insight-card"><strong>${health.counts?.conversations ?? "—"}</strong><span>Conversations</span></div>
         <div class="aup-insight-card ${sparse ? "aup-insight--canceled" : "aup-insight--pro"}"><strong>${sparse ? "SPARSE" : "OK"}</strong><span>Store health</span></div>
       </div>
-      <p class="form-note">${escapeHtml(health.note || "")}${health.recovery?.sparseStripeBackfillAt ? ` · Last auto-recovery: ${escapeHtml(health.recovery.sparseStripeBackfillAt)} (${Number(health.recovery.userCountBefore) || 0} → ${Number(health.recovery.userCountAfter) || 0} users)` : ""}</p>
+      <p class="form-note">${escapeHtml(health.note || "")}${health.recovery?.sparseStripeBackfillAt ? ` · Last auto-recovery: ${escapeHtml(health.recovery.sparseStripeBackfillAt)} (${Number(health.recovery.userCountBefore) || 0} → ${Number(health.recovery.userCountAfter) || 0} users)` : ""}${health.recovery?.firebaseHybridRecoveredAt ? ` · Firebase hybrid recovery: ${escapeHtml(health.recovery.firebaseHybridRecoveredAt)} (${Number(health.recovery.firebaseHybridCreatedCount) || 0} created)` : ""}</p>
       <div class="account-actions-row" style="margin-bottom:18px;">
         <button class="primary-button" type="button" id="adminRecoverSparseStoreBtn" ${adminStoreHealthState.recovering ? "disabled" : ""}>
           ${adminStoreHealthState.recovering ? "Recovering from Stripe…" : (sparse ? "Recover users from Stripe now" : "Re-run Stripe recovery (force)")}
         </button>
         <button class="ghost-button" type="button" id="adminRefreshStoreHealthBtn">Refresh store health</button>
+        <button class="ghost-button" type="button" id="adminCreateStoreBackupBtn" ${adminStoreHealthState.backingUp ? "disabled" : ""}>
+          ${adminStoreHealthState.backingUp ? "Creating backup…" : "Create store backup now"}
+        </button>
+        <button class="ghost-button" type="button" id="adminRefreshStoreBackupsBtn">Refresh backups</button>
       </div>
       ${adminStoreHealthState.recoverResult ? `<p class="form-note">Recovery result: ${escapeHtml(adminStoreHealthState.recoverResult.reason || "")}${adminStoreHealthState.recoverResult.userCountAfter != null ? ` · users now ${adminStoreHealthState.recoverResult.userCountAfter}` : ""}</p>` : ""}
+      <div class="panel-card" style="margin-bottom:18px;">
+        <h4 style="margin:0 0 8px;">Logical store backups</h4>
+        <p class="form-note">Daily Postgres snapshots (retained on the server). Download weekly/offsite copies from here and store them somewhere safe.</p>
+        ${adminStoreHealthState.backupError ? `<p class="form-error">${escapeHtml(adminStoreHealthState.backupError)}</p>` : ""}
+        ${Array.isArray(adminStoreHealthState.backups) && adminStoreHealthState.backups.length ? `
+          <div class="table-wrap"><table class="data-table"><thead><tr>
+            <th>Created</th><th>Source</th><th>Users</th><th>Messages</th><th>Founding</th><th>Verified</th><th></th>
+          </tr></thead><tbody>
+            ${adminStoreHealthState.backups.map((b) => `
+              <tr>
+                <td>${escapeHtml(b.created_at ? new Date(b.created_at).toLocaleString() : "")}</td>
+                <td>${escapeHtml(b.source || "")}</td>
+                <td>${Number(b.user_count) || 0}</td>
+                <td>${Number(b.message_count) || 0}</td>
+                <td>${Number(b.founding_count) || 0}</td>
+                <td>${b.verified ? "Yes" : "No"}</td>
+                <td><button class="ghost-button" type="button" data-download-backup="${escapeHtml(b.id)}">Download</button></td>
+              </tr>
+            `).join("")}
+          </tbody></table></div>
+        ` : `<p class="form-note">${adminStoreHealthState.backupsLoading ? "Loading backups…" : "No backups yet. Create one now, or wait for the daily scheduler after deploy."}</p>`}
+      </div>
     ` : (adminStoreHealthState.loading ? `<p class="ai-pm-loading">Checking store health…</p>` : "")}
 
     ${s.error ? `<p class="form-error">${escapeHtml(s.error)}</p>` : ""}
@@ -38754,6 +38864,19 @@ function renderAdminStripeBackfillTab() {
   document.querySelector("#adminRefreshStoreHealthBtn")?.addEventListener("click", async () => {
     await loadAdminStoreHealth();
     renderAdminStripeBackfillTab();
+  });
+  document.querySelector("#adminCreateStoreBackupBtn")?.addEventListener("click", async () => {
+    if (!window.confirm("Create a logical Postgres store backup now? This does not change user data.")) return;
+    renderAdminStripeBackfillTab();
+    await createAdminStoreBackup();
+    renderAdminStripeBackfillTab();
+  });
+  document.querySelector("#adminRefreshStoreBackupsBtn")?.addEventListener("click", async () => {
+    await loadAdminStoreBackups();
+    renderAdminStripeBackfillTab();
+  });
+  document.querySelectorAll("[data-download-backup]").forEach((btn) => {
+    btn.addEventListener("click", () => downloadAdminStoreBackup(btn.getAttribute("data-download-backup")));
   });
   document.querySelector("#stripeBackfillPreviewBtn")?.addEventListener("click", loadStripeBackfillPreview);
   document.querySelector("#stripeBackfillRunBtn")?.addEventListener("click", runStripeBackfillConfirm);
