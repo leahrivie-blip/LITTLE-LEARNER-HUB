@@ -17403,17 +17403,6 @@ function buildTeacherWeeklyPlannerPdfBlob(resource, options = {}) {
       scalePass += 1;
     }
 
-    const budget = y - CONTENT_BOTTOM;
-    const naturalHeights = rows.map((row) => Math.max(...row.map((section) => estimateSectionHeight(section, bodySize))));
-    const naturalTotal = naturalHeights.reduce((sum, h) => sum + h + 5, 0);
-    const leftover = Math.max(0, budget - naturalTotal);
-    // Only grow text-heavy full-width rows — keep Letter/Number/Shape/Color compact.
-    const growableIndexes = rows
-      .map((row, index) => ({ row, index }))
-      .filter(({ row }) => row.length === 1 && !row[0].quartet)
-      .map(({ index }) => index);
-    const growEach = growableIndexes.length ? Math.floor(leftover / growableIndexes.length) : 0;
-
     const drawSectionBox = (section, x, top, width, height) => {
       const lines = wrapPdfText(section.value, section.chars).slice(0, section.maxLines);
       fillRect(x, top - height, width, height, "1 1 1");
@@ -17423,9 +17412,9 @@ function buildTeacherWeeklyPlannerPdfBlob(resource, options = {}) {
       writeWrappedInBox(lines.join(" "), x + 6, top - 25, section.chars, lines.length, bodySize, "F1", INK, 1.22);
     };
 
-    rows.forEach((row, rowIndex) => {
-      const canGrow = growableIndexes.includes(rowIndex);
-      const height = naturalHeights[rowIndex] + (canGrow ? growEach : 0);
+    // Keep boxes tight to content — leftover page space is fine; empty-looking tall boxes are not.
+    rows.forEach((row) => {
+      const height = Math.max(...row.map((section) => estimateSectionHeight(section, bodySize)));
       if (y - height < CONTENT_BOTTOM) return;
       if (row.length >= 2) {
         const gap = 8;
@@ -17436,7 +17425,7 @@ function buildTeacherWeeklyPlannerPdfBlob(resource, options = {}) {
       } else {
         drawSectionBox(row[0], MARGIN, y, CONTENT_WIDTH, height);
       }
-      y -= height + 5;
+      y -= height + 6;
     });
   };
 
