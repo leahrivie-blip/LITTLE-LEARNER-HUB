@@ -64,7 +64,8 @@ async function main() {
   assert.match(serverJs, /program-ownership/);
   assert.match(serverJs, /resolveProgramContext/);
   assert.match(serverJs, /\/api\/admin\/program-migration-plan/);
-  assert.match(serverJs, /live_account_link_blocked/);
+  assert.match(serverJs, /live_pair_apply_blocked/);
+  assert.match(serverJs, /CONNECT_ASHLEY_LADIISHA/);
   assert.match(appJs, /programId/);
   assert.equal(programOwnership.programIdForOwnerEmail(OWNER), programOwnership.programIdForOwnerEmail(OWNER));
   console.log("PASS  shared program markers present");
@@ -198,19 +199,31 @@ async function main() {
     assert.ok(dry.json.ambiguities.some((a) => a.type === "member_only_schedule_items"));
     console.log("PASS  migration dry-run reports duplicates/ambiguities without applying");
 
-    // Live Ashley/Ladiisha apply must stay blocked.
+    // Live Ashley/Ladiisha apply stays blocked without confirm phrase.
     const liveBlock = await request(
       "GET",
       `/api/admin/program-migration-plan?adminToken=${encodeURIComponent(adminToken)}&ownerEmail=${encodeURIComponent("tclashley@icloud.com")}&memberEmail=${encodeURIComponent("ladiisha01@gmail.com")}&apply=1&linkMember=1`,
     );
     assert.equal(liveBlock.status, 403);
     assert.equal(liveBlock.json.code, "live_pair_apply_blocked");
-    console.log("PASS  live Ashley/Ladiisha apply remains blocked");
+    console.log("PASS  live Ashley/Ladiisha apply blocked without confirm phrase");
+
+    // Dry-run for live emails is allowed (may be empty users in this seeded store).
+    const liveDry = await request(
+      "GET",
+      `/api/admin/program-migration-plan?adminToken=${encodeURIComponent(adminToken)}&ownerEmail=${encodeURIComponent("tclashley@icloud.com")}&memberEmail=${encodeURIComponent("ladiisha01@gmail.com")}`,
+    );
+    assert.equal(liveDry.status, 200, JSON.stringify(liveDry.json));
+    assert.equal(liveDry.json.mode, "dry-run");
+    assert.equal(liveDry.json.programOwnerEmail, "tclashley@icloud.com");
+    console.log("PASS  live-pair dry-run allowed and forces Ashley as owner");
 
     // Apply migration for seeded pair (data only, then link via staff invite).
+    // forceAmbiguities=1 is required when dry-run reports member-only/duplicate rows
+    // that are preserved in legacy UID buckets (not auto-merged).
     const applied = await request(
       "GET",
-      `/api/admin/program-migration-plan?adminToken=${encodeURIComponent(adminToken)}&ownerEmail=${encodeURIComponent(OWNER)}&memberEmail=${encodeURIComponent(DIRECTOR)}&apply=1`,
+      `/api/admin/program-migration-plan?adminToken=${encodeURIComponent(adminToken)}&ownerEmail=${encodeURIComponent(OWNER)}&memberEmail=${encodeURIComponent(DIRECTOR)}&apply=1&forceAmbiguities=1`,
     );
     assert.equal(applied.status, 200, JSON.stringify(applied.json));
     assert.equal(applied.json.applied, true);

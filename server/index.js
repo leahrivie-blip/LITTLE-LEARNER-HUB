@@ -6613,10 +6613,28 @@ function handleAdminStoreHealth(request, response, url) {
   jsonResponse(response, 200, { ok: true, health: storeHealthSnapshot() });
 }
 
+const LIVE_CONNECT_CONFIRM_PHRASE = "CONNECT_ASHLEY_LADIISHA";
+
+function isAshleyLadiishaPair(ownerEmail, memberEmail) {
+  const owner = normalizeEmail(ownerEmail);
+  const member = normalizeEmail(memberEmail);
+  return (
+    (owner === "tclashley@icloud.com" && member === "ladiisha01@gmail.com")
+    || (owner === "ladiisha01@gmail.com" && member === "tclashley@icloud.com")
+  );
+}
+
+function liveConnectAuthorized(urlOrBody = {}) {
+  const confirm = String(urlOrBody.confirm || urlOrBody.get?.("confirm") || "").trim();
+  const envOk = process.env.ALLOW_LIVE_PROGRAM_MIGRATE === "true"
+    || process.env.ALLOW_LIVE_ACCOUNT_LINK === "true";
+  return envOk || confirm === LIVE_CONNECT_CONFIRM_PHRASE;
+}
+
 /**
  * Read-only (default) shared-program migration planner.
- * apply=1 only works for non-production emails unless ALLOW_LIVE_PROGRAM_MIGRATE=true.
- * Never connects Ashley/Ladiisha membership by default.
+ * Live Ashley/Ladiisha apply requires admin token + confirm=CONNECT_ASHLEY_LADIISHA
+ * (or ALLOW_LIVE_PROGRAM_MIGRATE / ALLOW_LIVE_ACCOUNT_LINK env flags).
  */
 function handleAdminProgramMigrationPlan(request, response, url) {
   const token = String(url.searchParams.get("adminToken") || "").trim();
@@ -6628,49 +6646,167 @@ function handleAdminProgramMigrationPlan(request, response, url) {
   const memberEmail = normalizeEmail(url.searchParams.get("memberEmail") || "");
   const apply = String(url.searchParams.get("apply") || "") === "1";
   const linkMember = String(url.searchParams.get("linkMember") || "") === "1";
-  const livePair = (
-    (ownerEmail === "tclashley@icloud.com" && memberEmail === "ladiisha01@gmail.com")
-    || (ownerEmail === "ladiisha01@gmail.com" && memberEmail === "tclashley@icloud.com")
-  );
-  if (apply && livePair && process.env.ALLOW_LIVE_PROGRAM_MIGRATE !== "true") {
+  const clearMemberFounding = String(url.searchParams.get("clearMemberFounding") || "") === "1";
+  const forceAmbiguities = String(url.searchParams.get("forceAmbiguities") || "") === "1";
+  const livePair = isAshleyLadiishaPair(ownerEmail, memberEmail);
+  const confirmed = liveConnectAuthorized(url.searchParams);
+  if (apply && livePair && !confirmed) {
     jsonResponse(response, 403, {
-      error: "Live Ashley/Ladiisha program migration apply is blocked. Dry-run only until explicitly enabled.",
+      error: "Live Ashley/Ladiisha changes require confirm=CONNECT_ASHLEY_LADIISHA (or ALLOW_LIVE_* env).",
       code: "live_pair_apply_blocked",
     });
     return;
   }
-  if (apply && linkMember && livePair && process.env.ALLOW_LIVE_ACCOUNT_LINK !== "true") {
-    jsonResponse(response, 403, {
-      error: "Live account linking is blocked. Shared-data migration tooling will not connect these logins yet.",
-      code: "live_account_link_blocked",
+  const store = readStore();
+  // Force Ashley as program/billing owner for the known live pair, regardless of query order.
+  const programOwnerEmail = livePair ? "tclashley@icloud.com" : ownerEmail;
+  const directorEmail = livePair ? "ladiisha01@gmail.com" : memberEmail;
+  const ownerUidParam = String(url.searchParams.get("ownerUid") || "").trim();
+  const memberUidParam = String(url.searchParams.get("memberUid") || "").trim();
+  if (apply && (!store.users?.[programOwnerEmail] || (directorEmail && !store.users?.[directorEmail]))) {
+    jsonResponse(response, 404, {
+      error: "One or both accounts were not found in the production store. Refusing apply.",
+      code: "accounts_missing",
+      programOwnerEmail,
+      directorEmail,
+      ownerExists: Boolean(store.users?.[programOwnerEmail]),
+      directorExists: Boolean(directorEmail && store.users?.[directorEmail]),
     });
     return;
   }
-  const store = readStore();
+  // Always dry-run first for reporting; apply only when requested.
+  const dryReport = programOwnership.planProgramDataMigration(store, {
+    ownerEmail: programOwnerEmail,
+    memberEmail: directorEmail,
+    ownerUid: ownerUidParam,
+    memberUid: memberUidParam,
+    apply: false,
+  });
+  if (!apply) {
+    jsonResponse(response, 200, {
+      ...dryReport,
+      livePair,
+      linkMemberRequested: linkMember,
+      clearMemberFoundingRequested: clearMemberFounding,
+      confirmed,
+      mode: "dry-run",
+      programOwnerEmail,
+      directorEmail,
+    });
+    return;
+  }
+  if ((dryReport.ambiguities || []).length && !forceAmbiguities) {
+    jsonResponse(response, 409, {
+      error: "Dry-run found ambiguities. Resolve or pass forceAmbiguities=1 after manual review.",
+      code: "ambiguities_present",
+      dryRun: dryReport,
+      livePair,
+      programOwnerEmail,
+      directorEmail,
+    });
+    return;
+  }
   const report = programOwnership.planProgramDataMigration(store, {
-    ownerEmail,
-    memberEmail,
-    ownerUid: String(url.searchParams.get("ownerUid") || "").trim(),
-    memberUid: String(url.searchParams.get("memberUid") || "").trim(),
-    apply,
+    ownerEmail: programOwnerEmail,
+    memberEmail: directorEmail,
+    ownerUid: ownerUidParam,
+    memberUid: memberUidParam,
+    apply: true,
+    backupId: dryReport.backupId || undefined,
   });
   if (apply && report.ok && report.applied) {
-    // Intentionally do NOT set linkedProgramOwnerEmail for live pair here.
-    if (linkMember && memberEmail && !livePair) {
-      const program = programOwnership.ensureProgramForOwner(store, ownerEmail, { actorEmail: ownerEmail });
-      const member = store.users?.[memberEmail] || { email: memberEmail };
-      store.users[memberEmail] = {
+    // programOwnerEmail / directorEmail already normalized above for the live pair.
+    const program = programOwnership.ensureProgramForOwner(store, programOwnerEmail, {
+      actorEmail: programOwnerEmail,
+      ownerUid: store.users?.[programOwnerEmail]?.firebaseUid || "",
+    });
+    const ownerUser = store.users?.[programOwnerEmail] || { email: programOwnerEmail };
+    store.users[programOwnerEmail] = {
+      ...ownerUser,
+      email: programOwnerEmail,
+      role: "owner",
+      programId: program.id,
+      // Never strip Ashley founding / stripe in this path.
+      foundingMemberActive: livePair ? true : ownerUser.foundingMemberActive,
+      foundingMember: livePair ? true : ownerUser.foundingMember,
+      foundingMemberHistorical: livePair ? true : ownerUser.foundingMemberHistorical,
+      plan: livePair && ownerUser.plan === "Free" && ownerUser.stripeSubscriptionId
+        ? "Founding"
+        : (ownerUser.plan || (livePair ? "Founding" : ownerUser.plan)),
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (linkMember && directorEmail) {
+      ensureStaffInviteCollections(store);
+      const member = store.users?.[directorEmail] || { email: directorEmail };
+      const ownerHasPro = membershipHasProAccess(store.users[programOwnerEmail]);
+      store.users[directorEmail] = {
         ...member,
-        email: memberEmail,
-        role: member.role && member.role !== "owner" ? member.role : "director",
-        linkedProgramOwnerEmail: ownerEmail,
+        email: directorEmail,
+        role: "director",
+        accountType: store.users[programOwnerEmail].accountType || member.accountType || "home_daycare",
+        linkedProgramOwnerEmail: programOwnerEmail,
         programId: program.id,
-        programAccessViaOwner: membershipHasProAccess(store.users?.[ownerEmail] || {}),
+        programAccessViaOwner: ownerHasPro,
         updatedAt: new Date().toISOString(),
       };
+      const existingMembers = listProgramMembers(store, programOwnerEmail)
+        .filter((entry) => normalizeEmail(entry.email) !== directorEmail);
+      store.programMembers[programOwnerKey(programOwnerEmail)] = [
+        ...existingMembers,
+        {
+          email: directorEmail,
+          uid: member.firebaseUid || "",
+          role: "director",
+          classroomId: "",
+          classroomName: "",
+          status: "active",
+          joinedAt: new Date().toISOString(),
+          inviteId: "admin-live-connect",
+          programId: program.id,
+        },
+      ];
       report.memberLinked = true;
+      report.programOwnerEmail = programOwnerEmail;
+      report.directorEmail = directorEmail;
+
+      // Only clear temporary Founding after director inheritance is in place.
+      if (clearMemberFounding && livePair && store.users[directorEmail].programAccessViaOwner) {
+        const before = { ...store.users[directorEmail] };
+        store.users[directorEmail] = {
+          ...store.users[directorEmail],
+          foundingMemberActive: false,
+          plan: store.users[directorEmail].stripeSubscriptionId ? store.users[directorEmail].plan : "Free",
+          internalAccessOverride: false,
+          monthlyPrice: store.users[directorEmail].programAccessViaOwner
+            ? (store.users[programOwnerEmail].monthlyPrice || "$9.99/month")
+            : "$0/month",
+          subscriptionStatus: store.users[directorEmail].programAccessViaOwner
+            ? "Access via program owner (Director)"
+            : (store.users[directorEmail].subscriptionStatus || "Free Plan"),
+          // Preserve historical marker if she was ever founding; do not remove Ashley from foundingMembers[].
+          foundingMemberHistorical: Boolean(before.foundingMember || before.foundingMemberHistorical || before.foundingMemberActive),
+          foundingMember: Boolean(before.foundingMember || before.foundingMemberHistorical || before.foundingMemberActive),
+          updatedAt: new Date().toISOString(),
+        };
+        // Do not remove Ashley from foundingMembers. Optionally keep Ladiisha historical entry.
+        report.memberFoundingCleared = true;
+        report.memberFoundingBefore = {
+          plan: before.plan || "",
+          foundingMemberActive: Boolean(before.foundingMemberActive),
+          internalAccessOverride: Boolean(before.internalAccessOverride),
+          stripeSubscriptionId: before.stripeSubscriptionId ? "present" : "",
+        };
+      }
     }
     writeStore(store);
+    report.ashleyBillingProtected = {
+      email: programOwnerEmail,
+      plan: store.users[programOwnerEmail]?.plan || "",
+      foundingMemberActive: Boolean(store.users[programOwnerEmail]?.foundingMemberActive),
+      stripeSubscriptionId: store.users[programOwnerEmail]?.stripeSubscriptionId ? "present" : "",
+      stripeCustomerId: store.users[programOwnerEmail]?.stripeCustomerId ? "present" : "",
+    };
   }
   console.log("[program] migration_plan", {
     ownerEmail,
@@ -6678,8 +6814,17 @@ function handleAdminProgramMigrationPlan(request, response, url) {
     apply,
     applied: Boolean(report.applied),
     ambiguities: (report.ambiguities || []).length,
+    memberLinked: Boolean(report.memberLinked),
+    memberFoundingCleared: Boolean(report.memberFoundingCleared),
   });
-  jsonResponse(response, 200, { ...report, livePair, linkMemberRequested: linkMember });
+  jsonResponse(response, 200, {
+    ...report,
+    livePair,
+    linkMemberRequested: linkMember,
+    clearMemberFoundingRequested: clearMemberFounding,
+    confirmed,
+    mode: "apply",
+  });
 }
 
 function handleAdminProgramMigrationRollback(request, response) {
