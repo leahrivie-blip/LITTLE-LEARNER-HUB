@@ -17460,15 +17460,25 @@ function buildTeacherWeeklyPlannerPdfBlob(resource, options = {}) {
       const labelFill = rowIndex % 2 === 0 ? PURPLE_SOFT : "0.985 0.98 1";
       fillRect(MARGIN, rowY - rowH, labelColW, rowH, labelFill);
       strokeRect(MARGIN, rowY - rowH, labelColW, rowH, PURPLE_LINE, 0.55);
-      text(row.label, MARGIN + 4, rowY - 12, 7.2, "F2", PURPLE_DEEP);
-      const maxLines = Math.max(2, Math.min(5, Math.floor((rowH - 8) / 8.2)));
+      // Keep row labels as intact phrases (important for PDF text checks + readability).
+      const labelLines = wrapPdfText(row.label, 11).slice(0, 3);
+      labelLines.forEach((lineText, lineIndex) => {
+        text(lineText, MARGIN + 3, rowY - 11 - (lineIndex * 9), 7, "F2", PURPLE_DEEP);
+      });
+      const maxLines = Math.max(3, Math.min(6, Math.floor((rowH - 6) / 8)));
       days.forEach((day, index) => {
         const x = MARGIN + labelColW + (index * dayColW);
         fillRect(x, rowY - rowH, dayColW, rowH, rowIndex % 2 === 0 ? "1 1 1" : "0.995 0.99 1");
         strokeRect(x, rowY - rowH, dayColW, rowH, PURPLE_LINE, 0.55);
         const value = cleanCell(row.get(day));
-        // Multi-line filled cells — never leave a sparse one-word box.
-        writeWrappedInBox(value, x + 3, rowY - 11, 20, maxLines, 6.6, "F1", INK, 1.15);
+        const linesWritten = writeWrappedInBox(value, x + 3, rowY - 10, 20, maxLines, 6.5, "F1", INK, 1.12);
+        // Pack remaining cell height with soft note lines so no box looks blank.
+        let lineY = rowY - 10 - (linesWritten * 6.5 * 1.12) - 4;
+        const bottomPad = rowY - rowH + 5;
+        while (lineY > bottomPad) {
+          tools.page.push(`0.86 0.82 0.92 RG 0.5 w ${x + 4} ${lineY} m ${x + dayColW - 4} ${lineY} l S`);
+          lineY -= 7;
+        }
       });
       rowY -= rowH;
     });

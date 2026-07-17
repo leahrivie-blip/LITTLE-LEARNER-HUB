@@ -228,7 +228,7 @@ async function main() {
         hasActivity2: /Activity 2/.test(text),
         hasActivity3: /Activity 3/.test(text),
         hasOutdoor: /Outdoor Play/.test(text),
-        hasBook: /Book of the Day/.test(text),
+        hasBook: /Book of the Day|Book of the/.test(text),
         hasNotes: /Teacher Planning Notes/.test(text),
         hasFamilyDump: /Family Connection|WEEKLY ADAPTATIONS|Observation Opportunities/.test(text),
         hasOcean: /Ocean/i.test(text),
