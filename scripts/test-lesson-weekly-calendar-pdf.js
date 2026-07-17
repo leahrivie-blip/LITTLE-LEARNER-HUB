@@ -102,12 +102,16 @@ function assertPdf(buf, label) {
 async function main() {
   console.log("0) Static HTML helpers include classroom-ready day fields");
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
-  assert(appJs.includes("buildLessonPlanWeeklyCalendarBoardPdfBlob"), "landscape calendar PDF builder missing");
+  assert(appJs.includes("buildTeacherWeeklyPlannerPdfBlob"), "teacher weekly planner PDF builder missing");
+  assert(appJs.includes("buildLessonPlanWeeklyCalendarBoardPdfBlob"), "calendar PDF alias missing");
   assert(appJs.includes("buildLessonPlanPlanningSheetPdfBlob"), "planning sheet PDF builder missing");
+  assert(appJs.includes("Download Teacher Weekly Planner"), "teacher weekly planner download label missing");
+  assert(appJs.includes("Download Full Lesson Plan"), "full lesson plan download label missing");
   assert(appJs.includes('data-lesson-download-variant="week-detail"'), "detailed weekly download missing");
   assert(appJs.includes('data-lesson-download-variant="planning"'), "planning sheet download missing");
   assert(appJs.includes("lesson-plan-weekly-export") || fs.existsSync(path.join(ROOT, "scripts/lesson-plan-weekly-export.js")), "weekly export module missing");
-  assert(appJs.includes("THEME FOCUS") && appJs.includes("CIRCLE TIME") && appJs.includes("BOOK OF THE DAY"), "rich weekly grid rows missing");
+  assert(appJs.includes("Theme Focus") && appJs.includes("Circle Time") && appJs.includes("Book of the Day"), "planner calendar rows missing");
+  assert(appJs.includes("Teacher Planning Notes"), "planner notes page missing");
   assert(appJs.includes("0.42 0.275 0.757"), "purple branding missing from weekly PDF");
   assert(!/preferDocx = options\.format[\s\S]{0,80}safeVariant === "week"/.test(appJs)
     || appJs.includes('preferDocx = options.format === "docx" && safeVariant === "full"'),
@@ -188,17 +192,19 @@ async function main() {
 
     const pdfProbe = await page.evaluate(async () => {
       const resource = activeResourceViewerResource;
-      const blob = buildLessonPlanWeeklyCalendarBoardPdfBlob(resource, {});
+      const blob = buildTeacherWeeklyPlannerPdfBlob(resource, {});
       const buf = new Uint8Array(await blob.arrayBuffer());
       const text = new TextDecoder("latin1").decode(buf);
       return {
         size: buf.length,
         header: text.slice(0, 8),
-        hasWeekly: /WEEKLY LESSON PLAN/.test(text),
-        hasThemeFocus: /THEME FOCUS/.test(text),
-        hasCircle: /CIRCLE TIME/.test(text),
-        hasBook: /BOOK OF THE DAY/.test(text),
-        hasTeacher: /TEACHER NOTES/.test(text),
+        hasPlanner: /TEACHER WEEKLY PLANNER|Teacher Weekly Planner/.test(text),
+        hasOverview: /Weekly Overview|Learning Domains|Weekly Objectives/.test(text),
+        hasThemeFocus: /Theme Focus/.test(text),
+        hasCircle: /Circle Time/.test(text),
+        hasBook: /Book of the Day/.test(text),
+        hasNotes: /Teacher Planning Notes/.test(text),
+        hasFamilyDump: /Family Connection|WEEKLY ADAPTATIONS|Observation Opportunities/.test(text),
         hasOcean: /Ocean/i.test(text),
         hasSensory: /Sensory|Ocean Sensory/i.test(text),
         hasPlaceholder: /Open exploration|____________________/.test(text),
@@ -207,23 +213,24 @@ async function main() {
       };
     });
     assert(pdfProbe.header.startsWith("%PDF-"), "generated weekly PDF invalid");
-    assert(pdfProbe.hasWeekly && pdfProbe.hasThemeFocus && pdfProbe.hasCircle && pdfProbe.hasBook && pdfProbe.hasTeacher, `rich rows missing: ${JSON.stringify(pdfProbe)}`);
-    assert(pdfProbe.hasOcean && pdfProbe.hasSensory, `actual lesson content missing: ${JSON.stringify(pdfProbe)}`);
+    assert(pdfProbe.hasPlanner && pdfProbe.hasOverview && pdfProbe.hasThemeFocus && pdfProbe.hasCircle && pdfProbe.hasBook && pdfProbe.hasNotes, `planner pages missing: ${JSON.stringify(pdfProbe)}`);
+    assert(pdfProbe.hasOcean, `actual lesson content missing: ${JSON.stringify(pdfProbe)}`);
+    assert(!pdfProbe.hasFamilyDump, "planner should omit long family/adaptation/observation dumps");
     assert(!pdfProbe.hasPlaceholder, "weekly PDF contains placeholder text");
     assert(pdfProbe.landscape, "weekly PDF should be landscape");
-    assert(pdfProbe.pageCount >= 1 && pdfProbe.pageCount <= 2, `expected 1-2 pages, got ${pdfProbe.pageCount}`);
+    assert(pdfProbe.pageCount === 3, `expected 3 pages (overview, calendar, notes), got ${pdfProbe.pageCount}`);
 
-    console.log("1) Weekly Lesson Plan downloads as PDF");
+    console.log("1) Teacher Weekly Planner downloads as PDF");
     const weekDownload = page.waitForEvent("download", { timeout: 10000 });
     await page.locator('[data-lesson-action-bars="top"] .lesson-workspace-primary-actions > [data-lesson-download-variant="week"]').click();
     const weekFile = await weekDownload;
     assert(/\.pdf$/i.test(weekFile.suggestedFilename()), `weekly should be PDF, got ${weekFile.suggestedFilename()}`);
-    assert(/weekly-lesson-plan\.pdf$/i.test(weekFile.suggestedFilename()), `filename should be weekly-lesson-plan, got ${weekFile.suggestedFilename()}`);
+    assert(/teacher-weekly-planner\.pdf$/i.test(weekFile.suggestedFilename()), `filename should be teacher-weekly-planner, got ${weekFile.suggestedFilename()}`);
     const weekPath = path.join(os.tmpdir(), `llh-week-${crypto.randomBytes(3).toString("hex")}.pdf`);
     await weekFile.saveAs(weekPath);
-    assertPdf(fs.readFileSync(weekPath), "weekly lesson plan");
+    assertPdf(fs.readFileSync(weekPath), "teacher weekly planner");
     const weekText = fs.readFileSync(weekPath).toString("latin1");
-    assert(/THEME FOCUS|CIRCLE TIME|BOOK OF THE DAY|TEACHER NOTES/.test(weekText), "downloaded weekly PDF missing rich grid");
+    assert(/Theme Focus|Circle Time|Book of the Day|Teacher Planning Notes/.test(weekText), "downloaded planner PDF missing calendar/notes");
     assert(!/Open exploration/.test(weekText), "downloaded weekly PDF has placeholder");
 
     console.log("2) Detailed Weekly Lesson Plan downloads as PDF");
