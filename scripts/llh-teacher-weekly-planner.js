@@ -72,11 +72,15 @@
   }
 
   /** Title + supporting detail so PDF cells never look blank/sparse. */
-  function cellBlock(title, detail) {
+  function cellBlock(title, detail, tip) {
     const head = cleanText(title);
     const body = cleanText(detail);
-    if (head && body && body.toLowerCase() !== head.toLowerCase()) return `${head} — ${body}`;
-    return head || body;
+    const extra = cleanText(tip);
+    const parts = [];
+    if (head) parts.push(head);
+    if (body && body.toLowerCase() !== head.toLowerCase()) parts.push(body);
+    if (extra && !parts.some((part) => part.toLowerCase() === extra.toLowerCase())) parts.push(extra);
+    return parts.join(" — ");
   }
 
   function themeFillers(themeFocus, dayLabel) {
@@ -121,9 +125,13 @@
       const themeBase = cleanText(day.themeFocus || day.theme || weeklyTheme) || weeklyTheme;
       const themeDetail = firstSentence(
         dayPlan.objectives || day.objectives || summary.weeklyOverview || `${dayLabel} ${themeBase} exploration`,
-        85,
+        110,
       );
-      const themeFocus = cellBlock(themeBase, themeDetail);
+      const themeFocus = cellBlock(
+        themeBase,
+        themeDetail,
+        "Open centers; coach language, turn-taking, and curiosity",
+      );
 
       const sourceActivities = [];
       const pushActivity = (activity) => {
@@ -143,12 +151,12 @@
         const head = cleanText(title);
         if (!head) return;
         if (activityCards.some((entry) => entry.title.toLowerCase() === head.toLowerCase())) return;
-        const body = firstSentence(detail || category, 75);
+        const body = firstSentence(detail || category, 100);
         activityCards.push({
           title: head,
           detail: body,
           category: cleanText(category) || "Activity",
-          cell: cellBlock(head, body),
+          cell: cellBlock(head, body, "Materials out · model · guided play · clean-up cue"),
         });
       };
 
@@ -185,7 +193,11 @@
         const song = songs[dayIndex % Math.max(songs.length, 1)] || songs[0];
         circleRaw = song ? `Circle + Song: ${song}` : `${themeBase} Circle Time`;
       }
-      const circleTime = cellBlock(circleRaw, "Greetings, songs, and theme talk");
+      const circleTime = cellBlock(
+        circleRaw,
+        "Greetings, songs, and theme talk",
+        "Review letter/number/shape/color; invite every voice",
+      );
 
       let outdoorRaw = cleanText(day.outdoorPlay);
       if (!outdoorRaw) {
@@ -196,13 +208,21 @@
         if (movement) outdoorRaw = `Outdoor: ${activityTitle(movement)}`;
       }
       if (!outdoorRaw) outdoorRaw = `Outdoor ${themeBase} Play`;
-      const outdoorPlay = cellBlock(outdoorRaw, "Gross motor + fresh-air exploration");
+      const outdoorPlay = cellBlock(
+        outdoorRaw,
+        "Gross motor + fresh-air exploration",
+        "Safety scan; active play; calm transition indoors",
+      );
 
       const bookTitle = cleanText(day.bookOfTheDay)
         || cleanText(books[dayIndex % Math.max(books.length, 1)])
         || cleanText(books[0])
         || `${themeBase} Story Time`;
-      const bookOfTheDay = cellBlock(bookTitle, "Read-aloud + story talk");
+      const bookOfTheDay = cellBlock(
+        bookTitle,
+        "Read-aloud + story talk",
+        "Picture walk; retell; tie story words to play",
+      );
 
       return {
         day: day.day || WEEKDAYS[dayIndex],

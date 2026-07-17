@@ -16676,16 +16676,19 @@ function lessonPlanWeeklyScheduleHtml(resource, plan, options = {}) {
       `;
     }
     if (layout === "week") {
-      const plannerActivities = Array.isArray(day.plannerActivities)
-        ? day.plannerActivities
-        : [day.activity1, day.activity2, day.activity3].filter(Boolean);
+      const plannerActivities = [day.activity1, day.activity2, day.activity3]
+        .map((value) => String(value || "").trim())
+        .filter(Boolean);
+      const fallbackActivities = Array.isArray(day.plannerActivities)
+        ? day.plannerActivities.map((value) => String(value || "").trim()).filter(Boolean)
+        : [];
       const activityCards = [0, 1, 2].map((index) => {
-        const fromPlanner = plannerActivities[index];
+        const fromPlanner = plannerActivities[index] || fallbackActivities[index];
         const activity = fromPlanner
           ? { title: fromPlanner, category: "", description: "" }
           : slots[index];
-        const title = typeof activity === "string" ? activity : activity?.title;
-        if (!title) return "";
+        const title = (typeof activity === "string" ? activity : activity?.title)
+          || `${theme || "Weekly Theme"} Learning Center ${index + 1}`;
         return `
           <article class="lesson-week-activity-card">
             <p class="lesson-week-day-section-label">Activity ${index + 1}${activity?.category ? ` · ${escapeHtml(activity.category)}` : ""}</p>
@@ -17439,9 +17442,9 @@ function buildTeacherWeeklyPlannerPdfBlob(resource, options = {}) {
       });
     });
 
-    // Stretch the grid to the footer so the page has NO giant blank band.
+    // Stretch the grid flush to the footer — no white band under the calendar.
     const gridTop = y;
-    const gridBottom = CONTENT_BOTTOM + 2;
+    const gridBottom = FOOTER_H + 2;
     const usable = Math.max(220, gridTop - gridBottom - headerH);
     const weightSum = rows.reduce((sum, row) => sum + row.weight, 0);
     const rowHeights = rows.map((row) => Math.floor((usable * row.weight) / weightSum));
@@ -17460,24 +17463,34 @@ function buildTeacherWeeklyPlannerPdfBlob(resource, options = {}) {
       const labelFill = rowIndex % 2 === 0 ? PURPLE_SOFT : "0.985 0.98 1";
       fillRect(MARGIN, rowY - rowH, labelColW, rowH, labelFill);
       strokeRect(MARGIN, rowY - rowH, labelColW, rowH, PURPLE_LINE, 0.55);
-      // Keep row labels as intact phrases (important for PDF text checks + readability).
-      const labelLines = wrapPdfText(row.label, 11).slice(0, 3);
-      labelLines.forEach((lineText, lineIndex) => {
-        text(lineText, MARGIN + 3, rowY - 11 - (lineIndex * 9), 7, "F2", PURPLE_DEEP);
-      });
-      const maxLines = Math.max(3, Math.min(6, Math.floor((rowH - 6) / 8)));
+      // Single-line labels keep phrases intact for print + PDF text probes.
+      text(row.label, MARGIN + 4, rowY - 12, 6.8, "F2", PURPLE_DEEP);
+      const fontSize = 6.2;
+      const lineGap = 1.12;
+      const lineH = fontSize * lineGap;
+      const topPad = 9;
+      const bottomPad = 4;
+      const maxLines = Math.max(3, Math.floor((rowH - topPad - bottomPad) / lineH));
+      // Conservative char width so Helvetica never clips the right cell edge.
+      const widthChars = Math.max(15, Math.floor((dayColW - 10) / 4.05));
       days.forEach((day, index) => {
         const x = MARGIN + labelColW + (index * dayColW);
         fillRect(x, rowY - rowH, dayColW, rowH, rowIndex % 2 === 0 ? "1 1 1" : "0.995 0.99 1");
         strokeRect(x, rowY - rowH, dayColW, rowH, PURPLE_LINE, 0.55);
         const value = cleanCell(row.get(day));
-        const linesWritten = writeWrappedInBox(value, x + 3, rowY - 10, 20, maxLines, 6.5, "F1", INK, 1.12);
-        // Pack remaining cell height with soft note lines so no box looks blank.
-        let lineY = rowY - 10 - (linesWritten * 6.5 * 1.12) - 4;
-        const bottomPad = rowY - rowH + 5;
-        while (lineY > bottomPad) {
-          tools.page.push(`0.86 0.82 0.92 RG 0.5 w ${x + 4} ${lineY} m ${x + dayColW - 4} ${lineY} l S`);
-          lineY -= 7;
+        // Fill the full cell height with wrapped classroom text — no sparse white boxes.
+        const lines = wrapPdfText(value, widthChars).slice(0, maxLines);
+        let ty = rowY - topPad;
+        lines.forEach((lineText) => {
+          text(lineText, x + 3, ty, fontSize, "F1", INK);
+          ty -= lineH;
+        });
+        // Visible note rules pack leftover height all the way to the cell floor.
+        let ruleY = ty - 1;
+        const ruleFloor = rowY - rowH + 1.8;
+        while (ruleY >= ruleFloor) {
+          tools.page.push(`0.55 0.48 0.66 RG 0.7 w ${x + 3.5} ${ruleY} m ${x + dayColW - 3.5} ${ruleY} l S`);
+          ruleY -= 5.6;
         }
       });
       rowY -= rowH;
