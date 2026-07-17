@@ -109,10 +109,13 @@ function main() {
   console.log(`Duplicates removed: ${report.counts.duplicatesRemoved}`);
   console.log("");
   console.log("--- Recipients ---");
-  for (const row of out.recipients) {
+  for (const row of report.recipients) {
     console.log(`✓ ${row.email}`);
     console.log(`    status: ${row.accountStatus} · plan: ${row.membershipPlan} · stripe: ${row.stripeSubscriptionStatus}`);
     console.log(`    why: ${row.qualifyReason}`);
+    if (row.checks) {
+      console.log(`    checks: ${Object.entries(row.checks).map(([k, v]) => `${k}=${v ? "pass" : "fail"}`).join(", ")}`);
+    }
   }
   console.log("");
   console.log("--- Excluded ---");

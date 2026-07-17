@@ -8145,6 +8145,7 @@ async function sendEmail(opts = {}) {
   if (provider === "resend") {
     const payload = { from: SUPPORT_EMAIL_FROM, to: toList, subject, text, html };
     if (replyTo) payload.reply_to = replyTo;
+    if (Array.isArray(opts.tags) && opts.tags.length) payload.tags = opts.tags;
     const providerResponse = await postJson("https://api.resend.com/emails", { Authorization: "Bearer " + RESEND_API_KEY }, payload);
     return {
       sent: true,
@@ -8211,6 +8212,17 @@ const emailEngagement = createEmailEngagement({
   resolveAudienceRecipients: (store, opts) => messagingCenter.resolveAudienceRecipients(store, opts),
 });
 
+async function fetchResendEmailStatus(messageId) {
+  const id = String(messageId || "").trim();
+  if (!id || !isConfiguredValue(RESEND_API_KEY) || typeof fetch !== "function") return null;
+  const response = await fetch(`https://api.resend.com/emails/${encodeURIComponent(id)}`, {
+    method: "GET",
+    headers: { Authorization: "Bearer " + RESEND_API_KEY },
+  });
+  if (!response.ok) return null;
+  return response.json().catch(() => null);
+}
+
 // One-time Founding Member thank-you — independent of EMAIL_AUTOMATIONS_ENABLED.
 const foundingMemberEmail = createFoundingMemberEmail({
   sendEmail,
@@ -8219,6 +8231,7 @@ const foundingMemberEmail = createFoundingMemberEmail({
   htmlEscape,
   getAdminEmail: () => ADMIN_EMAIL,
   getSupportEmailStatus: () => supportEmailConfigStatus(),
+  fetchResendEmailStatus,
 });
 
 function pauseEmailAutomationsInStore(reason = "EMAIL_AUTOMATIONS_ENABLED=false") {
@@ -11451,18 +11464,24 @@ async function handleAdminFoundingMemberEmailSend(request, response) {
     confirm: body.confirm === true,
     confirmPhrase: body.confirmPhrase || "",
     dryRunToken: body.dryRunToken || "",
+    confirmationToken: body.confirmationToken || "",
     forceResend: false,
   });
   if (result.skipped && result.reason === "confirmation_required") {
     jsonResponse(response, 400, {
-      error: "Confirmation required. Pass confirm:true and confirmPhrase SEND_FOUNDING_MEMBER_EMAIL after approving the dry-run.",
+      error: "Confirmation required. Pass confirm:true and confirmPhrase SEND_FOUNDING_MEMBER_EMAIL after reviewing the Final Confirmation Screen.",
       result,
     });
     return;
   }
-  if (result.skipped && (result.reason === "dry_run_required" || result.reason === "dry_run_expired" || result.reason === "recipient_drift")) {
+  if (result.skipped && (
+    result.reason === "dry_run_required"
+    || result.reason === "dry_run_expired"
+    || result.reason === "recipient_drift"
+    || result.reason === "confirmation_screen_required"
+  )) {
     jsonResponse(response, 400, {
-      error: result.detail || "Re-run dry-run and approve again before sending.",
+      error: result.detail || "Re-run dry-run and approve the Final Confirmation Screen before sending.",
       result,
     });
     return;
@@ -11484,9 +11503,53 @@ async function handleAdminFoundingMemberEmailSend(request, response) {
   jsonResponse(response, 200, {
     ok: true,
     result,
+    report: result.report || null,
+    confirmationScreen: result.confirmationScreen || null,
     membershipRecordsModified: false,
+    billingRecordsModified: false,
+    foundingMemberStatusModified: false,
     automationsEnabled: emailAutomationsEnabled(),
   });
+}
+
+async function handleAdminFoundingMemberEmailReport(request, response, url) {
+  const token = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const refresh = url.searchParams.get("refresh") === "1" || url.searchParams.get("refresh") === "true";
+  if (refresh) {
+    const refreshed = await foundingMemberEmail.refreshDeliveryStatuses();
+    jsonResponse(response, 200, { ok: true, refreshed: true, ...refreshed });
+    return;
+  }
+  jsonResponse(response, 200, foundingMemberEmail.getReport());
+}
+
+async function handleResendEmailWebhook(request, response) {
+  const rawBody = await readBody(request);
+  const secret = String(process.env.RESEND_WEBHOOK_SECRET || "").trim();
+  if (secret) {
+    const verified = foundingMemberEmail.verifyResendWebhookSignature(
+      rawBody,
+      request.headers || {},
+      secret,
+    );
+    if (!verified.ok) {
+      jsonResponse(response, 401, { error: "Invalid Resend webhook signature.", reason: verified.reason });
+      return;
+    }
+  }
+  let event;
+  try {
+    event = JSON.parse(Buffer.isBuffer(rawBody) ? rawBody.toString("utf8") : String(rawBody || ""));
+  } catch {
+    jsonResponse(response, 400, { error: "Invalid webhook JSON." });
+    return;
+  }
+  const result = foundingMemberEmail.handleResendWebhook(event, { persistAlways: true });
+  jsonResponse(response, 200, { received: true, ...result });
 }
 
 async function handleAdminEmailEngagementSettings(request, response) {
@@ -11768,6 +11831,12 @@ const server = http.createServer(async (request, response) => {
     }
     if (request.method === "POST" && url.pathname === "/api/admin/founding-member-email/send") {
       return await handleAdminFoundingMemberEmailSend(request, response);
+    }
+    if (request.method === "GET" && url.pathname === "/api/admin/founding-member-email/report") {
+      return await handleAdminFoundingMemberEmailReport(request, response, url);
+    }
+    if (request.method === "POST" && url.pathname === "/api/webhooks/resend") {
+      return await handleResendEmailWebhook(request, response);
     }
     if (request.method === "POST" && url.pathname === "/api/email/unsubscribe") return await handleEmailUnsubscribe(request, response);
     // Phase 6-A: Admin Reply & Communications

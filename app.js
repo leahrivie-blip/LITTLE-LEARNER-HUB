@@ -32085,6 +32085,7 @@ async function renderAdminEmailEngagement() {
     const cachedAudit = window.__adminEmailPreflightAudit || null;
     const cachedPrepare = window.__adminEmailPrepared || null;
     const cachedFoundingPreview = window.__adminFoundingEmailPreview || null;
+    const cachedFoundingReport = window.__adminFoundingEmailReport || null;
     const auditChecks = Array.isArray(cachedAudit?.checks) ? cachedAudit.checks : [];
     const sendReady = Boolean(cachedAudit?.sendUnlocked || (oneTime.sendUnlocked && cachedAudit?.auditToken));
     const providerReady = Boolean(support.ready || cachedPrepare?.emailProvider?.ready || cachedAudit?.emailProvider?.ready);
@@ -32151,43 +32152,66 @@ async function renderAdminEmailEngagement() {
 
       <div class="admin-email-controls panel-form">
         <h4>Founding Members thank-you (one-time)</h4>
-        <p class="form-note">Sends only to users with <strong>current confirmed Founding Member access</strong> (not the founding list, not all Pro/paid users). Dry-run first. Keep <code>EMAIL_AUTOMATIONS_ENABLED=false</code>. Requires confirmation phrase <code>SEND_FOUNDING_MEMBER_EMAIL</code>.</p>
+        <p class="form-note">Sends only to users who pass <strong>final recipient validation</strong> (valid email, active account, active Founding access, subscription not canceled, not trial, not test, not already received). Keep <code>EMAIL_AUTOMATIONS_ENABLED=false</code>. Confirmation phrase: <code>SEND_FOUNDING_MEMBER_EMAIL</code>.</p>
         <div class="aup-insight-grid">
           <div class="aup-insight-card"><strong>${cachedFoundingPreview?.counts?.foundingList ?? "—"}</strong><span>Founding list</span></div>
-          <div class="aup-insight-card aup-insight--pro"><strong>${cachedFoundingPreview?.counts?.recipients ?? "—"}</strong><span>Active Founding recipients</span></div>
-          <div class="aup-insight-card aup-insight--trial"><strong>${cachedFoundingPreview?.counts?.excluded ?? "—"}</strong><span>Excluded near-misses</span></div>
+          <div class="aup-insight-card aup-insight--pro"><strong>${cachedFoundingPreview?.counts?.recipients ?? "—"}</strong><span>Final recipients</span></div>
+          <div class="aup-insight-card aup-insight--trial"><strong>${cachedFoundingPreview?.counts?.excluded ?? "—"}</strong><span>Excluded</span></div>
           <div class="aup-insight-card"><strong>${cachedFoundingPreview?.counts?.duplicatesRemoved ?? "—"}</strong><span>Duplicates removed</span></div>
         </div>
         ${cachedFoundingPreview ? `
           <div class="admin-email-preview">
-            <h4>Dry-run recipient list (not sent)</h4>
-            <p class="form-note">${escapeHtml(cachedFoundingPreview.audienceRule || "")}</p>
+            <h4>Final Confirmation Screen (not sent)</h4>
+            <p class="form-note"><strong>Recipient count:</strong> ${Number(cachedFoundingPreview.confirmationScreen?.recipientCount ?? cachedFoundingPreview.counts?.recipients) || 0}</p>
+            <p class="form-note"><strong>Recipient emails:</strong></p>
             <ul class="admin-email-step-list">
-              ${(cachedFoundingPreview.recipients || []).map((row) => `
-                <li>✓ <strong>${escapeHtml(row.email)}</strong> · ${escapeHtml(row.accountStatus || "")} · ${escapeHtml(row.qualifyReason || "")}</li>
+              ${(cachedFoundingPreview.confirmationScreen?.recipients || cachedFoundingPreview.recipients || []).map((row) => `
+                <li>✓ <strong>${escapeHtml(row.email)}</strong> · ${escapeHtml(row.accountStatus || "")}
+                  ${row.checks ? ` · checks: ${Object.entries(row.checks).map(([k, v]) => `${escapeHtml(k)}=${v ? "pass" : "fail"}`).join(", ")}` : ""}
+                  <br><span class="form-note">${escapeHtml(row.qualifyReason || "")}</span>
+                </li>
               `).join("") || "<li>No qualifying recipients</li>"}
             </ul>
             ${(cachedFoundingPreview.excluded || []).length ? `
-              <p class="form-note"><strong>Excluded:</strong></p>
+              <p class="form-note"><strong>Excluded / skipped:</strong></p>
               <ul class="admin-email-step-list">
                 ${cachedFoundingPreview.excluded.map((row) => `
                   <li>✗ <strong>${escapeHtml(row.email)}</strong> · ${escapeHtml(row.accountStatus || "")} · ${(row.excludeReasons || []).map(escapeHtml).join(", ")}</li>
                 `).join("")}
               </ul>
             ` : ""}
-            <p class="form-note"><strong>Subject:</strong> ${escapeHtml(cachedFoundingPreview.email?.subject || "")}</p>
-            <pre class="admin-email-text-preview" style="white-space:pre-wrap;max-height:240px;overflow:auto;background:#f7f3ec;padding:12px;border-radius:8px;">${escapeHtml(cachedFoundingPreview.email?.textPreview || "")}</pre>
+            <p class="form-note"><strong>Subject line:</strong> ${escapeHtml(cachedFoundingPreview.confirmationScreen?.subject || cachedFoundingPreview.email?.subject || "")}</p>
+            <p class="form-note"><strong>Full rendered email preview:</strong></p>
+            <pre class="admin-email-text-preview" style="white-space:pre-wrap;max-height:320px;overflow:auto;background:#f7f3ec;padding:12px;border-radius:8px;">${escapeHtml(cachedFoundingPreview.confirmationScreen?.textPreview || cachedFoundingPreview.email?.textPreview || "")}</pre>
+            <div class="admin-email-html-preview" style="max-height:320px;overflow:auto;border:1px solid #e5e0d6;padding:12px;border-radius:8px;background:#fff;">${cachedFoundingPreview.confirmationScreen?.htmlPreview || cachedFoundingPreview.email?.htmlPreview || ""}</div>
           </div>
-        ` : `<p class="form-note">No Founding Member dry-run in this session yet.</p>`}
+        ` : `<p class="form-note">No Founding Member dry-run / Final Confirmation Screen in this session yet.</p>`}
+        ${cachedFoundingReport ? `
+          <div class="admin-email-preview">
+            <h4>Post-send report</h4>
+            <div class="aup-insight-grid">
+              <div class="aup-insight-card"><strong>${Number(cachedFoundingReport.totalAttempted) || 0}</strong><span>Attempted</span></div>
+              <div class="aup-insight-card aup-insight--pro"><strong>${Number(cachedFoundingReport.totalDelivered) || 0}</strong><span>Delivered</span></div>
+              <div class="aup-insight-card aup-insight--trial"><strong>${Number(cachedFoundingReport.totalFailed) || 0}</strong><span>Failed</span></div>
+              <div class="aup-insight-card"><strong>${Number(cachedFoundingReport.totalBounced) || 0}</strong><span>Bounced</span></div>
+            </div>
+            <p class="form-note"><strong>Opened:</strong> ${Number(cachedFoundingReport.totalOpened) || 0} · <strong>Clicked:</strong> ${Number(cachedFoundingReport.totalClicked) || 0} · <strong>Skipped:</strong> ${Number(cachedFoundingReport.totalSkipped) || 0}</p>
+            <p class="form-note"><strong>Send timestamp:</strong> ${escapeHtml(cachedFoundingReport.sentAt || "")}</p>
+            <p class="form-note"><strong>Resend message IDs:</strong> ${escapeHtml((cachedFoundingReport.resendMessageIds || []).join(", ") || "(none yet)")}</p>
+            ${(cachedFoundingReport.skipped || []).length ? `<p class="form-note"><strong>Skipped recipients:</strong> ${escapeHtml(cachedFoundingReport.skipped.map((s) => `${s.email} (${s.reason})`).join("; "))}</p>` : ""}
+            <p class="form-note">Memberships / subscriptions / Founding status were not modified.</p>
+          </div>
+        ` : ""}
         <label class="checkbox-row"><input type="checkbox" id="adminFoundingIncludeAdmin"> Include admin only if they genuinely have Founding access (off by default)</label>
         <div class="account-actions-row">
-          <button class="primary-button" type="button" id="adminFoundingEmailDryRun">Dry-run Founding thank-you</button>
-          <button class="ghost-button" type="button" id="adminFoundingEmailSend" ${cachedFoundingPreview?.sendUnlocked && !cachedFoundingPreview?.alreadySent ? "" : "disabled"}>Send Founding thank-you (gated)</button>
+          <button class="primary-button" type="button" id="adminFoundingEmailDryRun">Dry-run + Final Confirmation</button>
+          <button class="ghost-button" type="button" id="adminFoundingEmailSend" ${cachedFoundingPreview?.sendUnlocked && !cachedFoundingPreview?.alreadySent ? "" : "disabled"}>Send (requires SEND_FOUNDING_MEMBER_EMAIL)</button>
+          <button class="ghost-button" type="button" id="adminFoundingEmailReport">Refresh post-send report</button>
         </div>
         <p class="form-note" id="adminFoundingEmailMessage">
           ${cachedFoundingPreview?.alreadySent
             ? `Already sent ${escapeHtml(cachedFoundingPreview.sentAt || "")}. Duplicate sends are blocked.`
-            : "Nothing will be sent until you approve the dry-run list and type the confirmation phrase."}
+            : "Review the Final Confirmation Screen above, then type SEND_FOUNDING_MEMBER_EMAIL to send. Nothing has been sent yet."}
         </p>
       </div>
 
@@ -42935,7 +42959,8 @@ document.addEventListener("click", async (event) => {
       const data = await adminEmailEngagementPost("/api/admin/founding-member-email/dry-run", { includeAdmin });
       window.__adminFoundingEmailPreview = data.preview || null;
       if (msg) {
-        msg.textContent = `Dry-run ready: ${data.preview?.counts?.recipients || 0} Founding recipients (founding list ${data.preview?.counts?.foundingList || 0}). Nothing was sent.`;
+        const count = data.preview?.confirmationScreen?.recipientCount || data.preview?.counts?.recipients || 0;
+        msg.textContent = `Final Confirmation ready: ${count} recipients. Review emails + full preview below. Nothing was sent.`;
       }
       await renderAdminEmailEngagement();
     } catch (error) {
@@ -42943,17 +42968,36 @@ document.addEventListener("click", async (event) => {
     }
     return;
   }
+  if (event.target.closest("#adminFoundingEmailReport")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminFoundingEmailMessage");
+    try {
+      const token = adminSession()?.token;
+      const response = await fetch(`/api/admin/founding-member-email/report?adminToken=${encodeURIComponent(token || "")}&refresh=1`);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || "Could not load report.");
+      window.__adminFoundingEmailReport = data.report || null;
+      if (msg) {
+        msg.textContent = `Report refreshed: attempted ${data.report?.totalAttempted || 0}, delivered ${data.report?.totalDelivered || 0}, failed ${data.report?.totalFailed || 0}, bounced ${data.report?.totalBounced || 0}.`;
+      }
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "Report refresh failed.";
+    }
+    return;
+  }
   if (event.target.closest("#adminFoundingEmailSend")) {
     event.preventDefault();
     const msg = document.querySelector("#adminFoundingEmailMessage");
     const preview = window.__adminFoundingEmailPreview;
-    if (!preview?.dryRunToken) {
-      if (msg) msg.textContent = "Run the Founding Members dry-run first and approve the list.";
+    if (!preview?.dryRunToken || !preview?.confirmationToken) {
+      if (msg) msg.textContent = "Run Dry-run + Final Confirmation first and review the screen.";
       return;
     }
-    const recipientCount = Number(preview.counts?.recipients) || 0;
+    const recipientCount = Number(preview.confirmationScreen?.recipientCount || preview.counts?.recipients) || 0;
+    const emails = (preview.confirmationScreen?.recipientEmails || preview.recipients?.map((r) => r.email) || []).join("\n");
     const phrase = window.prompt(
-      `Type SEND_FOUNDING_MEMBER_EMAIL to send the thank-you to ${recipientCount} verified Founding Members.\n\nThis is a one-time send only and cannot be undone.`,
+      `FINAL CONFIRMATION\n\nRecipients (${recipientCount}):\n${emails}\n\nSubject: ${preview.confirmationScreen?.subject || preview.email?.subject || ""}\n\nType SEND_FOUNDING_MEMBER_EMAIL to send once.\nMemberships will not be modified.`,
       "",
     );
     if (String(phrase || "").trim() !== "SEND_FOUNDING_MEMBER_EMAIL") {
@@ -42966,10 +43010,13 @@ document.addEventListener("click", async (event) => {
         confirm: true,
         confirmPhrase: "SEND_FOUNDING_MEMBER_EMAIL",
         dryRunToken: preview.dryRunToken,
+        confirmationToken: preview.confirmationToken,
         includeAdmin,
       });
+      window.__adminFoundingEmailReport = data.report || data.result?.report || null;
       if (msg) {
-        msg.textContent = `Founding thank-you finished: sent ${data.result?.sent || 0} of ${data.result?.recipients || 0} (failed ${data.result?.failed || 0}).`;
+        const report = window.__adminFoundingEmailReport || {};
+        msg.textContent = `Post-send: attempted ${report.totalAttempted || data.result?.attempted || 0}, delivered ${report.totalDelivered || data.result?.sent || 0}, failed ${report.totalFailed || data.result?.failed || 0}, bounced ${report.totalBounced || 0}.`;
       }
       window.__adminFoundingEmailPreview = {
         ...preview,

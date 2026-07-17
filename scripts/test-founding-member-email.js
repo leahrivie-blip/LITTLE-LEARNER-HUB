@@ -171,10 +171,17 @@ async function main() {
     assert.match(moduleJs, /SEND_FOUNDING_MEMBER_EMAIL/);
     assert.match(moduleJs, /membershipFoundingActive/);
     assert.match(moduleJs, /in_trial/);
+    assert.match(moduleJs, /subscriptionNotCanceled/);
+    assert.match(moduleJs, /notAlreadyReceived/);
+    assert.match(moduleJs, /confirmationScreen/);
+    assert.match(moduleJs, /buildPostSendReport/);
     assert.match(serverJs, /\/api\/admin\/founding-member-email\/dry-run/);
     assert.match(serverJs, /\/api\/admin\/founding-member-email\/send/);
+    assert.match(serverJs, /\/api\/admin\/founding-member-email\/report/);
+    assert.match(serverJs, /\/api\/webhooks\/resend/);
     assert.match(serverJs, /EMAIL_AUTOMATIONS_ENABLED/);
     assert.match(appJs, /adminFoundingEmailDryRun/);
+    assert.match(appJs, /Final Confirmation Screen/);
     assert.match(appJs, /SEND_FOUNDING_MEMBER_EMAIL/);
   });
 
@@ -198,6 +205,17 @@ async function main() {
     assert.ok(report.duplicatesRemoved.includes("dup@providermail.com"));
     assert.equal(report.email.subject, EMAIL_SUBJECT);
     assert.equal(report.willSend, false);
+    assert.equal(report.finalValidation.allRecipientsPassed, true);
+    const active = report.recipients.find((r) => r.email === "active.founding@providermail.com");
+    assert.equal(active.checks.emailValid, true);
+    assert.equal(active.checks.accountActive, true);
+    assert.equal(active.checks.foundingAccessActive, true);
+    assert.equal(active.checks.subscriptionNotCanceled, true);
+    assert.equal(active.checks.notTrial, true);
+    assert.equal(active.checks.notTestAccount, true);
+    assert.equal(active.checks.notAlreadyReceived, true);
+    const canceled = report.excluded.find((r) => r.email === "canceled.founding@providermail.com");
+    assert.ok(canceled.excludeReasons.includes("subscription_canceled"));
   });
 
   await test("includeAdmin only when admin genuinely qualifies", () => {
@@ -243,13 +261,25 @@ async function main() {
     const dry = api.dryRun({ adminEmail: ADMIN_EMAIL, includeAdmin: false });
     assert.equal(dry.willSend, false);
     assert.equal(dry.counts.recipients, 3);
+    assert.ok(dry.confirmationScreen);
+    assert.equal(dry.confirmationScreen.recipientCount, 3);
+    assert.ok(dry.confirmationToken);
 
     const noConfirm = await api.send({
       confirm: false,
       confirmPhrase: CONFIRM_PHRASE,
       dryRunToken: dry.dryRunToken,
+      confirmationToken: dry.confirmationToken,
     });
     assert.equal(noConfirm.reason, "confirmation_required");
+    assert.equal(sent.length, 0);
+
+    const noConfirmationToken = await api.send({
+      confirm: true,
+      confirmPhrase: CONFIRM_PHRASE,
+      dryRunToken: dry.dryRunToken,
+    });
+    assert.equal(noConfirmationToken.reason, "confirmation_screen_required");
     assert.equal(sent.length, 0);
   });
 
@@ -259,24 +289,52 @@ async function main() {
       confirm: true,
       confirmPhrase: CONFIRM_PHRASE,
       dryRunToken: dry.dryRunToken,
+      confirmationToken: dry.confirmationToken,
       adminEmail: ADMIN_EMAIL,
       includeAdmin: false,
     });
     assert.equal(result.skipped, false);
     assert.equal(result.sent, 3);
+    assert.equal(result.attempted, 3);
     assert.equal(result.membershipRecordsModified, false);
+    assert.equal(result.billingRecordsModified, false);
+    assert.equal(result.foundingMemberStatusModified, false);
     assert.equal(sent.length, 3);
     assert.ok(result.deliveries.every((d) => d.messageId));
+    assert.ok(result.report);
+    assert.equal(result.report.totalAttempted, 3);
+    assert.ok(result.report.resendMessageIds.length === 3);
     assert.ok(store.emailEngagement.settings.foundingMemberThankYou.sentAt);
 
     // Membership flags untouched
     assert.equal(store.users["active.founding@providermail.com"].foundingMemberActive, true);
     assert.equal(store.users["trial.founding@providermail.com"].foundingMemberActive, true);
 
+    // Webhook delivery + bounce tracking
+    const messageId = result.deliveries[0].messageId;
+    api.handleResendWebhook({
+      type: "email.delivered",
+      created_at: new Date().toISOString(),
+      data: { email_id: messageId, to: [result.deliveries[0].email] },
+    });
+    assert.equal(
+      store.emailEngagement.settings.foundingMemberThankYou.recipientReceipts[result.deliveries[0].email].deliveryStatus,
+      "delivered",
+    );
+    api.handleResendWebhook({
+      type: "email.bounced",
+      created_at: new Date().toISOString(),
+      data: { email_id: result.deliveries[1].messageId, to: [result.deliveries[1].email], bounce: { type: "Permanent" } },
+    });
+    const reportAfter = api.getReport().report;
+    assert.ok(reportAfter.totalDelivered >= 1);
+    assert.ok(reportAfter.totalBounced >= 1);
+
     const again = await api.send({
       confirm: true,
       confirmPhrase: CONFIRM_PHRASE,
       dryRunToken: dry.dryRunToken,
+      confirmationToken: dry.confirmationToken,
     });
     assert.equal(again.reason, "already_sent");
     assert.equal(sent.length, 3);
@@ -326,6 +384,9 @@ async function main() {
       assert.equal(res.json.willSend, false);
       assert.equal(res.json.automationsEnabled, false);
       assert.ok(res.json.preview?.dryRunToken);
+      assert.ok(res.json.preview?.confirmationToken);
+      assert.ok(res.json.preview?.confirmationScreen);
+      assert.equal(res.json.preview.confirmationScreen.recipientCount, 3);
       assert.equal(res.json.preview.email.subject, EMAIL_SUBJECT);
       assert.equal(res.json.preview.counts.recipients, 3);
       assert.ok(res.json.preview.recipients.some((r) => r.email === "active.founding@providermail.com"));
@@ -341,10 +402,18 @@ async function main() {
           confirm: true,
           confirmPhrase: "NOPE",
           dryRunToken: dry.json.preview?.dryRunToken,
+          confirmationToken: dry.json.preview?.confirmationToken,
         },
       });
       assert.equal(res.status, 400);
       assert.equal(res.json.result?.reason, "confirmation_required");
+    });
+
+    await test("HTTP report endpoint available before send", async () => {
+      const res = await request("GET", `/api/admin/founding-member-email/report?adminToken=${encodeURIComponent(adminToken)}`);
+      assert.equal(res.status, 200);
+      assert.equal(res.json.ok, true);
+      assert.ok(res.json.report);
     });
   } finally {
     child.kill("SIGTERM");
