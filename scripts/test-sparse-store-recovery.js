@@ -20,10 +20,37 @@ assert.match(serverJs, /membershipUpdatesFromStripeSubscription/);
 assert.match(serverJs, /sparseStripeBackfillAt/);
 assert.match(serverJs, /ALLOW_BOOT_SPARSE_STORE_RECOVERY/);
 assert.match(serverJs, /boot check skipped/);
+assert.match(serverJs, /llh_store_backups/);
+assert.match(serverJs, /assertSafePostgresStoreReplacement/);
+assert.match(serverJs, /store_count_drop_blocked/);
+assert.match(serverJs, /RECOVER_SPARSE_STORE/);
+assert.match(serverJs, /\/api\/admin\/store-backups/);
+assert.match(serverJs, /startStoreBackupScheduler/);
 assert.match(appJs, /runAdminSparseStoreRecovery/);
 assert.match(appJs, /Recover users from Stripe now/);
 assert.match(appJs, /loadAdminStoreHealth/);
+assert.match(appJs, /RECOVER_SPARSE_STORE/);
 console.log("PASS  sparse-store recovery markers present");
+
+// Inventory guard unit check
+function storeCountDropReasons(nextCounts, prevCounts) {
+  if (!prevCounts || !nextCounts) return [];
+  const reasons = [];
+  const droppedHalf = (prev, next, minPrev) => prev >= minPrev && next < Math.floor(prev * 0.5);
+  if (droppedHalf(prevCounts.users, nextCounts.users, 10)) reasons.push("users");
+  if (droppedHalf(prevCounts.messages, nextCounts.messages, 10)) reasons.push("messages");
+  if (droppedHalf(prevCounts.foundingMembers, nextCounts.foundingMembers, 5)) reasons.push("foundingMembers");
+  return reasons;
+}
+assert.deepEqual(
+  storeCountDropReasons({ users: 2, messages: 0, foundingMembers: 0 }, { users: 25, messages: 40, foundingMembers: 13 }),
+  ["users", "messages", "foundingMembers"],
+);
+assert.deepEqual(
+  storeCountDropReasons({ users: 27, messages: 41, foundingMembers: 13 }, { users: 25, messages: 40, foundingMembers: 13 }),
+  [],
+);
+console.log("PASS  inventory drop guard logic");
 
 // Lightweight unit: founding rebuild logic mirrored from the server helper shape.
 function rebuildFoundingMembersFromUsers(store) {

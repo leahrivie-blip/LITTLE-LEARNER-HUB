@@ -38663,7 +38663,11 @@ async function runAdminSparseStoreRecovery({ force = false } = {}) {
     const res = await fetch("/api/admin/recover-sparse-store", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ adminToken: token, force: force === true }),
+      body: JSON.stringify({
+        adminToken: token,
+        force: force === true,
+        confirm: "RECOVER_SPARSE_STORE",
+      }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Recovery failed.");
