@@ -105,7 +105,8 @@
     "test:admin-message-by-name": "node scripts/test-admin-message-by-name.js",
     "test:temp-password-auth": "NODE_ENV=test node scripts/test-temp-password-auth.js",
     "test:email-engagement": "NODE_ENV=test node scripts/test-email-engagement.js",
-    "test:sparse-store-recovery": "NODE_ENV=test node scripts/test-sparse-store-recovery.js"
+    "test:sparse-store-recovery": "NODE_ENV=test node scripts/test-sparse-store-recovery.js",
+    "dry-run:firebase-postgres": "node scripts/compare-firebase-postgres-dry-run.js"
   },
   "devDependencies": {
     "playwright": "^1.61.1"

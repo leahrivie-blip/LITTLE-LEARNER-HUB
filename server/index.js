@@ -5956,6 +5956,49 @@ function handleAdminStoreHealth(request, response, url) {
   jsonResponse(response, 200, { ok: true, health: storeHealthSnapshot() });
 }
 
+/**
+ * Read-only full launch-store export for incident preservation.
+ * Does not modify Postgres. Media bytes stay in llh_media_assets (IDs listed only).
+ */
+function handleAdminStoreExport(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = readStore();
+  const users = store.users || {};
+  const mediaIds = new Set();
+  const collectMediaIds = (value) => {
+    if (!value) return;
+    if (typeof value === "string") {
+      if (value.startsWith("lesson-cover-") || value.includes("/api/media/")) mediaIds.add(value);
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach(collectMediaIds);
+      return;
+    }
+    if (typeof value === "object") Object.values(value).forEach(collectMediaIds);
+  };
+  collectMediaIds(store.siteContent);
+  collectMediaIds(store.uploadedResources);
+  jsonResponse(response, 200, {
+    ok: true,
+    exportedAt: new Date().toISOString(),
+    purpose: "read-only-production-store-preservation",
+    destructive: false,
+    database: {
+      provider: DATABASE_PROVIDER,
+      ready: databaseReady,
+      usingPostgres: usePostgresStore(),
+    },
+    health: storeHealthSnapshot(store),
+    mediaAssetIdsReferenced: [...mediaIds].slice(0, 5000),
+    store,
+  });
+}
+
 async function handleAdminRecoverSparseStore(request, response) {
   const body = await readJson(request);
   if (!validAdminToken(body.adminToken || "")) {
@@ -11067,6 +11110,7 @@ const server = http.createServer(async (request, response) => {
     // Phase 2H: legacy /api/admin/generate-lesson-plan removed.
     if (request.method === "POST" && url.pathname === "/api/admin/stripe-backfill") return await handleAdminStripeBackfill(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/store-health") return handleAdminStoreHealth(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/store-export") return handleAdminStoreExport(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/recover-sparse-store") return await handleAdminRecoverSparseStore(request, response);
     if (request.method === "GET" && url.pathname === "/api/founding-status") return handleFoundingStatus(request, response);
     if (request.method === "GET" && url.pathname === "/api/stripe-readiness") return handleStripeReadiness(request, response);
@@ -11106,16 +11150,24 @@ initializeStorage()
       console.warn("[push] could not initialize Web Push service — push notifications will be unavailable, in-app messaging is unaffected:", error.message);
       pushService = null;
     }
-    // Auto-rebuild wiped/sparse membership directories from Stripe (one-shot).
-    try {
-      const recovery = await recoverSparseStoreFromStripeIfNeeded({ source: "boot" });
-      if (recovery.ran) {
-        console.warn(`[store-recovery] boot recovery restored users ${recovery.userCountBefore} → ${recovery.userCountAfter}`);
-      } else {
-        console.log(`[store-recovery] boot check: ${recovery.reason}${recovery.userCount != null ? ` (users=${recovery.userCount})` : ""}`);
+    // Boot-time Stripe sparse recovery is opt-in. Prefer explicit Admin recover after review.
+    // Set ALLOW_BOOT_SPARSE_STORE_RECOVERY=true only when an unattended rebuild is intentional.
+    const allowBootSparseRecovery = ["1", "true", "yes", "on"].includes(
+      String(process.env.ALLOW_BOOT_SPARSE_STORE_RECOVERY || "").trim().toLowerCase(),
+    );
+    if (!allowBootSparseRecovery) {
+      console.log("[store-recovery] boot check skipped — set ALLOW_BOOT_SPARSE_STORE_RECOVERY=true to enable automatic rebuild");
+    } else {
+      try {
+        const recovery = await recoverSparseStoreFromStripeIfNeeded({ source: "boot" });
+        if (recovery.ran) {
+          console.warn(`[store-recovery] boot recovery restored users ${recovery.userCountBefore} → ${recovery.userCountAfter}`);
+        } else {
+          console.log(`[store-recovery] boot check: ${recovery.reason}${recovery.userCount != null ? ` (users=${recovery.userCount})` : ""}`);
+        }
+      } catch (error) {
+        console.error("[store-recovery] boot recovery failed:", error.message || error);
       }
-    } catch (error) {
-      console.error("[store-recovery] boot recovery failed:", error.message || error);
     }
     server.listen(PORT, () => {
       console.log(`Little Learner Hub launch server running on http://localhost:${PORT}`);

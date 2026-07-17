@@ -45,6 +45,9 @@ services:
         sync: false
       - key: PRODUCTION_DATABASE_SERVICE_KEY
         sync: false
+      # Opt-in only. Leave unset/false so sparse Stripe rebuild never runs automatically at boot.
+      - key: ALLOW_BOOT_SPARSE_STORE_RECOVERY
+        value: "false"
       # Push notifications work with no setup — VAPID keys auto-generate and
       # persist in the database on first boot. Set these only if you want to
       # pin a specific key pair (see docs/MESSAGING_AND_PUSH_SETUP.md).
