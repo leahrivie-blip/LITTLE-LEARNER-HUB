@@ -221,11 +221,22 @@ async function main() {
     check("Only one action bar rendered", bars.barCount === 1, `found ${bars.barCount}`);
     check("Bottom duplicate action bar removed", bars.bottom.length === 0);
     check("Primary has Use This Plan", bars.primaryVisible.includes("Use This Plan"));
-    check("Primary has Print", bars.primaryVisible.includes("Print"));
-    check("Primary has Download", bars.primaryVisible.includes("Download"));
+    check(
+      "Primary has Download Teacher Weekly Planner",
+      bars.primaryVisible.some((label) => /Download Teacher Weekly Planner/i.test(label)),
+      bars.primaryVisible.join(" | "),
+    );
+    check(
+      "Primary has Download Full Lesson Plan",
+      bars.primaryVisible.some((label) => /Download Full Lesson Plan/i.test(label)),
+      bars.primaryVisible.join(" | "),
+    );
+    check("No legacy Print on primary", !bars.primaryVisible.includes("Print"));
+    check("No legacy Download on primary", !bars.primaryVisible.includes("Download"));
     check("No duplicate Add to My Week on primary", !bars.primaryVisible.includes("Add to My Week"));
     check("No duplicate Add to Calendar on primary", !bars.primaryVisible.includes("Add to Calendar"));
     check("Edit lives in More menu", bars.moreLabels.includes("Edit Lesson Plan") && !bars.primaryVisible.includes("Edit Lesson Plan"));
+    check("Print planner lives in More menu", bars.moreLabels.some((label) => /Print Teacher Weekly Planner/i.test(label)));
     check("Detailed weekly lives in More menu", bars.moreLabels.some((label) => /Detailed Weekly Lesson Plan/i.test(label)));
     check("Planning sheet lives in More menu", bars.moreLabels.some((label) => /Classroom Planning Sheet/i.test(label)));
     check("Full lesson plan lives in More menu", bars.moreLabels.some((label) => /Full Lesson Plan/i.test(label)));
@@ -234,28 +245,19 @@ async function main() {
     check("Week overview content is visible", bars.overviewPresent);
     check("No horizontal overflow on mobile", !bars.overflow);
 
+    // Use This Plan goes straight to Calendar assign (no Weekly Plan choice sheet).
     await page.locator('[data-lesson-action-bars="top"] [data-lesson-use-this-plan]').click();
-    await page.waitForSelector('[data-lesson-workspace-action-panel="use-plan"]:not([hidden])', { timeout: 5000 });
-    const choiceSheet = await page.evaluate(() => ({
-      title: document.querySelector('[data-lesson-workspace-action-panel="use-plan"] .lesson-workspace-action-sheet-title')?.textContent.trim() || "",
-      choices: [...document.querySelectorAll("[data-lesson-use-plan-choice]")].map((el) => el.textContent.trim()),
-    }));
-    check("Use This Plan opens choice sheet", choiceSheet.title === "Use This Plan", choiceSheet.title);
-    check("Choice includes Weekly Plan", choiceSheet.choices.includes("Add to Weekly Plan"));
-    check("Choice includes Calendar", choiceSheet.choices.includes("Add to Calendar"));
-
-    await page.locator('[data-lesson-use-plan-choice="my-week"]').click();
     await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
-    const myWeekSheet = await page.evaluate(() => ({
+    const calendarSheet = await page.evaluate(() => ({
       title: document.querySelector("[data-lesson-assign-sheet-title]")?.textContent.trim() || "",
       submit: document.querySelector("[data-lesson-assign-submit]")?.textContent.trim() || "",
       intent: document.querySelector('[name="assignIntent"]')?.value || "",
       hasPrint: Boolean(document.querySelector('[data-lesson-workspace-action-panel="main-calendar"] [data-lesson-print-variant]')),
     }));
-    check("Weekly Plan opens assign sheet", myWeekSheet.title === "Add to Weekly Plan", myWeekSheet.title);
-    check("Weekly Plan submit label matches", myWeekSheet.submit === "Add to Weekly Plan", myWeekSheet.submit);
-    check("Assign intent is my-week", myWeekSheet.intent === "my-week", myWeekSheet.intent);
-    check("Assign sheet has no print options", !myWeekSheet.hasPrint);
+    check("Use This Plan opens Add to Calendar", calendarSheet.title === "Add to Calendar", calendarSheet.title);
+    check("Calendar submit label matches", calendarSheet.submit === "Add to Calendar", calendarSheet.submit);
+    check("Assign intent is calendar", calendarSheet.intent === "calendar", calendarSheet.intent);
+    check("Assign sheet has no print options", !calendarSheet.hasPrint);
 
     const week = await page.evaluate(() => curriculumPlannerWeekStartIso(new Date()));
     await page.fill('[data-lesson-main-calendar-form] [name="weekStartDate"]', week);
@@ -263,18 +265,12 @@ async function main() {
     await page.waitForSelector('[data-lesson-workspace-action-panel="success"]:not([hidden])', { timeout: 15000 });
     const success = await page.evaluate(() => ({
       title: document.querySelector("[data-lesson-assign-success-title]")?.textContent.trim() || "",
-      plannerPrimary: document.querySelector("[data-lesson-open-weekly-planner]")?.classList.contains("primary-button"),
+      openCalendar: Boolean(document.querySelector("[data-lesson-open-calendar]")),
+      openWeekly: Boolean(document.querySelector("[data-lesson-open-weekly-planner]")),
     }));
-    check("Weekly Plan success title", /Added to Weekly Plan/i.test(success.title), success.title);
-    check("Weekly Planner is primary success CTA", success.plannerPrimary);
-
-    await page.click("[data-lesson-workspace-action-sheet-dismiss]");
-    await page.locator('[data-lesson-action-bars="top"] [data-lesson-use-this-plan]').click();
-    await page.waitForSelector('[data-lesson-workspace-action-panel="use-plan"]:not([hidden])', { timeout: 5000 });
-    await page.locator('[data-lesson-use-plan-choice="calendar"]').click();
-    await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
-    const calendarSheet = await page.evaluate(() => document.querySelector("[data-lesson-assign-sheet-title]")?.textContent.trim() || "");
-    check("Add to Calendar opens pick-week form", calendarSheet === "Add to Calendar", calendarSheet);
+    check("Calendar success title", /Added to Calendar/i.test(success.title), success.title);
+    check("Open Calendar success CTA present", success.openCalendar);
+    check("View Weekly Plan success CTA present", success.openWeekly);
 
     await page.click("[data-lesson-workspace-action-sheet-dismiss]");
     await page.locator("[data-lesson-workspace-more-toggle]").click();

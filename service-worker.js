@@ -1,10 +1,10 @@
-const CACHE_NAME = "llh-shell-v70-planner-nofill";
+const CACHE_NAME = "llh-shell-v71-more-menu";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260717-copyright",
+  "/styles.css?v=20260717-more-menu",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260716-hero-mock-fix",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
@@ -17,13 +17,13 @@ const APP_SHELL = [
   "/scripts/curriculum-lesson-import-parser.js?v=20260716-curriculum-standards",
   "/scripts/curriculum-lesson-import-v4.js?v=20260716-curriculum-standards",
   "/scripts/curriculum-import-preview.js?v=20260716-curriculum-standards",
-  "/scripts/llh-copyright.js?v=20260717-copyright",
-  "/scripts/curriculum-lesson-viewer-render.js?v=20260717-copyright",
+  "/scripts/llh-copyright.js?v=20260717-more-menu",
+  "/scripts/curriculum-lesson-viewer-render.js?v=20260717-more-menu",
   "/scripts/llh-schedule.js?v=20260714-prod-priority-fixes",
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
-  "/scripts/lesson-plan-weekly-export.js?v=20260717-planner-nofill",
-  "/scripts/llh-teacher-weekly-planner.js?v=20260717-planner-nofill",
-  "/app.js?v=20260717-planner-nofill",
+  "/scripts/lesson-plan-weekly-export.js?v=20260717-more-menu",
+  "/scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu",
+  "/app.js?v=20260717-more-menu",
   "/comms-center.js?v=20260717-admin-notif-pwa",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",

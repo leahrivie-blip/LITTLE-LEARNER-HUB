@@ -199,14 +199,16 @@ async function main() {
     await openLessonWorkspace(page, lessonA.title);
     const barCopy = await page.evaluate(() => ({
       primaryLabel: document.querySelector("[data-lesson-use-this-plan]")?.textContent.trim() || "",
-      printLabel: document.querySelector('[data-lesson-action-bars="top"] [data-lesson-print-variant="week"]')?.textContent.trim() || "",
-      downloadLabel: document.querySelector('[data-lesson-action-bars="top"] [data-lesson-download-variant="week"]')?.textContent.trim() || "",
+      plannerDownload: document.querySelector('[data-lesson-action-bars="top"] .lesson-workspace-primary-actions > [data-lesson-download-variant="week"]')?.textContent.trim() || "",
+      fullDownload: document.querySelector('[data-lesson-action-bars="top"] .lesson-workspace-primary-actions > [data-lesson-download-variant="full"]')?.textContent.trim() || "",
+      printInMore: document.querySelector('.lesson-workspace-more-menu [data-lesson-print-variant="week"]')?.textContent.trim() || "",
       hasMyWeekPrimary: Boolean(document.querySelector("[data-lesson-add-to-my-week]")),
       editInMore: Boolean(document.querySelector(".lesson-workspace-more-menu [data-edit-lesson-plan]")),
     }));
     assert(barCopy.primaryLabel === "Use This Plan", `primary CTA wrong: ${barCopy.primaryLabel}`);
-    assert(barCopy.printLabel === "Print", `print CTA wrong: ${barCopy.printLabel}`);
-    assert(barCopy.downloadLabel === "Download", `download CTA wrong: ${barCopy.downloadLabel}`);
+    assert(/Download Teacher Weekly Planner/i.test(barCopy.plannerDownload), `planner download CTA wrong: ${barCopy.plannerDownload}`);
+    assert(/Download Full Lesson Plan/i.test(barCopy.fullDownload), `full download CTA wrong: ${barCopy.fullDownload}`);
+    assert(/Print Teacher Weekly Planner/i.test(barCopy.printInMore), `print CTA wrong: ${barCopy.printInMore}`);
     assert(!barCopy.hasMyWeekPrimary, "duplicate Add to My Week should not be on primary bar");
     assert(barCopy.editInMore, "Edit should live in More menu");
 
